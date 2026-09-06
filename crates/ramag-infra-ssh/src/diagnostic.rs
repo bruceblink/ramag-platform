@@ -148,7 +148,7 @@ pub(crate) async fn probe_operating_system(
                     }
                 };
                 let (shell, default_directory_hint) =
-                    windows_details.map_or((RemoteShellKind::Posix, None), |details| details);
+                    windows_details.unwrap_or((RemoteShellKind::Posix, None));
                 return Ok(RemotePlatformProbe {
                     operating_system,
                     shell,
