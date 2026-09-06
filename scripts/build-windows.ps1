@@ -7,34 +7,33 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$Target = "x86_64-pc-windows-msvc"
 if ($Fast -and -not $Release) {
     throw "-Fast requires -Release."
 }
 $BuildProfile = if ($Fast) { "release-fast" } elseif ($Release) { "release" } else { "debug" }
 $RepoDir = Split-Path -Parent $PSScriptRoot
 $DependencyHelper = Join-Path $PSScriptRoot "windows\pe-dependencies.ps1"
-$ToolchainHelper = Join-Path $PSScriptRoot "windows\msvc-toolchain.ps1"
-$CMakeToolchainFile = Join-Path $PSScriptRoot "windows\msvc-static-crt.cmake"
+$ToolchainHelper = Join-Path $PSScriptRoot "windows\gnu-toolchain.ps1"
 
 if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
-    throw "This script must run on Windows. Use scripts/build-windows-local.sh for macOS cross-checks."
+    throw "This script must run on Windows. Use the native Cargo command on Linux or macOS."
 }
 if (-not (Test-Path -LiteralPath $DependencyHelper -PathType Leaf)) {
     throw "PE dependency helper is missing: $DependencyHelper"
 }
 if (-not (Test-Path -LiteralPath $ToolchainHelper -PathType Leaf)) {
-    throw "MSVC toolchain helper is missing: $ToolchainHelper"
-}
-if (-not (Test-Path -LiteralPath $CMakeToolchainFile -PathType Leaf)) {
-    throw "CMake MSVC runtime toolchain file is missing: $CMakeToolchainFile"
+    throw "Windows GNU toolchain helper is missing: $ToolchainHelper"
 }
 . $DependencyHelper
 . $ToolchainHelper
+$Target = Get-WindowsGnuTarget
 
 Set-Location $RepoDir
-$VisualStudio = Get-VisualStudio18Toolchain
-Write-Host "Using Visual Studio 18 2026 MSVC: $($VisualStudio.InstallationPath) ($($VisualStudio.InstallationVersion)); toolset $($VisualStudio.ToolsetVersion)"
+$RustToolchain = Ensure-WindowsGnuRustToolchain
+$Toolchain = Get-WindowsGnuToolchain
+Write-Host "Using Rust host toolchain: $RustToolchain"
+Write-Host "Using Windows GNU toolchain: $($Toolchain.Target) ($($Toolchain.Gcc))"
+$EnvironmentSnapshot = Save-WindowsGnuEnvironment
 
 function Find-Fxc {
     $Command = Get-Command fxc.exe -ErrorAction SilentlyContinue
@@ -66,16 +65,6 @@ function Find-Fxc {
         ForEach-Object { Join-Path $_.FullName "x64\fxc.exe" } |
         Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
         Select-Object -First 1
-}
-
-function Find-Dumpbin {
-    $MsvcRoot = Join-Path $VisualStudio.InstallationPath "VC\Tools\MSVC"
-    if (-not (Test-Path -LiteralPath $MsvcRoot -PathType Container)) {
-        return $null
-    }
-    return Get-ChildItem -LiteralPath $MsvcRoot -Recurse -File -Filter "dumpbin.exe" |
-        Where-Object { $_.FullName -match "\\bin\\Hostx64\\x64\\dumpbin\.exe$" } |
-        Select-Object -ExpandProperty FullName -First 1
 }
 
 function Assert-PeTarget {
@@ -119,152 +108,89 @@ function Assert-PeTarget {
     }
 }
 
-if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
-    throw "cargo not found. Install Rust with rustup before building."
-}
-
-if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
-    throw "rustup not found. Install Rust from https://rustup.rs before building."
-}
-
-$InstalledTargets = & rustup target list --installed
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to query installed Rust targets."
-}
-if ($InstalledTargets -notcontains $Target) {
-    & rustup target add $Target
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to install Rust target $Target."
-    }
-}
-
-if ($Release) {
-    $Fxc = Find-Fxc
-    if ([string]::IsNullOrWhiteSpace($Fxc)) {
-        throw "fxc.exe not found. Install the Windows 10/11 SDK before building a release."
-    }
-    $env:GPUI_FXC_PATH = $Fxc
-    Write-Host "Using HLSL compiler: $Fxc"
-}
-
-$CargoArgs = @("build", "--locked", "--target", $Target, "-p", "ramag-bin")
-if ($Fast) {
-    $CargoArgs += @("--profile", $BuildProfile)
-}
-elseif ($Release) {
-    $CargoArgs += "--release"
-}
-Write-Host "Using Cargo profile: $BuildProfile"
-
-$TargetEnvSuffix = $Target.Replace("-", "_")
-$CompilerEnvironmentNames = @(
-    "CC",
-    "CXX",
-    "AR",
-    "HOST_CC",
-    "HOST_CXX",
-    "HOST_AR",
-    "CC_$Target",
-    "CC_$TargetEnvSuffix",
-    "CXX_$Target",
-    "CXX_$TargetEnvSuffix",
-    "AR_$Target",
-    "AR_$TargetEnvSuffix",
-    "CFLAGS",
-    "CXXFLAGS",
-    "ARFLAGS",
-    "CFLAGS_$Target",
-    "CFLAGS_$TargetEnvSuffix",
-    "CXXFLAGS_$Target",
-    "CXXFLAGS_$TargetEnvSuffix",
-    "ARFLAGS_$Target",
-    "ARFLAGS_$TargetEnvSuffix"
-)
-$SavedCompilerEnvironment = @{}
-foreach ($Name in $CompilerEnvironmentNames) {
-    $Variable = Get-Item -Path "Env:$Name" -ErrorAction SilentlyContinue
-    if ($null -ne $Variable) {
-        $SavedCompilerEnvironment[$Name] = $Variable.Value
-    }
-    Remove-Item -Path "Env:$Name" -ErrorAction SilentlyContinue
-}
-
 try {
-    # tree-sitter and other C build scripts must use the MSVC ABI for this target;
-    # inherited GNU compiler variables would produce MinGW objects for link.exe.
-    $CargoCommand = $CargoArgs -join " "
-    $VcVarsArguments = $VisualStudio.VcVarsArguments -join " "
-    $Vs18Command = 'call "{0}" {1} >nul && set "CMAKE_GENERATOR=NMake Makefiles" && set "CMAKE_GENERATOR_PLATFORM=" && set "CMAKE_GENERATOR_INSTANCE=" && set "CMAKE_GENERATOR_TOOLSET=" && set "CMAKE_TOOLCHAIN_FILE={3}" && cargo {2}' -f `
-        $VisualStudio.VcVars64,
-        $VcVarsArguments,
-        $CargoCommand,
-        [System.IO.Path]::GetFullPath($CMakeToolchainFile)
-    & cmd.exe /d /s /c $Vs18Command
-    $CargoExitCode = $LASTEXITCODE
+    Set-WindowsGnuEnvironment -Toolchain $Toolchain
+
+    if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
+        throw "cargo not found. Install Rust with rustup before building."
+    }
+
+    if ($Release) {
+        $Fxc = Find-Fxc
+        if ([string]::IsNullOrWhiteSpace($Fxc)) {
+            throw "fxc.exe not found. Install the Windows 10/11 SDK before building a release."
+        }
+        $env:GPUI_FXC_PATH = $Fxc
+        Write-Host "Using HLSL compiler: $Fxc"
+    }
+
+    $CargoArgs = @("build", "--locked", "-p", "ramag-bin")
+    if ($Fast) {
+        $CargoArgs += @("--profile", $BuildProfile)
+    }
+    elseif ($Release) {
+        $CargoArgs += "--release"
+    }
+    Write-Host "Using Cargo profile: $BuildProfile"
+    Write-Host "Running: cargo $($CargoArgs -join ' ')"
+
+    & cargo @CargoArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Windows $BuildProfile build failed with the GNU toolchain. Verify MinGW-w64, CMake, Ninja, and the Windows SDK, then retry."
+    }
+
+    $Exe = Join-Path $RepoDir "target\$Target\$BuildProfile\ramag.exe"
+    if (-not (Test-Path -LiteralPath $Exe -PathType Leaf)) {
+        throw "Build finished without the expected executable: $Exe"
+    }
+
+    $VersionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($Exe)
+    if ($VersionInfo.ProductName -ne "Ramag") {
+        throw "The executable is missing the expected Windows version resource: $Exe"
+    }
+    Assert-PeTarget -Path $Exe -Gui $Release.IsPresent
+
+    $Objdump = $Toolchain.Objdump
+    Write-Host "Using GNU PE inspector: $Objdump"
+    $Dependencies = (& $Objdump -p $Exe) -join "`n"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to inspect executable dependencies with objdump.exe."
+    }
+    $DependencyNames = @(
+        [regex]::Matches(
+            $Dependencies,
+            '(?im)^\s*DLL Name:\s*([A-Z0-9._+-]+\.dll)\s*$'
+        ) |
+            ForEach-Object { $_.Groups[1].Value } |
+            Sort-Object -Unique
+    )
+    if ($DependencyNames.Count -eq 0) {
+        throw "objdump.exe returned no PE dependencies for $Exe."
+    }
+    Write-Host "PE dependencies: $($DependencyNames -join ', ')"
+
+    $DynamicGnuRuntime = @(
+        $DependencyNames | Where-Object {
+            $_ -match '^(libgcc_s_seh-1|libstdc\+\+-6|libwinpthread-1|libssp-0)\.dll$'
+        }
+    )
+    if ($DynamicGnuRuntime.Count -gt 0) {
+        throw "The executable depends on the dynamic GNU runtime: $($DynamicGnuRuntime -join ', ')"
+    }
+
+    $SystemDirectory = [System.Environment]::SystemDirectory
+    $NonSystemDependencies = @(
+        Get-UnpackagedPeDependencies `
+            -DependencyNames $DependencyNames `
+            -SystemDirectory $SystemDirectory
+    )
+    if ($NonSystemDependencies.Count -gt 0) {
+        throw "The executable has unpackaged non-system dependencies: $($NonSystemDependencies -join ', ')"
+    }
+
+    $Size = (Get-Item -LiteralPath $Exe).Length
+    Write-Host "Windows $BuildProfile build completed: $Exe ($Size bytes)"
 }
 finally {
-    foreach ($Name in $CompilerEnvironmentNames) {
-        if ($SavedCompilerEnvironment.ContainsKey($Name)) {
-            Set-Item -Path "Env:$Name" -Value $SavedCompilerEnvironment[$Name]
-        }
-        else {
-            Remove-Item -Path "Env:$Name" -ErrorAction SilentlyContinue
-        }
-    }
+    Restore-WindowsGnuEnvironment -Snapshot $EnvironmentSnapshot
 }
-
-if ($CargoExitCode -ne 0) {
-    throw "Windows $BuildProfile build failed with Visual Studio 18 2026. Verify the C++ workload and Windows 10/11 SDK, then retry."
-}
-
-$Exe = Join-Path $RepoDir "target\$Target\$BuildProfile\ramag.exe"
-if (-not (Test-Path -LiteralPath $Exe -PathType Leaf)) {
-    throw "Build finished without the expected executable: $Exe"
-}
-
-$VersionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($Exe)
-if ($VersionInfo.ProductName -ne "Ramag") {
-    throw "The executable is missing the expected Windows version resource: $Exe"
-}
-Assert-PeTarget -Path $Exe -Gui $Release.IsPresent
-
-$Dumpbin = Find-Dumpbin
-if ([string]::IsNullOrWhiteSpace($Dumpbin)) {
-    throw "dumpbin.exe not found. Repair the Visual Studio C++ Build Tools installation."
-}
-$DumpbinVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($Dumpbin).ProductVersion
-Write-Host "Using PE inspector: $Dumpbin ($DumpbinVersion)"
-$Dependencies = (& $Dumpbin /nologo /dependents $Exe) -join "`n"
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to inspect executable dependencies with dumpbin.exe."
-}
-$DependencyNames = @(
-    [regex]::Matches(
-        $Dependencies,
-        '(?im)^\s*([A-Z0-9._+-]+\.dll)\s*$'
-    ) |
-        ForEach-Object { $_.Groups[1].Value } |
-        Sort-Object -Unique
-)
-if ($DependencyNames.Count -eq 0) {
-    throw "dumpbin.exe returned no PE dependencies for $Exe."
-}
-Write-Host "PE dependencies: $($DependencyNames -join ', ')"
-
-if ($DependencyNames -match '^(VCRUNTIME|MSVCP|api-ms-win-crt-)[^\s]*\.dll$' -or
-    $DependencyNames -contains 'ucrtbase.dll') {
-    throw "The executable depends on the dynamic MSVC/UCRT runtime; the release build check failed."
-}
-
-$SystemDirectory = [System.Environment]::SystemDirectory
-$NonSystemDependencies = @(
-    Get-UnpackagedPeDependencies `
-        -DependencyNames $DependencyNames `
-        -SystemDirectory $SystemDirectory
-)
-if ($NonSystemDependencies.Count -gt 0) {
-    throw "The executable has unpackaged non-system dependencies: $($NonSystemDependencies -join ', ')"
-}
-
-$Size = (Get-Item -LiteralPath $Exe).Length
-Write-Host "Windows $BuildProfile build completed: $Exe ($Size bytes)"

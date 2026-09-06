@@ -350,7 +350,7 @@ Ramag 已经具备多数据库连接、Schema 浏览、查询编辑、结果编�
 验收证据：
 
 - `cargo test -p ramag-tool-dbclient --lib`：207 个测试通过，包含主键匹配、共有列内容匹配、重复行和比较行数上限测试。
-- `make check`：源码尺寸检查、日志规范检查和 `cargo check --all-targets` 均通过。
++ `make size-check`、`make log-check` 和 `cargo check-all`：源码尺寸、日志规范和全 workspace target 检查均通过。
 - `cargo fmt --all -- --check` 和 `git diff --check` 通过。
 - 真实 Windows 窗口截图仍需补充，重点确认比较菜单、固定宽度差异内容和双轴滚动条在实际查询结果下不重叠。
 
@@ -385,7 +385,7 @@ Ramag 已经具备多数据库连接、Schema 浏览、查询编辑、结果编�
 
 验收证据：
 
-- `cargo test -p ramag-tool-dbclient --lib`、`cargo check -p ramag-tool-dbclient --all-targets`、`make check` 通过。
++ `cargo test -p ramag-tool-dbclient --lib`、`cargo check -p ramag-tool-dbclient --all-targets`、源码尺寸检查和日志规范检查通过。
 - `cargo fmt --all -- --check`、`git diff --check` 和源码尺寸检查通过。
 - 真实 MySQL/PostgreSQL 跨环境窗口截图、连接失败集成验证和带实际数据的分页比较仍需补充。
 

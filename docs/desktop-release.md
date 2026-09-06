@@ -13,14 +13,15 @@
 | 入口 | 用途 | 是否发布 |
 |---|---|---:|
 | `cargo dev-release` | 本地运行当前平台的优化构建 | 否 |
-| `make win-debug` | macOS 交叉编译 Windows debug，尽早发现编译问题 | 否 |
+| `cargo build` / `cargo run -p ramag-bin` | 三个平台统一的本地编译与运行入口 | 否 |
+| `scripts/build-windows.ps1` | Windows GNU 本机复现 debug / Release 构建校验 | 否 |
 | `scripts/package-windows.ps1` | Windows 本机复现完整 Release 打包 | 否 |
 | `make dmg-*` | macOS 本机生成指定架构的开发 DMG | 否 |
 | `make mac-package` | macOS 本机复现 ARM64 与 Intel Release 打包 | 否 |
 | `make linux-package` | Linux x86_64 本机生成 deb 与 AppImage | 否 |
 | `Desktop Release` Action | 并行构建三个平台；`v*` 标签自动发布，也可指定已有标签手动重试 | 是 |
 
-`cargo dev-release` 不创建安装包，也不代表对外发布；`make release` 仍可作为兼容入口。
+`cargo dev-release` 不创建安装包，也不代表对外发布。
 
 最终 GitHub Release 固定包含：
 
@@ -184,13 +185,21 @@ Actions → Desktop Release → Run workflow
 
 ## 本地 Windows 构建
 
-日常 Windows x64 构建使用快速 Release profile，保留静态 MSVC CRT、Windows PE、版本资源和 DLL 依赖校验：
+日常开发先在当前 PowerShell 激活 GNU Rust host/target 和 MinGW 环境，然后直接使用统一的 Cargo 命令：
+
+```powershell
+. .\scripts\windows\enable-gnu-toolchain.ps1
+cargo build
+cargo run -p ramag-bin
+```
+
+日常 Windows x64 构建使用快速 Release profile，保留静态 MinGW CRT、Windows PE、版本资源和 DLL 依赖校验：
 
 ```powershell
 .\scripts\build-windows.ps1 -Release -Fast
 ```
 
-快速构建产物位于 `target/x86_64-pc-windows-msvc/release-fast/`。正式发布构建仍使用完整 Release profile：
+快速构建产物位于 `target/x86_64-pc-windows-gnu/release-fast/`。正式发布构建仍使用完整 Release profile：
 
 ```powershell
 .\scripts\build-windows.ps1 -Release
@@ -230,7 +239,7 @@ target/windows-dist/
 - 安装包包含项目 `LICENSE`。
 - Git 与 OpenSSH 是部分功能的外部运行时前提，不随安装包捆绑。
 
-构建脚本会拒绝动态 MSVC/UCRT，以及未随包提供的非系统 DLL 依赖。
+构建脚本会拒绝动态 MinGW 运行库，以及未随包提供的非系统 DLL 依赖。
 
 ## 本地 Linux 打包
 
@@ -292,15 +301,15 @@ target/macos-dist/
 
 ### Windows
 
-- 使用 `--locked` 构建 `x86_64-pc-windows-msvc` Release。
+- 使用 Rust stable 和 GNU toolchain 构建 `x86_64-pc-windows-gnu` Release。
 - Pester 覆盖版本转换、Cargo 元数据读取和标签匹配。
-- 校验 FXC、Visual Studio 工具链、Inno Setup、PE x64、GUI 子系统和版本资源。
+- 校验 FXC、MinGW-w64/CMake/Ninja 工具链、Inno Setup、PE x64、GUI 子系统和版本资源。
 - 拒绝动态 CRT 与未打包的非系统 DLL。
 - 验证安装器静默安装、版本和卸载。
 
 ### macOS
 
-- 使用锁定 Rust nightly 分别构建 `x86_64-apple-darwin` 与 `aarch64-apple-darwin`。
+- 使用 Rust stable 分别构建 `x86_64-apple-darwin` 与 `aarch64-apple-darwin`。
 - shell 回归测试覆盖 Cargo 版本、Bundle 版本和标签匹配。
 - 校验 Info.plist、Bundle ID、完整 Cargo 版本和 macOS 12.0 deployment target。
 - 使用 `lipo` 确认两个应用各自只包含目标架构。
@@ -373,8 +382,8 @@ Windows 应在受保护任务中签名应用、Inno Setup 安装器和卸载器�
 - Windows 使用明确的 `windows-2025` x64 Runner。
 - macOS 使用明确的 `macos-15` ARM64 Runner，并在该机器上交叉构建 Intel 切片。
 - Linux 使用明确的 `ubuntu-24.04` x64 Runner。
-- 三个平台都使用 `rust-toolchain.toml` 锁定的 nightly，只缓存 Cargo registry/git，不缓存完整 `target/`。
-- Runner 标签内部的 Visual Studio、Windows SDK、Xcode 和系统工具仍会滚动更新，因此不是字节级可复现构建。
+- 三个平台都使用 `rust-toolchain.toml` 锁定的 stable 版本，只缓存 Cargo registry/git，不缓存完整 `target/`。
+- Runner 标签内部的 MinGW-w64、Windows SDK、Xcode 和系统工具仍会滚动更新，因此不是字节级可复现构建。
 
 工具链或 GPUI 升级后，必须重新运行手动 Action 和真实桌面验收。
 

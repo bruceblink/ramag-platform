@@ -52,7 +52,7 @@ jobs:
             shellcheck
           desktop-file-validate scripts/linux/com.ramag.Ramag.desktop
 
-      - name: Install pinned Rust toolchain
+      - name: Install Rust stable toolchain
         shell: bash
         run: |
           set -euo pipefail
@@ -107,7 +107,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install pinned Rust toolchain
+      - name: Install Rust stable toolchain
         shell: bash
         run: |
           set -euo pipefail
@@ -161,21 +161,35 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install pinned Rust toolchain
+      - name: Install Rust stable GNU host toolchain
         shell: pwsh
         run: |
-          $ChannelLine = Get-Content rust-toolchain.toml |
-            Where-Object { $_ -match '^\s*channel\s*=' } |
-            Select-Object -First 1
-          if ($ChannelLine -notmatch '"([^"]+)"') {
-            throw "rust-toolchain.toml does not contain a valid channel."
-          }
-          $Toolchain = $Matches[1]
+          . ./scripts/windows/gnu-toolchain.ps1
+          $Toolchain = Get-WindowsGnuRustToolchain
           rustup toolchain install $Toolchain --profile minimal `
-            --component clippy --component rustfmt
-          rustup target add --toolchain $Toolchain x86_64-pc-windows-msvc
+            --component clippy --component rustfmt --component rust-analyzer --component rust-src
+          rustup target add --toolchain $Toolchain x86_64-pc-windows-gnu
           rustup run $Toolchain rustc -Vv
           rustup run $Toolchain cargo -V
+
+      - name: Activate shared Windows GNU environment
+        shell: pwsh
+        run: |
+          . ./scripts/windows/enable-gnu-toolchain.ps1
+          foreach ($Name in Get-WindowsGnuEnvironmentNames) {
+            $Value = [Environment]::GetEnvironmentVariable($Name, "Process")
+            if ($null -ne $Value) {
+              "$Name=$Value" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            }
+          }
+
+      - name: Verify Windows GNU native tools
+        shell: pwsh
+        run: |
+          gcc --version
+          g++ --version
+          cmake --version
+          ninja --version
 
       - name: Restore Cargo download cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -197,13 +211,17 @@ jobs:
           Invoke-Pester -Configuration $PesterConfig
 
       - name: Check formatting
+        shell: pwsh
         run: cargo fmt-check
 
       - name: Check all targets
+        shell: pwsh
         run: cargo check-all
 
       - name: Lint all targets
+        shell: pwsh
         run: cargo clippy-all
 
       - name: Test workspace
+        shell: pwsh
         run: cargo test-all

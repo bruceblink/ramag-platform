@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 //! 按库导出 / 导入端到端集成测试：连真实四库容器（与 infra 集成测试同一套
-//! RAMAG_TEST_* 环境变量，缺变量软跳过，`make test` 恒绿）。
+//! RAMAG_TEST_* 环境变量；缺变量时软跳过并保持 Cargo 测试通过。
 //!
 //! 流程统一为：建临时源库 → 导出文件 → 删源库 → 导入重建 → 校验数据保真与
 //! 序列续值 → 重复导入验证幂等 → 清理。
