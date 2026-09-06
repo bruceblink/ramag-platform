@@ -1,9 +1,9 @@
-# Ramag 主线开发计划
+# Ramag Platform 主线开发计划
 
 > 状态：大功能基线基本完成，主线转入 UI 细节、响应性布局和已知问题修复
 > 更新日期：2026-09-06
 > 适用范围：`ramag-ui`、`ramag-tool-*`、`ramag-app`、`ramag-domain` 及本地构建与测试脚本
-> 当前分支：`dev`
+> 开发主线：`dev`；稳定基线：`main`
 > 当前 UI 验证方式：优先使用真实窗口；`computer-use` 不可用时使用用户或本地截图作为复现/视觉证据，并使用 headless GPUI 渲染和交互测试完成边界验收，同时记录真实窗口限制。
 
 ## 术语与命名规则
@@ -21,7 +21,7 @@
 
 ## 1. 当前基线
 
-Ramag 已完成桌面工具的主要能力闭环，包括数据库查询与结果处理、Kafka 集群和消息管理、MongoDB/Redis 工作流、VCS、SSH、对象存储以及系统监控等工具。后续主线暂不承诺新增 Schema Registry、Kafka Connect、ksqlDB、消息生产或其他同等规模的集成模块。
+Ramag Platform 已继承并完成桌面工具的主要能力闭环，包括数据库查询与结果处理、Kafka 集群和消息管理、MongoDB/Redis 工作流、VCS、SSH、对象存储以及系统监控等工具。后续主线暂不承诺新增 Schema Registry、Kafka Connect、ksqlDB、消息生产或其他同等规模的集成模块；平台化工作以 [`plugin-platform-roadmap.md`](plugin-platform-roadmap.md) 为专门路线。
 
 本阶段的目标是让已有能力在真实窗口中更稳定、更容易扫描和恢复：
 
@@ -172,7 +172,7 @@ Ramag 已完成桌面工具的主要能力闭环，包括数据库查询与结�
 
 - 窄、常规、宽窗口中没有控件越出父容器、文本覆盖、关键状态丢失或操作按钮不可达。
 - 真实窗口验证与 headless 验证分开记录；静态检查和测试通过不等于实际窗口验收完成。
-- 依赖 MSVC 的 Windows 检查必须从 `scripts/windows/clippy-msvc.ps1` 或等价的 Visual Studio 开发环境运行，确认 `where cl.exe` 和 `where link.exe` 指向同一 x64 工具集。
+- Windows 先激活 `scripts/windows/enable-gnu-toolchain.ps1`，再直接运行与 Linux、macOS 相同的 Cargo 检查；激活脚本必须确认官方 GNU Rust host，以及 GCC、G++、binutils、CMake 和 Ninja 来自同一套 MinGW-w64 环境。
 - 未能启动真实外部服务、未能使用实际数据或未能截取实际窗口时，记录具体阻塞原因，不把未完成项写成已验收。
 
 ### 7.3 停止条件
@@ -181,7 +181,7 @@ Ramag 已完成桌面工具的主要能力闭环，包括数据库查询与结�
 
 - 修复需要改变不相关工具的业务语义或外部接口。
 - 只能通过隐藏内容、删除操作或放宽资源边界来消除布局问题。
-- 测试、窗口证据或 MSVC 环境无法复核，且没有替代证据可以明确边界。
+- 测试、窗口证据或 GNU 工具链环境无法复核，且没有替代证据可以明确边界。
 - 工作区出现与当前切片无关的文件，无法在不混入提交的情况下继续。
 
 ## 8. 计划维护

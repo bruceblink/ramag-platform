@@ -1,6 +1,8 @@
 # 参与贡献
 
-感谢你愿意改进 Ramag。Ramag 是一个本地优先的跨平台开发者桌面工作台，欢迎 Bug 报告、功能建议、文档改进和代码贡献。
+感谢你愿意改进 Ramag Platform。Ramag Platform 是基于 `tools-rs/ramag` 演进的独立、本地优先跨平台开发者桌面项目；应用仍保留 Ramag 工作台和 `ramag-*` crate。欢迎 Bug 报告、功能建议、文档改进和代码贡献。
+
+本仓库负责平台化架构、内置工具和独立产品方向。确认某项修改对上游也通用时，请从上游基线单独整理一个小范围 PR；不要把平台专属设计、未完成的插件 API 或下游产品决策混入上游贡献。
 
 ## 开始之前
 
@@ -10,19 +12,20 @@
 
 ## 本地开发
 
-开发环境需要 Git、rustup 和当前平台的构建工具。仓库通过 `rust-toolchain.toml` 固定 Rust 工具链；完整的首次运行说明见 [开发入门指南](docs/development-guide.md)。
+开发环境需要 Git、rustup 和当前平台的构建工具。仓库通过 `rust-toolchain.toml` 统一使用 Rust stable；完整的首次运行说明见 [开发入门指南](docs/development-guide.md)。Windows 使用 GNU host/target 时，先执行 `scripts/windows/enable-gnu-toolchain.ps1`。
 
 Windows、Linux 和 macOS 使用相同的 Cargo 命令：
 
 ```bash
-cargo dev
+cargo run -p ramag-bin
+cargo build
 cargo fmt-check
 cargo check-all
 cargo clippy-all
 cargo test-all
 ```
 
-仓库通过 `rust-toolchain.toml` 固定 Rust nightly，通过 `.cargo/config.toml` 提供这些别名。`Makefile` 仍保留给打包、数据库测试和旧入口使用；日常应用运行与 Rust 质量检查不需要安装 Make。
+仓库通过 `rust-toolchain.toml` 统一使用 Rust stable，通过 `.cargo/config.toml` 提供跨平台 Cargo aliases。`Makefile` 只负责打包、数据库测试和源码检查；日常应用运行与 Rust 质量检查不需要安装 Make。
 
 首次克隆或切换到新的工作区后，启用提交前源码尺寸检查：
 
@@ -45,7 +48,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\check-sour
 
 ## 提交 Pull Request
 
-1. 从最新的 `main` 创建聚焦的分支。
+1. 从本仓库最新的 `main` 创建聚焦的分支。
 2. 保持一个 PR 只解决一个明确问题；不要混入无关重构或格式化。
 3. 为新增或修改的核心逻辑补充测试，并运行与改动范围匹配的验证命令。
 4. 在 PR 描述中说明问题、方案、验证结果，以及需要人工验证的平台。
@@ -55,4 +58,4 @@ CI 会在 Linux、macOS 和 Windows 上检查格式、编译、Clippy、测试�
 
 ## English summary
 
-Contributions are welcome. Please use public issues for reproducible bugs and feature discussions, keep pull requests focused, run the relevant checks, enable the repository pre-commit hook with `scripts/install-githooks.sh` or `scripts/install-githooks.ps1`, and never include credentials or private data. Report security-sensitive issues through [SECURITY.md](SECURITY.md).
+Contributions are welcome. This repository is an independent downstream project based on `tools-rs/ramag`; keep platform-specific work here and prepare general fixes as separate upstream pull requests when appropriate. Please use public issues for reproducible bugs and feature discussions, keep pull requests focused, run the relevant checks, enable the repository pre-commit hook with `scripts/install-githooks.sh` or `scripts/install-githooks.ps1`, and never include credentials or private data. Report security-sensitive issues through [SECURITY.md](SECURITY.md).

@@ -37,7 +37,7 @@ edition = "2024"
 authors = ["axemc"]
 license = "Apache-2.0"
 rust-version = "1.91"
-repository = "https://github.com/tools-rs/ramag"
+repository = "https://github.com/bruceblink/ramag-platform"
 
 [workspace.dependencies]
 # 内部 crate
