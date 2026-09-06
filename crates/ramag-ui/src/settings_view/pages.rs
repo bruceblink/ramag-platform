@@ -171,7 +171,9 @@ fn settings_navigation_shell(
             .id("settings-navigation")
             .debug_selector(|| "settings-navigation".into())
             .w(px(220.0))
-            .h_full()
+            // Desktop navigation owns the root's full cross-axis height; avoid a
+            // percentage height that can resolve against page content after a switch.
+            .self_stretch()
             .flex_none()
             .p(px(16.0))
             .gap(px(4.0))
@@ -387,6 +389,13 @@ mod tests {
         visual_cx.simulate_resize(size(px(1024.0), px(520.0)));
         visual_cx.run_until_parked();
 
+        let initial_root = visual_cx
+            .debug_bounds("settings-root")
+            .expect("设置根布局应渲染");
+        let initial_navigation = visual_cx
+            .debug_bounds("settings-navigation")
+            .expect("设置导航应渲染");
+
         host.update(visual_cx, |host, cx| {
             host.selected_page = SettingsPage::Database;
             cx.notify();
@@ -405,6 +414,8 @@ mod tests {
 
         assert_eq!(navigation.origin.y, root.origin.y);
         assert_eq!(navigation.bottom(), root.bottom());
+        assert_eq!(root.size.height, initial_root.size.height);
+        assert_eq!(navigation.size.height, initial_navigation.size.height);
         assert!(database.origin.y >= navigation.origin.y);
         assert!(database.bottom() <= navigation.bottom());
     }
