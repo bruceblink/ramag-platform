@@ -2,7 +2,7 @@
 
 > 适用项目：`bruceblink/ramag-platform`。本路线只约束当前独立下游项目的插件平台演进，不代表 `tools-rs/ramag` 已接受或实现这些接口。
 >
-> 当前状态：设计已完成；生产代码仍使用编译期静态工具装配，P0 插件描述、注册和生命周期接口尚未完成。当前不支持第三方动态插件、插件市场或不受信任代码加载。
+> 当前状态：P0-A 接口模型和静态工具注册适配已完成，当前进入 P0-B 生命周期实现。当前不支持第三方动态插件、插件市场或不受信任代码加载。
 
 ## 术语与命名规则
 
@@ -118,7 +118,7 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 | 独立任务 | 允许修改范围 | 验收条件 |
 |---|---|---|
-| P0-A：接口模型 | `ramag-domain`/`ramag-app` 插件描述和注册适配 | 现有工具注册结果不变；重复 ID、非法版本、未知能力和非法设置模式有单元测试与可读诊断 |
+| P0-A：接口模型 | `ramag-domain`/`ramag-app` 插件描述和注册适配 | 已完成；现有工具注册结果不变；重复 ID、非法版本、未知能力和非法设置模式有单元测试与可读诊断 |
 | P0-B：静态生命周期 | 平台生命周期与 `PluginContext` | 初始化、注册、关闭顺序明确；单个插件失败不阻塞其他插件；迟到调用被拒绝 |
 | P0-C：配置与权限 | 插件设置模式、命名空间和能力检查 | 越权访问、非法类型、超限值、迁移失败和未声明能力均被拒绝；旧配置可恢复 |
 | P0-D：平台 UI 诊断 | `ramag-ui` 插件状态、入口和错误展示 | Activity Bar、设置页和错误状态在 360/1024/1440 headless 窗口可见且不越界，主题与键盘导航不回归 |
@@ -194,7 +194,7 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 ## 第一项开发任务
 
-从 P0 开始：提取可独立测试的 `PluginId`、`PluginApiVersion`、`PluginDescriptor`、能力声明、设置模式和注册诊断，不改变现有工具视图。先补设计与单元测试，再接入一个现有工具作为静态插件适配样例；完成后运行 `cargo test --locked --workspace`、`cargo clippy --locked --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`、Windows 源文件大小检查和 `git diff --check`。
+P0-A 已完成：`ramag-domain` 提供可独立测试的 `PluginId`、`PluginApiVersion`、`PluginDescriptor`、能力声明、设置模式和注册诊断，`ramag-app` 提供静态插件适配器，`ramag-bin` 已通过该适配器装配现有内置工具，未改变现有工具视图。P0-A 的验证包括 `cargo test --locked -p ramag-domain -p ramag-app -p ramag-bin`、`cargo fmt --all -- --check` 和 `git diff --check`；提交前仍需完成 `cargo test --locked --workspace`、`cargo clippy --locked --workspace --all-targets -- -D warnings`、Windows 源文件大小检查。下一项是 P0-B：补齐静态插件初始化、失败隔离、逆序关闭和迟到调用拒绝。
 
 ## 未完成项
 

@@ -62,15 +62,22 @@ pub(super) fn read_preferences(
 
 pub(super) fn build_tool_registry() -> Arc<ToolRegistry> {
     let registry = Arc::new(ToolRegistry::new());
-    registry.register(Arc::new(DbClientTool::new()));
-    registry.register(Arc::new(KafkaTool::new()));
-    registry.register(Arc::new(VcsTool::new()));
-    registry.register(Arc::new(SshTool::new()));
-    registry.register(Arc::new(ObjectStorageTool::new()));
-    registry.register(Arc::new(SystemTool::new()));
+    register_builtin_tool(&registry, Arc::new(DbClientTool::new()));
+    register_builtin_tool(&registry, Arc::new(KafkaTool::new()));
+    register_builtin_tool(&registry, Arc::new(VcsTool::new()));
+    register_builtin_tool(&registry, Arc::new(SshTool::new()));
+    register_builtin_tool(&registry, Arc::new(ObjectStorageTool::new()));
+    register_builtin_tool(&registry, Arc::new(SystemTool::new()));
     #[cfg(any(target_os = "macos", target_os = "windows"))]
-    registry.register(Arc::new(ClipboardTool::new()));
+    register_builtin_tool(&registry, Arc::new(ClipboardTool::new()));
     registry
+}
+
+/// 通过静态插件适配器注册内置工具；单个描述错误不会阻塞其余工具装配。
+fn register_builtin_tool(registry: &ToolRegistry, tool: Arc<dyn ramag_domain::Tool>) {
+    if let Err(error) = registry.register_builtin(tool) {
+        warn!(operation = "builtin_plugin_register", error = %error, "register built-in plugin failed");
+    }
 }
 
 pub(super) fn build_redis_service(storage: Arc<dyn Storage>) -> Arc<RedisService> {

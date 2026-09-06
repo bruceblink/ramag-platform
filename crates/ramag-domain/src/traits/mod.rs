@@ -8,6 +8,7 @@ pub mod jumpserver_driver;
 pub mod kafka_driver;
 pub mod kv_driver;
 pub mod object_storage_driver;
+pub mod plugin;
 pub mod ssh_driver;
 pub mod storage;
 pub mod tool;
@@ -21,6 +22,14 @@ pub use jumpserver_driver::JumpServerDriver;
 pub use kafka_driver::{KafkaAdminDriver, KafkaDriver};
 pub use kv_driver::KvDriver;
 pub use object_storage_driver::ObjectStorageDriver;
+pub use plugin::{
+    CURRENT_PLUGIN_API_VERSION, KNOWN_PLUGIN_CAPABILITIES, MAX_PLUGIN_CAPABILITIES,
+    MAX_PLUGIN_DESCRIPTION_BYTES, MAX_PLUGIN_ENTRY_ID_BYTES, MAX_PLUGIN_ENUM_VALUES,
+    MAX_PLUGIN_ID_BYTES, MAX_PLUGIN_NAME_BYTES, MAX_PLUGIN_SETTING_KEY_BYTES,
+    MAX_PLUGIN_SETTING_LIST_ITEMS, MAX_PLUGIN_SETTING_VALUE_BYTES, MAX_PLUGIN_SETTINGS,
+    PluginApiVersion, PluginCapability, PluginDescriptor, PluginId, PluginRegistrationError,
+    PluginSettingDefinition, PluginSettingKind, PluginSettingValue,
+};
 pub use ssh_driver::SshDriver;
 pub use storage::Storage;
 pub use tool::{Tool, ToolMeta};
