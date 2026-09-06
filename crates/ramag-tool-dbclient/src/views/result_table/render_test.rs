@@ -10,7 +10,9 @@ use gpui::{
 use ramag_domain::entities::{QueryResult, Row, Value};
 
 use super::{DisplayViewCache, DisplayViewCacheKey, build_display_view, cached_display_view};
-use crate::views::result_panel::{ResultPagination, ResultPanel, ResultState, TotalRows};
+use crate::views::result_panel::{
+    ResultPagination, ResultPanel, ResultState, ResultViewMode, TotalRows,
+};
 
 /// 测试宿主同时渲染结果面板和 GPUI Component 的对话框浮层。
 struct ResultDialogTestHost {
@@ -135,9 +137,9 @@ fn result_scroll_horizontal_gesture_does_not_move_rows_vertically(cx: &mut TestA
     );
 }
 
-/// 结果区域只渲染表格，不再提供树形、文本和转置视图入口。
+/// Local result modes switch renderers without replacing the loaded result or selection.
 #[gpui::test]
-fn result_view_renders_only_table_view(cx: &mut TestAppContext) {
+fn result_view_modes_keep_loaded_selection_and_render_each_surface(cx: &mut TestAppContext) {
     cx.update(gpui_component::init);
     cx.set_global(ramag_ui::DatabaseResultSettingsGlobal::new(
         ramag_ui::DatabaseResultSettings {
@@ -188,26 +190,50 @@ fn result_view_renders_only_table_view(cx: &mut TestAppContext) {
         "结果表工具栏应渲染"
     );
     assert!(
-        cx.debug_bounds("result-view-indicator").is_some(),
-        "结果工具栏应显示固定的表格状态"
+        cx.debug_bounds("result-view-mode-segment").is_some(),
+        "结果工具栏应显示查看模式分段控件"
     );
     assert!(
         cx.debug_bounds("result-h-scroll").is_some(),
         "结果区域应渲染表格横向滚动容器"
     );
-    for selector in [
-        "result-view-mode-segment",
-        "result-view-mode-tree",
-        "result-view-mode-text",
-        "result-view-mode-transpose",
-        "result-tree-scroll",
-        "result-text-scroll",
-        "result-transpose-scroll",
+    for (selector, mode, surface) in [
+        (
+            "result-view-mode-tree",
+            ResultViewMode::Tree,
+            "result-tree-scroll",
+        ),
+        (
+            "result-view-mode-text",
+            ResultViewMode::Text,
+            "result-text-scroll",
+        ),
+        (
+            "result-view-mode-transpose",
+            ResultViewMode::Transpose,
+            "result-transpose-scroll",
+        ),
+        (
+            "result-view-mode-table",
+            ResultViewMode::Table,
+            "result-h-scroll",
+        ),
     ] {
+        let button = cx.debug_bounds(selector).expect("结果查看模式按钮应渲染");
+        cx.simulate_click(button.center(), Modifiers::default());
+        cx.run_until_parked();
         assert!(
-            cx.debug_bounds(selector).is_none(),
-            "不应渲染已移除的结果视图控件：{selector}"
+            cx.debug_bounds(surface).is_some(),
+            "选择的结果模式应渲染对应区域"
         );
+        panel.read_with(cx, |panel, _cx| {
+            assert_eq!(panel.view_mode(), mode);
+            assert_eq!(panel.selected_cell(), Some((1, 1)));
+            let ResultState::Ok(current) = panel.state() else {
+                panic!("切换结果模式不应替换已加载的结果");
+            };
+            assert!(Arc::ptr_eq(current, &result));
+        });
     }
 
     for width in [280.0, 320.0, 360.0, 1024.0] {
@@ -222,11 +248,13 @@ fn result_view_renders_only_table_view(cx: &mut TestAppContext) {
         assert!(toolbar.bottom() <= px(420.0));
 
         for selector in [
-            "result-view-indicator",
+            "result-view-mode-segment",
             "result-view-value-actions",
             "result-view-toolbar-help",
         ] {
-            let child = cx.debug_bounds(selector).expect("结果表工具栏子项应渲染");
+            let Some(child) = cx.debug_bounds(selector) else {
+                panic!("结果表工具栏子项应渲染：{selector}");
+            };
             assert!(
                 child.origin.x >= toolbar.origin.x
                     && child.origin.y >= toolbar.origin.y

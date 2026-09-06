@@ -35,6 +35,7 @@ use row_search::RowSearchState;
 pub(crate) use row_search::{
     RowFilter, RowSearchBlocker, RowSearchConversionStatus, RowSearchMode,
 };
+pub(crate) use state::ResultViewMode;
 /// 服务端分页的可见页大小，也是未分页结果的 UI 渲染上限。
 pub(super) const MAX_ROWS_DISPLAY: usize = 10_000;
 /// 行内新增最多创建的输入框数量，避免异常元数据一次生成数万控件。
@@ -120,6 +121,10 @@ pub struct ResultPanel {
     pub(super) pagination: Option<ResultPagination>,
     /// 结果代际，供派生缓存和异步回包校验。
     pub(super) result_revision: u64,
+    /// 当前结果的本地展示方式；切换它不会重新发送查询。
+    pub(super) view_mode: ResultViewMode,
+    /// 树形视图按源行保存展开状态，跨排序和筛选保持稳定。
+    pub(super) tree_expanded_rows: BTreeSet<usize>,
     /// 排序、筛选和列布局缓存。
     pub(super) display_view_cache: Option<crate::views::result_table::DisplayViewCache>,
     /// 当前后台派生视图条件，避免重复排队。
@@ -209,6 +214,8 @@ impl ResultPanel {
             sort_by: None,
             pagination: None,
             result_revision: 0,
+            view_mode: ResultViewMode::Table,
+            tree_expanded_rows: BTreeSet::new(),
             display_view_cache: None,
             display_view_build_key: None,
             display_view_building: false,
