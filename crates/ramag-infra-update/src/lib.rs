@@ -26,7 +26,8 @@ use ramag_domain::traits::UpdateDriver;
 
 use crate::runtime::run_in_tokio;
 
-const RELEASE_DOWNLOAD_PREFIX: &str = "https://github.com/tools-rs/ramag/releases/download/";
+const RELEASE_DOWNLOAD_PREFIX: &str =
+    "https://github.com/bruceblink/ramag-platform/releases/download/";
 const MAX_CHECKSUM_BYTES: usize = 64 * 1024;
 const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_REDIRECTS: usize = 5;
@@ -449,7 +450,7 @@ fn validate_sha256(value: &str) -> Result<()> {
 fn validate_download_url(value: &str, tag: &str, asset_name: &str) -> Result<()> {
     let url = Url::parse(value)
         .map_err(|error| DomainError::Other(format!("更新下载地址无效：{error}")))?;
-    let expected_path = format!("/tools-rs/ramag/releases/download/{tag}/{asset_name}");
+    let expected_path = format!("/bruceblink/ramag-platform/releases/download/{tag}/{asset_name}");
     if url.scheme() != "https"
         || url.host_str() != Some("github.com")
         || url.path() != expected_path

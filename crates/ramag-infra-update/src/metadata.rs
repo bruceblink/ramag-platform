@@ -15,9 +15,9 @@ use super::{
 };
 
 const LATEST_MANIFEST_URL: &str =
-    "https://github.com/tools-rs/ramag/releases/latest/download/update-manifest.json";
-const LATEST_RELEASE_URL: &str = "https://github.com/tools-rs/ramag/releases/latest";
-const RELEASE_PAGE_PREFIX: &str = "https://github.com/tools-rs/ramag/releases/tag/";
+    "https://github.com/bruceblink/ramag-platform/releases/latest/download/update-manifest.json";
+const LATEST_RELEASE_URL: &str = "https://github.com/bruceblink/ramag-platform/releases/latest";
+const RELEASE_PAGE_PREFIX: &str = "https://github.com/bruceblink/ramag-platform/releases/tag/";
 const UPDATE_MANIFEST_SCHEMA_VERSION: u32 = 1;
 const MAX_METADATA_BYTES: usize = 2 * 1024 * 1024;
 const MAX_RELEASE_NOTES_BYTES: usize = 64 * 1024;
@@ -162,7 +162,7 @@ pub(super) fn parse_manifest(body: &[u8]) -> Result<ReleaseInfo> {
 }
 
 pub(super) fn parse_release_permalink(url: &Url) -> Result<ReleaseInfo> {
-    let prefix = "/tools-rs/ramag/releases/tag/";
+    let prefix = "/bruceblink/ramag-platform/releases/tag/";
     if url.scheme() != "https"
         || url.host_str() != Some("github.com")
         || url.query().is_some()
