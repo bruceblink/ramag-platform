@@ -1,10 +1,10 @@
 # Ramag 主线开发计划
 
 > 状态：大功能基线基本完成，主线转入 UI 细节、响应性布局和已知问题修复
-> 更新日期：2026-09-05
+> 更新日期：2026-09-06
 > 适用范围：`ramag-ui`、`ramag-tool-*`、`ramag-app`、`ramag-domain` 及本地构建与测试脚本
 > 当前分支：`dev`
-> 当前 UI 验证方式：暂时使用 headless GPUI 边界测试；真实窗口验证恢复后再补充截图和操作记录。
+> 当前 UI 验证方式：优先使用真实窗口；`computer-use` 不可用时使用用户或本地截图作为复现/视觉证据，并使用 headless GPUI 渲染和交互测试完成边界验收，同时记录真实窗口限制。
 
 ## 术语与命名规则
 
@@ -81,7 +81,7 @@ Ramag 已完成桌面工具的主要能力闭环，包括数据库查询与结�
 | UI-003 | 数据库/MongoDB | 检查结果状态、分页、过滤器和详情区域在窄窗口的换行与恢复操作 | P1 | 第三项（已完成） | 查询结果工具栏、查询控制台顶部工具栏、详情查看器、查询历史和失败重试五个切片已完成；`ba71d8e`、`05874b5`、`e6854be`、`79a9f18`、`6afcd19` 覆盖 SQL/MongoDB 的 360/1024/1440 headless 边界；真实 Windows 窗口证据仍未完成 |
 | UI-004 | Kafka | 复核紧凑工作区、消息表、Headers/详情和连接失败重试状态在三种窗口中的边界 | P1 | 第四项（进行中） | 消息表与详情首个响应式切片已完成；`406dc8c` 覆盖消息行选择、详情纵向滚动、表格横向滚动、分页栏以及 360/1024/1440 headless 边界；`df5cb6e` 补充消费者组列表、成员分配、Offset/Lag 详情的长字段约束和 360/1024/1440 headless 边界；`216e683` 补充连接失败文案换行、重试按钮固定尺寸和 360/1024/1440 headless 恢复验证；`036abd8` 补充 ACL 查询/管理标题与操作区在紧凑宽度纵向排列，并覆盖 360/1024/1440 headless 边界；`3c3653a` 补充配置项状态与操作组的上下排列、长配置值约束以及 360/1024/1440 headless 边界；`10f5c81` 补充消息 Offset/时间范围字段在紧凑宽度上下排列，并覆盖字段边界和 360/1024/1440 headless 验证；`044f2a5` 补充 5000 条消息的分页子控件在 360/1024/1440 headless 窗口内边界验证；`c01aaae` 补充消息页在 900px 以下的外层纵向滚动、480px 结果区最小高度和分页回顶，并扩展 `kafka_message_table_and_detail_fit_three_window_widths` 覆盖 360/800/1024/1440 窗口及 800×500 低高度场景；本机原生构建通过但 Computer Use 状态读取未完成，真实 Windows 窗口证据待补；`a92ef05` 新增主题页标题、搜索框、列表和详情的 360/900/1440 headless 响应式验证，真实 Windows 窗口证据仍待补 |
 | UI-005 | 共享组件 | 统一按钮、输入框、空状态、通知、弹窗和工具栏的间距、最小宽度与图标提示 | P2 | 第五项（进行中） | 已完成共享对话框标题、双按钮操作区、清除输入按钮、居中状态提示、复制/传输通知、对象存储目录工具栏和设置页导航切片：`993a052` 让长标题在窄窗口收缩并省略，关闭按钮保持固定尺寸；`f05bdff` 提取可换行的共享 footer，长文案操作按钮在父容器内上下排列；`5c4252b` 让输入框和清除图标按钮允许收缩并保持固定尺寸；`e0a7bc0` 统一 SQL/MongoDB 查询历史的加载、空列表和无结果提示，长状态文案带内边距并可换行；`ee9086c`、`c542b85` 让复制和传输通知在窄窗口保持可用宽度；`1693621` 让对象存储目录工具栏使用共享换行布局，并让筛选、刷新、上传和窄窗口切换操作保持在工具栏内；`f65bb91` 让设置页在 900px 以下将导航改为 144px 固定入口的横向滚动条，内容区移到导航下方，常规和宽窗口保留 220px 左侧导航；本次设置页版本信息工具栏切片拆分可收缩的信息区与操作区，长版本号和更新链接允许换行，交流群与反馈问题按钮保持在父容器内；`settings-update-toolbar` 的 headless 测试在 240×180 窄窗口验证全部信息和按钮边界，目标测试、格式检查和差异检查通过；真实 Windows 窗口证据待补；`closable_dialog_title_keeps_close_button_inside_narrow_window`、`dialog_action_footer_wraps_long_actions_inside_parent`、`cleanable_input_keeps_clear_button_inside_narrow_parent`、`centered_status_keeps_long_message_inside_narrow_window`、`object_directory_toolbar_keeps_controls_inside_supported_widths`、`settings_navigation_switches_to_scrollable_strip_on_compact_widths` 覆盖 180×120、240×120、240×180、360/1024/1440 headless 边界；`78fa3d1` 完成活动栏切片：工具列表使用独立纵向滚动区域，添加、快捷键和设置入口固定在低高度窗口底部；`activity_bar_keeps_fixed_actions_visible_when_tool_list_overflows` 使用 16 个动态工具项在 48×220 headless 窗口验证滚动区和固定入口边界，workspace 测试、Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补；本次继续完成 Redis Key 详情头部切片：标题与元数据区设置可收缩边界，复制、新增、删除操作单独放入可换行操作区；低于 720px 时标题和操作区上下排列，常规和宽窗口保持横排；`header_reflows_metadata_and_actions_inside_three_window_widths` 在 360×360、1024×420、1440×420 headless 窗口验证长 Key、Hash 元数据以及三个操作控件均留在父容器内；Redis 目标包测试、Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补；其他工具的通知与工具栏仍按切片补齐 |
-| UI-006 | 全工具 | 汇总历史已知问题，补充最小复现和回归测试，删除已经过时的排期描述 | P2 | 第六项 | 未开始 |
+| UI-006 | 全工具 | 汇总历史已知问题，补充最小复现和回归测试，删除已经过时的排期描述 | P2 | 第六项 | 已完成（本次 M6 审计） |
 
 本次继续完成 UI-005 的 SSH 文件浏览器工具栏切片：复用 `responsive_toolbar`，移除固定 `40px` 高度，搜索框保留 `96px` 最小宽度，刷新、上传和新建操作允许换行；`directory_toolbar_wraps_controls_inside_supported_file_browser_widths` 在 180/280/600px 文件栏宽度以及 360/800/1440px 窗口中验证工具栏、搜索框和操作按钮均留在父容器内，并确认最小宽度下按钮移到搜索框下方；SSH 目标包 70 个测试、Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
 
@@ -92,6 +92,8 @@ Ramag 已完成桌面工具的主要能力闭环，包括数据库查询与结�
 本次继续完成 Redis Key 树工具栏切片：复用 `responsive_toolbar`，搜索框保留 `96px` 最小宽度，刷新、展开/折叠、命令行和更多操作允许换行；`key_tree_toolbar_wraps_controls_inside_supported_widths` 在 180/280/600px 树宽度中验证搜索框和四个操作按钮均留在工具栏内，并确认最小宽度下操作区移到搜索框下方；Redis 目标包 103 个测试、Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
 
 没有复现证据的问题先记录为待核查项，不直接扩大修改范围。涉及数据库、Kafka 或其他外部服务的真实验收，必须单独注明连接、数据、服务和未完成的运行条件。
+
+本次 M6 问题收口审计（2026-09-06）结论：UI-001、UI-002 的系统监控和数据库结果区域已由现有 headless 边界测试覆盖，数据库 workspace 集成测试通过；UI-003、UI-004、UI-005 的窄窗口切片已完成代码和 headless 验收，Kafka 目标包 18 项测试及专用 Docker KRaft 集成测试 4 项通过。设置页数据库客户端错位由 `ff4acbc` 修复，VCS 历史搜索栏由 `f613d30` 完成。当前使用用户提供的设置页截图作为缺陷复现证据，并以 headless 结果作为 `computer-use` 不可用时的验收证据；本次未取得新的真实窗口截图，不将 headless 结果描述为真实窗口验证。`cargo test --locked --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`、Windows 源文件大小检查和 `git diff --check` 均通过。后续不从历史候选直接启动 Schema Registry、Kafka Connect 或其他大模块，先等待新的可复现 P0/P1 问题或重新确认下一阶段范围。
 
 ## 5. 实施顺序
 
