@@ -129,6 +129,66 @@ fn local_pty_drains_output_and_reports_child_exit() {
 
 #[cfg(unix)]
 #[test]
+fn local_pty_accepts_tab_as_a_single_byte() {
+    // Keep the byte-level PTY assertion separate from GPUI focus handling: raw input must reach
+    // the child as one byte, while the view test owns only keyboard focus behavior.
+    let core = TerminalCore::start(TerminalCommand::new(
+        "/bin/bash",
+        vec![
+            "-c".into(),
+            "stty raw -echo; printf 'ramag-pty-ready\\n'; sleep 0.2; od -An -t u1 -N 1".into(),
+        ],
+    ))
+    .unwrap();
+
+    // Delay the reader after the ready marker so the PTY can buffer input across scheduler timing.
+    let ready_deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    while std::time::Instant::now() < ready_deadline {
+        let output = core
+            .snapshot()
+            .rows
+            .iter()
+            .flat_map(|row| row.iter().map(|cell| cell.text.as_str()))
+            .collect::<String>();
+        if output.contains("ramag-pty-ready") {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert!(
+        core.snapshot()
+            .rows
+            .iter()
+            .flat_map(|row| row.iter().map(|cell| cell.text.as_str()))
+            .collect::<String>()
+            .contains("ramag-pty-ready")
+    );
+
+    core.send(b"\t".to_vec()).unwrap();
+    let output_deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    let output = loop {
+        let output = core
+            .snapshot()
+            .rows
+            .iter()
+            .flat_map(|row| row.iter().map(|cell| cell.text.as_str()))
+            .collect::<String>();
+        if output.split_whitespace().any(|value| value == "9") {
+            break output;
+        }
+        if std::time::Instant::now() >= output_deadline {
+            break output;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    };
+    assert!(
+        output.split_whitespace().any(|value| value == "9"),
+        "Tab 应作为字节 9 写入 PTY；终端输出：{output:?}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn local_pty_resize_updates_grid_dimensions() {
     let mut core = TerminalCore::start(TerminalCommand::new("/bin/cat", Vec::new())).unwrap();
     core.resize(120, 40, 9, 20).unwrap();
