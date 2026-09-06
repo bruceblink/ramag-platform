@@ -45,6 +45,8 @@ where
         .size_full()
         .min_w_0()
         .min_h_0()
+        // 页面内容高度会随设置项变化，导航列始终沿窗口高度拉伸并从顶部对齐。
+        .items_stretch()
         .child(navigation)
         .child(
             div()

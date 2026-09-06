@@ -269,7 +269,9 @@ mod tests {
     use super::*;
     use gpui::{Render, TestAppContext, size};
 
-    struct SettingsNavigationTestHost;
+    struct SettingsNavigationTestHost {
+        selected_page: SettingsPage,
+    }
 
     impl Render for SettingsNavigationTestHost {
         fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -287,7 +289,7 @@ mod tests {
                 .map(|page| {
                     settings_navigation_item(
                         page,
-                        page == SettingsPage::System,
+                        page == self.selected_page,
                         false,
                         compact,
                         style,
@@ -302,7 +304,12 @@ mod tests {
                 div()
                     .id("settings-test-page")
                     .debug_selector(|| "settings-test-page".into())
-                    .size_full(),
+                    .w_full()
+                    .h(if self.selected_page == SettingsPage::Database {
+                        px(900.0)
+                    } else {
+                        px(180.0)
+                    }),
             )
         }
     }
@@ -310,7 +317,9 @@ mod tests {
     #[gpui::test]
     fn settings_navigation_switches_to_scrollable_strip_on_compact_widths(cx: &mut TestAppContext) {
         cx.update(gpui_component::init);
-        let (_, visual_cx) = cx.add_window_view(|_, _| SettingsNavigationTestHost);
+        let (_, visual_cx) = cx.add_window_view(|_, _| SettingsNavigationTestHost {
+            selected_page: SettingsPage::System,
+        });
 
         for (width, height) in [(360.0, 520.0), (1024.0, 520.0), (1440.0, 520.0)] {
             visual_cx.simulate_resize(size(px(width), px(height)));
@@ -343,6 +352,7 @@ mod tests {
             assert!(root.origin.x >= px(0.0));
             assert!(root.right() <= px(width));
             assert!(root.bottom() <= px(height));
+            assert_eq!(navigation.origin.y, root.origin.y);
             assert!(content.origin.x >= root.origin.x);
             assert!(content.right() <= root.right());
             assert!(content.bottom() <= root.bottom());
@@ -358,11 +368,44 @@ mod tests {
                 assert!(system.origin.x > title.origin.x);
             } else {
                 assert!(navigation.size.width <= px(220.0));
+                assert_eq!(navigation.bottom(), root.bottom());
                 assert!(content.origin.x >= navigation.right());
                 assert!(system.right() <= navigation.right());
                 assert!(update.right() <= navigation.right());
                 assert!(update.origin.y > system.origin.y);
             }
         }
+    }
+
+    /// 切换到数据库客户端后，导航列仍与设置根布局保持顶部和底部对齐。
+    #[gpui::test]
+    fn settings_navigation_stays_aligned_when_database_page_is_selected(cx: &mut TestAppContext) {
+        cx.update(gpui_component::init);
+        let (host, visual_cx) = cx.add_window_view(|_, _| SettingsNavigationTestHost {
+            selected_page: SettingsPage::System,
+        });
+        visual_cx.simulate_resize(size(px(1024.0), px(520.0)));
+        visual_cx.run_until_parked();
+
+        host.update(visual_cx, |host, cx| {
+            host.selected_page = SettingsPage::Database;
+            cx.notify();
+        });
+        visual_cx.run_until_parked();
+
+        let root = visual_cx
+            .debug_bounds("settings-root")
+            .expect("设置根布局应渲染");
+        let navigation = visual_cx
+            .debug_bounds("settings-navigation")
+            .expect("设置导航应渲染");
+        let database = visual_cx
+            .debug_bounds("settings-page-database")
+            .expect("数据库客户端入口应渲染");
+
+        assert_eq!(navigation.origin.y, root.origin.y);
+        assert_eq!(navigation.bottom(), root.bottom());
+        assert!(database.origin.y >= navigation.origin.y);
+        assert!(database.bottom() <= navigation.bottom());
     }
 }
