@@ -374,8 +374,12 @@ impl ResultPanel {
     }
 
     pub fn clear_editable_target(&mut self, cx: &mut Context<Self>) {
-        if self.pinned_target.is_some() || self.row_identity.is_some() {
+        if self.pinned_target.is_some()
+            || self.row_identity.is_some()
+            || self.pending_insert.is_some()
+        {
             self.discard_pending_cell_edits();
+            self.pending_insert = None;
             self.pinned_target = None;
             self.row_identity = None;
             cx.notify();
@@ -410,6 +414,18 @@ impl ResultPanel {
 
     pub(super) fn pending_cell_edit_count(&self) -> usize {
         self.pending_cell_edits.len()
+    }
+
+    /// Seeds one local edit for lifecycle tests without starting an async display-view build.
+    #[cfg(test)]
+    pub(crate) fn seed_pending_cell_edit_for_test(&mut self) {
+        self.pending_cell_edits.insert(
+            (0, 0),
+            PendingCellEdit {
+                original: Value::Null,
+                current: Value::Text("changed".into()),
+            },
+        );
     }
 
     pub(super) fn has_pending_cell_edit(&self, ri: usize, ci: usize) -> bool {

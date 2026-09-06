@@ -104,16 +104,20 @@ impl ConnectionSession {
                         table = %table,
                         "table query opened"
                     );
-                    queries_clone.update(cx, |q, cx| {
-                        q.set_active_schema(Some(schema.clone()), cx);
-                    });
                     // LIMIT 交给查询层注入，保留裸查询的分页资格。
                     let qschema = driver_kind.quote_identifier(schema);
                     let qtable = driver_kind.quote_identifier(table);
                     let sql = format!("SELECT * FROM {qschema}.{qtable};");
                     let target = Some((schema.clone(), table.clone()));
                     queries_clone.update(cx, |q, cx| {
-                        q.prefill_active_sql_and_run_with_target(sql, target, window, cx)
+                        q.set_active_schema_with_callback(
+                            Some(schema.clone()),
+                            window,
+                            cx,
+                            move |q, window, cx| {
+                                q.prefill_active_sql_and_run_with_target(sql, target, window, cx);
+                            },
+                        );
                     });
                 }
                 TreeEvent::SchemaActivated { schema } => {
@@ -124,8 +128,8 @@ impl ConnectionSession {
                         schema = %schema,
                         "schema activated"
                     );
-                    queries_clone.update(cx, |q, cx| {
-                        q.set_active_schema(Some(schema.clone()), cx);
+                    let _ = queries_clone.update(cx, |q, cx| {
+                        q.set_active_schema(Some(schema.clone()), window, cx)
                     });
                 }
                 TreeEvent::ShowCreateTable {

@@ -340,10 +340,9 @@ impl TableTreePanel {
         self.selected = Some((schema.clone(), table.clone()));
         if self.active_schema.as_deref() != Some(schema.as_str()) {
             self.active_schema = Some(schema.clone());
-            cx.emit(TreeEvent::SchemaActivated {
-                schema: schema.clone(),
-            });
         }
+        // TableSelected also applies the query Schema, so emitting SchemaActivated here would
+        // open two confirmation dialogs for one table click.
         cx.emit(TreeEvent::TableSelected { schema, table });
         cx.notify();
     }

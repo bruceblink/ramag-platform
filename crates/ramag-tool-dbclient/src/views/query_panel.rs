@@ -1,3 +1,4 @@
+mod context;
 mod drafts;
 mod history;
 
@@ -114,29 +115,6 @@ impl QueryPanel {
         this
     }
 
-    pub fn set_connection(
-        &mut self,
-        conn: Option<ConnectionConfig>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if self.connection.as_ref().map(|current| &current.id)
-            != conn.as_ref().map(|current| &current.id)
-        {
-            self.closed_drafts.clear();
-        }
-        self.connection = conn.clone();
-        self.active_schema = conn
-            .as_ref()
-            .and_then(|c| c.database.clone())
-            .filter(|s| !s.is_empty());
-        for tab in self.tabs.iter() {
-            tab.update(cx, |t, cx| t.set_connection(conn.clone(), cx));
-        }
-        self.load_persisted_drafts(window, cx);
-        cx.notify();
-    }
-
     pub(super) fn forward_tab_event(&mut self, event: &QueryTabEvent, cx: &mut Context<Self>) {
         match event {
             QueryTabEvent::DraftChanged => self.schedule_draft_persist(cx),
@@ -180,19 +158,6 @@ impl QueryPanel {
         for tab in &self.tabs {
             tab.update(cx, |tab, cx| tab.invalidate_query_context(cx));
         }
-    }
-
-    pub fn set_active_schema(&mut self, schema: Option<String>, cx: &mut Context<Self>) {
-        let normalized = schema.filter(|s| !s.is_empty());
-        if self.active_schema == normalized {
-            return;
-        }
-        self.active_schema = normalized.clone();
-        for tab in self.tabs.iter() {
-            tab.update(cx, |t, cx| t.set_active_schema(normalized.clone(), cx));
-        }
-        self.schedule_draft_persist(cx);
-        cx.notify();
     }
 
     /// 切换 SQL 编辑器并返回可见状态。
@@ -253,23 +218,32 @@ impl QueryPanel {
         if index >= self.tabs.len() {
             return;
         }
-        // 有手写草稿时先确认。
+        // 关闭标签会释放结果面板，因此先确认所有不会进入恢复栈的本地状态。
         let has_draft = self
             .tabs
             .get(index)
             .is_some_and(|t| t.read(cx).has_user_draft(cx));
+        let pending_result_changes = self
+            .tabs
+            .get(index)
+            .map_or(0, |t| t.read(cx).pending_result_change_count(cx));
         let has_transaction = self
             .tabs
             .get(index)
             .is_some_and(|t| t.read(cx).has_open_transaction());
-        if has_draft || has_transaction {
+        if has_draft || pending_result_changes > 0 || has_transaction {
             let entity = cx.entity();
-            let message = match (has_draft, has_transaction) {
-                (true, true) => "未保存内容将丢失，打开的事务将回滚。".to_string(),
-                (true, false) => "未保存内容将丢失。".to_string(),
-                (false, true) => "打开的事务将回滚，未提交修改会丢失。".to_string(),
-                (false, false) => String::new(),
-            };
+            let mut effects = Vec::with_capacity(3);
+            if has_draft {
+                effects.push("未保存 SQL 草稿将丢失".to_string());
+            }
+            if pending_result_changes > 0 {
+                effects.push(format!("{pending_result_changes} 项未提交结果修改将丢失"));
+            }
+            if has_transaction {
+                effects.push("打开的事务将回滚".to_string());
+            }
+            let message = format!("{}。", effects.join("；"));
             ramag_ui::open_confirm(
                 "关闭查询标签？",
                 message,
@@ -545,5 +519,8 @@ fn active_index_after_close(active: usize, closed: usize, remaining: usize) -> u
     }
 }
 
+#[cfg(test)]
+#[path = "query_panel/context_tests.rs"]
+mod context_tests;
 #[cfg(test)]
 mod tests;

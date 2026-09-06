@@ -18,6 +18,22 @@ use super::{
 use crate::sql_completion::SchemaCache;
 use crate::views::result_panel::ResultState;
 
+/// Test host that renders the query panel together with the component dialog layer.
+struct HistoryDialogTestHost {
+    panel: Entity<QueryPanel>,
+}
+
+impl Render for HistoryDialogTestHost {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
+        div()
+            .relative()
+            .size_full()
+            .child(self.panel.clone())
+            .children(dialog_layer)
+    }
+}
+
 #[derive(Default)]
 struct NoopStorage {
     history: Vec<QueryRecord>,
@@ -77,22 +93,6 @@ impl Storage for NoopStorage {
 
     async fn set_preference(&self, _key: &str, _value: &str) -> Result<()> {
         Ok(())
-    }
-}
-
-/// 测试宿主同时渲染 SQL 查询面板和 GPUI Component 的对话框浮层。
-struct HistoryDialogTestHost {
-    panel: Entity<QueryPanel>,
-}
-
-impl Render for HistoryDialogTestHost {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        div()
-            .relative()
-            .size_full()
-            .child(self.panel.clone())
-            .children(dialog_layer)
     }
 }
 

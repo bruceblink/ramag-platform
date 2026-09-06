@@ -295,6 +295,13 @@ impl QueryTab {
         self.last_injected_sql.as_deref().map(str::trim) != Some(cur)
     }
 
+    /// Returns the number of local result changes that would be lost with this tab.
+    /// A pending insert is counted as one change alongside staged cell edits.
+    pub(crate) fn pending_result_change_count(&self, cx: &gpui::App) -> usize {
+        let result = self.result.read(cx);
+        result.pending_cell_edit_count() + usize::from(result.pending_insert().is_some())
+    }
+
     pub fn draft_text(&self, cx: &gpui::App) -> Option<gpui::SharedString> {
         self.has_user_draft(cx)
             .then(|| self.editor.read(cx).value())
