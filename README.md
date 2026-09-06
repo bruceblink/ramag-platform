@@ -412,21 +412,6 @@ Ramag 支持 Linux x86_64、macOS 12+（Apple Silicon / Intel）和 Windows 10/1
 
 发现本项目的问题时，请在 [Ramag Platform Issues](https://github.com/bruceblink/ramag-platform/issues) 中附上操作系统、Ramag 版本、复现步骤和必要日志；提交前请移除连接地址、用户名、密码和业务数据。确认问题属于上游通用缺陷后，再到 [`tools-rs/ramag`](https://github.com/tools-rs/ramag/issues) 提交聚焦的上游 Issue 或 PR。
 
-## 社区 / Community
-
-以下二维码沿用上游 Ramag 社区入口，不代表本项目已经建立独立的官方支持渠道。项目问题和平台化建议请优先使用本仓库 Issues。
-
-<table>
-  <tr>
-    <td align="center">上游 Ramag 交流群（二维码有效期有限）</td>
-    <td align="center">上游社区个人中转二维码</td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/community/group-qr.png" width="320" alt="Ramag 官方交流群二维码"></td>
-    <td align="center"><img src="docs/community/personal-qr.png" width="320" alt="Ramag 个人中转二维码"></td>
-  </tr>
-</table>
-
 ## License
 
 [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
