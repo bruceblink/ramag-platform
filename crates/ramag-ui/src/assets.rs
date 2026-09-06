@@ -49,7 +49,7 @@ mod tests {
     #[test]
     fn loads_absolute_files_for_markdown_images() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../docs/community/group-qr.png");
+            .join("../../docs/screenshots/v0.0.5/settings-system-tray-windows.png");
         let loaded = RamagAssets
             .load(path.to_string_lossy().as_ref())
             .ok()
