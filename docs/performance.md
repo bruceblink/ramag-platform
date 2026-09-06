@@ -27,7 +27,7 @@
 | 操作系统 | macOS 26.5，arm64 |
 | 处理器 | Apple M1 Max，10 核 |
 | 内存 | 64 GiB |
-| Rust | 历史测量使用 nightly 1.97.0（2026-04-15）；当前仓库使用 stable |
+| Rust | 历史测量使用 Rust 1.97.0（2026-04-15）；当前仓库使用 stable |
 | Git | Apple Git 2.50.1 |
 | Docker | 29.4.0 |
 | Release 配置 | `opt-level=3`、fat LTO、`codegen-units=1`、`panic=abort` |
