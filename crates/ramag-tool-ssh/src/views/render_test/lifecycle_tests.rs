@@ -256,6 +256,7 @@ fn close_shortcut_selects_and_focuses_previous_terminal(cx: &mut TestAppContext)
 fn reconnect_replaces_the_current_terminal_without_creating_a_tab(cx: &mut TestAppContext) {
     let mut profile = profile();
     profile.production = false;
+    profile.ssh_path = Some("/mock/ssh".into());
     let profile_id = profile.id.clone();
     let preference = SshWorkspacePreference {
         workspaces: vec![SshWorkspaceState {
@@ -287,12 +288,31 @@ fn reconnect_replaces_the_current_terminal_without_creating_a_tab(cx: &mut TestA
                 view: terminal,
             }];
             workspace.active_terminal_id = Some(41);
+            workspace.terminal_loading = false;
             workspace.next_terminal_ordinal = 10;
             cx.notify();
         });
     });
     cx.run_until_parked();
-    std::thread::sleep(Duration::from_millis(50));
+
+    // 重连入口只接受已经退出的终端；等待旧 PTY 的退出事件到达后再触发入口。
+    let old_exit_deadline = Instant::now() + Duration::from_secs(3);
+    let mut old_exit_code = None;
+    while old_exit_code.is_none() && Instant::now() < old_exit_deadline {
+        old_exit_code = cx.update(|_, app| {
+            view.read(app)
+                .workspaces
+                .iter()
+                .find(|workspace| workspace.profile_id() == &profile_id)
+                .and_then(|workspace| workspace.terminals.first())
+                .and_then(|terminal| terminal.view.read(app).core().exit_status())
+                .and_then(|status| status.code)
+        });
+        if old_exit_code.is_none() {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+    assert_eq!(old_exit_code, Some(7));
 
     cx.update(|window, app| {
         view.update(app, |view, cx| {
@@ -301,7 +321,7 @@ fn reconnect_replaces_the_current_terminal_without_creating_a_tab(cx: &mut TestA
     });
     cx.run_until_parked();
 
-    let reconnected_terminal = view.read_with(cx, |view, _| {
+    view.read_with(cx, |view, _| {
         let workspace = view
             .workspaces
             .iter()
@@ -312,15 +332,30 @@ fn reconnect_replaces_the_current_terminal_without_creating_a_tab(cx: &mut TestA
         assert_eq!(workspace.terminals[0].label.as_ref(), "终端 9");
         assert_eq!(workspace.active_terminal_id, Some(41));
         assert_eq!(workspace.next_terminal_ordinal, 10);
-        workspace.terminals[0].view.clone()
     });
-    let exit_code = cx.update(|_, app| {
-        reconnected_terminal
-            .read(app)
-            .core()
-            .exit_status()
-            .and_then(|status| status.code)
-    });
+    // 重连任务和子进程退出事件都异步完成，只接受替换后终端的成功退出码。
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let mut exit_code = None;
+    while exit_code != Some(0) && Instant::now() < deadline {
+        cx.run_until_parked();
+        exit_code = cx.update(|_, app| {
+            view.read(app)
+                .workspaces
+                .iter()
+                .find(|workspace| workspace.profile_id() == &profile_id)
+                .and_then(|workspace| {
+                    workspace
+                        .terminals
+                        .iter()
+                        .find(|terminal| terminal.id == 41)
+                })
+                .and_then(|terminal| terminal.view.read(app).core().exit_status())
+                .and_then(|status| status.code)
+        });
+        if exit_code != Some(0) {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
     assert_eq!(exit_code, Some(0));
 }
 
