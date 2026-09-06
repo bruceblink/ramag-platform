@@ -326,9 +326,12 @@ impl Render for Shell {
                             .child(
                                 div()
                                     .flex_1()
-                                    .h_full()
+                                    // The header already consumes the fixed top row; flex growth
+                                    // must determine the remaining content height without adding
+                                    // another full-parent height.
                                     .w_full()
                                     .min_w_0()
+                                    .min_h_0()
                                     .items_stretch()
                                     .when_some(content_view, |this, view| this.child(view))
                                     .when(

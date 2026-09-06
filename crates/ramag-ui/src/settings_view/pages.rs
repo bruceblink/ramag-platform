@@ -300,19 +300,37 @@ mod tests {
                     .into_any_element()
                 })
                 .collect();
-            super::super::render_settings_layout(
-                compact,
-                settings_navigation_shell(compact, theme.sidebar, theme.border, children),
-                div()
-                    .id("settings-test-page")
-                    .debug_selector(|| "settings-test-page".into())
-                    .w_full()
-                    .h(if self.selected_page == SettingsPage::Database {
-                        px(900.0)
-                    } else {
-                        px(180.0)
-                    }),
-            )
+            // Mirror the Shell content wrapper so page changes are measured against
+            // the same definite height as the production settings view.
+            v_flex()
+                .size_full()
+                .child(div().h(px(44.0)).flex_none())
+                .child(
+                    div()
+                        .flex_1()
+                        .w_full()
+                        .min_w_0()
+                        .min_h_0()
+                        .items_stretch()
+                        .child(super::super::render_settings_layout(
+                            compact,
+                            settings_navigation_shell(
+                                compact,
+                                theme.sidebar,
+                                theme.border,
+                                children,
+                            ),
+                            div()
+                                .id("settings-test-page")
+                                .debug_selector(|| "settings-test-page".into())
+                                .w_full()
+                                .h(if self.selected_page == SettingsPage::Database {
+                                    px(900.0)
+                                } else {
+                                    px(180.0)
+                                }),
+                        )),
+                )
         }
     }
 
