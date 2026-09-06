@@ -125,9 +125,8 @@ impl KafkaView {
                         0.0,
                     ))
                     .child(
-                        h_flex()
-                            .w_full()
-                            .gap(px(8.0))
+                        ramag_ui::responsive_toolbar()
+                            .debug_selector(|| "kafka-topic-actions".into())
                             .child(
                                 ramag_ui::clickable_button("kafka-topic-expand")
                                     .debug_selector(|| "kafka-topic-expand".into())
@@ -135,7 +134,6 @@ impl KafkaView {
                                     .small()
                                     .icon(IconName::Plus)
                                     .label("扩容")
-                                    .flex_1()
                                     .disabled(admin_disabled || topic.internal)
                                     .tooltip("增加 Partition")
                                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
@@ -149,7 +147,6 @@ impl KafkaView {
                                     .small()
                                     .icon(IconName::Delete)
                                     .label("删除")
-                                    .flex_1()
                                     .disabled(admin_disabled || topic.internal)
                                     .tooltip("删除 Topic")
                                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {

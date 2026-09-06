@@ -81,6 +81,7 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
         let split = visual_cx.debug_bounds("kafka-topic-split");
         let list = visual_cx.debug_bounds("kafka-topic-list-panel");
         let detail = visual_cx.debug_bounds("kafka-topic-detail");
+        let actions = visual_cx.debug_bounds("kafka-topic-actions");
         assert!(
             topics.is_some()
                 && header.is_some()
@@ -102,6 +103,7 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
             "kafka-topic-split",
             "kafka-topic-list-panel",
             "kafka-topic-detail",
+            "kafka-topic-actions",
             "kafka-topic-expand",
             "kafka-topic-delete",
             "kafka-open-topic-messages",
@@ -140,5 +142,14 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
                 "宽窗口中列表和详情应左右排列且留在分栏内: split={split:?}, list={list:?}, detail={detail:?}"
             );
         }
+        assert!(
+            actions.is_some_and(|actions| {
+                actions.origin.x >= detail.origin.x
+                    && actions.right() <= detail.right()
+                    && actions.origin.y >= detail.origin.y
+                    && actions.bottom() <= detail.bottom()
+            }),
+            "主题操作栏应留在详情面板内: actions={actions:?}, detail={detail:?}"
+        );
     }
 }
