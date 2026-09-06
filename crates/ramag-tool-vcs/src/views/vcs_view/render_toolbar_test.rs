@@ -84,3 +84,61 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
         }
     }
 }
+
+/// 历史搜索栏在紧凑工作区中允许搜索和远程操作分行，所有控件都留在历史内容区内。
+#[gpui::test]
+fn vcs_history_toolbar_wraps_controls_inside_supported_window_widths(cx: &mut TestAppContext) {
+    let (view, cx) = add_vcs_window(cx);
+    view.update(cx, |view, cx| {
+        inject_diff_session(view);
+        view.history_pane_visible = true;
+        let status = view.status.as_mut().expect("测试仓库应有状态");
+        status.ahead = Some(3);
+        status.behind = Some(2);
+        cx.notify();
+    });
+
+    for width in [360.0, 800.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(720.0)));
+        cx.update(|window, app| {
+            view.update(app, |view, cx| {
+                view.ide_left_resize.update(cx, |state, cx| {
+                    state.resize_panel(0, px(180.0), window, cx);
+                });
+            });
+        });
+        cx.run_until_parked();
+
+        let history_content = cx
+            .debug_bounds("vcs-history-content")
+            .expect("历史右侧内容区应渲染");
+        let toolbar = cx
+            .debug_bounds("vcs-history-search-toolbar")
+            .expect("历史搜索工具栏应渲染");
+        let search = cx
+            .debug_bounds("vcs-history-search-input")
+            .expect("历史搜索框应渲染");
+        assert_inside(&history_content, &toolbar, "历史搜索工具栏");
+        assert_inside(&toolbar, &search, "历史搜索框");
+
+        for selector in [
+            "vcs-history-reflog-toggle",
+            "vcs-history-search-action",
+            "vcs-history-quick-action",
+            "vcs-history-remote-actions",
+        ] {
+            let control = cx.debug_bounds(selector).expect("历史工具栏控件应渲染");
+            assert_inside(&toolbar, &control, selector);
+        }
+
+        if width == 360.0 {
+            let search_action = cx
+                .debug_bounds("vcs-history-search-action")
+                .expect("历史搜索操作应渲染");
+            assert!(
+                search_action.origin.y > search.origin.y,
+                "紧凑窗口应让固定搜索操作换行：search={search:?}, action={search_action:?}"
+            );
+        }
+    }
+}

@@ -127,6 +127,8 @@ Ramag 已完成桌面工具的主要能力闭环，包括数据库查询与结�
 
 本次继续完成 VCS 文件栏工具栏切片：模式标签和搜索操作区复用 `responsive_toolbar`，固定按钮保持独立尺寸并允许换行；`vcs_files_toolbar_wraps_controls_inside_supported_widths` 在 1440×720 headless 窗口中将文件栏宽度设为 180/280/600px，验证工具栏、模式标签、分支选择器、搜索框以及刷新/展开/历史操作均留在父容器内，并确认最小宽度下搜索操作换行；VCS 目标包 127 个测试通过、5 个忽略，Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
 
+本次继续完成 VCS 历史搜索栏切片：搜索栏改用 `responsive_toolbar`，搜索输入保留 `96px` 最小宽度，搜索、同步和远程操作在紧凑历史内容区允许换行；`vcs_history_toolbar_wraps_controls_inside_supported_window_widths` 覆盖 360/800/1440px headless 窗口，验证历史搜索工具栏、输入框和四个操作控件均留在历史右侧内容区内，并确认 360px 窗口下固定搜索操作换行；真实 Windows 窗口证据待补。
+
 本次继续完成 Redis 命令控制台工具栏切片：历史状态和生产只读提示设置可收缩、可换行边界，清空按钮保持固定尺寸；`cli_toolbar_wraps_status_and_keeps_clear_inside_supported_widths` 在生产模式和 8 条执行中历史的长状态下覆盖 180/280/600px headless 窗口，验证状态文案与清空按钮均留在工具栏内；Redis 目标包 104 个测试通过，Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
 
 本次继续完成 Redis List 编辑器工具栏切片：添加、数量状态和 List 插入方向控件复用共享换行布局，方向按钮保持独立尺寸；`lines_toolbar_wraps_controls_inside_supported_widths` 在 180/280/600px headless 窗口中验证工具栏、添加按钮、数量状态、插入位置以及 LPUSH/RPUSH 控件均留在编辑器内，并确认最小宽度下方向控件换行；Redis 目标包 105 个测试通过，Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。

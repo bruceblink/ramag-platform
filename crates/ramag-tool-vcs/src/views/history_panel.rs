@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement, Styled,
-    div, prelude::FluentBuilder as _, px, uniform_list,
+    div, px, uniform_list,
 };
 use gpui_component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
@@ -170,6 +170,8 @@ impl VcsView {
         let reflog_btn = ramag_ui::clickable_button("vcs-history-reflog-toggle")
             .ghost()
             .small()
+            .flex_none()
+            .debug_selector(|| "vcs-history-reflog-toggle".into())
             .icon(ramag_ui::icons::scroll_text())
             .tooltip(if self.showing_reflog {
                 "提交历史"
@@ -180,43 +182,59 @@ impl VcsView {
             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                 this.toggle_reflog(cx);
             }));
-        h_flex()
-            .gap(px(6.0))
-            .items_center()
-            .h(px(36.0))
+        let mut row = ramag_ui::responsive_toolbar()
+            .debug_selector(|| "vcs-history-search-toolbar".into())
             .flex_none()
             .px(px(8.0))
+            .py(px(6.0))
+            .gap(px(6.0))
             .child(reflog_btn)
             .child(Icon::new(IconName::Search).small().text_color(muted_fg))
             .child(
-                div().flex_1().min_w_0().child(
-                    ramag_ui::cleanable_input(
-                        &self.history_search_input,
-                        "vcs-history-search-clear",
-                        false,
-                        cx,
-                    )
-                    .small()
-                    .into_any_element(),
-                ),
-            )
-            .when(!self.showing_reflog, |row| {
-                // 操作记录在本地即时过滤，无需提交搜索。
-                row.child(
-                    ramag_ui::clickable_button("vcs-history-search")
-                        .ghost()
+                div()
+                    .debug_selector(|| "vcs-history-search-input".into())
+                    .flex_1()
+                    .min_w(px(96.0))
+                    .child(
+                        ramag_ui::cleanable_input(
+                            &self.history_search_input,
+                            "vcs-history-search-clear",
+                            false,
+                            cx,
+                        )
                         .small()
-                        .icon(IconName::ArrowRight)
-                        .tooltip("搜索")
-                        .disabled(busy)
-                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                            this.apply_history_search(cx);
-                        })),
-                )
-            })
-            .child(self.render_sync_quick_action(cx))
-            .child(self.render_remote_actions(cx))
-            .into_any_element()
+                        .into_any_element(),
+                    ),
+            );
+        if !self.showing_reflog {
+            // 操作记录在本地即时过滤，无需提交搜索。
+            row = row.child(
+                ramag_ui::clickable_button("vcs-history-search")
+                    .ghost()
+                    .small()
+                    .flex_none()
+                    .debug_selector(|| "vcs-history-search-action".into())
+                    .icon(IconName::ArrowRight)
+                    .tooltip("搜索")
+                    .disabled(busy)
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        this.apply_history_search(cx);
+                    })),
+            );
+        }
+        row = row.child(
+            div()
+                .debug_selector(|| "vcs-history-quick-action".into())
+                .flex_none()
+                .child(self.render_sync_quick_action(cx)),
+        );
+        row.child(
+            div()
+                .debug_selector(|| "vcs-history-remote-actions".into())
+                .flex_none()
+                .child(self.render_remote_actions(cx)),
+        )
+        .into_any_element()
     }
 
     /// 渲染分支、历史与详情三栏。
@@ -278,8 +296,13 @@ impl VcsView {
                     ),
             )
             .child(
-                gpui_component::resizable::resizable_panel()
-                    .child(div().size_full().min_w_0().child(right_part)),
+                gpui_component::resizable::resizable_panel().child(
+                    div()
+                        .debug_selector(|| "vcs-history-content".into())
+                        .size_full()
+                        .min_w_0()
+                        .child(right_part),
+                ),
             )
             .into_any_element()
     }
