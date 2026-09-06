@@ -189,6 +189,7 @@ jobs:
             libdbus-1-dev \
             libfontconfig-dev \
             libglib2.0-dev \
+            libcurl4-openssl-dev \
             libssl-dev \
             libvulkan1 \
             libwayland-dev \

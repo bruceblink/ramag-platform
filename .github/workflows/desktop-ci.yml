@@ -2,9 +2,27 @@ name: Desktop CI
 
 on:
   pull_request:
+    paths:
+      - ".cargo/**"
+      - ".github/workflows/**"
+      - "**/*.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - "Makefile"
+      - "rust-toolchain.toml"
+      - "scripts/**"
   push:
     branches:
       - main
+    paths:
+      - ".cargo/**"
+      - ".github/workflows/**"
+      - "**/*.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - "Makefile"
+      - "rust-toolchain.toml"
+      - "scripts/**"
 
 permissions:
   contents: read
@@ -42,6 +60,7 @@ jobs:
             libdbus-1-dev \
             libfontconfig-dev \
             libglib2.0-dev \
+            libcurl4-openssl-dev \
             libssl-dev \
             libvulkan1 \
             libwayland-dev \
