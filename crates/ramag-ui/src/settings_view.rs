@@ -17,7 +17,10 @@ use gpui_component::{
     input::{InputEvent, InputState},
     notification::Notification,
 };
-use ramag_app::{AvailableUpdate, ClipboardService, ConnectionService, SshService, UpdateService};
+use ramag_app::{
+    AvailableUpdate, ClipboardService, ConnectionService, SshService, StaticPluginHost,
+    UpdateService,
+};
 use ramag_domain::entities::{
     ClipboardSettings, IdConverterKind, MAX_CUSTOM_ID_ALPHABET_BYTES,
     MAX_ID_CONVERTER_PROGRAM_BYTES, SshModuleSettings,
@@ -25,6 +28,7 @@ use ramag_domain::entities::{
 use tracing::error;
 
 use crate::MAX_SEARCH_INPUT_BYTES;
+use crate::plugin_diagnostics::PluginDiagnosticsView;
 
 const SETTINGS_COMPACT_BREAKPOINT: f32 = 900.0;
 const SETTINGS_COMPACT_NAV_ITEM_WIDTH: f32 = 144.0;
@@ -69,17 +73,19 @@ enum SettingsPage {
     Ssh,
     ObjectStorage,
     Clipboard,
+    Plugins,
     Update,
 }
 
 impl SettingsPage {
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::System,
         Self::Database,
         Self::VersionControl,
         Self::Ssh,
         Self::ObjectStorage,
         Self::Clipboard,
+        Self::Plugins,
         Self::Update,
     ];
 
@@ -90,6 +96,7 @@ impl SettingsPage {
             Self::VersionControl => "version-control",
             Self::Ssh => "ssh",
             Self::ObjectStorage => "object-storage",
+            Self::Plugins => "plugins",
             Self::Update => "update",
             Self::Clipboard => "clipboard",
         }
@@ -102,6 +109,7 @@ impl SettingsPage {
             Self::VersionControl => "版本管理",
             Self::Ssh => "SSH 管理",
             Self::ObjectStorage => "云存储",
+            Self::Plugins => "插件",
             Self::Update => "关于",
             Self::Clipboard => "剪贴板",
         }
@@ -114,6 +122,7 @@ impl SettingsPage {
             Self::VersionControl => "Git 行为",
             Self::Ssh => "SSH 与 SFTP",
             Self::ObjectStorage => "账号与访问模式",
+            Self::Plugins => "状态、入口和错误",
             Self::Update => "版本与更新",
             Self::Clipboard => "采集、热键与历史",
         }
@@ -185,11 +194,13 @@ pub struct SettingsView {
     picking_id_converter: bool,
     database_transferring: bool,
     pending_notification: Option<Notification>,
+    plugin_diagnostics: Entity<PluginDiagnosticsView>,
     _update_indicator_subscription: Subscription,
 }
 
 impl SettingsView {
     pub fn new(
+        plugin_host: Arc<StaticPluginHost>,
         clipboard_service: Option<Arc<ClipboardService>>,
         connection_service: Arc<ConnectionService>,
         ssh_service: Arc<SshService>,
@@ -199,6 +210,7 @@ impl SettingsView {
     ) -> Self {
         let update_indicator_subscription =
             cx.observe_global::<crate::activity_bar::UpdateIndicatorGlobal>(|_, cx| cx.notify());
+        let plugin_diagnostics = cx.new(|_| PluginDiagnosticsView::new(plugin_host));
         let system_settings = crate::system_settings(cx);
         let (clipboard, loaded_revision) = clipboard_service
             .as_ref()
@@ -356,6 +368,7 @@ impl SettingsView {
             picking_id_converter: false,
             database_transferring: false,
             pending_notification: None,
+            plugin_diagnostics,
             _update_indicator_subscription: update_indicator_subscription,
         }
     }
@@ -439,6 +452,7 @@ mod tests {
         assert!(ids.contains("clipboard"));
         assert!(ids.contains("ssh"));
         assert!(ids.contains("object-storage"));
+        assert!(ids.contains("plugins"));
         assert!(ids.contains("update"));
     }
 

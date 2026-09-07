@@ -16,6 +16,7 @@ impl SettingsPage {
             Self::ObjectStorage => {
                 crate::activity_bar::ActivityBar::icon_for_tool("object-storage")
             }
+            Self::Plugins => crate::activity_bar::ActivityBar::icon_for_tool("plugin"),
             Self::Update => Icon::new(IconName::Info),
             Self::Clipboard => crate::icons::clipboard(),
         }
@@ -87,6 +88,7 @@ impl SettingsView {
             SettingsPage::VersionControl => managed_in_module_card("Git 配置", cx),
             SettingsPage::Ssh => self.render_ssh_page(cx),
             SettingsPage::ObjectStorage => managed_in_module_card("账号与 Bucket", cx),
+            SettingsPage::Plugins => self.plugin_diagnostics.clone().into_any_element(),
             SettingsPage::Update => self.render_update_page(cx),
             SettingsPage::Clipboard => self.render_clipboard_page(cx),
         };
@@ -366,6 +368,9 @@ mod tests {
             let update = visual_cx
                 .debug_bounds("settings-page-update")
                 .expect("关于入口应渲染");
+            let plugins = visual_cx
+                .debug_bounds("settings-page-plugins")
+                .expect("插件入口应渲染");
 
             assert!(navigation.origin.x >= px(0.0));
             assert!(navigation.right() <= px(width));
@@ -386,11 +391,13 @@ mod tests {
                 assert!(database.size.width >= px(SETTINGS_COMPACT_NAV_ITEM_WIDTH));
                 assert!(system.right() <= navigation.right());
                 assert!(system.origin.x > title.origin.x);
+                assert!(plugins.size.width >= px(SETTINGS_COMPACT_NAV_ITEM_WIDTH));
             } else {
                 assert!(navigation.size.width <= px(220.0));
                 assert_eq!(navigation.bottom(), root.bottom());
                 assert!(content.origin.x >= navigation.right());
                 assert!(system.right() <= navigation.right());
+                assert!(plugins.right() <= navigation.right());
                 assert!(update.right() <= navigation.right());
                 assert!(update.origin.y > system.origin.y);
             }

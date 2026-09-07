@@ -1,5 +1,6 @@
 //! 静态插件生命周期编排；不加载外部代码，也不暴露 UI 内部对象。
 
+use std::collections::HashMap;
 use std::sync::{
     Arc,
     atomic::{AtomicU8, Ordering},
@@ -145,6 +146,7 @@ impl PluginOperationError {
 /// 生命周期报告中的处理阶段。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PluginLifecycleStage {
+    Registration,
     Initialize,
     Shutdown,
 }
@@ -152,6 +154,7 @@ pub enum PluginLifecycleStage {
 impl std::fmt::Display for PluginLifecycleStage {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
+            Self::Registration => "注册",
             Self::Initialize => "初始化",
             Self::Shutdown => "关闭",
         })
@@ -171,6 +174,21 @@ pub struct PluginLifecycleFailure {
 pub struct PluginLifecycleReport {
     pub succeeded: Vec<PluginId>,
     pub failures: Vec<PluginLifecycleFailure>,
+}
+
+/// 可供设置页展示的单条插件失败信息；消息沿用生命周期错误的有界长度。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginDiagnosticFailure {
+    pub stage: PluginLifecycleStage,
+    pub message: String,
+}
+
+/// 插件描述、生命周期状态和最近一次失败的只读快照。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginDiagnostic {
+    pub descriptor: PluginDescriptor,
+    pub state: PluginState,
+    pub failure: Option<PluginDiagnosticFailure>,
 }
 
 impl PluginLifecycleReport {
@@ -257,6 +275,8 @@ pub struct StaticPluginHost {
     records: Mutex<Vec<PluginRecord>>,
     phase: Mutex<HostPhase>,
     operation_lock: Mutex<()>,
+    failures: Mutex<HashMap<PluginId, PluginDiagnosticFailure>>,
+    registration_failures: Mutex<Vec<PluginDiagnostic>>,
 }
 
 impl StaticPluginHost {
@@ -266,6 +286,8 @@ impl StaticPluginHost {
             records: Mutex::new(Vec::new()),
             phase: Mutex::new(HostPhase::Registering),
             operation_lock: Mutex::new(()),
+            failures: Mutex::new(HashMap::new()),
+            registration_failures: Mutex::new(Vec::new()),
         }
     }
 
@@ -279,15 +301,20 @@ impl StaticPluginHost {
         let descriptor = plugin.descriptor().clone();
         let plugin_id = descriptor.id.clone();
         if *self.phase.lock() != HostPhase::Registering {
+            self.record_registration_failure(
+                descriptor,
+                format!("插件宿主已开始生命周期处理，不能注册插件 `{plugin_id}`"),
+            );
             return Err(PluginHostError::RegistrationClosed { plugin_id });
         }
 
-        self.registry
-            .register_plugin(descriptor, plugin.tool())
-            .map_err(|source| PluginHostError::Registration {
-                plugin_id: plugin_id.clone(),
-                source,
-            })?;
+        if let Err(source) = self
+            .registry
+            .register_plugin(descriptor.clone(), plugin.tool())
+        {
+            self.record_registration_failure(descriptor, source.to_string());
+            return Err(PluginHostError::Registration { plugin_id, source });
+        }
         self.records.lock().push(PluginRecord {
             plugin,
             context: PluginContext::new(plugin_id.clone()),
@@ -331,6 +358,13 @@ impl StaticPluginHost {
                         .transition(PluginState::Initializing, PluginState::Failed);
                     self.registry
                         .unregister_plugin(record.context.plugin_id().as_str());
+                    self.failures.lock().insert(
+                        plugin_id.clone(),
+                        PluginDiagnosticFailure {
+                            stage: PluginLifecycleStage::Initialize,
+                            message: error.message().to_owned(),
+                        },
+                    );
                     tracing::warn!(
                         operation = "plugin_initialize",
                         plugin_id = %plugin_id,
@@ -377,6 +411,13 @@ impl StaticPluginHost {
                 match record.plugin.shutdown(&record.context) {
                     Ok(()) => report.succeeded.push(plugin_id.clone()),
                     Err(error) => {
+                        self.failures.lock().insert(
+                            plugin_id.clone(),
+                            PluginDiagnosticFailure {
+                                stage: PluginLifecycleStage::Shutdown,
+                                message: error.message().to_owned(),
+                            },
+                        );
                         tracing::warn!(
                             operation = "plugin_shutdown",
                             plugin_id = %plugin_id,
@@ -420,6 +461,37 @@ impl StaticPluginHost {
             .iter()
             .map(|record| (record.context.plugin_id().clone(), record.context.state()))
             .collect()
+    }
+
+    /// 返回所有已注册插件以及注册阶段失败项，供 UI 展示可用入口和故障原因。
+    pub fn diagnostics(&self) -> Vec<PluginDiagnostic> {
+        let failures = self.failures.lock().clone();
+        let mut diagnostics = self
+            .records
+            .lock()
+            .iter()
+            .map(|record| {
+                let plugin_id = record.context.plugin_id().clone();
+                PluginDiagnostic {
+                    descriptor: record.plugin.descriptor().clone(),
+                    state: record.context.state(),
+                    failure: failures.get(&plugin_id).cloned(),
+                }
+            })
+            .collect::<Vec<_>>();
+        diagnostics.extend(self.registration_failures.lock().clone());
+        diagnostics
+    }
+
+    fn record_registration_failure(&self, descriptor: PluginDescriptor, message: String) {
+        self.registration_failures.lock().push(PluginDiagnostic {
+            descriptor,
+            state: PluginState::Failed,
+            failure: Some(PluginDiagnosticFailure {
+                stage: PluginLifecycleStage::Registration,
+                message: bounded_message(message),
+            }),
+        });
     }
 }
 
