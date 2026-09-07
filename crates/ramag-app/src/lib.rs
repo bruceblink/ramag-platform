@@ -11,9 +11,10 @@ pub mod usecases;
 
 pub use blocking::run_blocking;
 pub use plugin_lifecycle::{
-    MAX_PLUGIN_OPERATION_ERROR_BYTES, PluginContext, PluginContextError, PluginHostError,
-    PluginLifecycleFailure, PluginLifecycleReport, PluginLifecycleStage, PluginOperationError,
-    PluginState, StaticPlugin, StaticPluginAdapter, StaticPluginHost,
+    MAX_PLUGIN_OPERATION_ERROR_BYTES, PluginContext, PluginContextError, PluginDiagnostic,
+    PluginDiagnosticFailure, PluginHostError, PluginLifecycleFailure, PluginLifecycleReport,
+    PluginLifecycleStage, PluginOperationError, PluginState, StaticPlugin, StaticPluginAdapter,
+    StaticPluginHost,
 };
 pub use tool_registry::{TOOL_ORDER_PREF_KEY, ToolRegistry};
 pub use usecases::{

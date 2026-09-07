@@ -140,6 +140,16 @@ fn initialization_failure_removes_only_failed_plugin_and_continues() {
     assert_eq!(host.state("broken"), Some(PluginState::Failed));
     assert_eq!(host.registry().order(), ["first", "third"]);
     assert_eq!(host.registry().count(), 2);
+    let diagnostic = host
+        .diagnostics()
+        .into_iter()
+        .find(|diagnostic| diagnostic.descriptor.id.as_str() == "broken")
+        .expect("初始化失败插件应保留诊断");
+    assert_eq!(diagnostic.state, PluginState::Failed);
+    assert_eq!(
+        diagnostic.failure.as_ref().map(|failure| failure.stage),
+        Some(PluginLifecycleStage::Initialize)
+    );
     assert_eq!(
         *events.lock(),
         ["initialize:first", "initialize:broken", "initialize:third"]
@@ -170,6 +180,16 @@ fn registration_failure_does_not_create_a_lifecycle_record_or_block_next_plugin(
         }
     ));
     assert!(host.states().is_empty());
+    let diagnostic = host
+        .diagnostics()
+        .into_iter()
+        .find(|diagnostic| diagnostic.descriptor.id.as_str() == "declared")
+        .expect("注册失败插件应保留诊断");
+    assert_eq!(diagnostic.state, PluginState::Failed);
+    assert_eq!(
+        diagnostic.failure.as_ref().map(|failure| failure.stage),
+        Some(PluginLifecycleStage::Registration)
+    );
 
     host.register_plugin(Arc::new(RecordingPlugin::new(
         "valid", events, false, false,
@@ -241,6 +261,16 @@ fn shutdown_failure_does_not_prevent_reverse_cleanup() {
     assert_eq!(report.failures[0].stage, PluginLifecycleStage::Shutdown);
     assert_eq!(host.registry().count(), 0);
     assert_eq!(host.state("broken"), Some(PluginState::Unloaded));
+    let diagnostic = host
+        .diagnostics()
+        .into_iter()
+        .find(|diagnostic| diagnostic.descriptor.id.as_str() == "broken")
+        .expect("关闭失败插件应保留诊断");
+    assert_eq!(diagnostic.state, PluginState::Unloaded);
+    assert_eq!(
+        diagnostic.failure.as_ref().map(|failure| failure.stage),
+        Some(PluginLifecycleStage::Shutdown)
+    );
 }
 
 #[test]
@@ -279,6 +309,13 @@ fn registration_is_closed_after_initialization_starts() {
         PluginHostError::RegistrationClosed { plugin_id } if plugin_id.as_str() == "late"
     ));
     assert_eq!(host.registry().order(), ["first"]);
+    assert!(host.diagnostics().iter().any(|diagnostic| {
+        diagnostic.descriptor.id.as_str() == "late"
+            && diagnostic
+                .failure
+                .as_ref()
+                .is_some_and(|failure| failure.stage == PluginLifecycleStage::Registration)
+    }));
 }
 
 #[test]

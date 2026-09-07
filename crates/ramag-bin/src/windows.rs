@@ -125,7 +125,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
             }
         });
     let AppDeps {
-        plugin_host: _plugin_host,
+        plugin_host,
         registry,
         conn_service,
         redis_service,
@@ -222,6 +222,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                 let system_view = create_system_view(window, cx);
                 let settings_view = cx.new(|cx| {
                     SettingsView::new(
+                        plugin_host.clone(),
                         clipboard_service.clone(),
                         conn_service.clone(),
                         ssh_service.clone(),
@@ -233,7 +234,13 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
 
                 let shell = cx.new(|cx| {
                     let mut shell =
-                        Shell::new(registry.clone(), data_sync_gate.clone(), window, cx);
+                        Shell::new(
+                            registry.clone(),
+                            plugin_host.clone(),
+                            data_sync_gate.clone(),
+                            window,
+                            cx,
+                        );
                     shell.set_home_view(home_view.clone().into());
                     shell.set_settings_view(settings_view.clone().into());
                     shell.register_tool_view(DbClientTool::ID, dbclient_view.clone().into());

@@ -15,7 +15,7 @@ use gpui_component::{
     notification::Notification,
     v_flex,
 };
-use ramag_app::{ToolRegistry, UpdateCheckResult};
+use ramag_app::{StaticPluginHost, ToolRegistry, UpdateCheckResult};
 
 use crate::PointerDropdownMenu as _;
 use crate::icons;
@@ -44,6 +44,7 @@ const ITEM_HEIGHT: f32 = 40.0;
 
 pub struct ActivityBar {
     registry: Arc<ToolRegistry>,
+    plugin_host: Arc<StaticPluginHost>,
     selected: NavTarget,
     last_rendered_slots: Vec<Option<String>>,
     _update_indicator_subscription: Subscription,
@@ -109,7 +110,11 @@ fn indicator_value(result: &UpdateCheckResult) -> bool {
 impl EventEmitter<NavEvent> for ActivityBar {}
 
 impl ActivityBar {
-    pub fn new(registry: Arc<ToolRegistry>, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        registry: Arc<ToolRegistry>,
+        plugin_host: Arc<StaticPluginHost>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         cx.update_default_global::<UpdateIndicatorGlobal, _>(|_, _| {});
         cx.update_default_global::<ToolLayoutGlobal, _>(|_, _| {});
         cx.update_default_global::<ToolDragGlobal, _>(|_, _| {});
@@ -124,6 +129,7 @@ impl ActivityBar {
             .collect();
         Self {
             registry,
+            plugin_host,
             selected: NavTarget::Home,
             last_rendered_slots,
             _update_indicator_subscription: update_indicator_subscription,
@@ -197,6 +203,18 @@ impl Render for ActivityBar {
         let item_count = tool_order.len();
         let update_available =
             cx.read_global::<UpdateIndicatorGlobal, _>(|state, _| state.available);
+        let plugin_errors = self
+            .plugin_host
+            .diagnostics()
+            .iter()
+            .filter(|diagnostic| diagnostic.failure.is_some())
+            .count();
+        let settings_badge = update_available || plugin_errors > 0;
+        let settings_tooltip = if plugin_errors > 0 {
+            format!("设置（{plugin_errors} 个插件需要处理）")
+        } else {
+            "设置".to_string()
+        };
         let sidebar_bg = theme.sidebar;
         let border = theme.border;
 
@@ -406,7 +424,7 @@ impl Render for ActivityBar {
                 icon: icons::settings(),
                 is_selected: settings_selected,
                 accent,
-                decoration: ActivityItemDecoration::new("设置", update_available),
+                decoration: ActivityItemDecoration::new(settings_tooltip, settings_badge),
                 on_click: Box::new(cx.listener(|this, _: &ClickEvent, _, cx| {
                     this.navigate(NavTarget::Settings, cx);
                 })),
@@ -457,10 +475,12 @@ fn activity_item(
     button = if !show_badge {
         button.icon(icon)
     } else {
-        button
-            .size(px(32.0))
-            .p_0()
-            .child(Badge::new().dot().color(accent).child(icon))
+        button.size(px(32.0)).p_0().child(
+            div()
+                .id("activity-settings-badge")
+                .debug_selector(|| "activity-settings-badge".into())
+                .child(Badge::new().dot().color(accent).child(icon)),
+        )
     };
     button = button.tooltip(tooltip);
     let mut item = h_flex()

@@ -1,10 +1,11 @@
 //! 活动栏的 headless 布局验收，覆盖动态工具列表的低高度窗口边界。
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 
 use std::sync::Arc;
 
 use gpui::{TestAppContext, VisualTestContext, px, size};
-use ramag_app::ToolRegistry;
-use ramag_domain::{Tool, ToolMeta};
+use ramag_app::{StaticPluginHost, ToolRegistry};
+use ramag_domain::{PluginDescriptor, PluginId, Tool, ToolMeta};
 
 use super::ActivityBar;
 
@@ -33,12 +34,31 @@ fn registry_with_tools(count: usize) -> Arc<ToolRegistry> {
     registry
 }
 
+fn host_with_registration_failure(registry: Arc<ToolRegistry>) -> Arc<StaticPluginHost> {
+    let host = Arc::new(StaticPluginHost::new(registry));
+    let tool = Arc::new(TestTool {
+        meta: ToolMeta::new("actual-entry", "Actual entry", ""),
+    });
+    let descriptor = PluginDescriptor::new(
+        PluginId::new("broken-plugin").expect("测试插件 ID 应有效"),
+        "失败插件",
+        "declared-entry",
+    );
+    host.register_plugin(Arc::new(ramag_app::StaticPluginAdapter::new(
+        descriptor, tool,
+    )))
+    .expect_err("入口 ID 不一致应被拒绝");
+    host
+}
+
 /// 真实活动栏视图：工具项超出可视高度时，滚动区收缩而固定入口保持可见。
 #[gpui::test]
 fn activity_bar_keeps_fixed_actions_visible_when_tool_list_overflows(cx: &mut TestAppContext) {
     cx.update(gpui_component::init);
     let registry = registry_with_tools(16);
-    let (_, cx) = cx.add_window_view(move |_, cx| ActivityBar::new(registry.clone(), cx));
+    let plugin_host = Arc::new(StaticPluginHost::new(registry.clone()));
+    let (_, cx) = cx
+        .add_window_view(move |_, cx| ActivityBar::new(registry.clone(), plugin_host.clone(), cx));
     let cx: &mut VisualTestContext = cx;
     cx.simulate_resize(size(px(48.0), px(220.0)));
     cx.run_until_parked();
@@ -69,4 +89,26 @@ fn activity_bar_keeps_fixed_actions_visible_when_tool_list_overflows(cx: &mut Te
     assert!(scroll.origin.y >= bar.origin.y);
     assert!(scroll.bottom() <= bar.bottom());
     assert!(last_tool.bottom() > scroll.bottom());
+}
+
+#[gpui::test]
+fn activity_bar_shows_plugin_failure_badge(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let registry = registry_with_tools(1);
+    let plugin_host = host_with_registration_failure(registry.clone());
+    let (_, visual_cx) = cx
+        .add_window_view(move |_, cx| ActivityBar::new(registry.clone(), plugin_host.clone(), cx));
+    visual_cx.simulate_resize(size(px(360.0), px(520.0)));
+    visual_cx.run_until_parked();
+
+    let settings = visual_cx
+        .debug_bounds("activity-settings")
+        .expect("设置入口应渲染");
+    let badge = visual_cx
+        .debug_bounds("activity-settings-badge")
+        .expect("插件故障时设置入口应显示角标");
+    assert!(badge.origin.x >= settings.origin.x);
+    assert!(badge.right() <= settings.right());
+    assert!(badge.origin.y >= settings.origin.y);
+    assert!(badge.bottom() <= settings.bottom());
 }

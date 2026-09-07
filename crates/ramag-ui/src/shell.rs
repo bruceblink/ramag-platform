@@ -10,7 +10,7 @@ use gpui::{
 use gpui_component::{
     ActiveTheme, Icon, IconName, Root, button::ButtonVariants as _, h_flex, v_flex,
 };
-use ramag_app::{DataSyncGate, ToolRegistry};
+use ramag_app::{DataSyncGate, StaticPluginHost, ToolRegistry};
 
 use crate::activity_bar::{ActivityBar, NavEvent, NavTarget};
 
@@ -71,11 +71,12 @@ impl WindowBoundsPref {
 impl Shell {
     pub fn new(
         registry: Arc<ToolRegistry>,
+        plugin_host: Arc<StaticPluginHost>,
         data_sync_gate: Arc<DataSyncGate>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let activity_bar = cx.new(|cx| ActivityBar::new(registry.clone(), cx));
+        let activity_bar = cx.new(|cx| ActivityBar::new(registry.clone(), plugin_host.clone(), cx));
         let data_sync_overlay =
             cx.new(|cx| crate::DataSyncOverlay::new(data_sync_gate.clone(), cx));
         let registry_for_title = registry.clone();

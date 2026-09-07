@@ -15,6 +15,7 @@ pub mod icons;
 pub mod markdown;
 pub mod mutation_gate;
 pub mod platform;
+mod plugin_diagnostics;
 pub mod pointer_menu;
 pub mod preferences;
 pub mod prompt_dialog;
