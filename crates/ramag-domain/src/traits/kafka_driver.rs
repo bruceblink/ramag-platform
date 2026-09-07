@@ -1,14 +1,25 @@
 //! Kafka 只读与管理能力的领域边界。
 
 use async_trait::async_trait;
+use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::entities::{
     KafkaAcl, KafkaAclFilter, KafkaClusterConfig, KafkaClusterMetadata, KafkaConfigResource,
     KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup, KafkaMessagePage,
-    KafkaMessageQuery, KafkaMessageSearchQuery, KafkaTopic, KafkaTopicCreateRequest,
-    KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
+    KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMessageTailEvent, KafkaMessageTailRequest,
+    KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
 };
 use crate::error::Result;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KafkaMessageTailSinkResult {
+    Accepted,
+    Backpressured,
+    Closed,
+}
+
+pub type KafkaMessageTailSink =
+    Arc<dyn Fn(KafkaMessageTailEvent) -> KafkaMessageTailSinkResult + Send + Sync>;
 
 /// Kafka 读取端口；不会提交 Offset，也不修改集群状态。
 #[async_trait]
@@ -62,6 +73,19 @@ pub trait KafkaDriver: Send + Sync {
     ) -> Result<KafkaMessagePage> {
         Err(crate::error::DomainError::NotImplemented(
             "search_messages".into(),
+        ))
+    }
+
+    /// 持续读取明确 Topic/Partition 范围；调用方通过有界 sink 和取消句柄控制生命周期。
+    async fn tail_messages(
+        &self,
+        _config: &KafkaClusterConfig,
+        _request: &KafkaMessageTailRequest,
+        _sink: KafkaMessageTailSink,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "tail_messages".into(),
         ))
     }
 }

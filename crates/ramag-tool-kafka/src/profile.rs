@@ -208,6 +208,7 @@ impl KafkaView {
         self.selected_consumer_group = None;
         self.consumer_group_error = None;
         self.message_page = None;
+        self.clear_message_tail(cx);
         self.selected_message = None;
         self.section = KafkaSection::Config;
         self.security_protocol = KafkaSecurityProtocol::default();
@@ -269,6 +270,7 @@ impl KafkaView {
         self.selected_consumer_group = None;
         self.consumer_group_error = None;
         self.message_page = None;
+        self.clear_message_tail(cx);
         self.selected_message = None;
         self.section = KafkaSection::Overview;
         self.set_form_from_config(&config, window, cx);
@@ -578,6 +580,7 @@ impl KafkaView {
                         this.selected_consumer_group = None;
                         this.consumer_group_error = None;
                         this.message_page = None;
+                        this.clear_message_tail(cx);
                         this.selected_message = None;
                         this.clear_acl_snapshot();
                         this.invalidate_acl_operation();

@@ -20,7 +20,9 @@ pub use doc_driver::DocDriver;
 pub use driver::{CancelHandle, Driver};
 pub use git_driver::GitDriver;
 pub use jumpserver_driver::JumpServerDriver;
-pub use kafka_driver::{KafkaAdminDriver, KafkaDriver};
+pub use kafka_driver::{
+    KafkaAdminDriver, KafkaDriver, KafkaMessageTailSink, KafkaMessageTailSinkResult,
+};
 pub use kafka_transport::KafkaTransport;
 pub use kv_driver::KvDriver;
 pub use object_storage_driver::ObjectStorageDriver;

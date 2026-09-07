@@ -4,9 +4,46 @@ use ramag_domain::entities::{
     KafkaMessageHeader, KafkaMessagePage, KafkaMessageQuery, KafkaMessageRecord,
     KafkaMessageSearchField, KafkaMessageSearchQuery,
 };
+use ramag_domain::entities::{
+    KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart,
+};
+use ramag_domain::traits::{KafkaMessageTailSink, KafkaMessageTailSinkResult};
 use rdkafka::message::{Headers as _, Message};
 use rdkafka::topic_partition_list::{Offset, TopicPartitionList};
+use std::collections::HashMap;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 use std::time::{Duration as StdDuration, Instant};
+
+const MAX_TAIL_RECONNECT_ATTEMPTS: u32 = 3;
+const TAIL_RECONNECT_DELAY: StdDuration = StdDuration::from_millis(500);
+
+#[derive(Default)]
+struct TailDropStats {
+    records: u64,
+    bytes: u64,
+}
+
+impl TailDropStats {
+    fn add(&mut self, bytes: u64) {
+        self.records = self.records.saturating_add(1);
+        self.bytes = self.bytes.saturating_add(bytes);
+    }
+
+    fn event(&self) -> Option<KafkaMessageTailEvent> {
+        (self.records > 0).then(|| KafkaMessageTailEvent::Dropped {
+            records: self.records,
+            bytes: self.bytes,
+        })
+    }
+
+    fn clear(&mut self) {
+        self.records = 0;
+        self.bytes = 0;
+    }
+}
 
 #[derive(Default)]
 struct PartitionScan {
@@ -163,6 +200,229 @@ impl RdkafkaTransport {
         }
         Ok(scanned)
     }
+
+    /// 通过独立消费者持续读取指定分区；事件通道满时丢弃新消息并报告统计，避免无界堆积。
+    pub(super) fn tail_messages_blocking(
+        &self,
+        config: &KafkaClusterConfig,
+        request: &KafkaMessageTailRequest,
+        sink: KafkaMessageTailSink,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        Self::ensure_build_features(config)?;
+        let mut next_offsets = HashMap::with_capacity(request.partitions.len());
+        let mut consumer = self.create_tail_consumer(config, request, &mut next_offsets)?;
+        let mut reconnect_attempt = 0;
+        let mut dropped = TailDropStats::default();
+        if matches!(
+            sink(KafkaMessageTailEvent::Connected { attempt: 0 }),
+            KafkaMessageTailSinkResult::Closed
+        ) {
+            return Ok(());
+        }
+
+        while !cancelled.load(Ordering::Acquire) {
+            match consumer.poll(StdDuration::from_millis(u64::from(
+                request.poll_timeout_millis,
+            ))) {
+                None => {}
+                Some(Ok(message)) => {
+                    reconnect_attempt = 0;
+                    let partition = message.partition();
+                    let offset = message.offset();
+                    if offset >= 0 {
+                        next_offsets.insert(partition, offset.saturating_add(1));
+                    }
+                    let retained_bytes = message_retained_bytes(&message);
+                    if retained_bytes > request.max_message_bytes as u64 {
+                        dropped.add(retained_bytes);
+                        continue;
+                    }
+                    let record = record_from_message(&message);
+                    record.validate().map_err(DomainError::InvalidConfig)?;
+                    if !emit_tail_message(&sink, &mut dropped, record) {
+                        return Ok(());
+                    }
+                }
+                Some(Err(error)) => {
+                    let mapped = errors::map_kafka_error(error, "读取 Kafka 实时消息");
+                    if !is_retryable_tail_error(&mapped) {
+                        return Err(mapped);
+                    }
+                    let Some(reconnected) = self.reconnect_tail_consumer(
+                        config,
+                        request,
+                        &mut next_offsets,
+                        &sink,
+                        &cancelled,
+                        &mut reconnect_attempt,
+                    )?
+                    else {
+                        return Ok(());
+                    };
+                    consumer = reconnected;
+                }
+            }
+        }
+        if let Some(event) = dropped.event() {
+            match sink(event) {
+                KafkaMessageTailSinkResult::Accepted
+                | KafkaMessageTailSinkResult::Backpressured
+                | KafkaMessageTailSinkResult::Closed => {}
+            }
+        }
+        Ok(())
+    }
+
+    fn create_tail_consumer(
+        &self,
+        config: &KafkaClusterConfig,
+        request: &KafkaMessageTailRequest,
+        next_offsets: &mut HashMap<i32, i64>,
+    ) -> Result<BaseConsumer> {
+        let consumer = self.create_consumer(config)?;
+        let mut assignment = TopicPartitionList::new();
+        for &partition in &request.partitions {
+            let offset = if let Some(offset) = next_offsets.get(&partition).copied() {
+                offset
+            } else {
+                let offset =
+                    tail_start_offset(&consumer, request, partition, self.request_timeout)?;
+                next_offsets.insert(partition, offset);
+                offset
+            };
+            assignment
+                .add_partition_offset(&request.topic, partition, Offset::Offset(offset))
+                .map_err(|error| errors::map_kafka_error(error, "分配 Kafka 实时消息 Partition"))?;
+        }
+        consumer
+            .assign(&assignment)
+            .map_err(|error| errors::map_kafka_error(error, "分配 Kafka 实时消息 Partition"))?;
+        Ok(consumer)
+    }
+
+    fn reconnect_tail_consumer(
+        &self,
+        config: &KafkaClusterConfig,
+        request: &KafkaMessageTailRequest,
+        next_offsets: &mut HashMap<i32, i64>,
+        sink: &KafkaMessageTailSink,
+        cancelled: &Arc<AtomicBool>,
+        attempt: &mut u32,
+    ) -> Result<Option<BaseConsumer>> {
+        while *attempt < MAX_TAIL_RECONNECT_ATTEMPTS {
+            *attempt = (*attempt).saturating_add(1);
+            if matches!(
+                sink(KafkaMessageTailEvent::Reconnecting { attempt: *attempt }),
+                KafkaMessageTailSinkResult::Closed
+            ) {
+                return Ok(None);
+            }
+            if wait_for_tail_reconnect(cancelled) {
+                return Ok(None);
+            }
+            match self.create_tail_consumer(config, request, next_offsets) {
+                Ok(consumer) => {
+                    if matches!(
+                        sink(KafkaMessageTailEvent::Connected { attempt: *attempt }),
+                        KafkaMessageTailSinkResult::Closed
+                    ) {
+                        return Ok(None);
+                    }
+                    return Ok(Some(consumer));
+                }
+                Err(error) if is_retryable_tail_error(&error) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Err(DomainError::Kafka(
+            ramag_domain::error::KafkaError::new(
+                ramag_domain::error::KafkaErrorCategory::Network,
+                "重连 Kafka 实时消息",
+                "Kafka 实时消息流重连失败",
+            )
+            .retryable(true),
+        ))
+    }
+}
+
+fn tail_start_offset(
+    consumer: &BaseConsumer,
+    request: &KafkaMessageTailRequest,
+    partition: i32,
+    timeout: StdDuration,
+) -> Result<i64> {
+    match request.start {
+        KafkaMessageTailStart::Offset(offset) => Ok(offset),
+        KafkaMessageTailStart::Earliest | KafkaMessageTailStart::Latest => {
+            let (low, high) = consumer
+                .fetch_watermarks(&request.topic, partition, timeout)
+                .map_err(|error| errors::map_kafka_error(error, "读取 Kafka 实时消息起始位置"))?;
+            Ok(match request.start {
+                KafkaMessageTailStart::Earliest => low.max(0),
+                KafkaMessageTailStart::Latest => high.max(low).max(0),
+                KafkaMessageTailStart::Offset(_) => unreachable!(),
+            })
+        }
+    }
+}
+
+fn message_retained_bytes(message: &rdkafka::message::BorrowedMessage<'_>) -> u64 {
+    let headers = message.headers().map_or(0usize, |headers| {
+        headers.iter().fold(0usize, |total, header| {
+            total
+                .saturating_add(header.key.len())
+                .saturating_add(header.value.map_or(0, <[u8]>::len))
+        })
+    });
+    let total = message
+        .topic()
+        .len()
+        .saturating_add(message.key().map_or(0, <[u8]>::len))
+        .saturating_add(message.payload().map_or(0, <[u8]>::len))
+        .saturating_add(headers);
+    u64::try_from(total).unwrap_or(u64::MAX)
+}
+
+fn emit_tail_message(
+    sink: &KafkaMessageTailSink,
+    dropped: &mut TailDropStats,
+    record: KafkaMessageRecord,
+) -> bool {
+    if let Some(event) = dropped.event() {
+        match sink(event) {
+            KafkaMessageTailSinkResult::Accepted => dropped.clear(),
+            KafkaMessageTailSinkResult::Backpressured => {
+                dropped.add(record.retained_bytes());
+                return true;
+            }
+            KafkaMessageTailSinkResult::Closed => return false,
+        }
+    }
+    let retained_bytes = record.retained_bytes();
+    match sink(KafkaMessageTailEvent::Message(record)) {
+        KafkaMessageTailSinkResult::Accepted => true,
+        KafkaMessageTailSinkResult::Backpressured => {
+            dropped.add(retained_bytes);
+            true
+        }
+        KafkaMessageTailSinkResult::Closed => false,
+    }
+}
+
+fn wait_for_tail_reconnect(cancelled: &AtomicBool) -> bool {
+    let started = Instant::now();
+    while started.elapsed() < TAIL_RECONNECT_DELAY {
+        if cancelled.load(Ordering::Acquire) {
+            return true;
+        }
+        std::thread::sleep(StdDuration::from_millis(50));
+    }
+    false
+}
+
+fn is_retryable_tail_error(error: &DomainError) -> bool {
+    matches!(error, DomainError::Kafka(error) if error.retryable)
 }
 
 fn resolve_query_offset(

@@ -4,7 +4,14 @@
 //! 集群、Topic 或消息样例。所有消息读取都要求用户给出 Topic、Partition、Offset 和
 //! 有界预算，避免误把浏览操作变成无界消费。
 
-use std::{ops::Range, sync::Arc};
+use std::{
+    collections::VecDeque,
+    ops::Range,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use chrono::{DateTime, Utc};
@@ -27,18 +34,20 @@ use ramag_app::KafkaService;
 use ramag_domain::{
     entities::{
         DEFAULT_KAFKA_MAX_BYTES, DEFAULT_KAFKA_MAX_CONCURRENT_PARTITIONS,
-        DEFAULT_KAFKA_MAX_SCAN_SECONDS, KafkaAcl, KafkaAclOperation, KafkaAclPatternType,
+        DEFAULT_KAFKA_MAX_SCAN_SECONDS, DEFAULT_KAFKA_TAIL_WINDOW_BYTES,
+        DEFAULT_KAFKA_TAIL_WINDOW_MESSAGES, KafkaAcl, KafkaAclOperation, KafkaAclPatternType,
         KafkaAclPermission, KafkaAclResourceType, KafkaClusterConfig, KafkaClusterId,
         KafkaClusterMetadata, KafkaConfigEntry, KafkaConfigResourceType,
         KafkaConfigUpdateOperation, KafkaConfigUpdateRequest, KafkaConsumerGroup, KafkaMessagePage,
         KafkaMessageQuery, KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
-        KafkaReadOnlyState, KafkaSaslMechanism, KafkaSecurityProtocol, KafkaTlsConfig, KafkaTopic,
+        KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart, KafkaReadOnlyState,
+        KafkaSaslMechanism, KafkaSecurityProtocol, KafkaTlsConfig, KafkaTopic,
         KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, MAX_KAFKA_ACL_HOST_BYTES,
         MAX_KAFKA_ACL_RESOURCE_NAME_BYTES, MAX_KAFKA_CONFIG_RESOURCE_NAME_BYTES,
         MAX_KAFKA_CONFIG_VALUE_BYTES, MAX_KAFKA_PARTITIONS, MAX_KAFKA_QUERY_PARTITIONS,
         MAX_KAFKA_REPLICAS, MAX_KAFKA_SCAN_RECORDS,
     },
-    traits::{Tool, ToolMeta},
+    traits::{KafkaMessageTailSink, KafkaMessageTailSinkResult, Tool, ToolMeta},
 };
 use serde::Serialize;
 
@@ -49,6 +58,27 @@ const DEFAULT_MESSAGE_PAGE_SIZE: usize = 100;
 const MESSAGE_TABLE_MIN_WIDTH: f32 = 720.0;
 const COMPACT_MESSAGE_RESULTS_HEIGHT: f32 = 480.0;
 const DEFAULT_TOPIC_PAGE_SIZE: usize = 50;
+const MESSAGE_TAIL_CHANNEL_CAPACITY: usize = 8;
+const MESSAGE_TAIL_RESULTS_HEIGHT: f32 = 260.0;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum KafkaTailStartMode {
+    Latest,
+    Earliest,
+    Offset,
+}
+
+impl KafkaTailStartMode {
+    const ALL: [Self; 3] = [Self::Latest, Self::Earliest, Self::Offset];
+
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Latest => "Latest",
+            Self::Earliest => "Earliest",
+            Self::Offset => "Offset",
+        }
+    }
+}
 
 /// 创建 Kafka 工具的主视图，窗口生命周期由主壳持有。
 pub fn create_kafka_view(
@@ -150,6 +180,20 @@ pub struct KafkaView {
     selected_consumer_group: Option<String>,
     consumer_group_error: Option<String>,
     message_page: Option<KafkaMessagePage>,
+    message_tail_records: VecDeque<KafkaMessageRecord>,
+    message_tail_bytes: u64,
+    message_tail_dropped_records: u64,
+    message_tail_dropped_bytes: u64,
+    message_tail_evicted_records: u64,
+    message_tail_evicted_bytes: u64,
+    message_tail_window_messages: usize,
+    message_tail_window_bytes: u64,
+    message_tail_scroll: UniformListScrollHandle,
+    message_tail_reconnect_attempt: u32,
+    message_tail_connected: bool,
+    message_tail_paused: bool,
+    message_tail_running: bool,
+    selected_tail_message: Option<usize>,
     selected_message: Option<usize>,
     message_page_index: usize,
     message_page_size: usize,
@@ -196,8 +240,14 @@ pub struct KafkaView {
     start_time_input: Entity<InputState>,
     end_time_input: Entity<InputState>,
     max_records_input: Entity<InputState>,
+    message_tail_offset_input: Entity<InputState>,
+    message_tail_window_messages_input: Entity<InputState>,
+    message_tail_window_bytes_input: Entity<InputState>,
+    message_tail_max_message_bytes_input: Entity<InputState>,
+    message_tail_poll_timeout_input: Entity<InputState>,
     search_fields: [bool; 3],
     range_mode: KafkaRangeMode,
+    message_tail_start_mode: KafkaTailStartMode,
     security_protocol: KafkaSecurityProtocol,
     sasl_mechanism: KafkaSaslMechanism,
     config_resource_type: KafkaConfigResourceType,
@@ -230,6 +280,8 @@ pub struct KafkaView {
     cluster_request_id: u64,
     runtime_request_id: u64,
     message_request_id: u64,
+    message_tail_request_id: u64,
+    message_tail_cancelled: Option<Arc<AtomicBool>>,
     consumer_group_request_id: u64,
     config_request_id: u64,
     acl_request_id: u64,
@@ -353,6 +405,13 @@ impl KafkaView {
         let start_time_input = input(window, cx, 64, "起始时间 RFC3339（可选）", false, "");
         let end_time_input = input(window, cx, 64, "结束时间 RFC3339（可选）", false, "");
         let max_records_input = input(window, cx, 32, "最多读取条数", false, "200");
+        let message_tail_offset_input = input(window, cx, 32, "实时起始 Offset", false, "0");
+        let message_tail_window_messages_input = input(window, cx, 32, "窗口条数", false, "500");
+        let message_tail_window_bytes_input =
+            input(window, cx, 32, "窗口字节数", false, "16777216");
+        let message_tail_max_message_bytes_input =
+            input(window, cx, 32, "单条最大字节数", false, "4194304");
+        let message_tail_poll_timeout_input = input(window, cx, 16, "轮询毫秒", false, "250");
 
         let mut subscriptions = Vec::new();
         for field in [
@@ -386,6 +445,11 @@ impl KafkaView {
             &start_time_input,
             &end_time_input,
             &max_records_input,
+            &message_tail_offset_input,
+            &message_tail_window_messages_input,
+            &message_tail_window_bytes_input,
+            &message_tail_max_message_bytes_input,
+            &message_tail_poll_timeout_input,
         ] {
             subscriptions.push(cx.subscribe(field, |this, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
@@ -403,6 +467,15 @@ impl KafkaView {
                         .borrow()
                         .base_handle
                         .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+                    this.notice = None;
+                    cx.notify();
+                }
+            }),
+        );
+        subscriptions.push(
+            cx.subscribe(&topic_input, |this, _, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    this.invalidate_message_tail();
                     this.notice = None;
                     cx.notify();
                 }
@@ -446,6 +519,20 @@ impl KafkaView {
             selected_consumer_group: None,
             consumer_group_error: None,
             message_page: None,
+            message_tail_records: VecDeque::new(),
+            message_tail_bytes: 0,
+            message_tail_dropped_records: 0,
+            message_tail_dropped_bytes: 0,
+            message_tail_evicted_records: 0,
+            message_tail_evicted_bytes: 0,
+            message_tail_window_messages: DEFAULT_KAFKA_TAIL_WINDOW_MESSAGES,
+            message_tail_window_bytes: DEFAULT_KAFKA_TAIL_WINDOW_BYTES,
+            message_tail_scroll: UniformListScrollHandle::new(),
+            message_tail_reconnect_attempt: 0,
+            message_tail_connected: false,
+            message_tail_paused: false,
+            message_tail_running: false,
+            selected_tail_message: None,
             selected_message: None,
             message_page_index: 0,
             message_page_size: DEFAULT_MESSAGE_PAGE_SIZE,
@@ -492,8 +579,14 @@ impl KafkaView {
             start_time_input,
             end_time_input,
             max_records_input,
+            message_tail_offset_input,
+            message_tail_window_messages_input,
+            message_tail_window_bytes_input,
+            message_tail_max_message_bytes_input,
+            message_tail_poll_timeout_input,
             search_fields: [true, true, true],
             range_mode: KafkaRangeMode::Offset,
+            message_tail_start_mode: KafkaTailStartMode::Latest,
             security_protocol: KafkaSecurityProtocol::default(),
             sasl_mechanism: KafkaSaslMechanism::Plain,
             config_resource_type: KafkaConfigResourceType::Topic,
@@ -526,6 +619,8 @@ impl KafkaView {
             cluster_request_id: 0,
             runtime_request_id: 0,
             message_request_id: 0,
+            message_tail_request_id: 0,
+            message_tail_cancelled: None,
             consumer_group_request_id: 0,
             config_request_id: 0,
             acl_request_id: 0,

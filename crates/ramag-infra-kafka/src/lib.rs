@@ -8,6 +8,7 @@ mod consumer_groups;
 pub mod errors;
 #[cfg(feature = "cmake-build")]
 mod messages;
+use ramag_domain::entities::KafkaMessageTailRequest;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{
     KafkaBroker, KafkaClusterMetadata, KafkaPartition, KafkaTopic, MAX_KAFKA_BROKERS,
@@ -15,13 +16,14 @@ use ramag_domain::entities::{
 };
 use ramag_domain::entities::{KafkaClusterConfig, KafkaTransportCapabilities};
 use ramag_domain::error::{DomainError, KafkaError, KafkaErrorCategory, Result};
-use ramag_domain::traits::{KafkaDriver, KafkaTransport};
+use ramag_domain::traits::{KafkaDriver, KafkaMessageTailSink, KafkaTransport};
 #[cfg(feature = "cmake-build")]
 use rdkafka::admin::AdminClient;
 #[cfg(feature = "cmake-build")]
 use rdkafka::client::DefaultClientContext;
 #[cfg(feature = "cmake-build")]
 use rdkafka::consumer::{BaseConsumer, Consumer};
+use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 use tracing::{debug, info};
 pub const DEFAULT_KAFKA_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
@@ -119,6 +121,19 @@ impl RdkafkaTransport {
         let _ = self.request_timeout;
         Self::ensure_build_features(config)?;
         Err(native_client_unavailable("读取 Kafka 消息"))
+    }
+
+    #[cfg(not(feature = "cmake-build"))]
+    fn tail_messages_blocking(
+        &self,
+        config: &KafkaClusterConfig,
+        _request: &KafkaMessageTailRequest,
+        _sink: KafkaMessageTailSink,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        let _ = self.request_timeout;
+        Self::ensure_build_features(config)?;
+        Err(native_client_unavailable("读取 Kafka 实时消息流"))
     }
 
     #[cfg(feature = "cmake-build")]
@@ -363,6 +378,22 @@ impl KafkaDriver for RdkafkaTransport {
         let config = config.clone();
         let query = query.clone();
         smol::unblock(move || driver.scan_messages_blocking(&config, &query.scan, Some(&query)))
+            .await
+    }
+
+    async fn tail_messages(
+        &self,
+        config: &KafkaClusterConfig,
+        request: &KafkaMessageTailRequest,
+        sink: KafkaMessageTailSink,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        config.validate().map_err(DomainError::InvalidConfig)?;
+        request.validate().map_err(DomainError::InvalidConfig)?;
+        let driver = *self;
+        let config = config.clone();
+        let request = request.clone();
+        smol::unblock(move || driver.tail_messages_blocking(&config, &request, sink, cancelled))
             .await
     }
 }

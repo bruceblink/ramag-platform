@@ -17,6 +17,8 @@ pub struct KafkaService {
     storage: Arc<dyn Storage>,
 }
 
+mod tail;
+
 impl KafkaService {
     pub fn new(driver: Arc<dyn KafkaDriver>, storage: Arc<dyn Storage>) -> Self {
         Self {

@@ -40,7 +40,8 @@ pub use kafka_message::{
 };
 pub use kafka_metadata::{KafkaBroker, KafkaClusterMetadata, KafkaPartition, KafkaTopic};
 pub use kafka_transport::{
-    KafkaTransportBackend, KafkaTransportCapabilities, KafkaTransportCapability,
+    KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart, KafkaTransportBackend,
+    KafkaTransportCapabilities, KafkaTransportCapability,
 };
 pub use kafka_validation::{
     preview_bytes, validate_kafka_bootstrap_server, validate_kafka_managed_topic_name,
@@ -77,6 +78,15 @@ pub const MAX_KAFKA_SCAN_RECORDS: usize = 50_000;
 pub const MAX_KAFKA_SCAN_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_KAFKA_SCAN_SECONDS: u32 = 300;
 pub const MAX_KAFKA_CONCURRENT_PARTITIONS: usize = 32;
+
+pub const DEFAULT_KAFKA_TAIL_WINDOW_MESSAGES: usize = 500;
+pub const DEFAULT_KAFKA_TAIL_WINDOW_BYTES: u64 = 16 * 1024 * 1024;
+pub const DEFAULT_KAFKA_TAIL_MAX_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
+pub const DEFAULT_KAFKA_TAIL_POLL_TIMEOUT_MILLIS: u32 = 250;
+pub const MAX_KAFKA_TAIL_WINDOW_MESSAGES: usize = 10_000;
+pub const MAX_KAFKA_TAIL_WINDOW_BYTES: u64 = MAX_KAFKA_SCAN_BYTES;
+pub const MAX_KAFKA_TAIL_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
+pub const MAX_KAFKA_TAIL_POLL_TIMEOUT_MILLIS: u32 = 1_000;
 
 pub const MAX_KAFKA_CONSUMER_GROUPS: usize = 100_000;
 pub const MAX_KAFKA_GROUP_MEMBERS: usize = 10_000;
