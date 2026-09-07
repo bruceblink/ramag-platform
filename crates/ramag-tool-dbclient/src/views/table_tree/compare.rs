@@ -1,6 +1,6 @@
 //! 表树中的 SQL 表结构对比入口。
 
-use gpui::{AppContext as _, Context, ParentElement, Window, px};
+use gpui::{AppContext as _, Context, ParentElement, Styled as _, Window};
 use gpui_component::{WindowExt as _, notification::Notification};
 use ramag_domain::entities::{ConnectionConfig, DriverKind, MAX_CONNECTION_IDENTIFIER_BYTES};
 use ramag_ui::open_bounded_prompt;
@@ -181,7 +181,7 @@ impl TableTreePanel {
                 cx,
             )
         });
-        window.open_dialog(cx, move |dialog, _, _| {
+        window.open_dialog(cx, move |dialog, window, _| {
             let panel_for_content = panel.clone();
             dialog
                 .title(format!(
@@ -193,8 +193,9 @@ impl TableTreePanel {
                     target.schema,
                     target.table
                 ))
-                .width(px(1120.0))
-                .margin_top(px(55.0))
+                .width(ramag_ui::responsive_dialog_width(window, 1120.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .content(move |content, _, _| content.child(panel_for_content.clone()))
         });
     }

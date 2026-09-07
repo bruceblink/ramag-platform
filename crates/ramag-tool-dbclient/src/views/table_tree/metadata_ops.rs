@@ -399,7 +399,10 @@ fn open_sql_editor(
     let on_submit: Rc<SqlEditorSubmit> = Rc::new(on_submit);
     let title = title.into();
     let description = description.into();
-    window.open_dialog(cx, move |dialog, _, _| {
+    window.open_dialog(cx, move |dialog, window, _| {
+        let input_height = (ramag_ui::responsive_dialog_max_height(window) - px(150.0))
+            .max(px(96.0))
+            .min(px(420.0));
         let input_for_content = input.clone();
         let input_for_button = input.clone();
         let input_for_enter = input.clone();
@@ -427,8 +430,9 @@ fn open_sql_editor(
                 |_, _| {},
             ))
             .close_button(false)
-            .width(px(820.0))
-            .margin_top(px(90.0))
+            .width(ramag_ui::responsive_dialog_width(window, 820.0))
+            .max_h(ramag_ui::responsive_dialog_max_height(window))
+            .margin_top(ramag_ui::responsive_dialog_top(window))
             .on_ok(move |_, window, app| {
                 let sql = input_for_enter.read(app).value().to_string();
                 submit_for_enter(sql, window, app)
@@ -446,7 +450,7 @@ fn open_sql_editor(
                                     .text_color(cx.theme().muted_foreground)
                                     .child(description_for_content.clone()),
                             )
-                            .child(Input::new(&input_for_content).h(px(420.0))),
+                            .child(Input::new(&input_for_content).h(input_height)),
                     )
                 }
             })

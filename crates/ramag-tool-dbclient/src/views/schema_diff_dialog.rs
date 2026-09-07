@@ -257,6 +257,9 @@ impl Render for SchemaDiffDialog {
         }
         let theme = cx.theme().clone();
         let theme = &theme;
+        let body_height = (ramag_ui::responsive_dialog_max_height(window) - px(112.0))
+            .max(px(80.0))
+            .min(px(DIFF_VIEW_HEIGHT));
         let sections = self
             .source
             .as_ref()
@@ -299,10 +302,10 @@ impl Render for SchemaDiffDialog {
             .zip(self.target.as_ref())
             .and_then(|(source, target)| self.render_warnings(source, target, theme));
         let body = if self.migration_visible {
-            self.render_migration_panel(migration.as_ref(), theme, cx)
+            self.render_migration_panel(migration.as_ref(), theme, body_height, cx)
         } else if self.loading && sections.is_none() {
             v_flex()
-                .h(px(DIFF_VIEW_HEIGHT))
+                .h(body_height)
                 .items_center()
                 .justify_center()
                 .gap(px(8.0))
@@ -313,7 +316,7 @@ impl Render for SchemaDiffDialog {
                 .into_any_element()
         } else if let Some(error) = &self.error {
             v_flex()
-                .h(px(DIFF_VIEW_HEIGHT))
+                .h(body_height)
                 .items_center()
                 .justify_center()
                 .gap(px(8.0))
@@ -328,7 +331,7 @@ impl Render for SchemaDiffDialog {
             }
             div()
                 .relative()
-                .h(px(DIFF_VIEW_HEIGHT))
+                .h(body_height)
                 .w_full()
                 .child(
                     div()
@@ -377,7 +380,7 @@ impl Render for SchemaDiffDialog {
                 .into_any_element()
         } else {
             v_flex()
-                .h(px(DIFF_VIEW_HEIGHT))
+                .h(body_height)
                 .items_center()
                 .justify_center()
                 .text_xs()

@@ -119,8 +119,9 @@ impl Render for ConnectionFormPanel {
         let muted_fg = theme.muted_foreground;
         let border = theme.border;
         // 小窗口仅滚动主体，保持操作区可见。
-        let viewport_h = window.viewport_size().height;
-        let body_max_h = (viewport_h * 0.9 - px(210.0)).max(px(200.0));
+        let compact = window.viewport_size().width < px(680.0);
+        let dialog_max_h = ramag_ui::responsive_dialog_max_height(window);
+        let body_max_h = (dialog_max_h - px(150.0)).max(px(96.0));
 
         // 失败信息完整显示。
         let (test_msg, test_failed) = match &self.test_state {
@@ -169,6 +170,7 @@ impl Render for ConnectionFormPanel {
                     .debug_selector(|| "conn-form-uri-row".into())
                     .w_full()
                     .items_end()
+                    .when(compact, |row| row.flex_col().items_stretch())
                     .gap(px(8.0))
                     .child(div().flex_1().min_w_0().child(field_row(
                         "连接 URI（编辑时不含密码）",
@@ -195,6 +197,7 @@ impl Render for ConnectionFormPanel {
                                 .debug_selector(|| "conn-form-sqlite-fields".into())
                                 .w_full()
                                 .gap(px(12.0))
+                                .when(compact, |row| row.flex_col().items_stretch())
                                 .child(div().flex_1().min_w_0().child(field_row(
                                     "名称",
                                     Input::new(&self.name).disabled(self.saving),
@@ -218,6 +221,7 @@ impl Render for ConnectionFormPanel {
                             h_flex()
                                 .w_full()
                                 .gap(px(12.0))
+                                .when(compact, |row| row.flex_col().items_stretch())
                                 .child(div().flex_1().min_w_0().child(field_row(
                                     "Host",
                                     Input::new(&self.host).disabled(self.saving),
@@ -231,6 +235,7 @@ impl Render for ConnectionFormPanel {
                             h_flex()
                                 .w_full()
                                 .gap(px(12.0))
+                                .when(compact, |row| row.flex_col().items_stretch())
                                 .child(div().flex_1().min_w_0().child(field_row(
                                     "名称",
                                     Input::new(&self.name).disabled(self.saving),
@@ -250,6 +255,7 @@ impl Render for ConnectionFormPanel {
                         h_flex()
                             .w_full()
                             .gap(px(12.0))
+                            .when(compact, |row| row.flex_col().items_stretch())
                             .child(div().flex_1().min_w_0().child(field_row(
                                 username_label,
                                 Input::new(&self.username).disabled(self.saving),
@@ -335,7 +341,11 @@ impl Render for ConnectionFormPanel {
                     .when(self.tls, |this| {
                         // 加密不等于验证对端身份。
                         let current = self.tls_verify;
-                        let mut verify_row = h_flex().w_full().items_center().gap(px(8.0));
+                        let mut verify_row = h_flex()
+                            .w_full()
+                            .flex_wrap()
+                            .items_center()
+                            .gap(px(8.0));
                         for (mode, label) in [
                             (
                                 ramag_domain::entities::TlsVerify::Full,
@@ -399,6 +409,7 @@ impl Render for ConnectionFormPanel {
                         h_flex()
                             .w_full()
                             .gap(px(12.0))
+                            .when(compact, |row| row.flex_col().items_stretch())
                             .child(div().flex_1().min_w_0().child(field_row(
                                 "SSH 跳板（需密钥或 agent）",
                                 Input::new(&self.ssh_target).disabled(self.saving),
@@ -422,6 +433,7 @@ impl Render for ConnectionFormPanel {
                     .debug_selector(|| "conn-form-footer".into())
                     .w_full()
                     .items_center()
+                    .when(compact, |row| row.flex_col().items_stretch())
                     .justify_between()
                     .child(
                         h_flex()
@@ -483,6 +495,7 @@ impl Render for ConnectionFormPanel {
                             .items_center()
                             .gap(px(8.0))
                             .flex_none()
+                            .when(compact, |row| row.justify_end())
                             .child(div().debug_selector(|| "cancel".into()).flex_none().child(
                                 ramag_ui::clickable_button("cancel")
                                     .ghost()

@@ -335,12 +335,13 @@ impl ConnectionSession {
         let panel = cx.new(|cx| {
             SchemaDiagramPanel::new(service, self.config.clone(), schema.clone(), window, cx)
         });
-        window.open_dialog(cx, move |dialog, _, _| {
+        window.open_dialog(cx, move |dialog, window, _| {
             let panel = panel.clone();
             dialog
                 .title(format!("Schema Diagram · {schema}"))
-                .width(px(1240.0))
-                .margin_top(px(32.0))
+                .width(ramag_ui::responsive_dialog_width(window, 1240.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .content(move |content, _, _| content.child(panel.clone()))
         });
     }

@@ -1,8 +1,8 @@
 //! 查询结果差异对话框：使用 Git 风格的行标记展示已加载范围内的变化。
 
 use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Render, ScrollHandle, Styled,
-    Window, div, prelude::*, px,
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Pixels, Render, ScrollHandle,
+    Styled, Window, div, prelude::*, px,
 };
 use gpui_component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, Theme,
@@ -342,10 +342,15 @@ impl ResultDiffDialog {
         )
     }
 
-    fn render_scrollable(&self, content: impl IntoElement, theme: &Theme) -> AnyElement {
+    fn render_scrollable(
+        &self,
+        content: impl IntoElement,
+        theme: &Theme,
+        height: Pixels,
+    ) -> AnyElement {
         div()
             .relative()
-            .h(px(DIFF_VIEW_HEIGHT))
+            .h(height)
             .w_full()
             .child(
                 div()
@@ -396,8 +401,11 @@ impl ResultDiffDialog {
 }
 
 impl Render for ResultDiffDialog {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
+        let view_height = (ramag_ui::responsive_dialog_max_height(window) - px(112.0))
+            .max(px(80.0))
+            .min(px(DIFF_VIEW_HEIGHT));
         let copy_text = self
             .diff
             .as_ref()
@@ -459,7 +467,7 @@ impl Render for ResultDiffDialog {
 
         let body: AnyElement = if self.loading {
             v_flex()
-                .h(px(DIFF_VIEW_HEIGHT))
+                .h(view_height)
                 .items_center()
                 .justify_center()
                 .gap(px(8.0))
@@ -470,7 +478,7 @@ impl Render for ResultDiffDialog {
                 .into_any_element()
         } else if let Some(error) = &self.error {
             v_flex()
-                .h(px(DIFF_VIEW_HEIGHT))
+                .h(view_height)
                 .items_center()
                 .justify_center()
                 .gap(px(8.0))
@@ -506,10 +514,10 @@ impl Render for ResultDiffDialog {
                     theme,
                 ));
             }
-            self.render_scrollable(content, theme)
+            self.render_scrollable(content, theme, view_height)
         } else {
             v_flex()
-                .h(px(DIFF_VIEW_HEIGHT))
+                .h(view_height)
                 .items_center()
                 .justify_center()
                 .text_xs()

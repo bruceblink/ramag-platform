@@ -2,17 +2,12 @@
 
 use gpui::{
     AppContext as _, Context, InteractiveElement as _, ParentElement, SharedString, Styled as _,
-    Window, div, px,
+    Window, div,
 };
 use gpui_component::WindowExt as _;
 
 use super::QueryPanel;
 use crate::views::history_dialog::{HistoryEvent, HistoryList};
-
-fn responsive_dialog_width(window: &Window, preferred: f32) -> gpui::Pixels {
-    let available = f32::from(window.viewport_size().width);
-    px((available - 32.0).max(160.0).min(preferred))
-}
 
 impl QueryPanel {
     /// 打开查询历史弹框：搜索 / 复制 / 填入 / 重跑 / 删除 / 清空。
@@ -66,7 +61,9 @@ impl QueryPanel {
                 .on_close(move |_, _, app| {
                     panel_for_close.update(app, |this, _| this.history_sub = None);
                 })
-                .width(responsive_dialog_width(window, 760.0))
+                .width(ramag_ui::responsive_dialog_width(window, 760.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .content(move |content, _, _| content.child(list.clone()))
         });
     }

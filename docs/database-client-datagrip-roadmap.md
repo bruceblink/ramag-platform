@@ -58,6 +58,7 @@ Ramag 已经具备多数据库连接、Schema 浏览、查询编辑、结果编�
 - `UI-003` 的查询控制台顶部工具栏已在 `05874b5` 完成第二个切片：SQL/MongoDB 标签区可收缩并保留横向滚动，历史、示例和格式化操作区在 360px、1024px、1440px headless 窗口中保持可见且未越出工具栏；详情查看器、查询历史内容和失败重试流程仍未完成。
 - `UI-003` 的详情查看器已在 `e6854be` 完成第三个切片：SQL 查看器保留长正文的水平滚动，MongoDB 查看器按当前窗口可用宽度收缩；`selected_cell_value_viewer_stays_inside_three_window_widths` 和 `mongo_cell_detail_stays_inside_three_window_widths` 在 360px、1024px、1440px headless 窗口中检查内容区域、滚动区域和关闭后的清理；查询历史和失败重试仍未完成。
 - `UI-003` 的查询历史已在 `79a9f18` 完成第四个切片：SQL/MongoDB 历史弹框按当前窗口宽度和高度收缩，搜索区、数量/状态提示、清空按钮和记录行操作组允许换行；带长查询记录和状态提示的 headless 测试在 360px、1024px、1440px 窗口中检查子项边界和重叠。失败重试、真实 Windows 窗口和实际数据库连接证据仍待补充。
+- `UI-001` 数据库工作台弹窗切片已完成：连接选择、连接表单、数据同步、查询历史、单元格查看、结果差异、Schema Diagram、表结构差异、表设计、元数据 SQL 和删除确认统一使用 `ramag-ui` 的视口宽度/顶部偏移/最大高度计算；连接表单和连接选择器在 680px 以下纵向重排，长正文保留水平或垂直滚动。`cargo test --locked -p ramag-tool-dbclient --lib` 通过 285 项，已有查询历史、结果查看、连接表单和表设计 headless 检查覆盖 360/1024/1440px；真实 Windows 窗口和实际数据库连接证据仍待补充。
 
 - P0 结果查看模式已在本次切片完成：结果工具栏提供表格、树形、文本和转置模式，树形展开明细设置 50,000 项上限，替代模式复用结果派生视图、双轴滚动和分页状态；模式切换不触发数据库请求，未提交单元格修改时禁止离开表格模式。`result_view_modes_keep_loaded_selection_and_render_each_surface` 和 `alternate_result_status_keeps_paging_controls_visible_in_small_window` 覆盖本地渲染、选中状态保持以及 280/360/1024px headless 窗口；真实 Windows 窗口证据仍受 `computer-use` 不可用限制，不能以 headless 结果代替真实窗口验收。
 

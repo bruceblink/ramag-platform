@@ -29,6 +29,10 @@ pub(super) fn open(
     cx: &mut Context<ResultPanel>,
 ) {
     let read_only = read_only_reason.is_some();
+    let dialog_width = ramag_ui::responsive_dialog_width(window, 760.0);
+    let dialog_max_height = ramag_ui::responsive_dialog_max_height(window);
+    let dialog_top = ramag_ui::responsive_dialog_top(window);
+    let input_height = (dialog_max_height - px(110.0)).max(px(90.0)).min(px(420.0));
     let col_name = super::inline_text_preview(&col_name, 80);
     let title: SharedString = if read_only {
         format!("查看 行 {} · {}", ri + 1, col_name).into()
@@ -99,8 +103,9 @@ pub(super) fn open(
             ))
             .close_button(false)
             // 显式宽度让 Dialog 在水平方向居中（gpui-component 内部用 width/2 算 x）
-            .width(px(760.0))
-            .margin_top(px(120.0))
+            .width(dialog_width)
+            .max_h(dialog_max_height)
+            .margin_top(dialog_top)
             .content(move |content, _, cx| {
                 let theme = cx.theme();
                 let muted_fg = theme.muted_foreground;
@@ -127,12 +132,13 @@ pub(super) fn open(
                         .child(hint)
                         // 显式给 Input 一个固定高度才能真正渲染成多行文本域
                         // 否则被 dialog content 的默认布局压成单行
-                        .child(Input::new(&input_for_content).h(px(420.0))),
+                        .child(Input::new(&input_for_content).h(input_height)),
                 )
             })
             .footer(
                 h_flex()
                     .w_full()
+                    .flex_wrap()
                     .items_center()
                     .justify_end()
                     .gap(px(8.0))
