@@ -16,7 +16,7 @@ struct PartitionScan {
     truncated: bool,
 }
 
-impl RdkafkaDriver {
+impl RdkafkaTransport {
     /// 在独立消费者上按 Partition 顺序扫描，返回结果和扫描预算统计。
     pub(super) fn scan_messages_blocking(
         &self,

@@ -124,7 +124,7 @@ pub(super) fn build_mongo_service(storage: Arc<dyn Storage>) -> Arc<MongoService
 }
 
 pub(super) fn build_kafka_service(storage: Arc<dyn Storage>) -> Arc<KafkaService> {
-    let driver = Arc::new(RdkafkaDriver::new());
+    let driver = Arc::new(RdkafkaTransport::new());
     let read_driver: Arc<dyn KafkaDriver> = driver.clone();
     let admin_driver: Arc<dyn KafkaAdminDriver> = driver;
     Arc::new(KafkaService::new(read_driver, storage).with_admin_driver(admin_driver))

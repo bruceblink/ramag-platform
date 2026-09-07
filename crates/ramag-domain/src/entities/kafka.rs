@@ -12,6 +12,8 @@ mod kafka_consumer;
 mod kafka_message;
 #[path = "kafka_metadata.rs"]
 mod kafka_metadata;
+#[path = "kafka_transport.rs"]
+mod kafka_transport;
 #[path = "kafka_validation.rs"]
 mod kafka_validation;
 
@@ -37,6 +39,9 @@ pub use kafka_message::{
     KafkaMessageSearchField, KafkaMessageSearchQuery, KafkaTextPreview,
 };
 pub use kafka_metadata::{KafkaBroker, KafkaClusterMetadata, KafkaPartition, KafkaTopic};
+pub use kafka_transport::{
+    KafkaTransportBackend, KafkaTransportCapabilities, KafkaTransportCapability,
+};
 pub use kafka_validation::{
     preview_bytes, validate_kafka_bootstrap_server, validate_kafka_managed_topic_name,
     validate_kafka_topic_name,

@@ -6,7 +6,7 @@ use crate::entities::{
     KafkaAcl, KafkaAclFilter, KafkaClusterConfig, KafkaClusterMetadata, KafkaConfigResource,
     KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup, KafkaMessagePage,
     KafkaMessageQuery, KafkaMessageSearchQuery, KafkaTopic, KafkaTopicCreateRequest,
-    KafkaTopicPartitionExpansion,
+    KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
 };
 use crate::error::Result;
 
@@ -15,6 +15,11 @@ use crate::error::Result;
 pub trait KafkaDriver: Send + Sync {
     fn name(&self) -> &'static str {
         "kafka"
+    }
+
+    /// 返回当前传输适配器的能力快照；应用层据此展示明确的不可用原因。
+    fn transport_capabilities(&self) -> KafkaTransportCapabilities {
+        KafkaTransportCapabilities::unknown()
     }
 
     async fn test_connection(&self, config: &KafkaClusterConfig) -> Result<()>;

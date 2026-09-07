@@ -175,6 +175,20 @@ fn service_with_admin(admin: Arc<dyn KafkaAdminDriver>) -> KafkaService {
 }
 
 #[test]
+fn service_exposes_transport_capabilities_without_client_types() {
+    let service = service_with_admin(Arc::new(RecordingAdminDriver {
+        calls: Arc::new(Mutex::new(Vec::new())),
+    }));
+    let capabilities = service.transport_capabilities();
+    assert_eq!(
+        capabilities.backend,
+        ramag_domain::entities::KafkaTransportBackend::TestDouble
+    );
+    assert!(!capabilities.build_available);
+    assert!(!capabilities.metadata);
+}
+
+#[test]
 fn application_boundary_rejects_invalid_driver_snapshots() {
     let metadata = KafkaClusterMetadata {
         cluster_id: None,

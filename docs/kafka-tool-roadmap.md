@@ -325,7 +325,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 | 顺序 | 建议提交信息 | 交付内容 | 主要验收证据 |
 |---:|---|---|---|
 | 18 | `chore(kafka): define transport capability matrix` | 已在 [`kafka-transport-capability-matrix.md`](kafka-transport-capability-matrix.md) 建立 Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 矩阵；记录纯 Rust 方案、当前 native 方案和缺失能力 | Windows 默认 feature 测试和 feature 树核对通过；Docker、TLS/SASL、Linux/macOS 和纯 Rust 证据按文档保留未完成项 |
-| 19 | `refactor(kafka): isolate transport boundary` | 增加 `KafkaTransport` 适配边界，禁止 Domain、App 和 UI 依赖具体 Kafka 客户端类型；统一超时、取消、错误和能力检测 | `cargo build --workspace --locked`、workspace Clippy、适配器单元测试 |
+| 19 | `refactor(kafka): isolate transport boundary` | 已增加 `KafkaTransport` 适配边界；领域能力快照和 `KafkaService` 不依赖具体客户端类型，native 实现使用 `RdkafkaTransport`，保留 `RdkafkaDriver` 兼容别名 | 目标 crate 测试和格式检查通过；workspace 完整构建、Clippy 和 native Docker 复核仍受 Windows/Docker 环境限制 |
 | 20 | `feat(kafka): add live message tail` | Topic/Partition 实时 Tail、暂停、停止、断线状态、过滤、速率、有限窗口和导出；不提交业务 Offset | Docker 多 Partition 生产者、Tail 取消/重连/背压测试、GPUI headless 与 Windows 验收 |
 | 21 | `feat(kafka): add kafka metrics snapshots` | `KafkaMonitoringDriver`、集群/Topic/Partition/Consumer Group 指标模型、Lag 快照、high watermark 速率采样和按集群刷新任务 | 固定 Offset、Lag 趋势、速率采样、切换集群和迟到结果测试 |
 | 22 | `feat(kafka): complete workbench overview` | 概览页整合 Broker 健康、Topic/Partition 健康、Consumer Group Lag、实时数据时间和来源状态 | 360/900/1440 窗口 headless 布局、真实 Windows 截图、Docker 集成测试 |
@@ -336,6 +336,12 @@ Kafka 工作台必须满足统一跨平台构建目标：
 
 - 2026-09-07 完成阶段 18 传输能力矩阵：明确 `ramag-infra-kafka` 默认 feature 不启用 native 客户端、`ramag-bin` 显式启用 `cmake-build`，并逐项记录 Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 的代码入口、构建条件、服务证据和纯 Rust 缺口；详见 [`kafka-transport-capability-matrix.md`](kafka-transport-capability-matrix.md)。
 - 2026-09-07 默认 feature 测试通过 5 项；Docker 当前不可用，未把历史明文 KRaft 集成结果冒充本次复核；TLS/SASL Broker、Authorizer、纯 Rust 客户端和 Linux/macOS 构建继续标记为未完成。
+
+阶段 19 实施记录：
+
+- 增加 `KafkaTransport` trait 和 `KafkaTransportCapabilities` 快照，明确 Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 与当前 feature 的关系；应用层通过 `KafkaService::transport_capabilities` 读取结果。
+- native 适配器正式命名为 `RdkafkaTransport`；旧的 `RdkafkaDriver` 仅保留兼容别名，现有 `KafkaDriver` 和 `KafkaAdminDriver` 用户流程不变。
+- `ramag-domain` 154 项、`ramag-infra-kafka` 默认 feature 6 项、`ramag-app` 189 项、`ramag-tool-kafka` 18 项测试通过；Windows GNU 格式检查通过。
 
 - `ramag-infra-kafka` 通过可选 workspace 依赖接入 `rdkafka`；默认构建不触发 native 构建，显式启用 `cmake-build` 后才使用 CMake 构建 `librdkafka`。
 - `tls`/`kafka-tls` 和 `sasl`/`kafka-sasl` 是独立可选能力；TLS/SASL 配置在未启用对应构建能力时返回明确的不支持错误。

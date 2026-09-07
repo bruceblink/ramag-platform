@@ -4,6 +4,27 @@ use super::*;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::MAX_KAFKA_GROUP_ASSIGNMENT_BYTES;
 use ramag_domain::error::KafkaErrorCategory;
+use ramag_domain::traits::KafkaTransport;
+
+#[test]
+fn transport_capabilities_follow_compiled_features() {
+    let capabilities = RdkafkaDriver::new().capabilities();
+    assert_eq!(
+        capabilities.backend,
+        ramag_domain::entities::KafkaTransportBackend::NativeRdkafka
+    );
+    assert_eq!(capabilities.build_available, cfg!(feature = "cmake-build"));
+    assert_eq!(
+        capabilities.tls,
+        cfg!(feature = "cmake-build") && cfg!(feature = "kafka-tls")
+    );
+    assert_eq!(
+        capabilities.sasl,
+        cfg!(feature = "cmake-build") && cfg!(feature = "kafka-sasl")
+    );
+    assert_eq!(capabilities.metadata, capabilities.build_available);
+    assert_eq!(capabilities.acl_admin, capabilities.build_available);
+}
 
 #[test]
 fn request_timeout_must_be_positive() {

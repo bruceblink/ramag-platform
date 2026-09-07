@@ -1,4 +1,4 @@
-use super::super::RdkafkaDriver;
+use super::super::RdkafkaTransport;
 use super::validate_admin_config;
 #[cfg(feature = "cmake-build")]
 use super::{
@@ -22,7 +22,7 @@ use rdkafka::admin::{AdminOptions, NewPartitions, NewTopic, TopicReplication};
 
 #[cfg(feature = "cmake-build")]
 #[async_trait::async_trait]
-impl KafkaAdminDriver for RdkafkaDriver {
+impl KafkaAdminDriver for RdkafkaTransport {
     async fn test_admin_connection(&self, config: &KafkaClusterConfig) -> Result<()> {
         <Self as KafkaDriver>::test_connection(self, config).await
     }
@@ -190,7 +190,7 @@ impl KafkaAdminDriver for RdkafkaDriver {
 
 #[cfg(not(feature = "cmake-build"))]
 #[async_trait::async_trait]
-impl KafkaAdminDriver for RdkafkaDriver {
+impl KafkaAdminDriver for RdkafkaTransport {
     async fn test_admin_connection(&self, config: &KafkaClusterConfig) -> Result<()> {
         validate_admin_config(config)?;
         let _ = self.request_timeout;

@@ -6,7 +6,7 @@ use ramag_domain::entities::{
     KafkaAcl, KafkaAclFilter, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
     KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup,
     KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery, KafkaTopic,
-    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver, Storage};
@@ -29,6 +29,11 @@ impl KafkaService {
     pub fn with_admin_driver(mut self, admin_driver: Arc<dyn KafkaAdminDriver>) -> Self {
         self.admin_driver = admin_driver;
         self
+    }
+
+    /// 向 UI 暴露当前适配器的能力，不泄露具体 Kafka 客户端类型。
+    pub fn transport_capabilities(&self) -> KafkaTransportCapabilities {
+        self.driver.transport_capabilities()
     }
 
     /// 读取本地保存的 Kafka 集群配置，不包含消息正文或运行时快照。

@@ -72,7 +72,7 @@
 2. TLS、SASL 和 ACL 目前只有代码级支持和 feature gate 证据，缺少对应 Broker fixture；不能把它们写成真实服务验收通过。
 3. 纯 Rust 路径尚未开始，不能直接替换 native 客户端，也不能从现有 native 测试推断协议兼容。
 
-阶段 18 的文档交付完成；其服务验收仍有明确未完成项。下一项 `KAFKA-001` 交付切片是增加 `KafkaTransport` 适配边界：先让领域和应用依赖稳定的能力、超时、取消和错误接口，再把现有 `RdkafkaDriver` 放入基础设施适配器；不在该项中伪造纯 Rust 实现或改变现有 Kafka 用户流程。
+阶段 18 的文档交付完成；其服务验收仍有明确未完成项。阶段 19 已增加 `KafkaTransport` 适配边界：领域层提供稳定的能力快照接口，`KafkaService` 只暴露能力结果，现有 `RdkafkaTransport` 位于基础设施层并保留 `RdkafkaDriver` 兼容别名；不在该项中伪造纯 Rust 实现或改变现有 Kafka 用户流程。
 
 相关代码和测试：
 

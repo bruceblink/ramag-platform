@@ -63,7 +63,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | `PLAT-002` | 插件平台 | `ramag-app`、`ramag-bin` | 已完成 | `PLAT-001` | 静态插件注册、初始化、失败隔离、逆序关闭和迟到调用拒绝有测试 |
 | `PLAT-003` | 插件平台 | `ramag-ui`、`ramag-app` | 已完成 | `PLAT-002` | 插件状态、注册错误和可用入口在 360/1024/1440 headless 窗口内可见 |
 | `TERM-001` | SSH/终端 | `ramag-domain`、`ramag-infra-ssh`、`ramag-tool-ssh` | 已完成（真实端点已验证） | `PLAT-003` | 会话状态、重连和 `-L/-R/-D` 参数模型有 OpenSSH 参数测试；Windows OpenSSH 客户端访问 WSL OpenSSH 端点已覆盖 Shell、SFTP、三类转发、停止、重连和错误 Host Key |
-| `KAFKA-001` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、构建维护 | 开发中 | `PLAT-003` | 阶段 18 能力矩阵已记录；下一交付切片增加 `KafkaTransport` 适配边界并保持当前用户流程 |
+| `KAFKA-001` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、构建维护 | 阶段 19 代码完成，构建证据待补 | `PLAT-003` | 阶段 18 能力矩阵已记录；`KafkaTransport` 适配边界、能力快照和 native 命名已落地，保持当前用户流程 |
 | `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
 | `QUALITY-001` | 质量与工具链 | workspace 维护者 | 持续任务 | 每个交付切片 | stable toolchain、统一 Cargo 命令、LF、CI 过滤器和三平台发布证据保持一致 |
 

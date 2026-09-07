@@ -78,6 +78,7 @@ pub use kafka::{
     KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery, KafkaPartition,
     KafkaReadOnlyState, KafkaSaslMechanism, KafkaSecurityProtocol, KafkaTextPreview,
     KafkaTlsConfig, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaTransportBackend, KafkaTransportCapabilities, KafkaTransportCapability,
     MAX_KAFKA_ACL_HOST_BYTES, MAX_KAFKA_ACL_RESOURCE_NAME_BYTES, MAX_KAFKA_ACLS,
     MAX_KAFKA_BOOTSTRAP_SERVER_BYTES, MAX_KAFKA_BOOTSTRAP_SERVERS,
     MAX_KAFKA_BOOTSTRAP_SERVERS_BYTES, MAX_KAFKA_BROKERS, MAX_KAFKA_CLIENT_ID_BYTES,

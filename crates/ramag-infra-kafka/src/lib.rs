@@ -8,14 +8,14 @@ mod consumer_groups;
 pub mod errors;
 #[cfg(feature = "cmake-build")]
 mod messages;
-use ramag_domain::entities::KafkaClusterConfig;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{
     KafkaBroker, KafkaClusterMetadata, KafkaPartition, KafkaTopic, MAX_KAFKA_BROKERS,
     MAX_KAFKA_PARTITIONS, MAX_KAFKA_TOPICS,
 };
+use ramag_domain::entities::{KafkaClusterConfig, KafkaTransportCapabilities};
 use ramag_domain::error::{DomainError, KafkaError, KafkaErrorCategory, Result};
-use ramag_domain::traits::KafkaDriver;
+use ramag_domain::traits::{KafkaDriver, KafkaTransport};
 #[cfg(feature = "cmake-build")]
 use rdkafka::admin::AdminClient;
 #[cfg(feature = "cmake-build")]
@@ -27,11 +27,14 @@ use tracing::{debug, info};
 pub const DEFAULT_KAFKA_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, Copy)]
-pub struct RdkafkaDriver {
+pub struct RdkafkaTransport {
     request_timeout: Duration,
 }
 
-impl RdkafkaDriver {
+/// Compatibility name kept for existing integration callers.
+pub type RdkafkaDriver = RdkafkaTransport;
+
+impl RdkafkaTransport {
     /// 创建使用固定默认请求预算的 Kafka 驱动。
     pub fn new() -> Self {
         Self {
@@ -268,14 +271,28 @@ fn native_client_unavailable(operation: &'static str) -> DomainError {
     ))
 }
 
-impl Default for RdkafkaDriver {
+impl Default for RdkafkaTransport {
     fn default() -> Self {
         Self::new()
     }
 }
 
+impl KafkaTransport for RdkafkaTransport {
+    fn capabilities(&self) -> KafkaTransportCapabilities {
+        KafkaTransportCapabilities::native(
+            cfg!(feature = "cmake-build"),
+            cfg!(feature = "kafka-tls"),
+            cfg!(feature = "kafka-sasl"),
+        )
+    }
+}
+
 #[async_trait::async_trait]
-impl KafkaDriver for RdkafkaDriver {
+impl KafkaDriver for RdkafkaTransport {
+    fn transport_capabilities(&self) -> KafkaTransportCapabilities {
+        self.capabilities()
+    }
+
     async fn test_connection(&self, config: &KafkaClusterConfig) -> Result<()> {
         config.validate().map_err(DomainError::InvalidConfig)?;
         let driver = *self;
