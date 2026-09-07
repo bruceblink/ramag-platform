@@ -60,23 +60,56 @@ pub(super) fn read_preferences(
     preferences
 }
 
-pub(super) fn build_tool_registry() -> Arc<ToolRegistry> {
-    let registry = Arc::new(ToolRegistry::new());
-    register_builtin_tool(&registry, Arc::new(DbClientTool::new()));
-    register_builtin_tool(&registry, Arc::new(KafkaTool::new()));
-    register_builtin_tool(&registry, Arc::new(VcsTool::new()));
-    register_builtin_tool(&registry, Arc::new(SshTool::new()));
-    register_builtin_tool(&registry, Arc::new(ObjectStorageTool::new()));
-    register_builtin_tool(&registry, Arc::new(SystemTool::new()));
+pub(super) fn build_plugin_host() -> Arc<StaticPluginHost> {
+    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+    register_builtin_tool(&host, Arc::new(DbClientTool::new()));
+    register_builtin_tool(&host, Arc::new(KafkaTool::new()));
+    register_builtin_tool(&host, Arc::new(VcsTool::new()));
+    register_builtin_tool(&host, Arc::new(SshTool::new()));
+    register_builtin_tool(&host, Arc::new(ObjectStorageTool::new()));
+    register_builtin_tool(&host, Arc::new(SystemTool::new()));
     #[cfg(any(target_os = "macos", target_os = "windows"))]
-    register_builtin_tool(&registry, Arc::new(ClipboardTool::new()));
-    registry
+    register_builtin_tool(&host, Arc::new(ClipboardTool::new()));
+    let report = host.initialize_all();
+    for failure in report.failures {
+        warn!(
+            operation = "builtin_plugin_initialize",
+            plugin_id = %failure.plugin_id,
+            stage = %failure.stage,
+            error = %failure.error,
+            "built-in plugin is unavailable"
+        );
+    }
+    host
+}
+
+#[cfg(test)]
+pub(super) fn build_tool_registry() -> Arc<ToolRegistry> {
+    build_plugin_host().registry()
 }
 
 /// 通过静态插件适配器注册内置工具；单个描述错误不会阻塞其余工具装配。
-fn register_builtin_tool(registry: &ToolRegistry, tool: Arc<dyn ramag_domain::Tool>) {
-    if let Err(error) = registry.register_builtin(tool) {
-        warn!(operation = "builtin_plugin_register", error = %error, "register built-in plugin failed");
+fn register_builtin_tool(host: &StaticPluginHost, tool: Arc<dyn ramag_domain::Tool>) {
+    let tool_id = tool.meta().id.clone();
+    let plugin = match StaticPluginAdapter::from_tool(tool) {
+        Ok(plugin) => plugin,
+        Err(error) => {
+            warn!(
+                operation = "builtin_plugin_descriptor",
+                tool_id = %tool_id,
+                error = %error,
+                "build built-in plugin descriptor failed"
+            );
+            return;
+        }
+    };
+    if let Err(error) = host.register_plugin(Arc::new(plugin)) {
+        warn!(
+            operation = "builtin_plugin_register",
+            tool_id = %tool_id,
+            error = %error,
+            "register built-in plugin failed"
+        );
     }
 }
 

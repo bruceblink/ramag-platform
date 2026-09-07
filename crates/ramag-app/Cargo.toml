@@ -15,6 +15,9 @@ ramag-domain = { workspace = true }
 # 日志
 tracing = { workspace = true }
 
+# 插件生命周期诊断
+thiserror = { workspace = true }
+
 # 并发数据结构（ToolRegistry 用 RwLock）
 parking_lot = { workspace = true }
 

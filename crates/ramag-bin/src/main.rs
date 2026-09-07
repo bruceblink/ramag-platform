@@ -30,8 +30,9 @@ use gpui::{
 use gpui_component::Root;
 use ramag_app::{
     AUTO_CHECK_INTERVAL, ClipboardService, ConnectionService, DataSyncGate, DataSyncService,
-    KafkaService, MongoService, ObjectStorageService, RedisService, SshService,
-    TOOL_ORDER_PREF_KEY, ToolRegistry, UpdateService,
+    KafkaService, MongoService, ObjectStorageService, PluginLifecycleReport, RedisService,
+    SshService, StaticPluginAdapter, StaticPluginHost, TOOL_ORDER_PREF_KEY, ToolRegistry,
+    UpdateService,
 };
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use ramag_domain::traits::ClipboardDriver;
@@ -230,7 +231,8 @@ fn main() {
         .cloned();
 
     // 启动时同步读取剪贴板开关，避免恢复到已隐藏的工具。
-    let registry = build_tool_registry();
+    let plugin_host = build_plugin_host();
+    let registry = plugin_host.registry();
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
         let clipboard_enabled = clipboard_service.as_ref().is_some_and(|service| {
@@ -268,6 +270,7 @@ fn main() {
     );
 
     let deps = AppDeps {
+        plugin_host,
         registry,
         conn_service,
         redis_service,
@@ -323,9 +326,20 @@ fn main() {
         });
 
         // 退出时关闭运行时，避免后台任务残留。
+        let plugin_host_for_quit = deps.plugin_host.clone();
         let ssh_service_for_quit = deps.ssh_service.clone();
         let object_storage_for_quit = deps.object_storage_service.clone();
         cx.on_app_quit(move |_| {
+            let plugin_report: PluginLifecycleReport = plugin_host_for_quit.shutdown_all();
+            for failure in plugin_report.failures {
+                warn!(
+                    operation = "plugin_shutdown",
+                    plugin_id = %failure.plugin_id,
+                    stage = %failure.stage,
+                    error = %failure.error,
+                    "built-in plugin shutdown failed"
+                );
+            }
             let ssh_service = ssh_service_for_quit.clone();
             let object_storage = object_storage_for_quit.clone();
             async move {

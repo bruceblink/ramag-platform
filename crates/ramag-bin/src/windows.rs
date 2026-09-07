@@ -6,6 +6,7 @@ use ramag_ui::SystemSettings;
 /// 主窗口重建时复用的依赖。
 #[derive(Clone)]
 pub(super) struct AppDeps {
+    pub(super) plugin_host: Arc<StaticPluginHost>,
     pub(super) registry: Arc<ToolRegistry>,
     pub(super) conn_service: Arc<ConnectionService>,
     pub(super) redis_service: Arc<RedisService>,
@@ -124,6 +125,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
             }
         });
     let AppDeps {
+        plugin_host: _plugin_host,
         registry,
         conn_service,
         redis_service,
