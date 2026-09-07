@@ -1,10 +1,10 @@
 # Ramag Platform 主线开发计划
 
-> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A、P0-B 已完成，下一项为 PLAT-003
+> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A、P0-B、PLAT-003 已完成，下一项为 TERM-001
 > 更新日期：2026-09-06
 > 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台以及跨工具质量与构建流程
 > 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
-> 当前执行任务：`PLAT-003`，插件状态、注册错误和可用入口诊断
+> 当前完成任务：`PLAT-003`；下一项：`TERM-001`
 
 ## 术语与命名规则
 
@@ -45,7 +45,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 
 | 产品线 | 当前状态 | 下一项工作 | 暂不扩大的范围 |
 |---|---|---|---|
-| 插件平台 | P0-A、P0-B 已完成，现有工具通过静态插件宿主注册并按生命周期管理 | `PLAT-003`：插件状态、注册错误和可用入口诊断 | 动态 ABI、插件市场、第三方不受信任代码 |
+| 插件平台 | P0-A、P0-B、PLAT-003 已完成，现有工具通过静态插件宿主注册并按生命周期管理 | 保持 P0-C 设置与权限接口待实现；后续按队列推进 `TERM-001` | 动态 ABI、插件市场、第三方不受信任代码 |
 | SSH/终端 | `alacritty_terminal + GPUI` PTY 核心和 SSH/SFTP 工作区已有 | 完成插件边界后，补通用会话状态、端口转发和重连 | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
 | Kafka 工作台 | 集群、Topic、消息、ACL、配置和消费者组基础能力已有 | 先完成 Transport 能力矩阵，再决定 native 或纯 Rust 默认后端 | 在 Transport 决策前实现 Metrics、Live Tail 或外部生态大模块 |
 | 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 结果查看/大字段恢复、对象导航和执行计划连续工作流 | 把 Redis/MongoDB 强行套用 SQL 语义 |
@@ -61,13 +61,13 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 |---|---|---|---|---|---|
 | `PLAT-001` | 插件平台 | `ramag-domain`、`ramag-app` | 已完成 | 无 | `PluginId`、API 版本、能力集合、设置模式和重复注册校验有单元测试；现有工具顺序和入口不变 |
 | `PLAT-002` | 插件平台 | `ramag-app`、`ramag-bin` | 已完成 | `PLAT-001` | 静态插件注册、初始化、失败隔离、逆序关闭和迟到调用拒绝有测试 |
-| `PLAT-003` | 插件平台 | `ramag-ui`、`ramag-app` | 待开始 | `PLAT-002` | 插件状态、注册错误和可用入口在 360/1024/1440 headless 窗口内可见 |
+| `PLAT-003` | 插件平台 | `ramag-ui`、`ramag-app` | 已完成 | `PLAT-002` | 插件状态、注册错误和可用入口在 360/1024/1440 headless 窗口内可见 |
 | `TERM-001` | SSH/终端 | `ramag-domain`、`ramag-infra-ssh`、`ramag-tool-ssh` | 待开始 | `PLAT-003` | 会话状态、重连和 `-L/-R/-D` 参数模型有 OpenSSH 参数测试和真实端点验证 |
 | `KAFKA-001` | Kafka | `ramag-infra-kafka`、构建维护 | 待开始 | `PLAT-003` | Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 的传输能力矩阵可复核 |
 | `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
 | `QUALITY-001` | 质量与工具链 | workspace 维护者 | 持续任务 | 每个交付切片 | stable toolchain、统一 Cargo 命令、LF、CI 过滤器和三平台发布证据保持一致 |
 
-`PLAT-003` 完成前不开始 `TERM-001`、`KAFKA-001` 或 `DB-001`；Kafka 的 `KAFKA-001` 完成前不继续实现 Metrics Snapshot 或 Live Message Tail；终端和数据库任务不得借机修改 Kafka 或插件协议。
+`PLAT-003` 完成后，按队列开始 `TERM-001`；Kafka 的 `KAFKA-001` 完成前不继续实现 Metrics Snapshot 或 Live Message Tail；终端和数据库任务不得借机修改 Kafka 或插件协议。
 
 ## 4. 分阶段主线
 
@@ -154,4 +154,6 @@ Headless 结果不能描述为真实窗口结果；外部服务未启动时只�
 
 `PLAT-002` 已在提交 `9b98b2e` 完成。`ramag-app` 生命周期专项测试 8 项和 `ramag-bin` 集成测试 14 项通过；GNU/MSYS 环境下 workspace Clippy、格式检查、源码尺寸检查和 `git diff --check` 通过。stable/MSVC 直接构建仍受本机缺少 Windows SDK 库影响，不能把该环境限制写成代码失败。
 
-当前下一步：开始 `PLAT-003` 插件平台 UI 诊断，先补插件状态、注册错误和可用入口的 headless 边界测试，再评估真实窗口证据。
+`PLAT-003` 已完成：`ramag-app` 保留插件描述、生命周期状态和注册/初始化/关闭失败的有界诊断；`ramag-ui` 在设置页展示插件状态、失败阶段、入口 ID 和当前可用入口，Activity Bar 在有故障时为设置入口显示角标。`ramag-ui` 全部 86 项测试、`ramag-app` 生命周期专项 8 项和 `ramag-bin` 集成 14 项通过；其中插件诊断 headless 测试覆盖 360/1024/1440 窗口，验证设置滚动区和诊断区域的边界。GNU/MSYS 环境下 workspace Clippy、格式检查、源码尺寸检查和 `git diff --check` 通过。真实窗口截图和键盘操作仍未完成，不能把 headless 结果描述为真实窗口验收。
+
+当前下一步：按队列开始 `TERM-001`；P0-C 设置与权限接口另行排期，不把本次 UI 诊断误写成已实现插件设置能力。
