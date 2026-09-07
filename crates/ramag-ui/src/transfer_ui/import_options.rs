@@ -105,14 +105,18 @@ impl Render for ImportOptionsForm {
                 })
             }
         };
-        let mut policy_row = h_flex().w_full().gap(px(8.0)).child(policy_button(
-            "ramag-import-skip",
-            "跳过",
-            "跳过同名（推荐）",
-            ConflictPolicy::Skip,
-            false,
-            self.policy == ConflictPolicy::Skip,
-        ));
+        let mut policy_row = h_flex()
+            .w_full()
+            .flex_wrap()
+            .gap(px(8.0))
+            .child(policy_button(
+                "ramag-import-skip",
+                "跳过",
+                "跳过同名（推荐）",
+                ConflictPolicy::Skip,
+                false,
+                self.policy == ConflictPolicy::Skip,
+            ));
         if self.offer_merge {
             policy_row = policy_row.child(policy_button(
                 "ramag-import-merge",
@@ -186,7 +190,8 @@ impl Render for ImportOptionsForm {
             .on_click(|_: &ClickEvent, window, app| window.close_dialog(app));
 
         v_flex()
-            .w(px(560.0))
+            .w_full()
+            .max_w(px(560.0))
             .gap(px(10.0))
             .child(
                 div()
@@ -204,6 +209,7 @@ impl Render for ImportOptionsForm {
             .child(
                 h_flex()
                     .items_center()
+                    .flex_wrap()
                     .gap(px(8.0))
                     .child(pick_button)
                     .child(
@@ -221,6 +227,7 @@ impl Render for ImportOptionsForm {
             .child(
                 h_flex()
                     .w_full()
+                    .flex_wrap()
                     .items_center()
                     .justify_end()
                     .gap(px(8.0))
