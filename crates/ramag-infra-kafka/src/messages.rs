@@ -33,7 +33,7 @@ impl TailDropStats {
     }
 
     fn event(&self) -> Option<KafkaMessageTailEvent> {
-        (self.records > 0).then(|| KafkaMessageTailEvent::Dropped {
+        (self.records > 0).then_some(KafkaMessageTailEvent::Dropped {
             records: self.records,
             bytes: self.bytes,
         })
