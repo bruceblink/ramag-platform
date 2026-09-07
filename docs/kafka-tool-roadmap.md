@@ -324,7 +324,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 
 | 顺序 | 建议提交信息 | 交付内容 | 主要验收证据 |
 |---:|---|---|---|
-| 18 | `chore(kafka): define transport capability matrix` | 对 Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 建立客户端能力矩阵；记录纯 Rust 方案、当前 native 方案和缺失能力 | Windows/Linux/macOS 默认 Cargo 构建结果、Docker KRaft API 测试、矩阵评审 |
+| 18 | `chore(kafka): define transport capability matrix` | 已在 [`kafka-transport-capability-matrix.md`](kafka-transport-capability-matrix.md) 建立 Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 矩阵；记录纯 Rust 方案、当前 native 方案和缺失能力 | Windows 默认 feature 测试和 feature 树核对通过；Docker、TLS/SASL、Linux/macOS 和纯 Rust 证据按文档保留未完成项 |
 | 19 | `refactor(kafka): isolate transport boundary` | 增加 `KafkaTransport` 适配边界，禁止 Domain、App 和 UI 依赖具体 Kafka 客户端类型；统一超时、取消、错误和能力检测 | `cargo build --workspace --locked`、workspace Clippy、适配器单元测试 |
 | 20 | `feat(kafka): add live message tail` | Topic/Partition 实时 Tail、暂停、停止、断线状态、过滤、速率、有限窗口和导出；不提交业务 Offset | Docker 多 Partition 生产者、Tail 取消/重连/背压测试、GPUI headless 与 Windows 验收 |
 | 21 | `feat(kafka): add kafka metrics snapshots` | `KafkaMonitoringDriver`、集群/Topic/Partition/Consumer Group 指标模型、Lag 快照、high watermark 速率采样和按集群刷新任务 | 固定 Offset、Lag 趋势、速率采样、切换集群和迟到结果测试 |
@@ -333,6 +333,9 @@ Kafka 工作台必须满足统一跨平台构建目标：
 | 24 | `fix(kafka): harden high-scale workbench` | 高 Topic/Partition/Consumer Group 数量下的分页、虚拟列表、快照大小、刷新合并和资源释放 | 规模化 Docker fixture、内存/耗时上限、取消和断线恢复测试 |
 
 阶段 3 实施记录：
+
+- 2026-09-07 完成阶段 18 传输能力矩阵：明确 `ramag-infra-kafka` 默认 feature 不启用 native 客户端、`ramag-bin` 显式启用 `cmake-build`，并逐项记录 Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 的代码入口、构建条件、服务证据和纯 Rust 缺口；详见 [`kafka-transport-capability-matrix.md`](kafka-transport-capability-matrix.md)。
+- 2026-09-07 默认 feature 测试通过 5 项；Docker 当前不可用，未把历史明文 KRaft 集成结果冒充本次复核；TLS/SASL Broker、Authorizer、纯 Rust 客户端和 Linux/macOS 构建继续标记为未完成。
 
 - `ramag-infra-kafka` 通过可选 workspace 依赖接入 `rdkafka`；默认构建不触发 native 构建，显式启用 `cmake-build` 后才使用 CMake 构建 `librdkafka`。
 - `tls`/`kafka-tls` 和 `sasl`/`kafka-sasl` 是独立可选能力；TLS/SASL 配置在未启用对应构建能力时返回明确的不支持错误。
