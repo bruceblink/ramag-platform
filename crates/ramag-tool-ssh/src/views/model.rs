@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
 use gpui::{Entity, SharedString};
-use ramag_domain::entities::{RemoteEntry, SshProfile, SshProfileId, SshRemoteCapabilities};
-use ramag_terminal::TerminalView;
+use ramag_domain::entities::{
+    RemoteEntry, SshProfile, SshProfileId, SshRemoteCapabilities, SshSessionState,
+};
+use ramag_terminal::{TerminalCore, TerminalView};
 
 pub(super) fn can_close_terminal(terminal_count: usize) -> bool {
     terminal_count > 1
@@ -13,6 +15,21 @@ pub(super) fn terminal_index_after_close(
     remaining_count: usize,
 ) -> Option<usize> {
     (remaining_count > 0).then(|| closed_index.saturating_sub(1).min(remaining_count - 1))
+}
+
+pub(super) fn terminal_has_exited(core: &TerminalCore) -> bool {
+    core.is_closed() || core.exit_status().is_some()
+}
+
+pub(super) fn session_state_text(state: SshSessionState) -> &'static str {
+    match state {
+        SshSessionState::Disconnected => "未连接",
+        SshSessionState::Connecting => "连接中",
+        SshSessionState::Connected => "已连接",
+        SshSessionState::Reconnecting => "重连中",
+        SshSessionState::Exited => "已退出",
+        SshSessionState::Failed => "连接失败",
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,6 +75,7 @@ pub(super) struct SshWorkspace {
     pub active_terminal_id: Option<u64>,
     pub terminal_loading: bool,
     pub connection_started: bool,
+    pub session_state: SshSessionState,
     pub sftp_loading: bool,
     pub directory_loaded: bool,
     pub directory_loading_path: Option<String>,
@@ -87,6 +105,7 @@ impl SshWorkspace {
             active_terminal_id: None,
             terminal_loading: false,
             connection_started: false,
+            session_state: SshSessionState::Disconnected,
             sftp_loading: false,
             directory_loaded: false,
             directory_loading_path: None,
@@ -142,5 +161,12 @@ mod tests {
 
         assert_eq!(workspace.next_terminal_label().as_ref(), "终端 1");
         assert_eq!(workspace.next_terminal_label().as_ref(), "终端 2");
+    }
+
+    #[test]
+    fn session_state_text_describes_each_runtime_state() {
+        assert_eq!(session_state_text(SshSessionState::Disconnected), "未连接");
+        assert_eq!(session_state_text(SshSessionState::Reconnecting), "重连中");
+        assert_eq!(session_state_text(SshSessionState::Failed), "连接失败");
     }
 }

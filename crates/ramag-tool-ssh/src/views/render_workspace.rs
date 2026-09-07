@@ -19,7 +19,7 @@ use ramag_domain::entities::{
 use std::ops::Range;
 
 use super::SshView;
-use super::model::{SshWorkspace, can_close_terminal};
+use super::model::{SshWorkspace, can_close_terminal, session_state_text, terminal_has_exited};
 use super::render_directory_helpers::{
     RemoteDirectoryDrag, RemoteEntryMenuState, centered_message, directory_counts,
     directory_counts_at, filtered_entry_indices, remote_breadcrumbs, remote_entry_row,
@@ -188,6 +188,7 @@ impl SshView {
             return div().into_any_element();
         };
         let terminal_loading = workspace.terminal_loading;
+        let session_state = workspace.session_state;
         let production = workspace.profile.production;
         let connection_available = self.profile_connection_available(&workspace.profile);
         let active_terminal_id = workspace.active_terminal_id;
@@ -225,15 +226,18 @@ impl SshView {
             let selected = active_terminal_id == Some(id);
             let state = terminal.read(cx);
             let label = fallback_label.to_string();
-            let exited = state.core().exit_status();
-            let can_reconnect = exited.is_some();
-            let display = match exited {
+            let core = state.core();
+            let exit_status = core.exit_status();
+            let finished = terminal_has_exited(core);
+            let can_reconnect = finished;
+            let display = match exit_status {
                 Some(status) => format!(
                     "{label} [退出{}]",
                     status
                         .code
                         .map_or_else(String::new, |code| format!(": {code}"))
                 ),
+                None if finished => format!("{label} [已关闭]"),
                 None => label,
             };
             let mut tab = h_flex()
@@ -329,7 +333,20 @@ impl SshView {
             .border_b_1()
             .border_color(border)
             .bg(secondary)
-            .child(tabs_strip);
+            .child(tabs_strip)
+            .child(
+                div()
+                    .flex_none()
+                    .pr(px(10.0))
+                    .text_xs()
+                    .text_color(match session_state {
+                        ramag_domain::entities::SshSessionState::Failed => warning,
+                        ramag_domain::entities::SshSessionState::Connecting
+                        | ramag_domain::entities::SshSessionState::Reconnecting => muted,
+                        _ => foreground,
+                    })
+                    .child(session_state_text(session_state)),
+            );
 
         let empty_workspace_id = workspace_id.clone();
         let body = terminal_views

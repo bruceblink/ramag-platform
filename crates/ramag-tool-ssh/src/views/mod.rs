@@ -164,8 +164,8 @@ impl SshView {
                         if revision != this.last_transfer_revision {
                             this.last_transfer_revision = revision;
                             cx.notify();
-                        } else if this.has_live_terminals(cx) {
-                            // 终端退出状态属于子视图；低频刷新标签状态即可。
+                        } else if this.refresh_terminal_states(cx) {
+                            // 终端退出状态属于子视图；低频刷新标签和会话状态即可。
                             cx.notify();
                         }
                     })

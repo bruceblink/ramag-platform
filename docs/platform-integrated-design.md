@@ -1,9 +1,9 @@
 # Ramag Platform 产品与开发整合设计
 
 > 文档状态：设计整合稿，不代表所有计划接口已经实现
-> 适用仓库：`F:/project/ramag-platform`
-> 评估基线：当前 `main`，HEAD `00fe2f1`；工作区另有 `crates/ramag-terminal/src/view.rs` 和 `docs/kafka-tool-roadmap.md` 未提交改动
-> 更新时间：2026-09-06
+> 适用仓库：`E:/Project/ramag-platform`
+> 评估基线：当前 `main`；本工作区在 `feat/term-001-ssh-session-forwarding` 上包含 TERM-001 已提交实现及真实端点验收记录
+> 更新时间：2026-09-07
 
 本文将现有架构说明、主线开发计划、插件平台路线、Kafka 路线和数据库路线整合为一个可执行的产品与开发设计。本文只描述当前代码事实、明确的目标边界和后续验收条件；没有实现的设计使用“计划”“拟实现”或“未实现”标记。
 
@@ -47,9 +47,9 @@ Ramag Platform 是一个本地优先的开发者工作台，将数据库、消�
 
 | 主线 | 当前实现 | 设计判断 | 交付距离 |
 |---|---|---|---|
-| 插件平台 | `Tool`、`ToolRegistry` 和编译期工具注册已经存在 | P0 描述、静态插件生命周期、权限和设置接口尚未落地 | 设计完成，代码处于起步阶段 |
+| 插件平台 | `Tool`、`ToolRegistry`、插件描述、静态生命周期和失败诊断已经存在 | P0-C 设置与权限接口尚未落地 | P0-A、P0-B、PLAT-003 已完成 |
 | Kafka 工具 | 元数据、Topic、Partition、消息读取、搜索、消费者组、ACL、Topic/配置管理已存在 | 路线图已加入 `KafkaMonitoringDriver`、实时 Tail 和指标快照，但当前代码没有这些接口 | 基础管理可用，观测增强未开始 |
-| SSH/终端工具 | OpenSSH、PTY、SFTP、JumpServer、文件预览/编辑、传输队列、多终端标签已存在 | 终端核心可靠，但通用端口转发、会话日志、脚本、宏和多协议范围不足 | 内嵌 SSH 工作区可用，距离通用终端套件较远 |
+| SSH/终端工具 | OpenSSH、PTY、SFTP、JumpServer、文件预览/编辑、传输队列、多终端标签、会话状态、每标签重连和 `-L/-R/-D` 参数模型已存在；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 真实 Windows 窗口和端口转发的独立状态/停止面板、会话日志、脚本、宏和多协议仍未实现 | TERM-001 代码和真实端点验收已完成 |
 | 数据库连接工具 | SQL、Redis、MongoDB、分页、编辑、事务、查询历史、比较和迁移相关能力已有较多实现 | 后续重点是连续工作流、真实数据库回放、失败恢复和窗口证据 | 四条主线中最接近稳定化 |
 
 不能把“headless UI 测试通过”描述为“真实 Windows 窗口已验收”。当前多个路线图明确记录了真实窗口截图和部分外部服务验收仍未补齐。
@@ -225,7 +225,7 @@ Schema Registry、Kafka Connect 和 ksqlDB 都是可选的外部生态服务：�
 - System、Password、Key File 认证路径
 - Host Key 和生产连接保护
 - SFTP 会话、目录、文件预览、编辑和传输
-- 通用 `-L`、`-R`、`-D` 端口转发的模型和生命周期
+- 通用 `-L`、`-R`、`-D` 端口转发的模型、参数构造和随交互终端退出的资源回收
 - ProxyJump 或多跳连接的显式配置
 
 `ramag-tool-ssh` 负责：
@@ -234,7 +234,7 @@ Schema Registry、Kafka Connect 和 ksqlDB 都是可选的外部生态服务：�
 - 每个连接一个 SSH 工作区
 - 终端标签、活动终端、重连和退出状态
 - SFTP 文件浏览器和传输队列
-- 端口转发状态和停止操作
+- 终端会话状态、退出标签和目标标签重连；端口转发配置由 profile 传入交互终端，关闭终端或工作区时随 SSH 进程停止
 
 数据库专用 SSH 隧道继续由 `ramag-infra-tunnel` 管理，不把数据库连接隧道误认为通用终端会话。
 
@@ -246,7 +246,7 @@ SecureCRT 和 MobaXterm 用于划定产品参考范围，不代表 Ramag 已经�
 |---|---|---|
 | Tab、会话列表和连接工作区 | 已有连接工作区和最多 8 个终端标签 | 补齐标签状态、收藏、分组和恢复 |
 | SSH/SFTP | 已有 | 继续稳定化和补真实环境验收 |
-| SSH Gateway、ProxyJump、端口转发 | 未形成通用 UI | P0/P1 先支持 `-L/-R/-D` 和多跳模型 |
+| SSH Gateway、ProxyJump、端口转发 | profile 已支持解析和保存 `-L/-R/-D`，启动参数已由 `ramag-infra-ssh` 构造；真实端点已验证三类监听建立和停止；独立转发状态/停止 UI 未实现 | 单独补转发状态、错误和停止面板；多跳模型另行立项 |
 | Serial、Telnet、RDP、VNC、X11 | 未形成通用协议工具；JumpServer 有 RDP Web 目标 | 作为外部程序或独立适配器评估，不塞进终端核心 |
 | 会话日志和录制 | 未实现 | 先做有界文本日志，明确敏感数据策略 |
 | 脚本和宏 | 未实现 | 先不做任意代码执行，后续做受限命令序列 |
@@ -264,7 +264,9 @@ SecureCRT 和 MobaXterm 用于划定产品参考范围，不代表 Ramag 已经�
 - 生产连接默认禁止高风险远程写操作，所有解除保护的动作可见且需确认。
 - Host Key 不可信、认证失败、OpenSSH 不存在和远端路径错误都显示可操作的原因。
 - 终端输出、日志和诊断具备长度、时间和磁盘预算。
-- 真实 OpenSSH 端点至少覆盖 Linux Shell、Windows OpenSSH/SFTP、断线重连和无效 Host Key 场景。
+- 真实 OpenSSH 端点至少覆盖 Linux Shell、Windows OpenSSH/SFTP 客户端、断线重连、三类端口转发和无效 Host Key 场景。
+
+`TERM-001` 的代码范围已覆盖会话状态、退出标签、目标标签重连、profile 中 `-L/-R/-D` 的解析/保存/参数构造，以及 OpenSSH 参数解析测试。Windows OpenSSH 客户端访问 WSL Ubuntu-26.04 临时 OpenSSH 端点已完成 Shell、SFTP、三类转发、转发停止、重连和错误 Host Key 验证；真实 Windows 窗口和独立转发状态/停止面板仍是后续验收或独立任务，不能用 headless 测试代替。
 
 ## 6. 数据库连接工具设计
 
@@ -404,19 +406,23 @@ SecureCRT 和 MobaXterm 用于划定产品参考范围，不代表 Ramag 已经�
 2. 修正 [`docs/development-roadmap.md`](development-roadmap.md) 的分支描述和历史完成项表达。
 3. 在 [`docs/kafka-tool-roadmap.md`](kafka-tool-roadmap.md) 增加“代码未实现接口”小节，明确 `KafkaMonitoringDriver`、Live Tail 和纯 Rust Transport 的状态。
 4. 实现插件平台 P0 的描述、注册错误和静态生命周期适配器。
-5. 为 SSH profile 增加通用端口转发的数据模型和 `OpenSSH` 参数测试。
-6. 决定 Kafka native backend 与纯 Rust transport 的产品取舍，再决定是否实现指标快照。
-7. 把 `docs/v0.0.5-release-todo.md` 和历史公告移入归档目录，避免被误当作当前计划。
+5. 补真实 Windows 窗口截图和键盘操作，确认 SSH 工作区在实际焦点、最小尺寸和 DPI 下的行为。
+6. 单独设计端口转发状态、错误和停止面板。
+7. 完成 `KAFKA-001` 的 native backend 与纯 Rust transport 能力矩阵，再决定是否实现指标快照。
+8. 把 `docs/v0.0.5-release-todo.md` 和历史公告移入归档目录，避免被误当作当前计划。
 
 ## 10. 当前验证记录
 
-本设计整理时完成的只读验证：
+本次 TERM-001 交付完成的验证：
 
 - `cargo metadata --locked --no-deps`：通过
 - `cargo fmt --all -- --check`：通过
 - `cargo test --locked -p ramag-terminal --lib`：19/19 通过
-- `cargo test --locked -p ramag-domain --lib`：143/143 通过
-- `cargo test --locked -p ramag-infra-kafka --lib`：5/5 通过
-- `cargo test --locked -p ramag-tool-kafka --lib`：18/18 通过
-- workspace Clippy 曾启动但在本次审计过程中被中断，不能记录为本次完整通过
-- 未执行代码修改、提交或推送；真实 Windows 全流程验收仍未完成
+- `cargo +nightly-2026-04-16-x86_64-pc-windows-gnu test --offline -p ramag-domain -p ramag-infra-ssh -p ramag-app --lib`：152、62、189 项通过
+- `cargo +nightly-2026-04-16-x86_64-pc-windows-gnu test --offline -p ramag-tool-ssh --lib`：73 项通过
+- 目标四个 crate 的 `clippy --all-targets -- -D warnings`：通过
+- Windows OpenSSH `ssh -G`：通过并解析 `localforward`、`remoteforward`、`dynamicforward`
+- Windows OpenSSH 9.5p2 客户端 + WSL Ubuntu-26.04 临时 OpenSSH 端点：Shell、SFTP、`-L/-R/-D` 监听、转发停止、断线重连和错误 Host Key 拒绝均通过
+- `cargo fmt --all -- --check`、源码尺寸检查和 `git diff --check`：通过
+- workspace 全量库测试未完成：`rdkafka-sys` 在 Windows GNU 环境缺少 MSYS/MinGW CMake generator
+- 真实 Windows 窗口截图和键盘操作仍未完成，不能把 headless 结果写成真实窗口验收

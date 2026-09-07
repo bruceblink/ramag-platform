@@ -37,7 +37,9 @@ impl SshView {
                     .iter()
                     .find(|terminal| terminal.id == terminal_id)
             })
-            .is_some_and(|terminal| terminal.view.read(cx).core().exit_status().is_some());
+            .is_some_and(|terminal| {
+                super::super::model::terminal_has_exited(terminal.view.read(cx).core())
+            });
         if self.view_mode == ViewMode::Workspace && exited {
             // 重连必须复用当前标签；失败时保留旧视图，成功后只替换其 PTY。
             self.start_terminal_request(workspace_id, None, Some(terminal_id), window, cx);
@@ -87,6 +89,11 @@ impl SshView {
         if workspace.terminal_loading {
             return;
         }
+        workspace.session_state = if reconnect_terminal_id.is_some() {
+            SshSessionState::Reconnecting
+        } else {
+            SshSessionState::Connecting
+        };
         workspace.terminal_loading = true;
         workspace.terminal_generation = workspace.terminal_generation.wrapping_add(1);
         let generation = workspace.terminal_generation;
@@ -155,6 +162,7 @@ impl SshView {
                             false
                         };
                         workspace.active_terminal_id = Some(terminal_id);
+                        workspace.session_state = SshSessionState::Connected;
                         tracing::info!(
                             operation = "ssh_terminal_start",
                             profile_id = %id,
@@ -192,6 +200,7 @@ impl SshView {
                         }
                     }
                     Err(error) => {
+                        workspace.session_state = SshSessionState::Failed;
                         tracing::error!(
                             operation = "ssh_terminal_start",
                             profile_id = %id,

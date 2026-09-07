@@ -13,8 +13,8 @@ use tokio::task::JoinHandle;
 use tokio::time::timeout;
 
 use ramag_domain::entities::{
-    RemotePath, RemotePlatformPreference, SshAuthMode, SshCapability, SshLaunchCommand, SshProfile,
-    validate_remote_path,
+    RemotePath, RemotePlatformPreference, SshAuthMode, SshCapability, SshLaunchCommand,
+    SshPortForwardDirection, SshProfile, validate_remote_path,
 };
 use ramag_domain::error::{DomainError, Result};
 
@@ -87,6 +87,10 @@ pub fn terminal_command(
     profile.validate().map_err(DomainError::InvalidConfig)?;
     let mut args = vec!["-tt".to_string()];
     args.extend(common_profile_args(profile));
+    args.extend(port_forward_args(profile)?);
+    if !profile.port_forwardings.is_empty() {
+        args.extend(["-o".into(), "ExitOnForwardFailure=yes".into()]);
+    }
     args.push("--".into());
     args.push(profile.host.clone());
     if let Some(path) = initial_directory {
@@ -100,6 +104,25 @@ pub fn terminal_command(
         args,
         env: HashMap::new(),
     })
+}
+
+fn port_forward_args(profile: &SshProfile) -> Result<Vec<String>> {
+    profile
+        .port_forwardings
+        .iter()
+        .map(|forwarding| {
+            let option = match forwarding.direction() {
+                SshPortForwardDirection::Local => "-L",
+                SshPortForwardDirection::Remote => "-R",
+                SshPortForwardDirection::Dynamic => "-D",
+            };
+            let argument = forwarding
+                .open_ssh_argument()
+                .map_err(DomainError::InvalidConfig)?;
+            Ok([option.to_string(), argument])
+        })
+        .collect::<Result<Vec<[String; 2]>>>()
+        .map(|pairs| pairs.into_iter().flatten().collect())
 }
 
 pub fn sftp_args(profile: &SshProfile) -> Result<Vec<String>> {

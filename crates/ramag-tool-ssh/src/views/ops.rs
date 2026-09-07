@@ -6,14 +6,15 @@ use std::time::Duration;
 use gpui::{AppContext as _, Context, Entity, Focusable as _, Window};
 use ramag_domain::entities::{
     MAX_SSH_TERMINALS_PER_WORKSPACE, MAX_SSH_WORKSPACES, SshPathFavorites, SshProfileId,
-    SshWorkspacePreference, SshWorkspaceState,
+    SshSessionState, SshWorkspacePreference, SshWorkspaceState,
 };
 use ramag_terminal::{TerminalCommand, TerminalCore, TerminalView};
 use tracing::error;
 
 use super::SshView;
 use super::model::{
-    Notice, SshWorkspace, TerminalTab, ViewMode, can_close_terminal, terminal_index_after_close,
+    Notice, SshWorkspace, TerminalTab, ViewMode, can_close_terminal, terminal_has_exited,
+    terminal_index_after_close,
 };
 
 impl SshView {
@@ -116,13 +117,34 @@ impl SshView {
         }
     }
 
-    pub(super) fn has_live_terminals(&self, cx: &gpui::App) -> bool {
-        self.workspaces.iter().any(|workspace| {
-            workspace.terminals.iter().any(|terminal| {
+    pub(super) fn refresh_terminal_states(&mut self, cx: &gpui::App) -> bool {
+        let mut should_notify = false;
+        for workspace in &mut self.workspaces {
+            let has_live_terminal = workspace.terminals.iter().any(|terminal| {
                 let core = terminal.view.read(cx).core();
                 !core.is_closed() && core.exit_status().is_none()
-            })
-        })
+            });
+            let all_terminals_exited = !workspace.terminals.is_empty()
+                && workspace
+                    .terminals
+                    .iter()
+                    .all(|terminal| terminal_has_exited(terminal.view.read(cx).core()));
+            let next_state = if has_live_terminal {
+                Some(SshSessionState::Connected)
+            } else if all_terminals_exited {
+                Some(SshSessionState::Exited)
+            } else {
+                None
+            };
+            if let Some(next_state) = next_state
+                && workspace.session_state != next_state
+            {
+                workspace.session_state = next_state;
+                should_notify = true;
+            }
+            should_notify |= has_live_terminal;
+        }
+        should_notify
     }
 
     pub(super) fn active_workspace(&self) -> Option<&SshWorkspace> {

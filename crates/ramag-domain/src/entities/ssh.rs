@@ -11,6 +11,13 @@ use super::jumpserver::JumpServerRdpSession;
 use super::ssh_diagnostic::RemotePlatformPreference;
 use super::ssh_remote_path::{RemotePath, infer_sftp_namespace};
 
+#[path = "ssh_forward.rs"]
+mod ssh_forward;
+pub use ssh_forward::{
+    MAX_SSH_FORWARD_ADDRESS_BYTES, MAX_SSH_PORT_FORWARDINGS, SshPortForward,
+    SshPortForwardDirection, SshSessionState,
+};
+
 pub const MAX_SSH_PROFILES: usize = 1024;
 pub const MAX_SSH_PROFILE_NAME_BYTES: usize = 256;
 pub const MAX_SSH_HOST_BYTES: usize = 1024;
@@ -127,6 +134,9 @@ pub struct SshProfile {
     pub initial_directory: Option<String>,
     /// 自定义 OpenSSH 可执行文件必须是绝对路径。
     pub ssh_path: Option<String>,
+    /// 仅由交互终端继承的 OpenSSH 端口转发；SFTP 和诊断会话不会复用这些转发。
+    #[serde(default)]
+    pub port_forwardings: Vec<SshPortForward>,
 }
 
 impl SshProfile {
@@ -149,6 +159,7 @@ impl SshProfile {
             key_path: None,
             initial_directory: None,
             ssh_path: None,
+            port_forwardings: Vec::new(),
         }
     }
 
@@ -210,6 +221,14 @@ impl SshProfile {
         }
         if let Some(path) = self.ssh_path.as_deref() {
             validate_absolute_local_path("OpenSSH 可执行文件路径", path)?;
+        }
+        if self.port_forwardings.len() > MAX_SSH_PORT_FORWARDINGS {
+            return Err(format!(
+                "SSH 端口转发数量不能超过 {MAX_SSH_PORT_FORWARDINGS} 条"
+            ));
+        }
+        for forwarding in &self.port_forwardings {
+            forwarding.validate()?;
         }
         if self.windows_sftp_compatibility
             && self.remote_platform == RemotePlatformPreference::Linux

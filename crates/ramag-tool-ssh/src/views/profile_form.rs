@@ -158,6 +158,7 @@ impl ProfileForm {
                 .flatten(),
             initial_directory: optional(value(&self.initial_directory)),
             ssh_path: optional(value(&self.ssh_path)),
+            port_forwardings: Vec::new(),
         };
         profile.validate()?;
         Ok(profile)

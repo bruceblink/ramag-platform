@@ -1,10 +1,10 @@
 # Ramag Platform 主线开发计划
 
-> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A、P0-B、PLAT-003 已完成，下一项为 TERM-001
+> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A、P0-B、PLAT-003 已完成；TERM-001 代码和真实 SSH 端点验收已完成
 > 更新日期：2026-09-07
 > 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台以及跨工具质量与构建流程
 > 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
-> 当前完成任务：`PLAT-003`；下一项：`TERM-001`
+> 当前交付切片：`KAFKA-001`；TERM-001 已完成代码、目标测试和真实 SSH 端点验收
 
 ## 术语与命名规则
 
@@ -46,7 +46,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | 产品线 | 当前状态 | 下一项工作 | 暂不扩大的范围 |
 |---|---|---|---|
 | 插件平台 | P0-A、P0-B、PLAT-003 已完成，现有工具通过静态插件宿主注册并按生命周期管理 | 保持 P0-C 设置与权限接口待实现；后续按队列推进 `TERM-001` | 动态 ABI、插件市场、第三方不受信任代码 |
-| SSH/终端 | `alacritty_terminal + GPUI` PTY 核心和 SSH/SFTP 工作区已有 | 完成插件边界后，补通用会话状态、端口转发和重连 | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
+| SSH/终端 | `alacritty_terminal + GPUI` PTY 核心、SSH/SFTP 工作区、会话状态、每标签重连和 `-L/-R/-D` 参数模型已有；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 补真实 Windows 窗口证据和独立转发状态/停止面板；进入 `KAFKA-001` | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
 | Kafka 工作台 | 集群、Topic、消息、ACL、配置和消费者组基础能力已有 | 先完成 Transport 能力矩阵，再决定 native 或纯 Rust 默认后端 | 在 Transport 决策前实现 Metrics、Live Tail 或外部生态大模块 |
 | 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 结果查看/大字段恢复、对象导航和执行计划连续工作流 | 把 Redis/MongoDB 强行套用 SQL 语义 |
 | 质量与工具链 | stable channel、统一 Cargo 命令、Windows GNU 路线已建立 | 保持 CI、WSL Linux 验证、源码尺寸和 LF 规则一致 | 为单个平台恢复独立的日常编译命令 |
@@ -62,12 +62,12 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | `PLAT-001` | 插件平台 | `ramag-domain`、`ramag-app` | 已完成 | 无 | `PluginId`、API 版本、能力集合、设置模式和重复注册校验有单元测试；现有工具顺序和入口不变 |
 | `PLAT-002` | 插件平台 | `ramag-app`、`ramag-bin` | 已完成 | `PLAT-001` | 静态插件注册、初始化、失败隔离、逆序关闭和迟到调用拒绝有测试 |
 | `PLAT-003` | 插件平台 | `ramag-ui`、`ramag-app` | 已完成 | `PLAT-002` | 插件状态、注册错误和可用入口在 360/1024/1440 headless 窗口内可见 |
-| `TERM-001` | SSH/终端 | `ramag-domain`、`ramag-infra-ssh`、`ramag-tool-ssh` | 待开始 | `PLAT-003` | 会话状态、重连和 `-L/-R/-D` 参数模型有 OpenSSH 参数测试和真实端点验证 |
-| `KAFKA-001` | Kafka | `ramag-infra-kafka`、构建维护 | 待开始 | `PLAT-003` | Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 的传输能力矩阵可复核 |
+| `TERM-001` | SSH/终端 | `ramag-domain`、`ramag-infra-ssh`、`ramag-tool-ssh` | 已完成（真实端点已验证） | `PLAT-003` | 会话状态、重连和 `-L/-R/-D` 参数模型有 OpenSSH 参数测试；Windows OpenSSH 客户端访问 WSL OpenSSH 端点已覆盖 Shell、SFTP、三类转发、停止、重连和错误 Host Key |
+| `KAFKA-001` | Kafka | `ramag-infra-kafka`、构建维护 | 下一项 | `PLAT-003` | Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 的传输能力矩阵可复核 |
 | `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
 | `QUALITY-001` | 质量与工具链 | workspace 维护者 | 持续任务 | 每个交付切片 | stable toolchain、统一 Cargo 命令、LF、CI 过滤器和三平台发布证据保持一致 |
 
-`PLAT-003` 完成后，按队列开始 `TERM-001`；Kafka 的 `KAFKA-001` 完成前不继续实现 Metrics Snapshot 或 Live Message Tail；终端和数据库任务不得借机修改 Kafka 或插件协议。
+`PLAT-003` 完成后，`TERM-001` 已完成代码和真实 OpenSSH 端点验收；真实 Windows 窗口和独立转发状态面板仍单独排期。现在进入 `KAFKA-001`，在其完成前不实现 Metrics Snapshot 或 Live Message Tail；终端和数据库任务不得借机修改 Kafka 或插件协议。
 
 ## 4. 分阶段主线
 
@@ -99,7 +99,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 
 ### 阶段 2：SSH/终端工作区
 
-在插件入口稳定后，补齐会话状态、标签恢复、重连和端口转发模型。终端继续使用 `alacritty_terminal + GPUI`，只负责 PTY、ANSI、输入输出、选择、剪贴板和资源回收；SSH 认证、Host Key、SFTP 和 JumpServer 留在 `ramag-infra-ssh` 与 `ramag-tool-ssh`。
+`TERM-001` 已补齐会话状态、退出标签、每标签重连和端口转发模型，并在 Windows OpenSSH 客户端访问 WSL Ubuntu-26.04 OpenSSH 端点的临时环境中完成真实验证。终端继续使用 `alacritty_terminal + GPUI`，只负责 PTY、ANSI、输入输出、选择、剪贴板和资源回收；SSH 认证、Host Key、SFTP 和 JumpServer 留在 `ramag-infra-ssh` 与 `ramag-tool-ssh`。真实 Windows 窗口和独立转发状态/停止面板不属于本次代码交付。
 
 SecureCRT 和 MobaXterm 只作为功能参考，不作为完整复制目标。会话日志、宏、多主机执行和其他协议必须独立建模，并先完成敏感数据、权限和资源上限设计。
 
@@ -156,4 +156,8 @@ Headless 结果不能描述为真实窗口结果；外部服务未启动时只�
 
 `PLAT-003` 已完成：`ramag-app` 保留插件描述、生命周期状态和注册/初始化/关闭失败的有界诊断；`ramag-ui` 在设置页展示插件状态、失败阶段、入口 ID 和当前可用入口，Activity Bar 在有故障时为设置入口显示角标。`ramag-ui` 全部 86 项测试、`ramag-app` 生命周期专项 8 项和 `ramag-bin` 集成 14 项通过；其中插件诊断 headless 测试覆盖 360/1024/1440 窗口，验证设置滚动区和诊断区域的边界。GNU/MSYS 环境下 workspace Clippy、格式检查、源码尺寸检查和 `git diff --check` 通过。真实窗口截图和键盘操作仍未完成，不能把 headless 结果描述为真实窗口验收。
 
-当前下一步：按队列开始 `TERM-001`；P0-C 设置与权限接口另行排期，不把本次 UI 诊断误写成已实现插件设置能力。
+`TERM-001` 代码交付已完成：新增 `SshSessionState`、受限的 `SshPortForward` 模型、SSH 命令解析和 `-L/-R/-D` 参数构造；终端状态刷新、退出标签和每标签重连均有 `ramag-tool-ssh` 生命周期测试。`ramag-domain` 152 项、`ramag-infra-ssh` 62 项、`ramag-app` 189 项、`ramag-tool-ssh` 73 项测试通过；目标四个 crate 的 Clippy、格式检查、源码尺寸检查和 `git diff --check` 通过；Windows OpenSSH `ssh -G` 已解析 local、remote、dynamic 三类转发参数。
+
+真实端点验证使用 Windows OpenSSH 9.5p2 客户端和 WSL Ubuntu-26.04 临时 OpenSSH 服务，覆盖 Shell 命令、SFTP `pwd`、`-L`/`-R`/`-D` 监听建立、停止本地转发后监听关闭、强制断开后的重新连接，以及错误 Host Key 被拒绝。临时密钥、授权文件、配置和服务进程均在脚本结束时清理，脚本未纳入仓库。
+
+未完成项：真实 Windows 窗口截图和键盘操作、独立转发状态/停止面板仍未完成；workspace 全量库测试被 `rdkafka-sys` 的 Windows GNU 构建前置条件阻断，错误为缺少 MSYS/MinGW CMake generator，与 TERM-001 源码无关。P0-C 设置与权限接口继续另行排期，不把 headless 结果写成真实窗口验收。
