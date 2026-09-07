@@ -117,6 +117,26 @@ impl ToolRegistry {
             .collect()
     }
 
+    /// 移除一个已注册的静态插件；普通工具和其他插件不受影响。
+    pub fn unregister_plugin(&self, plugin_id: &str) -> bool {
+        let mut tools = self.tools.write();
+        let Some(index) = tools.iter().position(|entry| {
+            entry
+                .plugin
+                .as_ref()
+                .is_some_and(|plugin| plugin.id.as_str() == plugin_id)
+        }) else {
+            return false;
+        };
+        tools.remove(index);
+        tracing::info!(
+            operation = "plugin_unregister",
+            plugin_id,
+            "static plugin removed from tool registry"
+        );
+        true
+    }
+
     /// 设置工具入口可见性，返回状态是否变化；未注册时返回 `false`。
     pub fn set_enabled(&self, id: &str, enabled: bool) -> bool {
         let mut tools = self.tools.write();

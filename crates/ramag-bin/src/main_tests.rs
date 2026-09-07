@@ -1,6 +1,6 @@
 use super::{
     AUTO_CHECK_INTERVAL, GitHubUpdateDriver, INITIAL_UPDATE_CHECK_DELAY, JumpServerHttpDriver,
-    MainWindowOpenGate, build_tool_registry, install_tls_crypto_provider,
+    MainWindowOpenGate, build_plugin_host, build_tool_registry, install_tls_crypto_provider,
 };
 
 #[test]
@@ -32,6 +32,19 @@ fn main_window_open_gate_coalesces_repeated_requests() {
     assert!(!gate.try_begin());
     gate.finish();
     assert!(gate.try_begin());
+}
+
+#[test]
+fn built_in_plugins_are_ready_before_the_main_window_uses_the_registry() {
+    let host = build_plugin_host();
+
+    assert!(!host.states().is_empty());
+    assert!(
+        host.states()
+            .iter()
+            .all(|(_, state)| *state == ramag_app::PluginState::Ready)
+    );
+    assert_eq!(host.registry().count(), host.states().len());
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
