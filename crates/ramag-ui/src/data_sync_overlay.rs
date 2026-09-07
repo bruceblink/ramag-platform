@@ -157,7 +157,8 @@ impl DataSyncOverlay {
                 v_flex()
                     .id("data-sync-card")
                     .debug_selector(|| "data-sync-card".into())
-                    .w(px(620.0))
+                    .w_full()
+                    .max_w(px(620.0))
                     .max_w_full()
                     .max_h_full()
                     .overflow_y_scroll()
@@ -170,6 +171,7 @@ impl DataSyncOverlay {
                     .text_color(foreground)
                     .child(
                         h_flex()
+                            .flex_wrap()
                             .items_center()
                             .gap(px(10.0))
                             .when(!terminal, |row| row.child(Spinner::new().small()))
@@ -188,12 +190,13 @@ impl DataSyncOverlay {
                                 .debug_selector(|| "sync-running-progress".into())
                                 .gap(px(8.0))
                                 .child(
-                                    h_flex().text_sm().child(format!("阶段：{stage}")).when(
-                                        !progress.object.is_empty(),
-                                        |line| {
+                                    h_flex()
+                                        .flex_wrap()
+                                        .text_sm()
+                                        .child(format!("阶段：{stage}"))
+                                        .when(!progress.object.is_empty(), |line| {
                                             line.child(format!("  ·  当前：{}", progress.object))
-                                        },
-                                    ),
+                                        }),
                                 )
                                 .child(div().text_sm().child(counts))
                                 .child(div().text_sm().text_color(muted).child(details)),
@@ -248,6 +251,7 @@ impl DataSyncOverlay {
                                 )
                                 .child(
                                     h_flex()
+                                        .flex_wrap()
                                         .justify_end()
                                         .gap(px(8.0))
                                         .child(
@@ -286,7 +290,7 @@ impl DataSyncOverlay {
                     })
                     .when(!terminal && !self.cancel_confirmation, |card| {
                         card.child(
-                            h_flex().justify_end().child(
+                            h_flex().flex_wrap().justify_end().child(
                                 div().debug_selector(|| "sync-cancel".into()).child(
                                     crate::clickable_button("sync-cancel")
                                         .danger()
@@ -308,7 +312,7 @@ impl DataSyncOverlay {
                     })
                     .when(terminal, |card| {
                         card.child(
-                            h_flex().justify_end().child(
+                            h_flex().flex_wrap().justify_end().child(
                                 div().debug_selector(|| "sync-result-ack".into()).child(
                                     crate::clickable_button("sync-result-ack")
                                         .primary()
