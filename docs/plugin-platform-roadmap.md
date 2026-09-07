@@ -2,7 +2,7 @@
 
 > 适用项目：`bruceblink/ramag-platform`。本路线只约束当前独立下游项目的插件平台演进，不代表 `tools-rs/ramag` 已接受或实现这些接口。
 >
-> 当前状态：P0-A 接口模型和静态工具注册适配已完成，当前进入 P0-B 生命周期实现。当前不支持第三方动态插件、插件市场或不受信任代码加载。
+> 当前状态：P0-A 接口模型、静态工具注册适配和 P0-B 生命周期实现已完成，下一项按主线排期为 `PLAT-003` 平台 UI 诊断。P0-C 设置与权限接口尚未实现；当前不支持第三方动态插件、插件市场或不受信任代码加载。
 
 ## 术语与命名规则
 
@@ -119,7 +119,7 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 | 独立任务 | 允许修改范围 | 验收条件 |
 |---|---|---|
 | P0-A：接口模型 | `ramag-domain`/`ramag-app` 插件描述和注册适配 | 已完成；现有工具注册结果不变；重复 ID、非法版本、未知能力和非法设置模式有单元测试与可读诊断 |
-| P0-B：静态生命周期 | 平台生命周期与 `PluginContext` | 初始化、注册、关闭顺序明确；单个插件失败不阻塞其他插件；迟到调用被拒绝 |
+| P0-B：静态生命周期 | 平台生命周期与 `PluginContext` | 已完成；初始化和注册按顺序执行，初始化或关闭失败不阻塞其他插件，按逆序关闭，关闭后的上下文拒绝迟到调用 |
 | P0-C：配置与权限 | 插件设置模式、命名空间和能力检查 | 越权访问、非法类型、超限值、迁移失败和未声明能力均被拒绝；旧配置可恢复 |
 | P0-D：平台 UI 诊断 | `ramag-ui` 插件状态、入口和错误展示 | Activity Bar、设置页和错误状态在 360/1024/1440 headless 窗口可见且不越界，主题与键盘导航不回归 |
 | P4-A：进程外 IPC 评估 | 独立协议实验和决策文档 | 完成进程、WASM/WASI、原生 ABI 的兼容性、隔离、性能、签名和升级回滚对比；未形成决策前不执行第三方代码 |
@@ -194,7 +194,11 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 ## 第一项开发任务
 
-P0-A 已完成：`ramag-domain` 提供可独立测试的 `PluginId`、`PluginApiVersion`、`PluginDescriptor`、能力声明、设置模式和注册诊断，`ramag-app` 提供静态插件适配器，`ramag-bin` 已通过该适配器装配现有内置工具，未改变现有工具视图。P0-A 的验证包括 `cargo test --locked -p ramag-domain -p ramag-app -p ramag-bin`、`cargo fmt --all -- --check` 和 `git diff --check`；提交前仍需完成 `cargo test --locked --workspace`、`cargo clippy --locked --workspace --all-targets -- -D warnings`、Windows 源文件大小检查。下一项是 P0-B：补齐静态插件初始化、失败隔离、逆序关闭和迟到调用拒绝。
+P0-A 已在提交 `4be9945` 完成：`ramag-domain` 提供可独立测试的 `PluginId`、`PluginApiVersion`、`PluginDescriptor`、能力声明、设置模式和注册诊断，`ramag-app` 提供静态插件适配器，`ramag-bin` 已通过该适配器装配现有内置工具，未改变现有工具视图。
+
+P0-B 已在提交 `9b98b2e` 完成：`ramag-app` 新增 `StaticPluginHost`、`StaticPlugin`、`PluginContext` 和生命周期报告；`ramag-bin` 启动时统一注册并初始化内置工具，退出时按逆序关闭。初始化失败的插件会从 `ToolRegistry` 移除，其他插件继续启动；关闭失败继续处理后续插件；已保存的上下文在状态变为 `Unloaded` 后拒绝访问。验证包括生命周期专项测试 8 项、`ramag-bin` 集成测试 14 项、GNU/MSYS 环境下的 workspace Clippy、格式检查、源码尺寸检查和 `git diff --check`。stable/MSVC 直接构建因本机缺少 Windows SDK 库未完成，不能把它写成通过。
+
+下一项按主线排期为 `PLAT-003`：在 `ramag-ui` 和 `ramag-app` 补充插件状态、注册错误和可用入口的 headless UI 诊断。P0-C 的设置与权限接口仍保持待开始，完成时需要重新核对与 `PLAT-003` 的排期关系。
 
 ## 未完成项
 
