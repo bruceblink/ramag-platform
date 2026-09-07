@@ -24,6 +24,8 @@ impl KafkaView {
         self.runtime_request_id = self.runtime_request_id.wrapping_add(1);
         self.loading_runtime = false;
         self.runtime_error = None;
+        self.invalidate_metrics_refresh();
+        self.clear_metrics_snapshot();
     }
 
     /// 重新读取本地配置；每次读取都有独立代次，重复触发时只接受最后一次结果。
@@ -423,6 +425,8 @@ impl KafkaView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.invalidate_metrics_refresh();
+        self.metrics_error = None;
         self.invalidate_message_request();
         self.invalidate_consumer_group_request();
         self.clear_acl_snapshot();
@@ -436,6 +440,7 @@ impl KafkaView {
         let context_cluster_id = self.selected_cluster_id.clone();
         self.runtime_error = None;
         self.loading_runtime = true;
+        self.start_metrics_refresh(config.clone(), window, cx);
         let service = self.service.clone();
         cx.spawn_in(window, async move |this, cx| {
             let metadata = service.cluster_metadata(&config).await;

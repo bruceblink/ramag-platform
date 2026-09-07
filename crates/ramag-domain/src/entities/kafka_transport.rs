@@ -27,6 +27,8 @@ pub struct KafkaTransportCapabilities {
     pub topic_admin: bool,
     pub config_admin: bool,
     pub acl_admin: bool,
+    #[serde(default)]
+    pub metrics_snapshot: bool,
     pub tls: bool,
     pub sasl: bool,
 }
@@ -40,6 +42,7 @@ pub enum KafkaTransportCapability {
     TopicAdmin,
     ConfigAdmin,
     AclAdmin,
+    MetricsSnapshot,
     Tls,
     Sasl,
 }
@@ -56,6 +59,7 @@ impl KafkaTransportCapabilities {
             topic_admin: build_available,
             config_admin: build_available,
             acl_admin: build_available,
+            metrics_snapshot: build_available,
             tls: build_available && tls,
             sasl: build_available && sasl,
         }
@@ -72,6 +76,7 @@ impl KafkaTransportCapabilities {
             topic_admin: false,
             config_admin: false,
             acl_admin: false,
+            metrics_snapshot: false,
             tls: false,
             sasl: false,
         }
@@ -86,6 +91,7 @@ impl KafkaTransportCapabilities {
             KafkaTransportCapability::TopicAdmin => self.topic_admin,
             KafkaTransportCapability::ConfigAdmin => self.config_admin,
             KafkaTransportCapability::AclAdmin => self.acl_admin,
+            KafkaTransportCapability::MetricsSnapshot => self.metrics_snapshot,
             KafkaTransportCapability::Tls => self.tls,
             KafkaTransportCapability::Sasl => self.sasl,
         }
@@ -258,6 +264,7 @@ mod tests {
         let available = KafkaTransportCapabilities::native(true, true, false);
         assert!(available.supports(KafkaTransportCapability::Metadata));
         assert!(available.supports(KafkaTransportCapability::ConfigAdmin));
+        assert!(available.supports(KafkaTransportCapability::MetricsSnapshot));
         assert!(available.supports(KafkaTransportCapability::Tls));
         assert!(!available.supports(KafkaTransportCapability::Sasl));
     }

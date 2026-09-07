@@ -34,18 +34,20 @@ use ramag_app::KafkaService;
 use ramag_domain::{
     entities::{
         DEFAULT_KAFKA_MAX_BYTES, DEFAULT_KAFKA_MAX_CONCURRENT_PARTITIONS,
-        DEFAULT_KAFKA_MAX_SCAN_SECONDS, DEFAULT_KAFKA_TAIL_WINDOW_BYTES,
-        DEFAULT_KAFKA_TAIL_WINDOW_MESSAGES, KafkaAcl, KafkaAclOperation, KafkaAclPatternType,
-        KafkaAclPermission, KafkaAclResourceType, KafkaClusterConfig, KafkaClusterId,
-        KafkaClusterMetadata, KafkaConfigEntry, KafkaConfigResourceType,
-        KafkaConfigUpdateOperation, KafkaConfigUpdateRequest, KafkaConsumerGroup, KafkaMessagePage,
-        KafkaMessageQuery, KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
-        KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart, KafkaReadOnlyState,
-        KafkaSaslMechanism, KafkaSecurityProtocol, KafkaTlsConfig, KafkaTopic,
-        KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, MAX_KAFKA_ACL_HOST_BYTES,
-        MAX_KAFKA_ACL_RESOURCE_NAME_BYTES, MAX_KAFKA_CONFIG_RESOURCE_NAME_BYTES,
-        MAX_KAFKA_CONFIG_VALUE_BYTES, MAX_KAFKA_PARTITIONS, MAX_KAFKA_QUERY_PARTITIONS,
-        MAX_KAFKA_REPLICAS, MAX_KAFKA_SCAN_RECORDS,
+        DEFAULT_KAFKA_MAX_SCAN_SECONDS, DEFAULT_KAFKA_METRICS_REFRESH_SECONDS,
+        DEFAULT_KAFKA_TAIL_WINDOW_BYTES, DEFAULT_KAFKA_TAIL_WINDOW_MESSAGES, KafkaAcl,
+        KafkaAclOperation, KafkaAclPatternType, KafkaAclPermission, KafkaAclResourceType,
+        KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata, KafkaConfigEntry,
+        KafkaConfigResourceType, KafkaConfigUpdateOperation, KafkaConfigUpdateRequest,
+        KafkaConsumerGroup, KafkaMessagePage, KafkaMessageQuery, KafkaMessageRecord,
+        KafkaMessageSearchField, KafkaMessageSearchQuery, KafkaMessageTailEvent,
+        KafkaMessageTailRequest, KafkaMessageTailStart, KafkaMetricsSnapshot,
+        KafkaMetricsSnapshotState, KafkaReadOnlyState, KafkaSaslMechanism, KafkaSecurityProtocol,
+        KafkaTlsConfig, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+        MAX_KAFKA_ACL_HOST_BYTES, MAX_KAFKA_ACL_RESOURCE_NAME_BYTES,
+        MAX_KAFKA_CONFIG_RESOURCE_NAME_BYTES, MAX_KAFKA_CONFIG_VALUE_BYTES,
+        MAX_KAFKA_METRICS_REFRESH_SECONDS, MAX_KAFKA_PARTITIONS, MAX_KAFKA_QUERY_PARTITIONS,
+        MAX_KAFKA_REPLICAS, MAX_KAFKA_SCAN_RECORDS, MIN_KAFKA_METRICS_REFRESH_SECONDS,
     },
     traits::{KafkaMessageTailSink, KafkaMessageTailSinkResult, Tool, ToolMeta},
 };
@@ -194,6 +196,12 @@ pub struct KafkaView {
     message_tail_paused: bool,
     message_tail_running: bool,
     selected_tail_message: Option<usize>,
+    metrics_snapshot: Option<KafkaMetricsSnapshot>,
+    metrics_error: Option<String>,
+    metrics_loading: bool,
+    metrics_refresh_seconds_input: Entity<InputState>,
+    metrics_refresh_generation: u64,
+    metrics_refresh_cancelled: Option<Arc<AtomicBool>>,
     selected_message: Option<usize>,
     message_page_index: usize,
     message_page_size: usize,
@@ -405,6 +413,15 @@ impl KafkaView {
         let start_time_input = input(window, cx, 64, "起始时间 RFC3339（可选）", false, "");
         let end_time_input = input(window, cx, 64, "结束时间 RFC3339（可选）", false, "");
         let max_records_input = input(window, cx, 32, "最多读取条数", false, "200");
+        let metrics_refresh_default = DEFAULT_KAFKA_METRICS_REFRESH_SECONDS.to_string();
+        let metrics_refresh_seconds_input = input(
+            window,
+            cx,
+            8,
+            "指标刷新秒数",
+            false,
+            &metrics_refresh_default,
+        );
         let message_tail_offset_input = input(window, cx, 32, "实时起始 Offset", false, "0");
         let message_tail_window_messages_input = input(window, cx, 32, "窗口条数", false, "500");
         let message_tail_window_bytes_input =
@@ -445,6 +462,7 @@ impl KafkaView {
             &start_time_input,
             &end_time_input,
             &max_records_input,
+            &metrics_refresh_seconds_input,
             &message_tail_offset_input,
             &message_tail_window_messages_input,
             &message_tail_window_bytes_input,
@@ -533,6 +551,12 @@ impl KafkaView {
             message_tail_paused: false,
             message_tail_running: false,
             selected_tail_message: None,
+            metrics_snapshot: None,
+            metrics_error: None,
+            metrics_loading: false,
+            metrics_refresh_seconds_input,
+            metrics_refresh_generation: 0,
+            metrics_refresh_cancelled: None,
             selected_message: None,
             message_page_index: 0,
             message_page_size: DEFAULT_MESSAGE_PAGE_SIZE,
@@ -636,11 +660,18 @@ impl KafkaView {
     }
 }
 
+impl Drop for KafkaView {
+    fn drop(&mut self) {
+        self.invalidate_metrics_refresh();
+    }
+}
+
 mod helpers;
 use helpers::*;
 mod acls;
 mod admin;
 mod messages;
+mod metrics;
 mod profile;
 mod remote_config;
 mod remote_config_render;
@@ -650,6 +681,7 @@ mod render_consumer_groups;
 mod render_main;
 mod render_message_detail;
 mod render_messages;
+mod render_metrics;
 mod render_overview;
 mod render_sidebar;
 mod render_topic_detail;

@@ -7175,6 +7175,7 @@ dependencies = [
  "rfd",
  "serde",
  "serde_json",
+ "tracing",
 ]
 
 [[package]]

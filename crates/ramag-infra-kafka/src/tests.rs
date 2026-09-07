@@ -4,6 +4,8 @@ use super::*;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::MAX_KAFKA_GROUP_ASSIGNMENT_BYTES;
 use ramag_domain::error::KafkaErrorCategory;
+#[cfg(not(feature = "cmake-build"))]
+use ramag_domain::traits::KafkaMonitoringDriver;
 use ramag_domain::traits::KafkaTransport;
 
 #[test]
@@ -24,6 +26,7 @@ fn transport_capabilities_follow_compiled_features() {
     );
     assert_eq!(capabilities.metadata, capabilities.build_available);
     assert_eq!(capabilities.acl_admin, capabilities.build_available);
+    assert_eq!(capabilities.metrics_snapshot, capabilities.build_available);
 }
 
 #[test]
@@ -111,6 +114,27 @@ fn default_build_reports_missing_native_client_without_network_access() {
             if error.category == KafkaErrorCategory::Unsupported
                 && error.safe_message.contains("cmake-build")
     ));
+}
+
+#[cfg(not(feature = "cmake-build"))]
+#[test]
+fn default_build_reports_missing_metrics_client_without_network_access() {
+    let config = KafkaClusterConfig::new("local", vec!["broker:9092".into()]);
+    let result = smol::block_on(RdkafkaDriver::new().metrics_snapshot(&config));
+    assert!(matches!(
+        result,
+        Err(DomainError::Kafka(error))
+            if error.category == KafkaErrorCategory::Unsupported
+                && error.safe_message.contains("cmake-build")
+    ));
+}
+
+#[cfg(feature = "cmake-build")]
+#[test]
+fn metrics_snapshot_rejects_invalid_config_before_network() {
+    let config = KafkaClusterConfig::new("invalid", vec!["localhost".into()]);
+    let result = smol::block_on(RdkafkaDriver::new().metrics_snapshot(&config));
+    assert!(matches!(result, Err(DomainError::InvalidConfig(_))));
 }
 
 #[cfg(feature = "cmake-build")]

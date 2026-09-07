@@ -12,6 +12,8 @@ mod kafka_consumer;
 mod kafka_message;
 #[path = "kafka_metadata.rs"]
 mod kafka_metadata;
+#[path = "kafka_metrics.rs"]
+mod kafka_metrics;
 #[path = "kafka_transport.rs"]
 mod kafka_transport;
 #[path = "kafka_validation.rs"]
@@ -39,6 +41,10 @@ pub use kafka_message::{
     KafkaMessageSearchField, KafkaMessageSearchQuery, KafkaTextPreview,
 };
 pub use kafka_metadata::{KafkaBroker, KafkaClusterMetadata, KafkaPartition, KafkaTopic};
+pub use kafka_metrics::{
+    KafkaClusterMetrics, KafkaConsumerGroupMetrics, KafkaMetricsSnapshot,
+    KafkaMetricsSnapshotState, KafkaMetricsSource, KafkaPartitionMetrics, KafkaTopicMetrics,
+};
 pub use kafka_transport::{
     KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart, KafkaTransportBackend,
     KafkaTransportCapabilities, KafkaTransportCapability,
@@ -78,6 +84,10 @@ pub const MAX_KAFKA_SCAN_RECORDS: usize = 50_000;
 pub const MAX_KAFKA_SCAN_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_KAFKA_SCAN_SECONDS: u32 = 300;
 pub const MAX_KAFKA_CONCURRENT_PARTITIONS: usize = 32;
+
+pub const DEFAULT_KAFKA_METRICS_REFRESH_SECONDS: u32 = 10;
+pub const MIN_KAFKA_METRICS_REFRESH_SECONDS: u32 = 5;
+pub const MAX_KAFKA_METRICS_REFRESH_SECONDS: u32 = 60;
 
 pub const DEFAULT_KAFKA_TAIL_WINDOW_MESSAGES: usize = 500;
 pub const DEFAULT_KAFKA_TAIL_WINDOW_BYTES: u64 = 16 * 1024 * 1024;

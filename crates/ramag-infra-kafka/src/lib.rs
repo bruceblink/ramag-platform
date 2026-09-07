@@ -8,6 +8,7 @@ mod consumer_groups;
 pub mod errors;
 #[cfg(feature = "cmake-build")]
 mod messages;
+mod metrics;
 use ramag_domain::entities::KafkaMessageTailRequest;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{
@@ -16,7 +17,9 @@ use ramag_domain::entities::{
 };
 use ramag_domain::entities::{KafkaClusterConfig, KafkaTransportCapabilities};
 use ramag_domain::error::{DomainError, KafkaError, KafkaErrorCategory, Result};
-use ramag_domain::traits::{KafkaDriver, KafkaMessageTailSink, KafkaTransport};
+use ramag_domain::traits::{
+    KafkaDriver, KafkaMessageTailSink, KafkaMonitoringDriver, KafkaTransport,
+};
 #[cfg(feature = "cmake-build")]
 use rdkafka::admin::AdminClient;
 #[cfg(feature = "cmake-build")]
@@ -395,6 +398,19 @@ impl KafkaDriver for RdkafkaTransport {
         let request = request.clone();
         smol::unblock(move || driver.tail_messages_blocking(&config, &request, sink, cancelled))
             .await
+    }
+}
+
+#[async_trait::async_trait]
+impl KafkaMonitoringDriver for RdkafkaTransport {
+    async fn metrics_snapshot(
+        &self,
+        config: &KafkaClusterConfig,
+    ) -> Result<ramag_domain::entities::KafkaMetricsSnapshot> {
+        config.validate().map_err(DomainError::InvalidConfig)?;
+        let driver = *self;
+        let config = config.clone();
+        smol::unblock(move || driver.metrics_snapshot_blocking(&config)).await
     }
 }
 #[cfg(test)]

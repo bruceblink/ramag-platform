@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use super::metrics::metrics_result_matches;
 use super::profile::request_matches;
 use super::runtime_state::runtime_recovery_message;
 use super::{
@@ -176,6 +177,37 @@ fn async_request_results_require_current_generation_and_context() {
         Some(&first_cluster)
     ));
     assert!(!request_matches(2, 2, Some(&first_cluster), None));
+}
+
+#[test]
+fn metrics_refresh_results_require_generation_and_cluster_context() {
+    let first_cluster = KafkaClusterId::new();
+    let second_cluster = KafkaClusterId::new();
+
+    assert!(metrics_result_matches(
+        4,
+        4,
+        Some(&first_cluster),
+        Some(&first_cluster)
+    ));
+    assert!(!metrics_result_matches(
+        4,
+        3,
+        Some(&first_cluster),
+        Some(&first_cluster)
+    ));
+    assert!(!metrics_result_matches(
+        4,
+        4,
+        Some(&second_cluster),
+        Some(&first_cluster)
+    ));
+    assert!(!metrics_result_matches::<KafkaClusterId>(
+        4,
+        4,
+        None,
+        Some(&first_cluster)
+    ));
 }
 
 #[test]
@@ -424,6 +456,8 @@ mod visual_config_tests;
 mod visual_consumer_group_tests;
 #[path = "visual_message_tests.rs"]
 mod visual_message_tests;
+#[path = "visual_metrics_tests.rs"]
+mod visual_metrics_tests;
 #[path = "visual_overview_tests.rs"]
 mod visual_overview_tests;
 #[path = "visual_profile_tests.rs"]

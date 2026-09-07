@@ -7,7 +7,8 @@ use crate::entities::{
     KafkaAcl, KafkaAclFilter, KafkaClusterConfig, KafkaClusterMetadata, KafkaConfigResource,
     KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup, KafkaMessagePage,
     KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMessageTailEvent, KafkaMessageTailRequest,
-    KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
+    KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaTransportCapabilities,
 };
 use crate::error::Result;
 
@@ -20,6 +21,16 @@ pub enum KafkaMessageTailSinkResult {
 
 pub type KafkaMessageTailSink =
     Arc<dyn Fn(KafkaMessageTailEvent) -> KafkaMessageTailSinkResult + Send + Sync>;
+
+/// Kafka 观测端口；只读取协议快照，不读取消息正文或修改 Consumer Offset。
+#[async_trait]
+pub trait KafkaMonitoringDriver: Send + Sync {
+    async fn metrics_snapshot(&self, _config: &KafkaClusterConfig) -> Result<KafkaMetricsSnapshot> {
+        Err(crate::error::DomainError::NotImplemented(
+            "metrics_snapshot".into(),
+        ))
+    }
+}
 
 /// Kafka 读取端口；不会提交 Offset，也不修改集群状态。
 #[async_trait]

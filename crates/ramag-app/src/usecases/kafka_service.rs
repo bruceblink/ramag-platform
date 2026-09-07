@@ -5,15 +5,16 @@ use std::sync::Arc;
 use ramag_domain::entities::{
     KafkaAcl, KafkaAclFilter, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
     KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup,
-    KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery, KafkaTopic,
+    KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMetricsSnapshot, KafkaTopic,
     KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
-use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver, Storage};
+use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver, KafkaMonitoringDriver, Storage};
 
 pub struct KafkaService {
     driver: Arc<dyn KafkaDriver>,
     admin_driver: Arc<dyn KafkaAdminDriver>,
+    monitoring_driver: Arc<dyn KafkaMonitoringDriver>,
     storage: Arc<dyn Storage>,
 }
 
@@ -24,12 +25,21 @@ impl KafkaService {
         Self {
             driver,
             admin_driver: Arc::new(UnsupportedKafkaAdminDriver),
+            monitoring_driver: Arc::new(UnsupportedKafkaMonitoringDriver),
             storage,
         }
     }
 
     pub fn with_admin_driver(mut self, admin_driver: Arc<dyn KafkaAdminDriver>) -> Self {
         self.admin_driver = admin_driver;
+        self
+    }
+
+    pub fn with_monitoring_driver(
+        mut self,
+        monitoring_driver: Arc<dyn KafkaMonitoringDriver>,
+    ) -> Self {
+        self.monitoring_driver = monitoring_driver;
         self
     }
 
@@ -164,6 +174,28 @@ impl KafkaService {
             &result,
         );
         result.and_then(validate_message_page)
+    }
+
+    /// 读取协议指标快照；应用层再次校验范围和唯一性，缺失字段保持为未知。
+    pub async fn metrics_snapshot(
+        &self,
+        config: &KafkaClusterConfig,
+    ) -> Result<KafkaMetricsSnapshot> {
+        validate_config(config)?;
+        let started = std::time::Instant::now();
+        let result = self.monitoring_driver.metrics_snapshot(config).await;
+        tracing::info!(
+            operation = "kafka_metrics_snapshot",
+            cluster_id = %config.id,
+            elapsed_ms = started.elapsed().as_millis(),
+            success = result.is_ok(),
+            result_topic_count = result.as_ref().map_or(0, |snapshot| snapshot.topics.len()),
+            result_group_count = result
+                .as_ref()
+                .map_or(0, |snapshot| snapshot.consumer_groups.len()),
+            "Kafka metrics snapshot completed"
+        );
+        result.and_then(validate_metrics_snapshot)
     }
 
     pub async fn create_topic(
@@ -304,10 +336,21 @@ struct UnsupportedKafkaAdminDriver;
 
 impl KafkaAdminDriver for UnsupportedKafkaAdminDriver {}
 
+struct UnsupportedKafkaMonitoringDriver;
+
+impl KafkaMonitoringDriver for UnsupportedKafkaMonitoringDriver {}
+
 /// 在应用层再次校验驱动返回的页，避免替换基础设施实现时绕过领域资源上限。
 fn validate_message_page(page: KafkaMessagePage) -> Result<KafkaMessagePage> {
     page.validate()
         .map(|()| page)
+        .map_err(DomainError::InvalidConfig)
+}
+
+fn validate_metrics_snapshot(snapshot: KafkaMetricsSnapshot) -> Result<KafkaMetricsSnapshot> {
+    snapshot
+        .validate()
+        .map(|()| snapshot)
         .map_err(DomainError::InvalidConfig)
 }
 
