@@ -1,4 +1,5 @@
 use super::*;
+use ramag_domain::entities::SshPortForward;
 
 fn profile() -> SshProfile {
     let mut profile = SshProfile::new("server", "example.com");
@@ -116,6 +117,67 @@ fn terminal_directory_keeps_the_interactive_login_command() {
         ["--", "example.com"]
     );
     assert!(terminal_command(&profile, &capability, Some("relative/path")).is_err());
+}
+
+#[test]
+fn terminal_command_emits_separate_local_remote_and_dynamic_forward_arguments() {
+    let mut profile = profile();
+    profile.port_forwardings = vec![
+        SshPortForward::Local {
+            bind_address: Some("127.0.0.1".into()),
+            listen_port: 8080,
+            target_host: "db.internal".into(),
+            target_port: 5432,
+        },
+        SshPortForward::Remote {
+            bind_address: None,
+            listen_port: 9000,
+            target_host: "127.0.0.1".into(),
+            target_port: 9000,
+        },
+        SshPortForward::Dynamic {
+            bind_address: Some("::1".into()),
+            listen_port: 1080,
+        },
+    ];
+    let command = terminal_command(
+        &profile,
+        &SshCapability {
+            executable: "/usr/bin/ssh".into(),
+            version: "OpenSSH_test".into(),
+        },
+        None,
+    )
+    .unwrap();
+
+    assert!(
+        command
+            .args
+            .windows(2)
+            .any(|args| { args == ["-L", "127.0.0.1:8080:db.internal:5432"] })
+    );
+    assert!(
+        command
+            .args
+            .windows(2)
+            .any(|args| { args == ["-R", "9000:127.0.0.1:9000"] })
+    );
+    assert!(
+        command
+            .args
+            .windows(2)
+            .any(|args| args == ["-D", "[::1]:1080"])
+    );
+    assert!(
+        command
+            .args
+            .windows(2)
+            .any(|args| args == ["-o", "ExitOnForwardFailure=yes"])
+    );
+    assert_eq!(
+        &command.args[command.args.len() - 2..],
+        ["--", "example.com"]
+    );
 }
 
 #[test]

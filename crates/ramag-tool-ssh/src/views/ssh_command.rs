@@ -3,7 +3,8 @@
 use std::path::{Path, PathBuf};
 
 use ramag_domain::entities::{
-    MAX_SSH_HOST_BYTES, MAX_SSH_PATH_BYTES, MAX_SSH_USERNAME_BYTES, SshAuthMode, SshProfile,
+    MAX_SSH_HOST_BYTES, MAX_SSH_PATH_BYTES, MAX_SSH_PORT_FORWARDINGS, MAX_SSH_USERNAME_BYTES,
+    SshAuthMode, SshPortForward, SshPortForwardDirection, SshProfile,
 };
 
 pub(super) const MAX_SSH_COMMAND_BYTES: usize = 4096;
@@ -26,6 +27,17 @@ pub(super) fn profile_ssh_command(profile: &SshProfile) -> String {
         arguments.push("-i".into());
         arguments.push(shell_argument(key_path));
     }
+    for forwarding in &profile.port_forwardings {
+        let option = match forwarding.direction() {
+            SshPortForwardDirection::Local => "-L",
+            SshPortForwardDirection::Remote => "-R",
+            SshPortForwardDirection::Dynamic => "-D",
+        };
+        if let Ok(value) = forwarding.open_ssh_argument() {
+            arguments.push(option.into());
+            arguments.push(shell_argument(&value));
+        }
+    }
     arguments.push(shell_argument(&profile.host));
     arguments.join(" ")
 }
@@ -47,6 +59,7 @@ pub(super) struct ParsedSshCommand {
     pub port: Option<u16>,
     pub username: String,
     pub key_path: Option<String>,
+    pub port_forwardings: Vec<SshPortForward>,
 }
 
 pub(super) fn parse_ssh_command(
@@ -82,6 +95,7 @@ pub(super) fn parse_ssh_command(
     let mut username = None;
     let mut port = None;
     let mut key_path = None;
+    let mut port_forwardings = Vec::new();
     let mut target = None;
     let mut index = 1usize;
     while index < arguments.len() {
@@ -114,6 +128,41 @@ pub(super) fn parse_ssh_command(
                 option_argument(&arguments, index, "-i")?,
                 user_home,
             )?);
+        } else if let Some(value) = compact_option(argument, "-L") {
+            push_port_forward(&mut port_forwardings, SshPortForwardDirection::Local, value)?;
+        } else if argument == "-L" {
+            index = index.saturating_add(1);
+            push_port_forward(
+                &mut port_forwardings,
+                SshPortForwardDirection::Local,
+                option_argument(&arguments, index, "-L")?,
+            )?;
+        } else if let Some(value) = compact_option(argument, "-R") {
+            push_port_forward(
+                &mut port_forwardings,
+                SshPortForwardDirection::Remote,
+                value,
+            )?;
+        } else if argument == "-R" {
+            index = index.saturating_add(1);
+            push_port_forward(
+                &mut port_forwardings,
+                SshPortForwardDirection::Remote,
+                option_argument(&arguments, index, "-R")?,
+            )?;
+        } else if let Some(value) = compact_option(argument, "-D") {
+            push_port_forward(
+                &mut port_forwardings,
+                SshPortForwardDirection::Dynamic,
+                value,
+            )?;
+        } else if argument == "-D" {
+            index = index.saturating_add(1);
+            push_port_forward(
+                &mut port_forwardings,
+                SshPortForwardDirection::Dynamic,
+                option_argument(&arguments, index, "-D")?,
+            )?;
         } else if let Some(value) = compact_option(argument, "-o") {
             apply_open_ssh_option(value, user_home, &mut username, &mut port, &mut key_path)?;
         } else if argument == "-o" {
@@ -148,7 +197,22 @@ pub(super) fn parse_ssh_command(
         port,
         username,
         key_path,
+        port_forwardings,
     })
+}
+
+fn push_port_forward(
+    forwardings: &mut Vec<SshPortForward>,
+    direction: SshPortForwardDirection,
+    value: &str,
+) -> Result<(), String> {
+    if forwardings.len() >= MAX_SSH_PORT_FORWARDINGS {
+        return Err(format!(
+            "SSH 端口转发数量不能超过 {MAX_SSH_PORT_FORWARDINGS} 条"
+        ));
+    }
+    forwardings.push(SshPortForward::parse_open_ssh_argument(direction, value)?);
+    Ok(())
 }
 
 fn tokenize(command: &str) -> Result<Vec<String>, String> {
@@ -428,5 +492,44 @@ mod tests {
 
         let parsed = parse_ssh_command(&profile_ssh_command(&profile), None).unwrap();
         assert_eq!(parsed.key_path, profile.key_path);
+    }
+
+    #[test]
+    fn parses_and_round_trips_port_forwarding_options() {
+        let parsed = parse_ssh_command(
+            "ssh -L 127.0.0.1:8080:db.internal:5432 -R9000:127.0.0.1:9000 -D [::1]:1080 alice@host",
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(parsed.host, "host");
+        assert_eq!(parsed.username, "alice");
+        assert_eq!(parsed.port_forwardings.len(), 3);
+        assert_eq!(
+            parsed.port_forwardings[0].open_ssh_argument().unwrap(),
+            "127.0.0.1:8080:db.internal:5432"
+        );
+        assert_eq!(
+            parsed.port_forwardings[1].open_ssh_argument().unwrap(),
+            "9000:127.0.0.1:9000"
+        );
+        assert_eq!(
+            parsed.port_forwardings[2].open_ssh_argument().unwrap(),
+            "[::1]:1080"
+        );
+
+        let mut profile = SshProfile::new("server", parsed.host);
+        profile.username = parsed.username;
+        profile.port_forwardings = parsed.port_forwardings;
+        let command = profile_ssh_command(&profile);
+        let round_trip = parse_ssh_command(&command, None).unwrap();
+        assert_eq!(round_trip.port_forwardings, profile.port_forwardings);
+    }
+
+    #[test]
+    fn rejects_invalid_port_forwarding_options() {
+        assert!(parse_ssh_command("ssh -L 8080:db.internal alice@host", None).is_err());
+        assert!(parse_ssh_command("ssh -D 127.0.0.1:0 alice@host", None).is_err());
+        assert!(parse_ssh_command("ssh -R 9000:db internal:22 alice@host", None).is_err());
     }
 }

@@ -3,6 +3,7 @@
 use gpui::{Context, Window};
 use ramag_domain::entities::{
     RemoteCapabilityState, RemoteOperatingSystem, RemotePath, SshProfileId, SshRemoteCapabilities,
+    SshSessionState,
 };
 use tracing::error;
 
@@ -17,6 +18,7 @@ impl SshView {
     ) {
         if let Some(workspace) = self.workspace_mut(&id) {
             workspace.connection_started = true;
+            workspace.session_state = SshSessionState::Connecting;
         }
         let should_start_terminal = self
             .workspace_mut(&id)

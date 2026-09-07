@@ -6,8 +6,8 @@ use gpui::{AppContext as _, Context, Entity, EventEmitter, Subscription, Window}
 use gpui_component::input::{InputEvent, InputState};
 use ramag_app::SshService;
 use ramag_domain::entities::{
-    JumpServerRdpSession, RemotePlatformPreference, SshAuthMode, SshCapability, SshProfile,
-    SshProfileId, SshProfileOrigin,
+    JumpServerRdpSession, RemotePlatformPreference, SshAuthMode, SshCapability, SshPortForward,
+    SshProfile, SshProfileId, SshProfileOrigin,
 };
 
 use super::profile_form::ProfileForm;
@@ -46,6 +46,7 @@ struct FormSnapshot {
     auth_mode: SshAuthMode,
     production: bool,
     remote_platform: RemotePlatformPreference,
+    port_forwardings: Vec<SshPortForward>,
 }
 
 pub(super) struct SshProfileFormPanel {
@@ -57,6 +58,7 @@ pub(super) struct SshProfileFormPanel {
     pub(super) auth_mode: SshAuthMode,
     pub(super) production: bool,
     pub(super) remote_platform: RemotePlatformPreference,
+    port_forwardings: Vec<SshPortForward>,
     rdp_web_enabled: Option<bool>,
     jumpserver_rdp_session: Option<JumpServerRdpSession>,
     pub(super) password_masked: bool,
@@ -102,6 +104,10 @@ impl SshProfileFormPanel {
             .map_or(RemotePlatformPreference::Auto, |profile| {
                 profile.remote_platform
             });
+        let port_forwardings = profile
+            .as_ref()
+            .map(|profile| profile.port_forwardings.clone())
+            .unwrap_or_default();
         let rdp_web_enabled = profile.as_ref().and_then(|profile| profile.rdp_web_enabled);
         let jumpserver_rdp_session = profile
             .as_ref()
@@ -123,6 +129,7 @@ impl SshProfileFormPanel {
             auth_mode,
             production,
             remote_platform,
+            port_forwardings: port_forwardings.clone(),
         };
         let mut this = Self {
             service,
@@ -133,6 +140,7 @@ impl SshProfileFormPanel {
             auth_mode,
             production,
             remote_platform,
+            port_forwardings,
             rdp_web_enabled,
             jumpserver_rdp_session,
             password_masked: true,
@@ -172,6 +180,7 @@ impl SshProfileFormPanel {
             auth_mode: self.auth_mode,
             production: self.production,
             remote_platform: self.remote_platform,
+            port_forwardings: self.port_forwardings.clone(),
         }
     }
 
@@ -248,6 +257,7 @@ impl SshProfileFormPanel {
         } else {
             SshAuthMode::System
         };
+        self.port_forwardings = parsed.port_forwardings;
         self.feedback = Some(FormFeedback {
             message: "已解析 SSH 命令".into(),
             kind: FeedbackKind::Success,
@@ -274,6 +284,7 @@ impl SshProfileFormPanel {
         )?;
         profile.rdp_web_enabled = self.rdp_web_enabled;
         profile.jumpserver_rdp_session = self.jumpserver_rdp_session.clone();
+        profile.port_forwardings = self.port_forwardings.clone();
         profile.validate()?;
         Ok(profile)
     }
