@@ -301,6 +301,7 @@ impl KafkaView {
                 match result {
                     Ok(()) => {
                         this.invalidate_message_request();
+                        this.clear_message_tail(cx);
                         this.selected_topic = None;
                         set_value(&this.topic_input, "", window, cx);
                         set_value(&this.topic_target_partitions, "", window, cx);

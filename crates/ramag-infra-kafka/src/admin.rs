@@ -11,7 +11,7 @@ use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::error::{KafkaError, KafkaErrorCategory};
 
 #[cfg(feature = "cmake-build")]
-use super::RdkafkaDriver;
+use super::RdkafkaTransport;
 
 #[cfg(feature = "cmake-build")]
 #[path = "acl_mapping.rs"]
@@ -37,10 +37,10 @@ use std::time::{Duration, Instant};
 
 #[cfg(feature = "cmake-build")]
 fn create_admin_client(
-    driver: &RdkafkaDriver,
+    driver: &RdkafkaTransport,
     config: &KafkaClusterConfig,
 ) -> Result<AdminClient<DefaultClientContext>> {
-    RdkafkaDriver::ensure_build_features(config)?;
+    RdkafkaTransport::ensure_build_features(config)?;
     let client_config = super::config::build_client_config(config, driver.request_timeout)?;
     client_config
         .create()

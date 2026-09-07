@@ -7,7 +7,7 @@ use ramag_domain::entities::{
 use rdkafka::topic_partition_list::{Offset, TopicPartitionList};
 use std::collections::HashMap;
 
-impl RdkafkaDriver {
+impl RdkafkaTransport {
     /// 读取消费者组、成员分配和已提交 Offset；查询客户端不会提交或改变任何 Offset。
     pub(super) fn list_consumer_groups_blocking(
         &self,
@@ -98,7 +98,7 @@ impl RdkafkaDriver {
 }
 
 fn fetch_group_offsets(
-    driver: &RdkafkaDriver,
+    driver: &RdkafkaTransport,
     config: &KafkaClusterConfig,
     group_id: &str,
     partitions: &TopicPartitionList,

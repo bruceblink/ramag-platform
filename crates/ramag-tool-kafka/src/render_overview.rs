@@ -304,6 +304,7 @@ impl KafkaView {
                         .p(px(22.0))
                         .gap(px(18.0))
                         .child(metrics)
+                        .child(self.render_metrics_snapshot(window, cx))
                         .child(sections)
                         .into_any_element()
                 }

@@ -6,6 +6,7 @@ pub mod driver;
 pub mod git_driver;
 pub mod jumpserver_driver;
 pub mod kafka_driver;
+pub mod kafka_transport;
 pub mod kv_driver;
 pub mod object_storage_driver;
 pub mod plugin;
@@ -19,7 +20,11 @@ pub use doc_driver::DocDriver;
 pub use driver::{CancelHandle, Driver};
 pub use git_driver::GitDriver;
 pub use jumpserver_driver::JumpServerDriver;
-pub use kafka_driver::{KafkaAdminDriver, KafkaDriver};
+pub use kafka_driver::{
+    KafkaAdminDriver, KafkaDriver, KafkaMessageTailSink, KafkaMessageTailSinkResult,
+    KafkaMonitoringDriver,
+};
+pub use kafka_transport::KafkaTransport;
 pub use kv_driver::KvDriver;
 pub use object_storage_driver::ObjectStorageDriver;
 pub use plugin::{

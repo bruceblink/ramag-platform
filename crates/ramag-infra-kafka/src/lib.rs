@@ -8,30 +8,38 @@ mod consumer_groups;
 pub mod errors;
 #[cfg(feature = "cmake-build")]
 mod messages;
-use ramag_domain::entities::KafkaClusterConfig;
+mod metrics;
+use ramag_domain::entities::KafkaMessageTailRequest;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{
     KafkaBroker, KafkaClusterMetadata, KafkaPartition, KafkaTopic, MAX_KAFKA_BROKERS,
     MAX_KAFKA_PARTITIONS, MAX_KAFKA_TOPICS,
 };
+use ramag_domain::entities::{KafkaClusterConfig, KafkaTransportCapabilities};
 use ramag_domain::error::{DomainError, KafkaError, KafkaErrorCategory, Result};
-use ramag_domain::traits::KafkaDriver;
+use ramag_domain::traits::{
+    KafkaDriver, KafkaMessageTailSink, KafkaMonitoringDriver, KafkaTransport,
+};
 #[cfg(feature = "cmake-build")]
 use rdkafka::admin::AdminClient;
 #[cfg(feature = "cmake-build")]
 use rdkafka::client::DefaultClientContext;
 #[cfg(feature = "cmake-build")]
 use rdkafka::consumer::{BaseConsumer, Consumer};
+use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 use tracing::{debug, info};
 pub const DEFAULT_KAFKA_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, Copy)]
-pub struct RdkafkaDriver {
+pub struct RdkafkaTransport {
     request_timeout: Duration,
 }
 
-impl RdkafkaDriver {
+/// Compatibility name kept for existing integration callers.
+pub type RdkafkaDriver = RdkafkaTransport;
+
+impl RdkafkaTransport {
     /// 创建使用固定默认请求预算的 Kafka 驱动。
     pub fn new() -> Self {
         Self {
@@ -116,6 +124,19 @@ impl RdkafkaDriver {
         let _ = self.request_timeout;
         Self::ensure_build_features(config)?;
         Err(native_client_unavailable("读取 Kafka 消息"))
+    }
+
+    #[cfg(not(feature = "cmake-build"))]
+    fn tail_messages_blocking(
+        &self,
+        config: &KafkaClusterConfig,
+        _request: &KafkaMessageTailRequest,
+        _sink: KafkaMessageTailSink,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        let _ = self.request_timeout;
+        Self::ensure_build_features(config)?;
+        Err(native_client_unavailable("读取 Kafka 实时消息流"))
     }
 
     #[cfg(feature = "cmake-build")]
@@ -268,14 +289,28 @@ fn native_client_unavailable(operation: &'static str) -> DomainError {
     ))
 }
 
-impl Default for RdkafkaDriver {
+impl Default for RdkafkaTransport {
     fn default() -> Self {
         Self::new()
     }
 }
 
+impl KafkaTransport for RdkafkaTransport {
+    fn capabilities(&self) -> KafkaTransportCapabilities {
+        KafkaTransportCapabilities::native(
+            cfg!(feature = "cmake-build"),
+            cfg!(feature = "kafka-tls"),
+            cfg!(feature = "kafka-sasl"),
+        )
+    }
+}
+
 #[async_trait::async_trait]
-impl KafkaDriver for RdkafkaDriver {
+impl KafkaDriver for RdkafkaTransport {
+    fn transport_capabilities(&self) -> KafkaTransportCapabilities {
+        self.capabilities()
+    }
+
     async fn test_connection(&self, config: &KafkaClusterConfig) -> Result<()> {
         config.validate().map_err(DomainError::InvalidConfig)?;
         let driver = *self;
@@ -347,6 +382,35 @@ impl KafkaDriver for RdkafkaDriver {
         let query = query.clone();
         smol::unblock(move || driver.scan_messages_blocking(&config, &query.scan, Some(&query)))
             .await
+    }
+
+    async fn tail_messages(
+        &self,
+        config: &KafkaClusterConfig,
+        request: &KafkaMessageTailRequest,
+        sink: KafkaMessageTailSink,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        config.validate().map_err(DomainError::InvalidConfig)?;
+        request.validate().map_err(DomainError::InvalidConfig)?;
+        let driver = *self;
+        let config = config.clone();
+        let request = request.clone();
+        smol::unblock(move || driver.tail_messages_blocking(&config, &request, sink, cancelled))
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl KafkaMonitoringDriver for RdkafkaTransport {
+    async fn metrics_snapshot(
+        &self,
+        config: &KafkaClusterConfig,
+    ) -> Result<ramag_domain::entities::KafkaMetricsSnapshot> {
+        config.validate().map_err(DomainError::InvalidConfig)?;
+        let driver = *self;
+        let config = config.clone();
+        smol::unblock(move || driver.metrics_snapshot_blocking(&config)).await
     }
 }
 #[cfg(test)]

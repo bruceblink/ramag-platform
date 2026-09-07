@@ -5,23 +5,29 @@ use std::sync::Arc;
 use ramag_domain::entities::{
     KafkaAcl, KafkaAclFilter, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
     KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup,
-    KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery, KafkaTopic,
-    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMetricsSnapshot, KafkaTopic,
+    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
-use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver, Storage};
+use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver, KafkaMonitoringDriver, Storage};
 
 pub struct KafkaService {
     driver: Arc<dyn KafkaDriver>,
     admin_driver: Arc<dyn KafkaAdminDriver>,
+    monitoring_driver: Arc<dyn KafkaMonitoringDriver>,
     storage: Arc<dyn Storage>,
 }
+
+mod logging;
+mod tail;
+use logging::*;
 
 impl KafkaService {
     pub fn new(driver: Arc<dyn KafkaDriver>, storage: Arc<dyn Storage>) -> Self {
         Self {
             driver,
             admin_driver: Arc::new(UnsupportedKafkaAdminDriver),
+            monitoring_driver: Arc::new(UnsupportedKafkaMonitoringDriver),
             storage,
         }
     }
@@ -29,6 +35,19 @@ impl KafkaService {
     pub fn with_admin_driver(mut self, admin_driver: Arc<dyn KafkaAdminDriver>) -> Self {
         self.admin_driver = admin_driver;
         self
+    }
+
+    pub fn with_monitoring_driver(
+        mut self,
+        monitoring_driver: Arc<dyn KafkaMonitoringDriver>,
+    ) -> Self {
+        self.monitoring_driver = monitoring_driver;
+        self
+    }
+
+    /// 向 UI 暴露当前适配器的能力，不泄露具体 Kafka 客户端类型。
+    pub fn transport_capabilities(&self) -> KafkaTransportCapabilities {
+        self.driver.transport_capabilities()
     }
 
     /// 读取本地保存的 Kafka 集群配置，不包含消息正文或运行时快照。
@@ -157,6 +176,28 @@ impl KafkaService {
             &result,
         );
         result.and_then(validate_message_page)
+    }
+
+    /// 读取协议指标快照；应用层再次校验范围和唯一性，缺失字段保持为未知。
+    pub async fn metrics_snapshot(
+        &self,
+        config: &KafkaClusterConfig,
+    ) -> Result<KafkaMetricsSnapshot> {
+        validate_config(config)?;
+        let started = std::time::Instant::now();
+        let result = self.monitoring_driver.metrics_snapshot(config).await;
+        tracing::info!(
+            operation = "kafka_metrics_snapshot",
+            cluster_id = %config.id,
+            elapsed_ms = started.elapsed().as_millis(),
+            success = result.is_ok(),
+            result_topic_count = result.as_ref().map_or(0, |snapshot| snapshot.topics.len()),
+            result_group_count = result
+                .as_ref()
+                .map_or(0, |snapshot| snapshot.consumer_groups.len()),
+            "Kafka metrics snapshot completed"
+        );
+        result.and_then(validate_metrics_snapshot)
     }
 
     pub async fn create_topic(
@@ -297,10 +338,21 @@ struct UnsupportedKafkaAdminDriver;
 
 impl KafkaAdminDriver for UnsupportedKafkaAdminDriver {}
 
+struct UnsupportedKafkaMonitoringDriver;
+
+impl KafkaMonitoringDriver for UnsupportedKafkaMonitoringDriver {}
+
 /// 在应用层再次校验驱动返回的页，避免替换基础设施实现时绕过领域资源上限。
 fn validate_message_page(page: KafkaMessagePage) -> Result<KafkaMessagePage> {
     page.validate()
         .map(|()| page)
+        .map_err(DomainError::InvalidConfig)
+}
+
+fn validate_metrics_snapshot(snapshot: KafkaMetricsSnapshot) -> Result<KafkaMetricsSnapshot> {
+    snapshot
+        .validate()
+        .map(|()| snapshot)
         .map_err(DomainError::InvalidConfig)
 }
 
@@ -400,174 +452,6 @@ fn validate_config_resource(
         ));
     }
     Ok(resource)
-}
-
-fn log_storage_result<T>(operation: &'static str, result: &Result<T>) {
-    if let Err(error) = result {
-        tracing::warn!(operation, error = %error, "Kafka local storage operation failed");
-    }
-}
-
-fn log_runtime_result(
-    operation: &'static str,
-    config: &KafkaClusterConfig,
-    started: std::time::Instant,
-    result_count: Option<usize>,
-    error: Option<&ramag_domain::error::DomainError>,
-) {
-    tracing::info!(
-        operation,
-        cluster_id = %config.id,
-        elapsed_ms = started.elapsed().as_millis(),
-        result_count,
-        success = error.is_none(),
-        "Kafka read operation completed"
-    );
-    if let Some(error) = error {
-        tracing::warn!(operation, cluster_id = %config.id, error = %error, "Kafka read operation failed");
-    }
-}
-
-fn log_message_result(
-    operation: &'static str,
-    config: &KafkaClusterConfig,
-    topic: &str,
-    started: std::time::Instant,
-    result: &Result<KafkaMessagePage>,
-) {
-    tracing::info!(
-        operation,
-        cluster_id = %config.id,
-        topic,
-        elapsed_ms = started.elapsed().as_millis(),
-        result_count = result.as_ref().map_or(0, |page| page.records.len()),
-        scanned_records = result.as_ref().map_or(0, |page| page.scanned_records),
-        success = result.is_ok(),
-        "Kafka message operation completed"
-    );
-    if let Err(error) = result {
-        tracing::warn!(operation, cluster_id = %config.id, topic, error = %error, "Kafka message operation failed");
-    }
-}
-
-fn log_admin_result(
-    operation: &'static str,
-    config: &KafkaClusterConfig,
-    topic: &str,
-    started: std::time::Instant,
-    result: &Result<()>,
-) {
-    tracing::info!(
-        operation,
-        cluster_id = %config.id,
-        topic,
-        elapsed_ms = started.elapsed().as_millis(),
-        success = result.is_ok(),
-        "Kafka 管理操作完成"
-    );
-    if let Err(error) = result {
-        tracing::warn!(operation, cluster_id = %config.id, topic, error = %error, "Kafka 管理操作失败");
-    }
-}
-
-fn log_config_read_result(
-    operation: &'static str,
-    config: &KafkaClusterConfig,
-    resource_type: KafkaConfigResourceType,
-    resource_name: &str,
-    started: std::time::Instant,
-    result: &Result<KafkaConfigResource>,
-) {
-    tracing::info!(
-        operation,
-        cluster_id = %config.id,
-        resource_type = resource_type.label(),
-        resource_name,
-        elapsed_ms = started.elapsed().as_millis(),
-        entry_count = result.as_ref().map_or(0, |resource| resource.entries.len()),
-        success = result.is_ok(),
-        "Kafka 配置读取完成"
-    );
-    if let Err(error) = result {
-        tracing::warn!(
-            operation,
-            cluster_id = %config.id,
-            resource_type = resource_type.label(),
-            resource_name,
-            error = %error,
-            "Kafka 配置读取失败"
-        );
-    }
-}
-
-fn log_config_update_result(
-    operation: &'static str,
-    config: &KafkaClusterConfig,
-    request: &KafkaConfigUpdateRequest,
-    started: std::time::Instant,
-    result: &Result<()>,
-) {
-    tracing::info!(
-        operation,
-        cluster_id = %config.id,
-        resource_type = request.resource_type.label(),
-        resource_name = %request.resource_name,
-        config_key = %request.key,
-        config_operation = request.operation.label(),
-        elapsed_ms = started.elapsed().as_millis(),
-        success = result.is_ok(),
-        "Kafka 配置修改完成"
-    );
-    if let Err(error) = result {
-        tracing::warn!(
-            operation,
-            cluster_id = %config.id,
-            resource_type = request.resource_type.label(),
-            resource_name = %request.resource_name,
-            config_key = %request.key,
-            config_operation = request.operation.label(),
-            error = %error,
-            "Kafka 配置修改失败"
-        );
-    }
-}
-
-fn log_acl_result(
-    operation: &'static str,
-    config: &KafkaClusterConfig,
-    acl: &KafkaAcl,
-    started: std::time::Instant,
-    result: &Result<()>,
-) {
-    tracing::info!(
-        operation,
-        cluster_id = %config.id,
-        principal = %acl.principal,
-        host = %acl.host,
-        resource_type = acl.resource_type.label(),
-        resource_name = %acl.resource_name,
-        pattern_type = acl.pattern_type.label(),
-        acl_operation = acl.operation.label(),
-        permission = acl.permission.label(),
-        elapsed_ms = started.elapsed().as_millis(),
-        success = result.is_ok(),
-        "Kafka ACL 管理操作完成"
-    );
-    if let Err(error) = result {
-        tracing::warn!(
-            operation,
-            cluster_id = %config.id,
-            principal = %acl.principal,
-            host = %acl.host,
-            resource_type = acl.resource_type.label(),
-            resource_name = %acl.resource_name,
-            pattern_type = acl.pattern_type.label(),
-            acl_operation = acl.operation.label(),
-            permission = acl.permission.label(),
-            error = %error,
-            "Kafka ACL 管理操作失败"
-        );
-    }
 }
 
 #[cfg(test)]

@@ -182,6 +182,10 @@ impl KafkaView {
             .p(px(18.0))
             .gap(px(12.0))
             .child(self.render_message_controls(window, cx))
+            .when(
+                self.selected_topic.is_some() || !value(&self.topic_input, cx).is_empty(),
+                |page| page.child(self.render_message_tail_panel(window, cx)),
+            )
             .child(
                 h_flex()
                     .flex_1()
@@ -416,10 +420,15 @@ impl KafkaView {
                     .child("搜索字段"),
             )
             .child(search_fields);
+        let show_tail_controls =
+            self.selected_topic.is_some() || !value(&self.topic_input, cx).is_empty();
         v_flex()
             .w_full()
             .flex_none()
             .gap(px(8.0))
+            .when(show_tail_controls, |view| {
+                view.child(self.render_message_tail_controls(window, cx))
+            })
             .child(
                 h_flex()
                     .debug_selector(|| "kafka-message-query-row".into())
@@ -452,149 +461,6 @@ impl KafkaView {
                             .truncate()
                             .child("只读扫描 · 不提交 Offset"),
                     ),
-            )
-    }
-
-    /// 显示已加载消息的分页状态；翻页只切换内存中的有界结果，不会隐式扩大 Broker 扫描。
-    fn render_message_pagination(
-        &self,
-        total_records: usize,
-        current_page: usize,
-        page_count: usize,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement + use<> {
-        let theme = cx.theme().clone();
-        let has_previous = current_page > 0;
-        let has_next = current_page.saturating_add(1) < page_count;
-        let previous_page = current_page.saturating_sub(1);
-        let next_page = current_page.saturating_add(1);
-        h_flex()
-            .id("kafka-message-pagination")
-            .debug_selector(|| "kafka-message-pagination".into())
-            .w_full()
-            .h(px(38.0))
-            .flex_none()
-            .items_center()
-            .gap(px(8.0))
-            .px(px(10.0))
-            .border_t_1()
-            .border_color(theme.border)
-            .bg(theme.background)
-            .text_xs()
-            .text_color(theme.muted_foreground)
-            .child(format!("已加载 {total_records} 条消息"))
-            .child(div().flex_1().min_w_0())
-            .child(
-                ramag_ui::clickable_button("kafka-message-page-previous")
-                    .debug_selector(|| "kafka-message-page-previous".into())
-                    .ghost()
-                    .small()
-                    .icon(IconName::ChevronLeft)
-                    .label("上页")
-                    .disabled(!has_previous)
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.set_message_page(previous_page, cx);
-                    })),
-            )
-            .child(
-                div()
-                    .id("kafka-message-page-indicator")
-                    .debug_selector(|| "kafka-message-page-indicator".into())
-                    .flex_none()
-                    .child(if page_count == 0 {
-                        "第 0 / 0 页".to_string()
-                    } else {
-                        format!("第 {} / {} 页", current_page + 1, page_count)
-                    }),
-            )
-            .child(
-                ramag_ui::clickable_button("kafka-message-page-next")
-                    .debug_selector(|| "kafka-message-page-next".into())
-                    .ghost()
-                    .small()
-                    .icon(IconName::ChevronRight)
-                    .label("下页")
-                    .disabled(!has_next)
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.set_message_page(next_page, cx);
-                    })),
-            )
-    }
-
-    pub(super) fn render_message_row(
-        &self,
-        index: usize,
-        record: KafkaMessageRecord,
-        selected: bool,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let theme = cx.theme().clone();
-        h_flex()
-            .id(SharedString::from(format!("kafka-message-row-{index}")))
-            .debug_selector(move || format!("kafka-message-row-{index}"))
-            .w_full()
-            .items_center()
-            .gap(px(10.0))
-            .px(px(12.0))
-            .py(px(9.0))
-            .border_b_1()
-            .border_color(theme.border)
-            .when(selected, |row| row.bg(theme.accent.opacity(0.1)))
-            .when(!selected, |row| {
-                row.hover(|row| row.bg(theme.muted.opacity(0.5)))
-            })
-            .cursor_pointer()
-            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                this.selected_message = Some(index);
-                cx.notify();
-            }))
-            .child(
-                div()
-                    .w(px(56.0))
-                    .text_xs()
-                    .text_color(theme.muted_foreground)
-                    .child(format!("P{}", record.partition)),
-            )
-            .child(
-                div()
-                    .w(px(90.0))
-                    .text_xs()
-                    .text_color(theme.muted_foreground)
-                    .child(record.offset.to_string()),
-            )
-            .child(
-                div()
-                    .w(px(150.0))
-                    .text_xs()
-                    .text_color(theme.muted_foreground)
-                    .truncate()
-                    .child(format_timestamp(record.timestamp)),
-            )
-            .child(
-                div()
-                    .w(px(100.0))
-                    .text_xs()
-                    .text_color(theme.muted_foreground)
-                    .truncate()
-                    .child(
-                        record
-                            .key_preview(96)
-                            .map_or_else(|| "<null>".into(), |preview| preview.text),
-                    ),
-            )
-            .child(
-                div().flex_1().min_w_0().text_sm().truncate().child(
-                    record
-                        .value_preview(MESSAGE_PREVIEW_BYTES)
-                        .map_or_else(|| "<null>".into(), |preview| preview.text),
-                ),
-            )
-            .child(
-                div()
-                    .w(px(70.0))
-                    .text_xs()
-                    .text_color(theme.muted_foreground)
-                    .child(format!("{} headers", record.headers.len())),
             )
     }
 }

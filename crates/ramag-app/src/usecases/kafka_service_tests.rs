@@ -8,11 +8,11 @@ use async_trait::async_trait;
 use ramag_domain::entities::{
     KafkaBroker, KafkaClusterConfig, KafkaClusterMetadata, KafkaConfigEntry, KafkaConfigResource,
     KafkaConfigResourceType, KafkaConfigSource, KafkaConfigUpdateRequest, KafkaConsumerGroup,
-    KafkaMessagePage, KafkaMessageRecord, KafkaPartition, KafkaReadOnlyState, KafkaTopic,
-    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaMessagePage, KafkaMessageRecord, KafkaMetricsSnapshot, KafkaPartition, KafkaReadOnlyState,
+    KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
 };
 use ramag_domain::error::{DomainError, KafkaError, KafkaErrorCategory, Result};
-use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver, Storage};
+use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver, KafkaMonitoringDriver, Storage};
 
 struct NoopKafkaDriver;
 
@@ -170,8 +170,79 @@ impl KafkaAdminDriver for FailingAdminDriver {
     }
 }
 
+struct RecordingMonitoringDriver {
+    snapshot: KafkaMetricsSnapshot,
+}
+
+#[async_trait]
+impl KafkaMonitoringDriver for RecordingMonitoringDriver {
+    async fn metrics_snapshot(&self, _config: &KafkaClusterConfig) -> Result<KafkaMetricsSnapshot> {
+        Ok(self.snapshot.clone())
+    }
+}
+
 fn service_with_admin(admin: Arc<dyn KafkaAdminDriver>) -> KafkaService {
     KafkaService::new(Arc::new(NoopKafkaDriver), Arc::new(NoopStorage)).with_admin_driver(admin)
+}
+
+#[test]
+fn metrics_service_forwards_and_validates_snapshot() {
+    let config = KafkaClusterConfig::new("metrics", vec!["localhost:9092".into()]);
+    let metadata = KafkaClusterMetadata {
+        cluster_id: Some("cluster-a".into()),
+        controller_id: Some(0),
+        brokers: vec![KafkaBroker {
+            id: 0,
+            host: "localhost".into(),
+            port: 9092,
+            rack: None,
+            version: None,
+            is_controller: true,
+        }],
+        kafka_version: None,
+    };
+    let topic = KafkaTopic {
+        name: "events".into(),
+        partitions: vec![KafkaPartition {
+            id: 0,
+            leader: Some(0),
+            replicas: vec![0],
+            isr: vec![0],
+            low_watermark: Some(0),
+            high_watermark: Some(10),
+        }],
+        internal: false,
+    };
+    let snapshot = KafkaMetricsSnapshot::from_runtime(chrono::Utc::now(), &metadata, &[topic], &[]);
+    let service = KafkaService::new(Arc::new(NoopKafkaDriver), Arc::new(NoopStorage))
+        .with_monitoring_driver(Arc::new(RecordingMonitoringDriver {
+            snapshot: snapshot.clone(),
+        }));
+    let result = smol::block_on(service.metrics_snapshot(&config)).expect("valid metrics snapshot");
+    assert_eq!(result, snapshot);
+
+    let mut invalid = snapshot;
+    invalid.topics.push(invalid.topics[0].clone());
+    let invalid_service = KafkaService::new(Arc::new(NoopKafkaDriver), Arc::new(NoopStorage))
+        .with_monitoring_driver(Arc::new(RecordingMonitoringDriver { snapshot: invalid }));
+    assert!(matches!(
+        smol::block_on(invalid_service.metrics_snapshot(&config)),
+        Err(DomainError::InvalidConfig(message)) if message.contains("重复")
+    ));
+}
+
+#[test]
+fn service_exposes_transport_capabilities_without_client_types() {
+    let service = service_with_admin(Arc::new(RecordingAdminDriver {
+        calls: Arc::new(Mutex::new(Vec::new())),
+    }));
+    let capabilities = service.transport_capabilities();
+    assert_eq!(
+        capabilities.backend,
+        ramag_domain::entities::KafkaTransportBackend::TestDouble
+    );
+    assert!(!capabilities.build_available);
+    assert!(!capabilities.metadata);
 }
 
 #[test]

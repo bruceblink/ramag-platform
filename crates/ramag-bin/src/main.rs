@@ -37,15 +37,15 @@ use ramag_app::{
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use ramag_domain::traits::ClipboardDriver;
 use ramag_domain::traits::{
-    DocDriver, Driver, GitDriver, JumpServerDriver, KafkaAdminDriver, KafkaDriver, KvDriver,
-    SshDriver, Storage,
+    DocDriver, Driver, GitDriver, JumpServerDriver, KafkaAdminDriver, KafkaDriver,
+    KafkaMonitoringDriver, KvDriver, SshDriver, Storage,
 };
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use ramag_infra_clipboard::{
     HotkeyEvent, HotkeyListener, PlatformClipboardDriver, foreground_display_index,
 };
 use ramag_infra_git::GitDriverImpl;
-use ramag_infra_kafka::RdkafkaDriver;
+use ramag_infra_kafka::RdkafkaTransport;
 use ramag_infra_mongodb::MongoDriver;
 use ramag_infra_mysql::MysqlDriver;
 use ramag_infra_postgres::PostgresDriver;

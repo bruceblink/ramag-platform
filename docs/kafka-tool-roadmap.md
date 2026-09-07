@@ -1,12 +1,12 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 17 的主题页紧凑布局已完成；现有 Kafka 管理工具基础能力已闭环，下一阶段转入“AKHQ 集群运维 + Offset Explorer 消息分析”的产品增强路线
-> 更新日期：2026-09-06
+> 状态：阶段 21 的 Kafka 指标快照已完成；下一阶段转入概览页完整整合和高规模工作区优化
+> 更新日期：2026-09-07
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
-> 当前基线：`main`（阶段 1-17 已完成）
+> 当前基线：`feat/kafka-001-transport-matrix`（阶段 18-21 已完成，阶段 22-24 待开发）
 > 实施分支：按独立功能创建不以 `codex` 开头的短期分支
-> 当前主线：先完成 Kafka 传输层与工具链评估，再补齐实时消息、指标快照和 AKHQ/Offset Explorer 组合体验；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前主线：继续完成概览页整合、Broker 运行指标适配和高规模工作区优化；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -320,12 +320,12 @@ Kafka 工作台必须满足统一跨平台构建目标：
 
 ### 6.1 AKHQ + Offset Explorer 产品增强主线
 
-阶段 1-17 已形成现有 Kafka 工具基线。后续功能以 Kafka 工作台为目标，每项功能独立验证、提交和推送；不得把传输层替换、实时 Tail、指标采集和 UI 重构压缩成一个大提交。
+阶段 1-21 已形成现有 Kafka 工具基线。后续功能以 Kafka 工作台为目标，每项功能独立验证、提交和推送；不得把传输层替换、实时 Tail、指标采集和 UI 重构压缩成一个大提交。
 
 | 顺序 | 建议提交信息 | 交付内容 | 主要验收证据 |
 |---:|---|---|---|
-| 18 | `chore(kafka): define transport capability matrix` | 对 Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 建立客户端能力矩阵；记录纯 Rust 方案、当前 native 方案和缺失能力 | Windows/Linux/macOS 默认 Cargo 构建结果、Docker KRaft API 测试、矩阵评审 |
-| 19 | `refactor(kafka): isolate transport boundary` | 增加 `KafkaTransport` 适配边界，禁止 Domain、App 和 UI 依赖具体 Kafka 客户端类型；统一超时、取消、错误和能力检测 | `cargo build --workspace --locked`、workspace Clippy、适配器单元测试 |
+| 18 | `chore(kafka): define transport capability matrix` | 已在 [`kafka-transport-capability-matrix.md`](kafka-transport-capability-matrix.md) 建立 Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 矩阵；记录纯 Rust 方案、当前 native 方案和缺失能力 | Windows 默认 feature 测试和 feature 树核对通过；Docker、TLS/SASL、Linux/macOS 和纯 Rust 证据按文档保留未完成项 |
+| 19 | `refactor(kafka): isolate transport boundary` | 已增加 `KafkaTransport` 适配边界；领域能力快照和 `KafkaService` 不依赖具体客户端类型，native 实现使用 `RdkafkaTransport`，保留 `RdkafkaDriver` 兼容别名 | 目标 crate 测试和格式检查通过；workspace 完整构建、Clippy 和 native Docker 复核仍受 Windows/Docker 环境限制 |
 | 20 | `feat(kafka): add live message tail` | Topic/Partition 实时 Tail、暂停、停止、断线状态、过滤、速率、有限窗口和导出；不提交业务 Offset | Docker 多 Partition 生产者、Tail 取消/重连/背压测试、GPUI headless 与 Windows 验收 |
 | 21 | `feat(kafka): add kafka metrics snapshots` | `KafkaMonitoringDriver`、集群/Topic/Partition/Consumer Group 指标模型、Lag 快照、high watermark 速率采样和按集群刷新任务 | 固定 Offset、Lag 趋势、速率采样、切换集群和迟到结果测试 |
 | 22 | `feat(kafka): complete workbench overview` | 概览页整合 Broker 健康、Topic/Partition 健康、Consumer Group Lag、实时数据时间和来源状态 | 360/900/1440 窗口 headless 布局、真实 Windows 截图、Docker 集成测试 |
@@ -333,6 +333,15 @@ Kafka 工作台必须满足统一跨平台构建目标：
 | 24 | `fix(kafka): harden high-scale workbench` | 高 Topic/Partition/Consumer Group 数量下的分页、虚拟列表、快照大小、刷新合并和资源释放 | 规模化 Docker fixture、内存/耗时上限、取消和断线恢复测试 |
 
 阶段 3 实施记录：
+
+- 2026-09-07 完成阶段 18 传输能力矩阵：明确 `ramag-infra-kafka` 默认 feature 不启用 native 客户端、`ramag-bin` 显式启用 `cmake-build`，并逐项记录 Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 的代码入口、构建条件、服务证据和纯 Rust 缺口；详见 [`kafka-transport-capability-matrix.md`](kafka-transport-capability-matrix.md)。
+- 2026-09-07 默认 feature 测试通过 5 项；Docker 当前不可用，未把历史明文 KRaft 集成结果冒充本次复核；TLS/SASL Broker、Authorizer、纯 Rust 客户端和 Linux/macOS 构建继续标记为未完成。
+
+阶段 19 实施记录：
+
+- 增加 `KafkaTransport` trait 和 `KafkaTransportCapabilities` 快照，明确 Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 与当前 feature 的关系；应用层通过 `KafkaService::transport_capabilities` 读取结果。
+- native 适配器正式命名为 `RdkafkaTransport`；旧的 `RdkafkaDriver` 仅保留兼容别名，现有 `KafkaDriver` 和 `KafkaAdminDriver` 用户流程不变。
+- `ramag-domain` 154 项、`ramag-infra-kafka` 默认 feature 6 项、`ramag-app` 189 项、`ramag-tool-kafka` 18 项测试通过；Windows GNU 格式检查通过。
 
 - `ramag-infra-kafka` 通过可选 workspace 依赖接入 `rdkafka`；默认构建不触发 native 构建，显式启用 `cmake-build` 后才使用 CMake 构建 `librdkafka`。
 - `tls`/`kafka-tls` 和 `sasl`/`kafka-sasl` 是独立可选能力；TLS/SASL 配置在未启用对应构建能力时返回明确的不支持错误。
@@ -387,9 +396,22 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - 新增 `kafka_topics_reflow_header_and_split_at_supported_widths`，使用长 Topic 名称验证 360/900/1440 窗口下标题、搜索框、列表、详情、扩容、删除和浏览消息操作均留在父容器内，并确认紧凑窗口列表和详情上下排列。
 - `cargo fmt --all -- --check`、`cargo check -p ramag-tool-kafka`、Windows GNU Clippy、Kafka crate 17 项测试、Windows 源文件大小检查和 `git diff --check` 均通过；真实 Windows 窗口截图和操作记录仍待补充。
 
+阶段 20 当前切片实施记录：
+
+- Kafka 工作区已提供明确 Topic/Partition 范围的实时消息流，支持开始、暂停、停止、断线状态、有限消息窗口、字节预算、速率和导出；读取客户端关闭自动提交，不推进业务消费者组的 Offset。
+- `KafkaService`、`KafkaDriver` 和 `KafkaView` 分开维护实时流任务、取消状态、背压结果和当前集群/Topic 上下文；切换配置或结束视图时，旧任务和迟到事件不会写入新页面。
+- 当前 headless UI 回归继续覆盖实时消息控制与有限窗口；Docker 多 Partition、断线重连和真实 Windows 操作记录仍按验收条件单独保留，不能由静态测试替代。
+
+阶段 21 当前切片实施记录：
+
+- `ramag-domain` 新增 `KafkaMetricsSnapshot`、集群/Topic/Partition/Consumer Group 指标模型、来源、采集时间、状态和错误原因；未知 Offset、Lag 和速率保持未知，不转换为零值。
+- `RdkafkaTransport` 通过只读 Metadata、Topic/Partition 末尾 Offset 和 Consumer Group/Offset 查询构造协议指标快照，不读取消息正文，也不提交业务 Offset；Topic 和集群消息速率由同一集群连续两次 `high watermark` 样本计算，末尾 Offset 回退时保留未知值。
+- `KafkaService` 单独注入 `KafkaMonitoringDriver` 并在应用边界重新校验快照；Kafka UI 在概览页展示状态、来源、采集时间、Broker/Topic/Partition、Lag、速率和副本健康，并按集群隔离可取消刷新任务。
+- 2026-09-07 Windows MSVC 默认 feature 测试通过：`ramag-domain` 159 项、`ramag-app` 191 项、`ramag-infra-kafka` 7 项、`ramag-tool-kafka` 20 项；`cmake-build` native 基础设施编译和测试通过 10 项。三种窗口宽度的指标布局测试通过；Docker Broker、真实 Windows 截图、TLS/SASL 和外部 Broker 运行指标仍未完成。
+
 后续独立路线：
 
-当前开发顺序是阶段 18-24 的 Kafka 工作台增强主线：先完成传输层能力矩阵和适配边界，再实现实时消息、指标快照、概览整合和外部 Broker 指标。Schema Registry、Kafka Connect、ksqlDB、消息生产和 Offset 重置不阻塞这条主线，继续作为后续独立候选：
+当前开发顺序是阶段 22-24 的 Kafka 工作台增强主线：先完成概览页整合，再接入外部 Broker 运行指标并处理高规模刷新。Schema Registry、Kafka Connect、ksqlDB、消息生产和 Offset 重置不阻塞这条主线，继续作为后续独立候选：
 
 - `feat(kafka): add schema registry integration`
 - `feat(kafka): add kafka connect integration`

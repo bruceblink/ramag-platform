@@ -1,20 +1,47 @@
 //! Kafka 只读与管理能力的领域边界。
 
 use async_trait::async_trait;
+use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::entities::{
     KafkaAcl, KafkaAclFilter, KafkaClusterConfig, KafkaClusterMetadata, KafkaConfigResource,
     KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup, KafkaMessagePage,
-    KafkaMessageQuery, KafkaMessageSearchQuery, KafkaTopic, KafkaTopicCreateRequest,
-    KafkaTopicPartitionExpansion,
+    KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMessageTailEvent, KafkaMessageTailRequest,
+    KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaTransportCapabilities,
 };
 use crate::error::Result;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KafkaMessageTailSinkResult {
+    Accepted,
+    Backpressured,
+    Closed,
+}
+
+pub type KafkaMessageTailSink =
+    Arc<dyn Fn(KafkaMessageTailEvent) -> KafkaMessageTailSinkResult + Send + Sync>;
+
+/// Kafka 观测端口；只读取协议快照，不读取消息正文或修改 Consumer Offset。
+#[async_trait]
+pub trait KafkaMonitoringDriver: Send + Sync {
+    async fn metrics_snapshot(&self, _config: &KafkaClusterConfig) -> Result<KafkaMetricsSnapshot> {
+        Err(crate::error::DomainError::NotImplemented(
+            "metrics_snapshot".into(),
+        ))
+    }
+}
 
 /// Kafka 读取端口；不会提交 Offset，也不修改集群状态。
 #[async_trait]
 pub trait KafkaDriver: Send + Sync {
     fn name(&self) -> &'static str {
         "kafka"
+    }
+
+    /// 返回当前传输适配器的能力快照；应用层据此展示明确的不可用原因。
+    fn transport_capabilities(&self) -> KafkaTransportCapabilities {
+        KafkaTransportCapabilities::unknown()
     }
 
     async fn test_connection(&self, config: &KafkaClusterConfig) -> Result<()>;
@@ -57,6 +84,19 @@ pub trait KafkaDriver: Send + Sync {
     ) -> Result<KafkaMessagePage> {
         Err(crate::error::DomainError::NotImplemented(
             "search_messages".into(),
+        ))
+    }
+
+    /// 持续读取明确 Topic/Partition 范围；调用方通过有界 sink 和取消句柄控制生命周期。
+    async fn tail_messages(
+        &self,
+        _config: &KafkaClusterConfig,
+        _request: &KafkaMessageTailRequest,
+        _sink: KafkaMessageTailSink,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "tail_messages".into(),
         ))
     }
 }
