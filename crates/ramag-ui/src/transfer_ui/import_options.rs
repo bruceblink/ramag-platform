@@ -2,9 +2,10 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use gpui::StatefulInteractiveElement as _;
 use gpui::{
-    App, AppContext as _, ClickEvent, Context, IntoElement, ParentElement, Render, SharedString,
-    Styled, Window, div, px,
+    App, AppContext as _, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement,
+    Render, SharedString, Styled, Window, div, px,
 };
 use gpui_component::{
     ActiveTheme, Disableable as _, Sizable as _, WindowExt as _, button::ButtonVariants as _,
@@ -74,7 +75,8 @@ impl ImportOptionsForm {
 }
 
 impl Render for ImportOptionsForm {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let layout = crate::dialog_layout::DialogLayout::new(window, 592.0);
         let muted_fg = cx.theme().muted_foreground;
         let entity = cx.entity();
 
@@ -184,49 +186,66 @@ impl Render for ImportOptionsForm {
                 })
         };
         let cancel_button = crate::clickable_button("ramag-import-cancel")
+            .debug_selector(|| "ramag-import-cancel".into())
             .ghost()
             .small()
             .label("取消")
             .on_click(|_: &ClickEvent, window, app| window.close_dialog(app));
 
         v_flex()
+            .debug_selector(|| "import-options-form".into())
             .w_full()
-            .max_w(px(560.0))
+            .min_h_0()
+            .max_h(layout.body_height)
             .gap(px(10.0))
             .child(
                 div()
-                    .py(px(2.0))
-                    .text_sm()
-                    .text_color(muted_fg)
-                    .child(self.description.clone()),
-            )
-            .child(
-                v_flex()
-                    .gap(px(6.0))
-                    .child(div().text_xs().text_color(muted_fg).child("同名"))
-                    .child(policy_row),
-            )
-            .child(
-                h_flex()
-                    .items_center()
-                    .flex_wrap()
-                    .gap(px(8.0))
-                    .child(pick_button)
+                    .id("import-options-scroll")
+                    .debug_selector(|| "import-options-scroll".into())
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
                     .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .text_sm()
-                            .text_color(muted_fg)
-                            .whitespace_nowrap()
-                            .overflow_hidden()
-                            .text_ellipsis()
-                            .child(self.files_summary()),
+                        v_flex()
+                            .w_full()
+                            .gap(px(10.0))
+                            .child(
+                                div()
+                                    .py(px(2.0))
+                                    .text_sm()
+                                    .text_color(muted_fg)
+                                    .child(self.description.clone()),
+                            )
+                            .child(
+                                v_flex()
+                                    .gap(px(6.0))
+                                    .child(div().text_xs().text_color(muted_fg).child("同名"))
+                                    .child(policy_row),
+                            )
+                            .child(
+                                h_flex()
+                                    .items_center()
+                                    .flex_wrap()
+                                    .gap(px(8.0))
+                                    .child(pick_button)
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w_0()
+                                            .text_sm()
+                                            .text_color(muted_fg)
+                                            .whitespace_nowrap()
+                                            .overflow_hidden()
+                                            .text_ellipsis()
+                                            .child(self.files_summary()),
+                                    ),
+                            ),
                     ),
             )
             .child(
                 h_flex()
                     .w_full()
+                    .flex_none()
                     .flex_wrap()
                     .items_center()
                     .justify_end()
@@ -260,8 +279,9 @@ pub fn open_import_options_dialog(
         picking: false,
         on_pick: Rc::new(RefCell::new(Some(Box::new(on_pick)))),
     });
-    window.open_dialog(cx, move |dialog, _, _| {
+    window.open_dialog(cx, move |dialog, window, _| {
         let form = form.clone();
+        let layout = crate::dialog_layout::DialogLayout::new(window, 592.0);
         dialog
             .title(crate::closable_dialog_title(
                 "ramag-import-close",
@@ -269,7 +289,9 @@ pub fn open_import_options_dialog(
                 |_, _| {},
             ))
             .close_button(false)
-            .margin_top(px(160.0))
+            .w(layout.width)
+            .max_h(layout.height)
+            .margin_top(layout.top)
             .content(move |content, _, _| content.child(form.clone()))
     });
 }

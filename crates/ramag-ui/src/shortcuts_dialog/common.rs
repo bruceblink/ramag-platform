@@ -30,7 +30,10 @@ const COMMON_INTERACTIONS: &[CommonInteraction] = &[
     },
 ];
 
-pub(super) fn render_common_group(theme: &gpui_component::Theme) -> impl IntoElement {
+pub(super) fn render_common_group(
+    compact: bool,
+    theme: &gpui_component::Theme,
+) -> impl IntoElement {
     let mut rows = v_flex()
         .w_full()
         .border_1()
@@ -43,6 +46,7 @@ pub(super) fn render_common_group(theme: &gpui_component::Theme) -> impl IntoEle
                 .w_full()
                 .min_h(px(58.0))
                 .items_center()
+                .when(compact, |row| row.flex_col().items_stretch())
                 .gap(px(14.0))
                 .px(px(14.0))
                 .py(px(8.0))

@@ -4,7 +4,7 @@
 > 更新日期：2026-09-07
 > 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台以及跨工具质量与构建流程
 > 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
-> 当前交付切片：`KAFKA-001`；TERM-001 已完成代码、目标测试和真实 SSH 端点验收
+> 当前交付切片：`UI-001`，逐项核验全软件响应式布局；数据库和 Kafka 的功能/UI 对齐按下方队列推进
 
 ## 术语与命名规则
 
@@ -69,6 +69,8 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | `DB-002` | 数据库 | `ramag-tool-dbclient`、`ramag-ui` | 待开始 | `DB-001` | 建立 DBeaver/DataGrip 功能矩阵，逐项实现并验收结果、对象导航、执行计划和迁移 UI，不以静态截图宣称完成 |
 | `KAFKA-023` | Kafka | `ramag-tool-kafka`、`ramag-ui` | 待开始 | `KAFKA-001` | 建立 AKHQ/Offset Explorer 功能矩阵，逐项实现并验收 Topic、消息、Consumer Group、配置和 ACL UI |
 | `QUALITY-001` | 质量与工具链 | workspace 维护者 | 持续任务 | 每个交付切片 | stable toolchain、统一 Cargo 命令、LF、CI 过滤器和三平台发布证据保持一致 |
+
+`UI-001` 验收记录（2026-09-07）：共享弹窗的实际打开测试发现导入表单在 360×240 窗口中仍宽 414px，左侧越界 27px，说明此前仅调整内容宽度不足以修复 Dialog 外框。当前修复统一约束快捷键、最近项目和导入弹窗的宽度、顶部偏移及内容高度；导入操作区保留在滚动区外。3 项直接打开弹窗的 headless 测试覆盖 360×240、360×640、1024×768、1440×900、打开后缩放、取消、最近项目滚动/搜索/打开和快捷键录制错误/退出。真实窗口验证未完成：本次 Computer Use 的 `list_windows()` 返回空列表，安装的 `@oai/sky` 也没有技能要求的 `documentation` 接口。其他工作台仍须逐项检查，不能由这三类弹窗的结果推断全软件已适配。
 
 `PLAT-003` 完成后，`TERM-001` 已完成代码和真实 OpenSSH 端点验收；真实 Windows 窗口和独立转发状态面板仍单独排期。`KAFKA-001` 已进入传输能力矩阵和适配边界阶段，在其完成前不实现 Metrics Snapshot 或 Live Message Tail；终端和数据库任务不得借机修改 Kafka 或插件协议。
 

@@ -242,6 +242,7 @@ impl RecentItemPicker {
         let on_select = self.on_select.clone();
         h_flex()
             .id(format!("recent-picker-row-{favorite_section}-{index}"))
+            .debug_selector(move || format!("recent-picker-row-{favorite_section}-{index}"))
             .w_full()
             .flex_wrap()
             .min_h(px(66.0))
@@ -299,6 +300,9 @@ impl RecentItemPicker {
             })
             .child(
                 crate::clickable_button(format!("recent-picker-open-{favorite_section}-{index}"))
+                    .debug_selector(move || {
+                        format!("recent-picker-open-{favorite_section}-{index}")
+                    })
                     .outline()
                     .small()
                     .label(if item.current { "当前" } else { "打开" })
@@ -342,13 +346,14 @@ impl Render for RecentItemPicker {
             .collect();
         let row_count = matching.len().saturating_add(favorites.len()).max(1);
         let desired_height = px((row_count.min(7) as f32 * 66.0) + 160.0);
-        let max_height = (window.viewport_size().height * 0.58)
-            .max(px(260.0))
-            .min(px(590.0));
-        let body_height = desired_height.min(max_height).max(px(230.0));
+        let layout = crate::dialog_layout::DialogLayout::new(window, 820.0);
+        let body_height = desired_height.min(layout.body_height).min(px(630.0));
         let muted = cx.theme().muted_foreground;
         v_flex()
+            .debug_selector(|| "recent-picker-body".into())
             .w_full()
+            .h(body_height)
+            .min_h_0()
             .gap(px(14.0))
             .child(
                 Input::new(&self.search)
@@ -358,9 +363,10 @@ impl Render for RecentItemPicker {
             .child(
                 div()
                     .id("recent-picker-scroll")
+                    .debug_selector(|| "recent-picker-scroll".into())
                     .w_full()
-                    .h(body_height)
-                    .flex_none()
+                    .flex_1()
+                    .min_h_0()
                     .overflow_y_scroll()
                     .track_scroll(&self.scroll)
                     .child(
@@ -396,13 +402,12 @@ pub fn open_recent_item_picker(
     let title = title.into();
     window.open_dialog(cx, move |dialog, window, _| {
         let panel = panel.clone();
-        let dialog_width = (window.viewport_size().width * 0.92)
-            .max(px(300.0))
-            .min(px(820.0));
+        let layout = crate::dialog_layout::DialogLayout::new(window, 820.0);
         dialog
             .title(title.clone())
-            .w(dialog_width)
-            .margin_top(px(42.0))
+            .w(layout.width)
+            .max_h(layout.height)
+            .margin_top(layout.top)
             .content(move |content, _, _| content.child(panel.clone()))
     });
 }

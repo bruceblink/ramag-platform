@@ -29,12 +29,7 @@ pub fn open_shortcuts(window: &mut Window, cx: &mut App) {
     let panel = cx.new(ShortcutPanel::new);
     window.open_dialog(cx, move |dialog, window, _| {
         let panel = panel.clone();
-        let dialog_width = (window.viewport_size().width * 0.92)
-            .max(px(300.0))
-            .min(px(820.0));
-        let dialog_max_h = (window.viewport_size().height * 0.86)
-            .max(px(420.0))
-            .min(px(820.0));
+        let layout = crate::dialog_layout::DialogLayout::new(window, 820.0);
         dialog
             .title(crate::closable_dialog_title(
                 "ramag-shortcuts-close",
@@ -42,9 +37,9 @@ pub fn open_shortcuts(window: &mut Window, cx: &mut App) {
                 |_, _| {},
             ))
             .close_button(false)
-            .w(dialog_width)
-            .max_h(dialog_max_h)
-            .margin_top(px(42.0))
+            .w(layout.width)
+            .max_h(layout.height)
+            .margin_top(layout.top)
             .content(move |content, _, _| content.child(panel.clone()))
     });
 }
@@ -123,10 +118,12 @@ impl ShortcutPanel {
         cx.notify();
     }
 
+    /// 在紧凑弹窗中将说明和录制操作上下排列，保留宽窗口的左右对齐。
     fn render_group(
         &self,
         group: &'static str,
         show_title: bool,
+        compact: bool,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme();
@@ -148,15 +145,18 @@ impl ShortcutPanel {
             let id = spec.id;
             rows = rows.child(
                 h_flex()
+                    .debug_selector(move || format!("shortcut-row-{id}"))
                     .w_full()
                     .min_h(px(58.0))
                     .items_center()
+                    .when(compact, |row| row.flex_col().items_stretch())
                     .gap(px(14.0))
                     .px(px(14.0))
                     .py(px(8.0))
                     .when(index > 0, |row| row.border_t_1().border_color(theme.border))
                     .child(
                         v_flex()
+                            .debug_selector(move || format!("shortcut-description-{id}"))
                             .flex_1()
                             .min_w_0()
                             .gap(px(3.0))
@@ -175,9 +175,11 @@ impl ShortcutPanel {
                     )
                     .child(if spec.action.is_some() {
                         h_flex()
+                            .flex_wrap()
                             .gap(px(5.0))
                             .child(
                                 crate::clickable_button(format!("shortcut-record-{}", spec.id))
+                                    .debug_selector(move || format!("shortcut-record-{id}"))
                                     .outline()
                                     .small()
                                     .min_w(px(150.0))
@@ -207,6 +209,7 @@ impl ShortcutPanel {
                             .into_any_element()
                     } else {
                         h_flex()
+                            .flex_wrap()
                             .gap(px(8.0))
                             .child(
                                 div()
@@ -238,15 +241,14 @@ impl Render for ShortcutPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let muted = cx.theme().muted_foreground;
         let danger = cx.theme().danger;
-        let list_height = (window.viewport_size().height * 0.62)
-            .max(px(280.0))
-            .min(px(640.0));
+        let layout = crate::dialog_layout::DialogLayout::new(window, 820.0);
+        let compact = layout.width < px(600.0);
         let has_overrides = !overrides(cx).is_empty();
         let global_group = v_flex()
             .w_full()
             .gap(px(10.0))
             .child(render_type_heading("全局", cx.theme()))
-            .child(self.render_group("全局", false, cx));
+            .child(self.render_group("全局", false, compact, cx));
         let mut module_groups = v_flex()
             .w_full()
             .gap(px(20.0))
@@ -255,22 +257,26 @@ impl Render for ShortcutPanel {
             .iter()
             .filter(|group| SHORTCUTS.iter().any(|spec| spec.group == **group))
         {
-            module_groups = module_groups.child(self.render_group(group, true, cx));
+            module_groups = module_groups.child(self.render_group(group, true, compact, cx));
         }
         let groups = v_flex()
             .w_full()
             .gap(px(28.0))
             .child(global_group)
             .child(module_groups)
-            .child(render_common_group(cx.theme()));
+            .child(render_common_group(compact, cx.theme()));
         v_flex()
+            .debug_selector(|| "shortcuts-body".into())
             .w_full()
+            .h(layout.body_height.min(px(720.0)))
+            .min_h_0()
             .gap(px(14.0))
             .child(
                 h_flex()
                     .w_full()
                     .flex_wrap()
                     .items_start()
+                    .flex_none()
                     .gap(px(16.0))
                     .child(
                         div()
@@ -281,6 +287,7 @@ impl Render for ShortcutPanel {
                     )
                     .child(
                         crate::clickable_button("shortcut-reset-all")
+                            .debug_selector(|| "shortcut-reset-all".into())
                             .ghost()
                             .small()
                             .label("全部重置")
@@ -293,7 +300,9 @@ impl Render for ShortcutPanel {
             .when_some(self.error.clone(), |body, error| {
                 body.child(
                     div()
+                        .debug_selector(|| "shortcut-error".into())
                         .w_full()
+                        .flex_none()
                         .px(px(10.0))
                         .py(px(7.0))
                         .rounded(px(6.0))
@@ -306,8 +315,10 @@ impl Render for ShortcutPanel {
             .child(
                 div()
                     .id("shortcut-center-scroll")
+                    .debug_selector(|| "shortcut-center-scroll".into())
                     .w_full()
-                    .h(list_height)
+                    .flex_1()
+                    .min_h_0()
                     .overflow_y_scroll()
                     .pr(px(5.0))
                     .child(groups),

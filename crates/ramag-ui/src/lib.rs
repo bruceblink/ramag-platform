@@ -9,6 +9,7 @@ pub mod copy_support;
 pub mod data_sync_overlay;
 pub mod database_result_settings;
 pub mod database_search;
+mod dialog_layout;
 pub mod editor_workspace;
 pub mod home_view;
 pub mod icons;
@@ -374,6 +375,9 @@ mod copy_support_tests;
 
 #[cfg(test)]
 mod shared_ui_tests;
+
+#[cfg(test)]
+mod dialog_layout_tests;
 
 #[cfg(test)]
 mod input_limit_tests {
