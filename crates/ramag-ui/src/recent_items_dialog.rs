@@ -243,6 +243,7 @@ impl RecentItemPicker {
         h_flex()
             .id(format!("recent-picker-row-{favorite_section}-{index}"))
             .w_full()
+            .flex_wrap()
             .min_h(px(66.0))
             .items_center()
             .gap(px(12.0))
@@ -287,7 +288,8 @@ impl RecentItemPicker {
             .when(!item.secondary.is_empty(), |row| {
                 row.child(
                     div()
-                        .w(px(210.0))
+                        .max_w(px(210.0))
+                        .flex_1()
                         .text_xs()
                         .text_color(theme.muted_foreground)
                         .overflow_hidden()
@@ -392,11 +394,14 @@ pub fn open_recent_item_picker(
         )
     });
     let title = title.into();
-    window.open_dialog(cx, move |dialog, _, _| {
+    window.open_dialog(cx, move |dialog, window, _| {
         let panel = panel.clone();
+        let dialog_width = (window.viewport_size().width * 0.92)
+            .max(px(300.0))
+            .min(px(820.0));
         dialog
             .title(title.clone())
-            .w(px(820.0))
+            .w(dialog_width)
             .margin_top(px(42.0))
             .content(move |content, _, _| content.child(panel.clone()))
     });

@@ -29,6 +29,9 @@ pub fn open_shortcuts(window: &mut Window, cx: &mut App) {
     let panel = cx.new(ShortcutPanel::new);
     window.open_dialog(cx, move |dialog, window, _| {
         let panel = panel.clone();
+        let dialog_width = (window.viewport_size().width * 0.92)
+            .max(px(300.0))
+            .min(px(820.0));
         let dialog_max_h = (window.viewport_size().height * 0.86)
             .max(px(420.0))
             .min(px(820.0));
@@ -39,7 +42,7 @@ pub fn open_shortcuts(window: &mut Window, cx: &mut App) {
                 |_, _| {},
             ))
             .close_button(false)
-            .w(px(820.0))
+            .w(dialog_width)
             .max_h(dialog_max_h)
             .margin_top(px(42.0))
             .content(move |content, _, _| content.child(panel.clone()))
@@ -266,6 +269,7 @@ impl Render for ShortcutPanel {
             .child(
                 h_flex()
                     .w_full()
+                    .flex_wrap()
                     .items_start()
                     .gap(px(16.0))
                     .child(
