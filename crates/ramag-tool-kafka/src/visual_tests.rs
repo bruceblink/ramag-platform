@@ -1,9 +1,7 @@
 use super::*;
-
 struct KafkaDialogTestHost {
     view: gpui::Entity<KafkaView>,
 }
-
 impl Render for KafkaDialogTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
@@ -14,9 +12,7 @@ impl Render for KafkaDialogTestHost {
             .children(dialog_layer)
     }
 }
-
 const VISUAL_MESSAGE_COUNT: usize = 5_000;
-
 #[gpui::test]
 fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext) {
     cx.update(gpui_component::init);
@@ -83,7 +79,6 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
         admin_copy_bounds.size.width >= px(300.0),
         "管理模式说明被压缩: {admin_copy_bounds:?}"
     );
-
     visual_cx.simulate_resize(size(px(900.0), px(780.0)));
     visual_cx.run_until_parked();
     let compact_admin_panel_bounds = visual_cx.debug_bounds("kafka-admin-mode-panel");
@@ -99,7 +94,6 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
     assert!(kafka_entity.read_with(visual_cx, |view, _| {
         view.section == KafkaSection::Config
     }));
-
     kafka_entity.update(visual_cx, |view, cx| {
         view.section = KafkaSection::Overview;
         cx.notify();
@@ -108,12 +102,10 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
     click(visual_cx, "kafka-add-profile");
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("kafka-config").is_some());
-
     visual_cx.simulate_resize(size(px(680.0), px(780.0)));
     super::visual_shell_tests::assert_compact_shell(visual_cx, &kafka_entity);
     visual_cx.simulate_resize(size(px(1200.0), px(780.0)));
     visual_cx.run_until_parked();
-
     kafka_entity.update(visual_cx, |view, cx| {
         view.selected_cluster_id = Some(cluster.id.clone());
         view.metadata = Some(KafkaClusterMetadata {
@@ -143,7 +135,31 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
                 })
                 .collect(),
         }];
-        topics.extend((0..122).map(|index| KafkaTopic {
+        for (name, partition_count) in [
+            ("ramag.ui.empty", 1_i32),
+            ("ramag.ui.short", 2_i32),
+            ("ramag.ui.partition-heavy", 12_i32),
+            (
+                "ramag.ui.long-topic-name-for-responsive-layout-check",
+                3_i32,
+            ),
+        ] {
+            topics.push(KafkaTopic {
+                name: name.into(),
+                internal: false,
+                partitions: (0..partition_count)
+                    .map(|id| KafkaPartition {
+                        id,
+                        leader: Some(0),
+                        replicas: vec![0],
+                        isr: vec![0],
+                        low_watermark: Some(0),
+                        high_watermark: Some(if name == "ramag.ui.empty" { 0 } else { 12 }),
+                    })
+                    .collect(),
+            });
+        }
+        topics.extend((0..118).map(|index| KafkaTopic {
             name: format!("ramag.integration.topic-{index:03}"),
             internal: false,
             partitions: vec![KafkaPartition {
@@ -253,7 +269,6 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
         copied_topic, "ramag.integration.messages",
         "Topic 复制按钮应写入完整名称"
     );
-
     visual_cx.simulate_resize(size(px(900.0), px(780.0)));
     visual_cx.run_until_parked();
     for selector in [
@@ -265,10 +280,8 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
     ] {
         assert_within_width(visual_cx, selector, 900.0);
     }
-
     visual_cx.simulate_resize(size(px(1200.0), px(780.0)));
     visual_cx.run_until_parked();
-
     click(visual_cx, "kafka-section-ConsumerGroups");
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("kafka-consumer-groups").is_some());
@@ -325,9 +338,7 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
     }
     visual_cx.simulate_resize(size(px(1200.0), px(780.0)));
     visual_cx.run_until_parked();
-
     super::visual_acl_tests::exercise_acl_workspace(visual_cx, &kafka_entity);
-
     visual_cx.update(|window, app| {
         kafka_entity.update(app, |view, cx| {
             view.set_form_from_config(&cluster, window, cx);
@@ -373,7 +384,6 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
             .is_some()
     );
     assert_within_width(visual_cx, "kafka-remote-config", 1200.0);
-
     visual_cx.simulate_resize(size(px(900.0), px(780.0)));
     visual_cx.run_until_parked();
     assert_within_width(visual_cx, "kafka-config-query", 900.0);
@@ -396,7 +406,6 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
     click(visual_cx, "ramag-confirm-cancel");
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
-
     visual_cx.update(|window, app| {
         kafka_entity.update(app, |view, cx| {
             view.topic_target_partitions
@@ -414,7 +423,6 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
     click(visual_cx, "ramag-confirm-cancel");
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
-
     click(visual_cx, "kafka-topic-delete");
     visual_cx.run_until_parked();
     assert!(
@@ -424,7 +432,6 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
     click(visual_cx, "ramag-confirm-cancel");
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
-
     assert!(
         visual_cx
             .debug_bounds("kafka-open-topic-messages")
@@ -504,7 +511,6 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
             <= messages_bounds.origin.x + messages_bounds.size.width,
         "读取动作不应溢出消息页面: {action_bounds:?} / {messages_bounds:?}"
     );
-
     kafka_entity.update(visual_cx, |view, cx| {
         let records = (0..VISUAL_MESSAGE_COUNT)
             .map(|offset| KafkaMessageRecord {
@@ -545,7 +551,6 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
         1,
         "下一页按钮应切换已加载结果页"
     );
-
     visual_cx.simulate_resize(size(px(800.0), px(500.0)));
     visual_cx.run_until_parked();
     for selector in [
@@ -556,7 +561,6 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
     ] {
         assert_within_width(visual_cx, selector, 800.0);
     }
-
     visual_cx.simulate_resize(size(px(1200.0), px(780.0)));
     visual_cx.run_until_parked();
     let narrow_messages_bounds = visual_cx.debug_bounds("kafka-messages");
@@ -585,7 +589,6 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
             <= narrow_messages_bounds.origin.x + narrow_messages_bounds.size.width,
         "窄窗口读取动作不应溢出: {narrow_action_bounds:?} / {narrow_messages_bounds:?}"
     );
-
     kafka_entity.update(visual_cx, |view, cx| {
         view.loading_messages = true;
         cx.notify();

@@ -174,6 +174,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         let status = visual_cx.debug_bounds("kafka-metrics-status");
         let cluster_summary = visual_cx.debug_bounds("kafka-metrics-cluster");
         let topics = visual_cx.debug_bounds("kafka-metrics-topics");
+        let partitions = visual_cx.debug_bounds("kafka-metrics-partition-health");
         let groups = visual_cx.debug_bounds("kafka-metrics-consumer-groups");
         assert!(
             snapshot_bounds.is_some()
@@ -181,6 +182,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
                 && status.is_some()
                 && cluster_summary.is_some()
                 && topics.is_some()
+                && partitions.is_some()
                 && groups.is_some(),
             "指标快照各区域都应参与布局: width={width}"
         );
@@ -190,6 +192,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             Some(status),
             Some(cluster_summary),
             Some(topics),
+            Some(partitions),
             Some(groups),
         ) = (
             snapshot_bounds,
@@ -197,6 +200,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             status,
             cluster_summary,
             topics,
+            partitions,
             groups,
         )
         else {
@@ -209,6 +213,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             "kafka-metrics-status",
             "kafka-metrics-cluster",
             "kafka-metrics-topics",
+            "kafka-metrics-partition-health",
             "kafka-metrics-consumer-groups",
         ] {
             super::assert_within_width(visual_cx, selector, width);
@@ -220,8 +225,9 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
                 && status.right() <= snapshot_bounds.right()
                 && cluster_summary.right() <= snapshot_bounds.right()
                 && topics.right() <= snapshot_bounds.right()
+                && partitions.right() <= snapshot_bounds.right()
                 && groups.right() <= snapshot_bounds.right(),
-            "指标快照内容不能横向越出容器: width={width}, snapshot={snapshot_bounds:?}, controls={controls:?}, status={status:?}, summary={cluster_summary:?}, topics={topics:?}, groups={groups:?}"
+            "指标快照内容不能横向越出容器: width={width}, snapshot={snapshot_bounds:?}, controls={controls:?}, status={status:?}, summary={cluster_summary:?}, topics={topics:?}, partitions={partitions:?}, groups={groups:?}"
         );
     }
 }

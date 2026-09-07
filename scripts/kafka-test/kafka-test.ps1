@@ -18,6 +18,28 @@ $ContainerName = "ramag-kafka-test"
 $BootstrapServers = "127.0.0.1:19092"
 $TopicName = "ramag.integration.messages"
 
+function Get-UiTopicDefinitions {
+    # Keep a few semantic topics for visual cases, then add enough list rows to
+    # exercise the left Topic pane, pagination, narrow widths, and its scrollbar.
+    @(
+        [pscustomobject]@{ Name = "ramag.ui.empty"; Partitions = 1 }
+        [pscustomobject]@{ Name = "ramag.ui.short"; Partitions = 2 }
+        [pscustomobject]@{ Name = "ramag.ui.partition-heavy"; Partitions = 12 }
+        [pscustomobject]@{ Name = "ramag.ui.long-topic-name-for-responsive-layout-check"; Partitions = 3 }
+    )
+    for ($index = 1; $index -le 56; $index++) {
+        [pscustomobject]@{
+            Name = "ramag.ui.list-{0:D2}" -f $index
+            Partitions = 1
+        }
+    }
+}
+
+function Get-FixtureTopicNames {
+    @($TopicName)
+    Get-UiTopicDefinitions | ForEach-Object { $_.Name }
+}
+
 if (-not (Test-Path -LiteralPath $ToolchainScript -PathType Leaf)) {
     throw "Windows GNU toolchain helper is missing: $ToolchainScript"
 }
@@ -69,6 +91,14 @@ function Get-KafkaOutput {
     return Get-ComposeOutput -ComposeArguments (@("exec", "-T", "kafka") + $KafkaArguments)
 }
 
+function Get-KafkaTopics {
+    return @(Get-KafkaOutput -KafkaArguments @(
+        "/opt/kafka/bin/kafka-topics.sh",
+        "--bootstrap-server", "kafka:9092",
+        "--list"
+    ) | ForEach-Object { $_.ToString().Trim() })
+}
+
 function Wait-Healthy {
     for ($attempt = 1; $attempt -le 60; $attempt++) {
         $health = (& docker inspect --format "{{.State.Health.Status}}" $ContainerName 2>$null | Out-String).Trim()
@@ -104,47 +134,55 @@ function Get-FixtureLines {
     }
 }
 
-function Reset-FixtureTopic {
-    $topics = @(Get-KafkaOutput -KafkaArguments @(
-        "/opt/kafka/bin/kafka-topics.sh",
-        "--bootstrap-server", "kafka:9092",
-        "--list"
-    ) | ForEach-Object { $_.ToString().Trim() })
-    if ($topics -notcontains $TopicName) {
-        return
-    }
+function Reset-FixtureTopics {
+    $topics = @(Get-KafkaTopics)
+    foreach ($fixtureTopic in @(Get-FixtureTopicNames)) {
+        if ($topics -notcontains $fixtureTopic) {
+            continue
+        }
 
-    Invoke-Kafka -KafkaArguments @(
-        "/opt/kafka/bin/kafka-topics.sh",
-        "--bootstrap-server", "kafka:9092",
-        "--delete",
-        "--topic", $TopicName
-    )
-    for ($attempt = 1; $attempt -le 30; $attempt++) {
-        $topics = @(Get-KafkaOutput -KafkaArguments @(
+        Invoke-Kafka -KafkaArguments @(
             "/opt/kafka/bin/kafka-topics.sh",
             "--bootstrap-server", "kafka:9092",
-            "--list"
-        ) | ForEach-Object { $_.ToString().Trim() })
-        if ($topics -notcontains $TopicName) {
-            return
+            "--delete",
+            "--topic", $fixtureTopic
+        )
+        for ($attempt = 1; $attempt -le 30; $attempt++) {
+            $topics = @(Get-KafkaTopics)
+            if ($topics -notcontains $fixtureTopic) {
+                break
+            }
+            Start-Sleep -Seconds 1
         }
-        Start-Sleep -Seconds 1
+        if ($topics -contains $fixtureTopic) {
+            throw "Kafka fixture topic could not be deleted before reseeding: $fixtureTopic"
+        }
     }
-    throw "Kafka fixture topic could not be deleted before reseeding: $TopicName"
 }
 
-function Seed-Fixture {
-    Ensure-Healthy
-    Reset-FixtureTopic
+function New-FixtureTopic {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][int]$Partitions
+    )
+
     Invoke-Kafka -KafkaArguments @(
         "/opt/kafka/bin/kafka-topics.sh",
         "--bootstrap-server", "kafka:9092",
         "--create", "--if-not-exists",
-        "--topic", $TopicName,
-        "--partitions", "3",
+        "--topic", $Name,
+        "--partitions", $Partitions,
         "--replication-factor", "1"
     )
+}
+
+function Seed-Fixture {
+    Ensure-Healthy
+    Reset-FixtureTopics
+    New-FixtureTopic -Name $TopicName -Partitions 3
+    foreach ($definition in @(Get-UiTopicDefinitions)) {
+        New-FixtureTopic -Name $definition.Name -Partitions $definition.Partitions
+    }
 
     $producerArguments = @(
         "exec", "-T", "kafka",
@@ -160,6 +198,7 @@ function Seed-Fixture {
         throw "Kafka fixture producer failed with exit code $LASTEXITCODE"
     }
     Write-TestLog "Seeded $TopicName with $MessageCount deterministic messages."
+    Write-TestLog "Created $(@(Get-UiTopicDefinitions).Count) additional UI topics with varied names and partition counts."
 }
 
 function Verify-Fixture {
@@ -190,6 +229,13 @@ function Verify-Fixture {
         }
     }
     Write-TestLog "Verified all $MessageCount fixture records in $TopicName."
+
+    $availableTopics = @(Get-KafkaTopics)
+    $missingTopics = @(Get-FixtureTopicNames | Where-Object { $availableTopics -notcontains $_ })
+    if ($missingTopics.Count -gt 0) {
+        throw "Kafka UI fixture verification failed; missing topics: $($missingTopics -join ", ")"
+    }
+    Write-TestLog "Verified $(@(Get-FixtureTopicNames).Count) topics for UI layout and scrollbar coverage."
 }
 
 function Run-RustIntegrationTest {
