@@ -516,7 +516,8 @@ mod tests {
             release: ReleaseInfo {
                 version: "0.0.3".into(),
                 tag_name: "v0.0.3".into(),
-                release_url: "https://github.com/tools-rs/ramag/releases/tag/v0.0.3".into(),
+                release_url: "https://github.com/bruceblink/ramag-platform/releases/tag/v0.0.3"
+                    .into(),
                 notes: String::new(),
                 published_at: None,
                 assets: Vec::new(),

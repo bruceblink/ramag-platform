@@ -5,8 +5,13 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$Target = "x86_64-pc-windows-msvc"
 $RepoDir = Split-Path -Parent $PSScriptRoot
+$ToolchainScript = Join-Path $PSScriptRoot "windows\gnu-toolchain.ps1"
+if (-not (Test-Path -LiteralPath $ToolchainScript -PathType Leaf)) {
+    throw "Windows GNU toolchain helper is missing: $ToolchainScript"
+}
+. $ToolchainScript
+$Target = Get-WindowsGnuTarget
 $BuildScript = Join-Path $PSScriptRoot "build-windows.ps1"
 $IssScript = Join-Path $PSScriptRoot "windows\ramag.iss"
 $SmokeTestScript = Join-Path $PSScriptRoot "windows\test-installer.ps1"

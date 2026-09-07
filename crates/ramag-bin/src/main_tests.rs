@@ -86,5 +86,15 @@ fn clipboard_tool_is_not_registered_on_linux() {
         .map(|tool| tool.meta().id.clone())
         .collect::<Vec<_>>();
 
-    assert_eq!(ids, ["dbclient", "vcs", "ssh", "object_storage", "system"]);
+    assert_eq!(
+        ids,
+        [
+            "dbclient",
+            "kafka",
+            "vcs",
+            "ssh",
+            "object_storage",
+            "system"
+        ]
+    );
 }

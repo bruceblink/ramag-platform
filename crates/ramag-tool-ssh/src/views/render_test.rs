@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 #[cfg(unix)]
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 #[cfg(unix)]

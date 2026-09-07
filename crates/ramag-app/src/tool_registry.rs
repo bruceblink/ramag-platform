@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use parking_lot::RwLock;
-use ramag_domain::Tool;
+use ramag_domain::{PluginCapability, PluginDescriptor, PluginId, PluginRegistrationError, Tool};
 
 /// 工具入口顺序在 Storage 中使用的偏好键。
 pub const TOOL_ORDER_PREF_KEY: &str = "tool_order";
@@ -12,6 +12,7 @@ pub const TOOL_ORDER_PREF_KEY: &str = "tool_order";
 struct ToolEntry {
     tool: Arc<dyn Tool>,
     enabled: bool,
+    plugin: Option<PluginDescriptor>,
 }
 
 #[derive(Default)]
@@ -44,7 +45,76 @@ impl ToolRegistry {
         tools.push(ToolEntry {
             tool,
             enabled: true,
+            plugin: None,
         });
+    }
+
+    /// 将现有工具包装成内置插件并执行完整的描述校验。
+    pub fn register_builtin(&self, tool: Arc<dyn Tool>) -> Result<(), PluginRegistrationError> {
+        let meta = tool.meta();
+        let plugin_id = PluginId::new(meta.id.clone())?;
+        let descriptor = PluginDescriptor::new(plugin_id, meta.name.clone(), meta.id.clone())
+            .with_description(meta.description.clone())
+            .with_capabilities([PluginCapability::new("ui.entry")]);
+        self.register_plugin(descriptor, tool)
+    }
+
+    /// 注册一个静态插件；失败只返回诊断，不修改现有工具列表。
+    pub fn register_plugin(
+        &self,
+        descriptor: PluginDescriptor,
+        tool: Arc<dyn Tool>,
+    ) -> Result<(), PluginRegistrationError> {
+        descriptor.validate()?;
+        let tool_id = tool.meta().id.clone();
+        if descriptor.entry_id != tool_id {
+            return Err(PluginRegistrationError::EntryIdMismatch {
+                plugin_id: descriptor.id.clone(),
+                entry_id: descriptor.entry_id.clone(),
+                tool_id,
+            });
+        }
+
+        let mut tools = self.tools.write();
+        if tools.iter().any(|entry| {
+            entry
+                .plugin
+                .as_ref()
+                .is_some_and(|plugin| plugin.id == descriptor.id)
+        }) {
+            return Err(PluginRegistrationError::DuplicatePluginId {
+                id: descriptor.id.clone(),
+            });
+        }
+        if tools
+            .iter()
+            .any(|entry| entry.tool.meta().id == descriptor.entry_id)
+        {
+            return Err(PluginRegistrationError::DuplicateEntryId {
+                entry_id: descriptor.entry_id.clone(),
+            });
+        }
+        tracing::info!(
+            operation = "plugin_register",
+            plugin_id = %descriptor.id,
+            entry_id = %descriptor.entry_id,
+            "static plugin registered"
+        );
+        tools.push(ToolEntry {
+            tool,
+            enabled: true,
+            plugin: Some(descriptor),
+        });
+        Ok(())
+    }
+
+    /// 返回已通过校验并注册的静态插件描述，不暴露工具运行时状态。
+    pub fn plugin_descriptors(&self) -> Vec<PluginDescriptor> {
+        self.tools
+            .read()
+            .iter()
+            .filter_map(|entry| entry.plugin.clone())
+            .collect()
     }
 
     /// 设置工具入口可见性，返回状态是否变化；未注册时返回 `false`。
@@ -420,5 +490,44 @@ mod tests {
         assert!(reg.apply_order_json(r#"["c","a"]"#).unwrap());
         assert_eq!(reg.order(), ["c", "a", "b"]);
         assert!(reg.apply_order_json("not-json").is_err());
+    }
+
+    #[test]
+    fn builtin_registration_keeps_tool_behavior_and_records_descriptor() {
+        let reg = ToolRegistry::new();
+        reg.register_builtin(dummy("example", "Example")).unwrap();
+
+        assert_eq!(reg.order(), ["example"]);
+        let plugins = reg.plugin_descriptors();
+        assert_eq!(plugins.len(), 1);
+        assert_eq!(plugins[0].id.as_str(), "example");
+        assert_eq!(plugins[0].entry_id, "example");
+    }
+
+    #[test]
+    fn plugin_registration_rejects_duplicate_and_mismatched_entries() {
+        let reg = ToolRegistry::new();
+        reg.register_builtin(dummy("example", "Example")).unwrap();
+
+        let duplicate = PluginDescriptor::new(
+            PluginId::new("example").unwrap(),
+            "Another Example",
+            "other",
+        );
+        assert!(matches!(
+            reg.register_plugin(duplicate, dummy("other", "Other")),
+            Err(PluginRegistrationError::DuplicatePluginId { .. })
+        ));
+
+        let mismatch = PluginDescriptor::new(
+            PluginId::new("different").unwrap(),
+            "Different",
+            "different",
+        );
+        assert!(matches!(
+            reg.register_plugin(mismatch, dummy("another", "Another")),
+            Err(PluginRegistrationError::EntryIdMismatch { .. })
+        ));
+        assert_eq!(reg.order(), ["example"]);
     }
 }

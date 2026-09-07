@@ -24,6 +24,6 @@ fn latest_release_check_works_without_rest_api() {
     assert!(
         release
             .release_url
-            .starts_with("https://github.com/tools-rs/ramag/releases/tag/")
+            .starts_with("https://github.com/bruceblink/ramag-platform/releases/tag/")
     );
 }

@@ -2,7 +2,7 @@
 
 ## 支持范围
 
-安全修复优先面向当前 `main` 分支和最新公开 Release。`0.0.x` 预览版本不承诺长期维护，但发现高风险问题后会评估并在可行时发布修复版本。
+安全修复优先面向本仓库 `main` 分支和本项目最新公开 Release。当前 `bruceblink/ramag-platform` 尚无独立 Release；继承的上游 `0.0.5` 安装包不属于本项目发布物。平台化开发中的问题请直接报告到本仓库，不要默认转发到上游。
 
 ## 报告漏洞
 
@@ -24,10 +24,10 @@
 
 ## 安全边界
 
-Ramag 将数据库、SSH、JumpServer 和云存储的敏感配置加密保存于本机；主密钥由操作系统凭据库管理。Ramag 不提供托管服务，也不主动上传数据库内容、SSH 凭据、云存储凭据或剪贴板历史。
+Ramag Platform 将数据库、SSH、JumpServer 和云存储的敏感配置加密保存于本机；主密钥由操作系统凭据库管理。Ramag Platform 不提供托管服务，也不主动上传数据库内容、SSH 凭据、云存储凭据或剪贴板历史。
 
-发布包目前提供 SHA-256 校验清单。Windows Authenticode 签名、macOS Developer ID 签名和 Apple 公证尚未完成；在这些能力上线前，请仅从本仓库 GitHub Releases 获取安装包并校验哈希。
+本项目尚无独立发布包。未来发布包应提供 SHA-256 校验清单；Windows Authenticode 签名、macOS Developer ID 签名和 Apple 公证完成前，不应把未签名构建当作正式发布物。
 
 ## English summary
 
-Do not disclose security-sensitive details in public issues. When enabled, use GitHub Private vulnerability reporting for credential exposure, authentication bypass, arbitrary file access, remote code execution, update-integrity, or data-exposure reports. Never include real credentials or production data.
+Do not disclose security-sensitive details in public issues. Report issues for this downstream project through its repository security channel; when enabled, use GitHub Private vulnerability reporting for credential exposure, authentication bypass, arbitrary file access, remote code execution, update-integrity, or data-exposure reports. Never include real credentials or production data.

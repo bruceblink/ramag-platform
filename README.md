@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="scripts/icons/ramag.svg" width="112" alt="Ramag" />
+  <img src="scripts/icons/ramag.svg" width="112" alt="Ramag Platform" />
 </p>
 
-<h1 align="center">Ramag</h1>
+<h1 align="center">Ramag Platform</h1>
 
 <p align="center">
-  <strong>数据库、Git、SSH、云存储与剪贴板，一个真正本地优先的桌面工作台。</strong>
+  <strong>基于 Ramag 演进的可扩展、本地优先开发者桌面平台。</strong>
 </p>
 
 <p align="center">
-  A local-first developer desktop workspace for databases, Git, SSH, object storage, and clipboard history.
+  An independent Ramag-based extensible desktop platform for local-first developer workflows.
 </p>
 
 <p align="center">
@@ -17,38 +17,55 @@
 </p>
 
 <p align="center">
-  Linux · macOS · Windows · Rust + GPUI · Local-first
+  Database · Git · SSH · Object Storage · Clipboard · Rust + GPUI
 </p>
 
 <p align="center">
-  <a href="https://github.com/tools-rs/ramag/releases">下载 / Releases</a> ·
+  <a href="https://github.com/bruceblink/ramag-platform/releases">本项目 Releases</a> ·
+  <a href="https://github.com/tools-rs/ramag">上游 Ramag</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#核心工作台">功能</a> ·
+  <a href="docs/plugin-platform-roadmap.md">插件平台路线图</a> ·
   <a href="docs/performance.md">性能</a> ·
   <a href="CONTRIBUTING.md">贡献</a> ·
   <a href="SECURITY.md">安全</a>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/v0.0.5/home-light.png" alt="Ramag v0.0.5 首页：数据库、Git、SSH、云存储与剪贴板统一工作台">
+  <img src="docs/screenshots/v0.0.5/home-light.png" alt="Ramag Platform 沿用的 Ramag 工作台基线：数据库、Git、SSH、云存储与剪贴板">
 </p>
 
 ---
 
 ## 项目状态 / Project status
 
-Ramag 的四个主工作台——数据库、Git、SSH / SFTP 和云存储——已完成核心工作流并可用于日常开发工作；剪贴板为可选的本地效率工具。当前公开的 `0.0.x` 版本是功能预览 Release，项目正在整理稳定版发布所需的兼容性、签名和社区反馈。
+本仓库 `bruceblink/ramag-platform` 是基于 [`tools-rs/ramag`](https://github.com/tools-rs/ramag) 演进的独立下游项目。应用仍使用 `Ramag` 品牌和现有 `ramag-*` crate，以保留可运行的数据库、Git、SSH、对象存储和剪贴板工作台；长期方向是把这些工具逐步收敛为可扩展的平台底座与内置插件。
 
-The four primary workspaces—database, Git, SSH / SFTP, and object storage—are feature-complete for their core daily workflows. Current `0.0.x` releases are public feature-preview releases while Ramag prepares compatibility, signing, and community feedback for a stable release.
+This repository, `bruceblink/ramag-platform`, is an independent downstream project based on [`tools-rs/ramag`](https://github.com/tools-rs/ramag). The application keeps the `Ramag` product name and existing `ramag-*` crates while the project evolves the current workspaces into an extensible platform with built-in plugins.
 
 | 可验证交付 | 当前状态 |
 |---|---|
-| 支持平台 | Linux x86_64、macOS 12+（Apple Silicon / Intel）、Windows 10/11 x64 |
-| 公开发布 | GitHub Releases 提供三平台安装包与 `SHA256SUMS.txt` |
-| 发布前检查 | GitHub Actions 在 Linux、macOS、Windows 执行格式、编译、Clippy、测试与打包校验 |
+| 项目身份 | `bruceblink/ramag-platform`，独立下游项目；不代表 `tools-rs/ramag` 官方主线 |
+| 代码基线 | 沿用 Ramag `0.0.5` workspace 基线，并包含本仓库后续的 UI 修复与平台设计记录 |
+| 独立发布 | 当前尚无本项目独立 tag、Release 或安装包；不要把上游安装包当成本项目发布物 |
+| 插件平台 | 插件平台设计已写入 [`docs/plugin-platform-roadmap.md`](docs/plugin-platform-roadmap.md)；当前仍是编译期静态工具装配，不支持第三方动态插件或插件市场 |
+| 上游协作 | 通用修复可整理后向 `tools-rs/ramag` 提交独立 PR；平台化架构和专属功能在本仓库继续演进 |
+| 支持平台 | Linux x86_64、macOS 12+（Apple Silicon / Intel）、Windows 10/11 x64；本项目尚未完成独立安装包发布 |
 | 数据边界 | 连接配置、凭据与剪贴历史保存于本机；Ramag 不提供托管服务，也不主动上传这些数据 |
 
-Ramag is actively maintained. Contributions, reproducible feedback, and security reports are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+Ramag Platform is under active independent development. Contributions, reproducible feedback, and security reports are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+
+## 项目关系 / Project relationship
+
+```text
+tools-rs/ramag                         上游项目：通用修复和兼容性协作
+        ↑ 独立 PR
+bruceblink/ramag-platform              当前项目：平台化设计、内置插件和独立演进
+```
+
+本项目不是上游仓库的镜像，也不会把平台化设计等待上游合并后才继续。提交上游的变更应保持单一职责、可独立验证，并从上游基线单独整理；只服务于本项目的平台核心、插件 API 和产品方向留在本仓库。
+
+This is not a mirror of the upstream repository. General fixes may be prepared as focused upstream pull requests, while the platform core, plugin API, and downstream product direction remain independently maintained here.
 
 ## 为什么选择 Ramag
 
@@ -76,7 +93,9 @@ Ramag is actively maintained. Contributions, reproducible feedback, and security
 
 ### 直接安装
 
-前往 [GitHub Releases](https://github.com/tools-rs/ramag/releases)，按系统下载对应安装包：
+本项目当前尚未发布独立安装包，因此 [本项目 Releases](https://github.com/bruceblink/ramag-platform/releases) 暂无可下载版本。若只是验证继承的 `0.0.5` 工作台基线，可查看[上游 Ramag Releases](https://github.com/tools-rs/ramag/releases)；上游安装包不代表本项目的发布物。
+
+未来本项目发布安装包后，将在本项目 Releases 页面按系统提供：
 
 | 系统 | 安装包 | 最低版本 |
 |---|---|---|
@@ -85,13 +104,13 @@ Ramag is actively maintained. Contributions, reproducible feedback, and security
 | Windows x64 | `Ramag-*-windows-x64-setup.exe` | Windows 10 |
 | Linux x86_64 | `Ramag-*-linux-amd64.deb` / `Ramag-*-linux-x86_64.AppImage` | Ubuntu 24.04 或兼容发行版 |
 
-> 项目仍处于 `0.0.x` 早期阶段。当前 Windows 安装包未做 Authenticode 签名，macOS 安装包未做 Developer ID 签名与 Apple 公证，系统可能显示未知发布者或安全警告。请只从本仓库 Releases 下载，并使用同一页面的 `SHA256SUMS.txt` 校验文件；完整状态见[桌面端构建与发布](docs/desktop-release.md#签名与公证状态)。
+> 当前 workspace 版本仍为 `0.0.5`，但本项目尚无独立 Release。未来发布时，Windows 安装包需要 Authenticode 签名，macOS 安装包需要 Developer ID 签名与 Apple 公证；完整状态见[桌面端构建与发布](docs/desktop-release.md#签名与公证状态)。
 
 Git 功能需要系统已安装 `git`；SSH 管理、内嵌终端和数据库 SSH 隧道需要系统 OpenSSH。数据库、Git 仓库、SSH 凭据和剪贴板内容不会上传到 Ramag 服务。
 
 ### 从源码运行
 
-准备 [Git](https://git-scm.com/)、[rustup](https://rustup.rs/) 和平台构建工具。仓库已通过 `rust-toolchain.toml` 固定 Rust nightly，进入目录后会由 rustup 自动选择，无需手动安装其它 Rust 版本。
+准备 [Git](https://git-scm.com/)、[rustup](https://rustup.rs/) 和平台构建工具。仓库已通过 `rust-toolchain.toml` 统一使用 Rust stable channel；Windows 激活脚本会选择并检查官方 GNU host toolchain，Linux 和 macOS 继续使用本机 host，不需要手动切换 Rust 版本。
 
 macOS 还需要 Xcode Command Line Tools：
 
@@ -102,9 +121,9 @@ xcode-select --install
 克隆并运行。Windows、Linux 和 macOS 使用同一条命令：
 
 ```text
-git clone https://github.com/tools-rs/ramag.git
-cd ramag
-cargo dev
+git clone https://github.com/bruceblink/ramag-platform.git
+cd ramag-platform
+cargo run -p ramag-bin
 ```
 
 日常开发命令由 Cargo 配置统一提供：
@@ -112,15 +131,28 @@ cargo dev
 ```text
 cargo dev           # 运行 Debug 桌面应用
 cargo dev-release   # 运行 Release 桌面应用
+cargo build         # 构建 workspace 并生成 ramag 可执行文件
+cargo run -p ramag-bin # 运行桌面应用
 cargo fmt-check     # 检查格式
 cargo check-all     # 检查 workspace 所有 target
 cargo clippy-all    # 运行 Clippy，警告视为错误
 cargo test-all      # 运行 workspace 测试
 ```
 
-三个平台仍需要各自的原生开发组件：Windows 需要 Visual Studio 18 2026 Build Tools、C++ 工作负载和 Windows 10/11 SDK；macOS 需要 Xcode Command Line Tools；Linux 需要桌面开发库，完整列表见[桌面端构建与发布](docs/desktop-release.md#本地-linux-打包)。Rust nightly 版本、Cargo.lock 和日常命令由仓库统一管理。首次构建需要下载 GPUI 等依赖，耗时会明显长于后续增量构建。
+三个平台仍需要各自的原生开发组件：Windows 统一使用官方 `stable-x86_64-pc-windows-gnu`、MSYS2 UCRT64 MinGW-w64、CMake、Ninja 和 Windows 10/11 SDK（Release 还需要 FXC 与 Inno Setup）；macOS 需要 Xcode Command Line Tools；Linux 需要桌面开发库，完整列表见[桌面端构建与发布](docs/desktop-release.md#本地-linux-打包)。Rust stable channel、Cargo.lock 和日常命令由仓库统一管理。首次构建需要下载 GPUI 等依赖，耗时会明显长于后续增量构建。
 
-Windows 日常开发请从 Visual Studio 的 `Developer PowerShell for VS 2026` 启动终端，确保 MSVC 和 Windows SDK 已加入当前环境；环境准备好后仍执行上面的同一组 `cargo` 命令。Windows 原生打包脚本会自行初始化工具链，不改变日常开发入口。
+Windows 使用 GNU host/target 时，只需在当前 PowerShell 激活一次底层工具链；脚本会自动补齐官方 GNU Rust host，并且只修改当前 PowerShell 进程，不替代 Cargo 命令，也不修改用户级环境变量：
+
+```powershell
+. .\scripts\windows\enable-gnu-toolchain.ps1
+cargo build
+cargo run -p ramag-bin
+cargo check-all
+cargo clippy-all
+cargo test-all
+```
+
+Linux 和 macOS 直接执行同样的 Cargo 命令；Windows 原生构建和打包脚本也会在内部复用同一套 GNU host/target 环境，不需要启动 Visual Studio 开发终端。
 
 ## 功能细节
 
@@ -314,11 +346,11 @@ Windows 用户可打开“设置 → 系统设置”，启用“关闭时最小�
 
 ## 项目结构
 
-Ramag 是一个 Rust 2024 Cargo workspace，采用务实的 Clean Architecture：业务规则在内层，数据库、Git、SSH、云存储、剪贴板与 GPUI 都是外层实现，依赖只能向内。
+Ramag Platform 是一个 Rust 2024 Cargo workspace，采用务实的 Clean Architecture：业务规则在内层，数据库、Git、SSH、云存储、剪贴板与 GPUI 都是外层实现，依赖只能向内。当前工具仍以编译期内置方式装配；插件化路线图描述的是后续平台演进，不表示已经支持第三方动态插件。
 
 ```text
 ramag-bin              应用入口、依赖注入、快捷键与平台生命周期
-├── ramag-tool-*       数据库、Redis、MongoDB、Git、SSH、云存储、剪贴板界面
+├── ramag-tool-*       数据库、Redis、MongoDB、Git、SSH、云存储、剪贴板内置工具
 ├── ramag-ui           GPUI 主壳、主题和共享组件
 ├── ramag-infra-*      数据库、Git、SSH/SFTP、云存储、更新、剪贴板、隧道和本地存储适配器
 ├── ramag-terminal     GPUI 内嵌终端内核与视图
@@ -326,26 +358,38 @@ ramag-bin              应用入口、依赖注入、快捷键与平台生命周
 └── ramag-domain       实体和抽象接口，不依赖 GUI 或具体基础设施
 ```
 
-这种分层让核心逻辑可以脱离 GUI 测试，也避免 SQL、KV、文档数据库和 Git 被塞进一个含义模糊的通用接口。详细依赖方向、各 crate 职责和扩展方式见[架构说明](docs/architecture.md)。
+这种分层让核心逻辑可以脱离 GUI 测试，也避免 SQL、KV、文档数据库和 Git 被塞进一个含义模糊的通用接口。详细依赖方向、各 crate 职责和当前静态工具边界见[架构说明](docs/architecture.md)；平台化目标、插件生命周期和动态插件限制见[插件平台路线图](docs/plugin-platform-roadmap.md)。
 
 ## 开发与验证
 
-日常编译和验证统一通过 Cargo 别名执行；`Makefile` 保留为打包脚本和旧入口的兼容层：
+日常编译和验证统一直接通过 Cargo 命令执行；`cargo run -p`、`cargo build`、`cargo check -p`、`cargo clippy -p` 和 `cargo test -p` 在 Windows、Linux、macOS 上保持相同。Windows 只需在当前 PowerShell 通过 `scripts/windows/enable-gnu-toolchain.ps1` 激活 GNU host/target。`Makefile` 只保留打包和集成测试编排，不复制日常编译逻辑：
 
 | 命令 | 用途 |
 |---|---|
 | `cargo dev` | Debug 模式运行桌面应用 |
 | `cargo dev-release` | Release 模式在本机运行，不生成安装包 |
+| `cargo build` | 构建 workspace 并生成 `ramag` 可执行文件 |
+| `cargo run -p ramag-bin` | 运行桌面应用 |
+| `cargo check -p <package>` | 检查指定 crate |
+| `cargo test -p <package>` | 测试指定 crate |
 | `cargo check-all` | 检查 workspace 所有 target 是否可编译 |
 | `cargo fmt-check` | 检查 Rust 格式 |
 | `cargo clippy-all` | 对 workspace 所有 target 执行 Clippy，警告视为错误 |
 | `cargo test-all` | 运行整个 workspace 测试 |
-| `make develop` / `make release` | 兼容入口，分别转发到 `cargo dev` / `cargo dev-release` |
 | `make db-test` | 用 Docker 启动并填充四类数据库，执行数据库测试与相关检查 |
 
 提交改动前建议依次运行：
 
 ```bash
+cargo fmt-check
+cargo check-all
+cargo clippy-all
+cargo test-all
+```
+
+Windows 激活 GNU 环境后也使用同样的顺序：
+
+```powershell
 cargo fmt-check
 cargo check-all
 cargo clippy-all
@@ -366,22 +410,7 @@ Ramag 支持 Linux x86_64、macOS 12+（Apple Silicon / Intel）和 Windows 10/1
 - [安全策略](SECURITY.md)
 - [社区行为准则](CODE_OF_CONDUCT.md)
 
-发现问题时，请在 [GitHub Issues](https://github.com/tools-rs/ramag/issues) 中附上操作系统、Ramag 版本、复现步骤和必要日志；提交前请移除连接地址、用户名、密码和业务数据。
-
-## 交流群
-
-欢迎加入 Ramag 官方交流群，交流使用体验、功能建议和问题反馈。群二维码有效期有限，过期后可扫码添加个人微信，再获取最新群二维码。
-
-<table>
-  <tr>
-    <td align="center">官方交流群（二维码有效期有限）</td>
-    <td align="center">个人中转二维码（群二维码过期后使用）</td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/community/group-qr.png" width="320" alt="Ramag 官方交流群二维码"></td>
-    <td align="center"><img src="docs/community/personal-qr.png" width="320" alt="Ramag 个人中转二维码"></td>
-  </tr>
-</table>
+发现本项目的问题时，请在 [Ramag Platform Issues](https://github.com/bruceblink/ramag-platform/issues) 中附上操作系统、Ramag 版本、复现步骤和必要日志；提交前请移除连接地址、用户名、密码和业务数据。确认问题属于上游通用缺陷后，再到 [`tools-rs/ramag`](https://github.com/tools-rs/ramag/issues) 提交聚焦的上游 Issue 或 PR。
 
 ## License
 

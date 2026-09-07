@@ -1,5 +1,8 @@
-# Windows 便携版静态链接 MSVC CRT，避免目标机器必须预装 VC++ Redistributable。
-[target.x86_64-pc-windows-msvc]
+# Windows GNU 发行版静态链接 MinGW CRT，避免目标机器必须预装 MinGW 运行库。
+# Windows 日常命令由 enable-gnu-toolchain.ps1 设置 target；Linux/macOS 使用本机 target。
+[target.x86_64-pc-windows-gnu]
+linker = "gcc"
+ar = "ar"
 rustflags = ["-C", "target-feature=+crt-static"]
 
 # 这些别名是跨平台的日常开发入口，直接调用 Cargo，因此三个平台都不依赖 Make。

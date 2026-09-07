@@ -70,14 +70,14 @@ Describe "Get-AppMetadata" {
                 @{
                     name = "ramag-bin"
                     version = "1.2.3-beta.1"
-                    repository = "https://github.com/tools-rs/ramag"
+                    repository = "https://github.com/bruceblink/ramag-platform"
                 }
             )
         } | ConvertTo-Json -Depth 3
 
         $Metadata = ConvertTo-AppMetadata -MetadataJson $MetadataJson
         $Metadata.Version | Should -BeExactly "1.2.3-beta.1"
-        $Metadata.Repository | Should -BeExactly "https://github.com/tools-rs/ramag"
+        $Metadata.Repository | Should -BeExactly "https://github.com/bruceblink/ramag-platform"
     }
 
     It "rejects a repository URL that cannot produce installer links" {
@@ -86,7 +86,7 @@ Describe "Get-AppMetadata" {
                 @{
                     name = "ramag-bin"
                     version = "1.2.3"
-                    repository = "https://example.com/tools-rs/ramag"
+                    repository = "https://example.com/bruceblink/ramag-platform"
                 }
             )
         } | ConvertTo-Json -Depth 3
@@ -98,7 +98,7 @@ Describe "Get-AppMetadata" {
     It "reads version and repository from ramag-bin metadata" -Tag "RequiresCargo" {
         $Metadata = Get-AppMetadata
         $Metadata.Version | Should -Match '^\d+\.\d+\.\d+(?:[-+].+)?$'
-        $Metadata.Repository | Should -BeExactly "https://github.com/tools-rs/ramag"
+        $Metadata.Repository | Should -BeExactly "https://github.com/bruceblink/ramag-platform"
     }
 }
 

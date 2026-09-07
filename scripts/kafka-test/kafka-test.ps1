@@ -12,16 +12,15 @@ $ErrorActionPreference = "Stop"
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ComposeFile = Join-Path $ScriptDirectory "compose.yaml"
 $FixtureFile = Join-Path $ScriptDirectory "fixtures\messages.txt"
-$ToolchainHelper = Join-Path $ScriptDirectory "..\windows\msvc-toolchain.ps1"
+$ToolchainScript = Join-Path $ScriptDirectory "..\windows\gnu-toolchain.ps1"
 $ProjectName = "ramag-kafka-test"
 $ContainerName = "ramag-kafka-test"
 $BootstrapServers = "127.0.0.1:19092"
 $TopicName = "ramag.integration.messages"
 
-if (-not (Test-Path -LiteralPath $ToolchainHelper -PathType Leaf)) {
-    throw "MSVC toolchain helper is missing: $ToolchainHelper"
+if (-not (Test-Path -LiteralPath $ToolchainScript -PathType Leaf)) {
+    throw "Windows GNU toolchain helper is missing: $ToolchainScript"
 }
-    . $ToolchainHelper
 
 function Write-TestLog {
     param([Parameter(Mandatory = $true)][string]$Message)
@@ -194,24 +193,24 @@ function Verify-Fixture {
 }
 
 function Run-RustIntegrationTest {
-    # Runs the Docker-backed Rust test inside VS18 and restores process-only test variables afterward.
+    # Run the Docker-backed Rust test with the same direct Cargo command used on
+    # Linux and macOS, after selecting the repository's Windows GNU environment.
+    . $ToolchainScript
+    $Toolchain = Get-WindowsGnuToolchain
+    $EnvironmentSnapshot = Save-WindowsGnuEnvironment
     $oldBootstrap = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_BOOTSTRAP", "Process")
     $oldTargetDirectory = [Environment]::GetEnvironmentVariable("CARGO_TARGET_DIR", "Process")
     $env:RAMAG_TEST_KAFKA_BOOTSTRAP = $BootstrapServers
     $env:CARGO_TARGET_DIR = Join-Path ([System.IO.Path]::GetTempPath()) "ramag-kafka-docker-target"
 
-    $VisualStudio = Get-VisualStudio18Toolchain
-
     try {
-        $vcVarsArguments = $VisualStudio.VcVarsArguments -join " "
-        $cargoCommand = 'call "{0}" {1} >nul && set "CC=" && set "CXX=" && set "AR=" && set "HOST_CC=" && set "HOST_CXX=" && set "HOST_AR=" && set "CMAKE_GENERATOR=NMake Makefiles" && set "CMAKE_GENERATOR_PLATFORM=" && set "CMAKE_GENERATOR_INSTANCE=" && set "CMAKE_GENERATOR_TOOLSET=" && set "RUSTFLAGS=-C target-feature=-crt-static" && cargo test --offline --locked -p ramag-infra-kafka --no-default-features --features cmake-build --test docker_kafka' -f `
-            $VisualStudio.VcVars64,
-            $vcVarsArguments
-        & cmd.exe /d /s /c $cargoCommand
+        Set-WindowsGnuEnvironment -Toolchain $Toolchain
+        & cargo test --offline --locked -p ramag-infra-kafka --no-default-features --features cmake-build --test docker_kafka
         if ($LASTEXITCODE -ne 0) {
             throw "Rust Kafka integration test failed with exit code $LASTEXITCODE"
         }
     } finally {
+        Restore-WindowsGnuEnvironment -Snapshot $EnvironmentSnapshot
         if ($null -eq $oldBootstrap) {
             Remove-Item Env:RAMAG_TEST_KAFKA_BOOTSTRAP -ErrorAction SilentlyContinue
         } else {

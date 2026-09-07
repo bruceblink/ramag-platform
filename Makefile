@@ -2,15 +2,13 @@
 # 默认 target 是 help，避免误触发耗时构建。
 
 .PHONY: help \
-        develop release \
         install-hooks \
-        check size-check log-check fmt fmt-check clippy test \
+        size-check log-check \
         db-test db-test-up db-test-seed db-test-run db-test-workspace \
         db-test-status db-test-down db-test-clean \
         _db-test-test _db-test-check _db-test-clippy _db-test-fmt \
         dmg dmg-x86 dmg-arm64 mac-package mac-package-test \
         linux-package linux-package-test \
-        win-debug \
         clean \
         deps-update lock-refresh
 
@@ -21,14 +19,11 @@ help:
 	@printf "  \033[36m开发\033[0m\n"
 	@printf "    cargo dev           运行 Debug 桌面应用（Windows/Linux/macOS 相同）\n"
 	@printf "    cargo dev-release   运行 Release 桌面应用（Windows/Linux/macOS 相同）\n"
-	@printf "    make develop        兼容入口，等同于 cargo dev\n"
-	@printf "    make release        兼容入口，等同于 cargo dev-release\n"
 	@printf "    make install-hooks  启用提交前源码尺寸检查\n"
 	@printf "\n  \033[36m检查\033[0m\n"
 	@printf "    cargo check-all     cargo check --workspace --all-targets\n"
 	@printf "    make size-check     检查 Rust 文件不超过 600 行\n"
 	@printf "    make log-check      检查 tracing 操作与错误上下文\n"
-	@printf "    make fmt            cargo fmt --all\n"
 	@printf "    cargo fmt-check     cargo fmt --all -- --check\n"
 	@printf "    cargo clippy-all    cargo clippy --workspace --all-targets -- -D warnings\n"
 	@printf "    cargo test-all      cargo test --workspace\n"
@@ -50,7 +45,6 @@ help:
 	@printf "    make linux-package  生成 deb、AppImage 与 SHA256SUMS；需在 Linux x86_64 运行\n"
 	@printf "    make linux-package-test  测试 Linux 打包命名、版本与桌面元数据\n"
 	@printf "\n  \033[36mWindows x64\033[0m\n"
-	@printf "    make win-debug      macOS 交叉构建 debug（用于编译验证）\n"
 	@printf "    build-windows.ps1   Windows 原生构建 debug / release（-Release）\n"
 	@printf "    package-windows.ps1 Windows 原生打包；正式 Release 统一走 GitHub Actions\n"
 	@printf "\n  \033[36m清理\033[0m\n"
@@ -59,13 +53,6 @@ help:
 	@printf "    make deps-update    cargo update\n"
 	@printf "    make lock-refresh   删除 Cargo.lock 重新解析（git 依赖会拉最新 master）\n"
 
-# === 开发 ============================================================
-develop:
-	cargo dev
-
-release:
-	cargo dev-release
-
 ifeq ($(OS),Windows_NT)
 install-hooks:
 	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-githooks.ps1
@@ -73,10 +60,6 @@ else
 install-hooks:
 	./scripts/install-githooks.sh
 endif
-
-# === 检查 ============================================================
-check: size-check log-check
-	cargo check-all
 
 ifeq ($(OS),Windows_NT)
 size-check:
@@ -88,18 +71,6 @@ endif
 
 log-check:
 	bash ./scripts/check-log-convention.sh
-
-fmt:
-	cargo fmt --all
-
-fmt-check:
-	cargo fmt-check
-
-clippy:
-	cargo clippy-all
-
-test:
-	cargo test-all
 
 # === 四数据库集成测试 ===============================================
 # 编排、凭据生成与数据构建均集中在 scripts/db-test，避免 Makefile 承载实现细节。
@@ -182,13 +153,6 @@ linux-package:
 
 linux-package-test:
 	./scripts/linux/package-tests.sh
-
-# === 跨编（macOS → Windows）==========================================
-# 在 macOS 上直接编出 debug ramag.exe（x64），无需 Windows 机器。脚本内含前置依赖检查
-# （cargo-xwin / brew llvm / rust target）与 GPUI 清单资源、lld-link 的修复。
-# 只出 x64：Windows on ARM 靠内置 x64 模拟即可运行，一个包覆盖几乎所有用户。
-win-debug:
-	./scripts/build-windows-local.sh --debug
 
 # === 清理 ============================================================
 clean:

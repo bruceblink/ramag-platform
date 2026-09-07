@@ -289,7 +289,9 @@ fn parse_cached_result(current_version: &str, value: &str) -> Result<Option<Upda
         AvailableUpdate {
             release: ReleaseInfo {
                 version: cached.latest_version,
-                release_url: format!("https://github.com/tools-rs/ramag/releases/tag/{tag_name}"),
+                release_url: format!(
+                    "https://github.com/bruceblink/ramag-platform/releases/tag/{tag_name}"
+                ),
                 tag_name,
                 notes: String::new(),
                 published_at: None,
@@ -418,18 +420,23 @@ mod tests {
         ReleaseInfo {
             version: version.into(),
             tag_name: format!("v{version}"),
-            release_url: format!("https://github.com/tools-rs/ramag/releases/tag/v{version}"),
+            release_url: format!(
+                "https://github.com/bruceblink/ramag-platform/releases/tag/v{version}"
+            ),
             notes: String::new(),
             published_at: None,
-            assets: with_asset
-                .then(|| ReleaseAsset {
-                    name,
-                    download_url: "https://github.com/tools-rs/ramag/releases/download/file".into(),
-                    size: 1,
-                    sha256: None,
-                })
-                .into_iter()
-                .collect(),
+            assets:
+                with_asset
+                    .then(|| ReleaseAsset {
+                        name,
+                        download_url:
+                            "https://github.com/bruceblink/ramag-platform/releases/download/file"
+                                .into(),
+                        size: 1,
+                        sha256: None,
+                    })
+                    .into_iter()
+                    .collect(),
         }
     }
 
@@ -503,7 +510,7 @@ mod tests {
         assert_eq!(update.release.version, "1.1.0");
         assert_eq!(
             update.release.release_url,
-            "https://github.com/tools-rs/ramag/releases/tag/v1.1.0"
+            "https://github.com/bruceblink/ramag-platform/releases/tag/v1.1.0"
         );
         assert!(update.asset.is_none());
     }

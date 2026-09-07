@@ -32,6 +32,7 @@ pub(super) fn text_to_wkt(value: &str) -> String {
         .unwrap_or_else(|| value.to_string())
 }
 
+/// 将十六进制文本解码为字节；前缀、奇数长度或非法字符都会返回 None。
 fn decode_hex(value: &str) -> Option<Vec<u8>> {
     let value = value
         .strip_prefix("\\x")
@@ -42,13 +43,13 @@ fn decode_hex(value: &str) -> Option<Vec<u8>> {
     }
 
     let mut bytes = Vec::with_capacity(value.len() / 2);
-    let mut chars = value.as_bytes().chunks_exact(2);
-    for pair in &mut chars {
+    let (chars, remainder) = value.as_bytes().as_chunks::<2>();
+    for pair in chars {
         let high = hex_digit(pair[0])?;
         let low = hex_digit(pair[1])?;
         bytes.push((high << 4) | low);
     }
-    chars.remainder().is_empty().then_some(bytes)
+    remainder.is_empty().then_some(bytes)
 }
 
 fn hex_digit(value: u8) -> Option<u8> {

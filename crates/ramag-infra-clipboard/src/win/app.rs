@@ -420,10 +420,11 @@ pub fn app_icon_png(exe_path: &str) -> Option<Vec<u8>> {
     let mask = (!bitmaps.mask.is_invalid())
         .then(|| bitmap_bgra(bitmaps.mask, width, height))
         .flatten();
-    let has_alpha = color.chunks_exact(4).any(|pixel| pixel[3] != 0);
+    let color_pixels = color.as_chunks::<4>().0;
+    let has_alpha = color_pixels.iter().any(|pixel| pixel[3] != 0);
 
     let mut rgba = Vec::with_capacity(color.len());
-    for (index, pixel) in color.chunks_exact(4).enumerate() {
+    for (index, pixel) in color_pixels.iter().enumerate() {
         let alpha = if has_alpha {
             pixel[3]
         } else {

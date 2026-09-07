@@ -1,12 +1,12 @@
-# Ramag 开发入门指南
+# Ramag Platform 开发入门指南
 
-本文面向第一次参与 Ramag 开发的贡献者，目标是帮助开发者先建立可运行基线，再沿一条真实功能调用链理解项目，而不是从头阅读全部 crate。
+本文面向第一次参与 Ramag Platform 开发的贡献者，目标是帮助开发者先建立可运行基线，再沿一条真实功能调用链理解项目，而不是从头阅读全部 crate。当前应用仍称为 Ramag，本仓库负责独立下游平台化演进。
 
 架构细节请配合阅读[架构说明](architecture.md)，主线排期请参考[主线开发计划](development-roadmap.md)，构建和发布流程请参考[桌面端构建与发布](desktop-release.md)。
 
 ## 1. 开始之前
 
-Ramag 是一个 Rust 2024 Cargo workspace，桌面界面使用 GPUI。仓库通过 [`rust-toolchain.toml`](../rust-toolchain.toml) 固定 Rust nightly 版本，进入仓库后 rustup 会自动选择对应工具链。
+Ramag Platform 是一个 Rust 2024 Cargo workspace，桌面界面使用 GPUI。仓库通过 [`rust-toolchain.toml`](../rust-toolchain.toml) 固定使用 Rust stable channel，进入仓库后 rustup 会自动选择对应工具链。
 
 ### 1.1 通用依赖
 
@@ -17,19 +17,21 @@ Ramag 是一个 Rust 2024 Cargo workspace，桌面界面使用 GPUI。仓库通�
 
 ### 1.2 平台构建依赖
 
-Windows 统一使用 Visual Studio 18 2026 Build Tools，还需要：
+Windows 统一使用 MSYS2 UCRT64 MinGW-w64 工具链，还需要：
 
-- Visual Studio 18 2026 Build Tools 的 C++ 工作负载
+- MSYS2 UCRT64 的 GCC、G++、binutils 和 `windres`
+- CMake 与 Ninja
 - Windows 10/11 SDK
 
-Windows 日常开发请从 Visual Studio 的 `Developer PowerShell for VS 2026` 启动终端，确保 MSVC 和 Windows SDK 已加入当前环境；如果当前终端没有加载 VS 环境，使用仓库脚本执行 Cargo 命令，例如：
+Windows 日常开发在普通 PowerShell 中先激活一次 GNU Rust host/target、MinGW-w64 编译器和 Ninja CMake 生成器；激活脚本会按 `rust-toolchain.toml` 自动补齐官方 GNU host，激活后直接使用与 Linux、macOS 相同的 Cargo 命令：
 
 ```powershell
-.\scripts\windows\cargo-msvc.ps1 test -p ramag-tool-system --lib
-.\scripts\windows\cargo-msvc.ps1 clippy-all
+. .\scripts\windows\enable-gnu-toolchain.ps1
+cargo test -p ramag-tool-system --lib
+cargo clippy-all
 ```
 
-环境准备好后，运行、检查和测试仍使用下文的同一组 `cargo` 命令。
+环境准备好后，运行、检查和测试始终使用同一组 `cargo` 命令。
 
 macOS 还需要 Xcode Command Line Tools：
 
@@ -52,7 +54,7 @@ ssh -V
 在修改代码前，先从当前分支启动未修改的应用。Windows、Linux 和 macOS 都执行同一条命令：
 
 ```text
-cd ramag
+cd ramag-platform
 cargo dev
 ```
 
@@ -69,7 +71,7 @@ cargo dev
 ## 3. 项目结构
 
 ```text
-ramag
+ramag-platform
 ├── Cargo.toml                 Cargo workspace、公共依赖和编译配置
 ├── crates/
 │   ├── ramag-bin              程序入口、依赖装配和平台生命周期
@@ -266,7 +268,7 @@ cargo clippy-all
 cargo test-all
 ```
 
-`Makefile` 只作为兼容入口；`make develop`、`make release`、`make fmt-check`、`make check`、`make clippy` 和 `make test` 会转发或补充 Cargo 命令。打包和 Docker 数据库测试仍使用各自的脚本入口。
+`Makefile` 只负责平台打包、源码检查和 Docker 数据库测试；日常编译、运行、格式、Clippy 与 Rust 测试统一直接使用 Cargo。
 
 数据库基础设施改动还应运行真实数据库集成测试：
 

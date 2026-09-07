@@ -1,189 +1,155 @@
-# Ramag 主线开发计划
+# Ramag Platform 主线开发计划
 
-> 状态：大功能基线基本完成，主线转入 UI 细节、响应性布局和已知问题修复
+> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A 已完成，当前开发项为 P0-B
 > 更新日期：2026-09-06
-> 适用范围：`ramag-ui`、`ramag-tool-*`、`ramag-app`、`ramag-domain` 及本地构建与测试脚本
-> 当前分支：`dev`
-> 当前 UI 验证方式：优先使用真实窗口；`computer-use` 不可用时使用用户或本地截图作为复现/视觉证据，并使用 headless GPUI 渲染和交互测试完成边界验收，同时记录真实窗口限制。
+> 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台以及跨工具质量与构建流程
+> 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
+> 当前执行任务：`PLAT-002`，静态插件注册、初始化和生命周期
 
 ## 术语与命名规则
 
 | 名称 | English / Acronym | 本计划中的职责 | 不表示什么 |
 |---|---|---|---|
-| 主线 | Mainline | 所有工具共同遵循的 UI、响应性和质量修复顺序 | 不替代数据库或 Kafka 的专项功能边界 |
-| 响应性布局 | Responsive Layout | 窗口宽度、高度或内容长度变化时，控件重排、收缩、滚动和显示完整性的规则 | 不表示只增加一个断点，或只让窗口可以启动 |
-| UI 切片 | UI Slice | 可以单独修改、测试、回滚和说明的一项界面改动 | 不表示一次覆盖多个工具的大重构 |
-| 已知问题 | Known Bug | 已有复现线索、代码证据或验收记录的问题 | 不表示没有复现证据的猜测 |
-| UI 证据 | UI Evidence | headless 布局断言、实际窗口截图、操作记录或日志中的可复核结果 | 不表示仅通过 Rust 编译或单元测试 |
-| 共享 UI | Shared UI | `ramag-ui` 和共享布局组件提供的通用交互与样式 | 不表示各工具必须使用相同的数据模型 |
+| 主线 | Mainline | 规定四条产品线和质量工作的共同顺序、依赖和交付规则 | 不替代 Kafka、数据库或插件专项文档中的协议细节 |
+| 产品线 | Product Track | 一组共享产品目标、代码边界和验收条件的连续任务 | 不表示必须长期使用一个开发分支 |
+| 交付切片 | Delivery Slice | 能独立修改、测试、提交、推送和回滚的最小功能 | 不表示一次覆盖多个不相关模块 |
+| 内置插件 | Built-in Plugin | 编译进主程序、通过 Rust 接口注册的现有工具 | 不表示已经支持第三方动态插件 |
+| 传输边界 | Transport Boundary | 隔离 Kafka 具体客户端实现的接口和适配层 | 不表示 Kafka UI 或领域模型可以直接依赖客户端类型 |
+| UI 证据 | UI Evidence | headless 边界测试、真实窗口操作、截图或可复核日志 | 不表示只通过编译或单元测试 |
+| 真实服务证据 | Live Service Evidence | 使用实际数据库、Kafka、OpenSSH 或容器服务得到的结果 | 不表示模拟对象或静态 fixture 已覆盖生产行为 |
 
-专项路线仍保留各自的协议、数据模型和业务边界：Kafka 见 [`kafka-tool-roadmap.md`](kafka-tool-roadmap.md)，数据库客户端见 [`database-client-datagrip-roadmap.md`](database-client-datagrip-roadmap.md)。两份专项路线的历史完成记录不删除；当前排期以本计划为准。
+专项文档负责领域细节，本文件负责跨工具排期和当前任务。插件平台见 [`plugin-platform-roadmap.md`](plugin-platform-roadmap.md)，Kafka 见 [`kafka-tool-roadmap.md`](kafka-tool-roadmap.md)，数据库见 [`database-client-datagrip-roadmap.md`](database-client-datagrip-roadmap.md)，架构边界见 [`architecture.md`](architecture.md)。专项文档不得重新定义本文件的跨工具优先级；发现状态冲突时，先修正实现状态和证据，再开始下一项任务。
 
-## 1. 当前基线
+## 1. 目标和当前基线
 
-Ramag 已完成桌面工具的主要能力闭环，包括数据库查询与结果处理、Kafka 集群和消息管理、MongoDB/Redis 工作流、VCS、SSH、对象存储以及系统监控等工具。后续主线暂不承诺新增 Schema Registry、Kafka Connect、ksqlDB、消息生产或其他同等规模的集成模块。
+Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git、SSH/SFTP、对象存储、剪贴板和系统监控组织在同一个原生桌面应用中。现有工具已形成可运行的编译期内置能力，下一阶段的重点是让新增工具有稳定的平台入口，并让每条产品线都保持明确的协议、状态和安全边界。
 
-本阶段的目标是让已有能力在真实窗口中更稳定、更容易扫描和恢复：
+当前基线：
 
-1. 用户缩放窗口、切换工具或面对长文本时，控件不重叠、不被裁切，重要状态始终可见。
-2. 窄窗口优先保证操作可达和内容可读；宽窗口继续保持信息密度，不因响应式改动退化。
-3. 已知问题按复现证据逐项关闭，修复结果同时留下针对性测试或实际窗口证据。
-4. 后台异步任务、错误提示和页面上下文继续保持隔离，布局修复不能引入旧结果覆盖新页面的问题。
+- `ramag-domain` 保存实体、错误和跨层接口，不依赖 GPUI、数据库驱动或 Kafka 客户端类型。
+- `ramag-app` 负责用例编排、任务取消、上下文隔离和服务组合，不负责 UI 布局。
+- `ramag-infra-*` 负责数据库、Kafka、SSH、Git、存储和系统适配。
+- `ramag-tool-*` 负责具体工作台的交互；`ramag-terminal` 负责通用 PTY、ANSI 状态和终端绘制。
+- `ramag-bin` 当前仍直接装配内置工具；插件平台先包装这条路径，不复制业务状态。
+- Kafka 当前仍使用 `rdkafka/librdkafka` 基础设施，纯 Rust Transport、实时 Tail 和 Metrics Snapshot 尚未实现。
+- 真实 Windows 窗口证据仍与 headless 验证分开记录；未取得窗口证据的项目不能写成真实窗口已验收。
 
-## 2. 优先级
+主线目标：
 
-| 优先级 | 处理对象 | 完成标准 |
-|---|---|---|
-| P0 | 已复现的裁切、重叠、按钮不可达、错误状态丢失 | 有最小复现、源代码修复、针对性回归测试；窗口问题补充实际窗口证据 |
-| P1 | 响应性布局缺口 | 覆盖窄、常规和较宽窗口；固定列、长文本、滚动区域和底部状态均有明确边界 |
-| P2 | UI 细节和一致性 | 间距、字号、颜色、图标、空状态、加载状态和错误恢复行为与共享 UI 规则一致 |
-| P3 | 性能与维护性优化 | 有基准或资源证据，确认优化没有牺牲可见性、取消能力和错误传播 |
+1. 新增工具通过稳定的内置插件适配器进入平台，不再把注册细节散落在窗口入口。
+2. SSH/终端、Kafka 和数据库各自保持独立的连接、任务、错误和安全语义。
+3. Windows、Linux 和 macOS 使用同一套 Cargo 日常命令；平台差异只留在工具链准备和发布包装层。
+4. 每个交付切片都有与风险匹配的测试、UI 或真实服务证据，并留下可回滚的独立提交。
 
-同一时间只处理一个可独立验收的 UI 切片。发现更高优先级的可见回归时，暂停当前切片，先关闭该回归。
+## 2. 产品线状态
 
-## 3. 响应性布局规则
+| 产品线 | 当前状态 | 下一项工作 | 暂不扩大的范围 |
+|---|---|---|---|
+| 插件平台 | P0-A 已完成，现有工具已通过静态插件适配器注册 | `PLAT-002`：静态插件注册、初始化和生命周期 | 动态 ABI、插件市场、第三方不受信任代码 |
+| SSH/终端 | `alacritty_terminal + GPUI` PTY 核心和 SSH/SFTP 工作区已有 | 完成插件边界后，补通用会话状态、端口转发和重连 | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
+| Kafka 工作台 | 集群、Topic、消息、ACL、配置和消费者组基础能力已有 | 先完成 Transport 能力矩阵，再决定 native 或纯 Rust 默认后端 | 在 Transport 决策前实现 Metrics、Live Tail 或外部生态大模块 |
+| 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 结果查看/大字段恢复、对象导航和执行计划连续工作流 | 把 Redis/MongoDB 强行套用 SQL 语义 |
+| 质量与工具链 | stable channel、统一 Cargo 命令、Windows GNU 路线已建立 | 保持 CI、WSL Linux 验证、源码尺寸和 LF 规则一致 | 为单个平台恢复独立的日常编译命令 |
 
-### 3.1 窗口和容器
+跨产品的 UI 响应性问题不再单独生成一条长期大路线。出现新的可复现 P0/P1 问题时，按下面的交付切片规则插入当前队列，并在对应专项文档记录实现细节。
 
-- 以内容容器的可用宽度决定重排，不依赖某个固定显示器尺寸。
-- 横向布局中的可收缩文本必须设置 `min_w_0`；需要完整显示的固定字段明确固定宽度或最小宽度。
-- 页面主体使用可伸缩区域承载内容，滚动区域保留标题、操作栏和底部状态栏的空间。
-- 表格在窄窗口收紧低优先级列；无法安全收紧时提供横向滚动，不把列挤出父容器。
-- 多个操作按钮允许换行或垂直排列；按钮、输入框和状态标签不得依靠溢出隐藏来维持一行。
+## 3. 当前交付队列
 
-### 3.2 文本和状态
+同一时间只允许一个任务处于“开发中”。表中顺序是当前主线顺序；“待开始”任务不能提前扩展实现。
 
-- 指标主值、路径、Topic、SQL、错误详情等长文本按字段重要性选择换行、省略或滚动；省略文本必须有可获取的完整内容。
-- 核心数量、页码、影响行数、连接状态和错误原因属于关键状态，不能使用省略号隐藏。
-- 加载、空数据、失败、重试和成功状态使用互不重叠的布局；失败状态保留原操作目标和重试入口。
-- 弹窗、抽屉和详情面板在窄窗口中保持关闭、确认、取消和返回操作可见。
-
-### 3.3 断点验证
-
-每个响应性切片至少验证三种窗口：
-
-| 窗口 | 重点 |
-|---|---|
-| 窄窗口（约 360px 内容宽度） | 操作栏换行、固定列收紧、长文本处理和垂直滚动 |
-| 常规窗口（约 1024px 内容宽度） | 默认信息密度、面板比例和主要工作流 |
-| 宽窗口（约 1440px 内容宽度） | 面板扩展、空白分配、表格列宽和详情区利用率 |
-
-具体工具可以根据自身最小可用宽度调整数值，但必须在切片说明中写明实际窗口尺寸和证据。
-
-## 4. 已知问题清单
-
-以下问题来自当前路线图、历史 UI 验收和代码检查，按优先级进入本阶段；完成一项后在本表记录提交和证据。
-
-| 编号 | 模块 | 问题或待补证据 | 优先级 | 处理顺序 | 当前状态和证据 |
+| ID | 产品线 | 负责人范围 | 状态 | 依赖 | 验收重点 |
 |---|---|---|---|---|---|
-| UI-001 | 系统监控 | CPU 指标卡的核心数量、指标主值和窄窗口宽度需要确认不裁切、不挤压核心面板；真实窗口证据暂未补齐 | P0 | 第一项 | 性能页布局和历史趋势图检查完成：趋势卡移除面积填充，使用 2px 折线并标记最新采样点；`performance_layout_keeps_cpu_state_inside_parent_at_supported_widths` 覆盖带真实历史数据的 360/1024/1440 headless 边界；真实窗口证据仍待补 |
-| UI-002 | 数据库结果表 | 使用实际数据补充 Windows 窗口证据，确认结果列表、底部状态栏和垂直滚动条不互相覆盖 | P0 | 第二项 | 代码和 headless 检查完成；`ea0a472`；真实窗口证据待补 |
-| UI-003 | 数据库/MongoDB | 检查结果状态、分页、过滤器和详情区域在窄窗口的换行与恢复操作 | P1 | 第三项（已完成） | 查询结果工具栏、查询控制台顶部工具栏、详情查看器、查询历史和失败重试五个切片已完成；`ba71d8e`、`05874b5`、`e6854be`、`79a9f18`、`6afcd19` 覆盖 SQL/MongoDB 的 360/1024/1440 headless 边界；真实 Windows 窗口证据仍未完成 |
-| UI-004 | Kafka | 复核紧凑工作区、消息表、Headers/详情和连接失败重试状态在三种窗口中的边界 | P1 | 第四项（已完成） | Kafka 相关代码和 headless UI 验收已完成：`406dc8c`、`df5cb6e`、`216e683`、`036abd8`、`3c3653a`、`10f5c81`、`044f2a5`、`c01aaae`、`a92ef05`、`57a490f` 分别覆盖消息表/详情、消费者组、失败重试、ACL、配置、消息范围、分页、紧凑滚动、主题页和主题操作栏；目标测试覆盖 360/800/900/1024/1440 headless 窗口，Docker Kafka 集成测试通过。真实 Windows 窗口证据因 `node_repl exec context not found` 无法取得，按当前验收约定记录为环境限制，不将 headless 结果描述为真实窗口验证 |
-| UI-005 | 共享组件 | 统一按钮、输入框、空状态、通知、弹窗和工具栏的间距、最小宽度与图标提示 | P2 | 第五项（已完成） | 共享组件和各工具响应式切片已完成：对话框标题、操作区、清除输入、居中状态、通知、对象存储、设置页、活动栏、Redis、SSH、系统监控、VCS、剪贴板和 Kafka 工具栏均有对应实现与 headless 边界测试；目标测试、workspace 测试、Clippy、格式、源文件大小和差异检查通过。真实 Windows 窗口证据因 `node_repl exec context not found` 无法取得，按当前验收约定记录为环境限制，不将 headless 结果描述为真实窗口验证 |
-| UI-006 | 全工具 | 汇总历史已知问题，补充最小复现和回归测试，删除已经过时的排期描述 | P2 | 第六项 | 已完成（本次 M6 审计） |
+| `PLAT-001` | 插件平台 | `ramag-domain`、`ramag-app` | 已完成 | 无 | `PluginId`、API 版本、能力集合、设置模式和重复注册校验有单元测试；现有工具顺序和入口不变 |
+| `PLAT-002` | 插件平台 | `ramag-app`、`ramag-bin` | 开发中 | `PLAT-001` | 静态插件注册、初始化、失败隔离、逆序关闭和迟到调用拒绝有测试 |
+| `PLAT-003` | 插件平台 | `ramag-ui`、`ramag-app` | 待开始 | `PLAT-002` | 插件状态、注册错误和可用入口在 360/1024/1440 headless 窗口内可见 |
+| `TERM-001` | SSH/终端 | `ramag-domain`、`ramag-infra-ssh`、`ramag-tool-ssh` | 待开始 | `PLAT-003` | 会话状态、重连和 `-L/-R/-D` 参数模型有 OpenSSH 参数测试和真实端点验证 |
+| `KAFKA-001` | Kafka | `ramag-infra-kafka`、构建维护 | 待开始 | `PLAT-003` | Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 的传输能力矩阵可复核 |
+| `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
+| `QUALITY-001` | 质量与工具链 | workspace 维护者 | 持续任务 | 每个交付切片 | stable toolchain、统一 Cargo 命令、LF、CI 过滤器和三平台发布证据保持一致 |
 
-本次继续完成 UI-005 的 SSH 文件浏览器工具栏切片：复用 `responsive_toolbar`，移除固定 `40px` 高度，搜索框保留 `96px` 最小宽度，刷新、上传和新建操作允许换行；`directory_toolbar_wraps_controls_inside_supported_file_browser_widths` 在 180/280/600px 文件栏宽度以及 360/800/1440px 窗口中验证工具栏、搜索框和操作按钮均留在父容器内，并确认最小宽度下按钮移到搜索框下方；SSH 目标包 70 个测试、Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
+`PLAT-002` 完成前不开始 `PLAT-003`；Kafka 的 `KAFKA-001` 完成前不继续实现 Metrics Snapshot 或 Live Message Tail；终端和数据库任务不得借机修改 Kafka 或插件协议。
 
-本次继续完成系统监控终止确认条切片：确认文案放入可收缩区域，取消和终止按钮保持固定尺寸并作为独立操作区；`termination_confirmation_wraps_long_process_name_inside_supported_widths` 在 360/1024/1440px 窗口中验证长进程名换行后与按钮不重叠，所有子项均留在确认条内；系统监控目标包 19 个测试、Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
+## 4. 分阶段主线
 
-本次继续完成系统监控通知切片：通知使用共享 `responsive_toolbar`，图标和消息分成独立布局项，长完成/失败文案在窄窗口内收缩换行；`system_notice_wraps_long_message_inside_supported_widths` 在 360/1024/1440px 窗口中验证通知图标和消息均留在父容器内；系统监控目标包 20 个测试、Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
+### 阶段 0：基线与文档收敛（已完成）
 
-本次继续完成 Redis Key 树工具栏切片：复用 `responsive_toolbar`，搜索框保留 `96px` 最小宽度，刷新、展开/折叠、命令行和更多操作允许换行；`key_tree_toolbar_wraps_controls_inside_supported_widths` 在 180/280/600px 树宽度中验证搜索框和四个操作按钮均留在工具栏内，并确认最小宽度下操作区移到搜索框下方；Redis 目标包 103 个测试、Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
+完成内容：
 
-没有复现证据的问题先记录为待核查项，不直接扩大修改范围。涉及数据库、Kafka 或其他外部服务的真实验收，必须单独注明连接、数据、服务和未完成的运行条件。
+- README、架构说明、工具清单和平台关系已对齐当前独立仓库身份。
+- Kafka 路线已区分现有管理能力与尚未实现的 Transport、Metrics 和 Tail 能力。
+- 插件、Kafka、终端和数据库的职责边界已经写入专项文档；历史执行日志不再作为当前排期依据。
+- Windows GNU、Linux、macOS 的日常 Cargo 命令保持一致；平台差异只用于准备环境和发布包装。
+- 全局 Git 与 Codex 规则统一使用 LF；仓库跟踪文本文件不接受 CRLF 或混合换行。
 
-本次 M6 问题收口审计（2026-09-06）结论：UI-001、UI-002 的系统监控和数据库结果区域已由现有 headless 边界测试覆盖，数据库 workspace 集成测试通过；UI-003、UI-004、UI-005 的窄窗口切片已完成代码和 headless 验收，Kafka 目标包 18 项测试及专用 Docker KRaft 集成测试 4 项通过。设置页数据库客户端错位由 `ff4acbc` 修复，VCS 历史搜索栏由 `f613d30` 完成。当前使用用户提供的设置页截图作为缺陷复现证据，并以 headless 结果作为 `computer-use` 不可用时的验收证据；本次未取得新的真实窗口截图，不将 headless 结果描述为真实窗口验证。`cargo test --locked --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`、Windows 源文件大小检查和 `git diff --check` 均通过。后续不从历史候选直接启动 Schema Registry、Kafka Connect 或其他大模块，先等待新的可复现 P0/P1 问题或重新确认下一阶段范围。
+阶段 0 的文档变化只在完成检查后提交，不与下一项代码功能合并。
 
-## 5. 实施顺序
+### 阶段 1：内置插件平台（当前）
 
-### M1：系统监控可见性回归
+先完成 `PLAT-001` 至 `PLAT-003`。平台只包装现有工具注册路径，不改变数据库、Kafka、SSH 或其他工具的业务行为。
 
-处理 `UI-001`。先复现 CPU 指标卡在窄窗口和高核心数下的边界，确认核心数量等关键详情不被省略；再检查性能面板、核心网格、历史曲线和磁盘行的父容器边界。`de8b6de` 已补充性能页的收缩约束、128 核快照和 360/1024/1440 三种宽度的 headless 边界测试；本次补充历史趋势图的折线绘制：移除面积填充，折线加粗到 2px，并在最新采样位置显示标记；`performance_layout_keeps_cpu_state_inside_parent_at_supported_widths` 使用 CPU、内存、网络和磁盘的真实历史序列覆盖 360/1024/1440 三种宽度。相关目标测试、workspace Clippy、格式和源文件大小检查通过；当前仍按 headless 约定记录代码证据，真实 Windows 窗口截图和操作记录待环境恢复后补充。
+最低接口边界：
 
-### M2：数据库结果区域
+- `PluginId`、插件 API 主次版本、显示元数据和稳定入口 ID。
+- 已知能力集合，例如 `ui.entry`、`ui.notification`、`storage.plugin` 和 `task.scoped`。
+- 有界设置模式和独立命名空间；敏感值只能通过平台秘密存储访问。
+- 注册结果、失败阶段和有界诊断；诊断不得记录密码、Token、完整连接配置或消息正文。
+- 内置插件的实例、业务状态和 GPUI 视图不重复创建。
 
-处理 `UI-002`。以真实结果数据检查结果表的列宽、双向滚动、行区域、分页控制、底部状态和错误提示。优先修复会遮挡数据或操作的布局问题，再处理字号、间距和颜色细节。
+阶段 1 不扫描外部目录、不执行外部代码、不引入动态 ABI。动态插件必须另行完成来源、签名、权限、进程隔离、升级回滚和残留清理评估。
 
-### M3：数据库和 MongoDB 窄窗口工作流
+### 阶段 2：SSH/终端工作区
 
-处理 `UI-003`。先完成查询结果工具栏的收缩、换行和操作可达性，再覆盖查询控制台、分页/过滤工具栏、结果状态、详情面板、历史记录和失败重试。SQL、JSON、路径和错误文本按内容重要性选择换行、滚动或省略，不能让状态标签挤出父容器。`ba71d8e` 已完成 SQL/MongoDB 结果工具栏首个切片；`05874b5` 已完成两类查询控制台顶部工具栏的标签区收缩和操作区边界检查；`e6854be` 已完成 SQL/MongoDB 详情查看器的窄窗口宽度、滚动区域和关闭路径检查；`79a9f18` 已完成两类查询历史弹框的动态宽高、工具栏换行、状态提示和记录行操作组边界检查；`6afcd19` 已完成 SQL/MongoDB 错误状态的可见重试按钮、长错误文本换行和当前编辑器内容重执行，并新增 `sql_failure_retry_stays_inside_three_window_widths`、`mongo_failure_retry_stays_inside_three_window_widths` 两个 headless 用例。五个切片都覆盖 360/1024/1440 窗口；真实 Windows 窗口证据待环境恢复后补充。
+在插件入口稳定后，补齐会话状态、标签恢复、重连和端口转发模型。终端继续使用 `alacritty_terminal + GPUI`，只负责 PTY、ANSI、输入输出、选择、剪贴板和资源回收；SSH 认证、Host Key、SFTP 和 JumpServer 留在 `ramag-infra-ssh` 与 `ramag-tool-ssh`。
 
-### M4：Kafka 紧凑工作区
+SecureCRT 和 MobaXterm 只作为功能参考，不作为完整复制目标。会话日志、宏、多主机执行和其他协议必须独立建模，并先完成敏感数据、权限和资源上限设计。
 
-处理 `UI-004`。覆盖对象树、消息列表、详情区、消费者组、ACL/配置表单和断线恢复。保留现有请求代次和集群上下文隔离，只调整可见性与操作布局。`406dc8c` 完成消息列表首个切片：消息表在内容不足时保留 720px 最小内容宽度并提供横向滚动，消息详情在 1280px 以下与表格上下排列，分页栏和详情纵向滚动区不越出父容器；`kafka_message_table_and_detail_fit_three_window_widths` 验证消息行选择及 360/1024/1440 三种窗口。`df5cb6e` 完成消费者组切片：列表与详情在 1080px 以下上下排列，长客户端 ID、地址、成员 ID 和 Offset 数值列具备收缩或固定宽度约束，`kafka_consumer_groups_fit_three_window_widths_with_long_fields` 验证 360/1024/1440 三种窗口。`216e683` 完成连接失败恢复切片：错误文案允许换行，重试按钮保持固定尺寸，`kafka_runtime_error_and_retry_fit_three_window_widths` 验证 360/1024/1440 三种窗口并实际恢复元数据。`036abd8` 完成 ACL 标题切片：查询/管理标题与操作区在 1060px 以下上下排列，`kafka_workspace_renders_real_data_and_cancel_control` 覆盖 360/1024/1440 三种窗口以及列表/详情不重叠。`3c3653a` 完成配置项切片：紧凑模式下状态与操作组上下排列，长配置值不会把“设置/删除覆盖”按钮推出配置行，`kafka_config_entries_fit_three_window_widths_with_long_values` 验证 360/1024/1440 三种窗口。`10f5c81` 完成消息范围切片：紧凑模式下 Offset/时间的起止字段上下排列，宽窗口保持横排，`kafka_message_table_and_detail_fit_three_window_widths` 增加字段级边界验证并覆盖 360/1024/1440 三种窗口。`044f2a5` 完成消息分页切片：使用 5000 条消息检查分页状态、上一页、页码和下一页控件在 360/1024/1440 窗口内。`c01aaae` 完成紧凑消息工作区当前切片：900px 以下的消息页使用外层纵向滚动，结果区保留 480px 最小高度，分页后回到页首；扩展 `kafka_message_table_and_detail_fit_three_window_widths` 覆盖 360/800/1024/1440 窗口、800×500 低高度场景、窄窗口纵向滚动范围和结果区可见性。真实 Windows 窗口已启动并枚举到目标进程，但 Computer Use 状态读取因 `node_repl exec context not found` 未取得截图或控件状态，原生证据待补充。
+### 阶段 3：Kafka Transport 与观测前置条件
 
-本次完成 Kafka 概览页切片：共享 Shell 让 Kafka 侧栏从工作区顶部对齐，概览页将 Broker 元数据和 Topic 预览放入主列、集群信息放入侧列，低于 1100px 时改为上下排列，指标卡在窄窗口也允许纵向换行；`kafka_overview_keeps_sections_aligned_without_vertical_gap` 覆盖 1440/1024/360 headless 窗口，Kafka 全量 UI 测试、workspace Clippy、格式、源码大小和差异检查通过，真实 Windows Kafka 截图仍待补充。
+先完成 `KAFKA-001` 的能力矩阵和默认构建评估。`ramag-domain`、`ramag-app` 和 `ramag-tool-kafka` 不得直接依赖 `rdkafka` 类型；具体客户端只能位于 Kafka Transport 适配层。
 
-### M5：共享 UI 细节
+只有传输边界、TLS/SASL、取消、断线恢复和 Windows 构建依赖得到结论后，才决定是否实现 `KafkaMonitoringDriver`、Consumer Group Lag、Metrics Snapshot 和 Live Message Tail。Broker CPU、内存、磁盘、JVM 和请求延迟必须来自明确配置的 JMX、Prometheus 或 exporter 数据源，不能由 Admin API 伪造。
 
-处理 `UI-005`。从已有工具中提取真实重复模式，逐项修复共享组件的间距、图标按钮提示、禁用状态、空状态和错误状态。只有能够减少重复和保持行为不变时才抽取共享布局。`993a052` 完成共享对话框标题首个切片：标题区域设置 `min_w_0`、收缩和省略，关闭图标按钮使用固定尺寸并保留“关闭”提示；`closable_dialog_title_keeps_close_button_inside_narrow_window` 在 240×120 headless 窗口中确认标题和按钮都没有越出父容器。`f05bdff` 完成共享对话框双按钮操作区切片：确认框和输入框对话框复用 `dialog_action_footer`，空间不足时按钮换行，`dialog_action_footer_wraps_long_actions_inside_parent` 在 240×180 headless 窗口中确认两个长文案按钮均留在父容器内。`5c4252b` 完成清除输入按钮切片：输入根节点允许收缩，清除图标按钮保持固定尺寸，`cleanable_input_keeps_clear_button_inside_narrow_parent` 在 128×48 容器和 240×120 headless 窗口中确认按钮不越界。`e0a7bc0` 完成居中状态提示切片：SQL/MongoDB 查询历史复用 `centered_status`，加载、空列表和过滤无结果提示保留内边距并支持长文案换行，`centered_status_keeps_long_message_inside_narrow_window` 在 180×100 容器和 180×120 headless 窗口中确认文本区域不越界。`ee9086c`、`c542b85` 完成复制和传输通知的窄窗口宽度约束；`1693621` 完成对象存储目录工具栏切片：复用 `responsive_toolbar`，移除固定高度并保留内边距，`object_directory_toolbar_keeps_controls_inside_supported_widths` 在 180/360/1024/1440 headless 窗口中确认筛选、刷新、上传和窄窗口切换操作均留在工具栏内；`f65bb91` 完成设置页切片：900px 以下导航使用固定入口的横向滚动条，内容区移到导航下方，900px 及以上保留左侧导航，`settings_navigation_switches_to_scrollable_strip_on_compact_widths` 在 360/1024/1440 窗口中确认导航、内容区和入口边界。本次继续完成设置页版本信息工具栏切片：拆分可收缩的信息区与操作区，长版本号和更新链接允许换行，交流群与反馈问题按钮保持在父容器内；`update_toolbar_keeps_long_info_and_actions_inside_narrow_parent` 在 240×180 headless 窗口中验证边界，目标测试、格式检查和差异检查通过，真实窗口证据待补。`78fa3d1` 继续完成活动栏切片：工具列表移入独立纵向滚动区域，添加、快捷键和设置入口固定在低高度窗口底部；`activity_bar_keeps_fixed_actions_visible_when_tool_list_overflows` 使用 16 个动态工具项在 48×220 headless 窗口验证滚动区和固定入口边界，workspace 测试、Clippy、格式、源文件大小和差异检查通过，真实 Windows 窗口证据待补。本次继续完成 Redis Key 详情头部切片：标题与元数据区设置可收缩边界，复制、新增、删除操作单独放入可换行操作区；低于 720px 时标题和操作区上下排列，常规和宽窗口保持横排；`header_reflows_metadata_and_actions_inside_three_window_widths` 在 360×360、1024×420、1440×420 headless 窗口中验证长 Key、Hash 元数据以及三个操作控件均留在父容器内；Redis 目标包测试、Clippy、格式、源文件大小和差异检查通过，真实 Windows 窗口证据待补；其他工具的通知与工具栏继续按独立切片检查。
+### 阶段 4：数据库连续工作流
 
-本次继续完成 SSH 文件浏览器工具栏切片：复用 `responsive_toolbar`，移除固定 `40px` 高度，搜索框保留 `96px` 最小宽度，刷新、上传和新建操作允许换行；`directory_toolbar_wraps_controls_inside_supported_file_browser_widths` 在 180/280/600px 文件栏宽度以及 360/800/1440px 窗口中验证工具栏、搜索框和操作按钮均留在父容器内，并确认最小宽度下按钮移到搜索框下方；SSH 目标包 70 个测试、Clippy、格式、源文件大小和差异检查通过，真实 Windows 窗口证据待补。
+按 `DB-001` 及数据库专项路线推进结果查看、大字段、对象导航、执行计划、迁移确认和大数据量边界。SQL、Redis 和 MongoDB 共享连接工作区，但不共享不适用的操作语义。查询代次、取消、重试和失败恢复必须保留连接与标签上下文。
 
-本次继续完成系统监控终止确认条切片：确认文案放入可收缩区域，取消和终止按钮保持固定尺寸并作为独立操作区；`termination_confirmation_wraps_long_process_name_inside_supported_widths` 在 360/1024/1440px 窗口中验证长进程名换行后与按钮不重叠，所有子项均留在确认条内；系统监控目标包 19 个测试、Clippy、格式、源文件大小和差异检查通过，真实 Windows 窗口证据待补。
+### 阶段 5：可选生态与动态能力评估
 
-本次继续完成系统监控通知切片：通知使用共享 `responsive_toolbar`，图标和消息分成独立布局项，长完成/失败文案在窄窗口内收缩换行；`system_notice_wraps_long_message_inside_supported_widths` 在 360/1024/1440px 窗口中验证通知图标和消息均留在父容器内；系统监控目标包 20 个测试、Clippy、格式、源文件大小和差异检查通过，真实 Windows 窗口证据待补。
+阶段 1-4 稳定后才评估动态插件包、Schema Registry、Kafka Connect、ksqlDB、Serial、Telnet、RDP、VNC 和 X11。每项评估都必须有独立用户场景、部署条件、安全边界和停止条件；参考产品具备某能力不构成实现承诺。
 
-本次继续完成 Redis Key 树工具栏切片：复用 `responsive_toolbar`，搜索框保留 `96px` 最小宽度，刷新、展开/折叠、命令行和更多操作允许换行；`key_tree_toolbar_wraps_controls_inside_supported_widths` 在 180/280/600px 树宽度中验证搜索框和四个操作按钮均留在工具栏内，并确认最小宽度下操作区移到搜索框下方；Redis 目标包 103 个测试、Clippy、格式、源文件大小和差异检查通过，真实 Windows 窗口证据待补。
+## 5. 交付和验证规则
 
-本次继续完成 VCS 文件栏工具栏切片：模式标签和搜索操作区复用 `responsive_toolbar`，固定按钮保持独立尺寸并允许换行；`vcs_files_toolbar_wraps_controls_inside_supported_widths` 在 1440×720 headless 窗口中将文件栏宽度设为 180/280/600px，验证工具栏、模式标签、分支选择器、搜索框以及刷新/展开/历史操作均留在父容器内，并确认最小宽度下搜索操作换行；VCS 目标包 127 个测试通过、5 个忽略，Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
+每个交付切片按以下顺序执行：
 
-本次继续完成 VCS 历史搜索栏切片：搜索栏改用 `responsive_toolbar`，搜索输入保留 `96px` 最小宽度，搜索、同步和远程操作在紧凑历史内容区允许换行；`vcs_history_toolbar_wraps_controls_inside_supported_window_widths` 覆盖 360/800/1440px headless 窗口，验证历史搜索工具栏、输入框和四个操作控件均留在历史右侧内容区内，并确认 360px 窗口下固定搜索操作换行；真实 Windows 窗口证据待补。
+1. 从最新 `main` 检查 `git status --short --branch`、远端状态和已有变更；不覆盖无关工作区文件。
+2. 在对应专项文档写清责任组件、输入、输出、失败行为和最小验收条件。
+3. 创建 `feat/<task-id>-<name>` 短期分支，只修改该任务及必要测试、文档和配置。
+4. 先运行目标测试，再运行匹配风险的 UI、真实服务或构建验证。
+5. 从 workspace 根目录运行 `cargo fmt --all -- --check` 和 `cargo clippy --workspace --all-targets -- -D warnings`；涉及 Rust 源码时补充目标测试、源码尺寸和日志约定检查。
+6. 运行 `git diff --check`，确认提交路径、换行、敏感信息和提交说明只对应当前任务。
+7. 测试通过后只创建一个独立 Conventional Commit，并立即推送当前分支；未验证或失败的任务不提交。
+8. 把提交、测试命令、UI/真实服务证据、环境限制和未完成项写回本计划或对应专项文档，再开始下一项。
 
-本次继续完成 Redis 命令控制台工具栏切片：历史状态和生产只读提示设置可收缩、可换行边界，清空按钮保持固定尺寸；`cli_toolbar_wraps_status_and_keeps_clear_inside_supported_widths` 在生产模式和 8 条执行中历史的长状态下覆盖 180/280/600px headless 窗口，验证状态文案与清空按钮均留在工具栏内；Redis 目标包 104 个测试通过，Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
+## 6. 验收条件
 
-本次继续完成 Redis List 编辑器工具栏切片：添加、数量状态和 List 插入方向控件复用共享换行布局，方向按钮保持独立尺寸；`lines_toolbar_wraps_controls_inside_supported_widths` 在 180/280/600px headless 窗口中验证工具栏、添加按钮、数量状态、插入位置以及 LPUSH/RPUSH 控件均留在编辑器内，并确认最小宽度下方向控件换行；Redis 目标包 105 个测试通过，Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
+| 风险 | 必须提供的证据 |
+|---|---|
+| 领域规则和注册校验 | 目标 crate 单元测试、格式检查、workspace Clippy |
+| 异步任务、取消和上下文 | 代次、取消、关闭、失败和迟到结果测试 |
+| Kafka、数据库、SSH 或外部命令 | 实际服务/端点或 Docker 集成测试，记录版本、条件和跳过原因 |
+| GPUI 布局和交互 | 360/1024/1440 边界的 headless 测试；真实窗口截图和操作记录单独记录 |
+| Windows/Linux/macOS 构建 | 同一 Cargo 命令、目标工具链、产物或失败原因；不把平台脚本成功等同于二进制成功 |
+| 安全和高风险写操作 | 正常、拒绝、超时、取消、二次确认和敏感信息脱敏路径 |
+| 文档和配置 | 术语、组件名、箭头方向、链接、LF 换行和 `git diff --check` |
 
-本次继续完成 Redis Hash/ZSet/Stream 双列编辑器切片：字段和值输入框使用可收缩的最小宽度，行和添加/删除操作允许换行；`pairs_editor_wraps_fields_and_actions_inside_supported_widths` 以 Hash 编辑器两行数据覆盖 180/280/600px headless 窗口，验证字段、值、添加和删除控件均留在编辑器内，并确认最小宽度下字段和值分行；Redis 目标包 106 个测试通过，Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
+Headless 结果不能描述为真实窗口结果；外部服务未启动时只能记录为未完成或环境限制。发现新的 P0/P1 可见回归时，先暂停当前 UI 切片并更新队列，不把猜测当作缺陷修复范围。
 
-本次继续完成剪贴板悬浮抽屉顶部工具栏切片：改用 `responsive_toolbar`，搜索框和截断提示保留 `128px` 最小宽度并允许窄窗口分行；`drawer_topbar_wraps_search_and_limit_status_inside_narrow_window` 覆盖 180/240/600px 宽度，验证工具栏、搜索框和截断提示均留在父容器内；剪贴板目标包 19 个测试、workspace Clippy、格式、源文件大小、最终构建和 Docker Kafka 集成通过；真实 Windows 主窗口和剪贴板搜索交互已完成，`WM_HOTKEY` 弹出抽屉因 CUA `press_key` 限制仍待人工或原生输入补证。
+## 7. 文档维护边界
 
-本次继续完成剪贴板主页面工具栏切片：搜索区从固定 `360px` 改为可收缩并限制最大宽度，类型筛选按钮置于共享换行布局；`clipboard_toolbar_wraps_search_and_filters_inside_supported_widths` 以 180/240/360/600/1024/1440px headless 窗口验证搜索区、筛选区和全部 6 个筛选按钮均留在父容器内，并确认窄窗口下筛选区换行；剪贴板目标包 20 个测试、workspace Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
+- 本文件只维护跨工具阶段、当前队列、依赖、交付规则和证据状态。
+- `architecture.md` 只维护已实现 crate、依赖方向和技术决策，不追加长期功能愿望。
+- 专项路线只维护该产品线的领域模型、协议选择、具体任务和专项验收，不复制本文件的全部历史日志。
+- README 只描述当前可用能力、统一命令和明确限制，不把未来计划写成已实现功能。
+- 已完成任务保留提交 ID 和验证证据即可，不在主线重复堆积逐次执行日志；旧的发布待办和历史公告不作为当前开发计划。
 
-本次继续完成剪贴板主页面内容区切片：低于 `900px` 时列表与详情改为上下堆叠，内容区允许纵向滚动；`clipboard_content_reflows_list_and_detail_inside_supported_widths` 覆盖 360/800/1024/1440px headless 窗口，验证紧凑窗口详情位于列表下方、常规窗口恢复左右分栏且两侧横向不越界；剪贴板目标包 21 个测试、workspace Clippy、格式、源文件大小和差异检查通过；真实 Windows 窗口证据待补。
-
-本次继续修复设置页数据库客户端切换后的布局回归：Shell 内容区移除与固定顶栏重复的 `h_full()`，并为可滚动内容补充 `min_h_0()`，设置根布局在短页面与长数据库页面切换时保持顶栏下方的可用高度；`settings_navigation_stays_aligned_when_database_page_is_selected` 现在通过 Shell 等价的顶栏和内容容器覆盖页面切换前后尺寸稳定性，`ramag-ui` headless 测试通过。真实 Windows 窗口证据仍待环境恢复。
-
-### M6：问题收口和下一阶段评审（已完成）
-
-处理 `UI-006`。已核对已知问题表、专项路线、测试命令和实际证据；UI-001 至 UI-005 的代码与 headless 验收均有结果记录，唯一未补齐的是真实 Windows 窗口证据，原因是 `node_repl exec context not found`，并已按用户要求使用截图/headless 结果作为替代验收证据。当前不启动 Schema Registry、Kafka Connect 等大模块，后续转入插件化平台设计与新的可复现问题处理。
-
-## 6. 每个切片的交付流程
-
-1. 修改前检查 `git status --short --branch`、当前分支和最近提交，保留与本切片无关的工作区变化。
-2. 写出最小复现和预期边界，先找到具体组件、容器或状态转换，再编辑源代码。
-3. 只修改完成该切片所需的文件；跨 crate 改动必须说明生产者、消费者和共享边界。
-4. 运行针对性单元测试、headless UI 测试和格式/静态检查；窗口改动追加实际 Windows 窗口验证或记录环境限制。
-5. 检查 `git diff --check`、源文件长度和暂存路径，确认提交只包含当前切片。
-6. 参考当前仓库的提交消息风格，为每个可独立评审的切片创建单独提交，并推送到 `origin` 和 `gitea` 的当前开发分支。
-7. 在本计划和对应专项路线中记录提交、测试命令、UI 证据和未完成项，再开始下一切片。
-
-## 7. 验收条件
-
-### 7.1 代码和测试
-
-- 目标 crate 的单元测试和 headless UI 测试通过，测试覆盖本次改动的窄窗口或状态边界。
-- `cargo fmt --all -- --check`、目标 crate 的 `cargo check`、目标 crate 的 Clippy 和目标 crate 测试通过。
-- 涉及共享层或跨工具行为时，追加直接生产者和消费者的检查；涉及源文件时，Linux/macOS 运行 `scripts/check-source-size.sh`，Windows PowerShell 运行 `scripts/windows/check-source-size.ps1`。
-- `git diff --check` 通过，提交前后的工作区状态和远端分支状态可复核。
-
-### 7.2 UI 和运行环境
-
-- 窄、常规、宽窗口中没有控件越出父容器、文本覆盖、关键状态丢失或操作按钮不可达。
-- 真实窗口验证与 headless 验证分开记录；静态检查和测试通过不等于实际窗口验收完成。
-- 依赖 MSVC 的 Windows 检查必须从 `scripts/windows/clippy-msvc.ps1` 或等价的 Visual Studio 开发环境运行，确认 `where cl.exe` 和 `where link.exe` 指向同一 x64 工具集。
-- 未能启动真实外部服务、未能使用实际数据或未能截取实际窗口时，记录具体阻塞原因，不把未完成项写成已验收。
-
-### 7.3 停止条件
-
-出现以下任一情况时，停止扩大当前切片：
-
-- 修复需要改变不相关工具的业务语义或外部接口。
-- 只能通过隐藏内容、删除操作或放宽资源边界来消除布局问题。
-- 测试、窗口证据或 MSVC 环境无法复核，且没有替代证据可以明确边界。
-- 工作区出现与当前切片无关的文件，无法在不混入提交的情况下继续。
-
-## 8. 计划维护
-
-每个独立切片完成后更新状态和证据；发现新的 P0/P1 问题时追加编号并调整顺序。专项路线只记录专项功能和专项验收，不重新定义本主线的 UI 优先级。大功能扩展只有在 M6 完成评审后重新排期，不从历史列表直接开始实现。
+当前下一步：完成 `PLAT-002` 的静态注册生命周期和失败隔离，补充初始化、逆序关闭与迟到调用测试；完成后再进入插件平台 UI 诊断。

@@ -25,7 +25,7 @@ fn parses_stable_manifest_and_digest() {
     assert_eq!(release.assets[0].sha256.as_deref(), Some(HASH));
     assert_eq!(
         release.assets[0].download_url,
-        "https://github.com/tools-rs/ramag/releases/download/v1.2.3/Ramag-1.2.3-macos-arm64.dmg"
+        "https://github.com/bruceblink/ramag-platform/releases/download/v1.2.3/Ramag-1.2.3-macos-arm64.dmg"
     );
 }
 
@@ -43,17 +43,19 @@ fn rejects_prerelease_manifest() {
 #[test]
 fn latest_release_permalink_accepts_only_canonical_stable_tag() {
     let release = parse_release_permalink(
-        &Url::parse("https://github.com/tools-rs/ramag/releases/tag/v1.2.3").expect("valid URL"),
+        &Url::parse("https://github.com/bruceblink/ramag-platform/releases/tag/v1.2.3")
+            .expect("valid URL"),
     )
     .expect("stable release permalink");
     assert_eq!(release.version, "1.2.3");
     assert!(release.assets.is_empty());
 
-    let prerelease = Url::parse("https://github.com/tools-rs/ramag/releases/tag/v1.2.3-beta.1")
-        .expect("valid URL");
+    let prerelease =
+        Url::parse("https://github.com/bruceblink/ramag-platform/releases/tag/v1.2.3-beta.1")
+            .expect("valid URL");
     assert!(parse_release_permalink(&prerelease).is_err());
-    let foreign =
-        Url::parse("https://example.com/tools-rs/ramag/releases/tag/v1.2.3").expect("valid URL");
+    let foreign = Url::parse("https://example.com/bruceblink/ramag-platform/releases/tag/v1.2.3")
+        .expect("valid URL");
     assert!(parse_release_permalink(&foreign).is_err());
 }
 
@@ -73,7 +75,7 @@ fn selects_exact_checksum_entry() {
 fn download_url_must_match_repository_tag_and_asset() {
     assert!(
         validate_download_url(
-            "https://github.com/tools-rs/ramag/releases/download/v1.0.0/Ramag-1.0.0.dmg",
+            "https://github.com/bruceblink/ramag-platform/releases/download/v1.0.0/Ramag-1.0.0.dmg",
             "v1.0.0",
             "Ramag-1.0.0.dmg"
         )
