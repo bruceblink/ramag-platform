@@ -23,8 +23,13 @@ impl RdkafkaTransport {
         config: &KafkaClusterConfig,
     ) -> Result<KafkaMetricsSnapshot> {
         Self::ensure_build_features(config)?;
-        let metadata = self.cluster_metadata_blocking(config)?;
-        let topics = self.list_topics_blocking(config)?;
+        let (metadata, topics) = {
+            let (consumer, metadata) =
+                self.fetch_metadata_blocking(config, "读取 Kafka 集群元数据")?;
+            let cluster_metadata = self.cluster_metadata_from_metadata(&consumer, &metadata)?;
+            let topics = self.list_topics_from_metadata(&consumer, &metadata)?;
+            (cluster_metadata, topics)
+        };
         let groups = self.list_consumer_groups_with_topics_blocking(config, &topics)?;
         let snapshot = KafkaMetricsSnapshot::from_runtime(Utc::now(), &metadata, &topics, &groups);
         snapshot

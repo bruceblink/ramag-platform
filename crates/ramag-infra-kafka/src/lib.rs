@@ -28,6 +28,8 @@ use rdkafka::admin::AdminClient;
 use rdkafka::client::DefaultClientContext;
 #[cfg(feature = "cmake-build")]
 use rdkafka::consumer::{BaseConsumer, Consumer};
+#[cfg(feature = "cmake-build")]
+use rdkafka::metadata::Metadata;
 use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 use tracing::{debug, info};
@@ -172,15 +174,34 @@ impl RdkafkaTransport {
     }
 
     #[cfg(feature = "cmake-build")]
+    fn fetch_metadata_blocking(
+        &self,
+        config: &KafkaClusterConfig,
+        operation: &'static str,
+    ) -> Result<(BaseConsumer, Metadata)> {
+        let consumer = self.create_consumer(config)?;
+        let metadata = consumer
+            .fetch_metadata(None, self.request_timeout)
+            .map_err(|error| errors::map_kafka_error(error, operation))?;
+        Ok((consumer, metadata))
+    }
+
+    #[cfg(feature = "cmake-build")]
     /// 读取当前集群的元数据；消费者没有 group.id，因此不会加入业务消费组。
     fn cluster_metadata_blocking(
         &self,
         config: &KafkaClusterConfig,
     ) -> Result<KafkaClusterMetadata> {
-        let consumer = self.create_consumer(config)?;
-        let metadata = consumer
-            .fetch_metadata(None, self.request_timeout)
-            .map_err(|error| errors::map_kafka_error(error, "读取 Kafka 集群元数据"))?;
+        let (consumer, metadata) = self.fetch_metadata_blocking(config, "读取 Kafka 集群元数据")?;
+        self.cluster_metadata_from_metadata(&consumer, &metadata)
+    }
+
+    #[cfg(feature = "cmake-build")]
+    fn cluster_metadata_from_metadata(
+        &self,
+        consumer: &BaseConsumer,
+        metadata: &Metadata,
+    ) -> Result<KafkaClusterMetadata> {
         let brokers = metadata
             .brokers()
             .iter()
@@ -220,10 +241,17 @@ impl RdkafkaTransport {
     #[cfg(feature = "cmake-build")]
     /// 读取 Topic、Partition 和水位；水位查询仍使用同一个无消费组读取客户端。
     fn list_topics_blocking(&self, config: &KafkaClusterConfig) -> Result<Vec<KafkaTopic>> {
-        let consumer = self.create_consumer(config)?;
-        let metadata = consumer
-            .fetch_metadata(None, self.request_timeout)
-            .map_err(|error| errors::map_kafka_error(error, "读取 Kafka Topic 元数据"))?;
+        let (consumer, metadata) =
+            self.fetch_metadata_blocking(config, "读取 Kafka Topic 元数据")?;
+        self.list_topics_from_metadata(&consumer, &metadata)
+    }
+
+    #[cfg(feature = "cmake-build")]
+    fn list_topics_from_metadata(
+        &self,
+        consumer: &BaseConsumer,
+        metadata: &Metadata,
+    ) -> Result<Vec<KafkaTopic>> {
         if metadata.topics().len() > MAX_KAFKA_TOPICS {
             return Err(DomainError::InvalidConfig(format!(
                 "Kafka Topic 数量超过 {MAX_KAFKA_TOPICS} 个上限"
