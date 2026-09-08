@@ -37,6 +37,7 @@ use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 use tracing::{debug, info};
 pub const DEFAULT_KAFKA_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+pub const MAX_KAFKA_REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone, Copy)]
 pub struct RdkafkaTransport {
@@ -320,6 +321,11 @@ fn validate_request_timeout(request_timeout: Duration) -> Result<()> {
     if request_timeout.as_millis() == 0 {
         return Err(DomainError::InvalidConfig(
             "Kafka 请求超时必须至少为 1 毫秒".into(),
+        ));
+    }
+    if request_timeout > MAX_KAFKA_REQUEST_TIMEOUT {
+        return Err(DomainError::InvalidConfig(
+            "Kafka 请求超时不能超过 60 秒".into(),
         ));
     }
     Ok(())

@@ -50,7 +50,7 @@
 
 | 约束 | 当前实现 | 评审结论 |
 |---|---|---|
-| 超时 | `RdkafkaDriver::with_request_timeout` 校验非零预算；native 客户端使用同一请求预算 | 代码级可用；需要在不同 Broker 版本和慢请求场景补服务测试 |
+| 超时 | `RdkafkaDriver::with_request_timeout` 校验 1 毫秒到 60 秒预算；native 客户端使用同一请求预算 | 代码级可用；需要在不同 Broker 版本和慢请求场景补服务测试 |
 | 取消 | 应用层以 `smol::unblock` 承载阻塞客户端；读取查询有时间和数量上限 | 读取范围有界，但 native 请求的主动取消和连接回收还没有独立能力接口 |
 | 错误 | native 错误统一映射为 `KafkaErrorCategory`，重试属性只对网络和超时开放 | 已有代码和单元测试；纯 Rust 错误分类尚无实现 |
 | 敏感数据 | 客户端配置使用 allowlist；密码、证书路径和密钥字段不进入普通 Debug 输出或安全错误正文 | 当前边界应保留到后续适配器，不允许开放任意属性 Map |

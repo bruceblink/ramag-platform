@@ -43,6 +43,11 @@ fn request_timeout_must_be_positive() {
     assert!(RdkafkaDriver::with_request_timeout(Duration::ZERO).is_err());
     assert!(RdkafkaDriver::with_request_timeout(Duration::from_nanos(1)).is_err());
     assert!(RdkafkaDriver::with_request_timeout(Duration::from_millis(1)).is_ok());
+    assert!(RdkafkaDriver::with_request_timeout(MAX_KAFKA_REQUEST_TIMEOUT).is_ok());
+    assert!(
+        RdkafkaDriver::with_request_timeout(MAX_KAFKA_REQUEST_TIMEOUT + Duration::from_millis(1))
+            .is_err()
+    );
 }
 
 #[test]
