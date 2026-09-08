@@ -135,8 +135,7 @@ where
     let transaction = guard
         .as_mut()
         .ok_or_else(|| DomainError::QueryFailed("事务已经结束".into()))?;
-    sqlx::query(&sql)
-        .execute(&mut **transaction)
+    b.execute_transaction_control(&mut **transaction, &sql)
         .await
         .map_err(|error| map_err(b, error))?;
     info!(

@@ -110,6 +110,17 @@ where
         Ok(())
     }
 
+    /// Executes a backend transaction-control statement without user parameters.
+    fn execute_transaction_control<'a>(
+        &self,
+        conn: &'a mut <Self::Db as Database>::Connection,
+        sql: &'a str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = std::result::Result<(), sqlx::Error>> + Send + 'a>,
+    > {
+        Box::pin(async move { sqlx::query(sql).execute(conn).await.map(|_| ()) })
+    }
+
     async fn fetch_warnings(&self, _conn: &mut <Self::Db as Database>::Connection) -> Vec<Warning> {
         Vec::new()
     }

@@ -115,6 +115,20 @@ impl SqlBackend for MysqlDriver {
             .map(|_| ())
     }
 
+    fn execute_transaction_control<'a>(
+        &self,
+        conn: &'a mut MySqlConnection,
+        sql: &'a str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = std::result::Result<(), sqlx::Error>> + Send + 'a>,
+    > {
+        Box::pin(async move {
+            <&'a mut MySqlConnection as sqlx::Executor<'a>>::execute(conn, sqlx::raw_sql(sql))
+                .await
+                .map(|_| ())
+        })
+    }
+
     async fn fetch_warnings(&self, conn: &mut MySqlConnection) -> Vec<Warning> {
         execute::fetch_warnings(conn).await
     }
