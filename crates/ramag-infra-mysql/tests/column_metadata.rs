@@ -69,11 +69,13 @@ async fn list_columns_preserves_mysql_generation_metadata() {
         total.generated_storage,
         Some(GeneratedColumnStorage::Stored)
     );
+    let generation_expression = total
+        .generation_expression
+        .as_deref()
+        .expect("生成列表达式");
     assert!(
-        total
-            .generation_expression
-            .as_deref()
-            .is_some_and(|expression| expression.contains("price + 1"))
+        generation_expression.replace('`', "").contains("price + 1"),
+        "生成列表达式不匹配: {generation_expression}"
     );
     let virtual_total = columns
         .iter()
