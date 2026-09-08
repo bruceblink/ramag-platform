@@ -5,6 +5,20 @@ use super::*;
 
 const MAX_VISIBLE_GROUP_OFFSETS: usize = 500;
 
+/// 只保存筛选结果的源索引；query 已转为小写，虚拟列表回调只复制当前可视范围内的组快照。
+pub(super) fn matching_consumer_group_indices(
+    groups: &[KafkaConsumerGroup],
+    query: &str,
+) -> Vec<usize> {
+    groups
+        .iter()
+        .enumerate()
+        .filter_map(|(index, group)| {
+            (query.is_empty() || group.group_id.to_lowercase().contains(query)).then_some(index)
+        })
+        .collect()
+}
+
 impl KafkaView {
     /// 触发一次有界消费者组快照读取；旧请求的结果不会覆盖当前集群。
     pub(super) fn load_consumer_groups(
@@ -88,12 +102,7 @@ impl KafkaView {
         let theme = cx.theme().clone();
         let compact = f32::from(window.viewport_size().width) < 1080.0;
         let query = value(&self.consumer_group_search, cx).to_lowercase();
-        let visible: Vec<KafkaConsumerGroup> = self
-            .consumer_groups
-            .iter()
-            .filter(|group| query.is_empty() || group.group_id.to_lowercase().contains(&query))
-            .cloned()
-            .collect();
+        let visible_indices = matching_consumer_group_indices(&self.consumer_groups, &query);
         let selected_group = self.selected_consumer_group.as_ref().and_then(|group_id| {
             self.consumer_groups
                 .iter()
@@ -133,7 +142,7 @@ impl KafkaView {
                         .child(format!("读取失败：{error}")),
                 )
                 .into_any_element()
-        } else if visible.is_empty() {
+        } else if visible_indices.is_empty() {
             v_flex()
                 .id("kafka-consumer-group-empty")
                 .debug_selector(|| "kafka-consumer-group-empty".into())
@@ -151,18 +160,20 @@ impl KafkaView {
                 ))
                 .into_any_element()
         } else {
-            let groups = visible;
             let list = uniform_list(
                 "kafka-consumer-group-list",
-                groups.len(),
+                visible_indices.len(),
                 cx.processor(move |this, range: Range<usize>, _window, cx| {
                     range
-                        .map(|index| {
-                            let group = groups[index].clone();
+                        .filter_map(|index| {
+                            let group_index = *visible_indices.get(index)?;
+                            let group = this.consumer_groups.get(group_index)?.clone();
                             let selected =
                                 this.selected_consumer_group.as_ref() == Some(&group.group_id);
-                            this.render_consumer_group_row(group, selected, cx)
-                                .into_any_element()
+                            Some(
+                                this.render_consumer_group_row(group, selected, cx)
+                                    .into_any_element(),
+                            )
                         })
                         .collect::<Vec<_>>()
                 }),

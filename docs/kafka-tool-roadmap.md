@@ -1,10 +1,10 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 23 的 Broker 运行指标适配代码已完成；Docker exporter、真实 Broker 端点和真实 Windows 截图仍是未完成项，下一阶段转入高规模工作区优化
+> 状态：阶段 24 已完成消费者组列表的首个高规模切片；Topic/Partition 快照预算、刷新合并和资源释放仍是未完成项，Docker exporter、真实 Broker 端点和真实 Windows 截图也仍待补充
 > 更新日期：2026-09-08
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
-> 当前基线：`dev`（阶段 18-23 代码已同步，阶段 24 待开发）
+> 当前基线：`dev`（阶段 18-24 首个高规模切片已同步，阶段 24 后续切片待开发）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
 > 当前主线：继续在 `dev` 完成高规模工作区优化；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
@@ -424,9 +424,16 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - Kafka 概览页与协议指标并列显示 Broker CPU、内存、磁盘和请求延迟；两类来源并行刷新、分别保留成功结果和错误原因。`ramag-tool-kafka` 的布局测试覆盖 360/900/1440 宽度。
 - 2026-09-08 已补齐 Domain/App/Infra/UI 定向测试和接口说明；exporter 容器、真实 Broker 运行指标端点、完整 workspace 构建以及真实 Windows 截图仍是未完成项。
 
+阶段 24 当前切片实施记录：
+
+- 消费者组列表筛选改为只保存匹配组的源索引；虚拟列表回调只复制当前可视范围内的 `KafkaConsumerGroup`，避免每次重绘复制全部成员和 Offset 快照。
+- 迟到刷新结果仍按请求代次和当前集群过滤；筛选索引失效时安全跳过缺失项，不因列表刷新竞态产生越界访问。
+- 新增消费者组筛选索引回归测试；2026-09-08 `ramag-tool-kafka` Windows GNU 库测试 23 项通过，源文件大小、格式和 `git diff --check` 通过。
+- 本切片不改变 Kafka 服务端查询上限、消费者组数据约定或 Offset 语义；高数量快照本身的内存预算、Topic/Partition 列表优化、刷新合并和后台资源释放仍待后续切片。
+
 后续独立路线：
 
-当前开发顺序是阶段 23-24 的 Kafka 工作台增强主线：先接入外部 Broker 运行指标，再处理高规模刷新。Schema Registry、Kafka Connect、ksqlDB、消息生产和 Offset 重置不阻塞这条主线，继续作为后续独立候选：
+当前开发顺序是阶段 24 的 Kafka 工作台增强主线：先完成列表和快照的高规模边界，再处理刷新合并与资源释放。Schema Registry、Kafka Connect、ksqlDB、消息生产和 Offset 重置不阻塞这条主线，继续作为后续独立候选：
 
 - `feat(kafka): add schema registry integration`
 - `feat(kafka): add kafka connect integration`

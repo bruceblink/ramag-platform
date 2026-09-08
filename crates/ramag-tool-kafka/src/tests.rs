@@ -211,6 +211,39 @@ fn metrics_refresh_results_require_generation_and_cluster_context() {
 }
 
 #[test]
+fn consumer_group_filter_keeps_source_indices_without_cloning_snapshots() {
+    let groups = vec![
+        KafkaConsumerGroup {
+            group_id: "orders-worker".into(),
+            state: None,
+            protocol: None,
+            members: Vec::new(),
+            offsets: Vec::new(),
+        },
+        KafkaConsumerGroup {
+            group_id: "Payments-Worker".into(),
+            state: None,
+            protocol: None,
+            members: Vec::new(),
+            offsets: Vec::new(),
+        },
+    ];
+
+    assert_eq!(
+        super::render_consumer_groups::matching_consumer_group_indices(&groups, "worker"),
+        vec![0, 1]
+    );
+    assert_eq!(
+        super::render_consumer_groups::matching_consumer_group_indices(&groups, "payments"),
+        vec![1]
+    );
+    assert_eq!(
+        super::render_consumer_groups::matching_consumer_group_indices(&groups, ""),
+        vec![0, 1]
+    );
+}
+
+#[test]
 fn runtime_recovery_message_only_marks_retryable_kafka_errors() {
     let network_error = DomainError::Kafka(
         KafkaError::new(
