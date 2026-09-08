@@ -46,7 +46,7 @@ impl RdkafkaTransport {
                     )));
                 }
                 if let Some(high) = partition.high_watermark {
-                    high_watermarks.insert((topic.name.clone(), partition.id), high);
+                    high_watermarks.insert((topic.name.as_str(), partition.id), high);
                 }
             }
         }
@@ -112,7 +112,7 @@ fn fetch_group_offsets(
     config: &KafkaClusterConfig,
     group_id: &str,
     partitions: &TopicPartitionList,
-    high_watermarks: &HashMap<(String, i32), i64>,
+    high_watermarks: &HashMap<(&str, i32), i64>,
 ) -> Result<Vec<KafkaConsumerGroupOffset>> {
     if partitions.count() == 0 {
         return Ok(Vec::new());
@@ -132,9 +132,10 @@ fn fetch_group_offsets(
         if committed_offset < 0 {
             continue;
         }
-        let key = (element.topic().to_owned(), element.partition());
+        let topic = element.topic();
+        let key = (topic.to_owned(), element.partition());
         let end_offset = high_watermarks
-            .get(&key)
+            .get(&(topic, key.1))
             .copied()
             .filter(|end| *end >= committed_offset);
         let lag = end_offset.map(|end| end.saturating_sub(committed_offset));
