@@ -1,7 +1,8 @@
 use std::ops::Range;
 
 use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, Render, Styled, Window, div, px, uniform_list,
+    ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Render, Styled, Window,
+    div, px, uniform_list,
 };
 use gpui_component::{
     ActiveTheme, Icon, IconName, Selectable as _, Sizable as _, WindowExt as _,
@@ -111,6 +112,8 @@ impl Render for TableTreePanel {
             .ghost()
             .small()
             .label(format!("{} ▾", table_filter.label()))
+            .flex_none()
+            .debug_selector(|| "table-tree-filter".into())
             .pointer_dropdown_menu_with_anchor(gpui::Anchor::BottomLeft, move |menu, _, _| {
                 let mut menu = menu;
                 for option in [
@@ -203,26 +206,33 @@ impl Render for TableTreePanel {
                     ),
             );
 
-        let header_bar = h_flex()
+        let header_bar = ramag_ui::responsive_toolbar()
+            .debug_selector(|| "table-tree-header".into())
+            .flex_none()
             .w_full()
-            .items_center()
             .px(px(10.0))
             .py(px(6.0))
             .border_b_1()
             .border_color(cx.theme().border)
-            .gap(px(6.0))
+            .gap(px(8.0))
             .child(
-                div().flex_1().min_w_0().child(
-                    ramag_ui::cleanable_input(&self.search, "table-search-clear", false, cx)
-                        .small()
-                        .prefix(Icon::new(IconName::Search).small().text_color(muted_fg)),
-                ),
+                div()
+                    .debug_selector(|| "table-tree-search".into())
+                    .flex_1()
+                    .min_w_0()
+                    .child(
+                        ramag_ui::cleanable_input(&self.search, "table-search-clear", false, cx)
+                            .small()
+                            .prefix(Icon::new(IconName::Search).small().text_color(muted_fg)),
+                    ),
             )
             .child(filter_button)
             .child(
                 ramag_ui::clickable_button("toggle-system")
                     .ghost()
                     .xsmall()
+                    .flex_none()
+                    .debug_selector(|| "toggle-system".into())
                     .icon(toggle_icon)
                     .tooltip(if show_system {
                         "隐藏系统库"
@@ -237,6 +247,8 @@ impl Render for TableTreePanel {
                 ramag_ui::clickable_button("refresh-schemas")
                     .ghost()
                     .xsmall()
+                    .flex_none()
+                    .debug_selector(|| "refresh-schemas".into())
                     .icon(ramag_ui::icons::refresh_cw())
                     .tooltip("刷新")
                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
@@ -247,6 +259,8 @@ impl Render for TableTreePanel {
                 ramag_ui::clickable_button("toggle-query-panel")
                     .ghost()
                     .xsmall()
+                    .flex_none()
+                    .debug_selector(|| "toggle-query-panel".into())
                     .icon(IconName::SquareTerminal)
                     .selected(qp_visible)
                     .tooltip(if qp_visible {

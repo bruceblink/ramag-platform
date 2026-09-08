@@ -1,7 +1,7 @@
 # 数据库查询工具 DataGrip-like 开发路线图
 
 > 状态：M1 结果数据编辑器、M2-A SQL 查询上下文隔离、M2-B 最近关闭查询草稿恢复、M3-A SQL 手动事务提交/回滚、M3-B 事务失败状态与恢复提示、M3-C SQL 事务保存点、M4-A 原始/结构化执行计划结果视图、M4-B 只读 Schema Diagram 预览、M4-C 字段结构差异预览、M4-D 同连接表结构对比、M4-E 查询结果数据网格差异比较、M4-F 跨连接表结构对比、M4-G 跨连接查询结果比较、M4-H 表结构迁移 SQL 预览、M4-I 表结构迁移执行与回读、M4-J 外键动作元数据与迁移保真度、M4-K 迁移审批记录、M4-L 查询结果差异单元格定位、M4-M 列元数据保真度、M4-N 精确页码跳转、M4-O 表树表大小状态以及 P0 表树收藏、最近访问筛选、SQL 表定位和结果查看模式已落地，后续迭代中
-> 更新日期：2026-09-06
+> 更新日期：2026-09-08
 > 适用范围：`ramag-tool-dbclient`、`ramag-tool-mongodb`、`ramag-domain`、`ramag-app` 及对应基础设施驱动
 > 当前主线：UI、响应性布局和已知问题按 [`docs/development-roadmap.md`](development-roadmap.md) 统一排期
 
@@ -58,6 +58,7 @@ Ramag 已经具备多数据库连接、Schema 浏览、查询编辑、结果编�
 - `UI-003` 的查询控制台顶部工具栏已在 `05874b5` 完成第二个切片：SQL/MongoDB 标签区可收缩并保留横向滚动，历史、示例和格式化操作区在 360px、1024px、1440px headless 窗口中保持可见且未越出工具栏；详情查看器、查询历史内容和失败重试流程仍未完成。
 - `UI-003` 的详情查看器已在 `e6854be` 完成第三个切片：SQL 查看器保留长正文的水平滚动，MongoDB 查看器按当前窗口可用宽度收缩；`selected_cell_value_viewer_stays_inside_three_window_widths` 和 `mongo_cell_detail_stays_inside_three_window_widths` 在 360px、1024px、1440px headless 窗口中检查内容区域、滚动区域和关闭后的清理；查询历史和失败重试仍未完成。
 - `UI-003` 的查询历史已在 `79a9f18` 完成第四个切片：SQL/MongoDB 历史弹框按当前窗口宽度和高度收缩，搜索区、数量/状态提示、清空按钮和记录行操作组允许换行；带长查询记录和状态提示的 headless 测试在 360px、1024px、1440px 窗口中检查子项边界和重叠。失败重试、真实 Windows 窗口和实际数据库连接证据仍待补充。
+- 数据库 SQL 会话对象树的顶部工具栏已补齐响应式边界：搜索区可以收缩，筛选、系统库、刷新和编辑器操作在空间不足时换行，并在对象树最小侧栏宽度 180px 以及 280/360/1024/1440px headless 窗口中通过不越界、不重叠检查。目标 crate 的 286 项库测试全部通过；真实 Windows 窗口和实际数据库连接数据证据仍待补充。
 
 - P0 结果查看模式已在本次切片完成：结果工具栏提供表格、树形、文本和转置模式，树形展开明细设置 50,000 项上限，替代模式复用结果派生视图、双轴滚动和分页状态；模式切换不触发数据库请求，未提交单元格修改时禁止离开表格模式。`result_view_modes_keep_loaded_selection_and_render_each_surface` 和 `alternate_result_status_keeps_paging_controls_visible_in_small_window` 覆盖本地渲染、选中状态保持以及 280/360/1024px headless 窗口；真实 Windows 窗口证据仍受 `computer-use` 不可用限制，不能以 headless 结果代替真实窗口验收。
 

@@ -9,6 +9,8 @@ mod metadata_sql;
 mod navigation;
 mod ops;
 mod render;
+#[cfg(test)]
+mod render_tests;
 mod row;
 mod rows;
 mod transfer_ops;
