@@ -65,10 +65,28 @@ pub trait KafkaDriver: Send + Sync {
         ))
     }
 
+    /// 读取集群元数据并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn cluster_metadata_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaClusterMetadata> {
+        self.cluster_metadata(config).await
+    }
+
     async fn list_topics(&self, _config: &KafkaClusterConfig) -> Result<Vec<KafkaTopic>> {
         Err(crate::error::DomainError::NotImplemented(
             "list_topics".into(),
         ))
+    }
+
+    /// 读取 Topic 快照并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn list_topics_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<KafkaTopic>> {
+        self.list_topics(config).await
     }
 
     async fn list_consumer_groups(

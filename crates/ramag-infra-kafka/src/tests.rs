@@ -249,3 +249,23 @@ fn cancelled_consumer_group_reads_stop_before_creating_a_consumer() {
         Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled
     ));
 }
+
+#[cfg(feature = "cmake-build")]
+#[test]
+fn cancelled_runtime_reads_stop_before_creating_a_consumer() {
+    let config = KafkaClusterConfig::new("local", vec!["broker:9092".into()]);
+    let cancelled = Arc::new(AtomicBool::new(true));
+    let result = smol::block_on(
+        RdkafkaDriver::new().cluster_metadata_with_cancel(&config, cancelled.clone()),
+    );
+    assert!(matches!(
+        result,
+        Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled
+    ));
+
+    let result = smol::block_on(RdkafkaDriver::new().list_topics_with_cancel(&config, cancelled));
+    assert!(matches!(
+        result,
+        Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled
+    ));
+}

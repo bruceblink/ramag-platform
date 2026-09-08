@@ -24,6 +24,9 @@ impl KafkaView {
         self.runtime_request_id = self.runtime_request_id.wrapping_add(1);
         self.loading_runtime = false;
         self.runtime_error = None;
+        if let Some(cancelled) = self.runtime_cancelled.take() {
+            cancelled.store(true, Ordering::Release);
+        }
         self.invalidate_metrics_refresh();
         self.clear_metrics_snapshot();
     }
@@ -433,8 +436,7 @@ impl KafkaView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.invalidate_metrics_refresh();
-        self.metrics_error = None;
+        self.invalidate_runtime_request();
         self.invalidate_message_request();
         self.invalidate_consumer_group_request();
         self.clear_acl_snapshot();
@@ -443,15 +445,18 @@ impl KafkaView {
         self.selected_consumer_group = None;
         self.consumer_group_error = None;
         self.reset_topic_paging();
-        self.runtime_request_id = self.runtime_request_id.wrapping_add(1);
         let request_id = self.runtime_request_id;
         let context_cluster_id = self.selected_cluster_id.clone();
         self.runtime_error = None;
         self.loading_runtime = true;
+        let cancelled = Arc::new(AtomicBool::new(false));
+        self.runtime_cancelled = Some(cancelled.clone());
         let service = self.service.clone();
         cx.spawn_in(window, async move |this, cx| {
-            let metadata = service.cluster_metadata(&config).await;
-            let topics = service.list_topics(&config).await;
+            let metadata = service
+                .cluster_metadata_with_cancel(&config, cancelled.clone())
+                .await;
+            let topics = service.list_topics_with_cancel(&config, cancelled).await;
             let _ = this.update_in(cx, |this, window, cx| {
                 if !request_matches(
                     this.runtime_request_id,
@@ -461,6 +466,7 @@ impl KafkaView {
                 ) {
                     return;
                 }
+                this.runtime_cancelled = None;
                 this.loading_runtime = false;
                 match (metadata, topics) {
                     (Ok(metadata), Ok(topics)) => {

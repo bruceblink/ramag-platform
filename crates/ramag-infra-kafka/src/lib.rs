@@ -32,7 +32,6 @@ use rdkafka::client::DefaultClientContext;
 use rdkafka::consumer::{BaseConsumer, Consumer};
 #[cfg(feature = "cmake-build")]
 use rdkafka::metadata::Metadata;
-#[cfg(feature = "cmake-build")]
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
@@ -103,6 +102,16 @@ impl RdkafkaTransport {
     }
 
     #[cfg(not(feature = "cmake-build"))]
+    fn cluster_metadata_blocking_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: &AtomicBool,
+    ) -> Result<ramag_domain::entities::KafkaClusterMetadata> {
+        ensure_not_cancelled(cancelled, "读取 Kafka 集群元数据")?;
+        self.cluster_metadata_blocking(config)
+    }
+
+    #[cfg(not(feature = "cmake-build"))]
     fn list_topics_blocking(
         &self,
         config: &KafkaClusterConfig,
@@ -110,6 +119,16 @@ impl RdkafkaTransport {
         let _ = self.request_timeout;
         Self::ensure_build_features(config)?;
         Err(native_client_unavailable("读取 Kafka Topic 元数据"))
+    }
+
+    #[cfg(not(feature = "cmake-build"))]
+    fn list_topics_blocking_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: &AtomicBool,
+    ) -> Result<Vec<ramag_domain::entities::KafkaTopic>> {
+        ensure_not_cancelled(cancelled, "读取 Kafka Topic 元数据")?;
+        self.list_topics_blocking(config)
     }
 
     #[cfg(not(feature = "cmake-build"))]
@@ -126,8 +145,9 @@ impl RdkafkaTransport {
     fn list_consumer_groups_blocking_with_cancel(
         &self,
         config: &KafkaClusterConfig,
-        _cancelled: &AtomicBool,
+        cancelled: &AtomicBool,
     ) -> Result<Vec<ramag_domain::entities::KafkaConsumerGroup>> {
+        ensure_not_cancelled(cancelled, "读取 Kafka 消费者组")?;
         self.list_consumer_groups_blocking(config)
     }
 
@@ -198,7 +218,6 @@ impl RdkafkaTransport {
     }
 }
 
-#[cfg(feature = "cmake-build")]
 fn ensure_not_cancelled(cancelled: &AtomicBool, operation: &'static str) -> Result<()> {
     if cancelled.load(Ordering::Acquire) {
         return Err(DomainError::Kafka(KafkaError::new(
@@ -327,20 +346,39 @@ impl KafkaDriver for RdkafkaTransport {
         &self,
         config: &KafkaClusterConfig,
     ) -> Result<ramag_domain::entities::KafkaClusterMetadata> {
+        self.cluster_metadata_with_cancel(config, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    async fn cluster_metadata_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<ramag_domain::entities::KafkaClusterMetadata> {
         config.validate().map_err(DomainError::InvalidConfig)?;
         let driver = *self;
         let config = config.clone();
-        smol::unblock(move || driver.cluster_metadata_blocking(&config)).await
+        smol::unblock(move || driver.cluster_metadata_blocking_with_cancel(&config, &cancelled))
+            .await
     }
 
     async fn list_topics(
         &self,
         config: &KafkaClusterConfig,
     ) -> Result<Vec<ramag_domain::entities::KafkaTopic>> {
+        self.list_topics_with_cancel(config, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    async fn list_topics_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<ramag_domain::entities::KafkaTopic>> {
         config.validate().map_err(DomainError::InvalidConfig)?;
         let driver = *self;
         let config = config.clone();
-        smol::unblock(move || driver.list_topics_blocking(&config)).await
+        smol::unblock(move || driver.list_topics_blocking_with_cancel(&config, &cancelled)).await
     }
 
     async fn list_consumer_groups(

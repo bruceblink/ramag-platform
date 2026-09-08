@@ -354,6 +354,7 @@ impl KafkaView {
             profile_operation_id: 0,
             cluster_request_id: 0,
             runtime_request_id: 0,
+            runtime_cancelled: None,
             message_request_id: 0,
             message_read_cancelled: None,
             message_tail_request_id: 0,

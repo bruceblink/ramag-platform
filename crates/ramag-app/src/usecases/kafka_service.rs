@@ -110,9 +110,22 @@ impl KafkaService {
         &self,
         config: &KafkaClusterConfig,
     ) -> Result<KafkaClusterMetadata> {
+        self.cluster_metadata_with_cancel(config, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    /// 读取集群元数据并把取消信号传到读取适配器。
+    pub async fn cluster_metadata_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaClusterMetadata> {
         validate_config(config)?;
         let started = std::time::Instant::now();
-        let result = self.driver.cluster_metadata(config).await;
+        let result = self
+            .driver
+            .cluster_metadata_with_cancel(config, cancelled)
+            .await;
         log_runtime_result(
             "kafka_cluster_metadata",
             config,
@@ -124,9 +137,19 @@ impl KafkaService {
     }
 
     pub async fn list_topics(&self, config: &KafkaClusterConfig) -> Result<Vec<KafkaTopic>> {
+        self.list_topics_with_cancel(config, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    /// 读取 Topic 快照并把取消信号传到读取适配器。
+    pub async fn list_topics_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<KafkaTopic>> {
         validate_config(config)?;
         let started = std::time::Instant::now();
-        let result = self.driver.list_topics(config).await;
+        let result = self.driver.list_topics_with_cancel(config, cancelled).await;
         log_runtime_result(
             "kafka_topic_list",
             config,

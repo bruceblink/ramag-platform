@@ -27,11 +27,15 @@ impl RdkafkaTransport {
     }
 
     /// 读取当前集群的元数据；消费者没有 group.id，因此不会加入业务消费组。
-    pub(super) fn cluster_metadata_blocking(
+    pub(super) fn cluster_metadata_blocking_with_cancel(
         &self,
         config: &KafkaClusterConfig,
+        cancelled: &AtomicBool,
     ) -> Result<KafkaClusterMetadata> {
-        let (consumer, metadata) = self.fetch_metadata_blocking(config, "读取 Kafka 集群元数据")?;
+        ensure_not_cancelled(cancelled, "读取 Kafka 集群元数据")?;
+        let (consumer, metadata) =
+            self.fetch_metadata_blocking_with_cancel(config, "读取 Kafka 集群元数据", cancelled)?;
+        ensure_not_cancelled(cancelled, "读取 Kafka 集群元数据")?;
         self.cluster_metadata_from_metadata(&consumer, &metadata)
     }
 
@@ -77,14 +81,6 @@ impl RdkafkaTransport {
     }
 
     /// 读取 Topic、Partition 和水位；水位查询仍使用同一个无消费组读取客户端。
-    pub(super) fn list_topics_blocking(
-        &self,
-        config: &KafkaClusterConfig,
-    ) -> Result<Vec<KafkaTopic>> {
-        let cancelled = AtomicBool::new(false);
-        self.list_topics_blocking_with_cancel(config, &cancelled)
-    }
-
     pub(super) fn list_topics_blocking_with_cancel(
         &self,
         config: &KafkaClusterConfig,
