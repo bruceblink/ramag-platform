@@ -7,7 +7,7 @@ impl KafkaView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
-        let compact = f32::from(window.viewport_size().width) < 700.0;
+        let compact = kafka_main_content_width(window) < 700.0;
         let selected = self.selected_config();
         let title = selected
             .as_ref()

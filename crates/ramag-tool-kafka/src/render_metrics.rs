@@ -13,7 +13,7 @@ impl KafkaView {
         let external_metrics_configured = self
             .selected_config()
             .is_some_and(|config| config.broker_metrics.endpoint.is_some());
-        let compact = f32::from(window.viewport_size().width) < 700.0;
+        let compact = kafka_main_content_width(window) < 700.0;
         let controls = h_flex()
             .id("kafka-metrics-controls")
             .debug_selector(|| "kafka-metrics-controls".into())

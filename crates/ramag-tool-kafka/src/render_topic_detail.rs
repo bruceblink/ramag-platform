@@ -106,12 +106,11 @@ impl KafkaView {
                             .top_0()
                             .bottom_0()
                             .right_0()
-                            .w(px(16.0))
-                            .bg(theme.scrollbar)
+                            .w(px(12.0))
                             .child(
                                 Scrollbar::vertical(&self.topic_partition_scroll)
                                     .id("kafka-partition-v-scrollbar-control")
-                                    .scrollbar_show(ScrollbarShow::Always),
+                                    .scrollbar_show(ScrollbarShow::Hover),
                             ),
                     ),
             )

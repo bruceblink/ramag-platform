@@ -19,14 +19,16 @@ impl KafkaView {
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
         let viewport = window.viewport_size();
-        let width = f32::from(viewport.width);
-        let compact = width < 1200.0;
+        let width = kafka_main_content_width(window);
+        // Keep the two-pane layout while the main pane can still hold the
+        // detail column; stack only when the sidebar leaves less than 900px.
+        let compact = width < 900.0;
         let narrow = width < 700.0;
-        // The split gets less height than the whole window; derive its cap from the
-        // current viewport so the detail actions stay visible at every supported size.
+        // Keep the list useful in stacked layouts. The outer page can scroll when
+        // the detail panel and management form need more vertical space.
         let split_max_height = (f32::from(viewport.height) - 540.0).max(240.0);
-        let compact_list_height = (f32::from(viewport.height) - 620.0).clamp(160.0, 230.0);
-        let compact_detail_height = (f32::from(viewport.height) - 520.0).clamp(300.0, 380.0);
+        let compact_list_height = (f32::from(viewport.height) * 0.42).clamp(240.0, 360.0);
+        let compact_detail_height = (f32::from(viewport.height) * 0.38).clamp(300.0, 380.0);
         let compact_split_height = compact_list_height + compact_detail_height + 14.0;
         let query = value(&self.topic_search, cx).to_lowercase();
         let visible_indices = matching_topic_indices(&self.topics, &query);
@@ -105,12 +107,11 @@ impl KafkaView {
                         .top_0()
                         .bottom_0()
                         .right_0()
-                        .w(px(16.0))
-                        .bg(theme.scrollbar)
+                        .w(px(12.0))
                         .child(
                             Scrollbar::vertical(&self.topic_scroll)
                                 .id("kafka-topic-v-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .scrollbar_show(ScrollbarShow::Hover),
                         ),
                 );
             div()

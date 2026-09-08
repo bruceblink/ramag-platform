@@ -115,7 +115,7 @@ impl KafkaView {
         v_flex()
             .id("kafka-sidebar")
             .debug_selector(|| "kafka-sidebar".into())
-            .w(px(260.0))
+            .w(px(KAFKA_SIDEBAR_WIDTH))
             .h_full()
             .flex_none()
             .when(compact, |panel| panel.w_full().h(px(220.0)).flex_none())

@@ -52,18 +52,24 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
             }],
             kafka_version: Some("4.0.0".into()),
         });
-        view.topics = vec![KafkaTopic {
-            name: "ramag.integration.topic-with-a-long-name".into(),
-            internal: false,
-            partitions: vec![KafkaPartition {
-                id: 0,
-                leader: Some(0),
-                replicas: vec![0],
-                isr: vec![0],
-                low_watermark: Some(0),
-                high_watermark: Some(1),
-            }],
-        }];
+        view.topics = (0..32)
+            .map(|index| KafkaTopic {
+                name: if index == 0 {
+                    "ramag.integration.topic-with-a-long-name".into()
+                } else {
+                    format!("ramag.integration.topic-{index:02}")
+                },
+                internal: false,
+                partitions: vec![KafkaPartition {
+                    id: 0,
+                    leader: Some(0),
+                    replicas: vec![0],
+                    isr: vec![0],
+                    low_watermark: Some(0),
+                    high_watermark: Some(1),
+                }],
+            })
+            .collect();
         view.selected_topic = Some("ramag.integration.topic-with-a-long-name".into());
         view.section = KafkaSection::Topics;
         view.loading_clusters = false;
@@ -80,6 +86,7 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
         let search = visual_cx.debug_bounds("kafka-topic-search");
         let split = visual_cx.debug_bounds("kafka-topic-split");
         let list = visual_cx.debug_bounds("kafka-topic-list-panel");
+        let scrollbar = visual_cx.debug_bounds("kafka-topic-v-scrollbar");
         let detail = visual_cx.debug_bounds("kafka-topic-detail");
         let actions = visual_cx.debug_bounds("kafka-topic-actions");
         assert!(
@@ -88,11 +95,19 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
                 && search.is_some()
                 && split.is_some()
                 && list.is_some()
+                && scrollbar.is_some()
                 && detail.is_some(),
             "主题页的标题、搜索、列表和详情都应参与布局"
         );
-        let (Some(topics), Some(header), Some(search), Some(split), Some(list), Some(detail)) =
-            (topics, header, search, split, list, detail)
+        let (
+            Some(topics),
+            Some(header),
+            Some(search),
+            Some(split),
+            Some(list),
+            Some(scrollbar),
+            Some(detail),
+        ) = (topics, header, search, split, list, scrollbar, detail)
         else {
             return;
         };
@@ -123,6 +138,16 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
                 && list.right() <= split.right()
                 && detail.right() <= split.right(),
             "主题列表和详情不能横向越出分栏: split={split:?}, list={list:?}, detail={detail:?}"
+        );
+        assert!(
+            scrollbar.right() <= list.right()
+                && scrollbar.origin.x >= list.origin.x
+                && scrollbar.size.width <= px(12.0),
+            "主题列表滚动条应贴合列表边缘且不占用宽条: list={list:?}, scrollbar={scrollbar:?}"
+        );
+        assert!(
+            list.size.height >= px(240.0),
+            "主题列表在紧凑布局中应保留可用高度: width={width}, list={list:?}"
         );
 
         if width < 700.0 {

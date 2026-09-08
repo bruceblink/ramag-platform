@@ -31,6 +31,19 @@ pub(super) fn value(field: &Entity<InputState>, cx: &App) -> String {
     field.read(cx).value().trim().to_string()
 }
 
+/// Return the width available to the main workbench after the sidebar layout.
+/// Inner views must use this value instead of the outer window width so a
+/// horizontal sidebar cannot leave headers and controls in desktop mode when
+/// the main pane is already narrow.
+pub(super) fn kafka_main_content_width(window: &Window) -> f32 {
+    let viewport_width = f32::from(window.viewport_size().width);
+    if viewport_width < 900.0 {
+        viewport_width
+    } else {
+        (viewport_width - KAFKA_SIDEBAR_WIDTH).max(0.0)
+    }
+}
+
 pub(super) fn optional_value(field: &Entity<InputState>, cx: &App) -> Option<String> {
     let value = value(field, cx);
     (!value.is_empty()).then_some(value)

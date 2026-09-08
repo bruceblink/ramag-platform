@@ -41,7 +41,7 @@ impl KafkaView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
-        let compact = f32::from(window.viewport_size().width) < 700.0;
+        let compact = kafka_main_content_width(window) < 700.0;
         let tabs = KafkaSection::ALL
             .into_iter()
             .fold(h_flex().gap(px(2.0)), |tabs, section| {
@@ -182,8 +182,9 @@ impl KafkaView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
-        let compact = f32::from(window.viewport_size().width) < 1100.0;
-        let narrow = f32::from(window.viewport_size().width) < 700.0;
+        let content_width = kafka_main_content_width(window);
+        let compact = content_width < 1100.0;
+        let narrow = content_width < 700.0;
         let metadata = self.metadata.as_ref();
         let topic_count = self.topics.len();
         let partition_count = self
@@ -290,7 +291,7 @@ impl KafkaView {
                         .w_full()
                         .min_w_0()
                         .flex_none()
-                        .items_start()
+                        .items_stretch()
                         .gap(px(18.0))
                         .when(compact, |row| row.flex_col().items_stretch())
                         .child(primary_sections)

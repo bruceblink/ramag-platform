@@ -73,7 +73,12 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
         cx.notify();
     });
 
-    for (width, height) in [(1440.0, 900.0), (1024.0, 900.0), (360.0, 900.0)] {
+    for (width, height) in [
+        (1440.0, 900.0),
+        (1024.0, 900.0),
+        (900.0, 900.0),
+        (360.0, 900.0),
+    ] {
         visual_cx.simulate_resize(size(px(width), px(height)));
         visual_cx.run_until_parked();
         let bounds = [
@@ -126,6 +131,16 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
         assert!(main.right() <= root.right());
         assert!(overview.origin.x >= main.origin.x);
         assert!(overview.right() <= main.right());
+        assert!(
+            visual_cx
+                .debug_bounds("kafka-header")
+                .is_some_and(|header| header.right() <= main.right())
+        );
+        assert!(
+            visual_cx
+                .debug_bounds("kafka-workspace-tabs")
+                .is_some_and(|tabs| tabs.right() <= main.right())
+        );
         assert!(scroll.right() <= overview.right());
         assert!(metrics.right() <= scroll.right());
         assert!(sections.right() <= scroll.right());
@@ -149,6 +164,10 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             assert!(
                 topic.origin.y < cluster.bottom(),
                 "宽窗口中的 Topic 预览应填充右侧集群卡片下方的空间: topic={topic:?}, cluster={cluster:?}"
+            );
+            assert!(
+                cluster.bottom() >= topic.bottom(),
+                "宽窗口两列内容应在底部对齐，避免集群信息悬空: topic={topic:?}, cluster={cluster:?}"
             );
         } else {
             assert!(
