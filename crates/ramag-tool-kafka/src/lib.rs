@@ -308,6 +308,7 @@ pub struct KafkaView {
 impl Drop for KafkaView {
     fn drop(&mut self) {
         self.invalidate_metrics_refresh();
+        self.invalidate_message_tail();
     }
 }
 
