@@ -246,16 +246,12 @@ impl KafkaView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
-        let records = self
-            .message_tail_records
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
+        let record_count = self.message_tail_records.len();
         let show_panel = self.message_tail_running
-            || !records.is_empty()
+            || record_count > 0
             || self.message_tail_dropped_records > 0
             || self.message_tail_evicted_records > 0;
-        let rows = if records.is_empty() {
+        let rows = if record_count == 0 {
             v_flex()
                 .h_full()
                 .items_center()
@@ -271,18 +267,20 @@ impl KafkaView {
         } else {
             let body = uniform_list(
                 "kafka-message-tail-list",
-                records.len(),
+                record_count,
                 cx.processor(move |this, range: Range<usize>, _window, cx| {
                     range
-                        .map(|index| {
-                            let record = records[index].clone();
-                            this.render_tail_message_row(
-                                index,
-                                record,
-                                this.selected_tail_message == Some(index),
-                                cx,
+                        .filter_map(|index| {
+                            let record = this.message_tail_records.get(index)?.clone();
+                            Some(
+                                this.render_tail_message_row(
+                                    index,
+                                    record,
+                                    this.selected_tail_message == Some(index),
+                                    cx,
+                                )
+                                .into_any_element(),
                             )
-                            .into_any_element()
                         })
                         .collect::<Vec<_>>()
                 }),
