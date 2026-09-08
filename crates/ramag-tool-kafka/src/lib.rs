@@ -319,6 +319,10 @@ impl Drop for KafkaView {
         self.invalidate_message_tail();
         self.invalidate_consumer_group_request();
         self.invalidate_acl_request();
+        // 已提交的 Kafka Admin 写入请求不主动取消；只让迟到回调失效，
+        // 让有界请求自然结束后释放 native Admin 资源。
+        self.invalidate_topic_operation();
+        self.invalidate_acl_operation();
         self.invalidate_config_request();
     }
 }

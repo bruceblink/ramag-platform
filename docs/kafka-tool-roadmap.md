@@ -1,10 +1,10 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消；写操作资源释放和 Docker exporter、真实 Broker 端点、真实 Windows 截图仍待补充
+> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；Docker exporter、真实 Broker 端点、真实 Windows 截图仍待补充
 > 更新日期：2026-09-08
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
-> 当前基线：`dev`（阶段 18-24 的高规模列表与快照边界切片已同步，刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消已完成，写操作资源释放仍待开发）
+> 当前基线：`dev`（阶段 18-24 的高规模列表与快照边界切片已同步，刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离已完成；写请求不主动取消，Docker exporter、真实 Broker 端点和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
 > 当前主线：继续在 `dev` 完成高规模工作区优化；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
@@ -456,7 +456,8 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - 应用层再次校验 Topic 集合的 Partition 总数，替换驱动即使绕过 native 读取边界也不能把超限快照交给 UI。
 - 应用层同时校验所有消费者组的 Offset 总数，替换驱动不能通过拆分多个消费者组绕过 `MAX_KAFKA_GROUP_OFFSETS` 快照预算。
 - native 与应用层同时限制所有消费者组的成员和已解码分配总数，避免单组限制被大量消费者组叠加绕过快照内存预算。
-- 本切片不改变 Kafka 服务端查询上限、消费者组数据约定或 Offset 语义；Partition 快照内存预算、刷新合并、消费者组、运行时元数据、ACL、配置、指标和连接测试读取取消已完成，写操作资源释放仍待后续切片。
+- Kafka 工作区销毁时使 Topic、ACL 和动态配置写操作的 UI 回调代次失效，但不主动取消已经提交的 Kafka 写入请求；有界 Admin 请求自然结束后，`AdminClient`、原生队列、事件和 ACL 绑定由各自的 `Drop` 实现释放，迟到结果不会回写已销毁视图。
+- 本切片不改变 Kafka 服务端查询上限、消费者组数据约定或 Offset 语义；Partition 快照内存预算、刷新合并、消费者组、运行时元数据、ACL、配置、指标和连接测试读取取消已完成，写请求的 UI 生命周期隔离已完成。
 
 后续独立路线：
 
