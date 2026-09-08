@@ -197,9 +197,22 @@ impl KafkaService {
         &self,
         config: &KafkaClusterConfig,
     ) -> Result<KafkaMetricsSnapshot> {
+        self.metrics_snapshot_with_cancel(config, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    /// 读取协议指标快照并把取消信号传到观测适配器。
+    pub async fn metrics_snapshot_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaMetricsSnapshot> {
         validate_config(config)?;
         let started = std::time::Instant::now();
-        let result = self.monitoring_driver.metrics_snapshot(config).await;
+        let result = self
+            .monitoring_driver
+            .metrics_snapshot_with_cancel(config, cancelled)
+            .await;
         tracing::info!(
             operation = "kafka_metrics_snapshot",
             cluster_id = %config.id,
@@ -219,11 +232,21 @@ impl KafkaService {
         &self,
         config: &KafkaClusterConfig,
     ) -> Result<KafkaBrokerMetricsSnapshot> {
+        self.broker_metrics_snapshot_with_cancel(config, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    /// 读取外部 Broker 指标并把取消信号传到外部指标适配器。
+    pub async fn broker_metrics_snapshot_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaBrokerMetricsSnapshot> {
         validate_config(config)?;
         let started = std::time::Instant::now();
         let result = self
             .broker_metrics_driver
-            .broker_metrics_snapshot(config)
+            .broker_metrics_snapshot_with_cancel(config, cancelled)
             .await;
         let result = result.and_then(validate_broker_metrics_snapshot);
         tracing::info!(

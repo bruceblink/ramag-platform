@@ -23,16 +23,6 @@ impl RdkafkaTransport {
         self.list_consumer_groups_with_topics_blocking_with_cancel(config, &topics, cancelled)
     }
 
-    /// 使用已经读取并校验的 Topic 快照读取消费者组，避免指标刷新重复请求所有 Partition。
-    pub(super) fn list_consumer_groups_with_topics_blocking(
-        &self,
-        config: &KafkaClusterConfig,
-        topics: &[KafkaTopic],
-    ) -> Result<Vec<KafkaConsumerGroup>> {
-        let cancelled = AtomicBool::new(false);
-        self.list_consumer_groups_with_topics_blocking_with_cancel(config, topics, &cancelled)
-    }
-
     pub(super) fn list_consumer_groups_with_topics_blocking_with_cancel(
         &self,
         config: &KafkaClusterConfig,

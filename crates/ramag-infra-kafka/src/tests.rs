@@ -11,11 +11,9 @@ use ramag_domain::entities::{
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{KafkaMessageQuery, KafkaMessageSearchQuery};
 use ramag_domain::error::KafkaErrorCategory;
-#[cfg(not(feature = "cmake-build"))]
-use ramag_domain::traits::KafkaMonitoringDriver;
-use ramag_domain::traits::KafkaTransport;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver};
+use ramag_domain::traits::{KafkaMonitoringDriver, KafkaTransport};
 #[cfg(feature = "cmake-build")]
 use std::sync::{Arc, atomic::AtomicBool};
 
@@ -297,6 +295,19 @@ fn cancelled_config_reads_stop_before_creating_an_admin_client() {
         "events",
         cancelled,
     ));
+    assert!(matches!(
+        result,
+        Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled
+    ));
+}
+
+#[cfg(feature = "cmake-build")]
+#[test]
+fn cancelled_protocol_metrics_stop_before_creating_a_consumer() {
+    let config = KafkaClusterConfig::new("local", vec!["broker:9092".into()]);
+    let cancelled = Arc::new(AtomicBool::new(true));
+    let result =
+        smol::block_on(RdkafkaDriver::new().metrics_snapshot_with_cancel(&config, cancelled));
     assert!(matches!(
         result,
         Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled

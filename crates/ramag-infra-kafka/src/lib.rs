@@ -490,10 +490,20 @@ impl KafkaMonitoringDriver for RdkafkaTransport {
         &self,
         config: &KafkaClusterConfig,
     ) -> Result<ramag_domain::entities::KafkaMetricsSnapshot> {
+        self.metrics_snapshot_with_cancel(config, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    async fn metrics_snapshot_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<ramag_domain::entities::KafkaMetricsSnapshot> {
         config.validate().map_err(DomainError::InvalidConfig)?;
         let driver = *self;
         let config = config.clone();
-        smol::unblock(move || driver.metrics_snapshot_blocking(&config)).await
+        smol::unblock(move || driver.metrics_snapshot_blocking_with_cancel(&config, &cancelled))
+            .await
     }
 }
 #[cfg(test)]

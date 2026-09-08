@@ -30,6 +30,15 @@ pub trait KafkaMonitoringDriver: Send + Sync {
             "metrics_snapshot".into(),
         ))
     }
+
+    /// 读取协议指标快照并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn metrics_snapshot_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaMetricsSnapshot> {
+        self.metrics_snapshot(config).await
+    }
 }
 
 /// 外部 Broker 运行指标端口；与 Kafka Protocol API 快照分开，避免混淆数据含义。
@@ -42,6 +51,15 @@ pub trait KafkaBrokerMetricsDriver: Send + Sync {
         Err(crate::error::DomainError::NotImplemented(
             "broker_metrics_snapshot".into(),
         ))
+    }
+
+    /// 读取外部 Broker 指标并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn broker_metrics_snapshot_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaBrokerMetricsSnapshot> {
+        self.broker_metrics_snapshot(config).await
     }
 }
 

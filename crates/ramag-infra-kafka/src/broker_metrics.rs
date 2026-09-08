@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, io::Read, time::Duration};
+use std::{
+    collections::BTreeMap,
+    io::Read,
+    sync::{Arc, atomic::AtomicBool},
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use chrono::{DateTime, TimeZone, Utc};
@@ -109,6 +114,17 @@ impl PrometheusBrokerMetricsDriver {
             ),
         }
     }
+
+    fn snapshot_blocking_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: &AtomicBool,
+    ) -> Result<KafkaBrokerMetricsSnapshot> {
+        super::ensure_not_cancelled(cancelled, "读取外部 Broker 指标")?;
+        let snapshot = self.snapshot_blocking(config);
+        super::ensure_not_cancelled(cancelled, "读取外部 Broker 指标")?;
+        Ok(snapshot)
+    }
 }
 
 #[async_trait]
@@ -117,10 +133,19 @@ impl KafkaBrokerMetricsDriver for PrometheusBrokerMetricsDriver {
         &self,
         config: &KafkaClusterConfig,
     ) -> Result<KafkaBrokerMetricsSnapshot> {
+        self.broker_metrics_snapshot_with_cancel(config, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    async fn broker_metrics_snapshot_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaBrokerMetricsSnapshot> {
         config.validate().map_err(DomainError::InvalidConfig)?;
         let driver = self.clone();
         let config = config.clone();
-        Ok(smol::unblock(move || driver.snapshot_blocking(&config)).await)
+        smol::unblock(move || driver.snapshot_blocking_with_cancel(&config, &cancelled)).await
     }
 }
 

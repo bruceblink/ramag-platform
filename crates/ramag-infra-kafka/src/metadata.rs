@@ -1,16 +1,7 @@
 use super::*;
 
 impl RdkafkaTransport {
-    pub(super) fn fetch_metadata_blocking(
-        &self,
-        config: &KafkaClusterConfig,
-        operation: &'static str,
-    ) -> Result<(BaseConsumer, Metadata)> {
-        let cancelled = AtomicBool::new(false);
-        self.fetch_metadata_blocking_with_cancel(config, operation, &cancelled)
-    }
-
-    fn fetch_metadata_blocking_with_cancel(
+    pub(super) fn fetch_metadata_blocking_with_cancel(
         &self,
         config: &KafkaClusterConfig,
         operation: &'static str,
@@ -91,16 +82,7 @@ impl RdkafkaTransport {
         self.list_topics_from_metadata_with_cancel(&consumer, &metadata, cancelled)
     }
 
-    pub(super) fn list_topics_from_metadata(
-        &self,
-        consumer: &BaseConsumer,
-        metadata: &Metadata,
-    ) -> Result<Vec<KafkaTopic>> {
-        let cancelled = AtomicBool::new(false);
-        self.list_topics_from_metadata_with_cancel(consumer, metadata, &cancelled)
-    }
-
-    fn list_topics_from_metadata_with_cancel(
+    pub(super) fn list_topics_from_metadata_with_cancel(
         &self,
         consumer: &BaseConsumer,
         metadata: &Metadata,

@@ -67,8 +67,8 @@ impl KafkaView {
                     break;
                 }
                 let (result, broker_result) = futures::join!(
-                    service.metrics_snapshot(&config),
-                    service.broker_metrics_snapshot(&config),
+                    service.metrics_snapshot_with_cancel(&config, cancelled.clone()),
+                    service.broker_metrics_snapshot_with_cancel(&config, cancelled.clone()),
                 );
                 let result_cancelled = cancelled.clone();
                 let result_cluster_id = cluster_id.clone();
