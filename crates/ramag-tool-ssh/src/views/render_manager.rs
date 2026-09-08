@@ -245,8 +245,10 @@ impl SshView {
             .id(SharedString::from(format!("ssh-profile-row-{index}-{id}")))
             .debug_selector(move || format!("ssh-profile-row-{index}"))
             .w_full()
+            .min_w_0()
+            .flex_wrap()
             .items_center()
-            .gap(px(12.0))
+            .gap(px(8.0))
             .px(px(14.0))
             .py(px(8.0))
             .border_b_1()
@@ -295,10 +297,15 @@ impl SshView {
                     .text_ellipsis()
                     .child(name),
             )
-            .child(environment_badge(environment, muted))
+            .child(environment_badge(index, environment, muted))
             .child(platform_badge(index, remote_platform, accent))
             .child({
-                let slot = div().flex_none().w(px(40.0)).flex().justify_center();
+                let slot = div()
+                    .debug_selector(move || format!("ssh-profile-rdp-slot-{index}"))
+                    .flex_none()
+                    .w(px(40.0))
+                    .flex()
+                    .justify_center();
                 if let Some(session) = rdp_session {
                     slot.child(
                         div()
@@ -330,22 +337,29 @@ impl SshView {
                 }
             })
             .child(
-                div().flex_none().w(px(92.0)).flex().justify_center().child(
-                    div()
-                        .max_w_full()
-                        .px(px(8.0))
-                        .py(px(2.0))
-                        .rounded(px(4.0))
-                        .text_xs()
-                        .text_color(accent)
-                        .bg(badge_bg)
-                        .overflow_hidden()
-                        .text_ellipsis()
-                        .child(auth_label),
-                ),
+                div()
+                    .debug_selector(move || format!("ssh-profile-auth-{index}"))
+                    .flex_none()
+                    .w(px(92.0))
+                    .flex()
+                    .justify_center()
+                    .child(
+                        div()
+                            .max_w_full()
+                            .px(px(8.0))
+                            .py(px(2.0))
+                            .rounded(px(4.0))
+                            .text_xs()
+                            .text_color(accent)
+                            .bg(badge_bg)
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .child(auth_label),
+                    ),
             )
             .child(
                 div()
+                    .debug_selector(move || format!("ssh-profile-production-{index}"))
                     .flex_none()
                     .w(px(44.0))
                     .flex()
@@ -371,6 +385,7 @@ impl SshView {
             })
             .child(
                 h_flex()
+                    .debug_selector(move || format!("ssh-profile-actions-{index}"))
                     .flex_none()
                     .w(px(72.0))
                     .justify_end()
@@ -468,8 +483,13 @@ fn secondary_column(width: f32, text: String, color: gpui::Hsla) -> impl IntoEle
         .child(text)
 }
 
-fn environment_badge(environment: String, fallback: gpui::Hsla) -> impl IntoElement {
-    let slot = div().flex_none().w(px(64.0)).flex().justify_center();
+fn environment_badge(index: usize, environment: String, fallback: gpui::Hsla) -> impl IntoElement {
+    let slot = div()
+        .debug_selector(move || format!("ssh-profile-environment-{index}"))
+        .flex_none()
+        .w(px(64.0))
+        .flex()
+        .justify_center();
     if environment.trim().is_empty() {
         slot
     } else {

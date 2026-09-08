@@ -1,5 +1,19 @@
 use super::*;
 
+fn assert_inside(
+    parent: gpui::Bounds<gpui::Pixels>,
+    child: gpui::Bounds<gpui::Pixels>,
+    label: &str,
+) {
+    assert!(
+        child.origin.x >= parent.origin.x
+            && child.origin.y >= parent.origin.y
+            && child.right() <= parent.right()
+            && child.bottom() <= parent.bottom(),
+        "{label} 越出父容器：parent={parent:?}, child={child:?}"
+    );
+}
+
 #[gpui::test]
 fn connection_manager_renders_without_openssh_side_effects(cx: &mut TestAppContext) {
     let mut imported = profile();
@@ -65,6 +79,46 @@ fn connection_manager_renders_without_openssh_side_effects(cx: &mut TestAppConte
         "连接行不应变成卡片：{:?}",
         row.size
     );
+}
+
+/// 连接列表的固定徽标和操作按钮在窄窗口内不能把连接行推出父容器。
+#[gpui::test]
+fn connection_manager_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
+    let mut imported = profile();
+    imported.origin = SshProfileOrigin::JumpServer;
+    imported.remote_platform = RemotePlatformPreference::Windows;
+    imported.rdp_web_enabled = Some(true);
+    imported.jumpserver_rdp_session = Some(rdp_session(1, "production"));
+    let (view, cx) = add_ssh_window(cx, service(vec![imported], None));
+    cx.run_until_parked();
+    view.update(cx, |_, cx| cx.notify());
+
+    for width in [360.0, 1024.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(720.0)));
+        cx.run_until_parked();
+
+        let row = cx
+            .debug_bounds("ssh-profile-row-0")
+            .expect("SSH 连接行应渲染");
+        assert!(
+            row.origin.x >= px(0.0) && row.right() <= px(width),
+            "SSH 连接行不能越出窗口：row={row:?}, width={width}"
+        );
+        for selector in [
+            "ssh-profile-jumpserver-icon-0",
+            "ssh-profile-environment-0",
+            "ssh-profile-platform-0",
+            "ssh-profile-rdp-slot-0",
+            "ssh-profile-auth-0",
+            "ssh-profile-production-0",
+            "ssh-profile-actions-0",
+        ] {
+            let child = cx
+                .debug_bounds(selector)
+                .unwrap_or_else(|| panic!("{selector} 应渲染"));
+            assert_inside(row, child, selector);
+        }
+    }
 }
 
 #[gpui::test]
