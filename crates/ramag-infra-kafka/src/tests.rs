@@ -139,6 +139,18 @@ fn metrics_snapshot_rejects_invalid_config_before_network() {
 
 #[cfg(feature = "cmake-build")]
 #[test]
+fn topic_partition_budget_is_bounded_across_topics() {
+    let mut total = MAX_KAFKA_PARTITIONS - 1;
+    assert!(validate_partition_budget(&mut total, "events", 1).is_ok());
+    assert_eq!(total, MAX_KAFKA_PARTITIONS);
+    assert!(validate_partition_budget(&mut total, "payments", 1).is_err());
+
+    let mut total = 0;
+    assert!(validate_partition_budget(&mut total, "oversized", MAX_KAFKA_PARTITIONS + 1).is_err());
+}
+
+#[cfg(feature = "cmake-build")]
+#[test]
 fn consumer_assignment_decoder_accepts_valid_payload_and_rejects_malformed_data() {
     let mut payload = Vec::new();
     payload.extend_from_slice(&1_i16.to_be_bytes());

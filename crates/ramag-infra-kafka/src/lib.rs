@@ -259,6 +259,7 @@ impl RdkafkaTransport {
         }
 
         let mut topics = Vec::with_capacity(metadata.topics().len());
+        let mut total_partitions = 0usize;
         for topic_metadata in metadata.topics() {
             if let Some(error) = topic_metadata.error() {
                 return Err(errors::map_kafka_error(
@@ -266,12 +267,11 @@ impl RdkafkaTransport {
                     "读取 Kafka Topic 元数据",
                 ));
             }
-            if topic_metadata.partitions().len() > MAX_KAFKA_PARTITIONS {
-                return Err(DomainError::InvalidConfig(format!(
-                    "Topic Partition 数量超过 {MAX_KAFKA_PARTITIONS} 个上限：{}",
-                    topic_metadata.name()
-                )));
-            }
+            validate_partition_budget(
+                &mut total_partitions,
+                topic_metadata.name(),
+                topic_metadata.partitions().len(),
+            )?;
             let name = topic_metadata.name().to_owned();
             let mut partitions = Vec::with_capacity(topic_metadata.partitions().len());
             for partition_metadata in topic_metadata.partitions() {
@@ -298,6 +298,29 @@ impl RdkafkaTransport {
         }
         Ok(topics)
     }
+}
+
+#[cfg(feature = "cmake-build")]
+fn validate_partition_budget(
+    total_partitions: &mut usize,
+    topic_name: &str,
+    partition_count: usize,
+) -> Result<()> {
+    if partition_count > MAX_KAFKA_PARTITIONS {
+        return Err(DomainError::InvalidConfig(format!(
+            "Topic Partition 数量超过 {MAX_KAFKA_PARTITIONS} 个上限：{topic_name}"
+        )));
+    }
+    let next_total = total_partitions
+        .checked_add(partition_count)
+        .ok_or_else(|| DomainError::InvalidConfig("Kafka Partition 总数量超出可计算范围".into()))?;
+    if next_total > MAX_KAFKA_PARTITIONS {
+        return Err(DomainError::InvalidConfig(format!(
+            "Kafka Partition 总数量超过 {MAX_KAFKA_PARTITIONS} 个上限"
+        )));
+    }
+    *total_partitions = next_total;
+    Ok(())
 }
 
 /// 校验对外暴露的请求时间预算，防止亚毫秒值转换后变成无效的零超时。
