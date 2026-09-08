@@ -259,6 +259,7 @@ impl KafkaView {
             message_tail_paused: false,
             message_tail_running: false,
             selected_tail_message: None,
+            consumer_group_cancelled: None,
             metrics_snapshot: None,
             metrics_error: None,
             broker_metrics_snapshot: None,

@@ -49,12 +49,16 @@ impl KafkaView {
         let request_id = self.consumer_group_request_id;
         let cluster_id = config.id.clone();
         let metrics_config = config.clone();
+        let cancelled = Arc::new(AtomicBool::new(false));
         let service = self.service.clone();
+        self.consumer_group_cancelled = Some(cancelled.clone());
         self.loading_consumer_groups = true;
         self.consumer_group_error = None;
         self.notice = Some(("正在读取 Kafka 消费者组…".into(), false));
         cx.spawn_in(window, async move |this, cx| {
-            let result = service.list_consumer_groups(&config).await;
+            let result = service
+                .list_consumer_groups_with_cancel(&config, cancelled)
+                .await;
             let _ = this.update_in(cx, |this, window, cx| {
                 if this.consumer_group_request_id != request_id
                     || this.selected_cluster_id.as_ref() != Some(&cluster_id)
@@ -62,6 +66,7 @@ impl KafkaView {
                     return;
                 }
                 this.loading_consumer_groups = false;
+                this.consumer_group_cancelled = None;
                 match result {
                     Ok(groups) => {
                         let selected = this.selected_consumer_group.clone().filter(|group_id| {
@@ -100,6 +105,9 @@ impl KafkaView {
     pub(super) fn invalidate_consumer_group_request(&mut self) {
         self.consumer_group_request_id = self.consumer_group_request_id.wrapping_add(1);
         self.loading_consumer_groups = false;
+        if let Some(cancelled) = self.consumer_group_cancelled.take() {
+            cancelled.store(true, Ordering::Release);
+        }
     }
 
     pub(super) fn select_consumer_group(&mut self, group_id: String, cx: &mut Context<Self>) {

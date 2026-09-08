@@ -9,6 +9,8 @@ mod consumer_groups;
 pub mod errors;
 #[cfg(feature = "cmake-build")]
 mod messages;
+#[cfg(feature = "cmake-build")]
+mod metadata;
 mod metrics;
 pub use broker_metrics::PrometheusBrokerMetricsDriver;
 use ramag_domain::entities::KafkaMessageTailRequest;
@@ -30,6 +32,8 @@ use rdkafka::client::DefaultClientContext;
 use rdkafka::consumer::{BaseConsumer, Consumer};
 #[cfg(feature = "cmake-build")]
 use rdkafka::metadata::Metadata;
+#[cfg(feature = "cmake-build")]
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;
 use tracing::{debug, info};
@@ -119,6 +123,15 @@ impl RdkafkaTransport {
     }
 
     #[cfg(not(feature = "cmake-build"))]
+    fn list_consumer_groups_blocking_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        _cancelled: &AtomicBool,
+    ) -> Result<Vec<ramag_domain::entities::KafkaConsumerGroup>> {
+        self.list_consumer_groups_blocking(config)
+    }
+
+    #[cfg(not(feature = "cmake-build"))]
     fn scan_messages_blocking(
         &self,
         config: &KafkaClusterConfig,
@@ -183,140 +196,18 @@ impl RdkafkaTransport {
             .create()
             .map_err(|error| errors::map_kafka_error(error, "创建 Kafka 读取客户端"))
     }
+}
 
-    #[cfg(feature = "cmake-build")]
-    fn fetch_metadata_blocking(
-        &self,
-        config: &KafkaClusterConfig,
-        operation: &'static str,
-    ) -> Result<(BaseConsumer, Metadata)> {
-        let consumer = self.create_consumer(config)?;
-        let metadata = consumer
-            .fetch_metadata(None, self.request_timeout)
-            .map_err(|error| errors::map_kafka_error(error, operation))?;
-        Ok((consumer, metadata))
+#[cfg(feature = "cmake-build")]
+fn ensure_not_cancelled(cancelled: &AtomicBool, operation: &'static str) -> Result<()> {
+    if cancelled.load(Ordering::Acquire) {
+        return Err(DomainError::Kafka(KafkaError::new(
+            KafkaErrorCategory::Cancelled,
+            operation,
+            "Kafka 读取任务已取消",
+        )));
     }
-
-    #[cfg(feature = "cmake-build")]
-    /// 读取当前集群的元数据；消费者没有 group.id，因此不会加入业务消费组。
-    fn cluster_metadata_blocking(
-        &self,
-        config: &KafkaClusterConfig,
-    ) -> Result<KafkaClusterMetadata> {
-        let (consumer, metadata) = self.fetch_metadata_blocking(config, "读取 Kafka 集群元数据")?;
-        self.cluster_metadata_from_metadata(&consumer, &metadata)
-    }
-
-    #[cfg(feature = "cmake-build")]
-    fn cluster_metadata_from_metadata(
-        &self,
-        consumer: &BaseConsumer,
-        metadata: &Metadata,
-    ) -> Result<KafkaClusterMetadata> {
-        let brokers = metadata
-            .brokers()
-            .iter()
-            .map(|broker| {
-                let port = u16::try_from(broker.port()).map_err(|_| {
-                    DomainError::InvalidConfig(format!(
-                        "Kafka Broker 端口超出 1 - 65535 范围：{}",
-                        broker.port()
-                    ))
-                })?;
-                Ok(KafkaBroker {
-                    id: broker.id(),
-                    host: broker.host().to_owned(),
-                    port,
-                    rack: None,
-                    version: None,
-                    is_controller: false,
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        if brokers.len() > MAX_KAFKA_BROKERS {
-            return Err(DomainError::InvalidConfig(format!(
-                "Kafka Broker 数量超过 {MAX_KAFKA_BROKERS} 个上限"
-            )));
-        }
-        let result = KafkaClusterMetadata {
-            cluster_id: consumer.client().fetch_cluster_id(self.request_timeout),
-            // librdkafka 的 metadata wrapper 不暴露 Controller ID，不能根据 Broker 顺序猜测。
-            controller_id: None,
-            brokers,
-            kafka_version: None,
-        };
-        result.validate().map_err(DomainError::InvalidConfig)?;
-        Ok(result)
-    }
-
-    #[cfg(feature = "cmake-build")]
-    /// 读取 Topic、Partition 和水位；水位查询仍使用同一个无消费组读取客户端。
-    fn list_topics_blocking(&self, config: &KafkaClusterConfig) -> Result<Vec<KafkaTopic>> {
-        let (consumer, metadata) =
-            self.fetch_metadata_blocking(config, "读取 Kafka Topic 元数据")?;
-        self.list_topics_from_metadata(&consumer, &metadata)
-    }
-
-    #[cfg(feature = "cmake-build")]
-    fn list_topics_from_metadata(
-        &self,
-        consumer: &BaseConsumer,
-        metadata: &Metadata,
-    ) -> Result<Vec<KafkaTopic>> {
-        if metadata.topics().len() > MAX_KAFKA_TOPICS {
-            return Err(DomainError::InvalidConfig(format!(
-                "Kafka Topic 数量超过 {MAX_KAFKA_TOPICS} 个上限"
-            )));
-        }
-
-        let mut topics = Vec::with_capacity(metadata.topics().len());
-        let mut total_partitions = 0usize;
-        let mut total_replica_ids = 0usize;
-        for topic_metadata in metadata.topics() {
-            if let Some(error) = topic_metadata.error() {
-                return Err(errors::map_kafka_error(
-                    rdkafka::error::KafkaError::MetadataFetch(error.into()),
-                    "读取 Kafka Topic 元数据",
-                ));
-            }
-            validate_partition_budget(
-                &mut total_partitions,
-                topic_metadata.name(),
-                topic_metadata.partitions().len(),
-            )?;
-            let name = topic_metadata.name().to_owned();
-            let mut partitions = Vec::with_capacity(topic_metadata.partitions().len());
-            for partition_metadata in topic_metadata.partitions() {
-                validate_partition_replica_budget(
-                    &mut total_replica_ids,
-                    topic_metadata.name(),
-                    partition_metadata.id(),
-                    partition_metadata.replicas().len(),
-                    partition_metadata.isr().len(),
-                )?;
-                let (low, high) = consumer
-                    .fetch_watermarks(&name, partition_metadata.id(), self.request_timeout)
-                    .map_err(|error| errors::map_kafka_error(error, "读取 Kafka Partition 水位"))?;
-                partitions.push(KafkaPartition {
-                    id: partition_metadata.id(),
-                    leader: (partition_metadata.leader() >= 0)
-                        .then_some(partition_metadata.leader()),
-                    replicas: partition_metadata.replicas().to_vec(),
-                    isr: partition_metadata.isr().to_vec(),
-                    low_watermark: (low >= 0).then_some(low),
-                    high_watermark: (high >= 0).then_some(high),
-                });
-            }
-            let topic = KafkaTopic {
-                internal: name.starts_with("__"),
-                name,
-                partitions,
-            };
-            topic.validate().map_err(DomainError::InvalidConfig)?;
-            topics.push(topic);
-        }
-        Ok(topics)
-    }
+    Ok(())
 }
 
 #[cfg(feature = "cmake-build")]
@@ -456,10 +347,20 @@ impl KafkaDriver for RdkafkaTransport {
         &self,
         config: &KafkaClusterConfig,
     ) -> Result<Vec<ramag_domain::entities::KafkaConsumerGroup>> {
+        self.list_consumer_groups_with_cancel(config, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    async fn list_consumer_groups_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<ramag_domain::entities::KafkaConsumerGroup>> {
         config.validate().map_err(DomainError::InvalidConfig)?;
         let driver = *self;
         let config = config.clone();
-        smol::unblock(move || driver.list_consumer_groups_blocking(&config)).await
+        smol::unblock(move || driver.list_consumer_groups_blocking_with_cancel(&config, &cancelled))
+            .await
     }
 
     async fn read_messages(

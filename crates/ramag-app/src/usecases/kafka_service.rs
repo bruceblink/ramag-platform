@@ -1,6 +1,6 @@
 //! Kafka 配置、元数据和有界消息读取的应用服务。
 
-use std::sync::Arc;
+use std::sync::{Arc, atomic::AtomicBool};
 
 use ramag_domain::entities::{
     KafkaAcl, KafkaAclFilter, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId,
@@ -142,9 +142,22 @@ impl KafkaService {
         &self,
         config: &KafkaClusterConfig,
     ) -> Result<Vec<KafkaConsumerGroup>> {
+        self.list_consumer_groups_with_cancel(config, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    /// 读取消费者组、成员和已提交 Offset，并把取消信号传到读取适配器。
+    pub async fn list_consumer_groups_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<KafkaConsumerGroup>> {
         validate_config(config)?;
         let started = std::time::Instant::now();
-        let result = self.driver.list_consumer_groups(config).await;
+        let result = self
+            .driver
+            .list_consumer_groups_with_cancel(config, cancelled)
+            .await;
         log_runtime_result(
             "kafka_consumer_group_list",
             config,

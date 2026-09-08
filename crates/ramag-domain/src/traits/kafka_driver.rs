@@ -80,6 +80,15 @@ pub trait KafkaDriver: Send + Sync {
         ))
     }
 
+    /// 读取消费者组快照并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn list_consumer_groups_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<KafkaConsumerGroup>> {
+        self.list_consumer_groups(config).await
+    }
+
     async fn read_messages(
         &self,
         _config: &KafkaClusterConfig,

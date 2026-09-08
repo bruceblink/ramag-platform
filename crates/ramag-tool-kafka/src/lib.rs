@@ -197,6 +197,7 @@ pub struct KafkaView {
     message_tail_paused: bool,
     message_tail_running: bool,
     selected_tail_message: Option<usize>,
+    consumer_group_cancelled: Option<Arc<AtomicBool>>,
     metrics_snapshot: Option<KafkaMetricsSnapshot>,
     metrics_error: Option<String>,
     broker_metrics_snapshot: Option<KafkaBrokerMetricsSnapshot>,
@@ -311,6 +312,7 @@ impl Drop for KafkaView {
         self.invalidate_metrics_refresh();
         self.invalidate_message_request();
         self.invalidate_message_tail();
+        self.invalidate_consumer_group_request();
     }
 }
 

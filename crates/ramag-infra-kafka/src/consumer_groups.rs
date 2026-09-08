@@ -7,16 +7,20 @@ use ramag_domain::entities::{
 };
 use rdkafka::topic_partition_list::{Offset, TopicPartitionList};
 use std::collections::HashMap;
+use std::sync::atomic::AtomicBool;
 
 impl RdkafkaTransport {
-    /// 读取消费者组、成员分配和已提交 Offset；查询客户端不会提交或改变任何 Offset。
-    pub(super) fn list_consumer_groups_blocking(
+    /// 读取消费者组的每个高成本阶段都检查取消信号，及时释放临时客户端和快照。
+    pub(super) fn list_consumer_groups_blocking_with_cancel(
         &self,
         config: &KafkaClusterConfig,
+        cancelled: &AtomicBool,
     ) -> Result<Vec<KafkaConsumerGroup>> {
         Self::ensure_build_features(config)?;
-        let topics = self.list_topics_blocking(config)?;
-        self.list_consumer_groups_with_topics_blocking(config, &topics)
+        ensure_not_cancelled(cancelled, "读取 Kafka 消费者组")?;
+        let topics = self.list_topics_blocking_with_cancel(config, cancelled)?;
+        ensure_not_cancelled(cancelled, "读取 Kafka 消费者组")?;
+        self.list_consumer_groups_with_topics_blocking_with_cancel(config, &topics, cancelled)
     }
 
     /// 使用已经读取并校验的 Topic 快照读取消费者组，避免指标刷新重复请求所有 Partition。
@@ -25,10 +29,23 @@ impl RdkafkaTransport {
         config: &KafkaClusterConfig,
         topics: &[KafkaTopic],
     ) -> Result<Vec<KafkaConsumerGroup>> {
+        let cancelled = AtomicBool::new(false);
+        self.list_consumer_groups_with_topics_blocking_with_cancel(config, topics, &cancelled)
+    }
+
+    pub(super) fn list_consumer_groups_with_topics_blocking_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        topics: &[KafkaTopic],
+        cancelled: &AtomicBool,
+    ) -> Result<Vec<KafkaConsumerGroup>> {
+        ensure_not_cancelled(cancelled, "读取 Kafka 消费者组")?;
         let browser = self.create_consumer(config)?;
+        ensure_not_cancelled(cancelled, "读取 Kafka 消费者组")?;
         let group_list = browser
             .fetch_group_list(None, self.request_timeout)
             .map_err(|error| errors::map_kafka_error(error, "读取 Kafka 消费者组"))?;
+        ensure_not_cancelled(cancelled, "读取 Kafka 消费者组")?;
         if group_list.groups().len() > MAX_KAFKA_CONSUMER_GROUPS {
             return Err(DomainError::InvalidConfig(format!(
                 "Kafka 消费者组数量超过 {MAX_KAFKA_CONSUMER_GROUPS} 个上限"
@@ -38,7 +55,9 @@ impl RdkafkaTransport {
         let mut partitions = TopicPartitionList::new();
         let mut high_watermarks = HashMap::new();
         for topic in topics {
+            ensure_not_cancelled(cancelled, "读取 Kafka 消费者组")?;
             for partition in &topic.partitions {
+                ensure_not_cancelled(cancelled, "读取 Kafka 消费者组")?;
                 partitions.add_partition(&topic.name, partition.id);
                 if partitions.count() > MAX_KAFKA_GROUP_OFFSETS {
                     return Err(DomainError::InvalidConfig(format!(
@@ -55,6 +74,7 @@ impl RdkafkaTransport {
         let mut total_assignments = 0usize;
         let mut total_offsets = 0usize;
         for group in group_list.groups() {
+            ensure_not_cancelled(cancelled, "读取 Kafka 消费者组")?;
             if group.members().len() > MAX_KAFKA_GROUP_MEMBERS {
                 return Err(DomainError::InvalidConfig(format!(
                     "消费者组成员数量超过 {MAX_KAFKA_GROUP_MEMBERS} 个上限：{}",
@@ -64,6 +84,7 @@ impl RdkafkaTransport {
             validate_group_member_budget(&mut total_members, group.members().len())?;
             let mut members = Vec::with_capacity(group.members().len());
             for member in group.members() {
+                ensure_not_cancelled(cancelled, "读取 Kafka 消费者组")?;
                 let assigned_partitions = member
                     .assignment()
                     .map(decode_member_assignment)
@@ -80,8 +101,14 @@ impl RdkafkaTransport {
                     assigned_partitions,
                 });
             }
-            let offsets =
-                fetch_group_offsets(self, config, group.name(), &partitions, &high_watermarks)?;
+            let offsets = fetch_group_offsets(
+                self,
+                config,
+                group.name(),
+                &partitions,
+                &high_watermarks,
+                cancelled,
+            )?;
             total_offsets = total_offsets.saturating_add(offsets.len());
             if total_offsets > MAX_KAFKA_GROUP_OFFSETS {
                 return Err(DomainError::InvalidConfig(format!(
@@ -96,6 +123,7 @@ impl RdkafkaTransport {
                 offsets,
             });
         }
+        ensure_not_cancelled(cancelled, "读取 Kafka 消费者组")?;
         groups.sort_by(|left, right| left.group_id.cmp(&right.group_id));
         Ok(groups)
     }
@@ -146,16 +174,21 @@ fn fetch_group_offsets(
     group_id: &str,
     partitions: &TopicPartitionList,
     high_watermarks: &HashMap<(&str, i32), i64>,
+    cancelled: &AtomicBool,
 ) -> Result<Vec<KafkaConsumerGroupOffset>> {
+    ensure_not_cancelled(cancelled, "读取 Kafka 消费者组 Offset")?;
     if partitions.count() == 0 {
         return Ok(Vec::new());
     }
     let consumer = driver.create_group_consumer(config, group_id)?;
+    ensure_not_cancelled(cancelled, "读取 Kafka 消费者组 Offset")?;
     let committed = consumer
         .committed_offsets(partitions.clone(), driver.request_timeout)
         .map_err(|error| errors::map_kafka_error(error, "读取 Kafka 消费者组 Offset"))?;
+    ensure_not_cancelled(cancelled, "读取 Kafka 消费者组 Offset")?;
     let mut offsets = Vec::new();
     for element in committed.elements() {
+        ensure_not_cancelled(cancelled, "读取 Kafka 消费者组 Offset")?;
         element
             .error()
             .map_err(|error| errors::map_kafka_error(error, "读取 Kafka 消费者组 Offset"))?;
@@ -190,6 +223,7 @@ fn fetch_group_offsets(
             .cmp(&right.topic)
             .then(left.partition.cmp(&right.partition))
     });
+    ensure_not_cancelled(cancelled, "读取 Kafka 消费者组 Offset")?;
     Ok(offsets)
 }
 
