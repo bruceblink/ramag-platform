@@ -4,18 +4,18 @@ use super::consumer_groups::decode_member_assignment;
 use super::consumer_groups::{validate_group_assignment_budget, validate_group_member_budget};
 use super::*;
 #[cfg(feature = "cmake-build")]
-use ramag_domain::entities::{KafkaMessageQuery, KafkaMessageSearchQuery};
-#[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{
-    MAX_KAFKA_GROUP_ASSIGNMENT_BYTES, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS,
+    KafkaAclFilter, MAX_KAFKA_GROUP_ASSIGNMENT_BYTES, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS,
     MAX_KAFKA_GROUP_TOTAL_MEMBERS,
 };
-use ramag_domain::error::KafkaErrorCategory;
 #[cfg(feature = "cmake-build")]
-use ramag_domain::traits::KafkaDriver;
+use ramag_domain::entities::{KafkaMessageQuery, KafkaMessageSearchQuery};
+use ramag_domain::error::KafkaErrorCategory;
 #[cfg(not(feature = "cmake-build"))]
 use ramag_domain::traits::KafkaMonitoringDriver;
 use ramag_domain::traits::KafkaTransport;
+#[cfg(feature = "cmake-build")]
+use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver};
 #[cfg(feature = "cmake-build")]
 use std::sync::{Arc, atomic::AtomicBool};
 
@@ -264,6 +264,22 @@ fn cancelled_runtime_reads_stop_before_creating_a_consumer() {
     ));
 
     let result = smol::block_on(RdkafkaDriver::new().list_topics_with_cancel(&config, cancelled));
+    assert!(matches!(
+        result,
+        Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled
+    ));
+}
+
+#[cfg(feature = "cmake-build")]
+#[test]
+fn cancelled_acl_reads_stop_before_creating_an_admin_client() {
+    let config = KafkaClusterConfig::new("local", vec!["broker:9092".into()]);
+    let cancelled = Arc::new(AtomicBool::new(true));
+    let result = smol::block_on(RdkafkaDriver::new().list_acls_with_cancel(
+        &config,
+        &KafkaAclFilter::default(),
+        cancelled,
+    ));
     assert!(matches!(
         result,
         Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled

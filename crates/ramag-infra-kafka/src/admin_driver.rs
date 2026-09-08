@@ -19,6 +19,7 @@ use ramag_domain::traits::KafkaAdminDriver;
 use ramag_domain::traits::KafkaDriver;
 #[cfg(feature = "cmake-build")]
 use rdkafka::admin::{AdminOptions, NewPartitions, NewTopic, TopicReplication};
+use std::sync::{Arc, atomic::AtomicBool};
 
 #[cfg(feature = "cmake-build")]
 #[async_trait::async_trait]
@@ -149,14 +150,30 @@ impl KafkaAdminDriver for RdkafkaTransport {
         config: &KafkaClusterConfig,
         filter: &KafkaAclFilter,
     ) -> Result<Vec<KafkaAcl>> {
+        self.list_acls_with_cancel(config, filter, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    async fn list_acls_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        filter: &KafkaAclFilter,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<KafkaAcl>> {
         config.validate().map_err(DomainError::InvalidConfig)?;
         filter.validate().map_err(DomainError::InvalidConfig)?;
         let driver = *self;
         let config = config.clone();
         let filter = filter.clone();
         smol::unblock(move || {
+            super::super::ensure_not_cancelled(&cancelled, "读取 Kafka ACL")?;
             let admin = create_admin_client(&driver, &config)?;
-            acl_operations::describe_acls_native(&admin, &filter, driver.request_timeout)
+            acl_operations::describe_acls_native_with_cancel(
+                &admin,
+                &filter,
+                driver.request_timeout,
+                &cancelled,
+            )
         })
         .await
     }
@@ -235,7 +252,24 @@ impl KafkaAdminDriver for RdkafkaTransport {
         config: &KafkaClusterConfig,
         filter: &KafkaAclFilter,
     ) -> Result<Vec<KafkaAcl>> {
+        self.list_acls_with_cancel(config, filter, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    async fn list_acls_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        filter: &KafkaAclFilter,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<KafkaAcl>> {
         let _ = self.request_timeout;
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(DomainError::Kafka(ramag_domain::error::KafkaError::new(
+                ramag_domain::error::KafkaErrorCategory::Cancelled,
+                "读取 Kafka ACL",
+                "Kafka ACL 读取任务已取消",
+            )));
+        }
         config.validate().map_err(DomainError::InvalidConfig)?;
         filter.validate().map_err(DomainError::InvalidConfig)?;
         Err(super::super::native_client_unavailable("读取 Kafka ACL"))

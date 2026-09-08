@@ -244,6 +244,7 @@ impl KafkaView {
             consumer_groups: Vec::new(),
             selected_consumer_group: None,
             consumer_group_error: None,
+            acl_cancelled: None,
             message_page: None,
             message_tail_records: VecDeque::new(),
             message_tail_bytes: 0,

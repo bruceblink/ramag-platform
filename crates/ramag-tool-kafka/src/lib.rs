@@ -182,6 +182,7 @@ pub struct KafkaView {
     consumer_groups: Vec<KafkaConsumerGroup>,
     selected_consumer_group: Option<String>,
     consumer_group_error: Option<String>,
+    acl_cancelled: Option<Arc<AtomicBool>>,
     message_page: Option<KafkaMessagePage>,
     message_tail_records: VecDeque<KafkaMessageRecord>,
     message_tail_bytes: u64,
@@ -314,6 +315,7 @@ impl Drop for KafkaView {
         self.invalidate_message_request();
         self.invalidate_message_tail();
         self.invalidate_consumer_group_request();
+        self.invalidate_acl_request();
     }
 }
 

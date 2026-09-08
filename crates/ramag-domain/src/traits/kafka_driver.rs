@@ -227,6 +227,16 @@ pub trait KafkaAdminDriver: Send + Sync {
         ))
     }
 
+    /// 读取 ACL 快照并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn list_acls_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        filter: &KafkaAclFilter,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<KafkaAcl>> {
+        self.list_acls(config, filter).await
+    }
+
     async fn create_acl(&self, _config: &KafkaClusterConfig, _acl: &KafkaAcl) -> Result<()> {
         Err(crate::error::DomainError::NotImplemented(
             "create_acl".into(),

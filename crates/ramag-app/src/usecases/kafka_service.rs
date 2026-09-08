@@ -3,11 +3,11 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
 use ramag_domain::entities::{
-    KafkaAcl, KafkaAclFilter, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId,
-    KafkaClusterMetadata, KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest,
-    KafkaConsumerGroup, KafkaMessagePage, KafkaMetricsSnapshot, KafkaTopic,
-    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
-    MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS, MAX_KAFKA_GROUP_TOTAL_MEMBERS,
+    KafkaAcl, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
+    KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup,
+    KafkaMessagePage, KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest,
+    KafkaTopicPartitionExpansion, KafkaTransportCapabilities, MAX_KAFKA_GROUP_OFFSETS,
+    MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS, MAX_KAFKA_GROUP_TOTAL_MEMBERS,
     MAX_KAFKA_PARTITION_REPLICA_IDS, MAX_KAFKA_PARTITIONS,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
@@ -23,6 +23,7 @@ pub struct KafkaService {
     storage: Arc<dyn Storage>,
 }
 
+mod acls;
 mod logging;
 mod messages;
 mod tail;
@@ -324,48 +325,6 @@ impl KafkaService {
         let started = std::time::Instant::now();
         let result = self.admin_driver.update_config(config, request).await;
         log_config_update_result("kafka_config_update", config, request, started, &result);
-        result
-    }
-
-    /// 按明确过滤条件读取 Kafka ACL；返回结果在应用边界再次执行数量和字段校验。
-    pub async fn list_acls(
-        &self,
-        config: &KafkaClusterConfig,
-        filter: &KafkaAclFilter,
-    ) -> Result<Vec<KafkaAcl>> {
-        validate_config(config)?;
-        filter.validate().map_err(DomainError::InvalidConfig)?;
-        let started = std::time::Instant::now();
-        let result = self
-            .admin_driver
-            .list_acls(config, filter)
-            .await
-            .and_then(validate_acls);
-        log_runtime_result(
-            "kafka_acl_list",
-            config,
-            started,
-            result.as_ref().ok().map(Vec::len),
-            result.as_ref().err(),
-        );
-        result
-    }
-
-    /// 创建一条完整 ACL 规则；应用层和驱动层都要求管理模式已开启。
-    pub async fn create_acl(&self, config: &KafkaClusterConfig, acl: &KafkaAcl) -> Result<()> {
-        validate_admin_request(config, acl.validate())?;
-        let started = std::time::Instant::now();
-        let result = self.admin_driver.create_acl(config, acl).await;
-        log_acl_result("kafka_acl_create", config, acl, started, &result);
-        result
-    }
-
-    /// 按完整 ACL 规则删除；空资源名等模糊条件在进入驱动前直接拒绝。
-    pub async fn delete_acl(&self, config: &KafkaClusterConfig, acl: &KafkaAcl) -> Result<()> {
-        validate_admin_request(config, acl.validate())?;
-        let started = std::time::Instant::now();
-        let result = self.admin_driver.delete_acl(config, acl).await;
-        log_acl_result("kafka_acl_delete", config, acl, started, &result);
         result
     }
 }

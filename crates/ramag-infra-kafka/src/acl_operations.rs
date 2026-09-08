@@ -6,7 +6,10 @@ use rdkafka::admin::AdminClient;
 use rdkafka::client::DefaultClientContext;
 use rdkafka::error::IsError;
 use std::ffi::c_char;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
+
+const ADMIN_CANCEL_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 #[cfg(feature = "cmake-build")]
 fn native_admin_options(
@@ -51,8 +54,21 @@ fn poll_acl_event(
     expected_type: i32,
     operation: &'static str,
 ) -> Result<NativeEvent> {
+    let cancelled = AtomicBool::new(false);
+    poll_acl_event_with_cancel(queue, request_timeout, expected_type, operation, &cancelled)
+}
+
+#[cfg(feature = "cmake-build")]
+fn poll_acl_event_with_cancel(
+    queue: &NativeQueue,
+    request_timeout: Duration,
+    expected_type: i32,
+    operation: &'static str,
+    cancelled: &AtomicBool,
+) -> Result<NativeEvent> {
     let deadline = Instant::now() + request_timeout;
     loop {
+        ensure_acl_not_cancelled(cancelled, operation)?;
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
             return Err(DomainError::Kafka(
@@ -60,15 +76,21 @@ fn poll_acl_event(
                     .retryable(true),
             ));
         }
-        let event =
-            unsafe { rdkafka::bindings::rd_kafka_queue_poll(queue.0, timeout_millis(remaining)) };
+        let event = unsafe {
+            rdkafka::bindings::rd_kafka_queue_poll(
+                queue.0,
+                timeout_millis(remaining.min(ADMIN_CANCEL_POLL_INTERVAL)),
+            )
+        };
         if event.is_null() {
+            ensure_acl_not_cancelled(cancelled, operation)?;
             return Err(DomainError::Kafka(
                 KafkaError::new(KafkaErrorCategory::Timeout, operation, "Kafka ACL 请求超时")
                     .retryable(true),
             ));
         }
         let event = NativeEvent(event);
+        ensure_acl_not_cancelled(cancelled, operation)?;
         if unsafe { rdkafka::bindings::rd_kafka_event_type(event.0) } != expected_type {
             continue;
         }
@@ -81,6 +103,18 @@ fn poll_acl_event(
         }
         return Ok(event);
     }
+}
+
+#[cfg(feature = "cmake-build")]
+fn ensure_acl_not_cancelled(cancelled: &AtomicBool, operation: &'static str) -> Result<()> {
+    if cancelled.load(Ordering::Acquire) {
+        return Err(DomainError::Kafka(KafkaError::new(
+            KafkaErrorCategory::Cancelled,
+            operation,
+            "Kafka ACL 读取任务已取消",
+        )));
+    }
+    Ok(())
 }
 
 #[cfg(feature = "cmake-build")]
@@ -99,12 +133,15 @@ fn map_native_acl_error(
 }
 
 #[cfg(feature = "cmake-build")]
-pub(super) fn describe_acls_native(
+pub(super) fn describe_acls_native_with_cancel(
     admin: &AdminClient<DefaultClientContext>,
     filter: &KafkaAclFilter,
     request_timeout: Duration,
+    cancelled: &AtomicBool,
 ) -> Result<Vec<KafkaAcl>> {
+    ensure_acl_not_cancelled(cancelled, "读取 Kafka ACL")?;
     let filter = acl_mapping::new_acl_filter(filter, "读取 Kafka ACL")?;
+    ensure_acl_not_cancelled(cancelled, "读取 Kafka ACL")?;
     let options = native_admin_options(
         admin,
         rdkafka::types::RDKafkaAdminOp::RD_KAFKA_ADMIN_OP_DESCRIBEACLS,
@@ -121,15 +158,18 @@ pub(super) fn describe_acls_native(
         )));
     }
     let queue = NativeQueue(queue);
+    ensure_acl_not_cancelled(cancelled, "读取 Kafka ACL")?;
     unsafe {
         rdkafka::bindings::rd_kafka_DescribeAcls(client, filter.0, options.0, queue.0);
     }
-    let event = poll_acl_event(
+    let event = poll_acl_event_with_cancel(
         &queue,
         request_timeout,
         rdkafka::bindings::RD_KAFKA_EVENT_DESCRIBEACLS_RESULT,
         "读取 Kafka ACL",
+        cancelled,
     )?;
+    ensure_acl_not_cancelled(cancelled, "读取 Kafka ACL")?;
     let result = unsafe { rdkafka::bindings::rd_kafka_event_DescribeAcls_result(event.0) };
     if result.is_null() {
         return Err(DomainError::Kafka(KafkaError::new(
@@ -153,9 +193,15 @@ pub(super) fn describe_acls_native(
             "Kafka 返回了空的 ACL 列表",
         )));
     }
-    (0..count)
-        .map(|index| acl_mapping::map_native_acl(unsafe { *bindings.add(index) }, "读取 Kafka ACL"))
-        .collect()
+    let mut acls = Vec::with_capacity(count);
+    for index in 0..count {
+        ensure_acl_not_cancelled(cancelled, "读取 Kafka ACL")?;
+        acls.push(acl_mapping::map_native_acl(
+            unsafe { *bindings.add(index) },
+            "读取 Kafka ACL",
+        )?);
+    }
+    Ok(acls)
 }
 
 #[cfg(feature = "cmake-build")]
