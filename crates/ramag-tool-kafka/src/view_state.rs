@@ -353,6 +353,7 @@ impl KafkaView {
             acl_operation: false,
             exporting: false,
             profile_operation_id: 0,
+            connection_test_cancelled: None,
             cluster_request_id: 0,
             runtime_request_id: 0,
             runtime_cancelled: None,

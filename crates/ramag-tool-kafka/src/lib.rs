@@ -291,6 +291,7 @@ pub struct KafkaView {
     acl_operation: bool,
     exporting: bool,
     profile_operation_id: u64,
+    connection_test_cancelled: Option<Arc<AtomicBool>>,
     cluster_request_id: u64,
     runtime_request_id: u64,
     runtime_cancelled: Option<Arc<AtomicBool>>,
@@ -313,6 +314,7 @@ pub struct KafkaView {
 impl Drop for KafkaView {
     fn drop(&mut self) {
         self.invalidate_runtime_request();
+        self.invalidate_profile_operation();
         self.invalidate_message_request();
         self.invalidate_message_tail();
         self.invalidate_consumer_group_request();

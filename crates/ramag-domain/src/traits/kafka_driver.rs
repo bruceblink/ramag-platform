@@ -77,6 +77,15 @@ pub trait KafkaDriver: Send + Sync {
 
     async fn test_connection(&self, config: &KafkaClusterConfig) -> Result<()>;
 
+    /// 测试 Kafka 连接并支持后台取消；旧驱动默认沿用不可取消的连接测试。
+    async fn test_connection_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        self.test_connection(config).await
+    }
+
     async fn cluster_metadata(&self, _config: &KafkaClusterConfig) -> Result<KafkaClusterMetadata> {
         Err(crate::error::DomainError::NotImplemented(
             "cluster_metadata".into(),

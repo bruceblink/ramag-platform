@@ -79,9 +79,25 @@ impl RdkafkaTransport {
         Ok(())
     }
 
-    #[cfg(not(feature = "cmake-build"))]
+    #[cfg(all(not(feature = "cmake-build"), test))]
     /// 默认构建不拉入 librdkafka；启用 `cmake-build` 后才提供真实连接能力。
     fn test_connection_blocking(&self, config: &KafkaClusterConfig) -> Result<()> {
+        let _ = self.request_timeout;
+        Self::ensure_build_features(config)?;
+        Err(DomainError::Kafka(KafkaError::new(
+            KafkaErrorCategory::Unsupported,
+            "创建连接客户端",
+            "当前构建未启用 Kafka native 客户端；请启用 cmake-build feature",
+        )))
+    }
+
+    #[cfg(not(feature = "cmake-build"))]
+    fn test_connection_blocking_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: &AtomicBool,
+    ) -> Result<()> {
+        ensure_not_cancelled(cancelled, "测试 Kafka 连接")?;
         let _ = self.request_timeout;
         Self::ensure_build_features(config)?;
         Err(DomainError::Kafka(KafkaError::new(
@@ -187,18 +203,32 @@ impl RdkafkaTransport {
         self.scan_messages_blocking(config, query, search)
     }
 
-    #[cfg(feature = "cmake-build")]
+    #[cfg(all(feature = "cmake-build", test))]
     /// 在阻塞线程中创建 Admin Client 并拉取集群元数据，以验证连接配置和网络可达性。
     fn test_connection_blocking(&self, config: &KafkaClusterConfig) -> Result<()> {
+        let cancelled = AtomicBool::new(false);
+        self.test_connection_blocking_with_cancel(config, &cancelled)
+    }
+
+    #[cfg(feature = "cmake-build")]
+    fn test_connection_blocking_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: &AtomicBool,
+    ) -> Result<()> {
+        ensure_not_cancelled(cancelled, "测试 Kafka 连接")?;
         Self::ensure_build_features(config)?;
         let client_config = config::build_client_config(config, self.request_timeout)?;
+        ensure_not_cancelled(cancelled, "测试 Kafka 连接")?;
         let admin: AdminClient<DefaultClientContext> = client_config
             .create()
             .map_err(|error| errors::map_kafka_error(error, "创建连接客户端"))?;
+        ensure_not_cancelled(cancelled, "测试 Kafka 连接")?;
         admin
             .inner()
             .fetch_metadata(None, self.request_timeout)
             .map_err(|error| errors::map_kafka_error(error, "测试 Kafka 连接"))?;
+        ensure_not_cancelled(cancelled, "测试 Kafka 连接")?;
         Ok(())
     }
 
@@ -327,6 +357,15 @@ impl KafkaDriver for RdkafkaTransport {
     }
 
     async fn test_connection(&self, config: &KafkaClusterConfig) -> Result<()> {
+        self.test_connection_with_cancel(config, Arc::new(AtomicBool::new(false)))
+            .await
+    }
+
+    async fn test_connection_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
         config.validate().map_err(DomainError::InvalidConfig)?;
         let driver = *self;
         let config = config.clone();
@@ -334,7 +373,8 @@ impl KafkaDriver for RdkafkaTransport {
             operation = "kafka_test_connection",
             "starting Kafka connection test"
         );
-        smol::unblock(move || driver.test_connection_blocking(&config)).await?;
+        smol::unblock(move || driver.test_connection_blocking_with_cancel(&config, &cancelled))
+            .await?;
         info!(
             operation = "kafka_test_connection",
             "Kafka connection test passed"

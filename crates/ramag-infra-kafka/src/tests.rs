@@ -313,3 +313,16 @@ fn cancelled_protocol_metrics_stop_before_creating_a_consumer() {
         Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled
     ));
 }
+
+#[cfg(feature = "cmake-build")]
+#[test]
+fn cancelled_connection_tests_stop_before_creating_an_admin_client() {
+    let config = KafkaClusterConfig::new("local", vec!["broker:9092".into()]);
+    let cancelled = Arc::new(AtomicBool::new(true));
+    let result =
+        smol::block_on(RdkafkaDriver::new().test_connection_with_cancel(&config, cancelled));
+    assert!(matches!(
+        result,
+        Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled
+    ));
+}

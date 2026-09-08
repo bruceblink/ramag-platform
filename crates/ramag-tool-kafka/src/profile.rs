@@ -11,12 +11,15 @@ pub(super) fn request_matches<T: PartialEq>(
 }
 
 impl KafkaView {
-    /// 使保存、连接测试和删除任务失效；底层请求仍可自然结束，但不能再更新视图。
+    /// 使保存、连接测试和删除任务失效；连接测试会发出取消信号，迟到结果不能更新视图。
     pub(super) fn invalidate_profile_operation(&mut self) {
         self.profile_operation_id = self.profile_operation_id.wrapping_add(1);
         self.saving = false;
         self.testing = false;
         self.deleting = false;
+        if let Some(cancelled) = self.connection_test_cancelled.take() {
+            cancelled.store(true, Ordering::Release);
+        }
     }
 
     /// 使元数据刷新任务失效，防止切换到草稿或删除配置后恢复旧的集群快照。
@@ -399,10 +402,14 @@ impl KafkaView {
         let context_cluster_id = self.selected_cluster_id.clone();
         self.profile_operation_id = self.profile_operation_id.wrapping_add(1);
         let operation_id = self.profile_operation_id;
+        let cancelled = Arc::new(AtomicBool::new(false));
+        self.connection_test_cancelled = Some(cancelled.clone());
         self.testing = true;
         self.notice = Some(("正在连接 Kafka Broker…".into(), false));
         cx.spawn_in(window, async move |this, cx| {
-            let result = service.test_connection(&config).await;
+            let result = service
+                .test_connection_with_cancel(&config, cancelled)
+                .await;
             let _ = this.update_in(cx, |this, window, cx| {
                 if !request_matches(
                     this.profile_operation_id,
@@ -412,6 +419,7 @@ impl KafkaView {
                 ) {
                     return;
                 }
+                this.connection_test_cancelled = None;
                 this.testing = false;
                 match result {
                     Ok(()) => {

@@ -24,6 +24,7 @@ pub struct KafkaService {
 }
 
 mod acls;
+mod connection;
 mod logging;
 mod messages;
 mod tail;
@@ -90,20 +91,6 @@ impl KafkaService {
     pub async fn delete_cluster(&self, id: &KafkaClusterId) -> Result<()> {
         let result = self.storage.delete_kafka_cluster(id).await;
         log_storage_result("kafka_cluster_delete", &result);
-        result
-    }
-
-    pub async fn test_connection(&self, config: &KafkaClusterConfig) -> Result<()> {
-        validate_config(config)?;
-        let started = std::time::Instant::now();
-        let result = self.driver.test_connection(config).await;
-        tracing::info!(
-            operation = "kafka_connection_test",
-            cluster_id = %config.id,
-            elapsed_ms = started.elapsed().as_millis(),
-            success = result.is_ok(),
-            "Kafka connection test completed"
-        );
         result
     }
 
