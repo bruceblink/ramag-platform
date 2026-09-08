@@ -509,12 +509,13 @@ impl KafkaView {
                         ));
                     }
                 }
-                // 先完成运行时元数据快照，再启动指标查询，避免切换集群时同时保留两组大快照。
-                this.start_metrics_refresh(config.clone(), window, cx);
+                // 指标刷新和消费者组详细快照错峰，避免切换集群时同时保留两组大快照。
                 if this.section == KafkaSection::ConsumerGroups
                     && this.selected_cluster_id.is_some()
                 {
-                    this.load_consumer_groups(config.clone(), window, cx);
+                    this.load_consumer_groups_with_metrics(config.clone(), window, cx, true);
+                } else {
+                    this.start_metrics_refresh(config.clone(), window, cx);
                 }
                 cx.notify();
             });

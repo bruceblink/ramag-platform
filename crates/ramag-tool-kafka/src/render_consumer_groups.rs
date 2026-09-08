@@ -27,19 +27,35 @@ impl KafkaView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let restart_metrics = self.metrics_refresh_cancelled.is_some();
+        self.load_consumer_groups_with_metrics(config, window, cx, restart_metrics);
+    }
+
+    /// 在运行时快照之后先读取详细消费者组数据，再启动指标刷新，避免两条大查询链重叠。
+    pub(super) fn load_consumer_groups_with_metrics(
+        &mut self,
+        config: KafkaClusterConfig,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        restart_metrics: bool,
+    ) {
         if self.loading_consumer_groups || self.selected_cluster_id.as_ref() != Some(&config.id) {
             return;
+        }
+        if restart_metrics {
+            self.invalidate_metrics_refresh();
         }
         self.consumer_group_request_id = self.consumer_group_request_id.wrapping_add(1);
         let request_id = self.consumer_group_request_id;
         let cluster_id = config.id.clone();
+        let metrics_config = config.clone();
         let service = self.service.clone();
         self.loading_consumer_groups = true;
         self.consumer_group_error = None;
         self.notice = Some(("正在读取 Kafka 消费者组…".into(), false));
         cx.spawn_in(window, async move |this, cx| {
             let result = service.list_consumer_groups(&config).await;
-            let _ = this.update_in(cx, |this, _window, cx| {
+            let _ = this.update_in(cx, |this, window, cx| {
                 if this.consumer_group_request_id != request_id
                     || this.selected_cluster_id.as_ref() != Some(&cluster_id)
                 {
@@ -69,6 +85,9 @@ impl KafkaView {
                         this.notice =
                             Some((format!("读取消费者组失败：{}", error.user_message()), true));
                     }
+                }
+                if restart_metrics {
+                    this.start_metrics_refresh(metrics_config.clone(), window, cx);
                 }
                 cx.notify();
             });
