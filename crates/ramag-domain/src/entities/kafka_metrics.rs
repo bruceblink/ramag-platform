@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -182,25 +182,29 @@ impl KafkaMetricsSnapshot {
                 )
         });
 
+        let previous_high_watermarks = previous.map(|snapshot| {
+            let mut lookup = HashMap::new();
+            for topic in &snapshot.topics {
+                for partition in &topic.partitions {
+                    lookup
+                        .entry((topic.name.as_str(), partition.partition))
+                        .or_insert(partition.high_watermark);
+                }
+            }
+            lookup
+        });
+
         for topic in &mut self.topics {
             let mut all_rates_known = !topic.partitions.is_empty();
             let mut total_rate = 0.0;
             for partition in &mut topic.partitions {
-                let previous_partition = previous.and_then(|snapshot| {
-                    snapshot
-                        .topics
-                        .iter()
-                        .find(|candidate| candidate.name == topic.name)
-                        .and_then(|candidate| {
-                            candidate
-                                .partitions
-                                .iter()
-                                .find(|candidate| candidate.partition == partition.partition)
-                        })
-                });
-                partition.message_rate_per_second = previous_partition.and_then(|old| {
+                let previous_high_watermark = previous_high_watermarks
+                    .as_ref()
+                    .and_then(|lookup| lookup.get(&(topic.name.as_str(), partition.partition)))
+                    .copied();
+                partition.message_rate_per_second = previous_high_watermark.and_then(|old| {
                     watermark_rate(
-                        old.high_watermark,
+                        old,
                         partition.high_watermark,
                         previous.map(|snapshot| snapshot.sampled_at),
                         self.sampled_at,
