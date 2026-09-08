@@ -7,7 +7,7 @@ use ramag_domain::entities::{
     KafkaClusterMetadata, KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest,
     KafkaConsumerGroup, KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery,
     KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
-    KafkaTransportCapabilities,
+    KafkaTransportCapabilities, MAX_KAFKA_PARTITIONS,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::{
@@ -422,8 +422,10 @@ fn validate_topics(topics: Vec<KafkaTopic>) -> Result<Vec<KafkaTopic>> {
         )));
     }
     let mut names = std::collections::HashSet::with_capacity(topics.len());
+    let mut partition_count = 0usize;
     for topic in &topics {
         topic.validate().map_err(DomainError::InvalidConfig)?;
+        validate_topic_partition_budget(&mut partition_count, topic.partitions.len())?;
         if !names.insert(topic.name.as_str()) {
             return Err(DomainError::InvalidConfig(format!(
                 "Kafka Topic 名称重复：{}",
@@ -432,6 +434,19 @@ fn validate_topics(topics: Vec<KafkaTopic>) -> Result<Vec<KafkaTopic>> {
         }
     }
     Ok(topics)
+}
+
+fn validate_topic_partition_budget(total: &mut usize, count: usize) -> Result<()> {
+    let next_total = total
+        .checked_add(count)
+        .ok_or_else(|| DomainError::InvalidConfig("Kafka Partition 总数量超出可计算范围".into()))?;
+    if next_total > MAX_KAFKA_PARTITIONS {
+        return Err(DomainError::InvalidConfig(format!(
+            "Kafka Partition 总数量超过 {MAX_KAFKA_PARTITIONS} 个上限"
+        )));
+    }
+    *total = next_total;
+    Ok(())
 }
 
 /// 在应用边界校验消费者组快照，防止驱动实现绕过数量、成员和 Offset 约束。

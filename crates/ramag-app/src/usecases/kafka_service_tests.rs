@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use super::{
     KafkaService, validate_admin_request, validate_cluster_metadata, validate_consumer_groups,
-    validate_message_page, validate_topics,
+    validate_message_page, validate_topic_partition_budget, validate_topics,
 };
 use async_trait::async_trait;
 use ramag_domain::entities::{
@@ -340,6 +340,14 @@ fn application_boundary_rejects_invalid_driver_snapshots() {
         truncated: false,
     };
     assert!(validate_message_page(page).is_err());
+}
+
+#[test]
+fn application_boundary_bounds_total_topic_partitions() {
+    let mut total = ramag_domain::entities::MAX_KAFKA_PARTITIONS - 1;
+    assert!(validate_topic_partition_budget(&mut total, 1).is_ok());
+    assert_eq!(total, ramag_domain::entities::MAX_KAFKA_PARTITIONS);
+    assert!(validate_topic_partition_budget(&mut total, 1).is_err());
 }
 
 #[test]
