@@ -1,8 +1,9 @@
 use super::*;
 use ramag_domain::entities::{
     KafkaConsumerGroup, KafkaConsumerGroupOffset, KafkaConsumerMember,
-    KafkaConsumerPartitionAssignment, MAX_KAFKA_CONSUMER_GROUPS, MAX_KAFKA_GROUP_ASSIGNMENT_BYTES,
-    MAX_KAFKA_GROUP_MEMBERS, MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_PARTITIONS,
+    KafkaConsumerPartitionAssignment, KafkaTopic, MAX_KAFKA_CONSUMER_GROUPS,
+    MAX_KAFKA_GROUP_ASSIGNMENT_BYTES, MAX_KAFKA_GROUP_MEMBERS, MAX_KAFKA_GROUP_OFFSETS,
+    MAX_KAFKA_PARTITIONS,
 };
 use rdkafka::topic_partition_list::{Offset, TopicPartitionList};
 use std::collections::HashMap;
@@ -15,6 +16,15 @@ impl RdkafkaTransport {
     ) -> Result<Vec<KafkaConsumerGroup>> {
         Self::ensure_build_features(config)?;
         let topics = self.list_topics_blocking(config)?;
+        self.list_consumer_groups_with_topics_blocking(config, &topics)
+    }
+
+    /// 使用已经读取并校验的 Topic 快照读取消费者组，避免指标刷新重复请求所有 Partition。
+    pub(super) fn list_consumer_groups_with_topics_blocking(
+        &self,
+        config: &KafkaClusterConfig,
+        topics: &[KafkaTopic],
+    ) -> Result<Vec<KafkaConsumerGroup>> {
         let browser = self.create_consumer(config)?;
         let group_list = browser
             .fetch_group_list(None, self.request_timeout)
@@ -27,7 +37,7 @@ impl RdkafkaTransport {
 
         let mut partitions = TopicPartitionList::new();
         let mut high_watermarks = HashMap::new();
-        for topic in &topics {
+        for topic in topics {
             for partition in &topic.partitions {
                 partitions.add_partition(&topic.name, partition.id);
                 if partitions.count() > MAX_KAFKA_GROUP_OFFSETS {
