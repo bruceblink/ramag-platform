@@ -442,6 +442,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - 消费者组 Lag 查询借用 Topic 名称建立 `high watermark` 查找表，避免为每个 Partition 复制 Topic 字符串；Offset、Lag 和错误边界保持不变。
 - native Topic 元数据读取同时限制单个 Topic 和整次 Metadata 返回的 Partition 总数，超过 `MAX_KAFKA_PARTITIONS` 时在抓取水位前拒绝，避免多个大 Topic 叠加形成无界刷新任务。
 - 应用层再次校验 Topic 集合的 Partition 总数，替换驱动即使绕过 native 读取边界也不能把超限快照交给 UI。
+- 应用层同时校验所有消费者组的 Offset 总数，替换驱动不能通过拆分多个消费者组绕过 `MAX_KAFKA_GROUP_OFFSETS` 快照预算。
 - 本切片不改变 Kafka 服务端查询上限、消费者组数据约定或 Offset 语义；Partition 快照内存预算、刷新合并和后台资源释放的其他路径仍待后续切片。
 
 后续独立路线：

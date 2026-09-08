@@ -7,7 +7,7 @@ use ramag_domain::entities::{
     KafkaClusterMetadata, KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest,
     KafkaConsumerGroup, KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery,
     KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
-    KafkaTransportCapabilities, MAX_KAFKA_PARTITIONS,
+    KafkaTransportCapabilities, MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_PARTITIONS,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::{
@@ -458,8 +458,10 @@ fn validate_consumer_groups(groups: Vec<KafkaConsumerGroup>) -> Result<Vec<Kafka
         )));
     }
     let mut ids = std::collections::HashSet::with_capacity(groups.len());
+    let mut offset_count = 0usize;
     for group in &groups {
         group.validate().map_err(DomainError::InvalidConfig)?;
+        validate_consumer_group_offset_budget(&mut offset_count, group.offsets.len())?;
         if !ids.insert(group.group_id.as_str()) {
             return Err(DomainError::InvalidConfig(format!(
                 "消费者组 ID 重复：{}",
@@ -468,6 +470,19 @@ fn validate_consumer_groups(groups: Vec<KafkaConsumerGroup>) -> Result<Vec<Kafka
         }
     }
     Ok(groups)
+}
+
+fn validate_consumer_group_offset_budget(total: &mut usize, count: usize) -> Result<()> {
+    let next_total = total
+        .checked_add(count)
+        .ok_or_else(|| DomainError::InvalidConfig("消费者组 Offset 总数量超出可计算范围".into()))?;
+    if next_total > MAX_KAFKA_GROUP_OFFSETS {
+        return Err(DomainError::InvalidConfig(format!(
+            "消费者组 Offset 总数量超过 {MAX_KAFKA_GROUP_OFFSETS} 个上限"
+        )));
+    }
+    *total = next_total;
+    Ok(())
 }
 
 fn validate_acls(acls: Vec<KafkaAcl>) -> Result<Vec<KafkaAcl>> {
