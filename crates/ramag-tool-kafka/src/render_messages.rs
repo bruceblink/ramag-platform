@@ -49,19 +49,26 @@ impl KafkaView {
                 let page_end = page_start
                     .saturating_add(self.message_page_size)
                     .min(page.records.len());
-                let records = page.records[page_start..page_end].to_vec();
+                let page_len = page_end.saturating_sub(page_start);
                 let header = message_table_header(&theme);
                 let body = uniform_list(
                     "kafka-message-list",
-                    records.len(),
+                    page_len,
                     cx.processor(move |this, range: Range<usize>, _window, cx| {
                         range
-                            .map(|index| {
-                                let record = records[index].clone();
-                                let record_index = page_start + index;
+                            .filter_map(|index| {
+                                let record_index = page_start.saturating_add(index);
+                                let record = this
+                                    .message_page
+                                    .as_ref()?
+                                    .records
+                                    .get(record_index)?
+                                    .clone();
                                 let selected = this.selected_message == Some(record_index);
-                                this.render_message_row(record_index, record, selected, cx)
-                                    .into_any_element()
+                                Some(
+                                    this.render_message_row(record_index, record, selected, cx)
+                                        .into_any_element(),
+                                )
                             })
                             .collect::<Vec<_>>()
                     }),
