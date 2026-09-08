@@ -219,7 +219,9 @@ pub(super) fn broker_row(
 ) -> impl IntoElement {
     h_flex()
         .w_full()
+        .min_w_0()
         .items_center()
+        .flex_wrap()
         .gap(px(10.0))
         .px(px(12.0))
         .py(px(9.0))
@@ -228,6 +230,7 @@ pub(super) fn broker_row(
         .child(
             div()
                 .w(px(58.0))
+                .flex_none()
                 .text_xs()
                 .text_color(theme.muted_foreground)
                 .child(format!("id {}", broker.id)),
@@ -243,6 +246,7 @@ pub(super) fn broker_row(
         .child(
             div()
                 .w(px(120.0))
+                .flex_none()
                 .text_xs()
                 .text_color(theme.muted_foreground)
                 .child(broker.version.clone().unwrap_or_else(|| "版本未知".into())),
@@ -250,6 +254,7 @@ pub(super) fn broker_row(
         .child(
             div()
                 .w(px(76.0))
+                .flex_none()
                 .text_xs()
                 .text_color(if broker.is_controller {
                     theme.accent
@@ -261,6 +266,14 @@ pub(super) fn broker_row(
                 } else {
                     "Broker"
                 }),
+        )
+        .child(
+            div()
+                .w(px(92.0))
+                .flex_none()
+                .text_xs()
+                .text_color(theme.success)
+                .child("Metadata 已返回"),
         )
 }
 

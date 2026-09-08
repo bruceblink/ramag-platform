@@ -247,10 +247,11 @@ impl KafkaView {
                         .flex_none()
                         .gap(px(10.0))
                         .child(section_heading(
-                            "Broker 元数据",
-                            "来自 Kafka Metadata API",
+                            "Broker 健康与元数据",
+                            "协议可达性来自 Kafka Metadata API；运行指标单独接入",
                             &theme,
                         ))
+                        .child(self.render_broker_health(metadata, cx))
                         .child(self.render_broker_table(metadata, cx));
                     let topic_section = v_flex()
                         .id("kafka-overview-topic")
@@ -271,7 +272,7 @@ impl KafkaView {
                         .flex_1()
                         .min_w_0()
                         .gap(px(18.0))
-                        .when(compact, |column| column.w_full().flex_none())
+                        .when(compact, |column| column.w_full().flex_initial())
                         .child(broker_section)
                         .child(topic_section);
                     let cluster_section = v_flex()
@@ -288,6 +289,7 @@ impl KafkaView {
                         .debug_selector(|| "kafka-overview-sections".into())
                         .w_full()
                         .min_w_0()
+                        .flex_none()
                         .items_start()
                         .gap(px(18.0))
                         .when(compact, |row| row.flex_col().items_stretch())
@@ -396,6 +398,84 @@ impl KafkaView {
         rows
     }
 
+    pub(super) fn render_broker_health(
+        &self,
+        metadata: &KafkaClusterMetadata,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.theme().clone();
+        let (status, status_color) = if self.loading_runtime {
+            ("正在刷新 Metadata", theme.warning)
+        } else if self.runtime_error.is_some() {
+            ("刷新失败，展示上次元数据", theme.danger)
+        } else {
+            ("协议可达", theme.success)
+        };
+        let snapshot_broker_status = match self
+            .metrics_snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.cluster.broker_count)
+        {
+            Some(count) if count == metadata.brokers.len() => {
+                format!("{} 个 · 与元数据一致", count)
+            }
+            Some(count) => format!(
+                "{} 个 · 与元数据不一致（元数据 {} 个）",
+                count,
+                metadata.brokers.len()
+            ),
+            None => "未知 · 快照未提供".into(),
+        };
+
+        v_flex()
+            .id("kafka-overview-broker-health")
+            .debug_selector(|| "kafka-overview-broker-health".into())
+            .w_full()
+            .min_w_0()
+            .gap(px(8.0))
+            .child(
+                h_flex()
+                    .id("kafka-overview-broker-health-status")
+                    .debug_selector(|| "kafka-overview-broker-health-status".into())
+                    .w_full()
+                    .min_w_0()
+                    .items_center()
+                    .gap(px(6.0))
+                    .child(div().size(px(8.0)).rounded_full().bg(status_color))
+                    .child(
+                        div()
+                            .min_w_0()
+                            .text_xs()
+                            .text_color(status_color)
+                            .child(status),
+                    ),
+            )
+            .child(
+                h_flex()
+                    .id("kafka-overview-broker-health-details")
+                    .debug_selector(|| "kafka-overview-broker-health-details".into())
+                    .w_full()
+                    .min_w_0()
+                    .flex_wrap()
+                    .gap(px(8.0))
+                    .child(broker_health_value(
+                        "元数据 Broker",
+                        format!("{} 个", metadata.brokers.len()),
+                        &theme,
+                    ))
+                    .child(broker_health_value(
+                        "指标快照 Broker",
+                        snapshot_broker_status,
+                        &theme,
+                    ))
+                    .child(broker_health_value(
+                        "Broker 运行指标",
+                        "未接入；需配置 JMX、Prometheus 或 exporter".into(),
+                        &theme,
+                    )),
+            )
+    }
+
     pub(super) fn render_cluster_summary(
         &self,
         metadata: &KafkaClusterMetadata,
@@ -474,4 +554,22 @@ impl KafkaView {
         }
         rows
     }
+}
+
+fn broker_health_value(
+    label: &'static str,
+    value: String,
+    theme: &gpui_component::Theme,
+) -> impl IntoElement {
+    v_flex()
+        .flex_1()
+        .min_w(px(132.0))
+        .gap(px(2.0))
+        .child(
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(label),
+        )
+        .child(div().min_w_0().text_xs().whitespace_normal().child(value))
 }

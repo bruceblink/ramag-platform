@@ -1,9 +1,9 @@
 # Kafka 传输能力矩阵
 
-> 文档状态：`KAFKA-001` 阶段 21 增补稿；当前仅记录现有实现和可复核证据，不表示纯 Rust 客户端已经完成
-> 更新日期：2026-09-07
+> 文档状态：`KAFKA-001` 阶段 22 增补稿；当前仅记录现有实现和可复核证据，不表示纯 Rust 客户端已经完成
+> 更新日期：2026-09-08
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-tool-kafka` 和 `ramag-bin`
-> 代码基线：`feat/kafka-001-transport-matrix` 阶段 18-21 代码；当前实施分支：`feat/kafka-001-transport-matrix`
+> 代码基线：`dev` 阶段 18-22 代码；当前实施分支：`dev`（只保留并同步 `main`、`dev`）
 
 本文把 Kafka 协议能力、客户端构建方式和验证证据放在同一张表中。表中的“已实现”只表示当前代码存在对应入口；只有同时具备目标测试、真实 Kafka 服务或明确记录的环境限制，才能把能力写成已验收。
 
@@ -60,7 +60,7 @@
 | 证据 | 结果 | 说明 |
 |---|---|---|
 | 默认 feature 静态测试 | 已通过 | 本次 Windows MSVC 目标下 `ramag-infra-kafka` 默认 feature 7 项通过；此前 Windows GNU 基线为 5 项；覆盖默认不启用 native、TLS/SASL feature gate、输入校验和错误分类 |
-| 阶段 21 Domain/App/UI 测试 | 已通过 | Windows MSVC 目标下 `ramag-domain` 159 项、`ramag-app` 191 项、`ramag-infra-kafka` 默认 feature 7 项、`ramag-tool-kafka` 20 项通过；覆盖快照聚合、Lag、速率采样、应用边界校验、刷新代次/集群隔离和 360/900/1440 宽度布局 |
+| 阶段 21-22 Domain/App/UI 测试 | 部分通过 | 阶段 21 的 Windows MSVC 证据为 `ramag-domain` 159 项、`ramag-app` 191 项、`ramag-infra-kafka` 默认 feature 7 项、`ramag-tool-kafka` 20 项；阶段 22 的 `ramag-tool-kafka` Windows GNU 测试 22 项通过，覆盖 Broker 健康摘要、快照来源/时间状态和 360/900/1440 宽度布局；当前 MSVC 复测受 Windows SDK 缺少 `msvcrt.lib` 阻塞 |
 | native metrics 编译和基础测试 | 已通过 | Windows MSVC 下 `ramag-infra-kafka --features cmake-build` 使用 CMake/NMake 构建 `rdkafka-sys`，`cargo check` 通过，native 基础测试 10 项通过；未连接真实 Broker |
 | Cargo feature 关系 | 已核对 | `ramag-infra-kafka` 默认 feature 为空，`ramag-bin` 显式启用 `cmake-build`；`cargo tree --locked -p ramag-bin -e features` 可看到 `rdkafka-sys` 和 CMake 路径 |
 | plain KRaft Docker 集成 | 有历史证据，当前复核受限 | `scripts/kafka-test/compose.yaml` 和 `crates/ramag-infra-kafka/tests/docker_kafka.rs` 覆盖明文 native 元数据、Topic/Partition、消息、搜索和部分管理流程；当前环境没有 `docker` 命令，不能重新执行 |
@@ -79,6 +79,8 @@
 阶段 18 的文档交付完成；其服务验收仍有明确未完成项。阶段 19 已增加 `KafkaTransport` 适配边界：领域层提供稳定的能力快照接口，`KafkaService` 只暴露能力结果，现有 `RdkafkaTransport` 位于基础设施层并保留 `RdkafkaDriver` 兼容别名；不在该项中伪造纯 Rust 实现或改变现有 Kafka 用户流程。
 
 阶段 21 已增加 `KafkaMonitoringDriver` 和协议指标快照链路：快照包含来源、时间、状态、错误原因、集群/Topic/Partition/Consumer Group 指标和按连续 `high watermark` 样本计算的速率；应用层和 UI 均不依赖 `rdkafka` 类型。外部 JMX、Prometheus、exporter 和真实 Broker 复核仍属于未完成项。
+
+阶段 22 已在 Kafka 概览页整合 Broker 健康摘要、Topic/Partition 健康和消费者组 Lag。Broker 健康只根据 Metadata API 返回结果和协议指标快照中的 Broker 数判断，并明确标出外部 Broker 运行指标尚未接入；Docker Broker 复核和真实 Windows 截图仍未完成。
 
 相关代码和测试：
 

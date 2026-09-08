@@ -1,12 +1,12 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 21 的 Kafka 指标快照已完成；下一阶段转入概览页完整整合和高规模工作区优化
-> 更新日期：2026-09-07
+> 状态：阶段 22 的概览页整合代码已完成；Docker Broker 和真实 Windows 截图仍是未完成项，下一阶段转入 Broker 运行指标适配和高规模工作区优化
+> 更新日期：2026-09-08
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
-> 当前基线：`feat/kafka-001-transport-matrix`（阶段 18-21 已完成，阶段 22-24 待开发）
-> 实施分支：按独立功能创建不以 `codex` 开头的短期分支
-> 当前主线：继续完成概览页整合、Broker 运行指标适配和高规模工作区优化；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前基线：`dev`（阶段 18-22 代码已同步，阶段 23-24 待开发）
+> 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
+> 当前主线：继续在 `dev` 完成 Broker 运行指标适配和高规模工作区优化；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -91,7 +91,7 @@ Ramag 已经采用清晰的分层结构：
 - 如果需要修改 `ramag-domain`、`ramag-app`、`ramag-ui` 或 `ramag-infra-storage` 的共享能力，必须在 Kafka 计划中单独列出，并保持一个小功能一次提交。
 - Kafka 的发布说明、集成测试、UI 截图和故障记录单独维护，不与数据库路线图合并统计。
 
-实现开始时建议建立 `codex/feat/kafka-tool`，以当前开发主线为代码基准；该分支只承载 Kafka 工具及其必要的共享层改动。每个小功能先完成验证，再提交并推送，然后继续下一项；不把整个 Kafka 计划压缩成一个长期积累的大提交。
+后续实现直接以 `dev` 为代码基准，只承载 Kafka 工具及其必要的共享层改动。每个小功能先完成验证，再提交并推送，然后继续下一项；不把整个 Kafka 计划压缩成一个长期积累的大提交。
 
 ### 2.2 允许共享的基础设施
 
@@ -409,9 +409,16 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - `KafkaService` 单独注入 `KafkaMonitoringDriver` 并在应用边界重新校验快照；Kafka UI 在概览页展示状态、来源、采集时间、Broker/Topic/Partition、Lag、速率和副本健康，并按集群隔离可取消刷新任务。
 - 2026-09-07 Windows MSVC 默认 feature 测试通过：`ramag-domain` 159 项、`ramag-app` 191 项、`ramag-infra-kafka` 7 项、`ramag-tool-kafka` 20 项；`cmake-build` native 基础设施编译和测试通过 10 项。三种窗口宽度的指标布局测试通过；Docker Broker、真实 Windows 截图、TLS/SASL 和外部 Broker 运行指标仍未完成。
 
+阶段 22 当前切片实施记录：
+
+- 概览页新增 Broker 健康与元数据摘要：明确显示 Kafka Metadata API 的协议可达状态、元数据 Broker 数、指标快照 Broker 数及两者是否一致；Broker CPU、内存、磁盘、JVM 和请求指标继续显示为未接入，不用协议快照冒充运行指标。
+- 指标状态栏在成功、部分数据、采集失败和刷新失败时保留状态、错误原因、采集时间或最近成功采集时间以及来源；Topic 状态、Partition 健康和消费者组 Lag 继续在同一概览页展示。
+- Broker 行和指标状态栏补充紧凑窗口的换行约束；概览内容区域禁止被滚动容器压缩，360/900/1440 宽度下的 Broker 健康、Topic、Partition 和消费者组区域均通过 headless 布局测试。
+- 2026-09-08 Windows GNU `ramag-tool-kafka` 测试 22 项通过，格式检查和 `git diff --check` 通过。默认 MSVC 测试受当前 Windows SDK 缺少 `msvcrt.lib` 阻塞；Docker Broker 和真实 Windows 截图尚未执行，不能写成阶段 22 完整验收通过。
+
 后续独立路线：
 
-当前开发顺序是阶段 22-24 的 Kafka 工作台增强主线：先完成概览页整合，再接入外部 Broker 运行指标并处理高规模刷新。Schema Registry、Kafka Connect、ksqlDB、消息生产和 Offset 重置不阻塞这条主线，继续作为后续独立候选：
+当前开发顺序是阶段 23-24 的 Kafka 工作台增强主线：先接入外部 Broker 运行指标，再处理高规模刷新。Schema Registry、Kafka Connect、ksqlDB、消息生产和 Offset 重置不阻塞这条主线，继续作为后续独立候选：
 
 - `feat(kafka): add schema registry integration`
 - `feat(kafka): add kafka connect integration`

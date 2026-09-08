@@ -87,6 +87,9 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             visual_cx.debug_bounds("kafka-overview-sections"),
             visual_cx.debug_bounds("kafka-overview-primary"),
             visual_cx.debug_bounds("kafka-overview-broker"),
+            visual_cx.debug_bounds("kafka-overview-broker-health"),
+            visual_cx.debug_bounds("kafka-overview-broker-health-status"),
+            visual_cx.debug_bounds("kafka-overview-broker-health-details"),
             visual_cx.debug_bounds("kafka-overview-topic"),
             visual_cx.debug_bounds("kafka-overview-cluster"),
         ];
@@ -105,6 +108,9 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             Some(sections),
             Some(primary),
             Some(broker),
+            Some(broker_health),
+            Some(broker_health_status),
+            Some(broker_health_details),
             Some(topic),
             Some(cluster),
         ] = bounds
@@ -125,6 +131,9 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
         assert!(sections.right() <= scroll.right());
         assert!(primary.right() <= sections.right());
         assert!(broker.right() <= primary.right());
+        assert!(broker_health.right() <= broker.right());
+        assert!(broker_health_status.right() <= broker_health.right());
+        assert!(broker_health_details.right() <= broker_health.right());
         assert!(topic.right() <= primary.right());
         assert!(cluster.right() <= sections.right());
         assert!(topic.origin.y >= broker.bottom());
@@ -144,7 +153,7 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
         } else {
             assert!(
                 cluster.origin.y >= topic.bottom(),
-                "紧凑窗口应将集群信息放在主内容之后: topic={topic:?}, cluster={cluster:?}"
+                "紧凑窗口应将集群信息放在主内容之后: width={width}, primary={primary:?}, broker={broker:?}, topic={topic:?}, cluster={cluster:?}"
             );
         }
     }

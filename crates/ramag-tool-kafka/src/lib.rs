@@ -325,6 +325,7 @@ mod render_message_detail;
 mod render_message_tail;
 mod render_messages;
 mod render_metrics;
+mod render_metrics_partition;
 mod render_overview;
 mod render_sidebar;
 mod render_topic_detail;

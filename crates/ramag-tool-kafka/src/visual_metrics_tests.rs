@@ -176,6 +176,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         let topics = visual_cx.debug_bounds("kafka-metrics-topics");
         let partitions = visual_cx.debug_bounds("kafka-metrics-partition-health");
         let groups = visual_cx.debug_bounds("kafka-metrics-consumer-groups");
+        let broker_health = visual_cx.debug_bounds("kafka-overview-broker-health");
         assert!(
             snapshot_bounds.is_some()
                 && controls.is_some()
@@ -183,7 +184,8 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
                 && cluster_summary.is_some()
                 && topics.is_some()
                 && partitions.is_some()
-                && groups.is_some(),
+                && groups.is_some()
+                && broker_health.is_some(),
             "指标快照各区域都应参与布局: width={width}"
         );
         let (
@@ -194,6 +196,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             Some(topics),
             Some(partitions),
             Some(groups),
+            Some(broker_health),
         ) = (
             snapshot_bounds,
             controls,
@@ -202,6 +205,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             topics,
             partitions,
             groups,
+            broker_health,
         )
         else {
             return;
@@ -215,6 +219,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             "kafka-metrics-topics",
             "kafka-metrics-partition-health",
             "kafka-metrics-consumer-groups",
+            "kafka-overview-broker-health",
         ] {
             super::assert_within_width(visual_cx, selector, width);
         }
@@ -226,8 +231,9 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
                 && cluster_summary.right() <= snapshot_bounds.right()
                 && topics.right() <= snapshot_bounds.right()
                 && partitions.right() <= snapshot_bounds.right()
-                && groups.right() <= snapshot_bounds.right(),
-            "指标快照内容不能横向越出容器: width={width}, snapshot={snapshot_bounds:?}, controls={controls:?}, status={status:?}, summary={cluster_summary:?}, topics={topics:?}, partitions={partitions:?}, groups={groups:?}"
+                && groups.right() <= snapshot_bounds.right()
+                && broker_health.right() <= px(width),
+            "指标快照和 Broker 健康内容不能横向越出容器: width={width}, snapshot={snapshot_bounds:?}, controls={controls:?}, status={status:?}, summary={cluster_summary:?}, topics={topics:?}, partitions={partitions:?}, groups={groups:?}, broker_health={broker_health:?}"
         );
     }
 }
