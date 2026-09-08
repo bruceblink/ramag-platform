@@ -82,6 +82,17 @@ fn snapshot_aggregates_fixed_offsets_and_preserves_unknown_lag() {
 }
 
 #[test]
+fn owned_snapshot_constructor_matches_borrowed_constructor() {
+    let metadata = runtime_metadata();
+    let topics = vec![runtime_topic(12)];
+    let groups = vec![group(Some(5))];
+    let sampled_at = Utc.with_ymd_and_hms(2026, 9, 7, 10, 0, 0).unwrap();
+    let borrowed = KafkaMetricsSnapshot::from_runtime(sampled_at, &metadata, &topics, &groups);
+    let owned = KafkaMetricsSnapshot::from_runtime_owned(sampled_at, &metadata, topics, groups);
+    assert_eq!(owned, borrowed);
+}
+
+#[test]
 fn rate_sampling_uses_high_watermark_delta_and_rejects_reset() {
     let metadata = runtime_metadata();
     let previous = KafkaMetricsSnapshot::from_runtime(

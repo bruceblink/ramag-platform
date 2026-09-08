@@ -16,6 +16,8 @@ mod kafka_message;
 mod kafka_metadata;
 #[path = "kafka_metrics.rs"]
 mod kafka_metrics;
+#[path = "kafka_metrics_validation.rs"]
+mod kafka_metrics_validation;
 #[path = "kafka_transport.rs"]
 mod kafka_transport;
 #[path = "kafka_validation.rs"]

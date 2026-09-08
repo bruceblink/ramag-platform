@@ -436,6 +436,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - 连续 `high watermark` 速率计算先建立上一份快照的 `(Topic, Partition)` 索引，再按当前分区一次查找，避免高分区数量下反复扫描全部 Topic 和 Partition；速率回退、集群隔离和未知值语义保持不变。
 - 指标快照复用同一轮已经读取的 Topic/Partition 数据计算消费者组 Lag，避免消费者组查询再次读取完整 Topic 元数据和 Partition `high watermark`；单独刷新消费者组时仍沿用独立读取路径。
 - 指标快照在同一 native 读取客户端上复用一次 Metadata 结果构造集群和 Topic/Partition 快照，完成后释放该临时客户端，再开始消费者组 Offset 查询。
+- native 指标读取将已拥有的 Topic 和消费者组集合直接转入 `KafkaMetricsSnapshot`，不再为快照构造复制两组大型集合；借用构造接口继续保留给其他调用方。
 - 指标刷新计算连续采样速率时移动旧快照而不是完整复制；速率计算结束后释放旧快照，再保存新的成功结果，采集失败仍保留最近一次成功数据。
 - 本切片不改变 Kafka 服务端查询上限、消费者组数据约定或 Offset 语义；Partition 快照内存预算、刷新合并和后台资源释放的其他路径仍待后续切片。
 

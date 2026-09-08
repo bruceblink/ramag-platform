@@ -31,7 +31,8 @@ impl RdkafkaTransport {
             (cluster_metadata, topics)
         };
         let groups = self.list_consumer_groups_with_topics_blocking(config, &topics)?;
-        let snapshot = KafkaMetricsSnapshot::from_runtime(Utc::now(), &metadata, &topics, &groups);
+        let snapshot =
+            KafkaMetricsSnapshot::from_runtime_owned(Utc::now(), &metadata, topics, groups);
         snapshot
             .validate()
             .map(|()| snapshot)
