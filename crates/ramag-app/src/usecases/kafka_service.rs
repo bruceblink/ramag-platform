@@ -294,6 +294,23 @@ impl KafkaService {
         resource_type: KafkaConfigResourceType,
         resource_name: &str,
     ) -> Result<KafkaConfigResource> {
+        self.describe_configs_with_cancel(
+            config,
+            resource_type,
+            resource_name,
+            Arc::new(AtomicBool::new(false)),
+        )
+        .await
+    }
+
+    /// 读取 Kafka 配置快照并把取消信号传到管理适配器。
+    pub async fn describe_configs_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        resource_type: KafkaConfigResourceType,
+        resource_name: &str,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaConfigResource> {
         validate_config(config)?;
         resource_type
             .validate_resource_name(resource_name)
@@ -301,7 +318,7 @@ impl KafkaService {
         let started = std::time::Instant::now();
         let result = self
             .admin_driver
-            .describe_configs(config, resource_type, resource_name)
+            .describe_configs_with_cancel(config, resource_type, resource_name, cancelled)
             .await
             .and_then(|resource| validate_config_resource(resource, resource_type, resource_name));
         log_config_read_result(

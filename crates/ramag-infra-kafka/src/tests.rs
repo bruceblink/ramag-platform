@@ -5,8 +5,8 @@ use super::consumer_groups::{validate_group_assignment_budget, validate_group_me
 use super::*;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{
-    KafkaAclFilter, MAX_KAFKA_GROUP_ASSIGNMENT_BYTES, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS,
-    MAX_KAFKA_GROUP_TOTAL_MEMBERS,
+    KafkaAclFilter, KafkaConfigResourceType, MAX_KAFKA_GROUP_ASSIGNMENT_BYTES,
+    MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS, MAX_KAFKA_GROUP_TOTAL_MEMBERS,
 };
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{KafkaMessageQuery, KafkaMessageSearchQuery};
@@ -278,6 +278,23 @@ fn cancelled_acl_reads_stop_before_creating_an_admin_client() {
     let result = smol::block_on(RdkafkaDriver::new().list_acls_with_cancel(
         &config,
         &KafkaAclFilter::default(),
+        cancelled,
+    ));
+    assert!(matches!(
+        result,
+        Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled
+    ));
+}
+
+#[cfg(feature = "cmake-build")]
+#[test]
+fn cancelled_config_reads_stop_before_creating_an_admin_client() {
+    let config = KafkaClusterConfig::new("local", vec!["broker:9092".into()]);
+    let cancelled = Arc::new(AtomicBool::new(true));
+    let result = smol::block_on(RdkafkaDriver::new().describe_configs_with_cancel(
+        &config,
+        KafkaConfigResourceType::Topic,
+        "events",
         cancelled,
     ));
     assert!(matches!(

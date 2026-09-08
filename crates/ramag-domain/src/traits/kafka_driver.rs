@@ -207,6 +207,18 @@ pub trait KafkaAdminDriver: Send + Sync {
         ))
     }
 
+    /// 读取 Kafka 配置快照并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn describe_configs_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        resource_type: KafkaConfigResourceType,
+        resource_name: &str,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaConfigResource> {
+        self.describe_configs(config, resource_type, resource_name)
+            .await
+    }
+
     async fn update_config(
         &self,
         _config: &KafkaClusterConfig,

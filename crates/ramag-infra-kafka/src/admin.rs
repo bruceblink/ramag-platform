@@ -33,6 +33,8 @@ use std::ffi::{CString, c_char};
 #[cfg(feature = "cmake-build")]
 use std::ptr;
 #[cfg(feature = "cmake-build")]
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(feature = "cmake-build")]
 use std::time::{Duration, Instant};
 
 #[cfg(feature = "cmake-build")]
@@ -133,10 +135,47 @@ fn describe_config_resource(
     resource_name: &str,
     request_timeout: Duration,
 ) -> Result<KafkaConfigResource> {
+    let cancelled = AtomicBool::new(false);
+    describe_config_resource_with_cancel(
+        admin,
+        resource_type,
+        resource_name,
+        request_timeout,
+        &cancelled,
+    )
+}
+
+#[cfg(feature = "cmake-build")]
+fn describe_config_resource_with_cancel(
+    admin: &AdminClient<DefaultClientContext>,
+    resource_type: KafkaConfigResourceType,
+    resource_name: &str,
+    request_timeout: Duration,
+    cancelled: &AtomicBool,
+) -> Result<KafkaConfigResource> {
     let resource = config_resource_specifier(resource_type, resource_name)?;
+    super::ensure_not_cancelled(cancelled, "读取 Kafka 配置")?;
     let options = AdminOptions::new().request_timeout(Some(request_timeout));
-    let resources = smol::block_on(admin.describe_configs([&resource], &options))
-        .map_err(|error| super::errors::map_kafka_error(error, "读取 Kafka 配置"))?;
+    let request = async {
+        admin
+            .describe_configs([&resource], &options)
+            .await
+            .map_err(|error| super::errors::map_kafka_error(error, "读取 Kafka 配置"))
+    };
+    let cancellation = async {
+        loop {
+            if cancelled.load(Ordering::Acquire) {
+                return Err(DomainError::Kafka(KafkaError::new(
+                    KafkaErrorCategory::Cancelled,
+                    "读取 Kafka 配置",
+                    "Kafka 配置读取任务已取消",
+                )));
+            }
+            smol::Timer::after(Duration::from_millis(100)).await;
+        }
+    };
+    let resources = smol::block_on(smol::future::race(request, cancellation))?;
+    super::ensure_not_cancelled(cancelled, "读取 Kafka 配置")?;
     if resources.len() != 1 {
         return Err(DomainError::Kafka(KafkaError::new(
             KafkaErrorCategory::Protocol,

@@ -2,17 +2,16 @@ use super::super::RdkafkaTransport;
 use super::validate_admin_config;
 #[cfg(feature = "cmake-build")]
 use super::{
-    acl_operations, create_admin_client, describe_config_resource, update_config_incrementally,
-    validate_topic_admin_result,
+    acl_operations, create_admin_client, describe_config_resource,
+    describe_config_resource_with_cancel, update_config_incrementally, validate_topic_admin_result,
 };
+#[cfg(feature = "cmake-build")]
+use ramag_domain::entities::KafkaConfigUpdateRequest;
 use ramag_domain::entities::{
     KafkaAcl, KafkaAclFilter, KafkaClusterConfig, KafkaTopicCreateRequest,
     KafkaTopicPartitionExpansion, validate_kafka_managed_topic_name,
 };
-#[cfg(feature = "cmake-build")]
-use ramag_domain::entities::{
-    KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest,
-};
+use ramag_domain::entities::{KafkaConfigResource, KafkaConfigResourceType};
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::KafkaAdminDriver;
 #[cfg(feature = "cmake-build")]
@@ -97,6 +96,22 @@ impl KafkaAdminDriver for RdkafkaTransport {
         resource_type: KafkaConfigResourceType,
         resource_name: &str,
     ) -> Result<KafkaConfigResource> {
+        self.describe_configs_with_cancel(
+            config,
+            resource_type,
+            resource_name,
+            Arc::new(AtomicBool::new(false)),
+        )
+        .await
+    }
+
+    async fn describe_configs_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        resource_type: KafkaConfigResourceType,
+        resource_name: &str,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaConfigResource> {
         config.validate().map_err(DomainError::InvalidConfig)?;
         resource_type
             .validate_resource_name(resource_name)
@@ -105,12 +120,14 @@ impl KafkaAdminDriver for RdkafkaTransport {
         let config = config.clone();
         let resource_name = resource_name.to_owned();
         smol::unblock(move || {
+            super::super::ensure_not_cancelled(&cancelled, "读取 Kafka 配置")?;
             let admin = create_admin_client(&driver, &config)?;
-            describe_config_resource(
+            describe_config_resource_with_cancel(
                 &admin,
                 resource_type,
                 &resource_name,
                 driver.request_timeout,
+                &cancelled,
             )
         })
         .await
@@ -245,6 +262,28 @@ impl KafkaAdminDriver for RdkafkaTransport {
         Err(super::super::native_client_unavailable(
             "增加 Kafka Topic Partition",
         ))
+    }
+
+    async fn describe_configs_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        resource_type: KafkaConfigResourceType,
+        resource_name: &str,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaConfigResource> {
+        let _ = self.request_timeout;
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(DomainError::Kafka(ramag_domain::error::KafkaError::new(
+                ramag_domain::error::KafkaErrorCategory::Cancelled,
+                "读取 Kafka 配置",
+                "Kafka 配置读取任务已取消",
+            )));
+        }
+        config.validate().map_err(DomainError::InvalidConfig)?;
+        resource_type
+            .validate_resource_name(resource_name)
+            .map_err(DomainError::InvalidConfig)?;
+        Err(super::super::native_client_unavailable("读取 Kafka 配置"))
     }
 
     async fn list_acls(

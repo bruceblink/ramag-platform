@@ -6,6 +6,9 @@ impl KafkaView {
         self.config_request_id = self.config_request_id.wrapping_add(1);
         self.loading_configs = false;
         self.updating_config = false;
+        if let Some(cancelled) = self.config_cancelled.take() {
+            cancelled.store(true, Ordering::Release);
+        }
         self.config_entries.clear();
         self.editing_config_key = None;
     }
@@ -59,6 +62,8 @@ impl KafkaView {
 
         self.config_request_id = self.config_request_id.wrapping_add(1);
         let request_id = self.config_request_id;
+        let cancelled = Arc::new(AtomicBool::new(false));
+        self.config_cancelled = Some(cancelled.clone());
         self.loading_configs = true;
         self.config_entries.clear();
         self.editing_config_key = None;
@@ -74,7 +79,7 @@ impl KafkaView {
         let service = self.service.clone();
         cx.spawn_in(window, async move |this, cx| {
             let result = service
-                .describe_configs(&config, resource_type, &resource_name)
+                .describe_configs_with_cancel(&config, resource_type, &resource_name, cancelled)
                 .await;
             let _ = this.update_in(cx, |this, _window, cx| {
                 if this.config_request_id != request_id
@@ -83,6 +88,7 @@ impl KafkaView {
                     return;
                 }
                 this.loading_configs = false;
+                this.config_cancelled = None;
                 match result {
                     Ok(resource) => {
                         this.config_entries = resource.entries;

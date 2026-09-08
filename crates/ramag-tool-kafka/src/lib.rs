@@ -299,6 +299,7 @@ pub struct KafkaView {
     message_tail_request_id: u64,
     message_tail_cancelled: Option<Arc<AtomicBool>>,
     consumer_group_request_id: u64,
+    config_cancelled: Option<Arc<AtomicBool>>,
     config_request_id: u64,
     acl_request_id: u64,
     topic_operation_id: u64,
@@ -316,6 +317,7 @@ impl Drop for KafkaView {
         self.invalidate_message_tail();
         self.invalidate_consumer_group_request();
         self.invalidate_acl_request();
+        self.invalidate_config_request();
     }
 }
 
