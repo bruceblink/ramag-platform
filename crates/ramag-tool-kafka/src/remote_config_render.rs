@@ -188,13 +188,12 @@ impl KafkaView {
                 )
                 .into_any_element()
         } else {
-            let entries = self.config_entries.clone();
             uniform_list(
                 "kafka-config-list",
-                entries.len(),
+                self.config_entries.len(),
                 cx.processor(move |this, range: Range<usize>, _window, cx| {
                     range
-                        .filter_map(|index| entries.get(index).cloned())
+                        .filter_map(|index| this.config_entries.get(index).cloned())
                         .map(|entry| this.render_config_entry(entry, compact, cx))
                         .collect::<Vec<_>>()
                 }),
