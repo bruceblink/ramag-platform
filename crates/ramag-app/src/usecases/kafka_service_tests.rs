@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use super::{
     KafkaService, validate_admin_request, validate_cluster_metadata,
+    validate_consumer_group_assignment_budget, validate_consumer_group_member_budget,
     validate_consumer_group_offset_budget, validate_consumer_groups, validate_message_page,
     validate_replica_id_budget, validate_topic_partition_budget, validate_topics,
 };
@@ -368,6 +369,25 @@ fn application_boundary_bounds_total_consumer_group_offsets() {
     assert!(validate_consumer_group_offset_budget(&mut total, 1).is_ok());
     assert_eq!(total, ramag_domain::entities::MAX_KAFKA_GROUP_OFFSETS);
     assert!(validate_consumer_group_offset_budget(&mut total, 1).is_err());
+}
+
+#[test]
+fn application_boundary_bounds_total_consumer_group_members_and_assignments() {
+    let mut members = ramag_domain::entities::MAX_KAFKA_GROUP_TOTAL_MEMBERS - 1;
+    assert!(validate_consumer_group_member_budget(&mut members, 1).is_ok());
+    assert_eq!(
+        members,
+        ramag_domain::entities::MAX_KAFKA_GROUP_TOTAL_MEMBERS
+    );
+    assert!(validate_consumer_group_member_budget(&mut members, 1).is_err());
+
+    let mut assignments = ramag_domain::entities::MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS - 1;
+    assert!(validate_consumer_group_assignment_budget(&mut assignments, 1).is_ok());
+    assert_eq!(
+        assignments,
+        ramag_domain::entities::MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS
+    );
+    assert!(validate_consumer_group_assignment_budget(&mut assignments, 1).is_err());
 }
 
 #[test]

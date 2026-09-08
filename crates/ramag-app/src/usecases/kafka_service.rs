@@ -7,8 +7,8 @@ use ramag_domain::entities::{
     KafkaClusterMetadata, KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest,
     KafkaConsumerGroup, KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery,
     KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
-    KafkaTransportCapabilities, MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_PARTITION_REPLICA_IDS,
-    MAX_KAFKA_PARTITIONS,
+    KafkaTransportCapabilities, MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS,
+    MAX_KAFKA_GROUP_TOTAL_MEMBERS, MAX_KAFKA_PARTITION_REPLICA_IDS, MAX_KAFKA_PARTITIONS,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::{
@@ -485,9 +485,18 @@ fn validate_consumer_groups(groups: Vec<KafkaConsumerGroup>) -> Result<Vec<Kafka
         )));
     }
     let mut ids = std::collections::HashSet::with_capacity(groups.len());
+    let mut member_count = 0usize;
+    let mut assignment_count = 0usize;
     let mut offset_count = 0usize;
     for group in &groups {
         group.validate().map_err(DomainError::InvalidConfig)?;
+        validate_consumer_group_member_budget(&mut member_count, group.members.len())?;
+        for member in &group.members {
+            validate_consumer_group_assignment_budget(
+                &mut assignment_count,
+                member.assigned_partitions.len(),
+            )?;
+        }
         validate_consumer_group_offset_budget(&mut offset_count, group.offsets.len())?;
         if !ids.insert(group.group_id.as_str()) {
             return Err(DomainError::InvalidConfig(format!(
@@ -497,6 +506,32 @@ fn validate_consumer_groups(groups: Vec<KafkaConsumerGroup>) -> Result<Vec<Kafka
         }
     }
     Ok(groups)
+}
+
+fn validate_consumer_group_member_budget(total: &mut usize, count: usize) -> Result<()> {
+    let next_total = total
+        .checked_add(count)
+        .ok_or_else(|| DomainError::InvalidConfig("消费者组成员总数量超出可计算范围".into()))?;
+    if next_total > MAX_KAFKA_GROUP_TOTAL_MEMBERS {
+        return Err(DomainError::InvalidConfig(format!(
+            "消费者组成员总数量超过 {MAX_KAFKA_GROUP_TOTAL_MEMBERS} 个上限"
+        )));
+    }
+    *total = next_total;
+    Ok(())
+}
+
+fn validate_consumer_group_assignment_budget(total: &mut usize, count: usize) -> Result<()> {
+    let next_total = total
+        .checked_add(count)
+        .ok_or_else(|| DomainError::InvalidConfig("消费者组分配总数量超出可计算范围".into()))?;
+    if next_total > MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS {
+        return Err(DomainError::InvalidConfig(format!(
+            "消费者组分配总数量超过 {MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS} 个上限"
+        )));
+    }
+    *total = next_total;
+    Ok(())
 }
 
 fn validate_consumer_group_offset_budget(total: &mut usize, count: usize) -> Result<()> {

@@ -1,8 +1,13 @@
 #[cfg(feature = "cmake-build")]
 use super::consumer_groups::decode_member_assignment;
+#[cfg(feature = "cmake-build")]
+use super::consumer_groups::{validate_group_assignment_budget, validate_group_member_budget};
 use super::*;
 #[cfg(feature = "cmake-build")]
-use ramag_domain::entities::MAX_KAFKA_GROUP_ASSIGNMENT_BYTES;
+use ramag_domain::entities::{
+    MAX_KAFKA_GROUP_ASSIGNMENT_BYTES, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS,
+    MAX_KAFKA_GROUP_TOTAL_MEMBERS,
+};
 use ramag_domain::error::KafkaErrorCategory;
 #[cfg(not(feature = "cmake-build"))]
 use ramag_domain::traits::KafkaMonitoringDriver;
@@ -159,6 +164,20 @@ fn topic_replica_id_budget_is_bounded_across_partitions() {
     assert!(
         validate_partition_replica_budget(&mut 0, "events", 2, MAX_KAFKA_REPLICAS + 1, 1).is_err()
     );
+}
+
+#[cfg(feature = "cmake-build")]
+#[test]
+fn consumer_group_nested_budgets_are_exported() {
+    let mut members = MAX_KAFKA_GROUP_TOTAL_MEMBERS - 1;
+    assert!(validate_group_member_budget(&mut members, 1).is_ok());
+    assert_eq!(members, MAX_KAFKA_GROUP_TOTAL_MEMBERS);
+    assert!(validate_group_member_budget(&mut members, 1).is_err());
+
+    let mut assignments = MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS - 1;
+    assert!(validate_group_assignment_budget(&mut assignments, 1).is_ok());
+    assert_eq!(assignments, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS);
+    assert!(validate_group_assignment_budget(&mut assignments, 1).is_err());
 }
 
 #[cfg(feature = "cmake-build")]

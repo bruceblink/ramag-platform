@@ -3,7 +3,7 @@ use ramag_domain::entities::{
     KafkaConsumerGroup, KafkaConsumerGroupOffset, KafkaConsumerMember,
     KafkaConsumerPartitionAssignment, KafkaTopic, MAX_KAFKA_CONSUMER_GROUPS,
     MAX_KAFKA_GROUP_ASSIGNMENT_BYTES, MAX_KAFKA_GROUP_MEMBERS, MAX_KAFKA_GROUP_OFFSETS,
-    MAX_KAFKA_PARTITIONS,
+    MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS, MAX_KAFKA_GROUP_TOTAL_MEMBERS, MAX_KAFKA_PARTITIONS,
 };
 use rdkafka::topic_partition_list::{Offset, TopicPartitionList};
 use std::collections::HashMap;
@@ -51,6 +51,8 @@ impl RdkafkaTransport {
             }
         }
         let mut groups = Vec::with_capacity(group_list.groups().len());
+        let mut total_members = 0usize;
+        let mut total_assignments = 0usize;
         let mut total_offsets = 0usize;
         for group in group_list.groups() {
             if group.members().len() > MAX_KAFKA_GROUP_MEMBERS {
@@ -59,20 +61,25 @@ impl RdkafkaTransport {
                     group.name()
                 )));
             }
-            let members = group
-                .members()
-                .iter()
-                .map(|member| KafkaConsumerMember {
+            validate_group_member_budget(&mut total_members, group.members().len())?;
+            let mut members = Vec::with_capacity(group.members().len());
+            for member in group.members() {
+                let assigned_partitions = member
+                    .assignment()
+                    .map(decode_member_assignment)
+                    .unwrap_or_default();
+                validate_group_assignment_budget(
+                    &mut total_assignments,
+                    assigned_partitions.len(),
+                )?;
+                members.push(KafkaConsumerMember {
                     member_id: member.id().to_owned(),
                     client_id: member.client_id().to_owned(),
                     client_host: (!member.client_host().is_empty())
                         .then(|| member.client_host().to_owned()),
-                    assigned_partitions: member
-                        .assignment()
-                        .map(decode_member_assignment)
-                        .unwrap_or_default(),
-                })
-                .collect::<Vec<_>>();
+                    assigned_partitions,
+                });
+            }
             let offsets =
                 fetch_group_offsets(self, config, group.name(), &partitions, &high_watermarks)?;
             total_offsets = total_offsets.saturating_add(offsets.len());
@@ -105,6 +112,32 @@ impl RdkafkaTransport {
             .create()
             .map_err(|error| errors::map_kafka_error(error, "创建 Kafka Offset 查询客户端"))
     }
+}
+
+pub(super) fn validate_group_member_budget(total: &mut usize, count: usize) -> Result<()> {
+    let next_total = total
+        .checked_add(count)
+        .ok_or_else(|| DomainError::InvalidConfig("消费者组成员总数量超出可计算范围".into()))?;
+    if next_total > MAX_KAFKA_GROUP_TOTAL_MEMBERS {
+        return Err(DomainError::InvalidConfig(format!(
+            "消费者组成员总数量超过 {MAX_KAFKA_GROUP_TOTAL_MEMBERS} 个上限"
+        )));
+    }
+    *total = next_total;
+    Ok(())
+}
+
+pub(super) fn validate_group_assignment_budget(total: &mut usize, count: usize) -> Result<()> {
+    let next_total = total
+        .checked_add(count)
+        .ok_or_else(|| DomainError::InvalidConfig("消费者组分配总数量超出可计算范围".into()))?;
+    if next_total > MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS {
+        return Err(DomainError::InvalidConfig(format!(
+            "消费者组分配总数量超过 {MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS} 个上限"
+        )));
+    }
+    *total = next_total;
+    Ok(())
 }
 
 fn fetch_group_offsets(
