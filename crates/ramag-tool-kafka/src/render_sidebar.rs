@@ -1,5 +1,21 @@
 use super::*;
 
+pub(super) fn matching_cluster_indices(clusters: &[KafkaClusterConfig], query: &str) -> Vec<usize> {
+    clusters
+        .iter()
+        .enumerate()
+        .filter(|(_, cluster)| {
+            query.is_empty()
+                || cluster.name.to_lowercase().contains(query)
+                || cluster
+                    .bootstrap_servers
+                    .iter()
+                    .any(|server| server.to_lowercase().contains(query))
+        })
+        .map(|(index, _)| index)
+        .collect()
+}
+
 impl KafkaView {
     pub(super) fn render_sidebar(
         &self,
@@ -9,20 +25,7 @@ impl KafkaView {
         let theme = cx.theme().clone();
         let compact = f32::from(window.viewport_size().width) < 900.0;
         let query = value(&self.cluster_search, cx).to_lowercase();
-        let visible_indices: Vec<usize> = self
-            .clusters
-            .iter()
-            .enumerate()
-            .filter(|(_, cluster)| {
-                query.is_empty()
-                    || cluster.name.to_lowercase().contains(&query)
-                    || cluster
-                        .bootstrap_servers
-                        .iter()
-                        .any(|server| server.to_lowercase().contains(&query))
-            })
-            .map(|(index, _)| index)
-            .collect();
+        let visible_indices = matching_cluster_indices(&self.clusters, &query);
         let rows = if self.loading_clusters {
             v_flex()
                 .flex_1()
@@ -88,17 +91,19 @@ impl KafkaView {
                 )
                 .into_any_element()
         } else {
-            let clusters = self.clusters.clone();
             uniform_list(
                 "kafka-cluster-list",
                 visible_indices.len(),
                 cx.processor(move |this, range: Range<usize>, _window, cx| {
                     range
-                        .map(|row| {
-                            let cluster = clusters[visible_indices[row]].clone();
+                        .filter_map(|row| {
+                            let cluster_index = *visible_indices.get(row)?;
+                            let cluster = this.clusters.get(cluster_index)?.clone();
                             let selected = this.selected_cluster_id.as_ref() == Some(&cluster.id);
-                            this.render_cluster_row(cluster, selected, cx)
-                                .into_any_element()
+                            Some(
+                                this.render_cluster_row(cluster, selected, cx)
+                                    .into_any_element(),
+                            )
                         })
                         .collect::<Vec<_>>()
                 }),

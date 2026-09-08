@@ -439,6 +439,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - native 指标读取将已拥有的 Topic 和消费者组集合直接转入 `KafkaMetricsSnapshot`，不再为快照构造复制两组大型集合；借用构造接口继续保留给其他调用方。
 - 指标刷新计算连续采样速率时移动旧快照而不是完整复制；速率计算结束后释放旧快照，再保存新的成功结果，采集失败仍保留最近一次成功数据。
 - 历史消息分页只保存当前页的源范围，虚拟列表回调按可视行从 `message_page` 读取记录；分页数量、选择索引和详情行为保持不变，重绘不再先复制整页。
+- 集群侧边栏筛选只保存匹配配置的源索引，虚拟列表回调按可视行复制集群配置，不再每次重绘复制全部 TLS/SASL 配置。
 - 消费者组 Lag 查询借用 Topic 名称建立 `high watermark` 查找表，避免为每个 Partition 复制 Topic 字符串；Offset、Lag 和错误边界保持不变。
 - native Topic 元数据读取同时限制单个 Topic 和整次 Metadata 返回的 Partition 总数，超过 `MAX_KAFKA_PARTITIONS` 时在抓取水位前拒绝，避免多个大 Topic 叠加形成无界刷新任务。
 - 应用层再次校验 Topic 集合的 Partition 总数，替换驱动即使绕过 native 读取边界也不能把超限快照交给 UI。

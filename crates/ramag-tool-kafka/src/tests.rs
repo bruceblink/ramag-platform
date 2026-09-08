@@ -274,6 +274,24 @@ fn topic_filter_keeps_source_indices_for_bounded_page_rendering() {
 }
 
 #[test]
+fn cluster_filter_keeps_source_indices_without_cloning_all_profiles() {
+    let clusters = vec![
+        KafkaClusterConfig::new("Orders", vec!["orders:9092".into()]),
+        KafkaClusterConfig::new("Metrics", vec!["metrics:9092".into()]),
+        KafkaClusterConfig::new("Orders backup", vec!["backup:9092".into()]),
+    ];
+
+    assert_eq!(
+        super::render_sidebar::matching_cluster_indices(&clusters, "orders"),
+        vec![0, 2]
+    );
+    assert_eq!(
+        super::render_sidebar::matching_cluster_indices(&clusters, ""),
+        vec![0, 1, 2]
+    );
+}
+
+#[test]
 fn runtime_recovery_message_only_marks_retryable_kafka_errors() {
     let network_error = DomainError::Kafka(
         KafkaError::new(
