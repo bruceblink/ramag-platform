@@ -61,11 +61,29 @@ impl RdkafkaTransport {
         query: &KafkaMessageQuery,
         search: Option<&KafkaMessageSearchQuery>,
     ) -> Result<KafkaMessagePage> {
+        let cancelled = AtomicBool::new(false);
+        self.scan_messages_blocking_with_cancel(config, query, search, &cancelled)
+    }
+
+    /// 扫描有限消息范围并在分区切换、网络等待和消息轮询之间检查取消信号。
+    pub(super) fn scan_messages_blocking_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        query: &KafkaMessageQuery,
+        search: Option<&KafkaMessageSearchQuery>,
+        cancelled: &AtomicBool,
+    ) -> Result<KafkaMessagePage> {
         Self::ensure_build_features(config)?;
+        if cancelled.load(Ordering::Acquire) {
+            return Err(message_read_cancelled());
+        }
         let deadline = Instant::now() + StdDuration::from_secs(u64::from(query.max_scan_seconds));
         let mut page = KafkaMessagePage::empty();
 
         for &partition in &query.partitions {
+            if cancelled.load(Ordering::Acquire) {
+                return Err(message_read_cancelled());
+            }
             if page.scanned_records >= query.max_records
                 || page.scanned_bytes >= query.max_bytes
                 || Instant::now() >= deadline
@@ -85,6 +103,7 @@ impl RdkafkaTransport {
                     deadline,
                     search,
                 ),
+                cancelled,
             )?;
             page.scanned_records = page.scanned_records.saturating_add(scanned.scanned_records);
             page.scanned_bytes = page.scanned_bytes.saturating_add(scanned.scanned_bytes);
@@ -97,6 +116,9 @@ impl RdkafkaTransport {
         if Instant::now() >= deadline {
             page.truncated = true;
         }
+        if cancelled.load(Ordering::Acquire) {
+            return Err(message_read_cancelled());
+        }
         page.validate().map_err(DomainError::InvalidConfig)?;
         Ok(page)
     }
@@ -106,8 +128,12 @@ impl RdkafkaTransport {
         config: &KafkaClusterConfig,
         query: &KafkaMessageQuery,
         scan: (i32, usize, u64, Instant, Option<&KafkaMessageSearchQuery>),
+        cancelled: &AtomicBool,
     ) -> Result<PartitionScan> {
         let (partition, max_records, max_bytes, deadline, search) = scan;
+        if cancelled.load(Ordering::Acquire) {
+            return Err(message_read_cancelled());
+        }
         let consumer = self.create_consumer(config)?;
         let (low, high) = consumer
             .fetch_watermarks(&query.topic, partition, self.request_timeout)
@@ -144,6 +170,9 @@ impl RdkafkaTransport {
         )?
         .unwrap_or(high)
         .clamp(low, high);
+        if cancelled.load(Ordering::Acquire) {
+            return Err(message_read_cancelled());
+        }
         if start >= end {
             return Ok(PartitionScan::default());
         }
@@ -159,6 +188,9 @@ impl RdkafkaTransport {
         let mut scanned = PartitionScan::default();
         let mut empty_polls = 0u8;
         while Instant::now() < deadline {
+            if cancelled.load(Ordering::Acquire) {
+                return Err(message_read_cancelled());
+            }
             if scanned.scanned_records >= max_records || scanned.scanned_bytes >= max_bytes {
                 scanned.truncated = true;
                 break;
@@ -175,6 +207,9 @@ impl RdkafkaTransport {
                     result.map_err(|error| errors::map_kafka_error(error, "读取 Kafka 消息"))?
                 }
             };
+            if cancelled.load(Ordering::Acquire) {
+                return Err(message_read_cancelled());
+            }
             empty_polls = 0;
             if message.offset() < start {
                 continue;
@@ -423,6 +458,14 @@ fn wait_for_tail_reconnect(cancelled: &AtomicBool) -> bool {
 
 fn is_retryable_tail_error(error: &DomainError) -> bool {
     matches!(error, DomainError::Kafka(error) if error.retryable)
+}
+
+fn message_read_cancelled() -> DomainError {
+    DomainError::Kafka(KafkaError::new(
+        KafkaErrorCategory::Cancelled,
+        "读取 Kafka 消息",
+        "Kafka 消息读取已取消",
+    ))
 }
 
 fn resolve_query_offset(

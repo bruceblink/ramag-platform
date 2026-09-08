@@ -4,14 +4,20 @@ use super::consumer_groups::decode_member_assignment;
 use super::consumer_groups::{validate_group_assignment_budget, validate_group_member_budget};
 use super::*;
 #[cfg(feature = "cmake-build")]
+use ramag_domain::entities::{KafkaMessageQuery, KafkaMessageSearchQuery};
+#[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{
     MAX_KAFKA_GROUP_ASSIGNMENT_BYTES, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS,
     MAX_KAFKA_GROUP_TOTAL_MEMBERS,
 };
 use ramag_domain::error::KafkaErrorCategory;
+#[cfg(feature = "cmake-build")]
+use ramag_domain::traits::KafkaDriver;
 #[cfg(not(feature = "cmake-build"))]
 use ramag_domain::traits::KafkaMonitoringDriver;
 use ramag_domain::traits::KafkaTransport;
+#[cfg(feature = "cmake-build")]
+use std::sync::{Arc, atomic::AtomicBool};
 
 #[test]
 fn transport_capabilities_follow_compiled_features() {
@@ -203,4 +209,30 @@ fn consumer_assignment_decoder_accepts_valid_payload_and_rejects_malformed_data(
 
     let oversized = vec![0_u8; MAX_KAFKA_GROUP_ASSIGNMENT_BYTES + 1];
     assert!(decode_member_assignment(&oversized).is_empty());
+}
+
+#[cfg(feature = "cmake-build")]
+#[test]
+fn cancelled_message_reads_stop_before_creating_a_consumer() {
+    let config = KafkaClusterConfig::new("local", vec!["broker:9092".into()]);
+    let query = KafkaMessageQuery::by_offset("events", vec![0], 0, Some(1));
+    let cancelled = Arc::new(AtomicBool::new(true));
+    let result = smol::block_on(RdkafkaDriver::new().read_messages_with_cancel(
+        &config,
+        &query,
+        cancelled.clone(),
+    ));
+    assert!(matches!(
+        result,
+        Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled
+    ));
+
+    let search = KafkaMessageSearchQuery::new("event", query);
+    let result = smol::block_on(
+        RdkafkaDriver::new().search_messages_with_cancel(&config, &search, cancelled),
+    );
+    assert!(matches!(
+        result,
+        Err(DomainError::Kafka(error)) if error.category == KafkaErrorCategory::Cancelled
+    ));
 }

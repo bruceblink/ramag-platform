@@ -292,6 +292,7 @@ pub struct KafkaView {
     cluster_request_id: u64,
     runtime_request_id: u64,
     message_request_id: u64,
+    message_read_cancelled: Option<Arc<AtomicBool>>,
     message_tail_request_id: u64,
     message_tail_cancelled: Option<Arc<AtomicBool>>,
     consumer_group_request_id: u64,
@@ -308,6 +309,7 @@ pub struct KafkaView {
 impl Drop for KafkaView {
     fn drop(&mut self) {
         self.invalidate_metrics_refresh();
+        self.invalidate_message_request();
         self.invalidate_message_tail();
     }
 }

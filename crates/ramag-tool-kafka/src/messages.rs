@@ -373,6 +373,8 @@ impl KafkaView {
         self.message_page = None;
         self.selected_message = None;
         self.reset_message_paging();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        self.message_read_cancelled = Some(cancelled.clone());
         self.loading_messages = true;
         self.notice = Some((
             if search_text.is_empty() {
@@ -385,17 +387,22 @@ impl KafkaView {
         let service = self.service.clone();
         cx.spawn_in(window, async move |this, cx| {
             let result = if search_text.is_empty() {
-                service.read_messages(&config, &scan).await
+                service
+                    .read_messages_with_cancel(&config, &scan, cancelled.clone())
+                    .await
             } else {
                 let query =
                     KafkaMessageSearchQuery::new(search_text, scan).with_fields(search_fields);
-                service.search_messages(&config, &query).await
+                service
+                    .search_messages_with_cancel(&config, &query, cancelled.clone())
+                    .await
             };
             let _ = this.update_in(cx, |this, _window, cx| {
                 if this.message_request_id != request_id {
                     return;
                 }
                 this.loading_messages = false;
+                this.message_read_cancelled = None;
                 match result {
                     Ok(page) => match page.validate() {
                         Ok(()) => {
@@ -431,7 +438,7 @@ impl KafkaView {
         cx.notify();
     }
 
-    /// 使当前消息任务失效；底层读取线程可以自然结束，但迟到结果不会回写页面。
+    /// 使当前消息任务失效并通知底层扫描线程退出；迟到结果不会回写页面。
     pub(super) fn cancel_message_read(&mut self, cx: &mut Context<Self>) {
         if !self.loading_messages {
             return;
@@ -444,6 +451,9 @@ impl KafkaView {
     pub(super) fn invalidate_message_request(&mut self) {
         self.message_request_id = self.message_request_id.wrapping_add(1);
         self.loading_messages = false;
+        if let Some(cancelled) = self.message_read_cancelled.take() {
+            cancelled.store(true, Ordering::Release);
+        }
         self.invalidate_message_tail();
     }
 
@@ -553,7 +563,6 @@ impl KafkaView {
         })
         .detach();
     }
-
     // 选择 Topic 只更新当前筛选和详情状态；切换到消息页由详情区的明确按钮负责。
     pub(super) fn select_topic(
         &mut self,

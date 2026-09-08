@@ -5,10 +5,10 @@ use std::sync::Arc;
 use ramag_domain::entities::{
     KafkaAcl, KafkaAclFilter, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId,
     KafkaClusterMetadata, KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest,
-    KafkaConsumerGroup, KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery,
-    KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
-    KafkaTransportCapabilities, MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS,
-    MAX_KAFKA_GROUP_TOTAL_MEMBERS, MAX_KAFKA_PARTITION_REPLICA_IDS, MAX_KAFKA_PARTITIONS,
+    KafkaConsumerGroup, KafkaMessagePage, KafkaMetricsSnapshot, KafkaTopic,
+    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
+    MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS, MAX_KAFKA_GROUP_TOTAL_MEMBERS,
+    MAX_KAFKA_PARTITION_REPLICA_IDS, MAX_KAFKA_PARTITIONS,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::{
@@ -24,6 +24,7 @@ pub struct KafkaService {
 }
 
 mod logging;
+mod messages;
 mod tail;
 use logging::*;
 
@@ -152,44 +153,6 @@ impl KafkaService {
             result.as_ref().err(),
         );
         result.and_then(validate_consumer_groups)
-    }
-
-    pub async fn read_messages(
-        &self,
-        config: &KafkaClusterConfig,
-        query: &KafkaMessageQuery,
-    ) -> Result<KafkaMessagePage> {
-        validate_config(config)?;
-        query.validate().map_err(DomainError::InvalidConfig)?;
-        let started = std::time::Instant::now();
-        let result = self.driver.read_messages(config, query).await;
-        log_message_result(
-            "kafka_message_read",
-            config,
-            query.topic.as_str(),
-            started,
-            &result,
-        );
-        result.and_then(validate_message_page)
-    }
-
-    pub async fn search_messages(
-        &self,
-        config: &KafkaClusterConfig,
-        query: &KafkaMessageSearchQuery,
-    ) -> Result<KafkaMessagePage> {
-        validate_config(config)?;
-        query.validate().map_err(DomainError::InvalidConfig)?;
-        let started = std::time::Instant::now();
-        let result = self.driver.search_messages(config, query).await;
-        log_message_result(
-            "kafka_message_search",
-            config,
-            query.scan.topic.as_str(),
-            started,
-            &result,
-        );
-        result.and_then(validate_message_page)
     }
 
     /// 读取协议指标快照；应用层再次校验范围和唯一性，缺失字段保持为未知。

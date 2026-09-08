@@ -90,6 +90,16 @@ pub trait KafkaDriver: Send + Sync {
         ))
     }
 
+    /// 读取有限消息范围并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn read_messages_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        query: &KafkaMessageQuery,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaMessagePage> {
+        self.read_messages(config, query).await
+    }
+
     async fn search_messages(
         &self,
         _config: &KafkaClusterConfig,
@@ -98,6 +108,16 @@ pub trait KafkaDriver: Send + Sync {
         Err(crate::error::DomainError::NotImplemented(
             "search_messages".into(),
         ))
+    }
+
+    /// 扫描有限消息范围并支持后台取消；旧驱动默认沿用不可取消的搜索实现。
+    async fn search_messages_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        query: &KafkaMessageSearchQuery,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaMessagePage> {
+        self.search_messages(config, query).await
     }
 
     /// 持续读取明确 Topic/Partition 范围；调用方通过有界 sink 和取消句柄控制生命周期。

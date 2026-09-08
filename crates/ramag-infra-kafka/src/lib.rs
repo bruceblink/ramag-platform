@@ -143,6 +143,17 @@ impl RdkafkaTransport {
         Err(native_client_unavailable("读取 Kafka 实时消息流"))
     }
 
+    #[cfg(not(feature = "cmake-build"))]
+    fn scan_messages_blocking_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        query: &ramag_domain::entities::KafkaMessageQuery,
+        search: Option<&ramag_domain::entities::KafkaMessageSearchQuery>,
+        _cancelled: &AtomicBool,
+    ) -> Result<ramag_domain::entities::KafkaMessagePage> {
+        self.scan_messages_blocking(config, query, search)
+    }
+
     #[cfg(feature = "cmake-build")]
     /// 在阻塞线程中创建 Admin Client 并拉取集群元数据，以验证连接配置和网络可达性。
     fn test_connection_blocking(&self, config: &KafkaClusterConfig) -> Result<()> {
@@ -464,6 +475,23 @@ impl KafkaDriver for RdkafkaTransport {
         smol::unblock(move || driver.scan_messages_blocking(&config, &query, None)).await
     }
 
+    async fn read_messages_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        query: &ramag_domain::entities::KafkaMessageQuery,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<ramag_domain::entities::KafkaMessagePage> {
+        config.validate().map_err(DomainError::InvalidConfig)?;
+        query.validate().map_err(DomainError::InvalidConfig)?;
+        let driver = *self;
+        let config = config.clone();
+        let query = query.clone();
+        smol::unblock(move || {
+            driver.scan_messages_blocking_with_cancel(&config, &query, None, &cancelled)
+        })
+        .await
+    }
+
     async fn search_messages(
         &self,
         config: &KafkaClusterConfig,
@@ -476,6 +504,28 @@ impl KafkaDriver for RdkafkaTransport {
         let query = query.clone();
         smol::unblock(move || driver.scan_messages_blocking(&config, &query.scan, Some(&query)))
             .await
+    }
+
+    async fn search_messages_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        query: &ramag_domain::entities::KafkaMessageSearchQuery,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<ramag_domain::entities::KafkaMessagePage> {
+        config.validate().map_err(DomainError::InvalidConfig)?;
+        query.validate().map_err(DomainError::InvalidConfig)?;
+        let driver = *self;
+        let config = config.clone();
+        let query = query.clone();
+        smol::unblock(move || {
+            driver.scan_messages_blocking_with_cancel(
+                &config,
+                &query.scan,
+                Some(&query),
+                &cancelled,
+            )
+        })
+        .await
     }
 
     async fn tail_messages(
