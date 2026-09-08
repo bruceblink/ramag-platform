@@ -4,11 +4,11 @@ use async_trait::async_trait;
 use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::entities::{
-    KafkaAcl, KafkaAclFilter, KafkaClusterConfig, KafkaClusterMetadata, KafkaConfigResource,
-    KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup, KafkaMessagePage,
-    KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMessageTailEvent, KafkaMessageTailRequest,
-    KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
-    KafkaTransportCapabilities,
+    KafkaAcl, KafkaAclFilter, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterMetadata,
+    KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup,
+    KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMessageTailEvent,
+    KafkaMessageTailRequest, KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest,
+    KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
 };
 use crate::error::Result;
 
@@ -28,6 +28,19 @@ pub trait KafkaMonitoringDriver: Send + Sync {
     async fn metrics_snapshot(&self, _config: &KafkaClusterConfig) -> Result<KafkaMetricsSnapshot> {
         Err(crate::error::DomainError::NotImplemented(
             "metrics_snapshot".into(),
+        ))
+    }
+}
+
+/// 外部 Broker 运行指标端口；与 Kafka Protocol API 快照分开，避免混淆数据含义。
+#[async_trait]
+pub trait KafkaBrokerMetricsDriver: Send + Sync {
+    async fn broker_metrics_snapshot(
+        &self,
+        _config: &KafkaClusterConfig,
+    ) -> Result<KafkaBrokerMetricsSnapshot> {
+        Err(crate::error::DomainError::NotImplemented(
+            "broker_metrics_snapshot".into(),
         ))
     }
 }

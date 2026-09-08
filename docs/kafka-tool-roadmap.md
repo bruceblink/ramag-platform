@@ -1,12 +1,12 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 22 的概览页整合代码已完成；Docker Broker 和真实 Windows 截图仍是未完成项，下一阶段转入 Broker 运行指标适配和高规模工作区优化
+> 状态：阶段 23 的 Broker 运行指标适配代码已完成；Docker exporter、真实 Broker 端点和真实 Windows 截图仍是未完成项，下一阶段转入高规模工作区优化
 > 更新日期：2026-09-08
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
-> 当前基线：`dev`（阶段 18-22 代码已同步，阶段 23-24 待开发）
+> 当前基线：`dev`（阶段 18-23 代码已同步，阶段 24 待开发）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
-> 当前主线：继续在 `dev` 完成 Broker 运行指标适配和高规模工作区优化；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前主线：继续在 `dev` 完成高规模工作区优化；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -329,7 +329,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 | 20 | `feat(kafka): add live message tail` | Topic/Partition 实时 Tail、暂停、停止、断线状态、过滤、速率、有限窗口和导出；不提交业务 Offset | Docker 多 Partition 生产者、Tail 取消/重连/背压测试、GPUI headless 与 Windows 验收 |
 | 21 | `feat(kafka): add kafka metrics snapshots` | `KafkaMonitoringDriver`、集群/Topic/Partition/Consumer Group 指标模型、Lag 快照、high watermark 速率采样和按集群刷新任务 | 固定 Offset、Lag 趋势、速率采样、切换集群和迟到结果测试 |
 | 22 | `feat(kafka): complete workbench overview` | 概览页整合 Broker 健康、Topic/Partition 健康、Consumer Group Lag、实时数据时间和来源状态 | 360/900/1440 窗口 headless 布局、真实 Windows 截图、Docker 集成测试 |
-| 23 | `feat(kafka): add broker metrics adapter` | 可选 JMX、Prometheus 或 exporter 数据源；明确区分 Broker 运行指标和 Kafka 协议指标 | exporter 容器、断开数据源、权限失败和时间戳/来源显示测试 |
+| 23 | `feat(kafka): add broker metrics adapter` | 已接入可选 Prometheus/OpenMetrics 文本端点；JMX 通过 exporter 间接接入；明确区分 Broker 运行指标和 Kafka 协议指标 | Domain/App/Infra/UI 测试和窄窗口布局已覆盖；exporter 容器、真实端点请求和真实 Windows 截图仍未完成 |
 | 24 | `fix(kafka): harden high-scale workbench` | 高 Topic/Partition/Consumer Group 数量下的分页、虚拟列表、快照大小、刷新合并和资源释放 | 规模化 Docker fixture、内存/耗时上限、取消和断线恢复测试 |
 
 阶段 3 实施记录：
@@ -415,6 +415,14 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - 指标状态栏在成功、部分数据、采集失败和刷新失败时保留状态、错误原因、采集时间或最近成功采集时间以及来源；Topic 状态、Partition 健康和消费者组 Lag 继续在同一概览页展示。
 - Broker 行和指标状态栏补充紧凑窗口的换行约束；概览内容区域禁止被滚动容器压缩，360/900/1440 宽度下的 Broker 健康、Topic、Partition 和消费者组区域均通过 headless 布局测试。
 - 2026-09-08 Windows GNU `ramag-tool-kafka` 测试 22 项通过，格式检查和 `git diff --check` 通过。默认 MSVC 测试受当前 Windows SDK 缺少 `msvcrt.lib` 阻塞；Docker Broker 和真实 Windows 截图尚未执行，不能写成阶段 22 完整验收通过。
+
+阶段 23 当前切片实施记录：
+
+- `KafkaBrokerMetricsConfig` 为每个集群保存可选 HTTP/HTTPS 指标端点；端点只允许单行有限文本，Debug 输出不显示实际地址。
+- `KafkaBrokerMetricsDriver` 与 `KafkaMonitoringDriver` 分开注入。`PrometheusBrokerMetricsDriver` 使用 5 秒超时、禁止重定向和系统代理、4 MiB 响应上限，并只解析四个固定指标名和 `broker_id` 标签。
+- 外部快照独立记录 `ExternalBrokerMetrics` 来源、采样时间、`Ready`/`Partial`/`NoData`/权限不足/未配置/采集失败状态；不把 Ramag 配置 ID 推断为 Kafka 集群 ID，也不把缺失字段转换为零值。
+- Kafka 概览页与协议指标并列显示 Broker CPU、内存、磁盘和请求延迟；两类来源并行刷新、分别保留成功结果和错误原因。`ramag-tool-kafka` 的布局测试覆盖 360/900/1440 宽度。
+- 2026-09-08 已补齐 Domain/App/Infra/UI 定向测试和接口说明；exporter 容器、真实 Broker 运行指标端点、完整 workspace 构建以及真实 Windows 截图仍是未完成项。
 
 后续独立路线：
 

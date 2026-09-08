@@ -58,6 +58,14 @@ impl KafkaView {
             "",
         );
         let remark = input(window, cx, 16 * 1024, "备注（可选）", false, "");
+        let broker_metrics_endpoint = input(
+            window,
+            cx,
+            4 * 1024,
+            "Prometheus / exporter 指标端点（可选）",
+            false,
+            "",
+        );
         let ca_cert_path = input(window, cx, 32 * 1024, "CA 证书路径（可选）", false, "");
         let client_cert_path = input(window, cx, 32 * 1024, "客户端证书路径（可选）", false, "");
         let client_key_path = input(window, cx, 32 * 1024, "客户端密钥路径（可选）", false, "");
@@ -143,6 +151,7 @@ impl KafkaView {
             &sasl_username,
             &sasl_password,
             &remark,
+            &broker_metrics_endpoint,
             &ca_cert_path,
             &client_cert_path,
             &client_key_path,
@@ -252,6 +261,8 @@ impl KafkaView {
             selected_tail_message: None,
             metrics_snapshot: None,
             metrics_error: None,
+            broker_metrics_snapshot: None,
+            broker_metrics_error: None,
             metrics_loading: false,
             metrics_refresh_seconds_input,
             metrics_refresh_generation: 0,
@@ -283,6 +294,7 @@ impl KafkaView {
             sasl_username,
             sasl_password,
             remark,
+            broker_metrics_endpoint,
             ca_cert_path,
             client_cert_path,
             client_key_path,

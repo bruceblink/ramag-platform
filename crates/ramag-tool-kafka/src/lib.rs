@@ -37,17 +37,18 @@ use ramag_domain::{
         DEFAULT_KAFKA_MAX_SCAN_SECONDS, DEFAULT_KAFKA_METRICS_REFRESH_SECONDS,
         DEFAULT_KAFKA_TAIL_WINDOW_BYTES, DEFAULT_KAFKA_TAIL_WINDOW_MESSAGES, KafkaAcl,
         KafkaAclOperation, KafkaAclPatternType, KafkaAclPermission, KafkaAclResourceType,
-        KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata, KafkaConfigEntry,
-        KafkaConfigResourceType, KafkaConfigUpdateOperation, KafkaConfigUpdateRequest,
-        KafkaConsumerGroup, KafkaMessagePage, KafkaMessageQuery, KafkaMessageRecord,
-        KafkaMessageSearchField, KafkaMessageSearchQuery, KafkaMessageTailEvent,
-        KafkaMessageTailRequest, KafkaMessageTailStart, KafkaMetricsSnapshot,
-        KafkaMetricsSnapshotState, KafkaPartitionMetrics, KafkaReadOnlyState, KafkaSaslMechanism,
-        KafkaSecurityProtocol, KafkaTlsConfig, KafkaTopic, KafkaTopicCreateRequest,
-        KafkaTopicPartitionExpansion, MAX_KAFKA_ACL_HOST_BYTES, MAX_KAFKA_ACL_RESOURCE_NAME_BYTES,
-        MAX_KAFKA_CONFIG_RESOURCE_NAME_BYTES, MAX_KAFKA_CONFIG_VALUE_BYTES,
-        MAX_KAFKA_METRICS_REFRESH_SECONDS, MAX_KAFKA_PARTITIONS, MAX_KAFKA_QUERY_PARTITIONS,
-        MAX_KAFKA_REPLICAS, MAX_KAFKA_SCAN_RECORDS, MIN_KAFKA_METRICS_REFRESH_SECONDS,
+        KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
+        KafkaConfigEntry, KafkaConfigResourceType, KafkaConfigUpdateOperation,
+        KafkaConfigUpdateRequest, KafkaConsumerGroup, KafkaMessagePage, KafkaMessageQuery,
+        KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
+        KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart,
+        KafkaMetricsSnapshot, KafkaMetricsSnapshotState, KafkaPartitionMetrics, KafkaReadOnlyState,
+        KafkaSaslMechanism, KafkaSecurityProtocol, KafkaTlsConfig, KafkaTopic,
+        KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, MAX_KAFKA_ACL_HOST_BYTES,
+        MAX_KAFKA_ACL_RESOURCE_NAME_BYTES, MAX_KAFKA_CONFIG_RESOURCE_NAME_BYTES,
+        MAX_KAFKA_CONFIG_VALUE_BYTES, MAX_KAFKA_METRICS_REFRESH_SECONDS, MAX_KAFKA_PARTITIONS,
+        MAX_KAFKA_QUERY_PARTITIONS, MAX_KAFKA_REPLICAS, MAX_KAFKA_SCAN_RECORDS,
+        MIN_KAFKA_METRICS_REFRESH_SECONDS,
     },
     traits::{KafkaMessageTailSink, KafkaMessageTailSinkResult, Tool, ToolMeta},
 };
@@ -198,6 +199,8 @@ pub struct KafkaView {
     selected_tail_message: Option<usize>,
     metrics_snapshot: Option<KafkaMetricsSnapshot>,
     metrics_error: Option<String>,
+    broker_metrics_snapshot: Option<KafkaBrokerMetricsSnapshot>,
+    broker_metrics_error: Option<String>,
     metrics_loading: bool,
     metrics_refresh_seconds_input: Entity<InputState>,
     metrics_refresh_generation: u64,
@@ -229,6 +232,7 @@ pub struct KafkaView {
     sasl_username: Entity<InputState>,
     sasl_password: Entity<InputState>,
     remark: Entity<InputState>,
+    broker_metrics_endpoint: Entity<InputState>,
     ca_cert_path: Entity<InputState>,
     client_cert_path: Entity<InputState>,
     client_key_path: Entity<InputState>,
@@ -317,6 +321,7 @@ mod profile;
 mod profile_delete;
 mod remote_config;
 mod remote_config_render;
+mod render_broker_metrics;
 mod render_config;
 mod render_consumer_group_helpers;
 mod render_consumer_groups;

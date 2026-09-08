@@ -4,6 +4,8 @@
 mod kafka_acl;
 #[path = "kafka_admin.rs"]
 mod kafka_admin;
+#[path = "kafka_broker_metrics.rs"]
+mod kafka_broker_metrics;
 #[path = "kafka_config.rs"]
 mod kafka_config;
 #[path = "kafka_consumer.rs"]
@@ -28,9 +30,10 @@ pub use kafka_admin::{
     KafkaConfigUpdateOperation, KafkaConfigUpdateRequest, KafkaTopicCreateRequest,
     KafkaTopicPartitionExpansion,
 };
+pub use kafka_broker_metrics::{KafkaBrokerMetricsSnapshot, KafkaBrokerRuntimeMetrics};
 pub use kafka_config::{
-    KafkaClusterConfig, KafkaClusterId, KafkaReadOnlyState, KafkaSaslMechanism,
-    KafkaSecurityProtocol, KafkaTlsConfig,
+    KafkaBrokerMetricsConfig, KafkaClusterConfig, KafkaClusterId, KafkaReadOnlyState,
+    KafkaSaslMechanism, KafkaSecurityProtocol, KafkaTlsConfig,
 };
 pub use kafka_consumer::{
     KafkaConsumerGroup, KafkaConsumerGroupOffset, KafkaConsumerMember,
@@ -64,6 +67,7 @@ pub const MAX_KAFKA_SASL_USERNAME_BYTES: usize = 4 * 1024;
 pub const MAX_KAFKA_SASL_PASSWORD_BYTES: usize = 64 * 1024;
 pub const MAX_KAFKA_REMARK_BYTES: usize = 16 * 1024;
 pub const MAX_KAFKA_TLS_PATH_BYTES: usize = 32 * 1024;
+pub const MAX_KAFKA_BROKER_METRICS_ENDPOINT_BYTES: usize = 4 * 1024;
 
 /// Kafka 的 Topic 名称上限来自 Broker 的协议约束。
 pub const MAX_KAFKA_TOPIC_NAME_BYTES: usize = 249;

@@ -23,6 +23,7 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 ramag-domain = { workspace = true }
 rdkafka = { workspace = true, optional = true, features = ["tokio"] }
+reqwest = { workspace = true, features = ["blocking"] }
 smol = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }

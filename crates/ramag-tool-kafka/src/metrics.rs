@@ -18,6 +18,8 @@ impl KafkaView {
     pub(super) fn clear_metrics_snapshot(&mut self) {
         self.metrics_snapshot = None;
         self.metrics_error = None;
+        self.broker_metrics_snapshot = None;
+        self.broker_metrics_error = None;
         self.metrics_loading = false;
     }
 
@@ -37,7 +39,8 @@ impl KafkaView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.service.transport_capabilities().metrics_snapshot {
+        let capabilities = self.service.transport_capabilities();
+        if !capabilities.metrics_snapshot && config.broker_metrics.endpoint.is_none() {
             self.metrics_loading = false;
             return;
         }
@@ -63,7 +66,10 @@ impl KafkaView {
                 if cancelled.load(Ordering::Acquire) {
                     break;
                 }
-                let result = service.metrics_snapshot(&config).await;
+                let (result, broker_result) = futures::join!(
+                    service.metrics_snapshot(&config),
+                    service.broker_metrics_snapshot(&config),
+                );
                 let result_cancelled = cancelled.clone();
                 let result_cluster_id = cluster_id.clone();
                 let keep_running = this.update_in(async_cx, move |this, _window, cx| {
@@ -78,6 +84,7 @@ impl KafkaView {
                     }
                     this.metrics_loading = false;
                     this.apply_metrics_result(result);
+                    this.apply_broker_metrics_result(broker_result);
                     cx.notify();
                     true
                 });
@@ -122,6 +129,23 @@ impl KafkaView {
             Err(error) => {
                 tracing::warn!(operation = "kafka_metrics_snapshot", error = %error, "Kafka 指标快照采集失败");
                 self.metrics_error = Some(error.user_message());
+            }
+        }
+    }
+
+    fn apply_broker_metrics_result(&mut self, result: DomainResult<KafkaBrokerMetricsSnapshot>) {
+        match result {
+            Ok(snapshot) => {
+                self.broker_metrics_snapshot = Some(snapshot);
+                self.broker_metrics_error = None;
+            }
+            Err(error) => {
+                tracing::warn!(
+                    operation = "kafka_broker_metrics_snapshot",
+                    error = %error,
+                    "外部 Broker 指标快照采集失败"
+                );
+                self.broker_metrics_error = Some(error.user_message());
             }
         }
     }

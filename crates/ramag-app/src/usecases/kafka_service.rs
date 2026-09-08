@@ -3,18 +3,22 @@
 use std::sync::Arc;
 
 use ramag_domain::entities::{
-    KafkaAcl, KafkaAclFilter, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
-    KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup,
-    KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMetricsSnapshot, KafkaTopic,
-    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
+    KafkaAcl, KafkaAclFilter, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId,
+    KafkaClusterMetadata, KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest,
+    KafkaConsumerGroup, KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery,
+    KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaTransportCapabilities,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
-use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver, KafkaMonitoringDriver, Storage};
+use ramag_domain::traits::{
+    KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaDriver, KafkaMonitoringDriver, Storage,
+};
 
 pub struct KafkaService {
     driver: Arc<dyn KafkaDriver>,
     admin_driver: Arc<dyn KafkaAdminDriver>,
     monitoring_driver: Arc<dyn KafkaMonitoringDriver>,
+    broker_metrics_driver: Arc<dyn KafkaBrokerMetricsDriver>,
     storage: Arc<dyn Storage>,
 }
 
@@ -28,6 +32,7 @@ impl KafkaService {
             driver,
             admin_driver: Arc::new(UnsupportedKafkaAdminDriver),
             monitoring_driver: Arc::new(UnsupportedKafkaMonitoringDriver),
+            broker_metrics_driver: Arc::new(UnsupportedKafkaBrokerMetricsDriver),
             storage,
         }
     }
@@ -42,6 +47,14 @@ impl KafkaService {
         monitoring_driver: Arc<dyn KafkaMonitoringDriver>,
     ) -> Self {
         self.monitoring_driver = monitoring_driver;
+        self
+    }
+
+    pub fn with_broker_metrics_driver(
+        mut self,
+        broker_metrics_driver: Arc<dyn KafkaBrokerMetricsDriver>,
+    ) -> Self {
+        self.broker_metrics_driver = broker_metrics_driver;
         self
     }
 
@@ -200,6 +213,29 @@ impl KafkaService {
         result.and_then(validate_metrics_snapshot)
     }
 
+    /// 读取外部 Broker 运行指标；它与 Kafka Protocol API 快照分别校验和记录。
+    pub async fn broker_metrics_snapshot(
+        &self,
+        config: &KafkaClusterConfig,
+    ) -> Result<KafkaBrokerMetricsSnapshot> {
+        validate_config(config)?;
+        let started = std::time::Instant::now();
+        let result = self
+            .broker_metrics_driver
+            .broker_metrics_snapshot(config)
+            .await;
+        let result = result.and_then(validate_broker_metrics_snapshot);
+        tracing::info!(
+            operation = "kafka_broker_metrics_snapshot",
+            cluster_id = %config.id,
+            elapsed_ms = started.elapsed().as_millis(),
+            success = result.is_ok(),
+            result_broker_count = result.as_ref().map_or(0, |snapshot| snapshot.brokers.len()),
+            "Kafka external broker metrics snapshot completed"
+        );
+        result
+    }
+
     pub async fn create_topic(
         &self,
         config: &KafkaClusterConfig,
@@ -342,6 +378,10 @@ struct UnsupportedKafkaMonitoringDriver;
 
 impl KafkaMonitoringDriver for UnsupportedKafkaMonitoringDriver {}
 
+struct UnsupportedKafkaBrokerMetricsDriver;
+
+impl KafkaBrokerMetricsDriver for UnsupportedKafkaBrokerMetricsDriver {}
+
 /// 在应用层再次校验驱动返回的页，避免替换基础设施实现时绕过领域资源上限。
 fn validate_message_page(page: KafkaMessagePage) -> Result<KafkaMessagePage> {
     page.validate()
@@ -350,6 +390,15 @@ fn validate_message_page(page: KafkaMessagePage) -> Result<KafkaMessagePage> {
 }
 
 fn validate_metrics_snapshot(snapshot: KafkaMetricsSnapshot) -> Result<KafkaMetricsSnapshot> {
+    snapshot
+        .validate()
+        .map(|()| snapshot)
+        .map_err(DomainError::InvalidConfig)
+}
+
+fn validate_broker_metrics_snapshot(
+    snapshot: KafkaBrokerMetricsSnapshot,
+) -> Result<KafkaBrokerMetricsSnapshot> {
     snapshot
         .validate()
         .map(|()| snapshot)

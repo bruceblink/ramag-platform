@@ -9,7 +9,8 @@ use super::kafka_validation::{
     validate_required_text,
 };
 use super::{
-    MAX_KAFKA_BOOTSTRAP_SERVERS, MAX_KAFKA_BOOTSTRAP_SERVERS_BYTES, MAX_KAFKA_CLIENT_ID_BYTES,
+    MAX_KAFKA_BOOTSTRAP_SERVERS, MAX_KAFKA_BOOTSTRAP_SERVERS_BYTES,
+    MAX_KAFKA_BROKER_METRICS_ENDPOINT_BYTES, MAX_KAFKA_CLIENT_ID_BYTES,
     MAX_KAFKA_CLUSTER_NAME_BYTES, MAX_KAFKA_REMARK_BYTES, MAX_KAFKA_SASL_PASSWORD_BYTES,
     MAX_KAFKA_SASL_USERNAME_BYTES, MAX_KAFKA_TLS_PATH_BYTES, validate_kafka_bootstrap_server,
 };
@@ -143,6 +144,39 @@ impl KafkaTlsConfig {
     }
 }
 
+/// 可选的外部 Broker 运行指标来源；端点返回 Prometheus/OpenMetrics 文本。
+#[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KafkaBrokerMetricsConfig {
+    #[serde(default)]
+    pub endpoint: Option<String>,
+}
+
+impl fmt::Debug for KafkaBrokerMetricsConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("KafkaBrokerMetricsConfig")
+            .field("endpoint", &self.endpoint.as_ref().map(|_| "[CONFIGURED]"))
+            .finish()
+    }
+}
+
+impl KafkaBrokerMetricsConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        let Some(endpoint) = self.endpoint.as_deref() else {
+            return Ok(());
+        };
+        validate_optional_single_line(
+            "Broker 运行指标端点",
+            Some(endpoint),
+            MAX_KAFKA_BROKER_METRICS_ENDPOINT_BYTES,
+        )?;
+        if !endpoint.starts_with("http://") && !endpoint.starts_with("https://") {
+            return Err("Broker 运行指标端点必须使用 http:// 或 https://".into());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum KafkaReadOnlyState {
     #[default]
@@ -177,6 +211,8 @@ pub struct KafkaClusterConfig {
     pub remark: Option<String>,
     #[serde(default)]
     pub read_only: KafkaReadOnlyState,
+    #[serde(default)]
+    pub broker_metrics: KafkaBrokerMetricsConfig,
 }
 
 impl fmt::Debug for KafkaClusterConfig {
@@ -200,6 +236,7 @@ impl fmt::Debug for KafkaClusterConfig {
             .field("client_id", &self.client_id)
             .field("remark", &self.remark)
             .field("read_only", &self.read_only)
+            .field("broker_metrics", &self.broker_metrics)
             .finish()
     }
 }
@@ -219,6 +256,7 @@ impl KafkaClusterConfig {
             client_id: None,
             remark: None,
             read_only: KafkaReadOnlyState::default(),
+            broker_metrics: KafkaBrokerMetricsConfig::default(),
         }
     }
 
@@ -258,6 +296,7 @@ impl KafkaClusterConfig {
         )?;
         validate_optional_single_line("备注", self.remark.as_deref(), MAX_KAFKA_REMARK_BYTES)?;
         self.tls.validate()?;
+        self.broker_metrics.validate()?;
 
         if self.security_protocol.uses_sasl() {
             if self.sasl_mechanism.is_none() {

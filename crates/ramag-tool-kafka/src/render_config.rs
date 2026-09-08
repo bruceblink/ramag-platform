@@ -168,7 +168,25 @@ impl KafkaView {
                                 ),
                         )
                     })
-                    .child(field("备注", Input::new(&self.remark).small(), 0.0))
+                    .child(
+                        h_flex()
+                            .w_full()
+                            .gap(px(12.0))
+                            .when(compact, |row| row.flex_col().items_stretch())
+                            .child(
+                                field("备注", Input::new(&self.remark).small(), 0.0)
+                                    .when(!compact, |field| field.flex_1().min_w_0()),
+                            )
+                            .child(
+                                field(
+                                    "Broker 运行指标端点",
+                                    Input::new(&self.broker_metrics_endpoint).small(),
+                                    0.0,
+                                )
+                                .when(!compact, |field| field.flex_1().min_w_0())
+                                .debug_selector(|| "kafka-broker-metrics-endpoint".into()),
+                            ),
+                    )
                     .child(
                         h_flex()
                             .w_full()
@@ -184,7 +202,7 @@ impl KafkaView {
                                 div()
                                     .text_xs()
                                     .text_color(theme.muted_foreground)
-                                    .child("Kafka 消息浏览不会生产消息或提交消费位点；Topic 管理写操作需要单独确认。"),
+                                    .child("Kafka 消息浏览不会生产消息或提交消费位点；Topic 管理写操作需要单独确认。外部指标只读取 Prometheus/OpenMetrics 文本。"),
                             ),
                     )
                     .child(

@@ -1,5 +1,6 @@
 //! Kafka 基础设施层：使用 `rdkafka` 创建隔离的客户端，并将错误映射为安全领域错误。
 mod admin;
+mod broker_metrics;
 #[cfg(feature = "cmake-build")]
 mod config;
 #[cfg(feature = "cmake-build")]
@@ -9,6 +10,7 @@ pub mod errors;
 #[cfg(feature = "cmake-build")]
 mod messages;
 mod metrics;
+pub use broker_metrics::PrometheusBrokerMetricsDriver;
 use ramag_domain::entities::KafkaMessageTailRequest;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{

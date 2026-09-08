@@ -5,12 +5,13 @@ use chrono::{TimeZone, Utc};
 use gpui::{Context, IntoElement, Render, TestAppContext, Window, px, size};
 use ramag_app::KafkaService;
 use ramag_domain::entities::{
-    KafkaBroker, KafkaClusterConfig, KafkaClusterMetadata, KafkaClusterMetrics,
-    KafkaConsumerGroupMetrics, KafkaMetricsSnapshot, KafkaMetricsSnapshotState, KafkaMetricsSource,
-    KafkaPartitionMetrics, KafkaTopicMetrics, KafkaTransportBackend, KafkaTransportCapabilities,
+    KafkaBroker, KafkaBrokerMetricsSnapshot, KafkaBrokerRuntimeMetrics, KafkaClusterConfig,
+    KafkaClusterMetadata, KafkaClusterMetrics, KafkaConsumerGroupMetrics, KafkaMetricsSnapshot,
+    KafkaMetricsSnapshotState, KafkaMetricsSource, KafkaPartitionMetrics, KafkaTopicMetrics,
+    KafkaTransportBackend, KafkaTransportCapabilities,
 };
 use ramag_domain::error::Result;
-use ramag_domain::traits::{KafkaDriver, KafkaMonitoringDriver};
+use ramag_domain::traits::{KafkaBrokerMetricsDriver, KafkaDriver, KafkaMonitoringDriver};
 
 use super::*;
 
@@ -47,6 +48,20 @@ struct MetricsMonitoringDriver {
 #[async_trait]
 impl KafkaMonitoringDriver for MetricsMonitoringDriver {
     async fn metrics_snapshot(&self, _config: &KafkaClusterConfig) -> Result<KafkaMetricsSnapshot> {
+        Ok(self.snapshot.clone())
+    }
+}
+
+struct MetricsBrokerDriver {
+    snapshot: KafkaBrokerMetricsSnapshot,
+}
+
+#[async_trait]
+impl KafkaBrokerMetricsDriver for MetricsBrokerDriver {
+    async fn broker_metrics_snapshot(
+        &self,
+        _config: &KafkaClusterConfig,
+    ) -> Result<KafkaBrokerMetricsSnapshot> {
         Ok(self.snapshot.clone())
     }
 }
@@ -116,6 +131,23 @@ fn snapshot() -> KafkaMetricsSnapshot {
     }
 }
 
+fn broker_metrics_snapshot() -> KafkaBrokerMetricsSnapshot {
+    KafkaBrokerMetricsSnapshot {
+        cluster_id: None,
+        sampled_at: Utc.with_ymd_and_hms(2026, 9, 7, 12, 0, 0).unwrap(),
+        source: KafkaMetricsSource::ExternalBrokerMetrics,
+        state: KafkaMetricsSnapshotState::Ready,
+        error: None,
+        brokers: vec![KafkaBrokerRuntimeMetrics {
+            broker_id: 1,
+            cpu_usage_percent: Some(32.5),
+            memory_used_bytes: Some(1024.0),
+            disk_used_bytes: Some(4096.0),
+            request_latency_ms: Some(2.5),
+        }],
+    }
+}
+
 #[gpui::test]
 fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppContext) {
     cx.update(gpui_component::init);
@@ -129,6 +161,9 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         )
         .with_monitoring_driver(Arc::new(MetricsMonitoringDriver {
             snapshot: snapshot(),
+        }))
+        .with_broker_metrics_driver(Arc::new(MetricsBrokerDriver {
+            snapshot: broker_metrics_snapshot(),
         })),
     );
     let mut kafka_entity = None;
@@ -159,6 +194,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             kafka_version: Some("4.0.0".into()),
         });
         view.metrics_snapshot = Some(snapshot());
+        view.broker_metrics_snapshot = Some(broker_metrics_snapshot());
         view.loading_clusters = false;
         view.loading_runtime = false;
         view.section = KafkaSection::Overview;
@@ -177,6 +213,9 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         let partitions = visual_cx.debug_bounds("kafka-metrics-partition-health");
         let groups = visual_cx.debug_bounds("kafka-metrics-consumer-groups");
         let broker_health = visual_cx.debug_bounds("kafka-overview-broker-health");
+        let broker_runtime = visual_cx.debug_bounds("kafka-overview-broker-runtime-metrics");
+        let broker_runtime_status = visual_cx.debug_bounds("kafka-broker-metrics-status");
+        let broker_runtime_rows = visual_cx.debug_bounds("kafka-broker-metrics-brokers");
         assert!(
             snapshot_bounds.is_some()
                 && controls.is_some()
@@ -185,7 +224,10 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
                 && topics.is_some()
                 && partitions.is_some()
                 && groups.is_some()
-                && broker_health.is_some(),
+                && broker_health.is_some()
+                && broker_runtime.is_some()
+                && broker_runtime_status.is_some()
+                && broker_runtime_rows.is_some(),
             "指标快照各区域都应参与布局: width={width}"
         );
         let (
@@ -197,6 +239,9 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             Some(partitions),
             Some(groups),
             Some(broker_health),
+            Some(broker_runtime),
+            Some(broker_runtime_status),
+            Some(broker_runtime_rows),
         ) = (
             snapshot_bounds,
             controls,
@@ -206,6 +251,9 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             partitions,
             groups,
             broker_health,
+            broker_runtime,
+            broker_runtime_status,
+            broker_runtime_rows,
         )
         else {
             return;
@@ -220,6 +268,9 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             "kafka-metrics-partition-health",
             "kafka-metrics-consumer-groups",
             "kafka-overview-broker-health",
+            "kafka-overview-broker-runtime-metrics",
+            "kafka-broker-metrics-status",
+            "kafka-broker-metrics-brokers",
         ] {
             super::assert_within_width(visual_cx, selector, width);
         }
@@ -232,8 +283,11 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
                 && topics.right() <= snapshot_bounds.right()
                 && partitions.right() <= snapshot_bounds.right()
                 && groups.right() <= snapshot_bounds.right()
-                && broker_health.right() <= px(width),
-            "指标快照和 Broker 健康内容不能横向越出容器: width={width}, snapshot={snapshot_bounds:?}, controls={controls:?}, status={status:?}, summary={cluster_summary:?}, topics={topics:?}, partitions={partitions:?}, groups={groups:?}, broker_health={broker_health:?}"
+                && broker_health.right() <= px(width)
+                && broker_runtime.right() <= px(width)
+                && broker_runtime_status.right() <= broker_runtime.right()
+                && broker_runtime_rows.right() <= broker_runtime.right(),
+            "指标快照和 Broker 运行内容不能横向越出容器: width={width}, snapshot={snapshot_bounds:?}, controls={controls:?}, status={status:?}, summary={cluster_summary:?}, topics={topics:?}, partitions={partitions:?}, groups={groups:?}, broker_health={broker_health:?}, broker_runtime={broker_runtime:?}"
         );
     }
 }

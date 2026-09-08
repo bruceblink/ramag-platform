@@ -10,7 +10,7 @@ use super::{
     MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_PARTITIONS, MAX_KAFKA_TOPICS, MAX_KAFKA_VERSION_BYTES,
 };
 
-/// 指标快照的采集来源；Broker 运行指标由后续外部适配器单独提供。
+/// 指标快照的采集来源；Broker 运行指标由独立外部适配器提供。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum KafkaMetricsSource {
     KafkaProtocol,

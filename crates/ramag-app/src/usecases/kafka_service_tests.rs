@@ -6,13 +6,17 @@ use super::{
 };
 use async_trait::async_trait;
 use ramag_domain::entities::{
-    KafkaBroker, KafkaClusterConfig, KafkaClusterMetadata, KafkaConfigEntry, KafkaConfigResource,
-    KafkaConfigResourceType, KafkaConfigSource, KafkaConfigUpdateRequest, KafkaConsumerGroup,
-    KafkaMessagePage, KafkaMessageRecord, KafkaMetricsSnapshot, KafkaPartition, KafkaReadOnlyState,
-    KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaBroker, KafkaBrokerMetricsSnapshot, KafkaBrokerRuntimeMetrics, KafkaClusterConfig,
+    KafkaClusterMetadata, KafkaConfigEntry, KafkaConfigResource, KafkaConfigResourceType,
+    KafkaConfigSource, KafkaConfigUpdateRequest, KafkaConsumerGroup, KafkaMessagePage,
+    KafkaMessageRecord, KafkaMetricsSnapshot, KafkaMetricsSnapshotState, KafkaMetricsSource,
+    KafkaPartition, KafkaReadOnlyState, KafkaTopic, KafkaTopicCreateRequest,
+    KafkaTopicPartitionExpansion,
 };
 use ramag_domain::error::{DomainError, KafkaError, KafkaErrorCategory, Result};
-use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver, KafkaMonitoringDriver, Storage};
+use ramag_domain::traits::{
+    KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaDriver, KafkaMonitoringDriver, Storage,
+};
 
 struct NoopKafkaDriver;
 
@@ -181,6 +185,20 @@ impl KafkaMonitoringDriver for RecordingMonitoringDriver {
     }
 }
 
+struct RecordingBrokerMetricsDriver {
+    snapshot: KafkaBrokerMetricsSnapshot,
+}
+
+#[async_trait]
+impl KafkaBrokerMetricsDriver for RecordingBrokerMetricsDriver {
+    async fn broker_metrics_snapshot(
+        &self,
+        _config: &KafkaClusterConfig,
+    ) -> Result<KafkaBrokerMetricsSnapshot> {
+        Ok(self.snapshot.clone())
+    }
+}
+
 fn service_with_admin(admin: Arc<dyn KafkaAdminDriver>) -> KafkaService {
     KafkaService::new(Arc::new(NoopKafkaDriver), Arc::new(NoopStorage)).with_admin_driver(admin)
 }
@@ -228,6 +246,44 @@ fn metrics_service_forwards_and_validates_snapshot() {
     assert!(matches!(
         smol::block_on(invalid_service.metrics_snapshot(&config)),
         Err(DomainError::InvalidConfig(message)) if message.contains("重复")
+    ));
+}
+
+#[test]
+fn broker_metrics_service_keeps_external_source_separate() {
+    let config = KafkaClusterConfig::new("metrics", vec!["localhost:9092".into()]);
+    let snapshot = KafkaBrokerMetricsSnapshot {
+        cluster_id: None,
+        sampled_at: chrono::Utc::now(),
+        source: KafkaMetricsSource::ExternalBrokerMetrics,
+        state: KafkaMetricsSnapshotState::Ready,
+        error: None,
+        brokers: vec![KafkaBrokerRuntimeMetrics {
+            broker_id: 0,
+            cpu_usage_percent: Some(10.0),
+            memory_used_bytes: Some(20.0),
+            disk_used_bytes: Some(30.0),
+            request_latency_ms: Some(2.0),
+        }],
+    };
+    let service = KafkaService::new(Arc::new(NoopKafkaDriver), Arc::new(NoopStorage))
+        .with_broker_metrics_driver(Arc::new(RecordingBrokerMetricsDriver {
+            snapshot: snapshot.clone(),
+        }));
+    let result = smol::block_on(service.broker_metrics_snapshot(&config))
+        .expect("valid external broker metrics snapshot");
+    assert_eq!(result, snapshot);
+
+    let invalid_service = KafkaService::new(Arc::new(NoopKafkaDriver), Arc::new(NoopStorage))
+        .with_broker_metrics_driver(Arc::new(RecordingBrokerMetricsDriver {
+            snapshot: KafkaBrokerMetricsSnapshot {
+                source: KafkaMetricsSource::KafkaProtocol,
+                ..snapshot
+            },
+        }));
+    assert!(matches!(
+        smol::block_on(invalid_service.broker_metrics_snapshot(&config)),
+        Err(DomainError::InvalidConfig(message)) if message.contains("外部 Broker")
     ));
 }
 

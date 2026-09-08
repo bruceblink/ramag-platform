@@ -154,6 +154,12 @@ impl KafkaView {
             cx,
         );
         set_value(
+            &self.broker_metrics_endpoint,
+            config.broker_metrics.endpoint.clone().unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(
             &self.ca_cert_path,
             config.tls.ca_cert_path.clone().unwrap_or_default(),
             window,
@@ -224,6 +230,7 @@ impl KafkaView {
             &self.sasl_username,
             &self.sasl_password,
             &self.remark,
+            &self.broker_metrics_endpoint,
             &self.ca_cert_path,
             &self.client_cert_path,
             &self.client_key_path,
@@ -293,6 +300,7 @@ impl KafkaView {
         config.security_protocol = self.security_protocol;
         config.client_id = optional_value(&self.client_id, cx);
         config.remark = optional_value(&self.remark, cx);
+        config.broker_metrics.endpoint = optional_value(&self.broker_metrics_endpoint, cx);
         config.tls = KafkaTlsConfig {
             verify: config.tls.verify,
             ca_cert_path: optional_value(&self.ca_cert_path, cx),

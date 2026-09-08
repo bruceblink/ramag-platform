@@ -128,11 +128,20 @@ pub(super) fn build_kafka_service(storage: Arc<dyn Storage>) -> Arc<KafkaService
     let read_driver: Arc<dyn KafkaDriver> = driver.clone();
     let admin_driver: Arc<dyn KafkaAdminDriver> = driver.clone();
     let monitoring_driver: Arc<dyn KafkaMonitoringDriver> = driver;
-    Arc::new(
-        KafkaService::new(read_driver, storage)
-            .with_admin_driver(admin_driver)
-            .with_monitoring_driver(monitoring_driver),
-    )
+    let service = KafkaService::new(read_driver, storage)
+        .with_admin_driver(admin_driver)
+        .with_monitoring_driver(monitoring_driver);
+    match PrometheusBrokerMetricsDriver::new() {
+        Ok(driver) => Arc::new(service.with_broker_metrics_driver(Arc::new(driver))),
+        Err(error) => {
+            warn!(
+                operation = "kafka_broker_metrics_client_init",
+                error = %error,
+                "initialize external Kafka Broker metrics client failed"
+            );
+            Arc::new(service)
+        }
+    }
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]

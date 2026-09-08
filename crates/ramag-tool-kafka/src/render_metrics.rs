@@ -1,3 +1,4 @@
+use super::render_broker_metrics::render_broker_runtime_metrics;
 use super::render_metrics_partition::render_partition_health;
 use super::*;
 impl KafkaView {
@@ -9,6 +10,9 @@ impl KafkaView {
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
         let capabilities = self.service.transport_capabilities();
+        let external_metrics_configured = self
+            .selected_config()
+            .is_some_and(|config| config.broker_metrics.endpoint.is_some());
         let compact = f32::from(window.viewport_size().width) < 700.0;
         let controls = h_flex()
             .id("kafka-metrics-controls")
@@ -35,7 +39,7 @@ impl KafkaView {
                     .label("刷新指标")
                     .loading(self.metrics_loading)
                     .disabled(
-                        !capabilities.metrics_snapshot
+                        !(capabilities.metrics_snapshot || external_metrics_configured)
                             || self.metrics_loading
                             || self.selected_cluster_id.is_none()
                             || self.loading_runtime
@@ -186,6 +190,7 @@ impl KafkaView {
             )
             .child(status_row)
             .child(body)
+            .child(render_broker_runtime_metrics(self, &theme))
     }
     fn render_metrics_snapshot_body(
         &self,
