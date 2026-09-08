@@ -448,7 +448,6 @@ impl KafkaView {
         let context_cluster_id = self.selected_cluster_id.clone();
         self.runtime_error = None;
         self.loading_runtime = true;
-        self.start_metrics_refresh(config.clone(), window, cx);
         let service = self.service.clone();
         cx.spawn_in(window, async move |this, cx| {
             let metadata = service.cluster_metadata(&config).await;
@@ -510,6 +509,8 @@ impl KafkaView {
                         ));
                     }
                 }
+                // 先完成运行时元数据快照，再启动指标查询，避免切换集群时同时保留两组大快照。
+                this.start_metrics_refresh(config.clone(), window, cx);
                 if this.section == KafkaSection::ConsumerGroups
                     && this.selected_cluster_id.is_some()
                 {
