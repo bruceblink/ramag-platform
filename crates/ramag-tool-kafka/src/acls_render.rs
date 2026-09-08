@@ -310,13 +310,12 @@ impl KafkaView {
                 ))
                 .into_any_element()
         } else {
-            let acls = self.acls.clone();
             uniform_list(
                 "kafka-acl-list",
-                acls.len(),
+                self.acls.len(),
                 cx.processor(move |this, range: Range<usize>, _window, cx| {
                     range
-                        .filter_map(|index| acls.get(index).cloned())
+                        .filter_map(|index| this.acls.get(index).cloned())
                         .map(|acl| {
                             let selected = this.selected_acl.as_ref() == Some(&acl);
                             this.render_acl_row(acl, selected, cx).into_any_element()
