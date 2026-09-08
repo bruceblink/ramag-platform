@@ -122,8 +122,10 @@ impl KafkaView {
     fn apply_metrics_result(&mut self, result: DomainResult<KafkaMetricsSnapshot>) {
         match result {
             Ok(snapshot) => {
-                let previous = self.metrics_snapshot.clone();
-                self.metrics_snapshot = Some(snapshot.with_high_watermark_rates(previous.as_ref()));
+                let previous = self.metrics_snapshot.take();
+                let snapshot = snapshot.with_high_watermark_rates(previous.as_ref());
+                drop(previous);
+                self.metrics_snapshot = Some(snapshot);
                 self.metrics_error = None;
             }
             Err(error) => {
