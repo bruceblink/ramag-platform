@@ -244,6 +244,36 @@ fn consumer_group_filter_keeps_source_indices_without_cloning_snapshots() {
 }
 
 #[test]
+fn topic_filter_keeps_source_indices_for_bounded_page_rendering() {
+    let topics = vec![
+        KafkaTopic {
+            name: "orders.events".into(),
+            partitions: Vec::new(),
+            internal: false,
+        },
+        KafkaTopic {
+            name: "metrics".into(),
+            partitions: Vec::new(),
+            internal: false,
+        },
+        KafkaTopic {
+            name: "orders.commands".into(),
+            partitions: Vec::new(),
+            internal: false,
+        },
+    ];
+
+    assert_eq!(
+        super::render_topics::matching_topic_indices(&topics, "orders"),
+        vec![0, 2]
+    );
+    assert_eq!(
+        super::render_topics::matching_topic_indices(&topics, ""),
+        vec![0, 1, 2]
+    );
+}
+
+#[test]
 fn runtime_recovery_message_only_marks_retryable_kafka_errors() {
     let network_error = DomainError::Kafka(
         KafkaError::new(

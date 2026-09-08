@@ -1,5 +1,16 @@
 use super::*;
 
+/// 只保存筛选结果的源索引；query 已转为小写，分页渲染时再读取 Topic 快照。
+pub(super) fn matching_topic_indices(topics: &[KafkaTopic], query: &str) -> Vec<usize> {
+    topics
+        .iter()
+        .enumerate()
+        .filter_map(|(index, topic)| {
+            (query.is_empty() || topic.name.to_lowercase().contains(query)).then_some(index)
+        })
+        .collect()
+}
+
 impl KafkaView {
     pub(super) fn render_topics(
         &self,
@@ -18,18 +29,14 @@ impl KafkaView {
         let compact_detail_height = (f32::from(viewport.height) - 520.0).clamp(300.0, 380.0);
         let compact_split_height = compact_list_height + compact_detail_height + 14.0;
         let query = value(&self.topic_search, cx).to_lowercase();
-        let visible: Vec<KafkaTopic> = self
-            .topics
-            .iter()
-            .filter(|topic| query.is_empty() || topic.name.to_lowercase().contains(&query))
-            .cloned()
-            .collect();
-        let page_count = visible.len().div_ceil(self.topic_page_size);
+        let visible_indices = matching_topic_indices(&self.topics, &query);
+        let visible_count = visible_indices.len();
+        let page_count = visible_count.div_ceil(self.topic_page_size);
         let current_page = self.topic_page_index.min(page_count.saturating_sub(1));
         let page_start = current_page.saturating_mul(self.topic_page_size);
         let page_end = page_start
             .saturating_add(self.topic_page_size)
-            .min(visible.len());
+            .min(visible_count);
         let selected_topic = self
             .selected_topic
             .as_ref()
@@ -51,7 +58,7 @@ impl KafkaView {
                         .child("正在读取 Topic…"),
                 )
                 .into_any_element()
-        } else if visible.is_empty() {
+        } else if visible_indices.is_empty() {
             v_flex()
                 .flex_1()
                 .items_center()
@@ -64,17 +71,19 @@ impl KafkaView {
                 )
                 .into_any_element()
         } else {
-            let topics = visible[page_start..page_end].to_vec();
             let rows = uniform_list(
                 "kafka-topic-list",
-                topics.len(),
+                page_end.saturating_sub(page_start),
                 cx.processor(move |this, range: Range<usize>, _window, cx| {
                     range
-                        .map(|index| {
-                            let topic = topics[index].clone();
+                        .filter_map(|index| {
+                            let topic_index = *visible_indices.get(page_start + index)?;
+                            let topic = this.topics.get(topic_index)?.clone();
                             let selected = this.selected_topic.as_ref() == Some(&topic.name);
-                            this.render_topic_row(topic, selected, cx)
-                                .into_any_element()
+                            Some(
+                                this.render_topic_row(topic, selected, cx)
+                                    .into_any_element(),
+                            )
                         })
                         .collect::<Vec<_>>()
                 }),
@@ -344,7 +353,7 @@ impl KafkaView {
                             .child(list)
                             .when(page_count > 0, |panel| {
                                 panel.child(self.render_topic_pagination(
-                                    visible.len(),
+                                    visible_count,
                                     current_page,
                                     page_count,
                                     cx,
