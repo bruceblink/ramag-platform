@@ -15,7 +15,7 @@ use ramag_domain::entities::KafkaMessageTailRequest;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{
     KafkaBroker, KafkaClusterMetadata, KafkaPartition, KafkaTopic, MAX_KAFKA_BROKERS,
-    MAX_KAFKA_PARTITIONS, MAX_KAFKA_TOPICS,
+    MAX_KAFKA_PARTITION_REPLICA_IDS, MAX_KAFKA_PARTITIONS, MAX_KAFKA_REPLICAS, MAX_KAFKA_TOPICS,
 };
 use ramag_domain::entities::{KafkaClusterConfig, KafkaTransportCapabilities};
 use ramag_domain::error::{DomainError, KafkaError, KafkaErrorCategory, Result};
@@ -260,6 +260,7 @@ impl RdkafkaTransport {
 
         let mut topics = Vec::with_capacity(metadata.topics().len());
         let mut total_partitions = 0usize;
+        let mut total_replica_ids = 0usize;
         for topic_metadata in metadata.topics() {
             if let Some(error) = topic_metadata.error() {
                 return Err(errors::map_kafka_error(
@@ -275,6 +276,13 @@ impl RdkafkaTransport {
             let name = topic_metadata.name().to_owned();
             let mut partitions = Vec::with_capacity(topic_metadata.partitions().len());
             for partition_metadata in topic_metadata.partitions() {
+                validate_partition_replica_budget(
+                    &mut total_replica_ids,
+                    topic_metadata.name(),
+                    partition_metadata.id(),
+                    partition_metadata.replicas().len(),
+                    partition_metadata.isr().len(),
+                )?;
                 let (low, high) = consumer
                     .fetch_watermarks(&name, partition_metadata.id(), self.request_timeout)
                     .map_err(|error| errors::map_kafka_error(error, "读取 Kafka Partition 水位"))?;
@@ -320,6 +328,39 @@ fn validate_partition_budget(
         )));
     }
     *total_partitions = next_total;
+    Ok(())
+}
+
+#[cfg(feature = "cmake-build")]
+fn validate_partition_replica_budget(
+    total_replica_ids: &mut usize,
+    topic_name: &str,
+    partition_id: i32,
+    replica_count: usize,
+    isr_count: usize,
+) -> Result<()> {
+    if replica_count > MAX_KAFKA_REPLICAS {
+        return Err(DomainError::InvalidConfig(format!(
+            "Topic Partition 副本数量超过 {MAX_KAFKA_REPLICAS} 个上限：{topic_name}/{partition_id}"
+        )));
+    }
+    if isr_count > MAX_KAFKA_REPLICAS {
+        return Err(DomainError::InvalidConfig(format!(
+            "Topic Partition ISR 数量超过 {MAX_KAFKA_REPLICAS} 个上限：{topic_name}/{partition_id}"
+        )));
+    }
+    let count = replica_count.checked_add(isr_count).ok_or_else(|| {
+        DomainError::InvalidConfig("Kafka Partition 副本 ID 数量超出可计算范围".into())
+    })?;
+    let next_total = total_replica_ids.checked_add(count).ok_or_else(|| {
+        DomainError::InvalidConfig("Kafka Partition 副本 ID 总数量超出可计算范围".into())
+    })?;
+    if next_total > MAX_KAFKA_PARTITION_REPLICA_IDS {
+        return Err(DomainError::InvalidConfig(format!(
+            "Kafka Partition 副本 ID 总数量超过 {MAX_KAFKA_PARTITION_REPLICA_IDS} 个上限"
+        )));
+    }
+    *total_replica_ids = next_total;
     Ok(())
 }
 

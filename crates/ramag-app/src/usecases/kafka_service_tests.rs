@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use super::{
     KafkaService, validate_admin_request, validate_cluster_metadata,
     validate_consumer_group_offset_budget, validate_consumer_groups, validate_message_page,
-    validate_topic_partition_budget, validate_topics,
+    validate_replica_id_budget, validate_topic_partition_budget, validate_topics,
 };
 use async_trait::async_trait;
 use ramag_domain::entities::{
@@ -349,6 +349,17 @@ fn application_boundary_bounds_total_topic_partitions() {
     assert!(validate_topic_partition_budget(&mut total, 1).is_ok());
     assert_eq!(total, ramag_domain::entities::MAX_KAFKA_PARTITIONS);
     assert!(validate_topic_partition_budget(&mut total, 1).is_err());
+}
+
+#[test]
+fn application_boundary_bounds_total_partition_replica_ids() {
+    let mut total = ramag_domain::entities::MAX_KAFKA_PARTITION_REPLICA_IDS - 2;
+    assert!(validate_replica_id_budget(&mut total, 2).is_ok());
+    assert_eq!(
+        total,
+        ramag_domain::entities::MAX_KAFKA_PARTITION_REPLICA_IDS
+    );
+    assert!(validate_replica_id_budget(&mut total, 1).is_err());
 }
 
 #[test]

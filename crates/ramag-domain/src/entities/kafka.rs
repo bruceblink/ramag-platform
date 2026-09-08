@@ -79,6 +79,7 @@ pub const MAX_KAFKA_BROKERS: usize = 10_000;
 pub const MAX_KAFKA_TOPICS: usize = 100_000;
 pub const MAX_KAFKA_PARTITIONS: usize = 1_000_000;
 pub const MAX_KAFKA_REPLICAS: usize = 1_000;
+pub const MAX_KAFKA_PARTITION_REPLICA_IDS: usize = 8_000_000;
 
 pub const MAX_KAFKA_MESSAGE_HEADERS: usize = 1_000;
 pub const MAX_KAFKA_HEADER_KEY_BYTES: usize = 1024;

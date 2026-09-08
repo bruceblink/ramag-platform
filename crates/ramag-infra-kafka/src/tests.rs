@@ -151,6 +151,18 @@ fn topic_partition_budget_is_bounded_across_topics() {
 
 #[cfg(feature = "cmake-build")]
 #[test]
+fn topic_replica_id_budget_is_bounded_across_partitions() {
+    let mut total = MAX_KAFKA_PARTITION_REPLICA_IDS - 2;
+    assert!(validate_partition_replica_budget(&mut total, "events", 0, 1, 1).is_ok());
+    assert_eq!(total, MAX_KAFKA_PARTITION_REPLICA_IDS);
+    assert!(validate_partition_replica_budget(&mut total, "events", 1, 1, 1).is_err());
+    assert!(
+        validate_partition_replica_budget(&mut 0, "events", 2, MAX_KAFKA_REPLICAS + 1, 1).is_err()
+    );
+}
+
+#[cfg(feature = "cmake-build")]
+#[test]
 fn consumer_assignment_decoder_accepts_valid_payload_and_rejects_malformed_data() {
     let mut payload = Vec::new();
     payload.extend_from_slice(&1_i16.to_be_bytes());
