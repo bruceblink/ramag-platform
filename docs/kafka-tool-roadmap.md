@@ -1,10 +1,10 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 24 已完成消费者组列表的首个高规模切片；Topic/Partition 快照预算、刷新合并和资源释放仍是未完成项，Docker exporter、真实 Broker 端点和真实 Windows 截图也仍待补充
+> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算的高规模切片；刷新合并和资源释放仍是未完成项，Docker exporter、真实 Broker 端点和真实 Windows 截图也仍待补充
 > 更新日期：2026-09-08
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
-> 当前基线：`dev`（阶段 18-24 首个高规模切片已同步，阶段 24 后续切片待开发）
+> 当前基线：`dev`（阶段 18-24 的高规模列表与快照边界切片已同步，刷新合并和资源释放仍待开发）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
 > 当前主线：继续在 `dev` 完成高规模工作区优化；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
@@ -429,7 +429,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - 消费者组列表筛选改为只保存匹配组的源索引；虚拟列表回调只复制当前可视范围内的 `KafkaConsumerGroup`，避免每次重绘复制全部成员和 Offset 快照。
 - Topic 列表筛选改为只保存匹配 Topic 的源索引；分页虚拟列表只复制当前页的 Topic，避免每次重绘复制所有 Partition 明细。
 - 迟到刷新结果仍按请求代次和当前集群过滤；筛选索引失效时安全跳过缺失项，不因列表刷新竞态产生越界访问。
-- 新增消费者组和 Topic 筛选索引回归测试；2026-09-08 `ramag-tool-kafka` Windows GNU 库测试 24 项通过，源文件大小、格式和 `git diff --check` 通过。
+- 新增消费者组、Topic 和集群筛选索引回归测试；2026-09-08 `ramag-tool-kafka` Windows GNU 库测试 25 项通过，源文件大小、格式和 `git diff --check` 通过。
 - 集群切换时先完成 Metadata/Topic 运行时快照，再启动协议和外部 Broker 指标刷新，避免两条大查询链同时保留重复运行时数据；指标能力仍按独立来源记录失败状态。
 - 视图销毁时同时使指标刷新任务和实时消息 Tail 失效并发出取消信号；实时消费者在下一次有界轮询超时后退出，迟到事件不会再写入已销毁视图。
 - 实时消息窗口保留 `VecDeque` 作为有界源，虚拟列表回调只复制当前可视范围内的消息记录；窗口数量和消息内容语义不变，重绘不再先复制整个窗口。
