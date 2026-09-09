@@ -299,19 +299,44 @@ impl KafkaView {
                         .when(compact, |row| row.flex_col().items_stretch())
                         .child(primary_sections)
                         .child(cluster_section);
-                    v_flex()
+                    let overview_content = v_flex()
                         .id("kafka-overview-scroll")
                         .debug_selector(|| "kafka-overview-scroll".into())
                         .flex_1()
-                        .w_full()
+                        .min_w_0()
                         .min_h_0()
                         .items_stretch()
                         .overflow_y_scroll()
+                        .track_scroll(&self.overview_scroll)
                         .p(px(22.0))
                         .gap(px(18.0))
                         .child(metrics)
                         .child(self.render_metrics_snapshot(window, cx))
                         .child(sections)
+                        .into_any_element();
+                    h_flex()
+                        .id("kafka-overview-scroll-viewport")
+                        .debug_selector(|| "kafka-overview-scroll-viewport".into())
+                        .flex_1()
+                        .w_full()
+                        .min_w_0()
+                        .min_h_0()
+                        .items_stretch()
+                        .child(overview_content)
+                        .child(
+                            div()
+                                .id("kafka-overview-v-scrollbar")
+                                .debug_selector(|| "kafka-overview-v-scrollbar".into())
+                                .h_full()
+                                .w(px(16.0))
+                                .flex_none()
+                                .bg(theme.scrollbar)
+                                .child(
+                                    Scrollbar::vertical(&self.overview_scroll)
+                                        .id("kafka-overview-v-scrollbar-control")
+                                        .scrollbar_show(ScrollbarShow::Always),
+                                ),
+                        )
                         .into_any_element()
                 }
             }

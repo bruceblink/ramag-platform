@@ -241,6 +241,7 @@ impl KafkaView {
             topic_page_index: 0,
             topic_page_size: DEFAULT_TOPIC_PAGE_SIZE,
             topic_scroll: UniformListScrollHandle::new(),
+            overview_scroll: ScrollHandle::new(),
             consumer_groups: Vec::new(),
             selected_consumer_group: None,
             consumer_group_error: None,

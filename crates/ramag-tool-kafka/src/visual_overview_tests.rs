@@ -157,6 +157,19 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
                 .is_some_and(|tabs| tabs.right() <= main.right())
         );
         assert!(scroll.right() <= overview.right());
+        let overview_viewport = visual_cx.debug_bounds("kafka-overview-scroll-viewport");
+        let overview_scrollbar = visual_cx.debug_bounds("kafka-overview-v-scrollbar");
+        assert!(
+            overview_viewport
+                .as_ref()
+                .zip(overview_scrollbar.as_ref())
+                .is_some_and(|(viewport, scrollbar)| {
+                    scrollbar.origin.x >= scroll.right()
+                        && scrollbar.right() <= viewport.right()
+                        && scrollbar.size.width == px(16.0)
+                }),
+            "概览内容应提供不覆盖内容的垂直滚动条: scroll={scroll:?}, viewport={overview_viewport:?}, scrollbar={overview_scrollbar:?}"
+        );
         assert!(metrics.right() <= scroll.right());
         assert!(sections.right() <= scroll.right());
         assert!(primary.right() <= sections.right());
