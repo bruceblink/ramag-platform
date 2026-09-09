@@ -76,6 +76,8 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 
 `UI-001` 验收记录（2026-09-08）：SSH 连接管理列表的连接行允许固定徽标和编辑/删除操作按可用宽度换行，连接名称保留可收缩区域；`connection_manager_rows_stay_inside_supported_window_widths` 覆盖 360/1024/1440px 窗口，检查连接行、JumpServer 图标、环境/系统/认证/生产标记、远程桌面槽和操作组均未越出父行或窗口。`ramag-tool-ssh` 共 76 项库测试通过。真实 Windows 窗口截图和键盘操作仍未完成，不能由 headless 结果推断原生窗口已验收。
 
+`UI-001` 验收记录（2026-09-09）：对象存储账号管理列表的账号行改为可换行布局，服务商、只读、Bucket 数量和编辑/删除区域保持固定尺寸，360px 窗口隐藏非必要的 Bucket 数量列，避免固定列把行推出内容区。`account_rows_stay_inside_supported_window_widths` 覆盖 360/1024/1440px 窗口，检查账号行及各固定区域边界；`ramag-tool-object-storage` 共 24 项库测试通过。真实 Windows 窗口截图和键盘操作仍未完成，不能由 headless 结果推断原生窗口已验收。
+
 `PLAT-003` 完成后，`TERM-001` 已完成代码和真实 OpenSSH 端点验收；真实 Windows 窗口和独立转发状态面板仍单独排期。`KAFKA-001` 已进入传输能力矩阵和适配边界阶段，在其完成前不实现 Metrics Snapshot 或 Live Message Tail；终端和数据库任务不得借机修改 Kafka 或插件协议。
 
 ## 4. 分阶段主线

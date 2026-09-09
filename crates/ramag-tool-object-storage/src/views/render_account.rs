@@ -1,6 +1,6 @@
 use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, MouseButton, ParentElement, SharedString, Styled,
-    Window, div, img, prelude::*, px,
+    AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, MouseButton, ParentElement,
+    SharedString, Styled, Window, div, img, prelude::*, px,
 };
 use gpui_component::{
     ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
@@ -155,9 +155,12 @@ impl ObjectStorageView {
 
         h_flex()
             .id(SharedString::from(format!("object-account-{index}-{id}")))
+            .debug_selector(move || format!("object-account-row-{index}"))
             .w_full()
+            .min_w_0()
+            .flex_wrap()
             .items_center()
-            .gap(px(12.0))
+            .gap(px(8.0))
             .px(px(14.0))
             .py(px(8.0))
             .border_b_1()
@@ -198,6 +201,7 @@ impl ObjectStorageView {
             )
             .child(
                 div()
+                    .debug_selector(move || format!("object-account-provider-{index}"))
                     .flex_none()
                     .w(px(120.0))
                     .flex()
@@ -213,24 +217,30 @@ impl ObjectStorageView {
                             .child(account.provider.display_name()),
                     ),
             )
-            .child(div().flex_none().w(px(56.0)).flex().justify_center().when(
-                account.read_only,
-                |slot| {
-                    slot.child(
-                        div()
-                            .px(px(6.0))
-                            .py(px(1.0))
-                            .rounded(px(4.0))
-                            .text_xs()
-                            .text_color(danger)
-                            .bg(production_bg)
-                            .child(ramag_ui::PRODUCTION_BADGE_LABEL),
-                    )
-                },
-            ))
+            .child(
+                div()
+                    .debug_selector(move || format!("object-account-read-only-{index}"))
+                    .flex_none()
+                    .w(px(56.0))
+                    .flex()
+                    .justify_center()
+                    .when(account.read_only, |slot| {
+                        slot.child(
+                            div()
+                                .px(px(6.0))
+                                .py(px(1.0))
+                                .rounded(px(4.0))
+                                .text_xs()
+                                .text_color(danger)
+                                .bg(production_bg)
+                                .child(ramag_ui::PRODUCTION_BADGE_LABEL),
+                        )
+                    }),
+            )
             .when(show_manual_count, |row| {
                 row.child(
                     div()
+                        .debug_selector(move || format!("object-account-bucket-count-{index}"))
                         .flex_none()
                         .w(px(140.0))
                         .text_xs()
@@ -240,6 +250,7 @@ impl ObjectStorageView {
             })
             .child(
                 h_flex()
+                    .debug_selector(move || format!("object-account-actions-{index}"))
                     .flex_none()
                     .w(px(72.0))
                     .justify_end()

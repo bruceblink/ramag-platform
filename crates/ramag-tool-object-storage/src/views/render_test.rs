@@ -21,6 +21,8 @@ use super::ObjectStorageView;
 use super::account_form::AccountFormPanel;
 use super::model::{ObjectTransferDirection, TransferUi};
 
+mod account_tests;
+
 struct TestObjectStorage;
 
 struct TestStorage;
