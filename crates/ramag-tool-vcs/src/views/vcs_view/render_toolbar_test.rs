@@ -3,6 +3,9 @@
 use super::{add_vcs_window, inject_diff_session};
 use gpui::{Bounds, Pixels, TestAppContext, px, size};
 
+#[path = "render_repo_list_test.rs"]
+mod render_repo_list_test;
+
 fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
     assert!(
         child.origin.x >= parent.origin.x

@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, ClickEvent, Context, FontWeight, IntoElement, ParentElement, SharedString, Styled,
-    div, prelude::*, px, uniform_list,
+    Window, div, prelude::*, px, uniform_list,
 };
 use gpui_component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, WindowExt as _,
@@ -88,7 +88,7 @@ impl RepoListRowsCacheEntry {
 }
 
 impl VcsView {
-    pub(super) fn render_repo_list(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_repo_list(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme();
         let muted_fg = theme.muted_foreground;
         let fg = theme.foreground;
@@ -97,6 +97,7 @@ impl VcsView {
         let row_hover = theme.muted;
         let bg = theme.background;
         let busy = self.busy || self.loading || self.directory_picker_busy;
+        let compact = window.viewport_size().width < px(720.0);
 
         let query = self
             .repo_search_input
@@ -109,22 +110,27 @@ impl VcsView {
         let total = repos_rc.len();
         let visible_count = filtered_indices.len();
 
-        let header_inner = h_flex()
+        let header_inner = ramag_ui::responsive_toolbar()
+            .debug_selector(|| "vcs-repo-list-header-inner".into())
             .w_full()
             .items_center()
-            .gap(px(16.0))
+            .gap(px(12.0))
             .child(
                 div().flex_1().min_w_0().child(
-                    div().max_w(px(360.0)).child(
-                        ramag_ui::cleanable_input(
-                            &self.repo_search_input,
-                            "vcs-repo-search-clear",
-                            false,
-                            cx,
-                        )
-                        .small()
-                        .prefix(Icon::new(IconName::Search).small().text_color(muted_fg)),
-                    ),
+                    div()
+                        .w_full()
+                        .max_w(px(360.0))
+                        .min_w(if compact { px(160.0) } else { px(0.0) })
+                        .child(
+                            ramag_ui::cleanable_input(
+                                &self.repo_search_input,
+                                "vcs-repo-search-clear",
+                                false,
+                                cx,
+                            )
+                            .small()
+                            .prefix(Icon::new(IconName::Search).small().text_color(muted_fg)),
+                        ),
                 ),
             )
             .child(
@@ -162,6 +168,7 @@ impl VcsView {
             );
 
         let header = h_flex()
+            .debug_selector(|| "vcs-repo-list-header".into())
             .w_full()
             .justify_center()
             .px(px(24.0))
@@ -210,6 +217,7 @@ impl VcsView {
                                     .child(div().w_full().max_w(px(CONTENT_MAX_W)).child(repo_row(
                                         row_index,
                                         &repos_rc[repo_index],
+                                        compact,
                                         busy,
                                         border,
                                         row_hover,
@@ -232,7 +240,10 @@ impl VcsView {
                 .into_any_element()
         };
 
-        let mut root = v_flex().size_full().bg(bg);
+        let mut root = v_flex()
+            .debug_selector(|| "vcs-repo-list".into())
+            .size_full()
+            .bg(bg);
         if let Some(banner) = self.render_error_banner(cx) {
             root = root.child(banner);
         }
@@ -404,6 +415,7 @@ fn clone_repo_name(source: &str) -> Option<String> {
 fn repo_row(
     idx: usize,
     r: &RepoConfig,
+    compact: bool,
     busy: bool,
     border: gpui::Hsla,
     hover_bg: gpui::Hsla,
@@ -423,73 +435,94 @@ fn repo_row(
 
     let mono = cx.theme().mono_font_family.clone();
 
-    h_flex()
-        .id(row_id)
+    let badge = div()
+        .flex_none()
+        .w(if compact { px(56.0) } else { px(76.0) })
+        .flex()
+        .justify_center()
+        .child(
+            div()
+                .px(px(8.0))
+                .py(px(2.0))
+                .rounded(px(4.0))
+                .text_xs()
+                .text_color(badge_fg)
+                .bg(badge_bg)
+                .child("Git"),
+        );
+    let name = div()
+        .debug_selector(move || format!("vcs-repo-row-name-{idx}"))
+        .flex_1()
+        .min_w_0()
+        .text_sm()
+        .font_weight(FontWeight::SEMIBOLD)
+        .text_color(fg)
+        .overflow_hidden()
+        .whitespace_nowrap()
+        .text_ellipsis()
+        .child(super::inline_text_preview(&r.name, 160));
+    let path = div()
+        .debug_selector(move || format!("vcs-repo-row-path-{idx}"))
+        .flex_none()
+        .w(if compact { px(0.0) } else { px(360.0) })
+        .when(compact, |this| this.w_full().pl(px(64.0)))
+        .text_xs()
+        .text_color(muted_fg)
+        .font_family(mono)
+        .overflow_hidden()
+        .whitespace_nowrap()
+        .text_ellipsis()
+        .child(super::inline_text_preview(&r.path, 240));
+    let actions = h_flex()
+        .debug_selector(move || format!("vcs-repo-row-actions-{idx}"))
+        .flex_none()
+        .gap(px(4.0))
+        .w(px(36.0))
+        .justify_end()
+        .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .child(
+            ramag_ui::clickable_button(del_id)
+                .ghost()
+                .small()
+                .icon(ramag_ui::icons::trash())
+                .tooltip("移除")
+                .disabled(busy)
+                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                    this.confirm_remove_recent_repo(path_for_remove.clone(), window, cx);
+                })),
+        );
+
+    let mut row = if compact { v_flex() } else { h_flex() };
+    row = row
         .w_full()
         .items_center()
         .gap(px(12.0))
         .px(px(14.0))
-        .py(px(8.0))
+        .py(if compact { px(10.0) } else { px(8.0) })
         .border_b_1()
-        .border_color(border)
+        .border_color(border);
+    if compact {
+        row = row
+            .child(
+                h_flex()
+                    .w_full()
+                    .items_center()
+                    .gap(px(8.0))
+                    .child(badge)
+                    .child(name)
+                    .child(actions),
+            )
+            .child(path);
+    } else {
+        row = row.child(badge).child(name).child(path).child(actions);
+    }
+    row.id(row_id)
+        .debug_selector(move || format!("vcs-repo-row-{idx}"))
         .cursor_pointer()
         .hover(move |this| this.bg(hover_bg))
         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
             this.open_recent_repo(path_for_open.clone(), cx);
         }))
-        .child(
-            div().flex_none().w(px(76.0)).flex().justify_center().child(
-                div()
-                    .px(px(8.0))
-                    .py(px(2.0))
-                    .rounded(px(4.0))
-                    .text_xs()
-                    .text_color(badge_fg)
-                    .bg(badge_bg)
-                    .child("Git"),
-            ),
-        )
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .text_sm()
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(fg)
-                .overflow_hidden()
-                .text_ellipsis()
-                .child(super::inline_text_preview(&r.name, 160)),
-        )
-        .child(
-            div()
-                .flex_none()
-                .w(px(360.0))
-                .text_xs()
-                .text_color(muted_fg)
-                .font_family(mono)
-                .overflow_hidden()
-                .text_ellipsis()
-                .child(super::inline_text_preview(&r.path, 240)),
-        )
-        .child(
-            h_flex()
-                .flex_none()
-                .gap(px(4.0))
-                .w(px(36.0))
-                .justify_end()
-                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .child(
-                    ramag_ui::clickable_button(del_id)
-                        .ghost()
-                        .small()
-                        .icon(ramag_ui::icons::trash())
-                        .tooltip("移除")
-                        .disabled(busy)
-                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                            this.confirm_remove_recent_repo(path_for_remove.clone(), window, cx);
-                        })),
-                ),
-        )
 }
 
 fn empty_state(cx: &mut Context<VcsView>) -> AnyElement {

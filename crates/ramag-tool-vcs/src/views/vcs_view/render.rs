@@ -157,13 +157,13 @@ impl Render for VcsView {
                 .into_any_element()
         } else {
             match self.active_view {
-                ActiveView::RepoList => self.render_repo_list(cx),
+                ActiveView::RepoList => self.render_repo_list(window, cx),
                 ActiveView::Session => {
                     if self.repo.is_some() {
                         self.render_ide_layout(cx)
                     } else {
                         // 异常态：active_view=Session 但 repo 不存在 → fallback 列表
-                        self.render_repo_list(cx)
+                        self.render_repo_list(window, cx)
                     }
                 }
             }
