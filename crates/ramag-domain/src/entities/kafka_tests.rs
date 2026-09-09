@@ -137,6 +137,21 @@ fn schema_registry_config_requires_complete_credentials_and_redacts_values() {
 }
 
 #[test]
+fn connect_config_requires_complete_credentials_and_redacts_values() {
+    let mut config = valid_cluster();
+    config.connect.endpoint = Some("https://connect.example/api".into());
+    config.connect.username = Some("connect-user".into());
+    assert!(config.validate().is_err());
+    config.connect.password = Some("connect-password".into());
+    assert!(config.validate().is_ok());
+    let rendered = format!("{:?}", config);
+    assert!(!rendered.contains("connect-password"));
+    assert!(rendered.contains("[REDACTED]"));
+    config.connect.endpoint = Some("ftp://connect.example/api".into());
+    assert!(config.validate().is_err());
+}
+
+#[test]
 fn metadata_and_topics_reject_duplicate_or_invalid_entries() {
     let broker = KafkaBroker {
         id: 1,
@@ -473,5 +488,6 @@ fn serde_defaults_keep_new_optional_metadata_compatible() -> Result<(), serde_js
     assert_eq!(config.tls, KafkaTlsConfig::default());
     assert_eq!(config.read_only, KafkaReadOnlyState::ReadOnly);
     assert_eq!(config.schema_registry, KafkaSchemaRegistryConfig::default());
+    assert_eq!(config.connect, KafkaConnectConfig::default());
     Ok(())
 }

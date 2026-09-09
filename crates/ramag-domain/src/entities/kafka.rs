@@ -8,6 +8,8 @@ mod kafka_admin;
 mod kafka_broker_metrics;
 #[path = "kafka_config.rs"]
 mod kafka_config;
+#[path = "kafka_connect.rs"]
+mod kafka_connect;
 #[path = "kafka_consumer.rs"]
 mod kafka_consumer;
 #[path = "kafka_message.rs"]
@@ -39,6 +41,7 @@ pub use kafka_config::{
     KafkaBrokerMetricsConfig, KafkaClusterConfig, KafkaClusterId, KafkaReadOnlyState,
     KafkaSaslMechanism, KafkaSecurityProtocol, KafkaTlsConfig,
 };
+pub use kafka_connect::{KafkaConnectConfig, KafkaConnectConnector, KafkaConnectTask};
 pub use kafka_consumer::{
     KafkaConsumerGroup, KafkaConsumerGroupOffset, KafkaConsumerMember,
     KafkaConsumerPartitionAssignment,
@@ -76,6 +79,9 @@ pub const MAX_KAFKA_BROKER_METRICS_ENDPOINT_BYTES: usize = 4 * 1024;
 pub const MAX_KAFKA_SCHEMA_REGISTRY_ENDPOINT_BYTES: usize = 4 * 1024;
 pub const MAX_KAFKA_SCHEMA_REGISTRY_USERNAME_BYTES: usize = 4 * 1024;
 pub const MAX_KAFKA_SCHEMA_REGISTRY_PASSWORD_BYTES: usize = 64 * 1024;
+pub const MAX_KAFKA_CONNECT_ENDPOINT_BYTES: usize = 4 * 1024;
+pub const MAX_KAFKA_CONNECT_USERNAME_BYTES: usize = 4 * 1024;
+pub const MAX_KAFKA_CONNECT_PASSWORD_BYTES: usize = 64 * 1024;
 
 /// Kafka 的 Topic 名称上限来自 Broker 的协议约束。
 pub const MAX_KAFKA_TOPIC_NAME_BYTES: usize = 249;
@@ -83,6 +89,12 @@ pub const MAX_KAFKA_CLUSTER_ID_BYTES: usize = 1024;
 pub const MAX_KAFKA_VERSION_BYTES: usize = 256;
 pub const MAX_KAFKA_SCHEMA_SUBJECT_BYTES: usize = 1024;
 pub const MAX_KAFKA_SCHEMA_SUBJECTS: usize = 2_000;
+pub const MAX_KAFKA_CONNECTOR_NAME_BYTES: usize = 1_024;
+pub const MAX_KAFKA_CONNECTOR_STATE_BYTES: usize = 64;
+pub const MAX_KAFKA_CONNECTOR_WORKER_BYTES: usize = 1_024;
+pub const MAX_KAFKA_CONNECTOR_TRACE_BYTES: usize = 16 * 1024;
+pub const MAX_KAFKA_CONNECTORS: usize = 2_000;
+pub const MAX_KAFKA_CONNECTOR_TASKS: usize = 10_000;
 pub const MAX_KAFKA_BROKERS: usize = 10_000;
 pub const MAX_KAFKA_TOPICS: usize = 100_000;
 pub const MAX_KAFKA_PARTITIONS: usize = 1_000_000;

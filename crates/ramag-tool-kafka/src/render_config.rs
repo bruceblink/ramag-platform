@@ -98,6 +98,49 @@ impl KafkaView {
                             ),
                     )
                     .child(
+                        v_flex()
+                            .id("kafka-connect-config")
+                            .debug_selector(|| "kafka-connect-config".into())
+                            .w_full()
+                            .min_w_0()
+                            .gap(px(10.0))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child("Kafka Connect（可选，只读状态）"),
+                            )
+                            .child(
+                                h_flex()
+                                    .w_full()
+                                    .gap(px(12.0))
+                                    .when(compact, |row| row.flex_col().items_stretch())
+                                    .child(
+                                        field(
+                                            "地址",
+                                            Input::new(&self.connect_endpoint).small(),
+                                            0.0,
+                                        )
+                                        .when(!compact, |field| field.flex_1().min_w_0())
+                                        .debug_selector(|| "kafka-connect-endpoint".into()),
+                                    )
+                                    .child(
+                                        flexible_field(
+                                            "用户名",
+                                            Input::new(&self.connect_username).small(),
+                                        )
+                                        .when(compact, |field| field.flex_initial().w_full()),
+                                    )
+                                    .child(
+                                        flexible_field(
+                                            "密码",
+                                            Input::new(&self.connect_password).small(),
+                                        )
+                                        .when(compact, |field| field.flex_initial().w_full()),
+                                    ),
+                            ),
+                    )
+                    .child(
                         h_flex()
                             .w_full()
                             .gap(px(12.0))
@@ -247,7 +290,7 @@ impl KafkaView {
                                 div()
                                     .text_xs()
                                     .text_color(theme.muted_foreground)
-                                    .child("Kafka 消息浏览不会生产消息或提交消费位点；Topic 管理写操作需要单独确认。外部指标只读取 Prometheus/OpenMetrics 文本。"),
+                                    .child("Kafka 消息浏览不会生产消息或提交消费位点；Topic 管理写操作需要单独确认。外部指标和 Kafka Connect 只读取 HTTP 返回结果。"),
                             ),
                     )
                     .child(

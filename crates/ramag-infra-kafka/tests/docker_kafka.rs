@@ -7,8 +7,8 @@ use ramag_domain::entities::{
     KafkaReadOnlyState, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE};
-use ramag_domain::traits::{KafkaAdminDriver, KafkaDriver};
-use ramag_infra_kafka::RdkafkaDriver;
+use ramag_domain::traits::{KafkaAdminDriver, KafkaConnectDriver, KafkaDriver};
+use ramag_infra_kafka::{KafkaConnectHttpDriver, RdkafkaDriver};
 use rdkafka::ClientConfig;
 use rdkafka::consumer::{BaseConsumer, CommitMode, Consumer};
 use std::env;
@@ -28,6 +28,51 @@ fn docker_bootstrap() -> Option<String> {
             None
         }
     }
+}
+
+fn docker_connect_endpoint() -> Option<String> {
+    match env::var("RAMAG_TEST_KAFKA_CONNECT") {
+        Ok(value) if !value.trim().is_empty() => Some(value),
+        _ => {
+            eprintln!(
+                "Skipping Docker Kafka Connect integration test; set RAMAG_TEST_KAFKA_CONNECT or run scripts/kafka-test/kafka-test.ps1 test."
+            );
+            None
+        }
+    }
+}
+
+fn install_tls_crypto_provider() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    assert!(
+        rustls::crypto::CryptoProvider::get_default().is_some(),
+        "the integration test must install a rustls crypto provider before creating reqwest clients"
+    );
+}
+
+/// Requests the real Kafka Connect REST API exposed by the dedicated fixture.
+#[test]
+fn docker_kafka_connect_lists_connectors() {
+    install_tls_crypto_provider();
+    let Some(bootstrap) = docker_bootstrap() else {
+        return;
+    };
+    let Some(endpoint) = docker_connect_endpoint() else {
+        return;
+    };
+    let mut config = KafkaClusterConfig::new("ramag-docker-kafka", vec![bootstrap]);
+    config.connect.endpoint = Some(endpoint);
+    let driver = KafkaConnectHttpDriver::new().expect("Kafka Connect HTTP driver");
+
+    let result = smol::block_on(driver.list_connectors(&config));
+    assert!(
+        result.is_ok(),
+        "Docker Kafka Connect connector listing failed: {result:?}"
+    );
+    assert!(
+        result.expect("successful connector listing").is_empty(),
+        "the empty dedicated Connect fixture should not contain connectors"
+    );
 }
 
 /// Connects to the broker started by the Docker test runner and requests metadata.

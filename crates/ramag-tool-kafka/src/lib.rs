@@ -38,18 +38,19 @@ use ramag_domain::{
         KafkaAclOperation, KafkaAclPatternType, KafkaAclPermission, KafkaAclResourceType,
         KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
         KafkaConfigEntry, KafkaConfigResourceType, KafkaConfigUpdateOperation,
-        KafkaConfigUpdateRequest, KafkaConsumerGroup, KafkaMessagePage, KafkaMessageQuery,
-        KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
+        KafkaConfigUpdateRequest, KafkaConnectConnector, KafkaConsumerGroup, KafkaMessagePage,
+        KafkaMessageQuery, KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
         KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart,
         KafkaMetricsSnapshot, KafkaMetricsSnapshotState, KafkaPartitionMetrics, KafkaReadOnlyState,
         KafkaSaslMechanism, KafkaSchemaRegistrySubject, KafkaSecurityProtocol, KafkaTlsConfig,
         KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
         MAX_KAFKA_ACL_HOST_BYTES, MAX_KAFKA_ACL_RESOURCE_NAME_BYTES,
         MAX_KAFKA_CONFIG_RESOURCE_NAME_BYTES, MAX_KAFKA_CONFIG_VALUE_BYTES,
-        MAX_KAFKA_METRICS_REFRESH_SECONDS, MAX_KAFKA_PARTITIONS, MAX_KAFKA_QUERY_PARTITIONS,
-        MAX_KAFKA_REPLICAS, MAX_KAFKA_SCAN_RECORDS, MAX_KAFKA_SCHEMA_REGISTRY_ENDPOINT_BYTES,
-        MAX_KAFKA_SCHEMA_REGISTRY_PASSWORD_BYTES, MAX_KAFKA_SCHEMA_REGISTRY_USERNAME_BYTES,
-        MIN_KAFKA_METRICS_REFRESH_SECONDS,
+        MAX_KAFKA_CONNECT_ENDPOINT_BYTES, MAX_KAFKA_CONNECT_PASSWORD_BYTES,
+        MAX_KAFKA_CONNECT_USERNAME_BYTES, MAX_KAFKA_METRICS_REFRESH_SECONDS, MAX_KAFKA_PARTITIONS,
+        MAX_KAFKA_QUERY_PARTITIONS, MAX_KAFKA_REPLICAS, MAX_KAFKA_SCAN_RECORDS,
+        MAX_KAFKA_SCHEMA_REGISTRY_ENDPOINT_BYTES, MAX_KAFKA_SCHEMA_REGISTRY_PASSWORD_BYTES,
+        MAX_KAFKA_SCHEMA_REGISTRY_USERNAME_BYTES, MIN_KAFKA_METRICS_REFRESH_SECONDS,
     },
     traits::{KafkaMessageTailSink, KafkaMessageTailSinkResult, Tool, ToolMeta},
 };
@@ -132,6 +133,7 @@ enum KafkaSection {
     Messages,
     ConsumerGroups,
     SchemaRegistry,
+    Connect,
     Acls,
     Config,
 }
@@ -152,12 +154,13 @@ impl KafkaRangeMode {
 }
 
 impl KafkaSection {
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::Overview,
         Self::Topics,
         Self::Messages,
         Self::ConsumerGroups,
         Self::SchemaRegistry,
+        Self::Connect,
         Self::Acls,
         Self::Config,
     ];
@@ -169,6 +172,7 @@ impl KafkaSection {
             Self::Messages => "消息",
             Self::ConsumerGroups => "消费者组",
             Self::SchemaRegistry => "Schema Registry",
+            Self::Connect => "Kafka Connect",
             Self::Acls => "ACL",
             Self::Config => "配置",
         }
@@ -198,6 +202,14 @@ pub struct KafkaView {
     loading_schema_subjects: bool,
     schema_subjects_loaded: bool,
     schema_subject_error: Option<String>,
+    connect_connectors: Vec<KafkaConnectConnector>,
+    connect_search: Entity<InputState>,
+    connect_scroll: UniformListScrollHandle,
+    connect_cancelled: Option<Arc<AtomicBool>>,
+    connect_request_id: u64,
+    loading_connectors: bool,
+    connectors_loaded: bool,
+    connect_error: Option<String>,
     acl_cancelled: Option<Arc<AtomicBool>>,
     message_page: Option<KafkaMessagePage>,
     message_tail_records: VecDeque<KafkaMessageRecord>,
@@ -254,6 +266,9 @@ pub struct KafkaView {
     schema_registry_endpoint: Entity<InputState>,
     schema_registry_username: Entity<InputState>,
     schema_registry_password: Entity<InputState>,
+    connect_endpoint: Entity<InputState>,
+    connect_username: Entity<InputState>,
+    connect_password: Entity<InputState>,
     ca_cert_path: Entity<InputState>,
     client_cert_path: Entity<InputState>,
     client_key_path: Entity<InputState>,
@@ -338,6 +353,7 @@ impl Drop for KafkaView {
         self.invalidate_message_tail();
         self.invalidate_consumer_group_request();
         self.invalidate_schema_registry_request();
+        self.invalidate_connect_request();
         self.invalidate_acl_request();
         // 已提交的 Kafka Admin 写入请求不主动取消；只让迟到回调失效，
         // 让有界请求自然结束后释放 native Admin 资源。
@@ -361,6 +377,7 @@ mod remote_config;
 mod remote_config_render;
 mod render_broker_metrics;
 mod render_config;
+mod render_connect;
 mod render_consumer_group_helpers;
 mod render_consumer_groups;
 mod render_main;

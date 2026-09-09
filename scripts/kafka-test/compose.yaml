@@ -36,6 +36,32 @@ services:
       ramag.test-suite: "true"
       ramag.test-component: "kafka"
 
+  connect:
+    image: apache/kafka:4.0.0
+    container_name: ramag-kafka-connect-test
+    hostname: connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:18083:8083"
+    volumes:
+      - ./connect-distributed.properties:/etc/kafka/connect-distributed.properties:ro
+    command:
+      - /opt/kafka/bin/connect-distributed.sh
+      - /etc/kafka/connect-distributed.properties
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O - http://127.0.0.1:8083/ >/dev/null 2>&1
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+    labels:
+      ramag.test-suite: "true"
+      ramag.test-component: "kafka-connect"
+
 volumes:
   kafka-data:
     name: ramag-kafka-test-data

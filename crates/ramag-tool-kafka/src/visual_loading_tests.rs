@@ -35,6 +35,7 @@ fn kafka_loading_tables_keep_stable_geometry(cx: &mut TestAppContext) {
     cx.update(gpui_component::init);
     let mut cluster = KafkaClusterConfig::new("Loading Kafka", vec!["127.0.0.1:19092".into()]);
     cluster.schema_registry.endpoint = Some("http://127.0.0.1:8081".into());
+    cluster.connect.endpoint = Some("http://127.0.0.1:8083".into());
     let service = Arc::new(KafkaService::new(
         Arc::new(FakeKafkaDriver),
         Arc::new(FakeStorage {
@@ -252,6 +253,8 @@ fn kafka_loading_tables_keep_stable_geometry(cx: &mut TestAppContext) {
     kafka_entity.update(visual_cx, |view, cx| {
         view.section = KafkaSection::Acls;
         view.loading_schema_subjects = false;
+        view.connectors_loaded = false;
+        view.loading_connectors = false;
         view.loading_acls = true;
         cx.notify();
     });
@@ -259,8 +262,26 @@ fn kafka_loading_tables_keep_stable_geometry(cx: &mut TestAppContext) {
     assert_present(visual_cx, &["kafka-acl-list-panel", "kafka-acl-loading"]);
 
     kafka_entity.update(visual_cx, |view, cx| {
-        view.section = KafkaSection::Config;
+        view.section = KafkaSection::Connect;
         view.loading_acls = false;
+        view.loading_connectors = true;
+        view.connectors_loaded = false;
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+    assert_present(
+        visual_cx,
+        &[
+            "kafka-connect-list-panel",
+            "kafka-connect-table",
+            "kafka-connect-list-content",
+            "kafka-connect-v-scrollbar",
+        ],
+    );
+
+    kafka_entity.update(visual_cx, |view, cx| {
+        view.section = KafkaSection::Config;
+        view.loading_connectors = false;
         view.loading_configs = true;
         cx.notify();
     });

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::super::connection::TlsVerify;
+use super::kafka_connect::KafkaConnectConfig;
 use super::kafka_schema_registry::KafkaSchemaRegistryConfig;
 use super::kafka_validation::{
     validate_optional_path, validate_optional_protocol_text, validate_optional_single_line,
@@ -216,6 +217,8 @@ pub struct KafkaClusterConfig {
     pub broker_metrics: KafkaBrokerMetricsConfig,
     #[serde(default)]
     pub schema_registry: KafkaSchemaRegistryConfig,
+    #[serde(default)]
+    pub connect: KafkaConnectConfig,
 }
 
 impl fmt::Debug for KafkaClusterConfig {
@@ -241,6 +244,7 @@ impl fmt::Debug for KafkaClusterConfig {
             .field("read_only", &self.read_only)
             .field("broker_metrics", &self.broker_metrics)
             .field("schema_registry", &self.schema_registry)
+            .field("connect", &self.connect)
             .finish()
     }
 }
@@ -262,6 +266,7 @@ impl KafkaClusterConfig {
             read_only: KafkaReadOnlyState::default(),
             broker_metrics: KafkaBrokerMetricsConfig::default(),
             schema_registry: KafkaSchemaRegistryConfig::default(),
+            connect: KafkaConnectConfig::default(),
         }
     }
 
@@ -303,6 +308,7 @@ impl KafkaClusterConfig {
         self.tls.validate()?;
         self.broker_metrics.validate()?;
         self.schema_registry.validate()?;
+        self.connect.validate()?;
 
         if self.security_protocol.uses_sasl() {
             if self.sasl_mechanism.is_none() {

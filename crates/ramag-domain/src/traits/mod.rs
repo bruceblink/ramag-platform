@@ -21,8 +21,9 @@ pub use driver::{CancelHandle, Driver};
 pub use git_driver::GitDriver;
 pub use jumpserver_driver::JumpServerDriver;
 pub use kafka_driver::{
-    KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaDriver, KafkaMessageTailSink,
-    KafkaMessageTailSinkResult, KafkaMonitoringDriver, KafkaSchemaRegistryDriver,
+    KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaConnectDriver, KafkaDriver,
+    KafkaMessageTailSink, KafkaMessageTailSinkResult, KafkaMonitoringDriver,
+    KafkaSchemaRegistryDriver,
 };
 pub use kafka_transport::KafkaTransport;
 pub use kv_driver::KvDriver;

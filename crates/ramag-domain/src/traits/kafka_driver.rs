@@ -5,10 +5,11 @@ use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::entities::{
     KafkaAcl, KafkaAclFilter, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterMetadata,
-    KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup,
-    KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMessageTailEvent,
-    KafkaMessageTailRequest, KafkaMetricsSnapshot, KafkaSchemaRegistrySubject, KafkaTopic,
-    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
+    KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConnectConnector,
+    KafkaConsumerGroup, KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery,
+    KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMetricsSnapshot,
+    KafkaSchemaRegistrySubject, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaTransportCapabilities,
 };
 use crate::error::Result;
 
@@ -41,6 +42,28 @@ pub trait KafkaSchemaRegistryDriver: Send + Sync {
         _cancelled: Arc<AtomicBool>,
     ) -> Result<Vec<KafkaSchemaRegistrySubject>> {
         self.list_subjects(config).await
+    }
+}
+
+/// Kafka Connect 只读端口；本阶段读取连接器和 Task 状态，不执行 REST 写操作。
+#[async_trait]
+pub trait KafkaConnectDriver: Send + Sync {
+    async fn list_connectors(
+        &self,
+        _config: &KafkaClusterConfig,
+    ) -> Result<Vec<KafkaConnectConnector>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "kafka_connectors".into(),
+        ))
+    }
+
+    /// 读取连接器状态并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn list_connectors_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<KafkaConnectConnector>> {
+        self.list_connectors(config).await
     }
 }
 

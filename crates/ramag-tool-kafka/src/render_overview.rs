@@ -72,6 +72,13 @@ impl KafkaView {
                             {
                                 this.load_schema_subjects(config, window, cx);
                             }
+                            if section == KafkaSection::Connect
+                                && !this.loading_runtime
+                                && !this.connectors_loaded
+                                && let Some(config) = this.selected_config()
+                            {
+                                this.load_connectors(config, window, cx);
+                            }
                             if section == KafkaSection::Acls
                                 && !this.loading_runtime
                                 && !this.acls_loaded
@@ -106,6 +113,7 @@ impl KafkaView {
             KafkaSection::SchemaRegistry => {
                 self.render_schema_registry(window, cx).into_any_element()
             }
+            KafkaSection::Connect => self.render_connect(window, cx).into_any_element(),
             KafkaSection::Acls => self.render_acls(window, cx).into_any_element(),
             KafkaSection::Config => self.render_config(window, cx).into_any_element(),
         };

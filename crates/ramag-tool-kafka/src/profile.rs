@@ -121,6 +121,7 @@ impl KafkaView {
     ) {
         self.invalidate_config_request();
         self.clear_schema_registry_snapshot();
+        self.clear_connect_snapshot();
         self.reset_acl_state(window, cx);
         self.read_only = config.read_only;
         set_value(&self.name, config.name.clone(), window, cx);
@@ -191,6 +192,30 @@ impl KafkaView {
             );
         });
         set_value(
+            &self.connect_endpoint,
+            config.connect.endpoint.clone().unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(
+            &self.connect_username,
+            config.connect.username.clone().unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(&self.connect_password, "", window, cx);
+        self.connect_password.update(cx, |state, cx| {
+            state.set_placeholder(
+                if config.connect.password.is_some() {
+                    "已保存密码，留空保持；输入新值可替换"
+                } else {
+                    "Kafka Connect 密码"
+                },
+                window,
+                cx,
+            );
+        });
+        set_value(
             &self.ca_cert_path,
             config.tls.ca_cert_path.clone().unwrap_or_default(),
             window,
@@ -238,6 +263,7 @@ impl KafkaView {
         self.invalidate_topic_operation();
         self.invalidate_config_request();
         self.clear_schema_registry_snapshot();
+        self.clear_connect_snapshot();
         self.reset_acl_state(window, cx);
         self.selected_cluster_id = None;
         self.selected_topic = None;
@@ -266,6 +292,9 @@ impl KafkaView {
             &self.schema_registry_endpoint,
             &self.schema_registry_username,
             &self.schema_registry_password,
+            &self.connect_endpoint,
+            &self.connect_username,
+            &self.connect_password,
             &self.ca_cert_path,
             &self.client_cert_path,
             &self.client_key_path,
@@ -288,6 +317,9 @@ impl KafkaView {
         self.schema_registry_password.update(cx, |state, cx| {
             state.set_placeholder("Schema Registry 密码", window, cx);
         });
+        self.connect_password.update(cx, |state, cx| {
+            state.set_placeholder("Kafka Connect 密码", window, cx);
+        });
         self.notice = None;
         cx.notify();
     }
@@ -306,6 +338,7 @@ impl KafkaView {
         self.invalidate_message_request();
         self.invalidate_consumer_group_request();
         self.clear_schema_registry_snapshot();
+        self.clear_connect_snapshot();
         self.clear_acl_snapshot();
         self.invalidate_acl_operation();
         self.selected_cluster_id = Some(id);
@@ -347,6 +380,14 @@ impl KafkaView {
             config.schema_registry.password = None;
         } else if let Some(password) = optional_value(&self.schema_registry_password, cx) {
             config.schema_registry.password = Some(password);
+        }
+        config.connect.endpoint = optional_value(&self.connect_endpoint, cx);
+        config.connect.username = optional_value(&self.connect_username, cx);
+        if config.connect.endpoint.is_none() {
+            config.connect.username = None;
+            config.connect.password = None;
+        } else if let Some(password) = optional_value(&self.connect_password, cx) {
+            config.connect.password = Some(password);
         }
         config.tls = KafkaTlsConfig {
             verify: config.tls.verify,
@@ -415,6 +456,7 @@ impl KafkaView {
                         }
                         this.selected_cluster_id = Some(id);
                         this.clear_schema_registry_snapshot();
+                        this.clear_connect_snapshot();
                         this.notice = Some((format!("已保存「{name}」，配置保存在本机",), false));
                     }
                     Err(error) => {
@@ -490,6 +532,7 @@ impl KafkaView {
         self.invalidate_message_request();
         self.invalidate_consumer_group_request();
         self.clear_schema_registry_snapshot();
+        self.clear_connect_snapshot();
         self.clear_acl_snapshot();
         self.invalidate_acl_operation();
         self.consumer_groups.clear();

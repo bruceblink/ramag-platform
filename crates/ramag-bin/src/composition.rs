@@ -142,13 +142,24 @@ pub(super) fn build_kafka_service(storage: Arc<dyn Storage>) -> Arc<KafkaService
             service
         }
     };
-    match SchemaRegistryHttpDriver::new() {
-        Ok(driver) => Arc::new(service.with_schema_registry_driver(Arc::new(driver))),
+    let service = match SchemaRegistryHttpDriver::new() {
+        Ok(driver) => service.with_schema_registry_driver(Arc::new(driver)),
         Err(error) => {
             warn!(
                 operation = "kafka_schema_registry_client_init",
                 error = %error,
                 "initialize Schema Registry HTTP client failed"
+            );
+            service
+        }
+    };
+    match KafkaConnectHttpDriver::new() {
+        Ok(connect_driver) => Arc::new(service.with_connect_driver(Arc::new(connect_driver))),
+        Err(error) => {
+            warn!(
+                operation = "kafka_connect_client_init",
+                error = %error,
+                "initialize Kafka Connect HTTP client failed"
             );
             Arc::new(service)
         }

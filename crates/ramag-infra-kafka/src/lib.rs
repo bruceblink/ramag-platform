@@ -3,6 +3,7 @@ mod admin;
 mod broker_metrics;
 #[cfg(feature = "cmake-build")]
 mod config;
+mod connect;
 #[cfg(feature = "cmake-build")]
 mod consumer_groups;
 #[cfg(feature = "cmake-build")]
@@ -14,6 +15,7 @@ mod metadata;
 mod metrics;
 mod schema_registry;
 pub use broker_metrics::PrometheusBrokerMetricsDriver;
+pub use connect::KafkaConnectHttpDriver;
 use ramag_domain::entities::KafkaMessageTailRequest;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{

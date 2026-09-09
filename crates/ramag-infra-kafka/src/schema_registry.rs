@@ -56,7 +56,7 @@ impl SchemaRegistryHttpDriver {
         ) {
             request = request.basic_auth(username, Some(password));
         }
-        let response = request.send().map_err(|error| request_error(error))?;
+        let response = request.send().map_err(request_error)?;
         if cancelled.load(std::sync::atomic::Ordering::Acquire) {
             return Err(cancelled_error());
         }
