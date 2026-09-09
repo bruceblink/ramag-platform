@@ -122,7 +122,32 @@ impl KafkaView {
         let query = value(&self.connect_search, cx);
         let visible_indices = matching_connectors(&self.connect_connectors, &query);
         let visible_count = visible_indices.len();
-        let list = if !configured {
+        let list = if self.loading_runtime {
+            h_flex()
+                .id("kafka-connect-table")
+                .debug_selector(|| "kafka-connect-table".into())
+                .size_full()
+                .items_stretch()
+                .child(
+                    v_flex()
+                        .id("kafka-connect-list-content")
+                        .debug_selector(|| "kafka-connect-list-content".into())
+                        .h_full()
+                        .flex_1()
+                        .min_h_0()
+                        .min_w_0()
+                        .child(loading_transition(
+                            skeleton_table(
+                                &theme,
+                                7,
+                                &[None, Some(86.0), Some(96.0), Some(180.0), None],
+                            ),
+                            "kafka-connect-loading-transition",
+                        )),
+                )
+                .child(connect_scrollbar(&self.connect_scroll, &theme))
+                .into_any_element()
+        } else if !configured {
             connector_empty_state(
                 "未配置 Kafka Connect",
                 "请在配置页填写 Kafka Connect 地址并保存",
@@ -144,7 +169,11 @@ impl KafkaView {
                         .min_h_0()
                         .min_w_0()
                         .child(loading_transition(
-                            skeleton_table(&theme, 7, &[Some(190.0), Some(84.0), Some(150.0)]),
+                            skeleton_table(
+                                &theme,
+                                7,
+                                &[None, Some(86.0), Some(96.0), Some(180.0), None],
+                            ),
                             "kafka-connect-loading-transition",
                         )),
                 )

@@ -215,27 +215,42 @@ impl KafkaView {
                 )
                 .into_any_element()
         };
-        let detail = selected_record
-            .map(|record| {
-                self.render_message_detail(record, compact, cx)
-                    .into_any_element()
-            })
-            .unwrap_or_else(|| {
-                v_flex()
-                    .when(compact, |view| view.w_full().flex_1().min_w_0())
-                    .when(!compact, |view| view.w(px(360.0)).flex_none())
-                    .min_h_0()
-                    .items_center()
-                    .justify_center()
-                    .px(px(20.0))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("选择一条消息查看完整预览"),
-                    )
-                    .into_any_element()
-            });
+        let detail = if self.loading_messages {
+            let skeleton = skeleton_detail_panel(&theme, 118.0, 210.0, 6, &[None, Some(128.0)]);
+            v_flex()
+                .id("kafka-message-detail-loading")
+                .debug_selector(|| "kafka-message-detail-loading".into())
+                .when(compact, |view| view.w_full().flex_1().min_w_0())
+                .when(!compact, |view| view.w(px(360.0)).flex_none())
+                .min_h_0()
+                .child(loading_transition(
+                    skeleton,
+                    "kafka-message-detail-loading-transition",
+                ))
+                .into_any_element()
+        } else {
+            selected_record
+                .map(|record| {
+                    self.render_message_detail(record, compact, cx)
+                        .into_any_element()
+                })
+                .unwrap_or_else(|| {
+                    v_flex()
+                        .when(compact, |view| view.w_full().flex_1().min_w_0())
+                        .when(!compact, |view| view.w(px(360.0)).flex_none())
+                        .min_h_0()
+                        .items_center()
+                        .justify_center()
+                        .px(px(20.0))
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child("选择一条消息查看完整预览"),
+                        )
+                        .into_any_element()
+                })
+        };
         let pagination = page.map(|page| {
             self.render_message_pagination(page.records.len(), current_page, page_count, cx)
         });

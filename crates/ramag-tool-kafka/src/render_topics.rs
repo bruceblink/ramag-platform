@@ -63,7 +63,7 @@ impl KafkaView {
                         .min_w_0()
                         .min_h_0()
                         .child(loading_transition(
-                            skeleton_table(&theme, 7, &[None, Some(110.0)]),
+                            skeleton_table(&theme, 7, &[None, Some(76.0), Some(28.0)]),
                             "kafka-topic-loading-transition",
                         )),
                 )
@@ -163,33 +163,55 @@ impl KafkaView {
                 .child(table)
                 .into_any_element()
         };
-        let detail = selected_topic
-            .map(|topic| {
-                self.render_topic_detail(topic, compact, compact_detail_height, window, cx)
-                    .into_any_element()
-            })
-            .unwrap_or_else(|| {
-                v_flex()
-                    .when(compact, |panel| {
-                        panel
-                            .w_full()
-                            .h(px(compact_detail_height))
-                            .flex_none()
-                            .min_w_0()
-                    })
-                    .when(!compact, |panel| panel.w(px(390.0)).flex_none())
-                    .min_h_0()
-                    .items_center()
-                    .justify_center()
-                    .px(px(22.0))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("选择 Topic 查看 Partition"),
-                    )
-                    .into_any_element()
-            });
+        let detail = if self.loading_runtime {
+            let skeleton =
+                skeleton_detail_panel(&theme, 104.0, 196.0, 5, &[None, Some(96.0), Some(76.0)]);
+            v_flex()
+                .id("kafka-topic-detail-loading")
+                .debug_selector(|| "kafka-topic-detail-loading".into())
+                .when(compact, |panel| {
+                    panel
+                        .w_full()
+                        .h(px(compact_detail_height))
+                        .flex_none()
+                        .min_w_0()
+                })
+                .when(!compact, |panel| panel.w(px(390.0)).flex_none())
+                .min_h_0()
+                .child(loading_transition(
+                    skeleton,
+                    "kafka-topic-detail-loading-transition",
+                ))
+                .into_any_element()
+        } else {
+            selected_topic
+                .map(|topic| {
+                    self.render_topic_detail(topic, compact, compact_detail_height, window, cx)
+                        .into_any_element()
+                })
+                .unwrap_or_else(|| {
+                    v_flex()
+                        .when(compact, |panel| {
+                            panel
+                                .w_full()
+                                .h(px(compact_detail_height))
+                                .flex_none()
+                                .min_w_0()
+                        })
+                        .when(!compact, |panel| panel.w(px(390.0)).flex_none())
+                        .min_h_0()
+                        .items_center()
+                        .justify_center()
+                        .px(px(22.0))
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child("选择 Topic 查看 Partition"),
+                        )
+                        .into_any_element()
+                })
+        };
         v_flex()
             .id("kafka-topics")
             .debug_selector(|| "kafka-topics".into())

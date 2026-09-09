@@ -120,7 +120,7 @@ impl KafkaView {
                 .iter()
                 .find(|group| &group.group_id == group_id)
         });
-        let list_body = if self.loading_consumer_groups {
+        let list_body = if self.loading_runtime || self.loading_consumer_groups {
             v_flex()
                 .id("kafka-consumer-group-loading")
                 .debug_selector(|| "kafka-consumer-group-loading".into())
@@ -128,7 +128,7 @@ impl KafkaView {
                 .flex_1()
                 .min_h_0()
                 .child(loading_transition(
-                    skeleton_table(&theme, 6, &[None, Some(88.0), Some(28.0)]),
+                    skeleton_table(&theme, 6, &[Some(8.0), None, Some(88.0), Some(28.0)]),
                     "kafka-consumer-group-loading-transition",
                 ))
                 .child(
@@ -230,7 +230,7 @@ impl KafkaView {
                 .into_any_element()
         };
         let list_height = (f32::from(window.viewport_size().height) - 360.0).clamp(150.0, 230.0);
-        let group_summary = if self.loading_consumer_groups {
+        let group_summary = if self.loading_runtime || self.loading_consumer_groups {
             "正在读取消费者组…".into()
         } else {
             format!("{} 个组", self.consumer_groups.len())
@@ -276,30 +276,50 @@ impl KafkaView {
                     ),
             )
             .child(list_body);
-        let detail = selected_group
-            .map(|group| {
-                self.render_consumer_group_detail(group, cx)
-                    .into_any_element()
-            })
-            .unwrap_or_else(|| {
-                v_flex()
-                    .id("kafka-consumer-group-detail-empty")
-                    .debug_selector(|| "kafka-consumer-group-detail-empty".into())
-                    .flex_1()
-                    .min_w_0()
-                    .min_h_0()
-                    .items_center()
-                    .justify_center()
-                    .gap(px(8.0))
-                    .child(Icon::new(IconName::Network).text_color(theme.muted_foreground))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("选择消费者组查看成员、分配和 Offset"),
-                    )
-                    .into_any_element()
-            });
+        let detail = if self.loading_runtime || self.loading_consumer_groups {
+            v_flex()
+                .id("kafka-consumer-group-detail-loading")
+                .debug_selector(|| "kafka-consumer-group-detail-loading".into())
+                .flex_1()
+                .min_w_0()
+                .min_h_0()
+                .child(loading_transition(
+                    skeleton_detail_panel(
+                        &theme,
+                        138.0,
+                        236.0,
+                        6,
+                        &[None, Some(96.0), Some(96.0), Some(88.0)],
+                    ),
+                    "kafka-consumer-group-detail-loading-transition",
+                ))
+                .into_any_element()
+        } else {
+            selected_group
+                .map(|group| {
+                    self.render_consumer_group_detail(group, cx)
+                        .into_any_element()
+                })
+                .unwrap_or_else(|| {
+                    v_flex()
+                        .id("kafka-consumer-group-detail-empty")
+                        .debug_selector(|| "kafka-consumer-group-detail-empty".into())
+                        .flex_1()
+                        .min_w_0()
+                        .min_h_0()
+                        .items_center()
+                        .justify_center()
+                        .gap(px(8.0))
+                        .child(Icon::new(IconName::Network).text_color(theme.muted_foreground))
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child("选择消费者组查看成员、分配和 Offset"),
+                        )
+                        .into_any_element()
+                })
+        };
         v_flex()
             .id("kafka-consumer-groups")
             .debug_selector(|| "kafka-consumer-groups".into())

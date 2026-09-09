@@ -46,9 +46,9 @@ pub(super) fn render_broker_runtime_metrics(
         };
     let body = if view.metrics_loading && brokers.is_none() {
         let columns = if compact {
-            vec![Some(78.0), None, Some(68.0)]
+            vec![Some(78.0), None, Some(68.0), Some(68.0)]
         } else {
-            vec![Some(112.0), None, Some(96.0), Some(118.0)]
+            vec![None, Some(112.0), Some(112.0), Some(112.0), Some(112.0)]
         };
         v_flex()
             .id("kafka-broker-metrics-loading")

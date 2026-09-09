@@ -259,11 +259,11 @@ impl KafkaView {
                     ),
             );
 
-        let list_body = if self.loading_acls {
+        let list_body = if self.loading_runtime || self.loading_acls {
             let skeleton_columns = if compact {
-                vec![None, Some(78.0), Some(70.0)]
+                vec![Some(8.0), None, Some(110.0)]
             } else {
-                vec![None, Some(120.0), Some(110.0), Some(92.0), Some(72.0)]
+                vec![Some(8.0), None, Some(110.0)]
             };
             v_flex()
                 .id("kafka-acl-loading")

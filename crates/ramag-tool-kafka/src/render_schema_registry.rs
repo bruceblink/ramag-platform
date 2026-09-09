@@ -121,7 +121,41 @@ impl KafkaView {
         let query = value(&self.schema_subject_search, cx).to_lowercase();
         let visible_indices = matching_schema_subject_indices(&self.schema_subjects, &query);
         let visible_count = visible_indices.len();
-        let list = if !configured {
+        let list = if self.loading_runtime {
+            h_flex()
+                .id("kafka-schema-subject-table")
+                .debug_selector(|| "kafka-schema-subject-table".into())
+                .size_full()
+                .items_stretch()
+                .child(
+                    v_flex()
+                        .id("kafka-schema-subject-list-content")
+                        .debug_selector(|| "kafka-schema-subject-list-content".into())
+                        .h_full()
+                        .flex_1()
+                        .min_h_0()
+                        .min_w_0()
+                        .child(loading_transition(
+                            skeleton_table(&theme, 7, &[None]),
+                            "kafka-schema-subject-loading-transition",
+                        )),
+                )
+                .child(
+                    div()
+                        .id("kafka-schema-subject-v-scrollbar")
+                        .debug_selector(|| "kafka-schema-subject-v-scrollbar".into())
+                        .h_full()
+                        .w(px(KAFKA_SCHEMA_SUBJECT_SCROLLBAR_WIDTH))
+                        .flex_none()
+                        .bg(theme.scrollbar)
+                        .child(
+                            Scrollbar::vertical(&self.schema_subject_scroll)
+                                .id("kafka-schema-subject-v-scrollbar-control")
+                                .scrollbar_show(ScrollbarShow::Always),
+                        ),
+                )
+                .into_any_element()
+        } else if !configured {
             empty_state(
                 "未配置 Schema Registry",
                 "请在配置页填写 Schema Registry 地址并保存",
@@ -143,7 +177,7 @@ impl KafkaView {
                         .min_h_0()
                         .min_w_0()
                         .child(loading_transition(
-                            skeleton_table(&theme, 7, &[None, Some(132.0)]),
+                            skeleton_table(&theme, 7, &[None]),
                             "kafka-schema-subject-loading-transition",
                         )),
                 )
