@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use gpui::{
     AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent, EventEmitter,
-    IntoElement, MouseButton, ParentElement, Render, SharedString, Styled, Subscription, Window,
-    div, hsla, prelude::*, px,
+    IntoElement, MouseButton, ParentElement, Render, ScrollHandle, SharedString, Styled,
+    Subscription, Window, div, hsla, prelude::*, px,
 };
 use gpui_component::{
     ActiveTheme,
@@ -43,6 +43,7 @@ const TOOL_GRID_WIDTH: f32 = TOOL_CARD_WIDTH * 3.0 + TOOL_CARD_GAP * 2.0;
 
 pub struct HomeView {
     registry: Arc<ToolRegistry>,
+    scroll: ScrollHandle,
     last_rendered_slots: Vec<Option<String>>,
     _tool_layout_subscription: Subscription,
     _tool_drag_subscription: Subscription,
@@ -63,6 +64,7 @@ impl HomeView {
             .collect();
         Self {
             registry,
+            scroll: ScrollHandle::new(),
             last_rendered_slots,
             _tool_layout_subscription: tool_layout_subscription,
             _tool_drag_subscription: tool_drag_subscription,
@@ -91,6 +93,9 @@ impl Render for HomeView {
         let border = theme.border;
         let fg = theme.foreground;
         let card_bg = theme.secondary;
+        let window_width = f32::from(window.bounds().size.width);
+        let compact = home_content_padding(window_width) < 32.0;
+        let card_width = home_card_width(window_width);
 
         let mut accent_border = accent;
         accent_border.a = 0.55;
@@ -107,10 +112,10 @@ impl Render for HomeView {
         let previous_slots =
             std::mem::replace(&mut self.last_rendered_slots, display_slots.clone());
         let layout_revision = cx.read_global::<ToolLayoutGlobal, _>(|state, _| state.revision);
-        let columns = grid_columns(f32::from(window.bounds().size.width));
+        let columns = grid_columns(window_width);
         let item_count = current_order.len();
         let home_layout = HomeDropLayout {
-            width: TOOL_CARD_WIDTH,
+            width: card_width,
             height: TOOL_CARD_HEIGHT,
             item_count,
             columns,
@@ -134,6 +139,7 @@ impl Render for HomeView {
                 continue;
             };
             let card_id = SharedString::from(format!("home-tool-{id}"));
+            let debug_card_id = card_id.clone();
             let id_for_click = id.clone();
             let name = tool.meta().name.clone();
             let description = tool.meta().description.clone();
@@ -156,7 +162,8 @@ impl Render for HomeView {
 
             let mut card = v_flex()
                 .id(card_id)
-                .w(px(TOOL_CARD_WIDTH))
+                .debug_selector(move || debug_card_id.to_string())
+                .w(px(card_width))
                 .h(px(TOOL_CARD_HEIGHT))
                 .p(px(20.0))
                 .gap(px(10.0))
@@ -209,8 +216,13 @@ impl Render for HomeView {
             if is_dragged {
                 card = card.opacity(DRAGGED_ITEM_OPACITY);
             }
-            let (from_x, from_y) =
-                reorder_animation_offset(&previous_slots, &display_slots, id, columns);
+            let (from_x, from_y) = reorder_animation_offset_for_width(
+                &previous_slots,
+                &display_slots,
+                id,
+                columns,
+                card_width,
+            );
             let card = if from_x == px(0.0) && from_y == px(0.0) {
                 card.into_any_element()
             } else {
@@ -232,6 +244,7 @@ impl Render for HomeView {
 
         let mut tool_grid = div()
             .id("home-tool-grid")
+            .debug_selector(|| "home-tool-grid".into())
             .w_full()
             .max_w(px(TOOL_GRID_WIDTH))
             .flex()
@@ -307,19 +320,22 @@ impl Render for HomeView {
         }
 
         v_flex()
+            .id("home-view")
+            .debug_selector(|| "home-view".into())
             .size_full()
             .bg(bg)
+            .overflow_y_scroll()
+            .track_scroll(&self.scroll)
             .items_center()
-            .justify_center()
             .on_mouse_up(MouseButton::Left, |_, _, cx| clear_tool_drag(cx))
             .child(
                 v_flex()
                     .w_full()
                     .max_w(px(960.0))
-                    .p(px(32.0))
-                    .gap(px(36.0))
+                    .p(px(home_content_padding(window_width)))
+                    .gap(px(if compact { 24.0 } else { 36.0 }))
                     .items_center()
-                    .child(render_logo(mono, accent))
+                    .child(render_logo(mono, accent, compact))
                     .child(tool_grid),
             )
     }
@@ -327,18 +343,38 @@ impl Render for HomeView {
 
 /// 根据窗口宽度计算首页网格列数，动画偏移必须与实际换行规则一致。
 fn grid_columns(window_width: f32) -> usize {
-    let content_width = (window_width - 48.0 - 64.0).min(960.0 - 64.0);
+    let content_width = home_content_width(window_width);
     ((content_width.max(TOOL_CARD_WIDTH) + TOOL_CARD_GAP) / (TOOL_CARD_WIDTH + TOOL_CARD_GAP))
         .floor()
         .clamp(1.0, 3.0) as usize
 }
 
-/// 计算卡片从旧网格槽位移动到新槽位时的相对起点。
-fn reorder_animation_offset(
+/// Return the main-pane width available to the home grid after the activity bar and padding.
+fn home_content_width(window_width: f32) -> f32 {
+    (window_width - 48.0 - home_content_padding(window_width) * 2.0).max(0.0)
+}
+
+/// Use smaller edge padding on compact windows so one card still has usable width.
+fn home_content_padding(window_width: f32) -> f32 {
+    if window_width < 640.0 { 16.0 } else { 32.0 }
+}
+
+/// Shrink the single-column card only when the main pane cannot fit its desktop width.
+fn home_card_width(window_width: f32) -> f32 {
+    if grid_columns(window_width) == 1 {
+        home_content_width(window_width).min(TOOL_CARD_WIDTH)
+    } else {
+        TOOL_CARD_WIDTH
+    }
+}
+
+/// Calculate the animation start using the card width currently rendered by the grid.
+fn reorder_animation_offset_for_width(
     previous_slots: &[Option<String>],
     current_slots: &[Option<String>],
     id: &str,
     columns: usize,
+    card_width: f32,
 ) -> (gpui::Pixels, gpui::Pixels) {
     let Some(previous_index) = previous_slots
         .iter()
@@ -361,12 +397,24 @@ fn reorder_animation_offset(
     let current_column = current_index % columns;
     let current_row = current_index / columns;
     (
-        px((previous_column as f32 - current_column as f32) * (TOOL_CARD_WIDTH + TOOL_CARD_GAP)),
+        px((previous_column as f32 - current_column as f32) * (card_width + TOOL_CARD_GAP)),
         px((previous_row as f32 - current_row as f32) * (TOOL_CARD_HEIGHT + TOOL_CARD_GAP)),
     )
 }
 
-fn render_logo(mono: SharedString, accent: gpui::Hsla) -> impl IntoElement {
+fn render_logo(mono: SharedString, accent: gpui::Hsla, compact: bool) -> impl IntoElement {
+    if compact {
+        return v_flex()
+            .id("home-logo")
+            .debug_selector(|| "home-logo".into())
+            .items_center()
+            .font_family(mono)
+            .text_size(px(16.0))
+            .font_weight(gpui::FontWeight::BOLD)
+            .child("RAMAG")
+            .into_any_element();
+    }
+
     let mut lines = Vec::with_capacity(RAMAG_LOGO.len());
     for (i, line) in RAMAG_LOGO.iter().enumerate() {
         let alpha = 1.0 - (i as f32) * 0.06;
@@ -380,16 +428,23 @@ fn render_logo(mono: SharedString, accent: gpui::Hsla) -> impl IntoElement {
     }
 
     v_flex()
+        .id("home-logo")
+        .debug_selector(|| "home-logo".into())
         .items_center()
         .font_family(mono)
         .text_size(px(14.0))
         .font_weight(gpui::FontWeight::BOLD)
         .children(lines)
+        .into_any_element()
 }
 
 #[cfg(test)]
+#[path = "home_view_visual_tests.rs"]
+mod visual_tests;
+
+#[cfg(test)]
 mod tests {
-    use super::{grid_columns, reorder_animation_offset};
+    use super::{TOOL_CARD_WIDTH, grid_columns, reorder_animation_offset_for_width};
 
     #[test]
     fn grid_columns_follow_the_fixed_card_width() {
@@ -411,11 +466,13 @@ mod tests {
             Some("bottom".to_owned()),
         ];
 
-        let right_offset = reorder_animation_offset(&previous, &current, "right", 2);
+        let right_offset =
+            reorder_animation_offset_for_width(&previous, &current, "right", 2, TOOL_CARD_WIDTH);
         assert_eq!(f32::from(right_offset.0), 296.0);
         assert_eq!(f32::from(right_offset.1), 0.0);
 
-        let left_offset = reorder_animation_offset(&previous, &current, "left", 2);
+        let left_offset =
+            reorder_animation_offset_for_width(&previous, &current, "left", 2, TOOL_CARD_WIDTH);
         assert_eq!(f32::from(left_offset.0), -296.0);
         assert_eq!(f32::from(left_offset.1), 0.0);
     }
