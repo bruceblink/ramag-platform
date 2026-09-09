@@ -139,16 +139,28 @@ impl KafkaView {
             v_flex()
                 .id("kafka-consumer-group-loading")
                 .debug_selector(|| "kafka-consumer-group-loading".into())
+                .relative()
                 .flex_1()
-                .items_center()
-                .justify_center()
-                .gap(px(8.0))
-                .child(Spinner::new().small().color(theme.accent))
+                .min_h_0()
+                .child(loading_transition(
+                    skeleton_table(&theme, 6, &[None, Some(88.0), Some(28.0)]),
+                    "kafka-consumer-group-loading-transition",
+                ))
                 .child(
                     div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("正在读取消费者组…"),
+                        .id("kafka-consumer-group-v-scrollbar")
+                        .debug_selector(|| "kafka-consumer-group-v-scrollbar".into())
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .right_0()
+                        .w(px(16.0))
+                        .bg(theme.scrollbar)
+                        .child(
+                            Scrollbar::vertical(&self.consumer_group_scroll)
+                                .id("kafka-consumer-group-v-scrollbar-control")
+                                .scrollbar_show(ScrollbarShow::Always),
+                        ),
                 )
                 .into_any_element()
         } else if let Some(error) = &self.consumer_group_error {
@@ -233,6 +245,11 @@ impl KafkaView {
                 .into_any_element()
         };
         let list_height = (f32::from(window.viewport_size().height) - 360.0).clamp(150.0, 230.0);
+        let group_summary = if self.loading_consumer_groups {
+            "正在读取消费者组…".into()
+        } else {
+            format!("{} 个组", self.consumer_groups.len())
+        };
         let list_panel = v_flex()
             .id("kafka-consumer-group-list")
             .debug_selector(|| "kafka-consumer-group-list".into())
@@ -256,11 +273,7 @@ impl KafkaView {
                         h_flex()
                             .items_center()
                             .justify_between()
-                            .child(section_heading(
-                                "消费者组",
-                                format!("{} 个组", self.consumer_groups.len()),
-                                &theme,
-                            )),
+                            .child(section_heading("消费者组", group_summary, &theme)),
                     )
                     .child(
                         ramag_ui::cleanable_input(

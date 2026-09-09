@@ -4,6 +4,7 @@ use super::*;
 pub(super) fn render_broker_runtime_metrics(
     view: &KafkaView,
     theme: &gpui_component::Theme,
+    compact: bool,
 ) -> gpui::AnyElement {
     let (status_text, status_color, sample_info, brokers) =
         match view.broker_metrics_snapshot.as_ref() {
@@ -43,81 +44,98 @@ pub(super) fn render_broker_runtime_metrics(
                 )
             }
         };
-    let body = match brokers {
-        Some(brokers) if !brokers.is_empty() => {
-            let mut rows = v_flex()
-                .id("kafka-broker-metrics-brokers")
-                .debug_selector(|| "kafka-broker-metrics-brokers".into())
-                .w_full()
-                .border_1()
-                .border_color(theme.border)
-                .rounded(px(6.0));
-            for broker in brokers.iter().take(100) {
-                rows = rows.child(
-                    h_flex()
-                        .w_full()
-                        .min_w_0()
-                        .flex_wrap()
-                        .items_center()
-                        .gap(px(8.0))
-                        .px(px(10.0))
-                        .py(px(7.0))
-                        .border_b_1()
-                        .border_color(theme.border)
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .text_xs()
-                                .child(format!("Broker {}", broker.broker_id)),
-                        )
-                        .child(runtime_metric_cell(
-                            "CPU",
-                            format_percent(broker.cpu_usage_percent),
-                            theme,
-                        ))
-                        .child(runtime_metric_cell(
-                            "内存",
-                            format_bytes(broker.memory_used_bytes),
-                            theme,
-                        ))
-                        .child(runtime_metric_cell(
-                            "磁盘",
-                            format_bytes(broker.disk_used_bytes),
-                            theme,
-                        ))
-                        .child(runtime_metric_cell(
-                            "请求延迟",
-                            format_millis(broker.request_latency_ms),
-                            theme,
-                        )),
-                );
-            }
-            if brokers.len() > 100 {
-                rows = rows.child(
-                    div()
-                        .px(px(10.0))
-                        .py(px(7.0))
-                        .text_xs()
-                        .text_color(theme.warning)
-                        .child(format!(
-                            "Broker 运行指标数量过多，仅展示前 100 个；完整快照仍保留 {} 个",
-                            brokers.len()
-                        )),
-                );
-            }
-            rows.into_any_element()
-        }
-        _ => v_flex()
-            .id("kafka-broker-metrics-empty")
-            .debug_selector(|| "kafka-broker-metrics-empty".into())
+    let body = if view.metrics_loading && brokers.is_none() {
+        let columns = if compact {
+            vec![Some(78.0), None, Some(68.0)]
+        } else {
+            vec![Some(112.0), None, Some(96.0), Some(118.0)]
+        };
+        v_flex()
+            .id("kafka-broker-metrics-loading")
+            .debug_selector(|| "kafka-broker-metrics-loading".into())
             .w_full()
-            .items_center()
-            .py(px(14.0))
-            .text_xs()
-            .text_color(theme.muted_foreground)
-            .child("当前没有可展示的外部 Broker 运行指标")
-            .into_any_element(),
+            .child(loading_transition(
+                skeleton_table(theme, 4, &columns),
+                "kafka-broker-metrics-loading-transition",
+            ))
+            .into_any_element()
+    } else {
+        match brokers {
+            Some(brokers) if !brokers.is_empty() => {
+                let mut rows = v_flex()
+                    .id("kafka-broker-metrics-brokers")
+                    .debug_selector(|| "kafka-broker-metrics-brokers".into())
+                    .w_full()
+                    .border_1()
+                    .border_color(theme.border)
+                    .rounded(px(6.0));
+                for broker in brokers.iter().take(100) {
+                    rows = rows.child(
+                        h_flex()
+                            .w_full()
+                            .min_w_0()
+                            .flex_wrap()
+                            .items_center()
+                            .gap(px(8.0))
+                            .px(px(10.0))
+                            .py(px(7.0))
+                            .border_b_1()
+                            .border_color(theme.border)
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .text_xs()
+                                    .child(format!("Broker {}", broker.broker_id)),
+                            )
+                            .child(runtime_metric_cell(
+                                "CPU",
+                                format_percent(broker.cpu_usage_percent),
+                                theme,
+                            ))
+                            .child(runtime_metric_cell(
+                                "内存",
+                                format_bytes(broker.memory_used_bytes),
+                                theme,
+                            ))
+                            .child(runtime_metric_cell(
+                                "磁盘",
+                                format_bytes(broker.disk_used_bytes),
+                                theme,
+                            ))
+                            .child(runtime_metric_cell(
+                                "请求延迟",
+                                format_millis(broker.request_latency_ms),
+                                theme,
+                            )),
+                    );
+                }
+                if brokers.len() > 100 {
+                    rows = rows.child(
+                        div()
+                            .px(px(10.0))
+                            .py(px(7.0))
+                            .text_xs()
+                            .text_color(theme.warning)
+                            .child(format!(
+                                "Broker 运行指标数量过多，仅展示前 100 个；完整快照仍保留 {} 个",
+                                brokers.len()
+                            )),
+                    );
+                }
+                rows.into_any_element()
+            }
+            _ => v_flex()
+                .id("kafka-broker-metrics-empty")
+                .debug_selector(|| "kafka-broker-metrics-empty".into())
+                .w_full()
+                .items_center()
+                .py(px(14.0))
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("当前没有可展示的外部 Broker 运行指标")
+                .into_any_element(),
+        }
     };
 
     v_flex()

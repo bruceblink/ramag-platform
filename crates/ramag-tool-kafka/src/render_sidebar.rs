@@ -28,14 +28,19 @@ impl KafkaView {
         let visible_indices = matching_cluster_indices(&self.clusters, &query);
         let rows = if self.loading_clusters {
             v_flex()
+                .id("kafka-cluster-loading")
+                .debug_selector(|| "kafka-cluster-loading".into())
                 .flex_1()
-                .items_center()
-                .justify_center()
+                .min_h_0()
+                .child(loading_transition(
+                    skeleton_table(&theme, if compact { 2 } else { 4 }, &[Some(8.0), None]),
+                    "kafka-cluster-loading-transition",
+                ))
                 .child(
                     div()
                         .text_xs()
                         .text_color(theme.muted_foreground)
-                        .child("加载配置…"),
+                        .child("正在加载本地配置…"),
                 )
                 .into_any_element()
         } else if self.clusters.is_empty() {
@@ -194,12 +199,13 @@ impl KafkaView {
                     .py(px(12.0))
                     .border_t_1()
                     .border_color(theme.border)
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("{} 个本地配置", self.clusters.len())),
-                    ),
+                    .child(div().text_xs().text_color(theme.muted_foreground).child(
+                        if self.loading_clusters {
+                            "正在加载本地配置…".to_owned()
+                        } else {
+                            format!("{} 个本地配置", self.clusters.len())
+                        },
+                    )),
             )
     }
 

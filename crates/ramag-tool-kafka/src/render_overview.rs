@@ -206,19 +206,7 @@ impl KafkaView {
             .map(|topic| topic.partitions.len())
             .sum::<usize>();
         let content = if self.loading_runtime {
-            v_flex()
-                .id("kafka-overview-scroll")
-                .debug_selector(|| "kafka-overview-scroll".into())
-                .flex_1()
-                .items_center()
-                .justify_center()
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(theme.muted_foreground)
-                        .child("正在读取 Kafka 元数据…"),
-                )
-                .into_any_element()
+            self.render_overview_loading(&theme, compact, narrow)
         } else {
             match metadata {
                 None => v_flex()
@@ -408,6 +396,198 @@ impl KafkaView {
             .child(content)
             .id("kafka-overview")
             .debug_selector(|| "kafka-overview".into())
+    }
+
+    /// 加载期间保留概览页的滚动容器、列结构和固定行高，避免空快照先触发布局塌缩。
+    fn render_overview_loading(
+        &self,
+        theme: &gpui_component::Theme,
+        compact: bool,
+        narrow: bool,
+    ) -> gpui::AnyElement {
+        let metrics = h_flex()
+            .id("kafka-overview-loading-metrics")
+            .debug_selector(|| "kafka-overview-loading-metrics".into())
+            .w_full()
+            .min_w_0()
+            .flex_none()
+            .gap(px(12.0))
+            .when(narrow, |row| row.flex_col().items_stretch().gap(px(8.0)))
+            .child(skeleton_metric_card(theme))
+            .child(skeleton_metric_card(theme))
+            .child(skeleton_metric_card(theme));
+        let snapshot_cluster_columns = if narrow {
+            vec![Some(60.0), Some(64.0), Some(74.0), None]
+        } else {
+            vec![Some(84.0), Some(88.0), Some(104.0), None]
+        };
+        let snapshot_detail_columns = if narrow {
+            vec![Some(72.0), Some(80.0), Some(70.0), None]
+        } else {
+            vec![Some(112.0), Some(100.0), Some(96.0), None]
+        };
+        let broker_columns = if narrow {
+            vec![Some(78.0), None, Some(76.0)]
+        } else {
+            vec![Some(112.0), None, Some(96.0), Some(118.0)]
+        };
+
+        let snapshot = v_flex()
+            .id("kafka-overview-metrics-snapshot")
+            .debug_selector(|| "kafka-overview-metrics-snapshot".into())
+            .w_full()
+            .min_w_0()
+            .flex_none()
+            .gap(px(10.0))
+            .p(px(14.0))
+            .border_1()
+            .border_color(theme.border)
+            .rounded(px(6.0))
+            .child(
+                h_flex()
+                    .w_full()
+                    .min_w_0()
+                    .items_center()
+                    .gap(px(12.0))
+                    .when(compact, |row| row.flex_col().items_stretch())
+                    .child(
+                        skeleton_section_heading(theme, 132.0, 248.0)
+                            .flex_1()
+                            .min_w_0(),
+                    )
+                    .child(
+                        h_flex()
+                            .flex_none()
+                            .gap(px(8.0))
+                            .when(compact, |row| row.w_full())
+                            .child(skeleton_bar(theme, 96.0, 28.0))
+                            .child(skeleton_bar(theme, 72.0, 28.0)),
+                    ),
+            )
+            .child(
+                h_flex()
+                    .id("kafka-overview-loading-status")
+                    .debug_selector(|| "kafka-overview-loading-status".into())
+                    .w_full()
+                    .min_w_0()
+                    .items_center()
+                    .flex_wrap()
+                    .gap(px(8.0))
+                    .child(div().size(px(8.0)).rounded_full().bg(theme.warning))
+                    .child(skeleton_bar(theme, 168.0, 8.0))
+                    .child(div().flex_1().min_w_0())
+                    .child(skeleton_bar(theme, 240.0, 8.0)),
+            )
+            .child(skeleton_table(theme, 3, &snapshot_cluster_columns))
+            .child(skeleton_section_heading(theme, 116.0, 250.0))
+            .child(skeleton_table(theme, 2, &snapshot_detail_columns));
+
+        let broker_section = v_flex()
+            .id("kafka-overview-loading-broker")
+            .debug_selector(|| "kafka-overview-loading-broker".into())
+            .w_full()
+            .min_w_0()
+            .flex_none()
+            .gap(px(10.0))
+            .child(skeleton_section_heading(theme, 154.0, 286.0))
+            .child(
+                h_flex()
+                    .w_full()
+                    .min_w_0()
+                    .items_center()
+                    .gap(px(8.0))
+                    .child(div().size(px(8.0)).rounded_full().bg(theme.warning))
+                    .child(skeleton_bar(theme, 152.0, 8.0)),
+            )
+            .child(skeleton_table(theme, 5, &broker_columns));
+        let topic_section = v_flex()
+            .id("kafka-overview-loading-topic")
+            .debug_selector(|| "kafka-overview-loading-topic".into())
+            .w_full()
+            .min_w_0()
+            .flex_none()
+            .gap(px(10.0))
+            .child(skeleton_section_heading(theme, 96.0, 222.0))
+            .child(skeleton_table(theme, 5, &[None, Some(104.0)]));
+        let primary_sections = v_flex()
+            .id("kafka-overview-loading-primary")
+            .debug_selector(|| "kafka-overview-loading-primary".into())
+            .flex_1()
+            .min_w_0()
+            .gap(px(18.0))
+            .when(compact, |column| column.w_full().flex_initial())
+            .child(broker_section)
+            .child(topic_section);
+        let cluster_section = v_flex()
+            .id("kafka-overview-loading-cluster")
+            .debug_selector(|| "kafka-overview-loading-cluster".into())
+            .min_w_0()
+            .gap(px(10.0))
+            .when(compact, |panel| panel.w_full().flex_none())
+            .when(!compact, |panel| panel.w(px(320.0)).flex_none())
+            .child(skeleton_section_heading(theme, 94.0, 180.0))
+            .child(
+                v_flex()
+                    .w_full()
+                    .gap(px(8.0))
+                    .p(px(14.0))
+                    .border_1()
+                    .border_color(theme.border)
+                    .rounded(px(6.0))
+                    .child(skeleton_table(theme, 4, &[Some(92.0), None])),
+            );
+        let sections = h_flex()
+            .id("kafka-overview-loading-sections")
+            .debug_selector(|| "kafka-overview-loading-sections".into())
+            .w_full()
+            .min_w_0()
+            .flex_none()
+            .items_stretch()
+            .gap(px(18.0))
+            .when(compact, |row| row.flex_col().items_stretch())
+            .child(primary_sections)
+            .child(cluster_section);
+        let overview_content = v_flex()
+            .id("kafka-overview-scroll")
+            .debug_selector(|| "kafka-overview-scroll".into())
+            .flex_1()
+            .min_w_0()
+            .min_h_0()
+            .items_stretch()
+            .overflow_y_scroll()
+            .track_scroll(&self.overview_scroll)
+            .p(px(22.0))
+            .gap(px(18.0))
+            .child(metrics)
+            .child(snapshot)
+            .child(sections);
+        let overview_content =
+            loading_transition(overview_content, "kafka-overview-loading-transition");
+
+        h_flex()
+            .id("kafka-overview-scroll-viewport")
+            .debug_selector(|| "kafka-overview-scroll-viewport".into())
+            .flex_1()
+            .w_full()
+            .min_w_0()
+            .min_h_0()
+            .items_stretch()
+            .child(overview_content)
+            .child(
+                div()
+                    .id("kafka-overview-v-scrollbar")
+                    .debug_selector(|| "kafka-overview-v-scrollbar".into())
+                    .h_full()
+                    .w(px(16.0))
+                    .flex_none()
+                    .bg(theme.scrollbar)
+                    .child(
+                        Scrollbar::vertical(&self.overview_scroll)
+                            .id("kafka-overview-v-scrollbar-control")
+                            .scrollbar_show(ScrollbarShow::Always),
+                    ),
+            )
+            .into_any_element()
     }
 
     pub(super) fn render_broker_table(

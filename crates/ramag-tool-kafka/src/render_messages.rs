@@ -19,17 +19,80 @@ impl KafkaView {
                 .and_then(|index| page.records.get(index))
         });
         let rows = if self.loading_messages {
+            let table_content = v_flex()
+                .w_full()
+                .min_w(px(MESSAGE_TABLE_MIN_WIDTH))
+                .h_full()
+                .child(message_table_header(&theme))
+                .child(skeleton_table(
+                    &theme,
+                    8,
+                    &[
+                        Some(56.0),
+                        Some(90.0),
+                        Some(150.0),
+                        Some(100.0),
+                        None,
+                        Some(70.0),
+                    ],
+                ));
+            let table = div()
+                .id("kafka-message-table")
+                .debug_selector(|| "kafka-message-table".into())
+                .relative()
+                .flex_1()
+                .min_h_0()
+                .min_w_0()
+                .child(
+                    div()
+                        .id("kafka-message-h-scroll")
+                        .debug_selector(|| "kafka-message-h-scroll".into())
+                        .size_full()
+                        .overflow_x_scroll()
+                        .restrict_scroll_to_axis()
+                        .track_scroll(&self.message_horizontal_scroll)
+                        .child(loading_transition(
+                            table_content,
+                            "kafka-message-loading-transition",
+                        )),
+                )
+                .child(
+                    div()
+                        .id("kafka-message-v-scrollbar")
+                        .debug_selector(|| "kafka-message-v-scrollbar".into())
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .right_0()
+                        .w(px(16.0))
+                        .bg(theme.scrollbar)
+                        .child(
+                            Scrollbar::vertical(&self.message_scroll)
+                                .id("kafka-message-v-scrollbar-control")
+                                .scrollbar_show(ScrollbarShow::Always),
+                        ),
+                );
+            let horizontal_scrollbar = div()
+                .id("kafka-message-h-scrollbar")
+                .debug_selector(|| "kafka-message-h-scrollbar".into())
+                .flex_none()
+                .w_full()
+                .h(px(16.0))
+                .relative()
+                .bg(theme.scrollbar)
+                .child(
+                    Scrollbar::horizontal(&self.message_horizontal_scroll)
+                        .id("kafka-message-h-scrollbar-control")
+                        .scroll_size(gpui::size(px(MESSAGE_TABLE_MIN_WIDTH), px(16.0)))
+                        .scrollbar_show(ScrollbarShow::Always),
+                );
             v_flex()
                 .id("kafka-message-loading")
                 .debug_selector(|| "kafka-message-loading".into())
                 .flex_1()
-                .items_center()
-                .justify_center()
-                .gap(px(10.0))
-                .text_sm()
-                .text_color(theme.muted_foreground)
-                .child(Spinner::new().small().color(theme.accent))
-                .child("正在读取 Kafka 消息…")
+                .min_h_0()
+                .child(table)
+                .child(horizontal_scrollbar)
                 .into_any_element()
         } else if let Some(page) = page {
             if page.records.is_empty() {

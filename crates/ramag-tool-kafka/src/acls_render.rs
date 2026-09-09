@@ -19,6 +19,11 @@ impl KafkaView {
             || self.acl_operation
             || self.saving
             || self.deleting;
+        let acl_summary = if self.loading_acls {
+            "正在读取 ACL…".into()
+        } else {
+            format!("{} 条已加载规则", self.acls.len())
+        };
 
         let filter_text = h_flex()
             .w_full()
@@ -94,11 +99,7 @@ impl KafkaView {
                     .justify_between()
                     .gap(px(12.0))
                     .when(compact, |row| row.flex_col().items_stretch())
-                    .child(section_heading(
-                        "ACL 查询",
-                        format!("{} 条已加载规则", self.acls.len()),
-                        &theme,
-                    ))
+                    .child(section_heading("ACL 查询", acl_summary, &theme))
                     .child(
                         h_flex()
                             .when(compact, |row| row.w_full().justify_between())
@@ -259,14 +260,20 @@ impl KafkaView {
             );
 
         let list_body = if self.loading_acls {
+            let skeleton_columns = if compact {
+                vec![None, Some(78.0), Some(70.0)]
+            } else {
+                vec![None, Some(120.0), Some(110.0), Some(92.0), Some(72.0)]
+            };
             v_flex()
                 .id("kafka-acl-loading")
                 .debug_selector(|| "kafka-acl-loading".into())
                 .flex_1()
-                .items_center()
-                .justify_center()
-                .gap(px(8.0))
-                .child(Spinner::new().small().color(theme.accent))
+                .min_h_0()
+                .child(loading_transition(
+                    skeleton_table(&theme, 6, &skeleton_columns),
+                    "kafka-acl-loading-transition",
+                ))
                 .child(
                     div()
                         .text_xs()

@@ -27,7 +27,6 @@ use gpui_component::{
     h_flex,
     input::{Input, InputEvent, InputState},
     scroll::{Scrollbar, ScrollbarShow},
-    spinner::Spinner,
     v_flex,
 };
 use ramag_app::KafkaService;
@@ -350,6 +349,8 @@ impl Drop for KafkaView {
 
 mod helpers;
 use helpers::*;
+mod loading;
+use loading::*;
 mod acls;
 mod admin;
 mod messages;

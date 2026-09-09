@@ -49,16 +49,46 @@ impl KafkaView {
             || self.saving
             || self.deleting;
         let list = if self.loading_runtime {
-            v_flex()
-                .flex_1()
-                .items_center()
-                .justify_center()
+            let table = h_flex()
+                .id("kafka-topic-table")
+                .debug_selector(|| "kafka-topic-table".into())
+                .size_full()
+                .items_stretch()
+                .child(
+                    v_flex()
+                        .id("kafka-topic-list-content")
+                        .debug_selector(|| "kafka-topic-list-content".into())
+                        .h_full()
+                        .flex_1()
+                        .min_w_0()
+                        .min_h_0()
+                        .child(loading_transition(
+                            skeleton_table(&theme, 7, &[None, Some(110.0)]),
+                            "kafka-topic-loading-transition",
+                        )),
+                )
                 .child(
                     div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("正在读取 Topic…"),
-                )
+                        .id("kafka-topic-v-scrollbar")
+                        .debug_selector(|| "kafka-topic-v-scrollbar".into())
+                        .h_full()
+                        .w(px(KAFKA_TOPIC_SCROLLBAR_WIDTH))
+                        .flex_none()
+                        .bg(theme.scrollbar)
+                        .child(
+                            Scrollbar::vertical(&self.topic_scroll)
+                                .id("kafka-topic-v-scrollbar-control")
+                                .scrollbar_show(ScrollbarShow::Always),
+                        ),
+                );
+            div()
+                .id("kafka-topic-list-viewport")
+                .debug_selector(|| "kafka-topic-list-viewport".into())
+                .relative()
+                .h_full()
+                .flex_1()
+                .min_h_0()
+                .child(table)
                 .into_any_element()
         } else if visible_indices.is_empty() {
             v_flex()
@@ -121,7 +151,7 @@ impl KafkaView {
                         .child(
                             Scrollbar::vertical(&self.topic_scroll)
                                 .id("kafka-topic-v-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Scrolling),
+                                .scrollbar_show(ScrollbarShow::Always),
                         ),
                 );
             div()

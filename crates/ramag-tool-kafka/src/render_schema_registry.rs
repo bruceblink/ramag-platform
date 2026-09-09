@@ -129,7 +129,39 @@ impl KafkaView {
             )
             .into_any_element()
         } else if self.loading_schema_subjects {
-            empty_state("正在读取 Subject…", "请求完成后显示当前列表", &theme).into_any_element()
+            h_flex()
+                .id("kafka-schema-subject-table")
+                .debug_selector(|| "kafka-schema-subject-table".into())
+                .size_full()
+                .items_stretch()
+                .child(
+                    v_flex()
+                        .id("kafka-schema-subject-list-content")
+                        .debug_selector(|| "kafka-schema-subject-list-content".into())
+                        .h_full()
+                        .flex_1()
+                        .min_h_0()
+                        .min_w_0()
+                        .child(loading_transition(
+                            skeleton_table(&theme, 7, &[None, Some(132.0)]),
+                            "kafka-schema-subject-loading-transition",
+                        )),
+                )
+                .child(
+                    div()
+                        .id("kafka-schema-subject-v-scrollbar")
+                        .debug_selector(|| "kafka-schema-subject-v-scrollbar".into())
+                        .h_full()
+                        .w(px(KAFKA_SCHEMA_SUBJECT_SCROLLBAR_WIDTH))
+                        .flex_none()
+                        .bg(theme.scrollbar)
+                        .child(
+                            Scrollbar::vertical(&self.schema_subject_scroll)
+                                .id("kafka-schema-subject-v-scrollbar-control")
+                                .scrollbar_show(ScrollbarShow::Always),
+                        ),
+                )
+                .into_any_element()
         } else if let Some(error) = self.schema_subject_error.clone() {
             v_flex()
                 .flex_1()

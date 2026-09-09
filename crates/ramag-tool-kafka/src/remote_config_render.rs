@@ -158,13 +158,25 @@ impl KafkaView {
         };
 
         let list = if self.loading_configs {
+            let skeleton_columns = if compact {
+                vec![Some(120.0), None, Some(72.0)]
+            } else {
+                vec![Some(240.0), None, Some(130.0), Some(60.0), Some(150.0)]
+            };
             v_flex()
                 .id("kafka-config-loading")
                 .debug_selector(|| "kafka-config-loading".into())
+                .w_full()
+                .min_w_0()
                 .h(px(if compact { 180.0 } else { 240.0 }))
-                .items_center()
-                .justify_center()
-                .child(Spinner::new().small())
+                .border_1()
+                .border_color(theme.border)
+                .rounded(px(6.0))
+                .overflow_hidden()
+                .child(loading_transition(
+                    skeleton_table(&theme, if compact { 4 } else { 6 }, &skeleton_columns),
+                    "kafka-config-loading-transition",
+                ))
                 .into_any_element()
         } else if self.config_entries.is_empty() {
             v_flex()

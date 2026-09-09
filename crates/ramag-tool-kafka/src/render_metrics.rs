@@ -136,22 +136,26 @@ impl KafkaView {
                     .child(sample_info),
             );
 
-        let body = match self.metrics_snapshot.as_ref() {
-            Some(snapshot) => self.render_metrics_snapshot_body(snapshot, &theme),
-            None => v_flex()
-                .id("kafka-metrics-empty")
-                .debug_selector(|| "kafka-metrics-empty".into())
-                .w_full()
-                .items_center()
-                .py(px(18.0))
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child(if capabilities.metrics_snapshot {
-                    "选择集群后将显示 Broker、Partition、Lag 和速率快照"
-                } else {
-                    "当前 Transport 未实现协议指标快照"
-                })
-                .into_any_element(),
+        let body = if self.metrics_loading && self.metrics_snapshot.is_none() {
+            self.render_metrics_loading_body(&theme, compact)
+        } else {
+            match self.metrics_snapshot.as_ref() {
+                Some(snapshot) => self.render_metrics_snapshot_body(snapshot, &theme),
+                None => v_flex()
+                    .id("kafka-metrics-empty")
+                    .debug_selector(|| "kafka-metrics-empty".into())
+                    .w_full()
+                    .items_center()
+                    .py(px(18.0))
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child(if capabilities.metrics_snapshot {
+                        "选择集群后将显示 Broker、Partition、Lag 和速率快照"
+                    } else {
+                        "当前 Transport 未实现协议指标快照"
+                    })
+                    .into_any_element(),
+            }
         };
 
         v_flex()
@@ -195,8 +199,80 @@ impl KafkaView {
             )
             .child(status_row)
             .child(body)
-            .child(render_broker_runtime_metrics(self, &theme))
+            .child(render_broker_runtime_metrics(self, &theme, compact))
     }
+
+    /// 首次采集尚未返回快照时，先用与正式明细相同的区块结构占位。
+    fn render_metrics_loading_body(
+        &self,
+        theme: &gpui_component::Theme,
+        compact: bool,
+    ) -> gpui::AnyElement {
+        let topic_columns = if compact {
+            vec![None, Some(60.0), Some(64.0), Some(70.0)]
+        } else {
+            vec![None, Some(84.0), Some(84.0), Some(92.0)]
+        };
+        let partition_columns = if compact {
+            vec![None, Some(66.0), Some(64.0), Some(64.0)]
+        } else {
+            vec![None, Some(92.0), Some(82.0), Some(76.0)]
+        };
+        let group_columns = if compact {
+            vec![None, Some(62.0), Some(68.0), Some(68.0)]
+        } else {
+            vec![None, Some(76.0), Some(84.0), Some(84.0)]
+        };
+        let summary = h_flex()
+            .id("kafka-metrics-loading-summary")
+            .debug_selector(|| "kafka-metrics-loading-summary".into())
+            .w_full()
+            .min_w_0()
+            .flex_wrap()
+            .gap(px(8.0))
+            .when(compact, |row| row.flex_col().items_stretch())
+            .child(skeleton_metric_card(theme))
+            .child(skeleton_metric_card(theme))
+            .child(skeleton_metric_card(theme))
+            .child(skeleton_metric_card(theme));
+        let topics = v_flex()
+            .id("kafka-metrics-topics")
+            .debug_selector(|| "kafka-metrics-topics".into())
+            .w_full()
+            .border_1()
+            .border_color(theme.border)
+            .rounded(px(6.0))
+            .child(skeleton_table(theme, 4, &topic_columns));
+        let partitions = v_flex()
+            .id("kafka-metrics-partition-health")
+            .debug_selector(|| "kafka-metrics-partition-health".into())
+            .w_full()
+            .border_1()
+            .border_color(theme.border)
+            .rounded(px(6.0))
+            .child(skeleton_table(theme, 4, &partition_columns));
+        let groups = v_flex()
+            .id("kafka-metrics-consumer-groups")
+            .debug_selector(|| "kafka-metrics-consumer-groups".into())
+            .w_full()
+            .border_1()
+            .border_color(theme.border)
+            .rounded(px(6.0))
+            .child(skeleton_table(theme, 3, &group_columns));
+        let body = v_flex()
+            .w_full()
+            .min_w_0()
+            .gap(px(12.0))
+            .child(summary)
+            .child(skeleton_section_heading(theme, 96.0, 228.0))
+            .child(topics)
+            .child(skeleton_section_heading(theme, 116.0, 220.0))
+            .child(partitions)
+            .child(skeleton_section_heading(theme, 106.0, 222.0))
+            .child(groups);
+        loading_transition(body, "kafka-metrics-loading-transition")
+    }
+
     fn render_metrics_snapshot_body(
         &self,
         snapshot: &KafkaMetricsSnapshot,
