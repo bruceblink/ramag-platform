@@ -53,27 +53,24 @@ fn install_tls_crypto_provider() {
 
 /// Requests the real Kafka Connect REST API exposed by the dedicated fixture.
 #[test]
-fn docker_kafka_connect_lists_connectors() {
+fn docker_kafka_connect_lists_connectors() -> Result<(), Box<dyn std::error::Error>> {
     install_tls_crypto_provider();
     let Some(bootstrap) = docker_bootstrap() else {
-        return;
+        return Ok(());
     };
     let Some(endpoint) = docker_connect_endpoint() else {
-        return;
+        return Ok(());
     };
     let mut config = KafkaClusterConfig::new("ramag-docker-kafka", vec![bootstrap]);
     config.connect.endpoint = Some(endpoint);
-    let driver = KafkaConnectHttpDriver::new().expect("Kafka Connect HTTP driver");
+    let driver = KafkaConnectHttpDriver::new()?;
 
-    let result = smol::block_on(driver.list_connectors(&config));
+    let connectors = smol::block_on(driver.list_connectors(&config))?;
     assert!(
-        result.is_ok(),
-        "Docker Kafka Connect connector listing failed: {result:?}"
-    );
-    assert!(
-        result.expect("successful connector listing").is_empty(),
+        connectors.is_empty(),
         "the empty dedicated Connect fixture should not contain connectors"
     );
+    Ok(())
 }
 
 /// Connects to the broker started by the Docker test runner and requests metadata.
@@ -339,9 +336,9 @@ fn docker_kafka_lists_consumer_groups_and_offsets() {
 /// Commits a real group offset, resets it through the production Admin API,
 /// and reads the committed value back from the broker.
 #[test]
-fn docker_kafka_resets_consumer_group_offsets() {
+fn docker_kafka_resets_consumer_group_offsets() -> Result<(), Box<dyn std::error::Error>> {
     let Some(bootstrap) = docker_bootstrap() else {
-        return;
+        return Ok(());
     };
     let group_id = "ramag.integration.offset-reset";
     let config =
@@ -352,18 +349,13 @@ fn docker_kafka_resets_consumer_group_offsets() {
             .set("group.id", group_id)
             .set("enable.auto.commit", "false")
             .set("auto.offset.reset", "earliest")
-            .create()
-            .expect("Docker Kafka should create the offset reset consumer");
-        consumer
-            .subscribe(&[FIXTURE_TOPIC])
-            .expect("offset reset consumer should subscribe");
+            .create()?;
+        consumer.subscribe(&[FIXTURE_TOPIC])?;
         let deadline = Instant::now() + StdDuration::from_secs(15);
         let mut committed = false;
         while Instant::now() < deadline {
             if let Some(Ok(message)) = consumer.poll(StdDuration::from_millis(250)) {
-                consumer
-                    .commit_message(&message, CommitMode::Sync)
-                    .expect("offset reset consumer should commit an initial offset");
+                consumer.commit_message(&message, CommitMode::Sync)?;
                 committed = true;
                 break;
             }
@@ -384,19 +376,24 @@ fn docker_kafka_resets_consumer_group_offsets() {
         reset_result.is_ok(),
         "Docker Kafka should reset consumer group offsets: {reset_result:?}"
     );
-    if reset_result.is_err() {
-        return;
+    if let Err(error) = reset_result {
+        return Err(error.into());
     }
 
-    let groups = smol::block_on(driver.list_consumer_groups(&config))
-        .expect("reset group should be readable after the Admin API call");
+    let groups = smol::block_on(driver.list_consumer_groups(&config))?;
     let group = groups
         .into_iter()
         .find(|group| group.group_id == group_id)
-        .expect("reset group should remain visible after committing an offset");
+        .ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "reset group should remain visible after committing an offset",
+            )
+        })?;
     assert!(group.offsets.iter().any(|offset| {
         offset.topic == FIXTURE_TOPIC && offset.partition == 0 && offset.committed_offset == Some(0)
     }));
+    Ok(())
 }
 
 /// Executes the production Admin API against a unique Docker topic and verifies

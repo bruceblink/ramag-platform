@@ -206,11 +206,12 @@ mod tests {
     use ramag_domain::entities::KafkaSchemaRegistryConfig;
 
     #[test]
-    fn appends_subjects_to_a_bounded_http_endpoint() {
-        let url = subjects_url("http://127.0.0.1:8081/").expect("valid endpoint");
+    fn appends_subjects_to_a_bounded_http_endpoint() -> Result<()> {
+        let url = subjects_url("http://127.0.0.1:8081/")?;
         assert_eq!(url.as_str(), "http://127.0.0.1:8081/subjects");
-        let url = subjects_url("https://registry.example/api").expect("valid endpoint");
+        let url = subjects_url("https://registry.example/api")?;
         assert_eq!(url.as_str(), "https://registry.example/api/subjects");
+        Ok(())
     }
 
     #[test]

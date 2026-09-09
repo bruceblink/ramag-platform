@@ -306,21 +306,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn appends_connectors_and_expand_status_to_endpoint() {
-        let url = connectors_url("http://127.0.0.1:8083/").expect("valid endpoint");
+    fn appends_connectors_and_expand_status_to_endpoint() -> Result<()> {
+        let url = connectors_url("http://127.0.0.1:8083/")?;
         assert_eq!(
             url.as_str(),
             "http://127.0.0.1:8083/connectors?expand=status"
         );
-        let url = connectors_url("https://connect.example/api").expect("valid endpoint");
+        let url = connectors_url("https://connect.example/api")?;
         assert_eq!(
             url.as_str(),
             "https://connect.example/api/connectors?expand=status"
         );
+        Ok(())
     }
 
     #[test]
-    fn parses_expanded_connector_status_without_leaking_trace_shape() {
+    fn parses_expanded_connector_status_without_leaking_trace_shape() -> Result<()> {
         let body = br#"{
             "orders": {
                 "type": "sink",
@@ -328,11 +329,12 @@ mod tests {
                 "tasks": [{"id": 0, "state": "FAILED", "worker_id": "worker-1", "trace": "task\nerror"}]
             }
         }"#;
-        let connectors = parse_connectors(body).expect("valid status");
+        let connectors = parse_connectors(body)?;
         assert_eq!(connectors[0].name, "orders");
         assert_eq!(connectors[0].state, "FAILED");
         assert_eq!(connectors[0].error.as_deref(), Some("line 1 line 2"));
         assert_eq!(connectors[0].tasks[0].trace.as_deref(), Some("task error"));
+        Ok(())
     }
 
     #[test]
