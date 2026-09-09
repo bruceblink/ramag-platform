@@ -1,12 +1,12 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；明文 KRaft Docker 基础集成已复核，Docker exporter、真实 Broker 端点、真实 Windows 截图仍待补充
+> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 先完成单条消息生产设计，明文 KRaft Docker 基础集成已复核，Docker exporter、真实 Broker 端点、真实 Windows 截图仍待补充
 > 更新日期：2026-09-09
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
 > 当前基线：`dev`（阶段 18-24 的高规模列表与快照边界切片已同步，明文 KRaft Docker 基础集成已复核；写请求不主动取消，Docker exporter、真实 Broker 端点和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
-> 当前主线：继续在 `dev` 完成高规模工作区优化；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前主线：在 `dev` 完成阶段 25 单条消息生产工作流；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -21,6 +21,12 @@
 | 消费者组 | Consumer Group | Kafka 维护的消费成员和已提交 Offset 集合 | 不代表权限组或 UI 用户组 |
 | Kafka ACL | Kafka ACL | 由 Kafka Broker 执行的 Principal、Resource、Operation 和 Permission 规则 | 不代表 AKHQ 或 Ramag 的 UI 角色权限 |
 | 消息搜索 | Message Search | Ramag 在明确范围内读取消息并在客户端过滤 | 不代表 Kafka 原生提供的任意消息索引查询 |
+| 消息生产工作流 | Message Production Workflow | 从 UI 编辑、确认到 Kafka Broker 返回 Partition/Offset 的单条消息写入流程 | 不代表批量导入、重放或业务生产管道 |
+| 消息生产器 | Kafka Producer | 在基础设施层向指定 Topic 提交单条消息并等待 Broker 结果的客户端能力 | 不代表消费者、Consumer Group 或消息持久化服务 |
+| 生产请求 | Produce Request | 经过领域校验的 Topic、可选 Partition/Key、Value 和 Headers 输入 | 不代表已写入 Kafka 的消息 |
+| 生产结果 | Produce Result | Broker 确认后的 Topic、Partition、Offset 和 Timestamp | 不代表全局唯一消息 ID 或业务处理成功 |
+| 管理模式 | Read-Write Mode | `KafkaReadOnlyState::ReadWrite` 允许当前集群配置执行写请求的状态 | 不代表 Kafka ACL 已授予所有写权限 |
+| 发送确认 | Send Confirmation | UI 在真正调用消息生产器前展示目标和内容摘要并要求二次确认的步骤 | 不代表 Broker ACK 或事务提交 |
 | Kafka 工作台 | Kafka Workbench | 将集群运维、消息分析、消费者组和指标观察组织在同一桌面工作区中的产品边界 | 不代表复制 AKHQ 或 Offset Explorer 的全部页面 |
 | 实时消息流 | Live Message Tail | 使用独立读取客户端持续读取明确 Topic/Partition 范围并向 UI 推送有界消息流 | 不代表加入业务消费者组或永久保存消息 |
 | 指标快照 | Metrics Snapshot | 在时间点记录集群、Topic、Partition 或消费者组的可比较状态 | 不代表 Kafka Broker 的全部运行指标 |
@@ -66,7 +72,7 @@ AKHQ 将 Topic、Topic 数据、消费者组、Schema Registry 和 Kafka Connect
 7. 查看、创建和精确删除 Kafka ACL。
 8. 保存多个集群配置，支持常用 TLS 和 SASL 连接方式，并安全保存敏感字段。
 
-Broker CPU、内存、磁盘、JVM、请求延迟等运行指标不由 Kafka Admin API 伪造提供；需要时通过独立的 JMX、Prometheus 或 exporter 数据源接入。Schema Registry 已完成只读 Subject 浏览，但版本内容解析仍未实现；Kafka Connect、ksqlDB、消息生成器、批量导入和 Offset 重置保留为后续独立迭代，避免核心消息查看流程被外部服务或高风险操作耦合。
+Broker CPU、内存、磁盘、JVM、请求延迟等运行指标不由 Kafka Admin API 伪造提供；需要时通过独立的 JMX、Prometheus 或 exporter 数据源接入。Schema Registry 已完成只读 Subject 浏览，但版本内容解析仍未实现；Kafka Connect 和消费者组 Offset 重置已完成，批量导入、ksqlDB 以及消息生产器之外的高风险扩展继续单独排期，避免核心消息查看流程被外部服务或无界写入耦合。
 
 ## 2. 当前 Ramag 基线
 
@@ -151,9 +157,10 @@ flowchart LR
 
 - `KafkaDriver`：连接测试、集群元数据、Broker/Topic/Partition 查询、消息读取、有限范围搜索和消费者组只读查询。
 - `KafkaAdminDriver`：Topic 生命周期、Partition 扩容、Topic/Broker 动态配置和 Kafka ACL 查询/变更。
+- `KafkaProducerDriver`：单条消息生产请求和 Broker 生产结果；不承载批量导入、重放或事务编排。
 - `KafkaMonitoringDriver`：集群、Topic、Partition 和消费者组的指标快照，以及可选外部运行指标的读取。
 
-三个 trait 可以由同一个基础设施对象实现，但应用层和 UI 层按读取、管理和观测能力分开注入。管理接口必须返回结构化错误，至少区分认证失败、TLS 失败、超时、权限不足、配置不支持、资源不存在和请求被取消。指标接口必须区分“没有数据”“权限不足”“外部数据源未配置”和“采集失败”。
+四个 trait 可以由同一个基础设施对象实现，但应用层和 UI 层按读取、管理、生产和观测能力分开注入。管理和生产接口必须返回结构化错误，至少区分认证失败、TLS 失败、超时、权限不足、配置不支持、资源不存在和请求被取消。指标接口必须区分“没有数据”“权限不足”“外部数据源未配置”和“采集失败”。
 
 ### 3.2 `ramag-infra-kafka`
 
@@ -180,6 +187,14 @@ flowchart LR
 - Topic 消息速率使用连续 high watermark 样本计算近似值，并明确显示采样时间和估算性质。
 - Broker CPU、内存、磁盘、JVM 和请求延迟只从显式配置的 JMX、Prometheus 或 exporter 数据源读取。
 
+单条消息生产使用独立的 Kafka Producer：
+
+- `KafkaProducerDriver` 只接收一个已校验的 `KafkaMessageProduceRequest`，不接受批量数组或任意客户端属性。
+- 生产请求只允许非内部 Topic；Partition 可省略，省略时由 Kafka Broker 的分区器选择目标 Partition。
+- 当前 UI 将 Key 和 Value 作为 UTF-8 文本输入，领域模型仍保留原始字节和 Headers 字段，二进制编辑器与批量导入不在本阶段范围内。
+- 生产器使用 `request.required.acks=all` 和不超过 60 秒的消息/请求超时，返回 Broker 确认的 Partition、Offset 和 Timestamp。
+- 管理模式、请求校验和 UI 发送确认共同构成写入前条件；驱动层仍需再次校验配置和请求，不能依赖 UI 防护。
+
 ### 3.3 `ramag-app`
 
 新增 `KafkaService`，负责：
@@ -191,6 +206,7 @@ flowchart LR
 - 编排实时消息 Tail 的启动、暂停、恢复、取消和断线重连，防止旧事件写入已切换的集群或 Topic。
 - 将消息查询、Tail 和指标采集的状态分开，避免一个失败请求覆盖其他视图的成功数据。
 - 在管理操作前执行只读状态和输入校验。
+- 编排单条消息生产：校验管理模式和生产请求，调用 `KafkaProducerDriver`，校验 Broker 返回的生产结果，并记录 Topic、Partition、Offset 和耗时，不记录 Key、Value、Headers 或密码。
 - 记录操作名称、集群 ID、Topic、Partition、耗时和结果数量，但不记录密码、客户端密钥或消息正文。
 
 ### 3.4 本地存储
@@ -218,6 +234,9 @@ flowchart LR
 - 主区域：根据选中的对象显示详情、消息表或管理表单。
 - 集群概览使用状态摘要、Broker 健康、Topic/Partition 健康和 Consumer Group Lag 四个区域；每个指标显示采集时间和数据来源。
 - Topic 详情使用消息、实时 Tail、分区、指标和配置五个主视图。
+- 消息视图增加单条消息生产区域：Topic、可选 Partition、Key 和 Value 输入，显示 UTF-8 文本边界；只读模式禁用写入入口。
+- 点击发送先打开“发送确认”，展示集群、Topic、Partition 选择方式、Key 是否存在和 Value 的有限摘要；确认后才调用 `KafkaService`。
+- 生产成功显示 Broker 返回的 Partition、Offset 和 Timestamp；失败保留输入内容和可读错误，不能显示成功通知。
 - Consumer Group 详情使用成员、Partition 分配、Offset/Lag 和 Lag 趋势四个区域。
 - 管理操作使用统一确认弹窗，并显示目标集群、Topic、Partition 或 ACL 的变更前后内容。
 
@@ -331,6 +350,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 | 22 | `feat(kafka): complete workbench overview` | 概览页整合 Broker 健康、Topic/Partition 健康、Consumer Group Lag、实时数据时间和来源状态 | 360/900/1440 窗口 headless 布局、真实 Windows 截图、Docker 集成测试 |
 | 23 | `feat(kafka): add broker metrics adapter` | 已接入可选 Prometheus/OpenMetrics 文本端点；JMX 通过 exporter 间接接入；明确区分 Broker 运行指标和 Kafka 协议指标 | Domain/App/Infra/UI 测试和窄窗口布局已覆盖；exporter 容器、真实端点请求和真实 Windows 截图仍未完成 |
 | 24 | `fix(kafka): harden high-scale workbench` | 高 Topic/Partition/Consumer Group 数量下的分页、虚拟列表、快照大小、刷新合并和资源释放 | 规模化 Docker fixture、内存/耗时上限、取消和断线恢复测试 |
+| 25 | `feat(kafka): add message production workflow` | 管理模式下编辑并二次确认单条 UTF-8 消息，返回 Broker 的 Partition、Offset 和 Timestamp | Domain/App 边界测试、`KafkaProducerDriver` 测试、本机 Docker KRaft 生产/读取回读、GPUI headless 交互和真实 Windows 窗口验收 |
 
 阶段 3 实施记录：
 
@@ -473,6 +493,65 @@ Schema Registry Subject 浏览已作为独立切片完成：
 - `feat(kafka): add message production workflow`
 - `feat(kafka): add ksqldb integration`
 
+### 6.2 阶段 25 设计：单条消息生产工作流
+
+阶段 25 只交付一条消息的明确写入闭环。生产请求必须经过领域校验、应用层管理模式检查、UI 发送确认和基础设施层再次校验；任一条件失败都不得调用 Kafka Broker。
+
+#### 6.2.1 数据约定
+
+| 组件 | 输入或输出 | 规则 |
+|---|---|---|
+| `KafkaMessageProduceRequest` | `topic: String` | 必须是非空、非内部 Topic；拒绝以 `__` 开头的 Kafka 内部 Topic |
+| `KafkaMessageProduceRequest` | `partition: Option<i32>` | 可省略；提供时必须是非负整数，省略时由 Broker 分区器选择 |
+| `KafkaMessageProduceRequest` | `key: Option<Vec<u8>>` | 可省略；当前 UI 以 UTF-8 文本转为字节，领域层不改变原始字节 |
+| `KafkaMessageProduceRequest` | `value: Vec<u8>` | 必须存在，允许空字节；当前 UI 以 UTF-8 文本输入 |
+| `KafkaMessageProduceRequest` | `headers: Vec<KafkaMessageHeader>` | 复用已有 Header 校验和数量上限；当前 UI 暂不提供批量或任意 Header Map 编辑 |
+| `KafkaMessageProduceResult` | `topic`, `partition`, `offset`, `timestamp` | 只接受 Broker 返回的实际定位信息；Partition/Offset 必须非负 |
+
+请求正文、Key 和 Header 总字节数设置单条有界上限 `MAX_KAFKA_PRODUCE_MESSAGE_BYTES`，与现有实时 Tail 单条消息上限保持一致，为 4 MiB。应用日志只记录集群 ID、Topic、Partition 选择方式、实际 Partition、Offset、耗时和成功状态，不记录消息正文、Key、Header 值或认证字段。
+
+#### 6.2.2 分层职责
+
+```mermaid
+sequenceDiagram
+    participant USER as 用户
+    participant UI as Kafka 工具 UI
+    participant APP as KafkaService
+    participant PROD as KafkaProducerDriver
+    participant BROKER as Kafka Broker
+    USER->>UI: 编辑 Topic / Partition / Key / Value
+    UI->>UI: 校验输入并展示发送确认
+    USER->>UI: 确认发送
+    UI->>APP: 提交 KafkaMessageProduceRequest
+    APP->>APP: 校验集群配置、管理模式和请求
+    APP->>PROD: produce_message
+    PROD->>BROKER: Produce request, acks=all
+    BROKER-->>PROD: Partition / Offset / Timestamp 或错误
+    PROD-->>APP: KafkaMessageProduceResult 或结构化错误
+    APP-->>UI: 校验结果并返回成功/失败状态
+```
+
+- `ramag-domain` 定义 `KafkaMessageProduceRequest`、`KafkaMessageProduceResult` 和 `KafkaProducerDriver`；不暴露 `rdkafka` 或 `librdkafka` 类型。
+- `ramag-app` 的 `KafkaService::produce_message` 先执行集群配置校验、`KafkaReadOnlyState::ReadWrite` 检查和请求校验，再调用 `KafkaProducerDriver`，最后校验生产结果。
+- `ramag-infra-kafka` 使用独立 `FutureProducer` 适配器和固定客户端属性；只允许代码定义的安全属性，使用 `acks=all`，消息/请求超时不超过现有 60 秒上限，发送队列满或 Broker 拒绝时返回结构化 Kafka 错误。
+- `ramag-tool-kafka` 在消息视图提供单条 UTF-8 文本输入。只读模式不允许进入发送确认；管理模式下发送按钮只打开确认对话框，确认回调才启动一次生产任务。
+
+#### 6.2.3 生命周期和失败行为
+
+- 同一 Kafka 视图同时只允许一个生产任务；运行期间禁用发送按钮，避免用户重复提交同一消息。
+- 生产请求属于已提交的写操作，UI 不主动取消底层 Broker 请求；视图切换、切换集群或销毁视图时只使回调代次失效，迟到结果不能写入新上下文。
+- 发送结果不确定时不自动重试，避免把一次可能已成功的消息变成重复消息；页面显示“结果未知/请求失败”的可读错误，用户必须自行决定是否重新发送。
+- 成功通知必须包含实际 Topic、Partition、Offset 和 Timestamp；失败通知保留编辑器内容，不清空输入，不显示成功状态。
+- 生产成功后不自动提交 Consumer Offset；如需确认消息已可读取，由本机 Docker 集成测试用独立只读读取路径回读，而不是由生产工作流隐式消费。
+
+#### 6.2.4 本阶段验收
+
+1. Domain 测试覆盖非内部 Topic、负 Partition、超限消息、Header 数量和空 Value；结果模型覆盖负 Partition/Offset 拒绝。
+2. App 测试确认只读模式在调用驱动前拒绝，管理模式转发完整 Key/Value/Partition/Headers，并拒绝驱动返回的无效结果。
+3. Infra 测试确认默认无 native feature 时返回明确的未启用错误；native 集成测试只连接本机 Docker KRaft fixture，生产一条带 Key、Header 和显式 Partition 的消息，并通过读取接口按返回 Offset 回读校验。
+4. UI headless 测试覆盖只读禁用、管理模式确认弹窗、确认前不调用驱动、成功回显和失败保留输入；真实 Windows 窗口补充发送确认、成功通知和窄窗口布局截图。
+5. 所有集成测试执行前记录本机 Docker Compose 服务、镜像版本、端口、启动状态和清理结果；Docker 不可用时标记集成验收未完成，不以 mock 或编译结果替代。
+
 ## 7. 测试和验收条件
 
 ### 7.1 Domain、App 和 Infra
@@ -500,10 +579,11 @@ Schema Registry Subject 浏览已作为独立切片完成：
 - Consumer Group 的稳定、空闲、重平衡、无提交 Offset 和 Lag 趋势变化。
 - high watermark 连续采样后的近似消息速率，以及采样间隔过短、无数据和 Partition 变化的处理。
 - Topic 创建、删除、扩容和动态配置修改后回读。
+- 单条消息生产的管理模式拒绝、Key/Value/Headers/显式 Partition 写入，以及按返回 Offset 的只读回读。
 - 启用 Kafka Authorizer 的独立配置，覆盖 ACL 查询、创建、删除和权限不足。
 - 使用独立 JMX、Prometheus 或 exporter fixture 时，Broker 运行指标的来源、时间戳、断开和权限失败。
 
-Docker 测试不得使用开发者真实集群、真实账号或真实业务消息；测试脚本应提供 `up`、`test`、`status`、`down` 和清理专用数据的入口。纯 Rust 传输层候选必须使用同一套 KRaft fixture 验证，不能只通过 mock 宣称兼容。
+所有集成测试统一使用本机 Docker KRaft fixture，不得使用远程集群、开发者真实集群、真实账号或真实业务消息；测试脚本应提供 `up`、`test`、`status`、`down` 和清理专用数据的入口，并记录 Compose 服务、镜像版本、端口、启动状态和清理结果。本机 Docker 不可用时，集成验收标记为未完成，不能只通过 mock、静态 fixture 或编译结果宣称集成测试通过。纯 Rust 传输层候选必须使用同一套 KRaft fixture 验证，不能只通过 mock 宣称兼容。
 
 ### 7.3 UI 验收
 
@@ -566,4 +646,4 @@ Kafka 工具应定位为桌面优先的 Kafka 工作台：以 Offset Explorer �
 
 `rdkafka`/`librdkafka` 只作为当前基础设施实现，不是产品边界。下一阶段先验证纯 Rust Kafka Transport 是否能覆盖完整能力；默认桌面构建必须回到统一的跨平台 Cargo 工具链。无论最终采用纯 Rust 客户端还是独立 Kafka Gateway，领域模型、应用服务和 UI 都不得依赖具体客户端类型。
 
-完成阶段 18-24 后，Ramag 应能安全连接多个 Kafka 集群，使用对象树浏览 Broker、Topic、Partition 和 Consumer Group，按 Offset/时间查看或实时 Tail 消息，展示可解释的 Lag 和指标快照，并在明确确认后执行 Topic、配置和 ACL 管理。Kafka Connect、ksqlDB、消息生产和 Offset 重置继续作为后续独立能力，不进入当前主线大提交；Schema Registry 当前仅完成 Subject 浏览，版本内容解析仍需单独排期。
+完成阶段 18-24 后，Ramag 进入阶段 25 单条消息生产工作流：在管理模式和二次确认下写入明确 Topic，并展示 Broker 返回的 Partition、Offset 和 Timestamp。批量导入、ksqlDB 以及消息生产之外的高风险扩展继续单独排期；Schema Registry 当前仅完成 Subject 浏览，版本内容解析仍需单独排期。
