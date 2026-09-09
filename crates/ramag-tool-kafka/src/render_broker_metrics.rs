@@ -138,6 +138,24 @@ pub(super) fn render_broker_runtime_metrics(
         }
     };
 
+    let status_indicator = h_flex()
+        .min_w_0()
+        .items_center()
+        .gap(px(8.0))
+        .when(compact, |row| row.w_full())
+        .when(!compact, |row| row.flex_1().min_w(px(180.0)))
+        .child(div().size(px(8.0)).rounded_full().bg(status_color))
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .whitespace_nowrap()
+                .truncate()
+                .text_xs()
+                .text_color(status_color)
+                .child(status_text),
+        );
+
     v_flex()
         .id("kafka-overview-broker-runtime-metrics")
         .debug_selector(|| "kafka-overview-broker-runtime-metrics".into())
@@ -155,26 +173,20 @@ pub(super) fn render_broker_runtime_metrics(
                 .debug_selector(|| "kafka-broker-metrics-status".into())
                 .w_full()
                 .min_w_0()
-                .flex_wrap()
-                .items_start()
+                .when(compact, |row| row.flex_col().items_stretch())
+                .when(!compact, |row| row.items_center())
                 .gap(px(8.0))
-                .child(div().size(px(8.0)).rounded_full().bg(status_color))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .whitespace_normal()
-                        .text_xs()
-                        .text_color(status_color)
-                        .child(status_text),
-                )
+                .child(status_indicator)
                 .child(
                     div()
                         .debug_selector(|| "kafka-broker-metrics-sample-info".into())
-                        .flex_1()
-                        .max_w(px(560.0))
                         .min_w_0()
-                        .whitespace_normal()
+                        .when(compact, |info| {
+                            info.w_full().flex_none().whitespace_normal()
+                        })
+                        .when(!compact, |info| {
+                            info.w(px(480.0)).flex_none().whitespace_nowrap().truncate()
+                        })
                         .text_xs()
                         .text_color(theme.muted_foreground)
                         .child(sample_info),
