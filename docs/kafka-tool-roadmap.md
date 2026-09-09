@@ -493,6 +493,14 @@ Schema Registry Subject 浏览已作为独立切片完成：
 - `feat(kafka): add message production workflow`
 - `feat(kafka): add ksqldb integration`
 
+### 6.3 阶段 26 设计：ksqlDB 查询只读入口
+
+术语表：`ksqlDB` 是 Kafka Streams 的 SQL 查询服务；本切片只把它作为独立 HTTP 查询端点使用，不表示 Kafka Broker Admin API，也不表示本地 SQL 执行器。`KsqlDbQuery` 是用户提交的一条只读查询文本，不表示可执行的任意管理命令。
+
+本阶段先交付只读查询闭环：配置页保存可选的 ksqlDB Server 地址，消息工作台提供查询输入、执行状态和有界文本结果。Domain 只定义地址与查询结果边界，App 负责代次和请求上下文校验，Infra 通过受限 HTTP 客户端调用 `/query`，UI 不直接依赖 HTTP 类型。查询请求默认拒绝包含 `INSERT INTO`、`CREATE`、`DROP`、`TERMINATE`、`PAUSE`、`RESUME` 和 `DELETE` 的语句，响应最大行数、字段数和正文大小均受限；超限响应显示截断状态，不伪装成完整结果。
+
+最小验收条件：Domain 覆盖端点、查询长度和只读语句边界；App 覆盖上下文失效、取消和错误保留；Infra 使用本机 Docker ksqlDB fixture 验证成功、HTTP 错误、超限响应和清理；UI headless 覆盖只读模式、执行中禁用重复提交、结果滚动和窄窗口布局。真实 Windows 窗口证据单独记录，不能由 headless 测试替代。
+
 ### 6.2 阶段 25 设计：单条消息生产工作流
 
 阶段 25 只交付一条消息的明确写入闭环。生产请求必须经过领域校验、应用层管理模式检查、UI 发送确认和基础设施层再次校验；任一条件失败都不得调用 Kafka Broker。
