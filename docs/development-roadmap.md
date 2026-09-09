@@ -82,7 +82,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 
 `UI-001` 补充记录（2026-09-09）：Kafka 概览按主内容区宽度统一使用 900px 分栏断点，避免外层窗口宽度与侧栏扣除后的实际空间采用不同布局；集群摘要值允许在卡片内收缩。主题列表把 16px 滚动条改为独立右侧槽位，列表内容不再被滚动条覆盖；`kafka_overview_keeps_sections_aligned_without_vertical_gap` 增加 1200px 主内容边界，`kafka_topics_reflow_header_and_split_at_supported_widths` 检查列表内容区与滚动条的相邻关系。真实 Windows 窗口截图和鼠标拖动滚动条仍未完成。
 
-`KAFKA-001` 构建记录（2026-09-09）：使用 `scripts/build-windows.ps1 -Release` 和 stable Windows GNU 工具链完成 `ramag-bin` Release 构建；`fxc.exe` 着色器编译、x64 PE/GUI 子系统检查和依赖检查通过，产物为 `target/x86_64-pc-windows-gnu/release/ramag.exe`，大小 `90036736` 字节。该记录只证明本机 Release 产物和 PE 检查，不替代 Docker Broker、真实 Kafka 服务或真实 Windows Kafka 界面验收；安装文件替换因旧进程仍在运行，待进程退出后复核。
+`KAFKA-001` 构建记录（2026-09-09）：使用 `scripts/build-windows.ps1 -Release` 和 stable Windows GNU 工具链完成 `ramag-bin` Release 构建；`fxc.exe` 着色器编译、x64 PE/GUI 子系统检查和依赖检查通过，产物为 `target/x86_64-pc-windows-gnu/release/ramag.exe`，大小 `90036736` 字节。该记录只证明本机 Release 产物和 PE 检查，不替代 Docker Broker、真实 Kafka 服务或真实 Windows Kafka 界面验收；旧进程正常退出后，已将产物复制到 `D:\Program Files\ramag.exe`，两个文件 SHA-256 均为 `3A94511B9A014EFE20E32AE1A106F02E7F1729863A24693C157B31380840884B`。
 
 `PLAT-003` 完成后，`TERM-001` 已完成代码和真实 OpenSSH 端点验收；真实 Windows 窗口和独立转发状态面板仍单独排期。`KAFKA-001` 已进入传输能力矩阵和适配边界阶段，在其完成前不实现 Metrics Snapshot 或 Live Message Tail；终端和数据库任务不得借机修改 Kafka 或插件协议。
 
