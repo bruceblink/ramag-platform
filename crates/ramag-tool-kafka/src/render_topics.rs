@@ -24,11 +24,11 @@ impl KafkaView {
         // detail column; stack only when the sidebar leaves less than 900px.
         let compact = width < 900.0;
         let narrow = width < 700.0;
-        // Keep the list useful in stacked layouts. The outer page can scroll when
-        // the detail panel and management form need more vertical space.
-        let split_max_height = (f32::from(viewport.height) - 540.0).max(240.0);
-        let compact_list_height = (f32::from(viewport.height) * 0.42).clamp(240.0, 360.0);
-        let compact_detail_height = (f32::from(viewport.height) * 0.38).clamp(300.0, 380.0);
+        // Give the list the larger share of the available space; the outer page
+        // can still scroll when the stacked detail and management form are tall.
+        let split_max_height = (f32::from(viewport.height) - 360.0).max(320.0);
+        let compact_list_height = (f32::from(viewport.height) * 0.55).clamp(300.0, 520.0);
+        let compact_detail_height = (f32::from(viewport.height) * 0.32).clamp(280.0, 360.0);
         let compact_split_height = compact_list_height + compact_detail_height + 14.0;
         let query = value(&self.topic_search, cx).to_lowercase();
         let visible_indices = matching_topic_indices(&self.topics, &query);
@@ -107,11 +107,13 @@ impl KafkaView {
                         .top_0()
                         .bottom_0()
                         .right_0()
-                        .w(px(12.0))
+                        // Scrollbar's hitbox is 16px wide; matching it avoids a
+                        // clipped grab area and leaves the list content unobstructed.
+                        .w(px(16.0))
                         .child(
                             Scrollbar::vertical(&self.topic_scroll)
                                 .id("kafka-topic-v-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Hover),
+                                .scrollbar_show(ScrollbarShow::Scrolling),
                         ),
                 );
             div()

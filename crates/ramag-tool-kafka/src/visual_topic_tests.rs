@@ -142,12 +142,12 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
         assert!(
             scrollbar.right() <= list.right()
                 && scrollbar.origin.x >= list.origin.x
-                && scrollbar.size.width <= px(12.0),
-            "主题列表滚动条应贴合列表边缘且不占用宽条: list={list:?}, scrollbar={scrollbar:?}"
+                && scrollbar.size.width == px(16.0),
+            "主题列表滚动条应使用完整交互宽度并贴合列表边缘: list={list:?}, scrollbar={scrollbar:?}"
         );
         assert!(
-            list.size.height >= px(240.0),
-            "主题列表在紧凑布局中应保留可用高度: width={width}, list={list:?}"
+            list.size.height >= px(300.0),
+            "主题列表应保留足够的可用高度: width={width}, list={list:?}"
         );
 
         if width < 700.0 {

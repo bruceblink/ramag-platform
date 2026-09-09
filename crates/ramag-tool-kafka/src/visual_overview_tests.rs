@@ -55,7 +55,12 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
         });
         view.topics = (0..3)
             .map(|index| KafkaTopic {
-                name: format!("overview.topic-{index}"),
+                name: if index == 0 {
+                    "overview.topic-with-a-long-name-that-must-not-push-partitions-out-of-the-card"
+                        .into()
+                } else {
+                    format!("overview.topic-{index}")
+                },
                 internal: false,
                 partitions: vec![KafkaPartition {
                     id: 0,
@@ -96,6 +101,9 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             visual_cx.debug_bounds("kafka-overview-broker-health-status"),
             visual_cx.debug_bounds("kafka-overview-broker-health-details"),
             visual_cx.debug_bounds("kafka-overview-topic"),
+            visual_cx.debug_bounds("kafka-overview-topic-preview-row-0"),
+            visual_cx.debug_bounds("kafka-overview-topic-preview-name-0"),
+            visual_cx.debug_bounds("kafka-overview-topic-preview-partitions-0"),
             visual_cx.debug_bounds("kafka-overview-cluster"),
         ];
         assert!(
@@ -117,6 +125,9 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             Some(broker_health_status),
             Some(broker_health_details),
             Some(topic),
+            Some(topic_preview_row),
+            Some(topic_preview_name),
+            Some(topic_preview_partitions),
             Some(cluster),
         ] = bounds
         else {
@@ -150,6 +161,13 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
         assert!(broker_health_status.right() <= broker_health.right());
         assert!(broker_health_details.right() <= broker_health.right());
         assert!(topic.right() <= primary.right());
+        assert!(topic_preview_row.right() <= topic.right());
+        assert!(topic_preview_name.right() <= topic_preview_row.right());
+        assert!(topic_preview_partitions.right() <= topic_preview_row.right());
+        assert!(
+            topic_preview_name.right() <= topic_preview_partitions.origin.x,
+            "长 Topic 名称不能推出右侧 Partition 数量: name={topic_preview_name:?}, partitions={topic_preview_partitions:?}"
+        );
         assert!(cluster.right() <= sections.right());
         assert!(topic.origin.y >= broker.bottom());
         assert!(

@@ -192,6 +192,8 @@ pub(super) fn section_heading(
         )
         .child(
             div()
+                .min_w_0()
+                .whitespace_normal()
                 .text_xs()
                 .text_color(theme.muted_foreground)
                 .child(subtitle.into()),
@@ -340,9 +342,12 @@ pub(super) fn summary_row(
     theme: &gpui_component::Theme,
 ) -> impl IntoElement {
     v_flex()
+        .w_full()
+        .min_w_0()
         .gap(px(2.0))
         .child(
             div()
+                .min_w_0()
                 .text_xs()
                 .text_color(theme.muted_foreground)
                 .child(label),

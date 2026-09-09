@@ -78,6 +78,8 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 
 `UI-001` 验收记录（2026-09-09）：对象存储账号管理列表的账号行改为可换行布局，服务商、只读、Bucket 数量和编辑/删除区域保持固定尺寸，360px 窗口隐藏非必要的 Bucket 数量列，避免固定列把行推出内容区。`account_rows_stay_inside_supported_window_widths` 覆盖 360/1024/1440px 窗口，检查账号行及各固定区域边界；`ramag-tool-object-storage` 共 24 项库测试通过。真实 Windows 窗口截图和键盘操作仍未完成，不能由 headless 结果推断原生窗口已验收。
 
+`UI-001` 验收记录（2026-09-09）：Kafka 概览的 Topic 预览行为长名称增加可收缩和省略处理，Partition 数量保持固定位置；区块副标题和集群摘要允许在窄内容区换行，避免概览内容错位。主题页按可用高度扩大列表区域，桌面窗口不再只保留约 360px 的列表高度；纵向滚动条使用完整 16px 交互区域，仅在滚动时显示，避免窄条裁切和常驻色块。`kafka_overview_keeps_sections_aligned_without_vertical_gap` 和 `kafka_topics_reflow_header_and_split_at_supported_widths` 覆盖 360/900/1024/1440px 等窗口，Kafka 工作台共 25 项库测试、Clippy 和格式检查通过。真实 Windows 窗口截图和鼠标拖动滚动条仍未完成，不能由 headless 结果推断原生窗口已验收。
+
 `PLAT-003` 完成后，`TERM-001` 已完成代码和真实 OpenSSH 端点验收；真实 Windows 窗口和独立转发状态面板仍单独排期。`KAFKA-001` 已进入传输能力矩阵和适配边界阶段，在其完成前不实现 Metrics Snapshot 或 Live Message Tail；终端和数据库任务不得借机修改 Kafka 或插件协议。
 
 ## 4. 分阶段主线

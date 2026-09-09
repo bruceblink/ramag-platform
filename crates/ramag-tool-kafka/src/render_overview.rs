@@ -534,19 +534,35 @@ impl KafkaView {
             .border_1()
             .border_color(theme.border)
             .rounded(px(6.0));
-        for topic in self.topics.iter().take(8) {
+        for (index, topic) in self.topics.iter().take(8).enumerate() {
+            let name_selector = format!("kafka-overview-topic-preview-name-{index}");
+            let partition_selector = format!("kafka-overview-topic-preview-partitions-{index}");
             rows = rows.child(
                 h_flex()
+                    .debug_selector(move || format!("kafka-overview-topic-preview-row-{index}"))
                     .w_full()
+                    .min_w_0()
                     .items_center()
-                    .justify_between()
+                    .gap(px(8.0))
                     .px(px(12.0))
                     .py(px(9.0))
                     .border_b_1()
                     .border_color(theme.border)
-                    .child(div().text_sm().child(topic.name.clone()))
                     .child(
                         div()
+                            .debug_selector(move || name_selector.clone())
+                            .flex_1()
+                            .min_w_0()
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .whitespace_nowrap()
+                            .text_sm()
+                            .child(topic.name.clone()),
+                    )
+                    .child(
+                        div()
+                            .debug_selector(move || partition_selector.clone())
+                            .flex_none()
                             .text_xs()
                             .text_color(theme.muted_foreground)
                             .child(format!("{} partitions", topic.partitions.len())),
