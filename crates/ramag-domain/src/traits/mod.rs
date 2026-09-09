@@ -22,7 +22,7 @@ pub use git_driver::GitDriver;
 pub use jumpserver_driver::JumpServerDriver;
 pub use kafka_driver::{
     KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaConnectDriver, KafkaDriver,
-    KafkaMessageTailSink, KafkaMessageTailSinkResult, KafkaMonitoringDriver,
+    KafkaMessageTailSink, KafkaMessageTailSinkResult, KafkaMonitoringDriver, KafkaProducerDriver,
     KafkaSchemaRegistryDriver,
 };
 pub use kafka_transport::KafkaTransport;

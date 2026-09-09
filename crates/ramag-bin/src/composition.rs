@@ -127,9 +127,11 @@ pub(super) fn build_kafka_service(storage: Arc<dyn Storage>) -> Arc<KafkaService
     let driver = Arc::new(RdkafkaTransport::new());
     let read_driver: Arc<dyn KafkaDriver> = driver.clone();
     let admin_driver: Arc<dyn KafkaAdminDriver> = driver.clone();
+    let producer_driver: Arc<dyn KafkaProducerDriver> = driver.clone();
     let monitoring_driver: Arc<dyn KafkaMonitoringDriver> = driver;
     let service = KafkaService::new(read_driver, storage)
         .with_admin_driver(admin_driver)
+        .with_producer_driver(producer_driver)
         .with_monitoring_driver(monitoring_driver);
     let service = match PrometheusBrokerMetricsDriver::new() {
         Ok(driver) => service.with_broker_metrics_driver(Arc::new(driver)),

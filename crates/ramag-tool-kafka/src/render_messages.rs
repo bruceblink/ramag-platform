@@ -9,7 +9,7 @@ impl KafkaView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
-        let stacked_root = f32::from(window.viewport_size().width) < 900.0;
+        let stacked_root = kafka_main_content_width(window) < 900.0;
         let compact = f32::from(window.viewport_size().width) < 1280.0;
         let page = self.message_page.as_ref();
         let page_count = self.message_page_count();
@@ -138,6 +138,7 @@ impl KafkaView {
                 )
                 .track_scroll(&self.message_scroll)
                 .w_full()
+                .h_full()
                 .min_w(px(MESSAGE_TABLE_MIN_WIDTH))
                 .flex_1();
                 let table_content = v_flex()
@@ -267,6 +268,7 @@ impl KafkaView {
             .p(px(18.0))
             .gap(px(12.0))
             .child(self.render_message_controls(window, cx))
+            .child(self.render_message_producer(window, cx))
             .when(
                 self.selected_topic.is_some() || !value(&self.topic_input, cx).is_empty(),
                 |page| page.child(self.render_message_tail_panel(window, cx)),
@@ -277,8 +279,8 @@ impl KafkaView {
                     .min_h_0()
                     .items_stretch()
                     .when(compact, |row| row.flex_col())
-                    .when(stacked_root, |row| {
-                        row.min_h(px(COMPACT_MESSAGE_RESULTS_HEIGHT))
+                     .when(stacked_root, |row| {
+                        row.h(px(COMPACT_MESSAGE_RESULTS_HEIGHT))
                     })
                     .gap(px(14.0))
                     .child(
@@ -286,10 +288,11 @@ impl KafkaView {
                             .flex_1()
                             .min_w_0()
                             .min_h_0()
-                            .border_1()
-                            .border_color(theme.border)
-                            .rounded(px(6.0))
-                            .child(rows)
+                         .border_1()
+                         .border_color(theme.border)
+                         .rounded(px(6.0))
+                         .when(stacked_root, |panel| panel.min_h(px(260.0)))
+                         .child(rows)
                             .when_some(pagination, |panel, pagination| panel.child(pagination)),
                     )
                     .child(detail),

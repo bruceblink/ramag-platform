@@ -7,7 +7,7 @@ pub mod traits;
 pub use error::{DomainError, KafkaError, KafkaErrorCategory, Result};
 pub use traits::{
     Driver, KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaDriver, KafkaMessageTailSink,
-    KafkaMessageTailSinkResult, KafkaTransport, KvDriver, PluginApiVersion, PluginCapability,
-    PluginDescriptor, PluginId, PluginRegistrationError, PluginSettingDefinition,
+    KafkaMessageTailSinkResult, KafkaProducerDriver, KafkaTransport, KvDriver, PluginApiVersion,
+    PluginCapability, PluginDescriptor, PluginId, PluginRegistrationError, PluginSettingDefinition,
     PluginSettingKind, PluginSettingValue, SshDriver, Storage, Tool, ToolMeta,
 };

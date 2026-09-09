@@ -242,6 +242,15 @@ impl KafkaView {
             window,
             cx,
         );
+        set_value(
+            &self.produce_topic_input,
+            self.selected_topic.clone().unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(&self.produce_partition_input, "", window, cx);
+        set_value(&self.produce_key_input, "", window, cx);
+        set_value(&self.produce_value_input, "", window, cx);
         set_value(&self.topic_create_name, "", window, cx);
         set_value(&self.topic_create_partitions, "1", window, cx);
         set_value(&self.topic_create_replication_factor, "1", window, cx);
@@ -260,6 +269,7 @@ impl KafkaView {
         self.invalidate_profile_operation();
         self.invalidate_runtime_request();
         self.invalidate_message_request();
+        self.invalidate_produce_operation();
         self.invalidate_consumer_group_request();
         self.invalidate_consumer_group_operation();
         self.invalidate_topic_operation();
@@ -303,6 +313,10 @@ impl KafkaView {
             &self.config_resource_name,
             &self.config_value,
             &self.topic_input,
+            &self.produce_topic_input,
+            &self.produce_partition_input,
+            &self.produce_key_input,
+            &self.produce_value_input,
             &self.topic_create_name,
             &self.topic_target_partitions,
         ] {
@@ -338,6 +352,7 @@ impl KafkaView {
         self.invalidate_profile_operation();
         self.invalidate_runtime_request();
         self.invalidate_message_request();
+        self.invalidate_produce_operation();
         self.invalidate_consumer_group_request();
         self.invalidate_consumer_group_operation();
         self.clear_schema_registry_snapshot();

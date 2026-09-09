@@ -13,6 +13,30 @@ pub(crate) fn build_client_config(
 ) -> Result<ClientConfig> {
     config.validate().map_err(DomainError::InvalidConfig)?;
     let timeout_ms = request_timeout_millis(request_timeout)?;
+    let mut client = build_base_client_config(config, &timeout_ms);
+    client
+        .set("enable.auto.commit", "false")
+        .set("enable.auto.offset.store", "false");
+
+    Ok(client)
+}
+
+/// 创建生产器专用配置，避免把 Consumer-only 属性传给 `FutureProducer`。
+pub(crate) fn build_producer_config(
+    config: &KafkaClusterConfig,
+    request_timeout: Duration,
+) -> Result<ClientConfig> {
+    config.validate().map_err(DomainError::InvalidConfig)?;
+    let timeout_ms = request_timeout_millis(request_timeout)?;
+    let mut client = build_base_client_config(config, &timeout_ms);
+    client
+        .set("message.timeout.ms", &timeout_ms)
+        .set("request.timeout.ms", &timeout_ms)
+        .set("request.required.acks", "all");
+    Ok(client)
+}
+
+fn build_base_client_config(config: &KafkaClusterConfig, timeout_ms: &str) -> ClientConfig {
     let mut client = ClientConfig::new();
     client
         .set("bootstrap.servers", config.bootstrap_servers.join(","))
@@ -24,9 +48,7 @@ pub(crate) fn build_client_config(
             "security.protocol",
             config.security_protocol.as_client_property(),
         )
-        .set("socket.timeout.ms", &timeout_ms)
-        .set("enable.auto.commit", "false")
-        .set("enable.auto.offset.store", "false")
+        .set("socket.timeout.ms", timeout_ms)
         .set("allow.auto.create.topics", "false");
 
     if let Some(mechanism) = config.sasl_mechanism {
@@ -56,7 +78,7 @@ pub(crate) fn build_client_config(
         }
         TlsVerify::Full => {}
     }
-    Ok(client)
+    client
 }
 
 /// 将 Rust 超时转换成 librdkafka 的毫秒属性，并拒绝转换后为零的值。

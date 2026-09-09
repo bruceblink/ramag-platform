@@ -52,8 +52,9 @@ pub use kafka_consumer_admin::{
     KafkaConsumerGroupOffsetReset, KafkaConsumerGroupOffsetResetRequest,
 };
 pub use kafka_message::{
-    KafkaMessageHeader, KafkaMessagePage, KafkaMessageQuery, KafkaMessageRecord,
-    KafkaMessageSearchField, KafkaMessageSearchQuery, KafkaTextPreview,
+    KafkaMessageHeader, KafkaMessagePage, KafkaMessageProduceRequest, KafkaMessageProduceResult,
+    KafkaMessageQuery, KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
+    KafkaTextPreview,
 };
 pub use kafka_metadata::{KafkaBroker, KafkaClusterMetadata, KafkaPartition, KafkaTopic};
 pub use kafka_metrics::{
@@ -128,6 +129,7 @@ pub const DEFAULT_KAFKA_TAIL_POLL_TIMEOUT_MILLIS: u32 = 250;
 pub const MAX_KAFKA_TAIL_WINDOW_MESSAGES: usize = 10_000;
 pub const MAX_KAFKA_TAIL_WINDOW_BYTES: u64 = MAX_KAFKA_SCAN_BYTES;
 pub const MAX_KAFKA_TAIL_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
+pub const MAX_KAFKA_PRODUCE_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_KAFKA_TAIL_POLL_TIMEOUT_MILLIS: u32 = 1_000;
 
 pub const MAX_KAFKA_CONSUMER_GROUPS: usize = 100_000;

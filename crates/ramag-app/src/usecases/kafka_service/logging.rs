@@ -48,6 +48,36 @@ pub(super) fn log_message_result(
     }
 }
 
+pub(super) fn log_message_produce_result(
+    operation: &'static str,
+    config: &KafkaClusterConfig,
+    request: &KafkaMessageProduceRequest,
+    started: std::time::Instant,
+    result: &Result<KafkaMessageProduceResult>,
+) {
+    tracing::info!(
+        operation,
+        cluster_id = %config.id,
+        topic = %request.topic,
+        requested_partition = request.partition,
+        actual_partition = result.as_ref().ok().map(|value| value.partition),
+        offset = result.as_ref().ok().map(|value| value.offset),
+        elapsed_ms = started.elapsed().as_millis(),
+        success = result.is_ok(),
+        "Kafka message production completed"
+    );
+    if let Err(error) = result {
+        tracing::warn!(
+            operation,
+            cluster_id = %config.id,
+            topic = %request.topic,
+            requested_partition = request.partition,
+            error = %error,
+            "Kafka message production failed"
+        );
+    }
+}
+
 pub(super) fn log_admin_result(
     operation: &'static str,
     config: &KafkaClusterConfig,

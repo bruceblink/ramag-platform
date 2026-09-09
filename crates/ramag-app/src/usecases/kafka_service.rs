@@ -5,20 +5,22 @@ use std::sync::{Arc, atomic::AtomicBool};
 use ramag_domain::entities::{
     KafkaAcl, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
     KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConnectConnector,
-    KafkaConsumerGroup, KafkaMessagePage, KafkaMetricsSnapshot, KafkaSchemaRegistrySubject,
-    KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
-    MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS, MAX_KAFKA_GROUP_TOTAL_MEMBERS,
+    KafkaConsumerGroup, KafkaMessagePage, KafkaMessageProduceRequest, KafkaMessageProduceResult,
+    KafkaMetricsSnapshot, KafkaSchemaRegistrySubject, KafkaTopic, KafkaTopicCreateRequest,
+    KafkaTopicPartitionExpansion, KafkaTransportCapabilities, MAX_KAFKA_GROUP_OFFSETS,
+    MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS, MAX_KAFKA_GROUP_TOTAL_MEMBERS,
     MAX_KAFKA_PARTITION_REPLICA_IDS, MAX_KAFKA_PARTITIONS,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::{
     KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaConnectDriver, KafkaDriver,
-    KafkaMonitoringDriver, KafkaSchemaRegistryDriver, Storage,
+    KafkaMonitoringDriver, KafkaProducerDriver, KafkaSchemaRegistryDriver, Storage,
 };
 
 pub struct KafkaService {
     driver: Arc<dyn KafkaDriver>,
     admin_driver: Arc<dyn KafkaAdminDriver>,
+    producer_driver: Arc<dyn KafkaProducerDriver>,
     monitoring_driver: Arc<dyn KafkaMonitoringDriver>,
     broker_metrics_driver: Arc<dyn KafkaBrokerMetricsDriver>,
     schema_registry_driver: Arc<dyn KafkaSchemaRegistryDriver>,
@@ -43,6 +45,7 @@ impl KafkaService {
         Self {
             driver,
             admin_driver: Arc::new(UnsupportedKafkaAdminDriver),
+            producer_driver: Arc::new(UnsupportedKafkaProducerDriver),
             monitoring_driver: Arc::new(UnsupportedKafkaMonitoringDriver),
             broker_metrics_driver: Arc::new(UnsupportedKafkaBrokerMetricsDriver),
             schema_registry_driver: Arc::new(UnsupportedKafkaSchemaRegistryDriver),
@@ -53,6 +56,11 @@ impl KafkaService {
 
     pub fn with_admin_driver(mut self, admin_driver: Arc<dyn KafkaAdminDriver>) -> Self {
         self.admin_driver = admin_driver;
+        self
+    }
+
+    pub fn with_producer_driver(mut self, producer_driver: Arc<dyn KafkaProducerDriver>) -> Self {
+        self.producer_driver = producer_driver;
         self
     }
 
@@ -383,6 +391,10 @@ struct UnsupportedKafkaAdminDriver;
 
 impl KafkaAdminDriver for UnsupportedKafkaAdminDriver {}
 
+struct UnsupportedKafkaProducerDriver;
+
+impl KafkaProducerDriver for UnsupportedKafkaProducerDriver {}
+
 struct UnsupportedKafkaMonitoringDriver;
 
 impl KafkaMonitoringDriver for UnsupportedKafkaMonitoringDriver {}
@@ -403,6 +415,19 @@ fn validate_message_page(page: KafkaMessagePage) -> Result<KafkaMessagePage> {
     page.validate()
         .map(|()| page)
         .map_err(DomainError::InvalidConfig)
+}
+
+fn validate_message_produce_result(
+    request: &KafkaMessageProduceRequest,
+    result: KafkaMessageProduceResult,
+) -> Result<KafkaMessageProduceResult> {
+    result.validate().map_err(DomainError::InvalidConfig)?;
+    if result.topic != request.topic {
+        return Err(DomainError::InvalidConfig(
+            "Kafka 生产结果 Topic 与请求目标不一致".into(),
+        ));
+    }
+    Ok(result)
 }
 
 fn validate_metrics_snapshot(snapshot: KafkaMetricsSnapshot) -> Result<KafkaMetricsSnapshot> {

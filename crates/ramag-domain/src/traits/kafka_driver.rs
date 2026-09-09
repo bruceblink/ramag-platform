@@ -6,7 +6,8 @@ use std::sync::{Arc, atomic::AtomicBool};
 use crate::entities::{
     KafkaAcl, KafkaAclFilter, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterMetadata,
     KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConnectConnector,
-    KafkaConsumerGroup, KafkaConsumerGroupOffsetResetRequest, KafkaMessagePage, KafkaMessageQuery,
+    KafkaConsumerGroup, KafkaConsumerGroupOffsetResetRequest, KafkaMessagePage,
+    KafkaMessageProduceRequest, KafkaMessageProduceResult, KafkaMessageQuery,
     KafkaMessageSearchQuery, KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMetricsSnapshot,
     KafkaSchemaRegistrySubject, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
     KafkaTransportCapabilities,
@@ -229,6 +230,20 @@ pub trait KafkaDriver: Send + Sync {
     ) -> Result<()> {
         Err(crate::error::DomainError::NotImplemented(
             "tail_messages".into(),
+        ))
+    }
+}
+
+/// Kafka 消息生产端口；每次只提交一条经过校验的消息，不承载批量导入或重放。
+#[async_trait]
+pub trait KafkaProducerDriver: Send + Sync {
+    async fn produce_message(
+        &self,
+        _config: &KafkaClusterConfig,
+        _request: &KafkaMessageProduceRequest,
+    ) -> Result<KafkaMessageProduceResult> {
+        Err(crate::error::DomainError::NotImplemented(
+            "produce_message".into(),
         ))
     }
 }

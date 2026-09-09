@@ -301,9 +301,11 @@ impl KafkaView {
                 match result {
                     Ok(()) => {
                         this.invalidate_message_request();
+                        this.invalidate_produce_operation();
                         this.clear_message_tail(cx);
                         this.selected_topic = None;
                         set_value(&this.topic_input, "", window, cx);
+                        set_value(&this.produce_topic_input, "", window, cx);
                         set_value(&this.topic_target_partitions, "", window, cx);
                         this.notice =
                             Some((format!("Topic「{}」已删除；正在刷新元数据", topic), false));

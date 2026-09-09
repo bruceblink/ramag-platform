@@ -24,6 +24,7 @@ impl KafkaView {
             .when(compact, |view| view.w_full().flex_1().min_w_0())
             .when(!compact, |view| view.w(px(360.0)).flex_none())
             .min_h_0()
+            .when(compact, |view| view.min_h(px(220.0)))
             .gap(px(10.0))
             .child(section_heading(
                 "消息详情",

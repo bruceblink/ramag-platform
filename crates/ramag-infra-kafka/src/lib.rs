@@ -13,6 +13,7 @@ mod messages;
 #[cfg(feature = "cmake-build")]
 mod metadata;
 mod metrics;
+mod producer_driver;
 mod schema_registry;
 pub use broker_metrics::PrometheusBrokerMetricsDriver;
 pub use connect::KafkaConnectHttpDriver;

@@ -7,9 +7,9 @@ use super::kafka_validation::{preview_bytes, validate_optional_offset, validate_
 use super::{
     DEFAULT_KAFKA_MAX_BYTES, DEFAULT_KAFKA_MAX_CONCURRENT_PARTITIONS, DEFAULT_KAFKA_MAX_RECORDS,
     DEFAULT_KAFKA_MAX_SCAN_SECONDS, MAX_KAFKA_CONCURRENT_PARTITIONS, MAX_KAFKA_HEADER_KEY_BYTES,
-    MAX_KAFKA_MESSAGE_HEADERS, MAX_KAFKA_QUERY_PARTITIONS, MAX_KAFKA_QUERY_TEXT_BYTES,
-    MAX_KAFKA_SCAN_BYTES, MAX_KAFKA_SCAN_RECORDS, MAX_KAFKA_SCAN_SECONDS,
-    validate_kafka_topic_name,
+    MAX_KAFKA_MESSAGE_HEADERS, MAX_KAFKA_PRODUCE_MESSAGE_BYTES, MAX_KAFKA_QUERY_PARTITIONS,
+    MAX_KAFKA_QUERY_TEXT_BYTES, MAX_KAFKA_SCAN_BYTES, MAX_KAFKA_SCAN_RECORDS,
+    MAX_KAFKA_SCAN_SECONDS, validate_kafka_topic_name,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,6 +27,123 @@ impl KafkaMessageHeader {
         validate_protocol_text("Header Key", &self.key, MAX_KAFKA_HEADER_KEY_BYTES)?;
         if self.key.chars().any(char::is_control) {
             return Err("Header Key 不能包含控制字符".into());
+        }
+        Ok(())
+    }
+}
+
+/// 一次只写入一条 Kafka 消息的请求；Key、Value 和 Header 值始终保留原始字节。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KafkaMessageProduceRequest {
+    pub topic: String,
+    #[serde(default)]
+    pub partition: Option<i32>,
+    #[serde(default)]
+    pub key: Option<Vec<u8>>,
+    pub value: Vec<u8>,
+    #[serde(default)]
+    pub headers: Vec<KafkaMessageHeader>,
+}
+
+impl KafkaMessageProduceRequest {
+    /// 创建没有固定 Partition、Key 和 Header 的单条生产请求。
+    pub fn new(topic: impl Into<String>, value: Vec<u8>) -> Self {
+        Self {
+            topic: topic.into(),
+            partition: None,
+            key: None,
+            value,
+            headers: Vec::new(),
+        }
+    }
+
+    pub fn with_partition(mut self, partition: i32) -> Self {
+        self.partition = Some(partition);
+        self
+    }
+
+    pub fn with_key(mut self, key: Vec<u8>) -> Self {
+        self.key = Some(key);
+        self
+    }
+
+    pub fn with_headers(mut self, headers: Vec<KafkaMessageHeader>) -> Self {
+        self.headers = headers;
+        self
+    }
+
+    /// 校验写入目标、Partition、Header 和总消息大小，避免把无界请求交给 Broker。
+    pub fn validate(&self) -> Result<(), String> {
+        super::validate_kafka_managed_topic_name(&self.topic)?;
+        if self.partition.is_some_and(|partition| partition < 0) {
+            return Err("生产消息 Partition 不能为负数".into());
+        }
+        if self.headers.len() > MAX_KAFKA_MESSAGE_HEADERS {
+            return Err(format!(
+                "生产消息 Header 数量超过 {MAX_KAFKA_MESSAGE_HEADERS} 个上限"
+            ));
+        }
+        for header in &self.headers {
+            header.validate()?;
+        }
+        if self.retained_bytes() > MAX_KAFKA_PRODUCE_MESSAGE_BYTES as u64 {
+            return Err(format!(
+                "生产消息总字节数不能超过 {MAX_KAFKA_PRODUCE_MESSAGE_BYTES} bytes"
+            ));
+        }
+        Ok(())
+    }
+
+    /// 返回生产请求持有的字节数，作为单条消息的内存和 Broker 请求预算。
+    pub fn retained_bytes(&self) -> u64 {
+        let header_bytes = self.headers.iter().fold(0usize, |total, header| {
+            total
+                .saturating_add(header.key.len())
+                .saturating_add(header.value.as_ref().map_or(0, Vec::len))
+        });
+        let total = self
+            .topic
+            .len()
+            .saturating_add(self.key.as_ref().map_or(0, Vec::len))
+            .saturating_add(self.value.len())
+            .saturating_add(header_bytes);
+        u64::try_from(total).unwrap_or(u64::MAX)
+    }
+}
+
+/// Kafka Broker 确认的单条生产结果；定位字段用于 UI 回显和只读回读。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KafkaMessageProduceResult {
+    pub topic: String,
+    pub partition: i32,
+    pub offset: i64,
+    #[serde(default)]
+    pub timestamp: Option<DateTime<Utc>>,
+}
+
+impl KafkaMessageProduceResult {
+    /// 创建 Broker 生产结果，时间戳可因 Broker 配置或客户端能力缺失而为空。
+    pub fn new(
+        topic: impl Into<String>,
+        partition: i32,
+        offset: i64,
+        timestamp: Option<DateTime<Utc>>,
+    ) -> Self {
+        Self {
+            topic: topic.into(),
+            partition,
+            offset,
+            timestamp,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        validate_kafka_topic_name(&self.topic)?;
+        if self.partition < 0 {
+            return Err("生产结果 Partition 不能为负数".into());
+        }
+        if self.offset < 0 {
+            return Err("生产结果 Offset 不能为负数".into());
         }
         Ok(())
     }

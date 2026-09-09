@@ -574,7 +574,8 @@ impl KafkaView {
         self.reset_message_paging();
         self.clear_message_tail(cx);
         self.selected_topic = Some(topic.clone());
-        set_value(&self.topic_input, topic, window, cx);
+        set_value(&self.topic_input, topic.clone(), window, cx);
+        set_value(&self.produce_topic_input, topic, window, cx);
         if self.config_resource_type == KafkaConfigResourceType::Topic {
             self.invalidate_config_request();
             set_value(

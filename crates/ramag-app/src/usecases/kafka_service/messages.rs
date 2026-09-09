@@ -1,11 +1,32 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
-use ramag_domain::entities::{KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery};
+use ramag_domain::entities::{
+    KafkaMessagePage, KafkaMessageProduceRequest, KafkaMessageProduceResult, KafkaMessageQuery,
+    KafkaMessageSearchQuery,
+};
 use ramag_domain::error::{DomainError, Result};
 
-use super::{KafkaService, log_message_result, validate_config, validate_message_page};
+use super::{
+    KafkaService, ensure_admin_enabled, log_message_produce_result, log_message_result,
+    validate_config, validate_message_page, validate_message_produce_result,
+};
 
 impl KafkaService {
+    /// 校验并提交一条消息；只读模式在调用生产驱动前被应用层拒绝。
+    pub async fn produce_message(
+        &self,
+        config: &ramag_domain::entities::KafkaClusterConfig,
+        request: &KafkaMessageProduceRequest,
+    ) -> Result<KafkaMessageProduceResult> {
+        validate_config(config)?;
+        request.validate().map_err(DomainError::InvalidConfig)?;
+        ensure_admin_enabled(config)?;
+        let started = std::time::Instant::now();
+        let result = self.producer_driver.produce_message(config, request).await;
+        log_message_produce_result("kafka_message_produce", config, request, started, &result);
+        result.and_then(|result| validate_message_produce_result(request, result))
+    }
+
     pub async fn read_messages(
         &self,
         config: &ramag_domain::entities::KafkaClusterConfig,

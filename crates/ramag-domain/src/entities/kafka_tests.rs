@@ -233,6 +233,48 @@ fn message_keeps_raw_bytes_and_bounds_previews() {
 }
 
 #[test]
+fn message_produce_request_validates_target_and_preserves_fields() {
+    let request = KafkaMessageProduceRequest::new("events", b"payload".to_vec())
+        .with_partition(2)
+        .with_key(b"key".to_vec())
+        .with_headers(vec![KafkaMessageHeader {
+            key: "trace-id".into(),
+            value: Some(b"abc".to_vec()),
+        }]);
+
+    assert!(request.validate().is_ok());
+    assert_eq!(request.partition, Some(2));
+    assert_eq!(request.key.as_deref(), Some(&b"key"[..]));
+    assert_eq!(request.value, b"payload");
+    assert!(request.retained_bytes() > 0);
+
+    let mut internal = request.clone();
+    internal.topic = "__consumer_offsets".into();
+    assert!(internal.validate().is_err());
+
+    let negative_partition = request.clone().with_partition(-1);
+    assert!(negative_partition.validate().is_err());
+
+    let empty_value = KafkaMessageProduceRequest::new("events", Vec::new());
+    assert!(empty_value.validate().is_ok());
+}
+
+#[test]
+fn message_produce_request_and_result_bound_payload_and_offsets() {
+    let oversized =
+        KafkaMessageProduceRequest::new("events", vec![b'x'; MAX_KAFKA_PRODUCE_MESSAGE_BYTES]);
+    assert!(oversized.validate().is_err());
+
+    let result = KafkaMessageProduceResult::new("events", 1, 12, None);
+    assert!(result.validate().is_ok());
+
+    let invalid_partition = KafkaMessageProduceResult::new("events", -1, 12, None);
+    assert!(invalid_partition.validate().is_err());
+    let invalid_offset = KafkaMessageProduceResult::new("events", 1, -1, None);
+    assert!(invalid_offset.validate().is_err());
+}
+
+#[test]
 fn message_preview_does_not_split_utf8_and_handles_empty_values() {
     let preview = preview_bytes("你好".as_bytes(), 4);
     assert_eq!(preview.text, "你");

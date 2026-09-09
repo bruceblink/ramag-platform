@@ -136,6 +136,31 @@ impl KafkaView {
         let schema_subject_search = input(window, cx, 4 * 1024, "筛选 Schema Subject…", false, "");
         let connect_search = input(window, cx, 4 * 1024, "筛选连接器…", false, "");
         let topic_input = input(window, cx, 249, "Topic", false, "");
+        let produce_topic_input = input(window, cx, 249, "目标 Topic", false, "");
+        let produce_partition_input = input(
+            window,
+            cx,
+            32,
+            "Partition（可选，留空由 Broker 分配）",
+            false,
+            "",
+        );
+        let produce_key_input = input(
+            window,
+            cx,
+            MAX_KAFKA_PRODUCE_MESSAGE_BYTES,
+            "Key（可选）",
+            false,
+            "",
+        );
+        let produce_value_input = input(
+            window,
+            cx,
+            MAX_KAFKA_PRODUCE_MESSAGE_BYTES,
+            "Value（UTF-8）",
+            false,
+            "",
+        );
         let partition_input = input(window, cx, 4 * 1024, "Partition，例如 0,1,2", false, "0");
         let topic_create_name = input(window, cx, 249, "新 Topic 名称", false, "");
         let topic_create_partitions = input(window, cx, 32, "初始 Partition 数量", false, "1");
@@ -213,6 +238,10 @@ impl KafkaView {
             &client_key_path,
             &config_value,
             &topic_input,
+            &produce_topic_input,
+            &produce_partition_input,
+            &produce_key_input,
+            &produce_value_input,
             &partition_input,
             &topic_create_name,
             &topic_create_partitions,
@@ -409,6 +438,10 @@ impl KafkaView {
             config_resource_name,
             config_value,
             topic_input,
+            produce_topic_input,
+            produce_partition_input,
+            produce_key_input,
+            produce_value_input,
             partition_input,
             topic_create_name,
             topic_create_partitions,
@@ -452,6 +485,7 @@ impl KafkaView {
             loading_consumer_groups: false,
             loading_acls: false,
             loading_configs: false,
+            producing: false,
             testing: false,
             saving: false,
             deleting: false,
@@ -474,6 +508,7 @@ impl KafkaView {
             config_request_id: 0,
             acl_request_id: 0,
             topic_operation_id: 0,
+            produce_operation_id: 0,
             acl_operation_id: 0,
             topic_operation: false,
             notice: None,

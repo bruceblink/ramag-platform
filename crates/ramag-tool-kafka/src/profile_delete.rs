@@ -63,11 +63,13 @@ impl KafkaView {
                     Ok(()) => {
                         this.invalidate_runtime_request();
                         this.invalidate_message_request();
+                        this.invalidate_produce_operation();
                         this.invalidate_consumer_group_request();
                         this.clear_schema_registry_snapshot();
                         this.clusters.retain(|cluster| cluster.id != id);
                         this.selected_cluster_id = None;
                         this.selected_topic = None;
+                        set_value(&this.produce_topic_input, "", _window, cx);
                         this.metadata = None;
                         this.topics.clear();
                         this.reset_topic_paging();
