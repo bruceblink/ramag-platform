@@ -202,11 +202,17 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
     });
     visual_cx.run_until_parked();
 
-    for (width, height) in [(360.0, 900.0), (900.0, 900.0), (1440.0, 900.0)] {
+    for (width, height) in [
+        (360.0, 900.0),
+        (900.0, 900.0),
+        (1200.0, 900.0),
+        (1440.0, 900.0),
+    ] {
         visual_cx.simulate_resize(size(px(width), px(height)));
         visual_cx.run_until_parked();
         let snapshot_bounds = visual_cx.debug_bounds("kafka-overview-metrics-snapshot");
         let controls = visual_cx.debug_bounds("kafka-metrics-controls");
+        let heading = visual_cx.debug_bounds("kafka-metrics-heading");
         let status = visual_cx.debug_bounds("kafka-metrics-status");
         let cluster_summary = visual_cx.debug_bounds("kafka-metrics-cluster");
         let topics = visual_cx.debug_bounds("kafka-metrics-topics");
@@ -219,6 +225,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         assert!(
             snapshot_bounds.is_some()
                 && controls.is_some()
+                && heading.is_some()
                 && status.is_some()
                 && cluster_summary.is_some()
                 && topics.is_some()
@@ -233,6 +240,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         let (
             Some(snapshot_bounds),
             Some(controls),
+            Some(heading),
             Some(status),
             Some(cluster_summary),
             Some(topics),
@@ -245,6 +253,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         ) = (
             snapshot_bounds,
             controls,
+            heading,
             status,
             cluster_summary,
             topics,
@@ -262,6 +271,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         for selector in [
             "kafka-overview-metrics-snapshot",
             "kafka-metrics-controls",
+            "kafka-metrics-heading",
             "kafka-metrics-status",
             "kafka-metrics-cluster",
             "kafka-metrics-topics",
@@ -277,6 +287,8 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         assert!(
             controls.origin.x >= snapshot_bounds.origin.x
                 && controls.right() <= snapshot_bounds.right()
+                && heading.origin.x >= snapshot_bounds.origin.x
+                && heading.right() <= snapshot_bounds.right()
                 && status.origin.x >= snapshot_bounds.origin.x
                 && status.right() <= snapshot_bounds.right()
                 && cluster_summary.right() <= snapshot_bounds.right()
@@ -289,5 +301,12 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
                 && broker_runtime_rows.right() <= broker_runtime.right(),
             "指标快照和 Broker 运行内容不能横向越出容器: width={width}, snapshot={snapshot_bounds:?}, controls={controls:?}, status={status:?}, summary={cluster_summary:?}, topics={topics:?}, partitions={partitions:?}, groups={groups:?}, broker_health={broker_health:?}, broker_runtime={broker_runtime:?}"
         );
+        let content_width = if width < 900.0 { width } else { width - 260.0 };
+        if content_width >= 700.0 {
+            assert!(
+                heading.right() <= controls.origin.x,
+                "桌面布局中指标标题不能被控件行压缩或覆盖: width={width}, heading={heading:?}, controls={controls:?}"
+            );
+        }
     }
 }

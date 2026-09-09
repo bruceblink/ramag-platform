@@ -17,11 +17,11 @@ impl KafkaView {
         let controls = h_flex()
             .id("kafka-metrics-controls")
             .debug_selector(|| "kafka-metrics-controls".into())
-            .w_full()
             .min_w_0()
             .items_end()
             .gap(px(8.0))
-            .when(compact, |row| row.flex_col().items_stretch())
+            .when(compact, |row| row.w_full().flex_col().items_stretch())
+            .when(!compact, |row| row.flex_none())
             .child(
                 field(
                     "刷新间隔（秒）",
@@ -170,6 +170,7 @@ impl KafkaView {
                     .when(compact, |row| row.flex_col().items_stretch())
                     .child(
                         v_flex()
+                            .debug_selector(|| "kafka-metrics-heading".into())
                             .flex_1()
                             .min_w_0()
                             .gap(px(2.0))
