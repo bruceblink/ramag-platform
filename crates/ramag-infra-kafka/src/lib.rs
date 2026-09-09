@@ -12,6 +12,7 @@ mod messages;
 #[cfg(feature = "cmake-build")]
 mod metadata;
 mod metrics;
+mod schema_registry;
 pub use broker_metrics::PrometheusBrokerMetricsDriver;
 use ramag_domain::entities::KafkaMessageTailRequest;
 #[cfg(feature = "cmake-build")]
@@ -32,6 +33,7 @@ use rdkafka::client::DefaultClientContext;
 use rdkafka::consumer::{BaseConsumer, Consumer};
 #[cfg(feature = "cmake-build")]
 use rdkafka::metadata::Metadata;
+pub use schema_registry::SchemaRegistryHttpDriver;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, atomic::AtomicBool};
 use std::time::Duration;

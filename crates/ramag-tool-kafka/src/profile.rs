@@ -120,6 +120,7 @@ impl KafkaView {
         cx: &mut Context<Self>,
     ) {
         self.invalidate_config_request();
+        self.clear_schema_registry_snapshot();
         self.reset_acl_state(window, cx);
         self.read_only = config.read_only;
         set_value(&self.name, config.name.clone(), window, cx);
@@ -165,6 +166,30 @@ impl KafkaView {
             window,
             cx,
         );
+        set_value(
+            &self.schema_registry_endpoint,
+            config.schema_registry.endpoint.clone().unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(
+            &self.schema_registry_username,
+            config.schema_registry.username.clone().unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(&self.schema_registry_password, "", window, cx);
+        self.schema_registry_password.update(cx, |state, cx| {
+            state.set_placeholder(
+                if config.schema_registry.password.is_some() {
+                    "已保存密码，留空保持；输入新值可替换"
+                } else {
+                    "Schema Registry 密码"
+                },
+                window,
+                cx,
+            );
+        });
         set_value(
             &self.ca_cert_path,
             config.tls.ca_cert_path.clone().unwrap_or_default(),
@@ -212,6 +237,7 @@ impl KafkaView {
         self.invalidate_consumer_group_request();
         self.invalidate_topic_operation();
         self.invalidate_config_request();
+        self.clear_schema_registry_snapshot();
         self.reset_acl_state(window, cx);
         self.selected_cluster_id = None;
         self.selected_topic = None;
@@ -237,6 +263,9 @@ impl KafkaView {
             &self.sasl_password,
             &self.remark,
             &self.broker_metrics_endpoint,
+            &self.schema_registry_endpoint,
+            &self.schema_registry_username,
+            &self.schema_registry_password,
             &self.ca_cert_path,
             &self.client_cert_path,
             &self.client_key_path,
@@ -256,6 +285,9 @@ impl KafkaView {
         self.sasl_password.update(cx, |state, cx| {
             state.set_placeholder("SASL 密码", window, cx);
         });
+        self.schema_registry_password.update(cx, |state, cx| {
+            state.set_placeholder("Schema Registry 密码", window, cx);
+        });
         self.notice = None;
         cx.notify();
     }
@@ -273,6 +305,7 @@ impl KafkaView {
         self.invalidate_runtime_request();
         self.invalidate_message_request();
         self.invalidate_consumer_group_request();
+        self.clear_schema_registry_snapshot();
         self.clear_acl_snapshot();
         self.invalidate_acl_operation();
         self.selected_cluster_id = Some(id);
@@ -307,6 +340,14 @@ impl KafkaView {
         config.client_id = optional_value(&self.client_id, cx);
         config.remark = optional_value(&self.remark, cx);
         config.broker_metrics.endpoint = optional_value(&self.broker_metrics_endpoint, cx);
+        config.schema_registry.endpoint = optional_value(&self.schema_registry_endpoint, cx);
+        config.schema_registry.username = optional_value(&self.schema_registry_username, cx);
+        if config.schema_registry.endpoint.is_none() {
+            config.schema_registry.username = None;
+            config.schema_registry.password = None;
+        } else if let Some(password) = optional_value(&self.schema_registry_password, cx) {
+            config.schema_registry.password = Some(password);
+        }
         config.tls = KafkaTlsConfig {
             verify: config.tls.verify,
             ca_cert_path: optional_value(&self.ca_cert_path, cx),
@@ -373,6 +414,7 @@ impl KafkaView {
                             this.clusters.push(config);
                         }
                         this.selected_cluster_id = Some(id);
+                        this.clear_schema_registry_snapshot();
                         this.notice = Some((format!("已保存「{name}」，配置保存在本机",), false));
                     }
                     Err(error) => {
@@ -447,6 +489,7 @@ impl KafkaView {
         self.invalidate_runtime_request();
         self.invalidate_message_request();
         self.invalidate_consumer_group_request();
+        self.clear_schema_registry_snapshot();
         self.clear_acl_snapshot();
         self.invalidate_acl_operation();
         self.consumer_groups.clear();

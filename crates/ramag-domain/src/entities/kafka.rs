@@ -18,6 +18,8 @@ mod kafka_metadata;
 mod kafka_metrics;
 #[path = "kafka_metrics_validation.rs"]
 mod kafka_metrics_validation;
+#[path = "kafka_schema_registry.rs"]
+mod kafka_schema_registry;
 #[path = "kafka_transport.rs"]
 mod kafka_transport;
 #[path = "kafka_validation.rs"]
@@ -50,6 +52,7 @@ pub use kafka_metrics::{
     KafkaClusterMetrics, KafkaConsumerGroupMetrics, KafkaMetricsSnapshot,
     KafkaMetricsSnapshotState, KafkaMetricsSource, KafkaPartitionMetrics, KafkaTopicMetrics,
 };
+pub use kafka_schema_registry::{KafkaSchemaRegistryConfig, KafkaSchemaRegistrySubject};
 pub use kafka_transport::{
     KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart, KafkaTransportBackend,
     KafkaTransportCapabilities, KafkaTransportCapability,
@@ -70,11 +73,16 @@ pub const MAX_KAFKA_SASL_PASSWORD_BYTES: usize = 64 * 1024;
 pub const MAX_KAFKA_REMARK_BYTES: usize = 16 * 1024;
 pub const MAX_KAFKA_TLS_PATH_BYTES: usize = 32 * 1024;
 pub const MAX_KAFKA_BROKER_METRICS_ENDPOINT_BYTES: usize = 4 * 1024;
+pub const MAX_KAFKA_SCHEMA_REGISTRY_ENDPOINT_BYTES: usize = 4 * 1024;
+pub const MAX_KAFKA_SCHEMA_REGISTRY_USERNAME_BYTES: usize = 4 * 1024;
+pub const MAX_KAFKA_SCHEMA_REGISTRY_PASSWORD_BYTES: usize = 64 * 1024;
 
 /// Kafka 的 Topic 名称上限来自 Broker 的协议约束。
 pub const MAX_KAFKA_TOPIC_NAME_BYTES: usize = 249;
 pub const MAX_KAFKA_CLUSTER_ID_BYTES: usize = 1024;
 pub const MAX_KAFKA_VERSION_BYTES: usize = 256;
+pub const MAX_KAFKA_SCHEMA_SUBJECT_BYTES: usize = 1024;
+pub const MAX_KAFKA_SCHEMA_SUBJECTS: usize = 2_000;
 pub const MAX_KAFKA_BROKERS: usize = 10_000;
 pub const MAX_KAFKA_TOPICS: usize = 100_000;
 pub const MAX_KAFKA_PARTITIONS: usize = 1_000_000;

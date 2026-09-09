@@ -117,6 +117,26 @@ fn password_based_sasl_requires_both_credentials() {
 }
 
 #[test]
+fn schema_registry_config_requires_complete_credentials_and_redacts_values() {
+    let mut config = valid_cluster();
+    config.schema_registry.endpoint = Some("https://registry.example/api".into());
+    config.schema_registry.username = Some("registry-user".into());
+    assert!(config.validate().is_err());
+
+    config.schema_registry.password = Some("registry-password".into());
+    assert!(config.validate().is_ok());
+    let rendered = format!("{:?}", config);
+    assert!(!rendered.contains("registry.example"));
+    assert!(!rendered.contains("registry-user"));
+    assert!(!rendered.contains("registry-password"));
+    assert!(rendered.contains("[CONFIGURED]"));
+    assert!(rendered.contains("[REDACTED]"));
+
+    config.schema_registry.endpoint = Some("ftp://registry.example/api".into());
+    assert!(config.validate().is_err());
+}
+
+#[test]
 fn metadata_and_topics_reject_duplicate_or_invalid_entries() {
     let broker = KafkaBroker {
         id: 1,
@@ -452,5 +472,6 @@ fn serde_defaults_keep_new_optional_metadata_compatible() -> Result<(), serde_js
     assert_eq!(config.security_protocol, KafkaSecurityProtocol::Plaintext);
     assert_eq!(config.tls, KafkaTlsConfig::default());
     assert_eq!(config.read_only, KafkaReadOnlyState::ReadOnly);
+    assert_eq!(config.schema_registry, KafkaSchemaRegistryConfig::default());
     Ok(())
 }

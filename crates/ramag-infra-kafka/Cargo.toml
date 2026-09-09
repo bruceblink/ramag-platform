@@ -24,6 +24,7 @@ chrono = { workspace = true }
 ramag-domain = { workspace = true }
 rdkafka = { workspace = true, optional = true, features = ["tokio"] }
 reqwest = { workspace = true, features = ["blocking"] }
+serde_json = { workspace = true }
 smol = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }

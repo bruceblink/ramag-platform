@@ -22,6 +22,9 @@ async fn kafka_clusters_are_encrypted_sorted_and_round_trip() {
     secure.sasl_username = Some("application".into());
     secure.sasl_password = Some("secret-password".into());
     secure.tls.ca_cert_path = Some("C:\\certs\\ca.pem".into());
+    secure.schema_registry.endpoint = Some("https://registry.example/api".into());
+    secure.schema_registry.username = Some("registry-application".into());
+    secure.schema_registry.password = Some("registry-secret-password".into());
     let local = sample_cluster("local", "127.0.0.1:9092");
 
     storage.save_kafka_cluster(&secure).await.unwrap();
@@ -42,6 +45,9 @@ async fn kafka_clusters_are_encrypted_sorted_and_round_trip() {
     assert!(!raw.value().contains("production"));
     assert!(!raw.value().contains("secret.example.com"));
     assert!(!raw.value().contains("secret-password"));
+    assert!(!raw.value().contains("registry.example"));
+    assert!(!raw.value().contains("registry-application"));
+    assert!(!raw.value().contains("registry-secret-password"));
 }
 
 #[tokio::test]

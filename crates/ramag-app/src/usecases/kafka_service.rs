@@ -5,14 +5,15 @@ use std::sync::{Arc, atomic::AtomicBool};
 use ramag_domain::entities::{
     KafkaAcl, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
     KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup,
-    KafkaMessagePage, KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest,
-    KafkaTopicPartitionExpansion, KafkaTransportCapabilities, MAX_KAFKA_GROUP_OFFSETS,
-    MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS, MAX_KAFKA_GROUP_TOTAL_MEMBERS,
+    KafkaMessagePage, KafkaMetricsSnapshot, KafkaSchemaRegistrySubject, KafkaTopic,
+    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
+    MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS, MAX_KAFKA_GROUP_TOTAL_MEMBERS,
     MAX_KAFKA_PARTITION_REPLICA_IDS, MAX_KAFKA_PARTITIONS,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::{
-    KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaDriver, KafkaMonitoringDriver, Storage,
+    KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaDriver, KafkaMonitoringDriver,
+    KafkaSchemaRegistryDriver, Storage,
 };
 
 pub struct KafkaService {
@@ -20,6 +21,7 @@ pub struct KafkaService {
     admin_driver: Arc<dyn KafkaAdminDriver>,
     monitoring_driver: Arc<dyn KafkaMonitoringDriver>,
     broker_metrics_driver: Arc<dyn KafkaBrokerMetricsDriver>,
+    schema_registry_driver: Arc<dyn KafkaSchemaRegistryDriver>,
     storage: Arc<dyn Storage>,
 }
 
@@ -27,6 +29,7 @@ mod acls;
 mod connection;
 mod logging;
 mod messages;
+mod schema_registry;
 mod tail;
 use logging::*;
 
@@ -37,6 +40,7 @@ impl KafkaService {
             admin_driver: Arc::new(UnsupportedKafkaAdminDriver),
             monitoring_driver: Arc::new(UnsupportedKafkaMonitoringDriver),
             broker_metrics_driver: Arc::new(UnsupportedKafkaBrokerMetricsDriver),
+            schema_registry_driver: Arc::new(UnsupportedKafkaSchemaRegistryDriver),
             storage,
         }
     }
@@ -59,6 +63,14 @@ impl KafkaService {
         broker_metrics_driver: Arc<dyn KafkaBrokerMetricsDriver>,
     ) -> Self {
         self.broker_metrics_driver = broker_metrics_driver;
+        self
+    }
+
+    pub fn with_schema_registry_driver(
+        mut self,
+        schema_registry_driver: Arc<dyn KafkaSchemaRegistryDriver>,
+    ) -> Self {
+        self.schema_registry_driver = schema_registry_driver;
         self
     }
 
@@ -367,6 +379,10 @@ impl KafkaMonitoringDriver for UnsupportedKafkaMonitoringDriver {}
 struct UnsupportedKafkaBrokerMetricsDriver;
 
 impl KafkaBrokerMetricsDriver for UnsupportedKafkaBrokerMetricsDriver {}
+
+struct UnsupportedKafkaSchemaRegistryDriver;
+
+impl KafkaSchemaRegistryDriver for UnsupportedKafkaSchemaRegistryDriver {}
 
 /// 在应用层再次校验驱动返回的页，避免替换基础设施实现时绕过领域资源上限。
 fn validate_message_page(page: KafkaMessagePage) -> Result<KafkaMessagePage> {

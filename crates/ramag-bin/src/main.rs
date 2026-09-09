@@ -45,7 +45,9 @@ use ramag_infra_clipboard::{
     HotkeyEvent, HotkeyListener, PlatformClipboardDriver, foreground_display_index,
 };
 use ramag_infra_git::GitDriverImpl;
-use ramag_infra_kafka::{PrometheusBrokerMetricsDriver, RdkafkaTransport};
+use ramag_infra_kafka::{
+    PrometheusBrokerMetricsDriver, RdkafkaTransport, SchemaRegistryHttpDriver,
+};
 use ramag_infra_mongodb::MongoDriver;
 use ramag_infra_mysql::MysqlDriver;
 use ramag_infra_postgres::PostgresDriver;

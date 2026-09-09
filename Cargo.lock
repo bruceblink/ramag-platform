@@ -6902,6 +6902,7 @@ dependencies = [
  "ramag-domain",
  "rdkafka",
  "reqwest 0.13.4",
+ "serde_json",
  "smol",
  "tracing",
  "uuid",

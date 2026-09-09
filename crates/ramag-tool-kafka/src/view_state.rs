@@ -66,6 +66,30 @@ impl KafkaView {
             false,
             "",
         );
+        let schema_registry_endpoint = input(
+            window,
+            cx,
+            MAX_KAFKA_SCHEMA_REGISTRY_ENDPOINT_BYTES,
+            "Schema Registry 地址（可选）",
+            false,
+            "",
+        );
+        let schema_registry_username = input(
+            window,
+            cx,
+            MAX_KAFKA_SCHEMA_REGISTRY_USERNAME_BYTES,
+            "Schema Registry 用户名",
+            false,
+            "",
+        );
+        let schema_registry_password = input(
+            window,
+            cx,
+            MAX_KAFKA_SCHEMA_REGISTRY_PASSWORD_BYTES,
+            "Schema Registry 密码",
+            true,
+            "",
+        );
         let ca_cert_path = input(window, cx, 32 * 1024, "CA 证书路径（可选）", false, "");
         let client_cert_path = input(window, cx, 32 * 1024, "客户端证书路径（可选）", false, "");
         let client_key_path = input(window, cx, 32 * 1024, "客户端密钥路径（可选）", false, "");
@@ -85,6 +109,7 @@ impl KafkaView {
             false,
             "",
         );
+        let schema_subject_search = input(window, cx, 4 * 1024, "筛选 Schema Subject…", false, "");
         let topic_input = input(window, cx, 249, "Topic", false, "");
         let partition_input = input(window, cx, 4 * 1024, "Partition，例如 0,1,2", false, "0");
         let topic_create_name = input(window, cx, 249, "新 Topic 名称", false, "");
@@ -152,6 +177,9 @@ impl KafkaView {
             &sasl_password,
             &remark,
             &broker_metrics_endpoint,
+            &schema_registry_endpoint,
+            &schema_registry_username,
+            &schema_registry_password,
             &ca_cert_path,
             &client_cert_path,
             &client_key_path,
@@ -198,6 +226,20 @@ impl KafkaView {
                 }
             }),
         );
+        subscriptions.push(cx.subscribe(
+            &schema_subject_search,
+            |this, _, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    this.schema_subject_scroll
+                        .0
+                        .borrow()
+                        .base_handle
+                        .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+                    this.notice = None;
+                    cx.notify();
+                }
+            },
+        ));
         subscriptions.push(
             cx.subscribe(&topic_input, |this, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
@@ -245,6 +287,14 @@ impl KafkaView {
             consumer_groups: Vec::new(),
             selected_consumer_group: None,
             consumer_group_error: None,
+            schema_subjects: Vec::new(),
+            schema_subject_search,
+            schema_subject_scroll: UniformListScrollHandle::new(),
+            schema_registry_cancelled: None,
+            schema_registry_request_id: 0,
+            loading_schema_subjects: false,
+            schema_subjects_loaded: false,
+            schema_subject_error: None,
             acl_cancelled: None,
             message_page: None,
             message_tail_records: VecDeque::new(),
@@ -298,6 +348,9 @@ impl KafkaView {
             sasl_password,
             remark,
             broker_metrics_endpoint,
+            schema_registry_endpoint,
+            schema_registry_username,
+            schema_registry_password,
             ca_cert_path,
             client_cert_path,
             client_key_path,

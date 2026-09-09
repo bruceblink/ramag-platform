@@ -365,6 +365,17 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
     }));
     assert!(visual_cx.debug_bounds("kafka-remote-config").is_some());
     assert!(visual_cx.debug_bounds("kafka-config-query").is_some());
+    // 新增的 Schema Registry 配置使远程配置区进入可滚动内容，先滚到读取控件再验证点击。
+    let config_viewport = visual_cx
+        .debug_bounds("kafka-config")
+        .expect("Kafka 配置页应参与布局");
+    visual_cx.simulate_event(gpui::ScrollWheelEvent {
+        position: config_viewport.center(),
+        delta: gpui::ScrollDelta::Pixels(point(px(0.0), px(-10000.0))),
+        touch_phase: gpui::TouchPhase::Moved,
+        ..Default::default()
+    });
+    visual_cx.run_until_parked();
     click(visual_cx, "kafka-config-read");
     visual_cx.run_until_parked();
     assert!(kafka_entity.read_with(visual_cx, |view, _| { view.config_entries.len() == 3 }));

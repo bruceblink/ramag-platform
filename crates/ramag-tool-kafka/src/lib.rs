@@ -43,11 +43,13 @@ use ramag_domain::{
         KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
         KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart,
         KafkaMetricsSnapshot, KafkaMetricsSnapshotState, KafkaPartitionMetrics, KafkaReadOnlyState,
-        KafkaSaslMechanism, KafkaSecurityProtocol, KafkaTlsConfig, KafkaTopic,
-        KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, MAX_KAFKA_ACL_HOST_BYTES,
-        MAX_KAFKA_ACL_RESOURCE_NAME_BYTES, MAX_KAFKA_CONFIG_RESOURCE_NAME_BYTES,
-        MAX_KAFKA_CONFIG_VALUE_BYTES, MAX_KAFKA_METRICS_REFRESH_SECONDS, MAX_KAFKA_PARTITIONS,
-        MAX_KAFKA_QUERY_PARTITIONS, MAX_KAFKA_REPLICAS, MAX_KAFKA_SCAN_RECORDS,
+        KafkaSaslMechanism, KafkaSchemaRegistrySubject, KafkaSecurityProtocol, KafkaTlsConfig,
+        KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+        MAX_KAFKA_ACL_HOST_BYTES, MAX_KAFKA_ACL_RESOURCE_NAME_BYTES,
+        MAX_KAFKA_CONFIG_RESOURCE_NAME_BYTES, MAX_KAFKA_CONFIG_VALUE_BYTES,
+        MAX_KAFKA_METRICS_REFRESH_SECONDS, MAX_KAFKA_PARTITIONS, MAX_KAFKA_QUERY_PARTITIONS,
+        MAX_KAFKA_REPLICAS, MAX_KAFKA_SCAN_RECORDS, MAX_KAFKA_SCHEMA_REGISTRY_ENDPOINT_BYTES,
+        MAX_KAFKA_SCHEMA_REGISTRY_PASSWORD_BYTES, MAX_KAFKA_SCHEMA_REGISTRY_USERNAME_BYTES,
         MIN_KAFKA_METRICS_REFRESH_SECONDS,
     },
     traits::{KafkaMessageTailSink, KafkaMessageTailSinkResult, Tool, ToolMeta},
@@ -65,6 +67,7 @@ const MESSAGE_TAIL_CHANNEL_CAPACITY: usize = 8;
 const MESSAGE_TAIL_RESULTS_HEIGHT: f32 = 260.0;
 const KAFKA_SIDEBAR_WIDTH: f32 = 260.0;
 const KAFKA_TOPIC_SCROLLBAR_WIDTH: f32 = 16.0;
+const KAFKA_SCHEMA_SUBJECT_SCROLLBAR_WIDTH: f32 = 16.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum KafkaTailStartMode {
@@ -129,6 +132,7 @@ enum KafkaSection {
     Topics,
     Messages,
     ConsumerGroups,
+    SchemaRegistry,
     Acls,
     Config,
 }
@@ -149,11 +153,12 @@ impl KafkaRangeMode {
 }
 
 impl KafkaSection {
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 7] = [
         Self::Overview,
         Self::Topics,
         Self::Messages,
         Self::ConsumerGroups,
+        Self::SchemaRegistry,
         Self::Acls,
         Self::Config,
     ];
@@ -164,6 +169,7 @@ impl KafkaSection {
             Self::Topics => "Topics",
             Self::Messages => "消息",
             Self::ConsumerGroups => "消费者组",
+            Self::SchemaRegistry => "Schema Registry",
             Self::Acls => "ACL",
             Self::Config => "配置",
         }
@@ -185,6 +191,14 @@ pub struct KafkaView {
     consumer_groups: Vec<KafkaConsumerGroup>,
     selected_consumer_group: Option<String>,
     consumer_group_error: Option<String>,
+    schema_subjects: Vec<KafkaSchemaRegistrySubject>,
+    schema_subject_search: Entity<InputState>,
+    schema_subject_scroll: UniformListScrollHandle,
+    schema_registry_cancelled: Option<Arc<AtomicBool>>,
+    schema_registry_request_id: u64,
+    loading_schema_subjects: bool,
+    schema_subjects_loaded: bool,
+    schema_subject_error: Option<String>,
     acl_cancelled: Option<Arc<AtomicBool>>,
     message_page: Option<KafkaMessagePage>,
     message_tail_records: VecDeque<KafkaMessageRecord>,
@@ -238,6 +252,9 @@ pub struct KafkaView {
     sasl_password: Entity<InputState>,
     remark: Entity<InputState>,
     broker_metrics_endpoint: Entity<InputState>,
+    schema_registry_endpoint: Entity<InputState>,
+    schema_registry_username: Entity<InputState>,
+    schema_registry_password: Entity<InputState>,
     ca_cert_path: Entity<InputState>,
     client_cert_path: Entity<InputState>,
     client_key_path: Entity<InputState>,
@@ -321,6 +338,7 @@ impl Drop for KafkaView {
         self.invalidate_message_request();
         self.invalidate_message_tail();
         self.invalidate_consumer_group_request();
+        self.invalidate_schema_registry_request();
         self.invalidate_acl_request();
         // 已提交的 Kafka Admin 写入请求不主动取消；只让迟到回调失效，
         // 让有界请求自然结束后释放 native Admin 资源。
@@ -351,6 +369,7 @@ mod render_messages;
 mod render_metrics;
 mod render_metrics_partition;
 mod render_overview;
+mod render_schema_registry;
 mod render_sidebar;
 mod render_topic_detail;
 mod render_topics;

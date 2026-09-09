@@ -94,8 +94,9 @@ fn sections_keep_the_read_only_workflow_order() {
     assert_eq!(KafkaSection::ALL[1], KafkaSection::Topics);
     assert_eq!(KafkaSection::ALL[2], KafkaSection::Messages);
     assert_eq!(KafkaSection::ALL[3], KafkaSection::ConsumerGroups);
-    assert_eq!(KafkaSection::ALL[4], KafkaSection::Acls);
-    assert_eq!(KafkaSection::ALL[5], KafkaSection::Config);
+    assert_eq!(KafkaSection::ALL[4], KafkaSection::SchemaRegistry);
+    assert_eq!(KafkaSection::ALL[5], KafkaSection::Acls);
+    assert_eq!(KafkaSection::ALL[6], KafkaSection::Config);
 }
 
 #[test]
@@ -545,6 +546,8 @@ mod visual_overview_tests;
 mod visual_profile_tests;
 #[path = "visual_runtime_tests.rs"]
 mod visual_runtime_tests;
+#[path = "visual_schema_registry_tests.rs"]
+mod visual_schema_registry_tests;
 #[path = "visual_shell_tests.rs"]
 mod visual_shell_tests;
 #[path = "visual_tests.rs"]

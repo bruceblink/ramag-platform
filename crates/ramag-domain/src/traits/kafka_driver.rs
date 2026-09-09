@@ -7,8 +7,8 @@ use crate::entities::{
     KafkaAcl, KafkaAclFilter, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterMetadata,
     KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConsumerGroup,
     KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMessageTailEvent,
-    KafkaMessageTailRequest, KafkaMetricsSnapshot, KafkaTopic, KafkaTopicCreateRequest,
-    KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
+    KafkaMessageTailRequest, KafkaMetricsSnapshot, KafkaSchemaRegistrySubject, KafkaTopic,
+    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
 };
 use crate::error::Result;
 
@@ -21,6 +21,28 @@ pub enum KafkaMessageTailSinkResult {
 
 pub type KafkaMessageTailSink =
     Arc<dyn Fn(KafkaMessageTailEvent) -> KafkaMessageTailSinkResult + Send + Sync>;
+
+/// Schema Registry 只读端口；本阶段只读取 Subject 名称，不修改外部 Schema 服务。
+#[async_trait]
+pub trait KafkaSchemaRegistryDriver: Send + Sync {
+    async fn list_subjects(
+        &self,
+        _config: &KafkaClusterConfig,
+    ) -> Result<Vec<KafkaSchemaRegistrySubject>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "schema_registry_subjects".into(),
+        ))
+    }
+
+    /// 读取 Subject 列表并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn list_subjects_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<KafkaSchemaRegistrySubject>> {
+        self.list_subjects(config).await
+    }
+}
 
 /// Kafka 观测端口；只读取协议快照，不读取消息正文或修改 Consumer Offset。
 #[async_trait]

@@ -188,6 +188,51 @@ impl KafkaView {
                             ),
                     )
                     .child(
+                        v_flex()
+                            .id("kafka-schema-registry-config")
+                            .debug_selector(|| "kafka-schema-registry-config".into())
+                            .w_full()
+                            .min_w_0()
+                            .gap(px(10.0))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child("Schema Registry（可选）"),
+                            )
+                            .child(
+                                h_flex()
+                                    .w_full()
+                                    .gap(px(12.0))
+                                    .when(compact, |row| row.flex_col().items_stretch())
+                                    .child(
+                                        field(
+                                            "地址",
+                                            Input::new(&self.schema_registry_endpoint).small(),
+                                            0.0,
+                                        )
+                                        .when(!compact, |field| field.flex_1().min_w_0())
+                                        .debug_selector(|| {
+                                            "kafka-schema-registry-endpoint".into()
+                                        }),
+                                    )
+                                    .child(
+                                        flexible_field(
+                                            "用户名",
+                                            Input::new(&self.schema_registry_username).small(),
+                                        )
+                                        .when(compact, |field| field.flex_initial().w_full()),
+                                    )
+                                    .child(
+                                        flexible_field(
+                                            "密码",
+                                            Input::new(&self.schema_registry_password).small(),
+                                        )
+                                        .when(compact, |field| field.flex_initial().w_full()),
+                                    ),
+                            ),
+                    )
+                    .child(
                         h_flex()
                             .w_full()
                             .flex_wrap()

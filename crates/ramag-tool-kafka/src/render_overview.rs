@@ -65,6 +65,13 @@ impl KafkaView {
                             {
                                 this.load_consumer_groups(config, window, cx);
                             }
+                            if section == KafkaSection::SchemaRegistry
+                                && !this.loading_runtime
+                                && !this.schema_subjects_loaded
+                                && let Some(config) = this.selected_config()
+                            {
+                                this.load_schema_subjects(config, window, cx);
+                            }
                             if section == KafkaSection::Acls
                                 && !this.loading_runtime
                                 && !this.acls_loaded
@@ -95,6 +102,9 @@ impl KafkaView {
             KafkaSection::Messages => self.render_messages(window, cx).into_any_element(),
             KafkaSection::ConsumerGroups => {
                 self.render_consumer_groups(window, cx).into_any_element()
+            }
+            KafkaSection::SchemaRegistry => {
+                self.render_schema_registry(window, cx).into_any_element()
             }
             KafkaSection::Acls => self.render_acls(window, cx).into_any_element(),
             KafkaSection::Config => self.render_config(window, cx).into_any_element(),

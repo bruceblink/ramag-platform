@@ -131,13 +131,24 @@ pub(super) fn build_kafka_service(storage: Arc<dyn Storage>) -> Arc<KafkaService
     let service = KafkaService::new(read_driver, storage)
         .with_admin_driver(admin_driver)
         .with_monitoring_driver(monitoring_driver);
-    match PrometheusBrokerMetricsDriver::new() {
-        Ok(driver) => Arc::new(service.with_broker_metrics_driver(Arc::new(driver))),
+    let service = match PrometheusBrokerMetricsDriver::new() {
+        Ok(driver) => service.with_broker_metrics_driver(Arc::new(driver)),
         Err(error) => {
             warn!(
                 operation = "kafka_broker_metrics_client_init",
                 error = %error,
                 "initialize external Kafka Broker metrics client failed"
+            );
+            service
+        }
+    };
+    match SchemaRegistryHttpDriver::new() {
+        Ok(driver) => Arc::new(service.with_schema_registry_driver(Arc::new(driver))),
+        Err(error) => {
+            warn!(
+                operation = "kafka_schema_registry_client_init",
+                error = %error,
+                "initialize Schema Registry HTTP client failed"
             );
             Arc::new(service)
         }
