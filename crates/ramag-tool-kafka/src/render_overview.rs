@@ -183,7 +183,10 @@ impl KafkaView {
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
         let content_width = kafka_main_content_width(window);
-        let compact = content_width < 1100.0;
+        // Keep the overview split in step with the Topic workspace. The width
+        // is already measured after the sidebar, so 900px is the usable-pane
+        // boundary rather than the outer window width.
+        let compact = content_width < 900.0;
         let narrow = content_width < 700.0;
         let metadata = self.metadata.as_ref();
         let topic_count = self.topics.len();

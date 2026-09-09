@@ -41,7 +41,10 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
         view.clusters = vec![cluster.clone()];
         view.selected_cluster_id = Some(cluster.id.clone());
         view.metadata = Some(KafkaClusterMetadata {
-            cluster_id: Some("overview-cluster".into()),
+            cluster_id: Some(
+                "overview-cluster-with-a-long-identifier-that-must-stay-inside-the-summary-card"
+                    .into(),
+            ),
             controller_id: Some(0),
             brokers: vec![KafkaBroker {
                 id: 0,
@@ -80,6 +83,7 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
 
     for (width, height) in [
         (1440.0, 900.0),
+        (1200.0, 900.0),
         (1024.0, 900.0),
         (900.0, 900.0),
         (360.0, 900.0),
@@ -174,7 +178,8 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             topic.origin.y <= broker.bottom() + px(24.0),
             "Topic 预览不应等待右侧集群卡片结束: width={width}, broker={broker:?}, topic={topic:?}, cluster={cluster:?}"
         );
-        if width >= 1100.0 {
+        let content_width = if width < 900.0 { width } else { width - 260.0 };
+        if content_width >= 900.0 {
             assert!(
                 broker.origin.x < cluster.origin.x,
                 "宽窗口应将 Broker 和集群信息并排: broker={broker:?}, cluster={cluster:?}"

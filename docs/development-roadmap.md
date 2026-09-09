@@ -80,6 +80,8 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 
 `UI-001` 验收记录（2026-09-09）：Kafka 概览的 Topic 预览行为长名称增加可收缩和省略处理，Partition 数量保持固定位置；区块副标题和集群摘要允许在窄内容区换行，避免概览内容错位。主题页按可用高度扩大列表区域，桌面窗口不再只保留约 360px 的列表高度；纵向滚动条使用完整 16px 交互区域，仅在滚动时显示，避免窄条裁切和常驻色块。`kafka_overview_keeps_sections_aligned_without_vertical_gap` 和 `kafka_topics_reflow_header_and_split_at_supported_widths` 覆盖 360/900/1024/1440px 等窗口，Kafka 工作台共 25 项库测试、Clippy 和格式检查通过。真实 Windows 窗口截图和鼠标拖动滚动条仍未完成，不能由 headless 结果推断原生窗口已验收。
 
+`UI-001` 补充记录（2026-09-09）：Kafka 概览按主内容区宽度统一使用 900px 分栏断点，避免外层窗口宽度与侧栏扣除后的实际空间采用不同布局；集群摘要值允许在卡片内收缩。主题列表把 16px 滚动条改为独立右侧槽位，列表内容不再被滚动条覆盖；`kafka_overview_keeps_sections_aligned_without_vertical_gap` 增加 1200px 主内容边界，`kafka_topics_reflow_header_and_split_at_supported_widths` 检查列表内容区与滚动条的相邻关系。真实 Windows 窗口截图和鼠标拖动滚动条仍未完成。
+
 `PLAT-003` 完成后，`TERM-001` 已完成代码和真实 OpenSSH 端点验收；真实 Windows 窗口和独立转发状态面板仍单独排期。`KAFKA-001` 已进入传输能力矩阵和适配边界阶段，在其完成前不实现 Metrics Snapshot 或 Live Message Tail；终端和数据库任务不得借机修改 Kafka 或插件协议。
 
 ## 4. 分阶段主线

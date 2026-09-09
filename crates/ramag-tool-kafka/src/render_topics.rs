@@ -90,26 +90,34 @@ impl KafkaView {
                         .collect::<Vec<_>>()
                 }),
             )
+            .w_full()
+            .min_w_0()
             .flex_1()
             .min_h_0()
             .track_scroll(&self.topic_scroll);
-            let table = div()
+            let table = h_flex()
                 .id("kafka-topic-table")
                 .debug_selector(|| "kafka-topic-table".into())
-                .relative()
                 .size_full()
-                .child(v_flex().size_full().child(rows))
+                .items_stretch()
+                .child(
+                    v_flex()
+                        .id("kafka-topic-list-content")
+                        .debug_selector(|| "kafka-topic-list-content".into())
+                        .h_full()
+                        .flex_1()
+                        .min_w_0()
+                        .min_h_0()
+                        .child(rows),
+                )
                 .child(
                     div()
                         .id("kafka-topic-v-scrollbar")
                         .debug_selector(|| "kafka-topic-v-scrollbar".into())
-                        .absolute()
-                        .top_0()
-                        .bottom_0()
-                        .right_0()
-                        // Scrollbar's hitbox is 16px wide; matching it avoids a
-                        // clipped grab area and leaves the list content unobstructed.
-                        .w(px(16.0))
+                        .h_full()
+                        .w(px(KAFKA_TOPIC_SCROLLBAR_WIDTH))
+                        .flex_none()
+                        .bg(theme.scrollbar)
                         .child(
                             Scrollbar::vertical(&self.topic_scroll)
                                 .id("kafka-topic-v-scrollbar-control")

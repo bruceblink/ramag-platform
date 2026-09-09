@@ -86,6 +86,7 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
         let search = visual_cx.debug_bounds("kafka-topic-search");
         let split = visual_cx.debug_bounds("kafka-topic-split");
         let list = visual_cx.debug_bounds("kafka-topic-list-panel");
+        let list_content = visual_cx.debug_bounds("kafka-topic-list-content");
         let scrollbar = visual_cx.debug_bounds("kafka-topic-v-scrollbar");
         let detail = visual_cx.debug_bounds("kafka-topic-detail");
         let actions = visual_cx.debug_bounds("kafka-topic-actions");
@@ -95,6 +96,7 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
                 && search.is_some()
                 && split.is_some()
                 && list.is_some()
+                && list_content.is_some()
                 && scrollbar.is_some()
                 && detail.is_some(),
             "主题页的标题、搜索、列表和详情都应参与布局"
@@ -105,9 +107,19 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
             Some(search),
             Some(split),
             Some(list),
+            Some(list_content),
             Some(scrollbar),
             Some(detail),
-        ) = (topics, header, search, split, list, scrollbar, detail)
+        ) = (
+            topics,
+            header,
+            search,
+            split,
+            list,
+            list_content,
+            scrollbar,
+            detail,
+        )
         else {
             return;
         };
@@ -140,10 +152,12 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
             "主题列表和详情不能横向越出分栏: split={split:?}, list={list:?}, detail={detail:?}"
         );
         assert!(
-            scrollbar.right() <= list.right()
+            list_content.origin.x >= list.origin.x
+                && list_content.right() <= scrollbar.origin.x
+                && scrollbar.right() <= list.right()
                 && scrollbar.origin.x >= list.origin.x
                 && scrollbar.size.width == px(16.0),
-            "主题列表滚动条应使用完整交互宽度并贴合列表边缘: list={list:?}, scrollbar={scrollbar:?}"
+            "主题列表内容不能被滚动条覆盖，滚动条应使用完整交互宽度并贴合列表边缘: list={list:?}, list_content={list_content:?}, scrollbar={scrollbar:?}"
         );
         assert!(
             list.size.height >= px(300.0),

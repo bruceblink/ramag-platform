@@ -64,6 +64,7 @@ const DEFAULT_TOPIC_PAGE_SIZE: usize = 50;
 const MESSAGE_TAIL_CHANNEL_CAPACITY: usize = 8;
 const MESSAGE_TAIL_RESULTS_HEIGHT: f32 = 260.0;
 const KAFKA_SIDEBAR_WIDTH: f32 = 260.0;
+const KAFKA_TOPIC_SCROLLBAR_WIDTH: f32 = 16.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum KafkaTailStartMode {

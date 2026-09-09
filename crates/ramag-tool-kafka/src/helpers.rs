@@ -352,7 +352,14 @@ pub(super) fn summary_row(
                 .text_color(theme.muted_foreground)
                 .child(label),
         )
-        .child(div().text_sm().truncate().child(value.to_owned()))
+        .child(
+            div()
+                .w_full()
+                .min_w_0()
+                .text_sm()
+                .truncate()
+                .child(value.to_owned()),
+        )
 }
 
 pub(super) fn value_block(
