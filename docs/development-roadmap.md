@@ -63,7 +63,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | `PLAT-002` | 插件平台 | `ramag-app`、`ramag-bin` | 已完成 | `PLAT-001` | 静态插件注册、初始化、失败隔离、逆序关闭和迟到调用拒绝有测试 |
 | `PLAT-003` | 插件平台 | `ramag-ui`、`ramag-app` | 已完成 | `PLAT-002` | 插件状态、注册错误和可用入口在 360/1024/1440 headless 窗口内可见 |
 | `TERM-001` | SSH/终端 | `ramag-domain`、`ramag-infra-ssh`、`ramag-tool-ssh` | 已完成（真实端点已验证） | `PLAT-003` | 会话状态、重连和 `-L/-R/-D` 参数模型有 OpenSSH 参数测试；Windows OpenSSH 客户端访问 WSL OpenSSH 端点已覆盖 Shell、SFTP、三类转发、停止、重连和错误 Host Key |
-| `KAFKA-001` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、构建维护 | 阶段 19 代码完成，构建证据待补 | `PLAT-003` | 阶段 18 能力矩阵已记录；`KafkaTransport` 适配边界、能力快照和 native 命名已落地，保持当前用户流程 |
+| `KAFKA-001` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、构建维护 | 阶段 19 代码完成，Windows GNU Release 构建已验证 | `PLAT-003` | 阶段 18 能力矩阵已记录；`KafkaTransport` 适配边界、能力快照和 native 命名已落地，保持当前用户流程 |
 | `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
 | `UI-001` | 跨工具 UI | `ramag-ui`、各 `ramag-tool-*` | 开发中 | `PLAT-003` | 共享弹窗、工具栏、列表和详情区在 360/1024/1440 headless 窗口内换行、滚动且不越界；真实窗口证据单独记录 |
 | `DB-002` | 数据库 | `ramag-tool-dbclient`、`ramag-ui` | 待开始 | `DB-001` | 建立 DBeaver/DataGrip 功能矩阵，逐项实现并验收结果、对象导航、执行计划和迁移 UI，不以静态截图宣称完成 |
@@ -81,6 +81,8 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 `UI-001` 验收记录（2026-09-09）：Kafka 概览的 Topic 预览行为长名称增加可收缩和省略处理，Partition 数量保持固定位置；区块副标题和集群摘要允许在窄内容区换行，避免概览内容错位。主题页按可用高度扩大列表区域，桌面窗口不再只保留约 360px 的列表高度；纵向滚动条使用完整 16px 交互区域，仅在滚动时显示，避免窄条裁切和常驻色块。`kafka_overview_keeps_sections_aligned_without_vertical_gap` 和 `kafka_topics_reflow_header_and_split_at_supported_widths` 覆盖 360/900/1024/1440px 等窗口，Kafka 工作台共 25 项库测试、Clippy 和格式检查通过。真实 Windows 窗口截图和鼠标拖动滚动条仍未完成，不能由 headless 结果推断原生窗口已验收。
 
 `UI-001` 补充记录（2026-09-09）：Kafka 概览按主内容区宽度统一使用 900px 分栏断点，避免外层窗口宽度与侧栏扣除后的实际空间采用不同布局；集群摘要值允许在卡片内收缩。主题列表把 16px 滚动条改为独立右侧槽位，列表内容不再被滚动条覆盖；`kafka_overview_keeps_sections_aligned_without_vertical_gap` 增加 1200px 主内容边界，`kafka_topics_reflow_header_and_split_at_supported_widths` 检查列表内容区与滚动条的相邻关系。真实 Windows 窗口截图和鼠标拖动滚动条仍未完成。
+
+`KAFKA-001` 构建记录（2026-09-09）：使用 `scripts/build-windows.ps1 -Release` 和 stable Windows GNU 工具链完成 `ramag-bin` Release 构建；`fxc.exe` 着色器编译、x64 PE/GUI 子系统检查和依赖检查通过，产物为 `target/x86_64-pc-windows-gnu/release/ramag.exe`，大小 `90036736` 字节。该记录只证明本机 Release 产物和 PE 检查，不替代 Docker Broker、真实 Kafka 服务或真实 Windows Kafka 界面验收；安装文件替换因旧进程仍在运行，待进程退出后复核。
 
 `PLAT-003` 完成后，`TERM-001` 已完成代码和真实 OpenSSH 端点验收；真实 Windows 窗口和独立转发状态面板仍单独排期。`KAFKA-001` 已进入传输能力矩阵和适配边界阶段，在其完成前不实现 Metrics Snapshot 或 Live Message Tail；终端和数据库任务不得借机修改 Kafka 或插件协议。
 
