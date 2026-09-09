@@ -223,6 +223,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         let broker_health = visual_cx.debug_bounds("kafka-overview-broker-health");
         let broker_runtime = visual_cx.debug_bounds("kafka-overview-broker-runtime-metrics");
         let broker_runtime_status = visual_cx.debug_bounds("kafka-broker-metrics-status");
+        let broker_runtime_sample_info = visual_cx.debug_bounds("kafka-broker-metrics-sample-info");
         let broker_runtime_rows = visual_cx.debug_bounds("kafka-broker-metrics-brokers");
         assert!(
             snapshot_bounds.is_some()
@@ -238,6 +239,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
                 && broker_health.is_some()
                 && broker_runtime.is_some()
                 && broker_runtime_status.is_some()
+                && broker_runtime_sample_info.is_some()
                 && broker_runtime_rows.is_some(),
             "指标快照各区域都应参与布局: width={width}"
         );
@@ -255,6 +257,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             Some(broker_health),
             Some(broker_runtime),
             Some(broker_runtime_status),
+            Some(broker_runtime_sample_info),
             Some(broker_runtime_rows),
         ) = (
             snapshot_bounds,
@@ -270,6 +273,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             broker_health,
             broker_runtime,
             broker_runtime_status,
+            broker_runtime_sample_info,
             broker_runtime_rows,
         )
         else {
@@ -290,6 +294,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             "kafka-overview-broker-health",
             "kafka-overview-broker-runtime-metrics",
             "kafka-broker-metrics-status",
+            "kafka-broker-metrics-sample-info",
             "kafka-broker-metrics-brokers",
         ] {
             super::assert_within_width(visual_cx, selector, width);
@@ -310,6 +315,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
                 && broker_health.right() <= px(width)
                 && broker_runtime.right() <= px(width)
                 && broker_runtime_status.right() <= broker_runtime.right()
+                && broker_runtime_sample_info.right() <= broker_runtime_status.right()
                 && broker_runtime_rows.right() <= broker_runtime.right(),
             "指标快照和 Broker 运行内容不能横向越出容器: width={width}, snapshot={snapshot_bounds:?}, controls={controls:?}, status={status:?}, summary={cluster_summary:?}, topics={topics:?}, partitions={partitions:?}, groups={groups:?}, broker_health={broker_health:?}, broker_runtime={broker_runtime:?}"
         );
@@ -322,6 +328,10 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             assert!(
                 status_indicator.size.width >= px(80.0) && sample_info.size.width >= px(180.0),
                 "桌面布局中指标状态和采样时间不能被压成窄列: width={width}, status_indicator={status_indicator:?}, sample_info={sample_info:?}"
+            );
+            assert!(
+                broker_runtime_sample_info.size.width >= px(180.0),
+                "桌面布局中 Broker 指标采样时间不能被压成逐字竖排: width={width}, sample_info={broker_runtime_sample_info:?}"
             );
         }
     }

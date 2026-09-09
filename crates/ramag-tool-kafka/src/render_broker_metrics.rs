@@ -152,6 +152,8 @@ pub(super) fn render_broker_runtime_metrics(
                 )
                 .child(
                     div()
+                        .debug_selector(|| "kafka-broker-metrics-sample-info".into())
+                        .flex_1()
                         .max_w(px(560.0))
                         .min_w_0()
                         .whitespace_normal()
