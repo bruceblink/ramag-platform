@@ -1,4 +1,6 @@
 use super::super::RdkafkaTransport;
+#[cfg(feature = "cmake-build")]
+use super::consumer_group_offsets::alter_consumer_group_offsets_native;
 use super::validate_admin_config;
 #[cfg(feature = "cmake-build")]
 use super::{
@@ -7,6 +9,7 @@ use super::{
 };
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::KafkaConfigUpdateRequest;
+use ramag_domain::entities::KafkaConsumerGroupOffsetResetRequest;
 use ramag_domain::entities::{
     KafkaAcl, KafkaAclFilter, KafkaClusterConfig, KafkaTopicCreateRequest,
     KafkaTopicPartitionExpansion, validate_kafka_managed_topic_name,
@@ -220,6 +223,23 @@ impl KafkaAdminDriver for RdkafkaTransport {
         })
         .await
     }
+
+    async fn reset_consumer_group_offsets(
+        &self,
+        config: &KafkaClusterConfig,
+        request: &KafkaConsumerGroupOffsetResetRequest,
+    ) -> Result<()> {
+        validate_admin_config(config)?;
+        request.validate().map_err(DomainError::InvalidConfig)?;
+        let driver = *self;
+        let config = config.clone();
+        let request = request.clone();
+        smol::unblock(move || {
+            let admin = create_admin_client(&driver, &config)?;
+            alter_consumer_group_offsets_native(&admin, &request, driver.request_timeout)
+        })
+        .await
+    }
 }
 
 #[cfg(not(feature = "cmake-build"))]
@@ -326,5 +346,18 @@ impl KafkaAdminDriver for RdkafkaTransport {
         validate_admin_config(config)?;
         acl.validate().map_err(DomainError::InvalidConfig)?;
         Err(super::super::native_client_unavailable("删除 Kafka ACL"))
+    }
+
+    async fn reset_consumer_group_offsets(
+        &self,
+        config: &KafkaClusterConfig,
+        request: &KafkaConsumerGroupOffsetResetRequest,
+    ) -> Result<()> {
+        let _ = self.request_timeout;
+        validate_admin_config(config)?;
+        request.validate().map_err(DomainError::InvalidConfig)?;
+        Err(super::super::native_client_unavailable(
+            "重置 Kafka 消费者组 Offset",
+        ))
     }
 }

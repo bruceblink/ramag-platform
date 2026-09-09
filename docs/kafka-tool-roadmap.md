@@ -458,7 +458,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - native 与应用层同时限制所有消费者组的成员和已解码分配总数，避免单组限制被大量消费者组叠加绕过快照内存预算。
 - Kafka 工作区销毁时使 Topic、ACL 和动态配置写操作的 UI 回调代次失效，但不主动取消已经提交的 Kafka 写入请求；Admin 请求统一限制在 60 秒内自然结束，`AdminClient`、原生队列、事件和 ACL 绑定由各自的 `Drop` 实现释放，迟到结果不会回写已销毁视图。
 - 本切片不改变 Kafka 服务端查询上限、消费者组数据约定或 Offset 语义；Partition 快照内存预算、刷新合并、消费者组、运行时元数据、ACL、配置、指标和连接测试读取取消已完成，写请求的 UI 生命周期隔离已完成。
-- 2026-09-09 WSL Docker 复核通过：`scripts/kafka-test/kafka-test.ps1 test` 创建并校验 5000 条消息和 61 个主题，`crates/ramag-infra-kafka/tests/docker_kafka.rs` 的 4 项测试全部通过。测试脚本同时修正了 WSL Compose 路径、`key.separator=|` 参数转义和 Docker 所在 WSL 会话的保持；本次证据只覆盖明文 KRaft，不覆盖 TLS/SASL、Authorizer、exporter 或真实 Windows 截图。
+- 2026-09-09 WSL Docker 复核通过：`scripts/kafka-test/kafka-test.ps1 test` 创建并校验 5000 条消息和 61 个主题，`crates/ramag-infra-kafka/tests/docker_kafka.rs` 的 6 项测试全部通过。测试脚本同时修正了 WSL Compose 路径、`key.separator=|` 参数转义和 Docker 所在 WSL 会话的保持；本次证据只覆盖明文 KRaft，不覆盖 TLS/SASL、Authorizer、exporter 或真实 Windows 截图。
 
 后续独立路线：
 
@@ -466,10 +466,10 @@ Schema Registry Subject 浏览已作为独立切片完成：
 
 - `ddcc0db feat(kafka): add schema registry subject browser`：只读读取 Subject 名称，配置端点、数量上限、错误状态和页面刷新已接入；Schema 版本内容解析仍未实现。
 
-当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect、ksqlDB、消息生产和 Offset 重置不阻塞这条主线，继续作为后续独立候选：
+当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect 和消费者组 Offset 重置已经完成，消息生产与 ksqlDB 仍作为后续独立候选：
 
-- `feat(kafka): add kafka connect integration`
-- `feat(kafka): add consumer offset reset workflow`
+- `b6590cb feat(kafka): add read-only Connect status browser`：读取 Kafka Connect 连接器与 Task 状态，保留端点校验、数量边界、错误状态和页面刷新。
+- 本次切片完成消费者组 Offset 重置：Domain 和 App 只接受明确的消费者组及 Topic/Partition/Offset 目标；Ramag UI 在管理模式下提供“重置到最早”和“重置到末尾”两个入口，执行前显示目标数量、集群、消费者组和当前状态，并在成功后重新读取消费者组快照；生产驱动使用 librdkafka `AlterConsumerGroupOffsets` Admin API，WSL Docker 已回读目标 Offset 为 `0`。
 - `feat(kafka): add message production workflow`
 - `feat(kafka): add ksqldb integration`
 

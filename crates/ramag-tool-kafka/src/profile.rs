@@ -93,6 +93,7 @@ impl KafkaView {
             || self.deleting
             || self.topic_operation
             || self.acl_operation
+            || self.consumer_group_operation
         {
             return;
         }
@@ -260,6 +261,7 @@ impl KafkaView {
         self.invalidate_runtime_request();
         self.invalidate_message_request();
         self.invalidate_consumer_group_request();
+        self.invalidate_consumer_group_operation();
         self.invalidate_topic_operation();
         self.invalidate_config_request();
         self.clear_schema_registry_snapshot();
@@ -337,6 +339,7 @@ impl KafkaView {
         self.invalidate_runtime_request();
         self.invalidate_message_request();
         self.invalidate_consumer_group_request();
+        self.invalidate_consumer_group_operation();
         self.clear_schema_registry_snapshot();
         self.clear_connect_snapshot();
         self.clear_acl_snapshot();

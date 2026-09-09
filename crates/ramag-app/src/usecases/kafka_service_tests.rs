@@ -10,10 +10,10 @@ use async_trait::async_trait;
 use ramag_domain::entities::{
     KafkaBroker, KafkaBrokerMetricsSnapshot, KafkaBrokerRuntimeMetrics, KafkaClusterConfig,
     KafkaClusterMetadata, KafkaConfigEntry, KafkaConfigResource, KafkaConfigResourceType,
-    KafkaConfigSource, KafkaConfigUpdateRequest, KafkaConsumerGroup, KafkaMessagePage,
-    KafkaMessageRecord, KafkaMetricsSnapshot, KafkaMetricsSnapshotState, KafkaMetricsSource,
-    KafkaPartition, KafkaReadOnlyState, KafkaTopic, KafkaTopicCreateRequest,
-    KafkaTopicPartitionExpansion,
+    KafkaConfigSource, KafkaConfigUpdateRequest, KafkaConsumerGroup,
+    KafkaConsumerGroupOffsetResetRequest, KafkaMessagePage, KafkaMessageRecord,
+    KafkaMetricsSnapshot, KafkaMetricsSnapshotState, KafkaMetricsSource, KafkaPartition,
+    KafkaReadOnlyState, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
 };
 use ramag_domain::error::{DomainError, KafkaError, KafkaErrorCategory, Result};
 use ramag_domain::traits::{
@@ -155,6 +155,19 @@ impl KafkaAdminDriver for RecordingAdminDriver {
             .lock()
             .unwrap()
             .push(format!("update:{}", request.key));
+        Ok(())
+    }
+
+    async fn reset_consumer_group_offsets(
+        &self,
+        _config: &KafkaClusterConfig,
+        request: &KafkaConsumerGroupOffsetResetRequest,
+    ) -> Result<()> {
+        self.calls.lock().unwrap().push(format!(
+            "reset:{}:{}",
+            request.group_id,
+            request.offsets.len()
+        ));
         Ok(())
     }
 }
@@ -301,6 +314,30 @@ fn service_exposes_transport_capabilities_without_client_types() {
     );
     assert!(!capabilities.build_available);
     assert!(!capabilities.metadata);
+}
+
+#[test]
+fn offset_reset_requires_admin_mode_and_forwards_explicit_targets() {
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let service = service_with_admin(Arc::new(RecordingAdminDriver {
+        calls: calls.clone(),
+    }));
+    let mut config = KafkaClusterConfig::new("offset-reset", vec!["localhost:9092".into()]);
+    let request = KafkaConsumerGroupOffsetResetRequest::new(
+        "workers",
+        vec![ramag_domain::entities::KafkaConsumerGroupOffsetReset::new(
+            "events", 0, 7,
+        )],
+    );
+    assert!(matches!(
+        smol::block_on(service.reset_consumer_group_offsets(&config, &request)),
+        Err(DomainError::Forbidden(_))
+    ));
+
+    config.read_only = KafkaReadOnlyState::ReadWrite;
+    smol::block_on(service.reset_consumer_group_offsets(&config, &request))
+        .expect("admin mode should forward offset reset");
+    assert_eq!(calls.lock().unwrap().as_slice(), &["reset:workers:1"]);
 }
 
 #[test]

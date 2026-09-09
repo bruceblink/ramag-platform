@@ -1,23 +1,8 @@
+pub(super) use super::render_consumer_group_helpers::matching_consumer_group_indices;
 use super::render_consumer_group_helpers::{
     consumer_member_row, consumer_offset_row, empty_group_message, group_metric,
 };
 use super::*;
-
-const MAX_VISIBLE_GROUP_OFFSETS: usize = 500;
-
-/// 只保存筛选结果的源索引；query 已转为小写，虚拟列表回调只复制当前可视范围内的组快照。
-pub(super) fn matching_consumer_group_indices(
-    groups: &[KafkaConsumerGroup],
-    query: &str,
-) -> Vec<usize> {
-    groups
-        .iter()
-        .enumerate()
-        .filter_map(|(index, group)| {
-            (query.is_empty() || group.group_id.to_lowercase().contains(query)).then_some(index)
-        })
-        .collect()
-}
 
 impl KafkaView {
     /// 触发一次有界消费者组快照读取；旧请求的结果不会覆盖当前集群。
@@ -475,6 +460,11 @@ impl KafkaView {
             .iter()
             .map(|member| member.assigned_partitions.len())
             .sum::<usize>();
+        let reset_disabled = !self.read_only.allows_admin()
+            || self.consumer_group_operation
+            || self.loading_consumer_groups
+            || self.loading_runtime
+            || group.offsets.is_empty();
         let mut member_rows = v_flex()
             .id("kafka-consumer-group-members")
             .debug_selector(|| "kafka-consumer-group-members".into())
@@ -563,7 +553,8 @@ impl KafkaView {
                                     );
                                 }
                             })),
-                    ),
+                    )
+                    .child(self.render_consumer_group_reset_actions(reset_disabled, cx)),
             )
             .child(
                 h_flex()

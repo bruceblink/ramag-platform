@@ -6,8 +6,8 @@ use std::sync::{Arc, atomic::AtomicBool};
 use crate::entities::{
     KafkaAcl, KafkaAclFilter, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterMetadata,
     KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConnectConnector,
-    KafkaConsumerGroup, KafkaMessagePage, KafkaMessageQuery, KafkaMessageSearchQuery,
-    KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMetricsSnapshot,
+    KafkaConsumerGroup, KafkaConsumerGroupOffsetResetRequest, KafkaMessagePage, KafkaMessageQuery,
+    KafkaMessageSearchQuery, KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMetricsSnapshot,
     KafkaSchemaRegistrySubject, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
     KafkaTransportCapabilities,
 };
@@ -330,6 +330,17 @@ pub trait KafkaAdminDriver: Send + Sync {
     async fn delete_acl(&self, _config: &KafkaClusterConfig, _acl: &KafkaAcl) -> Result<()> {
         Err(crate::error::DomainError::NotImplemented(
             "delete_acl".into(),
+        ))
+    }
+
+    /// 将明确列出的已提交 Offset 写入指定消费者组；调用方必须先完成确认。
+    async fn reset_consumer_group_offsets(
+        &self,
+        _config: &KafkaClusterConfig,
+        _request: &KafkaConsumerGroupOffsetResetRequest,
+    ) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "reset_consumer_group_offsets".into(),
         ))
     }
 }

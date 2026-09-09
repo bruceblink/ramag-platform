@@ -2,6 +2,19 @@ use super::*;
 
 const MAX_VISIBLE_GROUP_ASSIGNMENTS: usize = 200;
 
+pub(super) fn matching_consumer_group_indices(
+    groups: &[ramag_domain::entities::KafkaConsumerGroup],
+    query: &str,
+) -> Vec<usize> {
+    groups
+        .iter()
+        .enumerate()
+        .filter_map(|(index, group)| {
+            (query.is_empty() || group.group_id.to_lowercase().contains(query)).then_some(index)
+        })
+        .collect()
+}
+
 pub(crate) fn group_metric(
     label: &'static str,
     value: &str,

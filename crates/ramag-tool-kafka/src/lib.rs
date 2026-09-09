@@ -38,7 +38,8 @@ use ramag_domain::{
         KafkaAclOperation, KafkaAclPatternType, KafkaAclPermission, KafkaAclResourceType,
         KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
         KafkaConfigEntry, KafkaConfigResourceType, KafkaConfigUpdateOperation,
-        KafkaConfigUpdateRequest, KafkaConnectConnector, KafkaConsumerGroup, KafkaMessagePage,
+        KafkaConfigUpdateRequest, KafkaConnectConnector, KafkaConsumerGroup,
+        KafkaConsumerGroupOffsetReset, KafkaConsumerGroupOffsetResetRequest, KafkaMessagePage,
         KafkaMessageQuery, KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
         KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart,
         KafkaMetricsSnapshot, KafkaMetricsSnapshotState, KafkaPartitionMetrics, KafkaReadOnlyState,
@@ -68,6 +69,7 @@ const MESSAGE_TAIL_RESULTS_HEIGHT: f32 = 260.0;
 const KAFKA_SIDEBAR_WIDTH: f32 = 260.0;
 const KAFKA_TOPIC_SCROLLBAR_WIDTH: f32 = 16.0;
 const KAFKA_SCHEMA_SUBJECT_SCROLLBAR_WIDTH: f32 = 16.0;
+const MAX_VISIBLE_GROUP_OFFSETS: usize = 500;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum KafkaTailStartMode {
@@ -334,6 +336,8 @@ pub struct KafkaView {
     message_tail_request_id: u64,
     message_tail_cancelled: Option<Arc<AtomicBool>>,
     consumer_group_request_id: u64,
+    consumer_group_operation_id: u64,
+    consumer_group_operation: bool,
     config_cancelled: Option<Arc<AtomicBool>>,
     config_request_id: u64,
     acl_request_id: u64,
@@ -359,6 +363,7 @@ impl Drop for KafkaView {
         // 让有界请求自然结束后释放 native Admin 资源。
         self.invalidate_topic_operation();
         self.invalidate_acl_operation();
+        self.invalidate_consumer_group_operation();
         self.invalidate_config_request();
     }
 }
@@ -369,6 +374,7 @@ mod loading;
 use loading::*;
 mod acls;
 mod admin;
+mod consumer_group_admin;
 mod messages;
 mod metrics;
 mod profile;

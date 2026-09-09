@@ -468,6 +468,8 @@ impl KafkaView {
             message_tail_request_id: 0,
             message_tail_cancelled: None,
             consumer_group_request_id: 0,
+            consumer_group_operation_id: 0,
+            consumer_group_operation: false,
             config_cancelled: None,
             config_request_id: 0,
             acl_request_id: 0,

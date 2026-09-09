@@ -3,8 +3,9 @@
 
 use chrono::{Duration, Utc};
 use ramag_domain::entities::{
-    KafkaClusterConfig, KafkaMessageQuery, KafkaMessageSearchField, KafkaMessageSearchQuery,
-    KafkaReadOnlyState, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaClusterConfig, KafkaConsumerGroupOffsetReset, KafkaConsumerGroupOffsetResetRequest,
+    KafkaMessageQuery, KafkaMessageSearchField, KafkaMessageSearchQuery, KafkaReadOnlyState,
+    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE};
 use ramag_domain::traits::{KafkaAdminDriver, KafkaConnectDriver, KafkaDriver};
@@ -333,6 +334,69 @@ fn docker_kafka_lists_consumer_groups_and_offsets() {
             .any(|offset| offset.topic == FIXTURE_TOPIC && offset.committed_offset.is_some()),
         "the committed fixture offset should be returned"
     );
+}
+
+/// Commits a real group offset, resets it through the production Admin API,
+/// and reads the committed value back from the broker.
+#[test]
+fn docker_kafka_resets_consumer_group_offsets() {
+    let Some(bootstrap) = docker_bootstrap() else {
+        return;
+    };
+    let group_id = "ramag.integration.offset-reset";
+    let config =
+        KafkaClusterConfig::new("ramag-docker-kafka-offset-reset", vec![bootstrap.clone()]);
+    {
+        let consumer: BaseConsumer = ClientConfig::new()
+            .set("bootstrap.servers", &bootstrap)
+            .set("group.id", group_id)
+            .set("enable.auto.commit", "false")
+            .set("auto.offset.reset", "earliest")
+            .create()
+            .expect("Docker Kafka should create the offset reset consumer");
+        consumer
+            .subscribe(&[FIXTURE_TOPIC])
+            .expect("offset reset consumer should subscribe");
+        let deadline = Instant::now() + StdDuration::from_secs(15);
+        let mut committed = false;
+        while Instant::now() < deadline {
+            if let Some(Ok(message)) = consumer.poll(StdDuration::from_millis(250)) {
+                consumer
+                    .commit_message(&message, CommitMode::Sync)
+                    .expect("offset reset consumer should commit an initial offset");
+                committed = true;
+                break;
+            }
+        }
+        assert!(
+            committed,
+            "offset reset consumer should commit before reset"
+        );
+    }
+
+    let driver = RdkafkaDriver::new();
+    let request = KafkaConsumerGroupOffsetResetRequest::new(
+        group_id,
+        vec![KafkaConsumerGroupOffsetReset::new(FIXTURE_TOPIC, 0, 0)],
+    );
+    let reset_result = smol::block_on(driver.reset_consumer_group_offsets(&config, &request));
+    assert!(
+        reset_result.is_ok(),
+        "Docker Kafka should reset consumer group offsets: {reset_result:?}"
+    );
+    if reset_result.is_err() {
+        return;
+    }
+
+    let groups = smol::block_on(driver.list_consumer_groups(&config))
+        .expect("reset group should be readable after the Admin API call");
+    let group = groups
+        .into_iter()
+        .find(|group| group.group_id == group_id)
+        .expect("reset group should remain visible after committing an offset");
+    assert!(group.offsets.iter().any(|offset| {
+        offset.topic == FIXTURE_TOPIC && offset.partition == 0 && offset.committed_offset == Some(0)
+    }));
 }
 
 /// Executes the production Admin API against a unique Docker topic and verifies

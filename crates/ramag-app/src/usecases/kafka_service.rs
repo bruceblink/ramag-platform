@@ -29,11 +29,14 @@ pub struct KafkaService {
 mod acls;
 mod connect;
 mod connection;
+mod consumer_group_offsets;
 mod logging;
 mod messages;
 mod schema_registry;
 mod tail;
+mod validation;
 use logging::*;
+use validation::validate_config_resource;
 
 impl KafkaService {
     pub fn new(driver: Arc<dyn KafkaDriver>, storage: Arc<dyn Storage>) -> Self {
@@ -396,7 +399,6 @@ struct UnsupportedKafkaConnectDriver;
 
 impl KafkaConnectDriver for UnsupportedKafkaConnectDriver {}
 
-/// 在应用层再次校验驱动返回的页，避免替换基础设施实现时绕过领域资源上限。
 fn validate_message_page(page: KafkaMessagePage) -> Result<KafkaMessagePage> {
     page.validate()
         .map(|()| page)
@@ -419,7 +421,6 @@ fn validate_broker_metrics_snapshot(
         .map_err(DomainError::InvalidConfig)
 }
 
-/// 在应用层校验驱动返回的集群快照，避免不完整或重复的 Broker 污染 UI。
 fn validate_cluster_metadata(metadata: KafkaClusterMetadata) -> Result<KafkaClusterMetadata> {
     metadata
         .validate()
@@ -592,20 +593,6 @@ fn ensure_admin_enabled(config: &KafkaClusterConfig) -> Result<()> {
     } else {
         Err(DomainError::Forbidden(READ_ONLY_MESSAGE.into()))
     }
-}
-
-fn validate_config_resource(
-    resource: KafkaConfigResource,
-    expected_type: KafkaConfigResourceType,
-    expected_name: &str,
-) -> Result<KafkaConfigResource> {
-    resource.validate().map_err(DomainError::InvalidConfig)?;
-    if resource.resource_type != expected_type || resource.resource_name != expected_name {
-        return Err(DomainError::InvalidConfig(
-            "Kafka 配置资源与请求不一致".into(),
-        ));
-    }
-    Ok(resource)
 }
 
 #[cfg(test)]

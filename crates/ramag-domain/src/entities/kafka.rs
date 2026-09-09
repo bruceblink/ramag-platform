@@ -12,6 +12,8 @@ mod kafka_config;
 mod kafka_connect;
 #[path = "kafka_consumer.rs"]
 mod kafka_consumer;
+#[path = "kafka_consumer_admin.rs"]
+mod kafka_consumer_admin;
 #[path = "kafka_message.rs"]
 mod kafka_message;
 #[path = "kafka_metadata.rs"]
@@ -45,6 +47,9 @@ pub use kafka_connect::{KafkaConnectConfig, KafkaConnectConnector, KafkaConnectT
 pub use kafka_consumer::{
     KafkaConsumerGroup, KafkaConsumerGroupOffset, KafkaConsumerMember,
     KafkaConsumerPartitionAssignment,
+};
+pub use kafka_consumer_admin::{
+    KafkaConsumerGroupOffsetReset, KafkaConsumerGroupOffsetResetRequest,
 };
 pub use kafka_message::{
     KafkaMessageHeader, KafkaMessagePage, KafkaMessageQuery, KafkaMessageRecord,

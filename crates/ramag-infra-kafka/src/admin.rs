@@ -21,6 +21,9 @@ mod acl_mapping;
 mod acl_operations;
 #[path = "admin_driver.rs"]
 mod admin_driver;
+#[cfg(feature = "cmake-build")]
+#[path = "consumer_group_offsets.rs"]
+mod consumer_group_offsets;
 
 #[cfg(feature = "cmake-build")]
 use rdkafka::admin::{AdminClient, AdminOptions, ConfigResource, ConfigSource, ResourceSpecifier};

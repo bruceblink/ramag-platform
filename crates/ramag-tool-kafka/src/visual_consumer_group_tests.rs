@@ -54,6 +54,7 @@ fn kafka_consumer_groups_fit_three_window_widths_with_long_fields(cx: &mut TestA
             kafka_version: Some("4.0.0".into()),
         });
         view.section = KafkaSection::ConsumerGroups;
+        view.read_only = KafkaReadOnlyState::ReadWrite;
         view.loading_clusters = false;
         view.loading_runtime = false;
         view.loading_consumer_groups = false;
@@ -99,6 +100,8 @@ fn kafka_consumer_groups_fit_three_window_widths_with_long_fields(cx: &mut TestA
             "kafka-consumer-group-detail-name",
             "kafka-consumer-group-members",
             "kafka-consumer-group-offset-rows",
+            "kafka-consumer-group-reset-earliest",
+            "kafka-consumer-group-reset-latest",
         ] {
             assert_within_width(visual_cx, selector, width);
         }
@@ -138,4 +141,33 @@ fn kafka_consumer_groups_fit_three_window_widths_with_long_fields(cx: &mut TestA
         .and_then(|item| item.text())
         .unwrap_or_default();
     assert_eq!(copied_group, group_id, "消费者组复制按钮应保留完整 ID");
+
+    visual_cx.update(|window, app| {
+        kafka_entity.update(app, |view, cx| {
+            view.set_form_from_config(&cluster, window, cx);
+            view.read_only = KafkaReadOnlyState::ReadWrite;
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "kafka-consumer-group-reset-earliest");
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx.debug_bounds("ramag-confirm-ok").is_some(),
+        "重置消费者组 Offset 前必须显示确认对话框"
+    );
+    click(visual_cx, "ramag-confirm-cancel");
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
+
+    click(visual_cx, "kafka-consumer-group-reset-latest");
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx.debug_bounds("ramag-confirm-ok").is_some(),
+        "重置到末尾前必须显示确认对话框"
+    );
+    click(visual_cx, "ramag-confirm-cancel");
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
 }
