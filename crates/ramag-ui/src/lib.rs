@@ -97,6 +97,23 @@ pub const COMMUNITY_URL: &str =
 pub const PRODUCTION_MODE_LABEL: &str = "生产模式（只读保护）";
 pub const PRODUCTION_BADGE_LABEL: &str = "生产";
 
+/// 根据当前窗口宽度收缩对话框，保留 16px 两侧边距和宽窗口可读上限。
+pub fn responsive_dialog_width(window: &gpui::Window, preferred: f32) -> gpui::Pixels {
+    let available = f32::from(window.viewport_size().width);
+    gpui::px((available - 32.0).max(0.0).min(preferred))
+}
+
+/// 返回共享对话框应使用的顶部偏移，避免短窗口把内容推到视口之外。
+pub fn responsive_dialog_top(window: &gpui::Window) -> gpui::Pixels {
+    (window.viewport_size().height * 0.05).min(gpui::px(42.0))
+}
+
+/// 返回对话框外框的最大高度；正文应在此高度内启用自己的滚动。
+pub fn responsive_dialog_max_height(window: &gpui::Window) -> gpui::Pixels {
+    (window.viewport_size().height - responsive_dialog_top(window) - gpui::px(16.0))
+        .max(gpui::px(0.0))
+}
+
 /// 将通知宽度限制在当前窗口可用空间内，并保留宽窗口的可读上限。
 pub fn responsive_notification(
     notification: gpui_component::notification::Notification,

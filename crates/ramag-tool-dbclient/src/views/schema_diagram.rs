@@ -386,8 +386,11 @@ impl SchemaDiagramPanel {
 }
 
 impl Render for SchemaDiagramPanel {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
+        let panel_height = (ramag_ui::responsive_dialog_max_height(window) - px(78.0))
+            .max(px(96.0))
+            .min(px(700.0));
         let query = self.search_query(cx);
         let visible_tables = self.visible_tables(&query);
         let visible_table_names: HashSet<&str> = visible_tables
@@ -558,7 +561,7 @@ impl Render for SchemaDiagramPanel {
 
         v_flex()
             .w_full()
-            .h(px(700.0))
+            .h(panel_height)
             .min_h_0()
             .child(toolbar)
             .child(content)

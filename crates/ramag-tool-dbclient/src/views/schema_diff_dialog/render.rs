@@ -1,5 +1,6 @@
 use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, div, prelude::*, px,
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Pixels, Styled, div, prelude::*,
+    px,
 };
 use gpui_component::{
     Disableable as _, IconName, Sizable as _, Theme,
@@ -10,18 +11,19 @@ use gpui_component::{
 };
 
 use super::super::super::schema_migration::MigrationScript;
-use super::super::{DIFF_VIEW_HEIGHT, DIFF_VIEW_WIDTH, SchemaDiffDialog};
+use super::super::{DIFF_VIEW_WIDTH, SchemaDiffDialog};
 use super::approval;
 
 fn render_migration_scrollable(
     dialog: &SchemaDiffDialog,
     content: impl IntoElement,
     theme: &Theme,
+    height: Pixels,
 ) -> AnyElement {
     // Keep the SQL preview fixed-width while exposing both scroll axes for long scripts.
     div()
         .relative()
-        .h(px(DIFF_VIEW_HEIGHT))
+        .h(height)
         .w_full()
         .child(
             div()
@@ -76,11 +78,12 @@ impl SchemaDiffDialog {
         &self,
         migration: Option<&Result<MigrationScript, String>>,
         theme: &Theme,
+        body_height: Pixels,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let Some(migration) = migration else {
             return v_flex()
-                .h(px(DIFF_VIEW_HEIGHT))
+                .h(body_height)
                 .items_center()
                 .justify_center()
                 .text_xs()
@@ -92,7 +95,7 @@ impl SchemaDiffDialog {
             Ok(script) => script,
             Err(error) => {
                 return v_flex()
-                    .h(px(DIFF_VIEW_HEIGHT))
+                    .h(body_height)
                     .items_center()
                     .justify_center()
                     .gap(px(8.0))
@@ -229,6 +232,6 @@ impl SchemaDiffDialog {
                 .whitespace_nowrap()
                 .child(script.sql.clone()),
         );
-        render_migration_scrollable(self, content, theme)
+        render_migration_scrollable(self, content, theme, body_height)
     }
 }

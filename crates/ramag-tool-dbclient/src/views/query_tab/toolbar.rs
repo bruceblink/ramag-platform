@@ -50,7 +50,7 @@ pub(super) fn render_delete_button(
                 (None, Some((ri, p))) => ("删除此行？", format!("将删除：{p}"), None, Some(ri)),
                 _ => return,
             };
-            window.open_dialog(cx, move |dialog, _, _| {
+            window.open_dialog(cx, move |dialog, window, _| {
                 let result_btn = result.clone();
                 let preview_for_content = preview.clone();
                 let on_ok_indices = on_ok_indices.clone();
@@ -92,8 +92,9 @@ pub(super) fn render_delete_button(
                         |_, _| {},
                     ))
                     .close_button(false)
-                    .width(px(520.0))
-                    .margin_top(px(180.0))
+                    .width(ramag_ui::responsive_dialog_width(window, 520.0))
+                    .max_h(ramag_ui::responsive_dialog_max_height(window))
+                    .margin_top(ramag_ui::responsive_dialog_top(window))
                     .content(move |c, _, cx| {
                         let muted_fg = cx.theme().muted_foreground;
                         let p = preview_for_content.clone();

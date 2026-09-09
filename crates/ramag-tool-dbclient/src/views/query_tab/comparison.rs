@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, ParentElement as _, Window};
+use gpui::{AppContext as _, Context, ParentElement as _, Styled as _, Window};
 use gpui_component::{WindowExt as _, notification::Notification};
 use ramag_domain::entities::{
     ConnectionConfig, DriverKind, MAX_CONNECTION_IDENTIFIER_BYTES, Query, QueryResult,
@@ -298,15 +298,16 @@ impl QueryTab {
         cx: &mut Context<Self>,
     ) {
         let panel = cx.new(|cx| ResultDiffDialog::new(source, target, cx));
-        window.open_dialog(cx, move |dialog, _, _| {
+        window.open_dialog(cx, move |dialog, window, _| {
             let panel_for_content = panel.clone();
             dialog
                 .title(format!(
                     "查询结果差异 · {} → {}",
                     source_connection.name, target_connection.name
                 ))
-                .width(gpui::px(1_120.0))
-                .margin_top(gpui::px(55.0))
+                .width(ramag_ui::responsive_dialog_width(window, 1_120.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .content(move |content, _, _| content.child(panel_for_content.clone()))
         });
     }

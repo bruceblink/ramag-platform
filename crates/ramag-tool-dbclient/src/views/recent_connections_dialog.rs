@@ -141,6 +141,7 @@ impl ConnectionPickerPanel {
         title: &'static str,
         connections: Vec<ConnectionConfig>,
         favorite_section: bool,
+        compact: bool,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let border = cx.theme().border;
@@ -169,8 +170,13 @@ impl ConnectionPickerPanel {
             );
         } else {
             for (index, connection) in connections.into_iter().enumerate() {
-                body =
-                    body.child(self.render_connection_row(index, connection, favorite_section, cx));
+                body = body.child(self.render_connection_row(
+                    index,
+                    connection,
+                    favorite_section,
+                    compact,
+                    cx,
+                ));
             }
         }
         v_flex()
@@ -179,6 +185,7 @@ impl ConnectionPickerPanel {
             .child(
                 h_flex()
                     .items_center()
+                    .flex_wrap()
                     .gap(px(7.0))
                     .child(
                         div()
@@ -201,6 +208,7 @@ impl ConnectionPickerPanel {
         index: usize,
         connection: ConnectionConfig,
         favorite_section: bool,
+        compact: bool,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme();
@@ -222,9 +230,11 @@ impl ConnectionPickerPanel {
         });
         h_flex()
             .id(format!("connection-picker-{favorite_section}-{index}"))
+            .debug_selector(move || format!("connection-picker-row-{favorite_section}-{index}"))
             .w_full()
             .min_h(px(64.0))
             .items_center()
+            .when(compact, |row| row.flex_col().items_stretch())
             .gap(px(12.0))
             .px(px(14.0))
             .py(px(9.0))
@@ -275,9 +285,10 @@ impl ConnectionPickerPanel {
             )
             .child(
                 v_flex()
-                    .w(px(210.0))
+                    .flex_1()
                     .min_w_0()
                     .gap(px(3.0))
+                    .when(!compact, |panel| panel.w(px(210.0)).flex_none())
                     .child(div().text_xs().child(account))
                     .child(
                         div()
@@ -338,10 +349,10 @@ impl Render for ConnectionPickerPanel {
             .collect();
         let row_count = matching.len().saturating_add(favorites.len()).max(1);
         let desired_height = px((row_count.min(7) as f32 * 64.0) + 160.0);
-        let max_height = (window.viewport_size().height * 0.58)
-            .max(px(300.0))
-            .min(px(590.0));
-        let body_height = desired_height.min(max_height).max(px(230.0));
+        let compact = window.viewport_size().width < px(680.0);
+        let available_body =
+            (ramag_ui::responsive_dialog_max_height(window) - px(120.0)).max(px(100.0));
+        let body_height = desired_height.min(available_body);
         let all_count = matching.len();
         v_flex()
             .w_full()
@@ -356,8 +367,10 @@ impl Render for ConnectionPickerPanel {
             .child(
                 div()
                     .id("connection-picker-scroll")
+                    .debug_selector(|| "connection-picker-scroll".into())
                     .w_full()
                     .h(body_height)
+                    .min_h_0()
                     .flex_none()
                     .overflow_y_scroll()
                     .track_scroll(&self.scroll)
@@ -371,8 +384,8 @@ impl Render for ConnectionPickerPanel {
                         v_flex()
                             .w_full()
                             .gap(px(18.0))
-                            .child(self.render_section("收藏", favorites, true, cx))
-                            .child(self.render_section("所有连接", matching, false, cx))
+                            .child(self.render_section("收藏", favorites, true, compact, cx))
+                            .child(self.render_section("所有连接", matching, false, compact, cx))
                     }),
             )
             .when_some(self.error.clone(), |body, error| {
@@ -400,12 +413,13 @@ impl DbClientView {
         let service = self.service.clone();
         let owner = cx.entity().clone();
         let panel = cx.new(|cx| ConnectionPickerPanel::new(service, owner, current, window, cx));
-        window.open_dialog(cx, move |dialog, _, _| {
+        window.open_dialog(cx, move |dialog, window, _| {
             let panel = panel.clone();
             dialog
                 .title("连接选择器")
-                .w(px(820.0))
-                .margin_top(px(42.0))
+                .w(ramag_ui::responsive_dialog_width(window, 820.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .content(move |content, _, _| content.child(panel.clone()))
         });
     }

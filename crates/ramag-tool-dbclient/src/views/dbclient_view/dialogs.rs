@@ -43,11 +43,13 @@ impl DbClientView {
         let service = self.data_sync_service.clone();
         let connections = connections.to_vec();
         let panel = cx.new(|cx| DataSyncDialog::new(service, target, &connections, window, cx));
-        window.open_dialog(cx, move |dialog, _, _| {
+        window.open_dialog(cx, move |dialog, window, _| {
             dialog
                 .title("数据同步")
                 .close_button(false)
-                .w(px(860.0))
+                .w(ramag_ui::responsive_dialog_width(window, 860.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .pt(px(18.0))
                 .px(px(20.0))
                 .pb(px(16.0))
@@ -114,7 +116,7 @@ impl DbClientView {
         let form_for_dialog = form.clone();
         let view_for_close = cx.entity().clone();
 
-        window.open_dialog(cx, move |dialog, _w, _app| {
+        window.open_dialog(cx, move |dialog, window, _app| {
             let form = form_for_dialog.clone();
             let form_for_cancel = form_for_dialog.clone();
             let view_for_close = view_for_close.clone();
@@ -152,7 +154,9 @@ impl DbClientView {
                 .on_close(move |_, _, app| {
                     view_for_close.update(app, |this, _| this.form_subscription = None);
                 })
-                .w(px(720.0))
+                .w(ramag_ui::responsive_dialog_width(window, 720.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .pt(px(24.0))
                 .px(px(24.0))
                 .pb(px(14.0))

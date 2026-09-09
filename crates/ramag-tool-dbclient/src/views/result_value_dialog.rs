@@ -24,11 +24,6 @@ const VALUE_VIEW_HEIGHT: f32 = 400.0;
 /// 单个值的查看上限；结果集本身仍由已有的全局结果预算控制。
 const MAX_VALUE_VIEW_BYTES: usize = 2 * 1024 * 1024;
 
-fn responsive_dialog_width(window: &Window, preferred: f32) -> gpui::Pixels {
-    let available = f32::from(window.viewport_size().width);
-    px((available - 32.0).max(160.0).min(preferred))
-}
-
 pub(crate) struct ResultValueDialog {
     result: Arc<QueryResult>,
     row_index: usize,
@@ -104,12 +99,13 @@ impl ResultValueDialog {
         &self,
         body: impl IntoElement,
         theme: &gpui_component::Theme,
+        height: gpui::Pixels,
     ) -> AnyElement {
         div()
             .id("result-value-viewer-scroll-area")
             .debug_selector(|| "result-value-viewer-scroll-area".into())
             .relative()
-            .h(px(VALUE_VIEW_HEIGHT))
+            .h(height)
             .w_full()
             .min_w_0()
             .child(
@@ -184,7 +180,9 @@ pub(crate) fn open(
     let viewer_for_dialog = viewer.clone();
     window.open_dialog(cx, move |dialog, window, _| {
         let viewer_for_content = viewer_for_dialog.clone();
-        let dialog_width = responsive_dialog_width(window, 1040.0);
+        let dialog_width = ramag_ui::responsive_dialog_width(window, 1040.0);
+        let dialog_max_height = ramag_ui::responsive_dialog_max_height(window);
+        let dialog_top = ramag_ui::responsive_dialog_top(window);
         let close = div()
             .debug_selector(|| "result-value-viewer-close".into())
             .child(
@@ -202,15 +200,19 @@ pub(crate) fn open(
             ))
             .close_button(false)
             .width(dialog_width)
-            .margin_top(px(36.0))
+            .max_h(dialog_max_height)
+            .margin_top(dialog_top)
             .content(move |content, _, _| content.child(viewer_for_content.clone()))
             .footer(h_flex().w_full().items_center().justify_end().child(close))
     });
 }
 
 impl Render for ResultValueDialog {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
+        let view_height = (ramag_ui::responsive_dialog_max_height(window) - px(112.0))
+            .max(px(96.0))
+            .min(px(VALUE_VIEW_HEIGHT));
         let column_name = self
             .result
             .columns
@@ -293,6 +295,6 @@ impl Render for ResultValueDialog {
             .gap(px(2.0))
             .child(meta)
             .child(copy_toolbar)
-            .child(self.render_scrollable(content, theme))
+            .child(self.render_scrollable(content, theme, view_height))
     }
 }

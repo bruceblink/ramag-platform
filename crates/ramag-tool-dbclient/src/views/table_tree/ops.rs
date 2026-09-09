@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use gpui::{AppContext as _, Context, Entity, ParentElement, Window, px};
+use gpui::{AppContext as _, Context, Entity, ParentElement, Styled as _, Window};
 use gpui_component::WindowExt as _;
 use gpui_component::notification::Notification;
 use ramag_domain::entities::DriverKind;
@@ -153,7 +153,7 @@ impl TableTreePanel {
         let designer =
             cx.new(|cx| crate::views::table_designer::TableDesigner::new(config, window, cx));
         let designer_for_dialog = designer.clone();
-        window.open_dialog(cx, move |dialog, _, _| {
+        window.open_dialog(cx, move |dialog, window, _| {
             let designer_for_content = designer_for_dialog.clone();
             let designer_for_cancel = designer_for_dialog.clone();
             dialog
@@ -162,8 +162,9 @@ impl TableTreePanel {
                 .on_cancel(move |_, _, app| {
                     designer_for_cancel.update(app, |designer, cx| designer.allow_dialog_close(cx))
                 })
-                .width(px(1080.0))
-                .margin_top(px(70.0))
+                .width(ramag_ui::responsive_dialog_width(window, 1080.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .content(move |content, _, _| content.child(designer_for_content.clone()))
         });
         if let Some(connection) = connection {
