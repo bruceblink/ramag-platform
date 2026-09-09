@@ -214,6 +214,8 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         let controls = visual_cx.debug_bounds("kafka-metrics-controls");
         let heading = visual_cx.debug_bounds("kafka-metrics-heading");
         let status = visual_cx.debug_bounds("kafka-metrics-status");
+        let status_indicator = visual_cx.debug_bounds("kafka-metrics-status-indicator");
+        let sample_info = visual_cx.debug_bounds("kafka-metrics-sample-info");
         let cluster_summary = visual_cx.debug_bounds("kafka-metrics-cluster");
         let topics = visual_cx.debug_bounds("kafka-metrics-topics");
         let partitions = visual_cx.debug_bounds("kafka-metrics-partition-health");
@@ -227,6 +229,8 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
                 && controls.is_some()
                 && heading.is_some()
                 && status.is_some()
+                && status_indicator.is_some()
+                && sample_info.is_some()
                 && cluster_summary.is_some()
                 && topics.is_some()
                 && partitions.is_some()
@@ -242,6 +246,8 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             Some(controls),
             Some(heading),
             Some(status),
+            Some(status_indicator),
+            Some(sample_info),
             Some(cluster_summary),
             Some(topics),
             Some(partitions),
@@ -255,6 +261,8 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             controls,
             heading,
             status,
+            status_indicator,
+            sample_info,
             cluster_summary,
             topics,
             partitions,
@@ -273,6 +281,8 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             "kafka-metrics-controls",
             "kafka-metrics-heading",
             "kafka-metrics-status",
+            "kafka-metrics-status-indicator",
+            "kafka-metrics-sample-info",
             "kafka-metrics-cluster",
             "kafka-metrics-topics",
             "kafka-metrics-partition-health",
@@ -291,6 +301,8 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
                 && heading.right() <= snapshot_bounds.right()
                 && status.origin.x >= snapshot_bounds.origin.x
                 && status.right() <= snapshot_bounds.right()
+                && status_indicator.right() <= status.right()
+                && sample_info.right() <= status.right()
                 && cluster_summary.right() <= snapshot_bounds.right()
                 && topics.right() <= snapshot_bounds.right()
                 && partitions.right() <= snapshot_bounds.right()
@@ -306,6 +318,10 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             assert!(
                 heading.right() <= controls.origin.x,
                 "桌面布局中指标标题不能被控件行压缩或覆盖: width={width}, heading={heading:?}, controls={controls:?}"
+            );
+            assert!(
+                status_indicator.size.width >= px(80.0) && sample_info.size.width >= px(180.0),
+                "桌面布局中指标状态和采样时间不能被压成窄列: width={width}, status_indicator={status_indicator:?}, sample_info={sample_info:?}"
             );
         }
     }

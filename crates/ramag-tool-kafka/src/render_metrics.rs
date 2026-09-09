@@ -96,10 +96,12 @@ impl KafkaView {
             },
         );
         let status_indicator = h_flex()
+            .debug_selector(|| "kafka-metrics-status-indicator".into())
             .min_w_0()
             .items_center()
             .gap(px(8.0))
             .when(compact, |row| row.w_full())
+            .when(!compact, |row| row.flex_none().min_w(px(96.0)))
             .child(div().size(px(8.0)).rounded_full().bg(status.1))
             .child(
                 div()
@@ -123,9 +125,11 @@ impl KafkaView {
             .when(!compact, |row| row.child(div().flex_1().min_w_0()))
             .child(
                 div()
+                    .debug_selector(|| "kafka-metrics-sample-info".into())
                     .min_w_0()
                     .max_w(px(560.0))
                     .when(compact, |info| info.w_full())
+                    .when(!compact, |info| info.flex_none())
                     .whitespace_normal()
                     .text_xs()
                     .text_color(theme.muted_foreground)
