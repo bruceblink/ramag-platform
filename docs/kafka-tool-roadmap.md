@@ -1,10 +1,10 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；Docker exporter、真实 Broker 端点、真实 Windows 截图仍待补充
-> 更新日期：2026-09-08
+> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；明文 KRaft Docker 基础集成已复核，Docker exporter、真实 Broker 端点、真实 Windows 截图仍待补充
+> 更新日期：2026-09-09
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
-> 当前基线：`dev`（阶段 18-24 的高规模列表与快照边界切片已同步，刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离已完成；写请求不主动取消，Docker exporter、真实 Broker 端点和真实 Windows 截图仍待补充）
+> 当前基线：`dev`（阶段 18-24 的高规模列表与快照边界切片已同步，明文 KRaft Docker 基础集成已复核；写请求不主动取消，Docker exporter、真实 Broker 端点和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
 > 当前主线：继续在 `dev` 完成高规模工作区优化；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
@@ -66,7 +66,7 @@ AKHQ 将 Topic、Topic 数据、消费者组、Schema Registry 和 Kafka Connect
 7. 查看、创建和精确删除 Kafka ACL。
 8. 保存多个集群配置，支持常用 TLS 和 SASL 连接方式，并安全保存敏感字段。
 
-Broker CPU、内存、磁盘、JVM、请求延迟等运行指标不由 Kafka Admin API 伪造提供；需要时通过独立的 JMX、Prometheus 或 exporter 数据源接入。Schema Registry、Kafka Connect、ksqlDB、消息生成器、批量导入和 Offset 重置保留为后续独立迭代，避免核心消息查看流程被外部服务或高风险操作耦合。
+Broker CPU、内存、磁盘、JVM、请求延迟等运行指标不由 Kafka Admin API 伪造提供；需要时通过独立的 JMX、Prometheus 或 exporter 数据源接入。Schema Registry 已完成只读 Subject 浏览，但版本内容解析仍未实现；Kafka Connect、ksqlDB、消息生成器、批量导入和 Offset 重置保留为后续独立迭代，避免核心消息查看流程被外部服务或高风险操作耦合。
 
 ## 2. 当前 Ramag 基线
 
@@ -422,7 +422,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - `KafkaBrokerMetricsDriver` 与 `KafkaMonitoringDriver` 分开注入。`PrometheusBrokerMetricsDriver` 使用 5 秒超时、禁止重定向和系统代理、4 MiB 响应上限，并只解析四个固定指标名和 `broker_id` 标签。
 - 外部快照独立记录 `ExternalBrokerMetrics` 来源、采样时间、`Ready`/`Partial`/`NoData`/权限不足/未配置/采集失败状态；不把 Ramag 配置 ID 推断为 Kafka 集群 ID，也不把缺失字段转换为零值。
 - Kafka 概览页与协议指标并列显示 Broker CPU、内存、磁盘和请求延迟；两类来源并行刷新、分别保留成功结果和错误原因。`ramag-tool-kafka` 的布局测试覆盖 360/900/1440 宽度。
-- 2026-09-08 已补齐 Domain/App/Infra/UI 定向测试和接口说明；exporter 容器、真实 Broker 运行指标端点、完整 workspace 构建以及真实 Windows 截图仍是未完成项。
+- 2026-09-08 已补齐 Domain/App/Infra/UI 定向测试和接口说明；exporter 容器、真实 Broker 运行指标端点、完整 workspace 构建以及真实 Windows 截图仍是未完成项。明文 KRaft Broker 的基础集成验证在 2026-09-09 单独完成，不等同于外部运行指标验收。
 
 阶段 24 当前切片实施记录：
 
@@ -458,12 +458,16 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - native 与应用层同时限制所有消费者组的成员和已解码分配总数，避免单组限制被大量消费者组叠加绕过快照内存预算。
 - Kafka 工作区销毁时使 Topic、ACL 和动态配置写操作的 UI 回调代次失效，但不主动取消已经提交的 Kafka 写入请求；Admin 请求统一限制在 60 秒内自然结束，`AdminClient`、原生队列、事件和 ACL 绑定由各自的 `Drop` 实现释放，迟到结果不会回写已销毁视图。
 - 本切片不改变 Kafka 服务端查询上限、消费者组数据约定或 Offset 语义；Partition 快照内存预算、刷新合并、消费者组、运行时元数据、ACL、配置、指标和连接测试读取取消已完成，写请求的 UI 生命周期隔离已完成。
+- 2026-09-09 WSL Docker 复核通过：`scripts/kafka-test/kafka-test.ps1 test` 创建并校验 5000 条消息和 61 个主题，`crates/ramag-infra-kafka/tests/docker_kafka.rs` 的 4 项测试全部通过。测试脚本同时修正了 WSL Compose 路径、`key.separator=|` 参数转义和 Docker 所在 WSL 会话的保持；本次证据只覆盖明文 KRaft，不覆盖 TLS/SASL、Authorizer、exporter 或真实 Windows 截图。
 
 后续独立路线：
 
-当前开发顺序是阶段 24 的 Kafka 工作台增强主线：先完成列表和快照的高规模边界，再处理刷新合并与资源释放。Schema Registry、Kafka Connect、ksqlDB、消息生产和 Offset 重置不阻塞这条主线，继续作为后续独立候选：
+Schema Registry Subject 浏览已作为独立切片完成：
 
-- `feat(kafka): add schema registry integration`
+- `ddcc0db feat(kafka): add schema registry subject browser`：只读读取 Subject 名称，配置端点、数量上限、错误状态和页面刷新已接入；Schema 版本内容解析仍未实现。
+
+当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect、ksqlDB、消息生产和 Offset 重置不阻塞这条主线，继续作为后续独立候选：
+
 - `feat(kafka): add kafka connect integration`
 - `feat(kafka): add consumer offset reset workflow`
 - `feat(kafka): add message production workflow`
@@ -562,4 +566,4 @@ Kafka 工具应定位为桌面优先的 Kafka 工作台：以 Offset Explorer �
 
 `rdkafka`/`librdkafka` 只作为当前基础设施实现，不是产品边界。下一阶段先验证纯 Rust Kafka Transport 是否能覆盖完整能力；默认桌面构建必须回到统一的跨平台 Cargo 工具链。无论最终采用纯 Rust 客户端还是独立 Kafka Gateway，领域模型、应用服务和 UI 都不得依赖具体客户端类型。
 
-完成阶段 18-24 后，Ramag 应能安全连接多个 Kafka 集群，使用对象树浏览 Broker、Topic、Partition 和 Consumer Group，按 Offset/时间查看或实时 Tail 消息，展示可解释的 Lag 和指标快照，并在明确确认后执行 Topic、配置和 ACL 管理。Schema Registry、Kafka Connect、ksqlDB、消息生产和 Offset 重置继续作为后续独立能力，不进入当前主线大提交。
+完成阶段 18-24 后，Ramag 应能安全连接多个 Kafka 集群，使用对象树浏览 Broker、Topic、Partition 和 Consumer Group，按 Offset/时间查看或实时 Tail 消息，展示可解释的 Lag 和指标快照，并在明确确认后执行 Topic、配置和 ACL 管理。Kafka Connect、ksqlDB、消息生产和 Offset 重置继续作为后续独立能力，不进入当前主线大提交；Schema Registry 当前仅完成 Subject 浏览，版本内容解析仍需单独排期。
