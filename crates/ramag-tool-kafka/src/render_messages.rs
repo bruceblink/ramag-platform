@@ -279,7 +279,7 @@ impl KafkaView {
                     .min_h_0()
                     .items_stretch()
                     .when(compact, |row| row.flex_col())
-                     .when(stacked_root, |row| {
+                    .when(stacked_root, |row| {
                         row.h(px(COMPACT_MESSAGE_RESULTS_HEIGHT))
                     })
                     .gap(px(14.0))
@@ -288,11 +288,11 @@ impl KafkaView {
                             .flex_1()
                             .min_w_0()
                             .min_h_0()
-                         .border_1()
-                         .border_color(theme.border)
-                         .rounded(px(6.0))
-                         .when(stacked_root, |panel| panel.min_h(px(260.0)))
-                         .child(rows)
+                            .border_1()
+                            .border_color(theme.border)
+                            .rounded(px(6.0))
+                            .when(stacked_root, |panel| panel.min_h(px(260.0)))
+                            .child(rows)
                             .when_some(pagination, |panel, pagination| panel.child(pagination)),
                     )
                     .child(detail),
