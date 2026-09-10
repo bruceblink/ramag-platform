@@ -64,7 +64,9 @@ pub use kafka_metrics::{
     KafkaClusterMetrics, KafkaConsumerGroupMetrics, KafkaMetricsSnapshot,
     KafkaMetricsSnapshotState, KafkaMetricsSource, KafkaPartitionMetrics, KafkaTopicMetrics,
 };
-pub use kafka_schema_registry::{KafkaSchemaRegistryConfig, KafkaSchemaRegistrySubject};
+pub use kafka_schema_registry::{
+    KafkaSchemaRegistryConfig, KafkaSchemaRegistrySubject, KafkaSchemaRegistryVersion,
+};
 pub use kafka_transport::{
     KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart, KafkaTransportBackend,
     KafkaTransportCapabilities, KafkaTransportCapability,
@@ -98,6 +100,9 @@ pub const MAX_KAFKA_CLUSTER_ID_BYTES: usize = 1024;
 pub const MAX_KAFKA_VERSION_BYTES: usize = 256;
 pub const MAX_KAFKA_SCHEMA_SUBJECT_BYTES: usize = 1024;
 pub const MAX_KAFKA_SCHEMA_SUBJECTS: usize = 2_000;
+pub const MAX_KAFKA_SCHEMA_VERSIONS: usize = 500;
+pub const MAX_KAFKA_SCHEMA_VERSION_TYPE_BYTES: usize = 64;
+pub const MAX_KAFKA_SCHEMA_VERSION_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_KAFKA_CONNECTOR_NAME_BYTES: usize = 1_024;
 pub const MAX_KAFKA_CONNECTOR_STATE_BYTES: usize = 64;
 pub const MAX_KAFKA_CONNECTOR_WORKER_BYTES: usize = 1_024;

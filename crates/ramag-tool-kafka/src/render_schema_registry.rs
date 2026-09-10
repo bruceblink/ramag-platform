@@ -22,6 +22,7 @@ impl KafkaView {
         if let Some(cancelled) = self.schema_registry_cancelled.take() {
             cancelled.store(true, Ordering::Release);
         }
+        self.invalidate_schema_version_requests();
     }
 
     pub(super) fn clear_schema_registry_snapshot(&mut self) {
@@ -34,6 +35,7 @@ impl KafkaView {
             .borrow()
             .base_handle
             .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+        self.clear_schema_version_snapshot();
     }
 
     /// 读取当前集群配置的 Subject 列表；未配置端点时不发起网络请求。
@@ -235,12 +237,23 @@ impl KafkaView {
             let rows = uniform_list(
                 "kafka-schema-subject-list",
                 visible_count,
-                cx.processor(move |this, range: Range<usize>, _window, _cx| {
+                cx.processor(move |this, range: Range<usize>, _window, cx| {
                     range
                         .filter_map(|index| {
                             let subject_index = *visible_indices.get(index)?;
                             let subject = this.schema_subjects.get(subject_index)?;
-                            Some(schema_subject_row(index, &subject.name, &row_theme))
+                            let selected =
+                                this.schema_selected_subject.as_ref() == Some(&subject.name);
+                            Some(
+                                this.render_schema_subject_row(
+                                    index,
+                                    subject.name.clone(),
+                                    selected,
+                                    &row_theme,
+                                    cx,
+                                )
+                                .into_any_element(),
+                            )
                         })
                         .collect::<Vec<_>>()
                 }),
@@ -300,7 +313,7 @@ impl KafkaView {
                     .when(compact, |row| row.flex_col().items_stretch())
                     .child(section_heading(
                         "Schema Registry",
-                        "只读取 Subject 名称；Schema 版本和内容详情后续接入",
+                        "只读取 Subject、版本和 Schema 内容；不执行 Registry 写操作",
                         &theme,
                     ))
                     .child(
@@ -354,17 +367,30 @@ impl KafkaView {
                     ),
             )
             .child(
-                v_flex()
-                    .id("kafka-schema-registry-list-panel")
-                    .debug_selector(|| "kafka-schema-registry-list-panel".into())
+                h_flex()
+                    .id("kafka-schema-registry-content")
+                    .debug_selector(|| "kafka-schema-registry-content".into())
                     .w_full()
                     .flex_1()
                     .min_h_0()
                     .min_w_0()
-                    .border_1()
-                    .border_color(theme.border)
-                    .rounded(px(6.0))
-                    .child(list),
+                    .items_stretch()
+                    .gap(px(12.0))
+                    .when(compact, |row| row.flex_col())
+                    .child(
+                        v_flex()
+                            .id("kafka-schema-registry-list-panel")
+                            .debug_selector(|| "kafka-schema-registry-list-panel".into())
+                            .min_h_0()
+                            .min_w_0()
+                            .border_1()
+                            .border_color(theme.border)
+                            .rounded(px(6.0))
+                            .when(compact, |panel| panel.w_full().h(px(300.0)).flex_none())
+                            .when(!compact, |panel| panel.flex_1())
+                            .child(list),
+                    )
+                    .child(self.render_schema_registry_detail(compact, window, cx)),
             )
     }
 }
@@ -393,28 +419,38 @@ fn empty_state(
         )
 }
 
-fn schema_subject_row(index: usize, name: &str, theme: &gpui_component::Theme) -> gpui::AnyElement {
-    h_flex()
-        .id(SharedString::from(format!(
-            "kafka-schema-subject-row-{index}"
-        )))
-        .debug_selector(move || format!("kafka-schema-subject-row-{index}"))
-        .w_full()
-        .min_w_0()
-        .items_center()
-        .px(px(12.0))
-        .py(px(10.0))
-        .border_b_1()
-        .border_color(theme.border)
-        .child(
-            div()
-                .min_w_0()
-                .flex_1()
-                .truncate()
-                .text_sm()
-                .child(name.to_owned()),
-        )
-        .into_any_element()
+impl KafkaView {
+    fn render_schema_subject_row(
+        &self,
+        index: usize,
+        name: String,
+        selected: bool,
+        theme: &gpui_component::Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let name_for_click = name.clone();
+        h_flex()
+            .id(SharedString::from(format!(
+                "kafka-schema-subject-row-{index}"
+            )))
+            .debug_selector(move || format!("kafka-schema-subject-row-{index}"))
+            .w_full()
+            .min_w_0()
+            .items_center()
+            .px(px(12.0))
+            .py(px(10.0))
+            .border_b_1()
+            .border_color(theme.border)
+            .when(selected, |row| row.bg(theme.accent.opacity(0.1)))
+            .when(!selected, |row| {
+                row.hover(|row| row.bg(theme.muted.opacity(0.5)))
+            })
+            .cursor_pointer()
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                this.select_schema_subject(name_for_click.clone(), window, cx);
+            }))
+            .child(div().min_w_0().flex_1().truncate().text_sm().child(name))
+    }
 }
 
 #[cfg(test)]

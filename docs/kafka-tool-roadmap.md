@@ -1,13 +1,13 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流和阶段 26 ksqlDB 只读查询已完成领域、应用、基础设施、GPUI headless 验收及本机 Docker 复核；`KAFKA-023` 三个跨视图消息定位切片已完成；阶段 23 的本机 OpenMetrics HTTP fixture 已验证，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充
+> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流、阶段 26 ksqlDB 只读查询和阶段 27 Schema Registry 版本浏览已完成领域、应用、基础设施、GPUI headless 验收及本机 Docker 复核；`KAFKA-023` 三个跨视图消息定位切片已完成；阶段 23 的本机 OpenMetrics HTTP fixture 已验证，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充
 > 更新日期：2026-09-11
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
 > 功能矩阵：[`kafka-workbench-feature-matrix.md`](kafka-workbench-feature-matrix.md)
-> 当前基线：`dev`（阶段 18-26 的高规模列表、快照边界、单条消息生产和 ksqlDB 查询切片已同步，明文 KRaft/ksqlDB Docker 回读和 OpenMetrics HTTP fixture 已复核；写请求不主动取消，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充）
+> 当前基线：`dev`（阶段 18-27 的高规模列表、快照边界、单条消息生产、ksqlDB 查询和 Schema Registry 版本浏览切片已同步，明文 KRaft/ksqlDB/Schema Registry Docker 回读和 OpenMetrics HTTP fixture 已复核；写请求不主动取消，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
-> 当前主线：阶段 25 单条消息生产、阶段 26 ksqlDB 只读查询和 `KAFKA-023` 三个消息定位切片已完成，下一项继续完善 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前主线：阶段 25 单条消息生产、阶段 26 ksqlDB 只读查询、阶段 27 Schema Registry 版本内容浏览和 `KAFKA-023` 三个消息定位切片已完成，下一项继续完善 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -73,7 +73,7 @@ AKHQ 将 Topic、Topic 数据、消费者组、Schema Registry 和 Kafka Connect
 7. 查看、创建和精确删除 Kafka ACL。
 8. 保存多个集群配置，支持常用 TLS 和 SASL 连接方式，并安全保存敏感字段。
 
-Broker CPU、内存、磁盘、JVM、请求延迟等运行指标不由 Kafka Admin API 伪造提供；需要时通过独立的 JMX、Prometheus 或 exporter 数据源接入。Schema Registry 已完成只读 Subject 浏览，但版本内容解析仍未实现；Kafka Connect 和消费者组 Offset 重置已完成，批量导入、ksqlDB 以及消息生产器之外的高风险扩展继续单独排期，避免核心消息查看流程被外部服务或无界写入耦合。
+Broker CPU、内存、磁盘、JVM、请求延迟等运行指标不由 Kafka Admin API 伪造提供；需要时通过独立的 JMX、Prometheus 或 exporter 数据源接入。Schema Registry 已完成 Subject、版本和有界 Schema 内容只读浏览；Kafka Connect 和消费者组 Offset 重置已完成，批量导入以及消息生产器之外的高风险扩展继续单独排期，避免核心消息查看流程被外部服务或无界写入耦合。
 
 ## 2. 当前 Ramag 基线
 
@@ -352,6 +352,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 | 23 | `feat(kafka): add broker metrics adapter` | 已接入可选 Prometheus/OpenMetrics 文本端点；JMX 通过 exporter 间接接入；明确区分 Broker 运行指标和 Kafka 协议指标 | Domain/App/Infra/UI 测试、窄窗口布局和本机 `nginx:1.27-alpine` HTTP fixture 已覆盖；真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍未完成 |
 | 24 | `fix(kafka): harden high-scale workbench` | 高 Topic/Partition/Consumer Group 数量下的分页、虚拟列表、快照大小、刷新合并和资源释放 | 规模化 Docker fixture、内存/耗时上限、取消和断线恢复测试 |
 | 25 | `feat(kafka): add message production workflow` | 管理模式下编辑并二次确认单条 UTF-8 消息，返回 Broker 的 Partition、Offset 和 Timestamp | Domain/App 边界测试、`KafkaProducerDriver` 测试、本机 Docker KRaft 生产/读取回读、GPUI headless 交互和真实 Windows 窗口验收 |
+| 27 | `feat(kafka): inspect schema registry versions` | Subject 版本列表、最新版本选择和 Schema 内容只读详情；限制响应大小、版本数量和取消范围 | Domain/App/Infra 边界测试、GPUI headless 响应式详情、本机 Docker Schema Registry 版本读取已通过；真实 Windows 截图仍单独记录 |
 
 #### 6.1.1 `KAFKA-023` 首个切片设计：Topic/Partition 到消息定位
 
@@ -529,21 +530,38 @@ Kafka 工作台必须满足统一跨平台构建目标：
 
 Schema Registry Subject 浏览已作为独立切片完成：
 
-- `ddcc0db feat(kafka): add schema registry subject browser`：只读读取 Subject 名称，配置端点、数量上限、错误状态和页面刷新已接入；Schema 版本内容解析仍未实现。
+- `ddcc0db feat(kafka): add schema registry subject browser`：只读读取 Subject 名称，配置端点、数量上限、错误状态和页面刷新已接入。
 
-当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect、消费者组 Offset 重置、阶段 25 消息生产、阶段 26 ksqlDB 只读查询和 `KAFKA-023` 两个定位切片已经完成；下一项继续完善 AKHQ/Offset Explorer 功能矩阵：
+当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect、消费者组 Offset 重置、阶段 25 消息生产、阶段 26 ksqlDB 只读查询、阶段 27 Schema Registry 版本浏览和 `KAFKA-023` 三个定位切片已经完成；下一项继续完善 AKHQ/Offset Explorer 功能矩阵：
 
 - `b6590cb feat(kafka): add read-only Connect status browser`：读取 Kafka Connect 连接器与 Task 状态，保留端点校验、数量边界、错误状态和页面刷新。
 - 本次切片完成消费者组 Offset 重置：Domain 和 App 只接受明确的消费者组及 Topic/Partition/Offset 目标；Ramag UI 在管理模式下提供“重置到最早”和“重置到末尾”两个入口，执行前显示目标数量、集群、消费者组和当前状态，并在成功后重新读取消费者组快照；生产驱动使用 librdkafka `AlterConsumerGroupOffsets` Admin API，WSL Docker 已回读目标 Offset 为 `0`。
 - `feat(kafka): add message production workflow`（阶段 25，已完成）
 - `feat(kafka): add ksqldb integration`（阶段 26，已完成）
 
+### 6.4 阶段 27 设计：Schema Registry 版本内容浏览
+
+术语表：`Schema Subject` 是 Schema Registry 中按名称管理的一组版本，不代表 Kafka Topic；`Schema Version` 是 Subject 下的整数版本和注册 ID，不代表消息 Offset；`Schema 内容` 是 Registry 返回的受限文本，不代表 Ramag 在本地执行或验证该 Schema。
+
+本阶段把现有 Subject 名称浏览扩展为只读版本浏览：用户选择 Subject 后读取 `/subjects/{subject}/versions`，默认选择最大版本，再读取 `/subjects/{subject}/versions/{version}` 展示注册 ID、Schema 类型和内容。版本读取、详情读取和 Subject 列表保持独立请求代次，切换集群或 Subject 时取消旧任务并丢弃迟到结果。
+
+| 层 | 责任 | 边界 |
+|---|---|---|
+| `ramag-domain` | 定义版本和详情模型、字段/版本/正文预算 | 只保存文本和元数据，不执行 Avro、JSON Schema 或 Protobuf 解析 |
+| `ramag-app` | 校验 Subject、版本集合和详情，编排取消与脱敏日志 | 日志只记录集群、Subject、版本、耗时和结果状态，不记录 Schema 正文 |
+| `ramag-infra-kafka` | 调用两个只读 HTTP endpoint，处理 Basic Auth、HTTP 错误、响应上限和路径编码 | 禁止重定向、系统代理和 URL 中的认证参数 |
+| `ramag-tool-kafka` | Subject 选择、版本列表、最新版本详情和滚动展示 | 不提供 Registry 写操作；窄窗口下列表与详情改为纵向布局 |
+
+最小验收条件：Domain 拒绝负版本、负注册 ID、超长类型和超长正文；App 拒绝重复或超限版本并隔离 Subject/版本请求；Infra 覆盖路径编码、认证、HTTP 错误和有界 JSON；UI headless 覆盖 Subject 选择、最新版本、版本切换、详情滚动、取消和 360px 布局；本机 Docker Schema Registry 使用真实 REST endpoint 回读已注册 Schema。真实 Windows 窗口证据单独记录，不能由 headless 或 Docker 结果替代。
+
+阶段 27 实施记录（2026-09-11）：`KafkaSchemaRegistryVersion`、版本列表/详情驱动和独立取消代次已接入 Domain/App/Infra；Schema Registry UI 支持 Subject 选择、最新版本、版本切换、Schema 内容滚动和窄窗口布局。`ramag-tool-kafka` 相关测试 36 项通过；本机 `confluentinc/cp-schema-registry:8.3.1` 使用 `127.0.0.1:18081` 注册并回读两个 JSON Schema 版本，Docker 集成测试共 11 项通过。真实 Windows 窗口截图和操作记录仍待补充。
+
 阶段 26 当前切片实施记录：
 
 - `KafkaKsqlDbConfig`、`KafkaKsqlDbQuery` 和 `KafkaKsqlDbQueryResult` 已接入 Domain；地址、查询文本、字段、行数、单元格、Query ID 和完成消息均有界，查询只接受 `SELECT` 并拒绝写入、DDL 和查询管理关键字。
 - `KafkaService` 通过独立 `KafkaKsqlDbDriver` 编排查询，校验当前集群配置和结果边界，保留请求代次、取消信号和脱敏日志；UI 配置页保存可选 ksqlDB Server 地址，ksqlDB 页面保持只读、执行中禁止重复提交并提供取消、结果滚动和窄窗口布局。
 - `KsqlDbHttpDriver` 只调用 `/query`，禁止重定向和系统代理，限制响应正文为 4 MiB；请求固定从 `earliest` Offset 读取已有流数据，解析流式 JSON，并把 HTTP 错误、协议错误、超限和取消映射为结构化错误或截断结果。
-- 2026-09-11 本机 Docker Compose 使用 `apache/kafka:4.0.0`、`confluentinc/cp-ksqldb-server:8.3.1`、`apache/kafka:4.0.0` Connect 和 `nginx:1.27-alpine` 指标 fixture；脚本在 `127.0.0.1:19092`、`127.0.0.1:18088`、`127.0.0.1:18083` 和 `127.0.0.1:19100/metrics` 等待服务健康，创建并校验 5000 条消息和 61 个 Topic，Rust Docker 测试 10 项全部通过，覆盖查询成功、HTTP 404 和 1000 行结果上限。
+- 2026-09-11 本机 Docker Compose 使用 `apache/kafka:4.0.0`、`confluentinc/cp-ksqldb-server:8.3.1`、`confluentinc/cp-schema-registry:8.3.1`、`apache/kafka:4.0.0` Connect 和 `nginx:1.27-alpine` 指标 fixture；脚本在 `127.0.0.1:19092`、`127.0.0.1:18088`、`127.0.0.1:18081`、`127.0.0.1:18083` 和 `127.0.0.1:19100/metrics` 等待服务健康，创建并校验 5000 条消息、61 个 Topic 和两个 Schema Version，Rust Docker 测试 11 项全部通过，覆盖查询成功、HTTP 404、1000 行结果上限和 Schema 版本详情回读。
 - `ramag-tool-kafka` 的 ksqlDB headless UI 测试覆盖只读模式、结果滚动、执行中重复提交、取消和 360px 窄窗口布局。Docker 服务在测试后按现有约定保持运行以便复用；停止服务使用 `scripts/kafka-test/kafka-test.ps1 -Command down`，连同测试卷清理使用 `-Command clean`。真实 Windows 窗口截图和操作记录仍待补充。
 
 ### 6.3 阶段 26 设计：ksqlDB 查询只读入口
@@ -707,4 +725,4 @@ Kafka 工具应定位为桌面优先的 Kafka 工作台：以 Offset Explorer �
 
 `rdkafka`/`librdkafka` 只作为当前基础设施实现，不是产品边界。下一阶段先验证纯 Rust Kafka Transport 是否能覆盖完整能力；默认桌面构建必须回到统一的跨平台 Cargo 工具链。无论最终采用纯 Rust 客户端还是独立 Kafka Gateway，领域模型、应用服务和 UI 都不得依赖具体客户端类型。
 
-完成阶段 18-25 后，Ramag 已在管理模式和二次确认下写入明确 Topic，并展示 Broker 返回的 Partition、Offset 和 Timestamp；`KAFKA-023` 已完成两个消息定位切片。下一项继续完善 AKHQ/Offset Explorer 功能矩阵；批量导入、ksqlDB 以及消息生产之外的高风险扩展继续单独排期；Schema Registry 当前仅完成 Subject 浏览，版本内容解析仍需单独排期。
+完成阶段 18-27 后，Ramag 已在管理模式和二次确认下写入明确 Topic，并展示 Broker 返回的 Partition、Offset 和 Timestamp；`KAFKA-023` 已完成三个消息定位切片，Schema Registry 已支持 Subject、版本和有界 Schema 内容只读浏览。下一项继续完善 AKHQ/Offset Explorer 功能矩阵；批量导入和消息生产之外的高风险扩展继续单独排期。

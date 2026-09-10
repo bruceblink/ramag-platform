@@ -7,9 +7,10 @@ use ramag_domain::entities::{
     KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConnectConnector,
     KafkaConsumerGroup, KafkaKsqlDbQuery, KafkaKsqlDbQueryResult, KafkaMessagePage,
     KafkaMessageProduceRequest, KafkaMessageProduceResult, KafkaMetricsSnapshot,
-    KafkaSchemaRegistrySubject, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
-    KafkaTransportCapabilities, MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS,
-    MAX_KAFKA_GROUP_TOTAL_MEMBERS, MAX_KAFKA_PARTITION_REPLICA_IDS, MAX_KAFKA_PARTITIONS,
+    KafkaSchemaRegistrySubject, KafkaSchemaRegistryVersion, KafkaTopic, KafkaTopicCreateRequest,
+    KafkaTopicPartitionExpansion, KafkaTransportCapabilities, MAX_KAFKA_GROUP_OFFSETS,
+    MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS, MAX_KAFKA_GROUP_TOTAL_MEMBERS,
+    MAX_KAFKA_PARTITION_REPLICA_IDS, MAX_KAFKA_PARTITIONS,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::{

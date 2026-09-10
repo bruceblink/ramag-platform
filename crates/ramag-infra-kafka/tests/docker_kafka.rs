@@ -1,6 +1,5 @@
 #![cfg(feature = "cmake-build")]
 #![allow(clippy::panic)]
-
 use chrono::{Duration, Utc};
 use ramag_domain::entities::{
     KafkaClusterConfig, KafkaConsumerGroupOffsetReset, KafkaConsumerGroupOffsetResetRequest,
@@ -21,6 +20,8 @@ use std::time::{Duration as StdDuration, Instant};
 const FIXTURE_TOPIC: &str = "ramag.integration.messages";
 #[path = "support/docker_ksqldb.rs"]
 mod docker_ksqldb;
+#[path = "support/docker_schema_registry.rs"]
+mod docker_schema_registry;
 /// Returns the Docker broker address, or skips the test when the dedicated
 /// integration environment has not been configured for this process.
 fn docker_bootstrap() -> Option<String> {
@@ -34,7 +35,6 @@ fn docker_bootstrap() -> Option<String> {
         }
     }
 }
-
 fn docker_connect_endpoint() -> Option<String> {
     match env::var("RAMAG_TEST_KAFKA_CONNECT") {
         Ok(value) if !value.trim().is_empty() => Some(value),

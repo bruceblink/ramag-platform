@@ -116,6 +116,36 @@ services:
       ramag.test-suite: "true"
       ramag.test-component: "ksqldb"
 
+  schema-registry:
+    image: confluentinc/cp-schema-registry:8.3.1
+    container_name: ramag-kafka-schema-registry-test
+    hostname: schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC: _schemas
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "127.0.0.1:18081:8081"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - |-
+          exec 3<>/dev/tcp/127.0.0.1/8081
+          printf 'GET /subjects HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          grep -q '\[' <&3
+      interval: 5s
+      timeout: 10s
+      retries: 60
+      start_period: 30s
+    labels:
+      ramag.test-suite: "true"
+      ramag.test-component: "schema-registry"
+
 volumes:
   kafka-data:
     name: ramag-kafka-test-data

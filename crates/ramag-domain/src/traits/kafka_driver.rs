@@ -9,8 +9,9 @@ use crate::entities::{
     KafkaConsumerGroup, KafkaConsumerGroupOffsetResetRequest, KafkaKsqlDbQuery,
     KafkaKsqlDbQueryResult, KafkaMessagePage, KafkaMessageProduceRequest,
     KafkaMessageProduceResult, KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMessageTailEvent,
-    KafkaMessageTailRequest, KafkaMetricsSnapshot, KafkaSchemaRegistrySubject, KafkaTopic,
-    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
+    KafkaMessageTailRequest, KafkaMetricsSnapshot, KafkaSchemaRegistrySubject,
+    KafkaSchemaRegistryVersion, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaTransportCapabilities,
 };
 use crate::error::Result;
 
@@ -24,7 +25,7 @@ pub enum KafkaMessageTailSinkResult {
 pub type KafkaMessageTailSink =
     Arc<dyn Fn(KafkaMessageTailEvent) -> KafkaMessageTailSinkResult + Send + Sync>;
 
-/// Schema Registry 只读端口；本阶段只读取 Subject 名称，不修改外部 Schema 服务。
+/// Schema Registry 只读端口；读取 Subject、Version 和 Schema 内容，不修改外部服务。
 #[async_trait]
 pub trait KafkaSchemaRegistryDriver: Send + Sync {
     async fn list_subjects(
@@ -43,6 +44,48 @@ pub trait KafkaSchemaRegistryDriver: Send + Sync {
         _cancelled: Arc<AtomicBool>,
     ) -> Result<Vec<KafkaSchemaRegistrySubject>> {
         self.list_subjects(config).await
+    }
+
+    async fn list_versions(
+        &self,
+        _config: &KafkaClusterConfig,
+        _subject: &str,
+    ) -> Result<Vec<i32>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "schema_registry_versions".into(),
+        ))
+    }
+
+    /// 读取 Subject 版本号并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn list_versions_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        subject: &str,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<Vec<i32>> {
+        self.list_versions(config, subject).await
+    }
+
+    async fn get_version(
+        &self,
+        _config: &KafkaClusterConfig,
+        _subject: &str,
+        _version: i32,
+    ) -> Result<KafkaSchemaRegistryVersion> {
+        Err(crate::error::DomainError::NotImplemented(
+            "schema_registry_version".into(),
+        ))
+    }
+
+    /// 读取单个 Schema 版本详情并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn get_version_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        subject: &str,
+        version: i32,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaSchemaRegistryVersion> {
+        self.get_version(config, subject, version).await
     }
 }
 

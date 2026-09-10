@@ -553,3 +553,48 @@ fn ksqldb_query_accepts_select_and_rejects_write_keywords() {
             .is_err()
     );
 }
+
+#[test]
+fn schema_registry_version_validates_identity_and_bounded_content() {
+    let version = KafkaSchemaRegistryVersion {
+        subject: "orders-value".into(),
+        version: 3,
+        id: 42,
+        schema_type: Some("AVRO".into()),
+        schema: r#"{"type":"record","name":"Order"}"#.into(),
+    };
+    assert!(version.validate().is_ok());
+    let mut invalid = version.clone();
+    invalid.version = -1;
+    assert!(invalid.validate().is_err());
+
+    invalid = version.clone();
+    invalid.id = -1;
+    assert!(invalid.validate().is_err());
+
+    invalid = version;
+    invalid.schema_type = Some("AVRO\n".into());
+    assert!(invalid.validate().is_err());
+
+    invalid = KafkaSchemaRegistryVersion {
+        subject: "orders-value".into(),
+        version: 3,
+        id: 42,
+        schema_type: Some("x".repeat(MAX_KAFKA_SCHEMA_VERSION_TYPE_BYTES + 1)),
+        schema: "{}".into(),
+    };
+    assert!(invalid.validate().is_err());
+
+    invalid.schema_type = None;
+    invalid.schema = "x".repeat(MAX_KAFKA_SCHEMA_VERSION_BYTES + 1);
+    assert!(invalid.validate().is_err());
+}
+
+#[test]
+fn schema_registry_version_uses_schema_type_json_name() -> Result<(), serde_json::Error> {
+    let version = serde_json::from_str::<KafkaSchemaRegistryVersion>(
+        r#"{"subject":"orders-value","version":1,"id":7,"schemaType":"JSON","schema":"{}"}"#,
+    )?;
+    assert_eq!(version.schema_type.as_deref(), Some("JSON"));
+    Ok(())
+}

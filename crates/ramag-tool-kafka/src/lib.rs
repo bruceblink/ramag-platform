@@ -44,9 +44,9 @@ use ramag_domain::{
         KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
         KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart,
         KafkaMetricsSnapshot, KafkaMetricsSnapshotState, KafkaPartitionMetrics, KafkaReadOnlyState,
-        KafkaSaslMechanism, KafkaSchemaRegistrySubject, KafkaSecurityProtocol, KafkaTlsConfig,
-        KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
-        MAX_KAFKA_ACL_HOST_BYTES, MAX_KAFKA_ACL_RESOURCE_NAME_BYTES,
+        KafkaSaslMechanism, KafkaSchemaRegistrySubject, KafkaSchemaRegistryVersion,
+        KafkaSecurityProtocol, KafkaTlsConfig, KafkaTopic, KafkaTopicCreateRequest,
+        KafkaTopicPartitionExpansion, MAX_KAFKA_ACL_HOST_BYTES, MAX_KAFKA_ACL_RESOURCE_NAME_BYTES,
         MAX_KAFKA_CONFIG_RESOURCE_NAME_BYTES, MAX_KAFKA_CONFIG_VALUE_BYTES,
         MAX_KAFKA_CONNECT_ENDPOINT_BYTES, MAX_KAFKA_CONNECT_PASSWORD_BYTES,
         MAX_KAFKA_CONNECT_USERNAME_BYTES, MAX_KAFKA_KSQLDB_ENDPOINT_BYTES,
@@ -205,11 +205,25 @@ pub struct KafkaView {
     schema_subjects: Vec<KafkaSchemaRegistrySubject>,
     schema_subject_search: Entity<InputState>,
     schema_subject_scroll: UniformListScrollHandle,
+    schema_versions: Vec<i32>,
+    schema_selected_subject: Option<String>,
+    schema_selected_version: Option<i32>,
+    schema_version_detail: Option<KafkaSchemaRegistryVersion>,
+    schema_versions_scroll: ScrollHandle,
+    schema_version_detail_scroll: ScrollHandle,
     schema_registry_cancelled: Option<Arc<AtomicBool>>,
     schema_registry_request_id: u64,
+    schema_versions_cancelled: Option<Arc<AtomicBool>>,
+    schema_versions_request_id: u64,
+    schema_version_cancelled: Option<Arc<AtomicBool>>,
+    schema_version_request_id: u64,
     loading_schema_subjects: bool,
     schema_subjects_loaded: bool,
     schema_subject_error: Option<String>,
+    loading_schema_versions: bool,
+    schema_versions_error: Option<String>,
+    loading_schema_version: bool,
+    schema_version_error: Option<String>,
     connect_connectors: Vec<KafkaConnectConnector>,
     connect_search: Entity<InputState>,
     connect_scroll: UniformListScrollHandle,
@@ -416,11 +430,13 @@ mod render_metrics;
 mod render_metrics_partition;
 mod render_overview;
 mod render_schema_registry;
+mod render_schema_registry_detail;
 mod render_sidebar;
 mod render_topic_detail;
 mod render_topics;
 mod render_workspace;
 mod runtime_state;
+mod schema_registry_versions;
 #[cfg(test)]
 mod tests;
 mod view_state;

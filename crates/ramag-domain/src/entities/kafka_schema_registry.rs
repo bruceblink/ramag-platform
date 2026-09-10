@@ -5,11 +5,13 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use super::kafka_validation::{
-    validate_optional_protocol_text, validate_optional_single_line, validate_required_text,
+    validate_optional_protocol_text, validate_optional_single_line, validate_protocol_text,
+    validate_required_text,
 };
 use super::{
     MAX_KAFKA_SCHEMA_REGISTRY_ENDPOINT_BYTES, MAX_KAFKA_SCHEMA_REGISTRY_PASSWORD_BYTES,
     MAX_KAFKA_SCHEMA_REGISTRY_USERNAME_BYTES, MAX_KAFKA_SCHEMA_SUBJECT_BYTES,
+    MAX_KAFKA_SCHEMA_VERSION_BYTES, MAX_KAFKA_SCHEMA_VERSION_TYPE_BYTES,
 };
 
 /// 可选的外部 Schema Registry 连接配置；配置随 Kafka 集群配置一并加密保存。
@@ -76,5 +78,38 @@ pub struct KafkaSchemaRegistrySubject {
 impl KafkaSchemaRegistrySubject {
     pub fn validate(&self) -> Result<(), String> {
         validate_required_text("Schema Subject", &self.name, MAX_KAFKA_SCHEMA_SUBJECT_BYTES)
+    }
+}
+
+/// Schema Registry `/subjects/{subject}/versions/{version}` 返回的只读详情。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KafkaSchemaRegistryVersion {
+    pub subject: String,
+    pub version: i32,
+    pub id: i64,
+    #[serde(default, rename = "schemaType")]
+    pub schema_type: Option<String>,
+    pub schema: String,
+}
+
+impl KafkaSchemaRegistryVersion {
+    pub fn validate(&self) -> Result<(), String> {
+        validate_required_text(
+            "Schema Subject",
+            &self.subject,
+            MAX_KAFKA_SCHEMA_SUBJECT_BYTES,
+        )?;
+        if self.version < 0 {
+            return Err("Schema Version 不能为负数".into());
+        }
+        if self.id < 0 {
+            return Err("Schema 注册 ID 不能为负数".into());
+        }
+        validate_optional_single_line(
+            "Schema 类型",
+            self.schema_type.as_deref(),
+            MAX_KAFKA_SCHEMA_VERSION_TYPE_BYTES,
+        )?;
+        validate_protocol_text("Schema 内容", &self.schema, MAX_KAFKA_SCHEMA_VERSION_BYTES)
     }
 }

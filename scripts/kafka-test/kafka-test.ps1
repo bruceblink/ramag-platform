@@ -19,10 +19,12 @@ $ContainerName = "ramag-kafka-test"
 $ConnectContainerName = "ramag-kafka-connect-test"
 $MetricsContainerName = "ramag-kafka-metrics-test"
 $KsqlDbContainerName = "ramag-kafka-ksqldb-test"
+$SchemaRegistryContainerName = "ramag-kafka-schema-registry-test"
 $BootstrapServers = "127.0.0.1:19092"
 $ConnectEndpoint = "http://127.0.0.1:18083"
 $MetricsEndpoint = "http://127.0.0.1:19100/metrics"
 $KsqlDbEndpoint = "http://127.0.0.1:18088"
+$SchemaRegistryEndpoint = "http://127.0.0.1:18081"
 $TopicName = "ramag.integration.messages"
 $script:WslKeepAliveProcess = $null
 
@@ -266,12 +268,33 @@ function Wait-KsqlDbHealthy {
     throw "ksqlDB health check timed out.`n$logs"
 }
 
+function Wait-SchemaRegistryHealthy {
+    for ($attempt = 1; $attempt -le 90; $attempt++) {
+        $health = (& docker inspect --format "{{.State.Health.Status}}" $SchemaRegistryContainerName 2>$null | Out-String).Trim()
+        $state = (& docker inspect --format "{{.State.Status}}" $SchemaRegistryContainerName 2>$null | Out-String).Trim()
+
+        if ($health -eq "healthy") {
+            Write-TestLog "Schema Registry container is healthy."
+            return
+        }
+        if ($state -eq "exited" -or $state -eq "dead") {
+            $logs = (& docker logs $SchemaRegistryContainerName 2>&1 | Out-String -ErrorAction SilentlyContinue).Trim()
+            throw "Schema Registry container stopped before becoming healthy.`n$logs"
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    $logs = (& docker logs $SchemaRegistryContainerName 2>&1 | Out-String -ErrorAction SilentlyContinue).Trim()
+    throw "Schema Registry health check timed out.`n$logs"
+}
+
 function Ensure-Healthy {
     Invoke-Compose -ComposeArguments @("up", "-d")
     Wait-Healthy
     Wait-ConnectHealthy
     Wait-MetricsHealthy
     Wait-KsqlDbHealthy
+    Wait-SchemaRegistryHealthy
 }
 
 function Get-FixtureLines {
@@ -463,6 +486,26 @@ CREATE STREAM RAMAG_INTEGRATION_STREAM (
     Write-TestLog "Prepared ksqlDB stream RAMAG_INTEGRATION_STREAM over the seeded Kafka topic."
 }
 
+function Prepare-SchemaRegistryFixture {
+    $subject = "ramag.integration.orders-value"
+    $compatibility = @{ compatibility = "NONE" } | ConvertTo-Json -Compress
+    Invoke-RestMethod `
+        -Uri "$SchemaRegistryEndpoint/config/$subject" `
+        -Method Put `
+        -ContentType "application/vnd.schemaregistry.v1+json" `
+        -Body $compatibility | Out-Null
+    $schemaV1 = @{ schemaType = "JSON"; schema = '{"type":"object","properties":{"id":{"type":"integer"}}}' } | ConvertTo-Json -Compress
+    $schemaV2 = @{ schemaType = "JSON"; schema = '{"type":"object","properties":{"id":{"type":"integer"},"status":{"type":"string"}}}' } | ConvertTo-Json -Compress
+    foreach ($schema in @($schemaV1, $schemaV2)) {
+        Invoke-RestMethod `
+            -Uri "$SchemaRegistryEndpoint/subjects/$subject/versions" `
+            -Method Post `
+            -ContentType "application/vnd.schemaregistry.v1+json" `
+            -Body $schema | Out-Null
+    }
+    Write-TestLog "Registered two Schema Registry versions for $subject."
+}
+
 function Run-RustIntegrationTest {
     # Run the Docker-backed Rust test with the same direct Cargo command used on
     # Linux and macOS, preferring GNU and falling back to the Windows MSVC
@@ -474,11 +517,13 @@ function Run-RustIntegrationTest {
     $oldConnectEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_CONNECT", "Process")
     $oldMetricsEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_METRICS", "Process")
     $oldKsqlDbEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KSQLDB", "Process")
+    $oldSchemaRegistryEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_SCHEMA_REGISTRY", "Process")
     $oldTargetDirectory = [Environment]::GetEnvironmentVariable("CARGO_TARGET_DIR", "Process")
     $env:RAMAG_TEST_KAFKA_BOOTSTRAP = $BootstrapServers
     $env:RAMAG_TEST_KAFKA_CONNECT = $ConnectEndpoint
     $env:RAMAG_TEST_KAFKA_METRICS = $MetricsEndpoint
     $env:RAMAG_TEST_KSQLDB = $KsqlDbEndpoint
+    $env:RAMAG_TEST_SCHEMA_REGISTRY = $SchemaRegistryEndpoint
     $env:CARGO_TARGET_DIR = Join-Path ([System.IO.Path]::GetTempPath()) "ramag-kafka-docker-target"
 
     try {
@@ -508,6 +553,11 @@ function Run-RustIntegrationTest {
         } else {
             $env:RAMAG_TEST_KSQLDB = $oldKsqlDbEndpoint
         }
+        if ($null -eq $oldSchemaRegistryEndpoint) {
+            Remove-Item Env:RAMAG_TEST_SCHEMA_REGISTRY -ErrorAction SilentlyContinue
+        } else {
+            $env:RAMAG_TEST_SCHEMA_REGISTRY = $oldSchemaRegistryEndpoint
+        }
         if ($null -eq $oldTargetDirectory) {
             Remove-Item Env:CARGO_TARGET_DIR -ErrorAction SilentlyContinue
         } else {
@@ -520,6 +570,7 @@ function Run-IntegrationTest {
     Seed-Fixture
     Verify-Fixture
     Prepare-KsqlDbFixture
+    Prepare-SchemaRegistryFixture
     Run-RustIntegrationTest
     Write-TestLog "Docker Kafka integration test passed."
 }

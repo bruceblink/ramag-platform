@@ -1,6 +1,6 @@
 # Kafka 工作台功能矩阵
 
-> 文档状态：`KAFKA-023` 的当前功能矩阵与验收顺序
+> 文档状态：`KAFKA-023` 与阶段 27 的当前功能矩阵和验收顺序
 > 更新日期：2026-09-11
 > 适用基线：`dev`
 
@@ -44,7 +44,7 @@
 | Kafka ACL | 按 Principal/Host/Resource/Operation 查询，精确创建和删除 | 已完成 | ACL 过滤、二次确认、权限错误映射和 UI 测试 | 不实现 AKHQ UI Groups/Roles |
 | 协议指标 | 查看 Broker 元数据、Topic/Partition 健康、Lag 和 high watermark 速率 | 已完成 | `KafkaMonitoringDriver`、`KafkaMetricsSnapshot` 和概览指标测试 | 运行指标必须与外部来源分开 |
 | Broker 运行指标 | 展示 CPU、内存、磁盘、JVM 和请求延迟 | 进行中 | `PrometheusBrokerMetricsDriver`、有界解析和本机 Docker HTTP fixture 已验证 | 真实 Kafka exporter、真实 Broker 运行指标端点和真实窗口证据待补充 |
-| Schema Registry | 浏览 Subject 名称 | 已完成 | 只读 Subject 浏览、端点/数量边界和 UI 测试 | Schema 版本内容解析待排期 |
+| Schema Registry | 浏览 Subject、版本和 Schema 内容 | 已完成 | Domain/App/Infra 版本列表与详情边界、Subject 选择和版本滚动 headless 测试、本机 Docker Registry 真实 REST 回读 | 真实 Windows 窗口证据仍待补充 |
 | Kafka Connect | 浏览连接器和 Task 状态 | 已完成 | 只读 Connect HTTP 浏览、端点和数量边界测试 | 写操作不纳入当前范围 |
 | ksqlDB | 对 Kafka 流执行有界只读查询 | 已完成 | `KafkaKsqlDbDriver`、ksqlDB 配置与查询 UI、HTTP 流式 JSON 解析、GPUI headless 测试和本机 Docker ksqlDB fixture；覆盖成功、HTTP 404、行数上限和取消 | 真实 Windows 窗口证据仍待补充；不执行 DDL、写入或查询管理命令 |
 | 纯 Rust Transport | 用跨平台纯 Rust 客户端替换 native backend | 待排期 | 能力矩阵已记录当前 native 路径和缺口 | 不在 UI 功能矩阵切片中顺带替换 |
