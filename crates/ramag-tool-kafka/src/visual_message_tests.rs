@@ -1,5 +1,15 @@
 use super::*;
 
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
+
+use async_trait::async_trait;
+use ramag_domain::entities::{KafkaMessageProduceRequest, KafkaMessageProduceResult};
+use ramag_domain::error::{DomainError, KafkaError, KafkaErrorCategory, Result};
+use ramag_domain::traits::KafkaProducerDriver;
+
 struct KafkaMessageTestHost {
     view: gpui::Entity<KafkaView>,
 }
@@ -260,4 +270,191 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
             visual_cx.run_until_parked();
         }
     }
+}
+
+struct VisualProducerDriver {
+    calls: Arc<Mutex<Vec<KafkaMessageProduceRequest>>>,
+    fail: Arc<AtomicBool>,
+}
+
+impl VisualProducerDriver {
+    /// Records producer calls without turning a poisoned test mutex into an unrelated failure.
+    fn record_call(&self, request: KafkaMessageProduceRequest) {
+        self.calls
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push(request);
+    }
+}
+
+#[async_trait]
+impl KafkaProducerDriver for VisualProducerDriver {
+    async fn produce_message(
+        &self,
+        _config: &KafkaClusterConfig,
+        request: &KafkaMessageProduceRequest,
+    ) -> Result<KafkaMessageProduceResult> {
+        self.record_call(request.clone());
+        if self.fail.load(Ordering::Acquire) {
+            return Err(DomainError::Kafka(KafkaError::new(
+                KafkaErrorCategory::PermissionDenied,
+                "写入 Kafka 消息",
+                "测试生产器拒绝写入",
+            )));
+        }
+        Ok(KafkaMessageProduceResult::new(
+            request.topic.clone(),
+            request.partition.unwrap_or(0),
+            42,
+            None,
+        ))
+    }
+}
+
+/// Covers the write guard, confirmation boundary, success feedback, and error
+/// recovery behavior without connecting the UI test to a live Kafka service.
+#[gpui::test]
+fn kafka_message_production_requires_confirmation_and_preserves_failure_input(
+    cx: &mut TestAppContext,
+) {
+    cx.update(gpui_component::init);
+    let cluster = KafkaClusterConfig::new("生产验证 Kafka", vec!["127.0.0.1:19092".into()]);
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let fail = Arc::new(AtomicBool::new(false));
+    let service = Arc::new(
+        KafkaService::new(
+            Arc::new(FakeKafkaDriver),
+            Arc::new(FakeStorage {
+                cluster: cluster.clone(),
+            }),
+        )
+        .with_producer_driver(Arc::new(VisualProducerDriver {
+            calls: calls.clone(),
+            fail: fail.clone(),
+        })),
+    );
+    let mut kafka_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
+        kafka_entity = Some(kafka.clone());
+        let host = cx.new(|_| KafkaMessageTestHost { view: kafka });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let Some(kafka_entity) = kafka_entity else {
+        return;
+    };
+
+    visual_cx.simulate_resize(size(px(1200.0), px(900.0)));
+    visual_cx.run_until_parked();
+    visual_cx.update(|window, app| {
+        kafka_entity.update(app, |view, cx| {
+            view.clusters = vec![cluster.clone()];
+            view.selected_cluster_id = Some(cluster.id.clone());
+            view.section = KafkaSection::Messages;
+            view.loading_clusters = false;
+            view.loading_runtime = false;
+            view.loading_messages = false;
+            view.message_page = Some(KafkaMessagePage::empty());
+            view.set_form_from_config(&cluster, window, cx);
+            view.produce_topic_input
+                .update(cx, |input, cx| input.set_value("events", window, cx));
+            view.produce_partition_input
+                .update(cx, |input, cx| input.set_value("2", window, cx));
+            view.produce_key_input
+                .update(cx, |input, cx| input.set_value("key", window, cx));
+            view.produce_value_input
+                .update(cx, |input, cx| input.set_value("payload", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    assert!(visual_cx.debug_bounds("kafka-message-producer").is_some());
+    click(visual_cx, "kafka-produce-message");
+    visual_cx.run_until_parked();
+    assert!(
+        calls
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .is_empty(),
+        "只读模式下点击发送不能调用生产器"
+    );
+    assert!(
+        visual_cx.debug_bounds("ramag-confirm-ok").is_none(),
+        "只读模式下不能打开发送确认"
+    );
+
+    visual_cx.update(|_, app| {
+        kafka_entity.update(app, |view, cx| {
+            view.read_only = KafkaReadOnlyState::ReadWrite;
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "kafka-produce-message");
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx.debug_bounds("ramag-confirm-ok").is_some(),
+        "管理模式发送前必须显示确认对话框"
+    );
+    assert!(
+        calls
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .is_empty(),
+        "确认前不能调用生产器"
+    );
+    click(visual_cx, "ramag-confirm-cancel");
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
+
+    click(visual_cx, "kafka-produce-message");
+    visual_cx.run_until_parked();
+    click(visual_cx, "ramag-confirm-ok");
+    visual_cx.run_until_parked();
+    let successful_calls = calls
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    assert_eq!(successful_calls.len(), 1);
+    assert_eq!(successful_calls[0].topic, "events");
+    assert_eq!(successful_calls[0].partition, Some(2));
+    drop(successful_calls);
+    assert!(kafka_entity.read_with(visual_cx, |view, _| {
+        view.notice
+            .as_ref()
+            .is_some_and(|(message, is_error)| !is_error && message.contains("Offset 42"))
+    }));
+    assert!(kafka_entity.read_with(visual_cx, |view, cx| {
+        view.produce_value_input.read(cx).value().is_empty()
+    }));
+
+    fail.store(true, Ordering::Release);
+    visual_cx.update(|window, app| {
+        kafka_entity.update(app, |view, cx| {
+            view.produce_value_input
+                .update(cx, |input, cx| input.set_value("keep-on-error", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+    click(visual_cx, "kafka-produce-message");
+    visual_cx.run_until_parked();
+    click(visual_cx, "ramag-confirm-ok");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        calls
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .len(),
+        2
+    );
+    assert!(kafka_entity.read_with(visual_cx, |view, _| {
+        view.notice
+            .as_ref()
+            .is_some_and(|(message, is_error)| *is_error && message.contains("发送 Kafka 消息失败"))
+    }));
+    assert!(kafka_entity.read_with(visual_cx, |view, cx| {
+        view.produce_value_input.read(cx).value() == "keep-on-error"
+    }));
 }

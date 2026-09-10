@@ -4,11 +4,14 @@
 use chrono::{Duration, Utc};
 use ramag_domain::entities::{
     KafkaClusterConfig, KafkaConsumerGroupOffsetReset, KafkaConsumerGroupOffsetResetRequest,
-    KafkaMessageQuery, KafkaMessageSearchField, KafkaMessageSearchQuery, KafkaReadOnlyState,
-    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaMessageHeader, KafkaMessageProduceRequest, KafkaMessageQuery, KafkaMessageSearchField,
+    KafkaMessageSearchQuery, KafkaReadOnlyState, KafkaTopicCreateRequest,
+    KafkaTopicPartitionExpansion,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE};
-use ramag_domain::traits::{KafkaAdminDriver, KafkaConnectDriver, KafkaDriver};
+use ramag_domain::traits::{
+    KafkaAdminDriver, KafkaConnectDriver, KafkaDriver, KafkaProducerDriver,
+};
 use ramag_infra_kafka::{KafkaConnectHttpDriver, RdkafkaDriver};
 use rdkafka::ClientConfig;
 use rdkafka::consumer::{BaseConsumer, CommitMode, Consumer};
@@ -341,8 +344,9 @@ fn docker_kafka_resets_consumer_group_offsets() -> Result<(), Box<dyn std::error
         return Ok(());
     };
     let group_id = "ramag.integration.offset-reset";
-    let config =
+    let mut config =
         KafkaClusterConfig::new("ramag-docker-kafka-offset-reset", vec![bootstrap.clone()]);
+    config.read_only = KafkaReadOnlyState::ReadWrite;
     {
         let consumer: BaseConsumer = ClientConfig::new()
             .set("bootstrap.servers", &bootstrap)
@@ -393,6 +397,68 @@ fn docker_kafka_resets_consumer_group_offsets() -> Result<(), Box<dyn std::error
     assert!(group.offsets.iter().any(|offset| {
         offset.topic == FIXTURE_TOPIC && offset.partition == 0 && offset.committed_offset == Some(0)
     }));
+    Ok(())
+}
+
+/// Produces one managed message with key/header/partition fields, then reads it
+/// back by the Broker-returned offset to verify the native producer contract.
+#[test]
+fn docker_kafka_produces_and_reads_back_one_managed_message()
+-> Result<(), Box<dyn std::error::Error>> {
+    let Some(bootstrap) = docker_bootstrap() else {
+        return Ok(());
+    };
+    let topic = FIXTURE_TOPIC;
+    let request = KafkaMessageProduceRequest::new(topic, b"ramag-producer-integration".to_vec())
+        .with_partition(1)
+        .with_key(b"ramag-producer-key".to_vec())
+        .with_headers(vec![KafkaMessageHeader {
+            key: "trace-id".into(),
+            value: Some(b"ramag-producer-header".to_vec()),
+        }]);
+    let driver = RdkafkaDriver::new();
+
+    let read_only_config = KafkaClusterConfig::new(
+        "ramag-docker-kafka-producer-read-only",
+        vec![bootstrap.clone()],
+    );
+    let read_only_result = smol::block_on(driver.produce_message(&read_only_config, &request));
+    assert!(matches!(
+        read_only_result,
+        Err(DomainError::Forbidden(message)) if message == READ_ONLY_MESSAGE
+    ));
+
+    let mut config = KafkaClusterConfig::new("ramag-docker-kafka-producer", vec![bootstrap]);
+    config.read_only = KafkaReadOnlyState::ReadWrite;
+    let result = smol::block_on(driver.produce_message(&config, &request))?;
+    assert_eq!(result.topic, topic);
+    assert_eq!(result.partition, 1);
+    assert!(result.offset >= 0);
+
+    let query = KafkaMessageQuery::by_offset(
+        topic,
+        vec![result.partition],
+        result.offset,
+        Some(result.offset.saturating_add(1)),
+    )
+    .with_limits(1, 1024 * 1024, 30, 1);
+    let page = smol::block_on(driver.read_messages(&config, &query))?;
+    assert_eq!(page.records.len(), 1);
+    let record = &page.records[0];
+    assert_eq!(record.topic, topic);
+    assert_eq!(record.partition, result.partition);
+    assert_eq!(record.offset, result.offset);
+    assert_eq!(record.key.as_deref(), Some(&b"ramag-producer-key"[..]));
+    assert_eq!(
+        record.value.as_deref(),
+        Some(&b"ramag-producer-integration"[..])
+    );
+    assert_eq!(record.headers.len(), 1);
+    assert_eq!(record.headers[0].key, "trace-id");
+    assert_eq!(
+        record.headers[0].value.as_deref(),
+        Some(&b"ramag-producer-header"[..])
+    );
     Ok(())
 }
 

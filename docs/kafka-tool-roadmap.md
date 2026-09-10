@@ -1,12 +1,12 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 先完成单条消息生产设计，明文 KRaft Docker 基础集成已复核，Docker exporter、真实 Broker 端点、真实 Windows 截图仍待补充
-> 更新日期：2026-09-09
+> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流的领域、应用、基础设施和 UI 代码、GPUI headless 验收及本机 Docker KRaft 生产回读已完成，Docker exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充
+> 更新日期：2026-09-10
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
-> 当前基线：`dev`（阶段 18-24 的高规模列表与快照边界切片已同步，明文 KRaft Docker 基础集成已复核；写请求不主动取消，Docker exporter、真实 Broker 端点和真实 Windows 截图仍待补充）
+> 当前基线：`dev`（阶段 18-25 的高规模列表、快照边界和单条消息生产切片已同步，明文 KRaft Docker 生产回读已复核；写请求不主动取消，Docker exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
-> 当前主线：在 `dev` 完成阶段 25 单条消息生产工作流；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前主线：阶段 25 单条消息生产工作流已完成，下一项按队列评估 `KAFKA-023`；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -480,17 +480,24 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - 本切片不改变 Kafka 服务端查询上限、消费者组数据约定或 Offset 语义；Partition 快照内存预算、刷新合并、消费者组、运行时元数据、ACL、配置、指标和连接测试读取取消已完成，写请求的 UI 生命周期隔离已完成。
 - 2026-09-09 WSL Docker 复核通过：`scripts/kafka-test/kafka-test.ps1 test` 创建并校验 5000 条消息和 61 个主题，`crates/ramag-infra-kafka/tests/docker_kafka.rs` 的 6 项测试全部通过。测试脚本同时修正了 WSL Compose 路径、`key.separator=|` 参数转义和 Docker 所在 WSL 会话的保持；本次证据只覆盖明文 KRaft，不覆盖 TLS/SASL、Authorizer、exporter 或真实 Windows 截图。
 
+阶段 25 当前切片实施记录：
+
+- `KafkaMessageProduceRequest`、`KafkaMessageProduceResult` 和 `KafkaProducerDriver` 已把单条消息生产能力接入 Domain/App/Infra 边界；`KafkaService` 在管理模式下执行请求校验，native producer 再次校验 Topic、Partition 和消息字节预算，并只记录脱敏的定位与耗时信息。
+- Kafka UI 新增 Topic、Partition、Key、Value 和确认流程；只读模式不会调用 producer，取消确认不会发起写入，成功提示展示 Broker 返回的 Partition/Offset/Timestamp，失败时保留用户输入。GPUI headless 测试覆盖完整确认、取消、只读拒绝、成功清理和失败保留输入路径。
+- 2026-09-10 本机 Docker 集成使用 `apache/kafka:4.0.0` 的 KRaft 服务 `ramag-kafka-test`（`127.0.0.1:19092`）和 Connect 服务 `ramag-kafka-connect-test`（`127.0.0.1:18083`）；脚本创建并核对 5000 条 fixture 消息和 61 个主题，Rust 集成测试 7 项全部通过，其中包含显式 Partition、Key、Header 的生产及按返回 Offset 回读验证。该证据不覆盖 TLS/SASL、Authorizer、Docker exporter、真实 Broker 运行指标端点或真实 Windows 窗口操作。
+- 本切片尚未取得真实 Windows Kafka 窗口截图和鼠标/键盘操作记录；不能把 headless 或 Docker 结果描述为原生窗口验收。Docker 测试容器在验证后保持运行，供后续本机复用。
+
 后续独立路线：
 
 Schema Registry Subject 浏览已作为独立切片完成：
 
 - `ddcc0db feat(kafka): add schema registry subject browser`：只读读取 Subject 名称，配置端点、数量上限、错误状态和页面刷新已接入；Schema 版本内容解析仍未实现。
 
-当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect 和消费者组 Offset 重置已经完成，消息生产与 ksqlDB 仍作为后续独立候选：
+当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect、消费者组 Offset 重置和阶段 25 消息生产已经完成；下一项按主线队列评估 `KAFKA-023`，ksqlDB 仍作为独立候选：
 
 - `b6590cb feat(kafka): add read-only Connect status browser`：读取 Kafka Connect 连接器与 Task 状态，保留端点校验、数量边界、错误状态和页面刷新。
 - 本次切片完成消费者组 Offset 重置：Domain 和 App 只接受明确的消费者组及 Topic/Partition/Offset 目标；Ramag UI 在管理模式下提供“重置到最早”和“重置到末尾”两个入口，执行前显示目标数量、集群、消费者组和当前状态，并在成功后重新读取消费者组快照；生产驱动使用 librdkafka `AlterConsumerGroupOffsets` Admin API，WSL Docker 已回读目标 Offset 为 `0`。
-- `feat(kafka): add message production workflow`
+- `feat(kafka): add message production workflow`（阶段 25，已完成）
 - `feat(kafka): add ksqldb integration`
 
 ### 6.3 阶段 26 设计：ksqlDB 查询只读入口
@@ -654,4 +661,4 @@ Kafka 工具应定位为桌面优先的 Kafka 工作台：以 Offset Explorer �
 
 `rdkafka`/`librdkafka` 只作为当前基础设施实现，不是产品边界。下一阶段先验证纯 Rust Kafka Transport 是否能覆盖完整能力；默认桌面构建必须回到统一的跨平台 Cargo 工具链。无论最终采用纯 Rust 客户端还是独立 Kafka Gateway，领域模型、应用服务和 UI 都不得依赖具体客户端类型。
 
-完成阶段 18-24 后，Ramag 进入阶段 25 单条消息生产工作流：在管理模式和二次确认下写入明确 Topic，并展示 Broker 返回的 Partition、Offset 和 Timestamp。批量导入、ksqlDB 以及消息生产之外的高风险扩展继续单独排期；Schema Registry 当前仅完成 Subject 浏览，版本内容解析仍需单独排期。
+完成阶段 18-25 后，Ramag 已在管理模式和二次确认下写入明确 Topic，并展示 Broker 返回的 Partition、Offset 和 Timestamp。下一项按队列评估 `KAFKA-023`；批量导入、ksqlDB 以及消息生产之外的高风险扩展继续单独排期；Schema Registry 当前仅完成 Subject 浏览，版本内容解析仍需单独排期。

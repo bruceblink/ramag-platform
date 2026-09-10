@@ -1,9 +1,9 @@
 # Ramag Platform 产品与开发整合设计
 
 > 文档状态：设计整合稿，不代表所有计划接口已经实现
-> 适用仓库：`E:/Project/ramag-platform`
-> 评估基线：当前 `main`；本工作区在 `feat/term-001-ssh-session-forwarding` 上包含 TERM-001 已提交实现及真实端点验收记录
-> 更新时间：2026-09-07
+> 适用仓库：`F:/project/ramag-platform`
+> 评估基线：当前 `dev`；Kafka 阶段 25 单条消息生产已完成 Domain/App/Infra/UI 实现、本机 Docker KRaft 回读和 GPUI headless 验收，真实 Windows 窗口证据仍待补充
+> 更新时间：2026-09-10
 
 本文将现有架构说明、主线开发计划、插件平台路线、Kafka 路线和数据库路线整合为一个可执行的产品与开发设计。本文只描述当前代码事实、明确的目标边界和后续验收条件；没有实现的设计使用“计划”“拟实现”或“未实现”标记。
 
@@ -48,7 +48,7 @@ Ramag Platform 是一个本地优先的开发者工作台，将数据库、消�
 | 主线 | 当前实现 | 设计判断 | 交付距离 |
 |---|---|---|---|
 | 插件平台 | `Tool`、`ToolRegistry`、插件描述、静态生命周期和失败诊断已经存在 | P0-C 设置与权限接口尚未落地 | P0-A、P0-B、PLAT-003 已完成 |
-| Kafka 工具 | 元数据、Topic、Partition、消息读取、搜索、消费者组、ACL、Topic/配置管理已存在 | 路线图已加入 `KafkaMonitoringDriver`、实时 Tail 和指标快照，但当前代码没有这些接口 | 基础管理可用，观测增强未开始 |
+| Kafka 工具 | 元数据、Topic、Partition、消息读取/搜索/生产、消费者组、ACL、Topic/配置管理、`KafkaMonitoringDriver`、实时 Tail 和指标快照已存在 | 当前继续使用 `rdkafka/librdkafka`；纯 Rust Transport、Docker exporter、真实 Broker 运行指标端点和真实 Windows 窗口证据仍待补充 | 基础管理、协议观测和单条生产闭环已落地 |
 | SSH/终端工具 | OpenSSH、PTY、SFTP、JumpServer、文件预览/编辑、传输队列、多终端标签、会话状态、每标签重连和 `-L/-R/-D` 参数模型已存在；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 真实 Windows 窗口和端口转发的独立状态/停止面板、会话日志、脚本、宏和多协议仍未实现 | TERM-001 代码和真实端点验收已完成 |
 | 数据库连接工具 | SQL、Redis、MongoDB、分页、编辑、事务、查询历史、比较和迁移相关能力已有较多实现 | 后续重点是连续工作流、真实数据库回放、失败恢复和窗口证据 | 四条主线中最接近稳定化 |
 
@@ -156,30 +156,34 @@ Kafka 工具独立于数据库 `DriverKind` 和 `ConnectionConfig`，使用 `Kaf
 - 创建、删除和扩容 Topic
 - 读取和修改支持动态变更的配置
 - ACL 查询、创建和精确删除
+- 管理模式下生产单条消息；发送前校验并二次确认，成功后展示 Broker 返回的 Topic、Partition、Offset 和 Timestamp
 
 消息浏览必须使用独立、手动分配 Partition 的读取上下文，关闭自动提交，不加入或推进用户业务消费者组。搜索和读取必须有范围、消息数、字节数、并发、超时和取消限制。
 
 ### 4.2 Kafka 路线图与代码的冲突
 
-当前领域代码存在 `KafkaDriver` 和 `KafkaAdminDriver`，见 [`crates/ramag-domain/src/traits/kafka_driver.rs`](../crates/ramag-domain/src/traits/kafka_driver.rs)。当前代码没有 `KafkaMonitoringDriver`、`KafkaMetricsSnapshot` 或 Live Message Tail 的实现。
+当前领域代码存在 `KafkaDriver`、`KafkaAdminDriver`、`KafkaMonitoringDriver` 和 `KafkaProducerDriver`，见 [`crates/ramag-domain/src/traits/kafka_driver.rs`](../crates/ramag-domain/src/traits/kafka_driver.rs)。`KafkaMetricsSnapshot`、Live Message Tail 和单条消息生产已经接入 Domain/App/Infra/UI；UI 不直接依赖 `rdkafka` 类型。
 
 `ramag-bin` 当前显式启用 `ramag-infra-kafka` 的 `cmake-build` feature，见 [`crates/ramag-bin/Cargo.toml`](../crates/ramag-bin/Cargo.toml)。因此“默认桌面构建不依赖 CMake、MSVC、MinGW 或 `librdkafka`”仍是未完成目标，不能写成当前事实。
 
-下一步必须先做传输选择：
+当前传输决策是：
 
-1. 保留 `rdkafka/librdkafka` 为正式默认后端，并把 native 工具链列为 Windows 发布前置条件；或
-2. 增加 `KafkaTransport` 边界，完成纯 Rust 传输能力矩阵，再将 native 后端降为显式兼容路径。
+1. 保留 `rdkafka/librdkafka` 为当前正式后端，并把 native 工具链列为 Windows 发布前置条件。
+2. 通过 `KafkaTransport` 适配边界隔离客户端类型；纯 Rust 传输能力仍未完成，不能把它写成当前默认路径。
 
-在传输选择完成前，不继续扩展实时指标页面。
+后续扩展先补外部 Broker 运行指标和真实窗口证据，再按路线图推进其他 Kafka 工作台能力。
 
-### 4.3 观测能力的后续边界
+### 4.3 观测能力与外部指标边界
 
-后续可以增加：
+当前已经实现：
 
 - `KafkaMonitoringDriver`
 - 集群、Topic、Partition 和消费者组的指标快照
 - 有明确 Topic/Partition 范围的 Live Message Tail
 - Consumer Group Lag、首尾 Offset、ISR、Leader 和消息速率
+
+后续仍需补充：
+
 - 可选的 JMX、Prometheus 或 exporter 数据源
 
 Broker CPU、内存、磁盘、JVM 和请求延迟不能由 Kafka Admin API 伪造。没有外部指标源时，界面必须显示“未配置”“无权限”或“采集失败”，不能显示为零值。
@@ -192,7 +196,8 @@ Schema Registry、Kafka Connect 和 ksqlDB 都是可选的外部生态服务：�
 - 集群、Topic、Partition、消费者组和消息结果始终带有集群上下文，旧请求不能覆盖新集群页面。
 - 读取、搜索、Tail 和指标采集彼此隔离；一个任务失败不会覆盖其他视图的成功状态。
 - Topic、配置和 ACL 的变更必须显示目标、变更前后内容并二次确认。
-- Kafka Docker/KRaft 集成测试覆盖元数据、消息读取和管理路径。
+- 消息生产只允许在管理模式发起；只读模式、取消确认、领域校验或基础设施校验失败时不得调用 Kafka Broker，失败时保留用户输入。
+- Kafka Docker/KRaft 集成测试覆盖元数据、消息读取、管理路径以及单条消息生产回读；当前本机验证使用 `apache/kafka:4.0.0`，Broker 绑定 `127.0.0.1:19092`，Connect 绑定 `127.0.0.1:18083`。
 - 若保留 native 后端，Windows CI、发布脚本和本地开发指南必须明确 CMake、编译器和链接依赖。
 - 实时 Tail 必须有开始、暂停、停止、断线、重连、速率、已读取数和取消状态。
 
