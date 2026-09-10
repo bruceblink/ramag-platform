@@ -8,6 +8,8 @@ pub mod jumpserver_driver;
 pub mod kafka_driver;
 pub mod kafka_transport;
 pub mod kv_driver;
+pub mod mqtt_driver;
+pub mod mqtt_transport;
 pub mod object_storage_driver;
 pub mod plugin;
 pub mod ssh_driver;
@@ -27,6 +29,8 @@ pub use kafka_driver::{
 };
 pub use kafka_transport::KafkaTransport;
 pub use kv_driver::KvDriver;
+pub use mqtt_driver::{MosquittoDynamicSecurityDriver, MosquittoStaticConfigDriver, MqttDriver};
+pub use mqtt_transport::MqttTransport;
 pub use object_storage_driver::ObjectStorageDriver;
 pub use plugin::{
     CURRENT_PLUGIN_API_VERSION, KNOWN_PLUGIN_CAPABILITIES, MAX_PLUGIN_CAPABILITIES,

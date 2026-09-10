@@ -11,6 +11,7 @@ pub mod kafka;
 mod kafka_tests;
 pub mod mongo;
 pub mod mqtt;
+pub mod mqtt_protocol;
 pub mod object_storage;
 pub mod query;
 pub mod redis_keyspace;
@@ -134,6 +135,16 @@ pub use mqtt::{
     MosquittoRoleBinding, MosquittoStaticConfig, MqttProfile, MqttProfileId, MqttProtocolVersion,
     MqttTlsConfig, MqttTransport, MqttTransportBackend, MqttTransportCapabilities,
     MqttTransportCapability, validate_mqtt_topic_filter, validate_mqtt_topic_name,
+};
+pub use mqtt_protocol::{
+    MAX_MOSQUITTO_CLIENTS, MAX_MOSQUITTO_GROUPS, MAX_MOSQUITTO_ROLES,
+    MAX_MOSQUITTO_STATIC_FILE_BYTES, MAX_MQTT_ONLINE_CLIENTS, MAX_MQTT_PUBLISH_PAYLOAD_BYTES,
+    MAX_MQTT_SUBSCRIPTIONS, MAX_MQTT_TOPIC_OBSERVATIONS, MAX_MQTT_USER_PROPERTIES,
+    MAX_MQTT_USER_PROPERTY_BYTES, MosquittoDynamicSecuritySnapshot, MosquittoStaticFile,
+    MosquittoStaticFileKind, MqttBrokerSnapshot, MqttMessage, MqttMessageSink,
+    MqttMessageSinkResult, MqttOnlineClient, MqttPublishRequest, MqttPublishResult, MqttQos,
+    MqttSubscribeRequest, MqttSubscription, MqttTopicObservation, MqttTopicSource,
+    MqttUserProperty,
 };
 pub use object_storage::{
     CloudProvider, HttpsEndpoint, MAX_MANUAL_BUCKETS_PER_ACCOUNT,
