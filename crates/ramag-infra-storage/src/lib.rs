@@ -21,8 +21,9 @@ use tracing::{debug, info, warn};
 
 use ramag_domain::entities::{
     ClipId, ClipItem, ClipSearchResult, ConnectionConfig, ConnectionId, KafkaClusterConfig,
-    KafkaClusterId, MAX_CLIPBOARD_SEARCH_BYTES, ObjectStorageAccount, ObjectStorageAccountId,
-    QueryHistoryPage, QueryRecord, QueryRecordId, RepoConfig, RepoId, SshProfile, SshProfileId,
+    KafkaClusterId, MAX_CLIPBOARD_SEARCH_BYTES, MqttProfile, MqttProfileId, ObjectStorageAccount,
+    ObjectStorageAccountId, QueryHistoryPage, QueryRecord, QueryRecordId, RepoConfig, RepoId,
+    SshProfile, SshProfileId,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::Storage;
@@ -75,6 +76,7 @@ impl RedbStorage {
         repos::clip_repo::migrate_indexes(db.clone(), cipher.clone())?;
         let _ = repos::connection_repo::list(db.clone(), cipher.clone())?;
         let _ = repos::kafka_cluster_repo::list(db.clone(), cipher.clone())?;
+        let _ = repos::mqtt_profile_repo::list(db.clone(), cipher.clone())?;
         let _ = repos::ssh_profile_repo::list(db.clone(), cipher.clone())?;
         let _ = repos::object_storage_account_repo::list(db.clone(), cipher.clone())?;
         repos::clip_repo::validate_key(db.clone(), cipher.clone())?;
@@ -152,6 +154,7 @@ fn database_has_encrypted_records(db: &Database) -> Result<bool> {
         repos::ssh_profile_repo::SSH_PROFILES_TABLE,
         repos::object_storage_account_repo::OBJECT_STORAGE_ACCOUNTS_TABLE,
         repos::kafka_cluster_repo::KAFKA_CLUSTERS_TABLE,
+        repos::mqtt_profile_repo::MQTT_PROFILES_TABLE,
     ] {
         match read_txn.open_table(definition) {
             Ok(table)
@@ -181,6 +184,32 @@ fn validate_clip_search_query(query: &str) -> Result<()> {
 
 #[async_trait]
 impl Storage for RedbStorage {
+    async fn list_mqtt_profiles(&self) -> Result<Vec<MqttProfile>> {
+        let db = self.db.clone();
+        let cipher = self.cipher.clone();
+        run_blocking(move || repos::mqtt_profile_repo::list(db, cipher)).await
+    }
+
+    async fn get_mqtt_profile(&self, id: &MqttProfileId) -> Result<Option<MqttProfile>> {
+        let db = self.db.clone();
+        let cipher = self.cipher.clone();
+        let id = id.to_string();
+        run_blocking(move || repos::mqtt_profile_repo::get(db, cipher, id)).await
+    }
+
+    async fn save_mqtt_profile(&self, profile: &MqttProfile) -> Result<()> {
+        let db = self.db.clone();
+        let cipher = self.cipher.clone();
+        let profile = profile.clone();
+        run_blocking(move || repos::mqtt_profile_repo::save(db, cipher, profile)).await
+    }
+
+    async fn delete_mqtt_profile(&self, id: &MqttProfileId) -> Result<()> {
+        let db = self.db.clone();
+        let id = id.to_string();
+        run_blocking(move || repos::mqtt_profile_repo::delete(db, id)).await
+    }
+
     async fn list_kafka_clusters(&self) -> Result<Vec<KafkaClusterConfig>> {
         let db = self.db.clone();
         let cipher = self.cipher.clone();

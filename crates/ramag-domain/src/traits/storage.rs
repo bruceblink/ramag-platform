@@ -5,13 +5,37 @@ use async_trait::async_trait;
 
 use crate::entities::{
     ClipId, ClipItem, ClipSearchResult, ConnectionConfig, ConnectionId, KafkaClusterConfig,
-    KafkaClusterId, ObjectStorageAccount, ObjectStorageAccountId, QueryHistoryPage, QueryRecord,
-    QueryRecordId, RepoConfig, RepoId, SshProfile, SshProfileId,
+    KafkaClusterId, MqttProfile, MqttProfileId, ObjectStorageAccount, ObjectStorageAccountId,
+    QueryHistoryPage, QueryRecord, QueryRecordId, RepoConfig, RepoId, SshProfile, SshProfileId,
 };
 use crate::error::Result;
 
 #[async_trait]
 pub trait Storage: Send + Sync {
+    async fn list_mqtt_profiles(&self) -> Result<Vec<MqttProfile>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "list_mqtt_profiles".into(),
+        ))
+    }
+
+    async fn get_mqtt_profile(&self, _id: &MqttProfileId) -> Result<Option<MqttProfile>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "get_mqtt_profile".into(),
+        ))
+    }
+
+    async fn save_mqtt_profile(&self, _profile: &MqttProfile) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "save_mqtt_profile".into(),
+        ))
+    }
+
+    async fn delete_mqtt_profile(&self, _id: &MqttProfileId) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "delete_mqtt_profile".into(),
+        ))
+    }
+
     async fn list_kafka_clusters(&self) -> Result<Vec<KafkaClusterConfig>> {
         Err(crate::error::DomainError::NotImplemented(
             "list_kafka_clusters".into(),

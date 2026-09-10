@@ -10,6 +10,7 @@ pub mod kafka;
 #[cfg(test)]
 mod kafka_tests;
 pub mod mongo;
+pub mod mqtt;
 pub mod object_storage;
 pub mod query;
 pub mod redis_keyspace;
@@ -121,6 +122,18 @@ pub use mongo::{
     mongo_documents_retained_bytes, mongo_value_retained_bytes, validate_mongo_collection_name,
     validate_mongo_database_name, validate_mongo_document, validate_mongo_field_path,
     validate_mongo_pipeline,
+};
+pub use mqtt::{
+    DEFAULT_MQTT_KEEP_ALIVE_SECONDS, DEFAULT_MQTT_PORT, DEFAULT_MQTT_TLS_PORT, MAX_MOSQUITTO_ACLS,
+    MAX_MOSQUITTO_DESCRIPTION_BYTES, MAX_MOSQUITTO_NAME_BYTES, MAX_MQTT_CLIENT_ID_BYTES,
+    MAX_MQTT_HOST_BYTES, MAX_MQTT_PASSWORD_BYTES, MAX_MQTT_PROFILE_LIST_BYTES,
+    MAX_MQTT_PROFILE_NAME_BYTES, MAX_MQTT_PROFILE_RECORD_BYTES, MAX_MQTT_PROFILES,
+    MAX_MQTT_REMARK_BYTES, MAX_MQTT_TLS_PATH_BYTES, MAX_MQTT_TOPIC_BYTES, MAX_MQTT_USERNAME_BYTES,
+    MosquittoAcl, MosquittoAclDecision, MosquittoAclType, MosquittoClient, MosquittoConfigTarget,
+    MosquittoGroup, MosquittoGroupBinding, MosquittoManagementConfig, MosquittoRole,
+    MosquittoRoleBinding, MosquittoStaticConfig, MqttProfile, MqttProfileId, MqttProtocolVersion,
+    MqttTlsConfig, MqttTransport, MqttTransportBackend, MqttTransportCapabilities,
+    MqttTransportCapability, validate_mqtt_topic_filter, validate_mqtt_topic_name,
 };
 pub use object_storage::{
     CloudProvider, HttpsEndpoint, MAX_MANUAL_BUCKETS_PER_ACCOUNT,
