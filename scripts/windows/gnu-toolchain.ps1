@@ -388,7 +388,7 @@ function Select-WindowsToolchain {
 
     try {
         $Toolchain = Get-WindowsGnuToolchain
-        $RustToolchain = $Toolchain.RustToolchain
+        $RustToolchain = Ensure-WindowsGnuRustToolchain
         Set-WindowsGnuEnvironment -Toolchain $Toolchain
         return [PSCustomObject]@{
             Flavor = "GNU"

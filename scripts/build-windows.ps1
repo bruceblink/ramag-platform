@@ -111,8 +111,6 @@ function Assert-PeTarget {
 }
 
 try {
-    Set-WindowsGnuEnvironment -Toolchain $Toolchain
-
     if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
         throw "cargo not found. Install Rust with rustup before building."
     }
