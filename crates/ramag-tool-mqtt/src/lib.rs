@@ -143,6 +143,14 @@ impl MosquittoManagementSection {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ClientPermissionRow {
+    source: String,
+    role_name: String,
+    binding_priority: i32,
+    acl: MosquittoAcl,
+}
+
 /// MQTT 页面状态；列表和消息只在对应服务请求成功后写入。
 pub struct MqttView {
     service: Arc<MqttService>,
@@ -2698,6 +2706,125 @@ impl MqttView {
                 list.into_any_element()
             })
             .child(editor)
+            .child(self.render_client_permissions(cx))
+            .into_any_element()
+    }
+
+    fn render_client_permissions(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+        let theme = cx.theme().clone();
+        let Some(snapshot) = self.management_snapshot.as_ref() else {
+            return div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("读取 Dynamic Security 后才能展开用户权限")
+                .into_any_element();
+        };
+        let Some(username) = self.selected_client_username.as_deref() else {
+            return div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("选择用户后显示直接 Role 和 Group 继承的 ACL")
+                .into_any_element();
+        };
+        let Some(client) = snapshot
+            .clients
+            .iter()
+            .find(|client| client.username == username)
+        else {
+            return div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("当前用户已不在最近一次 Broker 返回的列表中")
+                .into_any_element();
+        };
+
+        let (rows, missing_roles) = client_permission_rows(snapshot, client);
+        let mut body = v_flex().w_full().gap(px(4.0));
+        if rows.is_empty() {
+            body = body.child(
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("该用户当前没有可展开的 ACL"),
+            );
+        } else {
+            body = body.child(
+                h_flex()
+                    .w_full()
+                    .min_w_0()
+                    .gap(px(8.0))
+                    .child(div().w(px(130.0)).text_xs().child("来源"))
+                    .child(div().w(px(130.0)).text_xs().child("Role"))
+                    .child(div().flex_1().min_w_0().text_xs().child("Topic"))
+                    .child(div().w(px(180.0)).text_xs().child("权限 / 优先级")),
+            );
+            for row in rows {
+                let decision = match row.acl.decision {
+                    MosquittoAclDecision::Allow => "允许",
+                    MosquittoAclDecision::Deny => "拒绝",
+                };
+                body = body.child(
+                    h_flex()
+                        .w_full()
+                        .min_w_0()
+                        .gap(px(8.0))
+                        .child(
+                            div()
+                                .w(px(130.0))
+                                .text_xs()
+                                .truncate()
+                                .text_color(theme.muted_foreground)
+                                .child(row.source),
+                        )
+                        .child(div().w(px(130.0)).text_xs().truncate().child(row.role_name))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .text_xs()
+                                .truncate()
+                                .child(row.acl.topic),
+                        )
+                        .child(
+                            div()
+                                .w(px(180.0))
+                                .text_xs()
+                                .truncate()
+                                .text_color(
+                                    if matches!(row.acl.decision, MosquittoAclDecision::Allow) {
+                                        theme.accent
+                                    } else {
+                                        theme.danger
+                                    },
+                                )
+                                .child(format!(
+                                    "{} · {} · ACL {} / 绑定 {}",
+                                    row.acl.acl_type.as_str(),
+                                    decision,
+                                    row.acl.priority,
+                                    row.binding_priority
+                                )),
+                        ),
+                );
+            }
+        }
+        if !missing_roles.is_empty() {
+            body = body.child(
+                div()
+                    .text_xs()
+                    .text_color(theme.danger)
+                    .child(format!("未找到绑定的 Role：{}", missing_roles.join("、"))),
+            );
+        }
+        v_flex()
+            .w_full()
+            .gap(px(8.0))
+            .child(section_heading(
+                "用户权限预览",
+                "按用户直接绑定和 Group 继承的 Role 展开；最终判定仍由 Mosquitto Broker 执行",
+                &theme,
+            ))
+            .child(body)
             .into_any_element()
     }
 
@@ -3233,6 +3360,70 @@ fn parse_group_bindings(text: &str) -> std::result::Result<Vec<MosquittoGroupBin
     })
 }
 
+fn client_permission_rows(
+    snapshot: &MosquittoDynamicSecuritySnapshot,
+    client: &MosquittoClient,
+) -> (Vec<ClientPermissionRow>, Vec<String>) {
+    let mut rows = Vec::new();
+    let mut missing_roles = Vec::new();
+    for binding in &client.roles {
+        append_role_permissions(
+            snapshot,
+            &mut rows,
+            &mut missing_roles,
+            &binding.role_name,
+            "直接 Role".into(),
+            binding.priority,
+        );
+    }
+    for group_binding in &client.groups {
+        let Some(group) = snapshot
+            .groups
+            .iter()
+            .find(|group| group.group_name == group_binding.group_name)
+        else {
+            continue;
+        };
+        for role_binding in &group.roles {
+            append_role_permissions(
+                snapshot,
+                &mut rows,
+                &mut missing_roles,
+                &role_binding.role_name,
+                format!("Group {}", group.group_name),
+                role_binding.priority,
+            );
+        }
+    }
+    (rows, missing_roles)
+}
+
+fn append_role_permissions(
+    snapshot: &MosquittoDynamicSecuritySnapshot,
+    rows: &mut Vec<ClientPermissionRow>,
+    missing_roles: &mut Vec<String>,
+    role_name: &str,
+    source: String,
+    binding_priority: i32,
+) {
+    let Some(role) = snapshot
+        .roles
+        .iter()
+        .find(|role| role.role_name == role_name)
+    else {
+        if !missing_roles.iter().any(|missing| missing == role_name) {
+            missing_roles.push(role_name.to_string());
+        }
+        return;
+    };
+    rows.extend(role.acls.iter().cloned().map(|acl| ClientPermissionRow {
+        source: source.clone(),
+        role_name: role.role_name.clone(),
+        binding_priority,
+        acl,
+    }));
+}
+
 fn parse_role_bindings(text: &str) -> std::result::Result<Vec<MosquittoRoleBinding>, String> {
     parse_binding_names(text, "Role").map(|names| {
         names
@@ -3460,6 +3651,73 @@ mod tests {
         assert_eq!(tool.meta().id, MqttTool::ID);
         assert_eq!(tool.meta().name, "MQTT");
         assert_eq!(tool.meta().icon.as_deref(), Some("mqtt"));
+    }
+
+    #[test]
+    fn client_permission_rows_expand_direct_and_group_roles() {
+        let client = MosquittoClient {
+            username: "operator".into(),
+            client_id: None,
+            password_configured: true,
+            password: None,
+            disabled: false,
+            text_name: None,
+            text_description: None,
+            groups: vec![MosquittoGroupBinding {
+                group_name: "operators".into(),
+                priority: 20,
+            }],
+            roles: vec![MosquittoRoleBinding {
+                role_name: "direct-reader".into(),
+                priority: 10,
+            }],
+        };
+        let snapshot = MosquittoDynamicSecuritySnapshot {
+            clients: vec![client.clone()],
+            groups: vec![MosquittoGroup {
+                group_name: "operators".into(),
+                text_name: None,
+                text_description: None,
+                roles: vec![MosquittoRoleBinding {
+                    role_name: "group-writer".into(),
+                    priority: 30,
+                }],
+            }],
+            roles: vec![
+                MosquittoRole {
+                    role_name: "direct-reader".into(),
+                    text_name: None,
+                    text_description: None,
+                    allow_wildcards_subscriptions: false,
+                    acls: vec![MosquittoAcl {
+                        acl_type: MosquittoAclType::SubscribeLiteral,
+                        topic: "devices/operator/state".into(),
+                        decision: MosquittoAclDecision::Allow,
+                        priority: 1,
+                    }],
+                },
+                MosquittoRole {
+                    role_name: "group-writer".into(),
+                    text_name: None,
+                    text_description: None,
+                    allow_wildcards_subscriptions: false,
+                    acls: vec![MosquittoAcl {
+                        acl_type: MosquittoAclType::PublishClientSend,
+                        topic: "devices/operator/command".into(),
+                        decision: MosquittoAclDecision::Deny,
+                        priority: 2,
+                    }],
+                },
+            ],
+        };
+
+        let (rows, missing_roles) = client_permission_rows(&snapshot, &client);
+        assert_eq!(rows.len(), 2);
+        assert!(missing_roles.is_empty());
+        assert_eq!(rows[0].source, "直接 Role");
+        assert_eq!(rows[0].role_name, "direct-reader");
+        assert_eq!(rows[1].source, "Group operators");
+        assert_eq!(rows[1].role_name, "group-writer");
     }
 
     #[test]
