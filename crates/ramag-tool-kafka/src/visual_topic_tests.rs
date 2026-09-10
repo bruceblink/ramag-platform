@@ -134,6 +134,7 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
             "kafka-topic-expand",
             "kafka-topic-delete",
             "kafka-open-topic-messages",
+            "kafka-topic-partition-browse-0",
         ] {
             assert_within_width(visual_cx, selector, width);
         }
@@ -191,4 +192,75 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
             "主题操作栏应留在详情面板内: actions={actions:?}, detail={detail:?}"
         );
     }
+}
+
+#[gpui::test]
+fn kafka_topic_partition_browse_preserves_message_context(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let cluster = KafkaClusterConfig::new("Topic 定位 Kafka", vec!["127.0.0.1:19092".into()]);
+    let service = Arc::new(KafkaService::new(
+        Arc::new(FakeKafkaDriver),
+        Arc::new(FakeStorage {
+            cluster: cluster.clone(),
+        }),
+    ));
+    let topic = KafkaTopic {
+        name: "events".into(),
+        internal: false,
+        partitions: vec![KafkaPartition {
+            id: 2,
+            leader: Some(0),
+            replicas: vec![0],
+            isr: vec![0],
+            low_watermark: Some(2),
+            high_watermark: Some(12),
+        }],
+    };
+    let mut kafka_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
+        kafka_entity = Some(kafka.clone());
+        let host = cx.new(|_| KafkaTopicTestHost { view: kafka });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let Some(kafka_entity) = kafka_entity else {
+        return;
+    };
+
+    kafka_entity.update(visual_cx, |view, cx| {
+        view.clusters = vec![cluster.clone()];
+        view.selected_cluster_id = Some(cluster.id.clone());
+        view.topics = vec![topic.clone()];
+        view.selected_topic = Some(topic.name.clone());
+        view.section = KafkaSection::Topics;
+        view.loading_clusters = false;
+        view.loading_runtime = false;
+        view.message_page = Some(KafkaMessagePage::empty());
+        view.selected_message = Some(0);
+        cx.notify();
+    });
+    visual_cx.simulate_resize(size(px(1200.0), px(800.0)));
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "kafka-topic-partition-browse-2");
+    visual_cx.run_until_parked();
+
+    let state = kafka_entity.read_with(visual_cx, |view, cx| {
+        (
+            view.section,
+            view.topic_input.read(cx).value().to_string(),
+            view.produce_topic_input.read(cx).value().to_string(),
+            view.partition_input.read(cx).value().to_string(),
+            view.message_page.is_none(),
+            view.selected_message.is_none(),
+            !view.loading_messages,
+        )
+    });
+    assert_eq!(state.0, KafkaSection::Messages);
+    assert_eq!(state.1, "events");
+    assert_eq!(state.2, "events");
+    assert_eq!(state.3, "2");
+    assert!(state.4, "切换 Partition 后应清理旧消息页");
+    assert!(state.5, "切换 Partition 后应清理旧消息选择");
+    assert!(state.6, "切换 Partition 时不应自动启动消息读取");
 }

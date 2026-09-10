@@ -329,4 +329,23 @@ impl KafkaView {
         self.notice = None;
         cx.notify();
     }
+
+    /// 将 Topic 详情中的 Partition 定位带入消息页；只更新查询上下文，不自动读取 Broker。
+    pub(super) fn open_partition_messages(
+        &mut self,
+        topic: String,
+        partition: i32,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if partition < 0 {
+            self.notice = Some(("Partition 必须是非负整数".into(), true));
+            cx.notify();
+            return;
+        }
+        self.select_topic(topic, window, cx);
+        set_value(&self.partition_input, partition.to_string(), window, cx);
+        self.section = KafkaSection::Messages;
+        cx.notify();
+    }
 }

@@ -2,8 +2,8 @@
 
 > 文档状态：设计整合稿，不代表所有计划接口已经实现
 > 适用仓库：`F:/project/ramag-platform`
-> 评估基线：当前 `dev`；Kafka 阶段 25 单条消息生产已完成 Domain/App/Infra/UI 实现、本机 Docker KRaft 回读和 GPUI headless 验收，真实 Windows 窗口证据仍待补充
-> 更新时间：2026-09-10
+> 评估基线：当前 `dev`；Kafka 阶段 25 单条消息生产已完成 Domain/App/Infra/UI 实现和 Docker/headless 验收，`KAFKA-023` Topic/Partition 到消息定位首个切片已完成 `ramag-tool-kafka` UI 实现和 headless 验收，真实 Windows 窗口证据仍待补充
+> 更新时间：2026-09-11
 
 本文将现有架构说明、主线开发计划、插件平台路线、Kafka 路线和数据库路线整合为一个可执行的产品与开发设计。本文只描述当前代码事实、明确的目标边界和后续验收条件；没有实现的设计使用“计划”“拟实现”或“未实现”标记。
 
@@ -150,6 +150,7 @@ Kafka 工具独立于数据库 `DriverKind` 和 `ConnectionConfig`，使用 `Kaf
 - 按 Offset 或时间范围读取消息
 - Key、Value、Headers 的有限范围搜索
 - 消费者组、成员、分配和 Offset 浏览
+- 从 Topic 详情的指定 Partition 直接进入消息页，并保留 Topic/Partition 查询上下文
 
 管理能力包括：
 
@@ -197,6 +198,7 @@ Schema Registry、Kafka Connect 和 ksqlDB 都是可选的外部生态服务：�
 - 读取、搜索、Tail 和指标采集彼此隔离；一个任务失败不会覆盖其他视图的成功状态。
 - Topic、配置和 ACL 的变更必须显示目标、变更前后内容并二次确认。
 - 消息生产只允许在管理模式发起；只读模式、取消确认、领域校验或基础设施校验失败时不得调用 Kafka Broker，失败时保留用户输入。
+- Topic 详情的 Partition 浏览入口只更新消息页查询上下文，不自动读取 Broker；旧消息页、详情选择和实时 Tail 在切换定位时失效。
 - Kafka Docker/KRaft 集成测试覆盖元数据、消息读取、管理路径以及单条消息生产回读；当前本机验证使用 `apache/kafka:4.0.0`，Broker 绑定 `127.0.0.1:19092`，Connect 绑定 `127.0.0.1:18083`。
 - 若保留 native 后端，Windows CI、发布脚本和本地开发指南必须明确 CMake、编译器和链接依赖。
 - 实时 Tail 必须有开始、暂停、停止、断线、重连、速率、已读取数和取消状态。
@@ -409,11 +411,11 @@ SecureCRT 和 MobaXterm 用于划定产品参考范围，不代表 Ramag 已经�
 
 1. 修正 [`docs/architecture.md`](architecture.md) 和 [`README.md`](../README.md) 的 Kafka/System 工具清单。
 2. 修正 [`docs/development-roadmap.md`](development-roadmap.md) 的分支描述和历史完成项表达。
-3. 在 [`docs/kafka-tool-roadmap.md`](kafka-tool-roadmap.md) 增加“代码未实现接口”小节，明确 `KafkaMonitoringDriver`、Live Tail 和纯 Rust Transport 的状态。
+3. 继续维护 [`docs/kafka-tool-roadmap.md`](kafka-tool-roadmap.md) 的 `KAFKA-023` 功能矩阵和未实现接口状态。
 4. 实现插件平台 P0 的描述、注册错误和静态生命周期适配器。
 5. 补真实 Windows 窗口截图和键盘操作，确认 SSH 工作区在实际焦点、最小尺寸和 DPI 下的行为。
 6. 单独设计端口转发状态、错误和停止面板。
-7. 完成 `KAFKA-001` 的 native backend 与纯 Rust transport 能力矩阵，再决定是否实现指标快照。
+7. 在 `KAFKA-023` 功能矩阵之后补 Docker exporter、真实 Broker 运行指标端点和真实 Windows Kafka 窗口证据；纯 Rust Transport 仍单独评估。
 8. 把 `docs/v0.0.5-release-todo.md` 和历史公告移入归档目录，避免被误当作当前计划。
 
 ## 10. 当前验证记录

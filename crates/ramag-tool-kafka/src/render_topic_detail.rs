@@ -21,7 +21,39 @@ impl KafkaView {
             .border_color(theme.border)
             .rounded(px(6.0));
         for partition in topic.partitions.iter().take(MAX_VISIBLE_PARTITIONS) {
-            rows = rows.child(partition_row(partition, &theme));
+            let partition_id = partition.id;
+            let topic_name = topic.name.clone();
+            let selector = format!("kafka-topic-partition-browse-{partition_id}");
+            rows = rows.child(
+                v_flex()
+                    .w_full()
+                    .child(partition_row(partition, &theme))
+                    .child(
+                        h_flex()
+                            .w_full()
+                            .justify_end()
+                            .px(px(12.0))
+                            .pb(px(8.0))
+                            .child(
+                                ramag_ui::clickable_button(SharedString::from(selector.clone()))
+                                    .debug_selector(move || selector.clone())
+                                    .ghost()
+                                    .xsmall()
+                                    .icon(IconName::Search)
+                                    .label("浏览此 Partition")
+                                    .on_click(cx.listener(
+                                        move |this, _: &ClickEvent, window, cx| {
+                                            this.open_partition_messages(
+                                                topic_name.clone(),
+                                                partition_id,
+                                                window,
+                                                cx,
+                                            );
+                                        },
+                                    )),
+                            ),
+                    ),
+            );
         }
         if topic.partitions.len() > MAX_VISIBLE_PARTITIONS {
             rows = rows.child(

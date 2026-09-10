@@ -1,12 +1,12 @@
 # Kafka 消息管理工具独立开发计划
 
 > 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流的领域、应用、基础设施和 UI 代码、GPUI headless 验收及本机 Docker KRaft 生产回读已完成，Docker exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充
-> 更新日期：2026-09-10
+> 更新日期：2026-09-11
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
 > 当前基线：`dev`（阶段 18-25 的高规模列表、快照边界和单条消息生产切片已同步，明文 KRaft Docker 生产回读已复核；写请求不主动取消，Docker exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
-> 当前主线：阶段 25 单条消息生产工作流已完成，下一项按队列评估 `KAFKA-023`；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前主线：阶段 25 单条消息生产工作流已完成，`KAFKA-023` 的 Topic/Partition 到消息定位首个切片已完成，下一项继续建立并推进 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -352,6 +352,19 @@ Kafka 工作台必须满足统一跨平台构建目标：
 | 24 | `fix(kafka): harden high-scale workbench` | 高 Topic/Partition/Consumer Group 数量下的分页、虚拟列表、快照大小、刷新合并和资源释放 | 规模化 Docker fixture、内存/耗时上限、取消和断线恢复测试 |
 | 25 | `feat(kafka): add message production workflow` | 管理模式下编辑并二次确认单条 UTF-8 消息，返回 Broker 的 Partition、Offset 和 Timestamp | Domain/App 边界测试、`KafkaProducerDriver` 测试、本机 Docker KRaft 生产/读取回读、GPUI headless 交互和真实 Windows 窗口验收 |
 
+#### 6.1.1 `KAFKA-023` 首个切片设计：Topic/Partition 到消息定位
+
+这个切片把 Topic 详情中的具体 Partition 直接带入消息浏览页，补齐 Offset Explorer 风格的定位上下文。它只改变当前 `KafkaView` 的查询输入和页面状态，不自动读取 Broker，不提交或推进任何 Consumer Group Offset，也不修改 Topic 或 Partition。
+
+| 触发 | UI 状态变化 | 不执行的动作 |
+|---|---|---|
+| 用户点击 Topic 详情中某个 Partition 的“浏览此 Partition” | 切换到消息页；写入同一个 Topic、指定 Partition 和现有消息查询默认值；清理旧消息页、详情选择和实时 Tail | 不自动调用 `KafkaDriver`；不生产消息；不改变 Kafka 服务端状态 |
+| 当前 Partition ID 无效 | 保留当前页面并显示有界错误提示 | 不写入不完整的查询输入；不启动后台任务 |
+
+实现边界固定为 `ramag-tool-kafka`：`KafkaView::open_partition_messages` 负责上下文切换，Topic 详情只负责显示按钮和传递已验证的 Topic/Partition。消息读取仍由用户点击“读取”显式启动，既有范围、记录数、字节数、并发和取消限制保持不变。
+
+最小验收条件：GPUI headless 测试在支持的窗口尺寸中点击指定 Partition 后，确认消息页、Topic 输入和 Partition 输入均为目标值，旧分页/详情状态被清理，且页面没有进入消息读取状态；格式、workspace Clippy 和 `git diff --check` 必须通过。真实 Windows 窗口证据仍单独记录，不能由 headless 测试替代。
+
 阶段 3 实施记录：
 
 - 2026-09-07 完成阶段 18 传输能力矩阵：明确 `ramag-infra-kafka` 默认 feature 不启用 native 客户端、`ramag-bin` 显式启用 `cmake-build`，并逐项记录 Metadata、Fetch、ListOffsets、Consumer Group、Topic、Config、ACL、TLS、SASL 的代码入口、构建条件、服务证据和纯 Rust 缺口；详见 [`kafka-transport-capability-matrix.md`](kafka-transport-capability-matrix.md)。
@@ -487,13 +500,15 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - 2026-09-10 本机 Docker 集成使用 `apache/kafka:4.0.0` 的 KRaft 服务 `ramag-kafka-test`（`127.0.0.1:19092`）和 Connect 服务 `ramag-kafka-connect-test`（`127.0.0.1:18083`）；脚本创建并核对 5000 条 fixture 消息和 61 个主题，Rust 集成测试 7 项全部通过，其中包含显式 Partition、Key、Header 的生产及按返回 Offset 回读验证。该证据不覆盖 TLS/SASL、Authorizer、Docker exporter、真实 Broker 运行指标端点或真实 Windows 窗口操作。
 - 本切片尚未取得真实 Windows Kafka 窗口截图和鼠标/键盘操作记录；不能把 headless 或 Docker 结果描述为原生窗口验收。Docker 测试容器在验证后保持运行，供后续本机复用。
 
+`KAFKA-023` 首个切片实施记录（2026-09-11）：Topic 详情的每个 Partition 现在提供“浏览此 Partition”入口；点击后切换到消息页，保留目标 Topic 和 Partition，清理旧消息分页、详情选择和实时 Tail，但不自动调用 Kafka Driver。`kafka_topic_partition_browse_preserves_message_context` 与现有 Topic 响应式测试通过，`ramag-tool-kafka` 库测试共 31 项通过；真实 Windows 窗口截图和鼠标操作仍待补充。
+
 后续独立路线：
 
 Schema Registry Subject 浏览已作为独立切片完成：
 
 - `ddcc0db feat(kafka): add schema registry subject browser`：只读读取 Subject 名称，配置端点、数量上限、错误状态和页面刷新已接入；Schema 版本内容解析仍未实现。
 
-当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect、消费者组 Offset 重置和阶段 25 消息生产已经完成；下一项按主线队列评估 `KAFKA-023`，ksqlDB 仍作为独立候选：
+当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect、消费者组 Offset 重置、阶段 25 消息生产和 `KAFKA-023` 首个定位切片已经完成；下一项继续完善 AKHQ/Offset Explorer 功能矩阵，ksqlDB 仍作为独立候选：
 
 - `b6590cb feat(kafka): add read-only Connect status browser`：读取 Kafka Connect 连接器与 Task 状态，保留端点校验、数量边界、错误状态和页面刷新。
 - 本次切片完成消费者组 Offset 重置：Domain 和 App 只接受明确的消费者组及 Topic/Partition/Offset 目标；Ramag UI 在管理模式下提供“重置到最早”和“重置到末尾”两个入口，执行前显示目标数量、集群、消费者组和当前状态，并在成功后重新读取消费者组快照；生产驱动使用 librdkafka `AlterConsumerGroupOffsets` Admin API，WSL Docker 已回读目标 Offset 为 `0`。
