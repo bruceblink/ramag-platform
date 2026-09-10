@@ -2,7 +2,7 @@
 
 > 文档状态：设计整合稿，不代表所有计划接口已经实现
 > 适用仓库：`F:/project/ramag-platform`
-> 评估基线：当前 `dev`；Kafka 阶段 25 单条消息生产已完成 Domain/App/Infra/UI 实现和 Docker/headless 验收，`KAFKA-023` Topic/Partition 到消息定位首个切片已完成 `ramag-tool-kafka` UI 实现和 headless 验收，真实 Windows 窗口证据仍待补充
+> 评估基线：当前 `dev`；Kafka 阶段 25 单条消息生产已完成 Domain/App/Infra/UI 实现和 Docker/headless 验收，`KAFKA-023` 的 Topic/Partition 与消费者组 Offset 到消息定位两个切片已完成 `ramag-tool-kafka` UI 实现和 headless 验收，真实 Windows 窗口证据仍待补充
 > 更新时间：2026-09-11
 
 本文将现有架构说明、主线开发计划、插件平台路线、Kafka 路线和数据库路线整合为一个可执行的产品与开发设计。本文只描述当前代码事实、明确的目标边界和后续验收条件；没有实现的设计使用“计划”“拟实现”或“未实现”标记。
@@ -151,6 +151,7 @@ Kafka 工具独立于数据库 `DriverKind` 和 `ConnectionConfig`，使用 `Kaf
 - Key、Value、Headers 的有限范围搜索
 - 消费者组、成员、分配和 Offset 浏览
 - 从 Topic 详情的指定 Partition 直接进入消息页，并保留 Topic/Partition 查询上下文
+- 从消费者组详情的有效已提交 Offset 进入消息页，并保留 Topic/Partition/起始 Offset 查询上下文
 
 管理能力包括：
 
@@ -199,6 +200,7 @@ Schema Registry、Kafka Connect 和 ksqlDB 都是可选的外部生态服务：�
 - Topic、配置和 ACL 的变更必须显示目标、变更前后内容并二次确认。
 - 消息生产只允许在管理模式发起；只读模式、取消确认、领域校验或基础设施校验失败时不得调用 Kafka Broker，失败时保留用户输入。
 - Topic 详情的 Partition 浏览入口只更新消息页查询上下文，不自动读取 Broker；旧消息页、详情选择和实时 Tail 在切换定位时失效。
+- 消费者组 Offset 浏览入口只更新消息页查询上下文，清空结束 Offset 并保持 Offset 模式，不自动读取 Broker；用户仍需显式点击“读取”。
 - Kafka Docker/KRaft 集成测试覆盖元数据、消息读取、管理路径以及单条消息生产回读；当前本机验证使用 `apache/kafka:4.0.0`，Broker 绑定 `127.0.0.1:19092`，Connect 绑定 `127.0.0.1:18083`。
 - 若保留 native 后端，Windows CI、发布脚本和本地开发指南必须明确 CMake、编译器和链接依赖。
 - 实时 Tail 必须有开始、暂停、停止、断线、重连、速率、已读取数和取消状态。

@@ -4,7 +4,7 @@
 > 更新日期：2026-09-11
 > 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台以及跨工具质量与构建流程
 > 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
-> 当前交付切片：`KAFKA-023`，Topic/Partition 到消息定位的首个功能/UI 对齐切片已完成，继续推进其功能矩阵；`UI-001` 的真实窗口证据继续单独记录
+> 当前交付切片：`KAFKA-023`，Kafka 工作台功能矩阵和两个消息定位切片已完成，继续推进下一项功能矩阵；`UI-001` 的真实窗口证据继续单独记录
 
 ## 术语与命名规则
 
@@ -47,7 +47,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 |---|---|---|---|
 | 插件平台 | P0-A、P0-B、PLAT-003 已完成，现有工具通过静态插件宿主注册并按生命周期管理 | 保持 P0-C 设置与权限接口待实现；后续按队列推进 `TERM-001` | 动态 ABI、插件市场、第三方不受信任代码 |
 | SSH/终端 | `alacritty_terminal + GPUI` PTY 核心、SSH/SFTP 工作区、会话状态、每标签重连和 `-L/-R/-D` 参数模型已有；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 补真实 Windows 窗口证据和独立转发状态/停止面板；进入 `KAFKA-001` | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
-| Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail 和 Metrics Snapshot 已有；阶段 18-25 已形成传输、观测和写入边界 | `KAFKA-023` 已完成 Topic/Partition 到消息浏览的上下文传递，继续建立功能矩阵，再补 Docker exporter、真实 Broker 运行指标端点和真实 Windows 证据 | 纯 Rust Transport、外部生态大模块和批量消息生产 |
+| Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail 和 Metrics Snapshot 已有；阶段 18-25 已形成传输、观测和写入边界 | `KAFKA-023` 两个消息定位切片已完成，继续建立功能矩阵，再补 Docker exporter、真实 Broker 运行指标端点和真实 Windows 证据 | 纯 Rust Transport、外部生态大模块和批量消息生产 |
 | 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 按 DBeaver/DataGrip 能力表推进结果查看、大字段恢复、对象导航、执行计划和迁移工作流的功能/UI 对齐 | 把 Redis/MongoDB 强行套用 SQL 语义 |
 | 质量与工具链 | stable channel、统一 Cargo 命令、Windows GNU 路线已建立 | 保持 CI、WSL Linux 验证、源码尺寸和 LF 规则一致 | 为单个平台恢复独立的日常编译命令 |
 
@@ -68,7 +68,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
 | `UI-001` | 跨工具 UI | `ramag-ui`、各 `ramag-tool-*` | 待继续（真实窗口证据待补） | `PLAT-003` | 共享弹窗、工具栏、列表和详情区在 360/1024/1440 headless 窗口内换行、滚动且不越界；真实窗口证据单独记录 |
 | `DB-002` | 数据库 | `ramag-tool-dbclient`、`ramag-ui` | 待开始 | `DB-001` | 建立 DBeaver/DataGrip 功能矩阵，逐项实现并验收结果、对象导航、执行计划和迁移 UI，不以静态截图宣称完成 |
-| `KAFKA-023` | Kafka | `ramag-tool-kafka`、`ramag-ui` | 开发中（首个切片已完成） | `KAFKA-025` | Topic 详情到指定 Partition 的消息页定位已验收；继续建立并推进完整 AKHQ/Offset Explorer 功能矩阵 |
+| `KAFKA-023` | Kafka | `ramag-tool-kafka`、`ramag-ui` | 开发中（两个定位切片已完成） | `KAFKA-025` | 功能矩阵已建立；Topic/Partition 和消费者组已提交 Offset 到消息页定位均已验收，继续推进下一项矩阵能力 |
 | `QUALITY-001` | 质量与工具链 | workspace 维护者 | 持续任务 | 每个交付切片 | stable toolchain、统一 Cargo 命令、LF、CI 过滤器和三平台发布证据保持一致 |
 
 `UI-001` 验收记录（2026-09-07）：共享弹窗的实际打开测试发现导入表单在 360×240 窗口中仍宽 414px，左侧越界 27px，说明此前仅调整内容宽度不足以修复 Dialog 外框。当前修复统一约束快捷键、最近项目和导入弹窗的宽度、顶部偏移及内容高度；导入操作区保留在滚动区外。3 项直接打开弹窗的 headless 测试覆盖 360×240、360×640、1024×768、1440×900、打开后缩放、取消、最近项目滚动/搜索/打开和快捷键录制错误/退出。真实窗口验证未完成：本次 Computer Use 的 `list_windows()` 返回空列表，安装的 `@oai/sky` 也没有技能要求的 `documentation` 接口。其他工作台仍须逐项检查，不能由这三类弹窗的结果推断全软件已适配。
@@ -94,6 +94,8 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 `KAFKA-025` 验收记录（2026-09-10）：生产 UI 的 GPUI headless 测试覆盖只读拒绝、确认前不写入、取消、成功提示和失败保留输入；本机 Docker 使用 `apache/kafka:4.0.0` KRaft 服务 `ramag-kafka-test`（`127.0.0.1:19092`）和 Connect 服务 `ramag-kafka-connect-test`（`127.0.0.1:18083`），创建并核对 5000 条 fixture 消息和 61 个主题，`docker_kafka` 集成测试 7 项全部通过。生产回读覆盖显式 Partition、Key、Header 和 Broker 返回 Offset；真实 Windows 窗口截图、鼠标/键盘操作、Docker exporter 和真实 Broker 运行指标端点仍未完成。
 
 `KAFKA-023` 首个切片验收记录（2026-09-11）：Topic 详情的每个 Partition 提供“浏览此 Partition”入口；点击后切换消息页并保留 Topic、Partition，清理旧消息页和详情选择，不自动发起 Kafka 读取。`cargo test --locked -p ramag-tool-kafka --lib` 31 项通过；真实 Windows 窗口截图和鼠标操作仍未完成。
+
+`KAFKA-023` 第二个切片验收记录（2026-09-11）：消费者组详情的有效已提交 Offset 提供“浏览”入口；点击后切换消息页并保留 Topic、Partition、起始 Offset，清空结束 Offset并保持 Offset 模式，清理旧消息状态且不自动读取。`cargo test --locked -p ramag-tool-kafka --lib` 32 项通过；真实 Windows 窗口截图和鼠标操作仍未完成。
 
 `UI-001` 数据库工作台切片（2026-09-08）：`ramag-ui` 提供统一的对话框宽度、顶部偏移和最大高度计算；数据库连接选择、连接表单、数据同步、查询历史、单元格查看、结果差异、Schema Diagram、表结构差异、表设计、元数据 SQL 和删除确认弹窗均改为按视口收缩。连接表单和连接选择器在 680px 以下改用纵向布局，正文或长内容继续在有界滚动区内显示；结果差异和 Schema Diagram 的内容高度随窗口预算变化。`cargo test --locked -p ramag-tool-dbclient --lib` 通过 285 项，现有 360/1024/1440 headless 检查继续通过。真实 Windows 窗口截图和操作记录仍未完成，Kafka 工作台的功能/UI 对齐按 `KAFKA-023` 单独排期。
 

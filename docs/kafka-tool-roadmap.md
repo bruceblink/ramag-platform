@@ -4,9 +4,10 @@
 > 更新日期：2026-09-11
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
+> 功能矩阵：[`kafka-workbench-feature-matrix.md`](kafka-workbench-feature-matrix.md)
 > 当前基线：`dev`（阶段 18-25 的高规模列表、快照边界和单条消息生产切片已同步，明文 KRaft Docker 生产回读已复核；写请求不主动取消，Docker exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
-> 当前主线：阶段 25 单条消息生产工作流已完成，`KAFKA-023` 的 Topic/Partition 到消息定位首个切片已完成，下一项继续建立并推进 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前主线：阶段 25 单条消息生产工作流和 `KAFKA-023` 两个消息定位切片已完成，下一项继续建立并推进 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -354,7 +355,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 
 #### 6.1.1 `KAFKA-023` 首个切片设计：Topic/Partition 到消息定位
 
-这个切片把 Topic 详情中的具体 Partition 直接带入消息浏览页，补齐 Offset Explorer 风格的定位上下文。它只改变当前 `KafkaView` 的查询输入和页面状态，不自动读取 Broker，不提交或推进任何 Consumer Group Offset，也不修改 Topic 或 Partition。
+这个切片把 Topic 详情中的具体 Partition 直接带入消息浏览页，补齐 Offset Explorer 风格的定位上下文。它只改变当前 `KafkaView` 的查询输入和页面状态，不自动读取 Broker，不提交或推进任何 Consumer Group Offset，也不修改 Topic 或 Partition。完整能力对照见 [`kafka-workbench-feature-matrix.md`](kafka-workbench-feature-matrix.md)。
 
 | 触发 | UI 状态变化 | 不执行的动作 |
 |---|---|---|
@@ -364,6 +365,12 @@ Kafka 工作台必须满足统一跨平台构建目标：
 实现边界固定为 `ramag-tool-kafka`：`KafkaView::open_partition_messages` 负责上下文切换，Topic 详情只负责显示按钮和传递已验证的 Topic/Partition。消息读取仍由用户点击“读取”显式启动，既有范围、记录数、字节数、并发和取消限制保持不变。
 
 最小验收条件：GPUI headless 测试在支持的窗口尺寸中点击指定 Partition 后，确认消息页、Topic 输入和 Partition 输入均为目标值，旧分页/详情状态被清理，且页面没有进入消息读取状态；格式、workspace Clippy 和 `git diff --check` 必须通过。真实 Windows 窗口证据仍单独记录，不能由 headless 测试替代。
+
+#### 6.1.2 `KAFKA-023` 第二个切片：消费者组 Offset 到消息定位
+
+消费者组详情中的每条有效已提交 Offset 提供“浏览”入口。点击后写入同一个 Topic、Partition 和起始 Offset，清空结束 Offset并固定为 Offset 范围模式，再切换到消息页；页面不自动读取、不提交 Offset、不改变消费者组状态。没有有效已提交 Offset 的行不提供定位动作。
+
+最小验收条件：GPUI headless 测试确认 Topic、Partition、起始 Offset、范围模式和旧消息状态均正确，且 `loading_messages` 保持关闭；格式、workspace Clippy 和 `git diff --check` 必须通过。真实 Windows 窗口证据仍单独记录。
 
 阶段 3 实施记录：
 
@@ -500,7 +507,9 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - 2026-09-10 本机 Docker 集成使用 `apache/kafka:4.0.0` 的 KRaft 服务 `ramag-kafka-test`（`127.0.0.1:19092`）和 Connect 服务 `ramag-kafka-connect-test`（`127.0.0.1:18083`）；脚本创建并核对 5000 条 fixture 消息和 61 个主题，Rust 集成测试 7 项全部通过，其中包含显式 Partition、Key、Header 的生产及按返回 Offset 回读验证。该证据不覆盖 TLS/SASL、Authorizer、Docker exporter、真实 Broker 运行指标端点或真实 Windows 窗口操作。
 - 本切片尚未取得真实 Windows Kafka 窗口截图和鼠标/键盘操作记录；不能把 headless 或 Docker 结果描述为原生窗口验收。Docker 测试容器在验证后保持运行，供后续本机复用。
 
-`KAFKA-023` 首个切片实施记录（2026-09-11）：Topic 详情的每个 Partition 现在提供“浏览此 Partition”入口；点击后切换到消息页，保留目标 Topic 和 Partition，清理旧消息分页、详情选择和实时 Tail，但不自动调用 Kafka Driver。`kafka_topic_partition_browse_preserves_message_context` 与现有 Topic 响应式测试通过，`ramag-tool-kafka` 库测试共 31 项通过；真实 Windows 窗口截图和鼠标操作仍待补充。
+`KAFKA-023` 首个切片实施记录（2026-09-11）：Topic 详情的每个 Partition 现在提供“浏览此 Partition”入口；点击后切换到消息页，保留目标 Topic 和 Partition，清理旧消息分页、详情选择和实时 Tail，但不自动调用 Kafka Driver。`kafka_topic_partition_browse_preserves_message_context` 与现有 Topic 响应式测试通过。
+
+`KAFKA-023` 第二个切片实施记录（2026-09-11）：消费者组详情的有效已提交 Offset 提供“浏览”入口；点击后保留 Topic、Partition 和起始 Offset，清空结束 Offset并切换 Offset 模式，清理旧消息状态且不自动读取。`kafka_consumer_group_offset_browse_preserves_message_context` 与现有消费者组响应式测试通过；真实 Windows 窗口截图和鼠标操作仍待补充。
 
 后续独立路线：
 
@@ -508,7 +517,7 @@ Schema Registry Subject 浏览已作为独立切片完成：
 
 - `ddcc0db feat(kafka): add schema registry subject browser`：只读读取 Subject 名称，配置端点、数量上限、错误状态和页面刷新已接入；Schema 版本内容解析仍未实现。
 
-当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect、消费者组 Offset 重置、阶段 25 消息生产和 `KAFKA-023` 首个定位切片已经完成；下一项继续完善 AKHQ/Offset Explorer 功能矩阵，ksqlDB 仍作为独立候选：
+当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect、消费者组 Offset 重置、阶段 25 消息生产和 `KAFKA-023` 两个定位切片已经完成；下一项继续完善 AKHQ/Offset Explorer 功能矩阵，ksqlDB 仍作为独立候选：
 
 - `b6590cb feat(kafka): add read-only Connect status browser`：读取 Kafka Connect 连接器与 Task 状态，保留端点校验、数量边界、错误状态和页面刷新。
 - 本次切片完成消费者组 Offset 重置：Domain 和 App 只接受明确的消费者组及 Topic/Partition/Offset 目标；Ramag UI 在管理模式下提供“重置到最早”和“重置到末尾”两个入口，执行前显示目标数量、集群、消费者组和当前状态，并在成功后重新读取消费者组快照；生产驱动使用 librdkafka `AlterConsumerGroupOffsets` Admin API，WSL Docker 已回读目标 Offset 为 `0`。
@@ -676,4 +685,4 @@ Kafka 工具应定位为桌面优先的 Kafka 工作台：以 Offset Explorer �
 
 `rdkafka`/`librdkafka` 只作为当前基础设施实现，不是产品边界。下一阶段先验证纯 Rust Kafka Transport 是否能覆盖完整能力；默认桌面构建必须回到统一的跨平台 Cargo 工具链。无论最终采用纯 Rust 客户端还是独立 Kafka Gateway，领域模型、应用服务和 UI 都不得依赖具体客户端类型。
 
-完成阶段 18-25 后，Ramag 已在管理模式和二次确认下写入明确 Topic，并展示 Broker 返回的 Partition、Offset 和 Timestamp。下一项按队列评估 `KAFKA-023`；批量导入、ksqlDB 以及消息生产之外的高风险扩展继续单独排期；Schema Registry 当前仅完成 Subject 浏览，版本内容解析仍需单独排期。
+完成阶段 18-25 后，Ramag 已在管理模式和二次确认下写入明确 Topic，并展示 Broker 返回的 Partition、Offset 和 Timestamp；`KAFKA-023` 已完成两个消息定位切片。下一项继续完善 AKHQ/Offset Explorer 功能矩阵；批量导入、ksqlDB 以及消息生产之外的高风险扩展继续单独排期；Schema Registry 当前仅完成 Subject 浏览，版本内容解析仍需单独排期。

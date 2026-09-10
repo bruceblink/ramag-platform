@@ -101,4 +101,32 @@ impl KafkaView {
             cx.notify();
         }
     }
+
+    /// 将消费者组已提交 Offset 带入消息页；只更新查询上下文，不自动读取 Broker。
+    pub(super) fn open_consumer_group_offset_messages(
+        &mut self,
+        topic: String,
+        partition: i32,
+        committed_offset: i64,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if partition < 0 || committed_offset < 0 {
+            self.notice = Some(("消费者组 Offset 定位值无效".into(), true));
+            cx.notify();
+            return;
+        }
+        self.select_topic(topic, window, cx);
+        set_value(&self.partition_input, partition.to_string(), window, cx);
+        set_value(
+            &self.start_offset_input,
+            committed_offset.to_string(),
+            window,
+            cx,
+        );
+        set_value(&self.end_offset_input, "", window, cx);
+        self.range_mode = KafkaRangeMode::Offset;
+        self.section = KafkaSection::Messages;
+        cx.notify();
+    }
 }

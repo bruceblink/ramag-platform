@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::KafkaRangeMode;
+
 struct KafkaConsumerGroupTestHost {
     view: gpui::Entity<KafkaView>,
 }
@@ -170,4 +172,81 @@ fn kafka_consumer_groups_fit_three_window_widths_with_long_fields(cx: &mut TestA
     click(visual_cx, "ramag-confirm-cancel");
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
+}
+
+#[gpui::test]
+fn kafka_consumer_group_offset_browse_preserves_message_context(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let cluster = KafkaClusterConfig::new("消费者组定位 Kafka", vec!["127.0.0.1:19092".into()]);
+    let service = Arc::new(KafkaService::new(
+        Arc::new(FakeKafkaDriver),
+        Arc::new(FakeStorage {
+            cluster: cluster.clone(),
+        }),
+    ));
+    let group = KafkaConsumerGroup {
+        group_id: "consumer-browse-group".into(),
+        state: Some("Stable".into()),
+        protocol: Some("range".into()),
+        members: Vec::new(),
+        offsets: vec![KafkaConsumerGroupOffset {
+            topic: "events".into(),
+            partition: 2,
+            committed_offset: Some(18),
+            end_offset: Some(24),
+            lag: Some(6),
+        }],
+    };
+    let mut kafka_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
+        kafka_entity = Some(kafka.clone());
+        let host = cx.new(|_| KafkaConsumerGroupTestHost { view: kafka });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let Some(kafka_entity) = kafka_entity else {
+        return;
+    };
+
+    kafka_entity.update(visual_cx, |view, cx| {
+        view.clusters = vec![cluster.clone()];
+        view.selected_cluster_id = Some(cluster.id.clone());
+        view.consumer_groups = vec![group.clone()];
+        view.selected_consumer_group = Some(group.group_id.clone());
+        view.section = KafkaSection::ConsumerGroups;
+        view.loading_clusters = false;
+        view.loading_runtime = false;
+        view.loading_consumer_groups = false;
+        view.message_page = Some(KafkaMessagePage::empty());
+        view.selected_message = Some(0);
+        cx.notify();
+    });
+    visual_cx.simulate_resize(size(px(1200.0), px(800.0)));
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "kafka-consumer-group-browse-events-2-18");
+    visual_cx.run_until_parked();
+
+    let state = kafka_entity.read_with(visual_cx, |view, cx| {
+        (
+            view.section,
+            view.topic_input.read(cx).value().to_string(),
+            view.partition_input.read(cx).value().to_string(),
+            view.start_offset_input.read(cx).value().to_string(),
+            view.end_offset_input.read(cx).value().to_string(),
+            view.range_mode,
+            view.message_page.is_none(),
+            view.selected_message.is_none(),
+            !view.loading_messages,
+        )
+    });
+    assert_eq!(state.0, KafkaSection::Messages);
+    assert_eq!(state.1, "events");
+    assert_eq!(state.2, "2");
+    assert_eq!(state.3, "18");
+    assert!(state.4.is_empty());
+    assert_eq!(state.5, KafkaRangeMode::Offset);
+    assert!(state.6, "切换消费者组定位后应清理旧消息页");
+    assert!(state.7, "切换消费者组定位后应清理旧消息选择");
+    assert!(state.8, "切换消费者组定位时不应自动启动消息读取");
 }

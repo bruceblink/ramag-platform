@@ -114,6 +114,7 @@ pub(crate) fn consumer_member_row(
 pub(crate) fn consumer_offset_row(
     offset: &ramag_domain::entities::KafkaConsumerGroupOffset,
     theme: &gpui_component::Theme,
+    browse_action: Option<gpui::AnyElement>,
 ) -> impl IntoElement {
     let lag_text = display_option_i64(offset.lag);
     let lag_color = match offset.lag {
@@ -151,6 +152,7 @@ pub(crate) fn consumer_offset_row(
                 .text_color(lag_color)
                 .child(format!("Lag {lag_text}")),
         )
+        .children(browse_action)
 }
 
 fn offset_value(

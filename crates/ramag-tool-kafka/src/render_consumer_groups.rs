@@ -406,7 +406,34 @@ impl KafkaView {
             .border_color(theme.border)
             .rounded(px(6.0));
         for offset in group.offsets.iter().take(MAX_VISIBLE_GROUP_OFFSETS) {
-            offset_rows = offset_rows.child(consumer_offset_row(offset, &theme));
+            let browse_action = offset.committed_offset.map(|committed_offset| {
+                let topic = offset.topic.clone();
+                let partition = offset.partition;
+                let selector = format!(
+                    "kafka-consumer-group-browse-{}-{}-{}",
+                    offset.topic,
+                    partition,
+                    committed_offset.max(0)
+                );
+                ramag_ui::clickable_button(SharedString::from(selector.clone()))
+                    .debug_selector(move || selector.clone())
+                    .ghost()
+                    .xsmall()
+                    .icon(IconName::Search)
+                    .label("浏览")
+                    .tooltip("从已提交 Offset 浏览消息")
+                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                        this.open_consumer_group_offset_messages(
+                            topic.clone(),
+                            partition,
+                            committed_offset,
+                            window,
+                            cx,
+                        );
+                    }))
+                    .into_any_element()
+            });
+            offset_rows = offset_rows.child(consumer_offset_row(offset, &theme, browse_action));
         }
         if group.offsets.is_empty() {
             offset_rows = offset_rows.child(empty_group_message("当前没有已提交 Offset", &theme));
