@@ -1,0 +1,22 @@
+[package]
+name = "ramag-tool-mqtt"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Ramag MQTT 与 Mosquitto 管理工具 UI"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-channel = { workspace = true }
+chrono = { workspace = true }
+gpui = { workspace = true }
+gpui-component = { workspace = true }
+ramag-app = { workspace = true }
+ramag-domain = { workspace = true }
+ramag-ui = { workspace = true }
+
+[dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }

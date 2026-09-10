@@ -12,6 +12,7 @@ pub(super) struct AppDeps {
     pub(super) redis_service: Arc<RedisService>,
     pub(super) mongo_service: Arc<MongoService>,
     pub(super) kafka_service: Arc<KafkaService>,
+    pub(super) mqtt_service: Arc<MqttService>,
     pub(super) data_sync_service: Arc<DataSyncService>,
     pub(super) data_sync_gate: Arc<DataSyncGate>,
     pub(super) clipboard_service: Option<Arc<ClipboardService>>,
@@ -131,6 +132,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         redis_service,
         mongo_service,
         kafka_service,
+        mqtt_service,
         data_sync_service,
         data_sync_gate,
         clipboard_service,
@@ -208,6 +210,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     cx,
                 );
                 let kafka_view = create_kafka_view(kafka_service.clone(), window, cx);
+                let mqtt_view = create_mqtt_view(mqtt_service.clone(), window, cx);
 
                 let git_driver: Arc<dyn GitDriver> = Arc::new(GitDriverImpl::new());
                 let vcs_view = create_vcs_view(git_driver, storage.clone(), window, cx);
@@ -245,6 +248,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     shell.set_settings_view(settings_view.clone().into());
                     shell.register_tool_view(DbClientTool::ID, dbclient_view.clone().into());
                     shell.register_tool_view(KafkaTool::ID, kafka_view.into());
+                    shell.register_tool_view(MqttTool::ID, mqtt_view.into());
                     shell.register_tool_view(VcsTool::ID, vcs_view.into());
                     #[cfg(any(target_os = "macos", target_os = "windows"))]
                     if let Some(clipboard_view) = clipboard_view.clone() {

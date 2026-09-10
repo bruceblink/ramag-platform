@@ -30,15 +30,15 @@ use gpui::{
 use gpui_component::Root;
 use ramag_app::{
     AUTO_CHECK_INTERVAL, ClipboardService, ConnectionService, DataSyncGate, DataSyncService,
-    KafkaService, MongoService, ObjectStorageService, PluginLifecycleReport, RedisService,
-    SshService, StaticPluginAdapter, StaticPluginHost, TOOL_ORDER_PREF_KEY, ToolRegistry,
-    UpdateService,
+    KafkaService, MongoService, MqttService, ObjectStorageService, PluginLifecycleReport,
+    RedisService, SshService, StaticPluginAdapter, StaticPluginHost, TOOL_ORDER_PREF_KEY,
+    ToolRegistry, UpdateService,
 };
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use ramag_domain::traits::ClipboardDriver;
 use ramag_domain::traits::{
     DocDriver, Driver, GitDriver, JumpServerDriver, KafkaAdminDriver, KafkaDriver,
-    KafkaMonitoringDriver, KafkaProducerDriver, KvDriver, SshDriver, Storage,
+    KafkaMonitoringDriver, KafkaProducerDriver, KvDriver, MqttDriver, SshDriver, Storage,
 };
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use ramag_infra_clipboard::{
@@ -50,6 +50,7 @@ use ramag_infra_kafka::{
     SchemaRegistryHttpDriver,
 };
 use ramag_infra_mongodb::MongoDriver;
+use ramag_infra_mqtt::NativeMqttTransport;
 use ramag_infra_mysql::MysqlDriver;
 use ramag_infra_postgres::PostgresDriver;
 use ramag_infra_redis::RedisDriver;
@@ -68,6 +69,7 @@ use ramag_tool_dbclient::{
 };
 use ramag_tool_kafka::{KafkaTool, create_kafka_view};
 use ramag_tool_mongodb::{FormatMongoJson, NewMongoQueryTab, RunMongoQuery, ToggleMongoEditor};
+use ramag_tool_mqtt::{MqttTool, create_mqtt_view};
 use ramag_tool_object_storage::{ObjectStorageTool, create_object_storage_view};
 use ramag_tool_ssh::{CloseSshTerminal, NewSshTerminal, SshTool, create_ssh_view};
 use ramag_tool_system::{SystemTool, create_system_view};
@@ -180,6 +182,7 @@ fn main() {
     let redis_service: Arc<RedisService> = build_redis_service(storage.clone());
     let mongo_service: Arc<MongoService> = build_mongo_service(storage.clone());
     let kafka_service: Arc<KafkaService> = build_kafka_service(storage.clone());
+    let mqtt_service: Arc<MqttService> = build_mqtt_service(storage.clone());
     let data_sync_gate = Arc::new(DataSyncGate::default());
     let data_sync_service = Arc::new(DataSyncService::new(
         conn_service.clone(),
@@ -279,6 +282,7 @@ fn main() {
         redis_service,
         mongo_service,
         kafka_service,
+        mqtt_service,
         data_sync_service,
         data_sync_gate,
         clipboard_service,

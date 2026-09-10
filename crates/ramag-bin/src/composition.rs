@@ -64,6 +64,7 @@ pub(super) fn build_plugin_host() -> Arc<StaticPluginHost> {
     let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
     register_builtin_tool(&host, Arc::new(DbClientTool::new()));
     register_builtin_tool(&host, Arc::new(KafkaTool::new()));
+    register_builtin_tool(&host, Arc::new(MqttTool::new()));
     register_builtin_tool(&host, Arc::new(VcsTool::new()));
     register_builtin_tool(&host, Arc::new(SshTool::new()));
     register_builtin_tool(&host, Arc::new(ObjectStorageTool::new()));
@@ -166,6 +167,12 @@ pub(super) fn build_kafka_service(storage: Arc<dyn Storage>) -> Arc<KafkaService
             Arc::new(service)
         }
     }
+}
+
+/// 组合根启用 Native MQTT 驱动；未连接 Broker 时只创建客户端适配器，不发起网络请求。
+pub(super) fn build_mqtt_service(storage: Arc<dyn Storage>) -> Arc<MqttService> {
+    let driver: Arc<dyn MqttDriver> = Arc::new(NativeMqttTransport::new());
+    Arc::new(MqttService::new(driver, storage))
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]

@@ -6818,6 +6818,7 @@ dependencies = [
  "ramag-infra-git",
  "ramag-infra-kafka",
  "ramag-infra-mongodb",
+ "ramag-infra-mqtt",
  "ramag-infra-mysql",
  "ramag-infra-object-storage",
  "ramag-infra-postgres",
@@ -6831,6 +6832,7 @@ dependencies = [
  "ramag-tool-dbclient",
  "ramag-tool-kafka",
  "ramag-tool-mongodb",
+ "ramag-tool-mqtt",
  "ramag-tool-object-storage",
  "ramag-tool-ssh",
  "ramag-tool-system",
@@ -7218,6 +7220,19 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+]
+
+[[package]]
+name = "ramag-tool-mqtt"
+version = "0.0.5"
+dependencies = [
+ "async-channel 2.5.0",
+ "chrono",
+ "gpui",
+ "gpui-component",
+ "ramag-app",
+ "ramag-domain",
+ "ramag-ui",
 ]
 
 [[package]]
