@@ -1,7 +1,7 @@
 # Kafka Broker 运行指标接入说明
 
-> 文档状态：已实现 Prometheus/OpenMetrics 文本端点适配；JMX 仍需要通过 exporter 暴露文本端点
-> 更新日期：2026-09-08
+> 文档状态：已实现 Prometheus/OpenMetrics 文本端点适配，并增加本机 Docker HTTP fixture 验收；JMX 和真实 Kafka exporter 仍需要部署侧暴露文本端点
+> 更新日期：2026-09-11
 > 适用分支：`dev`；长期同步分支只保留 `main`、`dev`
 
 ## 术语与命名规则
@@ -63,4 +63,5 @@ ramag_kafka_broker_request_latency_ms{broker_id="0"} 2.25
 - `ramag-app`：外部快照注入、应用边界校验以及与 Kafka 协议快照的来源隔离。
 - `ramag-infra-kafka`：已知指标解析、样本时间、部分数据、无关指标、缺少 `broker_id` 和响应边界。
 - `ramag-tool-kafka`：概览页外部指标区域、状态选择器以及 360/900/1440 宽度布局。
-- 当前仓库没有 exporter 容器和真实 Broker 运行指标端点，因此不能把外部服务连通性写成已验收；需要部署侧端点后再执行真实请求复核。
+- `scripts/kafka-test/compose.yaml` 的 `metrics` 服务使用 `nginx:1.27-alpine` 在 `127.0.0.1:19100/metrics` 提供固定 OpenMetrics fixture；`docker_kafka_reads_broker_metrics_fixture` 通过真实 HTTP 请求验证适配器。该服务只证明 HTTP 接入链路，不代表真实 Kafka exporter 或生产 Broker 运行指标。
+- 真实 exporter 容器、真实 Broker 运行指标端点和 Windows 原生窗口证据仍未完成；需要部署侧端点后再执行真实请求复核。

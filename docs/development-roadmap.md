@@ -31,7 +31,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 - `ramag-infra-*` 负责数据库、Kafka、SSH、Git、存储和系统适配。
 - `ramag-tool-*` 负责具体工作台的交互；`ramag-terminal` 负责通用 PTY、ANSI 状态和终端绘制。
 - `ramag-bin` 当前仍直接装配内置工具；插件平台先包装这条路径，不复制业务状态。
-- Kafka 当前仍使用 `rdkafka/librdkafka` 基础设施；`KafkaTransport` 适配边界、实时 Tail、Metrics Snapshot 和单条消息生产已实现，纯 Rust Transport、Docker exporter、真实 Broker 运行指标端点和真实 Windows 证据仍未完成。
+- Kafka 当前仍使用 `rdkafka/librdkafka` 基础设施；`KafkaTransport` 适配边界、实时 Tail、Metrics Snapshot、单条消息生产和本机 OpenMetrics HTTP fixture 已实现，纯 Rust Transport、真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 证据仍未完成。
 - 真实 Windows 窗口证据仍与 headless 验证分开记录；未取得窗口证据的项目不能写成真实窗口已验收。
 
 主线目标：
@@ -47,7 +47,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 |---|---|---|---|
 | 插件平台 | P0-A、P0-B、PLAT-003 已完成，现有工具通过静态插件宿主注册并按生命周期管理 | 保持 P0-C 设置与权限接口待实现；后续按队列推进 `TERM-001` | 动态 ABI、插件市场、第三方不受信任代码 |
 | SSH/终端 | `alacritty_terminal + GPUI` PTY 核心、SSH/SFTP 工作区、会话状态、每标签重连和 `-L/-R/-D` 参数模型已有；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 补真实 Windows 窗口证据和独立转发状态/停止面板；进入 `KAFKA-001` | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
-| Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail 和 Metrics Snapshot 已有；阶段 18-25 已形成传输、观测和写入边界 | `KAFKA-023` 两个消息定位切片已完成，继续建立功能矩阵，再补 Docker exporter、真实 Broker 运行指标端点和真实 Windows 证据 | 纯 Rust Transport、外部生态大模块和批量消息生产 |
+| Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail、Metrics Snapshot 和本机 OpenMetrics HTTP fixture 已有；阶段 18-25 已形成传输、观测和写入边界 | `KAFKA-023` 两个消息定位切片已完成，继续建立功能矩阵，再补真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 证据 | 纯 Rust Transport、外部生态大模块和批量消息生产 |
 | 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 按 DBeaver/DataGrip 能力表推进结果查看、大字段恢复、对象导航、执行计划和迁移工作流的功能/UI 对齐 | 把 Redis/MongoDB 强行套用 SQL 语义 |
 | 质量与工具链 | stable channel、统一 Cargo 命令、Windows GNU 路线已建立 | 保持 CI、WSL Linux 验证、源码尺寸和 LF 规则一致 | 为单个平台恢复独立的日常编译命令 |
 
@@ -97,6 +97,8 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 
 `KAFKA-023` 第二个切片验收记录（2026-09-11）：消费者组详情的有效已提交 Offset 提供“浏览”入口；点击后切换消息页并保留 Topic、Partition、起始 Offset，清空结束 Offset并保持 Offset 模式，清理旧消息状态且不自动读取。`cargo test --locked -p ramag-tool-kafka --lib` 32 项通过；真实 Windows 窗口截图和鼠标操作仍未完成。
 
+阶段 23 本机 HTTP fixture 验收记录（2026-09-11）：Docker Compose 启动 `ramag-kafka-metrics-test`（`nginx:1.27-alpine`，`127.0.0.1:19100/metrics`），与 `ramag-kafka-test`（`apache/kafka:4.0.0`，`127.0.0.1:19092`）和 `ramag-kafka-connect-test`（`apache/kafka:4.0.0`，`127.0.0.1:18083`）分别保持 healthy。Rust `docker_kafka` 集成测试 8 项全部通过，新增测试验证 `PrometheusBrokerMetricsDriver` 的 `ExternalBrokerMetrics` 来源、Broker ID、CPU/内存/磁盘/延迟和采样时间；静态 fixture 不代表真实 Kafka exporter 或生产 Broker 运行指标。
+
 `UI-001` 数据库工作台切片（2026-09-08）：`ramag-ui` 提供统一的对话框宽度、顶部偏移和最大高度计算；数据库连接选择、连接表单、数据同步、查询历史、单元格查看、结果差异、Schema Diagram、表结构差异、表设计、元数据 SQL 和删除确认弹窗均改为按视口收缩。连接表单和连接选择器在 680px 以下改用纵向布局，正文或长内容继续在有界滚动区内显示；结果差异和 Schema Diagram 的内容高度随窗口预算变化。`cargo test --locked -p ramag-tool-dbclient --lib` 通过 285 项，现有 360/1024/1440 headless 检查继续通过。真实 Windows 窗口截图和操作记录仍未完成，Kafka 工作台的功能/UI 对齐按 `KAFKA-023` 单独排期。
 
 `PLAT-003` 完成后，`TERM-001` 已完成代码和真实 OpenSSH 端点验收；真实 Windows 窗口和独立转发状态面板仍单独排期。`KAFKA-001` 的传输能力矩阵和适配边界已落地，Metrics Snapshot、Live Message Tail 和阶段 25 消息生产已在协议/headless/Docker 范围内完成；纯 Rust Transport、外部 Broker 运行指标端点和真实 Windows 证据仍单独排期，终端和数据库任务不得借机修改 Kafka 或插件协议。
@@ -139,7 +141,7 @@ SecureCRT 和 MobaXterm 只作为功能参考，不作为完整复制目标。�
 
 `KAFKA-001` 的能力矩阵和默认构建评估已完成。`ramag-domain`、`ramag-app` 和 `ramag-tool-kafka` 不得直接依赖 `rdkafka` 类型；具体客户端只能位于 Kafka Transport 适配层。
 
-传输边界、取消、断线恢复和 Windows 构建依赖已有结论；`KafkaMonitoringDriver`、Consumer Group Lag、Metrics Snapshot 和 Live Message Tail 已实现，阶段 25 还增加了受管理模式和确认保护的单条消息生产。TLS/SASL、纯 Rust Transport、Docker exporter 和真实 Broker 运行指标端点仍需单独验收；Broker CPU、内存、磁盘、JVM 和请求延迟必须来自明确配置的 JMX、Prometheus 或 exporter 数据源，不能由 Admin API 伪造。
+传输边界、取消、断线恢复和 Windows 构建依赖已有结论；`KafkaMonitoringDriver`、Consumer Group Lag、Metrics Snapshot 和 Live Message Tail 已实现，阶段 25 还增加了受管理模式和确认保护的单条消息生产。TLS/SASL、纯 Rust Transport、真实 Kafka exporter 和真实 Broker 运行指标端点仍需单独验收；本机 OpenMetrics HTTP fixture 只验证端点接入链路。Broker CPU、内存、磁盘、JVM 和请求延迟必须来自明确配置的 JMX、Prometheus 或 exporter 数据源，不能由 Admin API 伪造。
 
 ### 阶段 4：数据库连续工作流
 

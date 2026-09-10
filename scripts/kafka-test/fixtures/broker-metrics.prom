@@ -1,0 +1,8 @@
+# Static local fixture for the Prometheus/OpenMetrics HTTP adapter path.
+# It is not a production Kafka exporter and must not be used as one.
+ramag_kafka_broker_cpu_usage_percent{broker_id="0"} 18.5 1730000000000
+ramag_kafka_broker_memory_used_bytes{broker_id="0"} 1073741824 1730000000000
+ramag_kafka_broker_disk_used_bytes{broker_id="0"} 4294967296 1730000000000
+ramag_kafka_broker_request_latency_ms{broker_id="0"} 2.25 1730000000000
+# Unrelated metrics must be ignored by the adapter.
+process_resident_memory_bytes 123456

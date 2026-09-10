@@ -1,11 +1,11 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流的领域、应用、基础设施和 UI 代码、GPUI headless 验收及本机 Docker KRaft 生产回读已完成，Docker exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充
+> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流的领域、应用、基础设施和 UI 代码、GPUI headless 验收及本机 Docker KRaft 生产回读已完成；阶段 23 的本机 OpenMetrics HTTP fixture 已验证，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充
 > 更新日期：2026-09-11
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
 > 功能矩阵：[`kafka-workbench-feature-matrix.md`](kafka-workbench-feature-matrix.md)
-> 当前基线：`dev`（阶段 18-25 的高规模列表、快照边界和单条消息生产切片已同步，明文 KRaft Docker 生产回读已复核；写请求不主动取消，Docker exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充）
+> 当前基线：`dev`（阶段 18-25 的高规模列表、快照边界和单条消息生产切片已同步，明文 KRaft Docker 生产回读和 OpenMetrics HTTP fixture 已复核；写请求不主动取消，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
 > 当前主线：阶段 25 单条消息生产工作流和 `KAFKA-023` 两个消息定位切片已完成，下一项继续建立并推进 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
@@ -349,7 +349,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 | 20 | `feat(kafka): add live message tail` | Topic/Partition 实时 Tail、暂停、停止、断线状态、过滤、速率、有限窗口和导出；不提交业务 Offset | Docker 多 Partition 生产者、Tail 取消/重连/背压测试、GPUI headless 与 Windows 验收 |
 | 21 | `feat(kafka): add kafka metrics snapshots` | `KafkaMonitoringDriver`、集群/Topic/Partition/Consumer Group 指标模型、Lag 快照、high watermark 速率采样和按集群刷新任务 | 固定 Offset、Lag 趋势、速率采样、切换集群和迟到结果测试 |
 | 22 | `feat(kafka): complete workbench overview` | 概览页整合 Broker 健康、Topic/Partition 健康、Consumer Group Lag、实时数据时间和来源状态 | 360/900/1440 窗口 headless 布局、真实 Windows 截图、Docker 集成测试 |
-| 23 | `feat(kafka): add broker metrics adapter` | 已接入可选 Prometheus/OpenMetrics 文本端点；JMX 通过 exporter 间接接入；明确区分 Broker 运行指标和 Kafka 协议指标 | Domain/App/Infra/UI 测试和窄窗口布局已覆盖；exporter 容器、真实端点请求和真实 Windows 截图仍未完成 |
+| 23 | `feat(kafka): add broker metrics adapter` | 已接入可选 Prometheus/OpenMetrics 文本端点；JMX 通过 exporter 间接接入；明确区分 Broker 运行指标和 Kafka 协议指标 | Domain/App/Infra/UI 测试、窄窗口布局和本机 `nginx:1.27-alpine` HTTP fixture 已覆盖；真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍未完成 |
 | 24 | `fix(kafka): harden high-scale workbench` | 高 Topic/Partition/Consumer Group 数量下的分页、虚拟列表、快照大小、刷新合并和资源释放 | 规模化 Docker fixture、内存/耗时上限、取消和断线恢复测试 |
 | 25 | `feat(kafka): add message production workflow` | 管理模式下编辑并二次确认单条 UTF-8 消息，返回 Broker 的 Partition、Offset 和 Timestamp | Domain/App 边界测试、`KafkaProducerDriver` 测试、本机 Docker KRaft 生产/读取回读、GPUI headless 交互和真实 Windows 窗口验收 |
 
@@ -462,7 +462,8 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - `KafkaBrokerMetricsDriver` 与 `KafkaMonitoringDriver` 分开注入。`PrometheusBrokerMetricsDriver` 使用 5 秒超时、禁止重定向和系统代理、4 MiB 响应上限，并只解析四个固定指标名和 `broker_id` 标签。
 - 外部快照独立记录 `ExternalBrokerMetrics` 来源、采样时间、`Ready`/`Partial`/`NoData`/权限不足/未配置/采集失败状态；不把 Ramag 配置 ID 推断为 Kafka 集群 ID，也不把缺失字段转换为零值。
 - Kafka 概览页与协议指标并列显示 Broker CPU、内存、磁盘和请求延迟；两类来源并行刷新、分别保留成功结果和错误原因。`ramag-tool-kafka` 的布局测试覆盖 360/900/1440 宽度。
-- 2026-09-08 已补齐 Domain/App/Infra/UI 定向测试和接口说明；exporter 容器、真实 Broker 运行指标端点、完整 workspace 构建以及真实 Windows 截图仍是未完成项。明文 KRaft Broker 的基础集成验证在 2026-09-09 单独完成，不等同于外部运行指标验收。
+- 2026-09-08 已补齐 Domain/App/Infra/UI 定向测试和接口说明；真实 Kafka exporter、真实 Broker 运行指标端点、完整 workspace 构建以及真实 Windows 截图仍是未完成项。明文 KRaft Broker 的基础集成验证在 2026-09-09 单独完成，不等同于外部运行指标验收。
+- 2026-09-11 本机 Docker Compose 增加 `ramag-kafka-metrics-test`（`nginx:1.27-alpine`，`127.0.0.1:19100/metrics`）作为固定 OpenMetrics HTTP fixture；`docker_kafka_reads_broker_metrics_fixture` 通过 `PrometheusBrokerMetricsDriver` 验证 `ExternalBrokerMetrics`、Broker ID、四项指标和样本时间，`docker_kafka` 集成测试共 8 项通过。该 fixture 只证明 HTTP 接入链路，不代表真实 Kafka exporter 或生产 Broker 运行指标。
 
 阶段 24 当前切片实施记录：
 

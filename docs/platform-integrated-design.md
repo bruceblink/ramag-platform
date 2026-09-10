@@ -48,7 +48,7 @@ Ramag Platform 是一个本地优先的开发者工作台，将数据库、消�
 | 主线 | 当前实现 | 设计判断 | 交付距离 |
 |---|---|---|---|
 | 插件平台 | `Tool`、`ToolRegistry`、插件描述、静态生命周期和失败诊断已经存在 | P0-C 设置与权限接口尚未落地 | P0-A、P0-B、PLAT-003 已完成 |
-| Kafka 工具 | 元数据、Topic、Partition、消息读取/搜索/生产、消费者组、ACL、Topic/配置管理、`KafkaMonitoringDriver`、实时 Tail 和指标快照已存在 | 当前继续使用 `rdkafka/librdkafka`；纯 Rust Transport、Docker exporter、真实 Broker 运行指标端点和真实 Windows 窗口证据仍待补充 | 基础管理、协议观测和单条生产闭环已落地 |
+| Kafka 工具 | 元数据、Topic、Partition、消息读取/搜索/生产、消费者组、ACL、Topic/配置管理、`KafkaMonitoringDriver`、实时 Tail、指标快照和本机 OpenMetrics HTTP fixture 已存在 | 当前继续使用 `rdkafka/librdkafka`；纯 Rust Transport、真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 窗口证据仍待补充 | 基础管理、协议观测和单条生产闭环已落地 |
 | SSH/终端工具 | OpenSSH、PTY、SFTP、JumpServer、文件预览/编辑、传输队列、多终端标签、会话状态、每标签重连和 `-L/-R/-D` 参数模型已存在；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 真实 Windows 窗口和端口转发的独立状态/停止面板、会话日志、脚本、宏和多协议仍未实现 | TERM-001 代码和真实端点验收已完成 |
 | 数据库连接工具 | SQL、Redis、MongoDB、分页、编辑、事务、查询历史、比较和迁移相关能力已有较多实现 | 后续重点是连续工作流、真实数据库回放、失败恢复和窗口证据 | 四条主线中最接近稳定化 |
 
@@ -417,7 +417,7 @@ SecureCRT 和 MobaXterm 用于划定产品参考范围，不代表 Ramag 已经�
 4. 实现插件平台 P0 的描述、注册错误和静态生命周期适配器。
 5. 补真实 Windows 窗口截图和键盘操作，确认 SSH 工作区在实际焦点、最小尺寸和 DPI 下的行为。
 6. 单独设计端口转发状态、错误和停止面板。
-7. 在 `KAFKA-023` 功能矩阵之后补 Docker exporter、真实 Broker 运行指标端点和真实 Windows Kafka 窗口证据；纯 Rust Transport 仍单独评估。
+7. 在 `KAFKA-023` 功能矩阵之后补真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows Kafka 窗口证据；本机 OpenMetrics HTTP fixture 已覆盖端点接入链路，纯 Rust Transport 仍单独评估。
 8. 把 `docs/v0.0.5-release-todo.md` 和历史公告移入归档目录，避免被误当作当前计划。
 
 ## 10. 当前验证记录

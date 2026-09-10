@@ -17,8 +17,10 @@ $ToolchainScript = Join-Path $ScriptDirectory "..\windows\gnu-toolchain.ps1"
 $ProjectName = "ramag-kafka-test"
 $ContainerName = "ramag-kafka-test"
 $ConnectContainerName = "ramag-kafka-connect-test"
+$MetricsContainerName = "ramag-kafka-metrics-test"
 $BootstrapServers = "127.0.0.1:19092"
 $ConnectEndpoint = "http://127.0.0.1:18083"
+$MetricsEndpoint = "http://127.0.0.1:19100/metrics"
 $TopicName = "ramag.integration.messages"
 $script:WslKeepAliveProcess = $null
 
@@ -222,10 +224,31 @@ function Wait-ConnectHealthy {
     throw "Kafka Connect health check timed out.`n$logs"
 }
 
+function Wait-MetricsHealthy {
+    for ($attempt = 1; $attempt -le 60; $attempt++) {
+        $health = (& docker inspect --format "{{.State.Health.Status}}" $MetricsContainerName 2>$null | Out-String).Trim()
+        $state = (& docker inspect --format "{{.State.Status}}" $MetricsContainerName 2>$null | Out-String).Trim()
+
+        if ($health -eq "healthy") {
+            Write-TestLog "Kafka metrics fixture container is healthy."
+            return
+        }
+        if ($state -eq "exited" -or $state -eq "dead") {
+            $logs = (& docker logs $MetricsContainerName 2>&1 | Out-String).Trim()
+            throw "Kafka metrics fixture container stopped before becoming healthy.`n$logs"
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    $logs = (& docker logs $MetricsContainerName 2>&1 | Out-String).Trim()
+    throw "Kafka metrics fixture health check timed out.`n$logs"
+}
+
 function Ensure-Healthy {
     Invoke-Compose -ComposeArguments @("up", "-d")
     Wait-Healthy
     Wait-ConnectHealthy
+    Wait-MetricsHealthy
 }
 
 function Get-FixtureLines {
@@ -391,9 +414,11 @@ function Run-RustIntegrationTest {
     $EnvironmentSnapshot = $Toolchain.PreviousEnvironment
     $oldBootstrap = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_BOOTSTRAP", "Process")
     $oldConnectEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_CONNECT", "Process")
+    $oldMetricsEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_METRICS", "Process")
     $oldTargetDirectory = [Environment]::GetEnvironmentVariable("CARGO_TARGET_DIR", "Process")
     $env:RAMAG_TEST_KAFKA_BOOTSTRAP = $BootstrapServers
     $env:RAMAG_TEST_KAFKA_CONNECT = $ConnectEndpoint
+    $env:RAMAG_TEST_KAFKA_METRICS = $MetricsEndpoint
     $env:CARGO_TARGET_DIR = Join-Path ([System.IO.Path]::GetTempPath()) "ramag-kafka-docker-target"
 
     try {
@@ -412,6 +437,11 @@ function Run-RustIntegrationTest {
             Remove-Item Env:RAMAG_TEST_KAFKA_CONNECT -ErrorAction SilentlyContinue
         } else {
             $env:RAMAG_TEST_KAFKA_CONNECT = $oldConnectEndpoint
+        }
+        if ($null -eq $oldMetricsEndpoint) {
+            Remove-Item Env:RAMAG_TEST_KAFKA_METRICS -ErrorAction SilentlyContinue
+        } else {
+            $env:RAMAG_TEST_KAFKA_METRICS = $oldMetricsEndpoint
         }
         if ($null -eq $oldTargetDirectory) {
             Remove-Item Env:CARGO_TARGET_DIR -ErrorAction SilentlyContinue

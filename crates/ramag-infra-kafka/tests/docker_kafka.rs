@@ -10,9 +10,10 @@ use ramag_domain::entities::{
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE};
 use ramag_domain::traits::{
-    KafkaAdminDriver, KafkaConnectDriver, KafkaDriver, KafkaProducerDriver,
+    KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaConnectDriver, KafkaDriver,
+    KafkaProducerDriver,
 };
-use ramag_infra_kafka::{KafkaConnectHttpDriver, RdkafkaDriver};
+use ramag_infra_kafka::{KafkaConnectHttpDriver, PrometheusBrokerMetricsDriver, RdkafkaDriver};
 use rdkafka::ClientConfig;
 use rdkafka::consumer::{BaseConsumer, CommitMode, Consumer};
 use std::env;
@@ -46,6 +47,18 @@ fn docker_connect_endpoint() -> Option<String> {
     }
 }
 
+fn docker_metrics_endpoint() -> Option<String> {
+    match env::var("RAMAG_TEST_KAFKA_METRICS") {
+        Ok(value) if !value.trim().is_empty() => Some(value),
+        _ => {
+            eprintln!(
+                "Skipping Docker Kafka metrics integration test; set RAMAG_TEST_KAFKA_METRICS or run scripts/kafka-test/kafka-test.ps1 test."
+            );
+            None
+        }
+    }
+}
+
 fn install_tls_crypto_provider() {
     let _ = rustls::crypto::ring::default_provider().install_default();
     assert!(
@@ -73,6 +86,39 @@ fn docker_kafka_connect_lists_connectors() -> Result<(), Box<dyn std::error::Err
         connectors.is_empty(),
         "the empty dedicated Connect fixture should not contain connectors"
     );
+    Ok(())
+}
+
+/// Requests the local OpenMetrics HTTP fixture through the real broker metrics driver.
+#[test]
+fn docker_kafka_reads_broker_metrics_fixture() -> Result<(), Box<dyn std::error::Error>> {
+    install_tls_crypto_provider();
+    let Some(endpoint) = docker_metrics_endpoint() else {
+        return Ok(());
+    };
+    let mut config =
+        KafkaClusterConfig::new("ramag-docker-kafka-metrics", vec!["127.0.0.1:19092".into()]);
+    config.broker_metrics.endpoint = Some(endpoint);
+    let driver = PrometheusBrokerMetricsDriver::new()?;
+
+    let snapshot = smol::block_on(driver.broker_metrics_snapshot(&config))?;
+    assert_eq!(snapshot.cluster_id, None);
+    assert_eq!(
+        snapshot.source,
+        ramag_domain::entities::KafkaMetricsSource::ExternalBrokerMetrics
+    );
+    assert_eq!(
+        snapshot.state,
+        ramag_domain::entities::KafkaMetricsSnapshotState::Ready
+    );
+    assert_eq!(snapshot.brokers.len(), 1);
+    let broker = &snapshot.brokers[0];
+    assert_eq!(broker.broker_id, 0);
+    assert_eq!(broker.cpu_usage_percent, Some(18.5));
+    assert_eq!(broker.memory_used_bytes, Some(1_073_741_824.0));
+    assert_eq!(broker.disk_used_bytes, Some(4_294_967_296.0));
+    assert_eq!(broker.request_latency_ms, Some(2.25));
+    assert_eq!(snapshot.sampled_at.timestamp_millis(), 1_730_000_000_000);
     Ok(())
 }
 

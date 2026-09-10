@@ -43,7 +43,7 @@
 | Topic/Broker 配置 | 读取配置、修改支持动态变更的配置并拒绝静态项 | 已完成 | `KafkaConfigResource`、动态配置读改写和只读保护测试 | 配置批量导入另行排期 |
 | Kafka ACL | 按 Principal/Host/Resource/Operation 查询，精确创建和删除 | 已完成 | ACL 过滤、二次确认、权限错误映射和 UI 测试 | 不实现 AKHQ UI Groups/Roles |
 | 协议指标 | 查看 Broker 元数据、Topic/Partition 健康、Lag 和 high watermark 速率 | 已完成 | `KafkaMonitoringDriver`、`KafkaMetricsSnapshot` 和概览指标测试 | 运行指标必须与外部来源分开 |
-| Broker 运行指标 | 展示 CPU、内存、磁盘、JVM 和请求延迟 | 进行中 | `PrometheusBrokerMetricsDriver` 和有界解析已接入 | exporter 容器、真实端点请求和真实窗口证据待补充 |
+| Broker 运行指标 | 展示 CPU、内存、磁盘、JVM 和请求延迟 | 进行中 | `PrometheusBrokerMetricsDriver`、有界解析和本机 Docker HTTP fixture 已验证 | 真实 Kafka exporter、真实 Broker 运行指标端点和真实窗口证据待补充 |
 | Schema Registry | 浏览 Subject 名称 | 已完成 | 只读 Subject 浏览、端点/数量边界和 UI 测试 | Schema 版本内容解析待排期 |
 | Kafka Connect | 浏览连接器和 Task 状态 | 已完成 | 只读 Connect HTTP 浏览、端点和数量边界测试 | 写操作不纳入当前范围 |
 | ksqlDB | 对 Kafka 流执行有界只读查询 | 待排期 | 阶段 26 设计已写入 Kafka 路线图，尚未实现 | 需要本机 Docker ksqlDB fixture 和独立安全边界 |
@@ -54,6 +54,12 @@
 1. 已完成：Topic 详情的 Partition 到消息页定位，提交 `d9915ec`。
 2. 已完成：消费者组已提交 Offset 到消息页定位；起始 Offset 保留，用户显式点击“读取”后才访问 Broker。
 3. 待排期：根据矩阵继续补齐跨视图导航和功能/UI 对齐；每项独立测试、提交和推送。
+
+## 阶段 23 下一切片设计：本机 OpenMetrics HTTP Fixture
+
+本切片只验证 Ramag 到外部指标 HTTP 端点的真实本机请求链路，不宣称已经接入 Kafka 生产环境 exporter。Docker Compose 增加独立 `metrics` 服务：镜像固定为 `nginx:1.27-alpine`，容器内 `/metrics` 返回受版本控制的 OpenMetrics 文本，宿主绑定 `127.0.0.1:19100`。Rust 集成测试通过 `PrometheusBrokerMetricsDriver` 请求 `http://127.0.0.1:19100/metrics`，检查 `ExternalBrokerMetrics` 来源、Broker ID、四个已知指标和样本时间；Kafka Broker、Kafka Connect 与指标 fixture 分别保留独立服务状态。
+
+静态 fixture 不代表 JMX、真实 Kafka exporter 或生产 Broker 运行指标。真实 exporter 容器和 Windows 原生窗口证据继续单独排期；本机 Docker 不可用时，HTTP 集成验收标记为未完成。
 
 ## 统一验收规则
 

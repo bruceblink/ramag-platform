@@ -62,6 +62,26 @@ services:
       ramag.test-suite: "true"
       ramag.test-component: "kafka-connect"
 
+  metrics:
+    image: nginx:1.27-alpine
+    container_name: ramag-kafka-metrics-test
+    hostname: metrics
+    ports:
+      - "127.0.0.1:19100:80"
+    volumes:
+      - ./fixtures/broker-metrics.prom:/usr/share/nginx/html/metrics:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O - http://127.0.0.1/metrics | grep -q ramag_kafka_broker_cpu_usage_percent
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 5s
+    labels:
+      ramag.test-suite: "true"
+      ramag.test-component: "kafka-broker-metrics-fixture"
+
 volumes:
   kafka-data:
     name: ramag-kafka-test-data
