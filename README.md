@@ -110,7 +110,7 @@ Git 功能需要系统已安装 `git`；SSH 管理、内嵌终端和数据库 SS
 
 ### 从源码运行
 
-准备 [Git](https://git-scm.com/)、[rustup](https://rustup.rs/) 和平台构建工具。仓库已通过 `rust-toolchain.toml` 统一使用 Rust stable channel；Windows 激活脚本会选择并检查官方 GNU host toolchain，Linux 和 macOS 继续使用本机 host，不需要手动切换 Rust 版本。
+准备 [Git](https://git-scm.com/)、[rustup](https://rustup.rs/) 和平台构建工具。仓库已通过 `rust-toolchain.toml` 统一使用 Rust stable channel；Windows 激活脚本优先选择并检查官方 GNU host toolchain，缺少 GNU 组件时自动使用 MSVC host/target，Linux 和 macOS 继续使用本机 host，不需要手动切换 Rust 版本。
 
 macOS 还需要 Xcode Command Line Tools：
 
@@ -139,9 +139,9 @@ cargo clippy-all    # 运行 Clippy，警告视为错误
 cargo test-all      # 运行 workspace 测试
 ```
 
-三个平台仍需要各自的原生开发组件：Windows 统一使用官方 `stable-x86_64-pc-windows-gnu`、MSYS2 UCRT64 MinGW-w64、CMake、Ninja 和 Windows 10/11 SDK（Release 还需要 FXC 与 Inno Setup）；macOS 需要 Xcode Command Line Tools；Linux 需要桌面开发库，完整列表见[桌面端构建与发布](docs/desktop-release.md#本地-linux-打包)。Rust stable channel、Cargo.lock 和日常命令由仓库统一管理。首次构建需要下载 GPUI 等依赖，耗时会明显长于后续增量构建。
+三个平台仍需要各自的原生开发组件：Windows 优先使用官方 `stable-x86_64-pc-windows-gnu`、MSYS2 UCRT64 MinGW-w64、CMake 和 Ninja；缺少 GNU 组件时自动使用 Windows 默认的 `stable-x86_64-pc-windows-msvc`。两条路径都需要 Windows 10/11 SDK（Release 还需要 FXC 与 Inno Setup）；macOS 需要 Xcode Command Line Tools；Linux 需要桌面开发库，完整列表见[桌面端构建与发布](docs/desktop-release.md#本地-linux-打包)。Rust stable channel、Cargo.lock 和日常命令由仓库统一管理。首次构建需要下载 GPUI 等依赖，耗时会明显长于后续增量构建。
 
-Windows 使用 GNU host/target 时，只需在当前 PowerShell 激活一次底层工具链；脚本会自动补齐官方 GNU Rust host，并且只修改当前 PowerShell 进程，不替代 Cargo 命令，也不修改用户级环境变量：
+Windows 日常开发优先使用 GNU host/target，只需在当前 PowerShell 激活一次底层工具链；脚本会自动补齐官方 GNU Rust host。若 GNU Rust、MinGW-w64、CMake 或 Ninja 任一组件不可用，脚本会自动切换到 Windows 默认的 MSVC host/target。脚本只修改当前 PowerShell 进程，不替代 Cargo 命令，也不修改用户级环境变量：
 
 ```powershell
 . .\scripts\windows\enable-gnu-toolchain.ps1
@@ -152,7 +152,7 @@ cargo clippy-all
 cargo test-all
 ```
 
-Linux 和 macOS 直接执行同样的 Cargo 命令；Windows 原生构建和打包脚本也会在内部复用同一套 GNU host/target 环境，不需要启动 Visual Studio 开发终端。
+Linux 和 macOS 直接执行同样的 Cargo 命令；Windows 原生构建和打包脚本也会在内部选择 GNU 或 MSVC host/target，不需要用户手动配置编译器环境。
 
 ## 功能细节
 
@@ -363,7 +363,7 @@ ramag-bin              应用入口、依赖注入、快捷键与平台生命周
 
 ## 开发与验证
 
-日常编译和验证统一直接通过 Cargo 命令执行；`cargo run -p`、`cargo build`、`cargo check -p`、`cargo clippy -p` 和 `cargo test -p` 在 Windows、Linux、macOS 上保持相同。Windows 只需在当前 PowerShell 通过 `scripts/windows/enable-gnu-toolchain.ps1` 激活 GNU host/target。`Makefile` 只保留打包和集成测试编排，不复制日常编译逻辑：
+日常编译和验证统一直接通过 Cargo 命令执行；`cargo run -p`、`cargo build`、`cargo check -p`、`cargo clippy -p` 和 `cargo test -p` 在 Windows、Linux、macOS 上保持相同。Windows 只需在当前 PowerShell 通过 `scripts/windows/enable-gnu-toolchain.ps1` 激活工具链，脚本会优先选择 GNU，缺少 GNU 组件时自动回退到 MSVC。`Makefile` 只保留打包和集成测试编排，不复制日常编译逻辑：
 
 | 命令 | 用途 |
 |---|---|

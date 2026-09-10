@@ -12,7 +12,7 @@
 
 ## 本地开发
 
-开发环境需要 Git、rustup 和当前平台的构建工具。仓库通过 `rust-toolchain.toml` 统一使用 Rust stable；完整的首次运行说明见 [开发入门指南](docs/development-guide.md)。Windows 使用 GNU host/target 时，先执行 `scripts/windows/enable-gnu-toolchain.ps1`。
+开发环境需要 Git、rustup 和当前平台的构建工具。仓库通过 `rust-toolchain.toml` 统一使用 Rust stable；完整的首次运行说明见 [开发入门指南](docs/development-guide.md)。Windows 先执行 `scripts/windows/enable-gnu-toolchain.ps1`，脚本优先选择 GNU host/target，缺少 GNU 组件时自动使用 Windows 默认的 MSVC host/target。
 
 Windows、Linux 和 macOS 使用相同的 Cargo 命令：
 

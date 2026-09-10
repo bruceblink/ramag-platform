@@ -17,13 +17,15 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，桌面界面使用 GPUI。�
 
 ### 1.2 平台构建依赖
 
-Windows 统一使用 MSYS2 UCRT64 MinGW-w64 工具链，还需要：
+Windows 的 GNU 路径使用 MSYS2 UCRT64 MinGW-w64 工具链，还需要：
 
 - MSYS2 UCRT64 的 GCC、G++、binutils 和 `windres`
 - CMake 与 Ninja
 - Windows 10/11 SDK
 
-Windows 日常开发在普通 PowerShell 中先激活一次 GNU Rust host/target、MinGW-w64 编译器和 Ninja CMake 生成器；激活脚本会按 `rust-toolchain.toml` 自动补齐官方 GNU host，激活后直接使用与 Linux、macOS 相同的 Cargo 命令：
+如果 GNU Rust、MinGW-w64、CMake 或 Ninja 不可用，激活脚本会自动切换到 Windows 默认的 MSVC host/target；MSVC 路径不要求安装 MinGW-w64，但仍需要可用的 Windows SDK/MSVC 链接库。
+
+Windows 日常开发在普通 PowerShell 中先激活一次工具链；脚本优先选择 GNU Rust host/target、MinGW-w64 编译器和 Ninja CMake 生成器，并按 `rust-toolchain.toml` 自动补齐官方 GNU host。缺少 GNU Rust、MinGW-w64、CMake 或 Ninja 时，脚本自动使用 Windows 默认的 MSVC host/target。激活后直接使用与 Linux、macOS 相同的 Cargo 命令：
 
 ```powershell
 . .\scripts\windows\enable-gnu-toolchain.ps1

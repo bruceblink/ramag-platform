@@ -14,7 +14,7 @@
 |---|---|---:|
 | `cargo dev-release` | 本地运行当前平台的优化构建 | 否 |
 | `cargo build` / `cargo run -p ramag-bin` | 三个平台统一的本地编译与运行入口 | 否 |
-| `scripts/build-windows.ps1` | Windows GNU 本机复现 debug / Release 构建校验 | 否 |
+| `scripts/build-windows.ps1` | Windows GNU 优先、MSVC 回退的本机 debug / Release 构建校验 | 否 |
 | `scripts/package-windows.ps1` | Windows 本机复现完整 Release 打包 | 否 |
 | `make dmg-*` | macOS 本机生成指定架构的开发 DMG | 否 |
 | `make mac-package` | macOS 本机复现 ARM64 与 Intel Release 打包 | 否 |
@@ -185,7 +185,7 @@ Actions → Desktop Release → Run workflow
 
 ## 本地 Windows 构建
 
-日常开发先在当前 PowerShell 激活 GNU Rust host/target 和 MinGW 环境，然后直接使用统一的 Cargo 命令：
+日常开发先在当前 PowerShell 激活 Windows 工具链；脚本优先选择 GNU Rust host/target 和 MinGW 环境，缺少 GNU 组件时自动使用 Windows 默认的 MSVC host/target，然后直接使用统一的 Cargo 命令：
 
 ```powershell
 . .\scripts\windows\enable-gnu-toolchain.ps1
@@ -193,13 +193,13 @@ cargo build
 cargo run -p ramag-bin
 ```
 
-日常 Windows x64 构建使用快速 Release profile，保留静态 MinGW CRT、Windows PE、版本资源和 DLL 依赖校验：
+日常 Windows x64 构建使用快速 Release profile；GNU 路径保留静态 MinGW CRT、Windows PE、版本资源和 DLL 依赖校验，MSVC 路径使用 Windows 默认链接器和 SDK：
 
 ```powershell
 .\scripts\build-windows.ps1 -Release -Fast
 ```
 
-快速构建产物位于 `target/x86_64-pc-windows-gnu/release-fast/`。正式发布构建仍使用完整 Release profile：
+快速构建产物位于所选目标目录的 `target/<target>/release-fast/`。正式发布构建仍使用完整 Release profile：
 
 ```powershell
 .\scripts\build-windows.ps1 -Release
@@ -301,9 +301,9 @@ target/macos-dist/
 
 ### Windows
 
-- 使用 Rust stable 和 GNU toolchain 构建 `x86_64-pc-windows-gnu` Release。
+- 使用 Rust stable；优先构建 `x86_64-pc-windows-gnu`，GNU 组件不可用时回退到 `x86_64-pc-windows-msvc`。
 - Pester 覆盖版本转换、Cargo 元数据读取和标签匹配。
-- 校验 FXC、MinGW-w64/CMake/Ninja 工具链、Inno Setup、PE x64、GUI 子系统和版本资源。
+- GNU 路径校验 FXC、MinGW-w64/CMake/Ninja 工具链；两条路径都校验 Inno Setup、PE x64、GUI 子系统和版本资源。
 - 拒绝动态 CRT 与未打包的非系统 DLL。
 - 验证安装器静默安装、版本和卸载。
 

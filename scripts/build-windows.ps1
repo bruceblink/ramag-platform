@@ -26,14 +26,16 @@ if (-not (Test-Path -LiteralPath $ToolchainHelper -PathType Leaf)) {
 }
 . $DependencyHelper
 . $ToolchainHelper
-$Target = Get-WindowsGnuTarget
 
 Set-Location $RepoDir
-$RustToolchain = Ensure-WindowsGnuRustToolchain
-$Toolchain = Get-WindowsGnuToolchain
-Write-Host "Using Rust host toolchain: $RustToolchain"
-Write-Host "Using Windows GNU toolchain: $($Toolchain.Target) ($($Toolchain.Gcc))"
 $EnvironmentSnapshot = Save-WindowsGnuEnvironment
+$Toolchain = Select-WindowsToolchain -PreferGnu
+$Target = $Toolchain.Target
+Write-Host "Using Rust host toolchain: $($Toolchain.RustToolchain)"
+Write-Host "Using Windows $($Toolchain.Flavor) toolchain: $($Toolchain.Target)"
+if ($Toolchain.Flavor -eq "GNU") {
+    Write-Host "  gcc: $($Toolchain.Gcc)"
+}
 
 function Find-Fxc {
     $Command = Get-Command fxc.exe -ErrorAction SilentlyContinue
@@ -136,7 +138,7 @@ try {
 
     & cargo @CargoArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "Windows $BuildProfile build failed with the GNU toolchain. Verify MinGW-w64, CMake, Ninja, and the Windows SDK, then retry."
+        throw "Windows $BuildProfile build failed with the $($Toolchain.Flavor) toolchain. Verify the selected Windows compiler, CMake, Ninja, and the Windows SDK, then retry."
     }
 
     $Exe = Join-Path $RepoDir "target\$Target\$BuildProfile\ramag.exe"
@@ -150,42 +152,47 @@ try {
     }
     Assert-PeTarget -Path $Exe -Gui $Release.IsPresent
 
-    $Objdump = $Toolchain.Objdump
-    Write-Host "Using GNU PE inspector: $Objdump"
-    $Dependencies = (& $Objdump -p $Exe) -join "`n"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to inspect executable dependencies with objdump.exe."
-    }
-    $DependencyNames = @(
-        [regex]::Matches(
-            $Dependencies,
-            '(?im)^\s*DLL Name:\s*([A-Z0-9._+-]+\.dll)\s*$'
-        ) |
-            ForEach-Object { $_.Groups[1].Value } |
-            Sort-Object -Unique
-    )
-    if ($DependencyNames.Count -eq 0) {
-        throw "objdump.exe returned no PE dependencies for $Exe."
-    }
-    Write-Host "PE dependencies: $($DependencyNames -join ', ')"
-
-    $DynamicGnuRuntime = @(
-        $DependencyNames | Where-Object {
-            $_ -match '^(libgcc_s_seh-1|libstdc\+\+-6|libwinpthread-1|libssp-0)\.dll$'
+    if ($Toolchain.Flavor -eq "GNU") {
+        $Objdump = $Toolchain.Objdump
+        Write-Host "Using GNU PE inspector: $Objdump"
+        $Dependencies = (& $Objdump -p $Exe) -join "`n"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to inspect executable dependencies with objdump.exe."
         }
-    )
-    if ($DynamicGnuRuntime.Count -gt 0) {
-        throw "The executable depends on the dynamic GNU runtime: $($DynamicGnuRuntime -join ', ')"
-    }
+        $DependencyNames = @(
+            [regex]::Matches(
+                $Dependencies,
+                '(?im)^\s*DLL Name:\s*([A-Z0-9._+-]+\.dll)\s*$'
+            ) |
+                ForEach-Object { $_.Groups[1].Value } |
+                Sort-Object -Unique
+        )
+        if ($DependencyNames.Count -eq 0) {
+            throw "objdump.exe returned no PE dependencies for $Exe."
+        }
+        Write-Host "PE dependencies: $($DependencyNames -join ', ')"
 
-    $SystemDirectory = [System.Environment]::SystemDirectory
-    $NonSystemDependencies = @(
-        Get-UnpackagedPeDependencies `
-            -DependencyNames $DependencyNames `
-            -SystemDirectory $SystemDirectory
-    )
-    if ($NonSystemDependencies.Count -gt 0) {
-        throw "The executable has unpackaged non-system dependencies: $($NonSystemDependencies -join ', ')"
+        $DynamicGnuRuntime = @(
+            $DependencyNames | Where-Object {
+                $_ -match '^(libgcc_s_seh-1|libstdc\+\+-6|libwinpthread-1|libssp-0)\.dll$'
+            }
+        )
+        if ($DynamicGnuRuntime.Count -gt 0) {
+            throw "The executable depends on the dynamic GNU runtime: $($DynamicGnuRuntime -join ', ')"
+        }
+
+        $SystemDirectory = [System.Environment]::SystemDirectory
+        $NonSystemDependencies = @(
+            Get-UnpackagedPeDependencies `
+                -DependencyNames $DependencyNames `
+                -SystemDirectory $SystemDirectory
+        )
+        if ($NonSystemDependencies.Count -gt 0) {
+            throw "The executable has unpackaged non-system dependencies: $($NonSystemDependencies -join ', ')"
+        }
+    }
+    else {
+        Write-Host "MSVC build selected; GNU-specific PE dependency inspection is not applicable."
     }
 
     $Size = (Get-Item -LiteralPath $Exe).Length

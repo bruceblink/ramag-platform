@@ -180,18 +180,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Rust stable GNU host toolchain
-        shell: pwsh
-        run: |
-          . ./scripts/windows/gnu-toolchain.ps1
-          $Toolchain = Get-WindowsGnuRustToolchain
-          rustup toolchain install $Toolchain --profile minimal `
-            --component clippy --component rustfmt --component rust-analyzer --component rust-src
-          rustup target add --toolchain $Toolchain x86_64-pc-windows-gnu
-          rustup run $Toolchain rustc -Vv
-          rustup run $Toolchain cargo -V
-
-      - name: Activate shared Windows GNU environment
+      - name: Activate Windows GNU or MSVC environment
         shell: pwsh
         run: |
           . ./scripts/windows/enable-gnu-toolchain.ps1
@@ -202,13 +191,19 @@ jobs:
             }
           }
 
-      - name: Verify Windows GNU native tools
+      - name: Verify selected Windows native tools
         shell: pwsh
         run: |
-          gcc --version
-          g++ --version
-          cmake --version
-          ninja --version
+          if ($env:RUSTUP_TOOLCHAIN -match 'windows-gnu') {
+            gcc --version
+            g++ --version
+            cmake --version
+            ninja --version
+          }
+          else {
+            rustc -vV
+            Write-Host "GNU prerequisites are unavailable; using the Windows MSVC toolchain."
+          }
 
       - name: Restore Cargo download cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -225,7 +220,10 @@ jobs:
         run: |
           Import-Module Pester -MinimumVersion 5.0 -ErrorAction Stop
           $PesterConfig = New-PesterConfiguration
-          $PesterConfig.Run.Path = "./scripts/windows/package.Tests.ps1"
+          $PesterConfig.Run.Path = @(
+            "./scripts/windows/package.Tests.ps1",
+            "./scripts/windows/gnu-toolchain.Tests.ps1"
+          )
           $PesterConfig.Run.Exit = $true
           Invoke-Pester -Configuration $PesterConfig
 

@@ -384,10 +384,11 @@ function Verify-Fixture {
 
 function Run-RustIntegrationTest {
     # Run the Docker-backed Rust test with the same direct Cargo command used on
-    # Linux and macOS, after selecting the repository's Windows GNU environment.
+    # Linux and macOS, preferring GNU and falling back to the Windows MSVC
+    # environment when the GNU prerequisites are unavailable.
     . $ToolchainScript
-    $Toolchain = Get-WindowsGnuToolchain
-    $EnvironmentSnapshot = Save-WindowsGnuEnvironment
+    $Toolchain = Select-WindowsToolchain -PreferGnu
+    $EnvironmentSnapshot = $Toolchain.PreviousEnvironment
     $oldBootstrap = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_BOOTSTRAP", "Process")
     $oldConnectEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_CONNECT", "Process")
     $oldTargetDirectory = [Environment]::GetEnvironmentVariable("CARGO_TARGET_DIR", "Process")
@@ -396,7 +397,6 @@ function Run-RustIntegrationTest {
     $env:CARGO_TARGET_DIR = Join-Path ([System.IO.Path]::GetTempPath()) "ramag-kafka-docker-target"
 
     try {
-        Set-WindowsGnuEnvironment -Toolchain $Toolchain
         & cargo test --offline --locked -p ramag-infra-kafka --no-default-features --features cmake-build --test docker_kafka
         if ($LASTEXITCODE -ne 0) {
             throw "Rust Kafka integration test failed with exit code $LASTEXITCODE"

@@ -1,5 +1,6 @@
-# Activates the repository's Windows GNU environment in the current PowerShell.
-# Dot-source this file once, then use the same Cargo commands as Linux and macOS.
+# Activates the repository's Windows GNU-preferred environment in the current
+# PowerShell, with automatic MSVC fallback.
+# Dot-source this file once, then use the same Cargo commands as Linux/macOS.
 [CmdletBinding()]
 param()
 
@@ -23,16 +24,16 @@ if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
 
 . $ToolchainScript
 
-# Resolve the complete native tool set before changing PATH so a partial MSYS2
-# installation fails immediately instead of producing a less useful Cargo error.
-$RustToolchain = Ensure-WindowsGnuRustToolchain
-$Toolchain = Get-WindowsGnuToolchain
-
-Set-WindowsGnuEnvironment -Toolchain $Toolchain
-Write-Host "Windows GNU environment is active for this PowerShell session."
-Write-Host "  rust:   $RustToolchain"
+# Prefer the repository's GNU host, but keep ordinary Windows development
+# usable when Rust GNU or the MinGW/CMake/Ninja tool set is unavailable.
+$Toolchain = Select-WindowsToolchain -PreferGnu
+Write-Host "Windows $($Toolchain.Flavor) environment is active for this PowerShell session."
+Write-Host "  rust:   $($Toolchain.RustToolchain)"
 Write-Host "  target: $($Toolchain.Target)"
-Write-Host "  gcc:    $($Toolchain.Gcc)"
-Write-Host "  cmake:  $($Toolchain.Cmake)"
-Write-Host "  ninja:  $($Toolchain.Ninja)"
+if ($Toolchain.Flavor -eq "GNU") {
+    Write-Host "  gcc:    $($Toolchain.Gcc)"
+}
+else {
+    Write-Host "  msvc:   Windows default linker and SDK"
+}
 Write-Host "Use standard Cargo commands now, for example: cargo build or cargo run -p ramag-bin"

@@ -1,10 +1,11 @@
-# Shared Windows GNU toolchain discovery and process-environment setup.
-# Keeping this in one file prevents Cargo, CMake, and native tests from selecting
-# different compilers or generators.
+# Shared Windows GNU/MSVC toolchain discovery and process-environment setup.
+# Keeping this in one file prevents Cargo, CMake, and native tests from
+# selecting different compilers or generators.
 
 Set-StrictMode -Version Latest
 
 $script:WindowsGnuTarget = "x86_64-pc-windows-gnu"
+$script:WindowsMsvcTarget = "x86_64-pc-windows-msvc"
 # HOST_* is kept in the cleanup list only. Setting it to MinGW while Rust still
 # uses the MSVC host toolchain makes cc-rs compile host build scripts for the
 # wrong ABI; the repository now selects the official GNU Rust host instead.
@@ -39,21 +40,32 @@ $script:WindowsGnuEnvironmentNames = @(
     "CARGO_BUILD_TARGET",
     "GPUI_FXC_PATH",
     "CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER",
+    "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
     "CC_x86_64-pc-windows-gnu",
     "CXX_x86_64-pc-windows-gnu",
     "AR_x86_64-pc-windows-gnu",
     "CC_x86_64_pc_windows_gnu",
     "CXX_x86_64_pc_windows_gnu",
-    "AR_x86_64_pc_windows_gnu"
+    "AR_x86_64_pc_windows_gnu",
+    "CC_x86_64-pc-windows-msvc",
+    "CXX_x86_64-pc-windows-msvc",
+    "AR_x86_64-pc-windows-msvc",
+    "CC_x86_64_pc_windows_msvc",
+    "CXX_x86_64_pc_windows_msvc",
+    "AR_x86_64_pc_windows_msvc"
 )
 
 function Get-WindowsGnuTarget {
     return $script:WindowsGnuTarget
 }
 
-function Get-WindowsGnuRustToolchain {
-    # Read the repository channel and append the Windows GNU host triple so the
-    # Windows host compiler and the application target always share one ABI.
+function Get-WindowsMsvcTarget {
+    return $script:WindowsMsvcTarget
+}
+
+function Get-WindowsRepositoryChannel {
+    # Read only the channel from rust-toolchain.toml. The Windows host suffix is
+    # selected by the environment helper so GNU and MSVC can coexist.
     $RepositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $ToolchainFile = Join-Path $RepositoryRoot "rust-toolchain.toml"
     if (-not (Test-Path -LiteralPath $ToolchainFile -PathType Leaf)) {
@@ -67,14 +79,33 @@ function Get-WindowsGnuRustToolchain {
         throw "rust-toolchain.toml does not contain a valid channel."
     }
 
-    $Channel = $Matches[1]
-    if ($Channel -match '-x86_64-pc-windows-gnu$') {
-        return $Channel
+    return $Matches[1]
+}
+
+function Get-WindowsRustToolchainForTarget {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Target
+    )
+
+    $Channel = Get-WindowsRepositoryChannel
+    if ($Channel -match '-x86_64-pc-windows-(gnu|msvc)$') {
+        $Channel = $Channel -replace '-x86_64-pc-windows-(gnu|msvc)$', ''
     }
     if ($Channel -match '-x86_64-pc-windows-') {
-        throw "rust-toolchain.toml must use a channel, not a Windows MSVC host toolchain."
+        throw "rust-toolchain.toml must use a channel or a supported Windows host toolchain."
     }
-    return "$Channel-$($script:WindowsGnuTarget)"
+    return "$Channel-$Target"
+}
+
+function Get-WindowsGnuRustToolchain {
+    # Keep the Rust host and application target on the same GNU ABI.
+    return Get-WindowsRustToolchainForTarget -Target $script:WindowsGnuTarget
+}
+
+function Get-WindowsMsvcRustToolchain {
+    # Keep the Rust host and application target on the same MSVC ABI.
+    return Get-WindowsRustToolchainForTarget -Target $script:WindowsMsvcTarget
 }
 
 function Invoke-WindowsRustup {
@@ -295,5 +326,97 @@ function Restore-WindowsGnuEnvironment {
     Clear-WindowsGnuEnvironment
     foreach ($Entry in $Snapshot.GetEnumerator()) {
         [Environment]::SetEnvironmentVariable($Entry.Key, $Entry.Value, "Process")
+    }
+}
+
+function Set-WindowsMsvcEnvironment {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Snapshot
+    )
+
+    $OriginalPath = $null
+    if ($Snapshot.ContainsKey("PATH")) {
+        $OriginalPath = $Snapshot["PATH"]
+    }
+    if ($null -eq $OriginalPath) {
+        $OriginalPath = [Environment]::GetEnvironmentVariable("PATH", "Process")
+    }
+
+    # Remove GNU-specific compiler, Cargo target, and CMake overrides while
+    # preserving the caller's original PATH for the Windows default tools.
+    Clear-WindowsGnuEnvironment
+    if ($null -ne $OriginalPath) {
+        [Environment]::SetEnvironmentVariable("PATH", $OriginalPath, "Process")
+    }
+
+    $MsvcRustToolchain = Get-WindowsMsvcRustToolchain
+    $InstalledToolchains = @(& rustup toolchain list 2>$null)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to query installed Rust toolchains for the MSVC fallback."
+    }
+    $InstalledNames = @(
+        $InstalledToolchains |
+            ForEach-Object { ($_ -split '\s+')[0] } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+    if ($InstalledNames -notcontains $MsvcRustToolchain) {
+        throw "The Windows MSVC fallback toolchain is not installed: $MsvcRustToolchain"
+    }
+
+    [Environment]::SetEnvironmentVariable("RUSTUP_TOOLCHAIN", $MsvcRustToolchain, "Process")
+    [Environment]::SetEnvironmentVariable("CARGO_BUILD_TARGET", $script:WindowsMsvcTarget, "Process")
+}
+
+function Select-WindowsToolchain {
+    param(
+        [switch]$PreferGnu
+    )
+
+    $EnvironmentSnapshot = Save-WindowsGnuEnvironment
+    if (-not $PreferGnu) {
+        Set-WindowsMsvcEnvironment -Snapshot $EnvironmentSnapshot
+        return [PSCustomObject]@{
+            Flavor = "MSVC"
+            Target = $script:WindowsMsvcTarget
+            RustToolchain = Get-WindowsMsvcRustToolchain
+            PreviousEnvironment = $EnvironmentSnapshot
+            Gcc = $null
+            Objdump = $null
+        }
+    }
+
+    try {
+        $Toolchain = Get-WindowsGnuToolchain
+        $RustToolchain = $Toolchain.RustToolchain
+        Set-WindowsGnuEnvironment -Toolchain $Toolchain
+        return [PSCustomObject]@{
+            Flavor = "GNU"
+            Target = $Toolchain.Target
+            RustToolchain = $RustToolchain
+            PreviousEnvironment = $EnvironmentSnapshot
+            Gcc = $Toolchain.Gcc
+            Objdump = $Toolchain.Objdump
+        }
+    }
+    catch {
+        $GnuFailure = $_.Exception.Message
+        try {
+            Set-WindowsMsvcEnvironment -Snapshot $EnvironmentSnapshot
+        }
+        catch {
+            Restore-WindowsGnuEnvironment -Snapshot $EnvironmentSnapshot
+            throw "GNU toolchain setup failed ($GnuFailure), and the MSVC fallback could not be activated: $($_.Exception.Message)"
+        }
+
+        Write-Warning "Windows GNU toolchain is unavailable ($GnuFailure). Falling back to the Windows default MSVC toolchain."
+        return [PSCustomObject]@{
+            Flavor = "MSVC"
+            Target = $script:WindowsMsvcTarget
+            RustToolchain = Get-WindowsMsvcRustToolchain
+            PreviousEnvironment = $EnvironmentSnapshot
+            Gcc = $null
+            Objdump = $null
+        }
     }
 }

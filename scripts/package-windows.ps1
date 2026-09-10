@@ -11,11 +11,14 @@ if (-not (Test-Path -LiteralPath $ToolchainScript -PathType Leaf)) {
     throw "Windows GNU toolchain helper is missing: $ToolchainScript"
 }
 . $ToolchainScript
-$Target = Get-WindowsGnuTarget
+$TargetDirectories = @(
+    Get-WindowsGnuTarget
+    Get-WindowsMsvcTarget
+) | Select-Object -Unique
 $BuildScript = Join-Path $PSScriptRoot "build-windows.ps1"
 $IssScript = Join-Path $PSScriptRoot "windows\ramag.iss"
 $SmokeTestScript = Join-Path $PSScriptRoot "windows\test-installer.ps1"
-$Exe = Join-Path $RepoDir "target\$Target\release\ramag.exe"
+$Exe = $null
 $DistDir = Join-Path $RepoDir "target\windows-dist"
 $WorkDir = Join-Path $RepoDir "target\windows-package"
 
@@ -128,6 +131,31 @@ function Assert-File {
     }
 }
 
+function Resolve-ReleaseExecutable {
+    param(
+        [Parameter(Mandatory = $true)]
+        [DateTime]$BuiltAfter
+    )
+
+    $CandidatePaths = @(
+        $TargetDirectories | ForEach-Object {
+            Join-Path $RepoDir "target\$_\release\ramag.exe"
+        }
+    )
+    $Existing = @(
+        $CandidatePaths |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+            ForEach-Object { Get-Item -LiteralPath $_ }
+    )
+    $Fresh = @($Existing | Where-Object { $_.LastWriteTimeUtc -ge $BuiltAfter.ToUniversalTime() })
+    $Candidates = if ($Fresh.Count -gt 0) { $Fresh } else { $Existing }
+    $Selected = $Candidates | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+    if ($null -eq $Selected) {
+        throw "Windows build finished without a release executable in the GNU or MSVC target directories."
+    }
+    return $Selected.FullName
+}
+
 function Invoke-WindowsPackage {
     if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
         throw "This script must run on Windows. Windows release packages are built by GitHub Actions."
@@ -153,7 +181,9 @@ function Invoke-WindowsPackage {
     $VersionInfoNumber = Get-VersionInfoNumber -Version $Version
     Assert-TagMatchesVersion -Version $Version
 
+    $BuildStarted = [DateTime]::UtcNow
     & $BuildScript -Release
+    $Exe = Resolve-ReleaseExecutable -BuiltAfter $BuildStarted
     Assert-File -Path $Exe -Description "Release executable"
     $ExeVersionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($Exe)
     if ($ExeVersionInfo.ProductVersion -ne $Version) {
