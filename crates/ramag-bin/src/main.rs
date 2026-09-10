@@ -50,7 +50,9 @@ use ramag_infra_kafka::{
     SchemaRegistryHttpDriver,
 };
 use ramag_infra_mongodb::MongoDriver;
-use ramag_infra_mqtt::NativeMqttTransport;
+use ramag_infra_mqtt::{
+    LocalMosquittoStaticConfigDriver, NativeMosquittoDynamicSecurityDriver, NativeMqttTransport,
+};
 use ramag_infra_mysql::MysqlDriver;
 use ramag_infra_postgres::PostgresDriver;
 use ramag_infra_redis::RedisDriver;

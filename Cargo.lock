@@ -6937,6 +6937,7 @@ dependencies = [
  "chrono",
  "ramag-domain",
  "rumqttc",
+ "serde_json",
  "smol",
  "tokio",
  "tracing",

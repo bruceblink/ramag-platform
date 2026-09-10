@@ -466,6 +466,14 @@ pub struct MosquittoAcl {
 
 impl MosquittoAcl {
     pub fn validate(&self) -> Result<(), String> {
+        if matches!(
+            self.acl_type,
+            MosquittoAclType::Subscribe | MosquittoAclType::Unsubscribe
+        ) {
+            return Err(
+                "Mosquitto Dynamic Security 不支持未区分类型的 subscribe 或 unsubscribe ACL".into(),
+            );
+        }
         validate_mqtt_topic_filter(&self.topic)?;
         if self.priority < -1 || self.priority > 100_000 {
             return Err("Mosquitto ACL 优先级必须是 -1 到 100000".into());
@@ -512,13 +520,16 @@ impl MosquittoGroupBinding {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MosquittoClient {
     pub username: String,
     #[serde(default)]
     pub client_id: Option<String>,
     #[serde(default)]
     pub password_configured: bool,
+    /// 新建或修改客户端时可选的新密码；读取 Dynamic Security 返回值时始终为空。
+    #[serde(default, skip_serializing)]
+    pub password: Option<String>,
     #[serde(default)]
     pub disabled: bool,
     #[serde(default)]
@@ -531,9 +542,31 @@ pub struct MosquittoClient {
     pub roles: Vec<MosquittoRoleBinding>,
 }
 
+impl fmt::Debug for MosquittoClient {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("MosquittoClient")
+            .field("username", &self.username)
+            .field("client_id", &self.client_id)
+            .field("password_configured", &self.password_configured)
+            .field("password", &self.password.as_ref().map(|_| "[REDACTED]"))
+            .field("disabled", &self.disabled)
+            .field("text_name", &self.text_name)
+            .field("text_description", &self.text_description)
+            .field("groups", &self.groups)
+            .field("roles", &self.roles)
+            .finish()
+    }
+}
+
 impl MosquittoClient {
     pub fn validate(&self) -> Result<(), String> {
         validate_required_text("客户端用户名", &self.username, MAX_MOSQUITTO_NAME_BYTES)?;
+        validate_optional_protocol_text(
+            "客户端密码",
+            self.password.as_deref(),
+            MAX_MQTT_PASSWORD_BYTES,
+        )?;
         validate_optional_single_line(
             "客户端 Client ID",
             self.client_id.as_deref(),
@@ -597,6 +630,9 @@ pub struct MosquittoRole {
     pub text_name: Option<String>,
     #[serde(default)]
     pub text_description: Option<String>,
+    /// 是否允许此 Role 使用包含通配符的订阅 ACL；该值必须与 Broker 返回值保持一致。
+    #[serde(default)]
+    pub allow_wildcards_subscriptions: bool,
     #[serde(default)]
     pub acls: Vec<MosquittoAcl>,
 }
@@ -806,6 +842,7 @@ mod tests {
             role_name: "operator".into(),
             text_name: None,
             text_description: None,
+            allow_wildcards_subscriptions: false,
             acls: vec![acl],
         };
         assert!(role.validate().is_ok());
@@ -815,5 +852,13 @@ mod tests {
             ..role.acls[0].clone()
         };
         assert!(invalid.validate().is_err());
+
+        let unsupported = MosquittoAcl {
+            acl_type: MosquittoAclType::Subscribe,
+            topic: "devices/#".into(),
+            decision: MosquittoAclDecision::Allow,
+            priority: -1,
+        };
+        assert!(unsupported.validate().is_err());
     }
 }

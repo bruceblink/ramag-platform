@@ -19,6 +19,7 @@ bytes = { workspace = true }
 chrono = { workspace = true }
 ramag-domain = { workspace = true }
 rumqttc = { workspace = true, optional = true }
+serde_json = { workspace = true }
 smol = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

@@ -9,11 +9,15 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use ramag_domain::entities::{
-    MqttBrokerSnapshot, MqttMessageSink, MqttProfile, MqttPublishRequest, MqttPublishResult,
-    MqttSubscribeRequest, MqttTransportBackend, MqttTransportCapabilities,
+    MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoGroup, MosquittoRole,
+    MosquittoStaticFile, MosquittoStaticFileKind, MqttBrokerSnapshot, MqttMessageSink, MqttProfile,
+    MqttPublishRequest, MqttPublishResult, MqttSubscribeRequest, MqttTransportBackend,
+    MqttTransportCapabilities,
 };
 use ramag_domain::error::{DomainError, MqttError, MqttErrorCategory, Result};
-use ramag_domain::traits::{MqttDriver, MqttTransport};
+use ramag_domain::traits::{
+    MosquittoDynamicSecurityDriver, MosquittoStaticConfigDriver, MqttDriver, MqttTransport,
+};
 
 #[cfg(feature = "native")]
 use native::{publish_native, subscribe_native, test_connection_native};
@@ -47,13 +51,295 @@ impl NativeMqttTransport {
             tls: cfg!(feature = "native"),
             subscribe: cfg!(feature = "native"),
             publish: cfg!(feature = "native"),
-            dynamic_security: false,
+            dynamic_security: cfg!(feature = "native"),
             static_config: false,
             metrics: false,
             retained_topics: false,
             online_clients: false,
         }
     }
+}
+
+/// Native MQTT 控制面适配器；只访问 Mosquitto Dynamic Security 明确规定的控制主题。
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NativeMosquittoDynamicSecurityDriver;
+
+impl NativeMosquittoDynamicSecurityDriver {
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+/// 本机 Mosquitto 静态文件适配器；SSH 目标交给后续具备远程文件权限的适配器。
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LocalMosquittoStaticConfigDriver;
+
+impl LocalMosquittoStaticConfigDriver {
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl MosquittoDynamicSecurityDriver for NativeMosquittoDynamicSecurityDriver {
+    async fn snapshot(&self, profile: &MqttProfile) -> Result<MosquittoDynamicSecuritySnapshot> {
+        #[cfg(feature = "native")]
+        {
+            let profile = management_profile(profile);
+            return run_native(move || native::dynamic_security_snapshot_native(profile)).await;
+        }
+        #[cfg(not(feature = "native"))]
+        {
+            let _ = profile;
+            Err(native_unavailable("读取 Mosquitto Dynamic Security"))
+        }
+    }
+
+    async fn save_client(&self, profile: &MqttProfile, client: &MosquittoClient) -> Result<()> {
+        #[cfg(feature = "native")]
+        {
+            let profile = management_profile(profile);
+            let client = client.clone();
+            return run_native(move || native::save_client_native(profile, client)).await;
+        }
+        #[cfg(not(feature = "native"))]
+        {
+            let _ = (profile, client);
+            Err(native_unavailable("保存 Mosquitto 客户端"))
+        }
+    }
+
+    async fn delete_client(&self, profile: &MqttProfile, username: &str) -> Result<()> {
+        dynamic_security_mutation(
+            self,
+            profile,
+            "deleteClient",
+            serde_json::json!({
+                "username": username,
+            }),
+        )
+        .await
+    }
+
+    async fn save_group(&self, profile: &MqttProfile, group: &MosquittoGroup) -> Result<()> {
+        #[cfg(feature = "native")]
+        {
+            let profile = management_profile(profile);
+            let group = group.clone();
+            return run_native(move || native::save_group_native(profile, group)).await;
+        }
+        #[cfg(not(feature = "native"))]
+        {
+            let _ = (profile, group);
+            Err(native_unavailable("保存 Mosquitto Group"))
+        }
+    }
+
+    async fn delete_group(&self, profile: &MqttProfile, group_name: &str) -> Result<()> {
+        dynamic_security_mutation(
+            self,
+            profile,
+            "deleteGroup",
+            serde_json::json!({
+                "groupname": group_name,
+            }),
+        )
+        .await
+    }
+
+    async fn save_role(&self, profile: &MqttProfile, role: &MosquittoRole) -> Result<()> {
+        #[cfg(feature = "native")]
+        {
+            let profile = management_profile(profile);
+            let role = role.clone();
+            return run_native(move || native::save_role_native(profile, role)).await;
+        }
+        #[cfg(not(feature = "native"))]
+        {
+            let _ = (profile, role);
+            Err(native_unavailable("保存 Mosquitto Role"))
+        }
+    }
+
+    async fn delete_role(&self, profile: &MqttProfile, role_name: &str) -> Result<()> {
+        dynamic_security_mutation(
+            self,
+            profile,
+            "deleteRole",
+            serde_json::json!({
+                "rolename": role_name,
+            }),
+        )
+        .await
+    }
+}
+
+async fn dynamic_security_mutation(
+    _driver: &NativeMosquittoDynamicSecurityDriver,
+    profile: &MqttProfile,
+    command: &'static str,
+    fields: serde_json::Value,
+) -> Result<()> {
+    #[cfg(feature = "native")]
+    {
+        let profile = management_profile(profile);
+        return run_native(move || {
+            native::dynamic_security_mutation_native(profile, command, fields)
+        })
+        .await;
+    }
+    #[cfg(not(feature = "native"))]
+    {
+        let _ = (profile, command, fields);
+        Err(native_unavailable("修改 Mosquitto Dynamic Security"))
+    }
+}
+
+#[cfg(feature = "native")]
+fn management_profile(profile: &MqttProfile) -> MqttProfile {
+    let mut management_profile = profile.clone();
+    if profile.management.admin_username.is_some() || profile.management.admin_password.is_some() {
+        management_profile.username = profile.management.admin_username.clone();
+        management_profile.password = profile.management.admin_password.clone();
+    }
+    management_profile
+}
+
+#[async_trait]
+impl MosquittoStaticConfigDriver for LocalMosquittoStaticConfigDriver {
+    async fn read_file(
+        &self,
+        profile: &MqttProfile,
+        kind: MosquittoStaticFileKind,
+    ) -> Result<MosquittoStaticFile> {
+        ensure_local_target(profile)?;
+        let path = kind.configured_path(profile).ok_or_else(|| {
+            DomainError::InvalidConfig(format!("未配置 Mosquitto {} 路径", kind.label()))
+        })?;
+        let path = std::path::Path::new(path);
+        if !path.is_absolute() {
+            return Err(DomainError::InvalidConfig(
+                "Mosquitto 静态配置路径必须是绝对路径".into(),
+            ));
+        }
+        let metadata = std::fs::metadata(path)
+            .map_err(|error| local_file_error("读取 Mosquitto 静态配置", error))?;
+        if metadata.len() > ramag_domain::entities::MAX_MOSQUITTO_STATIC_FILE_BYTES as u64 {
+            return Err(DomainError::InvalidConfig(
+                "Mosquitto 静态配置文件超过大小上限".into(),
+            ));
+        }
+        let content = std::fs::read_to_string(path)
+            .map_err(|error| local_file_error("读取 Mosquitto 静态配置", error))?;
+        Ok(MosquittoStaticFile {
+            kind,
+            path: path.to_string_lossy().into_owned(),
+            content,
+        })
+    }
+
+    async fn write_file(&self, profile: &MqttProfile, file: &MosquittoStaticFile) -> Result<()> {
+        ensure_local_target(profile)?;
+        file.validate().map_err(DomainError::InvalidConfig)?;
+        let expected = file.kind.configured_path(profile).ok_or_else(|| {
+            DomainError::InvalidConfig(format!("未配置 Mosquitto {} 路径", file.kind.label()))
+        })?;
+        if expected != file.path {
+            return Err(DomainError::InvalidConfig(
+                "Mosquitto 静态配置路径与配置不一致".into(),
+            ));
+        }
+        let path = std::path::Path::new(&file.path);
+        if !path.is_absolute() {
+            return Err(DomainError::InvalidConfig(
+                "Mosquitto 静态配置路径必须是绝对路径".into(),
+            ));
+        }
+        let parent = path
+            .parent()
+            .ok_or_else(|| DomainError::InvalidConfig("Mosquitto 静态配置路径缺少父目录".into()))?;
+        if !parent.is_dir() {
+            return Err(DomainError::InvalidConfig(
+                "Mosquitto 静态配置路径的父目录不存在".into(),
+            ));
+        }
+        let suffix = format!(
+            "{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or_default()
+        );
+        let file_name = path
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .ok_or_else(|| DomainError::InvalidConfig("Mosquitto 静态配置文件名无效".into()))?;
+        let temporary = parent.join(format!(".{file_name}.ramag-{suffix}.tmp"));
+        let backup = parent.join(format!(".{file_name}.ramag-{suffix}.bak"));
+        std::fs::write(&temporary, file.content.as_bytes())
+            .map_err(|error| local_file_error("写入 Mosquitto 静态配置", error))?;
+        let existing = match std::fs::symlink_metadata(path) {
+            Ok(metadata) if metadata.file_type().is_file() => true,
+            Ok(_) => {
+                let _ = std::fs::remove_file(&temporary);
+                return Err(DomainError::InvalidConfig(
+                    "Mosquitto 静态配置目标不是普通文件".into(),
+                ));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(error) => {
+                let _ = std::fs::remove_file(&temporary);
+                return Err(local_file_error("检查 Mosquitto 静态配置", error));
+            }
+        };
+        if existing && let Err(error) = std::fs::rename(path, &backup) {
+            let _ = std::fs::remove_file(&temporary);
+            return Err(local_file_error("备份 Mosquitto 静态配置", error));
+        }
+        if let Err(error) = std::fs::rename(&temporary, path) {
+            if existing {
+                let _ = std::fs::rename(&backup, path);
+            }
+            let _ = std::fs::remove_file(&temporary);
+            return Err(local_file_error("替换 Mosquitto 静态配置", error));
+        }
+        if existing && let Err(error) = std::fs::remove_file(&backup) {
+            tracing::warn!(path = %file.path, error = %error, "Mosquitto 静态配置备份清理失败");
+        }
+        Ok(())
+    }
+}
+
+fn ensure_local_target(profile: &MqttProfile) -> Result<()> {
+    if matches!(
+        profile
+            .management
+            .static_config
+            .as_ref()
+            .map(|config| &config.target),
+        Some(ramag_domain::entities::MosquittoConfigTarget::Ssh { .. })
+    ) {
+        return Err(DomainError::Mqtt(MqttError::new(
+            MqttErrorCategory::Unsupported,
+            "访问 Mosquitto 静态配置",
+            "当前构建只支持本机 Mosquitto 静态配置，SSH 目标尚未接入远程文件适配器",
+        )));
+    }
+    Ok(())
+}
+
+fn local_file_error(operation: &'static str, error: std::io::Error) -> DomainError {
+    let category = match error.kind() {
+        std::io::ErrorKind::NotFound => MqttErrorCategory::NotFound,
+        std::io::ErrorKind::PermissionDenied => MqttErrorCategory::PermissionDenied,
+        _ => MqttErrorCategory::Unknown,
+    };
+    DomainError::Mqtt(MqttError::new(
+        category,
+        operation,
+        format!("{operation}失败：{error}"),
+    ))
 }
 
 #[async_trait]
@@ -175,6 +461,8 @@ mod native {
     use std::time::Duration;
 
     const MAX_TLS_FILE_BYTES: u64 = 4 * 1024 * 1024;
+    const DYNSEC_REQUEST_TOPIC: &str = "$CONTROL/dynamic-security/v1";
+    const DYNSEC_RESPONSE_TOPIC: &str = "$CONTROL/dynamic-security/v1/response";
 
     type TlsMaterial = (Option<Vec<u8>>, Option<(Vec<u8>, Vec<u8>)>);
 
@@ -210,6 +498,632 @@ mod native {
         match profile.protocol_version {
             MqttProtocolVersion::V311 => subscribe_v311(&profile, &request, sink, cancelled).await,
             MqttProtocolVersion::V5 => subscribe_v5(&profile, &request, sink, cancelled).await,
+        }
+    }
+
+    pub(super) async fn dynamic_security_snapshot_native(
+        profile: MqttProfile,
+    ) -> Result<MosquittoDynamicSecuritySnapshot> {
+        let clients = dynamic_security_request(
+            &profile,
+            serde_json::json!({"command": "listClients", "verbose": true}),
+        )
+        .await?;
+        let groups = dynamic_security_request(
+            &profile,
+            serde_json::json!({"command": "listGroups", "verbose": true}),
+        )
+        .await?;
+        let roles = dynamic_security_request(
+            &profile,
+            serde_json::json!({"command": "listRoles", "verbose": true}),
+        )
+        .await?;
+        Ok(MosquittoDynamicSecuritySnapshot {
+            clients: parse_clients(&clients)?,
+            groups: parse_groups(&groups)?,
+            roles: parse_roles(&roles)?,
+        })
+    }
+
+    pub(super) async fn save_client_native(
+        profile: MqttProfile,
+        client: MosquittoClient,
+    ) -> Result<()> {
+        let existing = dynamic_security_request(
+            &profile,
+            serde_json::json!({"command": "getClient", "username": client.username}),
+        )
+        .await;
+        let existed = match existing {
+            Ok(_) => true,
+            Err(error) if is_not_found(&error) => false,
+            Err(error) => return Err(error),
+        };
+        dynamic_security_request(&profile, client_command(&client, existed)).await?;
+
+        if client.disabled {
+            dynamic_security_request(
+                &profile,
+                serde_json::json!({
+                    "command": "disableClient",
+                    "username": client.username,
+                }),
+            )
+            .await?;
+        } else if existed {
+            dynamic_security_request(
+                &profile,
+                serde_json::json!({
+                    "command": "enableClient",
+                    "username": client.username,
+                }),
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    pub(super) async fn save_group_native(
+        profile: MqttProfile,
+        group: MosquittoGroup,
+    ) -> Result<()> {
+        let existing = dynamic_security_request(
+            &profile,
+            serde_json::json!({"command": "getGroup", "groupname": group.group_name}),
+        )
+        .await;
+        let existed = match existing {
+            Ok(_) => true,
+            Err(error) if is_not_found(&error) => false,
+            Err(error) => return Err(error),
+        };
+        dynamic_security_request(&profile, group_command(&group, existed))
+            .await
+            .map(|_| ())
+    }
+
+    pub(super) async fn save_role_native(profile: MqttProfile, role: MosquittoRole) -> Result<()> {
+        let existing = dynamic_security_request(
+            &profile,
+            serde_json::json!({"command": "getRole", "rolename": role.role_name}),
+        )
+        .await;
+        let existed = match existing {
+            Ok(_) => true,
+            Err(error) if is_not_found(&error) => false,
+            Err(error) => return Err(error),
+        };
+        dynamic_security_request(&profile, role_command(&role, existed))
+            .await
+            .map(|_| ())
+    }
+
+    pub(super) async fn dynamic_security_mutation_native(
+        profile: MqttProfile,
+        command: &'static str,
+        fields: serde_json::Value,
+    ) -> Result<()> {
+        let mut object = fields.as_object().cloned().ok_or_else(|| {
+            DomainError::InvalidConfig("Mosquitto 管理命令字段必须是 JSON 对象".into())
+        })?;
+        object.insert("command".into(), serde_json::Value::String(command.into()));
+        dynamic_security_request(&profile, serde_json::Value::Object(object))
+            .await
+            .map(|_| ())
+    }
+
+    fn client_command(client: &MosquittoClient, existing: bool) -> serde_json::Value {
+        let mut object = serde_json::Map::new();
+        object.insert("username".into(), client.username.clone().into());
+        if let Some(client_id) = &client.client_id {
+            object.insert("clientid".into(), client_id.clone().into());
+        }
+        if let Some(text_name) = &client.text_name {
+            object.insert("textname".into(), text_name.clone().into());
+        }
+        if let Some(text_description) = &client.text_description {
+            object.insert("textdescription".into(), text_description.clone().into());
+        }
+        object.insert(
+            "roles".into(),
+            serde_json::Value::Array(
+                client
+                    .roles
+                    .iter()
+                    .map(|binding| {
+                        serde_json::json!({
+                            "rolename": binding.role_name,
+                            "priority": binding.priority,
+                        })
+                    })
+                    .collect(),
+            ),
+        );
+        object.insert(
+            "groups".into(),
+            serde_json::Value::Array(
+                client
+                    .groups
+                    .iter()
+                    .map(|binding| {
+                        serde_json::json!({
+                            "groupname": binding.group_name,
+                            "priority": binding.priority,
+                        })
+                    })
+                    .collect(),
+            ),
+        );
+        if let Some(password) = &client.password {
+            object.insert("password".into(), password.clone().into());
+        }
+        object.insert(
+            "command".into(),
+            serde_json::Value::String(
+                if existing {
+                    "modifyClient"
+                } else {
+                    "createClient"
+                }
+                .into(),
+            ),
+        );
+        serde_json::Value::Object(object)
+    }
+
+    fn group_command(group: &MosquittoGroup, existing: bool) -> serde_json::Value {
+        let mut object = serde_json::Map::new();
+        object.insert(
+            "command".into(),
+            serde_json::Value::String(
+                if existing {
+                    "modifyGroup"
+                } else {
+                    "createGroup"
+                }
+                .into(),
+            ),
+        );
+        object.insert("groupname".into(), group.group_name.clone().into());
+        if let Some(text_name) = &group.text_name {
+            object.insert("textname".into(), text_name.clone().into());
+        }
+        if let Some(text_description) = &group.text_description {
+            object.insert("textdescription".into(), text_description.clone().into());
+        }
+        object.insert(
+            "roles".into(),
+            group
+                .roles
+                .iter()
+                .map(|binding| {
+                    serde_json::json!({
+                        "rolename": binding.role_name,
+                        "priority": binding.priority,
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into(),
+        );
+        serde_json::Value::Object(object)
+    }
+
+    fn role_command(role: &MosquittoRole, existing: bool) -> serde_json::Value {
+        let mut object = serde_json::Map::new();
+        object.insert(
+            "command".into(),
+            serde_json::Value::String(if existing { "modifyRole" } else { "createRole" }.into()),
+        );
+        object.insert("rolename".into(), role.role_name.clone().into());
+        if let Some(text_name) = &role.text_name {
+            object.insert("textname".into(), text_name.clone().into());
+        }
+        if let Some(text_description) = &role.text_description {
+            object.insert("textdescription".into(), text_description.clone().into());
+        }
+        object.insert(
+            "allowwildcardsubs".into(),
+            role.allow_wildcards_subscriptions.into(),
+        );
+        object.insert(
+            "acls".into(),
+            role.acls
+                .iter()
+                .map(|acl| {
+                    serde_json::json!({
+                        "acltype": acl.acl_type.as_str(),
+                        "topic": acl.topic,
+                        "allow": matches!(acl.decision, ramag_domain::entities::MosquittoAclDecision::Allow),
+                        "priority": acl.priority,
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into(),
+        );
+        serde_json::Value::Object(object)
+    }
+
+    async fn dynamic_security_request(
+        profile: &MqttProfile,
+        command: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        match profile.protocol_version {
+            MqttProtocolVersion::V311 => dynamic_security_request_v311(profile, command).await,
+            MqttProtocolVersion::V5 => dynamic_security_request_v5(profile, command).await,
+        }
+    }
+
+    async fn dynamic_security_request_v311(
+        profile: &MqttProfile,
+        command: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        let payload =
+            serde_json::to_vec(&serde_json::json!({"commands": [command]})).map_err(|error| {
+                DomainError::InvalidConfig(format!("编码 Mosquitto 管理命令失败：{error}"))
+            })?;
+        let (client, mut eventloop) = create_v311_client(profile)?;
+        let mut subscribe_sent = false;
+        let mut publish_sent = false;
+        loop {
+            match eventloop
+                .poll()
+                .await
+                .map_err(|error| mqtt_connection_error(error.to_string()))?
+            {
+                Event::Incoming(Incoming::ConnAck(_)) if !subscribe_sent => {
+                    client
+                        .subscribe(DYNSEC_RESPONSE_TOPIC, QoS::AtLeastOnce)
+                        .await
+                        .map_err(|error| {
+                            mqtt_client_error("订阅 Mosquitto 管理响应", error.to_string())
+                        })?;
+                    subscribe_sent = true;
+                }
+                Event::Incoming(Incoming::SubAck(_)) if !publish_sent => {
+                    client
+                        .publish(
+                            DYNSEC_REQUEST_TOPIC,
+                            QoS::AtLeastOnce,
+                            false,
+                            payload.clone(),
+                        )
+                        .await
+                        .map_err(|error| {
+                            mqtt_client_error("发布 Mosquitto 管理命令", error.to_string())
+                        })?;
+                    publish_sent = true;
+                }
+                Event::Incoming(Incoming::Publish(publish))
+                    if publish.topic == DYNSEC_RESPONSE_TOPIC =>
+                {
+                    return decode_dynamic_security_response(&publish.payload);
+                }
+                Event::Incoming(_) | Event::Outgoing(_) => {}
+            }
+        }
+    }
+
+    async fn dynamic_security_request_v5(
+        profile: &MqttProfile,
+        command: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        let payload =
+            serde_json::to_vec(&serde_json::json!({"commands": [command]})).map_err(|error| {
+                DomainError::InvalidConfig(format!("编码 Mosquitto 管理命令失败：{error}"))
+            })?;
+        let (client, mut eventloop) = create_v5_client(profile)?;
+        let mut subscribe_sent = false;
+        let mut publish_sent = false;
+        loop {
+            match eventloop
+                .poll()
+                .await
+                .map_err(|error| mqtt_connection_error(error.to_string()))?
+            {
+                rumqttc::v5::Event::Incoming(rumqttc::v5::Incoming::ConnAck(_))
+                    if !subscribe_sent =>
+                {
+                    client
+                        .subscribe(
+                            DYNSEC_RESPONSE_TOPIC,
+                            rumqttc::v5::mqttbytes::QoS::AtLeastOnce,
+                        )
+                        .await
+                        .map_err(|error| {
+                            mqtt_client_error("订阅 Mosquitto 管理响应", error.to_string())
+                        })?;
+                    subscribe_sent = true;
+                }
+                rumqttc::v5::Event::Incoming(rumqttc::v5::Incoming::SubAck(_)) if !publish_sent => {
+                    client
+                        .publish(
+                            DYNSEC_REQUEST_TOPIC,
+                            rumqttc::v5::mqttbytes::QoS::AtLeastOnce,
+                            false,
+                            bytes::Bytes::from(payload.clone()),
+                        )
+                        .await
+                        .map_err(|error| {
+                            mqtt_client_error("发布 Mosquitto 管理命令", error.to_string())
+                        })?;
+                    publish_sent = true;
+                }
+                rumqttc::v5::Event::Incoming(rumqttc::v5::Incoming::Publish(publish))
+                    if publish.topic.as_ref() == DYNSEC_RESPONSE_TOPIC.as_bytes() =>
+                {
+                    return decode_dynamic_security_response(&publish.payload);
+                }
+                rumqttc::v5::Event::Incoming(_) | rumqttc::v5::Event::Outgoing(_) => {}
+            }
+        }
+    }
+
+    fn decode_dynamic_security_response(payload: &[u8]) -> Result<serde_json::Value> {
+        let tree: serde_json::Value = serde_json::from_slice(payload).map_err(|error| {
+            DomainError::Mqtt(MqttError::new(
+                MqttErrorCategory::Protocol,
+                "解析 Mosquitto 管理响应",
+                format!("Mosquitto 管理响应不是有效 JSON：{error}"),
+            ))
+        })?;
+        let response = tree
+            .get("responses")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|responses| responses.first())
+            .ok_or_else(|| {
+                DomainError::Mqtt(MqttError::new(
+                    MqttErrorCategory::Protocol,
+                    "解析 Mosquitto 管理响应",
+                    "Mosquitto 管理响应缺少 responses 数组",
+                ))
+            })?;
+        if let Some(error) = response.get("error").and_then(serde_json::Value::as_str) {
+            let category = broker_error_category(error);
+            return Err(DomainError::Mqtt(MqttError::new(
+                category,
+                "执行 Mosquitto 管理命令",
+                format!("Mosquitto 管理命令被 Broker 拒绝：{error}"),
+            )));
+        }
+        Ok(response.clone())
+    }
+
+    fn response_data(response: &serde_json::Value) -> Result<&serde_json::Value> {
+        response.get("data").ok_or_else(|| {
+            DomainError::Mqtt(MqttError::new(
+                MqttErrorCategory::Protocol,
+                "解析 Mosquitto 管理响应",
+                "Mosquitto 管理响应缺少 data 对象",
+            ))
+        })
+    }
+
+    fn parse_clients(response: &serde_json::Value) -> Result<Vec<MosquittoClient>> {
+        let values = response_data(response)?
+            .get("clients")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| invalid_management_response("clients"))?;
+        values.iter().map(parse_client).collect()
+    }
+
+    fn parse_client(value: &serde_json::Value) -> Result<MosquittoClient> {
+        let object = value
+            .as_object()
+            .ok_or_else(|| invalid_management_response("client"))?;
+        Ok(MosquittoClient {
+            username: required_string(object, "username")?,
+            client_id: optional_string(object, "clientid"),
+            password_configured: object
+                .get("password_configured")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
+            password: None,
+            disabled: object
+                .get("disabled")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
+            text_name: optional_string(object, "textname"),
+            text_description: optional_string(object, "textdescription"),
+            groups: parse_group_bindings(object.get("groups"))?,
+            roles: parse_role_bindings(object.get("roles"))?,
+        })
+    }
+
+    fn parse_groups(response: &serde_json::Value) -> Result<Vec<MosquittoGroup>> {
+        let values = response_data(response)?
+            .get("groups")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| invalid_management_response("groups"))?;
+        values.iter().map(parse_group).collect()
+    }
+
+    fn parse_group(value: &serde_json::Value) -> Result<MosquittoGroup> {
+        let object = value
+            .as_object()
+            .ok_or_else(|| invalid_management_response("group"))?;
+        Ok(MosquittoGroup {
+            group_name: required_string(object, "groupname")?,
+            text_name: optional_string(object, "textname"),
+            text_description: optional_string(object, "textdescription"),
+            roles: parse_role_bindings(object.get("roles"))?,
+        })
+    }
+
+    fn parse_roles(response: &serde_json::Value) -> Result<Vec<MosquittoRole>> {
+        let values = response_data(response)?
+            .get("roles")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| invalid_management_response("roles"))?;
+        values.iter().map(parse_role).collect()
+    }
+
+    fn parse_role(value: &serde_json::Value) -> Result<MosquittoRole> {
+        let object = value
+            .as_object()
+            .ok_or_else(|| invalid_management_response("role"))?;
+        let acls = object
+            .get("acls")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| invalid_management_response("role.acls"))?
+            .iter()
+            .map(|value| {
+                let acl = value
+                    .as_object()
+                    .ok_or_else(|| invalid_management_response("role.acl"))?;
+                let acl_type = match required_string(acl, "acltype")?.as_str() {
+                    "publishClientSend" => {
+                        ramag_domain::entities::MosquittoAclType::PublishClientSend
+                    }
+                    "publishClientReceive" => {
+                        ramag_domain::entities::MosquittoAclType::PublishClientReceive
+                    }
+                    "subscribeLiteral" => {
+                        ramag_domain::entities::MosquittoAclType::SubscribeLiteral
+                    }
+                    "subscribePattern" => {
+                        ramag_domain::entities::MosquittoAclType::SubscribePattern
+                    }
+                    "unsubscribeLiteral" => {
+                        ramag_domain::entities::MosquittoAclType::UnsubscribeLiteral
+                    }
+                    "unsubscribePattern" => {
+                        ramag_domain::entities::MosquittoAclType::UnsubscribePattern
+                    }
+                    _ => return Err(invalid_management_response("role.acl.acltype")),
+                };
+                Ok(ramag_domain::entities::MosquittoAcl {
+                    acl_type,
+                    topic: required_string(acl, "topic")?,
+                    decision: if acl
+                        .get("allow")
+                        .and_then(serde_json::Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        ramag_domain::entities::MosquittoAclDecision::Allow
+                    } else {
+                        ramag_domain::entities::MosquittoAclDecision::Deny
+                    },
+                    priority: acl
+                        .get("priority")
+                        .and_then(serde_json::Value::as_i64)
+                        .unwrap_or(-1) as i32,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(MosquittoRole {
+            role_name: required_string(object, "rolename")?,
+            text_name: optional_string(object, "textname"),
+            text_description: optional_string(object, "textdescription"),
+            allow_wildcards_subscriptions: object
+                .get("allowwildcardsubs")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
+            acls,
+        })
+    }
+
+    fn parse_role_bindings(
+        value: Option<&serde_json::Value>,
+    ) -> Result<Vec<ramag_domain::entities::MosquittoRoleBinding>> {
+        let Some(values) = value.and_then(serde_json::Value::as_array) else {
+            return Ok(Vec::new());
+        };
+        values
+            .iter()
+            .map(|value| {
+                let object = value
+                    .as_object()
+                    .ok_or_else(|| invalid_management_response("roles"))?;
+                let priority = object
+                    .get("priority")
+                    .and_then(serde_json::Value::as_i64)
+                    .unwrap_or(-1) as i32;
+                Ok(ramag_domain::entities::MosquittoRoleBinding {
+                    role_name: required_string(object, "rolename")?,
+                    priority,
+                })
+            })
+            .collect()
+    }
+
+    fn parse_group_bindings(
+        value: Option<&serde_json::Value>,
+    ) -> Result<Vec<ramag_domain::entities::MosquittoGroupBinding>> {
+        let Some(values) = value.and_then(serde_json::Value::as_array) else {
+            return Ok(Vec::new());
+        };
+        values
+            .iter()
+            .map(|value| {
+                let object = value
+                    .as_object()
+                    .ok_or_else(|| invalid_management_response("groups"))?;
+                Ok(ramag_domain::entities::MosquittoGroupBinding {
+                    group_name: required_string(object, "groupname")?,
+                    priority: object
+                        .get("priority")
+                        .and_then(serde_json::Value::as_i64)
+                        .unwrap_or(-1) as i32,
+                })
+            })
+            .collect()
+    }
+
+    fn required_string(
+        object: &serde_json::Map<String, serde_json::Value>,
+        key: &str,
+    ) -> Result<String> {
+        object
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(ToOwned::to_owned)
+            .ok_or_else(|| invalid_management_response(key))
+    }
+
+    fn optional_string(
+        object: &serde_json::Map<String, serde_json::Value>,
+        key: &str,
+    ) -> Option<String> {
+        object
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(ToOwned::to_owned)
+    }
+
+    fn invalid_management_response(field: &str) -> DomainError {
+        DomainError::Mqtt(MqttError::new(
+            MqttErrorCategory::Protocol,
+            "解析 Mosquitto 管理响应",
+            format!("Mosquitto 管理响应缺少有效字段：{field}"),
+        ))
+    }
+
+    fn is_not_found(error: &DomainError) -> bool {
+        matches!(
+            error,
+            DomainError::Mqtt(mqtt_error) if mqtt_error.category == MqttErrorCategory::NotFound
+        ) || error.user_message().contains("not found")
+            || error.user_message().contains("不存在")
+    }
+
+    fn broker_error_category(error: &str) -> MqttErrorCategory {
+        let normalized = error.to_ascii_lowercase();
+        if normalized.contains("not found") || error.contains("不存在") {
+            MqttErrorCategory::NotFound
+        } else if normalized.contains("not authorised")
+            || normalized.contains("not authorized")
+            || normalized.contains("permission")
+            || normalized.contains("access denied")
+        {
+            MqttErrorCategory::PermissionDenied
+        } else if normalized.contains("unknown command")
+            || normalized.contains("unsupported")
+            || normalized.contains("dynamic security") && normalized.contains("not enabled")
+        {
+            MqttErrorCategory::Unsupported
+        } else {
+            MqttErrorCategory::Protocol
         }
     }
 
@@ -722,6 +1636,110 @@ mod native {
             format!("{operation}失败：{message}"),
         ))
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn dynamic_security_commands_keep_secrets_out_of_debug_and_preserve_optional_fields() {
+            let client = MosquittoClient {
+                username: "operator".into(),
+                client_id: None,
+                password_configured: false,
+                password: Some("secret-password".into()),
+                disabled: false,
+                text_name: Some("Operator".into()),
+                text_description: None,
+                groups: Vec::new(),
+                roles: Vec::new(),
+            };
+
+            let command = client_command(&client, true);
+            assert_eq!(command["command"], "modifyClient");
+            assert_eq!(command["username"], "operator");
+            assert_eq!(command["password"], "secret-password");
+            assert!(command.get("clientid").is_none());
+            assert!(command.get("textdescription").is_none());
+            assert!(!format!("{client:?}").contains("secret-password"));
+        }
+
+        #[test]
+        fn role_commands_send_the_broker_wildcard_flag_and_supported_acl_types() {
+            let role = MosquittoRole {
+                role_name: "operator".into(),
+                text_name: None,
+                text_description: None,
+                allow_wildcards_subscriptions: true,
+                acls: vec![ramag_domain::entities::MosquittoAcl {
+                    acl_type: ramag_domain::entities::MosquittoAclType::SubscribePattern,
+                    topic: "devices/%u/#".into(),
+                    decision: ramag_domain::entities::MosquittoAclDecision::Allow,
+                    priority: 10,
+                }],
+            };
+
+            let command = role_command(&role, false);
+            assert_eq!(command["command"], "createRole");
+            assert_eq!(command["allowwildcardsubs"], true);
+            assert_eq!(command["acls"][0]["acltype"], "subscribePattern");
+        }
+
+        #[test]
+        fn dynamic_security_response_errors_are_classified_by_broker_reason() {
+            let not_found = match decode_dynamic_security_response(
+                br#"{"responses":[{"error":"Client not found"}]}"#,
+            ) {
+                Err(DomainError::Mqtt(error)) => Some(error.category),
+                _ => None,
+            };
+            assert_eq!(not_found, Some(MqttErrorCategory::NotFound));
+
+            let permission = match decode_dynamic_security_response(
+                br#"{"responses":[{"error":"Not authorised"}]}"#,
+            ) {
+                Err(DomainError::Mqtt(error)) => Some(error.category),
+                _ => None,
+            };
+            assert_eq!(permission, Some(MqttErrorCategory::PermissionDenied));
+        }
+
+        #[test]
+        fn role_parser_rejects_unsupported_acl_aliases_and_reads_wildcard_flag() {
+            let response = serde_json::json!({
+                "data": {
+                    "roles": [{
+                        "rolename": "operator",
+                        "allowwildcardsubs": true,
+                        "acls": [{
+                            "acltype": "subscribePattern",
+                            "topic": "devices/%u/#",
+                            "allow": true,
+                            "priority": 1
+                        }]
+                    }]
+                }
+            });
+            let allows_wildcards = parse_roles(&response)
+                .ok()
+                .and_then(|roles| roles.first().map(|role| role.allow_wildcards_subscriptions));
+            assert_eq!(allows_wildcards, Some(true));
+
+            let unsupported = serde_json::json!({
+                "data": {
+                    "roles": [{
+                        "rolename": "operator",
+                        "acls": [{
+                            "acltype": "subscribe",
+                            "topic": "devices/#",
+                            "allow": true
+                        }]
+                    }]
+                }
+            });
+            assert!(parse_roles(&unsupported).is_err());
+        }
+    }
 }
 
 #[cfg(test)]
@@ -733,5 +1751,59 @@ mod tests {
         let capabilities = NativeMqttTransport::new().transport_capabilities();
         assert_eq!(capabilities.backend, MqttTransportBackend::Native);
         assert_eq!(capabilities.build_available, cfg!(feature = "native"));
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn management_profile_prefers_dedicated_management_credentials() {
+        let mut profile = MqttProfile::new("local", "127.0.0.1", 1883);
+        profile.username = Some("data-user".into());
+        profile.password = Some("data-password".into());
+        profile.management.admin_username = Some("admin".into());
+        profile.management.admin_password = Some("admin-password".into());
+
+        let connection = management_profile(&profile);
+        assert_eq!(connection.username.as_deref(), Some("admin"));
+        assert_eq!(connection.password.as_deref(), Some("admin-password"));
+    }
+
+    #[test]
+    fn local_static_driver_round_trips_a_configured_file() -> std::result::Result<(), String> {
+        let path = std::env::temp_dir().join(format!(
+            "ramag-mosquitto-{}-{}.conf",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|error| error.to_string())?
+                .as_nanos()
+        ));
+        std::fs::write(&path, "old-content\n").map_err(|error| error.to_string())?;
+
+        let mut profile = MqttProfile::new("local", "127.0.0.1", 1883);
+        profile.management.enabled = true;
+        profile.management.static_config = Some(ramag_domain::entities::MosquittoStaticConfig {
+            target: ramag_domain::entities::MosquittoConfigTarget::Local,
+            password_file: Some(path.to_string_lossy().into_owned()),
+            acl_file: None,
+        });
+        let file = ramag_domain::entities::MosquittoStaticFile {
+            kind: MosquittoStaticFileKind::Password,
+            path: path.to_string_lossy().into_owned(),
+            content: "new-content\n".into(),
+        };
+        let driver = LocalMosquittoStaticConfigDriver::new();
+        let loaded = smol::block_on(async {
+            driver
+                .write_file(&profile, &file)
+                .await
+                .map_err(|error| error.user_message())?;
+            driver
+                .read_file(&profile, MosquittoStaticFileKind::Password)
+                .await
+                .map_err(|error| error.user_message())
+        })?;
+        assert_eq!(loaded.content, "new-content\n");
+        let _ = std::fs::remove_file(path);
+        Ok(())
     }
 }

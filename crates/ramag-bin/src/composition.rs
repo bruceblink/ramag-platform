@@ -172,7 +172,13 @@ pub(super) fn build_kafka_service(storage: Arc<dyn Storage>) -> Arc<KafkaService
 /// 组合根启用 Native MQTT 驱动；未连接 Broker 时只创建客户端适配器，不发起网络请求。
 pub(super) fn build_mqtt_service(storage: Arc<dyn Storage>) -> Arc<MqttService> {
     let driver: Arc<dyn MqttDriver> = Arc::new(NativeMqttTransport::new());
-    Arc::new(MqttService::new(driver, storage))
+    let management_driver = Arc::new(NativeMosquittoDynamicSecurityDriver::new());
+    let static_config_driver = Arc::new(LocalMosquittoStaticConfigDriver::new());
+    Arc::new(
+        MqttService::new(driver, storage)
+            .with_dynamic_security_driver(management_driver)
+            .with_static_config_driver(static_config_driver),
+    )
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
