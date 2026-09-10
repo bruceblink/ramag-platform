@@ -55,7 +55,14 @@ impl PrometheusBrokerMetricsDriver {
             );
         };
 
-        let response = match self.client.get(endpoint).send() {
+        let mut request = self.client.get(endpoint);
+        if let (Some(username), Some(password)) = (
+            config.broker_metrics.username.as_deref(),
+            config.broker_metrics.password.as_deref(),
+        ) {
+            request = request.basic_auth(username, Some(password));
+        }
+        let response = match request.send() {
             Ok(response) => response,
             Err(error) => {
                 let message = request_error_message(&error);
@@ -390,6 +397,47 @@ fn parse_timestamp(value: f64) -> Option<DateTime<Utc>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+    };
+
+    #[test]
+    fn maps_http_auth_failures_to_permission_denied()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let driver = PrometheusBrokerMetricsDriver::new()?;
+
+        for status in [401, 403] {
+            let listener = TcpListener::bind("127.0.0.1:0")?;
+            let address = listener.local_addr()?;
+            let server = std::thread::spawn(move || {
+                let Ok((mut stream, _)) = listener.accept() else {
+                    return;
+                };
+                let mut request = [0_u8; 1024];
+                let _ = stream.read(&mut request);
+                let response = format!(
+                    "HTTP/1.1 {status} Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                );
+                let _ = stream.write_all(response.as_bytes());
+            });
+            let mut config =
+                KafkaClusterConfig::new("broker-metrics-auth", vec!["127.0.0.1:9092".into()]);
+            config.broker_metrics.endpoint = Some(format!("http://{address}/metrics"));
+
+            let snapshot = smol::block_on(driver.broker_metrics_snapshot(&config))?;
+            assert!(server.join().is_ok(), "local test server should finish");
+            assert_eq!(snapshot.state, KafkaMetricsSnapshotState::PermissionDenied);
+            assert!(
+                snapshot
+                    .error
+                    .as_deref()
+                    .is_some_and(|error| error.contains(&status.to_string()))
+            );
+        }
+        Ok(())
+    }
 
     #[test]
     fn parses_bounded_prometheus_exposition_and_preserves_sample_time() {

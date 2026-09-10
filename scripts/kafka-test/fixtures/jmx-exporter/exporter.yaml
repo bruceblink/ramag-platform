@@ -1,6 +1,12 @@
 hostPort: kafka:9999
 lowercaseOutputName: true
 
+httpServer:
+  authentication:
+    basic:
+      username: ramag-metrics
+      password: ramag-metrics-test-password
+
 rules:
   - pattern: "java.lang<type=OperatingSystem><>ProcessCpuLoad"
     name: ramag_kafka_broker_cpu_usage_percent

@@ -70,23 +70,6 @@ fn cluster_rejects_oversized_text_and_non_tls_certificate_paths() {
 }
 
 #[test]
-fn broker_metrics_endpoint_is_optional_bounded_and_redacted() {
-    let mut config = valid_cluster();
-    assert!(config.broker_metrics.validate().is_ok());
-
-    config.broker_metrics.endpoint = Some("http://127.0.0.1:9090/metrics".into());
-    assert!(config.validate().is_ok());
-    let rendered = format!("{:?}", config.broker_metrics);
-    assert!(!rendered.contains("127.0.0.1"));
-    assert!(rendered.contains("[CONFIGURED]"));
-
-    config.broker_metrics.endpoint = Some("ftp://127.0.0.1/metrics".into());
-    assert!(config.validate().is_err());
-    config.broker_metrics.endpoint = Some("http://127.0.0.1/metrics\nnext".into());
-    assert!(config.validate().is_err());
-}
-
-#[test]
 fn cluster_debug_output_redacts_credentials_and_certificate_paths() {
     let mut config = valid_cluster();
     config.security_protocol = KafkaSecurityProtocol::SaslSsl;

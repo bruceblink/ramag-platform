@@ -66,6 +66,22 @@ impl KafkaView {
             false,
             "",
         );
+        let broker_metrics_username = input(
+            window,
+            cx,
+            MAX_KAFKA_BROKER_METRICS_USERNAME_BYTES,
+            "指标端点用户名",
+            false,
+            "",
+        );
+        let broker_metrics_password = input(
+            window,
+            cx,
+            MAX_KAFKA_BROKER_METRICS_PASSWORD_BYTES,
+            "指标端点密码",
+            true,
+            "",
+        );
         let schema_registry_endpoint = input(
             window,
             cx,
@@ -228,6 +244,8 @@ impl KafkaView {
             &sasl_password,
             &remark,
             &broker_metrics_endpoint,
+            &broker_metrics_username,
+            &broker_metrics_password,
             &schema_registry_endpoint,
             &schema_registry_username,
             &schema_registry_password,
@@ -444,6 +462,8 @@ impl KafkaView {
             sasl_password,
             remark,
             broker_metrics_endpoint,
+            broker_metrics_username,
+            broker_metrics_password,
             schema_registry_endpoint,
             schema_registry_username,
             schema_registry_password,

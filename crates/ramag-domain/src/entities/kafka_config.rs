@@ -13,7 +13,8 @@ use super::kafka_validation::{
 };
 use super::{
     MAX_KAFKA_BOOTSTRAP_SERVERS, MAX_KAFKA_BOOTSTRAP_SERVERS_BYTES,
-    MAX_KAFKA_BROKER_METRICS_ENDPOINT_BYTES, MAX_KAFKA_CLIENT_ID_BYTES,
+    MAX_KAFKA_BROKER_METRICS_ENDPOINT_BYTES, MAX_KAFKA_BROKER_METRICS_PASSWORD_BYTES,
+    MAX_KAFKA_BROKER_METRICS_USERNAME_BYTES, MAX_KAFKA_CLIENT_ID_BYTES,
     MAX_KAFKA_CLUSTER_NAME_BYTES, MAX_KAFKA_REMARK_BYTES, MAX_KAFKA_SASL_PASSWORD_BYTES,
     MAX_KAFKA_SASL_USERNAME_BYTES, MAX_KAFKA_TLS_PATH_BYTES, validate_kafka_bootstrap_server,
 };
@@ -152,6 +153,10 @@ impl KafkaTlsConfig {
 pub struct KafkaBrokerMetricsConfig {
     #[serde(default)]
     pub endpoint: Option<String>,
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
+    pub password: Option<String>,
 }
 
 impl fmt::Debug for KafkaBrokerMetricsConfig {
@@ -159,22 +164,40 @@ impl fmt::Debug for KafkaBrokerMetricsConfig {
         formatter
             .debug_struct("KafkaBrokerMetricsConfig")
             .field("endpoint", &self.endpoint.as_ref().map(|_| "[CONFIGURED]"))
+            .field("username", &self.username.as_ref().map(|_| "[REDACTED]"))
+            .field("password", &self.password.as_ref().map(|_| "[REDACTED]"))
             .finish()
     }
 }
 
 impl KafkaBrokerMetricsConfig {
     pub fn validate(&self) -> Result<(), String> {
-        let Some(endpoint) = self.endpoint.as_deref() else {
-            return Ok(());
-        };
         validate_optional_single_line(
             "Broker 运行指标端点",
-            Some(endpoint),
+            self.endpoint.as_deref(),
             MAX_KAFKA_BROKER_METRICS_ENDPOINT_BYTES,
         )?;
-        if !endpoint.starts_with("http://") && !endpoint.starts_with("https://") {
+        if let Some(endpoint) = self.endpoint.as_deref()
+            && !endpoint.starts_with("http://")
+            && !endpoint.starts_with("https://")
+        {
             return Err("Broker 运行指标端点必须使用 http:// 或 https://".into());
+        }
+        validate_optional_protocol_text(
+            "Broker 运行指标用户名",
+            self.username.as_deref(),
+            MAX_KAFKA_BROKER_METRICS_USERNAME_BYTES,
+        )?;
+        validate_optional_protocol_text(
+            "Broker 运行指标密码",
+            self.password.as_deref(),
+            MAX_KAFKA_BROKER_METRICS_PASSWORD_BYTES,
+        )?;
+        if self.endpoint.is_none() && (self.username.is_some() || self.password.is_some()) {
+            return Err("未配置 Broker 运行指标端点时不能保存认证参数".into());
+        }
+        if self.username.is_some() != self.password.is_some() {
+            return Err("Broker 运行指标 Basic Auth 必须同时设置用户名和密码".into());
         }
         Ok(())
     }

@@ -151,6 +151,8 @@ impl KafkaView {
             &self.sasl_password,
             &self.remark,
             &self.broker_metrics_endpoint,
+            &self.broker_metrics_username,
+            &self.broker_metrics_password,
             &self.schema_registry_endpoint,
             &self.schema_registry_username,
             &self.schema_registry_password,
@@ -180,6 +182,12 @@ impl KafkaView {
         });
         self.sasl_password.update(cx, |state, cx| {
             state.set_placeholder("SASL 密码", window, cx);
+        });
+        self.broker_metrics_username.update(cx, |state, cx| {
+            state.set_placeholder("指标端点用户名", window, cx);
+        });
+        self.broker_metrics_password.update(cx, |state, cx| {
+            state.set_placeholder("指标端点密码", window, cx);
         });
         self.schema_registry_password.update(cx, |state, cx| {
             state.set_placeholder("Schema Registry 密码", window, cx);
@@ -243,6 +251,13 @@ impl KafkaView {
         config.client_id = optional_value(&self.client_id, cx);
         config.remark = optional_value(&self.remark, cx);
         config.broker_metrics.endpoint = optional_value(&self.broker_metrics_endpoint, cx);
+        config.broker_metrics.username = optional_value(&self.broker_metrics_username, cx);
+        if config.broker_metrics.endpoint.is_none() {
+            config.broker_metrics.username = None;
+            config.broker_metrics.password = None;
+        } else if let Some(password) = optional_value(&self.broker_metrics_password, cx) {
+            config.broker_metrics.password = Some(password);
+        }
         config.schema_registry.endpoint = optional_value(&self.schema_registry_endpoint, cx);
         config.schema_registry.username = optional_value(&self.schema_registry_username, cx);
         if config.schema_registry.endpoint.is_none() {

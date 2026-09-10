@@ -28,6 +28,9 @@ async fn kafka_clusters_are_encrypted_sorted_and_round_trip() {
     secure.connect.endpoint = Some("https://connect.example/api".into());
     secure.connect.username = Some("connect-application".into());
     secure.connect.password = Some("connect-secret-password".into());
+    secure.broker_metrics.endpoint = Some("https://metrics.example/metrics".into());
+    secure.broker_metrics.username = Some("metrics-application".into());
+    secure.broker_metrics.password = Some("metrics-secret-password".into());
     let local = sample_cluster("local", "127.0.0.1:9092");
 
     storage.save_kafka_cluster(&secure).await.unwrap();
@@ -54,6 +57,9 @@ async fn kafka_clusters_are_encrypted_sorted_and_round_trip() {
     assert!(!raw.value().contains("connect.example"));
     assert!(!raw.value().contains("connect-application"));
     assert!(!raw.value().contains("connect-secret-password"));
+    assert!(!raw.value().contains("metrics.example"));
+    assert!(!raw.value().contains("metrics-application"));
+    assert!(!raw.value().contains("metrics-secret-password"));
 }
 
 #[tokio::test]

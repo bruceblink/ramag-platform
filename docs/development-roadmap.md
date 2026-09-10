@@ -31,7 +31,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 - `ramag-infra-*` 负责数据库、Kafka、SSH、Git、存储和系统适配。
 - `ramag-tool-*` 负责具体工作台的交互；`ramag-terminal` 负责通用 PTY、ANSI 状态和终端绘制。
 - `ramag-bin` 当前仍直接装配内置工具；插件平台先包装这条路径，不复制业务状态。
-- Kafka 当前仍使用 `rdkafka/librdkafka` 基础设施；`KafkaTransport` 适配边界、实时 Tail、Metrics Snapshot、单条消息生产、本机静态 OpenMetrics fixture 和真实 Kafka JMX Exporter HTTP 链路已实现，纯 Rust Transport、生产 exporter 安全配置和真实 Windows 证据仍未完成。
+- Kafka 当前仍使用 `rdkafka/librdkafka` 基础设施；`KafkaTransport` 适配边界、实时 Tail、Metrics Snapshot、单条消息生产、本机静态 OpenMetrics fixture、受 Basic Auth 保护的真实 Kafka JMX Exporter HTTP 链路已实现，纯 Rust Transport 和真实 Windows 证据仍未完成。
 - 真实 Windows 窗口证据仍与 headless 验证分开记录；未取得窗口证据的项目不能写成真实窗口已验收。
 
 主线目标：
@@ -47,7 +47,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 |---|---|---|---|
 | 插件平台 | P0-A、P0-B、PLAT-003 已完成，现有工具通过静态插件宿主注册并按生命周期管理 | 保持 P0-C 设置与权限接口待实现；后续按队列推进 `TERM-001` | 动态 ABI、插件市场、第三方不受信任代码 |
 | SSH/终端 | `alacritty_terminal + GPUI` PTY 核心、SSH/SFTP 工作区、会话状态、每标签重连和 `-L/-R/-D` 参数模型已有；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 补真实 Windows 窗口证据和独立转发状态/停止面板；进入 `KAFKA-001` | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
-| Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail、Metrics Snapshot、Schema Registry 版本浏览和真实 Kafka JMX Exporter 本机链路已有 | `KAFKA-023` 三个消息定位切片和阶段 27 已完成，继续维护功能矩阵，再补生产 exporter 安全配置和真实 Windows 证据 | 纯 Rust Transport、外部生态大模块和批量消息生产 |
+| Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail、Metrics Snapshot、Schema Registry 版本浏览和受保护的真实 Kafka JMX Exporter 本机链路已有 | `KAFKA-023` 三个消息定位切片和阶段 27 已完成，继续维护功能矩阵，再补真实 Windows 证据 | 纯 Rust Transport、外部生态大模块和批量消息生产 |
 | 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 按 DBeaver/DataGrip 能力表推进结果查看、大字段恢复、对象导航、执行计划和迁移工作流的功能/UI 对齐 | 把 Redis/MongoDB 强行套用 SQL 语义 |
 | 质量与工具链 | stable channel、统一 Cargo 命令、Windows GNU 路线已建立 | 保持 CI、WSL Linux 验证、源码尺寸和 LF 规则一致 | 为单个平台恢复独立的日常编译命令 |
 
@@ -68,7 +68,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
 | `UI-001` | 跨工具 UI | `ramag-ui`、各 `ramag-tool-*` | 待继续（真实窗口证据待补） | `PLAT-003` | 共享弹窗、工具栏、列表和详情区在 360/1024/1440 headless 窗口内换行、滚动且不越界；真实窗口证据单独记录 |
 | `DB-002` | 数据库 | `ramag-tool-dbclient`、`ramag-ui` | 待开始 | `DB-001` | 建立 DBeaver/DataGrip 功能矩阵，逐项实现并验收结果、对象导航、执行计划和迁移 UI，不以静态截图宣称完成 |
-| `KAFKA-023` | Kafka | `ramag-tool-kafka`、`ramag-ui`、`ramag-infra-kafka` | 开发中（三个定位切片和真实 JMX Exporter 本机链路已完成） | `KAFKA-025` | 功能矩阵已建立；继续补生产 exporter 安全配置、真实窗口证据和下一项 AKHQ/Offset Explorer 能力 |
+| `KAFKA-023` | Kafka | `ramag-tool-kafka`、`ramag-ui`、`ramag-infra-kafka` | 开发中（三个定位切片和受保护的真实 JMX Exporter 本机链路已完成） | `KAFKA-025` | 功能矩阵已建立；继续补真实窗口证据和下一项 AKHQ/Offset Explorer 能力 |
 | `QUALITY-001` | 质量与工具链 | workspace 维护者 | 持续任务 | 每个交付切片 | stable toolchain、统一 Cargo 命令、LF、CI 过滤器和三平台发布证据保持一致 |
 
 `UI-001` 验收记录（2026-09-07）：共享弹窗的实际打开测试发现导入表单在 360×240 窗口中仍宽 414px，左侧越界 27px，说明此前仅调整内容宽度不足以修复 Dialog 外框。当前修复统一约束快捷键、最近项目和导入弹窗的宽度、顶部偏移及内容高度；导入操作区保留在滚动区外。3 项直接打开弹窗的 headless 测试覆盖 360×240、360×640、1024×768、1440×900、打开后缩放、取消、最近项目滚动/搜索/打开和快捷键录制错误/退出。真实窗口验证未完成：本次 Computer Use 的 `list_windows()` 返回空列表，安装的 `@oai/sky` 也没有技能要求的 `documentation` 接口。其他工作台仍须逐项检查，不能由这三类弹窗的结果推断全软件已适配。
@@ -99,7 +99,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 
 阶段 23 本机 HTTP fixture 验收记录（2026-09-11）：Docker Compose 启动 `ramag-kafka-metrics-test`（`nginx:1.27-alpine`，`127.0.0.1:19100/metrics`），与 `ramag-kafka-test`（`apache/kafka:4.0.0`，`127.0.0.1:19092`）和 `ramag-kafka-connect-test`（`apache/kafka:4.0.0`，`127.0.0.1:18083`）分别保持 healthy。Rust `docker_kafka` 集成测试 8 项全部通过，新增测试验证 `PrometheusBrokerMetricsDriver` 的 `ExternalBrokerMetrics` 来源、Broker ID、CPU/内存/磁盘/延迟和采样时间；静态 fixture 不代表真实 Kafka JVM 指标。
 
-阶段 23 真实 JMX Exporter 验收记录（2026-09-11）：Docker Compose 为 `apache/kafka:4.0.0` KRaft Broker 开启容器内 JMX/RMI `9999`，使用固定 SHA-256 的 Prometheus JMX Exporter `1.6.0` 暴露 `127.0.0.1:19101/metrics`。`docker_kafka_reads_real_broker_jmx_exporter` 通过真实 HTTP 请求回读 Kafka JVM 的 CPU、Heap、Topic/Partition 磁盘和请求延迟，解析器对重复磁盘样本求和、对重复延迟样本取最大值；完整 `kafka-test.ps1 -Command test -MessageCount 5000` 的 Rust Docker 集成测试 12 项全部通过。该 fixture 关闭认证/TLS，仅证明本机专用网络链路，生产安全配置和真实 Windows 窗口证据仍待补充。
+阶段 23 真实 JMX Exporter 验收记录（2026-09-11）：Docker Compose 为 `apache/kafka:4.0.0` KRaft Broker 开启容器内 JMX/RMI `9999`，使用固定 SHA-256 的 Prometheus JMX Exporter `1.6.0` 暴露受 Basic Auth 保护的 `127.0.0.1:19101/metrics`。`docker_kafka_reads_real_broker_jmx_exporter` 通过真实 HTTP 请求确认无认证返回 `401`、带认证返回 `200`，再回读 Kafka JVM 的 CPU、Heap、Topic/Partition 磁盘和请求延迟；解析器对重复磁盘样本求和、对重复延迟样本取最大值。生产环境仍需替换测试凭据、启用 HTTPS，并补充真实 Windows 窗口证据。
 
 `UI-001` 数据库工作台切片（2026-09-08）：`ramag-ui` 提供统一的对话框宽度、顶部偏移和最大高度计算；数据库连接选择、连接表单、数据同步、查询历史、单元格查看、结果差异、Schema Diagram、表结构差异、表设计、元数据 SQL 和删除确认弹窗均改为按视口收缩。连接表单和连接选择器在 680px 以下改用纵向布局，正文或长内容继续在有界滚动区内显示；结果差异和 Schema Diagram 的内容高度随窗口预算变化。`cargo test --locked -p ramag-tool-dbclient --lib` 通过 285 项，现有 360/1024/1440 headless 检查继续通过。真实 Windows 窗口截图和操作记录仍未完成，Kafka 工作台的功能/UI 对齐按 `KAFKA-023` 单独排期。
 

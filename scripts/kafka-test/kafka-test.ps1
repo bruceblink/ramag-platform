@@ -310,7 +310,7 @@ function Wait-SchemaRegistryHealthy {
 }
 
 function Ensure-Healthy {
-    Invoke-Compose -ComposeArguments @("up", "-d")
+    Invoke-Compose -ComposeArguments @("up", "-d", "--build")
     Wait-Healthy
     Wait-ConnectHealthy
     Wait-MetricsHealthy

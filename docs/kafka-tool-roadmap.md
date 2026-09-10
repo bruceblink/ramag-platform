@@ -726,4 +726,4 @@ Kafka 工具应定位为桌面优先的 Kafka 工作台：以 Offset Explorer �
 
 `rdkafka`/`librdkafka` 只作为当前基础设施实现，不是产品边界。下一阶段先验证纯 Rust Kafka Transport 是否能覆盖完整能力；默认桌面构建必须回到统一的跨平台 Cargo 工具链。无论最终采用纯 Rust 客户端还是独立 Kafka Gateway，领域模型、应用服务和 UI 都不得依赖具体客户端类型。
 
-完成阶段 18-27 后，Ramag 已在管理模式和二次确认下写入明确 Topic，并展示 Broker 返回的 Partition、Offset 和 Timestamp；`KAFKA-023` 已完成三个消息定位切片，Schema Registry 已支持 Subject、版本和有界 Schema 内容只读浏览，Broker 运行指标已通过静态 fixture 和真实 Kafka JMX Exporter 本机链路复核。下一项继续完善 AKHQ/Offset Explorer 功能矩阵；生产安全配置、批量导入和消息生产之外的高风险扩展继续单独排期。
+完成阶段 18-27 后，Ramag 已在管理模式和二次确认下写入明确 Topic，并展示 Broker 返回的 Partition、Offset 和 Timestamp；`KAFKA-023` 已完成三个消息定位切片，Schema Registry 已支持 Subject、版本和有界 Schema 内容只读浏览，Broker 运行指标已通过静态 fixture 和受 Basic Auth 保护的真实 Kafka JMX Exporter 本机链路复核。下一项继续完善 AKHQ/Offset Explorer 功能矩阵；批量导入和消息生产之外的高风险扩展继续单独排期。

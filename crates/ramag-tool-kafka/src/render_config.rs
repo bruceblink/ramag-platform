@@ -232,6 +232,46 @@ impl KafkaView {
                     )
                     .child(
                         v_flex()
+                            .id("kafka-broker-metrics-auth")
+                            .debug_selector(|| "kafka-broker-metrics-auth".into())
+                            .w_full()
+                            .min_w_0()
+                            .gap(px(10.0))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child("Broker 运行指标认证（可选，Basic Auth）"),
+                            )
+                            .child(
+                                h_flex()
+                                    .w_full()
+                                    .gap(px(12.0))
+                                    .when(compact, |row| row.flex_col().items_stretch())
+                                    .child(
+                                        flexible_field(
+                                            "用户名",
+                                            Input::new(&self.broker_metrics_username).small(),
+                                        )
+                                        .when(compact, |field| field.flex_initial().w_full())
+                                        .debug_selector(|| {
+                                            "kafka-broker-metrics-username".into()
+                                        }),
+                                    )
+                                    .child(
+                                        flexible_field(
+                                            "密码",
+                                            Input::new(&self.broker_metrics_password).small(),
+                                        )
+                                        .when(compact, |field| field.flex_initial().w_full())
+                                        .debug_selector(|| {
+                                            "kafka-broker-metrics-password".into()
+                                        }),
+                                    ),
+                            ),
+                    )
+                    .child(
+                        v_flex()
                             .id("kafka-schema-registry-config")
                             .debug_selector(|| "kafka-schema-registry-config".into())
                             .w_full()

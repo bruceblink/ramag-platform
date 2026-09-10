@@ -58,6 +58,24 @@ impl KafkaView {
             cx,
         );
         set_value(
+            &self.broker_metrics_username,
+            config.broker_metrics.username.clone().unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(&self.broker_metrics_password, "", window, cx);
+        self.broker_metrics_password.update(cx, |state, cx| {
+            state.set_placeholder(
+                if config.broker_metrics.password.is_some() {
+                    "已保存密码，留空保持；输入新值可替换"
+                } else {
+                    "指标端点密码"
+                },
+                window,
+                cx,
+            );
+        });
+        set_value(
             &self.schema_registry_endpoint,
             config.schema_registry.endpoint.clone().unwrap_or_default(),
             window,
