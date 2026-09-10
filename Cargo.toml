@@ -17,6 +17,7 @@ members = [
     "crates/ramag-infra-object-storage",
     "crates/ramag-infra-update",
     "crates/ramag-infra-kafka",
+    "crates/ramag-infra-mqtt",
     "crates/ramag-terminal",
     "crates/ramag-tool-dbclient",
     "crates/ramag-tool-kafka",
@@ -57,6 +58,7 @@ ramag-infra-ssh = { path = "crates/ramag-infra-ssh" }
 ramag-infra-object-storage = { path = "crates/ramag-infra-object-storage" }
 ramag-infra-update = { path = "crates/ramag-infra-update" }
 ramag-infra-kafka = { path = "crates/ramag-infra-kafka" }
+ramag-infra-mqtt = { path = "crates/ramag-infra-mqtt" }
 ramag-terminal = { path = "crates/ramag-terminal" }
 ramag-tool-dbclient = { path = "crates/ramag-tool-dbclient" }
 ramag-tool-kafka = { path = "crates/ramag-tool-kafka" }
@@ -234,6 +236,11 @@ dashmap = "6"
 
 # Kafka 客户端；具体 crate 通过显式 feature 选择 librdkafka 的构建方式。
 rdkafka = { version = "0.39", default-features = false }
+
+# MQTT 客户端；基础设施 crate 默认不拉入 native 依赖，由应用组合根显式启用。
+rumqttc = { version = "0.25.1", default-features = false, features = [
+    "use-rustls-no-provider",
+] }
 
 # 凭证加密
 aes-gcm = "0.10"

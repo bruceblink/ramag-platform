@@ -115,6 +115,9 @@ impl MqttTlsConfig {
         validate_optional_path("CA 证书路径", self.ca_cert_path.as_deref())?;
         validate_optional_path("客户端证书路径", self.client_cert_path.as_deref())?;
         validate_optional_path("客户端密钥路径", self.client_key_path.as_deref())?;
+        if self.client_cert_path.is_some() != self.client_key_path.is_some() {
+            return Err("客户端证书和客户端密钥必须同时配置".into());
+        }
         Ok(())
     }
 
@@ -299,6 +302,14 @@ impl MqttProfile {
         validate_required_host(&self.host)?;
         if self.port == 0 {
             return Err("MQTT 端口必须是 1 - 65535".into());
+        }
+        if self.keep_alive_seconds != 0 && self.keep_alive_seconds < 5 {
+            return Err("MQTT Keep Alive 必须为 0 或至少 5 秒".into());
+        }
+        if self.protocol_version == MqttProtocolVersion::V311
+            && self.session_expiry_seconds.is_some()
+        {
+            return Err("MQTT 3.1.1 不能设置 MQTT 5 会话过期时间".into());
         }
         validate_optional_single_line(
             "Client ID",
@@ -760,6 +771,15 @@ mod tests {
 
         profile.password = None;
         profile.tls.ca_cert_path = Some("ca.pem".into());
+        assert!(profile.validate().is_err());
+
+        profile.transport = MqttTransport::Tls;
+        profile.tls.ca_cert_path = None;
+        profile.tls.client_cert_path = Some("client.pem".into());
+        assert!(profile.validate().is_err());
+
+        profile.tls.client_key_path = Some("client.key".into());
+        profile.keep_alive_seconds = 1;
         assert!(profile.validate().is_err());
     }
 

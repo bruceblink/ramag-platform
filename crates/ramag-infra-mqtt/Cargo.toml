@@ -1,0 +1,24 @@
+[package]
+name = "ramag-infra-mqtt"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Ramag MQTT Native 驱动适配器"
+
+[lints]
+workspace = true
+
+[features]
+default = []
+native = ["dep:rumqttc"]
+
+[dependencies]
+async-trait = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true }
+ramag-domain = { workspace = true }
+rumqttc = { workspace = true, optional = true }
+smol = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
