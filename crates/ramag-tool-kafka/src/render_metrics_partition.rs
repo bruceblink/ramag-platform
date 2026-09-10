@@ -46,6 +46,7 @@ pub(super) fn partition_health_status(partition: &KafkaPartitionMetrics) -> Part
 pub(super) fn render_partition_health(
     snapshot: &KafkaMetricsSnapshot,
     theme: &gpui_component::Theme,
+    cx: &mut Context<KafkaView>,
 ) -> gpui::AnyElement {
     let partitions = snapshot
         .topics
@@ -65,7 +66,7 @@ pub(super) fn render_partition_health(
         .border_color(theme.border)
         .rounded(px(6.0));
     let mut visible = 0;
-    for partition in partitions {
+    for (row_index, partition) in partitions.enumerate() {
         visible += 1;
         let status = partition_health_status(partition);
         let status_color = match status {
@@ -74,6 +75,9 @@ pub(super) fn render_partition_health(
             PartitionHealthStatus::Offline => theme.danger,
             PartitionHealthStatus::Unknown => theme.muted_foreground,
         };
+        let selector = format!("kafka-metrics-partition-browse-{row_index}");
+        let topic_name = partition.topic.clone();
+        let partition_id = partition.partition;
         rows = rows.child(
             h_flex()
                 .w_full()
@@ -113,6 +117,22 @@ pub(super) fn render_partition_health(
                         .text_color(status_color)
                         .truncate()
                         .child(status.label()),
+                )
+                .child(
+                    ramag_ui::clickable_button(SharedString::from(selector.clone()))
+                        .debug_selector(move || selector.clone())
+                        .ghost()
+                        .xsmall()
+                        .icon(IconName::Search)
+                        .label("浏览消息")
+                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                            this.open_partition_messages(
+                                topic_name.clone(),
+                                partition_id,
+                                window,
+                                cx,
+                            );
+                        })),
                 ),
         );
     }

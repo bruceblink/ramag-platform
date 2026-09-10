@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 use async_trait::async_trait;
 use chrono::{TimeZone, Utc};
@@ -38,6 +41,26 @@ impl KafkaDriver for MetricsKafkaDriver {
 
     async fn test_connection(&self, _config: &KafkaClusterConfig) -> Result<()> {
         Ok(())
+    }
+}
+
+struct MetricsBrowseKafkaDriver {
+    read_calls: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl KafkaDriver for MetricsBrowseKafkaDriver {
+    async fn test_connection(&self, _config: &KafkaClusterConfig) -> Result<()> {
+        Ok(())
+    }
+
+    async fn read_messages(
+        &self,
+        _config: &KafkaClusterConfig,
+        _query: &KafkaMessageQuery,
+    ) -> Result<KafkaMessagePage> {
+        self.read_calls.fetch_add(1, Ordering::Relaxed);
+        Ok(KafkaMessagePage::empty())
     }
 }
 
@@ -335,4 +358,93 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
             );
         }
     }
+}
+
+#[gpui::test]
+fn kafka_metrics_partition_browse_preserves_message_context(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let cluster = KafkaClusterConfig::new("Metrics 定位 Kafka", vec!["127.0.0.1:19092".into()]);
+    let read_calls = Arc::new(AtomicUsize::new(0));
+    let service = Arc::new(
+        KafkaService::new(
+            Arc::new(MetricsBrowseKafkaDriver {
+                read_calls: read_calls.clone(),
+            }),
+            Arc::new(FakeStorage {
+                cluster: cluster.clone(),
+            }),
+        )
+        .with_monitoring_driver(Arc::new(MetricsMonitoringDriver {
+            snapshot: snapshot(),
+        })),
+    );
+    let mut kafka_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
+        kafka_entity = Some(kafka.clone());
+        let host = cx.new(|_| KafkaMetricsTestHost { view: kafka });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let Some(kafka_entity) = kafka_entity else {
+        return;
+    };
+
+    kafka_entity.update(visual_cx, |view, cx| {
+        view.clusters = vec![cluster.clone()];
+        view.selected_cluster_id = Some(cluster.id.clone());
+        view.metadata = Some(KafkaClusterMetadata {
+            cluster_id: Some("metrics-cluster".into()),
+            controller_id: Some(1),
+            brokers: vec![KafkaBroker {
+                id: 1,
+                host: "127.0.0.1".into(),
+                port: 19092,
+                rack: None,
+                version: Some("4.0.0".into()),
+                is_controller: true,
+            }],
+            kafka_version: Some("4.0.0".into()),
+        });
+        view.loading_clusters = false;
+        view.loading_runtime = false;
+        view.section = KafkaSection::Overview;
+        view.metrics_snapshot = Some(snapshot());
+        view.message_page = Some(KafkaMessagePage::empty());
+        view.selected_message = Some(0);
+        view.loading_messages = true;
+        cx.notify();
+    });
+    for width in [360.0, 900.0, 1200.0] {
+        visual_cx.simulate_resize(size(px(width), px(900.0)));
+        visual_cx.run_until_parked();
+        assert!(
+            visual_cx
+                .debug_bounds("kafka-metrics-partition-browse-0")
+                .is_some(),
+            "Partition 健康行应提供消息定位入口: width={width}"
+        );
+        super::assert_within_width(visual_cx, "kafka-metrics-partition-browse-0", width);
+    }
+    click(visual_cx, "kafka-metrics-partition-browse-0");
+    visual_cx.run_until_parked();
+
+    let state = kafka_entity.read_with(visual_cx, |view, cx| {
+        (
+            view.section,
+            view.topic_input.read(cx).value().to_string(),
+            view.produce_topic_input.read(cx).value().to_string(),
+            view.partition_input.read(cx).value().to_string(),
+            view.message_page.is_none(),
+            view.selected_message.is_none(),
+            !view.loading_messages,
+        )
+    });
+    assert_eq!(state.0, KafkaSection::Messages);
+    assert_eq!(state.1, "metrics.events");
+    assert_eq!(state.2, "metrics.events");
+    assert_eq!(state.3, "0");
+    assert!(state.4, "指标定位应清理旧消息页");
+    assert!(state.5, "指标定位应清理旧消息选择");
+    assert!(state.6, "指标定位不应自动启动消息读取");
+    assert_eq!(read_calls.load(Ordering::Relaxed), 0);
 }

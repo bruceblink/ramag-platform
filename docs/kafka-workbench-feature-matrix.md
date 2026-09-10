@@ -53,7 +53,7 @@
 
 1. 已完成：Topic 详情的 Partition 到消息页定位，提交 `d9915ec`。
 2. 已完成：消费者组已提交 Offset 到消息页定位；起始 Offset 保留，用户显式点击“读取”后才访问 Broker。
-3. 待排期：根据矩阵继续补齐跨视图导航和功能/UI 对齐；每项独立测试、提交和推送。
+3. 已完成：概览页 Partition 健康到消息页定位；headless 测试在 360/900/1200 宽度下确认入口布局，只更新 Topic、Partition 和消息查询上下文，不自动读取或提交 Offset；真实窗口证据仍待补充。
 
 ## 阶段 23 下一切片设计：本机 OpenMetrics HTTP Fixture
 

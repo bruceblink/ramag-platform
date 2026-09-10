@@ -1,13 +1,13 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流和阶段 26 ksqlDB 只读查询已完成领域、应用、基础设施、GPUI headless 验收及本机 Docker 复核；阶段 23 的本机 OpenMetrics HTTP fixture 已验证，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充
+> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流和阶段 26 ksqlDB 只读查询已完成领域、应用、基础设施、GPUI headless 验收及本机 Docker 复核；`KAFKA-023` 三个跨视图消息定位切片已完成；阶段 23 的本机 OpenMetrics HTTP fixture 已验证，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充
 > 更新日期：2026-09-11
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
 > 功能矩阵：[`kafka-workbench-feature-matrix.md`](kafka-workbench-feature-matrix.md)
 > 当前基线：`dev`（阶段 18-26 的高规模列表、快照边界、单条消息生产和 ksqlDB 查询切片已同步，明文 KRaft/ksqlDB Docker 回读和 OpenMetrics HTTP fixture 已复核；写请求不主动取消，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
-> 当前主线：阶段 25 单条消息生产、阶段 26 ksqlDB 只读查询和 `KAFKA-023` 两个消息定位切片已完成，下一项继续建立并推进 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前主线：阶段 25 单条消息生产、阶段 26 ksqlDB 只读查询和 `KAFKA-023` 三个消息定位切片已完成，下一项继续完善 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -511,6 +511,19 @@ Kafka 工作台必须满足统一跨平台构建目标：
 `KAFKA-023` 首个切片实施记录（2026-09-11）：Topic 详情的每个 Partition 现在提供“浏览此 Partition”入口；点击后切换到消息页，保留目标 Topic 和 Partition，清理旧消息分页、详情选择和实时 Tail，但不自动调用 Kafka Driver。`kafka_topic_partition_browse_preserves_message_context` 与现有 Topic 响应式测试通过。
 
 `KAFKA-023` 第二个切片实施记录（2026-09-11）：消费者组详情的有效已提交 Offset 提供“浏览”入口；点击后保留 Topic、Partition 和起始 Offset，清空结束 Offset并切换 Offset 模式，清理旧消息状态且不自动读取。`kafka_consumer_group_offset_browse_preserves_message_context` 与现有消费者组响应式测试通过；真实 Windows 窗口截图和鼠标操作仍待补充。
+
+#### 6.1.3 `KAFKA-023` 第三个切片设计：Partition 健康到消息定位
+
+概览页的 Partition 健康行提供“浏览消息”入口，把当前快照中的 Topic 和 Partition 带入消息浏览页。该入口只复用已有的 `KafkaView::open_partition_messages` 上下文切换，不重新读取指标、不自动读取消息、不提交 Consumer Group Offset，也不改变 Kafka 服务端状态。
+
+| 触发 | UI 状态变化 | 不执行的动作 |
+|---|---|---|
+| 用户点击概览页 Partition 健康行的“浏览消息” | 切换到消息页；写入当前 Topic 和 Partition；清理旧消息分页、详情选择和实时 Tail | 不调用消息读取 Driver；不刷新指标；不提交 Consumer Group Offset |
+| 快照中的 Partition ID 无效 | 保留当前页面并显示有界错误提示 | 不写入不完整查询上下文；不启动后台任务 |
+
+实现边界固定为 `ramag-tool-kafka`：指标渲染器只传递快照中的已验证 Topic/Partition，消息模块继续负责代次失效、输入更新和页面切换。测试覆盖点击入口后上下文、旧消息状态清理和“不自动读取”条件；窗口布局继续沿用现有 360/900/1200 宽度检查，真实 Windows 窗口证据单独记录。
+
+`KAFKA-023` 第三个切片实施记录（2026-09-11）：概览页 Partition 健康行新增“浏览消息”入口；`kafka_metrics_partition_browse_preserves_message_context` 在 360/900/1200 宽度下验证入口布局、Topic/Partition 上下文、旧消息状态清理和未调用消息读取 Driver。真实 Windows 窗口截图和鼠标操作仍待补充。
 
 后续独立路线：
 

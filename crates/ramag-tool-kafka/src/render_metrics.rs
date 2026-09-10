@@ -143,7 +143,7 @@ impl KafkaView {
             self.render_metrics_loading_body(&theme, compact)
         } else {
             match self.metrics_snapshot.as_ref() {
-                Some(snapshot) => self.render_metrics_snapshot_body(snapshot, &theme),
+                Some(snapshot) => self.render_metrics_snapshot_body(snapshot, &theme, cx),
                 None => v_flex()
                     .id("kafka-metrics-empty")
                     .debug_selector(|| "kafka-metrics-empty".into())
@@ -280,6 +280,7 @@ impl KafkaView {
         &self,
         snapshot: &KafkaMetricsSnapshot,
         theme: &gpui_component::Theme,
+        cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let cluster = &snapshot.cluster;
         let summary = h_flex()
@@ -445,7 +446,7 @@ impl KafkaView {
             rows.into_any_element()
         };
 
-        let partition_rows = render_partition_health(snapshot, theme);
+        let partition_rows = render_partition_health(snapshot, theme, cx);
 
         v_flex()
             .w_full()
