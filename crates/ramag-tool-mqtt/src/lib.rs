@@ -28,10 +28,13 @@ use gpui_component::{
 use ramag_app::MqttService;
 use ramag_domain::{
     entities::{
-        MosquittoDynamicSecuritySnapshot, MqttBrokerSnapshot, MqttMessage, MqttMessageSinkResult,
-        MqttProfile, MqttProfileId, MqttProtocolVersion, MqttPublishRequest, MqttQos,
-        MqttSubscribeRequest, MqttSubscription, MqttTlsConfig, MqttTransport as TransportKind,
-        MqttTransportCapabilities,
+        MosquittoAcl, MosquittoAclDecision, MosquittoAclType, MosquittoClient,
+        MosquittoConfigTarget, MosquittoDynamicSecuritySnapshot, MosquittoGroup,
+        MosquittoGroupBinding, MosquittoRole, MosquittoRoleBinding, MosquittoStaticConfig,
+        MosquittoStaticFile, MosquittoStaticFileKind, MqttBrokerSnapshot, MqttMessage,
+        MqttMessageSinkResult, MqttProfile, MqttProfileId, MqttProtocolVersion, MqttPublishRequest,
+        MqttQos, MqttSubscribeRequest, MqttSubscription, MqttTlsConfig,
+        MqttTransport as TransportKind, MqttTransportCapabilities,
     },
     traits::{Tool, ToolMeta},
 };
@@ -44,6 +47,10 @@ const MAX_USERNAME_BYTES: usize = 1024;
 const MAX_PASSWORD_BYTES: usize = 64 * 1024;
 const MAX_PATH_BYTES: usize = 32 * 1024;
 const MAX_TOPIC_BYTES: usize = u16::MAX as usize;
+const MAX_MOSQUITTO_DESCRIPTION_BYTES: usize = 16 * 1024;
+const MAX_MOSQUITTO_BINDINGS_BYTES: usize = 16 * 1024;
+const MAX_MOSQUITTO_ACL_EDITOR_BYTES: usize = 4 * 1024 * 1024;
+const MAX_MOSQUITTO_STATIC_FILE_BYTES: usize = 4 * 1024 * 1024;
 
 /// 创建 MQTT 工具主视图。
 pub fn create_mqtt_view(
@@ -69,7 +76,7 @@ impl MqttTool {
                 "MQTT",
                 "连接 Broker、发布订阅消息并管理 Mosquitto",
             )
-            .with_icon("radio"),
+            .with_icon("mqtt"),
         }
     }
 }
@@ -115,6 +122,27 @@ impl MqttSection {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MosquittoManagementSection {
+    Clients,
+    Groups,
+    Roles,
+    StaticFiles,
+}
+
+impl MosquittoManagementSection {
+    const ALL: [Self; 4] = [Self::Clients, Self::Groups, Self::Roles, Self::StaticFiles];
+
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Clients => "用户",
+            Self::Groups => "组",
+            Self::Roles => "角色与 ACL",
+            Self::StaticFiles => "静态文件",
+        }
+    }
+}
+
 /// MQTT 页面状态；列表和消息只在对应服务请求成功后写入。
 pub struct MqttView {
     service: Arc<MqttService>,
@@ -127,6 +155,10 @@ pub struct MqttView {
     client_id: Entity<InputState>,
     username: Entity<InputState>,
     password: Entity<InputState>,
+    management_admin_username: Entity<InputState>,
+    management_admin_password: Entity<InputState>,
+    password_file_path: Entity<InputState>,
+    acl_file_path: Entity<InputState>,
     ca_cert_path: Entity<InputState>,
     client_cert_path: Entity<InputState>,
     client_key_path: Entity<InputState>,
@@ -135,6 +167,24 @@ pub struct MqttView {
     publish_payload: Entity<InputState>,
     subscribe_filter: Entity<InputState>,
     search: Entity<InputState>,
+    client_username: Entity<InputState>,
+    client_id_editor: Entity<InputState>,
+    client_password: Entity<InputState>,
+    client_text_name: Entity<InputState>,
+    client_text_description: Entity<InputState>,
+    client_groups: Entity<InputState>,
+    client_roles: Entity<InputState>,
+    client_disabled: bool,
+    group_name_editor: Entity<InputState>,
+    group_text_name: Entity<InputState>,
+    group_text_description: Entity<InputState>,
+    group_roles: Entity<InputState>,
+    role_name_editor: Entity<InputState>,
+    role_text_name: Entity<InputState>,
+    role_text_description: Entity<InputState>,
+    role_acls: Entity<InputState>,
+    role_allow_wildcards: bool,
+    static_content: Entity<InputState>,
     transport: TransportKind,
     protocol: MqttProtocolVersion,
     clean_start: bool,
@@ -146,8 +196,18 @@ pub struct MqttView {
     publishing: bool,
     loading_snapshot: bool,
     loading_management: bool,
+    saving_management: bool,
+    deleting_management: bool,
+    loading_static_file: bool,
+    saving_static_file: bool,
     snapshot: Option<MqttBrokerSnapshot>,
     management_snapshot: Option<MosquittoDynamicSecuritySnapshot>,
+    management_section: MosquittoManagementSection,
+    selected_client_username: Option<String>,
+    selected_group_name: Option<String>,
+    selected_role_name: Option<String>,
+    static_file_kind: MosquittoStaticFileKind,
+    static_file: Option<MosquittoStaticFile>,
     messages: VecDeque<MqttMessage>,
     subscription_running: bool,
     subscription_cancelled: Option<Arc<AtomicBool>>,
@@ -158,6 +218,7 @@ pub struct MqttView {
     notice: Option<(String, bool)>,
     snapshot_error: Option<String>,
     management_error: Option<String>,
+    management_operation_id: u64,
     focus_handle: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -205,6 +266,25 @@ impl MqttView {
             true,
             "",
         );
+        let management_admin_username = input(
+            window,
+            cx,
+            MAX_USERNAME_BYTES,
+            "管理用户名（可选）",
+            false,
+            "",
+        );
+        let management_admin_password =
+            input(window, cx, MAX_PASSWORD_BYTES, "管理密码（可选）", true, "");
+        let password_file_path = input(
+            window,
+            cx,
+            MAX_PATH_BYTES,
+            "password_file 绝对路径",
+            false,
+            "",
+        );
+        let acl_file_path = input(window, cx, MAX_PATH_BYTES, "acl_file 绝对路径", false, "");
         let ca_cert_path = input(window, cx, MAX_PATH_BYTES, "CA 证书路径（可选）", false, "");
         let client_cert_path = input(
             window,
@@ -234,6 +314,92 @@ impl MqttView {
             "",
         );
         let search = input(window, cx, MAX_PROFILE_NAME_BYTES, "筛选配置…", false, "");
+        let client_username = input(window, cx, MAX_USERNAME_BYTES, "用户名", false, "");
+        let client_id_editor = input(
+            window,
+            cx,
+            MAX_CLIENT_ID_BYTES,
+            "Client ID（可选）",
+            false,
+            "",
+        );
+        let client_password = input(
+            window,
+            cx,
+            MAX_PASSWORD_BYTES,
+            "新密码（留空不修改）",
+            true,
+            "",
+        );
+        let client_text_name = input(window, cx, MAX_PROFILE_NAME_BYTES, "显示名称", false, "");
+        let client_text_description = input(
+            window,
+            cx,
+            MAX_MOSQUITTO_DESCRIPTION_BYTES,
+            "描述",
+            false,
+            "",
+        );
+        let client_groups = input(
+            window,
+            cx,
+            MAX_MOSQUITTO_BINDINGS_BYTES,
+            "Group 名称，逗号分隔",
+            false,
+            "",
+        );
+        let client_roles = input(
+            window,
+            cx,
+            MAX_MOSQUITTO_BINDINGS_BYTES,
+            "Role 名称，逗号分隔",
+            false,
+            "",
+        );
+        let group_name_editor = input(window, cx, MAX_PROFILE_NAME_BYTES, "Group 名称", false, "");
+        let group_text_name = input(window, cx, MAX_PROFILE_NAME_BYTES, "显示名称", false, "");
+        let group_text_description = input(
+            window,
+            cx,
+            MAX_MOSQUITTO_DESCRIPTION_BYTES,
+            "描述",
+            false,
+            "",
+        );
+        let group_roles = input(
+            window,
+            cx,
+            MAX_MOSQUITTO_BINDINGS_BYTES,
+            "Role 名称，逗号分隔",
+            false,
+            "",
+        );
+        let role_name_editor = input(window, cx, MAX_PROFILE_NAME_BYTES, "Role 名称", false, "");
+        let role_text_name = input(window, cx, MAX_PROFILE_NAME_BYTES, "显示名称", false, "");
+        let role_text_description = input(
+            window,
+            cx,
+            MAX_MOSQUITTO_DESCRIPTION_BYTES,
+            "描述",
+            false,
+            "",
+        );
+        let role_acls = input(
+            window,
+            cx,
+            MAX_MOSQUITTO_ACL_EDITOR_BYTES,
+            "ACL 编辑器",
+            false,
+            "",
+        );
+        let static_content = input(
+            window,
+            cx,
+            MAX_MOSQUITTO_STATIC_FILE_BYTES,
+            "静态文件内容",
+            false,
+            "",
+        );
 
         let fields = [
             &name,
@@ -242,6 +408,10 @@ impl MqttView {
             &client_id,
             &username,
             &password,
+            &management_admin_username,
+            &management_admin_password,
+            &password_file_path,
+            &acl_file_path,
             &ca_cert_path,
             &client_cert_path,
             &client_key_path,
@@ -250,6 +420,22 @@ impl MqttView {
             &publish_payload,
             &subscribe_filter,
             &search,
+            &client_username,
+            &client_id_editor,
+            &client_password,
+            &client_text_name,
+            &client_text_description,
+            &client_groups,
+            &client_roles,
+            &group_name_editor,
+            &group_text_name,
+            &group_text_description,
+            &group_roles,
+            &role_name_editor,
+            &role_text_name,
+            &role_text_description,
+            &role_acls,
+            &static_content,
         ];
         let mut subscriptions = Vec::with_capacity(fields.len());
         for field in fields {
@@ -272,6 +458,10 @@ impl MqttView {
             client_id,
             username,
             password,
+            management_admin_username,
+            management_admin_password,
+            password_file_path,
+            acl_file_path,
             ca_cert_path,
             client_cert_path,
             client_key_path,
@@ -280,6 +470,24 @@ impl MqttView {
             publish_payload,
             subscribe_filter,
             search,
+            client_username,
+            client_id_editor,
+            client_password,
+            client_text_name,
+            client_text_description,
+            client_groups,
+            client_roles,
+            client_disabled: false,
+            group_name_editor,
+            group_text_name,
+            group_text_description,
+            group_roles,
+            role_name_editor,
+            role_text_name,
+            role_text_description,
+            role_acls,
+            role_allow_wildcards: false,
+            static_content,
             transport: TransportKind::Tcp,
             protocol: MqttProtocolVersion::V5,
             clean_start: true,
@@ -291,8 +499,18 @@ impl MqttView {
             publishing: false,
             loading_snapshot: false,
             loading_management: false,
+            saving_management: false,
+            deleting_management: false,
+            loading_static_file: false,
+            saving_static_file: false,
             snapshot: None,
             management_snapshot: None,
+            management_section: MosquittoManagementSection::Clients,
+            selected_client_username: None,
+            selected_group_name: None,
+            selected_role_name: None,
+            static_file_kind: MosquittoStaticFileKind::Password,
+            static_file: None,
             messages: VecDeque::new(),
             subscription_running: false,
             subscription_cancelled: None,
@@ -303,6 +521,7 @@ impl MqttView {
             notice: None,
             snapshot_error: None,
             management_error: None,
+            management_operation_id: 0,
             focus_handle: cx.focus_handle(),
             _subscriptions: subscriptions,
         };
@@ -378,6 +597,10 @@ impl MqttView {
             &self.client_id,
             &self.username,
             &self.password,
+            &self.management_admin_username,
+            &self.management_admin_password,
+            &self.password_file_path,
+            &self.acl_file_path,
             &self.ca_cert_path,
             &self.client_cert_path,
             &self.client_key_path,
@@ -389,10 +612,40 @@ impl MqttView {
         }
         set_value(&self.port, "1883", window, cx);
         set_value(&self.keep_alive, "60", window, cx);
+        for field in [
+            &self.client_username,
+            &self.client_id_editor,
+            &self.client_password,
+            &self.client_text_name,
+            &self.client_text_description,
+            &self.client_groups,
+            &self.client_roles,
+            &self.group_name_editor,
+            &self.group_text_name,
+            &self.group_text_description,
+            &self.group_roles,
+            &self.role_name_editor,
+            &self.role_text_name,
+            &self.role_text_description,
+            &self.role_acls,
+            &self.static_content,
+        ] {
+            set_value(field, "", window, cx);
+        }
+        self.management_section = MosquittoManagementSection::Clients;
+        self.selected_client_username = None;
+        self.selected_group_name = None;
+        self.selected_role_name = None;
+        self.client_disabled = false;
+        self.role_allow_wildcards = false;
+        self.static_file_kind = MosquittoStaticFileKind::Password;
+        self.static_file = None;
         self.password.update(cx, |state, cx| {
             state.set_placeholder("密码（可选）", window, cx);
         });
         self.clear_runtime_state();
+        self.client_disabled = false;
+        self.role_allow_wildcards = false;
         self.notice = None;
     }
 
@@ -423,6 +676,39 @@ impl MqttView {
             cx,
         );
         set_value(&self.password, "", window, cx);
+        set_value(
+            &self.management_admin_username,
+            profile
+                .management
+                .admin_username
+                .clone()
+                .unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(&self.management_admin_password, "", window, cx);
+        set_value(
+            &self.password_file_path,
+            profile
+                .management
+                .static_config
+                .as_ref()
+                .and_then(|config| config.password_file.clone())
+                .unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(
+            &self.acl_file_path,
+            profile
+                .management
+                .static_config
+                .as_ref()
+                .and_then(|config| config.acl_file.clone())
+                .unwrap_or_default(),
+            window,
+            cx,
+        );
         set_value(
             &self.ca_cert_path,
             profile.tls.ca_cert_path.clone().unwrap_or_default(),
@@ -470,6 +756,10 @@ impl MqttView {
         self.management_snapshot = None;
         self.snapshot_error = None;
         self.management_error = None;
+        self.selected_client_username = None;
+        self.selected_group_name = None;
+        self.selected_role_name = None;
+        self.static_file = None;
         self.messages.clear();
     }
 
@@ -528,6 +818,28 @@ impl MqttView {
         profile.management.enabled = self.management_enabled;
         if !self.management_enabled {
             profile.management = Default::default();
+        } else {
+            if let Some(username) = optional_value(&self.management_admin_username, cx) {
+                profile.management.admin_username = Some(username);
+            }
+            if let Some(password) = optional_value(&self.management_admin_password, cx) {
+                profile.management.admin_password = Some(password);
+            }
+            let password_file = optional_value(&self.password_file_path, cx);
+            let acl_file = optional_value(&self.acl_file_path, cx);
+            profile.management.static_config = match (password_file, acl_file) {
+                (None, None) => None,
+                (password_file, acl_file) => Some(MosquittoStaticConfig {
+                    target: profile
+                        .management
+                        .static_config
+                        .as_ref()
+                        .map(|config| config.target.clone())
+                        .unwrap_or(MosquittoConfigTarget::Local),
+                    password_file,
+                    acl_file,
+                }),
+            };
         }
         profile.validate()?;
         Ok(profile)
@@ -630,7 +942,7 @@ impl MqttView {
         self.notice = Some(("正在连接 MQTT Broker…".into(), false));
         cx.spawn_in(window, async move |this, cx| {
             let result = service.test_connection(&profile).await;
-            let _ = this.update_in(cx, |this, _, cx| {
+            let _ = this.update(cx, |this, cx| {
                 this.testing = false;
                 this.notice = Some(match result {
                     Ok(()) => ("MQTT 连接测试成功".into(), false),
@@ -813,18 +1125,23 @@ impl MqttView {
         self.subscription_running = false;
     }
 
-    fn load_management(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn load_management(&mut self, cx: &mut Context<Self>) {
         let Some(profile) = self.selected_profile().cloned() else {
             self.notice = Some(("请先保存并选择已启用 Mosquitto 管理的配置".into(), true));
             cx.notify();
             return;
         };
+        self.management_operation_id = self.management_operation_id.wrapping_add(1);
+        let operation_id = self.management_operation_id;
         self.loading_management = true;
         self.management_error = None;
         let service = self.service.clone();
-        cx.spawn_in(window, async move |this, cx| {
+        cx.spawn(async move |this, cx| {
             let result = service.dynamic_security_snapshot(&profile).await;
-            let _ = this.update_in(cx, |this, _, cx| {
+            let _ = this.update(cx, |this, cx| {
+                if this.management_operation_id != operation_id {
+                    return;
+                }
                 this.loading_management = false;
                 match result {
                     Ok(snapshot) => {
@@ -841,6 +1158,678 @@ impl MqttView {
             });
         })
         .detach();
+    }
+
+    fn select_management_section(
+        &mut self,
+        section: MosquittoManagementSection,
+        cx: &mut Context<Self>,
+    ) {
+        self.management_section = section;
+        cx.notify();
+    }
+
+    fn select_client(&mut self, username: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(client) = self
+            .management_snapshot
+            .as_ref()
+            .and_then(|snapshot| {
+                snapshot
+                    .clients
+                    .iter()
+                    .find(|client| client.username == username)
+            })
+            .cloned()
+        else {
+            return;
+        };
+        self.management_section = MosquittoManagementSection::Clients;
+        self.selected_client_username = Some(client.username.clone());
+        set_value(&self.client_username, client.username, window, cx);
+        set_value(
+            &self.client_id_editor,
+            client.client_id.unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(&self.client_password, "", window, cx);
+        set_value(
+            &self.client_text_name,
+            client.text_name.unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(
+            &self.client_text_description,
+            client.text_description.unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(
+            &self.client_groups,
+            join_group_bindings(&client.groups),
+            window,
+            cx,
+        );
+        set_value(
+            &self.client_roles,
+            join_role_bindings(&client.roles),
+            window,
+            cx,
+        );
+        self.client_disabled = client.disabled;
+        cx.notify();
+    }
+
+    fn select_group(&mut self, group_name: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(group) = self
+            .management_snapshot
+            .as_ref()
+            .and_then(|snapshot| {
+                snapshot
+                    .groups
+                    .iter()
+                    .find(|group| group.group_name == group_name)
+            })
+            .cloned()
+        else {
+            return;
+        };
+        self.management_section = MosquittoManagementSection::Groups;
+        self.selected_group_name = Some(group.group_name.clone());
+        set_value(&self.group_name_editor, group.group_name, window, cx);
+        set_value(
+            &self.group_text_name,
+            group.text_name.unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(
+            &self.group_text_description,
+            group.text_description.unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(
+            &self.group_roles,
+            join_role_bindings(&group.roles),
+            window,
+            cx,
+        );
+        cx.notify();
+    }
+
+    fn select_role(&mut self, role_name: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(role) = self
+            .management_snapshot
+            .as_ref()
+            .and_then(|snapshot| {
+                snapshot
+                    .roles
+                    .iter()
+                    .find(|role| role.role_name == role_name)
+            })
+            .cloned()
+        else {
+            return;
+        };
+        self.management_section = MosquittoManagementSection::Roles;
+        self.selected_role_name = Some(role.role_name.clone());
+        set_value(&self.role_name_editor, role.role_name, window, cx);
+        set_value(
+            &self.role_text_name,
+            role.text_name.unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(
+            &self.role_text_description,
+            role.text_description.unwrap_or_default(),
+            window,
+            cx,
+        );
+        set_value(&self.role_acls, serialize_acls(&role.acls), window, cx);
+        self.role_allow_wildcards = role.allow_wildcards_subscriptions;
+        cx.notify();
+    }
+
+    fn client_from_editor(&self, cx: &App) -> std::result::Result<MosquittoClient, String> {
+        let client = MosquittoClient {
+            username: value(&self.client_username, cx),
+            client_id: optional_value(&self.client_id_editor, cx),
+            password_configured: self
+                .selected_client_username
+                .as_ref()
+                .and_then(|username| {
+                    self.management_snapshot.as_ref().and_then(|snapshot| {
+                        snapshot
+                            .clients
+                            .iter()
+                            .find(|client| &client.username == username)
+                            .map(|client| client.password_configured)
+                    })
+                })
+                .unwrap_or(false),
+            password: optional_value(&self.client_password, cx),
+            disabled: self.client_disabled,
+            text_name: optional_value(&self.client_text_name, cx),
+            text_description: optional_value(&self.client_text_description, cx),
+            groups: parse_group_bindings(&value(&self.client_groups, cx))?,
+            roles: parse_role_bindings(&value(&self.client_roles, cx))?,
+        };
+        client.validate()?;
+        Ok(client)
+    }
+
+    fn group_from_editor(&self, cx: &App) -> std::result::Result<MosquittoGroup, String> {
+        let group = MosquittoGroup {
+            group_name: value(&self.group_name_editor, cx),
+            text_name: optional_value(&self.group_text_name, cx),
+            text_description: optional_value(&self.group_text_description, cx),
+            roles: parse_role_bindings(&value(&self.group_roles, cx))?,
+        };
+        group.validate()?;
+        Ok(group)
+    }
+
+    fn role_from_editor(&self, cx: &App) -> std::result::Result<MosquittoRole, String> {
+        let role = MosquittoRole {
+            role_name: value(&self.role_name_editor, cx),
+            text_name: optional_value(&self.role_text_name, cx),
+            text_description: optional_value(&self.role_text_description, cx),
+            allow_wildcards_subscriptions: self.role_allow_wildcards,
+            acls: parse_acls(&value(&self.role_acls, cx))?,
+        };
+        role.validate()?;
+        Ok(role)
+    }
+
+    fn save_client(&mut self, cx: &mut Context<Self>) {
+        let Some(profile) = self.selected_profile().cloned() else {
+            self.notice = Some(("请先保存并选择 MQTT 配置".into(), true));
+            cx.notify();
+            return;
+        };
+        let client = match self.client_from_editor(cx) {
+            Ok(client) => client,
+            Err(error) => {
+                self.notice = Some((error, true));
+                cx.notify();
+                return;
+            }
+        };
+        let service = self.service.clone();
+        self.management_operation_id = self.management_operation_id.wrapping_add(1);
+        let operation_id = self.management_operation_id;
+        self.saving_management = true;
+        self.notice = Some(("正在保存 Mosquitto 用户…".into(), false));
+        cx.spawn(async move |this, cx| {
+            let outcome = match service.save_client(&profile, &client).await {
+                Err(error) => Err((false, error)),
+                Ok(()) => match service.dynamic_security_snapshot(&profile).await {
+                    Ok(snapshot) => Ok(snapshot),
+                    Err(error) => Err((true, error)),
+                },
+            };
+            let _ = this.update(cx, |this, cx| {
+                if this.management_operation_id != operation_id {
+                    return;
+                }
+                this.saving_management = false;
+                match outcome {
+                    Ok(snapshot) => {
+                        this.management_snapshot = Some(snapshot);
+                        this.notice = Some(("Mosquitto 用户已保存".into(), false));
+                    }
+                    Err((saved, error)) => {
+                        let message = error.user_message().to_string();
+                        this.management_error = Some(message.clone());
+                        this.notice = Some((
+                            if saved {
+                                format!("用户已保存，但刷新列表失败：{message}")
+                            } else {
+                                format!("保存用户失败：{message}")
+                            },
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn save_group(&mut self, cx: &mut Context<Self>) {
+        let Some(profile) = self.selected_profile().cloned() else {
+            self.notice = Some(("请先保存并选择 MQTT 配置".into(), true));
+            cx.notify();
+            return;
+        };
+        let group = match self.group_from_editor(cx) {
+            Ok(group) => group,
+            Err(error) => {
+                self.notice = Some((error, true));
+                cx.notify();
+                return;
+            }
+        };
+        let service = self.service.clone();
+        self.management_operation_id = self.management_operation_id.wrapping_add(1);
+        let operation_id = self.management_operation_id;
+        self.saving_management = true;
+        self.notice = Some(("正在保存 Mosquitto Group…".into(), false));
+        cx.spawn(async move |this, cx| {
+            let outcome = match service.save_group(&profile, &group).await {
+                Err(error) => Err((false, error)),
+                Ok(()) => match service.dynamic_security_snapshot(&profile).await {
+                    Ok(snapshot) => Ok(snapshot),
+                    Err(error) => Err((true, error)),
+                },
+            };
+            let _ = this.update(cx, |this, cx| {
+                if this.management_operation_id != operation_id {
+                    return;
+                }
+                this.saving_management = false;
+                match outcome {
+                    Ok(snapshot) => {
+                        this.management_snapshot = Some(snapshot);
+                        this.notice = Some(("Mosquitto Group 已保存".into(), false));
+                    }
+                    Err((saved, error)) => {
+                        let message = error.user_message().to_string();
+                        this.notice = Some((
+                            if saved {
+                                format!("Group 已保存，但刷新列表失败：{message}")
+                            } else {
+                                format!("保存 Group 失败：{message}")
+                            },
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn save_role(&mut self, cx: &mut Context<Self>) {
+        let Some(profile) = self.selected_profile().cloned() else {
+            self.notice = Some(("请先保存并选择 MQTT 配置".into(), true));
+            cx.notify();
+            return;
+        };
+        let role = match self.role_from_editor(cx) {
+            Ok(role) => role,
+            Err(error) => {
+                self.notice = Some((error, true));
+                cx.notify();
+                return;
+            }
+        };
+        let service = self.service.clone();
+        self.management_operation_id = self.management_operation_id.wrapping_add(1);
+        let operation_id = self.management_operation_id;
+        self.saving_management = true;
+        self.notice = Some(("正在保存 Mosquitto Role…".into(), false));
+        cx.spawn(async move |this, cx| {
+            let outcome = match service.save_role(&profile, &role).await {
+                Err(error) => Err((false, error)),
+                Ok(()) => match service.dynamic_security_snapshot(&profile).await {
+                    Ok(snapshot) => Ok(snapshot),
+                    Err(error) => Err((true, error)),
+                },
+            };
+            let _ = this.update(cx, |this, cx| {
+                if this.management_operation_id != operation_id {
+                    return;
+                }
+                this.saving_management = false;
+                match outcome {
+                    Ok(snapshot) => {
+                        this.management_snapshot = Some(snapshot);
+                        this.notice = Some(("Mosquitto Role 已保存".into(), false));
+                    }
+                    Err((saved, error)) => {
+                        let message = error.user_message().to_string();
+                        this.notice = Some((
+                            if saved {
+                                format!("Role 已保存，但刷新列表失败：{message}")
+                            } else {
+                                format!("保存 Role 失败：{message}")
+                            },
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn confirm_delete_client(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(username) = self.selected_client_username.clone() else {
+            self.notice = Some(("请先选择要删除的用户".into(), true));
+            cx.notify();
+            return;
+        };
+        let entity = cx.entity().clone();
+        ramag_ui::open_confirm(
+            "删除 Mosquitto 用户",
+            format!("将从 Dynamic Security 删除用户「{username}」，此操作不可撤销。"),
+            "删除用户",
+            true,
+            move |_, app| {
+                entity.update(app, |this, cx| this.delete_client(username, cx));
+            },
+            window,
+            cx,
+        );
+    }
+
+    fn delete_client(&mut self, username: String, cx: &mut Context<Self>) {
+        let Some(profile) = self.selected_profile().cloned() else {
+            return;
+        };
+        let service = self.service.clone();
+        self.management_operation_id = self.management_operation_id.wrapping_add(1);
+        let operation_id = self.management_operation_id;
+        self.deleting_management = true;
+        self.notice = Some(("正在删除 Mosquitto 用户…".into(), false));
+        cx.spawn(async move |this, cx| {
+            let outcome = match service.delete_client(&profile, &username).await {
+                Err(error) => Err((false, error)),
+                Ok(()) => match service.dynamic_security_snapshot(&profile).await {
+                    Ok(snapshot) => Ok(snapshot),
+                    Err(error) => Err((true, error)),
+                },
+            };
+            let _ = this.update(cx, |this, cx| {
+                if this.management_operation_id != operation_id {
+                    return;
+                }
+                this.deleting_management = false;
+                match outcome {
+                    Ok(snapshot) => {
+                        this.management_snapshot = Some(snapshot);
+                        this.selected_client_username = None;
+                        this.notice = Some(("Mosquitto 用户已删除".into(), false));
+                    }
+                    Err((saved, error)) => {
+                        let message = error.user_message().to_string();
+                        this.notice = Some((
+                            if saved {
+                                format!("用户已删除，但刷新列表失败：{message}")
+                            } else {
+                                format!("删除用户失败：{message}")
+                            },
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn confirm_delete_group(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(group_name) = self.selected_group_name.clone() else {
+            self.notice = Some(("请先选择要删除的 Group".into(), true));
+            cx.notify();
+            return;
+        };
+        let entity = cx.entity().clone();
+        ramag_ui::open_confirm(
+            "删除 Mosquitto Group",
+            format!("将从 Dynamic Security 删除 Group「{group_name}」，此操作不可撤销。"),
+            "删除 Group",
+            true,
+            move |_, app| {
+                entity.update(app, |this, cx| this.delete_group(group_name, cx));
+            },
+            window,
+            cx,
+        );
+    }
+
+    fn delete_group(&mut self, group_name: String, cx: &mut Context<Self>) {
+        let Some(profile) = self.selected_profile().cloned() else {
+            return;
+        };
+        let service = self.service.clone();
+        self.management_operation_id = self.management_operation_id.wrapping_add(1);
+        let operation_id = self.management_operation_id;
+        self.deleting_management = true;
+        self.notice = Some(("正在删除 Mosquitto Group…".into(), false));
+        cx.spawn(async move |this, cx| {
+            let outcome = match service.delete_group(&profile, &group_name).await {
+                Err(error) => Err((false, error)),
+                Ok(()) => match service.dynamic_security_snapshot(&profile).await {
+                    Ok(snapshot) => Ok(snapshot),
+                    Err(error) => Err((true, error)),
+                },
+            };
+            let _ = this.update(cx, |this, cx| {
+                if this.management_operation_id != operation_id {
+                    return;
+                }
+                this.deleting_management = false;
+                match outcome {
+                    Ok(snapshot) => {
+                        this.management_snapshot = Some(snapshot);
+                        this.selected_group_name = None;
+                        this.notice = Some(("Mosquitto Group 已删除".into(), false));
+                    }
+                    Err((saved, error)) => {
+                        let message = error.user_message().to_string();
+                        this.notice = Some((
+                            if saved {
+                                format!("Group 已删除，但刷新列表失败：{message}")
+                            } else {
+                                format!("删除 Group 失败：{message}")
+                            },
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn confirm_delete_role(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(role_name) = self.selected_role_name.clone() else {
+            self.notice = Some(("请先选择要删除的 Role".into(), true));
+            cx.notify();
+            return;
+        };
+        let entity = cx.entity().clone();
+        ramag_ui::open_confirm(
+            "删除 Mosquitto Role",
+            format!("将从 Dynamic Security 删除 Role「{role_name}」及其 ACL，此操作不可撤销。"),
+            "删除 Role",
+            true,
+            move |_, app| {
+                entity.update(app, |this, cx| this.delete_role(role_name, cx));
+            },
+            window,
+            cx,
+        );
+    }
+
+    fn delete_role(&mut self, role_name: String, cx: &mut Context<Self>) {
+        let Some(profile) = self.selected_profile().cloned() else {
+            return;
+        };
+        let service = self.service.clone();
+        self.management_operation_id = self.management_operation_id.wrapping_add(1);
+        let operation_id = self.management_operation_id;
+        self.deleting_management = true;
+        self.notice = Some(("正在删除 Mosquitto Role…".into(), false));
+        cx.spawn(async move |this, cx| {
+            let outcome = match service.delete_role(&profile, &role_name).await {
+                Err(error) => Err((false, error)),
+                Ok(()) => match service.dynamic_security_snapshot(&profile).await {
+                    Ok(snapshot) => Ok(snapshot),
+                    Err(error) => Err((true, error)),
+                },
+            };
+            let _ = this.update(cx, |this, cx| {
+                if this.management_operation_id != operation_id {
+                    return;
+                }
+                this.deleting_management = false;
+                match outcome {
+                    Ok(snapshot) => {
+                        this.management_snapshot = Some(snapshot);
+                        this.selected_role_name = None;
+                        this.notice = Some(("Mosquitto Role 已删除".into(), false));
+                    }
+                    Err((saved, error)) => {
+                        let message = error.user_message().to_string();
+                        this.notice = Some((
+                            if saved {
+                                format!("Role 已删除，但刷新列表失败：{message}")
+                            } else {
+                                format!("删除 Role 失败：{message}")
+                            },
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn load_static_file(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(profile) = self.selected_profile().cloned() else {
+            self.notice = Some(("请先保存并选择 MQTT 配置".into(), true));
+            cx.notify();
+            return;
+        };
+        let kind = self.static_file_kind;
+        self.loading_static_file = true;
+        self.static_file = None;
+        self.notice = Some((format!("正在读取 Mosquitto {}…", kind.label()), false));
+        let service = self.service.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let result = service.read_static_file(&profile, kind).await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                this.loading_static_file = false;
+                match result {
+                    Ok(file) => {
+                        set_value(&this.static_content, file.content.clone(), window, cx);
+                        this.static_file = Some(file);
+                        this.notice = Some(("Mosquitto 静态文件读取完成".into(), false));
+                    }
+                    Err(error) => {
+                        this.notice = Some((
+                            format!("读取 Mosquitto 静态文件失败：{}", error.user_message()),
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn save_static_file(&mut self, cx: &mut Context<Self>) {
+        let Some(profile) = self.selected_profile().cloned() else {
+            self.notice = Some(("请先保存并选择 MQTT 配置".into(), true));
+            cx.notify();
+            return;
+        };
+        let Some(mut file) = self.static_file.clone() else {
+            self.notice = Some(("请先读取要保存的 Mosquitto 静态文件".into(), true));
+            cx.notify();
+            return;
+        };
+        file.content = value(&self.static_content, cx);
+        if let Err(error) = file.validate() {
+            self.notice = Some((error, true));
+            cx.notify();
+            return;
+        }
+        let service = self.service.clone();
+        self.saving_static_file = true;
+        self.notice = Some(("正在保存 Mosquitto 静态文件…".into(), false));
+        cx.spawn(async move |this, cx| {
+            let result = service.write_static_file(&profile, &file).await;
+            let _ = this.update(cx, |this, cx| {
+                this.saving_static_file = false;
+                match result {
+                    Ok(()) => {
+                        this.static_file = Some(file);
+                        this.notice = Some((
+                            "Mosquitto 静态文件已保存；Broker 可能需要 reload 或重启才能使用新内容"
+                                .into(),
+                            false,
+                        ));
+                    }
+                    Err(error) => {
+                        this.notice = Some((
+                            format!("保存 Mosquitto 静态文件失败：{}", error.user_message()),
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn new_client(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.selected_client_username = None;
+        self.client_disabled = false;
+        for field in [
+            &self.client_username,
+            &self.client_id_editor,
+            &self.client_password,
+            &self.client_text_name,
+            &self.client_text_description,
+            &self.client_groups,
+            &self.client_roles,
+        ] {
+            set_value(field, "", window, cx);
+        }
+        cx.notify();
+    }
+
+    fn new_group(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.selected_group_name = None;
+        for field in [
+            &self.group_name_editor,
+            &self.group_text_name,
+            &self.group_text_description,
+            &self.group_roles,
+        ] {
+            set_value(field, "", window, cx);
+        }
+        cx.notify();
+    }
+
+    fn new_role(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.selected_role_name = None;
+        self.role_allow_wildcards = false;
+        for field in [
+            &self.role_name_editor,
+            &self.role_text_name,
+            &self.role_text_description,
+            &self.role_acls,
+        ] {
+            set_value(field, "", window, cx);
+        }
+        cx.notify();
     }
 
     fn select_section(&mut self, section: MqttSection, cx: &mut Context<Self>) {
@@ -1186,6 +2175,40 @@ impl MqttView {
                         Input::new(&self.client_key_path).small(),
                     )),
             )
+            .when(self.management_enabled, |content| {
+                content
+                    .child(section_heading(
+                        "Mosquitto 管理凭据",
+                        "Dynamic Security 请求优先使用这里的账号；密码不会从 Broker 读取或回显",
+                        &theme,
+                    ))
+                    .child(
+                        row()
+                            .child(field(
+                                "管理用户名",
+                                Input::new(&self.management_admin_username).small(),
+                            ))
+                            .child(field(
+                                "管理密码",
+                                Input::new(&self.management_admin_password)
+                                    .small()
+                                    .mask_toggle(),
+                            )),
+                    )
+                    .child(section_heading(
+                        "静态配置文件",
+                        "配置绝对路径后，Mosquitto 页面才能读取或保存本机文件",
+                        &theme,
+                    ))
+                    .child(
+                        row()
+                            .child(field(
+                                "password_file",
+                                Input::new(&self.password_file_path).small(),
+                            ))
+                            .child(field("acl_file", Input::new(&self.acl_file_path).small())),
+                    )
+            })
             .child(
                 row()
                     .child(toggle_button(
@@ -1487,9 +2510,574 @@ impl MqttView {
             .child(body)
     }
 
+    fn render_management_tabs(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let mut tabs = h_flex().flex_wrap().gap(px(4.0));
+        for section in MosquittoManagementSection::ALL {
+            let mut button = ramag_ui::clickable_button(SharedString::from(format!(
+                "mqtt-management-tab-{section:?}"
+            )))
+            .xsmall()
+            .label(section.label());
+            button = if self.management_section == section {
+                button.primary()
+            } else {
+                button.ghost()
+            };
+            tabs = tabs.child(
+                button.on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    this.select_management_section(section, cx)
+                })),
+            );
+        }
+        tabs
+    }
+
+    fn render_clients(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+        let theme = cx.theme().clone();
+        let mut list = v_flex().gap(px(4.0));
+        if let Some(snapshot) = &self.management_snapshot {
+            for client in &snapshot.clients {
+                let username = client.username.clone();
+                let selected = self.selected_client_username.as_ref() == Some(&username);
+                list = list.child(
+                    h_flex()
+                        .id(SharedString::from(format!("mqtt-client-{username}")))
+                        .w_full()
+                        .gap(px(8.0))
+                        .p(px(8.0))
+                        .rounded(px(4.0))
+                        .when(selected, |row| row.bg(theme.accent.opacity(0.12)))
+                        .when(!selected, |row| {
+                            row.hover(|row| row.bg(theme.muted.opacity(0.45)))
+                        })
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                            this.select_client(username.clone(), window, cx)
+                        }))
+                        .child(
+                            v_flex()
+                                .flex_1()
+                                .min_w_0()
+                                .child(div().text_xs().truncate().child(client.username.clone()))
+                                .child(div().text_xs().text_color(theme.muted_foreground).child(
+                                    format!(
+                                        "{} 个 Group · {} 个 Role · 密码{}",
+                                        client.groups.len(),
+                                        client.roles.len(),
+                                        if client.password_configured {
+                                            "已配置"
+                                        } else {
+                                            "未配置"
+                                        }
+                                    ),
+                                )),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(if client.disabled {
+                                    theme.danger
+                                } else {
+                                    theme.muted_foreground
+                                })
+                                .child(if client.disabled {
+                                    "已禁用"
+                                } else {
+                                    "启用"
+                                }),
+                        ),
+                );
+            }
+        }
+        let editor = v_flex()
+            .w_full()
+            .gap(px(8.0))
+            .child(
+                h_flex()
+                    .justify_between()
+                    .child(section_heading(
+                        "用户编辑",
+                        "Group 和 Role 使用逗号分隔；密码只在提交时发送",
+                        &theme,
+                    ))
+                    .child(
+                        ramag_ui::clickable_button("mqtt-client-new")
+                            .ghost()
+                            .xsmall()
+                            .label("新建用户")
+                            .disabled(self.saving_management || self.deleting_management)
+                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                this.new_client(window, cx)
+                            })),
+                    ),
+            )
+            .child(
+                row()
+                    .child(field("用户名", Input::new(&self.client_username).small()))
+                    .child(field(
+                        "Client ID",
+                        Input::new(&self.client_id_editor).small(),
+                    ))
+                    .child(field(
+                        "新密码",
+                        Input::new(&self.client_password).small().mask_toggle(),
+                    )),
+            )
+            .child(
+                row()
+                    .child(field(
+                        "显示名称",
+                        Input::new(&self.client_text_name).small(),
+                    ))
+                    .child(field(
+                        "描述",
+                        Input::new(&self.client_text_description).small(),
+                    )),
+            )
+            .child(
+                row()
+                    .child(field("Group", Input::new(&self.client_groups).small()))
+                    .child(field("Role", Input::new(&self.client_roles).small())),
+            )
+            .child(toggle_button(
+                "mqtt-client-disabled",
+                "用户状态",
+                self.client_disabled,
+                self.saving_management || self.deleting_management,
+                cx,
+                |this| this.client_disabled = !this.client_disabled,
+            ))
+            .child(
+                h_flex()
+                    .gap(px(6.0))
+                    .child(
+                        ramag_ui::clickable_button("mqtt-client-save")
+                            .primary()
+                            .small()
+                            .label("保存用户")
+                            .loading(self.saving_management)
+                            .disabled(self.saving_management || self.deleting_management)
+                            .on_click(
+                                cx.listener(|this, _: &ClickEvent, _, cx| this.save_client(cx)),
+                            ),
+                    )
+                    .child(
+                        ramag_ui::clickable_button("mqtt-client-delete")
+                            .danger()
+                            .small()
+                            .label("删除用户")
+                            .disabled(
+                                self.selected_client_username.is_none()
+                                    || self.saving_management
+                                    || self.deleting_management,
+                            )
+                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                this.confirm_delete_client(window, cx)
+                            })),
+                    ),
+            );
+        let has_clients = self
+            .management_snapshot
+            .as_ref()
+            .is_some_and(|snapshot| !snapshot.clients.is_empty());
+        v_flex()
+            .w_full()
+            .gap(px(12.0))
+            .child(section_heading(
+                "用户列表",
+                "来自 Dynamic Security 的真实用户和绑定关系",
+                &theme,
+            ))
+            .child(if !has_clients {
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("暂无用户或尚未读取列表")
+                    .into_any_element()
+            } else {
+                list.into_any_element()
+            })
+            .child(editor)
+            .into_any_element()
+    }
+
+    fn render_groups(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+        let theme = cx.theme().clone();
+        let mut list = v_flex().gap(px(4.0));
+        if let Some(snapshot) = &self.management_snapshot {
+            for group in &snapshot.groups {
+                let group_name = group.group_name.clone();
+                let selected = self.selected_group_name.as_ref() == Some(&group_name);
+                list = list.child(
+                    h_flex()
+                        .id(SharedString::from(format!("mqtt-group-{group_name}")))
+                        .w_full()
+                        .gap(px(8.0))
+                        .p(px(8.0))
+                        .rounded(px(4.0))
+                        .when(selected, |row| row.bg(theme.accent.opacity(0.12)))
+                        .when(!selected, |row| {
+                            row.hover(|row| row.bg(theme.muted.opacity(0.45)))
+                        })
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                            this.select_group(group_name.clone(), window, cx)
+                        }))
+                        .child(
+                            v_flex()
+                                .flex_1()
+                                .min_w_0()
+                                .child(div().text_xs().truncate().child(group.group_name.clone()))
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(theme.muted_foreground)
+                                        .child(format!("{} 个 Role", group.roles.len())),
+                                ),
+                        ),
+                );
+            }
+        }
+        let has_groups = self
+            .management_snapshot
+            .as_ref()
+            .is_some_and(|snapshot| !snapshot.groups.is_empty());
+        v_flex()
+            .w_full()
+            .gap(px(12.0))
+            .child(section_heading(
+                "Group 列表",
+                "Group 只保存 Role 绑定，用户绑定由用户编辑器维护",
+                &theme,
+            ))
+            .child(if !has_groups {
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("暂无 Group 或尚未读取列表")
+                    .into_any_element()
+            } else {
+                list.into_any_element()
+            })
+            .child(
+                v_flex()
+                    .gap(px(8.0))
+                    .child(
+                        h_flex()
+                            .justify_between()
+                            .child(section_heading(
+                                "Group 编辑",
+                                "Role 名称使用逗号分隔",
+                                &theme,
+                            ))
+                            .child(
+                                ramag_ui::clickable_button("mqtt-group-new")
+                                    .ghost()
+                                    .xsmall()
+                                    .label("新建 Group")
+                                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                        this.new_group(window, cx)
+                                    })),
+                            ),
+                    )
+                    .child(
+                        row()
+                            .child(field(
+                                "Group 名称",
+                                Input::new(&self.group_name_editor).small(),
+                            ))
+                            .child(field("显示名称", Input::new(&self.group_text_name).small()))
+                            .child(field("Role", Input::new(&self.group_roles).small())),
+                    )
+                    .child(field(
+                        "描述",
+                        Input::new(&self.group_text_description).small(),
+                    ))
+                    .child(
+                        h_flex()
+                            .gap(px(6.0))
+                            .child(
+                                ramag_ui::clickable_button("mqtt-group-save")
+                                    .primary()
+                                    .small()
+                                    .label("保存 Group")
+                                    .loading(self.saving_management)
+                                    .disabled(self.saving_management || self.deleting_management)
+                                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                        this.save_group(cx)
+                                    })),
+                            )
+                            .child(
+                                ramag_ui::clickable_button("mqtt-group-delete")
+                                    .danger()
+                                    .small()
+                                    .label("删除 Group")
+                                    .disabled(
+                                        self.selected_group_name.is_none()
+                                            || self.saving_management
+                                            || self.deleting_management,
+                                    )
+                                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                        this.confirm_delete_group(window, cx)
+                                    })),
+                            ),
+                    ),
+            )
+            .into_any_element()
+    }
+
+    fn render_roles(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+        let theme = cx.theme().clone();
+        let mut list = v_flex().gap(px(4.0));
+        if let Some(snapshot) = &self.management_snapshot {
+            for role in &snapshot.roles {
+                let role_name = role.role_name.clone();
+                let selected = self.selected_role_name.as_ref() == Some(&role_name);
+                list = list.child(
+                    h_flex()
+                        .id(SharedString::from(format!("mqtt-role-{role_name}")))
+                        .w_full()
+                        .gap(px(8.0))
+                        .p(px(8.0))
+                        .rounded(px(4.0))
+                        .when(selected, |row| row.bg(theme.accent.opacity(0.12)))
+                        .when(!selected, |row| {
+                            row.hover(|row| row.bg(theme.muted.opacity(0.45)))
+                        })
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                            this.select_role(role_name.clone(), window, cx)
+                        }))
+                        .child(
+                            v_flex()
+                                .flex_1()
+                                .min_w_0()
+                                .child(div().text_xs().truncate().child(role.role_name.clone()))
+                                .child(div().text_xs().text_color(theme.muted_foreground).child(
+                                    format!(
+                                        "{} 条 ACL · 通配符订阅{}",
+                                        role.acls.len(),
+                                        if role.allow_wildcards_subscriptions {
+                                            "允许"
+                                        } else {
+                                            "禁止"
+                                        }
+                                    ),
+                                )),
+                        ),
+                );
+            }
+        }
+        let has_roles = self
+            .management_snapshot
+            .as_ref()
+            .is_some_and(|snapshot| !snapshot.roles.is_empty());
+        v_flex()
+            .w_full()
+            .gap(px(12.0))
+            .child(section_heading("Role 列表", "ACL 来自 Dynamic Security；每行格式为 acltype|topic|allow/deny|priority", &theme))
+            .child(if !has_roles {
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("暂无 Role 或尚未读取列表")
+                    .into_any_element()
+            } else {
+                list.into_any_element()
+            })
+            .child(
+                v_flex()
+                    .gap(px(8.0))
+                    .child(
+                        h_flex()
+                            .justify_between()
+                            .child(section_heading(
+                                "Role 与 ACL 编辑",
+                                "支持 publishClientSend、publishClientReceive、subscribeLiteral、subscribePattern、unsubscribeLiteral、unsubscribePattern",
+                                &theme,
+                            ))
+                            .child(
+                                ramag_ui::clickable_button("mqtt-role-new")
+                                    .ghost()
+                                    .xsmall()
+                                    .label("新建 Role")
+                                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                        this.new_role(window, cx)
+                                    })),
+                            ),
+                    )
+                    .child(
+                        row()
+                            .child(field("Role 名称", Input::new(&self.role_name_editor).small()))
+                            .child(field("显示名称", Input::new(&self.role_text_name).small())),
+                    )
+                    .child(field(
+                        "描述",
+                        Input::new(&self.role_text_description).small(),
+                    ))
+                    .child(field(
+                        "ACL",
+                        Input::new(&self.role_acls).h(px(180.0)).small(),
+                    ))
+                    .child(toggle_button(
+                        "mqtt-role-wildcards",
+                        "通配符订阅",
+                        self.role_allow_wildcards,
+                        self.saving_management || self.deleting_management,
+                        cx,
+                        |this| this.role_allow_wildcards = !this.role_allow_wildcards,
+                    ))
+                    .child(
+                        h_flex()
+                            .gap(px(6.0))
+                            .child(
+                                ramag_ui::clickable_button("mqtt-role-save")
+                                    .primary()
+                                    .small()
+                                    .label("保存 Role")
+                                    .loading(self.saving_management)
+                                    .disabled(self.saving_management || self.deleting_management)
+                                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                        this.save_role(cx)
+                                    })),
+                            )
+                            .child(
+                                ramag_ui::clickable_button("mqtt-role-delete")
+                                    .danger()
+                                    .small()
+                                    .label("删除 Role")
+                                    .disabled(
+                                        self.selected_role_name.is_none()
+                                            || self.saving_management
+                                            || self.deleting_management,
+                                    )
+                                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                        this.confirm_delete_role(window, cx)
+                                    })),
+                            ),
+                    ),
+            )
+            .into_any_element()
+    }
+
+    fn render_static_files(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+        let theme = cx.theme().clone();
+        let mut kind_buttons = h_flex().gap(px(4.0));
+        for kind in [
+            MosquittoStaticFileKind::Password,
+            MosquittoStaticFileKind::Acl,
+        ] {
+            let mut button = ramag_ui::clickable_button(SharedString::from(format!(
+                "mqtt-static-kind-{:?}",
+                kind
+            )))
+            .xsmall()
+            .label(kind.label());
+            button = if self.static_file_kind == kind {
+                button.primary()
+            } else {
+                button.ghost()
+            };
+            kind_buttons = kind_buttons.child(button.on_click(cx.listener(
+                move |this, _: &ClickEvent, window, cx| {
+                    this.static_file_kind = kind;
+                    this.static_file = None;
+                    set_value(&this.static_content, "", window, cx);
+                    cx.notify();
+                },
+            )));
+        }
+        let configured_path = self
+            .selected_profile()
+            .and_then(|profile| self.static_file_kind.configured_path(profile))
+            .unwrap_or("未配置");
+        let ssh_target = self.selected_profile().is_some_and(|profile| {
+            matches!(
+                profile
+                    .management
+                    .static_config
+                    .as_ref()
+                    .map(|config| &config.target),
+                Some(MosquittoConfigTarget::Ssh { .. })
+            )
+        });
+        v_flex()
+            .w_full()
+            .gap(px(10.0))
+            .child(section_heading(
+                "静态配置文件",
+                "文件内容来自本机文件驱动；保存成功后仍需 Broker reload 或重启",
+                &theme,
+            ))
+            .child(kind_buttons)
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child(format!(
+                        "当前 {} 路径：{}",
+                        self.static_file_kind.label(),
+                        configured_path
+                    )),
+            )
+            .when(ssh_target, |body| {
+                body.child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.danger)
+                        .child("当前配置是 SSH 目标；本机文件驱动不会伪装成远程文件管理。"),
+                )
+            })
+            .child(
+                h_flex()
+                    .gap(px(6.0))
+                    .child(
+                        ramag_ui::clickable_button("mqtt-static-load")
+                            .ghost()
+                            .small()
+                            .label("读取文件")
+                            .loading(self.loading_static_file)
+                            .disabled(self.loading_static_file || self.saving_static_file)
+                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                this.load_static_file(window, cx)
+                            })),
+                    )
+                    .child(
+                        ramag_ui::clickable_button("mqtt-static-save")
+                            .primary()
+                            .small()
+                            .label("保存文件")
+                            .loading(self.saving_static_file)
+                            .disabled(
+                                self.static_file.is_none()
+                                    || self.loading_static_file
+                                    || self.saving_static_file,
+                            )
+                            .on_click(
+                                cx.listener(|this, _: &ClickEvent, _, cx| {
+                                    this.save_static_file(cx)
+                                }),
+                            ),
+                    ),
+            )
+            .child(field(
+                "文件内容",
+                Input::new(&self.static_content).h(px(300.0)).small(),
+            ))
+            .into_any_element()
+    }
+
     fn render_mosquitto(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
-        let mut body = v_flex().w_full().max_w(px(920.0)).gap(px(12.0)).child(section_heading("Mosquitto 管理", "Dynamic Security 需要 Broker 开启对应插件；静态 password_file/acl_file 不能通过通用 MQTT 数据面猜测", &theme));
+        let mut body = v_flex()
+            .w_full()
+            .max_w(px(980.0))
+            .gap(px(12.0))
+            .child(section_heading(
+                "Mosquitto 管理",
+                "Dynamic Security 和静态文件分别通过明确的管理接口读取，不生成演示数据",
+                &theme,
+            ));
         if !self.management_enabled {
             body = body.child(
                 div()
@@ -1498,54 +3086,66 @@ impl MqttView {
                     .child("当前配置未启用 Mosquitto 管理能力。"),
             );
         } else {
-            body = body.child(
-                ramag_ui::clickable_button("mqtt-load-management")
-                    .ghost()
-                    .small()
-                    .label("读取 Dynamic Security")
-                    .loading(self.loading_management)
-                    .disabled(self.loading_management || self.selected_profile_id.is_none())
-                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                        this.load_management(window, cx)
-                    })),
-            );
-            if let Some(error) = &self.management_error {
-                body = body.child(
+            body = body
+                .child(
+                    h_flex()
+                        .flex_wrap()
+                        .gap(px(6.0))
+                        .child(
+                            ramag_ui::clickable_button("mqtt-load-management")
+                                .ghost()
+                                .small()
+                                .label("读取 Dynamic Security")
+                                .loading(self.loading_management)
+                                .disabled(
+                                    self.loading_management
+                                        || self.saving_management
+                                        || self.deleting_management
+                                        || self.selected_profile_id.is_none(),
+                                )
+                                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                    this.load_management(cx)
+                                })),
+                        )
+                        .child(self.render_management_tabs(cx)),
+                )
+                .child(if let Some(error) = &self.management_error {
                     div()
                         .text_sm()
                         .text_color(theme.danger)
-                        .child(error.clone()),
-                );
-            } else if let Some(snapshot) = &self.management_snapshot {
-                body = body.child(h_flex().flex_wrap().gap(px(8.0)).children([
-                    metric("客户端", snapshot.clients.len(), &theme),
-                    metric("Group", snapshot.groups.len(), &theme),
-                    metric("Role", snapshot.roles.len(), &theme),
-                ]));
-                let mut clients = v_flex().gap(px(4.0));
-                for client in &snapshot.clients {
-                    clients = clients.child(div().text_xs().child(format!(
-                        "{} · {} 个 Group · {} 个 Role",
-                        client.username,
-                        client.groups.len(),
-                        client.roles.len()
-                    )));
-                }
-                body = body
-                    .child(section_heading(
-                        "客户端和权限绑定",
-                        "以下内容来自 Dynamic Security 返回值",
-                        &theme,
-                    ))
-                    .child(clients);
-            } else {
-                body = body.child(
+                        .child(error.clone())
+                        .into_any_element()
+                } else if self.loading_management && self.management_snapshot.is_none() {
                     div()
                         .text_sm()
                         .text_color(theme.muted_foreground)
-                        .child("尚未读取 Mosquitto 管理数据。"),
-                );
-            }
+                        .child("正在读取 Dynamic Security…")
+                        .into_any_element()
+                } else if let Some(snapshot) = &self.management_snapshot {
+                    let metrics = h_flex().flex_wrap().gap(px(8.0)).children([
+                        metric("用户", snapshot.clients.len(), &theme),
+                        metric("Group", snapshot.groups.len(), &theme),
+                        metric("Role", snapshot.roles.len(), &theme),
+                    ]);
+                    let panel = match self.management_section {
+                        MosquittoManagementSection::Clients => self.render_clients(cx),
+                        MosquittoManagementSection::Groups => self.render_groups(cx),
+                        MosquittoManagementSection::Roles => self.render_roles(cx),
+                        MosquittoManagementSection::StaticFiles => self.render_static_files(cx),
+                    };
+                    v_flex()
+                        .w_full()
+                        .gap(px(12.0))
+                        .child(metrics)
+                        .child(panel)
+                        .into_any_element()
+                } else {
+                    div()
+                        .text_sm()
+                        .text_color(theme.muted_foreground)
+                        .child("尚未读取 Mosquitto 管理数据。")
+                        .into_any_element()
+                });
         }
         v_flex()
             .id("mqtt-mosquitto-scroll")
@@ -1619,6 +3219,130 @@ fn value(field: &Entity<InputState>, cx: &App) -> String {
 fn optional_value(field: &Entity<InputState>, cx: &App) -> Option<String> {
     let value = value(field, cx);
     (!value.is_empty()).then_some(value)
+}
+
+fn parse_group_bindings(text: &str) -> std::result::Result<Vec<MosquittoGroupBinding>, String> {
+    parse_binding_names(text, "Group").map(|names| {
+        names
+            .into_iter()
+            .map(|group_name| MosquittoGroupBinding {
+                group_name,
+                priority: -1,
+            })
+            .collect()
+    })
+}
+
+fn parse_role_bindings(text: &str) -> std::result::Result<Vec<MosquittoRoleBinding>, String> {
+    parse_binding_names(text, "Role").map(|names| {
+        names
+            .into_iter()
+            .map(|role_name| MosquittoRoleBinding {
+                role_name,
+                priority: -1,
+            })
+            .collect()
+    })
+}
+
+fn parse_binding_names(text: &str, label: &str) -> std::result::Result<Vec<String>, String> {
+    let mut names = Vec::new();
+    for name in text.split([',', '\n']) {
+        let name = name.trim();
+        if name.is_empty() {
+            continue;
+        }
+        if names.iter().any(|existing| existing == name) {
+            return Err(format!("{label} 名称不能重复：{name}"));
+        }
+        names.push(name.to_string());
+    }
+    Ok(names)
+}
+
+fn join_group_bindings(bindings: &[MosquittoGroupBinding]) -> String {
+    bindings
+        .iter()
+        .map(|binding| binding.group_name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn join_role_bindings(bindings: &[MosquittoRoleBinding]) -> String {
+    bindings
+        .iter()
+        .map(|binding| binding.role_name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn parse_acls(text: &str) -> std::result::Result<Vec<MosquittoAcl>, String> {
+    let mut acls = Vec::new();
+    for (line_number, line) in text.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let parts = line.split('|').map(str::trim).collect::<Vec<_>>();
+        if parts.len() != 4 {
+            return Err(format!(
+                "ACL 第 {} 行必须使用 acltype|topic|allow/deny|priority 格式",
+                line_number + 1
+            ));
+        }
+        let acl_type = parse_acl_type(parts[0])
+            .ok_or_else(|| format!("ACL 第 {} 行的类型不受支持：{}", line_number + 1, parts[0]))?;
+        let decision = match parts[2].to_ascii_lowercase().as_str() {
+            "allow" | "true" => MosquittoAclDecision::Allow,
+            "deny" | "false" => MosquittoAclDecision::Deny,
+            _ => {
+                return Err(format!(
+                    "ACL 第 {} 行的决定必须是 allow 或 deny",
+                    line_number + 1
+                ));
+            }
+        };
+        let priority = parts[3]
+            .parse::<i32>()
+            .map_err(|_| format!("ACL 第 {} 行的优先级必须是整数", line_number + 1))?;
+        acls.push(MosquittoAcl {
+            acl_type,
+            topic: parts[1].to_string(),
+            decision,
+            priority,
+        });
+    }
+    Ok(acls)
+}
+
+fn parse_acl_type(value: &str) -> Option<MosquittoAclType> {
+    Some(match value {
+        "publishClientSend" => MosquittoAclType::PublishClientSend,
+        "publishClientReceive" => MosquittoAclType::PublishClientReceive,
+        "subscribeLiteral" => MosquittoAclType::SubscribeLiteral,
+        "subscribePattern" => MosquittoAclType::SubscribePattern,
+        "unsubscribeLiteral" => MosquittoAclType::UnsubscribeLiteral,
+        "unsubscribePattern" => MosquittoAclType::UnsubscribePattern,
+        _ => return None,
+    })
+}
+
+fn serialize_acls(acls: &[MosquittoAcl]) -> String {
+    acls.iter()
+        .map(|acl| {
+            format!(
+                "{}|{}|{}|{}",
+                acl.acl_type.as_str(),
+                acl.topic,
+                match acl.decision {
+                    MosquittoAclDecision::Allow => "allow",
+                    MosquittoAclDecision::Deny => "deny",
+                },
+                acl.priority
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn field<E: IntoElement>(label: &'static str, input: E) -> gpui::Div {
@@ -1735,7 +3459,7 @@ mod tests {
         let tool = MqttTool::new();
         assert_eq!(tool.meta().id, MqttTool::ID);
         assert_eq!(tool.meta().name, "MQTT");
-        assert!(tool.meta().icon.is_some());
+        assert_eq!(tool.meta().icon.as_deref(), Some("mqtt"));
     }
 
     #[test]

@@ -170,6 +170,7 @@ impl ActivityBar {
             "ssh" => Icon::new(IconName::SquareTerminal),
             "system" => icons::gauge(),
             "kafka" => Icon::new(IconName::Network),
+            "mqtt" => icons::mqtt(),
             "jsonfmt" => Icon::new(IconName::File),
             "url" => Icon::new(IconName::Globe),
             "hash" => Icon::new(IconName::MemoryStick),

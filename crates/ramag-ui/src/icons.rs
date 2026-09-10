@@ -18,6 +18,12 @@ pub fn database_sync() -> Icon {
     Icon::default().path("icons/database-sync.svg")
 }
 
+/// MQTT 消息与 Broker 连接图标；用于 Activity Bar 和首页工具入口。
+#[inline]
+pub fn mqtt() -> Icon {
+    Icon::default().path("icons/mqtt.svg")
+}
+
 #[inline]
 pub fn git_branch() -> Icon {
     Icon::default().path("icons/git-branch.svg")
