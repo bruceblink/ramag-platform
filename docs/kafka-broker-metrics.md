@@ -1,6 +1,6 @@
 # Kafka Broker 运行指标接入说明
 
-> 文档状态：已实现 Prometheus/OpenMetrics 文本端点适配，并增加本机 Docker HTTP fixture 验收；JMX 和真实 Kafka exporter 仍需要部署侧暴露文本端点
+> 文档状态：已实现 Prometheus/OpenMetrics 文本端点适配，并完成本机 Docker 静态 fixture 与真实 Kafka JMX Exporter 验收；生产部署侧端点和 Windows 原生窗口证据仍需单独补充
 > 更新日期：2026-09-11
 > 适用分支：`dev`；长期同步分支只保留 `main`、`dev`
 
@@ -22,7 +22,7 @@ Kafka 配置页增加一个可选的 `Prometheus / exporter` 指标端点。保�
 - 两类快照分别保存、校验、记录错误和渲染；一类来源失败不会覆盖另一类来源的成功结果。
 - 端点返回的 `cluster_id` 不会被推断为 Kafka 集群 ID。当前适配器只把实际解析到的 Broker 运行指标返回给对应的配置页面。
 
-当前不直接连接 JMX。需要 JMX 时，应由部署侧 exporter 把数据转换为下列 Prometheus/OpenMetrics 文本指标，再把文本端点填入 Kafka 配置。
+Ramag 不直接连接 JMX。需要 JMX 时，由部署侧 exporter 把数据转换为下列 Prometheus/OpenMetrics 文本指标，再把文本端点填入 Kafka 配置。
 
 ## 文本接口约定
 
@@ -47,6 +47,8 @@ ramag_kafka_broker_request_latency_ms{broker_id="0"} 2.25
 
 样本时间戳可以省略；存在时支持 Unix 秒或 Unix 毫秒，页面显示解析后的 UTC 时间。一个 Broker 缺少四类指标中的任意一类时，快照状态为 `Partial`，缺少的字段显示为未知，不转换为零。没有任何已知 Broker 样本时，状态为 `NoData`。
 
+当 exporter 为同一 Broker 返回多条磁盘样本时，适配器把 `ramag_kafka_broker_disk_used_bytes` 求和；当返回多条请求延迟样本时，适配器取最大值。这样可以把 Kafka JMX 的 Topic/Partition 和请求类型维度收敛到领域模型要求的每个 Broker 一个数值，同时不依赖端点样本顺序。
+
 ## 失败状态与资源边界
 
 - 未填写端点：状态为 `SourceNotConfigured`，页面显示“未配置数据源”。
@@ -64,4 +66,5 @@ ramag_kafka_broker_request_latency_ms{broker_id="0"} 2.25
 - `ramag-infra-kafka`：已知指标解析、样本时间、部分数据、无关指标、缺少 `broker_id` 和响应边界。
 - `ramag-tool-kafka`：概览页外部指标区域、状态选择器以及 360/900/1440 宽度布局。
 - `scripts/kafka-test/compose.yaml` 的 `metrics` 服务使用 `nginx:1.27-alpine` 在 `127.0.0.1:19100/metrics` 提供固定 OpenMetrics fixture；`docker_kafka_reads_broker_metrics_fixture` 通过真实 HTTP 请求验证适配器。该服务只证明 HTTP 接入链路，不代表真实 Kafka exporter 或生产 Broker 运行指标。
-- 真实 exporter 容器、真实 Broker 运行指标端点和 Windows 原生窗口证据仍未完成；需要部署侧端点后再执行真实请求复核。
+- `broker-exporter` 服务使用真实 `apache/kafka:4.0.0` KRaft Broker 的 JMX/RMI（容器端口 `9999`），由固定版本的 Prometheus JMX Exporter `1.6.0` 暴露到 `127.0.0.1:19101/metrics`；`docker_kafka_reads_real_broker_jmx_exporter` 验证真实 CPU、Heap、Topic/Partition 磁盘和请求延迟样本。
+- JMX fixture 关闭认证和 TLS，只绑定专用 Docker 网络；它证明真实 Kafka JVM 到 exporter 再到 Ramag 的本机链路，不代表生产部署的安全配置或多 Broker 自动发现。生产 exporter 端点和 Windows 原生窗口证据仍需单独补充。

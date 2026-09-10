@@ -23,6 +23,7 @@ $SchemaRegistryContainerName = "ramag-kafka-schema-registry-test"
 $BootstrapServers = "127.0.0.1:19092"
 $ConnectEndpoint = "http://127.0.0.1:18083"
 $MetricsEndpoint = "http://127.0.0.1:19100/metrics"
+$BrokerMetricsEndpoint = "http://127.0.0.1:19101/metrics"
 $KsqlDbEndpoint = "http://127.0.0.1:18088"
 $SchemaRegistryEndpoint = "http://127.0.0.1:18081"
 $TopicName = "ramag.integration.messages"
@@ -248,6 +249,26 @@ function Wait-MetricsHealthy {
     throw "Kafka metrics fixture health check timed out.`n$logs"
 }
 
+function Wait-BrokerMetricsHealthy {
+    for ($attempt = 1; $attempt -le 60; $attempt++) {
+        $health = (& docker inspect --format "{{.State.Health.Status}}" "ramag-kafka-jmx-exporter-test" 2>$null | Out-String).Trim()
+        $state = (& docker inspect --format "{{.State.Status}}" "ramag-kafka-jmx-exporter-test" 2>$null | Out-String).Trim()
+
+        if ($health -eq "healthy") {
+            Write-TestLog "Kafka JMX exporter container is healthy."
+            return
+        }
+        if ($state -eq "exited" -or $state -eq "dead") {
+            $logs = (& docker logs "ramag-kafka-jmx-exporter-test" 2>&1 | Out-String -ErrorAction SilentlyContinue).Trim()
+            throw "Kafka JMX exporter container stopped before becoming healthy.`n$logs"
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    $logs = (& docker logs "ramag-kafka-jmx-exporter-test" 2>&1 | Out-String -ErrorAction SilentlyContinue).Trim()
+    throw "Kafka JMX exporter health check timed out.`n$logs"
+}
+
 function Wait-KsqlDbHealthy {
     for ($attempt = 1; $attempt -le 90; $attempt++) {
         $health = (& docker inspect --format "{{.State.Health.Status}}" $KsqlDbContainerName 2>$null | Out-String).Trim()
@@ -293,6 +314,7 @@ function Ensure-Healthy {
     Wait-Healthy
     Wait-ConnectHealthy
     Wait-MetricsHealthy
+    Wait-BrokerMetricsHealthy
     Wait-KsqlDbHealthy
     Wait-SchemaRegistryHealthy
 }
@@ -516,12 +538,14 @@ function Run-RustIntegrationTest {
     $oldBootstrap = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_BOOTSTRAP", "Process")
     $oldConnectEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_CONNECT", "Process")
     $oldMetricsEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_METRICS", "Process")
+    $oldBrokerMetricsEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_BROKER_METRICS", "Process")
     $oldKsqlDbEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KSQLDB", "Process")
     $oldSchemaRegistryEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_SCHEMA_REGISTRY", "Process")
     $oldTargetDirectory = [Environment]::GetEnvironmentVariable("CARGO_TARGET_DIR", "Process")
     $env:RAMAG_TEST_KAFKA_BOOTSTRAP = $BootstrapServers
     $env:RAMAG_TEST_KAFKA_CONNECT = $ConnectEndpoint
     $env:RAMAG_TEST_KAFKA_METRICS = $MetricsEndpoint
+    $env:RAMAG_TEST_KAFKA_BROKER_METRICS = $BrokerMetricsEndpoint
     $env:RAMAG_TEST_KSQLDB = $KsqlDbEndpoint
     $env:RAMAG_TEST_SCHEMA_REGISTRY = $SchemaRegistryEndpoint
     $env:CARGO_TARGET_DIR = Join-Path ([System.IO.Path]::GetTempPath()) "ramag-kafka-docker-target"
@@ -547,6 +571,11 @@ function Run-RustIntegrationTest {
             Remove-Item Env:RAMAG_TEST_KAFKA_METRICS -ErrorAction SilentlyContinue
         } else {
             $env:RAMAG_TEST_KAFKA_METRICS = $oldMetricsEndpoint
+        }
+        if ($null -eq $oldBrokerMetricsEndpoint) {
+            Remove-Item Env:RAMAG_TEST_KAFKA_BROKER_METRICS -ErrorAction SilentlyContinue
+        } else {
+            $env:RAMAG_TEST_KAFKA_BROKER_METRICS = $oldBrokerMetricsEndpoint
         }
         if ($null -eq $oldKsqlDbEndpoint) {
             Remove-Item Env:RAMAG_TEST_KSQLDB -ErrorAction SilentlyContinue

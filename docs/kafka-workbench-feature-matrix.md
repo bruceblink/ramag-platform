@@ -43,7 +43,7 @@
 | Topic/Broker 配置 | 读取配置、修改支持动态变更的配置并拒绝静态项 | 已完成 | `KafkaConfigResource`、动态配置读改写和只读保护测试 | 配置批量导入另行排期 |
 | Kafka ACL | 按 Principal/Host/Resource/Operation 查询，精确创建和删除 | 已完成 | ACL 过滤、二次确认、权限错误映射和 UI 测试 | 不实现 AKHQ UI Groups/Roles |
 | 协议指标 | 查看 Broker 元数据、Topic/Partition 健康、Lag 和 high watermark 速率 | 已完成 | `KafkaMonitoringDriver`、`KafkaMetricsSnapshot` 和概览指标测试 | 运行指标必须与外部来源分开 |
-| Broker 运行指标 | 展示 CPU、内存、磁盘、JVM 和请求延迟 | 进行中 | `PrometheusBrokerMetricsDriver`、有界解析和本机 Docker HTTP fixture 已验证 | 真实 Kafka exporter、真实 Broker 运行指标端点和真实窗口证据待补充 |
+| Broker 运行指标 | 展示 CPU、内存、磁盘、JVM 和请求延迟 | 已完成 | `PrometheusBrokerMetricsDriver`、有界解析、本机 `nginx:1.27-alpine` fixture，以及真实 `apache/kafka:4.0.0` JMX Exporter 端点回读均已验证 | 生产部署侧 exporter、安全配置、多 Broker 聚合和真实窗口证据另行补充 |
 | Schema Registry | 浏览 Subject、版本和 Schema 内容 | 已完成 | Domain/App/Infra 版本列表与详情边界、Subject 选择和版本滚动 headless 测试、本机 Docker Registry 真实 REST 回读 | 真实 Windows 窗口证据仍待补充 |
 | Kafka Connect | 浏览连接器和 Task 状态 | 已完成 | 只读 Connect HTTP 浏览、端点和数量边界测试 | 写操作不纳入当前范围 |
 | ksqlDB | 对 Kafka 流执行有界只读查询 | 已完成 | `KafkaKsqlDbDriver`、ksqlDB 配置与查询 UI、HTTP 流式 JSON 解析、GPUI headless 测试和本机 Docker ksqlDB fixture；覆盖成功、HTTP 404、行数上限和取消 | 真实 Windows 窗口证据仍待补充；不执行 DDL、写入或查询管理命令 |
@@ -59,7 +59,9 @@
 
 本切片只验证 Ramag 到外部指标 HTTP 端点的真实本机请求链路，不宣称已经接入 Kafka 生产环境 exporter。Docker Compose 增加独立 `metrics` 服务：镜像固定为 `nginx:1.27-alpine`，容器内 `/metrics` 返回受版本控制的 OpenMetrics 文本，宿主绑定 `127.0.0.1:19100`。Rust 集成测试通过 `PrometheusBrokerMetricsDriver` 请求 `http://127.0.0.1:19100/metrics`，检查 `ExternalBrokerMetrics` 来源、Broker ID、四个已知指标和样本时间；Kafka Broker、Kafka Connect 与指标 fixture 分别保留独立服务状态。
 
-静态 fixture 不代表 JMX、真实 Kafka exporter 或生产 Broker 运行指标。真实 exporter 容器和 Windows 原生窗口证据继续单独排期；本机 Docker 不可用时，HTTP 集成验收标记为未完成。
+静态 fixture 不代表真实 Kafka JVM。真实 JMX Exporter 已在下一条本机 Docker 验收中单独覆盖；生产 exporter 安全配置和 Windows 原生窗口证据继续单独排期。本机 Docker 不可用时，HTTP 集成验收标记为未完成。
+
+阶段 23 真实 JMX Exporter 验收：Docker Compose 为 `apache/kafka:4.0.0` Broker 开启专用容器内 JMX/RMI 端口 `9999`，使用 Prometheus JMX Exporter `1.6.0` 和固定 SHA-256 构建 `broker-exporter`，宿主绑定 `127.0.0.1:19101/metrics`。`docker_kafka_reads_real_broker_jmx_exporter` 与静态 fixture 共存，前者验证真实 Kafka JVM 产生的 CPU、Heap、磁盘和请求延迟指标；该服务只用于本机 Docker 验收，关闭 JMX 认证/TLS，不等同于生产安全配置。
 
 ## 统一验收规则
 

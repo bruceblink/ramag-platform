@@ -18,6 +18,8 @@ use rdkafka::consumer::{BaseConsumer, CommitMode, Consumer};
 use std::env;
 use std::time::{Duration as StdDuration, Instant};
 const FIXTURE_TOPIC: &str = "ramag.integration.messages";
+#[path = "support/docker_broker_metrics.rs"]
+mod docker_broker_metrics;
 #[path = "support/docker_ksqldb.rs"]
 mod docker_ksqldb;
 #[path = "support/docker_schema_registry.rs"]
@@ -46,7 +48,6 @@ fn docker_connect_endpoint() -> Option<String> {
         }
     }
 }
-
 fn docker_metrics_endpoint() -> Option<String> {
     match env::var("RAMAG_TEST_KAFKA_METRICS") {
         Ok(value) if !value.trim().is_empty() => Some(value),
@@ -58,7 +59,6 @@ fn docker_metrics_endpoint() -> Option<String> {
         }
     }
 }
-
 fn install_tls_crypto_provider() {
     let _ = rustls::crypto::ring::default_provider().install_default();
     assert!(

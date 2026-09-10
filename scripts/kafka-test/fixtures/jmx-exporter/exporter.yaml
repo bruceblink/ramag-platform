@@ -1,0 +1,25 @@
+hostPort: kafka:9999
+lowercaseOutputName: true
+
+rules:
+  - pattern: "java.lang<type=OperatingSystem><>ProcessCpuLoad"
+    name: ramag_kafka_broker_cpu_usage_percent
+    valueFactor: 100
+    labels:
+      broker_id: "1"
+  - pattern: "java.lang<type=Memory><HeapMemoryUsage>used"
+    name: ramag_kafka_broker_memory_used_bytes
+    labels:
+      broker_id: "1"
+  - pattern: "kafka.log<type=Log, name=Size, topic=(.+), partition=(.+)><>Value"
+    name: ramag_kafka_broker_disk_used_bytes
+    labels:
+      broker_id: "1"
+      topic: "$1"
+      partition: "$2"
+  - pattern: "kafka.network<type=RequestMetrics, name=(.+), request=(.+)><>Mean"
+    name: ramag_kafka_broker_request_latency_ms
+    labels:
+      broker_id: "1"
+      request_metric: "$1"
+      request: "$2"

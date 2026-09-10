@@ -225,8 +225,14 @@ fn parse_exposition(body: &str) -> std::result::Result<ParsedExposition, String>
         match field {
             MetricField::Cpu => broker.cpu_usage_percent = Some(value),
             MetricField::Memory => broker.memory_used_bytes = Some(value),
-            MetricField::Disk => broker.disk_used_bytes = Some(value),
-            MetricField::Latency => broker.request_latency_ms = Some(value),
+            MetricField::Disk => {
+                broker.disk_used_bytes =
+                    Some(sum_metric_value(broker.disk_used_bytes, value, metric)?);
+            }
+            MetricField::Latency => {
+                broker.request_latency_ms =
+                    Some(max_metric_value(broker.request_latency_ms, value));
+            }
         }
         if let Some(timestamp) = timestamp.and_then(parse_timestamp) {
             sampled_at = Some(sampled_at.map_or(timestamp, |current| current.max(timestamp)));
@@ -263,6 +269,27 @@ fn parse_exposition(body: &str) -> std::result::Result<ParsedExposition, String>
         error,
         brokers,
     })
+}
+
+fn sum_metric_value(
+    current: Option<f64>,
+    value: f64,
+    metric: &str,
+) -> std::result::Result<f64, String> {
+    // JMX exporter emits one disk sample per topic/partition; keep the model's
+    // one-value-per-Broker contract by summing those bounded samples.
+    let total = current.unwrap_or(0.0) + value;
+    if total.is_finite() {
+        Ok(total)
+    } else {
+        Err(format!("指标 {metric} 聚合后的数值无效"))
+    }
+}
+
+fn max_metric_value(current: Option<f64>, value: f64) -> f64 {
+    // Request latency has one sample per request type, so expose the slowest
+    // observed mean rather than making the result depend on sample order.
+    current.map_or(value, |current| current.max(value))
 }
 
 #[derive(Clone, Copy)]
@@ -393,6 +420,20 @@ mod tests {
         };
         assert_eq!(parsed.state, KafkaMetricsSnapshotState::Partial);
         assert_eq!(parsed.brokers[0].broker_id, 2);
+    }
+
+    #[test]
+    fn aggregates_repeated_disk_samples_and_keeps_maximum_latency() {
+        let result = parse_exposition(
+            "ramag_kafka_broker_disk_used_bytes{broker_id=\"1\",topic=\"a\"} 10\nramag_kafka_broker_disk_used_bytes{broker_id=\"1\",topic=\"b\"} 20\nramag_kafka_broker_request_latency_ms{broker_id=\"1\",request=\"Fetch\"} 2\nramag_kafka_broker_request_latency_ms{broker_id=\"1\",request=\"Produce\"} 5\n",
+        );
+        let error = result.as_ref().err();
+        assert!(result.is_ok(), "valid exposition: {error:?}");
+        let Some(parsed) = result.ok() else {
+            return;
+        };
+        assert_eq!(parsed.brokers[0].disk_used_bytes, Some(30.0));
+        assert_eq!(parsed.brokers[0].request_latency_ms, Some(5.0));
     }
 
     #[test]

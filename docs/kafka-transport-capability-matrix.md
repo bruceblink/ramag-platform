@@ -39,7 +39,7 @@
 | ListOffsets | 读取路径内部的 `fetch_watermarks`、`offsets_for_times` | 使用 librdkafka 查询 Partition 首尾 Offset，并把时间转换为起始/结束 Offset | `cmake-build`；需要可访问目标 Topic/Partition | 未实现 | 代码和历史 Docker Offset/时间读取测试已有；没有独立的纯 Rust 请求实现 |
 | Consumer Group | `KafkaDriver::list_consumer_groups` | `fetch_group_list`、`committed_offsets` 和有界 `ConsumerProtocolAssignment` 解码 | `cmake-build`；需要 Broker 对 Group 查询和 Offset 查询授权 | 未实现 | 领域、解码器和历史 Docker 组成员/Offset/Lag 测试已有；纯 Rust Group/Offset 请求未实现 |
 | Metrics Snapshot | `KafkaMonitoringDriver::metrics_snapshot`、`KafkaService::metrics_snapshot` | `RdkafkaTransport::metrics_snapshot_blocking` 复用只读 Metadata、Topic/Partition 末尾 Offset 和 Consumer Group/Offset 查询；领域层按连续 `high watermark` 样本计算 Topic/集群速率 | `cmake-build`；需要可访问元数据、Topic 末尾 Offset、Consumer Group 和 Offset；不读取消息正文、不提交业务 Offset | 未实现 | Domain/App/UI 测试和 native feature 编译通过；当前没有本次 Docker Broker 复核 |
-| Broker Runtime Metrics | `KafkaBrokerMetricsDriver::broker_metrics_snapshot`、`KafkaService::broker_metrics_snapshot` | `PrometheusBrokerMetricsDriver` 通过 HTTP/HTTPS 读取固定 Prometheus/OpenMetrics 指标，解析 `broker_id`、数值和样本时间；不与协议快照合并 | 可选 exporter 文本端点；5 秒超时、4 MiB 响应上限；JMX 需要部署侧 exporter | 本机 HTTP fixture 已验证；真实 Kafka exporter 未完成 | Domain/App/Infra/UI 定向测试、本机 `nginx:1.27-alpine` fixture 和 `docker_kafka_reads_broker_metrics_fixture` 通过；真实 exporter、端点权限/断开请求和真实 Windows 截图仍未完成 |
+| Broker Runtime Metrics | `KafkaBrokerMetricsDriver::broker_metrics_snapshot`、`KafkaService::broker_metrics_snapshot` | `PrometheusBrokerMetricsDriver` 通过 HTTP/HTTPS 读取固定 Prometheus/OpenMetrics 指标，解析 `broker_id`、数值和样本时间；重复磁盘样本求和、重复延迟样本取最大值；不与协议快照合并 | 可选 exporter 文本端点；5 秒超时、4 MiB 响应上限；JMX 由部署侧 exporter 暴露 | 本机静态 HTTP fixture 和真实 Kafka JMX Exporter 已验证；生产安全配置和多 Broker 部署仍未完成 | Domain/App/Infra/UI 定向测试、本机 `nginx:1.27-alpine` fixture、真实 `apache/kafka:4.0.0` JMX Exporter 和 `docker_kafka_reads_real_broker_jmx_exporter` 通过；端点权限/断开请求和真实 Windows 截图仍未完成 |
 | Topic | `KafkaAdminDriver::create_topic`、`delete_topic`、`increase_topic_partitions`；读取侧复用 Metadata | `AdminClient`、`NewTopic`、`NewPartitions` 和 Kafka Admin API | `cmake-build`；变更还需要 `ReadWrite` 配置和 Broker 权限 | 未实现 | 代码、输入校验和历史 Docker 管理测试已有；纯 Rust Topic Admin 请求未实现 |
 | Config | `KafkaAdminDriver::describe_configs`、`update_config` | 读取使用 `describe_configs`；修改通过显式 `IncrementalAlterConfigs` FFI，静态/只读项在发送前拒绝 | `cmake-build`；修改需要 `ReadWrite` 配置、动态配置支持和 Broker 权限 | 未实现 | 代码和配置项校验测试已有；当前 Docker fixture 未覆盖静态配置拒绝、动态配置回读和纯 Rust 实现 |
 | ACL | `KafkaAdminDriver::list_acls`、`create_acl`、`delete_acl` | 通过 librdkafka Admin FFI 映射 ACL 查询、创建和精确删除；错误转换不保留凭据或消息正文 | `cmake-build`；需要 Broker Authorizer 和对应 ACL 权限 | 未实现 | 代码和领域输入校验已有；当前 Docker fixture 未启用 Authorizer，不能把 ACL 真实服务验收写成通过 |
@@ -83,7 +83,7 @@
 
 阶段 22 已在 Kafka 概览页整合 Broker 健康摘要、Topic/Partition 健康和消费者组 Lag。Broker 健康只根据 Metadata API 返回结果和协议指标快照中的 Broker 数判断，并明确标出外部 Broker 运行指标尚未接入；明文 KRaft Docker Broker 已在 2026-09-09 完成基础集成复核，真实 Windows 截图仍未完成。
 
-阶段 23 已增加独立的 `KafkaBrokerMetricsDriver` 和 `PrometheusBrokerMetricsDriver`：配置页保存可选指标端点，适配器只读取四个固定指标名，应用层和 UI 分别保留外部运行指标的来源、采样时间、状态和错误。该适配器不直接连接 JMX，也不把配置 ID 作为 Kafka 集群 ID；真实 exporter 和 Broker 运行指标请求仍需单独复核。
+阶段 23 已增加独立的 `KafkaBrokerMetricsDriver` 和 `PrometheusBrokerMetricsDriver`：配置页保存可选指标端点，适配器只读取四个固定指标名，应用层和 UI 分别保留外部运行指标的来源、采样时间、状态和错误。该适配器不直接连接 JMX，也不把配置 ID 作为 Kafka 集群 ID；本机 Docker 已用真实 Kafka JVM、JMX/RMI 和 JMX Exporter 完成请求复核，生产安全配置仍需部署侧单独验收。
 
 相关代码和测试：
 

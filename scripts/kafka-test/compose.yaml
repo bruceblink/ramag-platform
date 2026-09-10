@@ -13,6 +13,8 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_JMX_HOSTNAME: kafka
+      KAFKA_JMX_PORT: 9999
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -81,6 +83,34 @@ services:
     labels:
       ramag.test-suite: "true"
       ramag.test-component: "kafka-broker-metrics-fixture"
+
+  broker-exporter:
+    build:
+      context: ./fixtures/jmx-exporter
+    image: ramag-kafka-jmx-exporter:1.6.0
+    container_name: ramag-kafka-jmx-exporter-test
+    hostname: broker-exporter
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:19101:9404"
+    healthcheck:
+      test:
+        - CMD
+        - /bin/bash
+        - -c
+        - |-
+          exec 3<>/dev/tcp/127.0.0.1/9404
+          printf 'GET /metrics HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          grep -q '# HELP' <&3
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+    labels:
+      ramag.test-suite: "true"
+      ramag.test-component: "kafka-jmx-exporter"
 
   ksqldb:
     image: confluentinc/cp-ksqldb-server:8.3.1
