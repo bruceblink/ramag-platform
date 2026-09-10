@@ -39,16 +39,18 @@ use ramag_domain::{
         KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
         KafkaConfigEntry, KafkaConfigResourceType, KafkaConfigUpdateOperation,
         KafkaConfigUpdateRequest, KafkaConnectConnector, KafkaConsumerGroup,
-        KafkaConsumerGroupOffsetReset, KafkaConsumerGroupOffsetResetRequest, KafkaMessagePage,
-        KafkaMessageProduceRequest, KafkaMessageQuery, KafkaMessageRecord, KafkaMessageSearchField,
-        KafkaMessageSearchQuery, KafkaMessageTailEvent, KafkaMessageTailRequest,
-        KafkaMessageTailStart, KafkaMetricsSnapshot, KafkaMetricsSnapshotState,
-        KafkaPartitionMetrics, KafkaReadOnlyState, KafkaSaslMechanism, KafkaSchemaRegistrySubject,
-        KafkaSecurityProtocol, KafkaTlsConfig, KafkaTopic, KafkaTopicCreateRequest,
-        KafkaTopicPartitionExpansion, MAX_KAFKA_ACL_HOST_BYTES, MAX_KAFKA_ACL_RESOURCE_NAME_BYTES,
+        KafkaConsumerGroupOffsetReset, KafkaConsumerGroupOffsetResetRequest, KafkaKsqlDbQuery,
+        KafkaKsqlDbQueryResult, KafkaMessagePage, KafkaMessageProduceRequest, KafkaMessageQuery,
+        KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
+        KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart,
+        KafkaMetricsSnapshot, KafkaMetricsSnapshotState, KafkaPartitionMetrics, KafkaReadOnlyState,
+        KafkaSaslMechanism, KafkaSchemaRegistrySubject, KafkaSecurityProtocol, KafkaTlsConfig,
+        KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+        MAX_KAFKA_ACL_HOST_BYTES, MAX_KAFKA_ACL_RESOURCE_NAME_BYTES,
         MAX_KAFKA_CONFIG_RESOURCE_NAME_BYTES, MAX_KAFKA_CONFIG_VALUE_BYTES,
         MAX_KAFKA_CONNECT_ENDPOINT_BYTES, MAX_KAFKA_CONNECT_PASSWORD_BYTES,
-        MAX_KAFKA_CONNECT_USERNAME_BYTES, MAX_KAFKA_METRICS_REFRESH_SECONDS, MAX_KAFKA_PARTITIONS,
+        MAX_KAFKA_CONNECT_USERNAME_BYTES, MAX_KAFKA_KSQLDB_ENDPOINT_BYTES,
+        MAX_KAFKA_KSQLDB_QUERY_BYTES, MAX_KAFKA_METRICS_REFRESH_SECONDS, MAX_KAFKA_PARTITIONS,
         MAX_KAFKA_PRODUCE_MESSAGE_BYTES, MAX_KAFKA_QUERY_PARTITIONS, MAX_KAFKA_REPLICAS,
         MAX_KAFKA_SCAN_RECORDS, MAX_KAFKA_SCHEMA_REGISTRY_ENDPOINT_BYTES,
         MAX_KAFKA_SCHEMA_REGISTRY_PASSWORD_BYTES, MAX_KAFKA_SCHEMA_REGISTRY_USERNAME_BYTES,
@@ -137,6 +139,7 @@ enum KafkaSection {
     ConsumerGroups,
     SchemaRegistry,
     Connect,
+    KsqlDb,
     Acls,
     Config,
 }
@@ -157,13 +160,14 @@ impl KafkaRangeMode {
 }
 
 impl KafkaSection {
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 9] = [
         Self::Overview,
         Self::Topics,
         Self::Messages,
         Self::ConsumerGroups,
         Self::SchemaRegistry,
         Self::Connect,
+        Self::KsqlDb,
         Self::Acls,
         Self::Config,
     ];
@@ -176,6 +180,7 @@ impl KafkaSection {
             Self::ConsumerGroups => "消费者组",
             Self::SchemaRegistry => "Schema Registry",
             Self::Connect => "Kafka Connect",
+            Self::KsqlDb => "ksqlDB",
             Self::Acls => "ACL",
             Self::Config => "配置",
         }
@@ -213,6 +218,7 @@ pub struct KafkaView {
     loading_connectors: bool,
     connectors_loaded: bool,
     connect_error: Option<String>,
+    ksqldb: KafkaKsqlDbState,
     acl_cancelled: Option<Arc<AtomicBool>>,
     message_page: Option<KafkaMessagePage>,
     message_tail_records: VecDeque<KafkaMessageRecord>,
@@ -365,6 +371,7 @@ impl Drop for KafkaView {
         self.invalidate_consumer_group_request();
         self.invalidate_schema_registry_request();
         self.invalidate_connect_request();
+        self.invalidate_ksqldb_request();
         self.invalidate_acl_request();
         // 已提交的 Kafka Admin 写入请求不主动取消；只让迟到回调失效，
         // 让有界请求自然结束后释放 native Admin 资源。
@@ -384,10 +391,12 @@ mod acls;
 mod admin;
 mod consumer_group_admin;
 mod consumer_groups;
+mod ksqldb;
 mod message_producer;
 mod message_tail;
 mod messages;
 mod metrics;
+use ksqldb::KafkaKsqlDbState;
 mod profile;
 mod profile_delete;
 mod profile_form;

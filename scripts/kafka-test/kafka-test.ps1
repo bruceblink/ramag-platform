@@ -18,9 +18,11 @@ $ProjectName = "ramag-kafka-test"
 $ContainerName = "ramag-kafka-test"
 $ConnectContainerName = "ramag-kafka-connect-test"
 $MetricsContainerName = "ramag-kafka-metrics-test"
+$KsqlDbContainerName = "ramag-kafka-ksqldb-test"
 $BootstrapServers = "127.0.0.1:19092"
 $ConnectEndpoint = "http://127.0.0.1:18083"
 $MetricsEndpoint = "http://127.0.0.1:19100/metrics"
+$KsqlDbEndpoint = "http://127.0.0.1:18088"
 $TopicName = "ramag.integration.messages"
 $script:WslKeepAliveProcess = $null
 
@@ -244,11 +246,32 @@ function Wait-MetricsHealthy {
     throw "Kafka metrics fixture health check timed out.`n$logs"
 }
 
+function Wait-KsqlDbHealthy {
+    for ($attempt = 1; $attempt -le 90; $attempt++) {
+        $health = (& docker inspect --format "{{.State.Health.Status}}" $KsqlDbContainerName 2>$null | Out-String).Trim()
+        $state = (& docker inspect --format "{{.State.Status}}" $KsqlDbContainerName 2>$null | Out-String).Trim()
+
+        if ($health -eq "healthy") {
+            Write-TestLog "ksqlDB container is healthy."
+            return
+        }
+        if ($state -eq "exited" -or $state -eq "dead") {
+            $logs = (& docker logs $KsqlDbContainerName 2>&1 | Out-String -ErrorAction SilentlyContinue).Trim()
+            throw "ksqlDB container stopped before becoming healthy.`n$logs"
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    $logs = (& docker logs $KsqlDbContainerName 2>&1 | Out-String -ErrorAction SilentlyContinue).Trim()
+    throw "ksqlDB health check timed out.`n$logs"
+}
+
 function Ensure-Healthy {
     Invoke-Compose -ComposeArguments @("up", "-d")
     Wait-Healthy
     Wait-ConnectHealthy
     Wait-MetricsHealthy
+    Wait-KsqlDbHealthy
 }
 
 function Get-FixtureLines {
@@ -405,6 +428,41 @@ function Verify-Fixture {
     Write-TestLog "Verified $(@(Get-FixtureTopicNames).Count) topics for UI layout and scrollbar coverage."
 }
 
+function Invoke-KsqlDbStatement {
+    param([Parameter(Mandatory = $true)][string]$Statement)
+
+    $request = @{
+        ksql             = $Statement
+        streamsProperties = @{
+            "ksql.streams.auto.offset.reset" = "earliest"
+        }
+    } | ConvertTo-Json -Compress
+    try {
+        return Invoke-RestMethod `
+            -Uri "$KsqlDbEndpoint/ksql" `
+            -Method Post `
+            -ContentType "application/vnd.ksql.v1+json" `
+            -Body $request
+    } catch {
+        throw "ksqlDB fixture statement failed: $Statement`n$($_.Exception.Message)"
+    }
+}
+
+function Prepare-KsqlDbFixture {
+    Invoke-KsqlDbStatement -Statement "DROP STREAM IF EXISTS RAMAG_INTEGRATION_STREAM;" | Out-Null
+    Invoke-KsqlDbStatement -Statement @"
+CREATE STREAM RAMAG_INTEGRATION_STREAM (
+    EVENT VARCHAR,
+    SEQUENCE BIGINT,
+    SOURCE VARCHAR
+) WITH (
+    KAFKA_TOPIC='ramag.integration.messages',
+    VALUE_FORMAT='JSON'
+);
+"@ | Out-Null
+    Write-TestLog "Prepared ksqlDB stream RAMAG_INTEGRATION_STREAM over the seeded Kafka topic."
+}
+
 function Run-RustIntegrationTest {
     # Run the Docker-backed Rust test with the same direct Cargo command used on
     # Linux and macOS, preferring GNU and falling back to the Windows MSVC
@@ -415,10 +473,12 @@ function Run-RustIntegrationTest {
     $oldBootstrap = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_BOOTSTRAP", "Process")
     $oldConnectEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_CONNECT", "Process")
     $oldMetricsEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_METRICS", "Process")
+    $oldKsqlDbEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KSQLDB", "Process")
     $oldTargetDirectory = [Environment]::GetEnvironmentVariable("CARGO_TARGET_DIR", "Process")
     $env:RAMAG_TEST_KAFKA_BOOTSTRAP = $BootstrapServers
     $env:RAMAG_TEST_KAFKA_CONNECT = $ConnectEndpoint
     $env:RAMAG_TEST_KAFKA_METRICS = $MetricsEndpoint
+    $env:RAMAG_TEST_KSQLDB = $KsqlDbEndpoint
     $env:CARGO_TARGET_DIR = Join-Path ([System.IO.Path]::GetTempPath()) "ramag-kafka-docker-target"
 
     try {
@@ -443,6 +503,11 @@ function Run-RustIntegrationTest {
         } else {
             $env:RAMAG_TEST_KAFKA_METRICS = $oldMetricsEndpoint
         }
+        if ($null -eq $oldKsqlDbEndpoint) {
+            Remove-Item Env:RAMAG_TEST_KSQLDB -ErrorAction SilentlyContinue
+        } else {
+            $env:RAMAG_TEST_KSQLDB = $oldKsqlDbEndpoint
+        }
         if ($null -eq $oldTargetDirectory) {
             Remove-Item Env:CARGO_TARGET_DIR -ErrorAction SilentlyContinue
         } else {
@@ -454,6 +519,7 @@ function Run-RustIntegrationTest {
 function Run-IntegrationTest {
     Seed-Fixture
     Verify-Fixture
+    Prepare-KsqlDbFixture
     Run-RustIntegrationTest
     Write-TestLog "Docker Kafka integration test passed."
 }

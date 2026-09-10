@@ -114,6 +114,7 @@ impl KafkaView {
                 self.render_schema_registry(window, cx).into_any_element()
             }
             KafkaSection::Connect => self.render_connect(window, cx).into_any_element(),
+            KafkaSection::KsqlDb => self.render_ksqldb_query(window, cx).into_any_element(),
             KafkaSection::Acls => self.render_acls(window, cx).into_any_element(),
             KafkaSection::Config => self.render_config(window, cx).into_any_element(),
         };

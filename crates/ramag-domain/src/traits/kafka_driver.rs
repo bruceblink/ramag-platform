@@ -6,11 +6,11 @@ use std::sync::{Arc, atomic::AtomicBool};
 use crate::entities::{
     KafkaAcl, KafkaAclFilter, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterMetadata,
     KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConnectConnector,
-    KafkaConsumerGroup, KafkaConsumerGroupOffsetResetRequest, KafkaMessagePage,
-    KafkaMessageProduceRequest, KafkaMessageProduceResult, KafkaMessageQuery,
-    KafkaMessageSearchQuery, KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMetricsSnapshot,
-    KafkaSchemaRegistrySubject, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
-    KafkaTransportCapabilities,
+    KafkaConsumerGroup, KafkaConsumerGroupOffsetResetRequest, KafkaKsqlDbQuery,
+    KafkaKsqlDbQueryResult, KafkaMessagePage, KafkaMessageProduceRequest,
+    KafkaMessageProduceResult, KafkaMessageQuery, KafkaMessageSearchQuery, KafkaMessageTailEvent,
+    KafkaMessageTailRequest, KafkaMetricsSnapshot, KafkaSchemaRegistrySubject, KafkaTopic,
+    KafkaTopicCreateRequest, KafkaTopicPartitionExpansion, KafkaTransportCapabilities,
 };
 use crate::error::Result;
 
@@ -65,6 +65,30 @@ pub trait KafkaConnectDriver: Send + Sync {
         _cancelled: Arc<AtomicBool>,
     ) -> Result<Vec<KafkaConnectConnector>> {
         self.list_connectors(config).await
+    }
+}
+
+/// ksqlDB 只读查询端口；不执行 DDL、写入或持久化查询管理操作。
+#[async_trait]
+pub trait KafkaKsqlDbDriver: Send + Sync {
+    async fn execute_query(
+        &self,
+        _config: &KafkaClusterConfig,
+        _query: &KafkaKsqlDbQuery,
+    ) -> Result<KafkaKsqlDbQueryResult> {
+        Err(crate::error::DomainError::NotImplemented(
+            "ksqldb_query".into(),
+        ))
+    }
+
+    /// 执行有界查询并支持后台取消；旧驱动默认沿用不可取消的读取实现。
+    async fn execute_query_with_cancel(
+        &self,
+        config: &KafkaClusterConfig,
+        query: &KafkaKsqlDbQuery,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<KafkaKsqlDbQueryResult> {
+        self.execute_query(config, query).await
     }
 }
 

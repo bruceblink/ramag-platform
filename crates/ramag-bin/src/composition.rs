@@ -156,17 +156,29 @@ pub(super) fn build_kafka_service(storage: Arc<dyn Storage>) -> Arc<KafkaService
             service
         }
     };
-    match KafkaConnectHttpDriver::new() {
-        Ok(connect_driver) => Arc::new(service.with_connect_driver(Arc::new(connect_driver))),
+    let service = match KafkaConnectHttpDriver::new() {
+        Ok(connect_driver) => service.with_connect_driver(Arc::new(connect_driver)),
         Err(error) => {
             warn!(
                 operation = "kafka_connect_client_init",
                 error = %error,
                 "initialize Kafka Connect HTTP client failed"
             );
-            Arc::new(service)
+            service
         }
-    }
+    };
+    let service = match KsqlDbHttpDriver::new() {
+        Ok(driver) => service.with_ksqldb_driver(Arc::new(driver)),
+        Err(error) => {
+            warn!(
+                operation = "kafka_ksqldb_client_init",
+                error = %error,
+                "initialize ksqlDB HTTP client failed"
+            );
+            service
+        }
+    };
+    Arc::new(service)
 }
 
 /// 组合根启用 Native MQTT 驱动；未连接 Broker 时只创建客户端适配器，不发起网络请求。

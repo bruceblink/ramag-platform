@@ -96,8 +96,16 @@ fn sections_keep_the_read_only_workflow_order() {
     assert_eq!(KafkaSection::ALL[3], KafkaSection::ConsumerGroups);
     assert_eq!(KafkaSection::ALL[4], KafkaSection::SchemaRegistry);
     assert_eq!(KafkaSection::ALL[5], KafkaSection::Connect);
-    assert_eq!(KafkaSection::ALL[6], KafkaSection::Acls);
-    assert_eq!(KafkaSection::ALL[7], KafkaSection::Config);
+    assert_eq!(KafkaSection::ALL[6], KafkaSection::KsqlDb);
+    assert_eq!(KafkaSection::ALL[7], KafkaSection::Acls);
+    assert_eq!(KafkaSection::ALL[8], KafkaSection::Config);
+}
+
+#[test]
+fn ksqldb_section_is_part_of_the_read_only_workflow() {
+    assert_eq!(KafkaSection::ALL.len(), 9);
+    assert_eq!(KafkaSection::ALL[6], KafkaSection::KsqlDb);
+    assert_eq!(KafkaSection::KsqlDb.label(), "ksqlDB");
 }
 
 #[test]
@@ -537,6 +545,8 @@ mod visual_acl_tests;
 mod visual_config_tests;
 #[path = "visual_consumer_group_tests.rs"]
 mod visual_consumer_group_tests;
+#[path = "visual_ksqldb_tests.rs"]
+mod visual_ksqldb_tests;
 #[path = "visual_loading_tests.rs"]
 mod visual_loading_tests;
 #[path = "visual_message_tests.rs"]

@@ -18,9 +18,9 @@ use rdkafka::ClientConfig;
 use rdkafka::consumer::{BaseConsumer, CommitMode, Consumer};
 use std::env;
 use std::time::{Duration as StdDuration, Instant};
-
 const FIXTURE_TOPIC: &str = "ramag.integration.messages";
-
+#[path = "support/docker_ksqldb.rs"]
+mod docker_ksqldb;
 /// Returns the Docker broker address, or skips the test when the dedicated
 /// integration environment has not been configured for this process.
 fn docker_bootstrap() -> Option<String> {

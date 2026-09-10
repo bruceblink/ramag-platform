@@ -46,7 +46,7 @@
 | Broker 运行指标 | 展示 CPU、内存、磁盘、JVM 和请求延迟 | 进行中 | `PrometheusBrokerMetricsDriver`、有界解析和本机 Docker HTTP fixture 已验证 | 真实 Kafka exporter、真实 Broker 运行指标端点和真实窗口证据待补充 |
 | Schema Registry | 浏览 Subject 名称 | 已完成 | 只读 Subject 浏览、端点/数量边界和 UI 测试 | Schema 版本内容解析待排期 |
 | Kafka Connect | 浏览连接器和 Task 状态 | 已完成 | 只读 Connect HTTP 浏览、端点和数量边界测试 | 写操作不纳入当前范围 |
-| ksqlDB | 对 Kafka 流执行有界只读查询 | 待排期 | 阶段 26 设计已写入 Kafka 路线图，尚未实现 | 需要本机 Docker ksqlDB fixture 和独立安全边界 |
+| ksqlDB | 对 Kafka 流执行有界只读查询 | 已完成 | `KafkaKsqlDbDriver`、ksqlDB 配置与查询 UI、HTTP 流式 JSON 解析、GPUI headless 测试和本机 Docker ksqlDB fixture；覆盖成功、HTTP 404、行数上限和取消 | 真实 Windows 窗口证据仍待补充；不执行 DDL、写入或查询管理命令 |
 | 纯 Rust Transport | 用跨平台纯 Rust 客户端替换 native backend | 待排期 | 能力矩阵已记录当前 native 路径和缺口 | 不在 UI 功能矩阵切片中顺带替换 |
 
 ## `KAFKA-023` 顺序

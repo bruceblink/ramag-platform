@@ -1,13 +1,13 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流的领域、应用、基础设施和 UI 代码、GPUI headless 验收及本机 Docker KRaft 生产回读已完成；阶段 23 的本机 OpenMetrics HTTP fixture 已验证，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充
+> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流和阶段 26 ksqlDB 只读查询已完成领域、应用、基础设施、GPUI headless 验收及本机 Docker 复核；阶段 23 的本机 OpenMetrics HTTP fixture 已验证，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充
 > 更新日期：2026-09-11
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
 > 功能矩阵：[`kafka-workbench-feature-matrix.md`](kafka-workbench-feature-matrix.md)
-> 当前基线：`dev`（阶段 18-25 的高规模列表、快照边界和单条消息生产切片已同步，明文 KRaft Docker 生产回读和 OpenMetrics HTTP fixture 已复核；写请求不主动取消，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充）
+> 当前基线：`dev`（阶段 18-26 的高规模列表、快照边界、单条消息生产和 ksqlDB 查询切片已同步，明文 KRaft/ksqlDB Docker 回读和 OpenMetrics HTTP fixture 已复核；写请求不主动取消，真实 Kafka exporter、真实 Broker 运行指标端点和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
-> 当前主线：阶段 25 单条消息生产工作流和 `KAFKA-023` 两个消息定位切片已完成，下一项继续建立并推进 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前主线：阶段 25 单条消息生产、阶段 26 ksqlDB 只读查询和 `KAFKA-023` 两个消息定位切片已完成，下一项继续建立并推进 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -518,16 +518,24 @@ Schema Registry Subject 浏览已作为独立切片完成：
 
 - `ddcc0db feat(kafka): add schema registry subject browser`：只读读取 Subject 名称，配置端点、数量上限、错误状态和页面刷新已接入；Schema 版本内容解析仍未实现。
 
-当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect、消费者组 Offset 重置、阶段 25 消息生产和 `KAFKA-023` 两个定位切片已经完成；下一项继续完善 AKHQ/Offset Explorer 功能矩阵，ksqlDB 仍作为独立候选：
+当前开发顺序继续沿用阶段 24 的 Kafka 工作台增强主线。Kafka Connect、消费者组 Offset 重置、阶段 25 消息生产、阶段 26 ksqlDB 只读查询和 `KAFKA-023` 两个定位切片已经完成；下一项继续完善 AKHQ/Offset Explorer 功能矩阵：
 
 - `b6590cb feat(kafka): add read-only Connect status browser`：读取 Kafka Connect 连接器与 Task 状态，保留端点校验、数量边界、错误状态和页面刷新。
 - 本次切片完成消费者组 Offset 重置：Domain 和 App 只接受明确的消费者组及 Topic/Partition/Offset 目标；Ramag UI 在管理模式下提供“重置到最早”和“重置到末尾”两个入口，执行前显示目标数量、集群、消费者组和当前状态，并在成功后重新读取消费者组快照；生产驱动使用 librdkafka `AlterConsumerGroupOffsets` Admin API，WSL Docker 已回读目标 Offset 为 `0`。
 - `feat(kafka): add message production workflow`（阶段 25，已完成）
-- `feat(kafka): add ksqldb integration`
+- `feat(kafka): add ksqldb integration`（阶段 26，已完成）
+
+阶段 26 当前切片实施记录：
+
+- `KafkaKsqlDbConfig`、`KafkaKsqlDbQuery` 和 `KafkaKsqlDbQueryResult` 已接入 Domain；地址、查询文本、字段、行数、单元格、Query ID 和完成消息均有界，查询只接受 `SELECT` 并拒绝写入、DDL 和查询管理关键字。
+- `KafkaService` 通过独立 `KafkaKsqlDbDriver` 编排查询，校验当前集群配置和结果边界，保留请求代次、取消信号和脱敏日志；UI 配置页保存可选 ksqlDB Server 地址，ksqlDB 页面保持只读、执行中禁止重复提交并提供取消、结果滚动和窄窗口布局。
+- `KsqlDbHttpDriver` 只调用 `/query`，禁止重定向和系统代理，限制响应正文为 4 MiB；请求固定从 `earliest` Offset 读取已有流数据，解析流式 JSON，并把 HTTP 错误、协议错误、超限和取消映射为结构化错误或截断结果。
+- 2026-09-11 本机 Docker Compose 使用 `apache/kafka:4.0.0`、`confluentinc/cp-ksqldb-server:8.3.1`、`apache/kafka:4.0.0` Connect 和 `nginx:1.27-alpine` 指标 fixture；脚本在 `127.0.0.1:19092`、`127.0.0.1:18088`、`127.0.0.1:18083` 和 `127.0.0.1:19100/metrics` 等待服务健康，创建并校验 5000 条消息和 61 个 Topic，Rust Docker 测试 10 项全部通过，覆盖查询成功、HTTP 404 和 1000 行结果上限。
+- `ramag-tool-kafka` 的 ksqlDB headless UI 测试覆盖只读模式、结果滚动、执行中重复提交、取消和 360px 窄窗口布局。Docker 服务在测试后按现有约定保持运行以便复用；停止服务使用 `scripts/kafka-test/kafka-test.ps1 -Command down`，连同测试卷清理使用 `-Command clean`。真实 Windows 窗口截图和操作记录仍待补充。
 
 ### 6.3 阶段 26 设计：ksqlDB 查询只读入口
 
-术语表：`ksqlDB` 是 Kafka Streams 的 SQL 查询服务；本切片只把它作为独立 HTTP 查询端点使用，不表示 Kafka Broker Admin API，也不表示本地 SQL 执行器。`KsqlDbQuery` 是用户提交的一条只读查询文本，不表示可执行的任意管理命令。
+术语表：`ksqlDB` 是 Kafka Streams 的 SQL 查询服务；本切片只把它作为独立 HTTP 查询端点使用，不表示 Kafka Broker Admin API，也不表示本地 SQL 执行器。`KafkaKsqlDbQuery` 是用户提交的一条只读查询文本，不表示可执行的任意管理命令。
 
 本阶段先交付只读查询闭环：配置页保存可选的 ksqlDB Server 地址，消息工作台提供查询输入、执行状态和有界文本结果。Domain 只定义地址与查询结果边界，App 负责代次和请求上下文校验，Infra 通过受限 HTTP 客户端调用 `/query`，UI 不直接依赖 HTTP 类型。查询请求默认拒绝包含 `INSERT INTO`、`CREATE`、`DROP`、`TERMINATE`、`PAUSE`、`RESUME` 和 `DELETE` 的语句，响应最大行数、字段数和正文大小均受限；超限响应显示截断状态，不伪装成完整结果。
 

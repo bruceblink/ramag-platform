@@ -212,6 +212,7 @@ impl KafkaView {
             input(window, cx, 32, "单条最大字节数", false, "4194304");
         let message_tail_poll_timeout_input = input(window, cx, 16, "轮询毫秒", false, "250");
 
+        let ksqldb = KafkaKsqlDbState::new(window, cx);
         let mut subscriptions = Vec::new();
         for field in [
             &cluster_search,
@@ -233,6 +234,8 @@ impl KafkaView {
             &connect_endpoint,
             &connect_username,
             &connect_password,
+            &ksqldb.endpoint,
+            &ksqldb.query,
             &ca_cert_path,
             &client_cert_path,
             &client_key_path,
@@ -373,6 +376,7 @@ impl KafkaView {
             loading_connectors: false,
             connectors_loaded: false,
             connect_error: None,
+            ksqldb,
             acl_cancelled: None,
             message_page: None,
             message_tail_records: VecDeque::new(),

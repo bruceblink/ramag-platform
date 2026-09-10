@@ -46,7 +46,7 @@ use ramag_infra_clipboard::{
 };
 use ramag_infra_git::GitDriverImpl;
 use ramag_infra_kafka::{
-    KafkaConnectHttpDriver, PrometheusBrokerMetricsDriver, RdkafkaTransport,
+    KafkaConnectHttpDriver, KsqlDbHttpDriver, PrometheusBrokerMetricsDriver, RdkafkaTransport,
     SchemaRegistryHttpDriver,
 };
 use ramag_infra_mongodb::MongoDriver;

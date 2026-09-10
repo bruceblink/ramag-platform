@@ -82,6 +82,40 @@ services:
       ramag.test-suite: "true"
       ramag.test-component: "kafka-broker-metrics-fixture"
 
+  ksqldb:
+    image: confluentinc/cp-ksqldb-server:8.3.1
+    container_name: ramag-kafka-ksqldb-test
+    hostname: ksqldb
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KSQL_BOOTSTRAP_SERVERS: kafka:9092
+      KSQL_LISTENERS: http://0.0.0.0:8088
+      KSQL_KSQL_SERVICE_ID: ramag_ksqldb_test_
+      KSQL_KSQL_STREAMS_REPLICATION_FACTOR: 1
+      KSQL_KSQL_INTERNAL_TOPIC_REPLICAS: 1
+      KSQL_KSQL_SINK_REPLICAS: 1
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_REPLICATION_FACTOR: 1
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
+      KSQL_KSQL_QUERY_PULL_TABLE_SCAN_ENABLED: "true"
+    ports:
+      - "127.0.0.1:18088:8088"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - |-
+          exec 3<>/dev/tcp/127.0.0.1/8088
+          printf 'GET /info HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          grep -q version <&3
+      interval: 5s
+      timeout: 10s
+      retries: 60
+      start_period: 30s
+    labels:
+      ramag.test-suite: "true"
+      ramag.test-component: "ksqldb"
+
 volumes:
   kafka-data:
     name: ramag-kafka-test-data

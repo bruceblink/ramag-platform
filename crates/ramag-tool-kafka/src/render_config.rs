@@ -276,6 +276,28 @@ impl KafkaView {
                             ),
                     )
                     .child(
+                        v_flex()
+                            .id("kafka-ksqldb-config")
+                            .debug_selector(|| "kafka-ksqldb-config".into())
+                            .w_full()
+                            .min_w_0()
+                            .gap(px(10.0))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child("ksqlDB（可选，只读查询）"),
+                            )
+                            .child(
+                                field(
+                                    "地址",
+                                    Input::new(&self.ksqldb.endpoint).small(),
+                                    0.0,
+                                )
+                                .debug_selector(|| "kafka-ksqldb-endpoint".into()),
+                            ),
+                    )
+                    .child(
                         h_flex()
                             .w_full()
                             .flex_wrap()

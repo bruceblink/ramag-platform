@@ -5,15 +5,15 @@ use std::sync::{Arc, atomic::AtomicBool};
 use ramag_domain::entities::{
     KafkaAcl, KafkaBrokerMetricsSnapshot, KafkaClusterConfig, KafkaClusterId, KafkaClusterMetadata,
     KafkaConfigResource, KafkaConfigResourceType, KafkaConfigUpdateRequest, KafkaConnectConnector,
-    KafkaConsumerGroup, KafkaMessagePage, KafkaMessageProduceRequest, KafkaMessageProduceResult,
-    KafkaMetricsSnapshot, KafkaSchemaRegistrySubject, KafkaTopic, KafkaTopicCreateRequest,
-    KafkaTopicPartitionExpansion, KafkaTransportCapabilities, MAX_KAFKA_GROUP_OFFSETS,
-    MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS, MAX_KAFKA_GROUP_TOTAL_MEMBERS,
-    MAX_KAFKA_PARTITION_REPLICA_IDS, MAX_KAFKA_PARTITIONS,
+    KafkaConsumerGroup, KafkaKsqlDbQuery, KafkaKsqlDbQueryResult, KafkaMessagePage,
+    KafkaMessageProduceRequest, KafkaMessageProduceResult, KafkaMetricsSnapshot,
+    KafkaSchemaRegistrySubject, KafkaTopic, KafkaTopicCreateRequest, KafkaTopicPartitionExpansion,
+    KafkaTransportCapabilities, MAX_KAFKA_GROUP_OFFSETS, MAX_KAFKA_GROUP_TOTAL_ASSIGNMENTS,
+    MAX_KAFKA_GROUP_TOTAL_MEMBERS, MAX_KAFKA_PARTITION_REPLICA_IDS, MAX_KAFKA_PARTITIONS,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::{
-    KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaConnectDriver, KafkaDriver,
+    KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaConnectDriver, KafkaDriver, KafkaKsqlDbDriver,
     KafkaMonitoringDriver, KafkaProducerDriver, KafkaSchemaRegistryDriver, Storage,
 };
 
@@ -25,6 +25,7 @@ pub struct KafkaService {
     broker_metrics_driver: Arc<dyn KafkaBrokerMetricsDriver>,
     schema_registry_driver: Arc<dyn KafkaSchemaRegistryDriver>,
     connect_driver: Arc<dyn KafkaConnectDriver>,
+    ksqldb_driver: Arc<dyn KafkaKsqlDbDriver>,
     storage: Arc<dyn Storage>,
 }
 
@@ -32,6 +33,7 @@ mod acls;
 mod connect;
 mod connection;
 mod consumer_group_offsets;
+mod ksqldb;
 mod logging;
 mod messages;
 mod schema_registry;
@@ -50,6 +52,7 @@ impl KafkaService {
             broker_metrics_driver: Arc::new(UnsupportedKafkaBrokerMetricsDriver),
             schema_registry_driver: Arc::new(UnsupportedKafkaSchemaRegistryDriver),
             connect_driver: Arc::new(UnsupportedKafkaConnectDriver),
+            ksqldb_driver: Arc::new(UnsupportedKafkaKsqlDbDriver),
             storage,
         }
     }
@@ -90,6 +93,11 @@ impl KafkaService {
 
     pub fn with_connect_driver(mut self, connect_driver: Arc<dyn KafkaConnectDriver>) -> Self {
         self.connect_driver = connect_driver;
+        self
+    }
+
+    pub fn with_ksqldb_driver(mut self, ksqldb_driver: Arc<dyn KafkaKsqlDbDriver>) -> Self {
+        self.ksqldb_driver = ksqldb_driver;
         self
     }
 
@@ -410,6 +418,10 @@ impl KafkaSchemaRegistryDriver for UnsupportedKafkaSchemaRegistryDriver {}
 struct UnsupportedKafkaConnectDriver;
 
 impl KafkaConnectDriver for UnsupportedKafkaConnectDriver {}
+
+struct UnsupportedKafkaKsqlDbDriver;
+
+impl KafkaKsqlDbDriver for UnsupportedKafkaKsqlDbDriver {}
 
 #[cfg(test)]
 #[path = "kafka_service_tests.rs"]

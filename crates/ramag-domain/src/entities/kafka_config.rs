@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use super::super::connection::TlsVerify;
 use super::kafka_connect::KafkaConnectConfig;
+use super::kafka_ksqldb::KafkaKsqlDbConfig;
 use super::kafka_schema_registry::KafkaSchemaRegistryConfig;
 use super::kafka_validation::{
     validate_optional_path, validate_optional_protocol_text, validate_optional_single_line,
@@ -219,6 +220,8 @@ pub struct KafkaClusterConfig {
     pub schema_registry: KafkaSchemaRegistryConfig,
     #[serde(default)]
     pub connect: KafkaConnectConfig,
+    #[serde(default)]
+    pub ksqldb: KafkaKsqlDbConfig,
 }
 
 impl fmt::Debug for KafkaClusterConfig {
@@ -245,6 +248,7 @@ impl fmt::Debug for KafkaClusterConfig {
             .field("broker_metrics", &self.broker_metrics)
             .field("schema_registry", &self.schema_registry)
             .field("connect", &self.connect)
+            .field("ksqldb", &self.ksqldb)
             .finish()
     }
 }
@@ -267,6 +271,7 @@ impl KafkaClusterConfig {
             broker_metrics: KafkaBrokerMetricsConfig::default(),
             schema_registry: KafkaSchemaRegistryConfig::default(),
             connect: KafkaConnectConfig::default(),
+            ksqldb: KafkaKsqlDbConfig::default(),
         }
     }
 
@@ -309,6 +314,7 @@ impl KafkaClusterConfig {
         self.broker_metrics.validate()?;
         self.schema_registry.validate()?;
         self.connect.validate()?;
+        self.ksqldb.validate()?;
 
         if self.security_protocol.uses_sasl() {
             if self.sasl_mechanism.is_none() {

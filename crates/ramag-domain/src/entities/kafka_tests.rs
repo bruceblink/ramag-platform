@@ -531,5 +531,25 @@ fn serde_defaults_keep_new_optional_metadata_compatible() -> Result<(), serde_js
     assert_eq!(config.read_only, KafkaReadOnlyState::ReadOnly);
     assert_eq!(config.schema_registry, KafkaSchemaRegistryConfig::default());
     assert_eq!(config.connect, KafkaConnectConfig::default());
+    assert_eq!(config.ksqldb, KafkaKsqlDbConfig::default());
     Ok(())
+}
+
+#[test]
+fn ksqldb_query_accepts_select_and_rejects_write_keywords() {
+    assert!(
+        KafkaKsqlDbQuery::new("SELECT * FROM stream;")
+            .validate()
+            .is_ok()
+    );
+    assert!(
+        KafkaKsqlDbQuery::new("CREATE STREAM stream AS SELECT * FROM source;")
+            .validate()
+            .is_err()
+    );
+    assert!(
+        KafkaKsqlDbQuery::new("INSERT INTO sink SELECT * FROM source;")
+            .validate()
+            .is_err()
+    );
 }

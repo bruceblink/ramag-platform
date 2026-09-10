@@ -8,6 +8,7 @@ mod connect;
 mod consumer_groups;
 #[cfg(feature = "cmake-build")]
 pub mod errors;
+mod ksqldb;
 #[cfg(feature = "cmake-build")]
 mod messages;
 #[cfg(feature = "cmake-build")]
@@ -17,6 +18,7 @@ mod producer_driver;
 mod schema_registry;
 pub use broker_metrics::PrometheusBrokerMetricsDriver;
 pub use connect::KafkaConnectHttpDriver;
+pub use ksqldb::KsqlDbHttpDriver;
 use ramag_domain::entities::KafkaMessageTailRequest;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{

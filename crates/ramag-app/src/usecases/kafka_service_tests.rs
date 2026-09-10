@@ -572,5 +572,7 @@ fn config_service_forwards_valid_update_after_admin_mode_is_enabled() {
     assert_eq!(&*calls.lock().unwrap(), &["update:retention.ms"]);
 }
 
+#[path = "kafka_service_tests/ksqldb.rs"]
+mod ksqldb;
 #[path = "kafka_service_tests/producer.rs"]
 mod producer;

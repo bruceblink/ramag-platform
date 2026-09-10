@@ -11,6 +11,7 @@ impl KafkaView {
         self.invalidate_config_request();
         self.clear_schema_registry_snapshot();
         self.clear_connect_snapshot();
+        self.reset_ksqldb_query();
         self.reset_acl_state(window, cx);
         self.read_only = config.read_only;
         set_value(&self.name, config.name.clone(), window, cx);
@@ -104,6 +105,12 @@ impl KafkaView {
                 cx,
             );
         });
+        set_value(
+            &self.ksqldb.endpoint,
+            config.ksqldb.endpoint.clone().unwrap_or_default(),
+            window,
+            cx,
+        );
         set_value(
             &self.ca_cert_path,
             config.tls.ca_cert_path.clone().unwrap_or_default(),

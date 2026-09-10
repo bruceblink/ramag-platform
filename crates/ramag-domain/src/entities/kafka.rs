@@ -14,6 +14,8 @@ mod kafka_connect;
 mod kafka_consumer;
 #[path = "kafka_consumer_admin.rs"]
 mod kafka_consumer_admin;
+#[path = "kafka_ksqldb.rs"]
+mod kafka_ksqldb;
 #[path = "kafka_message.rs"]
 mod kafka_message;
 #[path = "kafka_metadata.rs"]
@@ -51,6 +53,7 @@ pub use kafka_consumer::{
 pub use kafka_consumer_admin::{
     KafkaConsumerGroupOffsetReset, KafkaConsumerGroupOffsetResetRequest,
 };
+pub use kafka_ksqldb::{KafkaKsqlDbConfig, KafkaKsqlDbQuery, KafkaKsqlDbQueryResult};
 pub use kafka_message::{
     KafkaMessageHeader, KafkaMessagePage, KafkaMessageProduceRequest, KafkaMessageProduceResult,
     KafkaMessageQuery, KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
@@ -101,6 +104,12 @@ pub const MAX_KAFKA_CONNECTOR_WORKER_BYTES: usize = 1_024;
 pub const MAX_KAFKA_CONNECTOR_TRACE_BYTES: usize = 16 * 1024;
 pub const MAX_KAFKA_CONNECTORS: usize = 2_000;
 pub const MAX_KAFKA_CONNECTOR_TASKS: usize = 10_000;
+pub const MAX_KAFKA_KSQLDB_ENDPOINT_BYTES: usize = 4 * 1024;
+pub const MAX_KAFKA_KSQLDB_QUERY_BYTES: usize = 4 * 1024;
+pub const MAX_KAFKA_KSQLDB_QUERY_ID_BYTES: usize = 1_024;
+pub const MAX_KAFKA_KSQLDB_RESULT_COLUMNS: usize = 128;
+pub const MAX_KAFKA_KSQLDB_RESULT_ROWS: usize = 1_000;
+pub const MAX_KAFKA_KSQLDB_CELL_BYTES: usize = 64 * 1024;
 pub const MAX_KAFKA_BROKERS: usize = 10_000;
 pub const MAX_KAFKA_TOPICS: usize = 100_000;
 pub const MAX_KAFKA_PARTITIONS: usize = 1_000_000;

@@ -125,6 +125,7 @@ impl KafkaView {
         self.invalidate_config_request();
         self.clear_schema_registry_snapshot();
         self.clear_connect_snapshot();
+        self.reset_ksqldb_query();
         self.reset_acl_state(window, cx);
         self.selected_cluster_id = None;
         self.selected_topic = None;
@@ -156,6 +157,7 @@ impl KafkaView {
             &self.connect_endpoint,
             &self.connect_username,
             &self.connect_password,
+            &self.ksqldb.endpoint,
             &self.ca_cert_path,
             &self.client_cert_path,
             &self.client_key_path,
@@ -206,6 +208,7 @@ impl KafkaView {
         self.invalidate_consumer_group_operation();
         self.clear_schema_registry_snapshot();
         self.clear_connect_snapshot();
+        self.reset_ksqldb_query();
         self.clear_acl_snapshot();
         self.invalidate_acl_operation();
         self.selected_cluster_id = Some(id);
@@ -256,6 +259,7 @@ impl KafkaView {
         } else if let Some(password) = optional_value(&self.connect_password, cx) {
             config.connect.password = Some(password);
         }
+        config.ksqldb.endpoint = optional_value(&self.ksqldb.endpoint, cx);
         config.tls = KafkaTlsConfig {
             verify: config.tls.verify,
             ca_cert_path: optional_value(&self.ca_cert_path, cx),
