@@ -444,6 +444,35 @@ impl KafkaView {
                 )
             },
         );
+        let search_mode = [
+            KafkaMessageSearchMode::Literal,
+            KafkaMessageSearchMode::Regex,
+        ]
+        .into_iter()
+        .fold(
+            h_flex()
+                .debug_selector(|| "kafka-message-search-mode".into())
+                .gap(px(4.0)),
+            |row, mode| {
+                let selected = self.search_mode == mode;
+                row.child(
+                    ramag_ui::clickable_button(SharedString::from(format!(
+                        "kafka-search-mode-{}",
+                        mode.label()
+                    )))
+                    .small()
+                    .label(mode.label())
+                    .when(selected, |button| button.primary())
+                    .when(!selected, |button| button.ghost())
+                    .on_click(cx.listener(
+                        move |this, _: &ClickEvent, _, cx| {
+                            this.search_mode = mode;
+                            cx.notify();
+                        },
+                    )),
+                )
+            },
+        );
         // 将查询条件和操作控件分成可收缩的布局组，避免固定宽度控件把搜索区域推出窗口。
         let message_query = h_flex()
             .debug_selector(|| "kafka-message-query".into())
@@ -497,7 +526,6 @@ impl KafkaView {
             );
         let message_search_fields = v_flex()
             .debug_selector(|| "kafka-message-search-fields".into())
-            .when(compact, |fields| fields.w_full())
             .when(!compact, |fields| fields.w(px(208.0)))
             .flex_none()
             .gap(px(5.0))
@@ -508,6 +536,25 @@ impl KafkaView {
                     .child("搜索字段"),
             )
             .child(search_fields);
+        let message_search_mode_field = v_flex()
+            .debug_selector(|| "kafka-message-search-mode-field".into())
+            .flex_none()
+            .gap(px(5.0))
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("匹配模式"),
+            )
+            .child(search_mode);
+        let message_search_options = h_flex()
+            .debug_selector(|| "kafka-message-search-options".into())
+            .min_w_0()
+            .items_end()
+            .gap(px(10.0))
+            .when(compact, |options| options.w_full().flex_wrap())
+            .child(message_search_fields)
+            .child(message_search_mode_field);
         let show_tail_controls =
             self.selected_topic.is_some() || !value(&self.topic_input, cx).is_empty();
         v_flex()
@@ -537,7 +584,7 @@ impl KafkaView {
                     .gap(px(8.0))
                     .when(compact, |row| row.flex_col().items_stretch())
                     .child(message_search)
-                    .child(message_search_fields)
+                    .child(message_search_options)
                     .child(
                         div()
                             .debug_selector(|| "kafka-message-search-note".into())

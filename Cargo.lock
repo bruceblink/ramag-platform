@@ -6855,6 +6855,7 @@ version = "0.0.5"
 dependencies = [
  "async-trait",
  "chrono",
+ "regex",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -6903,6 +6904,7 @@ dependencies = [
  "chrono",
  "ramag-domain",
  "rdkafka",
+ "regex",
  "reqwest 0.13.4",
  "rustls",
  "serde_json",

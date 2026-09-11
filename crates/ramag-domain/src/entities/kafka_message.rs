@@ -273,6 +273,22 @@ pub enum KafkaMessageSearchField {
     Headers,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum KafkaMessageSearchMode {
+    #[default]
+    Literal,
+    Regex,
+}
+
+impl KafkaMessageSearchMode {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Literal => "文本",
+            Self::Regex => "正则",
+        }
+    }
+}
+
 impl KafkaMessageSearchField {
     pub const fn all() -> [Self; 3] {
         [Self::Key, Self::Value, Self::Headers]
@@ -424,6 +440,8 @@ pub struct KafkaMessageSearchQuery {
     pub scan: KafkaMessageQuery,
     pub query: String,
     pub fields: Vec<KafkaMessageSearchField>,
+    #[serde(default)]
+    pub mode: KafkaMessageSearchMode,
 }
 
 impl KafkaMessageSearchQuery {
@@ -433,11 +451,17 @@ impl KafkaMessageSearchQuery {
             scan,
             query: query.into(),
             fields: KafkaMessageSearchField::all().to_vec(),
+            mode: KafkaMessageSearchMode::Literal,
         }
     }
 
     pub fn with_fields(mut self, fields: Vec<KafkaMessageSearchField>) -> Self {
         self.fields = fields;
+        self
+    }
+
+    pub fn with_mode(mut self, mode: KafkaMessageSearchMode) -> Self {
+        self.mode = mode;
         self
     }
 
@@ -457,6 +481,14 @@ impl KafkaMessageSearchQuery {
         let mut fields = HashSet::with_capacity(self.fields.len());
         if self.fields.iter().any(|field| !fields.insert(*field)) {
             return Err("消息搜索字段不能重复".into());
+        }
+        if self.mode == KafkaMessageSearchMode::Regex {
+            regex::RegexBuilder::new(&self.query)
+                .case_insensitive(true)
+                .size_limit(1024 * 1024)
+                .dfa_size_limit(1024 * 1024)
+                .build()
+                .map_err(|error| format!("消息正则表达式无效：{error}"))?;
         }
         Ok(())
     }

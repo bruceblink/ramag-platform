@@ -1,13 +1,13 @@
 # Kafka 消息管理工具独立开发计划
 
-> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流、阶段 26 ksqlDB 只读查询和阶段 27 Schema Registry 版本浏览已完成领域、应用、基础设施、GPUI headless 验收及本机 Docker 复核；`KAFKA-023` 三个跨视图消息定位切片已完成；阶段 23 的静态 OpenMetrics fixture 和真实 Kafka JMX Exporter HTTP 链路已验证，生产安全配置和真实 Windows 截图仍待补充
+> 状态：阶段 24 已完成列表重绘、Topic/Partition 与消费者组快照预算、刷新合并、消费者组/运行时元数据/ACL/配置/指标/连接测试读取取消和写请求 UI 生命周期隔离；阶段 25 单条消息生产工作流、阶段 26 ksqlDB 只读查询、阶段 27 Schema Registry 版本浏览和阶段 28 消息搜索文本/正则模式已完成领域、应用、基础设施、GPUI headless 验收及本机 Docker 复核；`KAFKA-023` 三个跨视图消息定位切片已完成；阶段 23 的静态 OpenMetrics fixture 和真实 Kafka JMX Exporter HTTP 链路已验证，生产安全配置和真实 Windows 截图仍待补充
 > 更新日期：2026-09-11
 > 计划性质：独立开发计划，不并入数据库 DataGrip-like 路线图或其他工具的功能排期
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-infra-storage`、`ramag-tool-kafka`、`ramag-ui` 和 `ramag-bin`
 > 功能矩阵：[`kafka-workbench-feature-matrix.md`](kafka-workbench-feature-matrix.md)
-> 当前基线：`dev`（阶段 18-27 的高规模列表、快照边界、单条消息生产、ksqlDB 查询和 Schema Registry 版本浏览切片已同步，明文 KRaft/ksqlDB/Schema Registry Docker 回读、静态 OpenMetrics fixture 和真实 Kafka JMX Exporter HTTP 回读已复核；写请求不主动取消，生产安全配置和真实 Windows 截图仍待补充）
+> 当前基线：`dev`（阶段 18-28 的高规模列表、快照边界、单条消息生产、ksqlDB 查询、Schema Registry 版本浏览和消息搜索模式切片已同步，明文 KRaft/ksqlDB/Schema Registry Docker 回读、静态 OpenMetrics fixture 和真实 Kafka JMX Exporter HTTP 回读已复核；写请求不主动取消，生产安全配置和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
-> 当前主线：阶段 25 单条消息生产、阶段 26 ksqlDB 只读查询、阶段 27 Schema Registry 版本内容浏览和 `KAFKA-023` 三个消息定位切片已完成，下一项继续完善 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前主线：阶段 25 单条消息生产、阶段 26 ksqlDB 只读查询、阶段 27 Schema Registry 版本内容浏览、阶段 28 消息搜索文本/正则模式和 `KAFKA-023` 三个消息定位切片已完成，下一项继续完善 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -556,6 +556,21 @@ Schema Registry Subject 浏览已作为独立切片完成：
 最小验收条件：Domain 拒绝负版本、负注册 ID、超长类型和超长正文；App 拒绝重复或超限版本并隔离 Subject/版本请求；Infra 覆盖路径编码、认证、HTTP 错误和有界 JSON；UI headless 覆盖 Subject 选择、最新版本、版本切换、详情滚动、取消和 360px 布局；本机 Docker Schema Registry 使用真实 REST endpoint 回读已注册 Schema。真实 Windows 窗口证据单独记录，不能由 headless 或 Docker 结果替代。
 
 阶段 27 实施记录（2026-09-11）：`KafkaSchemaRegistryVersion`、版本列表/详情驱动和独立取消代次已接入 Domain/App/Infra；Schema Registry UI 支持 Subject 选择、最新版本、版本切换、Schema 内容滚动和窄窗口布局。`ramag-tool-kafka` 相关测试 36 项通过；本机 `confluentinc/cp-schema-registry:8.3.1` 使用 `127.0.0.1:18081` 注册并回读两个 JSON Schema 版本，Docker 集成测试共 11 项通过。真实 Windows 窗口截图和操作记录仍待补充。
+
+### 6.5 阶段 28 设计：消息搜索文本与正则模式
+
+本阶段把消息页已有的大小写不敏感文本搜索扩展为可选正则匹配。默认仍使用文本模式，保证既有查询输入的含义不变；用户可以在消息页切换“文本”或“正则”，并继续限定 Key、Value、Headers 搜索字段。正则只作用于客户端已读取的有限消息，不改变 Topic、Partition、Offset/时间范围、记录数、字节数和扫描时长限制。
+
+| 层 | 责任 | 边界 |
+|---|---|---|
+| `ramag-domain` | 定义 `KafkaMessageSearchMode`，默认使用 `Literal`，校验正则表达式和搜索字段 | 不读取 Kafka、不改变基础扫描范围；正则编译限制为有界模式 |
+| `ramag-app` | 在消息读取编排中传递搜索模式、字段和原有扫描查询 | 不把正则查询转换成 Kafka 服务端过滤；继续复用取消、代次和扫描预算 |
+| `ramag-infra-kafka` | 将文本模式或大小写不敏感正则编译为消息匹配器，匹配 Key、Value 和 Headers | 使用 UTF-8 宽松文本视图，不改写原始字节；正则编译和消息扫描都保持有界 |
+| `ramag-tool-kafka` | 提供文本/正则分段控件，并在窄窗口把搜索字段与模式控件保持在同一组选项布局 | 默认选择文本模式；模式切换只更新查询状态，不自动触发 Kafka 读取 |
+
+最小验收条件：Domain 拒绝空搜索、重复字段和无效正则；Infra 验证文本模式的大小写不敏感及字段范围，验证正则对 Key 和 Headers 的匹配；UI headless 验证模式控件、消息表/详情布局和 360/800/1024/1440 宽度下的边界；原生 `cmake-build` 测试不得改变既有扫描范围和取消入口。真实 Windows 窗口截图仍单独记录，不能由 headless 测试替代。
+
+阶段 28 实施记录（2026-09-11）：`KafkaMessageSearchMode` 已接入 Domain/App/Infra/UI，默认 `Literal` 保持旧文本搜索行为；native 匹配器按选定字段执行大小写不敏感正则，并继续复用消息扫描的范围、记录数、字节数和时间预算。搜索模式控件已与字段选择合并为一组选项布局，修复窄窗口下控件把消息表推到可视区域之外的问题。Domain 测试、带 `cmake-build` 的 `ramag-infra-kafka` 40 项单元测试和消息页响应式 headless 测试均通过；真实 Windows 窗口截图和实际 Broker 操作记录仍待补充。
 
 阶段 26 当前切片实施记录：
 

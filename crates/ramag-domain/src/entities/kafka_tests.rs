@@ -361,6 +361,21 @@ fn search_query_requires_non_duplicate_fields_and_non_empty_text() {
 }
 
 #[test]
+fn regex_search_query_validates_pattern_and_defaults_to_literal_mode() {
+    let scan = KafkaMessageQuery::by_offset("events", vec![0], 0, Some(10));
+    let literal = KafkaMessageSearchQuery::new("error.*", scan.clone());
+    assert_eq!(literal.mode, KafkaMessageSearchMode::Literal);
+    assert!(literal.validate().is_ok());
+
+    let regex = KafkaMessageSearchQuery::new("error.*", scan.clone())
+        .with_mode(KafkaMessageSearchMode::Regex);
+    assert!(regex.validate().is_ok());
+
+    let invalid = KafkaMessageSearchQuery::new("(", scan).with_mode(KafkaMessageSearchMode::Regex);
+    assert!(invalid.validate().is_err());
+}
+
+#[test]
 fn consumer_groups_validate_members_assignments_and_offsets() {
     let group = KafkaConsumerGroup {
         group_id: "workers".into(),

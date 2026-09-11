@@ -170,6 +170,7 @@ async-compression = { version = "0.4", features = ["futures-io", "gzip"] }
 # 序列化
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+regex = "1"
 base64 = "0.22"
 toml = "0.9"
 # JumpServer REST API；使用 rustls，并读取系统证书库以兼容企业与内网证书链。

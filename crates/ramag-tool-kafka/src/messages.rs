@@ -116,14 +116,16 @@ impl KafkaView {
             false,
         ));
         let service = self.service.clone();
+        let search_mode = self.search_mode;
         cx.spawn_in(window, async move |this, cx| {
             let result = if search_text.is_empty() {
                 service
                     .read_messages_with_cancel(&config, &scan, cancelled.clone())
                     .await
             } else {
-                let query =
-                    KafkaMessageSearchQuery::new(search_text, scan).with_fields(search_fields);
+                let query = KafkaMessageSearchQuery::new(search_text, scan)
+                    .with_fields(search_fields)
+                    .with_mode(search_mode);
                 service
                     .search_messages_with_cancel(&config, &query, cancelled.clone())
                     .await

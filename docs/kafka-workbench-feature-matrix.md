@@ -36,7 +36,7 @@
 | Topic 到消息定位 | 从 Topic 详情的指定 Partition 进入消息页 | 已完成 | `kafka_topic_partition_browse_preserves_message_context`；提交 `d9915ec` | 真实窗口鼠标操作仍待补充 |
 | 消费者组到消息定位 | 从消费者组已提交 Offset 进入对应 Topic/Partition/Offset | 已完成 | `kafka_consumer_group_offset_browse_preserves_message_context`；只更新查询上下文 | 不自动读取；用户仍需点击“读取” |
 | 消息浏览 | 按 Offset 或时间读取有限范围消息，查看 Key/Value/Headers/Metadata | 已完成 | `KafkaMessageQuery`、有界读取、消息详情和分页 headless 测试 | 不提交业务 Consumer Group Offset |
-| 消息搜索与导出 | 在 Key/Value/Headers 中搜索，取消扫描，解码并导出有限消息 | 已完成 | 搜索字段选择、取消、预算校验、JSON/Base64 导出路径 | 正则搜索和批量导入另行排期 |
+| 消息搜索与导出 | 在 Key/Value/Headers 中按文本或正则搜索，取消扫描，解码并导出有限消息 | 已完成 | 搜索模式与字段选择、取消、预算校验、JSON/Base64 导出路径；正则模式保持大小写不敏感并复用扫描范围预算 | 批量导入另行排期 |
 | 实时消息流 | 选择 Topic/Partition 后 Tail，暂停、停止、过滤和有限窗口 | 已完成 | `KafkaMessageTailRequest`、取消/背压/窗口边界和 UI 状态 | 不替代业务消费者；真实窗口证据仍待补充 |
 | 单条消息生产 | 管理模式下确认后生产一条 UTF-8 消息并展示 Broker 定位 | 已完成 | 阶段 25 Domain/App/Infra/UI、Docker 生产回读和 31 项 Kafka UI 测试 | 批量生产、重放和事务编排不纳入当前范围 |
 | 消费者组管理 | 查看成员、分配、提交 Offset、Lag；管理模式下重置到最早/末尾 | 已完成 | 消费者组快照、Offset reset Docker 回读和 headless 测试 | 组内 Offset 到消息定位由当前切片补齐 |

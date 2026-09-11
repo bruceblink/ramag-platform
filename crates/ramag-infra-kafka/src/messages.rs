@@ -2,7 +2,7 @@ use super::*;
 use chrono::{DateTime, Utc};
 use ramag_domain::entities::{
     KafkaMessageHeader, KafkaMessagePage, KafkaMessageQuery, KafkaMessageRecord,
-    KafkaMessageSearchField, KafkaMessageSearchQuery,
+    KafkaMessageSearchField, KafkaMessageSearchMode, KafkaMessageSearchQuery,
 };
 use ramag_domain::entities::{
     KafkaMessageTailEvent, KafkaMessageTailRequest, KafkaMessageTailStart,
@@ -53,6 +53,33 @@ struct PartitionScan {
     truncated: bool,
 }
 
+struct MessageSearchMatcher {
+    query: String,
+    fields: Vec<KafkaMessageSearchField>,
+    regex: Option<regex::Regex>,
+}
+
+impl MessageSearchMatcher {
+    fn new(query: &KafkaMessageSearchQuery) -> Result<Self> {
+        query.validate().map_err(DomainError::InvalidConfig)?;
+        let regex = (query.mode == KafkaMessageSearchMode::Regex)
+            .then(|| {
+                regex::RegexBuilder::new(&query.query)
+                    .case_insensitive(true)
+                    .size_limit(1024 * 1024)
+                    .dfa_size_limit(1024 * 1024)
+                    .build()
+            })
+            .transpose()
+            .map_err(|error| DomainError::InvalidConfig(format!("消息正则表达式无效：{error}")))?;
+        Ok(Self {
+            query: query.query.to_lowercase(),
+            fields: query.fields.clone(),
+            regex,
+        })
+    }
+}
+
 impl RdkafkaTransport {
     /// 在独立消费者上按 Partition 顺序扫描，返回结果和扫描预算统计。
     pub(super) fn scan_messages_blocking(
@@ -77,6 +104,7 @@ impl RdkafkaTransport {
         if cancelled.load(Ordering::Acquire) {
             return Err(message_read_cancelled());
         }
+        let matcher = search.map(MessageSearchMatcher::new).transpose()?;
         let deadline = Instant::now() + StdDuration::from_secs(u64::from(query.max_scan_seconds));
         let mut page = KafkaMessagePage::empty();
 
@@ -101,7 +129,7 @@ impl RdkafkaTransport {
                     remaining_records,
                     remaining_bytes,
                     deadline,
-                    search,
+                    matcher.as_ref(),
                 ),
                 cancelled,
             )?;
@@ -127,7 +155,7 @@ impl RdkafkaTransport {
         &self,
         config: &KafkaClusterConfig,
         query: &KafkaMessageQuery,
-        scan: (i32, usize, u64, Instant, Option<&KafkaMessageSearchQuery>),
+        scan: (i32, usize, u64, Instant, Option<&MessageSearchMatcher>),
         cancelled: &AtomicBool,
     ) -> Result<PartitionScan> {
         let (partition, max_records, max_bytes, deadline, search) = scan;
@@ -541,29 +569,81 @@ fn record_from_message(message: &rdkafka::message::BorrowedMessage<'_>) -> Kafka
     }
 }
 
-fn message_matches(record: &KafkaMessageRecord, query: &KafkaMessageSearchQuery) -> bool {
-    let needle = query.query.to_lowercase();
-    query.fields.iter().any(|field| match field {
+fn message_matches(record: &KafkaMessageRecord, matcher: &MessageSearchMatcher) -> bool {
+    matcher.fields.iter().any(|field| match field {
         KafkaMessageSearchField::Key => record
             .key
             .as_deref()
-            .is_some_and(|bytes| text_contains(bytes, &needle)),
+            .is_some_and(|bytes| text_matches(bytes, matcher)),
         KafkaMessageSearchField::Value => record
             .value
             .as_deref()
-            .is_some_and(|bytes| text_contains(bytes, &needle)),
+            .is_some_and(|bytes| text_matches(bytes, matcher)),
         KafkaMessageSearchField::Headers => record.headers.iter().any(|header| {
-            header.key.to_lowercase().contains(&needle)
+            text_matches(header.key.as_bytes(), matcher)
                 || header
                     .value
                     .as_deref()
-                    .is_some_and(|bytes| text_contains(bytes, &needle))
+                    .is_some_and(|bytes| text_matches(bytes, matcher))
         }),
     })
 }
 
-fn text_contains(bytes: &[u8], needle: &str) -> bool {
-    String::from_utf8_lossy(bytes)
-        .to_lowercase()
-        .contains(needle)
+fn text_matches(bytes: &[u8], matcher: &MessageSearchMatcher) -> bool {
+    let text = String::from_utf8_lossy(bytes);
+    matcher.regex.as_ref().map_or_else(
+        || text.to_lowercase().contains(&matcher.query),
+        |regex| regex.is_match(&text),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn record() -> KafkaMessageRecord {
+        KafkaMessageRecord {
+            topic: "events".into(),
+            partition: 0,
+            offset: 1,
+            timestamp: None,
+            key: Some(b"order-42".to_vec()),
+            value: Some(b"Order Created".to_vec()),
+            headers: vec![KafkaMessageHeader {
+                key: "trace-id".into(),
+                value: Some(b"abc-99".to_vec()),
+            }],
+        }
+    }
+
+    #[test]
+    fn literal_search_remains_case_insensitive_and_field_scoped() {
+        let scan = KafkaMessageQuery::by_offset("events", vec![0], 0, Some(2));
+        let query = KafkaMessageSearchQuery::new("created", scan)
+            .with_fields(vec![KafkaMessageSearchField::Value]);
+        let matcher = MessageSearchMatcher::new(&query).expect("literal search should be valid");
+        assert!(message_matches(&record(), &matcher));
+
+        let key_only = KafkaMessageSearchQuery::new("created", query.scan.clone())
+            .with_fields(vec![KafkaMessageSearchField::Key]);
+        let matcher = MessageSearchMatcher::new(&key_only).expect("literal search should be valid");
+        assert!(!message_matches(&record(), &matcher));
+    }
+
+    #[test]
+    fn regex_search_matches_keys_and_headers_without_changing_scan_bounds() {
+        let scan = KafkaMessageQuery::by_offset("events", vec![0], 0, Some(2));
+        let key_query = KafkaMessageSearchQuery::new(r"^order-[0-9]+$", scan.clone())
+            .with_fields(vec![KafkaMessageSearchField::Key])
+            .with_mode(KafkaMessageSearchMode::Regex);
+        let matcher = MessageSearchMatcher::new(&key_query).expect("key regex should be valid");
+        assert!(message_matches(&record(), &matcher));
+
+        let header_query = KafkaMessageSearchQuery::new(r"^trace-", scan)
+            .with_fields(vec![KafkaMessageSearchField::Headers])
+            .with_mode(KafkaMessageSearchMode::Regex);
+        let matcher =
+            MessageSearchMatcher::new(&header_query).expect("header regex should be valid");
+        assert!(message_matches(&record(), &matcher));
+    }
 }

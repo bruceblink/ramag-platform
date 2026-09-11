@@ -56,8 +56,8 @@ pub use kafka_consumer_admin::{
 pub use kafka_ksqldb::{KafkaKsqlDbConfig, KafkaKsqlDbQuery, KafkaKsqlDbQueryResult};
 pub use kafka_message::{
     KafkaMessageHeader, KafkaMessagePage, KafkaMessageProduceRequest, KafkaMessageProduceResult,
-    KafkaMessageQuery, KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchQuery,
-    KafkaTextPreview,
+    KafkaMessageQuery, KafkaMessageRecord, KafkaMessageSearchField, KafkaMessageSearchMode,
+    KafkaMessageSearchQuery, KafkaTextPreview,
 };
 pub use kafka_metadata::{KafkaBroker, KafkaClusterMetadata, KafkaPartition, KafkaTopic};
 pub use kafka_metrics::{

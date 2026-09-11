@@ -499,6 +499,7 @@ impl KafkaView {
             message_tail_max_message_bytes_input,
             message_tail_poll_timeout_input,
             search_fields: [true, true, true],
+            search_mode: KafkaMessageSearchMode::Literal,
             range_mode: KafkaRangeMode::Offset,
             message_tail_start_mode: KafkaTailStartMode::Latest,
             security_protocol: KafkaSecurityProtocol::default(),

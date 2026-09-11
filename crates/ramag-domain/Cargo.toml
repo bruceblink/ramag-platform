@@ -22,6 +22,7 @@ async-trait = { workspace = true }
 
 # 时间类型（实体里需要）
 chrono = { workspace = true }
+regex = { workspace = true }
 
 # 唯一标识
 uuid = { workspace = true }

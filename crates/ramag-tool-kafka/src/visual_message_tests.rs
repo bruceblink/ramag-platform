@@ -97,6 +97,7 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
         return;
     };
     visual_cx.simulate_click(row_bounds.center(), Modifiers::default());
+    visual_cx.run_until_parked();
     let selected_message = kafka_entity.read_with(visual_cx, |view, _| view.selected_message);
     assert_eq!(selected_message, Some(0));
 
@@ -115,6 +116,7 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
         let horizontal_scrollbar = visual_cx.debug_bounds("kafka-message-h-scrollbar");
         let pagination = visual_cx.debug_bounds("kafka-message-pagination");
         let query_row = visual_cx.debug_bounds("kafka-message-query-row");
+        let search_mode = visual_cx.debug_bounds("kafka-message-search-mode-field");
         let range_inputs = visual_cx.debug_bounds("kafka-range-inputs");
         let range_start = visual_cx.debug_bounds("kafka-range-start-field");
         let range_end = visual_cx.debug_bounds("kafka-range-end-field");
@@ -129,6 +131,7 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
                 && horizontal_scrollbar.is_some()
                 && pagination.is_some()
                 && query_row.is_some()
+                && search_mode.is_some()
                 && range_inputs.is_some()
                 && range_start.is_some()
                 && range_end.is_some()
@@ -145,6 +148,7 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
             Some(horizontal_scrollbar),
             Some(pagination),
             Some(query_row),
+            Some(search_mode),
             Some(range_inputs),
             Some(range_start),
             Some(range_end),
@@ -159,6 +163,7 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
             horizontal_scrollbar,
             pagination,
             query_row,
+            search_mode,
             range_inputs,
             range_start,
             range_end,
@@ -204,6 +209,7 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
         );
         assert!(
             query_row.right() <= messages.right()
+                && search_mode.right() <= messages.right()
                 && range_inputs.right() <= query_row.right()
                 && range_start.right() <= range_inputs.right()
                 && range_end.right() <= range_inputs.right(),
