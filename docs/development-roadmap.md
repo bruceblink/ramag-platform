@@ -1,6 +1,6 @@
 # Ramag Platform 主线开发计划
 
-> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A、P0-B、PLAT-003 已完成；TERM-001 代码和真实 SSH 端点验收已完成；Kafka 阶段 25 单条消息生产代码、headless UI 和本机 Docker KRaft 验收已完成
+> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A、P0-B、PLAT-003 已完成；TERM-001 代码和真实 SSH 端点验收已完成；Kafka 阶段 25 单条消息生产代码、headless UI、本机 Docker KRaft 验收和纯 Rust 读取候选阶段性验证已完成
 > 更新日期：2026-09-11
 > 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台以及跨工具质量与构建流程
 > 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
@@ -31,8 +31,9 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 - `ramag-infra-*` 负责数据库、Kafka、SSH、Git、存储和系统适配。
 - `ramag-tool-*` 负责具体工作台的交互；`ramag-terminal` 负责通用 PTY、ANSI 状态和终端绘制。
 - `ramag-bin` 当前仍直接装配内置工具；插件平台先包装这条路径，不复制业务状态。
-- Kafka 当前仍使用 `rdkafka/librdkafka` 基础设施；`KafkaTransport` 适配边界、实时 Tail、Metrics Snapshot、单条消息生产、本机静态 OpenMetrics fixture、受 Basic Auth 保护的真实 Kafka JMX Exporter HTTP 链路已实现，纯 Rust Transport 和真实 Windows 证据仍未完成。
+- Kafka 默认用户流程仍使用 `rdkafka/librdkafka` 基础设施；`KafkaTransport` 适配边界、实时 Tail、Metrics Snapshot、单条消息生产、本机静态 OpenMetrics fixture、受 Basic Auth 保护的真实 Kafka JMX Exporter HTTP 链路和显式 `pure-rust` 读取候选已实现。纯 Rust 全能力替换和真实 Windows 证据仍未完成。
 - 真实 Windows 窗口证据仍与 headless 验证分开记录；未取得窗口证据的项目不能写成真实窗口已验收。
+- 本次联调边界固定为：MySQL、Redis、PostgreSQL 和 MongoDB 只使用本机 Docker；Kafka、MQTT 和 SSH 终端可以使用 `10.17.17.114`；`ramag-platform` 测试不启动 relay。
 
 主线目标：
 
@@ -47,7 +48,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 |---|---|---|---|
 | 插件平台 | P0-A、P0-B、PLAT-003 已完成，现有工具通过静态插件宿主注册并按生命周期管理 | 保持 P0-C 设置与权限接口待实现；后续按队列推进 `TERM-001` | 动态 ABI、插件市场、第三方不受信任代码 |
 | SSH/终端 | `alacritty_terminal + GPUI` PTY 核心、SSH/SFTP 工作区、会话状态、每标签重连和 `-L/-R/-D` 参数模型已有；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 补真实 Windows 窗口证据和独立转发状态/停止面板；进入 `KAFKA-001` | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
-| Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail、Metrics Snapshot、Schema Registry 版本浏览和受保护的真实 Kafka JMX Exporter 本机链路已有 | `KAFKA-023` 三个消息定位切片和阶段 27 已完成，继续维护功能矩阵，再补真实 Windows 证据 | 纯 Rust Transport、外部生态大模块和批量消息生产 |
+| Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail、Metrics Snapshot、Schema Registry 版本浏览、受保护的真实 Kafka JMX Exporter 本机链路和纯 Rust 读取候选已有 | `KAFKA-023` 三个消息定位切片和阶段 27 已完成，继续维护功能矩阵，再补真实 Windows 证据 | 纯 Rust 全能力替换、外部生态大模块和批量消息生产 |
 | 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 按 DBeaver/DataGrip 能力表推进结果查看、大字段恢复、对象导航、执行计划和迁移工作流的功能/UI 对齐 | 把 Redis/MongoDB 强行套用 SQL 语义 |
 | 质量与工具链 | stable channel、统一 Cargo 命令、Windows GNU 路线已建立 | 保持 CI、WSL Linux 验证、源码尺寸和 LF 规则一致 | 为单个平台恢复独立的日常编译命令 |
 
@@ -63,7 +64,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | `PLAT-002` | 插件平台 | `ramag-app`、`ramag-bin` | 已完成 | `PLAT-001` | 静态插件注册、初始化、失败隔离、逆序关闭和迟到调用拒绝有测试 |
 | `PLAT-003` | 插件平台 | `ramag-ui`、`ramag-app` | 已完成 | `PLAT-002` | 插件状态、注册错误和可用入口在 360/1024/1440 headless 窗口内可见 |
 | `TERM-001` | SSH/终端 | `ramag-domain`、`ramag-infra-ssh`、`ramag-tool-ssh` | 已完成（真实端点已验证） | `PLAT-003` | 会话状态、重连和 `-L/-R/-D` 参数模型有 OpenSSH 参数测试；Windows OpenSSH 客户端访问 WSL OpenSSH 端点已覆盖 Shell、SFTP、三类转发、停止、重连和错误 Host Key |
-| `KAFKA-001` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、构建维护 | 阶段 19 代码完成，Windows GNU Release 构建已验证 | `PLAT-003` | 阶段 18 能力矩阵已记录；`KafkaTransport` 适配边界、能力快照和 native 命名已落地，保持当前用户流程 |
+| `KAFKA-001` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、构建维护 | 阶段 19 代码完成，纯 Rust 读取候选已在 Windows GNU 和本机 Docker KRaft 验证 | `PLAT-003` | 阶段 18 能力矩阵已记录；`KafkaTransport` 适配边界、能力快照、native 命名和显式 `pure-rust` Fetch/ListOffsets 路径已落地，保持当前用户流程 |
 | `KAFKA-025` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-tool-kafka` | 已完成（Docker/headless；真实窗口待补） | `KAFKA-001` | 管理模式单条消息生产、二次确认、只读拒绝、失败保留输入、Broker Partition/Offset/Timestamp 和 Docker 生产回读 |
 | `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
 | `UI-001` | 跨工具 UI | `ramag-ui`、各 `ramag-tool-*` | 待继续（真实窗口证据待补） | `PLAT-003` | 共享弹窗、工具栏、列表和详情区在 360/1024/1440 headless 窗口内换行、滚动且不越界；真实窗口证据单独记录 |

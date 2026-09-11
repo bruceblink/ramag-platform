@@ -484,8 +484,8 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - 历史消息分页只保存当前页的源范围，虚拟列表回调按可视行从 `message_page` 读取记录；分页数量、选择索引和详情行为保持不变，重绘不再先复制整页。
 - 历史消息读取和搜索把取消信号传入 native 扫描循环，在分区切换和消息轮询之间停止后台 Consumer；视图销毁、切换集群或 Topic 时不再只丢弃迟到结果。
 - 消费者组详细查询会暂时停止指标刷新，等成员、分配和 Offset 快照完成或失败后再恢复指标刷新，避免集群切换和消费者组页同时保留两条大查询链。
-- 消费者组详细查询把取消信号传入 Topic/Partition 水位、成员分配和 Offset 读取阶段；切换集群或销毁视图时停止 native 查询并释放临时客户端，旧结果仍按请求代次丢弃。
-- 运行时元数据查询把取消信号传入集群 Metadata 和 Topic/Partition 水位读取；重复刷新、切换集群或销毁视图时停止 native 查询并释放临时客户端，旧结果仍按请求代次丢弃。
+- 消费者组详细查询把取消信号传入 Topic/Partition Offset、成员分配和 Offset 读取阶段；切换集群或销毁视图时停止 native 查询并释放临时客户端，旧结果仍按请求代次丢弃。
+- 运行时元数据查询把取消信号传入集群 Metadata 和 Topic/Partition Offset 读取；重复刷新、切换集群或销毁视图时停止 native 查询并释放临时客户端，旧结果仍按请求代次丢弃。
 - ACL 列表查询把取消信号传入 native Admin 队列轮询和 ACL 结果映射；切换集群、修改筛选条件或销毁视图时停止读取并释放临时 Admin 客户端，创建/删除 ACL 的写操作不受影响。
 - 配置读取把取消信号传入 native Admin 请求和结果等待；切换集群、资源类型、资源名称或销毁视图时停止读取并释放临时 Admin 客户端，配置更新的读改写操作不受影响。
 - 指标刷新把取消信号传入 Kafka 协议快照的 Metadata、Topic/Partition 和消费者组读取，以及外部 Broker 指标请求边界；切换集群或销毁视图时不再启动下一轮，当前 native 读取在每个有界请求阶段结束后释放客户端。
@@ -494,7 +494,7 @@ Kafka 工作台必须满足统一跨平台构建目标：
 - ACL 虚拟列表回调按可视行从当前规则集合复制 ACL，不再每次重绘先复制全部规则及其字符串字段。
 - 远程配置虚拟列表回调按可视行从当前配置集合复制条目，不再每次重绘先复制所有配置值。
 - 消费者组 Lag 查询借用 Topic 名称建立 `high watermark` 查找表，避免为每个 Partition 复制 Topic 字符串；Offset、Lag 和错误边界保持不变。
-- native Topic 元数据读取同时限制单个 Topic 和整次 Metadata 返回的 Partition 总数，超过 `MAX_KAFKA_PARTITIONS` 时在抓取水位前拒绝，避免多个大 Topic 叠加形成无界刷新任务。
+- native Topic 元数据读取同时限制单个 Topic 和整次 Metadata 返回的 Partition 总数，超过 `MAX_KAFKA_PARTITIONS` 时在读取 Partition Offset 前拒绝，避免多个大 Topic 叠加形成无界刷新任务。
 - native Topic 元数据读取在复制 `replicas`/`isr` 数组前限制单个列表和整次快照的副本 ID 总数；应用层再次校验该预算，避免高复制因子把 Partition 快照放大到不可控的内存规模。
 - 应用层再次校验 Topic 集合的 Partition 总数，替换驱动即使绕过 native 读取边界也不能把超限快照交给 UI。
 - 应用层同时校验所有消费者组的 Offset 总数，替换驱动不能通过拆分多个消费者组绕过 `MAX_KAFKA_GROUP_OFFSETS` 快照预算。
@@ -571,6 +571,8 @@ Schema Registry Subject 浏览已作为独立切片完成：
 最小验收条件：Domain 拒绝空搜索、重复字段和无效正则；Infra 验证文本模式的大小写不敏感及字段范围，验证正则对 Key 和 Headers 的匹配；UI headless 验证模式控件、消息表/详情布局和 360/800/1024/1440 宽度下的边界；原生 `cmake-build` 测试不得改变既有扫描范围和取消入口。真实 Windows 窗口截图仍单独记录，不能由 headless 测试替代。
 
 阶段 28 实施记录（2026-09-11）：`KafkaMessageSearchMode` 已接入 Domain/App/Infra/UI，默认 `Literal` 保持旧文本搜索行为；native 匹配器按选定字段执行大小写不敏感正则，并继续复用消息扫描的范围、记录数、字节数和时间预算。搜索模式控件已与字段选择合并为一组选项布局，修复窄窗口下控件把消息表推到可视区域之外的问题。Domain 测试、带 `cmake-build` 的 `ramag-infra-kafka` 40 项单元测试和消息页响应式 headless 测试均通过；真实 Windows 窗口截图和实际 Broker 操作记录仍待补充。
+
+`KAFKA-001` 纯 Rust 读取候选实施记录（2026-09-11）：`ramag-infra-kafka` 增加显式 `pure-rust` feature 和 `PureRustTransport`，使用 `rskafka` 提供 Topic 列表、Partition Offset/时间范围读取以及客户端文本/正则搜索；默认 native 路径、Domain/App/UI 接口和业务 Offset 语义不变。纯 Rust 路径在独立 Tokio 运行时中执行，保留连接超时、取消、记录数、字节数和扫描时间限制，并通过能力快照明确拒绝完整 Metadata、Consumer Group、Admin、Broker 运行指标和 TLS。Windows GNU 下 28 项单元测试、Clippy、格式检查和本机 Docker KRaft 的 1 项真实读取集成测试通过；这只是候选读取路径验证，不能写成 native 全能力替换或真实 114 Broker 验收。
 
 阶段 26 当前切片实施记录：
 
@@ -739,6 +741,6 @@ cargo test --workspace --locked
 
 Kafka 工具应定位为桌面优先的 Kafka 工作台：以 Offset Explorer 的消息定位、实时查看和解码体验为交互参考，以 AKHQ 的集群对象组织、Consumer Group、配置和 ACL 管理为运维参考，并明确区分消息读取、集群管理和指标观测三条能力线。
 
-`rdkafka`/`librdkafka` 只作为当前基础设施实现，不是产品边界。下一阶段先验证纯 Rust Kafka Transport 是否能覆盖完整能力；默认桌面构建必须回到统一的跨平台 Cargo 工具链。无论最终采用纯 Rust 客户端还是独立 Kafka Gateway，领域模型、应用服务和 UI 都不得依赖具体客户端类型。
+`rdkafka`/`librdkafka` 只作为当前基础设施实现，不是产品边界。纯 Rust Kafka Transport 已完成有限读取候选验证，下一步仍需按矩阵补齐 Metadata、Consumer Group、Admin、TLS/SASL 和跨平台构建证据，再决定是否具备替换条件；默认桌面构建必须回到统一的跨平台 Cargo 工具链。无论最终采用纯 Rust 客户端还是独立 Kafka Gateway，领域模型、应用服务和 UI 都不得依赖具体客户端类型。
 
 完成阶段 18-27 后，Ramag 已在管理模式和二次确认下写入明确 Topic，并展示 Broker 返回的 Partition、Offset 和 Timestamp；`KAFKA-023` 已完成三个消息定位切片，Schema Registry 已支持 Subject、版本和有界 Schema 内容只读浏览，Broker 运行指标已通过静态 fixture 和受 Basic Auth 保护的真实 Kafka JMX Exporter 本机链路复核。下一项继续完善 AKHQ/Offset Explorer 功能矩阵；批量导入和消息生产之外的高风险扩展继续单独排期。
