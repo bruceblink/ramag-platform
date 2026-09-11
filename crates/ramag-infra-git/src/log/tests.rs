@@ -87,7 +87,11 @@ fn excessive_refs_are_truncated_with_a_hint() {
 #[test]
 fn non_repository_error_is_not_treated_as_empty_history()
 -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let temp = tempfile::tempdir()?;
+    // 当前 Windows 用户目录本身可能是 Git 仓库，不能让临时目录继承父仓库。
+    #[cfg(windows)]
+    let temp = tempfile::tempdir_in(std::path::Path::new("C:\\"))?;
+    #[cfg(not(windows))]
+    let temp = tempfile::tempdir_in(std::path::Path::new("/"))?;
     assert!(run_log(temp.path(), &LogOptions::default()).is_err());
     Ok(())
 }

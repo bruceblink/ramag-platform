@@ -10,8 +10,8 @@ use tracing::warn;
 
 use crate::git_cmd::{
     LimitedBytes, MAX_GIT_MESSAGE_BYTES, MAX_STDERR_BYTES, MAX_STDOUT_BYTES, ensure_git_list_room,
-    ensure_git_message_size, machine_command, read_limited, run_git_probe, run_git_text,
-    validate_path_arg, validate_positional_arg,
+    ensure_git_message_size, machine_command, read_limited, run_git_bytes, run_git_probe,
+    run_git_text, validate_path_arg, validate_positional_arg,
 };
 
 /// 列表只读取摘要；详情按需读取完整字段。
@@ -186,6 +186,9 @@ fn validate_log_options(opts: &LogOptions) -> Result<()> {
 }
 
 fn has_log_start(repo_path: &Path, opts: &LogOptions) -> Result<bool> {
+    // 先验证路径确实属于 Git 仓库；Git 2.52 对非仓库的 HEAD 探测也可能返回 1，
+    // 不能把该错误误当成“仓库尚无首个 commit”。
+    run_git_bytes(repo_path, &["rev-parse", "--git-dir"])?;
     // 新仓库没有 HEAD 是正常空态。
     if opts.start.is_none()
         && !run_git_probe(repo_path, &["rev-parse", "--verify", "--quiet", "HEAD"])?
