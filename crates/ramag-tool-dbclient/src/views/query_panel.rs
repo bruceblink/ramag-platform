@@ -31,6 +31,7 @@ const MAX_CLOSED_QUERY_DRAFTS: usize = 10;
 
 #[derive(Debug, Clone)]
 pub enum QueryPanelEvent {
+    ToggleTableTree,
     LocateTableRequested {
         schema: String,
         table: String,

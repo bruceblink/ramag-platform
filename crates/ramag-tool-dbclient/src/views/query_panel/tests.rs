@@ -189,6 +189,49 @@ fn editor_toolbar_keeps_actions_visible_in_three_window_widths(cx: &mut TestAppC
     }
 }
 
+/// Narrow sessions expose a tree toggle without taking horizontal space from the query surface.
+#[gpui::test]
+fn compact_session_toolbar_only_appears_below_the_session_breakpoint(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(ConnectionService::new(
+        HashMap::new(),
+        Arc::new(NoopStorage::default()),
+    ));
+    let schema_cache = SchemaCache::new_shared();
+    let mut panel_entity = None;
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let panel = cx.new(|cx| {
+            QueryPanel::new(
+                service,
+                schema_cache,
+                ramag_ui::ResultMemoryBudget::default(),
+                window,
+                cx,
+            )
+        });
+        panel_entity = Some(panel.clone());
+        gpui_component::Root::new(panel, window, cx)
+    });
+    let panel = panel_entity.expect("SQL 查询面板应创建");
+
+    for (width, compact) in [(360.0, true), (1024.0, false)] {
+        cx.simulate_resize(size(px(width), px(480.0)));
+        panel.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+
+        let toolbar = cx.debug_bounds("compact-session-toolbar");
+        assert_eq!(toolbar.is_some(), compact, "窄窗口对象树切换栏状态不匹配");
+        if let Some(toolbar) = toolbar {
+            let button = cx
+                .debug_bounds("toggle-table-tree")
+                .expect("窄窗口应提供对象树切换按钮");
+            assert!(button.origin.x >= toolbar.origin.x);
+            assert!(button.right() <= toolbar.right());
+            assert!(button.bottom() <= toolbar.bottom());
+        }
+    }
+}
+
 /// 查询历史弹框应在三种窗口宽度内保留搜索、标题和列表区域。
 #[gpui::test]
 fn history_dialog_stays_inside_three_window_widths(cx: &mut TestAppContext) {

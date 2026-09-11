@@ -1,7 +1,8 @@
 use super::*;
+use crate::views::is_compact_session_width;
 
 impl Render for QueryPanel {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let muted_fg = theme.muted_foreground;
         let fg = theme.foreground;
@@ -9,6 +10,7 @@ impl Render for QueryPanel {
         let secondary_bg = theme.secondary;
         let muted_bg = theme.muted;
         let accent = theme.accent;
+        let compact = is_compact_session_width(f32::from(window.viewport_size().width));
 
         let active = self.active;
         let titles: Vec<String> = self
@@ -136,6 +138,27 @@ impl Render for QueryPanel {
                     cx.propagate();
                 }
             }))
+            .when(compact, |panel| {
+                panel.child(
+                    ramag_ui::responsive_toolbar()
+                        .debug_selector(|| "compact-session-toolbar".into())
+                        .flex_none()
+                        .border_b_1()
+                        .border_color(border)
+                        .bg(secondary_bg)
+                        .child(
+                            ramag_ui::clickable_button("toggle-table-tree")
+                                .ghost()
+                                .small()
+                                .icon(IconName::PanelLeft)
+                                .debug_selector(|| "toggle-table-tree".into())
+                                .tooltip("切换对象树")
+                                .on_click(cx.listener(|_, _: &ClickEvent, _, cx| {
+                                    cx.emit(QueryPanelEvent::ToggleTableTree);
+                                })),
+                        ),
+                )
+            })
             .when(self.show_editor, |panel| {
                 panel.child(
                     ramag_ui::responsive_toolbar()

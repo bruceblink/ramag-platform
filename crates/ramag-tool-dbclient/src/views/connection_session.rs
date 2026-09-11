@@ -16,6 +16,7 @@ use tracing::{info, warn};
 
 use crate::sql_completion::{SchemaCache, is_system_schema};
 use crate::views::connection_list::ConnectionListPanel;
+use crate::views::is_compact_session_width;
 use crate::views::query_panel::{QueryPanel, QueryPanelEvent};
 use crate::views::schema_diagram::SchemaDiagramPanel;
 use crate::views::table_properties::{TablePropertiesDialog, TablePropertiesEvent};
@@ -34,6 +35,8 @@ pub struct ConnectionSession {
     queries: Entity<QueryPanel>,
     table_properties_dialog: Option<Entity<TablePropertiesDialog>>,
     resize_state: Entity<ResizableState>,
+    /// Narrow windows start with the object tree collapsed so the query surface remains usable.
+    tree_visible: bool,
     /// 隐藏编辑器后承接焦点，保证快捷键仍在焦点链中。
     focus_handle: FocusHandle,
     /// 持有补全缓存，查询标签通过 `Arc` 共享。
@@ -183,6 +186,10 @@ impl ConnectionSession {
             &queries,
             window,
             move |this: &mut Self, _, e: &QueryPanelEvent, window, cx| match e {
+                QueryPanelEvent::ToggleTableTree => {
+                    this.tree_visible = !this.tree_visible;
+                    cx.notify();
+                }
                 QueryPanelEvent::LocateTableRequested { schema, table } => {
                     info!(
                         operation = "sql_table_navigation",
@@ -223,6 +230,7 @@ impl ConnectionSession {
             queries,
             table_properties_dialog: None,
             resize_state,
+            tree_visible: false,
             focus_handle,
             _schema_cache: schema_cache,
             _subscriptions: subs,
@@ -385,8 +393,37 @@ impl ConnectionSession {
 }
 
 impl Render for ConnectionSession {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
+        let compact = is_compact_session_width(f32::from(window.viewport_size().width));
+        let tree_visible = !compact || self.tree_visible;
+        let session_content = if tree_visible {
+            h_resizable("session-resize")
+                .with_state(&self.resize_state)
+                .child(
+                    resizable_panel()
+                        .size(px(TREE_WIDTH_INITIAL))
+                        .size_range(px(TREE_WIDTH_MIN)..px(TREE_WIDTH_MAX))
+                        .child(
+                            div()
+                                .size_full()
+                                .border_r_1()
+                                .border_color(theme.border)
+                                .child(self.tree.clone()),
+                        ),
+                )
+                .child(
+                    resizable_panel()
+                        .child(div().size_full().min_w_0().child(self.queries.clone())),
+                )
+                .into_any_element()
+        } else {
+            div()
+                .size_full()
+                .min_w_0()
+                .child(self.queries.clone())
+                .into_any_element()
+        };
 
         h_flex()
             .size_full()
@@ -398,26 +435,7 @@ impl Render for ConnectionSession {
                     this.toggle_sql_editor(window, cx);
                 }),
             )
-            .child(
-                h_resizable("session-resize")
-                    .with_state(&self.resize_state)
-                    .child(
-                        resizable_panel()
-                            .size(px(TREE_WIDTH_INITIAL))
-                            .size_range(px(TREE_WIDTH_MIN)..px(TREE_WIDTH_MAX))
-                            .child(
-                                div()
-                                    .size_full()
-                                    .border_r_1()
-                                    .border_color(theme.border)
-                                    .child(self.tree.clone()),
-                            ),
-                    )
-                    .child(
-                        resizable_panel()
-                            .child(div().size_full().min_w_0().child(self.queries.clone())),
-                    ),
-            )
+            .child(session_content)
             .when_some(self.table_properties_dialog.clone(), |view, dialog| {
                 view.child(dialog)
             })

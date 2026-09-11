@@ -3,6 +3,9 @@
 use super::*;
 use ramag_ui::SystemSettings;
 
+const MAIN_WINDOW_MIN_WIDTH: f32 = 360.0;
+const MAIN_WINDOW_MIN_HEIGHT: f32 = 240.0;
+
 /// 主窗口重建时复用的依赖。
 #[derive(Clone)]
 pub(super) struct AppDeps {
@@ -172,7 +175,10 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
             WindowOptions {
                 app_id: Some("com.ramag.Ramag".into()),
                 window_bounds: Some(window_bounds),
-                window_min_size: Some(size(px(800.0), px(500.0))),
+                window_min_size: Some(size(
+                    px(MAIN_WINDOW_MIN_WIDTH),
+                    px(MAIN_WINDOW_MIN_HEIGHT),
+                )),
                 // 原生标题栏需保留双击缩放热区。
                 titlebar: Some(TitlebarOptions {
                     title: if cfg!(any(target_os = "windows", target_os = "linux")) {
@@ -348,7 +354,10 @@ pub(super) fn spawn_instance_activation(
 
 #[cfg(test)]
 mod tests {
-    use super::{quit_mode_for_window_close, should_keep_running_in_tray};
+    use super::{
+        MAIN_WINDOW_MIN_HEIGHT, MAIN_WINDOW_MIN_WIDTH, quit_mode_for_window_close,
+        should_keep_running_in_tray,
+    };
     use ramag_ui::SystemSettings;
 
     #[test]
@@ -393,5 +402,11 @@ mod tests {
             quit_mode_for_window_close(true, SystemSettings::default()),
             gpui::QuitMode::Default
         );
+    }
+
+    #[test]
+    fn main_window_minimum_matches_compact_ui_acceptance_size() {
+        assert_eq!(MAIN_WINDOW_MIN_WIDTH, 360.0);
+        assert_eq!(MAIN_WINDOW_MIN_HEIGHT, 240.0);
     }
 }

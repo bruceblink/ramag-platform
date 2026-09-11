@@ -4,7 +4,7 @@
 > 更新日期：2026-09-11
 > 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台以及跨工具质量与构建流程
 > 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
-> 当前交付切片：`KAFKA-023`，Kafka 工作台功能矩阵和两个消息定位切片已完成，继续推进下一项功能矩阵；`UI-001` 的真实窗口证据继续单独记录
+> 当前交付切片：`UI-001`，先完成跨工具响应式布局、真实窗口截图和交互验证；Kafka/ksqlDB 新功能暂缓，待 UI 队列稳定后再恢复
 
 ## 术语与命名规则
 
@@ -67,7 +67,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | `KAFKA-001` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、构建维护 | 阶段 19 代码完成，纯 Rust 读取候选已在 Windows GNU 和本机 Docker KRaft 验证 | `PLAT-003` | 阶段 18 能力矩阵已记录；`KafkaTransport` 适配边界、能力快照、native 命名和显式 `pure-rust` Fetch/ListOffsets 路径已落地，保持当前用户流程 |
 | `KAFKA-025` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-tool-kafka` | 已完成（Docker/headless；真实窗口待补） | `KAFKA-001` | 管理模式单条消息生产、二次确认、只读拒绝、失败保留输入、Broker Partition/Offset/Timestamp 和 Docker 生产回读 |
 | `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
-| `UI-001` | 跨工具 UI | `ramag-ui`、各 `ramag-tool-*` | 待继续（真实窗口证据待补） | `PLAT-003` | 共享弹窗、工具栏、列表和详情区在 360/1024/1440 headless 窗口内换行、滚动且不越界；真实窗口证据单独记录 |
+| `UI-001` | 跨工具 UI | `ramag-ui`、各 `ramag-tool-*` | 进行中（数据库会话紧凑窗口切片已验收，其他工作台证据待补） | `PLAT-003` | 共享弹窗、工具栏、列表和详情区在 360/1024/1440 headless 窗口内换行、滚动且不越界；真实窗口证据单独记录 |
 | `DB-002` | 数据库 | `ramag-tool-dbclient`、`ramag-ui` | 待开始 | `DB-001` | 建立 DBeaver/DataGrip 功能矩阵，逐项实现并验收结果、对象导航、执行计划和迁移 UI，不以静态截图宣称完成 |
 | `KAFKA-023` | Kafka | `ramag-tool-kafka`、`ramag-ui`、`ramag-infra-kafka` | 开发中（三个定位切片和受保护的真实 JMX Exporter 本机链路已完成） | `KAFKA-025` | 功能矩阵已建立；继续补真实窗口证据和下一项 AKHQ/Offset Explorer 能力 |
 | `QUALITY-001` | 质量与工具链 | workspace 维护者 | 持续任务 | 每个交付切片 | stable toolchain、统一 Cargo 命令、LF、CI 过滤器和三平台发布证据保持一致 |
@@ -89,6 +89,8 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 `UI-001` 首页切片（2026-09-09）：首页工具卡片根据扣除 Activity Bar 后的主内容区收缩，紧凑窗口使用较小边距和短字标；首页内容增加纵向滚动，拖拽网格的列数、卡片宽度和动画位置使用同一组布局参数。`home_view_scrolls_and_fits_compact_windows` 覆盖 360×260 低高度窗口，确认 Logo、工具网格和卡片不越界且存在滚动范围；`ramag-ui` 共 90 项库测试、workspace Clippy 和格式检查通过。真实 Windows 首页截图和拖拽操作仍未完成，不能由 headless 结果推断原生窗口已验收。
 
 `UI-001` VCS 仓库列表切片（2026-09-09）：最近仓库行在 720px 以下改为两行响应式布局，路径移到仓库名下方并保持单行省略；桌面宽度继续显示 Git 标记、仓库名、路径和移除操作的横向信息。`repo_list_rows_reflow_inside_supported_window_widths` 覆盖 360/640/1024/1440px 窗口，检查列表头部、仓库名、路径和操作区域均未越出父容器；`ramag-tool-vcs` 共 129 项库测试通过，workspace Clippy、fmt、源码尺寸和 `git diff --check` 均通过。真实 Windows 仓库列表截图和鼠标操作仍未完成，不能由 headless 结果推断原生窗口已验收。
+
+`UI-001` 原生窗口紧凑尺寸切片验收记录（2026-09-11）：真实 Windows 验收把主窗口最小尺寸从 `800×500` 调整为 `360×240`，`ramag-bin` 尺寸测试 15 项、`ramag-tool-dbclient` 测试 288 项通过；workspace `cargo fmt --all -- --check` 和 `cargo clippy --workspace --all-targets -- -D warnings` 通过。窄于 720px 时数据库会话默认收起横向对象树，查询区通过“切换对象树”按钮按需打开导航；宽窗口保持可拖拽左右分栏。`scripts/build-windows.ps1 -Release` 使用 Windows GNU 工具链构建，PE 依赖检查通过，产物 `91706880` 字节；产物和 `D:\Program Files\ramag.exe` SHA-256 均为 `99F5B21F70FDA7D9437A33EFB15295082502811E602C558FC3BCCCEF831E8DCD`。新安装版真实窗口截图覆盖请求尺寸 `360×240`（实际外框 `376×279`）、`800×600`、`1024×768`、`1440×900`；系统 Win32 输入验证了对象树切换和 SQL 编辑器打开，编辑器草稿在 `360×240` 保持可读且不再单字符换行。Computer Use 的 `@oai/sky` 在窗口状态调用中反复丢失 node context，因此本次按约定使用系统前台切换、Win32 鼠标输入和 `Graphics.CopyFromScreen`，未将其描述为 Computer Use 证据。源码尺寸脚本仍报告既有超 600 行文件 `crates/ramag-domain/src/entities/mqtt.rs`、`crates/ramag-infra-kafka/src/messages.rs`、`crates/ramag-infra-kafka/src/pure_rust.rs`、`crates/ramag-infra-mqtt/src/lib.rs`、`crates/ramag-tool-kafka/src/render_messages.rs`、`crates/ramag-tool-mqtt/src/lib.rs`，本切片未修改这些文件。
 
 `KAFKA-001` 构建记录（2026-09-09）：使用 `scripts/build-windows.ps1 -Release` 和 stable Windows GNU 工具链完成 `ramag-bin` Release 构建；`fxc.exe` 着色器编译、x64 PE/GUI 子系统检查和依赖检查通过，产物为 `target/x86_64-pc-windows-gnu/release/ramag.exe`，大小 `90148864` 字节。该记录只证明本机 Release 产物和 PE 检查，不替代 Docker Broker、真实 Kafka 服务或真实 Windows Kafka 界面验收；旧进程正常退出后，已将产物复制到 `D:\Program Files\ramag.exe`，两个文件 SHA-256 均为 `788DE15744BF047A5706B0B9778E9F250BA00C2EB9458D972A2EE0E56A101BB0`。
 
