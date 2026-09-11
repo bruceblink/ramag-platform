@@ -48,7 +48,7 @@ pub fn open_confirm_with_cancel(
     let on_confirm_cell = Rc::new(RefCell::new(Some(on_confirm)));
     let on_cancel_cell = Rc::new(RefCell::new(Some(on_cancel)));
 
-    window.open_dialog(cx, move |dialog, _, _| {
+    window.open_dialog(cx, move |dialog, window, _| {
         let desc = description.clone();
         let confirm_label_inner = confirm_label.clone();
 
@@ -110,7 +110,9 @@ pub fn open_confirm_with_cancel(
                     true
                 }
             })
-            .margin_top(px(180.0))
+            .w(crate::responsive_dialog_width(window, 448.0))
+            .max_h(crate::responsive_dialog_max_height(window))
+            .margin_top(crate::responsive_dialog_top(window))
             // 键盘 Enter 走 ConfirmDialog action → button_props.on_ok；设了 footer 后
             // 库会忽略 button_props 的按钮渲染，但 on_ok 仍是 Enter 的回调，必须显式绑定，
             // 否则回车只关窗不执行确认（返回 true = 执行后关闭对话框）

@@ -22,6 +22,7 @@ struct CleanableInputHost {
 struct CenteredStatusHost;
 
 struct ResponsiveToolbarHost;
+struct DialogLayerHost;
 
 impl Render for DialogTitleHost {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
@@ -121,6 +122,14 @@ impl Render for ResponsiveToolbarHost {
     }
 }
 
+impl Render for DialogLayerHost {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .size_full()
+            .children(gpui_component::Root::render_dialog_layer(window, cx))
+    }
+}
+
 #[gpui::test]
 fn closable_dialog_title_keeps_close_button_inside_narrow_window(cx: &mut TestAppContext) {
     cx.update(gpui_component::init);
@@ -177,6 +186,42 @@ fn dialog_action_footer_wraps_long_actions_inside_parent(cx: &mut TestAppContext
         assert!(button.origin.y + button.size.height <= host.origin.y + host.size.height);
     }
     assert!(primary.origin.y > secondary.origin.y);
+}
+
+#[gpui::test]
+fn confirm_dialog_stays_inside_compact_window(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let host = cx.new(|_| DialogLayerHost);
+        gpui_component::Root::new(host, window, cx)
+    });
+    let cx: &mut VisualTestContext = cx;
+    cx.simulate_resize(size(px(360.0), px(640.0)));
+    cx.update(|window, app| {
+        super::open_confirm(
+            "放弃编辑？",
+            "当前内容尚未保存，确认后将丢失这些修改。",
+            "放弃",
+            true,
+            |_, _| {},
+            window,
+            app,
+        );
+    });
+    cx.run_until_parked();
+
+    let cancel = cx
+        .debug_bounds("ramag-confirm-cancel")
+        .expect("确认弹窗取消按钮应渲染");
+    let confirm = cx
+        .debug_bounds("ramag-confirm-ok")
+        .expect("确认弹窗主要按钮应渲染");
+    for bounds in [cancel, confirm] {
+        assert!(bounds.origin.x >= px(0.0));
+        assert!(bounds.right() <= px(360.0));
+        assert!(bounds.origin.y >= px(0.0));
+        assert!(bounds.bottom() <= px(640.0));
+    }
 }
 
 #[gpui::test]
