@@ -28,16 +28,7 @@ impl VcsView {
         let active_tab = self.active_file_tab_idx.and_then(|i| self.file_tabs.get(i));
         let Some(tab) = active_tab else {
             self.diff_layout_cache.borrow_mut().take();
-            return div()
-                .size_full()
-                .flex()
-                .items_center()
-                .justify_center()
-                .px(px(40.0))
-                .text_sm()
-                .text_color(muted_fg)
-                .child("选中左侧文件查看变更")
-                .into_any_element();
+            return ramag_ui::centered_status("选中左侧文件查看变更", muted_fg);
         };
         let blame_supported = match &tab.source {
             FileTabSource::Changes(GroupKind::Unstaged) => true,

@@ -22,7 +22,7 @@ pub(super) const LEFT_WIDTH_INITIAL: f32 = 280.0;
 pub(super) const LEFT_WIDTH_MIN: f32 = 180.0;
 pub(super) const LEFT_WIDTH_MAX: f32 = 600.0;
 const BRANCH_PICKER_WIDTH: f32 = 178.0;
-const BRANCH_PICKER_LABEL_CHARS: usize = 24;
+const BRANCH_PICKER_LABEL_CHARS: usize = 18;
 
 impl VcsView {
     pub(super) fn render_ide_layout(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -337,11 +337,13 @@ impl VcsView {
                 ramag_ui::clickable_button("vcs-branch-picker")
                     .outline()
                     .small()
+                    .compact()
                     .w_full()
                     .min_w_0()
                     .debug_selector(|| "vcs-branch-picker".into())
                     .overflow_hidden()
                     .label(label)
+                    .tooltip(head)
                     .text_color(cx.theme().foreground)
                     .disabled(busy)
                     .pointer_dropdown_menu_with_anchor(

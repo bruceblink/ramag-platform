@@ -145,3 +145,35 @@ fn vcs_history_toolbar_wraps_controls_inside_supported_window_widths(cx: &mut Te
         }
     }
 }
+
+/// 没有选中文件时，Diff 提示必须留在右侧主面板内，不能覆盖左侧文件栏。
+#[gpui::test]
+fn vcs_empty_diff_status_stays_inside_main_panel_at_narrow_width(cx: &mut TestAppContext) {
+    let (view, cx) = add_vcs_window(cx);
+    view.update(cx, |view, cx| {
+        inject_diff_session(view);
+        view.active_file_tab_idx = None;
+        view.current_diff = None;
+        view.current_diff_syntax = None;
+        view.selected_file = None;
+        cx.notify();
+    });
+    cx.simulate_resize(size(px(360.0), px(720.0)));
+    cx.run_until_parked();
+
+    let files_column = cx
+        .debug_bounds("vcs-files-column")
+        .expect("VCS 文件栏应渲染");
+    let status = cx
+        .debug_bounds("ramag-centered-status-message")
+        .expect("Diff 空状态提示应渲染");
+
+    assert!(
+        status.origin.x >= files_column.right(),
+        "Diff 空状态提示不能覆盖文件栏：files={files_column:?}, status={status:?}"
+    );
+    assert!(
+        status.right() <= px(360.0),
+        "Diff 空状态提示不能越出窄窗口右侧：status={status:?}"
+    );
+}
