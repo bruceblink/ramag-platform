@@ -15,10 +15,14 @@ mod messages;
 mod metadata;
 mod metrics;
 mod producer_driver;
+#[cfg(feature = "pure-rust")]
+mod pure_rust;
 mod schema_registry;
 pub use broker_metrics::PrometheusBrokerMetricsDriver;
 pub use connect::KafkaConnectHttpDriver;
 pub use ksqldb::KsqlDbHttpDriver;
+#[cfg(feature = "pure-rust")]
+pub use pure_rust::{PureRustDriver, PureRustTransport};
 use ramag_domain::entities::KafkaMessageTailRequest;
 #[cfg(feature = "cmake-build")]
 use ramag_domain::entities::{

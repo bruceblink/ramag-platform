@@ -239,6 +239,13 @@ dashmap = "6"
 
 # Kafka 客户端；具体 crate 通过显式 feature 选择 librdkafka 的构建方式。
 rdkafka = { version = "0.39", default-features = false }
+# Kafka 纯 Rust 客户端；只由显式 pure-rust feature 拉入，不改变默认桌面构建。
+rskafka = { version = "0.6", default-features = false, features = [
+    "compression-gzip",
+    "compression-lz4",
+    "compression-snappy",
+    "compression-zstd",
+] }
 
 # MQTT 客户端；基础设施 crate 默认不拉入 native 依赖，由应用组合根显式启用。
 rumqttc = { version = "0.25.1", default-features = false, features = [

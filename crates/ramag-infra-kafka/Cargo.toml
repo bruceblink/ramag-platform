@@ -17,16 +17,20 @@ kafka-tls = ["cmake-build", "rdkafka/ssl-vendored"]
 kafka-sasl = ["rdkafka/sasl", "kafka-tls"]
 tls = ["kafka-tls"]
 sasl = ["kafka-sasl"]
+# 纯 Rust 路径只在显式启用时构建，默认构建仍不拉入任何 Kafka 客户端。
+pure-rust = ["dep:rskafka", "dep:tokio"]
 
 [dependencies]
 async-trait = { workspace = true }
 chrono = { workspace = true }
 ramag-domain = { workspace = true }
 rdkafka = { workspace = true, optional = true, features = ["tokio"] }
+rskafka = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["blocking"] }
 regex = { workspace = true }
 serde_json = { workspace = true }
 smol = { workspace = true }
+tokio = { workspace = true, optional = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
