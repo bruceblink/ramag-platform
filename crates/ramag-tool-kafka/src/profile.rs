@@ -139,6 +139,10 @@ impl KafkaView {
         self.clear_message_tail(cx);
         self.selected_message = None;
         self.section = KafkaSection::Config;
+        self.workspace_tabs_scroll
+            .set_offset(gpui::point(px(-99_999.0), px(0.0)));
+        self.workspace_tabs_scroll
+            .scroll_to_item(KafkaSection::Config.index());
         self.security_protocol = KafkaSecurityProtocol::default();
         self.sasl_mechanism = KafkaSaslMechanism::Plain;
         self.read_only = KafkaReadOnlyState::default();
@@ -232,6 +236,8 @@ impl KafkaView {
         self.clear_message_tail(cx);
         self.selected_message = None;
         self.section = KafkaSection::Overview;
+        self.workspace_tabs_scroll
+            .scroll_to_item(KafkaSection::Overview.index());
         self.set_form_from_config(&config, window, cx);
         self.notice = None;
         self.load_runtime(config, window, cx);

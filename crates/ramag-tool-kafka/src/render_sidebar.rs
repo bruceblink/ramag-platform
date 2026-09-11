@@ -24,6 +24,7 @@ impl KafkaView {
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
         let compact = f32::from(window.viewport_size().width) < 900.0;
+        let narrow = kafka_sidebar_is_narrow(window);
         let query = value(&self.cluster_search, cx).to_lowercase();
         let visible_indices = matching_cluster_indices(&self.clusters, &query);
         let rows = if self.loading_clusters {
@@ -159,16 +160,34 @@ impl KafkaView {
                             ),
                     )
                     .child(
-                        ramag_ui::clickable_button("kafka-add-profile")
-                            .debug_selector(|| "kafka-add-profile".into())
-                            .ghost()
-                            .xsmall()
-                            .icon(IconName::Plus)
-                            .tooltip("新建集群配置")
-                            .disabled(self.saving || self.testing || self.deleting)
-                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                this.new_profile(window, cx);
-                            })),
+                        h_flex()
+                            .gap(px(4.0))
+                            .when(narrow, |actions| {
+                                actions.child(
+                                    ramag_ui::clickable_button("kafka-hide-sidebar")
+                                        .debug_selector(|| "kafka-hide-sidebar".into())
+                                        .ghost()
+                                        .xsmall()
+                                        .icon(IconName::PanelLeft)
+                                        .tooltip("隐藏集群栏")
+                                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                            this.sidebar_visible = false;
+                                            cx.notify();
+                                        })),
+                                )
+                            })
+                            .child(
+                                ramag_ui::clickable_button("kafka-add-profile")
+                                    .debug_selector(|| "kafka-add-profile".into())
+                                    .ghost()
+                                    .xsmall()
+                                    .icon(IconName::Plus)
+                                    .tooltip("新建集群配置")
+                                    .disabled(self.saving || self.testing || self.deleting)
+                                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                        this.new_profile(window, cx);
+                                    })),
+                            ),
                     ),
             )
             .child(

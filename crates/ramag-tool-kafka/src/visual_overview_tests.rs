@@ -1,4 +1,5 @@
 use super::*;
+use crate::KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT;
 
 struct KafkaOverviewTestHost {
     view: gpui::Entity<KafkaView>,
@@ -90,6 +91,20 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
     ] {
         visual_cx.simulate_resize(size(px(width), px(height)));
         visual_cx.run_until_parked();
+        if width < KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT {
+            assert!(
+                visual_cx.debug_bounds("kafka-sidebar").is_none(),
+                "极窄窗口默认应收起集群栏"
+            );
+            assert!(
+                visual_cx.debug_bounds("kafka-show-sidebar").is_some(),
+                "极窄窗口主区应提供显示集群栏入口"
+            );
+            click(visual_cx, "kafka-show-sidebar");
+            visual_cx.run_until_parked();
+            assert!(visual_cx.debug_bounds("kafka-sidebar").is_some());
+            assert!(visual_cx.debug_bounds("kafka-hide-sidebar").is_some());
+        }
         let bounds = [
             visual_cx.debug_bounds("kafka-root"),
             visual_cx.debug_bounds("kafka-sidebar"),
@@ -210,6 +225,12 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
                 cluster.origin.y >= topic.bottom(),
                 "紧凑窗口应将集群信息放在主内容之后: width={width}, primary={primary:?}, broker={broker:?}, topic={topic:?}, cluster={cluster:?}"
             );
+            if width < KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT {
+                click(visual_cx, "kafka-hide-sidebar");
+                visual_cx.run_until_parked();
+                assert!(visual_cx.debug_bounds("kafka-sidebar").is_none());
+                assert!(visual_cx.debug_bounds("kafka-show-sidebar").is_some());
+            }
         }
     }
 }

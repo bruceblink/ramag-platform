@@ -44,6 +44,15 @@ pub(super) fn kafka_main_content_width(window: &Window) -> f32 {
     }
 }
 
+/// Detects the width where a stacked cluster bar would hide the workbench.
+pub(super) fn kafka_sidebar_is_narrow(window: &Window) -> bool {
+    kafka_sidebar_is_narrow_width(f32::from(window.viewport_size().width))
+}
+
+pub(super) fn kafka_sidebar_is_narrow_width(width: f32) -> bool {
+    width < KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT
+}
+
 pub(super) fn optional_value(field: &Entity<InputState>, cx: &App) -> Option<String> {
     let value = value(field, cx);
     (!value.is_empty()).then_some(value)
@@ -544,4 +553,19 @@ pub(super) fn suggested_message_file_name(record: &KafkaMessageRecord) -> String
         .collect::<String>();
     let topic = if topic.is_empty() { "message" } else { &topic };
     format!("{topic}-p{}-o{}.json", record.partition, record.offset)
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::{KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT, kafka_sidebar_is_narrow_width};
+
+    #[test]
+    fn sidebar_collapses_only_below_the_narrow_workbench_breakpoint() {
+        assert!(kafka_sidebar_is_narrow_width(
+            KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT - 1.0
+        ));
+        assert!(!kafka_sidebar_is_narrow_width(
+            KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT
+        ));
+    }
 }

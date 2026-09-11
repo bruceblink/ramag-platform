@@ -8,6 +8,7 @@ impl KafkaView {
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
         let compact = kafka_main_content_width(window) < 700.0;
+        let narrow = kafka_sidebar_is_narrow(window);
         let selected = self.selected_config();
         let title = selected
             .as_ref()
@@ -35,7 +36,7 @@ impl KafkaView {
         // 新建草稿尚未分配集群 ID，但必须先显示配置表单；只有初始概览才显示欢迎页。
         let show_welcome = selected.is_none() && self.section != KafkaSection::Config;
         let body = if show_welcome {
-            self.render_welcome(cx).into_any_element()
+            self.render_welcome(window, cx).into_any_element()
         } else {
             self.render_workspace(window, cx).into_any_element()
         };
@@ -156,7 +157,21 @@ impl KafkaView {
                                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                         this.retry_runtime(window, cx);
                                     })),
-                            ),
+                            )
+                            .when(narrow && !self.sidebar_visible, |row| {
+                                row.child(
+                                    ramag_ui::clickable_button("kafka-show-sidebar")
+                                        .debug_selector(|| "kafka-show-sidebar".into())
+                                        .ghost()
+                                        .small()
+                                        .icon(IconName::PanelLeft)
+                                        .tooltip("显示集群栏")
+                                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                            this.sidebar_visible = true;
+                                            cx.notify();
+                                        })),
+                                )
+                            }),
                     ),
             )
             .when_some(self.notice.clone(), |view, notice| {

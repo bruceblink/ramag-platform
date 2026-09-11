@@ -71,6 +71,7 @@ const DEFAULT_TOPIC_PAGE_SIZE: usize = 50;
 const MESSAGE_TAIL_CHANNEL_CAPACITY: usize = 8;
 const MESSAGE_TAIL_RESULTS_HEIGHT: f32 = 260.0;
 const KAFKA_SIDEBAR_WIDTH: f32 = 260.0;
+const KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT: f32 = 480.0;
 const KAFKA_TOPIC_SCROLLBAR_WIDTH: f32 = 16.0;
 const KAFKA_SCHEMA_SUBJECT_SCROLLBAR_WIDTH: f32 = 16.0;
 const MAX_VISIBLE_GROUP_OFFSETS: usize = 500;
@@ -186,6 +187,20 @@ impl KafkaSection {
             Self::Config => "配置",
         }
     }
+
+    const fn index(self) -> usize {
+        match self {
+            Self::Overview => 0,
+            Self::Topics => 1,
+            Self::Messages => 2,
+            Self::ConsumerGroups => 3,
+            Self::SchemaRegistry => 4,
+            Self::Connect => 5,
+            Self::KsqlDb => 6,
+            Self::Acls => 7,
+            Self::Config => 8,
+        }
+    }
 }
 
 /// Kafka 工作区的交互状态；运行时结果全部来自 `KafkaService`，空值表示尚未成功读取。
@@ -200,6 +215,7 @@ pub struct KafkaView {
     topic_page_size: usize,
     topic_scroll: UniformListScrollHandle,
     overview_scroll: ScrollHandle,
+    workspace_tabs_scroll: ScrollHandle,
     consumer_groups: Vec<KafkaConsumerGroup>,
     selected_consumer_group: Option<String>,
     consumer_group_error: Option<String>,
@@ -273,6 +289,8 @@ pub struct KafkaView {
     acl_error: Option<String>,
     acl_scroll: UniformListScrollHandle,
     section: KafkaSection,
+    /// 极窄窗口默认隐藏集群栏，避免垂直堆叠把主工作区推到视口外。
+    sidebar_visible: bool,
     cluster_search: Entity<InputState>,
     topic_search: Entity<InputState>,
     consumer_group_search: Entity<InputState>,
@@ -454,15 +472,21 @@ impl Focusable for KafkaView {
 impl Render for KafkaView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let compact = f32::from(window.viewport_size().width) < 900.0;
+        let narrow = kafka_sidebar_is_narrow(window);
+        let show_sidebar = !narrow || self.sidebar_visible;
         h_flex()
             .id("kafka-root")
             .debug_selector(|| "kafka-root".into())
             .size_full()
             .min_w_0()
             .min_h_0()
-            .when(compact, |root| root.flex_col().items_stretch())
+            .when(compact && show_sidebar, |root| {
+                root.flex_col().items_stretch()
+            })
             .bg(cx.theme().background)
-            .child(self.render_sidebar(window, cx))
+            .when(show_sidebar, |root| {
+                root.child(self.render_sidebar(window, cx))
+            })
             .child(self.render_main(window, cx))
     }
 }
