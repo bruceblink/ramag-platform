@@ -45,7 +45,8 @@ fn docker_kafka_executes_ksqldb_read_only_query() -> Result<(), Box<dyn std::err
         result
             .rows
             .iter()
-            .any(|row| row.contains(&String::from("created")))
+            .any(|row| row.iter().any(|value| value == "docker-fixture")),
+        "ksqlDB should return rows from the seeded Docker fixture"
     );
     Ok(())
 }

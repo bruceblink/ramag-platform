@@ -140,9 +140,18 @@ function Invoke-Compose {
     $dockerArguments = @(
         "compose", "--project-name", $ProjectName, "--file", $DockerComposeFile
     ) + $ComposeArguments
-    & docker @(ConvertTo-WslDockerArguments -Arguments $dockerArguments)
-    if ($LASTEXITCODE -ne 0) {
-        throw "docker compose failed with exit code $LASTEXITCODE"
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        # The Windows docker shim forwards Compose progress on stderr. Treat
+        # that stream as output here and use the native exit code for failure.
+        $ErrorActionPreference = "Continue"
+        & docker @(ConvertTo-WslDockerArguments -Arguments $dockerArguments)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($exitCode -ne 0) {
+        throw "docker compose failed with exit code $exitCode"
     }
 }
 
@@ -310,7 +319,23 @@ function Wait-SchemaRegistryHealthy {
 }
 
 function Ensure-Healthy {
-    Invoke-Compose -ComposeArguments @("up", "-d", "--build")
+    $imageInspectArguments = @("image", "inspect", "ramag-kafka-jmx-exporter:1.6.0")
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & docker @(ConvertTo-WslDockerArguments -Arguments $imageInspectArguments) *> $null
+        $imageExists = $LASTEXITCODE -eq 0
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($imageExists) {
+        Write-TestLog "Using the existing local Kafka JMX exporter image."
+        Invoke-Compose -ComposeArguments @("up", "-d")
+    } else {
+        Write-TestLog "Kafka JMX exporter image is missing; building it before startup."
+        Invoke-Compose -ComposeArguments @("up", "-d", "--build")
+    }
     Wait-Healthy
     Wait-ConnectHealthy
     Wait-MetricsHealthy
@@ -554,6 +579,10 @@ function Run-RustIntegrationTest {
         & cargo test --offline --locked -p ramag-infra-kafka --no-default-features --features cmake-build --test docker_kafka
         if ($LASTEXITCODE -ne 0) {
             throw "Rust Kafka integration test failed with exit code $LASTEXITCODE"
+        }
+        & cargo test --offline --locked -p ramag-infra-kafka --no-default-features --features pure-rust --test docker_kafka_pure_rust
+        if ($LASTEXITCODE -ne 0) {
+            throw "Pure Rust Kafka integration test failed with exit code $LASTEXITCODE"
         }
     } finally {
         Restore-WindowsGnuEnvironment -Snapshot $EnvironmentSnapshot
