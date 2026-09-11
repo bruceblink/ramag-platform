@@ -7266,6 +7266,7 @@ name = "ramag-tool-mqtt"
 version = "0.0.5"
 dependencies = [
  "async-channel 2.5.0",
+ "async-trait",
  "chrono",
  "gpui",
  "gpui-component",

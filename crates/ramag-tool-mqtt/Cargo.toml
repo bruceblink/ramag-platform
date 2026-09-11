@@ -19,4 +19,5 @@ ramag-domain = { workspace = true }
 ramag-ui = { workspace = true }
 
 [dev-dependencies]
+async-trait = { workspace = true }
 gpui = { workspace = true, features = ["test-support"] }

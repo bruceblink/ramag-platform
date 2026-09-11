@@ -51,6 +51,8 @@ const MAX_MOSQUITTO_DESCRIPTION_BYTES: usize = 16 * 1024;
 const MAX_MOSQUITTO_BINDINGS_BYTES: usize = 16 * 1024;
 const MAX_MOSQUITTO_ACL_EDITOR_BYTES: usize = 4 * 1024 * 1024;
 const MAX_MOSQUITTO_STATIC_FILE_BYTES: usize = 4 * 1024 * 1024;
+const MQTT_SIDEBAR_WIDTH: f32 = 250.0;
+const MQTT_SIDEBAR_COLLAPSE_BREAKPOINT: f32 = 480.0;
 
 /// 创建 MQTT 工具主视图。
 pub fn create_mqtt_view(
@@ -157,6 +159,8 @@ pub struct MqttView {
     profiles: Vec<MqttProfile>,
     selected_profile_id: Option<MqttProfileId>,
     section: MqttSection,
+    /// Narrow windows hide the profile list by default so the active form keeps usable width.
+    sidebar_visible: bool,
     name: Entity<InputState>,
     host: Entity<InputState>,
     port: Entity<InputState>,
@@ -460,6 +464,7 @@ impl MqttView {
             profiles: Vec::new(),
             selected_profile_id: None,
             section: MqttSection::Config,
+            sidebar_visible: false,
             name,
             host,
             port,
@@ -545,6 +550,11 @@ impl MqttView {
 
     fn is_busy(&self) -> bool {
         self.saving || self.testing || self.deleting || self.publishing || self.loading_profiles
+    }
+
+    /// Detect the width where the profile list would leave the active MQTT workbench unusable.
+    fn sidebar_is_narrow(window: &Window) -> bool {
+        window.viewport_size().width < px(MQTT_SIDEBAR_COLLAPSE_BREAKPOINT)
     }
 
     fn load_profiles(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -1849,6 +1859,7 @@ impl MqttView {
 
     fn render_sidebar(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
+        let narrow = Self::sidebar_is_narrow(window);
         let search = value(&self.search, cx);
         let mut rows = v_flex().w_full().min_h_0();
         for profile in self.profiles.iter().filter(|profile| {
@@ -1898,7 +1909,7 @@ impl MqttView {
         v_flex()
             .id("mqtt-sidebar")
             .debug_selector(|| "mqtt-sidebar".into())
-            .w(px(250.0))
+            .w(px(MQTT_SIDEBAR_WIDTH))
             .min_w(px(210.0))
             .h_full()
             .flex_none()
@@ -1937,14 +1948,32 @@ impl MqttView {
                             ),
                     )
                     .child(
-                        ramag_ui::clickable_button("mqtt-add-profile")
-                            .ghost()
-                            .xsmall()
-                            .icon(IconName::Plus)
-                            .tooltip("新建配置")
-                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                this.new_profile(window, cx)
-                            })),
+                        h_flex()
+                            .gap(px(4.0))
+                            .when(narrow, |actions| {
+                                actions.child(
+                                    ramag_ui::clickable_button("mqtt-hide-sidebar")
+                                        .debug_selector(|| "mqtt-hide-sidebar".into())
+                                        .ghost()
+                                        .xsmall()
+                                        .icon(IconName::PanelLeft)
+                                        .tooltip("隐藏配置栏")
+                                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                            this.sidebar_visible = false;
+                                            cx.notify();
+                                        })),
+                                )
+                            })
+                            .child(
+                                ramag_ui::clickable_button("mqtt-add-profile")
+                                    .ghost()
+                                    .xsmall()
+                                    .icon(IconName::Plus)
+                                    .tooltip("新建配置")
+                                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                        this.new_profile(window, cx)
+                                    })),
+                            ),
                     ),
             )
             .child(
@@ -1982,9 +2011,18 @@ impl MqttView {
                         },
                     )),
             )
-            .when(window.viewport_size().width < px(760.0), |sidebar| {
-                sidebar.w(px(210.0))
+            .when(narrow, |sidebar| {
+                sidebar
+                    .w_full()
+                    .min_w_0()
+                    .h(px(220.0))
+                    .border_r_0()
+                    .border_b_1()
             })
+            .when(
+                !narrow && window.viewport_size().width < px(760.0),
+                |sidebar| sidebar.w(px(210.0)),
+            )
     }
 
     fn render_tabs(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -2008,6 +2046,7 @@ impl MqttView {
 
     fn render_header(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
+        let narrow = Self::sidebar_is_narrow(window);
         let selected_name = self.selected_profile().map_or_else(
             || "新建 MQTT 配置".to_string(),
             |profile| profile.name.clone(),
@@ -2052,7 +2091,21 @@ impl MqttView {
                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                         this.save_profile(window, cx)
                     })),
-            );
+            )
+            .when(narrow && !self.sidebar_visible, |actions| {
+                actions.child(
+                    ramag_ui::clickable_button("mqtt-show-sidebar")
+                        .debug_selector(|| "mqtt-show-sidebar".into())
+                        .ghost()
+                        .small()
+                        .icon(IconName::PanelLeft)
+                        .tooltip("显示配置栏")
+                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                            this.sidebar_visible = true;
+                            cx.notify();
+                        })),
+                )
+            });
         v_flex()
             .w_full()
             .flex_none()
@@ -2097,7 +2150,9 @@ impl MqttView {
 
     fn render_config(&self, _window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
-        let mut protocol_buttons = h_flex().gap(px(4.0));
+        let mut protocol_buttons = h_flex()
+            .debug_selector(|| "mqtt-protocol-buttons".into())
+            .gap(px(4.0));
         for (protocol, label) in [
             (MqttProtocolVersion::V5, "MQTT 5.0"),
             (MqttProtocolVersion::V311, "MQTT 3.1.1"),
@@ -2153,7 +2208,10 @@ impl MqttView {
             )
             .child(
                 row()
-                    .child(field("协议版本", protocol_buttons))
+                    .child(
+                        field("协议版本", protocol_buttons)
+                            .debug_selector(|| "mqtt-protocol-field".into()),
+                    )
                     .child(field("传输", transport_buttons))
                     .child(field("Keep Alive", Input::new(&self.keep_alive).small())),
             )
@@ -3288,7 +3346,10 @@ impl MqttView {
 impl Render for MqttView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
+        let narrow = Self::sidebar_is_narrow(window);
         let main = v_flex()
+            .id("mqtt-main")
+            .debug_selector(|| "mqtt-main".into())
             .flex_1()
             .min_w_0()
             .h_full()
@@ -3308,7 +3369,12 @@ impl Render for MqttView {
             .min_w_0()
             .min_h_0()
             .bg(theme.background)
-            .child(self.render_sidebar(window, cx))
+            .when(narrow && self.sidebar_visible, |root| {
+                root.flex_col().items_stretch()
+            })
+            .when(!narrow || self.sidebar_visible, |root| {
+                root.child(self.render_sidebar(window, cx))
+            })
             .child(main)
     }
 }
@@ -3539,7 +3605,7 @@ fn serialize_acls(acls: &[MosquittoAcl]) -> String {
 fn field<E: IntoElement>(label: &'static str, input: E) -> gpui::Div {
     v_flex()
         .flex_1()
-        .min_w_0()
+        .min_w(px(180.0))
         .gap(px(5.0))
         .child(
             div()
@@ -3551,7 +3617,12 @@ fn field<E: IntoElement>(label: &'static str, input: E) -> gpui::Div {
 }
 
 fn row() -> gpui::Div {
-    h_flex().w_full().min_w_0().items_end().gap(px(10.0))
+    h_flex()
+        .w_full()
+        .min_w_0()
+        .flex_wrap()
+        .items_end()
+        .gap(px(10.0))
 }
 
 fn section_heading(
@@ -3639,6 +3710,9 @@ fn capability_items(capabilities: MqttTransportCapabilities) -> [(&'static str, 
         ("完整在线客户端目录", capabilities.online_clients),
     ]
 }
+
+#[cfg(test)]
+mod visual_tests;
 
 #[cfg(test)]
 mod tests {
