@@ -81,6 +81,7 @@ fn clipboard_tool_is_registered_last() {
         [
             "dbclient",
             "kafka",
+            "mqtt",
             "vcs",
             "ssh",
             "object_storage",
@@ -104,6 +105,7 @@ fn clipboard_tool_is_not_registered_on_linux() {
         [
             "dbclient",
             "kafka",
+            "mqtt",
             "vcs",
             "ssh",
             "object_storage",
