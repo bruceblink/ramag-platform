@@ -36,7 +36,7 @@ pub(super) fn open_remote_path_dialog(
             cx,
         )
     });
-    window.open_dialog(cx, move |dialog, _, _| {
+    window.open_dialog(cx, move |dialog, window, _| {
         let form_for_content = form.clone();
         dialog
             .title(ramag_ui::closable_dialog_title(
@@ -45,8 +45,9 @@ pub(super) fn open_remote_path_dialog(
                 |_, _| {},
             ))
             .close_button(false)
-            .width(px(520.0))
-            .margin_top(px(160.0))
+            .width(ramag_ui::responsive_dialog_width(window, 520.0))
+            .max_h(ramag_ui::responsive_dialog_max_height(window))
+            .margin_top(ramag_ui::responsive_dialog_top(window))
             .on_ok({
                 let form = form.clone();
                 move |_, _, app| form.update(app, |this, cx| this.open_current(cx))
@@ -150,22 +151,27 @@ impl RemotePathDialog {
 }
 
 impl Render for RemotePathDialog {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let muted = cx.theme().muted_foreground;
         let border = cx.theme().border;
+        let compact = window.viewport_size().width < px(680.0);
         let mut content = v_flex()
             .w_full()
+            .min_w_0()
             .gap(px(10.0))
             .child(div().text_sm().text_color(muted).child("路径"))
             .child(
                 h_flex()
                     .w_full()
+                    .min_w_0()
                     .items_center()
                     .gap(px(8.0))
+                    .when(compact, |row| row.flex_wrap())
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
+                            .when(compact, |input| input.min_w(px(180.0)))
                             .child(Input::new(&self.input).small()),
                     )
                     .child(

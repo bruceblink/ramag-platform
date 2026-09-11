@@ -149,6 +149,7 @@ impl RemoteSessionPanel {
         title: &'static str,
         sessions: &[JumpServerRdpSession],
         favorite: bool,
+        compact: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let muted = cx.theme().muted_foreground;
@@ -184,7 +185,7 @@ impl RemoteSessionPanel {
             );
         } else {
             for (index, session) in sessions.iter().cloned().enumerate() {
-                list = list.child(self.render_session_row(index, session, favorite, cx));
+                list = list.child(self.render_session_row(index, session, favorite, compact, cx));
             }
         }
         v_flex()
@@ -217,6 +218,7 @@ impl RemoteSessionPanel {
         index: usize,
         session: JumpServerRdpSession,
         favorite: bool,
+        compact: bool,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let border = cx.theme().border;
@@ -253,6 +255,7 @@ impl RemoteSessionPanel {
             .gap(px(10.0))
             .px(px(11.0))
             .py(px(7.0))
+            .when(compact, |row| row.flex_wrap().items_start())
             .when(index > 0, |row| row.border_t_1().border_color(border))
             .child(ramag_ui::icons::remote_desktop().small().text_color(muted))
             .child(
@@ -281,6 +284,7 @@ impl RemoteSessionPanel {
                 v_flex()
                     .w(px(190.0))
                     .min_w_0()
+                    .when(compact, |column| column.w_full())
                     .gap(px(2.0))
                     .child(
                         div()
@@ -333,8 +337,10 @@ impl RemoteSessionPanel {
 }
 
 impl Render for RemoteSessionPanel {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let mut body = v_flex().w_full().gap(px(16.0));
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let compact = window.viewport_size().width < px(680.0);
+        let body_max_h = (ramag_ui::responsive_dialog_max_height(window) - px(100.0)).max(px(96.0));
+        let mut body = v_flex().w_full().min_w_0().gap(px(16.0));
         if self.loading {
             body = body.child(
                 div()
@@ -347,12 +353,19 @@ impl Render for RemoteSessionPanel {
             );
         } else {
             body = body
-                .child(self.render_section("收藏", &self.history.favorites, true, cx))
-                .child(self.render_section("最近会话", &self.history.recent, false, cx));
+                .child(self.render_section("收藏", &self.history.favorites, true, compact, cx))
+                .child(self.render_section("最近会话", &self.history.recent, false, compact, cx));
         }
-        body.when_some(self.error.clone(), |body, error| {
-            body.child(div().text_xs().text_color(cx.theme().danger).child(error))
-        })
+        div()
+            .id("remote-session-dialog-body")
+            .debug_selector(|| "remote-session-dialog-body".into())
+            .w_full()
+            .min_w_0()
+            .max_h(body_max_h)
+            .overflow_y_scroll()
+            .child(body.when_some(self.error.clone(), |body, error| {
+                body.child(div().text_xs().text_color(cx.theme().danger).child(error))
+            }))
     }
 }
 
@@ -360,11 +373,13 @@ impl SshView {
     pub(super) fn open_remote_sessions(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let service = self.service.clone();
         let panel = cx.new(|cx| RemoteSessionPanel::new(service, cx));
-        window.open_dialog(cx, move |dialog, _, _| {
+        window.open_dialog(cx, move |dialog, window, _| {
             let panel = panel.clone();
             dialog
                 .title("远程会话")
-                .w(px(760.0))
+                .w(ramag_ui::responsive_dialog_width(window, 760.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .pt(px(20.0))
                 .px(px(22.0))
                 .pb(px(18.0))

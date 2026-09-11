@@ -22,11 +22,15 @@ impl Render for JumpServerPanel {
         if let Some(notification) = self.pending_notification.take() {
             ramag_ui::push_responsive_notification(window, notification, cx);
         }
-        let body_max_h = (window.viewport_size().height * 0.9 - px(100.0)).max(px(360.0));
+        let compact = window.viewport_size().width < px(680.0);
+        let dialog_max_h = ramag_ui::responsive_dialog_max_height(window);
+        let body_max_h = (dialog_max_h - px(100.0)).max(px(120.0));
 
         div()
             .id("jumpserver-panel-body")
+            .debug_selector(|| "jumpserver-panel-body".into())
             .w_full()
+            .min_w_0()
             .pt(px(2.0))
             .max_h(body_max_h)
             .overflow_y_scroll()
@@ -35,31 +39,43 @@ impl Render for JumpServerPanel {
                     .id("jumpserver-asset-table")
                     .debug_selector(|| "jumpserver-asset-table".into())
                     .w_full()
+                    .min_w_0()
                     .gap(px(16.0))
                     .child(self.render_source_selector(cx))
-                    .child(self.render_login_section(cx))
+                    .child(self.render_login_section(compact, cx))
                     .when(self.session.is_some(), |body| {
-                        body.child(self.render_asset_section(cx))
+                        body.child(self.render_asset_section(compact, cx))
                     }),
             )
     }
 }
 
 impl JumpServerPanel {
-    fn render_login_section(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        v_flex()
+    fn render_login_section(&self, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
+        let show_form = self.selected_connection_id.is_none() || self.editing_connection;
+        let mut section = v_flex()
             .id("jumpserver-login-section")
             .debug_selector(|| "jumpserver-login-section".into())
             .w_full()
-            .gap(px(12.0))
-            .child(self.render_connection_selector(cx))
-            .when(
-                self.selected_connection_id.is_none() || self.editing_connection,
-                |section| section.child(self.render_new_connection_form(cx)),
-            )
+            .min_w_0()
+            .gap(px(12.0));
+
+        // 紧凑窗口优先展示待填写的连接表单，避免表单被连接列表推到滚动区下方。
+        if compact && show_form {
+            section = section.child(self.render_new_connection_form(compact, cx));
+        }
+        section = section.child(self.render_connection_selector(cx));
+        if !compact && show_form {
+            section = section.child(self.render_new_connection_form(compact, cx));
+        }
+        section
     }
 
-    fn render_new_connection_form(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_new_connection_form(
+        &self,
+        compact: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let busy = self.is_busy();
         let border = cx.theme().border;
 
@@ -67,6 +83,7 @@ impl JumpServerPanel {
             .id("jumpserver-new-connection-form")
             .debug_selector(|| "jumpserver-new-connection-form".into())
             .w_full()
+            .min_w_0()
             .gap(px(10.0))
             .p(px(14.0))
             .border_1()
@@ -88,30 +105,44 @@ impl JumpServerPanel {
                     .w_full()
                     .items_end()
                     .gap(px(10.0))
+                    .when(compact, |row| row.flex_col().items_stretch())
                     .child(div().flex_1().min_w_0().child(input_field(
                         "jumpserver-url-field",
                         "地址",
                         &self.base_url,
                         busy,
                     )))
-                    .child(div().w(px(106.0)).child(input_field(
-                        "jumpserver-ssh-port-field",
-                        "SSH 端口",
-                        &self.ssh_port,
-                        busy,
-                    ))),
+                    .child(
+                        div()
+                            .min_w_0()
+                            .when(compact, |field| field.w_full())
+                            .when(!compact, |field| field.w(px(106.0)))
+                            .child(input_field(
+                                "jumpserver-ssh-port-field",
+                                "SSH 端口",
+                                &self.ssh_port,
+                                busy,
+                            )),
+                    ),
             )
             .child(
                 h_flex()
                     .w_full()
                     .items_end()
                     .gap(px(10.0))
-                    .child(div().w(px(240.0)).child(input_field(
-                        "jumpserver-username-field",
-                        "用户名",
-                        &self.username,
-                        busy,
-                    )))
+                    .when(compact, |row| row.flex_col().items_stretch())
+                    .child(
+                        div()
+                            .min_w_0()
+                            .when(compact, |field| field.w_full())
+                            .when(!compact, |field| field.w(px(240.0)))
+                            .child(input_field(
+                                "jumpserver-username-field",
+                                "用户名",
+                                &self.username,
+                                busy,
+                            )),
+                    )
                     .child(
                         div()
                             .flex_1()
@@ -221,7 +252,7 @@ impl JumpServerPanel {
             )
     }
 
-    fn render_asset_section(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_asset_section(&self, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
         let visible = self.filtered_assets();
         let visible_count = visible.len();
         let total = self.assets.len();
@@ -253,10 +284,11 @@ impl JumpServerPanel {
         } else {
             for (index, asset) in visible.into_iter().enumerate() {
                 let selected = self.selected_asset_id.as_deref() == Some(asset.id.as_str());
-                asset_list = asset_list.child(self.render_asset_row(index, asset.clone(), cx));
+                asset_list =
+                    asset_list.child(self.render_asset_row(index, asset.clone(), compact, cx));
                 if selected {
-                    asset_list =
-                        asset_list.child(self.render_selected_asset_detail(index, asset, cx));
+                    asset_list = asset_list
+                        .child(self.render_selected_asset_detail(index, asset, compact, cx));
                 }
             }
         }
@@ -264,7 +296,11 @@ impl JumpServerPanel {
         let resources = v_flex()
             .flex_1()
             .min_w_0()
-            .h(px(ASSET_PANE_HEIGHT))
+            .h(if compact {
+                px(360.0)
+            } else {
+                px(ASSET_PANE_HEIGHT)
+            })
             .gap(px(9.0))
             .child(
                 h_flex()
@@ -309,7 +345,7 @@ impl JumpServerPanel {
                     .border_color(border)
                     .rounded(px(7.0))
                     .overflow_hidden()
-                    .child(self.render_asset_header(cx))
+                    .child(self.render_asset_header(compact, cx))
                     .child(asset_list),
             );
 
@@ -317,20 +353,25 @@ impl JumpServerPanel {
             .id("jumpserver-assets-section")
             .debug_selector(|| "jumpserver-assets-section".into())
             .w_full()
+            .min_w_0()
             .child(
                 h_flex()
                     .w_full()
                     .items_start()
                     .gap(px(12.0))
-                    .child(self.render_asset_tree(cx))
+                    .when(compact, |row| row.flex_col().items_stretch())
+                    .child(self.render_asset_tree(compact, cx))
                     .child(resources),
             )
     }
 
-    fn render_asset_header(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_asset_header(&self, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
         h_flex()
             .w_full()
             .h(px(34.0))
+            .when(compact, |header| {
+                header.h_auto().min_h(px(34.0)).flex_wrap()
+            })
             .items_center()
             .px(px(12.0))
             .gap(px(12.0))
@@ -340,9 +381,24 @@ impl JumpServerPanel {
             .text_xs()
             .text_color(cx.theme().muted_foreground)
             .child(div().flex_1().min_w_0().child("资源"))
-            .child(div().w(px(ASSET_ADDRESS_WIDTH)).child("地址"))
-            .child(div().w(px(ASSET_PLATFORM_WIDTH)).child("平台"))
-            .child(div().w(px(ASSET_ACTION_WIDTH)).child("操作"))
+            .child(
+                div()
+                    .w(px(ASSET_ADDRESS_WIDTH))
+                    .when(compact, |field| field.w_full().flex_none())
+                    .child("地址"),
+            )
+            .child(
+                div()
+                    .w(px(ASSET_PLATFORM_WIDTH))
+                    .when(compact, |field| field.w_full().flex_none())
+                    .child("平台"),
+            )
+            .child(
+                div()
+                    .w(px(ASSET_ACTION_WIDTH))
+                    .when(compact, |field| field.w_full().flex_none())
+                    .child("操作"),
+            )
     }
 }
 

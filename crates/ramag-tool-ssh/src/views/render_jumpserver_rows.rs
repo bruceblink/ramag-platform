@@ -18,6 +18,7 @@ impl JumpServerPanel {
         &self,
         index: usize,
         asset: JumpServerAsset,
+        compact: bool,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let selected = self.selected_asset_id.as_deref() == Some(asset.id.as_str());
@@ -47,6 +48,7 @@ impl JumpServerPanel {
             .gap(px(12.0))
             .border_b_1()
             .border_color(cx.theme().border)
+            .when(compact, |row| row.flex_wrap().items_start())
             .when(selected, |row| row.bg(selected_bg))
             .when(!selected && active, |row| {
                 row.hover(|row| row.bg(cx.theme().muted))
@@ -74,6 +76,7 @@ impl JumpServerPanel {
             .child(
                 div()
                     .w(px(ASSET_ADDRESS_WIDTH))
+                    .when(compact, |field| field.w_full().flex_none())
                     .text_xs()
                     .overflow_hidden()
                     .text_ellipsis()
@@ -86,6 +89,7 @@ impl JumpServerPanel {
             .child(
                 div()
                     .w(px(ASSET_PLATFORM_WIDTH))
+                    .when(compact, |field| field.w_full().flex_none())
                     .text_xs()
                     .overflow_hidden()
                     .text_ellipsis()
@@ -102,6 +106,7 @@ impl JumpServerPanel {
                     )))
                     .debug_selector(move || format!("jumpserver-asset-action-{index}"))
                     .w(px(ASSET_ACTION_WIDTH))
+                    .when(compact, |field| field.w_full().flex_none())
                     .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
                         cx.stop_propagation();
                     })
@@ -136,6 +141,7 @@ impl JumpServerPanel {
         &self,
         index: usize,
         asset: JumpServerAsset,
+        compact: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let muted = cx.theme().muted_foreground;
@@ -211,6 +217,7 @@ impl JumpServerPanel {
             .w_full()
             .items_center()
             .gap(px(10.0))
+            .when(compact, |row| row.flex_wrap().items_start())
             .child(
                 div()
                     .w(px(64.0))

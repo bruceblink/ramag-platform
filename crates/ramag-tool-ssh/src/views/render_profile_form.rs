@@ -20,29 +20,42 @@ impl Render for SshProfileFormPanel {
         let default_available = matches!(self.default_capability.as_ref(), Some(Ok(_)));
         let custom_path_entered = !self.form.ssh_path.read(cx).value().trim().is_empty();
         let can_test = default_available || custom_path_entered;
-        let viewport_h = window.viewport_size().height;
-        let body_max_h = (viewport_h * 0.9 - px(210.0)).max(px(200.0));
+        let viewport = window.viewport_size();
+        let compact = viewport.width < px(680.0);
+        // 窄窗口只给表单主体分配有限高度并启用滚动，保证底部操作按钮始终可见。
+        let dialog_max_h = ramag_ui::responsive_dialog_max_height(window);
+        let body_max_h = if compact {
+            (dialog_max_h - px(150.0)).max(px(96.0))
+        } else {
+            (viewport.height * 0.9 - px(210.0)).max(px(200.0))
+        };
 
         v_flex()
             .w_full()
+            .min_w_0()
             .pt(px(4.0))
             .child(
                 div()
                     .id("ssh-profile-form-body")
+                    .debug_selector(|| "ssh-profile-form-body".into())
                     .w_full()
+                    .min_w_0()
                     .max_h(body_max_h)
                     .overflow_y_scroll()
                     .child(
                         v_flex()
                             .w_full()
+                            .min_w_0()
                             .gap(px(16.0))
                             .child(
                                 v_flex()
+                                    .min_w_0()
                                     .gap(px(12.0))
                                     .child(
                                         v_flex().gap(px(6.0)).child(field_label("SSH 命令")).child(
                                             h_flex()
                                                 .w_full()
+                                                .min_w_0()
                                                 .items_center()
                                                 .gap(px(8.0))
                                                 .child(
@@ -81,30 +94,40 @@ impl Render for SshProfileFormPanel {
                                         h_flex()
                                             .w_full()
                                             .gap(px(12.0))
+                                            .when(compact, |row| row.flex_col().items_stretch())
                                             .child(div().flex_1().min_w_0().child(field(
                                                 "ssh-profile-host-field",
                                                 "Host",
                                                 Input::new(&self.form.host).disabled(busy),
                                             )))
-                                            .child(div().w(px(110.0)).child(field(
-                                                "ssh-profile-port-field",
-                                                "Port",
-                                                Input::new(&self.form.port).disabled(busy),
-                                            ))),
+                                            .child(
+                                                div()
+                                                    .min_w_0()
+                                                    .when(compact, |column| column.w_full())
+                                                    .when(!compact, |column| column.w(px(110.0)))
+                                                    .child(field(
+                                                        "ssh-profile-port-field",
+                                                        "Port",
+                                                        Input::new(&self.form.port).disabled(busy),
+                                                    )),
+                                            ),
                                     )
-                                    .child(self.render_environment_row(cx))
+                                    .child(self.render_environment_row(compact, cx))
                                     .child(self.render_production_row(cx)),
                             )
-                            .child(self.render_auth_section(cx))
-                            .child(self.render_advanced_section(cx)),
+                            .child(self.render_auth_section(compact, cx))
+                            .child(self.render_advanced_section(compact, cx)),
                     ),
             )
             .child(div().h(px(1.0)).bg(border).my(px(10.0)))
             .child(
                 h_flex()
+                    .id("ssh-profile-form-footer")
+                    .debug_selector(|| "ssh-profile-form-footer".into())
                     .w_full()
                     .items_center()
                     .justify_between()
+                    .when(compact, |row| row.flex_wrap().items_start())
                     .child(
                         h_flex()
                             .flex_1()
@@ -167,9 +190,14 @@ impl Render for SshProfileFormPanel {
 }
 
 impl SshProfileFormPanel {
-    fn render_environment_row(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_environment_row(&self, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
         let current = self.form.environment.read(cx).value().trim().to_string();
-        let mut row = h_flex().w_full().items_center().gap(px(8.0));
+        let mut row = h_flex()
+            .w_full()
+            .min_w_0()
+            .items_center()
+            .gap(px(8.0))
+            .when(compact, |row| row.flex_wrap());
         for preset in ["dev", "test", "prod"] {
             let selected = current == preset;
             row = row.child(
@@ -196,6 +224,7 @@ impl SshProfileFormPanel {
             div()
                 .flex_1()
                 .min_w_0()
+                .when(compact, |input| input.min_w(px(180.0)))
                 .child(Input::new(&self.form.environment).disabled(self.is_busy())),
         );
         v_flex().gap(px(6.0)).child(field_label("环境")).child(row)
@@ -223,7 +252,7 @@ impl SshProfileFormPanel {
             )
     }
 
-    fn render_auth_section(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_auth_section(&self, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
         let busy = self.is_busy();
         let mode = self.auth_mode;
         v_flex()
@@ -231,7 +260,9 @@ impl SshProfileFormPanel {
             .child(section_title("认证", cx.theme().muted_foreground))
             .child(
                 h_flex()
+                    .w_full()
                     .gap(px(8.0))
+                    .when(compact, |row| row.flex_wrap())
                     .child(auth_button(
                         "ssh-auth-password",
                         "密码",
@@ -300,11 +331,18 @@ impl SshProfileFormPanel {
                         .w_full()
                         .items_end()
                         .gap(px(8.0))
-                        .child(div().flex_1().min_w_0().child(field(
-                            "ssh-profile-key-field",
-                            "密钥",
-                            Input::new(&self.form.key_path).disabled(busy),
-                        )))
+                        .when(compact, |row| row.flex_wrap())
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .when(compact, |field| field.min_w(px(180.0)))
+                                .child(field(
+                                    "ssh-profile-key-field",
+                                    "密钥",
+                                    Input::new(&self.form.key_path).disabled(busy),
+                                )),
+                        )
                         .child(
                             ramag_ui::clickable_button("pick-ssh-key")
                                 .outline()
@@ -319,14 +357,16 @@ impl SshProfileFormPanel {
             })
     }
 
-    fn render_advanced_section(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_advanced_section(&self, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
         let busy = self.is_busy();
         v_flex()
             .gap(px(12.0))
             .child(
                 v_flex().gap(px(6.0)).child(field_label("远端平台")).child(
                     h_flex()
+                        .w_full()
                         .gap(px(8.0))
+                        .when(compact, |row| row.flex_wrap())
                         .child(platform_button(
                             "ssh-platform-auto",
                             "自动",
@@ -385,12 +425,14 @@ impl SshProfileFormPanel {
                             .w_full()
                             .items_center()
                             .gap(px(8.0))
+                            .when(compact, |row| row.flex_wrap())
                             .child(
                                 div()
                                     .id("ssh-profile-executable-field-input")
                                     .debug_selector(|| "ssh-profile-executable-field-input".into())
                                     .flex_1()
                                     .min_w_0()
+                                    .when(compact, |input| input.min_w(px(180.0)))
                                     .child(Input::new(&self.form.ssh_path).disabled(busy)),
                             )
                             .child(

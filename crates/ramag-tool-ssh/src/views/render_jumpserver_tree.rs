@@ -27,7 +27,11 @@ struct VisibleNode {
 }
 
 impl JumpServerPanel {
-    pub(super) fn render_asset_tree(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    pub(super) fn render_asset_tree(
+        &self,
+        compact: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let border = cx.theme().border;
         let mut body = v_flex()
             .id("jumpserver-asset-tree-body")
@@ -78,8 +82,10 @@ impl JumpServerPanel {
         v_flex()
             .id("jumpserver-asset-tree")
             .debug_selector(|| "jumpserver-asset-tree".into())
-            .w(px(TREE_WIDTH))
-            .h(px(ASSET_PANE_HEIGHT))
+            .when(compact, |tree| tree.w_full().h(px(180.0)))
+            .when(!compact, |tree| {
+                tree.w(px(TREE_WIDTH)).h(px(ASSET_PANE_HEIGHT))
+            })
             .flex_none()
             .border_1()
             .border_color(border)

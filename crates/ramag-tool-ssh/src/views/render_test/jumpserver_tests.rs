@@ -196,6 +196,42 @@ fn remote_session_panel_moves_entries_between_recent_and_favorites(cx: &mut Test
 }
 
 #[gpui::test]
+fn remote_session_panel_reflows_inside_compact_window(cx: &mut TestAppContext) {
+    let favorite = rdp_session(1, "favorite-windows");
+    let recent = rdp_session(2, "recent-windows");
+    let history = JumpServerRdpSessionHistory {
+        favorites: vec![favorite],
+        recent: vec![recent],
+    };
+    let (_, cx) = add_remote_session_panel_window(cx, service_with_rdp_history(&history));
+    cx.simulate_resize(size(px(360.0), px(240.0)));
+    cx.run_until_parked();
+
+    let body = cx
+        .debug_bounds("remote-session-dialog-body")
+        .expect("紧凑窗口应保留远程会话滚动主体");
+    assert!(body.origin.x >= px(0.0) && body.right() <= px(360.0));
+    for selector in [
+        "remote-session-favorites",
+        "remote-session-recent",
+        "remote-session-row-favorite-0",
+        "remote-session-row-recent-0",
+        "remote-session-open-true-0",
+        "remote-session-open-false-0",
+        "remote-session-favorite-true-0",
+        "remote-session-favorite-false-0",
+    ] {
+        let bounds = cx
+            .debug_bounds(selector)
+            .expect("远程会话控件应在紧凑窗口中参与布局");
+        assert!(
+            bounds.origin.x >= px(0.0) && bounds.right() <= px(360.0),
+            "{selector} 越出窗口：{bounds:?}"
+        );
+    }
+}
+
+#[gpui::test]
 fn jumpserver_panel_renders_login_assets_and_accounts(cx: &mut TestAppContext) {
     let (panel, cx) = add_jumpserver_panel_window(cx, service(Vec::new(), None));
     cx.run_until_parked();
@@ -496,6 +532,34 @@ fn jumpserver_new_connection_shows_form_test_and_save_actions(cx: &mut TestAppCo
         assert!(cx.debug_bounds(selector).is_some(), "{selector} 应参与布局");
     }
     assert!(cx.debug_bounds("load-jumpserver-assets").is_none());
+}
+
+#[gpui::test]
+fn jumpserver_new_connection_form_stays_inside_compact_window(cx: &mut TestAppContext) {
+    let (_, cx) = add_jumpserver_panel_window(cx, service(Vec::new(), None));
+    cx.simulate_resize(size(px(360.0), px(240.0)));
+    cx.run_until_parked();
+
+    let form = cx
+        .debug_bounds("jumpserver-new-connection-form")
+        .expect("紧凑窗口应显示 JumpServer 新建连接表单");
+    assert!(form.origin.x >= px(0.0) && form.right() <= px(360.0));
+    for selector in [
+        "jumpserver-url-field-input",
+        "jumpserver-ssh-port-field-input",
+        "jumpserver-username-field-input",
+        "jumpserver-password-field-input",
+        "test-jumpserver-connection",
+        "save-jumpserver-connection",
+    ] {
+        let bounds = cx
+            .debug_bounds(selector)
+            .expect("JumpServer 表单控件应在紧凑窗口中参与布局");
+        assert!(
+            bounds.origin.x >= px(0.0) && bounds.right() <= px(360.0),
+            "{selector} 越出窗口：{bounds:?}"
+        );
+    }
 }
 
 #[gpui::test]

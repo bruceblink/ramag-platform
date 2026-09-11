@@ -117,6 +117,45 @@ fn profile_form_inputs_keep_dialog_width_instead_of_collapsing(cx: &mut TestAppC
 }
 
 #[gpui::test]
+fn profile_form_stays_inside_compact_window_and_keeps_actions_visible(cx: &mut TestAppContext) {
+    let (_, cx) = add_ssh_form_window(cx, service(Vec::new(), None));
+
+    for height in [240.0, 640.0] {
+        cx.simulate_resize(size(px(360.0), px(height)));
+        cx.run_until_parked();
+
+        let viewport = size(px(360.0), px(height));
+        let body = cx
+            .debug_bounds("ssh-profile-form-body")
+            .expect("紧凑窗口应保留可滚动表单主体");
+        let footer = cx
+            .debug_bounds("ssh-profile-form-footer")
+            .expect("紧凑窗口应保留底部操作区");
+        assert!(body.origin.x >= px(0.0) && body.right() <= viewport.width);
+        assert!(footer.origin.x >= px(0.0) && footer.right() <= viewport.width);
+        assert!(
+            footer.origin.y >= px(0.0) && footer.bottom() <= viewport.height,
+            "底部操作区必须留在 {height}px 视口内：{footer:?}"
+        );
+
+        for selector in [
+            "ssh-profile-name-field-input",
+            "ssh-profile-host-field-input",
+            "ssh-profile-port-field-input",
+            "ssh-profile-executable-field-input",
+        ] {
+            let bounds = cx
+                .debug_bounds(selector)
+                .expect("SSH 字段应在紧凑窗口中参与布局");
+            assert!(
+                bounds.origin.x >= px(0.0) && bounds.right() <= viewport.width,
+                "{selector} 越出窗口：{bounds:?}"
+            );
+        }
+    }
+}
+
+#[gpui::test]
 fn edit_profile_form_keeps_fields_and_ssh_command_parser(cx: &mut TestAppContext) {
     let (form, cx) =
         add_ssh_form_window_with_profile(cx, service(Vec::new(), None), Some(profile()));
