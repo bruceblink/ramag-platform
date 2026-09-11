@@ -11,7 +11,7 @@ use ramag_domain::entities::CloudProvider;
 use super::AccountFormPanel;
 
 impl AccountFormPanel {
-    fn render_provider_selector(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_provider_selector(&self, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let muted = theme.muted_foreground;
         let foreground = theme.foreground;
@@ -22,7 +22,12 @@ impl AccountFormPanel {
         accent_tint.a = 0.10;
         let mut accent_border = accent;
         accent_border.a = 0.55;
-        let mut row = h_flex().w_full().items_center().gap(px(8.0));
+        let mut row = h_flex()
+            .w_full()
+            .min_w_0()
+            .items_center()
+            .gap(px(8.0))
+            .when(compact, |row| row.flex_col().items_stretch());
         for (provider, id) in [
             (CloudProvider::TencentCos, "tencent-cos"),
             (CloudProvider::AliyunOss, "aliyun-oss"),
@@ -78,7 +83,14 @@ impl Render for AccountFormPanel {
         let muted = cx.theme().muted_foreground;
         let border = cx.theme().border;
         let secondary = cx.theme().secondary;
-        let body_max_h = (window.viewport_size().height * 0.9 - px(210.0)).max(px(200.0));
+        let compact = window.viewport_size().width < px(680.0);
+        // 窄窗口只滚动表单主体，保证取消和保存始终留在视口内。
+        let dialog_max_h = ramag_ui::responsive_dialog_max_height(window);
+        let body_max_h = if compact {
+            (dialog_max_h - px(150.0)).max(px(96.0))
+        } else {
+            (window.viewport_size().height * 0.9 - px(210.0)).max(px(200.0))
+        };
         let editing = self.editing.is_some();
         let (access_key_id_label, access_key_secret_label) = credential_labels(self.provider);
         let manual_rows = self
@@ -135,16 +147,20 @@ impl Render for AccountFormPanel {
             .child(
                 div()
                     .id("object-account-form-body")
+                    .debug_selector(|| "object-account-form-body".into())
                     .w_full()
+                    .min_w_0()
                     .max_h(body_max_h)
                     .overflow_y_scroll()
                     .child(
                         v_flex()
                             .w_full()
+                            .min_w_0()
                             .gap(px(18.0))
-                            .child(self.render_provider_selector(cx))
+                            .child(self.render_provider_selector(compact, cx))
                             .child(
                                 v_flex()
+                                    .min_w_0()
                                     .gap(px(12.0))
                                     .child(section_title("账号", muted))
                                     .child(
@@ -152,6 +168,7 @@ impl Render for AccountFormPanel {
                                             .w_full()
                                             .items_end()
                                             .gap(px(16.0))
+                                            .when(compact, |row| row.flex_col().items_stretch())
                                             .child(div().flex_1().min_w_0().child(field(
                                                 "object-account-name-field",
                                                 "账号名称",
@@ -160,6 +177,7 @@ impl Render for AccountFormPanel {
                                             .child(
                                                 h_flex()
                                                     .w(px(220.0))
+                                                    .when(compact, |row| row.w_full())
                                                     .h(px(32.0))
                                                     .items_center()
                                                     .justify_between()
@@ -190,6 +208,7 @@ impl Render for AccountFormPanel {
                             )
                             .child(
                                 v_flex()
+                                    .min_w_0()
                                     .gap(px(12.0))
                                     .child(section_title("认证", muted))
                                     .when(editing, |section| {
@@ -205,6 +224,7 @@ impl Render for AccountFormPanel {
                                             .w_full()
                                             .items_end()
                                             .gap(px(12.0))
+                                            .when(compact, |row| row.flex_col().items_stretch())
                                             .child(
                                                 div().flex_1().min_w_0().child(field(
                                                     "object-access-key-id-field",
@@ -225,6 +245,7 @@ impl Render for AccountFormPanel {
                             )
                             .child(
                                 v_flex()
+                                    .min_w_0()
                                     .gap(px(12.0))
                                     .child(section_title("Bucket 挂载（必填）", muted))
                                     .child(
@@ -238,6 +259,7 @@ impl Render for AccountFormPanel {
                                             .w_full()
                                             .items_end()
                                             .gap(px(12.0))
+                                            .when(compact, |row| row.flex_col().items_stretch())
                                             .child(div().flex_1().min_w_0().child(field(
                                                 "object-manual-bucket-field",
                                                 "Bucket",
@@ -260,6 +282,7 @@ impl Render for AccountFormPanel {
                                                         "add-manual-bucket-layout".into()
                                                     })
                                                     .h(px(32.0))
+                                                    .when(compact, |button| button.w_full())
                                                     .flex()
                                                     .items_center()
                                                     .child(
@@ -285,9 +308,12 @@ impl Render for AccountFormPanel {
             .child(div().h(px(1.0)).bg(border).my(px(10.0)))
             .child(
                 h_flex()
+                    .id("object-account-form-footer")
+                    .debug_selector(|| "object-account-form-footer".into())
                     .w_full()
                     .items_center()
                     .justify_between()
+                    .when(compact, |row| row.flex_wrap().items_start())
                     .child(div().flex_1().min_w_0().when_some(
                         feedback,
                         |message, (text, error)| {

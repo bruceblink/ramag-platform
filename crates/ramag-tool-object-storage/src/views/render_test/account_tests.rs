@@ -5,7 +5,7 @@ use std::sync::Arc;
 use gpui::{TestAppContext, px, size};
 use ramag_domain::entities::{CloudProvider, ManualBucket, ObjectStorageAccount};
 
-use super::{add_workspace_window, service};
+use super::{add_form_window, add_workspace_window, service};
 
 fn assert_inside(
     parent: gpui::Bounds<gpui::Pixels>,
@@ -75,6 +75,48 @@ fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
             assert!(
                 cx.debug_bounds("object-account-bucket-count-0").is_none(),
                 "窄窗口不应强行显示 Bucket 数量列"
+            );
+        }
+    }
+}
+
+#[gpui::test]
+fn account_form_stays_inside_compact_window_and_keeps_actions_visible(cx: &mut TestAppContext) {
+    let (_, cx) = add_form_window(cx, service());
+
+    for height in [240.0, 640.0] {
+        cx.simulate_resize(size(px(360.0), px(height)));
+        cx.run_until_parked();
+
+        let viewport = size(px(360.0), px(height));
+        let body = cx
+            .debug_bounds("object-account-form-body")
+            .expect("紧凑窗口应保留可滚动账号表单主体");
+        let footer = cx
+            .debug_bounds("object-account-form-footer")
+            .expect("紧凑窗口应保留账号表单底部操作区");
+        assert!(body.origin.x >= px(0.0) && body.right() <= viewport.width);
+        assert!(
+            footer.origin.x >= px(0.0)
+                && footer.right() <= viewport.width
+                && footer.origin.y >= px(0.0)
+                && footer.bottom() <= viewport.height,
+            "底部操作区必须留在 {height}px 视口内：{footer:?}"
+        );
+
+        for selector in [
+            "object-provider-tencent-cos",
+            "object-provider-aliyun-oss",
+            "object-account-name-field",
+            "object-access-key-id-field",
+            "object-manual-bucket-field",
+        ] {
+            let bounds = cx
+                .debug_bounds(selector)
+                .expect("账号表单控件应在紧凑窗口中参与布局");
+            assert!(
+                bounds.origin.x >= px(0.0) && bounds.right() <= viewport.width,
+                "{selector} 越出窗口：{bounds:?}"
             );
         }
     }

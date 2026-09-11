@@ -262,7 +262,7 @@ impl ObjectStorageView {
         let form_for_dialog = form.clone();
         let form_for_cancel = form.clone();
         let view_for_close = cx.entity().clone();
-        window.open_dialog(cx, move |dialog, _, _| {
+        window.open_dialog(cx, move |dialog, window, _| {
             let form = form_for_dialog.clone();
             let form_for_cancel = form_for_cancel.clone();
             let view_for_close = view_for_close.clone();
@@ -297,7 +297,9 @@ impl ObjectStorageView {
                         this.account_form_subscription = None;
                     });
                 })
-                .w(px(720.0))
+                .w(ramag_ui::responsive_dialog_width(window, 720.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .pt(px(24.0))
                 .px(px(24.0))
                 .pb(px(14.0))
