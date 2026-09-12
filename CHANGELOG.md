@@ -2,7 +2,38 @@
 
 本文件记录 Ramag 各公开版本的用户可见变化。尚未实现的设计方案不计入发布内容。
 
-> 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目当前尚无独立 Release；未来属于 `bruceblink/ramag-platform` 的版本应新增独立条目和本项目的比较链接。
+> 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
+
+## [0.1.0] - 2026-09-12
+
+### 🚀 新功能 / Features
+
+- Kafka 工作台新增 Topic、分区、消费者组、消息、Schema Registry、Connect、Broker 指标和只读 ksqlDB 查询工作流。
+- Kafka 工作台支持消息生产、消费者组偏移重置、正则消息搜索、分区消息上下文和 Schema Registry 版本详情。
+- 新增 MQTT 工作台、Broker 配置持久化、原生传输、Mosquitto 管理操作和客户端权限预览。
+- 新增本机系统监控工具，并完善数据库、Kafka、MQTT、VCS、SSH / SFTP 与对象存储工作台的紧凑窗口布局。
+
+### 🐛 问题修复 / Bug Fixes
+
+- 修复数据库、Kafka、MQTT、VCS、SSH / SFTP、对象存储、确认对话框和首页在窄窗口或短窗口中的裁切、塌缩与操作区不可见问题。
+- 修复 Git 非仓库路径处理，并稳定 Kafka 数据视图的加载状态、滚动区域和消息布局。
+- 修复 Windows GNU / MSVC 构建环境选择和发布构建过程中的工具链继承问题。
+
+### 🔒 安全 / Security
+
+- Kafka Broker 指标访问支持显式认证配置，并继续对管理请求、消息扫描和外部响应实施大小、数量与生命周期限制。
+- 保持生产写操作、远程命令和敏感配置的本地确认、加密保存与边界校验。
+
+### ⚡ 性能优化 / Performance
+
+- Kafka 消费者组与指标读取复用受控并发，减少重复配置与 ACL 数据复制。
+- Kafka、MQTT 和 UI 数据区域继续采用有界扫描、加载和渲染策略，避免大数据量阻塞界面。
+
+### 🧰 维护、文档与测试 / Maintenance, Docs & Tests
+
+- 新增纯 Rust Kafka 读取传输，并使用本机 Docker 验证 Kafka、Connect、Schema Registry、ksqlDB 和 JMX 指标链路。
+- 扩展 Kafka、MQTT、Windows GNU / MSVC 工具链和跨模块响应式布局的单元、渲染与集成测试。
+- 更新 Kafka 传输能力、消息生产、ksqlDB 查询、Broker 指标和桌面发布文档。
 
 ## 0.0.5 - 2026-08-19
 
@@ -126,6 +157,7 @@ v0.0.5 是一次聚焦稳定性、跨平台预览和日常工作流的维护版�
 
 [0.0.4]: https://github.com/tools-rs/ramag/compare/v0.0.3...v0.0.4
 [0.0.5]: https://github.com/tools-rs/ramag/compare/v0.0.4...v0.0.5
+[0.1.0]: https://github.com/bruceblink/ramag-platform/releases/tag/v0.1.0
 [0.0.3]: https://github.com/tools-rs/ramag/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/tools-rs/ramag/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/tools-rs/ramag/releases/tag/v0.0.1

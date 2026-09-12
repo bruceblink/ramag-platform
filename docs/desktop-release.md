@@ -120,12 +120,12 @@ Windows x64       macOS 双架构 DMG     Linux deb + AppImage
                  ↓
 v* 推送或手动指定 release_tag：进入 desktop-release Environment
                  ↓
-复验三平台 SHA-256 → 生成合并校验文件
+生成提交范围双语变更说明 → 复验三平台 SHA-256 → 生成合并校验文件
                  ↓
 创建草稿 Release → 上传 5 个安装产物 → 正式发布
 ```
 
-发布任务不 checkout 源码、不执行 Cargo，只下载已验证的 Artifact，并通过 GitHub API 读取远端注释标签的说明；它单独获得 `contents: write`。任一平台失败都不会发布不完整版本。
+发布任务会 checkout 发布标签以按上一个版本标签（首次独立发布则从历史发布标记）生成提交范围双语变更说明，不执行 Cargo，只下载已验证的 Artifact，并通过 GitHub API 校验远端标签为带注释标签；它单独获得 `contents: write`。任一平台失败都不会发布不完整版本。
 
 已正式发布的同名 Release 不会被覆盖；失败后遗留的草稿可以由同一标签工作流重试。所有 GitHub 官方 Action 都固定到完整 commit SHA。
 
@@ -151,10 +151,10 @@ Actions → Desktop Release → Run workflow
 
 1. 修改根 `Cargo.toml` 的 workspace 版本，并通过项目检查同步 `Cargo.lock`。
 2. 完成本地发布前检查、手动 Action 和真实桌面验收。
-3. 创建与 Cargo 版本一致的带注释标签，例如 `v0.0.5`；标签注释会作为 GitHub Release 说明。
+3. 创建与 Cargo 版本一致的带注释标签，例如 `v0.1.0`；标签注释用于证明发布标签有效，GitHub Release 说明由标签提交范围自动生成。
 4. 推送标签，等待三个平台均通过后自动发布。
 
-如果标签已经存在，但发布任务因工作流自身问题失败，不要强制移动标签。在包含修复后的默认分支上手动运行 `Desktop Release`，将 `release_tag` 填为原标签（例如 `v0.0.5`）。工作流会检出并重新构建该标签，核对产物版本，从 GitHub API 读取标签注释后继续发布。
+如果标签已经存在，但发布任务因工作流自身问题失败，不要强制移动标签。在包含修复后的默认分支上手动运行 `Desktop Release`，将 `release_tag` 填为原标签（例如 `v0.1.0`）。工作流会检出并重新构建该标签，核对产物版本，重新生成提交范围变更说明并继续发布。
 
 ### 0.0.5 发布记录
 
