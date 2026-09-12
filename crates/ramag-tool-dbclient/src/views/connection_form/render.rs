@@ -121,7 +121,11 @@ impl Render for ConnectionFormPanel {
         // 小窗口仅滚动主体，保持操作区可见。
         let compact = window.viewport_size().width < px(680.0);
         let dialog_max_h = ramag_ui::responsive_dialog_max_height(window);
-        let body_max_h = (dialog_max_h - px(150.0)).max(px(96.0));
+        let body_max_h = if compact {
+            (dialog_max_h - px(180.0)).max(px(48.0))
+        } else {
+            (dialog_max_h - px(150.0)).max(px(96.0))
+        };
 
         // 失败信息完整显示。
         let (test_msg, test_failed) = match &self.test_state {
@@ -172,10 +176,18 @@ impl Render for ConnectionFormPanel {
                     .items_end()
                     .when(compact, |row| row.flex_col().items_stretch())
                     .gap(px(8.0))
-                    .child(div().flex_1().min_w_0().child(field_row(
-                        "连接 URI（编辑时不含密码）",
-                        Input::new(&self.uri).disabled(self.saving),
-                    )))
+                    .child(
+                        div()
+                            .id("conn-form-uri-input")
+                            .debug_selector(|| "conn-form-uri-input".into())
+                            .flex_1()
+                            .min_w_0()
+                            .when(compact, |field| field.w_full())
+                            .child(field_row(
+                                "连接 URI（编辑时不含密码）",
+                                Input::new(&self.uri).disabled(self.saving),
+                            )),
+                    )
                     .child(
                         ramag_ui::clickable_button("apply-uri")
                             .small()

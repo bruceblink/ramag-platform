@@ -193,3 +193,36 @@ fn sqlite_file_fields_and_actions_stay_inside_supported_widths(cx: &mut TestAppC
         }
     }
 }
+
+#[gpui::test]
+fn connection_form_keeps_actions_visible_in_a_short_compact_window(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let visual_cx = add_form(cx, false);
+    visual_cx.simulate_resize(size(px(360.0), px(240.0)));
+    visual_cx.run_until_parked();
+
+    let footer = visual_cx
+        .debug_bounds("conn-form-footer")
+        .expect("短窗口仍应渲染连接表单操作区");
+    let uri_input = visual_cx
+        .debug_bounds("conn-form-uri-input")
+        .expect("紧凑窗口应保留 URI 输入宽度");
+    assert!(footer.origin.x >= px(0.0));
+    assert!(footer.right() <= px(360.0));
+    assert!(
+        footer.bottom() <= px(240.0),
+        "操作区不能越出短窗口：{footer:?}"
+    );
+    assert!(
+        uri_input.size.width >= px(240.0),
+        "URI 输入框不能塌缩：{uri_input:?}"
+    );
+    for action in ["test", "cancel", "save"] {
+        let bounds = visual_cx
+            .debug_bounds(action)
+            .expect("连接表单操作按钮应可见");
+        assert!(bounds.origin.x >= footer.origin.x);
+        assert!(bounds.right() <= footer.right());
+        assert!(bounds.bottom() <= footer.bottom());
+    }
+}

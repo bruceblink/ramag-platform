@@ -121,6 +121,7 @@ impl DbClientView {
             let form_for_cancel = form_for_dialog.clone();
             let view_for_close = view_for_close.clone();
             let title = title.clone();
+            let compact = window.viewport_size().width < px(680.0);
             dialog
                 .title(title)
                 // 右上角 X 会绕过 on_cancel 直接关闭，无法做脏保护；隐藏之，
@@ -157,9 +158,9 @@ impl DbClientView {
                 .w(ramag_ui::responsive_dialog_width(window, 720.0))
                 .max_h(ramag_ui::responsive_dialog_max_height(window))
                 .margin_top(ramag_ui::responsive_dialog_top(window))
-                .pt(px(24.0))
-                .px(px(24.0))
-                .pb(px(14.0))
+                .pt(if compact { px(12.0) } else { px(24.0) })
+                .px(if compact { px(12.0) } else { px(24.0) })
+                .pb(if compact { px(8.0) } else { px(14.0) })
                 .content(move |content, _, _| content.child(form.clone()))
         });
     }
