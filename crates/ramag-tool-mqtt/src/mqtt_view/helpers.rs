@@ -33,6 +33,14 @@ fn optional_value(field: &Entity<InputState>, cx: &App) -> Option<String> {
     (!value.is_empty()).then_some(value)
 }
 
+fn input_frame<E: IntoElement>(selector: &'static str, input: E) -> gpui::Div {
+    div()
+        .debug_selector(move || selector.into())
+        .w_full()
+        .min_w_0()
+        .child(input)
+}
+
 fn parse_group_bindings(text: &str) -> std::result::Result<Vec<MosquittoGroupBinding>, String> {
     parse_binding_names(text, "Group").map(|names| {
         names

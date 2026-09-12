@@ -16,7 +16,7 @@ use ramag_domain::entities::{
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, Storage};
 
-use super::{MQTT_SIDEBAR_COLLAPSE_BREAKPOINT, MqttView};
+use super::{MQTT_SIDEBAR_COLLAPSE_BREAKPOINT, MqttSection, MqttView};
 
 struct NoopMqttDriver;
 
@@ -283,4 +283,66 @@ fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
         2,
         "测试连接按钮必须调用 MQTT 驱动"
     );
+}
+
+#[gpui::test]
+fn mqtt_message_pages_keep_inputs_bounded_and_editable(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(NoopMqttDriver),
+        Arc::new(NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+
+    visual_cx.simulate_resize(size(px(1440.0), px(900.0)));
+    view.update(visual_cx, |view, cx| {
+        view.loading_profiles = false;
+        view.section = MqttSection::Publish;
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+
+    let main = visual_cx
+        .debug_bounds("mqtt-main")
+        .expect("MQTT 主工作区应渲染");
+    let publish_input = visual_cx
+        .debug_bounds("mqtt-publish-topic-input")
+        .expect("发布 Topic 输入框应参与布局");
+    assert!(
+        publish_input.origin.x > main.origin.x
+            && publish_input.right() <= main.right()
+            && publish_input.size.width <= px(920.0),
+        "发布 Topic 输入框不能越出消息内容区: main={main:?}, input={publish_input:?}"
+    );
+
+    view.update(visual_cx, |view, cx| {
+        view.section = MqttSection::Subscribe;
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+
+    let subscribe_input = visual_cx
+        .debug_bounds("mqtt-subscribe-filter-input")
+        .expect("订阅 Topic Filter 输入框应参与布局");
+    assert!(
+        subscribe_input.origin.x > main.origin.x
+            && subscribe_input.right() <= main.right()
+            && subscribe_input.size.width <= px(920.0),
+        "订阅 Topic Filter 输入框不能越出消息内容区: main={main:?}, input={subscribe_input:?}"
+    );
+
+    click(visual_cx, "mqtt-subscribe-filter-input");
+    visual_cx.simulate_keystrokes("sensors/#");
+    visual_cx.run_until_parked();
+    let filter = view.read_with(visual_cx, |view, cx| {
+        view.subscribe_filter.read(cx).value().to_string()
+    });
+    assert_eq!(filter, "sensors/#", "订阅 Topic Filter 应能接收键盘输入");
 }

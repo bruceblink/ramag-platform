@@ -155,10 +155,28 @@ impl MqttView {
                 "消息通过当前配置连接远端 Broker；没有成功返回就不会显示为已发布",
                 &theme,
             ))
-            .child(field("Topic", Input::new(&self.publish_topic).small()))
+            .child(
+                field(
+                    "Topic",
+                    input_frame(
+                        "mqtt-publish-topic-input",
+                        Input::new(&self.publish_topic)
+                            .small()
+                            .w_full()
+                            .min_w_0(),
+                    ),
+                ),
+            )
             .child(field(
                 "Payload（UTF-8）",
-                Input::new(&self.publish_payload).h(px(140.0)).small(),
+                input_frame(
+                    "mqtt-publish-payload-input",
+                    Input::new(&self.publish_payload)
+                        .h(px(140.0))
+                        .small()
+                        .w_full()
+                        .min_w_0(),
+                ),
             ))
             .child(
                 ramag_ui::clickable_button("mqtt-publish")
@@ -193,10 +211,18 @@ impl MqttView {
                 "订阅使用有界缓冲；缓冲满时驱动会报告背压，不会无限堆积内存",
                 &theme,
             ))
-            .child(field(
-                "Topic Filter",
-                Input::new(&self.subscribe_filter).small(),
-            ));
+            .child(
+                field(
+                    "Topic Filter",
+                    input_frame(
+                        "mqtt-subscribe-filter-input",
+                        Input::new(&self.subscribe_filter)
+                            .small()
+                            .w_full()
+                            .min_w_0(),
+                    ),
+                ),
+            );
         let action = if self.subscription_running {
             ramag_ui::clickable_button("mqtt-stop-subscription")
                 .danger()
