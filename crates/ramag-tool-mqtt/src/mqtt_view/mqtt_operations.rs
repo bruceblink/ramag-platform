@@ -118,7 +118,6 @@ impl MqttView {
         self.operation_id = self.operation_id.wrapping_add(1);
         let operation_id = self.operation_id;
         self.saving = true;
-        self.notice = Some(("正在保存本机加密配置…".into(), false));
         cx.spawn_in(window, async move |this, cx| {
             let result = service.save_profile(&profile).await;
             let _ = this.update_in(cx, |this, window, cx| {
@@ -194,7 +193,6 @@ impl MqttView {
         };
         let service = self.service.clone();
         self.testing = true;
-        self.notice = Some(("正在连接 MQTT Broker…".into(), false));
         cx.spawn_in(window, async move |this, cx| {
             let result = service.test_connection(&profile).await;
             let _ = this.update(cx, |this, cx| {
