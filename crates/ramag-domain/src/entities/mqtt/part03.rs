@@ -10,7 +10,6 @@ pub enum MosquittoAclType {
     UnsubscribeLiteral,
     UnsubscribePattern,
 }
-
 impl MosquittoAclType {
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -236,4 +235,3 @@ impl MosquittoRole {
         Ok(())
     }
 }
-

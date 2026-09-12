@@ -8,7 +8,6 @@ pub fn validate_mqtt_topic_name(topic: &str) -> Result<(), String> {
     }
     Ok(())
 }
-
 pub fn validate_mqtt_topic_filter(filter: &str) -> Result<(), String> {
     validate_protocol_text("MQTT Topic Filter", filter, MAX_MQTT_TOPIC_BYTES)?;
     if filter.is_empty() {
@@ -120,4 +119,3 @@ fn validate_protocol_text(label: &str, value: &str, max_bytes: usize) -> Result<
     }
     Ok(())
 }
-
