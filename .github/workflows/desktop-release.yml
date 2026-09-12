@@ -437,6 +437,21 @@ jobs:
           jq -e '.schema_version == 1 and (.assets | length) == 5' \
             update-manifest.json >/dev/null
 
+          run_release_command() {
+            local label="$1"
+            shift
+            local output status
+            output=$("$@" 2>&1) || {
+              status=$?
+              output="${output//'%'/'%25'}"
+              output="${output//$'\n'/'%0A'}"
+              output="${output//$'\r'/'%0D'}"
+              echo "::error title=$label::$output"
+              return "$status"
+            }
+            printf '%s\n' "$output"
+          }
+
           title="Ramag ${tag#v}"
 
           if is_draft=$(gh release view "$tag" --repo "$GH_REPO" --json isDraft --jq .isDraft 2>/dev/null); then
@@ -446,7 +461,8 @@ jobs:
             fi
             # A failed previous run may have left an incomplete draft. Start
             # from a clean draft so stale assets cannot affect this release.
-            gh release delete "$tag" --repo "$GH_REPO" --yes
+            run_release_command "Delete incomplete draft release" \
+              gh release delete "$tag" --repo "$GH_REPO" --yes
             is_draft=""
           fi
 
@@ -457,9 +473,13 @@ jobs:
             if [[ "$tag" == *-* ]]; then
               release_flags+=(--prerelease)
             fi
-            gh release create "$tag" --repo "$GH_REPO" "${release_flags[@]}" "${assets[@]}"
+            run_release_command "Create GitHub release" \
+              gh release create "$tag" --repo "$GH_REPO" "${release_flags[@]}" "${assets[@]}"
           else
-            gh release upload "$tag" "${assets[@]}" --repo "$GH_REPO" --clobber
-            gh release edit "$tag" --repo "$GH_REPO" --title "$title" --notes "$notes"
-            gh release edit "$tag" --repo "$GH_REPO" --draft=false
+            run_release_command "Upload GitHub release assets" \
+              gh release upload "$tag" "${assets[@]}" --repo "$GH_REPO" --clobber
+            run_release_command "Update GitHub release metadata" \
+              gh release edit "$tag" --repo "$GH_REPO" --title "$title" --notes "$notes"
+            run_release_command "Publish GitHub release draft" \
+              gh release edit "$tag" --repo "$GH_REPO" --draft=false
           fi
