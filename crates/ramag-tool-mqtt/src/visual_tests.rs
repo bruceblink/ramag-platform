@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicUsize, Ordering},
+};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -7,7 +10,9 @@ use gpui::{
     TestAppContext, VisualTestContext, Window, point, px, size,
 };
 use ramag_app::MqttService;
-use ramag_domain::entities::{ConnectionConfig, ConnectionId, QueryRecord, QueryRecordId};
+use ramag_domain::entities::{
+    ConnectionConfig, ConnectionId, MqttProfile, QueryRecord, QueryRecordId,
+};
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, Storage};
 
@@ -18,10 +23,31 @@ struct NoopMqttDriver;
 #[async_trait]
 impl MqttDriver for NoopMqttDriver {}
 
-struct NoopStorage;
+#[derive(Default)]
+struct NoopStorage {
+    mqtt_profiles: Arc<Mutex<Vec<MqttProfile>>>,
+}
 
 #[async_trait]
 impl Storage for NoopStorage {
+    async fn list_mqtt_profiles(&self) -> Result<Vec<MqttProfile>> {
+        Ok(self
+            .mqtt_profiles
+            .lock()
+            .expect("读取 MQTT 测试配置锁")
+            .clone())
+    }
+
+    async fn save_mqtt_profile(&self, profile: &MqttProfile) -> Result<()> {
+        let mut profiles = self.mqtt_profiles.lock().expect("写入 MQTT 测试配置锁");
+        if let Some(existing) = profiles.iter_mut().find(|item| item.id == profile.id) {
+            *existing = profile.clone();
+        } else {
+            profiles.push(profile.clone());
+        }
+        Ok(())
+    }
+
     async fn list_connections(&self) -> Result<Vec<ConnectionConfig>> {
         Ok(Vec::new())
     }
@@ -63,6 +89,18 @@ impl Storage for NoopStorage {
     }
 }
 
+struct RecordingMqttDriver {
+    connection_tests: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl MqttDriver for RecordingMqttDriver {
+    async fn test_connection(&self, _profile: &MqttProfile) -> Result<()> {
+        self.connection_tests.fetch_add(1, Ordering::Relaxed);
+        Ok(())
+    }
+}
+
 struct MqttTestHost {
     view: gpui::Entity<MqttView>,
 }
@@ -96,7 +134,7 @@ fn mqtt_sidebar_collapses_and_can_be_reopened_in_narrow_window(cx: &mut TestAppC
     cx.update(gpui_component::init);
     let service = Arc::new(MqttService::new(
         Arc::new(NoopMqttDriver),
-        Arc::new(NoopStorage),
+        Arc::new(NoopStorage::default()),
     ));
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
@@ -170,4 +208,53 @@ fn mqtt_sidebar_collapses_and_can_be_reopened_in_narrow_window(cx: &mut TestAppC
             assert!(sidebar.bottom() <= root.bottom());
         }
     }
+}
+
+#[gpui::test]
+fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let storage = Arc::new(NoopStorage::default());
+    let connection_tests = Arc::new(AtomicUsize::new(0));
+    let driver = Arc::new(RecordingMqttDriver {
+        connection_tests: connection_tests.clone(),
+    });
+    let service = Arc::new(MqttService::new(driver, storage.clone()));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+
+    visual_cx.run_until_parked();
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.name
+                .update(cx, |input, cx| input.set_value("测试 Broker", window, cx));
+            view.host
+                .update(cx, |input, cx| input.set_value("127.0.0.1", window, cx));
+            view.port
+                .update(cx, |input, cx| input.set_value("1883", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-save-profile");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        storage.mqtt_profiles.lock().expect("读取保存结果锁").len(),
+        1,
+        "保存按钮必须调用 MQTT 配置存储"
+    );
+
+    click(visual_cx, "mqtt-test-connection");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        connection_tests.load(Ordering::Relaxed),
+        1,
+        "测试连接按钮必须调用 MQTT 驱动"
+    );
 }

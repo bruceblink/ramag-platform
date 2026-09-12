@@ -214,6 +214,7 @@ impl MqttView {
         actions = actions
             .child(
                 ramag_ui::clickable_button("mqtt-test-connection")
+                    .debug_selector(|| "mqtt-test-connection".into())
                     .ghost()
                     .small()
                     .label("测试连接")
@@ -225,6 +226,7 @@ impl MqttView {
             )
             .child(
                 ramag_ui::clickable_button("mqtt-save-profile")
+                    .debug_selector(|| "mqtt-save-profile".into())
                     .primary()
                     .small()
                     .label("保存")

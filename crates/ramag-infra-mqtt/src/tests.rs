@@ -21,6 +21,43 @@
         assert_eq!(connection.password.as_deref(), Some("admin-password"));
     }
 
+    #[cfg(feature = "native")]
+    #[test]
+    fn native_runtime_executes_operations_inside_tokio_context() {
+        let result = smol::block_on(run_native(|| async { Ok::<_, DomainError>(()) }));
+        assert!(result.is_ok());
+    }
+
+    /// Run manually with `RAMAG_MQTT_LIVE_HOST` and optional port/protocol env vars.
+    #[cfg(feature = "native")]
+    #[test]
+    #[ignore = "requires an explicitly configured live MQTT broker"]
+    fn native_connection_reaches_live_broker() {
+        let Some(host) = std::env::var_os("RAMAG_MQTT_LIVE_HOST") else {
+            return;
+        };
+        let port = std::env::var("RAMAG_MQTT_LIVE_PORT")
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(1883);
+        let protocol = match std::env::var("RAMAG_MQTT_LIVE_PROTOCOL").as_deref() {
+            Ok("311") => ramag_domain::entities::MqttProtocolVersion::V311,
+            _ => ramag_domain::entities::MqttProtocolVersion::V5,
+        };
+        let profile = {
+            let mut profile = MqttProfile::new("live-test", host.to_string_lossy(), port);
+            profile.protocol_version = protocol;
+            profile
+        };
+
+        smol::block_on(async {
+            NativeMqttTransport::new()
+                .test_connection(&profile)
+                .await
+                .expect("Native MQTT 应连接到显式配置的 Broker");
+        });
+    }
+
     #[test]
     fn local_static_driver_round_trips_a_configured_file() -> std::result::Result<(), String> {
         let path = std::env::temp_dir().join(format!(

@@ -436,7 +436,9 @@ where
                 ))
             })?;
         runtime
-            .block_on(tokio::time::timeout(Duration::from_secs(15), operation()))
+            .block_on(
+                async move { tokio::time::timeout(Duration::from_secs(15), operation()).await },
+            )
             .map_err(|_| {
                 DomainError::Mqtt(MqttError::new(
                     MqttErrorCategory::Timeout,
