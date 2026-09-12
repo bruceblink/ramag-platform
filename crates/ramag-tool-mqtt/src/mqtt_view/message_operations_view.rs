@@ -145,8 +145,9 @@ impl MqttView {
 
     fn render_publish(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
-        v_flex()
+        let body = v_flex()
             .w_full()
+            .min_w_0()
             .max_w(px(920.0))
             .gap(px(12.0))
             .child(section_heading(
@@ -169,13 +170,22 @@ impl MqttView {
                     .on_click(
                         cx.listener(|this, _: &ClickEvent, window, cx| this.publish(window, cx)),
                     ),
-            )
+            );
+        v_flex()
+            .id("mqtt-publish-scroll")
+            .w_full()
+            .min_w_0()
+            .h_full()
+            .overflow_y_scroll()
+            .p(px(16.0))
+            .child(body)
     }
 
     fn render_subscribe(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let mut body = v_flex()
             .w_full()
+            .min_w_0()
             .max_w(px(920.0))
             .gap(px(12.0))
             .child(section_heading(
