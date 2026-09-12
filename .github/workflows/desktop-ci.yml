@@ -235,6 +235,10 @@ jobs:
         shell: pwsh
         run: cargo check-all
 
+      - name: Check source file sizes
+        shell: pwsh
+        run: ./scripts/windows/check-source-size.ps1
+
       - name: Lint all targets
         shell: pwsh
         run: cargo clippy-all
