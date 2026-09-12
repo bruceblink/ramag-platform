@@ -444,16 +444,22 @@ jobs:
               echo "Release $tag is already published; refusing to replace public assets." >&2
               exit 1
             fi
-            gh release upload "$tag" "${assets[@]}" --repo "$GH_REPO" --clobber
-            gh release edit "$tag" --repo "$GH_REPO" --title "$title" --notes "$notes"
-          else
-            # gh release create stages the assets as a draft and publishes the release
-            # after the upload succeeds, avoiding a second publish request.
+            # A failed previous run may have left an incomplete draft. Start
+            # from a clean draft so stale assets cannot affect this release.
+            gh release delete "$tag" --repo "$GH_REPO" --yes
+            is_draft=""
+          fi
+
+          if [[ -z "$is_draft" ]]; then
+            # gh release create stages the assets as a draft and publishes the
+            # release after the upload succeeds.
             release_flags=(--verify-tag --notes "$notes" --title "$title")
             if [[ "$tag" == *-* ]]; then
               release_flags+=(--prerelease)
             fi
-            gh release create "$tag" "${assets[@]}" --repo "$GH_REPO" "${release_flags[@]}"
+            gh release create "$tag" --repo "$GH_REPO" "${release_flags[@]}" "${assets[@]}"
+          else
+            gh release upload "$tag" "${assets[@]}" --repo "$GH_REPO" --clobber
+            gh release edit "$tag" --repo "$GH_REPO" --title "$title" --notes "$notes"
+            gh release edit "$tag" --repo "$GH_REPO" --draft=false
           fi
-
-          gh release edit "$tag" --repo "$GH_REPO" --draft=false
