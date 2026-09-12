@@ -450,10 +450,10 @@ where
 
 #[cfg(feature = "native")]
 mod native {
-    include!("native/part01.rs");
-    include!("native/part02.rs");
-    include!("native/part03.rs");
-    include!("native/part04.rs");
+    include!("native/driver_operations.rs");
+    include!("native/dynamic_security_protocol.rs");
+    include!("native/mqtt_data_plane.rs");
+    include!("native/transport_support.rs");
 
     #[cfg(test)]
     mod tests {

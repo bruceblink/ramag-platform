@@ -28,10 +28,10 @@ pub const MAX_MOSQUITTO_DESCRIPTION_BYTES: usize = 16 * 1024;
 pub const MAX_MOSQUITTO_ACLS: usize = 4096;
 pub const MAX_MQTT_PROFILE_RECORD_BYTES: usize = 1024 * 1024;
 pub const MAX_MQTT_PROFILE_LIST_BYTES: usize = 64 * 1024 * 1024;
-include!("mqtt/part01.rs");
-include!("mqtt/part02.rs");
-include!("mqtt/part03.rs");
-include!("mqtt/part04.rs");
+include!("mqtt/connection_config.rs");
+include!("mqtt/transport_capabilities.rs");
+include!("mqtt/dynamic_security_entities.rs");
+include!("mqtt/validation.rs");
 
 #[cfg(test)]
 mod tests {

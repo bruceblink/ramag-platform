@@ -14,5 +14,5 @@ fn assert_inside(
     );
 }
 
-include!("jumpserver_tests/part01.rs");
-include!("jumpserver_tests/part02.rs");
+include!("jumpserver_tests/connection_and_session_tests.rs");
+include!("jumpserver_tests/connection_editor_tests.rs");

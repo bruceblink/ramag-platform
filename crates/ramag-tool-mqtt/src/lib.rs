@@ -249,15 +249,15 @@ impl Focusable for MqttView {
     }
 }
 
-include!("mqtt_view/part01.rs");
-include!("mqtt_view/part02.rs");
-include!("mqtt_view/part03.rs");
-include!("mqtt_view/part04.rs");
-include!("mqtt_view/part05.rs");
-include!("mqtt_view/part06.rs");
-include!("mqtt_view/part07.rs");
-include!("mqtt_view/part08.rs");
-include!("mqtt_view/part09.rs");
+include!("mqtt_view/profile_state.rs");
+include!("mqtt_view/mqtt_operations.rs");
+include!("mqtt_view/dynamic_security_operations.rs");
+include!("mqtt_view/management_editor_actions.rs");
+include!("mqtt_view/configuration_view.rs");
+include!("mqtt_view/message_operations_view.rs");
+include!("mqtt_view/client_permissions_view.rs");
+include!("mqtt_view/group_role_management_view.rs");
+include!("mqtt_view/broker_configuration_view.rs");
 include!("mqtt_view/render.rs");
 include!("mqtt_view/helpers.rs");
 
