@@ -439,19 +439,21 @@ jobs:
 
           title="Ramag ${tag#v}"
 
-          if is_draft=$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null); then
+          if is_draft=$(gh release view "$tag" --repo "$GH_REPO" --json isDraft --jq .isDraft 2>/dev/null); then
             if [[ "$is_draft" != "true" ]]; then
               echo "Release $tag is already published; refusing to replace public assets." >&2
               exit 1
             fi
-            gh release upload "$tag" "${assets[@]}" --clobber
-            gh release edit "$tag" --title "$title" --notes "$notes"
+            gh release upload "$tag" "${assets[@]}" --repo "$GH_REPO" --clobber
+            gh release edit "$tag" --repo "$GH_REPO" --title "$title" --notes "$notes"
           else
-            release_flags=(--draft --verify-tag --notes "$notes" --title "$title")
+            # gh release create stages the assets as a draft and publishes the release
+            # after the upload succeeds, avoiding a second publish request.
+            release_flags=(--verify-tag --notes "$notes" --title "$title")
             if [[ "$tag" == *-* ]]; then
               release_flags+=(--prerelease)
             fi
-            gh release create "$tag" "${assets[@]}" "${release_flags[@]}"
+            gh release create "$tag" "${assets[@]}" --repo "$GH_REPO" "${release_flags[@]}"
           fi
 
-          gh release edit "$tag" --draft=false
+          gh release edit "$tag" --repo "$GH_REPO" --draft=false
