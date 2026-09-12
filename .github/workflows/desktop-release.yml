@@ -83,6 +83,10 @@ jobs:
           $PesterConfig.TestResult.OutputPath = "./target/test-results/windows-package.xml"
           Invoke-Pester -Configuration $PesterConfig
 
+      - name: Check source file sizes
+        shell: pwsh
+        run: ./scripts/windows/check-source-size.ps1
+
       - name: Build, package, and smoke test Windows
         shell: pwsh
         run: ./scripts/package-windows.ps1 -SmokeTest
