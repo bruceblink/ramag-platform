@@ -64,7 +64,6 @@ fn connection_manager_renders_without_openssh_side_effects(cx: &mut TestAppConte
         row.size
     );
 }
-
 /// 连接列表的固定徽标和操作按钮在窄窗口内不能把连接行推出父容器。
 #[gpui::test]
 fn connection_manager_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
@@ -427,4 +426,3 @@ fn jumpserver_search_clear_restores_the_asset_list(cx: &mut TestAppContext) {
         assert_eq!(panel.filtered_assets().len(), 2);
     });
 }
-
