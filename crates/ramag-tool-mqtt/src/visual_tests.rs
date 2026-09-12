@@ -231,12 +231,38 @@ fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
     visual_cx.run_until_parked();
     visual_cx.update(|window, app| {
         view.update(app, |view, cx| {
-            view.name
-                .update(cx, |input, cx| input.set_value("测试 Broker", window, cx));
             view.host
                 .update(cx, |input, cx| input.set_value("127.0.0.1", window, cx));
             view.port
                 .update(cx, |input, cx| input.set_value("1883", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-test-connection");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        connection_tests.load(Ordering::Relaxed),
+        1,
+        "填写 Broker 地址后，测试连接不应要求先填写配置名称"
+    );
+
+    click(visual_cx, "mqtt-save-profile");
+    visual_cx.run_until_parked();
+    assert!(
+        storage
+            .mqtt_profiles
+            .lock()
+            .expect("读取保存结果锁")
+            .is_empty(),
+        "未填写配置名称时不能保存"
+    );
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.name
+                .update(cx, |input, cx| input.set_value("测试 Broker", window, cx));
             cx.notify();
         });
     });
@@ -254,7 +280,7 @@ fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
     visual_cx.run_until_parked();
     assert_eq!(
         connection_tests.load(Ordering::Relaxed),
-        1,
+        2,
         "测试连接按钮必须调用 MQTT 驱动"
     );
 }

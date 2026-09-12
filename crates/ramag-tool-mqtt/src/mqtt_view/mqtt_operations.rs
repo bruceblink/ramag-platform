@@ -21,7 +21,26 @@ impl MqttView {
     }
 
     fn form_profile(&self, cx: &App) -> Result<MqttProfile, String> {
-        let name = value(&self.name, cx);
+        self.form_profile_with_name(cx, None)
+    }
+
+    // A connection test does not persist a profile, so it may run before the
+    // user has entered the display name required for saving.
+    fn form_profile_for_connection_test(&self, cx: &App) -> Result<MqttProfile, String> {
+        self.form_profile_with_name(cx, Some("MQTT 连接测试"))
+    }
+
+    fn form_profile_with_name(
+        &self,
+        cx: &App,
+        fallback_name: Option<&str>,
+    ) -> Result<MqttProfile, String> {
+        let entered_name = value(&self.name, cx);
+        let name = if entered_name.is_empty() {
+            fallback_name.unwrap_or_default().to_string()
+        } else {
+            entered_name
+        };
         let host = value(&self.host, cx);
         let port = value(&self.port, cx)
             .parse::<u16>()
@@ -165,7 +184,7 @@ impl MqttView {
         if self.is_busy() || self.subscription_running {
             return;
         }
-        let profile = match self.form_profile(cx) {
+        let profile = match self.form_profile_for_connection_test(cx) {
             Ok(profile) => profile,
             Err(error) => {
                 self.notice = Some((error, true));

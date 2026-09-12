@@ -1,6 +1,13 @@
 impl MqttView {
     pub fn new(service: Arc<MqttService>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let name = input(window, cx, MAX_PROFILE_NAME_BYTES, "配置名称", false, "");
+        let name = input(
+            window,
+            cx,
+            MAX_PROFILE_NAME_BYTES,
+            "配置名称（保存时必填）",
+            false,
+            "",
+        );
         let host = input(
             window,
             cx,

@@ -1,5 +1,13 @@
 impl Render for MqttView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if let Some((message, is_error)) = self.notice.take() {
+            let notification = if is_error {
+                gpui_component::notification::Notification::error(message)
+            } else {
+                gpui_component::notification::Notification::info(message).autohide(true)
+            };
+            ramag_ui::push_responsive_notification(window, notification, cx);
+        }
         let theme = cx.theme().clone();
         let narrow = Self::sidebar_is_narrow(window);
         let main = v_flex()
