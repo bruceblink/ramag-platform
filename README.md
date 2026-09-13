@@ -141,7 +141,7 @@ cargo test-all      # 运行 workspace 测试
 
 三个平台仍需要各自的原生开发组件：Windows 使用 Visual Studio 18 2026 Build Tools 的 C++ workload、Windows 10/11 SDK 和 CMake；Release 还需要 FXC 与 Inno Setup。macOS 需要 Xcode Command Line Tools；Linux 需要桌面开发库，完整列表见[桌面端构建与发布](docs/desktop-release.md#本地-linux-打包)。Rust stable channel、Cargo.lock 和日常命令由仓库统一管理。首次构建需要下载 GPUI 等依赖，耗时会明显长于后续增量构建。
 
-Windows 日常开发先在当前 PowerShell 激活 MSVC 环境；脚本通过 `vswhere.exe` 和 `vcvarsall.bat` 载入 Visual Studio 18 2026 的 x64 编译器、链接器、Windows SDK、CMake 和 NMake。脚本只修改当前 PowerShell 进程，不替代 Cargo 命令，也不修改用户级环境变量：
+Windows 日常开发先在当前 PowerShell 激活 MSVC 环境；脚本通过 `vswhere.exe` 和 `vcvarsall.bat` 载入 Visual Studio 18 2026 的 x64 编译器、链接器、Windows SDK 和 CMake，并固定使用 `Visual Studio 18 2026` 的 x64 CMake 生成器。脚本只修改当前 PowerShell 进程，不替代 Cargo 命令，也不修改用户级环境变量：
 
 ```powershell
 . .\scripts\windows\enable-msvc-toolchain.ps1

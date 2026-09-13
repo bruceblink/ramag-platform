@@ -63,7 +63,7 @@
 |---|---|---|
 | 默认 feature 静态测试 | 已通过 | 本次 Windows MSVC 目标下 `ramag-infra-kafka` 默认 feature 7 项通过；此前 Windows GNU 基线为 5 项；覆盖默认不启用 native、TLS/SASL feature gate、输入校验和错误分类 |
 | 阶段 21-22 Domain/App/UI 测试 | 部分通过 | 阶段 21 的 Windows MSVC 证据为 `ramag-domain` 159 项、`ramag-app` 191 项、`ramag-infra-kafka` 默认 feature 7 项、`ramag-tool-kafka` 20 项；阶段 22 的 `ramag-tool-kafka` Windows GNU 测试 22 项通过，覆盖 Broker 健康摘要、快照来源/时间状态和 360/900/1440 宽度布局；当前 MSVC 复测受 Windows SDK 缺少 `msvcrt.lib` 阻塞 |
-| native metrics 编译和基础测试 | 已通过 | Windows MSVC 下 `ramag-infra-kafka --features cmake-build` 使用 CMake/NMake 构建 `rdkafka-sys`，`cargo check` 通过，native 基础测试 10 项通过；未连接真实 Broker |
+| native metrics 编译和基础测试 | 已通过 | Windows MSVC 下 `ramag-infra-kafka --features cmake-build` 使用 Visual Studio CMake 生成器构建 `rdkafka-sys`，`cargo check` 通过，native 基础测试 10 项通过；未连接真实 Broker |
 | Cargo feature 关系 | 已核对 | `ramag-infra-kafka` 默认 feature 为空，`ramag-bin` 显式启用 `cmake-build`；`cargo tree --locked -p ramag-bin -e features` 可看到 `rdkafka-sys` 和 CMake 路径 |
 | plain KRaft Docker 集成 | 已通过 | 2026-09-09 在 WSL Docker 中运行 `scripts/kafka-test/kafka-test.ps1 test`：先创建并校验 5000 条消息和 61 个主题，再运行 `crates/ramag-infra-kafka/tests/docker_kafka.rs`，元数据、消息读取/搜索、消费者组/Offset 和 Topic 管理 4 项测试全部通过；测试脚本只使用专用 KRaft 容器和测试卷 |
 | TLS/SASL Broker 集成 | 未完成 | 当前 fixture 没有 TLS listener、证书链、SASL 用户或 Authorizer 配置 |

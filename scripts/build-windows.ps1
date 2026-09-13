@@ -31,6 +31,7 @@ Set-Location $RepoDir
 $EnvironmentSnapshot = Save-WindowsMsvcEnvironment
 $Toolchain = $null
 $Target = $null
+$TargetDirectory = $null
 
 function Find-Fxc {
     $Command = Get-Command fxc.exe -ErrorAction SilentlyContinue
@@ -122,13 +123,15 @@ try {
 
     $Toolchain = Initialize-WindowsMsvcEnvironment
     $Target = $Toolchain.Target
+    $TargetDirectory = Get-WindowsCargoTargetDirectory
     Write-Host "Using Visual Studio 18 2026 MSVC: $($Toolchain.VisualStudio.InstallationPath)"
     Write-Host "  toolset: $($Toolchain.VisualStudio.ToolsetVersion)"
     Write-Host "  rust:    $($Toolchain.RustToolchain)"
     Write-Host "  target:  $Target"
     Write-Host "  cl:      $($Toolchain.Cl)"
     Write-Host "  cmake:   $($Toolchain.CMake)"
-    Write-Host "  nmake:   $($Toolchain.NMake)"
+    Write-Host "  generator: $(Get-WindowsMsvcCMakeGenerator)"
+    Write-Host "  platform:  $(Get-WindowsMsvcCMakePlatform)"
 
     if ($Release) {
         $Fxc = Find-Fxc
@@ -151,10 +154,10 @@ try {
 
     & cargo @CargoArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "Windows $BuildProfile build failed with Visual Studio 18 2026 MSVC. Verify the C++ workload, CMake, NMake, and Windows SDK, then retry."
+        throw "Windows $BuildProfile build failed with Visual Studio 18 2026 MSVC. Verify the C++ workload, CMake, and Windows SDK, then retry."
     }
 
-    $Exe = Join-Path $RepoDir "target\$Target\$BuildProfile\ramag.exe"
+    $Exe = Join-Path $TargetDirectory "$Target\$BuildProfile\ramag.exe"
     if (-not (Test-Path -LiteralPath $Exe -PathType Leaf)) {
         throw "Build finished without the expected executable: $Exe"
     }

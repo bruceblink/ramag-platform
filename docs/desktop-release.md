@@ -185,7 +185,7 @@ Actions → Desktop Release → Run workflow
 
 ## 本地 Windows 构建
 
-日常开发先在当前 PowerShell 激活 Windows MSVC 工具链；脚本通过 `vswhere.exe` 和 `vcvarsall.bat` 加载 Visual Studio 18 2026 的 x64 编译器、链接器、Windows SDK、CMake 和 NMake，然后直接使用统一的 Cargo 命令：
+日常开发先在当前 PowerShell 激活 Windows MSVC 工具链；脚本通过 `vswhere.exe` 和 `vcvarsall.bat` 加载 Visual Studio 18 2026 的 x64 编译器、链接器、Windows SDK 和 CMake，并固定使用 `Visual Studio 18 2026` 的 x64 CMake 生成器，然后直接使用统一的 Cargo 命令：
 
 ```powershell
 . .\scripts\windows\enable-msvc-toolchain.ps1
@@ -303,7 +303,7 @@ target/macos-dist/
 
 - 使用 Rust stable，固定构建 `x86_64-pc-windows-msvc`。
 - Pester 覆盖版本转换、Cargo 元数据读取和标签匹配。
-- MSVC 路径校验 VS18、Windows SDK、CMake/NMake、FXC、Inno Setup、PE x64、GUI 子系统和版本资源。
+- MSVC 路径校验 VS18、Windows SDK、Visual Studio CMake 生成器、FXC、Inno Setup、PE x64、GUI 子系统和版本资源。
 - 使用系统 MSVC/UCRT 运行库，并拒绝未打包的非系统 DLL。
 - 验证安装器静默安装、版本和卸载。
 

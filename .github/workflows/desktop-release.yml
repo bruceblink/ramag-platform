@@ -47,13 +47,36 @@ jobs:
       - name: Verify Windows MSVC tools
         shell: pwsh
         run: |
-          if ($env:RUSTUP_TOOLCHAIN -ne 'stable-x86_64-pc-windows-msvc') {
+          . ./scripts/windows/msvc-toolchain.ps1
+          $expectedToolchain = Get-WindowsMsvcRustToolchain
+          if ($env:RUSTUP_TOOLCHAIN -ne $expectedToolchain) {
             throw "The Windows MSVC Rust toolchain was not activated: $env:RUSTUP_TOOLCHAIN"
+          }
+          $expectedTargetDirectory = [System.IO.Path]::GetFullPath((Get-WindowsCargoTargetDirectory))
+          $actualTargetDirectory = [System.IO.Path]::GetFullPath($env:CARGO_TARGET_DIR)
+          if ($actualTargetDirectory -ine $expectedTargetDirectory) {
+            throw "Cargo target directory is not repository-local: $actualTargetDirectory"
+          }
+          if ($env:CMAKE_GENERATOR -ne (Get-WindowsMsvcCMakeGenerator)) {
+            throw "Unexpected CMake generator: $env:CMAKE_GENERATOR"
+          }
+          if ($env:CMAKE_GENERATOR_PLATFORM -ne (Get-WindowsMsvcCMakePlatform)) {
+            throw "Unexpected CMake platform: $env:CMAKE_GENERATOR_PLATFORM"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:CMAKE_GENERATOR_INSTANCE)) {
+            throw "CMake Visual Studio generator instance is not configured."
+          }
+          if ($env:CMAKE_GENERATOR_TOOLSET -ne (Get-WindowsMsvcCMakeToolset)) {
+            throw "Unexpected CMake toolset: $env:CMAKE_GENERATOR_TOOLSET"
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:CMAKE_MAKE_PROGRAM)) {
+            throw "CMAKE_MAKE_PROGRAM must not be set for the Visual Studio generator."
           }
           rustc -vV
           where.exe cl
           where.exe link
-          where.exe nmake
+          where.exe rc
+          where.exe cmake
           cmake --version
 
       - name: Restore Windows Cargo download cache

@@ -12,12 +12,13 @@ if (-not (Test-Path -LiteralPath $ToolchainScript -PathType Leaf)) {
 }
 . $ToolchainScript
 $Target = Get-WindowsMsvcTarget
+$TargetDirectory = Get-WindowsCargoTargetDirectory
 $BuildScript = Join-Path $PSScriptRoot "build-windows.ps1"
 $IssScript = Join-Path $PSScriptRoot "windows\ramag.iss"
 $SmokeTestScript = Join-Path $PSScriptRoot "windows\test-installer.ps1"
 $Exe = $null
-$DistDir = Join-Path $RepoDir "target\windows-dist"
-$WorkDir = Join-Path $RepoDir "target\windows-package"
+$DistDir = Join-Path $TargetDirectory "windows-dist"
+$WorkDir = Join-Path $TargetDirectory "windows-package"
 
 function Find-Iscc {
     $Command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
@@ -134,7 +135,7 @@ function Resolve-ReleaseExecutable {
         [DateTime]$BuiltAfter
     )
 
-    $CandidatePaths = @(Join-Path $RepoDir "target\$Target\release\ramag.exe")
+    $CandidatePaths = @(Join-Path $TargetDirectory "$Target\release\ramag.exe")
     $Existing = @(
         $CandidatePaths |
             Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |

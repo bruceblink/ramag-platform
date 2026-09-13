@@ -13,12 +13,17 @@ Describe "Windows MSVC toolchain" {
         $Names = @(Get-WindowsMsvcEnvironmentNames)
 
         $Names | Should -Contain "CARGO_BUILD_TARGET"
+        $Names | Should -Contain "CARGO_TARGET_DIR"
         $Names | Should -Contain "CMAKE_GENERATOR"
+        $Names | Should -Contain "CMAKE_GENERATOR_INSTANCE"
+        $Names | Should -Contain "CMAKE_GENERATOR_PLATFORM"
+        $Names | Should -Contain "CMAKE_GENERATOR_TOOLSET"
+        $Names | Should -Not -Contain "CMAKE_MAKE_PROGRAM"
         $Names | Should -Not -Contain "CC_x86_64-pc-windows-gnu"
         $Names | Should -Not -Contain "CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER"
     }
 
-    It "imports VS variables and sets NMake for CMake" {
+    It "uses the Visual Studio generator and repository target directory" {
         $Snapshot = Save-WindowsMsvcEnvironment
         try {
             Mock Get-WindowsMsvcEnvironmentFromVisualStudio {
@@ -31,20 +36,25 @@ Describe "Windows MSVC toolchain" {
             $Toolchain = [PSCustomObject]@{
                 Target = "x86_64-pc-windows-msvc"
                 RustToolchain = "stable-x86_64-pc-windows-msvc"
-                VisualStudio = [PSCustomObject]@{}
+                VisualStudio = [PSCustomObject]@{ InstallationPath = "C:\\VS" }
                 Cl = "C:\\VS\\bin\\cl.exe"
                 Link = "C:\\VS\\bin\\link.exe"
                 Rc = "C:\\SDK\\bin\\rc.exe"
-                NMake = "C:\\VS\\bin\\nmake.exe"
                 CMake = "C:\\VS\\cmake\\cmake.exe"
             }
 
+            $env:CMAKE_MAKE_PROGRAM = "C:\\old\\stale-make.exe"
             Set-WindowsMsvcEnvironment -Toolchain $Toolchain | Should -Not -BeNullOrEmpty
 
             $env:RUSTUP_TOOLCHAIN | Should -BeExactly "stable-x86_64-pc-windows-msvc"
             $env:CARGO_BUILD_TARGET | Should -BeExactly "x86_64-pc-windows-msvc"
-            $env:CMAKE_GENERATOR | Should -BeExactly "NMake Makefiles"
-            $env:CMAKE_MAKE_PROGRAM | Should -BeExactly "C:\\VS\\bin\\nmake.exe"
+            $env:CARGO_TARGET_DIR | Should -BeExactly (Get-WindowsCargoTargetDirectory)
+            $env:CMAKE_GENERATOR | Should -BeExactly "Visual Studio 18 2026"
+            $env:CMAKE_GENERATOR_PLATFORM | Should -BeExactly "x64"
+            $env:CMAKE_GENERATOR_INSTANCE | Should -BeExactly "C:\\VS"
+            $env:CMAKE_GENERATOR_TOOLSET | Should -BeExactly "host=x64"
+            $env:CMAKE_MAKE_PROGRAM | Should -BeNullOrEmpty
+            $env:PROCESSOR_ARCHITECTURE | Should -BeExactly "AMD64"
             $env:CC | Should -BeExactly "C:\\VS\\bin\\cl.exe"
             $env:CXX | Should -BeExactly "C:\\VS\\bin\\cl.exe"
         }

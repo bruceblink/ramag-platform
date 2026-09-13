@@ -279,7 +279,12 @@ fn refreshing_or_failed_schema_keeps_existing_table_rows_visible() {
         "",
     );
     assert!(refreshing.rows.iter().any(|row| {
-        matches!(row, TreeRow::Table { key, size_bytes: Some(512), .. } if key.1 == "users")
+        matches!(row, TreeRow::Table {
+            key,
+            size_bytes: Some(512),
+            size_status: TableSizeStatus::Loading,
+            ..
+        } if key.1 == "users")
     }));
     assert!(refreshing.rows.iter().any(|row| {
         matches!(row, TreeRow::SchemaPlaceholder { text, is_error: false } if text.contains("刷新"))
@@ -295,15 +300,40 @@ fn refreshing_or_failed_schema_keeps_existing_table_rows_visible() {
         false,
         "",
     );
-    assert!(
-        failed
-            .rows
-            .iter()
-            .any(|row| { matches!(row, TreeRow::Table { key, .. } if key.1 == "users") })
-    );
+    assert!(failed.rows.iter().any(|row| {
+        matches!(row, TreeRow::Table {
+                    key,
+                    size_status: TableSizeStatus::Stale,
+                    ..
+                } if key.1 == "users")
+    }));
     assert!(failed.rows.iter().any(|row| {
         matches!(row, TreeRow::SchemaPlaceholder { text, is_error: true } if text.contains("数据库不可用"))
     }));
+}
+
+#[test]
+fn table_size_status_distinguishes_missing_and_failed_metadata() {
+    assert_eq!(
+        TableSizeStatus::from_metadata(false, false, Some(1024)),
+        TableSizeStatus::Known
+    );
+    assert_eq!(
+        TableSizeStatus::from_metadata(true, false, Some(1024)),
+        TableSizeStatus::Loading
+    );
+    assert_eq!(
+        TableSizeStatus::from_metadata(false, false, None),
+        TableSizeStatus::Unknown
+    );
+    assert_eq!(
+        TableSizeStatus::from_metadata(false, true, None),
+        TableSizeStatus::Failed
+    );
+    assert_eq!(
+        TableSizeStatus::from_metadata(false, true, Some(1024)),
+        TableSizeStatus::Stale
+    );
 }
 
 #[test]

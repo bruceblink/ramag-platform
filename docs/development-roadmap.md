@@ -50,7 +50,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | SSH/终端 | `alacritty_terminal + GPUI` PTY 核心、SSH/SFTP 工作区、会话状态、每标签重连和 `-L/-R/-D` 参数模型已有；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 补真实 Windows 窗口证据和独立转发状态/停止面板；进入 `KAFKA-001` | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
 | Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail、Metrics Snapshot、Schema Registry 版本浏览、受保护的真实 Kafka JMX Exporter 本机链路和纯 Rust 读取候选已有 | `KAFKA-023` 三个消息定位切片和阶段 27 已完成，继续维护功能矩阵，再补真实 Windows 证据 | 纯 Rust 全能力替换、外部生态大模块和批量消息生产 |
 | 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 按 DBeaver/DataGrip 能力表推进结果查看、大字段恢复、对象导航、执行计划和迁移工作流的功能/UI 对齐 | 把 Redis/MongoDB 强行套用 SQL 语义 |
-| 质量与工具链 | stable channel、统一 Cargo 命令、Windows GNU 路线已建立 | 保持 CI、WSL Linux 验证、源码尺寸和 LF 规则一致 | 为单个平台恢复独立的日常编译命令 |
+| 质量与工具链 | stable channel、统一 Cargo 命令、Windows MSVC 路线已建立 | 保持 CI、WSL Linux 验证、源码尺寸和 LF 规则一致 | 为单个平台恢复独立的日常编译命令 |
 
 跨产品的 UI 响应性问题不再单独生成一条长期大路线。出现新的可复现 P0/P1 问题时，按下面的交付切片规则插入当前队列，并在对应专项文档记录实现细节。
 
@@ -135,7 +135,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 - README、架构说明、工具清单和平台关系已对齐当前独立仓库身份。
 - Kafka 路线已区分现有管理能力与尚未实现的 Transport、Metrics 和 Tail 能力。
 - 插件、Kafka、终端和数据库的职责边界已经写入专项文档；历史执行日志不再作为当前排期依据。
-- Windows GNU、Linux、macOS 的日常 Cargo 命令保持一致；平台差异只用于准备环境和发布包装。
+- Windows MSVC、Linux、macOS 的日常 Cargo 命令保持一致；平台差异只用于准备环境和发布包装。
 - 全局 Git 与 Codex 规则统一使用 LF；仓库跟踪文本文件不接受 CRLF 或混合换行。
 
 阶段 0 的文档变化只在完成检查后提交，不与下一项代码功能合并。

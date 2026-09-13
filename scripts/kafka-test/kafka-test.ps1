@@ -10,6 +10,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepositoryRoot = Split-Path -Parent (Split-Path -Parent $ScriptDirectory)
 $ComposeFile = Join-Path $ScriptDirectory "compose.yaml"
 $DockerComposeFile = $ComposeFile
 $FixtureFile = Join-Path $ScriptDirectory "fixtures\messages.txt"
@@ -571,10 +572,10 @@ function Run-RustIntegrationTest {
     $env:RAMAG_TEST_KAFKA_BROKER_METRICS = $BrokerMetricsEndpoint
     $env:RAMAG_TEST_KSQLDB = $KsqlDbEndpoint
     $env:RAMAG_TEST_SCHEMA_REGISTRY = $SchemaRegistryEndpoint
-    $env:CARGO_TARGET_DIR = Join-Path ([System.IO.Path]::GetTempPath()) "ramag-kafka-docker-target"
-
     try {
         $null = Initialize-WindowsMsvcEnvironment
+        # Keep the isolated native test cache inside the repository target root.
+        $env:CARGO_TARGET_DIR = Join-Path $RepositoryRoot "target\kafka-docker"
         & cargo test --offline --locked -p ramag-infra-kafka --no-default-features --features cmake-build --test docker_kafka
         if ($LASTEXITCODE -ne 0) {
             throw "Rust Kafka integration test failed with exit code $LASTEXITCODE"

@@ -1,7 +1,5 @@
 # Rust
 /target
-/target-msvc-*/
-/target-workspace-ninja/
 **/*.rs.bk
 Cargo.lock.bak
 

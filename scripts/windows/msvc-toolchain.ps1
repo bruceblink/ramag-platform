@@ -4,6 +4,9 @@
 Set-StrictMode -Version Latest
 
 $script:WindowsMsvcTarget = "x86_64-pc-windows-msvc"
+$script:WindowsMsvcCMakeGenerator = "Visual Studio 18 2026"
+$script:WindowsMsvcCMakePlatform = "x64"
+$script:WindowsMsvcCMakeToolset = "host=x64"
 $script:WindowsMsvcEnvironmentNames = @(
     "PATH",
     "INCLUDE",
@@ -11,7 +14,10 @@ $script:WindowsMsvcEnvironmentNames = @(
     "LIBPATH",
     "RUSTUP_TOOLCHAIN",
     "CARGO_BUILD_TARGET",
+    "CARGO_TARGET_DIR",
     "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
+    "PROCESSOR_ARCHITECTURE",
+    "PROCESSOR_ARCHITEW6432",
     "CC",
     "CXX",
     "AR",
@@ -26,7 +32,6 @@ $script:WindowsMsvcEnvironmentNames = @(
     "CXXFLAGS",
     "ARFLAGS",
     "CMAKE_GENERATOR",
-    "CMAKE_MAKE_PROGRAM",
     "CMAKE_C_COMPILER",
     "CMAKE_CXX_COMPILER",
     "CMAKE_AR",
@@ -57,9 +62,17 @@ $script:WindowsMsvcEnvironmentNames = @(
 
 $script:WindowsMsvcOverrideNames = @(
     $script:WindowsMsvcEnvironmentNames | Where-Object {
-        $_ -notin @("PATH", "INCLUDE", "LIB", "LIBPATH")
+        $_ -notin @(
+            "PATH",
+            "INCLUDE",
+            "LIB",
+            "LIBPATH",
+            "PROCESSOR_ARCHITECTURE",
+            "PROCESSOR_ARCHITEW6432"
+        )
     }
 ) + @(
+    "CMAKE_MAKE_PROGRAM",
     "CC_x86_64-pc-windows-gnu",
     "CXX_x86_64-pc-windows-gnu",
     "AR_x86_64-pc-windows-gnu",
@@ -73,12 +86,30 @@ function Get-WindowsMsvcTarget {
     return $script:WindowsMsvcTarget
 }
 
+function Get-WindowsMsvcCMakeGenerator {
+    return $script:WindowsMsvcCMakeGenerator
+}
+
+function Get-WindowsMsvcCMakePlatform {
+    return $script:WindowsMsvcCMakePlatform
+}
+
+function Get-WindowsMsvcCMakeToolset {
+    return $script:WindowsMsvcCMakeToolset
+}
+
 function Get-WindowsMsvcEnvironmentNames {
     return $script:WindowsMsvcEnvironmentNames
 }
 
 function Get-WindowsRepositoryRoot {
     return Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+}
+
+function Get-WindowsCargoTargetDirectory {
+    # Keep every Windows Cargo artifact below the repository target directory,
+    # including commands launched from a different current directory.
+    return Join-Path (Get-WindowsRepositoryRoot) "target"
 }
 
 function Get-WindowsRepositoryChannel {
@@ -250,7 +281,6 @@ function Get-WindowsMsvcToolchain {
         Cl = Resolve-WindowsMsvcTool -Name "cl" -Candidates @(Join-Path $NativeBin "cl.exe")
         Link = Resolve-WindowsMsvcTool -Name "link" -Candidates @(Join-Path $NativeBin "link.exe")
         Lib = Resolve-WindowsMsvcTool -Name "lib" -Candidates @(Join-Path $NativeBin "lib.exe")
-        NMake = Resolve-WindowsMsvcTool -Name "nmake" -Candidates @(Join-Path $NativeBin "nmake.exe")
         Rc = Get-WindowsSdkTool -Name "rc"
         CMake = $CMake
     }
@@ -291,8 +321,18 @@ function Invoke-WindowsRustup {
         [string[]]$Arguments
     )
 
-    $Output = @(& rustup @Arguments 2>&1)
-    $ExitCode = $LASTEXITCODE
+    # rustup writes routine progress messages to stderr. Capture them without
+    # letting Windows PowerShell's Stop preference turn them into exceptions;
+    # the native exit code remains the authoritative failure signal.
+    $PreviousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $Output = @(& rustup @Arguments 2>&1)
+        $ExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $PreviousErrorActionPreference
+    }
     foreach ($Line in $Output) {
         Write-Host $Line
     }
@@ -390,6 +430,41 @@ function Set-WindowsMsvcEnvironment {
         }
     }
 
+    # MSBuild chooses Hostx64 tools from the process architecture. Some
+    # automation shells omit these standard variables, so restore the x64
+    # value explicitly before CMake generates Visual Studio projects.
+    $ProcessArchitecture = [Environment]::GetEnvironmentVariable(
+        "PROCESSOR_ARCHITECTURE",
+        "Process"
+    )
+    $ProcessArchitectureWow = [Environment]::GetEnvironmentVariable(
+        "PROCESSOR_ARCHITEW6432",
+        "Process"
+    )
+    if ($ProcessArchitecture -notin @("AMD64", "ARM64") -and
+        $ProcessArchitectureWow -notin @("AMD64", "ARM64")) {
+        if ([Environment]::Is64BitProcess) {
+            $ProcessArchitecture = "AMD64"
+        }
+        elseif ([Environment]::Is64BitOperatingSystem) {
+            $ProcessArchitecture = "x86"
+            $ProcessArchitectureWow = "AMD64"
+        }
+        else {
+            throw "A 64-bit Windows process is required for the x64 MSVC toolchain."
+        }
+        [Environment]::SetEnvironmentVariable(
+            "PROCESSOR_ARCHITECTURE",
+            $ProcessArchitecture,
+            "Process"
+        )
+        [Environment]::SetEnvironmentVariable(
+            "PROCESSOR_ARCHITEW6432",
+            $ProcessArchitectureWow,
+            "Process"
+        )
+    }
+
     $PathEntries = @(
         (Split-Path -Parent $Toolchain.Cl),
         (Split-Path -Parent $Toolchain.CMake)
@@ -413,19 +488,27 @@ function Set-WindowsMsvcEnvironment {
         "Process"
     )
 
+    $VisualStudioInstance = [string]$Toolchain.VisualStudio.InstallationPath
+    if ([string]::IsNullOrWhiteSpace($VisualStudioInstance)) {
+        throw "Visual Studio installation path is required for the CMake generator instance."
+    }
+
     $Environment = @{
         RUSTUP_TOOLCHAIN = $Toolchain.RustToolchain
         CARGO_BUILD_TARGET = $Toolchain.Target
+        CARGO_TARGET_DIR = Get-WindowsCargoTargetDirectory
         CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = $Toolchain.Link
         CC = $Toolchain.Cl
         CXX = $Toolchain.Cl
         RC = $Toolchain.Rc
-        CMAKE_GENERATOR = "NMake Makefiles"
-        CMAKE_MAKE_PROGRAM = $Toolchain.NMake
+        CMAKE_GENERATOR = Get-WindowsMsvcCMakeGenerator
         CMAKE_C_COMPILER = $Toolchain.Cl
         CMAKE_CXX_COMPILER = $Toolchain.Cl
         CMAKE_RC_COMPILER = $Toolchain.Rc
         CMAKE_SYSTEM_NAME = "Windows"
+        CMAKE_GENERATOR_PLATFORM = Get-WindowsMsvcCMakePlatform
+        CMAKE_GENERATOR_INSTANCE = $VisualStudioInstance
+        CMAKE_GENERATOR_TOOLSET = Get-WindowsMsvcCMakeToolset
     }
     foreach ($Entry in $Environment.GetEnumerator()) {
         [Environment]::SetEnvironmentVariable($Entry.Key, $Entry.Value, "Process")

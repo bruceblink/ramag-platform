@@ -30,6 +30,50 @@ use crate::views::tree_helpers::{
 use super::rows::build_tree_rows;
 use super::rows::build_tree_rows_with_navigation;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum TableSizeStatus {
+    Known,
+    Loading,
+    Unknown,
+    Failed,
+    Stale,
+}
+
+impl TableSizeStatus {
+    // 根据表元数据请求状态生成显示状态，保留旧大小并区分未知、失败和过期结果。
+    pub(super) fn from_metadata(loading: bool, has_error: bool, size_bytes: Option<u64>) -> Self {
+        if loading {
+            Self::Loading
+        } else if has_error {
+            if size_bytes.is_some() {
+                Self::Stale
+            } else {
+                Self::Failed
+            }
+        } else if size_bytes.is_some() {
+            Self::Known
+        } else {
+            Self::Unknown
+        }
+    }
+
+    fn badge(self, size_bytes: Option<u64>) -> String {
+        match self {
+            Self::Known => size_bytes
+                .map(format_bytes)
+                .unwrap_or_else(|| "未知".into()),
+            Self::Loading => size_bytes
+                .map(|bytes| format!("{} · 刷新", format_bytes(bytes)))
+                .unwrap_or_else(|| "加载中".into()),
+            Self::Unknown => "未知".into(),
+            Self::Failed => "读取失败".into(),
+            Self::Stale => size_bytes
+                .map(|bytes| format!("{} · 过期", format_bytes(bytes)))
+                .unwrap_or_else(|| "过期".into()),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub(super) enum TreeRow {
     Schema {
@@ -50,6 +94,7 @@ pub(super) enum TreeRow {
         is_cols_expanded: bool,
         is_favorite: bool,
         size_bytes: Option<u64>,
+        size_status: TableSizeStatus,
     },
     TablePlaceholder {
         text: String,
@@ -150,6 +195,7 @@ impl TableTreePanel {
         let accent_bg = cx.theme().accent;
         let accent_fg = cx.theme().accent_foreground;
         let fg = cx.theme().foreground;
+        let warning = cx.theme().warning;
         let red = gpui::red();
 
         match row {
@@ -249,6 +295,7 @@ impl TableTreePanel {
                 is_cols_expanded,
                 is_favorite,
                 size_bytes,
+                size_status,
             } => {
                 let schema = &key.0;
                 let name = &key.1;
@@ -263,7 +310,8 @@ impl TableTreePanel {
                 let is_view = *is_view;
                 let is_cols_expanded = *is_cols_expanded;
                 let is_favorite = *is_favorite;
-                let size_label = size_bytes.map(format_bytes);
+                let size_status = *size_status;
+                let size_badge = (!is_view).then(|| size_status.badge(*size_bytes));
 
                 let row_id = SharedString::from(format!("table-{}-{}", schema, name));
                 let s_for_click = schema.clone();
@@ -359,7 +407,7 @@ impl TableTreePanel {
                                 .text_color(if is_selected { accent_fg } else { muted_fg }),
                         )
                     })
-                    .when_some(size_label, |row, size| {
+                    .when_some(size_badge, |row, size| {
                         row.child(
                             div()
                                 .ml_auto()
@@ -370,7 +418,18 @@ impl TableTreePanel {
                                 .border_color(muted_fg.opacity(0.35))
                                 .bg(muted_bg)
                                 .text_xs()
-                                .text_color(if is_selected { accent_fg } else { fg })
+                                .text_color(if is_selected {
+                                    accent_fg
+                                } else {
+                                    match size_status {
+                                        TableSizeStatus::Failed => red,
+                                        TableSizeStatus::Stale => warning,
+                                        TableSizeStatus::Known => fg,
+                                        TableSizeStatus::Loading | TableSizeStatus::Unknown => {
+                                            muted_fg
+                                        }
+                                    }
+                                })
                                 .child(size),
                         )
                     });

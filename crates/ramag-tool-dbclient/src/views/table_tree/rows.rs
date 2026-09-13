@@ -9,7 +9,7 @@ use ramag_domain::entities::{Schema, contains_case_insensitive};
 use super::navigation::{
     TableNavigationRef, TableTreeFilter, schema_has_navigation_item, table_matches_filter,
 };
-use super::row::{TreeRow, TreeRowsView};
+use super::row::{TableSizeStatus, TreeRow, TreeRowsView};
 use super::{SchemaTables, TableColumns, TableTreeNavigation, TableTreeSection};
 use crate::sql_completion::is_system_schema;
 
@@ -204,6 +204,11 @@ pub(super) fn build_tree_rows_with_navigation(
 
             let columns_key = Rc::new((name.clone(), table.name.clone()));
             let columns = table_columns.get(columns_key.as_ref());
+            let size_status = TableSizeStatus::from_metadata(
+                schema_tables.loading,
+                schema_tables.error.is_some(),
+                table.size_bytes,
+            );
             rows.push(TreeRow::Table {
                 key: columns_key.clone(),
                 is_view: table.is_view,
@@ -216,6 +221,7 @@ pub(super) fn build_tree_rows_with_navigation(
                     })
                 }),
                 size_bytes: table.size_bytes,
+                size_status,
             });
 
             let Some(columns) = columns else {

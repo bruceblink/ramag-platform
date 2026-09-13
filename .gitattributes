@@ -1,5 +1,12 @@
 /.githooks/pre-commit text eol=lf
 *.sh text eol=lf
+*.ps1 text eol=lf
+*.rs text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+Makefile text eol=lf
 /scripts/check-source-size.sh text eol=lf
 /scripts/install-githooks.sh text eol=lf
 /scripts/install-githooks.ps1 text eol=lf
