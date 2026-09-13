@@ -14,7 +14,7 @@
 |---|---|---:|
 | `cargo dev-release` | 本地运行当前平台的优化构建 | 否 |
 | `cargo build` / `cargo run -p ramag-bin` | 三个平台统一的本地编译与运行入口 | 否 |
-| `scripts/build-windows.ps1` | Windows GNU 优先、MSVC 回退的本机 debug / Release 构建校验 | 否 |
+| `scripts/build-windows.ps1` | Windows MSVC 本机 debug / Release 构建校验 | 否 |
 | `scripts/package-windows.ps1` | Windows 本机复现完整 Release 打包 | 否 |
 | `make dmg-*` | macOS 本机生成指定架构的开发 DMG | 否 |
 | `make mac-package` | macOS 本机复现 ARM64 与 Intel Release 打包 | 否 |
@@ -185,15 +185,15 @@ Actions → Desktop Release → Run workflow
 
 ## 本地 Windows 构建
 
-日常开发先在当前 PowerShell 激活 Windows 工具链；脚本优先选择 GNU Rust host/target 和 MinGW 环境，缺少 GNU 组件时自动使用 Windows 默认的 MSVC host/target，然后直接使用统一的 Cargo 命令：
+日常开发先在当前 PowerShell 激活 Windows MSVC 工具链；脚本通过 `vswhere.exe` 和 `vcvarsall.bat` 加载 Visual Studio 18 2026 的 x64 编译器、链接器、Windows SDK、CMake 和 NMake，然后直接使用统一的 Cargo 命令：
 
 ```powershell
-. .\scripts\windows\enable-gnu-toolchain.ps1
+. .\scripts\windows\enable-msvc-toolchain.ps1
 cargo build
 cargo run -p ramag-bin
 ```
 
-日常 Windows x64 构建使用快速 Release profile；GNU 路径保留静态 MinGW CRT、Windows PE、版本资源和 DLL 依赖校验，MSVC 路径使用 Windows 默认链接器和 SDK：
+日常 Windows x64 构建使用快速 Release profile；MSVC 路径统一使用 VS18 默认 MSVC/UCRT 运行库，并执行 Windows PE、版本资源和 DLL 依赖校验：
 
 ```powershell
 .\scripts\build-windows.ps1 -Release -Fast
@@ -239,7 +239,7 @@ target/windows-dist/
 - 安装包包含项目 `LICENSE`。
 - Git 与 OpenSSH 是部分功能的外部运行时前提，不随安装包捆绑。
 
-构建脚本会拒绝动态 MinGW 运行库，以及未随包提供的非系统 DLL 依赖。
+构建脚本允许 Windows 系统提供的 MSVC/UCRT 运行库，并拒绝未随包提供的非系统 DLL 依赖。
 
 ## 本地 Linux 打包
 
@@ -301,10 +301,10 @@ target/macos-dist/
 
 ### Windows
 
-- 使用 Rust stable；优先构建 `x86_64-pc-windows-gnu`，GNU 组件不可用时回退到 `x86_64-pc-windows-msvc`。
+- 使用 Rust stable，固定构建 `x86_64-pc-windows-msvc`。
 - Pester 覆盖版本转换、Cargo 元数据读取和标签匹配。
-- GNU 路径校验 FXC、MinGW-w64/CMake/Ninja 工具链；两条路径都校验 Inno Setup、PE x64、GUI 子系统和版本资源。
-- 拒绝动态 CRT 与未打包的非系统 DLL。
+- MSVC 路径校验 VS18、Windows SDK、CMake/NMake、FXC、Inno Setup、PE x64、GUI 子系统和版本资源。
+- 使用系统 MSVC/UCRT 运行库，并拒绝未打包的非系统 DLL。
 - 验证安装器静默安装、版本和卸载。
 
 ### macOS
@@ -383,7 +383,7 @@ Windows 应在受保护任务中签名应用、Inno Setup 安装器和卸载器�
 - macOS 使用明确的 `macos-15` ARM64 Runner，并在该机器上交叉构建 Intel 切片。
 - Linux 使用明确的 `ubuntu-24.04` x64 Runner。
 - 三个平台都使用 `rust-toolchain.toml` 锁定的 stable 版本，只缓存 Cargo registry/git，不缓存完整 `target/`。
-- Runner 标签内部的 MinGW-w64、Windows SDK、Xcode 和系统工具仍会滚动更新，因此不是字节级可复现构建。
+- Runner 标签内部的 Visual Studio、Windows SDK、Xcode 和系统工具仍会滚动更新，因此不是字节级可复现构建。
 
 工具链或 GPUI 升级后，必须重新运行手动 Action 和真实桌面验收。
 
