@@ -249,6 +249,64 @@ fn hidden_system_schemas_are_not_counted_in_search_progress() {
 }
 
 #[test]
+fn refreshing_or_failed_schema_keeps_existing_table_rows_visible() {
+    let schemas = vec![Schema {
+        name: "public".into(),
+        charset: None,
+        collation: None,
+    }];
+    let mut expanded = HashMap::from([(
+        "public".into(),
+        SchemaTables {
+            loading: true,
+            tables: vec![Table {
+                name: "users".into(),
+                schema: "public".into(),
+                comment: None,
+                is_view: false,
+                size_bytes: Some(512),
+            }],
+            ..Default::default()
+        },
+    )]);
+
+    let refreshing = build_tree_rows(
+        &schemas,
+        &expanded,
+        &HashSet::from(["public".into()]),
+        &HashMap::new(),
+        false,
+        "",
+    );
+    assert!(refreshing.rows.iter().any(|row| {
+        matches!(row, TreeRow::Table { key, size_bytes: Some(512), .. } if key.1 == "users")
+    }));
+    assert!(refreshing.rows.iter().any(|row| {
+        matches!(row, TreeRow::SchemaPlaceholder { text, is_error: false } if text.contains("刷新"))
+    }));
+
+    expanded.get_mut("public").expect("test schema").loading = false;
+    expanded.get_mut("public").expect("test schema").error = Some("数据库不可用".into());
+    let failed = build_tree_rows(
+        &schemas,
+        &expanded,
+        &HashSet::from(["public".into()]),
+        &HashMap::new(),
+        false,
+        "",
+    );
+    assert!(
+        failed
+            .rows
+            .iter()
+            .any(|row| { matches!(row, TreeRow::Table { key, .. } if key.1 == "users") })
+    );
+    assert!(failed.rows.iter().any(|row| {
+        matches!(row, TreeRow::SchemaPlaceholder { text, is_error: true } if text.contains("数据库不可用"))
+    }));
+}
+
+#[test]
 fn navigation_filter_keeps_only_current_connection_tables() {
     let connection_id = ConnectionId::new();
     let other_connection_id = ConnectionId::new();

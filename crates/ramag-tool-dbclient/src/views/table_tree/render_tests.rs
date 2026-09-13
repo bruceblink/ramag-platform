@@ -5,7 +5,9 @@ use std::sync::Arc;
 
 use gpui::{AppContext as _, TestAppContext, px, size};
 use ramag_app::{ConnectionService, MongoService, RedisService};
-use ramag_domain::entities::{ConnectionConfig, ConnectionId, QueryRecord, QueryRecordId, Schema};
+use ramag_domain::entities::{
+    ConnectionConfig, ConnectionId, QueryRecord, QueryRecordId, Schema, Table,
+};
 use ramag_domain::error::Result;
 use ramag_domain::traits::Storage;
 
@@ -194,4 +196,97 @@ fn table_tree_toolbar_wraps_inside_sidebar_widths(cx: &mut TestAppContext) {
             }
         }
     }
+}
+
+/// Refreshing an active connection keeps the existing tree usable while metadata is reloaded.
+#[gpui::test]
+fn table_tree_refresh_keeps_existing_rows_during_reload_and_failure(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let (service, redis_service, mongo_service) = build_services();
+    let mut panel_entity = None;
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let connection_list = cx.new(|cx| {
+            ConnectionListPanel::new(
+                service.clone(),
+                redis_service.clone(),
+                mongo_service.clone(),
+                window,
+                cx,
+            )
+        });
+        let panel = cx.new(|cx| {
+            TableTreePanel::new(
+                service,
+                SchemaCache::new_shared(),
+                connection_list,
+                window,
+                cx,
+            )
+        });
+        panel_entity = Some(panel.clone());
+        gpui_component::Root::new(panel, window, cx)
+    });
+    let panel = panel_entity.expect("表树面板应创建");
+
+    cx.update(|_, app| {
+        panel.update(app, |panel, _| {
+            panel.connection = Some(ConnectionConfig::new_mysql(
+                "测试连接",
+                "127.0.0.1",
+                3306,
+                "root",
+            ));
+            panel.schemas = vec![Schema {
+                name: "ramag_test".to_string(),
+                charset: None,
+                collation: None,
+            }];
+            panel.open_schemas.insert("ramag_test".to_string());
+            panel.expanded.insert(
+                "ramag_test".to_string(),
+                super::SchemaTables {
+                    tables: vec![Table {
+                        name: "bulk_records".to_string(),
+                        schema: "ramag_test".to_string(),
+                        comment: None,
+                        is_view: false,
+                        size_bytes: Some(1024),
+                    }],
+                    ..Default::default()
+                },
+            );
+            panel.selected = Some(("ramag_test".to_string(), "bulk_records".to_string()));
+            panel.loading_schemas = true;
+            panel.invalidate_tree_rows();
+        });
+    });
+    panel.update(cx, |_, cx| cx.notify());
+    cx.run_until_parked();
+
+    assert!(cx.debug_bounds("table-tree-header").is_some());
+    let has_table_row = cx.update(|_, app| {
+        panel.read(app).tree_rows_view("").rows.iter().any(|row| {
+            matches!(row, super::row::TreeRow::Table { key, .. } if key.0 == "ramag_test" && key.1 == "bulk_records")
+        })
+    });
+    assert!(has_table_row);
+    assert!(cx.debug_bounds("table-tree-status").is_some());
+
+    cx.update(|_, app| {
+        panel.update(app, |panel, cx| {
+            panel.loading_schemas = false;
+            panel.error = Some("连接暂时不可用".to_string());
+            cx.notify();
+        });
+    });
+    cx.run_until_parked();
+
+    let has_table_row = cx.update(|_, app| {
+        panel.read(app).tree_rows_view("").rows.iter().any(|row| {
+            matches!(row, super::row::TreeRow::Table { key, .. } if key.0 == "ramag_test" && key.1 == "bulk_records")
+        })
+    });
+    assert!(has_table_row);
+    assert!(cx.debug_bounds("retry-schemas").is_some());
+    assert!(cx.debug_bounds("table-tree-status").is_some());
 }

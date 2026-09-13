@@ -126,14 +126,16 @@ pub(super) fn build_tree_rows_with_navigation(
         let Some(schema_tables) = expanded.get(name).filter(|_| is_expanded) else {
             continue;
         };
-        if schema_tables.loading {
+        if schema_tables.loading && schema_tables.tables.is_empty() {
             rows.push(TreeRow::SchemaPlaceholder {
                 text: "加载 tables…".into(),
                 is_error: false,
             });
             continue;
         }
-        if let Some(error) = &schema_tables.error {
+        if schema_tables.tables.is_empty()
+            && let Some(error) = &schema_tables.error
+        {
             rows.push(TreeRow::SchemaPlaceholder {
                 text: error.clone(),
                 is_error: true,
@@ -146,6 +148,20 @@ pub(super) fn build_tree_rows_with_navigation(
                 is_error: false,
             });
             continue;
+        }
+
+        // Keep stale table rows visible during a refresh or a failed reload so users can still
+        // open the current result while the next metadata request is in progress.
+        if schema_tables.loading {
+            rows.push(TreeRow::SchemaPlaceholder {
+                text: "正在刷新 tables…".into(),
+                is_error: false,
+            });
+        } else if let Some(error) = &schema_tables.error {
+            rows.push(TreeRow::SchemaPlaceholder {
+                text: format!("刷新失败：{error}"),
+                is_error: true,
+            });
         }
 
         let total_tables = schema_tables

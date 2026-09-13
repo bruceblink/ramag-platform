@@ -59,6 +59,7 @@ Ramag 已经具备多数据库连接、Schema 浏览、查询编辑、结果编�
 - `UI-003` 的详情查看器已在 `e6854be` 完成第三个切片：SQL 查看器保留长正文的水平滚动，MongoDB 查看器按当前窗口可用宽度收缩；`selected_cell_value_viewer_stays_inside_three_window_widths` 和 `mongo_cell_detail_stays_inside_three_window_widths` 在 360px、1024px、1440px headless 窗口中检查内容区域、滚动区域和关闭后的清理；查询历史和失败重试仍未完成。
 - `UI-003` 的查询历史已在 `79a9f18` 完成第四个切片：SQL/MongoDB 历史弹框按当前窗口宽度和高度收缩，搜索区、数量/状态提示、清空按钮和记录行操作组允许换行；带长查询记录和状态提示的 headless 测试在 360px、1024px、1440px 窗口中检查子项边界和重叠。失败重试、真实 Windows 窗口和实际数据库连接证据仍待补充。
 - 数据库 SQL 会话对象树的顶部工具栏已补齐响应式边界：搜索区可以收缩，筛选、系统库、刷新和编辑器操作在空间不足时换行，并在对象树最小侧栏宽度 180px 以及 280/360/1024/1440px headless 窗口中通过不越界、不重叠检查。目标 crate 的 286 项库测试全部通过；真实 Windows 窗口和实际数据库连接数据证据仍待补充。
+- P0 对象树刷新已改为保留已有 schema、展开状态、表缓存和当前选择；刷新期间不再用全屏加载态遮挡已显示内容，旧表行继续可打开，失败信息在对象树顶部显示并提供重试。删除的 schema 会清理对应展开状态、列缓存和选择；刷新/失败期间保留旧表行的模型与渲染测试已覆盖。
 - `UI-001` 数据库工作台弹窗切片已完成：连接选择、连接表单、数据同步、查询历史、单元格查看、结果差异、Schema Diagram、表结构差异、表设计、元数据 SQL 和删除确认统一使用 `ramag-ui` 的视口宽度/顶部偏移/最大高度计算；连接表单和连接选择器在 680px 以下纵向重排，长正文保留水平或垂直滚动。`cargo test --locked -p ramag-tool-dbclient --lib` 通过 285 项，已有查询历史、结果查看、连接表单和表设计 headless 检查覆盖 360/1024/1440px；真实 Windows 窗口和实际数据库连接证据仍待补充。
 
 - P0 结果工作区已收敛为单一表格视图：结果工具栏不再显示“表格”或其他转换按钮，避免把默认视图误呈现为可切换选项；分页、双轴滚动、排序、筛选、单元格查看、复制和编辑入口保留。服务端排序重新加载结果时恢复排序前的横向位置，筛选条件允许一个 `WHERE` 表达式中的多个 `AND` 条件。`server_sort_keeps_horizontal_scroll_position_across_result_reload` 和 `filter_sql_accepts_multiple_and_conditions` 覆盖这些回归；真实 Windows 窗口使用系统截图和输入验证，不能将其描述为 Computer Use。

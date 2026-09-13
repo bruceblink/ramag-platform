@@ -120,6 +120,8 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 
 `DB-001` 表格结果工作区切片（2026-09-13）：结果数据区收敛为默认表格视图，移除表格、树形、文本和转置转换按钮及对应状态；保留数据结果/执行计划页签、分页、双轴滚动、单元格查看、复制和编辑。服务端排序重新加载结果时恢复排序前的横向位置；结果过滤允许单个 `WHERE` 表达式包含多个 `AND` 条件，同时继续拒绝多语句输入。`cargo test --locked -p ramag-tool-dbclient --lib` 288 项通过；本机 Docker MySQL 8.0（`127.0.0.1:13306`）和 PostgreSQL 17-alpine（`127.0.0.1:15432`）的派生表查询实际执行多个 `AND` 条件，分别返回 99,900 和 9 行。真实 Windows Debug 窗口使用系统 Win32 截图和鼠标/键盘输入验证 `bulk_records` 的 100,000 行表格、99,900 行多条件筛选，以及横向滚动后点击 `created_at` 排序仍保持右侧列视口；截图保存在本地 `artifacts/ui-data-functional/`，不纳入源代码提交。
 
+`DB-001` 对象树刷新切片（2026-09-13）：刷新 schema 时保留已有对象树、展开状态、表缓存和当前选择；刷新期间只在顶部显示状态，旧表行继续可操作，schema 请求失败时显示可重试提示；表请求失败时保留旧表行并以内联状态说明失败。删除的 schema 会清理对应展开状态、列缓存和选择。`cargo test --locked -p ramag-tool-dbclient --lib` 的表树模型和渲染回归测试通过；MSVC Debug 构建产物位于 `target\x86_64-pc-windows-msvc\debug\ramag.exe`。本机 Docker MySQL 8.0（`ramag-db-test-mysql`，`127.0.0.1:13306`，healthy）实际加载 `ramag_test.bulk_records`，系统截图验证 100,000 行结果在刷新开始、进行中和完成后均未被全屏加载态遮挡；截图保存在本地 `artifacts/ui-data-functional/`，不纳入源代码提交。
+
 `UI-001` 数据库工作台切片（2026-09-08）：`ramag-ui` 提供统一的对话框宽度、顶部偏移和最大高度计算；数据库连接选择、连接表单、数据同步、查询历史、单元格查看、结果差异、Schema Diagram、表结构差异、表设计、元数据 SQL 和删除确认弹窗均改为按视口收缩。连接表单和连接选择器在 680px 以下改用纵向布局，正文或长内容继续在有界滚动区内显示；结果差异和 Schema Diagram 的内容高度随窗口预算变化。`cargo test --locked -p ramag-tool-dbclient --lib` 通过 285 项，现有 360/1024/1440 headless 检查继续通过。真实 Windows 窗口截图和操作记录仍未完成，Kafka 工作台的功能/UI 对齐按 `KAFKA-023` 单独排期。
 
 `PLAT-003` 完成后，`TERM-001` 已完成代码和真实 OpenSSH 端点验收；真实 Windows 窗口和独立转发状态面板仍单独排期。`KAFKA-001` 的传输能力矩阵和适配边界已落地，Metrics Snapshot、Live Message Tail 和阶段 25 消息生产已在协议/headless/Docker 范围内完成；纯 Rust Transport、外部 Broker 运行指标端点和真实 Windows 证据仍单独排期，终端和数据库任务不得借机修改 Kafka 或插件协议。
