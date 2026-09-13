@@ -4,6 +4,7 @@ use super::*;
 use gpui_component::IconName;
 
 use crate::views::result_value::display_cell_value;
+
 /// 构建 SQL 结果表：复用虚拟行列表，并把宽列内容交给可拖拽的横向滚动条浏览。
 #[allow(clippy::too_many_arguments)]
 pub(in crate::views) fn render_table(

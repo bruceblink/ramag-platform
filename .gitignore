@@ -1,6 +1,7 @@
 # Rust
 /target
 /target-msvc-*/
+/target-workspace-ninja/
 **/*.rs.bk
 Cargo.lock.bak
 
@@ -21,6 +22,7 @@ Cargo.lock.bak
 # 日志/临时文件
 *.log
 /tmp/
+/artifacts/
 
 # AI code
 CLAUDE.md

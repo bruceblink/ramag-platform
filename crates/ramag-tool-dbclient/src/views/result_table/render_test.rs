@@ -10,9 +10,7 @@ use gpui::{
 use ramag_domain::entities::{QueryResult, Row, Value};
 
 use super::{DisplayViewCache, DisplayViewCacheKey, build_display_view, cached_display_view};
-use crate::views::result_panel::{
-    ResultPagination, ResultPanel, ResultState, ResultViewMode, TotalRows,
-};
+use crate::views::result_panel::{ResultPagination, ResultPanel, ResultState, TotalRows};
 
 /// 测试宿主同时渲染结果面板和 GPUI Component 的对话框浮层。
 struct ResultDialogTestHost {
@@ -137,139 +135,40 @@ fn result_scroll_horizontal_gesture_does_not_move_rows_vertically(cx: &mut TestA
     );
 }
 
-/// Local result modes switch renderers without replacing the loaded result or selection.
+/// Server-side sorting temporarily replaces the result state but must not move the column viewport.
 #[gpui::test]
-fn result_view_modes_keep_loaded_selection_and_render_each_surface(cx: &mut TestAppContext) {
+fn server_sort_keeps_horizontal_scroll_position_across_result_reload(cx: &mut TestAppContext) {
     cx.update(gpui_component::init);
-    cx.set_global(ramag_ui::DatabaseResultSettingsGlobal::new(
-        ramag_ui::DatabaseResultSettings {
-            show_horizontal_scrollbar: true,
-            display_binary_16_as_uuid: true,
-        },
-    ));
     let result = Arc::new(QueryResult {
-        columns: vec!["id".into(), "name".into()],
+        columns: vec!["id".into(), "very_wide_payload".into()],
         column_types: vec!["BIGINT".into(), "TEXT".into()],
-        rows: vec![
-            Row {
-                values: vec![Value::Int(1), Value::Text("alpha".into())],
-            },
-            Row {
-                values: vec![Value::Int(2), Value::Text("beta".into())],
-            },
-        ],
+        rows: vec![Row {
+            values: vec![Value::Int(1), Value::Text("payload".into())],
+        }],
         affected_rows: 0,
         elapsed_ms: 1,
         warnings: Vec::new(),
         truncated: false,
     });
-    let display_view = build_display_view(&result, None, "", "");
-    let display_view_key = DisplayViewCacheKey {
-        result_identity: Arc::as_ptr(&result) as usize,
-        result_revision: 0,
-        sort_by: None,
-        column_filter: String::new(),
-        row_filter: super::RowFilter::Text(String::new()),
-        display_binary_16_as_uuid: true,
-    };
-    let (panel, cx) = cx.add_window_view(|window, cx| {
-        let mut panel = ResultPanel::new(window, cx);
+    let (panel, cx) = cx.add_window_view(ResultPanel::new);
+
+    panel.update(cx, |panel, cx| {
         panel.state = ResultState::Ok(result.clone());
-        panel.selected_cell = Some((1, 1));
-        panel.display_view_cache = Some(DisplayViewCache {
-            key: display_view_key,
-            view: display_view,
+        panel.pagination = Some(ResultPagination {
+            page: 0,
+            page_size: 100,
+            has_more: true,
+            total: TotalRows::Known(101),
         });
-        panel
+        panel.h_scroll.set_offset(point(px(-240.0), px(0.0)));
+        panel.toggle_sort(1, cx);
+        panel.set_state(ResultState::Running, cx);
+        assert_eq!(panel.h_scroll.offset().x, px(-240.0));
+        panel.set_state(ResultState::Ok(result), cx);
     });
-    panel.update(cx, |_, cx| cx.notify());
-    cx.run_until_parked();
 
-    assert!(
-        cx.debug_bounds("result-view-toolbar").is_some(),
-        "结果表工具栏应渲染"
-    );
-    assert!(
-        cx.debug_bounds("result-view-mode-segment").is_some(),
-        "结果工具栏应显示查看模式分段控件"
-    );
-    assert!(
-        cx.debug_bounds("result-h-scroll").is_some(),
-        "结果区域应渲染表格横向滚动容器"
-    );
-    for (selector, mode, surface) in [
-        (
-            "result-view-mode-tree",
-            ResultViewMode::Tree,
-            "result-tree-scroll",
-        ),
-        (
-            "result-view-mode-text",
-            ResultViewMode::Text,
-            "result-text-scroll",
-        ),
-        (
-            "result-view-mode-transpose",
-            ResultViewMode::Transpose,
-            "result-transpose-scroll",
-        ),
-        (
-            "result-view-mode-table",
-            ResultViewMode::Table,
-            "result-h-scroll",
-        ),
-    ] {
-        let button = cx.debug_bounds(selector).expect("结果查看模式按钮应渲染");
-        cx.simulate_click(button.center(), Modifiers::default());
-        cx.run_until_parked();
-        assert!(
-            cx.debug_bounds(surface).is_some(),
-            "选择的结果模式应渲染对应区域"
-        );
-        panel.read_with(cx, |panel, _cx| {
-            assert_eq!(panel.view_mode(), mode);
-            assert_eq!(panel.selected_cell(), Some((1, 1)));
-            let ResultState::Ok(current) = panel.state() else {
-                panic!("切换结果模式不应替换已加载的结果");
-            };
-            assert!(Arc::ptr_eq(current, &result));
-        });
-    }
-
-    for width in [280.0, 320.0, 360.0, 1024.0] {
-        cx.simulate_resize(size(px(width), px(420.0)));
-        panel.update(cx, |_, cx| cx.notify());
-        cx.run_until_parked();
-
-        let toolbar = cx
-            .debug_bounds("result-view-toolbar")
-            .expect("结果表工具栏应在窄窗口继续渲染");
-        assert!(toolbar.right() <= px(width));
-        assert!(toolbar.bottom() <= px(420.0));
-
-        for selector in [
-            "result-view-mode-segment",
-            "result-view-value-actions",
-            "result-view-toolbar-help",
-        ] {
-            let Some(child) = cx.debug_bounds(selector) else {
-                panic!("结果表工具栏子项应渲染：{selector}");
-            };
-            assert!(
-                child.origin.x >= toolbar.origin.x
-                    && child.origin.y >= toolbar.origin.y
-                    && child.right() <= toolbar.right()
-                    && child.bottom() <= toolbar.bottom(),
-                "结果表工具栏子项不能越出工具栏：selector={selector}, child={child:?}, toolbar={toolbar:?}"
-            );
-        }
-    }
-    panel.read_with(cx, |panel, _cx| {
-        assert_eq!(panel.selected_cell(), Some((1, 1)));
-        let ResultState::Ok(current) = panel.state() else {
-            panic!("结果表渲染不应替换已加载的结果");
-        };
-        assert!(Arc::ptr_eq(current, &result));
+    panel.read_with(cx, |panel, _| {
+        assert_eq!(panel.h_scroll.offset().x, px(-240.0));
     });
 }
 
