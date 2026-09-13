@@ -529,6 +529,8 @@ Kafka 工作台必须满足统一跨平台构建目标：
 
 `UI-001` Kafka 加载稳定性补充记录（2026-09-13）：概览页 Partition 健康列表从一次性构造全部行改为 `uniform_list` 虚拟列表，最多展示 100 条明细，固定列表视口和行高；182 条 Partition 测试数据覆盖大列表回归，窄窗口使用两行布局。Broker 健康状态行的状态文本使用可伸缩单行布局，避免 `协议可达` 被挤成逐字竖排。`cargo test --locked -p ramag-tool-kafka --lib` 38 项、`cargo test --workspace --locked`、workspace Clippy、fmt 和 `cargo build --locked -p ramag-bin` 均通过；本机 Docker Kafka 12 项集成测试通过。真实 Windows Debug 窗口已连接 `ramag-kafka-test`（`apache/kafka:4.0.0`，`127.0.0.1:19092`），显示 182 个 Partition 并完成系统截图和滚动响应复核；该截图证据不记为 Computer Use。
 
+本轮复核补充（2026-09-13）：Kafka 38 项库测试、12 项真实 Docker Kafka 测试、fmt 和标准 workspace Clippy 均通过；workspace 全量测试并未在本轮完整通过，而是在真实 Redis 7-alpine 的 DB 0 种子完整性检查处停止。当前 DB 0 只有 45,014 个 Key，低于 46,000 个要求，原因是带 TTL 的预置 Key 已过期；遵循不修改测试数据的要求，本轮没有执行重置种子数据操作。重新采集的原生窗口截图处于“已保存但未连接”状态，因此不能把它写成 Kafka 真实数据窗口验收；现有连接后截图只作为历史证据。
+
 后续独立路线：
 
 Schema Registry Subject 浏览已作为独立切片完成：
