@@ -32,9 +32,9 @@
     #[cfg(feature = "native")]
     #[test]
     #[ignore = "requires an explicitly configured live MQTT broker"]
-    fn native_connection_reaches_live_broker() {
+    fn native_connection_reaches_live_broker() -> std::result::Result<(), String> {
         let Some(host) = std::env::var_os("RAMAG_MQTT_LIVE_HOST") else {
-            return;
+            return Ok(());
         };
         let port = std::env::var("RAMAG_MQTT_LIVE_PORT")
             .ok()
@@ -54,8 +54,8 @@
             NativeMqttTransport::new()
                 .test_connection(&profile)
                 .await
-                .expect("Native MQTT 应连接到显式配置的 Broker");
-        });
+                .map_err(|error| format!("Native MQTT 应连接到显式配置的 Broker: {error}"))
+        })
     }
 
     #[test]
