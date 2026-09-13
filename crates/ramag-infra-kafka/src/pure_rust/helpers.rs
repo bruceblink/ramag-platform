@@ -566,5 +566,3 @@ fn text_matches(bytes: &[u8], matcher: &MessageSearchMatcher) -> bool {
         |regex| regex.is_match(&text),
     )
 }
-
-#[async_trait::async_trait]

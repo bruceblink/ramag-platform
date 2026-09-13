@@ -1,3 +1,4 @@
+#[async_trait::async_trait]
 impl KafkaDriver for PureRustTransport {
     fn transport_capabilities(&self) -> KafkaTransportCapabilities {
         self.capabilities()
