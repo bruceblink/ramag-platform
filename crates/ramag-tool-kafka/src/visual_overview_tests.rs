@@ -129,6 +129,11 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             bounds.iter().all(Option::is_some),
             "概览页和 Shell 的关键区域都应参与布局: width={width}, bounds={bounds:?}"
         );
+        let status_label = visual_cx.debug_bounds("kafka-overview-broker-health-status-label");
+        assert!(
+            status_label.is_some_and(|label| label.size.height <= px(20.0)),
+            "Broker 健康状态必须保持水平单行显示: width={width}, label={status_label:?}"
+        );
         let [
             Some(root),
             Some(sidebar),

@@ -376,6 +376,7 @@ impl KafkaView {
             topic_scroll: UniformListScrollHandle::new(),
             overview_scroll: ScrollHandle::new(),
             workspace_tabs_scroll: ScrollHandle::new(),
+            partition_health_scroll: UniformListScrollHandle::new(),
             consumer_groups: Vec::new(),
             selected_consumer_group: None,
             consumer_group_error: None,

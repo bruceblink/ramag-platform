@@ -114,6 +114,8 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 
 阶段 23 真实 JMX Exporter 验收记录（2026-09-11）：Docker Compose 为 `apache/kafka:4.0.0` KRaft Broker 开启容器内 JMX/RMI `9999`，使用固定 SHA-256 的 Prometheus JMX Exporter `1.6.0` 暴露受 Basic Auth 保护的 `127.0.0.1:19101/metrics`。`docker_kafka_reads_real_broker_jmx_exporter` 通过真实 HTTP 请求确认无认证返回 `401`、带认证返回 `200`，再回读 Kafka JVM 的 CPU、Heap、Topic/Partition 磁盘和请求延迟；解析器对重复磁盘样本求和、对重复延迟样本取最大值。生产环境仍需替换测试凭据、启用 HTTPS，并补充真实 Windows 窗口证据。
 
+`UI-001` Kafka 加载稳定性切片（2026-09-13）：概览页 Partition 健康区改用有界虚拟列表，只渲染当前可见行，保留最多 100 条明细和完整数量提示；窄窗口行拆为两行并固定行高，避免加载较大 Partition 快照时一次性构造全部 UI 行导致桌面进程退出。Broker 健康状态文本增加可伸缩单行布局，`协议可达` 不再按字符竖排。`ramag-tool-kafka` 38 项库测试、workspace 全量测试、workspace Clippy、格式检查、`ramag-bin` Debug 构建均通过；本机 Docker Kafka 使用 `apache/kafka:4.0.0`、服务 `ramag-kafka-test`（`127.0.0.1:19092`）及配套 Connect、ksqlDB、Schema Registry、指标服务，12 项 Kafka 集成测试通过。真实 Windows Debug 窗口连接该 Broker 后显示 182 个 Partition，系统 Win32 截图和滚动操作确认页面持续响应；截图不记为 Computer Use，生成文件保留在本地测试目录，未纳入源代码提交。
+
 `UI-001` 数据库工作台切片（2026-09-08）：`ramag-ui` 提供统一的对话框宽度、顶部偏移和最大高度计算；数据库连接选择、连接表单、数据同步、查询历史、单元格查看、结果差异、Schema Diagram、表结构差异、表设计、元数据 SQL 和删除确认弹窗均改为按视口收缩。连接表单和连接选择器在 680px 以下改用纵向布局，正文或长内容继续在有界滚动区内显示；结果差异和 Schema Diagram 的内容高度随窗口预算变化。`cargo test --locked -p ramag-tool-dbclient --lib` 通过 285 项，现有 360/1024/1440 headless 检查继续通过。真实 Windows 窗口截图和操作记录仍未完成，Kafka 工作台的功能/UI 对齐按 `KAFKA-023` 单独排期。
 
 `PLAT-003` 完成后，`TERM-001` 已完成代码和真实 OpenSSH 端点验收；真实 Windows 窗口和独立转发状态面板仍单独排期。`KAFKA-001` 的传输能力矩阵和适配边界已落地，Metrics Snapshot、Live Message Tail 和阶段 25 消息生产已在协议/headless/Docker 范围内完成；纯 Rust Transport、外部 Broker 运行指标端点和真实 Windows 证据仍单独排期，终端和数据库任务不得借机修改 Kafka 或插件协议。

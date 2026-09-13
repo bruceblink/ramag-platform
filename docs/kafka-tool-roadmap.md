@@ -527,6 +527,8 @@ Kafka 工作台必须满足统一跨平台构建目标：
 
 `KAFKA-023` 第三个切片实施记录（2026-09-11）：概览页 Partition 健康行新增“浏览消息”入口；`kafka_metrics_partition_browse_preserves_message_context` 在 360/900/1200 宽度下验证入口布局、Topic/Partition 上下文、旧消息状态清理和未调用消息读取 Driver。真实 Windows 窗口截图和鼠标操作仍待补充。
 
+`UI-001` Kafka 加载稳定性补充记录（2026-09-13）：概览页 Partition 健康列表从一次性构造全部行改为 `uniform_list` 虚拟列表，最多展示 100 条明细，固定列表视口和行高；182 条 Partition 测试数据覆盖大列表回归，窄窗口使用两行布局。Broker 健康状态行的状态文本使用可伸缩单行布局，避免 `协议可达` 被挤成逐字竖排。`cargo test --locked -p ramag-tool-kafka --lib` 38 项、`cargo test --workspace --locked`、workspace Clippy、fmt 和 `cargo build --locked -p ramag-bin` 均通过；本机 Docker Kafka 12 项集成测试通过。真实 Windows Debug 窗口已连接 `ramag-kafka-test`（`apache/kafka:4.0.0`，`127.0.0.1:19092`），显示 182 个 Partition 并完成系统截图和滚动响应复核；该截图证据不记为 Computer Use。
+
 后续独立路线：
 
 Schema Registry Subject 浏览已作为独立切片完成：
