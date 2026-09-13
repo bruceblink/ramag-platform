@@ -309,3 +309,9 @@ incremental = true
 opt-level = 0
 debug = 1
 incremental = true
+
+# librdkafka 的 CMake build script 将该依赖的 Rust profile 映射为 CMake
+# 构建类型；使用 Release 让 MSVC native 代码与 Rust 默认动态 CRT 保持一致。
+[profile.dev.package.rdkafka-sys]
+opt-level = 1
+debug = false
