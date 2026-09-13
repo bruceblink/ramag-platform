@@ -1,3 +1,11 @@
+[build]
+# Keep all workspace artifacts under the repository's standard target directory.
+target-dir = "target"
+
+[target.x86_64-pc-windows-msvc]
+# MSVC link.exe emits normal import-library creation text on stdout.
+rustflags = ["-A", "linker-messages"]
+
 # 这些别名是跨平台的日常开发入口，直接调用 Cargo，因此三个平台都不依赖 Make。
 [alias]
 dev = ["run", "--locked", "--package", "ramag-bin"]
