@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{AppContext as _, TestAppContext, px, size};
+use gpui::{AppContext as _, Modifiers, TestAppContext, px, size};
 use ramag_app::{ConnectionService, MongoService, RedisService};
 use ramag_domain::entities::{
     ConnectionConfig, ConnectionId, QueryRecord, QueryRecordId, Schema, Table,
@@ -289,4 +289,99 @@ fn table_tree_refresh_keeps_existing_rows_during_reload_and_failure(cx: &mut Tes
     assert!(has_table_row);
     assert!(cx.debug_bounds("retry-schemas").is_some());
     assert!(cx.debug_bounds("table-tree-status").is_some());
+}
+
+#[gpui::test]
+fn table_group_header_click_collapses_only_its_group(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let (service, redis_service, mongo_service) = build_services();
+    let mut panel_entity = None;
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let connection_list = cx.new(|cx| {
+            ConnectionListPanel::new(
+                service.clone(),
+                redis_service.clone(),
+                mongo_service.clone(),
+                window,
+                cx,
+            )
+        });
+        let panel = cx.new(|cx| {
+            TableTreePanel::new(
+                service.clone(),
+                SchemaCache::new_shared(),
+                connection_list,
+                window,
+                cx,
+            )
+        });
+        panel_entity = Some(panel.clone());
+        gpui_component::Root::new(panel, window, cx)
+    });
+    let panel = panel_entity.expect("表树面板应创建");
+
+    cx.update(|_, app| {
+        panel.update(app, |panel, _| {
+            panel.connection = Some(ConnectionConfig::new_mysql(
+                "测试连接",
+                "127.0.0.1",
+                3306,
+                "root",
+            ));
+            panel.schemas = vec![Schema {
+                name: "public".into(),
+                charset: None,
+                collation: None,
+            }];
+            panel.open_schemas.insert("public".into());
+            panel.expanded.insert(
+                "public".into(),
+                super::SchemaTables {
+                    tables: vec![
+                        Table {
+                            name: "users".into(),
+                            schema: "public".into(),
+                            comment: None,
+                            is_view: false,
+                            size_bytes: None,
+                        },
+                        Table {
+                            name: "audit_log".into(),
+                            schema: "public".into(),
+                            comment: None,
+                            is_view: true,
+                            size_bytes: None,
+                        },
+                    ],
+                    ..Default::default()
+                },
+            );
+            panel.invalidate_tree_rows();
+        });
+    });
+    panel.update(cx, |_, cx| cx.notify());
+    cx.run_until_parked();
+
+    let tables_header = cx
+        .debug_bounds("table-group-public-tables")
+        .expect("表分组标题应渲染");
+    assert!(cx.update(|_, app| {
+        panel
+            .read(app)
+            .tree_rows_view("")
+            .rows
+            .iter()
+            .any(|row| matches!(row, super::row::TreeRow::Table { key, is_view: false, .. } if key.1 == "users"))
+    }));
+
+    cx.simulate_click(tables_header.center(), Modifiers::default());
+    cx.run_until_parked();
+
+    let rows = cx.update(|_, app| panel.read(app).tree_rows_view("").rows.clone());
+    assert!(!rows.iter().any(|row| {
+        matches!(row, super::row::TreeRow::Table { key, is_view: false, .. } if key.1 == "users")
+    }));
+    assert!(rows.iter().any(|row| {
+        matches!(row, super::row::TreeRow::Table { key, is_view: true, .. } if key.1 == "audit_log")
+    }));
 }

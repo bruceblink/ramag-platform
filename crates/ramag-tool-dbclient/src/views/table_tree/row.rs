@@ -86,7 +86,10 @@ pub(super) enum TreeRow {
         is_error: bool,
     },
     GroupHeader {
+        schema: String,
+        is_view: bool,
         text: String,
+        is_expanded: bool,
     },
     Table {
         key: Rc<(String, String)>,
@@ -180,6 +183,7 @@ impl TableTreePanel {
                 connection_id: self.connection.as_ref().map(|connection| &connection.id),
                 navigation_favorites: &self.navigation_favorites,
                 recent_tables: &self.recent_tables,
+                collapsed_table_groups: &self.collapsed_table_groups,
             },
         );
         self.tree_rows_cache.replace(Some(TreeRowsCacheEntry {
@@ -278,25 +282,20 @@ impl TableTreePanel {
                 .text_ellipsis()
                 .child(text.clone())
                 .into_any_element(),
-            TreeRow::GroupHeader { text } => h_flex()
-                .h(px(28.0))
-                .flex_none()
-                .items_center()
-                .gap_1()
-                .pl(px(20.0))
-                .pr_2()
-                .text_xs()
-                .text_color(muted_fg)
-                .child(
-                    div().w(px(14.0)).child(
-                        Icon::new(IconName::ChevronDown)
-                            .xsmall()
-                            .text_color(muted_fg),
-                    ),
-                )
-                .child(Icon::new(IconName::FolderOpen).small().text_color(muted_fg))
-                .child(text.clone())
-                .into_any_element(),
+            TreeRow::GroupHeader {
+                schema,
+                is_view,
+                text,
+                is_expanded,
+            } => super::group_row::render(
+                schema,
+                *is_view,
+                text,
+                *is_expanded,
+                muted_fg,
+                muted_bg,
+                cx,
+            ),
             TreeRow::Table {
                 key,
                 is_view,

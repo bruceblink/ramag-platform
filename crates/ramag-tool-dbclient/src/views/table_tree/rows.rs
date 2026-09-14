@@ -34,6 +34,7 @@ pub(super) fn build_tree_rows(
             connection_id: None,
             navigation_favorites: &HashSet::new(),
             recent_tables: &[],
+            collapsed_table_groups: &HashSet::new(),
         },
     )
 }
@@ -53,6 +54,7 @@ pub(super) fn build_tree_rows_with_navigation(
         connection_id,
         navigation_favorites,
         recent_tables,
+        collapsed_table_groups,
     } = navigation;
     let has_filter = !filter.is_empty();
     let mut visible: Vec<&Schema> = schemas
@@ -178,6 +180,7 @@ pub(super) fn build_tree_rows_with_navigation(
         let show_group_header = total_tables > 0 || total_views > 0;
         let schema_matches = contains_case_insensitive(name, filter);
         let mut last_was_view = None;
+        let mut group_is_expanded = true;
         for table in &schema_tables.tables {
             if !table_matches_filter(
                 table_filter,
@@ -193,14 +196,24 @@ pub(super) fn build_tree_rows_with_navigation(
                 continue;
             }
             if show_group_header && last_was_view != Some(table.is_view) {
+                let group_key = (name.clone(), table.is_view);
+                let is_group_expanded = (has_filter || table_filter != TableTreeFilter::All)
+                    || !collapsed_table_groups.contains(&group_key);
                 rows.push(TreeRow::GroupHeader {
+                    schema: name.clone(),
+                    is_view: table.is_view,
                     text: if table.is_view {
                         format!("views {total_views}")
                     } else {
                         format!("tables {total_tables}")
                     },
+                    is_expanded: is_group_expanded,
                 });
                 last_was_view = Some(table.is_view);
+                group_is_expanded = is_group_expanded;
+            }
+            if show_group_header && !group_is_expanded {
+                continue;
             }
 
             let columns_key = Rc::new((name.clone(), table.name.clone()));

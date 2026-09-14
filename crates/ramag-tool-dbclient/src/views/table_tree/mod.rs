@@ -1,6 +1,7 @@
 mod compare;
 mod ddl;
 mod ddl_ops;
+mod group_row;
 mod load;
 mod locate;
 mod menus;
@@ -52,6 +53,8 @@ pub struct TableTreePanel {
     /// 表缓存与展开状态分离。
     pub(super) expanded: HashMap<String, SchemaTables>,
     pub(super) open_schemas: HashSet<String>,
+    /// 记录被用户收起的表/视图分组；未记录的分组默认展开。
+    pub(super) collapsed_table_groups: HashSet<(String, bool)>,
     pub(super) full_search: Option<FullSearchProgress>,
     pub(super) full_search_generation: u64,
     /// 防止旧连接的异步结果回写。
@@ -145,6 +148,7 @@ pub(super) struct TableTreeNavigation<'a> {
     connection_id: Option<&'a ramag_domain::entities::ConnectionId>,
     navigation_favorites: &'a HashSet<navigation::TableNavigationRef>,
     recent_tables: &'a [navigation::TableNavigationRef],
+    collapsed_table_groups: &'a HashSet<(String, bool)>,
 }
 
 #[derive(Debug, Clone)]
@@ -219,6 +223,7 @@ impl TableTreePanel {
             error: None,
             expanded: HashMap::new(),
             open_schemas: HashSet::new(),
+            collapsed_table_groups: HashSet::new(),
             full_search: None,
             full_search_generation: 0,
             metadata_generation: 0,
@@ -293,6 +298,7 @@ impl TableTreePanel {
         self.schemas.clear();
         self.expanded.clear();
         self.open_schemas.clear();
+        self.collapsed_table_groups.clear();
         self.cancel_full_search(cx);
         self.table_columns.clear();
         self.selected = None;
@@ -353,6 +359,7 @@ impl TableTreePanel {
                             &schemas,
                             &mut this.expanded,
                             &mut this.open_schemas,
+                            &mut this.collapsed_table_groups,
                             &mut this.table_columns,
                             &mut this.selected,
                             &mut this.active_schema,
@@ -391,6 +398,7 @@ fn retain_schema_tree_state(
     schemas: &[Schema],
     expanded: &mut HashMap<String, SchemaTables>,
     open_schemas: &mut HashSet<String>,
+    collapsed_table_groups: &mut HashSet<(String, bool)>,
     table_columns: &mut HashMap<(String, String), TableColumns>,
     selected: &mut Option<(String, String)>,
     active_schema: &mut Option<String>,
@@ -398,6 +406,7 @@ fn retain_schema_tree_state(
     let available: HashSet<&str> = schemas.iter().map(|schema| schema.name.as_str()).collect();
     expanded.retain(|schema, _| available.contains(schema.as_str()));
     open_schemas.retain(|schema| available.contains(schema.as_str()));
+    collapsed_table_groups.retain(|(schema, _)| available.contains(schema.as_str()));
     table_columns.retain(|(schema, _), _| available.contains(schema.as_str()));
     if selected
         .as_ref()
@@ -500,6 +509,7 @@ mod tests {
             &[schema("public"), schema("archive")],
             &mut expanded,
             &mut open_schemas,
+            &mut HashSet::new(),
             &mut table_columns,
             &mut selected,
             &mut active_schema,
@@ -520,6 +530,7 @@ mod tests {
         retain_schema_tree_state(
             &[schema("public")],
             &mut HashMap::new(),
+            &mut HashSet::new(),
             &mut HashSet::new(),
             &mut HashMap::new(),
             &mut selected,

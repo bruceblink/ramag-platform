@@ -5,6 +5,7 @@ use ramag_domain::entities::{
 
 use super::*;
 use crate::views::table_tree::navigation::{TableNavigationRef, TableTreeFilter};
+use crate::views::table_tree::rows::build_tree_rows_with_navigation;
 
 #[test]
 fn metadata_rows_keep_exact_copy_targets() {
@@ -210,11 +211,86 @@ fn table_only_schema_shows_datagrip_style_table_count() {
         .rows
         .iter()
         .filter_map(|row| match row {
-            TreeRow::GroupHeader { text } => Some(text.as_str()),
+            TreeRow::GroupHeader { text, .. } => Some(text.as_str()),
             _ => None,
         })
         .collect::<Vec<_>>();
     assert_eq!(headers, ["tables 2"]);
+}
+
+#[test]
+fn collapsed_table_group_hides_only_tables_and_keeps_views_visible() {
+    let schemas = vec![Schema {
+        name: "public".into(),
+        charset: None,
+        collation: None,
+    }];
+    let expanded = HashMap::from([(
+        "public".into(),
+        SchemaTables {
+            tables: vec![
+                Table {
+                    name: "users".into(),
+                    schema: "public".into(),
+                    comment: None,
+                    is_view: false,
+                    size_bytes: None,
+                },
+                Table {
+                    name: "audit_log".into(),
+                    schema: "public".into(),
+                    comment: None,
+                    is_view: true,
+                    size_bytes: None,
+                },
+            ],
+            ..Default::default()
+        },
+    )]);
+    let collapsed = HashSet::from([("public".to_string(), false)]);
+
+    let view = build_tree_rows_with_navigation(
+        &schemas,
+        &expanded,
+        &HashSet::from(["public".to_string()]),
+        &HashMap::new(),
+        false,
+        "",
+        TableTreeNavigation {
+            table_filter: TableTreeFilter::All,
+            connection_id: None,
+            navigation_favorites: &HashSet::new(),
+            recent_tables: &[],
+            collapsed_table_groups: &collapsed,
+        },
+    );
+
+    assert!(view.rows.iter().any(|row| {
+        matches!(
+            row,
+            TreeRow::GroupHeader {
+                is_view: false,
+                is_expanded: false,
+                ..
+            }
+        )
+    }));
+    assert!(!view.rows.iter().any(|row| {
+        matches!(row, TreeRow::Table { key, is_view: false, .. } if key.1 == "users")
+    }));
+    assert!(view.rows.iter().any(|row| {
+        matches!(
+            row,
+            TreeRow::GroupHeader {
+                is_view: true,
+                is_expanded: true,
+                ..
+            }
+        )
+    }));
+    assert!(view.rows.iter().any(|row| {
+        matches!(row, TreeRow::Table { key, is_view: true, .. } if key.1 == "audit_log")
+    }));
 }
 
 #[test]
@@ -440,6 +516,7 @@ fn navigation_filter_keeps_only_current_connection_tables() {
             connection_id: Some(&connection_id),
             navigation_favorites: &favorites,
             recent_tables: &recent,
+            collapsed_table_groups: &HashSet::new(),
         },
     );
     assert!(
@@ -461,6 +538,7 @@ fn navigation_filter_keeps_only_current_connection_tables() {
             connection_id: Some(&connection_id),
             navigation_favorites: &favorites,
             recent_tables: &recent,
+            collapsed_table_groups: &HashSet::new(),
         },
     );
     assert!(
