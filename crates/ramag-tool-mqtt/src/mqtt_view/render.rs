@@ -21,8 +21,8 @@ impl Render for MqttView {
             .child(match self.section {
                 MqttSection::Config => self.render_config(window, cx).into_any_element(),
                 MqttSection::Overview => self.render_overview(window, cx).into_any_element(),
-                MqttSection::Publish => self.render_publish(cx).into_any_element(),
-                MqttSection::Subscribe => self.render_subscribe(cx).into_any_element(),
+                MqttSection::Publish => self.render_publish(window, cx).into_any_element(),
+                MqttSection::Subscribe => self.render_subscribe(window, cx).into_any_element(),
                 MqttSection::Mosquitto => self.render_mosquitto(window, cx).into_any_element(),
             });
         h_flex()

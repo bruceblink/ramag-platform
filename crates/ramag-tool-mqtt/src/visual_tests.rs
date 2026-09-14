@@ -4,6 +4,8 @@ use std::sync::{
 };
 use std::time::Duration;
 
+use chrono::Utc;
+
 use async_channel::{Receiver, Sender, bounded};
 use async_trait::async_trait;
 use gpui::{
@@ -14,8 +16,8 @@ use ramag_app::MqttService;
 use ramag_domain::entities::{
     ConnectionConfig, ConnectionId, MosquittoAcl, MosquittoAclDecision, MosquittoAclType,
     MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoRole, MosquittoRoleBinding,
-    MqttBrokerSnapshot, MqttProfile, MqttTopicObservation, MqttTopicSource, QueryRecord,
-    QueryRecordId,
+    MqttBrokerSnapshot, MqttMessage, MqttProfile, MqttQos, MqttTopicObservation, MqttTopicSource,
+    QueryRecord, QueryRecordId,
 };
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, Storage};
@@ -435,6 +437,64 @@ fn mqtt_message_pages_keep_inputs_bounded_and_editable(cx: &mut TestAppContext) 
         view.subscribe_filter.read(cx).value().to_string()
     });
     assert_eq!(filter, "sensors/#", "订阅 Topic Filter 应能接收键盘输入");
+}
+
+#[gpui::test]
+fn mqtt_message_operations_reflow_inside_supported_window_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(NoopMqttDriver),
+        Arc::new(NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    visual_cx.simulate_resize(size(px(1440.0), px(900.0)));
+    visual_cx.run_until_parked();
+    view.update(visual_cx, |view, cx| {
+        view.loading_profiles = false;
+        view.section = MqttSection::Subscribe;
+        view.messages.push_back(MqttMessage {
+            topic: "sensors/warehouse/temperature/very-long-topic-name".into(),
+            payload: vec![b'x'; 512],
+            qos: MqttQos::AtLeastOnce,
+            retain: false,
+            duplicate: false,
+            received_at: Utc::now(),
+            user_properties: Vec::new(),
+        });
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+
+    for (width, height) in [
+        (360.0, 240.0),
+        (640.0, 480.0),
+        (1024.0, 768.0),
+        (1440.0, 900.0),
+    ] {
+        visual_cx.simulate_resize(size(px(width), px(height)));
+        visual_cx.run_until_parked();
+        let scroll = visual_cx
+            .debug_bounds("mqtt-main")
+            .expect("MQTT 主工作区应参与布局");
+        for selector in ["mqtt-subscribe-actions", "mqtt-subscribe-message-meta"] {
+            let bounds = visual_cx
+                .debug_bounds(selector)
+                .expect("订阅操作和消息元数据应参与布局");
+            assert!(
+                bounds.origin.x >= scroll.origin.x && bounds.right() <= scroll.right(),
+                "{}px 窗口中的 {} 不能越出订阅内容区: scroll={scroll:?}, bounds={bounds:?}",
+                width,
+                selector
+            );
+        }
+    }
 }
 
 #[gpui::test]

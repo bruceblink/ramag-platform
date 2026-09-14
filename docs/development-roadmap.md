@@ -224,3 +224,5 @@ Headless 结果不能描述为真实窗口结果；外部服务未启动时只�
 `UI-001` MQTT 权限预览切片（2026-09-14）：`ramag-tool-mqtt` 在窗口宽度小于 760px 时将 Mosquitto 用户权限预览从固定四列改为纵向信息块，宽窗口继续使用表格行，避免 Topic、Role 和权限信息越出内容区。`mqtt_client_permissions_reflow_inside_supported_window_widths` 覆盖 360/1024/1440 headless 窗口；`cargo test -p ramag-tool-mqtt --lib` 的 8 项测试、workspace MSVC Clippy、格式检查和 `git diff --check` 通过。`check-source-size.ps1` 仍报告既有的 `dynamic_security_operations.rs` 为 606 行，`HEAD` 基线同样为 606 行，本次未修改该文件。真实 Windows 窗口截图和键盘操作仍待补充。
 
 `UI-001` MQTT Dynamic Security 编辑器切片（2026-09-14）：用户、Group 和 Role 编辑器的标题区、字段组和保存/删除操作在窄窗口下改为可换行布局，360px 时字段组纵向排列，宽窗口继续使用横向字段布局；新增 `mqtt_management_editors_reflow_inside_supported_window_widths`，覆盖 360/1024/1440 headless 窗口。workspace MSVC 测试、Clippy、格式检查和 `git diff --check` 通过；`check-source-size.ps1` 仍只报告既有的 `dynamic_security_operations.rs` 为 606 行，本切片未修改该文件。真实 Windows 窗口截图和键盘操作仍待补充。
+
+`UI-001` MQTT 发布/订阅操作区切片（2026-09-14）：发布按钮和订阅启停操作在 760px 以下保留完整可用宽度，订阅消息的长 Topic 与 QoS/时间元数据允许换行，避免紧凑窗口把操作或消息头部推出主工作区；新增 `mqtt_message_operations_reflow_inside_supported_window_widths`，覆盖 360×240、640×480、1024×768 和 1440×900 headless 窗口，并使用长 Topic、512 字节 Payload 回归布局边界。真实 Windows 窗口截图、键盘操作和远端 MQTT 服务证据仍待补充。

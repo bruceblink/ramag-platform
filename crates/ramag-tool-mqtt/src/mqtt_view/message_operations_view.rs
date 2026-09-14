@@ -143,7 +143,7 @@ impl MqttView {
             })
     }
 
-    fn render_publish(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_publish(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let body = v_flex()
             .w_full()
@@ -179,7 +179,12 @@ impl MqttView {
                 ),
             ))
             .child(
-                ramag_ui::clickable_button("mqtt-publish")
+                div()
+                    .debug_selector(|| "mqtt-publish-actions".into())
+                    .when(window.viewport_size().width < px(760.0), |actions| {
+                        actions.w_full()
+                    })
+                    .child(ramag_ui::clickable_button("mqtt-publish")
                     .primary()
                     .small()
                     .label("发布消息")
@@ -187,7 +192,7 @@ impl MqttView {
                     .disabled(self.publishing || self.subscription_running)
                     .on_click(
                         cx.listener(|this, _: &ClickEvent, window, cx| this.publish(window, cx)),
-                    ),
+                    )),
             );
         v_flex()
             .id("mqtt-publish-scroll")
@@ -199,7 +204,7 @@ impl MqttView {
             .child(body)
     }
 
-    fn render_subscribe(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_subscribe(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let mut body = v_flex()
             .w_full()
@@ -242,7 +247,14 @@ impl MqttView {
                     this.start_subscription(window, cx)
                 }))
         };
-        body = body.child(action);
+        body = body.child(
+            div()
+                .debug_selector(|| "mqtt-subscribe-actions".into())
+                .when(window.viewport_size().width < px(760.0), |actions| {
+                    actions.w_full()
+                })
+                .child(action),
+        );
         if self.messages.is_empty() {
             body = body.child(div().text_sm().text_color(theme.muted_foreground).child(
                 if self.subscription_running {
@@ -264,21 +276,29 @@ impl MqttView {
                         .rounded(px(5.0))
                         .child(
                             h_flex()
+                                .debug_selector(|| "mqtt-subscribe-message-meta".into())
+                                .flex_wrap()
+                                .min_w_0()
                                 .gap(px(8.0))
                                 .child(
                                     div()
                                         .text_xs()
                                         .font_weight(gpui::FontWeight::SEMIBOLD)
+                                        .flex_1()
+                                        .min_w_0()
                                         .truncate()
                                         .child(message.topic.clone()),
                                 )
-                                .child(div().text_xs().text_color(theme.muted_foreground).child(
-                                    format!(
-                                        "QoS {} · {}",
-                                        message.qos.as_u8(),
-                                        message.received_at
-                                    ),
-                                )),
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(theme.muted_foreground)
+                                        .child(format!(
+                                            "QoS {} · {}",
+                                            message.qos.as_u8(),
+                                            message.received_at
+                                        )),
+                                ),
                         )
                         .child(
                             div()
