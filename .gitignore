@@ -21,6 +21,7 @@ Cargo.lock.bak
 *.log
 /tmp/
 /artifacts/
+/test-results/
 
 # AI code
 CLAUDE.md
