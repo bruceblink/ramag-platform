@@ -278,15 +278,23 @@ impl TableTreePanel {
                 .text_ellipsis()
                 .child(text.clone())
                 .into_any_element(),
-            TreeRow::GroupHeader { text } => div()
-                .w_full()
+            TreeRow::GroupHeader { text } => h_flex()
                 .h(px(28.0))
                 .flex_none()
-                .pl_5()
+                .items_center()
+                .gap_1()
+                .pl(px(20.0))
                 .pr_2()
-                .pt(px(6.0))
                 .text_xs()
                 .text_color(muted_fg)
+                .child(
+                    div().w(px(14.0)).child(
+                        Icon::new(IconName::ChevronDown)
+                            .xsmall()
+                            .text_color(muted_fg),
+                    ),
+                )
+                .child(Icon::new(IconName::FolderOpen).small().text_color(muted_fg))
                 .child(text.clone())
                 .into_any_element(),
             TreeRow::Table {

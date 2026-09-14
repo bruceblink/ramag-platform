@@ -168,6 +168,56 @@ fn metadata_rows_keep_exact_copy_targets() {
 }
 
 #[test]
+fn table_only_schema_shows_datagrip_style_table_count() {
+    let schemas = vec![Schema {
+        name: "ship-db".into(),
+        charset: None,
+        collation: None,
+    }];
+    let expanded = HashMap::from([(
+        "ship-db".into(),
+        SchemaTables {
+            tables: vec![
+                Table {
+                    name: "ships".into(),
+                    schema: "ship-db".into(),
+                    comment: None,
+                    is_view: false,
+                    size_bytes: None,
+                },
+                Table {
+                    name: "voyages".into(),
+                    schema: "ship-db".into(),
+                    comment: None,
+                    is_view: false,
+                    size_bytes: None,
+                },
+            ],
+            ..Default::default()
+        },
+    )]);
+
+    let view = build_tree_rows(
+        &schemas,
+        &expanded,
+        &HashSet::from(["ship-db".into()]),
+        &HashMap::new(),
+        false,
+        "",
+    );
+
+    let headers = view
+        .rows
+        .iter()
+        .filter_map(|row| match row {
+            TreeRow::GroupHeader { text } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(headers, ["tables 2"]);
+}
+
+#[test]
 fn tree_rows_match_unicode_table_names_without_lowercase_copies() {
     let schemas = vec![Schema {
         name: "public".into(),

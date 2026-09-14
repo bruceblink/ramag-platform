@@ -174,7 +174,8 @@ pub(super) fn build_tree_rows_with_navigation(
             .iter()
             .filter(|table| table.is_view)
             .count();
-        let show_group_header = total_tables > 0 && total_views > 0;
+        // 即使 Schema 只有普通表，也保留 DataGrip 风格的 tables 分组和总数。
+        let show_group_header = total_tables > 0 || total_views > 0;
         let schema_matches = contains_case_insensitive(name, filter);
         let mut last_was_view = None;
         for table in &schema_tables.tables {
@@ -194,9 +195,9 @@ pub(super) fn build_tree_rows_with_navigation(
             if show_group_header && last_was_view != Some(table.is_view) {
                 rows.push(TreeRow::GroupHeader {
                     text: if table.is_view {
-                        format!("视图 ({total_views})")
+                        format!("views {total_views}")
                     } else {
-                        format!("表 ({total_tables})")
+                        format!("tables {total_tables}")
                     },
                 });
                 last_was_view = Some(table.is_view);
