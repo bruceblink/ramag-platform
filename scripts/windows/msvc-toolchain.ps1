@@ -39,6 +39,8 @@ $script:WindowsMsvcEnvironmentNames = @(
     "CMAKE_RC_COMPILER",
     "CMAKE_SYSTEM_NAME",
     "CMAKE_TOOLCHAIN_FILE",
+    "CMAKE_VS_GLOBALS",
+    "CMAKE_TRY_COMPILE_PLATFORM_VARIABLES",
     "CMAKE_GENERATOR_PLATFORM",
     "CMAKE_GENERATOR_INSTANCE",
     "CMAKE_GENERATOR_TOOLSET",
@@ -96,6 +98,14 @@ function Get-WindowsMsvcCMakePlatform {
 
 function Get-WindowsMsvcCMakeToolset {
     return $script:WindowsMsvcCMakeToolset
+}
+
+function Get-WindowsMsvcCMakeToolchainFile {
+    $ToolchainFile = Join-Path (Get-WindowsRepositoryRoot) "scripts\windows\msvc-cmake-toolchain.cmake"
+    if (-not (Test-Path -LiteralPath $ToolchainFile -PathType Leaf)) {
+        throw "Windows MSVC CMake toolchain file is missing: $ToolchainFile"
+    }
+    return $ToolchainFile
 }
 
 function Get-WindowsMsvcEnvironmentNames {
@@ -506,6 +516,10 @@ function Set-WindowsMsvcEnvironment {
         CMAKE_CXX_COMPILER = $Toolchain.Cl
         CMAKE_RC_COMPILER = $Toolchain.Rc
         CMAKE_SYSTEM_NAME = "Windows"
+        CMAKE_TOOLCHAIN_FILE = Get-WindowsMsvcCMakeToolchainFile
+        # cmake crate forwards these CMAKE_* variables as configure -D options.
+        CMAKE_VS_GLOBALS = "UseEnv=true"
+        CMAKE_TRY_COMPILE_PLATFORM_VARIABLES = "CMAKE_VS_GLOBALS"
         CMAKE_GENERATOR_PLATFORM = Get-WindowsMsvcCMakePlatform
         CMAKE_GENERATOR_INSTANCE = $VisualStudioInstance
         CMAKE_GENERATOR_TOOLSET = Get-WindowsMsvcCMakeToolset

@@ -18,6 +18,8 @@ Describe "Windows MSVC toolchain" {
         $Names | Should -Contain "CMAKE_GENERATOR_INSTANCE"
         $Names | Should -Contain "CMAKE_GENERATOR_PLATFORM"
         $Names | Should -Contain "CMAKE_GENERATOR_TOOLSET"
+        $Names | Should -Contain "CMAKE_VS_GLOBALS"
+        $Names | Should -Contain "CMAKE_TRY_COMPILE_PLATFORM_VARIABLES"
         $Names | Should -Not -Contain "CMAKE_MAKE_PROGRAM"
         $Names | Should -Not -Contain "CC_x86_64-pc-windows-gnu"
         $Names | Should -Not -Contain "CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER"
@@ -53,6 +55,10 @@ Describe "Windows MSVC toolchain" {
             $env:CMAKE_GENERATOR_PLATFORM | Should -BeExactly "x64"
             $env:CMAKE_GENERATOR_INSTANCE | Should -BeExactly "C:\\VS"
             $env:CMAKE_GENERATOR_TOOLSET | Should -BeExactly "host=x64"
+            $env:CMAKE_TOOLCHAIN_FILE | Should -BeExactly (Get-WindowsMsvcCMakeToolchainFile)
+            Test-Path -LiteralPath $env:CMAKE_TOOLCHAIN_FILE -PathType Leaf | Should -BeTrue
+            $env:CMAKE_VS_GLOBALS | Should -BeExactly "UseEnv=true"
+            $env:CMAKE_TRY_COMPILE_PLATFORM_VARIABLES | Should -BeExactly "CMAKE_VS_GLOBALS"
             $env:CMAKE_MAKE_PROGRAM | Should -BeNullOrEmpty
             $env:PROCESSOR_ARCHITECTURE | Should -BeExactly "AMD64"
             $env:CC | Should -BeExactly "C:\\VS\\bin\\cl.exe"
