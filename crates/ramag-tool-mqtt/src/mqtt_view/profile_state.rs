@@ -287,6 +287,8 @@ impl MqttView {
             operation_id: 0,
             snapshot_request_id: 0,
             subscription_request_id: 0,
+            profile_context_id: 0,
+            static_file_request_id: 0,
             notice: None,
             snapshot_error: None,
             management_error: None,
@@ -526,6 +528,7 @@ impl MqttView {
     }
 
     fn clear_runtime_state(&mut self) {
+        self.invalidate_profile_context();
         self.snapshot = None;
         self.management_snapshot = None;
         self.snapshot_error = None;
@@ -535,6 +538,25 @@ impl MqttView {
         self.selected_role_name = None;
         self.static_file = None;
         self.messages.clear();
+    }
+
+    /// 使切换配置前启动的异步请求失效，并清除旧配置的进行中状态。
+    fn invalidate_profile_context(&mut self) {
+        self.profile_context_id = self.profile_context_id.wrapping_add(1);
+        self.operation_id = self.operation_id.wrapping_add(1);
+        self.snapshot_request_id = self.snapshot_request_id.wrapping_add(1);
+        self.management_operation_id = self.management_operation_id.wrapping_add(1);
+        self.static_file_request_id = self.static_file_request_id.wrapping_add(1);
+        self.saving = false;
+        self.testing = false;
+        self.deleting = false;
+        self.publishing = false;
+        self.loading_snapshot = false;
+        self.loading_management = false;
+        self.saving_management = false;
+        self.deleting_management = false;
+        self.loading_static_file = false;
+        self.saving_static_file = false;
     }
 
 }

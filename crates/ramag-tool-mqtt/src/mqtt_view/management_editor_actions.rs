@@ -6,6 +6,9 @@ impl MqttView {
             return;
         };
         let kind = self.static_file_kind;
+        let profile_context_id = self.profile_context_id;
+        self.static_file_request_id = self.static_file_request_id.wrapping_add(1);
+        let request_id = self.static_file_request_id;
         self.loading_static_file = true;
         self.static_file = None;
         self.notice = Some((format!("正在读取 Mosquitto {}…", kind.label()), false));
@@ -13,6 +16,11 @@ impl MqttView {
         cx.spawn_in(window, async move |this, cx| {
             let result = service.read_static_file(&profile, kind).await;
             let _ = this.update_in(cx, |this, window, cx| {
+                if this.static_file_request_id != request_id
+                    || this.profile_context_id != profile_context_id
+                {
+                    return;
+                }
                 this.loading_static_file = false;
                 match result {
                     Ok(file) => {
@@ -51,11 +59,19 @@ impl MqttView {
             return;
         }
         let service = self.service.clone();
+        let profile_context_id = self.profile_context_id;
+        self.static_file_request_id = self.static_file_request_id.wrapping_add(1);
+        let request_id = self.static_file_request_id;
         self.saving_static_file = true;
         self.notice = Some(("正在保存 Mosquitto 静态文件…".into(), false));
         cx.spawn(async move |this, cx| {
             let result = service.write_static_file(&profile, &file).await;
             let _ = this.update(cx, |this, cx| {
+                if this.static_file_request_id != request_id
+                    || this.profile_context_id != profile_context_id
+                {
+                    return;
+                }
                 this.saving_static_file = false;
                 match result {
                     Ok(()) => {

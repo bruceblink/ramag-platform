@@ -5,6 +5,7 @@ impl MqttView {
             cx.notify();
             return;
         };
+        let profile_context_id = self.profile_context_id;
         self.management_operation_id = self.management_operation_id.wrapping_add(1);
         let operation_id = self.management_operation_id;
         self.loading_management = true;
@@ -13,7 +14,9 @@ impl MqttView {
         cx.spawn(async move |this, cx| {
             let result = service.dynamic_security_snapshot(&profile).await;
             let _ = this.update(cx, |this, cx| {
-                if this.management_operation_id != operation_id {
+                if this.management_operation_id != operation_id
+                    || this.profile_context_id != profile_context_id
+                {
                     return;
                 }
                 this.loading_management = false;
@@ -233,6 +236,7 @@ impl MqttView {
             }
         };
         let service = self.service.clone();
+        let profile_context_id = self.profile_context_id;
         self.management_operation_id = self.management_operation_id.wrapping_add(1);
         let operation_id = self.management_operation_id;
         self.saving_management = true;
@@ -246,7 +250,9 @@ impl MqttView {
                 },
             };
             let _ = this.update(cx, |this, cx| {
-                if this.management_operation_id != operation_id {
+                if this.management_operation_id != operation_id
+                    || this.profile_context_id != profile_context_id
+                {
                     return;
                 }
                 this.saving_management = false;
@@ -289,6 +295,7 @@ impl MqttView {
             }
         };
         let service = self.service.clone();
+        let profile_context_id = self.profile_context_id;
         self.management_operation_id = self.management_operation_id.wrapping_add(1);
         let operation_id = self.management_operation_id;
         self.saving_management = true;
@@ -302,7 +309,9 @@ impl MqttView {
                 },
             };
             let _ = this.update(cx, |this, cx| {
-                if this.management_operation_id != operation_id {
+                if this.management_operation_id != operation_id
+                    || this.profile_context_id != profile_context_id
+                {
                     return;
                 }
                 this.saving_management = false;
@@ -344,6 +353,7 @@ impl MqttView {
             }
         };
         let service = self.service.clone();
+        let profile_context_id = self.profile_context_id;
         self.management_operation_id = self.management_operation_id.wrapping_add(1);
         let operation_id = self.management_operation_id;
         self.saving_management = true;
@@ -357,7 +367,9 @@ impl MqttView {
                 },
             };
             let _ = this.update(cx, |this, cx| {
-                if this.management_operation_id != operation_id {
+                if this.management_operation_id != operation_id
+                    || this.profile_context_id != profile_context_id
+                {
                     return;
                 }
                 this.saving_management = false;
@@ -409,6 +421,7 @@ impl MqttView {
             return;
         };
         let service = self.service.clone();
+        let profile_context_id = self.profile_context_id;
         self.management_operation_id = self.management_operation_id.wrapping_add(1);
         let operation_id = self.management_operation_id;
         self.deleting_management = true;
@@ -422,7 +435,9 @@ impl MqttView {
                 },
             };
             let _ = this.update(cx, |this, cx| {
-                if this.management_operation_id != operation_id {
+                if this.management_operation_id != operation_id
+                    || this.profile_context_id != profile_context_id
+                {
                     return;
                 }
                 this.deleting_management = false;
@@ -475,6 +490,7 @@ impl MqttView {
             return;
         };
         let service = self.service.clone();
+        let profile_context_id = self.profile_context_id;
         self.management_operation_id = self.management_operation_id.wrapping_add(1);
         let operation_id = self.management_operation_id;
         self.deleting_management = true;
@@ -488,7 +504,9 @@ impl MqttView {
                 },
             };
             let _ = this.update(cx, |this, cx| {
-                if this.management_operation_id != operation_id {
+                if this.management_operation_id != operation_id
+                    || this.profile_context_id != profile_context_id
+                {
                     return;
                 }
                 this.deleting_management = false;
@@ -541,6 +559,7 @@ impl MqttView {
             return;
         };
         let service = self.service.clone();
+        let profile_context_id = self.profile_context_id;
         self.management_operation_id = self.management_operation_id.wrapping_add(1);
         let operation_id = self.management_operation_id;
         self.deleting_management = true;
@@ -554,7 +573,9 @@ impl MqttView {
                 },
             };
             let _ = this.update(cx, |this, cx| {
-                if this.management_operation_id != operation_id {
+                if this.management_operation_id != operation_id
+                    || this.profile_context_id != profile_context_id
+                {
                     return;
                 }
                 this.deleting_management = false;

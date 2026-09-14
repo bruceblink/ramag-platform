@@ -4,6 +4,7 @@ use std::sync::{
 };
 use std::time::Duration;
 
+use async_channel::{Receiver, Sender, bounded};
 use async_trait::async_trait;
 use gpui::{
     AppContext as _, Context, IntoElement, Modifiers, ParentElement as _, Render, Styled as _,
@@ -11,7 +12,8 @@ use gpui::{
 };
 use ramag_app::MqttService;
 use ramag_domain::entities::{
-    ConnectionConfig, ConnectionId, MqttProfile, QueryRecord, QueryRecordId,
+    ConnectionConfig, ConnectionId, MqttBrokerSnapshot, MqttProfile, MqttTopicObservation,
+    MqttTopicSource, QueryRecord, QueryRecordId,
 };
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, Storage};
@@ -98,6 +100,35 @@ impl MqttDriver for RecordingMqttDriver {
     async fn test_connection(&self, _profile: &MqttProfile) -> Result<()> {
         self.connection_tests.fetch_add(1, Ordering::Relaxed);
         Ok(())
+    }
+}
+
+struct BlockingSnapshotDriver {
+    release: Receiver<()>,
+    started: Sender<()>,
+}
+
+#[async_trait]
+impl MqttDriver for BlockingSnapshotDriver {
+    async fn broker_snapshot(&self, profile: &MqttProfile) -> Result<MqttBrokerSnapshot> {
+        self.started
+            .send(())
+            .await
+            .expect("快照测试开始信号应可发送");
+        if profile.host == "first.example" {
+            self.release.recv().await.expect("快照测试释放信号应可接收");
+        }
+        Ok(MqttBrokerSnapshot {
+            topics: vec![MqttTopicObservation {
+                name: format!("{}.topic", profile.host),
+                source: MqttTopicSource::Observed,
+                retained: false,
+                observed_at: None,
+            }],
+            online_clients: Vec::new(),
+            topics_complete: false,
+            online_clients_complete: false,
+        })
     }
 }
 
@@ -283,6 +314,63 @@ fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
         2,
         "测试连接按钮必须调用 MQTT 驱动"
     );
+}
+
+#[gpui::test]
+fn mqtt_snapshot_result_does_not_cross_profile_context(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let (release_sender, release_receiver) = bounded(1);
+    let (started_sender, started_receiver) = bounded(1);
+    let driver = Arc::new(BlockingSnapshotDriver {
+        release: release_receiver,
+        started: started_sender,
+    });
+    let service = Arc::new(MqttService::new(driver, Arc::new(NoopStorage::default())));
+    let first = MqttProfile::new("第一个 Broker", "first.example", 1883);
+    let second = MqttProfile::new("第二个 Broker", "second.example", 1883);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.loading_profiles = false;
+            view.profiles = vec![first.clone(), second.clone()];
+            view.selected_profile_id = Some(first.id.clone());
+            view.set_form_from_profile(&first, window, cx);
+            view.load_snapshot(window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(
+        started_receiver.try_recv().is_ok(),
+        "第一个 Broker 快照应已开始"
+    );
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.select_profile(second.id.clone(), window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.selected_profile_id == Some(second.id.clone())
+            && view.snapshot.is_none()
+            && !view.loading_snapshot
+    }));
+
+    release_sender
+        .try_send(())
+        .expect("第一个 Broker 快照应可释放");
+    visual_cx.run_until_parked();
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.selected_profile_id == Some(second.id.clone()) && view.snapshot.is_none()
+    }));
 }
 
 #[gpui::test]

@@ -227,6 +227,8 @@ pub struct MqttView {
     operation_id: u64,
     snapshot_request_id: u64,
     subscription_request_id: u64,
+    profile_context_id: u64,
+    static_file_request_id: u64,
     notice: Option<(String, bool)>,
     snapshot_error: Option<String>,
     management_error: Option<String>,

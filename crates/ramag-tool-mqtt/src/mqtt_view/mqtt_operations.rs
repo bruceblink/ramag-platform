@@ -115,13 +115,14 @@ impl MqttView {
         let service = self.service.clone();
         let id = profile.id.clone();
         let name = profile.name.clone();
+        let profile_context_id = self.profile_context_id;
         self.operation_id = self.operation_id.wrapping_add(1);
         let operation_id = self.operation_id;
         self.saving = true;
         cx.spawn_in(window, async move |this, cx| {
             let result = service.save_profile(&profile).await;
             let _ = this.update_in(cx, |this, window, cx| {
-                if this.operation_id != operation_id {
+                if this.operation_id != operation_id || this.profile_context_id != profile_context_id {
                     return;
                 }
                 this.saving = false;
@@ -157,11 +158,17 @@ impl MqttView {
             return;
         };
         let service = self.service.clone();
+        let profile_context_id = self.profile_context_id;
+        self.operation_id = self.operation_id.wrapping_add(1);
+        let operation_id = self.operation_id;
         self.deleting = true;
         self.notice = Some(("正在删除本机配置…".into(), false));
         cx.spawn_in(window, async move |this, cx| {
             let result = service.delete_profile(&id).await;
             let _ = this.update_in(cx, |this, window, cx| {
+                if this.operation_id != operation_id || this.profile_context_id != profile_context_id {
+                    return;
+                }
                 this.deleting = false;
                 match result {
                     Ok(()) => {
@@ -192,10 +199,16 @@ impl MqttView {
             }
         };
         let service = self.service.clone();
+        let profile_context_id = self.profile_context_id;
+        self.operation_id = self.operation_id.wrapping_add(1);
+        let operation_id = self.operation_id;
         self.testing = true;
         cx.spawn_in(window, async move |this, cx| {
             let result = service.test_connection(&profile).await;
             let _ = this.update(cx, |this, cx| {
+                if this.operation_id != operation_id || this.profile_context_id != profile_context_id {
+                    return;
+                }
                 this.testing = false;
                 this.notice = Some(match result {
                     Ok(()) => ("MQTT 连接测试成功".into(), false),
@@ -213,6 +226,7 @@ impl MqttView {
             cx.notify();
             return;
         };
+        let profile_context_id = self.profile_context_id;
         self.snapshot_request_id = self.snapshot_request_id.wrapping_add(1);
         let request_id = self.snapshot_request_id;
         let service = self.service.clone();
@@ -222,7 +236,7 @@ impl MqttView {
         cx.spawn_in(window, async move |this, cx| {
             let result = service.broker_snapshot(&profile).await;
             let _ = this.update_in(cx, |this, _, cx| {
-                if this.snapshot_request_id != request_id {
+                if this.snapshot_request_id != request_id || this.profile_context_id != profile_context_id {
                     return;
                 }
                 this.loading_snapshot = false;
@@ -269,11 +283,17 @@ impl MqttView {
             return;
         }
         let service = self.service.clone();
+        let profile_context_id = self.profile_context_id;
+        self.operation_id = self.operation_id.wrapping_add(1);
+        let operation_id = self.operation_id;
         self.publishing = true;
         self.notice = Some(("正在发布 MQTT 消息…".into(), false));
         cx.spawn_in(window, async move |this, cx| {
             let result = service.publish(&profile, &request).await;
             let _ = this.update_in(cx, |this, _, cx| {
+                if this.operation_id != operation_id || this.profile_context_id != profile_context_id {
+                    return;
+                }
                 this.publishing = false;
                 this.notice = Some(match result {
                     Ok(result) => (
@@ -314,6 +334,7 @@ impl MqttView {
         }
         self.subscription_request_id = self.subscription_request_id.wrapping_add(1);
         let request_id = self.subscription_request_id;
+        let profile_context_id = self.profile_context_id;
         let cancelled = Arc::new(AtomicBool::new(false));
         self.subscription_cancelled = Some(cancelled.clone());
         self.subscription_running = true;
@@ -330,7 +351,9 @@ impl MqttView {
             while let Ok(message) = receiver.recv().await {
                 if this
                     .update_in(cx, |this, _, cx| {
-                        if this.subscription_request_id != request_id {
+                        if this.subscription_request_id != request_id
+                            || this.profile_context_id != profile_context_id
+                        {
                             return;
                         }
                         if this.messages.len() >= MAX_MESSAGES {
@@ -354,7 +377,9 @@ impl MqttView {
                 .subscribe(&profile, &request, sink, operation_cancelled)
                 .await;
             let _ = this.update_in(cx, |this, _, cx| {
-                if this.subscription_request_id != request_id {
+                if this.subscription_request_id != request_id
+                    || this.profile_context_id != profile_context_id
+                {
                     return;
                 }
                 this.subscription_running = false;
