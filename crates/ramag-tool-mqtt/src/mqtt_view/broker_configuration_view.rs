@@ -169,8 +169,8 @@ impl MqttView {
                     ]);
                     let panel = match self.management_section {
                         MosquittoManagementSection::Clients => self.render_clients(cx, narrow),
-                        MosquittoManagementSection::Groups => self.render_groups(cx),
-                        MosquittoManagementSection::Roles => self.render_roles(cx),
+                        MosquittoManagementSection::Groups => self.render_groups(cx, narrow),
+                        MosquittoManagementSection::Roles => self.render_roles(cx, narrow),
                         MosquittoManagementSection::StaticFiles => self.render_static_files(cx),
                     };
                     v_flex()

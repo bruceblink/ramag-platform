@@ -22,13 +22,13 @@ use ramag_domain::traits::{MqttDriver, Storage};
 
 use super::{MQTT_SIDEBAR_COLLAPSE_BREAKPOINT, MosquittoManagementSection, MqttSection, MqttView};
 
-struct NoopMqttDriver;
+pub(super) struct NoopMqttDriver;
 
 #[async_trait]
 impl MqttDriver for NoopMqttDriver {}
 
 #[derive(Default)]
-struct NoopStorage {
+pub(super) struct NoopStorage {
     mqtt_profiles: Arc<Mutex<Vec<MqttProfile>>>,
 }
 
@@ -134,8 +134,8 @@ impl MqttDriver for BlockingSnapshotDriver {
     }
 }
 
-struct MqttTestHost {
-    view: gpui::Entity<MqttView>,
+pub(super) struct MqttTestHost {
+    pub(super) view: gpui::Entity<MqttView>,
 }
 
 impl Render for MqttTestHost {

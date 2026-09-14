@@ -267,6 +267,9 @@ include!("mqtt_view/helpers.rs");
 mod visual_tests;
 
 #[cfg(test)]
+mod visual_management_tests;
+
+#[cfg(test)]
 mod tests {
     include!("mqtt_view/tests.rs");
 }

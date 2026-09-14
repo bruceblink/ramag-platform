@@ -79,16 +79,23 @@ impl MqttView {
             }
         }
         let editor = v_flex()
+            .id("mqtt-client-editor")
+            .debug_selector(|| "mqtt-client-editor".into())
             .w_full()
             .gap(px(8.0))
             .child(
                 h_flex()
+                    .w_full()
+                    .min_w_0()
+                    .flex_wrap()
+                    .items_end()
+                    .gap(px(8.0))
                     .justify_between()
-                    .child(section_heading(
+                    .child(div().flex_1().min_w_0().child(section_heading(
                         "用户编辑",
                         "Group 和 Role 使用逗号分隔；密码只在提交时发送",
                         &theme,
-                    ))
+                    )))
                     .child(
                         ramag_ui::clickable_button("mqtt-client-new")
                             .ghost()
@@ -102,6 +109,9 @@ impl MqttView {
             )
             .child(
                 row()
+                    .id("mqtt-client-identity-fields")
+                    .debug_selector(|| "mqtt-client-identity-fields".into())
+                    .when(narrow, |row| row.flex_col().items_stretch())
                     .child(field("用户名", Input::new(&self.client_username).small()))
                     .child(field(
                         "Client ID",
@@ -114,6 +124,9 @@ impl MqttView {
             )
             .child(
                 row()
+                    .id("mqtt-client-display-fields")
+                    .debug_selector(|| "mqtt-client-display-fields".into())
+                    .when(narrow, |row| row.flex_col().items_stretch())
                     .child(field(
                         "显示名称",
                         Input::new(&self.client_text_name).small(),
@@ -125,6 +138,9 @@ impl MqttView {
             )
             .child(
                 row()
+                    .id("mqtt-client-membership-fields")
+                    .debug_selector(|| "mqtt-client-membership-fields".into())
+                    .when(narrow, |row| row.flex_col().items_stretch())
                     .child(field("Group", Input::new(&self.client_groups).small()))
                     .child(field("Role", Input::new(&self.client_roles).small())),
             )
@@ -138,6 +154,8 @@ impl MqttView {
             ))
             .child(
                 h_flex()
+                    .w_full()
+                    .flex_wrap()
                     .gap(px(6.0))
                     .child(
                         ramag_ui::clickable_button("mqtt-client-save")

@@ -1,5 +1,5 @@
 impl MqttView {
-    fn render_groups(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn render_groups(&self, cx: &mut Context<Self>, narrow: bool) -> gpui::AnyElement {
         let theme = cx.theme().clone();
         let mut list = v_flex().gap(px(4.0));
         if let Some(snapshot) = &self.management_snapshot {
@@ -59,15 +59,22 @@ impl MqttView {
             })
             .child(
                 v_flex()
+                    .id("mqtt-group-editor")
+                    .debug_selector(|| "mqtt-group-editor".into())
                     .gap(px(8.0))
                     .child(
                         h_flex()
+                            .w_full()
+                            .min_w_0()
+                            .flex_wrap()
+                            .items_end()
+                            .gap(px(8.0))
                             .justify_between()
-                            .child(section_heading(
+                            .child(div().flex_1().min_w_0().child(section_heading(
                                 "Group 编辑",
                                 "Role 名称使用逗号分隔",
                                 &theme,
-                            ))
+                            )))
                             .child(
                                 ramag_ui::clickable_button("mqtt-group-new")
                                     .ghost()
@@ -80,6 +87,9 @@ impl MqttView {
                     )
                     .child(
                         row()
+                            .id("mqtt-group-fields")
+                            .debug_selector(|| "mqtt-group-fields".into())
+                            .when(narrow, |row| row.flex_col().items_stretch())
                             .child(field(
                                 "Group 名称",
                                 Input::new(&self.group_name_editor).small(),
@@ -93,6 +103,8 @@ impl MqttView {
                     ))
                     .child(
                         h_flex()
+                            .w_full()
+                            .flex_wrap()
                             .gap(px(6.0))
                             .child(
                                 ramag_ui::clickable_button("mqtt-group-save")
@@ -119,12 +131,12 @@ impl MqttView {
                                         this.confirm_delete_group(window, cx)
                                     })),
                             ),
-                    ),
+                    )
             )
             .into_any_element()
     }
 
-    fn render_roles(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn render_roles(&self, cx: &mut Context<Self>, narrow: bool) -> gpui::AnyElement {
         let theme = cx.theme().clone();
         let mut list = v_flex().gap(px(4.0));
         if let Some(snapshot) = &self.management_snapshot {
@@ -185,15 +197,22 @@ impl MqttView {
             })
             .child(
                 v_flex()
+                    .id("mqtt-role-editor")
+                    .debug_selector(|| "mqtt-role-editor".into())
                     .gap(px(8.0))
                     .child(
                         h_flex()
+                            .w_full()
+                            .min_w_0()
+                            .flex_wrap()
+                            .items_end()
+                            .gap(px(8.0))
                             .justify_between()
-                            .child(section_heading(
+                            .child(div().flex_1().min_w_0().child(section_heading(
                                 "Role 与 ACL 编辑",
                                 "支持 publishClientSend、publishClientReceive、subscribeLiteral、subscribePattern、unsubscribeLiteral、unsubscribePattern",
                                 &theme,
-                            ))
+                            )))
                             .child(
                                 ramag_ui::clickable_button("mqtt-role-new")
                                     .ghost()
@@ -206,6 +225,9 @@ impl MqttView {
                     )
                     .child(
                         row()
+                            .id("mqtt-role-fields")
+                            .debug_selector(|| "mqtt-role-fields".into())
+                            .when(narrow, |row| row.flex_col().items_stretch())
                             .child(field("Role 名称", Input::new(&self.role_name_editor).small()))
                             .child(field("显示名称", Input::new(&self.role_text_name).small())),
                     )
@@ -227,6 +249,8 @@ impl MqttView {
                     ))
                     .child(
                         h_flex()
+                            .w_full()
+                            .flex_wrap()
                             .gap(px(6.0))
                             .child(
                                 ramag_ui::clickable_button("mqtt-role-save")
@@ -253,7 +277,7 @@ impl MqttView {
                                         this.confirm_delete_role(window, cx)
                                     })),
                             ),
-                    ),
+                    )
             )
             .into_any_element()
     }
