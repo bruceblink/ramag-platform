@@ -12,13 +12,15 @@ use gpui::{
 };
 use ramag_app::MqttService;
 use ramag_domain::entities::{
-    ConnectionConfig, ConnectionId, MqttBrokerSnapshot, MqttProfile, MqttTopicObservation,
-    MqttTopicSource, QueryRecord, QueryRecordId,
+    ConnectionConfig, ConnectionId, MosquittoAcl, MosquittoAclDecision, MosquittoAclType,
+    MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoRole, MosquittoRoleBinding,
+    MqttBrokerSnapshot, MqttProfile, MqttTopicObservation, MqttTopicSource, QueryRecord,
+    QueryRecordId,
 };
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, Storage};
 
-use super::{MQTT_SIDEBAR_COLLAPSE_BREAKPOINT, MqttSection, MqttView};
+use super::{MQTT_SIDEBAR_COLLAPSE_BREAKPOINT, MosquittoManagementSection, MqttSection, MqttView};
 
 struct NoopMqttDriver;
 
@@ -433,4 +435,77 @@ fn mqtt_message_pages_keep_inputs_bounded_and_editable(cx: &mut TestAppContext) 
         view.subscribe_filter.read(cx).value().to_string()
     });
     assert_eq!(filter, "sensors/#", "订阅 Topic Filter 应能接收键盘输入");
+}
+
+#[gpui::test]
+fn mqtt_client_permissions_reflow_inside_supported_window_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(NoopMqttDriver),
+        Arc::new(NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    let client = MosquittoClient {
+        username: "operator".into(),
+        client_id: None,
+        password_configured: true,
+        password: None,
+        disabled: false,
+        text_name: None,
+        text_description: None,
+        groups: Vec::new(),
+        roles: vec![MosquittoRoleBinding {
+            role_name: "reader".into(),
+            priority: 10,
+        }],
+    };
+    let snapshot = MosquittoDynamicSecuritySnapshot {
+        clients: vec![client],
+        groups: Vec::new(),
+        roles: vec![MosquittoRole {
+            role_name: "reader".into(),
+            text_name: None,
+            text_description: None,
+            allow_wildcards_subscriptions: false,
+            acls: vec![MosquittoAcl {
+                acl_type: MosquittoAclType::SubscribeLiteral,
+                topic: "devices/operator/state".into(),
+                decision: MosquittoAclDecision::Allow,
+                priority: 1,
+            }],
+        }],
+    };
+
+    view.update(visual_cx, |view, cx| {
+        view.loading_profiles = false;
+        view.section = MqttSection::Mosquitto;
+        view.management_enabled = true;
+        view.management_snapshot = Some(snapshot);
+        view.management_section = MosquittoManagementSection::Clients;
+        view.selected_client_username = Some("operator".into());
+        cx.notify();
+    });
+
+    for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+        visual_cx.simulate_resize(size(px(width), px(height)));
+        visual_cx.run_until_parked();
+        let scroll = visual_cx
+            .debug_bounds("mqtt-mosquitto-scroll")
+            .expect("Mosquitto 内容区应参与布局");
+        let permission = visual_cx
+            .debug_bounds("mqtt-client-permission-row-0")
+            .expect("用户权限行应参与布局");
+        assert!(
+            permission.origin.x >= scroll.origin.x && permission.right() <= scroll.right(),
+            "{}px 窗口中的用户权限行不能越出内容区: scroll={scroll:?}, permission={permission:?}",
+            width
+        );
+    }
 }

@@ -106,8 +106,9 @@ impl MqttView {
             .into_any_element()
     }
 
-    fn render_mosquitto(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_mosquitto(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
+        let narrow = window.viewport_size().width < px(760.0);
         let mut body = v_flex()
             .w_full()
             .max_w(px(980.0))
@@ -167,7 +168,7 @@ impl MqttView {
                         metric("Role", snapshot.roles.len(), &theme),
                     ]);
                     let panel = match self.management_section {
-                        MosquittoManagementSection::Clients => self.render_clients(cx),
+                        MosquittoManagementSection::Clients => self.render_clients(cx, narrow),
                         MosquittoManagementSection::Groups => self.render_groups(cx),
                         MosquittoManagementSection::Roles => self.render_roles(cx),
                         MosquittoManagementSection::StaticFiles => self.render_static_files(cx),
@@ -188,6 +189,7 @@ impl MqttView {
         }
         v_flex()
             .id("mqtt-mosquitto-scroll")
+            .debug_selector(|| "mqtt-mosquitto-scroll".into())
             .w_full()
             .min_w_0()
             .h_full()

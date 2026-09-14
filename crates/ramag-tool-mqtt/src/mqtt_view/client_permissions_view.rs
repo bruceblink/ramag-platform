@@ -21,7 +21,7 @@ impl MqttView {
         tabs
     }
 
-    fn render_clients(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn render_clients(&self, cx: &mut Context<Self>, narrow: bool) -> gpui::AnyElement {
         let theme = cx.theme().clone();
         let mut list = v_flex().gap(px(4.0));
         if let Some(snapshot) = &self.management_snapshot {
@@ -187,11 +187,15 @@ impl MqttView {
                 list.into_any_element()
             })
             .child(editor)
-            .child(self.render_client_permissions(cx))
+            .child(self.render_client_permissions(cx, narrow))
             .into_any_element()
     }
 
-    fn render_client_permissions(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn render_client_permissions(
+        &self,
+        cx: &mut Context<Self>,
+        narrow: bool,
+    ) -> gpui::AnyElement {
         let theme = cx.theme().clone();
         let Some(snapshot) = self.management_snapshot.as_ref() else {
             return div()
@@ -229,64 +233,114 @@ impl MqttView {
                     .child("该用户当前没有可展开的 ACL"),
             );
         } else {
-            body = body.child(
-                h_flex()
-                    .w_full()
-                    .min_w_0()
-                    .gap(px(8.0))
-                    .child(div().w(px(130.0)).text_xs().child("来源"))
-                    .child(div().w(px(130.0)).text_xs().child("Role"))
-                    .child(div().flex_1().min_w_0().text_xs().child("Topic"))
-                    .child(div().w(px(180.0)).text_xs().child("权限 / 优先级")),
-            );
-            for row in rows {
-                let decision = match row.acl.decision {
-                    MosquittoAclDecision::Allow => "允许",
-                    MosquittoAclDecision::Deny => "拒绝",
-                };
+            if !narrow {
                 body = body.child(
                     h_flex()
                         .w_full()
                         .min_w_0()
                         .gap(px(8.0))
-                        .child(
-                            div()
-                                .w(px(130.0))
-                                .text_xs()
-                                .truncate()
-                                .text_color(theme.muted_foreground)
-                                .child(row.source),
-                        )
-                        .child(div().w(px(130.0)).text_xs().truncate().child(row.role_name))
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .text_xs()
-                                .truncate()
-                                .child(row.acl.topic),
-                        )
-                        .child(
-                            div()
-                                .w(px(180.0))
-                                .text_xs()
-                                .truncate()
-                                .text_color(
-                                    if matches!(row.acl.decision, MosquittoAclDecision::Allow) {
-                                        theme.accent
-                                    } else {
-                                        theme.danger
-                                    },
-                                )
-                                .child(format!(
-                                    "{} · {} · ACL {} / 绑定 {}",
-                                    row.acl.acl_type.as_str(),
-                                    decision,
-                                    row.acl.priority,
-                                    row.binding_priority
-                                )),
-                        ),
+                        .child(div().w(px(130.0)).text_xs().child("来源"))
+                        .child(div().w(px(130.0)).text_xs().child("Role"))
+                        .child(div().flex_1().min_w_0().text_xs().child("Topic"))
+                        .child(div().w(px(180.0)).text_xs().child("权限 / 优先级")),
                 );
+            }
+            for (index, row) in rows.into_iter().enumerate() {
+                let decision = match row.acl.decision {
+                    MosquittoAclDecision::Allow => "允许",
+                    MosquittoAclDecision::Deny => "拒绝",
+                };
+                let row_id = SharedString::from(format!("mqtt-client-permission-row-{index}"));
+                let permission = format!(
+                    "{} · {} · ACL {} / 绑定 {}",
+                    row.acl.acl_type.as_str(),
+                    decision,
+                    row.acl.priority,
+                    row.binding_priority
+                );
+                if narrow {
+                    body = body.child(
+                        v_flex()
+                            .id(row_id.clone())
+                            .debug_selector(move || row_id.to_string())
+                            .w_full()
+                            .min_w_0()
+                            .gap(px(2.0))
+                            .child(
+                                div()
+                                    .w_full()
+                                    .min_w_0()
+                                    .text_xs()
+                                    .truncate()
+                                    .text_color(theme.muted_foreground)
+                                    .child(format!("来源：{} · Role：{}", row.source, row.role_name)),
+                            )
+                            .child(
+                                div()
+                                    .w_full()
+                                    .min_w_0()
+                                    .text_xs()
+                                    .truncate()
+                                    .child(format!("Topic：{}", row.acl.topic)),
+                            )
+                            .child(
+                                div()
+                                    .w_full()
+                                    .min_w_0()
+                                    .text_xs()
+                                    .truncate()
+                                    .text_color(
+                                        if matches!(row.acl.decision, MosquittoAclDecision::Allow)
+                                        {
+                                            theme.accent
+                                        } else {
+                                            theme.danger
+                                        },
+                                    )
+                                    .child(permission),
+                            ),
+                    );
+                } else {
+                    body = body.child(
+                        h_flex()
+                            .id(row_id.clone())
+                            .debug_selector(move || row_id.to_string())
+                            .w_full()
+                            .min_w_0()
+                            .gap(px(8.0))
+                            .child(
+                                div()
+                                    .w(px(130.0))
+                                    .text_xs()
+                                    .truncate()
+                                    .text_color(theme.muted_foreground)
+                                    .child(row.source),
+                            )
+                            .child(div().w(px(130.0)).text_xs().truncate().child(row.role_name))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .text_xs()
+                                    .truncate()
+                                    .child(row.acl.topic),
+                            )
+                            .child(
+                                div()
+                                    .w(px(180.0))
+                                    .text_xs()
+                                    .truncate()
+                                    .text_color(
+                                        if matches!(row.acl.decision, MosquittoAclDecision::Allow) {
+                                            theme.accent
+                                        } else {
+                                            theme.danger
+                                        },
+                                    )
+                                    .child(permission),
+                            ),
+                    );
+                }
             }
         }
         if !missing_roles.is_empty() {

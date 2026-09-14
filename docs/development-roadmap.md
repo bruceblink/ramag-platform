@@ -220,3 +220,5 @@ Headless 结果不能描述为真实窗口结果；外部服务未启动时只�
 真实端点验证使用 Windows OpenSSH 9.5p2 客户端和 WSL Ubuntu-26.04 临时 OpenSSH 服务，覆盖 Shell 命令、SFTP `pwd`、`-L`/`-R`/`-D` 监听建立、停止本地转发后监听关闭、强制断开后的重新连接，以及错误 Host Key 被拒绝。临时密钥、授权文件、配置和服务进程均在脚本结束时清理，脚本未纳入仓库。
 
 未完成项：真实 Windows 窗口截图和键盘操作、独立转发状态/停止面板仍未完成；workspace 全量库测试被 `rdkafka-sys` 的 Windows GNU 构建前置条件阻断，错误为缺少 MSYS/MinGW CMake generator，与 TERM-001 源码无关。P0-C 设置与权限接口继续另行排期，不把 headless 结果写成真实窗口验收。
+
+`UI-001` MQTT 权限预览切片（2026-09-14）：`ramag-tool-mqtt` 在窗口宽度小于 760px 时将 Mosquitto 用户权限预览从固定四列改为纵向信息块，宽窗口继续使用表格行，避免 Topic、Role 和权限信息越出内容区。`mqtt_client_permissions_reflow_inside_supported_window_widths` 覆盖 360/1024/1440 headless 窗口；`cargo test -p ramag-tool-mqtt --lib` 的 8 项测试、workspace MSVC Clippy、格式检查和 `git diff --check` 通过。`check-source-size.ps1` 仍报告既有的 `dynamic_security_operations.rs` 为 606 行，`HEAD` 基线同样为 606 行，本次未修改该文件。真实 Windows 窗口截图和键盘操作仍待补充。
