@@ -1,4 +1,5 @@
-use super::{ResultDiffCategory, ResultDiffFilter};
+use super::ResultDiffFilter;
+use crate::views::result_diff::ResultDiffCategory;
 
 #[test]
 fn result_diff_filters_keep_changed_pairs_together() {
