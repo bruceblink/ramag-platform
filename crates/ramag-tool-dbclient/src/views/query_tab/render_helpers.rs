@@ -29,11 +29,16 @@ pub(super) fn transaction_savepoint_controls(
     let rollback_tab = query_tab.clone();
     let release_tab = query_tab.clone();
     h_flex()
-        .flex_none()
+        .id("sql-transaction-savepoints")
+        .debug_selector(|| "sql-transaction-savepoints".into())
+        .flex_1()
+        .min_w_0()
+        .flex_wrap()
         .items_center()
         .gap_1()
         .child(
             ramag_ui::clickable_button("transaction-savepoint-create")
+                .debug_selector(|| "transaction-savepoint-create".into())
                 .ghost()
                 .small()
                 .label("保存点")
@@ -51,6 +56,7 @@ pub(super) fn transaction_savepoint_controls(
         )
         .child(
             ramag_ui::clickable_button("transaction-savepoint-rollback")
+                .debug_selector(|| "transaction-savepoint-rollback".into())
                 .ghost()
                 .small()
                 .label("回滚最近")
@@ -68,6 +74,7 @@ pub(super) fn transaction_savepoint_controls(
         )
         .child(
             ramag_ui::clickable_button("transaction-savepoint-release")
+                .debug_selector(|| "transaction-savepoint-release".into())
                 .ghost()
                 .small()
                 .label("释放最近")

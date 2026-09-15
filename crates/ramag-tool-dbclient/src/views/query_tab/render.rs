@@ -97,11 +97,16 @@ impl Render for QueryTab {
         let query_tab_entity = cx.entity();
         let transaction_controls = if transaction_active {
             h_flex()
-                .flex_none()
+                .id("sql-transaction-controls")
+                .debug_selector(|| "sql-transaction-controls".into())
+                .w_full()
+                .min_w_0()
+                .flex_wrap()
                 .items_center()
                 .gap_1()
                 .child(
                     ramag_ui::clickable_button("transaction-commit")
+                        .debug_selector(|| "transaction-commit".into())
                         .primary()
                         .small()
                         .icon(IconName::Check)
@@ -119,6 +124,7 @@ impl Render for QueryTab {
                 )
                 .child(
                     ramag_ui::clickable_button("transaction-rollback")
+                        .debug_selector(|| "transaction-rollback".into())
                         .ghost()
                         .small()
                         .icon(IconName::Undo2)
@@ -169,11 +175,16 @@ impl Render for QueryTab {
                 .into_any_element()
         } else {
             h_flex()
-                .flex_none()
+                .id("sql-transaction-controls")
+                .debug_selector(|| "sql-transaction-controls".into())
+                .w_full()
+                .min_w_0()
+                .flex_wrap()
                 .items_center()
                 .gap_1()
                 .child(
                     ramag_ui::clickable_button("transaction-begin")
+                        .debug_selector(|| "transaction-begin".into())
                         .ghost()
                         .small()
                         .icon(IconName::Play)
@@ -362,7 +373,11 @@ impl Render for QueryTab {
                     })
                     .child(
                         h_flex()
-                            .flex_none()
+                            .id("sql-transaction-group")
+                            .debug_selector(|| "sql-transaction-group".into())
+                            .w_full()
+                            .min_w_0()
+                            .flex_wrap()
                             .items_center()
                             .gap_1()
                             .child(
