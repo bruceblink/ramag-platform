@@ -1,7 +1,7 @@
 # 数据库查询工具 DataGrip-like 开发路线图
 
 > 状态：M1 结果数据编辑器、M2-A SQL 查询上下文隔离、M2-B 最近关闭查询草稿恢复、M3-A SQL 手动事务提交/回滚、M3-B 事务失败状态与恢复提示、M3-C SQL 事务保存点、M4-A 原始/结构化执行计划结果视图、M4-B 只读 Schema Diagram 预览、M4-C 字段结构差异预览、M4-D 同连接表结构对比、M4-E 查询结果数据网格差异比较、M4-F 跨连接表结构对比、M4-G 跨连接查询结果比较、M4-H 表结构迁移 SQL 预览、M4-I 表结构迁移执行与回读、M4-J 外键动作元数据与迁移保真度、M4-K 迁移审批记录、M4-L 查询结果差异单元格定位、M4-M 列元数据保真度、M4-N 精确页码跳转、M4-O 表树表大小状态以及 P0 表树收藏、最近访问筛选、SQL 表定位和表格结果工作区已落地，后续迭代中
-> 更新日期：2026-09-13
+> 更新日期：2026-09-15
 > 适用范围：`ramag-tool-dbclient`、`ramag-tool-mongodb`、`ramag-domain`、`ramag-app` 及对应基础设施驱动
 > 当前主线：UI、响应性布局和已知问题按 [`docs/development-roadmap.md`](development-roadmap.md) 统一排期
 
@@ -54,14 +54,17 @@ Ramag 已经具备多数据库连接、Schema 浏览、查询编辑、结果编�
 跨工具的优先顺序以 [`docs/development-roadmap.md`](development-roadmap.md) 的 UI-001 至 UI-006 为准；本节只保留数据库专项的实现边界和验收证据。
 
 - `UI-002` 的结果列表、双向滚动和底部状态栏已在 `ea0a472` 完成 headless 边界检查；检查覆盖 360px 窄窗口，真实 Windows 窗口和实际数据库数据证据仍待环境恢复后补充。
-- `UI-003` 已在 `ba71d8e` 完成首个结果工具栏切片：SQL/MongoDB 的筛选区、运行按钮、结果状态栏和分页按钮在 360px、1024px、1440px headless 窗口中保持在父容器内，工具栏与状态栏不重叠。查询控制台顶部工具栏、详情查看器、查询历史和失败重试的窄窗口检查仍未完成。
-- `UI-003` 的查询控制台顶部工具栏已在 `05874b5` 完成第二个切片：SQL/MongoDB 标签区可收缩并保留横向滚动，历史、示例和格式化操作区在 360px、1024px、1440px headless 窗口中保持可见且未越出工具栏；详情查看器、查询历史内容和失败重试流程仍未完成。
-- `UI-003` 的详情查看器已在 `e6854be` 完成第三个切片：SQL 查看器保留长正文的水平滚动，MongoDB 查看器按当前窗口可用宽度收缩；`selected_cell_value_viewer_stays_inside_three_window_widths` 和 `mongo_cell_detail_stays_inside_three_window_widths` 在 360px、1024px、1440px headless 窗口中检查内容区域、滚动区域和关闭后的清理；查询历史和失败重试仍未完成。
-- `UI-003` 的查询历史已在 `79a9f18` 完成第四个切片：SQL/MongoDB 历史弹框按当前窗口宽度和高度收缩，搜索区、数量/状态提示、清空按钮和记录行操作组允许换行；带长查询记录和状态提示的 headless 测试在 360px、1024px、1440px 窗口中检查子项边界和重叠。失败重试、真实 Windows 窗口和实际数据库连接证据仍待补充。
+- `UI-003` 已在 `ba71d8e` 完成首个结果工具栏切片：SQL/MongoDB 的筛选区、运行按钮、结果状态栏和分页按钮在 360px、1024px、1440px headless 窗口中保持在父容器内，工具栏与状态栏不重叠。查询控制台顶部工具栏、详情查看器和查询历史内容的真实窗口与实际数据库证据仍未完成。
+- `UI-003` 的查询控制台顶部工具栏已在 `05874b5` 完成第二个切片：SQL/MongoDB 标签区可收缩并保留横向滚动，历史、示例和格式化操作区在 360px、1024px、1440px headless 窗口中保持可见且未越出工具栏；详情查看器、查询历史内容的真实窗口与实际数据库证据仍待补充。
+- `UI-003` 的详情查看器已在 `e6854be` 完成第三个切片：SQL 查看器保留长正文的水平滚动，MongoDB 查看器按当前窗口可用宽度收缩；`selected_cell_value_viewer_stays_inside_three_window_widths` 和 `mongo_cell_detail_stays_inside_three_window_widths` 在 360px、1024px、1440px headless 窗口中检查内容区域、滚动区域和关闭后的清理；真实窗口和实际数据库证据仍待补充。
+- `UI-003` 的查询历史已在 `79a9f18` 完成第四个切片：SQL/MongoDB 历史弹框按当前窗口宽度和高度收缩，搜索区、数量/状态提示、清空按钮和记录行操作组允许换行；带长查询记录和状态提示的 headless 测试在 360px、1024px、1440px 窗口中检查子项边界和重叠。真实 Windows 窗口和实际数据库连接证据仍待补充。
+- `UI-003` 的失败重试已在 `6afcd19` 完成：SQL 和 MongoDB 错误结果保留当前编辑器内容，重试入口在 360px、1024px、1440px 窗口中保持在错误区域内；SQL 与 MongoDB 的失败重试行为测试均通过。真实 Windows 窗口和实际数据库连接证据仍待补充。
 - 数据库 SQL 会话对象树的顶部工具栏已补齐响应式边界：搜索区可以收缩，筛选、系统库、刷新和编辑器操作在空间不足时换行，并在对象树最小侧栏宽度 180px 以及 280/360/1024/1440px headless 窗口中通过不越界、不重叠检查。目标 crate 的 286 项库测试全部通过；真实 Windows 窗口和实际数据库连接数据证据仍待补充。
 - P0 对象树刷新已改为保留已有 schema、展开状态、表缓存和当前选择；刷新期间不再用全屏加载态遮挡已显示内容，旧表行继续可打开，失败信息在对象树顶部显示并提供重试。删除的 schema 会清理对应展开状态、列缓存和选择；刷新/失败期间保留旧表行的模型与渲染测试已覆盖。
 - `UI-001` 数据库工作台弹窗切片已完成：连接选择、连接表单、数据同步、查询历史、单元格查看、结果差异、Schema Diagram、表结构差异、表设计、元数据 SQL 和删除确认统一使用 `ramag-ui` 的视口宽度/顶部偏移/最大高度计算；连接表单和连接选择器在 680px 以下纵向重排，长正文保留水平或垂直滚动。`cargo test --locked -p ramag-tool-dbclient --lib` 通过 285 项，已有查询历史、结果查看、连接表单和表设计 headless 检查覆盖 360/1024/1440px；真实 Windows 窗口和实际数据库连接证据仍待补充。
 - `UI-001` 结果表编辑操作区已完成独立响应式布局：待提交单元格修改和新增行的取消/提交按钮不再与分页控件直接混排，280/360/1024px 下均留在结果状态栏内；`pending_edit_actions_stay_inside_status_bar_at_supported_widths`、结果表渲染专项 7 项测试和目标 Clippy 通过。完整库测试的 302 项断言均打印通过，但 Windows 测试进程在既有表属性测试结束阶段发生 `STATUS_STACK_BUFFER_OVERRUN`，该表属性测试单独运行通过，因此这里只记录专项证据，不把进程异常标记为全量通过。真实 Windows 窗口和实际数据库数据证据仍待补充。
+- `UI-001` SQL 事务工具栏已完成响应式断点调整：活动事务和未开启事务的控制区在 360px 时整行换行，在 1024px 时保持可用的多行布局，在 1440px 时恢复同行密度；`active_transaction_controls_wrap_inside_three_window_widths`、`inactive_transaction_control_wraps_inside_three_window_widths`、结果工具栏和失败重试回归测试均通过。真实 Windows 窗口和实际数据库数据证据仍待补充。
+- `UI-001` SQL 事务工具栏切片已在 `3bdbae4`、`458910e` 和 `7e9d54a` 完成：活动事务的提交、回滚、保存点和最近保存点状态，以及未开启事务时的开始入口，统一使用可收缩、可换行的控制区；`360px` 时整行换行，`1024px` 保持可用的多行布局，`1440px` 恢复同行密度。`active_transaction_controls_wrap_inside_three_window_widths`、`inactive_transaction_control_wraps_inside_three_window_widths`、结果工具栏和失败重试回归测试均通过；真实 Windows 窗口和实际数据库数据证据仍待补充。
 
 - P0 结果工作区已收敛为单一表格视图：结果工具栏不再显示“表格”或其他转换按钮，避免把默认视图误呈现为可切换选项；分页、双轴滚动、排序、筛选、单元格查看、复制和编辑入口保留。服务端排序重新加载结果时恢复排序前的横向位置，筛选条件允许一个 `WHERE` 表达式中的多个 `AND` 条件。`server_sort_keeps_horizontal_scroll_position_across_result_reload` 和 `filter_sql_accepts_multiple_and_conditions` 覆盖这些回归；真实 Windows 窗口使用系统截图和输入验证，不能将其描述为 Computer Use。
 
