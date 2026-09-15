@@ -271,6 +271,88 @@ fn result_status_keeps_paging_controls_visible_in_small_window(cx: &mut TestAppC
     }
 }
 
+/// 待提交修改的操作按钮应作为独立操作区换行，并始终留在结果状态栏内。
+#[gpui::test]
+fn pending_edit_actions_stay_inside_status_bar_at_supported_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let result = Arc::new(QueryResult {
+        columns: vec!["id".into(), "name".into()],
+        column_types: vec!["BIGINT".into(), "TEXT".into()],
+        rows: vec![Row {
+            values: vec![Value::Int(1), Value::Text("edited".into())],
+        }],
+        affected_rows: 0,
+        elapsed_ms: 8,
+        warnings: Vec::new(),
+        truncated: false,
+    });
+    let display_view = build_display_view(&result, None, "", "");
+    let display_view_key = DisplayViewCacheKey {
+        result_identity: Arc::as_ptr(&result) as usize,
+        result_revision: 0,
+        sort_by: None,
+        column_filter: String::new(),
+        row_filter: super::RowFilter::Text(String::new()),
+        display_binary_16_as_uuid: true,
+    };
+    let (panel, cx) = cx.add_window_view(|window, cx| {
+        let mut panel = ResultPanel::new(window, cx);
+        panel.state = ResultState::Ok(result.clone());
+        panel.pagination = Some(ResultPagination {
+            page: 0,
+            page_size: 100,
+            has_more: true,
+            total: TotalRows::Known(10_000),
+        });
+        panel.display_view_cache = Some(DisplayViewCache {
+            key: display_view_key,
+            view: display_view,
+        });
+        panel.seed_pending_cell_edit_for_test();
+        panel
+    });
+
+    for width in [280.0, 360.0, 1024.0] {
+        cx.simulate_resize(size(px(width), px(420.0)));
+        panel.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+
+        let status_bar = cx
+            .debug_bounds("result-status-bar")
+            .expect("结果状态栏应渲染");
+        let actions = cx
+            .debug_bounds("result-mutation-actions")
+            .expect("待提交修改应渲染独立操作区");
+        let cancel = cx
+            .debug_bounds("cell-edits-cancel-bar")
+            .expect("应渲染撤销修改按钮");
+        let submit = cx
+            .debug_bounds("cell-edits-submit-bar")
+            .expect("应渲染提交修改按钮");
+
+        assert!(
+            actions.origin.x >= status_bar.origin.x
+                && actions.right() <= status_bar.right()
+                && actions.origin.y >= status_bar.origin.y
+                && actions.bottom() <= status_bar.bottom(),
+            "编辑操作区不能越出结果状态栏：actions={actions:?}, status_bar={status_bar:?}"
+        );
+        for (label, bounds) in [("撤销", cancel), ("提交", submit)] {
+            assert!(
+                bounds.origin.x >= actions.origin.x
+                    && bounds.right() <= actions.right()
+                    && bounds.origin.y >= actions.origin.y
+                    && bounds.bottom() <= actions.bottom(),
+                "{label}按钮不能越出编辑操作区：button={bounds:?}, actions={actions:?}"
+            );
+        }
+        assert!(
+            cancel.right() <= submit.origin.x || submit.right() <= cancel.origin.x,
+            "编辑操作按钮不能互相覆盖：cancel={cancel:?}, submit={submit:?}"
+        );
+    }
+}
+
 /// The value viewer should stay inside supported window widths and remain closable as a dialog.
 #[gpui::test]
 fn selected_cell_value_viewer_stays_inside_three_window_widths(cx: &mut TestAppContext) {

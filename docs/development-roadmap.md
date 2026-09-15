@@ -228,3 +228,5 @@ Headless 结果不能描述为真实窗口结果；外部服务未启动时只�
 `UI-001` MQTT 发布/订阅操作区切片（2026-09-14）：发布按钮和订阅启停操作在 760px 以下保留完整可用宽度，订阅消息的长 Topic 与 QoS/时间元数据允许换行，避免紧凑窗口把操作或消息头部推出主工作区；新增 `mqtt_message_operations_reflow_inside_supported_window_widths`，覆盖 360×240、640×480、1024×768 和 1440×900 headless 窗口，并使用长 Topic、512 字节 Payload 回归布局边界。真实 Windows 窗口截图、键盘操作和远端 MQTT 服务证据仍待补充。
 
 `UI-001` 表属性紧凑弹窗切片（2026-09-15）：触发器元数据区域根据弹窗可用高度动态收缩，桌面窗口保持原有高度，`360×240` 窗口仍同时保留触发器列表和 DDL 预览；新增 `trigger_metadata_and_ddl_stay_inside_a_compact_modal` 和高度边界测试。`ramag-tool-dbclient` 库测试 301 项、workspace MSVC Clippy、格式检查和 `git diff --check` 通过；源码尺寸检查仍只报告基线已有的 `dynamic_security_operations.rs` 606 行。本切片未新增真实 Windows 窗口截图或数据库服务证据。
+
+`UI-001` 结果表编辑操作区切片（2026-09-15）：待提交单元格修改以及新增行的取消/提交按钮统一收进独立的响应式操作区，分页和长状态摘要换行时不会把操作按钮挤出结果状态栏；新增 `pending_edit_actions_stay_inside_status_bar_at_supported_widths`，覆盖 280/360/1024px，并为四个变更按钮补充可定位的调试选择器。`ramag-tool-dbclient` 结果表渲染专项 7 项测试、目标 Clippy、格式检查和 `git diff --check` 通过。完整库测试的 302 项断言均打印通过，但 Windows 测试进程在既有表属性测试结束阶段以 `STATUS_STACK_BUFFER_OVERRUN` 退出；相关表属性测试单独运行通过，本切片没有把该基线进程异常记为完成证据。真实 Windows 窗口截图和实际数据库服务证据仍待补充。

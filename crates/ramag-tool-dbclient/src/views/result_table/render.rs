@@ -348,6 +348,76 @@ pub(in crate::views) fn render_table(
             )
         });
 
+    let mutation_actions = ramag_ui::responsive_toolbar()
+        .id("result-mutation-actions")
+        .debug_selector(|| "result-mutation-actions".into())
+        .flex_none()
+        .justify_end()
+        .when(has_pending_insert, |this| {
+            let panel_for_cancel = panel_entity.clone();
+            let panel_for_submit = panel_entity.clone();
+            this.child(
+                ramag_ui::clickable_button("insert-cancel-bar")
+                    .debug_selector(|| "insert-cancel-bar".into())
+                    .ghost()
+                    .small()
+                    .label("取消")
+                    .disabled(dml_busy)
+                    .on_click(move |_, _, app| {
+                        panel_for_cancel.update(app, |r, cx| r.cancel_insert(cx));
+                    }),
+            )
+            .child(
+                ramag_ui::clickable_button("insert-submit-bar")
+                    .debug_selector(|| "insert-submit-bar".into())
+                    .primary()
+                    .small()
+                    .label(if dml_busy { "提交中…" } else { "提交" })
+                    .disabled(dml_busy)
+                    .on_click(move |_, _, app| {
+                        panel_for_submit.update(app, |r, cx| r.submit_insert(cx));
+                    }),
+            )
+        })
+        .when(pending_edit_count > 0, |this| {
+            let panel_for_cancel = panel_entity.clone();
+            let panel_for_submit = panel_entity.clone();
+            this.child(
+                ramag_ui::clickable_button("cell-edits-cancel-bar")
+                    .debug_selector(|| "cell-edits-cancel-bar".into())
+                    .ghost()
+                    .small()
+                    .icon(IconName::Undo2)
+                    .label("撤销修改")
+                    .tooltip("撤销当前结果中的未提交单元格修改")
+                    .disabled(dml_busy)
+                    .on_click(move |_, _, app| {
+                        panel_for_cancel.update(app, |panel, cx| {
+                            panel.clear_pending_cell_edits(cx);
+                        });
+                    }),
+            )
+            .child(
+                ramag_ui::clickable_button("cell-edits-submit-bar")
+                    .debug_selector(|| "cell-edits-submit-bar".into())
+                    .primary()
+                    .small()
+                    .icon(IconName::Check)
+                    .label(if dml_busy {
+                        "提交中…"
+                    } else {
+                        "提交修改"
+                    })
+                    .tooltip("按行提交当前结果中的未提交单元格修改")
+                    .disabled(dml_busy)
+                    .on_click(move |_, _, app| {
+                        panel_for_submit.update(app, |panel, cx| {
+                            panel.commit_pending_cell_edits_async(cx);
+                        });
+                    }),
+            )
+        });
+
     let status_bar = h_flex()
         .id("result-status-bar")
         .debug_selector(|| "result-status-bar".into())
@@ -447,65 +517,8 @@ pub(in crate::views) fn render_table(
                     }),
             )
         })
-        .when(has_pending_insert, |this| {
-            let panel_for_cancel = panel_entity.clone();
-            let panel_for_submit = panel_entity.clone();
-            this.child(
-                ramag_ui::clickable_button("insert-cancel-bar")
-                    .ghost()
-                    .small()
-                    .label("取消")
-                    .disabled(dml_busy)
-                    .on_click(move |_, _, app| {
-                        panel_for_cancel.update(app, |r, cx| r.cancel_insert(cx));
-                    }),
-            )
-            .child(
-                ramag_ui::clickable_button("insert-submit-bar")
-                    .primary()
-                    .small()
-                    .label(if dml_busy { "提交中…" } else { "提交" })
-                    .disabled(dml_busy)
-                    .on_click(move |_, _, app| {
-                        panel_for_submit.update(app, |r, cx| r.submit_insert(cx));
-                    }),
-            )
-        })
-        .when(pending_edit_count > 0, |this| {
-            let panel_for_cancel = panel_entity.clone();
-            let panel_for_submit = panel_entity.clone();
-            this.child(
-                ramag_ui::clickable_button("cell-edits-cancel-bar")
-                    .ghost()
-                    .small()
-                    .icon(IconName::Undo2)
-                    .label("撤销修改")
-                    .tooltip("撤销当前结果中的未提交单元格修改")
-                    .disabled(dml_busy)
-                    .on_click(move |_, _, app| {
-                        panel_for_cancel.update(app, |panel, cx| {
-                            panel.clear_pending_cell_edits(cx);
-                        });
-                    }),
-            )
-            .child(
-                ramag_ui::clickable_button("cell-edits-submit-bar")
-                    .primary()
-                    .small()
-                    .icon(IconName::Check)
-                    .label(if dml_busy {
-                        "提交中…"
-                    } else {
-                        "提交修改"
-                    })
-                    .tooltip("按行提交当前结果中的未提交单元格修改")
-                    .disabled(dml_busy)
-                    .on_click(move |_, _, app| {
-                        panel_for_submit.update(app, |panel, cx| {
-                            panel.commit_pending_cell_edits_async(cx);
-                        });
-                    }),
-            )
+        .when(has_pending_insert || pending_edit_count > 0, |this| {
+            this.child(mutation_actions)
         });
 
     // 外层横向滚动，虚拟列表纵向滚动；滚动条使用固定底部布局行，避免被结果内容覆盖。
