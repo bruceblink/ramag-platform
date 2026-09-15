@@ -1,7 +1,9 @@
 # Activates the repository's single Windows MSVC environment in the current
 # PowerShell. Dot-source this file once before running Cargo commands.
 [CmdletBinding()]
-param()
+param(
+    [switch]$ShowStatus
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -23,12 +25,14 @@ if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
 
 . $ToolchainScript
 
-$Toolchain = Initialize-WindowsMsvcEnvironment
-Write-Host "Windows MSVC environment is active for this PowerShell session."
-Write-Host "  rust:   $($Toolchain.RustToolchain)"
-Write-Host "  target: $($Toolchain.Target)"
-Write-Host "  cl:     $($Toolchain.Cl)"
-Write-Host "  cmake:  $($Toolchain.CMake)"
-Write-Host "  generator: $(Get-WindowsMsvcCMakeGenerator)"
-Write-Host "  platform:  $(Get-WindowsMsvcCMakePlatform)"
-Write-Host "Use standard Cargo commands now, for example: cargo build or cargo run -p ramag-bin"
+$Toolchain = Initialize-WindowsMsvcEnvironment -Quiet:(-not $ShowStatus)
+if ($ShowStatus) {
+    Write-Host "Windows MSVC environment is active for this PowerShell session."
+    Write-Host "  rust:   $($Toolchain.RustToolchain)"
+    Write-Host "  target: $($Toolchain.Target)"
+    Write-Host "  cl:     $($Toolchain.Cl)"
+    Write-Host "  cmake:  $($Toolchain.CMake)"
+    Write-Host "  generator: $(Get-WindowsMsvcCMakeGenerator)"
+    Write-Host "  platform:  $(Get-WindowsMsvcCMakePlatform)"
+    Write-Host "Use standard Cargo commands now, for example: cargo build or cargo run -p ramag-bin"
+}

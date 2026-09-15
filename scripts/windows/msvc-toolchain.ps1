@@ -328,7 +328,8 @@ function Get-WindowsMsvcEnvironmentFromVisualStudio {
 function Invoke-WindowsRustup {
     param(
         [Parameter(Mandatory = $true)]
-        [string[]]$Arguments
+        [string[]]$Arguments,
+        [switch]$Quiet
     )
 
     # rustup writes routine progress messages to stderr. Capture them without
@@ -343,15 +344,27 @@ function Invoke-WindowsRustup {
     finally {
         $ErrorActionPreference = $PreviousErrorActionPreference
     }
-    foreach ($Line in $Output) {
-        Write-Host $Line
+    if (-not $Quiet) {
+        foreach ($Line in $Output) {
+            Write-Host $Line
+        }
     }
     if ($ExitCode -ne 0) {
+        if ($Quiet) {
+            $FailureDetails = ($Output | ForEach-Object { [string]$_ }) -join "`n"
+            if (-not [string]::IsNullOrWhiteSpace($FailureDetails)) {
+                throw "rustup $($Arguments -join ' ') failed with exit code $ExitCode.`n$FailureDetails"
+            }
+        }
         throw "rustup $($Arguments -join ' ') failed with exit code $ExitCode."
     }
 }
 
 function Ensure-WindowsMsvcRustToolchain {
+    param(
+        [switch]$Quiet
+    )
+
     # Install the repository's stable MSVC host and target before Cargo runs.
     if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
         throw "rustup not found. Install Rust from https://rustup.rs before building."
@@ -376,14 +389,14 @@ function Ensure-WindowsMsvcRustToolchain {
             "--component", "clippy",
             "--component", "rust-analyzer",
             "--component", "rust-src"
-        )
+        ) -Quiet:$Quiet
     }
     else {
         Invoke-WindowsRustup -Arguments @(
             "component", "add",
             "--toolchain", $RustToolchain,
             "rustfmt", "clippy", "rust-analyzer", "rust-src"
-        )
+        ) -Quiet:$Quiet
     }
 
     $InstalledTargets = @(& rustup target list --installed --toolchain $RustToolchain 2>$null)
@@ -393,7 +406,7 @@ function Ensure-WindowsMsvcRustToolchain {
     if ($InstalledTargets -notcontains $script:WindowsMsvcTarget) {
         Invoke-WindowsRustup -Arguments @(
             "target", "add", "--toolchain", $RustToolchain, $script:WindowsMsvcTarget
-        )
+        ) -Quiet:$Quiet
     }
 
     $RustcInfo = (@(& rustup run $RustToolchain rustc -vV 2>&1) -join "`n")
@@ -548,7 +561,11 @@ function Restore-WindowsMsvcEnvironment {
 }
 
 function Initialize-WindowsMsvcEnvironment {
+    param(
+        [switch]$Quiet
+    )
+
     $Toolchain = Get-WindowsMsvcToolchain
-    $Toolchain.RustToolchain = Ensure-WindowsMsvcRustToolchain
+    $Toolchain.RustToolchain = Ensure-WindowsMsvcRustToolchain -Quiet:$Quiet
     return Set-WindowsMsvcEnvironment -Toolchain $Toolchain
 }

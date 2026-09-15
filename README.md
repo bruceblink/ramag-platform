@@ -363,7 +363,7 @@ ramag-bin              应用入口、依赖注入、快捷键与平台生命周
 
 ## 开发与验证
 
-日常编译和验证统一直接通过 Cargo 命令执行；`cargo run -p`、`cargo build`、`cargo check -p`、`cargo clippy -p` 和 `cargo test -p` 在 Windows、Linux、macOS 上保持相同。Windows 只需在当前 PowerShell 通过 `scripts/windows/enable-msvc-toolchain.ps1` 激活 Visual Studio 18 2026 MSVC 环境。`Makefile` 只保留打包和集成测试编排，不复制日常编译逻辑：
+日常编译和验证统一直接通过 Cargo 命令执行；`cargo run -p`、`cargo build`、`cargo check -p`、`cargo clippy -p` 和 `cargo test -p` 在 Windows、Linux、macOS 上保持相同。Windows 只需在当前 PowerShell 通过 `scripts/windows/enable-msvc-toolchain.ps1` 激活 Visual Studio 18 2026 MSVC 环境。该脚本默认不输出组件检查和环境清单；排查工具链问题时可追加 `-ShowStatus` 查看详细信息。`Makefile` 只保留打包和集成测试编排，不复制日常编译逻辑：
 
 | 命令 | 用途 |
 |---|---|
