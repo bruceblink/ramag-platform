@@ -15,8 +15,8 @@ use gpui_component::{
 };
 
 use super::result_diff::{
-    MAX_CELL_DIFFS, ResultCellDiff, ResultDiff, ResultDiffCategory, ResultDiffKind, ResultDiffLine,
-    ResultSnapshot, RowMatchMode, build_result_diff, format_result_diff,
+    MAX_CELL_DIFFS, ResultCellDiff, ResultDiff, ResultDiffKind, ResultDiffLine, ResultSnapshot,
+    RowMatchMode, build_result_diff, format_result_diff,
 };
 
 mod filter;
