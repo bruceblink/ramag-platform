@@ -1,5 +1,7 @@
 //! SQL 表结构对比的纯元数据模型与差异计算。
 
+use std::collections::HashSet;
+
 use ramag_domain::entities::{
     Column, ForeignKey, GeneratedColumnStorage, IdentityGeneration, Index,
 };
@@ -33,7 +35,9 @@ pub(crate) struct MetadataDiffSection {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct NamedMetadata {
     key: String,
+    display_name: String,
     text: String,
+    rename_signature: Option<String>,
 }
 
 /// 按对象名称比较两张表，修改项表示为删除旧定义后新增新定义。
@@ -96,6 +100,7 @@ fn diff_named(
     let source: Vec<_> = source.into_iter().collect();
     let target: Vec<_> = target.into_iter().collect();
     let mut lines = Vec::new();
+    let mut rename_matches = HashSet::new();
 
     for old in &source {
         match target.iter().find(|new| new.key == old.key) {
@@ -113,14 +118,51 @@ fn diff_named(
                     text: new.text.clone(),
                 });
             }
-            None => lines.push(MetadataDiffLine {
-                kind: MetadataDiffKind::Removed,
-                text: old.text.clone(),
-            }),
+            None => {
+                let source_candidates = source
+                    .iter()
+                    .filter(|candidate| {
+                        !target.iter().any(|target| target.key == candidate.key)
+                            && candidate.rename_signature.is_some()
+                            && candidate.rename_signature == old.rename_signature
+                    })
+                    .count();
+                let candidates = if source_candidates == 1 {
+                    target
+                        .iter()
+                        .enumerate()
+                        .filter(|(index, new)| {
+                            !rename_matches.contains(index)
+                                && !source.iter().any(|source| source.key == new.key)
+                                && old.rename_signature.is_some()
+                                && old.rename_signature == new.rename_signature
+                        })
+                        .collect::<Vec<_>>()
+                } else {
+                    Vec::new()
+                };
+                if candidates.len() == 1 {
+                    let (index, new) = candidates[0];
+                    rename_matches.insert(index);
+                    lines.push(MetadataDiffLine {
+                        kind: MetadataDiffKind::Removed,
+                        text: format!("{} [重命名候选：{}]", old.text, new.display_name),
+                    });
+                    lines.push(MetadataDiffLine {
+                        kind: MetadataDiffKind::Added,
+                        text: format!("{} [重命名候选：{}]", new.text, old.display_name),
+                    });
+                } else {
+                    lines.push(MetadataDiffLine {
+                        kind: MetadataDiffKind::Removed,
+                        text: old.text.clone(),
+                    });
+                }
+            }
         }
     }
-    for new in &target {
-        if !source.iter().any(|old| old.key == new.key) {
+    for (index, new) in target.iter().enumerate() {
+        if !rename_matches.contains(&index) && !source.iter().any(|old| old.key == new.key) {
             lines.push(MetadataDiffLine {
                 kind: MetadataDiffKind::Added,
                 text: new.text.clone(),
@@ -131,6 +173,17 @@ fn diff_named(
 }
 
 fn column_entry(column: &Column) -> NamedMetadata {
+    let display_name = compact(&column.name);
+    let definition = column_definition_text(column);
+    NamedMetadata {
+        key: column.name.to_ascii_lowercase(),
+        display_name,
+        text: format!("{} | {}", compact(&column.name), definition),
+        rename_signature: Some(definition),
+    }
+}
+
+fn column_definition_text(column: &Column) -> String {
     let default = column
         .default_value
         .as_deref()
@@ -154,20 +207,16 @@ fn column_entry(column: &Column) -> NamedMetadata {
         || "POSITION -".to_string(),
         |position| format!("POSITION {position}"),
     );
-    NamedMetadata {
-        key: column.name.to_ascii_lowercase(),
-        text: format!(
-            "{} | {} | {}{} | DEFAULT {} | COMMENT {} | {} | {}",
-            compact(&column.name),
-            compact(&column.data_type.raw_type),
-            nullable,
-            primary,
-            default,
-            comment,
-            generation,
-            position,
-        ),
-    }
+    format!(
+        "{} | {}{} | DEFAULT {} | COMMENT {} | {} | {}",
+        compact(&column.data_type.raw_type),
+        nullable,
+        primary,
+        default,
+        comment,
+        generation,
+        position,
+    )
 }
 
 fn column_generation_text(column: &Column) -> String {
@@ -207,8 +256,10 @@ fn index_entry(index: &Index) -> NamedMetadata {
     } else {
         "INDEX"
     };
+    let display_name = compact(&index.name);
     NamedMetadata {
         key: index.name.to_ascii_lowercase(),
+        display_name,
         text: format!(
             "{} {} ({})",
             kind,
@@ -220,12 +271,15 @@ fn index_entry(index: &Index) -> NamedMetadata {
                 .collect::<Vec<_>>()
                 .join(", ")
         ),
+        rename_signature: None,
     }
 }
 
 fn foreign_key_entry(foreign_key: &ForeignKey) -> NamedMetadata {
+    let display_name = compact(&foreign_key.name);
     NamedMetadata {
         key: foreign_key.name.to_ascii_lowercase(),
+        display_name,
         text: format!(
             "{} ({}) -> {}.{} ({}) | ON DELETE {} | ON UPDATE {}",
             compact(&foreign_key.name),
@@ -246,6 +300,7 @@ fn foreign_key_entry(foreign_key: &ForeignKey) -> NamedMetadata {
             foreign_key.on_delete.as_sql(),
             foreign_key.on_update.as_sql(),
         ),
+        rename_signature: None,
     }
 }
 
@@ -399,5 +454,38 @@ mod tests {
         ));
         assert!(text.contains("GENERATED STORED AS (price * 2) | POSITION 2"));
         assert!(text.contains("IDENTITY BY DEFAULT | POSITION 3"));
+    }
+
+    #[test]
+    fn uniquely_matching_unmatched_columns_are_marked_as_rename_candidates() {
+        let text = format_table_diff(&build_table_diff(
+            &TableMetadata {
+                columns: vec![column("email", "text")],
+                ..TableMetadata::default()
+            },
+            &TableMetadata {
+                columns: vec![column("legacy_email", "text")],
+                ..TableMetadata::default()
+            },
+        ));
+
+        assert!(text.contains("重命名候选：legacy_email"));
+        assert!(text.contains("重命名候选：email"));
+    }
+
+    #[test]
+    fn ambiguous_column_shapes_are_not_marked_as_rename_candidates() {
+        let text = format_table_diff(&build_table_diff(
+            &TableMetadata {
+                columns: vec![column("email", "text"), column("name", "text")],
+                ..TableMetadata::default()
+            },
+            &TableMetadata {
+                columns: vec![column("legacy_value", "text")],
+                ..TableMetadata::default()
+            },
+        ));
+
+        assert!(!text.contains("重命名候选"));
     }
 }
