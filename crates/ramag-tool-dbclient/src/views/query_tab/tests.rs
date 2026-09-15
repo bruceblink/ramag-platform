@@ -277,6 +277,17 @@ fn active_transaction_controls_wrap_inside_three_window_widths(cx: &mut TestAppC
         let controls = cx
             .debug_bounds("sql-transaction-controls")
             .expect("事务控制区应渲染");
+        if width < 720.0 {
+            assert!(
+                group.size.width >= toolbar.size.width - px(32.0),
+                "窄窗口事务组应占满工具栏可用宽度：group={group:?}, toolbar={toolbar:?}"
+            );
+        } else {
+            assert!(
+                group.size.width < toolbar.size.width - px(32.0),
+                "桌面窗口事务组不应强制占满整行：group={group:?}, toolbar={toolbar:?}"
+            );
+        }
         assert!(
             group.origin.x >= toolbar.origin.x
                 && group.right() <= toolbar.right()

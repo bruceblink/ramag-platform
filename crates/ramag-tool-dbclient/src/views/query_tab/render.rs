@@ -25,6 +25,7 @@ use super::toolbar::render_delete_button;
 use super::transaction::MAX_TRANSACTION_SAVEPOINTS;
 
 use crate::actions::{ExplainQuery, FormatSql, RunQuery, RunStatementAtCursor};
+use crate::views::is_compact_session_width;
 use crate::views::result_panel::{MAX_INSERT_COLUMNS, ResultState};
 
 impl Render for QueryTab {
@@ -95,13 +96,15 @@ impl Render for QueryTab {
         let is_production = self.connection.as_ref().is_some_and(|c| c.production);
         let warning = theme.warning;
         let query_tab_entity = cx.entity();
+        let compact_toolbar = is_compact_session_width(f32::from(window.viewport_size().width));
         let transaction_controls = if transaction_active {
             h_flex()
                 .id("sql-transaction-controls")
                 .debug_selector(|| "sql-transaction-controls".into())
-                .w_full()
                 .min_w_0()
                 .flex_wrap()
+                .when(compact_toolbar, |this| this.w_full())
+                .when(!compact_toolbar, |this| this.flex_1())
                 .items_center()
                 .gap_1()
                 .child(
@@ -177,9 +180,10 @@ impl Render for QueryTab {
             h_flex()
                 .id("sql-transaction-controls")
                 .debug_selector(|| "sql-transaction-controls".into())
-                .w_full()
                 .min_w_0()
                 .flex_wrap()
+                .when(compact_toolbar, |this| this.w_full())
+                .when(!compact_toolbar, |this| this.flex_1())
                 .items_center()
                 .gap_1()
                 .child(
@@ -375,9 +379,10 @@ impl Render for QueryTab {
                         h_flex()
                             .id("sql-transaction-group")
                             .debug_selector(|| "sql-transaction-group".into())
-                            .w_full()
                             .min_w_0()
                             .flex_wrap()
+                            .when(compact_toolbar, |this| this.w_full())
+                            .when(!compact_toolbar, |this| this.flex_1())
                             .items_center()
                             .gap_1()
                             .child(
