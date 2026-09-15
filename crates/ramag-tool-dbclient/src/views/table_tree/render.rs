@@ -11,7 +11,10 @@ use gpui_component::{
 use ramag_domain::entities::DriverKind;
 use ramag_ui::PointerDropdownMenu as _;
 
-use super::{TableTreeFilter, TableTreePanel, TreeEvent, ops::TableDdlNotification};
+use super::{
+    TableTreeFilter, TableTreePanel, TreeEvent, ops::TableDdlNotification,
+    show_fullscreen_schema_error, show_fullscreen_schema_loading,
+};
 use crate::sql_completion::is_system_schema;
 
 impl Render for TableTreePanel {
@@ -36,7 +39,7 @@ impl Render for TableTreePanel {
                 .into_any_element();
         }
 
-        if self.loading_schemas {
+        if show_fullscreen_schema_loading(&self.schemas, self.loading_schemas) {
             return v_flex()
                 .size_full()
                 .items_center()
@@ -47,7 +50,8 @@ impl Render for TableTreePanel {
                 .into_any_element();
         }
 
-        if let Some(err) = self.error.clone() {
+        if show_fullscreen_schema_error(&self.schemas, self.error.as_deref()) {
+            let err = self.error.clone().unwrap_or_default();
             return v_flex()
                 .size_full()
                 .p_2()
@@ -99,6 +103,12 @@ impl Render for TableTreePanel {
         }
         if self.ddl_gate.is_busy() {
             header_text.push_str(" · 结构变更执行中…");
+        }
+        if self.loading_schemas {
+            header_text.push_str(" · 刷新中…");
+        }
+        if let Some(error) = self.error.as_deref() {
+            header_text.push_str(&format!(" · 刷新失败：{error}"));
         }
         let toggle_icon = if show_system {
             IconName::Eye
@@ -304,6 +314,19 @@ impl Render for TableTreePanel {
             } else {
                 header_bar
             };
+        let header_bar = if self.error.is_some() {
+            header_bar.child(
+                ramag_ui::clickable_button("retry-schemas")
+                    .small()
+                    .label("重试")
+                    .debug_selector(|| "retry-schemas".into())
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        this.load_schemas(cx);
+                    })),
+            )
+        } else {
+            header_bar
+        };
 
         let transfer_row = ramag_ui::transfer_progress_row(
             "table-transfer-cancel",
@@ -337,6 +360,7 @@ impl Render for TableTreePanel {
             .child(body)
             .child(
                 div()
+                    .debug_selector(|| "table-tree-status".into())
                     .flex_none()
                     .w_full()
                     .px_2()

@@ -180,30 +180,51 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Activate Windows GNU or MSVC environment
+      - name: Activate Windows MSVC environment
         shell: pwsh
         run: |
-          . ./scripts/windows/enable-gnu-toolchain.ps1
-          foreach ($Name in Get-WindowsGnuEnvironmentNames) {
+          . ./scripts/windows/enable-msvc-toolchain.ps1
+          foreach ($Name in Get-WindowsMsvcEnvironmentNames) {
             $Value = [Environment]::GetEnvironmentVariable($Name, "Process")
             if ($null -ne $Value) {
               "$Name=$Value" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             }
           }
 
-      - name: Verify selected Windows native tools
+      - name: Verify Windows MSVC tools
         shell: pwsh
         run: |
-          if ($env:RUSTUP_TOOLCHAIN -match 'windows-gnu') {
-            gcc --version
-            g++ --version
-            cmake --version
-            ninja --version
+          . ./scripts/windows/msvc-toolchain.ps1
+          $expectedToolchain = Get-WindowsMsvcRustToolchain
+          if ($env:RUSTUP_TOOLCHAIN -ne $expectedToolchain) {
+            throw "The Windows MSVC Rust toolchain was not activated: $env:RUSTUP_TOOLCHAIN"
           }
-          else {
-            rustc -vV
-            Write-Host "GNU prerequisites are unavailable; using the Windows MSVC toolchain."
+          $expectedTargetDirectory = [System.IO.Path]::GetFullPath((Get-WindowsCargoTargetDirectory))
+          $actualTargetDirectory = [System.IO.Path]::GetFullPath($env:CARGO_TARGET_DIR)
+          if ($actualTargetDirectory -ine $expectedTargetDirectory) {
+            throw "Cargo target directory is not repository-local: $actualTargetDirectory"
           }
+          if ($env:CMAKE_GENERATOR -ne (Get-WindowsMsvcCMakeGenerator)) {
+            throw "Unexpected CMake generator: $env:CMAKE_GENERATOR"
+          }
+          if ($env:CMAKE_GENERATOR_PLATFORM -ne (Get-WindowsMsvcCMakePlatform)) {
+            throw "Unexpected CMake platform: $env:CMAKE_GENERATOR_PLATFORM"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:CMAKE_GENERATOR_INSTANCE)) {
+            throw "CMake Visual Studio generator instance is not configured."
+          }
+          if ($env:CMAKE_GENERATOR_TOOLSET -ne (Get-WindowsMsvcCMakeToolset)) {
+            throw "Unexpected CMake toolset: $env:CMAKE_GENERATOR_TOOLSET"
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:CMAKE_MAKE_PROGRAM)) {
+            throw "CMAKE_MAKE_PROGRAM must not be set for the Visual Studio generator."
+          }
+          rustc -vV
+          where.exe cl
+          where.exe link
+          where.exe rc
+          where.exe cmake
+          cmake --version
 
       - name: Restore Cargo download cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -222,7 +243,7 @@ jobs:
           $PesterConfig = New-PesterConfiguration
           $PesterConfig.Run.Path = @(
             "./scripts/windows/package.Tests.ps1",
-            "./scripts/windows/gnu-toolchain.Tests.ps1"
+            "./scripts/windows/msvc-toolchain.Tests.ps1"
           )
           $PesterConfig.Run.Exit = $true
           Invoke-Pester -Configuration $PesterConfig
@@ -234,6 +255,10 @@ jobs:
       - name: Check all targets
         shell: pwsh
         run: cargo check-all
+
+      - name: Check source file sizes
+        shell: pwsh
+        run: ./scripts/windows/check-source-size.ps1
 
       - name: Lint all targets
         shell: pwsh

@@ -231,6 +231,39 @@ fn does_not_treat_a_regular_single_column_result_as_a_plan() {
 }
 
 #[test]
+fn plan_copy_preserves_single_column_raw_rows() {
+    let plan_result = result(
+        &["QUERY PLAN"],
+        vec![
+            vec![Value::Text("Nested Loop  (cost=0.00..12.50)".into())],
+            vec![Value::Text("  ->  Seq Scan on users".into())],
+        ],
+    );
+
+    assert_eq!(
+        format_plan_text(&plan_result),
+        "Nested Loop  (cost=0.00..12.50)\n  ->  Seq Scan on users"
+    );
+}
+
+#[test]
+fn plan_copy_includes_headers_for_multi_column_plans() {
+    let plan_result = result(
+        &["id", "table", "rows"],
+        vec![vec![
+            Value::Int(1),
+            Value::Text("users".into()),
+            Value::Int(10),
+        ]],
+    );
+
+    assert_eq!(
+        format_plan_text(&plan_result),
+        "id\ttable\trows\n1\tusers\t10"
+    );
+}
+
+#[test]
 fn collapsed_rows_hide_only_descendants() {
     let rows = vec![
         PlanRow {
@@ -305,6 +338,28 @@ fn renders_structured_plan_tree_and_keeps_it_read_only(cx: &mut TestAppContext) 
         cx.debug_bounds("plan-tree-horizontal-scrollbar").is_some(),
         "structured plan view should expose a horizontal scrollbar"
     );
+    for width in [360.0, 1024.0, 1440.0] {
+        cx.simulate_resize(gpui::size(gpui::px(width), gpui::px(420.0)));
+        cx.run_until_parked();
+        let toolbar = cx
+            .debug_bounds("plan-toolbar")
+            .expect("structured plan toolbar should render");
+        let title = cx
+            .debug_bounds("plan-title")
+            .expect("structured plan title should render");
+        let copy = cx
+            .debug_bounds("plan-copy")
+            .expect("structured plan copy action should render");
+        let raw = cx
+            .debug_bounds("plan-view-raw")
+            .expect("structured plan raw switch should render");
+        for child in [title, copy, raw] {
+            assert!(child.origin.x >= toolbar.origin.x);
+            assert!(child.origin.y >= toolbar.origin.y);
+            assert!(child.right() <= toolbar.right());
+            assert!(child.bottom() <= toolbar.bottom());
+        }
+    }
     panel.read_with(cx, |panel, _| {
         assert_eq!(
             panel.insert_block_reason(),

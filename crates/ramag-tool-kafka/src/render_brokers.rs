@@ -71,12 +71,22 @@ impl KafkaView {
                     .min_w_0()
                     .items_center()
                     .gap(px(6.0))
-                    .child(div().size(px(8.0)).rounded_full().bg(status_color))
                     .child(
                         div()
+                            .size(px(8.0))
+                            .flex_none()
+                            .rounded_full()
+                            .bg(status_color),
+                    )
+                    .child(
+                        div()
+                            .debug_selector(|| "kafka-overview-broker-health-status-label".into())
+                            .flex_1()
                             .min_w_0()
                             .text_xs()
                             .text_color(status_color)
+                            .truncate()
+                            .whitespace_nowrap()
                             .child(status),
                     ),
             )

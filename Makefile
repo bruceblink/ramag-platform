@@ -14,6 +14,13 @@
 
 .DEFAULT_GOAL := help
 
+# Cargo compile targets must activate MSVC on Windows; Linux and macOS
+# continue to use the native Cargo command directly.
+CARGO_COMPILE := cargo
+ifeq ($(OS),Windows_NT)
+CARGO_COMPILE := powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/invoke-cargo-msvc.ps1
+endif
+
 help:
 	@printf "\033[1mRamag — 常用命令\033[0m\n\n"
 	@printf "  \033[36m开发\033[0m\n"
@@ -45,7 +52,7 @@ help:
 	@printf "    make linux-package  生成 deb、AppImage 与 SHA256SUMS；需在 Linux x86_64 运行\n"
 	@printf "    make linux-package-test  测试 Linux 打包命名、版本与桌面元数据\n"
 	@printf "\n  \033[36mWindows x64\033[0m\n"
-	@printf "    build-windows.ps1   Windows 原生构建 debug / release（-Release）\n"
+	@printf "    build-windows.ps1   Windows MSVC 构建 debug / release（-Release），产物统一在 target/\n"
 	@printf "    package-windows.ps1 Windows 原生打包；正式 Release 统一走 GitHub Actions\n"
 	@printf "\n  \033[36m清理\033[0m\n"
 	@printf "    make clean          cargo clean\n"
@@ -100,29 +107,28 @@ db-test-clean:
 
 # 脚本内部复用的数据库范围检查；下划线 target 不作为日常入口展示。
 _db-test-test:
-	cargo test \
+	$(CARGO_COMPILE) test --locked \
 		-p ramag-infra-mysql \
 		-p ramag-infra-postgres \
 		-p ramag-infra-redis \
 		-p ramag-infra-mongodb
 
 _db-test-check:
-	cargo check --all-targets \
+	$(CARGO_COMPILE) check --locked --all-targets \
 		-p ramag-infra-mysql \
 		-p ramag-infra-postgres \
 		-p ramag-infra-redis \
 		-p ramag-infra-mongodb
 
 _db-test-clippy:
-	cargo clippy --all-targets \
+	$(CARGO_COMPILE) -DenyWarnings clippy --locked --all-targets \
 		-p ramag-infra-mysql \
 		-p ramag-infra-postgres \
 		-p ramag-infra-redis \
-		-p ramag-infra-mongodb \
-		-- -D warnings
+		-p ramag-infra-mongodb
 
 _db-test-fmt:
-	cargo fmt \
+	$(CARGO_COMPILE) fmt \
 		-p ramag-infra-mysql \
 		-p ramag-infra-postgres \
 		-p ramag-infra-redis \
@@ -164,4 +170,4 @@ deps-update:
 
 lock-refresh:
 	rm -f Cargo.lock
-	cargo check
+	$(CARGO_COMPILE) check

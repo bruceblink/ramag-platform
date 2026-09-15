@@ -21,6 +21,8 @@ Cargo.lock.bak
 # 日志/临时文件
 *.log
 /tmp/
+/artifacts/
+/test-results/
 
 # AI code
 CLAUDE.md

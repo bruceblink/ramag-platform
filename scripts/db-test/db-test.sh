@@ -322,7 +322,17 @@ run_workspace_tests() {
     verify_seed
     export_test_environment
     log "Running the complete workspace test suite with all database integrations enabled"
-    (cd "$REPO_DIR" && cargo test-all)
+    if [[ "$(uname -s 2>/dev/null || printf '%s' unknown)" =~ ^(MINGW|MSYS|CYGWIN) ]] \
+        && command -v powershell.exe >/dev/null 2>&1; then
+        # Use the same MSVC wrapper as the database-scoped Make targets on Windows.
+        (
+            cd "$REPO_DIR"
+            powershell.exe -NoProfile -ExecutionPolicy Bypass \
+                -File "$REPO_DIR/scripts/windows/invoke-cargo-msvc.ps1" test-all
+        )
+    else
+        (cd "$REPO_DIR" && cargo test-all)
+    fi
 }
 
 show_status() {

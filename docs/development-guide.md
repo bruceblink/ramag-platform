@@ -17,21 +17,17 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，桌面界面使用 GPUI。�
 
 ### 1.2 平台构建依赖
 
-Windows 的 GNU 路径使用 MSYS2 UCRT64 MinGW-w64 工具链，还需要：
+Windows 使用 Visual Studio 18 2026 Build Tools 的 C++ workload、Windows 10/11 SDK 和 CMake。激活脚本自动定位完整的 VS18 安装，载入 x64 MSVC、Windows SDK 和 CMake，固定使用 `Visual Studio 18 2026` 的 x64 CMake 生成器，并选择官方 `stable-x86_64-pc-windows-msvc` Rust host/target。
 
-- MSYS2 UCRT64 的 GCC、G++、binutils 和 `windres`
-- CMake 与 Ninja
-- Windows 10/11 SDK
-
-如果 GNU Rust、MinGW-w64、CMake 或 Ninja 不可用，激活脚本会自动切换到 Windows 默认的 MSVC host/target；MSVC 路径不要求安装 MinGW-w64，但仍需要可用的 Windows SDK/MSVC 链接库。
-
-Windows 日常开发在普通 PowerShell 中先激活一次工具链；脚本优先选择 GNU Rust host/target、MinGW-w64 编译器和 Ninja CMake 生成器，并按 `rust-toolchain.toml` 自动补齐官方 GNU host。缺少 GNU Rust、MinGW-w64、CMake 或 Ninja 时，脚本自动使用 Windows 默认的 MSVC host/target。激活后直接使用与 Linux、macOS 相同的 Cargo 命令：
+Windows 日常开发在普通 PowerShell 中先激活一次 MSVC 工具链。脚本只修改当前 PowerShell 进程，不要求安装或配置 MSYS2、MinGW-w64、Ninja，也不会写入用户级环境变量。激活后直接使用与 Linux、macOS 相同的 Cargo 命令：
 
 ```powershell
-. .\scripts\windows\enable-gnu-toolchain.ps1
+. .\scripts\windows\enable-msvc-toolchain.ps1
 cargo test -p ramag-tool-system --lib
 cargo clippy-all
 ```
+
+`make db-test` 在 Windows 下调用同一套 MSVC 环境；数据库测试使用的 Cargo 编译缓存也位于仓库 `target/` 内。
 
 环境准备好后，运行、检查和测试始终使用同一组 `cargo` 命令。
 

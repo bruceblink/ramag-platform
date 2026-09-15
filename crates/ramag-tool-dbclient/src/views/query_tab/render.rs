@@ -25,6 +25,7 @@ use super::toolbar::render_delete_button;
 use super::transaction::MAX_TRANSACTION_SAVEPOINTS;
 
 use crate::actions::{ExplainQuery, FormatSql, RunQuery, RunStatementAtCursor};
+use crate::views::is_compact_session_width;
 use crate::views::result_panel::{MAX_INSERT_COLUMNS, ResultState};
 
 impl Render for QueryTab {
@@ -95,13 +96,20 @@ impl Render for QueryTab {
         let is_production = self.connection.as_ref().is_some_and(|c| c.production);
         let warning = theme.warning;
         let query_tab_entity = cx.entity();
+        let compact_toolbar = is_compact_session_width(f32::from(window.viewport_size().width));
         let transaction_controls = if transaction_active {
             h_flex()
-                .flex_none()
+                .id("sql-transaction-controls")
+                .debug_selector(|| "sql-transaction-controls".into())
+                .min_w_0()
+                .flex_wrap()
+                .when(compact_toolbar, |this| this.w_full())
+                .when(!compact_toolbar, |this| this.flex_1())
                 .items_center()
                 .gap_1()
                 .child(
                     ramag_ui::clickable_button("transaction-commit")
+                        .debug_selector(|| "transaction-commit".into())
                         .primary()
                         .small()
                         .icon(IconName::Check)
@@ -119,6 +127,7 @@ impl Render for QueryTab {
                 )
                 .child(
                     ramag_ui::clickable_button("transaction-rollback")
+                        .debug_selector(|| "transaction-rollback".into())
                         .ghost()
                         .small()
                         .icon(IconName::Undo2)
@@ -169,11 +178,17 @@ impl Render for QueryTab {
                 .into_any_element()
         } else {
             h_flex()
-                .flex_none()
+                .id("sql-transaction-controls")
+                .debug_selector(|| "sql-transaction-controls".into())
+                .min_w_0()
+                .flex_wrap()
+                .when(compact_toolbar, |this| this.w_full())
+                .when(!compact_toolbar, |this| this.flex_1())
                 .items_center()
                 .gap_1()
                 .child(
                     ramag_ui::clickable_button("transaction-begin")
+                        .debug_selector(|| "transaction-begin".into())
                         .ghost()
                         .small()
                         .icon(IconName::Play)
@@ -362,7 +377,12 @@ impl Render for QueryTab {
                     })
                     .child(
                         h_flex()
-                            .flex_none()
+                            .id("sql-transaction-group")
+                            .debug_selector(|| "sql-transaction-group".into())
+                            .min_w_0()
+                            .flex_wrap()
+                            .when(compact_toolbar, |this| this.w_full())
+                            .when(!compact_toolbar, |this| this.flex_1())
                             .items_center()
                             .gap_1()
                             .child(

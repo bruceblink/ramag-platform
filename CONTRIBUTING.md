@@ -12,7 +12,7 @@
 
 ## 本地开发
 
-开发环境需要 Git、rustup 和当前平台的构建工具。仓库通过 `rust-toolchain.toml` 统一使用 Rust stable；完整的首次运行说明见 [开发入门指南](docs/development-guide.md)。Windows 先执行 `scripts/windows/enable-gnu-toolchain.ps1`，脚本优先选择 GNU host/target，缺少 GNU 组件时自动使用 Windows 默认的 MSVC host/target。
+开发环境需要 Git、rustup 和当前平台的构建工具。仓库通过 `rust-toolchain.toml` 统一使用 Rust stable；完整的首次运行说明见 [开发入门指南](docs/development-guide.md)。Windows 先执行 `scripts/windows/enable-msvc-toolchain.ps1`，脚本固定加载 Visual Studio 18 2026 的 MSVC host/target。
 
 Windows、Linux 和 macOS 使用相同的 Cargo 命令：
 
@@ -52,7 +52,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\check-sour
 2. 保持一个 PR 只解决一个明确问题；不要混入无关重构或格式化。
 3. 为新增或修改的核心逻辑补充测试，并运行与改动范围匹配的验证命令。
 4. 在 PR 描述中说明问题、方案、验证结果，以及需要人工验证的平台。
-5. 不要在提交、截图、日志或测试夹具中包含真实凭据、用户数据或私有服务地址。
+5. 不要在提交、截图、日志或测试数据中包含真实凭据、用户数据或私有服务地址。
 
 CI 会在 Linux、macOS 和 Windows 上检查格式、编译、Clippy、测试和桌面打包逻辑。维护者可能要求补充测试、拆分范围或调整实现后再合并。
 

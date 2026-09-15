@@ -151,6 +151,7 @@ fn write_statement_ignores_keywords_in_literals_and_comments() {
 fn write_statement_ddl() {
     assert!(is_write_statement("DROP TABLE t"));
     assert!(is_write_statement("TRUNCATE TABLE t"));
+    assert!(is_write_statement("OPTIMIZE TABLE t"));
     assert!(is_write_statement("create table t(id int)"));
     assert!(is_write_statement("ALTER TABLE t ADD c int"));
     assert!(is_write_statement("CALL proc()"));

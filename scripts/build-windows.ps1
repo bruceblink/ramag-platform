@@ -13,7 +13,7 @@ if ($Fast -and -not $Release) {
 $BuildProfile = if ($Fast) { "release-fast" } elseif ($Release) { "release" } else { "debug" }
 $RepoDir = Split-Path -Parent $PSScriptRoot
 $DependencyHelper = Join-Path $PSScriptRoot "windows\pe-dependencies.ps1"
-$ToolchainHelper = Join-Path $PSScriptRoot "windows\gnu-toolchain.ps1"
+$ToolchainHelper = Join-Path $PSScriptRoot "windows\msvc-toolchain.ps1"
 
 if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
     throw "This script must run on Windows. Use the native Cargo command on Linux or macOS."
@@ -22,20 +22,16 @@ if (-not (Test-Path -LiteralPath $DependencyHelper -PathType Leaf)) {
     throw "PE dependency helper is missing: $DependencyHelper"
 }
 if (-not (Test-Path -LiteralPath $ToolchainHelper -PathType Leaf)) {
-    throw "Windows GNU toolchain helper is missing: $ToolchainHelper"
+    throw "Windows MSVC toolchain helper is missing: $ToolchainHelper"
 }
 . $DependencyHelper
 . $ToolchainHelper
 
 Set-Location $RepoDir
-$EnvironmentSnapshot = Save-WindowsGnuEnvironment
-$Toolchain = Select-WindowsToolchain -PreferGnu
-$Target = $Toolchain.Target
-Write-Host "Using Rust host toolchain: $($Toolchain.RustToolchain)"
-Write-Host "Using Windows $($Toolchain.Flavor) toolchain: $($Toolchain.Target)"
-if ($Toolchain.Flavor -eq "GNU") {
-    Write-Host "  gcc: $($Toolchain.Gcc)"
-}
+$EnvironmentSnapshot = Save-WindowsMsvcEnvironment
+$Toolchain = $null
+$Target = $null
+$TargetDirectory = $null
 
 function Find-Fxc {
     $Command = Get-Command fxc.exe -ErrorAction SilentlyContinue
@@ -67,6 +63,16 @@ function Find-Fxc {
         ForEach-Object { Join-Path $_.FullName "x64\fxc.exe" } |
         Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
         Select-Object -First 1
+}
+
+function Find-Dumpbin {
+    $MsvcRoot = Join-Path $Toolchain.VisualStudio.InstallationPath "VC\Tools\MSVC"
+    if (-not (Test-Path -LiteralPath $MsvcRoot -PathType Container)) {
+        return $null
+    }
+    return Get-ChildItem -LiteralPath $MsvcRoot -Recurse -File -Filter "dumpbin.exe" |
+        Where-Object { $_.FullName -match "\\bin\\Hostx64\\x64\\dumpbin\.exe$" } |
+        Select-Object -ExpandProperty FullName -First 1
 }
 
 function Assert-PeTarget {
@@ -115,6 +121,18 @@ try {
         throw "cargo not found. Install Rust with rustup before building."
     }
 
+    $Toolchain = Initialize-WindowsMsvcEnvironment
+    $Target = $Toolchain.Target
+    $TargetDirectory = Get-WindowsCargoTargetDirectory
+    Write-Host "Using Visual Studio 18 2026 MSVC: $($Toolchain.VisualStudio.InstallationPath)"
+    Write-Host "  toolset: $($Toolchain.VisualStudio.ToolsetVersion)"
+    Write-Host "  rust:    $($Toolchain.RustToolchain)"
+    Write-Host "  target:  $Target"
+    Write-Host "  cl:      $($Toolchain.Cl)"
+    Write-Host "  cmake:   $($Toolchain.CMake)"
+    Write-Host "  generator: $(Get-WindowsMsvcCMakeGenerator)"
+    Write-Host "  platform:  $(Get-WindowsMsvcCMakePlatform)"
+
     if ($Release) {
         $Fxc = Find-Fxc
         if ([string]::IsNullOrWhiteSpace($Fxc)) {
@@ -124,7 +142,7 @@ try {
         Write-Host "Using HLSL compiler: $Fxc"
     }
 
-    $CargoArgs = @("build", "--locked", "-p", "ramag-bin")
+    $CargoArgs = @("build", "--locked", "--target", $Target, "-p", "ramag-bin")
     if ($Fast) {
         $CargoArgs += @("--profile", $BuildProfile)
     }
@@ -136,10 +154,10 @@ try {
 
     & cargo @CargoArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "Windows $BuildProfile build failed with the $($Toolchain.Flavor) toolchain. Verify the selected Windows compiler, CMake, Ninja, and the Windows SDK, then retry."
+        throw "Windows $BuildProfile build failed with Visual Studio 18 2026 MSVC. Verify the C++ workload, CMake, and Windows SDK, then retry."
     }
 
-    $Exe = Join-Path $RepoDir "target\$Target\$BuildProfile\ramag.exe"
+    $Exe = Join-Path $TargetDirectory "$Target\$BuildProfile\ramag.exe"
     if (-not (Test-Path -LiteralPath $Exe -PathType Leaf)) {
         throw "Build finished without the expected executable: $Exe"
     }
@@ -150,52 +168,41 @@ try {
     }
     Assert-PeTarget -Path $Exe -Gui $Release.IsPresent
 
-    if ($Toolchain.Flavor -eq "GNU") {
-        $Objdump = $Toolchain.Objdump
-        Write-Host "Using GNU PE inspector: $Objdump"
-        $Dependencies = (& $Objdump -p $Exe) -join "`n"
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to inspect executable dependencies with objdump.exe."
-        }
-        $DependencyNames = @(
-            [regex]::Matches(
-                $Dependencies,
-                '(?im)^\s*DLL Name:\s*([A-Z0-9._+-]+\.dll)\s*$'
-            ) |
-                ForEach-Object { $_.Groups[1].Value } |
-                Sort-Object -Unique
-        )
-        if ($DependencyNames.Count -eq 0) {
-            throw "objdump.exe returned no PE dependencies for $Exe."
-        }
-        Write-Host "PE dependencies: $($DependencyNames -join ', ')"
-
-        $DynamicGnuRuntime = @(
-            $DependencyNames | Where-Object {
-                $_ -match '^(libgcc_s_seh-1|libstdc\+\+-6|libwinpthread-1|libssp-0)\.dll$'
-            }
-        )
-        if ($DynamicGnuRuntime.Count -gt 0) {
-            throw "The executable depends on the dynamic GNU runtime: $($DynamicGnuRuntime -join ', ')"
-        }
-
-        $SystemDirectory = [System.Environment]::SystemDirectory
-        $NonSystemDependencies = @(
-            Get-UnpackagedPeDependencies `
-                -DependencyNames $DependencyNames `
-                -SystemDirectory $SystemDirectory
-        )
-        if ($NonSystemDependencies.Count -gt 0) {
-            throw "The executable has unpackaged non-system dependencies: $($NonSystemDependencies -join ', ')"
-        }
+    $Dumpbin = Find-Dumpbin
+    if ([string]::IsNullOrWhiteSpace($Dumpbin)) {
+        throw "dumpbin.exe not found. Repair the Visual Studio C++ Build Tools installation."
     }
-    else {
-        Write-Host "MSVC build selected; GNU-specific PE dependency inspection is not applicable."
+    Write-Host "Using PE inspector: $Dumpbin"
+    $Dependencies = (& $Dumpbin /nologo /dependents $Exe) -join "`n"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to inspect executable dependencies with dumpbin.exe."
+    }
+    $DependencyNames = @(
+        [regex]::Matches(
+            $Dependencies,
+            '(?im)^\s*([A-Z0-9._+-]+\.dll)\s*$'
+        ) |
+            ForEach-Object { $_.Groups[1].Value } |
+            Sort-Object -Unique
+    )
+    if ($DependencyNames.Count -eq 0) {
+        throw "dumpbin.exe returned no PE dependencies for $Exe."
+    }
+    Write-Host "PE dependencies: $($DependencyNames -join ', ')"
+
+    $SystemDirectory = [System.Environment]::SystemDirectory
+    $NonSystemDependencies = @(
+        Get-UnpackagedPeDependencies `
+            -DependencyNames $DependencyNames `
+            -SystemDirectory $SystemDirectory
+    )
+    if ($NonSystemDependencies.Count -gt 0) {
+        throw "The executable has unpackaged non-system dependencies: $($NonSystemDependencies -join ', ')"
     }
 
     $Size = (Get-Item -LiteralPath $Exe).Length
     Write-Host "Windows $BuildProfile build completed: $Exe ($Size bytes)"
 }
 finally {
-    Restore-WindowsGnuEnvironment -Snapshot $EnvironmentSnapshot
+    Restore-WindowsMsvcEnvironment -Snapshot $EnvironmentSnapshot
 }

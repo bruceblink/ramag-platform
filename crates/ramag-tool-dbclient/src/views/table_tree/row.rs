@@ -30,6 +30,50 @@ use crate::views::tree_helpers::{
 use super::rows::build_tree_rows;
 use super::rows::build_tree_rows_with_navigation;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum TableSizeStatus {
+    Known,
+    Loading,
+    Unknown,
+    Failed,
+    Stale,
+}
+
+impl TableSizeStatus {
+    // 根据表元数据请求状态生成显示状态，保留旧大小并区分未知、失败和过期结果。
+    pub(super) fn from_metadata(loading: bool, has_error: bool, size_bytes: Option<u64>) -> Self {
+        if loading {
+            Self::Loading
+        } else if has_error {
+            if size_bytes.is_some() {
+                Self::Stale
+            } else {
+                Self::Failed
+            }
+        } else if size_bytes.is_some() {
+            Self::Known
+        } else {
+            Self::Unknown
+        }
+    }
+
+    fn badge(self, size_bytes: Option<u64>) -> String {
+        match self {
+            Self::Known => size_bytes
+                .map(format_bytes)
+                .unwrap_or_else(|| "未知".into()),
+            Self::Loading => size_bytes
+                .map(|bytes| format!("{} · 刷新", format_bytes(bytes)))
+                .unwrap_or_else(|| "加载中".into()),
+            Self::Unknown => "未知".into(),
+            Self::Failed => "读取失败".into(),
+            Self::Stale => size_bytes
+                .map(|bytes| format!("{} · 过期", format_bytes(bytes)))
+                .unwrap_or_else(|| "过期".into()),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub(super) enum TreeRow {
     Schema {
@@ -42,7 +86,10 @@ pub(super) enum TreeRow {
         is_error: bool,
     },
     GroupHeader {
+        schema: String,
+        is_view: bool,
         text: String,
+        is_expanded: bool,
     },
     Table {
         key: Rc<(String, String)>,
@@ -50,6 +97,7 @@ pub(super) enum TreeRow {
         is_cols_expanded: bool,
         is_favorite: bool,
         size_bytes: Option<u64>,
+        size_status: TableSizeStatus,
     },
     TablePlaceholder {
         text: String,
@@ -135,6 +183,7 @@ impl TableTreePanel {
                 connection_id: self.connection.as_ref().map(|connection| &connection.id),
                 navigation_favorites: &self.navigation_favorites,
                 recent_tables: &self.recent_tables,
+                collapsed_table_groups: &self.collapsed_table_groups,
             },
         );
         self.tree_rows_cache.replace(Some(TreeRowsCacheEntry {
@@ -150,6 +199,7 @@ impl TableTreePanel {
         let accent_bg = cx.theme().accent;
         let accent_fg = cx.theme().accent_foreground;
         let fg = cx.theme().foreground;
+        let warning = cx.theme().warning;
         let red = gpui::red();
 
         match row {
@@ -232,23 +282,27 @@ impl TableTreePanel {
                 .text_ellipsis()
                 .child(text.clone())
                 .into_any_element(),
-            TreeRow::GroupHeader { text } => div()
-                .w_full()
-                .h(px(28.0))
-                .flex_none()
-                .pl_5()
-                .pr_2()
-                .pt(px(6.0))
-                .text_xs()
-                .text_color(muted_fg)
-                .child(text.clone())
-                .into_any_element(),
+            TreeRow::GroupHeader {
+                schema,
+                is_view,
+                text,
+                is_expanded,
+            } => super::group_row::render(
+                schema,
+                *is_view,
+                text,
+                *is_expanded,
+                muted_fg,
+                muted_bg,
+                cx,
+            ),
             TreeRow::Table {
                 key,
                 is_view,
                 is_cols_expanded,
                 is_favorite,
                 size_bytes,
+                size_status,
             } => {
                 let schema = &key.0;
                 let name = &key.1;
@@ -263,7 +317,8 @@ impl TableTreePanel {
                 let is_view = *is_view;
                 let is_cols_expanded = *is_cols_expanded;
                 let is_favorite = *is_favorite;
-                let size_label = size_bytes.map(format_bytes);
+                let size_status = *size_status;
+                let size_badge = (!is_view).then(|| size_status.badge(*size_bytes));
 
                 let row_id = SharedString::from(format!("table-{}-{}", schema, name));
                 let s_for_click = schema.clone();
@@ -359,7 +414,7 @@ impl TableTreePanel {
                                 .text_color(if is_selected { accent_fg } else { muted_fg }),
                         )
                     })
-                    .when_some(size_label, |row, size| {
+                    .when_some(size_badge, |row, size| {
                         row.child(
                             div()
                                 .ml_auto()
@@ -370,7 +425,18 @@ impl TableTreePanel {
                                 .border_color(muted_fg.opacity(0.35))
                                 .bg(muted_bg)
                                 .text_xs()
-                                .text_color(if is_selected { accent_fg } else { fg })
+                                .text_color(if is_selected {
+                                    accent_fg
+                                } else {
+                                    match size_status {
+                                        TableSizeStatus::Failed => red,
+                                        TableSizeStatus::Stale => warning,
+                                        TableSizeStatus::Known => fg,
+                                        TableSizeStatus::Loading | TableSizeStatus::Unknown => {
+                                            muted_fg
+                                        }
+                                    }
+                                })
                                 .child(size),
                         )
                     });

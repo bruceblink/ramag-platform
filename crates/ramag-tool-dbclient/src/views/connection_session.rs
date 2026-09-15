@@ -182,6 +182,7 @@ impl ConnectionSession {
 
         let resize_state = cx.new(|_| ResizableState::default());
         let tree_for_import = tree.clone();
+        let tree_for_metadata = tree.clone();
         subs.push(cx.subscribe_in(
             &queries,
             window,
@@ -189,6 +190,11 @@ impl ConnectionSession {
                 QueryPanelEvent::ToggleTableTree => {
                     this.tree_visible = !this.tree_visible;
                     cx.notify();
+                }
+                QueryPanelEvent::TableMetadataChanged { schema } => {
+                    tree_for_metadata.update(cx, |tree, cx| {
+                        tree.refresh_loaded_tables_for(schema, cx);
+                    });
                 }
                 QueryPanelEvent::LocateTableRequested { schema, table } => {
                     info!(

@@ -10,10 +10,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepositoryRoot = Split-Path -Parent (Split-Path -Parent $ScriptDirectory)
 $ComposeFile = Join-Path $ScriptDirectory "compose.yaml"
 $DockerComposeFile = $ComposeFile
 $FixtureFile = Join-Path $ScriptDirectory "fixtures\messages.txt"
-$ToolchainScript = Join-Path $ScriptDirectory "..\windows\gnu-toolchain.ps1"
+$ToolchainScript = Join-Path $ScriptDirectory "..\windows\msvc-toolchain.ps1"
 $ProjectName = "ramag-kafka-test"
 $ContainerName = "ramag-kafka-test"
 $ConnectContainerName = "ramag-kafka-connect-test"
@@ -125,7 +126,7 @@ function Get-FixtureTopicNames {
 }
 
 if (-not (Test-Path -LiteralPath $ToolchainScript -PathType Leaf)) {
-    throw "Windows GNU toolchain helper is missing: $ToolchainScript"
+    throw "Windows MSVC toolchain helper is missing: $ToolchainScript"
 }
 
 function Write-TestLog {
@@ -554,12 +555,10 @@ function Prepare-SchemaRegistryFixture {
 }
 
 function Run-RustIntegrationTest {
-    # Run the Docker-backed Rust test with the same direct Cargo command used on
-    # Linux and macOS, preferring GNU and falling back to the Windows MSVC
-    # environment when the GNU prerequisites are unavailable.
+    # Run the Docker-backed native and pure-Rust tests with the repository's
+    # single MSVC environment, then restore the caller's process variables.
     . $ToolchainScript
-    $Toolchain = Select-WindowsToolchain -PreferGnu
-    $EnvironmentSnapshot = $Toolchain.PreviousEnvironment
+    $EnvironmentSnapshot = Save-WindowsMsvcEnvironment
     $oldBootstrap = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_BOOTSTRAP", "Process")
     $oldConnectEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_CONNECT", "Process")
     $oldMetricsEndpoint = [Environment]::GetEnvironmentVariable("RAMAG_TEST_KAFKA_METRICS", "Process")
@@ -573,9 +572,10 @@ function Run-RustIntegrationTest {
     $env:RAMAG_TEST_KAFKA_BROKER_METRICS = $BrokerMetricsEndpoint
     $env:RAMAG_TEST_KSQLDB = $KsqlDbEndpoint
     $env:RAMAG_TEST_SCHEMA_REGISTRY = $SchemaRegistryEndpoint
-    $env:CARGO_TARGET_DIR = Join-Path ([System.IO.Path]::GetTempPath()) "ramag-kafka-docker-target"
-
     try {
+        $null = Initialize-WindowsMsvcEnvironment
+        # Keep the isolated native test cache inside the repository target root.
+        $env:CARGO_TARGET_DIR = Join-Path $RepositoryRoot "target\kafka-docker"
         & cargo test --offline --locked -p ramag-infra-kafka --no-default-features --features cmake-build --test docker_kafka
         if ($LASTEXITCODE -ne 0) {
             throw "Rust Kafka integration test failed with exit code $LASTEXITCODE"
@@ -585,7 +585,7 @@ function Run-RustIntegrationTest {
             throw "Pure Rust Kafka integration test failed with exit code $LASTEXITCODE"
         }
     } finally {
-        Restore-WindowsGnuEnvironment -Snapshot $EnvironmentSnapshot
+        Restore-WindowsMsvcEnvironment -Snapshot $EnvironmentSnapshot
         if ($null -eq $oldBootstrap) {
             Remove-Item Env:RAMAG_TEST_KAFKA_BOOTSTRAP -ErrorAction SilentlyContinue
         } else {

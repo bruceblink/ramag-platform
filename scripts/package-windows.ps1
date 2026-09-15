@@ -6,21 +6,19 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $RepoDir = Split-Path -Parent $PSScriptRoot
-$ToolchainScript = Join-Path $PSScriptRoot "windows\gnu-toolchain.ps1"
+$ToolchainScript = Join-Path $PSScriptRoot "windows\msvc-toolchain.ps1"
 if (-not (Test-Path -LiteralPath $ToolchainScript -PathType Leaf)) {
-    throw "Windows GNU toolchain helper is missing: $ToolchainScript"
+    throw "Windows MSVC toolchain helper is missing: $ToolchainScript"
 }
 . $ToolchainScript
-$TargetDirectories = @(
-    Get-WindowsGnuTarget
-    Get-WindowsMsvcTarget
-) | Select-Object -Unique
+$Target = Get-WindowsMsvcTarget
+$TargetDirectory = Get-WindowsCargoTargetDirectory
 $BuildScript = Join-Path $PSScriptRoot "build-windows.ps1"
 $IssScript = Join-Path $PSScriptRoot "windows\ramag.iss"
 $SmokeTestScript = Join-Path $PSScriptRoot "windows\test-installer.ps1"
 $Exe = $null
-$DistDir = Join-Path $RepoDir "target\windows-dist"
-$WorkDir = Join-Path $RepoDir "target\windows-package"
+$DistDir = Join-Path $TargetDirectory "windows-dist"
+$WorkDir = Join-Path $TargetDirectory "windows-package"
 
 function Find-Iscc {
     $Command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
@@ -137,11 +135,7 @@ function Resolve-ReleaseExecutable {
         [DateTime]$BuiltAfter
     )
 
-    $CandidatePaths = @(
-        $TargetDirectories | ForEach-Object {
-            Join-Path $RepoDir "target\$_\release\ramag.exe"
-        }
-    )
+    $CandidatePaths = @(Join-Path $TargetDirectory "$Target\release\ramag.exe")
     $Existing = @(
         $CandidatePaths |
             Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
@@ -151,7 +145,7 @@ function Resolve-ReleaseExecutable {
     $Candidates = if ($Fresh.Count -gt 0) { $Fresh } else { $Existing }
     $Selected = $Candidates | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
     if ($null -eq $Selected) {
-        throw "Windows build finished without a release executable in the GNU or MSVC target directories."
+        throw "Windows MSVC build finished without a release executable: $($CandidatePaths -join ', ')"
     }
     return $Selected.FullName
 }

@@ -33,30 +33,51 @@ jobs:
           persist-credentials: false
           ref: ${{ inputs.release_tag || github.ref }}
 
-      - name: Activate Windows GNU or MSVC environment
+      - name: Activate Windows MSVC environment
         shell: pwsh
         run: |
-          . ./scripts/windows/enable-gnu-toolchain.ps1
-          foreach ($Name in Get-WindowsGnuEnvironmentNames) {
+          . ./scripts/windows/enable-msvc-toolchain.ps1
+          foreach ($Name in Get-WindowsMsvcEnvironmentNames) {
             $Value = [Environment]::GetEnvironmentVariable($Name, "Process")
             if ($null -ne $Value) {
               "$Name=$Value" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             }
           }
 
-      - name: Verify selected Windows native tools
+      - name: Verify Windows MSVC tools
         shell: pwsh
         run: |
-          if ($env:RUSTUP_TOOLCHAIN -match 'windows-gnu') {
-            gcc --version
-            g++ --version
-            cmake --version
-            ninja --version
+          . ./scripts/windows/msvc-toolchain.ps1
+          $expectedToolchain = Get-WindowsMsvcRustToolchain
+          if ($env:RUSTUP_TOOLCHAIN -ne $expectedToolchain) {
+            throw "The Windows MSVC Rust toolchain was not activated: $env:RUSTUP_TOOLCHAIN"
           }
-          else {
-            rustc -vV
-            Write-Host "GNU prerequisites are unavailable; using the Windows MSVC toolchain."
+          $expectedTargetDirectory = [System.IO.Path]::GetFullPath((Get-WindowsCargoTargetDirectory))
+          $actualTargetDirectory = [System.IO.Path]::GetFullPath($env:CARGO_TARGET_DIR)
+          if ($actualTargetDirectory -ine $expectedTargetDirectory) {
+            throw "Cargo target directory is not repository-local: $actualTargetDirectory"
           }
+          if ($env:CMAKE_GENERATOR -ne (Get-WindowsMsvcCMakeGenerator)) {
+            throw "Unexpected CMake generator: $env:CMAKE_GENERATOR"
+          }
+          if ($env:CMAKE_GENERATOR_PLATFORM -ne (Get-WindowsMsvcCMakePlatform)) {
+            throw "Unexpected CMake platform: $env:CMAKE_GENERATOR_PLATFORM"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:CMAKE_GENERATOR_INSTANCE)) {
+            throw "CMake Visual Studio generator instance is not configured."
+          }
+          if ($env:CMAKE_GENERATOR_TOOLSET -ne (Get-WindowsMsvcCMakeToolset)) {
+            throw "Unexpected CMake toolset: $env:CMAKE_GENERATOR_TOOLSET"
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:CMAKE_MAKE_PROGRAM)) {
+            throw "CMAKE_MAKE_PROGRAM must not be set for the Visual Studio generator."
+          }
+          rustc -vV
+          where.exe cl
+          where.exe link
+          where.exe rc
+          where.exe cmake
+          cmake --version
 
       - name: Restore Windows Cargo download cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -76,12 +97,16 @@ jobs:
           $PesterConfig = New-PesterConfiguration
           $PesterConfig.Run.Path = @(
             "./scripts/windows/package.Tests.ps1",
-            "./scripts/windows/gnu-toolchain.Tests.ps1"
+            "./scripts/windows/msvc-toolchain.Tests.ps1"
           )
           $PesterConfig.Run.Exit = $true
           $PesterConfig.TestResult.Enabled = $true
           $PesterConfig.TestResult.OutputPath = "./target/test-results/windows-package.xml"
           Invoke-Pester -Configuration $PesterConfig
+
+      - name: Check source file sizes
+        shell: pwsh
+        run: ./scripts/windows/check-source-size.ps1
 
       - name: Build, package, and smoke test Windows
         shell: pwsh
@@ -321,7 +346,7 @@ jobs:
           (cd "$macos_dir" && sha256sum --check SHA256SUMS.txt)
           (cd "$linux_dir" && sha256sum --check SHA256SUMS.txt)
 
-          mkdir release-assets
+          mkdir -p release-assets
           cp \
             "${installers[0]}" \
             "${arm_disk_images[0]}" \
@@ -349,15 +374,6 @@ jobs:
           set -euo pipefail
           cd release-assets
           shopt -s nullglob
-          assets=(
-            Ramag-*-windows-x64-setup.exe
-            Ramag-*-macos-arm64.dmg
-            Ramag-*-macos-x86_64.dmg
-            Ramag-*-linux-amd64.deb
-            Ramag-*-linux-x86_64.AppImage
-            SHA256SUMS.txt
-            update-manifest.json
-          )
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             tag="$MANUAL_RELEASE_TAG"
           else
@@ -434,22 +450,59 @@ jobs:
             }' >update-manifest.json
           jq -e '.schema_version == 1 and (.assets | length) == 5' \
             update-manifest.json >/dev/null
+          assets=(
+            "${installers[0]}"
+            "Ramag-$version-macos-arm64.dmg"
+            "Ramag-$version-macos-x86_64.dmg"
+            "Ramag-$version-linux-amd64.deb"
+            "Ramag-$version-linux-x86_64.AppImage"
+            SHA256SUMS.txt
+            update-manifest.json
+          )
+
+          run_release_command() {
+            local label="$1"
+            shift
+            local output status
+            output=$("$@" 2>&1) || {
+              status=$?
+              output="${output//'%'/'%25'}"
+              output="${output//$'\n'/'%0A'}"
+              output="${output//$'\r'/'%0D'}"
+              echo "::error title=$label::$output"
+              return "$status"
+            }
+            printf '%s\n' "$output"
+          }
 
           title="Ramag ${tag#v}"
 
-          if is_draft=$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null); then
+          if is_draft=$(gh release view "$tag" --repo "$GH_REPO" --json isDraft --jq .isDraft 2>/dev/null); then
             if [[ "$is_draft" != "true" ]]; then
               echo "Release $tag is already published; refusing to replace public assets." >&2
               exit 1
             fi
-            gh release upload "$tag" "${assets[@]}" --clobber
-            gh release edit "$tag" --title "$title" --notes "$notes"
-          else
-            release_flags=(--draft --verify-tag --notes "$notes" --title "$title")
+            # A failed previous run may have left an incomplete draft. Start
+            # from a clean draft so stale assets cannot affect this release.
+            run_release_command "Delete incomplete draft release" \
+              gh release delete "$tag" --repo "$GH_REPO" --yes
+            is_draft=""
+          fi
+
+          if [[ -z "$is_draft" ]]; then
+            # gh release create stages the assets as a draft and publishes the
+            # release after the upload succeeds.
+            release_flags=(--verify-tag --notes "$notes" --title "$title")
             if [[ "$tag" == *-* ]]; then
               release_flags+=(--prerelease)
             fi
-            gh release create "$tag" "${assets[@]}" "${release_flags[@]}"
+            run_release_command "Create GitHub release" \
+              gh release create "$tag" --repo "$GH_REPO" "${release_flags[@]}" "${assets[@]}"
+          else
+            run_release_command "Upload GitHub release assets" \
+              gh release upload "$tag" "${assets[@]}" --repo "$GH_REPO" --clobber
+            run_release_command "Update GitHub release metadata" \
+              gh release edit "$tag" --repo "$GH_REPO" --title "$title" --notes "$notes"
+            run_release_command "Publish GitHub release draft" \
+              gh release edit "$tag" --repo "$GH_REPO" --draft=false
           fi
-
-          gh release edit "$tag" --draft=false

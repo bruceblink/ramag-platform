@@ -1,6 +1,7 @@
 mod compare;
 mod ddl;
 mod ddl_ops;
+mod group_row;
 mod load;
 mod locate;
 mod menus;
@@ -52,6 +53,8 @@ pub struct TableTreePanel {
     /// 表缓存与展开状态分离。
     pub(super) expanded: HashMap<String, SchemaTables>,
     pub(super) open_schemas: HashSet<String>,
+    /// 记录被用户收起的表/视图分组；未记录的分组默认展开。
+    pub(super) collapsed_table_groups: HashSet<(String, bool)>,
     pub(super) full_search: Option<FullSearchProgress>,
     pub(super) full_search_generation: u64,
     /// 防止旧连接的异步结果回写。
@@ -145,6 +148,7 @@ pub(super) struct TableTreeNavigation<'a> {
     connection_id: Option<&'a ramag_domain::entities::ConnectionId>,
     navigation_favorites: &'a HashSet<navigation::TableNavigationRef>,
     recent_tables: &'a [navigation::TableNavigationRef],
+    collapsed_table_groups: &'a HashSet<(String, bool)>,
 }
 
 #[derive(Debug, Clone)]
@@ -219,6 +223,7 @@ impl TableTreePanel {
             error: None,
             expanded: HashMap::new(),
             open_schemas: HashSet::new(),
+            collapsed_table_groups: HashSet::new(),
             full_search: None,
             full_search_generation: 0,
             metadata_generation: 0,
@@ -276,14 +281,7 @@ impl TableTreePanel {
         if self.connection.is_none() {
             return;
         }
-        self.expanded.clear();
-        self.open_schemas.clear();
         self.cancel_full_search(cx);
-        self.table_columns.clear();
-        self.selected = None;
-        self.pending_navigation = None;
-        self.error = None;
-        self.invalidate_tree_rows();
         self.load_schemas(cx);
     }
 
@@ -294,12 +292,20 @@ impl TableTreePanel {
         }
     }
 
+    /// 重新读取已经加载的 schema，更新表空间等元数据并保留树状态。
+    pub(crate) fn refresh_loaded_tables_for(&mut self, schema: &str, cx: &mut Context<Self>) {
+        if self.expanded.contains_key(schema) {
+            self.load_tables_for(schema.to_string(), cx);
+        }
+    }
+
     pub fn set_connection(&mut self, conn: Option<ConnectionConfig>, cx: &mut Context<Self>) {
         self.ddl_gate.reset();
         self.connection = conn;
         self.schemas.clear();
         self.expanded.clear();
         self.open_schemas.clear();
+        self.collapsed_table_groups.clear();
         self.cancel_full_search(cx);
         self.table_columns.clear();
         self.selected = None;
@@ -348,6 +354,23 @@ impl TableTreePanel {
                 this.loading_schemas = false;
                 match result {
                     Ok(schemas) => {
+                        // Re-read expanded schemas after replacing the top-level list while the
+                        // old rows remain visible until each metadata request completes.
+                        let schemas_to_refresh: Vec<String> = this
+                            .open_schemas
+                            .iter()
+                            .filter(|name| schemas.iter().any(|schema| &schema.name == *name))
+                            .cloned()
+                            .collect();
+                        retain_schema_tree_state(
+                            &schemas,
+                            &mut this.expanded,
+                            &mut this.open_schemas,
+                            &mut this.collapsed_table_groups,
+                            &mut this.table_columns,
+                            &mut this.selected,
+                            &mut this.active_schema,
+                        );
                         let names: Vec<String> = schemas.iter().map(|s| s.name.clone()).collect();
                         this.schema_cache.write().all_schemas = names;
                         this.schemas = schemas;
@@ -361,6 +384,9 @@ impl TableTreePanel {
                                 schema: default_name,
                             });
                         }
+                        for schema in schemas_to_refresh {
+                            this.load_tables_for(schema, cx);
+                        }
                         this.start_pending_navigation(cx);
                     }
                     Err(e) => {
@@ -372,6 +398,43 @@ impl TableTreePanel {
         })
         .detach();
     }
+}
+
+// 刷新 schema 时只移除已经不存在的对象，保留展开、表结构和当前选择。
+fn retain_schema_tree_state(
+    schemas: &[Schema],
+    expanded: &mut HashMap<String, SchemaTables>,
+    open_schemas: &mut HashSet<String>,
+    collapsed_table_groups: &mut HashSet<(String, bool)>,
+    table_columns: &mut HashMap<(String, String), TableColumns>,
+    selected: &mut Option<(String, String)>,
+    active_schema: &mut Option<String>,
+) {
+    let available: HashSet<&str> = schemas.iter().map(|schema| schema.name.as_str()).collect();
+    expanded.retain(|schema, _| available.contains(schema.as_str()));
+    open_schemas.retain(|schema| available.contains(schema.as_str()));
+    collapsed_table_groups.retain(|(schema, _)| available.contains(schema.as_str()));
+    table_columns.retain(|(schema, _), _| available.contains(schema.as_str()));
+    if selected
+        .as_ref()
+        .is_some_and(|(schema, _)| !available.contains(schema.as_str()))
+    {
+        *selected = None;
+    }
+    if active_schema
+        .as_ref()
+        .is_some_and(|schema| !available.contains(schema.as_str()))
+    {
+        *active_schema = None;
+    }
+}
+
+fn show_fullscreen_schema_loading(schemas: &[Schema], loading: bool) -> bool {
+    loading && schemas.is_empty()
+}
+
+fn show_fullscreen_schema_error(schemas: &[Schema], error: Option<&str>) -> bool {
+    error.is_some() && schemas.is_empty()
 }
 
 /// PG：`public` > 首个非系统；MySQL：config.database > 首个非系统；Redis：None
@@ -401,5 +464,98 @@ fn pick_default_schema(conn: &ConnectionConfig, schemas: &[Schema]) -> Option<St
         }
         DriverKind::Sqlite => first_user_schema(),
         DriverKind::Redis | DriverKind::Mongodb => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ramag_domain::entities::Table;
+
+    fn schema(name: &str) -> Schema {
+        Schema {
+            name: name.to_string(),
+            charset: None,
+            collation: None,
+        }
+    }
+
+    #[test]
+    fn schema_refresh_preserves_existing_tree_state_and_selection() {
+        let mut expanded = HashMap::from([
+            (
+                "public".to_string(),
+                SchemaTables {
+                    tables: vec![Table {
+                        name: "users".to_string(),
+                        schema: "public".to_string(),
+                        comment: None,
+                        is_view: false,
+                        size_bytes: None,
+                    }],
+                    ..Default::default()
+                },
+            ),
+            ("removed".to_string(), SchemaTables::default()),
+        ]);
+        let mut open_schemas = HashSet::from(["public".to_string(), "removed".to_string()]);
+        let mut table_columns = HashMap::from([
+            (
+                ("public".to_string(), "users".to_string()),
+                TableColumns::default(),
+            ),
+            (
+                ("removed".to_string(), "stale".to_string()),
+                TableColumns::default(),
+            ),
+        ]);
+        let mut selected = Some(("public".to_string(), "users".to_string()));
+        let mut active_schema = Some("public".to_string());
+
+        retain_schema_tree_state(
+            &[schema("public"), schema("archive")],
+            &mut expanded,
+            &mut open_schemas,
+            &mut HashSet::new(),
+            &mut table_columns,
+            &mut selected,
+            &mut active_schema,
+        );
+
+        assert!(expanded.contains_key("public"));
+        assert!(!expanded.contains_key("removed"));
+        assert_eq!(open_schemas, HashSet::from(["public".to_string()]));
+        assert!(table_columns.contains_key(&("public".to_string(), "users".to_string())));
+        assert_eq!(selected, Some(("public".to_string(), "users".to_string())));
+        assert_eq!(active_schema.as_deref(), Some("public"));
+    }
+
+    #[test]
+    fn schema_refresh_clears_selection_only_when_schema_disappears() {
+        let mut selected = Some(("removed".to_string(), "users".to_string()));
+        let mut active_schema = Some("removed".to_string());
+        retain_schema_tree_state(
+            &[schema("public")],
+            &mut HashMap::new(),
+            &mut HashSet::new(),
+            &mut HashSet::new(),
+            &mut HashMap::new(),
+            &mut selected,
+            &mut active_schema,
+        );
+
+        assert_eq!(selected, None);
+        assert_eq!(active_schema, None);
+    }
+
+    #[test]
+    fn only_initial_schema_load_uses_fullscreen_state() {
+        assert!(show_fullscreen_schema_loading(&[], true));
+        assert!(!show_fullscreen_schema_loading(&[schema("public")], true));
+        assert!(show_fullscreen_schema_error(&[], Some("offline")));
+        assert!(!show_fullscreen_schema_error(
+            &[schema("public")],
+            Some("offline")
+        ));
     }
 }

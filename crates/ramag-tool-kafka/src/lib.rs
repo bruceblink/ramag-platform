@@ -216,6 +216,7 @@ pub struct KafkaView {
     topic_scroll: UniformListScrollHandle,
     overview_scroll: ScrollHandle,
     workspace_tabs_scroll: ScrollHandle,
+    partition_health_scroll: UniformListScrollHandle,
     consumer_groups: Vec<KafkaConsumerGroup>,
     selected_consumer_group: Option<String>,
     consumer_group_error: Option<String>,

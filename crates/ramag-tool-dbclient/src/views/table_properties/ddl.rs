@@ -106,6 +106,7 @@ pub(super) fn render_ddl(
                 .child(
                     div()
                         .id("table-properties-ddl-scroll")
+                        .debug_selector(|| "table-properties-ddl-scroll".into())
                         .size_full()
                         .overflow_x_scroll()
                         .track_scroll(horizontal_scroll)

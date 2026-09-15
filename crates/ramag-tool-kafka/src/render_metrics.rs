@@ -7,8 +7,16 @@ impl KafkaView {
         &self,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    ) -> gpui::AnyElement {
         let theme = cx.theme().clone();
+        if std::env::var_os("RAMAG_DEBUG_KAFKA_METRICS_MODE").is_some_and(|mode| mode == "shell") {
+            return v_flex()
+                .size_full()
+                .items_center()
+                .justify_center()
+                .child("Kafka metrics shell loaded")
+                .into_any_element();
+        }
         let capabilities = self.service.transport_capabilities();
         let external_metrics_configured = self
             .selected_config()
@@ -139,11 +147,15 @@ impl KafkaView {
                     .child(sample_info),
             );
 
-        let body = if self.metrics_loading && self.metrics_snapshot.is_none() {
+        let body = if std::env::var_os("RAMAG_DEBUG_KAFKA_METRICS_MODE")
+            .is_some_and(|mode| mode == "no-body")
+        {
+            v_flex().into_any_element()
+        } else if self.metrics_loading && self.metrics_snapshot.is_none() {
             self.render_metrics_loading_body(&theme, compact)
         } else {
             match self.metrics_snapshot.as_ref() {
-                Some(snapshot) => self.render_metrics_snapshot_body(snapshot, &theme, cx),
+                Some(snapshot) => self.render_metrics_snapshot_body(snapshot, &theme, compact, cx),
                 None => v_flex()
                     .id("kafka-metrics-empty")
                     .debug_selector(|| "kafka-metrics-empty".into())
@@ -159,6 +171,14 @@ impl KafkaView {
                     })
                     .into_any_element(),
             }
+        };
+
+        let broker_runtime = if std::env::var_os("RAMAG_DEBUG_KAFKA_METRICS_MODE")
+            .is_some_and(|mode| mode == "no-runtime")
+        {
+            v_flex().into_any_element()
+        } else {
+            render_broker_runtime_metrics(self, &theme, compact)
         };
 
         v_flex()
@@ -202,7 +222,8 @@ impl KafkaView {
             )
             .child(status_row)
             .child(body)
-            .child(render_broker_runtime_metrics(self, &theme, compact))
+            .child(broker_runtime)
+            .into_any_element()
     }
 
     /// 首次采集尚未返回快照时，先用与正式明细相同的区块结构占位。
@@ -280,6 +301,7 @@ impl KafkaView {
         &self,
         snapshot: &KafkaMetricsSnapshot,
         theme: &gpui_component::Theme,
+        compact: bool,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let cluster = &snapshot.cluster;
@@ -322,6 +344,10 @@ impl KafkaView {
                 format_count(cluster.offline_partitions),
                 theme,
             ));
+        let debug_mode = std::env::var("RAMAG_DEBUG_KAFKA_METRICS_MODE").ok();
+        if debug_mode.as_deref() == Some("summary") {
+            return v_flex().w_full().child(summary).into_any_element();
+        }
 
         let topic_rows = if snapshot.topics.is_empty() {
             empty_metrics_row("当前快照没有 Topic 数据", theme)
@@ -384,6 +410,9 @@ impl KafkaView {
             }
             rows.into_any_element()
         };
+        if debug_mode.as_deref() == Some("topics") {
+            return v_flex().w_full().child(topic_rows).into_any_element();
+        }
 
         let group_rows = if snapshot.consumer_groups.is_empty() {
             empty_metrics_row("当前快照没有消费者组数据", theme)
@@ -445,8 +474,15 @@ impl KafkaView {
             }
             rows.into_any_element()
         };
+        if debug_mode.as_deref() == Some("groups") {
+            return v_flex().w_full().child(group_rows).into_any_element();
+        }
 
-        let partition_rows = render_partition_health(snapshot, theme, cx);
+        let partition_rows =
+            render_partition_health(snapshot, theme, compact, &self.partition_health_scroll, cx);
+        if debug_mode.as_deref() == Some("partitions") {
+            return v_flex().w_full().child(partition_rows).into_any_element();
+        }
 
         v_flex()
             .w_full()

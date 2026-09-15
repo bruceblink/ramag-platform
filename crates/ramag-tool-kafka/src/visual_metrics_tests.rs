@@ -105,6 +105,21 @@ impl Render for KafkaMetricsTestHost {
 }
 
 fn snapshot() -> KafkaMetricsSnapshot {
+    // Keep the test data large enough to exercise the overview's virtual Partition list.
+    let partitions = (0..182)
+        .map(|partition| KafkaPartitionMetrics {
+            topic: "metrics.events".into(),
+            partition,
+            leader: Some(1),
+            replica_count: Some(2),
+            isr_count: Some(if partition == 0 { 1 } else { 2 }),
+            low_watermark: Some(10),
+            high_watermark: Some(20),
+            under_replicated: Some(partition == 0),
+            offline: Some(false),
+            message_rate_per_second: Some(2.5),
+        })
+        .collect::<Vec<_>>();
     KafkaMetricsSnapshot {
         cluster_id: Some("metrics-cluster".into()),
         sampled_at: Utc.with_ymd_and_hms(2026, 9, 7, 12, 0, 0).unwrap(),
@@ -114,7 +129,7 @@ fn snapshot() -> KafkaMetricsSnapshot {
         cluster: KafkaClusterMetrics {
             broker_count: Some(3),
             topic_count: Some(2),
-            partition_count: Some(4),
+            partition_count: Some(182),
             total_lag: Some(12),
             max_lag: Some(8),
             message_rate_per_second: Some(2.5),
@@ -123,24 +138,13 @@ fn snapshot() -> KafkaMetricsSnapshot {
         },
         topics: vec![KafkaTopicMetrics {
             name: "metrics.events".into(),
-            partition_count: Some(2),
+            partition_count: Some(182),
             low_watermark: Some(10),
             high_watermark: Some(20),
             message_rate_per_second: Some(2.5),
             under_replicated_partitions: Some(1),
             offline_partitions: Some(0),
-            partitions: vec![KafkaPartitionMetrics {
-                topic: "metrics.events".into(),
-                partition: 0,
-                leader: Some(1),
-                replica_count: Some(2),
-                isr_count: Some(1),
-                low_watermark: Some(10),
-                high_watermark: Some(20),
-                under_replicated: Some(true),
-                offline: Some(false),
-                message_rate_per_second: Some(2.5),
-            }],
+            partitions,
         }],
         consumer_groups: vec![KafkaConsumerGroupMetrics {
             group_id: "metrics-workers".into(),

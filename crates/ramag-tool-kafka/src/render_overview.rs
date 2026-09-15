@@ -6,7 +6,7 @@ impl KafkaView {
         &self,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    ) -> gpui::AnyElement {
         let theme = cx.theme().clone();
         let content_width = kafka_main_content_width(window);
         // Keep the overview split in step with the Topic workspace. The width
@@ -15,6 +15,49 @@ impl KafkaView {
         let compact = content_width < 900.0;
         let narrow = content_width < 700.0;
         let metadata = self.metadata.as_ref();
+        if let Some(mode) = std::env::var_os("RAMAG_DEBUG_KAFKA_OVERVIEW_MODE") {
+            match mode.to_string_lossy().as_ref() {
+                "simple" => {
+                    return v_flex()
+                        .flex_1()
+                        .items_center()
+                        .justify_center()
+                        .child("Kafka overview loaded")
+                        .into_any_element();
+                }
+                "metrics" => {
+                    return v_flex()
+                        .size_full()
+                        .child(self.render_metrics_snapshot(window, cx))
+                        .into_any_element();
+                }
+                "broker" => {
+                    if let Some(metadata) = metadata {
+                        return v_flex()
+                            .size_full()
+                            .gap(px(10.0))
+                            .child(self.render_broker_health(metadata, cx))
+                            .child(self.render_broker_table(metadata, cx))
+                            .into_any_element();
+                    }
+                }
+                "topic" => {
+                    return v_flex()
+                        .size_full()
+                        .child(self.render_topic_preview(cx))
+                        .into_any_element();
+                }
+                "cluster" => {
+                    if let Some(metadata) = metadata {
+                        return v_flex()
+                            .size_full()
+                            .child(self.render_cluster_summary(metadata, cx))
+                            .into_any_element();
+                    }
+                }
+                _ => {}
+            }
+        }
         let topic_count = self.topics.len();
         let partition_count = self
             .topics
@@ -212,6 +255,7 @@ impl KafkaView {
             .child(content)
             .id("kafka-overview")
             .debug_selector(|| "kafka-overview".into())
+            .into_any_element()
     }
 
     /// 加载期间保留概览页的滚动容器、列结构和固定行高，避免空快照先触发布局塌缩。

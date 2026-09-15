@@ -369,22 +369,38 @@ fn build_display_view_cancellable(
 }
 
 mod cells;
-mod modes;
 mod page_size;
 mod pagination;
 mod render;
 mod states;
 
-pub(in crate::views) use modes::render_result_view;
 pub(super) use page_size::render_page_size_selector;
 pub(super) use render::render_table;
 mod helpers;
 #[cfg(test)]
-mod render_modes_test;
-#[cfg(test)]
 mod render_test;
 
 use cells::{render_data_row, render_header_cell, render_pending_row};
+
+/// Renders every query result with the supported table surface.
+pub(in crate::views) fn render_result_view(
+    panel: &mut ResultPanel,
+    result: &Arc<QueryResult>,
+    cx: &mut Context<ResultPanel>,
+) -> AnyElement {
+    let theme = cx.theme();
+    render_table(
+        panel,
+        result,
+        theme.foreground,
+        theme.muted_foreground,
+        theme.secondary,
+        theme.border,
+        theme.muted,
+        theme.accent,
+        cx,
+    )
+}
 use helpers::{compare_values, detect_numeric_column, estimate_col_width};
 
 #[cfg(test)]

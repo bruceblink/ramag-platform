@@ -225,12 +225,13 @@ pub(super) fn filter_sql(
     ensure_single_filter_condition(condition, driver)?;
 
     let prefix = "SELECT * FROM (\n";
-    let middle = "\n) AS ramag_result_filter\nWHERE ";
+    let middle = "\n) AS ramag_result_filter\nWHERE (";
     let generated_len = prefix
         .len()
         .checked_add(base.len())
         .and_then(|len| len.checked_add(middle.len()))
         .and_then(|len| len.checked_add(condition.len()))
+        .and_then(|len| len.checked_add(1))
         .ok_or_else(|| "筛选 SQL 长度溢出".to_string())?;
     if generated_len > MAX_SQL_QUERY_BYTES {
         return Err(format!(
@@ -243,6 +244,7 @@ pub(super) fn filter_sql(
     generated.push_str(&base);
     generated.push_str(middle);
     generated.push_str(condition);
+    generated.push(')');
     Ok(generated)
 }
 
@@ -472,7 +474,7 @@ mod tests {
                 DriverKind::Mysql
             )
             .unwrap(),
-            "SELECT * FROM (\nSELECT id, name FROM users\n) AS ramag_result_filter\nWHERE id = 7"
+            "SELECT * FROM (\nSELECT id, name FROM users\n) AS ramag_result_filter\nWHERE (id = 7)"
         );
         assert!(
             filter_sql(
@@ -481,8 +483,24 @@ mod tests {
                 DriverKind::Postgres
             )
             .unwrap()
-            .contains("WHERE id > 0")
+            .contains("WHERE (id > 0)")
         );
+    }
+
+    #[test]
+    fn filter_sql_accepts_multiple_and_conditions() {
+        for driver in [DriverKind::Mysql, DriverKind::Postgres, DriverKind::Sqlite] {
+            let filtered = filter_sql(
+                "SELECT id, status, amount FROM orders",
+                "WHERE status = 'active' AND amount > 100",
+                driver,
+            )
+            .unwrap();
+            assert!(
+                filtered.ends_with("WHERE (status = 'active' AND amount > 100)"),
+                "driver={driver:?}, sql={filtered}"
+            );
+        }
     }
 
     #[test]

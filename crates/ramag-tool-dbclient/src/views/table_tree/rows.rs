@@ -9,7 +9,7 @@ use ramag_domain::entities::{Schema, contains_case_insensitive};
 use super::navigation::{
     TableNavigationRef, TableTreeFilter, schema_has_navigation_item, table_matches_filter,
 };
-use super::row::{TreeRow, TreeRowsView};
+use super::row::{TableSizeStatus, TreeRow, TreeRowsView};
 use super::{SchemaTables, TableColumns, TableTreeNavigation, TableTreeSection};
 use crate::sql_completion::is_system_schema;
 
@@ -34,6 +34,7 @@ pub(super) fn build_tree_rows(
             connection_id: None,
             navigation_favorites: &HashSet::new(),
             recent_tables: &[],
+            collapsed_table_groups: &HashSet::new(),
         },
     )
 }
@@ -53,6 +54,7 @@ pub(super) fn build_tree_rows_with_navigation(
         connection_id,
         navigation_favorites,
         recent_tables,
+        collapsed_table_groups,
     } = navigation;
     let has_filter = !filter.is_empty();
     let mut visible: Vec<&Schema> = schemas
@@ -126,14 +128,16 @@ pub(super) fn build_tree_rows_with_navigation(
         let Some(schema_tables) = expanded.get(name).filter(|_| is_expanded) else {
             continue;
         };
-        if schema_tables.loading {
+        if schema_tables.loading && schema_tables.tables.is_empty() {
             rows.push(TreeRow::SchemaPlaceholder {
                 text: "加载 tables…".into(),
                 is_error: false,
             });
             continue;
         }
-        if let Some(error) = &schema_tables.error {
+        if schema_tables.tables.is_empty()
+            && let Some(error) = &schema_tables.error
+        {
             rows.push(TreeRow::SchemaPlaceholder {
                 text: error.clone(),
                 is_error: true,
@@ -148,6 +152,20 @@ pub(super) fn build_tree_rows_with_navigation(
             continue;
         }
 
+        // Keep stale table rows visible during a refresh or a failed reload so users can still
+        // open the current result while the next metadata request is in progress.
+        if schema_tables.loading {
+            rows.push(TreeRow::SchemaPlaceholder {
+                text: "正在刷新 tables…".into(),
+                is_error: false,
+            });
+        } else if let Some(error) = &schema_tables.error {
+            rows.push(TreeRow::SchemaPlaceholder {
+                text: format!("刷新失败：{error}"),
+                is_error: true,
+            });
+        }
+
         let total_tables = schema_tables
             .tables
             .iter()
@@ -158,9 +176,11 @@ pub(super) fn build_tree_rows_with_navigation(
             .iter()
             .filter(|table| table.is_view)
             .count();
-        let show_group_header = total_tables > 0 && total_views > 0;
+        // 即使 Schema 只有普通表，也保留 DataGrip 风格的 tables 分组和总数。
+        let show_group_header = total_tables > 0 || total_views > 0;
         let schema_matches = contains_case_insensitive(name, filter);
         let mut last_was_view = None;
+        let mut group_is_expanded = true;
         for table in &schema_tables.tables {
             if !table_matches_filter(
                 table_filter,
@@ -176,18 +196,33 @@ pub(super) fn build_tree_rows_with_navigation(
                 continue;
             }
             if show_group_header && last_was_view != Some(table.is_view) {
+                let group_key = (name.clone(), table.is_view);
+                let is_group_expanded = (has_filter || table_filter != TableTreeFilter::All)
+                    || !collapsed_table_groups.contains(&group_key);
                 rows.push(TreeRow::GroupHeader {
+                    schema: name.clone(),
+                    is_view: table.is_view,
                     text: if table.is_view {
-                        format!("视图 ({total_views})")
+                        format!("views {total_views}")
                     } else {
-                        format!("表 ({total_tables})")
+                        format!("tables {total_tables}")
                     },
+                    is_expanded: is_group_expanded,
                 });
                 last_was_view = Some(table.is_view);
+                group_is_expanded = is_group_expanded;
+            }
+            if show_group_header && !group_is_expanded {
+                continue;
             }
 
             let columns_key = Rc::new((name.clone(), table.name.clone()));
             let columns = table_columns.get(columns_key.as_ref());
+            let size_status = TableSizeStatus::from_metadata(
+                schema_tables.loading,
+                schema_tables.error.is_some(),
+                table.size_bytes,
+            );
             rows.push(TreeRow::Table {
                 key: columns_key.clone(),
                 is_view: table.is_view,
@@ -200,6 +235,7 @@ pub(super) fn build_tree_rows_with_navigation(
                     })
                 }),
                 size_bytes: table.size_bytes,
+                size_status,
             });
 
             let Some(columns) = columns else {

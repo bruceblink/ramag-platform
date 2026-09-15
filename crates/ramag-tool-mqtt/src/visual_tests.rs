@@ -1,27 +1,59 @@
-use std::sync::Arc;
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicUsize, Ordering},
+};
 use std::time::Duration;
 
+use chrono::Utc;
+
+use async_channel::{Receiver, Sender, bounded};
 use async_trait::async_trait;
 use gpui::{
     AppContext as _, Context, IntoElement, Modifiers, ParentElement as _, Render, Styled as _,
     TestAppContext, VisualTestContext, Window, point, px, size,
 };
 use ramag_app::MqttService;
-use ramag_domain::entities::{ConnectionConfig, ConnectionId, QueryRecord, QueryRecordId};
+use ramag_domain::entities::{
+    ConnectionConfig, ConnectionId, MosquittoAcl, MosquittoAclDecision, MosquittoAclType,
+    MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoRole, MosquittoRoleBinding,
+    MqttBrokerSnapshot, MqttMessage, MqttProfile, MqttQos, MqttTopicObservation, MqttTopicSource,
+    QueryRecord, QueryRecordId,
+};
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, Storage};
 
-use super::{MQTT_SIDEBAR_COLLAPSE_BREAKPOINT, MqttView};
+use super::{MQTT_SIDEBAR_COLLAPSE_BREAKPOINT, MosquittoManagementSection, MqttSection, MqttView};
 
-struct NoopMqttDriver;
+pub(super) struct NoopMqttDriver;
 
 #[async_trait]
 impl MqttDriver for NoopMqttDriver {}
 
-struct NoopStorage;
+#[derive(Default)]
+pub(super) struct NoopStorage {
+    mqtt_profiles: Arc<Mutex<Vec<MqttProfile>>>,
+}
 
 #[async_trait]
 impl Storage for NoopStorage {
+    async fn list_mqtt_profiles(&self) -> Result<Vec<MqttProfile>> {
+        Ok(self
+            .mqtt_profiles
+            .lock()
+            .expect("读取 MQTT 测试配置锁")
+            .clone())
+    }
+
+    async fn save_mqtt_profile(&self, profile: &MqttProfile) -> Result<()> {
+        let mut profiles = self.mqtt_profiles.lock().expect("写入 MQTT 测试配置锁");
+        if let Some(existing) = profiles.iter_mut().find(|item| item.id == profile.id) {
+            *existing = profile.clone();
+        } else {
+            profiles.push(profile.clone());
+        }
+        Ok(())
+    }
+
     async fn list_connections(&self) -> Result<Vec<ConnectionConfig>> {
         Ok(Vec::new())
     }
@@ -63,8 +95,49 @@ impl Storage for NoopStorage {
     }
 }
 
-struct MqttTestHost {
-    view: gpui::Entity<MqttView>,
+struct RecordingMqttDriver {
+    connection_tests: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl MqttDriver for RecordingMqttDriver {
+    async fn test_connection(&self, _profile: &MqttProfile) -> Result<()> {
+        self.connection_tests.fetch_add(1, Ordering::Relaxed);
+        Ok(())
+    }
+}
+
+struct BlockingSnapshotDriver {
+    release: Receiver<()>,
+    started: Sender<()>,
+}
+
+#[async_trait]
+impl MqttDriver for BlockingSnapshotDriver {
+    async fn broker_snapshot(&self, profile: &MqttProfile) -> Result<MqttBrokerSnapshot> {
+        self.started
+            .send(())
+            .await
+            .expect("快照测试开始信号应可发送");
+        if profile.host == "first.example" {
+            self.release.recv().await.expect("快照测试释放信号应可接收");
+        }
+        Ok(MqttBrokerSnapshot {
+            topics: vec![MqttTopicObservation {
+                name: format!("{}.topic", profile.host),
+                source: MqttTopicSource::Observed,
+                retained: false,
+                observed_at: None,
+            }],
+            online_clients: Vec::new(),
+            topics_complete: false,
+            online_clients_complete: false,
+        })
+    }
+}
+
+pub(super) struct MqttTestHost {
+    pub(super) view: gpui::Entity<MqttView>,
 }
 
 impl Render for MqttTestHost {
@@ -96,7 +169,7 @@ fn mqtt_sidebar_collapses_and_can_be_reopened_in_narrow_window(cx: &mut TestAppC
     cx.update(gpui_component::init);
     let service = Arc::new(MqttService::new(
         Arc::new(NoopMqttDriver),
-        Arc::new(NoopStorage),
+        Arc::new(NoopStorage::default()),
     ));
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
@@ -169,5 +242,330 @@ fn mqtt_sidebar_collapses_and_can_be_reopened_in_narrow_window(cx: &mut TestAppC
             assert!(sidebar.right() <= root.right());
             assert!(sidebar.bottom() <= root.bottom());
         }
+    }
+}
+
+#[gpui::test]
+fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let storage = Arc::new(NoopStorage::default());
+    let connection_tests = Arc::new(AtomicUsize::new(0));
+    let driver = Arc::new(RecordingMqttDriver {
+        connection_tests: connection_tests.clone(),
+    });
+    let service = Arc::new(MqttService::new(driver, storage.clone()));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+
+    visual_cx.run_until_parked();
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.host
+                .update(cx, |input, cx| input.set_value("127.0.0.1", window, cx));
+            view.port
+                .update(cx, |input, cx| input.set_value("1883", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-test-connection");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        connection_tests.load(Ordering::Relaxed),
+        1,
+        "填写 Broker 地址后，测试连接不应要求先填写配置名称"
+    );
+
+    click(visual_cx, "mqtt-save-profile");
+    visual_cx.run_until_parked();
+    assert!(
+        storage
+            .mqtt_profiles
+            .lock()
+            .expect("读取保存结果锁")
+            .is_empty(),
+        "未填写配置名称时不能保存"
+    );
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.name
+                .update(cx, |input, cx| input.set_value("测试 Broker", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-save-profile");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        storage.mqtt_profiles.lock().expect("读取保存结果锁").len(),
+        1,
+        "保存按钮必须调用 MQTT 配置存储"
+    );
+
+    click(visual_cx, "mqtt-test-connection");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        connection_tests.load(Ordering::Relaxed),
+        2,
+        "测试连接按钮必须调用 MQTT 驱动"
+    );
+}
+
+#[gpui::test]
+fn mqtt_snapshot_result_does_not_cross_profile_context(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let (release_sender, release_receiver) = bounded(1);
+    let (started_sender, started_receiver) = bounded(1);
+    let driver = Arc::new(BlockingSnapshotDriver {
+        release: release_receiver,
+        started: started_sender,
+    });
+    let service = Arc::new(MqttService::new(driver, Arc::new(NoopStorage::default())));
+    let first = MqttProfile::new("第一个 Broker", "first.example", 1883);
+    let second = MqttProfile::new("第二个 Broker", "second.example", 1883);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.loading_profiles = false;
+            view.profiles = vec![first.clone(), second.clone()];
+            view.selected_profile_id = Some(first.id.clone());
+            view.set_form_from_profile(&first, window, cx);
+            view.load_snapshot(window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(
+        started_receiver.try_recv().is_ok(),
+        "第一个 Broker 快照应已开始"
+    );
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.select_profile(second.id.clone(), window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.selected_profile_id == Some(second.id.clone())
+            && view.snapshot.is_none()
+            && !view.loading_snapshot
+    }));
+
+    release_sender
+        .try_send(())
+        .expect("第一个 Broker 快照应可释放");
+    visual_cx.run_until_parked();
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.selected_profile_id == Some(second.id.clone()) && view.snapshot.is_none()
+    }));
+}
+
+#[gpui::test]
+fn mqtt_message_pages_keep_inputs_bounded_and_editable(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(NoopMqttDriver),
+        Arc::new(NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+
+    visual_cx.simulate_resize(size(px(1440.0), px(900.0)));
+    view.update(visual_cx, |view, cx| {
+        view.loading_profiles = false;
+        view.section = MqttSection::Publish;
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+
+    let main = visual_cx
+        .debug_bounds("mqtt-main")
+        .expect("MQTT 主工作区应渲染");
+    let publish_input = visual_cx
+        .debug_bounds("mqtt-publish-topic-input")
+        .expect("发布 Topic 输入框应参与布局");
+    assert!(
+        publish_input.origin.x > main.origin.x
+            && publish_input.right() <= main.right()
+            && publish_input.size.width <= px(920.0),
+        "发布 Topic 输入框不能越出消息内容区: main={main:?}, input={publish_input:?}"
+    );
+
+    view.update(visual_cx, |view, cx| {
+        view.section = MqttSection::Subscribe;
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+
+    let subscribe_input = visual_cx
+        .debug_bounds("mqtt-subscribe-filter-input")
+        .expect("订阅 Topic Filter 输入框应参与布局");
+    assert!(
+        subscribe_input.origin.x > main.origin.x
+            && subscribe_input.right() <= main.right()
+            && subscribe_input.size.width <= px(920.0),
+        "订阅 Topic Filter 输入框不能越出消息内容区: main={main:?}, input={subscribe_input:?}"
+    );
+
+    click(visual_cx, "mqtt-subscribe-filter-input");
+    visual_cx.simulate_keystrokes("sensors/#");
+    visual_cx.run_until_parked();
+    let filter = view.read_with(visual_cx, |view, cx| {
+        view.subscribe_filter.read(cx).value().to_string()
+    });
+    assert_eq!(filter, "sensors/#", "订阅 Topic Filter 应能接收键盘输入");
+}
+
+#[gpui::test]
+fn mqtt_message_operations_reflow_inside_supported_window_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(NoopMqttDriver),
+        Arc::new(NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    visual_cx.simulate_resize(size(px(1440.0), px(900.0)));
+    visual_cx.run_until_parked();
+    view.update(visual_cx, |view, cx| {
+        view.loading_profiles = false;
+        view.section = MqttSection::Subscribe;
+        view.messages.push_back(MqttMessage {
+            topic: "sensors/warehouse/temperature/very-long-topic-name".into(),
+            payload: vec![b'x'; 512],
+            qos: MqttQos::AtLeastOnce,
+            retain: false,
+            duplicate: false,
+            received_at: Utc::now(),
+            user_properties: Vec::new(),
+        });
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+
+    for (width, height) in [
+        (360.0, 240.0),
+        (640.0, 480.0),
+        (1024.0, 768.0),
+        (1440.0, 900.0),
+    ] {
+        visual_cx.simulate_resize(size(px(width), px(height)));
+        visual_cx.run_until_parked();
+        let scroll = visual_cx
+            .debug_bounds("mqtt-main")
+            .expect("MQTT 主工作区应参与布局");
+        for selector in ["mqtt-subscribe-actions", "mqtt-subscribe-message-meta"] {
+            let bounds = visual_cx
+                .debug_bounds(selector)
+                .expect("订阅操作和消息元数据应参与布局");
+            assert!(
+                bounds.origin.x >= scroll.origin.x && bounds.right() <= scroll.right(),
+                "{}px 窗口中的 {} 不能越出订阅内容区: scroll={scroll:?}, bounds={bounds:?}",
+                width,
+                selector
+            );
+        }
+    }
+}
+
+#[gpui::test]
+fn mqtt_client_permissions_reflow_inside_supported_window_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(NoopMqttDriver),
+        Arc::new(NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    let client = MosquittoClient {
+        username: "operator".into(),
+        client_id: None,
+        password_configured: true,
+        password: None,
+        disabled: false,
+        text_name: None,
+        text_description: None,
+        groups: Vec::new(),
+        roles: vec![MosquittoRoleBinding {
+            role_name: "reader".into(),
+            priority: 10,
+        }],
+    };
+    let snapshot = MosquittoDynamicSecuritySnapshot {
+        clients: vec![client],
+        groups: Vec::new(),
+        roles: vec![MosquittoRole {
+            role_name: "reader".into(),
+            text_name: None,
+            text_description: None,
+            allow_wildcards_subscriptions: false,
+            acls: vec![MosquittoAcl {
+                acl_type: MosquittoAclType::SubscribeLiteral,
+                topic: "devices/operator/state".into(),
+                decision: MosquittoAclDecision::Allow,
+                priority: 1,
+            }],
+        }],
+    };
+
+    view.update(visual_cx, |view, cx| {
+        view.loading_profiles = false;
+        view.section = MqttSection::Mosquitto;
+        view.management_enabled = true;
+        view.management_snapshot = Some(snapshot);
+        view.management_section = MosquittoManagementSection::Clients;
+        view.selected_client_username = Some("operator".into());
+        cx.notify();
+    });
+
+    for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+        visual_cx.simulate_resize(size(px(width), px(height)));
+        visual_cx.run_until_parked();
+        let scroll = visual_cx
+            .debug_bounds("mqtt-mosquitto-scroll")
+            .expect("Mosquitto 内容区应参与布局");
+        let permission = visual_cx
+            .debug_bounds("mqtt-client-permission-row-0")
+            .expect("用户权限行应参与布局");
+        assert!(
+            permission.origin.x >= scroll.origin.x && permission.right() <= scroll.right(),
+            "{}px 窗口中的用户权限行不能越出内容区: scroll={scroll:?}, permission={permission:?}",
+            width
+        );
     }
 }

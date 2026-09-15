@@ -23,15 +23,17 @@ MINGW*|MSYS*|CYGWIN*)
     ;;
 esac
 
-printf '%s\n' 'pre-commit: running workspace Clippy'
-run_clippy() {
+printf '%s\n' 'pre-commit: running workspace Rust format and Clippy checks'
+run_quality_checks() {
     if command -v cargo >/dev/null 2>&1; then
+        cargo fmt-check
         cargo clippy-all
     elif command -v cargo.exe >/dev/null 2>&1; then
         # WSL and some Git Bash installations expose the Windows toolchain as cargo.exe.
+        cargo.exe fmt-check
         cargo.exe clippy-all
     else
-        printf '%s\n' 'pre-commit: cargo is required for the Clippy check' >&2
+        printf '%s\n' 'pre-commit: cargo is required for Rust quality checks' >&2
         return 1
     fi
 }
@@ -39,13 +41,13 @@ run_clippy() {
 case "$platform" in
 MINGW*|MSYS*|CYGWIN*)
     if ! command -v powershell.exe >/dev/null 2>&1; then
-        printf '%s\n' 'pre-commit: PowerShell is required to initialize the Windows MSVC toolchain' >&2
+        printf '%s\n' 'pre-commit: PowerShell is required for the Windows Rust quality checks' >&2
         exit 1
     fi
     powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \
-        '$repo = (& git rev-parse --show-toplevel).Trim(); & (Join-Path $repo "scripts\\windows\\clippy-msvc.ps1"); exit $LASTEXITCODE'
+        '$repo = (& git rev-parse --show-toplevel).Trim(); & (Join-Path $repo "scripts\\windows\\rust-quality.ps1"); exit $LASTEXITCODE'
     ;;
 *)
-    run_clippy
+    run_quality_checks
     ;;
 esac

@@ -1,7 +1,7 @@
 # 数据库查询工具 DataGrip-like 开发路线图
 
-> 状态：M1 结果数据编辑器、M2-A SQL 查询上下文隔离、M2-B 最近关闭查询草稿恢复、M3-A SQL 手动事务提交/回滚、M3-B 事务失败状态与恢复提示、M3-C SQL 事务保存点、M4-A 原始/结构化执行计划结果视图、M4-B 只读 Schema Diagram 预览、M4-C 字段结构差异预览、M4-D 同连接表结构对比、M4-E 查询结果数据网格差异比较、M4-F 跨连接表结构对比、M4-G 跨连接查询结果比较、M4-H 表结构迁移 SQL 预览、M4-I 表结构迁移执行与回读、M4-J 外键动作元数据与迁移保真度、M4-K 迁移审批记录、M4-L 查询结果差异单元格定位、M4-M 列元数据保真度、M4-N 精确页码跳转、M4-O 表树表大小状态以及 P0 表树收藏、最近访问筛选、SQL 表定位和结果查看模式已落地，后续迭代中
-> 更新日期：2026-09-08
+> 状态：M1 结果数据编辑器、M2-A SQL 查询上下文隔离、M2-B 最近关闭查询草稿恢复、M3-A SQL 手动事务提交/回滚、M3-B 事务失败状态与恢复提示、M3-C SQL 事务保存点、M4-A 原始/结构化执行计划结果视图、M4-B 只读 Schema Diagram 预览、M4-C 字段结构差异预览、M4-D 同连接表结构对比、M4-E 查询结果数据网格差异比较、M4-F 跨连接表结构对比、M4-G 跨连接查询结果比较、M4-H 表结构迁移 SQL 预览、M4-I 表结构迁移执行与回读、M4-J 外键动作元数据与迁移保真度、M4-K 迁移审批记录、M4-L 查询结果差异单元格定位、M4-M 列元数据保真度、M4-N 精确页码跳转、M4-O 表树表大小状态以及 P0 表树收藏、最近访问筛选、SQL 表定位和表格结果工作区已落地，后续迭代中
+> 更新日期：2026-09-15
 > 适用范围：`ramag-tool-dbclient`、`ramag-tool-mongodb`、`ramag-domain`、`ramag-app` 及对应基础设施驱动
 > 当前主线：UI、响应性布局和已知问题按 [`docs/development-roadmap.md`](development-roadmap.md) 统一排期
 
@@ -37,7 +37,7 @@ Ramag 已经具备多数据库连接、Schema 浏览、查询编辑、结果编�
 - Schema 浏览器、表/集合元数据、列、索引、外键、DDL 生成和表设计器。
 - SQL 补全、格式化、查询历史、草稿、查询标签页和结果面板。
 - 结果搜索、列过滤、行过滤、复制、编辑、删除、导出、导入和数据同步。
-- 结果数据编辑器已支持表格、树形、文本和转置四种本地查看模式；模式切换复用已加载结果的排序、筛选、分页和选中单元格上下文，不重新发送查询，非表格模式保持只读。
+- 结果数据编辑器统一使用表格视图；当前表格保留分页、双轴滚动、排序、筛选、单元格查看、复制和编辑能力，不再提供树形、文本或转置转换入口。
 - MySQL/PostgreSQL 的安全只读查询分页，以及 MongoDB 普通 `find` 的分页和哨兵行处理。
 - 结果表已经使用虚拟列表，并在最近提交中补齐了横向滚动和可见滚动条的基础布局。
 
@@ -54,14 +54,23 @@ Ramag 已经具备多数据库连接、Schema 浏览、查询编辑、结果编�
 跨工具的优先顺序以 [`docs/development-roadmap.md`](development-roadmap.md) 的 UI-001 至 UI-006 为准；本节只保留数据库专项的实现边界和验收证据。
 
 - `UI-002` 的结果列表、双向滚动和底部状态栏已在 `ea0a472` 完成 headless 边界检查；检查覆盖 360px 窄窗口，真实 Windows 窗口和实际数据库数据证据仍待环境恢复后补充。
-- `UI-003` 已在 `ba71d8e` 完成首个结果工具栏切片：SQL/MongoDB 的筛选区、运行按钮、结果状态栏和分页按钮在 360px、1024px、1440px headless 窗口中保持在父容器内，工具栏与状态栏不重叠。查询控制台顶部工具栏、详情查看器、查询历史和失败重试的窄窗口检查仍未完成。
-- `UI-003` 的查询控制台顶部工具栏已在 `05874b5` 完成第二个切片：SQL/MongoDB 标签区可收缩并保留横向滚动，历史、示例和格式化操作区在 360px、1024px、1440px headless 窗口中保持可见且未越出工具栏；详情查看器、查询历史内容和失败重试流程仍未完成。
-- `UI-003` 的详情查看器已在 `e6854be` 完成第三个切片：SQL 查看器保留长正文的水平滚动，MongoDB 查看器按当前窗口可用宽度收缩；`selected_cell_value_viewer_stays_inside_three_window_widths` 和 `mongo_cell_detail_stays_inside_three_window_widths` 在 360px、1024px、1440px headless 窗口中检查内容区域、滚动区域和关闭后的清理；查询历史和失败重试仍未完成。
-- `UI-003` 的查询历史已在 `79a9f18` 完成第四个切片：SQL/MongoDB 历史弹框按当前窗口宽度和高度收缩，搜索区、数量/状态提示、清空按钮和记录行操作组允许换行；带长查询记录和状态提示的 headless 测试在 360px、1024px、1440px 窗口中检查子项边界和重叠。失败重试、真实 Windows 窗口和实际数据库连接证据仍待补充。
+- `UI-003` 已在 `ba71d8e` 完成首个结果工具栏切片：SQL/MongoDB 的筛选区、运行按钮、结果状态栏和分页按钮在 360px、1024px、1440px headless 窗口中保持在父容器内，工具栏与状态栏不重叠。查询控制台顶部工具栏、详情查看器和查询历史内容的真实窗口与实际数据库证据仍未完成。
+- `UI-003` 的查询控制台顶部工具栏已在 `05874b5` 完成第二个切片：SQL/MongoDB 标签区可收缩并保留横向滚动，历史、示例和格式化操作区在 360px、1024px、1440px headless 窗口中保持可见且未越出工具栏；详情查看器、查询历史内容的真实窗口与实际数据库证据仍待补充。
+- `UI-003` 的详情查看器已在 `e6854be` 完成第三个切片：SQL 查看器保留长正文的水平滚动，MongoDB 查看器按当前窗口可用宽度收缩；`selected_cell_value_viewer_stays_inside_three_window_widths` 和 `mongo_cell_detail_stays_inside_three_window_widths` 在 360px、1024px、1440px headless 窗口中检查内容区域、滚动区域和关闭后的清理；真实窗口和实际数据库证据仍待补充。
+- `UI-003` 的查询历史已在 `79a9f18` 完成第四个切片：SQL/MongoDB 历史弹框按当前窗口宽度和高度收缩，搜索区、数量/状态提示、清空按钮和记录行操作组允许换行；带长查询记录和状态提示的 headless 测试在 360px、1024px、1440px 窗口中检查子项边界和重叠。真实 Windows 窗口和实际数据库连接证据仍待补充。
+- `UI-003` 的失败重试已在 `6afcd19` 完成：SQL 和 MongoDB 错误结果保留当前编辑器内容，重试入口在 360px、1024px、1440px 窗口中保持在错误区域内；SQL 与 MongoDB 的失败重试行为测试均通过。真实 Windows 窗口和实际数据库连接证据仍待补充。
+- `UI-001` 表结构对比标题栏已补齐紧凑窗口边界：源表/目标表连接上下文在窄窗口中单行省略，迁移预览、复制差异和刷新按钮继续留在响应式工具栏内；`schema_diff_toolbar_keeps_context_and_actions_inside_supported_widths` 覆盖 360/1024/1440px，目标库 307 项测试和 Clippy 通过。真实 Windows 窗口和实际数据库证据仍待补充。
+- `structured-query-plan` 已补齐原始执行计划复制入口：结构化和原始 EXPLAIN 结果都复制数据库原始行，MySQL 多列结果保留列名和制表符分隔字段；`plan_copy_preserves_single_column_raw_rows`、`plan_copy_includes_headers_for_multi_column_plans` 和 360/1024/1440px 工具栏边界检查通过，目标库 309 项测试和 Clippy 通过。源码尺寸检查仍报告既有的 `result_table/render.rs`（603 行）和 `dynamic_security_operations.rs`（606 行）超过 600 行限制，本切片未修改这两个文件。真实 Windows 窗口和实际数据库证据仍待补充。
+- `schema-migration-review` 已补充字段重命名候选提示：只有唯一、完整定义匹配的源字段和目标字段才显示候选名称，定义不一致或候选不唯一时不猜测，也不自动修改迁移 SQL；`uniquely_matching_unmatched_columns_are_marked_as_rename_candidates`、`ambiguous_column_shapes_are_not_marked_as_rename_candidates` 和完整库 311 项测试通过，目标 Clippy 通过。源码尺寸检查仍报告既有的 `result_table/render.rs`（603 行）和 `dynamic_security_operations.rs`（606 行）超过 600 行限制，本切片未修改这两个文件。真实 Windows 窗口和实际数据库证据仍待补充。
+- `schema-migration-review` 已补充迁移执行顺序摘要：生成器为每条语句保留“删除外键、删除索引、处理字段、恢复索引、恢复外键”阶段和破坏性计数，预览显示各阶段统计，不改变实际 SQL 或显式确认流程；`summarize_stages_preserves_dependency_order_and_destructive_counts`、`migration_stages_stay_inside_preview_at_supported_widths`、真实生成脚本阶段断言和完整库 313 项测试通过，目标 Clippy 通过。源码尺寸检查仍报告既有的 `result_table/render.rs`（603 行）和 `dynamic_security_operations.rs`（606 行）超过 600 行限制，本切片未修改这两个文件。真实 Windows 窗口和实际数据库证据仍待补充。
 - 数据库 SQL 会话对象树的顶部工具栏已补齐响应式边界：搜索区可以收缩，筛选、系统库、刷新和编辑器操作在空间不足时换行，并在对象树最小侧栏宽度 180px 以及 280/360/1024/1440px headless 窗口中通过不越界、不重叠检查。目标 crate 的 286 项库测试全部通过；真实 Windows 窗口和实际数据库连接数据证据仍待补充。
+- P0 对象树刷新已改为保留已有 schema、展开状态、表缓存和当前选择；刷新期间不再用全屏加载态遮挡已显示内容，旧表行继续可打开，失败信息在对象树顶部显示并提供重试。删除的 schema 会清理对应展开状态、列缓存和选择；刷新/失败期间保留旧表行的模型与渲染测试已覆盖。
 - `UI-001` 数据库工作台弹窗切片已完成：连接选择、连接表单、数据同步、查询历史、单元格查看、结果差异、Schema Diagram、表结构差异、表设计、元数据 SQL 和删除确认统一使用 `ramag-ui` 的视口宽度/顶部偏移/最大高度计算；连接表单和连接选择器在 680px 以下纵向重排，长正文保留水平或垂直滚动。`cargo test --locked -p ramag-tool-dbclient --lib` 通过 285 项，已有查询历史、结果查看、连接表单和表设计 headless 检查覆盖 360/1024/1440px；真实 Windows 窗口和实际数据库连接证据仍待补充。
+- `UI-001` 结果表编辑操作区已完成独立响应式布局：待提交单元格修改和新增行的取消/提交按钮不再与分页控件直接混排，280/360/1024px 下均留在结果状态栏内；`pending_edit_actions_stay_inside_status_bar_at_supported_widths`、结果表渲染专项 7 项测试和目标 Clippy 通过。完整库测试的 302 项断言均打印通过，但 Windows 测试进程在既有表属性测试结束阶段发生 `STATUS_STACK_BUFFER_OVERRUN`，该表属性测试单独运行通过，因此这里只记录专项证据，不把进程异常标记为全量通过。真实 Windows 窗口和实际数据库数据证据仍待补充。
+- `UI-001` SQL 事务工具栏已完成响应式断点调整：活动事务和未开启事务的控制区在 360px 时整行换行，在 1024px 时保持可用的多行布局，在 1440px 时恢复同行密度；`active_transaction_controls_wrap_inside_three_window_widths`、`inactive_transaction_control_wraps_inside_three_window_widths`、结果工具栏和失败重试回归测试均通过。真实 Windows 窗口和实际数据库数据证据仍待补充。
+- `UI-001` SQL 事务工具栏切片已在 `3bdbae4`、`458910e` 和 `7e9d54a` 完成：活动事务的提交、回滚、保存点和最近保存点状态，以及未开启事务时的开始入口，统一使用可收缩、可换行的控制区；`360px` 时整行换行，`1024px` 保持可用的多行布局，`1440px` 恢复同行密度。`active_transaction_controls_wrap_inside_three_window_widths`、`inactive_transaction_control_wraps_inside_three_window_widths`、结果工具栏和失败重试回归测试均通过；真实 Windows 窗口和实际数据库数据证据仍待补充。
 
-- P0 结果查看模式已在本次切片完成：结果工具栏提供表格、树形、文本和转置模式，树形展开明细设置 50,000 项上限，替代模式复用结果派生视图、双轴滚动和分页状态；模式切换不触发数据库请求，未提交单元格修改时禁止离开表格模式。`result_view_modes_keep_loaded_selection_and_render_each_surface` 和 `alternate_result_status_keeps_paging_controls_visible_in_small_window` 覆盖本地渲染、选中状态保持以及 280/360/1024px headless 窗口；真实 Windows 窗口证据仍受 `computer-use` 不可用限制，不能以 headless 结果代替真实窗口验收。
+- P0 结果工作区已收敛为单一表格视图：结果工具栏不再显示“表格”或其他转换按钮，避免把默认视图误呈现为可切换选项；分页、双轴滚动、排序、筛选、单元格查看、复制和编辑入口保留。服务端排序重新加载结果时恢复排序前的横向位置，筛选条件允许一个 `WHERE` 表达式中的多个 `AND` 条件。`server_sort_keeps_horizontal_scroll_position_across_result_reload` 和 `filter_sql_accepts_multiple_and_conditions` 覆盖这些回归；真实 Windows 窗口使用系统截图和输入验证，不能将其描述为 Computer Use。
 
 - M1 的真实 Windows 窗口截图仍需在带实际数据的连接上补充验收，确认列表高度、底部状态栏和垂直滚动条不会互相覆盖。
 - M2-A 已为 SQL 查询代次和 COUNT 代次增加上下文隔离；取消请求现在绑定数据/计划结果目标，不会清空另一面板或把旧的服务端取消提示写入新查询。连接、Schema 或 SQL 上下文失效时也会对旧 SQL 发起尽力取消；会话关闭或配置失效前会遍历全部查询标签。多标签和会话失效已有回归测试，真实连接断开场景仍需继续补充集成验证。
@@ -526,7 +535,7 @@ Ramag 已经具备多数据库连接、Schema 浏览、查询编辑、结果编�
 - MySQL 使用 `DATA_LENGTH + INDEX_LENGTH`；PostgreSQL 使用 `pg_total_relation_size`，包含表数据、索引和 TOAST 存储。
 - 普通视图和物化视图不显示表大小；驱动无法返回统计时保留为空，不使用估算值填充。
 - 表名区域允许收缩并显示省略号，大小状态固定在行尾；大小使用统一的字节、KiB、MiB、GiB 格式化规则。
-- Schema 首次展开时随表列表一起读取大小；刷新 Schema 会重新读取，避免把旧统计长时间留在界面中。
+- Schema 首次展开时随表列表一起读取大小；刷新 Schema 会重新读取，刷新期间保留旧表行并把大小标为“刷新”，失败时区分“读取失败”和“过期”，缺少统计时显示“未知”。
 - 统计信息只进入表树和本地元数据模型，不写入迁移 SQL，不参与表结构差异判断。
 
 验收条件：
@@ -656,13 +665,13 @@ Ramag 应该采用 **“以 DataGrip 为交互参考、以核心工作流为产�
 
 目标是先让高频的“找表、查数据、看大字段、修改一行”流程稳定且容易发现，建议作为接下来 1 至 2 个迭代完成。
 
-1. **结果查看模式与大字段查看器（结果查看模式已完成）**
+1. **表格结果工作区与大字段查看器（表格工作区已完成）**
 
-   - 在现有数据网格上补充表格、树形、文本和转置视图；模式切换只改变已加载结果的展示方式，不重新发送查询。
+   - 结果区只保留默认表格视图；不增加树形、文本或转置转换按钮，也不为不存在的视图维护状态。
    - 单元格支持 NULL、空字符串、二进制和超长文本的明确状态；大字段在独立查看区域中按需读取或分段展示，不能因为打开查看器而一次性复制整个结果集。
    - 提供复制为文本、CSV、JSON 和 SQL 值的动作，并保留当前筛选、排序和选中单元格上下文。
 
-   本次结果查看模式切片只恢复本地渲染能力，不扩展数据库请求协议：表格模式保留编辑入口，树形、文本和转置模式只读；树形明细按 50,000 项封顶，模式切换复位本地滚动位置但保留查询结果、分页、排序、筛选和选中单元格。目标测试为 `cargo test -p ramag-tool-dbclient --lib`，真实窗口截图因 `computer-use` 不可用仍待补充。
+   本次表格工作区切片只调整本地渲染和服务端查询拼接，不扩展数据库请求协议：结果区始终保留编辑入口；服务端排序恢复原横向滚动位置，`WHERE` 条件支持多个 `AND` 子条件并继续拒绝多语句输入。目标测试为 `cargo test --locked -p ramag-tool-dbclient --lib`，真实窗口截图使用系统 Win32 截图和输入记录，不将 headless 结果代替原生证据。
 
 2. **编辑状态与提交反馈**
 
@@ -682,7 +691,7 @@ Ramag 应该采用 **“以 DataGrip 为交互参考、以核心工作流为产�
    - 查询历史、最近关闭草稿和当前结果之间保留连接、Schema、方言和执行时间上下文；切换连接后禁止回放到错误的目标。
    - 为上述场景补充真实窗口检查：长表名和长列名、超过 10,000 行的分页、超宽结果、1 MiB 以上字段、标签切换和查询取消。
 
-P0 的验收条件：对象定位不丢失连接上下文；结果查看模式切换不产生额外数据库请求；编辑失败可恢复；表大小缺失时不显示错误占位；刷新、切换标签和取消查询后不出现旧结果覆盖新结果的情况。
+P0 的验收条件：对象定位不丢失连接上下文；结果区始终使用表格视图且不显示无效的转换入口；编辑失败可恢复；表大小缺失时不显示错误占位；刷新、切换标签和取消查询后不出现旧结果覆盖新结果的情况。
 
 ### 10.3 P1：SQL 分析与安全协作
 
@@ -729,11 +738,10 @@ P1 的验收条件：执行计划解析失败时仍能复制原文；结构迁�
 
 | 顺序 | 建议分支 | 交付内容 | 主要验收证据 |
 |---|---|---|---|
-| 1 | `codex/feat/result-editor-workspace` | 结果查看模式、大字段查看、复制格式和编辑失败恢复 | `cargo test -p ramag-tool-dbclient --lib`、宽结果/大字段窗口检查 |
-| 2 | `codex/feat/database-object-navigation` | 表树过滤、收藏、对象定位、表大小状态刷新 | MySQL/PostgreSQL 元数据测试、1,000 表导航窗口检查 |
-| 3 | `codex/feat/structured-query-plan` | 原始/表格/树形执行计划和方言能力声明 | 驱动单元测试、计划解析失败回退、真实窗口检查 |
-| 4 | `codex/feat/schema-migration-review` | 依赖顺序、重命名候选、脚本指纹和逐段复核 | Schema 对比测试、MySQL/PostgreSQL 回放、生产只读检查 |
-| 5 | `codex/feat/query-manager-export` | 查询管理、流式导出和有界取消 | 大结果集测试、取消/内存预算测试、导出文件校验 |
+| 1 | `database-object-navigation` | 表树过滤、收藏、对象定位、表大小状态刷新 | MySQL/PostgreSQL 元数据测试、1,000 表导航窗口检查 |
+| 2 | `structured-query-plan` | 原始/结构化执行计划和方言能力声明 | 驱动单元测试、计划解析失败回退、真实窗口检查 |
+| 3 | `schema-migration-review` | 依赖顺序、重命名候选、脚本指纹和逐段复核 | Schema 对比测试、MySQL/PostgreSQL 回放、生产只读检查 |
+| 4 | `query-manager-export` | 查询管理、流式导出和有界取消 | 大结果集测试、取消/内存预算测试、导出文件校验 |
 
 每个 PR 至少包含 `cargo fmt-check`、目标 crate 测试、`cargo check-all`、`git diff --check` 和源码尺寸检查。涉及数据库真实行为时，补充 MySQL/PostgreSQL 集成环境；涉及 GPUI 布局、滚动、弹窗或交互时，使用 Windows computer-use 进行真实窗口检查，静态测试不能替代这项证据。
 

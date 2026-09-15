@@ -124,6 +124,9 @@ pub(super) struct TransactionSavepoint {
 #[derive(Debug, Clone)]
 pub enum QueryTabEvent {
     DraftChanged,
+    TableMetadataChanged {
+        schema: String,
+    },
     LocateTableRequested {
         schema: String,
         table: String,
@@ -137,6 +140,18 @@ pub enum QueryTabEvent {
 }
 
 impl EventEmitter<QueryTabEvent> for QueryTab {}
+
+fn metadata_refresh_schema(
+    active_schema: Option<&str>,
+    configured_schema: Option<&str>,
+) -> Option<String> {
+    active_schema
+        .into_iter()
+        .chain(configured_schema)
+        .map(str::trim)
+        .find(|schema| !schema.is_empty())
+        .map(str::to_owned)
+}
 
 impl QueryTab {
     pub fn new(
@@ -372,6 +387,19 @@ impl QueryTab {
             r.set_executor(Some(svc), conn_for_plan);
         });
         cx.notify();
+    }
+
+    /// 通知连接会话重新读取当前数据库中已加载的表元数据。
+    pub(super) fn emit_table_metadata_changed(&self, cx: &mut Context<Self>) {
+        let schema = metadata_refresh_schema(
+            self.active_schema.as_deref(),
+            self.connection
+                .as_ref()
+                .and_then(|connection| connection.database.as_deref()),
+        );
+        if let Some(schema) = schema {
+            cx.emit(QueryTabEvent::TableMetadataChanged { schema });
+        }
     }
 
     pub(super) fn set_connection_list(

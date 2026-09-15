@@ -27,6 +27,9 @@ impl QueryTab {
         if let Some(transaction) = self.transaction.as_mut() {
             transaction.dirty = true;
             cx.notify();
+        } else {
+            // 自动提交的结果集写操作已经落库，立即让对象树重新读取表大小。
+            self.emit_table_metadata_changed(cx);
         }
     }
 
@@ -394,6 +397,7 @@ impl QueryTab {
             } else {
                 service.rollback_transaction(&connection, &session.id).await
             };
+            let should_refresh_table_metadata = commit && session.dirty && outcome.is_ok();
             let _ = this.update(cx, |this, cx| {
                 if this.transaction_seq != request_seq
                     || this
@@ -430,6 +434,9 @@ impl QueryTab {
                         Notification::error(message).autohide(false)
                     }
                 });
+                if should_refresh_table_metadata {
+                    this.emit_table_metadata_changed(cx);
+                }
                 cx.notify();
             });
         })

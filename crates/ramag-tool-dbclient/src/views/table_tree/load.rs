@@ -521,6 +521,21 @@ impl TableTreePanel {
         .detach();
     }
 
+    /// 切换 schema 下的表或视图分组，只改变树的可见行，不重新请求元数据。
+    pub(super) fn toggle_table_group(
+        &mut self,
+        schema: String,
+        is_view: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let key = (schema, is_view);
+        if !self.collapsed_table_groups.insert(key.clone()) {
+            self.collapsed_table_groups.remove(&key);
+        }
+        self.invalidate_tree_rows();
+        cx.notify();
+    }
+
     /// 切换表节点下元数据分组的详情行，不重新请求数据库元数据。
     pub(super) fn toggle_table_section(
         &mut self,

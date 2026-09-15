@@ -5,15 +5,31 @@ use std::time::Instant;
 use gpui::{Modifiers, TestAppContext, px, size};
 use ramag_app::ConnectionService;
 use ramag_domain::entities::{
-    ConnectionConfig, ConnectionId, QueryRecord, QueryResult, Row, Value,
+    ConnectionConfig, ConnectionId, QueryRecord, QueryResult, Row, TransactionId, Value,
 };
 use ramag_domain::error::Result;
 use ramag_domain::traits::Storage;
 
-use super::{QueryResultTarget, QueryTab, ResultState};
+use super::{
+    QueryResultTarget, QueryTab, ResultState, TransactionSavepoint, TransactionSession,
+    metadata_refresh_schema,
+};
 use crate::sql_completion::SchemaCache;
 
 struct NoopStorage;
+
+#[test]
+fn metadata_refresh_prefers_active_schema_and_ignores_empty_names() {
+    assert_eq!(
+        metadata_refresh_schema(Some("ship-db"), Some("fallback")),
+        Some("ship-db".to_string())
+    );
+    assert_eq!(
+        metadata_refresh_schema(Some("  "), Some("fallback")),
+        Some("fallback".to_string())
+    );
+    assert_eq!(metadata_refresh_schema(None, Some("  ")), None);
+}
 
 #[async_trait::async_trait]
 impl Storage for NoopStorage {
@@ -226,6 +242,163 @@ fn result_toolbar_keeps_filters_and_run_action_inside_three_window_widths(cx: &m
         );
         assert!(filters.right() <= toolbar.right(), "筛选区不能越出工具栏");
         assert!(run.right() <= toolbar.right(), "运行按钮不能越出工具栏");
+    }
+}
+
+/// 活动事务的提交、回滚和保存点操作必须在窄结果工具栏内继续可见。
+#[gpui::test]
+fn active_transaction_controls_wrap_inside_three_window_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(ConnectionService::new(
+        HashMap::new(),
+        Arc::new(NoopStorage),
+    ));
+    let schema_cache = SchemaCache::new_shared();
+    let (tab, cx) = cx.add_window_view(|window, cx| {
+        QueryTab::new(
+            service,
+            "事务工具栏",
+            None,
+            schema_cache,
+            ramag_ui::ResultMemoryBudget::default(),
+            window,
+            cx,
+        )
+    });
+
+    tab.update(cx, |tab, cx| {
+        tab.transaction = Some(TransactionSession {
+            id: TransactionId::default(),
+            dirty: true,
+            savepoints: vec![TransactionSavepoint {
+                name: "ramag_sp_1".into(),
+                dirty: true,
+            }],
+            next_savepoint: 2,
+        });
+        cx.notify();
+    });
+
+    for width in [360.0, 1024.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(480.0)));
+        tab.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+
+        let toolbar = cx
+            .debug_bounds("sql-result-toolbar")
+            .expect("SQL 结果工具栏应渲染");
+        let group = cx
+            .debug_bounds("sql-transaction-group")
+            .expect("事务操作组应渲染");
+        let controls = cx
+            .debug_bounds("sql-transaction-controls")
+            .expect("事务控制区应渲染");
+        if width < 720.0 {
+            assert!(
+                group.size.width >= toolbar.size.width - px(32.0),
+                "窄窗口事务组应占满工具栏可用宽度：group={group:?}, toolbar={toolbar:?}"
+            );
+        } else {
+            assert!(
+                group.size.width < toolbar.size.width - px(32.0),
+                "桌面窗口事务组不应强制占满整行：group={group:?}, toolbar={toolbar:?}"
+            );
+        }
+        assert!(
+            group.origin.x >= toolbar.origin.x
+                && group.right() <= toolbar.right()
+                && group.origin.y >= toolbar.origin.y
+                && group.bottom() <= toolbar.bottom(),
+            "事务操作组不能越出结果工具栏：group={group:?}, toolbar={toolbar:?}"
+        );
+        assert!(
+            controls.origin.x >= group.origin.x
+                && controls.right() <= group.right()
+                && controls.origin.y >= group.origin.y
+                && controls.bottom() <= group.bottom(),
+            "事务控制区不能越出事务操作组：controls={controls:?}, group={group:?}"
+        );
+        for selector in [
+            "transaction-commit",
+            "transaction-rollback",
+            "transaction-savepoint-create",
+            "transaction-savepoint-rollback",
+            "transaction-savepoint-release",
+        ] {
+            let button = cx
+                .debug_bounds(selector)
+                .unwrap_or_else(|| panic!("应渲染事务按钮 {selector}"));
+            assert!(
+                button.origin.x >= controls.origin.x
+                    && button.right() <= controls.right()
+                    && button.origin.y >= controls.origin.y
+                    && button.bottom() <= controls.bottom(),
+                "事务按钮不能越出控制区：selector={selector}, button={button:?}, controls={controls:?}"
+            );
+        }
+    }
+}
+
+/// 未开启事务时的开始事务入口也必须留在窄结果工具栏内。
+#[gpui::test]
+fn inactive_transaction_control_wraps_inside_three_window_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(ConnectionService::new(
+        HashMap::new(),
+        Arc::new(NoopStorage),
+    ));
+    let schema_cache = SchemaCache::new_shared();
+    let (tab, cx) = cx.add_window_view(|window, cx| {
+        QueryTab::new(
+            service,
+            "未开启事务工具栏",
+            None,
+            schema_cache,
+            ramag_ui::ResultMemoryBudget::default(),
+            window,
+            cx,
+        )
+    });
+
+    for width in [360.0, 1024.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(480.0)));
+        tab.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+
+        let toolbar = cx
+            .debug_bounds("sql-result-toolbar")
+            .expect("SQL 结果工具栏应渲染");
+        let group = cx
+            .debug_bounds("sql-transaction-group")
+            .expect("事务操作组应渲染");
+        let controls = cx
+            .debug_bounds("sql-transaction-controls")
+            .expect("事务控制区应渲染");
+        let begin = cx
+            .debug_bounds("transaction-begin")
+            .expect("应渲染开始事务按钮");
+
+        assert!(
+            group.origin.x >= toolbar.origin.x
+                && group.right() <= toolbar.right()
+                && group.origin.y >= toolbar.origin.y
+                && group.bottom() <= toolbar.bottom(),
+            "事务操作组不能越出结果工具栏：group={group:?}, toolbar={toolbar:?}"
+        );
+        assert!(
+            controls.origin.x >= group.origin.x
+                && controls.right() <= group.right()
+                && controls.origin.y >= group.origin.y
+                && controls.bottom() <= group.bottom(),
+            "事务控制区不能越出事务操作组：controls={controls:?}, group={group:?}"
+        );
+        assert!(
+            begin.origin.x >= controls.origin.x
+                && begin.right() <= controls.right()
+                && begin.origin.y >= controls.origin.y
+                && begin.bottom() <= controls.bottom(),
+            "开始事务按钮不能越出控制区：begin={begin:?}, controls={controls:?}"
+        );
     }
 }
 
