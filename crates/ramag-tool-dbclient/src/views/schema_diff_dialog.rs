@@ -390,6 +390,7 @@ impl Render for SchemaDiffDialog {
         };
 
         let toolbar = ramag_ui::responsive_toolbar()
+            .debug_selector(|| "schema-diff-toolbar".into())
             .child(
                 v_flex()
                     .flex_1()
@@ -397,14 +398,22 @@ impl Render for SchemaDiffDialog {
                     .gap(px(2.0))
                     .child(
                         div()
+                            .debug_selector(|| "schema-diff-title".into())
                             .text_sm()
                             .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .whitespace_nowrap()
                             .child(format!("{} · {}", self.source_table, self.target_table)),
                     )
                     .child(
                         div()
+                            .debug_selector(|| "schema-diff-context".into())
                             .text_xs()
                             .text_color(theme.muted_foreground)
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .whitespace_nowrap()
                             .child(format!(
                                 "源：{} / {}.{} · 目标：{} / {}.{}",
                                 self.source_connection.name,
@@ -418,6 +427,7 @@ impl Render for SchemaDiffDialog {
             )
             .child(
                 ramag_ui::clickable_button("schema-diff-migration")
+                    .debug_selector(|| "schema-diff-migration".into())
                     .ghost()
                     .small()
                     .icon(if self.migration_visible {
@@ -442,6 +452,7 @@ impl Render for SchemaDiffDialog {
             )
             .child(
                 ramag_ui::clickable_button("schema-diff-copy")
+                    .debug_selector(|| "schema-diff-copy".into())
                     .ghost()
                     .small()
                     .icon(IconName::Copy)
@@ -453,6 +464,7 @@ impl Render for SchemaDiffDialog {
             )
             .child(
                 ramag_ui::clickable_button("schema-diff-refresh")
+                    .debug_selector(|| "schema-diff-refresh".into())
                     .ghost()
                     .small()
                     .icon(ramag_ui::icons::refresh_cw())
@@ -469,6 +481,9 @@ impl Render for SchemaDiffDialog {
             .child(body)
     }
 }
+
+#[cfg(test)]
+mod tests;
 
 async fn load_table_metadata(
     service: Arc<ConnectionService>,
