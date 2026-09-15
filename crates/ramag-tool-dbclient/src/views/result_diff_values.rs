@@ -7,7 +7,7 @@ use ramag_domain::entities::{QueryResult, Row, Value};
 
 use super::{
     ColumnPair, MAX_ROW_FIELDS, MAX_ROW_LINES, MAX_ROW_PREVIEW_CHARS, MAX_VALUE_PREVIEW_CHARS,
-    ResultDiffKind, ResultDiffLine, RowKey,
+    ResultDiffCategory, ResultDiffKind, ResultDiffLine, RowKey,
 };
 
 pub(super) fn identity_key(
@@ -239,6 +239,7 @@ pub(super) fn push_row_pair(
         MAX_ROW_LINES,
         omitted_lines,
         ResultDiffKind::Removed,
+        ResultDiffCategory::Changed,
         format_row(source, source_index),
     );
     push_line(
@@ -246,6 +247,7 @@ pub(super) fn push_row_pair(
         MAX_ROW_LINES,
         omitted_lines,
         ResultDiffKind::Added,
+        ResultDiffCategory::Changed,
         format_row(target, target_index),
     );
 }
@@ -255,10 +257,15 @@ pub(super) fn push_line(
     limit: usize,
     omitted_lines: &mut usize,
     kind: ResultDiffKind,
+    category: ResultDiffCategory,
     text: String,
 ) {
     if lines.len() < limit {
-        lines.push(ResultDiffLine { kind, text });
+        lines.push(ResultDiffLine {
+            kind,
+            category,
+            text,
+        });
     } else {
         *omitted_lines = omitted_lines.saturating_add(1);
     }

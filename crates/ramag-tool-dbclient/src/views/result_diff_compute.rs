@@ -8,8 +8,8 @@ use super::values::{
 };
 use super::{
     ColumnPair, ColumnStats, MAX_CELL_DIFFS, MAX_COLUMN_LINES, MAX_COMPARE_ROWS, MAX_ROW_LINES,
-    MAX_VALUE_PREVIEW_CHARS, ResultCellDiff, ResultDiff, ResultDiffKind, ResultDiffLine,
-    ResultSnapshot, RowComparison, RowKey, RowMatchMode,
+    MAX_VALUE_PREVIEW_CHARS, ResultCellDiff, ResultDiff, ResultDiffCategory, ResultDiffKind,
+    ResultDiffLine, ResultSnapshot, RowComparison, RowKey, RowMatchMode,
 };
 
 /// 比较两次查询结果；只读取快照中的已加载行，不重新访问数据库。
@@ -102,6 +102,7 @@ fn compare_columns(
                         MAX_COLUMN_LINES,
                         &mut omitted_lines,
                         ResultDiffKind::Context,
+                        ResultDiffCategory::Context,
                         source_text,
                     );
                 } else {
@@ -111,6 +112,7 @@ fn compare_columns(
                         MAX_COLUMN_LINES,
                         &mut omitted_lines,
                         ResultDiffKind::Removed,
+                        ResultDiffCategory::Changed,
                         source_text,
                     );
                     push_line(
@@ -118,6 +120,7 @@ fn compare_columns(
                         MAX_COLUMN_LINES,
                         &mut omitted_lines,
                         ResultDiffKind::Added,
+                        ResultDiffCategory::Changed,
                         target_text,
                     );
                 }
@@ -129,6 +132,7 @@ fn compare_columns(
                     MAX_COLUMN_LINES,
                     &mut omitted_lines,
                     ResultDiffKind::Removed,
+                    ResultDiffCategory::Removed,
                     source_text,
                 );
             }
@@ -143,6 +147,7 @@ fn compare_columns(
                 MAX_COLUMN_LINES,
                 &mut omitted_lines,
                 ResultDiffKind::Added,
+                ResultDiffCategory::Added,
                 format_column(target, target_index),
             );
         }
@@ -304,6 +309,7 @@ fn compare_keyed_rows(
                     MAX_ROW_LINES,
                     &mut omitted_lines,
                     ResultDiffKind::Removed,
+                    ResultDiffCategory::Removed,
                     format_row(source, source_index),
                 );
             }
@@ -317,6 +323,7 @@ fn compare_keyed_rows(
                 MAX_ROW_LINES,
                 &mut omitted_lines,
                 ResultDiffKind::Added,
+                ResultDiffCategory::Added,
                 format_row(target, target_index),
             );
         }
@@ -390,6 +397,7 @@ fn compare_content_rows(
                 MAX_ROW_LINES,
                 &mut omitted_lines,
                 ResultDiffKind::Removed,
+                ResultDiffCategory::Removed,
                 format_row(source, index),
             );
         }
@@ -402,6 +410,7 @@ fn compare_content_rows(
                 MAX_ROW_LINES,
                 &mut omitted_lines,
                 ResultDiffKind::Added,
+                ResultDiffCategory::Added,
                 format_row(target, index),
             );
         }

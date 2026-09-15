@@ -5,7 +5,8 @@ use gpui::{
     Styled, Window, div, prelude::*, px,
 };
 use gpui_component::{
-    ActiveTheme, Disableable as _, IconName, Sizable as _, Theme,
+    ActiveTheme, Disableable as _, IconName, Selectable as _, Sizable as _, Theme,
+    button::Button,
     button::ButtonVariants as _,
     h_flex,
     scroll::{Scrollbar, ScrollbarShow},
@@ -14,12 +15,40 @@ use gpui_component::{
 };
 
 use super::result_diff::{
-    MAX_CELL_DIFFS, ResultCellDiff, ResultDiff, ResultDiffKind, ResultDiffLine, ResultSnapshot,
-    RowMatchMode, build_result_diff, format_result_diff,
+    MAX_CELL_DIFFS, ResultCellDiff, ResultDiff, ResultDiffCategory, ResultDiffKind, ResultDiffLine,
+    ResultSnapshot, RowMatchMode, build_result_diff, format_result_diff,
 };
 
 const DIFF_VIEW_WIDTH: f32 = 1_080.0;
 const DIFF_VIEW_HEIGHT: f32 = 540.0;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ResultDiffFilter {
+    All,
+    Changed,
+    Added,
+    Removed,
+}
+
+impl ResultDiffFilter {
+    fn label(self) -> &'static str {
+        match self {
+            Self::All => "全部",
+            Self::Changed => "修改",
+            Self::Added => "新增",
+            Self::Removed => "删除",
+        }
+    }
+
+    fn includes(self, category: ResultDiffCategory) -> bool {
+        match self {
+            Self::All => true,
+            Self::Changed => category == ResultDiffCategory::Changed,
+            Self::Added => category == ResultDiffCategory::Added,
+            Self::Removed => category == ResultDiffCategory::Removed,
+        }
+    }
+}
 
 pub(crate) struct ResultDiffDialog {
     source: ResultSnapshot,
@@ -30,6 +59,7 @@ pub(crate) struct ResultDiffDialog {
     error: Option<String>,
     vertical_scroll: ScrollHandle,
     horizontal_scroll: ScrollHandle,
+    filter: ResultDiffFilter,
 }
 
 impl ResultDiffDialog {
@@ -47,6 +77,7 @@ impl ResultDiffDialog {
             error: None,
             vertical_scroll: ScrollHandle::new(),
             horizontal_scroll: ScrollHandle::new(),
+            filter: ResultDiffFilter::All,
         };
         this.refresh(cx);
         this
@@ -84,6 +115,27 @@ impl ResultDiffDialog {
         .detach();
     }
 
+    fn set_filter(&mut self, filter: ResultDiffFilter, cx: &mut Context<Self>) {
+        if self.filter == filter {
+            return;
+        }
+        self.filter = filter;
+        self.vertical_scroll
+            .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+        cx.notify();
+    }
+
+    fn filter_button(&self, filter: ResultDiffFilter, cx: &mut Context<Self>) -> Button {
+        ramag_ui::clickable_button(format!("result-diff-filter-{:?}", filter))
+            .ghost()
+            .small()
+            .label(filter.label())
+            .selected(self.filter == filter)
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                this.set_filter(filter, cx);
+            }))
+    }
+
     fn render_diff_line(&self, line: &ResultDiffLine, theme: &Theme) -> impl IntoElement {
         let (prefix, color, background) = match line.kind {
             ResultDiffKind::Context => (' ', theme.muted_foreground, theme.background),
@@ -118,6 +170,10 @@ impl ResultDiffDialog {
         omitted_lines: usize,
         theme: &Theme,
     ) -> AnyElement {
+        let visible_lines: Vec<&ResultDiffLine> = lines
+            .iter()
+            .filter(|line| self.filter.includes(line.category))
+            .collect();
         let mut body = v_flex()
             .w(px(DIFF_VIEW_WIDTH))
             .gap(px(2.0))
@@ -131,18 +187,19 @@ impl ResultDiffDialog {
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .child(title.to_string()),
             );
-        if lines.is_empty() {
-            body = body.child(
-                div()
-                    .text_xs()
-                    .text_color(theme.muted_foreground)
-                    .child("无差异"),
-            );
+        if visible_lines.is_empty() {
+            body = body.child(div().text_xs().text_color(theme.muted_foreground).child(
+                if lines.is_empty() {
+                    "无差异"
+                } else {
+                    "当前筛选无匹配项"
+                },
+            ));
         } else {
-            for line in lines {
+            for line in visible_lines {
                 body = body.child(self.render_diff_line(line, theme));
             }
-            if omitted_lines > 0 {
+            if self.filter == ResultDiffFilter::All && omitted_lines > 0 {
                 body = body.child(
                     div()
                         .text_xs()
@@ -402,6 +459,15 @@ impl ResultDiffDialog {
 
 impl Render for ResultDiffDialog {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let filter_toolbar = h_flex()
+            .id("result-diff-filter")
+            .debug_selector(|| "result-diff-filter".into())
+            .flex_none()
+            .gap(px(2.0))
+            .child(self.filter_button(ResultDiffFilter::All, cx))
+            .child(self.filter_button(ResultDiffFilter::Changed, cx))
+            .child(self.filter_button(ResultDiffFilter::Added, cx))
+            .child(self.filter_button(ResultDiffFilter::Removed, cx));
         let theme = cx.theme();
         let view_height = (ramag_ui::responsive_dialog_max_height(window) - px(112.0))
             .max(px(80.0))
@@ -464,6 +530,7 @@ impl Render for ResultDiffDialog {
                     .disabled(self.loading)
                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.refresh(cx))),
             );
+        let toolbar = toolbar.child(filter_toolbar);
 
         let body: AnyElement = if self.loading {
             v_flex()
@@ -507,7 +574,10 @@ impl Render for ResultDiffDialog {
                     diff.omitted_row_lines,
                     theme,
                 ));
-            if !diff.cell_diffs.is_empty() || diff.omitted_cell_diffs > 0 {
+            if self.filter != ResultDiffFilter::Added
+                && self.filter != ResultDiffFilter::Removed
+                && (!diff.cell_diffs.is_empty() || diff.omitted_cell_diffs > 0)
+            {
                 content = content.child(self.render_cell_section(
                     &diff.cell_diffs,
                     diff.omitted_cell_diffs,
@@ -529,3 +599,6 @@ impl Render for ResultDiffDialog {
         v_flex().w_full().gap(px(8.0)).child(toolbar).child(body)
     }
 }
+
+#[cfg(test)]
+mod tests;

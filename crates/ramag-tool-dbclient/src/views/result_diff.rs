@@ -86,6 +86,14 @@ pub(crate) enum ResultDiffKind {
     Removed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ResultDiffCategory {
+    Context,
+    Added,
+    Removed,
+    Changed,
+}
+
 impl ResultDiffKind {
     pub(crate) fn prefix(self) -> char {
         match self {
@@ -99,6 +107,7 @@ impl ResultDiffKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ResultDiffLine {
     pub(crate) kind: ResultDiffKind,
+    pub(crate) category: ResultDiffCategory,
     pub(crate) text: String,
 }
 
