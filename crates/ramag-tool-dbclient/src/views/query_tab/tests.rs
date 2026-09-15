@@ -312,6 +312,69 @@ fn active_transaction_controls_wrap_inside_three_window_widths(cx: &mut TestAppC
     }
 }
 
+/// 未开启事务时的开始事务入口也必须留在窄结果工具栏内。
+#[gpui::test]
+fn inactive_transaction_control_wraps_inside_three_window_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(ConnectionService::new(
+        HashMap::new(),
+        Arc::new(NoopStorage),
+    ));
+    let schema_cache = SchemaCache::new_shared();
+    let (tab, cx) = cx.add_window_view(|window, cx| {
+        QueryTab::new(
+            service,
+            "未开启事务工具栏",
+            None,
+            schema_cache,
+            ramag_ui::ResultMemoryBudget::default(),
+            window,
+            cx,
+        )
+    });
+
+    for width in [360.0, 1024.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(480.0)));
+        tab.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+
+        let toolbar = cx
+            .debug_bounds("sql-result-toolbar")
+            .expect("SQL 结果工具栏应渲染");
+        let group = cx
+            .debug_bounds("sql-transaction-group")
+            .expect("事务操作组应渲染");
+        let controls = cx
+            .debug_bounds("sql-transaction-controls")
+            .expect("事务控制区应渲染");
+        let begin = cx
+            .debug_bounds("transaction-begin")
+            .expect("应渲染开始事务按钮");
+
+        assert!(
+            group.origin.x >= toolbar.origin.x
+                && group.right() <= toolbar.right()
+                && group.origin.y >= toolbar.origin.y
+                && group.bottom() <= toolbar.bottom(),
+            "事务操作组不能越出结果工具栏：group={group:?}, toolbar={toolbar:?}"
+        );
+        assert!(
+            controls.origin.x >= group.origin.x
+                && controls.right() <= group.right()
+                && controls.origin.y >= group.origin.y
+                && controls.bottom() <= group.bottom(),
+            "事务控制区不能越出事务操作组：controls={controls:?}, group={group:?}"
+        );
+        assert!(
+            begin.origin.x >= controls.origin.x
+                && begin.right() <= controls.right()
+                && begin.origin.y >= controls.origin.y
+                && begin.bottom() <= controls.bottom(),
+            "开始事务按钮不能越出控制区：begin={begin:?}, controls={controls:?}"
+        );
+    }
+}
+
 /// 查询失败时，重试按钮和长错误文本在窄窗口内保持可见，并重新走当前编辑器内容。
 #[gpui::test]
 fn sql_failure_retry_stays_inside_three_window_widths(cx: &mut TestAppContext) {
