@@ -1,8 +1,8 @@
 use ramag_domain::entities::{Column, DriverKind, GeneratedColumnStorage, IdentityGeneration};
 
 use super::{
-    MigrationStatement, escape_literal, fragment, identifier, non_empty, non_empty_str,
-    normalized_optional, same_name,
+    MigrationPhase, MigrationStatement, escape_literal, fragment, identifier, non_empty,
+    non_empty_str, normalized_optional, same_name,
 };
 
 pub(crate) fn append_column_changes(
@@ -18,6 +18,7 @@ pub(crate) fn append_column_changes(
             statements.push(MigrationStatement {
                 sql: format!("ALTER TABLE {target_name} DROP COLUMN {name};"),
                 destructive: true,
+                phase: MigrationPhase::ChangeColumns,
             });
         }
     }
@@ -28,6 +29,7 @@ pub(crate) fn append_column_changes(
                 statements.push(MigrationStatement {
                     sql,
                     destructive: false,
+                    phase: MigrationPhase::ChangeColumns,
                 });
             }
             continue;
@@ -43,6 +45,7 @@ pub(crate) fn append_column_changes(
             statements.push(MigrationStatement {
                 sql,
                 destructive: true,
+                phase: MigrationPhase::ChangeColumns,
             });
         }
     }

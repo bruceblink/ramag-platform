@@ -3,11 +3,15 @@ use std::sync::Arc;
 
 use gpui::{AppContext as _, TestAppContext, px, size};
 use ramag_app::ConnectionService;
-use ramag_domain::entities::{ConnectionConfig, ConnectionId, QueryRecord, QueryRecordId};
+use ramag_domain::entities::{
+    Column, ColumnKind, ColumnType, ConnectionConfig, ConnectionId, Index, QueryRecord,
+    QueryRecordId,
+};
 use ramag_domain::error::Result;
 use ramag_domain::traits::Storage;
 
-use super::SchemaDiffDialog;
+use super::super::schema_diff::TableMetadata;
+use super::{LoadedMetadata, SchemaDiffDialog};
 
 #[derive(Default)]
 struct NoopStorage;
@@ -103,6 +107,89 @@ fn test_dialog(cx: &mut TestAppContext) -> &mut gpui::VisualTestContext {
     visual_cx
 }
 
+fn migration_dialog(cx: &mut TestAppContext) -> &mut gpui::VisualTestContext {
+    let service = Arc::new(ConnectionService::new(
+        HashMap::new(),
+        Arc::new(NoopStorage),
+    ));
+    let source_connection = ConnectionConfig::new_mysql("源连接", "127.0.0.1", 3306, "root");
+    let target_connection = ConnectionConfig::new_mysql("目标连接", "127.0.0.2", 3306, "root");
+    let source_metadata = TableMetadata {
+        columns: vec![test_column("id", "INT")],
+        indexes: vec![Index {
+            name: "PRIMARY".into(),
+            unique: true,
+            primary: true,
+            columns: vec!["id".into()],
+        }],
+        ..TableMetadata::default()
+    };
+    let target_metadata = TableMetadata {
+        columns: vec![test_column("legacy", "TEXT")],
+        indexes: vec![Index {
+            name: "idx_legacy".into(),
+            unique: false,
+            primary: false,
+            columns: vec!["legacy".into()],
+        }],
+        ..TableMetadata::default()
+    };
+
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let dialog = cx.new(|_| SchemaDiffDialog {
+            service,
+            source_connection,
+            target_connection,
+            source_schema: "source".into(),
+            source_table: "users".into(),
+            target_schema: "target".into(),
+            target_table: "users".into(),
+            source: Some(LoadedMetadata {
+                metadata: source_metadata,
+                warnings: Vec::new(),
+            }),
+            target: Some(LoadedMetadata {
+                metadata: target_metadata,
+                warnings: Vec::new(),
+            }),
+            loading: false,
+            request_generation: 1,
+            error: None,
+            vertical_scroll: gpui::ScrollHandle::new(),
+            horizontal_scroll: gpui::ScrollHandle::new(),
+            migration_vertical_scroll: gpui::ScrollHandle::new(),
+            migration_horizontal_scroll: gpui::ScrollHandle::new(),
+            migration_visible: true,
+            saving_migration: false,
+            executing_migration: false,
+            migration_execution_generation: 0,
+            migration_approvals: Vec::new(),
+            pending_notification: None,
+        });
+        gpui_component::Root::new(dialog, window, cx)
+    });
+    visual_cx
+}
+
+fn test_column(name: &str, raw_type: &str) -> Column {
+    Column {
+        name: name.into(),
+        data_type: ColumnType {
+            kind: ColumnKind::Other,
+            raw_type: raw_type.into(),
+        },
+        nullable: true,
+        default_value: None,
+        is_primary_key: false,
+        comment: None,
+        ordinal_position: None,
+        is_auto_increment: false,
+        generation_expression: None,
+        generated_storage: None,
+        identity_generation: None,
+    }
+}
+
 fn assert_inside(child: gpui::Bounds<gpui::Pixels>, parent: gpui::Bounds<gpui::Pixels>) {
     assert!(child.origin.x >= parent.origin.x);
     assert!(child.origin.y >= parent.origin.y);
@@ -139,5 +226,24 @@ fn schema_diff_toolbar_keeps_context_and_actions_inside_supported_widths(cx: &mu
             let action = cx.debug_bounds(selector).expect("结构对比操作按钮应渲染");
             assert_inside(action, toolbar);
         }
+    }
+}
+
+#[gpui::test]
+fn migration_stages_stay_inside_preview_at_supported_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let cx = migration_dialog(cx);
+
+    for width in [360.0, 1024.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(420.0)));
+        cx.run_until_parked();
+
+        let stages = cx
+            .debug_bounds("schema-migration-stages")
+            .expect("迁移执行顺序应渲染");
+        let scroll = cx
+            .debug_bounds("schema-migration-vertical-scroll")
+            .expect("迁移预览滚动区应渲染");
+        assert_inside(stages, scroll);
     }
 }

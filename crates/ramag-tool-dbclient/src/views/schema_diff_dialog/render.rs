@@ -10,7 +10,7 @@ use gpui_component::{
     v_flex,
 };
 
-use super::super::super::schema_migration::MigrationScript;
+use super::super::super::schema_migration::{MigrationScript, MigrationStage};
 use super::super::{DIFF_VIEW_WIDTH, SchemaDiffDialog};
 use super::approval;
 
@@ -34,6 +34,7 @@ fn render_migration_scrollable(
                 .child(
                     div()
                         .id("schema-migration-vertical-scroll")
+                        .debug_selector(|| "schema-migration-vertical-scroll".into())
                         .w(px(DIFF_VIEW_WIDTH))
                         .h_full()
                         .overflow_y_scroll()
@@ -70,6 +71,55 @@ fn render_migration_scrollable(
                 ),
         )
         .into_any_element()
+}
+
+fn render_migration_stages(stages: &[MigrationStage], theme: &Theme) -> AnyElement {
+    let mut panel = v_flex()
+        .debug_selector(|| "schema-migration-stages".into())
+        .w_full()
+        .gap(px(4.0))
+        .p(px(8.0))
+        .border_1()
+        .border_color(theme.border)
+        .rounded(px(6.0))
+        .child(
+            div()
+                .text_xs()
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .child("迁移执行顺序"),
+        );
+    for (index, stage) in stages.iter().enumerate() {
+        let summary = if stage.destructive_statements == 0 {
+            format!("{} 条语句 · 无删除或修改", stage.statement_count)
+        } else {
+            format!(
+                "{} 条语句 · {} 条删除或修改",
+                stage.statement_count, stage.destructive_statements
+            )
+        };
+        panel = panel.child(
+            h_flex()
+                .w_full()
+                .min_w_0()
+                .gap(px(8.0))
+                .child(div().flex_1().min_w_0().text_xs().child(format!(
+                    "{}. {}",
+                    index + 1,
+                    stage.title
+                )))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(if stage.destructive_statements == 0 {
+                            theme.muted_foreground
+                        } else {
+                            theme.danger
+                        })
+                        .child(summary),
+                ),
+        );
+    }
+    panel.into_any_element()
 }
 
 impl SchemaDiffDialog {
@@ -206,6 +256,9 @@ impl SchemaDiffDialog {
                     "执行会直接修改目标表；确认前请人工复核脚本，保存的脚本不会自动执行。"
                 },
             ));
+        if !script.stages.is_empty() {
+            content = content.child(render_migration_stages(&script.stages, theme));
+        }
         if !script.warnings.is_empty() {
             content =
                 content.child(

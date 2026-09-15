@@ -9,9 +9,57 @@ pub(super) use columns::{
     has_incomplete_column_metadata,
 };
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MigrationPhase {
+    DropForeignKeys,
+    DropIndexes,
+    ChangeColumns,
+    AddIndexes,
+    AddForeignKeys,
+}
+
+impl MigrationPhase {
+    fn title(self) -> &'static str {
+        match self {
+            Self::DropForeignKeys => "删除受影响的外键",
+            Self::DropIndexes => "删除受影响的索引",
+            Self::ChangeColumns => "处理字段变化",
+            Self::AddIndexes => "恢复索引",
+            Self::AddForeignKeys => "恢复外键",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct MigrationStage {
+    pub(crate) title: &'static str,
+    pub(crate) statement_count: usize,
+    pub(crate) destructive_statements: usize,
+}
+
 pub(super) struct MigrationStatement {
     pub(super) sql: String,
     pub(super) destructive: bool,
+    pub(super) phase: MigrationPhase,
+}
+
+pub(super) fn summarize_stages(statements: &[MigrationStatement]) -> Vec<MigrationStage> {
+    let mut stages: Vec<MigrationStage> = Vec::new();
+    for statement in statements {
+        let title = statement.phase.title();
+        match stages.last_mut() {
+            Some(stage) if stage.title == title => {
+                stage.statement_count += 1;
+                stage.destructive_statements += usize::from(statement.destructive);
+            }
+            _ => stages.push(MigrationStage {
+                title,
+                statement_count: 1,
+                destructive_statements: usize::from(statement.destructive),
+            }),
+        }
+    }
+    stages
 }
 
 pub(super) fn append_foreign_key_drops(
@@ -49,6 +97,7 @@ pub(super) fn append_foreign_key_drops(
             statements.push(MigrationStatement {
                 sql,
                 destructive: true,
+                phase: MigrationPhase::DropForeignKeys,
             });
         }
     }
@@ -75,6 +124,7 @@ pub(super) fn append_foreign_key_additions(
             statements.push(MigrationStatement {
                 sql,
                 destructive: false,
+                phase: MigrationPhase::AddForeignKeys,
             });
         }
     }
@@ -140,6 +190,7 @@ pub(super) fn append_index_drops(
             statements.push(MigrationStatement {
                 sql,
                 destructive: true,
+                phase: MigrationPhase::DropIndexes,
             });
         }
     }
@@ -171,6 +222,7 @@ pub(super) fn append_index_additions(
             statements.push(MigrationStatement {
                 sql,
                 destructive: false,
+                phase: MigrationPhase::AddIndexes,
             });
         }
     }
@@ -402,4 +454,44 @@ fn is_simple_identifier(value: &str) -> bool {
         && value
             .chars()
             .all(|character| character.is_alphanumeric() || matches!(character, '_' | '$'))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn summarize_stages_preserves_dependency_order_and_destructive_counts() {
+        let stages = summarize_stages(&[
+            MigrationStatement {
+                sql: "DROP FOREIGN KEY".into(),
+                destructive: true,
+                phase: MigrationPhase::DropForeignKeys,
+            },
+            MigrationStatement {
+                sql: "DROP COLUMN".into(),
+                destructive: true,
+                phase: MigrationPhase::ChangeColumns,
+            },
+            MigrationStatement {
+                sql: "ADD COLUMN".into(),
+                destructive: false,
+                phase: MigrationPhase::ChangeColumns,
+            },
+            MigrationStatement {
+                sql: "ADD INDEX".into(),
+                destructive: false,
+                phase: MigrationPhase::AddIndexes,
+            },
+        ]);
+
+        assert_eq!(
+            stages.iter().map(|stage| stage.title).collect::<Vec<_>>(),
+            ["删除受影响的外键", "处理字段变化", "恢复索引"]
+        );
+        assert_eq!(stages[0].destructive_statements, 1);
+        assert_eq!(stages[1].statement_count, 2);
+        assert_eq!(stages[1].destructive_statements, 1);
+        assert_eq!(stages[2].destructive_statements, 0);
+    }
 }
