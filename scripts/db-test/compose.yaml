@@ -6,6 +6,7 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_0900_ai_ci
       - --max-allowed-packet=64M
+      - --log-bin-trust-function-creators=1
     environment:
       MYSQL_DATABASE: ${RAMAG_DB_TEST_MYSQL_DATABASE}
       MYSQL_USER: ${RAMAG_DB_TEST_MYSQL_USER}

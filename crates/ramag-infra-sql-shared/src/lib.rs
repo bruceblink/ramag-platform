@@ -12,7 +12,7 @@ pub mod sql;
 pub mod transaction;
 
 pub use backend::{
-    MAX_QUERY_WARNINGS, MAX_SAVEPOINT_NAME_BYTES, SqlBackend, begin_transaction_impl,
+    DmlFuture, MAX_QUERY_WARNINGS, MAX_SAVEPOINT_NAME_BYTES, SqlBackend, begin_transaction_impl,
     cancel_query_impl, commit_transaction_impl, create_savepoint_impl, execute_impl,
     execute_in_transaction_impl, list_columns_impl, list_foreign_keys_impl, list_indexes_impl,
     list_schemas_impl, list_tables_impl, list_triggers_impl, release_savepoint_impl,

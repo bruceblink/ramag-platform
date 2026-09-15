@@ -178,8 +178,8 @@ where
     for<'c> &'c Pool<B::Db>: Executor<'c, Database = B::Db>,
     for<'c> &'c mut <B::Db as Database>::Connection: Executor<'c, Database = B::Db>,
 {
-    let result = sqlx::query(sql)
-        .execute(&mut *conn)
+    let result = b
+        .execute_dml_statement(conn, sql)
         .await
         .map_err(|e| map_err(b, e))?;
     Ok(QueryResult {

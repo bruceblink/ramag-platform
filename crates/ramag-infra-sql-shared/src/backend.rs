@@ -43,6 +43,13 @@ const MAX_QUERY_RESULT_BYTES: u64 = ramag_domain::entities::MAX_INTERACTIVE_RESU
 const MAX_QUERY_RESULT_COLUMNS: usize = 4_096;
 const MAX_QUERY_RESULT_METADATA_BYTES: u64 = 16 * 1024 * 1024;
 
+/// 异步执行一个 DML/DDL 语句并返回后端查询结果，供需要文本协议的驱动复用。
+pub type DmlFuture<'a, QueryResult> = std::pin::Pin<
+    Box<
+        dyn std::future::Future<Output = std::result::Result<QueryResult, sqlx::Error>> + Send + 'a,
+    >,
+>;
+
 /// SQL driver 抽象；泛型约束适配 sqlx 0.8。
 #[async_trait]
 pub trait SqlBackend: Send + Sync + 'static
@@ -110,6 +117,16 @@ where
         _conn: &mut <Self::Db as Database>::Connection,
     ) -> std::result::Result<(), sqlx::Error> {
         Ok(())
+    }
+
+    /// Executes one already-split DML/DDL statement; backends can select a text
+    /// protocol when their server rejects the prepared statement protocol.
+    fn execute_dml_statement<'a>(
+        &self,
+        conn: &'a mut <Self::Db as Database>::Connection,
+        sql: &'a str,
+    ) -> DmlFuture<'a, <Self::Db as Database>::QueryResult> {
+        Box::pin(async move { sqlx::query(sql).execute(conn).await })
     }
 
     /// Executes a backend transaction-control statement without user parameters.
