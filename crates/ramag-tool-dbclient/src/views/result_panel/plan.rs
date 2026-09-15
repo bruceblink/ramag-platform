@@ -126,7 +126,7 @@ pub(super) fn render_plan(
     let tree = ensure_plan_tree(panel, result);
     match panel.plan.view_mode {
         PlanViewMode::Tree => match tree {
-            Some(tree) => render_plan_tree(panel, tree, cx),
+            Some(tree) => render_plan_tree(panel, result, tree, cx),
             None => render_raw_plan(
                 panel,
                 result,
@@ -159,6 +159,7 @@ pub(super) fn render_plan(
 
 fn render_plan_tree(
     panel: &mut ResultPanel,
+    result: &QueryResult,
     tree: PlanTree,
     cx: &mut Context<ResultPanel>,
 ) -> AnyElement {
@@ -172,7 +173,7 @@ fn render_plan_tree(
             ""
         }
     );
-    let toolbar = render_plan_toolbar(panel, title, true, true, cx);
+    let toolbar = render_plan_toolbar(title, format_plan_text(result), true, true, cx);
     let scrollbar = cx.theme().scrollbar;
     let visible_indices = Arc::new(visible_plan_indices(&tree.rows, &panel.plan.collapsed));
     let rows = tree.rows.clone();
@@ -262,7 +263,13 @@ fn render_raw_plan(
     cx: &mut Context<ResultPanel>,
 ) -> AnyElement {
     let title = note.unwrap_or("原始 EXPLAIN 结果");
-    let toolbar = render_plan_toolbar(panel, title.to_string(), structured_available, false, cx);
+    let toolbar = render_plan_toolbar(
+        title.to_string(),
+        format_plan_text(result),
+        structured_available,
+        false,
+        cx,
+    );
     let table = render_table(
         panel,
         result,
@@ -283,8 +290,8 @@ fn render_raw_plan(
 }
 
 fn render_plan_toolbar(
-    _panel: &ResultPanel,
     title: String,
+    copy_text: String,
     structured_available: bool,
     show_tree: bool,
     cx: &mut Context<ResultPanel>,
@@ -319,7 +326,14 @@ fn render_plan_toolbar(
             }))
     };
 
+    let copy_text_for_button = copy_text;
+    let switch_selector = SharedString::from(if show_tree {
+        "plan-view-raw"
+    } else {
+        "plan-view-tree"
+    });
     ramag_ui::responsive_toolbar()
+        .debug_selector(|| "plan-toolbar".into())
         .flex_none()
         .px_3()
         .py_1()
@@ -333,6 +347,7 @@ fn render_plan_toolbar(
         )
         .child(
             div()
+                .debug_selector(|| "plan-title".into())
                 .flex_1()
                 .min_w_0()
                 .text_xs()
@@ -342,8 +357,52 @@ fn render_plan_toolbar(
                 .text_ellipsis()
                 .child(title),
         )
-        .child(switch)
+        .child(
+            ramag_ui::clickable_button("plan-copy")
+                .debug_selector(|| "plan-copy".into())
+                .ghost()
+                .small()
+                .icon(IconName::Copy)
+                .tooltip("复制原始执行计划")
+                .on_click(move |_, window, cx| {
+                    ramag_ui::copy_text_with_notification(copy_text_for_button.clone(), window, cx);
+                }),
+        )
+        .child(switch.debug_selector(move || switch_selector.to_string()))
         .into_any_element()
+}
+
+/// Preserves the database's raw EXPLAIN rows while giving multi-column plans a readable header.
+fn format_plan_text(result: &QueryResult) -> String {
+    if result.columns.len() == 1 {
+        return result
+            .rows
+            .iter()
+            .map(|row| {
+                row.values
+                    .first()
+                    .map_or_else(String::new, |value| value.to_clipboard_string())
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
+
+    let mut lines = Vec::with_capacity(result.rows.len().saturating_add(1));
+    lines.push(result.columns.join("\t"));
+    lines.extend(result.rows.iter().map(|row| {
+        result
+            .columns
+            .iter()
+            .enumerate()
+            .map(|(index, _)| {
+                row.values
+                    .get(index)
+                    .map_or_else(String::new, |value| value.to_clipboard_string())
+            })
+            .collect::<Vec<_>>()
+            .join("\t")
+    }));
+    lines.join("\n")
 }
 
 fn render_plan_row(
