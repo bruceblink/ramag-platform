@@ -19,36 +19,11 @@ use super::result_diff::{
     ResultSnapshot, RowMatchMode, build_result_diff, format_result_diff,
 };
 
+mod filter;
+use filter::ResultDiffFilter;
+
 const DIFF_VIEW_WIDTH: f32 = 1_080.0;
 const DIFF_VIEW_HEIGHT: f32 = 540.0;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ResultDiffFilter {
-    All,
-    Changed,
-    Added,
-    Removed,
-}
-
-impl ResultDiffFilter {
-    fn label(self) -> &'static str {
-        match self {
-            Self::All => "全部",
-            Self::Changed => "修改",
-            Self::Added => "新增",
-            Self::Removed => "删除",
-        }
-    }
-
-    fn includes(self, category: ResultDiffCategory) -> bool {
-        match self {
-            Self::All => true,
-            Self::Changed => category == ResultDiffCategory::Changed,
-            Self::Added => category == ResultDiffCategory::Added,
-            Self::Removed => category == ResultDiffCategory::Removed,
-        }
-    }
-}
 
 pub(crate) struct ResultDiffDialog {
     source: ResultSnapshot,

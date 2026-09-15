@@ -1,9 +1,8 @@
 use super::pagination::parse_result_page;
 use super::states::{render_affected_result, render_row_search_blocker};
 use super::*;
-use gpui_component::IconName;
-
 use crate::views::result_value::display_cell_value;
+use gpui_component::IconName;
 
 /// 构建 SQL 结果表：复用虚拟行列表，并把宽列内容交给可拖拽的横向滚动条浏览。
 #[allow(clippy::too_many_arguments)]
@@ -27,7 +26,6 @@ pub(in crate::views) fn render_table(
     let row_number_offset = pagination
         .map(|pagination| pagination.page.saturating_mul(pagination.page_size))
         .unwrap_or(0);
-
     if columns.is_empty() {
         return render_affected_result(affected, elapsed, fg, muted_fg);
     }
@@ -35,7 +33,6 @@ pub(in crate::views) fn render_table(
     if let Some(blocker) = panel.row_search_blocker(cx) {
         return render_row_search_blocker(blocker, muted_fg, cx.theme().danger);
     }
-
     // 排序、筛选与列宽估算可能扫描大结果集，统一在受限工作池构建。
     let Some(view) = ensure_display_view(panel, result, cx) else {
         let error = panel.display_view_error.clone();

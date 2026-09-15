@@ -254,6 +254,7 @@ impl Focusable for MqttView {
 include!("mqtt_view/profile_state.rs");
 include!("mqtt_view/mqtt_operations.rs");
 include!("mqtt_view/dynamic_security_operations.rs");
+include!("mqtt_view/role_operations.rs");
 include!("mqtt_view/management_editor_actions.rs");
 include!("mqtt_view/configuration_view.rs");
 include!("mqtt_view/message_operations_view.rs");
