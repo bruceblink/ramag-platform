@@ -226,3 +226,5 @@ Headless 结果不能描述为真实窗口结果；外部服务未启动时只�
 `UI-001` MQTT Dynamic Security 编辑器切片（2026-09-14）：用户、Group 和 Role 编辑器的标题区、字段组和保存/删除操作在窄窗口下改为可换行布局，360px 时字段组纵向排列，宽窗口继续使用横向字段布局；新增 `mqtt_management_editors_reflow_inside_supported_window_widths`，覆盖 360/1024/1440 headless 窗口。workspace MSVC 测试、Clippy、格式检查和 `git diff --check` 通过；`check-source-size.ps1` 仍只报告既有的 `dynamic_security_operations.rs` 为 606 行，本切片未修改该文件。真实 Windows 窗口截图和键盘操作仍待补充。
 
 `UI-001` MQTT 发布/订阅操作区切片（2026-09-14）：发布按钮和订阅启停操作在 760px 以下保留完整可用宽度，订阅消息的长 Topic 与 QoS/时间元数据允许换行，避免紧凑窗口把操作或消息头部推出主工作区；新增 `mqtt_message_operations_reflow_inside_supported_window_widths`，覆盖 360×240、640×480、1024×768 和 1440×900 headless 窗口，并使用长 Topic、512 字节 Payload 回归布局边界。真实 Windows 窗口截图、键盘操作和远端 MQTT 服务证据仍待补充。
+
+`UI-001` 表属性紧凑弹窗切片（2026-09-15）：触发器元数据区域根据弹窗可用高度动态收缩，桌面窗口保持原有高度，`360×240` 窗口仍同时保留触发器列表和 DDL 预览；新增 `trigger_metadata_and_ddl_stay_inside_a_compact_modal` 和高度边界测试。`ramag-tool-dbclient` 库测试 301 项、workspace MSVC Clippy、格式检查和 `git diff --check` 通过；源码尺寸检查仍只报告基线已有的 `dynamic_security_operations.rs` 606 行。本切片未新增真实 Windows 窗口截图或数据库服务证据。

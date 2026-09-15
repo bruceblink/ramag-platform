@@ -9,6 +9,7 @@ use ramag_domain::traits::Storage;
 
 use super::{
     DragState, MODAL_HEIGHT, MODAL_WIDTH, TablePropertiesDialog, clamp_position, modal_size,
+    trigger_panel_height,
 };
 
 #[derive(Default)]
@@ -131,6 +132,15 @@ fn modal_dimensions_match_the_drag_bounds() {
     assert_eq!(MODAL_HEIGHT, 650.0);
 }
 
+#[test]
+fn trigger_panel_shares_compact_modal_height_with_ddl() {
+    let modal = modal_size(Size::new(px(360.0), px(240.0)));
+    assert_eq!(trigger_panel_height(modal), px(64.0));
+
+    let desktop = modal_size(Size::new(px(1440.0), px(900.0)));
+    assert_eq!(trigger_panel_height(desktop), px(172.0));
+}
+
 #[gpui::test]
 fn trigger_metadata_is_visible_above_the_ddl_preview(cx: &mut TestAppContext) {
     cx.update(gpui_component::init);
@@ -169,4 +179,28 @@ fn trigger_metadata_stays_inside_a_narrow_modal(cx: &mut TestAppContext) {
     assert!(trigger_panel.right() <= px(404.0));
     assert!(trigger_row.origin.x >= trigger_panel.origin.x);
     assert!(trigger_row.right() <= trigger_panel.right());
+}
+
+#[gpui::test]
+fn trigger_metadata_and_ddl_stay_inside_a_compact_modal(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let (_dialog, cx) = test_dialog(cx);
+    cx.simulate_resize(size(px(360.0), px(240.0)));
+    cx.run_until_parked();
+
+    let modal = cx
+        .debug_bounds("table-properties-modal")
+        .expect("窄窗口应渲染表属性弹窗");
+    let trigger_panel = cx
+        .debug_bounds("table-properties-triggers")
+        .expect("窄窗口应渲染触发器区域");
+    let ddl_panel = cx
+        .debug_bounds("table-properties-ddl-scroll")
+        .expect("窄窗口应保留 DDL 预览");
+
+    assert!(trigger_panel.origin.y >= modal.origin.y);
+    assert!(trigger_panel.bottom() <= ddl_panel.origin.y);
+    assert!(ddl_panel.origin.y >= trigger_panel.bottom());
+    assert!(ddl_panel.bottom() <= modal.bottom());
+    assert!(ddl_panel.size.height > px(0.0));
 }

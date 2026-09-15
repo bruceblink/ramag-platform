@@ -8,7 +8,11 @@ use super::TablePropertiesDialog;
 
 /// Render the trigger metadata above the DDL preview.
 /// The list is independently scrollable so a long trigger definition never hides the DDL.
-pub(super) fn render(dialog: &TablePropertiesDialog, theme: &Theme) -> AnyElement {
+pub(super) fn render(
+    dialog: &TablePropertiesDialog,
+    theme: &Theme,
+    panel_height: gpui::Pixels,
+) -> AnyElement {
     let body = if dialog.triggers_loading {
         div()
             .size_full()
@@ -75,7 +79,7 @@ pub(super) fn render(dialog: &TablePropertiesDialog, theme: &Theme) -> AnyElemen
         .id("table-properties-triggers")
         .debug_selector(|| "table-properties-triggers".into())
         .w_full()
-        .h(px(172.0))
+        .h(panel_height)
         .flex_none()
         .min_h_0()
         .overflow_hidden()

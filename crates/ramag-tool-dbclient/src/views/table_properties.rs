@@ -316,6 +316,7 @@ impl TablePropertiesDialog {
     ) -> AnyElement {
         v_flex()
             .id("table-properties-modal")
+            .debug_selector(|| "table-properties-modal".into())
             .absolute()
             .left(position.x)
             .top(position.y)
@@ -344,7 +345,7 @@ impl TablePropertiesDialog {
                     .min_h_0()
                     .p(px(12.0))
                     .gap(px(8.0))
-                    .child(render_triggers(self, theme))
+                    .child(render_triggers(self, theme, trigger_panel_height(size)))
                     .child(div().flex_1().min_h_0().child(render_ddl(
                         self.ddl_loading,
                         self.ddl_text.clone(),
@@ -397,6 +398,13 @@ fn modal_size(viewport: gpui::Size<gpui::Pixels>) -> gpui::Size<gpui::Pixels> {
         available_width.min(px(MODAL_WIDTH)),
         available_height.min(px(MODAL_HEIGHT)),
     )
+}
+
+fn trigger_panel_height(modal_size: gpui::Size<gpui::Pixels>) -> gpui::Pixels {
+    // Split the compact modal between trigger metadata and DDL while keeping
+    // the established panel height on normal desktop windows.
+    let content_height = (modal_size.height - px(48.0 + 24.0 + 8.0)).max(px(1.0));
+    (content_height / 2.0).clamp(px(48.0), px(172.0))
 }
 
 fn clamp_position(
