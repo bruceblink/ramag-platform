@@ -312,7 +312,7 @@ impl TableTreePanel {
         self.exec_ddl(
             sql,
             format!("已清空表 {schema}.{table}"),
-            AfterDdl::None,
+            AfterDdl::RefreshTableMetadata { schema },
             cx,
         );
     }

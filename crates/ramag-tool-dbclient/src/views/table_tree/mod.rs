@@ -292,6 +292,13 @@ impl TableTreePanel {
         }
     }
 
+    /// 重新读取已经加载的 schema，更新表空间等元数据并保留树状态。
+    pub(crate) fn refresh_loaded_tables_for(&mut self, schema: &str, cx: &mut Context<Self>) {
+        if self.expanded.contains_key(schema) {
+            self.load_tables_for(schema.to_string(), cx);
+        }
+    }
+
     pub fn set_connection(&mut self, conn: Option<ConnectionConfig>, cx: &mut Context<Self>) {
         self.ddl_gate.reset();
         self.connection = conn;

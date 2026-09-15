@@ -12,7 +12,9 @@ use super::{
 };
 
 pub(super) enum AfterDdl {
-    None,
+    RefreshTableMetadata {
+        schema: String,
+    },
     ReloadSchema {
         schema: String,
         invalidated_table: String,
@@ -118,7 +120,10 @@ impl TableTreePanel {
                                 .autohide(true),
                         );
                         match after {
-                            AfterDdl::None => {}
+                            AfterDdl::RefreshTableMetadata { schema } => {
+                                // 清空表不会改变表结构，刷新尺寸时保留当前选择和列元数据。
+                                this.refresh_loaded_tables_for(&schema, cx);
+                            }
                             AfterDdl::ReloadSchema {
                                 schema,
                                 invalidated_table,

@@ -388,6 +388,9 @@ impl QueryTab {
                         this.short_title = Some(make_short_title(&title_sql));
                         if is_run && !transaction_writes {
                             this.maybe_refresh_cache_after_ddl(&title_sql, cx);
+                            if ramag_infra_sql_shared::sql::is_write_statement(&title_sql) {
+                                this.emit_table_metadata_changed(cx);
+                            }
                         }
                         if transaction_writes {
                             this.mark_transaction_dirty(cx);

@@ -2,14 +2,17 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
+use async_trait::async_trait;
 use gpui::{AppContext as _, Modifiers, TestAppContext, px, size};
 use ramag_app::{ConnectionService, MongoService, RedisService};
 use ramag_domain::entities::{
-    ConnectionConfig, ConnectionId, QueryRecord, QueryRecordId, Schema, Table,
+    Column, ConnectionConfig, ConnectionId, DriverKind, ForeignKey, Index, Query, QueryRecord,
+    QueryRecordId, QueryResult, Schema, Table, Trigger,
 };
 use ramag_domain::error::Result;
-use ramag_domain::traits::Storage;
+use ramag_domain::traits::{Driver, Storage};
 
 use super::TableTreePanel;
 use crate::sql_completion::SchemaCache;
@@ -65,6 +68,88 @@ impl Storage for NoopStorage {
     }
 }
 
+struct TableSizeDriver {
+    size_bytes: Arc<AtomicU64>,
+}
+
+#[async_trait]
+impl Driver for TableSizeDriver {
+    fn name(&self) -> &'static str {
+        "table-size-test"
+    }
+
+    async fn test_connection(&self, _config: &ConnectionConfig) -> Result<()> {
+        Ok(())
+    }
+
+    async fn execute(&self, _config: &ConnectionConfig, _query: &Query) -> Result<QueryResult> {
+        self.size_bytes.store(0, Ordering::SeqCst);
+        Ok(QueryResult {
+            columns: Vec::new(),
+            column_types: Vec::new(),
+            rows: Vec::new(),
+            affected_rows: 0,
+            elapsed_ms: 0,
+            warnings: Vec::new(),
+            truncated: false,
+        })
+    }
+
+    async fn list_schemas(&self, _config: &ConnectionConfig) -> Result<Vec<Schema>> {
+        Ok(vec![Schema {
+            name: "ship-db".into(),
+            charset: None,
+            collation: None,
+        }])
+    }
+
+    async fn list_tables(&self, _config: &ConnectionConfig, schema: &str) -> Result<Vec<Table>> {
+        Ok(vec![Table {
+            name: "collision_other_ais_msg".into(),
+            schema: schema.into(),
+            comment: None,
+            is_view: false,
+            size_bytes: Some(self.size_bytes.load(Ordering::SeqCst)),
+        }])
+    }
+
+    async fn list_columns(
+        &self,
+        _config: &ConnectionConfig,
+        _schema: &str,
+        _table: &str,
+    ) -> Result<Vec<Column>> {
+        Ok(Vec::new())
+    }
+
+    async fn list_indexes(
+        &self,
+        _config: &ConnectionConfig,
+        _schema: &str,
+        _table: &str,
+    ) -> Result<Vec<Index>> {
+        Ok(Vec::new())
+    }
+
+    async fn list_foreign_keys(
+        &self,
+        _config: &ConnectionConfig,
+        _schema: &str,
+        _table: &str,
+    ) -> Result<Vec<ForeignKey>> {
+        Ok(Vec::new())
+    }
+
+    async fn list_triggers(
+        &self,
+        _config: &ConnectionConfig,
+        _schema: &str,
+        _table: &str,
+    ) -> Result<Vec<Trigger>> {
+        Ok(Vec::new())
+    }
+}
+
 fn build_services() -> (Arc<ConnectionService>, Arc<RedisService>, Arc<MongoService>) {
     let storage: Arc<dyn Storage> = Arc::new(NoopStorage);
     (
@@ -108,6 +193,93 @@ fn assert_non_overlapping(
         separated,
         "表树工具栏控件不能重叠：{left_name} / {right_name}; left={left:?}, right={right:?}"
     );
+}
+
+#[gpui::test]
+fn truncating_table_refreshes_size_without_dropping_selection(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let size_bytes = Arc::new(AtomicU64::new(76 * 1024 * 1024 * 1024));
+    let driver = TableSizeDriver {
+        size_bytes: size_bytes.clone(),
+    };
+    let mut drivers = HashMap::new();
+    drivers.insert(DriverKind::Mysql, Arc::new(driver) as Arc<dyn Driver>);
+    let storage: Arc<dyn Storage> = Arc::new(NoopStorage);
+    let service = Arc::new(ConnectionService::new(drivers, storage));
+    let (list_service, redis_service, mongo_service) = build_services();
+    let mut panel_entity = None;
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let connection_list = cx.new(|cx| {
+            ConnectionListPanel::new(list_service, redis_service, mongo_service, window, cx)
+        });
+        let panel = cx.new(|cx| {
+            TableTreePanel::new(
+                service,
+                SchemaCache::new_shared(),
+                connection_list,
+                window,
+                cx,
+            )
+        });
+        panel_entity = Some(panel.clone());
+        gpui_component::Root::new(panel, window, cx)
+    });
+    let panel = panel_entity.expect("表树面板应创建");
+
+    cx.update(|_, app| {
+        panel.update(app, |panel, _| {
+            panel.connection = Some(ConnectionConfig::new_mysql(
+                "测试连接",
+                "127.0.0.1",
+                3306,
+                "root",
+            ));
+            panel.schemas = vec![Schema {
+                name: "ship-db".into(),
+                charset: None,
+                collation: None,
+            }];
+            panel.open_schemas.insert("ship-db".into());
+            panel.expanded.insert(
+                "ship-db".into(),
+                super::SchemaTables {
+                    tables: vec![Table {
+                        name: "collision_other_ais_msg".into(),
+                        schema: "ship-db".into(),
+                        comment: None,
+                        is_view: false,
+                        size_bytes: Some(size_bytes.load(Ordering::SeqCst)),
+                    }],
+                    ..Default::default()
+                },
+            );
+            panel.selected = Some(("ship-db".into(), "collision_other_ais_msg".into()));
+            panel.invalidate_tree_rows();
+        });
+    });
+
+    cx.update(|_, app| {
+        panel.update(app, |panel, cx| {
+            panel.truncate_table("ship-db".into(), "collision_other_ais_msg".into(), cx);
+        });
+    });
+    cx.run_until_parked();
+
+    panel.read_with(cx, |panel, _| {
+        let table = &panel
+            .expanded
+            .get("ship-db")
+            .expect("schema should remain loaded")
+            .tables[0];
+        assert_eq!(table.size_bytes, Some(0));
+        assert_eq!(
+            panel
+                .selected
+                .as_ref()
+                .map(|(schema, table)| (schema.as_str(), table.as_str())),
+            Some(("ship-db", "collision_other_ais_msg"))
+        );
+    });
 }
 
 /// 表树实际位于 SQL 会话的可调整侧栏中，因此额外覆盖其 180px 最小宽度。

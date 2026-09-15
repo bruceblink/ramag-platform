@@ -10,10 +10,26 @@ use ramag_domain::entities::{
 use ramag_domain::error::Result;
 use ramag_domain::traits::Storage;
 
-use super::{QueryResultTarget, QueryTab, ResultState, TransactionSavepoint, TransactionSession};
+use super::{
+    QueryResultTarget, QueryTab, ResultState, TransactionSavepoint, TransactionSession,
+    metadata_refresh_schema,
+};
 use crate::sql_completion::SchemaCache;
 
 struct NoopStorage;
+
+#[test]
+fn metadata_refresh_prefers_active_schema_and_ignores_empty_names() {
+    assert_eq!(
+        metadata_refresh_schema(Some("ship-db"), Some("fallback")),
+        Some("ship-db".to_string())
+    );
+    assert_eq!(
+        metadata_refresh_schema(Some("  "), Some("fallback")),
+        Some("fallback".to_string())
+    );
+    assert_eq!(metadata_refresh_schema(None, Some("  ")), None);
+}
 
 #[async_trait::async_trait]
 impl Storage for NoopStorage {

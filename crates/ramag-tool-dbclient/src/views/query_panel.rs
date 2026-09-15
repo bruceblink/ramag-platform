@@ -32,6 +32,9 @@ const MAX_CLOSED_QUERY_DRAFTS: usize = 10;
 #[derive(Debug, Clone)]
 pub enum QueryPanelEvent {
     ToggleTableTree,
+    TableMetadataChanged {
+        schema: String,
+    },
     LocateTableRequested {
         schema: String,
         table: String,
@@ -119,6 +122,11 @@ impl QueryPanel {
     pub(super) fn forward_tab_event(&mut self, event: &QueryTabEvent, cx: &mut Context<Self>) {
         match event {
             QueryTabEvent::DraftChanged => self.schedule_draft_persist(cx),
+            QueryTabEvent::TableMetadataChanged { schema } => {
+                cx.emit(QueryPanelEvent::TableMetadataChanged {
+                    schema: schema.clone(),
+                });
+            }
             QueryTabEvent::LocateTableRequested { schema, table } => {
                 cx.emit(QueryPanelEvent::LocateTableRequested {
                     schema: schema.clone(),
