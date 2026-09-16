@@ -714,14 +714,14 @@ fn ports(value: &Value) -> Vec<DockerContainerPort> {
 
 fn container_detail(value: &Value) -> Result<DockerContainerDetail> {
     let mut summary_value = value.clone();
-    if let Some(config) = get(value, &["Config", "config"]) {
-        if let Some(object) = summary_value.as_object_mut() {
-            if let Some(image) = string(config, &["Image", "image"]) {
-                object.insert("Image".into(), Value::String(image));
-            }
-            if let Some(labels) = get(config, &["Labels", "labels"]) {
-                object.insert("Labels".into(), labels.clone());
-            }
+    if let Some(config) = get(value, &["Config", "config"])
+        && let Some(object) = summary_value.as_object_mut()
+    {
+        if let Some(image) = string(config, &["Image", "image"]) {
+            object.insert("Image".into(), Value::String(image));
+        }
+        if let Some(labels) = get(config, &["Labels", "labels"]) {
+            object.insert("Labels".into(), labels.clone());
         }
     }
     let summary = container_summary(&summary_value)?;
