@@ -261,11 +261,9 @@ impl MqttView {
         if self.publishing || self.subscription_running {
             return;
         }
-        let Some(profile) = self
-            .selected_profile()
-            .cloned()
-            .or_else(|| self.form_profile(cx).ok())
-        else {
+        // Build the request from the visible form so unsaved Broker edits take effect;
+        // form_profile still starts from the selected profile to preserve saved secrets.
+        let Some(profile) = self.form_profile(cx).ok() else {
             self.notice = Some(("请先填写有效的 MQTT 配置".into(), true));
             cx.notify();
             return;
@@ -312,11 +310,9 @@ impl MqttView {
         if self.subscription_running {
             return;
         }
-        let Some(profile) = self
-            .selected_profile()
-            .cloned()
-            .or_else(|| self.form_profile(cx).ok())
-        else {
+        // Use the same current-form snapshot for subscriptions as for publishing,
+        // so a user can test a changed endpoint before saving the profile.
+        let Some(profile) = self.form_profile(cx).ok() else {
             self.notice = Some(("请先填写有效的 MQTT 配置".into(), true));
             cx.notify();
             return;

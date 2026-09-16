@@ -18,15 +18,21 @@ use super::{MqttSection, MqttView};
 struct OptionsMqttDriver {
     publish_requests: Arc<Mutex<Vec<MqttPublishRequest>>>,
     subscribe_requests: Arc<Mutex<Vec<MqttSubscribeRequest>>>,
+    publish_profiles: Arc<Mutex<Vec<MqttProfile>>>,
+    subscribe_profiles: Arc<Mutex<Vec<MqttProfile>>>,
 }
 
 #[async_trait]
 impl MqttDriver for OptionsMqttDriver {
     async fn publish(
         &self,
-        _profile: &MqttProfile,
+        profile: &MqttProfile,
         request: &MqttPublishRequest,
     ) -> Result<MqttPublishResult> {
+        self.publish_profiles
+            .lock()
+            .expect("记录发布配置锁")
+            .push(profile.clone());
         self.publish_requests
             .lock()
             .expect("记录发布请求锁")
@@ -40,11 +46,15 @@ impl MqttDriver for OptionsMqttDriver {
 
     async fn subscribe(
         &self,
-        _profile: &MqttProfile,
+        profile: &MqttProfile,
         request: &MqttSubscribeRequest,
         _sink: MqttMessageSink,
         _cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
+        self.subscribe_profiles
+            .lock()
+            .expect("记录订阅配置锁")
+            .push(profile.clone());
         self.subscribe_requests
             .lock()
             .expect("记录订阅请求锁")
@@ -86,9 +96,13 @@ fn mqtt_message_options_reach_publish_and_subscribe_requests(cx: &mut TestAppCon
     cx.update(gpui_component::init);
     let publish_requests = Arc::new(Mutex::new(Vec::new()));
     let subscribe_requests = Arc::new(Mutex::new(Vec::new()));
+    let publish_profiles = Arc::new(Mutex::new(Vec::new()));
+    let subscribe_profiles = Arc::new(Mutex::new(Vec::new()));
     let driver = Arc::new(OptionsMqttDriver {
         publish_requests: publish_requests.clone(),
         subscribe_requests: subscribe_requests.clone(),
+        publish_profiles: publish_profiles.clone(),
+        subscribe_profiles: subscribe_profiles.clone(),
     });
     let service = Arc::new(MqttService::new(
         driver,
@@ -109,6 +123,9 @@ fn mqtt_message_options_reach_publish_and_subscribe_requests(cx: &mut TestAppCon
             view.loading_profiles = false;
             view.profiles = vec![profile.clone()];
             view.selected_profile_id = Some(profile.id.clone());
+            view.set_form_from_profile(&profile, window, cx);
+            view.host
+                .update(cx, |input, cx| input.set_value("198.51.100.10", window, cx));
             view.section = MqttSection::Publish;
             view.publish_topic
                 .update(cx, |input, cx| input.set_value("devices/state", window, cx));
@@ -133,6 +150,16 @@ fn mqtt_message_options_reach_publish_and_subscribe_requests(cx: &mut TestAppCon
     assert_eq!(publish.payload, b"online");
     assert_eq!(publish.qos, MqttQos::ExactlyOnce);
     assert!(publish.retain, "Retain 开关应进入发布请求");
+    assert_eq!(
+        publish_profiles
+            .lock()
+            .expect("读取发布配置锁")
+            .last()
+            .expect("发布应带配置")
+            .host,
+        "198.51.100.10",
+        "发布应使用尚未保存的 Broker 地址"
+    );
 
     visual_cx.update(|window, app| {
         view.update(app, |view, cx| {
@@ -154,4 +181,14 @@ fn mqtt_message_options_reach_publish_and_subscribe_requests(cx: &mut TestAppCon
         .expect("开始订阅按钮应调用 MQTT 驱动");
     assert_eq!(subscribe.subscriptions[0].filter, "devices/#");
     assert_eq!(subscribe.subscriptions[0].qos, MqttQos::ExactlyOnce);
+    assert_eq!(
+        subscribe_profiles
+            .lock()
+            .expect("读取订阅配置锁")
+            .last()
+            .expect("订阅应带配置")
+            .host,
+        "198.51.100.10",
+        "订阅应使用尚未保存的 Broker 地址"
+    );
 }

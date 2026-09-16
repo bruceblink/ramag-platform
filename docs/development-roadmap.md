@@ -253,3 +253,5 @@ MQTT-001 原生订阅生命周期修复（2026-09-16）：原生 MQTT 适配器�
 UI-001 MQTT 订阅 Topic 输入焦点修复切片（2026-09-16）：切换到“订阅”页时，Topic Filter 自动获得键盘焦点；点击输入区域时也会重新获取焦点，避免页签焦点或其他控件焦点导致主题无法输入。页签增加稳定的调试选择器，`ramag-tool-mqtt` 库测试 10 项通过，其中 headless 交互测试覆盖点击订阅页签后直接输入，以及焦点移走后点击输入框再次输入。真实 Windows 窗口键盘操作尚未执行，不能将 headless 验收描述为真实窗口验证。
 
 MQTT-002 消息投递选项切片（2026-09-16）：发布页新增 QoS 0/1/2 分段选择与 Retain 开关，订阅页新增 QoS 0/1/2 选择；默认值保持原有发布 QoS 0、订阅 QoS 1，切换 MQTT 配置时恢复默认，避免把 Retain 选项误带到其他 Broker。`ramag-tool-mqtt` 库测试 11 项通过，headless UI 测试核对发布和订阅请求的 QoS 与 Retain 字段，并覆盖订阅选项在 360/640/1024/1440px 窗口内布局。真实 Windows 窗口操作尚未执行，不能将 headless 验收描述为真实窗口验证。
+
+MQTT-003 未保存连接参数生效修复（2026-09-16）：发布和订阅操作统一从当前表单构造连接 Profile，保留已选 Profile 中未重新填写的密码等敏感字段；修改 Broker 地址、端口、协议或 TLS 参数后无需先保存即可对新参数执行操作。headless 驱动回归测试验证发布和订阅都收到未保存的 Broker 地址；`ramag-tool-mqtt` 库测试、workspace Clippy、格式检查和 `git diff --check` 在提交前重新执行。真实 Windows 窗口和远端 Broker 操作尚未执行，不能将 headless 结果描述为真实窗口验证。
