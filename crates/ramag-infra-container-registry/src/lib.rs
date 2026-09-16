@@ -1,3 +1,5 @@
+#![cfg_attr(test, allow(clippy::expect_used, clippy::panic, clippy::unwrap_used))]
+
 //! Docker Registry HTTP v2 的有界只读查询适配器。
 
 use std::io::Read;
@@ -18,6 +20,7 @@ use url::Url;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
 const MAX_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+const CATALOG_PAGE_SIZE: usize = 1_000;
 
 #[derive(Clone)]
 pub struct RegistryHttpDriver {
@@ -26,6 +29,7 @@ pub struct RegistryHttpDriver {
 
 impl RegistryHttpDriver {
     pub fn new() -> Result<Self> {
+        install_tls_crypto_provider()?;
         let client = Client::builder()
             .timeout(REQUEST_TIMEOUT)
             .redirect(reqwest::redirect::Policy::none())
@@ -78,7 +82,7 @@ impl RegistryHttpDriver {
     ) -> Result<Vec<ContainerRegistryRepository>> {
         let mut url = Self::registry_url(profile, "v2/_catalog", "读取 Registry 仓库")?;
         url.query_pairs_mut()
-            .append_pair("n", &MAX_CONTAINER_REGISTRY_REPOSITORIES.to_string());
+            .append_pair("n", &CATALOG_PAGE_SIZE.to_string());
         let response = self.request(profile, credential, "读取 Registry 仓库", url)?;
         let payload: CatalogResponse = read_json(response, "读取 Registry 仓库")?;
         if payload.repositories.len() > MAX_CONTAINER_REGISTRY_REPOSITORIES {
@@ -142,6 +146,16 @@ impl RegistryHttpDriver {
             authenticated: credential.is_some(),
         })
     }
+}
+
+fn install_tls_crypto_provider() -> Result<()> {
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        return Err(invalid_config("无法安装 TLS 加密 Provider"));
+    }
+    Ok(())
 }
 
 #[async_trait]
@@ -331,9 +345,47 @@ mod tests {
     use super::*;
 
     #[test]
+    fn installs_tls_provider_before_building_client() {
+        assert!(install_tls_crypto_provider().is_ok());
+        assert!(rustls::crypto::CryptoProvider::get_default().is_some());
+        assert!(RegistryHttpDriver::new().is_ok());
+    }
+
+    #[test]
     fn rejects_unsafe_repository_path_before_http_request() {
         assert!(validate_repository("library/nginx").is_ok());
         assert!(validate_repository("library/../secret").is_err());
         assert!(validate_repository("Library/nginx").is_err());
+    }
+
+    #[test]
+    #[ignore = "需要本机 Docker Registry v2，使用 cargo test -- --ignored 执行"]
+    fn reads_local_registry_v2_without_writes() {
+        let endpoint = std::env::var("RAMAG_TEST_REGISTRY_ENDPOINT")
+            .unwrap_or_else(|_| "http://127.0.0.1:15000".into());
+        let profile =
+            ContainerRegistryProfile::new("本机 Registry", endpoint).with_insecure_http(true);
+        let driver = RegistryHttpDriver::new().expect("Registry HTTP 客户端应创建成功");
+        let info = smol::block_on(driver.test_connection(&profile, None))
+            .expect("Registry v2 连接测试应成功");
+        assert_eq!(info.registry_id, profile.id);
+        assert_eq!(info.api_version.as_deref(), Some("v2"));
+
+        let repositories =
+            smol::block_on(driver.list_repositories(&profile, None)).expect("仓库列表应成功");
+        assert!(repositories.len() <= MAX_CONTAINER_REGISTRY_REPOSITORIES);
+
+        if let Some(repository) = repositories.first() {
+            let tags = smol::block_on(driver.list_tags(&profile, None, &repository.name))
+                .expect("已有仓库的 Tag 列表应成功");
+            assert!(tags.len() <= MAX_CONTAINER_REGISTRY_TAGS);
+        }
+
+        let missing = smol::block_on(driver.list_tags(&profile, None, "ramag-missing/repository"));
+        assert!(matches!(
+            missing,
+            Err(DomainError::Container(error))
+                if error.category == ContainerErrorCategory::NotFound
+        ));
     }
 }

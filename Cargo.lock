@@ -7022,6 +7022,7 @@ dependencies = [
  "async-trait",
  "ramag-domain",
  "reqwest 0.13.4",
+ "rustls",
  "serde",
  "serde_json",
  "smol",
