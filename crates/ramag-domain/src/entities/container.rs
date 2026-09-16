@@ -22,6 +22,7 @@ pub const MAX_CONTAINER_PORTS: usize = 256;
 pub const MAX_CONTAINER_MOUNTS: usize = 512;
 pub const MAX_CONTAINER_NETWORKS: usize = 512;
 pub const MAX_CONTAINER_REPOSITORY_REFERENCES: usize = 2_048;
+pub const MAX_CONTAINER_IMAGE_REFERENCE_BYTES: usize = 4 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ContainerEndpointId(pub Uuid);
@@ -179,6 +180,115 @@ impl ContainerEndpointProfile {
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ContainerImageOperationKind {
+    Pull,
+    Tag,
+    Push,
+    Delete,
+}
+
+impl ContainerImageOperationKind {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Pull => "拉取镜像",
+            Self::Tag => "标记镜像",
+            Self::Push => "推送镜像",
+            Self::Delete => "删除本地镜像",
+        }
+    }
+
+    pub const fn destructive(self) -> bool {
+        matches!(self, Self::Delete)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContainerImageOperationRequest {
+    pub operation: ContainerImageOperationKind,
+    pub source_reference: String,
+    #[serde(default)]
+    pub target_reference: Option<String>,
+    #[serde(default)]
+    pub force: bool,
+}
+
+impl ContainerImageOperationRequest {
+    pub fn new(
+        operation: ContainerImageOperationKind,
+        source_reference: impl Into<String>,
+    ) -> Self {
+        Self {
+            operation,
+            source_reference: source_reference.into(),
+            target_reference: None,
+            force: false,
+        }
+    }
+
+    pub fn with_target(mut self, target_reference: impl Into<String>) -> Self {
+        self.target_reference = Some(target_reference.into());
+        self
+    }
+
+    pub fn with_force(mut self, force: bool) -> Self {
+        self.force = force;
+        self
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        validate_image_reference("镜像源引用", &self.source_reference)?;
+        if let Some(target) = &self.target_reference {
+            validate_image_reference("镜像目标引用", target)?;
+        }
+        if matches!(self.operation, ContainerImageOperationKind::Tag)
+            && self.target_reference.is_none()
+        {
+            return Err("标记镜像必须指定目标引用".into());
+        }
+        if !matches!(self.operation, ContainerImageOperationKind::Tag)
+            && self.target_reference.is_some()
+        {
+            return Err("只有标记镜像允许指定目标引用".into());
+        }
+        if !matches!(self.operation, ContainerImageOperationKind::Delete) && self.force {
+            return Err("只有删除本地镜像允许强制选项".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContainerImageOperationPreview {
+    pub endpoint_id: ContainerEndpointId,
+    pub operation: ContainerImageOperationKind,
+    pub source_reference: String,
+    pub target_reference: Option<String>,
+    pub force: bool,
+    pub destructive: bool,
+    pub requires_confirmation: bool,
+    pub can_execute: bool,
+    pub blocked_reason: Option<String>,
+}
+
+fn validate_image_reference(field: &str, value: &str) -> Result<(), String> {
+    if value.trim().is_empty() {
+        return Err(format!("{field}不能为空"));
+    }
+    if value.len() > MAX_CONTAINER_IMAGE_REFERENCE_BYTES {
+        return Err(format!(
+            "{field}超过 {MAX_CONTAINER_IMAGE_REFERENCE_BYTES} bytes 限制"
+        ));
+    }
+    if value
+        .chars()
+        .any(|character| character.is_control() || character.is_whitespace())
+    {
+        return Err(format!("{field}不能包含空白或控制字符"));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

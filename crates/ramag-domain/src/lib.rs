@@ -5,11 +5,12 @@ pub mod error;
 pub mod traits;
 
 pub use entities::{
+    ContainerImageOperationKind, ContainerImageOperationPreview, ContainerImageOperationRequest,
     ContainerRegistryCredential, ContainerRegistryId, ContainerRegistryInfo,
     ContainerRegistryManifest, ContainerRegistryProfile, ContainerRegistryRepository,
-    ContainerRegistryTag, MAX_CONTAINER_REGISTRY_DIGEST_BYTES, MAX_CONTAINER_REGISTRY_REPOSITORIES,
-    MAX_CONTAINER_REGISTRY_REPOSITORY_BYTES, MAX_CONTAINER_REGISTRY_TAG_BYTES,
-    MAX_CONTAINER_REGISTRY_TAGS,
+    ContainerRegistryTag, MAX_CONTAINER_IMAGE_REFERENCE_BYTES, MAX_CONTAINER_REGISTRY_DIGEST_BYTES,
+    MAX_CONTAINER_REGISTRY_REPOSITORIES, MAX_CONTAINER_REGISTRY_REPOSITORY_BYTES,
+    MAX_CONTAINER_REGISTRY_TAG_BYTES, MAX_CONTAINER_REGISTRY_TAGS,
 };
 pub use error::{
     ContainerError, ContainerErrorCategory, DomainError, KafkaError, KafkaErrorCategory, MqttError,
