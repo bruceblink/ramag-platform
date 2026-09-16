@@ -1009,6 +1009,37 @@ mod tests {
         assert!(networks.total <= MAX_CONTAINER_NETWORKS);
         assert!(volumes.total <= MAX_CONTAINER_RESOURCE_ITEMS);
 
+        let page_query = ContainerListQuery {
+            page: 1,
+            page_size: 1,
+            search: None,
+        };
+        let first_page = smol::block_on(driver.list_containers(&profile, &page_query))
+            .expect("本机 Docker 容器第一页应成功");
+        assert!(first_page.items.len() <= 1);
+        assert_eq!(first_page.has_more, first_page.total > 1);
+        if first_page.total > 1 {
+            let second_page = smol::block_on(driver.list_containers(
+                &profile,
+                &ContainerListQuery {
+                    page: 2,
+                    ..page_query
+                },
+            ))
+            .expect("本机 Docker 容器第二页应成功");
+            assert!(second_page.items.len() <= 1);
+            assert_eq!(second_page.page, 2);
+        }
+
+        let missing_container = smol::block_on(
+            driver.get_container(&profile, "ramag-cmt-002-resource-that-does-not-exist"),
+        );
+        assert!(matches!(
+            missing_container,
+            Err(DomainError::Container(error))
+                if error.category == ContainerErrorCategory::NotFound
+        ));
+
         if let Some(container) = containers.items.first() {
             let detail = smol::block_on(driver.get_container(&profile, &container.id))
                 .expect("本机 Docker 容器详情应成功");
