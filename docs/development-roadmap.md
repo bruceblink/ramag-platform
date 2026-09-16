@@ -248,6 +248,12 @@ Headless 结果不能描述为真实窗口结果；外部服务未启动时只�
 
 `DB-001` 触发器元数据 Docker 回读切片（2026-09-15）：MySQL SQL 后端对已拆分的 DDL/DML 增加文本协议执行钩子，解决 `CREATE TRIGGER` 被 prepared statement protocol 拒绝的问题；专用 `ramag-db-test` MySQL 服务开启 `log-bin-trust-function-creators=1`，仅用于本机测试账号创建临时触发器。本机 Docker Compose 从 `scripts/db-test/compose.yaml` 启动并保持 MySQL 8.0（`ramag-db-test-mysql`，`127.0.0.1:13306`）和 PostgreSQL 17-alpine（`ramag-db-test-postgres`，`127.0.0.1:15432`）healthy；集成测试分别创建临时表级触发器并通过 `list_triggers` 回读名称、时机、事件和定义，随后删除临时表、触发器和 PostgreSQL 函数，未清理供测试复用的 Docker named volumes。MySQL 15 个和 PostgreSQL 16 个集成测试、对应 11 个和 14 个单元测试，以及 SQLite 4 个单元测试均通过。数据库工作台 headless 测试覆盖表树分组折叠、表属性触发器与 DDL 紧凑弹窗、大字段查看器和未提交编辑操作区；6 个专项用例全部通过。全量 `ramag-tool-dbclient` 315 项断言均打印通过，但 Windows 测试进程仍在既有 GPUI 触发器窄弹窗测试结束阶段以 `STATUS_STACK_BUFFER_OVERRUN` 退出，因此本切片只记录专项 UI 证据，不把该进程异常写成全量通过；真实 Windows 窗口截图仍待补充。
 
+`UI-001` 容器紧凑资源导航切片（2026-09-16）：容器紧凑资源导航改为自然宽度换行，连接窗口标题副标题保持单行省略。`ramag-tool-container` 4 项库测试通过，包含 360px headless 边界和真实 Windows MSVC Debug 窗口验收；截图 `artifacts/ui-screenshots/container-native-final-360.png` 确认资源导航两行换行。本轮未运行远端集成测试。
+
+`UI-001` MQTT 操作按钮尺寸切片（2026-09-16）：发布、开始订阅和停止订阅按钮保持内容宽度，不再撑满操作区。`ramag-tool-mqtt` 13 项库测试通过，包含窄屏 headless 边界和真实 Windows MSVC Debug 窗口验收；截图 `artifacts/ui-screenshots/mqtt-native-final-360.png` 与 `mqtt-native-final-subscribe-900.png` 确认 360px 和 900px 订阅操作区保持可用宽度。本轮未运行远端集成测试。
+
+`UI-001` Kafka 窄屏页签可见性切片（2026-09-16）：为 Overview、Topics、Messages、消费者组、Schema Registry、Connect、ksqlDB、ACL 和配置页签补充窄屏切换后的滚动可见性验收，保留现有横向滚动行为。`ramag-tool-kafka` 38 项库测试通过；360px/900px 页签边界由 headless 测试覆盖，真实 Windows MSVC Debug 窗口截图 `artifacts/ui-screenshots/kafka-native-final-360.png` 与 `kafka-native-final-selected-900.png` 确认紧凑工作台可用。本轮未运行远端集成测试。
+
 MQTT-001 原生订阅生命周期修复（2026-09-16）：原生 MQTT 适配器不再用 15 秒短操作超时包裹持续订阅；连接、发布和 Mosquitto 管理请求继续保留该超时。订阅在用户停止后由取消监视任务发送 MQTT DISCONNECT，空闲连接无需等待 Keep Alive 或新消息即可退出。未填写 Client ID 的连接改为每次操作生成唯一临时 ID，显式 Client ID 保持不变，避免同一配置的发布连接挤掉正在运行的订阅。新增 scripts/mqtt-test：本机 Docker Compose 服务为 ramag-mqtt-test，镜像 eclipse-mosquitto:2.0.20，监听 127.0.0.1:18883，不使用 named volume，test 保持服务运行供复用，down 或 clean 删除容器和网络。真实集成测试连接 MQTT 3.1.1 与 MQTT 5，验证 QoS 1 回执、MQTT 5 用户属性回读、并发临时 Client ID 和空闲订阅两秒内停止；测试清理自己的保留消息。ramag-infra-mqtt 默认构建 2 项、native 构建 8 项加 Docker 集成 1 项通过。真实 Windows MQTT 工具窗口仍待单独复核，本切片不能由基础设施测试代替 UI 验收。
 
 UI-001 MQTT 订阅 Topic 输入焦点修复切片（2026-09-16）：切换到“订阅”页时，Topic Filter 自动获得键盘焦点；点击输入区域时也会重新获取焦点，避免页签焦点或其他控件焦点导致主题无法输入。页签增加稳定的调试选择器，`ramag-tool-mqtt` 库测试 10 项通过，其中 headless 交互测试覆盖点击订阅页签后直接输入，以及焦点移走后点击输入框再次输入。真实 Windows 窗口键盘操作尚未执行，不能将 headless 验收描述为真实窗口验证。
