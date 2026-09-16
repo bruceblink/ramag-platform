@@ -309,4 +309,11 @@ fn mqtt_message_controls_keep_inputs_and_actions_bounded(cx: &mut TestAppContext
         .debug_bounds("mqtt-subscribe-actions")
         .expect("订阅操作区应参与布局");
     assert!(actions.size.width < main.size.width / 2.0);
+    let button = visual_cx
+        .debug_bounds("mqtt-start-subscription")
+        .expect("开始订阅按钮应参与布局");
+    assert!(
+        button.size.width < main.size.width / 2.0,
+        "开始订阅按钮不能撑满消息区域: main={main:?}, button={button:?}"
+    );
 }

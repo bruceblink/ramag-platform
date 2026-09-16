@@ -212,6 +212,7 @@ impl MqttView {
                     .debug_selector(|| "mqtt-publish".into())
                     .primary()
                     .small()
+                    .flex_none()
                     .label("发布消息")
                     .loading(self.publishing)
                     .disabled(self.publishing || self.subscription_running)
@@ -282,6 +283,7 @@ impl MqttView {
                 .debug_selector(|| "mqtt-stop-subscription".into())
                 .danger()
                 .small()
+                .flex_none()
                 .label(if self.subscription_stopping {
                     "正在停止订阅…"
                 } else {
@@ -297,6 +299,7 @@ impl MqttView {
                 .debug_selector(|| "mqtt-start-subscription".into())
                 .primary()
                 .small()
+                .flex_none()
                 .label("开始订阅")
                 .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                     this.start_subscription(window, cx)
