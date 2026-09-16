@@ -1,6 +1,6 @@
 # Docker 与 Kubernetes 可视化管理工具设计
 
-> 状态：CMT-001 已完成，CMT-002 开发中。本文件定义容器管理工具的产品范围、技术边界和分期；当前实现已接入 Docker Engine 只读适配器、应用服务和工作台列表/详情 UI，真实 Engine 与真实 Windows UI 验收仍未完成。
+> 状态：CMT-001、CMT-002 已完成，CMT-003 开发中。本文件定义容器管理工具的产品范围、技术边界和分期；当前实现已接入 Docker Engine 只读适配器、应用服务和工作台列表/详情 UI，真实 Windows 原生窗口证据仍单独记录。
 >
 > 适用范围：本机 Docker Engine、受控远程 Docker Engine，以及通过 kubeconfig 接入的 Kubernetes 集群。工具作为 Ramag 静态工具插件实现，暂定 crate 名称为 ramag-tool-container。
 
