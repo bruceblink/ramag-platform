@@ -23,6 +23,8 @@ macro_rules! retry_idempotent_read {
 pub mod clip_thumb;
 pub mod clipboard_service;
 pub mod connection_service;
+pub mod container_registry_service;
+pub mod container_service;
 pub mod data_sync;
 pub mod export;
 pub mod id_conversion;
@@ -37,6 +39,8 @@ pub mod update_service;
 
 pub use clipboard_service::{CaptureDecision, ClipboardService, HotkeyState, decide_capture};
 pub use connection_service::ConnectionService;
+pub use container_registry_service::ContainerRegistryService;
+pub use container_service::ContainerService;
 pub use data_sync::{
     DataSyncConfirmation, DataSyncExecutionContext, DataSyncGate, DataSyncGatePhase,
     DataSyncGateSnapshot, DataSyncObjectCatalog, DataSyncPermit, DataSyncPreflightReport,

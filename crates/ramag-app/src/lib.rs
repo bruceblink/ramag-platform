@@ -19,11 +19,12 @@ pub use plugin_lifecycle::{
 pub use tool_registry::{TOOL_ORDER_PREF_KEY, ToolRegistry};
 pub use usecases::{
     AUTO_CHECK_INTERVAL, AccountVerification, AvailableUpdate, ClipboardService, ConnectionService,
-    DataSyncConfirmation, DataSyncExecutionContext, DataSyncGate, DataSyncGatePhase,
-    DataSyncGateSnapshot, DataSyncObjectCatalog, DataSyncPermit, DataSyncPreflightReport,
-    DataSyncService, HotkeyState, KafkaService, MAX_DATA_SYNC_CATALOG_OBJECTS, MongoService,
-    MqttService, ObjectListingPage, ObjectStorageMountResult, ObjectStorageService,
-    PreparedDataSync, RedisService, SavedObjectStorageAccount, SshService, StartedDataSync,
-    UPDATE_CHECK_PREF_KEY, UpdateCheckResult, UpdatePlatform, UpdateService, asset_name_for,
-    configured_mounts, convert_id_to_integer, convert_id_to_string, current_platform,
+    ContainerRegistryService, ContainerService, DataSyncConfirmation, DataSyncExecutionContext,
+    DataSyncGate, DataSyncGatePhase, DataSyncGateSnapshot, DataSyncObjectCatalog, DataSyncPermit,
+    DataSyncPreflightReport, DataSyncService, HotkeyState, KafkaService,
+    MAX_DATA_SYNC_CATALOG_OBJECTS, MongoService, MqttService, ObjectListingPage,
+    ObjectStorageMountResult, ObjectStorageService, PreparedDataSync, RedisService,
+    SavedObjectStorageAccount, SshService, StartedDataSync, UPDATE_CHECK_PREF_KEY,
+    UpdateCheckResult, UpdatePlatform, UpdateService, asset_name_for, configured_mounts,
+    convert_id_to_integer, convert_id_to_string, current_platform,
 };

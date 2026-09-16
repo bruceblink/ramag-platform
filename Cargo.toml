@@ -18,6 +18,8 @@ members = [
     "crates/ramag-infra-update",
     "crates/ramag-infra-kafka",
     "crates/ramag-infra-mqtt",
+    "crates/ramag-infra-container-docker",
+    "crates/ramag-infra-container-registry",
     "crates/ramag-terminal",
     "crates/ramag-tool-dbclient",
     "crates/ramag-tool-kafka",
@@ -28,6 +30,7 @@ members = [
     "crates/ramag-tool-clipboard",
     "crates/ramag-tool-ssh",
     "crates/ramag-tool-object-storage",
+    "crates/ramag-tool-container",
     "crates/ramag-tool-system",
     "crates/ramag-ui",
     "crates/ramag-bin",
@@ -60,6 +63,8 @@ ramag-infra-object-storage = { path = "crates/ramag-infra-object-storage" }
 ramag-infra-update = { path = "crates/ramag-infra-update" }
 ramag-infra-kafka = { path = "crates/ramag-infra-kafka" }
 ramag-infra-mqtt = { path = "crates/ramag-infra-mqtt" }
+ramag-infra-container-docker = { path = "crates/ramag-infra-container-docker" }
+ramag-infra-container-registry = { path = "crates/ramag-infra-container-registry" }
 ramag-terminal = { path = "crates/ramag-terminal" }
 ramag-tool-dbclient = { path = "crates/ramag-tool-dbclient" }
 ramag-tool-kafka = { path = "crates/ramag-tool-kafka" }
@@ -70,6 +75,7 @@ ramag-tool-vcs = { path = "crates/ramag-tool-vcs" }
 ramag-tool-clipboard = { path = "crates/ramag-tool-clipboard" }
 ramag-tool-ssh = { path = "crates/ramag-tool-ssh" }
 ramag-tool-object-storage = { path = "crates/ramag-tool-object-storage" }
+ramag-tool-container = { path = "crates/ramag-tool-container" }
 ramag-tool-system = { path = "crates/ramag-tool-system" }
 ramag-ui = { path = "crates/ramag-ui" }
 
@@ -239,6 +245,13 @@ dashmap = "6"
 
 # Kafka 客户端；具体 crate 通过显式 feature 选择 librdkafka 的构建方式。
 rdkafka = { version = "0.39", default-features = false }
+
+# Docker Engine API；只启用 HTTP、Unix socket、Windows named pipe 和 providerless TLS。
+bollard = { version = "0.21.1", default-features = false, features = [
+    "http",
+    "pipe",
+    "ssl_providerless",
+] }
 # Kafka 纯 Rust 客户端；只由显式 pure-rust feature 拉入，不改变默认桌面构建。
 rskafka = { version = "0.6", default-features = false, features = [
     "compression-gzip",

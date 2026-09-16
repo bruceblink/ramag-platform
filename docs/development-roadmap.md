@@ -1,10 +1,10 @@
 # Ramag Platform 主线开发计划
 
-> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A、P0-B、PLAT-003 已完成；TERM-001 代码和真实 SSH 端点验收已完成；Kafka 阶段 25 单条消息生产代码、headless UI、本机 Docker KRaft 验收和纯 Rust 读取候选阶段性验证已完成
-> 更新日期：2026-09-11
+> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A、P0-B、PLAT-003 已完成；TERM-001 代码和真实 SSH 端点验收已完成；Kafka 阶段 25 单条消息生产代码、headless UI、本机 Docker KRaft 验收和纯 Rust 读取候选阶段性验证已完成；CMT-002 已进入 Docker 只读查询实现
+> 更新日期：2026-09-16
 > 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台以及跨工具质量与构建流程
 > 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
-> 当前交付切片：`UI-001`，先完成跨工具响应式布局、真实窗口截图和交互验证；Kafka/ksqlDB 新功能暂缓，待 UI 队列稳定后再恢复
+> 当前交付切片：`CMT-003`，开始镜像仓库与镜像操作设计；Kubernetes 和容器生命周期写操作暂不展开
 
 ## 术语与命名规则
 
@@ -50,6 +50,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | SSH/终端 | `alacritty_terminal + GPUI` PTY 核心、SSH/SFTP 工作区、会话状态、每标签重连和 `-L/-R/-D` 参数模型已有；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 补真实 Windows 窗口证据和独立转发状态/停止面板；进入 `KAFKA-001` | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
 | Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail、Metrics Snapshot、Schema Registry 版本浏览、受保护的真实 Kafka JMX Exporter 本机链路和纯 Rust 读取候选已有 | `KAFKA-023` 三个消息定位切片和阶段 27 已完成，继续维护功能矩阵，再补真实 Windows 证据 | 纯 Rust 全能力替换、外部生态大模块和批量消息生产 |
 | 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 按 DBeaver/DataGrip 能力表推进结果查看、大字段恢复、对象导航、执行计划和迁移工作流的功能/UI 对齐 | 把 Redis/MongoDB 强行套用 SQL 语义 |
+| 容器管理工具 | CMT-001 已完成；CMT-002 已完成 Docker 只读查询、真实 WSL Engine 验收和 headless UI 验收 | 进入 CMT-003，先限定 Docker Registry v2 范围并实现镜像仓库查询与安全操作预览 | 远程明文 Docker TCP、动态插件、Secret 明文和任意 Shell |
 | 质量与工具链 | stable channel、统一 Cargo 命令、Windows MSVC 路线已建立 | 保持 CI、WSL Linux 验证、源码尺寸和 LF 规则一致 | 为单个平台恢复独立的日常编译命令 |
 
 跨产品的 UI 响应性问题不再单独生成一条长期大路线。出现新的可复现 P0/P1 问题时，按下面的交付切片规则插入当前队列，并在对应专项文档记录实现细节。
@@ -67,10 +68,14 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | `KAFKA-001` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、构建维护 | 阶段 19 代码完成，纯 Rust 读取候选已在 Windows GNU 和本机 Docker KRaft 验证 | `PLAT-003` | 阶段 18 能力矩阵已记录；`KafkaTransport` 适配边界、能力快照、native 命名和显式 `pure-rust` Fetch/ListOffsets 路径已落地，保持当前用户流程 |
 | `KAFKA-025` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-tool-kafka` | 已完成（Docker/headless；真实窗口待补） | `KAFKA-001` | 管理模式单条消息生产、二次确认、只读拒绝、失败保留输入、Broker Partition/Offset/Timestamp 和 Docker 生产回读 |
 | `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
+| `CMT-001` | 容器管理 | `ramag-domain`、`ramag-tool-container`、`ramag-bin`、`ramag-ui` | 已完成 | `PLAT-003` | 工具入口、平台区分、连接配置校验、空工作台和 360/800/1024/1440 headless 布局测试 |
+| `CMT-002` | 容器管理 | `ramag-domain`、`ramag-app`、`ramag-infra-container-docker`、`ramag-tool-container` | 已完成（真实 WSL Engine；真实 Windows 原生窗口待补） | `CMT-001` | 真实 Engine 连接、版本、容器/镜像/网络/数据卷列表和详情；分页、404 安全错误、权限错误映射及 headless UI |
 | `UI-001` | 跨工具 UI | `ramag-ui`、各 `ramag-tool-*` | 进行中（数据库会话紧凑窗口切片已验收，其他工作台证据待补） | `PLAT-003` | 共享弹窗、工具栏、列表和详情区在 360/1024/1440 headless 窗口内换行、滚动且不越界；真实窗口证据单独记录 |
 | `DB-002` | 数据库 | `ramag-tool-dbclient`、`ramag-ui` | 待开始 | `DB-001` | 建立 DBeaver/DataGrip 功能矩阵，逐项实现并验收结果、对象导航、执行计划和迁移 UI，不以静态截图宣称完成 |
 | `KAFKA-023` | Kafka | `ramag-tool-kafka`、`ramag-ui`、`ramag-infra-kafka` | 开发中（三个定位切片和受保护的真实 JMX Exporter 本机链路已完成） | `KAFKA-025` | 功能矩阵已建立；继续补真实窗口证据和下一项 AKHQ/Offset Explorer 能力 |
 | `QUALITY-001` | 质量与工具链 | workspace 维护者 | 持续任务 | 每个交付切片 | stable toolchain、统一 Cargo 命令、LF、CI 过滤器和三平台发布证据保持一致 |
+
+`CMT-002` 实现与验收记录（2026-09-16）：新增 `ramag-infra-container-docker`，使用 `bollard` 0.21.1 接入 Unix socket、Windows named pipe 和 HTTPS；拒绝明文 `tcp://`/`http://`，把 Docker API 错误转换为安全分类，并限制响应大小、列表数量、分页和详情字段。`ramag-app` 新增 `ContainerService`，`ramag-tool-container` 首屏读取概览，按资源页签读取容器、镜像、网络和数据卷列表，点击列表行读取详情；`ramag-tool-container` headless 测试 2 项、Docker 适配器 Windows 单元测试 3 项、`ramag-app` 单元测试 209 项通过，`ramag-bin` 全目标 Clippy、workspace fmt 和 `git diff --check` 通过。随后使用 WSL `x86_64-unknown-linux-gnu` 目标和 Docker 默认上下文的 `unix:///var/run/docker.sock` 运行真实集成测试，连接、版本/概览、容器/镜像/网络/数据卷列表、分页、已有资源详情和不存在容器的 404 错误均通过；权限错误映射由安全错误单元测试覆盖。当前 Windows 环境仍不存在 `\\.\pipe\docker_engine`，所以真实 Windows named pipe 和原生窗口证据继续单独记录，但不阻塞本任务已有的真实 Engine 与 headless UI 验收。
 
 `UI-001` 验收记录（2026-09-07）：共享弹窗的实际打开测试发现导入表单在 360×240 窗口中仍宽 414px，左侧越界 27px，说明此前仅调整内容宽度不足以修复 Dialog 外框。当前修复统一约束快捷键、最近项目和导入弹窗的宽度、顶部偏移及内容高度；导入操作区保留在滚动区外。3 项直接打开弹窗的 headless 测试覆盖 360×240、360×640、1024×768、1440×900、打开后缩放、取消、最近项目滚动/搜索/打开和快捷键录制错误/退出。真实窗口验证未完成：本次 Computer Use 的 `list_windows()` 返回空列表，安装的 `@oai/sky` 也没有技能要求的 `documentation` 接口。其他工作台仍须逐项检查，不能由这三类弹窗的结果推断全软件已适配。
 
@@ -240,3 +245,7 @@ Headless 结果不能描述为真实窗口结果；外部服务未启动时只�
 `schema-migration-review` 重命名候选切片（2026-09-15）：表结构差异只在源表和目标表存在唯一、完整定义匹配但字段名不同的情况下标注“重命名候选”；定义不同或匹配不唯一时继续按普通新增/删除显示，不自动生成改名 SQL。新增 `uniquely_matching_unmatched_columns_are_marked_as_rename_candidates` 和 `ambiguous_column_shapes_are_not_marked_as_rename_candidates`；`ramag-tool-dbclient` 库测试 311 项、目标 Clippy、格式检查和 `git diff --check` 通过。源码尺寸检查仍报告既有的 `result_table/render.rs`（603 行）和 `dynamic_security_operations.rs`（606 行）超过 600 行限制，本切片未修改这两个文件。真实 Windows 窗口和实际数据库服务证据仍待补充。
 
 `schema-migration-review` 迁移阶段摘要切片（2026-09-15）：迁移生成器为每条语句保留阶段和破坏性标记，预览按“删除受影响的外键 -> 删除受影响的索引 -> 处理字段变化 -> 恢复索引 -> 恢复外键”展示执行顺序和各阶段计数，不改变实际 SQL、显式确认或生产连接只读规则。新增 `summarize_stages_preserves_dependency_order_and_destructive_counts`、`migration_stages_stay_inside_preview_at_supported_widths`，并补充真实生成脚本的阶段断言；`ramag-tool-dbclient` 库测试 313 项、目标 Clippy、格式检查和 `git diff --check` 通过。源码尺寸检查仍报告既有的 `result_table/render.rs`（603 行）和 `dynamic_security_operations.rs`（606 行）超过 600 行限制，本切片未修改这两个文件。真实 Windows 窗口和实际数据库服务证据仍待补充。
+
+`DB-001` 触发器元数据 Docker 回读切片（2026-09-15）：MySQL SQL 后端对已拆分的 DDL/DML 增加文本协议执行钩子，解决 `CREATE TRIGGER` 被 prepared statement protocol 拒绝的问题；专用 `ramag-db-test` MySQL 服务开启 `log-bin-trust-function-creators=1`，仅用于本机测试账号创建临时触发器。本机 Docker Compose 从 `scripts/db-test/compose.yaml` 启动并保持 MySQL 8.0（`ramag-db-test-mysql`，`127.0.0.1:13306`）和 PostgreSQL 17-alpine（`ramag-db-test-postgres`，`127.0.0.1:15432`）healthy；集成测试分别创建临时表级触发器并通过 `list_triggers` 回读名称、时机、事件和定义，随后删除临时表、触发器和 PostgreSQL 函数，未清理供测试复用的 Docker named volumes。MySQL 15 个和 PostgreSQL 16 个集成测试、对应 11 个和 14 个单元测试，以及 SQLite 4 个单元测试均通过。数据库工作台 headless 测试覆盖表树分组折叠、表属性触发器与 DDL 紧凑弹窗、大字段查看器和未提交编辑操作区；6 个专项用例全部通过。全量 `ramag-tool-dbclient` 315 项断言均打印通过，但 Windows 测试进程仍在既有 GPUI 触发器窄弹窗测试结束阶段以 `STATUS_STACK_BUFFER_OVERRUN` 退出，因此本切片只记录专项 UI 证据，不把该进程异常写成全量通过；真实 Windows 窗口截图仍待补充。
+
+MQTT-001 原生订阅生命周期修复（2026-09-16）：原生 MQTT 适配器不再用 15 秒短操作超时包裹持续订阅；连接、发布和 Mosquitto 管理请求继续保留该超时。订阅在用户停止后由取消监视任务发送 MQTT DISCONNECT，空闲连接无需等待 Keep Alive 或新消息即可退出。未填写 Client ID 的连接改为每次操作生成唯一临时 ID，显式 Client ID 保持不变，避免同一配置的发布连接挤掉正在运行的订阅。新增 scripts/mqtt-test：本机 Docker Compose 服务为 ramag-mqtt-test，镜像 eclipse-mosquitto:2.0.20，监听 127.0.0.1:18883，不使用 named volume，test 保持服务运行供复用，down 或 clean 删除容器和网络。真实集成测试连接 MQTT 3.1.1 与 MQTT 5，验证 QoS 1 回执、MQTT 5 用户属性回读、并发临时 Client ID 和空闲订阅两秒内停止；测试清理自己的保留消息。ramag-infra-mqtt 默认构建 2 项、native 构建 8 项加 Docker 集成 1 项通过。真实 Windows MQTT 工具窗口仍待单独复核，本切片不能由基础设施测试代替 UI 验收。

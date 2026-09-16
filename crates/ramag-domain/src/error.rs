@@ -55,6 +55,21 @@ pub enum MqttErrorCategory {
     Unknown,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContainerErrorCategory {
+    InvalidConfig,
+    Authentication,
+    Tls,
+    Timeout,
+    PermissionDenied,
+    NotFound,
+    Unsupported,
+    Cancelled,
+    Network,
+    Protocol,
+    Unknown,
+}
+
 /// Kafka 基础设施层返回的安全错误；不携带密码、密钥或消息正文。
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 #[error("{safe_message}")]
@@ -102,6 +117,40 @@ pub struct MqttError {
 impl MqttError {
     pub fn new(
         category: MqttErrorCategory,
+        operation: &'static str,
+        safe_message: impl Into<String>,
+    ) -> Self {
+        Self {
+            category,
+            safe_message: safe_message.into(),
+            retryable: false,
+            operation,
+        }
+    }
+
+    pub fn retryable(mut self, retryable: bool) -> Self {
+        self.retryable = retryable;
+        self
+    }
+
+    pub fn user_message(&self) -> &str {
+        &self.safe_message
+    }
+}
+
+/// Docker 或 Kubernetes 基础设施层返回的安全错误；不携带凭据和原始响应正文。
+#[derive(Debug, Clone, Error, PartialEq, Eq)]
+#[error("{safe_message}")]
+pub struct ContainerError {
+    pub category: ContainerErrorCategory,
+    pub safe_message: String,
+    pub retryable: bool,
+    pub operation: &'static str,
+}
+
+impl ContainerError {
+    pub fn new(
+        category: ContainerErrorCategory,
         operation: &'static str,
         safe_message: impl Into<String>,
     ) -> Self {
@@ -206,6 +255,9 @@ pub enum DomainError {
     #[error("MQTT 错误: {0}")]
     Mqtt(#[from] MqttError),
 
+    #[error("容器管理错误: {0}")]
+    Container(#[from] ContainerError),
+
     #[error("功能尚未实现: {0}")]
     NotImplemented(String),
 
@@ -232,6 +284,7 @@ impl DomainError {
             DomainError::ObjectStorage(error) => &error.safe_message,
             DomainError::Kafka(error) => &error.safe_message,
             DomainError::Mqtt(error) => &error.safe_message,
+            DomainError::Container(error) => &error.safe_message,
         }
     }
 
@@ -240,6 +293,7 @@ impl DomainError {
             DomainError::ObjectStorage(error) => error.user_message(),
             DomainError::Kafka(error) => error.user_message().to_string(),
             DomainError::Mqtt(error) => error.user_message().to_string(),
+            DomainError::Container(error) => error.user_message().to_string(),
             other => other.message().to_string(),
         }
     }

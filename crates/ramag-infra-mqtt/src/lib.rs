@@ -3,6 +3,8 @@
 //! `native` 特性启用 `rumqttc`，默认构建仍保留无 native 依赖的能力探测和明确的
 //! 不支持结果。适配器在独立 Tokio 运行时中驱动 EventLoop，再把领域消息交给有界 sink。
 
+#[cfg(feature = "native")]
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, atomic::AtomicBool};
 #[cfg(feature = "native")]
 use std::time::Duration;
@@ -24,6 +26,10 @@ use native::{publish_native, subscribe_native, test_connection_native};
 
 #[cfg(feature = "native")]
 const EVENT_LOOP_CAPACITY: usize = 32;
+#[cfg(feature = "native")]
+const MQTT_OPERATION_TIMEOUT: Duration = Duration::from_secs(15);
+#[cfg(feature = "native")]
+static NEXT_EPHEMERAL_MQTT_CLIENT_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NativeMqttTransport;
@@ -390,7 +396,10 @@ impl MqttDriver for NativeMqttTransport {
         {
             let profile = profile.clone();
             let request = request.clone();
-            return run_native(move || subscribe_native(profile, request, sink, cancelled)).await;
+            return run_native_subscription(move || {
+                subscribe_native(profile, request, sink, cancelled)
+            })
+            .await;
         }
         #[cfg(not(feature = "native"))]
         {
@@ -424,6 +433,30 @@ where
     Fut: std::future::Future<Output = Result<T>> + Send + 'static,
     T: Send + 'static,
 {
+    run_native_with_timeout(Some(MQTT_OPERATION_TIMEOUT), operation).await
+}
+
+/// Runs a long-lived subscription without the short-operation deadline; the
+/// subscription itself must observe its cancellation flag and release the runtime.
+#[cfg(feature = "native")]
+async fn run_native_subscription<F, Fut, T>(operation: F) -> Result<T>
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<T>> + Send + 'static,
+    T: Send + 'static,
+{
+    run_native_with_timeout(None, operation).await
+}
+
+/// Creates an isolated Tokio runtime for one native operation and only applies
+/// a deadline to finite requests such as connect, publish, and management calls.
+#[cfg(feature = "native")]
+async fn run_native_with_timeout<F, Fut, T>(timeout: Option<Duration>, operation: F) -> Result<T>
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<T>> + Send + 'static,
+    T: Send + 'static,
+{
     smol::unblock(move || {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -435,17 +468,18 @@ where
                     format!("无法初始化 MQTT 运行时：{error}"),
                 ))
             })?;
-        runtime
-            .block_on(
-                async move { tokio::time::timeout(Duration::from_secs(15), operation()).await },
-            )
-            .map_err(|_| {
-                DomainError::Mqtt(MqttError::new(
-                    MqttErrorCategory::Timeout,
-                    "执行 MQTT 操作",
-                    "MQTT 操作超时",
-                ))
-            })?
+        match timeout {
+            Some(timeout) => runtime
+                .block_on(async move { tokio::time::timeout(timeout, operation()).await })
+                .map_err(|_| {
+                    DomainError::Mqtt(MqttError::new(
+                        MqttErrorCategory::Timeout,
+                        "执行 MQTT 操作",
+                        "MQTT 操作超时",
+                    ))
+                })?,
+            None => runtime.block_on(operation()),
+        }
     })
     .await
 }

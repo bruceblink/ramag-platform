@@ -85,6 +85,7 @@ fn clipboard_tool_is_registered_last() {
             "vcs",
             "ssh",
             "object_storage",
+            "container",
             "system",
             "clipboard"
         ]
@@ -109,6 +110,7 @@ fn clipboard_tool_is_not_registered_on_linux() {
             "vcs",
             "ssh",
             "object_storage",
+            "container",
             "system"
         ]
     );

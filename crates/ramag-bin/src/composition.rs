@@ -68,6 +68,7 @@ pub(super) fn build_plugin_host() -> Arc<StaticPluginHost> {
     register_builtin_tool(&host, Arc::new(VcsTool::new()));
     register_builtin_tool(&host, Arc::new(SshTool::new()));
     register_builtin_tool(&host, Arc::new(ObjectStorageTool::new()));
+    register_builtin_tool(&host, Arc::new(ContainerTool::new()));
     register_builtin_tool(&host, Arc::new(SystemTool::new()));
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     register_builtin_tool(&host, Arc::new(ClipboardTool::new()));
@@ -240,4 +241,19 @@ pub(super) fn build_update_service(storage: Arc<dyn Storage>) -> Option<Arc<Upda
             None
         }
     }
+}
+
+pub(super) fn build_container_service() -> Arc<ramag_app::ContainerService> {
+    let driver: Arc<dyn ramag_domain::traits::ContainerDriver> =
+        Arc::new(ramag_infra_container_docker::DockerDriver::new());
+    Arc::new(ramag_app::ContainerService::new(driver))
+}
+
+pub(super) fn build_container_registry_service()
+-> anyhow::Result<Arc<ramag_app::ContainerRegistryService>> {
+    let driver = ramag_infra_container_registry::RegistryHttpDriver::new()
+        .map_err(|error| anyhow::anyhow!("初始化镜像仓库基础设施失败：{}", error.user_message()))?;
+    Ok(Arc::new(ramag_app::ContainerRegistryService::new(
+        Arc::new(driver),
+    )))
 }

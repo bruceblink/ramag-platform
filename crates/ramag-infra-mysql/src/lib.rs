@@ -13,8 +13,8 @@ use ramag_domain::entities::{
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::CancelHandle;
-use ramag_infra_sql_shared::SqlBackend;
 use ramag_infra_sql_shared::sql::SplitOptions;
+use ramag_infra_sql_shared::{DmlFuture, SqlBackend};
 use ramag_infra_sql_shared::{PoolCache, TransactionStore};
 use sqlx::mysql::{MySql, MySqlConnection, MySqlPool, MySqlQueryResult, MySqlRow};
 use sqlx::{Column as _, Row as _, TypeInfo as _};
@@ -113,6 +113,18 @@ impl SqlBackend for MysqlDriver {
             .execute(conn)
             .await
             .map(|_| ())
+    }
+
+    /// MySQL rejects CREATE TRIGGER over its prepared statement protocol, so
+    /// execute user DDL/DML through the text protocol used by the server.
+    fn execute_dml_statement<'a>(
+        &self,
+        conn: &'a mut MySqlConnection,
+        sql: &'a str,
+    ) -> DmlFuture<'a, <MySql as sqlx::Database>::QueryResult> {
+        Box::pin(async move {
+            <&'a mut MySqlConnection as sqlx::Executor<'a>>::execute(conn, sqlx::raw_sql(sql)).await
+        })
     }
 
     fn execute_transaction_control<'a>(

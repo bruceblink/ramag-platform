@@ -2,7 +2,7 @@
 
 ## 设计目标
 
-1. **可扩展**：从一开始就支持多种数据源与工具（当前 MySQL / PostgreSQL / SQLite / Redis / MongoDB / Git / SSH / SFTP / COS / OSS）
+1. **可扩展**：从一开始就支持多种数据源与工具（当前 MySQL / PostgreSQL / SQLite / Redis / MongoDB / Git / SSH / SFTP / COS / OSS / Docker / Kubernetes）
 2. **可演化**：未来加入新工具（不只是数据库）不需要重构 domain / app 层
 3. **可测试**：核心业务逻辑能脱离 GUI 单独测试
 4. **可维护**：模块边界清晰，依赖方向单一
@@ -22,6 +22,7 @@ ramag-bin                          ← 入口：依赖注入 + 启动 GPUI
   ├── ramag-tool-ssh                       ← SSH 连接、内嵌终端、SFTP 与 JumpServer 导入
   ├── ramag-tool-clipboard                 ← 剪贴历史与详情视图
   ├── ramag-tool-object-storage             ← COS/OSS 账号、Bucket、对象与传输视图
+  ├── ramag-tool-container                  ← Docker/Kubernetes 连接配置与资源工作台
   ├── ramag-ui                             ← Shell + ActivityBar + 主题
   ├── ramag-infra-mysql       impl SqlBackend
   ├── ramag-infra-postgres    impl SqlBackend
@@ -157,6 +158,10 @@ GPUI 视图提供账号搜索、加密会话恢复、必填 Bucket 挂载、地�
 
 **所有服务共用同一个 Storage 实例**——数据库连接按 `DriverKind` 过滤，SSH 配置、Git 仓库和剪贴历史使用各自的存储表，彼此不混用。
 
+### `ramag-tool-container`
+
+CMT-001 提供 Docker 与 Kubernetes 的平台区分、连接配置领域模型和空工作台。连接配置包含稳定的本地 ID、显示名称、端点地址、Kubernetes context/命名空间和只读策略；Docker 配置拒绝 Kubernetes 专属字段，Kubernetes 配置必须带 context。当前不调用 Docker Engine 或 Kubernetes API，不显示伪造的远端资源；只读连接测试和资源查询由后续 `CMT-002` 接入。
+
 ### `ramag-tool-dbclient`
 
 DB Client 主视图（SQL + Redis + MongoDB 共用入口）。新建连接表单内通过 driver 选择器决定路径，按 `DriverKind` 分发到 `SessionEntity::Sql`（MySQL + Postgres 共用 `ConnectionSession`）/ `SessionEntity::Redis` / `SessionEntity::Mongo`（装载 `ramag-tool-mongodb` 的视图）。
@@ -193,7 +198,7 @@ SSH 管理视图：连接列表与 SSH 命令解析、JumpServer 资源导入、
 1. `logging::init`：默认 `info`（可用 `RUST_LOG` 覆盖），stderr + 文件双路输出；日志超过 10 MiB 时保留一份滚动备份
 2. `build_connection_service`：装配 `MysqlDriver` + `PostgresDriver` 进 `HashMap<DriverKind, Arc<dyn Driver>>` + `RedbStorage`
 3. `build_redis_service` / `build_mongo_service`：分别装配 `RedisDriver` / `MongoDriver`，复用同一 Storage
-4. `build_tool_registry`：注册 `DbClientTool` + `VcsTool` + `SshTool` + `ObjectStorageTool` + `ClipboardTool`；剪贴板默认关闭时保留实例但隐藏入口
+4. `build_tool_registry`：注册 `DbClientTool` + `VcsTool` + `SshTool` + `ObjectStorageTool` + `ContainerTool` + `ClipboardTool`；剪贴板默认关闭时保留实例但隐藏入口
 5. `app.on_reopen`：macOS 无窗口时从 Dock 重开；Windows 走系统托盘常驻（关窗采集不停，托盘唤回/退出；托盘安装失败回退关窗即退）+ 单实例（双开唤起已有实例）
 6. `cx.bind_keys`：使用 GPUI `secondary-*` 注册跨平台主修饰键（macOS Command / Windows Ctrl）
 

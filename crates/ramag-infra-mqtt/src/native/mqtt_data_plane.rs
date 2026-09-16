@@ -13,7 +13,6 @@
         }
         Ok(AsyncClient::new(options, EVENT_LOOP_CAPACITY))
     }
-
     fn create_v5_client(
         profile: &MqttProfile,
     ) -> Result<(rumqttc::v5::AsyncClient, rumqttc::v5::EventLoop)> {
@@ -33,11 +32,13 @@
         Ok(rumqttc::v5::AsyncClient::new(options, EVENT_LOOP_CAPACITY))
     }
 
+    /// Uses the saved Client ID when present; otherwise creates a distinct
+    /// ephemeral ID so concurrent Ramag operations do not disconnect each other.
     fn client_id(profile: &MqttProfile) -> String {
-        profile
-            .client_id
-            .clone()
-            .unwrap_or_else(|| format!("ramag-{}", profile.id))
+        profile.client_id.clone().unwrap_or_else(|| {
+            let suffix = NEXT_EPHEMERAL_MQTT_CLIENT_ID.fetch_add(1, Ordering::Relaxed);
+            format!("ramag-{}-{suffix}", profile.id)
+        })
     }
 
     fn set_v311_credentials(options: &mut MqttOptions, profile: &MqttProfile) {
@@ -269,7 +270,15 @@
         sink: MqttMessageSink,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
-        async move {
+        let cancellation_client = client.clone();
+        let cancellation_signal = cancelled.clone();
+        let cancellation_task = tokio::spawn(async move {
+            while !cancellation_signal.load(std::sync::atomic::Ordering::Acquire) {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            let _ = cancellation_client.disconnect().await;
+        });
+        let result = async {
             client
                 .subscribe_many(filters)
                 .await
@@ -305,7 +314,9 @@
                 }
             }
         }
-        .await
+        .await;
+        cancellation_task.abort();
+        result
     }
 
     async fn run_subscription_v5(
@@ -315,7 +326,15 @@
         sink: MqttMessageSink,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
-        async move {
+        let cancellation_client = client.clone();
+        let cancellation_signal = cancelled.clone();
+        let cancellation_task = tokio::spawn(async move {
+            while !cancellation_signal.load(std::sync::atomic::Ordering::Acquire) {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            let _ = cancellation_client.disconnect().await;
+        });
+        let result = async {
             client
                 .subscribe_many(filters)
                 .await
@@ -372,5 +391,7 @@
                 }
             }
         }
-        .await
+        .await;
+        cancellation_task.abort();
+        result
     }

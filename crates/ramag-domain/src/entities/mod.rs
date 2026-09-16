@@ -1,5 +1,7 @@
 pub mod clipboard;
 pub mod connection;
+pub mod container;
+pub mod container_registry;
 pub mod data_sync;
 pub mod ddl;
 pub mod git;
@@ -37,6 +39,30 @@ pub use connection::{
     MAX_CONNECTION_ENVIRONMENT_BYTES, MAX_CONNECTION_HOST_BYTES, MAX_CONNECTION_IDENTIFIER_BYTES,
     MAX_CONNECTION_NAME_BYTES, MAX_CONNECTION_PASSWORD_BYTES, MAX_CONNECTION_PATH_BYTES,
     MAX_CONNECTION_REMARK_BYTES, MAX_CONNECTION_SSH_TARGET_BYTES, TlsVerify,
+};
+pub use container::{
+    ContainerEndpointId, ContainerEndpointProfile, ContainerImageOperationKind,
+    ContainerImageOperationPreview, ContainerImageOperationRequest, ContainerImageOperationResult,
+    ContainerListQuery, ContainerPage, ContainerPlatform, DEFAULT_CONTAINER_PAGE_SIZE,
+    DockerConnectionInfo, DockerContainerDetail, DockerContainerPort, DockerContainerSummary,
+    DockerEngineVersion, DockerImageDetail, DockerImageSummary, DockerLabel, DockerMountSummary,
+    DockerNetworkAttachment, DockerNetworkDetail, DockerNetworkSubnet, DockerNetworkSummary,
+    DockerOverview, DockerResourceCounts, DockerVolumeDetail, DockerVolumeSummary,
+    MAX_CONTAINER_CONTEXT_BYTES, MAX_CONTAINER_ENDPOINT_ADDRESS_BYTES,
+    MAX_CONTAINER_ENDPOINT_NAME_BYTES, MAX_CONTAINER_ENDPOINTS,
+    MAX_CONTAINER_IMAGE_REFERENCE_BYTES, MAX_CONTAINER_LABELS, MAX_CONTAINER_MOUNTS,
+    MAX_CONTAINER_NAMESPACE_BYTES, MAX_CONTAINER_NETWORKS, MAX_CONTAINER_PAGE_SIZE,
+    MAX_CONTAINER_PORTS, MAX_CONTAINER_QUERY_BYTES, MAX_CONTAINER_REPOSITORY_REFERENCES,
+    MAX_CONTAINER_RESOURCE_ID_BYTES, MAX_CONTAINER_RESOURCE_ITEMS,
+};
+pub use container_registry::{
+    ContainerRegistryCredential, ContainerRegistryId, ContainerRegistryInfo,
+    ContainerRegistryManifest, ContainerRegistryProfile, ContainerRegistryRepository,
+    ContainerRegistryTag, MAX_CONTAINER_REGISTRY_CREDENTIAL_BYTES,
+    MAX_CONTAINER_REGISTRY_DIGEST_BYTES, MAX_CONTAINER_REGISTRY_ENDPOINT_BYTES,
+    MAX_CONTAINER_REGISTRY_NAME_BYTES, MAX_CONTAINER_REGISTRY_REPOSITORIES,
+    MAX_CONTAINER_REGISTRY_REPOSITORY_BYTES, MAX_CONTAINER_REGISTRY_TAG_BYTES,
+    MAX_CONTAINER_REGISTRY_TAGS,
 };
 pub use data_sync::{
     DataSyncProgress, DataSyncRequest, DataSyncScope, DataSyncStage, DataSyncSummary,
