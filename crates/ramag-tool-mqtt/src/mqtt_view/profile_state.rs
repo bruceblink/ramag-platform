@@ -285,6 +285,7 @@ impl MqttView {
             static_file: None,
             messages: VecDeque::new(),
             subscription_running: false,
+            subscription_stopping: false,
             subscription_cancelled: None,
             profile_request_id: 0,
             operation_id: 0,
@@ -310,7 +311,13 @@ impl MqttView {
     }
 
     fn is_busy(&self) -> bool {
-        self.saving || self.testing || self.deleting || self.publishing || self.loading_profiles
+        self.saving
+            || self.testing
+            || self.deleting
+            || self.publishing
+            || self.loading_profiles
+            || self.subscription_running
+            || self.subscription_stopping
     }
 
     /// Detect the width where the profile list would leave the active MQTT workbench unusable.

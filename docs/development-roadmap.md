@@ -255,3 +255,5 @@ UI-001 MQTT 订阅 Topic 输入焦点修复切片（2026-09-16）：切换到“
 MQTT-002 消息投递选项切片（2026-09-16）：发布页新增 QoS 0/1/2 分段选择与 Retain 开关，订阅页新增 QoS 0/1/2 选择；默认值保持原有发布 QoS 0、订阅 QoS 1，切换 MQTT 配置时恢复默认，避免把 Retain 选项误带到其他 Broker。`ramag-tool-mqtt` 库测试 11 项通过，headless UI 测试核对发布和订阅请求的 QoS 与 Retain 字段，并覆盖订阅选项在 360/640/1024/1440px 窗口内布局。真实 Windows 窗口操作尚未执行，不能将 headless 验收描述为真实窗口验证。
 
 MQTT-003 未保存连接参数生效修复（2026-09-16）：发布和订阅操作统一从当前表单构造连接 Profile，保留已选 Profile 中未重新填写的密码等敏感字段；修改 Broker 地址、端口、协议或 TLS 参数后无需先保存即可对新参数执行操作。headless 驱动回归测试验证发布和订阅都收到未保存的 Broker 地址；`ramag-tool-mqtt` 库测试、workspace Clippy、格式检查和 `git diff --check` 在提交前重新执行。真实 Windows 窗口和远端 Broker 操作尚未执行，不能将 headless 结果描述为真实窗口验证。
+
+MQTT-004 订阅停止状态修复（2026-09-16）：停止订阅后保留“正在停止订阅”状态，直到驱动真正返回；停止期间禁用重复停止、再次启动、配置切换和新建配置，避免同一 Profile 的旧连接尚未断开时创建第二条订阅连接。新增阻塞驱动 headless 回归测试覆盖停止信号与驱动返回之间的状态，以及返回后的恢复；`ramag-tool-mqtt` 库测试 12 项、workspace Clippy、格式检查和 `git diff --check` 通过。真实 Windows 窗口和远端 Broker 操作尚未执行，不能将 headless 结果描述为真实窗口验证。

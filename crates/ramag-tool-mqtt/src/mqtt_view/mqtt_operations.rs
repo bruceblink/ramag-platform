@@ -307,7 +307,7 @@ impl MqttView {
     }
 
     fn start_subscription(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.subscription_running {
+        if self.subscription_running || self.subscription_stopping {
             return;
         }
         // Use the same current-form snapshot for subscriptions as for publishing,
@@ -334,6 +334,7 @@ impl MqttView {
         let cancelled = Arc::new(AtomicBool::new(false));
         self.subscription_cancelled = Some(cancelled.clone());
         self.subscription_running = true;
+        self.subscription_stopping = false;
         self.messages.clear();
         self.notice = Some(("已启动订阅，等待 Broker 消息…".into(), false));
         let (sender, receiver) = bounded(32);
@@ -379,6 +380,7 @@ impl MqttView {
                     return;
                 }
                 this.subscription_running = false;
+                this.subscription_stopping = false;
                 this.subscription_cancelled = None;
                 if let Err(error) = result {
                     this.notice = Some((format!("订阅结束：{}", error.user_message()), true));
@@ -392,11 +394,13 @@ impl MqttView {
     }
 
     fn stop_subscription(&mut self) {
-        self.subscription_request_id = self.subscription_request_id.wrapping_add(1);
-        if let Some(cancelled) = self.subscription_cancelled.take() {
+        if !self.subscription_running {
+            return;
+        }
+        self.subscription_stopping = true;
+        if let Some(cancelled) = self.subscription_cancelled.as_ref() {
             cancelled.store(true, Ordering::Release);
         }
-        self.subscription_running = false;
     }
 
 }

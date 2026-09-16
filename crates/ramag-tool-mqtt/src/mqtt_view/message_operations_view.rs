@@ -276,10 +276,14 @@ impl MqttView {
                 .debug_selector(|| "mqtt-stop-subscription".into())
                 .danger()
                 .small()
-                .label("停止订阅")
+                .label(if self.subscription_stopping {
+                    "正在停止订阅…"
+                } else {
+                    "停止订阅"
+                })
+                .disabled(self.subscription_stopping)
                 .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                     this.stop_subscription();
-                    this.notice = Some(("正在停止订阅…".into(), false));
                     cx.notify();
                 }))
         } else {

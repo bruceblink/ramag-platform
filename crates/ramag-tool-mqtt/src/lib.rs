@@ -225,6 +225,7 @@ pub struct MqttView {
     static_file: Option<MosquittoStaticFile>,
     messages: VecDeque<MqttMessage>,
     subscription_running: bool,
+    subscription_stopping: bool,
     subscription_cancelled: Option<Arc<AtomicBool>>,
     profile_request_id: u64,
     operation_id: u64,

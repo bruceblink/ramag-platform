@@ -108,6 +108,7 @@ impl MqttView {
                             })
                             .child(
                                 ramag_ui::clickable_button("mqtt-add-profile")
+                                    .disabled(self.is_busy())
                                     .ghost()
                                     .xsmall()
                                     .icon(IconName::Plus)

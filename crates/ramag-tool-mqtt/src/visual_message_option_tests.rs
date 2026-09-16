@@ -1,5 +1,9 @@
-use std::sync::{Arc, Mutex, atomic::AtomicBool};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 
+use async_channel::{Receiver, Sender, bounded};
 use async_trait::async_trait;
 use gpui::{
     AppContext as _, Context, IntoElement, Modifiers, ParentElement as _, Render, Styled as _,
@@ -59,6 +63,27 @@ impl MqttDriver for OptionsMqttDriver {
             .lock()
             .expect("记录订阅请求锁")
             .push(request.clone());
+        Ok(())
+    }
+}
+
+struct BlockingSubscriptionDriver {
+    started: Sender<()>,
+    release: Receiver<()>,
+}
+
+#[async_trait]
+impl MqttDriver for BlockingSubscriptionDriver {
+    async fn subscribe(
+        &self,
+        _profile: &MqttProfile,
+        _request: &MqttSubscribeRequest,
+        _sink: MqttMessageSink,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        self.started.send(()).await.expect("订阅开始信号应可发送");
+        self.release.recv().await.expect("订阅释放信号应可接收");
+        assert!(cancelled.load(Ordering::Acquire));
         Ok(())
     }
 }
@@ -191,4 +216,57 @@ fn mqtt_message_options_reach_publish_and_subscribe_requests(cx: &mut TestAppCon
         "198.51.100.10",
         "订阅应使用尚未保存的 Broker 地址"
     );
+}
+
+#[gpui::test]
+fn mqtt_subscription_stays_stopping_until_driver_returns(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let (started_sender, started_receiver) = bounded(1);
+    let (release_sender, release_receiver) = bounded(1);
+    let driver = Arc::new(BlockingSubscriptionDriver {
+        started: started_sender,
+        release: release_receiver,
+    });
+    let service = Arc::new(MqttService::new(
+        driver,
+        Arc::new(super::visual_tests::NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| TestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    let profile = MqttProfile::new("停止订阅测试", "127.0.0.1", 1883);
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.loading_profiles = false;
+            view.profiles = vec![profile.clone()];
+            view.selected_profile_id = Some(profile.id.clone());
+            view.set_form_from_profile(&profile, window, cx);
+            view.section = MqttSection::Subscribe;
+            view.subscribe_filter
+                .update(cx, |input, cx| input.set_value("devices/#", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-start-subscription");
+    visual_cx.run_until_parked();
+    assert!(started_receiver.try_recv().is_ok(), "订阅驱动应已开始");
+
+    click(visual_cx, "mqtt-stop-subscription");
+    visual_cx.run_until_parked();
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.subscription_running && view.subscription_stopping
+    }));
+
+    release_sender.try_send(()).expect("订阅释放信号应可发送");
+    visual_cx.run_until_parked();
+    assert!(view.read_with(visual_cx, |view, _| {
+        !view.subscription_running && !view.subscription_stopping
+    }));
 }
