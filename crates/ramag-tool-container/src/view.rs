@@ -497,8 +497,12 @@ impl Render for ContainerView {
                             )
                             .child(
                                 div()
+                                    .id("container-subtitle")
+                                    .debug_selector(|| "container-subtitle".into())
                                     .text_xs()
                                     .text_color(theme.muted_foreground)
+                                    .whitespace_nowrap()
+                                    .text_ellipsis()
                                     .child("Docker Engine 只读查询"),
                             ),
                     )
@@ -580,7 +584,7 @@ impl Render for ContainerView {
                         .children(
                             ContainerSection::ALL
                                 .into_iter()
-                                .map(|item| resource_button(item, section, cx))
+                                .map(|item| compact_resource_button(item, section, cx))
                                 .collect::<Vec<_>>(),
                         ),
                 )
@@ -1146,6 +1150,23 @@ fn resource_button(
     selected: ContainerSection,
     cx: &mut Context<ContainerView>,
 ) -> AnyElement {
+    resource_button_with_width(section, selected, true, cx)
+}
+
+fn compact_resource_button(
+    section: ContainerSection,
+    selected: ContainerSection,
+    cx: &mut Context<ContainerView>,
+) -> AnyElement {
+    resource_button_with_width(section, selected, false, cx)
+}
+
+fn resource_button_with_width(
+    section: ContainerSection,
+    selected: ContainerSection,
+    full_width: bool,
+    cx: &mut Context<ContainerView>,
+) -> AnyElement {
     let id = match section {
         ContainerSection::Overview => "container-resource-overview",
         ContainerSection::Containers => "container-resource-containers",
@@ -1154,15 +1175,19 @@ fn resource_button(
         ContainerSection::Volumes => "container-resource-volumes",
         ContainerSection::Registry => "container-resource-registry",
     };
-    ramag_ui::clickable_button(id)
+    let mut button = ramag_ui::clickable_button(id)
         .ghost()
         .small()
-        .w_full()
+        .flex_none()
         .justify_start()
         .debug_selector(move || id.into())
         .icon(section.icon())
         .label(section.label())
-        .selected(section == selected)
+        .selected(section == selected);
+    if full_width {
+        button = button.w_full();
+    }
+    button
         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| this.select_section(section, cx)))
         .into_any_element()
 }

@@ -41,6 +41,9 @@ fn empty_workspace_stays_inside_supported_window_widths(cx: &mut TestAppContext)
         let header = cx
             .debug_bounds("container-header")
             .expect("容器管理标题栏应渲染");
+        let subtitle = cx
+            .debug_bounds("container-subtitle")
+            .expect("容器管理副标题应渲染");
         let content = cx
             .debug_bounds("container-content")
             .expect("容器管理内容区应渲染");
@@ -49,6 +52,11 @@ fn empty_workspace_stays_inside_supported_window_widths(cx: &mut TestAppContext)
             .expect("容器管理空状态应渲染");
 
         assert_inside(root, header, "容器管理标题栏");
+        assert_inside(header, subtitle, "容器管理副标题");
+        assert!(
+            subtitle.size.height < px(24.0),
+            "容器管理副标题应保持单行: subtitle={subtitle:?}"
+        );
         assert_inside(root, content, "容器管理内容区");
         assert_inside(content, empty, "容器管理空状态");
 
@@ -110,4 +118,40 @@ fn registry_workspace_stays_inside_narrow_window(cx: &mut TestAppContext) {
         .expect("镜像仓库配置区应渲染");
     assert_horizontal_inside(content, panel, "镜像仓库面板");
     assert_inside(panel, config, "镜像仓库配置区");
+}
+
+#[gpui::test]
+fn compact_resource_navigation_wraps_without_full_width_rows(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ContainerView::new(window, cx));
+        Root::new(view, window, cx)
+    });
+    cx.simulate_resize(size(px(360.0), px(640.0)));
+    cx.run_until_parked();
+
+    let navigation = cx
+        .debug_bounds("container-compact-resource-nav")
+        .expect("紧凑资源导航应渲染");
+    assert!(
+        navigation.size.height < px(150.0),
+        "紧凑资源导航不应把内容推离首屏: navigation={navigation:?}"
+    );
+    for selector in [
+        "container-resource-overview",
+        "container-resource-containers",
+        "container-resource-images",
+        "container-resource-networks",
+        "container-resource-volumes",
+        "container-resource-registry",
+    ] {
+        let button = cx
+            .debug_bounds(selector)
+            .unwrap_or_else(|| panic!("{selector} 应渲染"));
+        assert_horizontal_inside(navigation, button, selector);
+        assert!(
+            button.size.width < navigation.size.width,
+            "紧凑资源入口不应强制占满导航: navigation={navigation:?}, button={button:?}"
+        );
+    }
 }
