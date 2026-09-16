@@ -170,18 +170,27 @@ impl MqttView {
     fn render_tabs(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let mut tabs = h_flex().flex_wrap().gap(px(4.0));
         for section in MqttSection::ALL {
-            let mut button =
-                ramag_ui::clickable_button(SharedString::from(format!("mqtt-tab-{:?}", section)))
-                    .xsmall()
-                    .label(section.label());
+            let selector = SharedString::from(format!("mqtt-tab-{:?}", section));
+            let mut button = ramag_ui::clickable_button(selector.clone())
+                .xsmall()
+                .label(section.label());
             button = if self.section == section {
                 button.primary()
             } else {
                 button.ghost()
             };
-            tabs = tabs.child(button.on_click(
-                cx.listener(move |this, _: &ClickEvent, _, cx| this.select_section(section, cx)),
-            ));
+            tabs = tabs.child(
+                div()
+                    .debug_selector({
+                        let selector = selector.clone();
+                        move || selector.to_string()
+                    })
+                    .child(button.on_click(
+                        cx.listener(move |this, _: &ClickEvent, window, cx| {
+                            this.select_section(section, window, cx)
+                        }),
+                    )),
+            );
         }
         tabs
     }

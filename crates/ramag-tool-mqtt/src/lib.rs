@@ -14,8 +14,8 @@ use std::sync::{
 use async_channel::{TrySendError, bounded};
 use gpui::{
     App, AppContext as _, ClickEvent, Context, Entity, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement, Render, SharedString,
-    StatefulInteractiveElement as _, Styled, Subscription, Window, div,
+    InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent, ParentElement, Render,
+    SharedString, StatefulInteractiveElement as _, Styled, Subscription, Window, div,
     prelude::FluentBuilder as _, px,
 };
 use gpui_component::{

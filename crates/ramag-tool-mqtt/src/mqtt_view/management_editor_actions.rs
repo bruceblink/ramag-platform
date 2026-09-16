@@ -139,9 +139,20 @@ impl MqttView {
         cx.notify();
     }
 
-    fn select_section(&mut self, section: MqttSection, cx: &mut Context<Self>) {
+    /// Activates a page and gives the subscription field keyboard focus as soon
+    /// as it becomes visible, so users can type a Topic Filter without an extra click.
+    fn select_section(
+        &mut self,
+        section: MqttSection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.section != section {
             self.section = section;
+            if section == MqttSection::Subscribe {
+                self.subscribe_filter
+                    .update(cx, |input, cx| input.focus(window, cx));
+            }
             cx.notify();
         }
     }

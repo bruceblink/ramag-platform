@@ -221,10 +221,22 @@ impl MqttView {
                     "Topic Filter",
                     input_frame(
                         "mqtt-subscribe-filter-input",
-                        Input::new(&self.subscribe_filter)
-                            .small()
+                        div()
                             .w_full()
-                            .min_w_0(),
+                            .min_w_0()
+                            .on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(|this, _: &MouseDownEvent, window, cx| {
+                                    this.subscribe_filter
+                                        .update(cx, |input, cx| input.focus(window, cx));
+                                }),
+                            )
+                            .child(
+                                Input::new(&self.subscribe_filter)
+                                    .small()
+                                    .w_full()
+                                    .min_w_0(),
+                            ),
                     ),
                 ),
             );

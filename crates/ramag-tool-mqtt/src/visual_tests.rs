@@ -414,10 +414,7 @@ fn mqtt_message_pages_keep_inputs_bounded_and_editable(cx: &mut TestAppContext) 
         "发布 Topic 输入框不能越出消息内容区: main={main:?}, input={publish_input:?}"
     );
 
-    view.update(visual_cx, |view, cx| {
-        view.section = MqttSection::Subscribe;
-        cx.notify();
-    });
+    click(visual_cx, "mqtt-tab-Subscribe");
     visual_cx.run_until_parked();
 
     let subscribe_input = visual_cx
@@ -430,13 +427,33 @@ fn mqtt_message_pages_keep_inputs_bounded_and_editable(cx: &mut TestAppContext) 
         "订阅 Topic Filter 输入框不能越出消息内容区: main={main:?}, input={subscribe_input:?}"
     );
 
-    click(visual_cx, "mqtt-subscribe-filter-input");
     visual_cx.simulate_keystrokes("sensors/#");
     visual_cx.run_until_parked();
     let filter = view.read_with(visual_cx, |view, cx| {
         view.subscribe_filter.read(cx).value().to_string()
     });
-    assert_eq!(filter, "sensors/#", "订阅 Topic Filter 应能接收键盘输入");
+    assert_eq!(
+        filter, "sensors/#",
+        "进入订阅页后 Topic Filter 应立即接收键盘输入"
+    );
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.publish_topic
+                .update(cx, |input, cx| input.focus(window, cx));
+        });
+    });
+    visual_cx.run_until_parked();
+    click(visual_cx, "mqtt-subscribe-filter-input");
+    visual_cx.simulate_keystrokes("/alerts");
+    visual_cx.run_until_parked();
+    let filter = view.read_with(visual_cx, |view, cx| {
+        view.subscribe_filter.read(cx).value().to_string()
+    });
+    assert_eq!(
+        filter, "sensors/#/alerts",
+        "点击 Topic Filter 输入框应重新获得键盘焦点"
+    );
 }
 
 #[gpui::test]
