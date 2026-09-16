@@ -2,6 +2,7 @@
 
 pub mod clipboard_driver;
 pub mod container_driver;
+pub mod container_registry_driver;
 pub mod doc_driver;
 pub mod driver;
 pub mod git_driver;
@@ -20,6 +21,7 @@ pub mod update_driver;
 
 pub use clipboard_driver::ClipboardDriver;
 pub use container_driver::ContainerDriver;
+pub use container_registry_driver::ContainerRegistryDriver;
 pub use doc_driver::DocDriver;
 pub use driver::{CancelHandle, Driver};
 pub use git_driver::GitDriver;

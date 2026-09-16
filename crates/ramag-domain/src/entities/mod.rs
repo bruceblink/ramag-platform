@@ -1,6 +1,7 @@
 pub mod clipboard;
 pub mod connection;
 pub mod container;
+pub mod container_registry;
 pub mod data_sync;
 pub mod ddl;
 pub mod git;
@@ -51,6 +52,14 @@ pub use container::{
     MAX_CONTAINER_NAMESPACE_BYTES, MAX_CONTAINER_NETWORKS, MAX_CONTAINER_PAGE_SIZE,
     MAX_CONTAINER_PORTS, MAX_CONTAINER_QUERY_BYTES, MAX_CONTAINER_REPOSITORY_REFERENCES,
     MAX_CONTAINER_RESOURCE_ID_BYTES, MAX_CONTAINER_RESOURCE_ITEMS,
+};
+pub use container_registry::{
+    ContainerRegistryCredential, ContainerRegistryId, ContainerRegistryInfo,
+    ContainerRegistryProfile, ContainerRegistryRepository, ContainerRegistryTag,
+    MAX_CONTAINER_REGISTRY_CREDENTIAL_BYTES, MAX_CONTAINER_REGISTRY_ENDPOINT_BYTES,
+    MAX_CONTAINER_REGISTRY_NAME_BYTES, MAX_CONTAINER_REGISTRY_REPOSITORIES,
+    MAX_CONTAINER_REGISTRY_REPOSITORY_BYTES, MAX_CONTAINER_REGISTRY_TAG_BYTES,
+    MAX_CONTAINER_REGISTRY_TAGS,
 };
 pub use data_sync::{
     DataSyncProgress, DataSyncRequest, DataSyncScope, DataSyncStage, DataSyncSummary,
