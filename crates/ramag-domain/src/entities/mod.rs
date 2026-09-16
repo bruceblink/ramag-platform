@@ -55,8 +55,9 @@ pub use container::{
 };
 pub use container_registry::{
     ContainerRegistryCredential, ContainerRegistryId, ContainerRegistryInfo,
-    ContainerRegistryProfile, ContainerRegistryRepository, ContainerRegistryTag,
-    MAX_CONTAINER_REGISTRY_CREDENTIAL_BYTES, MAX_CONTAINER_REGISTRY_ENDPOINT_BYTES,
+    ContainerRegistryManifest, ContainerRegistryProfile, ContainerRegistryRepository,
+    ContainerRegistryTag, MAX_CONTAINER_REGISTRY_CREDENTIAL_BYTES,
+    MAX_CONTAINER_REGISTRY_DIGEST_BYTES, MAX_CONTAINER_REGISTRY_ENDPOINT_BYTES,
     MAX_CONTAINER_REGISTRY_NAME_BYTES, MAX_CONTAINER_REGISTRY_REPOSITORIES,
     MAX_CONTAINER_REGISTRY_REPOSITORY_BYTES, MAX_CONTAINER_REGISTRY_TAG_BYTES,
     MAX_CONTAINER_REGISTRY_TAGS,

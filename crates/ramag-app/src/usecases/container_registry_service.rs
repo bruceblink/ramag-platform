@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use ramag_domain::entities::{
-    ContainerRegistryCredential, ContainerRegistryInfo, ContainerRegistryProfile,
-    ContainerRegistryRepository, ContainerRegistryTag,
+    ContainerRegistryCredential, ContainerRegistryInfo, ContainerRegistryManifest,
+    ContainerRegistryProfile, ContainerRegistryRepository, ContainerRegistryTag,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::ContainerRegistryDriver;
@@ -44,6 +44,19 @@ impl ContainerRegistryService {
     ) -> Result<Vec<ContainerRegistryTag>> {
         self.validate_inputs(profile, credential)?;
         self.driver.list_tags(profile, credential, repository).await
+    }
+
+    pub async fn get_manifest(
+        &self,
+        profile: &ContainerRegistryProfile,
+        credential: Option<&ContainerRegistryCredential>,
+        repository: &str,
+        reference: &str,
+    ) -> Result<ContainerRegistryManifest> {
+        self.validate_inputs(profile, credential)?;
+        self.driver
+            .get_manifest(profile, credential, repository, reference)
+            .await
     }
 
     fn validate_inputs(
@@ -104,6 +117,22 @@ mod tests {
                 name: "latest".into(),
             }])
         }
+
+        async fn get_manifest(
+            &self,
+            _profile: &ContainerRegistryProfile,
+            _credential: Option<&ContainerRegistryCredential>,
+            repository: &str,
+            reference: &str,
+        ) -> Result<ContainerRegistryManifest> {
+            Ok(ContainerRegistryManifest {
+                repository: repository.into(),
+                reference: reference.into(),
+                digest: "sha256:test".into(),
+                media_type: None,
+                size_bytes: None,
+            })
+        }
     }
 
     #[test]
@@ -129,5 +158,9 @@ mod tests {
         assert_eq!(repositories[0].name, "library/app");
         let tags = smol::block_on(service.list_tags(&profile, None, "library/app")).expect("tags");
         assert_eq!(tags[0].name, "latest");
+        let manifest =
+            smol::block_on(service.get_manifest(&profile, None, "library/app", "latest"))
+                .expect("manifest");
+        assert_eq!(manifest.digest, "sha256:test");
     }
 }

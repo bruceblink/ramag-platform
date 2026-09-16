@@ -8,12 +8,16 @@ use std::time::Duration;
 use async_trait::async_trait;
 use ramag_domain::{
     ContainerRegistryCredential, ContainerRegistryDriver, ContainerRegistryInfo,
-    ContainerRegistryProfile, ContainerRegistryRepository, ContainerRegistryTag,
-    MAX_CONTAINER_REGISTRY_REPOSITORIES, MAX_CONTAINER_REGISTRY_REPOSITORY_BYTES,
-    MAX_CONTAINER_REGISTRY_TAG_BYTES, MAX_CONTAINER_REGISTRY_TAGS,
+    ContainerRegistryManifest, ContainerRegistryProfile, ContainerRegistryRepository,
+    ContainerRegistryTag, MAX_CONTAINER_REGISTRY_DIGEST_BYTES, MAX_CONTAINER_REGISTRY_REPOSITORIES,
+    MAX_CONTAINER_REGISTRY_REPOSITORY_BYTES, MAX_CONTAINER_REGISTRY_TAG_BYTES,
+    MAX_CONTAINER_REGISTRY_TAGS,
     error::{ContainerError, ContainerErrorCategory, DomainError, Result},
 };
-use reqwest::blocking::{Client, Response};
+use reqwest::{
+    Method,
+    blocking::{Client, Response},
+};
 use serde::Deserialize;
 use tracing::debug;
 use url::Url;
@@ -47,11 +51,26 @@ impl RegistryHttpDriver {
         operation: &'static str,
         url: Url,
     ) -> Result<Response> {
+        self.request_with_method(Method::GET, profile, credential, operation, url, None)
+    }
+
+    fn request_with_method(
+        &self,
+        method: Method,
+        profile: &ContainerRegistryProfile,
+        credential: Option<&ContainerRegistryCredential>,
+        operation: &'static str,
+        url: Url,
+        accept: Option<&'static str>,
+    ) -> Result<Response> {
         profile.validate().map_err(DomainError::InvalidConfig)?;
         if let Some(credential) = credential {
             credential.validate().map_err(DomainError::InvalidConfig)?;
         }
-        let mut request = self.client.get(url);
+        let mut request = self.client.request(method, url);
+        if let Some(accept) = accept {
+            request = request.header(reqwest::header::ACCEPT, accept);
+        }
         if let Some(credential) = credential {
             request = request.basic_auth(&credential.username, Some(&credential.password));
         }
@@ -146,6 +165,48 @@ impl RegistryHttpDriver {
             authenticated: credential.is_some(),
         })
     }
+
+    fn get_manifest_blocking(
+        &self,
+        profile: &ContainerRegistryProfile,
+        credential: Option<&ContainerRegistryCredential>,
+        repository: &str,
+        reference: &str,
+    ) -> Result<ContainerRegistryManifest> {
+        validate_repository(repository)?;
+        validate_reference(reference)?;
+        let suffix = format!("v2/{repository}/manifests/{reference}");
+        let url = Self::registry_url(profile, &suffix, "读取 Registry 镜像清单")?;
+        let response = self.request_with_method(
+            Method::HEAD,
+            profile,
+            credential,
+            "读取 Registry 镜像清单",
+            url,
+            Some(concat!(
+                "application/vnd.oci.image.manifest.v1+json, ",
+                "application/vnd.docker.distribution.manifest.v2+json"
+            )),
+        )?;
+        let digest = response
+            .headers()
+            .get("docker-content-digest")
+            .and_then(|value| value.to_str().ok())
+            .ok_or_else(|| protocol_error("Registry 镜像清单缺少 digest"))?;
+        validate_digest(digest)?;
+        let media_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned);
+        Ok(ContainerRegistryManifest {
+            repository: repository.to_owned(),
+            reference: reference.to_owned(),
+            digest: digest.to_owned(),
+            media_type,
+            size_bytes: response.content_length(),
+        })
+    }
 }
 
 fn install_tls_crypto_provider() -> Result<()> {
@@ -195,6 +256,24 @@ impl ContainerRegistryDriver for RegistryHttpDriver {
         let repository = repository.to_owned();
         smol::unblock(move || driver.list_tags_blocking(&profile, credential.as_ref(), &repository))
             .await
+    }
+
+    async fn get_manifest(
+        &self,
+        profile: &ContainerRegistryProfile,
+        credential: Option<&ContainerRegistryCredential>,
+        repository: &str,
+        reference: &str,
+    ) -> Result<ContainerRegistryManifest> {
+        let driver = self.clone();
+        let profile = profile.clone();
+        let credential = credential.cloned();
+        let repository = repository.to_owned();
+        let reference = reference.to_owned();
+        smol::unblock(move || {
+            driver.get_manifest_blocking(&profile, credential.as_ref(), &repository, &reference)
+        })
+        .await
     }
 }
 
@@ -263,9 +342,38 @@ fn validate_tag(tag: &str) -> Result<()> {
     if tag.is_empty()
         || tag.len() > MAX_CONTAINER_REGISTRY_TAG_BYTES
         || tag.chars().any(char::is_control)
-        || tag.contains('/')
+        || !tag
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"_.-".contains(&byte))
     {
         return Err(protocol_error("Registry 返回的 Tag 无效"));
+    }
+    Ok(())
+}
+
+fn validate_reference(reference: &str) -> Result<()> {
+    if reference.starts_with("sha256:") {
+        validate_digest(reference)
+    } else {
+        validate_tag(reference)
+    }
+}
+
+fn validate_digest(digest: &str) -> Result<()> {
+    if digest.is_empty() || digest.len() > MAX_CONTAINER_REGISTRY_DIGEST_BYTES {
+        return Err(protocol_error("Registry digest 无效或超过长度限制"));
+    }
+    let Some((algorithm, encoded)) = digest.split_once(':') else {
+        return Err(protocol_error("Registry digest 格式无效"));
+    };
+    if algorithm.is_empty()
+        || !algorithm.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"+._-".contains(&byte)
+        })
+        || encoded.len() < 32
+        || !encoded.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(protocol_error("Registry digest 格式无效"));
     }
     Ok(())
 }
@@ -356,6 +464,36 @@ mod tests {
         assert!(validate_repository("library/nginx").is_ok());
         assert!(validate_repository("library/../secret").is_err());
         assert!(validate_repository("Library/nginx").is_err());
+    }
+
+    #[test]
+    fn accepts_manifest_tags_and_digests_but_not_paths() {
+        assert!(validate_reference("stable-2026.09").is_ok());
+        assert!(validate_reference("sha256:0123456789abcdef0123456789abcdef").is_ok());
+        assert!(validate_reference("stable/latest").is_err());
+        assert!(validate_reference("sha256:not-a-digest").is_err());
+    }
+
+    #[test]
+    #[ignore = "需要本机 Docker Registry v2 中的临时清单，使用环境变量和 cargo test -- --ignored 执行"]
+    fn reads_manifest_digest_from_local_registry() {
+        let endpoint = std::env::var("RAMAG_TEST_REGISTRY_ENDPOINT")
+            .unwrap_or_else(|_| "http://127.0.0.1:15000".into());
+        let repository = std::env::var("RAMAG_TEST_REGISTRY_REPOSITORY")
+            .expect("必须设置 RAMAG_TEST_REGISTRY_REPOSITORY");
+        let reference =
+            std::env::var("RAMAG_TEST_REGISTRY_REFERENCE").unwrap_or_else(|_| "stable".into());
+        let expected_digest = std::env::var("RAMAG_TEST_REGISTRY_DIGEST")
+            .expect("必须设置 RAMAG_TEST_REGISTRY_DIGEST");
+        let profile =
+            ContainerRegistryProfile::new("本机 Registry", endpoint).with_insecure_http(true);
+        let driver = RegistryHttpDriver::new().expect("Registry HTTP 客户端应创建成功");
+        let manifest = smol::block_on(driver.get_manifest(&profile, None, &repository, &reference))
+            .expect("Registry 镜像清单应成功读取");
+        assert_eq!(manifest.repository, repository);
+        assert_eq!(manifest.reference, reference);
+        assert_eq!(manifest.digest, expected_digest);
+        assert!(manifest.size_bytes.is_some());
     }
 
     #[test]

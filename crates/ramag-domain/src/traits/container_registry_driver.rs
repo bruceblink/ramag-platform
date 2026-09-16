@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 
 use crate::entities::{
-    ContainerRegistryCredential, ContainerRegistryInfo, ContainerRegistryProfile,
-    ContainerRegistryRepository, ContainerRegistryTag,
+    ContainerRegistryCredential, ContainerRegistryInfo, ContainerRegistryManifest,
+    ContainerRegistryProfile, ContainerRegistryRepository, ContainerRegistryTag,
 };
 use crate::error::Result;
 
@@ -38,6 +38,18 @@ pub trait ContainerRegistryDriver: Send + Sync {
     ) -> Result<Vec<ContainerRegistryTag>> {
         Err(crate::error::DomainError::NotImplemented(
             "container_registry_list_tags".into(),
+        ))
+    }
+
+    async fn get_manifest(
+        &self,
+        _profile: &ContainerRegistryProfile,
+        _credential: Option<&ContainerRegistryCredential>,
+        _repository: &str,
+        _reference: &str,
+    ) -> Result<ContainerRegistryManifest> {
+        Err(crate::error::DomainError::NotImplemented(
+            "container_registry_get_manifest".into(),
         ))
     }
 }

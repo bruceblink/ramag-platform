@@ -6,9 +6,10 @@ pub mod traits;
 
 pub use entities::{
     ContainerRegistryCredential, ContainerRegistryId, ContainerRegistryInfo,
-    ContainerRegistryProfile, ContainerRegistryRepository, ContainerRegistryTag,
-    MAX_CONTAINER_REGISTRY_REPOSITORIES, MAX_CONTAINER_REGISTRY_REPOSITORY_BYTES,
-    MAX_CONTAINER_REGISTRY_TAG_BYTES, MAX_CONTAINER_REGISTRY_TAGS,
+    ContainerRegistryManifest, ContainerRegistryProfile, ContainerRegistryRepository,
+    ContainerRegistryTag, MAX_CONTAINER_REGISTRY_DIGEST_BYTES, MAX_CONTAINER_REGISTRY_REPOSITORIES,
+    MAX_CONTAINER_REGISTRY_REPOSITORY_BYTES, MAX_CONTAINER_REGISTRY_TAG_BYTES,
+    MAX_CONTAINER_REGISTRY_TAGS,
 };
 pub use error::{
     ContainerError, ContainerErrorCategory, DomainError, KafkaError, KafkaErrorCategory, MqttError,

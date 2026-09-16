@@ -9,6 +9,7 @@ pub const MAX_CONTAINER_REGISTRY_NAME_BYTES: usize = 256;
 pub const MAX_CONTAINER_REGISTRY_ENDPOINT_BYTES: usize = 2 * 1024;
 pub const MAX_CONTAINER_REGISTRY_REPOSITORY_BYTES: usize = 512;
 pub const MAX_CONTAINER_REGISTRY_TAG_BYTES: usize = 512;
+pub const MAX_CONTAINER_REGISTRY_DIGEST_BYTES: usize = 512;
 pub const MAX_CONTAINER_REGISTRY_CREDENTIAL_BYTES: usize = 64 * 1024;
 pub const MAX_CONTAINER_REGISTRY_REPOSITORIES: usize = 20_000;
 pub const MAX_CONTAINER_REGISTRY_TAGS: usize = 20_000;
@@ -143,6 +144,15 @@ pub struct ContainerRegistryTag {
     pub name: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContainerRegistryManifest {
+    pub repository: String,
+    pub reference: String,
+    pub digest: String,
+    pub media_type: Option<String>,
+    pub size_bytes: Option<u64>,
+}
+
 fn validate_text(
     field: &str,
     value: &str,
@@ -187,5 +197,19 @@ mod tests {
         assert!(debug.contains("alice"));
         assert!(debug.contains("REDACTED"));
         assert!(!debug.contains("secret-value"));
+    }
+
+    #[test]
+    fn manifest_keeps_repository_reference_and_digest_together() {
+        let manifest = ContainerRegistryManifest {
+            repository: "library/app".into(),
+            reference: "stable".into(),
+            digest: "sha256:abc".into(),
+            media_type: Some("application/vnd.oci.image.manifest.v1+json".into()),
+            size_bytes: Some(128),
+        };
+        assert_eq!(manifest.repository, "library/app");
+        assert_eq!(manifest.reference, "stable");
+        assert_eq!(manifest.size_bytes, Some(128));
     }
 }
