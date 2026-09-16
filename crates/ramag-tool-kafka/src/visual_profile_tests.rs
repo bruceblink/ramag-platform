@@ -138,6 +138,37 @@ fn kafka_welcome_action_stays_reachable_in_a_short_compact_window(cx: &mut TestA
     assert!(save.origin.y >= main.origin.y);
     assert!(save.bottom() <= main.bottom());
 
+    // 窄屏标签栏保持横向滚动；切换到每个后续页面时，当前标签必须自动滚入可见区域。
+    let Some(tab_scroll) = visual_cx.debug_bounds("kafka-workspace-tabs-scroll") else {
+        return;
+    };
+    for (section, selector) in [
+        (KafkaSection::Overview, "kafka-section-Overview"),
+        (KafkaSection::Topics, "kafka-section-Topics"),
+        (KafkaSection::Messages, "kafka-section-Messages"),
+        (KafkaSection::ConsumerGroups, "kafka-section-ConsumerGroups"),
+        (KafkaSection::SchemaRegistry, "kafka-section-SchemaRegistry"),
+        (KafkaSection::Connect, "kafka-section-Connect"),
+        (KafkaSection::KsqlDb, "kafka-section-KsqlDb"),
+        (KafkaSection::Acls, "kafka-section-Acls"),
+        (KafkaSection::Config, "kafka-section-Config"),
+    ] {
+        super::click(visual_cx, selector);
+        visual_cx.run_until_parked();
+        let tab = visual_cx.debug_bounds(selector);
+        assert!(tab.is_some(), "标签应保持渲染: {section:?}");
+        let Some(tab) = tab else {
+            return;
+        };
+        assert!(
+            tab.origin.x >= tab_scroll.origin.x
+                && tab.right() <= tab_scroll.right()
+                && tab.origin.y >= tab_scroll.origin.y
+                && tab.bottom() <= tab_scroll.bottom(),
+            "窄屏切换后当前标签应自动滚入可见区域: section={section:?}, tab={tab:?}, scroll={tab_scroll:?}"
+        );
+    }
+
     visual_cx.simulate_resize(size(px(1024.0), px(720.0)));
     visual_cx.run_until_parked();
     let Some(main) = visual_cx.debug_bounds("kafka-main") else {
