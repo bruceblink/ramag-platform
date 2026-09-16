@@ -7008,6 +7008,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bollard",
+ "futures",
  "ramag-domain",
  "serde",
  "serde_json",

@@ -3,7 +3,8 @@
 use async_trait::async_trait;
 
 use crate::entities::{
-    ContainerEndpointProfile, ContainerListQuery, ContainerPage, DockerConnectionInfo,
+    ContainerEndpointProfile, ContainerImageOperationRequest, ContainerImageOperationResult,
+    ContainerListQuery, ContainerPage, ContainerRegistryCredential, DockerConnectionInfo,
     DockerContainerDetail, DockerContainerSummary, DockerImageDetail, DockerImageSummary,
     DockerNetworkDetail, DockerNetworkSummary, DockerOverview, DockerVolumeDetail,
     DockerVolumeSummary,
@@ -65,6 +66,17 @@ pub trait ContainerDriver: Send + Sync {
     ) -> Result<DockerImageDetail> {
         Err(crate::error::DomainError::NotImplemented(
             "container_get_image".into(),
+        ))
+    }
+
+    async fn execute_image_operation(
+        &self,
+        _profile: &ContainerEndpointProfile,
+        _request: &ContainerImageOperationRequest,
+        _credential: Option<&ContainerRegistryCredential>,
+    ) -> Result<ContainerImageOperationResult> {
+        Err(crate::error::DomainError::NotImplemented(
+            "container_execute_image_operation".into(),
         ))
     }
 

@@ -4,9 +4,10 @@ use std::sync::Arc;
 
 use ramag_domain::entities::{
     ContainerEndpointProfile, ContainerImageOperationPreview, ContainerImageOperationRequest,
-    ContainerListQuery, ContainerPage, DockerConnectionInfo, DockerContainerDetail,
-    DockerContainerSummary, DockerImageDetail, DockerImageSummary, DockerNetworkDetail,
-    DockerNetworkSummary, DockerOverview, DockerVolumeDetail, DockerVolumeSummary,
+    ContainerImageOperationResult, ContainerListQuery, ContainerPage, ContainerRegistryCredential,
+    DockerConnectionInfo, DockerContainerDetail, DockerContainerSummary, DockerImageDetail,
+    DockerImageSummary, DockerNetworkDetail, DockerNetworkSummary, DockerOverview,
+    DockerVolumeDetail, DockerVolumeSummary,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::ContainerDriver;
@@ -98,6 +99,26 @@ impl ContainerService {
             can_execute: !profile.read_only,
             blocked_reason: profile.read_only.then(|| READ_ONLY_MESSAGE.into()),
         })
+    }
+
+    pub async fn execute_image_operation(
+        &self,
+        profile: &ContainerEndpointProfile,
+        request: &ContainerImageOperationRequest,
+        credential: Option<&ContainerRegistryCredential>,
+    ) -> Result<ContainerImageOperationResult> {
+        Self::ensure_docker(profile)?;
+        profile.validate().map_err(DomainError::InvalidConfig)?;
+        request.validate().map_err(DomainError::InvalidConfig)?;
+        if let Some(credential) = credential {
+            credential.validate().map_err(DomainError::InvalidConfig)?;
+        }
+        if profile.read_only {
+            return Err(DomainError::Forbidden(READ_ONLY_MESSAGE.into()));
+        }
+        self.driver
+            .execute_image_operation(profile, request, credential)
+            .await
     }
 
     pub async fn list_networks(
@@ -267,5 +288,20 @@ mod tests {
             Some("local/app:release")
         );
         assert!(!preview.destructive);
+    }
+
+    #[test]
+    fn image_operation_execution_is_blocked_before_driver_on_read_only_profile() {
+        let service = ContainerService::new(Arc::new(MockContainerDriver));
+        let profile = ContainerEndpointProfile::new_docker("local", "unix:///var/run/docker.sock");
+        let request = ContainerImageOperationRequest::new(
+            ramag_domain::entities::ContainerImageOperationKind::Pull,
+            "library/alpine:3.20",
+        );
+        let result = smol::block_on(service.execute_image_operation(&profile, &request, None));
+        assert!(matches!(
+            result,
+            Err(DomainError::Forbidden(message)) if message == READ_ONLY_MESSAGE
+        ));
     }
 }

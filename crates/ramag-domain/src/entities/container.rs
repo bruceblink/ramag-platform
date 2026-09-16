@@ -273,6 +273,14 @@ pub struct ContainerImageOperationPreview {
     pub blocked_reason: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContainerImageOperationResult {
+    pub operation: ContainerImageOperationKind,
+    pub source_reference: String,
+    pub target_reference: Option<String>,
+    pub image_id: Option<String>,
+}
+
 fn validate_image_reference(field: &str, value: &str) -> Result<(), String> {
     if value.trim().is_empty() {
         return Err(format!("{field}不能为空"));

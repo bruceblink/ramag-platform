@@ -7,21 +7,30 @@
 
 use async_trait::async_trait;
 use bollard::{
-    Docker, errors::Error as BollardError, query_parameters::ListContainersOptionsBuilder,
+    Docker,
+    auth::DockerCredentials,
+    errors::Error as BollardError,
+    query_parameters::{
+        CreateImageOptionsBuilder, ListContainersOptionsBuilder, PushImageOptionsBuilder,
+        RemoveImageOptionsBuilder, TagImageOptionsBuilder,
+    },
 };
+use futures::StreamExt;
 use ramag_domain::{
     ContainerDriver,
     entities::{
-        ContainerEndpointProfile, ContainerListQuery, ContainerPage, DockerConnectionInfo,
-        DockerContainerDetail, DockerContainerPort, DockerContainerSummary, DockerEngineVersion,
-        DockerImageDetail, DockerImageSummary, DockerLabel, DockerMountSummary,
-        DockerNetworkAttachment, DockerNetworkDetail, DockerNetworkSubnet, DockerNetworkSummary,
-        DockerOverview, DockerResourceCounts, DockerVolumeDetail, DockerVolumeSummary,
-        MAX_CONTAINER_LABELS, MAX_CONTAINER_MOUNTS, MAX_CONTAINER_NETWORKS, MAX_CONTAINER_PORTS,
+        ContainerEndpointProfile, ContainerImageOperationKind, ContainerImageOperationRequest,
+        ContainerImageOperationResult, ContainerListQuery, ContainerPage,
+        ContainerRegistryCredential, DockerConnectionInfo, DockerContainerDetail,
+        DockerContainerPort, DockerContainerSummary, DockerEngineVersion, DockerImageDetail,
+        DockerImageSummary, DockerLabel, DockerMountSummary, DockerNetworkAttachment,
+        DockerNetworkDetail, DockerNetworkSubnet, DockerNetworkSummary, DockerOverview,
+        DockerResourceCounts, DockerVolumeDetail, DockerVolumeSummary, MAX_CONTAINER_LABELS,
+        MAX_CONTAINER_MOUNTS, MAX_CONTAINER_NETWORKS, MAX_CONTAINER_PORTS,
         MAX_CONTAINER_REPOSITORY_REFERENCES, MAX_CONTAINER_RESOURCE_ID_BYTES,
         MAX_CONTAINER_RESOURCE_ITEMS,
     },
-    error::{ContainerError, ContainerErrorCategory, DomainError, Result},
+    error::{ContainerError, ContainerErrorCategory, DomainError, READ_ONLY_MESSAGE, Result},
 };
 use serde::Serialize;
 use serde_json::Value;
@@ -248,6 +257,103 @@ impl DockerDriver {
         image_detail(&value)
     }
 
+    async fn execute_image_operation_async(
+        docker: Docker,
+        profile: ContainerEndpointProfile,
+        request: ContainerImageOperationRequest,
+        credential: Option<ContainerRegistryCredential>,
+    ) -> Result<ContainerImageOperationResult> {
+        if profile.read_only {
+            return Err(DomainError::Forbidden(READ_ONLY_MESSAGE.into()));
+        }
+        request.validate().map_err(DomainError::InvalidConfig)?;
+        if let Some(credential) = &credential {
+            credential.validate().map_err(DomainError::InvalidConfig)?;
+        }
+        let docker_credentials = credential.as_ref().map(docker_credentials);
+        let image_id = match request.operation {
+            ContainerImageOperationKind::Pull => {
+                let options = CreateImageOptionsBuilder::default()
+                    .from_image(&request.source_reference)
+                    .build();
+                let mut stream =
+                    docker.create_image(Some(options), None, docker_credentials.clone());
+                let mut image_id = None;
+                while let Some(item) = stream.next().await {
+                    let item =
+                        item.map_err(|error| map_bollard_error("拉取 Docker 镜像", error))?;
+                    if item.error_detail.is_some() {
+                        return Err(image_operation_error("Docker 拉取镜像返回错误"));
+                    }
+                    if item.id.is_some() {
+                        image_id = item.id;
+                    }
+                }
+                image_id
+            }
+            ContainerImageOperationKind::Tag => {
+                let target = request
+                    .target_reference
+                    .as_deref()
+                    .ok_or_else(|| DomainError::InvalidConfig("标记镜像必须指定目标引用".into()))?;
+                let (repository, tag) = split_tag_reference(target)?;
+                docker
+                    .tag_image(
+                        &request.source_reference,
+                        Some(
+                            TagImageOptionsBuilder::default()
+                                .repo(&repository)
+                                .tag(&tag)
+                                .build(),
+                        ),
+                    )
+                    .await
+                    .map_err(|error| map_bollard_error("标记 Docker 镜像", error))?;
+                None
+            }
+            ContainerImageOperationKind::Push => {
+                let options = match split_optional_tag(&request.source_reference)? {
+                    Some(tag) => PushImageOptionsBuilder::default().tag(&tag).build(),
+                    None => PushImageOptionsBuilder::default().build(),
+                };
+                let mut stream =
+                    docker.push_image(&request.source_reference, Some(options), docker_credentials);
+                while let Some(item) = stream.next().await {
+                    let item =
+                        item.map_err(|error| map_bollard_error("推送 Docker 镜像", error))?;
+                    if item.error_detail.is_some() {
+                        return Err(image_operation_error("Docker 推送镜像返回错误"));
+                    }
+                }
+                None
+            }
+            ContainerImageOperationKind::Delete => {
+                let items = docker
+                    .remove_image(
+                        &request.source_reference,
+                        Some(
+                            RemoveImageOptionsBuilder::default()
+                                .force(request.force)
+                                .noprune(false)
+                                .build(),
+                        ),
+                        None,
+                    )
+                    .await
+                    .map_err(|error| map_bollard_error("删除 Docker 镜像", error))?;
+                items
+                    .into_iter()
+                    .find_map(|item| item.deleted.or(item.untagged))
+            }
+        };
+        Ok(ContainerImageOperationResult {
+            operation: request.operation,
+            source_reference: request.source_reference,
+            target_reference: request.target_reference,
+            image_id,
+        })
+    }
+
     async fn list_networks_async(
         docker: Docker,
         _profile: ContainerEndpointProfile,
@@ -394,6 +500,34 @@ impl ContainerDriver for DockerDriver {
         .await
     }
 
+    async fn execute_image_operation(
+        &self,
+        profile: &ContainerEndpointProfile,
+        request: &ContainerImageOperationRequest,
+        credential: Option<&ContainerRegistryCredential>,
+    ) -> Result<ContainerImageOperationResult> {
+        profile.validate().map_err(DomainError::InvalidConfig)?;
+        request.validate().map_err(DomainError::InvalidConfig)?;
+        if let Some(credential) = credential {
+            credential.validate().map_err(DomainError::InvalidConfig)?;
+        }
+        if profile.read_only {
+            return Err(DomainError::Forbidden(READ_ONLY_MESSAGE.into()));
+        }
+        let request = request.clone();
+        let credential = credential.cloned();
+        Self::connect_and(
+            profile,
+            "执行 Docker 镜像操作",
+            move |docker, profile| {
+                Box::pin(Self::execute_image_operation_async(
+                    docker, profile, request, credential,
+                ))
+            },
+        )
+        .await
+    }
+
     async fn list_networks(
         &self,
         profile: &ContainerEndpointProfile,
@@ -458,6 +592,59 @@ fn runtime_error(operation: &'static str) -> DomainError {
         ContainerErrorCategory::Unknown,
         operation,
         "初始化 Docker 查询运行时失败",
+    ))
+}
+
+fn docker_credentials(credential: &ContainerRegistryCredential) -> DockerCredentials {
+    DockerCredentials {
+        username: Some(credential.username.clone()),
+        password: Some(credential.password.clone()),
+        ..DockerCredentials::default()
+    }
+}
+
+fn split_optional_tag(reference: &str) -> Result<Option<String>> {
+    if reference.contains('@') {
+        return Ok(None);
+    }
+    let slash = reference.rfind('/').unwrap_or(0);
+    let Some(colon) = reference.rfind(':') else {
+        return Ok(None);
+    };
+    if colon <= slash || colon + 1 >= reference.len() || colon == 0 {
+        return Ok(None);
+    }
+    Ok(Some(reference[colon + 1..].to_owned()))
+}
+
+fn split_tag_reference(reference: &str) -> Result<(String, String)> {
+    if reference.contains('@') {
+        return Err(DomainError::InvalidConfig(
+            "镜像目标引用必须使用 Tag，不能使用 digest".into(),
+        ));
+    }
+    let slash = reference.rfind('/').unwrap_or(0);
+    let Some(colon) = reference.rfind(':') else {
+        return Err(DomainError::InvalidConfig(
+            "镜像目标引用必须包含 Tag".into(),
+        ));
+    };
+    if colon <= slash || colon == 0 || colon + 1 >= reference.len() {
+        return Err(DomainError::InvalidConfig(
+            "镜像目标引用的 Repository 或 Tag 为空".into(),
+        ));
+    }
+    Ok((
+        reference[..colon].to_owned(),
+        reference[colon + 1..].to_owned(),
+    ))
+}
+
+fn image_operation_error(message: &str) -> DomainError {
+    DomainError::Container(ContainerError::new(
+        ContainerErrorCategory::Protocol,
+        "执行 Docker 镜像操作",
+        message,
     ))
 }
 
@@ -976,6 +1163,34 @@ mod tests {
         assert!(
             matches!(error, DomainError::Container(error) if error.category == ContainerErrorCategory::PermissionDenied && !error.safe_message.contains("secret-body"))
         );
+    }
+
+    #[test]
+    fn splits_registry_port_from_image_tag() {
+        assert_eq!(
+            split_optional_tag("127.0.0.1:15000/library/app:stable").expect("tag"),
+            Some("stable".into())
+        );
+        assert_eq!(
+            split_tag_reference("127.0.0.1:15000/library/app:stable").expect("reference"),
+            ("127.0.0.1:15000/library/app".into(), "stable".into())
+        );
+        assert!(split_tag_reference("library/app@sha256:0123").is_err());
+    }
+
+    #[test]
+    fn blocks_image_operations_before_connecting_read_only_engine() {
+        let profile = ContainerEndpointProfile::local_docker("本机 Docker");
+        let request = ContainerImageOperationRequest::new(
+            ContainerImageOperationKind::Pull,
+            "library/alpine:3.20",
+        );
+        let result =
+            smol::block_on(DockerDriver::new().execute_image_operation(&profile, &request, None));
+        assert!(matches!(
+            result,
+            Err(DomainError::Forbidden(message)) if message == READ_ONLY_MESSAGE
+        ));
     }
 
     #[test]

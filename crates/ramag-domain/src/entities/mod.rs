@@ -42,10 +42,10 @@ pub use connection::{
 };
 pub use container::{
     ContainerEndpointId, ContainerEndpointProfile, ContainerImageOperationKind,
-    ContainerImageOperationPreview, ContainerImageOperationRequest, ContainerListQuery,
-    ContainerPage, ContainerPlatform, DEFAULT_CONTAINER_PAGE_SIZE, DockerConnectionInfo,
-    DockerContainerDetail, DockerContainerPort, DockerContainerSummary, DockerEngineVersion,
-    DockerImageDetail, DockerImageSummary, DockerLabel, DockerMountSummary,
+    ContainerImageOperationPreview, ContainerImageOperationRequest, ContainerImageOperationResult,
+    ContainerListQuery, ContainerPage, ContainerPlatform, DEFAULT_CONTAINER_PAGE_SIZE,
+    DockerConnectionInfo, DockerContainerDetail, DockerContainerPort, DockerContainerSummary,
+    DockerEngineVersion, DockerImageDetail, DockerImageSummary, DockerLabel, DockerMountSummary,
     DockerNetworkAttachment, DockerNetworkDetail, DockerNetworkSubnet, DockerNetworkSummary,
     DockerOverview, DockerResourceCounts, DockerVolumeDetail, DockerVolumeSummary,
     MAX_CONTAINER_CONTEXT_BYTES, MAX_CONTAINER_ENDPOINT_ADDRESS_BYTES,
