@@ -40,9 +40,17 @@ pub use connection::{
     MAX_CONNECTION_REMARK_BYTES, MAX_CONNECTION_SSH_TARGET_BYTES, TlsVerify,
 };
 pub use container::{
-    ContainerEndpointId, ContainerEndpointProfile, ContainerPlatform, MAX_CONTAINER_CONTEXT_BYTES,
+    ContainerEndpointId, ContainerEndpointProfile, ContainerListQuery, ContainerPage,
+    ContainerPlatform, DEFAULT_CONTAINER_PAGE_SIZE, DockerConnectionInfo, DockerContainerDetail,
+    DockerContainerPort, DockerContainerSummary, DockerEngineVersion, DockerImageDetail,
+    DockerImageSummary, DockerLabel, DockerMountSummary, DockerNetworkAttachment,
+    DockerNetworkDetail, DockerNetworkSubnet, DockerNetworkSummary, DockerOverview,
+    DockerResourceCounts, DockerVolumeDetail, DockerVolumeSummary, MAX_CONTAINER_CONTEXT_BYTES,
     MAX_CONTAINER_ENDPOINT_ADDRESS_BYTES, MAX_CONTAINER_ENDPOINT_NAME_BYTES,
-    MAX_CONTAINER_ENDPOINTS, MAX_CONTAINER_NAMESPACE_BYTES,
+    MAX_CONTAINER_ENDPOINTS, MAX_CONTAINER_LABELS, MAX_CONTAINER_MOUNTS,
+    MAX_CONTAINER_NAMESPACE_BYTES, MAX_CONTAINER_NETWORKS, MAX_CONTAINER_PAGE_SIZE,
+    MAX_CONTAINER_PORTS, MAX_CONTAINER_QUERY_BYTES, MAX_CONTAINER_REPOSITORY_REFERENCES,
+    MAX_CONTAINER_RESOURCE_ID_BYTES, MAX_CONTAINER_RESOURCE_ITEMS,
 };
 pub use data_sync::{
     DataSyncProgress, DataSyncRequest, DataSyncScope, DataSyncStage, DataSyncSummary,

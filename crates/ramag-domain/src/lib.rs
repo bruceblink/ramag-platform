@@ -5,13 +5,14 @@ pub mod error;
 pub mod traits;
 
 pub use error::{
-    DomainError, KafkaError, KafkaErrorCategory, MqttError, MqttErrorCategory, Result,
+    ContainerError, ContainerErrorCategory, DomainError, KafkaError, KafkaErrorCategory, MqttError,
+    MqttErrorCategory, Result,
 };
 pub use traits::{
-    Driver, KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaDriver, KafkaMessageTailSink,
-    KafkaMessageTailSinkResult, KafkaProducerDriver, KafkaTransport, KvDriver,
-    MosquittoDynamicSecurityDriver, MosquittoStaticConfigDriver, MqttDriver, MqttTransport,
-    PluginApiVersion, PluginCapability, PluginDescriptor, PluginId, PluginRegistrationError,
-    PluginSettingDefinition, PluginSettingKind, PluginSettingValue, SshDriver, Storage, Tool,
-    ToolMeta,
+    ContainerDriver, Driver, KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaDriver,
+    KafkaMessageTailSink, KafkaMessageTailSinkResult, KafkaProducerDriver, KafkaTransport,
+    KvDriver, MosquittoDynamicSecurityDriver, MosquittoStaticConfigDriver, MqttDriver,
+    MqttTransport, PluginApiVersion, PluginCapability, PluginDescriptor, PluginId,
+    PluginRegistrationError, PluginSettingDefinition, PluginSettingKind, PluginSettingValue,
+    SshDriver, Storage, Tool, ToolMeta,
 };
