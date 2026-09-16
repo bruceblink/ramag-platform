@@ -19,8 +19,8 @@ pub use plugin_lifecycle::{
 pub use tool_registry::{TOOL_ORDER_PREF_KEY, ToolRegistry};
 pub use usecases::{
     AUTO_CHECK_INTERVAL, AccountVerification, AvailableUpdate, ClipboardService, ConnectionService,
-    ContainerService, DataSyncConfirmation, DataSyncExecutionContext, DataSyncGate,
-    DataSyncGatePhase, DataSyncGateSnapshot, DataSyncObjectCatalog, DataSyncPermit,
+    ContainerRegistryService, ContainerService, DataSyncConfirmation, DataSyncExecutionContext,
+    DataSyncGate, DataSyncGatePhase, DataSyncGateSnapshot, DataSyncObjectCatalog, DataSyncPermit,
     DataSyncPreflightReport, DataSyncService, HotkeyState, KafkaService,
     MAX_DATA_SYNC_CATALOG_OBJECTS, MongoService, MqttService, ObjectListingPage,
     ObjectStorageMountResult, ObjectStorageService, PreparedDataSync, RedisService,
