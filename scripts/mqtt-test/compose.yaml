@@ -1,0 +1,23 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.20
+    container_name: ramag-mqtt-test
+    ports:
+      - "127.0.0.1:18883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mosquitto_sub -h 127.0.0.1 -p 1883 -t '$$SYS/broker/version' -C 1 -W 3 >/dev/null
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    labels:
+      ramag.test-suite: "true"
+networks:
+  default:
+    name: ramag-mqtt-test
+    labels:
+      ramag.test-suite: "true"
