@@ -1,10 +1,10 @@
 # Ramag Platform 主线开发计划
 
-> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A、P0-B、PLAT-003 已完成；TERM-001 代码和真实 SSH 端点验收已完成；Kafka 阶段 25 单条消息生产代码、headless UI、本机 Docker KRaft 验收和纯 Rust 读取候选阶段性验证已完成
-> 更新日期：2026-09-11
+> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A、P0-B、PLAT-003 已完成；TERM-001 代码和真实 SSH 端点验收已完成；Kafka 阶段 25 单条消息生产代码、headless UI、本机 Docker KRaft 验收和纯 Rust 读取候选阶段性验证已完成；CMT-002 已进入 Docker 只读查询实现
+> 更新日期：2026-09-16
 > 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台以及跨工具质量与构建流程
 > 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
-> 当前交付切片：`UI-001`，先完成跨工具响应式布局、真实窗口截图和交互验证；Kafka/ksqlDB 新功能暂缓，待 UI 队列稳定后再恢复
+> 当前交付切片：`CMT-002`，先完成 Docker Engine 只读查询的真实服务验收和容器工作台交互；Kubernetes、镜像仓库和生命周期写操作暂不展开
 
 ## 术语与命名规则
 
@@ -50,7 +50,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | SSH/终端 | `alacritty_terminal + GPUI` PTY 核心、SSH/SFTP 工作区、会话状态、每标签重连和 `-L/-R/-D` 参数模型已有；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 补真实 Windows 窗口证据和独立转发状态/停止面板；进入 `KAFKA-001` | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
 | Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail、Metrics Snapshot、Schema Registry 版本浏览、受保护的真实 Kafka JMX Exporter 本机链路和纯 Rust 读取候选已有 | `KAFKA-023` 三个消息定位切片和阶段 27 已完成，继续维护功能矩阵，再补真实 Windows 证据 | 纯 Rust 全能力替换、外部生态大模块和批量消息生产 |
 | 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 按 DBeaver/DataGrip 能力表推进结果查看、大字段恢复、对象导航、执行计划和迁移工作流的功能/UI 对齐 | 把 Redis/MongoDB 强行套用 SQL 语义 |
-| 容器管理工具 | CMT-001 已完成工具入口、Docker/Kubernetes 连接配置模型和空工作台 | 进入 CMT-002，接入本机 Docker Engine 只读查询和连接测试 | 远程明文 Docker TCP、动态插件、Secret 明文和任意 Shell |
+| 容器管理工具 | CMT-001 已完成；CMT-002 已接入 Docker 连接、概览、容器、镜像、网络和数据卷只读查询及详情 UI | 完成本机 Docker Engine 真实查询、Windows named pipe 或受控 HTTPS 端点验收，再进入 CMT-003 | 远程明文 Docker TCP、动态插件、Secret 明文和任意 Shell |
 | 质量与工具链 | stable channel、统一 Cargo 命令、Windows MSVC 路线已建立 | 保持 CI、WSL Linux 验证、源码尺寸和 LF 规则一致 | 为单个平台恢复独立的日常编译命令 |
 
 跨产品的 UI 响应性问题不再单独生成一条长期大路线。出现新的可复现 P0/P1 问题时，按下面的交付切片规则插入当前队列，并在对应专项文档记录实现细节。
@@ -69,11 +69,13 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | `KAFKA-025` | Kafka | `ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-tool-kafka` | 已完成（Docker/headless；真实窗口待补） | `KAFKA-001` | 管理模式单条消息生产、二次确认、只读拒绝、失败保留输入、Broker Partition/Offset/Timestamp 和 Docker 生产回读 |
 | `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
 | `CMT-001` | 容器管理 | `ramag-domain`、`ramag-tool-container`、`ramag-bin`、`ramag-ui` | 已完成 | `PLAT-003` | 工具入口、平台区分、连接配置校验、空工作台和 360/800/1024/1440 headless 布局测试 |
-| `CMT-002` | 容器管理 | `ramag-domain`、`ramag-app`、`ramag-infra-container`、`ramag-tool-container` | 待开始 | `CMT-001` | 本机 Docker Engine 连接测试、版本、容器/镜像/网络/数据卷只读查询和权限错误 |
+| `CMT-002` | 容器管理 | `ramag-domain`、`ramag-app`、`ramag-infra-container-docker`、`ramag-tool-container` | 进行中 | `CMT-001` | 本机 Docker Engine 连接测试、版本、容器/镜像/网络/数据卷只读查询和权限错误；当前仍缺真实 Engine 查询与真实 Windows UI 证据 |
 | `UI-001` | 跨工具 UI | `ramag-ui`、各 `ramag-tool-*` | 进行中（数据库会话紧凑窗口切片已验收，其他工作台证据待补） | `PLAT-003` | 共享弹窗、工具栏、列表和详情区在 360/1024/1440 headless 窗口内换行、滚动且不越界；真实窗口证据单独记录 |
 | `DB-002` | 数据库 | `ramag-tool-dbclient`、`ramag-ui` | 待开始 | `DB-001` | 建立 DBeaver/DataGrip 功能矩阵，逐项实现并验收结果、对象导航、执行计划和迁移 UI，不以静态截图宣称完成 |
 | `KAFKA-023` | Kafka | `ramag-tool-kafka`、`ramag-ui`、`ramag-infra-kafka` | 开发中（三个定位切片和受保护的真实 JMX Exporter 本机链路已完成） | `KAFKA-025` | 功能矩阵已建立；继续补真实窗口证据和下一项 AKHQ/Offset Explorer 能力 |
 | `QUALITY-001` | 质量与工具链 | workspace 维护者 | 持续任务 | 每个交付切片 | stable toolchain、统一 Cargo 命令、LF、CI 过滤器和三平台发布证据保持一致 |
+
+`CMT-002` 实现记录（2026-09-16）：新增 `ramag-infra-container-docker`，使用 `bollard` 0.21.1 接入 Unix socket、Windows named pipe 和 HTTPS；拒绝明文 `tcp://`/`http://`，把 Docker API 错误转换为安全分类，并限制响应大小、列表数量、分页和详情字段。`ramag-app` 新增 `ContainerService`，`ramag-tool-container` 首屏读取概览，按资源页签读取容器、镜像、网络和数据卷列表，点击列表行读取详情；`ramag-tool-container` headless 测试 2 项、Docker 适配器单元测试 3 项、`ramag-app` 单元测试 209 项通过，`ramag-bin` 全目标 Clippy、workspace fmt 和 `git diff --check` 通过。当前 Windows 环境的 Docker CLI 通过 WSL `unix:///var/run/docker.sock` 工作，系统不存在 `\\.\pipe\docker_engine`，因此 Windows named pipe 集成测试暂未取得真实 Engine 结果；Linux/WSL 真实 socket 测试因缺少本地 `hyperlocal` 缓存且 crates.io 下载超时未完成。不能把本次编译和 headless 结果写成 CMT-002 已验收，下一步先补真实 Engine 和真实 Windows UI 证据。
 
 `UI-001` 验收记录（2026-09-07）：共享弹窗的实际打开测试发现导入表单在 360×240 窗口中仍宽 414px，左侧越界 27px，说明此前仅调整内容宽度不足以修复 Dialog 外框。当前修复统一约束快捷键、最近项目和导入弹窗的宽度、顶部偏移及内容高度；导入操作区保留在滚动区外。3 项直接打开弹窗的 headless 测试覆盖 360×240、360×640、1024×768、1440×900、打开后缩放、取消、最近项目滚动/搜索/打开和快捷键录制错误/退出。真实窗口验证未完成：本次 Computer Use 的 `list_windows()` 返回空列表，安装的 `@oai/sky` 也没有技能要求的 `documentation` 接口。其他工作台仍须逐项检查，不能由这三类弹窗的结果推断全软件已适配。
 
