@@ -1,6 +1,6 @@
 # Docker 与 Kubernetes 可视化管理工具设计
 
-> 状态：计划中。本文定义下一项 Ramag 内置工具的产品范围、技术边界和分期，不会在本提交中接入 Docker Engine 或 Kubernetes 集群。
+> 状态：CMT-001 已完成，CMT-002 待开始。本文件定义容器管理工具的产品范围、技术边界和分期；当前实现只提供连接配置模型和空工作台，不接入 Docker Engine 或 Kubernetes 集群。
 >
 > 适用范围：本机 Docker Engine、受控远程 Docker Engine，以及通过 kubeconfig 接入的 Kubernetes 集群。工具作为 Ramag 静态工具插件实现，暂定 crate 名称为 ramag-tool-container。
 

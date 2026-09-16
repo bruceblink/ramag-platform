@@ -228,6 +228,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                 let ssh_view = create_ssh_view(ssh_service.clone(), window, cx);
                 let object_storage_view =
                     create_object_storage_view(object_storage_service.clone(), window, cx);
+                let container_view = create_container_view(window, cx);
                 let system_view = create_system_view(window, cx);
                 let settings_view = cx.new(|cx| {
                     SettingsView::new(
@@ -262,6 +263,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     }
                     shell.register_tool_view(SshTool::ID, ssh_view.into());
                     shell.register_tool_view(ObjectStorageTool::ID, object_storage_view.into());
+                    shell.register_tool_view(ContainerTool::ID, container_view.into());
                     shell.register_tool_view(SystemTool::ID, system_view.into());
 
                     let home_subscription: Subscription = cx.subscribe_in(

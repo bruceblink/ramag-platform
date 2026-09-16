@@ -1,5 +1,6 @@
 pub mod clipboard;
 pub mod connection;
+pub mod container;
 pub mod data_sync;
 pub mod ddl;
 pub mod git;
@@ -37,6 +38,11 @@ pub use connection::{
     MAX_CONNECTION_ENVIRONMENT_BYTES, MAX_CONNECTION_HOST_BYTES, MAX_CONNECTION_IDENTIFIER_BYTES,
     MAX_CONNECTION_NAME_BYTES, MAX_CONNECTION_PASSWORD_BYTES, MAX_CONNECTION_PATH_BYTES,
     MAX_CONNECTION_REMARK_BYTES, MAX_CONNECTION_SSH_TARGET_BYTES, TlsVerify,
+};
+pub use container::{
+    ContainerEndpointId, ContainerEndpointProfile, ContainerPlatform, MAX_CONTAINER_CONTEXT_BYTES,
+    MAX_CONTAINER_ENDPOINT_ADDRESS_BYTES, MAX_CONTAINER_ENDPOINT_NAME_BYTES,
+    MAX_CONTAINER_ENDPOINTS, MAX_CONTAINER_NAMESPACE_BYTES,
 };
 pub use data_sync::{
     DataSyncProgress, DataSyncRequest, DataSyncScope, DataSyncStage, DataSyncSummary,

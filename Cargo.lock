@@ -6863,6 +6863,7 @@ dependencies = [
  "ramag-infra-tunnel",
  "ramag-infra-update",
  "ramag-tool-clipboard",
+ "ramag-tool-container",
  "ramag-tool-dbclient",
  "ramag-tool-kafka",
  "ramag-tool-mongodb",
@@ -7182,6 +7183,16 @@ dependencies = [
  "schemars",
  "serde",
  "tracing",
+]
+
+[[package]]
+name = "ramag-tool-container"
+version = "0.1.2"
+dependencies = [
+ "gpui",
+ "gpui-component",
+ "ramag-domain",
+ "ramag-ui",
 ]
 
 [[package]]

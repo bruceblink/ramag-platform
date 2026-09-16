@@ -68,6 +68,7 @@ pub(super) fn build_plugin_host() -> Arc<StaticPluginHost> {
     register_builtin_tool(&host, Arc::new(VcsTool::new()));
     register_builtin_tool(&host, Arc::new(SshTool::new()));
     register_builtin_tool(&host, Arc::new(ObjectStorageTool::new()));
+    register_builtin_tool(&host, Arc::new(ContainerTool::new()));
     register_builtin_tool(&host, Arc::new(SystemTool::new()));
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     register_builtin_tool(&host, Arc::new(ClipboardTool::new()));

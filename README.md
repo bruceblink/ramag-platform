@@ -39,7 +39,7 @@
 
 ## 项目状态 / Project status
 
-本仓库 `bruceblink/ramag-platform` 是基于 [`tools-rs/ramag`](https://github.com/tools-rs/ramag) 演进的独立下游项目。应用仍使用 `Ramag` 品牌和现有 `ramag-*` crate，以保留可运行的数据库、Git、SSH、对象存储和剪贴板工作台；长期方向是把这些工具逐步收敛为可扩展的平台底座与内置插件。
+本仓库 `bruceblink/ramag-platform` 是基于 [`tools-rs/ramag`](https://github.com/tools-rs/ramag) 演进的独立下游项目。应用仍使用 `Ramag` 品牌和现有 `ramag-*` crate，提供数据库、Git、SSH、对象存储、容器管理和剪贴板工作台；长期方向是把这些工具逐步收敛为可扩展的平台底座与内置插件。
 
 This repository, `bruceblink/ramag-platform`, is an independent downstream project based on [`tools-rs/ramag`](https://github.com/tools-rs/ramag). The application keeps the `Ramag` product name and existing `ramag-*` crates while the project evolves the current workspaces into an extensible platform with built-in plugins.
 
@@ -47,10 +47,10 @@ This repository, `bruceblink/ramag-platform`, is an independent downstream proje
 |---|---|
 | 项目身份 | `bruceblink/ramag-platform`，独立下游项目；不代表 `tools-rs/ramag` 官方主线 |
 | 代码基线 | 沿用 Ramag `0.0.5` workspace 基线，并包含本仓库后续的 UI 修复与平台设计记录 |
-| 独立发布 | 当前尚无本项目独立 tag、Release 或安装包；不要把上游安装包当成本项目发布物 |
+| 独立发布 | `v0.1.2` 已发布三平台安装包、更新清单和 SHA-256 清单；不要把上游安装包当成本项目发布物 |
 | 插件平台 | 插件平台设计已写入 [`docs/plugin-platform-roadmap.md`](docs/plugin-platform-roadmap.md)；当前仍是编译期静态工具装配，不支持第三方动态插件或插件市场 |
 | 上游协作 | 通用修复可整理后向 `tools-rs/ramag` 提交独立 PR；平台化架构和专属功能在本仓库继续演进 |
-| 支持平台 | Linux x86_64、macOS 12+（Apple Silicon / Intel）、Windows 10/11 x64；本项目尚未完成独立安装包发布 |
+| 支持平台 | Linux x86_64、macOS 12+（Apple Silicon / Intel）、Windows 10/11 x64；`v0.1.2` 已完成三平台安装包发布 |
 | 数据边界 | 连接配置、凭据与剪贴历史保存于本机；Ramag 不提供托管服务，也不主动上传这些数据 |
 
 Ramag Platform is under active independent development. Contributions, reproducible feedback, and security reports are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
@@ -351,7 +351,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，采用务实的 Clean Archi
 
 ```text
 ramag-bin              应用入口、依赖注入、快捷键与平台生命周期
-├── ramag-tool-*       数据库、Redis、MongoDB、Git、SSH、云存储、剪贴板内置工具
+├── ramag-tool-*       数据库、Redis、MongoDB、Git、SSH、云存储、容器管理、剪贴板内置工具
 ├── ramag-ui           GPUI 主壳、主题和共享组件
 ├── ramag-infra-*      数据库、Git、SSH/SFTP、云存储、更新、剪贴板、隧道和本地存储适配器
 ├── ramag-terminal     GPUI 内嵌终端内核与视图

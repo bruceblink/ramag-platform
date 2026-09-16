@@ -1,0 +1,19 @@
+[package]
+name = "ramag-tool-container"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Ramag Docker 与 Kubernetes 容器管理工具"
+
+[lints]
+workspace = true
+
+[dependencies]
+ramag-domain = { workspace = true }
+ramag-ui = { workspace = true }
+gpui = { workspace = true }
+gpui-component = { workspace = true }
+
+[dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }

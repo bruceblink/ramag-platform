@@ -65,6 +65,7 @@ use ramag_tool_clipboard::{
     ClipboardImageCache, ClipboardTool, SelectNextClip, SelectPrevClip,
     create_clipboard_drawer_with_cache, create_clipboard_view,
 };
+use ramag_tool_container::{ContainerTool, create_container_view};
 use ramag_tool_dbclient::{
     DbClientTool, ExplainQuery, FindInResults, FormatSql, NewQueryTab, RunQuery,
     RunStatementAtCursor, ToggleRedisConsole, ToggleSqlEditor, create_dbclient_view,

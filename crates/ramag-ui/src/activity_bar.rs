@@ -169,6 +169,7 @@ impl ActivityBar {
             "clipboard" => icons::clipboard(),
             "ssh" => Icon::new(IconName::SquareTerminal),
             "system" => icons::gauge(),
+            "container" => Icon::new(IconName::HardDrive),
             "kafka" => Icon::new(IconName::Network),
             "mqtt" => icons::mqtt(),
             "jsonfmt" => Icon::new(IconName::File),

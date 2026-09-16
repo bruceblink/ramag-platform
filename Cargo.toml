@@ -28,6 +28,7 @@ members = [
     "crates/ramag-tool-clipboard",
     "crates/ramag-tool-ssh",
     "crates/ramag-tool-object-storage",
+    "crates/ramag-tool-container",
     "crates/ramag-tool-system",
     "crates/ramag-ui",
     "crates/ramag-bin",
@@ -70,6 +71,7 @@ ramag-tool-vcs = { path = "crates/ramag-tool-vcs" }
 ramag-tool-clipboard = { path = "crates/ramag-tool-clipboard" }
 ramag-tool-ssh = { path = "crates/ramag-tool-ssh" }
 ramag-tool-object-storage = { path = "crates/ramag-tool-object-storage" }
+ramag-tool-container = { path = "crates/ramag-tool-container" }
 ramag-tool-system = { path = "crates/ramag-tool-system" }
 ramag-ui = { path = "crates/ramag-ui" }
 
