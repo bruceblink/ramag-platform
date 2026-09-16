@@ -29,10 +29,10 @@ use gpui::{
 };
 use gpui_component::Root;
 use ramag_app::{
-    AUTO_CHECK_INTERVAL, ClipboardService, ConnectionService, DataSyncGate, DataSyncService,
-    KafkaService, MongoService, MqttService, ObjectStorageService, PluginLifecycleReport,
-    RedisService, SshService, StaticPluginAdapter, StaticPluginHost, TOOL_ORDER_PREF_KEY,
-    ToolRegistry, UpdateService,
+    AUTO_CHECK_INTERVAL, ClipboardService, ConnectionService, ContainerService, DataSyncGate,
+    DataSyncService, KafkaService, MongoService, MqttService, ObjectStorageService,
+    PluginLifecycleReport, RedisService, SshService, StaticPluginAdapter, StaticPluginHost,
+    TOOL_ORDER_PREF_KEY, ToolRegistry, UpdateService,
 };
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use ramag_domain::traits::ClipboardDriver;
@@ -210,6 +210,7 @@ fn main() {
         }
     };
     let update_service = build_update_service(storage.clone());
+    let container_service: Arc<ContainerService> = build_container_service();
 
     // dark 使用深色主题；其余值（含旧 system）使用浅色主题。
     let startup_preferences = read_preferences(
@@ -291,6 +292,7 @@ fn main() {
         clipboard_service,
         ssh_service,
         object_storage_service,
+        container_service,
         update_service,
         storage,
     };

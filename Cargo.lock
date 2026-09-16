@@ -6933,6 +6933,7 @@ dependencies = [
  "ramag-app",
  "ramag-domain",
  "ramag-infra-clipboard",
+ "ramag-infra-container-docker",
  "ramag-infra-git",
  "ramag-infra-kafka",
  "ramag-infra-mongodb",
@@ -7290,6 +7291,7 @@ version = "0.1.2"
 dependencies = [
  "gpui",
  "gpui-component",
+ "ramag-app",
  "ramag-domain",
  "ramag-ui",
 ]

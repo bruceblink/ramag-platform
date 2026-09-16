@@ -10,6 +10,7 @@ description = "Ramag Docker 与 Kubernetes 容器管理工具"
 workspace = true
 
 [dependencies]
+ramag-app = { workspace = true }
 ramag-domain = { workspace = true }
 ramag-ui = { workspace = true }
 gpui = { workspace = true }

@@ -1,19 +1,24 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
-//! Docker 与 Kubernetes 容器管理工具的静态入口和空工作台。
-//!
-//! CMT-001 只交付平台区分、连接配置领域模型和可运行的空工作台；资源读取从 CMT-002 开始。
+//! Docker 与 Kubernetes 容器管理工具的静态入口和工作台。
 
 mod view;
 
+use std::sync::Arc;
+
 use gpui::{App, AppContext as _, Entity, Window};
+use ramag_app::ContainerService;
 use ramag_domain::traits::{Tool, ToolMeta};
 
 pub use view::{ContainerSection, ContainerView};
 
 /// 创建容器管理工具视图；连接读取和资源操作在后续切片接入。
-pub fn create_container_view(window: &mut Window, cx: &mut App) -> Entity<ContainerView> {
-    cx.new(|cx| ContainerView::new(window, cx))
+pub fn create_container_view(
+    service: Arc<ContainerService>,
+    window: &mut Window,
+    cx: &mut App,
+) -> Entity<ContainerView> {
+    cx.new(|cx| ContainerView::with_service(service, window, cx))
 }
 
 /// 容器管理工具在 Activity Bar 中显示的注册信息。

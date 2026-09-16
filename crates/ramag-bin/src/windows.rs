@@ -21,6 +21,7 @@ pub(super) struct AppDeps {
     pub(super) clipboard_service: Option<Arc<ClipboardService>>,
     pub(super) ssh_service: Arc<SshService>,
     pub(super) object_storage_service: Arc<ObjectStorageService>,
+    pub(super) container_service: Arc<ContainerService>,
     pub(super) update_service: Option<Arc<UpdateService>>,
     pub(super) storage: Arc<dyn Storage>,
 }
@@ -141,6 +142,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         clipboard_service,
         ssh_service,
         object_storage_service,
+        container_service,
         update_service,
         storage,
     } = deps;
@@ -228,7 +230,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                 let ssh_view = create_ssh_view(ssh_service.clone(), window, cx);
                 let object_storage_view =
                     create_object_storage_view(object_storage_service.clone(), window, cx);
-                let container_view = create_container_view(window, cx);
+                let container_view = create_container_view(container_service.clone(), window, cx);
                 let system_view = create_system_view(window, cx);
                 let settings_view = cx.new(|cx| {
                     SettingsView::new(

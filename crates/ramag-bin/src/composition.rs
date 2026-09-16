@@ -242,3 +242,9 @@ pub(super) fn build_update_service(storage: Arc<dyn Storage>) -> Option<Arc<Upda
         }
     }
 }
+
+pub(super) fn build_container_service() -> Arc<ramag_app::ContainerService> {
+    let driver: Arc<dyn ramag_domain::traits::ContainerDriver> =
+        Arc::new(ramag_infra_container_docker::DockerDriver::new());
+    Arc::new(ramag_app::ContainerService::new(driver))
+}
