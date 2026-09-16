@@ -316,6 +316,51 @@ impl MqttView {
             let mut messages = v_flex().gap(px(6.0));
             for message in self.messages.iter().rev() {
                 let payload = String::from_utf8_lossy(&message.payload);
+                let mut metadata = h_flex()
+                    .debug_selector(|| "mqtt-subscribe-message-meta".into())
+                    .flex_wrap()
+                    .min_w_0()
+                    .gap(px(8.0))
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .child(message.topic.clone()),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child(format!(
+                                "QoS {} · {}",
+                                message.qos.as_u8(),
+                                message.received_at
+                            )),
+                    );
+                if message.retain {
+                    metadata = metadata.child(message_badge(
+                        "mqtt-subscribe-message-retained",
+                        "Retain",
+                        &theme,
+                    ));
+                }
+                if message.duplicate {
+                    metadata = metadata.child(message_badge(
+                        "mqtt-subscribe-message-duplicate",
+                        "Dup",
+                        &theme,
+                    ));
+                }
+                if !message.user_properties.is_empty() {
+                    metadata = metadata.child(message_badge(
+                        "mqtt-subscribe-message-properties",
+                        format!("属性 {}", message.user_properties.len()),
+                        &theme,
+                    ));
+                }
                 messages = messages.child(
                     v_flex()
                         .gap(px(3.0))
@@ -323,32 +368,7 @@ impl MqttView {
                         .border_1()
                         .border_color(theme.border)
                         .rounded(px(5.0))
-                        .child(
-                            h_flex()
-                                .debug_selector(|| "mqtt-subscribe-message-meta".into())
-                                .flex_wrap()
-                                .min_w_0()
-                                .gap(px(8.0))
-                                .child(
-                                    div()
-                                        .text_xs()
-                                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                                        .flex_1()
-                                        .min_w_0()
-                                        .truncate()
-                                        .child(message.topic.clone()),
-                                )
-                                .child(
-                                    div()
-                                        .text_xs()
-                                        .text_color(theme.muted_foreground)
-                                        .child(format!(
-                                            "QoS {} · {}",
-                                            message.qos.as_u8(),
-                                            message.received_at
-                                        )),
-                                ),
-                        )
+                        .child(metadata)
                         .child(
                             div()
                                 .text_xs()

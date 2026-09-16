@@ -17,7 +17,7 @@ use ramag_domain::entities::{
     ConnectionConfig, ConnectionId, MosquittoAcl, MosquittoAclDecision, MosquittoAclType,
     MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoRole, MosquittoRoleBinding,
     MqttBrokerSnapshot, MqttMessage, MqttProfile, MqttQos, MqttTopicObservation, MqttTopicSource,
-    QueryRecord, QueryRecordId,
+    MqttUserProperty, QueryRecord, QueryRecordId,
 };
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, Storage};
@@ -480,10 +480,13 @@ fn mqtt_message_operations_reflow_inside_supported_window_widths(cx: &mut TestAp
             topic: "sensors/warehouse/temperature/very-long-topic-name".into(),
             payload: vec![b'x'; 512],
             qos: MqttQos::AtLeastOnce,
-            retain: false,
-            duplicate: false,
+            retain: true,
+            duplicate: true,
             received_at: Utc::now(),
-            user_properties: Vec::new(),
+            user_properties: vec![MqttUserProperty {
+                name: "source".into(),
+                value: "headless-test".into(),
+            }],
         });
         cx.notify();
     });
@@ -505,6 +508,9 @@ fn mqtt_message_operations_reflow_inside_supported_window_widths(cx: &mut TestAp
             "mqtt-subscribe-qos",
             "mqtt-subscribe-actions",
             "mqtt-subscribe-message-meta",
+            "mqtt-subscribe-message-retained",
+            "mqtt-subscribe-message-duplicate",
+            "mqtt-subscribe-message-properties",
         ] {
             let bounds = visual_cx
                 .debug_bounds(selector)

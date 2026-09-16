@@ -371,6 +371,24 @@ fn metric(label: &'static str, value: usize, theme: &gpui_component::Theme) -> g
         )
 }
 
+/// Renders compact message metadata without placing payload text in the header.
+/// The selector stays stable so headless layout tests can check each flag at narrow widths.
+fn message_badge(
+    selector: &'static str,
+    label: impl Into<String>,
+    theme: &gpui_component::Theme,
+) -> gpui::Div {
+    div()
+        .debug_selector(move || selector.into())
+        .text_xs()
+        .px(px(4.0))
+        .text_color(theme.muted_foreground)
+        .border_1()
+        .border_color(theme.border)
+        .rounded(px(3.0))
+        .child(label.into())
+}
+
 fn capability_items(capabilities: MqttTransportCapabilities) -> [(&'static str, bool); 8] {
     [
         ("Native 构建可用", capabilities.build_available),
