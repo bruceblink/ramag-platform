@@ -7,7 +7,7 @@ use async_channel::{Receiver, Sender, bounded};
 use async_trait::async_trait;
 use gpui::{
     AppContext as _, Context, IntoElement, Modifiers, ParentElement as _, Render, Styled as _,
-    TestAppContext, VisualTestContext, Window, point,
+    TestAppContext, VisualTestContext, Window, point, px, size,
 };
 use ramag_app::MqttService;
 use ramag_domain::entities::{
@@ -269,4 +269,44 @@ fn mqtt_subscription_stays_stopping_until_driver_returns(cx: &mut TestAppContext
     assert!(view.read_with(visual_cx, |view, _| {
         !view.subscription_running && !view.subscription_stopping
     }));
+}
+
+#[gpui::test]
+fn mqtt_message_controls_keep_inputs_and_actions_bounded(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(super::visual_tests::NoopMqttDriver),
+        Arc::new(super::visual_tests::NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| TestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    visual_cx.simulate_resize(size(px(1440.0), px(900.0)));
+    view.update(visual_cx, |view, cx| {
+        view.loading_profiles = false;
+        view.section = MqttSection::Publish;
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+
+    let main = visual_cx.debug_bounds("mqtt-main").expect("主工作区应渲染");
+    for selector in ["mqtt-publish-topic-input", "mqtt-subscribe-filter-input"] {
+        if selector == "mqtt-subscribe-filter-input" {
+            click(visual_cx, "mqtt-tab-Subscribe");
+            visual_cx.run_until_parked();
+        }
+        let bounds = visual_cx
+            .debug_bounds(selector)
+            .expect("Topic 输入框应参与布局");
+        assert!(bounds.size.width >= px(180.0) && bounds.right() <= main.right());
+    }
+    let actions = visual_cx
+        .debug_bounds("mqtt-subscribe-actions")
+        .expect("订阅操作区应参与布局");
+    assert!(actions.size.width < main.size.width / 2.0);
 }

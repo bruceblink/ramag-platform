@@ -259,3 +259,5 @@ MQTT-003 未保存连接参数生效修复（2026-09-16）：发布和订阅操�
 MQTT-004 订阅停止状态修复（2026-09-16）：停止订阅后保留“正在停止订阅”状态，直到驱动真正返回；停止期间禁用重复停止、再次启动、配置切换和新建配置，避免同一 Profile 的旧连接尚未断开时创建第二条订阅连接。新增阻塞驱动 headless 回归测试覆盖停止信号与驱动返回之间的状态，以及返回后的恢复；`ramag-tool-mqtt` 库测试 12 项、workspace Clippy、格式检查和 `git diff --check` 通过。真实 Windows 窗口和远端 Broker 操作尚未执行，不能将 headless 结果描述为真实窗口验证。
 
 MQTT-005 订阅消息元数据可见性（2026-09-16）：订阅消息卡片在 Topic、QoS 和接收时间之外显示 Retain、Dup 以及 MQTT 5 User Property 数量；元数据使用可换行的紧凑标记，长 Topic 和窄窗口仍保持在消息内容区内。`mqtt_message_operations_reflow_inside_supported_window_widths` 覆盖四种窗口宽度并检查三类标记的布局边界。真实 Windows 窗口和远端 Broker 操作尚未执行，不能将 headless 验收描述为真实窗口验证。
+
+MQTT-006 MQTT 原生窗口集成验收与操作区收缩（2026-09-16）：真实 Windows MSVC Debug 窗口验证订阅 Topic Filter 在 1440px 中保持消息内容区宽度并可粘贴 `ui/test/#`，`开始订阅`和`停止订阅`按钮按内容宽度显示；连接本机 Docker `ramag-mqtt-test`（`eclipse-mosquitto:2.0.20`，`127.0.0.1:18883`）后，桌面订阅窗口收到 retained 消息并显示 `Retain`，收到 MQTT 5 User Property 后显示`属性 1`，停止订阅后回到可启动状态。截图保存在 `artifacts/ui-screenshots/mqtt-native-subscribe-after-fix.png`、`mqtt-native-topic-entered.png`、`mqtt-native-retained-received.png` 和 `mqtt-native-user-property-received.png`；本机服务测试结束后清理 `ui/test/message` 保留消息。

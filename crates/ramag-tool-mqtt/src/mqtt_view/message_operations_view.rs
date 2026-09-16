@@ -165,19 +165,23 @@ impl MqttView {
                             .w_full()
                             .min_w_0(),
                     ),
-                ),
+                )
+                .w_full(),
             )
-            .child(field(
-                "Payload（UTF-8）",
-                input_frame(
-                    "mqtt-publish-payload-input",
+            .child(
+                field(
+                    "Payload（UTF-8）",
+                    input_frame(
+                        "mqtt-publish-payload-input",
                         Input::new(&self.publish_payload)
                             .h(px(140.0))
                             .small()
                             .w_full()
                             .min_w_0(),
-                ),
-            ))
+                    ),
+                )
+                .w_full(),
+            )
             .child(
                 row()
                     .debug_selector(|| "mqtt-publish-options".into())
@@ -200,6 +204,7 @@ impl MqttView {
             .child(
                 div()
                     .debug_selector(|| "mqtt-publish-actions".into())
+                    .self_start()
                     .when(window.viewport_size().width < px(760.0), |actions| {
                         actions.w_full()
                     })
@@ -258,7 +263,8 @@ impl MqttView {
                                     .min_w_0(),
                             ),
                     ),
-                ),
+                )
+                .w_full(),
             );
         body = body.child(
             row()
@@ -299,6 +305,7 @@ impl MqttView {
         body = body.child(
             div()
                 .debug_selector(|| "mqtt-subscribe-actions".into())
+                .self_start()
                 .when(window.viewport_size().width < px(760.0), |actions| {
                     actions.w_full()
                 })
