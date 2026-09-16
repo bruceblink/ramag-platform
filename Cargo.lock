@@ -7016,6 +7016,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ramag-infra-container-registry"
+version = "0.1.2"
+dependencies = [
+ "async-trait",
+ "ramag-domain",
+ "reqwest 0.13.4",
+ "serde",
+ "serde_json",
+ "smol",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "ramag-infra-git"
 version = "0.1.2"
 dependencies = [

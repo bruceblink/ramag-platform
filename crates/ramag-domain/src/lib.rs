@@ -4,12 +4,18 @@ pub mod entities;
 pub mod error;
 pub mod traits;
 
+pub use entities::{
+    ContainerRegistryCredential, ContainerRegistryId, ContainerRegistryInfo,
+    ContainerRegistryProfile, ContainerRegistryRepository, ContainerRegistryTag,
+    MAX_CONTAINER_REGISTRY_REPOSITORIES, MAX_CONTAINER_REGISTRY_REPOSITORY_BYTES,
+    MAX_CONTAINER_REGISTRY_TAG_BYTES, MAX_CONTAINER_REGISTRY_TAGS,
+};
 pub use error::{
     ContainerError, ContainerErrorCategory, DomainError, KafkaError, KafkaErrorCategory, MqttError,
     MqttErrorCategory, Result,
 };
 pub use traits::{
-    ContainerDriver, Driver, KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaDriver,
+    ContainerDriver, ContainerRegistryDriver, Driver, KafkaAdminDriver, KafkaBrokerMetricsDriver,
     KafkaMessageTailSink, KafkaMessageTailSinkResult, KafkaProducerDriver, KafkaTransport,
     KvDriver, MosquittoDynamicSecurityDriver, MosquittoStaticConfigDriver, MqttDriver,
     MqttTransport, PluginApiVersion, PluginCapability, PluginDescriptor, PluginId,
