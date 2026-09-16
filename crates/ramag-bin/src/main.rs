@@ -65,7 +65,9 @@ use ramag_tool_clipboard::{
     ClipboardImageCache, ClipboardTool, SelectNextClip, SelectPrevClip,
     create_clipboard_drawer_with_cache, create_clipboard_view,
 };
-use ramag_tool_container::{ContainerTool, create_container_view};
+use ramag_tool_container::{
+    ContainerTool, create_container_view, create_container_view_with_registry,
+};
 use ramag_tool_dbclient::{
     DbClientTool, ExplainQuery, FindInResults, FormatSql, NewQueryTab, RunQuery,
     RunStatementAtCursor, ToggleRedisConsole, ToggleSqlEditor, create_dbclient_view,
@@ -211,6 +213,17 @@ fn main() {
     };
     let update_service = build_update_service(storage.clone());
     let container_service: Arc<ContainerService> = build_container_service();
+    let container_registry_service = match build_container_registry_service() {
+        Ok(service) => Some(service),
+        Err(error) => {
+            warn!(
+                operation = "container_registry_init",
+                error = %error,
+                "镜像仓库查询模块初始化失败"
+            );
+            None
+        }
+    };
 
     // dark 使用深色主题；其余值（含旧 system）使用浅色主题。
     let startup_preferences = read_preferences(
@@ -293,6 +306,7 @@ fn main() {
         ssh_service,
         object_storage_service,
         container_service,
+        container_registry_service,
         update_service,
         storage,
     };

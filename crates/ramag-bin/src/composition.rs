@@ -248,3 +248,12 @@ pub(super) fn build_container_service() -> Arc<ramag_app::ContainerService> {
         Arc::new(ramag_infra_container_docker::DockerDriver::new());
     Arc::new(ramag_app::ContainerService::new(driver))
 }
+
+pub(super) fn build_container_registry_service()
+-> anyhow::Result<Arc<ramag_app::ContainerRegistryService>> {
+    let driver = ramag_infra_container_registry::RegistryHttpDriver::new()
+        .map_err(|error| anyhow::anyhow!("初始化镜像仓库基础设施失败：{}", error.user_message()))?;
+    Ok(Arc::new(ramag_app::ContainerRegistryService::new(
+        Arc::new(driver),
+    )))
+}

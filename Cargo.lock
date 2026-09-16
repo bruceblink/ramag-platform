@@ -6934,6 +6934,7 @@ dependencies = [
  "ramag-domain",
  "ramag-infra-clipboard",
  "ramag-infra-container-docker",
+ "ramag-infra-container-registry",
  "ramag-infra-git",
  "ramag-infra-kafka",
  "ramag-infra-mongodb",

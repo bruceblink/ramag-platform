@@ -43,6 +43,7 @@ ramag-infra-update = { workspace = true }
 ramag-infra-kafka = { workspace = true, features = ["cmake-build"] }
 ramag-infra-mqtt = { workspace = true, features = ["native"] }
 ramag-infra-container-docker = { workspace = true }
+ramag-infra-container-registry = { workspace = true }
 
 # GPUI
 gpui = { workspace = true }

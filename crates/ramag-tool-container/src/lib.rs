@@ -7,7 +7,7 @@ mod view;
 use std::sync::Arc;
 
 use gpui::{App, AppContext as _, Entity, Window};
-use ramag_app::ContainerService;
+use ramag_app::{ContainerRegistryService, ContainerService};
 use ramag_domain::traits::{Tool, ToolMeta};
 
 pub use view::{ContainerSection, ContainerView};
@@ -19,6 +19,15 @@ pub fn create_container_view(
     cx: &mut App,
 ) -> Entity<ContainerView> {
     cx.new(|cx| ContainerView::with_service(service, window, cx))
+}
+
+pub fn create_container_view_with_registry(
+    service: Arc<ContainerService>,
+    registry_service: Arc<ContainerRegistryService>,
+    window: &mut Window,
+    cx: &mut App,
+) -> Entity<ContainerView> {
+    cx.new(|cx| ContainerView::with_services(service, registry_service, window, cx))
 }
 
 /// 容器管理工具在 Activity Bar 中显示的注册信息。

@@ -1,6 +1,7 @@
 //! 容器管理空工作台的 headless 布局测试。
 
-use gpui::{AppContext as _, Bounds, Pixels, TestAppContext, px, size};
+use gpui::Modifiers;
+use gpui::{AppContext as _, Bounds, MouseButton, Pixels, TestAppContext, px, size};
 use gpui_component::Root;
 
 use super::ContainerView;
@@ -12,6 +13,13 @@ fn assert_inside(parent: Bounds<Pixels>, child: Bounds<Pixels>, label: &str) {
             && child.right() <= parent.right()
             && child.bottom() <= parent.bottom(),
         "{label} 越出父容器：parent={parent:?}, child={child:?}"
+    );
+}
+
+fn assert_horizontal_inside(parent: Bounds<Pixels>, child: Bounds<Pixels>, label: &str) {
+    assert!(
+        child.origin.x >= parent.origin.x && child.right() <= parent.right(),
+        "{label} 横向越出父容器：parent={parent:?}, child={child:?}"
     );
 }
 
@@ -71,4 +79,35 @@ fn empty_workspace_stays_inside_supported_window_widths(cx: &mut TestAppContext)
             );
         }
     }
+}
+
+#[gpui::test]
+fn registry_workspace_stays_inside_narrow_window(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ContainerView::new(window, cx));
+        Root::new(view, window, cx)
+    });
+    cx.simulate_resize(size(px(360.0), px(640.0)));
+    cx.run_until_parked();
+
+    let navigation = cx
+        .debug_bounds("container-resource-registry")
+        .expect("镜像仓库导航入口应渲染");
+    let point = navigation.center();
+    cx.simulate_mouse_down(point, MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_up(point, MouseButton::Left, Modifiers::default());
+    cx.run_until_parked();
+
+    let panel = cx
+        .debug_bounds("container-registry-panel")
+        .expect("镜像仓库面板应渲染");
+    let content = cx
+        .debug_bounds("container-content")
+        .expect("容器管理内容区应渲染");
+    let config = cx
+        .debug_bounds("container-registry-config")
+        .expect("镜像仓库配置区应渲染");
+    assert_horizontal_inside(content, panel, "镜像仓库面板");
+    assert_inside(panel, config, "镜像仓库配置区");
 }

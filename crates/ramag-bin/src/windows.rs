@@ -22,6 +22,7 @@ pub(super) struct AppDeps {
     pub(super) ssh_service: Arc<SshService>,
     pub(super) object_storage_service: Arc<ObjectStorageService>,
     pub(super) container_service: Arc<ContainerService>,
+    pub(super) container_registry_service: Option<Arc<ramag_app::ContainerRegistryService>>,
     pub(super) update_service: Option<Arc<UpdateService>>,
     pub(super) storage: Arc<dyn Storage>,
 }
@@ -143,6 +144,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         ssh_service,
         object_storage_service,
         container_service,
+        container_registry_service,
         update_service,
         storage,
     } = deps;
@@ -230,7 +232,15 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                 let ssh_view = create_ssh_view(ssh_service.clone(), window, cx);
                 let object_storage_view =
                     create_object_storage_view(object_storage_service.clone(), window, cx);
-                let container_view = create_container_view(container_service.clone(), window, cx);
+                let container_view = match container_registry_service.clone() {
+                    Some(registry_service) => create_container_view_with_registry(
+                        container_service.clone(),
+                        registry_service,
+                        window,
+                        cx,
+                    ),
+                    None => create_container_view(container_service.clone(), window, cx),
+                };
                 let system_view = create_system_view(window, cx);
                 let settings_view = cx.new(|cx| {
                     SettingsView::new(

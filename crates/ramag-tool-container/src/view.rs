@@ -3,20 +3,25 @@
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Render, Styled, Window, div,
-    prelude::*, px,
+    AnyElement, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled,
+    Subscription, Window, div, prelude::*, px,
 };
 use gpui_component::{
     ActiveTheme as _, Disableable as _, Icon, IconName, Selectable as _, Sizable as _,
-    button::ButtonVariants as _, h_flex, v_flex,
+    button::ButtonVariants as _,
+    h_flex,
+    input::{Input, InputState},
+    v_flex,
 };
-use ramag_app::ContainerService;
+use ramag_app::{ContainerRegistryService, ContainerService};
 use ramag_domain::{
     entities::{
-        ContainerEndpointProfile, ContainerListQuery, ContainerPage, ContainerPlatform,
-        DockerConnectionInfo, DockerContainerDetail, DockerContainerSummary, DockerImageDetail,
-        DockerImageSummary, DockerNetworkDetail, DockerNetworkSummary, DockerOverview,
-        DockerVolumeDetail, DockerVolumeSummary,
+        ContainerEndpointProfile, ContainerImageOperationKind, ContainerImageOperationRequest,
+        ContainerListQuery, ContainerPage, ContainerPlatform, ContainerRegistryProfile,
+        ContainerRegistryRepository, ContainerRegistryTag, DockerConnectionInfo,
+        DockerContainerDetail, DockerContainerSummary, DockerImageDetail, DockerImageSummary,
+        DockerNetworkDetail, DockerNetworkSummary, DockerOverview, DockerVolumeDetail,
+        DockerVolumeSummary,
     },
     error::Result,
 };
@@ -30,15 +35,17 @@ pub enum ContainerSection {
     Images,
     Networks,
     Volumes,
+    Registry,
 }
 
 impl ContainerSection {
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 6] = [
         Self::Overview,
         Self::Containers,
         Self::Images,
         Self::Networks,
         Self::Volumes,
+        Self::Registry,
     ];
 
     const fn label(self) -> &'static str {
@@ -48,6 +55,7 @@ impl ContainerSection {
             Self::Images => "镜像",
             Self::Networks => "网络",
             Self::Volumes => "数据卷",
+            Self::Registry => "镜像仓库",
         }
     }
 
@@ -56,6 +64,7 @@ impl ContainerSection {
             Self::Overview | Self::Containers | Self::Volumes => IconName::HardDrive,
             Self::Images => IconName::File,
             Self::Networks => IconName::Network,
+            Self::Registry => IconName::File,
         }
     }
 }
@@ -66,6 +75,7 @@ enum LoadResult {
     Images(Result<ContainerPage<DockerImageSummary>>),
     Networks(Result<ContainerPage<DockerNetworkSummary>>),
     Volumes(Result<ContainerPage<DockerVolumeSummary>>),
+    Registry(Result<Vec<ContainerRegistryRepository>>),
 }
 
 enum DetailResult {
@@ -85,6 +95,16 @@ enum SelectedDetail {
 /// Docker 连接和资源查询的主视图；没有服务时只渲染静态空状态，供 headless 布局测试使用。
 pub struct ContainerView {
     service: Option<Arc<ContainerService>>,
+    registry_service: Option<Arc<ContainerRegistryService>>,
+    registry_endpoint_input: Option<Entity<InputState>>,
+    registry_input_subscription: Option<Subscription>,
+    registry_endpoint: String,
+    registry_allow_insecure_http: bool,
+    registry_repositories: Option<Vec<ContainerRegistryRepository>>,
+    registry_tags: Option<Vec<ContainerRegistryTag>>,
+    selected_registry_repository: Option<String>,
+    registry_loading: bool,
+    registry_error: Option<String>,
     profile: ContainerEndpointProfile,
     platform: ContainerPlatform,
     section: ContainerSection,
@@ -117,9 +137,43 @@ impl ContainerView {
         view
     }
 
+    pub fn with_services(
+        service: Arc<ContainerService>,
+        registry_service: Arc<ContainerRegistryService>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let mut view = Self::without_service();
+        view.service = Some(service);
+        view.registry_service = Some(registry_service);
+        let endpoint = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("https://registry.example.com")
+                .default_value(view.registry_endpoint.clone())
+        });
+        let endpoint_for_observer = endpoint.clone();
+        view.registry_input_subscription = Some(cx.observe(&endpoint, move |view, _, cx| {
+            view.registry_endpoint = endpoint_for_observer.read(cx).value().to_string();
+            cx.notify();
+        }));
+        view.registry_endpoint_input = Some(endpoint);
+        view.refresh(cx);
+        view
+    }
+
     fn without_service() -> Self {
         Self {
             service: None,
+            registry_service: None,
+            registry_endpoint_input: None,
+            registry_input_subscription: None,
+            registry_endpoint: "https://registry.example.com".into(),
+            registry_allow_insecure_http: false,
+            registry_repositories: None,
+            registry_tags: None,
+            selected_registry_repository: None,
+            registry_loading: false,
+            registry_error: None,
             profile: ContainerEndpointProfile::local_docker("本机 Docker"),
             platform: ContainerPlatform::Docker,
             section: ContainerSection::Overview,
@@ -138,6 +192,10 @@ impl ContainerView {
     }
 
     fn refresh(&mut self, cx: &mut Context<Self>) {
+        if self.section == ContainerSection::Registry {
+            self.refresh_registry(cx);
+            return;
+        }
         let Some(service) = self.service.clone() else {
             return;
         };
@@ -171,6 +229,7 @@ impl ContainerView {
                 ContainerSection::Volumes => {
                     LoadResult::Volumes(service.list_volumes(&profile, &query).await)
                 }
+                ContainerSection::Registry => unreachable!("Registry 已在 refresh_registry 处理"),
             };
             let _ = this.update(async_cx, |view, cx| {
                 if view.request_id != request_id {
@@ -206,7 +265,86 @@ impl ContainerView {
             LoadResult::Volumes(result) => {
                 self.store_page(result, |view, page| view.volumes = Some(page))
             }
+            LoadResult::Registry(result) => match result {
+                Ok(repositories) => {
+                    self.registry_repositories = Some(repositories);
+                    self.registry_error = None;
+                }
+                Err(error) => self.registry_error = Some(error.user_message()),
+            },
         }
+    }
+
+    fn refresh_registry(&mut self, cx: &mut Context<Self>) {
+        let Some(service) = self.registry_service.clone() else {
+            return;
+        };
+        let endpoint = self
+            .registry_endpoint_input
+            .as_ref()
+            .map(|input| input.read(cx).value().to_string())
+            .unwrap_or_else(|| self.registry_endpoint.clone());
+        self.registry_endpoint = endpoint.clone();
+        let profile = ContainerRegistryProfile::new("当前 Registry", endpoint)
+            .with_insecure_http(self.registry_allow_insecure_http);
+        if let Err(error) = profile.validate() {
+            self.registry_error = Some(error);
+            self.registry_repositories = None;
+            self.registry_tags = None;
+            cx.notify();
+            return;
+        }
+        self.registry_loading = true;
+        self.registry_error = None;
+        self.registry_tags = None;
+        let request_id = self.request_id.wrapping_add(1);
+        self.request_id = request_id;
+        cx.notify();
+        cx.spawn(async move |this, async_cx| {
+            let result = service.list_repositories(&profile, None).await;
+            let _ = this.update(async_cx, |view, cx| {
+                if view.request_id != request_id {
+                    return;
+                }
+                view.registry_loading = false;
+                view.apply_load_result(LoadResult::Registry(result));
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn load_registry_tags(&mut self, repository: String, cx: &mut Context<Self>) {
+        let Some(service) = self.registry_service.clone() else {
+            return;
+        };
+        let endpoint = self.registry_endpoint.clone();
+        let profile = ContainerRegistryProfile::new("当前 Registry", endpoint)
+            .with_insecure_http(self.registry_allow_insecure_http);
+        self.selected_registry_repository = Some(repository.clone());
+        self.registry_loading = true;
+        self.registry_error = None;
+        let request_id = self.request_id.wrapping_add(1);
+        self.request_id = request_id;
+        cx.notify();
+        cx.spawn(async move |this, async_cx| {
+            let result = service.list_tags(&profile, None, &repository).await;
+            let _ = this.update(async_cx, |view, cx| {
+                if view.request_id != request_id {
+                    return;
+                }
+                view.registry_loading = false;
+                match result {
+                    Ok(tags) => {
+                        view.registry_tags = Some(tags);
+                        view.registry_error = None;
+                    }
+                    Err(error) => view.registry_error = Some(error.user_message()),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     fn store_page<T>(
@@ -275,6 +413,7 @@ impl ContainerView {
                     DetailResult::Volume(service.get_volume(&profile, &id).await)
                 }
                 ContainerSection::Overview => return,
+                ContainerSection::Registry => return,
             };
             let _ = this.update(async_cx, |view, cx| {
                 if view.request_id != request_id {
@@ -475,6 +614,7 @@ impl ContainerView {
             .overflow_y_scroll()
             .p(px(20.0))
             .gap(px(12.0));
+        let loading = self.loading || self.registry_loading;
         content = content.child(
             ramag_ui::responsive_toolbar()
                 .items_center()
@@ -490,7 +630,7 @@ impl ContainerView {
                     div()
                         .text_xs()
                         .text_color(theme.muted_foreground)
-                        .child(if self.loading { "读取中..." } else { "" }),
+                        .child(if loading { "读取中..." } else { "" }),
                 ),
         );
         if let Some(error) = &self.error {
@@ -515,6 +655,7 @@ impl ContainerView {
             ContainerSection::Images => self.render_images(theme, cx),
             ContainerSection::Networks => self.render_networks(theme, cx),
             ContainerSection::Volumes => self.render_volumes(theme, cx),
+            ContainerSection::Registry => self.render_registry(theme, cx),
         };
         content.child(section_content).into_any_element()
     }
@@ -666,6 +807,159 @@ impl ContainerView {
         self.render_resource_list(rows, "暂无镜像", theme)
     }
 
+    fn render_registry(
+        &self,
+        theme: &gpui_component::theme::Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let endpoint = self
+            .registry_endpoint_input
+            .as_ref()
+            .map(|input| {
+                Input::new(input)
+                    .small()
+                    .min_w(px(180.0))
+                    .flex_1()
+                    .into_any_element()
+            })
+            .unwrap_or_else(|| {
+                div()
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(self.registry_endpoint.clone())
+                    .into_any_element()
+            });
+        let mut content = v_flex()
+            .id("container-registry-panel")
+            .debug_selector(|| "container-registry-panel".into())
+            .w_full()
+            .gap(px(12.0))
+            .child(
+                ramag_ui::responsive_toolbar()
+                    .id("container-registry-config")
+                    .debug_selector(|| "container-registry-config".into())
+                    .items_center()
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_w(px(180.0))
+                            .min_w_0()
+                            .gap(px(3.0))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child("Registry 端点"),
+                            )
+                            .child(endpoint),
+                    )
+                    .child(
+                        h_flex()
+                            .flex_none()
+                            .items_center()
+                            .gap(px(6.0))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child("允许 HTTP"),
+                            )
+                            .child(
+                                ramag_ui::clickable_switch("container-registry-insecure-http")
+                                    .checked(self.registry_allow_insecure_http)
+                                    .on_click(cx.listener(|this, _: &bool, _, cx| {
+                                        this.registry_allow_insecure_http =
+                                            !this.registry_allow_insecure_http;
+                                        cx.notify();
+                                    })),
+                            ),
+                    )
+                    .child(
+                        ramag_ui::clickable_button("container-registry-refresh")
+                            .ghost()
+                            .small()
+                            .icon(ramag_ui::icons::refresh_cw())
+                            .label("查询")
+                            .disabled(self.registry_loading || self.registry_service.is_none())
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                this.refresh_registry(cx);
+                            })),
+                    ),
+            );
+        if let Some(error) = &self.registry_error {
+            let mut background = theme.danger;
+            background.a = 0.12;
+            content = content.child(
+                h_flex()
+                    .id("container-registry-error")
+                    .debug_selector(|| "container-registry-error".into())
+                    .w_full()
+                    .gap(px(8.0))
+                    .p(px(10.0))
+                    .bg(background)
+                    .text_color(theme.danger)
+                    .child(Icon::new(IconName::CircleX))
+                    .child(div().flex_1().min_w_0().child(error.clone())),
+            );
+        }
+
+        let repository_rows = self
+            .registry_repositories
+            .as_ref()
+            .map(|repositories| {
+                repositories
+                    .iter()
+                    .map(|repository| registry_repository_row(repository, self, cx))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let repositories = if repository_rows.is_empty() {
+            empty_state(
+                if self.registry_loading {
+                    "正在读取镜像仓库..."
+                } else if self.registry_service.is_none() {
+                    "镜像仓库模块不可用"
+                } else {
+                    "输入 Registry 端点后查询"
+                },
+                theme,
+            )
+            .into_any_element()
+        } else {
+            v_flex()
+                .w_full()
+                .gap(px(6.0))
+                .children(repository_rows)
+                .into_any_element()
+        };
+        content = content.child(info_panel(
+            "仓库",
+            self.registry_repositories.as_ref().map_or_else(
+                || "尚未查询".into(),
+                |repositories| format!("{} 个仓库", repositories.len()),
+            ),
+            theme,
+        ));
+        content = content.child(repositories);
+        if let Some(repository) = &self.selected_registry_repository {
+            let tags = self.registry_tags.as_ref().map_or_else(
+                || "尚未读取 Tag".into(),
+                |tags| {
+                    if tags.is_empty() {
+                        "没有 Tag".into()
+                    } else {
+                        tags.iter()
+                            .map(|tag| tag.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("、")
+                    }
+                },
+            );
+            content = content.child(info_panel("Tag", format!("{repository}：{tags}"), theme));
+        }
+        content.into_any_element()
+    }
+
     fn render_networks(
         &self,
         theme: &gpui_component::theme::Theme,
@@ -773,12 +1067,35 @@ impl ContainerView {
                 v.mounts.len(),
                 v.networks.len()
             ),
-            Some(SelectedDetail::Image(v)) => format!(
-                "镜像 {}\n作者：{}\nDocker 版本：{}",
-                v.summary.id,
-                v.author.as_deref().unwrap_or("未知"),
-                v.docker_version.as_deref().unwrap_or("未知")
-            ),
+            Some(SelectedDetail::Image(v)) => {
+                let operation_preview = self
+                    .service
+                    .as_ref()
+                    .and_then(|service| {
+                        let request = ContainerImageOperationRequest::new(
+                            ContainerImageOperationKind::Delete,
+                            v.summary.id.clone(),
+                        );
+                        service
+                            .preview_image_operation(&self.profile, &request)
+                            .ok()
+                    })
+                    .map_or_else(
+                        || "不可用".into(),
+                        |preview| {
+                            preview
+                                .blocked_reason
+                                .unwrap_or_else(|| "可执行，但仍需二次确认".into())
+                        },
+                    );
+                format!(
+                    "镜像 {}\n作者：{}\nDocker 版本：{}\n删除预览：{}",
+                    v.summary.id,
+                    v.author.as_deref().unwrap_or("未知"),
+                    v.docker_version.as_deref().unwrap_or("未知"),
+                    operation_preview
+                )
+            }
             Some(SelectedDetail::Network(v)) => format!(
                 "网络 {}\n驱动：{}\n子网：{} 个\n关联容器：{} 个",
                 v.summary.name.as_deref().unwrap_or(&v.summary.id),
@@ -835,12 +1152,14 @@ fn resource_button(
         ContainerSection::Images => "container-resource-images",
         ContainerSection::Networks => "container-resource-networks",
         ContainerSection::Volumes => "container-resource-volumes",
+        ContainerSection::Registry => "container-resource-registry",
     };
     ramag_ui::clickable_button(id)
         .ghost()
         .small()
         .w_full()
         .justify_start()
+        .debug_selector(move || id.into())
         .icon(section.icon())
         .label(section.label())
         .selected(section == selected)
@@ -895,6 +1214,49 @@ fn resource_row(
                             .child("读取详情..."),
                     )
                 }),
+        )
+        .into_any_element()
+}
+
+fn registry_repository_row(
+    repository: &ContainerRegistryRepository,
+    view: &ContainerView,
+    cx: &mut Context<ContainerView>,
+) -> AnyElement {
+    let theme = cx.theme();
+    let name = repository.name.clone();
+    let selected = view.selected_registry_repository.as_deref() == Some(name.as_str());
+    ramag_ui::clickable_button(format!("container-registry-repository-{name}"))
+        .ghost()
+        .w_full()
+        .selected(selected)
+        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+            this.load_registry_tags(name.clone(), cx);
+        }))
+        .child(
+            h_flex()
+                .w_full()
+                .min_w_0()
+                .gap(px(10.0))
+                .child(
+                    Icon::new(IconName::File)
+                        .small()
+                        .text_color(theme.muted_foreground),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_sm()
+                        .child(repository.name.clone()),
+                )
+                .child(
+                    div()
+                        .flex_none()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("读取 Tag"),
+                ),
         )
         .into_any_element()
 }
