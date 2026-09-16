@@ -177,7 +177,10 @@ pub struct MqttView {
     keep_alive: Entity<InputState>,
     publish_topic: Entity<InputState>,
     publish_payload: Entity<InputState>,
+    publish_qos: MqttQos,
+    publish_retain: bool,
     subscribe_filter: Entity<InputState>,
+    subscribe_qos: MqttQos,
     search: Entity<InputState>,
     client_username: Entity<InputState>,
     client_id_editor: Entity<InputState>,
@@ -266,6 +269,9 @@ include!("mqtt_view/helpers.rs");
 
 #[cfg(test)]
 mod visual_tests;
+
+#[cfg(test)]
+mod visual_message_option_tests;
 
 #[cfg(test)]
 mod visual_management_tests;

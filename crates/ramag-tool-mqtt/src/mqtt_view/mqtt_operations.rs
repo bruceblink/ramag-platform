@@ -273,8 +273,8 @@ impl MqttView {
         let request = MqttPublishRequest {
             topic: value(&self.publish_topic, cx),
             payload: value(&self.publish_payload, cx).into_bytes(),
-            qos: MqttQos::AtMostOnce,
-            retain: false,
+            qos: self.publish_qos,
+            retain: self.publish_retain,
             user_properties: Vec::new(),
         };
         if let Err(error) = request.validate() {
@@ -324,7 +324,7 @@ impl MqttView {
         let request = MqttSubscribeRequest {
             subscriptions: vec![MqttSubscription {
                 filter: value(&self.subscribe_filter, cx),
-                qos: MqttQos::AtLeastOnce,
+                qos: self.subscribe_qos,
             }],
         };
         if let Err(error) = request.validate() {

@@ -171,13 +171,32 @@ impl MqttView {
                 "Payload（UTF-8）",
                 input_frame(
                     "mqtt-publish-payload-input",
-                    Input::new(&self.publish_payload)
-                        .h(px(140.0))
-                        .small()
-                        .w_full()
-                        .min_w_0(),
+                        Input::new(&self.publish_payload)
+                            .h(px(140.0))
+                            .small()
+                            .w_full()
+                            .min_w_0(),
                 ),
             ))
+            .child(
+                row()
+                    .debug_selector(|| "mqtt-publish-options".into())
+                    .child(qos_selector(
+                        "mqtt-publish-qos",
+                        self.publish_qos,
+                        self.is_busy() || self.subscription_running,
+                        cx,
+                        |this, qos| this.publish_qos = qos,
+                    ))
+                    .child(toggle_button(
+                        "mqtt-publish-retain",
+                        "Retain",
+                        self.publish_retain,
+                        self.is_busy() || self.subscription_running,
+                        cx,
+                        |this| this.publish_retain = !this.publish_retain,
+                    )),
+            )
             .child(
                 div()
                     .debug_selector(|| "mqtt-publish-actions".into())
@@ -185,6 +204,7 @@ impl MqttView {
                         actions.w_full()
                     })
                     .child(ramag_ui::clickable_button("mqtt-publish")
+                    .debug_selector(|| "mqtt-publish".into())
                     .primary()
                     .small()
                     .label("发布消息")
@@ -240,8 +260,20 @@ impl MqttView {
                     ),
                 ),
             );
+        body = body.child(
+            row()
+                .debug_selector(|| "mqtt-subscribe-options".into())
+                .child(qos_selector(
+                    "mqtt-subscribe-qos",
+                    self.subscribe_qos,
+                    self.is_busy() || self.subscription_running,
+                    cx,
+                    |this, qos| this.subscribe_qos = qos,
+                )),
+        );
         let action = if self.subscription_running {
             ramag_ui::clickable_button("mqtt-stop-subscription")
+                .debug_selector(|| "mqtt-stop-subscription".into())
                 .danger()
                 .small()
                 .label("停止订阅")
@@ -252,6 +284,7 @@ impl MqttView {
                 }))
         } else {
             ramag_ui::clickable_button("mqtt-start-subscription")
+                .debug_selector(|| "mqtt-start-subscription".into())
                 .primary()
                 .small()
                 .label("开始订阅")

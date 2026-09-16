@@ -274,6 +274,49 @@ fn section_heading(
         )
 }
 
+/// Renders the three MQTT QoS choices and sends the selected value back to the view.
+/// Disabled operation controls stay unchanged while a publish or subscription is running.
+fn qos_selector<F>(
+    id: &'static str,
+    selected: MqttQos,
+    disabled: bool,
+    cx: &mut Context<MqttView>,
+    handler: F,
+) -> gpui::Div
+where
+    F: Fn(&mut MqttView, MqttQos) + Copy + 'static,
+{
+    let mut controls = h_flex()
+        .debug_selector(move || id.into())
+        .flex_wrap()
+        .items_center()
+        .gap(px(4.0))
+        .child(div().text_xs().child("QoS"));
+    for qos in [
+        MqttQos::AtMostOnce,
+        MqttQos::AtLeastOnce,
+        MqttQos::ExactlyOnce,
+    ] {
+        let value = qos.as_u8();
+        let mut button = ramag_ui::clickable_button(SharedString::from(format!("{id}-{value}")))
+            .debug_selector(move || format!("{id}-{value}"))
+            .xsmall()
+            .label(value.to_string())
+            .disabled(disabled)
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                handler(this, qos);
+                cx.notify();
+            }));
+        button = if selected == qos {
+            button.primary()
+        } else {
+            button.ghost()
+        };
+        controls = controls.child(button);
+    }
+    controls
+}
+
 fn toggle_button<F>(
     id: &'static str,
     label: &'static str,
@@ -285,11 +328,14 @@ fn toggle_button<F>(
 where
     F: Fn(&mut MqttView) + 'static,
 {
-    let mut button = ramag_ui::clickable_button(id).xsmall().label(if selected {
-        format!("{}：开", label)
-    } else {
-        format!("{}：关", label)
-    });
+    let mut button = ramag_ui::clickable_button(id)
+        .debug_selector(move || id.into())
+        .xsmall()
+        .label(if selected {
+            format!("{}：开", label)
+        } else {
+            format!("{}：关", label)
+        });
     button = if selected {
         button.primary()
     } else {

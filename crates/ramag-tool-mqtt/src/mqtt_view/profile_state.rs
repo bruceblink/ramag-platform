@@ -237,7 +237,10 @@ impl MqttView {
             keep_alive,
             publish_topic,
             publish_payload,
+            publish_qos: MqttQos::AtMostOnce,
+            publish_retain: false,
             subscribe_filter,
+            subscribe_qos: MqttQos::AtLeastOnce,
             search,
             client_username,
             client_id_editor,
@@ -386,6 +389,7 @@ impl MqttView {
         ] {
             set_value(field, "", window, cx);
         }
+        self.reset_message_options();
         set_value(&self.port, "1883", window, cx);
         set_value(&self.keep_alive, "60", window, cx);
         for field in [
@@ -523,6 +527,7 @@ impl MqttView {
         self.publish_topic.update(cx, |state, cx| {
             state.set_placeholder("发布 Topic", window, cx);
         });
+        self.reset_message_options();
         self.clear_runtime_state();
         self.notice = None;
     }
@@ -538,6 +543,15 @@ impl MqttView {
         self.selected_role_name = None;
         self.static_file = None;
         self.messages.clear();
+    }
+
+    /// Restores message operation choices when the active MQTT profile changes.
+    /// The defaults preserve the existing QoS behavior and avoid carrying a
+    /// retained publish setting into a different Broker configuration.
+    fn reset_message_options(&mut self) {
+        self.publish_qos = MqttQos::AtMostOnce;
+        self.publish_retain = false;
+        self.subscribe_qos = MqttQos::AtLeastOnce;
     }
 
     /// 使切换配置前启动的异步请求失效，并清除旧配置的进行中状态。

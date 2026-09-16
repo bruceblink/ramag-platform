@@ -500,7 +500,12 @@ fn mqtt_message_operations_reflow_inside_supported_window_widths(cx: &mut TestAp
         let scroll = visual_cx
             .debug_bounds("mqtt-main")
             .expect("MQTT 主工作区应参与布局");
-        for selector in ["mqtt-subscribe-actions", "mqtt-subscribe-message-meta"] {
+        for selector in [
+            "mqtt-subscribe-options",
+            "mqtt-subscribe-qos",
+            "mqtt-subscribe-actions",
+            "mqtt-subscribe-message-meta",
+        ] {
             let bounds = visual_cx
                 .debug_bounds(selector)
                 .expect("订阅操作和消息元数据应参与布局");

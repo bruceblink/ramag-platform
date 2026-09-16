@@ -251,3 +251,5 @@ Headless 结果不能描述为真实窗口结果；外部服务未启动时只�
 MQTT-001 原生订阅生命周期修复（2026-09-16）：原生 MQTT 适配器不再用 15 秒短操作超时包裹持续订阅；连接、发布和 Mosquitto 管理请求继续保留该超时。订阅在用户停止后由取消监视任务发送 MQTT DISCONNECT，空闲连接无需等待 Keep Alive 或新消息即可退出。未填写 Client ID 的连接改为每次操作生成唯一临时 ID，显式 Client ID 保持不变，避免同一配置的发布连接挤掉正在运行的订阅。新增 scripts/mqtt-test：本机 Docker Compose 服务为 ramag-mqtt-test，镜像 eclipse-mosquitto:2.0.20，监听 127.0.0.1:18883，不使用 named volume，test 保持服务运行供复用，down 或 clean 删除容器和网络。真实集成测试连接 MQTT 3.1.1 与 MQTT 5，验证 QoS 1 回执、MQTT 5 用户属性回读、并发临时 Client ID 和空闲订阅两秒内停止；测试清理自己的保留消息。ramag-infra-mqtt 默认构建 2 项、native 构建 8 项加 Docker 集成 1 项通过。真实 Windows MQTT 工具窗口仍待单独复核，本切片不能由基础设施测试代替 UI 验收。
 
 UI-001 MQTT 订阅 Topic 输入焦点修复切片（2026-09-16）：切换到“订阅”页时，Topic Filter 自动获得键盘焦点；点击输入区域时也会重新获取焦点，避免页签焦点或其他控件焦点导致主题无法输入。页签增加稳定的调试选择器，`ramag-tool-mqtt` 库测试 10 项通过，其中 headless 交互测试覆盖点击订阅页签后直接输入，以及焦点移走后点击输入框再次输入。真实 Windows 窗口键盘操作尚未执行，不能将 headless 验收描述为真实窗口验证。
+
+MQTT-002 消息投递选项切片（2026-09-16）：发布页新增 QoS 0/1/2 分段选择与 Retain 开关，订阅页新增 QoS 0/1/2 选择；默认值保持原有发布 QoS 0、订阅 QoS 1，切换 MQTT 配置时恢复默认，避免把 Retain 选项误带到其他 Broker。`ramag-tool-mqtt` 库测试 11 项通过，headless UI 测试核对发布和订阅请求的 QoS 与 Retain 字段，并覆盖订阅选项在 360/640/1024/1440px 窗口内布局。真实 Windows 窗口操作尚未执行，不能将 headless 验收描述为真实窗口验证。
