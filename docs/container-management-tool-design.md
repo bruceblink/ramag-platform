@@ -140,7 +140,9 @@ Kubernetes 上下文使用以下导航项：
 
 漏洞、签名和 SBOM 是镜像供应链功能，不能用镜像查询结果冒充。它们在具备可信扫描器、签名验证器和清晰的数据来源后另行设计。
 
-`CMT-003` 当前切片记录（2026-09-17）：Registry v2 仓库目录和 Tag 查询已处理 `Link: rel="next"` 分页，并限制分页次数、返回数量和响应大小；分页 URL 只允许访问当前 Registry 的同源地址。目标 crate 测试使用本机 TCP HTTP fixture 验证多页结果和跨域链接拒绝。该切片不代表认证失败、digest 回读、取消、资源清理或镜像拉取/标记/推送/删除的本机服务验收已完成。
+`CMT-003` 分页切片记录（2026-09-17）：Registry v2 仓库目录和 Tag 查询已处理 `Link: rel="next"` 分页，并限制分页次数、返回数量和响应大小；分页 URL 只允许访问当前 Registry 的同源地址。目标 crate 测试使用本机 TCP HTTP fixture 验证多页结果和跨域链接拒绝。
+
+`CMT-003` 认证与 digest 切片记录（2026-09-17）：本机 TCP HTTP fixture 验证 Registry 返回 401 时映射为不可重试的认证错误，响应正文和密码不会进入错误文本；清单读取使用 `HEAD /v2/{repository}/manifests/{reference}`，从 `Docker-Content-Digest` 回读并校验 digest，同时读取 `Content-Length` 和媒体类型。该切片不代表取消、资源清理或镜像拉取/标记/推送/删除的本机服务验收已完成。
 
 ### 容器启动与生命周期管理
 

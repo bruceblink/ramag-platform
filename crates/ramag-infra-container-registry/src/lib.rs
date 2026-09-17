@@ -220,7 +220,11 @@ impl RegistryHttpDriver {
             reference: reference.to_owned(),
             digest: digest.to_owned(),
             media_type,
-            size_bytes: response.content_length(),
+            size_bytes: response
+                .headers()
+                .get(reqwest::header::CONTENT_LENGTH)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.parse().ok()),
         })
     }
 }
