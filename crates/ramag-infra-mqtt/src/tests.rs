@@ -144,6 +144,52 @@
 
     #[cfg(feature = "native")]
     #[test]
+    fn local_server_allows_anonymous_alongside_configured_credentials() -> std::result::Result<(), String> {
+        let port = std::net::TcpListener::bind(("127.0.0.1", 0))
+            .map_err(|error| error.to_string())?
+            .local_addr()
+            .map_err(|error| error.to_string())?
+            .port();
+        let config = ramag_domain::entities::MqttLocalServerConfig {
+            bind_host: "127.0.0.1".into(),
+            port,
+            allow_anonymous: true,
+            users: vec![ramag_domain::entities::MqttLocalServerUser {
+                username: "operator".into(),
+                password: "correct-password".into(),
+            }],
+        };
+        let server = NativeMqttLocalServer::new();
+        smol::block_on(server.start(&config)).map_err(|error| error.to_string())?;
+
+        let client = NativeMqttTransport::new();
+        let mut anonymous = MqttProfile::new("anonymous", "127.0.0.1", port);
+        anonymous.keep_alive_seconds = 5;
+        let anonymous_result = smol::block_on(client.test_connection(&anonymous));
+
+        let mut correct_credentials = anonymous.clone();
+        correct_credentials.username = Some("operator".into());
+        correct_credentials.password = Some("correct-password".into());
+        let correct_credentials_result =
+            smol::block_on(client.test_connection(&correct_credentials));
+
+        let mut wrong_credentials = anonymous;
+        wrong_credentials.username = Some("operator".into());
+        wrong_credentials.password = Some("wrong-password".into());
+        let wrong_credentials_result = smol::block_on(client.test_connection(&wrong_credentials));
+
+        smol::block_on(server.stop()).map_err(|error| error.to_string())?;
+        assert!(anonymous_result.is_ok(), "允许匿名时未提供账号应连接成功");
+        assert!(
+            correct_credentials_result.is_ok(),
+            "固定账号仍应连接成功"
+        );
+        assert!(wrong_credentials_result.is_err(), "错误账号不应连接成功");
+        Ok(())
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
     fn local_server_starts_and_stops_on_a_free_port() -> std::result::Result<(), String> {
         let driver = NativeMqttLocalServer::new();
         let port = std::net::TcpListener::bind(("127.0.0.1", 0))

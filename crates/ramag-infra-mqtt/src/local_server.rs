@@ -175,7 +175,10 @@ fn run_local_server(
         if !allow_anonymous || !users.is_empty() {
             let register = context.extends.hook_mgr().register();
             register
-                .add(Type::ClientAuthenticate, Box::new(LocalAuthHandler::new(users)))
+                .add(
+                    Type::ClientAuthenticate,
+                    Box::new(LocalAuthHandler::new(allow_anonymous, users)),
+                )
                 .await;
             register.start().await;
         }
@@ -196,12 +199,16 @@ fn run_local_server(
 }
 
 struct LocalAuthHandler {
+    allow_anonymous: bool,
     users: Vec<MqttLocalServerUser>,
 }
 
 impl LocalAuthHandler {
-    fn new(users: Vec<MqttLocalServerUser>) -> Self {
-        Self { users }
+    fn new(allow_anonymous: bool, users: Vec<MqttLocalServerUser>) -> Self {
+        Self {
+            allow_anonymous,
+            users,
+        }
     }
 }
 
@@ -213,11 +220,13 @@ impl Handler for LocalAuthHandler {
         };
         let username = connect_info.username().map(|value| value.as_ref());
         let password = connect_info.password().map(|value| value.as_ref());
-        let authenticated = username.is_some_and(|username| {
-            self.users
-                .iter()
-                .any(|user| user.username == username && password == Some(user.password.as_bytes()))
-        });
+        let anonymous = username.is_none() && password.is_none();
+        let authenticated = (self.allow_anonymous && anonymous)
+            || username.is_some_and(|username| {
+                self.users.iter().any(|user| {
+                    user.username == username && password == Some(user.password.as_bytes())
+                })
+            });
         let result = if authenticated {
             AuthResult::Allow(false, None)
         } else {
