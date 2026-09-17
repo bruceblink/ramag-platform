@@ -5,6 +5,8 @@
 //! 该 crate 不暴露 bollard 类型给应用层；每次查询在独立 Tokio 运行时中执行，
 //! 通过领域模型返回有界的资源摘要和详情。
 
+use std::{sync::atomic::Ordering, time::Duration};
+
 use async_trait::async_trait;
 use bollard::{
     Docker,
@@ -17,7 +19,7 @@ use bollard::{
 };
 use futures::StreamExt;
 use ramag_domain::{
-    ContainerDriver,
+    ContainerDriver, ContainerOperationCancellation,
     entities::{
         ContainerEndpointProfile, ContainerImageOperationKind, ContainerImageOperationRequest,
         ContainerImageOperationResult, ContainerListQuery, ContainerPage,
@@ -262,10 +264,12 @@ impl DockerDriver {
         profile: ContainerEndpointProfile,
         request: ContainerImageOperationRequest,
         credential: Option<ContainerRegistryCredential>,
+        cancellation: ContainerOperationCancellation,
     ) -> Result<ContainerImageOperationResult> {
         if profile.read_only {
             return Err(DomainError::Forbidden(READ_ONLY_MESSAGE.into()));
         }
+        ensure_operation_active(&cancellation)?;
         request.validate().map_err(DomainError::InvalidConfig)?;
         if let Some(credential) = &credential {
             credential.validate().map_err(DomainError::InvalidConfig)?;
@@ -279,7 +283,16 @@ impl DockerDriver {
                 let mut stream =
                     docker.create_image(Some(options), None, docker_credentials.clone());
                 let mut image_id = None;
-                while let Some(item) = stream.next().await {
+                loop {
+                    let item = tokio::select! {
+                        _ = wait_for_operation_cancellation(cancellation.clone()) => {
+                            return Err(image_operation_cancelled());
+                        }
+                        item = stream.next() => item,
+                    };
+                    let Some(item) = item else {
+                        break;
+                    };
                     let item =
                         item.map_err(|error| map_bollard_error("拉取 Docker 镜像", error))?;
                     if item.error_detail.is_some() {
@@ -297,8 +310,11 @@ impl DockerDriver {
                     .as_deref()
                     .ok_or_else(|| DomainError::InvalidConfig("标记镜像必须指定目标引用".into()))?;
                 let (repository, tag) = split_tag_reference(target)?;
-                docker
-                    .tag_image(
+                tokio::select! {
+                    _ = wait_for_operation_cancellation(cancellation.clone()) => {
+                        return Err(image_operation_cancelled());
+                    }
+                    result = docker.tag_image(
                         &request.source_reference,
                         Some(
                             TagImageOptionsBuilder::default()
@@ -306,9 +322,8 @@ impl DockerDriver {
                                 .tag(&tag)
                                 .build(),
                         ),
-                    )
-                    .await
-                    .map_err(|error| map_bollard_error("标记 Docker 镜像", error))?;
+                    ) => result.map_err(|error| map_bollard_error("标记 Docker 镜像", error))?,
+                }
                 None
             }
             ContainerImageOperationKind::Push => {
@@ -318,7 +333,16 @@ impl DockerDriver {
                 };
                 let mut stream =
                     docker.push_image(&request.source_reference, Some(options), docker_credentials);
-                while let Some(item) = stream.next().await {
+                loop {
+                    let item = tokio::select! {
+                        _ = wait_for_operation_cancellation(cancellation.clone()) => {
+                            return Err(image_operation_cancelled());
+                        }
+                        item = stream.next() => item,
+                    };
+                    let Some(item) = item else {
+                        break;
+                    };
                     let item =
                         item.map_err(|error| map_bollard_error("推送 Docker 镜像", error))?;
                     if item.error_detail.is_some() {
@@ -328,8 +352,11 @@ impl DockerDriver {
                 None
             }
             ContainerImageOperationKind::Delete => {
-                let items = docker
-                    .remove_image(
+                let items = tokio::select! {
+                    _ = wait_for_operation_cancellation(cancellation.clone()) => {
+                        return Err(image_operation_cancelled());
+                    }
+                    result = docker.remove_image(
                         &request.source_reference,
                         Some(
                             RemoveImageOptionsBuilder::default()
@@ -338,9 +365,8 @@ impl DockerDriver {
                                 .build(),
                         ),
                         None,
-                    )
-                    .await
-                    .map_err(|error| map_bollard_error("删除 Docker 镜像", error))?;
+                    ) => result.map_err(|error| map_bollard_error("删除 Docker 镜像", error))?,
+                };
                 items
                     .into_iter()
                     .find_map(|item| item.deleted.or(item.untagged))
@@ -505,6 +531,7 @@ impl ContainerDriver for DockerDriver {
         profile: &ContainerEndpointProfile,
         request: &ContainerImageOperationRequest,
         credential: Option<&ContainerRegistryCredential>,
+        cancellation: ContainerOperationCancellation,
     ) -> Result<ContainerImageOperationResult> {
         profile.validate().map_err(DomainError::InvalidConfig)?;
         request.validate().map_err(DomainError::InvalidConfig)?;
@@ -521,7 +548,11 @@ impl ContainerDriver for DockerDriver {
             "执行 Docker 镜像操作",
             move |docker, profile| {
                 Box::pin(Self::execute_image_operation_async(
-                    docker, profile, request, credential,
+                    docker,
+                    profile,
+                    request,
+                    credential,
+                    cancellation,
                 ))
             },
         )
@@ -646,6 +677,28 @@ fn image_operation_error(message: &str) -> DomainError {
         "执行 Docker 镜像操作",
         message,
     ))
+}
+
+fn image_operation_cancelled() -> DomainError {
+    DomainError::Container(ContainerError::new(
+        ContainerErrorCategory::Cancelled,
+        "执行 Docker 镜像操作",
+        "Docker 镜像操作已取消",
+    ))
+}
+
+fn ensure_operation_active(cancellation: &ContainerOperationCancellation) -> Result<()> {
+    if cancellation.load(Ordering::Relaxed) {
+        Err(image_operation_cancelled())
+    } else {
+        Ok(())
+    }
+}
+
+async fn wait_for_operation_cancellation(cancellation: ContainerOperationCancellation) {
+    while !cancellation.load(Ordering::Relaxed) {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
 }
 
 fn map_bollard_error(operation: &'static str, error: BollardError) -> DomainError {
@@ -1185,11 +1238,36 @@ mod tests {
             ContainerImageOperationKind::Pull,
             "library/alpine:3.20",
         );
-        let result =
-            smol::block_on(DockerDriver::new().execute_image_operation(&profile, &request, None));
+        let result = smol::block_on(DockerDriver::new().execute_image_operation(
+            &profile,
+            &request,
+            None,
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        ));
         assert!(matches!(
             result,
             Err(DomainError::Forbidden(message)) if message == READ_ONLY_MESSAGE
+        ));
+    }
+
+    #[test]
+    fn cancelled_image_operations_are_rejected_before_connecting_engine() {
+        let profile = ContainerEndpointProfile::local_docker("本机 Docker").with_read_only(false);
+        let request = ContainerImageOperationRequest::new(
+            ContainerImageOperationKind::Pull,
+            "library/alpine:3.20",
+        );
+        let cancellation = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let result = smol::block_on(DockerDriver::new().execute_image_operation(
+            &profile,
+            &request,
+            None,
+            cancellation,
+        ));
+        assert!(matches!(
+            result,
+            Err(DomainError::Container(error))
+                if error.category == ContainerErrorCategory::Cancelled
         ));
     }
 

@@ -1,5 +1,7 @@
 //! Docker 与 Kubernetes 管理适配器的领域接口。
 
+use std::sync::{Arc, atomic::AtomicBool};
+
 use async_trait::async_trait;
 
 use crate::entities::{
@@ -10,6 +12,9 @@ use crate::entities::{
     DockerVolumeSummary,
 };
 use crate::error::Result;
+
+/// 镜像操作的取消标记；基础设施层在请求和流式响应之间检查它。
+pub type ContainerOperationCancellation = Arc<AtomicBool>;
 
 /// 容器工具只通过该接口访问外部平台；具体 HTTP、socket 和 named pipe 代码留在基础设施层。
 #[async_trait]
@@ -74,6 +79,7 @@ pub trait ContainerDriver: Send + Sync {
         _profile: &ContainerEndpointProfile,
         _request: &ContainerImageOperationRequest,
         _credential: Option<&ContainerRegistryCredential>,
+        _cancellation: ContainerOperationCancellation,
     ) -> Result<ContainerImageOperationResult> {
         Err(crate::error::DomainError::NotImplemented(
             "container_execute_image_operation".into(),

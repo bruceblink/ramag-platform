@@ -1,6 +1,6 @@
 //! 容器管理应用服务：把结构化只读请求转交给容器基础设施适配器。
 
-use std::sync::Arc;
+use std::sync::{Arc, atomic::AtomicBool};
 
 use ramag_domain::entities::{
     ContainerEndpointProfile, ContainerImageOperationPreview, ContainerImageOperationRequest,
@@ -10,7 +10,7 @@ use ramag_domain::entities::{
     DockerVolumeDetail, DockerVolumeSummary,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
-use ramag_domain::traits::ContainerDriver;
+use ramag_domain::traits::{ContainerDriver, ContainerOperationCancellation};
 
 /// 容器管理只依赖领域接口；Docker 客户端类型不进入应用层和 UI。
 pub struct ContainerService {
@@ -107,6 +107,22 @@ impl ContainerService {
         request: &ContainerImageOperationRequest,
         credential: Option<&ContainerRegistryCredential>,
     ) -> Result<ContainerImageOperationResult> {
+        self.execute_image_operation_with_cancel(
+            profile,
+            request,
+            credential,
+            Arc::new(AtomicBool::new(false)),
+        )
+        .await
+    }
+
+    pub async fn execute_image_operation_with_cancel(
+        &self,
+        profile: &ContainerEndpointProfile,
+        request: &ContainerImageOperationRequest,
+        credential: Option<&ContainerRegistryCredential>,
+        cancellation: ContainerOperationCancellation,
+    ) -> Result<ContainerImageOperationResult> {
         Self::ensure_docker(profile)?;
         profile.validate().map_err(DomainError::InvalidConfig)?;
         request.validate().map_err(DomainError::InvalidConfig)?;
@@ -117,7 +133,7 @@ impl ContainerService {
             return Err(DomainError::Forbidden(READ_ONLY_MESSAGE.into()));
         }
         self.driver
-            .execute_image_operation(profile, request, credential)
+            .execute_image_operation(profile, request, credential, cancellation)
             .await
     }
 
@@ -173,8 +189,12 @@ mod tests {
     use super::*;
     use async_trait::async_trait;
     use ramag_domain::entities::{ContainerPlatform, DockerEngineVersion, DockerResourceCounts};
+    use ramag_domain::error::{ContainerError, ContainerErrorCategory};
+    use std::sync::atomic::Ordering;
 
     struct MockContainerDriver;
+
+    struct CancellationContainerDriver;
 
     #[async_trait]
     impl ContainerDriver for MockContainerDriver {
@@ -220,6 +240,24 @@ mod tests {
                 cpu_count: Some(12),
                 memory_bytes: Some(1024),
             })
+        }
+    }
+
+    #[async_trait]
+    impl ContainerDriver for CancellationContainerDriver {
+        async fn execute_image_operation(
+            &self,
+            _profile: &ContainerEndpointProfile,
+            _request: &ContainerImageOperationRequest,
+            _credential: Option<&ContainerRegistryCredential>,
+            cancellation: ContainerOperationCancellation,
+        ) -> Result<ContainerImageOperationResult> {
+            assert!(cancellation.load(Ordering::Relaxed));
+            Err(DomainError::Container(ContainerError::new(
+                ContainerErrorCategory::Cancelled,
+                "测试镜像操作",
+                "测试取消",
+            )))
         }
     }
 
@@ -302,6 +340,29 @@ mod tests {
         assert!(matches!(
             result,
             Err(DomainError::Forbidden(message)) if message == READ_ONLY_MESSAGE
+        ));
+    }
+
+    #[test]
+    fn image_operation_with_cancel_forwards_the_shared_cancellation_flag() {
+        let service = ContainerService::new(Arc::new(CancellationContainerDriver));
+        let profile = ContainerEndpointProfile::new_docker("local", "unix:///var/run/docker.sock")
+            .with_read_only(false);
+        let request = ContainerImageOperationRequest::new(
+            ramag_domain::entities::ContainerImageOperationKind::Pull,
+            "library/alpine:3.20",
+        );
+        let cancellation = Arc::new(AtomicBool::new(true));
+        let result = smol::block_on(service.execute_image_operation_with_cancel(
+            &profile,
+            &request,
+            None,
+            cancellation,
+        ));
+        assert!(matches!(
+            result,
+            Err(DomainError::Container(error))
+                if error.category == ContainerErrorCategory::Cancelled
         ));
     }
 }

@@ -18,10 +18,10 @@ pub use error::{
     MqttErrorCategory, Result,
 };
 pub use traits::{
-    ContainerDriver, ContainerRegistryDriver, Driver, KafkaAdminDriver, KafkaBrokerMetricsDriver,
-    KafkaMessageTailSink, KafkaMessageTailSinkResult, KafkaProducerDriver, KafkaTransport,
-    KvDriver, MosquittoDynamicSecurityDriver, MosquittoStaticConfigDriver, MqttDriver,
-    MqttTransport, PluginApiVersion, PluginCapability, PluginDescriptor, PluginId,
-    PluginRegistrationError, PluginSettingDefinition, PluginSettingKind, PluginSettingValue,
-    SshDriver, Storage, Tool, ToolMeta,
+    ContainerDriver, ContainerOperationCancellation, ContainerRegistryDriver, Driver,
+    KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaMessageTailSink, KafkaMessageTailSinkResult,
+    KafkaProducerDriver, KafkaTransport, KvDriver, MosquittoDynamicSecurityDriver,
+    MosquittoStaticConfigDriver, MqttDriver, MqttTransport, PluginApiVersion, PluginCapability,
+    PluginDescriptor, PluginId, PluginRegistrationError, PluginSettingDefinition,
+    PluginSettingKind, PluginSettingValue, SshDriver, Storage, Tool, ToolMeta,
 };
