@@ -23,6 +23,7 @@ impl Render for MqttView {
                 MqttSection::Overview => self.render_overview(window, cx).into_any_element(),
                 MqttSection::Publish => self.render_publish(window, cx).into_any_element(),
                 MqttSection::Subscribe => self.render_subscribe(window, cx).into_any_element(),
+                MqttSection::LocalServer => self.render_local_server(window, cx).into_any_element(),
                 MqttSection::Mosquitto => self.render_mosquitto(window, cx).into_any_element(),
             });
         h_flex()

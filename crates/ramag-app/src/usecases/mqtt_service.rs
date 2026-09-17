@@ -5,12 +5,13 @@ use std::sync::{Arc, atomic::AtomicBool};
 use ramag_domain::entities::{
     MAX_MOSQUITTO_NAME_BYTES, MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoGroup,
     MosquittoRole, MosquittoStaticFile, MosquittoStaticFileKind, MqttBrokerSnapshot,
-    MqttMessageSink, MqttProfile, MqttProfileId, MqttPublishRequest, MqttPublishResult,
-    MqttSubscribeRequest,
+    MqttLocalServerConfig, MqttLocalServerStatus, MqttMessageSink, MqttProfile, MqttProfileId,
+    MqttPublishRequest, MqttPublishResult, MqttSubscribeRequest,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{
-    MosquittoDynamicSecurityDriver, MosquittoStaticConfigDriver, MqttDriver, Storage,
+    MosquittoDynamicSecurityDriver, MosquittoStaticConfigDriver, MqttDriver, MqttLocalServerDriver,
+    Storage,
 };
 use tracing::{info, warn};
 
@@ -18,6 +19,7 @@ pub struct MqttService {
     driver: Arc<dyn MqttDriver>,
     dynamic_security_driver: Arc<dyn MosquittoDynamicSecurityDriver>,
     static_config_driver: Arc<dyn MosquittoStaticConfigDriver>,
+    local_server_driver: Arc<dyn MqttLocalServerDriver>,
     storage: Arc<dyn Storage>,
 }
 
@@ -27,6 +29,7 @@ impl MqttService {
             driver,
             dynamic_security_driver: Arc::new(UnsupportedMosquittoDynamicSecurityDriver),
             static_config_driver: Arc::new(UnsupportedMosquittoStaticConfigDriver),
+            local_server_driver: Arc::new(UnsupportedMqttLocalServerDriver),
             storage,
         }
     }
@@ -47,8 +50,43 @@ impl MqttService {
         self
     }
 
+    pub fn with_local_server_driver(mut self, driver: Arc<dyn MqttLocalServerDriver>) -> Self {
+        self.local_server_driver = driver;
+        self
+    }
+
     pub fn transport_capabilities(&self) -> ramag_domain::entities::MqttTransportCapabilities {
         self.driver.transport_capabilities()
+    }
+
+    pub async fn start_local_server(
+        &self,
+        config: &MqttLocalServerConfig,
+    ) -> Result<MqttLocalServerStatus> {
+        config.validate().map_err(DomainError::InvalidConfig)?;
+        let result = self.local_server_driver.start(config).await;
+        tracing::info!(
+            operation = "mqtt_local_server_start",
+            bind_host = %config.bind_host,
+            port = config.port,
+            success = result.is_ok(),
+            "local MQTT server start completed"
+        );
+        result
+    }
+
+    pub async fn stop_local_server(&self) -> Result<MqttLocalServerStatus> {
+        let result = self.local_server_driver.stop().await;
+        tracing::info!(
+            operation = "mqtt_local_server_stop",
+            success = result.is_ok(),
+            "local MQTT server stop completed"
+        );
+        result
+    }
+
+    pub async fn local_server_status(&self) -> Result<MqttLocalServerStatus> {
+        self.local_server_driver.status().await
     }
 
     pub async fn list_profiles(&self) -> Result<Vec<MqttProfile>> {
@@ -376,6 +414,10 @@ impl MosquittoDynamicSecurityDriver for UnsupportedMosquittoDynamicSecurityDrive
 struct UnsupportedMosquittoStaticConfigDriver;
 
 impl MosquittoStaticConfigDriver for UnsupportedMosquittoStaticConfigDriver {}
+
+struct UnsupportedMqttLocalServerDriver;
+
+impl MqttLocalServerDriver for UnsupportedMqttLocalServerDriver {}
 
 #[cfg(test)]
 mod tests {

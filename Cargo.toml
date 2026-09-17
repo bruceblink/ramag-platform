@@ -264,6 +264,8 @@ rskafka = { version = "0.6", default-features = false, features = [
 rumqttc = { version = "0.25.1", default-features = false, features = [
     "use-rustls-no-provider",
 ] }
+# 本地 MQTT Broker；只在 native 工具构建中启用 TCP 监听，TLS/WS 由后续能力切片补齐。
+oximqtt = { version = "0.23.0", default-features = false }
 
 # 凭证加密
 aes-gcm = "0.10"

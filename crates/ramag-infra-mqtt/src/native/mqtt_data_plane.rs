@@ -287,11 +287,14 @@
                 if cancelled.load(std::sync::atomic::Ordering::Acquire) {
                     return Ok(());
                 }
-                match eventloop
-                    .poll()
-                    .await
-                    .map_err(|error| mqtt_connection_error(error.to_string()))?
-                {
+                let event = match eventloop.poll().await {
+                    Ok(event) => event,
+                    Err(_error) if cancelled.load(std::sync::atomic::Ordering::Acquire) => {
+                        return Ok(())
+                    }
+                    Err(error) => return Err(mqtt_connection_error(error.to_string())),
+                };
+                match event {
                     Event::Incoming(Incoming::Publish(publish)) => {
                         let message = MqttMessage {
                             topic: publish.topic,
@@ -343,11 +346,14 @@
                 if cancelled.load(std::sync::atomic::Ordering::Acquire) {
                     return Ok(());
                 }
-                match eventloop
-                    .poll()
-                    .await
-                    .map_err(|error| mqtt_connection_error(error.to_string()))?
-                {
+                let event = match eventloop.poll().await {
+                    Ok(event) => event,
+                    Err(_error) if cancelled.load(std::sync::atomic::Ordering::Acquire) => {
+                        return Ok(())
+                    }
+                    Err(error) => return Err(mqtt_connection_error(error.to_string())),
+                };
+                match event {
                     rumqttc::v5::Event::Incoming(rumqttc::v5::Incoming::Publish(publish)) => {
                         let topic = String::from_utf8(publish.topic.to_vec()).map_err(|_| {
                             DomainError::Mqtt(MqttError::new(

@@ -155,12 +155,13 @@ fn mqtt_message_options_reach_publish_and_subscribe_requests(cx: &mut TestAppCon
             view.publish_topic
                 .update(cx, |input, cx| input.set_value("devices/state", window, cx));
             view.publish_payload
-                .update(cx, |input, cx| input.set_value("online", window, cx));
+                .update(cx, |input, cx| input.set_value("6f6e6c696e65", window, cx));
             cx.notify();
         });
     });
     visual_cx.run_until_parked();
 
+    click(visual_cx, "mqtt-publish-payload-format-Hex");
     click(visual_cx, "mqtt-publish-qos-2");
     click(visual_cx, "mqtt-publish-retain");
     click(visual_cx, "mqtt-publish");

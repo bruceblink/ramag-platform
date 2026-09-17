@@ -44,6 +44,38 @@
     }
 
     #[test]
+    fn local_server_defaults_are_valid_and_invalid_bindings_are_rejected() {
+        let config = MqttLocalServerConfig::default();
+        assert!(config.validate().is_ok());
+        assert_eq!(config.bind_host, DEFAULT_MQTT_LOCAL_SERVER_HOST);
+        assert!(!MqttLocalServerStatus::stopped(&config).running);
+
+        let mut invalid = config.clone();
+        invalid.bind_host = "mqtt://127.0.0.1".into();
+        assert!(invalid.validate().is_err());
+        invalid.bind_host = "127.0.0.1".into();
+        invalid.port = 0;
+        assert!(invalid.validate().is_err());
+
+        let mut secured = MqttLocalServerConfig {
+            allow_anonymous: false,
+            users: vec![MqttLocalServerUser {
+                username: "operator".into(),
+                password: "secret".into(),
+            }],
+            ..config
+        };
+        assert!(secured.validate().is_ok());
+        let debug = format!("{secured:?}");
+        assert!(!debug.contains("secret"));
+        secured.users.push(MqttLocalServerUser {
+            username: "operator".into(),
+            password: "other".into(),
+        });
+        assert!(secured.validate().is_err());
+    }
+
+    #[test]
     fn mosquitto_acl_and_role_validation_bounds_priority_and_acl_count() {
         let acl = MosquittoAcl {
             acl_type: MosquittoAclType::SubscribePattern,

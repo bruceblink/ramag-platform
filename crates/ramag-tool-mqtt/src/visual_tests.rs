@@ -526,6 +526,105 @@ fn mqtt_message_operations_reflow_inside_supported_window_widths(cx: &mut TestAp
 }
 
 #[gpui::test]
+fn mqtt_local_server_page_reflows_inside_supported_window_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(NoopMqttDriver),
+        Arc::new(NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    view.update(visual_cx, |view, cx| {
+        view.loading_profiles = false;
+        view.section = MqttSection::LocalServer;
+        cx.notify();
+    });
+
+    for (width, height) in [(360.0, 640.0), (640.0, 480.0), (1024.0, 768.0)] {
+        visual_cx.simulate_resize(size(px(width), px(height)));
+        visual_cx.run_until_parked();
+        let main = visual_cx
+            .debug_bounds("mqtt-main")
+            .expect("MQTT 主工作区应参与布局");
+        for selector in [
+            "mqtt-local-server-config",
+            "mqtt-local-server-actions",
+            "mqtt-local-server-status",
+            "mqtt-local-server-user-editor",
+        ] {
+            let bounds = visual_cx
+                .debug_bounds(selector)
+                .expect("本地 MQTT Broker 控件应参与布局");
+            assert!(
+                bounds.origin.x >= main.origin.x && bounds.right() <= main.right(),
+                "{}px 窗口中的 {} 不能越出本地服务内容区: main={main:?}, bounds={bounds:?}",
+                width,
+                selector
+            );
+        }
+    }
+}
+
+#[gpui::test]
+fn mqtt_local_server_accounts_can_fill_the_client_form(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(NoopMqttDriver),
+        Arc::new(NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    visual_cx.simulate_resize(size(px(1440.0), px(900.0)));
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.loading_profiles = false;
+            view.section = MqttSection::LocalServer;
+            view.local_server_bind_host
+                .update(cx, |input, cx| input.set_value("127.0.0.1", window, cx));
+            view.local_server_port
+                .update(cx, |input, cx| input.set_value("18884", window, cx));
+            view.local_server_username
+                .update(cx, |input, cx| input.set_value("operator", window, cx));
+            view.local_server_password
+                .update(cx, |input, cx| input.set_value("secret", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-local-server-add-user");
+    visual_cx.run_until_parked();
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.local_server_users.len() == 1
+            && view.local_server_users[0].username == "operator"
+            && view.local_server_users[0].password == "secret"
+    }));
+
+    click(visual_cx, "mqtt-local-server-use-client");
+    visual_cx.run_until_parked();
+    assert!(view.read_with(visual_cx, |view, cx| {
+        view.section == MqttSection::Config
+            && view.host.read(cx).value() == "127.0.0.1"
+            && view.port.read(cx).value() == "18884"
+            && view.username.read(cx).value() == "operator"
+            && view.password.read(cx).value() == "secret"
+    }));
+}
+
+#[gpui::test]
 fn mqtt_client_permissions_reflow_inside_supported_window_widths(cx: &mut TestAppContext) {
     cx.update(gpui_component::init);
     let service = Arc::new(MqttService::new(

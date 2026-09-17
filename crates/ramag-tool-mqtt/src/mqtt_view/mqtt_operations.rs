@@ -268,9 +268,20 @@ impl MqttView {
             cx.notify();
             return;
         };
+        let payload = match encode_publish_payload(
+            self.publish_payload_format,
+            &value(&self.publish_payload, cx),
+        ) {
+            Ok(payload) => payload,
+            Err(error) => {
+                self.notice = Some((error, true));
+                cx.notify();
+                return;
+            }
+        };
         let request = MqttPublishRequest {
             topic: value(&self.publish_topic, cx),
-            payload: value(&self.publish_payload, cx).into_bytes(),
+            payload,
             qos: self.publish_qos,
             retain: self.publish_retain,
             user_properties: Vec::new(),

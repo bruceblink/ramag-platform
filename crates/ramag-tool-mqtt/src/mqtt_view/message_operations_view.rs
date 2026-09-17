@@ -170,7 +170,7 @@ impl MqttView {
             )
             .child(
                 field(
-                    "Payload（UTF-8）",
+                    "Payload",
                     input_frame(
                         "mqtt-publish-payload-input",
                         Input::new(&self.publish_payload)
@@ -185,6 +185,13 @@ impl MqttView {
             .child(
                 row()
                     .debug_selector(|| "mqtt-publish-options".into())
+                    .child(payload_format_selector(
+                        "mqtt-publish-payload-format",
+                        self.publish_payload_format,
+                        self.publishing || self.subscription_running,
+                        cx,
+                        |this, format| this.publish_payload_format = format,
+                    ))
                     .child(qos_selector(
                         "mqtt-publish-qos",
                         self.publish_qos,
@@ -269,9 +276,16 @@ impl MqttView {
                 )
                 .w_full(),
             );
-        body = body.child(
+            body = body.child(
             row()
                 .debug_selector(|| "mqtt-subscribe-options".into())
+                .child(payload_format_selector(
+                    "mqtt-receive-payload-format",
+                    self.receive_payload_format,
+                    self.is_busy() || self.subscription_running,
+                    cx,
+                    |this, format| this.receive_payload_format = format,
+                ))
                 .child(qos_selector(
                     "mqtt-subscribe-qos",
                     self.subscribe_qos,
@@ -326,7 +340,7 @@ impl MqttView {
         } else {
             let mut messages = v_flex().gap(px(6.0));
             for message in self.messages.iter().rev() {
-                let payload = String::from_utf8_lossy(&message.payload);
+                let payload = format_received_payload(self.receive_payload_format, &message.payload);
                 let mut metadata = h_flex()
                     .debug_selector(|| "mqtt-subscribe-message-meta".into())
                     .flex_wrap()
@@ -384,7 +398,7 @@ impl MqttView {
                             div()
                                 .text_xs()
                                 .whitespace_normal()
-                                .child(payload.to_string()),
+                                .child(payload),
                         ),
                 );
             }

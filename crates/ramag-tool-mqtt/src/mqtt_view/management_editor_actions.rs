@@ -153,6 +153,9 @@ impl MqttView {
                 self.subscribe_filter
                     .update(cx, |input, cx| input.focus(window, cx));
             }
+            if section == MqttSection::LocalServer {
+                self.load_local_server_status(window, cx);
+            }
             cx.notify();
         }
     }

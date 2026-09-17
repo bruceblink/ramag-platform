@@ -23,6 +23,10 @@ use ramag_domain::traits::{
 
 #[cfg(feature = "native")]
 use native::{publish_native, subscribe_native, test_connection_native};
+#[cfg(feature = "native")]
+mod local_server;
+#[cfg(feature = "native")]
+pub use local_server::NativeMqttLocalServer;
 
 #[cfg(feature = "native")]
 const EVENT_LOOP_CAPACITY: usize = 32;

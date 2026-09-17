@@ -28,12 +28,13 @@ use gpui_component::{
 use ramag_app::MqttService;
 use ramag_domain::{
     entities::{
-        MosquittoAcl, MosquittoAclDecision, MosquittoAclType, MosquittoClient,
-        MosquittoConfigTarget, MosquittoDynamicSecuritySnapshot, MosquittoGroup,
-        MosquittoGroupBinding, MosquittoRole, MosquittoRoleBinding, MosquittoStaticConfig,
-        MosquittoStaticFile, MosquittoStaticFileKind, MqttBrokerSnapshot, MqttMessage,
-        MqttMessageSinkResult, MqttProfile, MqttProfileId, MqttProtocolVersion, MqttPublishRequest,
-        MqttQos, MqttSubscribeRequest, MqttSubscription, MqttTlsConfig,
+        DEFAULT_MQTT_LOCAL_SERVER_HOST, MAX_MQTT_LOCAL_SERVER_HOST_BYTES, MosquittoAcl,
+        MosquittoAclDecision, MosquittoAclType, MosquittoClient, MosquittoConfigTarget,
+        MosquittoDynamicSecuritySnapshot, MosquittoGroup, MosquittoGroupBinding, MosquittoRole,
+        MosquittoRoleBinding, MosquittoStaticConfig, MosquittoStaticFile, MosquittoStaticFileKind,
+        MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerStatus, MqttLocalServerUser,
+        MqttMessage, MqttMessageSinkResult, MqttProfile, MqttProfileId, MqttProtocolVersion,
+        MqttPublishRequest, MqttQos, MqttSubscribeRequest, MqttSubscription, MqttTlsConfig,
         MqttTransport as TransportKind, MqttTransportCapabilities,
     },
     traits::{Tool, ToolMeta},
@@ -101,15 +102,50 @@ enum MqttSection {
     Overview,
     Publish,
     Subscribe,
+    LocalServer,
     Mosquitto,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum MqttPayloadFormat {
+    #[default]
+    Plaintext,
+    Hex,
+    Base64,
+    Base64Utf8,
+    Base64Base64,
+    Json,
+}
+
+impl MqttPayloadFormat {
+    const ALL: [Self; 6] = [
+        Self::Plaintext,
+        Self::Hex,
+        Self::Base64,
+        Self::Base64Utf8,
+        Self::Base64Base64,
+        Self::Json,
+    ];
+
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Plaintext => "UTF-8",
+            Self::Hex => "Hex",
+            Self::Base64 => "Base64",
+            Self::Base64Utf8 => "Base64+UTF-8",
+            Self::Base64Base64 => "Base64+Base64",
+            Self::Json => "JSON",
+        }
+    }
+}
+
 impl MqttSection {
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 6] = [
         Self::Config,
         Self::Overview,
         Self::Publish,
         Self::Subscribe,
+        Self::LocalServer,
         Self::Mosquitto,
     ];
 
@@ -119,6 +155,7 @@ impl MqttSection {
             Self::Overview => "状态",
             Self::Publish => "发布",
             Self::Subscribe => "订阅",
+            Self::LocalServer => "本地服务",
             Self::Mosquitto => "Mosquitto",
         }
     }
@@ -177,10 +214,23 @@ pub struct MqttView {
     keep_alive: Entity<InputState>,
     publish_topic: Entity<InputState>,
     publish_payload: Entity<InputState>,
+    publish_payload_format: MqttPayloadFormat,
     publish_qos: MqttQos,
     publish_retain: bool,
     subscribe_filter: Entity<InputState>,
+    receive_payload_format: MqttPayloadFormat,
     subscribe_qos: MqttQos,
+    local_server_bind_host: Entity<InputState>,
+    local_server_port: Entity<InputState>,
+    local_server_username: Entity<InputState>,
+    local_server_password: Entity<InputState>,
+    local_server_allow_anonymous: bool,
+    local_server_users: Vec<MqttLocalServerUser>,
+    local_server_status: Option<MqttLocalServerStatus>,
+    local_server_loading: bool,
+    local_server_starting: bool,
+    local_server_stopping: bool,
+    local_server_notice: Option<(String, bool)>,
     search: Entity<InputState>,
     client_username: Entity<InputState>,
     client_id_editor: Entity<InputState>,
@@ -257,6 +307,8 @@ impl Focusable for MqttView {
 
 include!("mqtt_view/profile_state.rs");
 include!("mqtt_view/mqtt_operations.rs");
+include!("mqtt_view/payload_format.rs");
+include!("mqtt_view/local_server_operations.rs");
 include!("mqtt_view/dynamic_security_operations.rs");
 include!("mqtt_view/role_operations.rs");
 include!("mqtt_view/management_editor_actions.rs");
@@ -265,6 +317,7 @@ include!("mqtt_view/message_operations_view.rs");
 include!("mqtt_view/client_permissions_view.rs");
 include!("mqtt_view/group_role_management_view.rs");
 include!("mqtt_view/broker_configuration_view.rs");
+include!("mqtt_view/local_server_view.rs");
 include!("mqtt_view/render.rs");
 include!("mqtt_view/helpers.rs");
 

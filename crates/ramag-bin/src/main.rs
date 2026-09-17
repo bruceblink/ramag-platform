@@ -51,7 +51,8 @@ use ramag_infra_kafka::{
 };
 use ramag_infra_mongodb::MongoDriver;
 use ramag_infra_mqtt::{
-    LocalMosquittoStaticConfigDriver, NativeMosquittoDynamicSecurityDriver, NativeMqttTransport,
+    LocalMosquittoStaticConfigDriver, NativeMosquittoDynamicSecurityDriver, NativeMqttLocalServer,
+    NativeMqttTransport,
 };
 use ramag_infra_mysql::MysqlDriver;
 use ramag_infra_postgres::PostgresDriver;

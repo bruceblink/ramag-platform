@@ -100,3 +100,39 @@
                 .any(|(label, enabled)| *enabled && label.contains("完整在线"))
         );
     }
+
+    #[test]
+    fn payload_formats_match_reference_client_wire_and_display_behavior() {
+        assert_eq!(
+            encode_publish_payload(MqttPayloadFormat::Plaintext, "hello").unwrap(),
+            b"hello"
+        );
+        assert_eq!(
+            encode_publish_payload(MqttPayloadFormat::Hex, "A1 02ff").unwrap(),
+            vec![0xa1, 0x02, 0xff]
+        );
+        assert_eq!(
+            encode_publish_payload(MqttPayloadFormat::Base64, "aGVsbG8=").unwrap(),
+            b"hello"
+        );
+        assert_eq!(
+            encode_publish_payload(MqttPayloadFormat::Base64Utf8, "hello").unwrap(),
+            b"aGVsbG8="
+        );
+        assert_eq!(
+            encode_publish_payload(MqttPayloadFormat::Base64Base64, "hello").unwrap(),
+            b"hello"
+        );
+        assert_eq!(
+            format_received_payload(MqttPayloadFormat::Hex, &[0xa1, 0x02, 0xff]),
+            "A102 FF"
+        );
+        assert_eq!(
+            format_received_payload(MqttPayloadFormat::Base64, b"hello"),
+            "aGVsbG8="
+        );
+        assert_eq!(
+            format_received_payload(MqttPayloadFormat::Json, br#"{"ok":true}"#),
+            "{\n  \"ok\": true\n}"
+        );
+    }

@@ -1,0 +1,210 @@
+impl MqttView {
+    fn local_server_config(&self, cx: &App) -> Result<MqttLocalServerConfig, String> {
+        let port = value(&self.local_server_port, cx)
+            .parse::<u16>()
+            .map_err(|_| "本地 MQTT Broker 端口必须是 1 - 65535 的整数".to_string())?;
+        let config = MqttLocalServerConfig {
+            bind_host: value(&self.local_server_bind_host, cx),
+            port,
+            allow_anonymous: self.local_server_allow_anonymous,
+            users: self.local_server_users.clone(),
+        };
+        config.validate()?;
+        Ok(config)
+    }
+
+    fn local_server_running(&self) -> bool {
+        self.local_server_status
+            .as_ref()
+            .is_some_and(|status| status.running)
+    }
+
+    fn load_local_server_status(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.local_server_loading || self.local_server_starting || self.local_server_stopping {
+            return;
+        }
+        self.local_server_loading = true;
+        self.local_server_notice = None;
+        let service = self.service.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let result = service.local_server_status().await;
+            let _ = this.update_in(cx, |this, _, cx| {
+                this.local_server_loading = false;
+                match result {
+                    Ok(status) => {
+                        this.local_server_status = Some(status);
+                    }
+                    Err(error) => {
+                        this.local_server_notice = Some((
+                            format!("读取本地 MQTT Broker 状态失败：{}", error.user_message()),
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn start_local_server(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.local_server_loading || self.local_server_starting || self.local_server_stopping {
+            return;
+        }
+        if self.local_server_running() {
+            return;
+        }
+        let config = match self.local_server_config(cx) {
+            Ok(config) => config,
+            Err(error) => {
+                self.local_server_notice = Some((error, true));
+                cx.notify();
+                return;
+            }
+        };
+        self.local_server_starting = true;
+        self.local_server_notice = None;
+        let service = self.service.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let result = service.start_local_server(&config).await;
+            let _ = this.update_in(cx, |this, _, cx| {
+                this.local_server_starting = false;
+                match result {
+                    Ok(status) => {
+                        let endpoint = local_server_endpoint(&status);
+                        this.local_server_status = Some(status);
+                        this.local_server_notice = Some((
+                            format!("本地 MQTT Broker 已启动：{endpoint}"),
+                            false,
+                        ));
+                    }
+                    Err(error) => {
+                        this.local_server_notice = Some((
+                            format!("启动本地 MQTT Broker 失败：{}", error.user_message()),
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn stop_local_server(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.local_server_loading || self.local_server_starting || self.local_server_stopping {
+            return;
+        }
+        if !self.local_server_running() {
+            return;
+        }
+        self.local_server_stopping = true;
+        self.local_server_notice = None;
+        let service = self.service.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let result = service.stop_local_server().await;
+            let _ = this.update_in(cx, |this, _, cx| {
+                this.local_server_stopping = false;
+                match result {
+                    Ok(status) => {
+                        this.local_server_status = Some(status);
+                        this.local_server_notice = Some((
+                            "本地 MQTT Broker 已停止".to_string(),
+                            false,
+                        ));
+                    }
+                    Err(error) => {
+                        this.local_server_notice = Some((
+                            format!("停止本地 MQTT Broker 失败：{}", error.user_message()),
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn toggle_local_server_anonymous(&mut self) {
+        self.local_server_allow_anonymous = !self.local_server_allow_anonymous;
+        self.local_server_notice = None;
+    }
+
+    fn add_local_server_user(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.local_server_running() || self.local_server_starting || self.local_server_stopping {
+            return;
+        }
+        let user = MqttLocalServerUser {
+            username: value(&self.local_server_username, cx),
+            password: value(&self.local_server_password, cx),
+        };
+        let mut users = self.local_server_users.clone();
+        users.push(user.clone());
+        let candidate = MqttLocalServerConfig {
+            users,
+            ..MqttLocalServerConfig::default()
+        };
+        if let Err(error) = candidate.validate() {
+            self.local_server_notice = Some((error, true));
+            cx.notify();
+            return;
+        }
+        self.local_server_users.push(user);
+        set_value(&self.local_server_username, "", window, cx);
+        set_value(&self.local_server_password, "", window, cx);
+        self.local_server_notice = Some((
+            "账号已加入本地 Broker 配置；重启服务后生效".to_string(),
+            false,
+        ));
+        cx.notify();
+    }
+
+    fn remove_local_server_user(&mut self, index: usize, cx: &mut Context<Self>) {
+        if self.local_server_running() || self.local_server_starting || self.local_server_stopping {
+            return;
+        }
+        if index >= self.local_server_users.len() {
+            return;
+        }
+        let user = self.local_server_users.remove(index);
+        self.local_server_notice = Some((
+            format!("已移除账号 {}；重启服务后生效", user.username),
+            false,
+        ));
+        cx.notify();
+    }
+
+    fn use_local_server_for_client(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let host = value(&self.local_server_bind_host, cx);
+        let port = value(&self.local_server_port, cx);
+        if port.parse::<u16>().is_err() {
+            self.local_server_notice = Some((
+                "本地 MQTT Broker 端口必须是 1 - 65535 的整数".to_string(),
+                true,
+            ));
+            cx.notify();
+            return;
+        }
+        set_value(&self.host, host, window, cx);
+        set_value(&self.port, port, window, cx);
+        if let Some(user) = self.local_server_users.first() {
+            set_value(&self.username, user.username.clone(), window, cx);
+            set_value(&self.password, user.password.clone(), window, cx);
+        }
+        self.section = MqttSection::Config;
+        self.notice = Some((
+            "本地 Broker 地址已填入客户端配置；保存后即可发布或订阅".to_string(),
+            false,
+        ));
+        cx.notify();
+    }
+}
+
+fn local_server_endpoint(status: &MqttLocalServerStatus) -> String {
+    if status.bind_host.contains(':') {
+        format!("[{}]:{}", status.bind_host, status.port)
+    } else {
+        format!("{}:{}", status.bind_host, status.port)
+    }
+}

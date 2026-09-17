@@ -158,16 +158,18 @@ pub use mongo::{
     validate_mongo_pipeline,
 };
 pub use mqtt::{
-    DEFAULT_MQTT_KEEP_ALIVE_SECONDS, DEFAULT_MQTT_PORT, DEFAULT_MQTT_TLS_PORT, MAX_MOSQUITTO_ACLS,
-    MAX_MOSQUITTO_DESCRIPTION_BYTES, MAX_MOSQUITTO_NAME_BYTES, MAX_MQTT_CLIENT_ID_BYTES,
-    MAX_MQTT_HOST_BYTES, MAX_MQTT_PASSWORD_BYTES, MAX_MQTT_PROFILE_LIST_BYTES,
+    DEFAULT_MQTT_KEEP_ALIVE_SECONDS, DEFAULT_MQTT_LOCAL_SERVER_HOST, DEFAULT_MQTT_PORT,
+    DEFAULT_MQTT_TLS_PORT, MAX_MOSQUITTO_ACLS, MAX_MOSQUITTO_DESCRIPTION_BYTES,
+    MAX_MOSQUITTO_NAME_BYTES, MAX_MQTT_CLIENT_ID_BYTES, MAX_MQTT_HOST_BYTES,
+    MAX_MQTT_LOCAL_SERVER_HOST_BYTES, MAX_MQTT_PASSWORD_BYTES, MAX_MQTT_PROFILE_LIST_BYTES,
     MAX_MQTT_PROFILE_NAME_BYTES, MAX_MQTT_PROFILE_RECORD_BYTES, MAX_MQTT_PROFILES,
     MAX_MQTT_REMARK_BYTES, MAX_MQTT_TLS_PATH_BYTES, MAX_MQTT_TOPIC_BYTES, MAX_MQTT_USERNAME_BYTES,
     MosquittoAcl, MosquittoAclDecision, MosquittoAclType, MosquittoClient, MosquittoConfigTarget,
     MosquittoGroup, MosquittoGroupBinding, MosquittoManagementConfig, MosquittoRole,
-    MosquittoRoleBinding, MosquittoStaticConfig, MqttProfile, MqttProfileId, MqttProtocolVersion,
-    MqttTlsConfig, MqttTransport, MqttTransportBackend, MqttTransportCapabilities,
-    MqttTransportCapability, validate_mqtt_topic_filter, validate_mqtt_topic_name,
+    MosquittoRoleBinding, MosquittoStaticConfig, MqttLocalServerConfig, MqttLocalServerStatus,
+    MqttLocalServerUser, MqttProfile, MqttProfileId, MqttProtocolVersion, MqttTlsConfig,
+    MqttTransport, MqttTransportBackend, MqttTransportCapabilities, MqttTransportCapability,
+    validate_mqtt_topic_filter, validate_mqtt_topic_name,
 };
 pub use mqtt_protocol::{
     MAX_MOSQUITTO_CLIENTS, MAX_MOSQUITTO_GROUPS, MAX_MOSQUITTO_ROLES,

@@ -11,7 +11,7 @@ workspace = true
 
 [features]
 default = []
-native = ["dep:rumqttc"]
+native = ["dep:rumqttc", "dep:oximqtt"]
 
 [dependencies]
 async-trait = { workspace = true }
@@ -19,6 +19,7 @@ bytes = { workspace = true }
 chrono = { workspace = true }
 ramag-domain = { workspace = true }
 rumqttc = { workspace = true, optional = true }
+oximqtt = { workspace = true, optional = true }
 serde_json = { workspace = true }
 smol = { workspace = true }
 tokio = { workspace = true }

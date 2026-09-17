@@ -187,10 +187,12 @@ pub(super) fn build_mqtt_service(storage: Arc<dyn Storage>) -> Arc<MqttService> 
     let driver: Arc<dyn MqttDriver> = Arc::new(NativeMqttTransport::new());
     let management_driver = Arc::new(NativeMosquittoDynamicSecurityDriver::new());
     let static_config_driver = Arc::new(LocalMosquittoStaticConfigDriver::new());
+    let local_server_driver = Arc::new(NativeMqttLocalServer::new());
     Arc::new(
         MqttService::new(driver, storage)
             .with_dynamic_security_driver(management_driver)
-            .with_static_config_driver(static_config_driver),
+            .with_static_config_driver(static_config_driver)
+            .with_local_server_driver(local_server_driver),
     )
 }
 

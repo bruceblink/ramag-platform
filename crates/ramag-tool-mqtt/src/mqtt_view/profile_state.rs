@@ -81,6 +81,25 @@ impl MqttView {
             false,
             "",
         );
+        let local_server_bind_host = input(
+            window,
+            cx,
+            MAX_MQTT_LOCAL_SERVER_HOST_BYTES,
+            "监听地址，例如 127.0.0.1",
+            false,
+            DEFAULT_MQTT_LOCAL_SERVER_HOST,
+        );
+        let local_server_port = input(
+            window,
+            cx,
+            5,
+            "监听端口",
+            false,
+            "1883",
+        );
+        let local_server_username = input(window, cx, MAX_USERNAME_BYTES, "用户名", false, "");
+        let local_server_password =
+            input(window, cx, MAX_PASSWORD_BYTES, "密码", true, "");
         let search = input(window, cx, MAX_PROFILE_NAME_BYTES, "筛选配置…", false, "");
         let client_username = input(window, cx, MAX_USERNAME_BYTES, "用户名", false, "");
         let client_id_editor = input(
@@ -187,6 +206,10 @@ impl MqttView {
             &publish_topic,
             &publish_payload,
             &subscribe_filter,
+            &local_server_bind_host,
+            &local_server_port,
+            &local_server_username,
+            &local_server_password,
             &search,
             &client_username,
             &client_id_editor,
@@ -237,10 +260,23 @@ impl MqttView {
             keep_alive,
             publish_topic,
             publish_payload,
+            publish_payload_format: MqttPayloadFormat::default(),
             publish_qos: MqttQos::AtMostOnce,
             publish_retain: false,
             subscribe_filter,
+            receive_payload_format: MqttPayloadFormat::default(),
             subscribe_qos: MqttQos::AtLeastOnce,
+            local_server_bind_host,
+            local_server_port,
+            local_server_username,
+            local_server_password,
+            local_server_allow_anonymous: true,
+            local_server_users: Vec::new(),
+            local_server_status: None,
+            local_server_loading: false,
+            local_server_starting: false,
+            local_server_stopping: false,
+            local_server_notice: None,
             search,
             client_username,
             client_id_editor,
