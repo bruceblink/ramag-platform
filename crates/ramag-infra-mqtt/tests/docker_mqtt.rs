@@ -71,6 +71,7 @@ fn docker_mosquitto_delivers_messages_and_stops_idle_subscriptions() -> Result<(
                 subscriptions: vec![MqttSubscription {
                     filter: subscription_topic,
                     qos: MqttQos::AtLeastOnce,
+                    no_local: false,
                 }],
             },
             sink,

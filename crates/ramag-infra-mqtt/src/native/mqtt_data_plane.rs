@@ -229,6 +229,17 @@
         sink: MqttMessageSink,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
+        if request
+            .subscriptions
+            .iter()
+            .any(|subscription| subscription.no_local)
+        {
+            return Err(DomainError::Mqtt(MqttError::new(
+                MqttErrorCategory::Unsupported,
+                "订阅 MQTT 3.1.1 Topic",
+                "MQTT 3.1.1 不支持 No Local 订阅选项，请切换到 MQTT 5",
+            )));
+        }
         let (client, eventloop) = create_v311_client(profile)?;
         let filters = request
             .subscriptions
@@ -254,10 +265,12 @@
             .subscriptions
             .iter()
             .map(|subscription| {
-                rumqttc::v5::mqttbytes::v5::Filter::new(
+                let mut filter = rumqttc::v5::mqttbytes::v5::Filter::new(
                     subscription.filter.clone(),
                     qos_v5(subscription.qos),
-                )
+                );
+                filter.nolocal = subscription.no_local;
+                filter
             })
             .collect::<Vec<_>>();
         run_subscription_v5(client, eventloop, filters, sink, cancelled).await

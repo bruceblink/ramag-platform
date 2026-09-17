@@ -1,4 +1,5 @@
     use super::*;
+    use crate::entities::MqttSubscription;
 
     #[test]
     fn mqtt_profile_defaults_are_valid_and_debug_redacts_secrets() {
@@ -41,6 +42,22 @@
         assert!(validate_mqtt_topic_filter("devices/#/state").is_err());
         assert!(validate_mqtt_topic_filter("$share/workers/devices/#").is_ok());
         assert!(validate_mqtt_topic_filter("$share//devices/#").is_err());
+    }
+
+    #[test]
+    fn subscription_no_local_defaults_off_for_legacy_records() {
+        let result: Result<MqttSubscription, _> = serde_json::from_str(
+            r#"{"filter":"devices/#","qos":"AtLeastOnce"}"#,
+        );
+        assert!(
+            result
+                .as_ref()
+                .is_ok_and(|subscription| !subscription.no_local),
+            "旧订阅记录应读取为关闭 No Local"
+        );
+        if let Ok(subscription) = result {
+            assert!(subscription.validate().is_ok());
+        }
     }
 
     #[test]

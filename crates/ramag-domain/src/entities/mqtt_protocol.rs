@@ -45,6 +45,9 @@ pub struct MqttSubscription {
     pub filter: String,
     #[serde(default)]
     pub qos: MqttQos,
+    /// MQTT 5 only: do not deliver messages published by this client.
+    #[serde(default)]
+    pub no_local: bool,
 }
 
 impl MqttSubscription {

@@ -220,6 +220,8 @@ pub struct MqttView {
     subscribe_filter: Entity<InputState>,
     receive_payload_format: MqttPayloadFormat,
     subscribe_qos: MqttQos,
+    subscribe_no_local: bool,
+    subscription_topics: Vec<MqttSubscription>,
     local_server_bind_host: Entity<InputState>,
     local_server_port: Entity<InputState>,
     local_server_username: Entity<InputState>,
@@ -307,6 +309,7 @@ impl Focusable for MqttView {
 
 include!("mqtt_view/profile_state.rs");
 include!("mqtt_view/mqtt_operations.rs");
+include!("mqtt_view/subscription_operations.rs");
 include!("mqtt_view/payload_format.rs");
 include!("mqtt_view/local_server_operations.rs");
 include!("mqtt_view/dynamic_security_operations.rs");

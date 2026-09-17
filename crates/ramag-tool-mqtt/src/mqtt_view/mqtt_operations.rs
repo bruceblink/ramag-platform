@@ -329,11 +329,21 @@ impl MqttView {
             return;
         };
         let request = MqttSubscribeRequest {
-            subscriptions: vec![MqttSubscription {
-                filter: value(&self.subscribe_filter, cx),
-                qos: self.subscribe_qos,
-            }],
+            subscriptions: self.subscription_topics.clone(),
         };
+        if self.protocol == MqttProtocolVersion::V311
+            && request
+                .subscriptions
+                .iter()
+                .any(|subscription| subscription.no_local)
+        {
+            self.notice = Some((
+                "MQTT 3.1.1 不支持 No Local，请切换到 MQTT 5".into(),
+                true,
+            ));
+            cx.notify();
+            return;
+        }
         if let Err(error) = request.validate() {
             self.notice = Some((error, true));
             cx.notify();

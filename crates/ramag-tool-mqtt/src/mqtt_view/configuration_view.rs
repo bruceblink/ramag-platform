@@ -322,7 +322,7 @@ impl MqttView {
             };
             protocol_buttons = protocol_buttons.child(button.on_click(cx.listener(
                 move |this, _: &ClickEvent, _, cx| {
-                    this.protocol = protocol;
+                    this.set_protocol_version(protocol);
                     cx.notify();
                 },
             )));

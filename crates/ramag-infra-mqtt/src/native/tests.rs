@@ -1,4 +1,7 @@
         use super::*;
+        use ramag_domain::entities::{
+            MqttMessageSink, MqttQos, MqttSubscribeRequest, MqttSubscription, MqttProfile,
+        };
 
         #[test]
         fn dynamic_security_commands_keep_secrets_out_of_debug_and_preserve_optional_fields() {
@@ -97,4 +100,31 @@
                 }
             });
             assert!(parse_roles(&unsupported).is_err());
+        }
+
+        #[test]
+        fn mqtt311_rejects_no_local_before_opening_a_connection() {
+            let profile = MqttProfile::new("mqtt311-no-local", "127.0.0.1", 1883);
+            let request = MqttSubscribeRequest {
+                subscriptions: vec![MqttSubscription {
+                    filter: "devices/#".into(),
+                    qos: MqttQos::AtLeastOnce,
+                    no_local: true,
+                }],
+            };
+            let cancelled = Arc::new(AtomicBool::new(false));
+            let sink: MqttMessageSink = Arc::new(|_| {
+                ramag_domain::entities::MqttMessageSinkResult::Closed
+            });
+            let result = smol::block_on(subscribe_v311(
+                &profile,
+                &request,
+                sink,
+                cancelled,
+            ));
+            let category = match result {
+                Err(DomainError::Mqtt(error)) => Some(error.category),
+                _ => None,
+            };
+            assert_eq!(category, Some(MqttErrorCategory::Unsupported));
         }

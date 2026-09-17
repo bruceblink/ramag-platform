@@ -266,6 +266,8 @@ impl MqttView {
             subscribe_filter,
             receive_payload_format: MqttPayloadFormat::default(),
             subscribe_qos: MqttQos::AtLeastOnce,
+            subscribe_no_local: false,
+            subscription_topics: default_subscription_topics(),
             local_server_bind_host,
             local_server_port,
             local_server_username,
@@ -433,6 +435,7 @@ impl MqttView {
             set_value(field, "", window, cx);
         }
         self.reset_message_options();
+        self.reset_subscription_topics();
         set_value(&self.port, "1883", window, cx);
         set_value(&self.keep_alive, "60", window, cx);
         for field in [
@@ -571,6 +574,7 @@ impl MqttView {
             state.set_placeholder("发布 Topic", window, cx);
         });
         self.reset_message_options();
+        self.reset_subscription_topics();
         self.clear_runtime_state();
         self.notice = None;
     }
@@ -595,6 +599,7 @@ impl MqttView {
         self.publish_qos = MqttQos::AtMostOnce;
         self.publish_retain = false;
         self.subscribe_qos = MqttQos::AtLeastOnce;
+        self.subscribe_no_local = false;
     }
 
     /// 使切换配置前启动的异步请求失效，并清除旧配置的进行中状态。

@@ -197,6 +197,9 @@ fn mqtt_message_options_reach_publish_and_subscribe_requests(cx: &mut TestAppCon
     });
     visual_cx.run_until_parked();
     click(visual_cx, "mqtt-subscribe-qos-2");
+    click(visual_cx, "mqtt-subscribe-no-local");
+    click(visual_cx, "mqtt-add-subscription");
+    click(visual_cx, "mqtt-subscription-1-qos-1");
     click(visual_cx, "mqtt-start-subscription");
     visual_cx.run_until_parked();
     let subscribe = subscribe_requests
@@ -205,8 +208,13 @@ fn mqtt_message_options_reach_publish_and_subscribe_requests(cx: &mut TestAppCon
         .last()
         .cloned()
         .expect("开始订阅按钮应调用 MQTT 驱动");
-    assert_eq!(subscribe.subscriptions[0].filter, "devices/#");
-    assert_eq!(subscribe.subscriptions[0].qos, MqttQos::ExactlyOnce);
+    let added_subscription = subscribe
+        .subscriptions
+        .iter()
+        .find(|subscription| subscription.filter == "devices/#")
+        .expect("新增 Topic 应进入订阅请求");
+    assert_eq!(added_subscription.qos, MqttQos::AtLeastOnce);
+    assert!(added_subscription.no_local);
     assert_eq!(
         subscribe_profiles
             .lock()
@@ -255,6 +263,7 @@ fn mqtt_subscription_stays_stopping_until_driver_returns(cx: &mut TestAppContext
     });
     visual_cx.run_until_parked();
 
+    click(visual_cx, "mqtt-add-subscription");
     click(visual_cx, "mqtt-start-subscription");
     visual_cx.run_until_parked();
     assert!(started_receiver.try_recv().is_ok(), "订阅驱动应已开始");
@@ -348,4 +357,42 @@ fn mqtt_message_controls_keep_inputs_and_actions_bounded(cx: &mut TestAppContext
         "窄窗口发布按钮不能撑满主工作区: main={narrow_main:?}, button={narrow_publish_button:?}"
     );
     assert!(narrow_publish_button.size.width <= narrow_publish_actions.size.width);
+}
+
+#[gpui::test]
+fn mqtt_subscription_topics_can_be_added_and_removed(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(super::visual_tests::NoopMqttDriver),
+        Arc::new(super::visual_tests::NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| TestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.loading_profiles = false;
+            view.section = MqttSection::Subscribe;
+            view.subscribe_filter
+                .update(cx, |input, cx| input.set_value("alerts/#", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-add-subscription");
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.subscription_topics.len() == 2 && view.subscription_topics[1].filter == "alerts/#"
+    }));
+
+    click(visual_cx, "mqtt-remove-subscription-1");
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.subscription_topics.len() == 1 && view.subscription_topics[0].filter == "+/#"
+    }));
 }

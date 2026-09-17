@@ -241,6 +241,75 @@ impl MqttView {
 
     fn render_subscribe(&self, _window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
+        let mut topic_rows = v_flex().w_full().gap(px(5.0));
+        for (index, subscription) in self.subscription_topics.iter().enumerate() {
+            let row_selector = SharedString::from(format!("mqtt-subscription-row-{index}"));
+            let remove_selector = SharedString::from(format!(
+                "mqtt-remove-subscription-{index}"
+            ));
+            let filter = subscription.filter.clone();
+            let no_local = subscription.no_local;
+            topic_rows = topic_rows.child(
+                h_flex()
+                    .id(row_selector.clone())
+                    .debug_selector({
+                        let selector = row_selector.clone();
+                        move || selector.to_string()
+                    })
+                    .w_full()
+                    .min_w_0()
+                    .flex_wrap()
+                    .items_center()
+                    .gap(px(8.0))
+                    .px(px(10.0))
+                    .py(px(7.0))
+                    .border_1()
+                    .border_color(theme.border)
+                    .rounded(px(4.0))
+                    .child(
+                        div()
+                            .text_sm()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .child(filter),
+                    )
+                    .child(subscription_qos_selector(
+                        index,
+                        subscription.qos,
+                        self.is_busy() || self.subscription_running,
+                        cx,
+                    ))
+                    .child(subscription_no_local_toggle(
+                        index,
+                        no_local,
+                        self.is_busy()
+                            || self.subscription_running
+                            || self.protocol == MqttProtocolVersion::V311,
+                        cx,
+                    ))
+                    .child(
+                        ramag_ui::clickable_button(remove_selector.clone())
+                            .debug_selector(move || remove_selector.to_string())
+                            .ghost()
+                            .xsmall()
+                            .icon(IconName::Delete)
+                            .tooltip("移除订阅 Topic")
+                            .disabled(self.is_busy() || self.subscription_running)
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                this.remove_subscription_topic(index, cx);
+                            })),
+                    ),
+            );
+        }
+        if self.subscription_topics.is_empty() {
+            topic_rows = topic_rows.child(
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("尚未添加订阅 Topic Filter。"),
+            );
+        }
         let mut body = v_flex()
             .w_full()
             .min_w_0()
@@ -251,6 +320,12 @@ impl MqttView {
                 "订阅使用有界缓冲；缓冲满时驱动会报告背压，不会无限堆积内存",
                 &theme,
             ))
+            .child(section_heading(
+                "订阅主题",
+                "每条 Topic Filter 单独配置 QoS；No Local 仅由 MQTT 5 支持",
+                &theme,
+            ))
+            .child(topic_rows)
             .child(
                 field(
                     "Topic Filter",
@@ -275,8 +350,8 @@ impl MqttView {
                     ),
                 )
                 .w_full(),
-            );
-            body = body.child(
+            )
+            .child(
             row()
                 .debug_selector(|| "mqtt-subscribe-options".into())
                 .child(payload_format_selector(
@@ -292,7 +367,30 @@ impl MqttView {
                     self.is_busy() || self.subscription_running,
                     cx,
                     |this, qos| this.subscribe_qos = qos,
-                )),
+                ))
+                .child(toggle_button(
+                    "mqtt-subscribe-no-local",
+                    "No Local",
+                    self.subscribe_no_local,
+                    self.is_busy()
+                        || self.subscription_running
+                        || self.protocol == MqttProtocolVersion::V311,
+                    cx,
+                    |this| this.subscribe_no_local = !this.subscribe_no_local,
+                ))
+                .child(
+                    ramag_ui::clickable_button("mqtt-add-subscription")
+                        .debug_selector(|| "mqtt-add-subscription".into())
+                        .primary()
+                        .small()
+                        .flex_none()
+                        .icon(IconName::Plus)
+                        .label("添加主题")
+                        .disabled(self.is_busy() || self.subscription_running)
+                        .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                            this.add_subscription_topic(window, cx)
+                        })),
+                ),
         );
         let action = if self.subscription_running {
             ramag_ui::clickable_button("mqtt-stop-subscription")

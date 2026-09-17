@@ -1,4 +1,5 @@
     use super::*;
+    #[cfg(feature = "native")]
     use ramag_domain::traits::MqttLocalServerDriver;
 
     #[test]
@@ -313,6 +314,7 @@
                     subscriptions: vec![MqttSubscription {
                         filter: subscribe_topic,
                         qos: MqttQos::AtLeastOnce,
+                        no_local: false,
                     }],
                 },
                 sink,
