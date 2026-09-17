@@ -57,6 +57,12 @@
         invalid.port = 0;
         assert!(invalid.validate().is_err());
 
+        let locked_out = MqttLocalServerConfig {
+            allow_anonymous: false,
+            ..config.clone()
+        };
+        assert!(locked_out.validate().is_err());
+
         let mut secured = MqttLocalServerConfig {
             allow_anonymous: false,
             users: vec![MqttLocalServerUser {

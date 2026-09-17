@@ -52,6 +52,9 @@ impl MqttLocalServerConfig {
         if self.users.len() > 128 {
             return Err("本地 MQTT Broker 用户数量不能超过 128".into());
         }
+        if !self.allow_anonymous && self.users.is_empty() {
+            return Err("关闭匿名连接时至少需要配置一个固定账号".into());
+        }
         for (index, user) in self.users.iter().enumerate() {
             user.validate(index)?;
         }
