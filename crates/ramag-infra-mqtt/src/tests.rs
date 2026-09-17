@@ -218,6 +218,35 @@
 
     #[cfg(feature = "native")]
     #[test]
+    fn local_server_rejects_conflicting_running_configuration() -> std::result::Result<(), String> {
+        let driver = NativeMqttLocalServer::new();
+        let port = std::net::TcpListener::bind(("127.0.0.1", 0))
+            .map_err(|error| error.to_string())?
+            .local_addr()
+            .map_err(|error| error.to_string())?
+            .port();
+        let config = ramag_domain::entities::MqttLocalServerConfig {
+            bind_host: "127.0.0.1".into(),
+            port,
+            allow_anonymous: true,
+            users: Vec::new(),
+        };
+        let conflicting = ramag_domain::entities::MqttLocalServerConfig {
+            allow_anonymous: false,
+            ..config.clone()
+        };
+        smol::block_on(driver.start(&config)).map_err(|error| error.to_string())?;
+        let same = smol::block_on(driver.start(&config)).map_err(|error| error.to_string())?;
+        let result = smol::block_on(driver.start(&conflicting));
+        let stopped = smol::block_on(driver.stop()).map_err(|error| error.to_string())?;
+        assert!(same.running, "相同配置重复启动应返回运行中状态");
+        assert!(result.is_err(), "运行中的 Broker 不应静默接受冲突配置");
+        assert!(!stopped.running);
+        Ok(())
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
     fn local_server_supports_the_native_client_publish_subscribe_loop() -> std::result::Result<(), String> {
         use std::sync::{
             Arc,

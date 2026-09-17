@@ -274,3 +274,5 @@ MQTT-004 订阅停止状态修复（2026-09-16）：停止订阅后保留“正�
 MQTT-005 订阅消息元数据可见性（2026-09-16）：订阅消息卡片在 Topic、QoS 和接收时间之外显示 Retain、Dup 以及 MQTT 5 User Property 数量；元数据使用可换行的紧凑标记，长 Topic 和窄窗口仍保持在消息内容区内。`mqtt_message_operations_reflow_inside_supported_window_widths` 覆盖四种窗口宽度并检查三类标记的布局边界。真实 Windows 窗口和远端 Broker 操作尚未执行，不能将 headless 验收描述为真实窗口验证。
 
 MQTT-006 MQTT 原生窗口集成验收与操作区收缩（2026-09-16）：真实 Windows MSVC Debug 窗口验证订阅 Topic Filter 在 1440px 中保持消息内容区宽度并可粘贴 `ui/test/#`，`开始订阅`和`停止订阅`按钮按内容宽度显示；连接本机 Docker `ramag-mqtt-test`（`eclipse-mosquitto:2.0.20`，`127.0.0.1:18883`）后，桌面订阅窗口收到 retained 消息并显示 `Retain`，收到 MQTT 5 User Property 后显示`属性 1`，停止订阅后回到可启动状态。截图保存在 `artifacts/ui-screenshots/mqtt-native-subscribe-after-fix.png`、`mqtt-native-topic-entered.png`、`mqtt-native-retained-received.png` 和 `mqtt-native-user-property-received.png`；本机服务测试结束后清理 `ui/test/message` 保留消息。
+
+MQTT-007 本地 Broker 退出与配置一致性切片（2026-09-17）：应用退出回调等待内置本地 MQTT Broker 停止，避免后台线程和监听端口残留；运行中的 Broker 只接受完全相同的配置，监听地址、端口、匿名策略或固定账号发生变化时返回“先停止后修改”的明确错误；状态检测到 Broker 线程异常结束时清理旧停止句柄。`ramag-infra-mqtt` native 目标测试 14 项通过，覆盖相同配置重复启动、冲突配置拒绝和停止回读；`ramag-tool-mqtt` 16 项及 `ramag-app` 215 项库测试通过。真实 Windows 窗口证据未新增，本切片不改变既有 headless UI 证据边界。

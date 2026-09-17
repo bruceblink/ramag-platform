@@ -27,6 +27,7 @@ pub struct NativeMqttLocalServer {
 
 struct LocalServerState {
     status: MqttLocalServerStatus,
+    config: Option<MqttLocalServerConfig>,
     stop: Option<oneshot::Sender<()>>,
     task: Option<std::thread::JoinHandle<()>>,
 }
@@ -37,6 +38,7 @@ impl NativeMqttLocalServer {
         Self {
             state: Arc::new(Mutex::new(LocalServerState {
                 status: MqttLocalServerStatus::stopped(&config),
+                config: None,
                 stop: None,
                 task: None,
             })),
@@ -52,6 +54,7 @@ impl Default for NativeMqttLocalServer {
 
 #[async_trait]
 impl MqttLocalServerDriver for NativeMqttLocalServer {
+    /// 启动本地 Broker；相同运行配置可幂等调用，冲突配置必须先停止当前实例。
     async fn start(&self, config: &MqttLocalServerConfig) -> Result<MqttLocalServerStatus> {
         config.validate().map_err(DomainError::InvalidConfig)?;
         let ip = config
@@ -64,9 +67,19 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
         if let Some(task) = state.task.take() {
             if !task.is_finished() {
                 state.task = Some(task);
+                if state
+                    .config
+                    .as_ref()
+                    .is_some_and(|current| current != config)
+                {
+                    return Err(DomainError::InvalidConfig(
+                        "本地 MQTT Broker 已运行，请先停止后再修改配置".into(),
+                    ));
+                }
                 return Ok(state.status.clone());
             }
             let _ = task.join();
+            state.config = None;
             state.stop = None;
         }
 
@@ -90,6 +103,7 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
         }
         let status = MqttLocalServerStatus::running(config);
         state.status = status.clone();
+        state.config = Some(config.clone());
         state.stop = Some(stop_sender);
         state.task = Some(task);
         Ok(status)
@@ -105,11 +119,13 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
                 local_server_error("等待本地 MQTT Broker 停止", "Broker 线程异常退出")
             })?;
         }
+        state.config = None;
         state.status.running = false;
         Ok(state.status.clone())
     }
 
     async fn status(&self) -> Result<MqttLocalServerStatus> {
+        // 状态查询同时回收已结束的后台线程，避免后续启动继续持有旧句柄。
         let mut state = self.state.lock().await;
         if state
             .task
@@ -117,6 +133,8 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
             .is_some_and(std::thread::JoinHandle::is_finished)
         {
             state.task = None;
+            state.config = None;
+            state.stop = None;
             state.status.running = false;
         }
         Ok(state.status.clone())

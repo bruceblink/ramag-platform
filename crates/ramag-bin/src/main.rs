@@ -354,6 +354,7 @@ fn main() {
 
         // 退出时关闭运行时，避免后台任务残留。
         let plugin_host_for_quit = deps.plugin_host.clone();
+        let mqtt_service_for_quit = deps.mqtt_service.clone();
         let ssh_service_for_quit = deps.ssh_service.clone();
         let object_storage_for_quit = deps.object_storage_service.clone();
         cx.on_app_quit(move |_| {
@@ -367,9 +368,13 @@ fn main() {
                     "built-in plugin shutdown failed"
                 );
             }
+            let mqtt_service = mqtt_service_for_quit.clone();
             let ssh_service = ssh_service_for_quit.clone();
             let object_storage = object_storage_for_quit.clone();
             async move {
+                if let Err(error) = mqtt_service.stop_local_server().await {
+                    warn!(operation = "mqtt_local_server_shutdown", error = %error, "shutdown local MQTT Broker failed");
+                }
                 if let Err(error) = ssh_service.shutdown().await {
                     warn!(operation = "ssh_shutdown", error = %error, "shutdown ssh tool resources failed");
                 }
