@@ -25,6 +25,7 @@ use url::Url;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(8);
 const MAX_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 const CATALOG_PAGE_SIZE: usize = 1_000;
+const MAX_PAGINATION_PAGES: usize = 64;
 
 #[derive(Clone)]
 pub struct RegistryHttpDriver {
@@ -102,19 +103,28 @@ impl RegistryHttpDriver {
         let mut url = Self::registry_url(profile, "v2/_catalog", "读取 Registry 仓库")?;
         url.query_pairs_mut()
             .append_pair("n", &CATALOG_PAGE_SIZE.to_string());
-        let response = self.request(profile, credential, "读取 Registry 仓库", url)?;
-        let payload: CatalogResponse = read_json(response, "读取 Registry 仓库")?;
-        if payload.repositories.len() > MAX_CONTAINER_REGISTRY_REPOSITORIES {
-            return Err(protocol_error("Registry 仓库数量超过限制"));
-        }
-        payload
-            .repositories
-            .into_iter()
-            .map(|name| {
+        let mut repositories = Vec::new();
+        for _ in 0..MAX_PAGINATION_PAGES {
+            let response = self.request(profile, credential, "读取 Registry 仓库", url.clone())?;
+            let next = next_page_url(profile, &response)?;
+            let payload: CatalogResponse = read_json(response, "读取 Registry 仓库")?;
+            if repositories
+                .len()
+                .saturating_add(payload.repositories.len())
+                > MAX_CONTAINER_REGISTRY_REPOSITORIES
+            {
+                return Err(protocol_error("Registry 仓库数量超过限制"));
+            }
+            for name in payload.repositories {
                 validate_repository(&name)?;
-                Ok(ContainerRegistryRepository { name })
-            })
-            .collect()
+                repositories.push(ContainerRegistryRepository { name });
+            }
+            let Some(next) = next else {
+                return Ok(repositories);
+            };
+            url = next;
+        }
+        Err(protocol_error("Registry 仓库分页超过限制"))
     }
 
     fn list_tags_blocking(
@@ -125,25 +135,31 @@ impl RegistryHttpDriver {
     ) -> Result<Vec<ContainerRegistryTag>> {
         validate_repository(repository)?;
         let suffix = format!("v2/{repository}/tags/list");
-        let url = Self::registry_url(profile, &suffix, "读取 Registry Tag")?;
-        let response = self.request(profile, credential, "读取 Registry Tag", url)?;
-        let payload: TagsResponse = read_json(response, "读取 Registry Tag")?;
-        let tags = payload.tags.unwrap_or_default();
-        if tags.len() > MAX_CONTAINER_REGISTRY_TAGS {
-            return Err(protocol_error("Registry Tag 数量超过限制"));
-        }
-        tags.into_iter()
-            .map(|name| {
+        let mut url = Self::registry_url(profile, &suffix, "读取 Registry Tag")?;
+        url.query_pairs_mut()
+            .append_pair("n", &CATALOG_PAGE_SIZE.to_string());
+        let mut result = Vec::new();
+        for _ in 0..MAX_PAGINATION_PAGES {
+            let response = self.request(profile, credential, "读取 Registry Tag", url.clone())?;
+            let next = next_page_url(profile, &response)?;
+            let payload: TagsResponse = read_json(response, "读取 Registry Tag")?;
+            let repository_name = payload.name.unwrap_or_else(|| repository.to_owned());
+            for name in payload.tags.unwrap_or_default() {
                 validate_tag(&name)?;
-                Ok(ContainerRegistryTag {
-                    repository: payload
-                        .name
-                        .clone()
-                        .unwrap_or_else(|| repository.to_owned()),
+                if result.len() >= MAX_CONTAINER_REGISTRY_TAGS {
+                    return Err(protocol_error("Registry Tag 数量超过限制"));
+                }
+                result.push(ContainerRegistryTag {
+                    repository: repository_name.clone(),
                     name,
-                })
-            })
-            .collect()
+                });
+            }
+            let Some(next) = next else {
+                return Ok(result);
+            };
+            url = next;
+        }
+        Err(protocol_error("Registry Tag 分页超过限制"))
     }
 
     fn test_connection_blocking(
@@ -287,6 +303,52 @@ struct CatalogResponse {
 struct TagsResponse {
     name: Option<String>,
     tags: Option<Vec<String>>,
+}
+
+// Registry 返回的分页链接可能来自服务端输入；只允许沿当前端点的同源链接继续读取。
+fn next_page_url(profile: &ContainerRegistryProfile, response: &Response) -> Result<Option<Url>> {
+    let Some(value) = response.headers().get(reqwest::header::LINK) else {
+        return Ok(None);
+    };
+    let value = value
+        .to_str()
+        .map_err(|_| protocol_error("Registry Link 分页头不是有效文本"))?;
+    let Some(entry) = value.split(',').find(|entry| {
+        entry.split_once('>').is_some_and(|(_, attributes)| {
+            attributes.split(';').any(|attribute| {
+                let Some(relation) = attribute.trim().strip_prefix("rel=") else {
+                    return false;
+                };
+                relation
+                    .trim_matches('"')
+                    .split_ascii_whitespace()
+                    .any(|value| value.eq_ignore_ascii_case("next"))
+            })
+        })
+    }) else {
+        return Ok(None);
+    };
+    let Some(start) = entry.find('<') else {
+        return Err(protocol_error("Registry Link 分页头缺少 URL"));
+    };
+    let Some(end_offset) = entry[start + 1..].find('>') else {
+        return Err(protocol_error("Registry Link 分页头缺少结束符"));
+    };
+    let link = &entry[start + 1..start + 1 + end_offset];
+    let base =
+        Url::parse(&profile.endpoint).map_err(|_| invalid_config("Registry 端点格式无效"))?;
+    let next = base
+        .join(link)
+        .map_err(|_| protocol_error("Registry Link 分页地址无效"))?;
+    if next.scheme() != base.scheme()
+        || next.host_str() != base.host_str()
+        || next.port_or_known_default() != base.port_or_known_default()
+        || !next.username().is_empty()
+        || next.password().is_some()
+    {
+        return Err(protocol_error("Registry 分页链接必须与当前端点同源"));
+    }
+    Ok(Some(next))
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(

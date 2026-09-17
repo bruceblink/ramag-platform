@@ -1,6 +1,6 @@
 # Docker 与 Kubernetes 可视化管理工具设计
 
-> 状态：CMT-001、CMT-002 已完成，CMT-003 开发中。本文件定义容器管理工具的产品范围、技术边界和分期；当前实现已接入 Docker Engine 只读适配器、应用服务和工作台列表/详情 UI，真实 Windows 原生窗口证据仍单独记录。
+> 状态：CMT-001、CMT-002 已完成，CMT-003 开发中。本文件定义容器管理工具的产品范围、技术边界和分期；当前实现已接入 Docker Engine 只读适配器、Registry v2 查询适配器、应用服务和工作台列表/详情 UI，真实 Windows 原生窗口证据仍单独记录。
 >
 > 适用范围：本机 Docker Engine、受控远程 Docker Engine，以及通过 kubeconfig 接入的 Kubernetes 集群。工具作为 Ramag 静态工具插件实现，暂定 crate 名称为 ramag-tool-container。
 
@@ -139,6 +139,8 @@ Kubernetes 上下文使用以下导航项：
 | 清理未引用镜像 | 后续阶段按预览列表批量执行 | 必须先展示将删除的 digest 和可释放空间估算 |
 
 漏洞、签名和 SBOM 是镜像供应链功能，不能用镜像查询结果冒充。它们在具备可信扫描器、签名验证器和清晰的数据来源后另行设计。
+
+`CMT-003` 当前切片记录（2026-09-17）：Registry v2 仓库目录和 Tag 查询已处理 `Link: rel="next"` 分页，并限制分页次数、返回数量和响应大小；分页 URL 只允许访问当前 Registry 的同源地址。目标 crate 测试使用本机 TCP HTTP fixture 验证多页结果和跨域链接拒绝。该切片不代表认证失败、digest 回读、取消、资源清理或镜像拉取/标记/推送/删除的本机服务验收已完成。
 
 ### 容器启动与生命周期管理
 
