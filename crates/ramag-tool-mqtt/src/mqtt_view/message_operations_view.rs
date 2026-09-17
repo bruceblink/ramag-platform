@@ -143,7 +143,7 @@ impl MqttView {
             })
     }
 
-    fn render_publish(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_publish(&self, _window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let body = v_flex()
             .w_full()
@@ -203,22 +203,24 @@ impl MqttView {
             )
             .child(
                 div()
-                    .debug_selector(|| "mqtt-publish-actions".into())
-                    .self_start()
-                    .when(window.viewport_size().width < px(760.0), |actions| {
-                        actions.w_full()
-                    })
-                    .child(ramag_ui::clickable_button("mqtt-publish")
-                    .debug_selector(|| "mqtt-publish".into())
-                    .primary()
-                    .small()
-                    .flex_none()
-                    .label("发布消息")
-                    .loading(self.publishing)
-                    .disabled(self.publishing || self.subscription_running)
-                    .on_click(
-                        cx.listener(|this, _: &ClickEvent, window, cx| this.publish(window, cx)),
-                    )),
+                .debug_selector(|| "mqtt-publish-actions".into())
+                .self_start()
+                .child(
+                    ramag_ui::clickable_button("mqtt-publish")
+                        .debug_selector(|| "mqtt-publish".into())
+                        .primary()
+                        .small()
+                        .flex_none()
+                        .self_start()
+                        .label("发布消息")
+                        .loading(self.publishing)
+                        .disabled(self.publishing || self.subscription_running)
+                        .on_click(
+                            cx.listener(|this, _: &ClickEvent, window, cx| {
+                                this.publish(window, cx)
+                            }),
+                        ),
+                ),
             );
         v_flex()
             .id("mqtt-publish-scroll")
@@ -230,7 +232,7 @@ impl MqttView {
             .child(body)
     }
 
-    fn render_subscribe(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_subscribe(&self, _window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let mut body = v_flex()
             .w_full()
@@ -284,6 +286,7 @@ impl MqttView {
                 .danger()
                 .small()
                 .flex_none()
+                .self_start()
                 .label(if self.subscription_stopping {
                     "正在停止订阅…"
                 } else {
@@ -300,6 +303,7 @@ impl MqttView {
                 .primary()
                 .small()
                 .flex_none()
+                .self_start()
                 .label("开始订阅")
                 .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                     this.start_subscription(window, cx)
@@ -309,9 +313,6 @@ impl MqttView {
             div()
                 .debug_selector(|| "mqtt-subscribe-actions".into())
                 .self_start()
-                .when(window.viewport_size().width < px(760.0), |actions| {
-                    actions.w_full()
-                })
                 .child(action),
         );
         if self.messages.is_empty() {

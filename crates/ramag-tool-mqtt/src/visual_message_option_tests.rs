@@ -316,4 +316,35 @@ fn mqtt_message_controls_keep_inputs_and_actions_bounded(cx: &mut TestAppContext
         button.size.width < main.size.width / 2.0,
         "开始订阅按钮不能撑满消息区域: main={main:?}, button={button:?}"
     );
+
+    visual_cx.simulate_resize(size(px(360.0), px(640.0)));
+    visual_cx.run_until_parked();
+    let narrow_main = visual_cx
+        .debug_bounds("mqtt-main")
+        .expect("窄窗口主工作区应渲染");
+    let narrow_actions = visual_cx
+        .debug_bounds("mqtt-subscribe-actions")
+        .expect("窄窗口订阅操作区应参与布局");
+    let narrow_button = visual_cx
+        .debug_bounds("mqtt-start-subscription")
+        .expect("窄窗口开始订阅按钮应参与布局");
+    assert!(
+        narrow_button.size.width < narrow_main.size.width,
+        "窄窗口开始订阅按钮不能撑满主工作区: main={narrow_main:?}, button={narrow_button:?}"
+    );
+    assert!(narrow_button.size.width <= narrow_actions.size.width);
+
+    click(visual_cx, "mqtt-tab-Publish");
+    visual_cx.run_until_parked();
+    let narrow_publish_actions = visual_cx
+        .debug_bounds("mqtt-publish-actions")
+        .expect("窄窗口发布操作区应参与布局");
+    let narrow_publish_button = visual_cx
+        .debug_bounds("mqtt-publish")
+        .expect("窄窗口发布按钮应参与布局");
+    assert!(
+        narrow_publish_button.size.width < narrow_main.size.width,
+        "窄窗口发布按钮不能撑满主工作区: main={narrow_main:?}, button={narrow_publish_button:?}"
+    );
+    assert!(narrow_publish_button.size.width <= narrow_publish_actions.size.width);
 }
