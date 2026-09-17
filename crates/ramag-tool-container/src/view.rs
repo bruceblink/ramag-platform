@@ -1202,10 +1202,15 @@ fn resource_row(
 ) -> AnyElement {
     let theme = cx.theme();
     let detail_id = id.clone();
-    ramag_ui::clickable_button(format!("container-resource-{kind}-{id}"))
+    let row_id = format!("container-resource-{kind}-{id}");
+    let row_selector = row_id.clone();
+    let title_selector = format!("{row_id}-title");
+    let subtitle_selector = format!("{row_id}-subtitle");
+    ramag_ui::clickable_button(row_id)
         .ghost()
         .w_full()
         .justify_start()
+        .debug_selector(move || row_selector.clone())
         .on_click(
             cx.listener(move |this, _: &ClickEvent, _, cx| this.load_detail(detail_id.clone(), cx)),
         )
@@ -1223,11 +1228,22 @@ fn resource_row(
                     v_flex()
                         .flex_1()
                         .min_w_0()
-                        .child(div().text_sm().child(title))
+                        .gap(px(2.0))
                         .child(
                             div()
+                                .debug_selector(move || title_selector.clone())
+                                .min_w_0()
+                                .text_sm()
+                                .truncate()
+                                .child(title),
+                        )
+                        .child(
+                            div()
+                                .debug_selector(move || subtitle_selector.clone())
+                                .min_w_0()
                                 .text_xs()
                                 .text_color(theme.muted_foreground)
+                                .truncate()
                                 .child(subtitle),
                         ),
                 )

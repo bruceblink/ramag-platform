@@ -4,7 +4,8 @@ use gpui::Modifiers;
 use gpui::{AppContext as _, Bounds, MouseButton, Pixels, TestAppContext, px, size};
 use gpui_component::Root;
 
-use super::ContainerView;
+use super::{ContainerSection, ContainerView};
+use ramag_domain::entities::{ContainerPage, DockerImageSummary};
 
 fn assert_inside(parent: Bounds<Pixels>, child: Bounds<Pixels>, label: &str) {
     assert!(
@@ -154,4 +155,66 @@ fn compact_resource_navigation_wraps_without_full_width_rows(cx: &mut TestAppCon
             "紧凑资源入口不应强制占满导航: navigation={navigation:?}, button={button:?}"
         );
     }
+}
+
+#[gpui::test]
+fn image_rows_keep_long_names_and_subtitles_inside_narrow_window(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ContainerView::new(window, cx));
+        view_entity = Some(view.clone());
+        Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("容器管理视图应初始化");
+    view.update(visual_cx, |view, cx| {
+        view.section = ContainerSection::Images;
+        view.loading = false;
+        view.images = Some(ContainerPage {
+            items: vec![DockerImageSummary {
+                id: "image-123".into(),
+                repository_tags: vec![
+                    "registry.example.com/team/very-long-image-name-that-must-not-overlap:latest"
+                        .into(),
+                ],
+                repository_digests: Vec::new(),
+                created: None,
+                size_bytes: Some(1024 * 1024 * 512),
+                shared_size_bytes: None,
+                containers: None,
+                architecture: None,
+                operating_system: Some(
+                    "linux/amd64-with-a-long-platform-description-for-narrow-windows".into(),
+                ),
+                labels: Vec::new(),
+            }],
+            page: 1,
+            page_size: 100,
+            total: 1,
+            has_more: false,
+        });
+        cx.notify();
+    });
+    visual_cx.simulate_resize(size(px(360.0), px(640.0)));
+    visual_cx.run_until_parked();
+
+    let panel = visual_cx
+        .debug_bounds("container-view")
+        .expect("容器管理工作台应渲染");
+    let row = visual_cx
+        .debug_bounds("container-resource-image-image-123")
+        .expect("镜像行应渲染");
+    let title = visual_cx
+        .debug_bounds("container-resource-image-image-123-title")
+        .expect("镜像标题应渲染");
+    let subtitle = visual_cx
+        .debug_bounds("container-resource-image-image-123-subtitle")
+        .expect("镜像副标题应渲染");
+    assert_inside(panel, row, "镜像行");
+    assert_horizontal_inside(panel, title, "镜像标题");
+    assert_horizontal_inside(panel, subtitle, "镜像副标题");
+    assert!(
+        subtitle.origin.y >= title.bottom(),
+        "镜像标题和副标题不能重叠: title={title:?}, subtitle={subtitle:?}"
+    );
 }
