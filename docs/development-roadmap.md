@@ -289,3 +289,5 @@ MQTT-011 订阅 Topic 列表持久化切片（2026-09-18）：将每个 MQTT 配
 MQTT-012 消息查看器首版切片（2026-09-18）：消息卡片接入上下文菜单，支持打开有界消息查看器、切换 UTF-8/JSON/Hex/Base64 显示格式、复制 Topic 和复制当前格式结果；JSON 当前以格式化文本显示，非法 JSON 回退为原始文本，查看正文和截断提示均受大小上限约束。新增消息格式/截断单测和 GPUI 查看器布局、格式切换、复制入口测试，覆盖 360/1024/1440px；`ramag-tool-mqtt` 22 项库测试通过。真实 Windows 窗口、菜单点击截图和远端 Broker UI 操作仍未新增，JSON 树节点交互留在后续切片。
 
 MQTT-013 订阅逐条运行状态切片（2026-09-18）：新增 `MqttSubscriptionStatus` 和状态回调，开始订阅后每条 Topic Filter 先显示“订阅中”；Native MQTT 3.1.1/5 驱动读取 Broker `SubAck` 返回码，分别回传“已订阅”或“失败”，请求发送失败和连接错误会保留失败原因。停止、配置切换和列表编辑会清理未完成状态，状态通道容量与 `MAX_MQTT_SUBSCRIPTIONS` 一致。`ramag-domain` 194 项、`ramag-app` 217 项、`ramag-infra-mqtt` native 测试 14 项通过且 1 项按环境忽略，Docker MQTT 集成测试 1 项通过，`ramag-tool-mqtt` 22 项库测试通过；Native 本地 Broker 回归已读取成功 `SubAck`。真实 Windows 窗口状态回读、远端 Broker 拒绝码和单条新增/取消订阅仍未完成。
+
+MQTT-014 JSON 消息树查看切片（2026-09-18）：消息查看器在 JSON 格式下显示对象和数组节点，支持节点展开/收起；载荷超过 2 MiB、节点超过 2048 个或嵌套超过 32 层时不构造树，回退到有界文本并显示具体原因，非法 JSON 同样保留原始文本。新增 JSON 树结构上限、非法输入和 360/1024/1440px headless 展开/收起测试；`ramag-tool-mqtt` 23 项库测试和目标 Clippy 通过。真实 Windows 窗口、菜单点击截图和大载荷实际操作仍未完成。
