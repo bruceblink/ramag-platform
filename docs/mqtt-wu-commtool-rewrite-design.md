@@ -1,6 +1,6 @@
 # Wu.CommTool MQTT 重写详细设计
 
-> 状态：设计已完成；Phase 1 进行中，本轮已完成订阅 Topic 列表、No Local、列表持久化、消息时间线控制和消息查看器首版。
+> 状态：设计已完成；Phase 1 进行中，本轮已完成订阅 Topic 列表、No Local、列表持久化、订阅逐条运行状态、消息时间线控制和消息查看器首版。
 >
 > 适用范围：Ramag Platform 的 MQTT 工作台、内置本地 MQTT Broker、远端 MQTT Client 连接、消息发布/订阅和与 Wu.CommTool 的配置及交互兼容。
 >
@@ -73,7 +73,7 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 | 代码边界 | 当前职责 | 当前状态 |
 |---|---|---|
 | ramag-domain/entities/mqtt/connection_config.rs | Broker 配置、协议版本、TCP/TLS、凭据、Keep Alive 和 Mosquitto 管理参数 | 已实现验证和脱敏 Debug 输出 |
-| ramag-domain/entities/mqtt_protocol.rs | QoS、订阅请求、发布请求、接收消息、User Property 和 Broker 观察结果 | 已实现有界模型和字段校验 |
+| ramag-domain/entities/mqtt_protocol.rs | QoS、订阅请求、订阅逐条运行状态、发布请求、接收消息、User Property 和 Broker 观察结果 | 已实现有界模型和字段校验 |
 | ramag-domain/entities/mqtt/local_server.rs | 本地 Broker 监听地址、端口、匿名策略、固定账号和状态 | 已实现认证配置前置校验 |
 | ramag-domain/traits/mqtt_driver.rs | 测试连接、发布、持续订阅和 Broker 观察接口 | 已实现接口 |
 | ramag-domain/traits/mqtt_local_server.rs | 本地 Broker 启动、停止和状态接口 | 已实现接口 |
@@ -84,7 +84,7 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 | ramag-tool-mqtt/src/mqtt_view/payload_format.rs | 发布编码和接收显示格式 | 已实现 UTF-8、JSON、Hex、Base64 三类转换及参考项目的组合模式 |
 | ramag-tool-mqtt/src/mqtt_view/message_operations_view.rs | 发布和订阅操作区、QoS、Retain、消息元数据 | 已实现，已有窄窗口 headless 覆盖 |
 | ramag-tool-mqtt/src/mqtt_view/local_server_view.rs | 本地 Broker 地址、端口、匿名策略、账号、启动停止和填入客户端配置 | 已实现生命周期交互 |
-| ramag-tool-mqtt/src/mqtt_view/subscription_operations.rs | 订阅 Topic 列表新增、删除、逐条 QoS/No Local 编辑和协议能力约束 | 本次 Phase 1 切片已实现，列表随 Broker 配置保存 |
+| ramag-tool-mqtt/src/mqtt_view/subscription_operations.rs | 订阅 Topic 列表新增、删除、逐条 QoS/No Local 编辑、运行状态和协议能力约束 | 本次 Phase 1 切片已实现，列表随 Broker 配置保存，状态由订阅回调更新 |
 | ramag-tool-mqtt/src/mqtt_view/message_timeline_operations.rs | 消息时间线暂停展示、恢复展示、清空本地消息和有界追加 | 本次 Phase 1 切片已实现，暂停不停止订阅连接 |
 | ramag-tool-mqtt/src/mqtt_view/message_viewer.rs | 消息右键菜单、JSON/文本格式查看、复制 Topic 和当前格式 | 本次 Phase 1 切片已实现，查看正文和复制内容均有大小上限 |
 
@@ -96,10 +96,12 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 
 本轮新增消息查看器：消息卡片提供上下文菜单，可查看有界的 UTF-8、JSON、Hex 和 Base64 文本，切换显示格式，复制 Topic 或当前格式结果。JSON 当前使用格式化文本显示，后续再补树形节点交互；查看器支持 360/1024/1440px headless 布局，未把 headless 结果写成真实 Windows 窗口验收。
 
+本轮新增订阅逐条运行状态：开始订阅后每条 Topic Filter 先显示“订阅中”；Native MQTT 3.1.1 和 MQTT 5 驱动读取 Broker 的 `SubAck` 返回码，按 Filter 回传“已订阅”或“失败”，连接错误会保留具体失败原因。配置切换、列表编辑和停止后，未获得 Broker 确认的记录回到“未运行”；状态通道容量与领域订阅上限一致，不因状态集中返回而丢弃后续记录。headless UI、Native 本地 Broker 和 Docker 集成调用点已覆盖，真实 Windows 窗口状态回读和远端 Broker 失败码仍未完成。
+
 当前与参考项目仍存在的主要差距：
 
 - 本地 Broker 还没有完整的 Broker 侧消息事件、在线客户端和每客户端订阅管理工作流。
-- 订阅记录已经扩展为可新增、删除和编辑 QoS/No Local 的 Topic 列表，并随 `MqttProfile` 加密保存；逐条订阅/取消订阅仍待补齐。
+- 订阅记录已经扩展为可新增、删除和编辑 QoS/No Local 的 Topic 列表，并随 `MqttProfile` 加密保存；启动/停止订阅已有每条 Filter 的运行状态，单独新增或取消某一条订阅的操作仍待补齐。
 - 消息时间线已支持暂停展示、恢复展示、清空本地列表和有界消息查看器；当前查看器使用格式化 JSON 文本，还没有参考项目式的 JSON 树节点交互。
 - 参考项目的 jsonMCC/jsonMSC 配置导入导出和快速配置列表尚未完成兼容层。
 - 本地 Broker TLS 证书端点、Broker 注入发布和客户端管理能力需要扩展本地服务接口。
@@ -115,8 +117,8 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 | MQTT Server Broker 发布 | 从本地 Broker 注入 Topic、载荷、QoS、Retain 消息 | 尚无本地服务发布接口 | Phase 2 | 客户端订阅收到真实注入消息 |
 | MQTT Server 客户端管理 | 显示真实在线 Client ID、用户名、连接时间和订阅 Topic | 尚无本地 Broker 观察接口 | Phase 2 | 两个真实客户端连接后的窗口结果 |
 | MQTT Client 连接 | 支持 MQTT 3.1.1/5、TCP/TLS、Client ID、认证、Keep Alive、自动重连、取消和错误分类 | Native 驱动已实现连接和取消；自动重连开关未对齐 | Phase 1 | 本机 Docker Mosquitto 3.1.1/5 测试 |
-| MQTT Client Topic 列表 | 多条 Topic Filter 可添加、删除、编辑，逐条显示 QoS 和 No Local | 已实现多条列表、添加/删除、逐条 QoS/No Local 编辑和随配置保存 | Phase 1 后续补逐条订阅动作 | Domain 校验、加密存储往返、headless 操作、真实订阅回读 |
-| MQTT Client 订阅/取消订阅 | 启动和停止状态可见，停止等待驱动真正退出；暂停只停止当前窗口追加 | 持续订阅、取消、暂停展示、恢复展示和清空本地列表已实现 | Phase 1 补列表语义 | 取消延迟测试、headless 操作回读、真实窗口状态回读 |
+| MQTT Client Topic 列表 | 多条 Topic Filter 可添加、删除、编辑，逐条显示 QoS、No Local 和运行状态 | 已实现多条列表、添加/删除、逐条 QoS/No Local 编辑、随配置保存和“未运行/订阅中/已订阅/失败”状态 | Phase 1 后续补逐条订阅动作 | Domain 校验、加密存储往返、SubAck 回读、headless 操作、真实窗口回读 |
+| MQTT Client 订阅/取消订阅 | 启动和停止状态可见，停止等待驱动真正退出；暂停只停止当前窗口追加 | 持续订阅、取消、每条 Filter 状态、暂停展示、恢复展示和清空本地列表已实现 | Phase 1 补单条操作 | 取消延迟测试、Native Broker SubAck、headless 操作回读、真实窗口状态回读 |
 | MQTT Client 发布 | Topic、载荷、载荷格式、QoS、Retain、回车发送 | 发布和 QoS/Retain 已实现 | Phase 1 补交互 | 发布回执、消息时间线和 UI |
 | 载荷转换 | UTF-8、JSON、Hex、Base64、组合模式；转换失败不发送 | 发布编码和接收格式化已实现 | Phase 1 补查看器 | 单元测试和消息查看器 |
 | 消息右键查看 | JSON 以树形或格式化文本查看，原始字节可切换 UTF-8/Hex/Base64 | 已实现消息上下文菜单、格式化 JSON/文本查看、格式切换和复制；JSON 树节点交互未实现 | Phase 1 后续补树形查看 | JSON 非法输入回退、复制内容、有界查看器和真实窗口操作 |
@@ -251,8 +253,9 @@ Broker 配置继续使用 ramag-domain 的 MqttProfile，字段语义如下：
 ### 6.3 MQTT 客户端交互规则
 
 1. 点击“测试连接”只执行连接验证，不改变订阅状态和消息时间线。
-2. 点击“开始订阅”先读取当前表单快照，校验所有 Topic Filter；驱动确认订阅前按钮显示加载状态，不能显示“已订阅”。
+2. 点击“开始订阅”先读取当前表单快照，校验所有 Topic Filter；驱动收到 Broker 的 `SubAck` 前，每条记录显示“订阅中”，只有对应返回码成功后才显示“已订阅”。
 3. 点击“停止订阅”后保持“正在停止订阅”，直到取消连接和驱动任务都返回；期间禁用重新开始、切换配置和删除配置。
+   未收到 `SubAck` 的记录在任务正常停止后回到“未运行”；驱动返回错误时显示“失败”和错误原因，已确认成功的记录不被未确认记录的错误覆盖。
 4. 点击“发布消息”先转换载荷和校验 Topic；失败时保留输入。驱动返回成功后才将“发送”记录写入消息时间线。
 5. 暂停只停止当前窗口追加消息，不停止 Broker 连接；恢复后继续接收新消息。清空只清理窗口列表。
 6. 订阅输入支持回车或明确按钮提交；发布输入按照参考项目保留回车发送，但多行编辑器使用 Ctrl+Enter 作为无歧义发送快捷键，最终以 UI 验收确定。
@@ -306,6 +309,7 @@ stateDiagram-v2
 状态转换规则：
 
 - “Connected”是操作内部状态；只有 UI 需要持续接收时才保持到“Subscribed”。
+- 每条 Topic Filter 独立保存 `Pending`、`Subscribing`、`Subscribed` 或 `Rejected`；`Subscribed` 只能由对应 `SubAck` 成功返回码产生。
 - “Failed”必须保留可读错误类别，不能统一成“连接失败”。
 - 取消和错误都必须释放任务、通道和临时 Client ID。
 - 旧操作的迟到结果通过 operation generation 丢弃。
