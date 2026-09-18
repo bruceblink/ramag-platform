@@ -35,16 +35,20 @@ impl MqttView {
         self.subscription_statuses = pending_subscription_statuses(&self.subscription_topics);
     }
 
-    fn mark_subscriptions_subscribing(&mut self) {
-        self.subscription_statuses = self
-            .subscription_topics
-            .iter()
-            .map(|subscription| MqttSubscriptionStatus {
-                filter: subscription.filter.clone(),
-                state: MqttSubscriptionState::Subscribing,
-                reason: None,
-            })
-            .collect();
+    fn set_subscription_status(
+        &mut self,
+        filter: &str,
+        state: MqttSubscriptionState,
+        reason: Option<String>,
+    ) {
+        if let Some(status) = self
+            .subscription_statuses
+            .iter_mut()
+            .find(|status| status.filter == filter)
+        {
+            status.state = state;
+            status.reason = reason;
+        }
     }
 
     fn apply_subscription_status(&mut self, status: MqttSubscriptionStatus) {
@@ -74,30 +78,6 @@ impl MqttView {
                 state: MqttSubscriptionState::Pending,
                 reason: None,
             })
-    }
-
-    fn reject_unresolved_subscription_statuses(&mut self, reason: String) {
-        for status in &mut self.subscription_statuses {
-            if matches!(
-                status.state,
-                MqttSubscriptionState::Pending | MqttSubscriptionState::Subscribing
-            ) {
-                status.state = MqttSubscriptionState::Rejected;
-                status.reason = Some(reason.clone());
-            }
-        }
-    }
-
-    fn reset_unresolved_subscription_statuses(&mut self) {
-        for status in &mut self.subscription_statuses {
-            if matches!(
-                status.state,
-                MqttSubscriptionState::Pending | MqttSubscriptionState::Subscribing
-            ) {
-                status.state = MqttSubscriptionState::Pending;
-                status.reason = None;
-            }
-        }
     }
 
     /// Switches protocol versions and clears options that MQTT 3.1.1 cannot encode.
@@ -217,6 +197,7 @@ fn subscription_status_label(state: MqttSubscriptionState) -> &'static str {
         MqttSubscriptionState::Pending => "未运行",
         MqttSubscriptionState::Subscribing => "订阅中",
         MqttSubscriptionState::Subscribed => "已订阅",
+        MqttSubscriptionState::Unsubscribing => "取消中",
         MqttSubscriptionState::Rejected => "失败",
     }
 }

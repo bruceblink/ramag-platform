@@ -327,6 +327,7 @@ impl MqttView {
             subscription_running: false,
             subscription_stopping: false,
             subscription_cancelled: None,
+            subscription_commands: None,
             profile_request_id: 0,
             operation_id: 0,
             snapshot_request_id: 0,

@@ -13,7 +13,8 @@ use gpui::{
 use ramag_app::MqttService;
 use ramag_domain::entities::{
     MqttMessage, MqttMessageSink, MqttProfile, MqttPublishRequest, MqttPublishResult, MqttQos,
-    MqttSubscribeRequest, MqttSubscriptionStatusSink,
+    MqttSubscribeRequest, MqttSubscription, MqttSubscriptionCommand,
+    MqttSubscriptionCommandReceiver, MqttSubscriptionState, MqttSubscriptionStatusSink,
 };
 use ramag_domain::error::Result;
 use ramag_domain::traits::MqttDriver;
@@ -55,6 +56,7 @@ impl MqttDriver for OptionsMqttDriver {
         request: &MqttSubscribeRequest,
         _sink: MqttMessageSink,
         _status_sink: MqttSubscriptionStatusSink,
+        _commands: MqttSubscriptionCommandReceiver,
         _cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         self.subscribe_profiles
@@ -82,6 +84,7 @@ impl MqttDriver for BlockingSubscriptionDriver {
         _request: &MqttSubscribeRequest,
         _sink: MqttMessageSink,
         _status_sink: MqttSubscriptionStatusSink,
+        _commands: MqttSubscriptionCommandReceiver,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         self.started.send(()).await.expect("订阅开始信号应可发送");
@@ -398,6 +401,56 @@ fn mqtt_subscription_topics_can_be_added_and_removed(cx: &mut TestAppContext) {
     assert!(view.read_with(visual_cx, |view, _| {
         view.subscription_topics.len() == 1 && view.subscription_topics[0].filter == "+/#"
     }));
+}
+
+#[gpui::test]
+fn mqtt_subscription_row_actions_send_single_topic_commands(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(super::visual_tests::NoopMqttDriver),
+        Arc::new(super::visual_tests::NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| TestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    let (command_sender, command_receiver) = bounded(4);
+    view.update(visual_cx, |view, cx| {
+        view.loading_profiles = false;
+        view.section = MqttSection::Subscribe;
+        view.subscription_running = true;
+        view.subscription_commands = Some(command_sender);
+        view.subscription_statuses[0].state = MqttSubscriptionState::Subscribed;
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-subscription-action-0");
+    assert_eq!(
+        command_receiver.try_recv().expect("应发送单条取消订阅命令"),
+        MqttSubscriptionCommand::Unsubscribe {
+            filter: "+/#".into()
+        }
+    );
+    view.update(visual_cx, |view, cx| {
+        view.subscription_statuses[0].state = MqttSubscriptionState::Pending;
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-subscription-action-0");
+    assert_eq!(
+        command_receiver.try_recv().expect("应发送单条订阅命令"),
+        MqttSubscriptionCommand::Subscribe(MqttSubscription {
+            filter: "+/#".into(),
+            qos: MqttQos::AtLeastOnce,
+            no_local: false,
+        })
+    );
 }
 
 #[gpui::test]

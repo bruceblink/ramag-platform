@@ -11,7 +11,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-use async_channel::{TrySendError, bounded};
+use async_channel::{Sender, TrySendError, bounded};
 use gpui::{
     App, AppContext as _, ClickEvent, Context, Entity, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent, ParentElement, Render,
@@ -34,9 +34,10 @@ use ramag_domain::{
         MosquittoRoleBinding, MosquittoStaticConfig, MosquittoStaticFile, MosquittoStaticFileKind,
         MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerStatus, MqttLocalServerUser,
         MqttMessage, MqttMessageSinkResult, MqttProfile, MqttProfileId, MqttProtocolVersion,
-        MqttPublishRequest, MqttQos, MqttSubscribeRequest, MqttSubscription, MqttSubscriptionState,
-        MqttSubscriptionStatus, MqttSubscriptionStatusSink, MqttTlsConfig,
-        MqttTransport as TransportKind, MqttTransportCapabilities,
+        MqttPublishRequest, MqttQos, MqttSubscribeRequest, MqttSubscription,
+        MqttSubscriptionCommand, MqttSubscriptionState, MqttSubscriptionStatus,
+        MqttSubscriptionStatusSink, MqttTlsConfig, MqttTransport as TransportKind,
+        MqttTransportCapabilities,
     },
     traits::{Tool, ToolMeta},
 };
@@ -282,6 +283,7 @@ pub struct MqttView {
     subscription_running: bool,
     subscription_stopping: bool,
     subscription_cancelled: Option<Arc<AtomicBool>>,
+    subscription_commands: Option<Sender<MqttSubscriptionCommand>>,
     profile_request_id: u64,
     operation_id: u64,
     snapshot_request_id: u64,
@@ -301,6 +303,7 @@ impl Drop for MqttView {
         if let Some(cancelled) = self.subscription_cancelled.take() {
             cancelled.store(true, Ordering::Release);
         }
+        self.subscription_commands.take();
     }
 }
 

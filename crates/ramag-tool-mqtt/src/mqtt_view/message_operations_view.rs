@@ -257,7 +257,66 @@ impl MqttView {
                 MqttSubscriptionState::Pending => theme.muted_foreground,
                 MqttSubscriptionState::Subscribing => theme.warning,
                 MqttSubscriptionState::Subscribed => theme.accent,
+                MqttSubscriptionState::Unsubscribing => theme.warning,
                 MqttSubscriptionState::Rejected => theme.danger,
+            };
+            let topic_action_selector =
+                SharedString::from(format!("mqtt-subscription-action-{index}"));
+            let topic_action = match status.state {
+                MqttSubscriptionState::Pending | MqttSubscriptionState::Rejected => {
+                    ramag_ui::clickable_button(topic_action_selector.clone())
+                        .debug_selector({
+                            let selector = topic_action_selector.clone();
+                            move || selector.to_string()
+                        })
+                        .ghost()
+                        .xsmall()
+                        .icon(IconName::Play)
+                        .label("订阅")
+                        .tooltip("订阅此 Topic")
+                        .disabled(self.subscription_stopping)
+                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                            this.toggle_subscription_topic(index, window, cx);
+                        }))
+                }
+                MqttSubscriptionState::Subscribed => {
+                    ramag_ui::clickable_button(topic_action_selector.clone())
+                        .debug_selector({
+                            let selector = topic_action_selector.clone();
+                            move || selector.to_string()
+                        })
+                        .ghost()
+                        .xsmall()
+                        .icon(IconName::CircleX)
+                        .label("取消")
+                        .tooltip("取消此 Topic 的订阅")
+                        .disabled(self.subscription_stopping)
+                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                            this.toggle_subscription_topic(index, window, cx);
+                        }))
+                }
+                MqttSubscriptionState::Subscribing => {
+                    ramag_ui::clickable_button(topic_action_selector.clone())
+                        .debug_selector({
+                            let selector = topic_action_selector.clone();
+                            move || selector.to_string()
+                        })
+                        .ghost()
+                        .xsmall()
+                        .label("订阅中")
+                        .disabled(true)
+                }
+                MqttSubscriptionState::Unsubscribing => {
+                    ramag_ui::clickable_button(topic_action_selector.clone())
+                        .debug_selector({
+                            let selector = topic_action_selector.clone();
+                            move || selector.to_string()
+                        })
+                        .ghost()
+                        .xsmall()
+                        .label("取消中")
+                        .disabled(true)
+                }
             };
             topic_rows = topic_rows.child(
                 h_flex()
@@ -294,6 +353,7 @@ impl MqttView {
                             .text_color(status_color)
                             .child(subscription_status_label(status.state)),
                     )
+                    .child(topic_action)
                     .child(subscription_qos_selector(
                         index,
                         subscription.qos,

@@ -319,6 +319,15 @@ impl MqttView {
     }
 
     fn start_subscription(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.start_subscription_for_topics(self.subscription_topics.clone(), window, cx);
+    }
+
+    fn start_subscription_for_topics(
+        &mut self,
+        subscriptions: Vec<MqttSubscription>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.subscription_running || self.subscription_stopping {
             return;
         }
@@ -329,9 +338,7 @@ impl MqttView {
             cx.notify();
             return;
         };
-        let request = MqttSubscribeRequest {
-            subscriptions: self.subscription_topics.clone(),
-        };
+        let request = MqttSubscribeRequest { subscriptions };
         if self.protocol == MqttProtocolVersion::V311
             && request
                 .subscriptions
@@ -353,11 +360,21 @@ impl MqttView {
         self.subscription_request_id = self.subscription_request_id.wrapping_add(1);
         let request_id = self.subscription_request_id;
         let profile_context_id = self.profile_context_id;
+        let active_filters = request
+            .subscriptions
+            .iter()
+            .map(|subscription| subscription.filter.clone())
+            .collect::<Vec<_>>();
         let cancelled = Arc::new(AtomicBool::new(false));
         self.subscription_cancelled = Some(cancelled.clone());
+        let (command_sender, command_receiver) =
+            bounded(ramag_domain::entities::MAX_MQTT_SUBSCRIPTIONS);
+        self.subscription_commands = Some(command_sender);
         self.subscription_running = true;
         self.subscription_stopping = false;
-        self.mark_subscriptions_subscribing();
+        for filter in &active_filters {
+            self.set_subscription_status(filter, MqttSubscriptionState::Subscribing, None);
+        }
         self.message_timeline_paused = false;
         self.messages.clear();
         self.notice = Some(("已启动订阅，等待 Broker 确认…".into(), false));
@@ -417,6 +434,7 @@ impl MqttView {
         .detach();
         let service = self.service.clone();
         let operation_cancelled = cancelled;
+        let active_filters_for_task = active_filters.clone();
         cx.spawn_in(window, async move |this, cx| {
             let result = service
                 .subscribe(
@@ -424,6 +442,7 @@ impl MqttView {
                     &request,
                     sink,
                     status_sink,
+                    command_receiver,
                     operation_cancelled,
                 )
                 .await;
@@ -437,18 +456,99 @@ impl MqttView {
                 this.subscription_stopping = false;
                 this.message_timeline_paused = false;
                 this.subscription_cancelled = None;
+                this.subscription_commands = None;
                 if let Err(error) = result {
                     let reason = error.user_message();
-                    this.reject_unresolved_subscription_statuses(reason.clone());
+                    for filter in &active_filters_for_task {
+                        this.set_subscription_status(
+                            filter,
+                            MqttSubscriptionState::Rejected,
+                            Some(reason.clone()),
+                        );
+                    }
                     this.notice = Some((format!("订阅结束：{reason}"), true));
                 } else {
-                    this.reset_unresolved_subscription_statuses();
+                    for filter in &active_filters_for_task {
+                        this.set_subscription_status(filter, MqttSubscriptionState::Pending, None);
+                    }
                     this.notice = Some(("订阅已结束".into(), false));
                 }
                 cx.notify();
             });
         })
         .detach();
+    }
+
+    fn toggle_subscription_topic(
+        &mut self,
+        index: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.subscription_stopping {
+            return;
+        }
+        let Some(subscription) = self.subscription_topics.get(index).cloned() else {
+            return;
+        };
+        let state = self.subscription_status(&subscription.filter).state;
+        match state {
+            MqttSubscriptionState::Pending | MqttSubscriptionState::Rejected => {
+                if !self.subscription_running {
+                    self.start_subscription_for_topics(vec![subscription], window, cx);
+                    return;
+                }
+                self.set_subscription_status(
+                    &subscription.filter,
+                    MqttSubscriptionState::Subscribing,
+                    None,
+                );
+                self.send_subscription_command(
+                    subscription.filter.clone(),
+                    MqttSubscriptionCommand::Subscribe(subscription),
+                );
+            }
+            MqttSubscriptionState::Subscribed => {
+                if !self.subscription_running {
+                    return;
+                }
+                let filter = subscription.filter;
+                self.set_subscription_status(
+                    &filter,
+                    MqttSubscriptionState::Unsubscribing,
+                    None,
+                );
+                self.send_subscription_command(
+                    filter.clone(),
+                    MqttSubscriptionCommand::Unsubscribe { filter },
+                );
+            }
+            MqttSubscriptionState::Subscribing | MqttSubscriptionState::Unsubscribing => return,
+        }
+        cx.notify();
+    }
+
+    fn send_subscription_command(
+        &mut self,
+        filter: String,
+        command: MqttSubscriptionCommand,
+    ) {
+        let result = match self.subscription_commands.as_ref() {
+            Some(sender) => sender.try_send(command),
+            None => Err(TrySendError::Closed(command)),
+        };
+        if let Err(error) = result {
+            let reason = match error {
+                TrySendError::Full(_) => "订阅控制队列已满".to_string(),
+                TrySendError::Closed(_) => "订阅会话已结束".to_string(),
+            };
+            self.set_subscription_status(
+                &filter,
+                MqttSubscriptionState::Rejected,
+                Some(reason.clone()),
+            );
+            self.notice = Some((format!("Topic 操作失败：{reason}"), true));
+        }
     }
 
     fn stop_subscription(&mut self) {
