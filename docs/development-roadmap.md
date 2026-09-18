@@ -281,3 +281,5 @@ MQTT-008 本地 Broker 认证配置前置校验（2026-09-17）：关闭匿名�
 MQTT 重写详细设计（2026-09-17）：按照 Wu.CommTool 主分支提交 d75ec7f 固定 MQTT Server/Client 的功能、字段和界面参考，新增 docs/mqtt-wu-commtool-rewrite-design.md，统一记录 Ramag 当前实现映射、领域模型、状态机、GPUI 交互、配置兼容、Docker/Windows 验收和 Phase 1-5 开发顺序。本轮只提交设计和路线记录，不继续修改 MQTT 运行时代码。
 
 MQTT-009 订阅 Topic 列表和 No Local 切片（2026-09-18）：参考 Wu.CommTool 的多 Topic 管理交互，将 Ramag MQTT 订阅页从单个输入框扩展为可新增、删除和逐条编辑 QoS/No Local 的列表；MQTT 5 Native 驱动将 No Local 写入订阅选项，MQTT 3.1.1 禁止该选项并显示明确错误；旧订阅 JSON 缺少字段时默认为关闭。ramag-domain MQTT 测试 9 项、ramag-infra-mqtt native 测试 14 项加 Docker 集成 1 项、ramag-tool-mqtt 库测试 17 项通过；workspace fmt 和 Clippy 通过。订阅列表暂不持久化，逐条订阅/取消订阅和真实 Windows 窗口证据留在后续切片。
+
+MQTT-010 消息时间线暂停展示切片（2026-09-18）：订阅保持运行时，“暂停展示”只停止向当前窗口追加消息，不取消 MQTT 订阅或关闭 Broker 连接；“恢复展示”后新消息继续追加；“清空时间线”只清理本地消息列表，不向 Broker 发送删除操作，也不改变 retained 消息。新增有界时间线追加单元测试和 GPUI headless 交互测试，覆盖暂停、清空、恢复后追加以及 360/1440px 操作区边界。`cargo test --locked -p ramag-tool-mqtt --lib` 的 19 项测试通过，`cargo fmt --all` 和 `git diff --check` 通过。真实 Windows 窗口、远端 Broker 和本机 Docker MQTT 证据未新增，仍留在后续验收。

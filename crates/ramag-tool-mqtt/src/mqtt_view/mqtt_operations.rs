@@ -356,6 +356,7 @@ impl MqttView {
         self.subscription_cancelled = Some(cancelled.clone());
         self.subscription_running = true;
         self.subscription_stopping = false;
+        self.message_timeline_paused = false;
         self.messages.clear();
         self.notice = Some(("已启动订阅，等待 Broker 消息…".into(), false));
         let (sender, receiver) = bounded(32);
@@ -374,11 +375,9 @@ impl MqttView {
                         {
                             return;
                         }
-                        if this.messages.len() >= MAX_MESSAGES {
-                            this.messages.pop_front();
+                        if this.append_received_message(message) {
+                            cx.notify();
                         }
-                        this.messages.push_back(message);
-                        cx.notify();
                     })
                     .is_err()
                 {
@@ -402,6 +401,7 @@ impl MqttView {
                 }
                 this.subscription_running = false;
                 this.subscription_stopping = false;
+                this.message_timeline_paused = false;
                 this.subscription_cancelled = None;
                 if let Err(error) = result {
                     this.notice = Some((format!("订阅结束：{}", error.user_message()), true));

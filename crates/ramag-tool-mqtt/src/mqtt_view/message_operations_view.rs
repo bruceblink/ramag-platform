@@ -427,6 +427,69 @@ impl MqttView {
                 .self_start()
                 .child(action),
         );
+        let timeline_status = if self.message_timeline_paused {
+            "已暂停展示；Broker 连接继续接收"
+        } else if self.subscription_running {
+            "正在接收消息"
+        } else {
+            "未运行订阅"
+        };
+        body = body.child(
+            ramag_ui::responsive_toolbar()
+                .id("mqtt-message-timeline-actions")
+                .debug_selector(|| "mqtt-message-timeline-actions".into())
+                .items_center()
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_xs()
+                        .text_color(if self.message_timeline_paused {
+                            theme.warning
+                        } else {
+                            theme.muted_foreground
+                        })
+                        .child(timeline_status),
+                )
+                .when(self.subscription_running, |toolbar| {
+                    toolbar.child(
+                        ramag_ui::clickable_button("mqtt-message-timeline-pause")
+                            .debug_selector(|| "mqtt-message-timeline-pause".into())
+                            .outline()
+                            .small()
+                            .flex_none()
+                            .icon(if self.message_timeline_paused {
+                                IconName::Play
+                            } else {
+                                IconName::Pause
+                            })
+                            .label(if self.message_timeline_paused {
+                                "恢复展示"
+                            } else {
+                                "暂停展示"
+                            })
+                            .disabled(self.subscription_stopping)
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                this.toggle_message_timeline_pause();
+                                cx.notify();
+                            })),
+                    )
+                })
+                .child(
+                    ramag_ui::clickable_button("mqtt-message-timeline-clear")
+                        .debug_selector(|| "mqtt-message-timeline-clear".into())
+                        .ghost()
+                        .small()
+                        .flex_none()
+                        .icon(IconName::Delete)
+                        .label("清空时间线")
+                        .disabled(self.messages.is_empty())
+                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                            this.clear_message_timeline();
+                            cx.notify();
+                        })),
+                ),
+        );
         if self.messages.is_empty() {
             body = body.child(div().text_sm().text_color(theme.muted_foreground).child(
                 if self.subscription_running {

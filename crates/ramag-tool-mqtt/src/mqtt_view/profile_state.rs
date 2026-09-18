@@ -322,6 +322,7 @@ impl MqttView {
             static_file_kind: MosquittoStaticFileKind::Password,
             static_file: None,
             messages: VecDeque::new(),
+            message_timeline_paused: false,
             subscription_running: false,
             subscription_stopping: false,
             subscription_cancelled: None,
@@ -590,6 +591,7 @@ impl MqttView {
         self.selected_role_name = None;
         self.static_file = None;
         self.messages.clear();
+        self.message_timeline_paused = false;
     }
 
     /// Restores message operation choices when the active MQTT profile changes.

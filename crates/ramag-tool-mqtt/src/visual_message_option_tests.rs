@@ -5,13 +5,14 @@ use std::sync::{
 
 use async_channel::{Receiver, Sender, bounded};
 use async_trait::async_trait;
+use chrono::Utc;
 use gpui::{
     AppContext as _, Context, IntoElement, Modifiers, ParentElement as _, Render, Styled as _,
     TestAppContext, VisualTestContext, Window, point, px, size,
 };
 use ramag_app::MqttService;
 use ramag_domain::entities::{
-    MqttMessageSink, MqttProfile, MqttPublishRequest, MqttPublishResult, MqttQos,
+    MqttMessage, MqttMessageSink, MqttProfile, MqttPublishRequest, MqttPublishResult, MqttQos,
     MqttSubscribeRequest,
 };
 use ramag_domain::error::Result;
@@ -394,5 +395,86 @@ fn mqtt_subscription_topics_can_be_added_and_removed(cx: &mut TestAppContext) {
     click(visual_cx, "mqtt-remove-subscription-1");
     assert!(view.read_with(visual_cx, |view, _| {
         view.subscription_topics.len() == 1 && view.subscription_topics[0].filter == "+/#"
+    }));
+}
+
+#[gpui::test]
+fn mqtt_message_timeline_can_pause_and_clear_without_stopping_subscription(
+    cx: &mut TestAppContext,
+) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(super::visual_tests::NoopMqttDriver),
+        Arc::new(super::visual_tests::NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| TestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    view.update(visual_cx, |view, cx| {
+        view.loading_profiles = false;
+        view.section = MqttSection::Subscribe;
+        view.subscription_running = true;
+        view.messages.push_back(MqttMessage {
+            topic: "devices/state".into(),
+            payload: b"online".to_vec(),
+            qos: MqttQos::AtMostOnce,
+            retain: false,
+            duplicate: false,
+            received_at: Utc::now(),
+            user_properties: Vec::new(),
+        });
+        cx.notify();
+    });
+
+    for width in [360.0, 1440.0] {
+        visual_cx.simulate_resize(size(px(width), px(640.0)));
+        visual_cx.run_until_parked();
+        let main = visual_cx
+            .debug_bounds("mqtt-main")
+            .expect("MQTT 主工作区应渲染");
+        let actions = visual_cx
+            .debug_bounds("mqtt-message-timeline-actions")
+            .expect("消息时间线操作区应渲染");
+        assert!(
+            actions.origin.x >= main.origin.x && actions.right() <= main.right(),
+            "{}px 窗口中的消息时间线操作区不能越界: main={main:?}, actions={actions:?}",
+            width
+        );
+    }
+
+    click(visual_cx, "mqtt-message-timeline-pause");
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.message_timeline_paused && view.subscription_running && view.messages.len() == 1
+    }));
+
+    click(visual_cx, "mqtt-message-timeline-clear");
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.messages.is_empty() && view.subscription_running && view.message_timeline_paused
+    }));
+
+    click(visual_cx, "mqtt-message-timeline-pause");
+    assert!(view.read_with(visual_cx, |view, _| {
+        !view.message_timeline_paused && view.subscription_running
+    }));
+
+    view.update(visual_cx, |view, cx| {
+        assert!(view.append_received_message(MqttMessage {
+            topic: "devices/state".into(),
+            payload: b"resumed".to_vec(),
+            qos: MqttQos::AtMostOnce,
+            retain: false,
+            duplicate: false,
+            received_at: Utc::now(),
+            user_properties: Vec::new(),
+        }));
+        cx.notify();
+    });
+    assert!(view.read_with(visual_cx, |view, _| {
+        !view.message_timeline_paused && view.subscription_running && view.messages.len() == 1
     }));
 }

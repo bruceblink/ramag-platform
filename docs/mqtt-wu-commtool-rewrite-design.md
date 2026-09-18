@@ -1,6 +1,6 @@
 # Wu.CommTool MQTT 重写详细设计
 
-> 状态：设计已完成；Phase 1 进行中，本轮已完成订阅 Topic 列表与 No Local 的首个可验收切片。
+> 状态：设计已完成；Phase 1 进行中，本轮已完成订阅 Topic 列表、No Local 以及消息时间线暂停/恢复/清空切片。
 >
 > 适用范围：Ramag Platform 的 MQTT 工作台、内置本地 MQTT Broker、远端 MQTT Client 连接、消息发布/订阅和与 Wu.CommTool 的配置及交互兼容。
 >
@@ -85,14 +85,17 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 | ramag-tool-mqtt/src/mqtt_view/message_operations_view.rs | 发布和订阅操作区、QoS、Retain、消息元数据 | 已实现，已有窄窗口 headless 覆盖 |
 | ramag-tool-mqtt/src/mqtt_view/local_server_view.rs | 本地 Broker 地址、端口、匿名策略、账号、启动停止和填入客户端配置 | 已实现生命周期交互 |
 | ramag-tool-mqtt/src/mqtt_view/subscription_operations.rs | 订阅 Topic 列表新增、删除、逐条 QoS/No Local 编辑和协议能力约束 | 本次 Phase 1 切片已实现，列表暂不持久化 |
+| ramag-tool-mqtt/src/mqtt_view/message_timeline_operations.rs | 消息时间线暂停展示、恢复展示、清空本地消息和有界追加 | 本次 Phase 1 切片已实现，暂停不停止订阅连接 |
 
 已完成的近期 MQTT 切片包括原生订阅取消、MQTT 3.1.1/5 Docker 集成、QoS/Retain 选项、未保存配置生效、停止状态保护、消息元数据显示、本地 Broker 退出等待和匿名认证前置校验。详细验证记录保留在 docs/development-roadmap.md；这些记录不会替代本设计中新增功能的验收。
+
+本轮新增消息时间线控制：订阅运行时点击“暂停展示”只停止向当前窗口追加消息，MQTT 连接和接收任务继续运行；点击“恢复展示”后新消息继续追加；点击“清空时间线”只清除本地列表，不向 Broker 发送删除命令，也不改变 retained 消息。`ramag-tool-mqtt` 的 19 项库测试通过，其中包含 360px 和 1440px headless 布局及暂停、恢复、清空交互测试。真实 Windows 窗口和远端 Broker 验证仍未完成。
 
 当前与参考项目仍存在的主要差距：
 
 - 本地 Broker 还没有完整的 Broker 侧消息事件、在线客户端和每客户端订阅管理工作流。
 - 订阅记录已经扩展为可新增、删除和编辑 QoS/No Local 的 Topic 列表；列表暂按当前工作台保留，尚未持久化到 Broker 配置，逐条订阅/取消订阅仍待补齐。
-- 消息时间线还没有参考项目式的右键 JSON 树和转换查看器。
+- 消息时间线已支持暂停展示、恢复展示和清空本地列表，但还没有参考项目式的右键 JSON 树和转换查看器。
 - 参考项目的 jsonMCC/jsonMSC 配置导入导出和快速配置列表尚未完成兼容层。
 - 本地 Broker TLS 证书端点、Broker 注入发布和客户端管理能力需要扩展本地服务接口。
 - 参考项目的 AutoReconnect 选项尚未在 Ramag 配置和界面中形成明确的开关及重连策略。
@@ -108,7 +111,7 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 | MQTT Server 客户端管理 | 显示真实在线 Client ID、用户名、连接时间和订阅 Topic | 尚无本地 Broker 观察接口 | Phase 2 | 两个真实客户端连接后的窗口结果 |
 | MQTT Client 连接 | 支持 MQTT 3.1.1/5、TCP/TLS、Client ID、认证、Keep Alive、自动重连、取消和错误分类 | Native 驱动已实现连接和取消；自动重连开关未对齐 | Phase 1 | 本机 Docker Mosquitto 3.1.1/5 测试 |
 | MQTT Client Topic 列表 | 多条 Topic Filter 可添加、删除、编辑，逐条显示 QoS 和 No Local | 已实现多条列表、添加/删除、逐条 QoS/No Local 编辑；当前列表暂不持久化 | Phase 1 后续补持久化和逐条订阅动作 | Domain 校验、headless 操作、真实订阅回读 |
-| MQTT Client 订阅/取消订阅 | 启动和停止状态可见，停止等待驱动真正退出 | 持续订阅和取消已实现 | Phase 1 补列表语义 | 取消延迟测试、窗口状态回读 |
+| MQTT Client 订阅/取消订阅 | 启动和停止状态可见，停止等待驱动真正退出；暂停只停止当前窗口追加 | 持续订阅、取消、暂停展示、恢复展示和清空本地列表已实现 | Phase 1 补列表语义 | 取消延迟测试、headless 操作回读、真实窗口状态回读 |
 | MQTT Client 发布 | Topic、载荷、载荷格式、QoS、Retain、回车发送 | 发布和 QoS/Retain 已实现 | Phase 1 补交互 | 发布回执、消息时间线和 UI |
 | 载荷转换 | UTF-8、JSON、Hex、Base64、组合模式；转换失败不发送 | 发布编码和接收格式化已实现 | Phase 1 补查看器 | 单元测试和消息查看器 |
 | 消息右键查看 | JSON 以树形或格式化文本查看，原始字节可切换 UTF-8/Hex/Base64 | 尚无完整上下文菜单/查看器 | Phase 1 | JSON 树窗口、非 JSON 回退和复制内容 |
@@ -391,7 +394,7 @@ Broker 配置通过 Storage trait 保存，密码、TLS 私钥路径和 Mosquitt
 范围：
 
 - 将单条 Topic 输入扩展为订阅记录列表，加入 No Local 字段或明确能力禁用。
-- 补齐订阅/取消订阅逐条状态、暂停、清空和消息时间线。
+- 补齐订阅/取消订阅逐条状态；暂停展示、恢复展示、清空本地列表和有界消息时间线已完成，后续补齐查看器。
 - 实现消息上下文菜单、JSON 查看器、UTF-8/Hex/Base64 查看和复制。
 - 固定参考项目六种载荷格式的回归样例，补回车发送和失败保留输入。
 

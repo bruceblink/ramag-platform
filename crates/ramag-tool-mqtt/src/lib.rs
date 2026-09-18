@@ -276,6 +276,7 @@ pub struct MqttView {
     static_file_kind: MosquittoStaticFileKind,
     static_file: Option<MosquittoStaticFile>,
     messages: VecDeque<MqttMessage>,
+    message_timeline_paused: bool,
     subscription_running: bool,
     subscription_stopping: bool,
     subscription_cancelled: Option<Arc<AtomicBool>>,
@@ -310,6 +311,7 @@ impl Focusable for MqttView {
 include!("mqtt_view/profile_state.rs");
 include!("mqtt_view/mqtt_operations.rs");
 include!("mqtt_view/subscription_operations.rs");
+include!("mqtt_view/message_timeline_operations.rs");
 include!("mqtt_view/payload_format.rs");
 include!("mqtt_view/local_server_operations.rs");
 include!("mqtt_view/dynamic_security_operations.rs");

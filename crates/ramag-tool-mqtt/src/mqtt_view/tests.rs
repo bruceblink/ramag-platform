@@ -136,3 +136,49 @@
             "{\n  \"ok\": true\n}"
         );
     }
+
+    #[test]
+    fn paused_timeline_does_not_append_and_clear_only_removes_local_messages() {
+        use chrono::Utc;
+        use std::collections::VecDeque;
+
+        let mut messages = VecDeque::from([MqttMessage {
+            topic: "devices/state".into(),
+            payload: b"before".to_vec(),
+            qos: MqttQos::AtMostOnce,
+            retain: false,
+            duplicate: false,
+            received_at: Utc::now(),
+            user_properties: Vec::new(),
+        }]);
+        let message = MqttMessage {
+            topic: "devices/state".into(),
+            payload: b"during-pause".to_vec(),
+            qos: MqttQos::AtMostOnce,
+            retain: false,
+            duplicate: false,
+            received_at: Utc::now(),
+            user_properties: Vec::new(),
+        };
+
+        assert!(!append_timeline_message(&mut messages, true, message));
+        assert_eq!(messages.len(), 1);
+        messages.clear();
+        assert!(messages.is_empty());
+
+        let resumed_message = MqttMessage {
+            topic: "devices/state".into(),
+            payload: b"resumed".to_vec(),
+            qos: MqttQos::AtMostOnce,
+            retain: false,
+            duplicate: false,
+            received_at: Utc::now(),
+            user_properties: Vec::new(),
+        };
+        assert!(append_timeline_message(
+            &mut messages,
+            false,
+            resumed_message
+        ));
+        assert_eq!(messages.len(), 1);
+    }
