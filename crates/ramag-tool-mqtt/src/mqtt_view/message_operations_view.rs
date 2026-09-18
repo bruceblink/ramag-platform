@@ -1,3 +1,5 @@
+use gpui_component::menu::{ContextMenuExt as _, PopupMenu};
+
 impl MqttView {
     fn render_overview(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
@@ -500,8 +502,13 @@ impl MqttView {
             ));
         } else {
             let mut messages = v_flex().gap(px(6.0));
+            let view_entity = cx.entity();
             for message in self.messages.iter().rev() {
                 let payload = format_received_payload(self.receive_payload_format, &message.payload);
+                let message_for_menu = message.clone();
+                let message_for_copy = message.clone();
+                let format_for_copy = self.receive_payload_format;
+                let viewer_entity = view_entity.clone();
                 let mut metadata = h_flex()
                     .debug_selector(|| "mqtt-subscribe-message-meta".into())
                     .flex_wrap()
@@ -547,8 +554,8 @@ impl MqttView {
                         &theme,
                     ));
                 }
-                messages = messages.child(
-                    v_flex()
+                let message_card = v_flex()
+                        .debug_selector(|| "mqtt-subscribe-message-card".into())
                         .gap(px(3.0))
                         .p(px(10.0))
                         .border_1()
@@ -560,8 +567,49 @@ impl MqttView {
                                 .text_xs()
                                 .whitespace_normal()
                                 .child(payload),
-                        ),
-                );
+                        )
+                        .context_menu(move |menu: PopupMenu, _, _| {
+                            let message_for_viewer = message_for_menu.clone();
+                            let message_for_topic = message_for_copy.clone();
+                            let message_for_payload = message_for_copy.clone();
+                            let viewer_entity = viewer_entity.clone();
+                            menu.item(
+                                ramag_ui::menu_item("查看消息")
+                                    .icon(IconName::Eye)
+                                    .on_click(move |_, window, app| {
+                                        viewer_entity.update(app, |this, cx| {
+                                            this.open_message_viewer(
+                                                message_for_viewer.clone(),
+                                                window,
+                                                cx,
+                                            );
+                                        });
+                                    }),
+                            )
+                            .item(
+                                ramag_ui::menu_item("复制 Topic")
+                                    .icon(IconName::Copy)
+                                    .on_click(move |_, window, app| {
+                                        ramag_ui::copy_text_with_notification(
+                                            message_for_topic.topic.clone(),
+                                            window,
+                                            app,
+                                        );
+                                    }),
+                            )
+                            .item(
+                                ramag_ui::menu_item("复制当前格式")
+                                    .icon(IconName::Copy)
+                                    .on_click(move |_, window, app| {
+                                        let (text, _) = bounded_message_view_text(
+                                            format_for_copy,
+                                            &message_for_payload.payload,
+                                        );
+                                        ramag_ui::copy_text_with_notification(text, window, app);
+                                    }),
+                            )
+                        });
+                messages = messages.child(message_card);
             }
             body = body.child(messages);
         }

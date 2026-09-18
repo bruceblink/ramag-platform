@@ -182,3 +182,18 @@
         ));
         assert_eq!(messages.len(), 1);
     }
+
+    #[test]
+    fn message_viewer_formats_payload_and_keeps_truncated_text_bounded() {
+        let (json, truncated) =
+            bounded_message_view_text(MqttPayloadFormat::Json, br#"{"ok":true}"#);
+        assert!(!truncated);
+        assert_eq!(json, "{\n  \"ok\": true\n}");
+
+        let payload = vec![b'x'; MAX_MESSAGE_VIEW_BYTES + 64];
+        let (text, truncated) =
+            bounded_message_view_text(MqttPayloadFormat::Plaintext, &payload);
+        assert!(truncated);
+        assert!(text.len() <= MAX_MESSAGE_VIEW_BYTES);
+        assert!(text.contains("消息内容已截断"));
+    }

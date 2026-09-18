@@ -285,3 +285,5 @@ MQTT-009 订阅 Topic 列表和 No Local 切片（2026-09-18）：参考 Wu.Comm
 MQTT-010 消息时间线暂停展示切片（2026-09-18）：订阅保持运行时，“暂停展示”只停止向当前窗口追加消息，不取消 MQTT 订阅或关闭 Broker 连接；“恢复展示”后新消息继续追加；“清空时间线”只清理本地消息列表，不向 Broker 发送删除操作，也不改变 retained 消息。新增有界时间线追加单元测试和 GPUI headless 交互测试，覆盖暂停、清空、恢复后追加以及 360/1440px 操作区边界。`cargo test --locked -p ramag-tool-mqtt --lib` 的 19 项测试通过，`cargo fmt --all` 和 `git diff --check` 通过。真实 Windows 窗口、远端 Broker 和本机 Docker MQTT 证据未新增，仍留在后续验收。
 
 MQTT-011 订阅 Topic 列表持久化切片（2026-09-18）：将每个 MQTT 配置的 Topic Filter、QoS 和 No Local 保存到加密的 `MqttProfile` 记录；切换配置和重新加载时恢复保存列表，旧 JSON 缺少 `subscriptions` 字段时使用 `+/#`、QoS 1、关闭 No Local 的默认记录；重复 Filter 和 MQTT 3.1.1 的 No Local 在领域层拒绝。新增领域兼容测试、加密存储往返测试和 GPUI 保存/恢复测试；`ramag-domain` MQTT 11 项、`ramag-infra-storage` MQTT 6 项、`ramag-tool-mqtt` 20 项测试通过，格式检查通过。逐条订阅/取消订阅、真实 Windows 窗口和远端 Broker 操作仍留在后续切片。
+
+MQTT-012 消息查看器首版切片（2026-09-18）：消息卡片接入上下文菜单，支持打开有界消息查看器、切换 UTF-8/JSON/Hex/Base64 显示格式、复制 Topic 和复制当前格式结果；JSON 当前以格式化文本显示，非法 JSON 回退为原始文本，查看正文和截断提示均受大小上限约束。新增消息格式/截断单测和 GPUI 查看器布局、格式切换、复制入口测试，覆盖 360/1024/1440px；`ramag-tool-mqtt` 22 项库测试通过。真实 Windows 窗口、菜单点击截图和远端 Broker UI 操作仍未新增，JSON 树节点交互留在后续切片。

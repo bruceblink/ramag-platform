@@ -543,3 +543,55 @@ fn mqtt_message_timeline_can_pause_and_clear_without_stopping_subscription(
         !view.message_timeline_paused && view.subscription_running && view.messages.len() == 1
     }));
 }
+
+#[gpui::test]
+fn mqtt_message_viewer_stays_inside_supported_window_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(super::visual_tests::NoopMqttDriver),
+        Arc::new(super::visual_tests::NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| TestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    let message = MqttMessage {
+        topic: "devices/state".into(),
+        payload: br#"{"online":true}"#.to_vec(),
+        qos: MqttQos::AtLeastOnce,
+        retain: true,
+        duplicate: false,
+        received_at: Utc::now(),
+        user_properties: Vec::new(),
+    };
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.loading_profiles = false;
+            view.section = MqttSection::Subscribe;
+            view.open_message_viewer(message, window, cx);
+        });
+    });
+
+    for width in [360.0, 1024.0, 1440.0] {
+        visual_cx.simulate_resize(size(px(width), px(640.0)));
+        visual_cx.run_until_parked();
+        let root = visual_cx
+            .debug_bounds("mqtt-root")
+            .expect("MQTT 根布局应渲染");
+        let viewer = visual_cx
+            .debug_bounds("mqtt-message-viewer")
+            .expect("消息查看器应渲染");
+        let content = visual_cx
+            .debug_bounds("mqtt-message-viewer-content-frame")
+            .expect("消息查看器内容区应渲染");
+        assert!(viewer.origin.x >= root.origin.x && viewer.right() <= root.right());
+        assert!(content.origin.x >= viewer.origin.x && content.right() <= viewer.right());
+    }
+    click(visual_cx, "mqtt-message-viewer-format-JSON");
+    click(visual_cx, "mqtt-message-viewer-copy-topic");
+    click(visual_cx, "mqtt-message-viewer-copy-payload");
+}

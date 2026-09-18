@@ -313,6 +313,7 @@ include!("mqtt_view/mqtt_operations.rs");
 include!("mqtt_view/subscription_operations.rs");
 include!("mqtt_view/message_timeline_operations.rs");
 include!("mqtt_view/payload_format.rs");
+include!("mqtt_view/message_viewer.rs");
 include!("mqtt_view/local_server_operations.rs");
 include!("mqtt_view/dynamic_security_operations.rs");
 include!("mqtt_view/role_operations.rs");
