@@ -248,7 +248,7 @@
 
     #[cfg(feature = "native")]
     #[test]
-    fn local_server_supports_the_native_client_publish_subscribe_loop() -> std::result::Result<(), String> {
+    fn local_server_supports_client_and_broker_publish_subscribe_loop() -> std::result::Result<(), String> {
         use std::sync::{
             Arc,
             atomic::{AtomicBool, Ordering},
@@ -258,7 +258,7 @@
         use ramag_domain::entities::{
             MqttMessageSinkResult, MqttQos, MqttSubscribeRequest, MqttSubscription,
             MqttSubscriptionCommand,
-            MqttSubscriptionState,
+            MqttSubscriptionState, MqttUserProperty,
         };
 
         let port = std::net::TcpListener::bind(("127.0.0.1", 0))
@@ -376,6 +376,59 @@
             .map_err(|error| error.to_string())?;
         assert_eq!(message.topic, topic);
         assert_eq!(message.payload, payload);
+
+        let injected_payload = b"injected broker payload".to_vec();
+        let injected_result = smol::block_on(server.publish(&MqttPublishRequest {
+            topic: topic.clone(),
+            payload: injected_payload.clone(),
+            qos: MqttQos::ExactlyOnce,
+            retain: true,
+            user_properties: vec![MqttUserProperty {
+                name: "source".into(),
+                value: "local-broker".into(),
+            }],
+        }))
+        .map_err(|error| format!("Broker 注入发布失败：{error}"))?;
+        assert_eq!(injected_result.topic, topic);
+        assert_eq!(injected_result.qos, MqttQos::ExactlyOnce);
+        let injected_message = receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|error| error.to_string())?;
+        assert_eq!(injected_message.payload, injected_payload);
+        assert_eq!(
+            injected_message.user_properties,
+            vec![MqttUserProperty {
+                name: "source".into(),
+                value: "local-broker".into(),
+            }]
+        );
+
+        command_sender
+            .try_send(MqttSubscriptionCommand::Unsubscribe {
+                filter: topic.clone(),
+            })
+            .map_err(|error| error.to_string())?;
+        let status = status_receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|error| error.to_string())?;
+        assert_eq!(status.state, MqttSubscriptionState::Pending);
+
+        command_sender
+            .try_send(MqttSubscriptionCommand::Subscribe(MqttSubscription {
+                filter: topic.clone(),
+                qos: MqttQos::AtLeastOnce,
+                no_local: false,
+            }))
+            .map_err(|error| error.to_string())?;
+        let status = status_receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|error| error.to_string())?;
+        assert_eq!(status.state, MqttSubscriptionState::Subscribed);
+        let retained_message = receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|error| error.to_string())?;
+        assert_eq!(retained_message.payload, injected_payload);
+        assert!(retained_message.retain);
 
         cancelled.store(true, Ordering::Release);
         smol::block_on(server.stop()).map_err(|error| error.to_string())?;

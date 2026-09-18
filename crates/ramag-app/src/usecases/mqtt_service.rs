@@ -90,6 +90,34 @@ impl MqttService {
         self.local_server_driver.status().await
     }
 
+    pub async fn publish_local_server(
+        &self,
+        request: &MqttPublishRequest,
+    ) -> Result<MqttPublishResult> {
+        request.validate().map_err(DomainError::InvalidConfig)?;
+        let started = std::time::Instant::now();
+        let result = self.local_server_driver.publish(request).await;
+        tracing::info!(
+            operation = "mqtt_local_server_publish",
+            topic = %request.topic,
+            payload_bytes = request.payload.len(),
+            qos = request.qos.as_u8(),
+            retain = request.retain,
+            elapsed_ms = started.elapsed().as_millis(),
+            success = result.is_ok(),
+            "local MQTT server publish completed"
+        );
+        if let Err(error) = &result {
+            tracing::warn!(
+                operation = "mqtt_local_server_publish",
+                topic = %request.topic,
+                error = %error,
+                "local MQTT server publish failed"
+            );
+        }
+        result
+    }
+
     pub async fn list_profiles(&self) -> Result<Vec<MqttProfile>> {
         let result = self.storage.list_mqtt_profiles().await;
         log_storage_result("mqtt_profile_list", &result);
