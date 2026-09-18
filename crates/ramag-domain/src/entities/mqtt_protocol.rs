@@ -56,6 +56,24 @@ impl MqttSubscription {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MqttSubscriptionState {
+    Pending,
+    Subscribing,
+    Subscribed,
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MqttSubscriptionStatus {
+    pub filter: String,
+    pub state: MqttSubscriptionState,
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+pub type MqttSubscriptionStatusSink = Arc<dyn Fn(MqttSubscriptionStatus) + Send + Sync>;
+
 pub(crate) fn validate_mqtt_subscriptions(
     subscriptions: &[MqttSubscription],
 ) -> Result<(), String> {

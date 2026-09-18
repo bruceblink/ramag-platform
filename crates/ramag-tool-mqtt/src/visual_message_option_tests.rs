@@ -13,7 +13,7 @@ use gpui::{
 use ramag_app::MqttService;
 use ramag_domain::entities::{
     MqttMessage, MqttMessageSink, MqttProfile, MqttPublishRequest, MqttPublishResult, MqttQos,
-    MqttSubscribeRequest,
+    MqttSubscribeRequest, MqttSubscriptionStatusSink,
 };
 use ramag_domain::error::Result;
 use ramag_domain::traits::MqttDriver;
@@ -54,6 +54,7 @@ impl MqttDriver for OptionsMqttDriver {
         profile: &MqttProfile,
         request: &MqttSubscribeRequest,
         _sink: MqttMessageSink,
+        _status_sink: MqttSubscriptionStatusSink,
         _cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         self.subscribe_profiles
@@ -80,6 +81,7 @@ impl MqttDriver for BlockingSubscriptionDriver {
         _profile: &MqttProfile,
         _request: &MqttSubscribeRequest,
         _sink: MqttMessageSink,
+        _status_sink: MqttSubscriptionStatusSink,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         self.started.send(()).await.expect("订阅开始信号应可发送");

@@ -257,6 +257,7 @@
         use std::time::{Duration, SystemTime, UNIX_EPOCH};
         use ramag_domain::entities::{
             MqttMessageSinkResult, MqttQos, MqttSubscribeRequest, MqttSubscription,
+            MqttSubscriptionState,
         };
 
         let port = std::net::TcpListener::bind(("127.0.0.1", 0))
@@ -304,6 +305,10 @@
             Err(TrySendError::Full(_)) => MqttMessageSinkResult::Backpressured,
             Err(TrySendError::Disconnected(_)) => MqttMessageSinkResult::Closed,
         });
+        let (status_sender, status_receiver) = sync_channel(1);
+        let status_sink = Arc::new(move |status| {
+            let _ = status_sender.try_send(status);
+        });
         let subscribe_profile = profile.clone();
         let subscribe_cancelled = cancelled.clone();
         let subscribe_topic = topic.clone();
@@ -318,10 +323,15 @@
                     }],
                 },
                 sink,
+                status_sink,
                 subscribe_cancelled,
             ))
         });
         std::thread::sleep(Duration::from_millis(200));
+        let status = status_receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|error| error.to_string())?;
+        assert_eq!(status.state, MqttSubscriptionState::Subscribed);
 
         let payload = b"local broker payload".to_vec();
         smol::block_on(client.publish(

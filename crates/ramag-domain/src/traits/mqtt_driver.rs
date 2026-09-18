@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use crate::entities::{
     MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoGroup, MosquittoRole,
     MosquittoStaticFile, MosquittoStaticFileKind, MqttBrokerSnapshot, MqttMessageSink, MqttProfile,
-    MqttPublishRequest, MqttPublishResult, MqttSubscribeRequest,
+    MqttPublishRequest, MqttPublishResult, MqttSubscribeRequest, MqttSubscriptionStatusSink,
 };
 use crate::error::{DomainError, Result};
 
@@ -40,6 +40,7 @@ pub trait MqttDriver: Send + Sync {
         _profile: &MqttProfile,
         _request: &MqttSubscribeRequest,
         _sink: MqttMessageSink,
+        _status_sink: MqttSubscriptionStatusSink,
         _cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         Err(DomainError::NotImplemented("mqtt_subscribe".into()))

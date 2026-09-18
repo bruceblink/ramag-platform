@@ -41,11 +41,16 @@
         profile: MqttProfile,
         request: MqttSubscribeRequest,
         sink: MqttMessageSink,
+        status_sink: MqttSubscriptionStatusSink,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         match profile.protocol_version {
-            MqttProtocolVersion::V311 => subscribe_v311(&profile, &request, sink, cancelled).await,
-            MqttProtocolVersion::V5 => subscribe_v5(&profile, &request, sink, cancelled).await,
+            MqttProtocolVersion::V311 => {
+                subscribe_v311(&profile, &request, sink, status_sink, cancelled).await
+            }
+            MqttProtocolVersion::V5 => {
+                subscribe_v5(&profile, &request, sink, status_sink, cancelled).await
+            }
         }
     }
 

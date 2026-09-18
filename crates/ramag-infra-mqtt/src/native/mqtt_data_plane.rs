@@ -227,6 +227,7 @@
         profile: &MqttProfile,
         request: &MqttSubscribeRequest,
         sink: MqttMessageSink,
+        status_sink: MqttSubscriptionStatusSink,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         if request
@@ -251,13 +252,28 @@
                 )
             })
             .collect::<Vec<_>>();
-        run_subscription_v311(client, eventloop, filters, sink, cancelled).await
+        let filter_names = request
+            .subscriptions
+            .iter()
+            .map(|subscription| subscription.filter.clone())
+            .collect::<Vec<_>>();
+        run_subscription_v311(
+            client,
+            eventloop,
+            filters,
+            filter_names,
+            sink,
+            status_sink,
+            cancelled,
+        )
+        .await
     }
 
     async fn subscribe_v5(
         profile: &MqttProfile,
         request: &MqttSubscribeRequest,
         sink: MqttMessageSink,
+        status_sink: MqttSubscriptionStatusSink,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         let (client, eventloop) = create_v5_client(profile)?;
@@ -273,14 +289,30 @@
                 filter
             })
             .collect::<Vec<_>>();
-        run_subscription_v5(client, eventloop, filters, sink, cancelled).await
+        let filter_names = request
+            .subscriptions
+            .iter()
+            .map(|subscription| subscription.filter.clone())
+            .collect::<Vec<_>>();
+        run_subscription_v5(
+            client,
+            eventloop,
+            filters,
+            filter_names,
+            sink,
+            status_sink,
+            cancelled,
+        )
+        .await
     }
 
     async fn run_subscription_v311(
         client: AsyncClient,
         mut eventloop: EventLoop,
         filters: Vec<rumqttc::SubscribeFilter>,
+        filter_names: Vec<String>,
         sink: MqttMessageSink,
+        status_sink: MqttSubscriptionStatusSink,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         let cancellation_client = client.clone();
@@ -292,10 +324,14 @@
             let _ = cancellation_client.disconnect().await;
         });
         let result = async {
-            client
-                .subscribe_many(filters)
-                .await
-                .map_err(|error| mqtt_client_error("订阅 MQTT 3.1.1 Topic", error.to_string()))?;
+            if let Err(error) = client.subscribe_many(filters).await {
+                emit_rejected_subscription_statuses(
+                    &status_sink,
+                    &filter_names,
+                    error.to_string(),
+                );
+                return Err(mqtt_client_error("订阅 MQTT 3.1.1 Topic", error.to_string()));
+            }
             loop {
                 if cancelled.load(std::sync::atomic::Ordering::Acquire) {
                     return Ok(());
@@ -308,6 +344,20 @@
                     Err(error) => return Err(mqtt_connection_error(error.to_string())),
                 };
                 match event {
+                    Event::Incoming(Incoming::SubAck(ack)) => {
+                        for (filter, code) in filter_names.iter().zip(ack.return_codes.iter()) {
+                            let (state, reason) = match code {
+                                rumqttc::mqttbytes::v4::SubscribeReasonCode::Success(_) => {
+                                    (MqttSubscriptionState::Subscribed, None)
+                                }
+                                rumqttc::mqttbytes::v4::SubscribeReasonCode::Failure => (
+                                    MqttSubscriptionState::Rejected,
+                                    Some("Broker 拒绝订阅".into()),
+                                ),
+                            };
+                            emit_subscription_status(&status_sink, filter, state, reason);
+                        }
+                    }
                     Event::Incoming(Incoming::Publish(publish)) => {
                         let message = MqttMessage {
                             topic: publish.topic,
@@ -339,7 +389,9 @@
         client: rumqttc::v5::AsyncClient,
         mut eventloop: rumqttc::v5::EventLoop,
         filters: Vec<rumqttc::v5::mqttbytes::v5::Filter>,
+        filter_names: Vec<String>,
         sink: MqttMessageSink,
+        status_sink: MqttSubscriptionStatusSink,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         let cancellation_client = client.clone();
@@ -351,10 +403,14 @@
             let _ = cancellation_client.disconnect().await;
         });
         let result = async {
-            client
-                .subscribe_many(filters)
-                .await
-                .map_err(|error| mqtt_client_error("订阅 MQTT 5 Topic", error.to_string()))?;
+            if let Err(error) = client.subscribe_many(filters).await {
+                emit_rejected_subscription_statuses(
+                    &status_sink,
+                    &filter_names,
+                    error.to_string(),
+                );
+                return Err(mqtt_client_error("订阅 MQTT 5 Topic", error.to_string()));
+            }
             loop {
                 if cancelled.load(std::sync::atomic::Ordering::Acquire) {
                     return Ok(());
@@ -367,6 +423,20 @@
                     Err(error) => return Err(mqtt_connection_error(error.to_string())),
                 };
                 match event {
+                    rumqttc::v5::Event::Incoming(rumqttc::v5::Incoming::SubAck(ack)) => {
+                        for (filter, code) in filter_names.iter().zip(ack.return_codes.iter()) {
+                            let (state, reason) = match code {
+                                rumqttc::v5::mqttbytes::v5::SubscribeReasonCode::Success(_) => {
+                                    (MqttSubscriptionState::Subscribed, None)
+                                }
+                                other => (
+                                    MqttSubscriptionState::Rejected,
+                                    Some(format!("Broker 拒绝订阅：{other:?}")),
+                                ),
+                            };
+                            emit_subscription_status(&status_sink, filter, state, reason);
+                        }
+                    }
                     rumqttc::v5::Event::Incoming(rumqttc::v5::Incoming::Publish(publish)) => {
                         let topic = String::from_utf8(publish.topic.to_vec()).map_err(|_| {
                             DomainError::Mqtt(MqttError::new(
@@ -413,4 +483,32 @@
         .await;
         cancellation_task.abort();
         result
+    }
+
+    fn emit_rejected_subscription_statuses(
+        status_sink: &MqttSubscriptionStatusSink,
+        filters: &[String],
+        reason: String,
+    ) {
+        for filter in filters {
+            emit_subscription_status(
+                status_sink,
+                filter,
+                MqttSubscriptionState::Rejected,
+                Some(reason.clone()),
+            );
+        }
+    }
+
+    fn emit_subscription_status(
+        status_sink: &MqttSubscriptionStatusSink,
+        filter: &str,
+        state: MqttSubscriptionState,
+        reason: Option<String>,
+    ) {
+        status_sink(MqttSubscriptionStatus {
+            filter: filter.to_string(),
+            state,
+            reason,
+        });
     }

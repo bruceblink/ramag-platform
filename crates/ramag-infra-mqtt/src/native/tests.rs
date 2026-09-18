@@ -120,6 +120,7 @@
                 &profile,
                 &request,
                 sink,
+                Arc::new(|_| {}),
                 cancelled,
             ));
             let category = match result {

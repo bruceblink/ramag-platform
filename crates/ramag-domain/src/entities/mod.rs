@@ -178,8 +178,8 @@ pub use mqtt_protocol::{
     MAX_MQTT_USER_PROPERTY_BYTES, MosquittoDynamicSecuritySnapshot, MosquittoStaticFile,
     MosquittoStaticFileKind, MqttBrokerSnapshot, MqttMessage, MqttMessageSink,
     MqttMessageSinkResult, MqttOnlineClient, MqttPublishRequest, MqttPublishResult, MqttQos,
-    MqttSubscribeRequest, MqttSubscription, MqttTopicObservation, MqttTopicSource,
-    MqttUserProperty,
+    MqttSubscribeRequest, MqttSubscription, MqttSubscriptionState, MqttSubscriptionStatus,
+    MqttSubscriptionStatusSink, MqttTopicObservation, MqttTopicSource, MqttUserProperty,
 };
 pub use object_storage::{
     CloudProvider, HttpsEndpoint, MAX_MANUAL_BUCKETS_PER_ACCOUNT,

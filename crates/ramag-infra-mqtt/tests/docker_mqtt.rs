@@ -75,6 +75,7 @@ fn docker_mosquitto_delivers_messages_and_stops_idle_subscriptions() -> Result<(
                 }],
             },
             sink,
+            Arc::new(|_| {}),
             subscription_cancelled,
         ))
     });

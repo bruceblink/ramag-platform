@@ -13,7 +13,8 @@ use async_trait::async_trait;
 use ramag_domain::entities::{
     MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoGroup, MosquittoRole,
     MosquittoStaticFile, MosquittoStaticFileKind, MqttBrokerSnapshot, MqttMessageSink, MqttProfile,
-    MqttPublishRequest, MqttPublishResult, MqttSubscribeRequest, MqttTransportBackend,
+    MqttPublishRequest, MqttPublishResult, MqttSubscribeRequest, MqttSubscriptionState,
+    MqttSubscriptionStatus, MqttSubscriptionStatusSink, MqttTransportBackend,
     MqttTransportCapabilities,
 };
 use ramag_domain::error::{DomainError, MqttError, MqttErrorCategory, Result};
@@ -394,6 +395,7 @@ impl MqttDriver for NativeMqttTransport {
         profile: &MqttProfile,
         request: &MqttSubscribeRequest,
         sink: MqttMessageSink,
+        status_sink: MqttSubscriptionStatusSink,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         #[cfg(feature = "native")]
@@ -401,13 +403,13 @@ impl MqttDriver for NativeMqttTransport {
             let profile = profile.clone();
             let request = request.clone();
             return run_native_subscription(move || {
-                subscribe_native(profile, request, sink, cancelled)
+                subscribe_native(profile, request, sink, status_sink, cancelled)
             })
             .await;
         }
         #[cfg(not(feature = "native"))]
         {
-            let _ = (profile, request, sink, cancelled);
+            let _ = (profile, request, sink, status_sink, cancelled);
             Err(native_unavailable("订阅 MQTT 消息"))
         }
     }
