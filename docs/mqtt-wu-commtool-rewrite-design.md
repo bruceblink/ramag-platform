@@ -1,6 +1,6 @@
 # Wu.CommTool MQTT 重写详细设计
 
-> 状态：设计已完成；Phase 1 进行中，Phase 2 已开始。本轮已完成订阅 Topic 列表、No Local、列表持久化、订阅逐条运行状态、消息时间线控制、可展开 JSON 消息查看器、多行载荷快捷发布和本地 Broker 注入发布。
+> 状态：设计已完成；Phase 1 进行中，Phase 2 已开始。本轮已完成订阅 Topic 列表、No Local、列表持久化、订阅逐条运行状态、消息时间线控制、可展开 JSON 消息查看器、多行载荷快捷发布、本地 Broker 注入发布和在线客户端快照。
 >
 > 适用范围：Ramag Platform 的 MQTT 工作台、内置本地 MQTT Broker、远端 MQTT Client 连接、消息发布/订阅和与 Wu.CommTool 的配置及交互兼容。
 >
@@ -20,7 +20,7 @@
 | MQTT 数据面 | MQTT Data Plane | 连接、发布、订阅和接收消息的协议路径 | 不表示 Mosquitto Dynamic Security 管理命令 |
 | Mosquitto 管理面 | Mosquitto Management Plane | Dynamic Security 和 password_file/acl_file 的明确管理路径 | 不表示通用 MQTT Broker 都具备的能力 |
 | 传输驱动 | MQTT Driver | ramag-domain 定义、ramag-infra-mqtt 实现的 MQTT 协议适配接口 | 不表示 GPUI 视图或 MQTTnet 类型 |
-| 本地服务驱动 | Local Server Driver | 本地 MQTT Broker 的启动、停止和状态接口 | 不表示远端 Broker 的发布订阅驱动 |
+| 本地服务驱动 | Local Server Driver | 本地 MQTT Broker 的启动、停止、状态、注入发布和在线客户端快照接口 | 不表示远端 Broker 的发布订阅驱动 |
 
 正文首次出现使用表中的规范中文名和英文名；后续只使用规范中文名。图、表和代码边界使用同一套名称。
 
@@ -76,10 +76,10 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 | ramag-domain/entities/mqtt_protocol.rs | QoS、订阅请求、订阅逐条运行状态、发布请求、接收消息、User Property 和 Broker 观察结果 | 已实现有界模型和字段校验 |
 | ramag-domain/entities/mqtt/local_server.rs | 本地 Broker 监听地址、端口、匿名策略、固定账号和状态 | 已实现认证配置前置校验 |
 | ramag-domain/traits/mqtt_driver.rs | 测试连接、发布、持续订阅和 Broker 观察接口 | 已实现接口 |
-| ramag-domain/traits/mqtt_local_server.rs | 本地 Broker 启动、停止、状态和注入发布接口 | 已实现接口 |
+| ramag-domain/traits/mqtt_local_server.rs | 本地 Broker 启动、停止、状态、注入发布和客户端快照接口 | 已实现接口 |
 | ramag-app/usecases/mqtt_service.rs | 校验、调用驱动、存储配置、错误和日志编排 | 已实现 |
 | ramag-infra-mqtt/src/lib.rs | Native MQTT 驱动和 Mosquitto Dynamic Security 管理 | 已实现 MQTT 3.1.1、MQTT 5、TCP/TLS、发布和订阅 |
-| ramag-infra-mqtt/src/local_server.rs | Native 本地 MQTT Broker 生命周期、固定账号认证和注入发布 | 已实现，使用 oximqtt |
+| ramag-infra-mqtt/src/local_server.rs | Native 本地 MQTT Broker 生命周期、固定账号认证、注入发布和客户端快照 | 已实现，使用 oximqtt |
 | ramag-tool-mqtt/src/lib.rs | GPUI 工作区状态、配置、状态、发布、订阅、本地服务和 Mosquitto 页面 | 已实现主要页面 |
 | ramag-tool-mqtt/src/mqtt_view/payload_format.rs | 发布编码和接收显示格式 | 已实现 UTF-8、JSON、Hex、Base64 三类转换及参考项目的组合模式 |
 | ramag-tool-mqtt/src/mqtt_view/message_operations_view.rs | 发布和订阅操作区、QoS、Retain、消息元数据和多行载荷编辑器 | 已实现，已有窄窗口 headless 覆盖；载荷支持 Ctrl+Enter 发布 |
@@ -102,13 +102,15 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 
 本轮补齐本地 Broker 注入发布：本地服务驱动新增结构化发布接口，应用服务复用 `MqttPublishRequest` 校验并记录 Topic、载荷大小、QoS 和 Retain；Native oximqtt 运行线程通过容量为 32 的命令队列接收请求，把消息送入本地 Broker 路由，并把 Retain 消息写入本地保留存储。服务页新增 Topic、Payload、UTF-8/Hex/Base64/组合格式、QoS、Retain 和“注入发布”控件；成功后显示 Broker 发布结果，失败时保留输入。native 测试使用真实 Native MQTT 客户端验证即时转发、User Property 和取消后重新订阅的 retained 消息；headless 测试验证 UI 请求字段。真实 Windows 窗口和两个独立客户端的完整 Phase 2 回读仍未完成。
 
+本轮补齐在线客户端快照：本地服务驱动从 oximqtt 当前在线会话读取 Client ID、用户名、远端地址、连接时间以及每个客户端的 Topic Filter、QoS 和 No Local；页面刷新后只显示真实连接，`online_clients_complete` 标记当前客户端结果是否完整，Topic 目录仍明确标记为不完整。Native 回归使用真实订阅客户端读取一条订阅记录，headless UI 验证客户端和订阅列表边界。当前还没有客户端强制断开、事件实时推送和双客户端完整窗口回读。
+
 当前与参考项目仍存在的主要差距：
 
-- 本地 Broker 还没有完整的 Broker 侧消息事件、在线客户端和每客户端订阅管理工作流。
+- 本地 Broker 还没有完整的 Broker 侧消息事件、客户端强制断开和实时客户端状态推送工作流；当前已支持刷新在线客户端快照及其订阅列表。
 - 订阅记录已经扩展为可新增、删除和编辑 QoS/No Local 的 Topic 列表，并随 `MqttProfile` 加密保存；启动/停止订阅已有每条 Filter 的运行状态，单独新增或取消某一条订阅的操作仍待补齐。
 - 消息时间线已支持暂停展示、恢复展示、清空本地列表和有界消息查看器；JSON 查看已支持对象/数组节点展开，仍未完成真实 Windows 窗口和大载荷实际操作验收。
 - 参考项目的 jsonMCC/jsonMSC 配置导入导出和快速配置列表尚未完成兼容层。
-- 本地 Broker TLS 证书端点、Broker 事件流、在线客户端和每客户端订阅管理能力仍需扩展本地服务接口。
+- 本地 Broker TLS 证书端点、Broker 事件流、客户端强制断开和实时状态推送能力仍需扩展本地服务接口。
 - 参考项目的 AutoReconnect 选项尚未在 Ramag 配置和界面中形成明确的开关及重连策略。
 - 当前 Mosquitto 管理面是 Ramag 的额外能力，不能代替本地 Broker 的 MQTT Server 工作流。
 
@@ -119,7 +121,7 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 | MQTT Server 启动/停止本地服务 | 本地 Broker 使用监听地址、端口、匿名策略和固定账号启动；运行中配置不能静默改变 | 启动、停止、状态和配置一致性已实现 | 补 Broker 事件和 TLS | oximqtt 本机测试、端口回读、UI 操作 |
 | MQTT Server 接收消息 | 本地 Broker 将连接、订阅、发布和接收事件送入有界消息时间线 | 生命周期已实现，事件流未完成 | Phase 2 | 本机 Docker 客户端连接本地 Broker，窗口收到真实消息 |
 | MQTT Server Broker 发布 | 从本地 Broker 注入 Topic、载荷、QoS、Retain 消息 | 已实现 Domain/App/Native/UI 注入发布；消息进入本地路由，Retain 写入 oximqtt 保留存储 | Phase 2 补事件和双客户端回读 | native 客户端即时回读、重新订阅 retained 回读、headless 请求字段 |
-| MQTT Server 客户端管理 | 显示真实在线 Client ID、用户名、连接时间和订阅 Topic | 尚无本地 Broker 观察接口 | Phase 2 | 两个真实客户端连接后的窗口结果 |
+| MQTT Server 客户端管理 | 显示真实在线 Client ID、用户名、连接时间和订阅 Topic | 已实现本地 Broker 在线客户端快照、每客户端订阅、完整性标记和页面刷新；尚无强制断开与实时事件 | Phase 2 补事件和双客户端回读 | Native 客户端快照、headless 页面回读、两个真实客户端连接后的窗口结果 |
 | MQTT Client 连接 | 支持 MQTT 3.1.1/5、TCP/TLS、Client ID、认证、Keep Alive、自动重连、取消和错误分类 | Native 驱动已实现连接和取消；自动重连开关未对齐 | Phase 1 | 本机 Docker Mosquitto 3.1.1/5 测试 |
 | MQTT Client Topic 列表 | 多条 Topic Filter 可添加、删除、编辑，逐条显示 QoS、No Local 和运行状态 | 已实现多条列表、添加/删除、逐条 QoS/No Local 编辑、随配置保存和“未运行/订阅中/已订阅/失败”状态 | Phase 1 后续补逐条订阅动作 | Domain 校验、加密存储往返、SubAck 回读、headless 操作、真实窗口回读 |
 | MQTT Client 订阅/取消订阅 | 启动和停止状态可见，停止等待驱动真正退出；暂停只停止当前窗口追加 | 持续订阅、取消、每条 Filter 状态、暂停展示、恢复展示和清空本地列表已实现 | Phase 1 补单条操作 | 取消延迟测试、Native Broker SubAck、headless 操作回读、真实窗口状态回读 |
@@ -508,7 +510,7 @@ Broker 配置通过 Storage trait 保存，订阅 Topic 列表随 `MqttProfile` 
 | No Local 的其他驱动支持 | 影响订阅模型和兼容性 | Native MQTT 5 已映射 No Local；MQTT 3.1.1 禁用并明确拒绝，其他驱动按能力禁用并提示 |
 | MQTT 3.1 支持 | 当前 Domain 只有 3.1.1/5 | 先保证 3.1.1/5；若要补 3.1，单独增加驱动和 Docker 样例 |
 | 本地 Broker TLS | 影响证书模型、配置持久化和端口语义 | Phase 2 调研 oximqtt 能力；未支持前不显示虚假的 TLS 开关 |
-| 本地 Broker 在线客户端和订阅 API | 影响 Server 侧客户端管理 | 先显示能力不足，不生成客户端列表 |
+| 本地 Broker 在线客户端和订阅 API | 影响 Server 侧客户端管理 | 使用有界快照显示真实客户端和订阅；事件推送、强制断开和完整 Topic 目录仍不支持 |
 | jsonMCC/jsonMSC 密码导入 | 影响秘密迁移 | 导入后重新写入 Ramag 秘密存储，不在普通 JSON 导出中明文回写 |
 | SM4 加密发布 | 影响算法、密钥来源和线速载荷 | 暂不实现，避免引入未审查密码学代码 |
 | 默认 MQTT 版本和 Keep Alive | 影响新建配置和旧配置导入 | 新配置保持当前 Ramag 默认；旧配置按文件字段，缺失时使用 Domain 默认 |
