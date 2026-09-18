@@ -357,14 +357,20 @@ impl MqttView {
         self.subscription_cancelled = Some(cancelled.clone());
         self.subscription_running = true;
         self.subscription_stopping = false;
+        self.mark_subscriptions_subscribing();
         self.message_timeline_paused = false;
         self.messages.clear();
-        self.notice = Some(("已启动订阅，等待 Broker 消息…".into(), false));
+        self.notice = Some(("已启动订阅，等待 Broker 确认…".into(), false));
         let (sender, receiver) = bounded(32);
         let sink = Arc::new(move |message: MqttMessage| match sender.try_send(message) {
             Ok(()) => MqttMessageSinkResult::Accepted,
             Err(TrySendError::Full(_)) => MqttMessageSinkResult::Backpressured,
             Err(TrySendError::Closed(_)) => MqttMessageSinkResult::Closed,
+        });
+        let (status_sender, status_receiver) =
+            bounded(ramag_domain::entities::MAX_MQTT_SUBSCRIPTIONS);
+        let status_sink: MqttSubscriptionStatusSink = Arc::new(move |status| {
+            let _ = status_sender.try_send(status);
         });
         let receiver_cancelled = cancelled.clone();
         cx.spawn_in(window, async move |this, cx| {
@@ -388,11 +394,38 @@ impl MqttView {
             }
         })
         .detach();
+        let status_receiver_cancelled = cancelled.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            while let Ok(status) = status_receiver.recv().await {
+                if this
+                    .update_in(cx, |this, _, cx| {
+                        if this.subscription_request_id != request_id
+                            || this.profile_context_id != profile_context_id
+                        {
+                            return;
+                        }
+                        this.apply_subscription_status(status);
+                        cx.notify();
+                    })
+                    .is_err()
+                {
+                    status_receiver_cancelled.store(true, Ordering::Release);
+                    break;
+                }
+            }
+        })
+        .detach();
         let service = self.service.clone();
         let operation_cancelled = cancelled;
         cx.spawn_in(window, async move |this, cx| {
             let result = service
-                .subscribe(&profile, &request, sink, operation_cancelled)
+                .subscribe(
+                    &profile,
+                    &request,
+                    sink,
+                    status_sink,
+                    operation_cancelled,
+                )
                 .await;
             let _ = this.update_in(cx, |this, _, cx| {
                 if this.subscription_request_id != request_id
@@ -405,8 +438,11 @@ impl MqttView {
                 this.message_timeline_paused = false;
                 this.subscription_cancelled = None;
                 if let Err(error) = result {
-                    this.notice = Some((format!("订阅结束：{}", error.user_message()), true));
+                    let reason = error.user_message();
+                    this.reject_unresolved_subscription_statuses(reason.clone());
+                    this.notice = Some((format!("订阅结束：{reason}"), true));
                 } else {
+                    this.reset_unresolved_subscription_statuses();
                     this.notice = Some(("订阅已结束".into(), false));
                 }
                 cx.notify();

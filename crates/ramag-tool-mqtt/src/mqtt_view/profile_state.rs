@@ -268,6 +268,7 @@ impl MqttView {
             subscribe_qos: MqttQos::AtLeastOnce,
             subscribe_no_local: false,
             subscription_topics: default_subscription_topics(),
+            subscription_statuses: default_subscription_statuses(),
             local_server_bind_host,
             local_server_port,
             local_server_username,
@@ -576,6 +577,7 @@ impl MqttView {
         });
         self.reset_message_options();
         self.subscription_topics = profile.subscriptions.clone();
+        self.reset_subscription_statuses();
         self.clear_runtime_state();
         self.notice = None;
     }

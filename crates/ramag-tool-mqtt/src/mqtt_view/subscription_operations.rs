@@ -6,11 +6,98 @@ fn default_subscription_topics() -> Vec<MqttSubscription> {
     }]
 }
 
+fn default_subscription_statuses() -> Vec<MqttSubscriptionStatus> {
+    pending_subscription_statuses(&default_subscription_topics())
+}
+
+fn pending_subscription_statuses(
+    subscriptions: &[MqttSubscription],
+) -> Vec<MqttSubscriptionStatus> {
+    subscriptions
+        .iter()
+        .map(|subscription| MqttSubscriptionStatus {
+            filter: subscription.filter.clone(),
+            state: MqttSubscriptionState::Pending,
+            reason: None,
+        })
+        .collect()
+}
+
 impl MqttView {
     /// Restores the default Topic list for a new, unsaved Broker configuration.
     fn reset_subscription_topics(&mut self) {
         self.subscription_topics = default_subscription_topics();
+        self.reset_subscription_statuses();
         self.subscribe_no_local = false;
+    }
+
+    fn reset_subscription_statuses(&mut self) {
+        self.subscription_statuses = pending_subscription_statuses(&self.subscription_topics);
+    }
+
+    fn mark_subscriptions_subscribing(&mut self) {
+        self.subscription_statuses = self
+            .subscription_topics
+            .iter()
+            .map(|subscription| MqttSubscriptionStatus {
+                filter: subscription.filter.clone(),
+                state: MqttSubscriptionState::Subscribing,
+                reason: None,
+            })
+            .collect();
+    }
+
+    fn apply_subscription_status(&mut self, status: MqttSubscriptionStatus) {
+        if !self
+            .subscription_topics
+            .iter()
+            .any(|subscription| subscription.filter == status.filter)
+        {
+            return;
+        }
+        if let Some(existing) = self
+            .subscription_statuses
+            .iter_mut()
+            .find(|existing| existing.filter == status.filter)
+        {
+            *existing = status;
+        }
+    }
+
+    fn subscription_status(&self, filter: &str) -> MqttSubscriptionStatus {
+        self.subscription_statuses
+            .iter()
+            .find(|status| status.filter == filter)
+            .cloned()
+            .unwrap_or_else(|| MqttSubscriptionStatus {
+                filter: filter.to_string(),
+                state: MqttSubscriptionState::Pending,
+                reason: None,
+            })
+    }
+
+    fn reject_unresolved_subscription_statuses(&mut self, reason: String) {
+        for status in &mut self.subscription_statuses {
+            if matches!(
+                status.state,
+                MqttSubscriptionState::Pending | MqttSubscriptionState::Subscribing
+            ) {
+                status.state = MqttSubscriptionState::Rejected;
+                status.reason = Some(reason.clone());
+            }
+        }
+    }
+
+    fn reset_unresolved_subscription_statuses(&mut self) {
+        for status in &mut self.subscription_statuses {
+            if matches!(
+                status.state,
+                MqttSubscriptionState::Pending | MqttSubscriptionState::Subscribing
+            ) {
+                status.state = MqttSubscriptionState::Pending;
+                status.reason = None;
+            }
+        }
     }
 
     /// Switches protocol versions and clears options that MQTT 3.1.1 cannot encode.
@@ -33,6 +120,7 @@ impl MqttView {
                 ));
             }
         }
+        self.reset_subscription_statuses();
     }
 
     /// Validates and appends one Topic Filter from the editor, rejecting duplicates
@@ -80,6 +168,7 @@ impl MqttView {
             return;
         }
         self.subscription_topics.push(subscription);
+        self.reset_subscription_statuses();
         set_value(&self.subscribe_filter, "", window, cx);
         self.notice = Some(("已添加订阅 Topic".into(), false));
         cx.notify();
@@ -91,6 +180,7 @@ impl MqttView {
             return;
         }
         self.subscription_topics.remove(index);
+        self.reset_subscription_statuses();
         self.notice = Some(("已移除订阅 Topic".into(), false));
         cx.notify();
     }
@@ -104,6 +194,7 @@ impl MqttView {
             return;
         };
         subscription.qos = qos;
+        self.reset_subscription_statuses();
         cx.notify();
     }
 
@@ -116,7 +207,17 @@ impl MqttView {
             return;
         };
         subscription.no_local = !subscription.no_local;
+        self.reset_subscription_statuses();
         cx.notify();
+    }
+}
+
+fn subscription_status_label(state: MqttSubscriptionState) -> &'static str {
+    match state {
+        MqttSubscriptionState::Pending => "未运行",
+        MqttSubscriptionState::Subscribing => "订阅中",
+        MqttSubscriptionState::Subscribed => "已订阅",
+        MqttSubscriptionState::Rejected => "失败",
     }
 }
 

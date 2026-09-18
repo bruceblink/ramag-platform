@@ -251,6 +251,14 @@ impl MqttView {
             ));
             let filter = subscription.filter.clone();
             let no_local = subscription.no_local;
+            let status = self.subscription_status(&subscription.filter);
+            let status_selector = SharedString::from(format!("mqtt-subscription-status-{index}"));
+            let status_color = match status.state {
+                MqttSubscriptionState::Pending => theme.muted_foreground,
+                MqttSubscriptionState::Subscribing => theme.warning,
+                MqttSubscriptionState::Subscribed => theme.accent,
+                MqttSubscriptionState::Rejected => theme.danger,
+            };
             topic_rows = topic_rows.child(
                 h_flex()
                     .id(row_selector.clone())
@@ -275,6 +283,16 @@ impl MqttView {
                             .min_w_0()
                             .truncate()
                             .child(filter),
+                    )
+                    .child(
+                        div()
+                            .debug_selector({
+                                let selector = status_selector.clone();
+                                move || selector.to_string()
+                            })
+                            .text_xs()
+                            .text_color(status_color)
+                            .child(subscription_status_label(status.state)),
                     )
                     .child(subscription_qos_selector(
                         index,
