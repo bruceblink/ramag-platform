@@ -16,9 +16,10 @@ use ramag_app::MqttService;
 use ramag_domain::entities::{
     ConnectionConfig, ConnectionId, MosquittoAcl, MosquittoAclDecision, MosquittoAclType,
     MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoRole, MosquittoRoleBinding,
-    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerStatus, MqttMessage, MqttProfile,
-    MqttPublishRequest, MqttPublishResult, MqttQos, MqttTopicObservation, MqttTopicSource,
-    MqttUserProperty, QueryRecord, QueryRecordId,
+    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerStatus, MqttMessage,
+    MqttOnlineClient, MqttProfile, MqttPublishRequest, MqttPublishResult, MqttQos,
+    MqttSubscription, MqttTopicObservation, MqttTopicSource, MqttUserProperty, QueryRecord,
+    QueryRecordId,
 };
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, MqttLocalServerDriver, Storage};
@@ -110,6 +111,7 @@ impl MqttDriver for RecordingMqttDriver {
 
 struct RecordingLocalServerDriver {
     publishes: Arc<Mutex<Vec<MqttPublishRequest>>>,
+    snapshot: MqttBrokerSnapshot,
 }
 
 #[async_trait]
@@ -124,6 +126,10 @@ impl MqttLocalServerDriver for RecordingLocalServerDriver {
             packet_id: None,
             qos: request.qos,
         })
+    }
+
+    async fn snapshot(&self) -> Result<MqttBrokerSnapshot> {
+        Ok(self.snapshot.clone())
     }
 }
 
@@ -603,6 +609,12 @@ fn mqtt_local_server_publish_uses_broker_injection_controls(cx: &mut TestAppCont
         MqttService::new(Arc::new(NoopMqttDriver), Arc::new(NoopStorage::default()))
             .with_local_server_driver(Arc::new(RecordingLocalServerDriver {
                 publishes: publishes.clone(),
+                snapshot: MqttBrokerSnapshot {
+                    topics: Vec::new(),
+                    online_clients: Vec::new(),
+                    topics_complete: false,
+                    online_clients_complete: true,
+                },
             })),
     );
     let mut view_entity = None;
@@ -641,6 +653,81 @@ fn mqtt_local_server_publish_uses_broker_injection_controls(cx: &mut TestAppCont
     assert_eq!(recorded[0].payload, b"hello from ui");
     assert_eq!(recorded[0].qos, MqttQos::ExactlyOnce);
     assert!(recorded[0].retain);
+}
+
+#[gpui::test]
+fn mqtt_local_server_snapshot_reads_online_clients_and_subscriptions(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let snapshot = MqttBrokerSnapshot {
+        topics: Vec::new(),
+        online_clients: vec![MqttOnlineClient {
+            client_id: "client-one".into(),
+            username: Some("operator".into()),
+            remote_address: Some("127.0.0.1:41000".into()),
+            connected_at: Some(chrono::Utc::now()),
+            subscriptions: vec![MqttSubscription {
+                filter: "devices/#".into(),
+                qos: MqttQos::AtLeastOnce,
+                no_local: true,
+            }],
+        }],
+        topics_complete: false,
+        online_clients_complete: true,
+    };
+    let service = Arc::new(
+        MqttService::new(Arc::new(NoopMqttDriver), Arc::new(NoopStorage::default()))
+            .with_local_server_driver(Arc::new(RecordingLocalServerDriver {
+                publishes: Arc::new(Mutex::new(Vec::new())),
+                snapshot,
+            })),
+    );
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
+    visual_cx.update(|_window, app| {
+        view.update(app, |view, cx| {
+            view.loading_profiles = false;
+            view.section = MqttSection::LocalServer;
+            view.local_server_status = Some(MqttLocalServerStatus::running(
+                &MqttLocalServerConfig::default(),
+            ));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-local-server-refresh-clients");
+    visual_cx.run_until_parked();
+
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.local_server_snapshot.as_ref().is_some_and(|snapshot| {
+            snapshot.online_clients.len() == 1
+                && snapshot.online_clients[0].client_id == "client-one"
+                && snapshot.online_clients[0].subscriptions[0].filter == "devices/#"
+        })
+    }));
+    for selector in [
+        "mqtt-local-server-clients",
+        "mqtt-local-server-client-0",
+        "mqtt-local-server-publish-options",
+    ] {
+        let bounds = visual_cx
+            .debug_bounds(selector)
+            .expect("本地 Broker 快照和发布控件应参与布局");
+        let main = visual_cx
+            .debug_bounds("mqtt-main")
+            .expect("MQTT 主工作区应参与布局");
+        assert!(
+            bounds.origin.x >= main.origin.x && bounds.right() <= main.right(),
+            "本地 Broker 快照控件不能越出主工作区: selector={selector}, main={main:?}, bounds={bounds:?}"
+        );
+    }
 }
 
 #[gpui::test]

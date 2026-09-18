@@ -3,7 +3,8 @@
 use async_trait::async_trait;
 
 use crate::entities::{
-    MqttLocalServerConfig, MqttLocalServerStatus, MqttPublishRequest, MqttPublishResult,
+    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerStatus, MqttPublishRequest,
+    MqttPublishResult,
 };
 use crate::error::{DomainError, Result};
 
@@ -28,6 +29,12 @@ pub trait MqttLocalServerDriver: Send + Sync {
     async fn publish(&self, _request: &MqttPublishRequest) -> Result<MqttPublishResult> {
         Err(DomainError::NotImplemented(
             "mqtt_local_server_publish".into(),
+        ))
+    }
+
+    async fn snapshot(&self) -> Result<MqttBrokerSnapshot> {
+        Err(DomainError::NotImplemented(
+            "mqtt_local_server_snapshot".into(),
         ))
     }
 }

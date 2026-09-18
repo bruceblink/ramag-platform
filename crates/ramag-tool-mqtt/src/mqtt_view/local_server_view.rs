@@ -5,7 +5,8 @@ impl MqttView {
         let busy = self.local_server_loading
             || self.local_server_starting
             || self.local_server_stopping
-            || self.local_server_publishing;
+            || self.local_server_publishing
+            || self.local_server_snapshot_loading;
         let status_text = if self.local_server_starting {
             "正在启动本地 MQTT Broker…".to_string()
         } else if self.local_server_stopping {
@@ -25,6 +26,123 @@ impl MqttView {
             theme.accent
         } else {
             theme.muted_foreground
+        };
+
+        let client_snapshot_body = if self.local_server_snapshot_loading {
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("正在读取在线客户端…")
+                .into_any_element()
+        } else if let Some(error) = &self.local_server_snapshot_error {
+            div()
+                .text_xs()
+                .text_color(theme.danger)
+                .child(error.clone())
+                .into_any_element()
+        } else if let Some(snapshot) = &self.local_server_snapshot {
+            let mut clients = v_flex().w_full().gap(px(5.0));
+            if snapshot.online_clients.is_empty() {
+                clients = clients.child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("当前没有在线客户端。"),
+                );
+            } else {
+                for (index, client) in snapshot.online_clients.iter().enumerate() {
+                    let subscriptions = if client.subscriptions.is_empty() {
+                        "无订阅".to_string()
+                    } else {
+                        client
+                            .subscriptions
+                            .iter()
+                            .map(|subscription| {
+                                format!(
+                                    "{}（QoS {}{}）",
+                                    subscription.filter,
+                                    subscription.qos.as_u8(),
+                                    if subscription.no_local { "，No Local" } else { "" }
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                            .join("；")
+                    };
+                    let identity = format!(
+                        "{}{}",
+                        client.client_id,
+                        client
+                            .username
+                            .as_deref()
+                            .map_or(String::new(), |username| format!(" · {username}"))
+                    );
+                    let address = client
+                        .remote_address
+                        .as_deref()
+                        .unwrap_or("地址未知")
+                        .to_string();
+                    let connected_at = client
+                        .connected_at
+                        .as_ref()
+                        .map_or_else(|| "连接时间未知".to_string(), |value| value.to_rfc3339());
+                    clients = clients.child(
+                        v_flex()
+                            .id(SharedString::from(format!(
+                                "mqtt-local-server-client-{index}"
+                            )))
+                            .debug_selector({
+                                let selector = format!("mqtt-local-server-client-{index}");
+                                move || selector.clone()
+                            })
+                            .w_full()
+                            .min_w_0()
+                            .gap(px(3.0))
+                            .px(px(10.0))
+                            .py(px(7.0))
+                            .border_1()
+                            .border_color(theme.border)
+                            .rounded(px(4.0))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .min_w_0()
+                                    .truncate()
+                                    .child(identity),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .min_w_0()
+                                    .truncate()
+                                    .child(format!(
+                                        "{address} · 连接：{connected_at} · 订阅：{subscriptions}"
+                                    )),
+                            ),
+                    );
+                }
+            }
+            v_flex()
+                .debug_selector(|| "mqtt-local-server-clients".into())
+                .w_full()
+                .gap(px(5.0))
+                .child(format!(
+                    "在线客户端 {} 个；客户端数据{}完整。",
+                    snapshot.online_clients.len(),
+                    if snapshot.online_clients_complete {
+                        ""
+                    } else {
+                        "不"
+                    }
+                ))
+                .child(clients)
+                .into_any_element()
+        } else {
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("尚未读取在线客户端；标准 MQTT 不保证完整客户端目录。")
+                .into_any_element()
         };
 
         let server_action = if running {
@@ -188,6 +306,29 @@ impl MqttView {
                     .text_color(status_color)
                     .child(status_text),
             )
+            .child(
+                h_flex()
+                    .items_center()
+                    .justify_between()
+                    .child(section_heading(
+                        "在线客户端",
+                        "读取本地 Broker 当前真实连接和每个客户端的订阅；Topic 目录仍标记为不完整。",
+                        &theme,
+                    ))
+                    .child(
+                        ramag_ui::clickable_button("mqtt-local-server-refresh-clients")
+                            .debug_selector(|| "mqtt-local-server-refresh-clients".into())
+                            .ghost()
+                            .small()
+                            .icon(ramag_ui::icons::refresh_cw())
+                            .tooltip("读取在线客户端")
+                            .disabled(!running || busy)
+                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                this.load_local_server_snapshot(window, cx)
+                            })),
+                    ),
+            )
+            .child(client_snapshot_body)
             .child(section_heading(
                 "Broker 注入发布",
                 "消息由本地 Broker 直接送入订阅路由，不创建额外 MQTT 客户端连接；载荷格式、QoS 和 Retain 与客户端发布保持一致。",

@@ -263,6 +263,8 @@ pub struct MqttOnlineClient {
     pub remote_address: Option<String>,
     #[serde(default)]
     pub connected_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub subscriptions: Vec<MqttSubscription>,
 }
 
 impl MqttOnlineClient {
@@ -281,7 +283,16 @@ impl MqttOnlineClient {
             "在线客户端地址",
             self.remote_address.as_deref(),
             MAX_MOSQUITTO_NAME_BYTES,
-        )
+        )?;
+        if self.subscriptions.len() > MAX_MQTT_SUBSCRIPTIONS {
+            return Err(format!(
+                "在线客户端订阅数量不能超过 {MAX_MQTT_SUBSCRIPTIONS}"
+            ));
+        }
+        for subscription in &self.subscriptions {
+            subscription.validate()?;
+        }
+        Ok(())
     }
 }
 

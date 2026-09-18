@@ -336,6 +336,13 @@
             .map_err(|error| error.to_string())?;
         assert_eq!(status.state, MqttSubscriptionState::Subscribed);
 
+        let snapshot = smol::block_on(server.snapshot())
+            .map_err(|error| format!("读取本地 Broker 快照失败：{error}"))?;
+        assert!(snapshot.online_clients_complete);
+        assert_eq!(snapshot.online_clients.len(), 1);
+        assert_eq!(snapshot.online_clients[0].subscriptions.len(), 1);
+        assert_eq!(snapshot.online_clients[0].subscriptions[0].filter, topic);
+
         command_sender
             .try_send(MqttSubscriptionCommand::Unsubscribe {
                 filter: topic.clone(),

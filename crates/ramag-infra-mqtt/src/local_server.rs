@@ -14,8 +14,8 @@ use oximqtt::retain::{DefaultRetainStorage, RetainStorage};
 use oximqtt::server::MqttServer;
 use oximqtt::types::{AuthResult, From, Id, Publish, Retain, TopicFilter, TopicName};
 use ramag_domain::entities::{
-    MqttLocalServerConfig, MqttLocalServerStatus, MqttLocalServerUser, MqttPublishRequest,
-    MqttPublishResult, MqttQos,
+    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerStatus, MqttLocalServerUser,
+    MqttOnlineClient, MqttPublishRequest, MqttPublishResult, MqttQos, MqttSubscription,
 };
 use ramag_domain::error::{DomainError, MqttError, MqttErrorCategory, Result};
 use ramag_domain::traits::MqttLocalServerDriver;
@@ -36,7 +36,7 @@ struct LocalServerState {
     status: MqttLocalServerStatus,
     config: Option<MqttLocalServerConfig>,
     stop: Option<oneshot::Sender<()>>,
-    publish: Option<mpsc::Sender<LocalServerCommand>>,
+    commands: Option<mpsc::Sender<LocalServerCommand>>,
     task: Option<std::thread::JoinHandle<()>>,
 }
 
@@ -48,7 +48,7 @@ impl NativeMqttLocalServer {
                 status: MqttLocalServerStatus::stopped(&config),
                 config: None,
                 stop: None,
-                publish: None,
+                commands: None,
                 task: None,
             })),
         }
@@ -90,7 +90,7 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
             let _ = task.join();
             state.config = None;
             state.stop = None;
-            state.publish = None;
+            state.commands = None;
         }
 
         let (ready_sender, ready_receiver) = sync_channel(1);
@@ -123,7 +123,7 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
         state.status = status.clone();
         state.config = Some(config.clone());
         state.stop = Some(stop_sender);
-        state.publish = Some(publish_sender);
+        state.commands = Some(publish_sender);
         state.task = Some(task);
         Ok(status)
     }
@@ -133,7 +133,7 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
         if let Some(stop) = state.stop.take() {
             let _ = stop.send(());
         }
-        state.publish = None;
+        state.commands = None;
         if let Some(task) = state.task.take() {
             smol::unblock(move || task.join()).await.map_err(|_| {
                 local_server_error("等待本地 MQTT Broker 停止", "Broker 线程异常退出")
@@ -155,7 +155,7 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
             state.task = None;
             state.config = None;
             state.stop = None;
-            state.publish = None;
+            state.commands = None;
             state.status.running = false;
         }
         Ok(state.status.clone())
@@ -167,7 +167,7 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
         let sender = {
             let state = self.state.lock().await;
             state
-                .publish
+                .commands
                 .as_ref()
                 .filter(|_| state.status.running)
                 .cloned()
@@ -184,12 +184,41 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
             .await
             .map_err(|_| local_server_error("发布到本地 MQTT Broker", "Broker 未返回发布结果"))?
     }
+
+    async fn snapshot(&self) -> Result<MqttBrokerSnapshot> {
+        let (response_sender, response_receiver) = oneshot::channel();
+        let sender = {
+            let state = self.state.lock().await;
+            state
+                .commands
+                .as_ref()
+                .filter(|_| state.status.running)
+                .cloned()
+                .ok_or_else(|| {
+                    local_server_error("读取本地 MQTT Broker 快照", "Broker 当前未运行")
+                })?
+        };
+        sender
+            .send(LocalServerCommand::Snapshot {
+                response: response_sender,
+            })
+            .await
+            .map_err(|_| {
+                local_server_error("读取本地 MQTT Broker 快照", "Broker 运行线程已退出")
+            })?;
+        response_receiver
+            .await
+            .map_err(|_| local_server_error("读取本地 MQTT Broker 快照", "Broker 未返回快照结果"))?
+    }
 }
 
 enum LocalServerCommand {
     Publish {
         request: MqttPublishRequest,
         response: oneshot::Sender<Result<MqttPublishResult>>,
+    },
+    Snapshot {
+        response: oneshot::Sender<Result<MqttBrokerSnapshot>>,
     },
 }
 
@@ -280,8 +309,63 @@ async fn process_local_commands(
                 let result = publish_to_local_server(&context, &request).await;
                 let _ = response.send(result);
             }
+            LocalServerCommand::Snapshot { response } => {
+                let result = snapshot_local_server(&context).await;
+                let _ = response.send(result);
+            }
         }
     }
+}
+
+async fn snapshot_local_server(context: &ServerContext) -> Result<MqttBrokerSnapshot> {
+    let entries = context.extends.shared().await.iter().collect::<Vec<_>>();
+    let mut online_clients = Vec::with_capacity(entries.len());
+    for entry in entries {
+        if !entry.online().await {
+            continue;
+        }
+        let Some(session) = entry.session() else {
+            continue;
+        };
+        let connect_info = session.connect_info().await.ok();
+        let subscriptions = entry.subscriptions().await.unwrap_or_default();
+        let subscriptions = subscriptions
+            .into_iter()
+            .map(|subscription| MqttSubscription {
+                filter: subscription.topic.to_string(),
+                qos: match subscription.opts.qos_value() {
+                    0 => MqttQos::AtMostOnce,
+                    1 => MqttQos::AtLeastOnce,
+                    _ => MqttQos::ExactlyOnce,
+                },
+                no_local: subscription.opts.no_local().unwrap_or(false),
+            })
+            .collect();
+        let connected_at = session
+            .connected_at()
+            .await
+            .ok()
+            .and_then(chrono::DateTime::from_timestamp_millis);
+        online_clients.push(MqttOnlineClient {
+            client_id: session.id.client_id.to_string(),
+            username: connect_info
+                .as_ref()
+                .and_then(|info| info.username())
+                .map(ToString::to_string),
+            remote_address: connect_info
+                .as_ref()
+                .and_then(|info| info.ipaddress())
+                .map(|address| address.to_string()),
+            connected_at,
+            subscriptions,
+        });
+    }
+    Ok(MqttBrokerSnapshot {
+        topics: Vec::new(),
+        online_clients,
+        topics_complete: false,
+        online_clients_complete: true,
+    })
 }
 
 async fn publish_to_local_server(

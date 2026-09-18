@@ -47,6 +47,51 @@ impl MqttView {
         .detach();
     }
 
+    fn load_local_server_snapshot(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.local_server_running()
+            || self.local_server_snapshot_loading
+            || self.local_server_starting
+            || self.local_server_stopping
+            || self.local_server_publishing
+        {
+            return;
+        }
+        self.local_server_snapshot_request_id =
+            self.local_server_snapshot_request_id.wrapping_add(1);
+        let request_id = self.local_server_snapshot_request_id;
+        self.local_server_snapshot_loading = true;
+        self.local_server_snapshot_error = None;
+        let service = self.service.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let result = service.local_server_snapshot().await;
+            let _ = this.update_in(cx, |this, _, cx| {
+                if this.local_server_snapshot_request_id != request_id {
+                    return;
+                }
+                this.local_server_snapshot_loading = false;
+                match result {
+                    Ok(snapshot) => {
+                        this.local_server_snapshot = Some(snapshot);
+                        this.local_server_notice = Some((
+                            "本地 MQTT Broker 客户端状态读取完成".into(),
+                            false,
+                        ));
+                    }
+                    Err(error) => {
+                        let message = error.user_message();
+                        this.local_server_snapshot_error = Some(message.clone());
+                        this.local_server_notice = Some((
+                            format!("读取本地 MQTT Broker 客户端失败：{message}"),
+                            true,
+                        ));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
     fn start_local_server(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.local_server_loading || self.local_server_starting || self.local_server_stopping {
             return;
@@ -108,6 +153,8 @@ impl MqttView {
                 match result {
                     Ok(status) => {
                         this.local_server_status = Some(status);
+                        this.local_server_snapshot = None;
+                        this.local_server_snapshot_error = None;
                         this.local_server_notice = Some((
                             "本地 MQTT Broker 已停止".to_string(),
                             false,

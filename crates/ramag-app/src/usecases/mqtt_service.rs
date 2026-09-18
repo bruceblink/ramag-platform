@@ -118,6 +118,28 @@ impl MqttService {
         result
     }
 
+    pub async fn local_server_snapshot(&self) -> Result<MqttBrokerSnapshot> {
+        let started = std::time::Instant::now();
+        let result = self
+            .local_server_driver
+            .snapshot()
+            .await
+            .and_then(|snapshot| snapshot.validate().map_err(DomainError::InvalidConfig));
+        tracing::info!(
+            operation = "mqtt_local_server_snapshot",
+            online_client_count = result
+                .as_ref()
+                .map_or(0, |snapshot| snapshot.online_clients.len()),
+            online_clients_complete = result
+                .as_ref()
+                .is_ok_and(|snapshot| snapshot.online_clients_complete),
+            elapsed_ms = started.elapsed().as_millis(),
+            success = result.is_ok(),
+            "local MQTT server snapshot completed"
+        );
+        result
+    }
+
     pub async fn list_profiles(&self) -> Result<Vec<MqttProfile>> {
         let result = self.storage.list_mqtt_profiles().await;
         log_storage_result("mqtt_profile_list", &result);
