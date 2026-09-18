@@ -7,9 +7,7 @@ fn default_subscription_topics() -> Vec<MqttSubscription> {
 }
 
 impl MqttView {
-    /// Replaces the editable Topic list when a new Broker configuration is selected.
-    /// The reference tool starts with a catch-all filter, while the list remains
-    /// local to the current form until the profile persistence slice is added.
+    /// Restores the default Topic list for a new, unsaved Broker configuration.
     fn reset_subscription_topics(&mut self) {
         self.subscription_topics = default_subscription_topics();
         self.subscribe_no_local = false;

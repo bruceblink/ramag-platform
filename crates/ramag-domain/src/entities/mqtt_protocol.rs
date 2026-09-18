@@ -1,7 +1,7 @@
 //! MQTT 消息、订阅和 Mosquitto 管理结果的有界数据结构。
 
-use std::fmt;
 use std::sync::Arc;
+use std::{collections::HashSet, fmt};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -56,6 +56,25 @@ impl MqttSubscription {
     }
 }
 
+pub(crate) fn validate_mqtt_subscriptions(
+    subscriptions: &[MqttSubscription],
+) -> Result<(), String> {
+    if subscriptions.len() > MAX_MQTT_SUBSCRIPTIONS {
+        return Err(format!("MQTT 订阅数量不能超过 {MAX_MQTT_SUBSCRIPTIONS}"));
+    }
+    let mut filters = HashSet::with_capacity(subscriptions.len());
+    for subscription in subscriptions {
+        subscription.validate()?;
+        if !filters.insert(subscription.filter.as_str()) {
+            return Err(format!(
+                "MQTT 订阅 Topic Filter 不能重复：{}",
+                subscription.filter
+            ));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MqttSubscribeRequest {
     pub subscriptions: Vec<MqttSubscription>,
@@ -66,13 +85,7 @@ impl MqttSubscribeRequest {
         if self.subscriptions.is_empty() {
             return Err("MQTT 订阅至少需要一个 Topic Filter".into());
         }
-        if self.subscriptions.len() > MAX_MQTT_SUBSCRIPTIONS {
-            return Err(format!("MQTT 订阅数量不能超过 {MAX_MQTT_SUBSCRIPTIONS}"));
-        }
-        for subscription in &self.subscriptions {
-            subscription.validate()?;
-        }
-        Ok(())
+        validate_mqtt_subscriptions(&self.subscriptions)
     }
 }
 

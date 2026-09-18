@@ -575,7 +575,7 @@ impl MqttView {
             state.set_placeholder("发布 Topic", window, cx);
         });
         self.reset_message_options();
-        self.reset_subscription_topics();
+        self.subscription_topics = profile.subscriptions.clone();
         self.clear_runtime_state();
         self.notice = None;
     }

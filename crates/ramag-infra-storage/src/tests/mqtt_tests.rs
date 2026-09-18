@@ -1,6 +1,6 @@
 use ramag_domain::entities::{
     MAX_MQTT_PROFILE_NAME_BYTES, MosquittoConfigTarget, MosquittoStaticConfig, MqttProfile,
-    MqttTransport,
+    MqttQos, MqttSubscription, MqttTransport,
 };
 use ramag_domain::traits::Storage;
 use redb::ReadableDatabase;
@@ -32,6 +32,11 @@ async fn mqtt_profiles_are_encrypted_sorted_and_round_trip() {
         password_file: Some("/etc/mosquitto/passwd".into()),
         acl_file: Some("/etc/mosquitto/acl".into()),
     });
+    secure.subscriptions = vec![MqttSubscription {
+        filter: "devices/#".into(),
+        qos: MqttQos::AtLeastOnce,
+        no_local: true,
+    }];
     let local = sample_profile("local", "127.0.0.1");
 
     storage.save_mqtt_profile(&secure).await.unwrap();

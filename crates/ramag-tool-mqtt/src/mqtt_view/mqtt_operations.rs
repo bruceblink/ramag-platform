@@ -70,6 +70,7 @@ impl MqttView {
         };
         profile.keep_alive_seconds = keep_alive_seconds;
         profile.clean_start = self.clean_start;
+        profile.subscriptions = self.subscription_topics.clone();
         profile.management.enabled = self.management_enabled;
         if !self.management_enabled {
             profile.management = Default::default();

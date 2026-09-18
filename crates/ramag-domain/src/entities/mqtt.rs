@@ -9,7 +9,11 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{TlsVerify, ssh::SshProfileId};
+use super::{
+    TlsVerify,
+    mqtt_protocol::{MqttQos, MqttSubscription, validate_mqtt_subscriptions},
+    ssh::SshProfileId,
+};
 
 pub const DEFAULT_MQTT_PORT: u16 = 1883;
 pub const DEFAULT_MQTT_TLS_PORT: u16 = 8883;

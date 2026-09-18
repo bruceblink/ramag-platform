@@ -399,6 +399,71 @@ fn mqtt_subscription_topics_can_be_added_and_removed(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn mqtt_subscription_topics_are_saved_and_restored_with_profile(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let storage = Arc::new(super::visual_tests::NoopStorage::default());
+    let service = Arc::new(MqttService::new(
+        Arc::new(super::visual_tests::NoopMqttDriver),
+        storage.clone(),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| TestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    visual_cx.run_until_parked();
+
+    let profile = MqttProfile::new("持久化订阅测试", "127.0.0.1", 1883);
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.loading_profiles = false;
+            view.profiles = vec![profile.clone()];
+            view.selected_profile_id = Some(profile.id.clone());
+            view.set_form_from_profile(&profile, window, cx);
+            view.section = MqttSection::Subscribe;
+            view.subscribe_filter
+                .update(cx, |input, cx| input.set_value("alerts/#", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-add-subscription");
+    click(visual_cx, "mqtt-tab-Config");
+    visual_cx.run_until_parked();
+    click(visual_cx, "mqtt-save-profile");
+    visual_cx.run_until_parked();
+
+    let saved = storage
+        .mqtt_profiles
+        .lock()
+        .expect("读取保存结果锁")
+        .last()
+        .cloned()
+        .expect("保存应写入 MQTT 配置");
+    assert!(
+        saved
+            .subscriptions
+            .iter()
+            .any(|subscription| subscription.filter == "alerts/#")
+    );
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.set_form_from_profile(&saved, window, cx);
+            view.section = MqttSection::Subscribe;
+            cx.notify();
+        });
+    });
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.subscription_topics == saved.subscriptions
+    }));
+}
+
+#[gpui::test]
 fn mqtt_message_timeline_can_pause_and_clear_without_stopping_subscription(
     cx: &mut TestAppContext,
 ) {

@@ -217,6 +217,8 @@ pub struct MqttProfile {
     pub clean_start: bool,
     #[serde(default)]
     pub session_expiry_seconds: Option<u32>,
+    #[serde(default = "default_mqtt_subscriptions")]
+    pub subscriptions: Vec<MqttSubscription>,
     #[serde(default)]
     pub management: MosquittoManagementConfig,
     #[serde(default)]
@@ -240,6 +242,7 @@ impl fmt::Debug for MqttProfile {
             .field("keep_alive_seconds", &self.keep_alive_seconds)
             .field("clean_start", &self.clean_start)
             .field("session_expiry_seconds", &self.session_expiry_seconds)
+            .field("subscription_count", &self.subscriptions.len())
             .field("management", &self.management)
             .field("remark", &self.remark)
             .finish()
@@ -262,6 +265,7 @@ impl MqttProfile {
             keep_alive_seconds: DEFAULT_MQTT_KEEP_ALIVE_SECONDS,
             clean_start: true,
             session_expiry_seconds: None,
+            subscriptions: default_mqtt_subscriptions(),
             management: MosquittoManagementConfig::default(),
             remark: None,
         }
@@ -280,6 +284,15 @@ impl MqttProfile {
             && self.session_expiry_seconds.is_some()
         {
             return Err("MQTT 3.1.1 不能设置 MQTT 5 会话过期时间".into());
+        }
+        validate_mqtt_subscriptions(&self.subscriptions)?;
+        if self.protocol_version == MqttProtocolVersion::V311
+            && self
+                .subscriptions
+                .iter()
+                .any(|subscription| subscription.no_local)
+        {
+            return Err("MQTT 3.1.1 不能设置订阅 No Local".into());
         }
         validate_optional_single_line(
             "Client ID",
@@ -314,4 +327,12 @@ impl MqttProfile {
 
 fn default_keep_alive() -> u16 {
     DEFAULT_MQTT_KEEP_ALIVE_SECONDS
+}
+
+fn default_mqtt_subscriptions() -> Vec<MqttSubscription> {
+    vec![MqttSubscription {
+        filter: "+/#".into(),
+        qos: MqttQos::AtLeastOnce,
+        no_local: false,
+    }]
 }

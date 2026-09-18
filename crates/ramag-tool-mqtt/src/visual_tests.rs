@@ -31,7 +31,7 @@ impl MqttDriver for NoopMqttDriver {}
 
 #[derive(Default)]
 pub(super) struct NoopStorage {
-    mqtt_profiles: Arc<Mutex<Vec<MqttProfile>>>,
+    pub(crate) mqtt_profiles: Arc<Mutex<Vec<MqttProfile>>>,
 }
 
 #[async_trait]

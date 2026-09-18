@@ -61,6 +61,38 @@
     }
 
     #[test]
+    fn mqtt_profile_persists_subscriptions_and_keeps_legacy_defaults()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let mut profile = MqttProfile::new("local", "localhost", DEFAULT_MQTT_PORT);
+        profile.subscriptions = vec![MqttSubscription {
+            filter: "devices/#".into(),
+            qos: MqttQos::ExactlyOnce,
+            no_local: true,
+        }];
+        assert!(profile.validate().is_ok());
+
+        let mut legacy = serde_json::to_value(&profile)?;
+        legacy
+            .as_object_mut()
+            .ok_or("配置应序列化为对象")?
+            .remove("subscriptions");
+        let decoded: MqttProfile = serde_json::from_value(legacy)?;
+        assert_eq!(decoded.subscriptions, default_mqtt_subscriptions());
+
+        profile.subscriptions.push(profile.subscriptions[0].clone());
+        assert!(profile.validate().is_err(), "重复 Topic Filter 不能保存");
+        Ok(())
+    }
+
+    #[test]
+    fn mqtt_profile_rejects_no_local_for_mqtt311_subscriptions() {
+        let mut profile = MqttProfile::new("local", "localhost", DEFAULT_MQTT_PORT);
+        profile.protocol_version = MqttProtocolVersion::V311;
+        profile.subscriptions[0].no_local = true;
+        assert!(profile.validate().is_err());
+    }
+
+    #[test]
     fn local_server_defaults_are_valid_and_invalid_bindings_are_rejected() {
         let config = MqttLocalServerConfig::default();
         assert!(config.validate().is_ok());
