@@ -197,3 +197,32 @@
         assert!(text.len() <= MAX_MESSAGE_VIEW_BYTES);
         assert!(text.contains("消息内容已截断"));
     }
+
+    #[test]
+    fn json_tree_keeps_structure_bounded_and_reports_invalid_payloads() {
+        let (tree, error) = JsonTree::from_payload(br#"{"online":true,"items":[1,2]}"#);
+        assert!(tree.is_some());
+        assert!(error.is_none());
+
+        let (tree, error) = JsonTree::from_payload(b"not-json");
+        assert!(tree.is_none());
+        assert!(error.expect("非法 JSON 应有原因").starts_with("JSON 解析失败："));
+
+        let payload = serde_json::to_vec(&vec![0; MAX_JSON_TREE_NODES]).expect("数组应可序列化");
+        let (tree, error) = JsonTree::from_payload(&payload);
+        assert!(tree.is_none());
+        assert!(error
+            .expect("节点超限应有原因")
+            .contains("JSON 树节点超过上限"));
+
+        let mut nested = serde_json::Value::Null;
+        for _ in 0..=MAX_JSON_TREE_DEPTH {
+            nested = serde_json::Value::Array(vec![nested]);
+        }
+        let payload = serde_json::to_vec(&nested).expect("嵌套 JSON 应可序列化");
+        let (tree, error) = JsonTree::from_payload(&payload);
+        assert!(tree.is_none());
+        assert!(error
+            .expect("深度超限应有原因")
+            .contains("JSON 树嵌套超过"));
+    }

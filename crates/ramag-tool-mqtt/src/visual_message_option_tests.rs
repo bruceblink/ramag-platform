@@ -594,6 +594,25 @@ fn mqtt_message_viewer_stays_inside_supported_window_widths(cx: &mut TestAppCont
         assert!(content.origin.x >= viewer.origin.x && content.right() <= viewer.right());
     }
     click(visual_cx, "mqtt-message-viewer-format-JSON");
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx
+            .debug_bounds("mqtt-message-viewer-json-node-root")
+            .is_some()
+    );
+    assert!(
+        visual_cx
+            .debug_bounds("mqtt-message-viewer-json-node-0")
+            .is_some()
+    );
+    click(visual_cx, "mqtt-message-viewer-json-node-root");
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx
+            .debug_bounds("mqtt-message-viewer-json-node-0")
+            .is_none()
+    );
+    click(visual_cx, "mqtt-message-viewer-json-node-root");
     click(visual_cx, "mqtt-message-viewer-copy-topic");
     click(visual_cx, "mqtt-message-viewer-copy-payload");
 }

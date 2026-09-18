@@ -1,12 +1,25 @@
+use std::collections::HashSet;
+
 use gpui_component::WindowExt as _;
+use serde_json::Value;
 
 const MAX_MESSAGE_VIEW_BYTES: usize = 2 * 1024 * 1024;
+const MAX_JSON_TREE_NODES: usize = 2048;
+const MAX_JSON_TREE_DEPTH: usize = 32;
+const MAX_JSON_LABEL_BYTES: usize = 512;
 const MESSAGE_VIEW_MIN_HEIGHT: f32 = 160.0;
 const MESSAGE_VIEW_MAX_HEIGHT: f32 = 520.0;
 
 struct MqttMessageViewer {
     message: MqttMessage,
     format: MqttPayloadFormat,
+    json_tree: Option<JsonTree>,
+    json_tree_error: Option<String>,
+}
+
+struct JsonTree {
+    value: Value,
+    expanded: HashSet<Vec<usize>>,
 }
 
 impl MqttView {
@@ -17,9 +30,17 @@ impl MqttView {
         cx: &mut Context<Self>,
     ) {
         let topic = message.topic.clone();
+        let format = self.receive_payload_format;
+        let (json_tree, json_tree_error) = if format == MqttPayloadFormat::Json {
+            JsonTree::from_payload(&message.payload)
+        } else {
+            (None, None)
+        };
         let viewer = cx.new(|_| MqttMessageViewer {
             message,
-            format: self.receive_payload_format,
+            format,
+            json_tree,
+            json_tree_error,
         });
         window.open_dialog(cx, move |dialog, window, _| {
             let viewer_for_content = viewer.clone();
@@ -41,6 +62,23 @@ impl MqttView {
 impl MqttMessageViewer {
     fn set_format(&mut self, format: MqttPayloadFormat) {
         self.format = format;
+        if format == MqttPayloadFormat::Json {
+            (self.json_tree, self.json_tree_error) =
+                JsonTree::from_payload(&self.message.payload);
+        } else {
+            self.json_tree = None;
+            self.json_tree_error = None;
+        }
+    }
+
+    fn toggle_json_path(&mut self, path: Vec<usize>, cx: &mut Context<Self>) {
+        let Some(tree) = self.json_tree.as_mut() else {
+            return;
+        };
+        if !tree.expanded.remove(&path) {
+            tree.expanded.insert(path);
+        }
+        cx.notify();
     }
 
     fn copy_topic(&self, window: &mut Window, cx: &mut Context<Self>) {
@@ -120,6 +158,74 @@ impl MqttMessageViewer {
         }
         metadata.into_any_element()
     }
+
+    fn render_json_payload(
+        &self,
+        theme: &gpui_component::Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
+        let Some(tree) = &self.json_tree else {
+            return div()
+                .w_full()
+                .min_w_0()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(
+                    self.json_tree_error
+                        .clone()
+                        .unwrap_or_else(|| "JSON 树不可用".into()),
+                )
+                .into_any_element();
+        };
+        render_json_tree_node(
+            &tree.value,
+            &tree.expanded,
+            Vec::new(),
+            "$".into(),
+            0,
+            theme,
+            cx,
+        )
+    }
+
+    fn render_payload(
+        &self,
+        text: String,
+        theme: &gpui_component::Theme,
+        cx: &mut Context<Self>,
+    ) -> gpui::AnyElement {
+        if self.format != MqttPayloadFormat::Json {
+            return ramag_ui::SelectableText::new("mqtt-message-viewer-content", text)
+                .w_full()
+                .min_w_0()
+                .text_color(theme.foreground)
+                .into_any_element();
+        }
+        if self.json_tree.is_some() {
+            return self.render_json_payload(theme, cx);
+        }
+        v_flex()
+            .w_full()
+            .min_w_0()
+            .gap(px(8.0))
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(theme.warning)
+                    .child(
+                        self.json_tree_error
+                            .clone()
+                            .unwrap_or_else(|| "JSON 树不可用".into()),
+                    ),
+            )
+            .child(
+                ramag_ui::SelectableText::new("mqtt-message-viewer-content", text)
+                    .w_full()
+                    .min_w_0()
+                    .text_color(theme.foreground),
+            )
+            .into_any_element()
+    }
 }
 
 impl Render for MqttMessageViewer {
@@ -189,12 +295,7 @@ impl Render for MqttMessageViewer {
                     .overflow_y_scroll()
                     .p(px(12.0))
                     .bg(theme.background)
-                    .child(
-                        ramag_ui::SelectableText::new("mqtt-message-viewer-content", text)
-                            .w_full()
-                            .min_w_0()
-                            .text_color(theme.foreground),
-                    ),
+                    .child(self.render_payload(text, &theme, cx)),
             )
     }
 }
@@ -211,4 +312,200 @@ fn bounded_message_view_text(format: MqttPayloadFormat, payload: &[u8]) -> (Stri
         end -= 1;
     }
     (format!("{}{}", &rendered[..end], suffix), true)
+}
+
+impl JsonTree {
+    fn from_payload(payload: &[u8]) -> (Option<Self>, Option<String>) {
+        if payload.len() > MAX_MESSAGE_VIEW_BYTES {
+            return (
+                None,
+                Some("JSON 树查看仅支持不超过 2 MiB 的载荷，请切换格式查看有界文本".into()),
+            );
+        }
+        let value = match serde_json::from_slice::<Value>(payload) {
+            Ok(value) => value,
+            Err(error) => return (None, Some(format!("JSON 解析失败：{error}"))),
+        };
+        let mut nodes = 0;
+        if let Err(error) = validate_json_tree(&value, 0, &mut nodes) {
+            return (None, Some(error));
+        }
+        (
+            Some(Self {
+                value,
+                expanded: HashSet::from([Vec::new()]),
+            }),
+            None,
+        )
+    }
+}
+
+fn validate_json_tree(
+    value: &Value,
+    depth: usize,
+    nodes: &mut usize,
+) -> std::result::Result<(), String> {
+    *nodes = nodes.saturating_add(1);
+    if *nodes > MAX_JSON_TREE_NODES {
+        return Err(format!(
+            "JSON 树节点超过上限 {MAX_JSON_TREE_NODES}，请切换格式查看文本"
+        ));
+    }
+    if depth > MAX_JSON_TREE_DEPTH {
+        return Err(format!(
+            "JSON 树嵌套超过 {MAX_JSON_TREE_DEPTH} 层，请切换格式查看文本"
+        ));
+    }
+    match value {
+        Value::Array(items) => {
+            for item in items {
+                validate_json_tree(item, depth + 1, nodes)?;
+            }
+        }
+        Value::Object(fields) => {
+            for item in fields.values() {
+                validate_json_tree(item, depth + 1, nodes)?;
+            }
+        }
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
+    }
+    Ok(())
+}
+
+fn render_json_tree_node(
+    value: &Value,
+    expanded: &HashSet<Vec<usize>>,
+    path: Vec<usize>,
+    label: String,
+    depth: usize,
+    theme: &gpui_component::Theme,
+    cx: &mut Context<MqttMessageViewer>,
+) -> gpui::AnyElement {
+    let children = match value {
+        Value::Array(items) => items
+            .iter()
+            .enumerate()
+            .map(|(index, item)| (format!("[{index}]"), item, index))
+            .collect::<Vec<_>>(),
+        Value::Object(fields) => fields
+            .iter()
+            .enumerate()
+            .map(|(index, (key, item))| (truncate_json_label(key), item, index))
+            .collect::<Vec<_>>(),
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => Vec::new(),
+    };
+    let has_children = !children.is_empty();
+    let is_expanded = expanded.contains(&path);
+    let selector = json_tree_selector(&path);
+    let path_for_click = path.clone();
+    let mut row = h_flex()
+        .id(selector.clone())
+        .debug_selector(move || selector.to_string())
+        .w_full()
+        .min_w_0()
+        .items_center()
+        .gap(px(4.0))
+        .pl(px((depth * 16) as f32))
+        .py(px(2.0))
+        .rounded(px(3.0));
+    if has_children {
+        row = row
+            .cursor_pointer()
+            .hover({
+                let muted = theme.muted;
+                move |row| row.bg(muted)
+            })
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                this.toggle_json_path(path_for_click.clone(), cx);
+            }));
+    }
+    row = row.child(
+        div().flex_none().w(px(14.0)).child(
+            Icon::new(if is_expanded {
+                IconName::ChevronDown
+            } else {
+                IconName::ChevronRight
+            })
+            .xsmall()
+            .text_color(if has_children {
+                theme.muted_foreground
+            } else {
+                theme.background
+            }),
+        ),
+    );
+    row = row.child(
+        div()
+            .flex_none()
+            .text_xs()
+            .text_color(theme.foreground)
+            .child(label),
+    );
+    row = row.child(
+        div()
+            .flex_1()
+            .min_w_0()
+            .text_xs()
+            .text_color(theme.muted_foreground)
+            .child(if has_children {
+                json_container_summary(value)
+            } else {
+                json_scalar_preview(value)
+            }),
+    );
+    let mut node = v_flex().w_full().min_w_0().child(row);
+    if has_children && is_expanded {
+        for (child_label, child, index) in children {
+            let mut child_path = path.clone();
+            child_path.push(index);
+            node = node.child(render_json_tree_node(
+                child,
+                expanded,
+                child_path,
+                child_label,
+                depth + 1,
+                theme,
+                cx,
+            ));
+        }
+    }
+    node.into_any_element()
+}
+
+fn json_tree_selector(path: &[usize]) -> SharedString {
+    if path.is_empty() {
+        return "mqtt-message-viewer-json-node-root".into();
+    }
+    format!(
+        "mqtt-message-viewer-json-node-{}",
+        path.iter()
+            .map(usize::to_string)
+            .collect::<Vec<_>>()
+            .join("-")
+    )
+    .into()
+}
+
+fn json_container_summary(value: &Value) -> String {
+    match value {
+        Value::Array(items) => format!("数组 · {} 项", items.len()),
+        Value::Object(fields) => format!("对象 · {} 个字段", fields.len()),
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => String::new(),
+    }
+}
+
+fn json_scalar_preview(value: &Value) -> String {
+    truncate_json_label(&value.to_string())
+}
+
+fn truncate_json_label(value: &str) -> String {
+    if value.len() <= MAX_JSON_LABEL_BYTES {
+        return value.to_string();
+    }
+    let suffix = "…";
+    let mut end = MAX_JSON_LABEL_BYTES.saturating_sub(suffix.len());
+    while end > 0 && !value.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}{}", &value[..end], suffix)
 }
