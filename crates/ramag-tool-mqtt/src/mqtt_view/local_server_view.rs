@@ -1,3 +1,91 @@
+fn local_server_event_text(event: &MqttLocalServerEvent) -> (String, String, String) {
+    match event {
+        MqttLocalServerEvent::ClientConnected {
+            client, occurred_at, ..
+        } => (
+            "客户端连接".into(),
+            format!(
+                "Client ID：{}{} · {}",
+                client.client_id,
+                client
+                    .username
+                    .as_deref()
+                    .map_or(String::new(), |username| format!(" · 用户名：{username}")),
+                occurred_at.to_rfc3339()
+            ),
+            "客户端连接已建立".into(),
+        ),
+        MqttLocalServerEvent::ClientDisconnected {
+            client_id,
+            reason,
+            occurred_at,
+        } => (
+            "客户端断开".into(),
+            format!(
+                "Client ID：{client_id} · 原因：{} · {}",
+                reason.as_deref().unwrap_or("未提供"),
+                occurred_at.to_rfc3339()
+            ),
+            "客户端连接已关闭".into(),
+        ),
+        MqttLocalServerEvent::ClientSubscribed {
+            client_id,
+            subscription,
+            occurred_at,
+        } => (
+            "客户端订阅".into(),
+            format!(
+                "Client ID：{client_id} · {}（QoS {}{}） · {}",
+                subscription.filter,
+                subscription.qos.as_u8(),
+                if subscription.no_local { "，No Local" } else { "" },
+                occurred_at.to_rfc3339()
+            ),
+            "订阅已确认".into(),
+        ),
+        MqttLocalServerEvent::ClientUnsubscribed {
+            client_id,
+            filter,
+            occurred_at,
+        } => (
+            "客户端取消订阅".into(),
+            format!("Client ID：{client_id} · {filter} · {}", occurred_at.to_rfc3339()),
+            "订阅已移除".into(),
+        ),
+        MqttLocalServerEvent::ClientPublished {
+            client_id,
+            message,
+            occurred_at,
+        } => (
+            "客户端发布".into(),
+            format!(
+                "Client ID：{client_id} · {} · QoS {} · {} bytes{} · {}",
+                message.topic,
+                message.qos.as_u8(),
+                message.payload.len(),
+                if message.retain { " · Retain" } else { "" },
+                occurred_at.to_rfc3339()
+            ),
+            "客户端消息已进入 Broker 路由".into(),
+        ),
+        MqttLocalServerEvent::BrokerPublished {
+            message,
+            occurred_at,
+        } => (
+            "Broker 发布".into(),
+            format!(
+                "{} · QoS {} · {} bytes{} · {}",
+                message.topic,
+                message.qos.as_u8(),
+                message.payload.len(),
+                if message.retain { " · Retain" } else { "" },
+                occurred_at.to_rfc3339()
+            ),
+            "本地 Broker 注入消息已进入路由".into(),
+        ),
+    }
+}
+
 impl MqttView {
     fn render_local_server(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
@@ -19,6 +107,80 @@ impl MqttView {
             }
         } else {
             "尚未读取本地 Broker 状态".to_string()
+        };
+
+        let local_event_body = if self.local_server_events.is_empty() {
+            div()
+                .debug_selector(|| "mqtt-local-server-events-empty".into())
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(if running {
+                    "等待本地 Broker 事件..."
+                } else {
+                    "本地 Broker 未运行。"
+                })
+                .into_any_element()
+        } else {
+            let mut events = v_flex()
+                .debug_selector(|| "mqtt-local-server-events-list".into())
+                .w_full()
+                .min_w_0()
+                .gap(px(5.0));
+            for (index, event) in self.local_server_events.iter().rev().enumerate() {
+                let (title, detail, summary) = local_server_event_text(event);
+                events = events.child(
+                    v_flex()
+                        .id(SharedString::from(format!(
+                            "mqtt-local-server-event-{index}"
+                        )))
+                        .debug_selector({
+                            let selector = format!("mqtt-local-server-event-{index}");
+                            move || selector.clone()
+                        })
+                        .w_full()
+                        .min_w_0()
+                        .gap(px(3.0))
+                        .px(px(10.0))
+                        .py(px(7.0))
+                        .border_1()
+                        .border_color(theme.border)
+                        .rounded(px(4.0))
+                        .child(
+                            h_flex()
+                                .flex_wrap()
+                                .min_w_0()
+                                .gap(px(8.0))
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                                        .child(title),
+                                )
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(theme.muted_foreground)
+                                        .flex_1()
+                                        .min_w_0()
+                                        .child(detail),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child(summary),
+                        ),
+                );
+            }
+            v_flex()
+                .debug_selector(|| "mqtt-local-server-events".into())
+                .w_full()
+                .max_h(px(280.0))
+                .min_w_0()
+                .overflow_y_scrollbar()
+                .child(events)
+                .into_any_element()
         };
         let status_color = if self.local_server_starting || self.local_server_stopping {
             theme.warning
@@ -453,6 +615,31 @@ impl MqttView {
                     ),
             )
             .child(users);
+        body = body
+            .child(
+                h_flex()
+                    .items_center()
+                    .justify_between()
+                    .child(section_heading(
+                        "Broker 事件",
+                        "来自本地 Broker 的真实连接、订阅、发布和断开事件；事件列表只保留最近记录。",
+                        &theme,
+                    ))
+                    .child(
+                        ramag_ui::clickable_button("mqtt-local-server-events-clear")
+                            .debug_selector(|| "mqtt-local-server-events-clear".into())
+                            .ghost()
+                            .small()
+                            .icon(IconName::Delete)
+                            .tooltip("清空 Broker 事件")
+                            .disabled(self.local_server_events.is_empty())
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                this.clear_local_server_events();
+                                cx.notify();
+                            })),
+                    ),
+            )
+            .child(local_event_body);
         if let Some((message, is_error)) = self.local_server_notice.as_ref() {
             body = body.child(
                 div()

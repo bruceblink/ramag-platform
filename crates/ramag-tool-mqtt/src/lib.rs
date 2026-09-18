@@ -23,6 +23,7 @@ use gpui_component::{
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputEvent, InputState, Position},
+    scroll::ScrollableElement as _,
     v_flex,
 };
 use ramag_app::MqttService;
@@ -32,17 +33,18 @@ use ramag_domain::{
         MosquittoAclDecision, MosquittoAclType, MosquittoClient, MosquittoConfigTarget,
         MosquittoDynamicSecuritySnapshot, MosquittoGroup, MosquittoGroupBinding, MosquittoRole,
         MosquittoRoleBinding, MosquittoStaticConfig, MosquittoStaticFile, MosquittoStaticFileKind,
-        MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerStatus, MqttLocalServerUser,
-        MqttMessage, MqttMessageSinkResult, MqttProfile, MqttProfileId, MqttProtocolVersion,
-        MqttPublishRequest, MqttQos, MqttSubscribeRequest, MqttSubscription,
-        MqttSubscriptionCommand, MqttSubscriptionState, MqttSubscriptionStatus,
-        MqttSubscriptionStatusSink, MqttTlsConfig, MqttTransport as TransportKind,
-        MqttTransportCapabilities,
+        MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerEvent,
+        MqttLocalServerEventSinkResult, MqttLocalServerStatus, MqttLocalServerUser, MqttMessage,
+        MqttMessageSinkResult, MqttProfile, MqttProfileId, MqttProtocolVersion, MqttPublishRequest,
+        MqttQos, MqttSubscribeRequest, MqttSubscription, MqttSubscriptionCommand,
+        MqttSubscriptionState, MqttSubscriptionStatus, MqttSubscriptionStatusSink, MqttTlsConfig,
+        MqttTransport as TransportKind, MqttTransportCapabilities,
     },
     traits::{Tool, ToolMeta},
 };
 
 const MAX_MESSAGES: usize = 500;
+const MAX_LOCAL_SERVER_EVENTS: usize = 256;
 const MAX_PROFILE_NAME_BYTES: usize = 256;
 const MAX_HOST_BYTES: usize = 1024;
 const MAX_CLIENT_ID_BYTES: usize = 256;
@@ -246,6 +248,9 @@ pub struct MqttView {
     local_server_snapshot_loading: bool,
     local_server_snapshot_request_id: u64,
     local_server_snapshot_error: Option<String>,
+    local_server_events: VecDeque<MqttLocalServerEvent>,
+    local_server_event_cancelled: Option<Arc<AtomicBool>>,
+    local_server_event_request_id: u64,
     local_server_notice: Option<(String, bool)>,
     search: Entity<InputState>,
     client_username: Entity<InputState>,
@@ -312,6 +317,9 @@ pub struct MqttView {
 impl Drop for MqttView {
     fn drop(&mut self) {
         if let Some(cancelled) = self.subscription_cancelled.take() {
+            cancelled.store(true, Ordering::Release);
+        }
+        if let Some(cancelled) = self.local_server_event_cancelled.take() {
             cancelled.store(true, Ordering::Release);
         }
         self.subscription_commands.take();

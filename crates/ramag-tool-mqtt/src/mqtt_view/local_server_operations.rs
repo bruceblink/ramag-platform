@@ -28,11 +28,14 @@ impl MqttView {
         let service = self.service.clone();
         cx.spawn_in(window, async move |this, cx| {
             let result = service.local_server_status().await;
-            let _ = this.update_in(cx, |this, _, cx| {
+            let _ = this.update_in(cx, |this, window, cx| {
                 this.local_server_loading = false;
                 match result {
                     Ok(status) => {
                         this.local_server_status = Some(status);
+                        if this.local_server_running() {
+                            this.start_local_server_events(window, cx);
+                        }
                     }
                     Err(error) => {
                         this.local_server_notice = Some((
@@ -45,6 +48,69 @@ impl MqttView {
             });
         })
         .detach();
+    }
+
+    fn start_local_server_events(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.local_server_running() || self.local_server_event_cancelled.is_some() {
+            return;
+        }
+        self.local_server_event_request_id = self.local_server_event_request_id.wrapping_add(1);
+        let request_id = self.local_server_event_request_id;
+        let cancelled = Arc::new(AtomicBool::new(false));
+        self.local_server_event_cancelled = Some(cancelled.clone());
+        let (sender, receiver) = bounded(MAX_LOCAL_SERVER_EVENTS);
+        let event_sink = Arc::new(move |event| match sender.try_send(event) {
+            Ok(()) => MqttLocalServerEventSinkResult::Accepted,
+            Err(TrySendError::Full(_)) => MqttLocalServerEventSinkResult::Backpressured,
+            Err(TrySendError::Closed(_)) => MqttLocalServerEventSinkResult::Closed,
+        });
+        let receiver_cancelled = cancelled.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            while let Ok(event) = receiver.recv().await {
+                if this
+                    .update_in(cx, |this, _, cx| {
+                        if this.local_server_event_request_id != request_id {
+                            return;
+                        }
+                        if this.local_server_events.len() >= MAX_LOCAL_SERVER_EVENTS {
+                            this.local_server_events.pop_front();
+                        }
+                        this.local_server_events.push_back(event);
+                        cx.notify();
+                    })
+                    .is_err()
+                {
+                    receiver_cancelled.store(true, Ordering::Release);
+                    break;
+                }
+            }
+        })
+        .detach();
+
+        let service = self.service.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let result = service
+                .subscribe_local_server_events(event_sink, cancelled)
+                .await;
+            let _ = this.update_in(cx, |this, _window, cx| {
+                if this.local_server_event_request_id != request_id {
+                    return;
+                }
+                this.local_server_event_cancelled = None;
+                if let Err(error) = result {
+                    this.local_server_notice = Some((
+                        format!("本地 Broker 事件流已停止：{}", error.user_message()),
+                        true,
+                    ));
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn clear_local_server_events(&mut self) {
+        self.local_server_events.clear();
     }
 
     fn load_local_server_snapshot(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -64,7 +130,7 @@ impl MqttView {
         let service = self.service.clone();
         cx.spawn_in(window, async move |this, cx| {
             let result = service.local_server_snapshot().await;
-            let _ = this.update_in(cx, |this, _, cx| {
+            let _ = this.update_in(cx, |this, _window, cx| {
                 if this.local_server_snapshot_request_id != request_id {
                     return;
                 }
@@ -112,12 +178,13 @@ impl MqttView {
         let service = self.service.clone();
         cx.spawn_in(window, async move |this, cx| {
             let result = service.start_local_server(&config).await;
-            let _ = this.update_in(cx, |this, _, cx| {
+            let _ = this.update_in(cx, |this, window, cx| {
                 this.local_server_starting = false;
                 match result {
                     Ok(status) => {
                         let endpoint = local_server_endpoint(&status);
                         this.local_server_status = Some(status);
+                        this.start_local_server_events(window, cx);
                         this.local_server_notice = Some((
                             format!("本地 MQTT Broker 已启动：{endpoint}"),
                             false,
@@ -144,6 +211,11 @@ impl MqttView {
             return;
         }
         self.local_server_stopping = true;
+        self.local_server_event_request_id = self.local_server_event_request_id.wrapping_add(1);
+        if let Some(cancelled) = self.local_server_event_cancelled.take() {
+            cancelled.store(true, Ordering::Release);
+        }
+        self.local_server_events.clear();
         self.local_server_notice = None;
         let service = self.service.clone();
         cx.spawn_in(window, async move |this, cx| {
