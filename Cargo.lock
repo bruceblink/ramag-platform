@@ -7586,6 +7586,7 @@ dependencies = [
 name = "ramag-domain"
 version = "0.1.2"
 dependencies = [
+ "async-channel 2.5.0",
  "async-trait",
  "chrono",
  "regex",
@@ -7700,6 +7701,7 @@ dependencies = [
 name = "ramag-infra-mqtt"
 version = "0.1.2"
 dependencies = [
+ "async-channel 2.5.0",
  "async-trait",
  "bytes",
  "chrono",

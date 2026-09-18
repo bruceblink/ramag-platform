@@ -6,7 +6,8 @@ use ramag_domain::entities::{
     MAX_MOSQUITTO_NAME_BYTES, MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoGroup,
     MosquittoRole, MosquittoStaticFile, MosquittoStaticFileKind, MqttBrokerSnapshot,
     MqttLocalServerConfig, MqttLocalServerStatus, MqttMessageSink, MqttProfile, MqttProfileId,
-    MqttPublishRequest, MqttPublishResult, MqttSubscribeRequest, MqttSubscriptionStatusSink,
+    MqttPublishRequest, MqttPublishResult, MqttSubscribeRequest, MqttSubscriptionCommandReceiver,
+    MqttSubscriptionStatusSink,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{
@@ -156,6 +157,7 @@ impl MqttService {
         request: &MqttSubscribeRequest,
         sink: MqttMessageSink,
         status_sink: MqttSubscriptionStatusSink,
+        commands: MqttSubscriptionCommandReceiver,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         validate_profile(profile)?;
@@ -163,7 +165,7 @@ impl MqttService {
         let started = std::time::Instant::now();
         let result = self
             .driver
-            .subscribe(profile, request, sink, status_sink, cancelled)
+            .subscribe(profile, request, sink, status_sink, commands, cancelled)
             .await;
         log_runtime_result("mqtt_subscribe", profile, started, result.is_ok());
         result

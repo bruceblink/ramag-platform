@@ -1,8 +1,9 @@
     use super::*;
     use chrono::Utc;
     use ramag_domain::entities::{
-        MqttMessage, MqttProtocolVersion, MqttQos, MqttTlsConfig, MqttTransport, MqttUserProperty,
-        TlsVerify,
+        MqttMessage, MqttProtocolVersion, MqttQos, MqttSubscriptionCommand,
+        MqttSubscriptionCommandReceiver, MqttSubscriptionState, MqttSubscriptionStatus,
+        MqttTlsConfig, MqttTransport, MqttUserProperty, TlsVerify,
     };
     use rumqttc::{AsyncClient, Event, EventLoop, Incoming, MqttOptions, Outgoing, QoS, Transport};
     use std::fs;
@@ -42,14 +43,15 @@
         request: MqttSubscribeRequest,
         sink: MqttMessageSink,
         status_sink: MqttSubscriptionStatusSink,
+        commands: MqttSubscriptionCommandReceiver,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         match profile.protocol_version {
             MqttProtocolVersion::V311 => {
-                subscribe_v311(&profile, &request, sink, status_sink, cancelled).await
+                subscribe_v311(&profile, &request, sink, status_sink, commands, cancelled).await
             }
             MqttProtocolVersion::V5 => {
-                subscribe_v5(&profile, &request, sink, status_sink, cancelled).await
+                subscribe_v5(&profile, &request, sink, status_sink, commands, cancelled).await
             }
         }
     }

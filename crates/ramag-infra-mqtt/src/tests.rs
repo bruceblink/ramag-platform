@@ -257,6 +257,7 @@
         use std::time::{Duration, SystemTime, UNIX_EPOCH};
         use ramag_domain::entities::{
             MqttMessageSinkResult, MqttQos, MqttSubscribeRequest, MqttSubscription,
+            MqttSubscriptionCommand,
             MqttSubscriptionState,
         };
 
@@ -309,6 +310,7 @@
         let status_sink = Arc::new(move |status| {
             let _ = status_sender.try_send(status);
         });
+        let (command_sender, command_receiver) = async_channel::bounded(4);
         let subscribe_profile = profile.clone();
         let subscribe_cancelled = cancelled.clone();
         let subscribe_topic = topic.clone();
@@ -324,10 +326,34 @@
                 },
                 sink,
                 status_sink,
+                command_receiver,
                 subscribe_cancelled,
             ))
         });
         std::thread::sleep(Duration::from_millis(200));
+        let status = status_receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|error| error.to_string())?;
+        assert_eq!(status.state, MqttSubscriptionState::Subscribed);
+
+        command_sender
+            .try_send(MqttSubscriptionCommand::Unsubscribe {
+                filter: topic.clone(),
+            })
+            .map_err(|error| error.to_string())?;
+        let status = status_receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|error| error.to_string())?;
+        assert_eq!(status.filter, topic);
+        assert_eq!(status.state, MqttSubscriptionState::Pending);
+
+        command_sender
+            .try_send(MqttSubscriptionCommand::Subscribe(MqttSubscription {
+                filter: topic.clone(),
+                qos: MqttQos::AtLeastOnce,
+                no_local: false,
+            }))
+            .map_err(|error| error.to_string())?;
         let status = status_receiver
             .recv_timeout(Duration::from_secs(5))
             .map_err(|error| error.to_string())?;

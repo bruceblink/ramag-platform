@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
     fn create_v311_client(profile: &MqttProfile) -> Result<(AsyncClient, EventLoop)> {
         let mut options = MqttOptions::new(client_id(profile), &profile.host, profile.port);
         options
@@ -228,6 +230,7 @@
         request: &MqttSubscribeRequest,
         sink: MqttMessageSink,
         status_sink: MqttSubscriptionStatusSink,
+        commands: MqttSubscriptionCommandReceiver,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         if request
@@ -264,6 +267,7 @@
             filter_names,
             sink,
             status_sink,
+            commands,
             cancelled,
         )
         .await
@@ -274,6 +278,7 @@
         request: &MqttSubscribeRequest,
         sink: MqttMessageSink,
         status_sink: MqttSubscriptionStatusSink,
+        commands: MqttSubscriptionCommandReceiver,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         let (client, eventloop) = create_v5_client(profile)?;
@@ -301,6 +306,7 @@
             filter_names,
             sink,
             status_sink,
+            commands,
             cancelled,
         )
         .await
@@ -313,6 +319,7 @@
         filter_names: Vec<String>,
         sink: MqttMessageSink,
         status_sink: MqttSubscriptionStatusSink,
+        commands: MqttSubscriptionCommandReceiver,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         let cancellation_client = client.clone();
@@ -332,11 +339,34 @@
                 );
                 return Err(mqtt_client_error("订阅 MQTT 3.1.1 Topic", error.to_string()));
             }
+            let mut pending_subscribes = VecDeque::from([filter_names]);
+            let mut pending_unsubscribes = VecDeque::new();
+            let mut commands_closed = false;
             loop {
                 if cancelled.load(std::sync::atomic::Ordering::Acquire) {
                     return Ok(());
                 }
-                let event = match eventloop.poll().await {
+                let event = if commands_closed {
+                    eventloop.poll().await
+                } else {
+                    tokio::select! {
+                        command = commands.recv() => {
+                            match command {
+                                Ok(command) => handle_subscription_command_v311(
+                                    &client,
+                                    command,
+                                    &mut pending_subscribes,
+                                    &mut pending_unsubscribes,
+                                    &status_sink,
+                                ),
+                                Err(_) => commands_closed = true,
+                            }
+                            continue;
+                        }
+                        event = eventloop.poll() => event,
+                    }
+                };
+                let event = match event {
                     Ok(event) => event,
                     Err(_error) if cancelled.load(std::sync::atomic::Ordering::Acquire) => {
                         return Ok(())
@@ -345,7 +375,8 @@
                 };
                 match event {
                     Event::Incoming(Incoming::SubAck(ack)) => {
-                        for (filter, code) in filter_names.iter().zip(ack.return_codes.iter()) {
+                        let filters = pending_subscribes.pop_front().unwrap_or_default();
+                        for (filter, code) in filters.iter().zip(ack.return_codes.iter()) {
                             let (state, reason) = match code {
                                 rumqttc::mqttbytes::v4::SubscribeReasonCode::Success(_) => {
                                     (MqttSubscriptionState::Subscribed, None)
@@ -356,6 +387,16 @@
                                 ),
                             };
                             emit_subscription_status(&status_sink, filter, state, reason);
+                        }
+                    }
+                    Event::Incoming(Incoming::UnsubAck(_ack)) => {
+                        if let Some(filter) = pending_unsubscribes.pop_front() {
+                            emit_subscription_status(
+                                &status_sink,
+                                &filter,
+                                MqttSubscriptionState::Pending,
+                                None,
+                            );
                         }
                     }
                     Event::Incoming(Incoming::Publish(publish)) => {
@@ -385,6 +426,50 @@
         result
     }
 
+    fn handle_subscription_command_v311(
+        client: &AsyncClient,
+        command: MqttSubscriptionCommand,
+        pending_subscribes: &mut VecDeque<Vec<String>>,
+        pending_unsubscribes: &mut VecDeque<String>,
+        status_sink: &MqttSubscriptionStatusSink,
+    ) {
+        match command {
+            MqttSubscriptionCommand::Subscribe(subscription) => {
+                let filter = subscription.filter.clone();
+                if subscription.no_local {
+                    emit_subscription_status(
+                        status_sink,
+                        &filter,
+                        MqttSubscriptionState::Rejected,
+                        Some("MQTT 3.1.1 不支持 No Local 订阅选项".into()),
+                    );
+                    return;
+                }
+                let request = rumqttc::SubscribeFilter::new(filter.clone(), qos_v311(subscription.qos));
+                match client.try_subscribe_many(std::iter::once(request)) {
+                    Ok(()) => pending_subscribes.push_back(vec![filter]),
+                    Err(error) => emit_subscription_status(
+                        status_sink,
+                        &filter,
+                        MqttSubscriptionState::Rejected,
+                        Some(format!("发送订阅请求失败：{error}")),
+                    ),
+                }
+            }
+            MqttSubscriptionCommand::Unsubscribe { filter } => {
+                match client.try_unsubscribe(filter.clone()) {
+                    Ok(()) => pending_unsubscribes.push_back(filter),
+                    Err(error) => emit_subscription_status(
+                        status_sink,
+                        &filter,
+                        MqttSubscriptionState::Rejected,
+                        Some(format!("发送取消订阅请求失败：{error}")),
+                    ),
+                }
+            }
+        }
+    }
+
     async fn run_subscription_v5(
         client: rumqttc::v5::AsyncClient,
         mut eventloop: rumqttc::v5::EventLoop,
@@ -392,6 +477,7 @@
         filter_names: Vec<String>,
         sink: MqttMessageSink,
         status_sink: MqttSubscriptionStatusSink,
+        commands: MqttSubscriptionCommandReceiver,
         cancelled: Arc<AtomicBool>,
     ) -> Result<()> {
         let cancellation_client = client.clone();
@@ -411,11 +497,34 @@
                 );
                 return Err(mqtt_client_error("订阅 MQTT 5 Topic", error.to_string()));
             }
+            let mut pending_subscribes = VecDeque::from([filter_names]);
+            let mut pending_unsubscribes = VecDeque::new();
+            let mut commands_closed = false;
             loop {
                 if cancelled.load(std::sync::atomic::Ordering::Acquire) {
                     return Ok(());
                 }
-                let event = match eventloop.poll().await {
+                let event = if commands_closed {
+                    eventloop.poll().await
+                } else {
+                    tokio::select! {
+                        command = commands.recv() => {
+                            match command {
+                                Ok(command) => handle_subscription_command_v5(
+                                    &client,
+                                    command,
+                                    &mut pending_subscribes,
+                                    &mut pending_unsubscribes,
+                                    &status_sink,
+                                ),
+                                Err(_) => commands_closed = true,
+                            }
+                            continue;
+                        }
+                        event = eventloop.poll() => event,
+                    }
+                };
+                let event = match event {
                     Ok(event) => event,
                     Err(_error) if cancelled.load(std::sync::atomic::Ordering::Acquire) => {
                         return Ok(())
@@ -424,7 +533,8 @@
                 };
                 match event {
                     rumqttc::v5::Event::Incoming(rumqttc::v5::Incoming::SubAck(ack)) => {
-                        for (filter, code) in filter_names.iter().zip(ack.return_codes.iter()) {
+                        let filters = pending_subscribes.pop_front().unwrap_or_default();
+                        for (filter, code) in filters.iter().zip(ack.return_codes.iter()) {
                             let (state, reason) = match code {
                                 rumqttc::v5::mqttbytes::v5::SubscribeReasonCode::Success(_) => {
                                     (MqttSubscriptionState::Subscribed, None)
@@ -435,6 +545,22 @@
                                 ),
                             };
                             emit_subscription_status(&status_sink, filter, state, reason);
+                        }
+                    }
+                    rumqttc::v5::Event::Incoming(rumqttc::v5::Incoming::UnsubAck(ack)) => {
+                        if let Some(filter) = pending_unsubscribes.pop_front() {
+                            let (state, reason) = match ack.reasons.first() {
+                                Some(
+                                    rumqttc::v5::mqttbytes::v5::UnsubAckReason::Success
+                                    | rumqttc::v5::mqttbytes::v5::UnsubAckReason::NoSubscriptionExisted,
+                                )
+                                | None => (MqttSubscriptionState::Pending, None),
+                                Some(other) => (
+                                    MqttSubscriptionState::Rejected,
+                                    Some(format!("Broker 拒绝取消订阅：{other:?}")),
+                                ),
+                            };
+                            emit_subscription_status(&status_sink, &filter, state, reason);
                         }
                     }
                     rumqttc::v5::Event::Incoming(rumqttc::v5::Incoming::Publish(publish)) => {
@@ -483,6 +609,45 @@
         .await;
         cancellation_task.abort();
         result
+    }
+
+    fn handle_subscription_command_v5(
+        client: &rumqttc::v5::AsyncClient,
+        command: MqttSubscriptionCommand,
+        pending_subscribes: &mut VecDeque<Vec<String>>,
+        pending_unsubscribes: &mut VecDeque<String>,
+        status_sink: &MqttSubscriptionStatusSink,
+    ) {
+        match command {
+            MqttSubscriptionCommand::Subscribe(subscription) => {
+                let filter_name = subscription.filter.clone();
+                let mut filter = rumqttc::v5::mqttbytes::v5::Filter::new(
+                    filter_name.clone(),
+                    qos_v5(subscription.qos),
+                );
+                filter.nolocal = subscription.no_local;
+                match client.try_subscribe_many(std::iter::once(filter)) {
+                    Ok(()) => pending_subscribes.push_back(vec![filter_name]),
+                    Err(error) => emit_subscription_status(
+                        status_sink,
+                        &filter_name,
+                        MqttSubscriptionState::Rejected,
+                        Some(format!("发送订阅请求失败：{error}")),
+                    ),
+                }
+            }
+            MqttSubscriptionCommand::Unsubscribe { filter } => {
+                match client.try_unsubscribe(filter.clone()) {
+                    Ok(()) => pending_unsubscribes.push_back(filter),
+                    Err(error) => emit_subscription_status(
+                        status_sink,
+                        &filter,
+                        MqttSubscriptionState::Rejected,
+                        Some(format!("发送取消订阅请求失败：{error}")),
+                    ),
+                }
+            }
+        }
     }
 
     fn emit_rejected_subscription_statuses(

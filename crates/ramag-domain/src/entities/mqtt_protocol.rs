@@ -61,6 +61,7 @@ pub enum MqttSubscriptionState {
     Pending,
     Subscribing,
     Subscribed,
+    Unsubscribing,
     Rejected,
 }
 
@@ -73,6 +74,14 @@ pub struct MqttSubscriptionStatus {
 }
 
 pub type MqttSubscriptionStatusSink = Arc<dyn Fn(MqttSubscriptionStatus) + Send + Sync>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MqttSubscriptionCommand {
+    Subscribe(MqttSubscription),
+    Unsubscribe { filter: String },
+}
+
+pub type MqttSubscriptionCommandReceiver = async_channel::Receiver<MqttSubscriptionCommand>;
 
 pub(crate) fn validate_mqtt_subscriptions(
     subscriptions: &[MqttSubscription],

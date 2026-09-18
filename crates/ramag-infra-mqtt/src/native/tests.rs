@@ -121,6 +121,7 @@
                 &request,
                 sink,
                 Arc::new(|_| {}),
+                async_channel::bounded(1).1,
                 cancelled,
             ));
             let category = match result {

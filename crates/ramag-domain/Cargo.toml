@@ -10,6 +10,8 @@ description = "Ramag 领域层：核心实体 + traits，无任何外部依赖�
 workspace = true
 
 [dependencies]
+# 持续 MQTT 会话的有界控制消息通道
+async-channel = { workspace = true }
 # 序列化（实体可被 UI 和 infra 使用）
 serde = { workspace = true }
 serde_json = { workspace = true }
