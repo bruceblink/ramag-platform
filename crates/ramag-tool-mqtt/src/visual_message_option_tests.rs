@@ -19,7 +19,7 @@ use ramag_domain::entities::{
 use ramag_domain::error::Result;
 use ramag_domain::traits::MqttDriver;
 
-use super::{MqttSection, MqttView};
+use super::{MqttPayloadFormat, MqttSection, MqttView};
 
 struct OptionsMqttDriver {
     publish_requests: Arc<Mutex<Vec<MqttPublishRequest>>>,
@@ -195,6 +195,37 @@ fn mqtt_message_options_reach_publish_and_subscribe_requests(cx: &mut TestAppCon
 
     visual_cx.update(|window, app| {
         view.update(app, |view, cx| {
+            view.publish_payload
+                .update(cx, |input, cx| input.set_value("sent-by-enter", window, cx));
+            view.publish_payload
+                .update(cx, |input, cx| input.focus(window, cx));
+        });
+    });
+    visual_cx.run_until_parked();
+    click(visual_cx, "mqtt-publish-payload-format-UTF-8");
+    visual_cx.run_until_parked();
+    click(visual_cx, "mqtt-publish-payload-input");
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.publish_payload
+                .update(cx, |input, cx| input.focus(window, cx));
+        });
+    });
+    visual_cx.simulate_keystrokes("ctrl-enter");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        publish_requests
+            .lock()
+            .expect("读取回车发布请求锁")
+            .last()
+            .expect("回车应触发发布")
+            .payload,
+        b"sent-by-enter",
+        "Payload 输入框获得焦点后按回车应发送当前载荷"
+    );
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
             view.section = MqttSection::Subscribe;
             view.subscribe_filter
                 .update(cx, |input, cx| input.set_value("devices/#", window, cx));
@@ -230,6 +261,61 @@ fn mqtt_message_options_reach_publish_and_subscribe_requests(cx: &mut TestAppCon
             .host,
         "198.51.100.10",
         "订阅应使用尚未保存的 Broker 地址"
+    );
+}
+
+#[gpui::test]
+fn mqtt_publish_conversion_failure_keeps_payload_input(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let service = Arc::new(MqttService::new(
+        Arc::new(super::visual_tests::NoopMqttDriver),
+        Arc::new(super::visual_tests::NoopStorage::default()),
+    ));
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| TestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    let profile = MqttProfile::new("载荷失败测试", "127.0.0.1", 1883);
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.loading_profiles = false;
+            view.profiles = vec![profile.clone()];
+            view.selected_profile_id = Some(profile.id.clone());
+            view.set_form_from_profile(&profile, window, cx);
+            view.section = MqttSection::Publish;
+            view.publish_topic
+                .update(cx, |input, cx| input.set_value("devices/state", window, cx));
+            view.publish_payload
+                .update(cx, |input, cx| input.set_value("not-hex 7", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.publish_payload_format = MqttPayloadFormat::Hex;
+            view.publish(window, cx);
+            assert!(
+                view.notice
+                    .as_ref()
+                    .is_some_and(|(message, is_error)| { *is_error && message.contains("Hex") })
+            );
+        });
+    });
+    visual_cx.run_until_parked();
+
+    assert_eq!(
+        view.read_with(visual_cx, |view, cx| {
+            view.publish_payload.read(cx).value().to_string()
+        }),
+        "not-hex 7",
+        "载荷转换失败时不能清空或改写编辑器内容"
     );
 }
 

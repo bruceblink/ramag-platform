@@ -72,7 +72,13 @@ impl MqttView {
         );
         let keep_alive = input(window, cx, 5, "Keep Alive 秒数", false, "60");
         let publish_topic = input(window, cx, MAX_TOPIC_BYTES, "发布 Topic", false, "");
-        let publish_payload = input(window, cx, 16 * 1024 * 1024, "消息内容", false, "");
+        let publish_payload = cx.new(|cx| {
+            InputState::new(window, cx)
+                .validate(|value, _| value.len() <= 16 * 1024 * 1024)
+                .placeholder("消息内容")
+                .multi_line(true)
+                .rows(5)
+        });
         let subscribe_filter = input(
             window,
             cx,
@@ -237,6 +243,32 @@ impl MqttView {
                 }
             }));
         }
+        let publish_payload_for_enter = publish_payload.clone();
+        subscriptions.push(cx.subscribe_in(
+            &publish_payload,
+            window,
+            move |this, _, event: &InputEvent, window, cx| {
+                if matches!(event, InputEvent::PressEnter { secondary: true }) {
+                    let payload = publish_payload_for_enter.read(cx).value().to_string();
+                    if let Some(payload_without_shortcut_newline) = payload.strip_suffix('\n') {
+                        let line = payload_without_shortcut_newline
+                            .lines()
+                            .count()
+                            .saturating_sub(1) as u32;
+                        let column = payload_without_shortcut_newline
+                            .lines()
+                            .last()
+                            .map_or(0, |value| value.chars().count())
+                            as u32;
+                        publish_payload_for_enter.update(cx, |input, cx| {
+                            input.set_value(payload_without_shortcut_newline, window, cx);
+                            input.set_cursor_position(Position::new(line, column), window, cx);
+                        });
+                    }
+                    this.publish(window, cx);
+                }
+            },
+        ));
 
         let mut view = Self {
             service,

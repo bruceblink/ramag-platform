@@ -264,14 +264,18 @@ impl MqttView {
         }
         // Build the request from the visible form so unsaved Broker edits take effect;
         // form_profile still starts from the selected profile to preserve saved secrets.
-        let Some(profile) = self.form_profile(cx).ok() else {
-            self.notice = Some(("请先填写有效的 MQTT 配置".into(), true));
-            cx.notify();
-            return;
+        let profile = match self.form_profile(cx) {
+            Ok(profile) => profile,
+            Err(error) => {
+                self.notice = Some((error, true));
+                cx.notify();
+                return;
+            }
         };
+        let payload_text = self.publish_payload.read(cx).value().to_string();
         let payload = match encode_publish_payload(
             self.publish_payload_format,
-            &value(&self.publish_payload, cx),
+            &payload_text,
         ) {
             Ok(payload) => payload,
             Err(error) => {
