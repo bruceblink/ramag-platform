@@ -5,9 +5,9 @@ use std::sync::{Arc, atomic::AtomicBool};
 use ramag_domain::entities::{
     MAX_MOSQUITTO_NAME_BYTES, MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoGroup,
     MosquittoRole, MosquittoStaticFile, MosquittoStaticFileKind, MqttBrokerSnapshot,
-    MqttLocalServerConfig, MqttLocalServerStatus, MqttMessageSink, MqttProfile, MqttProfileId,
-    MqttPublishRequest, MqttPublishResult, MqttSubscribeRequest, MqttSubscriptionCommandReceiver,
-    MqttSubscriptionStatusSink,
+    MqttLocalServerConfig, MqttLocalServerEventSink, MqttLocalServerStatus, MqttMessageSink,
+    MqttProfile, MqttProfileId, MqttPublishRequest, MqttPublishResult, MqttSubscribeRequest,
+    MqttSubscriptionCommandReceiver, MqttSubscriptionStatusSink,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{
@@ -138,6 +138,16 @@ impl MqttService {
             "local MQTT server snapshot completed"
         );
         result
+    }
+
+    pub async fn subscribe_local_server_events(
+        &self,
+        sink: MqttLocalServerEventSink,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        self.local_server_driver
+            .subscribe_events(sink, cancelled)
+            .await
     }
 
     pub async fn list_profiles(&self) -> Result<Vec<MqttProfile>> {

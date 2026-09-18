@@ -1,7 +1,10 @@
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::sync_channel;
+use std::time::Duration;
 
+use async_channel::{Receiver, Sender, TryRecvError, TrySendError};
 use async_trait::async_trait;
 use bytes::Bytes;
 use oximqtt::Result as OxiResult;
@@ -12,10 +15,13 @@ use oximqtt::hook::{Handler, HookResult, Parameter, ReturnType, Type};
 use oximqtt::net::Builder;
 use oximqtt::retain::{DefaultRetainStorage, RetainStorage};
 use oximqtt::server::MqttServer;
+use oximqtt::session::Session;
 use oximqtt::types::{AuthResult, From, Id, Publish, Retain, TopicFilter, TopicName};
 use ramag_domain::entities::{
-    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerStatus, MqttLocalServerUser,
+    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerEvent, MqttLocalServerEventSink,
+    MqttLocalServerEventSinkResult, MqttLocalServerStatus, MqttLocalServerUser, MqttMessage,
     MqttOnlineClient, MqttPublishRequest, MqttPublishResult, MqttQos, MqttSubscription,
+    MqttUserProperty,
 };
 use ramag_domain::error::{DomainError, MqttError, MqttErrorCategory, Result};
 use ramag_domain::traits::MqttLocalServerDriver;
@@ -37,6 +43,7 @@ struct LocalServerState {
     config: Option<MqttLocalServerConfig>,
     stop: Option<oneshot::Sender<()>>,
     commands: Option<mpsc::Sender<LocalServerCommand>>,
+    events: Option<Receiver<MqttLocalServerEvent>>,
     task: Option<std::thread::JoinHandle<()>>,
 }
 
@@ -49,6 +56,7 @@ impl NativeMqttLocalServer {
                 config: None,
                 stop: None,
                 commands: None,
+                events: None,
                 task: None,
             })),
         }
@@ -91,11 +99,13 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
             state.config = None;
             state.stop = None;
             state.commands = None;
+            state.events = None;
         }
 
         let (ready_sender, ready_receiver) = sync_channel(1);
         let (stop_sender, stop_receiver) = oneshot::channel();
         let (publish_sender, publish_receiver) = mpsc::channel(LOCAL_SERVER_COMMAND_QUEUE);
+        let (event_sender, event_receiver) = async_channel::bounded(256);
         let allow_anonymous = config.allow_anonymous;
         let users = config.users.clone();
         let task = std::thread::Builder::new()
@@ -107,6 +117,7 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
                     users,
                     stop_receiver,
                     publish_receiver,
+                    event_sender,
                     ready_sender,
                 )
             })
@@ -124,6 +135,7 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
         state.config = Some(config.clone());
         state.stop = Some(stop_sender);
         state.commands = Some(publish_sender);
+        state.events = Some(event_receiver);
         state.task = Some(task);
         Ok(status)
     }
@@ -134,6 +146,7 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
             let _ = stop.send(());
         }
         state.commands = None;
+        state.events = None;
         if let Some(task) = state.task.take() {
             smol::unblock(move || task.join()).await.map_err(|_| {
                 local_server_error("等待本地 MQTT Broker 停止", "Broker 线程异常退出")
@@ -156,6 +169,7 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
             state.config = None;
             state.stop = None;
             state.commands = None;
+            state.events = None;
             state.status.running = false;
         }
         Ok(state.status.clone())
@@ -210,6 +224,38 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
             .await
             .map_err(|_| local_server_error("读取本地 MQTT Broker 快照", "Broker 未返回快照结果"))?
     }
+
+    async fn subscribe_events(
+        &self,
+        sink: MqttLocalServerEventSink,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        let receiver = {
+            let state = self.state.lock().await;
+            state.events.as_ref().cloned().ok_or_else(|| {
+                DomainError::NotImplemented("mqtt_local_server_events_not_running".into())
+            })?
+        };
+        while !cancelled.load(Ordering::Acquire) {
+            match receiver.try_recv() {
+                Ok(event) => match sink(event) {
+                    MqttLocalServerEventSinkResult::Accepted => {}
+                    MqttLocalServerEventSinkResult::Backpressured => {
+                        tracing::debug!(
+                            operation = "mqtt_local_server_event_sink",
+                            "本地 MQTT Broker 事件接收方繁忙，丢弃一条事件"
+                        );
+                    }
+                    MqttLocalServerEventSinkResult::Closed => break,
+                },
+                Err(TryRecvError::Empty) => {
+                    smol::Timer::after(Duration::from_millis(20)).await;
+                }
+                Err(TryRecvError::Closed) => break,
+            }
+        }
+        Ok(())
+    }
 }
 
 enum LocalServerCommand {
@@ -236,6 +282,7 @@ fn run_local_server(
     users: Vec<MqttLocalServerUser>,
     stop_receiver: oneshot::Receiver<()>,
     mut publish_receiver: mpsc::Receiver<LocalServerCommand>,
+    event_sender: Sender<MqttLocalServerEvent>,
     ready_sender: std::sync::mpsc::SyncSender<std::result::Result<(), String>>,
 ) {
     let runtime = match tokio::runtime::Builder::new_current_thread()
@@ -272,16 +319,46 @@ fn run_local_server(
             .await;
         *context.extends.retain_mut().await = Box::new(LocalRetainStorage::new());
 
+        let register = context.extends.hook_mgr().register();
         if !allow_anonymous || !users.is_empty() {
-            let register = context.extends.hook_mgr().register();
             register
                 .add(
                     Type::ClientAuthenticate,
                     Box::new(LocalAuthHandler::new(allow_anonymous, users)),
                 )
                 .await;
-            register.start().await;
         }
+        register
+            .add(
+                Type::ClientConnected,
+                Box::new(LocalEventHandler::new(event_sender.clone())),
+            )
+            .await;
+        register
+            .add(
+                Type::ClientDisconnected,
+                Box::new(LocalEventHandler::new(event_sender.clone())),
+            )
+            .await;
+        register
+            .add(
+                Type::SessionSubscribed,
+                Box::new(LocalEventHandler::new(event_sender.clone())),
+            )
+            .await;
+        register
+            .add(
+                Type::SessionUnsubscribed,
+                Box::new(LocalEventHandler::new(event_sender.clone())),
+            )
+            .await;
+        register
+            .add(
+                Type::MessagePublish,
+                Box::new(LocalEventHandler::new(event_sender.clone())),
+            )
+            .await;
+        register.start().await;
 
         let server = MqttServer::new(context.clone()).listener(listener).build();
         if ready_sender.send(Ok(())).is_err() {
@@ -293,7 +370,7 @@ fn run_local_server(
                     tracing::error!(operation = "mqtt_local_server_run", error = %error, "local MQTT Broker stopped unexpectedly");
                 }
             }
-            _ = process_local_commands(context, &mut publish_receiver) => {}
+            _ = process_local_commands(context, &mut publish_receiver, event_sender.clone()) => {}
             _ = stop_receiver => {}
         }
     });
@@ -302,11 +379,12 @@ fn run_local_server(
 async fn process_local_commands(
     context: ServerContext,
     receiver: &mut mpsc::Receiver<LocalServerCommand>,
+    event_sender: Sender<MqttLocalServerEvent>,
 ) {
     while let Some(command) = receiver.recv().await {
         match command {
             LocalServerCommand::Publish { request, response } => {
-                let result = publish_to_local_server(&context, &request).await;
+                let result = publish_to_local_server(&context, &request, &event_sender).await;
                 let _ = response.send(result);
             }
             LocalServerCommand::Snapshot { response } => {
@@ -371,6 +449,7 @@ async fn snapshot_local_server(context: &ServerContext) -> Result<MqttBrokerSnap
 async fn publish_to_local_server(
     context: &ServerContext,
     request: &MqttPublishRequest,
+    event_sender: &Sender<MqttLocalServerEvent>,
 ) -> Result<MqttPublishResult> {
     let qos = match request.qos {
         MqttQos::AtMostOnce => QoS::AtMostOnce,
@@ -439,11 +518,192 @@ async fn publish_to_local_server(
         }
     }
 
+    emit_local_event(
+        event_sender,
+        MqttLocalServerEvent::BrokerPublished {
+            message: MqttMessage {
+                topic: request.topic.clone(),
+                payload: request.payload.clone(),
+                qos: request.qos,
+                retain: request.retain,
+                duplicate: false,
+                received_at: chrono::Utc::now(),
+                user_properties: request.user_properties.clone(),
+            },
+            occurred_at: chrono::Utc::now(),
+        },
+    );
+
     Ok(MqttPublishResult {
         topic: request.topic.clone(),
         packet_id: None,
         qos: request.qos,
     })
+}
+
+#[derive(Clone)]
+struct LocalEventHandler {
+    sender: Sender<MqttLocalServerEvent>,
+}
+
+impl LocalEventHandler {
+    fn new(sender: Sender<MqttLocalServerEvent>) -> Self {
+        Self { sender }
+    }
+}
+
+#[async_trait]
+impl Handler for LocalEventHandler {
+    async fn hook(&self, parameter: &Parameter, _acc: Option<HookResult>) -> ReturnType {
+        match parameter {
+            Parameter::ClientConnected(session) => {
+                if let Some(client) = online_client_from_session(session).await {
+                    emit_local_event(
+                        &self.sender,
+                        MqttLocalServerEvent::ClientConnected {
+                            client,
+                            occurred_at: chrono::Utc::now(),
+                        },
+                    );
+                }
+            }
+            Parameter::ClientDisconnected(session, reason) => {
+                emit_local_event(
+                    &self.sender,
+                    MqttLocalServerEvent::ClientDisconnected {
+                        client_id: session.id.client_id.to_string(),
+                        reason: Some(format!("{reason:?}")),
+                        occurred_at: chrono::Utc::now(),
+                    },
+                );
+            }
+            Parameter::SessionSubscribed(session, subscribe) => {
+                if let Some(subscription) = subscription_from_oximqtt(subscribe) {
+                    emit_local_event(
+                        &self.sender,
+                        MqttLocalServerEvent::ClientSubscribed {
+                            client_id: session.id.client_id.to_string(),
+                            subscription,
+                            occurred_at: chrono::Utc::now(),
+                        },
+                    );
+                }
+            }
+            Parameter::SessionUnsubscribed(session, unsubscribe) => {
+                emit_local_event(
+                    &self.sender,
+                    MqttLocalServerEvent::ClientUnsubscribed {
+                        client_id: session.id.client_id.to_string(),
+                        filter: unsubscribe.topic_filter.to_string(),
+                        occurred_at: chrono::Utc::now(),
+                    },
+                );
+            }
+            Parameter::MessagePublish(Some(session), _, publish) => {
+                if let Some(message) = message_from_oximqtt(publish) {
+                    emit_local_event(
+                        &self.sender,
+                        MqttLocalServerEvent::ClientPublished {
+                            client_id: session.id.client_id.to_string(),
+                            message,
+                            occurred_at: chrono::Utc::now(),
+                        },
+                    );
+                }
+            }
+            _ => {}
+        }
+        (true, None)
+    }
+}
+
+async fn online_client_from_session(session: &Session) -> Option<MqttOnlineClient> {
+    let connect_info = session.connect_info().await.ok();
+    let connected_at = session
+        .connected_at()
+        .await
+        .ok()
+        .and_then(chrono::DateTime::from_timestamp_millis);
+    let client = MqttOnlineClient {
+        client_id: session.id.client_id.to_string(),
+        username: connect_info
+            .as_ref()
+            .and_then(|info| info.username())
+            .map(ToString::to_string),
+        remote_address: connect_info
+            .as_ref()
+            .and_then(|info| info.ipaddress())
+            .map(|address| address.to_string()),
+        connected_at,
+        subscriptions: Vec::new(),
+    };
+    client.validate().ok().map(|_| client)
+}
+
+fn subscription_from_oximqtt(subscribe: &oximqtt::types::Subscribe) -> Option<MqttSubscription> {
+    let subscription = MqttSubscription {
+        filter: subscribe.topic_filter.to_string(),
+        qos: qos_from_oximqtt(subscribe.opts.qos_value()),
+        no_local: subscribe.opts.no_local().unwrap_or(false),
+    };
+    subscription.validate().ok().map(|_| subscription)
+}
+
+fn message_from_oximqtt(publish: &Publish) -> Option<MqttMessage> {
+    let inner = publish.inner.as_ref();
+    let user_properties = inner
+        .properties
+        .as_ref()
+        .map(|properties| {
+            properties
+                .user_properties
+                .iter()
+                .map(|(name, value)| MqttUserProperty {
+                    name: name.to_string(),
+                    value: value.to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let message = MqttMessage {
+        topic: inner.topic.to_string(),
+        payload: inner.payload.to_vec(),
+        qos: qos_from_oximqtt(inner.qos.value()),
+        retain: inner.retain,
+        duplicate: inner.dup,
+        received_at: chrono::Utc::now(),
+        user_properties,
+    };
+    message.validate().ok().map(|_| message)
+}
+
+fn qos_from_oximqtt(value: u8) -> MqttQos {
+    match value {
+        0 => MqttQos::AtMostOnce,
+        1 => MqttQos::AtLeastOnce,
+        _ => MqttQos::ExactlyOnce,
+    }
+}
+
+fn emit_local_event(sender: &Sender<MqttLocalServerEvent>, event: MqttLocalServerEvent) {
+    if let Err(error) = event.validate() {
+        tracing::warn!(
+            operation = "mqtt_local_server_event",
+            error = %error,
+            "本地 MQTT Broker 事件未通过数据校验"
+        );
+        return;
+    }
+    match sender.try_send(event) {
+        Ok(()) => {}
+        Err(TrySendError::Full(_)) => {
+            tracing::warn!(
+                operation = "mqtt_local_server_event",
+                "本地 MQTT Broker 事件队列已满，丢弃一条事件"
+            );
+        }
+        Err(TrySendError::Closed(_)) => {}
+    }
 }
 
 struct LocalAuthHandler {

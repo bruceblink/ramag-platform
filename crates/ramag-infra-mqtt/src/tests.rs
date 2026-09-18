@@ -445,3 +445,149 @@
             .map_err(|error| error.to_string())?;
         Ok(())
     }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn local_server_emits_lifecycle_and_publish_events() -> std::result::Result<(), String> {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+            mpsc::{TrySendError, sync_channel},
+        };
+        use std::time::{Duration, Instant};
+        use ramag_domain::entities::{
+            MqttLocalServerEvent, MqttLocalServerEventSink, MqttLocalServerEventSinkResult,
+            MqttMessageSinkResult, MqttQos, MqttSubscribeRequest, MqttSubscription,
+        };
+
+        let port = std::net::TcpListener::bind(("127.0.0.1", 0))
+            .map_err(|error| error.to_string())?
+            .local_addr()
+            .map_err(|error| error.to_string())?
+            .port();
+        let config = ramag_domain::entities::MqttLocalServerConfig {
+            bind_host: "127.0.0.1".into(),
+            port,
+            allow_anonymous: true,
+            users: Vec::new(),
+        };
+        let server = NativeMqttLocalServer::new();
+        smol::block_on(server.start(&config)).map_err(|error| error.to_string())?;
+
+        let event_cancelled = Arc::new(AtomicBool::new(false));
+        let (event_sender, event_receiver) = sync_channel(64);
+        let event_sink: MqttLocalServerEventSink = Arc::new(move |event| {
+            match event_sender.try_send(event) {
+                Ok(()) => MqttLocalServerEventSinkResult::Accepted,
+                Err(TrySendError::Full(_)) => MqttLocalServerEventSinkResult::Backpressured,
+                Err(TrySendError::Disconnected(_)) => MqttLocalServerEventSinkResult::Closed,
+            }
+        });
+        let event_driver = server.clone();
+        let event_cancelled_thread = event_cancelled.clone();
+        let event_task = std::thread::spawn(move || {
+            smol::block_on(event_driver.subscribe_events(event_sink, event_cancelled_thread))
+        });
+
+        let mut profile = MqttProfile::new("local-events", "127.0.0.1", port);
+        profile.keep_alive_seconds = 5;
+        let topic = format!("ramag/events/{}", std::process::id());
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let (message_sender, _message_receiver) = sync_channel(1);
+        let sink = Arc::new(move |_| {
+            let _ = message_sender.try_send(());
+            MqttMessageSinkResult::Accepted
+        });
+        let status_sink = Arc::new(|_| {});
+        let (_command_sender, command_receiver) = async_channel::bounded(4);
+        let subscribe_profile = profile.clone();
+        let subscribe_cancelled = cancelled.clone();
+        let subscribe_topic = topic.clone();
+        let subscription = std::thread::spawn(move || {
+            smol::block_on(NativeMqttTransport::new().subscribe(
+                &subscribe_profile,
+                &MqttSubscribeRequest {
+                    subscriptions: vec![MqttSubscription {
+                        filter: subscribe_topic,
+                        qos: MqttQos::AtLeastOnce,
+                        no_local: false,
+                    }],
+                },
+                sink,
+                status_sink,
+                command_receiver,
+                subscribe_cancelled,
+            ))
+        });
+
+        std::thread::sleep(Duration::from_millis(400));
+        smol::block_on(NativeMqttTransport::new().publish(
+            &profile,
+            &MqttPublishRequest {
+                topic: topic.clone(),
+                payload: b"client event".to_vec(),
+                qos: MqttQos::AtLeastOnce,
+                retain: false,
+                user_properties: Vec::new(),
+            },
+        ))
+        .map_err(|error| format!("客户端发布失败：{error}"))?;
+        smol::block_on(server.publish(&MqttPublishRequest {
+            topic: topic.clone(),
+            payload: b"broker event".to_vec(),
+            qos: MqttQos::AtMostOnce,
+            retain: false,
+            user_properties: Vec::new(),
+        }))
+        .map_err(|error| format!("Broker 注入发布失败：{error}"))?;
+
+        cancelled.store(true, Ordering::Release);
+        subscription
+            .join()
+            .map_err(|_| "本地 MQTT 订阅线程不应 panic".to_string())?
+            .map_err(|error| error.to_string())?;
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut connected = false;
+        let mut subscribed = false;
+        let mut client_published = false;
+        let mut broker_published = false;
+        let mut disconnected = false;
+        while Instant::now() < deadline {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            let event = match event_receiver.recv_timeout(remaining.min(Duration::from_millis(250)))
+            {
+                Ok(event) => event,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(error) => return Err(error.to_string()),
+            };
+            match &event {
+                MqttLocalServerEvent::ClientConnected { .. } => connected = true,
+                MqttLocalServerEvent::ClientSubscribed { subscription, .. }
+                    if subscription.filter == topic => subscribed = true,
+                MqttLocalServerEvent::ClientPublished { message, .. }
+                    if message.topic == topic => client_published = true,
+                MqttLocalServerEvent::BrokerPublished { message, .. }
+                    if message.topic == topic => broker_published = true,
+                MqttLocalServerEvent::ClientDisconnected { .. } => disconnected = true,
+                _ => {}
+            }
+            if connected && subscribed && client_published && broker_published && disconnected {
+                break;
+            }
+        }
+
+        event_cancelled.store(true, Ordering::Release);
+        event_task
+            .join()
+            .map_err(|_| "本地 MQTT 事件线程不应 panic".to_string())?
+            .map_err(|error| error.to_string())?;
+        smol::block_on(server.stop()).map_err(|error| error.to_string())?;
+
+        assert!(connected, "应产生客户端连接事件");
+        assert!(subscribed, "应产生成功订阅事件");
+        assert!(client_published, "应产生客户端发布事件");
+        assert!(broker_published, "应产生 Broker 注入发布事件");
+        assert!(disconnected, "应产生客户端断开事件");
+        Ok(())
+    }

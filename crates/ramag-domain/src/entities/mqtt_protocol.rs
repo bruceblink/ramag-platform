@@ -230,6 +230,101 @@ pub enum MqttMessageSinkResult {
 
 pub type MqttMessageSink = Arc<dyn Fn(MqttMessage) -> MqttMessageSinkResult + Send + Sync>;
 
+/// 本地 MQTT Broker 的运行事件；事件来源由枚举分支直接表达。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MqttLocalServerEvent {
+    ClientConnected {
+        client: MqttOnlineClient,
+        occurred_at: DateTime<Utc>,
+    },
+    ClientDisconnected {
+        client_id: String,
+        #[serde(default)]
+        reason: Option<String>,
+        occurred_at: DateTime<Utc>,
+    },
+    ClientSubscribed {
+        client_id: String,
+        subscription: MqttSubscription,
+        occurred_at: DateTime<Utc>,
+    },
+    ClientUnsubscribed {
+        client_id: String,
+        filter: String,
+        occurred_at: DateTime<Utc>,
+    },
+    ClientPublished {
+        client_id: String,
+        message: MqttMessage,
+        occurred_at: DateTime<Utc>,
+    },
+    BrokerPublished {
+        message: MqttMessage,
+        occurred_at: DateTime<Utc>,
+    },
+}
+
+impl MqttLocalServerEvent {
+    pub fn validate(&self) -> Result<(), String> {
+        match self {
+            Self::ClientConnected { client, .. } => client.validate(),
+            Self::ClientDisconnected {
+                client_id, reason, ..
+            } => {
+                validate_text(
+                    "断开连接事件 Client ID",
+                    client_id,
+                    MAX_MOSQUITTO_NAME_BYTES,
+                )?;
+                validate_optional_text(
+                    "断开连接事件原因",
+                    reason.as_deref(),
+                    MAX_MOSQUITTO_NAME_BYTES,
+                )
+            }
+            Self::ClientSubscribed {
+                client_id,
+                subscription,
+                ..
+            } => {
+                validate_text("订阅事件 Client ID", client_id, MAX_MOSQUITTO_NAME_BYTES)?;
+                subscription.validate()
+            }
+            Self::ClientUnsubscribed {
+                client_id, filter, ..
+            } => {
+                validate_text(
+                    "取消订阅事件 Client ID",
+                    client_id,
+                    MAX_MOSQUITTO_NAME_BYTES,
+                )?;
+                validate_mqtt_topic_filter(filter)
+            }
+            Self::ClientPublished {
+                client_id, message, ..
+            } => {
+                validate_text(
+                    "客户端发布事件 Client ID",
+                    client_id,
+                    MAX_MOSQUITTO_NAME_BYTES,
+                )?;
+                message.validate()
+            }
+            Self::BrokerPublished { message, .. } => message.validate(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MqttLocalServerEventSinkResult {
+    Accepted,
+    Backpressured,
+    Closed,
+}
+
+pub type MqttLocalServerEventSink =
+    Arc<dyn Fn(MqttLocalServerEvent) -> MqttLocalServerEventSinkResult + Send + Sync>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MqttTopicSource {
     Observed,

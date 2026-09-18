@@ -1,10 +1,12 @@
 //! 内置 MQTT Broker 的生命周期接口。
 
+use std::sync::{Arc, atomic::AtomicBool};
+
 use async_trait::async_trait;
 
 use crate::entities::{
-    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerStatus, MqttPublishRequest,
-    MqttPublishResult,
+    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerEventSink, MqttLocalServerStatus,
+    MqttPublishRequest, MqttPublishResult,
 };
 use crate::error::{DomainError, Result};
 
@@ -35,6 +37,16 @@ pub trait MqttLocalServerDriver: Send + Sync {
     async fn snapshot(&self) -> Result<MqttBrokerSnapshot> {
         Err(DomainError::NotImplemented(
             "mqtt_local_server_snapshot".into(),
+        ))
+    }
+
+    async fn subscribe_events(
+        &self,
+        _sink: MqttLocalServerEventSink,
+        _cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        Err(DomainError::NotImplemented(
+            "mqtt_local_server_events".into(),
         ))
     }
 }
