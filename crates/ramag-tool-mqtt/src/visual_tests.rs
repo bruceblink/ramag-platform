@@ -16,11 +16,12 @@ use ramag_app::MqttService;
 use ramag_domain::entities::{
     ConnectionConfig, ConnectionId, MosquittoAcl, MosquittoAclDecision, MosquittoAclType,
     MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoRole, MosquittoRoleBinding,
-    MqttBrokerSnapshot, MqttMessage, MqttProfile, MqttQos, MqttTopicObservation, MqttTopicSource,
+    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerStatus, MqttMessage, MqttProfile,
+    MqttPublishRequest, MqttPublishResult, MqttQos, MqttTopicObservation, MqttTopicSource,
     MqttUserProperty, QueryRecord, QueryRecordId,
 };
 use ramag_domain::error::Result;
-use ramag_domain::traits::{MqttDriver, Storage};
+use ramag_domain::traits::{MqttDriver, MqttLocalServerDriver, Storage};
 
 use super::{MQTT_SIDEBAR_COLLAPSE_BREAKPOINT, MosquittoManagementSection, MqttSection, MqttView};
 
@@ -104,6 +105,25 @@ impl MqttDriver for RecordingMqttDriver {
     async fn test_connection(&self, _profile: &MqttProfile) -> Result<()> {
         self.connection_tests.fetch_add(1, Ordering::Relaxed);
         Ok(())
+    }
+}
+
+struct RecordingLocalServerDriver {
+    publishes: Arc<Mutex<Vec<MqttPublishRequest>>>,
+}
+
+#[async_trait]
+impl MqttLocalServerDriver for RecordingLocalServerDriver {
+    async fn publish(&self, request: &MqttPublishRequest) -> Result<MqttPublishResult> {
+        self.publishes
+            .lock()
+            .expect("本地 Broker 发布记录锁")
+            .push(request.clone());
+        Ok(MqttPublishResult {
+            topic: request.topic.clone(),
+            packet_id: None,
+            qos: request.qos,
+        })
     }
 }
 
@@ -556,6 +576,10 @@ fn mqtt_local_server_page_reflows_inside_supported_window_widths(cx: &mut TestAp
             "mqtt-local-server-config",
             "mqtt-local-server-actions",
             "mqtt-local-server-status",
+            "mqtt-local-server-publish-topic-input",
+            "mqtt-local-server-publish-payload-input",
+            "mqtt-local-server-publish-options",
+            "mqtt-local-server-publish-actions",
             "mqtt-local-server-user-editor",
         ] {
             let bounds = visual_cx
@@ -569,6 +593,54 @@ fn mqtt_local_server_page_reflows_inside_supported_window_widths(cx: &mut TestAp
             );
         }
     }
+}
+
+#[gpui::test]
+fn mqtt_local_server_publish_uses_broker_injection_controls(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let publishes = Arc::new(Mutex::new(Vec::new()));
+    let service = Arc::new(
+        MqttService::new(Arc::new(NoopMqttDriver), Arc::new(NoopStorage::default()))
+            .with_local_server_driver(Arc::new(RecordingLocalServerDriver {
+                publishes: publishes.clone(),
+            })),
+    );
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+    visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.loading_profiles = false;
+            view.section = MqttSection::LocalServer;
+            view.local_server_status = Some(MqttLocalServerStatus::running(
+                &MqttLocalServerConfig::default(),
+            ));
+            view.local_server_publish_qos = MqttQos::ExactlyOnce;
+            view.local_server_publish_retain = true;
+            view.local_server_publish_topic
+                .update(cx, |input, cx| input.set_value("ui/injected", window, cx));
+            view.local_server_publish_payload
+                .update(cx, |input, cx| input.set_value("hello from ui", window, cx));
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    click(visual_cx, "mqtt-local-server-publish");
+    visual_cx.run_until_parked();
+
+    let recorded = publishes.lock().expect("读取本地 Broker 发布记录锁");
+    assert_eq!(recorded.len(), 1);
+    assert_eq!(recorded[0].topic, "ui/injected");
+    assert_eq!(recorded[0].payload, b"hello from ui");
+    assert_eq!(recorded[0].qos, MqttQos::ExactlyOnce);
+    assert!(recorded[0].retain);
 }
 
 #[gpui::test]

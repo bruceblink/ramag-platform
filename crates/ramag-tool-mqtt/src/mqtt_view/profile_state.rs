@@ -106,6 +106,21 @@ impl MqttView {
         let local_server_username = input(window, cx, MAX_USERNAME_BYTES, "用户名", false, "");
         let local_server_password =
             input(window, cx, MAX_PASSWORD_BYTES, "密码", true, "");
+        let local_server_publish_topic = input(
+            window,
+            cx,
+            MAX_TOPIC_BYTES,
+            "本地 Broker 发布 Topic",
+            false,
+            "",
+        );
+        let local_server_publish_payload = cx.new(|cx| {
+            InputState::new(window, cx)
+                .validate(|value, _| value.len() <= 16 * 1024 * 1024)
+                .placeholder("本地 Broker 发布载荷")
+                .multi_line(true)
+                .rows(5)
+        });
         let search = input(window, cx, MAX_PROFILE_NAME_BYTES, "筛选配置…", false, "");
         let client_username = input(window, cx, MAX_USERNAME_BYTES, "用户名", false, "");
         let client_id_editor = input(
@@ -216,6 +231,8 @@ impl MqttView {
             &local_server_port,
             &local_server_username,
             &local_server_password,
+            &local_server_publish_topic,
+            &local_server_publish_payload,
             &search,
             &client_username,
             &client_id_editor,
@@ -305,12 +322,19 @@ impl MqttView {
             local_server_port,
             local_server_username,
             local_server_password,
+            local_server_publish_topic,
+            local_server_publish_payload,
+            local_server_publish_payload_format: MqttPayloadFormat::default(),
+            local_server_publish_qos: MqttQos::AtMostOnce,
+            local_server_publish_retain: false,
             local_server_allow_anonymous: true,
             local_server_users: Vec::new(),
             local_server_status: None,
             local_server_loading: false,
             local_server_starting: false,
             local_server_stopping: false,
+            local_server_publishing: false,
+            local_server_publish_id: 0,
             local_server_notice: None,
             search,
             client_username,
@@ -466,6 +490,8 @@ impl MqttView {
             &self.publish_topic,
             &self.publish_payload,
             &self.subscribe_filter,
+            &self.local_server_publish_topic,
+            &self.local_server_publish_payload,
         ] {
             set_value(field, "", window, cx);
         }
@@ -635,6 +661,9 @@ impl MqttView {
     fn reset_message_options(&mut self) {
         self.publish_qos = MqttQos::AtMostOnce;
         self.publish_retain = false;
+        self.local_server_publish_payload_format = MqttPayloadFormat::default();
+        self.local_server_publish_qos = MqttQos::AtMostOnce;
+        self.local_server_publish_retain = false;
         self.subscribe_qos = MqttQos::AtLeastOnce;
         self.subscribe_no_local = false;
     }

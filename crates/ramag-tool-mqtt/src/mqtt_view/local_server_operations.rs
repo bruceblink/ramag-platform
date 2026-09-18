@@ -126,6 +126,71 @@ impl MqttView {
         .detach();
     }
 
+    fn publish_local_server(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.local_server_running()
+            || self.local_server_publishing
+            || self.local_server_starting
+            || self.local_server_stopping
+        {
+            return;
+        }
+        let payload_text = self.local_server_publish_payload.read(cx).value().to_string();
+        let payload = match encode_publish_payload(
+            self.local_server_publish_payload_format,
+            &payload_text,
+        ) {
+            Ok(payload) => payload,
+            Err(error) => {
+                self.local_server_notice = Some((error, true));
+                cx.notify();
+                return;
+            }
+        };
+        let request = MqttPublishRequest {
+            topic: value(&self.local_server_publish_topic, cx),
+            payload,
+            qos: self.local_server_publish_qos,
+            retain: self.local_server_publish_retain,
+            user_properties: Vec::new(),
+        };
+        if let Err(error) = request.validate() {
+            self.local_server_notice = Some((error, true));
+            cx.notify();
+            return;
+        }
+        self.local_server_publish_id = self.local_server_publish_id.wrapping_add(1);
+        let publish_id = self.local_server_publish_id;
+        self.local_server_publishing = true;
+        self.local_server_notice = Some(("正在向本地 MQTT Broker 发布消息…".into(), false));
+        let service = self.service.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let result = service.publish_local_server(&request).await;
+            let _ = this.update_in(cx, |this, _, cx| {
+                if this.local_server_publish_id != publish_id {
+                    return;
+                }
+                this.local_server_publishing = false;
+                this.local_server_notice = Some(match result {
+                    Ok(result) => (
+                        format!(
+                            "已注入发布到 {}（QoS {}{}）",
+                            result.topic,
+                            result.qos.as_u8(),
+                            if request.retain { "，Retain" } else { "" }
+                        ),
+                        false,
+                    ),
+                    Err(error) => (
+                        format!("本地 Broker 发布失败：{}", error.user_message()),
+                        true,
+                    ),
+                });
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
     fn toggle_local_server_anonymous(&mut self) {
         self.local_server_allow_anonymous = !self.local_server_allow_anonymous;
         self.local_server_notice = None;

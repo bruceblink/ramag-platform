@@ -4,7 +4,8 @@ impl MqttView {
         let running = self.local_server_running();
         let busy = self.local_server_loading
             || self.local_server_starting
-            || self.local_server_stopping;
+            || self.local_server_stopping
+            || self.local_server_publishing;
         let status_text = if self.local_server_starting {
             "正在启动本地 MQTT Broker…".to_string()
         } else if self.local_server_stopping {
@@ -186,6 +187,85 @@ impl MqttView {
                     .text_sm()
                     .text_color(status_color)
                     .child(status_text),
+            )
+            .child(section_heading(
+                "Broker 注入发布",
+                "消息由本地 Broker 直接送入订阅路由，不创建额外 MQTT 客户端连接；载荷格式、QoS 和 Retain 与客户端发布保持一致。",
+                &theme,
+            ))
+            .child(
+                field(
+                    "Topic",
+                    input_frame(
+                        "mqtt-local-server-publish-topic-input",
+                        Input::new(&self.local_server_publish_topic)
+                            .small()
+                            .disabled(!running || busy)
+                            .w_full()
+                            .min_w_0(),
+                    ),
+                )
+                .w_full(),
+            )
+            .child(
+                field(
+                    "Payload",
+                    input_frame(
+                        "mqtt-local-server-publish-payload-input",
+                        Input::new(&self.local_server_publish_payload)
+                            .h(px(140.0))
+                            .small()
+                            .disabled(!running || busy)
+                            .w_full()
+                            .min_w_0(),
+                    ),
+                )
+                .w_full(),
+            )
+            .child(
+                row()
+                    .debug_selector(|| "mqtt-local-server-publish-options".into())
+                    .child(payload_format_selector(
+                        "mqtt-local-server-publish-payload-format",
+                        self.local_server_publish_payload_format,
+                        !running || busy,
+                        cx,
+                        |this, format| this.local_server_publish_payload_format = format,
+                    ))
+                    .child(qos_selector(
+                        "mqtt-local-server-publish-qos",
+                        self.local_server_publish_qos,
+                        !running || busy,
+                        cx,
+                        |this, qos| this.local_server_publish_qos = qos,
+                    ))
+                    .child(toggle_button(
+                        "mqtt-local-server-publish-retain",
+                        "Retain",
+                        self.local_server_publish_retain,
+                        !running || busy,
+                        cx,
+                        |this| this.local_server_publish_retain = !this.local_server_publish_retain,
+                    )),
+            )
+            .child(
+                div()
+                    .debug_selector(|| "mqtt-local-server-publish-actions".into())
+                    .self_start()
+                    .child(
+                        ramag_ui::clickable_button("mqtt-local-server-publish")
+                            .debug_selector(|| "mqtt-local-server-publish".into())
+                            .primary()
+                            .small()
+                            .flex_none()
+                            .self_start()
+                            .label("注入发布")
+                            .loading(self.local_server_publishing)
+                            .disabled(!running || busy)
+                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                this.publish_local_server(window, cx)
+                            })),
+                    ),
             )
             .child(section_heading(
                 "固定账号",
