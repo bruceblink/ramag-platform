@@ -291,3 +291,5 @@ MQTT-012 消息查看器首版切片（2026-09-18）：消息卡片接入上下�
 MQTT-013 订阅逐条运行状态切片（2026-09-18）：新增 `MqttSubscriptionStatus` 和状态回调，开始订阅后每条 Topic Filter 先显示“订阅中”；Native MQTT 3.1.1/5 驱动读取 Broker `SubAck` 返回码，分别回传“已订阅”或“失败”，请求发送失败和连接错误会保留失败原因。停止、配置切换和列表编辑会清理未完成状态，状态通道容量与 `MAX_MQTT_SUBSCRIPTIONS` 一致。`ramag-domain` 194 项、`ramag-app` 217 项、`ramag-infra-mqtt` native 测试 14 项通过且 1 项按环境忽略，Docker MQTT 集成测试 1 项通过，`ramag-tool-mqtt` 22 项库测试通过；Native 本地 Broker 回归已读取成功 `SubAck`。真实 Windows 窗口状态回读、远端 Broker 拒绝码和单条新增/取消订阅仍未完成。
 
 MQTT-014 JSON 消息树查看切片（2026-09-18）：消息查看器在 JSON 格式下显示对象和数组节点，支持节点展开/收起；载荷超过 2 MiB、节点超过 2048 个或嵌套超过 32 层时不构造树，回退到有界文本并显示具体原因，非法 JSON 同样保留原始文本。新增 JSON 树结构上限、非法输入和 360/1024/1440px headless 展开/收起测试；`ramag-tool-mqtt` 23 项库测试和目标 Clippy 通过。真实 Windows 窗口、菜单点击截图和大载荷实际操作仍未完成。
+
+MQTT-015 发布载荷快捷交互切片（2026-09-18）：发布 Payload 改为有界多行编辑器，普通 Enter 保留换行，Ctrl+Enter 发布当前载荷；快捷键产生的临时换行不会进入 MQTT 载荷，光标恢复到正文末尾。Hex/Base64 转换失败时保留原始输入，显示具体错误，不调用 MQTT 驱动；发布配置校验失败也会显示实际校验原因，不再静默返回。新增 headless 键盘发布和转换失败回归测试；`ramag-tool-mqtt` 25 项库测试、目标 Clippy、`ramag-infra-mqtt` native 14 项测试（1 项按环境忽略）、格式检查和 `git diff --check` 通过。真实 Windows 键盘操作、截图和远端 Broker 发布仍未完成。
