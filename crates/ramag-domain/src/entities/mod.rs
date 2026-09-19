@@ -1,3 +1,4 @@
+pub mod api;
 pub mod clipboard;
 pub mod connection;
 pub mod container;
@@ -29,6 +30,22 @@ pub mod transaction;
 pub mod transfer;
 pub mod update;
 
+pub use api::{
+    ApiAssertion, ApiAuth, ApiBody, ApiCancellation, ApiCollection, ApiCollectionId,
+    ApiEnvironment, ApiEnvironmentId, ApiGrpcDescriptor, ApiKeyLocation, ApiParameter, ApiProtocol,
+    ApiRequestId, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts,
+    ApiResponseStatus, ApiTlsConfig, ApiTlsVerify, ApiWorkspace, ApiWorkspaceId, GrpcRequestSpec,
+    HttpRequestSpec, MAX_API_ASSERTION_VALUE_BYTES, MAX_API_ASSERTIONS,
+    MAX_API_COLLECTION_NAME_BYTES, MAX_API_COLLECTIONS, MAX_API_DESCRIPTOR_BYTES,
+    MAX_API_ENVIRONMENT_NAME_BYTES, MAX_API_ENVIRONMENT_VARIABLES, MAX_API_ENVIRONMENTS,
+    MAX_API_ERROR_BYTES, MAX_API_GRPC_ENDPOINT_BYTES, MAX_API_GRPC_METHOD_BYTES,
+    MAX_API_GRPC_SERVICE_BYTES, MAX_API_HTTP_METHOD_BYTES, MAX_API_PARAMETER_COUNT,
+    MAX_API_PARAMETER_NAME_BYTES, MAX_API_PARAMETER_VALUE_BYTES, MAX_API_REQUEST_BODY_BYTES,
+    MAX_API_REQUEST_NAME_BYTES, MAX_API_REQUESTS, MAX_API_RESPONSE_BODY_BYTES,
+    MAX_API_TIMEOUT_MILLIS, MAX_API_TLS_PATH_BYTES, MAX_API_URL_TEMPLATE_BYTES,
+    MAX_API_VARIABLE_NAME_BYTES, MAX_API_WORKSPACE_NAME_BYTES, MAX_API_WORKSPACES,
+    bound_response_body,
+};
 pub use clipboard::{
     CapturedClip, ClipId, ClipItem, ClipKind, ClipSearchResult, ClipSource, ClipboardSettings,
     MAX_CLIPBOARD_ITEM_BYTES, MAX_CLIPBOARD_SEARCH_BYTES, classify_text, fnv1a_hash,

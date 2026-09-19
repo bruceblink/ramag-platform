@@ -104,6 +104,7 @@ fn fresh_storage_initializes_complete_schema() {
         .map(|table| table.name().to_string())
         .collect::<BTreeSet<_>>();
     let expected = BTreeSet::from([
+        "api_workspaces".to_string(),
         "clip_by_hash".to_string(),
         "clip_by_time".to_string(),
         "clip_search_filters_v1".to_string(),
@@ -571,6 +572,7 @@ use ramag_domain::entities::{
     ClipId, ClipKind, CloudProvider, ManualBucket, ObjectStorageAccount, SecretString,
 };
 
+mod api_tests;
 mod clip_tests;
 mod kafka_tests;
 mod mqtt_tests;

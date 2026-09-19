@@ -4,14 +4,39 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use async_trait::async_trait;
 
 use crate::entities::{
-    ClipId, ClipItem, ClipSearchResult, ConnectionConfig, ConnectionId, KafkaClusterConfig,
-    KafkaClusterId, MqttProfile, MqttProfileId, ObjectStorageAccount, ObjectStorageAccountId,
-    QueryHistoryPage, QueryRecord, QueryRecordId, RepoConfig, RepoId, SshProfile, SshProfileId,
+    ApiWorkspace, ApiWorkspaceId, ClipId, ClipItem, ClipSearchResult, ConnectionConfig,
+    ConnectionId, KafkaClusterConfig, KafkaClusterId, MqttProfile, MqttProfileId,
+    ObjectStorageAccount, ObjectStorageAccountId, QueryHistoryPage, QueryRecord, QueryRecordId,
+    RepoConfig, RepoId, SshProfile, SshProfileId,
 };
 use crate::error::Result;
 
 #[async_trait]
 pub trait Storage: Send + Sync {
+    async fn list_api_workspaces(&self) -> Result<Vec<ApiWorkspace>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "list_api_workspaces".into(),
+        ))
+    }
+
+    async fn get_api_workspace(&self, _id: &ApiWorkspaceId) -> Result<Option<ApiWorkspace>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "get_api_workspace".into(),
+        ))
+    }
+
+    async fn save_api_workspace(&self, _workspace: &ApiWorkspace) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "save_api_workspace".into(),
+        ))
+    }
+
+    async fn delete_api_workspace(&self, _id: &ApiWorkspaceId) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "delete_api_workspace".into(),
+        ))
+    }
+
     async fn list_mqtt_profiles(&self) -> Result<Vec<MqttProfile>> {
         Err(crate::error::DomainError::NotImplemented(
             "list_mqtt_profiles".into(),

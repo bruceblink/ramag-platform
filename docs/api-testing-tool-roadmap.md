@@ -1,6 +1,6 @@
 # API 测试工具开发计划
 
-> 状态：`API-000` gRPC 动态 Unary 预研已完成；`API-001` 尚未开始。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
+> 状态：`API-000` gRPC 动态 Unary 预研已完成；`API-001` 领域模型与本地存储已完成；下一项为 `API-002` HTTP 执行链路。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
 >
 > 适用范围：Ramag Platform 的 API 测试工作台、HTTP 请求、gRPC 请求、请求集合、环境变量、响应断言和本地测试服务验收。
 >
@@ -97,7 +97,20 @@ flowchart LR
 
 `ramag-infra-api` 的 2 项预研测试通过：动态 Descriptor Unary 调用和方法路径校验。该测试使用进程内的最小 gRPC 服务验证 Codec/调用链，不替代后续本机 Docker 服务集成测试。`tonic-reflection` 当前主要提供服务端实现，虽包含生成的 Reflection 客户端消息和客户端类型，仍需在 `API-003` 中验证服务发现、FileDescriptor 拉取、依赖文件合并和错误恢复。
 
-### 3.1 HTTP 请求
+### 3.1 API-001 领域模型、限制和本地存储记录（2026-09-19）
+
+`API-001` 已完成并通过领域层与本地 Storage 验收：
+
+- `ramag-domain` 新增 `ApiWorkspace`、`ApiCollection`、`ApiRequestRecord`、`ApiEnvironment`、声明式 `ApiAssertion`、HTTP/gRPC 请求规格和有界 `ApiResponseSnapshot`。
+- HTTP 请求覆盖 Method、URL 模板、Query、Headers、Basic/Bearer/API Key、正文和超时；gRPC 请求覆盖 Endpoint、Service、Method、Metadata、Reflection/FileDescriptorSet 和 TLS 路径。
+- 领域层统一校验名称、协议字段、参数数量和值长度、请求/响应正文、Descriptor 大小、断言数量、超时、ID 唯一性和 Environment 引用；响应正文提供有界裁剪并保留原始大小。
+- `ApiDriver` 只定义应用层需要的协议执行接口，不依赖 `reqwest`、`tonic` 或 UI；取消标记和变量映射由调用方传入。
+- `ramag-infra-storage` 新增加密 `api_workspaces` redb 表和 CRUD；读取、写入、列表数量与总字节预算均重复校验，工作区中的 Token、密码、请求正文不以明文落盘，响应快照不持久化。
+- 新字段使用 serde 默认值保持旧请求 JSON 可读取；专项测试覆盖校验、脱敏 Debug、正文限制、旧 JSON 兼容、加密往返和删除。
+
+本切片验证结果：`ramag-domain` 198 项通过，`ramag-infra-storage` 76 项通过、3 项既有性能测试忽略；workspace Clippy、`ramag-bin` 构建和格式检查通过。未在本切片宣称 HTTP/gRPC Docker 集成或 UI 完成。
+
+### 3.2 HTTP 请求
 
 - 方法：`GET`、`POST`、`PUT`、`PATCH`、`DELETE`、`HEAD`、`OPTIONS`。
 - URL、Query 参数、Headers。
@@ -108,7 +121,7 @@ flowchart LR
 - JSON 格式化、纯文本查看和正文大小限制。
 - 状态码、Header、Body 包含文本、JSON 字段和耗时断言。
 
-### 3.2 gRPC 请求
+### 3.3 gRPC 请求
 
 - 明文和 TLS 连接。
 - `.proto` 文件导入。
@@ -118,7 +131,7 @@ flowchart LR
 - 请求 Metadata、响应 Metadata、Trailers、Status 和耗时。
 - gRPC 状态码、Metadata、消息字段和耗时断言。
 
-### 3.3 公共能力
+### 3.4 公共能力
 
 - Workspace、Collection、Folder、Request 的新增、保存、编辑、复制和删除。
 - 请求 Tab 和最近执行历史。
@@ -244,10 +257,10 @@ git diff --check
 
 ## 10. 当前未完成项
 
-- 尚未创建 `ramag-domain` API 实体和正式驱动接口。
+- `API-001` 已完成；尚未实现 HTTP/gRPC 执行驱动。
 - 尚未完成 Reflection 客户端、FileDescriptor 依赖合并和 gRPC 服务目录读取。
 - 尚未创建 HTTP/gRPC Docker 测试服务。
-- 尚未实现 `ramag-tool-api`、Storage 扩展和应用服务；`ramag-bin` 尚未注册 API 工具。
-- 尚未运行 API 工具专项测试、Docker 集成测试或 UI 截图验收。
+- 尚未实现 `ramag-tool-api`、应用服务和 `ramag-bin` API 工具注册。
+- 尚未运行 HTTP/gRPC API Docker 集成测试或 API UI 截图验收；当前只有领域/Storage 专项测试。
 
-下一项任务固定为 `API-001`：基于已验证的动态 Descriptor 调用链定义共享领域模型、限制和本地存储，避免先做 UI 后被运行时协议能力反向推翻。
+下一项任务固定为 `API-002`：实现 HTTP 请求构造、响应解析、取消和超时，并使用本机 Docker HTTP 服务形成真实协议证据。

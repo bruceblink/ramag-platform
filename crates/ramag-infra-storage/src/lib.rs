@@ -20,10 +20,10 @@ use redb::{Database, ReadableDatabase as _, ReadableTableMetadata as _, TableErr
 use tracing::{debug, info, warn};
 
 use ramag_domain::entities::{
-    ClipId, ClipItem, ClipSearchResult, ConnectionConfig, ConnectionId, KafkaClusterConfig,
-    KafkaClusterId, MAX_CLIPBOARD_SEARCH_BYTES, MqttProfile, MqttProfileId, ObjectStorageAccount,
-    ObjectStorageAccountId, QueryHistoryPage, QueryRecord, QueryRecordId, RepoConfig, RepoId,
-    SshProfile, SshProfileId,
+    ApiWorkspace, ApiWorkspaceId, ClipId, ClipItem, ClipSearchResult, ConnectionConfig,
+    ConnectionId, KafkaClusterConfig, KafkaClusterId, MAX_CLIPBOARD_SEARCH_BYTES, MqttProfile,
+    MqttProfileId, ObjectStorageAccount, ObjectStorageAccountId, QueryHistoryPage, QueryRecord,
+    QueryRecordId, RepoConfig, RepoId, SshProfile, SshProfileId,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::Storage;
@@ -74,6 +74,7 @@ impl RedbStorage {
 
         // 首启迁移：为存量历史构建时间 / 去重索引（空库或已建则瞬时返回）
         repos::clip_repo::migrate_indexes(db.clone(), cipher.clone())?;
+        let _ = repos::api_workspace_repo::list(db.clone(), cipher.clone())?;
         let _ = repos::connection_repo::list(db.clone(), cipher.clone())?;
         let _ = repos::kafka_cluster_repo::list(db.clone(), cipher.clone())?;
         let _ = repos::mqtt_profile_repo::list(db.clone(), cipher.clone())?;
@@ -149,6 +150,7 @@ fn database_has_encrypted_records(db: &Database) -> Result<bool> {
         .begin_read()
         .map_err(|e| DomainError::Storage(format!("检查加密数据失败：{e}")))?;
     for definition in [
+        repos::api_workspace_repo::API_WORKSPACES_TABLE,
         repos::connection_repo::CONNECTIONS_TABLE,
         repos::clip_repo::CLIPS_TABLE,
         repos::ssh_profile_repo::SSH_PROFILES_TABLE,
@@ -184,6 +186,32 @@ fn validate_clip_search_query(query: &str) -> Result<()> {
 
 #[async_trait]
 impl Storage for RedbStorage {
+    async fn list_api_workspaces(&self) -> Result<Vec<ApiWorkspace>> {
+        let db = self.db.clone();
+        let cipher = self.cipher.clone();
+        run_blocking(move || repos::api_workspace_repo::list(db, cipher)).await
+    }
+
+    async fn get_api_workspace(&self, id: &ApiWorkspaceId) -> Result<Option<ApiWorkspace>> {
+        let db = self.db.clone();
+        let cipher = self.cipher.clone();
+        let id = id.to_string();
+        run_blocking(move || repos::api_workspace_repo::get(db, cipher, id)).await
+    }
+
+    async fn save_api_workspace(&self, workspace: &ApiWorkspace) -> Result<()> {
+        let db = self.db.clone();
+        let cipher = self.cipher.clone();
+        let workspace = workspace.clone();
+        run_blocking(move || repos::api_workspace_repo::save(db, cipher, workspace)).await
+    }
+
+    async fn delete_api_workspace(&self, id: &ApiWorkspaceId) -> Result<()> {
+        let db = self.db.clone();
+        let id = id.to_string();
+        run_blocking(move || repos::api_workspace_repo::delete(db, id)).await
+    }
+
     async fn list_mqtt_profiles(&self) -> Result<Vec<MqttProfile>> {
         let db = self.db.clone();
         let cipher = self.cipher.clone();
