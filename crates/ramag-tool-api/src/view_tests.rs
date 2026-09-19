@@ -66,6 +66,9 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
             .debug_bounds("api-root")
             .expect("API 根节点应渲染");
         let editor = visual_cx
+            .debug_bounds("api-editor")
+            .expect("API 编辑器应渲染");
+        let request_editor = visual_cx
             .debug_bounds("api-request-editor")
             .expect("请求编辑器应渲染");
         let header = visual_cx
@@ -93,6 +96,18 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
             .debug_bounds("api-response")
             .expect("响应面板应渲染");
         assert!(editor.right() <= root.right(), "编辑器不能越出根节点");
+        assert!(
+            editor.origin.y >= content_root.origin.y,
+            "编辑器不能垂直越过主体顶部"
+        );
+        assert!(
+            editor.bottom() <= content_root.bottom(),
+            "编辑器不能越出主体底部"
+        );
+        assert!(
+            request_editor.right() <= editor.right(),
+            "请求编辑器不能越出 API 编辑器"
+        );
         assert!(response.right() <= root.right(), "响应面板不能越出根节点");
         assert!(editor.origin.x >= root.origin.x, "编辑器左边界不能越界");
         assert!(
@@ -110,6 +125,10 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         assert!(
             request_pane.right() <= workbench.right(),
             "请求面板不能越出工作区: pane={request_pane:?}, workbench={workbench:?}"
+        );
+        assert!(
+            workbench.bottom() <= content_root.bottom(),
+            "请求响应工作区不能越出主体底部: workbench={workbench:?}, content={content_root:?}"
         );
         assert!(
             request_pane.origin.y >= command_row.origin.y,

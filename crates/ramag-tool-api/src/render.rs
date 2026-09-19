@@ -29,8 +29,8 @@ pub(super) fn render(
             .id("api-content")
             .debug_selector(|| "api-content".into())
             .flex_1()
-            .min_h_0()
             .min_w_0()
+            .items_stretch()
             .child(sidebar)
             .child(editor)
     };
@@ -241,7 +241,7 @@ fn render_editor(
             .flex_1()
             .min_w_0()
             .min_h_0()
-            .items_start()
+            .items_stretch()
             .child(request_pane)
             .child(render_response(view, cx, theme))
     };
@@ -249,6 +249,7 @@ fn render_editor(
         .id("api-editor")
         .debug_selector(|| "api-editor".into())
         .flex_1()
+        .h_full()
         .min_w_0()
         .min_h_0()
         .child(render_request_toolbar(view, cx, theme))

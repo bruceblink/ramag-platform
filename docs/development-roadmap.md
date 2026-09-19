@@ -313,3 +313,5 @@ API-005/006 API 工作台功能切片（2026-09-19）：断言、Environment、�
 API 工作台布局修正（2026-09-19）：请求工具栏将 Method/URL 与保存、发送、取消、Collection 操作合并为响应式命令行，1440px 宽窗口同排，360/640px 窄窗口自动换行；新增 headless bounds 断言，确认命令行、操作区和请求/响应工作区不重叠。下一项 API 工作聚焦 `API-007` 高级传输能力，保持真实 Docker、headless UI 与原生窗口证据分开记录。
 
 API Params 编辑器修正（2026-09-19）：HTTP 工作台新增逐行 `name=value` 查询参数编辑器，导入的 Query 参数会回填并参与保存、发送和 Environment 模板展开；`ramag-tool-api` 12 项 headless 测试通过，Computer Use 仍无法取得可控原生窗口。
+
+API 工作台主体对齐修正（2026-09-19）：修复 API 主体横向 Flex 默认垂直居中导致的编辑器顶部偏移、响应面板错位和工作区底部越界；主体、编辑器和请求/响应分栏改为拉伸填充，新增 1024/1440px 主体上下边界断言。Computer Use 仍无法取得可控原生窗口，本次 UI 验收使用 GPUI headless bounds 测试。
