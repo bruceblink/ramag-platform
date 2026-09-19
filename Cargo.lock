@@ -7718,6 +7718,7 @@ dependencies = [
  "gpui_platform",
  "ramag-app",
  "ramag-domain",
+ "ramag-infra-api",
  "ramag-infra-clipboard",
  "ramag-infra-container-docker",
  "ramag-infra-container-registry",
@@ -7734,6 +7735,7 @@ dependencies = [
  "ramag-infra-storage",
  "ramag-infra-tunnel",
  "ramag-infra-update",
+ "ramag-tool-api",
  "ramag-tool-clipboard",
  "ramag-tool-container",
  "ramag-tool-dbclient",
@@ -8097,6 +8099,21 @@ dependencies = [
  "gpui-component",
  "parking_lot",
  "tracing",
+]
+
+[[package]]
+name = "ramag-tool-api"
+version = "0.1.2"
+dependencies = [
+ "async-trait",
+ "gpui",
+ "gpui-component",
+ "ramag-app",
+ "ramag-domain",
+ "ramag-infra-api",
+ "ramag-infra-storage",
+ "ramag-ui",
+ "tempfile",
 ]
 
 [[package]]

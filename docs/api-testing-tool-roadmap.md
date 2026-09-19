@@ -1,6 +1,6 @@
 # API 测试工具开发计划
 
-> 状态：`API-000` gRPC 动态 Unary 预研、`API-001` 领域模型与本地存储、`API-002` HTTP 执行链路、`API-003` gRPC Unary 执行链路已完成；下一项为 `API-004` API 工作台 UI。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
+> 状态：`API-000` gRPC 动态 Unary 预研、`API-001` 领域模型与本地存储、`API-002` HTTP 执行链路、`API-003` gRPC Unary 执行链路和 `API-004` API 工作台 UI 已完成；下一项为 `API-005` 断言、环境变量和历史。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
 >
 > 适用范围：Ramag Platform 的 API 测试工作台、HTTP 请求、gRPC 请求、请求集合、环境变量、响应断言和本地测试服务验收。
 >
@@ -46,7 +46,7 @@ API 测试工具首个可交付版本完成以下闭环：
 - `ramag-infra-*` 负责具体协议与外部服务适配。
 - `ramag-tool-*` 负责工作台 UI，`ramag-bin` 负责内置工具装配和视图注册。
 - Workspace 已直接使用 `reqwest`、`http`、Tokio 和 Rustls，可复用现有 HTTP 客户端基础设施。
-- `ramag-infra-api` 已完成 gRPC 动态 Unary 执行链路，使用 `tonic`、`tonic-prost`、`prost`、`prost-types`、`prost-reflect` 和 `tonic-reflection`；API 工作台 UI 仍需在 `API-004` 中接入。
+- `ramag-infra-api` 已完成 gRPC 动态 Unary 执行链路，使用 `tonic`、`tonic-prost`、`prost`、`prost-types`、`prost-reflect` 和 `tonic-reflection`；API 工作台 UI 已在 `API-004` 中接入，后续继续补充断言、环境变量和历史。
 - 本地 Storage 已保存 MQTT/Kafka 等配置，API 工作区需要新增专用实体和加密字段存储，不复用 MQTT 或 Kafka 配置结构。
 
 ## 2. 目标架构
@@ -175,6 +175,20 @@ flowchart LR
 - 加载、执行、成功、失败、取消、超时和变量缺失状态。
 - 配置变更或切换请求后，旧请求的迟到结果不得污染当前页面。
 
+### 3.5 API-004 API 工作台 UI 记录（2026-09-19）
+
+`ramag-tool-api` 已接入 Ramag 工具注册和主窗口 Shell，提供第一版 HTTP/gRPC Unary 请求工作区：
+
+- 左侧显示工作区、当前请求名称、协议和已保存请求摘要；顶部支持 HTTP/gRPC 切换、保存、发送和取消。
+- HTTP 编辑器支持 Method、URL 和有界请求正文；gRPC 编辑器支持 Endpoint、Service、Method、Metadata 名称/值和 Protobuf JSON 消息。
+- 响应区显示 HTTP 状态或 gRPC Status、耗时、大小、响应 Headers/Metadata 和有界正文预览；响应失败会保留具体错误提示。
+- `ApiService` 在应用边界重复执行请求校验，并在受控 app worker 中为 HTTP/gRPC 驱动建立 Tokio runtime，避免 GPUI 后台执行器缺少 Tokio reactor 时发送请求失败。
+- 保存操作写入 API Workspace 的默认 Collection；发送操作带有取消标记和请求代次检查，迟到的旧结果不会覆盖当前请求。
+
+UI 验收证据：`ramag-tool-api` headless GPUI 测试覆盖 360、640、1024 和 1440 像素宽度，验证请求/响应边界、协议切换、发送/保存状态和实际 HTTP/gRPC 请求。双协议 UI 测试连接本机 Docker 服务并通过真实驱动返回 HTTP 200 和 gRPC `ok`；gRPC 夹具要求的 `x-request: docker` Metadata 已由界面字段发送。Computer Use 当前返回可控应用列表为空，因此本切片没有真实 Windows 窗口截图或键盘/鼠标证据，不能将 headless 结果描述为原生窗口验收。
+
+本机 Docker 服务保持运行供复验：`ramag-api-http-test` 使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，绑定 `127.0.0.1:18089 -> 8080`；`ramag-api-grpc-test` 使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，绑定 `127.0.0.1:18090 -> 50051`。两个容器健康检查均为 `healthy`。API-005 仍需补充断言、环境变量编辑、执行历史和结果摘要。
+
 ## 4. 首期非目标
 
 - gRPC Client/Server/Bidirectional Streaming 不阻塞首个双协议版本，单独排期到 `API-007`。
@@ -261,6 +275,8 @@ ApiResponseSnapshot   = status, headers, metadata, body, timing, size, truncated
 - Computer Use 不可用时，使用 GPUI headless 渲染和交互测试，并明确记录真实窗口限制。
 - 截图只证明可见界面状态；协议行为必须由应用层和本机 Docker 集成测试证明。
 
+2026-09-19 API-004 验收记录：`cargo test --locked -p ramag-tool-api --lib` 覆盖 API 工作台 headless 布局、协议切换、无服务状态和本机 Docker 双协议发送；其中 UI Docker 用例实际收到 HTTP 200 和 gRPC `ok`。本机 Docker 服务为 `ramag-api-http-test`（Python 3.12.11 Alpine 3.22，`127.0.0.1:18089`）和 `ramag-api-grpc-test`（Rust 1.91.0 Bookworm，`127.0.0.1:18090`），均保持 healthy/running。Computer Use 返回可控应用列表为空，未取得真实 Windows 窗口截图；本次 UI 完成状态仅包含 headless 和真实 Docker 交互证据。
+
 2026-09-19 验收记录：`cargo test --locked -p ramag-tool-mqtt --lib -- --test-threads=1` 通过 30 项 headless GPUI 测试，覆盖连接名称/Endpoint 展示、连接测试与保存、发布、订阅主题增删和启停、消息选项、服务端客户端/主题/指标快照、动态安全管理编辑器及 360/1024/1440 宽度布局。Computer Use 返回可控应用列表为空，本轮未取得真实 Windows 窗口截图；不能以 headless 结果替代真实窗口证据。
 
 ### 8.4 提交前检查
@@ -297,8 +313,8 @@ git diff --check
 
 ## 10. 当前未完成项
 
-- `API-001` 至 `API-003` 已完成；HTTP 和 gRPC 驱动均已有本地协议测试与本机 Docker 集成验收记录。
-- 尚未实现 `ramag-tool-api`、应用服务和 `ramag-bin` API 工具注册。
-- 尚未实现 `API-004` API 工作台 UI，也尚未完成 API UI 的真实窗口截图验收；当前 MQTT 工作台已有 headless GPUI 验收，但真实窗口证据仍受 Computer Use 应用列表为空限制。
+- `API-001` 至 `API-004` 已完成；HTTP 和 gRPC 驱动均已有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。
+- API 工作台的真实 Windows 窗口截图、键盘操作和鼠标操作仍未完成，原因是 Computer Use 返回可控应用列表为空；这项限制不影响已完成的 headless 布局/交互测试和 Docker 协议测试，但不能把 API-004 的窗口验收写成完成。
+- `API-005` 尚未实现，需要补充声明式断言、环境变量编辑与变量替换、执行历史、敏感值脱敏和对应 UI/应用层测试。
 
-下一项推进 `API-004`：接入 API 工作台 UI、应用服务和 `ramag-bin` 工具注册，再以 HTTP/gRPC 驱动和本机 Docker 服务完成双协议 UI 验收。
+下一项推进 `API-005`：补充断言、环境变量和历史闭环，再以成功、失败、取消、变量缺失和敏感值脱敏场景完成验收。

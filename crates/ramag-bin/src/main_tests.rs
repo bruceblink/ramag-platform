@@ -80,6 +80,7 @@ fn clipboard_tool_is_registered_last() {
         ids,
         [
             "dbclient",
+            "api",
             "kafka",
             "mqtt",
             "vcs",
@@ -105,6 +106,7 @@ fn clipboard_tool_is_not_registered_on_linux() {
         ids,
         [
             "dbclient",
+            "api",
             "kafka",
             "mqtt",
             "vcs",

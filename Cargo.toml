@@ -23,6 +23,7 @@ members = [
     "crates/ramag-infra-container-registry",
     "crates/ramag-terminal",
     "crates/ramag-tool-dbclient",
+    "crates/ramag-tool-api",
     "crates/ramag-tool-kafka",
     "crates/ramag-tool-mqtt",
     "crates/ramag-tool-redis",
@@ -69,6 +70,7 @@ ramag-infra-container-docker = { path = "crates/ramag-infra-container-docker" }
 ramag-infra-container-registry = { path = "crates/ramag-infra-container-registry" }
 ramag-terminal = { path = "crates/ramag-terminal" }
 ramag-tool-dbclient = { path = "crates/ramag-tool-dbclient" }
+ramag-tool-api = { path = "crates/ramag-tool-api" }
 ramag-tool-kafka = { path = "crates/ramag-tool-kafka" }
 ramag-tool-mqtt = { path = "crates/ramag-tool-mqtt" }
 ramag-tool-redis = { path = "crates/ramag-tool-redis" }

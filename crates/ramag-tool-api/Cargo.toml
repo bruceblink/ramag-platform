@@ -1,0 +1,24 @@
+[package]
+name = "ramag-tool-api"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Ramag HTTP 与 gRPC API 测试工作台"
+
+[lints]
+workspace = true
+
+[dependencies]
+gpui = { workspace = true }
+gpui-component = { workspace = true }
+ramag-app = { workspace = true }
+ramag-domain = { workspace = true }
+ramag-ui = { workspace = true }
+
+[dev-dependencies]
+async-trait = { workspace = true }
+gpui = { workspace = true, features = ["test-support"] }
+ramag-infra-api = { workspace = true }
+ramag-infra-storage = { workspace = true }
+tempfile = "3"

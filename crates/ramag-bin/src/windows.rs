@@ -12,6 +12,7 @@ pub(super) struct AppDeps {
     pub(super) plugin_host: Arc<StaticPluginHost>,
     pub(super) registry: Arc<ToolRegistry>,
     pub(super) conn_service: Arc<ConnectionService>,
+    pub(super) api_service: Arc<ApiService>,
     pub(super) redis_service: Arc<RedisService>,
     pub(super) mongo_service: Arc<MongoService>,
     pub(super) kafka_service: Arc<KafkaService>,
@@ -134,6 +135,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         plugin_host,
         registry,
         conn_service,
+        api_service,
         redis_service,
         mongo_service,
         kafka_service,
@@ -219,6 +221,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     window,
                     cx,
                 );
+                let api_view = create_api_view(api_service.clone(), window, cx);
                 let kafka_view = create_kafka_view(kafka_service.clone(), window, cx);
                 let mqtt_view = create_mqtt_view(mqtt_service.clone(), window, cx);
 
@@ -266,6 +269,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     shell.set_home_view(home_view.clone().into());
                     shell.set_settings_view(settings_view.clone().into());
                     shell.register_tool_view(DbClientTool::ID, dbclient_view.clone().into());
+                    shell.register_tool_view(ApiTool::ID, api_view.into());
                     shell.register_tool_view(KafkaTool::ID, kafka_view.into());
                     shell.register_tool_view(MqttTool::ID, mqtt_view.into());
                     shell.register_tool_view(VcsTool::ID, vcs_view.into());

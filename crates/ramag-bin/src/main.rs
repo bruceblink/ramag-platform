@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod app_actions;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod clipboard_runtime;
 mod composition;
@@ -13,6 +14,7 @@ mod tray;
 mod window_layout;
 mod windows;
 
+use app_actions::{confirm_ssh_host, open_path_in_file_manager};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use clipboard_runtime::*;
 use composition::*;
@@ -29,8 +31,8 @@ use gpui::{
 };
 use gpui_component::Root;
 use ramag_app::{
-    AUTO_CHECK_INTERVAL, ClipboardService, ConnectionService, ContainerService, DataSyncGate,
-    DataSyncService, KafkaService, MongoService, MqttService, ObjectStorageService,
+    AUTO_CHECK_INTERVAL, ApiService, ClipboardService, ConnectionService, ContainerService,
+    DataSyncGate, DataSyncService, KafkaService, MongoService, MqttService, ObjectStorageService,
     PluginLifecycleReport, RedisService, SshService, StaticPluginAdapter, StaticPluginHost,
     TOOL_ORDER_PREF_KEY, ToolRegistry, UpdateService,
 };
@@ -40,6 +42,7 @@ use ramag_domain::traits::{
     DocDriver, Driver, GitDriver, JumpServerDriver, KafkaAdminDriver, KafkaDriver,
     KafkaMonitoringDriver, KafkaProducerDriver, KvDriver, MqttDriver, SshDriver, Storage,
 };
+use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use ramag_infra_clipboard::{
     HotkeyEvent, HotkeyListener, PlatformClipboardDriver, foreground_display_index,
@@ -61,6 +64,7 @@ use ramag_infra_sqlite::SqliteDriver;
 use ramag_infra_ssh::{JumpServerHttpDriver, OpenSshDriver};
 use ramag_infra_storage::RedbStorage;
 use ramag_infra_update::GitHubUpdateDriver;
+use ramag_tool_api::{ApiTool, create_api_view};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use ramag_tool_clipboard::{
     ClipboardImageCache, ClipboardTool, SelectNextClip, SelectPrevClip,
@@ -105,24 +109,6 @@ struct OpenLogDir;
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize, JsonSchema, Action)]
 #[action(namespace = ramag)]
 struct OpenFeedbackIssue;
-
-fn open_path_in_file_manager(dir: &std::path::Path) -> std::io::Result<()> {
-    #[cfg(target_os = "macos")]
-    let mut cmd = std::process::Command::new("open");
-    #[cfg(target_os = "windows")]
-    let mut cmd = std::process::Command::new("explorer");
-    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
-    let mut cmd = std::process::Command::new("xdg-open");
-    cmd.arg(dir);
-    let status = cmd.status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(std::io::Error::other(format!(
-            "系统文件管理器退出状态：{status}"
-        )))
-    }
-}
 
 fn main() {
     if let Some(exit_code) = ramag_infra_ssh::run_askpass_helper(confirm_ssh_host) {
@@ -188,6 +174,18 @@ fn main() {
     let redis_service: Arc<RedisService> = build_redis_service(storage.clone());
     let mongo_service: Arc<MongoService> = build_mongo_service(storage.clone());
     let kafka_service: Arc<KafkaService> = build_kafka_service(storage.clone());
+    let api_service = match build_api_service(storage.clone()) {
+        Ok(service) => service,
+        Err(error) => {
+            error!(operation = "api_service_init", error = %error, "API service initialization failed");
+            let _ = rfd::MessageDialog::new()
+                .set_level(rfd::MessageLevel::Error)
+                .set_title("Ramag 启动失败")
+                .set_description(format!("无法初始化 API 测试模块：\n\n{error}"))
+                .show();
+            std::process::exit(1);
+        }
+    };
     let mqtt_service: Arc<MqttService> = build_mqtt_service(storage.clone());
     let data_sync_gate = Arc::new(DataSyncGate::default());
     let data_sync_service = Arc::new(DataSyncService::new(
@@ -297,6 +295,7 @@ fn main() {
         plugin_host,
         registry,
         conn_service,
+        api_service,
         redis_service,
         mongo_service,
         kafka_service,
@@ -583,23 +582,6 @@ fn spawn_update_checks(service: Arc<UpdateService>, cx: &mut App) {
         }
     })
     .detach();
-}
-
-fn confirm_ssh_host(prompt: &str) -> bool {
-    let description = if prompt.trim().is_empty() {
-        "OpenSSH 请求确认远程主机指纹。请仅在你确认目标服务器身份后继续。"
-    } else {
-        prompt
-    };
-    matches!(
-        rfd::MessageDialog::new()
-            .set_level(rfd::MessageLevel::Warning)
-            .set_title("确认 SSH 主机指纹")
-            .set_description(description)
-            .set_buttons(rfd::MessageButtons::YesNo)
-            .show(),
-        rfd::MessageDialogResult::Yes
-    )
 }
 
 #[cfg(test)]

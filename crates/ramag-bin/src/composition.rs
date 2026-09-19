@@ -63,6 +63,7 @@ pub(super) fn read_preferences(
 pub(super) fn build_plugin_host() -> Arc<StaticPluginHost> {
     let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
     register_builtin_tool(&host, Arc::new(DbClientTool::new()));
+    register_builtin_tool(&host, Arc::new(ApiTool::new()));
     register_builtin_tool(&host, Arc::new(KafkaTool::new()));
     register_builtin_tool(&host, Arc::new(MqttTool::new()));
     register_builtin_tool(&host, Arc::new(VcsTool::new()));
@@ -180,6 +181,21 @@ pub(super) fn build_kafka_service(storage: Arc<dyn Storage>) -> Arc<KafkaService
         }
     };
     Arc::new(service)
+}
+
+/// 组合根创建 HTTP 与动态 gRPC 驱动；网络请求只在 API 工作台点击发送后发生。
+pub(super) fn build_api_service(storage: Arc<dyn Storage>) -> anyhow::Result<Arc<ApiService>> {
+    let http_driver: Arc<dyn ramag_domain::traits::ApiDriver> =
+        Arc::new(HttpApiDriver::new().map_err(|error| {
+            anyhow::anyhow!("初始化 API HTTP 驱动失败：{}", error.user_message())
+        })?);
+    let grpc_driver: Arc<dyn ramag_domain::traits::ApiDriver> =
+        Arc::new(GrpcApiDriver::new().map_err(|error| {
+            anyhow::anyhow!("初始化 API gRPC 驱动失败：{}", error.user_message())
+        })?);
+    let service = ApiService::new(http_driver, grpc_driver, storage)
+        .map_err(|error| anyhow::anyhow!("初始化 API 应用服务失败：{}", error.user_message()))?;
+    Ok(Arc::new(service))
 }
 
 /// 组合根启用 Native MQTT 驱动；未连接 Broker 时只创建客户端适配器，不发起网络请求。
