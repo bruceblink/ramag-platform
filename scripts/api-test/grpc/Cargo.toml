@@ -1,0 +1,24 @@
+[package]
+name = "ramag-api-grpc-test"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+publish = false
+
+[dependencies]
+prost = "0.14.4"
+tokio = { version = "1.52.1", features = ["macros", "net", "rt-multi-thread", "time"] }
+tokio-stream = "0.1.18"
+tonic = { version = "0.14.6", default-features = false, features = [
+    "codegen",
+    "router",
+    "tls-ring",
+    "transport",
+] }
+tonic-prost = "0.14.6"
+tonic-reflection = { version = "0.14.6", default-features = false, features = ["server"] }
+
+[build-dependencies]
+tonic-prost-build = "0.14.6"
+
+[workspace]

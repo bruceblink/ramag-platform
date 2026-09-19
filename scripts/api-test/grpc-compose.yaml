@@ -1,0 +1,26 @@
+services:
+  grpc:
+    build:
+      context: ./grpc
+      dockerfile: Dockerfile
+    image: ramag-api-grpc-test:rust-1.91.0-bookworm
+    container_name: ramag-api-grpc-test
+    ports:
+      - "127.0.0.1:18090:50051"
+    healthcheck:
+      test:
+        - CMD
+        - /bin/bash
+        - -c
+        - </dev/tcp/127.0.0.1/50051
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 2s
+    labels:
+      ramag.test-suite: "true"
+networks:
+  default:
+    name: ramag-api-grpc-test
+    labels:
+      ramag.test-suite: "true"

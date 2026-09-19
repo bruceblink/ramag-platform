@@ -24,8 +24,8 @@ use ramag_domain::traits::ApiDriver;
 use reqwest::{Client, RequestBuilder, Response, Url};
 use rustls::crypto::CryptoProvider;
 
-const MAX_TLS_FILE_BYTES: usize = 4 * 1024 * 1024;
-const CANCELLATION_POLL: Duration = Duration::from_millis(10);
+pub(crate) const MAX_TLS_FILE_BYTES: usize = 4 * 1024 * 1024;
+pub(crate) const CANCELLATION_POLL: Duration = Duration::from_millis(10);
 
 #[derive(Clone)]
 pub struct HttpApiDriver {
@@ -144,7 +144,7 @@ impl ApiDriver for HttpApiDriver {
     }
 }
 
-type ExpandedParameter = (String, String, bool);
+pub(crate) type ExpandedParameter = (String, String, bool);
 
 // 把认证配置展开成请求参数；敏感标记只影响响应/日志摘要，不改变实际发送值。
 fn apply_auth(
@@ -206,7 +206,7 @@ fn apply_auth(
     Ok(())
 }
 
-fn expand_parameter(
+pub(crate) fn expand_parameter(
     parameter: &ApiParameter,
     variables: &BTreeMap<String, String>,
     label: &str,
@@ -228,7 +228,7 @@ fn expand_parameter(
     ))
 }
 
-fn expand_template(
+pub(crate) fn expand_template(
     template: &str,
     variables: &BTreeMap<String, String>,
     label: &str,
@@ -323,7 +323,7 @@ async fn next_chunk(response: &mut Response, cancelled: ApiCancellation) -> Resu
     }
 }
 
-async fn wait_until_cancelled(cancelled: ApiCancellation) {
+pub(crate) async fn wait_until_cancelled(cancelled: ApiCancellation) {
     while !cancelled.load(Ordering::Relaxed) {
         tokio::time::sleep(CANCELLATION_POLL).await;
     }
@@ -388,7 +388,7 @@ fn build_client(tls: &ApiTlsConfig) -> Result<Client> {
         .map_err(|_| DomainError::InvalidConfig("创建 HTTP 客户端失败".into()))
 }
 
-fn read_tls_file(path: &str, label: &str) -> Result<Vec<u8>> {
+pub(crate) fn read_tls_file(path: &str, label: &str) -> Result<Vec<u8>> {
     let mut file =
         File::open(path).map_err(|_| DomainError::InvalidConfig(format!("{label}文件无法读取")))?;
     let length = file
@@ -419,7 +419,7 @@ fn ensure_tls_provider() -> Result<()> {
     Ok(())
 }
 
-fn ensure_not_cancelled(cancelled: &ApiCancellation) -> Result<()> {
+pub(crate) fn ensure_not_cancelled(cancelled: &ApiCancellation) -> Result<()> {
     if cancelled.load(Ordering::Relaxed) {
         Err(DomainError::Cancelled("HTTP 请求已取消".into()))
     } else {

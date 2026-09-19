@@ -1,6 +1,6 @@
 # API 测试工具开发计划
 
-> 状态：`API-000` gRPC 动态 Unary 预研、`API-001` 领域模型与本地存储、`API-002` HTTP 执行链路已完成；下一项为 `API-003` gRPC Unary 执行链路。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
+> 状态：`API-000` gRPC 动态 Unary 预研、`API-001` 领域模型与本地存储、`API-002` HTTP 执行链路、`API-003` gRPC Unary 执行链路已完成；下一项为 `API-004` API 工作台 UI。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
 >
 > 适用范围：Ramag Platform 的 API 测试工作台、HTTP 请求、gRPC 请求、请求集合、环境变量、响应断言和本地测试服务验收。
 >
@@ -46,7 +46,7 @@ API 测试工具首个可交付版本完成以下闭环：
 - `ramag-infra-*` 负责具体协议与外部服务适配。
 - `ramag-tool-*` 负责工作台 UI，`ramag-bin` 负责内置工具装配和视图注册。
 - Workspace 已直接使用 `reqwest`、`http`、Tokio 和 Rustls，可复用现有 HTTP 客户端基础设施。
-- `ramag-infra-api` 已完成 gRPC 动态 Unary 预研，使用 `tonic`、`tonic-prost`、`prost` 和 `prost-reflect`；Reflection 客户端仍需在 `API-003` 中单独封装和验收。
+- `ramag-infra-api` 已完成 gRPC 动态 Unary 执行链路，使用 `tonic`、`tonic-prost`、`prost`、`prost-types`、`prost-reflect` 和 `tonic-reflection`；API 工作台 UI 仍需在 `API-004` 中接入。
 - 本地 Storage 已保存 MQTT/Kafka 等配置，API 工作区需要新增专用实体和加密字段存储，不复用 MQTT 或 Kafka 配置结构。
 
 ## 2. 目标架构
@@ -151,6 +151,21 @@ flowchart LR
 - 请求 Metadata、响应 Metadata、Trailers、Status 和耗时。
 - gRPC 状态码、Metadata、消息字段和耗时断言。
 
+#### API-003 代码与本机 Docker 集成记录（2026-09-19）
+
+`GrpcApiDriver` 已在 `ramag-infra-api` 实现，当前范围是动态 Unary 调用：
+
+- 支持明文 `http` 和 TLS `https` Endpoint；TLS 支持系统根证书、自定义 CA、客户端证书/密钥和显式关闭校验，所有连接、调用和 Reflection 请求均有超时与取消传播。
+- 支持本地 `FileDescriptorSet` 和 Server Reflection；Reflection 会读取 Service 目录、合并 `FileDescriptorProto` 依赖文件，再按 Service/Method 构造 `DynamicMessage`。
+- 支持模板变量、ASCII/Binary Metadata、响应 Metadata、gRPC Status、响应消息 JSON、响应大小上限和耗时；Client/Server/Bidirectional Streaming 继续留在 `API-007`。
+- `ramag-infra-api` 本地测试覆盖 FileDescriptorSet Unary、Reflection Service/Method 发现、请求/响应 Metadata、错误 Status 和方法路径校验，共 3 项通过。
+
+本机 Docker 集成使用仓库内 `scripts/api-test/grpc` 夹具：
+
+- 镜像为 `ramag-api-grpc-test:rust-1.91.0-bookworm`，构建基础镜像固定为 Rust 1.91.0 Bookworm 和 Debian Bookworm Slim digest；容器端口 `50051` 映射到 `127.0.0.1:18090`。
+- `scripts/api-test/grpc-test.ps1 test` 启动并等待 `ramag-api-grpc-test` healthcheck；`docker_grpc` 通过 1 项，实际覆盖 Reflection、Unary、请求/响应 Metadata、错误 Status 和取消。
+- 本轮测试先确认 gRPC 夹具为 `healthy/running`，随后执行 `scripts/api-test/grpc-test.ps1 down`；容器 `ramag-api-grpc-test` 和网络已清理。TLS 端到端 Docker 场景尚未纳入本夹具，属于后续补充项。
+
 ### 3.4 公共能力
 
 - Workspace、Collection、Folder、Request 的新增、保存、编辑、复制和删除。
@@ -246,6 +261,8 @@ ApiResponseSnapshot   = status, headers, metadata, body, timing, size, truncated
 - Computer Use 不可用时，使用 GPUI headless 渲染和交互测试，并明确记录真实窗口限制。
 - 截图只证明可见界面状态；协议行为必须由应用层和本机 Docker 集成测试证明。
 
+2026-09-19 验收记录：`cargo test --locked -p ramag-tool-mqtt --lib -- --test-threads=1` 通过 30 项 headless GPUI 测试，覆盖连接名称/Endpoint 展示、连接测试与保存、发布、订阅主题增删和启停、消息选项、服务端客户端/主题/指标快照、动态安全管理编辑器及 360/1024/1440 宽度布局。Computer Use 返回可控应用列表为空，本轮未取得真实 Windows 窗口截图；不能以 headless 结果替代真实窗口证据。
+
 ### 8.4 提交前检查
 
 ```text
@@ -280,10 +297,8 @@ git diff --check
 
 ## 10. 当前未完成项
 
-- `API-001` 和 `API-002` 已完成；HTTP 驱动的本地 TCP 与本机 Docker 集成验收均已记录。
-- 尚未完成 Reflection 客户端、FileDescriptor 依赖合并和 gRPC 服务目录读取。
-- 尚未创建 gRPC Docker 测试服务。
+- `API-001` 至 `API-003` 已完成；HTTP 和 gRPC 驱动均已有本地协议测试与本机 Docker 集成验收记录。
 - 尚未实现 `ramag-tool-api`、应用服务和 `ramag-bin` API 工具注册。
-- 尚未运行 gRPC API Docker 集成测试或 API UI 截图验收；当前已有领域、Storage、HTTP 本地 TCP 和 HTTP Docker 专项测试。
+- 尚未实现 `API-004` API 工作台 UI，也尚未完成 API UI 的真实窗口截图验收；当前 MQTT 工作台已有 headless GPUI 验收，但真实窗口证据仍受 Computer Use 应用列表为空限制。
 
-下一项推进 `API-003`：实现 gRPC Unary 驱动、Descriptor/Reflection/TLS 处理，并使用本机 Docker gRPC 服务形成真实协议证据。
+下一项推进 `API-004`：接入 API 工作台 UI、应用服务和 `ramag-bin` 工具注册，再以 HTTP/gRPC 驱动和本机 Docker 服务完成双协议 UI 验收。

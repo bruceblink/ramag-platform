@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package api.docker;
+
+message EchoRequest {
+  string message = 1;
+}
+
+message EchoResponse {
+  string message = 1;
+}
+
+service Echo {
+  rpc Unary(EchoRequest) returns (EchoResponse);
+}
