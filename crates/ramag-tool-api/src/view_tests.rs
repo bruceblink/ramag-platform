@@ -5,7 +5,9 @@ use std::time::Duration;
 
 use gpui::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_app::ApiService;
-use ramag_domain::entities::{ApiProtocol, ApiResponseStatus};
+use ramag_domain::entities::{
+    ApiParameter, ApiProtocol, ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus,
+};
 use ramag_domain::traits::ApiDriver;
 use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
 use ramag_infra_storage::RedbStorage;
@@ -87,6 +89,7 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
     visual_cx.run_until_parked();
 
     assert!(visual_cx.debug_bounds("api-http-fields").is_some());
+    assert!(visual_cx.debug_bounds("api-http-headers").is_some());
     assert!(visual_cx.debug_bounds("api-send").is_some());
     assert!(visual_cx.debug_bounds("api-save").is_some());
     click(visual_cx, "api-protocol-grpc");
@@ -105,6 +108,56 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
         visual_cx.update(|_, cx| view.read(cx).protocol),
         ApiProtocol::Http
     );
+}
+
+#[test]
+fn api_headers_parse_as_name_value_pairs_and_report_invalid_lines() {
+    let headers = parse_http_headers("Content-Type: application/json\nX-Test: enabled")
+        .expect("有效请求头应解析");
+    assert_eq!(
+        headers,
+        vec![
+            ApiParameter::new("Content-Type", "application/json", false),
+            ApiParameter::new("X-Test", "enabled", false),
+        ]
+    );
+    assert!(parse_http_headers("Invalid Header").is_err());
+    assert!(parse_http_headers("X-Empty:   ").is_err());
+}
+
+#[test]
+fn api_response_formats_json_and_preserves_non_json_body() {
+    let json_body = br#"{"ok":true,"nested":{"id":1}}"#.to_vec();
+    let json_snapshot = ApiResponseSnapshot::new(ApiResponseSnapshotParts {
+        protocol: ApiProtocol::Http,
+        status: ApiResponseStatus::Http { code: 200 },
+        headers: vec![ApiParameter::new("Content-Type", "application/json", false)],
+        metadata: Vec::new(),
+        size_bytes: json_body.len() as u64,
+        body: json_body,
+        elapsed_millis: 2,
+        truncated: false,
+        error: None,
+    })
+    .expect("构造 JSON 响应");
+    assert_eq!(body_format_label(&json_snapshot), "JSON");
+    assert!(body_preview(&json_snapshot).contains("\n  \"ok\": true"));
+
+    let raw_body = b"not-json".to_vec();
+    let raw_snapshot = ApiResponseSnapshot::new(ApiResponseSnapshotParts {
+        protocol: ApiProtocol::Http,
+        status: ApiResponseStatus::Http { code: 200 },
+        headers: Vec::new(),
+        metadata: Vec::new(),
+        size_bytes: raw_body.len() as u64,
+        body: raw_body,
+        elapsed_millis: 1,
+        truncated: false,
+        error: None,
+    })
+    .expect("构造原文响应");
+    assert_eq!(body_format_label(&raw_snapshot), "原文");
+    assert_eq!(body_preview(&raw_snapshot), "not-json");
 }
 
 #[gpui::test]

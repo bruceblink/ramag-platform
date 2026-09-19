@@ -172,6 +172,7 @@ impl ActivityBar {
             "container" => Icon::new(IconName::HardDrive),
             "kafka" => Icon::new(IconName::Network),
             "mqtt" => icons::mqtt(),
+            "api" => icons::api(),
             "jsonfmt" => Icon::new(IconName::File),
             "url" => Icon::new(IconName::Globe),
             "hash" => Icon::new(IconName::MemoryStick),

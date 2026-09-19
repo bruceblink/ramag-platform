@@ -18,7 +18,7 @@ use ramag_domain::entities::{
     ApiBody, ApiCollection, ApiParameter, ApiProtocol, ApiRequestRecord, ApiRequestSpec,
     ApiResponseSnapshot, ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
 };
-use ramag_domain::error::Result;
+use ramag_domain::error::{DomainError, Result};
 
 #[path = "operations.rs"]
 mod operations;
@@ -37,6 +37,7 @@ pub struct ApiView {
     pub(crate) request_name: Entity<InputState>,
     pub(crate) http_method: Entity<InputState>,
     pub(crate) http_url: Entity<InputState>,
+    pub(crate) http_headers: Entity<InputState>,
     pub(crate) http_body: Entity<InputState>,
     pub(crate) grpc_endpoint: Entity<InputState>,
     pub(crate) grpc_service: Entity<InputState>,
@@ -86,7 +87,22 @@ impl ApiView {
                 "https://example.com",
                 "http://127.0.0.1:18089/json",
             ),
-            http_body: api_input(window, cx, "JSON 请求正文（可选）", ""),
+            http_headers: api_multiline_input(
+                window,
+                cx,
+                "每行一个请求头，例如 Content-Type: application/json",
+                "",
+                None,
+                5,
+            ),
+            http_body: api_multiline_input(
+                window,
+                cx,
+                "JSON 请求正文（可选）",
+                "",
+                Some("json"),
+                8,
+            ),
             grpc_endpoint: api_input(
                 window,
                 cx,
@@ -184,6 +200,28 @@ fn api_input(
     })
 }
 
+/// 创建请求报文编辑器；代码编辑器保持行号和缩进，多行文本则保持轻量输入体验。
+fn api_multiline_input(
+    window: &mut Window,
+    cx: &mut Context<ApiView>,
+    placeholder: &'static str,
+    default: &str,
+    language: Option<&'static str>,
+    rows: usize,
+) -> Entity<InputState> {
+    cx.new(|cx| {
+        let state = InputState::new(window, cx)
+            .validate(|value, _| value.len() <= FIELD_BYTES)
+            .placeholder(placeholder)
+            .default_value(default.to_string());
+        let state = match language {
+            Some(language) => state.code_editor(language),
+            None => state.multi_line(true),
+        };
+        state.rows(rows)
+    })
+}
+
 pub(crate) fn input_value(field: &Entity<InputState>, cx: &App) -> String {
     field.read(cx).value().trim().to_string()
 }
@@ -224,7 +262,7 @@ pub(crate) fn status_text(snapshot: &ApiResponseSnapshot) -> String {
 }
 
 pub(crate) fn body_preview(snapshot: &ApiResponseSnapshot) -> String {
-    let text = String::from_utf8_lossy(&snapshot.body);
+    let (text, _) = response_body_text(snapshot);
     let mut preview = text
         .chars()
         .take(API_RESPONSE_PREVIEW_BYTES)
@@ -235,11 +273,54 @@ pub(crate) fn body_preview(snapshot: &ApiResponseSnapshot) -> String {
     preview
 }
 
+/// 将 JSON 正文格式化为可读文本；解析失败时返回原文，避免隐藏服务端实际响应。
+fn response_body_text(snapshot: &ApiResponseSnapshot) -> (String, &'static str) {
+    let raw = String::from_utf8_lossy(&snapshot.body);
+    match serde_json::from_str::<serde_json::Value>(&raw) {
+        Ok(value) => serde_json::to_string_pretty(&value)
+            .map(|text| (text, "JSON"))
+            .unwrap_or_else(|_| (raw.into_owned(), "原文")),
+        Err(_) => (raw.into_owned(), "原文"),
+    }
+}
+
+pub(crate) fn body_format_label(snapshot: &ApiResponseSnapshot) -> &'static str {
+    response_body_text(snapshot).1
+}
+
+/// 把用户输入的逐行 `Name: Value` 文本转换成领域层请求头。
+pub(crate) fn parse_http_headers(value: &str) -> Result<Vec<ApiParameter>> {
+    let mut headers = Vec::new();
+    for (index, line) in value.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Some((name, header_value)) = line.split_once(':') else {
+            return Err(DomainError::InvalidConfig(format!(
+                "请求头第 {} 行必须使用 Name: Value 格式",
+                index + 1
+            )));
+        };
+        let name = name.trim();
+        let header_value = header_value.trim();
+        if name.is_empty() || header_value.is_empty() {
+            return Err(DomainError::InvalidConfig(format!(
+                "请求头第 {} 行的名称和值都不能为空",
+                index + 1
+            )));
+        }
+        headers.push(ApiParameter::new(name, header_value, false));
+    }
+    Ok(headers)
+}
+
 pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSpec> {
     match view.protocol {
         ApiProtocol::Http => {
             let method = input_value(&view.http_method, cx).to_ascii_uppercase();
             let mut spec = HttpRequestSpec::new(method, input_value(&view.http_url, cx));
+            spec.headers = parse_http_headers(&input_value(&view.http_headers, cx))?;
             let body = input_value(&view.http_body, cx);
             if !body.is_empty() {
                 spec.body = Some(ApiBody::text(body, Some("application/json".into())));

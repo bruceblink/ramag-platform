@@ -31,7 +31,7 @@ impl ApiTool {
 
     pub fn new() -> Self {
         Self {
-            meta: ToolMeta::new(Self::ID, "API 测试", "发送 HTTP 与 gRPC 请求").with_icon("globe"),
+            meta: ToolMeta::new(Self::ID, "API 测试", "发送 HTTP 与 gRPC 请求").with_icon("api"),
         }
     }
 }

@@ -24,6 +24,12 @@ pub fn mqtt() -> Icon {
     Icon::default().path("icons/mqtt.svg")
 }
 
+/// API 请求、响应和结构化报文入口图标。
+#[inline]
+pub fn api() -> Icon {
+    Icon::default().path("icons/api.svg")
+}
+
 #[inline]
 pub fn git_branch() -> Icon {
     Icon::default().path("icons/git-branch.svg")

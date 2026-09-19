@@ -281,14 +281,39 @@ fn render_http_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::An
         )
         .child(
             v_flex()
+                .id("api-http-headers")
+                .debug_selector(|| "api-http-headers".into())
                 .gap(px(5.0))
                 .child(
                     div()
                         .text_xs()
                         .text_color(theme.muted_foreground)
-                        .child("Body"),
+                        .child("Headers"),
                 )
-                .child(Input::new(&view.http_body).small()),
+                .child(Input::new(&view.http_headers).small().h(px(112.0))),
+        )
+        .child(
+            v_flex()
+                .id("api-http-body")
+                .debug_selector(|| "api-http-body".into())
+                .gap(px(5.0))
+                .child(
+                    h_flex()
+                        .justify_between()
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child("Body"),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child("JSON"),
+                        ),
+                )
+                .child(Input::new(&view.http_body).small().h(px(176.0))),
         )
         .into_any_element()
 }
@@ -358,15 +383,39 @@ fn render_response(
             )
             .child(response_parameters(snapshot, theme))
             .child(
-                div()
+                v_flex()
+                    .id("api-response-body")
+                    .debug_selector(|| "api-response-body".into())
                     .w_full()
                     .min_w_0()
-                    .p(px(10.0))
-                    .bg(theme.secondary)
-                    .rounded(px(5.0))
-                    .text_xs()
-                    .whitespace_normal()
-                    .child(body_preview(snapshot)),
+                    .gap(px(5.0))
+                    .child(
+                        h_flex()
+                            .justify_between()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child("正文"),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child(body_format_label(snapshot)),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .w_full()
+                            .min_w_0()
+                            .p(px(10.0))
+                            .bg(theme.secondary)
+                            .rounded(px(5.0))
+                            .text_xs()
+                            .whitespace_normal()
+                            .child(body_preview(snapshot)),
+                    ),
             )
             .into_any_element(),
         None => v_flex()
@@ -425,35 +474,119 @@ fn response_parameters(
     snapshot: &ApiResponseSnapshot,
     theme: &gpui_component::Theme,
 ) -> gpui::AnyElement {
-    let mut lines = snapshot
-        .headers
-        .iter()
-        .take(8)
-        .map(|parameter| format!("Header  {}: {}", parameter.name, parameter.value))
-        .chain(
-            snapshot
-                .metadata
-                .iter()
-                .take(8)
-                .map(|parameter| format!("Metadata  {}: {}", parameter.name, parameter.value)),
-        )
-        .collect::<Vec<_>>();
-    let total = snapshot.headers.len() + snapshot.metadata.len();
-    if total == 0 {
-        lines.push("没有响应 Headers 或 Metadata".into());
-    } else if lines.len() < total {
-        lines.push(format!("…其余 {} 条未展开", total - lines.len()));
-    }
     v_flex()
         .id("api-response-parameters")
         .debug_selector(|| "api-response-parameters".into())
-        .gap(px(2.0))
-        .children(lines.into_iter().map(|line| {
+        .w_full()
+        .min_w_0()
+        .gap(px(8.0))
+        .child(response_parameter_table(
+            "api-response-headers",
+            "Headers",
+            &snapshot.headers,
+            theme,
+        ))
+        .child(response_parameter_table(
+            "api-response-metadata",
+            "Metadata",
+            &snapshot.metadata,
+            theme,
+        ))
+        .into_any_element()
+}
+
+fn response_parameter_table(
+    id: &'static str,
+    label: &'static str,
+    parameters: &[ApiParameter],
+    theme: &gpui_component::Theme,
+) -> gpui::AnyElement {
+    let mut section = v_flex()
+        .id(id)
+        .debug_selector(move || id.into())
+        .w_full()
+        .min_w_0()
+        .gap(px(3.0))
+        .child(
+            h_flex()
+                .justify_between()
+                .child(
+                    div()
+                        .text_xs()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(label),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(format!("{} 项", parameters.len())),
+                ),
+        );
+
+    if parameters.is_empty() {
+        section = section.child(
             div()
                 .text_xs()
                 .text_color(theme.muted_foreground)
-                .truncate()
-                .child(line)
-        }))
-        .into_any_element()
+                .child(format!("无 {}", label)),
+        );
+    } else {
+        section = section.child(
+            h_flex()
+                .w_full()
+                .min_w_0()
+                .gap(px(8.0))
+                .child(
+                    div()
+                        .w(px(150.0))
+                        .flex_none()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("名称"),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("值"),
+                ),
+        );
+        for parameter in parameters.iter().take(16) {
+            section = section.child(
+                h_flex()
+                    .w_full()
+                    .min_w_0()
+                    .gap(px(8.0))
+                    .child(
+                        div()
+                            .w(px(150.0))
+                            .flex_none()
+                            .truncate()
+                            .text_xs()
+                            .child(parameter.name.clone()),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child(parameter.value.clone()),
+                    ),
+            );
+        }
+        if parameters.len() > 16 {
+            section = section.child(
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child(format!("…其余 {} 项未展开", parameters.len() - 16)),
+            );
+        }
+    }
+    section.into_any_element()
 }
