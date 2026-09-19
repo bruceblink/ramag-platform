@@ -1,6 +1,6 @@
 # API 测试工具开发计划
 
-> 状态：`API-000` gRPC 动态 Unary 预研已完成；`API-001` 领域模型与本地存储已完成；下一项为 `API-002` HTTP 执行链路。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
+> 状态：`API-000` gRPC 动态 Unary 预研、`API-001` 领域模型与本地存储、`API-002` HTTP 执行链路已完成；下一项为 `API-003` gRPC Unary 执行链路。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
 >
 > 适用范围：Ramag Platform 的 API 测试工作台、HTTP 请求、gRPC 请求、请求集合、环境变量、响应断言和本地测试服务验收。
 >
@@ -131,7 +131,15 @@ flowchart LR
 - 发送阶段和响应流读取阶段均监听 `ApiCancellation`；传输错误只返回安全错误文本，不复制 URL、Headers 或响应正文中的凭据。
 - `ramag-infra-api` 的本地 TCP HTTP 验收测试覆盖成功/非 2xx、变量、Query、Headers、三类认证、请求体、正文截断、超时、取消和 TLS 配置错误，共 8 项通过。
 
-本记录只证明驱动边界和本地协议行为；本机 Docker HTTP 服务集成、API 工作台 UI 验收和真实 Windows 窗口截图仍未完成，不能用上述测试替代这些证据。
+本代码切片记录只证明驱动边界和本地协议行为，不能用本地 TCP 测试替代 Docker 集成、API 工作台 UI 验收或真实 Windows 窗口截图；Docker 集成证据见下节。
+
+#### API-002 本机 Docker 集成记录（2026-09-19）
+
+- `scripts/api-test/compose.yaml` 构建 `ramag-api-http-test:python-3.12.11-alpine-3.22`，基础镜像解析为 `python:3.12.11-alpine3.22`，容器通过 `127.0.0.1:18089` 暴露 HTTP 端点。
+- `scripts/api-test/api-test.ps1 test` 启动容器并等待 healthcheck 变为 `healthy`；`cargo test --locked -p ramag-infra-api --test docker_http` 通过 1 项，实际覆盖 JSON、响应 Headers、变量/Query/请求体、Basic 认证、401、418、延迟超时和流式取消。
+- 测试完成后执行 `scripts/api-test/api-test.ps1 down`，容器 `ramag-api-http-test` 和网络 `ramag-api-http-test` 均已清理；现有 Mosquitto、Kafka 和数据库测试服务未被修改。
+
+这组测试证明 HTTP 驱动到本机 Docker 服务的真实协议链路；TLS 双向证书和 API UI 仍按路线图单独验收。
 
 ### 3.3 gRPC 请求
 
@@ -272,10 +280,10 @@ git diff --check
 
 ## 10. 当前未完成项
 
-- `API-001` 已完成；`API-002` 的 HTTP 驱动代码切片已实现，但 Docker 集成验收仍未完成。
+- `API-001` 和 `API-002` 已完成；HTTP 驱动的本地 TCP 与本机 Docker 集成验收均已记录。
 - 尚未完成 Reflection 客户端、FileDescriptor 依赖合并和 gRPC 服务目录读取。
-- 尚未创建 HTTP/gRPC Docker 测试服务。
+- 尚未创建 gRPC Docker 测试服务。
 - 尚未实现 `ramag-tool-api`、应用服务和 `ramag-bin` API 工具注册。
-- 尚未运行 HTTP/gRPC API Docker 集成测试或 API UI 截图验收；当前已有领域、Storage 和 HTTP 驱动本地 TCP 专项测试。
+- 尚未运行 gRPC API Docker 集成测试或 API UI 截图验收；当前已有领域、Storage、HTTP 本地 TCP 和 HTTP Docker 专项测试。
 
-下一项先补齐 `API-002` 的本机 Docker HTTP 服务证据，再推进 `API-003` gRPC Unary 执行链路。
+下一项推进 `API-003`：实现 gRPC Unary 驱动、Descriptor/Reflection/TLS 处理，并使用本机 Docker gRPC 服务形成真实协议证据。
