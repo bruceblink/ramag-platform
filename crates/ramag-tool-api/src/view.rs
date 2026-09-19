@@ -1,6 +1,5 @@
 //! API 请求编辑器状态；具体布局和异步操作拆分到同目录文件。
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -15,15 +14,20 @@ use gpui_component::{
 };
 use ramag_app::{ApiService, new_api_cancellation};
 use ramag_domain::entities::{
-    ApiBody, ApiCollection, ApiParameter, ApiProtocol, ApiRequestRecord, ApiRequestSpec,
-    ApiResponseSnapshot, ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
+    ApiAssertionResult, ApiBody, ApiCollection, ApiHistoryRecord, ApiParameter, ApiProtocol,
+    ApiRequestSpec, ApiResponseSnapshot, ApiResponseStatus, ApiWorkspace, GrpcRequestSpec,
+    HttpRequestSpec,
 };
 use ramag_domain::error::{DomainError, Result};
 
+#[path = "context.rs"]
+mod context;
 #[path = "operations.rs"]
 mod operations;
 #[path = "render.rs"]
 mod render;
+#[path = "render_helpers.rs"]
+mod render_helpers;
 
 const FIELD_BYTES: usize = 64 * 1024;
 const API_SIDEBAR_WIDTH: f32 = 220.0;
@@ -39,6 +43,9 @@ pub struct ApiView {
     pub(crate) http_url: Entity<InputState>,
     pub(crate) http_headers: Entity<InputState>,
     pub(crate) http_body: Entity<InputState>,
+    pub(crate) environment_variables: Entity<InputState>,
+    pub(crate) environment_sensitive: Entity<InputState>,
+    pub(crate) assertions: Entity<InputState>,
     pub(crate) grpc_endpoint: Entity<InputState>,
     pub(crate) grpc_service: Entity<InputState>,
     pub(crate) grpc_method: Entity<InputState>,
@@ -46,6 +53,8 @@ pub struct ApiView {
     pub(crate) grpc_metadata_value: Entity<InputState>,
     pub(crate) grpc_message: Entity<InputState>,
     pub(crate) response: Option<ApiResponseSnapshot>,
+    pub(crate) assertion_results: Vec<ApiAssertionResult>,
+    pub(crate) history: Vec<ApiHistoryRecord>,
     pub(crate) loading: bool,
     pub(crate) saving: bool,
     pub(crate) notice: Option<(String, bool)>,
@@ -81,12 +90,7 @@ impl ApiView {
             protocol: ApiProtocol::Http,
             request_name: api_input(window, cx, "请求名称", "新请求"),
             http_method: api_input(window, cx, "GET / POST", "GET"),
-            http_url: api_input(
-                window,
-                cx,
-                "https://example.com",
-                "http://127.0.0.1:18089/json",
-            ),
+            http_url: api_input(window, cx, "https://example.com", "{{base_url}}/json"),
             http_headers: api_multiline_input(
                 window,
                 cx,
@@ -103,6 +107,30 @@ impl ApiView {
                 Some("json"),
                 8,
             ),
+            environment_variables: api_multiline_input(
+                window,
+                cx,
+                "每行一个变量，例如 base_url=http://127.0.0.1:18089",
+                "base_url=http://127.0.0.1:18089",
+                None,
+                3,
+            ),
+            environment_sensitive: api_multiline_input(
+                window,
+                cx,
+                "每行一个敏感变量名（可选）",
+                "",
+                None,
+                2,
+            ),
+            assertions: api_multiline_input(
+                window,
+                cx,
+                "status=200、body=ok 或 json=$.ok:true",
+                "",
+                None,
+                3,
+            ),
             grpc_endpoint: api_input(
                 window,
                 cx,
@@ -115,6 +143,8 @@ impl ApiView {
             grpc_metadata_value: api_input(window, cx, "Metadata value", "docker"),
             grpc_message: api_input(window, cx, "Protobuf JSON", r#"{"message":"hello"}"#),
             response: None,
+            assertion_results: Vec::new(),
+            history: Vec::new(),
             loading: false,
             saving: false,
             notice: None,
@@ -138,6 +168,7 @@ impl ApiView {
     pub(crate) fn set_protocol(&mut self, protocol: ApiProtocol, cx: &mut Context<Self>) {
         self.protocol = protocol;
         self.response = None;
+        self.assertion_results.clear();
         self.notice = None;
         cx.notify();
     }
@@ -161,13 +192,20 @@ impl ApiView {
         };
         cx.spawn(async move |this, cx| {
             let result = service.list_workspaces().await;
-            let _ = this.update(cx, |view, cx| {
-                if let Ok(workspaces) = result
-                    && let Some(workspace) = workspaces.into_iter().next()
-                {
-                    view.workspace = workspace;
-                    cx.notify();
-                }
+            let Some(workspace) = result
+                .ok()
+                .and_then(|workspaces| workspaces.into_iter().next())
+            else {
+                return;
+            };
+            let history = service
+                .list_history(&workspace.id, 20)
+                .await
+                .unwrap_or_default();
+            let _ = this.update(cx, move |view, cx| {
+                view.workspace = workspace;
+                view.history = history;
+                cx.notify();
             });
         })
         .detach();
@@ -354,15 +392,6 @@ impl GrpcRequestMessage for GrpcRequestSpec {
         self.message = message;
         self
     }
-}
-
-fn request_record(view: &ApiView, cx: &App) -> Result<ApiRequestRecord> {
-    let name = input_value(&view.request_name, cx);
-    let request = request_from_view(view, cx)?;
-    Ok(match request {
-        ApiRequestSpec::Http(spec) => ApiRequestRecord::new_http(name, spec),
-        ApiRequestSpec::Grpc(spec) => ApiRequestRecord::new_grpc(name, spec),
-    })
 }
 
 #[cfg(test)]

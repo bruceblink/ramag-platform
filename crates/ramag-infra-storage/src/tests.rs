@@ -1,5 +1,6 @@
 use super::*;
 use ramag_domain::entities::DriverKind;
+use redb::ReadableDatabase as _;
 use tempfile::TempDir;
 
 /// 临时目录 + 固定密钥，不污染真实系统凭据库
@@ -104,6 +105,7 @@ fn fresh_storage_initializes_complete_schema() {
         .map(|table| table.name().to_string())
         .collect::<BTreeSet<_>>();
     let expected = BTreeSet::from([
+        "api_history".to_string(),
         "api_workspaces".to_string(),
         "clip_by_hash".to_string(),
         "clip_by_time".to_string(),

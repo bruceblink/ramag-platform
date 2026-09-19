@@ -1,3 +1,4 @@
+use super::render_helpers::{render_assertion_results, render_context_editor, render_history};
 use super::*;
 
 use gpui::{ClickEvent, FontWeight};
@@ -232,6 +233,7 @@ fn render_sidebar(
                 )
                 .children(requests),
         )
+        .child(render_history(&view.history, theme))
         .into_any_element()
 }
 
@@ -263,6 +265,7 @@ fn render_editor(
                 .child(field("请求名称", Input::new(&view.request_name).small()))
                 .child(request_editor),
         )
+        .child(render_context_editor(view, theme))
         .child(render_response(view, cx, theme))
         .into_any_element()
 }
@@ -381,6 +384,7 @@ fn render_response(
                     .font_weight(FontWeight::SEMIBOLD)
                     .child(status_text(snapshot)),
             )
+            .child(render_assertion_results(&view.assertion_results, theme))
             .child(response_parameters(snapshot, theme))
             .child(
                 v_flex()

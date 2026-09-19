@@ -27,7 +27,7 @@ impl ApiCollection {
         }
     }
 
-    pub(super) fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), String> {
         validate_required_text(
             "API Collection 名称",
             &self.name,
@@ -82,7 +82,7 @@ impl ApiEnvironment {
         self.variables.get(name).map(String::as_str)
     }
 
-    pub(super) fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), String> {
         validate_required_text(
             "API Environment 名称",
             &self.name,

@@ -6,7 +6,8 @@ use std::time::Duration;
 use gpui::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_app::ApiService;
 use ramag_domain::entities::{
-    ApiParameter, ApiProtocol, ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus,
+    ApiAssertion, ApiParameter, ApiProtocol, ApiResponseSnapshot, ApiResponseSnapshotParts,
+    ApiResponseStatus,
 };
 use ramag_domain::traits::ApiDriver;
 use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
@@ -90,6 +91,8 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
 
     assert!(visual_cx.debug_bounds("api-http-fields").is_some());
     assert!(visual_cx.debug_bounds("api-http-headers").is_some());
+    assert!(visual_cx.debug_bounds("api-context-editor").is_some());
+    assert!(visual_cx.debug_bounds("api-history").is_some());
     assert!(visual_cx.debug_bounds("api-send").is_some());
     assert!(visual_cx.debug_bounds("api-save").is_some());
     click(visual_cx, "api-protocol-grpc");
@@ -108,6 +111,36 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
         visual_cx.update(|_, cx| view.read(cx).protocol),
         ApiProtocol::Http
     );
+}
+
+#[test]
+fn api_assertion_editor_format_parses_supported_rules_and_rejects_unknown_types() {
+    let assertions = context::parse_assertions(
+        "status=200\nheader=content-type:application/json\nbody=ok\njson=$.ok:true\nlatency=500",
+        ApiProtocol::Http,
+    )
+    .expect("断言编辑格式应解析");
+    assert_eq!(assertions.len(), 5);
+    assert!(matches!(
+        assertions[0],
+        ApiAssertion::HttpStatus { expected: 200 }
+    ));
+    assert!(context::parse_assertions("metadata=server:api", ApiProtocol::Http).is_err());
+    assert!(context::parse_assertions("unknown=value", ApiProtocol::Http).is_err());
+}
+
+#[test]
+fn api_environment_editor_format_parses_values_and_sensitive_references() {
+    let environment =
+        context::parse_environment("base_url=http://127.0.0.1:18089\ntoken=secret", "token")
+            .expect("环境变量编辑格式应解析");
+    assert_eq!(
+        environment.variable("base_url"),
+        Some("http://127.0.0.1:18089")
+    );
+    assert_eq!(environment.sensitive_variable_refs, vec!["token"]);
+    assert!(context::parse_environment("base_url", "").is_err());
+    assert!(context::parse_environment("base_url=x", "missing").is_err());
 }
 
 #[test]
@@ -215,6 +248,12 @@ fn api_workbench_sends_http_and_grpc_requests_to_local_docker_fixtures(cx: &mut 
     visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
     visual_cx.run_until_parked();
 
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.assertions
+                .update(cx, |input, cx| input.set_value("status=200", window, cx));
+        });
+    });
     click(visual_cx, "api-send");
     let http_response = wait_for_response(visual_cx, &view);
     assert!(
@@ -229,7 +268,23 @@ fn api_workbench_sends_http_and_grpc_requests_to_local_docker_fixtures(cx: &mut 
         String::from_utf8_lossy(&http_response.expect("HTTP UI 响应").body)
             .contains("ramag-api-http-test")
     );
+    assert!(
+        visual_cx.update(|_, cx| {
+            view.read(cx)
+                .assertion_results
+                .first()
+                .is_some_and(|result| result.passed)
+        }),
+        "HTTP UI 断言应通过"
+    );
+    assert!(visual_cx.debug_bounds("api-assertion-results").is_some());
 
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.assertions
+                .update(cx, |input, cx| input.set_value("", window, cx));
+        });
+    });
     click(visual_cx, "api-protocol-grpc");
     visual_cx.run_until_parked();
     click(visual_cx, "api-send");

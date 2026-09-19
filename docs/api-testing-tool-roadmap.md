@@ -1,6 +1,6 @@
 # API 测试工具开发计划
 
-> 状态：`API-000` gRPC 动态 Unary 预研、`API-001` 领域模型与本地存储、`API-002` HTTP 执行链路、`API-003` gRPC Unary 执行链路和 `API-004` API 工作台 UI 已完成；下一项为 `API-005` 断言、环境变量和历史。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
+> 状态：`API-000` 至 `API-005` 已完成；下一项为 `API-006` Collection 运行和格式兼容。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
 >
 > 适用范围：Ramag Platform 的 API 测试工作台、HTTP 请求、gRPC 请求、请求集合、环境变量、响应断言和本地测试服务验收。
 >
@@ -187,7 +187,18 @@ flowchart LR
 
 UI 验收证据：`ramag-tool-api` headless GPUI 测试覆盖 360、640、1024 和 1440 像素宽度，验证请求/响应边界、协议切换、发送/保存状态和实际 HTTP/gRPC 请求。双协议 UI 测试连接本机 Docker 服务并通过真实驱动返回 HTTP 200 和 gRPC `ok`；gRPC 夹具要求的 `x-request: docker` Metadata 已由界面字段发送。Computer Use 当前返回可控应用列表为空，因此本切片没有真实 Windows 窗口截图或键盘/鼠标证据，不能将 headless 结果描述为原生窗口验收。
 
-本机 Docker 服务保持运行供复验：`ramag-api-http-test` 使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，绑定 `127.0.0.1:18089 -> 8080`；`ramag-api-grpc-test` 使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，绑定 `127.0.0.1:18090 -> 50051`。两个容器健康检查均为 `healthy`。API-005 仍需补充断言、环境变量编辑、执行历史和结果摘要。
+本机 Docker 服务保持运行供复验：`ramag-api-http-test` 使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，绑定 `127.0.0.1:18089 -> 8080`；`ramag-api-grpc-test` 使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，绑定 `127.0.0.1:18090 -> 50051`。两个容器健康检查均为 `healthy`。API-005 的断言、环境变量编辑、执行历史和结果摘要在下一节记录。
+
+### 3.6 API-005 断言、环境变量和历史记录（2026-09-19）
+
+API-005 已完成以下闭环：
+
+- `ramag-domain` 新增受限 `{{variable}}` 模板解析、HTTP 状态/Header、gRPC Metadata、正文、JSON Path 和耗时断言评估，以及断言结果模型。
+- `ramag-app` 新增 `ApiService::execute_record`，在驱动边界前展开 URL、Query、Headers、认证、正文、gRPC Endpoint/Metadata/Message；变量缺失、传输失败和取消都会产生失败历史，不把用户级失败伪装成传输成功。
+- `ramag-infra-storage` 新增独立加密 `api_history` 表，按工作区保存最多 200 条摘要，限制总字节；历史只保存状态、耗时、大小、断言统计和有界正文预览，敏感环境变量值统一替换为 `[REDACTED]`。
+- `ramag-tool-api` 增加 Environment 变量/敏感变量编辑器、声明式断言编辑器、断言结果区域和执行历史列表；默认 HTTP URL 使用 `{{base_url}}/json`，由本地环境变量展开。
+
+API-005 测试覆盖成功、断言失败、取消、变量缺失、敏感值脱敏、加密历史往返、断言/环境编辑格式和 360/640/1024/1440 宽度 UI。真实 Docker UI 测试通过 HTTP `200`、`status=200` 断言和 gRPC `ok`；真实 Windows 窗口仍受 Computer Use 空应用列表限制，未取得原生截图或鼠标/键盘证据。
 
 ## 4. 首期非目标
 
@@ -277,6 +288,8 @@ ApiResponseSnapshot   = status, headers, metadata, body, timing, size, truncated
 
 2026-09-19 API-004 验收记录：`cargo test --locked -p ramag-tool-api --lib` 覆盖 API 工作台 headless 布局、协议切换、无服务状态和本机 Docker 双协议发送；其中 UI Docker 用例实际收到 HTTP 200 和 gRPC `ok`。本机 Docker 服务为 `ramag-api-http-test`（Python 3.12.11 Alpine 3.22，`127.0.0.1:18089`）和 `ramag-api-grpc-test`（Rust 1.91.0 Bookworm，`127.0.0.1:18090`），均保持 healthy/running。Computer Use 返回可控应用列表为空，未取得真实 Windows 窗口截图；本次 UI 完成状态仅包含 headless 和真实 Docker 交互证据。
 
+2026-09-19 API-005 验收记录：`cargo test --locked -p ramag-domain` 通过 201 项，`cargo test --locked -p ramag-infra-storage` 通过 77 项并忽略 3 项既有性能测试，`cargo test --locked -p ramag-app` 通过 217 项库测试及 17 项集成测试，`cargo test --locked -p ramag-tool-api` 通过 9 项 UI/解析测试。应用层覆盖成功、断言失败、取消和变量缺失；Storage 覆盖加密历史往返、敏感值脱敏和清理；UI Docker 测试使用默认 `{{base_url}}/json` 展开到 `127.0.0.1:18089`，验证 HTTP `status=200` 断言，并继续验证 gRPC `ok`。workspace Clippy、fmt 和源码行数检查通过。Computer Use 返回空应用列表，未取得真实 Windows 窗口证据。
+
 2026-09-19 验收记录：`cargo test --locked -p ramag-tool-mqtt --lib -- --test-threads=1` 通过 30 项 headless GPUI 测试，覆盖连接名称/Endpoint 展示、连接测试与保存、发布、订阅主题增删和启停、消息选项、服务端客户端/主题/指标快照、动态安全管理编辑器及 360/1024/1440 宽度布局。Computer Use 返回可控应用列表为空，本轮未取得真实 Windows 窗口截图；不能以 headless 结果替代真实窗口证据。
 
 ### 8.4 提交前检查
@@ -309,12 +322,11 @@ git diff --check
 6. `feat: add api assertions and environments`
 7. `feat: add api collection runner`
 
-首个双协议版本的完成条件是：`API-000` 至 `API-005` 均完成，HTTP 和 gRPC Unary 都有真实 Docker 服务证据，UI headless 验收通过，并完成至少一组真实 Windows 窗口截图；不能用只完成 HTTP 的结果宣称 API 测试工具完成。
+首个双协议版本的完成条件是：`API-000` 至 `API-005` 均完成，HTTP 和 gRPC Unary 都有真实 Docker 服务证据，UI headless 验收通过，并完成至少一组真实 Windows 窗口截图；当前代码和 headless/Docker 证据已满足前四项，原生窗口截图仍是未完成项，不能用 headless 结果替代。
 
 ## 10. 当前未完成项
 
-- `API-001` 至 `API-004` 已完成；HTTP 和 gRPC 驱动均已有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。
+- `API-001` 至 `API-005` 已完成；HTTP 和 gRPC 驱动均已有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。
 - API 工作台的真实 Windows 窗口截图、键盘操作和鼠标操作仍未完成，原因是 Computer Use 返回可控应用列表为空；这项限制不影响已完成的 headless 布局/交互测试和 Docker 协议测试，但不能把 API-004 的窗口验收写成完成。
-- `API-005` 尚未实现，需要补充声明式断言、环境变量编辑与变量替换、执行历史、敏感值脱敏和对应 UI/应用层测试。
 
-下一项推进 `API-005`：补充断言、环境变量和历史闭环，再以成功、失败、取消、变量缺失和敏感值脱敏场景完成验收。
+下一项推进 `API-006`：实现 Collection 批量运行、Ramag JSON、Postman Collection v2.1 和 OpenAPI 3 导入，并继续保留真实 Docker、headless UI 和原生窗口证据边界。

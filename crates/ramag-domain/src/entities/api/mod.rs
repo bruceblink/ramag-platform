@@ -36,6 +36,7 @@ pub const MAX_API_DESCRIPTOR_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_API_ASSERTIONS: usize = 64;
 pub const MAX_API_ASSERTION_VALUE_BYTES: usize = 64 * 1024;
 pub const MAX_API_ERROR_BYTES: usize = 64 * 1024;
+pub const MAX_API_HISTORY_BODY_BYTES: usize = 16 * 1024;
 pub const MAX_API_TIMEOUT_MILLIS: u64 = 5 * 60 * 1000;
 pub const MAX_API_TLS_PATH_BYTES: usize = 32 * 1024;
 
@@ -392,10 +393,15 @@ pub fn bound_response_body(body: Vec<u8>) -> (Vec<u8>, u64, bool) {
 /// API 驱动收到的取消标记；驱动应在网络等待前后检查该标记并尽快结束。
 pub type ApiCancellation = Arc<AtomicBool>;
 
+mod execution;
 mod requests;
 mod response;
 mod workspace;
 
+pub use execution::{
+    ApiAssertionResult, ApiExecutionOutcome, ApiExecutionResult, ApiHistoryRecord, MAX_API_HISTORY,
+    MAX_API_HISTORY_LIST_BYTES, evaluate_assertions, resolve_template,
+};
 pub use requests::{
     ApiAssertion, ApiRequestRecord, ApiRequestSpec, GrpcRequestSpec, HttpRequestSpec,
 };

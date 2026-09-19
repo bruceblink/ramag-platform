@@ -4,8 +4,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use async_trait::async_trait;
 
 use crate::entities::{
-    ApiWorkspace, ApiWorkspaceId, ClipId, ClipItem, ClipSearchResult, ConnectionConfig,
-    ConnectionId, KafkaClusterConfig, KafkaClusterId, MqttProfile, MqttProfileId,
+    ApiHistoryRecord, ApiWorkspace, ApiWorkspaceId, ClipId, ClipItem, ClipSearchResult,
+    ConnectionConfig, ConnectionId, KafkaClusterConfig, KafkaClusterId, MqttProfile, MqttProfileId,
     ObjectStorageAccount, ObjectStorageAccountId, QueryHistoryPage, QueryRecord, QueryRecordId,
     RepoConfig, RepoId, SshProfile, SshProfileId,
 };
@@ -13,6 +13,32 @@ use crate::error::Result;
 
 #[async_trait]
 pub trait Storage: Send + Sync {
+    async fn append_api_history(
+        &self,
+        _workspace_id: &ApiWorkspaceId,
+        _record: &ApiHistoryRecord,
+    ) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "append_api_history".into(),
+        ))
+    }
+
+    async fn list_api_history(
+        &self,
+        _workspace_id: &ApiWorkspaceId,
+        _limit: usize,
+    ) -> Result<Vec<ApiHistoryRecord>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "list_api_history".into(),
+        ))
+    }
+
+    async fn clear_api_history(&self, _workspace_id: &ApiWorkspaceId) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "clear_api_history".into(),
+        ))
+    }
+
     async fn list_api_workspaces(&self) -> Result<Vec<ApiWorkspace>> {
         Err(crate::error::DomainError::NotImplemented(
             "list_api_workspaces".into(),

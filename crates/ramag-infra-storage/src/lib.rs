@@ -4,10 +4,13 @@
 //! 业务按表拆到 `repos` 子模块（同步），lib 用 `run_blocking` 异步化。
 //! 数据目录由 `directories::ProjectDirs` 按当前平台定位。
 
+mod encrypted_records;
 pub mod encryption;
 pub mod keyring;
 mod repos;
 mod worker_pool;
+
+pub(crate) use encrypted_records::has_encrypted_records as database_has_encrypted_records;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -16,14 +19,14 @@ use std::sync::atomic::AtomicBool;
 use async_trait::async_trait;
 use directories::ProjectDirs;
 use parking_lot::RwLock;
-use redb::{Database, ReadableDatabase as _, ReadableTableMetadata as _, TableError};
+use redb::Database;
 use tracing::{debug, info, warn};
 
 use ramag_domain::entities::{
-    ApiWorkspace, ApiWorkspaceId, ClipId, ClipItem, ClipSearchResult, ConnectionConfig,
-    ConnectionId, KafkaClusterConfig, KafkaClusterId, MAX_CLIPBOARD_SEARCH_BYTES, MqttProfile,
-    MqttProfileId, ObjectStorageAccount, ObjectStorageAccountId, QueryHistoryPage, QueryRecord,
-    QueryRecordId, RepoConfig, RepoId, SshProfile, SshProfileId,
+    ApiHistoryRecord, ApiWorkspace, ApiWorkspaceId, ClipId, ClipItem, ClipSearchResult,
+    ConnectionConfig, ConnectionId, KafkaClusterConfig, KafkaClusterId, MAX_CLIPBOARD_SEARCH_BYTES,
+    MqttProfile, MqttProfileId, ObjectStorageAccount, ObjectStorageAccountId, QueryHistoryPage,
+    QueryRecord, QueryRecordId, RepoConfig, RepoId, SshProfile, SshProfileId,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::Storage;
@@ -144,37 +147,6 @@ fn set_private_file_permissions(_path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// 任一加密业务表存在记录时都必须复用原主密钥，不能静默创建新密钥。
-fn database_has_encrypted_records(db: &Database) -> Result<bool> {
-    let read_txn = db
-        .begin_read()
-        .map_err(|e| DomainError::Storage(format!("检查加密数据失败：{e}")))?;
-    for definition in [
-        repos::api_workspace_repo::API_WORKSPACES_TABLE,
-        repos::connection_repo::CONNECTIONS_TABLE,
-        repos::clip_repo::CLIPS_TABLE,
-        repos::ssh_profile_repo::SSH_PROFILES_TABLE,
-        repos::object_storage_account_repo::OBJECT_STORAGE_ACCOUNTS_TABLE,
-        repos::kafka_cluster_repo::KAFKA_CLUSTERS_TABLE,
-        repos::mqtt_profile_repo::MQTT_PROFILES_TABLE,
-    ] {
-        match read_txn.open_table(definition) {
-            Ok(table)
-                if !table
-                    .is_empty()
-                    .map_err(|e| DomainError::Storage(format!("检查加密数据表失败：{e}")))? =>
-            {
-                return Ok(true);
-            }
-            Ok(_) | Err(TableError::TableDoesNotExist(_)) => {}
-            Err(error) => {
-                return Err(DomainError::Storage(format!("打开加密数据表失败：{error}")));
-            }
-        }
-    }
-    Ok(false)
-}
-
 fn validate_clip_search_query(query: &str) -> Result<()> {
     if query.len() > MAX_CLIPBOARD_SEARCH_BYTES {
         return Err(DomainError::InvalidConfig(format!(
@@ -186,6 +158,36 @@ fn validate_clip_search_query(query: &str) -> Result<()> {
 
 #[async_trait]
 impl Storage for RedbStorage {
+    async fn append_api_history(
+        &self,
+        workspace_id: &ApiWorkspaceId,
+        record: &ApiHistoryRecord,
+    ) -> Result<()> {
+        let db = self.db.clone();
+        let cipher = self.cipher.clone();
+        let workspace_id = workspace_id.clone();
+        let record = record.clone();
+        run_blocking(move || repos::api_history_repo::append(db, cipher, workspace_id, record))
+            .await
+    }
+
+    async fn list_api_history(
+        &self,
+        workspace_id: &ApiWorkspaceId,
+        limit: usize,
+    ) -> Result<Vec<ApiHistoryRecord>> {
+        let db = self.db.clone();
+        let cipher = self.cipher.clone();
+        let workspace_id = workspace_id.clone();
+        run_blocking(move || repos::api_history_repo::list(db, cipher, workspace_id, limit)).await
+    }
+
+    async fn clear_api_history(&self, workspace_id: &ApiWorkspaceId) -> Result<()> {
+        let db = self.db.clone();
+        let workspace_id = workspace_id.clone();
+        run_blocking(move || repos::api_history_repo::clear(db, workspace_id)).await
+    }
+
     async fn list_api_workspaces(&self) -> Result<Vec<ApiWorkspace>> {
         let db = self.db.clone();
         let cipher = self.cipher.clone();

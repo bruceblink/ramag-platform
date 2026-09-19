@@ -5,10 +5,15 @@
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use ramag_domain::entities::{
-    ApiCancellation, ApiRequestSpec, ApiResponseSnapshot, ApiWorkspace, ApiWorkspaceId,
+    ApiAuth, ApiBody, ApiCancellation, ApiEnvironment, ApiExecutionOutcome, ApiExecutionResult,
+    ApiHistoryRecord, ApiParameter, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot,
+    ApiWorkspace, ApiWorkspaceId, GrpcRequestSpec, HttpRequestSpec, MAX_API_GRPC_ENDPOINT_BYTES,
+    MAX_API_GRPC_METHOD_BYTES, MAX_API_GRPC_SERVICE_BYTES, MAX_API_PARAMETER_NAME_BYTES,
+    MAX_API_PARAMETER_VALUE_BYTES, MAX_API_REQUEST_BODY_BYTES, MAX_API_URL_TEMPLATE_BYTES,
+    evaluate_assertions, resolve_template,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{ApiDriver, Storage};
@@ -69,6 +74,71 @@ impl ApiService {
         .await
     }
 
+    /// 展开环境变量、执行请求、评估断言并写入有界历史；用户级失败保留在 outcome 中。
+    pub async fn execute_record(
+        &self,
+        workspace_id: &ApiWorkspaceId,
+        record: &ApiRequestRecord,
+        environment: &ApiEnvironment,
+        cancelled: ApiCancellation,
+    ) -> Result<ApiExecutionOutcome> {
+        record.validate().map_err(DomainError::InvalidConfig)?;
+        environment.validate().map_err(DomainError::InvalidConfig)?;
+
+        let failure = if cancelled.load(Ordering::Relaxed) {
+            Some(DomainError::Cancelled("API 请求已取消".into()))
+        } else {
+            None
+        };
+        let execution = match failure {
+            Some(error) => Err(error),
+            None => match resolve_request(&record.request, &environment.execution_variables()) {
+                Ok(request) => self.execute(&request, &BTreeMap::new(), cancelled).await,
+                Err(error) => Err(error),
+            },
+        };
+
+        let outcome = match execution {
+            Ok(snapshot) => match evaluate_assertions(&record.assertions, &snapshot) {
+                Ok(assertions) => {
+                    let passed = assertions.iter().all(|assertion| assertion.passed);
+                    let result = ApiExecutionResult {
+                        snapshot,
+                        assertions,
+                        passed,
+                    };
+                    let history = ApiHistoryRecord::from_success(record, &result, environment);
+                    ApiExecutionOutcome {
+                        result: Some(result),
+                        error: None,
+                        history,
+                    }
+                }
+                Err(error) => {
+                    let history = ApiHistoryRecord::from_error(record, &error, environment);
+                    ApiExecutionOutcome {
+                        result: None,
+                        error: Some(error),
+                        history,
+                    }
+                }
+            },
+            Err(error) => {
+                let message = error.to_string();
+                let history = ApiHistoryRecord::from_error(record, &message, environment);
+                ApiExecutionOutcome {
+                    result: None,
+                    error: Some(message),
+                    history,
+                }
+            }
+        };
+        self.storage
+            .append_api_history(workspace_id, &outcome.history)
+            .await?;
+        Ok(outcome)
+    }
+
     /// 读取本地 API 工作区列表，Storage 负责解密和完整性校验。
     pub async fn list_workspaces(&self) -> Result<Vec<ApiWorkspace>> {
         self.storage.list_api_workspaces().await
@@ -85,12 +155,189 @@ impl ApiService {
         self.storage.delete_api_workspace(id).await
     }
 
+    /// 读取工作区最近执行摘要；正文和敏感值由 Storage 保持有界并加密。
+    pub async fn list_history(
+        &self,
+        workspace_id: &ApiWorkspaceId,
+        limit: usize,
+    ) -> Result<Vec<ApiHistoryRecord>> {
+        self.storage.list_api_history(workspace_id, limit).await
+    }
+
+    pub async fn clear_history(&self, workspace_id: &ApiWorkspaceId) -> Result<()> {
+        self.storage.clear_api_history(workspace_id).await
+    }
+
     fn driver_for(&self, request: &ApiRequestSpec) -> &Arc<dyn ApiDriver> {
         match request.protocol() {
             ramag_domain::entities::ApiProtocol::Http => &self.http_driver,
             ramag_domain::entities::ApiProtocol::Grpc => &self.grpc_driver,
         }
     }
+}
+
+fn resolve_request(
+    request: &ApiRequestSpec,
+    variables: &BTreeMap<String, String>,
+) -> Result<ApiRequestSpec> {
+    match request {
+        ApiRequestSpec::Http(spec) => {
+            Ok(ApiRequestSpec::Http(resolve_http_request(spec, variables)?))
+        }
+        ApiRequestSpec::Grpc(spec) => {
+            Ok(ApiRequestSpec::Grpc(resolve_grpc_request(spec, variables)?))
+        }
+    }
+}
+
+fn expand(
+    template: &str,
+    variables: &BTreeMap<String, String>,
+    label: &str,
+    max_bytes: usize,
+) -> Result<String> {
+    resolve_template(template, variables, label, max_bytes).map_err(DomainError::InvalidConfig)
+}
+
+fn expand_parameter(
+    parameter: &ApiParameter,
+    variables: &BTreeMap<String, String>,
+    label: &str,
+) -> Result<ApiParameter> {
+    Ok(ApiParameter::new(
+        expand(
+            &parameter.name,
+            variables,
+            label,
+            MAX_API_PARAMETER_NAME_BYTES,
+        )?,
+        expand(
+            &parameter.value,
+            variables,
+            label,
+            MAX_API_PARAMETER_VALUE_BYTES,
+        )?,
+        parameter.sensitive,
+    ))
+}
+
+fn resolve_http_request(
+    spec: &HttpRequestSpec,
+    variables: &BTreeMap<String, String>,
+) -> Result<HttpRequestSpec> {
+    let mut resolved = spec.clone();
+    resolved.url_template = expand(
+        &spec.url_template,
+        variables,
+        "HTTP URL 模板",
+        MAX_API_URL_TEMPLATE_BYTES,
+    )?;
+    resolved.query = spec
+        .query
+        .iter()
+        .map(|parameter| expand_parameter(parameter, variables, "HTTP 查询参数"))
+        .collect::<Result<Vec<_>>>()?;
+    resolved.headers = spec
+        .headers
+        .iter()
+        .map(|parameter| expand_parameter(parameter, variables, "HTTP Headers"))
+        .collect::<Result<Vec<_>>>()?;
+    resolved.auth = match &spec.auth {
+        ApiAuth::None => ApiAuth::None,
+        ApiAuth::Basic { username, password } => ApiAuth::Basic {
+            username: expand(
+                username,
+                variables,
+                "Basic 用户名",
+                MAX_API_PARAMETER_VALUE_BYTES,
+            )?,
+            password: expand(
+                password,
+                variables,
+                "Basic 密码",
+                MAX_API_PARAMETER_VALUE_BYTES,
+            )?,
+        },
+        ApiAuth::Bearer { token } => ApiAuth::Bearer {
+            token: expand(
+                token,
+                variables,
+                "Bearer Token",
+                MAX_API_PARAMETER_VALUE_BYTES,
+            )?,
+        },
+        ApiAuth::ApiKey {
+            name,
+            value,
+            location,
+        } => ApiAuth::ApiKey {
+            name: expand(
+                name,
+                variables,
+                "API Key 名称",
+                MAX_API_PARAMETER_NAME_BYTES,
+            )?,
+            value: expand(
+                value,
+                variables,
+                "API Key 值",
+                MAX_API_PARAMETER_VALUE_BYTES,
+            )?,
+            location: *location,
+        },
+    };
+    resolved.body = match &spec.body {
+        Some(body) => Some(ApiBody::text(
+            expand(
+                &body.value,
+                variables,
+                "HTTP 请求正文",
+                MAX_API_REQUEST_BODY_BYTES,
+            )?,
+            body.content_type.clone(),
+        )),
+        None => None,
+    };
+    resolved.validate().map_err(DomainError::InvalidConfig)?;
+    Ok(resolved)
+}
+
+fn resolve_grpc_request(
+    spec: &GrpcRequestSpec,
+    variables: &BTreeMap<String, String>,
+) -> Result<GrpcRequestSpec> {
+    let mut resolved = spec.clone();
+    resolved.endpoint_template = expand(
+        &spec.endpoint_template,
+        variables,
+        "gRPC Endpoint 模板",
+        MAX_API_GRPC_ENDPOINT_BYTES,
+    )?;
+    resolved.service = expand(
+        &spec.service,
+        variables,
+        "gRPC Service",
+        MAX_API_GRPC_SERVICE_BYTES,
+    )?;
+    resolved.method = expand(
+        &spec.method,
+        variables,
+        "gRPC Method",
+        MAX_API_GRPC_METHOD_BYTES,
+    )?;
+    resolved.metadata = spec
+        .metadata
+        .iter()
+        .map(|parameter| expand_parameter(parameter, variables, "gRPC Metadata"))
+        .collect::<Result<Vec<_>>>()?;
+    resolved.message = expand(
+        &spec.message,
+        variables,
+        "gRPC 请求消息",
+        MAX_API_REQUEST_BODY_BYTES,
+    )?;
+    resolved.validate().map_err(DomainError::InvalidConfig)?;
+    Ok(resolved)
 }
 
 /// 创建一个尚未取消的执行标记，供 UI 的发送操作和后续取消按钮共用。
@@ -104,8 +351,9 @@ mod tests {
 
     use async_trait::async_trait;
     use ramag_domain::entities::{
-        ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts,
-        ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
+        ApiAssertion, ApiEnvironment, ApiProtocol, ApiRequestRecord, ApiRequestSpec,
+        ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace,
+        GrpcRequestSpec, HttpRequestSpec,
     };
     use ramag_domain::error::Result;
     use ramag_domain::traits::ApiDriver;
@@ -206,6 +454,104 @@ mod tests {
         assert_eq!(
             service.list_workspaces().await.expect("工作区应列出"),
             vec![workspace]
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_record_covers_assertion_failure_missing_variable_and_cancel() {
+        let directory = tempdir().expect("创建 API 执行测试目录");
+        let storage = ramag_infra_storage::RedbStorage::open_with_key(
+            &directory.path().join("api-execution.redb"),
+            &[0x46; 32],
+        )
+        .expect("打开 API 执行测试存储");
+        let http_driver = std::sync::Arc::new(RecordingDriver {
+            protocol: ApiProtocol::Http,
+            calls: AtomicUsize::new(0),
+        });
+        let grpc_driver = std::sync::Arc::new(RecordingDriver {
+            protocol: ApiProtocol::Grpc,
+            calls: AtomicUsize::new(0),
+        });
+        let service = ApiService::new(
+            http_driver.clone(),
+            grpc_driver,
+            std::sync::Arc::new(storage),
+        )
+        .expect("API 服务应创建");
+        let workspace = ApiWorkspace::new("history");
+        let environment = ApiEnvironment::new("local");
+
+        let mut passing =
+            ApiRequestRecord::new_http("passing", HttpRequestSpec::new("GET", "http://127.0.0.1"));
+        passing.assertions.push(ApiAssertion::BodyContains {
+            expected: "recorded".into(),
+        });
+        let passed = service
+            .execute_record(
+                &workspace.id,
+                &passing,
+                &environment,
+                new_api_cancellation(),
+            )
+            .await
+            .expect("成功执行应返回 outcome");
+        assert!(passed.result.as_ref().is_some_and(|result| result.passed));
+        assert!(passed.history.passed);
+
+        let mut failing = passing.clone();
+        failing.name = "failing".into();
+        failing.assertions = vec![ApiAssertion::HttpStatus { expected: 201 }];
+        let failed = service
+            .execute_record(
+                &workspace.id,
+                &failing,
+                &environment,
+                new_api_cancellation(),
+            )
+            .await
+            .expect("断言失败应返回 outcome");
+        assert!(failed.result.is_some());
+        assert!(!failed.result.expect("应有响应").passed);
+        assert!(!failed.history.passed);
+
+        let missing = ApiRequestRecord::new_http(
+            "missing",
+            HttpRequestSpec::new("GET", "{{missing_url}}/health"),
+        );
+        let missing_outcome = service
+            .execute_record(
+                &workspace.id,
+                &missing,
+                &environment,
+                new_api_cancellation(),
+            )
+            .await
+            .expect("变量缺失应返回 outcome");
+        assert!(missing_outcome.result.is_none());
+        assert!(
+            missing_outcome
+                .error
+                .as_deref()
+                .is_some_and(|error| error.contains("缺少 API 环境变量"))
+        );
+
+        let cancelled = new_api_cancellation();
+        cancelled.store(true, Ordering::Relaxed);
+        let cancelled_outcome = service
+            .execute_record(&workspace.id, &passing, &environment, cancelled)
+            .await
+            .expect("取消应返回 outcome");
+        assert!(
+            cancelled_outcome
+                .error
+                .as_deref()
+                .is_some_and(|error| error.contains("取消"))
+        );
+        assert_eq!(http_driver.calls.load(Ordering::Relaxed), 2);
+        assert_eq!(
+            service.list_history(&workspace.id, 10).await.unwrap().len(),
+            4
         );
     }
 }

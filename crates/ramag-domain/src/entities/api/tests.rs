@@ -94,3 +94,97 @@ fn legacy_request_json_uses_defaults_for_new_optional_fields() {
     assert!(request.assertions.is_empty());
     assert!(request.validate().is_ok());
 }
+
+#[test]
+fn template_variables_and_assertions_cover_missing_and_failed_cases() {
+    let mut variables = std::collections::BTreeMap::new();
+    variables.insert("base_url".into(), "http://127.0.0.1".into());
+    let resolved = resolve_template(
+        "{{base_url}}/json",
+        &variables,
+        "URL",
+        MAX_API_URL_TEMPLATE_BYTES,
+    );
+    assert!(resolved.is_ok(), "有效变量应展开：{resolved:?}");
+    if let Ok(resolved) = resolved {
+        assert_eq!(resolved, "http://127.0.0.1/json");
+    }
+    let missing = resolve_template("{{missing}}", &variables, "URL", 128);
+    assert!(missing.is_err());
+    if let Err(error) = missing {
+        assert!(error.contains("缺少 API 环境变量"));
+    }
+
+    let body = br#"{"ok":true,"nested":{"id":7}}"#.to_vec();
+    let snapshot = ApiResponseSnapshot::new(ApiResponseSnapshotParts {
+        protocol: ApiProtocol::Http,
+        status: ApiResponseStatus::Http { code: 200 },
+        headers: vec![ApiParameter::new("content-type", "application/json", false)],
+        metadata: Vec::new(),
+        body: body.clone(),
+        elapsed_millis: 4,
+        size_bytes: body.len() as u64,
+        truncated: false,
+        error: None,
+    });
+    assert!(snapshot.is_ok(), "应构造 JSON 响应：{snapshot:?}");
+    let Ok(snapshot) = snapshot else {
+        return;
+    };
+    let results = evaluate_assertions(
+        &[
+            ApiAssertion::HttpStatus { expected: 200 },
+            ApiAssertion::JsonPathEquals {
+                path: "$.nested.id".into(),
+                expected: "7".into(),
+            },
+            ApiAssertion::BodyContains {
+                expected: "missing".into(),
+            },
+        ],
+        &snapshot,
+    );
+    assert!(results.is_ok(), "断言应执行：{results:?}");
+    let Ok(results) = results else {
+        return;
+    };
+    assert_eq!(results.len(), 3);
+    assert!(results[0].passed);
+    assert!(results[1].passed);
+    assert!(!results[2].passed);
+}
+
+#[test]
+fn history_summary_redacts_sensitive_environment_values() {
+    let mut environment = ApiEnvironment::new("local");
+    environment
+        .variables
+        .insert("token".into(), "secret-token".into());
+    environment.sensitive_variable_refs.push("token".into());
+    let record = ApiRequestRecord::new_http("secret-request", HttpRequestSpec::new("GET", "/"));
+    let body = b"{\"token\":\"secret-token\"}".to_vec();
+    let snapshot = ApiResponseSnapshot::new(ApiResponseSnapshotParts {
+        protocol: ApiProtocol::Http,
+        status: ApiResponseStatus::Http { code: 200 },
+        headers: Vec::new(),
+        metadata: Vec::new(),
+        body: body.clone(),
+        elapsed_millis: 1,
+        size_bytes: body.len() as u64,
+        truncated: false,
+        error: None,
+    });
+    assert!(snapshot.is_ok(), "应构造历史响应：{snapshot:?}");
+    let Ok(snapshot) = snapshot else {
+        return;
+    };
+    let result = ApiExecutionResult {
+        snapshot,
+        assertions: Vec::new(),
+        passed: true,
+    };
+    let history = ApiHistoryRecord::from_success(&record, &result, &environment);
+    assert!(!history.body_preview.contains("secret-token"));
+    assert!(history.body_preview.contains("[REDACTED]"));
+    assert!(history.validate().is_ok());
+}

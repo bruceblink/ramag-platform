@@ -1,10 +1,11 @@
 use super::{make_test_storage, repos};
 use ramag_domain::entities::{
-    ApiAuth, ApiBody, ApiCollection, ApiEnvironment, ApiParameter, ApiRequestRecord,
-    ApiRequestSpec, ApiWorkspace, HttpRequestSpec,
+    ApiAuth, ApiBody, ApiCollection, ApiEnvironment, ApiExecutionResult, ApiHistoryRecord,
+    ApiParameter, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts,
+    ApiResponseStatus, ApiWorkspace, HttpRequestSpec,
 };
 use ramag_domain::traits::Storage;
-use redb::ReadableDatabase as _;
+use redb::{ReadableDatabase as _, ReadableTable as _};
 
 fn sample_api_workspace() -> ApiWorkspace {
     let mut workspace = ApiWorkspace::new("api-dev");
@@ -77,5 +78,60 @@ async fn api_workspace_roundtrip_encrypts_sensitive_request_data() {
             .await
             .unwrap()
             .is_none()
+    );
+}
+
+#[tokio::test]
+async fn api_history_roundtrip_is_bounded_and_encrypted() {
+    let (storage, _tmp) = make_test_storage();
+    let workspace = sample_api_workspace();
+    let request = workspace.collections[0].requests[0].clone();
+    let environment = workspace.environments[0].clone();
+    let body = br#"{"token":"secret-token"}"#.to_vec();
+    let snapshot = ApiResponseSnapshot::new(ApiResponseSnapshotParts {
+        protocol: ramag_domain::entities::ApiProtocol::Http,
+        status: ApiResponseStatus::Http { code: 200 },
+        headers: Vec::new(),
+        metadata: Vec::new(),
+        body: body.clone(),
+        elapsed_millis: 3,
+        size_bytes: body.len() as u64,
+        truncated: false,
+        error: None,
+    })
+    .unwrap();
+    let history = ApiHistoryRecord::from_success(
+        &request,
+        &ApiExecutionResult {
+            snapshot,
+            assertions: Vec::new(),
+            passed: true,
+        },
+        &environment,
+    );
+    storage
+        .append_api_history(&workspace.id, &history)
+        .await
+        .unwrap();
+    let listed = storage.list_api_history(&workspace.id, 10).await.unwrap();
+    assert_eq!(listed, vec![history.clone()]);
+
+    let read_txn = storage.db.begin_read().unwrap();
+    let table = read_txn
+        .open_table(repos::api_history_repo::API_HISTORY_TABLE)
+        .unwrap();
+    let raw = table.iter().unwrap().next().unwrap().unwrap().1;
+    assert!(!raw.value().contains("secret-token"));
+    drop(raw);
+    drop(table);
+    drop(read_txn);
+
+    storage.clear_api_history(&workspace.id).await.unwrap();
+    assert!(
+        storage
+            .list_api_history(&workspace.id, 10)
+            .await
+            .unwrap()
+            .is_empty()
     );
 }

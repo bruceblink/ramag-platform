@@ -184,7 +184,7 @@ pub enum ApiAssertion {
 }
 
 impl ApiAssertion {
-    fn validate(&self, protocol: ApiProtocol) -> Result<(), String> {
+    pub fn validate(&self, protocol: ApiProtocol) -> Result<(), String> {
         match self {
             Self::HttpStatus { expected } => {
                 if protocol != ApiProtocol::Http {
@@ -267,7 +267,7 @@ impl ApiRequestRecord {
         }
     }
 
-    pub(super) fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), String> {
         validate_required_text("API 请求名称", &self.name, MAX_API_REQUEST_NAME_BYTES)?;
         if self.protocol != self.request.protocol() {
             return Err("API 请求协议标记与请求内容不一致".into());
