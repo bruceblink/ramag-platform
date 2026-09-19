@@ -8,6 +8,17 @@ impl MqttView {
             search.is_empty() || profile.name.contains(&search) || profile.host.contains(&search)
         }) {
             let selected = self.selected_profile_id.as_ref() == Some(&profile.id);
+            let connection_status = self
+                .profile_connection_statuses
+                .get(&profile.id)
+                .copied()
+                .unwrap_or_default();
+            let status_color = match connection_status {
+                MqttProfileConnectionStatus::Untested => theme.muted_foreground,
+                MqttProfileConnectionStatus::Testing => theme.warning,
+                MqttProfileConnectionStatus::Reachable => theme.accent,
+                MqttProfileConnectionStatus::Failed => theme.danger,
+            };
             let id = profile.id.clone();
             rows = rows.child(
                 h_flex()
@@ -28,22 +39,33 @@ impl MqttView {
                             },
                         ))
                     })
-                    .child(div().size(px(8.0)).rounded_full().bg(if selected {
-                        theme.accent
-                    } else {
-                        theme.muted_foreground
-                    }))
+                    .child(div().size(px(8.0)).rounded_full().bg(status_color))
                     .child(
                         v_flex()
+                            .flex_1()
                             .min_w_0()
                             .gap(px(2.0))
-                            .child(div().text_sm().truncate().child(profile.name.clone()))
                             .child(
                                 div()
+                                    .debug_selector(|| "mqtt-profile-name".into())
+                                    .text_sm()
+                                    .min_w_0()
+                                    .truncate()
+                                    .child(profile.name.clone()),
+                            )
+                            .child(
+                                div()
+                                    .debug_selector(|| "mqtt-profile-status".into())
                                     .text_xs()
                                     .text_color(theme.muted_foreground)
+                                    .min_w_0()
                                     .truncate()
-                                    .child(format!("{}:{}", profile.host, profile.port)),
+                                    .child(format!(
+                                        "{} · {}:{}",
+                                        connection_status.label(),
+                                        profile.host,
+                                        profile.port
+                                    )),
                             ),
                     ),
             );

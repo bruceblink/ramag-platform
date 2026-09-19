@@ -135,6 +135,8 @@ impl MqttView {
                         } else {
                             this.profiles.push(profile.clone());
                         }
+                        this.profile_connection_statuses
+                            .insert(id.clone(), MqttProfileConnectionStatus::Untested);
                         this.selected_profile_id = Some(id);
                         this.set_form_from_profile(&profile, window, cx);
                         this.notice = Some((format!("已保存「{name}」"), false));
@@ -174,6 +176,7 @@ impl MqttView {
                 match result {
                     Ok(()) => {
                         this.profiles.retain(|profile| profile.id != id);
+                        this.profile_connection_statuses.remove(&id);
                         this.reset_form(window, cx);
                         this.notice = Some(("配置已删除".into(), false));
                     }
@@ -204,6 +207,10 @@ impl MqttView {
         self.operation_id = self.operation_id.wrapping_add(1);
         let operation_id = self.operation_id;
         self.testing = true;
+        if let Some(id) = self.selected_profile_id.clone() {
+            self.profile_connection_statuses
+                .insert(id, MqttProfileConnectionStatus::Testing);
+        }
         cx.spawn_in(window, async move |this, cx| {
             let result = service.test_connection(&profile).await;
             let _ = this.update(cx, |this, cx| {
@@ -211,6 +218,16 @@ impl MqttView {
                     return;
                 }
                 this.testing = false;
+                if let Some(id) = this.selected_profile_id.clone() {
+                    this.profile_connection_statuses.insert(
+                        id,
+                        if result.is_ok() {
+                            MqttProfileConnectionStatus::Reachable
+                        } else {
+                            MqttProfileConnectionStatus::Failed
+                        },
+                    );
+                }
                 this.notice = Some(match result {
                     Ok(()) => ("MQTT 连接测试成功".into(), false),
                     Err(error) => (format!("连接测试失败：{}", error.user_message()), true),

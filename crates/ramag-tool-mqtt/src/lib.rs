@@ -5,7 +5,7 @@
 //! 所有连接、发布、订阅和 Mosquitto 管理请求都通过 `MqttService` 执行。视图只保存用户
 //! 输入和真实返回结果，不在客户端生成 Topic、在线客户端或权限样例。
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -111,6 +111,26 @@ enum MqttSection {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum MqttProfileConnectionStatus {
+    #[default]
+    Untested,
+    Testing,
+    Reachable,
+    Failed,
+}
+
+impl MqttProfileConnectionStatus {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Untested => "未测试",
+            Self::Testing => "测试中",
+            Self::Reachable => "可连接",
+            Self::Failed => "连接失败",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum MqttPayloadFormat {
     #[default]
     Plaintext,
@@ -199,6 +219,7 @@ pub struct MqttView {
     service: Arc<MqttService>,
     profiles: Vec<MqttProfile>,
     selected_profile_id: Option<MqttProfileId>,
+    profile_connection_statuses: HashMap<MqttProfileId, MqttProfileConnectionStatus>,
     section: MqttSection,
     /// Narrow windows hide the profile list by default so the active form keeps usable width.
     sidebar_visible: bool,

@@ -291,6 +291,7 @@ impl MqttView {
             service,
             profiles: Vec::new(),
             selected_profile_id: None,
+            profile_connection_statuses: HashMap::new(),
             section: MqttSection::Config,
             sidebar_visible: false,
             name,
@@ -447,6 +448,8 @@ impl MqttView {
                             .selected_profile_id
                             .clone()
                             .filter(|id| profiles.iter().any(|profile| &profile.id == id));
+                        this.profile_connection_statuses
+                            .retain(|id, _| profiles.iter().any(|profile| &profile.id == id));
                         this.profiles = profiles;
                         if let Some(id) =
                             selected.or_else(|| this.profiles.first().map(|p| p.id.clone()))

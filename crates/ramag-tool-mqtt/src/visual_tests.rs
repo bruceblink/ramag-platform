@@ -16,15 +16,18 @@ use ramag_app::MqttService;
 use ramag_domain::entities::{
     ConnectionConfig, ConnectionId, MosquittoAcl, MosquittoAclDecision, MosquittoAclType,
     MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoRole, MosquittoRoleBinding,
-    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerStatus, MqttMessage,
-    MqttOnlineClient, MqttProfile, MqttPublishRequest, MqttPublishResult, MqttQos,
+    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerEvent, MqttLocalServerStatus,
+    MqttMessage, MqttOnlineClient, MqttProfile, MqttPublishRequest, MqttPublishResult, MqttQos,
     MqttSubscription, MqttTopicObservation, MqttTopicSource, MqttUserProperty, QueryRecord,
     QueryRecordId,
 };
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, MqttLocalServerDriver, Storage};
 
-use super::{MQTT_SIDEBAR_COLLAPSE_BREAKPOINT, MosquittoManagementSection, MqttSection, MqttView};
+use super::{
+    MQTT_SIDEBAR_COLLAPSE_BREAKPOINT, MosquittoManagementSection, MqttProfileConnectionStatus,
+    MqttSection, MqttView,
+};
 
 pub(super) struct NoopMqttDriver;
 
@@ -130,6 +133,34 @@ impl MqttLocalServerDriver for RecordingLocalServerDriver {
 
     async fn snapshot(&self) -> Result<MqttBrokerSnapshot> {
         Ok(self.snapshot.clone())
+    }
+}
+
+struct EventLocalServerDriver {
+    events: Vec<MqttLocalServerEvent>,
+}
+
+#[async_trait]
+impl MqttLocalServerDriver for EventLocalServerDriver {
+    async fn stop(&self) -> Result<MqttLocalServerStatus> {
+        Ok(MqttLocalServerStatus::stopped(
+            &MqttLocalServerConfig::default(),
+        ))
+    }
+
+    async fn subscribe_events(
+        &self,
+        sink: ramag_domain::entities::MqttLocalServerEventSink,
+        cancelled: Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<()> {
+        // 事件测试驱动只发送一批确定数据；真实驱动的长连接取消由独立集成测试覆盖。
+        for event in &self.events {
+            if cancelled.load(Ordering::Acquire) {
+                return Ok(());
+            }
+            let _ = sink(event.clone());
+        }
+        Ok(())
     }
 }
 
@@ -272,6 +303,41 @@ fn mqtt_sidebar_collapses_and_can_be_reopened_in_narrow_window(cx: &mut TestAppC
 }
 
 #[gpui::test]
+fn mqtt_profile_sidebar_shows_name_and_endpoint(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let storage = Arc::new(NoopStorage::default());
+    let profile = MqttProfile::new("Docker MQTT UI", "127.0.0.1", 18883);
+    storage
+        .mqtt_profiles
+        .lock()
+        .expect("写入 MQTT 测试配置锁")
+        .push(profile);
+    let service = Arc::new(MqttService::new(Arc::new(NoopMqttDriver), storage));
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+
+    visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
+    visual_cx.run_until_parked();
+
+    let sidebar = visual_cx
+        .debug_bounds("mqtt-sidebar")
+        .expect("MQTT 配置栏应渲染");
+    for selector in ["mqtt-profile-name", "mqtt-profile-status"] {
+        let bounds = visual_cx
+            .debug_bounds(selector)
+            .expect("MQTT 配置项文本应参与布局");
+        assert!(
+            bounds.size.width > px(24.0) && bounds.right() <= sidebar.right(),
+            "配置项 {} 必须在侧栏内保留可见宽度: sidebar={sidebar:?}, bounds={bounds:?}",
+            selector
+        );
+    }
+}
+
+#[gpui::test]
 fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
     cx.update(gpui_component::init);
     let storage = Arc::new(NoopStorage::default());
@@ -343,6 +409,21 @@ fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
         connection_tests.load(Ordering::Relaxed),
         2,
         "测试连接按钮必须调用 MQTT 驱动"
+    );
+    let profile_id = storage
+        .mqtt_profiles
+        .lock()
+        .expect("读取连接状态配置锁")
+        .first()
+        .expect("测试配置应已保存")
+        .id
+        .clone();
+    assert_eq!(
+        view.read_with(visual_cx, |view, _| {
+            view.profile_connection_statuses.get(&profile_id).copied()
+        }),
+        Some(MqttProfileConnectionStatus::Reachable),
+        "连接测试成功后侧栏应显示可连接状态"
     );
 }
 
@@ -599,6 +680,133 @@ fn mqtt_local_server_page_reflows_inside_supported_window_widths(cx: &mut TestAp
             );
         }
     }
+}
+
+#[gpui::test]
+fn mqtt_local_server_event_timeline_consumes_and_clears_events(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let now = Utc::now();
+    let message = MqttMessage {
+        topic: "ui/events".into(),
+        payload: b"hello".to_vec(),
+        qos: MqttQos::AtLeastOnce,
+        retain: true,
+        duplicate: false,
+        received_at: now,
+        user_properties: Vec::new(),
+    };
+    let events = vec![
+        MqttLocalServerEvent::ClientConnected {
+            client: MqttOnlineClient {
+                client_id: "ui-client".into(),
+                username: Some("operator".into()),
+                remote_address: Some("127.0.0.1:41000".into()),
+                connected_at: Some(now),
+                subscriptions: Vec::new(),
+            },
+            occurred_at: now,
+        },
+        MqttLocalServerEvent::ClientSubscribed {
+            client_id: "ui-client".into(),
+            subscription: MqttSubscription {
+                filter: "ui/#".into(),
+                qos: MqttQos::AtLeastOnce,
+                no_local: false,
+            },
+            occurred_at: now,
+        },
+        MqttLocalServerEvent::ClientPublished {
+            client_id: "ui-client".into(),
+            message: message.clone(),
+            occurred_at: now,
+        },
+        MqttLocalServerEvent::BrokerPublished {
+            message,
+            occurred_at: now,
+        },
+        MqttLocalServerEvent::ClientDisconnected {
+            client_id: "ui-client".into(),
+            reason: Some("测试结束".into()),
+            occurred_at: now,
+        },
+    ];
+    let service = Arc::new(
+        MqttService::new(Arc::new(NoopMqttDriver), Arc::new(NoopStorage::default()))
+            .with_local_server_driver(Arc::new(EventLocalServerDriver { events })),
+    );
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        view_entity = Some(view.clone());
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_component::Root::new(host, window, cx)
+    });
+    let view = view_entity.expect("MQTT 视图应初始化");
+
+    visual_cx.simulate_resize(size(px(1440.0), px(900.0)));
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.loading_profiles = false;
+            view.section = MqttSection::LocalServer;
+            view.local_server_status = Some(MqttLocalServerStatus::running(
+                &MqttLocalServerConfig::default(),
+            ));
+            view.start_local_server_events(window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.local_server_events.len() == 5
+            && matches!(
+                view.local_server_events.back(),
+                Some(MqttLocalServerEvent::ClientDisconnected { .. })
+            )
+    }));
+    for selector in [
+        "mqtt-local-server-events",
+        "mqtt-local-server-events-list",
+        "mqtt-local-server-event-0",
+        "mqtt-local-server-event-4",
+    ] {
+        let bounds = visual_cx
+            .debug_bounds(selector)
+            .expect("Broker 事件时间线控件应参与布局");
+        let main = visual_cx
+            .debug_bounds("mqtt-main")
+            .expect("MQTT 主工作区应参与布局");
+        assert!(
+            bounds.origin.x >= main.origin.x && bounds.right() <= main.right(),
+            "事件时间线不能越出主工作区: selector={selector}, main={main:?}, bounds={bounds:?}"
+        );
+    }
+
+    visual_cx.update(|_window, app| {
+        view.update(app, |view, cx| {
+            view.clear_local_server_events();
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(view.read_with(visual_cx, |view, _| { view.local_server_events.is_empty() }));
+    assert!(
+        visual_cx
+            .debug_bounds("mqtt-local-server-events-empty")
+            .is_some()
+    );
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.stop_local_server(window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(view.read_with(visual_cx, |view, _| {
+        view.local_server_status
+            .as_ref()
+            .is_some_and(|status| !status.running)
+            && view.local_server_events.is_empty()
+    }));
 }
 
 #[gpui::test]
