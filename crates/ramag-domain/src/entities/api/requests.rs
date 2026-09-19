@@ -23,6 +23,8 @@ pub struct HttpRequestSpec {
     pub auth: ApiAuth,
     #[serde(default)]
     pub body: Option<ApiBody>,
+    #[serde(default)]
+    pub tls: ApiTlsConfig,
     #[serde(default = "default_api_timeout")]
     pub timeout_millis: u64,
 }
@@ -37,20 +39,20 @@ impl HttpRequestSpec {
             headers: Vec::new(),
             auth: ApiAuth::default(),
             body: None,
+            tls: ApiTlsConfig::default(),
             timeout_millis: default_api_timeout(),
         }
     }
 
-    pub(super) fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), String> {
         validate_protocol_name("HTTP 方法", &self.method, MAX_API_HTTP_METHOD_BYTES)?;
         if self.method.bytes().any(|byte| byte.is_ascii_lowercase()) {
             return Err("HTTP 方法必须使用大写 ASCII 字符".into());
         }
-        validate_text(
+        validate_required_text(
             "HTTP URL 模板",
             &self.url_template,
             MAX_API_URL_TEMPLATE_BYTES,
-            false,
         )?;
         validate_parameters("HTTP 查询参数", &self.query, false)?;
         validate_parameters("HTTP Headers", &self.headers, true)?;
@@ -58,6 +60,7 @@ impl HttpRequestSpec {
         if let Some(body) = &self.body {
             body.validate()?;
         }
+        self.tls.validate()?;
         validate_timeout(self.timeout_millis)
     }
 }
@@ -114,7 +117,7 @@ impl GrpcRequestSpec {
         }
     }
 
-    pub(super) fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), String> {
         validate_text(
             "gRPC Endpoint 模板",
             &self.endpoint_template,
@@ -162,7 +165,7 @@ impl ApiRequestSpec {
         }
     }
 
-    fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), String> {
         match self {
             Self::Http(request) => request.validate(),
             Self::Grpc(request) => request.validate(),

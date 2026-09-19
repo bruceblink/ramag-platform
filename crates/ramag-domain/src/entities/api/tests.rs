@@ -51,6 +51,7 @@ fn debug_output_redacts_auth_body_and_environment_values() {
                 "secret-body",
                 Some("application/json".into()),
             )),
+            tls: ApiTlsConfig::default(),
             timeout_millis: 30_000,
         },
     );

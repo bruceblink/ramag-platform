@@ -10,10 +10,15 @@ description = "Ramag API 测试工具的 HTTP/gRPC 基础设施预研与驱动"
 workspace = true
 
 [dependencies]
+async-trait = { workspace = true }
+base64 = { workspace = true }
 bytes = { workspace = true }
 http = { workspace = true }
 prost = { workspace = true }
 prost-reflect = { workspace = true }
+ramag-domain = { workspace = true }
+reqwest = { workspace = true }
+rustls = { workspace = true }
 tonic = { workspace = true }
 tonic-prost = { workspace = true }
 tokio = { workspace = true }

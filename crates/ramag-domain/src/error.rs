@@ -237,6 +237,9 @@ pub enum DomainError {
     #[error("连接失败: {0}")]
     ConnectionFailed(String),
 
+    #[error("操作已取消: {0}")]
+    Cancelled(String),
+
     #[error("查询执行失败: {0}")]
     QueryFailed(String),
 
@@ -275,6 +278,7 @@ impl DomainError {
         match self {
             DomainError::InvalidConfig(m)
             | DomainError::ConnectionFailed(m)
+            | DomainError::Cancelled(m)
             | DomainError::QueryFailed(m)
             | DomainError::Storage(m)
             | DomainError::NotFound(m)

@@ -94,8 +94,8 @@ impl ApiResponseSnapshot {
         if self.size_bytes < self.body.len() as u64 {
             return Err("API 响应 size_bytes 不能小于已缓存正文长度".into());
         }
-        validate_parameters("API 响应 Headers", &self.headers, true)?;
-        validate_parameters("API 响应 Metadata", &self.metadata, true)?;
+        validate_parameters("API 响应 Headers", &self.headers, false)?;
+        validate_parameters("API 响应 Metadata", &self.metadata, false)?;
         if let Some(error) = &self.error {
             validate_text("API 响应错误", error, MAX_API_ERROR_BYTES, false)?;
         }

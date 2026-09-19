@@ -121,6 +121,18 @@ flowchart LR
 - JSON 格式化、纯文本查看和正文大小限制。
 - 状态码、Header、Body 包含文本、JSON 字段和耗时断言。
 
+#### API-002 代码切片记录（2026-09-19）
+
+`HttpApiDriver` 已在 `ramag-infra-api` 实现：
+
+- 使用 `reqwest` 异步构造 HTTP/HTTPS 请求，支持 URL 模板、Query、Headers、请求体、Basic/Bearer/API Key 和每请求超时。
+- 按 `ApiTlsConfig` 加载 CA、客户端证书/密钥或关闭证书校验，并在基础设施边界初始化 Rustls Crypto Provider。
+- 保留 HTTP 状态码和响应 Headers；响应正文最多缓存 8 MiB，记录原始大小和 `truncated` 状态，不把非 2xx 响应误判为传输错误。
+- 发送阶段和响应流读取阶段均监听 `ApiCancellation`；传输错误只返回安全错误文本，不复制 URL、Headers 或响应正文中的凭据。
+- `ramag-infra-api` 的本地 TCP HTTP 验收测试覆盖成功/非 2xx、变量、Query、Headers、三类认证、请求体、正文截断、超时、取消和 TLS 配置错误，共 8 项通过。
+
+本记录只证明驱动边界和本地协议行为；本机 Docker HTTP 服务集成、API 工作台 UI 验收和真实 Windows 窗口截图仍未完成，不能用上述测试替代这些证据。
+
 ### 3.3 gRPC 请求
 
 - 明文和 TLS 连接。
@@ -236,10 +248,13 @@ cargo test --locked -p ramag-infra-api --all-targets
 cargo test --locked -p ramag-tool-api --lib
 cargo clippy --workspace --all-targets -- -D warnings
 cargo build --locked -p ramag-bin
+scripts/check-source-size.sh  # Windows uses scripts/windows/check-source-size.ps1
 git diff --check
 ```
 
-新增或修改 Rust 文件后，必须以最终待提交内容重新执行格式检查和 workspace Clippy；任一检查失败都不能提交或推送。
+`.githooks/pre-commit` 已在格式和 Clippy 检查前执行全量 Rust 源码行数检查，并再次检查已暂存 Rust 文件；新文件或修改后的文件超过 600 行时直接拒绝提交。Windows 使用等价的 PowerShell 检查脚本，历史基线文件由 `scripts/source-size-baseline.txt` 明确列出。
+
+新增或修改 Rust 文件后，必须以最终待提交内容重新执行格式、源码行数检查和 workspace Clippy；任一检查失败都不能提交或推送。
 
 ## 9. 交付顺序
 
@@ -257,10 +272,10 @@ git diff --check
 
 ## 10. 当前未完成项
 
-- `API-001` 已完成；尚未实现 HTTP/gRPC 执行驱动。
+- `API-001` 已完成；`API-002` 的 HTTP 驱动代码切片已实现，但 Docker 集成验收仍未完成。
 - 尚未完成 Reflection 客户端、FileDescriptor 依赖合并和 gRPC 服务目录读取。
 - 尚未创建 HTTP/gRPC Docker 测试服务。
 - 尚未实现 `ramag-tool-api`、应用服务和 `ramag-bin` API 工具注册。
-- 尚未运行 HTTP/gRPC API Docker 集成测试或 API UI 截图验收；当前只有领域/Storage 专项测试。
+- 尚未运行 HTTP/gRPC API Docker 集成测试或 API UI 截图验收；当前已有领域、Storage 和 HTTP 驱动本地 TCP 专项测试。
 
-下一项任务固定为 `API-002`：实现 HTTP 请求构造、响应解析、取消和超时，并使用本机 Docker HTTP 服务形成真实协议证据。
+下一项先补齐 `API-002` 的本机 Docker HTTP 服务证据，再推进 `API-003` gRPC Unary 执行链路。

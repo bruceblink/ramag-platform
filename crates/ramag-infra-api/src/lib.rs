@@ -1,12 +1,11 @@
-//! API 测试工具的协议基础设施预研。
+//! API 测试工具的 HTTP 和 gRPC 基础设施驱动。
 //!
-//! 当前只提供 gRPC 动态 Unary 调用所需的低层能力。应用层和领域层的正式接口留在
-//! `API-001`，避免在技术选型未冻结前把传输客户端类型扩散到其它 crate。
+//! 领域模型和应用编排仍在 `ramag-domain`/`ramag-app`，本 crate 不保存 UI 状态或执行历史。
 
 #![cfg_attr(test, allow(clippy::expect_used, clippy::panic, clippy::unwrap_used))]
 
+use ::http::uri::PathAndQuery;
 use bytes::Buf;
-use http::uri::PathAndQuery;
 use prost::Message;
 use prost_reflect::{DynamicMessage, MessageDescriptor};
 use tonic::{
@@ -16,6 +15,10 @@ use tonic::{
     metadata::MetadataMap,
     transport::{Channel, Endpoint},
 };
+
+mod http;
+
+pub use http::HttpApiDriver;
 
 /// 通过运行时 Descriptor 调用一个 Unary gRPC 方法。
 ///

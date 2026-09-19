@@ -7775,10 +7775,15 @@ dependencies = [
 name = "ramag-infra-api"
 version = "0.1.2"
 dependencies = [
+ "async-trait",
+ "base64 0.22.1",
  "bytes",
  "http",
  "prost 0.14.4",
  "prost-reflect",
+ "ramag-domain",
+ "reqwest 0.13.4",
+ "rustls",
  "tokio",
  "tokio-stream",
  "tonic",
