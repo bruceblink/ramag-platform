@@ -4,6 +4,8 @@ pub struct MqttLocalServerConfig {
     pub bind_host: String,
     #[serde(default = "default_local_server_port")]
     pub port: u16,
+    #[serde(default = "default_local_server_max_connections")]
+    pub max_connections: u32,
     #[serde(default)]
     pub allow_anonymous: bool,
     #[serde(default)]
@@ -15,6 +17,7 @@ impl Default for MqttLocalServerConfig {
         Self {
             bind_host: default_local_server_host(),
             port: default_local_server_port(),
+            max_connections: default_local_server_max_connections(),
             allow_anonymous: true,
             users: Vec::new(),
         }
@@ -27,6 +30,7 @@ impl fmt::Debug for MqttLocalServerConfig {
             .debug_struct("MqttLocalServerConfig")
             .field("bind_host", &self.bind_host)
             .field("port", &self.port)
+            .field("max_connections", &self.max_connections)
             .field("allow_anonymous", &self.allow_anonymous)
             .field("users", &self.users)
             .finish()
@@ -34,6 +38,7 @@ impl fmt::Debug for MqttLocalServerConfig {
 }
 
 impl MqttLocalServerConfig {
+    /// 校验监听地址、连接上限和固定账号，拒绝 Broker 启动后才暴露的配置错误。
     pub fn validate(&self) -> Result<(), String> {
         let host = self.bind_host.trim();
         if host.is_empty() {
@@ -48,6 +53,14 @@ impl MqttLocalServerConfig {
             .map_err(|_| "本地 MQTT Broker 监听地址必须是 IPv4 或 IPv6 地址".to_string())?;
         if self.port == 0 {
             return Err("本地 MQTT Broker 端口必须是 1 - 65535".into());
+        }
+        if self.max_connections == 0 {
+            return Err("本地 MQTT Broker 连接上限必须大于 0".into());
+        }
+        if self.max_connections > MAX_MQTT_LOCAL_SERVER_MAX_CONNECTIONS {
+            return Err(format!(
+                "本地 MQTT Broker 连接上限不能超过 {MAX_MQTT_LOCAL_SERVER_MAX_CONNECTIONS}"
+            ));
         }
         if self.users.len() > 128 {
             return Err("本地 MQTT Broker 用户数量不能超过 128".into());
@@ -122,6 +135,8 @@ pub struct MqttLocalServerStatus {
     pub running: bool,
     pub bind_host: String,
     pub port: u16,
+    #[serde(default = "default_local_server_max_connections")]
+    pub max_connections: u32,
     pub allow_anonymous: bool,
 }
 
@@ -131,6 +146,7 @@ impl MqttLocalServerStatus {
             running: false,
             bind_host: config.bind_host.clone(),
             port: config.port,
+            max_connections: config.max_connections,
             allow_anonymous: config.allow_anonymous,
         }
     }
@@ -140,6 +156,7 @@ impl MqttLocalServerStatus {
             running: true,
             bind_host: config.bind_host.clone(),
             port: config.port,
+            max_connections: config.max_connections,
             allow_anonymous: config.allow_anonymous,
         }
     }
@@ -151,4 +168,8 @@ fn default_local_server_host() -> String {
 
 const fn default_local_server_port() -> u16 {
     DEFAULT_MQTT_PORT
+}
+
+const fn default_local_server_max_connections() -> u32 {
+    DEFAULT_MQTT_LOCAL_SERVER_MAX_CONNECTIONS
 }

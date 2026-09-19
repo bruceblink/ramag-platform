@@ -101,7 +101,11 @@ impl MqttView {
             "正在停止本地 MQTT Broker…".to_string()
         } else if let Some(status) = &self.local_server_status {
             if status.running {
-                format!("运行中：{}", local_server_endpoint(status))
+                format!(
+                    "运行中：{} · 连接上限 {}",
+                    local_server_endpoint(status),
+                    status.max_connections
+                )
             } else {
                 "已停止".to_string()
             }
@@ -203,7 +207,123 @@ impl MqttView {
                 .child(error.clone())
                 .into_any_element()
         } else if let Some(snapshot) = &self.local_server_snapshot {
-            let mut clients = v_flex().w_full().gap(px(5.0));
+            let metrics = &snapshot.metrics;
+            let metric_items = [
+                ("当前连接", metrics.current_connections.to_string()),
+                ("连接上限", metrics.max_connections.to_string()),
+                ("峰值连接", metrics.peak_connections.to_string()),
+                ("活跃订阅", metrics.active_subscriptions.to_string()),
+                ("已发布消息", metrics.published_messages.to_string()),
+                ("保留消息", metrics.retained_messages.to_string()),
+                (
+                    "事件队列",
+                    format!(
+                        "{} / {}",
+                        metrics.event_queue_depth, metrics.event_queue_capacity
+                    ),
+                ),
+                (
+                    "控制队列",
+                    format!(
+                        "{} / {}",
+                        metrics.command_queue_depth, metrics.command_queue_capacity
+                    ),
+                ),
+            ];
+            let mut metric_strip = h_flex()
+                .debug_selector(|| "mqtt-local-server-metrics".into())
+                .w_full()
+                .flex_wrap()
+                .gap(px(6.0));
+            for (index, (label, value)) in metric_items.into_iter().enumerate() {
+                metric_strip = metric_strip.child(
+                    v_flex()
+                        .id(SharedString::from(format!("mqtt-local-server-metric-{index}")))
+                        .debug_selector({
+                            let selector = format!("mqtt-local-server-metric-{index}");
+                            move || selector.clone()
+                        })
+                        .w(px(132.0))
+                        .min_w_0()
+                        .gap(px(2.0))
+                        .px(px(8.0))
+                        .py(px(6.0))
+                        .border_1()
+                        .border_color(theme.border)
+                        .rounded(px(4.0))
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child(label),
+                        )
+                        .child(div().text_sm().child(value)),
+                );
+            }
+
+            let mut topics = v_flex()
+                .debug_selector(|| "mqtt-local-server-topics".into())
+                .w_full()
+                .min_w_0()
+                .gap(px(5.0));
+            if snapshot.topics.is_empty() {
+                topics = topics.child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("当前没有已观察到的发布主题。"),
+                );
+            } else {
+                for (index, topic) in snapshot.topics.iter().enumerate() {
+                    let observed_at = topic
+                        .observed_at
+                        .as_ref()
+                        .map_or_else(|| "时间未知".to_string(), |value| value.to_rfc3339());
+                    topics = topics.child(
+                        h_flex()
+                            .id(SharedString::from(format!(
+                                "mqtt-local-server-topic-{index}"
+                            )))
+                            .debug_selector({
+                                let selector = format!("mqtt-local-server-topic-{index}");
+                                move || selector.clone()
+                            })
+                            .w_full()
+                            .min_w_0()
+                            .gap(px(8.0))
+                            .px(px(10.0))
+                            .py(px(7.0))
+                            .border_1()
+                            .border_color(theme.border)
+                            .rounded(px(4.0))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .truncate()
+                                    .child(topic.name.clone()),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child(format!(
+                                        "发布 {} · 订阅 {} · {} bytes · {}{}",
+                                        topic.publish_count,
+                                        topic.subscriber_count,
+                                        topic.last_payload_bytes,
+                                        if topic.retained { "Retain · " } else { "" },
+                                        observed_at
+                                    )),
+                            ),
+                    );
+                }
+            }
+            let mut clients = v_flex()
+                .debug_selector(|| "mqtt-local-server-clients".into())
+                .w_full()
+                .gap(px(5.0));
             if snapshot.online_clients.is_empty() {
                 clients = clients.child(
                     div()
@@ -285,25 +405,49 @@ impl MqttView {
                 }
             }
             v_flex()
-                .debug_selector(|| "mqtt-local-server-clients".into())
+                .debug_selector(|| "mqtt-local-server-snapshot".into())
                 .w_full()
-                .gap(px(5.0))
-                .child(format!(
-                    "在线客户端 {} 个；客户端数据{}完整。",
-                    snapshot.online_clients.len(),
-                    if snapshot.online_clients_complete {
-                        ""
+                .min_w_0()
+                .gap(px(10.0))
+                .child(metric_strip)
+                .child(section_heading(
+                    "主题目录",
+                    if snapshot.topics_complete {
+                        "服务端已枚举当前运行期间观察到的主题和保留消息。"
                     } else {
-                        "不"
-                    }
+                        "主题目录达到容量上限，当前列表只包含部分服务端观察记录。"
+                    },
+                    &theme,
                 ))
+                .child(topics)
+                .child(section_heading(
+                    "在线客户端",
+                    "真实连接数、Client ID、远端地址和订阅关系来自 Broker 当前会话。",
+                    &theme,
+                ))
+                .child(
+                    div()
+                        .debug_selector(|| "mqtt-local-server-clients-summary".into())
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(format!(
+                            "在线客户端 {} 个；客户端数据{}完整；丢弃事件 {} 条。",
+                            snapshot.online_clients.len(),
+                            if snapshot.online_clients_complete {
+                                ""
+                            } else {
+                                "不"
+                            },
+                            metrics.dropped_events
+                        )),
+                )
                 .child(clients)
                 .into_any_element()
         } else {
             div()
                 .text_xs()
                 .text_color(theme.muted_foreground)
-                .child("尚未读取在线客户端；标准 MQTT 不保证完整客户端目录。")
+                .child("尚未读取本地 Broker 快照；启动服务后刷新即可查看连接、主题和队列指标。")
                 .into_any_element()
         };
 
@@ -423,6 +567,17 @@ impl MqttView {
                                 .w_full()
                                 .min_w_0(),
                         ),
+                    ))
+                    .child(field(
+                        "连接上限",
+                        input_frame(
+                            "mqtt-local-server-max-connections-input",
+                            Input::new(&self.local_server_max_connections)
+                                .small()
+                                .disabled(running || busy)
+                                .w_full()
+                                .min_w_0(),
+                        ),
                     )),
             )
             .child(
@@ -474,7 +629,7 @@ impl MqttView {
                     .justify_between()
                     .child(section_heading(
                         "在线客户端",
-                        "读取本地 Broker 当前真实连接和每个客户端的订阅；Topic 目录仍标记为不完整。",
+                        "读取本地 Broker 的连接、主题、订阅和队列指标；所有数值来自服务端快照。",
                         &theme,
                     ))
                     .child(

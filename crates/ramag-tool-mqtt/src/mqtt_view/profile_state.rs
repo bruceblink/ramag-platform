@@ -103,6 +103,14 @@ impl MqttView {
             false,
             "1883",
         );
+        let local_server_max_connections = input(
+            window,
+            cx,
+            6,
+            "连接数上限",
+            false,
+            "1024",
+        );
         let local_server_username = input(window, cx, MAX_USERNAME_BYTES, "用户名", false, "");
         let local_server_password =
             input(window, cx, MAX_PASSWORD_BYTES, "密码", true, "");
@@ -229,6 +237,7 @@ impl MqttView {
             &subscribe_filter,
             &local_server_bind_host,
             &local_server_port,
+            &local_server_max_connections,
             &local_server_username,
             &local_server_password,
             &local_server_publish_topic,
@@ -321,6 +330,7 @@ impl MqttView {
             subscription_statuses: default_subscription_statuses(),
             local_server_bind_host,
             local_server_port,
+            local_server_max_connections,
             local_server_username,
             local_server_password,
             local_server_publish_topic,
@@ -508,6 +518,7 @@ impl MqttView {
         self.reset_message_options();
         self.reset_subscription_topics();
         set_value(&self.port, "1883", window, cx);
+        set_value(&self.local_server_max_connections, "1024", window, cx);
         set_value(&self.keep_alive, "60", window, cx);
         for field in [
             &self.client_username,

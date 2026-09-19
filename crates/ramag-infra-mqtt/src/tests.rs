@@ -111,6 +111,7 @@
         let config = ramag_domain::entities::MqttLocalServerConfig {
             bind_host: "127.0.0.1".into(),
             port,
+            max_connections: 1024,
             allow_anonymous: false,
             users: vec![ramag_domain::entities::MqttLocalServerUser {
                 username: "operator".into(),
@@ -154,6 +155,7 @@
         let config = ramag_domain::entities::MqttLocalServerConfig {
             bind_host: "127.0.0.1".into(),
             port,
+            max_connections: 1024,
             allow_anonymous: true,
             users: vec![ramag_domain::entities::MqttLocalServerUser {
                 username: "operator".into(),
@@ -201,6 +203,7 @@
         let config = ramag_domain::entities::MqttLocalServerConfig {
             bind_host: "127.0.0.1".into(),
             port,
+            max_connections: 1024,
             allow_anonymous: true,
             users: Vec::new(),
         };
@@ -219,6 +222,85 @@
 
     #[cfg(feature = "native")]
     #[test]
+    fn local_server_rejects_connections_above_configured_limit() -> std::result::Result<(), String> {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+            mpsc::{TrySendError, sync_channel},
+        };
+        use std::time::Duration;
+        use ramag_domain::entities::{
+            MqttMessageSinkResult, MqttQos, MqttSubscribeRequest, MqttSubscription,
+            MqttSubscriptionState,
+        };
+
+        let port = std::net::TcpListener::bind(("127.0.0.1", 0))
+            .map_err(|error| error.to_string())?
+            .local_addr()
+            .map_err(|error| error.to_string())?
+            .port();
+        let config = ramag_domain::entities::MqttLocalServerConfig {
+            bind_host: "127.0.0.1".into(),
+            port,
+            max_connections: 1,
+            allow_anonymous: true,
+            users: Vec::new(),
+        };
+        let server = NativeMqttLocalServer::new();
+        smol::block_on(server.start(&config)).map_err(|error| error.to_string())?;
+
+        let profile = MqttProfile::new("connection-limit", "127.0.0.1", port);
+        let topic = format!("ramag/connection-limit/{}", std::process::id());
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let (message_sender, _message_receiver) = sync_channel(1);
+        let message_sink = Arc::new(move |_| match message_sender.try_send(()) {
+            Ok(()) => MqttMessageSinkResult::Accepted,
+            Err(TrySendError::Full(_)) => MqttMessageSinkResult::Backpressured,
+            Err(TrySendError::Disconnected(_)) => MqttMessageSinkResult::Closed,
+        });
+        let (status_sender, status_receiver) = sync_channel(1);
+        let status_sink = Arc::new(move |status| {
+            let _ = status_sender.try_send(status);
+        });
+        let (command_sender, command_receiver) = async_channel::bounded(2);
+        let subscribe_profile = profile.clone();
+        let subscribe_topic = topic.clone();
+        let subscribe_cancelled = cancelled.clone();
+        let subscription = std::thread::spawn(move || {
+            smol::block_on(NativeMqttTransport::new().subscribe(
+                &subscribe_profile,
+                &MqttSubscribeRequest {
+                    subscriptions: vec![MqttSubscription {
+                        filter: subscribe_topic,
+                        qos: MqttQos::AtMostOnce,
+                        no_local: false,
+                    }],
+                },
+                message_sink,
+                status_sink,
+                command_receiver,
+                subscribe_cancelled,
+            ))
+        });
+        let status = status_receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|error| error.to_string())?;
+        assert_eq!(status.state, MqttSubscriptionState::Subscribed);
+
+        let second_connection = smol::block_on(NativeMqttTransport::new().test_connection(&profile));
+        cancelled.store(true, Ordering::Release);
+        drop(command_sender);
+        smol::block_on(server.stop()).map_err(|error| error.to_string())?;
+        subscription
+            .join()
+            .map_err(|_| "连接上限测试订阅线程不应 panic".to_string())?
+            .map_err(|error| error.to_string())?;
+        assert!(second_connection.is_err(), "超过连接上限的客户端不应连接成功");
+        Ok(())
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
     fn local_server_rejects_conflicting_running_configuration() -> std::result::Result<(), String> {
         let driver = NativeMqttLocalServer::new();
         let port = std::net::TcpListener::bind(("127.0.0.1", 0))
@@ -229,6 +311,7 @@
         let config = ramag_domain::entities::MqttLocalServerConfig {
             bind_host: "127.0.0.1".into(),
             port,
+            max_connections: 1024,
             allow_anonymous: true,
             users: Vec::new(),
         };
@@ -269,6 +352,7 @@
         let config = ramag_domain::entities::MqttLocalServerConfig {
             bind_host: "127.0.0.1".into(),
             port,
+            max_connections: 1024,
             allow_anonymous: true,
             users: Vec::new(),
         };
@@ -410,6 +494,27 @@
             }]
         );
 
+        let snapshot = smol::block_on(server.snapshot())
+            .map_err(|error| format!("读取本地 MQTT Broker 指标失败：{error}"))?;
+        assert!(snapshot.topics_complete);
+        assert_eq!(snapshot.online_clients.len(), 1);
+        assert_eq!(snapshot.topics.len(), 1);
+        assert_eq!(snapshot.topics[0].name, topic);
+        assert_eq!(snapshot.topics[0].publish_count, 2);
+        assert_eq!(snapshot.topics[0].subscriber_count, 1);
+        assert_eq!(snapshot.topics[0].last_payload_bytes, injected_payload.len());
+        assert!(snapshot.topics[0].retained);
+        assert_eq!(snapshot.metrics.current_connections, 1);
+        assert_eq!(snapshot.metrics.max_connections, 1024);
+        assert!(snapshot.metrics.peak_connections >= 1);
+        assert!(snapshot.metrics.accepted_connections >= 1);
+        assert_eq!(snapshot.metrics.active_subscriptions, 1);
+        assert!(snapshot.metrics.published_messages >= 2);
+        assert_eq!(snapshot.metrics.retained_messages, 1);
+        assert!(snapshot.metrics.event_queue_depth >= 1);
+        assert_eq!(snapshot.metrics.event_queue_capacity, 256);
+        assert_eq!(snapshot.metrics.command_queue_capacity, 32);
+
         command_sender
             .try_send(MqttSubscriptionCommand::Unsubscribe {
                 filter: topic.clone(),
@@ -468,6 +573,7 @@
         let config = ramag_domain::entities::MqttLocalServerConfig {
             bind_host: "127.0.0.1".into(),
             port,
+            max_connections: 1024,
             allow_anonymous: true,
             users: Vec::new(),
         };

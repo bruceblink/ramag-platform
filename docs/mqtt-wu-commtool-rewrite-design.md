@@ -1,6 +1,6 @@
 # Wu.CommTool MQTT 重写详细设计
 
-> 状态：设计已完成；Phase 1 进行中，Phase 2 已开始。本轮已完成订阅 Topic 列表、No Local、列表持久化、订阅逐条运行状态、消息时间线控制、可展开 JSON 消息查看器、多行载荷快捷发布、本地 Broker 注入发布、在线客户端快照和本地 Broker 事件流接口。
+> 状态：设计已完成；Phase 1 进行中，Phase 2 已开始。本轮已完成订阅 Topic 列表、No Local、列表持久化、订阅逐条运行状态、消息时间线控制、可展开 JSON 消息查看器、多行载荷快捷发布、本地 Broker 注入发布、在线客户端快照、本地 Broker 事件流接口以及本地 Broker 主题/连接/队列监测。
 >
 > 适用范围：Ramag Platform 的 MQTT 工作台、内置本地 MQTT Broker、远端 MQTT Client 连接、消息发布/订阅和与 Wu.CommTool 的配置及交互兼容。
 >
@@ -74,16 +74,16 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 |---|---|---|
 | ramag-domain/entities/mqtt/connection_config.rs | Broker 配置、协议版本、TCP/TLS、凭据、Keep Alive 和 Mosquitto 管理参数 | 已实现验证和脱敏 Debug 输出 |
 | ramag-domain/entities/mqtt_protocol.rs | QoS、订阅请求、订阅逐条运行状态、发布请求、接收消息、User Property 和 Broker 观察结果 | 已实现有界模型和字段校验 |
-| ramag-domain/entities/mqtt/local_server.rs | 本地 Broker 监听地址、端口、匿名策略、固定账号和状态 | 已实现认证配置前置校验 |
+| ramag-domain/entities/mqtt/local_server.rs | 本地 Broker 监听地址、端口、连接上限、匿名策略、固定账号和状态 | 已实现认证和连接上限前置校验 |
 | ramag-domain/traits/mqtt_driver.rs | 测试连接、发布、持续订阅和 Broker 观察接口 | 已实现接口 |
 | ramag-domain/traits/mqtt_local_server.rs | 本地 Broker 启动、停止、状态、注入发布、客户端快照和事件订阅接口 | 已实现接口 |
 | ramag-app/usecases/mqtt_service.rs | 校验、调用驱动、存储配置、错误和日志编排 | 已实现 |
 | ramag-infra-mqtt/src/lib.rs | Native MQTT 驱动和 Mosquitto Dynamic Security 管理 | 已实现 MQTT 3.1.1、MQTT 5、TCP/TLS、发布和订阅 |
-| ramag-infra-mqtt/src/local_server.rs | Native 本地 MQTT Broker 生命周期、固定账号认证、注入发布、客户端快照和 Hook 事件流 | 已实现，使用 oximqtt；事件队列有固定容量 |
+| ramag-infra-mqtt/src/local_server.rs | Native 本地 MQTT Broker 生命周期、固定账号认证、注入发布、客户端/主题快照、运行指标和 Hook 事件流 | 已实现，使用 oximqtt；主题目录、事件队列和控制队列均有固定容量 |
 | ramag-tool-mqtt/src/lib.rs | GPUI 工作区状态、配置、状态、发布、订阅、本地服务和 Mosquitto 页面 | 已实现主要页面 |
 | ramag-tool-mqtt/src/mqtt_view/payload_format.rs | 发布编码和接收显示格式 | 已实现 UTF-8、JSON、Hex、Base64 三类转换及参考项目的组合模式 |
 | ramag-tool-mqtt/src/mqtt_view/message_operations_view.rs | 发布和订阅操作区、QoS、Retain、消息元数据和多行载荷编辑器 | 已实现，已有窄窗口 headless 覆盖；载荷支持 Ctrl+Enter 发布 |
-| ramag-tool-mqtt/src/mqtt_view/local_server_view.rs | 本地 Broker 地址、端口、匿名策略、账号、启动停止和填入客户端配置 | 已实现生命周期交互 |
+| ramag-tool-mqtt/src/mqtt_view/local_server_view.rs | 本地 Broker 地址、端口、连接上限、匿名策略、账号、运行指标、主题目录、启动停止和填入客户端配置 | 已实现服务端工作台交互 |
 | ramag-tool-mqtt/src/mqtt_view/subscription_operations.rs | 订阅 Topic 列表新增、删除、逐条 QoS/No Local 编辑、运行状态和协议能力约束 | 本次 Phase 1 切片已实现，列表随 Broker 配置保存，状态由订阅回调更新 |
 | ramag-tool-mqtt/src/mqtt_view/message_timeline_operations.rs | 消息时间线暂停展示、恢复展示、清空本地消息和有界追加 | 本次 Phase 1 切片已实现，暂停不停止订阅连接 |
 | ramag-tool-mqtt/src/mqtt_view/message_viewer.rs | 消息右键菜单、JSON/文本格式查看、JSON 树节点、复制 Topic 和当前格式 | 本次 Phase 1 切片已实现，查看正文、树节点和复制内容均有大小上限 |
@@ -106,9 +106,11 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 
 本轮补齐本地 Broker 事件流接口：Native oximqtt Hook 将客户端连接、成功订阅、取消订阅、客户端发布和客户端断开转换为 `MqttLocalServerEvent`；本地 Broker 注入发布使用 `BrokerPublished` 分支，客户端发布使用 `ClientPublished` 分支。事件订阅支持取消，内部队列容量固定为 256，队列满或接收方繁忙时丢弃事件并记录；事件消息、Topic、客户端和订阅字段先经过领域校验。真实 Native 客户端回归已覆盖连接、订阅、客户端发布、Broker 注入发布和断开；GPUI 时间线尚未消费该接口。
 
+本轮补齐本地 Broker 监测快照：`MqttLocalServerConfig` 支持连接上限，Native oximqtt Broker 在真实运行线程内汇总当前/峰值/累计连接、活动订阅、发布消息、Retain 消息、观察到的 Topic、每 Topic 发布次数/订阅客户端数/最后载荷大小，以及事件队列和控制队列的当前深度、容量和丢弃计数。保留消息使用本地 RetainStorage 枚举，主题目录达到有界容量时把完整性标记设为 false；UI 启动或刷新状态后自动读取服务端快照，展示连接数、主题目录、在线客户端和订阅关系。连接上限、Native 发布订阅、快照指标和 headless 页面布局均有回归测试，未把标准 MQTT 远端 Broker 的完整主题目录或通用队列指标误写成本地 Broker 能力。
+
 当前与参考项目仍存在的主要差距：
 
-- 本地 Broker 已提供有界的连接、订阅、发布和断开事件流；客户端强制断开、实时客户端快照更新和完整 Topic 目录仍未完成，当前仍支持刷新在线客户端快照及其订阅列表。
+- 本地 Broker 已提供有界的连接、订阅、发布和断开事件流，以及有界 Topic 目录、连接上限和队列运行指标；客户端强制断开、实时客户端快照更新仍未完成，远端标准 MQTT Broker 的完整 Topic 目录和通用队列指标也不在当前数据面能力内。
 - 订阅记录已经扩展为可新增、删除和编辑 QoS/No Local 的 Topic 列表，并随 `MqttProfile` 加密保存；启动/停止订阅已有每条 Filter 的运行状态，单独新增或取消某一条订阅的操作仍待补齐。
 - 消息时间线已支持暂停展示、恢复展示、清空本地列表和有界消息查看器；JSON 查看已支持对象/数组节点展开，仍未完成真实 Windows 窗口和大载荷实际操作验收。
 - 参考项目的 jsonMCC/jsonMSC 配置导入导出和快速配置列表尚未完成兼容层。
@@ -120,10 +122,10 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 
 | 参考行为 | 目标行为 | 当前实现 | 后续阶段 | 验收证据 |
 |---|---|---|---|---|
-| MQTT Server 启动/停止本地服务 | 本地 Broker 使用监听地址、端口、匿名策略和固定账号启动；运行中配置不能静默改变 | 启动、停止、状态和配置一致性已实现 | 补 TLS、强制断开和实时快照更新 | oximqtt 本机测试、端口回读、UI 操作 |
+| MQTT Server 启动/停止本地服务 | 本地 Broker 使用监听地址、端口、连接上限、匿名策略和固定账号启动；运行中配置不能静默改变 | 启动、停止、状态、连接上限和配置一致性已实现 | 补 TLS、强制断开和实时快照更新 | oximqtt 本机测试、端口回读、连接上限测试、UI 操作 |
 | MQTT Server 接收消息 | 本地 Broker 将连接、订阅、发布和接收事件送入有界消息时间线 | Domain/App/Native 已提供有界事件流；GPUI 时间线尚未接入 | Phase 2 | 本机 Docker 客户端连接本地 Broker，窗口收到真实消息 |
 | MQTT Server Broker 发布 | 从本地 Broker 注入 Topic、载荷、QoS、Retain 消息 | 已实现 Domain/App/Native/UI 注入发布；消息进入本地路由，Retain 写入 oximqtt 保留存储，并产生 `BrokerPublished` 事件 | Phase 2 补 UI 事件时间线和双客户端回读 | native 客户端即时回读、重新订阅 retained 回读、事件流测试、headless 请求字段 |
-| MQTT Server 客户端管理 | 显示真实在线 Client ID、用户名、连接时间和订阅 Topic | 已实现本地 Broker 在线客户端快照、每客户端订阅、完整性标记和页面刷新；事件流已提供连接/订阅/断开通知，尚无强制断开与实时快照刷新 | Phase 2 补 UI 事件时间线、强制断开和双客户端回读 | Native 客户端快照和事件、headless 页面回读、两个真实客户端连接后的窗口结果 |
+| MQTT Server 客户端管理 | 显示真实在线 Client ID、用户名、连接时间、订阅 Topic 和连接/队列指标 | 已实现本地 Broker 在线客户端快照、每客户端订阅、连接上限、主题目录、运行指标和页面刷新；事件流已提供连接/订阅/断开通知，尚无强制断开与实时快照刷新 | Phase 2 补 UI 事件时间线、强制断开和双客户端回读 | Native 客户端快照、连接上限、主题/队列指标和事件、headless 页面回读、两个真实客户端连接后的窗口结果 |
 | MQTT Client 连接 | 支持 MQTT 3.1.1/5、TCP/TLS、Client ID、认证、Keep Alive、自动重连、取消和错误分类 | Native 驱动已实现连接和取消；自动重连开关未对齐 | Phase 1 | 本机 Docker Mosquitto 3.1.1/5 测试 |
 | MQTT Client Topic 列表 | 多条 Topic Filter 可添加、删除、编辑，逐条显示 QoS、No Local 和运行状态 | 已实现多条列表、添加/删除、逐条 QoS/No Local 编辑、随配置保存和“未运行/订阅中/已订阅/失败”状态 | Phase 1 后续补逐条订阅动作 | Domain 校验、加密存储往返、SubAck 回读、headless 操作、真实窗口回读 |
 | MQTT Client 订阅/取消订阅 | 启动和停止状态可见，停止等待驱动真正退出；暂停只停止当前窗口追加 | 持续订阅、取消、每条 Filter 状态、暂停展示、恢复展示和清空本地列表已实现 | Phase 1 补单条操作 | 取消延迟测试、Native Broker SubAck、headless 操作回读、真实窗口状态回读 |
@@ -216,6 +218,7 @@ Broker 配置继续使用 ramag-domain 的 MqttProfile，字段语义如下：
 |---|---|
 | bind_host | 必须是 IPv4/IPv6 地址；0.0.0.0 或 :: 需要显示暴露到所有网卡的提示 |
 | port | 1-65535；启动前验证端口 |
+| max_connections | 1-16384；传给本地 Broker 监听器和会话上限，运行中不可修改 |
 | allow_anonymous | true 时允许无凭据连接；false 时至少有一个有效固定账号 |
 | users | 用户名唯一，用户名和密码不能为空，密码不进入日志 |
 
@@ -271,11 +274,12 @@ Broker 配置继续使用 ramag-domain 的 MqttProfile，字段语义如下：
 
 ### 6.4 MQTT Server 交互规则
 
-1. 启动前锁定监听地址、端口、匿名策略和固定账号表单；运行中只允许查看状态和消息。
-2. 运行状态显示实际监听端点、匿名策略和客户端数量；启动失败显示绑定、认证或 TLS 的具体原因。
+1. 启动前锁定监听地址、端口、连接上限、匿名策略和固定账号表单；运行中只允许查看状态和消息。
+2. 运行状态显示实际监听端点、匿名策略和连接上限；刷新快照后显示当前/峰值连接、主题、订阅、发布、Retain 和事件/控制队列指标。启动失败显示绑定、认证或 TLS 的具体原因。
 3. Broker 事件按来源显示“系统、客户端连接、客户端订阅、客户端发布、客户端断开、Broker 发布”，并使用不同的可读标记。
 4. 客户端管理列表只显示本地 Broker 的真实连接；没有事件或驱动不支持时显示“未提供”，不生成示例客户端。
 5. Broker 发布编辑器沿用客户端发布字段；注入成功后显示发送记录，不能把本地注入误标记为某个客户端发布。
+6. 主题目录只显示本地 Broker 真实观察到的发布主题和 Retain 主题；达到容量上限时必须显示不完整状态，不创建示例主题或伪造队列数据。
 
 ### 6.5 消息上下文菜单和查看器
 

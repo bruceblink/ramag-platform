@@ -341,6 +341,12 @@ pub struct MqttTopicObservation {
     pub retained: bool,
     #[serde(default)]
     pub observed_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub publish_count: u64,
+    #[serde(default)]
+    pub subscriber_count: usize,
+    #[serde(default)]
+    pub last_payload_bytes: usize,
 }
 
 impl MqttTopicObservation {
@@ -391,6 +397,59 @@ impl MqttOnlineClient {
     }
 }
 
+/// 服务端快照中的运行指标；数值来自 Broker 线程当前状态，不由 UI 根据事件数量推算。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MqttBrokerMetrics {
+    #[serde(default)]
+    pub current_connections: usize,
+    #[serde(default)]
+    pub max_connections: usize,
+    #[serde(default)]
+    pub peak_connections: usize,
+    #[serde(default)]
+    pub accepted_connections: u64,
+    #[serde(default)]
+    pub closed_connections: u64,
+    #[serde(default)]
+    pub active_subscriptions: usize,
+    #[serde(default)]
+    pub published_messages: u64,
+    #[serde(default)]
+    pub retained_messages: usize,
+    #[serde(default)]
+    pub event_queue_depth: usize,
+    #[serde(default)]
+    pub event_queue_capacity: usize,
+    #[serde(default)]
+    pub command_queue_depth: usize,
+    #[serde(default)]
+    pub command_queue_capacity: usize,
+    #[serde(default)]
+    pub dropped_events: u64,
+    #[serde(default)]
+    pub dropped_topics: u64,
+}
+
+impl MqttBrokerMetrics {
+    /// 校验快照中的计数关系，避免 UI 展示互相矛盾的运行数据。
+    fn validate(&self) -> Result<(), String> {
+        if self.max_connections > 0 && self.current_connections > self.max_connections {
+            return Err("MQTT 当前连接数不能超过连接上限".into());
+        }
+        if self.peak_connections < self.current_connections {
+            return Err("MQTT 峰值连接数不能小于当前连接数".into());
+        }
+        if self.event_queue_capacity > 0 && self.event_queue_depth > self.event_queue_capacity {
+            return Err("MQTT 事件队列深度不能超过容量".into());
+        }
+        if self.command_queue_capacity > 0 && self.command_queue_depth > self.command_queue_capacity
+        {
+            return Err("MQTT 控制队列深度不能超过容量".into());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MqttBrokerSnapshot {
     #[serde(default)]
@@ -401,6 +460,8 @@ pub struct MqttBrokerSnapshot {
     pub topics_complete: bool,
     #[serde(default)]
     pub online_clients_complete: bool,
+    #[serde(default)]
+    pub metrics: MqttBrokerMetrics,
 }
 
 impl MqttBrokerSnapshot {
@@ -419,6 +480,7 @@ impl MqttBrokerSnapshot {
         for client in &self.online_clients {
             client.validate()?;
         }
+        self.metrics.validate()?;
         Ok(self)
     }
 }
@@ -608,6 +670,7 @@ mod tests {
             online_clients: vec![],
             topics_complete: false,
             online_clients_complete: false,
+            metrics: MqttBrokerMetrics::default(),
         };
         assert!(!snapshot.topics_complete);
         assert!(!snapshot.online_clients_complete);

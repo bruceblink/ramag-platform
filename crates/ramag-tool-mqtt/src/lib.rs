@@ -250,6 +250,7 @@ pub struct MqttView {
     subscription_statuses: Vec<MqttSubscriptionStatus>,
     local_server_bind_host: Entity<InputState>,
     local_server_port: Entity<InputState>,
+    local_server_max_connections: Entity<InputState>,
     local_server_username: Entity<InputState>,
     local_server_password: Entity<InputState>,
     local_server_publish_topic: Entity<InputState>,

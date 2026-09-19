@@ -97,6 +97,8 @@
         let config = MqttLocalServerConfig::default();
         assert!(config.validate().is_ok());
         assert_eq!(config.bind_host, DEFAULT_MQTT_LOCAL_SERVER_HOST);
+        assert_eq!(config.max_connections, 1024);
+        assert_eq!(MqttLocalServerStatus::stopped(&config).max_connections, 1024);
         assert!(!MqttLocalServerStatus::stopped(&config).running);
 
         let mut invalid = config.clone();
@@ -104,6 +106,9 @@
         assert!(invalid.validate().is_err());
         invalid.bind_host = "127.0.0.1".into();
         invalid.port = 0;
+        assert!(invalid.validate().is_err());
+        invalid.port = config.port;
+        invalid.max_connections = 0;
         assert!(invalid.validate().is_err());
 
         let locked_out = MqttLocalServerConfig {

@@ -16,10 +16,10 @@ use ramag_app::MqttService;
 use ramag_domain::entities::{
     ConnectionConfig, ConnectionId, MosquittoAcl, MosquittoAclDecision, MosquittoAclType,
     MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoRole, MosquittoRoleBinding,
-    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerEvent, MqttLocalServerStatus,
-    MqttMessage, MqttOnlineClient, MqttProfile, MqttPublishRequest, MqttPublishResult, MqttQos,
-    MqttSubscription, MqttTopicObservation, MqttTopicSource, MqttUserProperty, QueryRecord,
-    QueryRecordId,
+    MqttBrokerMetrics, MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerEvent,
+    MqttLocalServerStatus, MqttMessage, MqttOnlineClient, MqttProfile, MqttPublishRequest,
+    MqttPublishResult, MqttQos, MqttSubscription, MqttTopicObservation, MqttTopicSource,
+    MqttUserProperty, QueryRecord, QueryRecordId,
 };
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, MqttLocalServerDriver, Storage};
@@ -185,10 +185,14 @@ impl MqttDriver for BlockingSnapshotDriver {
                 source: MqttTopicSource::Observed,
                 retained: false,
                 observed_at: None,
+                publish_count: 1,
+                subscriber_count: 1,
+                last_payload_bytes: 5,
             }],
             online_clients: Vec::new(),
             topics_complete: false,
             online_clients_complete: false,
+            metrics: MqttBrokerMetrics::default(),
         })
     }
 }
@@ -663,6 +667,7 @@ fn mqtt_local_server_page_reflows_inside_supported_window_widths(cx: &mut TestAp
             "mqtt-local-server-config",
             "mqtt-local-server-actions",
             "mqtt-local-server-status",
+            "mqtt-local-server-max-connections-input",
             "mqtt-local-server-publish-topic-input",
             "mqtt-local-server-publish-payload-input",
             "mqtt-local-server-publish-options",
@@ -822,6 +827,7 @@ fn mqtt_local_server_publish_uses_broker_injection_controls(cx: &mut TestAppCont
                     online_clients: Vec::new(),
                     topics_complete: false,
                     online_clients_complete: true,
+                    metrics: MqttBrokerMetrics::default(),
                 },
             })),
     );
@@ -867,7 +873,15 @@ fn mqtt_local_server_publish_uses_broker_injection_controls(cx: &mut TestAppCont
 fn mqtt_local_server_snapshot_reads_online_clients_and_subscriptions(cx: &mut TestAppContext) {
     cx.update(gpui_component::init);
     let snapshot = MqttBrokerSnapshot {
-        topics: Vec::new(),
+        topics: vec![MqttTopicObservation {
+            name: "devices/one/state".into(),
+            source: MqttTopicSource::Observed,
+            retained: true,
+            observed_at: Some(chrono::Utc::now()),
+            publish_count: 4,
+            subscriber_count: 1,
+            last_payload_bytes: 18,
+        }],
         online_clients: vec![MqttOnlineClient {
             client_id: "client-one".into(),
             username: Some("operator".into()),
@@ -879,8 +893,24 @@ fn mqtt_local_server_snapshot_reads_online_clients_and_subscriptions(cx: &mut Te
                 no_local: true,
             }],
         }],
-        topics_complete: false,
+        topics_complete: true,
         online_clients_complete: true,
+        metrics: MqttBrokerMetrics {
+            current_connections: 1,
+            max_connections: 8,
+            peak_connections: 2,
+            accepted_connections: 3,
+            closed_connections: 2,
+            active_subscriptions: 1,
+            published_messages: 4,
+            retained_messages: 1,
+            event_queue_depth: 2,
+            event_queue_capacity: 256,
+            command_queue_depth: 0,
+            command_queue_capacity: 32,
+            dropped_events: 0,
+            dropped_topics: 0,
+        },
     };
     let service = Arc::new(
         MqttService::new(Arc::new(NoopMqttDriver), Arc::new(NoopStorage::default()))
@@ -918,9 +948,15 @@ fn mqtt_local_server_snapshot_reads_online_clients_and_subscriptions(cx: &mut Te
             snapshot.online_clients.len() == 1
                 && snapshot.online_clients[0].client_id == "client-one"
                 && snapshot.online_clients[0].subscriptions[0].filter == "devices/#"
+                && snapshot.topics[0].name == "devices/one/state"
+                && snapshot.metrics.current_connections == 1
+                && snapshot.metrics.event_queue_depth == 2
         })
     }));
     for selector in [
+        "mqtt-local-server-metrics",
+        "mqtt-local-server-topics",
+        "mqtt-local-server-topic-0",
         "mqtt-local-server-clients",
         "mqtt-local-server-client-0",
         "mqtt-local-server-publish-options",

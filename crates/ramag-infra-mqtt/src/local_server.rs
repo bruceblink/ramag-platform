@@ -1,5 +1,7 @@
+use std::collections::BTreeMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::sync_channel;
 use std::time::Duration;
@@ -18,20 +20,21 @@ use oximqtt::server::MqttServer;
 use oximqtt::session::Session;
 use oximqtt::types::{AuthResult, From, Id, Publish, Retain, TopicFilter, TopicName};
 use ramag_domain::entities::{
-    MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerEvent, MqttLocalServerEventSink,
-    MqttLocalServerEventSinkResult, MqttLocalServerStatus, MqttLocalServerUser, MqttMessage,
-    MqttOnlineClient, MqttPublishRequest, MqttPublishResult, MqttQos, MqttSubscription,
+    MAX_MQTT_TOPIC_OBSERVATIONS, MqttBrokerMetrics, MqttBrokerSnapshot, MqttLocalServerConfig,
+    MqttLocalServerEvent, MqttLocalServerEventSink, MqttLocalServerEventSinkResult,
+    MqttLocalServerStatus, MqttLocalServerUser, MqttMessage, MqttOnlineClient, MqttPublishRequest,
+    MqttPublishResult, MqttQos, MqttSubscription, MqttTopicObservation, MqttTopicSource,
     MqttUserProperty,
 };
 use ramag_domain::error::{DomainError, MqttError, MqttErrorCategory, Result};
 use ramag_domain::traits::MqttLocalServerDriver;
 use tokio::sync::{Mutex, mpsc, oneshot};
 
-const LOCAL_SERVER_MAX_CONNECTIONS: usize = 1024;
 const LOCAL_SERVER_MAX_PACKET_BYTES: u32 = 16 * 1024 * 1024;
 const LOCAL_SERVER_TASK_WORKERS: usize = 4;
 const LOCAL_SERVER_TASK_QUEUE: usize = 2048;
 const LOCAL_SERVER_COMMAND_QUEUE: usize = 32;
+const LOCAL_SERVER_EVENT_QUEUE: usize = 256;
 
 #[derive(Clone)]
 pub struct NativeMqttLocalServer {
@@ -105,21 +108,23 @@ impl MqttLocalServerDriver for NativeMqttLocalServer {
         let (ready_sender, ready_receiver) = sync_channel(1);
         let (stop_sender, stop_receiver) = oneshot::channel();
         let (publish_sender, publish_receiver) = mpsc::channel(LOCAL_SERVER_COMMAND_QUEUE);
-        let (event_sender, event_receiver) = async_channel::bounded(256);
+        let (event_sender, event_receiver) = async_channel::bounded(LOCAL_SERVER_EVENT_QUEUE);
         let allow_anonymous = config.allow_anonymous;
+        let max_connections = config.max_connections as usize;
         let users = config.users.clone();
         let task = std::thread::Builder::new()
             .name("ramag-mqtt-broker".into())
             .spawn(move || {
-                run_local_server(
+                run_local_server(LocalServerLaunch {
                     address,
+                    max_connections,
                     allow_anonymous,
                     users,
                     stop_receiver,
                     publish_receiver,
                     event_sender,
                     ready_sender,
-                )
+                })
             })
             .map_err(|error| local_server_error("启动本地 MQTT Broker 线程", error))?;
 
@@ -268,6 +273,135 @@ enum LocalServerCommand {
     },
 }
 
+#[derive(Clone)]
+struct LocalServerTelemetry {
+    state: Arc<StdMutex<LocalServerTelemetryState>>,
+}
+
+struct LocalServerTelemetryState {
+    max_connections: usize,
+    current_connections: usize,
+    peak_connections: usize,
+    accepted_connections: u64,
+    closed_connections: u64,
+    published_messages: u64,
+    dropped_events: u64,
+    dropped_topics: u64,
+    topics: BTreeMap<String, LocalTopicTelemetry>,
+}
+
+#[derive(Clone)]
+struct LocalTopicTelemetry {
+    publish_count: u64,
+    last_payload_bytes: usize,
+    observed_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Clone)]
+struct LocalServerTelemetrySnapshot {
+    max_connections: usize,
+    current_connections: usize,
+    peak_connections: usize,
+    accepted_connections: u64,
+    closed_connections: u64,
+    published_messages: u64,
+    dropped_events: u64,
+    dropped_topics: u64,
+    topics: BTreeMap<String, LocalTopicTelemetry>,
+}
+
+impl LocalServerTelemetry {
+    fn new(max_connections: usize) -> Self {
+        Self {
+            state: Arc::new(StdMutex::new(LocalServerTelemetryState {
+                max_connections,
+                current_connections: 0,
+                peak_connections: 0,
+                accepted_connections: 0,
+                closed_connections: 0,
+                published_messages: 0,
+                dropped_events: 0,
+                dropped_topics: 0,
+                topics: BTreeMap::new(),
+            })),
+        }
+    }
+
+    fn with_state<T>(&self, action: impl FnOnce(&mut LocalServerTelemetryState) -> T) -> T {
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        action(&mut state)
+    }
+
+    /// 记录连接生命周期；当前连接数在快照中再用实际会话数校正。
+    fn record_connected(&self) {
+        self.with_state(|state| {
+            state.current_connections = state.current_connections.saturating_add(1);
+            state.peak_connections = state.peak_connections.max(state.current_connections);
+            state.accepted_connections = state.accepted_connections.saturating_add(1);
+        });
+    }
+
+    fn record_disconnected(&self) {
+        self.with_state(|state| {
+            state.current_connections = state.current_connections.saturating_sub(1);
+            state.closed_connections = state.closed_connections.saturating_add(1);
+        });
+    }
+
+    /// 记录发布主题的次数、载荷大小和最后观察时间，并限制目录内存上限。
+    fn record_published(&self, message: &MqttMessage) {
+        self.with_state(|state| {
+            state.published_messages = state.published_messages.saturating_add(1);
+            if let Some(topic) = state.topics.get_mut(&message.topic) {
+                topic.publish_count = topic.publish_count.saturating_add(1);
+                topic.last_payload_bytes = message.payload.len();
+                topic.observed_at = message.received_at;
+                return;
+            }
+            if state.topics.len() >= MAX_MQTT_TOPIC_OBSERVATIONS {
+                state.dropped_topics = state.dropped_topics.saturating_add(1);
+                return;
+            }
+            state.topics.insert(
+                message.topic.clone(),
+                LocalTopicTelemetry {
+                    publish_count: 1,
+                    last_payload_bytes: message.payload.len(),
+                    observed_at: message.received_at,
+                },
+            );
+        });
+    }
+
+    fn record_dropped_event(&self) {
+        self.with_state(|state| {
+            state.dropped_events = state.dropped_events.saturating_add(1);
+        });
+    }
+
+    /// 复制一份不会阻塞 Broker 路由的统计快照。
+    fn snapshot(&self, current_connections: usize) -> LocalServerTelemetrySnapshot {
+        self.with_state(|state| {
+            state.current_connections = current_connections;
+            state.peak_connections = state.peak_connections.max(current_connections);
+            LocalServerTelemetrySnapshot {
+                max_connections: state.max_connections,
+                current_connections: state.current_connections,
+                peak_connections: state.peak_connections,
+                accepted_connections: state.accepted_connections,
+                closed_connections: state.closed_connections,
+                published_messages: state.published_messages,
+                dropped_events: state.dropped_events,
+                dropped_topics: state.dropped_topics,
+                topics: state.topics.clone(),
+            }
+        })
+    }
+}
+
 fn local_server_error(operation: &'static str, error: impl std::fmt::Display) -> DomainError {
     DomainError::Mqtt(MqttError::new(
         MqttErrorCategory::Network,
@@ -276,15 +410,28 @@ fn local_server_error(operation: &'static str, error: impl std::fmt::Display) ->
     ))
 }
 
-fn run_local_server(
+struct LocalServerLaunch {
     address: SocketAddr,
+    max_connections: usize,
     allow_anonymous: bool,
     users: Vec<MqttLocalServerUser>,
     stop_receiver: oneshot::Receiver<()>,
-    mut publish_receiver: mpsc::Receiver<LocalServerCommand>,
+    publish_receiver: mpsc::Receiver<LocalServerCommand>,
     event_sender: Sender<MqttLocalServerEvent>,
     ready_sender: std::sync::mpsc::SyncSender<std::result::Result<(), String>>,
-) {
+}
+
+fn run_local_server(launch: LocalServerLaunch) {
+    let LocalServerLaunch {
+        address,
+        max_connections,
+        allow_anonymous,
+        users,
+        stop_receiver,
+        mut publish_receiver,
+        event_sender,
+        ready_sender,
+    } = launch;
     let runtime = match tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -296,10 +443,12 @@ fn run_local_server(
         }
     };
     runtime.block_on(async move {
+        let telemetry = Arc::new(LocalServerTelemetry::new(max_connections));
+        let retain_storage = LocalRetainStorage::new();
         let listener = match Builder::new()
             .name("ramag-local-mqtt")
             .laddr(address)
-            .max_connections(LOCAL_SERVER_MAX_CONNECTIONS)
+            .max_connections(max_connections)
             .max_packet_size(LOCAL_SERVER_MAX_PACKET_BYTES)
             .allow_anonymous(allow_anonymous)
             .bind()
@@ -314,10 +463,10 @@ fn run_local_server(
             .busy_check_enable(false)
             .task_exec_workers(LOCAL_SERVER_TASK_WORKERS)
             .task_exec_queue_max(LOCAL_SERVER_TASK_QUEUE)
-            .mqtt_max_sessions(LOCAL_SERVER_MAX_CONNECTIONS as isize)
+            .mqtt_max_sessions(max_connections as isize)
             .build()
             .await;
-        *context.extends.retain_mut().await = Box::new(LocalRetainStorage::new());
+        *context.extends.retain_mut().await = Box::new(retain_storage.clone());
 
         let register = context.extends.hook_mgr().register();
         if !allow_anonymous || !users.is_empty() {
@@ -331,31 +480,46 @@ fn run_local_server(
         register
             .add(
                 Type::ClientConnected,
-                Box::new(LocalEventHandler::new(event_sender.clone())),
+                Box::new(LocalEventHandler::new(
+                    event_sender.clone(),
+                    telemetry.clone(),
+                )),
             )
             .await;
         register
             .add(
                 Type::ClientDisconnected,
-                Box::new(LocalEventHandler::new(event_sender.clone())),
+                Box::new(LocalEventHandler::new(
+                    event_sender.clone(),
+                    telemetry.clone(),
+                )),
             )
             .await;
         register
             .add(
                 Type::SessionSubscribed,
-                Box::new(LocalEventHandler::new(event_sender.clone())),
+                Box::new(LocalEventHandler::new(
+                    event_sender.clone(),
+                    telemetry.clone(),
+                )),
             )
             .await;
         register
             .add(
                 Type::SessionUnsubscribed,
-                Box::new(LocalEventHandler::new(event_sender.clone())),
+                Box::new(LocalEventHandler::new(
+                    event_sender.clone(),
+                    telemetry.clone(),
+                )),
             )
             .await;
         register
             .add(
                 Type::MessagePublish,
-                Box::new(LocalEventHandler::new(event_sender.clone())),
+                Box::new(LocalEventHandler::new(
+                    event_sender.clone(),
+                    telemetry.clone(),
+                )),
             )
             .await;
         register.start().await;
@@ -370,7 +534,13 @@ fn run_local_server(
                     tracing::error!(operation = "mqtt_local_server_run", error = %error, "local MQTT Broker stopped unexpectedly");
                 }
             }
-            _ = process_local_commands(context, &mut publish_receiver, event_sender.clone()) => {}
+            _ = process_local_commands(
+                context,
+                &mut publish_receiver,
+                event_sender.clone(),
+                telemetry,
+                retain_storage,
+            ) => {}
             _ = stop_receiver => {}
         }
     });
@@ -380,22 +550,39 @@ async fn process_local_commands(
     context: ServerContext,
     receiver: &mut mpsc::Receiver<LocalServerCommand>,
     event_sender: Sender<MqttLocalServerEvent>,
+    telemetry: Arc<LocalServerTelemetry>,
+    retain_storage: LocalRetainStorage,
 ) {
     while let Some(command) = receiver.recv().await {
         match command {
             LocalServerCommand::Publish { request, response } => {
-                let result = publish_to_local_server(&context, &request, &event_sender).await;
+                let result =
+                    publish_to_local_server(&context, &request, &event_sender, &telemetry).await;
                 let _ = response.send(result);
             }
             LocalServerCommand::Snapshot { response } => {
-                let result = snapshot_local_server(&context).await;
+                let result = snapshot_local_server(
+                    &context,
+                    &event_sender,
+                    receiver,
+                    &telemetry,
+                    &retain_storage,
+                )
+                .await;
                 let _ = response.send(result);
             }
         }
     }
 }
 
-async fn snapshot_local_server(context: &ServerContext) -> Result<MqttBrokerSnapshot> {
+async fn snapshot_local_server(
+    context: &ServerContext,
+    event_sender: &Sender<MqttLocalServerEvent>,
+    command_receiver: &mpsc::Receiver<LocalServerCommand>,
+    telemetry: &LocalServerTelemetry,
+    retain_storage: &LocalRetainStorage,
+) -> Result<MqttBrokerSnapshot> {
+    // 读取会话、保留主题和运行计数，组成一次自洽的服务端快照供 UI 展示。
     let entries = context.extends.shared().await.iter().collect::<Vec<_>>();
     let mut online_clients = Vec::with_capacity(entries.len());
     for entry in entries {
@@ -438,18 +625,118 @@ async fn snapshot_local_server(context: &ServerContext) -> Result<MqttBrokerSnap
             subscriptions,
         });
     }
+
+    let telemetry_snapshot = telemetry.snapshot(online_clients.len());
+    let (retained_topics, retained_topics_truncated) = retain_storage
+        .retained_topics()
+        .await
+        .map_err(|error| local_server_error("读取本地 MQTT 保留主题", error))?;
+    let mut topic_directory_incomplete =
+        telemetry_snapshot.dropped_topics > 0 || retained_topics_truncated;
+    let mut topics = telemetry_snapshot
+        .topics
+        .iter()
+        .map(|(name, topic)| {
+            (
+                name.clone(),
+                MqttTopicObservation {
+                    name: name.clone(),
+                    source: MqttTopicSource::Observed,
+                    retained: false,
+                    observed_at: Some(topic.observed_at),
+                    publish_count: topic.publish_count,
+                    subscriber_count: online_clients
+                        .iter()
+                        .filter(|client| {
+                            client.subscriptions.iter().any(|subscription| {
+                                topic_filter_matches(&subscription.filter, name)
+                            })
+                        })
+                        .count(),
+                    last_payload_bytes: topic.last_payload_bytes,
+                },
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    for (name, payload_bytes) in retained_topics {
+        if !topics.contains_key(&name) && topics.len() >= MAX_MQTT_TOPIC_OBSERVATIONS {
+            topic_directory_incomplete = true;
+            continue;
+        }
+        let topic = topics
+            .entry(name.clone())
+            .or_insert_with(|| MqttTopicObservation {
+                name,
+                source: MqttTopicSource::Retained,
+                retained: true,
+                observed_at: None,
+                publish_count: 0,
+                subscriber_count: 0,
+                last_payload_bytes: payload_bytes,
+            });
+        topic.retained = true;
+        if topic.publish_count == 0 {
+            topic.last_payload_bytes = payload_bytes;
+        }
+    }
+    let topics = topics.into_values().collect::<Vec<_>>();
+    let active_subscriptions = online_clients
+        .iter()
+        .map(|client| client.subscriptions.len())
+        .sum();
+    let metrics = MqttBrokerMetrics {
+        current_connections: telemetry_snapshot.current_connections,
+        max_connections: telemetry_snapshot.max_connections,
+        peak_connections: telemetry_snapshot.peak_connections,
+        accepted_connections: telemetry_snapshot.accepted_connections,
+        closed_connections: telemetry_snapshot.closed_connections,
+        active_subscriptions,
+        published_messages: telemetry_snapshot.published_messages,
+        retained_messages: retain_storage.retained_count().await,
+        event_queue_depth: event_sender.len(),
+        event_queue_capacity: event_sender.capacity().unwrap_or_default(),
+        command_queue_depth: command_receiver.len(),
+        command_queue_capacity: command_receiver.max_capacity(),
+        dropped_events: telemetry_snapshot.dropped_events,
+        dropped_topics: telemetry_snapshot.dropped_topics,
+    };
     Ok(MqttBrokerSnapshot {
-        topics: Vec::new(),
+        topics,
         online_clients,
-        topics_complete: false,
+        topics_complete: !topic_directory_incomplete,
         online_clients_complete: true,
+        metrics,
     })
+}
+
+fn topic_filter_matches(filter: &str, topic: &str) -> bool {
+    // 只按 MQTT 的单层和多层通配符匹配，统计订阅客户端而不是重复订阅条数。
+    let filter_levels = filter.split('/');
+    let topic_levels = topic.split('/');
+    let mut topic_levels = topic_levels.peekable();
+    for filter_level in filter_levels {
+        match filter_level {
+            "#" => return true,
+            "+" => {
+                if topic_levels.next().is_none() {
+                    return false;
+                }
+            }
+            level => {
+                if topic_levels.next() != Some(level) {
+                    return false;
+                }
+            }
+        }
+    }
+    topic_levels.next().is_none()
 }
 
 async fn publish_to_local_server(
     context: &ServerContext,
     request: &MqttPublishRequest,
     event_sender: &Sender<MqttLocalServerEvent>,
+    telemetry: &LocalServerTelemetry,
 ) -> Result<MqttPublishResult> {
     let qos = match request.qos {
         MqttQos::AtMostOnce => QoS::AtMostOnce,
@@ -518,18 +805,21 @@ async fn publish_to_local_server(
         }
     }
 
+    let message = MqttMessage {
+        topic: request.topic.clone(),
+        payload: request.payload.clone(),
+        qos: request.qos,
+        retain: request.retain,
+        duplicate: false,
+        received_at: chrono::Utc::now(),
+        user_properties: request.user_properties.clone(),
+    };
+    telemetry.record_published(&message);
     emit_local_event(
         event_sender,
+        telemetry,
         MqttLocalServerEvent::BrokerPublished {
-            message: MqttMessage {
-                topic: request.topic.clone(),
-                payload: request.payload.clone(),
-                qos: request.qos,
-                retain: request.retain,
-                duplicate: false,
-                received_at: chrono::Utc::now(),
-                user_properties: request.user_properties.clone(),
-            },
+            message,
             occurred_at: chrono::Utc::now(),
         },
     );
@@ -544,11 +834,12 @@ async fn publish_to_local_server(
 #[derive(Clone)]
 struct LocalEventHandler {
     sender: Sender<MqttLocalServerEvent>,
+    telemetry: Arc<LocalServerTelemetry>,
 }
 
 impl LocalEventHandler {
-    fn new(sender: Sender<MqttLocalServerEvent>) -> Self {
-        Self { sender }
+    fn new(sender: Sender<MqttLocalServerEvent>, telemetry: Arc<LocalServerTelemetry>) -> Self {
+        Self { sender, telemetry }
     }
 }
 
@@ -558,8 +849,10 @@ impl Handler for LocalEventHandler {
         match parameter {
             Parameter::ClientConnected(session) => {
                 if let Some(client) = online_client_from_session(session).await {
+                    self.telemetry.record_connected();
                     emit_local_event(
                         &self.sender,
+                        &self.telemetry,
                         MqttLocalServerEvent::ClientConnected {
                             client,
                             occurred_at: chrono::Utc::now(),
@@ -568,8 +861,10 @@ impl Handler for LocalEventHandler {
                 }
             }
             Parameter::ClientDisconnected(session, reason) => {
+                self.telemetry.record_disconnected();
                 emit_local_event(
                     &self.sender,
+                    &self.telemetry,
                     MqttLocalServerEvent::ClientDisconnected {
                         client_id: session.id.client_id.to_string(),
                         reason: Some(format!("{reason:?}")),
@@ -581,6 +876,7 @@ impl Handler for LocalEventHandler {
                 if let Some(subscription) = subscription_from_oximqtt(subscribe) {
                     emit_local_event(
                         &self.sender,
+                        &self.telemetry,
                         MqttLocalServerEvent::ClientSubscribed {
                             client_id: session.id.client_id.to_string(),
                             subscription,
@@ -592,6 +888,7 @@ impl Handler for LocalEventHandler {
             Parameter::SessionUnsubscribed(session, unsubscribe) => {
                 emit_local_event(
                     &self.sender,
+                    &self.telemetry,
                     MqttLocalServerEvent::ClientUnsubscribed {
                         client_id: session.id.client_id.to_string(),
                         filter: unsubscribe.topic_filter.to_string(),
@@ -601,8 +898,10 @@ impl Handler for LocalEventHandler {
             }
             Parameter::MessagePublish(Some(session), _, publish) => {
                 if let Some(message) = message_from_oximqtt(publish) {
+                    self.telemetry.record_published(&message);
                     emit_local_event(
                         &self.sender,
+                        &self.telemetry,
                         MqttLocalServerEvent::ClientPublished {
                             client_id: session.id.client_id.to_string(),
                             message,
@@ -685,7 +984,11 @@ fn qos_from_oximqtt(value: u8) -> MqttQos {
     }
 }
 
-fn emit_local_event(sender: &Sender<MqttLocalServerEvent>, event: MqttLocalServerEvent) {
+fn emit_local_event(
+    sender: &Sender<MqttLocalServerEvent>,
+    telemetry: &LocalServerTelemetry,
+    event: MqttLocalServerEvent,
+) {
     if let Err(error) = event.validate() {
         tracing::warn!(
             operation = "mqtt_local_server_event",
@@ -697,6 +1000,7 @@ fn emit_local_event(sender: &Sender<MqttLocalServerEvent>, event: MqttLocalServe
     match sender.try_send(event) {
         Ok(()) => {}
         Err(TrySendError::Full(_)) => {
+            telemetry.record_dropped_event();
             tracing::warn!(
                 operation = "mqtt_local_server_event",
                 "本地 MQTT Broker 事件队列已满，丢弃一条事件"
@@ -754,6 +1058,24 @@ impl LocalRetainStorage {
         Self {
             inner: Arc::new(DefaultRetainStorage::new()),
         }
+    }
+
+    async fn retained_topics(&self) -> OxiResult<(Vec<(String, usize)>, bool)> {
+        let (retains, has_more) = self
+            .inner
+            .get_all_paginated(0, MAX_MQTT_TOPIC_OBSERVATIONS)
+            .await?;
+        Ok((
+            retains
+                .into_iter()
+                .map(|(topic, retain, _)| (topic.to_string(), retain.publish.inner.payload.len()))
+                .collect(),
+            has_more,
+        ))
+    }
+
+    async fn retained_count(&self) -> usize {
+        self.inner.count().await.max(0) as usize
     }
 }
 

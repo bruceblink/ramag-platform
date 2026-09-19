@@ -1,11 +1,16 @@
 impl MqttView {
     fn local_server_config(&self, cx: &App) -> Result<MqttLocalServerConfig, String> {
+        // 将 UI 文本转换为启动配置，所有范围和账号规则交给领域层统一校验。
         let port = value(&self.local_server_port, cx)
             .parse::<u16>()
             .map_err(|_| "本地 MQTT Broker 端口必须是 1 - 65535 的整数".to_string())?;
+        let max_connections = value(&self.local_server_max_connections, cx)
+            .parse::<u32>()
+            .map_err(|_| "本地 MQTT Broker 连接上限必须是正整数".to_string())?;
         let config = MqttLocalServerConfig {
             bind_host: value(&self.local_server_bind_host, cx),
             port,
+            max_connections,
             allow_anonymous: self.local_server_allow_anonymous,
             users: self.local_server_users.clone(),
         };
@@ -35,6 +40,7 @@ impl MqttView {
                         this.local_server_status = Some(status);
                         if this.local_server_running() {
                             this.start_local_server_events(window, cx);
+                            this.load_local_server_snapshot(window, cx);
                         }
                     }
                     Err(error) => {
@@ -139,7 +145,7 @@ impl MqttView {
                     Ok(snapshot) => {
                         this.local_server_snapshot = Some(snapshot);
                         this.local_server_notice = Some((
-                            "本地 MQTT Broker 客户端状态读取完成".into(),
+                            "本地 MQTT Broker 快照读取完成".into(),
                             false,
                         ));
                     }
@@ -185,6 +191,7 @@ impl MqttView {
                         let endpoint = local_server_endpoint(&status);
                         this.local_server_status = Some(status);
                         this.start_local_server_events(window, cx);
+                        this.load_local_server_snapshot(window, cx);
                         this.local_server_notice = Some((
                             format!("本地 MQTT Broker 已启动：{endpoint}"),
                             false,
