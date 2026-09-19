@@ -242,6 +242,8 @@ UI 证据边界：headless GPUI 已验证 `导入` 控件存在、请求/认证/
 
 API-006.3 实现验收记录（2026-09-19）：`ramag-domain` 新增 OpenAPI 3.0/3.1 JSON 识别和导入，覆盖首个 server 及变量、Path/Operation 参数合并、参数示例优先级、Cookie Header、JSON requestBody 示例/Schema 生成、本地 `$ref`、HTTP Basic/Bearer/API Key 和具体路径错误；`ramag-tool-api` 更新文件过滤器并验证导入工作区可回填请求、认证、正文和 Environment；`ramag-infra-api` 将导入请求接入真实 Docker HTTP 回归。Domain 208 项、App 220 项库测试和 17 项集成测试、API UI 11 项测试、OpenAPI focused tests、fmt、Clippy、源文件行数检查和 `git diff --check` 通过。本机 Docker 服务为 `ramag-api-http-test:python-3.12.11-alpine-3.22`（容器 ID `7502473adc72`，`127.0.0.1:18089 -> 8080`，healthy），真实 OpenAPI `/json` 请求返回 HTTP 200；服务未停止或清理，供后续回归复用。
 
+API 工作台布局修正记录（2026-09-19）：`ramag-tool-api` 将 Method/URL 与保存、发送、取消、Collection 操作合并为同一条响应式命令行，宽窗口同排、窄窗口换行；headless bounds 测试新增命令行边界、操作区不越界和宽窗口同排检查。`cargo test --locked -p ramag-tool-api` 11 项、workspace Clippy、fmt、源文件行数检查和 `git diff --check` 通过。Computer Use 返回空应用列表，未取得真实 Windows 窗口截图或键鼠证据。
+
 ## 4. 首期非目标
 
 - gRPC Client/Server/Bidirectional Streaming 不阻塞首个双协议版本，单独排期到 `API-007`。
