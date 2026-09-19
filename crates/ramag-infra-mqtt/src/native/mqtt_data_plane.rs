@@ -1,5 +1,12 @@
 use std::collections::VecDeque;
 
+struct SubscriptionRuntime {
+    sink: MqttMessageSink,
+    status_sink: MqttSubscriptionStatusSink,
+    commands: MqttSubscriptionCommandReceiver,
+    cancelled: Arc<AtomicBool>,
+}
+
     fn create_v311_client(profile: &MqttProfile) -> Result<(AsyncClient, EventLoop)> {
         let mut options = MqttOptions::new(client_id(profile), &profile.host, profile.port);
         options
@@ -265,10 +272,12 @@ use std::collections::VecDeque;
             eventloop,
             filters,
             filter_names,
-            sink,
-            status_sink,
-            commands,
-            cancelled,
+            SubscriptionRuntime {
+                sink,
+                status_sink,
+                commands,
+                cancelled,
+            },
         )
         .await
     }
@@ -304,10 +313,12 @@ use std::collections::VecDeque;
             eventloop,
             filters,
             filter_names,
-            sink,
-            status_sink,
-            commands,
-            cancelled,
+            SubscriptionRuntime {
+                sink,
+                status_sink,
+                commands,
+                cancelled,
+            },
         )
         .await
     }
@@ -317,11 +328,14 @@ use std::collections::VecDeque;
         mut eventloop: EventLoop,
         filters: Vec<rumqttc::SubscribeFilter>,
         filter_names: Vec<String>,
-        sink: MqttMessageSink,
-        status_sink: MqttSubscriptionStatusSink,
-        commands: MqttSubscriptionCommandReceiver,
-        cancelled: Arc<AtomicBool>,
+        runtime: SubscriptionRuntime,
     ) -> Result<()> {
+        let SubscriptionRuntime {
+            sink,
+            status_sink,
+            commands,
+            cancelled,
+        } = runtime;
         let cancellation_client = client.clone();
         let cancellation_signal = cancelled.clone();
         let cancellation_task = tokio::spawn(async move {
@@ -475,11 +489,14 @@ use std::collections::VecDeque;
         mut eventloop: rumqttc::v5::EventLoop,
         filters: Vec<rumqttc::v5::mqttbytes::v5::Filter>,
         filter_names: Vec<String>,
-        sink: MqttMessageSink,
-        status_sink: MqttSubscriptionStatusSink,
-        commands: MqttSubscriptionCommandReceiver,
-        cancelled: Arc<AtomicBool>,
+        runtime: SubscriptionRuntime,
     ) -> Result<()> {
+        let SubscriptionRuntime {
+            sink,
+            status_sink,
+            commands,
+            cancelled,
+        } = runtime;
         let cancellation_client = client.clone();
         let cancellation_signal = cancelled.clone();
         let cancellation_task = tokio::spawn(async move {
