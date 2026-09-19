@@ -18,6 +18,7 @@ members = [
     "crates/ramag-infra-update",
     "crates/ramag-infra-kafka",
     "crates/ramag-infra-mqtt",
+    "crates/ramag-infra-api",
     "crates/ramag-infra-container-docker",
     "crates/ramag-infra-container-registry",
     "crates/ramag-terminal",
@@ -63,6 +64,7 @@ ramag-infra-object-storage = { path = "crates/ramag-infra-object-storage" }
 ramag-infra-update = { path = "crates/ramag-infra-update" }
 ramag-infra-kafka = { path = "crates/ramag-infra-kafka" }
 ramag-infra-mqtt = { path = "crates/ramag-infra-mqtt" }
+ramag-infra-api = { path = "crates/ramag-infra-api" }
 ramag-infra-container-docker = { path = "crates/ramag-infra-container-docker" }
 ramag-infra-container-registry = { path = "crates/ramag-infra-container-registry" }
 ramag-terminal = { path = "crates/ramag-terminal" }
@@ -165,6 +167,7 @@ tokio = { version = "1", features = [
     "fs",
     "time",
 ] }
+tokio-stream = { version = "0.1", features = ["net"] }
 smol = "2"
 async-channel = "2.5"
 async-trait = "0.1"
@@ -189,6 +192,17 @@ reqwest = { version = "0.13", default-features = false, features = [
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 http = "1"
 bytes = "1"
+
+# API 测试工具的 gRPC 动态调用；Descriptor 和动态消息不生成业务专用 Rust 类型。
+prost = "0.14.4"
+prost-reflect = { version = "0.16.5", features = ["serde"] }
+tonic = { version = "0.14.6", default-features = false, features = [
+    "codegen",
+    "tls-ring",
+    "transport",
+] }
+tonic-prost = "0.14.6"
+tonic-prost-build = "0.14.6"
 
 # 云对象存储：只启用 COS / OSS、Tokio executor 与 rustls HTTP transport。
 opendal = { version = "0.58.1", default-features = false, features = [

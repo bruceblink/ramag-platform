@@ -1,6 +1,6 @@
 # API 测试工具开发计划
 
-> 状态：计划阶段；代码尚未开始。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
+> 状态：`API-000` gRPC 动态 Unary 预研已完成；`API-001` 尚未开始。首个可交付版本必须同时支持 HTTP 和 gRPC Unary 接口测试。
 >
 > 适用范围：Ramag Platform 的 API 测试工作台、HTTP 请求、gRPC 请求、请求集合、环境变量、响应断言和本地测试服务验收。
 >
@@ -46,7 +46,7 @@ API 测试工具首个可交付版本完成以下闭环：
 - `ramag-infra-*` 负责具体协议与外部服务适配。
 - `ramag-tool-*` 负责工作台 UI，`ramag-bin` 负责内置工具装配和视图注册。
 - Workspace 已直接使用 `reqwest`、`http`、Tokio 和 Rustls，可复用现有 HTTP 客户端基础设施。
-- 当前没有直接的 `tonic` 应用依赖；gRPC 需要先验证 `tonic`、`prost`、`prost-reflect` 和 Reflection 客户端的运行时组合。
+- `ramag-infra-api` 已完成 gRPC 动态 Unary 预研，使用 `tonic`、`tonic-prost`、`prost` 和 `prost-reflect`；Reflection 客户端仍需在 `API-003` 中单独封装和验收。
 - 本地 Storage 已保存 MQTT/Kafka 等配置，API 工作区需要新增专用实体和加密字段存储，不复用 MQTT 或 Kafka 配置结构。
 
 ## 2. 目标架构
@@ -76,6 +76,26 @@ flowchart LR
 | `ramag-infra-storage` | 保存工作区、Collection、请求、环境和加密敏感字段 | 不保存执行响应正文和无界历史 |
 
 ## 3. 首期范围
+
+### 3.0 API-000 预研记录（2026-09-19）
+
+`API-000` 已在 `ramag-infra-api` 中完成最小动态 gRPC 调用样例，当前依赖版本由 Cargo.lock 固定：
+
+- `tonic` `0.14.6`：低层 `Grpc::unary` 和 `Channel`。
+- `tonic-prost` `0.14.6`：Protobuf Codec。
+- `prost` `0.14.4`：消息编码与解码。
+- `prost-reflect` `0.16.5`：DescriptorPool、MessageDescriptor 和 DynamicMessage。
+- `tonic-prost-build` `0.14.6`：从 `.proto` 生成测试服务和 DescriptorSet。
+
+预研代码通过一份 `api.spike.Echo` `.proto` 生成 DescriptorSet，在测试中完成以下真实协议路径：
+
+1. 读取 DescriptorSet 并找到请求/响应 MessageDescriptor。
+2. 用 `DynamicMessage` 构造请求消息，不生成业务专用 Rust 消息类型。
+3. 通过 `tonic::client::Grpc` 创建 HTTP/2 gRPC Unary 请求。
+4. 使用自定义动态 Codec 编码请求并按响应 Descriptor 解码响应。
+5. 保留请求 Metadata，并在发送前校验完整方法路径必须以 `/` 开始。
+
+`ramag-infra-api` 的 2 项预研测试通过：动态 Descriptor Unary 调用和方法路径校验。该测试使用进程内的最小 gRPC 服务验证 Codec/调用链，不替代后续本机 Docker 服务集成测试。`tonic-reflection` 当前主要提供服务端实现，虽包含生成的 Reflection 客户端消息和客户端类型，仍需在 `API-003` 中验证服务发现、FileDescriptor 拉取、依赖文件合并和错误恢复。
 
 ### 3.1 HTTP 请求
 
@@ -224,10 +244,10 @@ git diff --check
 
 ## 10. 当前未完成项
 
-- 尚未创建 `ramag-domain` API 实体和驱动接口。
-- 尚未确定 `tonic`、`prost-reflect` 和 Reflection 客户端的最终版本组合。
+- 尚未创建 `ramag-domain` API 实体和正式驱动接口。
+- 尚未完成 Reflection 客户端、FileDescriptor 依赖合并和 gRPC 服务目录读取。
 - 尚未创建 HTTP/gRPC Docker 测试服务。
-- 尚未实现 `ramag-tool-api`、Storage 扩展、应用服务和主程序注册。
+- 尚未实现 `ramag-tool-api`、Storage 扩展和应用服务；`ramag-bin` 尚未注册 API 工具。
 - 尚未运行 API 工具专项测试、Docker 集成测试或 UI 截图验收。
 
-下一项任务固定为 `API-000`：先完成 gRPC 动态调用技术预研，再开始共享领域模型，避免先做 UI 后被运行时 Descriptor 能力反向推翻。
+下一项任务固定为 `API-001`：基于已验证的动态 Descriptor 调用链定义共享领域模型、限制和本地存储，避免先做 UI 后被运行时协议能力反向推翻。

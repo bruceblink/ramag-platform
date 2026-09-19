@@ -1,0 +1,26 @@
+[package]
+name = "ramag-infra-api"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Ramag API 测试工具的 HTTP/gRPC 基础设施预研与驱动"
+
+[lints]
+workspace = true
+
+[dependencies]
+bytes = { workspace = true }
+http = { workspace = true }
+prost = { workspace = true }
+prost-reflect = { workspace = true }
+tonic = { workspace = true }
+tonic-prost = { workspace = true }
+tokio = { workspace = true }
+
+[build-dependencies]
+tonic-prost-build = { workspace = true }
+
+[dev-dependencies]
+tonic = { workspace = true, features = ["router"] }
+tokio-stream = { workspace = true }
