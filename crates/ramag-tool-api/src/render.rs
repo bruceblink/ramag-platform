@@ -1,8 +1,10 @@
-use super::render_helpers::{render_assertion_results, render_context_editor, render_history};
+use super::render_helpers::{
+    render_assertion_results, render_collection_summary, render_context_editor, render_history,
+    render_request_toolbar,
+};
 use super::*;
 
-use gpui::{ClickEvent, FontWeight};
-use gpui_component::{Disableable as _, button::ButtonVariants as _};
+use gpui::FontWeight;
 
 pub(super) fn render(
     view: &mut ApiView,
@@ -15,6 +17,8 @@ pub(super) fn render(
     let editor = render_editor(view, window, cx, &theme);
     let content = if stacked {
         v_flex()
+            .id("api-content")
+            .debug_selector(|| "api-content".into())
             .flex_1()
             .min_h_0()
             .min_w_0()
@@ -22,6 +26,8 @@ pub(super) fn render(
             .child(editor)
     } else {
         h_flex()
+            .id("api-content")
+            .debug_selector(|| "api-content".into())
             .flex_1()
             .min_h_0()
             .min_w_0()
@@ -41,34 +47,16 @@ pub(super) fn render(
 }
 
 fn render_header(
-    view: &mut ApiView,
-    cx: &mut Context<ApiView>,
+    _view: &mut ApiView,
+    _cx: &mut Context<ApiView>,
     theme: &gpui_component::Theme,
 ) -> gpui::AnyElement {
-    let protocol_button = |id: &'static str,
-                           label: &'static str,
-                           protocol: ApiProtocol,
-                           view: &mut ApiView,
-                           cx: &mut Context<ApiView>| {
-        let mut button = ramag_ui::clickable_button(id)
-            .debug_selector(move || id.into())
-            .xsmall()
-            .label(label)
-            .on_click(cx.listener(move |view, _: &ClickEvent, _, cx| {
-                view.set_protocol(protocol, cx);
-            }));
-        button = if view.protocol == protocol {
-            button.primary()
-        } else {
-            button.ghost()
-        };
-        button
-    };
-    let mut header = h_flex()
+    h_flex()
         .id("api-header")
         .debug_selector(|| "api-header".into())
         .w_full()
         .min_w_0()
+        .flex_none()
         .flex_wrap()
         .items_center()
         .gap(px(8.0))
@@ -94,47 +82,14 @@ fn render_header(
                         .child("HTTP 与 gRPC 请求工作区"),
                 ),
         )
+        .child(div().flex_1().min_w_0())
         .child(
-            h_flex()
-                .debug_selector(|| "api-protocol-switcher".into())
-                .gap(px(4.0))
-                .child(protocol_button(
-                    "api-protocol-http",
-                    "HTTP",
-                    ApiProtocol::Http,
-                    view,
-                    cx,
-                ))
-                .child(protocol_button(
-                    "api-protocol-grpc",
-                    "gRPC",
-                    ApiProtocol::Grpc,
-                    view,
-                    cx,
-                )),
-        );
-    let save = ramag_ui::clickable_button("api-save")
-        .debug_selector(|| "api-save".into())
-        .xsmall()
-        .label(if view.saving { "保存中" } else { "保存" })
-        .disabled(view.saving || view.loading)
-        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.save(cx)));
-    let send = ramag_ui::clickable_button("api-send")
-        .debug_selector(|| "api-send".into())
-        .xsmall()
-        .label(if view.loading { "发送中" } else { "发送" })
-        .disabled(view.loading || view.saving)
-        .primary()
-        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.send(cx)));
-    let cancel = ramag_ui::clickable_button("api-cancel")
-        .debug_selector(|| "api-cancel".into())
-        .xsmall()
-        .label("取消")
-        .disabled(!view.loading)
-        .ghost()
-        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.cancel(cx)));
-    header = header.child(save).child(send).child(cancel);
-    header.into_any_element()
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("API Workspace"),
+        )
+        .into_any_element()
 }
 
 fn render_sidebar(
@@ -239,20 +194,22 @@ fn render_sidebar(
 
 fn render_editor(
     view: &mut ApiView,
-    _window: &mut Window,
+    window: &mut Window,
     cx: &mut Context<ApiView>,
     theme: &gpui_component::Theme,
 ) -> gpui::AnyElement {
+    let stacked = ApiView::is_stacked(window);
     let request_editor = match view.protocol {
         ApiProtocol::Http => render_http_editor(view, theme),
         ApiProtocol::Grpc => render_grpc_editor(view, theme),
     };
-    v_flex()
-        .id("api-editor")
-        .debug_selector(|| "api-editor".into())
+    let mut request_pane = v_flex()
+        .id("api-request-pane")
+        .debug_selector(|| "api-request-pane".into())
         .flex_1()
         .min_w_0()
         .min_h_0()
+        .overflow_y_scroll()
         .gap(px(10.0))
         .p(px(14.0))
         .child(
@@ -262,11 +219,39 @@ fn render_editor(
                 .w_full()
                 .min_w_0()
                 .gap(px(10.0))
-                .child(field("请求名称", Input::new(&view.request_name).small()))
                 .child(request_editor),
         )
-        .child(render_context_editor(view, theme))
-        .child(render_response(view, cx, theme))
+        .child(render_context_editor(view, theme));
+    if !stacked {
+        request_pane = request_pane.border_r_1().border_color(theme.border);
+    }
+    let workbench = if stacked {
+        v_flex()
+            .id("api-request-response")
+            .debug_selector(|| "api-request-response".into())
+            .flex_1()
+            .min_w_0()
+            .min_h_0()
+            .child(request_pane)
+            .child(render_response(view, cx, theme))
+    } else {
+        h_flex()
+            .id("api-request-response")
+            .debug_selector(|| "api-request-response".into())
+            .flex_1()
+            .min_w_0()
+            .min_h_0()
+            .child(request_pane)
+            .child(render_response(view, cx, theme))
+    };
+    v_flex()
+        .id("api-editor")
+        .debug_selector(|| "api-editor".into())
+        .flex_1()
+        .min_w_0()
+        .min_h_0()
+        .child(render_request_toolbar(view, cx, theme))
+        .child(workbench)
         .into_any_element()
 }
 
@@ -277,11 +262,6 @@ fn render_http_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::An
         .w_full()
         .min_w_0()
         .gap(px(10.0))
-        .child(
-            row()
-                .child(field("Method", Input::new(&view.http_method).small()))
-                .child(field("URL", Input::new(&view.http_url).small())),
-        )
         .child(
             v_flex()
                 .id("api-http-headers")
@@ -328,19 +308,10 @@ fn render_grpc_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::An
         .w_full()
         .min_w_0()
         .gap(px(10.0))
-        .child(
-            row()
-                .child(field("Endpoint", Input::new(&view.grpc_endpoint).small()))
-                .child(field("Service", Input::new(&view.grpc_service).small())),
-        )
-        .child(
-            row()
-                .child(field("Method", Input::new(&view.grpc_method).small()))
-                .child(field(
-                    "Descriptor",
-                    div().text_sm().child("Server Reflection"),
-                )),
-        )
+        .child(row().child(field(
+            "Descriptor",
+            div().text_sm().child("Server Reflection"),
+        )))
         .child(
             row()
                 .child(field(
@@ -384,6 +355,7 @@ fn render_response(
                     .font_weight(FontWeight::SEMIBOLD)
                     .child(status_text(snapshot)),
             )
+            .child(render_collection_summary(view, theme))
             .child(render_assertion_results(&view.assertion_results, theme))
             .child(response_parameters(snapshot, theme))
             .child(

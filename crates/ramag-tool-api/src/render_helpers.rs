@@ -1,6 +1,192 @@
 use super::*;
 
+use gpui::ClickEvent;
 use gpui::FontWeight;
+use gpui_component::{Disableable as _, button::ButtonVariants as _};
+
+pub(super) fn render_collection_button(
+    view: &ApiView,
+    cx: &mut Context<ApiView>,
+) -> gpui::AnyElement {
+    ramag_ui::clickable_button("api-run-collection")
+        .debug_selector(|| "api-run-collection".into())
+        .xsmall()
+        .label("运行 Collection")
+        .disabled(view.loading || view.saving)
+        .ghost()
+        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
+            view.run_collection(cx);
+        }))
+        .into_any_element()
+}
+
+pub(super) fn render_request_toolbar(
+    view: &mut ApiView,
+    cx: &mut Context<ApiView>,
+    theme: &gpui_component::Theme,
+) -> gpui::AnyElement {
+    let protocol_button = |id: &'static str,
+                           label: &'static str,
+                           protocol: ApiProtocol,
+                           view: &mut ApiView,
+                           cx: &mut Context<ApiView>| {
+        let mut button = ramag_ui::clickable_button(id)
+            .debug_selector(move || id.into())
+            .xsmall()
+            .label(label)
+            .on_click(cx.listener(move |view, _: &ClickEvent, _, cx| {
+                view.set_protocol(protocol, cx);
+            }));
+        button = if view.protocol == protocol {
+            button.primary()
+        } else {
+            button.ghost()
+        };
+        button
+    };
+    let save = ramag_ui::clickable_button("api-save")
+        .debug_selector(|| "api-save".into())
+        .xsmall()
+        .label(if view.saving { "保存中" } else { "保存" })
+        .disabled(view.saving || view.loading)
+        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.save(cx)));
+    let send = ramag_ui::clickable_button("api-send")
+        .debug_selector(|| "api-send".into())
+        .xsmall()
+        .label(if view.loading { "发送中" } else { "发送" })
+        .disabled(view.loading || view.saving)
+        .primary()
+        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.send(cx)));
+    let cancel = ramag_ui::clickable_button("api-cancel")
+        .debug_selector(|| "api-cancel".into())
+        .xsmall()
+        .label("取消")
+        .disabled(!view.loading)
+        .ghost()
+        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.cancel(cx)));
+    v_flex()
+        .id("api-request-toolbar")
+        .debug_selector(|| "api-request-toolbar".into())
+        .w_full()
+        .min_w_0()
+        .flex_none()
+        .gap(px(8.0))
+        .px(px(14.0))
+        .py(px(10.0))
+        .border_b_1()
+        .border_color(theme.border)
+        .child(
+            h_flex()
+                .id("api-request-tabbar")
+                .debug_selector(|| "api-request-tabbar".into())
+                .w_full()
+                .min_w_0()
+                .gap(px(8.0))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("当前请求"),
+                )
+                .child(Input::new(&view.request_name).small().w(px(240.0)))
+                .child(div().flex_1().min_w_0())
+                .child(
+                    h_flex()
+                        .id("api-protocol-switcher")
+                        .debug_selector(|| "api-protocol-switcher".into())
+                        .flex_none()
+                        .gap(px(4.0))
+                        .child(protocol_button(
+                            "api-protocol-http",
+                            "HTTP",
+                            ApiProtocol::Http,
+                            view,
+                            cx,
+                        ))
+                        .child(protocol_button(
+                            "api-protocol-grpc",
+                            "gRPC",
+                            ApiProtocol::Grpc,
+                            view,
+                            cx,
+                        )),
+                ),
+        )
+        .child(render_request_target(view))
+        .child(
+            h_flex()
+                .id("api-request-actions")
+                .debug_selector(|| "api-request-actions".into())
+                .w_full()
+                .min_w_0()
+                .justify_end()
+                .gap(px(6.0))
+                .child(save)
+                .child(send)
+                .child(cancel)
+                .child(render_collection_button(view, cx)),
+        )
+        .into_any_element()
+}
+
+fn render_request_target(view: &ApiView) -> gpui::AnyElement {
+    let target = match view.protocol {
+        ApiProtocol::Http => h_flex()
+            .w_full()
+            .min_w_0()
+            .child(Input::new(&view.http_method).small().w(px(92.0)))
+            .child(Input::new(&view.http_url).small().flex_1().min_w(px(180.0))),
+        ApiProtocol::Grpc => h_flex()
+            .w_full()
+            .min_w_0()
+            .child(
+                Input::new(&view.grpc_endpoint)
+                    .small()
+                    .flex_1()
+                    .min_w(px(180.0)),
+            )
+            .child(
+                Input::new(&view.grpc_service)
+                    .small()
+                    .flex_1()
+                    .min_w(px(160.0)),
+            )
+            .child(Input::new(&view.grpc_method).small().w(px(140.0))),
+    };
+    h_flex()
+        .id("api-request-target")
+        .debug_selector(|| "api-request-target".into())
+        .w_full()
+        .min_w_0()
+        .flex_wrap()
+        .gap(px(8.0))
+        .child(target)
+        .into_any_element()
+}
+
+pub(super) fn render_collection_summary(
+    view: &ApiView,
+    theme: &gpui_component::Theme,
+) -> gpui::AnyElement {
+    let label = match &view.last_collection_run {
+        Some(summary) => format!(
+            "Collection：{} · {} 通过 · {} 失败 · {} 取消{}",
+            summary.collection_name,
+            summary.passed,
+            summary.failed,
+            summary.cancelled,
+            if summary.stopped { " · 已停止" } else { "" }
+        ),
+        None => "Collection 尚未运行".into(),
+    };
+    div()
+        .id("api-collection-summary")
+        .debug_selector(|| "api-collection-summary".into())
+        .text_xs()
+        .text_color(theme.muted_foreground)
+        .child(label)
+        .into_any_element()
+}
 
 pub(super) fn render_context_editor(
     view: &ApiView,

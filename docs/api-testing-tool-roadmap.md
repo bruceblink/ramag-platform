@@ -200,6 +200,20 @@ API-005 已完成以下闭环：
 
 API-005 测试覆盖成功、断言失败、取消、变量缺失、敏感值脱敏、加密历史往返、断言/环境编辑格式和 360/640/1024/1440 宽度 UI。真实 Docker UI 测试通过 HTTP `200`、`status=200` 断言和 gRPC `ok`；真实 Windows 窗口仍受 Computer Use 空应用列表限制，未取得原生截图或鼠标/键盘证据。
 
+### 3.7 API-006 Collection 运行和格式兼容切片边界（2026-09-19）
+
+API-006 拆为三个独立验收切片，按顺序提交：
+
+1. Collection 运行：在同一环境和取消标记下按保存顺序串行执行请求，返回每条请求的成功/失败/取消结果和汇总，不提交业务协议的隐式状态。
+2. Ramag JSON 与 Postman Collection v2.1 导入：输入大小有界，坏数据定位到 Collection、Folder、Request 和字段；导入后的请求必须复用 API-005 的环境变量、断言和执行链路。
+3. OpenAPI 3 JSON 导入：读取服务器、Path、Operation、Parameters、JSON Request Body 和示例，无法安全映射的引用或字段必须报告具体路径。
+
+当前第 1 个切片已完成；第 2、3 个切片在本切片推送后继续。
+
+Collection 运行切片验收记录（2026-09-19）：`ApiService::run_collection` 按保存顺序串行调用 API-005 执行链路，共享 Environment 和取消标记；汇总每条请求的响应、错误、取消状态及通过/失败/取消计数，取消后不启动后续请求。API 工作台新增请求工具栏和 Collection 汇总，桌面端使用请求/响应并排布局，窄窗口改为纵向布局；Header、工具栏和主体之间增加 headless bounds 非重叠检查。
+
+通过项：`ramag-domain` 201 项、`ramag-app` 220 项库测试和 17 项集成测试、`ramag-tool-api` 9 项 GPUI 测试；`cargo fmt --all -- --check`、workspace Clippy、源文件行数检查和 `git diff --check` 通过。本机 Docker 服务保持运行：HTTP `ramag-api-http-test:python-3.12.11-alpine-3.22`（容器 ID `da6b26ac136a`，`127.0.0.1:18089 -> 8080`，healthy）和 gRPC `ramag-api-grpc-test:rust-1.91.0-bookworm`（容器 ID `f2eaa95f52a6`，`127.0.0.1:18090 -> 50051`，healthy），测试未启动或清理服务。Computer Use 返回空应用列表，真实 Windows 窗口截图与键鼠证据未完成；UI 结论仅覆盖 headless GPUI 和真实 Docker 协议交互。
+
 ## 4. 首期非目标
 
 - gRPC Client/Server/Bidirectional Streaming 不阻塞首个双协议版本，单独排期到 `API-007`。

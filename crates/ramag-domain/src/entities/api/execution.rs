@@ -5,9 +5,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::{
-    ApiAssertion, ApiEnvironment, ApiProtocol, ApiRequestId, ApiRequestRecord, ApiResponseSnapshot,
-    ApiResponseStatus, MAX_API_ASSERTIONS, MAX_API_ERROR_BYTES, MAX_API_HISTORY_BODY_BYTES,
-    MAX_API_REQUEST_NAME_BYTES, MAX_API_VARIABLE_NAME_BYTES, validate_text,
+    ApiAssertion, ApiCollection, ApiCollectionId, ApiEnvironment, ApiProtocol, ApiRequestId,
+    ApiRequestRecord, ApiResponseSnapshot, ApiResponseStatus, MAX_API_ASSERTIONS,
+    MAX_API_ERROR_BYTES, MAX_API_HISTORY_BODY_BYTES, MAX_API_REQUEST_NAME_BYTES,
+    MAX_API_VARIABLE_NAME_BYTES, validate_text,
 };
 
 pub const MAX_API_HISTORY: usize = 200;
@@ -30,7 +31,45 @@ pub struct ApiExecutionResult {
 pub struct ApiExecutionOutcome {
     pub result: Option<ApiExecutionResult>,
     pub error: Option<String>,
+    #[serde(default)]
+    pub cancelled: bool,
     pub history: ApiHistoryRecord,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApiCollectionRunResult {
+    pub collection_id: ApiCollectionId,
+    pub collection_name: String,
+    pub outcomes: Vec<ApiExecutionOutcome>,
+    pub passed: usize,
+    pub failed: usize,
+    pub cancelled: usize,
+    pub stopped: bool,
+}
+
+impl ApiCollectionRunResult {
+    pub fn empty(collection: &ApiCollection) -> Self {
+        Self {
+            collection_id: collection.id.clone(),
+            collection_name: collection.name.clone(),
+            outcomes: Vec::new(),
+            passed: 0,
+            failed: 0,
+            cancelled: 0,
+            stopped: false,
+        }
+    }
+
+    pub fn push(&mut self, outcome: ApiExecutionOutcome) {
+        if outcome.cancelled {
+            self.cancelled += 1;
+        } else if outcome.result.as_ref().is_some_and(|result| result.passed) {
+            self.passed += 1;
+        } else {
+            self.failed += 1;
+        }
+        self.outcomes.push(outcome);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

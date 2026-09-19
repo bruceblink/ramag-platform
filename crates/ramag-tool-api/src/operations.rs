@@ -36,6 +36,7 @@ impl ApiView {
         self.loading = true;
         self.response = None;
         self.assertion_results.clear();
+        self.last_collection_run = None;
         self.notice = None;
         cx.notify();
         cx.spawn(async move |this, cx| {
@@ -69,6 +70,105 @@ impl ApiView {
                                 ));
                             }
                         }
+                    }
+                    Err(error) => view.notice = Some((error.to_string(), true)),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// 把当前请求并入首个 Collection 后串行执行，完成后在响应区域展示汇总。
+    pub(crate) fn run_collection(&mut self, cx: &mut Context<Self>) {
+        let Some(service) = self.service.clone() else {
+            self.notice = Some(("API 服务尚未接入".into(), true));
+            cx.notify();
+            return;
+        };
+        let record = match request_record(self, cx) {
+            Ok(record) => record,
+            Err(error) => {
+                self.notice = Some((error.to_string(), true));
+                cx.notify();
+                return;
+            }
+        };
+        let environment = match environment_from_view(self, cx) {
+            Ok(environment) => environment,
+            Err(error) => {
+                self.notice = Some((error.to_string(), true));
+                cx.notify();
+                return;
+            }
+        };
+        let mut collection = self
+            .workspace
+            .collections
+            .first()
+            .cloned()
+            .unwrap_or_else(|| ApiCollection::new("默认请求"));
+        if let Some(existing) = collection
+            .requests
+            .iter_mut()
+            .find(|existing| existing.name == record.name)
+        {
+            *existing = record;
+        } else {
+            collection.requests.push(record);
+        }
+        let workspace_id = self.workspace.id.clone();
+        self.request_generation = self.request_generation.wrapping_add(1);
+        let generation = self.request_generation;
+        if let Some(previous) = &self.cancelled {
+            previous.store(true, Ordering::Relaxed);
+        }
+        let cancelled = new_api_cancellation();
+        self.cancelled = Some(cancelled.clone());
+        self.loading = true;
+        self.response = None;
+        self.assertion_results.clear();
+        self.last_collection_run = None;
+        self.notice = None;
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let result = service
+                .run_collection(&workspace_id, &collection, &environment, cancelled)
+                .await;
+            let _ = this.update(cx, |view, cx| {
+                if view.request_generation != generation {
+                    return;
+                }
+                view.loading = false;
+                view.cancelled = None;
+                match result {
+                    Ok(summary) => {
+                        for outcome in &summary.outcomes {
+                            view.history.insert(0, outcome.history.clone());
+                        }
+                        view.history.truncate(20);
+                        if let Some(result) = summary
+                            .outcomes
+                            .last()
+                            .and_then(|outcome| outcome.result.as_ref().cloned())
+                        {
+                            view.assertion_results = result.assertions;
+                            view.response = Some(result.snapshot);
+                        }
+                        let stopped = if summary.stopped { "，已停止" } else { "" };
+                        let failed = summary.failed > 0 || summary.cancelled > 0;
+                        view.notice = Some((
+                            format!(
+                                "Collection {}：{} 通过 · {} 失败 · {} 取消{}",
+                                summary.collection_name,
+                                summary.passed,
+                                summary.failed,
+                                summary.cancelled,
+                                stopped
+                            ),
+                            failed,
+                        ));
+                        view.last_collection_run = Some(summary);
                     }
                     Err(error) => view.notice = Some((error.to_string(), true)),
                 }

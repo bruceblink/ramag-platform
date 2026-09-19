@@ -14,9 +14,9 @@ use gpui_component::{
 };
 use ramag_app::{ApiService, new_api_cancellation};
 use ramag_domain::entities::{
-    ApiAssertionResult, ApiBody, ApiCollection, ApiHistoryRecord, ApiParameter, ApiProtocol,
-    ApiRequestSpec, ApiResponseSnapshot, ApiResponseStatus, ApiWorkspace, GrpcRequestSpec,
-    HttpRequestSpec,
+    ApiAssertionResult, ApiBody, ApiCollection, ApiCollectionRunResult, ApiHistoryRecord,
+    ApiParameter, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseStatus,
+    ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
 };
 use ramag_domain::error::{DomainError, Result};
 
@@ -55,6 +55,7 @@ pub struct ApiView {
     pub(crate) response: Option<ApiResponseSnapshot>,
     pub(crate) assertion_results: Vec<ApiAssertionResult>,
     pub(crate) history: Vec<ApiHistoryRecord>,
+    pub(crate) last_collection_run: Option<ApiCollectionRunResult>,
     pub(crate) loading: bool,
     pub(crate) saving: bool,
     pub(crate) notice: Option<(String, bool)>,
@@ -145,6 +146,7 @@ impl ApiView {
             response: None,
             assertion_results: Vec::new(),
             history: Vec::new(),
+            last_collection_run: None,
             loading: false,
             saving: false,
             notice: None,
@@ -169,6 +171,7 @@ impl ApiView {
         self.protocol = protocol;
         self.response = None;
         self.assertion_results.clear();
+        self.last_collection_run = None;
         self.notice = None;
         cx.notify();
     }

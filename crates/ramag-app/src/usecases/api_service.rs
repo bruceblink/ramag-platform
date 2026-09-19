@@ -18,6 +18,9 @@ use ramag_domain::entities::{
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{ApiDriver, Storage};
 
+#[path = "api_service_collection.rs"]
+mod collection;
+
 /// API 工作台的协议执行与本地工作区编排服务。
 pub struct ApiService {
     http_driver: Arc<dyn ApiDriver>,
@@ -111,6 +114,7 @@ impl ApiService {
                     ApiExecutionOutcome {
                         result: Some(result),
                         error: None,
+                        cancelled: false,
                         history,
                     }
                 }
@@ -119,16 +123,19 @@ impl ApiService {
                     ApiExecutionOutcome {
                         result: None,
                         error: Some(error),
+                        cancelled: false,
                         history,
                     }
                 }
             },
             Err(error) => {
+                let cancelled = matches!(error, DomainError::Cancelled(_));
                 let message = error.to_string();
                 let history = ApiHistoryRecord::from_error(record, &message, environment);
                 ApiExecutionOutcome {
                     result: None,
                     error: Some(message),
+                    cancelled,
                     history,
                 }
             }
@@ -548,6 +555,7 @@ mod tests {
                 .as_deref()
                 .is_some_and(|error| error.contains("取消"))
         );
+        assert!(cancelled_outcome.cancelled);
         assert_eq!(http_driver.calls.load(Ordering::Relaxed), 2);
         assert_eq!(
             service.list_history(&workspace.id, 10).await.unwrap().len(),

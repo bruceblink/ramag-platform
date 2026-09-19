@@ -399,8 +399,9 @@ mod response;
 mod workspace;
 
 pub use execution::{
-    ApiAssertionResult, ApiExecutionOutcome, ApiExecutionResult, ApiHistoryRecord, MAX_API_HISTORY,
-    MAX_API_HISTORY_LIST_BYTES, evaluate_assertions, resolve_template,
+    ApiAssertionResult, ApiCollectionRunResult, ApiExecutionOutcome, ApiExecutionResult,
+    ApiHistoryRecord, MAX_API_HISTORY, MAX_API_HISTORY_LIST_BYTES, evaluate_assertions,
+    resolve_template,
 };
 pub use requests::{
     ApiAssertion, ApiRequestRecord, ApiRequestSpec, GrpcRequestSpec, HttpRequestSpec,

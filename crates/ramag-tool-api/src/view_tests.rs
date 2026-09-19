@@ -67,12 +67,39 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let editor = visual_cx
             .debug_bounds("api-request-editor")
             .expect("请求编辑器应渲染");
+        let header = visual_cx
+            .debug_bounds("api-header")
+            .expect("API Header 应渲染");
+        let content_root = visual_cx
+            .debug_bounds("api-content")
+            .expect("API 主体容器应渲染");
+        let toolbar = visual_cx
+            .debug_bounds("api-request-toolbar")
+            .expect("请求工具栏应渲染");
+        let workbench = visual_cx
+            .debug_bounds("api-request-response")
+            .expect("请求响应工作区应渲染");
+        let request_pane = visual_cx
+            .debug_bounds("api-request-pane")
+            .expect("请求面板应渲染");
         let response = visual_cx
             .debug_bounds("api-response")
             .expect("响应面板应渲染");
         assert!(editor.right() <= root.right(), "编辑器不能越出根节点");
         assert!(response.right() <= root.right(), "响应面板不能越出根节点");
         assert!(editor.origin.x >= root.origin.x, "编辑器左边界不能越界");
+        assert!(
+            header.bottom() <= content_root.origin.y,
+            "Header 不能与主体重叠: root={root:?}, header={header:?}, content={content_root:?}"
+        );
+        assert!(
+            toolbar.bottom() <= workbench.origin.y,
+            "请求工具栏不能与请求响应工作区重叠: toolbar={toolbar:?}, workbench={workbench:?}"
+        );
+        assert!(
+            request_pane.right() <= workbench.right(),
+            "请求面板不能越出工作区: pane={request_pane:?}, workbench={workbench:?}"
+        );
     }
 }
 
@@ -93,8 +120,10 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
     assert!(visual_cx.debug_bounds("api-http-headers").is_some());
     assert!(visual_cx.debug_bounds("api-context-editor").is_some());
     assert!(visual_cx.debug_bounds("api-history").is_some());
+    assert!(visual_cx.debug_bounds("api-request-target").is_some());
     assert!(visual_cx.debug_bounds("api-send").is_some());
     assert!(visual_cx.debug_bounds("api-save").is_some());
+    assert!(visual_cx.debug_bounds("api-run-collection").is_some());
     click(visual_cx, "api-protocol-grpc");
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("api-http-fields").is_none());
@@ -217,6 +246,12 @@ fn api_without_service_explains_send_and_save_state_without_panicking(cx: &mut T
         visual_cx.update(|_, cx| view.read(cx).notice.as_ref().map(|value| value.1)),
         Some(true)
     );
+    click(visual_cx, "api-run-collection");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        visual_cx.update(|_, cx| view.read(cx).notice.as_ref().map(|value| value.1)),
+        Some(true)
+    );
 }
 
 #[gpui::test]
@@ -278,6 +313,16 @@ fn api_workbench_sends_http_and_grpc_requests_to_local_docker_fixtures(cx: &mut 
         "HTTP UI 断言应通过"
     );
     assert!(visual_cx.debug_bounds("api-assertion-results").is_some());
+
+    click(visual_cx, "api-run-collection");
+    let collection_response = wait_for_response(visual_cx, &view);
+    assert!(matches!(
+        collection_response
+            .as_ref()
+            .map(|response| &response.status),
+        Some(ApiResponseStatus::Http { code: 200 })
+    ));
+    assert!(visual_cx.debug_bounds("api-collection-summary").is_some());
 
     visual_cx.update(|window, app| {
         view.update(app, |view, cx| {
