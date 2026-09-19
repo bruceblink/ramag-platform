@@ -133,6 +133,7 @@ impl MqttView {
                         .gap(px(6.0))
                         .child(
                             ramag_ui::clickable_button("mqtt-load-management")
+                                .debug_selector(|| "mqtt-load-management".into())
                                 .ghost()
                                 .small()
                                 .label("读取 Dynamic Security")

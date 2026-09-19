@@ -108,6 +108,7 @@ impl MqttView {
                             .gap(px(6.0))
                             .child(
                                 ramag_ui::clickable_button("mqtt-group-save")
+                                    .debug_selector(|| "mqtt-group-save".into())
                                     .primary()
                                     .small()
                                     .label("保存 Group")
@@ -254,6 +255,7 @@ impl MqttView {
                             .gap(px(6.0))
                             .child(
                                 ramag_ui::clickable_button("mqtt-role-save")
+                                    .debug_selector(|| "mqtt-role-save".into())
                                     .primary()
                                     .small()
                                     .label("保存 Role")

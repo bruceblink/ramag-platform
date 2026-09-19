@@ -2,9 +2,12 @@ impl MqttView {
     fn render_management_tabs(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let mut tabs = h_flex().flex_wrap().gap(px(4.0));
         for section in MosquittoManagementSection::ALL {
-            let mut button = ramag_ui::clickable_button(SharedString::from(format!(
-                "mqtt-management-tab-{section:?}"
-            )))
+            let selector = SharedString::from(format!("mqtt-management-tab-{section:?}"));
+            let mut button = ramag_ui::clickable_button(selector.clone())
+            .debug_selector({
+                let selector = selector.clone();
+                move || selector.to_string()
+            })
             .xsmall()
             .label(section.label());
             button = if self.management_section == section {
@@ -159,6 +162,7 @@ impl MqttView {
                     .gap(px(6.0))
                     .child(
                         ramag_ui::clickable_button("mqtt-client-save")
+                            .debug_selector(|| "mqtt-client-save".into())
                             .primary()
                             .small()
                             .label("保存用户")
