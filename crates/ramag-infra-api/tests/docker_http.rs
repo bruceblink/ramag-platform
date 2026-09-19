@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use ramag_domain::entities::{
     ApiAuth, ApiBody, ApiCancellation, ApiParameter, ApiRequestSpec, ApiResponseStatus,
-    HttpRequestSpec,
+    ApiWorkspace, HttpRequestSpec, import_api_json,
 };
 use ramag_domain::error::DomainError;
 use ramag_domain::traits::ApiDriver;
@@ -61,6 +61,32 @@ async fn docker_http_fixture_covers_requests_errors_auth_timeout_and_cancellatio
                 && header.value == "api-http")
     );
     assert!(body_text(&health.body)?.contains("ramag-api-http-test"));
+
+    let openapi = serde_json::json!({
+        "openapi": "3.0.3",
+        "info": {"title": "Docker OpenAPI", "version": "1.0.0"},
+        "servers": [{"url": endpoint}],
+        "paths": {
+            "/json": {
+                "get": {
+                    "operationId": "dockerJson",
+                    "responses": {"200": {"description": "ok"}}
+                }
+            }
+        }
+    });
+    let bundle = import_api_json(&openapi.to_string())?;
+    let mut workspace = ApiWorkspace::new("Docker OpenAPI");
+    bundle.merge_into(&mut workspace)?;
+    let imported = &workspace.collections[0].requests[0];
+    let imported_response = driver
+        .execute(&imported.request, &BTreeMap::new(), cancellation())
+        .await?;
+    assert_eq!(
+        imported_response.status,
+        ApiResponseStatus::Http { code: 200 }
+    );
+    assert!(body_text(&imported_response.body)?.contains("ramag-api-http-test"));
 
     let mut variables = BTreeMap::new();
     variables.insert("resource".into(), "orders".into());

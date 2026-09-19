@@ -227,6 +227,21 @@ API-006.2 实现验收记录（2026-09-19）：`ramag-domain` 增加有界 Ramag
 
 UI 证据边界：headless GPUI 已验证 `导入` 控件存在、请求/认证/正文类型回填和窄窗口布局；Computer Use 在本机返回空应用列表，即使启动 `target/debug/ramag.exe` 后仍无法取得可控窗口，因此系统文件选择器的真实 Windows 点击、截图和键鼠证据尚未完成，不能将其描述为原生窗口验收。
 
+### 3.9 API-006.3 OpenAPI 3 JSON 导入设计（2026-09-19）
+
+本切片只处理 OpenAPI 3.0/3.1 JSON 文档，并把导入范围限制在当前 API 工作台可以直接编辑和执行的 HTTP 请求：
+
+- 入口先校验 `openapi` 版本和根对象，使用根级、Path 级、Operation 级的首个 `server`；服务器变量转为 `{{variable}}`，默认值写入导入 Environment，缺少默认值时保留变量并记录路径提示。
+- Path 级参数与 Operation 级参数按 `(name, in)` 合并，支持 `path`、`query`、`header`、`cookie`；参数值按 `example`、`examples`、`schema.example`、`schema.default`、枚举首值的顺序选择。Path 参数写入 URL 模板，Cookie 参数转换为 `Cookie` Header。
+- `requestBody` 只把 `application/json` 或 `+json` 媒体类型映射为 `ApiBody`；优先使用媒体类型 `example`、命名 `examples`、Schema 示例/默认值，随后生成有界的 JSON 示例。其它媒体类型保留带路径的提示并不猜测编码。
+- `components` 中的本地 JSON Pointer `$ref` 可解析并受嵌套深度限制；外部引用、循环引用、引用目标类型错误，以及影响请求语义但无法安全映射的字段直接失败，并报告原始 JSON 路径。
+- `securitySchemes` 仅映射 HTTP Basic/Bearer 和 header/query API Key；OAuth2、OpenID Connect 和未声明的安全方案只产生路径提示。Operation 的安全声明不改变请求可执行性以外的字段，不执行文档脚本。
+- 每个 Operation 生成一个请求，名称优先使用 `operationId`，否则使用 `METHOD path`；文档标题生成 Collection 名称。成功导入后统一通过现有 Workspace 校验、ID 重建、持久化和 API-005 执行链路。
+
+验收要求：Domain 测试覆盖服务器变量、参数合并与示例优先级、JSON Body、Basic/Bearer/API Key、本地引用和具体路径错误；应用层验证导入后可保存并执行；UI headless 验证 OpenAPI 文件识别、摘要与请求编辑区回填；真实 Docker HTTP 服务验证至少一条导入请求返回 200。Computer Use 若仍返回空应用列表，只记录 headless/UI 限制，不将其描述为原生窗口验收。
+
+API-006.3 实现验收记录（2026-09-19）：`ramag-domain` 新增 OpenAPI 3.0/3.1 JSON 识别和导入，覆盖首个 server 及变量、Path/Operation 参数合并、参数示例优先级、Cookie Header、JSON requestBody 示例/Schema 生成、本地 `$ref`、HTTP Basic/Bearer/API Key 和具体路径错误；`ramag-tool-api` 更新文件过滤器并验证导入工作区可回填请求、认证、正文和 Environment；`ramag-infra-api` 将导入请求接入真实 Docker HTTP 回归。Domain 208 项、App 220 项库测试和 17 项集成测试、API UI 11 项测试、OpenAPI focused tests、fmt、Clippy、源文件行数检查和 `git diff --check` 通过。本机 Docker 服务为 `ramag-api-http-test:python-3.12.11-alpine-3.22`（容器 ID `7502473adc72`，`127.0.0.1:18089 -> 8080`，healthy），真实 OpenAPI `/json` 请求返回 HTTP 200；服务未停止或清理，供后续回归复用。
+
 ## 4. 首期非目标
 
 - gRPC Client/Server/Bidirectional Streaming 不阻塞首个双协议版本，单独排期到 `API-007`。

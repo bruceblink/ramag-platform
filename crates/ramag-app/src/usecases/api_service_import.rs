@@ -4,7 +4,7 @@ use ramag_domain::error::{DomainError, Result};
 use super::ApiService;
 
 impl ApiService {
-    /// 解析 Ramag/Postman JSON、合并到当前工作区并一次性持久化；失败时不写入部分结果。
+    /// 解析 Ramag/Postman/OpenAPI 3 JSON、合并到当前工作区并一次性持久化；失败时不写入部分结果。
     pub async fn import_workspace_json(
         &self,
         current: &ApiWorkspace,

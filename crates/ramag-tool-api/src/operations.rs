@@ -21,7 +21,7 @@ impl ApiView {
         cx.spawn_in(window, async move |this, async_cx| {
             let outcome: std::result::Result<_, String> = async {
                 let Some(handle) = rfd::AsyncFileDialog::new()
-                    .add_filter("Ramag JSON / Postman Collection", &["json"])
+                    .add_filter("Ramag JSON / Postman / OpenAPI 3", &["json"])
                     .pick_file()
                     .await
                 else {

@@ -14,6 +14,9 @@ const MAX_API_IMPORT_WARNINGS: usize = 128;
 #[path = "postman.rs"]
 mod postman;
 
+#[path = "openapi.rs"]
+mod openapi;
+
 #[cfg(test)]
 #[path = "import_tests.rs"]
 mod tests;
@@ -22,6 +25,7 @@ mod tests;
 pub enum ApiImportFormat {
     RamagJson,
     PostmanCollectionV21,
+    OpenApi3Json,
 }
 
 impl ApiImportFormat {
@@ -29,6 +33,7 @@ impl ApiImportFormat {
         match self {
             Self::RamagJson => "Ramag JSON",
             Self::PostmanCollectionV21 => "Postman Collection v2.1",
+            Self::OpenApi3Json => "OpenAPI 3 JSON",
         }
     }
 }
@@ -88,7 +93,7 @@ impl ApiImportBundle {
     }
 }
 
-/// 识别并解析有界的 Ramag JSON 或 Postman Collection v2.1 JSON。
+/// 识别并解析有界的 Ramag、Postman v2.1 或 OpenAPI 3 JSON。
 pub fn import_api_json(raw: &str) -> Result<ApiImportBundle, String> {
     if raw.len() > MAX_API_IMPORT_BYTES {
         return Err(format!(
@@ -100,6 +105,8 @@ pub fn import_api_json(raw: &str) -> Result<ApiImportBundle, String> {
     validate_json_depth(&value, 0, "$")?;
     if is_postman_collection(&value) {
         postman::import_postman_collection(&value)
+    } else if value.get("openapi").is_some() {
+        openapi::import_openapi_document(&value)
     } else {
         import_ramag_workspace(&value)
     }

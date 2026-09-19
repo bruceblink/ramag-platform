@@ -8,7 +8,7 @@ use ramag_app::ApiService;
 use ramag_domain::entities::{
     ApiAssertion, ApiAuth, ApiBody, ApiCollection, ApiParameter, ApiProtocol, ApiRequestRecord,
     ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace,
-    HttpRequestSpec,
+    HttpRequestSpec, import_api_json,
 };
 use ramag_domain::traits::ApiDriver;
 use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
@@ -212,6 +212,89 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
     );
     assert_eq!(imported.3, "application/json");
     assert_eq!(imported.4, "{\"enabled\":true}");
+}
+
+#[gpui::test]
+fn api_openapi_import_populates_request_editor_and_environment(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 视图应初始化");
+    let document = serde_json::json!({
+        "openapi": "3.0.3",
+        "info": {"title": "Docker API", "version": "1.0.0"},
+        "servers": [{
+            "url": "http://127.0.0.1:18089/{version}",
+            "variables": {"version": {"default": "api"}}
+        }],
+        "security": [{"bearerAuth": []}],
+        "components": {
+            "securitySchemes": {
+                "bearerAuth": {"type": "http", "scheme": "bearer"}
+            }
+        },
+        "paths": {
+            "/json": {
+                "post": {
+                    "operationId": "apiJson",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "example": {"ok": true}
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "ok"}}
+                }
+            }
+        }
+    });
+    let bundle = import_api_json(&document.to_string()).expect("OpenAPI 导入应成功");
+    let mut workspace = ApiWorkspace::new("Imported");
+    let summary = bundle
+        .merge_into(&mut workspace)
+        .expect("OpenAPI 工作区合并应成功");
+    assert_eq!(summary.format.label(), "OpenAPI 3 JSON");
+    assert_eq!(summary.request_count, 1);
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.workspace = workspace.clone();
+            context::apply_imported_workspace(view, &workspace, window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+
+    let imported = visual_cx.update(|_, app| {
+        let view = view.read(app);
+        (
+            view.request_name.read(app).value().to_string(),
+            view.http_method.read(app).value().to_string(),
+            view.http_url.read(app).value().to_string(),
+            view.http_body_content_type.clone(),
+            view.http_body.read(app).value().to_string(),
+            view.environment_variables.read(app).value().to_string(),
+            view.environment_sensitive.read(app).value().to_string(),
+            view.http_auth.clone(),
+        )
+    });
+    assert_eq!(imported.0, "apiJson");
+    assert_eq!(imported.1, "POST");
+    assert_eq!(imported.2, "http://127.0.0.1:18089/{{version}}/json");
+    assert_eq!(imported.3, "application/json");
+    assert_eq!(imported.4, "{\"ok\":true}");
+    assert!(imported.5.contains("version=api"));
+    assert_eq!(imported.6, "openapi_bearerAuth_token");
+    assert_eq!(
+        imported.7,
+        ApiAuth::Bearer {
+            token: "{{openapi_bearerAuth_token}}".into()
+        }
+    );
 }
 
 #[test]
