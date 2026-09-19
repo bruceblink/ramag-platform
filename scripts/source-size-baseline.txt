@@ -1,0 +1,14 @@
+# Existing Rust files above the 600-line limit. New or modified files must not be added here.
+crates/ramag-bin/src/main.rs
+crates/ramag-domain/src/entities/container.rs
+crates/ramag-domain/src/entities/mqtt_protocol.rs
+crates/ramag-infra-container-docker/src/lib.rs
+crates/ramag-infra-mqtt/src/local_server.rs
+crates/ramag-infra-mqtt/src/native/mqtt_data_plane.rs
+crates/ramag-infra-mqtt/src/tests.rs
+crates/ramag-tool-container/src/view.rs
+crates/ramag-tool-mqtt/src/mqtt_view/local_server_view.rs
+crates/ramag-tool-mqtt/src/mqtt_view/message_operations_view.rs
+crates/ramag-tool-mqtt/src/mqtt_view/profile_state.rs
+crates/ramag-tool-mqtt/src/visual_message_option_tests.rs
+crates/ramag-tool-mqtt/src/visual_tests.rs

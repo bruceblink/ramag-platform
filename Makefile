@@ -29,7 +29,7 @@ help:
 	@printf "    make install-hooks  启用提交前源码尺寸检查\n"
 	@printf "\n  \033[36m检查\033[0m\n"
 	@printf "    cargo check-all     cargo check --workspace --all-targets\n"
-	@printf "    make size-check     检查 Rust 文件不超过 600 行\n"
+	@printf "    make size-check     检查 Rust 文件不超过 600 行（历史基线除外）\n"
 	@printf "    make log-check      检查 tracing 操作与错误上下文\n"
 	@printf "    cargo fmt-check     cargo fmt --all -- --check\n"
 	@printf "    cargo clippy-all    cargo clippy --workspace --all-targets -- -D warnings\n"

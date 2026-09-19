@@ -23,6 +23,9 @@ MINGW*|MSYS*|CYGWIN*)
     ;;
 esac
 
+printf '%s\n' 'pre-commit: checking staged Rust source file sizes'
+sh "$repo_root/scripts/check-staged-source-size.sh"
+
 printf '%s\n' 'pre-commit: running workspace Rust format and Clippy checks'
 run_quality_checks() {
     if command -v cargo >/dev/null 2>&1; then
