@@ -214,6 +214,19 @@ Collection 运行切片验收记录（2026-09-19）：`ApiService::run_collectio
 
 通过项：`ramag-domain` 201 项、`ramag-app` 220 项库测试和 17 项集成测试、`ramag-tool-api` 9 项 GPUI 测试；`cargo fmt --all -- --check`、workspace Clippy、源文件行数检查和 `git diff --check` 通过。本机 Docker 服务保持运行：HTTP `ramag-api-http-test:python-3.12.11-alpine-3.22`（容器 ID `da6b26ac136a`，`127.0.0.1:18089 -> 8080`，healthy）和 gRPC `ramag-api-grpc-test:rust-1.91.0-bookworm`（容器 ID `f2eaa95f52a6`，`127.0.0.1:18090 -> 50051`，healthy），测试未启动或清理服务。Computer Use 返回空应用列表，真实 Windows 窗口截图与键鼠证据未完成；UI 结论仅覆盖 headless GPUI 和真实 Docker 协议交互。
 
+### 3.8 API-006.2 Ramag JSON 与 Postman Collection v2.1 导入设计（2026-09-19）
+
+本切片只处理 API-006 的第二项，不提前实现 OpenAPI 3：
+
+- Ramag JSON 接受当前 `ApiWorkspace` 直序列化格式，也接受 `format = "ramag-api"`、`version = 1`、`workspace` 封装格式；导入前执行 JSON 大小、结构、Workspace 数量和领域校验。
+- Postman 只接受 Collection v2.1 schema；Collection、Folder 和 Request 都保留到错误路径中。Folder 在当前无 Folder 实体的模型中按 `Folder / Request` 拼接请求名称，但执行仍复用 API-005 的请求记录、Environment、断言和 `ApiService` 执行链路。
+- 安全映射 HTTP Method、URL、Query、Headers、raw/urlencoded Body、Basic/Bearer/API Key 和 Collection variables；Postman 脚本不执行，只产生有界警告。文件、GraphQL、OAuth2、Digest 等无法保持语义的字段直接报告具体 JSON 路径。
+- 导入请求和环境重建本地 ID 后合并到当前 Workspace，由 `ApiService` 校验并加密保存；重复环境名称自动生成不冲突名称，保存失败不修改当前界面状态。
+
+API-006.2 实现验收记录（2026-09-19）：`ramag-domain` 增加有界 Ramag JSON/Postman v2.1 解析器和 JSON 路径错误，覆盖嵌套 Folder、Query、Headers、raw/urlencoded Body、Basic/Bearer/API Key、Collection variables、脚本警告、环境重名和本地 ID 重建；`ApiService::import_workspace_json` 负责合并后校验并持久化，`ramag-tool-api` 增加 `导入` 文件选择入口、UTF-8/8 MiB 文件读取限制、导入结果回填和摘要提示。Domain 导入测试 4 项、App 导入持久化链路和 API UI headless 测试均通过。OpenAPI 3 仍未实现。
+
+UI 证据边界：headless GPUI 已验证 `导入` 控件存在、请求/认证/正文类型回填和窄窗口布局；Computer Use 在本机返回空应用列表，即使启动 `target/debug/ramag.exe` 后仍无法取得可控窗口，因此系统文件选择器的真实 Windows 点击、截图和键鼠证据尚未完成，不能将其描述为原生窗口验收。
+
 ## 4. 首期非目标
 
 - gRPC Client/Server/Bidirectional Streaming 不阻塞首个双协议版本，单独排期到 `API-007`。

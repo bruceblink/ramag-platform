@@ -20,6 +20,8 @@ use ramag_domain::traits::{ApiDriver, Storage};
 
 #[path = "api_service_collection.rs"]
 mod collection;
+#[path = "api_service_import.rs"]
+mod import;
 
 /// API 工作台的协议执行与本地工作区编排服务。
 pub struct ApiService {
@@ -358,7 +360,7 @@ mod tests {
 
     use async_trait::async_trait;
     use ramag_domain::entities::{
-        ApiAssertion, ApiEnvironment, ApiProtocol, ApiRequestRecord, ApiRequestSpec,
+        ApiAssertion, ApiCollection, ApiEnvironment, ApiProtocol, ApiRequestRecord, ApiRequestSpec,
         ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace,
         GrpcRequestSpec, HttpRequestSpec,
     };
@@ -460,7 +462,26 @@ mod tests {
             .expect("工作区应保存");
         assert_eq!(
             service.list_workspaces().await.expect("工作区应列出"),
-            vec![workspace]
+            vec![workspace.clone()]
+        );
+
+        let mut imported = ApiWorkspace::new("Imported API");
+        let mut collection = ApiCollection::new("Imported Collection");
+        collection.requests.push(ApiRequestRecord::new_http(
+            "Imported Health",
+            HttpRequestSpec::new("GET", "http://127.0.0.1/health"),
+        ));
+        imported.collections.push(collection);
+        let raw = serde_json::to_string(&imported).expect("导入工作区应序列化");
+        let (merged, summary) = service
+            .import_workspace_json(&workspace, &raw)
+            .await
+            .expect("导入工作区应保存");
+        assert_eq!(summary.request_count, 1);
+        assert_eq!(merged.collections[0].requests[0].name, "Imported Health");
+        assert_eq!(
+            service.list_workspaces().await.expect("导入后工作区应列出"),
+            vec![merged]
         );
     }
 

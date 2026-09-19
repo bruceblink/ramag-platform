@@ -394,6 +394,7 @@ pub fn bound_response_body(body: Vec<u8>) -> (Vec<u8>, u64, bool) {
 pub type ApiCancellation = Arc<AtomicBool>;
 
 mod execution;
+mod import;
 mod requests;
 mod response;
 mod workspace;
@@ -402,6 +403,10 @@ pub use execution::{
     ApiAssertionResult, ApiCollectionRunResult, ApiExecutionOutcome, ApiExecutionResult,
     ApiHistoryRecord, MAX_API_HISTORY, MAX_API_HISTORY_LIST_BYTES, evaluate_assertions,
     resolve_template,
+};
+pub use import::{
+    ApiImportBundle, ApiImportFormat, ApiImportSummary, MAX_API_IMPORT_BYTES, MAX_API_IMPORT_DEPTH,
+    import_api_json,
 };
 pub use requests::{
     ApiAssertion, ApiRequestRecord, ApiRequestSpec, GrpcRequestSpec, HttpRequestSpec,

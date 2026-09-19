@@ -6,8 +6,9 @@ use std::time::Duration;
 use gpui::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_app::ApiService;
 use ramag_domain::entities::{
-    ApiAssertion, ApiParameter, ApiProtocol, ApiResponseSnapshot, ApiResponseSnapshotParts,
-    ApiResponseStatus,
+    ApiAssertion, ApiAuth, ApiBody, ApiCollection, ApiParameter, ApiProtocol, ApiRequestRecord,
+    ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace,
+    HttpRequestSpec,
 };
 use ramag_domain::traits::ApiDriver;
 use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
@@ -100,6 +101,20 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
             request_pane.right() <= workbench.right(),
             "请求面板不能越出工作区: pane={request_pane:?}, workbench={workbench:?}"
         );
+        if width >= 720.0 {
+            assert!(
+                (response.origin.y - request_pane.origin.y).abs() <= px(1.0),
+                "左右分栏必须顶部对齐: pane={request_pane:?}, response={response:?}"
+            );
+            assert!(
+                response.bottom() <= workbench.bottom(),
+                "响应面板不能越出工作区底部: response={response:?}, workbench={workbench:?}"
+            );
+            assert!(
+                (response.bottom() - request_pane.bottom()).abs() <= px(1.0),
+                "左右分栏必须共享完整高度: pane={request_pane:?}, response={response:?}"
+            );
+        }
     }
 }
 
@@ -123,6 +138,7 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
     assert!(visual_cx.debug_bounds("api-request-target").is_some());
     assert!(visual_cx.debug_bounds("api-send").is_some());
     assert!(visual_cx.debug_bounds("api-save").is_some());
+    assert!(visual_cx.debug_bounds("api-import").is_some());
     assert!(visual_cx.debug_bounds("api-run-collection").is_some());
     click(visual_cx, "api-protocol-grpc");
     visual_cx.run_until_parked();
@@ -140,6 +156,62 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
         visual_cx.update(|_, cx| view.read(cx).protocol),
         ApiProtocol::Http
     );
+}
+
+#[gpui::test]
+fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 视图应初始化");
+    let mut workspace = ApiWorkspace::new("Imported");
+    let mut request = HttpRequestSpec::new("POST", "{{base_url}}/users");
+    request.headers = vec![ApiParameter::new("Content-Type", "application/json", false)];
+    request.auth = ApiAuth::Bearer {
+        token: "{{token}}".into(),
+    };
+    request.body = Some(ApiBody::text(
+        "{\"enabled\":true}",
+        Some("application/json".into()),
+    ));
+    let mut collection = ApiCollection::new("Imported Collection");
+    collection
+        .requests
+        .push(ApiRequestRecord::new_http("Imported Request", request));
+    workspace.collections.push(collection);
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.workspace = workspace.clone();
+            context::apply_imported_workspace(view, &workspace, window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+
+    let imported = visual_cx.update(|_, app| {
+        let view = view.read(app);
+        (
+            view.request_name.read(app).value().to_string(),
+            view.http_url.read(app).value().to_string(),
+            view.http_auth.clone(),
+            view.http_body_content_type.clone(),
+            view.http_body.read(app).value().to_string(),
+        )
+    });
+    assert_eq!(imported.0, "Imported Request");
+    assert_eq!(imported.1, "{{base_url}}/users");
+    assert_eq!(
+        imported.2,
+        ApiAuth::Bearer {
+            token: "{{token}}".into()
+        }
+    );
+    assert_eq!(imported.3, "application/json");
+    assert_eq!(imported.4, "{\"enabled\":true}");
 }
 
 #[test]
@@ -247,6 +319,12 @@ fn api_without_service_explains_send_and_save_state_without_panicking(cx: &mut T
         Some(true)
     );
     click(visual_cx, "api-run-collection");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        visual_cx.update(|_, cx| view.read(cx).notice.as_ref().map(|value| value.1)),
+        Some(true)
+    );
+    click(visual_cx, "api-import");
     visual_cx.run_until_parked();
     assert_eq!(
         visual_cx.update(|_, cx| view.read(cx).notice.as_ref().map(|value| value.1)),

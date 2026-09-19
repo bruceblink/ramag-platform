@@ -12,7 +12,7 @@ pub(super) fn render_collection_button(
         .debug_selector(|| "api-run-collection".into())
         .xsmall()
         .label("运行 Collection")
-        .disabled(view.loading || view.saving)
+        .disabled(view.loading || view.saving || view.importing)
         .ghost()
         .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
             view.run_collection(cx);
@@ -48,13 +48,26 @@ pub(super) fn render_request_toolbar(
         .debug_selector(|| "api-save".into())
         .xsmall()
         .label(if view.saving { "保存中" } else { "保存" })
-        .disabled(view.saving || view.loading)
+        .disabled(view.saving || view.importing || view.loading)
         .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.save(cx)));
+    let import = ramag_ui::clickable_button("api-import")
+        .debug_selector(|| "api-import".into())
+        .xsmall()
+        .label(if view.importing {
+            "导入中"
+        } else {
+            "导入"
+        })
+        .disabled(view.importing || view.saving || view.loading)
+        .ghost()
+        .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
+            view.import(window, cx);
+        }));
     let send = ramag_ui::clickable_button("api-send")
         .debug_selector(|| "api-send".into())
         .xsmall()
         .label(if view.loading { "发送中" } else { "发送" })
-        .disabled(view.loading || view.saving)
+        .disabled(view.loading || view.saving || view.importing)
         .primary()
         .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.send(cx)));
     let cancel = ramag_ui::clickable_button("api-cancel")
@@ -121,6 +134,7 @@ pub(super) fn render_request_toolbar(
                 .min_w_0()
                 .justify_end()
                 .gap(px(6.0))
+                .child(import)
                 .child(save)
                 .child(send)
                 .child(cancel)

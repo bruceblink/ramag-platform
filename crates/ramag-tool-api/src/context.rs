@@ -172,3 +172,139 @@ pub(crate) fn upsert_environment(workspace: &mut ApiWorkspace, environment: ApiE
         workspace.environments.push(environment);
     }
 }
+
+/// 将导入后的首个请求和默认环境同步到编辑器，确保导入结果立即可见且再次保存不会丢失认证信息。
+pub(crate) fn apply_imported_workspace(
+    view: &mut ApiView,
+    workspace: &ApiWorkspace,
+    window: &mut Window,
+    cx: &mut Context<ApiView>,
+) {
+    if let Some(environment) = workspace.default_environment_id.as_ref().and_then(|id| {
+        workspace
+            .environments
+            .iter()
+            .find(|environment| &environment.id == id)
+    }) {
+        set_input(
+            &view.environment_variables,
+            environment
+                .variables
+                .iter()
+                .map(|(name, value)| format!("{name}={value}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            window,
+            cx,
+        );
+        set_input(
+            &view.environment_sensitive,
+            environment.sensitive_variable_refs.join("\n"),
+            window,
+            cx,
+        );
+    }
+
+    let Some(request) = workspace
+        .collections
+        .iter()
+        .flat_map(|collection| collection.requests.iter())
+        .next()
+    else {
+        return;
+    };
+    set_input(&view.request_name, request.name.clone(), window, cx);
+    set_input(
+        &view.assertions,
+        format_assertions(&request.assertions),
+        window,
+        cx,
+    );
+    match &request.request {
+        ApiRequestSpec::Http(spec) => {
+            view.protocol = ApiProtocol::Http;
+            view.http_auth = spec.auth.clone();
+            view.http_body_content_type = spec
+                .body
+                .as_ref()
+                .and_then(|body| body.content_type.clone())
+                .unwrap_or_else(|| "application/json".into());
+            set_input(&view.http_method, spec.method.clone(), window, cx);
+            set_input(&view.http_url, spec.url_template.clone(), window, cx);
+            set_input(
+                &view.http_headers,
+                format_parameters(&spec.headers),
+                window,
+                cx,
+            );
+            set_input(
+                &view.http_body,
+                spec.body
+                    .as_ref()
+                    .map(|body| body.value.clone())
+                    .unwrap_or_default(),
+                window,
+                cx,
+            );
+        }
+        ApiRequestSpec::Grpc(spec) => {
+            view.protocol = ApiProtocol::Grpc;
+            view.http_auth = ApiAuth::None;
+            view.http_body_content_type = "application/json".into();
+            set_input(
+                &view.grpc_endpoint,
+                spec.endpoint_template.clone(),
+                window,
+                cx,
+            );
+            set_input(&view.grpc_service, spec.service.clone(), window, cx);
+            set_input(&view.grpc_method, spec.method.clone(), window, cx);
+            set_input(&view.grpc_message, spec.message.clone(), window, cx);
+            if let Some(metadata) = spec.metadata.first() {
+                set_input(&view.grpc_metadata_name, metadata.name.clone(), window, cx);
+                set_input(
+                    &view.grpc_metadata_value,
+                    metadata.value.clone(),
+                    window,
+                    cx,
+                );
+            }
+        }
+    }
+}
+
+fn set_input(
+    field: &Entity<InputState>,
+    value: String,
+    window: &mut Window,
+    cx: &mut Context<ApiView>,
+) {
+    field.update(cx, |input, cx| input.set_value(value, window, cx));
+}
+
+fn format_parameters(parameters: &[ApiParameter]) -> String {
+    parameters
+        .iter()
+        .map(|parameter| format!("{}: {}", parameter.name, parameter.value))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn format_assertions(assertions: &[ApiAssertion]) -> String {
+    assertions
+        .iter()
+        .map(|assertion| match assertion {
+            ApiAssertion::HttpStatus { expected } => format!("status={expected}"),
+            ApiAssertion::HeaderEquals { name, expected } => {
+                format!("header={name}:{expected}")
+            }
+            ApiAssertion::MetadataEquals { name, expected } => {
+                format!("metadata={name}:{expected}")
+            }
+            ApiAssertion::BodyContains { expected } => format!("body={expected}"),
+            ApiAssertion::JsonPathEquals { path, expected } => format!("json={path}:{expected}"),
+            ApiAssertion::LatencyAtMostMillis { expected } => format!("latency={expected}"),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}

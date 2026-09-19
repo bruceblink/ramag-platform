@@ -14,7 +14,7 @@ use gpui_component::{
 };
 use ramag_app::{ApiService, new_api_cancellation};
 use ramag_domain::entities::{
-    ApiAssertionResult, ApiBody, ApiCollection, ApiCollectionRunResult, ApiHistoryRecord,
+    ApiAssertionResult, ApiAuth, ApiBody, ApiCollection, ApiCollectionRunResult, ApiHistoryRecord,
     ApiParameter, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseStatus,
     ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
 };
@@ -43,6 +43,8 @@ pub struct ApiView {
     pub(crate) http_url: Entity<InputState>,
     pub(crate) http_headers: Entity<InputState>,
     pub(crate) http_body: Entity<InputState>,
+    pub(crate) http_auth: ApiAuth,
+    pub(crate) http_body_content_type: String,
     pub(crate) environment_variables: Entity<InputState>,
     pub(crate) environment_sensitive: Entity<InputState>,
     pub(crate) assertions: Entity<InputState>,
@@ -58,6 +60,7 @@ pub struct ApiView {
     pub(crate) last_collection_run: Option<ApiCollectionRunResult>,
     pub(crate) loading: bool,
     pub(crate) saving: bool,
+    pub(crate) importing: bool,
     pub(crate) notice: Option<(String, bool)>,
     pub(crate) workspace: ApiWorkspace,
     pub(crate) request_generation: u64,
@@ -108,6 +111,8 @@ impl ApiView {
                 Some("json"),
                 8,
             ),
+            http_auth: ApiAuth::None,
+            http_body_content_type: "application/json".into(),
             environment_variables: api_multiline_input(
                 window,
                 cx,
@@ -149,6 +154,7 @@ impl ApiView {
             last_collection_run: None,
             loading: false,
             saving: false,
+            importing: false,
             notice: None,
             workspace: ApiWorkspace::new("API Workspace"),
             request_generation: 0,
@@ -362,9 +368,19 @@ pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSp
             let method = input_value(&view.http_method, cx).to_ascii_uppercase();
             let mut spec = HttpRequestSpec::new(method, input_value(&view.http_url, cx));
             spec.headers = parse_http_headers(&input_value(&view.http_headers, cx))?;
+            spec.auth = view.http_auth.clone();
             let body = input_value(&view.http_body, cx);
             if !body.is_empty() {
-                spec.body = Some(ApiBody::text(body, Some("application/json".into())));
+                let content_type = spec
+                    .headers
+                    .iter()
+                    .find(|header| header.name.eq_ignore_ascii_case("content-type"))
+                    .map(|header| header.value.clone())
+                    .or_else(|| {
+                        let value = view.http_body_content_type.trim();
+                        (!value.is_empty()).then(|| value.to_string())
+                    });
+                spec.body = Some(ApiBody::text(body, content_type));
             }
             Ok(ApiRequestSpec::Http(spec))
         }

@@ -241,6 +241,7 @@ fn render_editor(
             .flex_1()
             .min_w_0()
             .min_h_0()
+            .items_start()
             .child(request_pane)
             .child(render_response(view, cx, theme))
     };
@@ -276,6 +277,22 @@ fn render_http_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::An
                 .child(Input::new(&view.http_headers).small().h(px(112.0))),
         )
         .child(
+            h_flex()
+                .justify_between()
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("Auth"),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(auth_label(&view.http_auth)),
+                ),
+        )
+        .child(
             v_flex()
                 .id("api-http-body")
                 .debug_selector(|| "api-http-body".into())
@@ -293,12 +310,21 @@ fn render_http_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::An
                             div()
                                 .text_xs()
                                 .text_color(theme.muted_foreground)
-                                .child("JSON"),
+                                .child(view.http_body_content_type.clone()),
                         ),
                 )
                 .child(Input::new(&view.http_body).small().h(px(176.0))),
         )
         .into_any_element()
+}
+
+fn auth_label(auth: &ApiAuth) -> &'static str {
+    match auth {
+        ApiAuth::None => "None",
+        ApiAuth::Basic { .. } => "Basic",
+        ApiAuth::Bearer { .. } => "Bearer",
+        ApiAuth::ApiKey { .. } => "API Key",
+    }
 }
 
 fn render_grpc_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::AnyElement {
@@ -410,6 +436,7 @@ fn render_response(
         .id("api-response")
         .debug_selector(|| "api-response".into())
         .flex_1()
+        .h_full()
         .min_h(px(160.0))
         .min_w_0()
         .overflow_y_scroll()

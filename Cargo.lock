@@ -8113,6 +8113,7 @@ dependencies = [
  "ramag-infra-api",
  "ramag-infra-storage",
  "ramag-ui",
+ "rfd",
  "serde_json",
  "tempfile",
 ]

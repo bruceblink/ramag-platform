@@ -1,7 +1,112 @@
 use super::context::{environment_from_view, request_record, upsert_environment};
 use super::*;
 
+use std::io::Read;
+
 impl ApiView {
+    /// 打开本地 JSON 文件，交给应用服务导入并持久化；读取和解析都受大小限制且不执行脚本。
+    pub(crate) fn import(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.saving || self.importing || self.loading {
+            return;
+        }
+        let Some(service) = self.service.clone() else {
+            self.notice = Some(("API 服务尚未接入".into(), true));
+            cx.notify();
+            return;
+        };
+        self.importing = true;
+        self.notice = None;
+        let current_workspace = self.workspace.clone();
+        cx.notify();
+        cx.spawn_in(window, async move |this, async_cx| {
+            let outcome: std::result::Result<_, String> = async {
+                let Some(handle) = rfd::AsyncFileDialog::new()
+                    .add_filter("Ramag JSON / Postman Collection", &["json"])
+                    .pick_file()
+                    .await
+                else {
+                    return Ok(None);
+                };
+                let path = handle.path().to_path_buf();
+                let raw =
+                    ramag_app::run_blocking(move || -> ramag_domain::error::Result<String> {
+                        let file = std::fs::File::open(&path).map_err(|error| {
+                            DomainError::Storage(format!("打开导入文件失败：{error}"))
+                        })?;
+                        let metadata = file.metadata().map_err(|error| {
+                            DomainError::Storage(format!("读取导入文件信息失败：{error}"))
+                        })?;
+                        if !metadata.is_file() {
+                            return Err(DomainError::InvalidConfig(
+                                "导入目标必须是普通文件".into(),
+                            ));
+                        }
+                        let max_bytes = ramag_domain::entities::MAX_API_IMPORT_BYTES as u64;
+                        if metadata.len() > max_bytes {
+                            return Err(DomainError::InvalidConfig(format!(
+                                "导入文件超过 {max_bytes} bytes 上限"
+                            )));
+                        }
+                        let mut bytes = Vec::new();
+                        file.take(max_bytes + 1)
+                            .read_to_end(&mut bytes)
+                            .map_err(|error| {
+                                DomainError::Storage(format!("读取导入文件失败：{error}"))
+                            })?;
+                        if bytes.len() as u64 > max_bytes {
+                            return Err(DomainError::InvalidConfig(format!(
+                                "导入文件读取后超过 {max_bytes} bytes 上限"
+                            )));
+                        }
+                        String::from_utf8(bytes).map_err(|_| {
+                            DomainError::InvalidConfig("导入文件必须使用 UTF-8 编码".into())
+                        })
+                    })
+                    .await
+                    .map_err(|error| format!("读取导入文件失败：{error}"))?;
+                let imported = service
+                    .import_workspace_json(&current_workspace, &raw)
+                    .await
+                    .map_err(|error| error.to_string())?;
+                Ok(Some(imported))
+            }
+            .await;
+
+            let _ = this.update_in(async_cx, |view, window, cx| {
+                view.importing = false;
+                match outcome {
+                    Ok(None) => {}
+                    Ok(Some((workspace, summary))) => {
+                        let warning_count = summary.warnings.len();
+                        view.workspace = workspace.clone();
+                        context::apply_imported_workspace(view, &workspace, window, cx);
+                        view.response = None;
+                        view.assertion_results.clear();
+                        view.last_collection_run = None;
+                        view.notice = Some((
+                            format!(
+                                "已导入 {}：{} 个 Collection · {} 个请求 · {} 个环境{}",
+                                summary.format.label(),
+                                summary.collection_count,
+                                summary.request_count,
+                                summary.environment_count,
+                                if warning_count == 0 {
+                                    String::new()
+                                } else {
+                                    format!(" · {} 条提示", warning_count)
+                                }
+                            ),
+                            false,
+                        ));
+                    }
+                    Err(error) => view.notice = Some((format!("导入失败：{error}"), true)),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
     /// 构造当前请求并交给 API 服务；结果包含响应、断言状态和脱敏历史摘要。
     pub(crate) fn send(&mut self, cx: &mut Context<Self>) {
         let Some(service) = self.service.clone() else {
