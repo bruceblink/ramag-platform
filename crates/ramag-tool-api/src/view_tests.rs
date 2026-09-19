@@ -77,6 +77,12 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let toolbar = visual_cx
             .debug_bounds("api-request-toolbar")
             .expect("请求工具栏应渲染");
+        let command_row = visual_cx
+            .debug_bounds("api-request-command-row")
+            .expect("请求命令行应渲染");
+        let actions = visual_cx
+            .debug_bounds("api-request-actions")
+            .expect("请求操作区应渲染");
         let workbench = visual_cx
             .debug_bounds("api-request-response")
             .expect("请求响应工作区应渲染");
@@ -98,9 +104,27 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
             "请求工具栏不能与请求响应工作区重叠: toolbar={toolbar:?}, workbench={workbench:?}"
         );
         assert!(
+            command_row.bottom() <= workbench.origin.y,
+            "请求命令行不能与请求响应工作区重叠: command={command_row:?}, workbench={workbench:?}"
+        );
+        assert!(
             request_pane.right() <= workbench.right(),
             "请求面板不能越出工作区: pane={request_pane:?}, workbench={workbench:?}"
         );
+        assert!(
+            request_pane.origin.y >= command_row.origin.y,
+            "请求面板必须位于命令行之后: pane={request_pane:?}, command={command_row:?}"
+        );
+        assert!(
+            actions.right() <= command_row.right(),
+            "请求操作区不能越出命令行: actions={actions:?}, command={command_row:?}"
+        );
+        if width >= 1280.0 {
+            assert!(
+                (actions.origin.y - command_row.origin.y).abs() <= px(3.0),
+                "宽窗口操作区应与请求目标同排: actions={actions:?}, command={command_row:?}"
+            );
+        }
         if width >= 720.0 {
             assert!(
                 (response.origin.y - request_pane.origin.y).abs() <= px(1.0),

@@ -125,20 +125,28 @@ pub(super) fn render_request_toolbar(
                         )),
                 ),
         )
-        .child(render_request_target(view))
         .child(
             h_flex()
-                .id("api-request-actions")
-                .debug_selector(|| "api-request-actions".into())
+                .id("api-request-command-row")
+                .debug_selector(|| "api-request-command-row".into())
                 .w_full()
                 .min_w_0()
-                .justify_end()
+                .flex_wrap()
+                .items_center()
                 .gap(px(6.0))
-                .child(import)
-                .child(save)
-                .child(send)
-                .child(cancel)
-                .child(render_collection_button(view, cx)),
+                .child(render_request_target(view))
+                .child(
+                    h_flex()
+                        .id("api-request-actions")
+                        .debug_selector(|| "api-request-actions".into())
+                        .flex_none()
+                        .gap(px(6.0))
+                        .child(import)
+                        .child(save)
+                        .child(send)
+                        .child(cancel)
+                        .child(render_collection_button(view, cx)),
+                ),
         )
         .into_any_element()
 }
@@ -170,9 +178,8 @@ fn render_request_target(view: &ApiView) -> gpui::AnyElement {
     h_flex()
         .id("api-request-target")
         .debug_selector(|| "api-request-target".into())
-        .w_full()
+        .flex_1()
         .min_w_0()
-        .flex_wrap()
         .gap(px(8.0))
         .child(target)
         .into_any_element()
