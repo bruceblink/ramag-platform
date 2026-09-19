@@ -18,7 +18,7 @@
 | UI 证据 | UI Evidence | headless 边界测试、真实窗口操作、截图或可复核日志 | 不表示只通过编译或单元测试 |
 | 真实服务证据 | Live Service Evidence | 使用实际数据库、Kafka、OpenSSH 或容器服务得到的结果 | 不表示模拟对象或静态 fixture 已覆盖生产行为 |
 
-专项文档负责领域细节，本文件负责跨工具排期和当前任务。插件平台见 [`plugin-platform-roadmap.md`](plugin-platform-roadmap.md)，Kafka 见 [`kafka-tool-roadmap.md`](kafka-tool-roadmap.md)，数据库见 [`database-client-datagrip-roadmap.md`](database-client-datagrip-roadmap.md)，架构边界见 [`architecture.md`](architecture.md)。专项文档不得重新定义本文件的跨工具优先级；发现状态冲突时，先修正实现状态和证据，再开始下一项任务。
+专项文档负责领域细节，本文件负责跨工具排期和当前任务。插件平台见 [`plugin-platform-roadmap.md`](plugin-platform-roadmap.md)，Kafka 见 [`kafka-tool-roadmap.md`](kafka-tool-roadmap.md)，数据库见 [`database-client-datagrip-roadmap.md`](database-client-datagrip-roadmap.md)，API 测试工具见 [`api-testing-tool-roadmap.md`](api-testing-tool-roadmap.md)，架构边界见 [`architecture.md`](architecture.md)。专项文档不得重新定义本文件的跨工具优先级；发现状态冲突时，先修正实现状态和证据，再开始下一项任务。
 
 ## 1. 目标和当前基线
 
