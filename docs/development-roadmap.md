@@ -311,3 +311,5 @@ API-004 API 工作台 UI 切片（2026-09-19）：新增 `ramag-tool-api` 和 `A
 API-005/006 API 工作台功能切片（2026-09-19）：断言、Environment、执行历史、Collection 串行运行、Ramag JSON、Postman Collection v2.1 和 OpenAPI 3.0/3.1 JSON 导入已完成。OpenAPI 导入支持 server 变量、Path/Operation 参数、JSON Body 示例、本地 `$ref`、Basic/Bearer/API Key，并对外部引用、循环引用和不可映射字段返回具体 JSON 路径；真实 Docker HTTP 请求返回 200。`ramag-domain` 208 项、`ramag-app` 220 项库测试及 17 项集成测试、`ramag-tool-api` 11 项 UI 测试和 workspace Clippy/fmt 通过。Computer Use 仍返回空应用列表，API 原生窗口截图、键盘和鼠标证据未完成。
 
 API 工作台布局修正（2026-09-19）：请求工具栏将 Method/URL 与保存、发送、取消、Collection 操作合并为响应式命令行，1440px 宽窗口同排，360/640px 窄窗口自动换行；新增 headless bounds 断言，确认命令行、操作区和请求/响应工作区不重叠。下一项 API 工作聚焦 `API-007` 高级传输能力，保持真实 Docker、headless UI 与原生窗口证据分开记录。
+
+API Params 编辑器修正（2026-09-19）：HTTP 工作台新增逐行 `name=value` 查询参数编辑器，导入的 Query 参数会回填并参与保存、发送和 Environment 模板展开；`ramag-tool-api` 12 项 headless 测试通过，Computer Use 仍无法取得可控原生窗口。

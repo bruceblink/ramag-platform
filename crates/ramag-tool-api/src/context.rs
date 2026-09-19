@@ -232,6 +232,12 @@ pub(crate) fn apply_imported_workspace(
             set_input(&view.http_method, spec.method.clone(), window, cx);
             set_input(&view.http_url, spec.url_template.clone(), window, cx);
             set_input(
+                &view.http_query,
+                format_query_parameters(&spec.query),
+                window,
+                cx,
+            );
+            set_input(
                 &view.http_headers,
                 format_parameters(&spec.headers),
                 window,
@@ -286,6 +292,14 @@ fn format_parameters(parameters: &[ApiParameter]) -> String {
     parameters
         .iter()
         .map(|parameter| format!("{}: {}", parameter.name, parameter.value))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn format_query_parameters(parameters: &[ApiParameter]) -> String {
+    parameters
+        .iter()
+        .map(|parameter| format!("{}={}", parameter.name, parameter.value))
         .collect::<Vec<_>>()
         .join("\n")
 }

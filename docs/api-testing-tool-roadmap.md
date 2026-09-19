@@ -244,6 +244,8 @@ API-006.3 实现验收记录（2026-09-19）：`ramag-domain` 新增 OpenAPI 3.0
 
 API 工作台布局修正记录（2026-09-19）：`ramag-tool-api` 将 Method/URL 与保存、发送、取消、Collection 操作合并为同一条响应式命令行，宽窗口同排、窄窗口换行；headless bounds 测试新增命令行边界、操作区不越界和宽窗口同排检查。`cargo test --locked -p ramag-tool-api` 11 项、workspace Clippy、fmt、源文件行数检查和 `git diff --check` 通过。Computer Use 返回空应用列表，未取得真实 Windows 窗口截图或键鼠证据。
 
+API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Params 区域，使用逐行 `name=value` 编辑格式；OpenAPI/Postman/Ramag 导入的 Query 参数回填后不会在保存或发送时丢失，查询模板继续由 API-005 Environment 展开。`ramag-tool-api` 12 项测试通过，覆盖解析、导入回填和 360/640/1024/1440 布局。
+
 ## 4. 首期非目标
 
 - gRPC Client/Server/Bidirectional Streaming 不阻塞首个双协议版本，单独排期到 `API-007`。

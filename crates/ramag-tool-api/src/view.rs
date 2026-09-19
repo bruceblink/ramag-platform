@@ -41,6 +41,7 @@ pub struct ApiView {
     pub(crate) request_name: Entity<InputState>,
     pub(crate) http_method: Entity<InputState>,
     pub(crate) http_url: Entity<InputState>,
+    pub(crate) http_query: Entity<InputState>,
     pub(crate) http_headers: Entity<InputState>,
     pub(crate) http_body: Entity<InputState>,
     pub(crate) http_auth: ApiAuth,
@@ -95,6 +96,14 @@ impl ApiView {
             request_name: api_input(window, cx, "请求名称", "新请求"),
             http_method: api_input(window, cx, "GET / POST", "GET"),
             http_url: api_input(window, cx, "https://example.com", "{{base_url}}/json"),
+            http_query: api_multiline_input(
+                window,
+                cx,
+                "每行一个查询参数，例如 q=hello",
+                "",
+                None,
+                3,
+            ),
             http_headers: api_multiline_input(
                 window,
                 cx,
@@ -362,11 +371,38 @@ pub(crate) fn parse_http_headers(value: &str) -> Result<Vec<ApiParameter>> {
     Ok(headers)
 }
 
+/// 把用户输入的逐行 `name=value` 文本转换成领域层查询参数。
+pub(crate) fn parse_http_query(value: &str) -> Result<Vec<ApiParameter>> {
+    let mut query = Vec::new();
+    for (index, line) in value.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Some((name, query_value)) = line.split_once('=') else {
+            return Err(DomainError::InvalidConfig(format!(
+                "查询参数第 {} 行必须使用 name=value 格式",
+                index + 1
+            )));
+        };
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(DomainError::InvalidConfig(format!(
+                "查询参数第 {} 行的名称不能为空",
+                index + 1
+            )));
+        }
+        query.push(ApiParameter::new(name, query_value.trim(), false));
+    }
+    Ok(query)
+}
+
 pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSpec> {
     match view.protocol {
         ApiProtocol::Http => {
             let method = input_value(&view.http_method, cx).to_ascii_uppercase();
             let mut spec = HttpRequestSpec::new(method, input_value(&view.http_url, cx));
+            spec.query = parse_http_query(&input_value(&view.http_query, cx))?;
             spec.headers = parse_http_headers(&input_value(&view.http_headers, cx))?;
             spec.auth = view.http_auth.clone();
             let body = input_value(&view.http_body, cx);

@@ -1,6 +1,6 @@
 use super::render_helpers::{
-    render_assertion_results, render_collection_summary, render_context_editor, render_history,
-    render_request_toolbar,
+    auth_label, render_assertion_results, render_collection_summary, render_context_editor,
+    render_history, render_request_toolbar,
 };
 use super::*;
 
@@ -265,6 +265,19 @@ fn render_http_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::An
         .gap(px(10.0))
         .child(
             v_flex()
+                .id("api-http-query")
+                .debug_selector(|| "api-http-query".into())
+                .gap(px(5.0))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("Params"),
+                )
+                .child(Input::new(&view.http_query).small().h(px(72.0))),
+        )
+        .child(
+            v_flex()
                 .id("api-http-headers")
                 .debug_selector(|| "api-http-headers".into())
                 .gap(px(5.0))
@@ -316,15 +329,6 @@ fn render_http_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::An
                 .child(Input::new(&view.http_body).small().h(px(176.0))),
         )
         .into_any_element()
-}
-
-fn auth_label(auth: &ApiAuth) -> &'static str {
-    match auth {
-        ApiAuth::None => "None",
-        ApiAuth::Basic { .. } => "Basic",
-        ApiAuth::Bearer { .. } => "Bearer",
-        ApiAuth::ApiKey { .. } => "API Key",
-    }
 }
 
 fn render_grpc_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::AnyElement {

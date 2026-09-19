@@ -4,6 +4,15 @@ use gpui::ClickEvent;
 use gpui::FontWeight;
 use gpui_component::{Disableable as _, button::ButtonVariants as _};
 
+pub(super) fn auth_label(auth: &ApiAuth) -> &'static str {
+    match auth {
+        ApiAuth::None => "None",
+        ApiAuth::Basic { .. } => "Basic",
+        ApiAuth::Bearer { .. } => "Bearer",
+        ApiAuth::ApiKey { .. } => "API Key",
+    }
+}
+
 pub(super) fn render_collection_button(
     view: &ApiView,
     cx: &mut Context<ApiView>,

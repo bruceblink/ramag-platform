@@ -156,6 +156,7 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
     visual_cx.run_until_parked();
 
     assert!(visual_cx.debug_bounds("api-http-fields").is_some());
+    assert!(visual_cx.debug_bounds("api-http-query").is_some());
     assert!(visual_cx.debug_bounds("api-http-headers").is_some());
     assert!(visual_cx.debug_bounds("api-context-editor").is_some());
     assert!(visual_cx.debug_bounds("api-history").is_some());
@@ -176,6 +177,7 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
     click(visual_cx, "api-protocol-http");
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("api-http-fields").is_some());
+    assert!(visual_cx.debug_bounds("api-http-query").is_some());
     assert_eq!(
         visual_cx.update(|_, cx| view.read(cx).protocol),
         ApiProtocol::Http
@@ -194,6 +196,9 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
     let view = view_entity.expect("API 视图应初始化");
     let mut workspace = ApiWorkspace::new("Imported");
     let mut request = HttpRequestSpec::new("POST", "{{base_url}}/users");
+    request
+        .query
+        .push(ApiParameter::new("q", "{{query}}", false));
     request.headers = vec![ApiParameter::new("Content-Type", "application/json", false)];
     request.auth = ApiAuth::Bearer {
         token: "{{token}}".into(),
@@ -221,6 +226,7 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
         (
             view.request_name.read(app).value().to_string(),
             view.http_url.read(app).value().to_string(),
+            view.http_query.read(app).value().to_string(),
             view.http_auth.clone(),
             view.http_body_content_type.clone(),
             view.http_body.read(app).value().to_string(),
@@ -228,14 +234,15 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
     });
     assert_eq!(imported.0, "Imported Request");
     assert_eq!(imported.1, "{{base_url}}/users");
+    assert_eq!(imported.2, "q={{query}}");
     assert_eq!(
-        imported.2,
+        imported.3,
         ApiAuth::Bearer {
             token: "{{token}}".into()
         }
     );
-    assert_eq!(imported.3, "application/json");
-    assert_eq!(imported.4, "{\"enabled\":true}");
+    assert_eq!(imported.4, "application/json");
+    assert_eq!(imported.5, "{\"enabled\":true}");
 }
 
 #[gpui::test]
@@ -364,6 +371,20 @@ fn api_headers_parse_as_name_value_pairs_and_report_invalid_lines() {
     );
     assert!(parse_http_headers("Invalid Header").is_err());
     assert!(parse_http_headers("X-Empty:   ").is_err());
+}
+
+#[test]
+fn api_query_editor_format_parses_name_value_pairs_and_rejects_missing_name() {
+    let query = parse_http_query("q=hello world\npage=2");
+    assert_eq!(
+        query.expect("查询参数应解析"),
+        vec![
+            ApiParameter::new("q", "hello world", false),
+            ApiParameter::new("page", "2", false),
+        ]
+    );
+    assert!(parse_http_query("q").is_err());
+    assert!(parse_http_query("=missing").is_err());
 }
 
 #[test]
