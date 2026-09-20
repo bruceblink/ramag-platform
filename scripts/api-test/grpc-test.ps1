@@ -30,12 +30,12 @@ function Wait-GrpcHealthy {
     for ($attempt = 1; $attempt -le 60; $attempt++) {
         $health = & docker inspect --format "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}" $ContainerName
         if ($LASTEXITCODE -eq 0 -and $health -eq "healthy") {
-            Write-Host "[api-grpc-test] gRPC fixture is healthy: rust:1.91.0-bookworm at $Endpoint"
+            Write-Host "[api-grpc-test] gRPC test service is healthy: rust:1.91.0-bookworm at $Endpoint"
             return
         }
         Start-Sleep -Seconds 1
     }
-    throw "gRPC fixture did not become healthy within 60 seconds"
+    throw "gRPC test service did not become healthy within 60 seconds"
 }
 
 function Start-GrpcTest {
@@ -62,7 +62,7 @@ switch ($Command) {
         if ($LASTEXITCODE -ne 0) {
             throw "API gRPC Docker integration test failed with exit code $LASTEXITCODE"
         }
-        Write-Host "[api-grpc-test] Passed against local Docker ramag-api-grpc-test; container remains running for reuse."
+        Write-Host "[api-grpc-test] Passed against local Docker gRPC test service; container remains running for reuse."
     }
     "down" {
         Invoke-GrpcCompose -Arguments @("down")

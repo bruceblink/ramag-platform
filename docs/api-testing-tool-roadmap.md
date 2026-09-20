@@ -1,6 +1,6 @@
 # API 测试工具开发计划
 
-> 状态：`API-000` 至 `API-006` 已完成，`API-007` 的 Multipart 切片已完成；当前推进 gRPC 流式调用。mTLS、代理和 OAuth2 留作后续计划。首个可交付版本必须同时支持 HTTP 和 gRPC Unary、流式接口测试。
+> 状态：`API-000` 至 `API-007` 已完成；mTLS、代理和 OAuth2 留作后续计划。首个可交付版本必须同时支持 HTTP 和 gRPC Unary、流式接口测试。
 >
 > 适用范围：Ramag Platform 的 API 测试工作台、HTTP 请求、gRPC 请求、请求集合、环境变量、响应断言和本地测试服务验收。
 >
@@ -208,7 +208,7 @@ API-006 拆为三个独立验收切片，按顺序提交：
 2. Ramag JSON 与 Postman Collection v2.1 导入：输入大小有界，坏数据定位到 Collection、Folder、Request 和字段；导入后的请求必须复用 API-005 的环境变量、断言和执行链路。
 3. OpenAPI 3 JSON 导入：读取服务器、Path、Operation、Parameters、JSON Request Body 和示例，无法安全映射的引用或字段必须报告具体路径。
 
-三个 API-006 切片和 API-007 Multipart 切片均已完成；本文件保留每个切片的独立验收边界，当前推进 API-007 gRPC 流式调用。
+三个 API-006 切片和 API-007 的 Multipart、gRPC 流式调用切片均已完成；本文件保留每个切片的独立验收边界，mTLS、代理和 OAuth2 仍留作 API-008 后续计划。
 
 Collection 运行切片验收记录（2026-09-19）：`ApiService::run_collection` 按保存顺序串行调用 API-005 执行链路，共享 Environment 和取消标记；汇总每条请求的响应、错误、取消状态及通过/失败/取消计数，取消后不启动后续请求。API 工作台新增请求工具栏和 Collection 汇总，桌面端使用请求/响应并排布局，窄窗口改为纵向布局；Header、工具栏和主体之间增加 headless bounds 非重叠检查。
 
@@ -248,7 +248,7 @@ API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Par
 
 ### 3.10 API-007 Multipart 请求切片（2026-09-20）
 
-本切片完成 HTTP `multipart/form-data` 的领域、应用、驱动和工作台闭环，不宣称 API-007 的全部高级传输能力完成：
+本切片完成 HTTP `multipart/form-data` 的领域、应用、驱动和工作台闭环；gRPC 流式调用的验收记录见下一节，mTLS、代理和 OAuth2 属于 API-008 后续计划：
 
 - `ramag-domain` 新增 `ApiBodyMode`、`ApiMultipartPart` 和文本/文件字段模型；限制字段数量最多 64 个，单个文件最多 16 MiB，文件正文总量最多 32 MiB，文件路径和文件名有独立长度上限。Multipart 请求不能手动设置 `Content-Type`，由驱动生成 boundary；旧版纯文本正文 JSON 仍可读取，Debug 输出不显示正文和文件路径。
 - `ramag-app` 展开 Multipart 字段名称、文本值、文件路径、文件名和字段 `Content-Type` 中的环境变量，不把 Multipart 请求降级为普通文本正文；请求变量、取消标记和应用层校验继续沿用 API-005 执行链路。
@@ -268,11 +268,11 @@ API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Par
 - `ramag-infra-api` 根据 Descriptor 的 `client_streaming` 和 `server_streaming` 标记选择四种调用方式。Client Streaming 和 Bidirectional Streaming 的请求正文按行解析，每行一个 Protobuf JSON 对象；Server Streaming 和 Bidirectional Streaming 的响应保存为 JSON 数组，Client Streaming 的最终响应保持单个 JSON 对象。
 - 流式响应读取逐条检查取消标记，消息数量最多 1024 条，响应正文最多保留 8 MiB；超出正文或消息数量时保存已读取部分并标记 `truncated`，不继续无界缓存。
 - `ramag-tool-api` 将 gRPC 消息编辑器改为多行 JSON 编辑器，并明确提示流式请求的逐行格式；Unary 请求仍可使用普通 JSON 对象。
-- 本地进程内测试覆盖 Unary、Server Streaming、Client Streaming、Bidirectional Streaming、Reflection 方法标记和 Metadata；Docker gRPC 测试服务代码已增加相同方法，待镜像重建后复验。
+- 本地进程内测试覆盖 Unary、Server Streaming、Client Streaming、Bidirectional Streaming、Reflection 方法标记和 Metadata；Docker gRPC 测试服务覆盖相同方法，并通过真实容器回归。
 
 本切片不实现 mTLS、代理或 OAuth2；三项能力保留在后续计划，后续设计需要分别补充证书双向校验、代理连接策略和 Token 安全存储/刷新边界。
 
-本轮验收：`ramag-infra-api` 单元测试 13 项、Domain 213 项、App 223 项、API 工作台 15 项通过；使用同一份 Docker 测试服务代码编译并启动 WSL 本机 gRPC 服务后，`docker_grpc` 通过 1 项。Docker Compose 重建因固定 Rust 基础镜像下载速度异常未产出新镜像，因此本轮不把 Docker 运行结果记为已完成；镜像重建是后续验收项。
+本轮验收：`ramag-infra-api` 单元测试 13 项、Domain 213 项、App 223 项、API 工作台 15 项通过；Docker 镜像 `ramag-api-grpc-test:rust-1.91.0-bookworm` 构建成功，容器绑定 `127.0.0.1:18090 -> 50051` 并保持 `healthy`，真实 `docker_grpc` 回归通过 1 项，覆盖 Reflection、Unary、Server Streaming、Client Streaming、Bidirectional Streaming、Metadata、错误状态和取消。服务配置 `restart: unless-stopped`，保留运行供复验。
 
 ## 4. 首期非目标
 
@@ -351,7 +351,7 @@ ApiResponseSnapshot   = status, headers, metadata, body, timing, size, truncated
 ### 8.2 本机 Docker 集成测试
 
 - HTTP 测试服务使用固定镜像、固定版本和 `127.0.0.1` 绑定端口，提供 JSON、Headers、延迟、错误码和认证场景。
-- gRPC 测试服务使用固定镜像或仓库内可复现的测试服务容器，提供 Reflection、Unary、四种流式方法、Metadata、错误 Status 和取消场景；TLS 端到端场景留作后续计划。
+- gRPC 测试服务使用固定镜像或仓库内可复现的测试服务容器，提供 Reflection、Unary、四种流式方法、Metadata、错误 Status 和取消场景；服务配置 `restart: unless-stopped`，TLS 端到端场景留作后续计划。
 - 测试记录服务名、镜像/版本、宿主端口、启动状态和清理状态。
 - 不使用远程服务、静态响应或 Mock 结果宣称协议集成通过。
 
@@ -400,14 +400,14 @@ git diff --check
 9. `feat: add multipart api requests`
 10. `feat: add grpc streaming api requests`
 
-首个双协议版本的完成条件是：`API-000` 至 `API-006` 均完成，API-007 的 Multipart 和 gRPC 四种调用形态有本地协议与 Docker 证据，UI headless 验收通过，并完成至少一组真实 Windows 窗口截图；本轮 gRPC 流式调用已满足本地协议和 headless 回归，Docker 运行证据与原生窗口截图仍未完成，不能用本机进程或 headless 结果替代。
+首个双协议版本的完成条件是：`API-000` 至 `API-007` 均完成，API-007 的 Multipart 和 gRPC 四种调用形态有本地协议与 Docker 证据，UI headless 验收通过，并完成至少一组真实 Windows 窗口截图；当前代码和 Docker/headless 证据已满足前四项，原生窗口截图仍未完成，不能用 headless 结果替代。
 
 ## 10. 当前未完成项
 
-- `API-001` 至 `API-006` 已完成；HTTP 和 gRPC 驱动均已有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。`API-007` 的 Multipart 切片已完成领域、应用、驱动、UI 和本机 Docker 验收。
+- `API-001` 至 `API-007` 已完成；HTTP 和 gRPC 驱动均已有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。API-007 的 Multipart 和 gRPC 流式调用均已完成领域、应用、驱动、UI 和本机 Docker 验收。
 - API 工作台的真实 Windows 窗口截图、键盘操作和鼠标操作仍未完成，原因是 Computer Use 返回可控应用列表为空；这项限制不影响已完成的 headless 布局/交互测试和 Docker 协议测试，但不能把 API-004 的窗口验收写成完成。
-- API-007 的 gRPC 流式调用已经实现并完成进程内协议验收；Docker 测试服务代码已更新但本轮镜像重建受基础镜像下载阻塞。mTLS、代理和 OAuth2 尚未实现，进入 API-008 前仍需分别设计安全配置、失败恢复和敏感配置处理。
+- mTLS、代理和 OAuth2 尚未实现；它们属于后续 API-008 计划，进入开发前仍需分别设计安全配置、失败恢复和敏感配置处理。
 
-下一项进入 API-008 的 mTLS、代理和 OAuth2 设计；本轮继续保留真实 Docker、headless UI 和原生窗口证据边界。
+下一项暂不进入 API-008 实现，等待明确的安全接入需求；本轮继续保留真实 Docker、headless UI 和原生窗口证据边界。
 
 API 工作台主体对齐修正（2026-09-19）：修复 API 主体横向 Flex 默认垂直居中导致的编辑器顶部偏移、响应面板错位和工作区底部越界；主体、编辑器和请求/响应分栏改为拉伸填充，新增 1024/1440px 主体上下边界断言。Computer Use 仍无法取得可控原生窗口，本次 UI 验收使用 GPUI headless bounds 测试。
