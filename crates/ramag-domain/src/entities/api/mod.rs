@@ -240,6 +240,14 @@ impl ApiTlsConfig {
         if self.client_cert_path.is_some() != self.client_key_path.is_some() {
             return Err("客户端证书和客户端密钥必须同时配置".into());
         }
+        if matches!(self.verify, ApiTlsVerify::Ca) && self.ca_cert_path.is_none() {
+            return Err("TLS verify=ca 必须配置 CA 证书路径".into());
+        }
+        if (self.client_cert_path.is_some() || self.client_key_path.is_some())
+            && matches!(self.verify, ApiTlsVerify::None)
+        {
+            return Err("客户端证书认证不能关闭服务端证书校验".into());
+        }
         Ok(())
     }
 }

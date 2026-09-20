@@ -406,6 +406,14 @@ impl ApiView {
         };
         let mut request = ApiGrpcDiscoverySpec::new(input_value(&self.grpc_endpoint, cx));
         request.descriptor = self.grpc_descriptor.clone();
+        request.tls = match context::tls_from_view(self, cx) {
+            Ok(tls) => tls,
+            Err(error) => {
+                self.notice = Some((error.to_string(), true));
+                cx.notify();
+                return;
+            }
+        };
         let variables = environment.execution_variables();
         self.grpc_discovery_generation = self.grpc_discovery_generation.wrapping_add(1);
         let generation = self.grpc_discovery_generation;

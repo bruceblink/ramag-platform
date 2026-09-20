@@ -1,5 +1,8 @@
 import base64
 import json
+import os
+import ssl
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -121,4 +124,20 @@ class ApiHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    ThreadingHTTPServer(("0.0.0.0", 8080), ApiHandler).serve_forever()
+    plain_server = ThreadingHTTPServer(("0.0.0.0", 8080), ApiHandler)
+    plain_thread = threading.Thread(target=plain_server.serve_forever, daemon=True)
+    plain_thread.start()
+
+    tls_cert = os.environ.get("API_TLS_CERT", "/app/tls/server.cert.pem")
+    tls_key = os.environ.get("API_TLS_KEY", "/app/tls/server.key.pem")
+    tls_ca = os.environ.get("API_TLS_CA", "/app/tls/ca.cert.pem")
+    if not all(os.path.isfile(path) for path in (tls_cert, tls_key, tls_ca)):
+        plain_server.serve_forever()
+
+    tls_server = ThreadingHTTPServer(("0.0.0.0", 8443), ApiHandler)
+    tls_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    tls_context.verify_mode = ssl.CERT_REQUIRED
+    tls_context.load_cert_chain(tls_cert, tls_key)
+    tls_context.load_verify_locations(cafile=tls_ca)
+    tls_server.socket = tls_context.wrap_socket(tls_server.socket, server_side=True)
+    tls_server.serve_forever()

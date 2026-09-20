@@ -1,7 +1,8 @@
 use super::*;
 use ramag_domain::entities::{
     ApiAssertion, ApiBodyMode, ApiEnvironment, ApiExtractedVariable, ApiRequestRecord,
-    ApiRequestSpec, ApiVariableExtraction, ApiVariableSource, ApiWorkspace,
+    ApiRequestSpec, ApiTlsConfig, ApiTlsVerify, ApiVariableExtraction, ApiVariableSource,
+    ApiWorkspace,
 };
 
 /// 从可见环境输入和运行时敏感值构造执行环境；敏感值不会回填到编辑器。
@@ -87,6 +88,30 @@ fn apply_sensitive_references(
 
 pub(crate) fn assertions_from_view(view: &ApiView, cx: &App) -> Result<Vec<ApiAssertion>> {
     parse_assertions(&input_value(&view.assertions, cx), view.protocol)
+}
+
+/// 解析共享 TLS 编辑器；mTLS 必须同时保留服务端证书校验和客户端身份材料。
+pub(crate) fn tls_from_view(view: &ApiView, cx: &App) -> Result<ApiTlsConfig> {
+    let verify = match input_value(&view.tls_verify, cx)
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "" | "full" => ApiTlsVerify::Full,
+        "ca" => ApiTlsVerify::Ca,
+        "none" => ApiTlsVerify::None,
+        value => {
+            return Err(DomainError::InvalidConfig(format!(
+                "TLS 校验模式不支持：{value}，可选 full、ca 或 none"
+            )));
+        }
+    };
+    Ok(ApiTlsConfig {
+        verify,
+        ca_cert_path: optional_input_value(&view.tls_ca_cert_path, cx),
+        client_cert_path: optional_input_value(&view.tls_client_cert_path, cx),
+        client_key_path: optional_input_value(&view.tls_client_key_path, cx),
+    })
 }
 
 pub(crate) fn response_variables_from_view(
@@ -390,6 +415,7 @@ pub(crate) fn apply_imported_workspace(
         ApiRequestSpec::Http(spec) => {
             view.protocol = ApiProtocol::Http;
             view.http_auth = spec.auth.clone();
+            set_tls_inputs(view, &spec.tls, window, cx);
             view.http_body_mode = spec
                 .body
                 .as_ref()
@@ -434,6 +460,7 @@ pub(crate) fn apply_imported_workspace(
             view.protocol = ApiProtocol::Grpc;
             view.grpc_descriptor = spec.descriptor.clone();
             view.http_auth = ApiAuth::None;
+            set_tls_inputs(view, &spec.tls, window, cx);
             view.http_body_mode = ApiBodyMode::Text;
             view.http_body_content_type = "application/json".into();
             set_input(
@@ -456,6 +483,48 @@ pub(crate) fn apply_imported_workspace(
             }
         }
     }
+}
+
+fn optional_input_value(field: &Entity<InputState>, cx: &App) -> Option<String> {
+    let value = input_value(field, cx);
+    (!value.trim().is_empty()).then(|| value.trim().to_string())
+}
+
+fn set_tls_inputs(
+    view: &ApiView,
+    tls: &ApiTlsConfig,
+    window: &mut Window,
+    cx: &mut Context<ApiView>,
+) {
+    set_input(
+        &view.tls_verify,
+        match tls.verify {
+            ApiTlsVerify::Full => "full",
+            ApiTlsVerify::Ca => "ca",
+            ApiTlsVerify::None => "none",
+        }
+        .into(),
+        window,
+        cx,
+    );
+    set_input(
+        &view.tls_ca_cert_path,
+        tls.ca_cert_path.clone().unwrap_or_default(),
+        window,
+        cx,
+    );
+    set_input(
+        &view.tls_client_cert_path,
+        tls.client_cert_path.clone().unwrap_or_default(),
+        window,
+        cx,
+    );
+    set_input(
+        &view.tls_client_key_path,
+        tls.client_key_path.clone().unwrap_or_default(),
+        window,
+        cx,
+    );
 }
 
 fn set_input(

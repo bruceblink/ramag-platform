@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use ramag_domain::entities::{
     ApiAuth, ApiBody, ApiCancellation, ApiMultipartPart, ApiParameter, ApiRequestSpec,
-    ApiResponseStatus, ApiWorkspace, HttpRequestSpec, import_api_json,
+    ApiResponseStatus, ApiTlsConfig, ApiTlsVerify, ApiWorkspace, HttpRequestSpec, import_api_json,
 };
 use ramag_domain::error::DomainError;
 use ramag_domain::traits::ApiDriver;
@@ -28,6 +28,17 @@ fn docker_endpoint() -> Option<String> {
 
 fn cancellation() -> ApiCancellation {
     Arc::new(AtomicBool::new(false))
+}
+
+fn docker_mtls_config() -> Option<ApiTlsConfig> {
+    let directory = std::env::var("RAMAG_TEST_API_TLS_DIRECTORY").ok()?;
+    let path = |name: &str| std::path::Path::new(&directory).join(name);
+    Some(ApiTlsConfig {
+        verify: ApiTlsVerify::Ca,
+        ca_cert_path: Some(path("ca.cert.pem").to_string_lossy().into_owned()),
+        client_cert_path: Some(path("client.cert.pem").to_string_lossy().into_owned()),
+        client_key_path: Some(path("client.key.pem").to_string_lossy().into_owned()),
+    })
 }
 
 fn http_request(method: &str, url: String) -> ApiRequestSpec {
@@ -199,10 +210,11 @@ async fn docker_http_fixture_covers_requests_errors_auth_timeout_and_cancellatio
     let cancelled = cancellation();
     let mut streaming = HttpRequestSpec::new("GET", format!("{endpoint}/stream"));
     streaming.timeout_millis = 5_000;
+    let cancellation_driver = driver.clone();
     let task = tokio::spawn({
         let cancelled = cancelled.clone();
         async move {
-            driver
+            cancellation_driver
                 .execute(
                     &ApiRequestSpec::Http(streaming),
                     &BTreeMap::new(),
@@ -218,6 +230,41 @@ async fn docker_http_fixture_covers_requests_errors_auth_timeout_and_cancellatio
         .map_err(|_| test_error("Docker streaming cancellation did not return promptly"))?
         .map_err(|_| test_error("Docker streaming task did not join"))?;
     assert!(matches!(joined, Err(DomainError::Cancelled(_))));
+
+    if let Some(mtls_endpoint) = std::env::var("RAMAG_TEST_API_HTTP_MTLS_URL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+    {
+        let mut mtls = HttpRequestSpec::new("GET", format!("{mtls_endpoint}/json"));
+        mtls.tls = docker_mtls_config().ok_or("mTLS 测试缺少证书目录")?;
+        let response = driver
+            .execute(
+                &ApiRequestSpec::Http(mtls),
+                &BTreeMap::new(),
+                cancellation(),
+            )
+            .await?;
+        assert_eq!(response.status, ApiResponseStatus::Http { code: 200 });
+        assert!(body_text(&response.body)?.contains("ramag-api-http-test"));
+
+        let mut missing_client = HttpRequestSpec::new("GET", format!("{mtls_endpoint}/json"));
+        let mut tls = docker_mtls_config().ok_or("mTLS 测试缺少证书目录")?;
+        tls.client_cert_path = None;
+        tls.client_key_path = None;
+        missing_client.tls = tls;
+        let error = driver
+            .execute(
+                &ApiRequestSpec::Http(missing_client),
+                &BTreeMap::new(),
+                cancellation(),
+            )
+            .await;
+        let error = match error {
+            Ok(_) => return Err("缺少客户端证书时 mTLS 应握手失败".into()),
+            Err(error) => error,
+        };
+        assert!(matches!(error, DomainError::ConnectionFailed(_)));
+    }
     Ok(())
 }
 

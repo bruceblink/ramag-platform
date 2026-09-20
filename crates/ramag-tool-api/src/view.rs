@@ -57,6 +57,10 @@ pub struct ApiView {
     pub(crate) http_auth: ApiAuth,
     pub(crate) http_body_mode: ApiBodyMode,
     pub(crate) http_body_content_type: String,
+    pub(crate) tls_verify: Entity<InputState>,
+    pub(crate) tls_ca_cert_path: Entity<InputState>,
+    pub(crate) tls_client_cert_path: Entity<InputState>,
+    pub(crate) tls_client_key_path: Entity<InputState>,
     pub(crate) environment_variables: Entity<InputState>,
     pub(crate) environment_sensitive: Entity<InputState>,
     pub(crate) runtime_environment: ApiEnvironment,
@@ -142,6 +146,10 @@ impl ApiView {
             http_auth: ApiAuth::None,
             http_body_mode: ApiBodyMode::Text,
             http_body_content_type: "application/json".into(),
+            tls_verify: api_input(window, cx, "full / ca / none", "full"),
+            tls_ca_cert_path: api_input(window, cx, "CA 证书路径（可选）", ""),
+            tls_client_cert_path: api_input(window, cx, "客户端证书路径（可选）", ""),
+            tls_client_key_path: api_input(window, cx, "客户端密钥路径（可选）", ""),
             environment_variables: api_multiline_input(
                 window,
                 cx,
@@ -498,6 +506,7 @@ pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSp
         ApiProtocol::Http => {
             let method = input_value(&view.http_method, cx).to_ascii_uppercase();
             let mut spec = HttpRequestSpec::new(method, input_value(&view.http_url, cx));
+            spec.tls = context::tls_from_view(view, cx)?;
             spec.query = parse_http_query(&input_value(&view.http_query, cx))?;
             spec.headers = parse_http_headers(&input_value(&view.http_headers, cx))?;
             spec.auth = view.http_auth.clone();
@@ -528,6 +537,7 @@ pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSp
                 input_value(&view.grpc_method, cx),
             )
             .with_message(input_value(&view.grpc_message, cx));
+            spec.tls = context::tls_from_view(view, cx)?;
             spec.descriptor = view.grpc_descriptor.clone();
             let metadata_name = input_value(&view.grpc_metadata_name, cx);
             let metadata_value = input_value(&view.grpc_metadata_value, cx);

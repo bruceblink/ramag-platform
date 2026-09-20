@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use ramag_domain::entities::{
     ApiCancellation, ApiGrpcDescriptor, ApiParameter, ApiRequestSpec, ApiResponseStatus,
-    GrpcRequestSpec,
+    ApiTlsConfig, ApiTlsVerify, GrpcRequestSpec,
 };
 use ramag_domain::error::DomainError;
 use ramag_domain::traits::ApiDriver;
@@ -27,6 +27,17 @@ fn docker_endpoint() -> Option<String> {
 
 fn cancellation() -> ApiCancellation {
     Arc::new(AtomicBool::new(false))
+}
+
+fn docker_mtls_config() -> Option<ApiTlsConfig> {
+    let directory = std::env::var("RAMAG_TEST_API_TLS_DIRECTORY").ok()?;
+    let path = |name: &str| std::path::Path::new(&directory).join(name);
+    Some(ApiTlsConfig {
+        verify: ApiTlsVerify::Ca,
+        ca_cert_path: Some(path("ca.cert.pem").to_string_lossy().into_owned()),
+        client_cert_path: Some(path("client.cert.pem").to_string_lossy().into_owned()),
+        client_key_path: Some(path("client.key.pem").to_string_lossy().into_owned()),
+    })
 }
 
 fn grpc_request(endpoint: &str, message: &str) -> ApiRequestSpec {
@@ -156,9 +167,15 @@ async fn docker_grpc_fixture_covers_reflection_unary_metadata_status_and_cancell
 
     success = grpc_request(&endpoint, "{\"message\":\"delay:800\"}");
     let cancelled = cancellation();
+    let cancellation_driver = driver.clone();
+    let cancellation_variables = variables.clone();
     let task = tokio::spawn({
         let cancelled = cancelled.clone();
-        async move { driver.execute(&success, &variables, cancelled).await }
+        async move {
+            cancellation_driver
+                .execute(&success, &cancellation_variables, cancelled)
+                .await
+        }
     });
     tokio::time::sleep(Duration::from_millis(100)).await;
     cancelled.store(true, Ordering::Relaxed);
@@ -167,6 +184,47 @@ async fn docker_grpc_fixture_covers_reflection_unary_metadata_status_and_cancell
         .map_err(|_| test_error("Docker gRPC cancellation did not return promptly"))?
         .map_err(|_| test_error("Docker gRPC task did not join"))?;
     assert!(matches!(joined, Err(DomainError::Cancelled(_))));
+
+    if let Some(mtls_endpoint) = std::env::var("RAMAG_TEST_API_GRPC_MTLS_URL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+    {
+        let mut mtls = grpc_request(&mtls_endpoint, r#"{"message":"mtls"}"#);
+        mtls = match mtls {
+            ApiRequestSpec::Grpc(mut spec) => {
+                spec.tls = docker_mtls_config().ok_or("mTLS 测试缺少证书目录")?;
+                ApiRequestSpec::Grpc(spec)
+            }
+            ApiRequestSpec::Http(_) => unreachable!(),
+        };
+        let response = driver.execute(&mtls, &variables, cancellation()).await?;
+        assert_eq!(
+            response.status,
+            ApiResponseStatus::Grpc { code: "ok".into() }
+        );
+        assert!(String::from_utf8(response.body)?.contains("docker echo: mtls"));
+
+        let mut missing_client = match grpc_request(&mtls_endpoint, r#"{"message":"mtls"}"#) {
+            ApiRequestSpec::Grpc(spec) => spec,
+            ApiRequestSpec::Http(_) => unreachable!(),
+        };
+        let mut tls = docker_mtls_config().ok_or("mTLS 测试缺少证书目录")?;
+        tls.client_cert_path = None;
+        tls.client_key_path = None;
+        missing_client.tls = tls;
+        let error = driver
+            .execute(
+                &ApiRequestSpec::Grpc(missing_client),
+                &variables,
+                cancellation(),
+            )
+            .await;
+        let error = match error {
+            Ok(_) => return Err("缺少客户端证书时 gRPC mTLS 应握手失败".into()),
+            Err(error) => error,
+        };
+        assert!(matches!(error, DomainError::ConnectionFailed(_)));
+    }
     Ok(())
 }
 

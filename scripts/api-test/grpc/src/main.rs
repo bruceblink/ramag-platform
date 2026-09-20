@@ -1,8 +1,9 @@
+use std::fs;
 use std::net::SocketAddr;
 use std::time::Duration;
 
 use tonic::metadata::{BinaryMetadataValue, MetadataValue};
-use tonic::transport::Server;
+use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
 use tonic::{Request, Response, Status};
 
 mod proto {
@@ -128,16 +129,47 @@ impl proto::echo_server::Echo for EchoService {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let address: SocketAddr = "0.0.0.0:50051".parse()?;
+async fn serve(
+    address: SocketAddr,
+    tls: Option<ServerTlsConfig>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let reflection = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(DESCRIPTOR_SET)
         .build_v1()?;
-    Server::builder()
+    let builder = Server::builder();
+    let mut builder = if let Some(tls) = tls {
+        builder.tls_config(tls)?
+    } else {
+        builder
+    };
+    builder
         .add_service(proto::echo_server::EchoServer::new(EchoService))
         .add_service(reflection)
         .serve(address)
         .await?;
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let plain_address: SocketAddr = "0.0.0.0:50051".parse()?;
+    let tls_address: SocketAddr = "0.0.0.0:50052".parse()?;
+    let cert_path =
+        std::env::var("API_TLS_CERT").unwrap_or_else(|_| "/app/tls/server.cert.pem".into());
+    let key_path =
+        std::env::var("API_TLS_KEY").unwrap_or_else(|_| "/app/tls/server.key.pem".into());
+    let ca_path = std::env::var("API_TLS_CA").unwrap_or_else(|_| "/app/tls/ca.cert.pem".into());
+    if [cert_path.as_str(), key_path.as_str(), ca_path.as_str()]
+        .iter()
+        .all(|path| std::path::Path::new(path).is_file())
+    {
+        let identity = Identity::from_pem(fs::read(cert_path)?, fs::read(key_path)?);
+        let tls = ServerTlsConfig::new()
+            .identity(identity)
+            .client_ca_root(Certificate::from_pem(fs::read(ca_path)?));
+        tokio::try_join!(serve(plain_address, None), serve(tls_address, Some(tls)))?;
+    } else {
+        serve(plain_address, None).await?;
+    }
     Ok(())
 }

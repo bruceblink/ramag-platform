@@ -280,6 +280,40 @@ pub(super) fn render_context_editor(
                 )
                 .child(Input::new(&view.response_variables).small().h(px(96.0))),
         )
+        .child(render_tls_editor(view, theme))
+        .into_any_element()
+}
+
+pub(super) fn render_tls_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::AnyElement {
+    v_flex()
+        .id("api-tls-editor")
+        .debug_selector(|| "api-tls-editor".into())
+        .gap(px(5.0))
+        .child(
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("TLS / mTLS（路径留在本机，不会写入请求日志）"),
+        )
+        .child(
+            row()
+                .child(field("校验模式", Input::new(&view.tls_verify).small()))
+                .child(field(
+                    "CA 证书路径",
+                    Input::new(&view.tls_ca_cert_path).small(),
+                )),
+        )
+        .child(
+            row()
+                .child(field(
+                    "客户端证书路径",
+                    Input::new(&view.tls_client_cert_path).small(),
+                ))
+                .child(field(
+                    "客户端密钥路径",
+                    Input::new(&view.tls_client_key_path).small(),
+                )),
+        )
         .into_any_element()
 }
 

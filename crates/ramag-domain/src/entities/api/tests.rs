@@ -32,6 +32,22 @@ fn grpc_request_rejects_mismatched_client_certificate_paths() {
 }
 
 #[test]
+fn tls_client_identity_requires_server_certificate_verification() {
+    let mut request = HttpRequestSpec::new("GET", "https://127.0.0.1:18091/json");
+    request.tls.verify = ApiTlsVerify::None;
+    request.tls.client_cert_path = Some("client.cert.pem".into());
+    request.tls.client_key_path = Some("client.key.pem".into());
+    assert!(request.validate().is_err());
+}
+
+#[test]
+fn tls_ca_mode_requires_ca_certificate() {
+    let mut request = HttpRequestSpec::new("GET", "https://127.0.0.1:18091/json");
+    request.tls.verify = ApiTlsVerify::Ca;
+    assert!(request.validate().is_err());
+}
+
+#[test]
 fn grpc_discovery_defaults_to_reflection_and_validates_endpoint() {
     let request = ApiGrpcDiscoverySpec::new("http://127.0.0.1:50051");
     assert!(matches!(request.descriptor, ApiGrpcDescriptor::Reflection));

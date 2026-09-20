@@ -15,6 +15,8 @@ $ContainerName = "ramag-api-grpc-test"
 $TestHost = "127.0.0.1"
 $TestPort = "18090"
 $Endpoint = "http://{0}:{1}" -f $TestHost, $TestPort
+$TlsEndpoint = "https://{0}:18092" -f $TestHost
+$TlsDirectory = Join-Path $ScriptDirectory "tls"
 $CargoWrapper = Join-Path $RepositoryRoot "scripts\windows\invoke-cargo-msvc.ps1"
 
 function Invoke-GrpcCompose {
@@ -54,10 +56,13 @@ switch ($Command) {
     "status" {
         Invoke-GrpcCompose -Arguments @("ps")
         Write-Host "[api-grpc-test] Endpoint: $Endpoint"
+        Write-Host "[api-grpc-test] mTLS endpoint: $TlsEndpoint"
     }
     "test" {
         Start-GrpcTest
         $env:RAMAG_TEST_API_GRPC_URL = $Endpoint
+        $env:RAMAG_TEST_API_GRPC_MTLS_URL = $TlsEndpoint
+        $env:RAMAG_TEST_API_TLS_DIRECTORY = $TlsDirectory
         & powershell -NoProfile -ExecutionPolicy Bypass -File $CargoWrapper test --locked -p ramag-infra-api --test docker_grpc
         if ($LASTEXITCODE -ne 0) {
             throw "API gRPC Docker integration test failed with exit code $LASTEXITCODE"

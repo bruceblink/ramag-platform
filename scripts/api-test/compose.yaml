@@ -8,6 +8,9 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:18089:8080"
+      - "127.0.0.1:18091:8443"
+    volumes:
+      - ./tls:/app/tls:ro
     healthcheck:
       test:
         - CMD
