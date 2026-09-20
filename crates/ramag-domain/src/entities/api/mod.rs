@@ -40,6 +40,11 @@ pub const MAX_API_ERROR_BYTES: usize = 64 * 1024;
 pub const MAX_API_HISTORY_BODY_BYTES: usize = 16 * 1024;
 pub const MAX_API_TIMEOUT_MILLIS: u64 = 5 * 60 * 1000;
 pub const MAX_API_TLS_PATH_BYTES: usize = 32 * 1024;
+pub const MAX_API_MULTIPART_PARTS: usize = 64;
+pub const MAX_API_MULTIPART_PATH_BYTES: usize = 32 * 1024;
+pub const MAX_API_MULTIPART_FILE_NAME_BYTES: usize = 1024;
+pub const MAX_API_MULTIPART_FILE_BYTES: usize = 16 * 1024 * 1024;
+pub const MAX_API_MULTIPART_TOTAL_BYTES: usize = 32 * 1024 * 1024;
 
 macro_rules! api_id {
     ($name:ident) => {
@@ -122,45 +127,6 @@ impl ApiParameter {
             MAX_API_PARAMETER_VALUE_BYTES,
             false,
         )
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ApiBody {
-    #[serde(default)]
-    pub content_type: Option<String>,
-    pub value: String,
-}
-
-impl fmt::Debug for ApiBody {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("ApiBody")
-            .field("content_type", &self.content_type)
-            .field("value_bytes", &self.value.len())
-            .field("value", &"[REDACTED]")
-            .finish()
-    }
-}
-
-impl ApiBody {
-    pub fn text(value: impl Into<String>, content_type: Option<String>) -> Self {
-        Self {
-            content_type,
-            value: value.into(),
-        }
-    }
-
-    pub(super) fn validate(&self) -> Result<(), String> {
-        if let Some(content_type) = &self.content_type {
-            validate_text(
-                "请求 Content-Type",
-                content_type,
-                MAX_API_PARAMETER_NAME_BYTES,
-                true,
-            )?;
-        }
-        validate_text("请求正文", &self.value, MAX_API_REQUEST_BODY_BYTES, false)
     }
 }
 
@@ -394,12 +360,14 @@ pub fn bound_response_body(body: Vec<u8>) -> (Vec<u8>, u64, bool) {
 /// API 驱动收到的取消标记；驱动应在网络等待前后检查该标记并尽快结束。
 pub type ApiCancellation = Arc<AtomicBool>;
 
+mod body;
 mod execution;
 mod import;
 mod requests;
 mod response;
 mod workspace;
 
+pub use body::{ApiBody, ApiBodyMode, ApiMultipartPart, ApiMultipartValue};
 pub use execution::{
     ApiAssertionResult, ApiCollectionRunResult, ApiExecutionOutcome, ApiExecutionResult,
     ApiExtractedVariable, ApiHistoryRecord, MAX_API_HISTORY, MAX_API_HISTORY_LIST_BYTES,

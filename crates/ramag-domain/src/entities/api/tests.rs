@@ -62,6 +62,68 @@ fn debug_output_redacts_auth_body_and_environment_values() {
 }
 
 #[test]
+fn multipart_body_validates_fields_and_redacts_values() {
+    let body = ApiBody::multipart(vec![
+        ApiMultipartPart::text("title", "private-title", true),
+        ApiMultipartPart::file(
+            "attachment",
+            "/private/attachment.txt",
+            Some("attachment.txt".into()),
+            Some("text/plain".into()),
+        ),
+    ]);
+    assert!(body.validate().is_ok());
+    let debug = format!("{body:?}");
+    assert!(!debug.contains("private-title"));
+    assert!(!debug.contains("/private/attachment.txt"));
+    assert!(debug.contains("multipart_parts: 2"));
+}
+
+#[test]
+fn multipart_body_rejects_empty_parts_and_text_body_fields() -> Result<(), String> {
+    assert!(ApiBody::multipart(Vec::new()).validate().is_err());
+
+    let mut body = ApiBody::multipart(vec![ApiMultipartPart::text("name", "value", false)]);
+    body.value = "not multipart".into();
+    assert!(body.validate().is_err());
+
+    let mut request = HttpRequestSpec::new("POST", "http://127.0.0.1/upload");
+    request.body = Some(ApiBody::multipart(vec![ApiMultipartPart::text(
+        "name", "value", false,
+    )]));
+    request.headers.push(ApiParameter::new(
+        "Content-Type",
+        "multipart/form-data",
+        false,
+    ));
+    let Err(error) = request.validate() else {
+        return Err("Multipart 不应接受手动 Content-Type".into());
+    };
+    assert!(error.contains("boundary"));
+    Ok(())
+}
+
+#[test]
+fn multipart_body_mode_uses_stable_json_names_and_keeps_legacy_text_json_readable()
+-> Result<(), String> {
+    let body = ApiBody::multipart(vec![ApiMultipartPart::text("name", "value", false)]);
+    let raw = serde_json::to_value(&body).map_err(|error| error.to_string())?;
+    assert_eq!(raw["mode"], "multipart");
+    assert_eq!(raw["multipart"][0]["value"]["kind"], "text");
+
+    let legacy = serde_json::json!({
+        "content_type": "text/plain",
+        "value": "legacy body"
+    });
+    let parsed: ApiBody = serde_json::from_value(legacy).map_err(|error| error.to_string())?;
+    assert_eq!(parsed.mode, ApiBodyMode::Text);
+    assert_eq!(parsed.value, "legacy body");
+    assert_eq!(parsed.content_type.as_deref(), Some("text/plain"));
+    assert!(parsed.multipart.is_empty());
+    Ok(())
+}
+
+#[test]
 fn response_body_is_bounded_without_losing_original_size() {
     let body = vec![b'x'; MAX_API_RESPONSE_BODY_BYTES + 1];
     let (bounded, size, truncated) = bound_response_body(body);

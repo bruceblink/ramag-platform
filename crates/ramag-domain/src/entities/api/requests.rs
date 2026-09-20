@@ -3,7 +3,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    ApiAuth, ApiBody, ApiGrpcDescriptor, ApiParameter, ApiProtocol, ApiTlsConfig,
+    ApiAuth, ApiBody, ApiBodyMode, ApiGrpcDescriptor, ApiParameter, ApiProtocol, ApiTlsConfig,
     MAX_API_ASSERTION_VALUE_BYTES, MAX_API_ASSERTIONS, MAX_API_GRPC_ENDPOINT_BYTES,
     MAX_API_GRPC_METHOD_BYTES, MAX_API_GRPC_SERVICE_BYTES, MAX_API_HTTP_METHOD_BYTES,
     MAX_API_PARAMETER_NAME_BYTES, MAX_API_REQUEST_BODY_BYTES, MAX_API_REQUEST_NAME_BYTES,
@@ -60,6 +60,16 @@ impl HttpRequestSpec {
         self.auth.validate()?;
         if let Some(body) = &self.body {
             body.validate()?;
+            if body.mode == ApiBodyMode::Multipart
+                && self
+                    .headers
+                    .iter()
+                    .any(|header| header.name.eq_ignore_ascii_case("content-type"))
+            {
+                return Err(
+                    "Multipart 请求不能手动设置 Content-Type；驱动需要生成 boundary".into(),
+                );
+            }
         }
         self.tls.validate()?;
         validate_timeout(self.timeout_millis)
