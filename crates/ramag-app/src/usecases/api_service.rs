@@ -8,12 +8,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use ramag_domain::entities::{
-    ApiAuth, ApiBody, ApiCancellation, ApiEnvironment, ApiExecutionOutcome, ApiHistoryRecord,
-    ApiParameter, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot, ApiWorkspace,
-    ApiWorkspaceId, GrpcRequestSpec, HttpRequestSpec, MAX_API_GRPC_ENDPOINT_BYTES,
-    MAX_API_GRPC_METHOD_BYTES, MAX_API_GRPC_SERVICE_BYTES, MAX_API_PARAMETER_NAME_BYTES,
-    MAX_API_PARAMETER_VALUE_BYTES, MAX_API_REQUEST_BODY_BYTES, MAX_API_URL_TEMPLATE_BYTES,
-    resolve_template,
+    ApiCancellation, ApiEnvironment, ApiExecutionOutcome, ApiHistoryRecord, ApiRequestRecord,
+    ApiRequestSpec, ApiResponseSnapshot, ApiWorkspace, ApiWorkspaceId,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{ApiDriver, Storage};
@@ -24,6 +20,8 @@ mod collection;
 mod import;
 #[path = "api_service_outcome.rs"]
 mod outcome;
+#[path = "api_service_request.rs"]
+mod request;
 
 /// API 工作台的协议执行与本地工作区编排服务。
 pub struct ApiService {
@@ -99,10 +97,13 @@ impl ApiService {
         };
         let execution = match failure {
             Some(error) => Err(error),
-            None => match resolve_request(&record.request, &environment.execution_variables()) {
-                Ok(request) => self.execute(&request, &BTreeMap::new(), cancelled).await,
-                Err(error) => Err(error),
-            },
+            None => {
+                match request::resolve_request(&record.request, &environment.execution_variables())
+                {
+                    Ok(request) => self.execute(&request, &BTreeMap::new(), cancelled).await,
+                    Err(error) => Err(error),
+                }
+            }
         };
 
         let outcome = match execution {
@@ -161,170 +162,6 @@ impl ApiService {
     }
 }
 
-fn resolve_request(
-    request: &ApiRequestSpec,
-    variables: &BTreeMap<String, String>,
-) -> Result<ApiRequestSpec> {
-    match request {
-        ApiRequestSpec::Http(spec) => {
-            Ok(ApiRequestSpec::Http(resolve_http_request(spec, variables)?))
-        }
-        ApiRequestSpec::Grpc(spec) => {
-            Ok(ApiRequestSpec::Grpc(resolve_grpc_request(spec, variables)?))
-        }
-    }
-}
-
-fn expand(
-    template: &str,
-    variables: &BTreeMap<String, String>,
-    label: &str,
-    max_bytes: usize,
-) -> Result<String> {
-    resolve_template(template, variables, label, max_bytes).map_err(DomainError::InvalidConfig)
-}
-
-fn expand_parameter(
-    parameter: &ApiParameter,
-    variables: &BTreeMap<String, String>,
-    label: &str,
-) -> Result<ApiParameter> {
-    Ok(ApiParameter::new(
-        expand(
-            &parameter.name,
-            variables,
-            label,
-            MAX_API_PARAMETER_NAME_BYTES,
-        )?,
-        expand(
-            &parameter.value,
-            variables,
-            label,
-            MAX_API_PARAMETER_VALUE_BYTES,
-        )?,
-        parameter.sensitive,
-    ))
-}
-
-fn resolve_http_request(
-    spec: &HttpRequestSpec,
-    variables: &BTreeMap<String, String>,
-) -> Result<HttpRequestSpec> {
-    let mut resolved = spec.clone();
-    resolved.url_template = expand(
-        &spec.url_template,
-        variables,
-        "HTTP URL 模板",
-        MAX_API_URL_TEMPLATE_BYTES,
-    )?;
-    resolved.query = spec
-        .query
-        .iter()
-        .map(|parameter| expand_parameter(parameter, variables, "HTTP 查询参数"))
-        .collect::<Result<Vec<_>>>()?;
-    resolved.headers = spec
-        .headers
-        .iter()
-        .map(|parameter| expand_parameter(parameter, variables, "HTTP Headers"))
-        .collect::<Result<Vec<_>>>()?;
-    resolved.auth = match &spec.auth {
-        ApiAuth::None => ApiAuth::None,
-        ApiAuth::Basic { username, password } => ApiAuth::Basic {
-            username: expand(
-                username,
-                variables,
-                "Basic 用户名",
-                MAX_API_PARAMETER_VALUE_BYTES,
-            )?,
-            password: expand(
-                password,
-                variables,
-                "Basic 密码",
-                MAX_API_PARAMETER_VALUE_BYTES,
-            )?,
-        },
-        ApiAuth::Bearer { token } => ApiAuth::Bearer {
-            token: expand(
-                token,
-                variables,
-                "Bearer Token",
-                MAX_API_PARAMETER_VALUE_BYTES,
-            )?,
-        },
-        ApiAuth::ApiKey {
-            name,
-            value,
-            location,
-        } => ApiAuth::ApiKey {
-            name: expand(
-                name,
-                variables,
-                "API Key 名称",
-                MAX_API_PARAMETER_NAME_BYTES,
-            )?,
-            value: expand(
-                value,
-                variables,
-                "API Key 值",
-                MAX_API_PARAMETER_VALUE_BYTES,
-            )?,
-            location: *location,
-        },
-    };
-    resolved.body = match &spec.body {
-        Some(body) => Some(ApiBody::text(
-            expand(
-                &body.value,
-                variables,
-                "HTTP 请求正文",
-                MAX_API_REQUEST_BODY_BYTES,
-            )?,
-            body.content_type.clone(),
-        )),
-        None => None,
-    };
-    resolved.validate().map_err(DomainError::InvalidConfig)?;
-    Ok(resolved)
-}
-
-fn resolve_grpc_request(
-    spec: &GrpcRequestSpec,
-    variables: &BTreeMap<String, String>,
-) -> Result<GrpcRequestSpec> {
-    let mut resolved = spec.clone();
-    resolved.endpoint_template = expand(
-        &spec.endpoint_template,
-        variables,
-        "gRPC Endpoint 模板",
-        MAX_API_GRPC_ENDPOINT_BYTES,
-    )?;
-    resolved.service = expand(
-        &spec.service,
-        variables,
-        "gRPC Service",
-        MAX_API_GRPC_SERVICE_BYTES,
-    )?;
-    resolved.method = expand(
-        &spec.method,
-        variables,
-        "gRPC Method",
-        MAX_API_GRPC_METHOD_BYTES,
-    )?;
-    resolved.metadata = spec
-        .metadata
-        .iter()
-        .map(|parameter| expand_parameter(parameter, variables, "gRPC Metadata"))
-        .collect::<Result<Vec<_>>>()?;
-    resolved.message = expand(
-        &spec.message,
-        variables,
-        "gRPC 请求消息",
-        MAX_API_REQUEST_BODY_BYTES,
-    )?;
-    resolved.validate().map_err(DomainError::InvalidConfig)?;
-    Ok(resolved)
-}
-
 /// 创建一个尚未取消的执行标记，供 UI 的发送操作和后续取消按钮共用。
 pub fn new_api_cancellation() -> ApiCancellation {
     Arc::new(AtomicBool::new(false))
@@ -332,13 +169,15 @@ pub fn new_api_cancellation() -> ApiCancellation {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use async_trait::async_trait;
     use ramag_domain::entities::{
-        ApiAssertion, ApiCollection, ApiEnvironment, ApiProtocol, ApiRequestRecord, ApiRequestSpec,
-        ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace,
-        GrpcRequestSpec, HttpRequestSpec,
+        ApiAssertion, ApiBody, ApiBodyMode, ApiCollection, ApiEnvironment, ApiMultipartPart,
+        ApiMultipartValue, ApiProtocol, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot,
+        ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace, GrpcRequestSpec,
+        HttpRequestSpec,
     };
     use ramag_domain::error::Result;
     use ramag_domain::traits::ApiDriver;
@@ -349,6 +188,61 @@ mod tests {
     struct RecordingDriver {
         protocol: ApiProtocol,
         calls: AtomicUsize,
+    }
+
+    #[test]
+    fn resolves_multipart_body_templates_without_downgrading_to_text()
+    -> std::result::Result<(), String> {
+        let mut spec = HttpRequestSpec::new("POST", "http://127.0.0.1/upload");
+        spec.body = Some(ApiBody::multipart(vec![
+            ApiMultipartPart {
+                name: "{{field_name}}".into(),
+                value: ApiMultipartValue::Text {
+                    value: "{{field_value}}".into(),
+                },
+                content_type: Some("text/{{format}}".into()),
+                sensitive: true,
+            },
+            ApiMultipartPart {
+                name: "file".into(),
+                value: ApiMultipartValue::File {
+                    path: "{{file_path}}".into(),
+                    file_name: Some("{{file_name}}".into()),
+                },
+                content_type: Some("application/octet-stream".into()),
+                sensitive: false,
+            },
+        ]));
+        let variables = BTreeMap::from([
+            ("field_name".into(), "title".into()),
+            ("field_value".into(), "private".into()),
+            ("format".into(), "plain".into()),
+            ("file_path".into(), "/tmp/upload.txt".into()),
+            ("file_name".into(), "upload.txt".into()),
+        ]);
+
+        let resolved = super::request::resolve_http_request(&spec, &variables)
+            .map_err(|error| error.to_string())?;
+        let body = resolved
+            .body
+            .ok_or_else(|| "Multipart 正文不应丢失".to_string())?;
+        assert_eq!(body.mode, ApiBodyMode::Multipart);
+        assert_eq!(body.multipart.len(), 2);
+        assert_eq!(body.multipart[0].name, "title");
+        assert_eq!(
+            body.multipart[0].content_type.as_deref(),
+            Some("text/plain")
+        );
+        assert!(matches!(
+            body.multipart[0].value,
+            ApiMultipartValue::Text { ref value } if value == "private"
+        ));
+        assert!(matches!(
+            body.multipart[1].value,
+            ApiMultipartValue::File { ref path, ref file_name }
+                if path == "/tmp/upload.txt" && file_name.as_deref() == Some("upload.txt")
+        ));
+        Ok(())
     }
 
     #[async_trait]
