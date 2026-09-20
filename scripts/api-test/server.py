@@ -68,8 +68,24 @@ class ApiHandler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query, keep_blank_values=True)
         if parsed.path.startswith("/echo/"):
             self.send_echo(parsed.path, query, self.read_body())
+        elif parsed.path == "/multipart":
+            self.send_multipart(self.read_body())
         else:
             self.send_json(404, {"error": "not-found"})
+
+    def send_multipart(self, body):
+        content_type = self.headers.get("Content-Type", "")
+        valid = (
+            content_type.lower().startswith("multipart/form-data; boundary=")
+            and b'name="title"' in body
+            and b"hello" in body
+            and b'name="upload"' in body
+            and b"file-content" in body
+        )
+        self.send_json(
+            200 if valid else 400,
+            {"multipart": valid, "body_bytes": len(body)},
+        )
 
     def send_echo(self, path, query, body):
         query_values = {

@@ -1,13 +1,14 @@
 //! 本机 Docker HTTP 服务集成测试；未配置端点时保持默认测试命令可运行并跳过。
 
 use std::collections::BTreeMap;
+use std::fs;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use ramag_domain::entities::{
-    ApiAuth, ApiBody, ApiCancellation, ApiParameter, ApiRequestSpec, ApiResponseStatus,
-    ApiWorkspace, HttpRequestSpec, import_api_json,
+    ApiAuth, ApiBody, ApiCancellation, ApiMultipartPart, ApiParameter, ApiRequestSpec,
+    ApiResponseStatus, ApiWorkspace, HttpRequestSpec, import_api_json,
 };
 use ramag_domain::error::DomainError;
 use ramag_domain::traits::ApiDriver;
@@ -113,6 +114,36 @@ async fn docker_http_fixture_covers_requests_errors_auth_timeout_and_cancellatio
     assert!(echo_body.contains("docker-header"));
     assert!(echo_body.contains("authorization_received"));
     assert!(echo_body.contains("docker"));
+
+    let file_path = std::env::temp_dir().join(format!(
+        "ramag-api-docker-multipart-{}.bin",
+        std::process::id()
+    ));
+    fs::write(&file_path, b"file-content")?;
+    let mut multipart = HttpRequestSpec::new("POST", format!("{endpoint}/multipart"));
+    multipart.body = Some(ApiBody::multipart(vec![
+        ApiMultipartPart::text("title", "hello", false),
+        ApiMultipartPart::file(
+            "upload",
+            file_path.to_string_lossy().into_owned(),
+            None,
+            Some("application/octet-stream".into()),
+        ),
+    ]));
+    let multipart_response = driver
+        .execute(
+            &ApiRequestSpec::Http(multipart),
+            &BTreeMap::new(),
+            cancellation(),
+        )
+        .await;
+    let _ = fs::remove_file(&file_path);
+    let multipart_response = multipart_response?;
+    assert_eq!(
+        multipart_response.status,
+        ApiResponseStatus::Http { code: 200 }
+    );
+    assert!(body_text(&multipart_response.body)?.contains("\"multipart\":true"));
 
     let error_response = driver
         .execute(
