@@ -6,6 +6,7 @@
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
+use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
@@ -14,15 +15,18 @@ use bytes::Bytes;
 use http::header::{CONTENT_TYPE, HeaderName, HeaderValue};
 use http::{HeaderMap, Method};
 use ramag_domain::entities::{
-    ApiAuth, ApiCancellation, ApiKeyLocation, ApiParameter, ApiProtocol, ApiRequestSpec,
-    ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiTlsConfig, ApiTlsVerify,
-    MAX_API_PARAMETER_COUNT, MAX_API_PARAMETER_VALUE_BYTES, MAX_API_REQUEST_BODY_BYTES,
-    MAX_API_RESPONSE_BODY_BYTES, MAX_API_URL_TEMPLATE_BYTES,
+    ApiAuth, ApiBodyMode, ApiCancellation, ApiKeyLocation, ApiMultipartValue, ApiParameter,
+    ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus,
+    ApiTlsConfig, ApiTlsVerify, MAX_API_MULTIPART_FILE_BYTES, MAX_API_MULTIPART_PATH_BYTES,
+    MAX_API_MULTIPART_TOTAL_BYTES, MAX_API_PARAMETER_COUNT, MAX_API_PARAMETER_NAME_BYTES,
+    MAX_API_PARAMETER_VALUE_BYTES, MAX_API_REQUEST_BODY_BYTES, MAX_API_RESPONSE_BODY_BYTES,
+    MAX_API_URL_TEMPLATE_BYTES,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::ApiDriver;
 use reqwest::{Client, RequestBuilder, Response, Url};
 use rustls::crypto::CryptoProvider;
+use tokio::io::AsyncReadExt as _;
 
 pub(crate) const MAX_TLS_FILE_BYTES: usize = 4 * 1024 * 1024;
 pub(crate) const CANCELLATION_POLL: Duration = Duration::from_millis(10);
@@ -120,28 +124,163 @@ impl ApiDriver for HttpApiDriver {
         }
 
         if let Some(body) = &spec.body {
-            let body_value = expand_template(
-                &body.value,
-                variables,
-                "HTTP 请求正文",
-                MAX_API_REQUEST_BODY_BYTES,
-            )?;
-            if let Some(content_type) = &body.content_type
-                && !header_parameters
-                    .iter()
-                    .any(|(name, _, _)| name.eq_ignore_ascii_case("content-type"))
-            {
-                let value = HeaderValue::try_from(content_type.as_str())
-                    .map_err(|_| DomainError::InvalidConfig("HTTP Content-Type 无效".into()))?;
-                builder = builder.header(CONTENT_TYPE, value);
+            match body.mode {
+                ApiBodyMode::Text => {
+                    let body_value = expand_template(
+                        &body.value,
+                        variables,
+                        "HTTP 请求正文",
+                        MAX_API_REQUEST_BODY_BYTES,
+                    )?;
+                    if let Some(content_type) = &body.content_type
+                        && !header_parameters
+                            .iter()
+                            .any(|(name, _, _)| name.eq_ignore_ascii_case("content-type"))
+                    {
+                        let value = HeaderValue::try_from(content_type.as_str()).map_err(|_| {
+                            DomainError::InvalidConfig("HTTP Content-Type 无效".into())
+                        })?;
+                        builder = builder.header(CONTENT_TYPE, value);
+                    }
+                    builder = builder.body(body_value);
+                }
+                ApiBodyMode::Multipart => {
+                    let form = multipart_form(body, variables, cancelled.clone()).await?;
+                    builder = builder.multipart(form);
+                }
             }
-            builder = builder.body(body_value);
         }
 
         let started = Instant::now();
         let response = send_request(builder, cancelled.clone()).await?;
         read_response(response, started, cancelled).await
     }
+}
+
+async fn multipart_form(
+    body: &ramag_domain::entities::ApiBody,
+    variables: &BTreeMap<String, String>,
+    cancelled: ApiCancellation,
+) -> Result<reqwest::multipart::Form> {
+    let mut form = reqwest::multipart::Form::new();
+    let mut total_bytes = 0usize;
+
+    for part in &body.multipart {
+        ensure_not_cancelled(&cancelled)?;
+        let name = expand_template(
+            &part.name,
+            variables,
+            "Multipart 字段名称",
+            MAX_API_PARAMETER_NAME_BYTES,
+        )?;
+        let content_type = part
+            .content_type
+            .as_ref()
+            .map(|content_type| {
+                expand_template(
+                    content_type,
+                    variables,
+                    "Multipart Content-Type",
+                    MAX_API_PARAMETER_VALUE_BYTES,
+                )
+            })
+            .transpose()?;
+
+        let mut request_part = match &part.value {
+            ApiMultipartValue::Text { value } => {
+                let value = expand_template(
+                    value,
+                    variables,
+                    "Multipart 文本字段值",
+                    MAX_API_PARAMETER_VALUE_BYTES,
+                )?;
+                total_bytes = add_multipart_bytes(total_bytes, value.len())?;
+                reqwest::multipart::Part::text(value)
+            }
+            ApiMultipartValue::File { path, file_name } => {
+                let path = expand_template(
+                    path,
+                    variables,
+                    "Multipart 文件路径",
+                    MAX_API_MULTIPART_PATH_BYTES,
+                )?;
+                let bytes = read_multipart_file(&path, cancelled.clone()).await?;
+                total_bytes = add_multipart_bytes(total_bytes, bytes.len())?;
+                let file_name = file_name
+                    .as_ref()
+                    .map(|file_name| {
+                        expand_template(
+                            file_name,
+                            variables,
+                            "Multipart 文件名",
+                            MAX_API_PARAMETER_VALUE_BYTES,
+                        )
+                    })
+                    .transpose()?
+                    .or_else(|| {
+                        Path::new(&path)
+                            .file_name()
+                            .and_then(|name| name.to_str())
+                            .map(str::to_owned)
+                    })
+                    .unwrap_or_else(|| "file".into());
+                reqwest::multipart::Part::bytes(bytes).file_name(file_name)
+            }
+        };
+        if let Some(content_type) = content_type {
+            request_part = request_part
+                .mime_str(&content_type)
+                .map_err(|_| DomainError::InvalidConfig("Multipart Content-Type 无效".into()))?;
+        }
+        form = form.part(name, request_part);
+    }
+    Ok(form)
+}
+
+fn add_multipart_bytes(current: usize, added: usize) -> Result<usize> {
+    let total = current
+        .checked_add(added)
+        .ok_or_else(|| DomainError::InvalidConfig("Multipart 正文大小计算溢出".into()))?;
+    if total > MAX_API_MULTIPART_TOTAL_BYTES {
+        return Err(DomainError::InvalidConfig(format!(
+            "Multipart 正文数据超过 {MAX_API_MULTIPART_TOTAL_BYTES} bytes 上限"
+        )));
+    }
+    Ok(total)
+}
+
+async fn read_multipart_file(path: &str, cancelled: ApiCancellation) -> Result<Vec<u8>> {
+    let file = tokio::fs::File::open(path)
+        .await
+        .map_err(|_| DomainError::InvalidConfig("Multipart 文件无法读取".into()))?;
+    let length = file
+        .metadata()
+        .await
+        .map_err(|_| DomainError::InvalidConfig("Multipart 文件大小无法读取".into()))?
+        .len();
+    if length > MAX_API_MULTIPART_FILE_BYTES as u64 {
+        return Err(DomainError::InvalidConfig(format!(
+            "Multipart 单个文件超过 {MAX_API_MULTIPART_FILE_BYTES} bytes 上限"
+        )));
+    }
+
+    let mut bytes = Vec::with_capacity(length as usize);
+    let mut limited_file = file.take(MAX_API_MULTIPART_FILE_BYTES as u64 + 1);
+    let mut read = Box::pin(limited_file.read_to_end(&mut bytes));
+    tokio::select! {
+        result = &mut read => {
+            result.map_err(|_| DomainError::InvalidConfig("Multipart 文件无法读取".into()))?;
+        }
+        _ = wait_until_cancelled(cancelled) => {
+            return Err(DomainError::Cancelled("HTTP 请求已取消".into()));
+        }
+    }
+    if bytes.len() > MAX_API_MULTIPART_FILE_BYTES {
+        return Err(DomainError::InvalidConfig(format!(
+            "Multipart 单个文件超过 {MAX_API_MULTIPART_FILE_BYTES} bytes 上限"
+        )));
+    }
+    Ok(bytes)
 }
 
 pub(crate) type ExpandedParameter = (String, String, bool);

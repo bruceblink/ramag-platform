@@ -187,6 +187,7 @@ toml = "0.9"
 # JumpServer REST API；使用 rustls，并读取系统证书库以兼容企业与内网证书链。
 reqwest = { version = "0.13", default-features = false, features = [
     "json",
+    "multipart",
     "stream",
     "rustls-no-provider",
     "system-proxy",

@@ -2,12 +2,13 @@ use std::collections::BTreeMap;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use ramag_domain::entities::{
-    ApiAuth, ApiBody, ApiCancellation, ApiKeyLocation, ApiParameter, ApiProtocol, ApiRequestSpec,
-    ApiResponseStatus, ApiTlsVerify, HttpRequestSpec, MAX_API_RESPONSE_BODY_BYTES,
+    ApiAuth, ApiBody, ApiCancellation, ApiKeyLocation, ApiMultipartPart, ApiParameter, ApiProtocol,
+    ApiRequestSpec, ApiResponseStatus, ApiTlsVerify, HttpRequestSpec, MAX_API_MULTIPART_FILE_BYTES,
+    MAX_API_RESPONSE_BODY_BYTES,
 };
 use ramag_domain::error::DomainError;
 use ramag_domain::traits::ApiDriver;
@@ -23,6 +24,8 @@ struct TestServer {
     request: Option<oneshot::Receiver<Vec<u8>>>,
     task: JoinHandle<io::Result<()>>,
 }
+
+static NEXT_TEMP_FILE: AtomicUsize = AtomicUsize::new(0);
 
 impl TestServer {
     fn url(&self, path: &str) -> String {
@@ -364,4 +367,88 @@ async fn rejects_unreadable_tls_configuration_before_connecting() {
         .await
         .expect_err("missing CA must fail before network access");
     assert!(matches!(error, DomainError::InvalidConfig(message) if message.contains("CA")));
+}
+
+#[tokio::test]
+async fn sends_multipart_text_and_file_parts_with_generated_boundary() -> Result<(), String> {
+    let path = std::env::temp_dir().join(format!(
+        "ramag-api-multipart-{}-{}.txt",
+        std::process::id(),
+        NEXT_TEMP_FILE.fetch_add(1, Ordering::Relaxed)
+    ));
+    std::fs::write(&path, b"file-content").map_err(|error| error.to_string())?;
+    let mut server = spawn_server(response("200 OK", &[], b"ok"), None).await;
+    let mut spec = HttpRequestSpec::new("POST", server.url("/multipart"));
+    spec.body = Some(ApiBody::multipart(vec![
+        ApiMultipartPart::text("title", "hello", false),
+        ApiMultipartPart::file(
+            "upload",
+            path.to_string_lossy().into_owned(),
+            None,
+            Some("text/plain".into()),
+        ),
+    ]));
+
+    let result = HttpApiDriver::new()
+        .map_err(|error| error.to_string())?
+        .execute(
+            &ApiRequestSpec::Http(spec),
+            &BTreeMap::new(),
+            cancellation(),
+        )
+        .await
+        .map_err(|error| error.to_string());
+    let request = server.wait_for_request().await;
+    server.stop().await;
+    let _ = std::fs::remove_file(&path);
+    result?;
+
+    let header_end = find_bytes(&request, b"\r\n\r\n").ok_or("Multipart 请求缺少 Header 结束符")?;
+    let headers = String::from_utf8_lossy(&request[..header_end]).to_ascii_lowercase();
+    let body = String::from_utf8_lossy(&request[header_end + 4..]);
+    let body_lower = body.to_ascii_lowercase();
+    assert!(headers.contains("content-type: multipart/form-data; boundary="));
+    assert!(body.contains("name=\"title\""));
+    assert!(body.contains("hello"));
+    assert!(body.contains("name=\"upload\""));
+    assert!(body.contains("filename=\"ramag-api-multipart-"));
+    assert!(body_lower.contains("content-type: text/plain"));
+    assert!(body.contains("file-content"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn rejects_oversized_multipart_file_before_connecting() -> Result<(), String> {
+    let path = std::env::temp_dir().join(format!(
+        "ramag-api-multipart-large-{}-{}",
+        std::process::id(),
+        NEXT_TEMP_FILE.fetch_add(1, Ordering::Relaxed)
+    ));
+    let file = std::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&path)
+        .map_err(|error| error.to_string())?;
+    file.set_len(MAX_API_MULTIPART_FILE_BYTES as u64 + 1)
+        .map_err(|error| error.to_string())?;
+    let mut spec = HttpRequestSpec::new("POST", "http://127.0.0.1:1/multipart");
+    spec.body = Some(ApiBody::multipart(vec![ApiMultipartPart::file(
+        "upload",
+        path.to_string_lossy().into_owned(),
+        Some("large.bin".into()),
+        None,
+    )]));
+
+    let error = HttpApiDriver::new()
+        .map_err(|error| error.to_string())?
+        .execute(
+            &ApiRequestSpec::Http(spec),
+            &BTreeMap::new(),
+            cancellation(),
+        )
+        .await
+        .expect_err("超大 Multipart 文件应在连接前失败");
+    let _ = std::fs::remove_file(&path);
+    assert!(matches!(error, DomainError::InvalidConfig(message) if message.contains("单个文件")));
+    Ok(())
 }
