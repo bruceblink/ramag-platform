@@ -30,6 +30,7 @@ pub const MAX_API_URL_TEMPLATE_BYTES: usize = 8 * 1024;
 pub const MAX_API_GRPC_ENDPOINT_BYTES: usize = 8 * 1024;
 pub const MAX_API_GRPC_SERVICE_BYTES: usize = 512;
 pub const MAX_API_GRPC_METHOD_BYTES: usize = 512;
+pub const MAX_API_GRPC_STREAM_MESSAGES: usize = 1024;
 pub const MAX_API_REQUEST_BODY_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_API_RESPONSE_BODY_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_API_DESCRIPTOR_BYTES: usize = 16 * 1024 * 1024;
@@ -316,11 +317,13 @@ fn validate_text(
     if value.len() > max_bytes {
         return Err(format!("{label}超过 {max_bytes} bytes 上限"));
     }
-    if value.chars().any(char::is_control) && (!single_line || value.contains(['\r', '\n'])) {
-        return Err(format!("{label}包含不允许的控制字符"));
-    }
     if single_line && value.contains(['\r', '\n']) {
         return Err(format!("{label}不能包含换行"));
+    }
+    if value.chars().any(|character| {
+        character.is_control() && (single_line || !matches!(character, '\r' | '\n'))
+    }) {
+        return Err(format!("{label}包含不允许的控制字符"));
     }
     Ok(())
 }

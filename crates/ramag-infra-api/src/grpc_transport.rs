@@ -182,7 +182,7 @@ pub(super) fn status_snapshot(
     .map_err(DomainError::InvalidConfig)
 }
 
-fn response_metadata(metadata: &MetadataMap) -> DomainResult<Vec<ApiParameter>> {
+pub(super) fn response_metadata(metadata: &MetadataMap) -> DomainResult<Vec<ApiParameter>> {
     if metadata.len() > MAX_API_PARAMETER_COUNT {
         return Err(DomainError::InvalidConfig(
             "gRPC 响应 Metadata 数量超过上限".into(),

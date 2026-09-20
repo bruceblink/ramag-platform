@@ -14,20 +14,37 @@ const DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("api_docker");
 #[derive(Default)]
 struct EchoService;
 
+type EchoResponseStream =
+    tokio_stream::Iter<std::vec::IntoIter<Result<proto::EchoResponse, Status>>>;
+
+fn check_metadata<T>(request: &Request<T>) -> Result<(), Status> {
+    if request
+        .metadata()
+        .get("x-request")
+        .and_then(|value| value.to_str().ok())
+        != Some("docker")
+    {
+        return Err(Status::invalid_argument("missing x-request metadata"));
+    }
+    Ok(())
+}
+
+fn response_stream(messages: Vec<String>) -> EchoResponseStream {
+    tokio_stream::iter(
+        messages
+            .into_iter()
+            .map(|message| Ok(proto::EchoResponse { message }))
+            .collect::<Vec<_>>(),
+    )
+}
+
 #[tonic::async_trait]
 impl proto::echo_server::Echo for EchoService {
     async fn unary(
         &self,
         request: Request<proto::EchoRequest>,
     ) -> Result<Response<proto::EchoResponse>, Status> {
-        if request
-            .metadata()
-            .get("x-request")
-            .and_then(|value| value.to_str().ok())
-            != Some("docker")
-        {
-            return Err(Status::invalid_argument("missing x-request metadata"));
-        }
+        check_metadata(&request)?;
 
         let message = request.into_inner().message;
         if message == "error" {
@@ -56,6 +73,58 @@ impl proto::echo_server::Echo for EchoService {
             BinaryMetadataValue::from_bytes(b"docker-binary"),
         );
         Ok(response)
+    }
+
+    type ServerStreamStream = EchoResponseStream;
+
+    async fn server_stream(
+        &self,
+        request: Request<proto::EchoRequest>,
+    ) -> Result<Response<Self::ServerStreamStream>, Status> {
+        check_metadata(&request)?;
+        let message = request.into_inner().message;
+        let mut response = Response::new(response_stream(vec![
+            format!("docker server: {message}:one"),
+            format!("docker server: {message}:two"),
+        ]));
+        response
+            .metadata_mut()
+            .insert("x-response", MetadataValue::from_static("docker-stream"));
+        Ok(response)
+    }
+
+    async fn client_stream(
+        &self,
+        request: Request<tonic::Streaming<proto::EchoRequest>>,
+    ) -> Result<Response<proto::EchoResponse>, Status> {
+        check_metadata(&request)?;
+        let mut stream = request.into_inner();
+        let mut messages = Vec::new();
+        while let Some(message) = stream.message().await? {
+            messages.push(message.message);
+        }
+        let mut response = Response::new(proto::EchoResponse {
+            message: format!("docker client: {}", messages.join(",")),
+        });
+        response
+            .metadata_mut()
+            .insert("x-response", MetadataValue::from_static("docker-stream"));
+        Ok(response)
+    }
+
+    type BidiStreamStream = EchoResponseStream;
+
+    async fn bidi_stream(
+        &self,
+        request: Request<tonic::Streaming<proto::EchoRequest>>,
+    ) -> Result<Response<Self::BidiStreamStream>, Status> {
+        check_metadata(&request)?;
+        let mut stream = request.into_inner();
+        let mut responses = Vec::new();
+        while let Some(message) = stream.message().await? {
+            responses.push(format!("docker bidi: {}", message.message));
+        }
+        Ok(Response::new(response_stream(responses)))
     }
 }
 

@@ -12,4 +12,7 @@ message EchoResponse {
 
 service Echo {
   rpc Unary(EchoRequest) returns (EchoResponse);
+  rpc ServerStream(EchoRequest) returns (stream EchoResponse);
+  rpc ClientStream(stream EchoRequest) returns (EchoResponse);
+  rpc BidiStream(stream EchoRequest) returns (stream EchoResponse);
 }

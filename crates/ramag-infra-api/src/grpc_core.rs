@@ -1,4 +1,4 @@
-//! 动态 gRPC Unary 驱动核心。
+//! 动态 gRPC 驱动核心。
 
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
@@ -19,10 +19,13 @@ use tonic::{codec::DecodeBuf, codec::Decoder, codec::EncodeBuf, codec::Encoder};
 
 #[path = "grpc_descriptor.rs"]
 mod descriptor;
+#[path = "grpc_stream.rs"]
+mod stream;
 #[path = "grpc_transport.rs"]
 mod transport;
 
-use descriptor::{descriptor_pool, find_method, parse_request_message, reflection_symbol_pool};
+pub(crate) use descriptor::parse_request_messages;
+use descriptor::{descriptor_pool, find_method, reflection_symbol_pool};
 use transport::{
     build_endpoint, connect_endpoint, request_metadata, status_snapshot, success_snapshot,
 };
@@ -44,7 +47,7 @@ pub struct GrpcServiceSummary {
     pub methods: Vec<GrpcServiceMethod>,
 }
 
-/// 无状态的动态 gRPC Unary 驱动。
+/// 无状态的动态 gRPC 驱动，支持四种方法类型。
 #[derive(Clone, Debug, Default)]
 pub struct GrpcApiDriver;
 
@@ -98,7 +101,7 @@ impl ApiDriver for GrpcApiDriver {
         ApiProtocol::Grpc
     }
 
-    /// 校验、发现 Descriptor、构造动态消息并执行一次有界 Unary 调用。
+    /// 校验、发现 Descriptor、构造动态消息并执行一次有界 gRPC 调用。
     async fn execute(
         &self,
         request: &ApiRequestSpec,
@@ -133,40 +136,98 @@ impl ApiDriver for GrpcApiDriver {
             ApiGrpcDescriptor::FileDescriptorSet { bytes } => descriptor_pool(bytes)?,
         };
         let method = find_method(&pool, &spec.service, &spec.method)?;
-        if method.is_client_streaming() || method.is_server_streaming() {
-            return Err(DomainError::InvalidConfig(
-                "gRPC 驱动首期只支持 Unary 方法".into(),
-            ));
-        }
-
         let message = crate::http::expand_template(
             &spec.message,
             variables,
             "gRPC 请求消息",
             ramag_domain::entities::MAX_API_REQUEST_BODY_BYTES,
         )?;
-        let request_message = parse_request_message(&message, method.input())?;
+        let request_messages =
+            parse_request_messages(&message, method.input(), method.is_client_streaming())?;
         let metadata = request_metadata(&spec.metadata, variables)?;
         let path = format!("/{}/{}", spec.service, spec.method);
         let started = Instant::now();
         let client = DynamicGrpcClient::new(channel);
+        if method.is_client_streaming() && method.is_server_streaming() {
+            let call = client.streaming_with_timeout(
+                &path,
+                request_messages,
+                method.output(),
+                metadata,
+                timeout,
+            );
+            return match tokio::select! {
+                result = call => result,
+                _ = crate::http::wait_until_cancelled(cancelled.clone()) => {
+                    return Err(DomainError::Cancelled("gRPC 请求已取消".into()));
+                }
+            } {
+                Ok(response) => stream::collect_response_stream(response, started, cancelled).await,
+                Err(status) => status_snapshot(status, started),
+            };
+        }
+
+        if method.is_server_streaming() {
+            let request_message = request_messages
+                .into_iter()
+                .next()
+                .ok_or_else(|| DomainError::InvalidConfig("gRPC 请求消息不能为空".into()))?;
+            let call = client.server_streaming_with_timeout(
+                &path,
+                request_message,
+                method.output(),
+                metadata,
+                timeout,
+            );
+            return match tokio::select! {
+                result = call => result,
+                _ = crate::http::wait_until_cancelled(cancelled.clone()) => {
+                    return Err(DomainError::Cancelled("gRPC 请求已取消".into()));
+                }
+            } {
+                Ok(response) => stream::collect_response_stream(response, started, cancelled).await,
+                Err(status) => status_snapshot(status, started),
+            };
+        }
+
+        if method.is_client_streaming() {
+            let call = client.client_streaming_with_timeout(
+                &path,
+                request_messages,
+                method.output(),
+                metadata,
+                timeout,
+            );
+            return match tokio::select! {
+                result = call => result,
+                _ = crate::http::wait_until_cancelled(cancelled) => {
+                    return Err(DomainError::Cancelled("gRPC 请求已取消".into()));
+                }
+            } {
+                Ok(response) => success_snapshot(response, started),
+                Err(status) => status_snapshot(status, started),
+            };
+        }
+
+        let request_message = request_messages
+            .into_iter()
+            .next()
+            .ok_or_else(|| DomainError::InvalidConfig("gRPC 请求消息不能为空".into()))?;
         let call =
             client.unary_with_timeout(&path, request_message, method.output(), metadata, timeout);
-        let result = tokio::select! {
+        match tokio::select! {
             result = call => result,
             _ = crate::http::wait_until_cancelled(cancelled) => {
                 return Err(DomainError::Cancelled("gRPC 请求已取消".into()));
             }
-        };
-
-        match result {
+        } {
             Ok(response) => success_snapshot(response, started),
             Err(status) => status_snapshot(status, started),
         }
     }
 }
 
-/// 通过运行时 Descriptor 调用一个 Unary gRPC 方法。
+/// 通过运行时 Descriptor 调用 gRPC 方法。
 #[derive(Clone)]
 pub struct DynamicGrpcClient {
     channel: tonic::transport::Channel,
@@ -216,14 +277,78 @@ impl DynamicGrpcClient {
         *request.metadata_mut() = metadata;
         request.set_timeout(timeout);
 
-        let mut grpc = Grpc::new(self.channel.clone())
-            .max_encoding_message_size(ramag_domain::entities::MAX_API_REQUEST_BODY_BYTES)
-            .max_decoding_message_size(ramag_domain::entities::MAX_API_RESPONSE_BODY_BYTES);
+        let mut grpc = self.configured_grpc();
         grpc.ready()
             .await
             .map_err(|error| Status::unknown(format!("gRPC channel is not ready: {error}")))?;
         grpc.unary(request, path, DynamicCodec::new(response_descriptor))
             .await
+    }
+
+    async fn client_streaming_with_timeout(
+        &self,
+        method_path: &str,
+        request_messages: Vec<DynamicMessage>,
+        response_descriptor: MessageDescriptor,
+        metadata: tonic::metadata::MetadataMap,
+        timeout: Duration,
+    ) -> std::result::Result<Response<DynamicMessage>, Status> {
+        let path = parse_method_path(method_path)?;
+        let mut request = Request::new(tokio_stream::iter(request_messages));
+        *request.metadata_mut() = metadata;
+        request.set_timeout(timeout);
+        let mut grpc = self.configured_grpc();
+        grpc.ready()
+            .await
+            .map_err(|error| Status::unknown(format!("gRPC channel is not ready: {error}")))?;
+        grpc.client_streaming(request, path, DynamicCodec::new(response_descriptor))
+            .await
+    }
+
+    async fn server_streaming_with_timeout(
+        &self,
+        method_path: &str,
+        request_message: DynamicMessage,
+        response_descriptor: MessageDescriptor,
+        metadata: tonic::metadata::MetadataMap,
+        timeout: Duration,
+    ) -> std::result::Result<Response<tonic::codec::Streaming<DynamicMessage>>, Status> {
+        let path = parse_method_path(method_path)?;
+        let mut request = Request::new(request_message);
+        *request.metadata_mut() = metadata;
+        request.set_timeout(timeout);
+        let mut grpc = self.configured_grpc();
+        grpc.ready()
+            .await
+            .map_err(|error| Status::unknown(format!("gRPC channel is not ready: {error}")))?;
+        grpc.server_streaming(request, path, DynamicCodec::new(response_descriptor))
+            .await
+    }
+
+    async fn streaming_with_timeout(
+        &self,
+        method_path: &str,
+        request_messages: Vec<DynamicMessage>,
+        response_descriptor: MessageDescriptor,
+        metadata: tonic::metadata::MetadataMap,
+        timeout: Duration,
+    ) -> std::result::Result<Response<tonic::codec::Streaming<DynamicMessage>>, Status> {
+        let path = parse_method_path(method_path)?;
+        let mut request = Request::new(tokio_stream::iter(request_messages));
+        *request.metadata_mut() = metadata;
+        request.set_timeout(timeout);
+        let mut grpc = self.configured_grpc();
+        grpc.ready()
+            .await
+            .map_err(|error| Status::unknown(format!("gRPC channel is not ready: {error}")))?;
+        grpc.streaming(request, path, DynamicCodec::new(response_descriptor))
+            .await
+    }
+
+    fn configured_grpc(&self) -> Grpc<tonic::transport::Channel> {
+        Grpc::new(self.channel.clone())
+            .max_encoding_message_size(ramag_domain::entities::MAX_API_REQUEST_BODY_BYTES)
+            .max_decoding_message_size(ramag_domain::entities::MAX_API_RESPONSE_BODY_BYTES)
     }
 }
 

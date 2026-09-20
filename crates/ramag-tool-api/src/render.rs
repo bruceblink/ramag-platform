@@ -148,7 +148,7 @@ fn render_sidebar(
                 .text_color(theme.muted_foreground)
                 .child(match view.protocol {
                     ApiProtocol::Http => "HTTP 请求",
-                    ApiProtocol::Grpc => "gRPC Unary 请求",
+                    ApiProtocol::Grpc => "gRPC 请求（支持流式）",
                 }),
         )
         .child(div().h(px(1.0)).w_full().bg(theme.border))
@@ -343,7 +343,7 @@ fn render_grpc_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::An
                     div()
                         .text_xs()
                         .text_color(theme.muted_foreground)
-                        .child("Protobuf JSON"),
+                        .child("Protobuf JSON（流式请求每行一个对象）"),
                 )
                 .child(Input::new(&view.grpc_message).small()),
         )

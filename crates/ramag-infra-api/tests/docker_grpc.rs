@@ -30,7 +30,11 @@ fn cancellation() -> ApiCancellation {
 }
 
 fn grpc_request(endpoint: &str, message: &str) -> ApiRequestSpec {
-    let mut spec = GrpcRequestSpec::new(endpoint, "api.docker.Echo", "Unary");
+    grpc_request_for(endpoint, "Unary", message)
+}
+
+fn grpc_request_for(endpoint: &str, method: &str, message: &str) -> ApiRequestSpec {
+    let mut spec = GrpcRequestSpec::new(endpoint, "api.docker.Echo", method);
     spec.descriptor = ApiGrpcDescriptor::Reflection;
     spec.message = message.into();
     spec.metadata
@@ -59,6 +63,15 @@ async fn docker_grpc_fixture_covers_reflection_unary_metadata_status_and_cancell
     assert!(services.iter().any(|service| {
         service.name == "api.docker.Echo"
             && service.methods.iter().any(|method| method.name == "Unary")
+            && service.methods.iter().any(|method| {
+                method.name == "ServerStream" && !method.client_streaming && method.server_streaming
+            })
+            && service.methods.iter().any(|method| {
+                method.name == "ClientStream" && method.client_streaming && !method.server_streaming
+            })
+            && service.methods.iter().any(|method| {
+                method.name == "BidiStream" && method.client_streaming && method.server_streaming
+            })
     }));
 
     let mut variables = BTreeMap::new();
@@ -75,6 +88,50 @@ async fn docker_grpc_fixture_covers_reflection_unary_metadata_status_and_cancell
         response.metadata.iter().any(|parameter| {
             parameter.name == "x-response" && parameter.value == "docker-grpc"
         })
+    );
+
+    let server_stream = driver
+        .execute(
+            &grpc_request_for(&endpoint, "ServerStream", r#"{"message":"hello"}"#),
+            &variables,
+            cancellation(),
+        )
+        .await?;
+    assert_eq!(
+        server_stream.body,
+        br#"[{"message":"docker server: hello:one"},{"message":"docker server: hello:two"}]"#
+    );
+
+    let client_stream = driver
+        .execute(
+            &grpc_request_for(
+                &endpoint,
+                "ClientStream",
+                "{\"message\":\"first\"}\n{\"message\":\"second\"}",
+            ),
+            &variables,
+            cancellation(),
+        )
+        .await?;
+    assert_eq!(
+        client_stream.body,
+        br#"{"message":"docker client: first,second"}"#
+    );
+
+    let bidi_stream = driver
+        .execute(
+            &grpc_request_for(
+                &endpoint,
+                "BidiStream",
+                "{\"message\":\"left\"}\n{\"message\":\"right\"}",
+            ),
+            &variables,
+            cancellation(),
+        )
+        .await?;
+    assert_eq!(
+        bidi_stream.body,
+        br#"[{"message":"docker bidi: left"},{"message":"docker bidi: right"}]"#
     );
 
     let error = driver

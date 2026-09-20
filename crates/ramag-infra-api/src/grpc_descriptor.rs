@@ -5,7 +5,9 @@ use std::time::Duration;
 
 use prost::Message;
 use prost_reflect::{DescriptorPool, DynamicMessage, MessageDescriptor, MethodDescriptor};
-use ramag_domain::entities::{ApiCancellation, MAX_API_TIMEOUT_MILLIS};
+use ramag_domain::entities::{
+    ApiCancellation, MAX_API_GRPC_STREAM_MESSAGES, MAX_API_TIMEOUT_MILLIS,
+};
 use ramag_domain::error::{DomainError, Result as DomainResult};
 use tonic::{Request, Status};
 use tonic_reflection::pb::v1::{
@@ -211,6 +213,36 @@ pub(super) fn parse_request_message(
         .end()
         .map_err(|_| DomainError::InvalidConfig("gRPC 请求消息 JSON 包含多余内容".into()))?;
     Ok(parsed)
+}
+
+pub(crate) fn parse_request_messages(
+    message: &str,
+    descriptor: MessageDescriptor,
+    client_streaming: bool,
+) -> DomainResult<Vec<DynamicMessage>> {
+    if !client_streaming {
+        return Ok(vec![parse_request_message(message, descriptor)?]);
+    }
+
+    let lines = message
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        return Err(DomainError::InvalidConfig(
+            "gRPC 流式请求至少需要一条 JSON 消息".into(),
+        ));
+    }
+    if lines.len() > MAX_API_GRPC_STREAM_MESSAGES {
+        return Err(DomainError::InvalidConfig(format!(
+            "gRPC 流式请求消息数量超过 {MAX_API_GRPC_STREAM_MESSAGES} 条上限"
+        )));
+    }
+    lines
+        .into_iter()
+        .map(|line| parse_request_message(line, descriptor.clone()))
+        .collect()
 }
 
 fn map_reflection_status(status: Status) -> DomainError {
