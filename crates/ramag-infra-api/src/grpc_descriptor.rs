@@ -6,7 +6,7 @@ use std::time::Duration;
 use prost::Message;
 use prost_reflect::{DescriptorPool, DynamicMessage, MessageDescriptor, MethodDescriptor};
 use ramag_domain::entities::{
-    ApiCancellation, MAX_API_GRPC_STREAM_MESSAGES, MAX_API_TIMEOUT_MILLIS,
+    ApiCancellation, MAX_API_DESCRIPTOR_BYTES, MAX_API_GRPC_STREAM_MESSAGES, MAX_API_TIMEOUT_MILLIS,
 };
 use ramag_domain::error::{DomainError, Result as DomainResult};
 use tonic::{Request, Status};
@@ -104,6 +104,7 @@ async fn reflection_messages(
     };
     let mut stream = response.into_inner();
     let mut messages = Vec::new();
+    let mut response_bytes = 0usize;
     loop {
         let next = tokio::select! {
             result = stream.message() => result.map_err(map_reflection_status)?,
@@ -112,9 +113,32 @@ async fn reflection_messages(
             }
         };
         let Some(message) = next else { break };
+        response_bytes =
+            check_reflection_response_budget(messages.len(), response_bytes, &message)?;
         messages.push(message);
     }
     Ok(messages)
+}
+
+fn check_reflection_response_budget(
+    response_count: usize,
+    response_bytes: usize,
+    response: &ServerReflectionResponse,
+) -> DomainResult<usize> {
+    if response_count >= MAX_API_GRPC_STREAM_MESSAGES {
+        return Err(DomainError::ConnectionFailed(format!(
+            "gRPC Reflection 响应数量超过 {MAX_API_GRPC_STREAM_MESSAGES} 条上限"
+        )));
+    }
+    let next_bytes = response_bytes
+        .checked_add(response.encoded_len())
+        .ok_or_else(|| DomainError::ConnectionFailed("gRPC Reflection 响应大小计算溢出".into()))?;
+    if next_bytes > MAX_API_DESCRIPTOR_BYTES {
+        return Err(DomainError::ConnectionFailed(format!(
+            "gRPC Reflection 响应超过 {MAX_API_DESCRIPTOR_BYTES} bytes 上限"
+        )));
+    }
+    Ok(next_bytes)
 }
 
 fn descriptor_pool_from_reflection(
@@ -256,4 +280,39 @@ pub(super) fn validate_discovery_timeout(timeout_millis: u64) -> DomainResult<()
         )));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reflection_response_budget_limits_count() {
+        let response = ServerReflectionResponse {
+            valid_host: String::new(),
+            original_request: None,
+            message_response: None,
+        };
+        let mut bytes = 0;
+        for count in 0..MAX_API_GRPC_STREAM_MESSAGES {
+            bytes = check_reflection_response_budget(count, bytes, &response)
+                .expect("responses within the count limit are accepted");
+        }
+        let error =
+            check_reflection_response_budget(MAX_API_GRPC_STREAM_MESSAGES, bytes, &response)
+                .expect_err("the response count limit must be enforced");
+        assert!(error.to_string().contains("响应数量超过"));
+    }
+
+    #[test]
+    fn reflection_response_budget_limits_encoded_size() {
+        let response = ServerReflectionResponse {
+            valid_host: "x".into(),
+            original_request: None,
+            message_response: None,
+        };
+        let error = check_reflection_response_budget(0, MAX_API_DESCRIPTOR_BYTES - 1, &response)
+            .expect_err("the encoded response size limit must be enforced");
+        assert!(error.to_string().contains("响应超过"));
+    }
 }

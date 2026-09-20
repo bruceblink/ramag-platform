@@ -267,12 +267,13 @@ API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Par
 - `ramag-domain` 允许 gRPC 流式请求正文使用换行，并增加最多 1024 条消息的限制；普通 Unary 请求仍按完整 Protobuf JSON 解析。
 - `ramag-infra-api` 根据 Descriptor 的 `client_streaming` 和 `server_streaming` 标记选择四种调用方式。Client Streaming 和 Bidirectional Streaming 的请求正文按行解析，每行一个 Protobuf JSON 对象；Server Streaming 和 Bidirectional Streaming 的响应保存为 JSON 数组，Client Streaming 的最终响应保持单个 JSON 对象。
 - 流式响应读取逐条检查取消标记，消息数量最多 1024 条，响应正文最多保留 8 MiB；超出正文或消息数量时保存已读取部分并标记 `truncated`，不继续无界缓存。
+- Server Reflection 读取在保存响应前限制响应数量和编码后的总大小，分别复用 1024 条消息和 16 MiB Descriptor 上限；超限时立即终止发现，避免异常服务持续占用内存。
 - `ramag-tool-api` 将 gRPC 消息编辑器改为多行 JSON 编辑器，并明确提示流式请求的逐行格式；Unary 请求仍可使用普通 JSON 对象。
 - 本地进程内测试覆盖 Unary、Server Streaming、Client Streaming、Bidirectional Streaming、Reflection 方法标记和 Metadata；Docker gRPC 测试服务覆盖相同方法，并通过真实容器回归。
 
 本切片不实现 mTLS、代理或 OAuth2；三项能力保留在后续计划，后续设计需要分别补充证书双向校验、代理连接策略和 Token 安全存储/刷新边界。
 
-本轮验收：`ramag-infra-api` 单元测试 13 项、Domain 213 项、App 223 项、API 工作台 15 项通过；Docker 镜像 `ramag-api-grpc-test:rust-1.91.0-bookworm` 构建成功，容器绑定 `127.0.0.1:18090 -> 50051` 并保持 `healthy`，真实 `docker_grpc` 回归通过 1 项，覆盖 Reflection、Unary、Server Streaming、Client Streaming、Bidirectional Streaming、Metadata、错误状态和取消。服务配置 `restart: unless-stopped`，保留运行供复验。
+本轮验收：`ramag-infra-api` 单元测试 15 项、Domain 213 项、App 223 项、API 工作台 15 项通过；Docker 镜像 `ramag-api-grpc-test:rust-1.91.0-bookworm` 构建成功，容器绑定 `127.0.0.1:18090 -> 50051` 并保持 `healthy`，真实 `docker_grpc` 回归通过 1 项，覆盖 Reflection、Unary、Server Streaming、Client Streaming、Bidirectional Streaming、Metadata、错误状态和取消。服务配置 `restart: unless-stopped`，保留运行供复验。
 
 ## 4. 首期非目标
 
