@@ -160,11 +160,11 @@ flowchart LR
 - 支持模板变量、ASCII/Binary Metadata、响应 Metadata、gRPC Status、响应消息 JSON、响应大小上限和耗时；流式调用在 `API-007` 单独补齐。
 - `ramag-infra-api` 本地测试覆盖 FileDescriptorSet Unary、Reflection Service/Method 发现、请求/响应 Metadata、错误 Status 和方法路径校验，共 3 项通过。
 
-本机 Docker 集成使用仓库内 `scripts/api-test/grpc` 夹具：
+本机 Docker 集成使用仓库内 `scripts/api-test/grpc` 测试服务：
 
 - 镜像为 `ramag-api-grpc-test:rust-1.91.0-bookworm`，构建基础镜像固定为 Rust 1.91.0 Bookworm 和 Debian Bookworm Slim digest；容器端口 `50051` 映射到 `127.0.0.1:18090`。
 - `scripts/api-test/grpc-test.ps1 test` 启动并等待 `ramag-api-grpc-test` healthcheck；`docker_grpc` 通过 1 项，实际覆盖 Reflection、Unary、请求/响应 Metadata、错误 Status 和取消。
-- 本轮测试先确认 gRPC 夹具为 `healthy/running`，随后执行 `scripts/api-test/grpc-test.ps1 down`；容器 `ramag-api-grpc-test` 和网络已清理。TLS 端到端 Docker 场景尚未纳入本夹具，属于后续补充项。
+- 本轮测试先确认 gRPC 测试服务为 `healthy/running`，随后执行 `scripts/api-test/grpc-test.ps1 down`；容器 `ramag-api-grpc-test` 和网络已清理。TLS 端到端 Docker 场景尚未纳入本测试服务，属于后续补充项。
 
 ### 3.4 公共能力
 
@@ -185,7 +185,7 @@ flowchart LR
 - `ApiService` 在应用边界重复执行请求校验，并在受控 app worker 中为 HTTP/gRPC 驱动建立 Tokio runtime，避免 GPUI 后台执行器缺少 Tokio reactor 时发送请求失败。
 - 保存操作写入 API Workspace 的默认 Collection；发送操作带有取消标记和请求代次检查，迟到的旧结果不会覆盖当前请求。
 
-UI 验收证据：`ramag-tool-api` headless GPUI 测试覆盖 360、640、1024 和 1440 像素宽度，验证请求/响应边界、协议切换、发送/保存状态和实际 HTTP/gRPC 请求。双协议 UI 测试连接本机 Docker 服务并通过真实驱动返回 HTTP 200 和 gRPC `ok`；gRPC 夹具要求的 `x-request: docker` Metadata 已由界面字段发送。Computer Use 当前返回可控应用列表为空，因此本切片没有真实 Windows 窗口截图或键盘/鼠标证据，不能将 headless 结果描述为原生窗口验收。
+UI 验收证据：`ramag-tool-api` headless GPUI 测试覆盖 360、640、1024 和 1440 像素宽度，验证请求/响应边界、协议切换、发送/保存状态和实际 HTTP/gRPC 请求。双协议 UI 测试连接本机 Docker 服务并通过真实驱动返回 HTTP 200 和 gRPC `ok`；gRPC 测试服务要求的 `x-request: docker` Metadata 已由界面字段发送。Computer Use 当前返回可控应用列表为空，因此本切片没有真实 Windows 窗口截图或键盘/鼠标证据，不能将 headless 结果描述为原生窗口验收。
 
 本机 Docker 服务保持运行供复验：`ramag-api-http-test` 使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，绑定 `127.0.0.1:18089 -> 8080`；`ramag-api-grpc-test` 使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，绑定 `127.0.0.1:18090 -> 50051`。两个容器健康检查均为 `healthy`。API-005 的断言、环境变量编辑、执行历史和结果摘要在下一节记录。
 
@@ -254,7 +254,7 @@ API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Par
 - `ramag-app` 展开 Multipart 字段名称、文本值、文件路径、文件名和字段 `Content-Type` 中的环境变量，不把 Multipart 请求降级为普通文本正文；请求变量、取消标记和应用层校验继续沿用 API-005 执行链路。
 - `ramag-infra-api` 启用 `reqwest` Multipart，生成 boundary，读取文件前检查文件大小，读取期间响应取消标记，并在发送前限制单文件和总正文大小；本地 HTTP 测试覆盖文本/文件字段、自动 boundary、超大文件拒绝和取消。
 - `ramag-tool-api` 增加 Text/Multipart 模式切换；Multipart 编辑器按行读取 `text|字段|值[|secret]` 或 `file|字段|路径[|文件名|Content-Type]`，导入的 Multipart 请求可回填、保存和重新构造领域请求。文件选择使用明确的本地路径输入，不把系统文件选择器作为本切片的完成条件。
-- 本机 Docker HTTP fixture 增加 `/multipart` 校验，实际验证自动 boundary、文本字段和文件字段；`ramag-api-http-test` 绑定 `127.0.0.1:18089`，健康状态为 `healthy`，重启策略为 `unless-stopped`，服务保留运行供复验。
+- 本机 Docker HTTP 测试服务增加 `/multipart` 校验，实际验证自动 boundary、文本字段和文件字段；`ramag-api-http-test` 绑定 `127.0.0.1:18089`，健康状态为 `healthy`，重启策略为 `unless-stopped`，服务保留运行供复验。
 
 本切片通过：`cargo test --locked -p ramag-domain --lib` 213 项、`cargo test --locked -p ramag-app --lib` 223 项、`cargo test --locked -p ramag-infra-api --lib` 11 项、`cargo test --locked -p ramag-tool-api --lib` 15 项；真实 Docker 回归 `RAMAG_TEST_API_HTTP_URL=http://127.0.0.1:18089 cargo test --locked -p ramag-infra-api --test docker_http -- --test-threads=1` 1 项通过。目标 Clippy、workspace 提交钩子的格式/Clippy、源码尺寸检查和 `git diff --check` 均通过。
 
@@ -268,11 +268,11 @@ API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Par
 - `ramag-infra-api` 根据 Descriptor 的 `client_streaming` 和 `server_streaming` 标记选择四种调用方式。Client Streaming 和 Bidirectional Streaming 的请求正文按行解析，每行一个 Protobuf JSON 对象；Server Streaming 和 Bidirectional Streaming 的响应保存为 JSON 数组，Client Streaming 的最终响应保持单个 JSON 对象。
 - 流式响应读取逐条检查取消标记，消息数量最多 1024 条，响应正文最多保留 8 MiB；超出正文或消息数量时保存已读取部分并标记 `truncated`，不继续无界缓存。
 - `ramag-tool-api` 将 gRPC 消息编辑器改为多行 JSON 编辑器，并明确提示流式请求的逐行格式；Unary 请求仍可使用普通 JSON 对象。
-- 本地进程内测试覆盖 Unary、Server Streaming、Client Streaming、Bidirectional Streaming、Reflection 方法标记和 Metadata；Docker gRPC 夹具代码已增加相同方法，待镜像重建后复验。
+- 本地进程内测试覆盖 Unary、Server Streaming、Client Streaming、Bidirectional Streaming、Reflection 方法标记和 Metadata；Docker gRPC 测试服务代码已增加相同方法，待镜像重建后复验。
 
 本切片不实现 mTLS、代理或 OAuth2；三项能力保留在后续计划，后续设计需要分别补充证书双向校验、代理连接策略和 Token 安全存储/刷新边界。
 
-本轮验收：`ramag-infra-api` 单元测试 13 项、Domain 213 项、App 223 项、API 工作台 15 项通过；使用同一份 Docker 夹具代码编译并启动 WSL 本机 gRPC 服务后，`docker_grpc` 通过 1 项。Docker Compose 重建因固定 Rust 基础镜像下载速度异常未产出新镜像，因此本轮不把 Docker 运行结果记为已完成；镜像重建是后续验收项。
+本轮验收：`ramag-infra-api` 单元测试 13 项、Domain 213 项、App 223 项、API 工作台 15 项通过；使用同一份 Docker 测试服务代码编译并启动 WSL 本机 gRPC 服务后，`docker_grpc` 通过 1 项。Docker Compose 重建因固定 Rust 基础镜像下载速度异常未产出新镜像，因此本轮不把 Docker 运行结果记为已完成；镜像重建是后续验收项。
 
 ## 4. 首期非目标
 
@@ -406,7 +406,7 @@ git diff --check
 
 - `API-001` 至 `API-006` 已完成；HTTP 和 gRPC 驱动均已有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。`API-007` 的 Multipart 切片已完成领域、应用、驱动、UI 和本机 Docker 验收。
 - API 工作台的真实 Windows 窗口截图、键盘操作和鼠标操作仍未完成，原因是 Computer Use 返回可控应用列表为空；这项限制不影响已完成的 headless 布局/交互测试和 Docker 协议测试，但不能把 API-004 的窗口验收写成完成。
-- API-007 的 gRPC 流式调用已经实现并完成进程内协议验收；Docker 夹具代码已更新但本轮镜像重建受基础镜像下载阻塞。mTLS、代理和 OAuth2 尚未实现，进入 API-008 前仍需分别设计安全配置、失败恢复和敏感配置处理。
+- API-007 的 gRPC 流式调用已经实现并完成进程内协议验收；Docker 测试服务代码已更新但本轮镜像重建受基础镜像下载阻塞。mTLS、代理和 OAuth2 尚未实现，进入 API-008 前仍需分别设计安全配置、失败恢复和敏感配置处理。
 
 下一项进入 API-008 的 mTLS、代理和 OAuth2 设计；本轮继续保留真实 Docker、headless UI 和原生窗口证据边界。
 
