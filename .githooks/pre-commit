@@ -24,7 +24,7 @@ MINGW*|MSYS*|CYGWIN*)
 esac
 
 printf '%s\n' 'pre-commit: checking staged Rust source file sizes'
-sh "$repo_root/scripts/check-staged-source-size.sh"
+bash "$repo_root/scripts/check-staged-source-size.sh"
 
 printf '%s\n' 'pre-commit: running workspace Rust format and Clippy checks'
 run_quality_checks() {
