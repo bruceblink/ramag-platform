@@ -17,10 +17,10 @@ use http::{HeaderMap, Method};
 use ramag_domain::entities::{
     ApiAuth, ApiBodyMode, ApiCancellation, ApiKeyLocation, ApiMultipartValue, ApiParameter,
     ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus,
-    ApiTlsConfig, ApiTlsVerify, MAX_API_MULTIPART_FILE_BYTES, MAX_API_MULTIPART_PATH_BYTES,
-    MAX_API_MULTIPART_TOTAL_BYTES, MAX_API_PARAMETER_COUNT, MAX_API_PARAMETER_NAME_BYTES,
-    MAX_API_PARAMETER_VALUE_BYTES, MAX_API_REQUEST_BODY_BYTES, MAX_API_RESPONSE_BODY_BYTES,
-    MAX_API_URL_TEMPLATE_BYTES,
+    ApiTlsConfig, ApiTlsVerify, MAX_API_MULTIPART_FILE_BYTES, MAX_API_MULTIPART_FILE_NAME_BYTES,
+    MAX_API_MULTIPART_PATH_BYTES, MAX_API_MULTIPART_TOTAL_BYTES, MAX_API_PARAMETER_COUNT,
+    MAX_API_PARAMETER_NAME_BYTES, MAX_API_PARAMETER_VALUE_BYTES, MAX_API_REQUEST_BODY_BYTES,
+    MAX_API_RESPONSE_BODY_BYTES, MAX_API_URL_TEMPLATE_BYTES,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::ApiDriver;
@@ -213,7 +213,7 @@ async fn multipart_form(
                             file_name,
                             variables,
                             "Multipart 文件名",
-                            MAX_API_PARAMETER_VALUE_BYTES,
+                            MAX_API_MULTIPART_FILE_NAME_BYTES,
                         )
                     })
                     .transpose()?
