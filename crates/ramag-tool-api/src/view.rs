@@ -14,9 +14,10 @@ use gpui_component::{
 };
 use ramag_app::{ApiService, new_api_cancellation};
 use ramag_domain::entities::{
-    ApiAssertionResult, ApiAuth, ApiBody, ApiCollection, ApiCollectionRunResult, ApiEnvironment,
-    ApiExtractedVariable, ApiHistoryRecord, ApiParameter, ApiProtocol, ApiRequestSpec,
-    ApiResponseSnapshot, ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
+    ApiAssertionResult, ApiAuth, ApiBody, ApiBodyMode, ApiCollection, ApiCollectionRunResult,
+    ApiEnvironment, ApiExtractedVariable, ApiHistoryRecord, ApiMultipartPart, ApiMultipartValue,
+    ApiParameter, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseStatus,
+    ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
 };
 use ramag_domain::error::{DomainError, Result};
 
@@ -26,6 +27,8 @@ mod context;
 mod operations;
 #[path = "render.rs"]
 mod render;
+#[path = "render_body.rs"]
+mod render_body;
 #[path = "render_helpers.rs"]
 mod render_helpers;
 
@@ -45,6 +48,7 @@ pub struct ApiView {
     pub(crate) http_headers: Entity<InputState>,
     pub(crate) http_body: Entity<InputState>,
     pub(crate) http_auth: ApiAuth,
+    pub(crate) http_body_mode: ApiBodyMode,
     pub(crate) http_body_content_type: String,
     pub(crate) environment_variables: Entity<InputState>,
     pub(crate) environment_sensitive: Entity<InputState>,
@@ -124,6 +128,7 @@ impl ApiView {
                 8,
             ),
             http_auth: ApiAuth::None,
+            http_body_mode: ApiBodyMode::Text,
             http_body_content_type: "application/json".into(),
             environment_variables: api_multiline_input(
                 window,
@@ -201,6 +206,16 @@ impl ApiView {
         self.assertion_results.clear();
         self.extracted_variables.clear();
         self.last_collection_run = None;
+        self.notice = None;
+        cx.notify();
+    }
+
+    pub(crate) fn set_http_body_mode(&mut self, mode: ApiBodyMode, cx: &mut Context<Self>) {
+        self.http_body_mode = mode;
+        self.http_body_content_type = match mode {
+            ApiBodyMode::Text => "application/json".into(),
+            ApiBodyMode::Multipart => String::new(),
+        };
         self.notice = None;
         cx.notify();
     }
@@ -411,6 +426,81 @@ pub(crate) fn parse_http_query(value: &str) -> Result<Vec<ApiParameter>> {
     Ok(query)
 }
 
+/// 解析 Multipart 编辑器的逐行格式：`text|字段|值[|secret]` 或
+/// `file|字段|路径[|文件名|Content-Type]`。
+pub(crate) fn parse_multipart_body(value: &str) -> Result<Vec<ApiMultipartPart>> {
+    let mut parts = Vec::new();
+    for (index, line) in value.lines().enumerate() {
+        let line_number = index + 1;
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let fields = line.splitn(5, '|').collect::<Vec<_>>();
+        let kind = fields.first().copied().unwrap_or_default().trim();
+        let name = fields.get(1).copied().unwrap_or_default().trim();
+        let value = fields.get(2).copied().unwrap_or_default().trim();
+        if name.is_empty() || value.is_empty() {
+            return Err(DomainError::InvalidConfig(format!(
+                "Multipart 第 {line_number} 行必须包含类型、字段名称和值"
+            )));
+        }
+        let part = match kind.to_ascii_lowercase().as_str() {
+            "text" => {
+                let sensitive = fields
+                    .get(3)
+                    .is_some_and(|flag| flag.trim().eq_ignore_ascii_case("secret"));
+                ApiMultipartPart::text(name, value, sensitive)
+            }
+            "file" => {
+                let file_name = fields
+                    .get(3)
+                    .map(|file_name| file_name.trim().to_string())
+                    .filter(|file_name| !file_name.is_empty());
+                let content_type = fields
+                    .get(4)
+                    .map(|content_type| content_type.trim().to_string())
+                    .filter(|content_type| !content_type.is_empty());
+                ApiMultipartPart::file(name, value, file_name, content_type)
+            }
+            _ => {
+                return Err(DomainError::InvalidConfig(format!(
+                    "Multipart 第 {line_number} 行类型必须是 text 或 file"
+                )));
+            }
+        };
+        parts.push(part);
+    }
+    if parts.is_empty() {
+        return Err(DomainError::InvalidConfig(
+            "Multipart 至少需要一个字段".into(),
+        ));
+    }
+    Ok(parts)
+}
+
+pub(crate) fn format_multipart_body(parts: &[ApiMultipartPart]) -> String {
+    parts
+        .iter()
+        .map(|part| match &part.value {
+            ApiMultipartValue::Text { value } => format!(
+                "text|{}|{}{}",
+                part.name,
+                value,
+                if part.sensitive { "|secret" } else { "" }
+            ),
+            ApiMultipartValue::File { path, file_name } => format!(
+                "file|{}|{}|{}|{}",
+                part.name,
+                path,
+                file_name.as_deref().unwrap_or_default(),
+                part.content_type.as_deref().unwrap_or_default()
+            ),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSpec> {
     match view.protocol {
         ApiProtocol::Http => {
@@ -420,17 +510,22 @@ pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSp
             spec.headers = parse_http_headers(&input_value(&view.http_headers, cx))?;
             spec.auth = view.http_auth.clone();
             let body = input_value(&view.http_body, cx);
-            if !body.is_empty() {
-                let content_type = spec
-                    .headers
-                    .iter()
-                    .find(|header| header.name.eq_ignore_ascii_case("content-type"))
-                    .map(|header| header.value.clone())
-                    .or_else(|| {
-                        let value = view.http_body_content_type.trim();
-                        (!value.is_empty()).then(|| value.to_string())
-                    });
-                spec.body = Some(ApiBody::text(body, content_type));
+            if !body.trim().is_empty() {
+                spec.body = Some(match view.http_body_mode {
+                    ApiBodyMode::Text => {
+                        let content_type = spec
+                            .headers
+                            .iter()
+                            .find(|header| header.name.eq_ignore_ascii_case("content-type"))
+                            .map(|header| header.value.clone())
+                            .or_else(|| {
+                                let value = view.http_body_content_type.trim();
+                                (!value.is_empty()).then(|| value.to_string())
+                            });
+                        ApiBody::text(body, content_type)
+                    }
+                    ApiBodyMode::Multipart => ApiBody::multipart(parse_multipart_body(&body)?),
+                });
             }
             Ok(ApiRequestSpec::Http(spec))
         }
@@ -463,6 +558,9 @@ impl GrpcRequestMessage for GrpcRequestSpec {
     }
 }
 
+#[cfg(test)]
+#[path = "body_tests.rs"]
+mod body_tests;
 #[cfg(test)]
 #[path = "view_tests.rs"]
 mod tests;

@@ -1,3 +1,4 @@
+use super::render_body;
 use super::render_helpers::{
     auth_label, render_assertion_results, render_collection_summary, render_context_editor,
     render_extracted_variables, render_history, render_request_toolbar,
@@ -199,7 +200,7 @@ fn render_editor(
 ) -> gpui::AnyElement {
     let stacked = ApiView::is_stacked(window);
     let request_editor = match view.protocol {
-        ApiProtocol::Http => render_http_editor(view, theme),
+        ApiProtocol::Http => render_http_editor(view, cx, theme),
         ApiProtocol::Grpc => render_grpc_editor(view, theme),
     };
     let mut request_pane = v_flex()
@@ -256,7 +257,11 @@ fn render_editor(
         .into_any_element()
 }
 
-fn render_http_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::AnyElement {
+fn render_http_editor(
+    view: &mut ApiView,
+    cx: &mut Context<ApiView>,
+    theme: &gpui_component::Theme,
+) -> gpui::AnyElement {
     v_flex()
         .id("api-http-fields")
         .debug_selector(|| "api-http-fields".into())
@@ -305,29 +310,7 @@ fn render_http_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::An
                         .child(auth_label(&view.http_auth)),
                 ),
         )
-        .child(
-            v_flex()
-                .id("api-http-body")
-                .debug_selector(|| "api-http-body".into())
-                .gap(px(5.0))
-                .child(
-                    h_flex()
-                        .justify_between()
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(theme.muted_foreground)
-                                .child("Body"),
-                        )
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(theme.muted_foreground)
-                                .child(view.http_body_content_type.clone()),
-                        ),
-                )
-                .child(Input::new(&view.http_body).small().h(px(176.0))),
-        )
+        .child(render_body::render_http_body(view, cx, theme))
         .into_any_element()
 }
 

@@ -1,7 +1,7 @@
 use super::*;
 use ramag_domain::entities::{
-    ApiAssertion, ApiEnvironment, ApiExtractedVariable, ApiRequestRecord, ApiRequestSpec,
-    ApiVariableExtraction, ApiVariableSource, ApiWorkspace,
+    ApiAssertion, ApiBodyMode, ApiEnvironment, ApiExtractedVariable, ApiRequestRecord,
+    ApiRequestSpec, ApiVariableExtraction, ApiVariableSource, ApiWorkspace,
 };
 
 /// 从可见环境输入和运行时敏感值构造执行环境；敏感值不会回填到编辑器。
@@ -390,11 +390,19 @@ pub(crate) fn apply_imported_workspace(
         ApiRequestSpec::Http(spec) => {
             view.protocol = ApiProtocol::Http;
             view.http_auth = spec.auth.clone();
-            view.http_body_content_type = spec
+            view.http_body_mode = spec
                 .body
                 .as_ref()
-                .and_then(|body| body.content_type.clone())
-                .unwrap_or_else(|| "application/json".into());
+                .map(|body| body.mode)
+                .unwrap_or(ApiBodyMode::Text);
+            view.http_body_content_type = match spec.body.as_ref().map(|body| body.mode) {
+                Some(ApiBodyMode::Multipart) => String::new(),
+                _ => spec
+                    .body
+                    .as_ref()
+                    .and_then(|body| body.content_type.clone())
+                    .unwrap_or_else(|| "application/json".into()),
+            };
             set_input(&view.http_method, spec.method.clone(), window, cx);
             set_input(&view.http_url, spec.url_template.clone(), window, cx);
             set_input(
@@ -413,7 +421,10 @@ pub(crate) fn apply_imported_workspace(
                 &view.http_body,
                 spec.body
                     .as_ref()
-                    .map(|body| body.value.clone())
+                    .map(|body| match body.mode {
+                        ApiBodyMode::Text => body.value.clone(),
+                        ApiBodyMode::Multipart => super::format_multipart_body(&body.multipart),
+                    })
                     .unwrap_or_default(),
                 window,
                 cx,
@@ -422,6 +433,7 @@ pub(crate) fn apply_imported_workspace(
         ApiRequestSpec::Grpc(spec) => {
             view.protocol = ApiProtocol::Grpc;
             view.http_auth = ApiAuth::None;
+            view.http_body_mode = ApiBodyMode::Text;
             view.http_body_content_type = "application/json".into();
             set_input(
                 &view.grpc_endpoint,

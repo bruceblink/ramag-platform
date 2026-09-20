@@ -6,9 +6,9 @@ use std::time::Duration;
 use gpui::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_app::ApiService;
 use ramag_domain::entities::{
-    ApiAssertion, ApiAuth, ApiBody, ApiCollection, ApiParameter, ApiProtocol, ApiRequestRecord,
-    ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace,
-    HttpRequestSpec, import_api_json,
+    ApiAssertion, ApiAuth, ApiBody, ApiBodyMode, ApiCollection, ApiParameter, ApiProtocol,
+    ApiRequestRecord, ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus,
+    ApiWorkspace, HttpRequestSpec, import_api_json,
 };
 use ramag_domain::traits::ApiDriver;
 use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
@@ -176,6 +176,8 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
 
     assert!(visual_cx.debug_bounds("api-http-fields").is_some());
     assert!(visual_cx.debug_bounds("api-http-query").is_some());
+    assert!(visual_cx.debug_bounds("api-body-text").is_some());
+    assert!(visual_cx.debug_bounds("api-body-multipart").is_some());
     assert!(visual_cx.debug_bounds("api-http-headers").is_some());
     assert!(visual_cx.debug_bounds("api-context-editor").is_some());
     assert!(visual_cx.debug_bounds("api-history").is_some());
@@ -200,6 +202,18 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
     assert_eq!(
         visual_cx.update(|_, cx| view.read(cx).protocol),
         ApiProtocol::Http
+    );
+    click(visual_cx, "api-body-multipart");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        visual_cx.update(|_, cx| view.read(cx).http_body_mode),
+        ApiBodyMode::Multipart
+    );
+    click(visual_cx, "api-body-text");
+    visual_cx.run_until_parked();
+    assert_eq!(
+        visual_cx.update(|_, cx| view.read(cx).http_body_mode),
+        ApiBodyMode::Text
     );
 }
 
