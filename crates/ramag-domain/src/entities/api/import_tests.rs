@@ -293,9 +293,15 @@ fn imports_openapi_servers_parameters_body_refs_and_authentication() -> Result<(
     let super::super::ApiRequestSpec::Http(post_spec) = &post_item.request else {
         return Err("POST 请求协议错误".into());
     };
+    let body = post_spec
+        .body
+        .as_ref()
+        .ok_or_else(|| "POST 请求缺少正文".to_string())?;
+    let body_value = serde_json::from_str::<serde_json::Value>(&body.value)
+        .map_err(|error| format!("POST 请求正文不是有效 JSON：{error}"))?;
     assert_eq!(
-        post_spec.body.as_ref().map(|body| body.value.as_str()),
-        Some("{\"enabled\":true,\"name\":\"demo\"}")
+        body_value,
+        serde_json::json!({"enabled": true, "name": "demo"})
     );
     assert_eq!(target.environments[0].variables["version"], "api");
     assert_eq!(

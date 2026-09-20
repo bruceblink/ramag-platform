@@ -106,6 +106,7 @@ async fn api_history_roundtrip_is_bounded_and_encrypted() {
             snapshot,
             assertions: Vec::new(),
             passed: true,
+            extracted_variables: Vec::new(),
         },
         &environment,
     );

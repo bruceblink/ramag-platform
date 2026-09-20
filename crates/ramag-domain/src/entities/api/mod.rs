@@ -34,6 +34,7 @@ pub const MAX_API_REQUEST_BODY_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_API_RESPONSE_BODY_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_API_DESCRIPTOR_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_API_ASSERTIONS: usize = 64;
+pub const MAX_API_RESPONSE_VARIABLES: usize = 32;
 pub const MAX_API_ASSERTION_VALUE_BYTES: usize = 64 * 1024;
 pub const MAX_API_ERROR_BYTES: usize = 64 * 1024;
 pub const MAX_API_HISTORY_BODY_BYTES: usize = 16 * 1024;
@@ -401,15 +402,16 @@ mod workspace;
 
 pub use execution::{
     ApiAssertionResult, ApiCollectionRunResult, ApiExecutionOutcome, ApiExecutionResult,
-    ApiHistoryRecord, MAX_API_HISTORY, MAX_API_HISTORY_LIST_BYTES, evaluate_assertions,
-    resolve_template,
+    ApiExtractedVariable, ApiHistoryRecord, MAX_API_HISTORY, MAX_API_HISTORY_LIST_BYTES,
+    evaluate_assertions, extract_response_variables, resolve_template,
 };
 pub use import::{
     ApiImportBundle, ApiImportFormat, ApiImportSummary, MAX_API_IMPORT_BYTES, MAX_API_IMPORT_DEPTH,
     import_api_json,
 };
 pub use requests::{
-    ApiAssertion, ApiRequestRecord, ApiRequestSpec, GrpcRequestSpec, HttpRequestSpec,
+    ApiAssertion, ApiRequestRecord, ApiRequestSpec, ApiVariableExtraction, ApiVariableSource,
+    GrpcRequestSpec, HttpRequestSpec,
 };
 pub use response::{ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus};
 pub use workspace::{ApiCollection, ApiEnvironment, ApiWorkspace};

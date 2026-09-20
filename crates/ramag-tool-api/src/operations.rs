@@ -1,4 +1,6 @@
-use super::context::{environment_from_view, request_record, upsert_environment};
+use super::context::{
+    apply_extracted_variables_to_view, environment_from_view, request_record, upsert_environment,
+};
 use super::*;
 
 use std::io::Read;
@@ -82,6 +84,7 @@ impl ApiView {
                         context::apply_imported_workspace(view, &workspace, window, cx);
                         view.response = None;
                         view.assertion_results.clear();
+                        view.extracted_variables.clear();
                         view.last_collection_run = None;
                         view.notice = Some((
                             format!(
@@ -108,7 +111,7 @@ impl ApiView {
     }
 
     /// 构造当前请求并交给 API 服务；结果包含响应、断言状态和脱敏历史摘要。
-    pub(crate) fn send(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(service) = self.service.clone() else {
             self.notice = Some(("API 服务尚未接入".into(), true));
             cx.notify();
@@ -122,7 +125,7 @@ impl ApiView {
                 return;
             }
         };
-        let environment = match environment_from_view(self, cx) {
+        let mut environment = match environment_from_view(self, cx) {
             Ok(environment) => environment,
             Err(error) => {
                 self.notice = Some((error.to_string(), true));
@@ -141,14 +144,15 @@ impl ApiView {
         self.loading = true;
         self.response = None;
         self.assertion_results.clear();
+        self.extracted_variables.clear();
         self.last_collection_run = None;
         self.notice = None;
         cx.notify();
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, async_cx| {
             let result = service
-                .execute_record(&workspace_id, &record, &environment, cancelled)
+                .execute_record(&workspace_id, &record, &mut environment, cancelled)
                 .await;
-            let _ = this.update(cx, |view, cx| {
+            let _ = this.update_in(async_cx, |view, window, cx| {
                 if view.request_generation != generation {
                     return;
                 }
@@ -160,6 +164,13 @@ impl ApiView {
                         view.history.truncate(20);
                         match outcome.result {
                             Some(result) => {
+                                let extracted = result.extracted_variables.clone();
+                                if let Err(error) =
+                                    apply_extracted_variables_to_view(view, &extracted, window, cx)
+                                {
+                                    view.notice = Some((format!("变量回填失败：{error}"), true));
+                                }
+                                view.extracted_variables = extracted;
                                 view.assertion_results = result.assertions;
                                 view.response = Some(result.snapshot);
                                 view.notice = if result.passed {
@@ -185,7 +196,7 @@ impl ApiView {
     }
 
     /// 把当前请求并入首个 Collection 后串行执行，完成后在响应区域展示汇总。
-    pub(crate) fn run_collection(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn run_collection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(service) = self.service.clone() else {
             self.notice = Some(("API 服务尚未接入".into(), true));
             cx.notify();
@@ -199,7 +210,7 @@ impl ApiView {
                 return;
             }
         };
-        let environment = match environment_from_view(self, cx) {
+        let mut environment = match environment_from_view(self, cx) {
             Ok(environment) => environment,
             Err(error) => {
                 self.notice = Some((error.to_string(), true));
@@ -233,14 +244,15 @@ impl ApiView {
         self.loading = true;
         self.response = None;
         self.assertion_results.clear();
+        self.extracted_variables.clear();
         self.last_collection_run = None;
         self.notice = None;
         cx.notify();
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, async_cx| {
             let result = service
-                .run_collection(&workspace_id, &collection, &environment, cancelled)
+                .run_collection(&workspace_id, &collection, &mut environment, cancelled)
                 .await;
-            let _ = this.update(cx, |view, cx| {
+            let _ = this.update_in(async_cx, |view, window, cx| {
                 if view.request_generation != generation {
                     return;
                 }
@@ -252,11 +264,23 @@ impl ApiView {
                             view.history.insert(0, outcome.history.clone());
                         }
                         view.history.truncate(20);
+                        let extracted = summary
+                            .outcomes
+                            .iter()
+                            .filter_map(|outcome| outcome.result.as_ref())
+                            .flat_map(|result| result.extracted_variables.clone())
+                            .collect::<Vec<_>>();
+                        if let Err(error) =
+                            apply_extracted_variables_to_view(view, &extracted, window, cx)
+                        {
+                            view.notice = Some((format!("变量回填失败：{error}"), true));
+                        }
                         if let Some(result) = summary
                             .outcomes
                             .last()
                             .and_then(|outcome| outcome.result.as_ref().cloned())
                         {
+                            view.extracted_variables = result.extracted_variables;
                             view.assertion_results = result.assertions;
                             view.response = Some(result.snapshot);
                         }

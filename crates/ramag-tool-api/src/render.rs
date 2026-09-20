@@ -1,9 +1,8 @@
 use super::render_helpers::{
     auth_label, render_assertion_results, render_collection_summary, render_context_editor,
-    render_history, render_request_toolbar,
+    render_extracted_variables, render_history, render_request_toolbar,
 };
 use super::*;
-
 use gpui::FontWeight;
 
 pub(super) fn render(
@@ -388,6 +387,7 @@ fn render_response(
             )
             .child(render_collection_summary(view, theme))
             .child(render_assertion_results(&view.assertion_results, theme))
+            .child(render_extracted_variables(&view.extracted_variables, theme))
             .child(response_parameters(snapshot, theme))
             .child(
                 v_flex()

@@ -14,9 +14,9 @@ use gpui_component::{
 };
 use ramag_app::{ApiService, new_api_cancellation};
 use ramag_domain::entities::{
-    ApiAssertionResult, ApiAuth, ApiBody, ApiCollection, ApiCollectionRunResult, ApiHistoryRecord,
-    ApiParameter, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseStatus,
-    ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
+    ApiAssertionResult, ApiAuth, ApiBody, ApiCollection, ApiCollectionRunResult, ApiEnvironment,
+    ApiExtractedVariable, ApiHistoryRecord, ApiParameter, ApiProtocol, ApiRequestSpec,
+    ApiResponseSnapshot, ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
 };
 use ramag_domain::error::{DomainError, Result};
 
@@ -48,7 +48,9 @@ pub struct ApiView {
     pub(crate) http_body_content_type: String,
     pub(crate) environment_variables: Entity<InputState>,
     pub(crate) environment_sensitive: Entity<InputState>,
+    pub(crate) runtime_environment: ApiEnvironment,
     pub(crate) assertions: Entity<InputState>,
+    pub(crate) response_variables: Entity<InputState>,
     pub(crate) grpc_endpoint: Entity<InputState>,
     pub(crate) grpc_service: Entity<InputState>,
     pub(crate) grpc_method: Entity<InputState>,
@@ -57,6 +59,7 @@ pub struct ApiView {
     pub(crate) grpc_message: Entity<InputState>,
     pub(crate) response: Option<ApiResponseSnapshot>,
     pub(crate) assertion_results: Vec<ApiAssertionResult>,
+    pub(crate) extracted_variables: Vec<ApiExtractedVariable>,
     pub(crate) history: Vec<ApiHistoryRecord>,
     pub(crate) last_collection_run: Option<ApiCollectionRunResult>,
     pub(crate) loading: bool,
@@ -138,6 +141,7 @@ impl ApiView {
                 None,
                 2,
             ),
+            runtime_environment: ApiEnvironment::new("local"),
             assertions: api_multiline_input(
                 window,
                 cx,
@@ -145,6 +149,14 @@ impl ApiView {
                 "",
                 None,
                 3,
+            ),
+            response_variables: api_multiline_input(
+                window,
+                cx,
+                "name=json:$.token、name=header:X-Request-Id 或 secret name=...",
+                "",
+                None,
+                4,
             ),
             grpc_endpoint: api_input(
                 window,
@@ -159,6 +171,7 @@ impl ApiView {
             grpc_message: api_input(window, cx, "Protobuf JSON", r#"{"message":"hello"}"#),
             response: None,
             assertion_results: Vec::new(),
+            extracted_variables: Vec::new(),
             history: Vec::new(),
             last_collection_run: None,
             loading: false,
@@ -186,6 +199,7 @@ impl ApiView {
         self.protocol = protocol;
         self.response = None;
         self.assertion_results.clear();
+        self.extracted_variables.clear();
         self.last_collection_run = None;
         self.notice = None;
         cx.notify();

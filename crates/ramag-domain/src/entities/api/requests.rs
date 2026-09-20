@@ -7,8 +7,9 @@ use super::{
     MAX_API_ASSERTION_VALUE_BYTES, MAX_API_ASSERTIONS, MAX_API_GRPC_ENDPOINT_BYTES,
     MAX_API_GRPC_METHOD_BYTES, MAX_API_GRPC_SERVICE_BYTES, MAX_API_HTTP_METHOD_BYTES,
     MAX_API_PARAMETER_NAME_BYTES, MAX_API_REQUEST_BODY_BYTES, MAX_API_REQUEST_NAME_BYTES,
-    MAX_API_URL_TEMPLATE_BYTES, default_api_timeout, validate_parameters, validate_protocol_name,
-    validate_required_text, validate_text, validate_timeout,
+    MAX_API_URL_TEMPLATE_BYTES, MAX_API_VARIABLE_NAME_BYTES, default_api_timeout,
+    validate_parameters, validate_protocol_name, validate_required_text, validate_text,
+    validate_timeout,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -234,6 +235,49 @@ impl ApiAssertion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ApiVariableSource {
+    JsonPath { path: String },
+    Header { name: String },
+    Metadata { name: String },
+    Body,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApiVariableExtraction {
+    pub name: String,
+    pub source: ApiVariableSource,
+    #[serde(default)]
+    pub sensitive: bool,
+}
+
+impl ApiVariableExtraction {
+    pub fn validate(&self, protocol: ApiProtocol) -> Result<(), String> {
+        validate_protocol_name("响应变量名称", &self.name, MAX_API_VARIABLE_NAME_BYTES)?;
+        match &self.source {
+            ApiVariableSource::JsonPath { path } => validate_text(
+                "响应变量 JSON Path",
+                path,
+                MAX_API_ASSERTION_VALUE_BYTES,
+                true,
+            ),
+            ApiVariableSource::Header { name } => {
+                if protocol != ApiProtocol::Http {
+                    return Err("HTTP Header 响应变量只能用于 HTTP 请求".into());
+                }
+                validate_protocol_name("响应 Header 名称", name, MAX_API_PARAMETER_NAME_BYTES)
+            }
+            ApiVariableSource::Metadata { name } => {
+                if protocol != ApiProtocol::Grpc {
+                    return Err("gRPC Metadata 响应变量只能用于 gRPC 请求".into());
+                }
+                validate_protocol_name("响应 Metadata 名称", name, MAX_API_PARAMETER_NAME_BYTES)
+            }
+            ApiVariableSource::Body => Ok(()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApiRequestRecord {
     pub id: super::ApiRequestId,
     pub name: String,
@@ -242,6 +286,8 @@ pub struct ApiRequestRecord {
     pub request: ApiRequestSpec,
     #[serde(default)]
     pub assertions: Vec<ApiAssertion>,
+    #[serde(default)]
+    pub response_variables: Vec<ApiVariableExtraction>,
 }
 
 impl ApiRequestRecord {
@@ -253,6 +299,7 @@ impl ApiRequestRecord {
             protocol: ApiProtocol::Http,
             request: ApiRequestSpec::Http(request),
             assertions: Vec::new(),
+            response_variables: Vec::new(),
         }
     }
 
@@ -264,6 +311,7 @@ impl ApiRequestRecord {
             protocol: ApiProtocol::Grpc,
             request: ApiRequestSpec::Grpc(request),
             assertions: Vec::new(),
+            response_variables: Vec::new(),
         }
     }
 
@@ -278,6 +326,19 @@ impl ApiRequestRecord {
         }
         for assertion in &self.assertions {
             assertion.validate(self.protocol)?;
+        }
+        if self.response_variables.len() > super::MAX_API_RESPONSE_VARIABLES {
+            return Err(format!(
+                "响应变量数量超过 {} 条上限",
+                super::MAX_API_RESPONSE_VARIABLES
+            ));
+        }
+        let mut names = std::collections::HashSet::with_capacity(self.response_variables.len());
+        for extraction in &self.response_variables {
+            extraction.validate(self.protocol)?;
+            if !names.insert(extraction.name.clone()) {
+                return Err(format!("响应变量名称重复：{}", extraction.name));
+            }
         }
         Ok(())
     }

@@ -182,9 +182,98 @@ fn history_summary_redacts_sensitive_environment_values() {
         snapshot,
         assertions: Vec::new(),
         passed: true,
+        extracted_variables: Vec::new(),
     };
     let history = ApiHistoryRecord::from_success(&record, &result, &environment);
     assert!(!history.body_preview.contains("secret-token"));
     assert!(history.body_preview.contains("[REDACTED]"));
     assert!(history.validate().is_ok());
+}
+
+#[test]
+fn response_variables_extract_json_headers_and_body_atomically() -> Result<(), String> {
+    let body = br#"{"token":"secret-token","count":3}"#.to_vec();
+    let snapshot = ApiResponseSnapshot::new(ApiResponseSnapshotParts {
+        protocol: ApiProtocol::Http,
+        status: ApiResponseStatus::Http { code: 200 },
+        headers: vec![ApiParameter::new("X-Request-Id", "req-7", false)],
+        metadata: Vec::new(),
+        body: body.clone(),
+        elapsed_millis: 1,
+        size_bytes: body.len() as u64,
+        truncated: false,
+        error: None,
+    })?;
+    let rules = vec![
+        ApiVariableExtraction {
+            name: "token".into(),
+            source: ApiVariableSource::JsonPath {
+                path: "$.token".into(),
+            },
+            sensitive: true,
+        },
+        ApiVariableExtraction {
+            name: "request_id".into(),
+            source: ApiVariableSource::Header {
+                name: "x-request-id".into(),
+            },
+            sensitive: false,
+        },
+        ApiVariableExtraction {
+            name: "raw_body".into(),
+            source: ApiVariableSource::Body,
+            sensitive: false,
+        },
+    ];
+    let extracted = extract_response_variables(&rules, &snapshot)?;
+    assert_eq!(extracted[0].value, "secret-token");
+    assert_eq!(extracted[1].value, "req-7");
+    assert!(format!("{:?}", extracted[0]).contains("[REDACTED]"));
+
+    let mut environment = ApiEnvironment::new("local");
+    environment.apply_extracted_variables(&extracted)?;
+    assert_eq!(environment.variable("token"), Some("secret-token"));
+    assert!(
+        environment
+            .sensitive_variable_refs
+            .iter()
+            .any(|name| name == "token")
+    );
+    Ok(())
+}
+
+#[test]
+fn response_variables_reject_truncated_body_and_protocol_mismatch() -> Result<(), String> {
+    let snapshot = ApiResponseSnapshot::new(ApiResponseSnapshotParts {
+        protocol: ApiProtocol::Http,
+        status: ApiResponseStatus::Http { code: 200 },
+        headers: Vec::new(),
+        metadata: Vec::new(),
+        body: br#"{"token":"partial"}"#.to_vec(),
+        elapsed_millis: 1,
+        size_bytes: 100,
+        truncated: true,
+        error: None,
+    })?;
+    let extraction = ApiVariableExtraction {
+        name: "token".into(),
+        source: ApiVariableSource::JsonPath {
+            path: "$.token".into(),
+        },
+        sensitive: false,
+    };
+    assert!(extract_response_variables(&[extraction], &snapshot).is_err());
+
+    let grpc_rule = ApiVariableExtraction {
+        name: "id".into(),
+        source: ApiVariableSource::Metadata {
+            name: "x-id".into(),
+        },
+        sensitive: false,
+    };
+    let mut request =
+        ApiRequestRecord::new_http("http", HttpRequestSpec::new("GET", "http://127.0.0.1"));
+    request.response_variables.push(grpc_rule);
+    assert!(request.validate().is_err());
+    Ok(())
 }

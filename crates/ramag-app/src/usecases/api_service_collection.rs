@@ -13,7 +13,7 @@ impl ApiService {
         &self,
         workspace_id: &ApiWorkspaceId,
         collection: &ApiCollection,
-        environment: &ApiEnvironment,
+        environment: &mut ApiEnvironment,
         cancelled: ApiCancellation,
     ) -> Result<ApiCollectionRunResult> {
         collection.validate().map_err(DomainError::InvalidConfig)?;
@@ -168,11 +168,12 @@ mod tests {
             .lock()
             .expect("设置 Collection 取消标记") = Some(cancellation.clone());
         let workspace = ApiWorkspace::new("Collection 工作区");
+        let mut environment = ApiEnvironment::new("local");
         let summary = service
             .run_collection(
                 &workspace.id,
                 &collection_with_requests(),
-                &ApiEnvironment::new("local"),
+                &mut environment,
                 cancellation,
             )
             .await
@@ -209,11 +210,12 @@ mod tests {
             .lock()
             .expect("设置 Collection 取消标记") = Some(cancellation.clone());
         let workspace = ApiWorkspace::new("取消 Collection");
+        let mut environment = ApiEnvironment::new("local");
         let summary = service
             .run_collection(
                 &workspace.id,
                 &collection_with_requests(),
-                &ApiEnvironment::new("local"),
+                &mut environment,
                 cancellation,
             )
             .await
@@ -232,11 +234,12 @@ mod tests {
         let cancellation = new_api_cancellation();
         cancellation.store(true, Ordering::Relaxed);
         let workspace = ApiWorkspace::new("预取消 Collection");
+        let mut environment = ApiEnvironment::new("local");
         let summary = service
             .run_collection(
                 &workspace.id,
                 &collection_with_requests(),
-                &ApiEnvironment::new("local"),
+                &mut environment,
                 cancellation,
             )
             .await

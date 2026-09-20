@@ -8,12 +8,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use ramag_domain::entities::{
-    ApiAuth, ApiBody, ApiCancellation, ApiEnvironment, ApiExecutionOutcome, ApiExecutionResult,
-    ApiHistoryRecord, ApiParameter, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot,
-    ApiWorkspace, ApiWorkspaceId, GrpcRequestSpec, HttpRequestSpec, MAX_API_GRPC_ENDPOINT_BYTES,
+    ApiAuth, ApiBody, ApiCancellation, ApiEnvironment, ApiExecutionOutcome, ApiHistoryRecord,
+    ApiParameter, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot, ApiWorkspace,
+    ApiWorkspaceId, GrpcRequestSpec, HttpRequestSpec, MAX_API_GRPC_ENDPOINT_BYTES,
     MAX_API_GRPC_METHOD_BYTES, MAX_API_GRPC_SERVICE_BYTES, MAX_API_PARAMETER_NAME_BYTES,
     MAX_API_PARAMETER_VALUE_BYTES, MAX_API_REQUEST_BODY_BYTES, MAX_API_URL_TEMPLATE_BYTES,
-    evaluate_assertions, resolve_template,
+    resolve_template,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{ApiDriver, Storage};
@@ -22,6 +22,8 @@ use ramag_domain::traits::{ApiDriver, Storage};
 mod collection;
 #[path = "api_service_import.rs"]
 mod import;
+#[path = "api_service_outcome.rs"]
+mod outcome;
 
 /// API 工作台的协议执行与本地工作区编排服务。
 pub struct ApiService {
@@ -84,7 +86,7 @@ impl ApiService {
         &self,
         workspace_id: &ApiWorkspaceId,
         record: &ApiRequestRecord,
-        environment: &ApiEnvironment,
+        environment: &mut ApiEnvironment,
         cancelled: ApiCancellation,
     ) -> Result<ApiExecutionOutcome> {
         record.validate().map_err(DomainError::InvalidConfig)?;
@@ -104,42 +106,16 @@ impl ApiService {
         };
 
         let outcome = match execution {
-            Ok(snapshot) => match evaluate_assertions(&record.assertions, &snapshot) {
-                Ok(assertions) => {
-                    let passed = assertions.iter().all(|assertion| assertion.passed);
-                    let result = ApiExecutionResult {
-                        snapshot,
-                        assertions,
-                        passed,
-                    };
-                    let history = ApiHistoryRecord::from_success(record, &result, environment);
-                    ApiExecutionOutcome {
-                        result: Some(result),
-                        error: None,
-                        cancelled: false,
-                        history,
-                    }
-                }
+            Ok(snapshot) => match outcome::build_success_outcome(record, environment, snapshot) {
+                Ok(outcome) => outcome,
                 Err(error) => {
-                    let history = ApiHistoryRecord::from_error(record, &error, environment);
-                    ApiExecutionOutcome {
-                        result: None,
-                        error: Some(error),
-                        cancelled: false,
-                        history,
-                    }
+                    outcome::failure_outcome(record, environment, &error.to_string(), false)
                 }
             },
             Err(error) => {
                 let cancelled = matches!(error, DomainError::Cancelled(_));
                 let message = error.to_string();
-                let history = ApiHistoryRecord::from_error(record, &message, environment);
-                ApiExecutionOutcome {
-                    result: None,
-                    error: Some(message),
-                    cancelled,
-                    history,
-                }
+                outcome::failure_outcome(record, environment, &message, cancelled)
             }
         };
         self.storage
@@ -508,7 +484,7 @@ mod tests {
         )
         .expect("API 服务应创建");
         let workspace = ApiWorkspace::new("history");
-        let environment = ApiEnvironment::new("local");
+        let mut environment = ApiEnvironment::new("local");
 
         let mut passing =
             ApiRequestRecord::new_http("passing", HttpRequestSpec::new("GET", "http://127.0.0.1"));
@@ -519,7 +495,7 @@ mod tests {
             .execute_record(
                 &workspace.id,
                 &passing,
-                &environment,
+                &mut environment,
                 new_api_cancellation(),
             )
             .await
@@ -534,7 +510,7 @@ mod tests {
             .execute_record(
                 &workspace.id,
                 &failing,
-                &environment,
+                &mut environment,
                 new_api_cancellation(),
             )
             .await
@@ -551,7 +527,7 @@ mod tests {
             .execute_record(
                 &workspace.id,
                 &missing,
-                &environment,
+                &mut environment,
                 new_api_cancellation(),
             )
             .await
@@ -567,7 +543,7 @@ mod tests {
         let cancelled = new_api_cancellation();
         cancelled.store(true, Ordering::Relaxed);
         let cancelled_outcome = service
-            .execute_record(&workspace.id, &passing, &environment, cancelled)
+            .execute_record(&workspace.id, &passing, &mut environment, cancelled)
             .await
             .expect("取消应返回 outcome");
         assert!(

@@ -23,8 +23,8 @@ pub(super) fn render_collection_button(
         .label("运行 Collection")
         .disabled(view.loading || view.saving || view.importing)
         .ghost()
-        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
-            view.run_collection(cx);
+        .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
+            view.run_collection(window, cx);
         }))
         .into_any_element()
 }
@@ -78,7 +78,7 @@ pub(super) fn render_request_toolbar(
         .label(if view.loading { "发送中" } else { "发送" })
         .disabled(view.loading || view.saving || view.importing)
         .primary()
-        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.send(cx)));
+        .on_click(cx.listener(|view, _: &ClickEvent, window, cx| view.send(window, cx)));
     let cancel = ramag_ui::clickable_button("api-cancel")
         .debug_selector(|| "api-cancel".into())
         .xsmall()
@@ -249,6 +249,19 @@ pub(super) fn render_context_editor(
                     Input::new(&view.assertions).small().h(px(78.0)),
                 )),
         )
+        .child(
+            v_flex()
+                .id("api-response-variables")
+                .debug_selector(|| "api-response-variables".into())
+                .gap(px(5.0))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("响应变量"),
+                )
+                .child(Input::new(&view.response_variables).small().h(px(96.0))),
+        )
         .into_any_element()
 }
 
@@ -292,6 +305,46 @@ pub(super) fn render_assertion_results(
                         },
                         result.message
                     )),
+            );
+        }
+    }
+    section.into_any_element()
+}
+
+pub(super) fn render_extracted_variables(
+    variables: &[ApiExtractedVariable],
+    theme: &gpui_component::Theme,
+) -> gpui::AnyElement {
+    let mut section = v_flex()
+        .id("api-extracted-variables")
+        .debug_selector(|| "api-extracted-variables".into())
+        .gap(px(3.0))
+        .child(
+            div()
+                .text_xs()
+                .font_weight(FontWeight::SEMIBOLD)
+                .child(format!("已提取变量 · {} 项", variables.len())),
+        );
+    if variables.is_empty() {
+        section = section.child(
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("未提取响应变量"),
+        );
+    } else {
+        for variable in variables {
+            section = section.child(
+                div()
+                    .min_w_0()
+                    .truncate()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child(if variable.sensitive {
+                        format!("{} · 已写入（敏感）", variable.name)
+                    } else {
+                        format!("{} · 已写入", variable.name)
+                    }),
             );
         }
     }

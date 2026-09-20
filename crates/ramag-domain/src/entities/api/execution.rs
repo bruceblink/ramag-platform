@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -6,9 +6,10 @@ use uuid::Uuid;
 
 use super::{
     ApiAssertion, ApiCollection, ApiCollectionId, ApiEnvironment, ApiProtocol, ApiRequestId,
-    ApiRequestRecord, ApiResponseSnapshot, ApiResponseStatus, MAX_API_ASSERTIONS,
-    MAX_API_ERROR_BYTES, MAX_API_HISTORY_BODY_BYTES, MAX_API_REQUEST_NAME_BYTES,
-    MAX_API_VARIABLE_NAME_BYTES, validate_text,
+    ApiRequestRecord, ApiResponseSnapshot, ApiResponseStatus, ApiVariableExtraction,
+    ApiVariableSource, MAX_API_ASSERTIONS, MAX_API_ERROR_BYTES, MAX_API_HISTORY_BODY_BYTES,
+    MAX_API_PARAMETER_VALUE_BYTES, MAX_API_REQUEST_NAME_BYTES, MAX_API_VARIABLE_NAME_BYTES,
+    validate_text,
 };
 
 pub const MAX_API_HISTORY: usize = 200;
@@ -20,11 +21,38 @@ pub struct ApiAssertionResult {
     pub message: String,
 }
 
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApiExtractedVariable {
+    pub name: String,
+    pub value: String,
+    pub sensitive: bool,
+}
+
+impl std::fmt::Debug for ApiExtractedVariable {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ApiExtractedVariable")
+            .field("name", &self.name)
+            .field(
+                "value",
+                if self.sensitive {
+                    &"[REDACTED]"
+                } else {
+                    &self.value
+                },
+            )
+            .field("sensitive", &self.sensitive)
+            .finish()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApiExecutionResult {
     pub snapshot: ApiResponseSnapshot,
     pub assertions: Vec<ApiAssertionResult>,
     pub passed: bool,
+    #[serde(default)]
+    pub extracted_variables: Vec<ApiExtractedVariable>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,6 +123,32 @@ impl ApiEnvironment {
     /// 返回执行驱动需要的变量副本；调用方不得把结果写入日志或历史。
     pub fn execution_variables(&self) -> BTreeMap<String, String> {
         self.variables.clone()
+    }
+
+    /// 原子写入响应变量；校验失败时保留旧环境，避免后续请求看到半套变量。
+    pub fn apply_extracted_variables(
+        &mut self,
+        extracted: &[ApiExtractedVariable],
+    ) -> Result<(), String> {
+        let mut candidate = self.clone();
+        for variable in extracted {
+            candidate
+                .variables
+                .insert(variable.name.clone(), variable.value.clone());
+            if variable.sensitive
+                && !candidate
+                    .sensitive_variable_refs
+                    .iter()
+                    .any(|name| name == &variable.name)
+            {
+                candidate
+                    .sensitive_variable_refs
+                    .push(variable.name.clone());
+            }
+        }
+        candidate.validate()?;
+        *self = candidate;
+        Ok(())
     }
 }
 
@@ -204,6 +258,77 @@ pub fn resolve_template(
         return Err(format!("{label}展开后超过 {max_bytes} bytes 上限"));
     }
     Ok(output)
+}
+
+/// 从有界响应中提取变量；所有规则先完成再写入 Environment，保证失败不产生部分结果。
+pub fn extract_response_variables(
+    rules: &[ApiVariableExtraction],
+    snapshot: &ApiResponseSnapshot,
+) -> Result<Vec<ApiExtractedVariable>, String> {
+    let mut names = HashSet::with_capacity(rules.len());
+    let mut extracted = Vec::with_capacity(rules.len());
+    for rule in rules {
+        if !names.insert(rule.name.clone()) {
+            return Err(format!("响应变量名称重复：{}", rule.name));
+        }
+        let value = match &rule.source {
+            ApiVariableSource::JsonPath { path } => {
+                ensure_response_body_complete(snapshot)?;
+                let body = std::str::from_utf8(&snapshot.body)
+                    .map_err(|_| "响应正文不是 UTF-8，无法提取 JSON 变量".to_string())?;
+                let json = serde_json::from_str::<serde_json::Value>(body)
+                    .map_err(|_| "响应正文不是有效 JSON，无法提取 JSON 变量".to_string())?;
+                let value = json_path_value(&json, path)
+                    .ok_or_else(|| format!("响应 JSON Path 未找到值：{path}"))?;
+                json_value_text(value)?
+            }
+            ApiVariableSource::Header { name } => snapshot
+                .headers
+                .iter()
+                .find(|parameter| parameter.name.eq_ignore_ascii_case(name))
+                .map(|parameter| parameter.value.clone())
+                .ok_or_else(|| format!("响应 Header 不存在：{name}"))?,
+            ApiVariableSource::Metadata { name } => snapshot
+                .metadata
+                .iter()
+                .find(|parameter| parameter.name.eq_ignore_ascii_case(name))
+                .map(|parameter| parameter.value.clone())
+                .ok_or_else(|| format!("响应 Metadata 不存在：{name}"))?,
+            ApiVariableSource::Body => {
+                ensure_response_body_complete(snapshot)?;
+                std::str::from_utf8(&snapshot.body)
+                    .map(str::to_owned)
+                    .map_err(|_| "响应正文不是 UTF-8，无法提取正文变量".to_string())?
+            }
+        };
+        if value.len() > MAX_API_PARAMETER_VALUE_BYTES {
+            return Err(format!(
+                "响应变量 {} 超过 {MAX_API_PARAMETER_VALUE_BYTES} bytes 上限",
+                rule.name
+            ));
+        }
+        extracted.push(ApiExtractedVariable {
+            name: rule.name.clone(),
+            value,
+            sensitive: rule.sensitive,
+        });
+    }
+    Ok(extracted)
+}
+
+fn ensure_response_body_complete(snapshot: &ApiResponseSnapshot) -> Result<(), String> {
+    if snapshot.truncated {
+        Err("响应正文已截断，不能提取响应变量".into())
+    } else {
+        Ok(())
+    }
+}
+
+fn json_value_text(value: &serde_json::Value) -> Result<String, String> {
+    match value {
+        serde_json::Value::String(text) => Ok(text.clone()),
+        _ => serde_json::to_string(value).map_err(|_| "响应 JSON 值无法转换为变量".into()),
+    }
 }
 
 /// 对一份响应执行所有声明式断言；断言失败返回结果而不是传输错误。

@@ -1,16 +1,29 @@
 use super::*;
 use ramag_domain::entities::{
-    ApiAssertion, ApiEnvironment, ApiRequestRecord, ApiRequestSpec, ApiWorkspace,
+    ApiAssertion, ApiEnvironment, ApiExtractedVariable, ApiRequestRecord, ApiRequestSpec,
+    ApiVariableExtraction, ApiVariableSource, ApiWorkspace,
 };
 
+/// 从可见环境输入和运行时敏感值构造执行环境；敏感值不会回填到编辑器。
 pub(crate) fn environment_from_view(view: &ApiView, cx: &App) -> Result<ApiEnvironment> {
-    parse_environment(
-        &input_value(&view.environment_variables, cx),
+    let mut environment = parse_environment_values(&input_value(&view.environment_variables, cx))?;
+    apply_sensitive_references(
+        &mut environment,
         &input_value(&view.environment_sensitive, cx),
-    )
+        Some(&view.runtime_environment),
+    )?;
+    Ok(environment)
 }
 
+#[cfg(test)]
 pub(crate) fn parse_environment(variables: &str, sensitive: &str) -> Result<ApiEnvironment> {
+    let mut environment = parse_environment_values(variables)?;
+    apply_sensitive_references(&mut environment, sensitive, None)?;
+    Ok(environment)
+}
+
+/// 解析非敏感环境变量；调用方负责根据敏感变量引用补齐隐藏值。
+fn parse_environment_values(variables: &str) -> Result<ApiEnvironment> {
     let mut environment = ApiEnvironment::new("local");
     for (index, line) in variables.lines().enumerate() {
         let line = line.trim();
@@ -34,25 +47,162 @@ pub(crate) fn parse_environment(variables: &str, sensitive: &str) -> Result<ApiE
             )));
         }
     }
+    environment.validate().map_err(DomainError::InvalidConfig)?;
+    Ok(environment)
+}
+
+/// 将敏感变量引用加入执行环境，必要时从运行时副本恢复其值。
+fn apply_sensitive_references(
+    environment: &mut ApiEnvironment,
+    sensitive: &str,
+    runtime_environment: Option<&ApiEnvironment>,
+) -> Result<()> {
     for (index, line) in sensitive.lines().enumerate() {
         let name = line.trim();
         if name.is_empty() {
             continue;
         }
         if !environment.variables.contains_key(name) {
-            return Err(DomainError::InvalidConfig(format!(
-                "敏感变量第 {} 行未找到变量：{name}",
-                index + 1
-            )));
+            let Some(runtime_environment) = runtime_environment else {
+                return Err(DomainError::InvalidConfig(format!(
+                    "敏感变量第 {} 行未找到变量：{name}",
+                    index + 1
+                )));
+            };
+            let Some(value) = runtime_environment.variables.get(name) else {
+                return Err(DomainError::InvalidConfig(format!(
+                    "敏感变量第 {} 行未找到变量：{name}",
+                    index + 1
+                )));
+            };
+            environment
+                .variables
+                .insert(name.to_string(), value.clone());
         }
         environment.sensitive_variable_refs.push(name.to_string());
     }
     environment.validate().map_err(DomainError::InvalidConfig)?;
-    Ok(environment)
+    Ok(())
 }
 
 pub(crate) fn assertions_from_view(view: &ApiView, cx: &App) -> Result<Vec<ApiAssertion>> {
     parse_assertions(&input_value(&view.assertions, cx), view.protocol)
+}
+
+pub(crate) fn response_variables_from_view(
+    view: &ApiView,
+    cx: &App,
+) -> Result<Vec<ApiVariableExtraction>> {
+    parse_response_variables(&input_value(&view.response_variables, cx), view.protocol)
+}
+
+pub(crate) fn apply_extracted_variables_to_view(
+    view: &mut ApiView,
+    extracted: &[ApiExtractedVariable],
+    window: &mut Window,
+    cx: &mut Context<ApiView>,
+) -> Result<()> {
+    if extracted.is_empty() {
+        return Ok(());
+    }
+    let mut environment = environment_from_view(view, cx)?;
+    environment
+        .apply_extracted_variables(extracted)
+        .map_err(DomainError::InvalidConfig)?;
+    view.runtime_environment = environment.clone();
+    set_input(
+        &view.environment_variables,
+        environment
+            .variables
+            .iter()
+            .filter(|(name, _)| {
+                !environment
+                    .sensitive_variable_refs
+                    .iter()
+                    .any(|sensitive_name| sensitive_name == *name)
+            })
+            .map(|(name, value)| format!("{name}={value}"))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        window,
+        cx,
+    );
+    set_input(
+        &view.environment_sensitive,
+        environment.sensitive_variable_refs.join("\n"),
+        window,
+        cx,
+    );
+    Ok(())
+}
+
+pub(crate) fn parse_response_variables(
+    value: &str,
+    protocol: ApiProtocol,
+) -> Result<Vec<ApiVariableExtraction>> {
+    let mut extractions = Vec::new();
+    for (index, line) in value.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Some((target, expression)) = line.split_once('=') else {
+            return Err(DomainError::InvalidConfig(format!(
+                "响应变量第 {} 行必须使用 name=source 格式",
+                index + 1
+            )));
+        };
+        let mut target = target.trim();
+        let sensitive = if let Some(rest) = target.strip_prefix("secret ") {
+            target = rest.trim();
+            true
+        } else {
+            false
+        };
+        let expression = expression.trim();
+        let source = match expression.split_once(':') {
+            Some((kind, value)) => match kind.trim().to_ascii_lowercase().as_str() {
+                "json" => ApiVariableSource::JsonPath {
+                    path: value.trim().to_string(),
+                },
+                "header" => ApiVariableSource::Header {
+                    name: value.trim().to_string(),
+                },
+                "metadata" => ApiVariableSource::Metadata {
+                    name: value.trim().to_string(),
+                },
+                other => {
+                    return Err(DomainError::InvalidConfig(format!(
+                        "响应变量第 {} 行来源类型不支持：{other}",
+                        index + 1
+                    )));
+                }
+            },
+            None if expression.eq_ignore_ascii_case("body") => ApiVariableSource::Body,
+            None => {
+                return Err(DomainError::InvalidConfig(format!(
+                    "响应变量第 {} 行必须使用 json:path、header:name、metadata:name 或 body",
+                    index + 1
+                )));
+            }
+        };
+        let extraction = ApiVariableExtraction {
+            name: target.to_string(),
+            source,
+            sensitive,
+        };
+        extraction
+            .validate(protocol)
+            .map_err(DomainError::InvalidConfig)?;
+        extractions.push(extraction);
+    }
+    if extractions.len() > ramag_domain::entities::MAX_API_RESPONSE_VARIABLES {
+        return Err(DomainError::InvalidConfig(format!(
+            "响应变量数量超过 {} 条上限",
+            ramag_domain::entities::MAX_API_RESPONSE_VARIABLES
+        )));
+    }
+    Ok(extractions)
 }
 
 pub(crate) fn parse_assertions(value: &str, protocol: ApiProtocol) -> Result<Vec<ApiAssertion>> {
@@ -148,11 +298,13 @@ pub(crate) fn request_record(view: &ApiView, cx: &App) -> Result<ApiRequestRecor
     let name = input_value(&view.request_name, cx);
     let request = request_from_view(view, cx)?;
     let assertions = assertions_from_view(view, cx)?;
+    let response_variables = response_variables_from_view(view, cx)?;
     let mut record = match request {
         ApiRequestSpec::Http(spec) => ApiRequestRecord::new_http(name, spec),
         ApiRequestSpec::Grpc(spec) => ApiRequestRecord::new_grpc(name, spec),
     };
     record.assertions = assertions;
+    record.response_variables = response_variables;
     record.validate().map_err(DomainError::InvalidConfig)?;
     Ok(record)
 }
@@ -180,17 +332,25 @@ pub(crate) fn apply_imported_workspace(
     window: &mut Window,
     cx: &mut Context<ApiView>,
 ) {
+    view.runtime_environment = ApiEnvironment::new("local");
     if let Some(environment) = workspace.default_environment_id.as_ref().and_then(|id| {
         workspace
             .environments
             .iter()
             .find(|environment| &environment.id == id)
     }) {
+        view.runtime_environment = environment.clone();
         set_input(
             &view.environment_variables,
             environment
                 .variables
                 .iter()
+                .filter(|(name, _)| {
+                    !environment
+                        .sensitive_variable_refs
+                        .iter()
+                        .any(|sensitive_name| sensitive_name == *name)
+                })
                 .map(|(name, value)| format!("{name}={value}"))
                 .collect::<Vec<_>>()
                 .join("\n"),
@@ -217,6 +377,12 @@ pub(crate) fn apply_imported_workspace(
     set_input(
         &view.assertions,
         format_assertions(&request.assertions),
+        window,
+        cx,
+    );
+    set_input(
+        &view.response_variables,
+        format_response_variables(&request.response_variables),
         window,
         cx,
     );
@@ -318,6 +484,23 @@ fn format_assertions(assertions: &[ApiAssertion]) -> String {
             ApiAssertion::BodyContains { expected } => format!("body={expected}"),
             ApiAssertion::JsonPathEquals { path, expected } => format!("json={path}:{expected}"),
             ApiAssertion::LatencyAtMostMillis { expected } => format!("latency={expected}"),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn format_response_variables(extractions: &[ApiVariableExtraction]) -> String {
+    extractions
+        .iter()
+        .map(|extraction| {
+            let prefix = if extraction.sensitive { "secret " } else { "" };
+            let source = match &extraction.source {
+                ApiVariableSource::JsonPath { path } => format!("json:{path}"),
+                ApiVariableSource::Header { name } => format!("header:{name}"),
+                ApiVariableSource::Metadata { name } => format!("metadata:{name}"),
+                ApiVariableSource::Body => "body".into(),
+            };
+            format!("{prefix}{}={source}", extraction.name)
         })
         .collect::<Vec<_>>()
         .join("\n")
