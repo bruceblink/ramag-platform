@@ -85,6 +85,7 @@ flowchart LR
 - `tonic-prost` `0.14.6`：Protobuf Codec。
 - `prost` `0.14.4`：消息编码与解码。
 - `prost-reflect` `0.16.5`：DescriptorPool、MessageDescriptor 和 DynamicMessage。
+- `protox` `0.9.1`：运行时用纯 Rust 编译 `.proto` 源文件，避免要求用户单独安装 `protoc`。
 - `tonic-prost-build` `0.14.6`：从 `.proto` 生成测试服务和 DescriptorSet。
 
 预研代码通过一份 `api.spike.Echo` `.proto` 生成 DescriptorSet，在测试中完成以下真实协议路径：
@@ -144,7 +145,7 @@ flowchart LR
 ### 3.3 gRPC 请求
 
 - 明文和 TLS 连接。
-- 编译后的 `FileDescriptorSet` 文件导入；原始 `.proto` 文件由界面直接编译仍需后续接入编译器。
+- 编译后的 `FileDescriptorSet` 文件导入和原始 `.proto` 文件导入；`.proto` 编译限制入口目录、源文件大小和 DescriptorSet 大小。
 - Server Reflection 服务发现。
 - Service/Method 选择。
 - 动态 Protobuf 消息编辑和 Unary 调用。
@@ -190,6 +191,8 @@ UI 验收证据：`ramag-tool-api` headless GPUI 测试覆盖 360、640、1024 �
 API 工作台 gRPC Reflection 发现修正记录（2026-09-20）：`ramag-domain` 增加独立的 gRPC Service 发现请求和目录项模型，`ramag-app` 通过已有 gRPC 驱动边界执行发现并传播 Environment 变量、超时和取消；`ramag-tool-api` 增加“发现”操作、Service/Method 目录和方法选择按钮。界面不展示标准 Reflection 内部 Service，避免自动选择到协议发现服务；本机 Docker UI 测试实际读取 `api.docker.Echo` 并选择 `Unary` 后完成 gRPC 请求。领域测试 214 项、应用测试 223 项、API 工作台测试 15 项通过。
 
 API 工作台 `FileDescriptorSet` 导入记录（2026-09-20）：`ramag-tool-api` 增加有界的本地 DescriptorSet 文件选择和读取，只接受普通文件，限制为 16 MiB，并拒绝空文件；导入结果同时用于 gRPC Service/Method 发现、请求构造和工作区恢复，界面显示当前来源并在发现期间禁用重复导入。支持常见的 `.bin`、`.fds` 和 `.desc` 后缀；原始 `.proto` 文件的编译和导入尚未接入，不能把二进制 DescriptorSet 导入描述为 `.proto` 编译。领域测试 215 项、API 工作台测试 16 项通过。
+
+API 工作台原始 `.proto` 导入记录（2026-09-20）：新增 `protox` 纯 Rust 编译路径和“导入 `.proto`”入口；入口文件所在目录及其子目录内的相对 `import` 会合并到 DescriptorSet，标准 `google/protobuf` 文件由编译器内置解析。单个源文件限制为 8 MiB，所有用户源文件合计限制为 32 MiB，输出 DescriptorSet 限制为 16 MiB；绝对路径、父目录跳出、非 UTF-8 文件、目录和解析错误均在编译前或编译时拒绝。编译结果复用现有 gRPC 发现、请求执行和工作区恢复链路；API 工作台测试 18 项通过。
 
 本机 Docker 服务保持运行供复验：`ramag-api-http-test` 使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，绑定 `127.0.0.1:18089 -> 8080`；`ramag-api-grpc-test` 使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，绑定 `127.0.0.1:18090 -> 50051`。两个容器健康检查均为 `healthy`。API-005 的断言、环境变量编辑、执行历史和结果摘要在下一节记录。
 
@@ -409,7 +412,7 @@ git diff --check
 
 ## 10. 当前未完成项
 
-- `API-001` 至 `API-007` 的已实现范围均有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。API-007 的 Multipart 和 gRPC 流式调用均已完成领域、应用、驱动、UI 和本机 Docker 验收；gRPC 工作台支持 Reflection 和编译后的 `FileDescriptorSet` 导入，但原始 `.proto` 文件直接编译仍未完成。
+- `API-001` 至 `API-007` 的已实现范围均有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。API-007 的 Multipart 和 gRPC 流式调用均已完成领域、应用、驱动、UI 和本机 Docker 验收；gRPC 工作台支持 Reflection、`FileDescriptorSet` 导入和原始 `.proto` 编译导入。
 - API 工作台的真实 Windows 窗口截图、键盘操作和鼠标操作仍未完成，原因是 Computer Use 返回可控应用列表为空；这项限制不影响已完成的 headless 布局/交互测试和 Docker 协议测试，但不能把 API-004 的窗口验收写成完成。
 - mTLS、代理和 OAuth2 尚未实现；它们属于后续 API-008 计划，进入开发前仍需分别设计安全配置、失败恢复和敏感配置处理。
 

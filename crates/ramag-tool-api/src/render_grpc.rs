@@ -25,9 +25,23 @@ pub(super) fn render_editor(
             row().child(field(
                 "Descriptor",
                 h_flex()
-                    .justify_between()
+                    .w_full()
+                    .min_w_0()
+                    .flex_wrap()
+                    .items_center()
                     .gap(px(6.0))
-                    .child(div().text_sm().child(descriptor_label))
+                    .child(div().flex_1().min_w_0().text_sm().child(descriptor_label))
+                    .child(
+                        ramag_ui::clickable_button("api-grpc-import-proto")
+                            .debug_selector(|| "api-grpc-import-proto".into())
+                            .xsmall()
+                            .ghost()
+                            .label("导入 .proto")
+                            .disabled(view.importing || view.grpc_discovering)
+                            .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
+                                view.import_grpc_proto(window, cx);
+                            })),
+                    )
                     .child(
                         ramag_ui::clickable_button("api-grpc-import-descriptor")
                             .debug_selector(|| "api-grpc-import-descriptor".into())

@@ -167,6 +167,7 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("api-http-fields").is_none());
     assert!(visual_cx.debug_bounds("api-grpc-fields").is_some());
+    assert!(visual_cx.debug_bounds("api-grpc-import-proto").is_some());
     assert!(
         visual_cx
             .debug_bounds("api-grpc-import-descriptor")

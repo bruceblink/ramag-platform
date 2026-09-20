@@ -1,6 +1,7 @@
 use super::context::{
     apply_extracted_variables_to_view, environment_from_view, request_record, upsert_environment,
 };
+use super::grpc_proto::{self, GrpcImportKind};
 use super::*;
 
 use std::io::Read;
@@ -112,6 +113,20 @@ impl ApiView {
 
     /// 读取有界的本地 FileDescriptorSet，供 gRPC 发现和请求执行共同使用。
     pub(crate) fn import_grpc_descriptor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.import_grpc_source(window, cx, GrpcImportKind::DescriptorSet);
+    }
+
+    /// 编译有界的本地 `.proto` 文件，供 gRPC 发现和请求执行共同使用。
+    pub(crate) fn import_grpc_proto(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.import_grpc_source(window, cx, GrpcImportKind::ProtoSource);
+    }
+
+    fn import_grpc_source(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        kind: GrpcImportKind,
+    ) {
         if self.protocol != ApiProtocol::Grpc
             || self.saving
             || self.importing
@@ -125,49 +140,28 @@ impl ApiView {
         cx.notify();
         cx.spawn_in(window, async move |this, async_cx| {
             let outcome: std::result::Result<_, String> = async {
-                let Some(handle) = rfd::AsyncFileDialog::new()
-                    .add_filter("Protobuf FileDescriptorSet", &["bin", "fds", "desc"])
-                    .pick_file()
-                    .await
-                else {
+                let handle = match kind {
+                    GrpcImportKind::DescriptorSet => {
+                        rfd::AsyncFileDialog::new()
+                            .add_filter("Protobuf FileDescriptorSet", &["bin", "fds", "desc"])
+                            .pick_file()
+                            .await
+                    }
+                    GrpcImportKind::ProtoSource => {
+                        rfd::AsyncFileDialog::new()
+                            .add_filter("Protobuf source", &["proto"])
+                            .pick_file()
+                            .await
+                    }
+                };
+                let Some(handle) = handle else {
                     return Ok(None);
                 };
                 let path = handle.path().to_path_buf();
-                let descriptor = ramag_app::run_blocking(move || {
-                    let file = std::fs::File::open(&path).map_err(|error| {
-                        DomainError::Storage(format!("打开 DescriptorSet 文件失败：{error}"))
-                    })?;
-                    let metadata = file.metadata().map_err(|error| {
-                        DomainError::Storage(format!("读取 DescriptorSet 文件信息失败：{error}"))
-                    })?;
-                    let max_bytes = ramag_domain::entities::MAX_API_DESCRIPTOR_BYTES as u64;
-                    if !metadata.is_file() {
-                        return Err(DomainError::InvalidConfig(
-                            "DescriptorSet 导入目标必须是普通文件".into(),
-                        ));
-                    }
-                    if metadata.len() > max_bytes {
-                        return Err(DomainError::InvalidConfig(format!(
-                            "DescriptorSet 文件超过 {max_bytes} bytes 上限"
-                        )));
-                    }
-                    let mut bytes = Vec::new();
-                    file.take(max_bytes + 1)
-                        .read_to_end(&mut bytes)
-                        .map_err(|error| {
-                            DomainError::Storage(format!("读取 DescriptorSet 文件失败：{error}"))
-                        })?;
-                    if bytes.len() as u64 > max_bytes {
-                        return Err(DomainError::InvalidConfig(format!(
-                            "DescriptorSet 文件读取后超过 {max_bytes} bytes 上限"
-                        )));
-                    }
-                    let descriptor = ApiGrpcDescriptor::FileDescriptorSet { bytes };
-                    descriptor.validate().map_err(DomainError::InvalidConfig)?;
-                    Ok(descriptor)
-                })
-                .await
-                .map_err(|error| format!("读取 DescriptorSet 文件失败：{error}"))?;
+                let descriptor =
+                    ramag_app::run_blocking(move || grpc_proto::load_grpc_import(kind, &path))
+                        .await
+                        .map_err(|error| format!("读取 gRPC 描述文件失败：{error}"))?;
                 Ok(Some(descriptor))
             }
             .await;
@@ -183,11 +177,10 @@ impl ApiView {
                         };
                         view.grpc_descriptor = descriptor;
                         view.grpc_services.clear();
-                        view.notice =
-                            Some((format!("已导入 FileDescriptorSet（{bytes} bytes）"), false));
+                        view.notice = Some((kind.success_message(bytes), false));
                     }
                     Err(error) => {
-                        view.notice = Some((format!("DescriptorSet 导入失败：{error}"), true));
+                        view.notice = Some((kind.failure_message(error), true));
                     }
                 }
                 cx.notify();

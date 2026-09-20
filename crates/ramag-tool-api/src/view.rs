@@ -24,6 +24,8 @@ use ramag_domain::error::{DomainError, Result};
 
 #[path = "context.rs"]
 mod context;
+#[path = "grpc_proto.rs"]
+mod grpc_proto;
 #[path = "lifecycle.rs"]
 mod lifecycle;
 #[path = "operations.rs"]
