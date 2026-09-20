@@ -7,8 +7,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use ramag_domain::entities::{
-    ApiAuth, ApiBody, ApiCancellation, ApiMultipartPart, ApiParameter, ApiRequestSpec,
-    ApiResponseStatus, ApiTlsConfig, ApiTlsVerify, ApiWorkspace, HttpRequestSpec, import_api_json,
+    ApiAuth, ApiBody, ApiCancellation, ApiMultipartPart, ApiParameter, ApiProxyConfig,
+    ApiRequestSpec, ApiResponseStatus, ApiTlsConfig, ApiTlsVerify, ApiWorkspace, HttpRequestSpec,
+    import_api_json,
 };
 use ramag_domain::error::DomainError;
 use ramag_domain::traits::ApiDriver;
@@ -38,6 +39,14 @@ fn docker_mtls_config() -> Option<ApiTlsConfig> {
         ca_cert_path: Some(path("ca.cert.pem").to_string_lossy().into_owned()),
         client_cert_path: Some(path("client.cert.pem").to_string_lossy().into_owned()),
         client_key_path: Some(path("client.key.pem").to_string_lossy().into_owned()),
+    })
+}
+
+fn docker_proxy_config() -> Option<ApiProxyConfig> {
+    Some(ApiProxyConfig {
+        url: Some(std::env::var("RAMAG_TEST_API_HTTP_PROXY_URL").ok()?),
+        username: Some(std::env::var("RAMAG_TEST_API_PROXY_USERNAME").ok()?),
+        password: Some(std::env::var("RAMAG_TEST_API_PROXY_PASSWORD").ok()?),
     })
 }
 
@@ -264,6 +273,77 @@ async fn docker_http_fixture_covers_requests_errors_auth_timeout_and_cancellatio
             Err(error) => error,
         };
         assert!(matches!(error, DomainError::ConnectionFailed(_)));
+    }
+
+    if let Some(proxy) = docker_proxy_config() {
+        let mut proxy_variables = BTreeMap::new();
+        proxy_variables.insert(
+            "proxy_url".into(),
+            proxy.url.clone().ok_or("代理测试缺少代理 URL")?,
+        );
+        proxy_variables.insert(
+            "proxy_username".into(),
+            proxy.username.clone().ok_or("代理测试缺少代理用户名")?,
+        );
+        proxy_variables.insert(
+            "proxy_password".into(),
+            proxy.password.clone().ok_or("代理测试缺少代理密码")?,
+        );
+        let template_proxy = ApiProxyConfig {
+            url: Some("{{proxy_url}}".into()),
+            username: Some("{{proxy_username}}".into()),
+            password: Some("{{proxy_password}}".into()),
+        };
+
+        let mut proxied = HttpRequestSpec::new("GET", "http://localhost:18089/json");
+        proxied.proxy = template_proxy.clone();
+        let response = driver
+            .execute(
+                &ApiRequestSpec::Http(proxied),
+                &proxy_variables,
+                cancellation(),
+            )
+            .await?;
+        assert_eq!(response.status, ApiResponseStatus::Http { code: 200 });
+        assert!(body_text(&response.body)?.contains("ramag-api-http-test"));
+
+        let mut proxied_mtls = HttpRequestSpec::new("GET", "https://localhost:18091/json");
+        proxied_mtls.tls = docker_mtls_config().ok_or("mTLS 测试缺少证书目录")?;
+        proxied_mtls.proxy = template_proxy.clone();
+        let response = driver
+            .execute(
+                &ApiRequestSpec::Http(proxied_mtls),
+                &proxy_variables,
+                cancellation(),
+            )
+            .await?;
+        assert_eq!(response.status, ApiResponseStatus::Http { code: 200 });
+
+        let mut proxied_timeout =
+            HttpRequestSpec::new("GET", "http://localhost:18089/delay?ms=250");
+        proxied_timeout.timeout_millis = 50;
+        proxied_timeout.proxy = template_proxy.clone();
+        let timeout = driver
+            .execute(
+                &ApiRequestSpec::Http(proxied_timeout),
+                &proxy_variables,
+                cancellation(),
+            )
+            .await;
+        assert!(matches!(timeout, Err(DomainError::ConnectionFailed(_))));
+
+        let mut unauthorized = HttpRequestSpec::new("GET", "http://localhost:18089/json");
+        let mut bad_proxy = template_proxy;
+        bad_proxy.password = Some("wrong-password".into());
+        unauthorized.proxy = bad_proxy;
+        let response = driver
+            .execute(
+                &ApiRequestSpec::Http(unauthorized),
+                &proxy_variables,
+                cancellation(),
+            )
+            .await?;
+        assert_eq!(response.status, ApiResponseStatus::Http { code: 407 });
     }
     Ok(())
 }

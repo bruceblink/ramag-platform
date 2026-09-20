@@ -23,6 +23,7 @@
 | Server Reflection | Server Reflection | 从 gRPC 服务发现可调用的 Service、Method 和 Descriptor | 不代表所有 gRPC 服务都必然启用的能力 |
 | Metadata | gRPC Metadata | gRPC 请求 Headers、响应 Headers 和 Trailers 的协议元数据 | 不代表 Protobuf 消息字段 |
 | 双向 TLS | Mutual TLS / mTLS | 客户端和服务端互相使用证书完成身份校验的 TLS 连接 | 不代表只校验服务端证书的普通 HTTPS |
+| 显式代理 | Explicit Proxy | 请求明确指定的 HTTP 代理及其可选 Basic 认证；HTTPS/gRPC 隧道使用 CONNECT | 不代表系统代理、PAC、SOCKS 或 OAuth2 |
 | 传输驱动 | Transport Driver | `ramag-domain` 定义、`ramag-infra-api` 实现的 HTTP/gRPC 协议适配接口 | 不代表 UI 视图或应用服务 |
 
 正文首次出现使用“规范中文名（English / Acronym）”，后续使用规范中文名；协议名称始终保留 `HTTP`、`HTTPS`、`gRPC`、`Protobuf` 和 `TLS` 的标准大小写。
@@ -294,6 +295,17 @@ API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Par
 
 本切片验收：`ramag-domain` 217 项、`ramag-infra-api --all-targets` 单元 15 项和 Docker 集成 2 项、`ramag-tool-api --lib` 18 项通过；HTTP 与 gRPC Docker 测试均验证有客户端证书时返回成功、去掉客户端证书时握手失败。HTTP 服务使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，普通端口 `18089`、mTLS 端口 `18091`；gRPC 服务使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，普通端口 `18090`、mTLS 端口 `18092`，容器保持 `healthy/running`。本轮按当前任务要求未增加真实 Windows 窗口 UI 测试。
 
+### 3.13 API-008.2 显式代理（Explicit Proxy）切片设计与实现边界（2026-09-20）
+
+本切片只处理显式 HTTP 代理：明文 HTTP 使用标准代理转发，HTTPS/gRPC 使用 HTTP CONNECT 隧道；不扩展系统代理、PAC、SOCKS、代理链或 OAuth2：
+
+- `ramag-domain` 增加共享 `ApiProxyConfig`；代理地址只接受 `http://`，禁止 URL 内嵌用户名/密码，用户名和密码必须成对配置并受长度、控制字符和 URL 结构校验限制。未配置代理时保持直连，不能读取进程环境中的代理变量。
+- `ramag-infra-api` 的 HTTP 驱动使用 reqwest 的显式代理配置；gRPC 和 Server Reflection 使用受限的 HTTP CONNECT 自定义连接器，先与代理建立 TCP 连接并完成有界的 `200 Connection Established` 校验，再交给现有 HTTP/2 和 TLS 链路。代理认证失败、CONNECT 非 2xx、目标地址无效和连接取消都返回安全的连接错误。
+- `ramag-tool-api` 在共享传输配置区增加代理地址、用户名和密码编辑项；密码输入使用掩码，保存和导入保留配置，Debug、错误、响应历史不显示密码或完整代理认证头。
+- 本机 Docker HTTP/gRPC 测试服务各增加一个只允许测试目标的 Basic 认证 CONNECT 代理；测试同时覆盖明文请求、mTLS 请求、正确认证成功和错误认证失败。代理容器只绑定 `127.0.0.1`，服务保持运行供复验。
+
+本切片的交付条件是：Domain/App/Infra/工作台编译与目标测试通过，HTTP 与 gRPC 真实本机 Docker 代理测试都验证成功和失败路径，workspace Clippy、fmt、源码尺寸检查和提交钩子通过；本轮不增加真实 Windows 窗口 UI 测试。
+
 ## 4. 首期非目标
 
 - 代理和 OAuth2 不阻塞当前双协议版本，单独排期到后续计划；mTLS 已由 API-008.1 完成。
@@ -357,6 +369,7 @@ ApiResponseSnapshot   = status, headers, metadata, body, timing, size, truncated
 | `API-007` | gRPC 流式调用和 Multipart | `API-003`、`API-005` | gRPC 四种调用形态、Multipart、资源限制、取消和有界响应 | 每项能力都有独立协议测试、资源限制和失败恢复证据 |
 | `API-008` | 扩展传输能力 | `API-007` | mTLS、代理和 OAuth2 | 每项能力都有独立安全配置、失败恢复和敏感信息处理证据 |
 | `API-008.1` | 双向 TLS（mTLS） | `API-008` | HTTP/gRPC 客户端证书和 CA 校验 | HTTP、gRPC 和 Server Reflection 均有本机 Docker 双向 TLS 证据 |
+| `API-008.2` | 显式 HTTP 代理 | `API-008` | HTTP 转发、HTTPS/gRPC CONNECT 隧道和 Basic 认证 | HTTP、gRPC 和 Server Reflection 均有本机 Docker 代理成功/失败证据 |
 
 同一时间只推进一个 `API-*` 交付切片；每个独立切片完成测试后使用一个 Conventional Commit，并立即推送当前 `dev` 分支。
 
@@ -428,7 +441,7 @@ git diff --check
 
 - `API-001` 至 `API-007` 的已实现范围均有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。API-007 的 Multipart 和 gRPC 流式调用均已完成领域、应用、驱动、UI 和本机 Docker 验收；gRPC 工作台支持 Reflection、`FileDescriptorSet` 导入和原始 `.proto` 编译导入。
 - API 工作台的真实 Windows 窗口截图、键盘操作和鼠标操作仍未完成，原因是 Computer Use 返回可控应用列表为空；这项限制不影响已完成的 headless 布局/交互测试和 Docker 协议测试，但不能把 API-004 的窗口验收写成完成。
-- 代理和 OAuth2 尚未实现；它们属于 API-008.2 和 API-008.3 的后续独立切片，进入开发前仍需分别设计代理连接策略、Token 安全存储/刷新、失败恢复和敏感配置处理。mTLS 已由 API-008.1 完成。
+- OAuth2 尚未实现，属于 API-008.3 后续独立切片，进入开发前仍需设计 Token 安全存储/刷新、失败恢复和敏感配置处理。mTLS 已由 API-008.1 完成；显式代理进入 API-008.2 验收。
 
 下一项进入 API-008.2 代理传输切片；OAuth2 继续保留为 API-008.3，分别维护真实 Docker/协议证据和敏感配置边界。
 

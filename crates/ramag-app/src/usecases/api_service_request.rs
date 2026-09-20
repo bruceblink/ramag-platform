@@ -7,10 +7,11 @@ use std::collections::BTreeMap;
 
 use ramag_domain::entities::{
     ApiAuth, ApiBody, ApiBodyMode, ApiMultipartPart, ApiMultipartValue, ApiParameter,
-    ApiRequestSpec, GrpcRequestSpec, HttpRequestSpec, MAX_API_GRPC_ENDPOINT_BYTES,
+    ApiProxyConfig, ApiRequestSpec, GrpcRequestSpec, HttpRequestSpec, MAX_API_GRPC_ENDPOINT_BYTES,
     MAX_API_GRPC_METHOD_BYTES, MAX_API_GRPC_SERVICE_BYTES, MAX_API_MULTIPART_FILE_NAME_BYTES,
     MAX_API_MULTIPART_PATH_BYTES, MAX_API_PARAMETER_NAME_BYTES, MAX_API_PARAMETER_VALUE_BYTES,
-    MAX_API_REQUEST_BODY_BYTES, MAX_API_URL_TEMPLATE_BYTES, resolve_template,
+    MAX_API_PROXY_CREDENTIAL_BYTES, MAX_API_PROXY_URL_BYTES, MAX_API_REQUEST_BODY_BYTES,
+    MAX_API_URL_TEMPLATE_BYTES, resolve_template,
 };
 use ramag_domain::error::{DomainError, Result};
 
@@ -59,11 +60,54 @@ fn expand_parameter(
     ))
 }
 
+/// 展开代理地址和认证字段；密码只在执行副本中保留，不进入响应历史或错误文本。
+fn resolve_proxy_config(
+    proxy: &ApiProxyConfig,
+    variables: &BTreeMap<String, String>,
+) -> Result<ApiProxyConfig> {
+    let resolved = ApiProxyConfig {
+        url: proxy
+            .url
+            .as_ref()
+            .map(|url| expand(url, variables, "代理 URL", MAX_API_PROXY_URL_BYTES))
+            .transpose()?,
+        username: proxy
+            .username
+            .as_ref()
+            .map(|username| {
+                expand(
+                    username,
+                    variables,
+                    "代理用户名",
+                    MAX_API_PROXY_CREDENTIAL_BYTES,
+                )
+            })
+            .transpose()?,
+        password: proxy
+            .password
+            .as_ref()
+            .map(|password| {
+                expand(
+                    password,
+                    variables,
+                    "代理密码",
+                    MAX_API_PROXY_CREDENTIAL_BYTES,
+                )
+            })
+            .transpose()?,
+    };
+    resolved
+        .validate_resolved()
+        .map_err(DomainError::InvalidConfig)?;
+    Ok(resolved)
+}
+
 pub(super) fn resolve_http_request(
     spec: &HttpRequestSpec,
     variables: &BTreeMap<String, String>,
 ) -> Result<HttpRequestSpec> {
     let mut resolved = spec.clone();
+    resolved.proxy = resolve_proxy_config(&spec.proxy, variables)?;
     resolved.url_template = expand(
         &spec.url_template,
         variables,
@@ -221,6 +265,7 @@ fn resolve_grpc_request(
     variables: &BTreeMap<String, String>,
 ) -> Result<GrpcRequestSpec> {
     let mut resolved = spec.clone();
+    resolved.proxy = resolve_proxy_config(&spec.proxy, variables)?;
     resolved.endpoint_template = expand(
         &spec.endpoint_template,
         variables,

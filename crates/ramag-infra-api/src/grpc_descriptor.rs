@@ -6,7 +6,7 @@ use std::time::Duration;
 use prost::Message;
 use prost_reflect::{DescriptorPool, DynamicMessage, MessageDescriptor, MethodDescriptor};
 use ramag_domain::entities::{
-    ApiCancellation, MAX_API_DESCRIPTOR_BYTES, MAX_API_GRPC_STREAM_MESSAGES, MAX_API_TIMEOUT_MILLIS,
+    ApiCancellation, MAX_API_DESCRIPTOR_BYTES, MAX_API_GRPC_STREAM_MESSAGES,
 };
 use ramag_domain::error::{DomainError, Result as DomainResult};
 use tonic::{Request, Status};
@@ -271,15 +271,6 @@ pub(crate) fn parse_request_messages(
 
 fn map_reflection_status(status: Status) -> DomainError {
     DomainError::ConnectionFailed(format!("gRPC Reflection 请求失败：{}", status.code()))
-}
-
-pub(super) fn validate_discovery_timeout(timeout_millis: u64) -> DomainResult<()> {
-    if timeout_millis == 0 || timeout_millis > MAX_API_TIMEOUT_MILLIS {
-        return Err(DomainError::InvalidConfig(format!(
-            "API 超时必须为 1 - {MAX_API_TIMEOUT_MILLIS} 毫秒"
-        )));
-    }
-    Ok(())
 }
 
 #[cfg(test)]

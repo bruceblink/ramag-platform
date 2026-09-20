@@ -1,8 +1,15 @@
 use super::*;
 use ramag_domain::entities::{
-    ApiAssertion, ApiBodyMode, ApiEnvironment, ApiExtractedVariable, ApiRequestRecord,
-    ApiRequestSpec, ApiTlsConfig, ApiTlsVerify, ApiVariableExtraction, ApiVariableSource,
-    ApiWorkspace,
+    ApiAssertion, ApiBodyMode, ApiEnvironment, ApiExtractedVariable, ApiProxyConfig,
+    ApiRequestRecord, ApiRequestSpec, ApiTlsConfig, ApiTlsVerify, ApiVariableExtraction,
+    ApiVariableSource, ApiWorkspace,
+};
+
+#[path = "context_format.rs"]
+mod format_helpers;
+
+use format_helpers::{
+    format_assertions, format_parameters, format_query_parameters, format_response_variables,
 };
 
 /// 从可见环境输入和运行时敏感值构造执行环境；敏感值不会回填到编辑器。
@@ -111,6 +118,15 @@ pub(crate) fn tls_from_view(view: &ApiView, cx: &App) -> Result<ApiTlsConfig> {
         ca_cert_path: optional_input_value(&view.tls_ca_cert_path, cx),
         client_cert_path: optional_input_value(&view.tls_client_cert_path, cx),
         client_key_path: optional_input_value(&view.tls_client_key_path, cx),
+    })
+}
+
+/// 解析共享显式代理编辑器；密码只随加密工作区或执行副本流转。
+pub(crate) fn proxy_from_view(view: &ApiView, cx: &App) -> Result<ApiProxyConfig> {
+    Ok(ApiProxyConfig {
+        url: optional_input_value(&view.proxy_url, cx),
+        username: optional_input_value(&view.proxy_username, cx),
+        password: optional_input_value(&view.proxy_password, cx),
     })
 }
 
@@ -416,6 +432,7 @@ pub(crate) fn apply_imported_workspace(
             view.protocol = ApiProtocol::Http;
             view.http_auth = spec.auth.clone();
             set_tls_inputs(view, &spec.tls, window, cx);
+            set_proxy_inputs(view, &spec.proxy, window, cx);
             view.http_body_mode = spec
                 .body
                 .as_ref()
@@ -461,6 +478,7 @@ pub(crate) fn apply_imported_workspace(
             view.grpc_descriptor = spec.descriptor.clone();
             view.http_auth = ApiAuth::None;
             set_tls_inputs(view, &spec.tls, window, cx);
+            set_proxy_inputs(view, &spec.proxy, window, cx);
             view.http_body_mode = ApiBodyMode::Text;
             view.http_body_content_type = "application/json".into();
             set_input(
@@ -527,6 +545,32 @@ fn set_tls_inputs(
     );
 }
 
+fn set_proxy_inputs(
+    view: &ApiView,
+    proxy: &ApiProxyConfig,
+    window: &mut Window,
+    cx: &mut Context<ApiView>,
+) {
+    set_input(
+        &view.proxy_url,
+        proxy.url.clone().unwrap_or_default(),
+        window,
+        cx,
+    );
+    set_input(
+        &view.proxy_username,
+        proxy.username.clone().unwrap_or_default(),
+        window,
+        cx,
+    );
+    set_input(
+        &view.proxy_password,
+        proxy.password.clone().unwrap_or_default(),
+        window,
+        cx,
+    );
+}
+
 fn set_input(
     field: &Entity<InputState>,
     value: String,
@@ -534,56 +578,4 @@ fn set_input(
     cx: &mut Context<ApiView>,
 ) {
     field.update(cx, |input, cx| input.set_value(value, window, cx));
-}
-
-fn format_parameters(parameters: &[ApiParameter]) -> String {
-    parameters
-        .iter()
-        .map(|parameter| format!("{}: {}", parameter.name, parameter.value))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn format_query_parameters(parameters: &[ApiParameter]) -> String {
-    parameters
-        .iter()
-        .map(|parameter| format!("{}={}", parameter.name, parameter.value))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn format_assertions(assertions: &[ApiAssertion]) -> String {
-    assertions
-        .iter()
-        .map(|assertion| match assertion {
-            ApiAssertion::HttpStatus { expected } => format!("status={expected}"),
-            ApiAssertion::HeaderEquals { name, expected } => {
-                format!("header={name}:{expected}")
-            }
-            ApiAssertion::MetadataEquals { name, expected } => {
-                format!("metadata={name}:{expected}")
-            }
-            ApiAssertion::BodyContains { expected } => format!("body={expected}"),
-            ApiAssertion::JsonPathEquals { path, expected } => format!("json={path}:{expected}"),
-            ApiAssertion::LatencyAtMostMillis { expected } => format!("latency={expected}"),
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn format_response_variables(extractions: &[ApiVariableExtraction]) -> String {
-    extractions
-        .iter()
-        .map(|extraction| {
-            let prefix = if extraction.sensitive { "secret " } else { "" };
-            let source = match &extraction.source {
-                ApiVariableSource::JsonPath { path } => format!("json:{path}"),
-                ApiVariableSource::Header { name } => format!("header:{name}"),
-                ApiVariableSource::Metadata { name } => format!("metadata:{name}"),
-                ApiVariableSource::Body => "body".into(),
-            };
-            format!("{prefix}{}={source}", extraction.name)
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
 }

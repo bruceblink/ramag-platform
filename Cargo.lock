@@ -7892,6 +7892,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "url",
  "uuid",
  "zeroize",
 ]
@@ -7904,6 +7905,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "http",
+ "hyper-util",
  "prost 0.14.4",
  "prost-reflect",
  "prost-types",

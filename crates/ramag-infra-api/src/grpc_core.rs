@@ -10,7 +10,7 @@ use prost::Message;
 use prost_reflect::{DynamicMessage, MessageDescriptor};
 use ramag_domain::entities::{
     ApiCancellation, ApiGrpcDescriptor, ApiGrpcDiscoverySpec, ApiGrpcMethodSummary,
-    ApiGrpcServiceSummary, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiTlsConfig,
+    ApiGrpcServiceSummary, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot,
 };
 use ramag_domain::error::{DomainError, Result as DomainResult};
 use ramag_domain::traits::ApiDriver;
@@ -49,27 +49,25 @@ impl GrpcApiDriver {
     /// 从本地 Descriptor 或 Server Reflection 读取 Service/Method 目录。
     pub async fn discover_services(
         &self,
-        endpoint_template: &str,
-        descriptor: &ApiGrpcDescriptor,
-        tls: &ApiTlsConfig,
-        timeout_millis: u64,
+        request: &ApiGrpcDiscoverySpec,
         variables: &BTreeMap<String, String>,
         cancelled: ApiCancellation,
     ) -> DomainResult<Vec<GrpcServiceSummary>> {
-        descriptor::validate_discovery_timeout(timeout_millis)?;
+        request.validate().map_err(DomainError::InvalidConfig)?;
         transport::ensure_not_cancelled(&cancelled)?;
+        let proxy = crate::http::resolve_proxy_config(&request.proxy, variables)?;
         let endpoint_text = crate::http::expand_template(
-            endpoint_template,
+            &request.endpoint_template,
             variables,
             "gRPC Endpoint 模板",
             ramag_domain::entities::MAX_API_GRPC_ENDPOINT_BYTES,
         )?;
-        let timeout = Duration::from_millis(timeout_millis);
-        let pool = match descriptor {
+        let timeout = Duration::from_millis(request.timeout_millis);
+        let pool = match &request.descriptor {
             ApiGrpcDescriptor::FileDescriptorSet { bytes } => descriptor_pool(bytes)?,
             ApiGrpcDescriptor::Reflection => {
-                let endpoint = build_endpoint(endpoint_text, tls, timeout)?;
-                let channel = connect_endpoint(endpoint, cancelled.clone()).await?;
+                let endpoint = build_endpoint(endpoint_text, &request.tls, timeout)?;
+                let channel = connect_endpoint(endpoint, &proxy, cancelled.clone()).await?;
                 descriptor::reflection_catalog_pool(channel, timeout, cancelled.clone()).await?
             }
         };
@@ -95,16 +93,7 @@ impl ApiDriver for GrpcApiDriver {
         variables: &BTreeMap<String, String>,
         cancelled: ApiCancellation,
     ) -> DomainResult<Vec<ApiGrpcServiceSummary>> {
-        request.validate().map_err(DomainError::InvalidConfig)?;
-        self.discover_services(
-            &request.endpoint_template,
-            &request.descriptor,
-            &request.tls,
-            request.timeout_millis,
-            variables,
-            cancelled,
-        )
-        .await
+        self.discover_services(request, variables, cancelled).await
     }
 
     /// 校验、发现 Descriptor、构造动态消息并执行一次有界 gRPC 调用。
@@ -124,6 +113,7 @@ impl ApiDriver for GrpcApiDriver {
         };
         spec.validate().map_err(DomainError::InvalidConfig)?;
         transport::ensure_not_cancelled(&cancelled)?;
+        let proxy = crate::http::resolve_proxy_config(&spec.proxy, variables)?;
 
         let endpoint_text = crate::http::expand_template(
             &spec.endpoint_template,
@@ -133,7 +123,7 @@ impl ApiDriver for GrpcApiDriver {
         )?;
         let timeout = Duration::from_millis(spec.timeout_millis);
         let endpoint = build_endpoint(endpoint_text, &spec.tls, timeout)?;
-        let channel = connect_endpoint(endpoint, cancelled.clone()).await?;
+        let channel = connect_endpoint(endpoint, &proxy, cancelled.clone()).await?;
         let pool = match &spec.descriptor {
             ApiGrpcDescriptor::Reflection => {
                 reflection_symbol_pool(channel.clone(), &spec.service, timeout, cancelled.clone())

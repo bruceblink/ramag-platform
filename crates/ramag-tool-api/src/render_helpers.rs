@@ -281,6 +281,7 @@ pub(super) fn render_context_editor(
                 .child(Input::new(&view.response_variables).small().h(px(96.0))),
         )
         .child(render_tls_editor(view, theme))
+        .child(render_proxy_editor(view, theme))
         .into_any_element()
 }
 
@@ -314,6 +315,35 @@ pub(super) fn render_tls_editor(view: &ApiView, theme: &gpui_component::Theme) -
                     Input::new(&view.tls_client_key_path).small(),
                 )),
         )
+        .into_any_element()
+}
+
+pub(super) fn render_proxy_editor(
+    view: &ApiView,
+    theme: &gpui_component::Theme,
+) -> gpui::AnyElement {
+    v_flex()
+        .id("api-proxy-editor")
+        .debug_selector(|| "api-proxy-editor".into())
+        .gap(px(5.0))
+        .child(
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("显式 HTTP 代理（HTTPS/gRPC 使用 CONNECT；不读取系统代理）"),
+        )
+        .child(
+            row()
+                .child(field("代理 URL", Input::new(&view.proxy_url).small()))
+                .child(field(
+                    "代理用户名",
+                    Input::new(&view.proxy_username).small(),
+                )),
+        )
+        .child(field(
+            "代理密码",
+            Input::new(&view.proxy_password).small().mask_toggle(),
+        ))
         .into_any_element()
 }
 

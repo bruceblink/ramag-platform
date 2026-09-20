@@ -23,6 +23,34 @@ services:
       start_period: 2s
     labels:
       ramag.test-suite: "true"
+  proxy:
+    build:
+      context: .
+      dockerfile: proxy.Dockerfile
+    image: ramag-api-proxy-test:python-3.12.11-alpine-3.22
+    container_name: ramag-api-http-proxy-test
+    restart: unless-stopped
+    environment:
+      PROXY_TARGET_SERVICE: api
+      PROXY_TARGET_PORTS: "18089:8080,18091:8443"
+      PROXY_USERNAME: proxy-user
+      PROXY_PASSWORD: proxy-secret
+    ports:
+      - "127.0.0.1:18093:8081"
+    depends_on:
+      - api
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import socket; socket.create_connection(('127.0.0.1', 8081), timeout=2).close()
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 2s
+    labels:
+      ramag.test-suite: "true"
 networks:
   default:
     name: ramag-api-http-test

@@ -414,6 +414,15 @@ impl ApiView {
                 return;
             }
         };
+        let proxy = match context::proxy_from_view(self, cx) {
+            Ok(proxy) => proxy,
+            Err(error) => {
+                self.notice = Some((error.to_string(), true));
+                cx.notify();
+                return;
+            }
+        };
+        request.proxy = proxy;
         let variables = environment.execution_variables();
         self.grpc_discovery_generation = self.grpc_discovery_generation.wrapping_add(1);
         let generation = self.grpc_discovery_generation;

@@ -3,8 +3,9 @@ use super::*;
 use gpui::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_domain::entities::{
     ApiAssertion, ApiAuth, ApiBody, ApiBodyMode, ApiCollection, ApiGrpcDescriptor, ApiParameter,
-    ApiProtocol, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts,
-    ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec, import_api_json,
+    ApiProtocol, ApiProxyConfig, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot,
+    ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
+    import_api_json,
 };
 
 fn click(cx: &mut VisualTestContext, selector: &'static str) {
@@ -69,6 +70,9 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let request_pane = visual_cx
             .debug_bounds("api-request-pane")
             .expect("请求面板应渲染");
+        let proxy_editor = visual_cx
+            .debug_bounds("api-proxy-editor")
+            .expect("代理编辑器应渲染");
         let response = visual_cx
             .debug_bounds("api-response")
             .expect("响应面板应渲染");
@@ -102,6 +106,11 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         assert!(
             request_pane.right() <= workbench.right(),
             "请求面板不能越出工作区: pane={request_pane:?}, workbench={workbench:?}"
+        );
+        assert!(
+            proxy_editor.origin.x >= request_pane.origin.x
+                && proxy_editor.right() <= request_pane.right(),
+            "代理编辑器不能横向越出请求面板: proxy={proxy_editor:?}, pane={request_pane:?}"
         );
         assert!(
             workbench.bottom() <= content_root.bottom(),
@@ -282,6 +291,12 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
         "{\"enabled\":true}",
         Some("application/json".into()),
     ));
+    request.proxy = ApiProxyConfig {
+        url: Some("http://proxy.example:8080".into()),
+        username: Some("proxy-user".into()),
+        password: Some("proxy-secret".into()),
+    };
+    let expected_proxy = request.proxy.clone();
     let mut collection = ApiCollection::new("Imported Collection");
     collection
         .requests
@@ -305,6 +320,9 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
             view.http_auth.clone(),
             view.http_body_content_type.clone(),
             view.http_body.read(app).value().to_string(),
+            view.proxy_url.read(app).value().to_string(),
+            view.proxy_username.read(app).value().to_string(),
+            view.proxy_password.read(app).value().to_string(),
         )
     });
     assert_eq!(imported.0, "Imported Request");
@@ -318,6 +336,19 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
     );
     assert_eq!(imported.4, "application/json");
     assert_eq!(imported.5, "{\"enabled\":true}");
+    assert_eq!(imported.6, "http://proxy.example:8080");
+    assert_eq!(imported.7, "proxy-user");
+    assert_eq!(imported.8, "proxy-secret");
+
+    let rebuilt = visual_cx.update(|_, app| {
+        let view = view.read(app);
+        request_from_view(view, app)
+    });
+    assert!(matches!(
+        rebuilt,
+        Ok(ApiRequestSpec::Http(HttpRequestSpec { proxy, .. }))
+            if proxy == expected_proxy
+    ));
 }
 
 #[gpui::test]

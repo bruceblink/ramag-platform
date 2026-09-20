@@ -48,6 +48,74 @@ fn tls_ca_mode_requires_ca_certificate() {
 }
 
 #[test]
+fn proxy_config_requires_safe_http_endpoint_and_redacts_password() {
+    let proxy = ApiProxyConfig {
+        url: Some("http://127.0.0.1:18093".into()),
+        username: Some("proxy-user".into()),
+        password: Some("proxy-secret".into()),
+    };
+    let debug = format!("{proxy:?}");
+    assert!(debug.contains("proxy-user"));
+    assert!(!debug.contains("proxy-secret"));
+    assert!(
+        HttpRequestSpec {
+            proxy: proxy.clone(),
+            ..HttpRequestSpec::new("GET", "http://localhost")
+        }
+        .validate()
+        .is_ok()
+    );
+
+    let mut embedded_credentials = proxy.clone();
+    embedded_credentials.url = Some("http://proxy-user:proxy-secret@127.0.0.1:18093".into());
+    assert!(
+        HttpRequestSpec {
+            proxy: embedded_credentials,
+            ..HttpRequestSpec::new("GET", "http://localhost")
+        }
+        .validate()
+        .is_err()
+    );
+
+    let mut unsupported_scheme = proxy.clone();
+    unsupported_scheme.url = Some("socks5://127.0.0.1:1080".into());
+    assert!(
+        HttpRequestSpec {
+            proxy: unsupported_scheme,
+            ..HttpRequestSpec::new("GET", "http://localhost")
+        }
+        .validate()
+        .is_err()
+    );
+
+    let mut incomplete_credentials = proxy;
+    incomplete_credentials.password = None;
+    assert!(
+        HttpRequestSpec {
+            proxy: incomplete_credentials,
+            ..HttpRequestSpec::new("GET", "http://localhost")
+        }
+        .validate()
+        .is_err()
+    );
+
+    let templated_proxy = ApiProxyConfig {
+        url: Some("http://{{proxy_host}}:{{proxy_port}}".into()),
+        username: Some("{{proxy_username}}".into()),
+        password: Some("{{proxy_password}}".into()),
+    };
+    assert!(
+        HttpRequestSpec {
+            proxy: templated_proxy.clone(),
+            ..HttpRequestSpec::new("GET", "http://localhost")
+        }
+        .validate()
+        .is_ok()
+    );
+    assert!(templated_proxy.validate_resolved().is_err());
+}
+
+#[test]
 fn grpc_discovery_defaults_to_reflection_and_validates_endpoint() {
     let request = ApiGrpcDiscoverySpec::new("http://127.0.0.1:50051");
     assert!(matches!(request.descriptor, ApiGrpcDescriptor::Reflection));
@@ -94,6 +162,7 @@ fn debug_output_redacts_auth_body_and_environment_values() {
                 Some("application/json".into()),
             )),
             tls: ApiTlsConfig::default(),
+            proxy: ApiProxyConfig::default(),
             timeout_millis: 30_000,
         },
     );

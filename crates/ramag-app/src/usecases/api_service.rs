@@ -199,9 +199,9 @@ mod tests {
     use async_trait::async_trait;
     use ramag_domain::entities::{
         ApiAssertion, ApiBody, ApiBodyMode, ApiCollection, ApiEnvironment, ApiMultipartPart,
-        ApiMultipartValue, ApiProtocol, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot,
-        ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace, GrpcRequestSpec,
-        HttpRequestSpec,
+        ApiMultipartValue, ApiProtocol, ApiProxyConfig, ApiRequestRecord, ApiRequestSpec,
+        ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace,
+        GrpcRequestSpec, HttpRequestSpec,
     };
     use ramag_domain::error::Result;
     use ramag_domain::traits::ApiDriver;
@@ -266,6 +266,41 @@ mod tests {
             ApiMultipartValue::File { ref path, ref file_name }
                 if path == "/tmp/upload.txt" && file_name.as_deref() == Some("upload.txt")
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn resolves_proxy_templates_and_rejects_unsafe_proxy_values() -> std::result::Result<(), String>
+    {
+        let mut spec = HttpRequestSpec::new("GET", "http://127.0.0.1/status");
+        spec.proxy = ApiProxyConfig {
+            url: Some("http://{{proxy_host}}:{{proxy_port}}".into()),
+            username: Some("{{proxy_user}}".into()),
+            password: Some("{{proxy_password}}".into()),
+        };
+        let variables = BTreeMap::from([
+            ("proxy_host".into(), "127.0.0.1".into()),
+            ("proxy_port".into(), "18093".into()),
+            ("proxy_user".into(), "user".into()),
+            ("proxy_password".into(), "secret".into()),
+        ]);
+
+        let resolved = super::request::resolve_http_request(&spec, &variables)
+            .map_err(|error| error.to_string())?;
+        assert_eq!(
+            resolved.proxy.url.as_deref(),
+            Some("http://127.0.0.1:18093")
+        );
+        assert_eq!(resolved.proxy.username.as_deref(), Some("user"));
+        assert_eq!(resolved.proxy.password.as_deref(), Some("secret"));
+
+        let unsafe_variables = BTreeMap::from([
+            ("proxy_host".into(), "127.0.0.1".into()),
+            ("proxy_port".into(), "18093/path".into()),
+            ("proxy_user".into(), "user".into()),
+            ("proxy_password".into(), "secret".into()),
+        ]);
+        assert!(super::request::resolve_http_request(&spec, &unsafe_variables).is_err());
         Ok(())
     }
 

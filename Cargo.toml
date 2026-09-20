@@ -195,6 +195,7 @@ reqwest = { version = "0.13", default-features = false, features = [
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 http = "1"
 bytes = "1"
+hyper-util = { version = "0.1.11", features = ["tokio"] }
 
 # API 测试工具的 gRPC 动态调用；Descriptor 和动态消息不生成业务专用 Rust 类型。
 prost = "0.14.4"

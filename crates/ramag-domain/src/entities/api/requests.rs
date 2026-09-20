@@ -3,8 +3,8 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    ApiAuth, ApiBody, ApiBodyMode, ApiGrpcDescriptor, ApiParameter, ApiProtocol, ApiTlsConfig,
-    MAX_API_ASSERTION_VALUE_BYTES, MAX_API_ASSERTIONS, MAX_API_GRPC_ENDPOINT_BYTES,
+    ApiAuth, ApiBody, ApiBodyMode, ApiGrpcDescriptor, ApiParameter, ApiProtocol, ApiProxyConfig,
+    ApiTlsConfig, MAX_API_ASSERTION_VALUE_BYTES, MAX_API_ASSERTIONS, MAX_API_GRPC_ENDPOINT_BYTES,
     MAX_API_GRPC_METHOD_BYTES, MAX_API_GRPC_SERVICE_BYTES, MAX_API_HTTP_METHOD_BYTES,
     MAX_API_PARAMETER_NAME_BYTES, MAX_API_REQUEST_BODY_BYTES, MAX_API_REQUEST_NAME_BYTES,
     MAX_API_URL_TEMPLATE_BYTES, MAX_API_VARIABLE_NAME_BYTES, default_api_timeout,
@@ -12,20 +12,37 @@ use super::{
     validate_timeout,
 };
 
+/// 一次 HTTP 请求的完整领域描述。
+///
+/// 该结构只保存可持久化配置，不持有网络客户端或运行时连接。`url_template`、参数、认证、
+/// TLS 和代理会在应用层按 Environment 展开为一次性执行副本；`validate` 在保存和发送前
+/// 共同约束协议文本、正文大小、证书配置、代理边界与超时，保证基础设施驱动不需要猜测
+/// 字段之间的依赖关系。响应历史不会从此结构反向生成，因此敏感请求配置不会自动进入响应正文。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HttpRequestSpec {
+    /// 大写 ASCII HTTP 方法，例如 `GET` 或 `POST`。
     pub method: String,
+    /// 可包含 `{{name}}` Environment 占位符的目标 URL；展开后只允许 HTTP/HTTPS。
     pub url_template: String,
+    /// 追加到 URL 的查询参数；参数值在执行副本中展开并按 URL 规则编码。
     #[serde(default)]
     pub query: Vec<ApiParameter>,
+    /// 请求头参数；敏感标记控制历史和调试展示，不改变实际发送值。
     #[serde(default)]
     pub headers: Vec<ApiParameter>,
+    /// HTTP 认证配置；驱动只在内存请求中生成 Authorization 或查询参数。
     #[serde(default)]
     pub auth: ApiAuth,
+    /// 可选文本或 Multipart 正文；Multipart 的 boundary 由驱动生成而非由调用者拼接。
     #[serde(default)]
     pub body: Option<ApiBody>,
+    /// 服务端证书验证和客户端证书身份配置。
     #[serde(default)]
     pub tls: ApiTlsConfig,
+    /// 显式 HTTP 代理；HTTPS/gRPC 使用 CONNECT，明文 HTTP 使用标准代理转发。
+    #[serde(default)]
+    pub proxy: ApiProxyConfig,
+    /// 单次请求的连接、响应和流读取共享超时上限，单位为毫秒。
     #[serde(default = "default_api_timeout")]
     pub timeout_millis: u64,
 }
@@ -41,6 +58,7 @@ impl HttpRequestSpec {
             auth: ApiAuth::default(),
             body: None,
             tls: ApiTlsConfig::default(),
+            proxy: ApiProxyConfig::default(),
             timeout_millis: default_api_timeout(),
         }
     }
@@ -72,17 +90,29 @@ impl HttpRequestSpec {
             }
         }
         self.tls.validate()?;
+        self.proxy.validate()?;
         validate_timeout(self.timeout_millis)
     }
 }
 
+/// 使用 Server Reflection 或本地 Descriptor 读取 gRPC Service/Method 目录的配置。
+///
+/// 发现操作不写入请求历史，但复用与 gRPC 调用相同的 TLS、代理、变量展开和超时规则；
+/// 这样 UI 中“发现服务”和“发送请求”不会因为传输路径不同而产生安全配置漂移。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApiGrpcDiscoverySpec {
+    /// gRPC Endpoint 模板，展开后必须是带 `http` 或 `https` scheme 的 authority URL。
     pub endpoint_template: String,
+    /// Descriptor 来源；Reflection 需要建立网络连接，FileDescriptorSet 可离线解析。
     #[serde(default)]
     pub descriptor: ApiGrpcDescriptor,
+    /// 服务端证书验证和客户端证书身份配置。
     #[serde(default)]
     pub tls: ApiTlsConfig,
+    /// Reflection 连接使用的显式 HTTP 代理，并通过 CONNECT 建立 gRPC 隧道。
+    #[serde(default)]
+    pub proxy: ApiProxyConfig,
+    /// Reflection 建立连接和读取 Descriptor 的总超时，单位为毫秒。
     #[serde(default = "default_api_timeout")]
     pub timeout_millis: u64,
 }
@@ -94,6 +124,7 @@ impl ApiGrpcDiscoverySpec {
             endpoint_template: endpoint_template.into(),
             descriptor: ApiGrpcDescriptor::default(),
             tls: ApiTlsConfig::default(),
+            proxy: ApiProxyConfig::default(),
             timeout_millis: default_api_timeout(),
         }
     }
@@ -106,23 +137,41 @@ impl ApiGrpcDiscoverySpec {
         )?;
         self.descriptor.validate()?;
         self.tls.validate()?;
+        self.proxy.validate()?;
         validate_timeout(self.timeout_millis)
     }
 }
 
+/// 一次动态 gRPC 调用的可持久化描述。
+///
+/// `descriptor` 决定消息类型的来源，`metadata` 和 `message` 经过同一套 Environment 展开；
+/// 执行时驱动依据 Method Descriptor 选择 Unary、Server Streaming、Client Streaming 或
+/// 双向 Streaming，并把所有响应限制在领域层规定的大小内。该结构不保存 Channel、任务句柄
+/// 或证书内容，只保存路径和模板，便于取消、重试和跨进程持久化。
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GrpcRequestSpec {
+    /// gRPC Endpoint 模板，展开后用于 HTTP/2 建连和 TLS Server Name。
     pub endpoint_template: String,
+    /// 完整 Protobuf Service 名称，不包含前导或中间斜杠。
     pub service: String,
+    /// Service 内的方法名，不包含斜杠。
     pub method: String,
+    /// 消息 Descriptor 来源；Reflection 会先查询目标服务，文件集合则完全离线。
     #[serde(default)]
     pub descriptor: ApiGrpcDescriptor,
+    /// gRPC Metadata 参数；敏感项只影响展示和历史记录，发送时仍按原值编码。
     #[serde(default)]
     pub metadata: Vec<ApiParameter>,
+    /// 一个或多行 JSON 消息；流式方法按行解析为有界消息序列。
     #[serde(default)]
     pub message: String,
+    /// 服务端证书验证和客户端证书身份配置。
     #[serde(default)]
     pub tls: ApiTlsConfig,
+    /// 动态调用和 Reflection 共用的显式 HTTP 代理，并通过 CONNECT 建立 gRPC 隧道。
+    #[serde(default)]
+    pub proxy: ApiProxyConfig,
+    /// 单次调用的连接、RPC deadline 和流读取共享超时，单位为毫秒。
     #[serde(default = "default_api_timeout")]
     pub timeout_millis: u64,
 }
@@ -138,6 +187,7 @@ impl fmt::Debug for GrpcRequestSpec {
             .field("metadata_count", &self.metadata.len())
             .field("message_bytes", &self.message.len())
             .field("tls", &self.tls)
+            .field("proxy", &self.proxy)
             .field("timeout_millis", &self.timeout_millis)
             .finish()
     }
@@ -158,6 +208,7 @@ impl GrpcRequestSpec {
             metadata: Vec::new(),
             message: "{}".into(),
             tls: ApiTlsConfig::default(),
+            proxy: ApiProxyConfig::default(),
             timeout_millis: default_api_timeout(),
         }
     }
@@ -183,6 +234,7 @@ impl GrpcRequestSpec {
         )?;
         self.descriptor.validate()?;
         self.tls.validate()?;
+        self.proxy.validate()?;
         validate_timeout(self.timeout_millis)
     }
 }

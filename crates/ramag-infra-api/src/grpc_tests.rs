@@ -4,8 +4,8 @@ use std::sync::atomic::AtomicBool;
 
 use prost_reflect::{DescriptorPool, DynamicMessage, Value};
 use ramag_domain::entities::{
-    ApiCancellation, ApiGrpcDescriptor, ApiParameter, ApiRequestSpec, ApiResponseStatus,
-    GrpcRequestSpec, MAX_API_GRPC_STREAM_MESSAGES,
+    ApiCancellation, ApiGrpcDescriptor, ApiGrpcDiscoverySpec, ApiParameter, ApiRequestSpec,
+    ApiResponseStatus, GrpcRequestSpec, MAX_API_GRPC_STREAM_MESSAGES,
 };
 use ramag_domain::traits::ApiDriver;
 use tokio::net::TcpListener;
@@ -223,15 +223,9 @@ async fn dynamic_descriptor_driver_invokes_unary_and_keeps_metadata() {
 async fn reflection_driver_discovers_services_and_returns_grpc_status() {
     let (endpoint, server_task) = start_server(true).await;
     let driver = GrpcApiDriver::new().expect("gRPC driver initializes");
+    let discovery = ApiGrpcDiscoverySpec::new(&endpoint);
     let services = driver
-        .discover_services(
-            &endpoint,
-            &ApiGrpcDescriptor::Reflection,
-            &Default::default(),
-            5_000,
-            &BTreeMap::new(),
-            cancellation(),
-        )
+        .discover_services(&discovery, &BTreeMap::new(), cancellation())
         .await
         .expect("reflection service discovery succeeds");
     assert!(services.iter().any(|service| {

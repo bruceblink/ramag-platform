@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use ramag_domain::entities::{
-    ApiCancellation, ApiGrpcDescriptor, ApiParameter, ApiRequestSpec, ApiResponseStatus,
-    ApiTlsConfig, ApiTlsVerify, GrpcRequestSpec,
+    ApiCancellation, ApiGrpcDescriptor, ApiGrpcDiscoverySpec, ApiParameter, ApiProxyConfig,
+    ApiRequestSpec, ApiResponseStatus, ApiTlsConfig, ApiTlsVerify, GrpcRequestSpec,
 };
 use ramag_domain::error::DomainError;
 use ramag_domain::traits::ApiDriver;
@@ -40,6 +40,14 @@ fn docker_mtls_config() -> Option<ApiTlsConfig> {
     })
 }
 
+fn docker_proxy_config() -> Option<ApiProxyConfig> {
+    Some(ApiProxyConfig {
+        url: Some(std::env::var("RAMAG_TEST_API_GRPC_PROXY_URL").ok()?),
+        username: Some(std::env::var("RAMAG_TEST_API_PROXY_USERNAME").ok()?),
+        password: Some(std::env::var("RAMAG_TEST_API_PROXY_PASSWORD").ok()?),
+    })
+}
+
 fn grpc_request(endpoint: &str, message: &str) -> ApiRequestSpec {
     grpc_request_for(endpoint, "Unary", message)
 }
@@ -60,16 +68,10 @@ async fn docker_grpc_fixture_covers_reflection_unary_metadata_status_and_cancell
         return Ok(());
     };
     let driver = GrpcApiDriver::new()?;
+    let discovery = ApiGrpcDiscoverySpec::new(&endpoint);
 
     let services = driver
-        .discover_services(
-            &endpoint,
-            &ApiGrpcDescriptor::Reflection,
-            &Default::default(),
-            5_000,
-            &BTreeMap::new(),
-            cancellation(),
-        )
+        .discover_services(&discovery, &BTreeMap::new(), cancellation())
         .await?;
     assert!(services.iter().any(|service| {
         service.name == "api.docker.Echo"
@@ -224,6 +226,115 @@ async fn docker_grpc_fixture_covers_reflection_unary_metadata_status_and_cancell
             Err(error) => error,
         };
         assert!(matches!(error, DomainError::ConnectionFailed(_)));
+    }
+
+    if let Some(proxy) = docker_proxy_config() {
+        let mut proxy_variables = variables.clone();
+        proxy_variables.insert(
+            "proxy_url".into(),
+            proxy.url.clone().ok_or("代理测试缺少代理 URL")?,
+        );
+        proxy_variables.insert(
+            "proxy_username".into(),
+            proxy.username.clone().ok_or("代理测试缺少代理用户名")?,
+        );
+        proxy_variables.insert(
+            "proxy_password".into(),
+            proxy.password.clone().ok_or("代理测试缺少代理密码")?,
+        );
+        let template_proxy = ApiProxyConfig {
+            url: Some("{{proxy_url}}".into()),
+            username: Some("{{proxy_username}}".into()),
+            password: Some("{{proxy_password}}".into()),
+        };
+
+        let mut proxied_discovery = ApiGrpcDiscoverySpec::new("http://localhost:18090");
+        proxied_discovery.proxy = template_proxy.clone();
+        let services = driver
+            .discover_services(&proxied_discovery, &proxy_variables, cancellation())
+            .await?;
+        assert!(
+            services
+                .iter()
+                .any(|service| service.name == "api.docker.Echo")
+        );
+
+        let mut proxied = grpc_request("http://localhost:18090", r#"{"message":"proxy"}"#);
+        proxied = match proxied {
+            ApiRequestSpec::Grpc(mut spec) => {
+                spec.proxy = template_proxy.clone();
+                ApiRequestSpec::Grpc(spec)
+            }
+            ApiRequestSpec::Http(_) => unreachable!(),
+        };
+        let response = driver
+            .execute(&proxied, &proxy_variables, cancellation())
+            .await?;
+        assert_eq!(
+            response.status,
+            ApiResponseStatus::Grpc { code: "ok".into() }
+        );
+        assert!(String::from_utf8(response.body)?.contains("docker echo: proxy"));
+
+        let mut proxied_mtls =
+            grpc_request("https://localhost:18092", r#"{"message":"proxy-mtls"}"#);
+        proxied_mtls = match proxied_mtls {
+            ApiRequestSpec::Grpc(mut spec) => {
+                spec.tls = docker_mtls_config().ok_or("mTLS 测试缺少证书目录")?;
+                spec.proxy = template_proxy.clone();
+                ApiRequestSpec::Grpc(spec)
+            }
+            ApiRequestSpec::Http(_) => unreachable!(),
+        };
+        let response = driver
+            .execute(&proxied_mtls, &proxy_variables, cancellation())
+            .await?;
+        assert_eq!(
+            response.status,
+            ApiResponseStatus::Grpc { code: "ok".into() }
+        );
+
+        let proxied_cancelled =
+            match grpc_request("http://localhost:18090", r#"{"message":"delay:800"}"#) {
+                ApiRequestSpec::Grpc(mut spec) => {
+                    spec.proxy = template_proxy.clone();
+                    ApiRequestSpec::Grpc(spec)
+                }
+                ApiRequestSpec::Http(_) => unreachable!(),
+            };
+        let cancelled = cancellation();
+        let cancellation_driver = driver.clone();
+        let cancellation_variables = proxy_variables.clone();
+        let task = tokio::spawn({
+            let cancelled = cancelled.clone();
+            async move {
+                cancellation_driver
+                    .execute(&proxied_cancelled, &cancellation_variables, cancelled)
+                    .await
+            }
+        });
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        cancelled.store(true, Ordering::Relaxed);
+        let joined = tokio::time::timeout(Duration::from_secs(2), task)
+            .await
+            .map_err(|_| test_error("代理 gRPC cancellation did not return promptly"))?
+            .map_err(|_| test_error("代理 gRPC task did not join"))?;
+        assert!(matches!(joined, Err(DomainError::Cancelled(_))));
+
+        let mut unauthorized = grpc_request("http://localhost:18090", r#"{"message":"proxy"}"#);
+        unauthorized = match unauthorized {
+            ApiRequestSpec::Grpc(mut spec) => {
+                let mut bad_proxy = template_proxy;
+                bad_proxy.password = Some("wrong-password".into());
+                spec.proxy = bad_proxy;
+                ApiRequestSpec::Grpc(spec)
+            }
+            ApiRequestSpec::Http(_) => unreachable!(),
+        };
+        let error = driver
+            .execute(&unauthorized, &proxy_variables, cancellation())
+            .await;
+        assert!(matches!(error, Err(DomainError::ConnectionFailed(_))));
     }
     Ok(())
 }

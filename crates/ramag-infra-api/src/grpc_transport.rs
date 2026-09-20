@@ -1,20 +1,28 @@
 //! gRPC Endpoint、TLS、Metadata 和响应快照适配。
 
+use std::future::Future;
+use std::io;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
 use base64::Engine as _;
 use http::Uri;
+use hyper_util::rt::TokioIo;
 use prost_reflect::DynamicMessage;
 use ramag_domain::entities::{
-    ApiCancellation, ApiParameter, ApiProtocol, ApiResponseSnapshot, ApiResponseSnapshotParts,
-    ApiResponseStatus, ApiTlsConfig, ApiTlsVerify, MAX_API_PARAMETER_COUNT,
-    MAX_API_RESPONSE_BODY_BYTES,
+    ApiCancellation, ApiParameter, ApiProtocol, ApiProxyConfig, ApiResponseSnapshot,
+    ApiResponseSnapshotParts, ApiResponseStatus, ApiTlsConfig, ApiTlsVerify,
+    MAX_API_PARAMETER_COUNT, MAX_API_RESPONSE_BODY_BYTES,
 };
 use ramag_domain::error::{DomainError, Result as DomainResult};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, SignatureScheme};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
+use tonic::codegen::Service;
 use tonic::metadata::{
     AsciiMetadataKey, BinaryMetadataKey, BinaryMetadataValue, KeyAndValueRef, MetadataMap,
     MetadataValue,
@@ -100,12 +108,139 @@ fn load_ca_certificate(tls: &ApiTlsConfig) -> DomainResult<Certificate> {
 
 pub(super) async fn connect_endpoint(
     endpoint: Endpoint,
+    proxy: &ApiProxyConfig,
     cancelled: ApiCancellation,
 ) -> DomainResult<Channel> {
     tokio::select! {
-        result = endpoint.connect() => result.map_err(|_| DomainError::ConnectionFailed("gRPC 连接失败".into())),
+        result = connect_endpoint_inner(endpoint, proxy) => result.map_err(|_| DomainError::ConnectionFailed("gRPC 连接失败".into())),
         _ = crate::http::wait_until_cancelled(cancelled) => Err(DomainError::Cancelled("gRPC 连接已取消".into())),
     }
+}
+
+async fn connect_endpoint_inner(
+    endpoint: Endpoint,
+    proxy: &ApiProxyConfig,
+) -> Result<Channel, tonic::transport::Error> {
+    if proxy.is_enabled() {
+        endpoint
+            .connect_with_connector(ProxyConnector::new(proxy.clone()))
+            .await
+    } else {
+        endpoint.connect().await
+    }
+}
+
+/// 代理 CONNECT 响应头的最大字节数，防止未受信任代理持续发送头部而占用连接任务内存。
+const MAX_PROXY_RESPONSE_BYTES: usize = 64 * 1024;
+
+/// 为 tonic 提供显式代理隧道的连接器。
+///
+/// tonic 把目标 `Uri` 交给该结构后，它只建立一条到用户指定 HTTP 代理的 TCP 连接，并
+/// 完成一次有界的 CONNECT 握手。成功后的原始字节流会交回 `Endpoint`：HTTP/2 协商和
+/// HTTPS/mTLS 握手仍由 tonic/rustls 对原始目标主机执行，因此代理无法替代服务端身份校验。
+/// 代理配置按请求克隆，避免并发请求共享可变认证状态。
+#[derive(Clone)]
+struct ProxyConnector {
+    proxy: ApiProxyConfig,
+}
+
+impl ProxyConnector {
+    fn new(proxy: ApiProxyConfig) -> Self {
+        Self { proxy }
+    }
+}
+
+impl Service<Uri> for ProxyConnector {
+    type Response = TokioIo<TcpStream>;
+    type Error = io::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, target: Uri) -> Self::Future {
+        let proxy = self.proxy.clone();
+        Box::pin(async move { connect_through_proxy(&proxy, &target).await })
+    }
+}
+
+async fn connect_through_proxy(
+    proxy: &ApiProxyConfig,
+    target: &Uri,
+) -> Result<TokioIo<TcpStream>, io::Error> {
+    // 先验证并连接代理，再把目标 authority 写入 CONNECT；响应只读取到空行，超过上限、
+    // 非 2xx 状态和无效 authority 都立即关闭 Future。外层 select 丢弃本 Future 时，TCP
+    // stream 也随之释放，从而让取消请求不遗留后台隧道。
+    let proxy_uri: Uri = proxy
+        .url
+        .as_deref()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "代理 URL 缺失"))?
+        .parse()
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "代理 URL 无效"))?;
+    let proxy_authority = proxy_uri
+        .authority()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "代理 URL 缺少主机"))?;
+    let proxy_host = proxy_authority.host().trim_matches(['[', ']']);
+    let proxy_port = proxy_authority.port_u16().unwrap_or(80);
+    let target_authority = target
+        .authority()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "gRPC Endpoint 缺少主机"))?;
+    let target_authority = if target_authority.port_u16().is_some() {
+        target_authority.to_string()
+    } else {
+        let port = if target.scheme_str() == Some("https") {
+            443
+        } else {
+            80
+        };
+        format!("{target_authority}:{port}")
+    };
+    let mut stream = TcpStream::connect((proxy_host, proxy_port)).await?;
+    let mut request =
+        format!("CONNECT {target_authority} HTTP/1.1\r\nHost: {target_authority}\r\n").into_bytes();
+    if let (Some(username), Some(password)) = (&proxy.username, &proxy.password) {
+        let credentials = format!("{username}:{password}");
+        let encoded = base64::engine::general_purpose::STANDARD.encode(credentials);
+        request.extend_from_slice(b"Proxy-Authorization: Basic ");
+        request.extend_from_slice(encoded.as_bytes());
+        request.extend_from_slice(b"\r\n");
+    }
+    request.extend_from_slice(b"\r\n");
+    stream.write_all(&request).await?;
+
+    let mut response = Vec::with_capacity(1024);
+    loop {
+        let mut byte = [0_u8; 1];
+        stream.read_exact(&mut byte).await?;
+        response.push(byte[0]);
+        if response.ends_with(b"\r\n\r\n") {
+            break;
+        }
+        if response.len() > MAX_PROXY_RESPONSE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "代理 CONNECT 响应超过限制",
+            ));
+        }
+    }
+    let status_line = response
+        .split(|byte| *byte == b'\n')
+        .next()
+        .and_then(|line| std::str::from_utf8(line).ok())
+        .unwrap_or_default();
+    let status = status_line
+        .split_whitespace()
+        .nth(1)
+        .and_then(|value| value.parse::<u16>().ok())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "代理 CONNECT 响应无效"))?;
+    if !(200..300).contains(&status) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "代理 CONNECT 被拒绝",
+        ));
+    }
+    Ok(TokioIo::new(stream))
 }
 
 pub(super) fn request_metadata(

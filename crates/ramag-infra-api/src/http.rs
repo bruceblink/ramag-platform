@@ -16,17 +16,25 @@ use http::header::{CONTENT_TYPE, HeaderName, HeaderValue};
 use http::{HeaderMap, Method};
 use ramag_domain::entities::{
     ApiAuth, ApiBodyMode, ApiCancellation, ApiKeyLocation, ApiMultipartValue, ApiParameter,
-    ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus,
-    ApiTlsConfig, ApiTlsVerify, MAX_API_MULTIPART_FILE_BYTES, MAX_API_MULTIPART_FILE_NAME_BYTES,
-    MAX_API_MULTIPART_PATH_BYTES, MAX_API_MULTIPART_TOTAL_BYTES, MAX_API_PARAMETER_COUNT,
-    MAX_API_PARAMETER_NAME_BYTES, MAX_API_PARAMETER_VALUE_BYTES, MAX_API_REQUEST_BODY_BYTES,
-    MAX_API_RESPONSE_BODY_BYTES, MAX_API_URL_TEMPLATE_BYTES,
+    ApiProtocol, ApiProxyConfig, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts,
+    ApiResponseStatus, ApiTlsConfig, MAX_API_MULTIPART_FILE_BYTES,
+    MAX_API_MULTIPART_FILE_NAME_BYTES, MAX_API_MULTIPART_PATH_BYTES, MAX_API_MULTIPART_TOTAL_BYTES,
+    MAX_API_PARAMETER_COUNT, MAX_API_PARAMETER_NAME_BYTES, MAX_API_PARAMETER_VALUE_BYTES,
+    MAX_API_REQUEST_BODY_BYTES, MAX_API_RESPONSE_BODY_BYTES, MAX_API_URL_TEMPLATE_BYTES,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::ApiDriver;
 use reqwest::{Client, RequestBuilder, Response, Url};
 use rustls::crypto::CryptoProvider;
 use tokio::io::AsyncReadExt as _;
+
+#[path = "http_client.rs"]
+mod client;
+#[path = "http_proxy.rs"]
+mod proxy;
+
+use client::build_client;
+pub(crate) use proxy::resolve_proxy_config;
 
 pub(crate) const MAX_TLS_FILE_BYTES: usize = 4 * 1024 * 1024;
 pub(crate) const CANCELLATION_POLL: Duration = Duration::from_millis(10);
@@ -41,7 +49,7 @@ impl HttpApiDriver {
     pub fn new() -> Result<Self> {
         ensure_tls_provider()?;
         Ok(Self {
-            client: build_client(&ApiTlsConfig::default())?,
+            client: build_client(&ApiTlsConfig::default(), &ApiProxyConfig::default())?,
         })
     }
 }
@@ -70,10 +78,11 @@ impl ApiDriver for HttpApiDriver {
         spec.validate().map_err(DomainError::InvalidConfig)?;
         ensure_not_cancelled(&cancelled)?;
 
-        let client = if spec.tls == ApiTlsConfig::default() {
+        let proxy = resolve_proxy_config(&spec.proxy, variables)?;
+        let client = if spec.tls == ApiTlsConfig::default() && proxy == ApiProxyConfig::default() {
             self.client.clone()
         } else {
-            build_client(&spec.tls)?
+            build_client(&spec.tls, &proxy)?
         };
         let method = Method::from_bytes(spec.method.as_bytes())
             .map_err(|_| DomainError::InvalidConfig("HTTP 方法无效".into()))?;
@@ -497,34 +506,6 @@ fn is_sensitive_header(name: &str) -> bool {
         name.to_ascii_lowercase().as_str(),
         "authorization" | "proxy-authorization" | "cookie" | "set-cookie" | "www-authenticate"
     )
-}
-
-fn build_client(tls: &ApiTlsConfig) -> Result<Client> {
-    // 为每种 TLS 配置创建独立客户端，加载受限大小的证书材料并关闭自动重定向。
-    let mut builder = Client::builder()
-        .connect_timeout(Duration::from_secs(10))
-        .redirect(reqwest::redirect::Policy::none())
-        .no_proxy()
-        .user_agent(concat!("Ramag/", env!("CARGO_PKG_VERSION")));
-    if matches!(tls.verify, ApiTlsVerify::None) {
-        builder = builder.danger_accept_invalid_certs(true);
-    }
-    if let Some(path) = &tls.ca_cert_path {
-        let bytes = read_tls_file(path, "CA 证书")?;
-        let certificate = reqwest::Certificate::from_pem(&bytes)
-            .map_err(|_| DomainError::InvalidConfig("CA 证书格式无效".into()))?;
-        builder = builder.add_root_certificate(certificate);
-    }
-    if let (Some(cert_path), Some(key_path)) = (&tls.client_cert_path, &tls.client_key_path) {
-        let mut identity_bytes = read_tls_file(cert_path, "客户端证书")?;
-        identity_bytes.extend_from_slice(&read_tls_file(key_path, "客户端密钥")?);
-        let identity = reqwest::Identity::from_pem(&identity_bytes)
-            .map_err(|_| DomainError::InvalidConfig("客户端证书或密钥格式无效".into()))?;
-        builder = builder.identity(identity);
-    }
-    builder
-        .build()
-        .map_err(|_| DomainError::InvalidConfig("创建 HTTP 客户端失败".into()))
 }
 
 pub(crate) fn read_tls_file(path: &str, label: &str) -> Result<Vec<u8>> {

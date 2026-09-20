@@ -10,6 +10,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use serde::{Deserialize, Serialize};
+use url::Url;
 use uuid::Uuid;
 
 pub const MAX_API_WORKSPACES: usize = 32;
@@ -43,6 +44,8 @@ pub const MAX_API_ERROR_BYTES: usize = 64 * 1024;
 pub const MAX_API_HISTORY_BODY_BYTES: usize = 16 * 1024;
 pub const MAX_API_TIMEOUT_MILLIS: u64 = 5 * 60 * 1000;
 pub const MAX_API_TLS_PATH_BYTES: usize = 32 * 1024;
+pub const MAX_API_PROXY_URL_BYTES: usize = 8 * 1024;
+pub const MAX_API_PROXY_CREDENTIAL_BYTES: usize = 8 * 1024;
 pub const MAX_API_MULTIPART_PARTS: usize = 64;
 pub const MAX_API_MULTIPART_PATH_BYTES: usize = 32 * 1024;
 pub const MAX_API_MULTIPART_FILE_NAME_BYTES: usize = 1024;
@@ -250,6 +253,100 @@ impl ApiTlsConfig {
         }
         Ok(())
     }
+}
+
+/// API 工作台持久化的显式 HTTP 代理配置。
+///
+/// `url` 只描述代理节点，不允许在其中嵌入认证信息；认证字段独立保存，避免 URL、日志和
+/// 导入导出文本意外泄露密码。HTTPS 和 gRPC 隧道使用 HTTP CONNECT，明文 HTTP 由客户端
+/// 使用标准代理请求格式转发。字段允许使用 `{{environment_variable}}` 模板，保存时执行
+/// 结构与长度检查，发送前由应用层或传输层展开并调用 [`Self::validate_resolved`] 进行完整
+/// 的协议、主机和路径校验。未配置 `url` 时请求保持直连，不读取系统代理或 PAC 配置。
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct ApiProxyConfig {
+    /// 代理节点 URL；展开后只接受 `http://host[:port]`，不包含路径、查询或片段。
+    #[serde(default)]
+    pub url: Option<String>,
+    /// 可选 Basic 认证用户名；与密码必须同时出现，允许通过环境变量模板提供。
+    #[serde(default)]
+    pub username: Option<String>,
+    /// 可选 Basic 认证密码；Debug 输出只保留是否配置的状态，绝不显示实际值。
+    #[serde(default)]
+    pub password: Option<String>,
+}
+
+impl fmt::Debug for ApiProxyConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ApiProxyConfig")
+            .field("url", &self.url)
+            .field("username", &self.username)
+            .field("password", &self.password.as_ref().map(|_| "[REDACTED]"))
+            .finish()
+    }
+}
+
+impl ApiProxyConfig {
+    pub(super) fn validate(&self) -> Result<(), String> {
+        let credentials_present = self.username.is_some() || self.password.is_some();
+        let Some(url) = self.url.as_deref() else {
+            if credentials_present {
+                return Err("代理用户名和密码必须在配置代理地址后使用".into());
+            }
+            return Ok(());
+        };
+        validate_required_text("代理 URL", url, MAX_API_PROXY_URL_BYTES)?;
+        if self.username.is_some() != self.password.is_some() {
+            return Err("代理用户名和密码必须同时配置".into());
+        }
+        if let Some(username) = &self.username {
+            validate_text("代理用户名", username, MAX_API_PROXY_CREDENTIAL_BYTES, true)?;
+        }
+        if let Some(password) = &self.password {
+            validate_text("代理密码", password, MAX_API_PROXY_CREDENTIAL_BYTES, true)?;
+        }
+        if !url.contains("{{") {
+            validate_proxy_url(url)?;
+        }
+        Ok(())
+    }
+
+    /// 校验变量展开后的代理配置，拒绝被环境变量替换出的不安全地址或内嵌凭据。
+    ///
+    /// 调用方必须在建立 TCP 连接或构造 HTTP 客户端前调用它；这样即使模板变量来自用户
+    /// 编辑的 Environment，也不会绕过 `http` 协议、无路径 URL 和分离认证信息的限制。
+    pub fn validate_resolved(&self) -> Result<(), String> {
+        self.validate()?;
+        if let Some(url) = self.url.as_deref() {
+            validate_proxy_url(url)?;
+        }
+        Ok(())
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.url.is_some()
+    }
+}
+
+/// 解析已经展开的代理地址；模板文本由上层先替换，再在此处执行完整 URL 限制。
+///
+/// 该函数不返回解析后的 `Url`，以免持久化层意外保留带认证信息的派生对象；它只负责
+/// 验证，实际传输层在构造连接时重新解析同一受限字符串。
+fn validate_proxy_url(url: &str) -> Result<(), String> {
+    let parsed = Url::parse(url).map_err(|_| "代理 URL 无效".to_string())?;
+    if parsed.scheme() != "http" {
+        return Err("代理 URL 只支持 http scheme".into());
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("代理认证信息必须单独配置，不能写入代理 URL".into());
+    }
+    if parsed.host_str().is_none() || parsed.port_or_known_default().is_none() {
+        return Err("代理 URL 必须包含有效主机和端口".into());
+    }
+    if parsed.path() != "/" || parsed.query().is_some() || parsed.fragment().is_some() {
+        return Err("代理 URL 不能包含路径、查询参数或片段".into());
+    }
+    Ok(())
 }
 
 #[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
