@@ -8,8 +8,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use ramag_domain::entities::{
-    ApiCancellation, ApiEnvironment, ApiExecutionOutcome, ApiHistoryRecord, ApiRequestRecord,
-    ApiRequestSpec, ApiResponseSnapshot, ApiWorkspace, ApiWorkspaceId,
+    ApiCancellation, ApiEnvironment, ApiExecutionOutcome, ApiGrpcDiscoverySpec,
+    ApiGrpcServiceSummary, ApiHistoryRecord, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot,
+    ApiWorkspace, ApiWorkspaceId,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{ApiDriver, Storage};
@@ -75,6 +76,29 @@ impl ApiService {
                     DomainError::Other(format!("初始化 API Tokio runtime 失败：{error}"))
                 })?;
             runtime.block_on(driver.execute(&request, &variables, cancelled))
+        })
+        .await
+    }
+
+    /// 通过 gRPC 驱动读取 Service/Method 目录；发现请求不写入工作区或执行历史。
+    pub async fn discover_grpc_services(
+        &self,
+        request: &ApiGrpcDiscoverySpec,
+        variables: &BTreeMap<String, String>,
+        cancelled: ApiCancellation,
+    ) -> Result<Vec<ApiGrpcServiceSummary>> {
+        request.validate().map_err(DomainError::InvalidConfig)?;
+        let driver = self.grpc_driver.clone();
+        let request = request.clone();
+        let variables = variables.clone();
+        crate::run_blocking(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|error| {
+                    DomainError::Other(format!("初始化 API Tokio runtime 失败：{error}"))
+                })?;
+            runtime.block_on(driver.discover_grpc_services(&request, &variables, cancelled))
         })
         .await
     }

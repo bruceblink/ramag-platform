@@ -180,12 +180,14 @@ flowchart LR
 `ramag-tool-api` 已接入 Ramag 工具注册和主窗口 Shell，提供第一版 HTTP/gRPC Unary 请求工作区：
 
 - 左侧显示工作区、当前请求名称、协议和已保存请求摘要；顶部支持 HTTP/gRPC 切换、保存、发送和取消。
-- HTTP 编辑器支持 Method、URL 和有界请求正文；gRPC 编辑器支持 Endpoint、Service、Method、Metadata 名称/值和 Protobuf JSON 消息。
+- HTTP 编辑器支持 Method、URL 和有界请求正文；gRPC 编辑器支持 Endpoint、Service、Method、Metadata 名称/值和 Protobuf JSON 消息；通过 Server Reflection 读取 Service/Method 目录后，可直接选择目录中的方法。
 - 响应区显示 HTTP 状态或 gRPC Status、耗时、大小、响应 Headers/Metadata 和有界正文预览；响应失败会保留具体错误提示。
 - `ApiService` 在应用边界重复执行请求校验，并在受控 app worker 中为 HTTP/gRPC 驱动建立 Tokio runtime，避免 GPUI 后台执行器缺少 Tokio reactor 时发送请求失败。
 - 保存操作写入 API Workspace 的默认 Collection；发送操作带有取消标记和请求代次检查，迟到的旧结果不会覆盖当前请求。
 
 UI 验收证据：`ramag-tool-api` headless GPUI 测试覆盖 360、640、1024 和 1440 像素宽度，验证请求/响应边界、协议切换、发送/保存状态和实际 HTTP/gRPC 请求。双协议 UI 测试连接本机 Docker 服务并通过真实驱动返回 HTTP 200 和 gRPC `ok`；gRPC 测试服务要求的 `x-request: docker` Metadata 已由界面字段发送。Computer Use 当前返回可控应用列表为空，因此本切片没有真实 Windows 窗口截图或键盘/鼠标证据，不能将 headless 结果描述为原生窗口验收。
+
+API 工作台 gRPC Reflection 发现修正记录（2026-09-20）：`ramag-domain` 增加独立的 gRPC Service 发现请求和目录项模型，`ramag-app` 通过已有 gRPC 驱动边界执行发现并传播 Environment 变量、超时和取消；`ramag-tool-api` 增加“发现”操作、Service/Method 目录和方法选择按钮。界面不展示标准 Reflection 内部 Service，避免自动选择到协议发现服务；本机 Docker UI 测试实际读取 `api.docker.Echo` 并选择 `Unary` 后完成 gRPC 请求。领域测试 214 项、应用测试 223 项、API 工作台测试 15 项通过。
 
 本机 Docker 服务保持运行供复验：`ramag-api-http-test` 使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，绑定 `127.0.0.1:18089 -> 8080`；`ramag-api-grpc-test` 使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，绑定 `127.0.0.1:18090 -> 50051`。两个容器健康检查均为 `healthy`。API-005 的断言、环境变量编辑、执行历史和结果摘要在下一节记录。
 

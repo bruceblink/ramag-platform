@@ -9,8 +9,8 @@ use http::uri::PathAndQuery;
 use prost::Message;
 use prost_reflect::{DynamicMessage, MessageDescriptor};
 use ramag_domain::entities::{
-    ApiCancellation, ApiGrpcDescriptor, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot,
-    ApiTlsConfig,
+    ApiCancellation, ApiGrpcDescriptor, ApiGrpcDiscoverySpec, ApiGrpcMethodSummary,
+    ApiGrpcServiceSummary, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiTlsConfig,
 };
 use ramag_domain::error::{DomainError, Result as DomainResult};
 use ramag_domain::traits::ApiDriver;
@@ -32,20 +32,8 @@ use transport::{
 
 const MAX_DISCOVERED_SERVICES: usize = 256;
 
-/// 供 API 工作台展示的 gRPC 方法摘要。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GrpcServiceMethod {
-    pub name: String,
-    pub client_streaming: bool,
-    pub server_streaming: bool,
-}
-
-/// 供 API 工作台展示的 gRPC Service 目录项。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GrpcServiceSummary {
-    pub name: String,
-    pub methods: Vec<GrpcServiceMethod>,
-}
+pub type GrpcServiceMethod = ApiGrpcMethodSummary;
+pub type GrpcServiceSummary = ApiGrpcServiceSummary;
 
 /// 无状态的动态 gRPC 驱动，支持四种方法类型。
 #[derive(Clone, Debug, Default)]
@@ -99,6 +87,24 @@ impl GrpcApiDriver {
 impl ApiDriver for GrpcApiDriver {
     fn protocol(&self) -> ApiProtocol {
         ApiProtocol::Grpc
+    }
+
+    async fn discover_grpc_services(
+        &self,
+        request: &ApiGrpcDiscoverySpec,
+        variables: &BTreeMap<String, String>,
+        cancelled: ApiCancellation,
+    ) -> DomainResult<Vec<ApiGrpcServiceSummary>> {
+        request.validate().map_err(DomainError::InvalidConfig)?;
+        self.discover_services(
+            &request.endpoint_template,
+            &request.descriptor,
+            &request.tls,
+            request.timeout_millis,
+            variables,
+            cancelled,
+        )
+        .await
     }
 
     /// 校验、发现 Descriptor、构造动态消息并执行一次有界 gRPC 调用。

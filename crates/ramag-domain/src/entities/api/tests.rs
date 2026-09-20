@@ -32,6 +32,16 @@ fn grpc_request_rejects_mismatched_client_certificate_paths() {
 }
 
 #[test]
+fn grpc_discovery_defaults_to_reflection_and_validates_endpoint() {
+    let request = ApiGrpcDiscoverySpec::new("http://127.0.0.1:50051");
+    assert!(matches!(request.descriptor, ApiGrpcDescriptor::Reflection));
+    assert!(request.validate().is_ok());
+
+    let invalid = ApiGrpcDiscoverySpec::new("");
+    assert!(invalid.validate().is_err());
+}
+
+#[test]
 fn debug_output_redacts_auth_body_and_environment_values() {
     let mut environment = ApiEnvironment::new("dev");
     environment

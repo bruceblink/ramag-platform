@@ -4,8 +4,11 @@ use std::collections::BTreeMap;
 
 use async_trait::async_trait;
 
-use crate::entities::{ApiCancellation, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot};
-use crate::error::Result;
+use crate::entities::{
+    ApiCancellation, ApiGrpcDiscoverySpec, ApiGrpcServiceSummary, ApiProtocol, ApiRequestSpec,
+    ApiResponseSnapshot,
+};
+use crate::error::{DomainError, Result};
 
 #[async_trait]
 pub trait ApiDriver: Send + Sync {
@@ -19,4 +22,17 @@ pub trait ApiDriver: Send + Sync {
         variables: &BTreeMap<String, String>,
         cancelled: ApiCancellation,
     ) -> Result<ApiResponseSnapshot>;
+
+    /// 发现 gRPC Service/Method；不支持发现的协议驱动返回明确的配置错误。
+    async fn discover_grpc_services(
+        &self,
+        request: &ApiGrpcDiscoverySpec,
+        variables: &BTreeMap<String, String>,
+        cancelled: ApiCancellation,
+    ) -> Result<Vec<ApiGrpcServiceSummary>> {
+        let _ = (request, variables, cancelled);
+        Err(DomainError::InvalidConfig(
+            "当前驱动不支持 gRPC Service 发现".into(),
+        ))
+    }
 }

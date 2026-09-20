@@ -307,6 +307,94 @@ impl ApiView {
         .detach();
     }
 
+    /// 使用当前 Environment 展开 Endpoint，并读取 gRPC Service/Method 目录。
+    pub(crate) fn discover_grpc(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.protocol != ApiProtocol::Grpc {
+            return;
+        }
+        let Some(service) = self.service.clone() else {
+            self.notice = Some(("API 服务尚未接入".into(), true));
+            cx.notify();
+            return;
+        };
+        let environment = match environment_from_view(self, cx) {
+            Ok(environment) => environment,
+            Err(error) => {
+                self.notice = Some((error.to_string(), true));
+                cx.notify();
+                return;
+            }
+        };
+        let request = ApiGrpcDiscoverySpec::new(input_value(&self.grpc_endpoint, cx));
+        let variables = environment.execution_variables();
+        self.grpc_discovery_generation = self.grpc_discovery_generation.wrapping_add(1);
+        let generation = self.grpc_discovery_generation;
+        if let Some(previous) = &self.grpc_discovery_cancelled {
+            previous.store(true, Ordering::Relaxed);
+        }
+        let cancelled = new_api_cancellation();
+        self.grpc_discovery_cancelled = Some(cancelled.clone());
+        self.grpc_discovering = true;
+        self.grpc_services.clear();
+        self.notice = None;
+        cx.notify();
+        cx.spawn_in(window, async move |this, async_cx| {
+            let result = service
+                .discover_grpc_services(&request, &variables, cancelled)
+                .await;
+            let _ = this.update_in(async_cx, |view, window, cx| {
+                if view.grpc_discovery_generation != generation {
+                    return;
+                }
+                view.grpc_discovering = false;
+                view.grpc_discovery_cancelled = None;
+                match result {
+                    Ok(services) => {
+                        let services = services
+                            .into_iter()
+                            .filter(|service| {
+                                !matches!(
+                                    service.name.as_str(),
+                                    "grpc.reflection.v1.ServerReflection"
+                                        | "grpc.reflection.v1alpha.ServerReflection"
+                                )
+                            })
+                            .collect::<Vec<_>>();
+                        let method_count = services
+                            .iter()
+                            .map(|service| service.methods.len())
+                            .sum::<usize>();
+                        if let Some(service_summary) = services.first()
+                            && let Some(method) = service_summary.methods.first()
+                        {
+                            view.grpc_service.update(cx, |input, cx| {
+                                input.set_value(service_summary.name.clone(), window, cx)
+                            });
+                            view.grpc_method.update(cx, |input, cx| {
+                                input.set_value(method.name.clone(), window, cx)
+                            });
+                        }
+                        view.grpc_services = services;
+                        view.notice = Some((
+                            format!(
+                                "已发现 {} 个 Service、{} 个 Method",
+                                view.grpc_services.len(),
+                                method_count
+                            ),
+                            false,
+                        ));
+                    }
+                    Err(error) => {
+                        view.grpc_services.clear();
+                        view.notice = Some((format!("gRPC Service 发现失败：{error}"), true));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
     /// 把请求、断言和当前环境写入默认 Collection，Storage 负责加密。
     pub(crate) fn save(&mut self, cx: &mut Context<Self>) {
         let Some(service) = self.service.clone() else {

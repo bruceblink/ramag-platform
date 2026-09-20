@@ -6,7 +6,8 @@ pub mod traits;
 
 pub use entities::{
     ApiAssertion, ApiAuth, ApiBody, ApiCancellation, ApiCollection, ApiCollectionId,
-    ApiEnvironment, ApiEnvironmentId, ApiGrpcDescriptor, ApiImportBundle, ApiImportFormat,
+    ApiEnvironment, ApiEnvironmentId, ApiGrpcDescriptor, ApiGrpcDiscoverySpec,
+    ApiGrpcMethodSummary, ApiGrpcServiceSummary, ApiImportBundle, ApiImportFormat,
     ApiImportSummary, ApiKeyLocation, ApiParameter, ApiProtocol, ApiRequestId, ApiRequestRecord,
     ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiTlsConfig,
     ApiTlsVerify, ApiWorkspace, ApiWorkspaceId, ContainerImageOperationKind,

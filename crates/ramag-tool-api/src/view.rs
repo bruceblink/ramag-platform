@@ -14,21 +14,26 @@ use gpui_component::{
 };
 use ramag_app::{ApiService, new_api_cancellation};
 use ramag_domain::entities::{
-    ApiAssertionResult, ApiAuth, ApiBody, ApiBodyMode, ApiCollection, ApiCollectionRunResult,
-    ApiEnvironment, ApiExtractedVariable, ApiHistoryRecord, ApiMultipartPart, ApiMultipartValue,
-    ApiParameter, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseStatus,
-    ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
+    ApiAssertionResult, ApiAuth, ApiBody, ApiBodyMode, ApiCancellation, ApiCollection,
+    ApiCollectionRunResult, ApiEnvironment, ApiExtractedVariable, ApiGrpcDiscoverySpec,
+    ApiGrpcServiceSummary, ApiHistoryRecord, ApiMultipartPart, ApiMultipartValue, ApiParameter,
+    ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseStatus, ApiWorkspace,
+    GrpcRequestSpec, HttpRequestSpec,
 };
 use ramag_domain::error::{DomainError, Result};
 
 #[path = "context.rs"]
 mod context;
+#[path = "lifecycle.rs"]
+mod lifecycle;
 #[path = "operations.rs"]
 mod operations;
 #[path = "render.rs"]
 mod render;
 #[path = "render_body.rs"]
 mod render_body;
+#[path = "render_grpc.rs"]
+mod render_grpc;
 #[path = "render_helpers.rs"]
 mod render_helpers;
 
@@ -61,6 +66,10 @@ pub struct ApiView {
     pub(crate) grpc_metadata_name: Entity<InputState>,
     pub(crate) grpc_metadata_value: Entity<InputState>,
     pub(crate) grpc_message: Entity<InputState>,
+    pub(crate) grpc_services: Vec<ApiGrpcServiceSummary>,
+    pub(crate) grpc_discovering: bool,
+    pub(crate) grpc_discovery_generation: u64,
+    pub(crate) grpc_discovery_cancelled: Option<ApiCancellation>,
     pub(crate) response: Option<ApiResponseSnapshot>,
     pub(crate) assertion_results: Vec<ApiAssertionResult>,
     pub(crate) extracted_variables: Vec<ApiExtractedVariable>,
@@ -181,6 +190,10 @@ impl ApiView {
                 Some("json"),
                 6,
             ),
+            grpc_services: Vec::new(),
+            grpc_discovering: false,
+            grpc_discovery_generation: 0,
+            grpc_discovery_cancelled: None,
             response: None,
             assertion_results: Vec::new(),
             extracted_variables: Vec::new(),
@@ -205,38 +218,6 @@ impl ApiView {
 
     pub(crate) fn is_stacked(window: &Window) -> bool {
         Self::main_content_width(window) < API_STACK_BREAKPOINT
-    }
-
-    pub(crate) fn set_protocol(&mut self, protocol: ApiProtocol, cx: &mut Context<Self>) {
-        self.protocol = protocol;
-        self.response = None;
-        self.assertion_results.clear();
-        self.extracted_variables.clear();
-        self.last_collection_run = None;
-        self.notice = None;
-        cx.notify();
-    }
-
-    pub(crate) fn set_http_body_mode(&mut self, mode: ApiBodyMode, cx: &mut Context<Self>) {
-        self.http_body_mode = mode;
-        self.http_body_content_type = match mode {
-            ApiBodyMode::Text => "application/json".into(),
-            ApiBodyMode::Multipart => String::new(),
-        };
-        self.notice = None;
-        cx.notify();
-    }
-
-    pub(crate) fn cancel(&mut self, cx: &mut Context<Self>) {
-        if let Some(cancelled) = &self.cancelled {
-            cancelled.store(true, Ordering::Relaxed);
-        }
-        if self.loading {
-            self.request_generation = self.request_generation.wrapping_add(1);
-            self.loading = false;
-            self.notice = Some(("请求已取消".into(), false));
-            cx.notify();
-        }
     }
 
     /// 异步读取首个本地工作区；读取失败保留当前空白工作区，避免启动时阻塞工具页面。
@@ -568,6 +549,9 @@ impl GrpcRequestMessage for GrpcRequestSpec {
 #[cfg(test)]
 #[path = "body_tests.rs"]
 mod body_tests;
+#[cfg(test)]
+#[path = "view_docker_tests.rs"]
+mod docker_tests;
 #[cfg(test)]
 #[path = "view_tests.rs"]
 mod tests;

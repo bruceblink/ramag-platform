@@ -76,6 +76,40 @@ impl HttpRequestSpec {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApiGrpcDiscoverySpec {
+    pub endpoint_template: String,
+    #[serde(default)]
+    pub descriptor: ApiGrpcDescriptor,
+    #[serde(default)]
+    pub tls: ApiTlsConfig,
+    #[serde(default = "default_api_timeout")]
+    pub timeout_millis: u64,
+}
+
+impl ApiGrpcDiscoverySpec {
+    /// 创建使用 Server Reflection 的 gRPC Service 发现请求。
+    pub fn new(endpoint_template: impl Into<String>) -> Self {
+        Self {
+            endpoint_template: endpoint_template.into(),
+            descriptor: ApiGrpcDescriptor::default(),
+            tls: ApiTlsConfig::default(),
+            timeout_millis: default_api_timeout(),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        validate_required_text(
+            "gRPC Endpoint 模板",
+            &self.endpoint_template,
+            MAX_API_GRPC_ENDPOINT_BYTES,
+        )?;
+        self.descriptor.validate()?;
+        self.tls.validate()?;
+        validate_timeout(self.timeout_millis)
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GrpcRequestSpec {
     pub endpoint_template: String,

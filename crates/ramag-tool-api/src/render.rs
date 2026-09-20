@@ -201,7 +201,7 @@ fn render_editor(
     let stacked = ApiView::is_stacked(window);
     let request_editor = match view.protocol {
         ApiProtocol::Http => render_http_editor(view, cx, theme),
-        ApiProtocol::Grpc => render_grpc_editor(view, theme),
+        ApiProtocol::Grpc => render_grpc::render_editor(view, cx, theme),
     };
     let mut request_pane = v_flex()
         .id("api-request-pane")
@@ -311,42 +311,6 @@ fn render_http_editor(
                 ),
         )
         .child(render_body::render_http_body(view, cx, theme))
-        .into_any_element()
-}
-
-fn render_grpc_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::AnyElement {
-    v_flex()
-        .id("api-grpc-fields")
-        .debug_selector(|| "api-grpc-fields".into())
-        .w_full()
-        .min_w_0()
-        .gap(px(10.0))
-        .child(row().child(field(
-            "Descriptor",
-            div().text_sm().child("Server Reflection"),
-        )))
-        .child(
-            row()
-                .child(field(
-                    "Metadata name",
-                    Input::new(&view.grpc_metadata_name).small(),
-                ))
-                .child(field(
-                    "Metadata value",
-                    Input::new(&view.grpc_metadata_value).small(),
-                )),
-        )
-        .child(
-            v_flex()
-                .gap(px(5.0))
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("Protobuf JSON（流式请求每行一个对象）"),
-                )
-                .child(Input::new(&view.grpc_message).small()),
-        )
         .into_any_element()
 }
 

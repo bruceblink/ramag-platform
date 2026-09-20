@@ -21,7 +21,7 @@ pub(super) fn render_collection_button(
         .debug_selector(|| "api-run-collection".into())
         .xsmall()
         .label("运行 Collection")
-        .disabled(view.loading || view.saving || view.importing)
+        .disabled(view.loading || view.saving || view.importing || view.grpc_discovering)
         .ghost()
         .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
             view.run_collection(window, cx);
@@ -57,7 +57,7 @@ pub(super) fn render_request_toolbar(
         .debug_selector(|| "api-save".into())
         .xsmall()
         .label(if view.saving { "保存中" } else { "保存" })
-        .disabled(view.saving || view.importing || view.loading)
+        .disabled(view.saving || view.importing || view.loading || view.grpc_discovering)
         .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.save(cx)));
     let import = ramag_ui::clickable_button("api-import")
         .debug_selector(|| "api-import".into())
@@ -67,7 +67,7 @@ pub(super) fn render_request_toolbar(
         } else {
             "导入"
         })
-        .disabled(view.importing || view.saving || view.loading)
+        .disabled(view.importing || view.saving || view.loading || view.grpc_discovering)
         .ghost()
         .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
             view.import(window, cx);
@@ -76,14 +76,31 @@ pub(super) fn render_request_toolbar(
         .debug_selector(|| "api-send".into())
         .xsmall()
         .label(if view.loading { "发送中" } else { "发送" })
-        .disabled(view.loading || view.saving || view.importing)
+        .disabled(view.loading || view.saving || view.importing || view.grpc_discovering)
         .primary()
         .on_click(cx.listener(|view, _: &ClickEvent, window, cx| view.send(window, cx)));
+    let discover = ramag_ui::clickable_button("api-grpc-discover")
+        .debug_selector(|| "api-grpc-discover".into())
+        .xsmall()
+        .label(if view.grpc_discovering {
+            "发现中"
+        } else {
+            "发现"
+        })
+        .disabled(
+            view.protocol != ApiProtocol::Grpc
+                || view.grpc_discovering
+                || view.loading
+                || view.saving
+                || view.importing,
+        )
+        .ghost()
+        .on_click(cx.listener(|view, _: &ClickEvent, window, cx| view.discover_grpc(window, cx)));
     let cancel = ramag_ui::clickable_button("api-cancel")
         .debug_selector(|| "api-cancel".into())
         .xsmall()
         .label("取消")
-        .disabled(!view.loading)
+        .disabled(!view.loading && !view.grpc_discovering)
         .ghost()
         .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.cancel(cx)));
     v_flex()
@@ -152,6 +169,7 @@ pub(super) fn render_request_toolbar(
                         .gap(px(6.0))
                         .child(import)
                         .child(save)
+                        .child(discover)
                         .child(send)
                         .child(cancel)
                         .child(render_collection_button(view, cx)),

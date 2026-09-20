@@ -365,6 +365,7 @@ pub type ApiCancellation = Arc<AtomicBool>;
 
 mod body;
 mod execution;
+mod grpc;
 mod import;
 mod requests;
 mod response;
@@ -376,13 +377,14 @@ pub use execution::{
     ApiExtractedVariable, ApiHistoryRecord, MAX_API_HISTORY, MAX_API_HISTORY_LIST_BYTES,
     evaluate_assertions, extract_response_variables, resolve_template,
 };
+pub use grpc::{ApiGrpcMethodSummary, ApiGrpcServiceSummary};
 pub use import::{
     ApiImportBundle, ApiImportFormat, ApiImportSummary, MAX_API_IMPORT_BYTES, MAX_API_IMPORT_DEPTH,
     import_api_json,
 };
 pub use requests::{
-    ApiAssertion, ApiRequestRecord, ApiRequestSpec, ApiVariableExtraction, ApiVariableSource,
-    GrpcRequestSpec, HttpRequestSpec,
+    ApiAssertion, ApiGrpcDiscoverySpec, ApiRequestRecord, ApiRequestSpec, ApiVariableExtraction,
+    ApiVariableSource, GrpcRequestSpec, HttpRequestSpec,
 };
 pub use response::{ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus};
 pub use workspace::{ApiCollection, ApiEnvironment, ApiWorkspace};
