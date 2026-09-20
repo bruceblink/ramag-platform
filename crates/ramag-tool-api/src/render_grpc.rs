@@ -1,23 +1,46 @@
 use super::*;
 
 use gpui::{ClickEvent, FontWeight};
-use gpui_component::button::ButtonVariants as _;
+use gpui_component::{Disableable as _, button::ButtonVariants as _};
 
 pub(super) fn render_editor(
     view: &ApiView,
     cx: &mut Context<ApiView>,
     theme: &gpui_component::Theme,
 ) -> gpui::AnyElement {
+    let descriptor_label = match &view.grpc_descriptor {
+        ApiGrpcDescriptor::Reflection => "Server Reflection".to_string(),
+        ApiGrpcDescriptor::FileDescriptorSet { bytes } => {
+            format!("FileDescriptorSet · {} bytes", bytes.len())
+        }
+    };
+
     v_flex()
         .id("api-grpc-fields")
         .debug_selector(|| "api-grpc-fields".into())
         .w_full()
         .min_w_0()
         .gap(px(10.0))
-        .child(row().child(field(
-            "Descriptor",
-            div().text_sm().child("Server Reflection"),
-        )))
+        .child(
+            row().child(field(
+                "Descriptor",
+                h_flex()
+                    .justify_between()
+                    .gap(px(6.0))
+                    .child(div().text_sm().child(descriptor_label))
+                    .child(
+                        ramag_ui::clickable_button("api-grpc-import-descriptor")
+                            .debug_selector(|| "api-grpc-import-descriptor".into())
+                            .xsmall()
+                            .ghost()
+                            .label("导入 DescriptorSet")
+                            .disabled(view.importing || view.grpc_discovering)
+                            .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
+                                view.import_grpc_descriptor(window, cx);
+                            })),
+                    ),
+            )),
+        )
         .child(
             row()
                 .child(field(

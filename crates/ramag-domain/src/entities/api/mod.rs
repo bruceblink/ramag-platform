@@ -264,7 +264,7 @@ impl fmt::Debug for ApiGrpcDescriptor {
 }
 
 impl ApiGrpcDescriptor {
-    pub(super) fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), String> {
         if let Self::FileDescriptorSet { bytes } = self {
             if bytes.is_empty() {
                 return Err("gRPC FileDescriptorSet 不能为空".into());

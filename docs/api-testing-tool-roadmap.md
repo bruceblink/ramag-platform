@@ -144,7 +144,7 @@ flowchart LR
 ### 3.3 gRPC 请求
 
 - 明文和 TLS 连接。
-- `.proto` 文件导入。
+- 编译后的 `FileDescriptorSet` 文件导入；原始 `.proto` 文件由界面直接编译仍需后续接入编译器。
 - Server Reflection 服务发现。
 - Service/Method 选择。
 - 动态 Protobuf 消息编辑和 Unary 调用。
@@ -188,6 +188,8 @@ flowchart LR
 UI 验收证据：`ramag-tool-api` headless GPUI 测试覆盖 360、640、1024 和 1440 像素宽度，验证请求/响应边界、协议切换、发送/保存状态和实际 HTTP/gRPC 请求。双协议 UI 测试连接本机 Docker 服务并通过真实驱动返回 HTTP 200 和 gRPC `ok`；gRPC 测试服务要求的 `x-request: docker` Metadata 已由界面字段发送。Computer Use 当前返回可控应用列表为空，因此本切片没有真实 Windows 窗口截图或键盘/鼠标证据，不能将 headless 结果描述为原生窗口验收。
 
 API 工作台 gRPC Reflection 发现修正记录（2026-09-20）：`ramag-domain` 增加独立的 gRPC Service 发现请求和目录项模型，`ramag-app` 通过已有 gRPC 驱动边界执行发现并传播 Environment 变量、超时和取消；`ramag-tool-api` 增加“发现”操作、Service/Method 目录和方法选择按钮。界面不展示标准 Reflection 内部 Service，避免自动选择到协议发现服务；本机 Docker UI 测试实际读取 `api.docker.Echo` 并选择 `Unary` 后完成 gRPC 请求。领域测试 214 项、应用测试 223 项、API 工作台测试 15 项通过。
+
+API 工作台 `FileDescriptorSet` 导入记录（2026-09-20）：`ramag-tool-api` 增加有界的本地 DescriptorSet 文件选择和读取，只接受普通文件，限制为 16 MiB，并拒绝空文件；导入结果同时用于 gRPC Service/Method 发现、请求构造和工作区恢复，界面显示当前来源并在发现期间禁用重复导入。支持常见的 `.bin`、`.fds` 和 `.desc` 后缀；原始 `.proto` 文件的编译和导入尚未接入，不能把二进制 DescriptorSet 导入描述为 `.proto` 编译。领域测试 215 项、API 工作台测试 16 项通过。
 
 本机 Docker 服务保持运行供复验：`ramag-api-http-test` 使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，绑定 `127.0.0.1:18089 -> 8080`；`ramag-api-grpc-test` 使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，绑定 `127.0.0.1:18090 -> 50051`。两个容器健康检查均为 `healthy`。API-005 的断言、环境变量编辑、执行历史和结果摘要在下一节记录。
 
@@ -407,7 +409,7 @@ git diff --check
 
 ## 10. 当前未完成项
 
-- `API-001` 至 `API-007` 已完成；HTTP 和 gRPC 驱动均已有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。API-007 的 Multipart 和 gRPC 流式调用均已完成领域、应用、驱动、UI 和本机 Docker 验收。
+- `API-001` 至 `API-007` 的已实现范围均有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。API-007 的 Multipart 和 gRPC 流式调用均已完成领域、应用、驱动、UI 和本机 Docker 验收；gRPC 工作台支持 Reflection 和编译后的 `FileDescriptorSet` 导入，但原始 `.proto` 文件直接编译仍未完成。
 - API 工作台的真实 Windows 窗口截图、键盘操作和鼠标操作仍未完成，原因是 Computer Use 返回可控应用列表为空；这项限制不影响已完成的 headless 布局/交互测试和 Docker 协议测试，但不能把 API-004 的窗口验收写成完成。
 - mTLS、代理和 OAuth2 尚未实现；它们属于后续 API-008 计划，进入开发前仍需分别设计安全配置、失败恢复和敏感配置处理。
 

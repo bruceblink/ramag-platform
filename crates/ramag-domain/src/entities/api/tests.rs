@@ -42,6 +42,22 @@ fn grpc_discovery_defaults_to_reflection_and_validates_endpoint() {
 }
 
 #[test]
+fn grpc_descriptor_set_validates_size_and_empty_input() {
+    let descriptor = ApiGrpcDescriptor::FileDescriptorSet {
+        bytes: vec![1, 2, 3],
+    };
+    assert!(descriptor.validate().is_ok());
+
+    let empty = ApiGrpcDescriptor::FileDescriptorSet { bytes: Vec::new() };
+    assert!(empty.validate().is_err());
+
+    let oversized = ApiGrpcDescriptor::FileDescriptorSet {
+        bytes: vec![0; MAX_API_DESCRIPTOR_BYTES + 1],
+    };
+    assert!(oversized.validate().is_err());
+}
+
+#[test]
 fn debug_output_redacts_auth_body_and_environment_values() {
     let mut environment = ApiEnvironment::new("dev");
     environment

@@ -15,10 +15,10 @@ use gpui_component::{
 use ramag_app::{ApiService, new_api_cancellation};
 use ramag_domain::entities::{
     ApiAssertionResult, ApiAuth, ApiBody, ApiBodyMode, ApiCancellation, ApiCollection,
-    ApiCollectionRunResult, ApiEnvironment, ApiExtractedVariable, ApiGrpcDiscoverySpec,
-    ApiGrpcServiceSummary, ApiHistoryRecord, ApiMultipartPart, ApiMultipartValue, ApiParameter,
-    ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseStatus, ApiWorkspace,
-    GrpcRequestSpec, HttpRequestSpec,
+    ApiCollectionRunResult, ApiEnvironment, ApiExtractedVariable, ApiGrpcDescriptor,
+    ApiGrpcDiscoverySpec, ApiGrpcServiceSummary, ApiHistoryRecord, ApiMultipartPart,
+    ApiMultipartValue, ApiParameter, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot,
+    ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
 };
 use ramag_domain::error::{DomainError, Result};
 
@@ -66,6 +66,7 @@ pub struct ApiView {
     pub(crate) grpc_metadata_name: Entity<InputState>,
     pub(crate) grpc_metadata_value: Entity<InputState>,
     pub(crate) grpc_message: Entity<InputState>,
+    pub(crate) grpc_descriptor: ApiGrpcDescriptor,
     pub(crate) grpc_services: Vec<ApiGrpcServiceSummary>,
     pub(crate) grpc_discovering: bool,
     pub(crate) grpc_discovery_generation: u64,
@@ -190,6 +191,7 @@ impl ApiView {
                 Some("json"),
                 6,
             ),
+            grpc_descriptor: ApiGrpcDescriptor::Reflection,
             grpc_services: Vec::new(),
             grpc_discovering: false,
             grpc_discovery_generation: 0,
@@ -524,6 +526,7 @@ pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSp
                 input_value(&view.grpc_method, cx),
             )
             .with_message(input_value(&view.grpc_message, cx));
+            spec.descriptor = view.grpc_descriptor.clone();
             let metadata_name = input_value(&view.grpc_metadata_name, cx);
             let metadata_value = input_value(&view.grpc_metadata_value, cx);
             if !metadata_name.is_empty() || !metadata_value.is_empty() {

@@ -432,6 +432,7 @@ pub(crate) fn apply_imported_workspace(
         }
         ApiRequestSpec::Grpc(spec) => {
             view.protocol = ApiProtocol::Grpc;
+            view.grpc_descriptor = spec.descriptor.clone();
             view.http_auth = ApiAuth::None;
             view.http_body_mode = ApiBodyMode::Text;
             view.http_body_content_type = "application/json".into();

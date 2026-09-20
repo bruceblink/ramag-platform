@@ -2,9 +2,9 @@ use super::*;
 
 use gpui::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_domain::entities::{
-    ApiAssertion, ApiAuth, ApiBody, ApiBodyMode, ApiCollection, ApiParameter, ApiProtocol,
-    ApiRequestRecord, ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus,
-    ApiWorkspace, HttpRequestSpec, import_api_json,
+    ApiAssertion, ApiAuth, ApiBody, ApiBodyMode, ApiCollection, ApiGrpcDescriptor, ApiParameter,
+    ApiProtocol, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts,
+    ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec, import_api_json,
 };
 
 fn click(cx: &mut VisualTestContext, selector: &'static str) {
@@ -167,6 +167,11 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("api-http-fields").is_none());
     assert!(visual_cx.debug_bounds("api-grpc-fields").is_some());
+    assert!(
+        visual_cx
+            .debug_bounds("api-grpc-import-descriptor")
+            .is_some()
+    );
     assert_eq!(
         visual_cx.update(|_, cx| view.read(cx).protocol),
         ApiProtocol::Grpc
@@ -192,6 +197,65 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
         visual_cx.update(|_, cx| view.read(cx).http_body_mode),
         ApiBodyMode::Text
     );
+}
+
+#[gpui::test]
+fn api_grpc_descriptor_set_survives_request_build_and_import(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 视图应初始化");
+    let descriptor = ApiGrpcDescriptor::FileDescriptorSet {
+        bytes: vec![1, 2, 3],
+    };
+
+    visual_cx.update(|_, app| {
+        view.update(app, |view, _| {
+            view.protocol = ApiProtocol::Grpc;
+            view.grpc_descriptor = descriptor.clone();
+        });
+    });
+    let request = visual_cx.update(|_, app| {
+        let view = view.read(app);
+        request_from_view(view, app)
+    });
+    assert!(matches!(
+        request,
+        Ok(ApiRequestSpec::Grpc(GrpcRequestSpec {
+            descriptor: ApiGrpcDescriptor::FileDescriptorSet { ref bytes },
+            ..
+        })) if bytes == &vec![1, 2, 3]
+    ));
+
+    let mut grpc_request = GrpcRequestSpec::new("http://127.0.0.1:50051", "api.Echo", "Unary");
+    grpc_request.descriptor = descriptor;
+    let mut workspace = ApiWorkspace::new("Imported");
+    let mut collection = ApiCollection::new("gRPC");
+    collection.requests.push(ApiRequestRecord::new_grpc(
+        "Descriptor request",
+        grpc_request,
+    ));
+    workspace.collections.push(collection);
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.workspace = workspace.clone();
+            context::apply_imported_workspace(view, &workspace, window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+
+    let imported = visual_cx.update(|_, app| {
+        let view = view.read(app);
+        view.grpc_descriptor.clone()
+    });
+    assert!(matches!(
+        imported,
+        ApiGrpcDescriptor::FileDescriptorSet { bytes } if bytes == vec![1, 2, 3]
+    ));
 }
 
 #[gpui::test]
