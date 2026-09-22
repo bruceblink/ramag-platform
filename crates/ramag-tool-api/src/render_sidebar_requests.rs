@@ -2,6 +2,7 @@ use super::*;
 
 use gpui::ClickEvent;
 use gpui_component::button::ButtonVariants as _;
+use ramag_domain::entities::{ApiRequestRecord, ApiRequestSpec};
 
 pub(super) fn render(
     view: &ApiView,
@@ -27,12 +28,7 @@ pub(super) fn render(
                 .map(move |request| (collection.name.as_str(), request))
         })
         .filter(|(collection_name, request)| {
-            query.is_empty()
-                || collection_name.to_lowercase().contains(&query)
-                || request.name.to_lowercase().contains(&query)
-                || protocol_label(request.protocol)
-                    .to_lowercase()
-                    .contains(&query)
+            request_matches_query(collection_name, request, &query)
         })
         .take(50)
         .enumerate()
@@ -125,4 +121,30 @@ pub(super) fn render(
         )
         .child(request_list)
         .into_any_element()
+}
+
+fn request_matches_query(collection_name: &str, request: &ApiRequestRecord, query: &str) -> bool {
+    if query.is_empty() {
+        return true;
+    }
+    let matches = |value: &str| value.to_lowercase().contains(query);
+    if matches(collection_name)
+        || matches(&request.name)
+        || matches(protocol_label(request.protocol))
+    {
+        return true;
+    }
+    match &request.request {
+        ApiRequestSpec::Http(spec) => {
+            matches(&spec.method)
+                || matches(&spec.url_template)
+                || spec
+                    .query
+                    .iter()
+                    .any(|parameter| matches(&parameter.name) || matches(&parameter.value))
+        }
+        ApiRequestSpec::Grpc(spec) => {
+            matches(&spec.endpoint_template) || matches(&spec.service) || matches(&spec.method)
+        }
+    }
 }

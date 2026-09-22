@@ -481,3 +481,5 @@ API 请求列表空状态修正记录（2026-09-22）：搜索没有匹配项时
 API 请求筛选清除交互优化记录（2026-09-22）：请求搜索框复用共享 `cleanable_input`，关键词非空时显示带提示的清除按钮，清除后立即恢复全部请求并重新聚焦搜索框。`ramag-tool-api --lib` 22 项测试通过，Computer Use 仍无法取得可控原生窗口。
 
 API 请求搜索框布局验收记录（2026-09-22）：请求搜索框增加稳定容器和调试选择器，headless 布局测试覆盖 360/640/1024/1440 像素窗口，确认搜索框始终位于 API 侧栏内。`ramag-tool-api --lib` 22 项测试通过，Computer Use 仍无法取得可控原生窗口。
+
+API 请求目标搜索优化记录（2026-09-22）：请求侧栏搜索除 Collection、请求名和协议外，还匹配 HTTP 方法、URL、查询参数以及 gRPC Endpoint、Service 和 Method；不搜索 Headers、认证、正文等可能包含敏感值的内容。新增 HTTP/gRPC 目标字段回归测试，`ramag-tool-api --lib` 22 项测试通过，Computer Use 仍无法取得可控原生窗口。
