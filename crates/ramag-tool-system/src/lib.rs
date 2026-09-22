@@ -9,7 +9,7 @@ pub use monitor::{
 };
 pub use view::SystemView;
 
-use gpui::{App, AppContext as _, Entity, Window};
+use gpui_kit::{App, AppContext as _, Entity, Window};
 use ramag_domain::traits::{Tool, ToolMeta};
 
 /// 在主窗口中创建系统工具视图；采集工作由视图内部的后台任务执行。

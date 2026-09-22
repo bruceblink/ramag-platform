@@ -1,10 +1,10 @@
 //! 列宽估算 + 拖拽 + 单元格编辑器 + 数值列检测 + 排序比较 + Hsla.opacity 扩展
 
-use gpui::{
+use gpui_kit::component::input::TextareaState;
+use gpui_kit::{
     AnyElement, AppContext as _, Context, DragMoveEvent, IntoElement, SharedString, Styled, div,
     prelude::*, px,
 };
-use gpui_component::input::InputState;
 use ramag_domain::entities::{MAX_SQL_QUERY_BYTES, QueryResult, Value};
 
 use crate::views::result_panel::ResultPanel;
@@ -17,7 +17,7 @@ pub(super) fn estimate_col_width(
     result: &QueryResult,
     row_indices: &[usize],
     display_binary_16_as_uuid: bool,
-) -> gpui::Pixels {
+) -> gpui_kit::Pixels {
     const MIN_W: f32 = 100.0;
     const MAX_W: f32 = 380.0;
     const PER_CHAR: f32 = 7.5;
@@ -55,9 +55,9 @@ pub(super) fn estimate_col_width(
 #[derive(Clone)]
 pub(super) struct ColResizeDrag(pub usize);
 
-impl gpui::Render for ColResizeDrag {
-    fn render(&mut self, _: &mut gpui::Window, _: &mut Context<Self>) -> impl IntoElement {
-        gpui::Empty
+impl gpui_kit::Render for ColResizeDrag {
+    fn render(&mut self, _: &mut gpui_kit::Window, _: &mut Context<Self>) -> impl IntoElement {
+        gpui_kit::Empty
     }
 }
 
@@ -122,7 +122,7 @@ pub(super) fn open_cell_editor(
     panel: &mut ResultPanel,
     ri: usize,
     ci: usize,
-    window: &mut gpui::Window,
+    window: &mut gpui_kit::Window,
     cx: &mut Context<ResultPanel>,
 ) {
     let Some((col_name, initial_text, truncated)) = panel.cell_info(ri, ci) else {
@@ -144,19 +144,18 @@ pub(super) fn open_cell_editor(
     }
     let locate_label = panel.identity_label();
     let input = cx.new(|cx_inner| {
-        InputState::new(window, cx_inner)
-            .multi_line(true)
+        TextareaState::new(window, cx_inner)
             .rows(8)
             .default_value(initial_text)
     });
-    ramag_ui::enforce_multiline_input_byte_limit(
+    ramag_ui::enforce_textarea_input_byte_limit(
         &input,
         MAX_SQL_QUERY_BYTES,
         window,
         cx,
         |panel, _, cx| {
             panel.pending_notification = Some(
-                gpui_component::notification::Notification::warning(format!(
+                gpui_kit::component::notification::Notification::warning(format!(
                     "单元格编辑最多保留 {} MiB，超出部分已截断",
                     MAX_SQL_QUERY_BYTES / 1024 / 1024
                 ))
@@ -166,7 +165,6 @@ pub(super) fn open_cell_editor(
         },
     )
     .detach();
-    panel.set_cell_edit_input(Some(input.clone()));
     let panel_entity = cx.entity();
     crate::views::cell_edit_dialog::open(
         panel_entity,
@@ -320,7 +318,7 @@ pub(super) trait OpacityExt {
     fn opacity(self, alpha: f32) -> Self;
 }
 
-impl OpacityExt for gpui::Hsla {
+impl OpacityExt for gpui_kit::Hsla {
     fn opacity(mut self, alpha: f32) -> Self {
         self.a = alpha.clamp(0.0, 1.0);
         self

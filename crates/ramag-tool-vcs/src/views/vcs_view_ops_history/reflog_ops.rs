@@ -1,6 +1,6 @@
 //! VcsView reflog 相关 ops：toggle 视图 / 加载 reflog / checkout 到 reflog 条目
 
-use gpui::Context;
+use gpui_kit::Context;
 use tracing::{error, info};
 
 use super::super::vcs_view::VcsView;

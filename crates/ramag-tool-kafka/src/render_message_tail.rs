@@ -212,7 +212,7 @@ impl KafkaView {
                                     .child(
                                         div()
                                             .text_sm()
-                                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                             .child("持续实时消费"),
                                     )
                                     .child(div().text_xs().text_color(status.1).child(status_text)),

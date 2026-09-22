@@ -1,12 +1,12 @@
 //! History 列表单行渲染（IDEA Git 风格）
 
-use gpui::{
-    AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled, div, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, SharedString,
+    StatefulInteractiveElement, Styled, div, px,
 };
 use ramag_domain::entities::{Commit, MAX_GIT_NAME_ARG_BYTES, ResetKind};
 
@@ -22,9 +22,9 @@ pub(in crate::views) fn render_commit_row(
     c: &Commit,
     graph: &CommitGraphRow,
     mono: SharedString,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    accent: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
     selected: bool,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
@@ -138,7 +138,7 @@ pub(in crate::views) fn render_commit_row(
             let (e_branch, c_branch) = (entity.clone(), cid.clone());
             let (e_tag, c_tag) = (entity.clone(), cid.clone());
             menu.item(ramag_ui::menu_item("复制哈希").on_click(move |_, _, app| {
-                app.write_to_clipboard(gpui::ClipboardItem::new_string(c_sha.clone()));
+                app.write_to_clipboard(gpui_kit::ClipboardItem::new_string(c_sha.clone()));
                 e_sha.update(app, |this, cx| this.notify_success("已复制完整 SHA", cx));
             }))
             .item(ramag_ui::menu_item("复制说明").on_click(move |_, _, app| {
@@ -292,23 +292,23 @@ fn relative_time(ts: &chrono::DateTime<chrono::Utc>) -> String {
 }
 
 /// commit refs 标签：根据 ref 名前缀决定颜色（HEAD / origin/* / tag: *）
-fn ref_chip(name: &str, accent: gpui::Hsla) -> AnyElement {
+fn ref_chip(name: &str, accent: gpui_kit::Hsla) -> AnyElement {
     // tag 名习惯以 "tag: " 前缀（git log --decorate）
     let (label, tone) = if let Some(rest) = name.strip_prefix("tag: ") {
         (
             super::super::inline_text_preview(rest, 80),
-            gpui::hsla(40.0 / 360.0, 0.7, 0.55, 1.0),
+            gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0),
         )
     } else if name.starts_with("HEAD") {
         (
             super::super::inline_text_preview(name, 80),
-            gpui::hsla(140.0 / 360.0, 0.55, 0.45, 1.0),
+            gpui_kit::hsla(140.0 / 360.0, 0.55, 0.45, 1.0),
         )
     } else if name.contains('/') {
         // remote-tracking：origin/main 等
         (
             super::super::inline_text_preview(name, 80),
-            gpui::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
+            gpui_kit::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
         )
     } else {
         (super::super::inline_text_preview(name, 80), accent)
@@ -321,7 +321,7 @@ fn ref_chip(name: &str, accent: gpui::Hsla) -> AnyElement {
         .rounded(px(4.0))
         .bg(bg)
         .text_xs()
-        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
         .text_color(tone)
         .child(label)
         .into_any_element()

@@ -102,7 +102,7 @@ impl Render for CollectionTreePanel {
                     ramag_ui::cleanable_input(&self.search, "mongo-tree-search-clear", false, cx)
                         .small()
                         .prefix(
-                            gpui_component::Icon::new(gpui_component::IconName::Search)
+                            gpui_kit::component::Icon::new(gpui_kit::component::IconName::Search)
                                 .small()
                                 .text_color(muted_fg),
                         ),
@@ -113,9 +113,9 @@ impl Render for CollectionTreePanel {
                     .ghost()
                     .xsmall()
                     .icon(if show_system {
-                        gpui_component::IconName::Eye
+                        gpui_kit::component::IconName::Eye
                     } else {
-                        gpui_component::IconName::EyeOff
+                        gpui_kit::component::IconName::EyeOff
                     })
                     .tooltip("系统库")
                     .on_click(cx.listener(|this, _, _, cx| this.toggle_show_system(cx))),
@@ -132,7 +132,7 @@ impl Render for CollectionTreePanel {
                 ramag_ui::clickable_button("toggle-mongo-editor")
                     .ghost()
                     .xsmall()
-                    .icon(gpui_component::IconName::SquareTerminal)
+                    .icon(gpui_kit::component::IconName::SquareTerminal)
                     .selected(editor_visible)
                     .tooltip("编辑器")
                     .on_click(cx.listener(|_, _, _, cx| cx.emit(TreeEvent::ToggleEditor))),

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use gpui::{Context, IntoElement, ParentElement, Render, Styled, Window, div, prelude::*, px};
-use gpui_component::{ActiveTheme, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
+use gpui_kit::{Context, IntoElement, ParentElement, Render, Styled, Window, div, prelude::*, px};
 use ramag_app::{PluginDiagnostic, PluginLifecycleStage, PluginState, StaticPluginHost};
 
 /// 展示静态插件生命周期、注册错误和当前可用入口。
@@ -65,9 +65,9 @@ fn render_summary(
     total: usize,
     ready: usize,
     failed: usize,
-    border: gpui::Hsla,
-    muted: gpui::Hsla,
-    danger: gpui::Hsla,
+    border: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
 ) -> impl IntoElement {
     v_flex()
         .id("plugin-summary")
@@ -82,7 +82,7 @@ fn render_summary(
         .child(
             div()
                 .text_sm()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .child("运行概览"),
         )
         .child(
@@ -103,9 +103,9 @@ fn render_summary(
 
 fn render_available_entries(
     tools: &[Arc<dyn ramag_domain::Tool>],
-    border: gpui::Hsla,
-    muted: gpui::Hsla,
-    success: gpui::Hsla,
+    border: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+    success: gpui_kit::Hsla,
 ) -> impl IntoElement {
     let rows = tools
         .iter()
@@ -173,7 +173,7 @@ fn render_available_entries(
         .child(
             div()
                 .text_base()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .child("可用入口"),
         )
         .child(body)
@@ -181,12 +181,12 @@ fn render_available_entries(
 
 fn render_diagnostics(
     diagnostics: &[PluginDiagnostic],
-    border: gpui::Hsla,
-    muted: gpui::Hsla,
-    foreground: gpui::Hsla,
-    success: gpui::Hsla,
-    warning: gpui::Hsla,
-    danger: gpui::Hsla,
+    border: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+    foreground: gpui_kit::Hsla,
+    success: gpui_kit::Hsla,
+    warning: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
 ) -> impl IntoElement {
     let rows = diagnostics
         .iter()
@@ -224,7 +224,7 @@ fn render_diagnostics(
         .child(
             div()
                 .text_base()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .child("插件状态"),
         )
         .child(body)
@@ -232,13 +232,13 @@ fn render_diagnostics(
 
 fn render_diagnostic_row(
     diagnostic: &PluginDiagnostic,
-    border: gpui::Hsla,
-    muted: gpui::Hsla,
-    foreground: gpui::Hsla,
-    success: gpui::Hsla,
-    warning: gpui::Hsla,
-    danger: gpui::Hsla,
-) -> gpui::AnyElement {
+    border: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+    foreground: gpui_kit::Hsla,
+    success: gpui_kit::Hsla,
+    warning: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
+) -> gpui_kit::AnyElement {
     let descriptor = &diagnostic.descriptor;
     let state_color = state_color(diagnostic.state, success, warning, danger, muted);
     let row_id = format!("plugin-state-{}", descriptor.id);
@@ -320,11 +320,11 @@ fn state_label(state: PluginState) -> &'static str {
 
 fn state_color(
     state: PluginState,
-    success: gpui::Hsla,
-    warning: gpui::Hsla,
-    danger: gpui::Hsla,
-    muted: gpui::Hsla,
-) -> gpui::Hsla {
+    success: gpui_kit::Hsla,
+    warning: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+) -> gpui_kit::Hsla {
     match state {
         PluginState::Ready => success,
         PluginState::Registered | PluginState::Initializing | PluginState::ShuttingDown => warning,

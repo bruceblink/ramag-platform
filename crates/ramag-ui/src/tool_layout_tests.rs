@@ -6,13 +6,13 @@ use super::{
 
 #[test]
 fn dragged_item_background_is_lighter_but_stays_within_range() {
-    let background = gpui::hsla(0.6, 0.4, 0.2, 1.0);
+    let background = gpui_kit::hsla(0.6, 0.4, 0.2, 1.0);
     let highlighted = dragged_item_background(background);
 
     assert!(highlighted.l > background.l);
     assert_eq!(highlighted.a, background.a);
 
-    let bright_background = gpui::hsla(0.6, 0.4, 0.9, 1.0);
+    let bright_background = gpui_kit::hsla(0.6, 0.4, 0.9, 1.0);
     assert_eq!(dragged_item_background(bright_background).l, 1.0);
 }
 

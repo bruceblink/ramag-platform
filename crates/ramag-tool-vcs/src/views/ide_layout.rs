@@ -1,14 +1,14 @@
-use gpui::{
-    AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Styled, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Selectable as _, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     menu::{PopupMenu, PopupMenuItem},
     resizable::{h_resizable, resizable_panel, v_resizable},
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Styled, div,
+    prelude::*, px,
 };
 
 use super::helpers::FilesViewMode;
@@ -144,7 +144,7 @@ impl VcsView {
                 .justify_end()
                 .gap(px(4.0))
                 .items_center()
-                .child(gpui_component::spinner::Spinner::new().xsmall())
+                .child(gpui_kit::component::spinner::Spinner::new().xsmall())
                 .child(
                     div()
                         .text_xs()
@@ -329,7 +329,7 @@ impl VcsView {
             .and_then(|status| status.head_commit.as_ref())
             .is_some();
         div()
-            .flex_shrink()
+            .flex_shrink_1()
             .min_w_0()
             .w(px(BRANCH_PICKER_WIDTH))
             .overflow_hidden()
@@ -347,7 +347,7 @@ impl VcsView {
                     .text_color(cx.theme().foreground)
                     .disabled(busy)
                     .pointer_dropdown_menu_with_anchor(
-                        gpui::Anchor::BottomRight,
+                        gpui_kit::Anchor::BottomRight,
                         move |mut m: PopupMenu, window, cx| {
                             // 父菜单滚动会破坏子菜单，分支组在子菜单内自行滚动。
                             m = m.max_w(px(420.0));
@@ -425,7 +425,7 @@ impl VcsView {
         active: FilesViewMode,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let id = gpui::SharedString::from(format!("vcs-files-tab-{}", mode.id_str()));
+        let id = gpui_kit::SharedString::from(format!("vcs-files-tab-{}", mode.id_str()));
         let is_active = mode == active;
         let mut btn = ramag_ui::clickable_button(id)
             .ghost()

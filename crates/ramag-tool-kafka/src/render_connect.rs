@@ -36,7 +36,7 @@ impl KafkaView {
             .0
             .borrow()
             .base_handle
-            .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+            .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
     }
 
     /// 读取 Kafka Connect 的只读状态；未配置端点时不发起网络请求。
@@ -341,7 +341,7 @@ impl KafkaView {
 
 fn connect_scrollbar(
     scroll: &UniformListScrollHandle,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     div()
         .id("kafka-connect-v-scrollbar")
@@ -353,15 +353,15 @@ fn connect_scrollbar(
         .child(
             Scrollbar::vertical(scroll)
                 .id("kafka-connect-v-scrollbar-control")
-                .scrollbar_show(ScrollbarShow::Always),
+                .mode(ScrollbarMode::Always),
         )
 }
 
 fn connector_empty_state(
     title: &'static str,
     detail: &'static str,
-    theme: &gpui_component::Theme,
-) -> gpui::Div {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::Div {
     v_flex()
         .flex_1()
         .items_center()
@@ -384,8 +384,8 @@ fn connector_empty_state(
 fn connector_row(
     index: usize,
     connector: &KafkaConnectConnector,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let state_color = match connector.state.as_str() {
         "RUNNING" => theme.success,
         "PAUSED" => theme.warning,

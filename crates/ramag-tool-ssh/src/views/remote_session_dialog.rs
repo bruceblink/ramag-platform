@@ -2,13 +2,13 @@
 
 use std::sync::Arc;
 
-use gpui::{
-    AnyElement, AppContext as _, ClickEvent, Context, IntoElement, ParentElement, Render,
-    SharedString, Styled, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
+    AnyElement, AppContext as _, ClickEvent, Context, IntoElement, ParentElement, Render,
+    SharedString, Styled, Window, div, prelude::*, px,
 };
 use ramag_app::SshService;
 use ramag_domain::entities::{JumpServerRdpSession, JumpServerRdpSessionHistory};
@@ -199,7 +199,7 @@ impl RemoteSessionPanel {
                     .child(
                         div()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .child(title),
                     )
                     .child(
@@ -266,7 +266,7 @@ impl RemoteSessionPanel {
                     .child(
                         div()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .overflow_hidden()
                             .text_ellipsis()
                             .child(session.asset_name.clone()),

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use gpui::{IntoElement, ParentElement, Styled, div, px};
-use gpui_component::{Icon, IconName, Sizable as _, Theme, h_flex, v_flex};
+use gpui_kit::component::{Icon, IconName, Sizable as _, Theme, h_flex, v_flex};
+use gpui_kit::{IntoElement, ParentElement, Styled, div, px};
 
 use super::{DiagramRelation, SchemaDiagramPanel};
 
@@ -38,7 +38,7 @@ impl SchemaDiagramPanel {
                     .child(
                         div()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .text_color(fg)
                             .child(format!("关系 ({})", visible_relations.len())),
                     ),

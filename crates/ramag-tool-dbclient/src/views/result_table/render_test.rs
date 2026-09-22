@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::{
     AppContext as _, Context, Entity, IntoElement, Modifiers, ParentElement as _, Render,
     ScrollDelta, ScrollWheelEvent, Styled as _, TestAppContext, TouchPhase, Window, div, point, px,
     size,
@@ -19,7 +19,7 @@ struct ResultDialogTestHost {
 
 impl Render for ResultDialogTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
         div()
             .relative()
             .size_full()
@@ -29,9 +29,9 @@ impl Render for ResultDialogTestHost {
 }
 
 /// Windows 触控板会同时上报少量另一轴位移；横向浏览列时不能带着行上下移动。
-#[gpui::test]
+#[gpui_kit::test]
 fn result_scroll_horizontal_gesture_does_not_move_rows_vertically(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let column_count = 16;
     let row_count = 80;
     let result = Arc::new(QueryResult {
@@ -136,9 +136,9 @@ fn result_scroll_horizontal_gesture_does_not_move_rows_vertically(cx: &mut TestA
 }
 
 /// Server-side sorting temporarily replaces the result state but must not move the column viewport.
-#[gpui::test]
+#[gpui_kit::test]
 fn server_sort_keeps_horizontal_scroll_position_across_result_reload(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let result = Arc::new(QueryResult {
         columns: vec!["id".into(), "very_wide_payload".into()],
         column_types: vec!["BIGINT".into(), "TEXT".into()],
@@ -173,9 +173,9 @@ fn server_sort_keeps_horizontal_scroll_position_across_result_reload(cx: &mut Te
 }
 
 /// 长状态文本不能把分页控件推出结果状态栏的可视区域。
-#[gpui::test]
+#[gpui_kit::test]
 fn result_status_keeps_paging_controls_visible_in_small_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     cx.set_global(ramag_ui::DatabaseResultSettingsGlobal::new(
         ramag_ui::DatabaseResultSettings {
             show_horizontal_scrollbar: true,
@@ -220,7 +220,7 @@ fn result_status_keeps_paging_controls_visible_in_small_window(cx: &mut TestAppC
         panel
     });
     for width in [280.0, 320.0, 360.0, 1024.0] {
-        cx.simulate_resize(gpui::size(px(width), px(420.0)));
+        cx.simulate_resize(gpui_kit::size(px(width), px(420.0)));
         panel.update(cx, |_, cx| cx.notify());
         cx.run_until_parked();
 
@@ -272,9 +272,9 @@ fn result_status_keeps_paging_controls_visible_in_small_window(cx: &mut TestAppC
 }
 
 /// 待提交修改的操作按钮应作为独立操作区换行，并始终留在结果状态栏内。
-#[gpui::test]
+#[gpui_kit::test]
 fn pending_edit_actions_stay_inside_status_bar_at_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let result = Arc::new(QueryResult {
         columns: vec!["id".into(), "name".into()],
         column_types: vec!["BIGINT".into(), "TEXT".into()],
@@ -354,9 +354,9 @@ fn pending_edit_actions_stay_inside_status_bar_at_supported_widths(cx: &mut Test
 }
 
 /// The value viewer should stay inside supported window widths and remain closable as a dialog.
-#[gpui::test]
+#[gpui_kit::test]
 fn selected_cell_value_viewer_stays_inside_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let result = Arc::new(QueryResult {
         columns: vec!["id".into(), "payload".into()],
         column_types: vec!["INT".into(), "TEXT".into()],
@@ -393,7 +393,7 @@ fn selected_cell_value_viewer_stays_inside_three_window_widths(cx: &mut TestAppC
         let host = cx.new(|_| ResultDialogTestHost {
             panel: panel.clone(),
         });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let panel = panel_entity.expect("result panel should be initialized");
     cx.run_until_parked();
@@ -446,9 +446,9 @@ fn selected_cell_value_viewer_stays_inside_three_window_widths(cx: &mut TestAppC
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn clearing_table_filter_preserves_content_search(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (panel, cx) = cx.add_window_view(|window, cx| {
         let mut panel = ResultPanel::new(window, cx);
         panel
@@ -468,9 +468,9 @@ fn clearing_table_filter_preserves_content_search(cx: &mut TestAppContext) {
 }
 
 /// 可写单元格进入行内编辑后应保留源坐标和初始值，并能完整取消。
-#[gpui::test]
+#[gpui_kit::test]
 fn inline_cell_edit_keeps_target_and_clears_on_cancel(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let result = Arc::new(QueryResult {
         columns: vec!["id".into(), "status".into()],
         column_types: vec!["INT".into(), "TEXT".into()],
@@ -503,7 +503,7 @@ fn inline_cell_edit_keeps_target_and_clears_on_cancel(cx: &mut TestAppContext) {
             panel
         });
         panel_entity = Some(panel.clone());
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
     let panel = panel_entity.expect("result panel should be initialized");
     cx.run_until_parked();

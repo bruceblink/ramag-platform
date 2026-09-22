@@ -5,13 +5,13 @@ use std::collections::HashSet;
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
-    prelude::*, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
     h_flex, v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    prelude::*, px, uniform_list,
 };
 use ramag_domain::entities::{
     FileChangeKind, FileStatus, WorkingTreeStatus, contains_case_insensitive,
@@ -402,7 +402,7 @@ impl VcsView {
                 div()
                     .w(px(14.0))
                     .text_xs()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(code_color)
                     .child(code),
             )
@@ -419,7 +419,7 @@ impl VcsView {
             .child(
                 h_flex()
                     .gap(px(4.0))
-                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                    .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
                         cx.stop_propagation();
                     })
                     .children(buttons),

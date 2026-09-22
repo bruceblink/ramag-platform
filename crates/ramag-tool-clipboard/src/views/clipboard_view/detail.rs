@@ -3,10 +3,10 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use gpui::{
+use gpui_kit::component::{ActiveTheme, Sizable as _, h_flex, v_flex};
+use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div, img, prelude::*, px,
 };
-use gpui_component::{ActiveTheme, Sizable as _, h_flex, v_flex};
 use ramag_domain::entities::{ClipItem, ClipKind, format_bytes};
 use ramag_ui::platform::file_manager_reveal_label;
 
@@ -81,7 +81,7 @@ impl ClipboardView {
         &self,
         item: Arc<ClipItem>,
         cx: &mut Context<Self>,
-    ) -> Option<gpui::AnyElement> {
+    ) -> Option<gpui_kit::AnyElement> {
         let mut buttons = Vec::new();
         let contextual = match item.kind {
             ClipKind::Link if item.text.is_some() => {
@@ -140,7 +140,7 @@ impl ClipboardView {
         )
     }
 
-    fn detail_body(&mut self, item: Arc<ClipItem>, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn detail_body(&mut self, item: Arc<ClipItem>, cx: &mut Context<Self>) -> gpui_kit::AnyElement {
         match item.kind {
             ClipKind::Image => match self.image_for(item.clone(), false, cx) {
                 Some(image) => img(image).max_w_full().into_any_element(),

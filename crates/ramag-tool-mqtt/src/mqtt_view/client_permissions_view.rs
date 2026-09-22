@@ -24,7 +24,7 @@ impl MqttView {
         tabs
     }
 
-    fn render_clients(&self, cx: &mut Context<Self>, narrow: bool) -> gpui::AnyElement {
+    fn render_clients(&self, cx: &mut Context<Self>, narrow: bool) -> gpui_kit::AnyElement {
         let theme = cx.theme().clone();
         let mut list = v_flex().gap(px(4.0));
         if let Some(snapshot) = &self.management_snapshot {
@@ -217,7 +217,7 @@ impl MqttView {
         &self,
         cx: &mut Context<Self>,
         narrow: bool,
-    ) -> gpui::AnyElement {
+    ) -> gpui_kit::AnyElement {
         let theme = cx.theme().clone();
         let Some(snapshot) = self.management_snapshot.as_ref() else {
             return div()

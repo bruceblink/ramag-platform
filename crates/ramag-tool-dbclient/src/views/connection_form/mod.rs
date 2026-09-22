@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use gpui::{
-    AppContext as _, Context, Entity, EventEmitter, IntoElement, ParentElement, Styled,
-    Subscription, Window, div, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     h_flex,
     input::{Input, InputEvent, InputState},
     v_flex,
+};
+use gpui_kit::{
+    AppContext as _, Context, Entity, EventEmitter, IntoElement, ParentElement, Styled,
+    Subscription, Window, div, px,
 };
 use ramag_app::{ConnectionService, MongoService, RedisService};
 use ramag_domain::entities::{
@@ -385,7 +385,7 @@ impl ConnectionFormPanel {
         this
     }
 
-    fn snapshot(&self, cx: &gpui::App) -> FormSnapshot {
+    fn snapshot(&self, cx: &gpui_kit::App) -> FormSnapshot {
         let fields = [
             &self.name,
             &self.host,
@@ -412,7 +412,7 @@ impl ConnectionFormPanel {
         }
     }
 
-    pub fn is_dirty(&self, cx: &gpui::App) -> bool {
+    pub fn is_dirty(&self, cx: &gpui_kit::App) -> bool {
         self.snapshot(cx) != self.initial
     }
 
@@ -476,14 +476,14 @@ impl ConnectionFormPanel {
     }
 }
 
-pub(super) fn section_title(text: &str, muted_fg: gpui::Hsla) -> impl IntoElement {
+pub(super) fn section_title(text: &str, muted_fg: gpui_kit::Hsla) -> impl IntoElement {
     h_flex()
         .items_center()
         .gap(px(8.0))
         .child(
             div()
                 .text_xs()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .text_color(muted_fg)
                 .child(text.to_string()),
         )
@@ -496,7 +496,7 @@ pub(super) fn field_row(label: &str, input: Input) -> impl IntoElement {
         .child(
             div()
                 .text_xs()
-                .font_weight(gpui::FontWeight::MEDIUM)
+                .font_weight(gpui_kit::FontWeight::MEDIUM)
                 .child(label.to_string()),
         )
         .child(div().w_full().child(input))

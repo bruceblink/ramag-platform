@@ -20,8 +20,8 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, Entity, EventEmitter, UniformListScrollHandle, Window};
-use gpui_component::input::InputState;
+use gpui_kit::component::input::InputState;
+use gpui_kit::{AppContext as _, Context, Entity, EventEmitter, UniformListScrollHandle, Window};
 use parking_lot::RwLock;
 use ramag_app::ConnectionService;
 use ramag_domain::entities::{
@@ -64,7 +64,7 @@ pub struct TableTreePanel {
     pub(super) table_columns: HashMap<(String, String), TableColumns>,
     pub(super) selected: Option<(String, String)>,
     pub(super) show_system: bool,
-    pub(super) search: gpui::Entity<InputState>,
+    pub(super) search: gpui_kit::Entity<InputState>,
     /// 缓存小写搜索词。
     pub(super) search_query: String,
     pub(super) schema_cache: Arc<RwLock<SchemaCache>>,
@@ -77,13 +77,13 @@ pub struct TableTreePanel {
     pub(super) uniform_scroll: UniformListScrollHandle,
     tree_revision: u64,
     tree_rows_cache: RefCell<Option<TreeRowsCacheEntry>>,
-    pub(super) pending_notification: Option<gpui_component::notification::Notification>,
+    pub(super) pending_notification: Option<gpui_kit::component::notification::Notification>,
     /// 请求渲染层移除常驻 DDL 提示。
     pub(super) clear_ddl_notification: bool,
     /// 防止旧 DDL 回包解锁新连接。
     pub(super) ddl_gate: AsyncMutationGate,
     pub(super) transfer: ramag_ui::TransferState,
-    pub(super) _subscriptions: Vec<gpui::Subscription>,
+    pub(super) _subscriptions: Vec<gpui_kit::Subscription>,
 }
 
 #[derive(Default)]
@@ -261,7 +261,7 @@ impl TableTreePanel {
         }
     }
 
-    pub(super) fn current_filter(&self, _cx: &gpui::App) -> String {
+    pub(super) fn current_filter(&self, _cx: &gpui_kit::App) -> String {
         self.search_query.clone()
     }
 

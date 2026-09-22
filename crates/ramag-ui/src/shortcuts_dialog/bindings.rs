@@ -3,13 +3,13 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use gpui::{App, KeyBinding, KeyBindingContextPredicate, Keystroke, SharedString, Unbind};
+use gpui_kit::{App, KeyBinding, KeyBindingContextPredicate, Keystroke, SharedString, Unbind};
 
 use super::{SHORTCUT_OVERRIDES_PREF_KEY, SHORTCUTS, ShortcutSpec};
 
 #[derive(Clone, Default)]
 struct ShortcutOverrides(HashMap<String, String>);
-impl gpui::Global for ShortcutOverrides {}
+impl gpui_kit::Global for ShortcutOverrides {}
 
 pub(super) fn overrides(cx: &App) -> HashMap<String, String> {
     cx.try_global::<ShortcutOverrides>()

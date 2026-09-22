@@ -31,7 +31,7 @@ impl Render for QueryPanel {
 
         let current_view: Option<AnyView> = self.tabs.get(active).map(|t| t.clone().into());
 
-        let tab_bar_items: Vec<gpui::AnyElement> = titles
+        let tab_bar_items: Vec<gpui_kit::AnyElement> = titles
             .iter()
             .enumerate()
             .map(|(idx, title)| {

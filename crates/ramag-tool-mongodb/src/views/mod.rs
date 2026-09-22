@@ -12,10 +12,10 @@ pub(crate) const MAX_MONGO_INTERACTIVE_INPUT_BYTES: usize = ramag_ui::MAX_EDITOR
 const JSON_VALUE_NODE_OVERHEAD_BYTES: usize = 64;
 
 pub(crate) fn bounded_input(
-    window: &mut gpui::Window,
-    cx: &mut gpui::Context<gpui_component::input::InputState>,
-) -> gpui_component::input::InputState {
-    gpui_component::input::InputState::new(window, cx)
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::Context<gpui_kit::component::input::InputState>,
+) -> gpui_kit::component::input::InputState {
+    gpui_kit::component::input::InputState::new(window, cx)
         .validate(|value, _| value.len() <= MAX_MONGO_INTERACTIVE_INPUT_BYTES)
 }
 

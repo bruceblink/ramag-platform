@@ -1,5 +1,5 @@
 impl MqttView {
-    fn render_groups(&self, cx: &mut Context<Self>, narrow: bool) -> gpui::AnyElement {
+    fn render_groups(&self, cx: &mut Context<Self>, narrow: bool) -> gpui_kit::AnyElement {
         let theme = cx.theme().clone();
         let mut list = v_flex().gap(px(4.0));
         if let Some(snapshot) = &self.management_snapshot {
@@ -137,7 +137,7 @@ impl MqttView {
             .into_any_element()
     }
 
-    fn render_roles(&self, cx: &mut Context<Self>, narrow: bool) -> gpui::AnyElement {
+    fn render_roles(&self, cx: &mut Context<Self>, narrow: bool) -> gpui_kit::AnyElement {
         let theme = cx.theme().clone();
         let mut list = v_flex().gap(px(4.0));
         if let Some(snapshot) = &self.management_snapshot {

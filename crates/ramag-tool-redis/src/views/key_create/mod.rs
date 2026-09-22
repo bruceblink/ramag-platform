@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, Entity, EventEmitter, Window};
-use gpui_component::input::InputState;
+use gpui_kit::component::input::{InputState, TextareaState};
+use gpui_kit::{AppContext as _, Context, Entity, EventEmitter, Window};
 use ramag_app::RedisService;
 use ramag_domain::entities::{
     ConnectionConfig, MAX_REDIS_COMMAND_ARG_BYTES, MAX_REDIS_KEY_BYTES, RedisType,
@@ -63,7 +63,7 @@ pub struct KeyCreateForm {
     db: u8,
     selected_type: RedisType,
     key_name: Entity<InputState>,
-    string_input: Entity<InputState>,
+    string_input: Entity<TextareaState>,
     list_editor: Entity<LinesEditor>,
     set_editor: Entity<LinesEditor>,
     hash_editor: Entity<PairsEditor>,
@@ -90,12 +90,9 @@ impl KeyCreateForm {
         let key_name = cx.new(|cx| {
             bounded_input(MAX_REDIS_KEY_BYTES, window, cx).placeholder("如 user:1001:cache")
         });
-        let string_input = cx.new(|cx| {
-            bounded_input(MAX_REDIS_COMMAND_ARG_BYTES, window, cx)
-                .multi_line(true)
-                .placeholder("字符串值（可多行）")
-        });
-        ramag_ui::enforce_multiline_input_byte_limit(
+        let string_input =
+            cx.new(|cx| TextareaState::new(window, cx).placeholder("字符串值（可多行）"));
+        ramag_ui::enforce_textarea_input_byte_limit(
             &string_input,
             MAX_REDIS_COMMAND_ARG_BYTES,
             window,
@@ -143,7 +140,7 @@ impl KeyCreateForm {
         }
     }
 
-    fn build_argv_and_ttl(&self, cx: &gpui::App) -> Result<(Vec<String>, Option<i64>), String> {
+    fn build_argv_and_ttl(&self, cx: &gpui_kit::App) -> Result<(Vec<String>, Option<i64>), String> {
         // 键支持前后空格，不能 trim。
         let key = self.key_name.read(cx).value().to_string();
         if key.is_empty() {

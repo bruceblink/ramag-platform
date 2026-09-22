@@ -4,8 +4,8 @@ mod sorting;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use gpui::{AppContext as _, Context, Entity, Window};
-use gpui_component::notification::Notification;
+use gpui_kit::component::notification::Notification;
+use gpui_kit::{AppContext as _, Context, Entity, Window};
 use ramag_domain::entities::{MAX_SQL_QUERY_BYTES, Query, QueryResult, Value};
 use ramag_domain::error::DomainError;
 use tracing::{error, info, warn};
@@ -47,7 +47,7 @@ impl QueryTab {
         false
     }
 
-    pub(super) fn current_sql(&self, cx: &gpui::App) -> gpui::SharedString {
+    pub(super) fn current_sql(&self, cx: &gpui_kit::App) -> gpui_kit::SharedString {
         self.editor.read(cx).value()
     }
 
@@ -55,7 +55,7 @@ impl QueryTab {
         &mut self,
         operation: &str,
         cx: &mut Context<Self>,
-    ) -> Option<gpui::SharedString> {
+    ) -> Option<gpui_kit::SharedString> {
         let sql = self.current_sql(cx);
         if sql.len() <= MAX_SQL_QUERY_BYTES {
             return Some(sql);
@@ -443,11 +443,11 @@ impl QueryTab {
             if let Some(diag) = state.diagnostics_mut() {
                 diag.clear();
                 let line = line_no.unwrap_or(1).saturating_sub(1) as u32;
-                let range = gpui_component::input::Position::new(line, 0)
-                    ..gpui_component::input::Position::new(line, 9999);
+                let range = gpui_kit::component::input::Position::new(line, 0)
+                    ..gpui_kit::component::input::Position::new(line, 9999);
                 diag.push(
-                    gpui_component::highlighter::Diagnostic::new(range, msg_for_diag)
-                        .with_severity(gpui_component::highlighter::DiagnosticSeverity::Error),
+                    gpui_kit::component::highlighter::Diagnostic::new(range, msg_for_diag)
+                        .with_severity(gpui_kit::component::highlighter::DiagnosticSeverity::Error),
                 );
                 cx.notify();
             }

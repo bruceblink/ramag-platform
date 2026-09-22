@@ -1,10 +1,10 @@
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, Window, div, img,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
     h_flex, v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, Window, div, img,
+    prelude::*, px,
 };
 use ramag_domain::entities::{
     RemotePlatformPreference, SshAuthMode, SshProfile, SshProfileOrigin, contains_case_insensitive,
@@ -292,7 +292,7 @@ impl SshView {
                     .flex_1()
                     .min_w_0()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .overflow_hidden()
                     .text_ellipsis()
                     .child(name),
@@ -390,7 +390,7 @@ impl SshView {
                     .w(px(72.0))
                     .justify_end()
                     .gap(px(4.0))
-                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                    .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
                         cx.stop_propagation();
                     })
                     .child(
@@ -428,7 +428,7 @@ impl SshView {
     }
 }
 
-fn centered_message(message: &'static str, color: gpui::Hsla) -> impl IntoElement {
+fn centered_message(message: &'static str, color: gpui_kit::Hsla) -> impl IntoElement {
     v_flex()
         .size_full()
         .items_center()
@@ -472,7 +472,7 @@ fn looks_like_uuid(value: &str) -> bool {
         })
 }
 
-fn secondary_column(width: f32, text: String, color: gpui::Hsla) -> impl IntoElement {
+fn secondary_column(width: f32, text: String, color: gpui_kit::Hsla) -> impl IntoElement {
     div()
         .flex_none()
         .w(px(width))
@@ -483,7 +483,11 @@ fn secondary_column(width: f32, text: String, color: gpui::Hsla) -> impl IntoEle
         .child(text)
 }
 
-fn environment_badge(index: usize, environment: String, fallback: gpui::Hsla) -> impl IntoElement {
+fn environment_badge(
+    index: usize,
+    environment: String,
+    fallback: gpui_kit::Hsla,
+) -> impl IntoElement {
     let slot = div()
         .debug_selector(move || format!("ssh-profile-environment-{index}"))
         .flex_none()
@@ -513,7 +517,7 @@ fn environment_badge(index: usize, environment: String, fallback: gpui::Hsla) ->
 fn platform_badge(
     index: usize,
     platform: RemotePlatformPreference,
-    color: gpui::Hsla,
+    color: gpui_kit::Hsla,
 ) -> impl IntoElement {
     let mut background = color;
     background.a = 0.12;
@@ -538,8 +542,8 @@ fn status_badge(
     id: String,
     width: f32,
     label: &'static str,
-    foreground: gpui::Hsla,
-    background: Option<gpui::Hsla>,
+    foreground: gpui_kit::Hsla,
+    background: Option<gpui_kit::Hsla>,
 ) -> impl IntoElement {
     let debug_selector = id.clone();
     let mut slot = div()
@@ -570,12 +574,12 @@ fn status_badge(
 
 pub(super) fn environment_badge_colors(
     environment: &str,
-    fallback: gpui::Hsla,
-) -> (gpui::Hsla, gpui::Hsla) {
+    fallback: gpui_kit::Hsla,
+) -> (gpui_kit::Hsla, gpui_kit::Hsla) {
     let foreground = match environment.trim().to_ascii_lowercase().as_str() {
-        "dev" => gpui::hsla(140.0 / 360.0, 0.55, 0.42, 1.0),
-        "test" => gpui::hsla(35.0 / 360.0, 0.80, 0.45, 1.0),
-        "prod" => gpui::hsla(0.0, 0.70, 0.55, 1.0),
+        "dev" => gpui_kit::hsla(140.0 / 360.0, 0.55, 0.42, 1.0),
+        "test" => gpui_kit::hsla(35.0 / 360.0, 0.80, 0.45, 1.0),
+        "prod" => gpui_kit::hsla(0.0, 0.70, 0.55, 1.0),
         _ => fallback,
     };
     let mut background = foreground;

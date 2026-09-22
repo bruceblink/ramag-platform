@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use gpui::{Context, Window};
+use gpui_kit::{Context, Window};
 use ramag_domain::entities::{
     OverwritePolicy, RemoteEntry, SshProfile, SshProfileId, TransferDirection, TransferId,
     join_remote_path,

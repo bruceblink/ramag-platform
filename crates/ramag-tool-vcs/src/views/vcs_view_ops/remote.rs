@@ -1,6 +1,6 @@
 //! VCS 远程操作。
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::RepoId;
 use tracing::{error, info};
 

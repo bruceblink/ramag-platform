@@ -1,4 +1,4 @@
-use gpui::{Context, Window};
+use gpui_kit::{Context, Window};
 use ramag_domain::entities::{
     MAX_OBJECT_STORAGE_WORKSPACE_ENTRIES, ObjectStorageAccountId, ObjectStorageFavorite,
     ObjectStorageMount, ObjectStorageSessionPreference, ObjectStorageWorkspacePreference,
@@ -35,7 +35,7 @@ impl ObjectStorageView {
 
     pub(super) fn set_form_value(
         &self,
-        input: &gpui::Entity<gpui_component::input::InputState>,
+        input: &gpui_kit::Entity<gpui_kit::component::input::InputState>,
         value: &str,
         window: &mut Window,
         cx: &mut Context<Self>,

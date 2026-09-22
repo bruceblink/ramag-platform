@@ -1,12 +1,12 @@
 //! 进行中操作横幅与冲突处理按钮。
 
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
-    prelude::FluentBuilder as _, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
     h_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    prelude::FluentBuilder as _, px,
 };
 use ramag_domain::entities::RepoOperation;
 
@@ -61,7 +61,7 @@ impl VcsView {
                     .flex_1()
                     .min_w_0()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(theme.foreground)
                     .child(title),
             )

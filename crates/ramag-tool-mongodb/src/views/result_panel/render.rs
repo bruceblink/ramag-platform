@@ -1,5 +1,5 @@
 use super::*;
-use gpui_component::{IconName, notification::Notification};
+use gpui_kit::component::{IconName, notification::Notification};
 use ramag_ui::PointerDropdownMenu as _;
 
 /// Builds the MongoDB page-size menu and emits a bounded pager update event.
@@ -347,9 +347,9 @@ impl Render for ResultPanel {
 
 fn render_status_bar(
     summary: String,
-    border: gpui::Hsla,
-    muted: gpui::Hsla,
-    bg: gpui::Hsla,
+    border: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+    bg: gpui_kit::Hsla,
     pagination: Option<MongoResultPagination>,
     panel: Entity<ResultPanel>,
 ) -> impl IntoElement {
@@ -434,9 +434,9 @@ fn render_status_bar(
 fn flatten_hint(
     path: &str,
     n: usize,
-    border: gpui::Hsla,
-    muted: gpui::Hsla,
-    bg: gpui::Hsla,
+    border: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+    bg: gpui_kit::Hsla,
 ) -> impl IntoElement {
     div()
         .id("mongo-flatten-hint")
@@ -454,7 +454,10 @@ fn flatten_hint(
         )))
 }
 
-fn empty_hint(text: impl Into<SharedString>, color: gpui::Hsla) -> gpui::Stateful<gpui::Div> {
+fn empty_hint(
+    text: impl Into<SharedString>,
+    color: gpui_kit::Hsla,
+) -> gpui_kit::Stateful<gpui_kit::Div> {
     div()
         .id("mongo-result-hint")
         .flex_1()
@@ -470,9 +473,9 @@ fn empty_hint(text: impl Into<SharedString>, color: gpui::Hsla) -> gpui::Statefu
 
 fn error_hint(
     text: String,
-    color: gpui::Hsla,
+    color: gpui_kit::Hsla,
     cx: &mut Context<ResultPanel>,
-) -> gpui::Stateful<gpui::Div> {
+) -> gpui_kit::Stateful<gpui_kit::Div> {
     v_flex()
         .id("mongo-result-error")
         .debug_selector(|| "mongo-result-error".into())
@@ -499,7 +502,7 @@ fn error_hint(
                 .icon(IconName::Play)
                 .label("重试")
                 .tooltip("重新执行当前编辑器中的 MongoDB 命令")
-                .on_click(cx.listener(|_, _: &gpui::ClickEvent, _, cx| {
+                .on_click(cx.listener(|_, _: &gpui_kit::ClickEvent, _, cx| {
                     cx.emit(ResultEvent::Refresh);
                 })),
         )

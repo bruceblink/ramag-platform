@@ -1,9 +1,9 @@
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, MouseButton, ParentElement,
     SharedString, Styled, Window, div, img, prelude::*, px,
-};
-use gpui_component::{
-    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use ramag_domain::entities::{CloudProvider, ObjectStorageAccount};
 
@@ -194,7 +194,7 @@ impl ObjectStorageView {
                     .flex_1()
                     .min_w_0()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .overflow_hidden()
                     .text_ellipsis()
                     .child(account.name),
@@ -293,7 +293,7 @@ impl ObjectStorageView {
     }
 }
 
-fn centered_message(message: &'static str, color: gpui::Hsla) -> impl IntoElement {
+fn centered_message(message: &'static str, color: gpui_kit::Hsla) -> impl IntoElement {
     v_flex()
         .size_full()
         .items_center()

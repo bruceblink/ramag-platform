@@ -13,8 +13,7 @@ workspace = true
 ramag-app = { workspace = true }
 ramag-domain = { workspace = true }
 ramag-ui = { workspace = true }
-gpui = { workspace = true }
-gpui-component = { workspace = true }
+gpui-kit = { workspace = true }
 
 [dev-dependencies]
-gpui = { workspace = true, features = ["test-support"] }
+gpui-kit = { workspace = true, features = ["test-support"] }

@@ -10,7 +10,7 @@ impl Render for MongoQueryPanel {
         let only_one = self.tabs.len() <= 1;
         let can_add_tab = can_open_editor_tab(self.tabs.len());
         let add_tab_disabled = self.connection.is_none() || !can_add_tab;
-        let tab_items: Vec<gpui::AnyElement> = self
+        let tab_items: Vec<gpui_kit::AnyElement> = self
             .tabs
             .iter()
             .enumerate()
@@ -41,7 +41,7 @@ impl Render for MongoQueryPanel {
                         tab.child(
                             // 父标签在 mouse_down 时切换；关闭按钮必须更早阻止冒泡。
                             div()
-                                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                                .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
                                     cx.stop_propagation();
                                 })
                                 .child(
@@ -61,14 +61,14 @@ impl Render for MongoQueryPanel {
                         )
                     })
                     .on_mouse_down(
-                        gpui::MouseButton::Left,
+                        gpui_kit::MouseButton::Left,
                         cx.listener(move |this, _, window, cx| this.select_tab(i, window, cx)),
                     );
                 row.into_any_element()
             })
             .collect();
 
-        let body: gpui::AnyElement = if let Some(tab) = self.tabs.get(self.active) {
+        let body: gpui_kit::AnyElement = if let Some(tab) = self.tabs.get(self.active) {
             tab.clone().into_any_element()
         } else {
             div()
@@ -130,7 +130,7 @@ impl Render for MongoQueryPanel {
                                 .ghost()
                                 .small()
                                 .label("重试")
-                                .on_click(cx.listener(|this, _: &gpui::ClickEvent, _, cx| {
+                                .on_click(cx.listener(|this, _: &gpui_kit::ClickEvent, _, cx| {
                                     this.schedule_draft_persist(cx);
                                 })),
                         ),

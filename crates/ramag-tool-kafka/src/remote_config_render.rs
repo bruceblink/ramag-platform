@@ -285,7 +285,7 @@ impl KafkaView {
         entry: KafkaConfigEntry,
         compact: bool,
         cx: &mut Context<Self>,
-    ) -> gpui::AnyElement {
+    ) -> gpui_kit::AnyElement {
         let theme = cx.theme().clone();
         let key = entry.key.clone();
         let entry_selector = format!("kafka-config-entry-{key}");

@@ -2,11 +2,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use gpui::{AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, div, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
     notification::Notification, spinner::Spinner,
 };
+use gpui_kit::{AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, div, px};
 use ramag_domain::entities::{TransferProgress, TransferSummary};
 use ramag_domain::error::DomainError;
 use tracing::{error, info, warn};

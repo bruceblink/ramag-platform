@@ -1,6 +1,6 @@
 use super::*;
 
-#[gpui::test]
+#[gpui_kit::test]
 fn directory_search_state_is_isolated_by_workspace(cx: &mut TestAppContext) {
     let first = profile();
     let mut second = SshProfile::new("staging", "staging.example");
@@ -59,7 +59,7 @@ fn directory_search_state_is_isolated_by_workspace(cx: &mut TestAppContext) {
     });
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn workspace_resize_is_isolated_by_connection(cx: &mut TestAppContext) {
     let first = profile();
     let second = SshProfile::new("staging", "staging.example");
@@ -136,7 +136,7 @@ fn workspace_resize_is_isolated_by_connection(cx: &mut TestAppContext) {
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn close_shortcut_closes_first_workspace_when_no_terminal_exists(cx: &mut TestAppContext) {
     let profile = profile();
     let preference = SshWorkspacePreference {
@@ -169,7 +169,7 @@ fn close_shortcut_closes_first_workspace_when_no_terminal_exists(cx: &mut TestAp
 }
 
 #[cfg(unix)]
-#[gpui::test]
+#[gpui_kit::test]
 fn close_shortcut_selects_and_focuses_previous_terminal(cx: &mut TestAppContext) {
     let profile = profile();
     let profile_id = profile.id.clone();
@@ -252,7 +252,7 @@ fn close_shortcut_selects_and_focuses_previous_terminal(cx: &mut TestAppContext)
 }
 
 #[cfg(unix)]
-#[gpui::test]
+#[gpui_kit::test]
 fn reconnect_replaces_the_current_terminal_without_creating_a_tab(cx: &mut TestAppContext) {
     let mut profile = profile();
     profile.production = false;
@@ -359,7 +359,7 @@ fn reconnect_replaces_the_current_terminal_without_creating_a_tab(cx: &mut TestA
     assert_eq!(exit_code, Some(0));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn empty_state_close_button_closes_first_workspace(cx: &mut TestAppContext) {
     let profile = profile();
     let preference = SshWorkspacePreference {
@@ -391,7 +391,7 @@ fn empty_state_close_button_closes_first_workspace(cx: &mut TestAppContext) {
     });
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn restored_workspace_keeps_favorites_per_profile(cx: &mut TestAppContext) {
     let profile = profile();
     let preference = SshWorkspacePreference {

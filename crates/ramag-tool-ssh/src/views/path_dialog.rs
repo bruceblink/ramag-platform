@@ -1,15 +1,15 @@
 //! SSH 远程路径直达与常用路径管理。
 
-use gpui::{
-    App, AppContext as _, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled,
-    Subscription, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputEvent, InputState},
     v_flex,
+};
+use gpui_kit::{
+    App, AppContext as _, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled,
+    Subscription, Window, div, prelude::*, px,
 };
 use ramag_domain::entities::{
     MAX_SSH_FAVORITE_PATHS_PER_PROFILE, MAX_SSH_PATH_BYTES, SshProfileId,

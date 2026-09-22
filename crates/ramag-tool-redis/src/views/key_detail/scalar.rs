@@ -4,16 +4,16 @@ use std::borrow::Cow;
 use std::ops::Range;
 use std::sync::Arc;
 
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, ScrollWheelEvent, SharedString, Styled,
-    UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     Selectable as _, Sizable as _, button::ButtonVariants as _, clipboard::Clipboard, h_flex,
     v_flex,
 };
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, ScrollWheelEvent, SharedString, Styled,
+    UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
+};
 use ramag_domain::entities::RedisValue;
-use ramag_ui::RestrictScrollToAxisExt as _;
+use ramag_ui::RestrictUniformListToAxisExt as _;
 
 use super::{KeyDetailEvent, KeyDetailPanel};
 use crate::views::value_display::{self, ViewMode};
@@ -78,9 +78,9 @@ pub(super) fn render_scalar(
     v: &RedisValue,
     view_mode: Option<ViewMode>,
     scroll: &UniformListScrollHandle,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
     cx: &mut Context<KeyDetailPanel>,
     _window: &Window,
 ) -> impl IntoElement + use<> {

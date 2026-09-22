@@ -1,13 +1,13 @@
 use super::*;
 
-use gpui::{ClickEvent, FontWeight};
-use gpui_component::{Disableable as _, button::ButtonVariants as _};
+use gpui_kit::component::{Disableable as _, button::ButtonVariants as _};
+use gpui_kit::{ClickEvent, FontWeight};
 
 pub(super) fn render_editor(
     view: &ApiView,
     cx: &mut Context<ApiView>,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let descriptor_label = match &view.grpc_descriptor {
         ApiGrpcDescriptor::Reflection => "Server Reflection".to_string(),
         ApiGrpcDescriptor::FileDescriptorSet { bytes } => {
@@ -76,7 +76,7 @@ pub(super) fn render_editor(
                         .text_color(theme.muted_foreground)
                         .child("Protobuf JSON（流式请求每行一个对象）"),
                 )
-                .child(Input::new(&view.grpc_message).small()),
+                .child(Editor::new(&view.grpc_message)),
         )
         .child(render_catalog(view, cx, theme))
         .into_any_element()
@@ -85,8 +85,8 @@ pub(super) fn render_editor(
 fn render_catalog(
     view: &ApiView,
     cx: &mut Context<ApiView>,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let selected_service = view.grpc_service.read(cx).value().to_string();
     let selected_method = view.grpc_method.read(cx).value().to_string();
     let mut catalog = v_flex()
@@ -148,7 +148,7 @@ fn render_catalog(
                 let selected = selected_service == service_name && selected_method == method_name;
                 let selector = format!("api-grpc-method-{service_index}-{method_index}");
                 let mut button =
-                    ramag_ui::clickable_button(gpui::SharedString::from(selector.clone()))
+                    ramag_ui::clickable_button(gpui_kit::SharedString::from(selector.clone()))
                         .debug_selector({
                             let selector = selector.clone();
                             move || selector.clone()

@@ -17,8 +17,7 @@ ramag-app = { workspace = true }
 ramag-ui = { workspace = true }
 
 # GPUI
-gpui = { workspace = true }
-gpui-component = { workspace = true }
+gpui-kit = { workspace = true }
 
 # 编辑器 / 过滤框补全 provider（实现 gpui-component CompletionProvider）
 anyhow = { workspace = true }
@@ -42,6 +41,6 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 # 结果表滚动回归测试：仅测试构建启用 headless 窗口与输入模拟。
-gpui = { workspace = true, features = ["test-support"] }
+gpui-kit = { workspace = true, features = ["test-support"] }
 async-trait = { workspace = true }
 ramag-infra-mongodb = { workspace = true }

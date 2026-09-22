@@ -1,15 +1,15 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme,
+    animation::{EffectTransition, ease_in_out_cubic},
+    h_flex, v_flex,
+};
+use gpui_kit::{
     AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent, EventEmitter,
     IntoElement, MouseButton, ParentElement, Render, ScrollHandle, SharedString, Styled,
     Subscription, Window, div, hsla, prelude::*, px,
-};
-use gpui_component::{
-    ActiveTheme,
-    animation::{Transition, ease_in_out_cubic},
-    h_flex, v_flex,
 };
 
 use ramag_app::ToolRegistry;
@@ -200,7 +200,7 @@ impl Render for HomeView {
                         .child(
                             div()
                                 .text_sm()
-                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                 .text_color(fg)
                                 .child(name),
                         ),
@@ -226,7 +226,7 @@ impl Render for HomeView {
             let card = if from_x == px(0.0) && from_y == px(0.0) {
                 card.into_any_element()
             } else {
-                Transition::new(Duration::from_millis(360))
+                EffectTransition::new(Duration::from_millis(360))
                     .ease(ease_in_out_cubic)
                     .slide_x(from_x, px(0.0))
                     .slide_y(from_y, px(0.0))
@@ -375,7 +375,7 @@ fn reorder_animation_offset_for_width(
     id: &str,
     columns: usize,
     card_width: f32,
-) -> (gpui::Pixels, gpui::Pixels) {
+) -> (gpui_kit::Pixels, gpui_kit::Pixels) {
     let Some(previous_index) = previous_slots
         .iter()
         .position(|slot| slot.as_deref() == Some(id))
@@ -402,7 +402,7 @@ fn reorder_animation_offset_for_width(
     )
 }
 
-fn render_logo(mono: SharedString, accent: gpui::Hsla, compact: bool) -> impl IntoElement {
+fn render_logo(mono: SharedString, accent: gpui_kit::Hsla, compact: bool) -> impl IntoElement {
     if compact {
         return v_flex()
             .id("home-logo")
@@ -410,7 +410,7 @@ fn render_logo(mono: SharedString, accent: gpui::Hsla, compact: bool) -> impl In
             .items_center()
             .font_family(mono)
             .text_size(px(16.0))
-            .font_weight(gpui::FontWeight::BOLD)
+            .font_weight(gpui_kit::FontWeight::BOLD)
             .child("RAMAG")
             .into_any_element();
     }
@@ -433,7 +433,7 @@ fn render_logo(mono: SharedString, accent: gpui::Hsla, compact: bool) -> impl In
         .items_center()
         .font_family(mono)
         .text_size(px(14.0))
-        .font_weight(gpui::FontWeight::BOLD)
+        .font_weight(gpui_kit::FontWeight::BOLD)
         .children(lines)
         .into_any_element()
 }

@@ -1,12 +1,12 @@
 //! JumpServer 导入来源与已保存连接选择。
 
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div, img,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div, img,
+    prelude::*, px,
 };
 
 use super::jumpserver_dialog::JumpServerPanel;
@@ -27,7 +27,7 @@ impl JumpServerPanel {
             .child(
                 div()
                     .text_xs()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(cx.theme().muted_foreground)
                     .child("连接来源"),
             )
@@ -80,7 +80,7 @@ impl JumpServerPanel {
                         .child(
                             div()
                                 .text_xs()
-                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                 .text_color(muted)
                                 .child("已保存的连接"),
                         )
@@ -176,7 +176,7 @@ impl JumpServerPanel {
                             h_flex()
                                 .items_center()
                                 .gap(px(2.0))
-                                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                                .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
                                     cx.stop_propagation()
                                 })
                                 .child(

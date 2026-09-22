@@ -5,7 +5,7 @@ mod render;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::{
     AnyView, App, AppContext as _, Context, Entity, FocusHandle, Focusable, Point, ScrollHandle,
     Subscription, Window, px,
 };
@@ -125,7 +125,7 @@ pub struct DbClientView {
     pub(super) center: CenterMode,
     pub(super) picker: Entity<ConnectionListPanel>,
     pub(super) sessions_scroll: ScrollHandle,
-    pub(super) pending_notification: Option<gpui_component::notification::Notification>,
+    pub(super) pending_notification: Option<gpui_kit::component::notification::Notification>,
     /// 启动后按保存顺序恢复标签；渲染时才创建视图。
     pub(super) pending_restore: Option<(
         Vec<ConnectionConfig>,
@@ -222,7 +222,7 @@ impl DbClientView {
             && !matches!(event, ListEvent::ConnectionsChanged(_))
         {
             self.pending_notification = Some(
-                gpui_component::notification::Notification::warning(
+                gpui_kit::component::notification::Notification::warning(
                     "数据同步占用应用中，请等待完成并确认结果",
                 )
                 .autohide(true),
@@ -265,7 +265,7 @@ impl DbClientView {
                 }
                 if any_stale {
                     self.pending_notification = Some(
-                        gpui_component::notification::Notification::info(
+                        gpui_kit::component::notification::Notification::info(
                             "连接配置已更新，相关标签已暂停，请重新连接后继续操作",
                         )
                         .autohide(true),
@@ -369,7 +369,7 @@ impl DbClientView {
 
         if self.sessions.len() >= MAX_CONNECTION_SESSIONS {
             self.pending_notification = Some(
-                gpui_component::notification::Notification::warning(format!(
+                gpui_kit::component::notification::Notification::warning(format!(
                     "连接标签已达上限（{MAX_CONNECTION_SESSIONS} 个），请先关闭不需要的标签"
                 ))
                 .autohide(true),

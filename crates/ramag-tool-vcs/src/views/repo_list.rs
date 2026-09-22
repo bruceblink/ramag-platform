@@ -3,13 +3,13 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{
-    AnyElement, ClickEvent, Context, FontWeight, IntoElement, ParentElement, SharedString, Styled,
-    Window, div, prelude::*, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _, h_flex, input::Input, v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, FontWeight, IntoElement, ParentElement, SharedString, Styled,
+    Window, div, prelude::*, px, uniform_list,
 };
 
 impl VcsView {
@@ -49,7 +49,7 @@ impl VcsView {
                         .xsmall()
                         .label("复制")
                         .on_click(move |_: &ClickEvent, _, app| {
-                            app.write_to_clipboard(gpui::ClipboardItem::new_string(
+                            app.write_to_clipboard(gpui_kit::ClipboardItem::new_string(
                                 err_for_copy.clone(),
                             ));
                         })
@@ -286,7 +286,7 @@ impl VcsView {
         indices
     }
 
-    fn open_clone_dialog(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) {
+    fn open_clone_dialog(&mut self, window: &mut gpui_kit::Window, cx: &mut Context<Self>) {
         self.clone_dest_path = None;
         self.clone_url_input
             .update(cx, |state, cx| state.set_value("", window, cx));
@@ -417,11 +417,11 @@ fn repo_row(
     r: &RepoConfig,
     compact: bool,
     busy: bool,
-    border: gpui::Hsla,
-    hover_bg: gpui::Hsla,
-    accent: gpui::Hsla,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
+    border: gpui_kit::Hsla,
+    hover_bg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
     cx: &mut Context<VcsView>,
 ) -> impl IntoElement {
     let badge_fg = accent;
@@ -479,7 +479,9 @@ fn repo_row(
         .gap(px(4.0))
         .w(px(36.0))
         .justify_end()
-        .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
+            cx.stop_propagation()
+        })
         .child(
             ramag_ui::clickable_button(del_id)
                 .ghost()

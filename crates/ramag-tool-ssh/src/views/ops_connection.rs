@@ -1,6 +1,6 @@
 //! SSH 工作区能力探测与首次 SFTP 目录加载。
 
-use gpui::{Context, Window};
+use gpui_kit::{Context, Window};
 use ramag_domain::entities::{
     RemoteCapabilityState, RemoteOperatingSystem, RemotePath, SshProfileId, SshRemoteCapabilities,
     SshSessionState,

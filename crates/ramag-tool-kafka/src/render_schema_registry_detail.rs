@@ -46,7 +46,7 @@ impl KafkaView {
 
     fn render_schema_versions(
         &self,
-        theme: &gpui_component::Theme,
+        theme: &gpui_kit::component::Theme,
         compact: bool,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
@@ -154,7 +154,10 @@ impl KafkaView {
         list
     }
 
-    fn render_schema_version_content(&self, theme: &gpui_component::Theme) -> impl IntoElement {
+    fn render_schema_version_content(
+        &self,
+        theme: &gpui_kit::component::Theme,
+    ) -> impl IntoElement {
         let mut panel = v_flex()
             .id("kafka-schema-version-content")
             .debug_selector(|| "kafka-schema-version-content".into())
@@ -222,7 +225,7 @@ impl KafkaView {
 fn schema_meta(
     label: &'static str,
     value: String,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     v_flex()
         .min_w(px(72.0))

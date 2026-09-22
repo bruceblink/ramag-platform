@@ -1,10 +1,10 @@
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
     h_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    prelude::*, px,
 };
 
 use super::helpers::ActiveView;

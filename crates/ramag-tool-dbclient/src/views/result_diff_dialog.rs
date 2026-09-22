@@ -1,17 +1,17 @@
 //! 查询结果差异对话框：使用 Git 风格的行标记展示已加载范围内的变化。
 
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Pixels, Render, ScrollHandle,
-    Styled, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Selectable as _, Sizable as _, Theme,
     button::Button,
     button::ButtonVariants as _,
     h_flex,
-    scroll::{Scrollbar, ScrollbarShow},
+    scroll::{Scrollbar, ScrollbarMode},
     spinner::Spinner,
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Pixels, Render, ScrollHandle,
+    Styled, Window, div, prelude::*, px,
 };
 
 use super::result_diff::{
@@ -67,9 +67,9 @@ impl ResultDiffDialog {
         self.diff = None;
         self.error = None;
         self.vertical_scroll
-            .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+            .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
         self.horizontal_scroll
-            .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+            .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
         cx.notify();
 
         cx.spawn(async move |this, cx| {
@@ -96,7 +96,7 @@ impl ResultDiffDialog {
         }
         self.filter = filter;
         self.vertical_scroll
-            .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+            .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
         cx.notify();
     }
 
@@ -159,7 +159,7 @@ impl ResultDiffDialog {
             .child(
                 div()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .child(title.to_string()),
             );
         if visible_lines.is_empty() {
@@ -217,7 +217,7 @@ impl ResultDiffDialog {
                 div()
                     .flex_none()
                     .w(px(180.0))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .child(diff.column_name.clone()),
             )
             .child(
@@ -251,7 +251,7 @@ impl ResultDiffDialog {
             .child(
                 div()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .child(format!("单元格变化（{total} 处）")),
             );
         for diff in diffs {
@@ -289,7 +289,7 @@ impl ResultDiffDialog {
             .text_xs()
             .child(
                 div()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(status_color)
                     .child(status),
             )
@@ -411,7 +411,7 @@ impl ResultDiffDialog {
                     .child(
                         Scrollbar::vertical(&self.vertical_scroll)
                             .id("result-diff-vertical-scrollbar")
-                            .scrollbar_show(ScrollbarShow::Always),
+                            .mode(ScrollbarMode::Always),
                     ),
             )
             .child(
@@ -425,7 +425,7 @@ impl ResultDiffDialog {
                     .child(
                         Scrollbar::horizontal(&self.horizontal_scroll)
                             .id("result-diff-horizontal-scrollbar")
-                            .scrollbar_show(ScrollbarShow::Always),
+                            .mode(ScrollbarMode::Always),
                     ),
             )
             .into_any_element()
@@ -463,7 +463,7 @@ impl Render for ResultDiffDialog {
                     .child(
                         div()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .child("结果差异"),
                     )
                     .child(

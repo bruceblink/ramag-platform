@@ -72,7 +72,7 @@ impl Render for KeyTreePanel {
                     .ghost()
                     .small()
                     .label(db_picker_label)
-                    .pointer_dropdown_menu_with_anchor(gpui::Anchor::BottomLeft, move |menu, _, _| {
+                    .pointer_dropdown_menu_with_anchor(gpui_kit::Anchor::BottomLeft, move |menu, _, _| {
                         let mut m = menu;
                         let entity = session_entity.clone();
                         // 常规列 0-15；当前 db 更高（自建实例 databases > 16）时并入列表可回切
@@ -119,7 +119,7 @@ impl Render for KeyTreePanel {
                                         Err(_) => {
                                             entity.update(app, |this, cx| {
                                                 this.pending_notification = Some(
-                                                    gpui_component::notification::Notification::error(
+                                                    gpui_kit::component::notification::Notification::error(
                                                         "DB 序号无效，请输入 0-255 的整数",
                                                     ),
                                                 );
@@ -237,9 +237,12 @@ impl Render for KeyTreePanel {
                     .disabled(read_only || mutating)
                     .when_some(more_tip, |b, tip| b.tooltip(tip))
                     // 菜单顶部左角锚在按钮上，向右下方展开（不往上弹遮挡工具栏）
-                    .pointer_dropdown_menu_with_anchor(gpui::Anchor::TopLeft, move |menu, _, _| {
-                        ops::toolbar_more_menu(menu, entity_for_menu.clone(), current_db)
-                    })
+                    .pointer_dropdown_menu_with_anchor(
+                        gpui_kit::Anchor::TopLeft,
+                        move |menu, _, _| {
+                            ops::toolbar_more_menu(menu, entity_for_menu.clone(), current_db)
+                        },
+                    )
             });
 
         let theme_muted = theme.muted;
@@ -249,7 +252,7 @@ impl Render for KeyTreePanel {
         let empty_hint =
             !self.loading && total == 0 && self.config.is_some() && self.error.is_none();
 
-        let body: gpui::AnyElement = if row_count == 0 {
+        let body: gpui_kit::AnyElement = if row_count == 0 {
             if self.search_pending {
                 div()
                     .flex_1()

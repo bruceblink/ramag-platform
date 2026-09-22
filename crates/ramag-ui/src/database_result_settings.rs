@@ -1,6 +1,6 @@
 //! 数据库结果表显示设置与 GPUI 全局状态。
 
-use gpui::{App, Global};
+use gpui_kit::{App, Global};
 use serde::{Deserialize, Serialize};
 
 pub const DATABASE_RESULT_SETTINGS_PREF_KEY: &str = "database_result_settings";

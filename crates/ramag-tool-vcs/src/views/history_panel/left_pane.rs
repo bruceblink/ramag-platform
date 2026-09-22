@@ -3,11 +3,11 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{
+use gpui_kit::component::v_flex;
+use gpui_kit::{
     AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement, Styled, px,
     uniform_list,
 };
-use gpui_component::v_flex;
 
 use super::super::sidebar::{LeftRow, SidebarSection};
 use super::super::vcs_view::VcsView;

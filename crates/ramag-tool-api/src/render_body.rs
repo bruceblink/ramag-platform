@@ -1,13 +1,13 @@
 use super::*;
 
-use gpui::ClickEvent;
-use gpui_component::button::ButtonVariants as _;
+use gpui_kit::ClickEvent;
+use gpui_kit::component::button::ButtonVariants as _;
 
 pub(super) fn render_http_body(
     view: &mut ApiView,
     cx: &mut Context<ApiView>,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let mode_button = |id: &'static str,
                        label: &'static str,
                        mode: ApiBodyMode,
@@ -27,7 +27,7 @@ pub(super) fn render_http_body(
         };
         button.into_any_element()
     };
-    let editor = Input::new(&view.http_body).small().h(px(176.0));
+    let editor = Editor::new(&view.http_body).h(px(176.0));
     v_flex()
         .id("api-http-body")
         .debug_selector(|| "api-http-body".into())

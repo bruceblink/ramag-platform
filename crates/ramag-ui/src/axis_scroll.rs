@@ -2,8 +2,9 @@
 
 use std::time::{Duration, Instant};
 
-use gpui::{
-    Context, Pixels, Point, ScrollHandle, ScrollWheelEvent, Styled, TouchPhase, Window, point, px,
+use gpui_kit::{
+    Context, Pixels, Point, ScrollHandle, ScrollWheelEvent, Styled, TouchPhase, UniformList,
+    Window, point, px,
 };
 
 /// Windows 普通滚轮事件没有 Started / Ended，以短暂停顿划分手势。
@@ -155,6 +156,18 @@ pub fn handle_axis_scroll<T: 'static>(
     }
 }
 
+/// `UniformList` 不继承 `Div` 的同名滚动方法，单独设置滚动轴限制。
+pub trait RestrictUniformListToAxisExt: Sized {
+    fn restrict_scroll_to_axis(self) -> Self;
+}
+
+impl RestrictUniformListToAxisExt for UniformList {
+    fn restrict_scroll_to_axis(mut self) -> Self {
+        self.style().restrict_scroll_to_axis = Some(true);
+        self
+    }
+}
+
 fn apply_delta(handle: &ScrollHandle, axis: ScrollAxis, delta: Pixels) -> bool {
     let current = handle.offset();
     let max = handle.max_offset();
@@ -168,16 +181,6 @@ fn apply_delta(handle: &ScrollHandle, axis: ScrollAxis, delta: Pixels) -> bool {
     handle.set_offset(next);
     true
 }
-
-/// 禁止单轴容器把另一轴滚轮位移自动映射过来；双轴分流由透明输入层负责。
-pub trait RestrictScrollToAxisExt: Styled + Sized {
-    fn restrict_scroll_to_axis(mut self) -> Self {
-        self.style().restrict_scroll_to_axis = Some(true);
-        self
-    }
-}
-
-impl<T: Styled> RestrictScrollToAxisExt for T {}
 
 #[cfg(test)]
 mod tests {

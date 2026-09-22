@@ -1,7 +1,7 @@
 //! Redis Key 与集合元素删除。
 
-use gpui::Context;
-use gpui_component::notification::Notification;
+use gpui_kit::Context;
+use gpui_kit::component::notification::Notification;
 use tracing::{error, info};
 
 use super::super::list_delete::{

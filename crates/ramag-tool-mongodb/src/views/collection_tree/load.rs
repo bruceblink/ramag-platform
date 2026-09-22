@@ -50,7 +50,7 @@ impl CollectionTreePanel {
             .count();
         if self.expanded.len().saturating_add(new_entries) > MAX_LOADED_DATABASES {
             self.pending_notification = Some(
-                gpui_component::notification::Notification::warning(format!(
+                gpui_kit::component::notification::Notification::warning(format!(
                     "搜索最多加载 {MAX_LOADED_DATABASES} 个数据库；请先收起不再使用的数据库"
                 ))
                 .autohide(true),
@@ -339,7 +339,7 @@ impl CollectionTreePanel {
                     .cloned();
                 let Some(evict) = evict else {
                     self.pending_notification = Some(
-                        gpui_component::notification::Notification::warning(format!(
+                        gpui_kit::component::notification::Notification::warning(format!(
                             "最多同时保留 {MAX_LOADED_DATABASES} 个数据库的集合列表，请先收起不再使用的数据库"
                         ))
                         .autohide(true),
@@ -445,7 +445,7 @@ impl CollectionTreePanel {
         cx.notify();
     }
 
-    pub(super) fn current_filter(&self, _cx: &gpui::App) -> String {
+    pub(super) fn current_filter(&self, _cx: &gpui_kit::App) -> String {
         self.search_query.clone()
     }
 }

@@ -1,10 +1,10 @@
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString,
-    StatefulInteractiveElement as _, Styled, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, IconName, Sizable as _, StyledExt as _, button::ButtonVariants as _, h_flex,
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString,
+    StatefulInteractiveElement as _, Styled, div, prelude::*, px,
 };
 use ramag_domain::entities::{ObjectMetadata, format_bytes};
 
@@ -100,10 +100,10 @@ impl ObjectStorageView {
 
 fn metadata_section(
     metadata: ObjectMetadata,
-    border: gpui::Hsla,
-    muted: gpui::Hsla,
+    border: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
     mono: SharedString,
-    cx: &gpui::App,
+    cx: &gpui_kit::App,
 ) -> AnyElement {
     let modified = metadata
         .last_modified
@@ -200,7 +200,7 @@ fn metadata_row(
     label: impl Into<SharedString>,
     value: impl Into<SharedString>,
     mono: bool,
-    muted: gpui::Hsla,
+    muted: gpui_kit::Hsla,
     mono_font: SharedString,
 ) -> AnyElement {
     let label: SharedString = label.into();
@@ -239,7 +239,7 @@ fn metadata_row(
         .into_any_element()
 }
 
-fn section_heading(label: &'static str, muted: gpui::Hsla) -> impl IntoElement {
+fn section_heading(label: &'static str, muted: gpui_kit::Hsla) -> impl IntoElement {
     div()
         .text_xs()
         .font_semibold()

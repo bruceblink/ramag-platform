@@ -1,11 +1,11 @@
 //! DbClientView 渲染：顶部连接 Tab Bar + 中心内容（picker / session）
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     AnyView, ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window,
     div, prelude::*, px,
-};
-use gpui_component::{
-    ActiveTheme, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 
 use super::{CenterMode, DbClientView};
@@ -169,9 +169,9 @@ impl Render for DbClientView {
                 match health {
                     None => (muted_fg, "未连接", muted_fg),
                     Some((true, _)) => (
-                        gpui::hsla(45.0 / 360.0, 0.9, 0.55, 1.0),
+                        gpui_kit::hsla(45.0 / 360.0, 0.9, 0.55, 1.0),
                         "连接中",
-                        gpui::hsla(45.0 / 360.0, 0.9, 0.55, 1.0),
+                        gpui_kit::hsla(45.0 / 360.0, 0.9, 0.55, 1.0),
                     ),
                     Some((false, true)) => (danger, "连接失败", danger),
                     Some((false, false)) => (success, "已连接", success),
@@ -242,7 +242,7 @@ impl Render for DbClientView {
         tab_bar = tab_bar.child(session_strip);
 
         // stale 槽显示"配置已更新"面板（暂停查询与写入，等待用户一键重连）
-        let center_view: gpui::AnyElement = match &self.center {
+        let center_view: gpui_kit::AnyElement = match &self.center {
             CenterMode::Session => {
                 match active.and_then(|i| self.sessions.get(i).map(|s| (i, s))) {
                     Some((idx, slot)) if slot.stale => self
@@ -318,7 +318,7 @@ impl DbClientView {
             .child(
                 div()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(warning)
                     .child(format!("连接「{name}」的配置已更新")),
             )

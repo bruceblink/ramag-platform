@@ -2,11 +2,11 @@
 
 use std::ops::Range;
 
-use gpui::{
+use gpui_kit::component::{Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex};
+use gpui_kit::{
     ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement, SharedString, Styled,
     UniformListScrollHandle, div, prelude::*, px, uniform_list,
 };
-use gpui_component::{Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex};
 use ramag_domain::entities::{MAX_REDIS_COMMAND_ARG_BYTES, RedisValue};
 
 use super::{KeyDetailEvent, KeyDetailPanel};
@@ -20,9 +20,9 @@ pub(super) fn render_hash_block(
     key: String,
     count: usize,
     scroll: &UniformListScrollHandle,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
 ) -> impl IntoElement + use<> {
     div()
         .debug_selector(|| "redis-hash-block".into())
@@ -64,9 +64,9 @@ fn hash_row(
     field: &str,
     value: &RedisValue,
     read_only: bool,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
     cx: &mut Context<KeyDetailPanel>,
 ) -> impl IntoElement + use<> {
     let field_preview = inline_text_preview(field, 128);

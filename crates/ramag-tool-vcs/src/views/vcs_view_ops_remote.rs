@@ -1,6 +1,6 @@
 //! 远程列表加载。
 
-use gpui::Context;
+use gpui_kit::Context;
 use tracing::error;
 
 use super::vcs_view::VcsView;

@@ -1,6 +1,6 @@
 use super::*;
 
-use gpui::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
+use gpui_kit::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_domain::entities::{
     ApiCollection, ApiGrpcMethodSummary, ApiGrpcServiceSummary, ApiProtocol, ApiRequestRecord,
     ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
@@ -15,18 +15,18 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
         bounds.origin.y + bounds.size.height / 2.0,
     );
     cx.simulate_mouse_move(center, None, Modifiers::default());
-    cx.simulate_mouse_down(center, gpui::MouseButton::Left, Modifiers::default());
-    cx.simulate_mouse_up(center, gpui::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_up(center, gpui_kit::MouseButton::Left, Modifiers::default());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_grpc_catalog_selects_method_and_keeps_long_lists_bounded(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::new(window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let view = view_entity.expect("API 视图应初始化");
     let services = (0..4)
@@ -72,14 +72,14 @@ fn api_grpc_catalog_selects_method_and_keeps_long_lists_bounded(cx: &mut TestApp
     assert_eq!(selected, ("api.Service0".into(), "Method3".into()));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_saved_request_sidebar_opens_request_and_clears_stale_grpc_state(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::new(window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let view = view_entity.expect("API 视图应初始化");
     let mut workspace = ApiWorkspace::new("Saved requests");
@@ -140,14 +140,14 @@ fn api_saved_request_sidebar_opens_request_and_clears_stale_grpc_state(cx: &mut 
     assert_eq!(state.8, Some(("已打开请求：gRPC request".into(), false)));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_request_sidebar_filters_all_saved_requests_with_collection_context(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::new(window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let view = view_entity.expect("API 视图应初始化");
     let mut workspace = ApiWorkspace::new("Searchable");

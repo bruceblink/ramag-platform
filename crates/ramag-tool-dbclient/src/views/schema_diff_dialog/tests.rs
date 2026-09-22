@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{AppContext as _, TestAppContext, px, size};
+use gpui_kit::{AppContext as _, TestAppContext, px, size};
 use ramag_app::ConnectionService;
 use ramag_domain::entities::{
     Column, ColumnKind, ColumnType, ConnectionConfig, ConnectionId, Index, QueryRecord,
@@ -63,7 +63,7 @@ impl Storage for NoopStorage {
     }
 }
 
-fn test_dialog(cx: &mut TestAppContext) -> &mut gpui::VisualTestContext {
+fn test_dialog(cx: &mut TestAppContext) -> &mut gpui_kit::VisualTestContext {
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage),
@@ -91,10 +91,10 @@ fn test_dialog(cx: &mut TestAppContext) -> &mut gpui::VisualTestContext {
             loading: false,
             request_generation: 0,
             error: None,
-            vertical_scroll: gpui::ScrollHandle::new(),
-            horizontal_scroll: gpui::ScrollHandle::new(),
-            migration_vertical_scroll: gpui::ScrollHandle::new(),
-            migration_horizontal_scroll: gpui::ScrollHandle::new(),
+            vertical_scroll: gpui_kit::ScrollHandle::new(),
+            horizontal_scroll: gpui_kit::ScrollHandle::new(),
+            migration_vertical_scroll: gpui_kit::ScrollHandle::new(),
+            migration_horizontal_scroll: gpui_kit::ScrollHandle::new(),
             migration_visible: false,
             saving_migration: false,
             executing_migration: false,
@@ -102,12 +102,12 @@ fn test_dialog(cx: &mut TestAppContext) -> &mut gpui::VisualTestContext {
             migration_approvals: Vec::new(),
             pending_notification: None,
         });
-        gpui_component::Root::new(dialog, window, cx)
+        gpui_kit::component::Root::new(dialog, window, cx)
     });
     visual_cx
 }
 
-fn migration_dialog(cx: &mut TestAppContext) -> &mut gpui::VisualTestContext {
+fn migration_dialog(cx: &mut TestAppContext) -> &mut gpui_kit::VisualTestContext {
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage),
@@ -155,10 +155,10 @@ fn migration_dialog(cx: &mut TestAppContext) -> &mut gpui::VisualTestContext {
             loading: false,
             request_generation: 1,
             error: None,
-            vertical_scroll: gpui::ScrollHandle::new(),
-            horizontal_scroll: gpui::ScrollHandle::new(),
-            migration_vertical_scroll: gpui::ScrollHandle::new(),
-            migration_horizontal_scroll: gpui::ScrollHandle::new(),
+            vertical_scroll: gpui_kit::ScrollHandle::new(),
+            horizontal_scroll: gpui_kit::ScrollHandle::new(),
+            migration_vertical_scroll: gpui_kit::ScrollHandle::new(),
+            migration_horizontal_scroll: gpui_kit::ScrollHandle::new(),
             migration_visible: true,
             saving_migration: false,
             executing_migration: false,
@@ -166,7 +166,7 @@ fn migration_dialog(cx: &mut TestAppContext) -> &mut gpui::VisualTestContext {
             migration_approvals: Vec::new(),
             pending_notification: None,
         });
-        gpui_component::Root::new(dialog, window, cx)
+        gpui_kit::component::Root::new(dialog, window, cx)
     });
     visual_cx
 }
@@ -190,16 +190,19 @@ fn test_column(name: &str, raw_type: &str) -> Column {
     }
 }
 
-fn assert_inside(child: gpui::Bounds<gpui::Pixels>, parent: gpui::Bounds<gpui::Pixels>) {
+fn assert_inside(
+    child: gpui_kit::Bounds<gpui_kit::Pixels>,
+    parent: gpui_kit::Bounds<gpui_kit::Pixels>,
+) {
     assert!(child.origin.x >= parent.origin.x);
     assert!(child.origin.y >= parent.origin.y);
     assert!(child.right() <= parent.right());
     assert!(child.bottom() <= parent.bottom());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn schema_diff_toolbar_keeps_context_and_actions_inside_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cx = test_dialog(cx);
 
     for width in [360.0, 1024.0, 1440.0] {
@@ -229,9 +232,9 @@ fn schema_diff_toolbar_keeps_context_and_actions_inside_supported_widths(cx: &mu
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn migration_stages_stay_inside_preview_at_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cx = migration_dialog(cx);
 
     for width in [360.0, 1024.0, 1440.0] {

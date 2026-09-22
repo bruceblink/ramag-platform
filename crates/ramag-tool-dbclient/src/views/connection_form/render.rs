@@ -1,10 +1,10 @@
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
     input::Input, v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
+    prelude::*, px,
 };
 
 use super::{ConnectionFormPanel, FormMode, TestState, field_row, section_title};
@@ -16,7 +16,7 @@ impl ConnectionFormPanel {
         let muted_fg = theme.muted_foreground;
         let muted = theme.muted;
         let on = self.production;
-        let danger = gpui::hsla(0.0, 0.7, 0.55, 1.0);
+        let danger = gpui_kit::hsla(0.0, 0.7, 0.55, 1.0);
 
         let track = h_flex()
             .w(px(36.0))
@@ -25,7 +25,7 @@ impl ConnectionFormPanel {
             .bg(if on { danger } else { muted })
             .items_center()
             .px(px(2.0))
-            .child(div().size(px(16.0)).rounded_full().bg(gpui::white()));
+            .child(div().size(px(16.0)).rounded_full().bg(gpui_kit::white()));
         let track = if on {
             track.justify_end()
         } else {
@@ -37,7 +37,7 @@ impl ConnectionFormPanel {
             .child(
                 div()
                     .text_xs()
-                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .font_weight(gpui_kit::FontWeight::MEDIUM)
                     .child(ramag_ui::PRODUCTION_MODE_LABEL),
             )
             .child(
@@ -106,7 +106,7 @@ impl ConnectionFormPanel {
             .child(
                 div()
                     .text_xs()
-                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .font_weight(gpui_kit::FontWeight::MEDIUM)
                     .child("环境标签（可选）"),
             )
             .child(row)
@@ -131,11 +131,11 @@ impl Render for ConnectionFormPanel {
         let (test_msg, test_failed) = match &self.test_state {
             TestState::Idle => (None, false),
             TestState::Testing => (Some(("测试中…".to_string(), muted_fg)), false),
-            TestState::Success => (Some(("✓ 连接成功".to_string(), gpui::green())), false),
-            TestState::Failed(msg) => (Some((msg.clone(), gpui::red())), true),
+            TestState::Success => (Some(("✓ 连接成功".to_string(), gpui_kit::green())), false),
+            TestState::Failed(msg) => (Some((msg.clone(), gpui_kit::red())), true),
         };
 
-        let driver_selector: Option<gpui::AnyElement> = matches!(self.mode, FormMode::Create)
+        let driver_selector: Option<gpui_kit::AnyElement> = matches!(self.mode, FormMode::Create)
             .then(|| self.render_driver_selector(cx).into_any_element());
 
         let is_redis = self.driver_id == "redis";
@@ -475,7 +475,7 @@ impl Render for ConnectionFormPanel {
                                     .flex_1()
                                     .min_w_0()
                                     .text_xs()
-                                    .font_weight(gpui::FontWeight::NORMAL)
+                                    .font_weight(gpui_kit::FontWeight::NORMAL)
                                     .text_color(color)
                                     // 失败信息可换行并复制。
                                     .when(!test_failed, |d| d.overflow_hidden().text_ellipsis())

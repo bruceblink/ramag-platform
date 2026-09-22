@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use gpui::{Context, Window};
+use gpui_kit::{Context, Window};
 use ramag_domain::entities::JumpServerCredential;
 
 use super::jumpserver_dialog::{JumpServerOperation, JumpServerPanel, JumpServerTreeSelection};
@@ -134,7 +134,7 @@ impl JumpServerPanel {
         }
     }
 
-    fn credential(&self, cx: &gpui::App) -> Result<JumpServerCredential, String> {
+    fn credential(&self, cx: &gpui_kit::App) -> Result<JumpServerCredential, String> {
         let raw_port = self.ssh_port.read(cx).value().trim().to_string();
         let ssh_port = raw_port
             .parse::<u16>()

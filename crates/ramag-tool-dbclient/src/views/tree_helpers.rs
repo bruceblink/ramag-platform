@@ -1,10 +1,10 @@
 //! TableTreePanel 的辅助渲染 / 工具函数（从 table_tree.rs 拆出，避免单文件过大）
 
-use gpui::{
+use gpui_kit::component::h_flex;
+use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
     prelude::*, px,
 };
-use gpui_component::h_flex;
 use ramag_domain::entities::Column;
 
 use super::table_tree::TableTreePanel;
@@ -13,8 +13,8 @@ use super::table_tree::TableTreePanel;
 pub(super) fn render_column_row(
     col: &Column,
     element_id: SharedString,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
     cx: &mut Context<TableTreePanel>,
 ) -> AnyElement {
     let pk_label = if col.is_primary_key { "🔑 " } else { "" };
@@ -56,7 +56,7 @@ pub(super) fn render_copyable_detail_line(
     element_id: SharedString,
     text: impl Into<SharedString>,
     copy_value: String,
-    color: gpui::Hsla,
+    color: gpui_kit::Hsla,
     cx: &mut Context<TableTreePanel>,
 ) -> AnyElement {
     div()
@@ -85,7 +85,7 @@ pub(super) fn render_copyable_detail_line(
 /// 加载中 / 错误占位行：缩进同列子节点，单行 ellipsis 截断，行高 28px
 pub(super) fn render_columns_placeholder(
     text: impl Into<SharedString>,
-    color: gpui::Hsla,
+    color: gpui_kit::Hsla,
 ) -> AnyElement {
     div()
         .w_full()

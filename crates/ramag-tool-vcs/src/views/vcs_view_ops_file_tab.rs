@@ -1,6 +1,6 @@
 //! 文件标签与未跟踪文件预览。
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::DiffKind;
 use tracing::error;
 
@@ -32,9 +32,9 @@ impl VcsView {
             self.reset_blame_context();
             self.expanded_diff_spacers.clear();
             self.diff_h_scroll
-                .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+                .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
             self.diff_scroll
-                .scroll_to_item(0, gpui::ScrollStrategy::Top);
+                .scroll_to_item(0, gpui_kit::ScrollStrategy::Top);
             self.diff_scroll_gesture.reset();
         }
         // 切换到变更文件时关闭提交详情。
@@ -169,7 +169,7 @@ impl VcsView {
         self.capture_active_project_draft(cx);
         if self.file_tabs[idx].is_dirty() {
             self.pending_notification = Some(
-                gpui_component::notification::Notification::warning(format!(
+                gpui_kit::component::notification::Notification::warning(format!(
                     "文件尚未完成自动保存，请稍后关闭；也可按 {} 立即重试",
                     ramag_ui::platform::primary_shortcut("S")
                 ))
@@ -356,7 +356,7 @@ impl VcsView {
     /// 将标签滚动到末尾。
     pub(super) fn scroll_file_tabs_to_end(&self) {
         self.file_tabs_h_scroll
-            .set_offset(gpui::point(gpui::px(-99_999.0), gpui::px(0.0)));
+            .set_offset(gpui_kit::point(gpui_kit::px(-99_999.0), gpui_kit::px(0.0)));
     }
 }
 

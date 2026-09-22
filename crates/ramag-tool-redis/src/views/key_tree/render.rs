@@ -2,13 +2,13 @@
 
 use std::rc::Rc;
 
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     Icon, IconName, Sizable as _, h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    prelude::*, px,
 };
 use ramag_domain::entities::{RedisType, contains_case_insensitive};
 
@@ -83,11 +83,11 @@ impl KeyTreePanel {
         row_index: usize,
         row: &VisibleRow,
         selected: &Option<String>,
-        fg: gpui::Hsla,
-        muted_fg: gpui::Hsla,
-        row_hover: gpui::Hsla,
-        accent: gpui::Hsla,
-        theme_muted: gpui::Hsla,
+        fg: gpui_kit::Hsla,
+        muted_fg: gpui_kit::Hsla,
+        row_hover: gpui_kit::Hsla,
+        accent: gpui_kit::Hsla,
+        theme_muted: gpui_kit::Hsla,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let is_namespace = row.is_namespace;
@@ -100,7 +100,7 @@ impl KeyTreePanel {
         let path_for_load = row.full_path.clone();
 
         // 下沉关闭时同一行可兼任命名空间与真实 Key：箭头展开，行本身加载值。
-        let chevron: gpui::AnyElement = if is_namespace {
+        let chevron: gpui_kit::AnyElement = if is_namespace {
             let path_for_chevron = row.full_path.clone();
             let path_for_copy = row.full_path.clone();
             div()
@@ -116,7 +116,9 @@ impl KeyTreePanel {
                     .xsmall()
                     .text_color(muted_fg),
                 )
-                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
+                    cx.stop_propagation()
+                })
                 .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                     if event.modifiers().secondary() {
                         if ramag_ui::is_primary_modifier_double_click(event) {
@@ -139,7 +141,7 @@ impl KeyTreePanel {
             .leaf_type
             .filter(|kind| *kind != RedisType::None)
             .map(|kind| (tree_type_label(kind), type_color_solid(kind, theme_muted)));
-        let type_badge: Option<gpui::AnyElement> = badge.map(|(label, badge_color)| {
+        let type_badge: Option<gpui_kit::AnyElement> = badge.map(|(label, badge_color)| {
             let path = path_for_load.clone();
             let path_for_copy = path_for_load.clone();
             div()
@@ -155,7 +157,9 @@ impl KeyTreePanel {
                 .cursor_pointer()
                 .child(label)
                 // badge 单击：始终加载值（不冒泡到行 toggle）
-                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
+                    cx.stop_propagation()
+                })
                 .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                     if event.modifiers().secondary() {
                         if ramag_ui::is_primary_modifier_double_click(event) {
@@ -496,8 +500,8 @@ fn joined_path(parent: &str, label: &str) -> String {
 
 /// 不同类型用不同色块（与 RedisInsight / zedis 配色靠拢）
 /// 接受一个 fallback（None 类型 / theme.muted 等场景）避免依赖完整 theme 引用
-fn type_color_solid(kind: RedisType, fallback: gpui::Hsla) -> gpui::Hsla {
-    use gpui::hsla;
+fn type_color_solid(kind: RedisType, fallback: gpui_kit::Hsla) -> gpui_kit::Hsla {
+    use gpui_kit::hsla;
     match kind {
         RedisType::String => hsla(210.0 / 360.0, 0.6, 0.55, 1.0),
         RedisType::List => hsla(140.0 / 360.0, 0.5, 0.5, 1.0),

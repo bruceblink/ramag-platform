@@ -3,10 +3,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpui::{
+use gpui_kit::component::{ActiveTheme, Sizable as _, WindowExt as _, button::ButtonVariants as _};
+use gpui_kit::{
     App, ClickEvent, InteractiveElement as _, ParentElement, SharedString, Styled, Window, div, px,
 };
-use gpui_component::{ActiveTheme, Sizable as _, WindowExt as _, button::ButtonVariants as _};
 
 pub fn open_confirm(
     title: impl Into<SharedString>,

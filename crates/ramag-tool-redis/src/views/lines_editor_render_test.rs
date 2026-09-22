@@ -1,8 +1,8 @@
 #![allow(clippy::expect_used)]
 
 use super::{LinesEditor, LinesKind};
-use gpui::{AppContext as _, Bounds, Pixels, TestAppContext, px, size};
-use gpui_component::Root;
+use gpui_kit::component::Root;
+use gpui_kit::{AppContext as _, Bounds, Pixels, TestAppContext, px, size};
 
 fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
     assert!(
@@ -15,9 +15,9 @@ fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
 }
 
 /// List 编辑器的添加、数量和插入方向控件在窄窗口中保持可见且不越界。
-#[gpui::test]
+#[gpui_kit::test]
 fn lines_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let editor = cx.new(|cx| LinesEditor::new(LinesKind::List, window, cx));
         Root::new(editor, window, cx)

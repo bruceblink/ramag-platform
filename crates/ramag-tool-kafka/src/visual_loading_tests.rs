@@ -1,19 +1,19 @@
 use std::sync::Arc;
 
-use gpui::{Context, IntoElement, Render, TestAppContext, Window, px, size};
+use gpui_kit::{Context, IntoElement, Render, TestAppContext, Window, px, size};
 use ramag_app::KafkaService;
 use ramag_domain::entities::{KafkaBroker, KafkaClusterConfig, KafkaClusterMetadata};
 
 use super::*;
 
 struct KafkaLoadingTestHost {
-    view: gpui::Entity<KafkaView>,
+    view: gpui_kit::Entity<KafkaView>,
 }
 
 impl Render for KafkaLoadingTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        gpui::div()
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
@@ -21,7 +21,7 @@ impl Render for KafkaLoadingTestHost {
     }
 }
 
-fn assert_present(cx: &mut gpui::VisualTestContext, selectors: &[&'static str]) {
+fn assert_present(cx: &mut gpui_kit::VisualTestContext, selectors: &[&'static str]) {
     for selector in selectors {
         assert!(
             cx.debug_bounds(selector).is_some(),
@@ -30,9 +30,9 @@ fn assert_present(cx: &mut gpui::VisualTestContext, selectors: &[&'static str]) 
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_loading_tables_keep_stable_geometry(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut cluster = KafkaClusterConfig::new("Loading Kafka", vec!["127.0.0.1:19092".into()]);
     cluster.schema_registry.endpoint = Some("http://127.0.0.1:8081".into());
     cluster.connect.endpoint = Some("http://127.0.0.1:8083".into());
@@ -47,7 +47,7 @@ fn kafka_loading_tables_keep_stable_geometry(cx: &mut TestAppContext) {
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaLoadingTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;

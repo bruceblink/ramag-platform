@@ -156,7 +156,10 @@ impl VcsView {
     }
 
     /// 延迟保存提交草稿。
-    pub(in crate::views) fn schedule_commit_draft_persist(&mut self, cx: &mut gpui::Context<Self>) {
+    pub(in crate::views) fn schedule_commit_draft_persist(
+        &mut self,
+        cx: &mut gpui_kit::Context<Self>,
+    ) {
         let Some(path) = self.repo.as_ref().map(|repo| repo.path.clone()) else {
             return;
         };
@@ -263,7 +266,7 @@ impl VcsView {
                 self.ide_left_resize = cx.new(|_| ResizableState::default());
                 self.ide_files_resize = cx.new(|_| ResizableState::default());
                 self.detail_resize = cx.new(|_| ResizableState::default());
-                self.pending_commit_text = Some(gpui::SharedString::default());
+                self.pending_commit_text = Some(gpui_kit::SharedString::default());
                 false
             }
         }

@@ -127,12 +127,12 @@ pub(super) fn add_ssh_window(
     cx: &mut TestAppContext,
     service: Arc<SshService>,
 ) -> (Entity<SshView>, &mut VisualTestContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let ssh_view = cx.new(|cx| SshView::new(service, window, cx));
         view = Some(ssh_view.clone());
-        gpui_component::Root::new(ssh_view, window, cx)
+        gpui_kit::component::Root::new(ssh_view, window, cx)
     });
     (view.expect("SshView should be initialized"), visual_cx)
 }
@@ -149,7 +149,7 @@ pub(super) fn add_ssh_form_window_with_profile(
     service: Arc<SshService>,
     profile: Option<SshProfile>,
 ) -> (Entity<SshProfileFormPanel>, &mut VisualTestContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut form = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let capability = Some(Ok(SshCapability {
@@ -159,7 +159,7 @@ pub(super) fn add_ssh_form_window_with_profile(
         let entity =
             cx.new(|cx| SshProfileFormPanel::new(service, profile, capability, window, cx));
         form = Some(entity.clone());
-        gpui_component::Root::new(entity, window, cx)
+        gpui_kit::component::Root::new(entity, window, cx)
     });
     (
         form.expect("SshProfileFormPanel should be initialized"),
@@ -171,12 +171,12 @@ pub(super) fn add_jumpserver_panel_window(
     cx: &mut TestAppContext,
     service: Arc<SshService>,
 ) -> (Entity<JumpServerPanel>, &mut VisualTestContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut panel = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let entity = cx.new(|cx| JumpServerPanel::new(service, window, cx));
         panel = Some(entity.clone());
-        gpui_component::Root::new(entity, window, cx)
+        gpui_kit::component::Root::new(entity, window, cx)
     });
     (
         panel.expect("JumpServer panel should be initialized"),
@@ -188,12 +188,12 @@ pub(super) fn add_remote_session_panel_window(
     cx: &mut TestAppContext,
     service: Arc<SshService>,
 ) -> (Entity<RemoteSessionPanel>, &mut VisualTestContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut panel = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let entity = cx.new(|cx| RemoteSessionPanel::new(service, cx));
         panel = Some(entity.clone());
-        gpui_component::Root::new(entity, window, cx)
+        gpui_kit::component::Root::new(entity, window, cx)
     });
     (
         panel.expect("Remote session panel should be initialized"),

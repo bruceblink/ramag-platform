@@ -1,8 +1,8 @@
-use gpui::{
+use gpui_kit::component::{ActiveTheme as _, Root, v_flex};
+use gpui_kit::{
     AppContext as _, Context, InteractiveElement as _, IntoElement, ParentElement as _, Render,
     Styled as _, TestAppContext, Window, div, px, size,
 };
-use gpui_component::{ActiveTheme as _, Root, v_flex};
 
 use super::core_history::{core_chart_scale, core_chart_value_ratio, core_history_points};
 use super::{
@@ -138,10 +138,10 @@ fn compact_process_columns_fit_the_narrow_content_width() {
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 #[allow(clippy::expect_used)]
 fn core_grid_last_tile_is_not_clipped_by_the_fixed_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let host = cx.new(|_| CoreGridTestHost);
         Root::new(host, window, cx)
@@ -172,10 +172,10 @@ fn core_grid_last_tile_is_not_clipped_by_the_fixed_window(cx: &mut TestAppContex
     assert!(last_tile.origin.y + last_tile.size.height <= grid.origin.y + grid.size.height);
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 #[allow(clippy::expect_used)]
 fn core_line_chart_fills_each_tile(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let host = cx.new(|_| CoreLineChartTestHost);
         Root::new(host, window, cx)

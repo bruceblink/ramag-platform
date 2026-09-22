@@ -2,17 +2,17 @@
 
 use std::collections::HashSet;
 
-use gpui::{
-    AppContext as _, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement,
-    ParentElement, Render, ScrollHandle, StatefulInteractiveElement as _, Styled, Subscription,
-    Window, div, img, prelude::FluentBuilder as _, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputState},
     v_flex,
+};
+use gpui_kit::{
+    AppContext as _, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement,
+    ParentElement, Render, ScrollHandle, StatefulInteractiveElement as _, Styled, Subscription,
+    Window, div, img, prelude::FluentBuilder as _, px,
 };
 use ramag_app::ConnectionService;
 use ramag_domain::entities::{ConnectionConfig, ConnectionId, DriverKind};
@@ -190,7 +190,7 @@ impl ConnectionPickerPanel {
                     .child(
                         div()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .child(title),
                     )
                     .child(
@@ -259,7 +259,7 @@ impl ConnectionPickerPanel {
                             .child(
                                 div()
                                     .text_sm()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .overflow_hidden()
                                     .text_ellipsis()
                                     .child(connection.name.clone()),
@@ -463,7 +463,7 @@ fn account_label(connection: &ConnectionConfig) -> String {
     }
 }
 
-fn status_badge(label: impl Into<String>, color: gpui::Hsla) -> impl IntoElement {
+fn status_badge(label: impl Into<String>, color: gpui_kit::Hsla) -> impl IntoElement {
     let mut background = color;
     background.a = 0.12;
     div()

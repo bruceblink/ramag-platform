@@ -1,8 +1,8 @@
 //! 容器管理空工作台的 headless 布局测试。
 
-use gpui::Modifiers;
-use gpui::{AppContext as _, Bounds, MouseButton, Pixels, TestAppContext, px, size};
-use gpui_component::Root;
+use gpui_kit::Modifiers;
+use gpui_kit::component::Root;
+use gpui_kit::{AppContext as _, Bounds, MouseButton, Pixels, TestAppContext, px, size};
 
 use super::{ContainerSection, ContainerView};
 use ramag_domain::entities::{ContainerPage, DockerImageSummary};
@@ -24,9 +24,9 @@ fn assert_horizontal_inside(parent: Bounds<Pixels>, child: Bounds<Pixels>, label
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn empty_workspace_stays_inside_supported_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ContainerView::new(window, cx));
         Root::new(view, window, cx)
@@ -94,9 +94,9 @@ fn empty_workspace_stays_inside_supported_window_widths(cx: &mut TestAppContext)
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn registry_workspace_stays_inside_narrow_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ContainerView::new(window, cx));
         Root::new(view, window, cx)
@@ -125,9 +125,9 @@ fn registry_workspace_stays_inside_narrow_window(cx: &mut TestAppContext) {
     assert_inside(panel, config, "镜像仓库配置区");
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn compact_resource_navigation_wraps_without_full_width_rows(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ContainerView::new(window, cx));
         Root::new(view, window, cx)
@@ -161,9 +161,9 @@ fn compact_resource_navigation_wraps_without_full_width_rows(cx: &mut TestAppCon
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn image_rows_keep_long_names_and_subtitles_inside_narrow_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ContainerView::new(window, cx));

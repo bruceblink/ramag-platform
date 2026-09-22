@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{AppContext as _, TestAppContext, VisualTestContext, px, size};
-use gpui_component::Root;
+use gpui_kit::component::Root;
+use gpui_kit::{AppContext as _, TestAppContext, VisualTestContext, px, size};
 use ramag_app::{ConnectionService, MongoService, RedisService};
 use ramag_domain::entities::{ConnectionConfig, ConnectionId, QueryRecord, QueryRecordId};
 use ramag_domain::error::Result;
@@ -104,8 +104,8 @@ fn add_form(cx: &mut TestAppContext, sqlite: bool) -> &mut VisualTestContext {
 }
 
 fn assert_inside(
-    parent: gpui::Bounds<gpui::Pixels>,
-    child: gpui::Bounds<gpui::Pixels>,
+    parent: gpui_kit::Bounds<gpui_kit::Pixels>,
+    child: gpui_kit::Bounds<gpui_kit::Pixels>,
     label: &str,
 ) {
     assert!(
@@ -114,9 +114,9 @@ fn assert_inside(
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn driver_selector_wraps_long_labels_inside_narrow_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let visual_cx = add_form(cx, false);
 
     for width in [360.0, 1024.0, 1440.0] {
@@ -156,9 +156,9 @@ fn driver_selector_wraps_long_labels_inside_narrow_window(cx: &mut TestAppContex
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn sqlite_file_fields_and_actions_stay_inside_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let visual_cx = add_form(cx, true);
 
     for (width, height) in [(360.0, 620.0), (1024.0, 720.0), (1440.0, 900.0)] {
@@ -194,9 +194,9 @@ fn sqlite_file_fields_and_actions_stay_inside_supported_widths(cx: &mut TestAppC
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn connection_form_keeps_actions_visible_in_a_short_compact_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let visual_cx = add_form(cx, false);
     visual_cx.simulate_resize(size(px(360.0), px(240.0)));
     visual_cx.run_until_parked();

@@ -1,10 +1,10 @@
 //! Key 详情头部。
 
-use gpui::{ClickEvent, Context, IntoElement, ParentElement, Styled, div, prelude::*, px};
-use gpui_component::{
+use gpui_kit::component::{
     Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, clipboard::Clipboard,
     h_flex, v_flex,
 };
+use gpui_kit::{ClickEvent, Context, IntoElement, ParentElement, Styled, div, prelude::*, px};
 use ramag_domain::entities::{MAX_REDIS_COLLECTION_BYTES, RedisValue};
 
 use super::helpers::format_ttl_ms;
@@ -15,10 +15,10 @@ use crate::views::inline_text_preview;
 pub(super) fn render_header(
     panel: &KeyDetailPanel,
     key: &str,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    accent: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
     compact: bool,
     cx: &mut Context<KeyDetailPanel>,
 ) -> impl IntoElement + use<> {
@@ -79,7 +79,7 @@ pub(super) fn render_header(
                 .ghost()
                 .xsmall()
                 .label("重试")
-                .text_color(gpui::red())
+                .text_color(gpui_kit::red())
                 .tooltip(error.clone())
                 .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.reload_ttl(cx))),
         )
@@ -176,7 +176,7 @@ pub(super) fn render_header(
                 .id("redis-key-title")
                 .debug_selector(|| "redis-key-title".into())
                 .text_sm()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .text_color(fg)
                 .overflow_hidden()
                 .text_ellipsis()
@@ -303,8 +303,8 @@ fn render_size_chip(
     bytes: Option<u64>,
     estimating: bool,
     error: Option<&str>,
-    muted_fg: gpui::Hsla,
-    accent: gpui::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
     cx: &mut Context<KeyDetailPanel>,
 ) -> impl IntoElement + use<> {
     if let Some(n) = bytes {
@@ -325,7 +325,7 @@ fn render_size_chip(
             .ghost()
             .xsmall()
             .label("重试")
-            .text_color(gpui::red())
+            .text_color(gpui_kit::red())
             .tooltip(message.to_string())
             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.estimate_size(cx)))
             .into_any_element()
@@ -356,8 +356,8 @@ fn human_readable_bytes(n: u64) -> String {
 }
 
 /// 从值类型推导标签和颜色。
-pub(super) fn redis_type_label_color(v: &RedisValue) -> Option<(&'static str, gpui::Hsla)> {
-    use gpui::hsla;
+pub(super) fn redis_type_label_color(v: &RedisValue) -> Option<(&'static str, gpui_kit::Hsla)> {
+    use gpui_kit::hsla;
     match v {
         RedisValue::Text(_) | RedisValue::Bytes(_) => {
             Some(("String", hsla(210.0 / 360.0, 0.6, 0.55, 1.0)))

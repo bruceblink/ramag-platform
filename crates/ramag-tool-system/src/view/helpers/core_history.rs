@@ -1,8 +1,8 @@
-use gpui::{
+use gpui_kit::component::{theme::Theme, v_flex};
+use gpui_kit::{
     InteractiveElement, IntoElement, ParentElement, PathBuilder, Styled, canvas, fill, point, px,
     size,
 };
-use gpui_component::{theme::Theme, v_flex};
 
 const CORE_HISTORY_POINTS: usize = 24;
 const CORE_HISTORY_COMPACT_POINTS: usize = 12;
@@ -39,7 +39,7 @@ pub(super) fn render_core_history(
             let chart_origin = bounds.origin + point(padding, padding);
             let chart_width = (bounds.size.width - padding * 2.0).max(px(1.0));
             let chart_height = (bounds.size.height - padding * 2.0).max(px(1.0));
-            let chart_bounds = gpui::Bounds::new(chart_origin, size(chart_width, chart_height));
+            let chart_bounds = gpui_kit::Bounds::new(chart_origin, size(chart_width, chart_height));
             window.paint_quad(fill(chart_bounds, chart_background));
 
             let mut grid = PathBuilder::stroke(px(1.0));
@@ -117,7 +117,7 @@ pub(super) fn render_core_history(
                     .min(chart_origin.y + chart_height - marker_size);
                 window.paint_quad(
                     fill(
-                        gpui::Bounds::new(
+                        gpui_kit::Bounds::new(
                             point(marker_x, marker_y),
                             size(marker_size, marker_size),
                         ),

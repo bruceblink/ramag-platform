@@ -3,7 +3,7 @@
 
 use std::io;
 
-use gpui::SharedString;
+use gpui_kit::SharedString;
 use serde::{Deserialize, Serialize};
 
 /// 单个数据库会话允许的查询编辑器上限；同时约束运行时实体数量与恢复数量。

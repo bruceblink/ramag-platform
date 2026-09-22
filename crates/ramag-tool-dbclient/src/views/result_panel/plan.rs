@@ -2,19 +2,19 @@ use std::collections::BTreeSet;
 use std::ops::Range;
 use std::sync::Arc;
 
-use gpui::{
-    AnyElement, Context, IntoElement, ParentElement, Point, ScrollHandle, ScrollStrategy,
-    SharedString, Styled, UniformListScrollHandle, div, prelude::*, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
-    scroll::{Scrollbar, ScrollbarShow},
+    scroll::{Scrollbar, ScrollbarMode},
     v_flex,
 };
+use gpui_kit::{
+    AnyElement, Context, IntoElement, ParentElement, Point, ScrollHandle, ScrollStrategy,
+    SharedString, Styled, UniformListScrollHandle, div, prelude::*, px, uniform_list,
+};
 use ramag_domain::entities::QueryResult;
-use ramag_ui::RestrictScrollToAxisExt as _;
+use ramag_ui::RestrictUniformListToAxisExt as _;
 
 use super::ResultPanel;
 use crate::views::result_table::render_table;
@@ -115,12 +115,12 @@ impl ResultPanel {
 pub(super) fn render_plan(
     panel: &mut ResultPanel,
     result: &Arc<QueryResult>,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    secondary_bg: gpui::Hsla,
-    border: gpui::Hsla,
-    muted_bg: gpui::Hsla,
-    accent: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    secondary_bg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
+    muted_bg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
     cx: &mut Context<ResultPanel>,
 ) -> AnyElement {
     let tree = ensure_plan_tree(panel, result);
@@ -219,7 +219,7 @@ fn render_plan_tree(
                 .child(
                     Scrollbar::vertical(&panel.plan.vertical_scroll)
                         .id("plan-tree-vertical-scrollbar-control")
-                        .scrollbar_show(ScrollbarShow::Always),
+                        .mode(ScrollbarMode::Always),
                 ),
         )
         .child(
@@ -235,8 +235,8 @@ fn render_plan_tree(
                 .child(
                     Scrollbar::horizontal(&panel.plan.horizontal_scroll)
                         .id("plan-tree-horizontal-scrollbar-control")
-                        .scroll_size(gpui::size(content_width, px(16.0)))
-                        .scrollbar_show(ScrollbarShow::Always),
+                        .scroll_size(gpui_kit::size(content_width, px(16.0)))
+                        .mode(ScrollbarMode::Always),
                 ),
         );
 
@@ -252,12 +252,12 @@ fn render_plan_tree(
 fn render_raw_plan(
     panel: &mut ResultPanel,
     result: &Arc<QueryResult>,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    secondary_bg: gpui::Hsla,
-    border: gpui::Hsla,
-    muted_bg: gpui::Hsla,
-    accent: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    secondary_bg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
+    muted_bg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
     note: Option<&str>,
     structured_available: bool,
     cx: &mut Context<ResultPanel>,

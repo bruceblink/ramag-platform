@@ -24,7 +24,7 @@ pub(super) struct FieldDiffLine {
 }
 
 /// 将原始字段与当前字段转换成可读的列级差异，供预览和复制共用。
-pub(super) fn build_field_diff(fields: &[FieldDraft], cx: &gpui::App) -> Vec<FieldDiffLine> {
+pub(super) fn build_field_diff(fields: &[FieldDraft], cx: &gpui_kit::App) -> Vec<FieldDiffLine> {
     let original = fields
         .iter()
         .filter_map(|field| field.original.as_ref().map(FieldSnapshot::from_column))
@@ -100,7 +100,7 @@ pub(super) fn format_field_diff(lines: &[FieldDiffLine]) -> String {
 /// 在现有 SQL 预览滚动区域中绘制字段级增删差异。
 pub(super) fn render_field_diff_lines(
     lines: &[FieldDiffLine],
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     let mut body = v_flex().w_full().gap(px(2.0));
     for line in lines {

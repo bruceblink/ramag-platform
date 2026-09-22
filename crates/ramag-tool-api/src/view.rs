@@ -3,14 +3,14 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme as _, Sizable as _, h_flex,
+    input::{Editor, EditorState, Input, InputEvent, InputState, Textarea, TextareaState},
+    v_flex,
+};
+use gpui_kit::{
     App, AppContext as _, Context, Entity, FocusHandle, Focusable, Render, ScrollHandle,
     Subscription, Window, div, prelude::*, px,
-};
-use gpui_component::{
-    ActiveTheme as _, Sizable as _, h_flex,
-    input::{Input, InputState},
-    v_flex,
 };
 use ramag_app::{ApiService, new_api_cancellation};
 use ramag_domain::entities::{
@@ -55,9 +55,9 @@ pub struct ApiView {
     pub(crate) request_name: Entity<InputState>,
     pub(crate) http_method: Entity<InputState>,
     pub(crate) http_url: Entity<InputState>,
-    pub(crate) http_query: Entity<InputState>,
-    pub(crate) http_headers: Entity<InputState>,
-    pub(crate) http_body: Entity<InputState>,
+    pub(crate) http_query: Entity<TextareaState>,
+    pub(crate) http_headers: Entity<TextareaState>,
+    pub(crate) http_body: Entity<EditorState>,
     pub(crate) auth_editor: auth::ApiAuthEditor,
     pub(crate) http_body_mode: ApiBodyMode,
     pub(crate) http_body_content_type: String,
@@ -68,17 +68,17 @@ pub struct ApiView {
     pub(crate) proxy_url: Entity<InputState>,
     pub(crate) proxy_username: Entity<InputState>,
     pub(crate) proxy_password: Entity<InputState>,
-    pub(crate) environment_variables: Entity<InputState>,
-    pub(crate) environment_sensitive: Entity<InputState>,
+    pub(crate) environment_variables: Entity<TextareaState>,
+    pub(crate) environment_sensitive: Entity<TextareaState>,
     pub(crate) runtime_environment: ApiEnvironment,
-    pub(crate) assertions: Entity<InputState>,
-    pub(crate) response_variables: Entity<InputState>,
+    pub(crate) assertions: Entity<TextareaState>,
+    pub(crate) response_variables: Entity<TextareaState>,
     pub(crate) grpc_endpoint: Entity<InputState>,
     pub(crate) grpc_service: Entity<InputState>,
     pub(crate) grpc_method: Entity<InputState>,
     pub(crate) grpc_metadata_name: Entity<InputState>,
     pub(crate) grpc_metadata_value: Entity<InputState>,
-    pub(crate) grpc_message: Entity<InputState>,
+    pub(crate) grpc_message: Entity<EditorState>,
     pub(crate) grpc_descriptor: ApiGrpcDescriptor,
     pub(crate) grpc_services: Vec<ApiGrpcServiceSummary>,
     pub(crate) grpc_discovering: bool,
@@ -133,7 +133,7 @@ impl ApiView {
             request_name: api_input(window, cx, "请求名称", "新请求"),
             http_method: api_input(window, cx, "GET / POST", "GET"),
             http_url: api_input(window, cx, "https://example.com", "{{base_url}}/json"),
-            http_query: api_multiline_input(
+            http_query: api_textarea_input(
                 window,
                 cx,
                 "每行一个查询参数，例如 q=hello",
@@ -141,7 +141,7 @@ impl ApiView {
                 None,
                 3,
             ),
-            http_headers: api_multiline_input(
+            http_headers: api_textarea_input(
                 window,
                 cx,
                 "每行一个请求头，例如 Content-Type: application/json",
@@ -149,14 +149,7 @@ impl ApiView {
                 None,
                 5,
             ),
-            http_body: api_multiline_input(
-                window,
-                cx,
-                "JSON 请求正文（可选）",
-                "",
-                Some("json"),
-                8,
-            ),
+            http_body: api_editor_input(window, cx, "JSON 请求正文（可选）", "", Some("json"), 8),
             auth_editor: auth::ApiAuthEditor::new(window, cx),
             http_body_mode: ApiBodyMode::Text,
             http_body_content_type: "application/json".into(),
@@ -167,7 +160,7 @@ impl ApiView {
             proxy_url: api_input(window, cx, "HTTP 代理 URL（可选）", ""),
             proxy_username: api_input(window, cx, "代理用户名（可选）", ""),
             proxy_password: api_input(window, cx, "代理密码（可选）", ""),
-            environment_variables: api_multiline_input(
+            environment_variables: api_textarea_input(
                 window,
                 cx,
                 "每行一个变量，例如 base_url=http://127.0.0.1:18089",
@@ -175,7 +168,7 @@ impl ApiView {
                 None,
                 3,
             ),
-            environment_sensitive: api_multiline_input(
+            environment_sensitive: api_textarea_input(
                 window,
                 cx,
                 "每行一个敏感变量名（可选）",
@@ -184,7 +177,7 @@ impl ApiView {
                 2,
             ),
             runtime_environment: ApiEnvironment::new("local"),
-            assertions: api_multiline_input(
+            assertions: api_textarea_input(
                 window,
                 cx,
                 "status=200、body=ok 或 json=$.ok:true",
@@ -192,7 +185,7 @@ impl ApiView {
                 None,
                 3,
             ),
-            response_variables: api_multiline_input(
+            response_variables: api_textarea_input(
                 window,
                 cx,
                 "name=json:$.token、name=header:X-Request-Id 或 secret name=...",
@@ -210,7 +203,7 @@ impl ApiView {
             grpc_method: api_input(window, cx, "Unary", "Unary"),
             grpc_metadata_name: api_input(window, cx, "Metadata name", "x-request"),
             grpc_metadata_value: api_input(window, cx, "Metadata value", "docker"),
-            grpc_message: api_multiline_input(
+            grpc_message: api_editor_input(
                 window,
                 cx,
                 "Protobuf JSON；流式请求每行一个对象",
@@ -304,33 +297,80 @@ fn api_input(
     })
 }
 
-/// 创建请求报文编辑器；代码编辑器保持行号和缩进，多行文本则保持轻量输入体验。
-fn api_multiline_input(
+fn api_textarea_input(
+    window: &mut Window,
+    cx: &mut Context<ApiView>,
+    placeholder: &'static str,
+    default: &str,
+    _language: Option<&'static str>,
+    rows: usize,
+) -> Entity<TextareaState> {
+    let state = cx.new(|cx| {
+        TextareaState::new(window, cx)
+            .placeholder(placeholder)
+            .default_value(default.to_string())
+            .rows(rows)
+    });
+    let state_for_event = state.clone();
+    cx.subscribe_in(
+        &state,
+        window,
+        move |_, _, event: &InputEvent, window, cx| {
+            if matches!(event, InputEvent::Change) {
+                let _ =
+                    ramag_ui::clamp_textarea_input_value(&state_for_event, FIELD_BYTES, window, cx);
+            }
+        },
+    )
+    .detach();
+    state
+}
+
+fn api_editor_input(
     window: &mut Window,
     cx: &mut Context<ApiView>,
     placeholder: &'static str,
     default: &str,
     language: Option<&'static str>,
-    rows: usize,
-) -> Entity<InputState> {
-    cx.new(|cx| {
-        let state = InputState::new(window, cx)
-            .validate(|value, _| value.len() <= FIELD_BYTES)
+    _rows: usize,
+) -> Entity<EditorState> {
+    let state = cx.new(|cx| {
+        let mut state = EditorState::new(window, cx)
             .placeholder(placeholder)
             .default_value(default.to_string());
-        let state = match language {
-            Some(language) => state.code_editor(language),
-            None => state.multi_line(true),
-        };
-        state.rows(rows)
-    })
+        if let Some(language) = language {
+            state = state.language(language);
+        }
+        state
+    });
+    let state_for_event = state.clone();
+    cx.subscribe_in(
+        &state,
+        window,
+        move |_, _, event: &InputEvent, window, cx| {
+            if matches!(event, InputEvent::Change) {
+                let _ =
+                    ramag_ui::clamp_editor_input_value(&state_for_event, FIELD_BYTES, window, cx);
+            }
+        },
+    )
+    .detach();
+    state
 }
 
 pub(crate) fn input_value(field: &Entity<InputState>, cx: &App) -> String {
     field.read(cx).value().trim().to_string()
 }
 
-pub(crate) fn field<E: IntoElement>(label: &'static str, input: E) -> gpui::Div {
+pub(crate) fn textarea_value(field: &Entity<TextareaState>, cx: &App) -> String {
+    field.read(cx).value().trim().to_string()
+}
+
+pub(crate) fn editor_value(field: &Entity<EditorState>, cx: &App) -> String {
+    field.read(cx).value().trim().to_string()
+}
+
+pub(crate) fn field<E: IntoElement>(label: &'static str, input: E) -> gpui_kit::Div {
     v_flex()
         .flex_1()
         .min_w(px(180.0))
@@ -338,13 +378,13 @@ pub(crate) fn field<E: IntoElement>(label: &'static str, input: E) -> gpui::Div 
         .child(
             div()
                 .text_xs()
-                .text_color(gpui::hsla(0.0, 0.0, 0.5, 1.0))
+                .text_color(gpui_kit::hsla(0.0, 0.0, 0.5, 1.0))
                 .child(label),
         )
         .child(div().w_full().min_w_0().child(input))
 }
 
-pub(crate) fn row() -> gpui::Div {
+pub(crate) fn row() -> gpui_kit::Div {
     h_flex()
         .w_full()
         .min_w_0()
@@ -527,10 +567,10 @@ pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSp
             let mut spec = HttpRequestSpec::new(method, input_value(&view.http_url, cx));
             spec.tls = context::tls_from_view(view, cx)?;
             spec.proxy = context::proxy_from_view(view, cx)?;
-            spec.query = parse_http_query(&input_value(&view.http_query, cx))?;
-            spec.headers = parse_http_headers(&input_value(&view.http_headers, cx))?;
+            spec.query = parse_http_query(&textarea_value(&view.http_query, cx))?;
+            spec.headers = parse_http_headers(&textarea_value(&view.http_headers, cx))?;
             spec.auth = view.auth_editor.to_auth(cx)?;
-            let body = input_value(&view.http_body, cx);
+            let body = editor_value(&view.http_body, cx);
             if !body.trim().is_empty() {
                 spec.body = Some(match view.http_body_mode {
                     ApiBodyMode::Text => {
@@ -556,7 +596,7 @@ pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSp
                 input_value(&view.grpc_service, cx),
                 input_value(&view.grpc_method, cx),
             )
-            .with_message(input_value(&view.grpc_message, cx));
+            .with_message(editor_value(&view.grpc_message, cx));
             spec.tls = context::tls_from_view(view, cx)?;
             spec.proxy = context::proxy_from_view(view, cx)?;
             spec.auth = view.auth_editor.to_auth(cx)?;

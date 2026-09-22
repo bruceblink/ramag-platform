@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use gpui::{App, Global};
+use gpui_kit::{App, Global};
 use ramag_domain::entities::{IdConverterConfig, IdConverterKind};
 use serde::{Deserialize, Deserializer, Serialize};
 

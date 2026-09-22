@@ -6,8 +6,8 @@ mod transfer;
 
 use std::time::Duration;
 
-use gpui::{Context, Window};
-use gpui_component::{input::InputEvent, notification::Notification};
+use gpui_kit::component::{input::InputEvent, notification::Notification};
+use gpui_kit::{Context, Window};
 use ramag_domain::{
     entities::{IdConverterConfig, IdConverterKind},
     error::DomainError,
@@ -207,7 +207,7 @@ impl SettingsView {
         .detach();
     }
 
-    fn database_converter_draft(&self, cx: &gpui::App) -> IdConverterConfig {
+    fn database_converter_draft(&self, cx: &gpui_kit::App) -> IdConverterConfig {
         IdConverterConfig {
             kind: self.database_converter_kind,
             custom_alphabet: self.database_custom_alphabet.read(cx).value().to_string(),
@@ -316,7 +316,7 @@ impl SettingsView {
         }));
     }
 
-    fn database_search_draft(&self, cx: &gpui::App) -> DatabaseSearchSettings {
+    fn database_search_draft(&self, cx: &gpui_kit::App) -> DatabaseSearchSettings {
         DatabaseSearchSettings {
             id_conversion_enabled: self.database_enabled_draft,
             converter: self.database_converter_draft(cx),
@@ -392,7 +392,7 @@ impl SettingsView {
         .detach();
     }
 
-    fn handle_database_search_save_error(&mut self, error: String, cx: &gpui::App) {
+    fn handle_database_search_save_error(&mut self, error: String, cx: &gpui_kit::App) {
         error!(
             operation = "database_search_settings_save",
             error = %error,

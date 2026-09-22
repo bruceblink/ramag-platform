@@ -4,9 +4,9 @@
 use std::rc::Rc;
 
 use anyhow::Result;
-use gpui::{Context, Task, Window};
-use gpui_component::RopeExt;
-use gpui_component::input::{CompletionProvider, InputState};
+use gpui_kit::component::RopeExt;
+use gpui_kit::component::input::CompletionProvider;
+use gpui_kit::{App, Task, Window};
 use lsp_types::{
     CompletionContext, CompletionItem, CompletionItemKind, CompletionResponse, CompletionTextEdit,
     Documentation, InsertReplaceEdit, MarkupContent, MarkupKind,
@@ -129,7 +129,7 @@ impl CompletionProvider for RedisCompletionProvider {
         offset: usize,
         _trigger: CompletionContext,
         _window: &mut Window,
-        _cx: &mut Context<InputState>,
+        _cx: &mut App,
     ) -> Task<Result<CompletionResponse>> {
         let Some((start, real_offset, prefix_upper)) = command_completion_prefix(rope, offset)
         else {
@@ -149,12 +149,7 @@ impl CompletionProvider for RedisCompletionProvider {
         Task::ready(Ok(CompletionResponse::Array(items)))
     }
 
-    fn is_completion_trigger(
-        &self,
-        _offset: usize,
-        new_text: &str,
-        _cx: &mut Context<InputState>,
-    ) -> bool {
+    fn is_completion_trigger(&self, _offset: usize, new_text: &str, _cx: &mut App) -> bool {
         // 字母 / 数字触发（命令名只含字母数字）
         new_text.chars().all(|c| c.is_ascii_alphanumeric())
     }

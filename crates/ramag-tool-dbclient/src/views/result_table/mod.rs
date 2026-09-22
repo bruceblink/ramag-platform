@@ -6,17 +6,16 @@ use std::sync::{
 };
 use std::time::Duration;
 
-use gpui::{
+use gpui_kit::component::scroll::{Scrollbar, ScrollbarMode};
+use gpui_kit::component::{
+    ActiveTheme as _, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement, SharedString, div,
     prelude::*, px, uniform_list,
 };
-use gpui_component::scroll::{Scrollbar, ScrollbarShow};
-use gpui_component::{
-    ActiveTheme as _, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
-};
 
 use ramag_domain::entities::{QueryResult, contains_case_insensitive};
-use ramag_ui::RestrictScrollToAxisExt as _;
 
 use super::result_panel::{
     MAX_ROWS_DISPLAY, ResultPanel, ResultPanelEvent, RowFilter, SortDir, TotalRows,
@@ -32,19 +31,19 @@ struct TableRowFrame {
     result: Arc<QueryResult>,
     display_indices: Arc<Vec<usize>>,
     visible_col_indices: Arc<Vec<usize>>,
-    col_widths: Vec<gpui::Pixels>,
+    col_widths: Vec<gpui_kit::Pixels>,
     display_binary_16_as_uuid: bool,
     right_align: Arc<Vec<bool>>,
     row_number_offset: usize,
-    row_num_width: gpui::Pixels,
-    checkbox_col_width: gpui::Pixels,
-    total_content_width: gpui::Pixels,
+    row_num_width: gpui_kit::Pixels,
+    checkbox_col_width: gpui_kit::Pixels,
+    total_content_width: gpui_kit::Pixels,
     mono_font: SharedString,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    border: gpui::Hsla,
-    muted_bg: gpui::Hsla,
-    accent: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
+    muted_bg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
 }
 
 #[derive(Clone)]
@@ -56,7 +55,7 @@ pub(crate) struct DisplayView {
     pub(crate) columns_truncated: bool,
     pub(crate) display_indices: Arc<Vec<usize>>,
     /// 基于当前显示行样本估算的默认列宽；手动覆盖在渲染时叠加。
-    default_col_widths: Arc<Vec<gpui::Pixels>>,
+    default_col_widths: Arc<Vec<gpui_kit::Pixels>>,
     /// 基于当前显示行样本识别的数值列。
     right_align: Arc<Vec<bool>>,
     /// 是否因 MAX_ROWS_DISPLAY 截断未分页结果。
@@ -102,7 +101,7 @@ impl DisplayViewCacheKey {
 fn display_view_key(
     panel: &ResultPanel,
     result: &QueryResult,
-    cx: &gpui::App,
+    cx: &gpui_kit::App,
 ) -> DisplayViewCacheKey {
     let column_filter = panel.column_filter_text(cx);
     let row_filter = panel.effective_row_filter(cx);
@@ -122,7 +121,7 @@ fn display_view_key(
 pub(crate) fn cached_display_view(
     panel: &ResultPanel,
     result: &QueryResult,
-    cx: &gpui::App,
+    cx: &gpui_kit::App,
 ) -> Option<DisplayView> {
     let key = display_view_key(panel, result, cx);
     panel

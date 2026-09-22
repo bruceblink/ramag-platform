@@ -1,5 +1,5 @@
-use gpui::Context;
-use gpui_component::notification::Notification;
+use gpui_kit::Context;
+use gpui_kit::component::notification::Notification;
 
 use super::{QueryTab, QueryTabEvent};
 use crate::sql_completion::{parse_table_reference, table_reference_at_cursor};

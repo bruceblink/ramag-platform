@@ -32,7 +32,7 @@ fn jumpserver_unavailable_account_message_explains_connect_permission() {
     assert!(message.contains("connect 权限"));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn profile_form_inputs_keep_dialog_width_instead_of_collapsing(cx: &mut TestAppContext) {
     let (form, cx) = add_ssh_form_window(cx, service(Vec::new(), None));
     cx.simulate_resize(size(px(720.0), px(800.0)));
@@ -116,7 +116,7 @@ fn profile_form_inputs_keep_dialog_width_instead_of_collapsing(cx: &mut TestAppC
     form.read_with(cx, |form, cx| assert!(form.is_dirty(cx)));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn profile_form_stays_inside_compact_window_and_keeps_actions_visible(cx: &mut TestAppContext) {
     let (_, cx) = add_ssh_form_window(cx, service(Vec::new(), None));
 
@@ -155,7 +155,7 @@ fn profile_form_stays_inside_compact_window_and_keeps_actions_visible(cx: &mut T
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn edit_profile_form_keeps_fields_and_ssh_command_parser(cx: &mut TestAppContext) {
     let (form, cx) =
         add_ssh_form_window_with_profile(cx, service(Vec::new(), None), Some(profile()));
@@ -173,7 +173,7 @@ fn edit_profile_form_keeps_fields_and_ssh_command_parser(cx: &mut TestAppContext
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn windows_workspace_lists_accessible_drives_before_the_home_directory(cx: &mut TestAppContext) {
     let mut profile = SshProfile::new("windows", "windows.example");
     profile.username = "Administrator".into();
@@ -244,7 +244,7 @@ fn windows_workspace_lists_accessible_drives_before_the_home_directory(cx: &mut 
     });
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn restored_workspace_renders_files_terminal_placeholder_and_transfer(cx: &mut TestAppContext) {
     let profile = profile();
     let preference = SshWorkspacePreference {
@@ -542,7 +542,7 @@ fn restored_workspace_renders_files_terminal_placeholder_and_transfer(cx: &mut T
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn production_workspace_renders_terminal_warning_and_hides_sftp_writes(cx: &mut TestAppContext) {
     let mut profile = profile();
     profile.production = true;

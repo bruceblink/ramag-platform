@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used)]
 
 use super::{add_vcs_window, inject_diff_session};
-use gpui::{Bounds, Pixels, TestAppContext, px, size};
+use gpui_kit::{Bounds, Pixels, TestAppContext, px, size};
 
 #[path = "render_repo_list_test.rs"]
 mod render_repo_list_test;
@@ -17,7 +17,7 @@ fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
 }
 
 /// 文件栏在最小可拖动宽度下，模式、搜索和固定操作都不能越出工具栏。
-#[gpui::test]
+#[gpui_kit::test]
 fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |view, cx| {
@@ -89,7 +89,7 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
 }
 
 /// 历史搜索栏在紧凑工作区中允许搜索和远程操作分行，所有控件都留在历史内容区内。
-#[gpui::test]
+#[gpui_kit::test]
 fn vcs_history_toolbar_wraps_controls_inside_supported_window_widths(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |view, cx| {
@@ -147,7 +147,7 @@ fn vcs_history_toolbar_wraps_controls_inside_supported_window_widths(cx: &mut Te
 }
 
 /// 没有选中文件时，Diff 提示必须留在右侧主面板内，不能覆盖左侧文件栏。
-#[gpui::test]
+#[gpui_kit::test]
 fn vcs_empty_diff_status_stays_inside_main_panel_at_narrow_width(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |view, cx| {

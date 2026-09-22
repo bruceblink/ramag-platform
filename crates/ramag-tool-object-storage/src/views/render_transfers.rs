@@ -2,13 +2,13 @@
 
 use std::sync::atomic::Ordering;
 
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
-    prelude::*, px, relative,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    prelude::*, px, relative,
 };
 use ramag_domain::entities::format_bytes;
 
@@ -72,7 +72,7 @@ impl ObjectStorageView {
                     .child(
                         div()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .font_weight(gpui_kit::FontWeight::MEDIUM)
                             .child(format!("完成 {completed}/{total}")),
                     )
                     .child(
@@ -235,7 +235,7 @@ fn transfer_paths(
     local_path: String,
     object_key: String,
     error: Option<String>,
-    cx: &gpui::App,
+    cx: &gpui_kit::App,
 ) -> impl IntoElement {
     v_flex()
         .flex_1()

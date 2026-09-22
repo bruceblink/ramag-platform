@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use gpui::{Context, ScrollStrategy};
-use gpui_component::{Disableable as _, notification::Notification};
+use gpui_kit::component::{Disableable as _, notification::Notification};
+use gpui_kit::{Context, ScrollStrategy};
 use ramag_domain::entities::{ClipId, ClipItem};
 use tracing::{error, warn};
 
@@ -45,7 +45,7 @@ impl ClipboardView {
         .detach();
     }
 
-    pub(super) fn visible_items(&self, cx: &gpui::App) -> Vec<Arc<ClipItem>> {
+    pub(super) fn visible_items(&self, cx: &gpui_kit::App) -> Vec<Arc<ClipItem>> {
         let search = self.search.read(cx);
         let query = search.value();
         if query.trim().is_empty() {
@@ -324,7 +324,7 @@ impl ClipboardView {
         cx.notify();
     }
 
-    pub(super) fn selected_item(&self, _cx: &gpui::App) -> Option<Arc<ClipItem>> {
+    pub(super) fn selected_item(&self, _cx: &gpui_kit::App) -> Option<Arc<ClipItem>> {
         let sel = self.selected.as_ref()?;
         // 选中项可能只存在于全量搜索结果中。
         self.items
@@ -348,7 +348,7 @@ impl ClipboardView {
         item: Arc<ClipItem>,
         thumb: bool,
         cx: &mut Context<Self>,
-    ) -> Option<std::sync::Arc<gpui::Image>> {
+    ) -> Option<std::sync::Arc<gpui_kit::Image>> {
         let path = if thumb {
             item.thumb_path
                 .clone()
@@ -383,8 +383,8 @@ impl ClipboardView {
                             cx.notify();
                             return;
                         };
-                        let image = std::sync::Arc::new(gpui::Image::from_bytes(
-                            gpui::ImageFormat::Png,
+                        let image = std::sync::Arc::new(gpui_kit::Image::from_bytes(
+                            gpui_kit::ImageFormat::Png,
                             bytes,
                         ));
                         this.img_cache.insert(path, image, retained_bytes);

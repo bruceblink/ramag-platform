@@ -2,14 +2,14 @@
 
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _, Theme,
+    button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     AnyElement, AppContext as _, ClickEvent, Context, DragMoveEvent, EventEmitter, FocusHandle,
     IntoElement, MouseButton, ParentElement, Point, Render, ScrollHandle, Styled, Window, div,
     point, prelude::*, px,
-};
-use gpui_component::{
-    ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _, Theme,
-    button::ButtonVariants as _, h_flex, v_flex,
 };
 use ramag_app::ConnectionService;
 use ramag_domain::entities::{ConnectionConfig, Query, Trigger, Value};
@@ -36,8 +36,8 @@ struct TablePropertiesDrag;
 
 #[derive(Clone, Copy, Debug)]
 struct DragState {
-    cursor: Point<gpui::Pixels>,
-    position: Point<gpui::Pixels>,
+    cursor: Point<gpui_kit::Pixels>,
+    position: Point<gpui_kit::Pixels>,
 }
 
 pub(crate) struct TablePropertiesDialog {
@@ -53,7 +53,7 @@ pub(crate) struct TablePropertiesDialog {
     triggers: Option<Vec<Trigger>>,
     triggers_error: Option<String>,
     request_generation: u64,
-    position: Option<Point<gpui::Pixels>>,
+    position: Option<Point<gpui_kit::Pixels>>,
     drag_state: Option<DragState>,
     focus_handle: FocusHandle,
     ddl_vertical_scroll: ScrollHandle,
@@ -167,11 +167,11 @@ impl TablePropertiesDialog {
                     }
                 }
                 this.ddl_vertical_scroll
-                    .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+                    .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
                 this.ddl_horizontal_scroll
-                    .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+                    .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
                 this.triggers_vertical_scroll
-                    .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+                    .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
                 cx.notify();
             });
         })
@@ -182,14 +182,18 @@ impl TablePropertiesDialog {
         cx.emit(TablePropertiesEvent::CloseRequested);
     }
 
-    fn begin_drag(&mut self, cursor: Point<gpui::Pixels>) {
+    fn begin_drag(&mut self, cursor: Point<gpui_kit::Pixels>) {
         let position = self
             .position
             .unwrap_or_else(|| point(px(MODAL_MARGIN), px(MODAL_MARGIN)));
         self.drag_state = Some(DragState { cursor, position });
     }
 
-    fn update_drag(&mut self, cursor: Point<gpui::Pixels>, viewport: gpui::Size<gpui::Pixels>) {
+    fn update_drag(
+        &mut self,
+        cursor: Point<gpui_kit::Pixels>,
+        viewport: gpui_kit::Size<gpui_kit::Pixels>,
+    ) {
         let Some(drag) = self.drag_state else {
             return;
         };
@@ -234,14 +238,14 @@ impl TablePropertiesDialog {
             .cursor_move()
             .on_mouse_down(
                 MouseButton::Left,
-                cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                cx.listener(|this, event: &gpui_kit::MouseDownEvent, _, cx| {
                     this.begin_drag(event.position);
                     cx.stop_propagation();
                 }),
             )
             .on_drag(TablePropertiesDrag, |_, _, _, cx| {
                 cx.stop_propagation();
-                cx.new(|_| gpui::Empty)
+                cx.new(|_| gpui_kit::Empty)
             })
             .on_drag_move::<TablePropertiesDrag>(cx.listener(
                 |this, event: &DragMoveEvent<TablePropertiesDrag>, window, cx| {
@@ -280,7 +284,7 @@ impl TablePropertiesDialog {
                     .child(
                         div()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .overflow_hidden()
                             .text_ellipsis()
                             .whitespace_nowrap()
@@ -309,8 +313,8 @@ impl TablePropertiesDialog {
 
     fn render_modal(
         &self,
-        position: Point<gpui::Pixels>,
-        size: gpui::Size<gpui::Pixels>,
+        position: Point<gpui_kit::Pixels>,
+        size: gpui_kit::Size<gpui_kit::Pixels>,
         theme: &Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -332,7 +336,7 @@ impl TablePropertiesDialog {
             .on_any_mouse_down(|_, _, cx| cx.stop_propagation())
             .key_context("TablePropertiesDialog")
             .track_focus(&self.focus_handle)
-            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| {
+            .on_key_down(cx.listener(|this, event: &gpui_kit::KeyDownEvent, _, cx| {
                 if event.keystroke.key == "escape" {
                     this.request_close(cx);
                     cx.stop_propagation();
@@ -391,16 +395,16 @@ impl Render for TablePropertiesDialog {
     }
 }
 
-fn modal_size(viewport: gpui::Size<gpui::Pixels>) -> gpui::Size<gpui::Pixels> {
+fn modal_size(viewport: gpui_kit::Size<gpui_kit::Pixels>) -> gpui_kit::Size<gpui_kit::Pixels> {
     let available_width = (viewport.width - px(MODAL_MARGIN * 2.0)).max(px(1.0));
     let available_height = (viewport.height - px(MODAL_MARGIN * 2.0)).max(px(1.0));
-    gpui::Size::new(
+    gpui_kit::Size::new(
         available_width.min(px(MODAL_WIDTH)),
         available_height.min(px(MODAL_HEIGHT)),
     )
 }
 
-fn trigger_panel_height(modal_size: gpui::Size<gpui::Pixels>) -> gpui::Pixels {
+fn trigger_panel_height(modal_size: gpui_kit::Size<gpui_kit::Pixels>) -> gpui_kit::Pixels {
     // Split the compact modal between trigger metadata and DDL while keeping
     // the established panel height on normal desktop windows.
     let content_height = (modal_size.height - px(48.0 + 24.0 + 8.0)).max(px(1.0));
@@ -408,10 +412,10 @@ fn trigger_panel_height(modal_size: gpui::Size<gpui::Pixels>) -> gpui::Pixels {
 }
 
 fn clamp_position(
-    position: Point<gpui::Pixels>,
-    viewport: gpui::Size<gpui::Pixels>,
-    size: gpui::Size<gpui::Pixels>,
-) -> Point<gpui::Pixels> {
+    position: Point<gpui_kit::Pixels>,
+    viewport: gpui_kit::Size<gpui_kit::Pixels>,
+    size: gpui_kit::Size<gpui_kit::Pixels>,
+) -> Point<gpui_kit::Pixels> {
     let min = px(MODAL_MARGIN);
     let max_x = (viewport.width - size.width - min).max(min);
     let max_y = (viewport.height - size.height - min).max(min);

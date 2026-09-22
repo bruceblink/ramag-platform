@@ -2,19 +2,20 @@ use super::pagination::parse_result_page;
 use super::states::{render_affected_result, render_row_search_blocker};
 use super::*;
 use crate::views::result_value::display_cell_value;
-use gpui_component::IconName;
+use gpui_kit::component::IconName;
+use ramag_ui::RestrictUniformListToAxisExt as _;
 
 /// 构建 SQL 结果表：复用虚拟行列表，并把宽列内容交给可拖拽的横向滚动条浏览。
 #[allow(clippy::too_many_arguments)]
 pub(in crate::views) fn render_table(
     panel: &mut ResultPanel,
     result: &Arc<QueryResult>,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    secondary_bg: gpui::Hsla,
-    border: gpui::Hsla,
-    muted_bg: gpui::Hsla,
-    accent: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    secondary_bg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
+    muted_bg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
     cx: &mut Context<ResultPanel>,
 ) -> AnyElement {
     let columns = &result.columns;
@@ -89,7 +90,7 @@ pub(in crate::views) fn render_table(
     let visible_cols_count = visible_col_indices.len();
     let visible_count = display_indices.len();
 
-    let col_widths: Vec<gpui::Pixels> = default_col_widths
+    let col_widths: Vec<gpui_kit::Pixels> = default_col_widths
         .iter()
         .enumerate()
         .map(|(ci, &default_width)| panel.col_width_override(ci).unwrap_or(default_width))
@@ -560,7 +561,7 @@ pub(in crate::views) fn render_table(
                 .child(
                     Scrollbar::vertical(panel.uniform_scroll())
                         .id("result-v-scrollbar-control")
-                        .scrollbar_show(ScrollbarShow::Always),
+                        .mode(ScrollbarMode::Always),
                 ),
         );
 
@@ -577,8 +578,8 @@ pub(in crate::views) fn render_table(
         .child(
             Scrollbar::horizontal(panel.h_scroll())
                 .id("result-h-scrollbar-control")
-                .scroll_size(gpui::size(frame.total_content_width, px(16.0)))
-                .scrollbar_show(ScrollbarShow::Always),
+                .scroll_size(gpui_kit::size(frame.total_content_width, px(16.0)))
+                .mode(ScrollbarMode::Always),
         );
 
     let table_container = v_flex()

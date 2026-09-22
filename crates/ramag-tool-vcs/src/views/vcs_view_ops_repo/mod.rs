@@ -1,8 +1,8 @@
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use gpui::{AppContext as _, Context};
-use gpui_component::resizable::ResizableState;
+use gpui_kit::component::resizable::ResizableState;
+use gpui_kit::{AppContext as _, Context};
 use ramag_domain::entities::MAX_COMMIT_MESSAGE_BYTES;
 use tracing::{error, info};
 

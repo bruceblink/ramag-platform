@@ -2,7 +2,7 @@
 
 use super::{CliConsole, Entry, Outcome};
 use crate::views::key_detail::render_test::{mock_config, mock_service};
-use gpui::{AppContext as _, Bounds, Pixels, TestAppContext, px, size};
+use gpui_kit::{AppContext as _, Bounds, Pixels, TestAppContext, px, size};
 
 fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
     assert!(
@@ -15,16 +15,16 @@ fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
 }
 
 /// 命令历史和生产保护文案变长时，固定操作仍应留在控制台工具栏内。
-#[gpui::test]
+#[gpui_kit::test]
 fn cli_toolbar_wraps_status_and_keeps_clear_inside_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut config = mock_config();
     config.production = true;
     let mut console_entity = None;
     let (_, cx) = cx.add_window_view(|window, cx| {
         let console = cx.new(|cx| CliConsole::new(mock_service(), config.clone(), 0, window, cx));
         console_entity = Some(console.clone());
-        gpui_component::Root::new(console, window, cx)
+        gpui_kit::component::Root::new(console, window, cx)
     });
     let console = console_entity.expect("Redis 命令控制台应初始化");
     console.update(cx, |console, cx| {

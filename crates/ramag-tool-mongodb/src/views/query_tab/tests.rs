@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gpui::{Modifiers, TestAppContext, px, size};
+use gpui_kit::{Modifiers, TestAppContext, px, size};
 use ramag_app::MongoService;
 use ramag_domain::entities::{ConnectionConfig, ConnectionId, QueryRecord, QueryRecordId};
 use ramag_domain::error::Result;
@@ -68,9 +68,9 @@ fn collection_template_escapes_json_string_characters() {
 }
 
 /// 命令失败时，重试按钮和错误文本在窄窗口内保持可见，并重新走编辑器解析流程。
-#[gpui::test]
+#[gpui_kit::test]
 fn mongo_failure_retry_stays_inside_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(MongoService::new(
         Arc::new(ramag_infra_mongodb::MongoDriver::new()),
         Arc::new(NoopStorage),

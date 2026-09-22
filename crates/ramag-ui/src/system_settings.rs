@@ -1,6 +1,6 @@
 //! 应用级系统设置与 GPUI 全局状态。
 
-use gpui::{App, Global};
+use gpui_kit::{App, Global};
 use serde::{Deserialize, Serialize};
 
 /// 系统设置在本地偏好存储中的键名。

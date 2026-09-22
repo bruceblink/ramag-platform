@@ -43,7 +43,7 @@ impl KafkaView {
                         .child(
                             Scrollbar::vertical(&self.consumer_group_scroll)
                                 .id("kafka-consumer-group-v-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 )
                 .into_any_element()
@@ -123,7 +123,7 @@ impl KafkaView {
                         .child(
                             Scrollbar::vertical(&self.consumer_group_scroll)
                                 .id("kafka-consumer-group-v-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 )
                 .into_any_element()
@@ -244,7 +244,7 @@ impl KafkaView {
                             .child(
                                 div()
                                     .text_sm()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .child("消费者组"),
                             )
                             .child(

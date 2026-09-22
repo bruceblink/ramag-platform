@@ -2,11 +2,11 @@
 
 mod semantic;
 
-use gpui::{
+use gpui_kit::component::Theme;
+use gpui_kit::{
     App, Bounds, Font, FontStyle, FontWeight, Hsla, Pixels, Rgba, SharedString, StrikethroughStyle,
     TextAlign, TextRun, UnderlineStyle, Window, fill, font, point, px, rgb,
 };
-use gpui_component::Theme;
 
 use crate::core::{RgbColor, TerminalCell, TerminalCursorShape, TerminalSnapshot, TerminalStyle};
 
@@ -170,7 +170,7 @@ fn paint_backgrounds(
                         bounds.left() + prepared.cell_width * start as f32,
                         bounds.top() + LINE_HEIGHT * row_index as f32,
                     ),
-                    gpui::size(prepared.cell_width * (end - start) as f32, LINE_HEIGHT),
+                    gpui_kit::size(prepared.cell_width * (end - start) as f32, LINE_HEIGHT),
                 ),
                 paint,
             ));
@@ -244,7 +244,7 @@ fn paint_fragment(
     text: &str,
     style: TerminalStyle,
     foreground: RgbColor,
-    origin: gpui::Point<Pixels>,
+    origin: gpui_kit::Point<Pixels>,
     mono: &SharedString,
     window: &mut Window,
     cx: &mut App,
@@ -305,13 +305,13 @@ fn paint_cursor(prepared: &PreparedTerminal, bounds: Bounds<Pixels>, window: &mu
     );
     let cursor_bounds = match cursor.shape {
         TerminalCursorShape::Block | TerminalCursorShape::HollowBlock => {
-            Bounds::new(origin, gpui::size(prepared.cell_width, LINE_HEIGHT))
+            Bounds::new(origin, gpui_kit::size(prepared.cell_width, LINE_HEIGHT))
         }
         TerminalCursorShape::Underline => Bounds::new(
             point(origin.x, origin.y + LINE_HEIGHT - px(2.0)),
-            gpui::size(prepared.cell_width, px(2.0)),
+            gpui_kit::size(prepared.cell_width, px(2.0)),
         ),
-        TerminalCursorShape::Beam => Bounds::new(origin, gpui::size(px(2.0), LINE_HEIGHT)),
+        TerminalCursorShape::Beam => Bounds::new(origin, gpui_kit::size(px(2.0), LINE_HEIGHT)),
         TerminalCursorShape::Hidden => return,
     };
     let color = if cursor.shape == TerminalCursorShape::HollowBlock {

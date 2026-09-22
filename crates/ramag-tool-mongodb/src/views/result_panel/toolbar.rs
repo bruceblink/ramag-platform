@@ -1,12 +1,12 @@
 //! 结果工具栏：过滤、文档操作与运行控制。
 
-use gpui::{ClickEvent, Context, Entity, div, prelude::*, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputState},
 };
+use gpui_kit::{ClickEvent, Context, Entity, div, prelude::*, px};
 use ramag_ui::PointerDropdownMenu as _;
 
 use super::{ResultEvent, ResultPanel, RowSearchConversionStatus, RowSearchMode};
@@ -43,19 +43,10 @@ pub(super) fn render(panel: &mut ResultPanel, cx: &mut Context<ResultPanel>) -> 
                     div()
                         .flex_1()
                         .min_w_0()
-                        .on_action(move |action: &gpui_component::input::MoveUp, window, app| {
-                            col_for_up.update(app, |state, cx| {
-                                state.handle_action_for_context_menu(
-                                    Box::new(action.clone()),
-                                    window,
-                                    cx,
-                                );
-                            });
-                        })
                         .on_action(
-                            move |action: &gpui_component::input::MoveDown, window, app| {
-                                col_for_down.update(app, |state, cx| {
-                                    state.handle_action_for_context_menu(
+                            move |action: &gpui_kit::component::input::MoveUp, window, app| {
+                                col_for_up.update(app, |state, cx| {
+                                    state.route_overlay_action(
                                         Box::new(action.clone()),
                                         window,
                                         cx,
@@ -63,17 +54,23 @@ pub(super) fn render(panel: &mut ResultPanel, cx: &mut Context<ResultPanel>) -> 
                                 });
                             },
                         )
-                        .child(
-                            ramag_ui::cleanable_input(
-                                &panel.column_filter,
-                                "mongo-column-filter-clear",
-                                false,
-                                cx,
-                            )
-                            .small()
-                            .bordered(false)
-                            .focus_bordered(false),
+                        .on_action(
+                            move |action: &gpui_kit::component::input::MoveDown, window, app| {
+                                col_for_down.update(app, |state, cx| {
+                                    state.route_overlay_action(
+                                        Box::new(action.clone()),
+                                        window,
+                                        cx,
+                                    );
+                                });
+                            },
                         )
+                        .child(ramag_ui::cleanable_editor(
+                            &panel.column_filter,
+                            "mongo-column-filter-clear",
+                            false,
+                            cx,
+                        ))
                 })
                 .child({
                     let row_input = panel.row_filter.clone();
@@ -227,7 +224,7 @@ pub(super) fn render(panel: &mut ResultPanel, cx: &mut Context<ResultPanel>) -> 
 fn row_search_mode_button(
     current: RowSearchMode,
     panel: Entity<ResultPanel>,
-    accent: gpui::Hsla,
+    accent: gpui_kit::Hsla,
 ) -> impl IntoElement {
     ramag_ui::clickable_button("mongo-row-search-mode")
         .text()
@@ -261,9 +258,9 @@ fn row_search_mode_button(
 fn row_search_input_suffix(
     input: Entity<InputState>,
     status: Option<RowSearchConversionStatus>,
-    accent: gpui::Hsla,
-    muted: gpui::Hsla,
-    danger: gpui::Hsla,
+    accent: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
 ) -> impl IntoElement {
     h_flex()
         .flex_none()
@@ -290,10 +287,10 @@ fn row_search_input_suffix(
 
 fn row_search_conversion_label(
     status: RowSearchConversionStatus,
-    accent: gpui::Hsla,
-    muted: gpui::Hsla,
-    danger: gpui::Hsla,
-) -> gpui::AnyElement {
+    accent: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
+) -> gpui_kit::AnyElement {
     let (label, color) = match status {
         RowSearchConversionStatus::Converting => ("→ 转换中…".to_string(), muted),
         RowSearchConversionStatus::Ready(output) => {

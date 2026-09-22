@@ -39,7 +39,7 @@ impl DbClientView {
                             );
                             let _ = this.update(cx, |this, cx| {
                                 this.pending_notification = Some(
-                                    gpui_component::notification::Notification::warning(
+                                    gpui_kit::component::notification::Notification::warning(
                                         "已忽略损坏的连接标签恢复数据",
                                     ),
                                 );
@@ -58,7 +58,7 @@ impl DbClientView {
                         );
                         let _ = this.update(cx, |this, cx| {
                             this.pending_notification = Some(
-                                gpui_component::notification::Notification::warning(format!(
+                                gpui_kit::component::notification::Notification::warning(format!(
                                     "无法恢复上次打开的连接标签：{error}"
                                 )),
                             );
@@ -81,7 +81,7 @@ impl DbClientView {
                         );
                         let _ = this.update(cx, |this, cx| {
                             this.pending_notification = Some(
-                                gpui_component::notification::Notification::warning(format!(
+                                gpui_kit::component::notification::Notification::warning(format!(
                                     "无法恢复连接标签：{error}"
                                 )),
                             );
@@ -102,7 +102,7 @@ impl DbClientView {
                     this.pending_restore = Some((configs, pref.active));
                     if adjusted {
                         this.pending_notification = Some(
-                            gpui_component::notification::Notification::warning(format!(
+                            gpui_kit::component::notification::Notification::warning(format!(
                                 "上次连接标签包含重复或超限项，仅恢复前 {MAX_CONNECTION_SESSIONS} 个有效标签"
                             ))
                             .autohide(true),

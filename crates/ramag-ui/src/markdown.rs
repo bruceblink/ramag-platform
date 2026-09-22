@@ -2,18 +2,18 @@
 
 use std::path::{Component, Path, PathBuf};
 
-use gpui::{
+use gpui_kit::component::{Theme, text};
+use gpui_kit::{
     AnyElement, App, Bounds, Element, ElementId, GlobalElementId, IntoElement, LayoutId, Pixels,
     SharedString, Window,
 };
-use gpui_component::{Theme, text};
 use url::Url;
 
 /// 创建长文 Markdown 预览。
 ///
 /// `gpui-component` 的 TextView 会把行内代码直接绘制成主题 accent 背景；预览中仅在它的
 /// 布局、预绘制和绘制期间临时将 accent 置为透明，链接颜色、代码语义和虚拟滚动均保留。
-pub fn markdown_preview(source: impl Into<gpui::SharedString>) -> impl IntoElement {
+pub fn markdown_preview(source: impl Into<gpui_kit::SharedString>) -> impl IntoElement {
     MarkdownPreviewElement {
         child: text::markdown(source).scrollable(true).into_any_element(),
     }
@@ -247,7 +247,7 @@ impl Element for MarkdownPreviewElement {
     fn request_layout(
         &mut self,
         _: Option<&GlobalElementId>,
-        _: Option<&gpui::InspectorElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
         window: &mut Window,
         cx: &mut App,
     ) -> (LayoutId, Self::RequestLayoutState) {
@@ -258,7 +258,7 @@ impl Element for MarkdownPreviewElement {
     fn prepaint(
         &mut self,
         _: Option<&GlobalElementId>,
-        _: Option<&gpui::InspectorElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
         _: Bounds<Pixels>,
         _: &mut Self::RequestLayoutState,
         window: &mut Window,
@@ -270,7 +270,7 @@ impl Element for MarkdownPreviewElement {
     fn paint(
         &mut self,
         _: Option<&GlobalElementId>,
-        _: Option<&gpui::InspectorElementId>,
+        _: Option<&gpui_kit::InspectorElementId>,
         _: Bounds<Pixels>,
         _: &mut Self::RequestLayoutState,
         _: &mut Self::PrepaintState,
@@ -295,11 +295,11 @@ fn with_transparent_accent<T>(cx: &mut App, render: impl FnOnce(&mut App) -> T) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpui::TestAppContext;
+    use gpui_kit::TestAppContext;
 
-    #[gpui::test]
+    #[gpui_kit::test]
     fn inline_code_background_scope_is_transparent_and_restored(cx: &mut TestAppContext) {
-        cx.update(gpui_component::init);
+        cx.update(gpui_kit::component::init);
         cx.update(|cx| {
             let original_accent = Theme::global(cx).accent;
             let scoped_accent = with_transparent_accent(cx, |cx| Theme::global(cx).accent);

@@ -1,10 +1,14 @@
 //! Redis 键创建表单渲染。
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, h_flex,
+    input::{Input, Textarea},
+    v_flex,
+};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, Hsla, IntoElement, ParentElement, Render, SharedString,
     Styled, Window, div, hsla, prelude::*, px,
 };
-use gpui_component::{ActiveTheme, h_flex, input::Input, v_flex};
 use ramag_domain::entities::RedisType;
 
 use super::{CREATE_TYPES, KeyCreateForm};
@@ -13,7 +17,7 @@ use crate::views::form_shell::form_footer;
 impl KeyCreateForm {
     fn render_editor(&self, disabled: bool) -> AnyElement {
         match self.selected_type {
-            RedisType::String => Input::new(&self.string_input)
+            RedisType::String => Textarea::new(&self.string_input)
                 .h(px(220.0))
                 .disabled(disabled)
                 .into_any_element(),
@@ -78,7 +82,7 @@ impl Render for KeyCreateForm {
                     .bg(tint)
                     .border_color(soft_border)
                     .text_color(color)
-                    .font_weight(gpui::FontWeight::SEMIBOLD);
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD);
             } else if !submitting {
                 btn = btn
                     .bg(secondary_bg)
@@ -170,7 +174,7 @@ fn section_title(text: &str, muted_fg: Hsla, dot_color: Option<Hsla>) -> impl In
     row.child(
         div()
             .text_xs()
-            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
             .text_color(muted_fg)
             .child(text.to_string()),
     )

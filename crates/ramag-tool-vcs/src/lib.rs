@@ -9,7 +9,7 @@ pub use views::vcs_view::VcsView;
 
 use std::sync::Arc;
 
-use gpui::{App, AppContext as _, Entity, Window};
+use gpui_kit::{App, AppContext as _, Entity, Window};
 use ramag_domain::traits::{GitDriver, Storage, Tool, ToolMeta};
 
 /// storage 用于 recent_repos 持久化

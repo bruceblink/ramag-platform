@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gpui::{Entity, SharedString};
+use gpui_kit::{Entity, SharedString};
 use ramag_domain::entities::{
     RemoteEntry, SshProfile, SshProfileId, SshRemoteCapabilities, SshSessionState,
 };

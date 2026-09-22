@@ -84,7 +84,7 @@ impl KafkaView {
                                     .child(
                                         div()
                                             .text_sm()
-                                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                             .truncate()
                                             .child(title),
                                     )

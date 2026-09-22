@@ -13,12 +13,12 @@ mod zset_block;
 
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::{ActiveTheme, Sizable as _, notification::Notification, v_flex};
+use gpui_kit::{
     Context, EventEmitter, FocusHandle, Focusable, IntoElement, ParentElement, Render,
     ScrollStrategy, SharedString, StatefulInteractiveElement as _, Styled, UniformListScrollHandle,
     Window, div, prelude::*, px,
 };
-use gpui_component::{ActiveTheme, Sizable as _, notification::Notification, v_flex};
 use ramag_app::RedisService;
 use ramag_domain::entities::{ConnectionConfig, MAX_REDIS_COLLECTION_ITEMS, RedisValue};
 use ramag_ui::AxisScrollGesture;
@@ -91,7 +91,7 @@ pub struct KeyDetailPanel {
     >,
     focus_handle: FocusHandle,
     value_scroll: UniformListScrollHandle,
-    pub(super) scalar_h_scroll: gpui::ScrollHandle,
+    pub(super) scalar_h_scroll: gpui_kit::ScrollHandle,
     /// 大文本内容区双轴手势状态，跨渲染帧保留。
     scalar_scroll_gesture: AxisScrollGesture,
 }
@@ -99,7 +99,7 @@ pub struct KeyDetailPanel {
 impl EventEmitter<KeyDetailEvent> for KeyDetailPanel {}
 
 impl Focusable for KeyDetailPanel {
-    fn focus_handle(&self, _: &gpui::App) -> FocusHandle {
+    fn focus_handle(&self, _: &gpui_kit::App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
@@ -129,7 +129,7 @@ impl KeyDetailPanel {
             focus_handle: cx.focus_handle(),
             estimating_size: false,
             value_scroll: UniformListScrollHandle::new(),
-            scalar_h_scroll: gpui::ScrollHandle::new(),
+            scalar_h_scroll: gpui_kit::ScrollHandle::new(),
             scalar_scroll_gesture: AxisScrollGesture::default(),
         }
     }
@@ -161,7 +161,7 @@ impl KeyDetailPanel {
         // 换 key 后滚动归顶：uniform_list 句柄跨 key 复用，不复位会残留上个 key 的偏移
         self.value_scroll.scroll_to_item(0, ScrollStrategy::Top);
         self.scalar_h_scroll
-            .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+            .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
         self.scalar_scroll_gesture.reset();
         cx.notify();
     }
@@ -190,7 +190,7 @@ impl KeyDetailPanel {
         // 换 key 后滚动归顶：uniform_list 句柄跨 key 复用，不复位会残留上个 key 的偏移
         self.value_scroll.scroll_to_item(0, ScrollStrategy::Top);
         self.scalar_h_scroll
-            .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+            .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
         self.scalar_scroll_gesture.reset();
         cx.notify();
     }
@@ -244,7 +244,7 @@ impl Render for KeyDetailPanel {
         let view_mode = self.value_view_mode;
 
         // body + 是否自带虚拟滚动：容器类型走 uniform_list（自滚动），其余走普通滚动
-        let (body, self_scrolls): (gpui::AnyElement, bool) = if self.loading {
+        let (body, self_scrolls): (gpui_kit::AnyElement, bool) = if self.loading {
             (
                 div()
                     .py(px(28.0))
@@ -262,7 +262,7 @@ impl Render for KeyDetailPanel {
                     .p(px(14.0))
                     .gap_2()
                     .items_start()
-                    .child(div().text_sm().text_color(gpui::red()).child(err))
+                    .child(div().text_sm().text_color(gpui_kit::red()).child(err))
                     .child(
                         ramag_ui::clickable_button("redis-key-load-retry")
                             .outline()

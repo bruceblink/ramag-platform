@@ -1,13 +1,13 @@
 use super::*;
 
 struct KafkaRetryTestHost {
-    view: gpui::Entity<KafkaView>,
+    view: gpui_kit::Entity<KafkaView>,
 }
 
 impl Render for KafkaRetryTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        gpui::div()
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
@@ -15,9 +15,9 @@ impl Render for KafkaRetryTestHost {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_cluster_load_failure_has_retry_path(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("Retry Kafka", vec!["127.0.0.1:19092".into()]);
     let service = Arc::new(KafkaService::new(
         Arc::new(FakeKafkaDriver),
@@ -30,7 +30,7 @@ fn kafka_cluster_load_failure_has_retry_path(cx: &mut TestAppContext) {
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaRetryTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;
@@ -59,9 +59,9 @@ fn kafka_cluster_load_failure_has_retry_path(cx: &mut TestAppContext) {
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_welcome_action_stays_reachable_in_a_short_compact_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("Compact Kafka", vec!["127.0.0.1:19092".into()]);
     let service = Arc::new(KafkaService::new(
         Arc::new(FakeKafkaDriver),
@@ -74,7 +74,7 @@ fn kafka_welcome_action_stays_reachable_in_a_short_compact_window(cx: &mut TestA
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaRetryTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;

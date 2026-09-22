@@ -1,13 +1,13 @@
 use super::*;
 
 struct KafkaTopicTestHost {
-    view: gpui::Entity<KafkaView>,
+    view: gpui_kit::Entity<KafkaView>,
 }
 
 impl Render for KafkaTopicTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        gpui::div()
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
@@ -15,9 +15,9 @@ impl Render for KafkaTopicTestHost {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("主题布局 Kafka", vec!["127.0.0.1:19092".into()]);
     let service = Arc::new(KafkaService::new(
         Arc::new(FakeKafkaDriver),
@@ -30,7 +30,7 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaTopicTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;
@@ -194,9 +194,9 @@ fn kafka_topics_reflow_header_and_split_at_supported_widths(cx: &mut TestAppCont
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_topic_partition_browse_preserves_message_context(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("Topic 定位 Kafka", vec!["127.0.0.1:19092".into()]);
     let service = Arc::new(KafkaService::new(
         Arc::new(FakeKafkaDriver),
@@ -221,7 +221,7 @@ fn kafka_topic_partition_browse_preserves_message_context(cx: &mut TestAppContex
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaTopicTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;

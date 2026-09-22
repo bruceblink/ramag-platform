@@ -7,15 +7,15 @@ mod paging;
 use std::sync::Arc;
 use std::time::Instant;
 
-use gpui::{
-    Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Subscription, Task,
-    Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
-    input::{Input, InputEvent, InputState},
+    input::{Editor, EditorState, InputEvent},
     notification::Notification,
     v_flex,
+};
+use gpui_kit::{
+    Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Subscription, Task,
+    Window, div, prelude::*, px,
 };
 use ramag_app::MongoService;
 use ramag_domain::entities::{ConnectionConfig, MongoQueryResult, json_pretty_bounded};
@@ -25,8 +25,8 @@ use serde_json::Value;
 use tracing::{info, warn};
 
 use crate::actions::{FormatMongoJson, RunMongoQuery};
+use crate::views::MAX_MONGO_INTERACTIVE_INPUT_BYTES;
 use crate::views::result_panel::{MongoResultPagination, ResultEvent, ResultPanel};
-use crate::views::{MAX_MONGO_INTERACTIVE_INPUT_BYTES, bounded_input};
 use command::{
     CommandResponseKind, command_response_kind, dangerous_command_reason, default_command_template,
     extract_collection, parse_run_command_response, truncate_chars,
@@ -40,7 +40,7 @@ pub struct MongoQueryTab {
     pub(crate) config: ConnectionConfig,
     pub(crate) database: String,
     pub(crate) collection: Option<String>,
-    pub(crate) editor: Entity<InputState>,
+    pub(crate) editor: Entity<EditorState>,
     pub(crate) show_editor: bool,
     pub(crate) result: Entity<ResultPanel>,
     pub(crate) running: bool,
@@ -89,13 +89,12 @@ impl MongoQueryTab {
             .unwrap_or_else(|| "admin".to_string());
 
         let editor = cx.new(|cx| {
-            let mut state = bounded_input(window, cx)
-                .code_editor("json")
-                .multi_line(true)
+            let mut state = EditorState::new(window, cx)
+                .language("json")
                 .line_number(true)
                 .placeholder("{\"find\": \"users\", \"filter\": {}}")
                 .default_value(default_command_template());
-            state.lsp.completion_provider =
+            state.lsp_mut().completion_provider =
                 Some(crate::completion::CommandCompletionProvider::new_rc());
             state
         });
@@ -140,7 +139,7 @@ impl MongoQueryTab {
                     return;
                 }
                 this.pager = None;
-                if ramag_ui::clamp_multiline_input_value(
+                if ramag_ui::clamp_editor_input_value(
                     &editor_for_sub,
                     MAX_MONGO_INTERACTIVE_INPUT_BYTES,
                     window,
@@ -184,7 +183,7 @@ impl MongoQueryTab {
     }
 
     /// 是否存在手写草稿。
-    pub fn has_user_draft(&self, cx: &gpui::App) -> bool {
+    pub fn has_user_draft(&self, cx: &gpui_kit::App) -> bool {
         let value = self.editor.read(cx).value();
         let cur = value.trim();
         if cur.is_empty() {
@@ -194,7 +193,7 @@ impl MongoQueryTab {
     }
 
     /// 手写草稿快照；自动模板不落盘。
-    pub fn draft_text(&self, cx: &gpui::App) -> Option<gpui::SharedString> {
+    pub fn draft_text(&self, cx: &gpui_kit::App) -> Option<gpui_kit::SharedString> {
         self.has_user_draft(cx)
             .then(|| self.editor.read(cx).value())
     }
@@ -202,7 +201,7 @@ impl MongoQueryTab {
     /// 恢复本地草稿，不自动执行。
     pub fn restore_draft(
         &mut self,
-        text: gpui::SharedString,
+        text: gpui_kit::SharedString,
         database: Option<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -401,10 +400,10 @@ impl Render for MongoQueryTab {
                         .border_b_1()
                         .border_color(border)
                         .child(
-                            Input::new(&editor_clone)
+                            Editor::new(&editor_clone)
                                 .h_full()
                                 .bordered(false)
-                                .focus_bordered(false),
+                                .bordered(false),
                         ),
                 )
             })

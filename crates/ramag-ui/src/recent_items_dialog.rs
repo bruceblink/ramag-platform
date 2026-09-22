@@ -3,17 +3,17 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use gpui::{
-    App, AppContext as _, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement,
-    ParentElement, Render, ScrollHandle, StatefulInteractiveElement as _, Styled, Subscription,
-    Window, div, prelude::FluentBuilder as _, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputState},
     v_flex,
+};
+use gpui_kit::{
+    App, AppContext as _, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement,
+    ParentElement, Render, ScrollHandle, StatefulInteractiveElement as _, Styled, Subscription,
+    Window, div, prelude::FluentBuilder as _, px,
 };
 
 #[derive(Clone)]
@@ -215,7 +215,7 @@ impl RecentItemPicker {
                     .child(
                         div()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .child(title),
                     )
                     .child(
@@ -267,7 +267,7 @@ impl RecentItemPicker {
                             .child(
                                 div()
                                     .text_sm()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .overflow_hidden()
                                     .text_ellipsis()
                                     .child(item.name),
@@ -423,7 +423,7 @@ fn item_matches(item: &RecentItem, query: &str) -> bool {
             .is_some_and(|value| value.to_lowercase().contains(query))
 }
 
-fn badge(label: impl Into<String>, color: gpui::Hsla) -> impl IntoElement {
+fn badge(label: impl Into<String>, color: gpui_kit::Hsla) -> impl IntoElement {
     let mut background = color;
     background.a = 0.12;
     div()

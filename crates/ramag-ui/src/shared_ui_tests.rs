@@ -1,10 +1,10 @@
 #![allow(clippy::expect_used)]
 
-use gpui::{
+use gpui_kit::component::input::InputState;
+use gpui_kit::{
     AppContext as _, Context, Entity, InteractiveElement as _, IntoElement, ParentElement as _,
     Render, Styled as _, TestAppContext, VisualTestContext, Window, div, px, size,
 };
-use gpui_component::input::InputState;
 
 use super::{
     centered_status, clickable_button, closable_dialog_title, dialog_action_footer,
@@ -40,7 +40,7 @@ impl Render for DialogTitleHost {
 
 impl Render for DialogFooterHost {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        use gpui_component::{Sizable as _, button::ButtonVariants as _};
+        use gpui_kit::component::{Sizable as _, button::ButtonVariants as _};
 
         div()
             .id("shared-dialog-footer-host")
@@ -80,7 +80,7 @@ impl Render for CleanableInputHost {
 
 impl Render for CenteredStatusHost {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        use gpui_component::ActiveTheme as _;
+        use gpui_kit::component::ActiveTheme as _;
 
         div()
             .id("shared-centered-status-host")
@@ -126,13 +126,13 @@ impl Render for DialogLayerHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .size_full()
-            .children(gpui_component::Root::render_dialog_layer(window, cx))
+            .children(gpui_kit::component::Root::render_dialog_layer(window, cx))
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn closable_dialog_title_keeps_close_button_inside_narrow_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|_, _| DialogTitleHost);
     let cx: &mut VisualTestContext = cx;
     cx.simulate_resize(size(px(240.0), px(120.0)));
@@ -154,9 +154,9 @@ fn closable_dialog_title_keeps_close_button_inside_narrow_window(cx: &mut TestAp
     assert!(close.origin.x + close.size.width <= title.origin.x + title.size.width);
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn dialog_action_footer_wraps_long_actions_inside_parent(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|_, _| DialogFooterHost);
     let cx: &mut VisualTestContext = cx;
     cx.simulate_resize(size(px(240.0), px(180.0)));
@@ -188,12 +188,12 @@ fn dialog_action_footer_wraps_long_actions_inside_parent(cx: &mut TestAppContext
     assert!(primary.origin.y > secondary.origin.y);
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn confirm_dialog_stays_inside_compact_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let host = cx.new(|_| DialogLayerHost);
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let cx: &mut VisualTestContext = cx;
     cx.simulate_resize(size(px(360.0), px(640.0)));
@@ -224,9 +224,9 @@ fn confirm_dialog_stays_inside_compact_window(cx: &mut TestAppContext) {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn cleanable_input_keeps_clear_button_inside_narrow_parent(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let input = cx.new(|cx| InputState::new(window, cx));
         input.update(cx, |state, cx| {
@@ -251,9 +251,9 @@ fn cleanable_input_keeps_clear_button_inside_narrow_parent(cx: &mut TestAppConte
     assert!(clear.origin.y + clear.size.height <= host.origin.y + host.size.height);
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn centered_status_keeps_long_message_inside_narrow_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|_, _| CenteredStatusHost);
     let cx: &mut VisualTestContext = cx;
     cx.simulate_resize(size(px(180.0), px(120.0)));
@@ -272,9 +272,9 @@ fn centered_status_keeps_long_message_inside_narrow_window(cx: &mut TestAppConte
     assert!(status.origin.y + status.size.height <= host.origin.y + host.size.height);
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn responsive_toolbar_wraps_fixed_actions_inside_narrow_parent(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|_, _| ResponsiveToolbarHost);
     let cx: &mut VisualTestContext = cx;
     cx.simulate_resize(size(px(240.0), px(120.0)));

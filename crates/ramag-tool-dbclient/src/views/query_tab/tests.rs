@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use gpui::{Modifiers, TestAppContext, px, size};
+use gpui_kit::{Modifiers, TestAppContext, px, size};
 use ramag_app::ConnectionService;
 use ramag_domain::entities::{
     ConnectionConfig, ConnectionId, QueryRecord, QueryResult, Row, TransactionId, Value,
@@ -79,11 +79,11 @@ impl Storage for NoopStorage {
 }
 
 /// Context invalidation must release the UI wait state without deleting a completed result.
-#[gpui::test]
+#[gpui_kit::test]
 fn invalidating_query_context_discards_running_state_but_keeps_ready_result(
     cx: &mut TestAppContext,
 ) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage),
@@ -154,9 +154,9 @@ fn invalidating_query_context_discards_running_state_but_keeps_ready_result(
 }
 
 /// The plan tab must render independently even when the data result already exists.
-#[gpui::test]
+#[gpui_kit::test]
 fn plan_result_tabs_render_without_replacing_data_panel(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage),
@@ -201,9 +201,9 @@ fn plan_result_tabs_render_without_replacing_data_panel(cx: &mut TestAppContext)
 }
 
 /// Narrow result toolbars must keep both filter inputs and the run action reachable.
-#[gpui::test]
+#[gpui_kit::test]
 fn result_toolbar_keeps_filters_and_run_action_inside_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage),
@@ -246,9 +246,9 @@ fn result_toolbar_keeps_filters_and_run_action_inside_three_window_widths(cx: &m
 }
 
 /// 活动事务的提交、回滚和保存点操作必须在窄结果工具栏内继续可见。
-#[gpui::test]
+#[gpui_kit::test]
 fn active_transaction_controls_wrap_inside_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage),
@@ -340,9 +340,9 @@ fn active_transaction_controls_wrap_inside_three_window_widths(cx: &mut TestAppC
 }
 
 /// 未开启事务时的开始事务入口也必须留在窄结果工具栏内。
-#[gpui::test]
+#[gpui_kit::test]
 fn inactive_transaction_control_wraps_inside_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage),
@@ -403,9 +403,9 @@ fn inactive_transaction_control_wraps_inside_three_window_widths(cx: &mut TestAp
 }
 
 /// 查询失败时，重试按钮和长错误文本在窄窗口内保持可见，并重新走当前编辑器内容。
-#[gpui::test]
+#[gpui_kit::test]
 fn sql_failure_retry_stays_inside_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage),
@@ -469,9 +469,9 @@ fn sql_failure_retry_stays_inside_three_window_widths(cx: &mut TestAppContext) {
 }
 
 /// A failed transaction operation must have a distinct status from normal auto-commit mode.
-#[gpui::test]
+#[gpui_kit::test]
 fn transaction_failure_status_is_explicit(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage),

@@ -1,7 +1,7 @@
 //! 表树中的 SQL 表结构对比入口。
 
-use gpui::{AppContext as _, Context, ParentElement, Styled as _, Window};
-use gpui_component::{WindowExt as _, notification::Notification};
+use gpui_kit::component::{WindowExt as _, notification::Notification};
+use gpui_kit::{AppContext as _, Context, ParentElement, Styled as _, Window};
 use ramag_domain::entities::{ConnectionConfig, DriverKind, MAX_CONNECTION_IDENTIFIER_BYTES};
 use ramag_ui::open_bounded_prompt;
 

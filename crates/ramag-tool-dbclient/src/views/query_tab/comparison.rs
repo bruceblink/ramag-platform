@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, ParentElement as _, Styled as _, Window};
-use gpui_component::{WindowExt as _, notification::Notification};
+use gpui_kit::component::{WindowExt as _, notification::Notification};
+use gpui_kit::{AppContext as _, Context, ParentElement as _, Styled as _, Window};
 use ramag_domain::entities::{
     ConnectionConfig, DriverKind, MAX_CONNECTION_IDENTIFIER_BYTES, Query, QueryResult,
 };
@@ -39,7 +39,7 @@ struct CrossComparePage {
 }
 
 impl QueryTab {
-    pub(super) fn can_compare_cross_connection(&self, cx: &gpui::App) -> bool {
+    pub(super) fn can_compare_cross_connection(&self, cx: &gpui_kit::App) -> bool {
         if self.cross_compare_running {
             return false;
         }
@@ -118,7 +118,7 @@ impl QueryTab {
         );
     }
 
-    fn cross_compare_request(&self, cx: &gpui::App) -> Result<CrossCompareRequest, String> {
+    fn cross_compare_request(&self, cx: &gpui_kit::App) -> Result<CrossCompareRequest, String> {
         let Some(source_connection) = self.connection.clone() else {
             return Err("尚未选择 SQL 连接".into());
         };

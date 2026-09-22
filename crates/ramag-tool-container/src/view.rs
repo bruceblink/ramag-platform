@@ -2,16 +2,16 @@
 
 use std::sync::Arc;
 
-use gpui::{
-    AnyElement, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled,
-    Subscription, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Icon, IconName, Selectable as _, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputState},
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled,
+    Subscription, Window, div, prelude::*, px,
 };
 use ramag_app::{ContainerRegistryService, ContainerService};
 use ramag_domain::{
@@ -544,7 +544,7 @@ impl Render for ContainerView {
                             .child(
                                 div()
                                     .text_lg()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .child("容器管理"),
                             )
                             .child(
@@ -712,7 +712,7 @@ fn initial_docker_profile() -> ContainerEndpointProfile {
 impl ContainerView {
     fn render_content(
         &self,
-        theme: &gpui_component::theme::Theme,
+        theme: &gpui_kit::component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let mut content = v_flex()
@@ -732,7 +732,7 @@ impl ContainerView {
                     div().flex_1().min_w_0().child(
                         div()
                             .text_lg()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .child(self.section.label()),
                     ),
                 )
@@ -770,7 +770,7 @@ impl ContainerView {
         content.child(section_content).into_any_element()
     }
 
-    fn render_overview(&self, theme: &gpui_component::theme::Theme) -> AnyElement {
+    fn render_overview(&self, theme: &gpui_kit::component::theme::Theme) -> AnyElement {
         let Some(overview) = &self.overview else {
             return empty_state("连接 Docker Engine 后显示概览", theme).into_any_element();
         };
@@ -817,7 +817,7 @@ impl ContainerView {
                 .child(
                     div()
                         .text_xl()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .child(value),
                 )
                 .into_any_element()
@@ -848,7 +848,7 @@ impl ContainerView {
 
     fn render_containers(
         &self,
-        theme: &gpui_component::theme::Theme,
+        theme: &gpui_kit::component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let rows = self
@@ -885,7 +885,7 @@ impl ContainerView {
 
     fn render_images(
         &self,
-        theme: &gpui_component::theme::Theme,
+        theme: &gpui_kit::component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let rows = self
@@ -919,7 +919,7 @@ impl ContainerView {
 
     fn render_registry(
         &self,
-        theme: &gpui_component::theme::Theme,
+        theme: &gpui_kit::component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let endpoint = self
@@ -1072,7 +1072,7 @@ impl ContainerView {
 
     fn render_networks(
         &self,
-        theme: &gpui_component::theme::Theme,
+        theme: &gpui_kit::component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let rows = self
@@ -1103,7 +1103,7 @@ impl ContainerView {
 
     fn render_volumes(
         &self,
-        theme: &gpui_component::theme::Theme,
+        theme: &gpui_kit::component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let rows = self
@@ -1136,7 +1136,7 @@ impl ContainerView {
         &self,
         rows: Vec<AnyElement>,
         empty: &'static str,
-        theme: &gpui_component::theme::Theme,
+        theme: &gpui_kit::component::theme::Theme,
     ) -> AnyElement {
         let body = if rows.is_empty() {
             empty_state(
@@ -1166,7 +1166,7 @@ impl ContainerView {
             .into_any_element()
     }
 
-    fn render_detail(&self, theme: &gpui_component::theme::Theme) -> Option<AnyElement> {
+    fn render_detail(&self, theme: &gpui_kit::component::theme::Theme) -> Option<AnyElement> {
         let detail = match &self.selected_detail {
             None => return None,
             Some(SelectedDetail::Container(v)) => format!(
@@ -1411,7 +1411,7 @@ fn registry_repository_row(
 fn info_panel(
     title: &'static str,
     text: String,
-    theme: &gpui_component::theme::Theme,
+    theme: &gpui_kit::component::theme::Theme,
 ) -> impl IntoElement {
     v_flex()
         .w_full()
@@ -1429,7 +1429,7 @@ fn info_panel(
         .child(div().text_sm().child(text))
 }
 
-fn empty_state(text: &'static str, theme: &gpui_component::theme::Theme) -> impl IntoElement {
+fn empty_state(text: &'static str, theme: &gpui_kit::component::theme::Theme) -> impl IntoElement {
     v_flex()
         .id("container-empty-state")
         .debug_selector(|| "container-empty-state".into())

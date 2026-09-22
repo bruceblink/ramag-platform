@@ -47,10 +47,8 @@ ramag-infra-api = { workspace = true }
 ramag-infra-container-docker = { workspace = true }
 ramag-infra-container-registry = { workspace = true }
 
-# GPUI
-gpui = { workspace = true }
-gpui_platform = { workspace = true }
-gpui-component = { workspace = true }
+# GPUI Kit
+gpui-kit = { workspace = true }
 
 # 异步
 tokio = { workspace = true }

@@ -1,7 +1,7 @@
 //! 结果表单元格输入框的生命周期和只读原因。
 
-use gpui::{AppContext as _, Context, Entity, Window};
-use gpui_component::input::{InputEvent, InputState};
+use gpui_kit::component::input::{InputEvent, InputState};
+use gpui_kit::{AppContext as _, Context, Entity, Window};
 use ramag_domain::entities::{MAX_SQL_QUERY_BYTES, QueryResult};
 
 use super::{ResultPanel, ResultState};

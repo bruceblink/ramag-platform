@@ -1,18 +1,22 @@
-use gpui::{Context, Entity, Window};
-use gpui_component::input::{InputEvent, InputState};
-use gpui_component::notification::Notification;
+use gpui_kit::component::input::{EditorState, InputEvent};
+use gpui_kit::component::notification::Notification;
+use gpui_kit::{Context, Entity, Window};
 use ramag_domain::entities::MAX_SQL_QUERY_BYTES;
 
 use super::{QueryTab, QueryTabEvent};
 use crate::views::result_panel::{ResultPanel, ResultPanelEvent};
 
 pub(super) fn subscribe(
-    editor: &Entity<InputState>,
+    editor: &Entity<EditorState>,
     result: &Entity<ResultPanel>,
     plan_result: &Entity<ResultPanel>,
     window: &mut Window,
     cx: &mut Context<QueryTab>,
-) -> (gpui::Subscription, gpui::Subscription, gpui::Subscription) {
+) -> (
+    gpui_kit::Subscription,
+    gpui_kit::Subscription,
+    gpui_kit::Subscription,
+) {
     let editor_for_sub = editor.clone();
     let editor_sub = cx.subscribe_in(
         editor,
@@ -22,12 +26,8 @@ pub(super) fn subscribe(
                 return;
             }
             this.clear_pager(cx);
-            if ramag_ui::clamp_multiline_input_value(
-                &editor_for_sub,
-                MAX_SQL_QUERY_BYTES,
-                window,
-                cx,
-            ) {
+            if ramag_ui::clamp_editor_input_value(&editor_for_sub, MAX_SQL_QUERY_BYTES, window, cx)
+            {
                 this.pending_notification = Some(
                     Notification::warning(format!(
                         "SQL 编辑器最多保留 {} MiB，超出部分已截断",

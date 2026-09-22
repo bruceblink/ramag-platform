@@ -13,7 +13,7 @@ pub(super) fn build_middle_list(
     middle_w: f32,
     scroll_v: UniformListScrollHandle,
     cx: &mut Context<VcsView>,
-) -> gpui::UniformList {
+) -> gpui_kit::UniformList {
     uniform_list(
         "vcs-diff-middle",
         total,
@@ -101,7 +101,7 @@ pub(super) fn render_middle_revert(
             ramag_ui::clickable_button(SharedString::from(format!("vcs-hunk-stage-{hunk_idx}")))
                 .ghost()
                 .xsmall()
-                .icon(gpui_component::IconName::Plus)
+                .icon(gpui_kit::component::IconName::Plus)
                 .tooltip("暂存")
                 .disabled(busy)
                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
@@ -114,7 +114,7 @@ pub(super) fn render_middle_revert(
         ramag_ui::clickable_button(SharedString::from(format!("vcs-hunk-discard-{hunk_idx}")))
             .ghost()
             .xsmall()
-            .icon(gpui_component::IconName::Undo)
+            .icon(gpui_kit::component::IconName::Undo)
             .tooltip(tip)
             .disabled(busy)
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
@@ -128,7 +128,7 @@ pub(super) fn render_middle_revert(
 pub(super) fn render_middle_cell(
     left_author: Option<String>,
     right_author: Option<String>,
-    muted_fg: gpui::Hsla,
+    muted_fg: gpui_kit::Hsla,
 ) -> AnyElement {
     let col = |author: Option<String>| {
         div()

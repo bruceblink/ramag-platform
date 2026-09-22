@@ -23,14 +23,14 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Disableable as _, Sizable as _, WindowExt as _, button::ButtonVariants as _,
+    h_flex, input::InputState, v_flex,
+};
+use gpui_kit::{
     AppContext as _, Context, Entity, EventEmitter, IntoElement, ParentElement, Point, Render,
     ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled, UniformListScrollHandle,
     Window, div, prelude::*, px,
-};
-use gpui_component::{
-    ActiveTheme, Disableable as _, Sizable as _, WindowExt as _, button::ButtonVariants as _,
-    h_flex, input::InputState, v_flex,
 };
 use parking_lot::RwLock;
 use ramag_app::MongoService;
@@ -49,7 +49,7 @@ const PATH_COMPLETION_DEPTH: usize = 5;
 /// 行过滤防抖，避免按键时反复扫描大表。
 const ROW_VIEW_DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(180);
 
-fn responsive_dialog_width(window: &Window, preferred: f32) -> gpui::Pixels {
+fn responsive_dialog_width(window: &Window, preferred: f32) -> gpui_kit::Pixels {
     let available = f32::from(window.viewport_size().width);
     px((available - 32.0).max(160.0).min(preferred))
 }
@@ -67,7 +67,7 @@ pub struct ResultPanel {
     /// 表格构建代际，防止旧任务回包生效。
     table_build_seq: u64,
     table_build_cancel: Option<Arc<AtomicBool>>,
-    pub(crate) column_filter: Entity<InputState>,
+    pub(crate) column_filter: Entity<gpui_kit::component::input::EditorState>,
     pub(crate) row_filter: Entity<InputState>,
     row_search: RowSearchState,
     pub(crate) uniform_scroll: UniformListScrollHandle,
@@ -79,7 +79,7 @@ pub struct ResultPanel {
     pub(crate) database: String,
     pub(crate) target_collection: Option<String>,
     /// 异步回调无法访问 Window，通知由 Render 延后推送。
-    pub(crate) pending_notification: Option<gpui_component::notification::Notification>,
+    pub(crate) pending_notification: Option<gpui_kit::component::notification::Notification>,
     /// DML 防重入；失败时保留弹框输入。
     pub(super) doc_dml_busy: bool,
     pub(super) exporting: bool,
@@ -101,7 +101,7 @@ pub struct ResultPanel {
     /// 行视图构建失败信息；条件变化时清除。
     pub(crate) row_view_error: Option<String>,
     result_memory: Option<ResultMemoryLease>,
-    _subscriptions: Vec<gpui::Subscription>,
+    _subscriptions: Vec<gpui_kit::Subscription>,
 }
 
 #[derive(Clone, Debug)]
@@ -192,9 +192,10 @@ impl ResultPanel {
             column_completion_source.clone(),
         );
         let column_filter = cx.new(|cx| {
-            let mut state = ramag_ui::bounded_search_input(window, cx)
+            let mut state = gpui_kit::component::input::EditorState::new(window, cx)
+                .line_number(false)
                 .placeholder("过滤列（逗号分隔；填路径可钻取）");
-            state.lsp.completion_provider = Some(provider);
+            state.lsp_mut().completion_provider = Some(provider);
             state
         });
         let row_filter = cx.new(|cx| {

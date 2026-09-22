@@ -1,12 +1,12 @@
 //! 系统监控视图的布局、指标卡片和任务列表渲染。
 
-use gpui::{
-    AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Render,
-    SharedString, StatefulInteractiveElement, Styled, Window, div, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
     h_flex, v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Render,
+    SharedString, StatefulInteractiveElement, Styled, Window, div, px,
 };
 
 use super::helpers::{
@@ -500,7 +500,7 @@ impl SystemView {
                             .child(
                                 div()
                                     .text_sm()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .child("任务管理器"),
                             )
                             .child(div().text_xs().text_color(theme.muted_foreground).child(

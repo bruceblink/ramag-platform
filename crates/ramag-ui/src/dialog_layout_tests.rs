@@ -2,11 +2,11 @@
 
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::{IconName, Root};
+use gpui_kit::{
     AppContext as _, Bounds, Context, IntoElement, Modifiers, MouseButton, ParentElement as _,
     Pixels, Render, Styled as _, TestAppContext, VisualTestContext, Window, div, px, size,
 };
-use gpui_component::{IconName, Root};
 
 struct DialogHost;
 
@@ -38,9 +38,9 @@ fn assert_visible(cx: &mut VisualTestContext, selector: &'static str, width: f32
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn shortcut_recording_controls_remain_readable_after_resize(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     cx.update(|app| {
         crate::shortcuts_dialog::init_shortcut_overrides(
             Some(r#"{"open-recent":"ctrl-alt-shift-p"}"#),
@@ -84,11 +84,11 @@ fn shortcut_recording_controls_remain_readable_after_resize(cx: &mut TestAppCont
 }
 
 /// Scroll through clipped dialog content and select the final real row.
-#[gpui::test]
+#[gpui_kit::test]
 fn recent_picker_can_scroll_search_and_open_in_a_compact_window(cx: &mut TestAppContext) {
-    use gpui::{ScrollDelta, ScrollWheelEvent, TouchPhase, point};
+    use gpui_kit::{ScrollDelta, ScrollWheelEvent, TouchPhase, point};
     use std::sync::Mutex;
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let host = cx.new(|_| DialogHost);
         Root::new(host, window, cx)
@@ -153,9 +153,9 @@ fn recent_picker_can_scroll_search_and_open_in_a_compact_window(cx: &mut TestApp
     assert!(cx.debug_bounds("recent-picker-body").is_none());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn shared_dialogs_fit_small_and_short_windows(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let host = cx.new(|_| DialogHost);
         Root::new(host, window, cx)
@@ -169,7 +169,7 @@ fn shared_dialogs_fit_small_and_short_windows(cx: &mut TestAppContext) {
         ] {
             cx.simulate_resize(size(px(width), px(height)));
             cx.update(|window, app| {
-                use gpui_component::WindowExt as _;
+                use gpui_kit::component::WindowExt as _;
                 window.close_all_dialogs(app);
                 match kind {
                     "import" => crate::open_import_options_dialog(

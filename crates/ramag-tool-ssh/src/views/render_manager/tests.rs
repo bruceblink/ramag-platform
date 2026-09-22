@@ -6,7 +6,7 @@ use super::{
 
 #[test]
 fn environment_presets_have_distinct_badge_colors() {
-    let fallback = gpui::black();
+    let fallback = gpui_kit::black();
     assert_ne!(
         environment_badge_colors("dev", fallback).0,
         environment_badge_colors("prod", fallback).0

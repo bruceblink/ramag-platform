@@ -1,8 +1,8 @@
 //! 集合与数据库操作。
 
-use gpui::{Context, Entity};
-use gpui_component::menu::PopupMenu;
-use gpui_component::notification::Notification;
+use gpui_kit::component::menu::PopupMenu;
+use gpui_kit::component::notification::Notification;
+use gpui_kit::{Context, Entity};
 use ramag_domain::entities::{MAX_MONGO_COLLECTION_NAME_BYTES, validate_mongo_collection_name};
 use ramag_ui::{open_bounded_prompt, open_confirm};
 use serde_json::json;

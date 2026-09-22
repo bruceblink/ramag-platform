@@ -7,13 +7,13 @@ use std::sync::Arc;
 
 use std::path::PathBuf;
 
-use gpui::{
+use gpui_kit::{
     AnyView, ClickEvent, Context, Entity, EventEmitter, InteractiveElement, IntoElement,
     ParentElement, Point, Render, ScrollHandle, SharedString, Styled, Window, div, prelude::*, px,
 };
 
 use crate::actions::NewQueryTab;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
     notification::Notification, v_flex,
 };
@@ -62,8 +62,8 @@ pub struct QueryPanel {
     active_schema: Option<String>,
     show_editor: bool,
     tabs_scroll: ScrollHandle,
-    history_sub: Option<gpui::Subscription>,
-    draft_subscriptions: Vec<gpui::Subscription>,
+    history_sub: Option<gpui_kit::Subscription>,
+    draft_subscriptions: Vec<gpui_kit::Subscription>,
     /// 草稿落盘防抖代际。
     draft_generation: Arc<std::sync::atomic::AtomicU64>,
     /// 串行草稿写入，防止旧内容覆盖新内容。
@@ -511,7 +511,7 @@ fn push_closed_draft(stack: &mut Vec<ClosedQueryDraft>, draft: ClosedQueryDraft)
     stack.push(draft);
 }
 
-fn theme_active_bg(_secondary: gpui::Hsla, accent: gpui::Hsla) -> gpui::Hsla {
+fn theme_active_bg(_secondary: gpui_kit::Hsla, accent: gpui_kit::Hsla) -> gpui_kit::Hsla {
     let mut a = accent;
     a.a = 0.15;
     a

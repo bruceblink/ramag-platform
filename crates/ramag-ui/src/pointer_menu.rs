@@ -1,11 +1,11 @@
 use std::rc::Rc;
 
-use gpui::{
+use gpui_kit::component::{Selectable, menu::PopupMenu, popover::Popover};
+use gpui_kit::{
     Anchor, Context, DismissEvent, ElementId, Entity, Focusable as _, InteractiveElement,
     IntoElement, ParentElement as _, RenderOnce, SharedString, StyleRefinement, Styled, Window,
     div,
 };
-use gpui_component::{Selectable, menu::PopupMenu, popover::Popover};
 
 type MenuBuilder = dyn Fn(PopupMenu, &mut Window, &mut Context<PopupMenu>) -> PopupMenu;
 
@@ -60,7 +60,7 @@ impl<T> RenderOnce for PointerDropdownMenuPopover<T>
 where
     T: Selectable + IntoElement + 'static,
 {
-    fn render(self, window: &mut Window, cx: &mut gpui::App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut gpui_kit::App) -> impl IntoElement {
         let builder = self.builder.clone();
         let menu_state =
             window.use_keyed_state(self.id.clone(), cx, |_, _| DropdownMenuState::default());

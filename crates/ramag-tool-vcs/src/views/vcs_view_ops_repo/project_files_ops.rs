@@ -363,7 +363,7 @@ impl VcsView {
                     }
                     Err(error) => {
                         this.pending_notification = Some(
-                            gpui_component::notification::Notification::error(format!(
+                            gpui_kit::component::notification::Notification::error(format!(
                                 "自动保存 {path} 失败：{error}；可按 {} 重试",
                                 ramag_ui::platform::primary_shortcut("S")
                             ))

@@ -1,8 +1,8 @@
-use gpui::{
+use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex, v_flex};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString,
     StatefulInteractiveElement as _, Styled, Window, div, hsla, prelude::*, px,
 };
-use gpui_component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex, v_flex};
 
 use super::{SETTINGS_COMPACT_NAV_ITEM_WIDTH, SettingsPage, SettingsView, settings_is_compact};
 
@@ -110,7 +110,7 @@ impl SettingsView {
                             .child(
                                 div()
                                     .text_xl()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .child(page.title()),
                             )
                             .child(
@@ -128,17 +128,17 @@ impl SettingsView {
 
 #[derive(Clone, Copy)]
 struct SettingsNavigationStyle {
-    active: gpui::Hsla,
-    foreground: gpui::Hsla,
-    muted_foreground: gpui::Hsla,
-    hover: gpui::Hsla,
-    accent: gpui::Hsla,
+    active: gpui_kit::Hsla,
+    foreground: gpui_kit::Hsla,
+    muted_foreground: gpui_kit::Hsla,
+    hover: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
 }
 
 fn settings_navigation_shell(
     compact: bool,
-    sidebar: gpui::Hsla,
-    border: gpui::Hsla,
+    sidebar: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
     children: Vec<AnyElement>,
 ) -> impl IntoElement {
     let title = div()
@@ -149,7 +149,7 @@ fn settings_navigation_shell(
             title.px(px(10.0)).pt(px(6.0)).pb(px(14.0))
         })
         .text_lg()
-        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
         .child("设置");
     if compact {
         h_flex()
@@ -193,7 +193,7 @@ fn settings_navigation_item(
     show_update_badge: bool,
     compact: bool,
     style: SettingsNavigationStyle,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut gpui::App) + 'static,
+    on_click: impl Fn(&ClickEvent, &mut Window, &mut gpui_kit::App) + 'static,
 ) -> impl IntoElement {
     let debug_selector = format!("settings-page-{}", page.id());
     let background = if selected {
@@ -231,14 +231,14 @@ fn settings_navigation_item(
                 div()
                     .ml_auto()
                     .text_xs()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(style.accent)
                     .child("新"),
             )
         })
 }
 
-pub(super) fn settings_card(title: &'static str, border: gpui::Hsla) -> gpui::Div {
+pub(super) fn settings_card(title: &'static str, border: gpui_kit::Hsla) -> gpui_kit::Div {
     v_flex()
         .w_full()
         .p(px(16.0))
@@ -249,7 +249,7 @@ pub(super) fn settings_card(title: &'static str, border: gpui::Hsla) -> gpui::Di
         .child(
             div()
                 .text_base()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .child(title),
         )
 }
@@ -271,7 +271,7 @@ mod tests {
     #![allow(clippy::expect_used)]
 
     use super::*;
-    use gpui::{Render, TestAppContext, size};
+    use gpui_kit::{Render, TestAppContext, size};
 
     struct SettingsNavigationTestHost {
         selected_page: SettingsPage,
@@ -336,9 +336,9 @@ mod tests {
         }
     }
 
-    #[gpui::test]
+    #[gpui_kit::test]
     fn settings_navigation_switches_to_scrollable_strip_on_compact_widths(cx: &mut TestAppContext) {
-        cx.update(gpui_component::init);
+        cx.update(gpui_kit::component::init);
         let (_, visual_cx) = cx.add_window_view(|_, _| SettingsNavigationTestHost {
             selected_page: SettingsPage::System,
         });
@@ -405,9 +405,9 @@ mod tests {
     }
 
     /// 切换到数据库客户端后，导航列仍与设置根布局保持顶部和底部对齐。
-    #[gpui::test]
+    #[gpui_kit::test]
     fn settings_navigation_stays_aligned_when_database_page_is_selected(cx: &mut TestAppContext) {
-        cx.update(gpui_component::init);
+        cx.update(gpui_kit::component::init);
         let (host, visual_cx) = cx.add_window_view(|_, _| SettingsNavigationTestHost {
             selected_page: SettingsPage::System,
         });

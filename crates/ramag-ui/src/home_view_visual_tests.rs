@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::{
     AppContext as _, Context, Entity, IntoElement, ParentElement, Render, Styled, TestAppContext,
     Window, div, px, size,
 };
@@ -44,9 +44,9 @@ fn registry_with_tools(count: usize) -> Arc<ToolRegistry> {
 }
 
 /// Verify that the first screen keeps its branding and tool cards inside a narrow main pane.
-#[gpui::test]
+#[gpui_kit::test]
 fn home_view_scrolls_and_fits_compact_windows(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let registry = registry_with_tools(16);
     let (host_entity, visual_cx) = cx.add_window_view(move |_window, cx| {
         let home = cx.new(|cx| HomeView::new(registry, cx));

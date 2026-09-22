@@ -16,9 +16,9 @@ pub(crate) use examples::sql_examples;
 use std::sync::Arc;
 use std::time::Instant;
 
-use gpui::{AppContext as _, Context, Entity, EventEmitter, Task, Window};
-use gpui_component::input::InputState;
-use gpui_component::notification::Notification;
+use gpui_kit::component::input::EditorState;
+use gpui_kit::component::notification::Notification;
+use gpui_kit::{AppContext as _, Context, Entity, EventEmitter, Task, Window};
 use parking_lot::RwLock;
 
 use ramag_app::ConnectionService;
@@ -38,7 +38,7 @@ pub struct QueryTab {
     pub(super) connection: Option<ConnectionConfig>,
     pub(super) connection_list: Option<Entity<ConnectionListPanel>>,
     pub(super) active_schema: Option<String>,
-    pub(super) editor: Entity<InputState>,
+    pub(super) editor: Entity<EditorState>,
     pub(super) result: Entity<ResultPanel>,
     /// 独立的执行计划结果面板；生成计划不会覆盖数据结果。
     pub(super) plan_result: Entity<ResultPanel>,
@@ -85,9 +85,9 @@ pub struct QueryTab {
     page_size: usize,
     /// 上次自动注入的 SQL；不同即视为用户草稿。
     pub(super) last_injected_sql: Option<String>,
-    pub(super) _editor_sub: gpui::Subscription,
-    pub(super) _result_sub: gpui::Subscription,
-    pub(super) _plan_result_sub: gpui::Subscription,
+    pub(super) _editor_sub: gpui_kit::Subscription,
+    pub(super) _result_sub: gpui_kit::Subscription,
+    pub(super) _plan_result_sub: gpui_kit::Subscription,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -165,16 +165,14 @@ impl QueryTab {
     ) -> Self {
         let cache_for_provider = schema_cache.clone();
         let editor = cx.new(|cx| {
-            let mut state = InputState::new(window, cx)
-                .code_editor("sql")
-                .multi_line(true)
+            let mut state = EditorState::new(window, cx)
+                .language("sql")
                 .line_number(true)
                 .placeholder(format!(
                     "-- 输入 SQL，按 {} 运行\nSELECT 1;",
                     primary_shortcut("Enter")
-                ))
-                .rows(8);
-            state.lsp.completion_provider = Some(
+                ));
+            state.lsp_mut().completion_provider = Some(
                 crate::sql_completion::SqlCompletionProvider::new_rc(cache_for_provider),
             );
             state
@@ -294,14 +292,14 @@ impl QueryTab {
     }
 
     /// Reports whether a plan has been generated and can be selected.
-    pub(super) fn plan_result_is_empty(&self, cx: &gpui::App) -> bool {
+    pub(super) fn plan_result_is_empty(&self, cx: &gpui_kit::App) -> bool {
         matches!(
             self.plan_result.read(cx).state(),
             ResultState::Empty | ResultState::Released(_)
         )
     }
 
-    pub fn has_user_draft(&self, cx: &gpui::App) -> bool {
+    pub fn has_user_draft(&self, cx: &gpui_kit::App) -> bool {
         let value = self.editor.read(cx).value();
         let cur = value.trim();
         if cur.is_empty() {
@@ -312,19 +310,19 @@ impl QueryTab {
 
     /// Returns the number of local result changes that would be lost with this tab.
     /// A pending insert is counted as one change alongside staged cell edits.
-    pub(crate) fn pending_result_change_count(&self, cx: &gpui::App) -> usize {
+    pub(crate) fn pending_result_change_count(&self, cx: &gpui_kit::App) -> usize {
         let result = self.result.read(cx);
         result.pending_cell_edit_count() + usize::from(result.pending_insert().is_some())
     }
 
-    pub fn draft_text(&self, cx: &gpui::App) -> Option<gpui::SharedString> {
+    pub fn draft_text(&self, cx: &gpui_kit::App) -> Option<gpui_kit::SharedString> {
         self.has_user_draft(cx)
             .then(|| self.editor.read(cx).value())
     }
 
     pub fn restore_draft(
         &mut self,
-        text: gpui::SharedString,
+        text: gpui_kit::SharedString,
         schema: Option<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -430,7 +428,7 @@ impl QueryTab {
 
     pub fn set_sql(
         &mut self,
-        sql: impl Into<gpui::SharedString>,
+        sql: impl Into<gpui_kit::SharedString>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {

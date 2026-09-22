@@ -1,8 +1,8 @@
 use super::*;
 
 fn assert_inside(
-    parent: gpui::Bounds<gpui::Pixels>,
-    child: gpui::Bounds<gpui::Pixels>,
+    parent: gpui_kit::Bounds<gpui_kit::Pixels>,
+    child: gpui_kit::Bounds<gpui_kit::Pixels>,
     label: &str,
 ) {
     assert!(
@@ -14,7 +14,7 @@ fn assert_inside(
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn directory_toolbar_wraps_controls_inside_supported_file_browser_widths(cx: &mut TestAppContext) {
     let profile = profile();
     let preference = SshWorkspacePreference {

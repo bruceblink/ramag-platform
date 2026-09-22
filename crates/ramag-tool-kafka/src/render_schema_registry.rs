@@ -34,7 +34,7 @@ impl KafkaView {
             .0
             .borrow()
             .base_handle
-            .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+            .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
         self.clear_schema_version_snapshot();
     }
 
@@ -153,7 +153,7 @@ impl KafkaView {
                         .child(
                             Scrollbar::vertical(&self.schema_subject_scroll)
                                 .id("kafka-schema-subject-v-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 )
                 .into_any_element()
@@ -194,7 +194,7 @@ impl KafkaView {
                         .child(
                             Scrollbar::vertical(&self.schema_subject_scroll)
                                 .id("kafka-schema-subject-v-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 )
                 .into_any_element()
@@ -288,7 +288,7 @@ impl KafkaView {
                         .child(
                             Scrollbar::vertical(&self.schema_subject_scroll)
                                 .id("kafka-schema-subject-v-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 )
                 .into_any_element()
@@ -398,8 +398,8 @@ impl KafkaView {
 fn empty_state(
     title: &'static str,
     detail: &'static str,
-    theme: &gpui_component::Theme,
-) -> gpui::Div {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::Div {
     v_flex()
         .flex_1()
         .items_center()
@@ -425,7 +425,7 @@ impl KafkaView {
         index: usize,
         name: String,
         selected: bool,
-        theme: &gpui_component::Theme,
+        theme: &gpui_kit::component::Theme,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let name_for_click = name.clone();

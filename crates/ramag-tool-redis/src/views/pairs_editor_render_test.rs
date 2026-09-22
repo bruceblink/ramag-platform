@@ -1,8 +1,8 @@
 #![allow(clippy::expect_used)]
 
 use super::{PairsEditor, PairsKind};
-use gpui::{AppContext as _, Bounds, Pixels, TestAppContext, px, size};
-use gpui_component::Root;
+use gpui_kit::component::Root;
+use gpui_kit::{AppContext as _, Bounds, Pixels, TestAppContext, px, size};
 
 fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
     assert!(
@@ -15,9 +15,9 @@ fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
 }
 
 /// 双列编辑器在窄窗口中把字段和值分行，同时保留添加和删除操作。
-#[gpui::test]
+#[gpui_kit::test]
 fn pairs_editor_wraps_fields_and_actions_inside_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let editor = cx.new(|cx| {
             let mut editor = PairsEditor::new(PairsKind::Hash, window, cx);

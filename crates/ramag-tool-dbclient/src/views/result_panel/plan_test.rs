@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use gpui::TestAppContext;
+use gpui_kit::TestAppContext;
 use ramag_domain::entities::{QueryResult, Row, Value};
 
 use super::parser::parse_plan;
@@ -298,9 +298,9 @@ fn collapsed_rows_hide_only_descendants() {
     assert_eq!(visible, vec![0, 2]);
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn renders_structured_plan_tree_and_keeps_it_read_only(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let result = Arc::new(result(
         &["id", "select_type", "table", "type", "rows"],
         vec![vec![
@@ -320,7 +320,7 @@ fn renders_structured_plan_tree_and_keeps_it_read_only(cx: &mut TestAppContext) 
             panel
         });
         panel_entity = Some(panel.clone());
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
     let panel = panel_entity.expect("result panel should be initialized");
     panel.update(cx, |_, cx| cx.notify());
@@ -339,7 +339,7 @@ fn renders_structured_plan_tree_and_keeps_it_read_only(cx: &mut TestAppContext) 
         "structured plan view should expose a horizontal scrollbar"
     );
     for width in [360.0, 1024.0, 1440.0] {
-        cx.simulate_resize(gpui::size(gpui::px(width), gpui::px(420.0)));
+        cx.simulate_resize(gpui_kit::size(gpui_kit::px(width), gpui_kit::px(420.0)));
         cx.run_until_parked();
         let toolbar = cx
             .debug_bounds("plan-toolbar")

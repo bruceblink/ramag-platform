@@ -1,13 +1,13 @@
 use std::ops::Range;
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::scroll::{Scrollbar, ScrollbarMode};
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
+use gpui_kit::{
     Context, Hsla, InteractiveElement as _, IntoElement, ParentElement, ScrollWheelEvent,
     SharedString, Window, div, prelude::*, px, uniform_list,
 };
-use gpui_component::scroll::{Scrollbar, ScrollbarShow};
-use gpui_component::{ActiveTheme, h_flex, v_flex};
-use ramag_ui::RestrictScrollToAxisExt as _;
+use ramag_ui::RestrictUniformListToAxisExt as _;
 
 use super::flatten::{Column, FlatTable};
 use super::{ResultPanel, SortDir};
@@ -200,7 +200,7 @@ pub(super) fn render(
                 .child(
                     Scrollbar::vertical(&panel.uniform_scroll)
                         .id("mongo-table-v-scrollbar-control")
-                        .scrollbar_show(ScrollbarShow::Always),
+                        .mode(ScrollbarMode::Always),
                 ),
         );
 
@@ -217,8 +217,8 @@ pub(super) fn render(
         .child(
             Scrollbar::horizontal(&panel.h_scroll)
                 .id("mongo-table-h-scrollbar-control")
-                .scroll_size(gpui::size(total_width, px(16.0)))
-                .scrollbar_show(ScrollbarShow::Always),
+                .scroll_size(gpui_kit::size(total_width, px(16.0)))
+                .mode(ScrollbarMode::Always),
         );
 
     let table_container = v_flex()
@@ -254,7 +254,7 @@ impl ResultPanel {
     }
 }
 
-fn checkbox_placeholder(border: Hsla) -> gpui::AnyElement {
+fn checkbox_placeholder(border: Hsla) -> gpui_kit::AnyElement {
     div()
         .w(px(CHECKBOX_WIDTH))
         .flex_none()
@@ -266,8 +266,8 @@ fn checkbox_placeholder(border: Hsla) -> gpui::AnyElement {
 
 #[allow(clippy::too_many_arguments)]
 fn render_header(
-    checkbox: gpui::AnyElement,
-    row_num_width: gpui::Pixels,
+    checkbox: gpui_kit::AnyElement,
+    row_num_width: gpui_kit::Pixels,
     columns: &[Column],
     visible_cols: &[usize],
     current_sort: Option<(String, SortDir)>,
@@ -276,7 +276,7 @@ fn render_header(
     border: Hsla,
     bg: Hsla,
     cx: &mut Context<ResultPanel>,
-) -> gpui::Div {
+) -> gpui_kit::Div {
     let row_num_cell = div()
         .w(row_num_width)
         .flex_none()
@@ -317,13 +317,13 @@ fn render_header(
                 .text_xs()
                 .overflow_hidden()
                 .cursor_pointer()
-                .on_click(cx.listener(move |panel, _: &gpui::ClickEvent, _, cx| {
+                .on_click(cx.listener(move |panel, _: &gpui_kit::ClickEvent, _, cx| {
                     panel.toggle_sort(path_for_click.clone(), cx)
                 }))
                 .child(
                     div()
                         .min_w_0()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(fg)
                         .overflow_hidden()
                         .text_ellipsis()
@@ -333,7 +333,7 @@ fn render_header(
                 .child(
                     div()
                         .flex_none()
-                        .font_weight(gpui::FontWeight::NORMAL)
+                        .font_weight(gpui_kit::FontWeight::NORMAL)
                         .text_color(muted)
                         .whitespace_nowrap()
                         .child(SharedString::from(kind)),

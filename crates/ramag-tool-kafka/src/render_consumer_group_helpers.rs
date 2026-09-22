@@ -18,7 +18,7 @@ pub(super) fn matching_consumer_group_indices(
 pub(crate) fn group_metric(
     label: &'static str,
     value: &str,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     v_flex()
         .flex_1()
@@ -40,7 +40,7 @@ pub(crate) fn group_metric(
 
 pub(crate) fn consumer_member_row(
     member: &ramag_domain::entities::KafkaConsumerMember,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     let assignments = member
         .assigned_partitions
@@ -113,8 +113,8 @@ pub(crate) fn consumer_member_row(
 
 pub(crate) fn consumer_offset_row(
     offset: &ramag_domain::entities::KafkaConsumerGroupOffset,
-    theme: &gpui_component::Theme,
-    browse_action: Option<gpui::AnyElement>,
+    theme: &gpui_kit::component::Theme,
+    browse_action: Option<gpui_kit::AnyElement>,
 ) -> impl IntoElement {
     let lag_text = display_option_i64(offset.lag);
     let lag_color = match offset.lag {
@@ -158,7 +158,7 @@ pub(crate) fn consumer_offset_row(
 fn offset_value(
     label: &'static str,
     value: Option<i64>,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     div()
         .flex_none()
@@ -170,7 +170,7 @@ fn offset_value(
 
 pub(crate) fn empty_group_message(
     message: &'static str,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     div()
         .w_full()

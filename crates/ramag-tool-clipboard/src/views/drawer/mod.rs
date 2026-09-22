@@ -4,15 +4,15 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use gpui::{
-    Context, Entity, FocusHandle, Focusable, IntoElement, KeyDownEvent, ParentElement, Render,
-    ScrollStrategy, Styled, Subscription, Window, div, prelude::*, px, size,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Sizable as _, VirtualListScrollHandle, h_flex, h_virtual_list,
     input::{Input, InputEvent, InputState},
     notification::Notification,
     v_flex,
+};
+use gpui_kit::{
+    Context, Entity, FocusHandle, Focusable, IntoElement, KeyDownEvent, ParentElement, Render,
+    ScrollStrategy, Styled, Subscription, Window, div, prelude::*, px, size,
 };
 use ramag_app::ClipboardService;
 use ramag_domain::entities::ClipItem;
@@ -54,7 +54,7 @@ pub struct ClipboardDrawer {
 }
 
 impl Focusable for ClipboardDrawer {
-    fn focus_handle(&self, _: &gpui::App) -> FocusHandle {
+    fn focus_handle(&self, _: &gpui_kit::App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
@@ -137,7 +137,7 @@ impl ClipboardDrawer {
         &self,
         item: Arc<ClipItem>,
         cx: &mut Context<Self>,
-    ) -> Option<std::sync::Arc<gpui::Image>> {
+    ) -> Option<std::sync::Arc<gpui_kit::Image>> {
         let path = item
             .thumb_path
             .clone()
@@ -164,8 +164,8 @@ impl ClipboardDrawer {
                             cx.notify();
                             return;
                         };
-                        let image = std::sync::Arc::new(gpui::Image::from_bytes(
-                            gpui::ImageFormat::Png,
+                        let image = std::sync::Arc::new(gpui_kit::Image::from_bytes(
+                            gpui_kit::ImageFormat::Png,
                             bytes,
                         ));
                         this.img_cache.insert(path, image, retained_bytes);
@@ -198,11 +198,11 @@ impl ClipboardDrawer {
     }
 
     /// 合并缓存和后台搜索结果。
-    pub(super) fn visible_items(&self, cx: &gpui::App) -> Vec<Arc<ClipItem>> {
+    pub(super) fn visible_items(&self, cx: &gpui_kit::App) -> Vec<Arc<ClipItem>> {
         self.visible_items_with_status(cx).0
     }
 
-    fn visible_items_with_status(&self, cx: &gpui::App) -> (Vec<Arc<ClipItem>>, bool) {
+    fn visible_items_with_status(&self, cx: &gpui_kit::App) -> (Vec<Arc<ClipItem>>, bool) {
         let search = self.search.read(cx);
         let q = search.value();
         if q.trim().is_empty() {
@@ -484,12 +484,12 @@ impl Render for ClipboardDrawer {
 
 #[cfg(test)]
 mod tests {
-    use gpui::{
+    use gpui_kit::component::input::InputState;
+    use gpui_kit::{
         AppContext as _, Bounds, Context, Entity, InteractiveElement as _, IntoElement,
         ParentElement as _, Pixels, Render, Styled as _, TestAppContext, VisualTestContext, Window,
         div, px, size,
     };
-    use gpui_component::input::InputState;
 
     use super::render_topbar;
 
@@ -518,9 +518,9 @@ mod tests {
     }
 
     /// 截断提示较长时，顶部搜索栏仍应在窄窗口内换行并保持两个子项可见。
-    #[gpui::test]
+    #[gpui_kit::test]
     fn drawer_topbar_wraps_search_and_limit_status_inside_narrow_window(cx: &mut TestAppContext) {
-        cx.update(gpui_component::init);
+        cx.update(gpui_kit::component::init);
         let (_, cx) = cx.add_window_view(|window, cx| {
             let search = cx.new(|cx| ramag_ui::bounded_search_input(window, cx));
             DrawerTopbarHost { search }

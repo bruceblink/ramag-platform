@@ -3,13 +3,13 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{
+use gpui_kit::component::{ActiveTheme, h_flex};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement,
     ScrollHandle, SharedString, UniformListScrollHandle, div, prelude::*, px, uniform_list,
 };
-use gpui_component::{ActiveTheme, h_flex};
 use ramag_domain::entities::{DiffLine, DiffLineKind, FileDiff};
-use ramag_ui::RestrictScrollToAxisExt as _;
+use ramag_ui::RestrictUniformListToAxisExt as _;
 
 use super::vcs_view::VcsView;
 
@@ -32,9 +32,9 @@ pub(super) fn render_file_diff(
     max_chars: usize,
     syntax: Option<Rc<super::syntax::DiffSyntaxSnapshot>>,
     mono: SharedString,
-    _fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    _muted_bg: gpui::Hsla,
+    _fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    _muted_bg: gpui_kit::Hsla,
     scroll: &UniformListScrollHandle,
     h_scroll: &ScrollHandle,
     allow_blame: bool,
@@ -137,7 +137,7 @@ pub(super) fn render_file_diff(
                 .restrict_scroll_to_axis()
                 .track_scroll(&h_scroll)
                 .child(
-                    gpui_component::v_flex()
+                    gpui_kit::component::v_flex()
                         .min_w_full()
                         .w(px(total_w))
                         .h_full()
@@ -174,8 +174,8 @@ pub(super) fn render_hunk_header_unified(
     hunk_idx: usize,
     enable_discard: bool,
     mono: SharedString,
-    muted_fg: gpui::Hsla,
-    muted_bg: gpui::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    muted_bg: gpui_kit::Hsla,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
     render_hunk_header_common(hunk, hunk_idx, enable_discard, mono, muted_fg, muted_bg, cx)
@@ -186,8 +186,8 @@ pub(super) fn render_hunk_header_common(
     hunk_idx: usize,
     enable_discard: bool,
     mono: SharedString,
-    muted_fg: gpui::Hsla,
-    muted_bg: gpui::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    muted_bg: gpui_kit::Hsla,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
     let header_text = format!(
@@ -208,7 +208,7 @@ pub(super) fn render_hunk_header_common(
         .px(px(8.0))
         .bg(muted_bg)
         .text_xs()
-        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
         .text_color(muted_fg)
         .font_family(mono)
         .child(
@@ -225,7 +225,7 @@ pub(super) fn render_hunk_header_common(
     row.into_any_element()
 }
 
-pub(super) fn render_diff_empty(diff: &FileDiff, muted_fg: gpui::Hsla) -> Option<AnyElement> {
+pub(super) fn render_diff_empty(diff: &FileDiff, muted_fg: gpui_kit::Hsla) -> Option<AnyElement> {
     if diff.binary {
         return Some(
             div()
@@ -258,8 +258,8 @@ fn render_diff_line(
     line_idx: usize,
     code_line: super::syntax::CodeLine,
     mono: SharedString,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
     content_w: f32,
     allow_blame: bool,
     cx: &mut Context<VcsView>,
@@ -320,7 +320,7 @@ fn render_diff_line(
     row
 }
 
-pub(super) fn line_no_cell(label: String, muted_fg: gpui::Hsla) -> impl IntoElement {
+pub(super) fn line_no_cell(label: String, muted_fg: gpui_kit::Hsla) -> impl IntoElement {
     h_flex()
         .flex_none()
         .w(px(40.0))
@@ -334,7 +334,7 @@ pub(super) fn line_no_cell_clickable(
     line_no: Option<u32>,
     is_old: bool,
     cell_id: SharedString,
-    muted_fg: gpui::Hsla,
+    muted_fg: gpui_kit::Hsla,
     enabled: bool,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
@@ -357,18 +357,20 @@ pub(super) fn line_no_cell_clickable(
     cell.into_any_element()
 }
 
-pub(super) fn line_palette(kind: DiffLineKind) -> (Option<gpui::Hsla>, &'static str, gpui::Hsla) {
+pub(super) fn line_palette(
+    kind: DiffLineKind,
+) -> (Option<gpui_kit::Hsla>, &'static str, gpui_kit::Hsla) {
     match kind {
-        DiffLineKind::Context => (None, " ", gpui::hsla(0.0, 0.0, 0.5, 1.0)),
+        DiffLineKind::Context => (None, " ", gpui_kit::hsla(0.0, 0.0, 0.5, 1.0)),
         DiffLineKind::Add => (
-            Some(gpui::hsla(140.0 / 360.0, 0.55, 0.85, 0.30)),
+            Some(gpui_kit::hsla(140.0 / 360.0, 0.55, 0.85, 0.30)),
             "+",
-            gpui::hsla(140.0 / 360.0, 0.55, 0.40, 1.0),
+            gpui_kit::hsla(140.0 / 360.0, 0.55, 0.40, 1.0),
         ),
         DiffLineKind::Delete => (
-            Some(gpui::hsla(0.0, 0.65, 0.85, 0.30)),
+            Some(gpui_kit::hsla(0.0, 0.65, 0.85, 0.30)),
             "-",
-            gpui::hsla(0.0, 0.65, 0.50, 1.0),
+            gpui_kit::hsla(0.0, 0.65, 0.50, 1.0),
         ),
     }
 }

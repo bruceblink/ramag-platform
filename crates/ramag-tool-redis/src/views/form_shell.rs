@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
-use gpui::{
+use gpui_kit::component::{Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex};
+use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, Window, div, px,
 };
-use gpui_component::{Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex};
 
 #[derive(Debug, Clone)]
 pub enum SubmitState {
@@ -64,7 +64,7 @@ pub fn form_footer<V: 'static>(
                 .flex_1()
                 .min_w_0()
                 .text_xs()
-                .text_color(gpui::red())
+                .text_color(gpui_kit::red())
                 .child(state.error().unwrap_or_default()),
         )
         .child(

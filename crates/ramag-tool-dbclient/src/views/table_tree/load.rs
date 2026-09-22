@@ -85,7 +85,7 @@ impl TableTreePanel {
             .count();
         if self.expanded.len().saturating_add(new_entries) > MAX_LOADED_SCHEMA_TABLES {
             self.pending_notification = Some(
-                gpui_component::notification::Notification::warning(format!(
+                gpui_kit::component::notification::Notification::warning(format!(
                     "全库搜索最多加载 {MAX_LOADED_SCHEMA_TABLES} 个 schema，请选择具体 schema 后重试"
                 ))
                 .autohide(true),
@@ -221,7 +221,7 @@ impl TableTreePanel {
                     .cloned();
                 let Some(evict) = evict else {
                     self.pending_notification = Some(
-                        gpui_component::notification::Notification::warning(format!(
+                        gpui_kit::component::notification::Notification::warning(format!(
                             "最多同时保留 {MAX_LOADED_SCHEMA_TABLES} 个 schema 的表列表，请先收起不再使用的 schema"
                         ))
                         .autohide(true),
@@ -315,7 +315,7 @@ impl TableTreePanel {
                         {
                             this.pending_navigation = None;
                             this.pending_notification = Some(
-                                gpui_component::notification::Notification::error(format!(
+                                gpui_kit::component::notification::Notification::error(format!(
                                     "加载 {schema_for_async} 表失败：{message}"
                                 ))
                                 .autohide(true),
@@ -393,7 +393,7 @@ impl TableTreePanel {
         }
         if self.table_columns.len() >= MAX_EXPANDED_TABLE_COLUMNS {
             self.pending_notification = Some(
-                gpui_component::notification::Notification::warning(format!(
+                gpui_kit::component::notification::Notification::warning(format!(
                     "最多同时展开 {MAX_EXPANDED_TABLE_COLUMNS} 个表的列结构，请先收起不再查看的表"
                 ))
                 .autohide(true),

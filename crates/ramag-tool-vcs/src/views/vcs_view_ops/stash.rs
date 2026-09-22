@@ -1,6 +1,6 @@
 //! VcsView Stash 异步操作：加载列表 + save / apply / pop / drop
 
-use gpui::Context;
+use gpui_kit::Context;
 use tracing::error;
 
 use super::super::helpers::{FilesViewMode, StashOp};

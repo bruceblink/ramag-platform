@@ -98,7 +98,7 @@ pub(super) fn spawn_clipboard_hotkey(
             service.set_hotkey_state(ramag_app::HotkeyState::Disabled);
         }
 
-        let mut drawer: Option<gpui::AnyWindowHandle> = None;
+        let mut drawer: Option<gpui_kit::AnyWindowHandle> = None;
         // 跨抽屉窗口复用，缓存内部受容量限制。
         let image_cache = ClipboardImageCache::new();
         // 防止窗口初次显示时被失焦逻辑关闭。
@@ -237,7 +237,7 @@ pub(super) fn open_drawer_window(
     service: Arc<ClipboardService>,
     image_cache: ClipboardImageCache,
     cx: &mut App,
-) -> Option<gpui::AnyWindowHandle> {
+) -> Option<gpui_kit::AnyWindowHandle> {
     let started = std::time::Instant::now();
     let display_index = foreground_display_index();
     let activation_target = service.driver().activation_target();

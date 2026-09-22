@@ -2,8 +2,8 @@
 
 use std::rc::Rc;
 
-use gpui::{App, AppContext as _, Context, ParentElement, SharedString, Styled, Window, px};
-use gpui_component::{WindowExt as _, notification::Notification};
+use gpui_kit::component::{WindowExt as _, notification::Notification};
+use gpui_kit::{App, AppContext as _, Context, ParentElement, SharedString, Styled, Window, px};
 use tracing::info;
 
 use super::RedisSessionPanel;

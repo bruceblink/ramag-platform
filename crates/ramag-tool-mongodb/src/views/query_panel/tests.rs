@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::WindowExt as _;
+use gpui_kit::{
     AppContext as _, Context, Entity, IntoElement, ParentElement as _, Render, Styled as _,
     TestAppContext, Window, div, px, size,
 };
-use gpui_component::WindowExt as _;
 use ramag_app::MongoService;
 use ramag_domain::entities::{ConnectionConfig, ConnectionId, QueryRecord};
 use ramag_domain::error::Result;
@@ -81,7 +81,7 @@ struct HistoryDialogTestHost {
 
 impl Render for HistoryDialogTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
         div()
             .relative()
             .size_full()
@@ -91,9 +91,9 @@ impl Render for HistoryDialogTestHost {
 }
 
 /// 三种窗口下 MongoDB 查询工具栏都要保留标签区和操作区。
-#[gpui::test]
+#[gpui_kit::test]
 fn query_toolbar_keeps_actions_visible_in_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(MongoService::new(
         Arc::new(ramag_infra_mongodb::MongoDriver::new()),
         Arc::new(NoopStorage::default()),
@@ -104,7 +104,7 @@ fn query_toolbar_keeps_actions_visible_in_three_window_widths(cx: &mut TestAppCo
             MongoQueryPanel::new(service, ramag_ui::ResultMemoryBudget::default(), window, cx)
         });
         panel_entity = Some(panel.clone());
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
     let panel = panel_entity.expect("MongoDB 查询面板应创建");
 
@@ -149,9 +149,9 @@ fn query_toolbar_keeps_actions_visible_in_three_window_widths(cx: &mut TestAppCo
 }
 
 /// 查询历史弹框应在三种窗口宽度内保留搜索、标题和列表区域。
-#[gpui::test]
+#[gpui_kit::test]
 fn history_dialog_stays_inside_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let connection = ConnectionConfig::new_mongodb("历史测试连接", "127.0.0.1", 27017);
     let service = Arc::new(MongoService::new(
         Arc::new(ramag_infra_mongodb::MongoDriver::new()),
@@ -179,7 +179,7 @@ fn history_dialog_stays_inside_three_window_widths(cx: &mut TestAppContext) {
         let host = cx.new(|_| HistoryDialogTestHost {
             panel: panel.clone(),
         });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let panel = panel_entity.expect("MongoDB 查询面板应创建");
 

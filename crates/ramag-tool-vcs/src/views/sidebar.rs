@@ -1,17 +1,17 @@
 //! 折叠段共享件：SidebarSection + section_header + history 左栏行类型 / 分发。
 //! 左栏（本地/远程分支 + Tag）合并为单个 uniform_list，所有行统一 28px 等高
 
-use gpui::{
-    AnyElement, App, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement,
-    ParentElement, SharedString, Styled, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     h_flex,
     input::Input,
     menu::{ContextMenuExt as _, PopupMenu},
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, App, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement,
+    ParentElement, SharedString, Styled, Window, div, prelude::*, px,
 };
 
 use super::helpers::HistoryRefFilter;
@@ -154,7 +154,7 @@ pub(super) fn section_header(
         .rounded(px(3.0))
         .cursor_pointer()
         .hover(move |this| this.bg(hover_bg))
-        .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _, cx| {
+        .on_click(cx.listener(move |this, _: &gpui_kit::ClickEvent, _, cx| {
             match sec {
                 SidebarSection::Local => this.collapsed_local = !this.collapsed_local,
                 SidebarSection::Remote => this.collapsed_remote = !this.collapsed_remote,
@@ -170,7 +170,7 @@ pub(super) fn section_header(
             div()
                 .flex_1()
                 .text_xs()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .text_color(muted_fg)
                 .child(format!("{title} ({count})")),
         );
@@ -337,7 +337,7 @@ fn open_create_remote_dialog(view: Entity<VcsView>, window: &mut Window, app: &m
 fn create_dialog_footer(
     id: &'static str,
     label: &'static str,
-    view: gpui::Entity<VcsView>,
+    view: gpui_kit::Entity<VcsView>,
     submit: impl Fn(&mut VcsView, &mut Context<VcsView>) + 'static,
 ) -> impl IntoElement {
     h_flex()

@@ -1,4 +1,4 @@
-use gpui_component::menu::{ContextMenuExt as _, PopupMenu};
+use gpui_kit::component::menu::{ContextMenuExt as _, PopupMenu};
 
 impl MqttView {
     fn render_overview(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -163,7 +163,6 @@ impl MqttView {
                     input_frame(
                         "mqtt-publish-topic-input",
                         Input::new(&self.publish_topic)
-                            .small()
                             .w_full()
                             .min_w_0(),
                     ),
@@ -175,9 +174,8 @@ impl MqttView {
                     "Payload",
                     input_frame(
                         "mqtt-publish-payload-input",
-                        Input::new(&self.publish_payload)
+                        Textarea::new(&self.publish_payload)
                             .h(px(140.0))
-                            .small()
                             .w_full()
                             .min_w_0(),
                     ),
@@ -595,7 +593,7 @@ impl MqttView {
                     .child(
                         div()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .flex_1()
                             .min_w_0()
                             .truncate()

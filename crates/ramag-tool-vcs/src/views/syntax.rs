@@ -6,11 +6,11 @@ use std::collections::{HashMap, VecDeque, hash_map::DefaultHasher};
 use std::hash::{Hash as _, Hasher as _};
 use std::ops::Range;
 
-use gpui::{
+use gpui_kit::component::highlighter::{HighlightTheme, SyntaxHighlighter};
+use gpui_kit::{
     AnyElement, HighlightStyle, Hsla, IntoElement, ParentElement, SharedString, Styled, StyledText,
     div,
 };
-use gpui_component::highlighter::{HighlightTheme, SyntaxHighlighter};
 use ramag_domain::entities::{DiffLineKind, FileDiff};
 use ropey::Rope;
 

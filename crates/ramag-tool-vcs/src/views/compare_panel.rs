@@ -3,12 +3,12 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, div, prelude::*, px,
     uniform_list,
-};
-use gpui_component::{
-    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use ramag_domain::entities::{FileStatus, contains_case_insensitive};
 use tracing::{error, info};
@@ -84,7 +84,7 @@ impl VcsView {
             loading: true,
         });
         self.changes_scroll
-            .scroll_to_item(0, gpui::ScrollStrategy::Top);
+            .scroll_to_item(0, gpui_kit::ScrollStrategy::Top);
         self.error = None;
         cx.notify();
 
@@ -410,7 +410,7 @@ fn render_compare_file_row(
             div()
                 .w(px(14.0))
                 .text_xs()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .text_color(code_color)
                 .child(code),
         )

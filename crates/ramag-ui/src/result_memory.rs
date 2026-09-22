@@ -3,7 +3,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpui::App;
+use gpui_kit::App;
 
 /// 全局提示线。
 pub const GLOBAL_RESULT_WARNING_BYTES: usize = 384 * 1024 * 1024;

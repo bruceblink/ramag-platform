@@ -1,12 +1,12 @@
 use super::{SettingsView, pages::settings_card};
 use crate::platform::{auto_paste_description, clipboard_hotkey};
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, Window, div,
-    prelude::FluentBuilder as _, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex,
     notification::Notification, v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use ramag_app::HotkeyState;
 use tracing::error;
@@ -39,14 +39,14 @@ impl SettingsView {
                 page.child(
                     div()
                         .text_xs()
-                        .text_color(gpui::red())
+                        .text_color(gpui_kit::red())
                         .child("设置读取异常，采集已自动暂停；重新保存任一设置可尝试修复。"),
                 )
             })
             .when(
                 settings.enabled && matches!(service.hotkey_state(), HotkeyState::Failed),
                 |page| {
-                    page.child(div().text_xs().text_color(gpui::red()).child(format!(
+                    page.child(div().text_xs().text_color(gpui_kit::red()).child(format!(
                         "全局热键 {} 注册失败：组合键可能被其它应用占用，可尝试切换备用热键。",
                         clipboard_hotkey(settings.alternate_hotkey)
                     )))
@@ -214,8 +214,8 @@ fn clipboard_toggle_row(
     description: String,
     checked: bool,
     disabled: bool,
-    on_click: impl Fn(&bool, &mut Window, &mut gpui::App) + 'static,
-    muted: gpui::Hsla,
+    on_click: impl Fn(&bool, &mut Window, &mut gpui_kit::App) + 'static,
+    muted: gpui_kit::Hsla,
 ) -> impl IntoElement {
     h_flex()
         .w_full()

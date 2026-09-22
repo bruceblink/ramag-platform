@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::{Sizable as _, WindowExt as _, button::ButtonVariants as _, h_flex};
+use gpui_kit::{
     ClickEvent, Context, Entity, ParentElement, SharedString, Styled, Window, div, prelude::*, px,
 };
-use gpui_component::{Sizable as _, WindowExt as _, button::ButtonVariants as _, h_flex};
 use ramag_app::SshService;
 use ramag_domain::entities::SshProfile;
 
@@ -53,7 +53,7 @@ pub(super) fn open_remote_file_editor(
                             ramag_ui::clickable_button("ssh-file-editor-close")
                                 .ghost()
                                 .xsmall()
-                                .icon(gpui_component::IconName::Close)
+                                .icon(gpui_kit::component::IconName::Close)
                                 .tooltip("关闭")
                                 .on_click(move |_: &ClickEvent, window, app| {
                                     title_editor.update(app, |this, cx| {

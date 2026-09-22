@@ -1,13 +1,13 @@
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputState},
     v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
+    prelude::*, px,
 };
 
 use super::jumpserver_dialog::{JumpServerOperation, JumpServerPanel};
@@ -93,7 +93,7 @@ impl JumpServerPanel {
             .child(
                 div()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .child(if self.editing_connection {
                         "修改 JumpServer 连接"
                     } else {
@@ -405,14 +405,14 @@ impl JumpServerPanel {
 fn field_label(label: &'static str) -> impl IntoElement {
     div()
         .text_xs()
-        .font_weight(gpui::FontWeight::MEDIUM)
+        .font_weight(gpui_kit::FontWeight::MEDIUM)
         .child(label)
 }
 
 fn input_field(
     id: &'static str,
     label: &'static str,
-    state: &gpui::Entity<InputState>,
+    state: &gpui_kit::Entity<InputState>,
     disabled: bool,
 ) -> impl IntoElement {
     let selector = format!("{id}-input");

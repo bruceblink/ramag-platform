@@ -37,11 +37,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use gpui::{AppContext as _, Context, Entity, FocusHandle, Focusable, Subscription, Window};
-use gpui_component::{
+use gpui_kit::component::{
     input::{InputEvent, InputState},
     resizable::ResizableState,
 };
+use gpui_kit::{AppContext as _, Context, Entity, FocusHandle, Focusable, Subscription, Window};
 use ramag_app::SshService;
 use ramag_domain::entities::{SshCapability, SshProfile, SshProfileId};
 
@@ -180,7 +180,7 @@ impl SshView {
 }
 
 impl Focusable for SshView {
-    fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
+    fn focus_handle(&self, _cx: &gpui_kit::App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }

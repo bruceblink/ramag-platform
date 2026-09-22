@@ -1,6 +1,6 @@
 //! VcsView 历史变更（破坏性 / HEAD 移动）：Reset / Revert / 切换分支前的 stash / discard
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::{BranchKind, ResetKind};
 use tracing::{error, info};
 

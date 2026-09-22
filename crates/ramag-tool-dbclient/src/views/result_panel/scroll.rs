@@ -1,6 +1,6 @@
 //! SQL 结果表双轴滚动事件接入。
 
-use gpui::{Context, ScrollWheelEvent, Window};
+use gpui_kit::{Context, ScrollWheelEvent, Window};
 
 use super::ResultPanel;
 

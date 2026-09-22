@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use gpui::{AssetSource, Result, SharedString};
+use gpui_kit::{AssetSource, Result, SharedString};
 
 /// 编译期内嵌 svg
 #[derive(rust_embed::RustEmbed)]
@@ -28,14 +28,14 @@ impl AssetSource for RamagAssets {
         {
             return Ok(Some(Cow::Owned(data)));
         }
-        gpui_component_assets::Assets.load(path)
+        gpui_kit::assets::Assets.load(path)
     }
 
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {
         let mut out: Vec<SharedString> = LocalAssets::iter()
             .filter_map(|p| p.starts_with(path).then(|| p.into()))
             .collect();
-        if let Ok(upstream) = gpui_component_assets::Assets.list(path) {
+        if let Ok(upstream) = gpui_kit::assets::Assets.list(path) {
             out.extend(upstream);
         }
         Ok(out)

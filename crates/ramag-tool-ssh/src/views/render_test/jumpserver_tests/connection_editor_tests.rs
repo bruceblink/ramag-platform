@@ -1,4 +1,4 @@
-#[gpui::test]
+#[gpui_kit::test]
 fn jumpserver_rdp_button_opens_created_web_session(cx: &mut TestAppContext) {
     let (panel, cx) = add_jumpserver_panel_window(cx, service_with_jumpserver());
     cx.run_until_parked();
@@ -69,7 +69,7 @@ fn jumpserver_rdp_button_opens_created_web_session(cx: &mut TestAppContext) {
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn jumpserver_new_connection_shows_form_test_and_save_actions(cx: &mut TestAppContext) {
     let (_panel, cx) = add_jumpserver_panel_window(cx, service(Vec::new(), None));
     cx.run_until_parked();
@@ -88,7 +88,7 @@ fn jumpserver_new_connection_shows_form_test_and_save_actions(cx: &mut TestAppCo
     assert!(cx.debug_bounds("load-jumpserver-assets").is_none());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn jumpserver_new_connection_form_stays_inside_compact_window(cx: &mut TestAppContext) {
     let (_, cx) = add_jumpserver_panel_window(cx, service(Vec::new(), None));
     cx.simulate_resize(size(px(360.0), px(240.0)));
@@ -116,7 +116,7 @@ fn jumpserver_new_connection_form_stays_inside_compact_window(cx: &mut TestAppCo
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn jumpserver_saved_connection_edit_reuses_connection_form(cx: &mut TestAppContext) {
     let (panel, cx) = add_jumpserver_panel_window(cx, service(Vec::new(), None));
     cx.run_until_parked();
@@ -144,7 +144,7 @@ fn jumpserver_saved_connection_edit_reuses_connection_form(cx: &mut TestAppConte
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn jumpserver_catalog_defaults_to_organization_with_assets(cx: &mut TestAppContext) {
     let (panel, cx) = add_jumpserver_panel_window(cx, service(Vec::new(), None));
     cx.run_until_parked();

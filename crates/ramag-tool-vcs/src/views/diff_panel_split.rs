@@ -11,15 +11,15 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::rc::{Rc, Weak};
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex,
+};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement,
     ScrollHandle, SharedString, UniformListScrollHandle, div, prelude::*, px, uniform_list,
 };
-use gpui_component::{
-    ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex,
-};
 use ramag_domain::entities::{DiffLineKind, FileDiff};
-use ramag_ui::RestrictScrollToAxisExt as _;
+use ramag_ui::RestrictUniformListToAxisExt as _;
 
 use super::diff_keys::{SplitKey, UnifiedKey, build_split_keys, build_unified_keys};
 use super::diff_panel::{
@@ -179,9 +179,9 @@ pub(super) fn render_file_diff_split(
     layout: DiffLayout,
     enable_discard: bool,
     mono: SharedString,
-    _fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    muted_bg: gpui::Hsla,
+    _fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    muted_bg: gpui_kit::Hsla,
     scroll: &UniformListScrollHandle,
     // 左右两栏共享同一横滚 handle，两栏一起横滚（IDEA 风格，避免错位无法对比）
     h_scroll: &ScrollHandle,
@@ -324,8 +324,8 @@ pub(super) fn render_file_diff_split(
 
 /// 单栏布局：[gutter 固定 w][content overflow_x_scroll]
 fn make_pane(
-    gutter: gpui::UniformList,
-    content: gpui::UniformList,
+    gutter: gpui_kit::UniformList,
+    content: gpui_kit::UniformList,
     gutter_w: f32,
     content_w: f32,
     h_handle: &ScrollHandle,
@@ -348,7 +348,7 @@ fn make_pane(
                 .restrict_scroll_to_axis()
                 .track_scroll(h_handle)
                 .child(
-                    gpui_component::v_flex()
+                    gpui_kit::component::v_flex()
                         .min_w_full()
                         .w(px(content_w))
                         .h_full()
@@ -369,7 +369,7 @@ fn build_gutter_list(
     scroll_v: UniformListScrollHandle,
     allow_blame: bool,
     cx: &mut Context<VcsView>,
-) -> gpui::UniformList {
+) -> gpui_kit::UniformList {
     uniform_list(
         SharedString::from(format!("vcs-diff-{side}-gutter")),
         total,
@@ -426,7 +426,7 @@ fn build_content_list(
     content_w: f32,
     scroll_v: UniformListScrollHandle,
     cx: &mut Context<VcsView>,
-) -> gpui::UniformList {
+) -> gpui_kit::UniformList {
     uniform_list(
         SharedString::from(format!("vcs-diff-{side}-content")),
         total,

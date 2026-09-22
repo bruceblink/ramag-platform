@@ -157,7 +157,7 @@ impl MqttView {
                                 .child(
                                     div()
                                         .text_sm()
-                                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                         .child(title),
                                 )
                                 .child(
@@ -657,7 +657,6 @@ impl MqttView {
                     input_frame(
                         "mqtt-local-server-publish-topic-input",
                         Input::new(&self.local_server_publish_topic)
-                            .small()
                             .disabled(!running || busy)
                             .w_full()
                             .min_w_0(),
@@ -670,9 +669,8 @@ impl MqttView {
                     "Payload",
                     input_frame(
                         "mqtt-local-server-publish-payload-input",
-                        Input::new(&self.local_server_publish_payload)
+                        Textarea::new(&self.local_server_publish_payload)
                             .h(px(140.0))
-                            .small()
                             .disabled(!running || busy)
                             .w_full()
                             .min_w_0(),

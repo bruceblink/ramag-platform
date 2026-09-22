@@ -1,7 +1,9 @@
-use gpui::{Anchor, ClickEvent, Context, IntoElement, ParentElement, Styled, div, prelude::*, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _, h_flex, spinner::Spinner, v_flex,
+};
+use gpui_kit::{
+    Anchor, ClickEvent, Context, IntoElement, ParentElement, Styled, div, prelude::*, px,
 };
 use ramag_domain::entities::DriverKind;
 use ramag_ui::PointerDropdownMenu as _;
@@ -33,7 +35,7 @@ impl DataSyncDialog {
             .child(
                 div()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(danger)
                     .child("仅建议在非生产环境使用"),
             )
@@ -184,8 +186,8 @@ impl DataSyncDialog {
 fn connection_columns(
     source_selector: impl IntoElement,
     target_label: String,
-    muted: gpui::Hsla,
-    muted_foreground: gpui::Hsla,
+    muted: gpui_kit::Hsla,
+    muted_foreground: gpui_kit::Hsla,
 ) -> impl IntoElement {
     let source = connection_field("来源连接", source_selector)
         .id("sync-source-connection-field")
@@ -243,7 +245,7 @@ pub(super) fn clipped_dropdown_button(
     id: &'static str,
     text_id: &'static str,
     label: String,
-) -> gpui_component::button::Button {
+) -> gpui_kit::component::button::Button {
     ramag_ui::clickable_button(id)
         .outline()
         .small()
@@ -265,7 +267,7 @@ pub(super) fn clipped_single_line(id: &'static str, text: String) -> impl IntoEl
         .child(text)
 }
 
-fn connection_field(label: &str, content: impl IntoElement) -> gpui::Div {
+fn connection_field(label: &str, content: impl IntoElement) -> gpui_kit::Div {
     v_flex()
         .w_full()
         .min_w_0()
@@ -273,7 +275,7 @@ fn connection_field(label: &str, content: impl IntoElement) -> gpui::Div {
         .child(
             div()
                 .text_xs()
-                .font_weight(gpui::FontWeight::MEDIUM)
+                .font_weight(gpui_kit::FontWeight::MEDIUM)
                 .child(label.to_string()),
         )
         .child(content)
@@ -291,11 +293,11 @@ fn driver_label(driver: DriverKind) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use gpui::{
+    use gpui_kit::component::ActiveTheme as _;
+    use gpui_kit::{
         Context, ParentElement as _, Render, Styled as _, TestAppContext, Window, div, prelude::*,
         px, size,
     };
-    use gpui_component::ActiveTheme as _;
 
     use super::{clipped_dropdown_button, connection_columns};
 
@@ -317,9 +319,9 @@ mod tests {
         }
     }
 
-    #[gpui::test]
+    #[gpui_kit::test]
     fn long_connection_labels_stay_inside_their_columns(cx: &mut TestAppContext) {
-        cx.update(gpui_component::init);
+        cx.update(gpui_kit::component::init);
         let (view, cx) = cx.add_window_view(|_, _| LongConnectionLayout);
         cx.simulate_resize(size(px(560.0), px(180.0)));
         view.update(cx, |_, cx| cx.notify());
@@ -348,7 +350,7 @@ mod tests {
         assert!(right(target_text) <= right(target_field));
     }
 
-    fn right(bounds: gpui::Bounds<gpui::Pixels>) -> gpui::Pixels {
+    fn right(bounds: gpui_kit::Bounds<gpui_kit::Pixels>) -> gpui_kit::Pixels {
         bounds.origin.x + bounds.size.width
     }
 }

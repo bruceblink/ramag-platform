@@ -140,7 +140,7 @@ impl KafkaView {
         self.selected_message = None;
         self.section = KafkaSection::Config;
         self.workspace_tabs_scroll
-            .set_offset(gpui::point(px(-99_999.0), px(0.0)));
+            .set_offset(gpui_kit::point(px(-99_999.0), px(0.0)));
         self.workspace_tabs_scroll
             .scroll_to_item(KafkaSection::Config.index());
         self.security_protocol = KafkaSecurityProtocol::default();

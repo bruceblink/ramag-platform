@@ -30,7 +30,7 @@ impl Render for TableDesigner {
                 .child(
                     div()
                         .text_sm()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .child("字段结构加载失败"),
                 )
                 .child(
@@ -146,7 +146,7 @@ impl Render for TableDesigner {
                         .child(
                             div()
                                 .text_sm()
-                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                 .child("建表语句"),
                         )
                         .child(render_ddl_panel(
@@ -170,7 +170,7 @@ impl Render for TableDesigner {
                                 .child(
                                     div()
                                         .text_sm()
-                                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                         .child("字段结构"),
                                 )
                                 .child(
@@ -195,7 +195,7 @@ impl Render for TableDesigner {
                     .child(
                         div()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .child("字段结构差异"),
                     )
                     .child(
@@ -235,7 +235,7 @@ impl Render for TableDesigner {
                                         .child(
                                             div()
                                                 .text_sm()
-                                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                                 .child("SQL 预览"),
                                         )
                                         .child(
@@ -428,7 +428,7 @@ impl Render for TableDesigner {
                                 .child(
                                     div()
                                         .text_sm()
-                                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                         .child("放弃更改？"),
                                 )
                                 .child(

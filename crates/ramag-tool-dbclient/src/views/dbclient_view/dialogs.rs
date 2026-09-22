@@ -1,7 +1,7 @@
 //! DbClientView 的弹窗与异步处理：连接表单 / 删除确认 / 异步删除
 
-use gpui::{AppContext as _, Context, Entity, ParentElement, Styled, Window, px};
-use gpui_component::WindowExt as _;
+use gpui_kit::component::WindowExt as _;
+use gpui_kit::{AppContext as _, Context, Entity, ParentElement, Styled, Window, px};
 use ramag_domain::entities::{ConnectionConfig, ConnectionId, DriverKind};
 use tracing::error;
 
@@ -20,7 +20,7 @@ impl DbClientView {
     ) {
         if matches!(target.driver, DriverKind::Redis | DriverKind::Sqlite) {
             self.pending_notification = Some(
-                gpui_component::notification::Notification::warning(match target.driver {
+                gpui_kit::component::notification::Notification::warning(match target.driver {
                     DriverKind::Redis => "Redis 是缓存数据库，不提供数据同步",
                     DriverKind::Sqlite => "SQLite 暂不支持数据同步",
                     _ => "当前数据库类型不提供数据同步",
@@ -32,7 +32,7 @@ impl DbClientView {
         }
         if self.data_sync_service.gate().is_blocking() {
             self.pending_notification = Some(
-                gpui_component::notification::Notification::warning(
+                gpui_kit::component::notification::Notification::warning(
                     "已有数据同步任务正在进行或等待确认",
                 )
                 .autohide(true),
@@ -196,7 +196,7 @@ impl DbClientView {
                 );
                 if any_stale {
                     self.pending_notification = Some(
-                        gpui_component::notification::Notification::info(
+                        gpui_kit::component::notification::Notification::info(
                             "连接配置已更新。已打开的标签已暂停使用旧配置，请在标签页中重新连接（草稿已保留）",
                         )
                         .autohide(true),
@@ -285,7 +285,7 @@ impl DbClientView {
                         "delete connection failed"
                     );
                     this.pending_notification = Some(
-                        gpui_component::notification::Notification::error(format!(
+                        gpui_kit::component::notification::Notification::error(format!(
                             "删除连接失败：{e}"
                         ))
                         .autohide(true),

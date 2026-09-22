@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use async_trait::async_trait;
-use gpui::{AppContext as _, Modifiers, TestAppContext, px, size};
+use gpui_kit::{AppContext as _, Modifiers, TestAppContext, px, size};
 use ramag_app::{ConnectionService, MongoService, RedisService};
 use ramag_domain::entities::{
     Column, ConnectionConfig, ConnectionId, DriverKind, ForeignKey, Index, Query, QueryRecord,
@@ -166,8 +166,8 @@ fn build_services() -> (Arc<ConnectionService>, Arc<RedisService>, Arc<MongoServ
 }
 
 fn assert_inside(
-    parent: gpui::Bounds<gpui::Pixels>,
-    child: gpui::Bounds<gpui::Pixels>,
+    parent: gpui_kit::Bounds<gpui_kit::Pixels>,
+    child: gpui_kit::Bounds<gpui_kit::Pixels>,
     label: &str,
 ) {
     assert!(
@@ -181,9 +181,9 @@ fn assert_inside(
 
 fn assert_non_overlapping(
     left_name: &str,
-    left: gpui::Bounds<gpui::Pixels>,
+    left: gpui_kit::Bounds<gpui_kit::Pixels>,
     right_name: &str,
-    right: gpui::Bounds<gpui::Pixels>,
+    right: gpui_kit::Bounds<gpui_kit::Pixels>,
 ) {
     let separated = left.right() <= right.origin.x
         || right.right() <= left.origin.x
@@ -195,9 +195,9 @@ fn assert_non_overlapping(
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn truncating_table_refreshes_size_without_dropping_selection(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let size_bytes = Arc::new(AtomicU64::new(76 * 1024 * 1024 * 1024));
     let driver = TableSizeDriver {
         size_bytes: size_bytes.clone(),
@@ -222,7 +222,7 @@ fn truncating_table_refreshes_size_without_dropping_selection(cx: &mut TestAppCo
             )
         });
         panel_entity = Some(panel.clone());
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
     let panel = panel_entity.expect("表树面板应创建");
 
@@ -283,9 +283,9 @@ fn truncating_table_refreshes_size_without_dropping_selection(cx: &mut TestAppCo
 }
 
 /// 表树实际位于 SQL 会话的可调整侧栏中，因此额外覆盖其 180px 最小宽度。
-#[gpui::test]
+#[gpui_kit::test]
 fn table_tree_toolbar_wraps_inside_sidebar_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (service, redis_service, mongo_service) = build_services();
     let mut panel_entity = None;
     let (_, cx) = cx.add_window_view(|window, cx| {
@@ -308,7 +308,7 @@ fn table_tree_toolbar_wraps_inside_sidebar_widths(cx: &mut TestAppContext) {
             )
         });
         panel_entity = Some(panel.clone());
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
     let panel = panel_entity.expect("表树面板应创建");
 
@@ -371,9 +371,9 @@ fn table_tree_toolbar_wraps_inside_sidebar_widths(cx: &mut TestAppContext) {
 }
 
 /// Refreshing an active connection keeps the existing tree usable while metadata is reloaded.
-#[gpui::test]
+#[gpui_kit::test]
 fn table_tree_refresh_keeps_existing_rows_during_reload_and_failure(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (service, redis_service, mongo_service) = build_services();
     let mut panel_entity = None;
     let (_, cx) = cx.add_window_view(|window, cx| {
@@ -396,7 +396,7 @@ fn table_tree_refresh_keeps_existing_rows_during_reload_and_failure(cx: &mut Tes
             )
         });
         panel_entity = Some(panel.clone());
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
     let panel = panel_entity.expect("表树面板应创建");
 
@@ -463,9 +463,9 @@ fn table_tree_refresh_keeps_existing_rows_during_reload_and_failure(cx: &mut Tes
     assert!(cx.debug_bounds("table-tree-status").is_some());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn table_group_header_click_collapses_only_its_group(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (service, redis_service, mongo_service) = build_services();
     let mut panel_entity = None;
     let (_, cx) = cx.add_window_view(|window, cx| {
@@ -488,7 +488,7 @@ fn table_group_header_click_collapses_only_its_group(cx: &mut TestAppContext) {
             )
         });
         panel_entity = Some(panel.clone());
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
     let panel = panel_entity.expect("表树面板应创建");
 

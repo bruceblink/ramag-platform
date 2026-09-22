@@ -1,5 +1,5 @@
-use gpui::Context;
-use gpui_component::notification::Notification;
+use gpui_kit::Context;
+use gpui_kit::component::notification::Notification;
 
 use super::super::QueryTab;
 use super::super::paging::{PageRequest, Pager, page_sql, sort_sql};

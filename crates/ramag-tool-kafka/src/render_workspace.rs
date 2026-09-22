@@ -12,7 +12,7 @@ impl KafkaView {
         let icon = Icon::new(IconName::Network).text_color(theme.accent);
         let title = div()
             .text_lg()
-            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
             .child("开始浏览 Kafka");
         let description = div()
             .text_sm()

@@ -1,8 +1,8 @@
 //! 结果表分页大小选择器。
 
-use gpui::IntoElement;
-use gpui_component::button::ButtonVariants as _;
-use gpui_component::{Disableable as _, Sizable as _};
+use gpui_kit::IntoElement;
+use gpui_kit::component::button::ButtonVariants as _;
+use gpui_kit::component::{Disableable as _, Sizable as _};
 use ramag_ui::PointerDropdownMenu as _;
 
 use crate::views::result_panel::{ResultPanel, ResultPanelEvent};
@@ -10,7 +10,7 @@ use crate::views::result_panel::{ResultPanel, ResultPanelEvent};
 /// 构建页大小菜单，并在发出事件前限制自定义输入范围。
 pub(in crate::views) fn render_page_size_selector(
     current: usize,
-    panel: gpui::Entity<ResultPanel>,
+    panel: gpui_kit::Entity<ResultPanel>,
     disabled: bool,
 ) -> impl IntoElement {
     let menu_panel = panel.clone();

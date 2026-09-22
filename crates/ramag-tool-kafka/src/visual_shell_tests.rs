@@ -3,7 +3,7 @@ use super::*;
 /// 验证窄窗口下侧栏、主标题栏和工作区操作区都遵守 680px 的外壳边界。
 pub(super) fn assert_compact_shell(
     visual_cx: &mut VisualTestContext,
-    _kafka_entity: &gpui::Entity<KafkaView>,
+    _kafka_entity: &gpui_kit::Entity<KafkaView>,
 ) {
     visual_cx.run_until_parked();
     let bounds = [

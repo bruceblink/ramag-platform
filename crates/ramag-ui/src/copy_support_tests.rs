@@ -1,10 +1,12 @@
 use super::{SelectableText, copy_success_notification};
-use gpui::{
-    AppContext as _, Context, Element as _, InteractiveElement as _, IntoElement, Modifiers,
-    MouseButton, ParentElement as _, Render, Styled as _, TestAppContext, VisualTestContext,
-    Window, div, point, px, size,
+use gpui_kit::test::TestWindowExt as _;
+use gpui_kit::{
+    AppContext as _, Context, Element as _, InteractiveElement as _, IntoElement,
+    ParentElement as _, Render, Styled as _, TestAppContext, VisualTestContext, Window, div, point,
+    px, size,
 };
 use ramag_domain::entities::TransferSummary;
+use std::time::Duration;
 
 struct SelectableTextHost;
 
@@ -12,18 +14,14 @@ struct NotificationHost;
 
 impl Render for SelectableTextHost {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .debug_selector(|| "copy-support-test".into())
-            .w(px(900.0))
-            .h(px(100.0))
-            .child(
-                SelectableText::new(
-                    "copy-support-test",
-                    "**bold** [link](https://example.com) `code`\nraw ~ text",
-                )
-                .w_full()
-                .h_full(),
+        div().w(px(900.0)).h(px(100.0)).child(
+            SelectableText::new(
+                "copy-support-test",
+                "**bold** [link](https://example.com) `code`\nraw ~ text",
             )
+            .w_full()
+            .h_full(),
+        )
     }
 }
 
@@ -33,38 +31,24 @@ impl Render for NotificationHost {
             .debug_selector(|| "copy-notification-host".into())
             .relative()
             .size_full()
-            .children(gpui_component::Root::render_notification_layer(window, cx))
+            .children(gpui_kit::component::Root::render_notification_layer(
+                window, cx,
+            ))
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn selectable_text_copies_dragged_selection(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let host = cx.new(|_| SelectableTextHost);
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let cx: &mut VisualTestContext = cx;
-    cx.run_until_parked();
-    assert!(
-        cx.debug_bounds("copy-support-test")
-            .is_some_and(|bounds| bounds.contains(&point(px(10.0), px(20.0))))
-    );
-    cx.simulate_mouse_down(
-        point(px(0.0), px(20.0)),
-        MouseButton::Left,
-        Modifiers::default(),
-    );
-    cx.simulate_mouse_move(
-        point(px(900.0), px(90.0)),
-        Some(MouseButton::Left),
-        Modifiers::default(),
-    );
-    cx.simulate_mouse_up(
-        point(px(900.0), px(90.0)),
-        MouseButton::Left,
-        Modifiers::default(),
-    );
+    cx.update(|window, cx| {
+        let _ = window.draw(cx);
+    });
+    cx.update(|window, cx| window.drag(point(px(10.0), px(20.0)), point(px(890.0), px(90.0)), cx));
     #[cfg(target_os = "macos")]
     cx.simulate_keystrokes("cmd-c");
     #[cfg(not(target_os = "macos"))]
@@ -80,23 +64,30 @@ fn selectable_text_copies_dragged_selection(cx: &mut TestAppContext) {
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn copy_notification_stays_inside_narrow_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let host = cx.new(|_| NotificationHost);
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let cx: &mut VisualTestContext = cx;
     cx.simulate_resize(size(px(180.0), px(120.0)));
-    let notification = copy_success_notification().content(|_, _, _| {
-        div()
-            .debug_selector(|| "copy-success-notification-content".into())
-            .size(px(1.0))
-            .into_any()
-    });
+    let notification = copy_success_notification()
+        .autohide(false)
+        .content(|_, _, _| {
+            div()
+                .debug_selector(|| "copy-success-notification-content".into())
+                .size(px(1.0))
+                .into_any()
+        });
     cx.update(|window, cx| crate::push_responsive_notification(window, notification, cx));
     cx.run_until_parked();
+    cx.background_executor.advance_clock(Duration::from_secs(1));
+    cx.run_until_parked();
+    cx.update(|window, cx| {
+        let _ = window.draw(cx);
+    });
 
     let notification = cx.debug_bounds("copy-success-notification-content");
     assert!(notification.is_some(), "复制成功通知应渲染");
@@ -108,12 +99,12 @@ fn copy_notification_stays_inside_narrow_window(cx: &mut TestAppContext) {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn transfer_notification_stays_inside_narrow_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let host = cx.new(|_| NotificationHost);
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let cx: &mut VisualTestContext = cx;
     cx.simulate_resize(size(px(180.0), px(220.0)));

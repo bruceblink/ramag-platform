@@ -1,10 +1,10 @@
 //! 系统工具视图的通用格式化和重复布局。
 
-use gpui::{
+use gpui_kit::component::{Icon, h_flex, v_flex};
+use gpui_kit::{
     AnyElement, InteractiveElement, IntoElement, ParentElement, PathBuilder, Styled, canvas, div,
     fill, point, px, relative, size,
 };
-use gpui_component::{Icon, h_flex, v_flex};
 
 use super::Notice;
 use crate::{DiskSnapshot, TerminateResult};
@@ -52,8 +52,8 @@ pub(super) fn metric_card(
     value: String,
     detail: String,
     icon: Icon,
-    accent: gpui::Hsla,
-    theme: &gpui_component::theme::Theme,
+    accent: gpui_kit::Hsla,
+    theme: &gpui_kit::component::theme::Theme,
 ) -> impl IntoElement {
     v_flex()
         .debug_selector(|| format!("system-metric-card-{title}"))
@@ -104,8 +104,8 @@ pub(super) fn metric_card(
 
 pub(super) fn panel_heading(
     title: &'static str,
-    detail: impl Into<gpui::SharedString>,
-    theme: &gpui_component::theme::Theme,
+    detail: impl Into<gpui_kit::SharedString>,
+    theme: &gpui_kit::component::theme::Theme,
 ) -> impl IntoElement {
     let detail = detail.into();
     h_flex()
@@ -120,7 +120,7 @@ pub(super) fn panel_heading(
                 .flex_1()
                 .min_w_0()
                 .text_sm()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .child(title),
         )
         .child(
@@ -157,7 +157,7 @@ pub(super) fn core_grid_dimensions(core_count: usize) -> (usize, usize) {
 pub(super) fn render_core_grid(
     usages: &[f32],
     histories: &[Vec<[f64; 2]>],
-    theme: &gpui_component::theme::Theme,
+    theme: &gpui_kit::component::theme::Theme,
 ) -> AnyElement {
     if usages.is_empty() {
         return empty_state("暂时没有 CPU 核心数据", theme).into_any_element();
@@ -198,7 +198,7 @@ fn render_core_tile(
     usage: f32,
     history: &[[f64; 2]],
     compact: bool,
-    theme: &gpui_component::theme::Theme,
+    theme: &gpui_kit::component::theme::Theme,
 ) -> impl IntoElement {
     let usage = usage.clamp(0.0, 100.0);
     let label = if compact {
@@ -283,8 +283,8 @@ pub(super) fn render_meter_row(
     label: &'static str,
     percent: f64,
     detail: String,
-    accent: gpui::Hsla,
-    theme: &gpui_component::theme::Theme,
+    accent: gpui_kit::Hsla,
+    theme: &gpui_kit::component::theme::Theme,
 ) -> impl IntoElement {
     let percent = percent.clamp(0.0, 100.0);
     h_flex()
@@ -319,8 +319,8 @@ pub(super) fn render_history(
     points: &[[f64; 2]],
     max_value: f64,
     suffix: &'static str,
-    accent: gpui::Hsla,
-    theme: &gpui_component::theme::Theme,
+    accent: gpui_kit::Hsla,
+    theme: &gpui_kit::component::theme::Theme,
 ) -> AnyElement {
     let latest = points.last().map_or(0.0, |point| point[1]);
     let max_value = max_value.max(f64::EPSILON);
@@ -334,7 +334,7 @@ pub(super) fn render_history(
             let chart_origin = bounds.origin + point(padding, padding);
             let chart_width = (bounds.size.width - padding * 2.0).max(px(1.0));
             let chart_height = (bounds.size.height - padding * 2.0).max(px(1.0));
-            let chart_bounds = gpui::Bounds::new(chart_origin, size(chart_width, chart_height));
+            let chart_bounds = gpui_kit::Bounds::new(chart_origin, size(chart_width, chart_height));
             window.paint_quad(fill(chart_bounds, chart_background));
 
             let mut grid = PathBuilder::stroke(px(1.0));
@@ -399,7 +399,7 @@ pub(super) fn render_history(
                     .min(chart_origin.y + chart_height - marker_size);
                 window.paint_quad(
                     fill(
-                        gpui::Bounds::new(
+                        gpui_kit::Bounds::new(
                             point(marker_x, marker_y),
                             size(marker_size, marker_size),
                         ),
@@ -433,7 +433,7 @@ pub(super) fn render_history(
                 .child(
                     div()
                         .text_sm()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .child(title),
                 )
                 .child(
@@ -465,7 +465,7 @@ fn chart_value_ratio(value: f64, max_value: f64) -> f32 {
 
 pub(super) fn render_disk_row(
     disk: &DiskSnapshot,
-    theme: &gpui_component::theme::Theme,
+    theme: &gpui_kit::component::theme::Theme,
 ) -> impl IntoElement {
     // 窄窗口把文件系统和容量信息换到下一行，挂载点仍优先保持可读。
     h_flex()
@@ -508,7 +508,7 @@ pub(super) fn render_disk_row(
 
 pub(super) fn process_header(
     layout: ProcessTableLayout,
-    theme: &gpui_component::theme::Theme,
+    theme: &gpui_kit::component::theme::Theme,
 ) -> impl IntoElement {
     h_flex()
         .w_full()
@@ -536,7 +536,7 @@ pub(super) fn process_header(
 
 pub(super) fn empty_state(
     message: &'static str,
-    theme: &gpui_component::theme::Theme,
+    theme: &gpui_kit::component::theme::Theme,
 ) -> impl IntoElement {
     div()
         .w_full()

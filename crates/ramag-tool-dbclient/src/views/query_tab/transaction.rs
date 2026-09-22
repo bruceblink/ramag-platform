@@ -1,7 +1,7 @@
 //! 查询标签的手动提交事务控制。
 
-use gpui::Context;
-use gpui_component::notification::Notification;
+use gpui_kit::Context;
+use gpui_kit::component::notification::Notification;
 
 use super::{QueryTab, TransactionSavepoint, TransactionSession};
 use crate::views::result_panel::ResultState;

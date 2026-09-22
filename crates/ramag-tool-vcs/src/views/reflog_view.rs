@@ -4,12 +4,12 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
     prelude::*, px, uniform_list,
-};
-use gpui_component::{
-    ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use ramag_domain::entities::{ReflogEntry, contains_case_insensitive};
 
@@ -158,10 +158,10 @@ fn render_reflog_row(
     idx: usize,
     e: &ReflogEntry,
     busy: bool,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    accent: gpui::Hsla,
-    hover_bg: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
+    hover_bg: gpui_kit::Hsla,
     mono: SharedString,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
@@ -169,10 +169,10 @@ fn render_reflog_row(
     let time_str = e.timestamp.format("%m-%d %H:%M").to_string();
     let action_color = match e.action.as_str() {
         "commit" | "commit (initial)" | "commit (amend)" => accent,
-        "checkout" => gpui::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
-        "reset" => gpui::hsla(0.0, 0.65, 0.55, 1.0),
+        "checkout" => gpui_kit::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
+        "reset" => gpui_kit::hsla(0.0, 0.65, 0.55, 1.0),
         "merge" | "rebase" | "rebase (start)" | "rebase (finish)" => {
-            gpui::hsla(280.0 / 360.0, 0.55, 0.55, 1.0)
+            gpui_kit::hsla(280.0 / 360.0, 0.55, 0.55, 1.0)
         }
         _ => muted_fg,
     };
@@ -218,7 +218,7 @@ fn render_reflog_row(
                 .flex_none()
                 .w(px(104.0))
                 .text_xs()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .text_color(action_color)
                 .overflow_hidden()
                 .text_ellipsis()
@@ -252,7 +252,7 @@ fn render_reflog_row(
             ramag_ui::clickable_button(SharedString::from(format!("vcs-reflog-checkout-{idx}")))
                 .ghost()
                 .xsmall()
-                .icon(gpui_component::IconName::ArrowRight)
+                .icon(gpui_kit::component::IconName::ArrowRight)
                 .tooltip("检出")
                 .disabled(busy)
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
@@ -262,7 +262,7 @@ fn render_reflog_row(
         .into_any_element()
 }
 
-fn center(msg: &'static str, muted_fg: gpui::Hsla) -> AnyElement {
+fn center(msg: &'static str, muted_fg: gpui_kit::Hsla) -> AnyElement {
     div()
         .size_full()
         .flex()

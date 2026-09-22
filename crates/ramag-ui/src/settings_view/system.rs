@@ -1,8 +1,8 @@
 //! 系统级窗口行为设置的交互与展示。
 
 use super::{SettingsView, pages::settings_card};
-use gpui::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px};
-use gpui_component::{ActiveTheme, h_flex, notification::Notification, v_flex};
+use gpui_kit::component::{ActiveTheme, h_flex, notification::Notification, v_flex};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px};
 use tracing::error;
 
 impl SettingsView {

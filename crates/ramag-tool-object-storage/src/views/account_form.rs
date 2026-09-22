@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, Entity, EventEmitter, Subscription, Window};
-use gpui_component::input::{InputEvent, InputState};
+use gpui_kit::component::input::{InputEvent, InputState};
+use gpui_kit::{AppContext as _, Context, Entity, EventEmitter, Subscription, Window};
 use ramag_app::{ObjectStorageService, SavedObjectStorageAccount};
 use ramag_domain::entities::{
     CloudProvider, MAX_OBJECT_STORAGE_ACCESS_KEY_ID_BYTES,
@@ -178,7 +178,7 @@ impl AccountFormPanel {
         self.saving
     }
 
-    pub(super) fn is_dirty(&self, cx: &gpui::App) -> bool {
+    pub(super) fn is_dirty(&self, cx: &gpui_kit::App) -> bool {
         self.snapshot(cx) != self.initial
     }
 
@@ -188,11 +188,11 @@ impl AccountFormPanel {
     }
 
     #[cfg(test)]
-    pub(super) fn region_value(&self, cx: &gpui::App) -> String {
+    pub(super) fn region_value(&self, cx: &gpui_kit::App) -> String {
         value(&self.region, cx)
     }
 
-    fn snapshot(&self, cx: &gpui::App) -> FormSnapshot {
+    fn snapshot(&self, cx: &gpui_kit::App) -> FormSnapshot {
         FormSnapshot {
             provider: self.provider,
             production: self.production,
@@ -369,7 +369,7 @@ fn input(
 
 fn input_values<'a>(
     fields: impl IntoIterator<Item = &'a Entity<InputState>>,
-    cx: &gpui::App,
+    cx: &gpui_kit::App,
 ) -> Vec<String> {
     fields
         .into_iter()
@@ -377,7 +377,7 @@ fn input_values<'a>(
         .collect()
 }
 
-fn value(field: &Entity<InputState>, cx: &gpui::App) -> String {
+fn value(field: &Entity<InputState>, cx: &gpui_kit::App) -> String {
     field.read(cx).value().trim().to_string()
 }
 

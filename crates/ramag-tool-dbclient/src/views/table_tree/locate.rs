@@ -1,5 +1,5 @@
-use gpui::{Context, ScrollStrategy, Window};
-use gpui_component::notification::Notification;
+use gpui_kit::component::notification::Notification;
+use gpui_kit::{Context, ScrollStrategy, Window};
 
 use super::{TableTreeFilter, TableTreePanel, row::TreeRow};
 

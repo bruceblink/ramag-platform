@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use futures::lock::Mutex;
-use gpui::{App, Global};
+use gpui_kit::{App, Global};
 use parking_lot::RwLock;
 use ramag_domain::traits::Storage;
 

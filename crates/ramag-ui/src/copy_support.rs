@@ -1,10 +1,10 @@
 //! 统一复制交互：主修饰键双击与可拖拽选择的只读文本。
 
-use gpui::{
+use gpui_kit::component::{StyledExt as _, notification::Notification, text::TextView};
+use gpui_kit::{
     App, ClickEvent, ClipboardItem, ElementId, IntoElement, RenderOnce, SharedString,
     StyleRefinement, Styled, Window,
 };
-use gpui_component::{StyledExt as _, notification::Notification, text::TextView};
 
 /// 判断是否为“主修饰键 + 左键双击”。
 ///
@@ -32,8 +32,8 @@ pub fn copy_success_notification() -> Notification {
 /// 可拖拽选中的只读文本。
 ///
 /// GPUI 的普通 `div().child(text)` 只负责绘制，不具备文本选区。这里复用
-/// GPUI Component 的 `TextView` 选择实现，并把内容放进 fenced code block，避免
-/// 原始文本里的 Markdown 符号被当成富文本语法，从而保证复制的是数据本身。
+/// 复用 GPUI Kit `TextView` 的选择实现，并把原始文本包进 fenced code block，
+/// 避免 Markdown 解析改变复制内容。
 #[derive(IntoElement)]
 pub struct SelectableText {
     id: ElementId,

@@ -1,6 +1,6 @@
 //! hunk 级 patch：discard_hunk（按 source 分流回滚）+ diff clipboard/export helpers
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::{DiffLineKind, FileChangeKind, FileDiff, MAX_GIT_PATCH_BYTES};
 use tracing::{error, info};
 

@@ -3,8 +3,8 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px, uniform_list};
-use gpui_component::{ActiveTheme, IconName, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, IconName, h_flex, v_flex};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px, uniform_list};
 use ramag_domain::entities::{Stash, contains_case_insensitive};
 
 use super::helpers::{StashOp, side_op_button};

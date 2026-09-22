@@ -1,5 +1,5 @@
 use super::super::{add_vcs_window, mock_repo};
-use gpui::{Bounds, Pixels, TestAppContext, px, size};
+use gpui_kit::{Bounds, Pixels, TestAppContext, px, size};
 use std::rc::Rc;
 
 fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
@@ -13,7 +13,7 @@ fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
 }
 
 /// 最近仓库列表在紧凑窗口中把路径移到名称下方，桌面宽度则保持横向信息布局。
-#[gpui::test]
+#[gpui_kit::test]
 fn repo_list_rows_reflow_inside_supported_window_widths(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     let mut repo = mock_repo();

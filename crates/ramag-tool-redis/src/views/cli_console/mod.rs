@@ -15,22 +15,22 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::views::value_display::{DISPLAY_CONTENT_WIDTH_PX, split_display_lines};
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Disableable as _, IconName, Sizable as _,
+    button::ButtonVariants as _,
+    h_flex,
+    input::{EditorState, InputEvent, MoveDown, MoveUp},
+    v_flex,
+};
+use gpui_kit::{
     ClickEvent, Context, Entity, InteractiveElement, IntoElement, ParentElement, Render,
     ScrollWheelEvent, SharedString, Styled, Subscription, UniformListScrollHandle, Window, div,
     prelude::*, px, uniform_list,
 };
-use gpui_component::{
-    ActiveTheme, Disableable as _, IconName, Sizable as _,
-    button::ButtonVariants as _,
-    h_flex,
-    input::{Input, InputEvent, InputState, MoveDown, MoveUp},
-    v_flex,
-};
 use ramag_app::RedisService;
 use ramag_domain::entities::{ConnectionConfig, RedisValue, validate_redis_command};
 use ramag_domain::error::READ_ONLY_MESSAGE;
-use ramag_ui::{AxisScrollGesture, RestrictScrollToAxisExt as _};
+use ramag_ui::AxisScrollGesture;
 
 struct Entry {
     id: u64,
@@ -133,7 +133,7 @@ pub struct CliConsole {
     db: u8,
     history: Vec<Entry>,
     next_entry_id: u64,
-    input: Entity<InputState>,
+    input: Entity<EditorState>,
     /// 已提交命令的历史。
     cmd_history: VecDeque<String>,
     cmd_history_bytes: usize,
@@ -141,7 +141,7 @@ pub struct CliConsole {
     history_cursor: Option<usize>,
     transcript_rows: Vec<TranscriptRow>,
     transcript_scroll: UniformListScrollHandle,
-    transcript_h_scroll: gpui::ScrollHandle,
+    transcript_h_scroll: gpui_kit::ScrollHandle,
     transcript_scroll_gesture: AxisScrollGesture,
     _subscriptions: Vec<Subscription>,
 }
@@ -155,10 +155,10 @@ impl CliConsole {
         cx: &mut Context<Self>,
     ) -> Self {
         let input = cx.new(|cx| {
-            let mut state = InputState::new(window, cx)
-                .validate(|value, _| value.len() <= MAX_COMMAND_BYTES)
+            let mut state = EditorState::new(window, cx)
+                .line_number(false)
                 .placeholder("输入命令，按 Enter 执行（如 GET foo）");
-            state.lsp.completion_provider = Some(complete::RedisCompletionProvider::new_rc());
+            state.lsp_mut().completion_provider = Some(complete::RedisCompletionProvider::new_rc());
             state
         });
         let subs = vec![cx.subscribe_in(
@@ -182,7 +182,7 @@ impl CliConsole {
             history_cursor: None,
             transcript_rows: Vec::new(),
             transcript_scroll: UniformListScrollHandle::new(),
-            transcript_h_scroll: gpui::ScrollHandle::new(),
+            transcript_h_scroll: gpui_kit::ScrollHandle::new(),
             transcript_scroll_gesture: AxisScrollGesture::default(),
             _subscriptions: subs,
         }

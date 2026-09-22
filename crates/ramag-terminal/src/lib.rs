@@ -2,7 +2,7 @@
 
 //! Ramag 独立 GPUI 终端内核与视图。
 
-use gpui::{App, KeyBinding, actions};
+use gpui_kit::{App, KeyBinding, actions};
 
 mod core;
 mod keys;

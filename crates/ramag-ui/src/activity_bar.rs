@@ -1,19 +1,19 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use gpui::{
-    Anchor, App, AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent,
-    EventEmitter, Global, IntoElement, MouseButton, ParentElement, Render, SharedString, Styled,
-    Subscription, Window, div, hsla, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, IconName,
-    animation::{Transition, ease_in_out_cubic},
+    animation::{EffectTransition, ease_in_out_cubic},
     badge::Badge,
     button::ButtonVariants as _,
     h_flex,
     notification::Notification,
     v_flex,
+};
+use gpui_kit::{
+    Anchor, App, AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent,
+    EventEmitter, Global, IntoElement, MouseButton, ParentElement, Render, SharedString, Styled,
+    Subscription, Window, div, hsla, prelude::*, px,
 };
 use ramag_app::{StaticPluginHost, ToolRegistry, UpdateCheckResult};
 
@@ -74,18 +74,18 @@ impl ActivityItemDecoration {
     }
 }
 
-type ActivityClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut gpui::App) + 'static>;
+type ActivityClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut gpui_kit::App) + 'static>;
 
 struct ActivityItemConfig {
     id: SharedString,
     icon: Icon,
     is_selected: bool,
-    accent: gpui::Hsla,
+    accent: gpui_kit::Hsla,
     decoration: ActivityItemDecoration,
     on_click: ActivityClickHandler,
     tool_drag: Option<ToolDrag>,
     source_index: Option<usize>,
-    source_background: Option<gpui::Hsla>,
+    source_background: Option<gpui_kit::Hsla>,
 }
 
 /// 将更新检查结果同步到设置入口角标。
@@ -262,7 +262,7 @@ impl Render for ActivityBar {
             let item = if offset == px(0.0) {
                 item.into_any_element()
             } else {
-                Transition::new(Duration::from_millis(360))
+                EffectTransition::new(Duration::from_millis(360))
                     .ease(ease_in_out_cubic)
                     .slide_y(offset, px(0.0))
                     .apply(
@@ -454,7 +454,7 @@ fn show_add_placeholder(kind: &str, window: &mut Window, cx: &mut App) {
 fn activity_item(
     config: ActivityItemConfig,
     cx: &mut Context<ActivityBar>,
-) -> gpui::Stateful<gpui::Div> {
+) -> gpui_kit::Stateful<gpui_kit::Div> {
     let ActivityItemConfig {
         id,
         icon,

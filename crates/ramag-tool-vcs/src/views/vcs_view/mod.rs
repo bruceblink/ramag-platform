@@ -7,11 +7,14 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::{
+    input::{EditorState, InputState, TextareaState},
+    resizable::ResizableState,
+};
+use gpui_kit::{
     App, Context, Entity, EventEmitter, FocusHandle, Focusable, ScrollHandle, SharedString,
     UniformListScrollHandle,
 };
-use gpui_component::{input::InputState, resizable::ResizableState};
 use ramag_domain::entities::{
     Branch, Commit, ConflictContent, FileDiff, FileStatus, RebaseTodo, Remote, RepoConfig, RepoId,
     Stash, Tag, WorkingTreeStatus,
@@ -71,9 +74,9 @@ pub struct VcsView {
     pub(super) remote_op_cancel: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     pub(super) remote_op_progress: Option<std::sync::Arc<std::sync::Mutex<String>>>,
     /// 异步回调无 Window，由渲染层延后推送通知。
-    pub(super) pending_notification: Option<gpui_component::notification::Notification>,
+    pub(super) pending_notification: Option<gpui_kit::component::notification::Notification>,
     pub(super) was_window_active: bool,
-    pub(super) commit_input: Entity<InputState>,
+    pub(super) commit_input: Entity<TextareaState>,
     pub(super) commit_amend: bool,
     pub(super) commit_sign: bool,
     /// 切仓后待恢复的提交草稿，由渲染层延后写入输入框。
@@ -177,7 +180,7 @@ pub struct VcsView {
     pub(super) project_scroll: UniformListScrollHandle,
     pub(super) selected_pf_path: Option<String>,
     pub(super) current_file_content: Option<FileContentSnapshot>,
-    pub(super) pf_editor: Entity<InputState>,
+    pub(super) pf_editor: Entity<EditorState>,
     /// 异步读完后由渲染层写入编辑器。
     pub(super) pending_pf_editor_load: Option<PendingFileEditorLoad>,
     pub(super) pf_editor_loaded_path: Option<String>,
@@ -340,7 +343,7 @@ impl VcsView {
         self.file_content_request_seq = self.file_content_request_seq.wrapping_add(1);
         self.project_file_self_writes.clear();
         self.file_tabs_h_scroll
-            .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+            .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
         self.diff_fullscreen = false;
         self.viewing_commit = None;
         self.reset_commit_files_tree();
@@ -488,7 +491,7 @@ impl VcsView {
         cx: &mut Context<Self>,
     ) {
         self.pending_notification = Some(
-            gpui_component::notification::Notification::success(message.into()).autohide(true),
+            gpui_kit::component::notification::Notification::success(message.into()).autohide(true),
         );
         cx.notify();
     }
@@ -500,7 +503,7 @@ impl VcsView {
         cx: &mut Context<Self>,
     ) {
         self.pending_notification = Some(
-            gpui_component::notification::Notification::warning(message.into()).autohide(true),
+            gpui_kit::component::notification::Notification::warning(message.into()).autohide(true),
         );
         cx.notify();
     }

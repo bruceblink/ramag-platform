@@ -8,7 +8,7 @@ use super::{
     parse_bootstrap_servers, parse_datetime_text, parse_partition_list,
 };
 use async_trait::async_trait;
-use gpui::{
+use gpui_kit::{
     AppContext as _, Context, IntoElement, Modifiers, ParentElement as _, Render, Styled as _,
     TestAppContext, VisualTestContext, Window, point, px, size,
 };
@@ -48,7 +48,7 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
         bounds.origin.x + bounds.size.width / 2.0,
         bounds.origin.y + bounds.size.height / 2.0,
     );
-    cx.simulate_mouse_down(center, gpui::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
     let release_bounds = cx.debug_bounds(selector).unwrap_or(bounds);
     let release_center = point(
         release_bounds.origin.x + release_bounds.size.width / 2.0,
@@ -56,7 +56,7 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
     );
     cx.simulate_mouse_up(
         release_center,
-        gpui::MouseButton::Left,
+        gpui_kit::MouseButton::Left,
         Modifiers::default(),
     );
 }

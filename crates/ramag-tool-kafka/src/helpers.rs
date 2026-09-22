@@ -159,7 +159,7 @@ pub(super) fn parse_usize_input(
         .map_err(|_| format!("{label} 必须是 1 - {MAX_KAFKA_SCAN_RECORDS} 之间的整数"))
 }
 
-pub(super) fn field<E: IntoElement>(label: &'static str, input: E, width: f32) -> gpui::Div {
+pub(super) fn field<E: IntoElement>(label: &'static str, input: E, width: f32) -> gpui_kit::Div {
     let control = if width > 0.0 {
         div().w(px(width)).flex_none().child(input)
     } else {
@@ -175,20 +175,20 @@ pub(super) fn field<E: IntoElement>(label: &'static str, input: E, width: f32) -
             div()
                 .w_full()
                 .text_xs()
-                .text_color(gpui::hsla(0.0, 0.0, 0.5, 1.0))
+                .text_color(gpui_kit::hsla(0.0, 0.0, 0.5, 1.0))
                 .child(label),
         )
         .child(control)
 }
 
-pub(super) fn flexible_field<E: IntoElement>(label: &'static str, input: E) -> gpui::Div {
+pub(super) fn flexible_field<E: IntoElement>(label: &'static str, input: E) -> gpui_kit::Div {
     field(label, input, 0.0).flex_1().min_w_0()
 }
 
 pub(super) fn section_heading(
     title: impl Into<SharedString>,
     subtitle: impl Into<SharedString>,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     v_flex()
         .w_full()
@@ -196,7 +196,7 @@ pub(super) fn section_heading(
         .child(
             div()
                 .text_sm()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .child(title.into()),
         )
         .child(
@@ -212,7 +212,7 @@ pub(super) fn section_heading(
 pub(super) fn metric_card(
     label: &'static str,
     value: usize,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     v_flex()
         .flex_1()
@@ -232,14 +232,14 @@ pub(super) fn metric_card(
         .child(
             div()
                 .text_xl()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .child(value.to_string()),
         )
 }
 
 pub(super) fn broker_row(
     broker: &ramag_domain::entities::KafkaBroker,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     h_flex()
         .w_full()
@@ -303,7 +303,7 @@ pub(super) fn broker_row(
 
 pub(super) fn partition_row(
     partition: &ramag_domain::entities::KafkaPartition,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     v_flex()
         .w_full()
@@ -348,7 +348,7 @@ pub(super) fn partition_row(
 pub(super) fn summary_row(
     label: &'static str,
     value: &str,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     v_flex()
         .w_full()
@@ -374,7 +374,7 @@ pub(super) fn summary_row(
 pub(super) fn value_block(
     label: &'static str,
     value: String,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     v_flex()
         .min_w_0()
@@ -398,7 +398,7 @@ pub(super) fn value_block(
         )
 }
 
-pub(super) fn message_table_header(theme: &gpui_component::Theme) -> impl IntoElement {
+pub(super) fn message_table_header(theme: &gpui_kit::component::Theme) -> impl IntoElement {
     h_flex()
         .w_full()
         .min_w(px(MESSAGE_TABLE_MIN_WIDTH))

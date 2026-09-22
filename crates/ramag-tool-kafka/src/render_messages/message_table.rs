@@ -65,7 +65,7 @@ impl KafkaView {
                         .child(
                             Scrollbar::vertical(&self.message_scroll)
                                 .id("kafka-message-v-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 );
             let horizontal_scrollbar = div()
@@ -79,8 +79,8 @@ impl KafkaView {
                 .child(
                     Scrollbar::horizontal(&self.message_horizontal_scroll)
                         .id("kafka-message-h-scrollbar-control")
-                        .scroll_size(gpui::size(px(MESSAGE_TABLE_MIN_WIDTH), px(16.0)))
-                        .scrollbar_show(ScrollbarShow::Always),
+                        .scroll_size(gpui_kit::size(px(MESSAGE_TABLE_MIN_WIDTH), px(16.0)))
+                        .mode(ScrollbarMode::Always),
                 );
             v_flex()
                 .id("kafka-message-loading")
@@ -173,7 +173,7 @@ impl KafkaView {
                             .child(
                                 Scrollbar::vertical(&self.message_scroll)
                                     .id("kafka-message-v-scrollbar-control")
-                                    .scrollbar_show(ScrollbarShow::Always),
+                                    .mode(ScrollbarMode::Always),
                             ),
                     );
                 let horizontal_scrollbar = div()
@@ -187,8 +187,8 @@ impl KafkaView {
                     .child(
                         Scrollbar::horizontal(&self.message_horizontal_scroll)
                             .id("kafka-message-h-scrollbar-control")
-                            .scroll_size(gpui::size(px(MESSAGE_TABLE_MIN_WIDTH), px(16.0)))
-                            .scrollbar_show(ScrollbarShow::Always),
+                            .scroll_size(gpui_kit::size(px(MESSAGE_TABLE_MIN_WIDTH), px(16.0)))
+                            .mode(ScrollbarMode::Always),
                     );
                 v_flex()
                     .flex_1()

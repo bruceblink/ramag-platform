@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::{
     AppContext, Context, InteractiveElement, ParentElement, Render, StatefulInteractiveElement,
     Styled, TestAppContext, VisualTestContext, Window, div, px, size,
 };
@@ -85,7 +85,10 @@ fn diagnostic_host() -> Arc<StaticPluginHost> {
     host
 }
 
-fn assert_inside(child: gpui::Bounds<gpui::Pixels>, parent: gpui::Bounds<gpui::Pixels>) {
+fn assert_inside(
+    child: gpui_kit::Bounds<gpui_kit::Pixels>,
+    parent: gpui_kit::Bounds<gpui_kit::Pixels>,
+) {
     assert!(child.origin.x >= parent.origin.x);
     assert!(child.origin.y >= parent.origin.y);
     assert!(child.right() <= parent.right());
@@ -93,11 +96,15 @@ fn assert_inside(child: gpui::Bounds<gpui::Pixels>, parent: gpui::Bounds<gpui::P
 }
 
 struct PluginDiagnosticsTestHost {
-    view: gpui::Entity<PluginDiagnosticsView>,
+    view: gpui_kit::Entity<PluginDiagnosticsView>,
 }
 
 impl Render for PluginDiagnosticsTestHost {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl gpui::IntoElement {
+    fn render(
+        &mut self,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> impl gpui_kit::IntoElement {
         div()
             .id("plugin-diagnostics-scroll")
             .debug_selector(|| "plugin-diagnostics-scroll".into())
@@ -109,9 +116,9 @@ impl Render for PluginDiagnosticsTestHost {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let host = diagnostic_host();
     let host_for_view = host.clone();
     let (_, visual_cx) = cx.add_window_view(move |_, cx| PluginDiagnosticsTestHost {

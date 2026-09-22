@@ -3,13 +3,13 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{
-    AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement, Styled,
-    div, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
     h_flex, v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement, Styled,
+    div, px, uniform_list,
 };
 
 use ramag_domain::entities::Commit;
@@ -164,7 +164,7 @@ impl VcsView {
     fn render_history_search_row(
         &self,
         busy: bool,
-        muted_fg: gpui::Hsla,
+        muted_fg: gpui_kit::Hsla,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let reflog_btn = ramag_ui::clickable_button("vcs-history-reflog-toggle")
@@ -241,11 +241,11 @@ impl VcsView {
     #[allow(clippy::too_many_arguments)]
     fn render_history_three_panel(
         &self,
-        border: gpui::Hsla,
-        fg: gpui::Hsla,
-        muted_fg: gpui::Hsla,
-        accent: gpui::Hsla,
-        mono: gpui::SharedString,
+        border: gpui_kit::Hsla,
+        fg: gpui_kit::Hsla,
+        muted_fg: gpui_kit::Hsla,
+        accent: gpui_kit::Hsla,
+        mono: gpui_kit::SharedString,
         busy: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -259,14 +259,14 @@ impl VcsView {
 
         let right_part: AnyElement = if show_detail {
             let detail = self.render_commit_detail_view(cx);
-            gpui_component::resizable::h_resizable("vcs-history-detail-split")
+            gpui_kit::component::resizable::h_resizable("vcs-history-detail-split")
                 .with_state(&self.detail_resize)
                 .child(
-                    gpui_component::resizable::resizable_panel()
+                    gpui_kit::component::resizable::resizable_panel()
                         .child(div().size_full().min_w_0().child(middle)),
                 )
                 .child(
-                    gpui_component::resizable::resizable_panel()
+                    gpui_kit::component::resizable::resizable_panel()
                         .size(px(280.0))
                         .size_range(px(220.0)..px(720.0))
                         .child(div().size_full().child(detail)),
@@ -276,10 +276,10 @@ impl VcsView {
             div().size_full().min_w_0().child(middle).into_any_element()
         };
 
-        gpui_component::resizable::h_resizable("vcs-history-bottom")
+        gpui_kit::component::resizable::h_resizable("vcs-history-bottom")
             .with_state(&self.ide_left_resize)
             .child(
-                gpui_component::resizable::resizable_panel()
+                gpui_kit::component::resizable::resizable_panel()
                     .size(px(super::ide_layout::LEFT_WIDTH_INITIAL))
                     .size_range(
                         px(super::ide_layout::LEFT_WIDTH_MIN)
@@ -296,7 +296,7 @@ impl VcsView {
                     ),
             )
             .child(
-                gpui_component::resizable::resizable_panel().child(
+                gpui_kit::component::resizable::resizable_panel().child(
                     div()
                         .debug_selector(|| "vcs-history-content".into())
                         .size_full()
@@ -311,7 +311,7 @@ impl VcsView {
     fn render_reflog_middle_pane(
         &self,
         busy: bool,
-        muted_fg: gpui::Hsla,
+        muted_fg: gpui_kit::Hsla,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         v_flex()
@@ -326,10 +326,10 @@ impl VcsView {
     /// 渲染提交历史列表。
     fn render_history_middle_pane(
         &self,
-        fg: gpui::Hsla,
-        muted_fg: gpui::Hsla,
-        accent: gpui::Hsla,
-        mono: gpui::SharedString,
+        fg: gpui_kit::Hsla,
+        muted_fg: gpui_kit::Hsla,
+        accent: gpui_kit::Hsla,
+        mono: gpui_kit::SharedString,
         _busy: bool,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -452,7 +452,7 @@ impl VcsView {
     }
 }
 
-fn center_msg(msg: &'static str, muted_fg: gpui::Hsla) -> AnyElement {
+fn center_msg(msg: &'static str, muted_fg: gpui_kit::Hsla) -> AnyElement {
     div()
         .size_full()
         .flex()

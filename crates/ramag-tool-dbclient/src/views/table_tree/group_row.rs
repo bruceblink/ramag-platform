@@ -1,10 +1,10 @@
 //! 表和视图分组标题的交互渲染。
 
-use gpui::{
+use gpui_kit::component::{Icon, IconName, Sizable as _, h_flex};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
     prelude::*, px,
 };
-use gpui_component::{Icon, IconName, Sizable as _, h_flex};
 
 use super::TableTreePanel;
 
@@ -14,8 +14,8 @@ pub(super) fn render(
     is_view: bool,
     text: &str,
     is_expanded: bool,
-    muted_fg: gpui::Hsla,
-    muted_bg: gpui::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    muted_bg: gpui_kit::Hsla,
     cx: &mut Context<TableTreePanel>,
 ) -> AnyElement {
     let row_id = SharedString::from(format!(

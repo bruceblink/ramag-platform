@@ -1,4 +1,4 @@
-#[gpui::test]
+#[gpui_kit::test]
 fn connection_manager_renders_without_openssh_side_effects(cx: &mut TestAppContext) {
     let mut imported = profile();
     imported.origin = SshProfileOrigin::JumpServer;
@@ -65,7 +65,7 @@ fn connection_manager_renders_without_openssh_side_effects(cx: &mut TestAppConte
     );
 }
 /// 连接列表的固定徽标和操作按钮在窄窗口内不能把连接行推出父容器。
-#[gpui::test]
+#[gpui_kit::test]
 fn connection_manager_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
     let mut imported = profile();
     imported.origin = SshProfileOrigin::JumpServer;
@@ -104,7 +104,7 @@ fn connection_manager_rows_stay_inside_supported_window_widths(cx: &mut TestAppC
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn connection_manager_opens_recorded_remote_desktop_from_icon(cx: &mut TestAppContext) {
     let mut imported = profile();
     imported.origin = SshProfileOrigin::JumpServer;
@@ -128,7 +128,7 @@ fn connection_manager_opens_recorded_remote_desktop_from_icon(cx: &mut TestAppCo
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn remote_session_panel_moves_entries_between_recent_and_favorites(cx: &mut TestAppContext) {
     let favorite = rdp_session(1, "favorite-windows");
     let recent = rdp_session(2, "recent-windows");
@@ -178,7 +178,7 @@ fn remote_session_panel_moves_entries_between_recent_and_favorites(cx: &mut Test
     });
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn remote_session_panel_reflows_inside_compact_window(cx: &mut TestAppContext) {
     let favorite = rdp_session(1, "favorite-windows");
     let recent = rdp_session(2, "recent-windows");
@@ -214,7 +214,7 @@ fn remote_session_panel_reflows_inside_compact_window(cx: &mut TestAppContext) {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn jumpserver_panel_renders_login_assets_and_accounts(cx: &mut TestAppContext) {
     let (panel, cx) = add_jumpserver_panel_window(cx, service(Vec::new(), None));
     cx.run_until_parked();
@@ -359,7 +359,7 @@ fn jumpserver_panel_renders_login_assets_and_accounts(cx: &mut TestAppContext) {
     assert!(cx.debug_bounds("jumpserver-command-input").is_none());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn jumpserver_search_clear_restores_the_asset_list(cx: &mut TestAppContext) {
     let (panel, cx) = add_jumpserver_panel_window(cx, service(Vec::new(), None));
     cx.run_until_parked();

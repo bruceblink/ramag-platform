@@ -5,15 +5,15 @@ use std::rc::Rc;
 #[cfg(test)]
 use std::collections::{HashMap, HashSet};
 
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    prelude::*, px,
 };
 #[cfg(test)]
 use ramag_domain::entities::Schema;
@@ -200,7 +200,7 @@ impl TableTreePanel {
         let accent_fg = cx.theme().accent_foreground;
         let fg = cx.theme().foreground;
         let warning = cx.theme().warning;
-        let red = gpui::red();
+        let red = gpui_kit::red();
 
         match row {
             TreeRow::Schema {
@@ -365,7 +365,7 @@ impl TableTreePanel {
                     }))
                     .child(
                         div()
-                            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                            .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
                                 cx.stop_propagation()
                             })
                             .child(

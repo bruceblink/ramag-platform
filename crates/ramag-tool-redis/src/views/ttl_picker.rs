@@ -1,10 +1,10 @@
-use gpui::{
-    App, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, SharedString, Styled,
-    Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, h_flex,
     input::{Input, InputState},
+};
+use gpui_kit::{
+    App, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, SharedString, Styled,
+    Window, div, prelude::*, px,
 };
 
 use crate::views::bounded_input;
@@ -119,37 +119,39 @@ impl Render for TtlPicker {
         let mut accent_border = accent;
         accent_border.a = 0.55;
 
-        let chip =
-            |label: String, id: &'static str, is_selected: bool| -> gpui::Stateful<gpui::Div> {
-                let mut c = h_flex()
-                    .id(SharedString::from(id))
-                    .items_center()
-                    .justify_center()
-                    .px(px(10.0))
-                    .py(px(5.0))
-                    .rounded_md()
-                    .border_1()
-                    .text_xs()
-                    .child(label);
-                if is_selected {
-                    c = c
-                        .bg(accent_tint)
-                        .border_color(accent_border)
-                        .text_color(accent);
-                } else {
-                    c = c
-                        .bg(secondary_bg)
-                        .border_color(border)
-                        .text_color(fg)
-                        .hover(move |this| this.border_color(accent_border));
-                }
-                if self.disabled {
-                    c = c.opacity(0.55);
-                } else {
-                    c = c.cursor_pointer();
-                }
-                c
-            };
+        let chip = |label: String,
+                    id: &'static str,
+                    is_selected: bool|
+         -> gpui_kit::Stateful<gpui_kit::Div> {
+            let mut c = h_flex()
+                .id(SharedString::from(id))
+                .items_center()
+                .justify_center()
+                .px(px(10.0))
+                .py(px(5.0))
+                .rounded_md()
+                .border_1()
+                .text_xs()
+                .child(label);
+            if is_selected {
+                c = c
+                    .bg(accent_tint)
+                    .border_color(accent_border)
+                    .text_color(accent);
+            } else {
+                c = c
+                    .bg(secondary_bg)
+                    .border_color(border)
+                    .text_color(fg)
+                    .hover(move |this| this.border_color(accent_border));
+            }
+            if self.disabled {
+                c = c.opacity(0.55);
+            } else {
+                c = c.cursor_pointer();
+            }
+            c
+        };
 
         let mut row = h_flex()
             .w_full()

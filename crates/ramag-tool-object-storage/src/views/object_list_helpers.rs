@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gpui::SharedString;
+use gpui_kit::SharedString;
 use ramag_domain::entities::{
     ObjectEntry, ObjectEntryKind, contains_case_insensitive, format_bytes,
 };

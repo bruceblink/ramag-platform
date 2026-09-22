@@ -1,10 +1,10 @@
 //! 单行渲染：行号 + 复选框 + 各单元格；单元格点击分发（下钻 / 标量编辑 / 只读查看）。
 
-use gpui::{
+use gpui_kit::component::h_flex;
+use gpui_kit::{
     Context, Hsla, InteractiveElement as _, IntoElement, ParentElement, SharedString, Styled, div,
     prelude::*, px,
 };
-use gpui_component::h_flex;
 
 use super::ResultPanel;
 use super::cell::{Cell, clipboard_text_for_value, value_at_path};
@@ -13,8 +13,8 @@ use super::table::{CELL_PREVIEW_MAX, CELL_WIDTH, ROW_HEIGHT, sanitize_inline, tr
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render_row(
-    checkbox: gpui::AnyElement,
-    row_num_width: gpui::Pixels,
+    checkbox: gpui_kit::AnyElement,
+    row_num_width: gpui_kit::Pixels,
     row_idx_in_view: usize,
     source_row_idx: usize,
     cells: &[Cell],
@@ -31,7 +31,7 @@ pub(super) fn render_row(
     // 只读钻取的源文档；双击仅查看完整内容。
     drill_doc: Option<&serde_json::Value>,
     cx: &mut Context<ResultPanel>,
-) -> gpui::AnyElement {
+) -> gpui_kit::AnyElement {
     // 斑马纹。
     let stripe = if row_idx_in_view.is_multiple_of(2) {
         muted_bg.opacity(0.0)
@@ -102,7 +102,7 @@ pub(super) fn render_row(
                 .overflow_hidden()
                 .cursor_pointer()
                 .on_click({
-                    cx.listener(move |panel, e: &gpui::ClickEvent, window, cx| {
+                    cx.listener(move |panel, e: &gpui_kit::ClickEvent, window, cx| {
                         if ramag_ui::is_primary_modifier_double_click(e) {
                             let text = if let Some(text) = drill_click_text.clone() {
                                 if is_nested {

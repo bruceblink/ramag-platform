@@ -2,9 +2,9 @@
 
 use std::rc::Rc;
 
-use gpui::{AppContext as _, Context, Entity, ParentElement, Styled as _, Window};
-use gpui_component::WindowExt as _;
-use gpui_component::notification::Notification;
+use gpui_kit::component::WindowExt as _;
+use gpui_kit::component::notification::Notification;
+use gpui_kit::{AppContext as _, Context, Entity, ParentElement, Styled as _, Window};
 use ramag_domain::entities::DriverKind;
 
 pub(super) use super::ddl_ops::TableDdlNotification;

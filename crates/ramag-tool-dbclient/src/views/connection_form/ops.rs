@@ -1,10 +1,10 @@
 //! 连接表单操作。
 
-use gpui::{
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
+use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, Window, img, prelude::*,
     px,
 };
-use gpui_component::{ActiveTheme, h_flex, v_flex};
 use ramag_domain::entities::{ConnectionConfig, ConnectionId, DriverKind};
 use tracing::{error, info, warn};
 
@@ -137,7 +137,7 @@ impl ConnectionFormPanel {
     }
 
     /// 校验表单并填充默认值。
-    pub(super) fn validate(&self, cx: &gpui::App) -> Result<ConnectionConfig, String> {
+    pub(super) fn validate(&self, cx: &gpui_kit::App) -> Result<ConnectionConfig, String> {
         let driver =
             id_to_driver_kind(self.driver_id).ok_or_else(|| "请选择数据库类型".to_string())?;
 
@@ -293,7 +293,7 @@ impl ConnectionFormPanel {
             if let Some(icon) = ramag_ui::icons::db_brand_icon(id) {
                 btn = btn.child(img(icon).size(px(16.0)).flex_none());
             }
-            btn = btn.child(gpui::div().flex_none().child(name.to_string()));
+            btn = btn.child(gpui_kit::div().flex_none().child(name.to_string()));
 
             if is_selected {
                 btn = btn

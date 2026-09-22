@@ -1,14 +1,14 @@
 use super::*;
 
-use gpui::ClickEvent;
-use gpui::FontWeight;
-use gpui_component::{Disableable as _, button::ButtonVariants as _};
+use gpui_kit::ClickEvent;
+use gpui_kit::FontWeight;
+use gpui_kit::component::{Disableable as _, button::ButtonVariants as _};
 use ramag_ui::PointerDropdownMenu as _;
 
 pub(super) fn render_collection_button(
     view: &ApiView,
     cx: &mut Context<ApiView>,
-) -> gpui::AnyElement {
+) -> gpui_kit::AnyElement {
     ramag_ui::clickable_button("api-run-collection")
         .debug_selector(|| "api-run-collection".into())
         .xsmall()
@@ -24,8 +24,8 @@ pub(super) fn render_collection_button(
 pub(super) fn render_request_toolbar(
     view: &mut ApiView,
     cx: &mut Context<ApiView>,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let protocol_button = |id: &'static str,
                            label: &'static str,
                            protocol: ApiProtocol,
@@ -195,7 +195,7 @@ pub(super) fn render_request_toolbar(
         .into_any_element()
 }
 
-fn render_request_target(view: &ApiView) -> gpui::AnyElement {
+fn render_request_target(view: &ApiView) -> gpui_kit::AnyElement {
     let target = match view.protocol {
         ApiProtocol::Http => h_flex()
             .w_full()
@@ -231,8 +231,8 @@ fn render_request_target(view: &ApiView) -> gpui::AnyElement {
 
 pub(super) fn render_collection_summary(
     view: &ApiView,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let label = match &view.last_collection_run {
         Some(summary) => format!(
             "Collection：{} · {} 通过 · {} 失败 · {} 取消{}",
@@ -255,8 +255,8 @@ pub(super) fn render_collection_summary(
 
 pub(super) fn render_context_editor(
     view: &ApiView,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     v_flex()
         .id("api-context-editor")
         .debug_selector(|| "api-context-editor".into())
@@ -273,16 +273,13 @@ pub(super) fn render_context_editor(
             row()
                 .child(field(
                     "环境变量",
-                    Input::new(&view.environment_variables).small().h(px(78.0)),
+                    Textarea::new(&view.environment_variables).h(px(78.0)),
                 ))
                 .child(field(
                     "敏感变量名",
-                    Input::new(&view.environment_sensitive).small().h(px(78.0)),
+                    Textarea::new(&view.environment_sensitive).h(px(78.0)),
                 ))
-                .child(field(
-                    "断言",
-                    Input::new(&view.assertions).small().h(px(78.0)),
-                )),
+                .child(field("断言", Textarea::new(&view.assertions).h(px(78.0)))),
         )
         .child(
             v_flex()
@@ -295,14 +292,17 @@ pub(super) fn render_context_editor(
                         .text_color(theme.muted_foreground)
                         .child("响应变量"),
                 )
-                .child(Input::new(&view.response_variables).small().h(px(96.0))),
+                .child(Textarea::new(&view.response_variables).h(px(96.0))),
         )
         .child(render_tls_editor(view, theme))
         .child(render_proxy_editor(view, theme))
         .into_any_element()
 }
 
-pub(super) fn render_tls_editor(view: &ApiView, theme: &gpui_component::Theme) -> gpui::AnyElement {
+pub(super) fn render_tls_editor(
+    view: &ApiView,
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     v_flex()
         .id("api-tls-editor")
         .debug_selector(|| "api-tls-editor".into())
@@ -337,8 +337,8 @@ pub(super) fn render_tls_editor(view: &ApiView, theme: &gpui_component::Theme) -
 
 pub(super) fn render_proxy_editor(
     view: &ApiView,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     v_flex()
         .id("api-proxy-editor")
         .debug_selector(|| "api-proxy-editor".into())
@@ -366,8 +366,8 @@ pub(super) fn render_proxy_editor(
 
 pub(super) fn render_assertion_results(
     results: &[ApiAssertionResult],
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let mut section = v_flex()
         .id("api-assertion-results")
         .debug_selector(|| "api-assertion-results".into())
@@ -412,8 +412,8 @@ pub(super) fn render_assertion_results(
 
 pub(super) fn render_extracted_variables(
     variables: &[ApiExtractedVariable],
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let mut section = v_flex()
         .id("api-extracted-variables")
         .debug_selector(|| "api-extracted-variables".into())
@@ -452,8 +452,8 @@ pub(super) fn render_extracted_variables(
 
 pub(super) fn render_history(
     history: &[ApiHistoryRecord],
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let mut section = v_flex()
         .id("api-history")
         .debug_selector(|| "api-history".into())

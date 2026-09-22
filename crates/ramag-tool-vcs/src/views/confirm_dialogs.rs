@@ -5,10 +5,10 @@ mod history_ops;
 mod remote_dialog;
 mod remote_ops;
 
-use gpui::{ClickEvent, Context, Entity, ParentElement, SharedString, Styled, Window, div, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Sizable as _, WindowExt as _, button::ButtonVariants as _, h_flex,
 };
+use gpui_kit::{ClickEvent, Context, Entity, ParentElement, SharedString, Styled, Window, div, px};
 use ramag_domain::entities::{MAX_GIT_NAME_ARG_BYTES, MAX_GIT_POSITIONAL_ARG_BYTES, RepoOperation};
 
 use super::helpers::{
@@ -27,7 +27,7 @@ pub(super) fn open_confirm_dialog(
     danger: bool,
     on_confirm: impl FnOnce(&mut VcsView, &mut Context<VcsView>) + 'static,
     window: &mut Window,
-    cx: &mut gpui::App,
+    cx: &mut gpui_kit::App,
 ) {
     ramag_ui::open_confirm(
         title,
@@ -53,7 +53,7 @@ pub(super) fn open_prompt_dialog(
     max_bytes: usize,
     on_confirm: impl FnOnce(&mut VcsView, String, &mut Context<VcsView>) + 'static,
     window: &mut Window,
-    cx: &mut gpui::App,
+    cx: &mut gpui_kit::App,
 ) {
     ramag_ui::open_bounded_prompt(
         title,

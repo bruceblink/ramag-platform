@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use gpui_component::WindowExt as _;
+use gpui_kit::component::WindowExt as _;
 use serde_json::Value;
 
 const MAX_MESSAGE_VIEW_BYTES: usize = 2 * 1024 * 1024;
@@ -121,7 +121,7 @@ impl MqttMessageViewer {
         toolbar
     }
 
-    fn render_metadata(&self, theme: &gpui_component::Theme) -> gpui::AnyElement {
+    fn render_metadata(&self, theme: &gpui_kit::component::Theme) -> gpui_kit::AnyElement {
         let mut metadata = h_flex()
             .id("mqtt-message-viewer-meta")
             .debug_selector(|| "mqtt-message-viewer-meta".into())
@@ -161,9 +161,9 @@ impl MqttMessageViewer {
 
     fn render_json_payload(
         &self,
-        theme: &gpui_component::Theme,
+        theme: &gpui_kit::component::Theme,
         cx: &mut Context<Self>,
-    ) -> gpui::AnyElement {
+    ) -> gpui_kit::AnyElement {
         let Some(tree) = &self.json_tree else {
             return div()
                 .w_full()
@@ -191,9 +191,9 @@ impl MqttMessageViewer {
     fn render_payload(
         &self,
         text: String,
-        theme: &gpui_component::Theme,
+        theme: &gpui_kit::component::Theme,
         cx: &mut Context<Self>,
-    ) -> gpui::AnyElement {
+    ) -> gpui_kit::AnyElement {
         if self.format != MqttPayloadFormat::Json {
             return ramag_ui::SelectableText::new("mqtt-message-viewer-content", text)
                 .w_full()
@@ -378,9 +378,9 @@ fn render_json_tree_node(
     path: Vec<usize>,
     label: String,
     depth: usize,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
     cx: &mut Context<MqttMessageViewer>,
-) -> gpui::AnyElement {
+) -> gpui_kit::AnyElement {
     let children = match value {
         Value::Array(items) => items
             .iter()

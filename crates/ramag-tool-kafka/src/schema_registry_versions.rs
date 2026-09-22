@@ -31,9 +31,9 @@ impl KafkaView {
         self.schema_versions_error = None;
         self.schema_version_error = None;
         self.schema_versions_scroll
-            .set_offset(gpui::point(px(0.0), px(0.0)));
+            .set_offset(gpui_kit::point(px(0.0), px(0.0)));
         self.schema_version_detail_scroll
-            .set_offset(gpui::point(px(0.0), px(0.0)));
+            .set_offset(gpui_kit::point(px(0.0), px(0.0)));
     }
 
     /// Selects a Subject and starts a bounded version-list request; no Schema
@@ -51,9 +51,9 @@ impl KafkaView {
         self.schema_versions_error = None;
         self.schema_version_error = None;
         self.schema_versions_scroll
-            .set_offset(gpui::point(px(0.0), px(0.0)));
+            .set_offset(gpui_kit::point(px(0.0), px(0.0)));
         self.schema_version_detail_scroll
-            .set_offset(gpui::point(px(0.0), px(0.0)));
+            .set_offset(gpui_kit::point(px(0.0), px(0.0)));
         self.schema_selected_subject = Some(subject.clone());
         if let Some(config) = self.selected_config() {
             self.load_schema_versions(config, subject, window, cx);

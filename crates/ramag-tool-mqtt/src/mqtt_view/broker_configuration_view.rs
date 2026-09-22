@@ -1,5 +1,5 @@
 impl MqttView {
-    fn render_static_files(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn render_static_files(&self, cx: &mut Context<Self>) -> gpui_kit::AnyElement {
         let theme = cx.theme().clone();
         let mut kind_buttons = h_flex().gap(px(4.0));
         for kind in [

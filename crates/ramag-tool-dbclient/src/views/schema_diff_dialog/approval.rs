@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
-use gpui::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px};
-use gpui_component::{Theme, h_flex, notification::Notification, v_flex};
+use gpui_kit::component::{Theme, h_flex, notification::Notification, v_flex};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px};
 use ramag_domain::entities::{ConnectionId, DriverKind};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
@@ -296,7 +296,7 @@ pub(super) fn render_migration_approval_history(
     let mut panel = v_flex().w_full().gap(px(4.0)).child(
         div()
             .text_xs()
-            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
             .child(format!("最近审批记录（{}）", records.len().min(5))),
     );
     for record in records.iter().take(5) {

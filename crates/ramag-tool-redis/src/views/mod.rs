@@ -22,10 +22,10 @@ pub use connection_session::RedisSessionPanel;
 
 pub(crate) fn bounded_input(
     max_bytes: usize,
-    window: &mut gpui::Window,
-    cx: &mut gpui::Context<gpui_component::input::InputState>,
-) -> gpui_component::input::InputState {
-    gpui_component::input::InputState::new(window, cx)
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::Context<gpui_kit::component::input::InputState>,
+) -> gpui_kit::component::input::InputState {
+    gpui_kit::component::input::InputState::new(window, cx)
         .validate(move |value, _| value.len() <= max_bytes)
 }
 

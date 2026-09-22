@@ -1,14 +1,14 @@
 use super::*;
 
-use gpui::ClickEvent;
-use gpui_component::button::ButtonVariants as _;
+use gpui_kit::ClickEvent;
+use gpui_kit::component::button::ButtonVariants as _;
 use ramag_domain::entities::{ApiRequestRecord, ApiRequestSpec};
 
 pub(super) fn render(
     view: &ApiView,
     cx: &mut Context<ApiView>,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let current_request_id = view.active_request_id.clone();
     let query = view.request_search.read(cx).value().trim().to_lowercase();
     let total_request_count = view
@@ -35,7 +35,7 @@ pub(super) fn render(
         .map(|(index, (collection_name, request))| {
             let request = request.clone();
             let selected = current_request_id.as_ref() == Some(&request.id);
-            let mut item = ramag_ui::clickable_button(gpui::SharedString::from(format!(
+            let mut item = ramag_ui::clickable_button(gpui_kit::SharedString::from(format!(
                 "api-request-item-{index}"
             )))
             .debug_selector(move || format!("api-request-item-{index}"))

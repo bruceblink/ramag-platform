@@ -12,19 +12,19 @@ use std::sync::{
 };
 
 use async_channel::{Sender, TrySendError, bounded};
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _,
+    button::ButtonVariants as _,
+    h_flex,
+    input::{Input, InputEvent, InputState, Position, Textarea, TextareaState},
+    scroll::ScrollableElement as _,
+    v_flex,
+};
+use gpui_kit::{
     App, AppContext as _, ClickEvent, Context, Entity, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent, ParentElement, Render,
     SharedString, StatefulInteractiveElement as _, Styled, Subscription, Window, div,
     prelude::FluentBuilder as _, px,
-};
-use gpui_component::{
-    ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _,
-    button::ButtonVariants as _,
-    h_flex,
-    input::{Input, InputEvent, InputState, Position},
-    scroll::ScrollableElement as _,
-    v_flex,
 };
 use ramag_app::MqttService;
 use ramag_domain::{
@@ -238,7 +238,7 @@ pub struct MqttView {
     client_key_path: Entity<InputState>,
     keep_alive: Entity<InputState>,
     publish_topic: Entity<InputState>,
-    publish_payload: Entity<InputState>,
+    publish_payload: Entity<TextareaState>,
     publish_payload_format: MqttPayloadFormat,
     publish_qos: MqttQos,
     publish_retain: bool,
@@ -254,7 +254,7 @@ pub struct MqttView {
     local_server_username: Entity<InputState>,
     local_server_password: Entity<InputState>,
     local_server_publish_topic: Entity<InputState>,
-    local_server_publish_payload: Entity<InputState>,
+    local_server_publish_payload: Entity<TextareaState>,
     local_server_publish_payload_format: MqttPayloadFormat,
     local_server_publish_qos: MqttQos,
     local_server_publish_retain: bool,

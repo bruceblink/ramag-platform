@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use gpui::{
+use gpui_kit::{
     AppContext as _, Context, Entity, IntoElement, Modifiers, ParentElement as _, Render,
     Styled as _, TestAppContext, VisualTestContext, Window, div, point,
 };
@@ -83,7 +83,7 @@ struct ContextTestHost {
 
 impl Render for ContextTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
         div()
             .relative()
             .size_full()
@@ -114,7 +114,7 @@ fn click_dialog_button(cx: &mut VisualTestContext, selector: &'static str) {
         bounds.origin.x + bounds.size.width / 2.0,
         bounds.origin.y + bounds.size.height / 2.0,
     );
-    cx.simulate_mouse_down(center, gpui::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
     let release_bounds = cx.debug_bounds(selector).unwrap_or(bounds);
     let release_center = point(
         release_bounds.origin.x + release_bounds.size.width / 2.0,
@@ -122,7 +122,7 @@ fn click_dialog_button(cx: &mut VisualTestContext, selector: &'static str) {
     );
     cx.simulate_mouse_up(
         release_center,
-        gpui::MouseButton::Left,
+        gpui_kit::MouseButton::Left,
         Modifiers::default(),
     );
     cx.run_until_parked();
@@ -163,9 +163,9 @@ fn pending_result_change_total(cx: &mut VisualTestContext, panel: &Entity<QueryP
 }
 
 /// Context changes must keep staged result edits until the user explicitly confirms loss.
-#[gpui::test]
+#[gpui_kit::test]
 fn context_switches_confirm_before_discarding_pending_result_changes(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage::default()),
@@ -187,7 +187,7 @@ fn context_switches_confirm_before_discarding_pending_result_changes(cx: &mut Te
         let host = cx.new(|_| ContextTestHost {
             panel: panel.clone(),
         });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let panel = panel_entity.expect("SQL 查询面板应创建");
 
@@ -267,9 +267,9 @@ fn context_switches_confirm_before_discarding_pending_result_changes(cx: &mut Te
 }
 
 /// Closing a query tab must confirm before releasing staged result state.
-#[gpui::test]
+#[gpui_kit::test]
 fn closing_tab_confirms_before_releasing_pending_result_changes(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage::default()),
@@ -291,7 +291,7 @@ fn closing_tab_confirms_before_releasing_pending_result_changes(cx: &mut TestApp
         let host = cx.new(|_| ContextTestHost {
             panel: panel.clone(),
         });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let panel = panel_entity.expect("SQL 查询面板应创建");
 

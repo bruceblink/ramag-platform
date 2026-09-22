@@ -1,8 +1,8 @@
 //! Redis 树的菜单与写操作。
 
-use gpui::{Context, Entity};
-use gpui_component::notification::Notification;
-use gpui_component::{IconName, menu::PopupMenu};
+use gpui_kit::component::notification::Notification;
+use gpui_kit::component::{IconName, menu::PopupMenu};
+use gpui_kit::{Context, Entity};
 use ramag_domain::entities::{MAX_REDIS_KEY_BYTES, RedisValue, validate_redis_key};
 use ramag_ui::{open_bounded_prompt, open_confirm};
 

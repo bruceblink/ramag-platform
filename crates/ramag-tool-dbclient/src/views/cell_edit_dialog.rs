@@ -1,15 +1,15 @@
 //! 单元格编辑：双击触发，输入先暂存，随后由结果面板统一批量提交 UPDATE。
 //! 调用方须在已持 ResultPanel mut ref 时传入预建好的数据，本函数不调 panel.read 避免二次借用 panic
 
-use gpui::{
-    ClickEvent, Context, Entity, IntoElement, ParentElement, SharedString, Styled, Window, div,
-    prelude::FluentBuilder as _, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     h_flex,
-    input::{Input, InputState},
+    input::{Textarea, TextareaState},
+};
+use gpui_kit::{
+    ClickEvent, Context, Entity, IntoElement, ParentElement, SharedString, Styled, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 
 use super::result_panel::ResultPanel;
@@ -22,7 +22,7 @@ pub(super) fn open(
     ri: usize,
     ci: usize,
     col_name: String,
-    input: Entity<InputState>,
+    input: Entity<TextareaState>,
     read_only_reason: Option<String>,
     locate_label: &'static str,
     window: &mut Window,
@@ -110,7 +110,7 @@ pub(super) fn open(
                 let theme = cx.theme();
                 let muted_fg = theme.muted_foreground;
                 let warning = theme.warning;
-                let hint: gpui::AnyElement = match &reason {
+                let hint: gpui_kit::AnyElement = match &reason {
                     Some(reason) => div()
                         .text_xs()
                         .text_color(warning)
@@ -132,7 +132,7 @@ pub(super) fn open(
                         .child(hint)
                         // 显式给 Input 一个固定高度才能真正渲染成多行文本域
                         // 否则被 dialog content 的默认布局压成单行
-                        .child(Input::new(&input_for_content).h(input_height)),
+                        .child(Textarea::new(&input_for_content).h(input_height)),
                 )
             })
             .footer(

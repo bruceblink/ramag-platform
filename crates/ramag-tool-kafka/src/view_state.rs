@@ -298,7 +298,7 @@ impl KafkaView {
                         .0
                         .borrow()
                         .base_handle
-                        .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+                        .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
                     this.notice = None;
                     cx.notify();
                 }
@@ -312,7 +312,7 @@ impl KafkaView {
                         .0
                         .borrow()
                         .base_handle
-                        .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+                        .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
                     this.notice = None;
                     cx.notify();
                 }
@@ -325,7 +325,7 @@ impl KafkaView {
                         .0
                         .borrow()
                         .base_handle
-                        .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+                        .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
                     this.notice = None;
                     cx.notify();
                 }

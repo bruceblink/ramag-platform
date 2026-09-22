@@ -10,7 +10,7 @@ use crate::KAFKA_SCHEMA_SUBJECT_SCROLLBAR_WIDTH;
 use ramag_domain::entities::KafkaSchemaRegistrySubject;
 
 struct KafkaSchemaRegistryTestHost {
-    view: gpui::Entity<KafkaView>,
+    view: gpui_kit::Entity<KafkaView>,
 }
 
 struct SchemaVersionDriver {
@@ -49,8 +49,8 @@ impl KafkaSchemaRegistryDriver for SchemaVersionDriver {
 
 impl Render for KafkaSchemaRegistryTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        gpui::div()
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
@@ -58,9 +58,9 @@ impl Render for KafkaSchemaRegistryTestHost {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn schema_registry_subject_list_keeps_content_clear_of_vertical_scrollbar(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut cluster =
         KafkaClusterConfig::new("Schema Registry 布局 Kafka", vec!["127.0.0.1:19092".into()]);
     cluster.schema_registry.endpoint = Some("http://127.0.0.1:8081".into());
@@ -75,7 +75,7 @@ fn schema_registry_subject_list_keeps_content_clear_of_vertical_scrollbar(cx: &m
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaSchemaRegistryTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     visual_cx.run_until_parked();
     let Some(kafka_entity) = kafka_entity else {
@@ -123,11 +123,11 @@ fn schema_registry_subject_list_keeps_content_clear_of_vertical_scrollbar(cx: &m
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn schema_registry_subject_selection_loads_versions_and_details_responsively(
     cx: &mut TestAppContext,
 ) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut cluster =
         KafkaClusterConfig::new("Schema Registry 版本 Kafka", vec!["127.0.0.1:19092".into()]);
     cluster.schema_registry.endpoint = Some("http://127.0.0.1:18081".into());
@@ -148,7 +148,7 @@ fn schema_registry_subject_selection_loads_versions_and_details_responsively(
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaSchemaRegistryTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;

@@ -7,12 +7,12 @@ use std::ops::Range;
 use std::time::Duration;
 
 use alacritty_terminal::index::Side;
-use gpui::{
+use gpui_kit::component::ActiveTheme as _;
+use gpui_kit::{
     Bounds, ClipboardItem, Context, ElementInputHandler, FocusHandle, Focusable, IntoElement,
     KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point, Render,
     ScrollWheelEvent, Window, canvas, div, prelude::*, px,
 };
-use gpui_component::ActiveTheme as _;
 
 use crate::core::{ClipboardRequest, TerminalCore};
 use crate::keys::{TerminalKey, TerminalModifiers, encode_key};
@@ -251,7 +251,7 @@ impl TerminalView {
 }
 
 impl Focusable for TerminalView {
-    fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
+    fn focus_handle(&self, _cx: &gpui_kit::App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
@@ -349,7 +349,7 @@ impl Render for TerminalView {
     }
 }
 
-fn terminal_modifiers(modifiers: &gpui::Modifiers) -> TerminalModifiers {
+fn terminal_modifiers(modifiers: &gpui_kit::Modifiers) -> TerminalModifiers {
     TerminalModifiers {
         control: modifiers.control,
         alt: modifiers.alt,
@@ -387,24 +387,23 @@ mod tests {
 
     #[cfg(unix)]
     struct TerminalKeyTestRoot {
-        terminal: gpui::Entity<TerminalView>,
+        terminal: gpui_kit::Entity<TerminalView>,
     }
 
     #[cfg(unix)]
     impl Render for TerminalKeyTestRoot {
         fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-            div()
-                .size_full()
-                .child(self.terminal.clone())
-                .child(gpui_component::button::Button::new("next-focus-target").label("下一项"))
+            div().size_full().child(self.terminal.clone()).child(
+                gpui_kit::component::button::Button::new("next-focus-target").label("下一项"),
+            )
         }
     }
 
     #[cfg(unix)]
-    #[gpui::test]
-    fn tab_stays_in_terminal_and_keeps_focus(cx: &mut gpui::TestAppContext) {
+    #[gpui_kit::test]
+    fn tab_stays_in_terminal_and_keeps_focus(cx: &mut gpui_kit::TestAppContext) {
         cx.update(|cx| {
-            gpui_component::init(cx);
+            gpui_kit::component::init(cx);
             crate::init(cx);
         });
         let mut terminal = None;
@@ -417,7 +416,7 @@ mod tests {
             let content = cx.new(|_| TerminalKeyTestRoot {
                 terminal: terminal_view,
             });
-            gpui_component::Root::new(content, window, cx)
+            gpui_kit::component::Root::new(content, window, cx)
         });
         let terminal = terminal.expect("终端视图应创建");
 

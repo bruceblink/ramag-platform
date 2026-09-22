@@ -4,14 +4,14 @@ mod bindings;
 mod catalog;
 mod common;
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, WindowExt as _,
+    button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     App, AppContext as _, ClickEvent, Context, InteractiveElement as _, IntoElement, Keystroke,
     ParentElement, Render, StatefulInteractiveElement as _, Styled, Subscription, Window, div,
     prelude::FluentBuilder as _, px,
-};
-use gpui_component::{
-    ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, WindowExt as _,
-    button::ButtonVariants as _, h_flex, v_flex,
 };
 
 pub const SHORTCUT_OVERRIDES_PREF_KEY: &str = "shortcut_overrides_v1";
@@ -62,7 +62,7 @@ impl ShortcutPanel {
     fn start_recording(&mut self, id: &'static str, cx: &mut Context<Self>) {
         self.recording = Some(id);
         self.error = None;
-        let listener = cx.listener(|this, event: &gpui::KeystrokeEvent, _, cx| {
+        let listener = cx.listener(|this, event: &gpui_kit::KeystrokeEvent, _, cx| {
             this.capture(event.keystroke.clone(), cx);
         });
         self.interceptor = Some(cx.intercept_keystrokes(listener));
@@ -163,7 +163,7 @@ impl ShortcutPanel {
                             .child(
                                 div()
                                     .text_sm()
-                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                    .font_weight(gpui_kit::FontWeight::MEDIUM)
                                     .child(spec.label),
                             )
                             .child(
@@ -229,7 +229,7 @@ impl ShortcutPanel {
                 section.child(
                     div()
                         .text_sm()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .child(group),
                 )
             })
@@ -336,7 +336,7 @@ fn current_platform_default(spec: &ShortcutSpec) -> &'static str {
     }
 }
 
-fn shortcut_pill(value: &str, theme: &gpui_component::Theme) -> impl IntoElement {
+fn shortcut_pill(value: &str, theme: &gpui_kit::component::Theme) -> impl IntoElement {
     div()
         .min_w(px(150.0))
         .px(px(10.0))

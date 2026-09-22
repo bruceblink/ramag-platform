@@ -506,7 +506,7 @@ impl KafkaView {
                             .flex_1()
                             .min_w_0()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .child("ACL 详情"),
                     )
                     .child(
@@ -539,7 +539,7 @@ impl KafkaView {
 fn acl_detail_row(
     label: &'static str,
     value: &str,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     h_flex()
         .w_full()

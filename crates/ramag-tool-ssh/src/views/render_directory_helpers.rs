@@ -3,15 +3,15 @@
 use std::cmp::Ordering;
 use std::sync::Arc;
 
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, MouseButton, ParentElement, Pixels, Point,
-    Render, SharedString, Styled, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _, h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
     spinner::Spinner,
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, MouseButton, ParentElement, Pixels, Point,
+    Render, SharedString, Styled, Window, div, prelude::*, px,
 };
 use ramag_domain::entities::{
     RemoteEntry, RemoteEntryKind, RemotePath, SshProfileId, contains_case_insensitive,
@@ -234,7 +234,7 @@ pub(super) fn remote_entry_row(
         .bg(if selected {
             cx.theme().muted
         } else {
-            gpui::transparent_black()
+            gpui_kit::transparent_black()
         })
         .cursor_pointer()
         .hover(|style| style.bg(cx.theme().muted))
@@ -326,7 +326,7 @@ fn remote_entry_actions(kind: RemoteEntryKind, allow_write: bool) -> Vec<RemoteE
 
 fn remote_entry_context_menu(
     mut menu: PopupMenu,
-    entity: gpui::Entity<SshView>,
+    entity: gpui_kit::Entity<SshView>,
     workspace_id: SshProfileId,
     entry: RemoteEntry,
     state: RemoteEntryMenuState,
@@ -460,7 +460,7 @@ pub(super) fn remote_breadcrumbs(path: &str) -> Vec<(SharedString, String)> {
         .unwrap_or_else(|_| vec![(SharedString::from(path.to_string()), path.to_string())])
 }
 
-pub(super) fn centered_message(message: &'static str, cx: &gpui::App) -> impl IntoElement {
+pub(super) fn centered_message(message: &'static str, cx: &gpui_kit::App) -> impl IntoElement {
     v_flex()
         .size_full()
         .items_center()

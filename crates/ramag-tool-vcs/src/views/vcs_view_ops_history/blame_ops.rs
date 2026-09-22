@@ -1,6 +1,6 @@
 //! VcsView blame 相关 ops：行级 inline blame banner / 完整 blame 加载 / 切换 diff↔blame 视图
 
-use gpui::{Context, SharedString};
+use gpui_kit::{Context, SharedString};
 use tracing::error;
 
 use super::super::vcs_view::VcsView;

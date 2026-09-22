@@ -2,14 +2,14 @@
 
 use std::sync::Arc;
 
-use gpui::{
-    ClickEvent, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Window,
-    div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
     input::{Input, InputState},
     v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Window,
+    div, prelude::*, px,
 };
 use ramag_app::RedisService;
 use ramag_domain::entities::{ConnectionConfig, MAX_REDIS_COMMAND_ARG_BYTES};
@@ -173,7 +173,7 @@ impl Render for ZSetElementForm {
                 .child(
                     div()
                         .text_xs()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(muted_fg)
                         .child("成员（不可修改）"),
                 )
@@ -189,7 +189,7 @@ impl Render for ZSetElementForm {
                 .child(
                     div()
                         .text_xs()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(muted_fg)
                         .child("成员"),
                 )
@@ -217,7 +217,7 @@ impl Render for ZSetElementForm {
                     .child(
                         div()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .text_color(muted_fg)
                             .child("Score"),
                     )

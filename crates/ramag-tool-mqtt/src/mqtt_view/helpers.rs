@@ -33,7 +33,7 @@ fn optional_value(field: &Entity<InputState>, cx: &App) -> Option<String> {
     (!value.is_empty()).then_some(value)
 }
 
-fn input_frame<E: IntoElement>(selector: &'static str, input: E) -> gpui::Div {
+fn input_frame<E: IntoElement>(selector: &'static str, input: E) -> gpui_kit::Div {
     div()
         .debug_selector(move || selector.into())
         .w_full()
@@ -229,7 +229,7 @@ fn serialize_acls(acls: &[MosquittoAcl]) -> String {
         .join("\n")
 }
 
-fn field<E: IntoElement>(label: &'static str, input: E) -> gpui::Div {
+fn field<E: IntoElement>(label: &'static str, input: E) -> gpui_kit::Div {
     v_flex()
         .flex_1()
         .min_w(px(180.0))
@@ -237,13 +237,13 @@ fn field<E: IntoElement>(label: &'static str, input: E) -> gpui::Div {
         .child(
             div()
                 .text_xs()
-                .text_color(gpui::hsla(0.0, 0.0, 0.5, 1.0))
+                .text_color(gpui_kit::hsla(0.0, 0.0, 0.5, 1.0))
                 .child(label),
         )
         .child(div().w_full().min_w_0().child(input))
 }
 
-fn row() -> gpui::Div {
+fn row() -> gpui_kit::Div {
     h_flex()
         .w_full()
         .min_w_0()
@@ -255,15 +255,15 @@ fn row() -> gpui::Div {
 fn section_heading(
     title: &'static str,
     subtitle: &'static str,
-    theme: &gpui_component::Theme,
-) -> gpui::Div {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::Div {
     v_flex()
         .w_full()
         .gap(px(2.0))
         .child(
             div()
                 .text_sm()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .child(title),
         )
         .child(
@@ -282,7 +282,7 @@ fn qos_selector<F>(
     disabled: bool,
     cx: &mut Context<MqttView>,
     handler: F,
-) -> gpui::Div
+) -> gpui_kit::Div
 where
     F: Fn(&mut MqttView, MqttQos) + Copy + 'static,
 {
@@ -324,7 +324,7 @@ fn toggle_button<F>(
     disabled: bool,
     cx: &mut Context<MqttView>,
     handler: F,
-) -> gpui_component::button::Button
+) -> gpui_kit::component::button::Button
 where
     F: Fn(&mut MqttView) + 'static,
 {
@@ -349,7 +349,7 @@ where
         }))
 }
 
-fn metric(label: &'static str, value: usize, theme: &gpui_component::Theme) -> gpui::Div {
+fn metric(label: &'static str, value: usize, theme: &gpui_kit::component::Theme) -> gpui_kit::Div {
     v_flex()
         .gap(px(3.0))
         .p(px(10.0))
@@ -366,7 +366,7 @@ fn metric(label: &'static str, value: usize, theme: &gpui_component::Theme) -> g
         .child(
             div()
                 .text_lg()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .child(value.to_string()),
         )
 }
@@ -376,8 +376,8 @@ fn metric(label: &'static str, value: usize, theme: &gpui_component::Theme) -> g
 fn message_badge(
     selector: &'static str,
     label: impl Into<String>,
-    theme: &gpui_component::Theme,
-) -> gpui::Div {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::Div {
     div()
         .debug_selector(move || selector.into())
         .text_xs()

@@ -11,28 +11,28 @@ pub const MAX_DISPLAY_LINE_CHARS: usize = 200;
 pub const DISPLAY_CONTENT_WIDTH_PX: f32 = 1840.0;
 
 /// 按字符边界拆分文本，供等高行虚拟化展示。
-pub fn split_display_lines(text: &str) -> Vec<gpui::SharedString> {
-    let mut lines: Vec<gpui::SharedString> = Vec::new();
+pub fn split_display_lines(text: &str) -> Vec<gpui_kit::SharedString> {
+    let mut lines: Vec<gpui_kit::SharedString> = Vec::new();
     for raw in text.split('\n') {
         let raw = raw.strip_suffix('\r').unwrap_or(raw);
         if raw.is_empty() {
-            lines.push(gpui::SharedString::default());
+            lines.push(gpui_kit::SharedString::default());
             continue;
         }
         let mut start = 0usize;
         let mut count = 0usize;
         for (index, _) in raw.char_indices() {
             if count == MAX_DISPLAY_LINE_CHARS {
-                lines.push(gpui::SharedString::from(raw[start..index].to_string()));
+                lines.push(gpui_kit::SharedString::from(raw[start..index].to_string()));
                 start = index;
                 count = 0;
             }
             count += 1;
         }
-        lines.push(gpui::SharedString::from(raw[start..].to_string()));
+        lines.push(gpui_kit::SharedString::from(raw[start..].to_string()));
     }
     if lines.is_empty() {
-        lines.push(gpui::SharedString::default());
+        lines.push(gpui_kit::SharedString::default());
     }
     lines
 }

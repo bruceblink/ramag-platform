@@ -5,8 +5,8 @@ mod cell_updates;
 mod delete;
 use std::sync::Arc;
 
-use gpui::Context;
-use gpui_component::notification::Notification;
+use gpui_kit::Context;
+use gpui_kit::component::notification::Notification;
 use ramag_app::ConnectionService;
 use ramag_domain::entities::{
     ConnectionConfig, MAX_SQL_QUERY_BYTES, Query, QueryResult, Row, TransactionId, Value,
@@ -128,7 +128,7 @@ impl ResultPanel {
         self.row_identity.clone()
     }
 
-    pub(crate) fn delete_preview(&self, cx: &gpui::App) -> Option<(usize, String)> {
+    pub(crate) fn delete_preview(&self, cx: &gpui_kit::App) -> Option<(usize, String)> {
         let (ri, _) = self.selected_cell?;
         let ResultState::Ok(result) = &self.state else {
             return None;
@@ -151,7 +151,7 @@ impl ResultPanel {
         Some((ri, format!("{col} = {val}{hidden_note}")))
     }
 
-    pub(crate) fn delete_preview_multi(&self, cx: &gpui::App) -> Option<(Vec<usize>, String)> {
+    pub(crate) fn delete_preview_multi(&self, cx: &gpui_kit::App) -> Option<(Vec<usize>, String)> {
         if self.selected_rows.is_empty() {
             return None;
         }

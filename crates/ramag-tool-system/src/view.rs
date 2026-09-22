@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use gpui::{Context, Window};
+use gpui_kit::{Context, Window};
 
 use super::{ProcessSort, RefreshInterval, SystemMonitor};
 use helpers::notice_for_termination;

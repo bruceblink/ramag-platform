@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, ParentElement as _, Styled as _, Window};
-use gpui_component::{WindowExt as _, notification::Notification};
+use gpui_kit::component::{WindowExt as _, notification::Notification};
+use gpui_kit::{AppContext as _, Context, ParentElement as _, Styled as _, Window};
 use ramag_domain::entities::QueryResult;
 
 use crate::views::result_diff::{ResultScopeKey, ResultSnapshot};

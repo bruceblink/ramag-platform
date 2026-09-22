@@ -2,14 +2,14 @@
 
 use std::sync::Arc;
 
-use gpui::{TestAppContext, px, size};
+use gpui_kit::{TestAppContext, px, size};
 use ramag_domain::entities::{CloudProvider, ManualBucket, ObjectStorageAccount};
 
 use super::{add_form_window, add_workspace_window, service};
 
 fn assert_inside(
-    parent: gpui::Bounds<gpui::Pixels>,
-    child: gpui::Bounds<gpui::Pixels>,
+    parent: gpui_kit::Bounds<gpui_kit::Pixels>,
+    child: gpui_kit::Bounds<gpui_kit::Pixels>,
     label: &str,
 ) {
     assert!(
@@ -22,7 +22,7 @@ fn assert_inside(
 }
 
 /// 账号行中的固定徽标和操作组在窄窗口内应换行，而不是推出列表内容区。
-#[gpui::test]
+#[gpui_kit::test]
 fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
     let (view, cx) = add_workspace_window(cx, service());
     cx.run_until_parked();
@@ -80,7 +80,7 @@ fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn account_form_stays_inside_compact_window_and_keeps_actions_visible(cx: &mut TestAppContext) {
     let (_, cx) = add_form_window(cx, service());
 

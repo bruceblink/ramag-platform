@@ -24,12 +24,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-use gpui::WindowKind;
-use gpui::{
+use gpui_kit::WindowKind;
+use gpui_kit::component::Root;
+use gpui_kit::{
     Action, App, Bounds, KeyBinding, Menu, MenuItem, Subscription, TitlebarOptions, WindowBounds,
     WindowOptions, prelude::*, px, size,
 };
-use gpui_component::Root;
 use ramag_app::{
     AUTO_CHECK_INTERVAL, ApiService, ClipboardService, ConnectionService, ContainerService,
     DataSyncGate, DataSyncService, KafkaService, MongoService, MqttService, ObjectStorageService,
@@ -311,7 +311,7 @@ fn main() {
         storage,
     };
 
-    let app = gpui_platform::application().with_assets(RamagAssets);
+    let app = gpui_kit::platform::application().with_assets(RamagAssets);
 
     // 必须在 app.run 前注册；仅在无窗口时重新打开主窗口。
     let deps_for_reopen = deps.clone();
@@ -322,7 +322,7 @@ fn main() {
     });
 
     app.run(move |cx: &mut App| {
-        gpui_component::init(cx);
+        gpui_kit::component::init(cx);
         ramag_tool_ssh::init(cx);
         init_theme(initial_pref.as_deref(), cx);
         if let Err(error) =

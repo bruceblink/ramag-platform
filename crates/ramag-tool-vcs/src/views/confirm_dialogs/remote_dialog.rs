@@ -1,9 +1,9 @@
 //! 首次推送的远程选择。
 
-use gpui::{ClickEvent, Context, ParentElement, Styled, Window, div, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Sizable as _, WindowExt as _, button::ButtonVariants as _, h_flex, v_flex,
 };
+use gpui_kit::{ClickEvent, Context, ParentElement, Styled, Window, div, px};
 
 use super::super::helpers::RemoteOp;
 use super::super::vcs_view::VcsView;

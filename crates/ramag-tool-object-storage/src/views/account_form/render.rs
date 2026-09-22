@@ -1,10 +1,10 @@
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
-    img, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Sizable as _, StyledExt as _, button::ButtonVariants as _,
     h_flex, input::Input, v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
+    img, prelude::*, px,
 };
 use ramag_domain::entities::CloudProvider;
 
@@ -358,7 +358,7 @@ impl Render for AccountFormPanel {
     }
 }
 
-fn section_title(label: &'static str, color: gpui::Hsla) -> impl IntoElement {
+fn section_title(label: &'static str, color: gpui_kit::Hsla) -> impl IntoElement {
     h_flex()
         .items_center()
         .gap(px(8.0))
@@ -388,7 +388,7 @@ fn field(id: &'static str, label: &'static str, input: Input) -> impl IntoElemen
         .child(
             div()
                 .text_xs()
-                .font_weight(gpui::FontWeight::MEDIUM)
+                .font_weight(gpui_kit::FontWeight::MEDIUM)
                 .child(label),
         )
         .child(input)

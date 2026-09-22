@@ -1,12 +1,12 @@
 //! 对象文本内容的独立居中查看窗口。
 
-use gpui::{
+use gpui_kit::component::{
+    IconName, Sizable as _, WindowExt as _, button::ButtonVariants as _, clipboard::Clipboard,
+    h_flex, input::Editor, input::EditorState, v_flex,
+};
+use gpui_kit::{
     ClickEvent, Context, Entity, InteractiveElement as _, ParentElement as _, Styled as _, Window,
     div, px,
-};
-use gpui_component::{
-    IconName, Sizable as _, WindowExt as _, button::ButtonVariants as _, clipboard::Clipboard,
-    h_flex, input::Input, input::InputState, v_flex,
 };
 
 use super::model::ObjectStorageView;
@@ -14,7 +14,7 @@ use super::model::ObjectStorageView;
 pub(super) fn open_object_preview_dialog(
     key: String,
     summary: String,
-    editor: Entity<InputState>,
+    editor: Entity<EditorState>,
     line_count: usize,
     window: &mut Window,
     cx: &mut Context<ObjectStorageView>,
@@ -88,7 +88,7 @@ pub(super) fn open_object_preview_dialog(
                                 .h(px(editor_height))
                                 .overflow_hidden()
                                 .child(
-                                    Input::new(&content_editor)
+                                    Editor::new(&content_editor)
                                         .h_full()
                                         .opacity(1.0)
                                         .disabled(true),

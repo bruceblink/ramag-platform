@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use gpui::Context;
-use gpui_component::notification::Notification;
+use gpui_kit::Context;
+use gpui_kit::component::notification::Notification;
 use ramag_domain::entities::{DriverKind, MAX_SQL_QUERY_BYTES, Query, QueryResult, Row, Value};
 use tracing::error;
 

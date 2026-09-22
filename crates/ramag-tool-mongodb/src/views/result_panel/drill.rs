@@ -4,11 +4,11 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-use gpui::{
+use gpui_kit::component::{ActiveTheme, h_flex};
+use gpui_kit::{
     App, Context, FontWeight, InteractiveElement as _, IntoElement, ParentElement, Point,
     SharedString, Styled, Window, div, prelude::*, px,
 };
-use gpui_component::{ActiveTheme, h_flex};
 use ramag_domain::entities::{MAX_MONGO_FIELD_PATH_BYTES, validate_mongo_field_path};
 use serde_json::Value;
 
@@ -87,7 +87,8 @@ impl ResultPanel {
             Ok(None) => return,
             Err(message) => {
                 self.pending_notification = Some(
-                    gpui_component::notification::Notification::warning(message).autohide(true),
+                    gpui_kit::component::notification::Notification::warning(message)
+                        .autohide(true),
                 );
                 cx.notify();
                 return;

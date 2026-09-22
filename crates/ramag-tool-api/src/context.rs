@@ -14,10 +14,11 @@ use format_helpers::{
 
 /// 从可见环境输入和运行时敏感值构造执行环境；敏感值不会回填到编辑器。
 pub(crate) fn environment_from_view(view: &ApiView, cx: &App) -> Result<ApiEnvironment> {
-    let mut environment = parse_environment_values(&input_value(&view.environment_variables, cx))?;
+    let mut environment =
+        parse_environment_values(&textarea_value(&view.environment_variables, cx))?;
     apply_sensitive_references(
         &mut environment,
-        &input_value(&view.environment_sensitive, cx),
+        &textarea_value(&view.environment_sensitive, cx),
         Some(&view.runtime_environment),
     )?;
     Ok(environment)
@@ -94,7 +95,7 @@ fn apply_sensitive_references(
 }
 
 pub(crate) fn assertions_from_view(view: &ApiView, cx: &App) -> Result<Vec<ApiAssertion>> {
-    parse_assertions(&input_value(&view.assertions, cx), view.protocol)
+    parse_assertions(&textarea_value(&view.assertions, cx), view.protocol)
 }
 
 /// 解析共享 TLS 编辑器；mTLS 必须同时保留服务端证书校验和客户端身份材料。
@@ -134,7 +135,7 @@ pub(crate) fn response_variables_from_view(
     view: &ApiView,
     cx: &App,
 ) -> Result<Vec<ApiVariableExtraction>> {
-    parse_response_variables(&input_value(&view.response_variables, cx), view.protocol)
+    parse_response_variables(&textarea_value(&view.response_variables, cx), view.protocol)
 }
 
 pub(crate) fn apply_extracted_variables_to_view(
@@ -151,7 +152,7 @@ pub(crate) fn apply_extracted_variables_to_view(
         .apply_extracted_variables(extracted)
         .map_err(DomainError::InvalidConfig)?;
     view.runtime_environment = environment.clone();
-    set_input(
+    set_textarea(
         &view.environment_variables,
         environment
             .variables
@@ -168,7 +169,7 @@ pub(crate) fn apply_extracted_variables_to_view(
         window,
         cx,
     );
-    set_input(
+    set_textarea(
         &view.environment_sensitive,
         environment.sensitive_variable_refs.join("\n"),
         window,
@@ -381,7 +382,7 @@ pub(crate) fn apply_imported_workspace(
             .find(|environment| &environment.id == id)
     }) {
         view.runtime_environment = environment.clone();
-        set_input(
+        set_textarea(
             &view.environment_variables,
             environment
                 .variables
@@ -398,7 +399,7 @@ pub(crate) fn apply_imported_workspace(
             window,
             cx,
         );
-        set_input(
+        set_textarea(
             &view.environment_sensitive,
             environment.sensitive_variable_refs.join("\n"),
             window,
@@ -425,13 +426,13 @@ pub(crate) fn apply_request_to_view(
 ) {
     view.active_request_id = Some(request.id.clone());
     set_input(&view.request_name, request.name.clone(), window, cx);
-    set_input(
+    set_textarea(
         &view.assertions,
         format_assertions(&request.assertions),
         window,
         cx,
     );
-    set_input(
+    set_textarea(
         &view.response_variables,
         format_response_variables(&request.response_variables),
         window,
@@ -465,19 +466,19 @@ pub(crate) fn apply_request_to_view(
             };
             set_input(&view.http_method, spec.method.clone(), window, cx);
             set_input(&view.http_url, spec.url_template.clone(), window, cx);
-            set_input(
+            set_textarea(
                 &view.http_query,
                 format_query_parameters(&spec.query),
                 window,
                 cx,
             );
-            set_input(
+            set_textarea(
                 &view.http_headers,
                 format_parameters(&spec.headers),
                 window,
                 cx,
             );
-            set_input(
+            set_editor(
                 &view.http_body,
                 spec.body
                     .as_ref()
@@ -506,7 +507,7 @@ pub(crate) fn apply_request_to_view(
             );
             set_input(&view.grpc_service, spec.service.clone(), window, cx);
             set_input(&view.grpc_method, spec.method.clone(), window, cx);
-            set_input(&view.grpc_message, spec.message.clone(), window, cx);
+            set_editor(&view.grpc_message, spec.message.clone(), window, cx);
             if let Some(metadata) = spec.metadata.first() {
                 set_input(&view.grpc_metadata_name, metadata.name.clone(), window, cx);
                 set_input(
@@ -524,6 +525,24 @@ pub(crate) fn apply_request_to_view(
 fn optional_input_value(field: &Entity<InputState>, cx: &App) -> Option<String> {
     let value = input_value(field, cx);
     (!value.trim().is_empty()).then(|| value.trim().to_string())
+}
+
+fn set_textarea(
+    field: &Entity<gpui_kit::component::input::TextareaState>,
+    value: String,
+    window: &mut Window,
+    cx: &mut Context<ApiView>,
+) {
+    field.update(cx, |input, cx| input.set_value(value, window, cx));
+}
+
+fn set_editor(
+    field: &Entity<gpui_kit::component::input::EditorState>,
+    value: String,
+    window: &mut Window,
+    cx: &mut Context<ApiView>,
+) {
+    field.update(cx, |input, cx| input.set_value(value, window, cx));
 }
 
 fn set_tls_inputs(

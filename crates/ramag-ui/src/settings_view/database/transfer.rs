@@ -4,8 +4,8 @@ use std::collections::HashSet;
 use std::io::Read as _;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use gpui::{Context, Window};
-use gpui_component::notification::Notification;
+use gpui_kit::component::notification::Notification;
+use gpui_kit::{Context, Window};
 use ramag_app::connection_transfer::{
     MAX_IMPORT_FILE_BYTES, MAX_TRANSFER_PASSPHRASE_BYTES, PreparedConnectionImport,
     decrypt_connection_import, encrypt_connection_export, prepare_connection_import,

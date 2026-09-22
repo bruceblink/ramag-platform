@@ -48,11 +48,11 @@ pub(super) fn partition_health_status(partition: &KafkaPartitionMetrics) -> Part
 /// 展示有界的 Partition 健康明细，避免大集群快照一次性膨胀 UI 布局。
 pub(super) fn render_partition_health(
     snapshot: &KafkaMetricsSnapshot,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
     compact: bool,
     scroll: &UniformListScrollHandle,
     cx: &mut Context<KafkaView>,
-) -> gpui::AnyElement {
+) -> gpui_kit::AnyElement {
     let partitions = snapshot
         .topics
         .iter()
@@ -118,7 +118,7 @@ pub(super) fn render_partition_health(
                     .child(
                         Scrollbar::vertical(scroll)
                             .id("kafka-metrics-partition-health-v-scrollbar-control")
-                            .scrollbar_show(ScrollbarShow::Always),
+                            .mode(ScrollbarMode::Always),
                     ),
             )
             .into_any_element()
@@ -153,9 +153,9 @@ fn partition_health_row(
     partition: KafkaPartitionMetrics,
     row_index: usize,
     compact: bool,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
     cx: &mut Context<KafkaView>,
-) -> gpui::AnyElement {
+) -> gpui_kit::AnyElement {
     let status = partition_health_status(&partition);
     let status_color = match status {
         PartitionHealthStatus::Healthy => theme.success,

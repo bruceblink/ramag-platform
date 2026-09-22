@@ -1,13 +1,13 @@
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Pixels, Styled, div, prelude::*,
-    px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     Disableable as _, IconName, Sizable as _, Theme,
     button::ButtonVariants as _,
     h_flex,
-    scroll::{Scrollbar, ScrollbarShow},
+    scroll::{Scrollbar, ScrollbarMode},
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Pixels, Styled, div, prelude::*,
+    px,
 };
 
 use super::super::super::schema_migration::{MigrationScript, MigrationStage};
@@ -53,7 +53,7 @@ fn render_migration_scrollable(
                 .child(
                     Scrollbar::vertical(&dialog.migration_vertical_scroll)
                         .id("schema-migration-vertical-scrollbar")
-                        .scrollbar_show(ScrollbarShow::Always),
+                        .mode(ScrollbarMode::Always),
                 ),
         )
         .child(
@@ -67,7 +67,7 @@ fn render_migration_scrollable(
                 .child(
                     Scrollbar::horizontal(&dialog.migration_horizontal_scroll)
                         .id("schema-migration-horizontal-scrollbar")
-                        .scrollbar_show(ScrollbarShow::Always),
+                        .mode(ScrollbarMode::Always),
                 ),
         )
         .into_any_element()
@@ -85,7 +85,7 @@ fn render_migration_stages(stages: &[MigrationStage], theme: &Theme) -> AnyEleme
         .child(
             div()
                 .text_xs()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .child("迁移执行顺序"),
         );
     for (index, stage) in stages.iter().enumerate() {
@@ -169,7 +169,7 @@ impl SchemaDiffDialog {
                     .text_xs()
                     .child(
                         div()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .text_color(if has_statements {
                                 theme.warning
                             } else {

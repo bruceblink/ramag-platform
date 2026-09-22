@@ -2,8 +2,8 @@ mod commit_row;
 
 pub(super) use commit_row::render_commit_row;
 
-use gpui::{AnyElement, ClickEvent, Context, IntoElement, SharedString, Window};
-use gpui_component::{Disableable as _, IconName, Sizable as _, button::ButtonVariants as _};
+use gpui_kit::component::{Disableable as _, IconName, Sizable as _, button::ButtonVariants as _};
+use gpui_kit::{AnyElement, ClickEvent, Context, IntoElement, SharedString, Window};
 use ramag_domain::entities::{Branch, FileChangeKind, FileDiff, Remote};
 
 use super::vcs_view::VcsView;
@@ -149,7 +149,7 @@ pub(super) struct FileContentSnapshot {
 pub(super) struct PendingFileEditorLoad {
     pub path: String,
     pub text: std::rc::Rc<String>,
-    pub language: gpui::SharedString,
+    pub language: gpui_kit::SharedString,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -345,7 +345,7 @@ pub(super) fn file_op_button(
 pub(super) fn side_op_button(
     id: impl Into<SharedString>,
     tooltip: &'static str,
-    icon: impl Into<gpui_component::Icon>,
+    icon: impl Into<gpui_kit::component::Icon>,
     busy: bool,
     on_click: impl Fn(&mut VcsView, &mut Window, &mut Context<VcsView>) + 'static,
     cx: &mut Context<VcsView>,
@@ -376,15 +376,15 @@ pub(super) fn code_to_letter(kind: Option<FileChangeKind>) -> &'static str {
     }
 }
 
-pub(super) fn code_letter_color(code: &str, fallback: gpui::Hsla) -> gpui::Hsla {
+pub(super) fn code_letter_color(code: &str, fallback: gpui_kit::Hsla) -> gpui_kit::Hsla {
     match code {
-        "M" => gpui::hsla(40.0 / 360.0, 0.7, 0.55, 1.0),
-        "A" => gpui::hsla(140.0 / 360.0, 0.55, 0.45, 1.0),
-        "D" => gpui::hsla(0.0, 0.65, 0.55, 1.0),
-        "R" => gpui::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
-        "C" => gpui::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
-        "T" => gpui::hsla(280.0 / 360.0, 0.55, 0.55, 1.0),
-        "U" => gpui::hsla(0.0, 0.75, 0.5, 1.0),
+        "M" => gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0),
+        "A" => gpui_kit::hsla(140.0 / 360.0, 0.55, 0.45, 1.0),
+        "D" => gpui_kit::hsla(0.0, 0.65, 0.55, 1.0),
+        "R" => gpui_kit::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
+        "C" => gpui_kit::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
+        "T" => gpui_kit::hsla(280.0 / 360.0, 0.55, 0.55, 1.0),
+        "U" => gpui_kit::hsla(0.0, 0.75, 0.5, 1.0),
         _ => fallback,
     }
 }

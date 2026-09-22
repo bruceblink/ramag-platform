@@ -3,12 +3,12 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, ScrollHandle, UniformListScrollHandle, Window};
-use gpui_component::{
-    input::{InputEvent, InputState, TabSize},
+use gpui_kit::component::{
+    input::{EditorState, InputEvent, InputState, TabSize, TextareaState},
     notification::Notification,
     resizable::ResizableState,
 };
+use gpui_kit::{AppContext as _, Context, ScrollHandle, UniformListScrollHandle, Window};
 use ramag_domain::entities::{
     MAX_COMMIT_MESSAGE_BYTES, MAX_GIT_NAME_ARG_BYTES, MAX_GIT_POSITIONAL_ARG_BYTES,
     MAX_GIT_TAG_MESSAGE_BYTES,
@@ -34,8 +34,7 @@ impl VcsView {
         cx: &mut Context<Self>,
     ) -> Self {
         let commit_input = cx.new(|cx_inner| {
-            bounded_input(MAX_COMMIT_MESSAGE_BYTES, window, cx_inner)
-                .multi_line(true)
+            TextareaState::new(window, cx_inner)
                 .rows(3)
                 .placeholder("commit message（首行 subject，空行后写 body）")
         });
@@ -75,8 +74,8 @@ impl VcsView {
             ramag_ui::bounded_search_input(window, cx_inner).placeholder("搜索文件路径")
         });
         let pf_editor = cx.new(|cx_inner| {
-            InputState::new(window, cx_inner)
-                .code_editor("text")
+            EditorState::new(window, cx_inner)
+                .language("text")
                 .line_number(true)
                 .soft_wrap(false)
                 .tab_size(TabSize {
@@ -94,7 +93,7 @@ impl VcsView {
             window,
             move |this: &mut Self, _, event: &InputEvent, window, cx| {
                 if matches!(event, InputEvent::Change) {
-                    if ramag_ui::clamp_multiline_input_value(
+                    if ramag_ui::clamp_textarea_input_value(
                         &commit_input_for_sub,
                         MAX_COMMIT_MESSAGE_BYTES,
                         window,
@@ -166,7 +165,7 @@ impl VcsView {
                 {
                     return;
                 }
-                if ramag_ui::clamp_multiline_input_value(
+                if ramag_ui::clamp_editor_input_value(
                     &pf_editor_for_sub,
                     super::super::vcs_view_ops_repo::PF_FILE_MAX_BYTES as usize,
                     window,

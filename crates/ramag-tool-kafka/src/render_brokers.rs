@@ -215,7 +215,7 @@ impl KafkaView {
 fn broker_health_value(
     label: &'static str,
     value: String,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     v_flex()
         .flex_1()

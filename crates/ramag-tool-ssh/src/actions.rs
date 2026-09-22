@@ -1,6 +1,6 @@
 //! SSH 工作区快捷键 Action。
 
-use gpui::Action;
+use gpui_kit::Action;
 use schemars::JsonSchema;
 use serde::Deserialize;
 

@@ -1,7 +1,7 @@
 use super::*;
 
 impl TableDesigner {
-    pub(super) fn change_sql(&self, cx: &gpui::App) -> Result<String, String> {
+    pub(super) fn change_sql(&self, cx: &gpui_kit::App) -> Result<String, String> {
         let qualified = format!(
             "{}.{}",
             self.driver.quote_identifier(&self.schema),
@@ -73,7 +73,7 @@ impl TableDesigner {
         }
     }
 
-    pub(super) fn rename_sql(&self, cx: &gpui::App) -> Result<String, String> {
+    pub(super) fn rename_sql(&self, cx: &gpui_kit::App) -> Result<String, String> {
         let table = self.table_name.read(cx).value().trim().to_string();
         validate_identifier("表名", &table)?;
         if self.original_table == table {

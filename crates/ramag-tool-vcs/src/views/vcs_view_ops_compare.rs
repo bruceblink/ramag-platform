@@ -1,6 +1,6 @@
 //! 分支比较文件的标签管理与只读 Diff 加载。
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::{CommitId, DiffKind};
 use tracing::error;
 
@@ -39,9 +39,9 @@ impl VcsView {
             self.reset_blame_context();
             self.expanded_diff_spacers.clear();
             self.diff_h_scroll
-                .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+                .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
             self.diff_scroll
-                .scroll_to_item(0, gpui::ScrollStrategy::Top);
+                .scroll_to_item(0, gpui_kit::ScrollStrategy::Top);
             self.diff_scroll_gesture.reset();
         }
         if self.viewing_commit.is_some() {

@@ -1,9 +1,9 @@
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
-    h_flex, input::Input, v_flex,
+    h_flex, input::Textarea, v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, div, prelude::*, px,
 };
 use ramag_domain::entities::MAX_COMMIT_MESSAGE_BYTES;
 use ramag_ui::PointerDropdownMenu as _;
@@ -68,26 +68,29 @@ impl VcsView {
             .small()
             .icon(IconName::ChevronDown)
             .tooltip("提交选项")
-            .pointer_dropdown_menu_with_anchor(gpui::Anchor::BottomRight, move |mut m, _, _| {
-                let ent = entity.clone();
-                let label = if amend_on { "✓ 修订" } else { "修订" };
-                m = m.item(
-                    ramag_ui::menu_item_with_disabled(label, !has_head).on_click(
-                        move |_, _, app| {
-                            ent.update(app, |this, cx| this.toggle_commit_amend(cx));
-                        },
-                    ),
-                );
-                let ent = entity.clone();
-                let sign_label = if sign_on { "✓ 签名" } else { "签名" };
-                m = m.item(ramag_ui::menu_item(sign_label).on_click(move |_, _, app| {
-                    ent.update(app, |this, cx| {
-                        this.commit_sign = !this.commit_sign;
-                        cx.notify();
-                    });
-                }));
-                m
-            });
+            .pointer_dropdown_menu_with_anchor(
+                gpui_kit::Anchor::BottomRight,
+                move |mut m, _, _| {
+                    let ent = entity.clone();
+                    let label = if amend_on { "✓ 修订" } else { "修订" };
+                    m = m.item(
+                        ramag_ui::menu_item_with_disabled(label, !has_head).on_click(
+                            move |_, _, app| {
+                                ent.update(app, |this, cx| this.toggle_commit_amend(cx));
+                            },
+                        ),
+                    );
+                    let ent = entity.clone();
+                    let sign_label = if sign_on { "✓ 签名" } else { "签名" };
+                    m = m.item(ramag_ui::menu_item(sign_label).on_click(move |_, _, app| {
+                        ent.update(app, |this, cx| {
+                            this.commit_sign = !this.commit_sign;
+                            cx.notify();
+                        });
+                    }));
+                    m
+                },
+            );
 
         v_flex()
             .flex_none()
@@ -108,7 +111,7 @@ impl VcsView {
                     .child(
                         div()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .text_color(accent)
                             .child("提交"),
                     )
@@ -131,7 +134,7 @@ impl VcsView {
                     ),
             )
             .child(
-                Input::new(&self.commit_input)
+                Textarea::new(&self.commit_input)
                     .h(px(72.0))
                     .into_any_element(),
             )

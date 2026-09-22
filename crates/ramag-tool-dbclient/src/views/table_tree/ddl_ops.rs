@@ -2,8 +2,8 @@
 
 use std::time::Instant;
 
-use gpui::Context;
-use gpui_component::notification::Notification;
+use gpui_kit::Context;
+use gpui_kit::component::notification::Notification;
 use ramag_domain::entities::{DriverKind, Query};
 
 use super::{

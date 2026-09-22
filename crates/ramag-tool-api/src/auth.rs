@@ -1,7 +1,7 @@
 //! API HTTP/gRPC 认证编辑器；认证密钥只在工作区执行副本和加密存储中流转。
 
 use super::*;
-use gpui::ClickEvent;
+use gpui_kit::ClickEvent;
 use ramag_domain::entities::{ApiAuth, ApiKeyLocation, ApiOAuth2Config};
 use ramag_ui::PointerDropdownMenu as _;
 
@@ -168,8 +168,8 @@ impl ApiAuthEditor {
     pub(crate) fn render(
         &self,
         cx: &mut Context<ApiView>,
-        theme: &gpui_component::Theme,
-    ) -> gpui::AnyElement {
+        theme: &gpui_kit::component::Theme,
+    ) -> gpui_kit::AnyElement {
         let current = self.kind;
         let view = cx.entity();
         let selector = ramag_ui::clickable_button("api-auth-kind")

@@ -8,8 +8,8 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 #[cfg(unix)]
-use gpui::Focusable as _;
-use gpui::{
+use gpui_kit::Focusable as _;
+use gpui_kit::{
     AppContext as _, Entity, Modifiers, MouseButton, TestAppContext, VisualTestContext, point, px,
     size,
 };

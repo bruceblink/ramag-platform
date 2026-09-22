@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use gpui::{Context, IntoElement, Render, TestAppContext, Window, px, size};
+use gpui_kit::{Context, IntoElement, Render, TestAppContext, Window, px, size};
 use ramag_domain::entities::{KafkaClusterConfig, KafkaKsqlDbQuery, KafkaKsqlDbQueryResult};
 use ramag_domain::error::Result;
 use ramag_domain::traits::KafkaKsqlDbDriver;
@@ -9,13 +9,13 @@ use ramag_domain::traits::KafkaKsqlDbDriver;
 use super::*;
 
 struct KafkaKsqlDbTestHost {
-    view: gpui::Entity<KafkaView>,
+    view: gpui_kit::Entity<KafkaView>,
 }
 
 impl Render for KafkaKsqlDbTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        gpui::div()
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
@@ -50,9 +50,9 @@ impl KafkaKsqlDbDriver for VisualKsqlDbDriver {
 
 /// Exercises the read-only query lifecycle, bounded result scrolling, and the
 /// compact layout without contacting a live ksqlDB service.
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_ksqldb_query_is_read_only_bounded_and_responsive(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut cluster = KafkaClusterConfig::new("ksqlDB UI Kafka", vec!["127.0.0.1:19092".into()]);
     cluster.ksqldb.endpoint = Some("http://127.0.0.1:18088".into());
     let calls = Arc::new(Mutex::new(Vec::new()));
@@ -72,7 +72,7 @@ fn kafka_ksqldb_query_is_read_only_bounded_and_responsive(cx: &mut TestAppContex
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaKsqlDbTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;
@@ -162,7 +162,7 @@ fn kafka_ksqldb_query_is_read_only_bounded_and_responsive(cx: &mut TestAppContex
     kafka_entity.update(visual_cx, |view, cx| {
         view.ksqldb
             .scroll
-            .set_offset(gpui::point(px(0.0), -max_result_offset.y));
+            .set_offset(gpui_kit::point(px(0.0), -max_result_offset.y));
         cx.notify();
     });
     visual_cx.run_until_parked();

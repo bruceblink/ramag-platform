@@ -4,9 +4,9 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::Result;
-use gpui::{Context, Task, Window};
-use gpui_component::RopeExt;
-use gpui_component::input::{CompletionProvider, InputState};
+use gpui_kit::component::RopeExt;
+use gpui_kit::component::input::CompletionProvider;
+use gpui_kit::{App, Task, Window};
 use lsp_types::{
     CompletionContext, CompletionItem, CompletionItemKind, CompletionResponse, CompletionTextEdit,
     Documentation, InsertReplaceEdit, MarkupContent, MarkupKind,
@@ -227,7 +227,7 @@ impl CompletionProvider for CommandCompletionProvider {
         offset: usize,
         _trigger: CompletionContext,
         _window: &mut Window,
-        _cx: &mut Context<InputState>,
+        _cx: &mut App,
     ) -> Task<Result<CompletionResponse>> {
         let Some((start, real_offset, prefix)) = command_completion_prefix(rope, offset) else {
             return Task::ready(Ok(CompletionResponse::Array(vec![])));
@@ -267,12 +267,7 @@ impl CompletionProvider for CommandCompletionProvider {
         Task::ready(Ok(CompletionResponse::Array(items)))
     }
 
-    fn is_completion_trigger(
-        &self,
-        _offset: usize,
-        new_text: &str,
-        _cx: &mut Context<InputState>,
-    ) -> bool {
+    fn is_completion_trigger(&self, _offset: usize, new_text: &str, _cx: &mut App) -> bool {
         new_text
             .chars()
             .all(|c| c.is_alphanumeric() || c == '_' || c == '$')
@@ -327,7 +322,7 @@ impl CompletionProvider for ColumnFilterCompletionProvider {
         offset: usize,
         _trigger: CompletionContext,
         _window: &mut Window,
-        _cx: &mut Context<InputState>,
+        _cx: &mut App,
     ) -> Task<Result<CompletionResponse>> {
         let text = rope.to_string();
         let bytes = text.as_bytes();
@@ -455,12 +450,7 @@ impl CompletionProvider for ColumnFilterCompletionProvider {
         Task::ready(Ok(CompletionResponse::Array(items)))
     }
 
-    fn is_completion_trigger(
-        &self,
-        _offset: usize,
-        new_text: &str,
-        _cx: &mut Context<InputState>,
-    ) -> bool {
+    fn is_completion_trigger(&self, _offset: usize, new_text: &str, _cx: &mut App) -> bool {
         new_text
             .chars()
             .all(|c| c.is_alphanumeric() || c == '_' || c == '.')

@@ -5,13 +5,13 @@ mod result;
 use std::sync::Arc;
 use std::time::Duration;
 
-use gpui::{
-    ClickEvent, Context, FocusHandle, IntoElement, KeyDownEvent, ParentElement, Render, Styled,
-    Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
     spinner::Spinner, v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, FocusHandle, IntoElement, KeyDownEvent, ParentElement, Render, Styled,
+    Window, div, prelude::*, px,
 };
 use ramag_app::{DataSyncGate, DataSyncGatePhase, DataSyncGateSnapshot};
 use ramag_domain::entities::{DataSyncStage, DataSyncTaskId, format_bytes};
@@ -132,7 +132,7 @@ impl DataSyncOverlay {
         let objects_total = progress.objects_total;
         let task_for_cancel = snapshot.task_id.clone();
         let task_for_ack = snapshot.task_id.clone();
-        let mut shade = gpui::black();
+        let mut shade = gpui_kit::black();
         shade.a = 0.58;
         let mut danger_bg = danger;
         danger_bg.a = 0.10;
@@ -152,7 +152,9 @@ impl DataSyncOverlay {
             .on_key_down(
                 cx.listener(|_this, _event: &KeyDownEvent, _window, cx| cx.stop_propagation()),
             )
-            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
+                cx.stop_propagation()
+            })
             .child(
                 v_flex()
                     .id("data-sync-card")
@@ -178,7 +180,7 @@ impl DataSyncOverlay {
                             .child(
                                 div()
                                     .text_lg()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .child(title),
                             ),
                     )

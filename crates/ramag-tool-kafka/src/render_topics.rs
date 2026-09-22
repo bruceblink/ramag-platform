@@ -78,7 +78,7 @@ impl KafkaView {
                         .child(
                             Scrollbar::vertical(&self.topic_scroll)
                                 .id("kafka-topic-v-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 );
             div()
@@ -151,7 +151,7 @@ impl KafkaView {
                         .child(
                             Scrollbar::vertical(&self.topic_scroll)
                                 .id("kafka-topic-v-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 );
             div()
@@ -241,7 +241,7 @@ impl KafkaView {
                             .child(
                                 div()
                                     .text_sm()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .truncate()
                                     .child("Topics"),
                             )
@@ -309,7 +309,7 @@ impl KafkaView {
                                     .child(
                                         div()
                                             .text_sm()
-                                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                             .child("Topic 管理"),
                                     )
                                     .child(
@@ -434,7 +434,7 @@ impl KafkaView {
             .0
             .borrow()
             .base_handle
-            .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+            .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
     }
 
     /// Switch the already loaded Topic snapshot to a bounded page.
@@ -447,7 +447,7 @@ impl KafkaView {
             .0
             .borrow()
             .base_handle
-            .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+            .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
         cx.notify();
     }
 

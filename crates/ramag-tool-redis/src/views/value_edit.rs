@@ -2,22 +2,20 @@
 
 use std::sync::Arc;
 
-use gpui::{
-    ClickEvent, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Window,
-    div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
-    input::{Input, InputState},
+    input::{Textarea, TextareaState},
     v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Window,
+    div, prelude::*, px,
 };
 use ramag_app::RedisService;
 use ramag_domain::entities::{ConnectionConfig, MAX_REDIS_COMMAND_ARG_BYTES};
 use tracing::{error, info};
-
-use crate::views::bounded_input;
 
 #[derive(Debug, Clone)]
 pub enum ValueEditEvent {
@@ -38,7 +36,7 @@ pub struct ValueEditForm {
     config: ConnectionConfig,
     db: u8,
     key: String,
-    value_input: Entity<InputState>,
+    value_input: Entity<TextareaState>,
     state: SubmitState,
 }
 
@@ -58,12 +56,8 @@ impl ValueEditForm {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let value_input = cx.new(|cx| {
-            bounded_input(MAX_REDIS_COMMAND_ARG_BYTES, window, cx)
-                .multi_line(true)
-                .default_value(initial_value)
-        });
-        ramag_ui::enforce_multiline_input_byte_limit(
+        let value_input = cx.new(|cx| TextareaState::new(window, cx).default_value(initial_value));
+        ramag_ui::enforce_textarea_input_byte_limit(
             &value_input,
             MAX_REDIS_COMMAND_ARG_BYTES,
             window,
@@ -164,13 +158,13 @@ impl Render for ValueEditForm {
                     .child(
                         div()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .text_color(muted_fg)
                             .child("新值"),
                     )
                     .child(
                         div().w_full().child(
-                            Input::new(&self.value_input)
+                            Textarea::new(&self.value_input)
                                 .h(px(220.0))
                                 .disabled(submitting),
                         ),
@@ -187,7 +181,7 @@ impl Render for ValueEditForm {
                             .flex_1()
                             .min_w_0()
                             .text_xs()
-                            .text_color(gpui::red())
+                            .text_color(gpui_kit::red())
                             .child(err.unwrap_or_default()),
                     )
                     .child(

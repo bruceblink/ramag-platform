@@ -1,11 +1,11 @@
 use super::*;
 struct KafkaDialogTestHost {
-    view: gpui::Entity<KafkaView>,
+    view: gpui_kit::Entity<KafkaView>,
 }
 impl Render for KafkaDialogTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        gpui::div()
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
@@ -13,9 +13,9 @@ impl Render for KafkaDialogTestHost {
     }
 }
 const VISUAL_MESSAGE_COUNT: usize = 5_000;
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("Docker Kafka", vec!["127.0.0.1:19092".into()]);
     let service = Arc::new(
         KafkaService::new(
@@ -31,7 +31,7 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaDialogTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     assert!(kafka_entity.is_some(), "Kafka 视图实体应创建");
     let Some(kafka_entity) = kafka_entity else {
@@ -321,10 +321,10 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
     let Some(config_viewport) = config_viewport else {
         return;
     };
-    visual_cx.simulate_event(gpui::ScrollWheelEvent {
+    visual_cx.simulate_event(gpui_kit::ScrollWheelEvent {
         position: config_viewport.center(),
-        delta: gpui::ScrollDelta::Pixels(point(px(0.0), px(-10000.0))),
-        touch_phase: gpui::TouchPhase::Moved,
+        delta: gpui_kit::ScrollDelta::Pixels(point(px(0.0), px(-10000.0))),
+        touch_phase: gpui_kit::TouchPhase::Moved,
         ..Default::default()
     });
     visual_cx.run_until_parked();

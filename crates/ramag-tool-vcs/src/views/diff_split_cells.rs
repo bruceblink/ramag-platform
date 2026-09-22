@@ -1,10 +1,10 @@
 //! Split diff 单元格：gutter（钉死，含 marker/lineno）+ content（横滚，仅代码 / hunk 头 / spacer）
 
-use gpui::{
+use gpui_kit::component::h_flex;
+use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement,
     SharedString, Styled, div, prelude::*, px,
 };
-use gpui_component::h_flex;
 use ramag_domain::entities::{DiffLine, DiffLineKind};
 
 use super::diff_panel::{
@@ -19,7 +19,7 @@ pub(super) fn render_gutter_cell(
     line: Option<(usize, &DiffLine)>,
     hunk_idx: usize,
     is_left: bool,
-    muted_fg: gpui::Hsla,
+    muted_fg: gpui_kit::Hsla,
     mono: SharedString,
     allow_blame: bool,
     cx: &mut Context<VcsView>,
@@ -28,7 +28,7 @@ pub(super) fn render_gutter_cell(
         // 空行（对侧专属）：淡灰背景标识「此处无对应行」，避免被误读成渲染缺失
         let mut empty = h_flex()
             .h(px(DIFF_ROW_H))
-            .bg(gpui::hsla(0.0, 0.0, 0.5, 0.05));
+            .bg(gpui_kit::hsla(0.0, 0.0, 0.5, 0.05));
         let marker_slot = div().flex_none().w(px(SPLIT_MARKER_W));
         if is_left {
             empty = empty
@@ -86,7 +86,7 @@ pub(super) fn render_content_cell(
     line: Option<(usize, &DiffLine)>,
     hunk_idx: usize,
     code_line: Option<super::syntax::CodeLine>,
-    fg: gpui::Hsla,
+    fg: gpui_kit::Hsla,
     mono: SharedString,
     content_w: f32,
     cx: &mut Context<VcsView>,
@@ -95,7 +95,7 @@ pub(super) fn render_content_cell(
         return h_flex()
             .h(px(DIFF_ROW_H))
             .min_w(px(content_w))
-            .bg(gpui::hsla(0.0, 0.0, 0.5, 0.05))
+            .bg(gpui_kit::hsla(0.0, 0.0, 0.5, 0.05))
             .into_any_element();
     };
     let (bg, _, _) = line_palette(line.kind);
@@ -110,7 +110,7 @@ pub(super) fn render_content_cell(
         .flex_1()
         .min_w(px(content_w))
         .px(px(4.0))
-        .on_click(cx.listener(move |_, event: &gpui::ClickEvent, _, cx| {
+        .on_click(cx.listener(move |_, event: &gpui_kit::ClickEvent, _, cx| {
             if ramag_ui::is_primary_modifier_double_click(event) {
                 ramag_ui::copy_text(line_for_copy.clone(), cx);
             }
@@ -129,7 +129,7 @@ pub(super) fn render_content_cell(
 }
 
 /// gutter hunk header：仅 muted_bg 占位行（回滚按钮已移至中间列）
-pub(super) fn render_gutter_header(muted_bg: gpui::Hsla) -> AnyElement {
+pub(super) fn render_gutter_header(muted_bg: gpui_kit::Hsla) -> AnyElement {
     h_flex()
         .w_full()
         .h(px(DIFF_ROW_H))
@@ -142,8 +142,8 @@ pub(super) fn render_gutter_header(muted_bg: gpui::Hsla) -> AnyElement {
 pub(super) fn render_content_header(
     hunk: &ramag_domain::entities::Hunk,
     mono: SharedString,
-    muted_fg: gpui::Hsla,
-    muted_bg: gpui::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    muted_bg: gpui_kit::Hsla,
 ) -> AnyElement {
     let header_text = format!(
         "@@ -{},{} +{},{} @@{}",
@@ -163,7 +163,7 @@ pub(super) fn render_content_header(
         .bg(muted_bg)
         .px(px(8.0))
         .text_xs()
-        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
         .text_color(muted_fg)
         .font_family(mono)
         .whitespace_nowrap()
@@ -173,7 +173,7 @@ pub(super) fn render_content_header(
 }
 
 /// gutter spacer：仅背景色（点击交互在 content 列承担）
-pub(super) fn render_gutter_spacer(_side: &'static str, muted_bg: gpui::Hsla) -> AnyElement {
+pub(super) fn render_gutter_spacer(_side: &'static str, muted_bg: gpui_kit::Hsla) -> AnyElement {
     div()
         .h(px(DIFF_ROW_H))
         .w_full()
@@ -187,7 +187,7 @@ pub(super) fn render_content_spacer(
     hunk_idx: usize,
     run_start: usize,
     skipped: usize,
-    muted_fg: gpui::Hsla,
+    muted_fg: gpui_kit::Hsla,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
     let row_id = SharedString::from(format!("vcs-diff-spacer-{side}-{hunk_idx}-{run_start}"));

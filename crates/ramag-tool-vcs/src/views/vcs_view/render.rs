@@ -1,10 +1,10 @@
 //! VcsView 顶层 Render：tab bar + body 路由（RepoList / IDE 布局）
 
-use gpui::{
+use gpui_kit::component::{ActiveTheme, v_flex};
+use gpui_kit::{
     AnyElement, Context, Focusable as _, IntoElement, ParentElement, Render, Styled, Window, div,
     prelude::*,
 };
-use gpui_component::{ActiveTheme, v_flex};
 use ramag_domain::entities::MAX_COMMIT_MESSAGE_BYTES;
 
 use super::super::helpers::ActiveView;
@@ -47,7 +47,7 @@ impl Render for VcsView {
         if let Some(text) = self.pending_commit_text.take() {
             if text.len() > MAX_COMMIT_MESSAGE_BYTES {
                 self.pending_notification = Some(
-                    gpui_component::notification::Notification::warning(format!(
+                    gpui_kit::component::notification::Notification::warning(format!(
                         "已忽略超过 {} MiB 上限的提交信息",
                         MAX_COMMIT_MESSAGE_BYTES / 1024 / 1024
                     ))
@@ -136,15 +136,15 @@ impl Render for VcsView {
             let cancel_btn = self.clone_cancel.clone().map(|cancel| {
                 ramag_ui::clickable_button("vcs-clone-cancel")
                     .label("取消")
-                    .on_click(move |_: &gpui::ClickEvent, _, _| {
+                    .on_click(move |_: &gpui_kit::ClickEvent, _, _| {
                         cancel.store(true, std::sync::atomic::Ordering::Relaxed);
                     })
             });
-            gpui_component::v_flex()
+            gpui_kit::component::v_flex()
                 .size_full()
                 .items_center()
                 .justify_center()
-                .gap(gpui::px(10.0))
+                .gap(gpui_kit::px(10.0))
                 .text_sm()
                 .text_color(muted_fg)
                 .child(
@@ -185,7 +185,7 @@ impl Render for VcsView {
                                     repo.path.clone(),
                                     repo.name.clone(),
                                     repo.path.clone(),
-                                    gpui_component::IconName::Folder,
+                                    gpui_kit::component::IconName::Folder,
                                 )
                                 .secondary("Git 仓库")
                                 .current(

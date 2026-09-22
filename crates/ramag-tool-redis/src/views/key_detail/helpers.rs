@@ -1,9 +1,9 @@
 //! Key 详情渲染辅助。
 
-use gpui::{
+use gpui_kit::component::{clipboard::Clipboard, h_flex, v_flex};
+use gpui_kit::{
     AnyElement, Context, IntoElement, ParentElement, Styled, UniformListScrollHandle, div, px,
 };
-use gpui_component::{clipboard::Clipboard, h_flex, v_flex};
 use ramag_domain::entities::RedisValue;
 
 use super::KeyDetailPanel;
@@ -20,9 +20,9 @@ pub(super) fn render_value(
     key: &str,
     cx: &mut Context<KeyDetailPanel>,
     scroll: &UniformListScrollHandle,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
 ) -> AnyElement {
     match v {
         RedisValue::Nil => simple_label("(nil)", muted_fg).into_any_element(),
@@ -80,7 +80,7 @@ pub(super) fn render_value(
     }
 }
 
-pub(super) fn simple_label(s: &str, color: gpui::Hsla) -> impl IntoElement {
+pub(super) fn simple_label(s: &str, color: gpui_kit::Hsla) -> impl IntoElement {
     div()
         .p(px(8.0))
         .text_sm()
@@ -88,7 +88,11 @@ pub(super) fn simple_label(s: &str, color: gpui::Hsla) -> impl IntoElement {
         .child(s.to_string())
 }
 
-pub(super) fn string_block(s: &str, fg: gpui::Hsla, border: gpui::Hsla) -> impl IntoElement {
+pub(super) fn string_block(
+    s: &str,
+    fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
+) -> impl IntoElement {
     div()
         .w_full()
         .p(px(10.0))
@@ -103,9 +107,9 @@ pub(super) fn string_block(s: &str, fg: gpui::Hsla, border: gpui::Hsla) -> impl 
 
 pub(super) fn bytes_block(
     b: &[u8],
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
 ) -> impl IntoElement {
     let preview = b
         .iter()
@@ -139,9 +143,9 @@ pub(super) fn bytes_block(
 /// 渲染只读数组值。
 fn array_block(
     items: &[RedisValue],
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
 ) -> impl IntoElement {
     let mut rows = v_flex()
         .w_full()

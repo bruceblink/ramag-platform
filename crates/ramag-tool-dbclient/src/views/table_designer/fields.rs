@@ -1,7 +1,5 @@
 use super::*;
 
-use ramag_ui::RestrictScrollToAxisExt as _;
-
 impl TableDesigner {
     pub(super) fn render_field_editor(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let theme = cx.theme();
@@ -139,7 +137,7 @@ impl TableDesigner {
                                     .px_3()
                                     .bg(muted.opacity(0.7))
                                     .text_xs()
-                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                    .font_weight(gpui_kit::FontWeight::MEDIUM)
                                     .text_color(muted_fg)
                                     .child(div().w(px(170.0)).child("字段名"))
                                     .child(div().w(px(180.0)).child("类型"))

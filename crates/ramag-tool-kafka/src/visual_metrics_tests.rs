@@ -5,7 +5,7 @@ use std::sync::{
 
 use async_trait::async_trait;
 use chrono::{TimeZone, Utc};
-use gpui::{Context, IntoElement, Render, TestAppContext, Window, px, size};
+use gpui_kit::{Context, IntoElement, Render, TestAppContext, Window, px, size};
 use ramag_app::KafkaService;
 use ramag_domain::entities::{
     KafkaBroker, KafkaBrokerMetricsSnapshot, KafkaBrokerRuntimeMetrics, KafkaClusterConfig,
@@ -90,13 +90,13 @@ impl KafkaBrokerMetricsDriver for MetricsBrokerDriver {
 }
 
 struct KafkaMetricsTestHost {
-    view: gpui::Entity<KafkaView>,
+    view: gpui_kit::Entity<KafkaView>,
 }
 
 impl Render for KafkaMetricsTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        gpui::div()
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
@@ -175,9 +175,9 @@ fn broker_metrics_snapshot() -> KafkaBrokerMetricsSnapshot {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("Metrics Kafka", vec!["127.0.0.1:19092".into()]);
     let service = Arc::new(
         KafkaService::new(
@@ -198,7 +198,7 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaMetricsTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;
@@ -364,9 +364,9 @@ fn kafka_metrics_snapshot_reflows_without_horizontal_overflow(cx: &mut TestAppCo
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_metrics_partition_browse_preserves_message_context(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("Metrics 定位 Kafka", vec!["127.0.0.1:19092".into()]);
     let read_calls = Arc::new(AtomicUsize::new(0));
     let service = Arc::new(
@@ -387,7 +387,7 @@ fn kafka_metrics_partition_browse_preserves_message_context(cx: &mut TestAppCont
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaMetricsTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;

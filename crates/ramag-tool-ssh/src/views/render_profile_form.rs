@@ -1,10 +1,10 @@
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
     input::Input, v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
+    prelude::*, px,
 };
 use ramag_domain::entities::{RemotePlatformPreference, SshAuthMode};
 
@@ -471,7 +471,7 @@ impl SshProfileFormPanel {
                     .debug_selector(|| "ssh-openssh-label".into())
                     .flex_none()
                     .text_xs()
-                    .font_weight(gpui::FontWeight::MEDIUM)
+                    .font_weight(gpui_kit::FontWeight::MEDIUM)
                     .child("本机"),
             )
             .child(
@@ -503,7 +503,7 @@ fn platform_button(
     label: &'static str,
     selected: bool,
     disabled: bool,
-    listener: impl Fn(&ClickEvent, &mut Window, &mut gpui::App) + 'static,
+    listener: impl Fn(&ClickEvent, &mut Window, &mut gpui_kit::App) + 'static,
 ) -> impl IntoElement {
     ramag_ui::clickable_button(id)
         .small()
@@ -514,14 +514,14 @@ fn platform_button(
         .on_click(listener)
 }
 
-fn section_title(text: &str, muted: gpui::Hsla) -> impl IntoElement {
+fn section_title(text: &str, muted: gpui_kit::Hsla) -> impl IntoElement {
     h_flex()
         .items_center()
         .gap(px(8.0))
         .child(
             div()
                 .text_xs()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .text_color(muted)
                 .child(text.to_string()),
         )
@@ -531,7 +531,7 @@ fn section_title(text: &str, muted: gpui::Hsla) -> impl IntoElement {
 fn field_label(label: &'static str) -> impl IntoElement {
     div()
         .text_xs()
-        .font_weight(gpui::FontWeight::MEDIUM)
+        .font_weight(gpui_kit::FontWeight::MEDIUM)
         .child(label)
 }
 
@@ -556,7 +556,7 @@ fn auth_button(
     label: &'static str,
     selected: bool,
     disabled: bool,
-    listener: impl Fn(&ClickEvent, &mut Window, &mut gpui::App) + 'static,
+    listener: impl Fn(&ClickEvent, &mut Window, &mut gpui_kit::App) + 'static,
 ) -> impl IntoElement {
     let selector = id.to_string();
     div().id(id).debug_selector(move || selector.clone()).child(

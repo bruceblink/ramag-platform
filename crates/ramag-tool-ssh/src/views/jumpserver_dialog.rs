@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, Entity, EventEmitter, Subscription, Window};
-use gpui_component::input::{InputEvent, InputState};
+use gpui_kit::component::input::{InputEvent, InputState};
+use gpui_kit::{AppContext as _, Context, Entity, EventEmitter, Subscription, Window};
 use ramag_app::SshService;
 use ramag_domain::entities::{
     JumpServerAsset, JumpServerAssetDetail, JumpServerCatalog, JumpServerConnection,
@@ -61,7 +61,7 @@ pub(super) struct JumpServerPanel {
     pub(super) selected_account_id: Option<String>,
     pub(super) saved_selections: HashSet<(String, String)>,
     pub(super) operation: Option<JumpServerOperation>,
-    pub(super) pending_notification: Option<gpui_component::notification::Notification>,
+    pub(super) pending_notification: Option<gpui_kit::component::notification::Notification>,
     pub(super) generation: u64,
     _subscriptions: Vec<Subscription>,
 }
@@ -149,19 +149,20 @@ impl JumpServerPanel {
 
     pub(super) fn notify_success(&mut self, message: impl Into<String>) {
         self.pending_notification = Some(
-            gpui_component::notification::Notification::success(message.into()).autohide(true),
+            gpui_kit::component::notification::Notification::success(message.into()).autohide(true),
         );
     }
 
     pub(super) fn notify_error(&mut self, message: impl Into<String>) {
-        self.pending_notification = Some(gpui_component::notification::Notification::error(
+        self.pending_notification = Some(gpui_kit::component::notification::Notification::error(
             message.into(),
         ));
     }
 
     pub(super) fn notify_info(&mut self, message: impl Into<String>) {
-        self.pending_notification =
-            Some(gpui_component::notification::Notification::info(message.into()).autohide(true));
+        self.pending_notification = Some(
+            gpui_kit::component::notification::Notification::info(message.into()).autohide(true),
+        );
     }
 
     pub(super) fn filtered_assets(&self) -> Vec<JumpServerAsset> {

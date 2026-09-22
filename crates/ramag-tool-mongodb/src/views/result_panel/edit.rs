@@ -1,14 +1,17 @@
 //! MongoDB 结果单元格编辑。
 
-use gpui::{ClickEvent, Context, SharedString, Window, div, prelude::*, px};
-use gpui_component::{
-    ActiveTheme, Disableable as _, Sizable as _, WindowExt as _, button::ButtonVariants as _,
-    h_flex, input::Input, notification::Notification,
+use gpui_kit::component::{
+    ActiveTheme, Disableable as _, Sizable as _, WindowExt as _,
+    button::ButtonVariants as _,
+    h_flex,
+    input::{Textarea, TextareaState},
+    notification::Notification,
 };
+use gpui_kit::{ClickEvent, Context, SharedString, Window, div, prelude::*, px};
 use serde_json::Value;
 
 use super::{ResultEvent, ResultPanel};
-use crate::views::{MAX_MONGO_INTERACTIVE_INPUT_BYTES, bounded_input, inline_text_preview};
+use crate::views::{MAX_MONGO_INTERACTIVE_INPUT_BYTES, inline_text_preview};
 
 impl ResultPanel {
     pub(crate) fn open_cell_edit_dialog(
@@ -23,12 +26,8 @@ impl ResultPanel {
         if current.len() > MAX_MONGO_INTERACTIVE_INPUT_BYTES {
             return self.open_cell_dialog(path, kind, current, window, cx);
         }
-        let input = cx.new(|c| {
-            bounded_input(window, c)
-                .multi_line(true)
-                .default_value(current)
-        });
-        ramag_ui::enforce_multiline_input_byte_limit(
+        let input = cx.new(|c| TextareaState::new(window, c).default_value(current));
+        ramag_ui::enforce_textarea_input_byte_limit(
             &input,
             MAX_MONGO_INTERACTIVE_INPUT_BYTES,
             window,
@@ -96,7 +95,7 @@ impl ResultPanel {
                                     .pb(px(6.0))
                                     .child("按 JSON 解析：123 为数字，true 为布尔，其它为字符串"),
                             )
-                            .child(Input::new(&input_content).h(px(220.0))),
+                            .child(Textarea::new(&input_content).h(px(220.0))),
                     )
                 })
                 .footer(

@@ -2,8 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use gpui::{ClickEvent, Entity, ParentElement, SharedString, Styled, Window, px};
-use gpui_component::{
+use gpui_kit::component::{
     Icon, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     h_flex,
@@ -11,6 +10,7 @@ use gpui_component::{
     menu::{PopupMenu, PopupMenuItem},
     v_flex,
 };
+use gpui_kit::{ClickEvent, Entity, ParentElement, SharedString, Styled, Window, px};
 
 use super::helpers::{BranchOp, checkout_remote_branch_op};
 use super::vcs_view::VcsView;
@@ -71,7 +71,7 @@ pub(super) fn render_branches_grouped(
     is_remote: bool,
     entity: Entity<VcsView>,
     window: &mut Window,
-    cx: &mut gpui::Context<PopupMenu>,
+    cx: &mut gpui_kit::Context<PopupMenu>,
 ) -> PopupMenu {
     let mut singles: Vec<BranchLeaf> = Vec::new();
     let mut groups: BTreeMap<String, Vec<BranchLeaf>> = BTreeMap::new();
@@ -130,7 +130,7 @@ pub(super) fn open_new_branch_dialog(
     local: Vec<(String, bool)>,
     remote: Vec<String>,
     window: &mut Window,
-    app: &mut gpui::App,
+    app: &mut gpui_kit::App,
 ) {
     // reset：每次打开对话框都从 HEAD 开始（不 stick 上次的选择）
     view.update(app, |this, cx| {
@@ -169,7 +169,7 @@ pub(super) fn open_new_branch_dialog(
                         .small()
                         .label(format!("基于：{base_label} ▾"))
                         .pointer_dropdown_menu_with_anchor(
-                            gpui::Anchor::TopLeft,
+                            gpui_kit::Anchor::TopLeft,
                             move |mut m, window, cx| {
                                 // 父级不可 scrollable —— 否则 submenu 不工作（gpui-component 限制）
                                 // 限宽避免超长分支名撑破菜单（叶子内部已做中间省略截断）
@@ -261,7 +261,7 @@ fn render_base_branches_grouped(
     is_remote: bool,
     view: Entity<VcsView>,
     window: &mut Window,
-    cx: &mut gpui::Context<PopupMenu>,
+    cx: &mut gpui_kit::Context<PopupMenu>,
 ) -> PopupMenu {
     let mut singles: Vec<String> = Vec::new();
     let mut groups: BTreeMap<String, Vec<String>> = BTreeMap::new();

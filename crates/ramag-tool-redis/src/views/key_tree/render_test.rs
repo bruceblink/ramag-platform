@@ -1,7 +1,7 @@
 //! Redis Key 树交互测试：复制不能误触选择，子节点必须呈现明确层级引导。
 #![allow(clippy::expect_used)]
 
-use gpui::{
+use gpui_kit::{
     AppContext as _, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, Point, TestAppContext,
     VisualTestContext, px, size,
 };
@@ -11,8 +11,8 @@ use super::{INDENT_PX, KeyTreePanel};
 use crate::views::key_detail::render_test::{mock_config, mock_service};
 
 fn assert_inside(
-    parent: gpui::Bounds<gpui::Pixels>,
-    child: gpui::Bounds<gpui::Pixels>,
+    parent: gpui_kit::Bounds<gpui_kit::Pixels>,
+    child: gpui_kit::Bounds<gpui_kit::Pixels>,
     label: &str,
 ) {
     assert!(
@@ -26,7 +26,7 @@ fn assert_inside(
 
 fn simulate_click_count(
     cx: &mut VisualTestContext,
-    position: Point<gpui::Pixels>,
+    position: Point<gpui_kit::Pixels>,
     modifiers: Modifiers,
     click_count: usize,
 ) {
@@ -45,9 +45,9 @@ fn simulate_click_count(
     });
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn modifier_double_click_copies_full_key_without_selecting(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     cx.update(|cx| {
         ramag_ui::set_redis_tree_settings(
             ramag_ui::RedisTreeSettings {
@@ -68,7 +68,7 @@ fn modifier_double_click_copies_full_key_without_selecting(cx: &mut TestAppConte
             panel
         });
         panel_entity = Some(panel.clone());
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
     let panel = panel_entity.expect("KeyTreePanel should be initialized");
     cx.simulate_resize(size(px(420.0), px(480.0)));
@@ -127,9 +127,9 @@ fn modifier_double_click_copies_full_key_without_selecting(cx: &mut TestAppConte
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn key_tree_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let panel = cx.new(|cx| {
             let mut panel = KeyTreePanel::new(mock_service(), window, cx);
@@ -138,7 +138,7 @@ fn key_tree_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppConte
             panel.rebuild_tree();
             panel
         });
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
 
     for width in [180.0, 280.0, 600.0] {

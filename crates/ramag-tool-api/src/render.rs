@@ -4,7 +4,7 @@ use super::render_helpers::{
     render_extracted_variables, render_history, render_request_toolbar,
 };
 use super::*;
-use gpui::FontWeight;
+use gpui_kit::FontWeight;
 
 #[path = "render_sidebar_requests.rs"]
 mod render_sidebar_requests;
@@ -13,7 +13,7 @@ pub(super) fn render(
     view: &mut ApiView,
     window: &mut Window,
     cx: &mut Context<ApiView>,
-) -> gpui::AnyElement {
+) -> gpui_kit::AnyElement {
     let theme = cx.theme().clone();
     let stacked = ApiView::is_stacked(window);
     let sidebar = render_sidebar(view, window, cx, &theme);
@@ -52,8 +52,8 @@ pub(super) fn render(
 fn render_header(
     _view: &mut ApiView,
     _cx: &mut Context<ApiView>,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     h_flex()
         .id("api-header")
         .debug_selector(|| "api-header".into())
@@ -99,8 +99,8 @@ fn render_sidebar(
     view: &ApiView,
     window: &Window,
     cx: &mut Context<ApiView>,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let stacked = ApiView::is_stacked(window);
     v_flex()
         .id("api-sidebar")
@@ -175,8 +175,8 @@ fn render_editor(
     view: &mut ApiView,
     window: &mut Window,
     cx: &mut Context<ApiView>,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let stacked = ApiView::is_stacked(window);
     let request_editor = match view.protocol {
         ApiProtocol::Http => render_http_editor(view, cx, theme),
@@ -239,8 +239,8 @@ fn render_editor(
 fn render_http_editor(
     view: &mut ApiView,
     cx: &mut Context<ApiView>,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     v_flex()
         .id("api-http-fields")
         .debug_selector(|| "api-http-fields".into())
@@ -258,7 +258,7 @@ fn render_http_editor(
                         .text_color(theme.muted_foreground)
                         .child("Params"),
                 )
-                .child(Input::new(&view.http_query).small().h(px(72.0))),
+                .child(Textarea::new(&view.http_query).h(px(72.0))),
         )
         .child(
             v_flex()
@@ -271,7 +271,7 @@ fn render_http_editor(
                         .text_color(theme.muted_foreground)
                         .child("Headers"),
                 )
-                .child(Input::new(&view.http_headers).small().h(px(112.0))),
+                .child(Textarea::new(&view.http_headers).h(px(112.0))),
         )
         .child(view.auth_editor.render(cx, theme))
         .child(render_body::render_http_body(view, cx, theme))
@@ -281,8 +281,8 @@ fn render_http_editor(
 fn render_response(
     view: &ApiView,
     _cx: &mut Context<ApiView>,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let body = match &view.response {
         Some(snapshot) => v_flex()
             .id("api-response-content")
@@ -391,8 +391,8 @@ fn protocol_label(protocol: ApiProtocol) -> &'static str {
 
 fn response_parameters(
     snapshot: &ApiResponseSnapshot,
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     v_flex()
         .id("api-response-parameters")
         .debug_selector(|| "api-response-parameters".into())
@@ -418,8 +418,8 @@ fn response_parameter_table(
     id: &'static str,
     label: &'static str,
     parameters: &[ApiParameter],
-    theme: &gpui_component::Theme,
-) -> gpui::AnyElement {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     let mut section = v_flex()
         .id(id)
         .debug_selector(move || id.into())

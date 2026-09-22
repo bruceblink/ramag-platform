@@ -1,8 +1,8 @@
-use gpui::{ClickEvent, Entity, IntoElement, ParentElement, Styled, div, prelude::*, px};
-use gpui_component::{
+use gpui_kit::component::{
     Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
     input::InputState,
 };
+use gpui_kit::{ClickEvent, Entity, IntoElement, ParentElement, Styled, div, prelude::*, px};
 use ramag_ui::PointerDropdownMenu as _;
 
 use super::QueryTab;
@@ -22,7 +22,7 @@ pub(super) struct TransactionSavepointState {
 pub(super) fn transaction_savepoint_controls(
     query_tab: Entity<QueryTab>,
     state: TransactionSavepointState,
-    muted: gpui::Hsla,
+    muted: gpui_kit::Hsla,
 ) -> impl IntoElement {
     let has_latest = state.latest_savepoint.is_some();
     let create_tab = query_tab.clone();
@@ -105,8 +105,8 @@ pub(super) fn result_view_tabs(
     query_tab: Entity<QueryTab>,
     plan_visible: bool,
     plan_available: bool,
-    border: gpui::Hsla,
-    secondary_bg: gpui::Hsla,
+    border: gpui_kit::Hsla,
+    secondary_bg: gpui_kit::Hsla,
 ) -> impl IntoElement {
     h_flex()
         .id("sql-result-view-tabs")
@@ -161,10 +161,10 @@ pub(super) fn result_view_tabs(
 pub(super) fn row_filter_prefix(
     current: RowSearchMode,
     result: Entity<ResultPanel>,
-    accent: gpui::Hsla,
-    muted: gpui::Hsla,
+    accent: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
     id_conversion_ready: bool,
-) -> gpui::AnyElement {
+) -> gpui_kit::AnyElement {
     if id_conversion_ready {
         row_search_mode_button(current, result, accent).into_any_element()
     } else {
@@ -180,7 +180,7 @@ pub(super) fn row_filter_prefix(
 pub(super) fn row_search_mode_button(
     current: RowSearchMode,
     result: Entity<ResultPanel>,
-    accent: gpui::Hsla,
+    accent: gpui_kit::Hsla,
 ) -> impl IntoElement {
     let display_label = match current {
         RowSearchMode::Normal => "WHERE",
@@ -219,9 +219,9 @@ pub(super) fn row_search_mode_button(
 pub(super) fn row_search_input_suffix(
     input: Entity<InputState>,
     status: Option<RowSearchConversionStatus>,
-    accent: gpui::Hsla,
-    muted: gpui::Hsla,
-    danger: gpui::Hsla,
+    accent: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
 ) -> impl IntoElement {
     h_flex()
         .flex_none()
@@ -248,10 +248,10 @@ pub(super) fn row_search_input_suffix(
 
 fn row_search_conversion_label(
     status: RowSearchConversionStatus,
-    accent: gpui::Hsla,
-    muted: gpui::Hsla,
-    danger: gpui::Hsla,
-) -> gpui::AnyElement {
+    accent: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
+) -> gpui_kit::AnyElement {
     let (label, color) = match status {
         RowSearchConversionStatus::Converting => ("→ 转换中…".to_string(), muted),
         RowSearchConversionStatus::Ready(output) => {

@@ -1,10 +1,10 @@
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    prelude::*, px,
 };
 use ramag_domain::entities::{JumpServerAccount, JumpServerAsset};
 
@@ -107,7 +107,7 @@ impl JumpServerPanel {
                     .debug_selector(move || format!("jumpserver-asset-action-{index}"))
                     .w(px(ASSET_ACTION_WIDTH))
                     .when(compact, |field| field.w_full().flex_none())
-                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| {
+                    .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
                         cx.stop_propagation();
                     })
                     .child(

@@ -7,7 +7,7 @@ impl KafkaView {
         &self,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> gpui::AnyElement {
+    ) -> gpui_kit::AnyElement {
         let theme = cx.theme().clone();
         if std::env::var_os("RAMAG_DEBUG_KAFKA_METRICS_MODE").is_some_and(|mode| mode == "shell") {
             return v_flex()
@@ -208,7 +208,7 @@ impl KafkaView {
                             .child(
                                 div()
                                     .text_sm()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .child("Kafka 指标快照"),
                             )
                             .child(
@@ -229,9 +229,9 @@ impl KafkaView {
     /// 首次采集尚未返回快照时，先用与正式明细相同的区块结构占位。
     fn render_metrics_loading_body(
         &self,
-        theme: &gpui_component::Theme,
+        theme: &gpui_kit::component::Theme,
         compact: bool,
-    ) -> gpui::AnyElement {
+    ) -> gpui_kit::AnyElement {
         let topic_columns = if compact {
             vec![None, Some(60.0), Some(64.0), Some(70.0)]
         } else {
@@ -300,10 +300,10 @@ impl KafkaView {
     fn render_metrics_snapshot_body(
         &self,
         snapshot: &KafkaMetricsSnapshot,
-        theme: &gpui_component::Theme,
+        theme: &gpui_kit::component::Theme,
         compact: bool,
         cx: &mut Context<Self>,
-    ) -> gpui::AnyElement {
+    ) -> gpui_kit::AnyElement {
         let cluster = &snapshot.cluster;
         let summary = h_flex()
             .id("kafka-metrics-cluster")
@@ -513,7 +513,7 @@ impl KafkaView {
 fn metric_value(
     label: &'static str,
     value: String,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     v_flex()
         .min_w(px(92.0))
@@ -534,7 +534,7 @@ fn metric_value(
 }
 pub(super) fn metric_cell(
     value: impl Into<SharedString>,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     div()
         .max_w(px(150.0))
@@ -544,7 +544,10 @@ pub(super) fn metric_cell(
         .truncate()
         .child(value.into())
 }
-fn empty_metrics_row(message: &'static str, theme: &gpui_component::Theme) -> gpui::AnyElement {
+fn empty_metrics_row(
+    message: &'static str,
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::AnyElement {
     v_flex()
         .id(SharedString::from(format!("kafka-metrics-empty-{message}")))
         .w_full()

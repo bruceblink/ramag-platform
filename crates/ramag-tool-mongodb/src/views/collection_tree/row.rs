@@ -3,12 +3,12 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use gpui::{
-    AnyElement, Context, IntoElement, ParentElement, SharedString, Styled, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _, h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
+};
+use gpui_kit::{
+    AnyElement, Context, IntoElement, ParentElement, SharedString, Styled, div, prelude::*, px,
 };
 use ramag_domain::entities::{MongoDatabase, contains_case_insensitive};
 
@@ -142,7 +142,7 @@ impl CollectionTreePanel {
                             .child(SharedString::from(name.clone())),
                     )
                     .on_click(
-                        cx.listener(move |this, event: &gpui::ClickEvent, window, cx| {
+                        cx.listener(move |this, event: &gpui_kit::ClickEvent, window, cx| {
                             if event.modifiers().secondary() {
                                 if ramag_ui::is_primary_modifier_double_click(event) {
                                     ramag_ui::copy_text_with_notification(
@@ -240,8 +240,8 @@ impl CollectionTreePanel {
                             .whitespace_nowrap()
                             .child(SharedString::from(name.clone())),
                     )
-                    .on_click(
-                        cx.listener(move |this, event: &gpui::ClickEvent, window, cx| {
+                    .on_click(cx.listener(
+                        move |this, event: &gpui_kit::ClickEvent, window, cx| {
                             if event.modifiers().secondary() {
                                 if ramag_ui::is_primary_modifier_double_click(event) {
                                     ramag_ui::copy_text_with_notification(
@@ -257,8 +257,8 @@ impl CollectionTreePanel {
                                 name_for_click.clone(),
                                 cx,
                             );
-                        }),
-                    );
+                        },
+                    ));
                 if selected {
                     row = row.bg(accent);
                 }

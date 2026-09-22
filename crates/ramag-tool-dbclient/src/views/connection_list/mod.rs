@@ -8,8 +8,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use gpui::{AppContext as _, Context, Entity, EventEmitter, Window};
-use gpui_component::input::InputState;
+use gpui_kit::component::input::InputState;
+use gpui_kit::{AppContext as _, Context, Entity, EventEmitter, Window};
 use ramag_app::{ConnectionService, MongoService, RedisService};
 use ramag_domain::entities::{
     ConnectionConfig, ConnectionId, DriverKind, contains_case_insensitive,
@@ -36,7 +36,7 @@ pub struct ConnectionListPanel {
     refresh_generation: u64,
     loaded_revision: u64,
     pub(super) focused_search_once: bool,
-    _subscriptions: Vec<gpui::Subscription>,
+    _subscriptions: Vec<gpui_kit::Subscription>,
 }
 
 struct FilteredIndicesCacheEntry {

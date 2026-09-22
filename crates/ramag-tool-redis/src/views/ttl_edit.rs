@@ -2,12 +2,12 @@
 
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     ClickEvent, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Window,
     div, prelude::*, px,
-};
-use gpui_component::{
-    ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use ramag_app::RedisService;
 use ramag_domain::entities::ConnectionConfig;
@@ -190,7 +190,7 @@ impl Render for TtlEditForm {
                     .child(
                         div()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .text_color(muted_fg)
                             .child("新 TTL"),
                     )
@@ -207,7 +207,7 @@ impl Render for TtlEditForm {
                             .flex_1()
                             .min_w_0()
                             .text_xs()
-                            .text_color(gpui::red())
+                            .text_color(gpui_kit::red())
                             .child(err.unwrap_or_default()),
                     )
                     .child(

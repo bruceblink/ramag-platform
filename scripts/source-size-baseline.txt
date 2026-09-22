@@ -12,3 +12,7 @@ crates/ramag-tool-mqtt/src/mqtt_view/message_operations_view.rs
 crates/ramag-tool-mqtt/src/mqtt_view/profile_state.rs
 crates/ramag-tool-mqtt/src/visual_message_option_tests.rs
 crates/ramag-tool-mqtt/src/visual_tests.rs
+crates/ramag-tool-api/src/context.rs
+crates/ramag-tool-api/src/view.rs
+crates/ramag-tool-dbclient/src/views/result_table/render.rs
+crates/ramag-tool-vcs/src/views/repo_list.rs

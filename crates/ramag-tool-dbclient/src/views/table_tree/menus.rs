@@ -1,7 +1,7 @@
 //! 表树右键菜单。
 
-use gpui::Entity;
-use gpui_component::menu::PopupMenu;
+use gpui_kit::Entity;
+use gpui_kit::component::menu::PopupMenu;
 use ramag_domain::entities::{DriverKind, Index, MAX_CONNECTION_IDENTIFIER_BYTES, Trigger};
 use ramag_ui::{open_bounded_prompt, open_confirm};
 
@@ -273,14 +273,14 @@ pub(super) fn trigger_context_menu(
 /// 先关闭第一次确认，再打开第二次确认，避免弹窗关闭动作误关掉第二个弹窗。
 #[allow(clippy::too_many_arguments)]
 fn open_double_confirm(
-    first_title: impl Into<gpui::SharedString>,
-    first_description: impl Into<gpui::SharedString>,
-    second_title: impl Into<gpui::SharedString>,
-    second_description: impl Into<gpui::SharedString>,
-    second_confirm_label: impl Into<gpui::SharedString>,
-    on_confirm: impl FnOnce(&mut gpui::Window, &mut gpui::App) + 'static,
-    window: &mut gpui::Window,
-    cx: &mut gpui::App,
+    first_title: impl Into<gpui_kit::SharedString>,
+    first_description: impl Into<gpui_kit::SharedString>,
+    second_title: impl Into<gpui_kit::SharedString>,
+    second_description: impl Into<gpui_kit::SharedString>,
+    second_confirm_label: impl Into<gpui_kit::SharedString>,
+    on_confirm: impl FnOnce(&mut gpui_kit::Window, &mut gpui_kit::App) + 'static,
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::App,
 ) {
     let second_title = second_title.into();
     let second_description = second_description.into();

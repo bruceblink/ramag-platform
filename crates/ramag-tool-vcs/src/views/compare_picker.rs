@@ -2,11 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use gpui::{AnyElement, Context, Entity, IntoElement, SharedString, Styled as _, Window, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, Icon, IconName, Sizable as _,
     menu::{PopupMenu, PopupMenuItem},
 };
+use gpui_kit::{AnyElement, Context, Entity, IntoElement, SharedString, Styled as _, Window, px};
 
 use super::vcs_view::VcsView;
 use ramag_ui::PointerDropdownMenu as _;
@@ -180,7 +180,7 @@ impl VcsView {
         .text_color(theme.foreground)
         .tooltip(tooltip)
         .pointer_dropdown_menu_with_anchor(
-            gpui::Anchor::BottomLeft,
+            gpui_kit::Anchor::BottomLeft,
             move |mut menu: PopupMenu, window, cx| {
                 menu = menu.max_w(px(420.0));
                 menu = menu.item(PopupMenuItem::label(format!("选择{}分支", side.label())));
@@ -231,7 +231,7 @@ fn render_compare_branches_grouped(
     is_remote: bool,
     branch_context: CompareBranchMenuContext,
     window: &mut Window,
-    cx: &mut gpui::Context<PopupMenu>,
+    cx: &mut gpui_kit::Context<PopupMenu>,
 ) -> PopupMenu {
     let mut singles = Vec::new();
     let mut groups: BTreeMap<String, Vec<(String, String, bool)>> = BTreeMap::new();

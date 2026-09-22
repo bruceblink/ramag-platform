@@ -1,8 +1,10 @@
 //! VCS 工具栏的远程操作。
 
-use gpui::{AnyElement, ClickEvent, Context, IntoElement, ParentElement as _, Styled as _, div};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement as _, Styled as _, div,
 };
 
 use super::helpers::RemoteOp;
@@ -18,12 +20,12 @@ impl VcsView {
             let line = self
                 .remote_op_progress_line()
                 .unwrap_or_else(|| self.busy_label.unwrap_or("处理中…").to_string());
-            return gpui_component::h_flex()
+            return gpui_kit::component::h_flex()
                 .items_center()
-                .gap(gpui::px(6.0))
+                .gap(gpui_kit::px(6.0))
                 .child(
                     div()
-                        .max_w(gpui::px(240.0))
+                        .max_w(gpui_kit::px(240.0))
                         .overflow_hidden()
                         .text_ellipsis()
                         .whitespace_nowrap()
@@ -101,7 +103,7 @@ impl VcsView {
             .icon(IconName::EllipsisVertical)
             .tooltip("远程")
             .disabled(busy)
-            .pointer_dropdown_menu_with_anchor(gpui::Anchor::BottomRight, move |mut m, _, _| {
+            .pointer_dropdown_menu_with_anchor(gpui_kit::Anchor::BottomRight, move |mut m, _, _| {
                 let entity1 = entity.clone();
                 let entity2 = entity.clone();
                 let entity3 = entity.clone();

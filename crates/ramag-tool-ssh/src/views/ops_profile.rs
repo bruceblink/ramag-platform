@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, Entity, ParentElement, Styled, Window, px};
-use gpui_component::WindowExt as _;
+use gpui_kit::component::WindowExt as _;
+use gpui_kit::{AppContext as _, Context, Entity, ParentElement, Styled, Window, px};
 use ramag_domain::entities::{JumpServerRdpSession, SshProfile, SshProfileId};
 use tracing::error;
 

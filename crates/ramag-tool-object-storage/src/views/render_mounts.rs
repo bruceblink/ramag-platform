@@ -1,12 +1,12 @@
 //! 对象存储工作区的 Bucket 导航。
 
-use gpui::{
-    AnyElement, Context, IntoElement, ParentElement, SharedString, StatefulInteractiveElement as _,
-    Styled, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Selectable as _, Sizable as _, StyledExt as _,
     button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
+    AnyElement, Context, IntoElement, ParentElement, SharedString, StatefulInteractiveElement as _,
+    Styled, div, prelude::*, px,
 };
 
 use super::model::ObjectStorageView;
@@ -202,7 +202,7 @@ impl ObjectStorageView {
     }
 }
 
-fn mount_section(label: impl Into<SharedString>, color: gpui::Hsla) -> AnyElement {
+fn mount_section(label: impl Into<SharedString>, color: gpui_kit::Hsla) -> AnyElement {
     div()
         .w_full()
         .h(px(28.0))

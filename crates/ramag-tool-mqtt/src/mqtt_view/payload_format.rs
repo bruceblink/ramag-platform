@@ -46,7 +46,7 @@ fn payload_format_selector<F>(
     disabled: bool,
     cx: &mut Context<MqttView>,
     handler: F,
-) -> gpui::Div
+) -> gpui_kit::Div
 where
     F: Fn(&mut MqttView, MqttPayloadFormat) + Copy + 'static,
 {

@@ -1,8 +1,8 @@
-use gpui::{ClickEvent, Context, IntoElement, ParentElement, Styled, div, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Sizable as _, WindowExt as _, button::ButtonVariants as _,
     h_flex,
 };
+use gpui_kit::{ClickEvent, Context, IntoElement, ParentElement, Styled, div, px};
 
 use super::QueryTab;
 
@@ -12,7 +12,7 @@ pub(super) fn render_delete_button(
     modify_reason: Option<&'static str>,
     cx: &mut Context<QueryTab>,
 ) -> impl IntoElement {
-    let delete_tip: gpui::SharedString = match (modify_reason, has_selected) {
+    let delete_tip: gpui_kit::SharedString = match (modify_reason, has_selected) {
         (Some(reason), _) => reason.into(),
         (None, false) => "请先选择数据".into(),
         (None, true) => "删除选中行".into(),
@@ -20,7 +20,7 @@ pub(super) fn render_delete_button(
     ramag_ui::clickable_button("toolbar-delete")
         .ghost()
         .small()
-        .icon(gpui_component::IconName::Minus)
+        .icon(gpui_kit::component::IconName::Minus)
         .tooltip(delete_tip)
         .disabled(plan_visible || !has_selected || modify_reason.is_some())
         .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {

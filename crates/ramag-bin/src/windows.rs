@@ -29,14 +29,14 @@ pub(super) struct AppDeps {
 }
 
 /// 托盘和单实例激活优先复用此窗口。
-pub(super) struct MainWindowGlobal(pub(super) gpui::AnyWindowHandle);
+pub(super) struct MainWindowGlobal(pub(super) gpui_kit::AnyWindowHandle);
 
-impl gpui::Global for MainWindowGlobal {}
+impl gpui_kit::Global for MainWindowGlobal {}
 
 /// 记录系统托盘是否已成功安装，关闭最后窗口时据此决定是否允许后台驻留。
 pub(super) struct TrayResident(pub(super) bool);
 
-impl gpui::Global for TrayResident {}
+impl gpui_kit::Global for TrayResident {}
 
 /// 只有托盘已安装且用户明确开启设置时，关闭最后窗口才保留后台进程。
 pub(super) fn should_keep_running_in_tray(tray_resident: bool, settings: SystemSettings) -> bool {
@@ -47,11 +47,11 @@ pub(super) fn should_keep_running_in_tray(tray_resident: bool, settings: SystemS
 pub(super) fn quit_mode_for_window_close(
     tray_resident: bool,
     settings: SystemSettings,
-) -> gpui::QuitMode {
+) -> gpui_kit::QuitMode {
     if should_keep_running_in_tray(tray_resident, settings) {
-        gpui::QuitMode::Explicit
+        gpui_kit::QuitMode::Explicit
     } else {
-        gpui::QuitMode::Default
+        gpui_kit::QuitMode::Default
     }
 }
 
@@ -61,7 +61,7 @@ pub(super) struct MainWindowOpenGate {
     opening: bool,
 }
 
-impl gpui::Global for MainWindowOpenGate {}
+impl gpui_kit::Global for MainWindowOpenGate {}
 
 impl MainWindowOpenGate {
     pub(super) fn try_begin(&mut self) -> bool {
@@ -154,11 +154,11 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
     let window_bounds = match &saved_bounds {
         Some(p) => {
             let b = Bounds::new(
-                gpui::point(px(p.x), px(p.y)),
+                gpui_kit::point(px(p.x), px(p.y)),
                 size(px(p.w.max(800.0)), px(p.h.max(500.0))),
             );
             // 显示器移除后回退居中，避免窗口恢复到屏幕外。
-            let title_pt = gpui::point(b.origin.x + b.size.width / 2.0, b.origin.y + px(16.0));
+            let title_pt = gpui_kit::point(b.origin.x + b.size.width / 2.0, b.origin.y + px(16.0));
             let on_screen = cx.displays().iter().any(|d| d.bounds().contains(&title_pt));
             if !on_screen {
                 info!(
@@ -405,7 +405,7 @@ mod tests {
                     minimize_to_tray: true,
                 }
             ),
-            gpui::QuitMode::Explicit
+            gpui_kit::QuitMode::Explicit
         );
         assert_eq!(
             quit_mode_for_window_close(
@@ -414,11 +414,11 @@ mod tests {
                     minimize_to_tray: true,
                 }
             ),
-            gpui::QuitMode::Default
+            gpui_kit::QuitMode::Default
         );
         assert_eq!(
             quit_mode_for_window_close(true, SystemSettings::default()),
-            gpui::QuitMode::Default
+            gpui_kit::QuitMode::Default
         );
     }
 

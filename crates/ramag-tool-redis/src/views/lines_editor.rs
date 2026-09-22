@@ -1,15 +1,15 @@
 //! List（行号 + 默认 RPUSH 方向）/ Set（无行号、提交时去重）共用单列行编辑器
 
-use gpui::{
-    App, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement, ParentElement, Render,
-    SharedString, Styled, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputState},
     v_flex,
+};
+use gpui_kit::{
+    App, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement, ParentElement, Render,
+    SharedString, Styled, Window, div, prelude::*, px,
 };
 use ramag_domain::entities::MAX_REDIS_COMMAND_ARG_BYTES;
 

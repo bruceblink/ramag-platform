@@ -200,7 +200,7 @@ impl ResultPanel {
         self.visible_selection_cache = None;
     }
 
-    pub(crate) fn set_col_width_override(&mut self, col_ix: usize, width: gpui::Pixels) {
+    pub(crate) fn set_col_width_override(&mut self, col_ix: usize, width: gpui_kit::Pixels) {
         let n_cols = match &self.state {
             ResultState::Ok(r) => r.columns.len(),
             _ => return,
@@ -213,7 +213,7 @@ impl ResultPanel {
         }
     }
 
-    pub(crate) fn col_width_override(&self, col_ix: usize) -> Option<gpui::Pixels> {
+    pub(crate) fn col_width_override(&self, col_ix: usize) -> Option<gpui_kit::Pixels> {
         self.col_width_overrides.get(col_ix).copied().flatten()
     }
 
@@ -327,15 +327,15 @@ impl ResultPanel {
             .update(cx, |s, cx| s.set_value("", window, cx));
     }
 
-    pub(crate) fn column_filter_text(&self, cx: &gpui::App) -> String {
+    pub(crate) fn column_filter_text(&self, cx: &gpui_kit::App) -> String {
         self.column_filter_input.read(cx).value().trim().to_string()
     }
 
-    pub(crate) fn row_filter_text(&self, cx: &gpui::App) -> String {
+    pub(crate) fn row_filter_text(&self, cx: &gpui_kit::App) -> String {
         self.row_filter_input.read(cx).value().trim().to_string()
     }
 
-    pub fn column_filter_entity(&self) -> &Entity<InputState> {
+    pub fn column_filter_entity(&self) -> &Entity<EditorState> {
         &self.column_filter_input
     }
     pub fn row_filter_entity(&self) -> &Entity<InputState> {

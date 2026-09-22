@@ -1,5 +1,5 @@
 use super::*;
-use gpui::{Entity, TestAppContext, VisualTestContext, px, size};
+use gpui_kit::{Entity, TestAppContext, VisualTestContext, px, size};
 use ramag_domain::entities::{ColumnKind, ColumnType};
 
 fn column(name: &str, raw_type: &str, nullable: bool) -> Column {
@@ -25,7 +25,7 @@ fn designer(
     driver: DriverKind,
     columns: Vec<Column>,
     cx: &mut TestAppContext,
-) -> (Entity<TableDesigner>, &mut gpui::VisualTestContext) {
+) -> (Entity<TableDesigner>, &mut gpui_kit::VisualTestContext) {
     let mut designer = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| {
@@ -45,7 +45,7 @@ fn designer(
             )
         });
         designer = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let Some(designer) = designer else {
         unreachable!("测试窗口应创建表设计器")
@@ -53,9 +53,9 @@ fn designer(
     (designer, visual_cx)
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn designer_toolbars_and_field_scroll_stay_inside_narrow_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (designer, cx): (Entity<TableDesigner>, &mut VisualTestContext) =
         designer(DriverKind::Mysql, vec![column("id", "int", false)], cx);
     cx.update(|window, app| {
@@ -103,9 +103,9 @@ fn designer_toolbars_and_field_scroll_stay_inside_narrow_window(cx: &mut TestApp
     assert!(field_content.right() > field_scroll.right());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn unchanged_columns_do_not_generate_sql(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (designer, cx) = designer(DriverKind::Mysql, vec![column("id", "int", false)], cx);
 
     let result = cx.update(|_, app| designer.read(app).change_sql(app));
@@ -114,9 +114,9 @@ fn unchanged_columns_do_not_generate_sql(cx: &mut TestAppContext) {
     assert!(!cx.update(|_, app| designer.read(app).has_changes(app)));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn closing_changed_designer_requires_confirmation(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (designer, cx) = designer(DriverKind::Mysql, Vec::new(), cx);
 
     let unchanged_can_close =
@@ -133,9 +133,9 @@ fn closing_changed_designer_requires_confirmation(cx: &mut TestAppContext) {
     assert!(cx.update(|_, app| designer.read(app).discard_confirming));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn added_fields_receive_unique_names(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (designer, cx) = designer(
         DriverKind::Mysql,
         vec![column("new_column", "varchar(255)", true)],
@@ -160,9 +160,9 @@ fn added_fields_receive_unique_names(cx: &mut TestAppContext) {
     assert_eq!(names, ["new_column", "new_column_2", "new_column_3"]);
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn duplicate_field_names_are_rejected(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (designer, cx) = designer(
         DriverKind::Mysql,
         vec![
@@ -186,9 +186,9 @@ fn duplicate_field_names_are_rejected(cx: &mut TestAppContext) {
     assert!(error.contains("字段名 first_name 重复"));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn table_rename_uses_database_dialect(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     for (driver, expected) in [
         (
             DriverKind::Mysql,
@@ -219,9 +219,9 @@ fn table_rename_uses_database_dialect(cx: &mut TestAppContext) {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn table_name_change_is_not_included_in_field_sql(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (designer, cx) = designer(DriverKind::Mysql, Vec::new(), cx);
     cx.update(|window, app| {
         designer.update(app, |designer, cx| {
@@ -245,9 +245,9 @@ fn table_name_change_is_not_included_in_field_sql(cx: &mut TestAppContext) {
     assert!(!fields_changed);
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mysql_add_column_uses_mysql_dialect(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (designer, cx) = designer(DriverKind::Mysql, Vec::new(), cx);
     cx.update(|window, app| {
         designer.update(app, |designer, cx| designer.add_field(window, cx));
@@ -263,9 +263,9 @@ fn mysql_add_column_uses_mysql_dialect(cx: &mut TestAppContext) {
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn sqlite_add_column_uses_sqlite_dialect(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (designer, cx) = designer(DriverKind::Sqlite, Vec::new(), cx);
     cx.update(|window, app| {
         designer.update(app, |designer, cx| designer.add_field(window, cx));
@@ -281,9 +281,9 @@ fn sqlite_add_column_uses_sqlite_dialect(cx: &mut TestAppContext) {
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn sqlite_rejects_in_place_type_changes(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (designer, cx) = designer(DriverKind::Sqlite, vec![column("name", "TEXT", true)], cx);
     cx.update(|window, app| {
         designer.update(app, |designer, cx| {
@@ -299,9 +299,9 @@ fn sqlite_rejects_in_place_type_changes(cx: &mut TestAppContext) {
     assert!(error.contains("SQLite 字段 name 只支持重命名"));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mysql_batches_multiple_column_changes_into_one_alter(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (designer, cx) = designer(DriverKind::Mysql, Vec::new(), cx);
     cx.update(|window, app| {
         designer.update(app, |designer, cx| {
@@ -319,9 +319,9 @@ fn mysql_batches_multiple_column_changes_into_one_alter(cx: &mut TestAppContext)
     assert!(sql.contains(",\n    ADD COLUMN"));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn postgres_changes_emit_separate_alter_statements(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (designer, cx) = designer(DriverKind::Postgres, vec![column("name", "text", true)], cx);
     cx.update(|window, app| {
         designer.update(app, |designer, cx| {
@@ -346,10 +346,10 @@ fn postgres_changes_emit_separate_alter_statements(cx: &mut TestAppContext) {
 
 #[test]
 fn default_value_semantics_choose_expected_colors() {
-    let keyword = gpui::red();
-    let number = gpui::green();
-    let string = gpui::blue();
-    let constant = gpui::white();
+    let keyword = gpui_kit::red();
+    let number = gpui_kit::green();
+    let string = gpui_kit::blue();
+    let constant = gpui_kit::white();
 
     assert_eq!(
         default_value_color("CURRENT_TIMESTAMP", keyword, number, string, constant),

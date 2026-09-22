@@ -3,7 +3,7 @@
 use super::*;
 
 impl ResultPanel {
-    pub(crate) fn parse_column_filter(&self, cx: &gpui::App) -> ParsedFilter {
+    pub(crate) fn parse_column_filter(&self, cx: &gpui_kit::App) -> ParsedFilter {
         let raw = self.column_filter.read(cx).value().to_string();
         let docs = self
             .drill_stack
@@ -131,11 +131,14 @@ impl ResultPanel {
             }))
     }
 
-    pub(crate) fn filtered_column_indices(&self, cx: &gpui::App) -> Option<Vec<usize>> {
+    pub(crate) fn filtered_column_indices(&self, cx: &gpui_kit::App) -> Option<Vec<usize>> {
         column_indices_for(self.table.as_ref()?, &self.parse_column_filter(cx).filters)
     }
 
-    pub(crate) fn display_row_indices(&self, cx: &gpui::App) -> Option<(Arc<Vec<usize>>, bool)> {
+    pub(crate) fn display_row_indices(
+        &self,
+        cx: &gpui_kit::App,
+    ) -> Option<(Arc<Vec<usize>>, bool)> {
         let filter = self.effective_row_filter(cx);
         let filtered = filter.is_active();
         let key = RowViewKey {

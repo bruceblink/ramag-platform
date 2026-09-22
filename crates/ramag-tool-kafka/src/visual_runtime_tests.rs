@@ -1,13 +1,13 @@
 use super::*;
 
 struct KafkaRuntimeTestHost {
-    view: gpui::Entity<KafkaView>,
+    view: gpui_kit::Entity<KafkaView>,
 }
 
 impl Render for KafkaRuntimeTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        gpui::div()
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
@@ -15,9 +15,9 @@ impl Render for KafkaRuntimeTestHost {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_runtime_failure_can_recover_with_manual_retry(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("Recovery Kafka", vec!["127.0.0.1:19092".into()]);
     let service = Arc::new(KafkaService::new(
         Arc::new(FakeKafkaDriver),
@@ -30,7 +30,7 @@ fn kafka_runtime_failure_can_recover_with_manual_retry(cx: &mut TestAppContext) 
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaRuntimeTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;
@@ -61,9 +61,9 @@ fn kafka_runtime_failure_can_recover_with_manual_retry(cx: &mut TestAppContext) 
     assert!(visual_cx.debug_bounds("kafka-runtime-error").is_none());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_runtime_error_and_retry_fit_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("窄窗口恢复 Kafka", vec!["127.0.0.1:19092".into()]);
     let service = Arc::new(KafkaService::new(
         Arc::new(FakeKafkaDriver),
@@ -76,7 +76,7 @@ fn kafka_runtime_error_and_retry_fit_three_window_widths(cx: &mut TestAppContext
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaRuntimeTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;

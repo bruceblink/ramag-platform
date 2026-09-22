@@ -15,8 +15,7 @@ ramag-app = { workspace = true }
 ramag-ui = { workspace = true }
 
 # GPUI
-gpui = { workspace = true }
-gpui-component = { workspace = true }
+gpui-kit = { workspace = true }
 
 # 异步组合（key_detail 并发拉值 + TTL 用 futures::join）
 futures = { workspace = true }
@@ -43,6 +42,6 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 # 渲染测试：gpui test-support 提供 #[gpui::test] / TestAppContext / debug_bounds（headless 渲染）
-gpui = { workspace = true, features = ["test-support"] }
+gpui-kit = { workspace = true, features = ["test-support"] }
 # mock KvDriver / Storage（trait 用 #[async_trait]）
 async-trait = { workspace = true }

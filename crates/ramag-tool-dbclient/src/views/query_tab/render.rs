@@ -1,16 +1,16 @@
 //! 查询标签渲染。
 
-use gpui::{
-    AppContext as _, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled,
-    Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
-    input::{Input, InputState},
+    input::{Editor, Input, InputState},
     notification::Notification,
     v_flex,
+};
+use gpui_kit::{
+    AppContext as _, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled,
+    Window, div, prelude::*, px,
 };
 use ramag_domain::entities::MAX_SQL_QUERY_BYTES;
 
@@ -249,10 +249,10 @@ impl Render for QueryTab {
                         .border_b_1()
                         .border_color(border)
                         .child(
-                            Input::new(&self.editor)
+                            Editor::new(&self.editor)
                                 .h_full()
                                 .bordered(false)
-                                .focus_bordered(false),
+                                ,
                         ),
                 )
             })
@@ -290,11 +290,11 @@ impl Render for QueryTab {
                                     .flex_1()
                                     .min_w_0()
                                     .on_action(
-                                        move |action: &gpui_component::input::MoveUp,
+                                        move |action: &gpui_kit::component::input::MoveUp,
                                               window,
                                               app| {
                                             col_for_up.update(app, |state, cx| {
-                                                state.handle_action_for_context_menu(
+                                                state.route_overlay_action(
                                                     Box::new(action.clone()),
                                                     window,
                                                     cx,
@@ -303,11 +303,11 @@ impl Render for QueryTab {
                                         },
                                     )
                                     .on_action(
-                                        move |action: &gpui_component::input::MoveDown,
+                                        move |action: &gpui_kit::component::input::MoveDown,
                                               window,
                                               app| {
                                             col_for_down.update(app, |state, cx| {
-                                                state.handle_action_for_context_menu(
+                                                state.route_overlay_action(
                                                     Box::new(action.clone()),
                                                     window,
                                                     cx,
@@ -316,15 +316,13 @@ impl Render for QueryTab {
                                         },
                                     )
                                     .child(
-                                        ramag_ui::cleanable_input(
+                                        ramag_ui::cleanable_editor(
                                             &col_input,
                                             "sql-column-filter-clear",
                                             false,
                                             cx,
                                         )
-                                            .small()
-                                            .bordered(false)
-                                            .focus_bordered(false),
+                                            ,
                                     ),
                             )
                             .child(
@@ -408,7 +406,7 @@ impl Render for QueryTab {
                             && insert_reason.is_none()
                             && !has_pending_insert
                             && pending_cell_edit_count == 0;
-                        let insert_tip: gpui::SharedString = if let Some(reason) = insert_reason {
+                        let insert_tip: gpui_kit::SharedString = if let Some(reason) = insert_reason {
                             reason.into()
                         } else if has_pending_insert {
                             "请先处理草稿".into()

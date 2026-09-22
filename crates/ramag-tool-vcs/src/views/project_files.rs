@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{
+use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex, v_flex};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
     prelude::*, px, uniform_list,
 };
-use gpui_component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex, v_flex};
 use ramag_domain::entities::{FileChangeKind, FileStatus, contains_case_insensitive};
 
 use super::helpers::{code_letter_color, code_to_letter};
@@ -377,7 +377,7 @@ impl VcsView {
                     .flex_1()
                     .min_w_0()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(fg)
                     .overflow_hidden()
                     .text_ellipsis()

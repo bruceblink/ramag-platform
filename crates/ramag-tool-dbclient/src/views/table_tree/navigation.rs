@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::{ConnectionId, Table};
 use serde::{Deserialize, Serialize};
 
@@ -187,7 +187,7 @@ impl TableTreePanel {
             self.navigation_favorites.remove(&reference);
         } else if self.navigation_favorites.len() >= MAX_TABLE_FAVORITES {
             self.pending_notification = Some(
-                gpui_component::notification::Notification::warning(format!(
+                gpui_kit::component::notification::Notification::warning(format!(
                     "表收藏最多保留 {MAX_TABLE_FAVORITES} 项"
                 ))
                 .autohide(true),

@@ -1,12 +1,12 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
     prelude::*, px, uniform_list,
-};
-use gpui_component::{
-    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use ramag_domain::entities::{Commit, FileStatus};
 
@@ -91,10 +91,10 @@ impl VcsView {
 fn render_left_sidebar(
     view: &VcsView,
     commit: &Commit,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    accent: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
     let close_btn = ramag_ui::clickable_button("vcs-commit-detail-close")
@@ -140,7 +140,7 @@ fn render_left_sidebar(
                 .icon(ramag_ui::icons::copy())
                 .tooltip("复制")
                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(full_sha.clone()));
+                    cx.write_to_clipboard(gpui_kit::ClipboardItem::new_string(full_sha.clone()));
                     this.notify_success("已复制完整 SHA", cx);
                 }))
         });
@@ -160,9 +160,9 @@ fn render_left_sidebar(
 
 fn render_commit_meta(
     commit: &Commit,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
     mono: SharedString,
 ) -> AnyElement {
     let author = &commit.author;
@@ -206,8 +206,8 @@ fn render_commit_meta(
 
 fn render_files_tree(
     view: &VcsView,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
     if view.loading_commit_files {
@@ -280,8 +280,8 @@ fn render_tree_row(
     files: &Rc<Vec<FileStatus>>,
     selected: &Option<String>,
     commit_id: &str,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
     let theme = cx.theme();
@@ -381,7 +381,7 @@ fn render_tree_row(
                         .flex_none()
                         .w(px(14.0))
                         .text_xs()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(code_color)
                         .child(code),
                 )

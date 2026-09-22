@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use gpui::{
+use gpui_kit::{
     AppContext as _, Context, Entity, IntoElement, Modifiers, MouseButton, ParentElement, Render,
     Styled, TestAppContext, VisualTestContext, Window, div, point, prelude::*, px, size,
 };
@@ -69,7 +69,7 @@ fn add_overlay_window(
     Arc<AtomicUsize>,
     &mut VisualTestContext,
 ) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mouse_events = Arc::new(AtomicUsize::new(0));
     let key_events = Arc::new(AtomicUsize::new(0));
     let render_count = Arc::new(AtomicUsize::new(0));
@@ -97,7 +97,7 @@ fn add_overlay_window(
     )
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn running_overlay_covers_window_and_blocks_background_input(cx: &mut TestAppContext) {
     let gate = Arc::new(DataSyncGate::default());
     let _permit = gate
@@ -129,7 +129,7 @@ fn running_overlay_covers_window_and_blocks_background_input(cx: &mut TestAppCon
     assert_eq!(key_events.load(Ordering::Relaxed), 0);
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn cancel_and_terminal_result_keep_overlay_until_acknowledged(cx: &mut TestAppContext) {
     let gate = Arc::new(DataSyncGate::default());
     let permit = gate
@@ -182,7 +182,7 @@ fn cancel_and_terminal_result_keep_overlay_until_acknowledged(cx: &mut TestAppCo
     assert!(!gate.is_blocking());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn failed_result_remains_readable_inside_small_window(cx: &mut TestAppContext) {
     let gate = Arc::new(DataSyncGate::default());
     let permit = gate

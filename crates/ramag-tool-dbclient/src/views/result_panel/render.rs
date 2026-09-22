@@ -1,11 +1,11 @@
 //! SQL 结果面板渲染与复制。
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     ClickEvent, ClipboardItem, Context, Focusable as _, IntoElement, ParentElement, Render,
     SharedString, Styled, Window, div, prelude::*,
-};
-use gpui_component::{
-    ActiveTheme, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use ramag_ui::platform::primary_shortcut;
 
@@ -80,7 +80,7 @@ impl Render for ResultPanel {
                                 div()
                                     .flex_none()
                                     .text_xs()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .text_color(danger)
                                     .child("执行失败"),
                             )
@@ -187,7 +187,10 @@ impl Render for ResultPanel {
 
 impl ResultPanel {
     /// 渲染 SHOW WARNINGS 提示条
-    pub(super) fn render_warnings_banner(&self, cx: &Context<Self>) -> Option<gpui::AnyElement> {
+    pub(super) fn render_warnings_banner(
+        &self,
+        cx: &Context<Self>,
+    ) -> Option<gpui_kit::AnyElement> {
         let ResultState::Ok(qr) = &self.state else {
             return None;
         };
@@ -222,7 +225,7 @@ impl ResultPanel {
             .child(
                 div()
                     .text_xs()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(warning_color)
                     .child(header_label),
             )
@@ -236,7 +239,7 @@ impl ResultPanel {
         }
 
         const MAX_VISIBLE: usize = 20;
-        let mut rows: Vec<gpui::AnyElement> =
+        let mut rows: Vec<gpui_kit::AnyElement> =
             Vec::with_capacity(qr.warnings.len().min(MAX_VISIBLE) + 1);
         for w in qr.warnings.iter().take(MAX_VISIBLE) {
             let line = format!("[{} {}] {}", w.level, w.code, w.message);

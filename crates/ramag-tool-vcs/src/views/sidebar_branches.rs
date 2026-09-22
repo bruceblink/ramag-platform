@@ -1,14 +1,14 @@
 //! 侧栏分支行与操作菜单。
 
-use gpui::{
-    Context, Entity, InteractiveElement, IntoElement, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled, div, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
+};
+use gpui_kit::{
+    Context, Entity, InteractiveElement, IntoElement, ParentElement, SharedString,
+    StatefulInteractiveElement, Styled, div, px,
 };
 use ramag_domain::entities::Branch;
 use ramag_ui::PointerDropdownMenu as _;
@@ -75,9 +75,9 @@ pub(super) fn branch_row(
                 .min_w_0()
                 .text_sm()
                 .font_weight(if is_head {
-                    gpui::FontWeight::SEMIBOLD
+                    gpui_kit::FontWeight::SEMIBOLD
                 } else {
-                    gpui::FontWeight::NORMAL
+                    gpui_kit::FontWeight::NORMAL
                 })
                 .text_color(name_color)
                 .overflow_hidden()
@@ -93,11 +93,11 @@ pub(super) fn branch_row(
         );
 
     let filter = HistoryRefFilter::branch(&name, is_remote);
-    row = row
-        .cursor_pointer()
-        .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _, cx| {
-            this.view_ref_history(filter.clone(), cx);
-        }));
+    row =
+        row.cursor_pointer()
+            .on_click(cx.listener(move |this, _: &gpui_kit::ClickEvent, _, cx| {
+                this.view_ref_history(filter.clone(), cx);
+            }));
     if selected {
         row = row.bg(selected_bg);
     }
@@ -118,7 +118,7 @@ pub(super) fn branch_row(
         .icon(ramag_ui::icons::ellipsis())
         .tooltip("分支")
         .pointer_dropdown_menu_with_anchor(
-            gpui::Anchor::BottomRight,
+            gpui_kit::Anchor::BottomRight,
             move |menu, _, _| {
                 branch_actions_menu(
                     menu,
@@ -134,7 +134,9 @@ pub(super) fn branch_row(
     row = row.child(
         div()
             .flex_none()
-            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
+                cx.stop_propagation()
+            })
             .child(more_btn),
     );
 

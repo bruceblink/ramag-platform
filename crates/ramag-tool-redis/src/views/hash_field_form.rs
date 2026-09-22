@@ -2,14 +2,14 @@
 
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme,
+    input::{Input, InputState, Textarea, TextareaState},
+    v_flex,
+};
+use gpui_kit::{
     ClickEvent, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Window,
     div, prelude::*, px,
-};
-use gpui_component::{
-    ActiveTheme,
-    input::{Input, InputState},
-    v_flex,
 };
 use ramag_app::RedisService;
 use ramag_domain::entities::{ConnectionConfig, MAX_REDIS_COMMAND_ARG_BYTES};
@@ -40,7 +40,7 @@ pub struct HashFieldForm {
     key: String,
     mode: HashFieldFormMode,
     field_input: Entity<InputState>,
-    value_input: Entity<InputState>,
+    value_input: Entity<TextareaState>,
     state: SubmitState,
 }
 
@@ -72,12 +72,11 @@ impl HashFieldForm {
                 .default_value(initial_field)
         });
         let value_input = cx.new(|cx| {
-            bounded_input(MAX_REDIS_COMMAND_ARG_BYTES, window, cx)
-                .multi_line(true)
+            TextareaState::new(window, cx)
                 .placeholder("字段值（可多行）")
                 .default_value(initial_value)
         });
-        ramag_ui::enforce_multiline_input_byte_limit(
+        ramag_ui::enforce_textarea_input_byte_limit(
             &value_input,
             MAX_REDIS_COMMAND_ARG_BYTES,
             window,
@@ -179,7 +178,7 @@ impl Render for HashFieldForm {
                 .child(
                     div()
                         .text_xs()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(muted_fg)
                         .child("字段（不可修改）"),
                 )
@@ -195,7 +194,7 @@ impl Render for HashFieldForm {
                 .child(
                     div()
                         .text_xs()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(muted_fg)
                         .child("字段名"),
                 )
@@ -224,13 +223,13 @@ impl Render for HashFieldForm {
                     .child(
                         div()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .text_color(muted_fg)
                             .child("值"),
                     )
                     .child(
                         div().w_full().child(
-                            Input::new(&self.value_input)
+                            Textarea::new(&self.value_input)
                                 .h(px(180.0))
                                 .disabled(submitting),
                         ),

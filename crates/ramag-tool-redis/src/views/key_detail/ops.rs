@@ -1,7 +1,7 @@
 //! Key 详情加载与大小估算。
 
-use gpui::{Context, ScrollStrategy};
-use gpui_component::notification::Notification;
+use gpui_kit::component::notification::Notification;
+use gpui_kit::{Context, ScrollStrategy};
 use ramag_domain::entities::{RedisType, RedisValue};
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE};
 use tracing::{error, info};
@@ -33,7 +33,7 @@ impl KeyDetailPanel {
         // 新请求从顶部开始显示。
         self.value_scroll.scroll_to_item(0, ScrollStrategy::Top);
         self.scalar_h_scroll
-            .set_offset(gpui::Point::new(gpui::px(0.0), gpui::px(0.0)));
+            .set_offset(gpui_kit::Point::new(gpui_kit::px(0.0), gpui_kit::px(0.0)));
         self.scalar_scroll_gesture.reset();
         self.ttl_loading = true;
         self.ttl_error = None;

@@ -1,10 +1,10 @@
 //! SQL 查询历史弹框与“填入/重跑”事件接线。
 
-use gpui::{
+use gpui_kit::component::WindowExt as _;
+use gpui_kit::{
     AppContext as _, Context, InteractiveElement as _, ParentElement, SharedString, Styled as _,
     Window, div,
 };
-use gpui_component::WindowExt as _;
 
 use super::QueryPanel;
 use crate::views::history_dialog::{HistoryEvent, HistoryList};

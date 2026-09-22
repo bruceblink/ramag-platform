@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, Entity, EventEmitter, Subscription, Window};
-use gpui_component::input::{InputEvent, InputState};
+use gpui_kit::component::input::{InputEvent, InputState};
+use gpui_kit::{AppContext as _, Context, Entity, EventEmitter, Subscription, Window};
 use ramag_app::SshService;
 use ramag_domain::entities::{
     JumpServerRdpSession, RemotePlatformPreference, SshAuthMode, SshCapability, SshPortForward,
@@ -170,11 +170,11 @@ impl SshProfileFormPanel {
         self.operation.is_some()
     }
 
-    pub fn is_dirty(&self, cx: &gpui::App) -> bool {
+    pub fn is_dirty(&self, cx: &gpui_kit::App) -> bool {
         self.snapshot(cx) != self.initial
     }
 
-    fn snapshot(&self, cx: &gpui::App) -> FormSnapshot {
+    fn snapshot(&self, cx: &gpui_kit::App) -> FormSnapshot {
         FormSnapshot {
             values: self.form.values(cx),
             auth_mode: self.auth_mode,
@@ -273,7 +273,7 @@ impl SshProfileFormPanel {
         cx.notify();
     }
 
-    fn profile_from_form(&self, cx: &gpui::App) -> Result<SshProfile, String> {
+    fn profile_from_form(&self, cx: &gpui_kit::App) -> Result<SshProfile, String> {
         let mut profile = self.form.to_profile(
             self.editing_id.clone(),
             self.origin,
@@ -453,7 +453,7 @@ impl SshProfileFormPanel {
                     cx.notify();
                     return;
                 };
-                let input: &gpui::Entity<InputState> = if key_path {
+                let input: &gpui_kit::Entity<InputState> = if key_path {
                     &this.form.key_path
                 } else {
                     &this.form.ssh_path

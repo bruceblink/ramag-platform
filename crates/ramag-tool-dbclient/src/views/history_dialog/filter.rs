@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::QueryRecord;
 
 use super::HistoryList;

@@ -2,13 +2,13 @@ use super::*;
 use crate::KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT;
 
 struct KafkaOverviewTestHost {
-    view: gpui::Entity<KafkaView>,
+    view: gpui_kit::Entity<KafkaView>,
 }
 
 impl Render for KafkaOverviewTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        gpui::div()
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
@@ -17,9 +17,9 @@ impl Render for KafkaOverviewTestHost {
 }
 
 /// 检查概览页在宽、紧凑和窄窗口中保持顶部对齐，并让 Topic 预览紧跟 Broker 数据。
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("Overview Kafka", vec!["127.0.0.1:19092".into()]);
     let service = Arc::new(KafkaService::new(
         Arc::new(FakeKafkaDriver),
@@ -32,7 +32,7 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaOverviewTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;

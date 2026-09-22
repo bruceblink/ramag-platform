@@ -1,16 +1,16 @@
 use super::*;
 
-use gpui::TestAppContext;
+use gpui_kit::TestAppContext;
 use ramag_domain::entities::ApiRequestRecord;
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_multipart_editor_builds_domain_request_body(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::new(window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let Some(view) = view_entity else {
         return;
@@ -43,14 +43,14 @@ fn api_multipart_editor_builds_domain_request_body(cx: &mut TestAppContext) {
     assert_eq!(body.multipart.len(), 2);
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_imported_multipart_body_populates_editor_without_losing_parts(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::new(window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let Some(view) = view_entity else {
         return;

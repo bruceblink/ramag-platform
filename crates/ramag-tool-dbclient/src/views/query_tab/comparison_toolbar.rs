@@ -1,7 +1,7 @@
 //! 查询结果差异比较的工具栏菜单。
 
-use gpui::{ClickEvent, Entity, IntoElement};
-use gpui_component::{Disableable as _, Sizable as _, button::ButtonVariants as _};
+use gpui_kit::component::{Disableable as _, Sizable as _, button::ButtonVariants as _};
+use gpui_kit::{ClickEvent, Entity, IntoElement};
 use ramag_ui::PointerDropdownMenu as _;
 
 use super::QueryTab;

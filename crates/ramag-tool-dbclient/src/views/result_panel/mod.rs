@@ -10,12 +10,12 @@ mod row_search;
 mod scroll;
 mod state;
 use crate::sql_completion::SchemaCache;
-use gpui::{
+use gpui_kit::component::input::{EditorState, InputEvent, InputState};
+use gpui_kit::component::notification::Notification;
+use gpui_kit::{
     AppContext as _, Context, Entity, EventEmitter, Point, ScrollHandle, ScrollStrategy,
     Subscription, UniformListScrollHandle, Window, px,
 };
-use gpui_component::input::{InputEvent, InputState};
-use gpui_component::notification::Notification;
 use helpers::{PendingCellEdit, PendingInsert, extract_first_table_ref, parse_value_for_kind};
 use parking_lot::RwLock;
 use ramag_app::ConnectionService;
@@ -108,7 +108,7 @@ pub struct ResultPanel {
     pub(super) pinned_target: Option<(Option<String>, String)>,
     /// 行定位键（主键或全非空唯一索引）；未就绪时禁用行内修改和删除。
     pub(super) row_identity: Option<RowIdentity>,
-    pub(super) col_width_overrides: Vec<Option<gpui::Pixels>>,
+    pub(super) col_width_overrides: Vec<Option<gpui_kit::Pixels>>,
     pub(super) dml_busy: bool,
     /// Blocks generated mutations while a transaction is opening or finishing.
     pub(super) transaction_busy: bool,
@@ -129,7 +129,7 @@ pub struct ResultPanel {
     pub(super) display_view_cancel: Option<Arc<AtomicBool>>,
     pub(super) display_view_request_seq: u64,
     pub(super) display_view_error: Option<String>,
-    pub(super) column_filter_input: Entity<InputState>,
+    pub(super) column_filter_input: Entity<EditorState>,
     pub(super) row_filter_input: Entity<InputState>,
     row_search: RowSearchState,
     pub(super) cell_edit_input: Option<Entity<InputState>>,
@@ -143,7 +143,7 @@ pub struct ResultPanel {
     pub(super) uniform_scroll: UniformListScrollHandle,
     pub(super) h_scroll: ScrollHandle,
     /// 服务端排序会短暂替换结果状态；记录排序前的横向位置，避免回到最左侧。
-    pub(super) sort_h_scroll_offset: Option<gpui::Pixels>,
+    pub(super) sort_h_scroll_offset: Option<gpui_kit::Pixels>,
     /// 结果表触控板手势的轴锁定状态。
     result_scroll_gesture: AxisScrollGesture,
     pub(super) column_completion_source: Arc<RwLock<Vec<String>>>,
@@ -160,9 +160,10 @@ impl ResultPanel {
             column_completion_source.clone(),
         );
         let column_filter_input = cx.new(|cx| {
-            let mut state =
-                ramag_ui::bounded_search_input(window, cx).placeholder("过滤列（逗号分隔多列名）");
-            state.lsp.completion_provider = Some(provider);
+            let mut state = EditorState::new(window, cx)
+                .line_number(false)
+                .placeholder("过滤列（逗号分隔多列名）");
+            state.lsp_mut().completion_provider = Some(provider);
             state
         });
         let row_filter_input = cx.new(|cx| {

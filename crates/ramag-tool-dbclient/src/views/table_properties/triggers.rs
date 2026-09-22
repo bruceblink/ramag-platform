@@ -1,7 +1,7 @@
 //! 表属性中的触发器元数据列表。
 
-use gpui::{AnyElement, ParentElement, SharedString, Styled, div, prelude::*, px};
-use gpui_component::{Icon, IconName, Sizable as _, Theme, h_flex, v_flex};
+use gpui_kit::component::{Icon, IconName, Sizable as _, Theme, h_flex, v_flex};
+use gpui_kit::{AnyElement, ParentElement, SharedString, Styled, div, prelude::*, px};
 use ramag_domain::entities::Trigger;
 
 use super::TablePropertiesDialog;
@@ -11,7 +11,7 @@ use super::TablePropertiesDialog;
 pub(super) fn render(
     dialog: &TablePropertiesDialog,
     theme: &Theme,
-    panel_height: gpui::Pixels,
+    panel_height: gpui_kit::Pixels,
 ) -> AnyElement {
     let body = if dialog.triggers_loading {
         div()
@@ -108,7 +108,7 @@ pub(super) fn render(
                         .flex_1()
                         .min_w_0()
                         .text_sm()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .child("触发器"),
                 )
                 .child(

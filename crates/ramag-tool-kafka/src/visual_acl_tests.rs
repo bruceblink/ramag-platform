@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) fn exercise_acl_workspace(
     visual_cx: &mut VisualTestContext,
-    kafka_entity: &gpui::Entity<KafkaView>,
+    kafka_entity: &gpui_kit::Entity<KafkaView>,
 ) {
     click(visual_cx, "kafka-section-Acls");
     visual_cx.run_until_parked();

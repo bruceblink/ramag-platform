@@ -1,16 +1,16 @@
 //! SSH 工作区：SFTP 浏览器与多 Terminal 标签。
 
 mod file_browser;
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, Window, div,
-    prelude::*, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Selectable as _, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     resizable::{h_resizable, resizable_panel},
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, Window, div,
+    prelude::*, px, uniform_list,
 };
 use ramag_domain::entities::{
     MAX_SSH_TERMINALS_PER_WORKSPACE, RemoteOperatingSystem, RemotePlatformPreference,
@@ -56,7 +56,9 @@ impl SshView {
         let workspace_resize = self
             .workspace_resizes
             .entry(workspace_id.clone())
-            .or_insert_with(|| cx.new(|_| gpui_component::resizable::ResizableState::default()))
+            .or_insert_with(|| {
+                cx.new(|_| gpui_kit::component::resizable::ResizableState::default())
+            })
             .clone();
         let main = div()
             .id("ssh-workspace-main")
@@ -126,7 +128,7 @@ impl SshView {
                     .cursor_pointer()
                     .text_color(link)
                     .when(index == last, |part| {
-                        part.font_weight(gpui::FontWeight::SEMIBOLD)
+                        part.font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     })
                     .hover(move |part| part.text_color(link_hover))
                     .child(label)

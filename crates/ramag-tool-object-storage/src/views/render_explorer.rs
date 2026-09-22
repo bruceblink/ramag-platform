@@ -1,14 +1,14 @@
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, MouseButton, MouseDownEvent, ParentElement,
-    SharedString, Styled, Window, div, prelude::*, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
     resizable::{h_resizable, resizable_panel},
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, MouseButton, MouseDownEvent, ParentElement,
+    SharedString, Styled, Window, div, prelude::*, px, uniform_list,
 };
 use ramag_domain::entities::ObjectEntryKind;
 
@@ -59,7 +59,7 @@ impl ObjectStorageView {
                     .cursor_pointer()
                     .text_color(link)
                     .when(index == last, |part| {
-                        part.font_weight(gpui::FontWeight::SEMIBOLD)
+                        part.font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     })
                     .hover(move |part| part.text_color(link_hover))
                     .child(label)
@@ -205,7 +205,7 @@ impl ObjectStorageView {
                                     this.show_mounts = !this.show_mounts;
                                     if this.show_mounts {
                                         this.explorer_resize = cx.new(|_| {
-                                            gpui_component::resizable::ResizableState::default()
+                                            gpui_kit::component::resizable::ResizableState::default()
                                         });
                                         this.show_detail = false;
                                     }
@@ -327,9 +327,9 @@ impl ObjectStorageView {
         &self,
         entry: ramag_domain::entities::ObjectEntry,
         compact: bool,
-        border: gpui::Hsla,
-        muted: gpui::Hsla,
-        danger: gpui::Hsla,
+        border: gpui_kit::Hsla,
+        muted: gpui_kit::Hsla,
+        danger: gpui_kit::Hsla,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let key = entry.key.clone();

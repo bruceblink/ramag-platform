@@ -1,13 +1,13 @@
 //! 侧栏远程配置行与操作菜单。
 
-use gpui::{
-    Context, Entity, InteractiveElement, IntoElement, ParentElement, SharedString, Styled, div, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
+};
+use gpui_kit::{
+    Context, Entity, InteractiveElement, IntoElement, ParentElement, SharedString, Styled, div, px,
 };
 use ramag_domain::entities::Remote;
 use ramag_ui::PointerDropdownMenu as _;
@@ -26,7 +26,7 @@ pub(super) fn remote_row(
     let muted_fg = theme.muted_foreground;
     let mono = theme.mono_font_family.clone();
     let hover_bg = theme.muted;
-    let remote_color = gpui::hsla(200.0 / 360.0, 0.6, 0.55, 1.0);
+    let remote_color = gpui_kit::hsla(200.0 / 360.0, 0.6, 0.55, 1.0);
 
     let name = r.name.clone();
     let url = r.fetch_url.clone();
@@ -60,7 +60,7 @@ pub(super) fn remote_row(
                         .overflow_hidden()
                         .text_ellipsis()
                         .text_sm()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(fg)
                         .child(super::inline_text_preview(&name, 120)),
                 )
@@ -86,7 +86,7 @@ pub(super) fn remote_row(
             .xsmall()
             .icon(ramag_ui::icons::ellipsis())
             .tooltip("远程")
-            .pointer_dropdown_menu_with_anchor(gpui::Anchor::BottomRight, move |menu, _, _| {
+            .pointer_dropdown_menu_with_anchor(gpui_kit::Anchor::BottomRight, move |menu, _, _| {
                 remote_actions_menu(
                     menu,
                     menu_entity.clone(),

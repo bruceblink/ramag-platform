@@ -1,5 +1,5 @@
-use gpui::{Context, IntoElement, ParentElement, Render, Styled, Window, div, prelude::*};
-use gpui_component::{ActiveTheme, notification::Notification, v_flex};
+use gpui_kit::component::{ActiveTheme, notification::Notification, v_flex};
+use gpui_kit::{Context, IntoElement, ParentElement, Render, Styled, Window, div, prelude::*};
 
 use super::model::ObjectStorageView;
 
@@ -36,7 +36,7 @@ impl Render for ObjectStorageView {
                                         "{} · {bucket_count} 个 Bucket",
                                         account.provider.display_name()
                                     ),
-                                    gpui_component::IconName::HardDrive,
+                                    gpui_kit::component::IconName::HardDrive,
                                 )
                                 .secondary(format!("账号 ID：{}", account.id))
                                 .current(this.selected_account_id.as_ref() == Some(&account.id));

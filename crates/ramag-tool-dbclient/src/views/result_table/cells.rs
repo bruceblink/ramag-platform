@@ -1,11 +1,11 @@
-use gpui::{
-    AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, MouseButton,
-    ParentElement, SharedString, Styled, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     IconName, Sizable as _, h_flex,
     input::{Escape, Input},
     menu::ContextMenuExt as _,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, MouseButton,
+    ParentElement, SharedString, Styled, div, prelude::*, px,
 };
 use ramag_domain::entities::Value;
 
@@ -23,11 +23,11 @@ pub(super) fn render_header_cell(
     ci: usize,
     columns: &[String],
     column_types: &[String],
-    col_widths: &[gpui::Pixels],
+    col_widths: &[gpui_kit::Pixels],
     current_sort: Option<(usize, SortDir)>,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
     cx: &mut Context<ResultPanel>,
 ) -> AnyElement {
     let col = &columns[ci];
@@ -74,7 +74,7 @@ pub(super) fn render_header_cell(
                     div()
                         .min_w_0()
                         .text_xs()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(fg)
                         .overflow_hidden()
                         .text_ellipsis()
@@ -86,7 +86,7 @@ pub(super) fn render_header_cell(
                         div()
                             .flex_none()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::NORMAL)
+                            .font_weight(gpui_kit::FontWeight::NORMAL)
                             .text_color(muted_fg)
                             .whitespace_nowrap()
                             .child(t),

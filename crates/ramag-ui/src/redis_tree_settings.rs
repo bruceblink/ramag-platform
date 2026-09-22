@@ -1,6 +1,6 @@
 //! Redis Key 树展示设置与 GPUI 全局状态。
 
-use gpui::{App, Global};
+use gpui_kit::{App, Global};
 use serde::{Deserialize, Serialize};
 
 pub const REDIS_TREE_SETTINGS_PREF_KEY: &str = "redis_tree_settings";

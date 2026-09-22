@@ -1,10 +1,10 @@
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString,
-    StatefulInteractiveElement as _, Styled, Window, div, prelude::*, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Selectable as _, Sizable as _, button::ButtonVariants as _, h_flex, input::Input,
     v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString,
+    StatefulInteractiveElement as _, Styled, Window, div, prelude::*, px, uniform_list,
 };
 use ramag_domain::entities::{ClipKind, format_bytes};
 
@@ -249,7 +249,7 @@ mod tests {
     use std::sync::Arc;
 
     use async_trait::async_trait;
-    use gpui::{
+    use gpui_kit::{
         AppContext as _, Bounds, Entity, Pixels, TestAppContext, VisualTestContext, px, size,
     };
     use ramag_app::ClipboardService;
@@ -390,7 +390,7 @@ mod tests {
     fn add_clipboard_window(
         cx: &mut TestAppContext,
     ) -> (Option<Entity<ClipboardView>>, &mut VisualTestContext) {
-        cx.update(gpui_component::init);
+        cx.update(gpui_kit::component::init);
         let mut view = None;
         let (_, visual_cx) = cx.add_window_view(|window, cx| {
             let service = Arc::new(ClipboardService::new(
@@ -399,7 +399,7 @@ mod tests {
             ));
             let entity = cx.new(|cx| ClipboardView::new(service, window, cx));
             view = Some(entity.clone());
-            gpui_component::Root::new(entity, window, cx)
+            gpui_kit::component::Root::new(entity, window, cx)
         });
         (view, visual_cx)
     }
@@ -431,7 +431,7 @@ mod tests {
     }
 
     /// 搜索框和类型筛选在主页面工具栏中应随窗口宽度换行，且每个按钮都留在筛选区内。
-    #[gpui::test]
+    #[gpui_kit::test]
     fn clipboard_toolbar_wraps_search_and_filters_inside_supported_widths(cx: &mut TestAppContext) {
         let (_, cx) = add_clipboard_window(cx);
 
@@ -482,7 +482,7 @@ mod tests {
     }
 
     /// 紧凑窗口将列表和详情上下排列；常规窗口保留固定列表栏与可收缩详情栏。
-    #[gpui::test]
+    #[gpui_kit::test]
     fn clipboard_content_reflows_list_and_detail_inside_supported_widths(cx: &mut TestAppContext) {
         let (_, cx) = add_clipboard_window(cx);
 

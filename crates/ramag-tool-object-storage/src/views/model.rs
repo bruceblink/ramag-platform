@@ -4,11 +4,11 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::time::Duration;
 
-use gpui::{
+use gpui_kit::component::input::{InputEvent, InputState};
+use gpui_kit::component::resizable::ResizableState;
+use gpui_kit::{
     AppContext as _, Context, Entity, FocusHandle, Focusable, ScrollHandle, Subscription, Window,
 };
-use gpui_component::input::{InputEvent, InputState};
-use gpui_component::resizable::ResizableState;
 use ramag_app::ObjectStorageService;
 use ramag_domain::entities::{
     ObjectCapabilities, ObjectEntry, ObjectListCursor, ObjectMetadata, ObjectStorageAccount,
@@ -224,7 +224,7 @@ impl ObjectStorageView {
 }
 
 impl Focusable for ObjectStorageView {
-    fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
+    fn focus_handle(&self, _cx: &gpui_kit::App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }

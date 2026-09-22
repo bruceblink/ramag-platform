@@ -5,7 +5,7 @@ pub(super) fn render_ddl_panel(
     ddl: Option<String>,
     error: Option<String>,
     scroll: &ScrollHandle,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     let content = if loading {
         v_flex()

@@ -1,6 +1,6 @@
 //! Bounds shared dialogs against the viewport, including short desktop windows.
 
-use gpui::{Pixels, Window, px};
+use gpui_kit::{Pixels, Window, px};
 
 pub(crate) struct DialogLayout {
     pub width: Pixels,

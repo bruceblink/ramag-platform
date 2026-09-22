@@ -1,7 +1,7 @@
 //! SSH 配置表单字段与领域模型转换。
 
-use gpui::{AppContext as _, Context, Entity, Window};
-use gpui_component::input::InputState;
+use gpui_kit::component::input::InputState;
+use gpui_kit::{AppContext as _, Context, Entity, Window};
 use ramag_domain::entities::{
     MAX_SSH_ENVIRONMENT_BYTES, MAX_SSH_HOST_BYTES, MAX_SSH_PASSWORD_BYTES, MAX_SSH_PATH_BYTES,
     MAX_SSH_PROFILE_NAME_BYTES, MAX_SSH_USERNAME_BYTES, RemotePlatformPreference, SshAuthMode,
@@ -108,7 +108,7 @@ impl ProfileForm {
         }
     }
 
-    pub fn values(&self, cx: &gpui::App) -> Vec<String> {
+    pub fn values(&self, cx: &gpui_kit::App) -> Vec<String> {
         self.inputs()
             .iter()
             .map(|input| input.read(cx).value().to_string())
@@ -122,7 +122,7 @@ impl ProfileForm {
         auth_mode: SshAuthMode,
         production: bool,
         remote_platform: RemotePlatformPreference,
-        cx: &gpui::App,
+        cx: &gpui_kit::App,
     ) -> Result<SshProfile, String> {
         let value = |input: &Entity<InputState>| input.read(cx).value().trim().to_string();
         let port = match value(&self.port) {

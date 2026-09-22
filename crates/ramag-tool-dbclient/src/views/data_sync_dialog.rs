@@ -7,8 +7,8 @@ mod render;
 
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, Entity, Subscription, Window};
-use gpui_component::input::{InputEvent, InputState};
+use gpui_kit::component::input::{InputEvent, InputState};
+use gpui_kit::{AppContext as _, Context, Entity, Subscription, Window};
 use ramag_app::{DataSyncConfirmation, DataSyncObjectCatalog, DataSyncService, PreparedDataSync};
 use ramag_domain::entities::{
     ConnectionConfig, DataSyncRequest, DataSyncScope, DataSyncTaskId, DriverKind, MongoSyncScope,
@@ -517,7 +517,7 @@ impl DataSyncDialog {
         match self.service.start(prepared, confirmation) {
             Ok(started) => {
                 let service = self.service.clone();
-                gpui_component::WindowExt::close_dialog(window, cx);
+                gpui_kit::component::WindowExt::close_dialog(window, cx);
                 cx.spawn(async move |_, _| service.execute(started).await)
                     .detach();
             }

@@ -2,18 +2,18 @@
 
 use std::rc::Rc;
 
-use gpui::{
-    AnyElement, App, AppContext as _, ClickEvent, Context, IntoElement, ParentElement,
-    SharedString, Styled, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     h_flex,
-    input::{Input, InputState},
+    input::{Editor, EditorState},
     menu::{ContextMenuExt as _, PopupMenu},
     notification::Notification,
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, App, AppContext as _, ClickEvent, Context, IntoElement, ParentElement,
+    SharedString, Styled, Window, div, prelude::*, px,
 };
 use ramag_domain::entities::{Index, MAX_SQL_QUERY_BYTES, Trigger};
 
@@ -38,7 +38,7 @@ struct MetadataRow {
     menu_kind: MetadataMenu,
     schema: String,
     table: String,
-    color: gpui::Hsla,
+    color: gpui_kit::Hsla,
 }
 
 pub(super) fn render_index_row(
@@ -46,7 +46,7 @@ pub(super) fn render_index_row(
     schema: String,
     table: String,
     index_index: usize,
-    color: gpui::Hsla,
+    color: gpui_kit::Hsla,
     cx: &mut Context<TableTreePanel>,
 ) -> AnyElement {
     render_metadata_row(
@@ -71,7 +71,7 @@ pub(super) fn render_trigger_row(
     schema: String,
     table: String,
     trigger_index: usize,
-    color: gpui::Hsla,
+    color: gpui_kit::Hsla,
     cx: &mut Context<TableTreePanel>,
 ) -> AnyElement {
     render_metadata_row(
@@ -372,13 +372,11 @@ fn open_sql_editor(
         return;
     }
     let input = cx.new(|cx| {
-        InputState::new(window, cx)
-            .code_editor("sql")
-            .validate(|value, _| value.len() <= MAX_SQL_QUERY_BYTES)
-            .rows(16)
+        EditorState::new(window, cx)
+            .language("sql")
             .default_value(initial)
     });
-    ramag_ui::enforce_multiline_input_byte_limit(
+    ramag_ui::enforce_editor_input_byte_limit(
         &input,
         MAX_SQL_QUERY_BYTES,
         window,
@@ -450,7 +448,7 @@ fn open_sql_editor(
                                     .text_color(cx.theme().muted_foreground)
                                     .child(description_for_content.clone()),
                             )
-                            .child(Input::new(&input_for_content).h(input_height)),
+                            .child(Editor::new(&input_for_content).h(input_height)),
                     )
                 }
             })

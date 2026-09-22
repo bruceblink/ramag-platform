@@ -4,7 +4,7 @@ use std::sync::{
 };
 
 use async_trait::async_trait;
-use gpui::{AppContext as _, Modifiers, TestAppContext, VisualTestContext, point, px, size};
+use gpui_kit::{AppContext as _, Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_app::MqttService;
 use ramag_domain::entities::{
     MosquittoAcl, MosquittoAclDecision, MosquittoAclType, MosquittoClient,
@@ -66,13 +66,13 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
         bounds.origin.y + bounds.size.height / 2.0,
     );
     cx.simulate_mouse_move(center, None, Modifiers::default());
-    cx.simulate_mouse_down(center, gpui::MouseButton::Left, Modifiers::default());
-    cx.simulate_mouse_up(center, gpui::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_up(center, gpui_kit::MouseButton::Left, Modifiers::default());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_management_editors_reflow_inside_supported_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(MqttService::new(
         Arc::new(NoopMqttDriver),
         Arc::new(NoopStorage::default()),
@@ -82,7 +82,7 @@ fn mqtt_management_editors_reflow_inside_supported_window_widths(cx: &mut TestAp
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
     let snapshot = MosquittoDynamicSecuritySnapshot {
@@ -186,9 +186,9 @@ fn mqtt_management_editors_reflow_inside_supported_window_widths(cx: &mut TestAp
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_management_buttons_send_changes_to_dynamic_security_driver(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let snapshot = MosquittoDynamicSecuritySnapshot {
         clients: Vec::new(),
         groups: Vec::new(),
@@ -213,7 +213,7 @@ fn mqtt_management_buttons_send_changes_to_dynamic_security_driver(cx: &mut Test
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
     let mut profile = MqttProfile::new("Dynamic Security UI", "127.0.0.1", 18883);

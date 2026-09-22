@@ -1,14 +1,14 @@
 //! Hash / ZSet / Stream 共用双列行编辑器。collect 时一次返回首个错误（含行号）
 
-use gpui::{
-    App, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement, ParentElement, Render,
-    SharedString, Styled, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _,
     button::ButtonVariants as _,
     input::{Input, InputState},
     v_flex,
+};
+use gpui_kit::{
+    App, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement, ParentElement, Render,
+    SharedString, Styled, Window, div, prelude::*, px,
 };
 use ramag_domain::entities::MAX_REDIS_COMMAND_ARG_BYTES;
 

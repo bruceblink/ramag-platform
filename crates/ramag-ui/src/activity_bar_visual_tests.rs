@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use gpui::{TestAppContext, VisualTestContext, px, size};
+use gpui_kit::{TestAppContext, VisualTestContext, px, size};
 use ramag_app::{StaticPluginHost, ToolRegistry};
 use ramag_domain::{PluginDescriptor, PluginId, Tool, ToolMeta};
 
@@ -52,9 +52,9 @@ fn host_with_registration_failure(registry: Arc<ToolRegistry>) -> Arc<StaticPlug
 }
 
 /// 真实活动栏视图：工具项超出可视高度时，滚动区收缩而固定入口保持可见。
-#[gpui::test]
+#[gpui_kit::test]
 fn activity_bar_keeps_fixed_actions_visible_when_tool_list_overflows(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let registry = registry_with_tools(16);
     let plugin_host = Arc::new(StaticPluginHost::new(registry.clone()));
     let (_, cx) = cx
@@ -91,9 +91,9 @@ fn activity_bar_keeps_fixed_actions_visible_when_tool_list_overflows(cx: &mut Te
     assert!(last_tool.bottom() > scroll.bottom());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn activity_bar_shows_plugin_failure_badge(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let registry = registry_with_tools(1);
     let plugin_host = host_with_registration_failure(registry.clone());
     let (_, visual_cx) = cx

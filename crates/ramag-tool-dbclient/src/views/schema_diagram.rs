@@ -3,17 +3,17 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use gpui::{
-    AppContext as _, Context, Entity, IntoElement, ParentElement, Render, ScrollHandle,
-    StatefulInteractiveElement as _, Styled, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, Theme,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputState},
-    scroll::{Scrollbar, ScrollbarShow},
+    scroll::{Scrollbar, ScrollbarMode},
     v_flex,
+};
+use gpui_kit::{
+    AppContext as _, Context, Entity, IntoElement, ParentElement, Render, ScrollHandle,
+    StatefulInteractiveElement as _, Styled, Window, div, prelude::*, px,
 };
 use ramag_app::ConnectionService;
 use ramag_domain::entities::ConnectionConfig;
@@ -145,16 +145,16 @@ impl SchemaDiagramPanel {
                     }
                 }
                 this.vertical_scroll
-                    .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+                    .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
                 this.horizontal_scroll
-                    .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+                    .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
                 cx.notify();
             });
         })
         .detach();
     }
 
-    fn search_query(&self, cx: &gpui::App) -> String {
+    fn search_query(&self, cx: &gpui_kit::App) -> String {
         self.search.read(cx).value().trim().to_lowercase()
     }
 
@@ -216,7 +216,7 @@ impl SchemaDiagramPanel {
                             .flex_1()
                             .min_w_0()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .text_color(fg)
                             .overflow_hidden()
                             .text_ellipsis()
@@ -444,7 +444,7 @@ impl Render for SchemaDiagramPanel {
                 div()
                     .flex_none()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .child(format!("Schema Diagram · {}", self.schema)),
             )
             .child(
@@ -538,7 +538,7 @@ impl Render for SchemaDiagramPanel {
                         .child(
                             Scrollbar::vertical(&self.vertical_scroll)
                                 .id("schema-diagram-vertical-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 )
                 .child(
@@ -553,7 +553,7 @@ impl Render for SchemaDiagramPanel {
                         .child(
                             Scrollbar::horizontal(&self.horizontal_scroll)
                                 .id("schema-diagram-horizontal-scrollbar-control")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 )
                 .into_any_element()

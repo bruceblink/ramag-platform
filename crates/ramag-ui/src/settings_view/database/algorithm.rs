@@ -1,7 +1,7 @@
 //! ID 转换算法摘要。
 
-use gpui::{Context, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
-use gpui_component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::{Context, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
 use ramag_domain::entities::IdConverterKind;
 
 use super::super::SettingsView;
@@ -10,7 +10,7 @@ pub(super) fn render_algorithm_summary(
     kind: IdConverterKind,
     custom_alphabet: &str,
     cx: &Context<SettingsView>,
-) -> gpui::Div {
+) -> gpui_kit::Div {
     let theme = cx.theme();
     let muted = theme.muted_foreground;
     let algorithm = id_converter_kind_algorithm(kind);
@@ -55,10 +55,10 @@ pub(super) fn quote_contents(value: &str) -> String {
 
 fn algorithm_row(
     label: &'static str,
-    content: impl Into<gpui::SharedString>,
-    label_color: gpui::Hsla,
-    text_color: gpui::Hsla,
-) -> gpui::Div {
+    content: impl Into<gpui_kit::SharedString>,
+    label_color: gpui_kit::Hsla,
+    text_color: gpui_kit::Hsla,
+) -> gpui_kit::Div {
     h_flex()
         .w_full()
         .items_start()

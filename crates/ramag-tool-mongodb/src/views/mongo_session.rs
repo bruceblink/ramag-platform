@@ -6,13 +6,13 @@
 
 use std::sync::Arc;
 
-use gpui::{
-    Context, Entity, IntoElement, ParentElement, Render, Styled, Subscription, Window, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
     resizable::{ResizableState, h_resizable, resizable_panel},
+};
+use gpui_kit::{
+    Context, Entity, IntoElement, ParentElement, Render, Styled, Subscription, Window, div,
+    prelude::*, px,
 };
 use ramag_app::MongoService;
 use ramag_domain::entities::ConnectionConfig;
@@ -145,7 +145,7 @@ impl MongoSessionPanel {
     }
 
     /// 连接健康快照 (loading, has_error)：取 collection 树的加载状态
-    pub fn health(&self, cx: &gpui::App) -> (bool, bool) {
+    pub fn health(&self, cx: &gpui_kit::App) -> (bool, bool) {
         self.tree.read(cx).health()
     }
 

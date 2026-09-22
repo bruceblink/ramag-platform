@@ -11,12 +11,12 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::{
     Anchor, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, SharedString,
     Styled, Subscription, UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
 };
 
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Selectable as _, Sizable as _, button::ButtonVariants as _, h_flex,
     input::InputState, v_flex,
 };
@@ -55,7 +55,7 @@ pub struct CollectionTreePanel {
     tree_revision: u64,
     tree_rows_cache: RefCell<Option<TreeRowsCacheEntry>>,
     auto_activate_pending: bool,
-    pending_notification: Option<gpui_component::notification::Notification>,
+    pending_notification: Option<gpui_kit::component::notification::Notification>,
     /// 连接切换使旧写任务失效。
     mutation_gate: AsyncMutationGate,
     transfer: ramag_ui::TransferState,

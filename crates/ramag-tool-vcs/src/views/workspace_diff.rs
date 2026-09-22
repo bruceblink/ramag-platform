@@ -1,10 +1,10 @@
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _,
     clipboard::Clipboard, h_flex, v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    prelude::*, px,
 };
 
 use super::helpers::{FileTabSource, GroupKind};
@@ -157,13 +157,13 @@ impl VcsView {
             let dot_color = match &tab.source {
                 FileTabSource::Changes(GroupKind::Staged) => accent,
                 FileTabSource::Changes(GroupKind::Unstaged) => {
-                    gpui::hsla(40.0 / 360.0, 0.7, 0.55, 1.0)
+                    gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0)
                 }
                 FileTabSource::Changes(GroupKind::Untracked) => muted_fg,
-                FileTabSource::Changes(GroupKind::Conflict) => gpui::hsla(0.0, 0.65, 0.55, 1.0),
-                FileTabSource::ProjectFiles => gpui::hsla(210.0 / 360.0, 0.6, 0.55, 1.0),
-                FileTabSource::Commit { .. } => gpui::hsla(280.0 / 360.0, 0.55, 0.55, 1.0),
-                FileTabSource::Compare { .. } => gpui::hsla(160.0 / 360.0, 0.55, 0.5, 1.0),
+                FileTabSource::Changes(GroupKind::Conflict) => gpui_kit::hsla(0.0, 0.65, 0.55, 1.0),
+                FileTabSource::ProjectFiles => gpui_kit::hsla(210.0 / 360.0, 0.6, 0.55, 1.0),
+                FileTabSource::Commit { .. } => gpui_kit::hsla(280.0 / 360.0, 0.55, 0.55, 1.0),
+                FileTabSource::Compare { .. } => gpui_kit::hsla(160.0 / 360.0, 0.55, 0.5, 1.0),
             };
             // Changes / Commit 的圆点表达来源状态；Project Files 只在尚未落盘时显示。
             let show_dot = !matches!(tab.source, FileTabSource::ProjectFiles) || tab.is_dirty();
@@ -234,10 +234,10 @@ impl VcsView {
         path: &str,
         _kind: GroupKind,
         blame_supported: bool,
-        fg: gpui::Hsla,
-        accent: gpui::Hsla,
+        fg: gpui_kit::Hsla,
+        accent: gpui_kit::Hsla,
         mono: SharedString,
-        border: gpui::Hsla,
+        border: gpui_kit::Hsla,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         // 当前 driver 只支持 HEAD blame；commit 历史 diff 禁用，避免把当前作者冒充历史作者。
@@ -316,7 +316,7 @@ impl VcsView {
                     .py(px(1.0))
                     .rounded(px(3.0))
                     .text_xs()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(accent)
                     .bg({
                         let mut c = accent;
@@ -354,10 +354,10 @@ impl VcsView {
         blame_supported: bool,
         enable_hunk_ops: bool,
         mono: SharedString,
-        fg: gpui::Hsla,
-        muted_fg: gpui::Hsla,
-        muted_bg: gpui::Hsla,
-        _accent: gpui::Hsla,
+        fg: gpui_kit::Hsla,
+        muted_fg: gpui_kit::Hsla,
+        muted_bg: gpui_kit::Hsla,
+        _accent: gpui_kit::Hsla,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         if self.loading_diff {
@@ -401,7 +401,7 @@ impl VcsView {
     }
 }
 
-fn placeholder(text: &'static str, muted_fg: gpui::Hsla) -> AnyElement {
+fn placeholder(text: &'static str, muted_fg: gpui_kit::Hsla) -> AnyElement {
     div()
         .px(px(12.0))
         .py(px(20.0))
@@ -413,8 +413,8 @@ fn placeholder(text: &'static str, muted_fg: gpui::Hsla) -> AnyElement {
 
 fn render_inline_blame_banner(
     text: SharedString,
-    accent: gpui::Hsla,
-    fg: gpui::Hsla,
+    accent: gpui_kit::Hsla,
+    fg: gpui_kit::Hsla,
     mono: SharedString,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {

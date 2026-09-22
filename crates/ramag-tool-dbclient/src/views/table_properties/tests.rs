@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Entity, Point, Size, TestAppContext, px, size};
+use gpui_kit::{AppContext as _, Entity, Point, Size, TestAppContext, px, size};
 use ramag_app::ConnectionService;
 use ramag_domain::entities::{ConnectionConfig, ConnectionId, QueryRecord, QueryRecordId, Trigger};
 use ramag_domain::error::Result;
@@ -64,7 +64,10 @@ impl Storage for NoopStorage {
 
 fn test_dialog(
     cx: &mut TestAppContext,
-) -> (Entity<TablePropertiesDialog>, &mut gpui::VisualTestContext) {
+) -> (
+    Entity<TablePropertiesDialog>,
+    &mut gpui_kit::VisualTestContext,
+) {
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
         Arc::new(NoopStorage),
@@ -92,12 +95,12 @@ fn test_dialog(
             position: None,
             drag_state: None::<DragState>,
             focus_handle: cx.focus_handle(),
-            ddl_vertical_scroll: gpui::ScrollHandle::new(),
-            ddl_horizontal_scroll: gpui::ScrollHandle::new(),
-            triggers_vertical_scroll: gpui::ScrollHandle::new(),
+            ddl_vertical_scroll: gpui_kit::ScrollHandle::new(),
+            ddl_horizontal_scroll: gpui_kit::ScrollHandle::new(),
+            triggers_vertical_scroll: gpui_kit::ScrollHandle::new(),
         });
         dialog_entity = Some(dialog.clone());
-        gpui_component::Root::new(dialog, window, cx)
+        gpui_kit::component::Root::new(dialog, window, cx)
     });
     (dialog_entity.expect("表属性对话框应创建"), visual_cx)
 }
@@ -141,9 +144,9 @@ fn trigger_panel_shares_compact_modal_height_with_ddl() {
     assert_eq!(trigger_panel_height(desktop), px(172.0));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn trigger_metadata_is_visible_above_the_ddl_preview(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_dialog, cx) = test_dialog(cx);
     cx.simulate_resize(size(px(1024.0), px(720.0)));
     cx.run_until_parked();
@@ -162,9 +165,9 @@ fn trigger_metadata_is_visible_above_the_ddl_preview(cx: &mut TestAppContext) {
     assert!(ddl_panel.origin.y >= trigger_panel.bottom());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn trigger_metadata_stays_inside_a_narrow_modal(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_dialog, cx) = test_dialog(cx);
     cx.simulate_resize(size(px(420.0), px(320.0)));
     cx.run_until_parked();
@@ -181,9 +184,9 @@ fn trigger_metadata_stays_inside_a_narrow_modal(cx: &mut TestAppContext) {
     assert!(trigger_row.right() <= trigger_panel.right());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn trigger_metadata_and_ddl_stay_inside_a_compact_modal(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_dialog, cx) = test_dialog(cx);
     cx.simulate_resize(size(px(360.0), px(240.0)));
     cx.run_until_parked();

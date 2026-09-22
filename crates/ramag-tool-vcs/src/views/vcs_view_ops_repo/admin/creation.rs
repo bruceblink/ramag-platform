@@ -1,6 +1,6 @@
 //! 仓库克隆、初始化与残留目录清理。
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::error::{DomainError, Result};
 
 use super::super::super::helpers::is_current_arc_slot;
@@ -190,7 +190,7 @@ impl VcsView {
                             destination = %dir.display(),
                             "partial clone directory removed"
                         );
-                        gpui_component::notification::Notification::success(format!(
+                        gpui_kit::component::notification::Notification::success(format!(
                             "已删除未完成的克隆目录：{display}"
                         ))
                         .autohide(true)
@@ -202,7 +202,7 @@ impl VcsView {
                             error = %error,
                             "partial clone cleanup failed"
                         );
-                        gpui_component::notification::Notification::error(format!(
+                        gpui_kit::component::notification::Notification::error(format!(
                             "删除未完成的克隆目录失败：{error}"
                         ))
                         .autohide(false)

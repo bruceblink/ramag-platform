@@ -13,11 +13,8 @@ workspace = true
 ramag-domain = { workspace = true }
 ramag-app = { workspace = true }
 
-# GPUI 桌面 UI 框架
-gpui = { workspace = true }
-gpui-component = { workspace = true }
-# 上游 Assets 兜底：自定义 AssetSource 找不到本地 svg 时回查上游内置图标
-gpui-component-assets = { workspace = true }
+# GPUI Kit 桌面 UI 框架与默认 Assets
+gpui-kit = { workspace = true }
 url = { workspace = true }
 
 # 日志
@@ -40,4 +37,4 @@ parking_lot = { workspace = true }
 
 [dev-dependencies]
 # 侧栏交互测试：验证外部链接交由 GPUI 测试平台打开。
-gpui = { workspace = true, features = ["test-support"] }
+gpui-kit = { workspace = true, features = ["test-support"] }

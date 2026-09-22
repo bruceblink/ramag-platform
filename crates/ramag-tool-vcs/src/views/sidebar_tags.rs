@@ -1,14 +1,14 @@
 //! 侧栏 Tag 行与操作菜单。
 
-use gpui::{
-    Context, Entity, InteractiveElement, IntoElement, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled, div, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
+};
+use gpui_kit::{
+    Context, Entity, InteractiveElement, IntoElement, ParentElement, SharedString,
+    StatefulInteractiveElement, Styled, div, px,
 };
 use ramag_domain::entities::Tag;
 use ramag_ui::PointerDropdownMenu as _;
@@ -29,7 +29,7 @@ pub(super) fn tag_row(
     let muted_fg = theme.muted_foreground;
     let mono = theme.mono_font_family.clone();
     let hover_bg = theme.muted;
-    let tag_color = gpui::hsla(40.0 / 360.0, 0.7, 0.55, 1.0);
+    let tag_color = gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0);
     let mut selected_bg = theme.accent;
     selected_bg.a = 0.14;
 
@@ -71,7 +71,7 @@ pub(super) fn tag_row(
                         .overflow_hidden()
                         .text_ellipsis()
                         .text_sm()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(if selected { theme.accent } else { fg })
                         .child(super::inline_text_preview(&name, 120)),
                 )
@@ -88,7 +88,7 @@ pub(super) fn tag_row(
                 ),
         )
         .cursor_pointer()
-        .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _, cx| {
+        .on_click(cx.listener(move |this, _: &gpui_kit::ClickEvent, _, cx| {
             this.view_ref_history(filter.clone(), cx);
         }));
     if selected {
@@ -99,7 +99,9 @@ pub(super) fn tag_row(
     row = row.child(
         div()
             .flex_none()
-            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
+                cx.stop_propagation()
+            })
             .child(
                 ramag_ui::clickable_button(SharedString::from(format!("vcs-side-tag-more-{idx}")))
                     .ghost()
@@ -107,7 +109,7 @@ pub(super) fn tag_row(
                     .icon(ramag_ui::icons::ellipsis())
                     .tooltip("标签")
                     .pointer_dropdown_menu_with_anchor(
-                        gpui::Anchor::BottomRight,
+                        gpui_kit::Anchor::BottomRight,
                         move |menu, _, _| {
                             tag_actions_menu(menu, menu_entity.clone(), menu_name.clone(), busy)
                         },

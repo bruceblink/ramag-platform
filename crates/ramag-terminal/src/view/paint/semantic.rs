@@ -2,8 +2,8 @@
 
 mod prompt;
 
-use gpui::{HighlightStyle, Hsla};
-use gpui_component::Theme;
+use gpui_kit::component::Theme;
+use gpui_kit::{HighlightStyle, Hsla};
 
 use crate::core::{RgbColor, TerminalCell};
 

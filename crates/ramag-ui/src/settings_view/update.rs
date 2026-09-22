@@ -1,8 +1,8 @@
-use gpui::{
+use gpui_kit::component::{ActiveTheme, Sizable as _, h_flex};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, px,
 };
-use gpui_component::{ActiveTheme, Sizable as _, h_flex};
 use ramag_app::{AvailableUpdate, UpdateCheckResult};
 
 use super::{SettingsView, UpdateUiState, pages::settings_card};
@@ -55,8 +55,8 @@ impl SettingsView {
 fn render_update_toolbar(
     current_version: String,
     update: Option<AvailableUpdate>,
-    accent: gpui::Hsla,
-    link_hover: gpui::Hsla,
+    accent: gpui_kit::Hsla,
+    link_hover: gpui_kit::Hsla,
 ) -> impl IntoElement {
     let mut info = h_flex()
         .id("settings-update-info")
@@ -88,7 +88,7 @@ fn render_update_toolbar(
                     div()
                         .flex_none()
                         .text_xs()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(accent)
                         .child("新"),
                 )
@@ -99,7 +99,7 @@ fn render_update_toolbar(
                         .flex_1()
                         .min_w_0()
                         .text_sm()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(accent)
                         .whitespace_normal()
                         .cursor_pointer()
@@ -165,11 +165,11 @@ fn update_from_state(state: &UpdateUiState) -> Option<&AvailableUpdate> {
 
 #[cfg(test)]
 mod tests {
-    use gpui::{
+    use gpui_kit::component::ActiveTheme as _;
+    use gpui_kit::{
         Context, InteractiveElement as _, IntoElement, ParentElement as _, Render, Styled as _,
         TestAppContext, VisualTestContext, Window, div, px, size,
     };
-    use gpui_component::ActiveTheme as _;
     use ramag_app::AvailableUpdate;
     use ramag_domain::entities::ReleaseInfo;
 
@@ -204,9 +204,9 @@ mod tests {
         }
     }
 
-    #[gpui::test]
+    #[gpui_kit::test]
     fn update_toolbar_keeps_long_info_and_actions_inside_narrow_parent(cx: &mut TestAppContext) {
-        cx.update(gpui_component::init);
+        cx.update(gpui_kit::component::init);
         let (_, cx) = cx.add_window_view(|_, _| UpdateToolbarHost);
         let cx: &mut VisualTestContext = cx;
         cx.simulate_resize(size(px(240.0), px(180.0)));

@@ -1,5 +1,5 @@
-use gpui::{AppContext as _, Context, Window};
-use gpui_component::input::InputState;
+use gpui_kit::component::input::EditorState;
+use gpui_kit::{AppContext as _, Context, Window};
 use ramag_domain::entities::{
     MAX_OBJECT_STORAGE_TEXT_PREVIEW_BYTES, ObjectEntryKind, ObjectStorageMount, OverwritePolicy,
     format_bytes,
@@ -73,7 +73,7 @@ impl ObjectStorageView {
         self.selected_key = None;
         self.detail_message = message.into();
         self.detail_metadata = None;
-        self.detail_scroll = gpui::ScrollHandle::new();
+        self.detail_scroll = gpui_kit::ScrollHandle::new();
     }
 
     pub(super) fn select_entry(&mut self, key: String, cx: &mut Context<Self>) {
@@ -152,8 +152,8 @@ impl ObjectStorageView {
                         let language = object_preview_language(&key, &content);
                         let line_count = content.lines().count().max(1);
                         let editor = cx.new(|cx| {
-                            InputState::new(window, cx)
-                                .code_editor(language)
+                            EditorState::new(window, cx)
+                                .language(language)
                                 .line_number(true)
                                 .soft_wrap(false)
                                 .indent_guides(false)

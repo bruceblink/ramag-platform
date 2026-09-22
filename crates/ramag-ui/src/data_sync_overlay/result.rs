@@ -1,17 +1,17 @@
-use gpui::{IntoElement, ParentElement, Styled, div, prelude::*, px};
-use gpui_component::{h_flex, v_flex};
+use gpui_kit::component::{h_flex, v_flex};
+use gpui_kit::{IntoElement, ParentElement, Styled, div, prelude::*, px};
 use ramag_domain::entities::{DataSyncSummary, format_bytes};
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render_result_summary(
     summary: &DataSyncSummary,
     objects_total: Option<u64>,
-    border: gpui::Hsla,
-    muted: gpui::Hsla,
-    foreground: gpui::Hsla,
-    success: gpui::Hsla,
-    warning: gpui::Hsla,
-    danger: gpui::Hsla,
+    border: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+    foreground: gpui_kit::Hsla,
+    success: gpui_kit::Hsla,
+    warning: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
 ) -> impl IntoElement {
     let warning_count = (summary.warnings.len() as u64).saturating_add(summary.warnings_overflow);
     let completed_objects = objects_total.map_or_else(
@@ -118,9 +118,9 @@ pub(super) fn render_result_summary(
 fn result_metric(
     label: &'static str,
     value: String,
-    muted: gpui::Hsla,
-    value_color: gpui::Hsla,
-) -> gpui::Div {
+    muted: gpui_kit::Hsla,
+    value_color: gpui_kit::Hsla,
+) -> gpui_kit::Div {
     v_flex()
         .flex_1()
         .min_w_0()
@@ -129,7 +129,7 @@ fn result_metric(
         .child(
             div()
                 .text_sm()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .text_color(value_color)
                 .child(value),
         )

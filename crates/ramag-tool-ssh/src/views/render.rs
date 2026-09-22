@@ -1,12 +1,12 @@
 //! SSH 根布局、工作区标签与快捷键入口。
 
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
     notification::Notification, v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
+    prelude::*, px,
 };
 
 use super::SshView;
@@ -36,7 +36,7 @@ impl SshView {
                 this.show_manager(cx);
             }))
             .child(
-                gpui_component::Icon::new(IconName::Network)
+                gpui_kit::component::Icon::new(IconName::Network)
                     .small()
                     .text_color(if manager_selected { fg } else { muted }),
             )
@@ -69,7 +69,7 @@ impl SshView {
                 || workspace.sftp_loading
                 || workspace.file_preview_loading
             {
-                gpui::hsla(45.0 / 360.0, 0.9, 0.55, 1.0)
+                gpui_kit::hsla(45.0 / 360.0, 0.9, 0.55, 1.0)
             } else if workspace.sftp_error.is_some() || workspace.profile.production {
                 theme.danger
             } else {
@@ -191,7 +191,7 @@ impl Render for SshView {
                                     profile.id.to_string(),
                                     profile.name.clone(),
                                     endpoint,
-                                    gpui_component::IconName::Network,
+                                    gpui_kit::component::IconName::Network,
                                 )
                                 .secondary(
                                     profile

@@ -7,13 +7,13 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
 };
 
-use gpui::{
-    AnyElement, ClickEvent, ClipboardItem, Context, EventEmitter, IntoElement, ParentElement,
-    Render, SharedString, Styled, Window, div, prelude::*, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex,
     input::InputEvent, v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, ClipboardItem, Context, EventEmitter, IntoElement, ParentElement,
+    Render, SharedString, Styled, Window, div, prelude::*, px, uniform_list,
 };
 use ramag_app::ConnectionService;
 use ramag_domain::entities::{ConnectionId, QueryRecord, QueryStatus, compact_text_preview};
@@ -46,7 +46,7 @@ pub struct HistoryList {
     mutating: bool,
     load_error: Option<String>,
     mutation_error: Option<String>,
-    search: gpui::Entity<gpui_component::input::InputState>,
+    search: gpui_kit::Entity<gpui_kit::component::input::InputState>,
 }
 
 impl EventEmitter<HistoryEvent> for HistoryList {}
@@ -376,7 +376,7 @@ impl Render for HistoryList {
                     .debug_selector(|| "sql-history-search".into())
                     .flex_1()
                     .min_w_0()
-                    .child(gpui_component::input::Input::new(&self.search).small()),
+                    .child(gpui_kit::component::input::Input::new(&self.search).small()),
             )
             .child(
                 div()

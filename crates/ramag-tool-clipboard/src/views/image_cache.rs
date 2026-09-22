@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use gpui::Image;
+use gpui_kit::Image;
 
 /// 图片缓存条目上限。
 const MAX_ENTRIES: usize = 96;
@@ -170,7 +170,7 @@ pub(crate) fn png_retained_bytes(bytes: &[u8]) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpui::ImageFormat;
+    use gpui_kit::ImageFormat;
 
     fn image() -> Arc<Image> {
         Arc::new(Image::from_bytes(ImageFormat::Png, Vec::new()))

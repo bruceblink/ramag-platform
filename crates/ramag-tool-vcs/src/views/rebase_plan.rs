@@ -2,13 +2,13 @@
 
 use std::ops::Range;
 
-use gpui::{
-    AnyElement, App, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement,
-    SharedString, Styled, Window, div, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
     h_flex, menu::PopupMenu, v_flex,
+};
+use gpui_kit::{
+    AnyElement, App, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement,
+    SharedString, Styled, Window, div, px, uniform_list,
 };
 use ramag_domain::entities::RebaseAction;
 use ramag_ui::PointerDropdownMenu as _;
@@ -60,7 +60,7 @@ impl VcsView {
                     .flex_1()
                     .min_w_0()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(fg)
                     .child(format!("交互式 Rebase → {onto}")),
             )
@@ -281,7 +281,7 @@ fn rebase_todo_row(
     can_move_up: bool,
     can_move_down: bool,
     busy: bool,
-    entity: gpui::Entity<VcsView>,
+    entity: gpui_kit::Entity<VcsView>,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
     let theme = cx.theme();
@@ -363,7 +363,9 @@ fn rebase_todo_row(
             div()
                 .flex()
                 .gap(px(2.0))
-                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
+                    cx.stop_propagation()
+                })
                 .child(
                     ramag_ui::clickable_button(SharedString::from(format!("vcs-rb-up-{idx}")))
                         .ghost()

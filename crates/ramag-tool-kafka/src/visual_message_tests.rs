@@ -11,13 +11,13 @@ use ramag_domain::error::{DomainError, KafkaError, KafkaErrorCategory, Result};
 use ramag_domain::traits::KafkaProducerDriver;
 
 struct KafkaMessageTestHost {
-    view: gpui::Entity<KafkaView>,
+    view: gpui_kit::Entity<KafkaView>,
 }
 
 impl Render for KafkaMessageTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        gpui::div()
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
@@ -25,9 +25,9 @@ impl Render for KafkaMessageTestHost {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("消息布局 Kafka", vec!["127.0.0.1:19092".into()]);
     let service = Arc::new(KafkaService::new(
         Arc::new(FakeKafkaDriver),
@@ -40,7 +40,7 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaMessageTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;
@@ -259,7 +259,7 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
             );
             kafka_entity.update(visual_cx, |view, cx| {
                 view.message_page_scroll
-                    .set_offset(gpui::point(-max_page_offset.x, -max_page_offset.y));
+                    .set_offset(gpui_kit::point(-max_page_offset.x, -max_page_offset.y));
                 cx.notify();
             });
             visual_cx.run_until_parked();
@@ -270,7 +270,7 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
             );
             kafka_entity.update(visual_cx, |view, cx| {
                 view.message_page_scroll
-                    .set_offset(gpui::point(px(0.0), px(0.0)));
+                    .set_offset(gpui_kit::point(px(0.0), px(0.0)));
                 cx.notify();
             });
             visual_cx.run_until_parked();
@@ -319,11 +319,11 @@ impl KafkaProducerDriver for VisualProducerDriver {
 
 /// Covers the write guard, confirmation boundary, success feedback, and error
 /// recovery behavior without connecting the UI test to a live Kafka service.
-#[gpui::test]
+#[gpui_kit::test]
 fn kafka_message_production_requires_confirmation_and_preserves_failure_input(
     cx: &mut TestAppContext,
 ) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let cluster = KafkaClusterConfig::new("生产验证 Kafka", vec!["127.0.0.1:19092".into()]);
     let calls = Arc::new(Mutex::new(Vec::new()));
     let fail = Arc::new(AtomicBool::new(false));
@@ -344,7 +344,7 @@ fn kafka_message_production_requires_confirmation_and_preserves_failure_input(
         let kafka = cx.new(|cx| KafkaView::new(service, window, cx));
         kafka_entity = Some(kafka.clone());
         let host = cx.new(|_| KafkaMessageTestHost { view: kafka });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let Some(kafka_entity) = kafka_entity else {
         return;

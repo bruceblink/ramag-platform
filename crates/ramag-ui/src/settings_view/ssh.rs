@@ -1,6 +1,8 @@
 use super::SettingsView;
-use gpui::{AnyElement, Context, IntoElement, ParentElement, Styled, Window, div, prelude::*, px};
-use gpui_component::{ActiveTheme, Disableable as _, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, Disableable as _, h_flex, v_flex};
+use gpui_kit::{
+    AnyElement, Context, IntoElement, ParentElement, Styled, Window, div, prelude::*, px,
+};
 use ramag_domain::entities::SshModuleSettings;
 
 impl SettingsView {
@@ -57,9 +59,9 @@ impl SettingsView {
                 if let Err(error) = result {
                     this.ssh_module_settings = previous;
                     this.pending_notification =
-                        Some(gpui_component::notification::Notification::error(format!(
-                            "SSH 模块设置保存失败（已还原）：{error}"
-                        )));
+                        Some(gpui_kit::component::notification::Notification::error(
+                            format!("SSH 模块设置保存失败（已还原）：{error}"),
+                        ));
                 }
                 cx.notify();
             });
@@ -75,8 +77,8 @@ fn ssh_toggle_row(
     description: &'static str,
     checked: bool,
     disabled: bool,
-    on_click: impl Fn(&bool, &mut Window, &mut gpui::App) + 'static,
-    muted: gpui::Hsla,
+    on_click: impl Fn(&bool, &mut Window, &mut gpui_kit::App) + 'static,
+    muted: gpui_kit::Hsla,
 ) -> impl IntoElement {
     v_flex()
         .w_full()

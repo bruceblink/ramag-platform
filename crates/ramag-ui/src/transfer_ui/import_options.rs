@@ -2,14 +2,14 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use gpui::StatefulInteractiveElement as _;
-use gpui::{
-    App, AppContext as _, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement,
-    Render, SharedString, Styled, Window, div, px,
-};
-use gpui_component::{
+use gpui_kit::StatefulInteractiveElement as _;
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Sizable as _, WindowExt as _, button::ButtonVariants as _,
     h_flex, v_flex,
+};
+use gpui_kit::{
+    App, AppContext as _, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement,
+    Render, SharedString, Styled, Window, div, px,
 };
 use ramag_domain::entities::ConflictPolicy;
 

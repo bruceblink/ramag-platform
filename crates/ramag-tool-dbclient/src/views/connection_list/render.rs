@@ -2,12 +2,12 @@
 
 use std::ops::Range;
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, Render, Styled, Window, div, px,
     uniform_list,
-};
-use gpui_component::{
-    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 
 use super::row::connection_row;

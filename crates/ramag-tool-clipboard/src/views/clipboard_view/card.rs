@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Icon, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     ClickEvent, Context, Hsla, IntoElement, ParentElement, SharedString, Styled, div, img,
     prelude::*, px,
-};
-use gpui_component::{
-    ActiveTheme, Icon, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use ramag_domain::entities::{ClipItem, ClipKind, parse_hex_color};
 use ramag_ui::icons;
@@ -125,7 +125,7 @@ impl ClipboardView {
         card
     }
 
-    fn card_preview(&self, item: Arc<ClipItem>, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn card_preview(&self, item: Arc<ClipItem>, cx: &mut Context<Self>) -> gpui_kit::AnyElement {
         match item.kind {
             ClipKind::Color => {
                 let swatch = item
@@ -133,7 +133,7 @@ impl ClipboardView {
                     .as_deref()
                     .and_then(parse_hex_color)
                     .map(|(r, g, b)| {
-                        Hsla::from(gpui::rgb(
+                        Hsla::from(gpui_kit::rgb(
                             (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b),
                         ))
                     });
@@ -155,7 +155,7 @@ impl ClipboardView {
     }
 }
 
-fn kind_badge(kind: ClipKind, theme: &gpui_component::Theme) -> impl IntoElement {
+fn kind_badge(kind: ClipKind, theme: &gpui_kit::component::Theme) -> impl IntoElement {
     let bg = kind_color(kind, theme);
     div()
         .px(px(5.0))
@@ -167,8 +167,8 @@ fn kind_badge(kind: ClipKind, theme: &gpui_component::Theme) -> impl IntoElement
         .child(kind.label())
 }
 
-fn kind_color(kind: ClipKind, theme: &gpui_component::Theme) -> Hsla {
-    use gpui::hsla;
+fn kind_color(kind: ClipKind, theme: &gpui_kit::component::Theme) -> Hsla {
+    use gpui_kit::hsla;
     match kind {
         ClipKind::Text => theme.muted_foreground,
         ClipKind::Link => hsla(210.0 / 360.0, 0.65, 0.55, 1.0),
@@ -182,7 +182,7 @@ fn card_action_btn(
     id: SharedString,
     icon: Icon,
     tooltip: &'static str,
-    on_click: impl Fn(&ClickEvent, &mut gpui::Window, &mut gpui::App) + 'static,
+    on_click: impl Fn(&ClickEvent, &mut gpui_kit::Window, &mut gpui_kit::App) + 'static,
 ) -> impl IntoElement {
     ramag_ui::clickable_button(id)
         .ghost()

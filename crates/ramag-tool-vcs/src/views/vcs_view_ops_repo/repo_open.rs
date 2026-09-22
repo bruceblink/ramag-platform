@@ -3,10 +3,10 @@
 use super::*;
 
 pub(in super::super) async fn open_repo_async(
-    this: &gpui::WeakEntity<VcsView>,
+    this: &gpui_kit::WeakEntity<VcsView>,
     driver: std::sync::Arc<dyn ramag_domain::traits::GitDriver>,
     path: std::path::PathBuf,
-    cx: &mut gpui::AsyncApp,
+    cx: &mut gpui_kit::AsyncApp,
 ) {
     info!(operation = "git_repo_open", path = %path.display(), "opening repository");
     let open_result = driver.open_repo(&path).await;

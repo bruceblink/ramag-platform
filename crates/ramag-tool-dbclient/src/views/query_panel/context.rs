@@ -1,4 +1,4 @@
-use gpui::{Context, Window};
+use gpui_kit::{Context, Window};
 use ramag_domain::entities::ConnectionConfig;
 
 use super::QueryPanel;
@@ -6,7 +6,7 @@ use super::QueryPanel;
 impl QueryPanel {
     /// Counts local result changes and open transactions before a context switch.
     /// The caller uses this snapshot to avoid silently discarding state from any tab.
-    fn pending_context_change_message(&self, cx: &gpui::App) -> Option<String> {
+    fn pending_context_change_message(&self, cx: &gpui_kit::App) -> Option<String> {
         let mut pending_result_changes = 0usize;
         let mut open_transactions = 0usize;
         for tab in &self.tabs {

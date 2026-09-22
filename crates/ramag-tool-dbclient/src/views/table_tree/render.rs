@@ -1,12 +1,12 @@
 use std::ops::Range;
 
-use gpui::{
-    ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Render, Styled, Window,
-    div, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Selectable as _, Sizable as _, WindowExt as _,
     button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Render, Styled, Window,
+    div, px, uniform_list,
 };
 use ramag_domain::entities::DriverKind;
 use ramag_ui::PointerDropdownMenu as _;
@@ -26,7 +26,7 @@ impl Render for TableTreePanel {
             ramag_ui::push_responsive_notification(window, n, cx);
         }
         let muted_fg = cx.theme().muted_foreground;
-        let red = gpui::red();
+        let red = gpui_kit::red();
 
         if self.connection.is_none() {
             return v_flex()
@@ -124,7 +124,7 @@ impl Render for TableTreePanel {
             .label(format!("{} ▾", table_filter.label()))
             .flex_none()
             .debug_selector(|| "table-tree-filter".into())
-            .pointer_dropdown_menu_with_anchor(gpui::Anchor::BottomLeft, move |menu, _, _| {
+            .pointer_dropdown_menu_with_anchor(gpui_kit::Anchor::BottomLeft, move |menu, _, _| {
                 let mut menu = menu;
                 for option in [
                     TableTreeFilter::All,
@@ -184,7 +184,7 @@ impl Render for TableTreePanel {
                     .small()
                     .label(picker_label)
                     .pointer_dropdown_menu_with_anchor(
-                        gpui::Anchor::BottomLeft,
+                        gpui_kit::Anchor::BottomLeft,
                         move |menu, _, _| {
                             let mut m = menu;
                             let entity = entity_for_picker.clone();

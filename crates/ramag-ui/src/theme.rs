@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use gpui::{App, Global, Hsla, hsla};
-use gpui_component::{Theme, ThemeMode, highlighter::HighlightTheme};
+use gpui_kit::component::{Theme, ThemeMode, highlighter::HighlightTheme};
+use gpui_kit::{App, Global, Hsla, hsla};
 use ramag_domain::traits::Storage;
 
 /// 让 UI 层切主题时访问 Storage 做持久化

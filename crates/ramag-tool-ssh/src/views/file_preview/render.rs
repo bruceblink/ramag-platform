@@ -1,15 +1,19 @@
-use gpui::{ClickEvent, Context, ParentElement, Render, Styled, Window, div, prelude::*, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Selectable as _, Sizable as _, WindowExt as _,
-    button::ButtonVariants as _, clipboard::Clipboard, h_flex, input::Input, v_flex,
+    button::ButtonVariants as _, clipboard::Clipboard, h_flex, input::Editor, v_flex,
 };
+use gpui_kit::{ClickEvent, Context, ParentElement, Render, Styled, Window, div, prelude::*, px};
 use ramag_domain::entities::{RemoteFileChunkPosition, format_bytes};
 
 use super::super::file_preview_layout::remote_file_dialog_layout;
 use super::RemoteFileEditor;
 
 impl Render for RemoteFileEditor {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl gpui::IntoElement {
+    fn render(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl gpui_kit::IntoElement {
         let line_count = self.current_lines;
         let viewport = window.viewport_size();
         let layout = remote_file_dialog_layout(
@@ -210,7 +214,7 @@ impl Render for RemoteFileEditor {
                     .h(editor_height)
                     .overflow_hidden()
                     .child(
-                        Input::new(&self.input)
+                        Editor::new(&self.input)
                             .h_full()
                             .opacity(1.0)
                             .disabled(self.saving || chunk_loading),

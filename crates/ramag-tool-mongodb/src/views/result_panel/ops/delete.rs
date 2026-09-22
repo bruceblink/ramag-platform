@@ -3,11 +3,11 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use gpui::{ClickEvent, Context, SharedString, Window, div, prelude::*, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Sizable as _, WindowExt as _, button::ButtonVariants as _,
     notification::Notification,
 };
+use gpui_kit::{ClickEvent, Context, SharedString, Window, div, prelude::*, px};
 use serde_json::Value;
 
 use super::super::{ResultEvent, ResultPanel};

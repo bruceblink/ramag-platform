@@ -59,7 +59,7 @@ pub use redis_tree_settings::{
 };
 
 pub use activity_bar::{ActivityBar, NavEvent, NavTarget, sync_update_indicator};
-pub use axis_scroll::{AxisScrollGesture, RestrictScrollToAxisExt, handle_axis_scroll};
+pub use axis_scroll::{AxisScrollGesture, RestrictUniformListToAxisExt, handle_axis_scroll};
 pub use editor_workspace::{
     EditorDraftPref, EditorWorkspacePref, MAX_EDITOR_DRAFT_BYTES, MAX_EDITOR_TABS,
     MAX_EDITOR_WORKSPACE_PREF_BYTES, MAX_EDITOR_WORKSPACE_TEXT_BYTES, can_open_editor_tab,
@@ -98,46 +98,59 @@ pub const PRODUCTION_MODE_LABEL: &str = "生产模式（只读保护）";
 pub const PRODUCTION_BADGE_LABEL: &str = "生产";
 
 /// 根据当前窗口宽度收缩对话框，保留 16px 两侧边距和宽窗口可读上限。
-pub fn responsive_dialog_width(window: &gpui::Window, preferred: f32) -> gpui::Pixels {
+pub fn responsive_dialog_width(window: &gpui_kit::Window, preferred: f32) -> gpui_kit::Pixels {
     let available = f32::from(window.viewport_size().width);
-    gpui::px((available - 32.0).max(0.0).min(preferred))
+    gpui_kit::px((available - 32.0).max(0.0).min(preferred))
 }
 
 /// 返回共享对话框应使用的顶部偏移，避免短窗口把内容推到视口之外。
-pub fn responsive_dialog_top(window: &gpui::Window) -> gpui::Pixels {
-    (window.viewport_size().height * 0.05).min(gpui::px(42.0))
+pub fn responsive_dialog_top(window: &gpui_kit::Window) -> gpui_kit::Pixels {
+    (window.viewport_size().height * 0.05).min(gpui_kit::px(42.0))
 }
 
 /// 返回对话框外框的最大高度；正文应在此高度内启用自己的滚动。
-pub fn responsive_dialog_max_height(window: &gpui::Window) -> gpui::Pixels {
-    (window.viewport_size().height - responsive_dialog_top(window) - gpui::px(16.0))
-        .max(gpui::px(0.0))
+pub fn responsive_dialog_max_height(window: &gpui_kit::Window) -> gpui_kit::Pixels {
+    (window.viewport_size().height - responsive_dialog_top(window) - gpui_kit::px(16.0))
+        .max(gpui_kit::px(0.0))
 }
 
 /// 将通知宽度限制在当前窗口可用空间内，并保留宽窗口的可读上限。
 pub fn responsive_notification(
-    notification: gpui_component::notification::Notification,
-) -> gpui_component::notification::Notification {
-    use gpui::Styled as _;
+    notification: gpui_kit::component::notification::Notification,
+) -> gpui_kit::component::notification::Notification {
+    use gpui_kit::Styled as _;
 
-    notification.w_full().min_w_0().max_w(gpui::px(320.0))
+    notification.w_full().min_w_0().max_w(gpui_kit::px(320.0))
 }
 
 /// 推送统一宽度的通知，确保各工具的长状态和错误文案服从相同的窗口边界。
 pub fn push_responsive_notification(
-    window: &mut gpui::Window,
-    notification: gpui_component::notification::Notification,
-    cx: &mut gpui::App,
+    window: &mut gpui_kit::Window,
+    notification: gpui_kit::component::notification::Notification,
+    cx: &mut gpui_kit::App,
 ) {
-    use gpui_component::WindowExt as _;
+    use gpui_kit::Styled as _;
+    use gpui_kit::component::WindowExt as _;
 
-    window.push_notification(responsive_notification(notification), cx);
+    let available_width = (f32::from(window.viewport_size().width) - 32.0).clamp(0.0, 320.0);
+    let short_window = window.viewport_size().height < gpui_kit::px(160.0);
+    let theme = gpui_kit::component::Theme::global_mut(cx);
+    theme.notification.width = gpui_kit::px(available_width);
+    theme.notification.margins.top = if short_window {
+        gpui_kit::px(64.0)
+    } else {
+        gpui_kit::px(50.0)
+    };
+    let notification = responsive_notification(notification)
+        .w(gpui_kit::px(available_width))
+        .max_w(gpui_kit::px(available_width));
+    window.push_notification(notification, cx);
 }
 
 /// 创建可在窄窗口换行的通用工具栏；调用方负责补充具体的对齐和内边距。
-pub fn responsive_toolbar() -> gpui::Div {
-    use gpui::{Styled as _, px};
-    use gpui_component::h_flex;
+pub fn responsive_toolbar() -> gpui_kit::Div {
+    use gpui_kit::component::h_flex;
+    use gpui_kit::{Styled as _, px};
 
     h_flex()
         .w_full()
@@ -148,37 +161,39 @@ pub fn responsive_toolbar() -> gpui::Div {
 }
 
 /// 创建带手型光标的按钮，统一可点击控件的悬浮反馈。
-pub fn clickable_button(id: impl Into<gpui::ElementId>) -> gpui_component::button::Button {
-    use gpui::Styled as _;
+pub fn clickable_button(id: impl Into<gpui_kit::ElementId>) -> gpui_kit::component::button::Button {
+    use gpui_kit::Styled as _;
 
-    gpui_component::button::Button::new(id).cursor_pointer()
+    gpui_kit::component::button::Button::new(id).cursor_pointer()
 }
 
 /// 创建带手型光标的复选框。
-pub fn clickable_checkbox(id: impl Into<gpui::ElementId>) -> gpui_component::checkbox::Checkbox {
-    use gpui::Styled as _;
+pub fn clickable_checkbox(
+    id: impl Into<gpui_kit::ElementId>,
+) -> gpui_kit::component::checkbox::Checkbox {
+    use gpui_kit::Styled as _;
 
-    gpui_component::checkbox::Checkbox::new(id).cursor_pointer()
+    gpui_kit::component::checkbox::Checkbox::new(id).cursor_pointer()
 }
 
 /// 创建带手型光标的开关。
-pub fn clickable_switch(id: impl Into<gpui::ElementId>) -> gpui_component::switch::Switch {
-    use gpui::Styled as _;
+pub fn clickable_switch(id: impl Into<gpui_kit::ElementId>) -> gpui_kit::component::switch::Switch {
+    use gpui_kit::Styled as _;
 
-    gpui_component::switch::Switch::new(id).cursor_pointer()
+    gpui_kit::component::switch::Switch::new(id).cursor_pointer()
 }
 
 /// 创建带手型清除按钮的单行输入框。
 pub fn cleanable_input(
-    state: &gpui::Entity<gpui_component::input::InputState>,
-    clear_id: impl Into<gpui::SharedString>,
+    state: &gpui_kit::Entity<gpui_kit::component::input::InputState>,
+    clear_id: impl Into<gpui_kit::SharedString>,
     disabled: bool,
-    cx: &gpui::App,
-) -> gpui_component::input::Input {
-    use gpui::{InteractiveElement as _, Styled as _};
-    use gpui_component::{
+    cx: &gpui_kit::App,
+) -> gpui_kit::component::input::Input {
+    use gpui_kit::component::{
         ActiveTheme as _, Icon, IconName, Sizable as _, button::ButtonVariants as _, input::Input,
     };
+    use gpui_kit::{InteractiveElement as _, Styled as _};
 
     let input = Input::new(state).disabled(disabled).min_w_0();
     if disabled || state.read(cx).value().is_empty() {
@@ -202,23 +217,72 @@ pub fn cleanable_input(
                 state.update(cx, |state, cx| {
                     state.set_value("", window, cx);
                     // InputState::set_value 会主动抑制 Change；显式补发以同步调用方筛选状态。
-                    cx.emit(gpui_component::input::InputEvent::Change);
+                    cx.emit(gpui_kit::component::input::InputEvent::Change);
                     state.focus(window, cx);
                 });
             }),
     )
 }
 
+/// 创建带清除按钮的代码编辑器；用于需要补全菜单的单行筛选框。
+pub fn cleanable_editor(
+    state: &gpui_kit::Entity<gpui_kit::component::input::EditorState>,
+    clear_id: impl Into<gpui_kit::SharedString>,
+    disabled: bool,
+    cx: &gpui_kit::App,
+) -> gpui_kit::Div {
+    use gpui_kit::component::input::Editor;
+    use gpui_kit::component::{
+        ActiveTheme as _, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
+    };
+    use gpui_kit::prelude::FluentBuilder as _;
+    use gpui_kit::{InteractiveElement as _, ParentElement as _, Styled as _};
+
+    let clear_id = clear_id.into();
+    let clear_selector = clear_id.to_string();
+    let state_for_clear = state.clone();
+    h_flex()
+        .w_full()
+        .min_w_0()
+        .child(
+            Editor::new(state)
+                .flex_1()
+                .min_w_0()
+                .disabled(disabled)
+                .bordered(false),
+        )
+        .when(!disabled && !state.read(cx).value().is_empty(), |this| {
+            this.child(
+                clickable_button(clear_id)
+                    .debug_selector(move || clear_selector.clone())
+                    .icon(Icon::new(IconName::CircleX))
+                    .ghost()
+                    .xsmall()
+                    .flex_none()
+                    .tooltip("清空")
+                    .tab_stop(false)
+                    .text_color(cx.theme().muted_foreground)
+                    .on_click(move |_, window, cx| {
+                        state_for_clear.update(cx, |state, cx| {
+                            state.set_value("", window, cx);
+                            cx.emit(gpui_kit::component::input::InputEvent::Change);
+                            state.focus(window, cx);
+                        });
+                    }),
+            )
+        })
+}
+
 /// 创建带手型关闭按钮的对话框标题；调用方仍可用 `on_close` 处理 Esc 等关闭路径。
 pub fn closable_dialog_title(
-    id: impl Into<gpui::ElementId>,
-    title: impl gpui::IntoElement,
-    on_close: impl Fn(&mut gpui::Window, &mut gpui::App) + 'static,
-) -> impl gpui::IntoElement {
-    use gpui::{InteractiveElement as _, ParentElement as _, Styled as _, div, px};
-    use gpui_component::{
+    id: impl Into<gpui_kit::ElementId>,
+    title: impl gpui_kit::IntoElement,
+    on_close: impl Fn(&mut gpui_kit::Window, &mut gpui_kit::App) + 'static,
+) -> impl gpui_kit::IntoElement {
+    use gpui_kit::component::{
         IconName, Sizable as _, WindowExt as _, button::ButtonVariants as _, h_flex,
     };
+    use gpui_kit::{InteractiveElement as _, ParentElement as _, Styled as _, div, px};
 
     h_flex()
         .debug_selector(|| "ramag-dialog-title".into())
@@ -251,11 +315,11 @@ pub fn closable_dialog_title(
 
 /// 创建可在窄窗口换行的对话框双按钮操作区；第一个按钮是次要操作，第二个按钮是主要操作。
 pub fn dialog_action_footer(
-    secondary: impl gpui::IntoElement,
-    primary: impl gpui::IntoElement,
-) -> impl gpui::IntoElement {
-    use gpui::{InteractiveElement as _, ParentElement as _, Styled as _, px};
-    use gpui_component::h_flex;
+    secondary: impl gpui_kit::IntoElement,
+    primary: impl gpui_kit::IntoElement,
+) -> impl gpui_kit::IntoElement {
+    use gpui_kit::component::h_flex;
+    use gpui_kit::{InteractiveElement as _, ParentElement as _, Styled as _, px};
 
     h_flex()
         .debug_selector(|| "ramag-dialog-footer".into())
@@ -270,13 +334,13 @@ pub fn dialog_action_footer(
 
 /// 创建可在窄窗口内换行的居中状态提示，用于加载中、空列表和过滤无结果状态。
 pub fn centered_status(
-    message: impl Into<gpui::SharedString>,
-    color: gpui::Hsla,
-) -> gpui::AnyElement {
-    use gpui::{
+    message: impl Into<gpui_kit::SharedString>,
+    color: gpui_kit::Hsla,
+) -> gpui_kit::AnyElement {
+    use gpui_kit::component::v_flex;
+    use gpui_kit::{
         InteractiveElement as _, IntoElement as _, ParentElement as _, Styled as _, div, px,
     };
-    use gpui_component::v_flex;
 
     v_flex()
         .size_full()
@@ -298,19 +362,21 @@ pub fn centered_status(
 }
 
 /// 创建带手型光标的菜单项。
-pub fn menu_item(label: impl Into<gpui::SharedString>) -> gpui_component::menu::PopupMenuItem {
+pub fn menu_item(
+    label: impl Into<gpui_kit::SharedString>,
+) -> gpui_kit::component::menu::PopupMenuItem {
     menu_item_with_disabled(label, false)
 }
 
 /// 创建可禁用菜单项；禁用时保持箭头。
 pub fn menu_item_with_disabled(
-    label: impl Into<gpui::SharedString>,
+    label: impl Into<gpui_kit::SharedString>,
     disabled: bool,
-) -> gpui_component::menu::PopupMenuItem {
-    use gpui::{ParentElement as _, Styled as _, div, prelude::FluentBuilder as _};
+) -> gpui_kit::component::menu::PopupMenuItem {
+    use gpui_kit::{ParentElement as _, Styled as _, div, prelude::FluentBuilder as _};
 
     let label = label.into();
-    gpui_component::menu::PopupMenuItem::element(move |_, _| {
+    gpui_kit::component::menu::PopupMenuItem::element(move |_, _| {
         div()
             .w_full()
             .child(
@@ -329,28 +395,28 @@ pub fn menu_item_with_disabled(
 pub const MAX_SEARCH_INPUT_BYTES: usize = 4 * 1024;
 
 pub fn bounded_search_input(
-    window: &mut gpui::Window,
-    cx: &mut gpui::Context<gpui_component::input::InputState>,
-) -> gpui_component::input::InputState {
-    gpui_component::input::InputState::new(window, cx)
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::Context<gpui_kit::component::input::InputState>,
+) -> gpui_kit::component::input::InputState {
+    gpui_kit::component::input::InputState::new(window, cx)
         .validate(|value, _| value.len() <= MAX_SEARCH_INPUT_BYTES)
 }
 
 /// GPUI Component 的 `validate` 目前仅检查单行输入；多行 / 代码编辑器需在变更后立即收口。
 /// 超限时保留 UTF-8 安全前缀，并调用 `on_exceeded` 让业务层展示具体提示。
 pub fn enforce_multiline_input_byte_limit<T: 'static>(
-    input: &gpui::Entity<gpui_component::input::InputState>,
+    input: &gpui_kit::Entity<gpui_kit::component::input::InputState>,
     max_bytes: usize,
-    window: &mut gpui::Window,
-    cx: &mut gpui::Context<T>,
-    on_exceeded: impl Fn(&mut T, &mut gpui::Window, &mut gpui::Context<T>) + 'static,
-) -> gpui::Subscription {
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::Context<T>,
+    on_exceeded: impl Fn(&mut T, &mut gpui_kit::Window, &mut gpui_kit::Context<T>) + 'static,
+) -> gpui_kit::Subscription {
     let input_for_event = input.clone();
     cx.subscribe_in(
         input,
         window,
-        move |this, _, event: &gpui_component::input::InputEvent, window, cx| {
-            if !matches!(event, gpui_component::input::InputEvent::Change) {
+        move |this, _, event: &gpui_kit::component::input::InputEvent, window, cx| {
+            if !matches!(event, gpui_kit::component::input::InputEvent::Change) {
                 return;
             }
             if !clamp_multiline_input_value(&input_for_event, max_bytes, window, cx) {
@@ -361,12 +427,60 @@ pub fn enforce_multiline_input_byte_limit<T: 'static>(
     )
 }
 
+/// 限制代码编辑器的输入大小；EditorState 与普通 InputState 是不同的状态类型。
+pub fn enforce_editor_input_byte_limit<T: 'static>(
+    input: &gpui_kit::Entity<gpui_kit::component::input::EditorState>,
+    max_bytes: usize,
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::Context<T>,
+    on_exceeded: impl Fn(&mut T, &mut gpui_kit::Window, &mut gpui_kit::Context<T>) + 'static,
+) -> gpui_kit::Subscription {
+    let input_for_event = input.clone();
+    cx.subscribe_in(
+        input,
+        window,
+        move |this, _, event: &gpui_kit::component::input::InputEvent, window, cx| {
+            if !matches!(event, gpui_kit::component::input::InputEvent::Change) {
+                return;
+            }
+            if !clamp_editor_input_value(&input_for_event, max_bytes, window, cx) {
+                return;
+            }
+            on_exceeded(this, window, cx);
+        },
+    )
+}
+
+/// 限制普通多行文本框的输入大小；TextareaState 与普通 InputState 是不同的状态类型。
+pub fn enforce_textarea_input_byte_limit<T: 'static>(
+    input: &gpui_kit::Entity<gpui_kit::component::input::TextareaState>,
+    max_bytes: usize,
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::Context<T>,
+    on_exceeded: impl Fn(&mut T, &mut gpui_kit::Window, &mut gpui_kit::Context<T>) + 'static,
+) -> gpui_kit::Subscription {
+    let input_for_event = input.clone();
+    cx.subscribe_in(
+        input,
+        window,
+        move |this, _, event: &gpui_kit::component::input::InputEvent, window, cx| {
+            if !matches!(event, gpui_kit::component::input::InputEvent::Change) {
+                return;
+            }
+            if !clamp_textarea_input_value(&input_for_event, max_bytes, window, cx) {
+                return;
+            }
+            on_exceeded(this, window, cx);
+        },
+    )
+}
+
 /// 将多行输入立即截到 UTF-8 安全字节边界；发生截断时返回 `true`。
 pub fn clamp_multiline_input_value(
-    input: &gpui::Entity<gpui_component::input::InputState>,
+    input: &gpui_kit::Entity<gpui_kit::component::input::InputState>,
     max_bytes: usize,
-    window: &mut gpui::Window,
-    cx: &mut gpui::App,
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::App,
 ) -> bool {
     let value = input.read(cx).value();
     if value.len() <= max_bytes {
@@ -376,6 +490,36 @@ pub fn clamp_multiline_input_value(
     input.update(cx, |state, cx| {
         state.set_value(bounded, window, cx);
     });
+    true
+}
+
+pub fn clamp_editor_input_value(
+    input: &gpui_kit::Entity<gpui_kit::component::input::EditorState>,
+    max_bytes: usize,
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::App,
+) -> bool {
+    let value = input.read(cx).value();
+    if value.len() <= max_bytes {
+        return false;
+    }
+    let bounded = byte_prefix(&value, max_bytes).to_string();
+    input.update(cx, |state, cx| state.set_value(bounded, window, cx));
+    true
+}
+
+pub fn clamp_textarea_input_value(
+    input: &gpui_kit::Entity<gpui_kit::component::input::TextareaState>,
+    max_bytes: usize,
+    window: &mut gpui_kit::Window,
+    cx: &mut gpui_kit::App,
+) -> bool {
+    let value = input.read(cx).value();
+    if value.len() <= max_bytes {
+        return false;
+    }
+    let bounded = byte_prefix(&value, max_bytes).to_string();
+    input.update(cx, |state, cx| state.set_value(bounded, window, cx));
     true
 }
 
@@ -402,8 +546,8 @@ mod input_limit_tests {
         byte_prefix, clickable_button, clickable_checkbox, clickable_switch,
         menu_item_with_disabled,
     };
-    use gpui::{CursorStyle, Styled as _};
-    use gpui_component::menu::PopupMenuItem;
+    use gpui_kit::component::menu::PopupMenuItem;
+    use gpui_kit::{CursorStyle, Styled as _};
 
     #[test]
     fn byte_prefix_preserves_utf8_boundaries() {

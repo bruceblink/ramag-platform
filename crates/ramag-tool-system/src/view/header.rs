@@ -1,11 +1,11 @@
 //! 系统监控标题栏及刷新操作的响应式布局。
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme as _, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, SharedString, Styled,
     Window, div, px,
-};
-use gpui_component::{
-    ActiveTheme as _, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 
 use super::{SystemSection, SystemView};
@@ -83,7 +83,7 @@ impl SystemView {
                                 .child(
                                     div()
                                         .text_sm()
-                                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                         .child("系统监控"),
                                 )
                                 .child(
@@ -155,7 +155,7 @@ impl SystemView {
                             .child(
                                 div()
                                     .text_sm()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .child("系统监控"),
                             )
                             .child(

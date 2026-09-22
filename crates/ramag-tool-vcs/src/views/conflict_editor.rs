@@ -3,13 +3,13 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled,
-    UniformListScrollHandle, div, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
     h_flex, v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled,
+    UniformListScrollHandle, div, px, uniform_list,
 };
 
 use super::helpers::ConflictOp;
@@ -87,7 +87,7 @@ impl VcsView {
                     .flex_1()
                     .min_w_0()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(fg)
                     .overflow_hidden()
                     .text_ellipsis()
@@ -228,8 +228,8 @@ fn lines_panel_virtual(
     content: Rc<ramag_domain::entities::ConflictContent>,
     side: ConflictSide,
     mono: SharedString,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
     scroll: UniformListScrollHandle,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {

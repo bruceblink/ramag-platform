@@ -1,11 +1,11 @@
 //! 工作区底部有界传输任务列表。
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div, prelude::*, px,
     relative,
-};
-use gpui_component::{
-    ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use ramag_domain::entities::{
     OverwritePolicy, TransferDirection, TransferStatus, TransferTask, format_bytes,
@@ -68,7 +68,7 @@ impl SshView {
                     .child(
                         div()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .font_weight(gpui_kit::FontWeight::MEDIUM)
                             .child(format!("完成 {completed}/{}", tasks.len())),
                     )
                     .child(
@@ -89,7 +89,7 @@ impl SshView {
                                 ramag_ui::clickable_button("hide-ssh-transfers")
                                     .ghost()
                                     .xsmall()
-                                    .icon(gpui_component::IconName::Close)
+                                    .icon(gpui_kit::component::IconName::Close)
                                     .tooltip("关闭")
                                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                                         this.hide_transfer_panel(cx);

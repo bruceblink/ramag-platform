@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use gpui::{Context, Task};
+use gpui_kit::{Context, Task};
 use ramag_domain::entities::{IdConverterConfig, parse_nonnegative_id_integer};
 
 use super::ResultPanel;
@@ -185,7 +185,7 @@ impl ResultPanel {
         }
         if mode.uses_id_conversion() && !ramag_ui::database_search_settings(cx).is_ready() {
             self.pending_notification = Some(
-                gpui_component::notification::Notification::warning(
+                gpui_kit::component::notification::Notification::warning(
                     "请先在设置 → 数据库客户端 → 搜索配置中启用并配置雪花 ID 转换",
                 )
                 .autohide(true),
@@ -241,7 +241,7 @@ impl ResultPanel {
         cx.notify();
     }
 
-    pub(crate) fn effective_row_filter(&self, cx: &gpui::App) -> RowFilter {
+    pub(crate) fn effective_row_filter(&self, cx: &gpui_kit::App) -> RowFilter {
         let input = self.row_filter_text(cx);
         if input.is_empty() || !self.row_search.mode.uses_id_conversion() {
             return RowFilter::Text(input.to_lowercase());
@@ -259,7 +259,7 @@ impl ResultPanel {
         }
     }
 
-    pub(crate) fn row_search_blocker(&self, cx: &gpui::App) -> Option<RowSearchBlocker> {
+    pub(crate) fn row_search_blocker(&self, cx: &gpui_kit::App) -> Option<RowSearchBlocker> {
         match self.row_search_conversion_status(cx) {
             Some(RowSearchConversionStatus::Converting) => Some(RowSearchBlocker::Converting),
             Some(RowSearchConversionStatus::Error(message)) => {
@@ -271,7 +271,7 @@ impl ResultPanel {
 
     pub(crate) fn converted_row_search(
         &self,
-        cx: &gpui::App,
+        cx: &gpui_kit::App,
     ) -> Option<(RowSearchMode, ConvertedId)> {
         match self.row_search_conversion_status(cx) {
             Some(RowSearchConversionStatus::Ready(output)) => Some((self.row_search.mode, output)),
@@ -281,7 +281,7 @@ impl ResultPanel {
 
     pub(crate) fn row_search_conversion_status(
         &self,
-        cx: &gpui::App,
+        cx: &gpui_kit::App,
     ) -> Option<RowSearchConversionStatus> {
         let input = self.row_filter_text(cx);
         self.row_search
@@ -289,7 +289,7 @@ impl ResultPanel {
             .visible_status(self.row_search.mode, &input)
     }
 
-    pub(super) fn row_filter_text(&self, cx: &gpui::App) -> String {
+    pub(super) fn row_filter_text(&self, cx: &gpui_kit::App) -> String {
         self.row_filter.read(cx).value().trim().to_string()
     }
 

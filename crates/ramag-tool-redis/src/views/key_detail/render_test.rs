@@ -8,7 +8,7 @@ use std::sync::{
 };
 
 use async_trait::async_trait;
-use gpui::{
+use gpui_kit::{
     AppContext as _, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, Point, ScrollDelta,
     ScrollWheelEvent, TestAppContext, TouchPhase, VisualTestContext, point, px, size,
 };
@@ -35,7 +35,7 @@ fn loaded_values_resolve_to_tree_badge_types() {
 
 fn simulate_click_count(
     cx: &mut VisualTestContext,
-    position: Point<gpui::Pixels>,
+    position: Point<gpui_kit::Pixels>,
     modifiers: Modifiers,
     click_count: usize,
 ) {
@@ -185,8 +185,8 @@ pub(crate) fn mock_config() -> ConnectionConfig {
 }
 
 fn assert_inside(
-    parent: gpui::Bounds<gpui::Pixels>,
-    child: gpui::Bounds<gpui::Pixels>,
+    parent: gpui_kit::Bounds<gpui_kit::Pixels>,
+    child: gpui_kit::Bounds<gpui_kit::Pixels>,
     label: &str,
 ) {
     assert!(
@@ -198,9 +198,9 @@ fn assert_inside(
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn key_load_uses_global_limit_without_manual_pagination(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let requested_limit = Arc::new(AtomicUsize::new(0));
     let service = Arc::new(RedisService::new(
         Arc::new(MockKv {
@@ -216,7 +216,7 @@ fn key_load_uses_global_limit_without_manual_pagination(cx: &mut TestAppContext)
             panel
         });
         panel.update(cx, |panel, cx| panel.load_key("large:hash".into(), cx));
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
     cx.run_until_parked();
 
@@ -227,9 +227,9 @@ fn key_load_uses_global_limit_without_manual_pagination(cx: &mut TestAppContext)
     assert!(cx.debug_bounds("redis-load-more-members").is_none());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn header_uses_modifier_double_click_for_key_and_button_for_value(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let panel = cx.new(|cx| {
             let mut panel = KeyDetailPanel::new(mock_service(), cx);
@@ -239,7 +239,7 @@ fn header_uses_modifier_double_click_for_key_and_button_for_value(cx: &mut TestA
             panel.collection_total = Some(13);
             panel
         });
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
     cx.run_until_parked();
 
@@ -266,9 +266,9 @@ fn header_uses_modifier_double_click_for_key_and_button_for_value(cx: &mut TestA
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn header_reflows_metadata_and_actions_inside_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let panel = cx.new(|cx| {
             let mut panel = KeyDetailPanel::new(mock_service(), cx);
@@ -284,7 +284,7 @@ fn header_reflows_metadata_and_actions_inside_three_window_widths(cx: &mut TestA
             panel.value_memory_warning = true;
             panel
         });
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
 
     for (width, height) in [(360.0, 360.0), (1024.0, 420.0), (1440.0, 420.0)] {
@@ -334,9 +334,9 @@ fn header_reflows_metadata_and_actions_inside_three_window_widths(cx: &mut TestA
 
 /// 五种容器类型逐一注入后渲染：类型块必须拿到非零高度布局（回归防护：
 /// 数据已加载但详情区视觉空白——flex_grow 在该布局上下文失效导致高度塌缩）
-#[gpui::test]
+#[gpui_kit::test]
 fn container_value_blocks_have_nonzero_bounds(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
 
     let text = |s: &str| RedisValue::Text(s.into());
     let cases: Vec<(&'static str, RedisValue)> = vec![
@@ -381,7 +381,7 @@ fn container_value_blocks_have_nonzero_bounds(cx: &mut TestAppContext) {
                 panel.collection_total = Some(2);
                 panel
             });
-            gpui_component::Root::new(panel, window, cx)
+            gpui_kit::component::Root::new(panel, window, cx)
         });
         cx.run_until_parked();
 
@@ -408,9 +408,9 @@ fn container_value_blocks_have_nonzero_bounds(cx: &mut TestAppContext) {
 }
 
 /// 大文本横向浏览时，触控板附带的少量纵向位移不能带着文本行上下移动。
-#[gpui::test]
+#[gpui_kit::test]
 fn scalar_diagonal_scroll_moves_only_horizontally(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let text = (0..100)
         .map(|index| format!("line-{index}:{}", "x".repeat(600)))
         .collect::<Vec<_>>()
@@ -426,7 +426,7 @@ fn scalar_diagonal_scroll_moves_only_horizontally(cx: &mut TestAppContext) {
             panel
         });
         panel_entity = Some(panel.clone());
-        gpui_component::Root::new(panel, window, cx)
+        gpui_kit::component::Root::new(panel, window, cx)
     });
     let panel = panel_entity.expect("KeyDetailPanel should be initialized");
     cx.simulate_resize(size(px(1000.0), px(700.0)));

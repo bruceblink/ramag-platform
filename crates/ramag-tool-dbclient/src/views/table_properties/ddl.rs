@@ -1,16 +1,16 @@
 //! 表属性中的只读 DDL 预览。
 
-use gpui::{
-    AnyElement, ClickEvent, IntoElement, ParentElement, ScrollHandle, Styled, StyledText, Window,
-    div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     IconName, Sizable as _, Theme,
     button::ButtonVariants as _,
     h_flex,
     highlighter::{HighlightTheme, SyntaxHighlighter},
-    scroll::{Scrollbar, ScrollbarShow},
+    scroll::{Scrollbar, ScrollbarMode},
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, IntoElement, ParentElement, ScrollHandle, Styled, StyledText, Window,
+    div, prelude::*, px,
 };
 use ropey::Rope;
 
@@ -131,7 +131,7 @@ pub(super) fn render_ddl(
                         .child(
                             Scrollbar::vertical(vertical_scroll)
                                 .id("table-properties-ddl-v-scrollbar")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 )
                 .child(
@@ -145,14 +145,14 @@ pub(super) fn render_ddl(
                         .child(
                             Scrollbar::horizontal(horizontal_scroll)
                                 .id("table-properties-ddl-h-scrollbar")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 ),
         )
         .into_any_element()
 }
 
-fn centered_message(message: &'static str, color: gpui::Hsla) -> AnyElement {
+fn centered_message(message: &'static str, color: gpui_kit::Hsla) -> AnyElement {
     v_flex()
         .size_full()
         .items_center()

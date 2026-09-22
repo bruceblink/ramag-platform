@@ -13,12 +13,7 @@ use self::preview::{default_value_color, highlight_sql, render_ddl_panel, syntax
 
 use std::{collections::HashSet, rc::Rc};
 
-use gpui::{
-    App, AppContext as _, ClickEvent, Context, Entity, Hsla, InteractiveElement as _, IntoElement,
-    ParentElement, Render, ScrollHandle, Styled, StyledText, Subscription, Window, div, prelude::*,
-    px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     h_flex,
@@ -27,6 +22,11 @@ use gpui_component::{
     notification::Notification,
     spinner::Spinner,
     v_flex,
+};
+use gpui_kit::{
+    App, AppContext as _, ClickEvent, Context, Entity, Hsla, InteractiveElement as _, IntoElement,
+    ParentElement, Render, ScrollHandle, Styled, StyledText, Subscription, Window, div, prelude::*,
+    px,
 };
 use ramag_domain::entities::{Column, DriverKind, MAX_CONNECTION_IDENTIFIER_BYTES};
 use ropey::Rope;
@@ -224,7 +224,7 @@ impl TableDesigner {
     /// 在表字段区域内按手势主方向分流横向和纵向滚动，避免横向拖动带动字段行上下跳动。
     fn on_field_scroll(
         &mut self,
-        event: &gpui::ScrollWheelEvent,
+        event: &gpui_kit::ScrollWheelEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -238,7 +238,7 @@ impl TableDesigner {
         );
     }
 
-    fn next_field_name(&self, cx: &gpui::App) -> String {
+    fn next_field_name(&self, cx: &gpui_kit::App) -> String {
         let used: HashSet<_> = self
             .fields
             .iter()
@@ -392,15 +392,15 @@ impl TableDesigner {
         }
     }
 
-    fn has_changes(&self, cx: &gpui::App) -> bool {
+    fn has_changes(&self, cx: &gpui_kit::App) -> bool {
         self.has_table_name_change(cx) || self.has_field_changes(cx)
     }
 
-    fn has_table_name_change(&self, cx: &gpui::App) -> bool {
+    fn has_table_name_change(&self, cx: &gpui_kit::App) -> bool {
         self.original_table != self.table_name.read(cx).value().trim()
     }
 
-    fn has_field_changes(&self, cx: &gpui::App) -> bool {
+    fn has_field_changes(&self, cx: &gpui_kit::App) -> bool {
         self.fields.iter().any(|field| match &field.original {
             None => !field.deleted,
             Some(_) if field.deleted => true,

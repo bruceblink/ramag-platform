@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use gpui::{
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
+use gpui_kit::{
     ClickEvent, Context, Hsla, IntoElement, ParentElement, SharedString, Styled, div, img,
     prelude::*, px,
 };
-use gpui::{Image, ImageFormat, ImageSource};
-use gpui_component::{ActiveTheme, h_flex, v_flex};
+use gpui_kit::{Image, ImageFormat, ImageSource};
 use ramag_domain::entities::{ClipItem, ClipKind};
 
 use super::{CARD_WIDTH, ClipboardDrawer};
@@ -25,7 +25,7 @@ impl ClipboardDrawer {
         let muted = cx.theme().muted_foreground;
         let selected = ix == self.selected;
         let header_bg = kind_color(item.kind);
-        let blue = gpui::hsla(212.0 / 360.0, 1.0, 0.52, 1.0);
+        let blue = gpui_kit::hsla(212.0 / 360.0, 1.0, 0.52, 1.0);
         let thumb = if matches!(item.kind, ClipKind::Image) {
             self.thumb_image(item.clone(), cx)
         } else {
@@ -61,7 +61,7 @@ impl ClipboardDrawer {
     }
 
     fn card_header(&self, item: &ClipItem, bg: Hsla, cx: &Context<Self>) -> impl IntoElement {
-        let mut sub = gpui::white();
+        let mut sub = gpui_kit::white();
         sub.a = 0.75;
         let icon = self.source_icon(item, cx);
 
@@ -80,8 +80,8 @@ impl ClipboardDrawer {
                     .child(
                         div()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::BOLD)
-                            .text_color(gpui::white())
+                            .font_weight(gpui_kit::FontWeight::BOLD)
+                            .text_color(gpui_kit::white())
                             .child(item.kind.label_en()),
                     )
                     .child(
@@ -94,7 +94,7 @@ impl ClipboardDrawer {
             .children(icon)
     }
 
-    fn source_icon(&self, item: &ClipItem, _cx: &Context<Self>) -> Option<gpui::AnyElement> {
+    fn source_icon(&self, item: &ClipItem, _cx: &Context<Self>) -> Option<gpui_kit::AnyElement> {
         let bundle = item.source.as_ref().map(|s| s.bundle_id.as_str())?;
         let cache_key = format!("app-icon:{bundle}");
         let image = match self.img_cache.peek(&cache_key) {
@@ -125,7 +125,7 @@ impl ClipboardDrawer {
     }
 }
 
-fn card_body(item: &ClipItem, thumb: Option<Arc<Image>>) -> gpui::AnyElement {
+fn card_body(item: &ClipItem, thumb: Option<Arc<Image>>) -> gpui_kit::AnyElement {
     match item.kind {
         ClipKind::Image => div()
             .relative()
@@ -134,7 +134,7 @@ fn card_body(item: &ClipItem, thumb: Option<Arc<Image>>) -> gpui::AnyElement {
             .w_full()
             .overflow_hidden()
             .child(
-                gpui::svg()
+                gpui_kit::svg()
                     .absolute()
                     .inset_0()
                     .size_full()
@@ -146,7 +146,7 @@ fn card_body(item: &ClipItem, thumb: Option<Arc<Image>>) -> gpui::AnyElement {
                         .absolute()
                         .inset_0()
                         .size_full()
-                        .object_fit(gpui::ObjectFit::Contain),
+                        .object_fit(gpui_kit::ObjectFit::Contain),
                 )
             })
             .into_any_element(),
@@ -187,7 +187,7 @@ fn card_footer(item: &ClipItem, muted: Hsla) -> impl IntoElement {
 }
 
 fn kind_color(kind: ClipKind) -> Hsla {
-    use gpui::hsla;
+    use gpui_kit::hsla;
     match kind {
         ClipKind::Image => hsla(145.0 / 360.0, 0.62, 0.45, 1.0),
         ClipKind::Text => hsla(0.0, 0.0, 0.17, 1.0),

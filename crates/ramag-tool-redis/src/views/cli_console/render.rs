@@ -1,4 +1,6 @@
 use super::*;
+use gpui_kit::component::input::Editor;
+use ramag_ui::RestrictUniformListToAxisExt as _;
 
 impl Render for CliConsole {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -59,7 +61,7 @@ impl Render for CliConsole {
                         .flex_1()
                         .min_w_0()
                         .text_xs()
-                        .text_color(gpui::red())
+                        .text_color(gpui_kit::red())
                         .whitespace_normal()
                         .child("只读：写命令已禁用"),
                 )
@@ -75,7 +77,7 @@ impl Render for CliConsole {
                     .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.clear(cx))),
             );
 
-        let transcript: gpui::AnyElement = if self.history.is_empty() {
+        let transcript: gpui_kit::AnyElement = if self.history.is_empty() {
             div()
                 .p(px(12.0))
                 .text_sm()
@@ -134,7 +136,7 @@ impl Render for CliConsole {
             .gap(px(8.0))
             .items_center()
             .child(div().text_xs().text_color(muted_fg).child("⏵"))
-            .child(div().flex_1().min_w_0().child(Input::new(&self.input)))
+            .child(div().flex_1().min_w_0().child(Editor::new(&self.input)))
             .child(
                 ramag_ui::clickable_button("cli-run")
                     .primary()
@@ -161,7 +163,7 @@ impl Render for CliConsole {
             // 先让补全菜单处理上下键。
             .on_action(cx.listener(|this, _: &MoveUp, window, cx| {
                 let handled = this.input.update(cx, |state, cx| {
-                    state.handle_action_for_context_menu(Box::new(MoveUp), window, cx)
+                    state.route_overlay_action(Box::new(MoveUp), window, cx)
                 });
                 if !handled {
                     this.history_prev(window, cx);
@@ -169,7 +171,7 @@ impl Render for CliConsole {
             }))
             .on_action(cx.listener(|this, _: &MoveDown, window, cx| {
                 let handled = this.input.update(cx, |state, cx| {
-                    state.handle_action_for_context_menu(Box::new(MoveDown), window, cx)
+                    state.route_overlay_action(Box::new(MoveDown), window, cx)
                 });
                 if !handled {
                     this.history_next(window, cx);
@@ -185,11 +187,11 @@ const ROW_H: f32 = 20.0;
 
 fn render_transcript_row(
     row: &TranscriptRow,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    accent: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
     cx: &mut Context<CliConsole>,
-) -> gpui::AnyElement {
+) -> gpui_kit::AnyElement {
     match row {
         TranscriptRow::Continue { entry_id, hint } => {
             let entry_id = *entry_id;
@@ -229,7 +231,7 @@ fn render_transcript_row(
                 LineTone::Normal => fg,
                 LineTone::Muted => muted_fg,
                 LineTone::Accent => accent,
-                LineTone::Error => gpui::red(),
+                LineTone::Error => gpui_kit::red(),
             };
             div()
                 .h(px(ROW_H))

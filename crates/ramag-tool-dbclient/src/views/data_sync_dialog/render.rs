@@ -1,10 +1,10 @@
-use gpui::{
-    Anchor, ClickEvent, Context, IntoElement, ParentElement, Render,
-    StatefulInteractiveElement as _, Styled, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex, input::Input,
     spinner::Spinner, v_flex,
+};
+use gpui_kit::{
+    Anchor, ClickEvent, Context, IntoElement, ParentElement, Render,
+    StatefulInteractiveElement as _, Styled, Window, div, prelude::*, px,
 };
 use ramag_domain::entities::{DriverKind, SyncObjectState};
 use ramag_ui::PointerDropdownMenu as _;
@@ -111,7 +111,7 @@ impl DataSyncDialog {
             )
     }
 
-    fn render_report(&self, cx: &Context<Self>) -> Option<gpui::AnyElement> {
+    fn render_report(&self, cx: &Context<Self>) -> Option<gpui_kit::AnyElement> {
         let prepared = self.prepared.as_ref()?;
         let report = prepared.report();
         let warning_color = cx.theme().warning;
@@ -162,7 +162,7 @@ impl DataSyncDialog {
                 .child(
                     div()
                         .text_sm()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .child("预检通过"),
                 )
                 .child(div().text_xs().child(summary))
@@ -318,7 +318,7 @@ fn mode_button(
     label: &str,
     selected: bool,
     disabled: bool,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut gpui::App) + 'static,
+    on_click: impl Fn(&ClickEvent, &mut Window, &mut gpui_kit::App) + 'static,
 ) -> impl IntoElement {
     ramag_ui::clickable_button(id)
         .small()
@@ -362,7 +362,7 @@ fn object_change_summary(total: u64, missing: usize, existing: usize) -> String 
     }
 }
 
-fn field_label(label: &str, child: impl IntoElement) -> gpui::Div {
+fn field_label(label: &str, child: impl IntoElement) -> gpui_kit::Div {
     v_flex()
         .w_full()
         .min_w_0()
@@ -370,7 +370,7 @@ fn field_label(label: &str, child: impl IntoElement) -> gpui::Div {
         .child(
             div()
                 .text_xs()
-                .font_weight(gpui::FontWeight::MEDIUM)
+                .font_weight(gpui_kit::FontWeight::MEDIUM)
                 .child(label.to_string()),
         )
         .child(child)

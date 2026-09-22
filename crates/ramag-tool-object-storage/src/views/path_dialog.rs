@@ -1,15 +1,15 @@
 //! 对象存储路径直达与常用路径管理，交互与 SSH 路径窗口保持一致。
 
-use gpui::{
-    App, AppContext as _, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled,
-    Subscription, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputEvent, InputState},
     v_flex,
+};
+use gpui_kit::{
+    App, AppContext as _, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled,
+    Subscription, Window, div, prelude::*, px,
 };
 use ramag_domain::entities::{
     MAX_OBJECT_STORAGE_KEY_BYTES, ObjectStorageFavorite, ObjectStorageMountId,

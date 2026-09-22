@@ -225,7 +225,7 @@ impl KafkaView {
     fn render_ksqldb_result(
         &self,
         result: &KafkaKsqlDbQueryResult,
-        theme: &gpui_component::Theme,
+        theme: &gpui_kit::component::Theme,
     ) -> impl IntoElement {
         let columns = if result.columns.is_empty() {
             vec!["结果".to_owned()]

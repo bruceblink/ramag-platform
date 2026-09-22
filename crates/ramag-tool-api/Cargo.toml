@@ -10,8 +10,7 @@ description = "Ramag HTTP 与 gRPC API 测试工作台"
 workspace = true
 
 [dependencies]
-gpui = { workspace = true }
-gpui-component = { workspace = true }
+gpui-kit = { workspace = true }
 ramag-app = { workspace = true }
 ramag-domain = { workspace = true }
 ramag-ui = { workspace = true }
@@ -21,7 +20,7 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 async-trait = { workspace = true }
-gpui = { workspace = true, features = ["test-support"] }
+gpui-kit = { workspace = true, features = ["test-support"] }
 ramag-infra-api = { workspace = true }
 ramag-infra-storage = { workspace = true }
 tempfile = "3"

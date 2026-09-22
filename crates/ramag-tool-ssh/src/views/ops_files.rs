@@ -1,4 +1,4 @@
-use gpui::{Context, Window};
+use gpui_kit::{Context, Window};
 use ramag_domain::entities::{
     MAX_SSH_PATH_BYTES, RemoteEntry, RemoteEntryKind, RemoteOperatingSystem, RemotePath,
     SftpNamespaceKind, SshProfileId, infer_sftp_namespace, validate_remote_name_for_namespace,

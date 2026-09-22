@@ -1,7 +1,7 @@
 //! Redis Key 虚拟树的层级引导线布局。
 
-use gpui::{AnyElement, IntoElement, ParentElement, SharedString, Styled, div, prelude::*, px};
-use gpui_component::h_flex;
+use gpui_kit::component::h_flex;
+use gpui_kit::{AnyElement, IntoElement, ParentElement, SharedString, Styled, div, prelude::*, px};
 
 use super::tree::VisibleRow;
 use super::{INDENT_PX, NAMESPACE_SEP};
@@ -10,7 +10,7 @@ use super::{INDENT_PX, NAMESPACE_SEP};
 pub(super) fn render_namespace_stem(
     row_index: usize,
     depth: usize,
-    color: gpui::Hsla,
+    color: gpui_kit::Hsla,
 ) -> AnyElement {
     div()
         .debug_selector(move || format!("redis-tree-stem-{row_index}"))
@@ -29,7 +29,7 @@ pub(super) fn render_hierarchy_guides(
     depth: usize,
     has_next_sibling: bool,
     ancestor_guide_mask: u16,
-    color: gpui::Hsla,
+    color: gpui_kit::Hsla,
 ) -> AnyElement {
     h_flex()
         .id(SharedString::from(format!("redis-tree-guides-{row_index}")))

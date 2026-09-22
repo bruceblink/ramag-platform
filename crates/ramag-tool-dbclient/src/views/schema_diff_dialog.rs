@@ -2,18 +2,18 @@
 
 use std::sync::Arc;
 
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, Render, ScrollHandle, Styled, Window, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, Theme,
     button::ButtonVariants as _,
     h_flex,
     notification::Notification,
-    scroll::{Scrollbar, ScrollbarShow},
+    scroll::{Scrollbar, ScrollbarMode},
     spinner::Spinner,
     v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, Render, ScrollHandle, Styled, Window, div,
+    prelude::*, px,
 };
 use ramag_app::ConnectionService;
 use ramag_domain::entities::ConnectionConfig;
@@ -152,9 +152,9 @@ impl SchemaDiffDialog {
                 this.source = Some(source);
                 this.target = Some(target);
                 this.vertical_scroll
-                    .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+                    .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
                 this.horizontal_scroll
-                    .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+                    .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
                 cx.notify();
             });
         })
@@ -198,7 +198,7 @@ impl SchemaDiffDialog {
             .child(
                 div()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .child(section.title),
             );
         if section.lines.is_empty() {
@@ -221,7 +221,7 @@ impl SchemaDiffDialog {
         source: &LoadedMetadata,
         target: &LoadedMetadata,
         theme: &Theme,
-    ) -> Option<gpui::AnyElement> {
+    ) -> Option<gpui_kit::AnyElement> {
         let warnings = source
             .warnings
             .iter()
@@ -360,7 +360,7 @@ impl Render for SchemaDiffDialog {
                         .child(
                             Scrollbar::vertical(&self.vertical_scroll)
                                 .id("schema-diff-vertical-scrollbar")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 )
                 .child(
@@ -374,7 +374,7 @@ impl Render for SchemaDiffDialog {
                         .child(
                             Scrollbar::horizontal(&self.horizontal_scroll)
                                 .id("schema-diff-horizontal-scrollbar")
-                                .scrollbar_show(ScrollbarShow::Always),
+                                .mode(ScrollbarMode::Always),
                         ),
                 )
                 .into_any_element()
@@ -400,7 +400,7 @@ impl Render for SchemaDiffDialog {
                         div()
                             .debug_selector(|| "schema-diff-title".into())
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .overflow_hidden()
                             .text_ellipsis()
                             .whitespace_nowrap()

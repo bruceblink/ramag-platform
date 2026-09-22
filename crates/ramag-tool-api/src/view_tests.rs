@@ -1,6 +1,6 @@
 use super::*;
 
-use gpui::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
+use gpui_kit::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_domain::entities::{
     ApiAssertion, ApiAuth, ApiBody, ApiBodyMode, ApiCollection, ApiGrpcDescriptor, ApiOAuth2Config,
     ApiParameter, ApiProtocol, ApiProxyConfig, ApiRequestRecord, ApiRequestSpec,
@@ -17,18 +17,18 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
         bounds.origin.y + bounds.size.height / 2.0,
     );
     cx.simulate_mouse_move(center, None, Modifiers::default());
-    cx.simulate_mouse_down(center, gpui::MouseButton::Left, Modifiers::default());
-    cx.simulate_mouse_up(center, gpui::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_up(center, gpui_kit::MouseButton::Left, Modifiers::default());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::new(window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let _view = view_entity.expect("API 视图应初始化");
 
@@ -172,14 +172,14 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::new(window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let view = view_entity.expect("API 视图应初始化");
     visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
@@ -234,14 +234,14 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_grpc_descriptor_set_survives_request_build_and_import(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::new(window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let view = view_entity.expect("API 视图应初始化");
     let descriptor = ApiGrpcDescriptor::FileDescriptorSet {
@@ -293,14 +293,14 @@ fn api_grpc_descriptor_set_survives_request_build_and_import(cx: &mut TestAppCon
     ));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::new(window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let view = view_entity.expect("API 视图应初始化");
     let mut workspace = ApiWorkspace::new("Imported");
@@ -386,14 +386,14 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_openapi_import_populates_request_editor_and_environment(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::new(window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let view = view_entity.expect("API 视图应初始化");
     let document = serde_json::json!({
@@ -558,14 +558,14 @@ fn api_response_formats_json_and_preserves_non_json_body() {
     assert_eq!(body_preview(&raw_snapshot), "not-json");
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_without_service_explains_send_and_save_state_without_panicking(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view_entity = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::new(window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let view = view_entity.expect("API 视图应初始化");
     visual_cx.run_until_parked();

@@ -1,14 +1,14 @@
 //! MongoDB 文档写操作。
 
-use gpui::{App, ClickEvent, Context, Entity, SharedString, Window, div, prelude::*, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Sizable as _, WindowExt as _,
     button::{Button, ButtonVariants as _},
     h_flex,
-    input::{Input, InputState},
+    input::{Input, InputState, Textarea, TextareaState},
     notification::Notification,
     v_flex,
 };
+use gpui_kit::{App, ClickEvent, Context, Entity, SharedString, Window, div, prelude::*, px};
 use serde_json::Value;
 
 use super::{ResultEvent, ResultPanel};
@@ -134,12 +134,11 @@ impl ResultPanel {
         cx: &mut Context<Self>,
     ) {
         let input = cx.new(|c| {
-            bounded_input(window, c)
-                .multi_line(true)
+            TextareaState::new(window, c)
                 .placeholder("输入完整文档 JSON，如 {\"name\": \"alice\", \"age\": 30}")
                 .default_value("{\n  \n}")
         });
-        ramag_ui::enforce_multiline_input_byte_limit(
+        ramag_ui::enforce_textarea_input_byte_limit(
             &input,
             MAX_MONGO_INTERACTIVE_INPUT_BYTES,
             window,
@@ -201,7 +200,7 @@ impl ResultPanel {
                                     .text_color(muted)
                                     .child("输入完整 JSON 文档（_id 可省略）"),
                             )
-                            .child(Input::new(&input_content).h(px(200.0))),
+                            .child(Textarea::new(&input_content).h(px(200.0))),
                     )
                 })
                 .footer(dialog_footer(cancel, apply))
@@ -324,7 +323,7 @@ fn collect_field_inputs(
     Ok(pairs)
 }
 
-pub(super) fn dml_dialog_can_close(panel: &Entity<ResultPanel>, app: &mut gpui::App) -> bool {
+pub(super) fn dml_dialog_can_close(panel: &Entity<ResultPanel>, app: &mut gpui_kit::App) -> bool {
     if panel.read(app).doc_dml_busy {
         panel.update(app, |this, cx| {
             this.pending_notification =
@@ -339,7 +338,7 @@ pub(super) fn dml_dialog_can_close(panel: &Entity<ResultPanel>, app: &mut gpui::
 pub(super) fn close_dialog_if_dml_idle(
     panel: &Entity<ResultPanel>,
     window: &mut Window,
-    app: &mut gpui::App,
+    app: &mut gpui_kit::App,
 ) {
     if !dml_dialog_can_close(panel, app) {
         return;

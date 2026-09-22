@@ -9,7 +9,7 @@ pub use views::{ClipboardDrawer, ClipboardImageCache, ClipboardView};
 
 use std::sync::Arc;
 
-use gpui::{App, AppContext as _, Entity, Window};
+use gpui_kit::{App, AppContext as _, Entity, Window};
 use ramag_app::ClipboardService;
 use ramag_domain::traits::{Tool, ToolMeta};
 

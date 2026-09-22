@@ -4,11 +4,11 @@
 use std::ops::Range;
 use std::rc::Rc;
 
-use gpui::{
+use gpui_kit::component::{Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement,
     SharedString, Styled, UniformListScrollHandle, div, prelude::*, px, uniform_list,
 };
-use gpui_component::{Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex};
 use ramag_domain::entities::{MAX_REDIS_COMMAND_ARG_BYTES, RedisValue, StreamEntry};
 
 use super::{KeyDetailEvent, KeyDetailPanel};
@@ -29,9 +29,9 @@ pub(super) fn render_stream_block(
     key: String,
     entries: &[StreamEntry],
     scroll: &UniformListScrollHandle,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
 ) -> impl IntoElement + use<> {
     // 只缓存索引，不复制字段正文；大 Stream 重渲染时避免再次深拷贝整份数据。
     let rows = Rc::new(flatten_stream_rows(entries));
@@ -89,9 +89,9 @@ fn stream_row(
     entries: &[StreamEntry],
     key: &str,
     read_only: bool,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
-    border: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    border: gpui_kit::Hsla,
     cx: &mut Context<KeyDetailPanel>,
 ) -> Option<AnyElement> {
     match row {
@@ -123,7 +123,7 @@ fn stream_row(
                             .flex_1()
                             .min_w_0()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .text_color(fg)
                             .overflow_hidden()
                             .text_ellipsis()

@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
 use async_trait::async_trait;
-use gpui::{AppContext as _, Entity, Modifiers, TestAppContext, VisualTestContext, px, size};
-use gpui_component::WindowExt as _;
+use gpui_kit::component::WindowExt as _;
+use gpui_kit::{AppContext as _, Entity, Modifiers, TestAppContext, VisualTestContext, px, size};
 use ramag_app::ObjectStorageService;
 use ramag_domain::entities::{
     CloudProvider, ConnectionConfig, ConnectionId, HttpsEndpoint, ObjectCapabilities,
@@ -188,12 +188,12 @@ fn add_form_window(
     cx: &mut TestAppContext,
     service: Arc<ObjectStorageService>,
 ) -> (Entity<AccountFormPanel>, &mut VisualTestContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut form = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let entity = cx.new(|cx| AccountFormPanel::new(service, None, window, cx));
         form = Some(entity.clone());
-        gpui_component::Root::new(entity, window, cx)
+        gpui_kit::component::Root::new(entity, window, cx)
     });
     (form.expect("account form should be initialized"), visual_cx)
 }
@@ -202,12 +202,12 @@ fn add_workspace_window(
     cx: &mut TestAppContext,
     service: Arc<ObjectStorageService>,
 ) -> (Entity<ObjectStorageView>, &mut VisualTestContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut view = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let entity = cx.new(|cx| ObjectStorageView::new(service, window, cx));
         view = Some(entity.clone());
-        gpui_component::Root::new(entity, window, cx)
+        gpui_kit::component::Root::new(entity, window, cx)
     });
     (
         view.expect("object storage view should be initialized"),
@@ -215,7 +215,7 @@ fn add_workspace_window(
     )
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn provider_cards_are_the_first_equal_width_form_row(cx: &mut TestAppContext) {
     let (form, cx) = add_form_window(cx, service());
     cx.simulate_resize(size(px(720.0), px(800.0)));
@@ -265,7 +265,7 @@ fn provider_cards_are_the_first_equal_width_form_row(cx: &mut TestAppContext) {
     });
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn account_manager_uses_provider_brand_icons(cx: &mut TestAppContext) {
     let (view, cx) = add_workspace_window(cx, service());
     cx.run_until_parked();
@@ -290,7 +290,7 @@ fn account_manager_uses_provider_brand_icons(cx: &mut TestAppContext) {
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn object_workspace_matches_the_shared_compact_file_browser(cx: &mut TestAppContext) {
     let (view, cx) = add_workspace_window(cx, service());
     cx.run_until_parked();
@@ -397,7 +397,7 @@ fn object_workspace_matches_the_shared_compact_file_browser(cx: &mut TestAppCont
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn object_directory_toolbar_keeps_controls_inside_supported_widths(cx: &mut TestAppContext) {
     let (view, cx) = add_workspace_window(cx, service());
     cx.run_until_parked();
@@ -483,7 +483,7 @@ fn object_directory_toolbar_keeps_controls_inside_supported_widths(cx: &mut Test
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn object_detail_keeps_metadata_and_removes_content_preview(cx: &mut TestAppContext) {
     let (view, cx) = add_workspace_window(cx, service());
     cx.run_until_parked();
@@ -517,7 +517,7 @@ fn object_detail_keeps_metadata_and_removes_content_preview(cx: &mut TestAppCont
     assert!(cx.debug_bounds("object-preview-scroll").is_none());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn active_transfer_opens_bounded_progress_panel(cx: &mut TestAppContext) {
     let (view, cx) = add_workspace_window(cx, service());
     cx.run_until_parked();

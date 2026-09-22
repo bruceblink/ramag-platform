@@ -3,9 +3,9 @@ use super::*;
 /// 单独展示 exporter 提供的 Broker 运行指标，避免与 Kafka Protocol API 数值混在一组。
 pub(super) fn render_broker_runtime_metrics(
     view: &KafkaView,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
     compact: bool,
-) -> gpui::AnyElement {
+) -> gpui_kit::AnyElement {
     let (status_text, status_color, sample_info, brokers) =
         match view.broker_metrics_snapshot.as_ref() {
             None => (
@@ -199,7 +199,7 @@ pub(super) fn render_broker_runtime_metrics(
 fn runtime_metric_cell(
     label: &'static str,
     value: String,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     div()
         .min_w(px(112.0))

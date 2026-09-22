@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use gpui::{App, Bounds, Pixels, PlatformDisplay, point, px, size};
+use gpui_kit::{App, Bounds, Pixels, PlatformDisplay, point, px, size};
 
 const DRAWER_HEIGHT: f32 = 280.0;
 const DRAWER_MARGIN: f32 = 5.0;
@@ -45,7 +45,7 @@ fn safe_margin(extent: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use gpui::{Bounds, point, px, size};
+    use gpui_kit::{Bounds, point, px, size};
 
     use super::drawer_bounds;
 

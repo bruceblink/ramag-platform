@@ -1,7 +1,7 @@
 //! ResultPanel 自由函数：行定位键推导 / WHERE 拼装 / 类型转换 / DML LIMIT 方言 / 表名提取 / 输入校验
 
-use gpui::Entity;
-use gpui_component::input::InputState;
+use gpui_kit::Entity;
+use gpui_kit::component::input::InputState;
 use ramag_domain::entities::{Column, ColumnKind, Index, MAX_SQL_QUERY_BYTES, QueryResult, Value};
 
 pub(super) const MAX_BATCH_DELETE_ROWS: usize = 500;

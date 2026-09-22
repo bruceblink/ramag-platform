@@ -17,17 +17,17 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use gpui::{
-    AppContext as _, ClickEvent, Context, Entity, EventEmitter, InteractiveElement, IntoElement,
-    ParentElement, Render, Styled, UniformListScrollHandle, Window, div,
-    prelude::FluentBuilder as _, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     input::{InputEvent, InputState},
     v_flex,
+};
+use gpui_kit::{
+    AppContext as _, ClickEvent, Context, Entity, EventEmitter, InteractiveElement, IntoElement,
+    ParentElement, Render, Styled, UniformListScrollHandle, Window, div,
+    prelude::FluentBuilder as _, px, uniform_list,
 };
 use ramag_app::RedisService;
 use ramag_domain::entities::{
@@ -124,11 +124,11 @@ pub struct KeyTreePanel {
     resume_cursor: Option<u64>,
     uniform_scroll: UniformListScrollHandle,
     /// 异步回调无法访问 Window，通知由 Render 延后推送。
-    pending_notification: Option<gpui_component::notification::Notification>,
+    pending_notification: Option<gpui_kit::component::notification::Notification>,
     /// 树级写操作闸门；切换连接或 DB 后旧任务失效。
     mutation_gate: AsyncMutationGate,
     transfer: ramag_ui::TransferState,
-    _subscriptions: Vec<gpui::Subscription>,
+    _subscriptions: Vec<gpui_kit::Subscription>,
 }
 
 impl EventEmitter<KeyTreeEvent> for KeyTreePanel {}

@@ -4,11 +4,11 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::WindowExt as _;
+use gpui_kit::{
     AppContext as _, Context, Entity, IntoElement, ParentElement as _, Render, ScrollDelta,
     ScrollWheelEvent, Styled as _, TestAppContext, TouchPhase, Window, div, point, px, size,
 };
-use gpui_component::WindowExt as _;
 use ramag_domain::entities::MongoQueryResult;
 use serde_json::{Map, Value};
 
@@ -23,7 +23,7 @@ struct MongoResultDialogTestHost {
 
 impl Render for MongoResultDialogTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
         div()
             .relative()
             .size_full()
@@ -49,9 +49,9 @@ fn wide_documents() -> Vec<Value> {
 }
 
 /// Windows 触控板会混入少量另一轴位移；横向浏览列时不能带着行上下移动。
-#[gpui::test]
+#[gpui_kit::test]
 fn result_scroll_horizontal_gesture_does_not_move_rows_vertically(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (panel, cx) = cx.add_window_view(|window, cx| {
         let documents = wide_documents();
         let table = Arc::new(super::flatten::build_flat_table_with(
@@ -132,9 +132,9 @@ fn result_scroll_horizontal_gesture_does_not_move_rows_vertically(cx: &mut TestA
 }
 
 /// 三种窗口下工具栏和摘要不得互相覆盖，分页控件仍需保持在结果状态栏内可见。
-#[gpui::test]
+#[gpui_kit::test]
 fn result_toolbar_and_status_keep_actions_visible_in_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (panel, cx) = cx.add_window_view(|window, cx| {
         let documents = wide_documents();
         let table = Arc::new(super::flatten::build_flat_table_with(
@@ -201,9 +201,9 @@ fn result_toolbar_and_status_keep_actions_visible_in_three_window_widths(cx: &mu
 }
 
 /// MongoDB 单元格详情应在三种窗口宽度内显示，并且始终可以关闭。
-#[gpui::test]
+#[gpui_kit::test]
 fn mongo_cell_detail_stays_inside_three_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let mut panel_entity = None;
     let (_, cx) = cx.add_window_view(|window, cx| {
         let panel = cx.new(|cx| ResultPanel::new(window, cx));
@@ -211,7 +211,7 @@ fn mongo_cell_detail_stays_inside_three_window_widths(cx: &mut TestAppContext) {
         let host = cx.new(|_| MongoResultDialogTestHost {
             panel: panel.clone(),
         });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let panel = panel_entity.expect("MongoDB result panel should be initialized");
     cx.run_until_parked();
@@ -256,9 +256,9 @@ fn mongo_cell_detail_stays_inside_three_window_widths(cx: &mut TestAppContext) {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn clearing_layer_filter_preserves_content_search(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (panel, cx) = cx.add_window_view(|window, cx| {
         let mut panel = ResultPanel::new(window, cx);
         panel
@@ -277,10 +277,10 @@ fn clearing_layer_filter_preserves_content_search(cx: &mut TestAppContext) {
     });
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mongodb_id_search_uses_the_shared_converter_configuration(cx: &mut TestAppContext) {
     cx.update(|cx| {
-        gpui_component::init(cx);
+        gpui_kit::component::init(cx);
         ramag_ui::set_database_search_settings(
             ramag_ui::DatabaseSearchSettings {
                 id_conversion_enabled: true,

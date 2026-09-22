@@ -1,7 +1,7 @@
 //! Redis 增量 SCAN：服务端 MATCH、代际取消与资源上限。
 //! 每批校验代际、数据库和连接，切换后丢弃旧结果。
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::{ConnectionConfig, KeyMeta};
 use tracing::{error, info, warn};
 

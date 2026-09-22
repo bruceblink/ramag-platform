@@ -3,8 +3,8 @@
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, hash_map::Entry};
 
-use gpui::{AnyElement, IntoElement, ParentElement, Styled, div, px};
-use gpui_component::{Icon, Sizable as _, h_flex, v_flex};
+use gpui_kit::component::{Icon, Sizable as _, h_flex, v_flex};
+use gpui_kit::{AnyElement, IntoElement, ParentElement, Styled, div, px};
 use ramag_domain::entities::{Commit, CommitId};
 
 /// 单条 commit 在 history 视图中的图谱位置
@@ -185,10 +185,10 @@ fn release_lane(lane: usize, occupied: &mut [bool], free_lanes: &mut BinaryHeap<
 }
 
 /// 给 lane 分配高对比度颜色（基于黄金角分布，相邻 lane 不会同色）
-pub(super) fn lane_color(lane: usize) -> gpui::Hsla {
+pub(super) fn lane_color(lane: usize) -> gpui_kit::Hsla {
     // 黄金角 137.508°：连续 hash 后相邻值 hue 差最大
     let hue = (lane as f32 * 137.508) % 360.0;
-    gpui::hsla(hue / 360.0, 0.55, 0.55, 1.0)
+    gpui_kit::hsla(hue / 360.0, 0.55, 0.55, 1.0)
 }
 
 /// 渲染左侧 lane gutter：N 条彩色竖线 + 本 commit 所在 lane 的 dot

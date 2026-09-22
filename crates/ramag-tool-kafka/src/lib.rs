@@ -15,19 +15,19 @@ use std::{
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use chrono::{DateTime, Utc};
-use gpui::{
-    App, AppContext as _, ClickEvent, Context, Entity, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement, Render, ScrollHandle, SharedString,
-    StatefulInteractiveElement as _, Styled, Subscription, UniformListScrollHandle, Window, div,
-    prelude::FluentBuilder as _, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputEvent, InputState},
-    scroll::{Scrollbar, ScrollbarShow},
+    scroll::{Scrollbar, ScrollbarMode},
     v_flex,
+};
+use gpui_kit::{
+    App, AppContext as _, ClickEvent, Context, Entity, FocusHandle, Focusable,
+    InteractiveElement as _, IntoElement, ParentElement, Render, ScrollHandle, SharedString,
+    StatefulInteractiveElement as _, Styled, Subscription, UniformListScrollHandle, Window, div,
+    prelude::FluentBuilder as _, px, uniform_list,
 };
 use ramag_app::KafkaService;
 use ramag_domain::{

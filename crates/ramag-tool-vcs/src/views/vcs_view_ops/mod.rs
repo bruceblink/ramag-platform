@@ -2,7 +2,7 @@ mod remote;
 mod stash;
 mod tag;
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::{BranchKind, LogOptions, MAX_COMMIT_MESSAGE_BYTES};
 use tracing::{error, info};
 
@@ -433,7 +433,7 @@ impl VcsView {
                         }
                         this.commit_amend = false;
                         // 提交后清空消息和草稿，并使在途草稿写入失效。
-                        this.pending_commit_text = Some(gpui::SharedString::default());
+                        this.pending_commit_text = Some(gpui_kit::SharedString::default());
                         this.commit_draft_gen
                             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         this.commit_draft_error = None;

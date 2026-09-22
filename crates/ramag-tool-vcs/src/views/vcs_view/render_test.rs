@@ -5,7 +5,7 @@
 use super::super::helpers::{ActiveView, FileContentSnapshot, FileTab, FileTabSource, GroupKind};
 use super::VcsView;
 use async_trait::async_trait;
-use gpui::{
+use gpui_kit::{
     AppContext, Entity, ScrollDelta, ScrollWheelEvent, TestAppContext, TouchPhase,
     VisualTestContext, point, px, size,
 };
@@ -242,14 +242,14 @@ fn inject_file_content_session(v: &mut VcsView) {
 
 /// 输入框绘制依赖 gpui-component 的窗口根节点，测试必须复刻生产环境的 Root 包装。
 fn add_vcs_window(cx: &mut TestAppContext) -> (Entity<VcsView>, &mut VisualTestContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
 
     let mut view = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let vcs_view =
             cx.new(|cx| VcsView::new(Arc::new(MockGit), Arc::new(MockStorage), window, cx));
         view = Some(vcs_view.clone());
-        gpui_component::Root::new(vcs_view, window, cx)
+        gpui_kit::component::Root::new(vcs_view, window, cx)
     });
 
     (view.expect("VcsView should be initialized"), visual_cx)
@@ -257,7 +257,7 @@ fn add_vcs_window(cx: &mut TestAppContext) -> (Entity<VcsView>, &mut VisualTestC
 
 /// 渲染整条 IDE 布局（含 diff split 5-list：左 gutter/content + 中间列 + 右 gutter/content + 行配对 + scroll）不 panic。
 /// 能跑完 add_window_view（内部 draw）+ run_until_parked 即证明渲染管线健康。
-#[gpui::test]
+#[gpui_kit::test]
 fn vcs_view_renders_diff_split_without_panic(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
 
@@ -278,7 +278,7 @@ fn vcs_view_renders_diff_split_without_panic(cx: &mut TestAppContext) {
 }
 
 /// 分栏状态在 VcsView 更新期间发出通知时，不得反向重入更新同一个 VcsView。
-#[gpui::test]
+#[gpui_kit::test]
 fn history_split_state_notification_does_not_reenter_vcs_view(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     cx.run_until_parked();
@@ -291,7 +291,7 @@ fn history_split_state_notification_does_not_reenter_vcs_view(cx: &mut TestAppCo
 }
 
 /// 上下区域共享同一左栏宽度时，分隔线必须落在同一横坐标。
-#[gpui::test]
+#[gpui_kit::test]
 fn history_left_column_aligns_with_files_column(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |view, cx| {
@@ -313,7 +313,7 @@ fn history_left_column_aligns_with_files_column(cx: &mut TestAppContext) {
 }
 
 /// 与数据库资源树保持相同的 180–600 px 可拖动范围。
-#[gpui::test]
+#[gpui_kit::test]
 fn files_column_matches_database_tree_resize_range(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |view, cx| {
@@ -356,7 +356,7 @@ fn files_column_matches_database_tree_resize_range(cx: &mut TestAppContext) {
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn repository_resize_is_isolated_by_tab(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     let first = mock_repo();
@@ -424,7 +424,7 @@ fn repository_resize_is_isolated_by_tab(cx: &mut TestAppContext) {
 }
 
 /// 关闭仓库标签会销毁其布局会话，再次打开不得恢复旧宽度。
-#[gpui::test]
+#[gpui_kit::test]
 fn closed_repository_does_not_restore_resized_left_column(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     let repo = mock_repo();
@@ -473,7 +473,7 @@ fn closed_repository_does_not_restore_resized_left_column(cx: &mut TestAppContex
 }
 
 /// 侧栏右键新建分支在 VcsView 更新结束后打开，不得再次借用同一个实体。
-#[gpui::test]
+#[gpui_kit::test]
 fn sidebar_create_branch_dialog_opens_without_reentrant_update(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |view, cx| {
@@ -494,7 +494,7 @@ fn sidebar_create_branch_dialog_opens_without_reentrant_update(cx: &mut TestAppC
 }
 
 /// 横向查看长代码时，触控板附带的少量纵向位移不能带着 Diff 行上下移动。
-#[gpui::test]
+#[gpui_kit::test]
 fn diff_diagonal_scroll_moves_only_horizontally(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |view, cx| {
@@ -523,7 +523,7 @@ fn diff_diagonal_scroll_moves_only_horizontally(cx: &mut TestAppContext) {
 }
 
 /// 切到「全文件」diff 视图模式后仍能渲染（context_lines 路径）
-#[gpui::test]
+#[gpui_kit::test]
 fn vcs_view_renders_full_file_diff_mode(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |v, cx| {
@@ -541,7 +541,7 @@ fn vcs_view_renders_full_file_diff_mode(cx: &mut TestAppContext) {
 }
 
 /// Diff 全屏只改变布局，既有 Diff 快照仍可直接渲染。
-#[gpui::test]
+#[gpui_kit::test]
 fn vcs_view_renders_diff_fullscreen_without_reloading(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |v, cx| {
@@ -559,7 +559,7 @@ fn vcs_view_renders_diff_fullscreen_without_reloading(cx: &mut TestAppContext) {
 }
 
 /// Project Files 直接查看走原生 Code Editor，重复渲染不 panic。
-#[gpui::test]
+#[gpui_kit::test]
 fn vcs_view_renders_project_file_content_without_panic(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |v, cx| {

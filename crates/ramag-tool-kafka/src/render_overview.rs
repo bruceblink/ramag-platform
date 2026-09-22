@@ -6,7 +6,7 @@ impl KafkaView {
         &self,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> gpui::AnyElement {
+    ) -> gpui_kit::AnyElement {
         let theme = cx.theme().clone();
         let content_width = kafka_main_content_width(window);
         // Keep the overview split in step with the Topic workspace. The width
@@ -191,7 +191,7 @@ impl KafkaView {
                                 .child(
                                     Scrollbar::vertical(&self.overview_scroll)
                                         .id("kafka-overview-v-scrollbar-control")
-                                        .scrollbar_show(ScrollbarShow::Always),
+                                        .mode(ScrollbarMode::Always),
                                 ),
                         )
                         .into_any_element()
@@ -261,10 +261,10 @@ impl KafkaView {
     /// 加载期间保留概览页的滚动容器、列结构和固定行高，避免空快照先触发布局塌缩。
     fn render_overview_loading(
         &self,
-        theme: &gpui_component::Theme,
+        theme: &gpui_kit::component::Theme,
         compact: bool,
         narrow: bool,
-    ) -> gpui::AnyElement {
+    ) -> gpui_kit::AnyElement {
         let metrics = h_flex()
             .id("kafka-overview-loading-metrics")
             .debug_selector(|| "kafka-overview-loading-metrics".into())
@@ -444,7 +444,7 @@ impl KafkaView {
                     .child(
                         Scrollbar::vertical(&self.overview_scroll)
                             .id("kafka-overview-v-scrollbar-control")
-                            .scrollbar_show(ScrollbarShow::Always),
+                            .mode(ScrollbarMode::Always),
                     ),
             )
             .into_any_element()

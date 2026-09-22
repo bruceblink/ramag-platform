@@ -8,14 +8,14 @@ mod update;
 use std::sync::Arc;
 use std::time::Duration;
 
-use gpui::{
-    AppContext as _, Context, Entity, InteractiveElement as _, IntoElement, ParentElement, Render,
-    Styled, Subscription, Task, Window, div, prelude::FluentBuilder as _,
-};
-use gpui_component::{
+use gpui_kit::component::{
     h_flex,
     input::{InputEvent, InputState},
     notification::Notification,
+};
+use gpui_kit::{
+    AppContext as _, Context, Entity, InteractiveElement as _, IntoElement, ParentElement, Render,
+    Styled, Subscription, Task, Window, div, prelude::FluentBuilder as _,
 };
 use ramag_app::{
     AvailableUpdate, ClipboardService, ConnectionService, SshService, StaticPluginHost,

@@ -73,10 +73,8 @@ impl MqttView {
         let keep_alive = input(window, cx, 5, "Keep Alive 秒数", false, "60");
         let publish_topic = input(window, cx, MAX_TOPIC_BYTES, "发布 Topic", false, "");
         let publish_payload = cx.new(|cx| {
-            InputState::new(window, cx)
-                .validate(|value, _| value.len() <= 16 * 1024 * 1024)
+            TextareaState::new(window, cx)
                 .placeholder("消息内容")
-                .multi_line(true)
                 .rows(5)
         });
         let subscribe_filter = input(
@@ -123,10 +121,8 @@ impl MqttView {
             "",
         );
         let local_server_publish_payload = cx.new(|cx| {
-            InputState::new(window, cx)
-                .validate(|value, _| value.len() <= 16 * 1024 * 1024)
+            TextareaState::new(window, cx)
                 .placeholder("本地 Broker 发布载荷")
-                .multi_line(true)
                 .rows(5)
         });
         let search = input(window, cx, MAX_PROFILE_NAME_BYTES, "筛选配置…", false, "");
@@ -233,7 +229,6 @@ impl MqttView {
             &client_key_path,
             &keep_alive,
             &publish_topic,
-            &publish_payload,
             &subscribe_filter,
             &local_server_bind_host,
             &local_server_port,
@@ -241,7 +236,6 @@ impl MqttView {
             &local_server_username,
             &local_server_password,
             &local_server_publish_topic,
-            &local_server_publish_payload,
             &search,
             &client_username,
             &client_id_editor,
@@ -274,7 +268,7 @@ impl MqttView {
             &publish_payload,
             window,
             move |this, _, event: &InputEvent, window, cx| {
-                if matches!(event, InputEvent::PressEnter { secondary: true }) {
+                if matches!(event, InputEvent::PressEnter { secondary: true, .. }) {
                     let payload = publish_payload_for_enter.read(cx).value().to_string();
                     if let Some(payload_without_shortcut_newline) = payload.strip_suffix('\n') {
                         let line = payload_without_shortcut_newline
@@ -508,13 +502,13 @@ impl MqttView {
             &self.client_cert_path,
             &self.client_key_path,
             &self.publish_topic,
-            &self.publish_payload,
             &self.subscribe_filter,
             &self.local_server_publish_topic,
-            &self.local_server_publish_payload,
         ] {
             set_value(field, "", window, cx);
         }
+        set_textarea_value(&self.publish_payload, "", window, cx);
+        set_textarea_value(&self.local_server_publish_payload, "", window, cx);
         self.reset_message_options();
         self.reset_subscription_topics();
         set_value(&self.port, "1883", window, cx);
@@ -708,4 +702,13 @@ impl MqttView {
         self.saving_static_file = false;
     }
 
+}
+
+fn set_textarea_value(
+    field: &Entity<TextareaState>,
+    value: impl Into<String>,
+    window: &mut Window,
+    cx: &mut Context<MqttView>,
+) {
+    field.update(cx, |state, cx| state.set_value(value.into(), window, cx));
 }

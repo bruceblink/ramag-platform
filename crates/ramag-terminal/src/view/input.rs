@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use gpui::{Bounds, Context, EntityInputHandler, Pixels, Point, UTF16Selection, Window};
+use gpui_kit::{Bounds, Context, EntityInputHandler, Pixels, Point, UTF16Selection, Window};
 use tracing::warn;
 
 use super::{LINE_HEIGHT, TerminalView};
@@ -108,7 +108,7 @@ impl EntityInputHandler for TerminalView {
                 x: element_bounds.left() + self.cell_width * cursor.column as f32,
                 y: element_bounds.top() + LINE_HEIGHT * cursor.row as f32,
             },
-            gpui::Size {
+            gpui_kit::Size {
                 width: self.cell_width,
                 height: LINE_HEIGHT,
             },

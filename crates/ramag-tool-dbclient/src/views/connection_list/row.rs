@@ -1,13 +1,13 @@
 //! 单行数据库连接。
 
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div, img, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
+};
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div, img, prelude::*, px,
 };
 use ramag_domain::entities::{ConnectionConfig, DriverKind};
 
@@ -28,11 +28,11 @@ pub(super) fn connection_row(
     show_sync: bool,
     version: Option<String>,
     density: RowDensity,
-    border: gpui::Hsla,
-    hover_bg: gpui::Hsla,
-    accent: gpui::Hsla,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
+    border: gpui_kit::Hsla,
+    hover_bg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
     cx: &mut Context<ConnectionListPanel>,
 ) -> impl IntoElement {
     let show_version = density == RowDensity::Full;
@@ -54,12 +54,12 @@ pub(super) fn connection_row(
         DriverKind::Mongodb => "mongodb",
     });
 
-    let badge_fg: gpui::Hsla = match conn.driver {
+    let badge_fg: gpui_kit::Hsla = match conn.driver {
         DriverKind::Mysql => accent,
-        DriverKind::Postgres => gpui::hsla(265.0 / 360.0, 0.55, 0.55, 1.0),
-        DriverKind::Sqlite => gpui::hsla(200.0 / 360.0, 0.60, 0.50, 1.0),
-        DriverKind::Redis => gpui::hsla(0.0, 0.65, 0.55, 1.0),
-        DriverKind::Mongodb => gpui::hsla(140.0 / 360.0, 0.55, 0.45, 1.0),
+        DriverKind::Postgres => gpui_kit::hsla(265.0 / 360.0, 0.55, 0.55, 1.0),
+        DriverKind::Sqlite => gpui_kit::hsla(200.0 / 360.0, 0.60, 0.50, 1.0),
+        DriverKind::Redis => gpui_kit::hsla(0.0, 0.65, 0.55, 1.0),
+        DriverKind::Mongodb => gpui_kit::hsla(140.0 / 360.0, 0.55, 0.45, 1.0),
     };
     let mut badge_bg = badge_fg;
     badge_bg.a = 0.12;
@@ -116,7 +116,7 @@ pub(super) fn connection_row(
             .child(text)
     };
 
-    let danger = gpui::hsla(0.0, 0.7, 0.55, 1.0);
+    let danger = gpui_kit::hsla(0.0, 0.7, 0.55, 1.0);
     let mut prod_bg = danger;
     prod_bg.a = 0.15;
 
@@ -149,7 +149,7 @@ pub(super) fn connection_row(
                 .flex_1()
                 .min_w_0()
                 .text_sm()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .text_color(fg)
                 .overflow_hidden()
                 .text_ellipsis()
@@ -218,7 +218,9 @@ pub(super) fn connection_row(
                 .gap(px(4.0))
                 .w(px(108.0))
                 .justify_end()
-                .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
+                    cx.stop_propagation()
+                })
                 .when(show_sync, |actions| {
                     actions.child(
                         ramag_ui::clickable_button(sync_id)
@@ -272,12 +274,12 @@ pub(super) fn connection_row(
 
 fn environment_badge_colors(
     environment: &str,
-    fallback_fg: gpui::Hsla,
-) -> (gpui::Hsla, gpui::Hsla) {
+    fallback_fg: gpui_kit::Hsla,
+) -> (gpui_kit::Hsla, gpui_kit::Hsla) {
     let fg = match environment.trim().to_ascii_lowercase().as_str() {
-        "dev" => gpui::hsla(140.0 / 360.0, 0.55, 0.42, 1.0),
-        "test" => gpui::hsla(35.0 / 360.0, 0.80, 0.45, 1.0),
-        "prod" => gpui::hsla(0.0, 0.70, 0.55, 1.0),
+        "dev" => gpui_kit::hsla(140.0 / 360.0, 0.55, 0.42, 1.0),
+        "test" => gpui_kit::hsla(35.0 / 360.0, 0.80, 0.45, 1.0),
+        "prod" => gpui_kit::hsla(0.0, 0.70, 0.55, 1.0),
         _ => fallback_fg,
     };
     let mut bg = fg;

@@ -1,16 +1,17 @@
 use std::time::Duration;
 
-use gpui::{AnyElement, ElementId, IntoElement, ParentElement, Styled, div, px};
-use gpui_component::{
-    Theme, animation::Transition, animation::ease_out_cubic, h_flex, skeleton::Skeleton, v_flex,
+use gpui_kit::component::{
+    Theme, animation::EffectTransition, animation::ease_out_cubic, h_flex, skeleton::Skeleton,
+    v_flex,
 };
+use gpui_kit::{AnyElement, ElementId, IntoElement, ParentElement, Styled, div, px};
 
 /// 让骨架和新数据以轻微位移、淡入进入，避免空快照切换时整块跳动。
 pub(super) fn loading_transition<E>(element: E, id: impl Into<ElementId>) -> AnyElement
 where
     E: IntoElement + Styled + 'static,
 {
-    Transition::new(Duration::from_millis(220))
+    EffectTransition::new(Duration::from_millis(220))
         .ease(ease_out_cubic)
         .slide_y(px(3.0), px(0.0))
         .fade(0.55, 1.0)
@@ -18,16 +19,16 @@ where
         .into_any_element()
 }
 
-pub(super) fn skeleton_bar(theme: &Theme, width: f32, height: f32) -> gpui::Div {
+pub(super) fn skeleton_bar(theme: &Theme, width: f32, height: f32) -> gpui_kit::Div {
     skeleton_line(theme, Some(width), height)
 }
 
-fn skeleton_cell(theme: &Theme, width: Option<f32>) -> gpui::Div {
+fn skeleton_cell(theme: &Theme, width: Option<f32>) -> gpui_kit::Div {
     skeleton_line(theme, width, 8.0)
 }
 
 /// 使用 gpui-component 的循环呼吸动画；外层固定尺寸负责约束表格布局。
-fn skeleton_line(theme: &Theme, width: Option<f32>, height: f32) -> gpui::Div {
+fn skeleton_line(theme: &Theme, width: Option<f32>, height: f32) -> gpui_kit::Div {
     let mut line = div()
         .h(px(height))
         .overflow_hidden()
@@ -52,7 +53,7 @@ pub(super) fn skeleton_table(
     theme: &Theme,
     row_count: usize,
     columns: &[Option<f32>],
-) -> gpui::Div {
+) -> gpui_kit::Div {
     let mut table = v_flex().w_full().min_w_0();
     for _ in 0..row_count {
         let mut row = h_flex()
@@ -74,7 +75,7 @@ pub(super) fn skeleton_table(
     table
 }
 
-pub(super) fn skeleton_metric_card(theme: &Theme) -> gpui::Div {
+pub(super) fn skeleton_metric_card(theme: &Theme) -> gpui_kit::Div {
     v_flex()
         .flex_1()
         .min_w_0()
@@ -92,7 +93,7 @@ pub(super) fn skeleton_section_heading(
     theme: &Theme,
     title_width: f32,
     subtitle_width: f32,
-) -> gpui::Div {
+) -> gpui_kit::Div {
     v_flex()
         .w_full()
         .gap(px(5.0))
@@ -107,7 +108,7 @@ pub(super) fn skeleton_detail_panel(
     subtitle_width: f32,
     row_count: usize,
     columns: &[Option<f32>],
-) -> gpui::Div {
+) -> gpui_kit::Div {
     v_flex()
         .w_full()
         .min_w_0()

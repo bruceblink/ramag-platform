@@ -1,6 +1,6 @@
 //! 合并 / cherry-pick / 冲突解决：cherry_pick / use ours/theirs / 已解决 / 进行中 op 的继续 / 中止
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::{BranchKind, RepoOperation};
 use tracing::{error, info};
 
@@ -361,7 +361,7 @@ impl VcsView {
         self.loading_rebase_plan = true;
         self.rebase_plan_onto = onto;
         self.show_rebase_plan = true;
-        self.rebase_scroll = gpui::UniformListScrollHandle::new();
+        self.rebase_scroll = gpui_kit::UniformListScrollHandle::new();
         self.error = None;
         self.rebase_request_seq = self.rebase_request_seq.wrapping_add(1);
         let request_seq = self.rebase_request_seq;

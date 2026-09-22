@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use gpui::{Context, px};
-use gpui_component::notification::Notification;
+use gpui_kit::component::notification::Notification;
+use gpui_kit::{Context, px};
 use ramag_app::usecases::export;
 use ramag_domain::entities::{DriverKind, Query};
 
@@ -46,9 +46,9 @@ impl SchemaDiffDialog {
     pub(super) fn toggle_migration(&mut self, cx: &mut Context<Self>) {
         self.migration_visible = !self.migration_visible;
         self.migration_vertical_scroll
-            .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+            .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
         self.migration_horizontal_scroll
-            .set_offset(gpui::Point::new(px(0.0), px(0.0)));
+            .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
         cx.notify();
     }
 
@@ -131,7 +131,7 @@ impl SchemaDiffDialog {
     /// Requests explicit approval, then executes the unchanged script against the target connection.
     pub(super) fn request_execute_migration(
         &mut self,
-        window: &mut gpui::Window,
+        window: &mut gpui_kit::Window,
         cx: &mut Context<Self>,
     ) {
         if self.saving_migration || self.executing_migration {

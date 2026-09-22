@@ -3,8 +3,8 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use gpui::{Context, Window};
-use gpui_component::notification::Notification;
+use gpui_kit::component::notification::Notification;
+use gpui_kit::{Context, Window};
 use ramag_app::usecases::export;
 use ramag_domain::error::DomainError;
 use tracing::{error, info};

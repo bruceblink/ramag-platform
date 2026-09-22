@@ -1,15 +1,15 @@
 //! 结果表的空结果和搜索阻塞状态。
 
-use gpui::{AnyElement, ParentElement, Styled, div, prelude::*};
-use gpui_component::v_flex;
+use gpui_kit::component::v_flex;
+use gpui_kit::{AnyElement, ParentElement, Styled, div, prelude::*};
 
 use super::super::result_panel::RowSearchBlocker;
 
 pub(super) fn render_affected_result(
     affected: u64,
     elapsed: u64,
-    fg: gpui::Hsla,
-    muted_fg: gpui::Hsla,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
 ) -> AnyElement {
     v_flex()
         .size_full()
@@ -33,8 +33,8 @@ pub(super) fn render_affected_result(
 
 pub(super) fn render_row_search_blocker(
     blocker: RowSearchBlocker,
-    muted_fg: gpui::Hsla,
-    danger: gpui::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
 ) -> AnyElement {
     let (message, color) = match blocker {
         RowSearchBlocker::Converting => ("正在通过外部程序转换 ID…".to_string(), muted_fg),

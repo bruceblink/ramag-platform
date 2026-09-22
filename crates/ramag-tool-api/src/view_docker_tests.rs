@@ -3,7 +3,7 @@ use super::*;
 use std::sync::Arc;
 use std::time::Duration;
 
-use gpui::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
+use gpui_kit::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_app::ApiService;
 use ramag_domain::entities::{ApiProtocol, ApiResponseStatus};
 use ramag_domain::traits::ApiDriver;
@@ -20,13 +20,13 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
         bounds.origin.y + bounds.size.height / 2.0,
     );
     cx.simulate_mouse_move(center, None, Modifiers::default());
-    cx.simulate_mouse_down(center, gpui::MouseButton::Left, Modifiers::default());
-    cx.simulate_mouse_up(center, gpui::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_up(center, gpui_kit::MouseButton::Left, Modifiers::default());
 }
 
 fn wait_for_response(
     cx: &mut VisualTestContext,
-    view: &gpui::Entity<ApiView>,
+    view: &gpui_kit::Entity<ApiView>,
 ) -> Option<ApiResponseSnapshot> {
     for _ in 0..100 {
         cx.run_until_parked();
@@ -39,7 +39,7 @@ fn wait_for_response(
     cx.update(|_, app| view.read(app).response.clone())
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn api_workbench_sends_http_and_grpc_requests_to_local_docker_services(cx: &mut TestAppContext) {
     if std::net::TcpStream::connect(("127.0.0.1", 18089)).is_err()
         || std::net::TcpStream::connect(("127.0.0.1", 18090)).is_err()
@@ -48,7 +48,7 @@ fn api_workbench_sends_http_and_grpc_requests_to_local_docker_services(cx: &mut 
         return;
     }
 
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     cx.executor().allow_parking();
     let directory = tempdir().expect("创建 API UI 测试目录");
     let storage = RedbStorage::open_with_key(&directory.path().join("api-ui.redb"), &[0x47; 32])
@@ -62,7 +62,7 @@ fn api_workbench_sends_http_and_grpc_requests_to_local_docker_services(cx: &mut 
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| ApiView::with_service(service, window, cx));
         view_entity = Some(view.clone());
-        gpui_component::Root::new(view, window, cx)
+        gpui_kit::component::Root::new(view, window, cx)
     });
     let view = view_entity.expect("API UI 视图应初始化");
     visual_cx.simulate_resize(size(px(1024.0), px(768.0)));

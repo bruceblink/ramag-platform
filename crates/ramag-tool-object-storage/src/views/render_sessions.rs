@@ -1,8 +1,8 @@
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div, prelude::*, px,
 };
 
 use super::model::{AccountSessionState, ObjectStorageView};
@@ -61,7 +61,7 @@ impl ObjectStorageView {
             let account_id = id.clone();
             let close_id = id.clone();
             let dot_color = match self.account_session_states.get(id) {
-                Some(AccountSessionState::Loading) => gpui::hsla(45.0 / 360.0, 0.9, 0.55, 1.0),
+                Some(AccountSessionState::Loading) => gpui_kit::hsla(45.0 / 360.0, 0.9, 0.55, 1.0),
                 Some(AccountSessionState::Configured) => theme.success,
                 Some(AccountSessionState::Unverified) => theme.warning,
                 None => muted,

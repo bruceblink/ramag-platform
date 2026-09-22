@@ -1,8 +1,10 @@
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Disableable as _, Sizable as _, h_flex, input::Input, v_flex,
+};
+use gpui_kit::{
     Anchor, ClickEvent, Context, IntoElement, ParentElement, StatefulInteractiveElement as _,
     Styled, div, prelude::*, px,
 };
-use gpui_component::{ActiveTheme, Disableable as _, Sizable as _, h_flex, input::Input, v_flex};
 use ramag_ui::PointerDropdownMenu as _;
 
 use super::catalog::visible_catalog_items;
@@ -41,7 +43,7 @@ impl DataSyncDialog {
                 .mapping_editors
                 .iter()
                 .any(|mapping| mapping.source == object);
-            let id = gpui::SharedString::from(format!(
+            let id = gpui_kit::SharedString::from(format!(
                 "sync-source-object-{}-{visible_index}",
                 self.catalog_generation
             ));
@@ -59,7 +61,7 @@ impl DataSyncDialog {
                         visible_catalog_items(&self.target_objects, &target_query);
                     let current = value(&target_input, cx);
                     let input_for_menu = target_input.clone();
-                    let picker = ramag_ui::clickable_button(gpui::SharedString::from(format!(
+                    let picker = ramag_ui::clickable_button(gpui_kit::SharedString::from(format!(
                         "sync-target-object-picker-{mapping_index}"
                     )))
                     .outline()
@@ -150,7 +152,7 @@ impl DataSyncDialog {
                     .child(
                         div()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .child("选择对象"),
                     )
                     .child(

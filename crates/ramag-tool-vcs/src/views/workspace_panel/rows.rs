@@ -66,7 +66,7 @@ impl VcsView {
         let badge_color = match kind {
             GroupKind::Conflict => theme.danger,
             GroupKind::Staged => theme.accent,
-            GroupKind::Unstaged => gpui::hsla(40.0 / 360.0, 0.7, 0.55, 1.0),
+            GroupKind::Unstaged => gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0),
             GroupKind::Untracked => muted_fg,
         };
         let mut badge_bg = badge_color;
@@ -112,7 +112,7 @@ impl VcsView {
                     .py(px(2.0))
                     .rounded(px(4.0))
                     .text_xs()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .text_color(badge_color)
                     .bg(badge_bg)
                     .child(title),

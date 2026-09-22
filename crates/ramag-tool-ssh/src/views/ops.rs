@@ -3,7 +3,7 @@
 mod terminal;
 use std::time::Duration;
 
-use gpui::{AppContext as _, Context, Entity, Focusable as _, Window};
+use gpui_kit::{AppContext as _, Context, Entity, Focusable as _, Window};
 use ramag_domain::entities::{
     MAX_SSH_TERMINALS_PER_WORKSPACE, MAX_SSH_WORKSPACES, SshPathFavorites, SshProfileId,
     SshSessionState, SshWorkspacePreference, SshWorkspaceState,
@@ -117,7 +117,7 @@ impl SshView {
         }
     }
 
-    pub(super) fn refresh_terminal_states(&mut self, cx: &gpui::App) -> bool {
+    pub(super) fn refresh_terminal_states(&mut self, cx: &gpui_kit::App) -> bool {
         let mut should_notify = false;
         for workspace in &mut self.workspaces {
             let has_live_terminal = workspace.terminals.iter().any(|terminal| {

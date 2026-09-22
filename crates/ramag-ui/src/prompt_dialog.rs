@@ -4,16 +4,16 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpui::{
-    App, AppContext as _, ClickEvent, Entity, ParentElement, SharedString, Styled, Window, div,
-    prelude::FluentBuilder as _, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     input::{Input, InputState},
     notification::Notification,
     v_flex,
+};
+use gpui_kit::{
+    App, AppContext as _, ClickEvent, Entity, ParentElement, SharedString, Styled, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 
 const MAX_PROMPT_INPUT_BYTES: usize = 1024 * 1024;
@@ -292,7 +292,7 @@ pub fn open_reveal_masked_prompt(
                         .child(div().text_sm().text_color(muted_fg).child(desc.clone()))
                         .child(Input::new(&input_for_content).small().suffix(toggle))
                         .when_some(error_line, |this, message| {
-                            this.child(div().text_xs().text_color(gpui::red()).child(message))
+                            this.child(div().text_xs().text_color(gpui_kit::red()).child(message))
                         }),
                 )
             })
@@ -423,7 +423,7 @@ fn open_prompt_impl(
                                 this.child(
                                     div()
                                         .text_xs()
-                                        .text_color(gpui::red())
+                                        .text_color(gpui_kit::red())
                                         .child("输入不能为空"),
                                 )
                             }),

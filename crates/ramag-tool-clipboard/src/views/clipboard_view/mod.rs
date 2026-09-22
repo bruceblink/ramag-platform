@@ -7,11 +7,11 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use gpui::{
+use gpui_kit::component::input::{InputEvent, InputState};
+use gpui_kit::{
     AppContext as _, Context, Entity, FocusHandle, Focusable, SharedString, Subscription,
     UniformListScrollHandle, Window,
 };
-use gpui_component::input::{InputEvent, InputState};
 use ramag_app::ClipboardService;
 use ramag_domain::entities::{ClipId, ClipItem, ClipKind, ClipboardSettings};
 
@@ -33,14 +33,14 @@ pub struct ClipboardView {
     pub(super) search_cancel: Arc<AtomicBool>,
     pub(super) list_scroll: UniformListScrollHandle,
     pub(super) focus_handle: FocusHandle,
-    pub(super) pending_notification: Option<gpui_component::notification::Notification>,
+    pub(super) pending_notification: Option<gpui_kit::component::notification::Notification>,
     pub(super) img_cache: crate::views::image_cache::ImageCache,
     pub(super) focused_search_once: bool,
     _subscriptions: Vec<Subscription>,
 }
 
 impl Focusable for ClipboardView {
-    fn focus_handle(&self, _: &gpui::App) -> FocusHandle {
+    fn focus_handle(&self, _: &gpui_kit::App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }

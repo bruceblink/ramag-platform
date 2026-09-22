@@ -7,16 +7,16 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
 };
 
-use gpui::{
-    AnyElement, ClickEvent, ClipboardItem, Context, EventEmitter, IntoElement, ParentElement,
-    Render, SharedString, Styled, Window, div, prelude::*, px, uniform_list,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputEvent, InputState},
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, ClipboardItem, Context, EventEmitter, IntoElement, ParentElement,
+    Render, SharedString, Styled, Window, div, prelude::*, px, uniform_list,
 };
 use ramag_app::MongoService;
 use ramag_domain::entities::{
@@ -59,7 +59,7 @@ pub struct MongoHistoryList {
     mutating: bool,
     load_error: Option<String>,
     mutation_error: Option<String>,
-    search: gpui::Entity<InputState>,
+    search: gpui_kit::Entity<InputState>,
 }
 
 impl EventEmitter<MongoHistoryEvent> for MongoHistoryList {}

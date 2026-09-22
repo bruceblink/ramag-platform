@@ -2,11 +2,11 @@
 
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::{ActiveTheme, v_flex};
+use gpui_kit::{
     ClickEvent, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Window,
     div, prelude::*, px,
 };
-use gpui_component::{ActiveTheme, v_flex};
 use ramag_app::RedisService;
 use ramag_domain::entities::ConnectionConfig;
 use tracing::{error, info};
@@ -151,7 +151,7 @@ impl Render for StreamEntryForm {
                     .child(
                         div()
                             .text_xs()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .text_color(muted_fg)
                             .child("字段"),
                     )

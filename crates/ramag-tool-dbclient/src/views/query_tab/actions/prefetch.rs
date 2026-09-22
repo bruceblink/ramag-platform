@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use gpui::{AppContext as _, Context};
+use gpui_kit::{AppContext as _, Context};
 use ramag_domain::entities::MAX_SQL_QUERY_BYTES;
 
 use super::QueryTab;

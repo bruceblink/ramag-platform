@@ -1,12 +1,12 @@
 //! Project Files 主区：原生 Code Editor，支持自动保存、增量语法解析和完整长行显示。
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Sizable as _, button::ButtonVariants as _, clipboard::Clipboard, h_flex,
+    input::Editor, v_flex,
+};
+use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
     prelude::*, px,
-};
-use gpui_component::{
-    ActiveTheme, Sizable as _, button::ButtonVariants as _, clipboard::Clipboard, h_flex,
-    input::Input, v_flex,
 };
 
 use super::vcs_view::VcsView;
@@ -25,7 +25,7 @@ impl VcsView {
             return placeholder("在左侧选择文件以查看内容", muted_fg);
         };
         if let Some(error) = &snapshot.error {
-            return placeholder(error.clone(), gpui::hsla(0.0, 0.65, 0.55, 1.0));
+            return placeholder(error.clone(), gpui_kit::hsla(0.0, 0.65, 0.55, 1.0));
         }
         if snapshot.binary {
             return placeholder("（二进制文件，未渲染内容）", muted_fg);
@@ -97,10 +97,9 @@ impl VcsView {
                 ))
                 .into_any_element()
         } else if editor_ready {
-            Input::new(&self.pf_editor)
+            Editor::new(&self.pf_editor)
                 .h_full()
                 .bordered(false)
-                .focus_bordered(false)
                 .disabled(!editable)
                 .into_any_element()
         } else {
@@ -125,8 +124,8 @@ impl VcsView {
 fn header_bar(
     path: &str,
     line_count: usize,
-    muted_fg: gpui::Hsla,
-    fg: gpui::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    fg: gpui_kit::Hsla,
     action: AnyElement,
 ) -> AnyElement {
     h_flex()
@@ -141,7 +140,7 @@ fn header_bar(
                 .flex_1()
                 .min_w_0()
                 .text_sm()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .text_color(fg)
                 .overflow_hidden()
                 .text_ellipsis()
@@ -166,8 +165,8 @@ fn is_markdown_path(path: &str) -> bool {
         })
 }
 
-fn truncated_banner(muted_fg: gpui::Hsla) -> AnyElement {
-    let mut bg = gpui::hsla(40.0 / 360.0, 0.7, 0.55, 1.0);
+fn truncated_banner(muted_fg: gpui_kit::Hsla) -> AnyElement {
+    let mut bg = gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0);
     bg.a = 0.10;
     div()
         .w_full()
@@ -180,7 +179,7 @@ fn truncated_banner(muted_fg: gpui::Hsla) -> AnyElement {
         .into_any_element()
 }
 
-fn placeholder(text: impl Into<SharedString>, color: gpui::Hsla) -> AnyElement {
+fn placeholder(text: impl Into<SharedString>, color: gpui_kit::Hsla) -> AnyElement {
     v_flex()
         .size_full()
         .items_center()

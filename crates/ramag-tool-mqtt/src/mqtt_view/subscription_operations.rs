@@ -208,7 +208,7 @@ fn subscription_qos_selector(
     selected: MqttQos,
     disabled: bool,
     cx: &mut Context<MqttView>,
-) -> gpui::Div {
+) -> gpui_kit::Div {
     let base = format!("mqtt-subscription-{index}-qos");
     let mut controls = h_flex()
         .debug_selector({
@@ -251,7 +251,7 @@ fn subscription_no_local_toggle(
     selected: bool,
     disabled: bool,
     cx: &mut Context<MqttView>,
-) -> gpui_component::button::Button {
+) -> gpui_kit::component::button::Button {
     let selector = SharedString::from(format!("mqtt-subscription-{index}-no-local"));
     let mut button = ramag_ui::clickable_button(selector.clone())
         .debug_selector({

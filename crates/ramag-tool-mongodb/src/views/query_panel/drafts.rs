@@ -3,7 +3,7 @@
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use gpui::{App, AppContext as _, Context, Entity, Window};
+use gpui_kit::{App, AppContext as _, Context, Entity, Window};
 use ramag_domain::entities::ConnectionConfig;
 use ramag_domain::error::DomainError;
 use ramag_ui::{EditorDraftPref, EditorWorkspacePref};

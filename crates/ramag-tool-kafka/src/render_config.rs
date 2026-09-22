@@ -54,7 +54,7 @@ impl KafkaView {
                                     .child(
                                         div()
                                             .text_sm()
-                                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                             .child("Topic 管理模式"),
                                     )
                                     .child(

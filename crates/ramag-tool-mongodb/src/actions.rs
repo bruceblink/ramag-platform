@@ -1,6 +1,6 @@
 //! MongoDB 视图专属快捷键 Action。绑定在 ramag-bin/main.rs 的 `cx.bind_keys`
 
-use gpui::Action;
+use gpui_kit::Action;
 use schemars::JsonSchema;
 use serde::Deserialize;
 

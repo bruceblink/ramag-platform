@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use gpui::SharedString;
+use gpui_kit::SharedString;
 use ramag_domain::entities::{Schema, contains_case_insensitive};
 
 use super::navigation::{

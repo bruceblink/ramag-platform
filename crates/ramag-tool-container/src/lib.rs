@@ -6,7 +6,7 @@ mod view;
 
 use std::sync::Arc;
 
-use gpui::{App, AppContext as _, Entity, Window};
+use gpui_kit::{App, AppContext as _, Entity, Window};
 use ramag_app::{ContainerRegistryService, ContainerService};
 use ramag_domain::traits::{Tool, ToolMeta};
 

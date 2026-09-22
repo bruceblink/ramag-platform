@@ -17,7 +17,7 @@ pub use ramag_tool_redis::ToggleRedisConsole;
 
 use std::sync::Arc;
 
-use gpui::{App, AppContext as _, Entity, Window};
+use gpui_kit::{App, AppContext as _, Entity, Window};
 use ramag_app::{ConnectionService, DataSyncService, MongoService, RedisService};
 use ramag_domain::traits::{Tool, ToolMeta};
 

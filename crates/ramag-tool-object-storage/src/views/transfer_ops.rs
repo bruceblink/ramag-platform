@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use gpui::{Context, Window};
+use gpui_kit::{Context, Window};
 use ramag_domain::entities::{
     ObjectStorageAccountId, ObjectStorageMountId, OverwritePolicy, TransferCancellation,
 };

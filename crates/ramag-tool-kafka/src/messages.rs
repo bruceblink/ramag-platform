@@ -198,9 +198,9 @@ impl KafkaView {
             .0
             .borrow()
             .base_handle
-            .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+            .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
         self.message_page_scroll
-            .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+            .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
     }
 
     /// 返回当前已加载结果的页数；分页只切分内存中的有界结果，不扩大 Kafka 扫描范围。
@@ -222,7 +222,7 @@ impl KafkaView {
             .0
             .borrow()
             .base_handle
-            .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+            .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
         cx.notify();
     }
 

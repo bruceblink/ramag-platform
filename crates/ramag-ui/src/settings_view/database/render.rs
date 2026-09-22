@@ -1,8 +1,8 @@
-use gpui::{
-    ClickEvent, Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Sizable as _, h_flex, input::Input, v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px,
 };
 use ramag_domain::entities::IdConverterKind;
 
@@ -17,7 +17,7 @@ impl SettingsView {
     pub(in crate::settings_view) fn render_database_page(
         &self,
         cx: &mut Context<Self>,
-    ) -> gpui::AnyElement {
+    ) -> gpui_kit::AnyElement {
         let converter_test = self
             .database_enabled_draft
             .then(|| self.render_database_converter_test(cx));
@@ -59,7 +59,7 @@ impl SettingsView {
                     .child(
                         div()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .child("转换配置"),
                     )
                     .child(
@@ -363,7 +363,7 @@ impl SettingsView {
             .into_any_element()
     }
 
-    fn render_database_converter_test(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn render_database_converter_test(&self, cx: &mut Context<Self>) -> gpui_kit::AnyElement {
         let theme = cx.theme();
         let testing_direction = match self.database_converter_test_state {
             DatabaseConverterTestState::Testing(direction) => Some(direction),
@@ -398,7 +398,7 @@ impl SettingsView {
             .child(
                 div()
                     .text_sm()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                     .child("转换测试"),
             )
             .child(

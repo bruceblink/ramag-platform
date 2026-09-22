@@ -1,7 +1,7 @@
-use gpui::{
+use gpui_kit::component::{ActiveTheme, Icon, h_flex, v_flex};
+use gpui_kit::{
     App, Context, Global, IntoElement, ParentElement, Point, Render, Styled, Window, div, px,
 };
-use gpui_component::{ActiveTheme, Icon, h_flex, v_flex};
 use ramag_app::ToolRegistry;
 
 const ITEM_HEIGHT: f32 = 40.0;
@@ -10,8 +10,8 @@ pub(crate) const DRAGGED_ITEM_OPACITY: f32 = 0.82;
 pub(crate) const DRAG_PREVIEW_OPACITY: f32 = 0.56;
 
 /// 将被拖拽来源的表面提亮，保留文字对比度并区别于普通工具项。
-pub(crate) fn dragged_item_background(color: gpui::Hsla) -> gpui::Hsla {
-    gpui::Hsla {
+pub(crate) fn dragged_item_background(color: gpui_kit::Hsla) -> gpui_kit::Hsla {
+    gpui_kit::Hsla {
         l: (color.l * 1.6).min(1.0),
         ..color
     }
@@ -310,7 +310,7 @@ pub(crate) struct ToolDragPreview {
     icon: Icon,
     name: String,
     description: String,
-    position: Point<gpui::Pixels>,
+    position: Point<gpui_kit::Pixels>,
 }
 
 impl ToolDragPreview {
@@ -331,7 +331,7 @@ impl ToolDragPreview {
     }
 
     /// 保存 GPUI 提供的光标偏移，使预览内容以光标为中心跟随移动。
-    pub(crate) fn position(mut self, position: Point<gpui::Pixels>) -> Self {
+    pub(crate) fn position(mut self, position: Point<gpui_kit::Pixels>) -> Self {
         self.position = position;
         self
     }
@@ -369,7 +369,7 @@ impl Render for ToolDragPreview {
                                 .child(
                                     div()
                                         .text_sm()
-                                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                         .text_color(foreground)
                                         .child(self.name.clone()),
                                 ),
@@ -403,7 +403,7 @@ impl Render for ToolDragPreview {
 }
 
 /// 用 2x3 点阵标识可排序卡片，拖拽命中区域仍是整个卡片。
-pub(crate) fn tool_drag_handle(color: gpui::Hsla) -> impl IntoElement {
+pub(crate) fn tool_drag_handle(color: gpui_kit::Hsla) -> impl IntoElement {
     v_flex().gap(px(2.0)).children((0..3).map(|_| {
         h_flex()
             .gap(px(2.0))
@@ -413,12 +413,12 @@ pub(crate) fn tool_drag_handle(color: gpui::Hsla) -> impl IntoElement {
 
 /// 计算首页插入线的位置；返回的坐标位于卡片间隙，不参与网格排版。
 pub(crate) fn home_drop_indicator(
-    accent: gpui::Hsla,
+    accent: gpui_kit::Hsla,
     source_index: usize,
     target_index: usize,
     side: ToolDropSide,
     layout: HomeDropLayout,
-) -> Option<gpui::Div> {
+) -> Option<gpui_kit::Div> {
     let (line_width, line_height, left, top) =
         home_drop_indicator_geometry(source_index, target_index, side, layout)?;
 
@@ -507,12 +507,12 @@ fn home_drop_indicator_geometry(
 
 /// 计算侧栏插入线的位置；线条只落在相邻工具入口的间隙中。
 pub(crate) fn activity_drop_indicator(
-    accent: gpui::Hsla,
+    accent: gpui_kit::Hsla,
     source_index: usize,
     target_index: usize,
     side: ToolDropSide,
     item_count: usize,
-) -> Option<gpui::Div> {
+) -> Option<gpui_kit::Div> {
     let boundary = tool_drop_boundary(target_index, side);
     if item_count == 0
         || target_index >= item_count
@@ -546,7 +546,7 @@ pub(crate) fn activity_reorder_animation_offset(
     previous_slots: &[Option<String>],
     current_slots: &[Option<String>],
     id: &str,
-) -> gpui::Pixels {
+) -> gpui_kit::Pixels {
     let Some(previous_index) = previous_slots
         .iter()
         .position(|slot| slot.as_deref() == Some(id))

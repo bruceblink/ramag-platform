@@ -5,15 +5,15 @@ mod dialogs;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use gpui::{
-    App, Context, Entity, IntoElement, MouseDownEvent, ParentElement, Render, Styled, Subscription,
-    Window, div, prelude::*, px, relative,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
     notification::Notification,
     resizable::{ResizableState, h_resizable, resizable_panel},
     v_flex,
+};
+use gpui_kit::{
+    App, Context, Entity, IntoElement, MouseDownEvent, ParentElement, Render, Styled, Subscription,
+    Window, div, prelude::*, px, relative,
 };
 use ramag_app::RedisService;
 use ramag_domain::entities::ConnectionConfig;
@@ -357,7 +357,7 @@ impl RedisSessionPanel {
     }
 
     /// 连接健康快照 (loading, has_error)：取 key 树的扫描状态
-    pub fn health(&self, cx: &gpui::App) -> (bool, bool) {
+    pub fn health(&self, cx: &gpui_kit::App) -> (bool, bool) {
         self.tree.read(cx).health()
     }
 

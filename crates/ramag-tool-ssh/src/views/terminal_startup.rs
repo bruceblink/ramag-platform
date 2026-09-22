@@ -2,7 +2,7 @@
 
 use std::time::{Duration, Instant};
 
-use gpui::{Context, Window};
+use gpui_kit::{Context, Window};
 use ramag_domain::entities::{RemotePath, RemoteShellKind, SshProfileId, validate_remote_path};
 use ramag_terminal::TerminalSnapshot;
 

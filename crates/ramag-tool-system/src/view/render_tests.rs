@@ -1,7 +1,7 @@
 use super::*;
 use crate::{MonitorSnapshot, SystemMonitor};
-use gpui::{AppContext as _, Bounds, Pixels, TestAppContext, px, size};
-use gpui_component::Root;
+use gpui_kit::component::Root;
+use gpui_kit::{AppContext as _, Bounds, Pixels, TestAppContext, px, size};
 
 fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
     assert!(
@@ -23,10 +23,10 @@ fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
 }
 
 /// 在最窄支持宽度渲染真实视图，避免标题栏或任务表在组件边界外被裁切。
-#[gpui::test]
+#[gpui_kit::test]
 #[allow(clippy::expect_used)]
 fn narrow_window_keeps_monitor_controls_and_process_table_inside_content(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|_| SystemView {
             monitor: SystemMonitor::new(),
@@ -61,12 +61,12 @@ fn narrow_window_keeps_monitor_controls_and_process_table_inside_content(cx: &mu
 }
 
 /// 长进程名不能把确认文案或取消、终止按钮推出状态条。
-#[gpui::test]
+#[gpui_kit::test]
 #[allow(clippy::expect_used)]
 fn termination_confirmation_wraps_long_process_name_inside_supported_widths(
     cx: &mut TestAppContext,
 ) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|_| SystemView {
             monitor: SystemMonitor::new(),
@@ -124,10 +124,10 @@ fn termination_confirmation_wraps_long_process_name_inside_supported_widths(
 }
 
 /// 完成或失败通知的长消息应在当前窗口内换行，不影响后续内容布局。
-#[gpui::test]
+#[gpui_kit::test]
 #[allow(clippy::expect_used)]
 fn system_notice_wraps_long_message_inside_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|_| SystemView {
             monitor: SystemMonitor::new(),
@@ -166,10 +166,10 @@ fn system_notice_wraps_long_message_inside_supported_widths(cx: &mut TestAppCont
 }
 
 /// 用高核心数和趋势快照验证性能卡片、核心网格及折线图在三种窗口中都不越界。
-#[gpui::test]
+#[gpui_kit::test]
 #[allow(clippy::expect_used)]
 fn performance_layout_keeps_cpu_state_inside_parent_at_supported_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let history = (0..60)
         .map(|index| [index as f64, 20.0 + (index % 10) as f64])
         .collect::<Vec<_>>();

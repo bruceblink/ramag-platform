@@ -1,6 +1,6 @@
 //! JumpServer 资源详情、连接测试与导入。
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::JumpServerRdpSession;
 
 use super::jumpserver_dialog::{

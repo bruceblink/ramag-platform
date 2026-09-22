@@ -6,7 +6,7 @@ mod reflog_ops;
 #[cfg(test)]
 mod tests;
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::DiffKind;
 use tracing::error;
 
@@ -35,7 +35,7 @@ impl VcsView {
                 }
                 match result {
                     Ok(commit) => {
-                        cx.write_to_clipboard(gpui::ClipboardItem::new_string(
+                        cx.write_to_clipboard(gpui_kit::ClipboardItem::new_string(
                             commit.message_full(),
                         ));
                         this.notify_success("已复制提交信息", cx);
@@ -228,9 +228,9 @@ impl VcsView {
             self.reset_blame_context();
             self.expanded_diff_spacers.clear();
             self.diff_scroll
-                .scroll_to_item(0, gpui::ScrollStrategy::Top);
+                .scroll_to_item(0, gpui_kit::ScrollStrategy::Top);
             self.diff_h_scroll
-                .set_offset(gpui::point(gpui::px(0.0), gpui::px(0.0)));
+                .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
             self.diff_scroll_gesture.reset();
         }
         self.diff_request_seq = self.diff_request_seq.wrapping_add(1);

@@ -3,12 +3,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, Root, button::ButtonVariants as _, h_flex, v_flex,
+};
+use gpui_kit::{
     AnyView, Context, Entity, IntoElement, ParentElement, Render, Styled, Subscription, Window,
     div, prelude::*, px,
-};
-use gpui_component::{
-    ActiveTheme, Icon, IconName, Root, button::ButtonVariants as _, h_flex, v_flex,
 };
 use ramag_app::{DataSyncGate, StaticPluginHost, ToolRegistry};
 
@@ -262,7 +262,7 @@ impl Shell {
 }
 
 /// 上次工具落 prefs（后台异步，失败仅告警）。Home 存空串
-fn persist_last_tool(selected: Option<String>, cx: &mut gpui::App) {
+fn persist_last_tool(selected: Option<String>, cx: &mut gpui_kit::App) {
     let value = selected.unwrap_or_default();
     crate::preferences::persist_preference_latest("last_tool", value, cx);
 }

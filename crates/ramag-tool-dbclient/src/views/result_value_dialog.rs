@@ -2,16 +2,16 @@
 
 use std::sync::Arc;
 
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Render, ScrollHandle, Styled,
-    Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme as _, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     h_flex,
-    scroll::{Scrollbar, ScrollbarShow},
+    scroll::{Scrollbar, ScrollbarMode},
     v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Render, ScrollHandle, Styled,
+    Window, div, prelude::*, px,
 };
 use ramag_domain::entities::{DriverKind, QueryResult, Value};
 
@@ -98,8 +98,8 @@ impl ResultValueDialog {
     fn render_scrollable(
         &self,
         body: impl IntoElement,
-        theme: &gpui_component::Theme,
-        height: gpui::Pixels,
+        theme: &gpui_kit::component::Theme,
+        height: gpui_kit::Pixels,
     ) -> AnyElement {
         div()
             .id("result-value-viewer-scroll-area")
@@ -138,7 +138,7 @@ impl ResultValueDialog {
                     .child(
                         Scrollbar::vertical(&self.vertical_scroll)
                             .id("result-value-viewer-v-scrollbar-control")
-                            .scrollbar_show(ScrollbarShow::Always),
+                            .mode(ScrollbarMode::Always),
                     ),
             )
             .child(
@@ -154,7 +154,10 @@ impl ResultValueDialog {
                     .child(
                         Scrollbar::horizontal(&self.horizontal_scroll)
                             .id("result-value-viewer-h-scrollbar-control")
-                            .scroll_size(gpui::size(px(VALUE_VIEW_WIDTH), px(VALUE_VIEW_HEIGHT))),
+                            .scroll_size(gpui_kit::size(
+                                px(VALUE_VIEW_WIDTH),
+                                px(VALUE_VIEW_HEIGHT),
+                            )),
                     ),
             )
             .into_any_element()

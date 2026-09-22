@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
-use gpui::Context;
+use gpui_kit::Context;
 use ramag_domain::entities::{FileChangeKind, FileStatus};
 
 use super::helpers::{FileTabSource, GroupKind};

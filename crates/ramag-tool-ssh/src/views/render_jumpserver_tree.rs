@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use gpui::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
-    prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
     h_flex, v_flex,
+};
+use gpui_kit::{
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    prelude::*, px,
 };
 use ramag_domain::entities::{JumpServerNode, JumpServerOrganization};
 
@@ -105,7 +105,7 @@ impl JumpServerPanel {
                     .child(
                         div()
                             .text_sm()
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                             .child("资产树"),
                     )
                     .child(
@@ -233,7 +233,9 @@ impl JumpServerPanel {
             })
             .child(
                 div()
-                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
+                        cx.stop_propagation()
+                    })
                     .child(
                         ramag_ui::clickable_button(SharedString::from(format!(
                             "jumpserver-tree-organization-toggle-{}",
@@ -328,7 +330,9 @@ impl JumpServerPanel {
             })
             .child(if row.has_children {
                 div()
-                    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
+                        cx.stop_propagation()
+                    })
                     .child(
                         ramag_ui::clickable_button(SharedString::from(format!(
                             "jumpserver-tree-toggle-{index}"

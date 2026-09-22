@@ -1,5 +1,7 @@
-use gpui::{IntoElement, ParentElement as _, Styled as _, div, prelude::FluentBuilder as _, px};
-use gpui_component::{h_flex, v_flex};
+use gpui_kit::component::{h_flex, v_flex};
+use gpui_kit::{
+    IntoElement, ParentElement as _, Styled as _, div, prelude::FluentBuilder as _, px,
+};
 
 #[derive(Clone, Copy)]
 struct CommonInteraction {
@@ -32,7 +34,7 @@ const COMMON_INTERACTIONS: &[CommonInteraction] = &[
 
 pub(super) fn render_common_group(
     compact: bool,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     let mut rows = v_flex()
         .w_full()
@@ -59,7 +61,7 @@ pub(super) fn render_common_group(
                         .child(
                             div()
                                 .text_sm()
-                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .font_weight(gpui_kit::FontWeight::MEDIUM)
                                 .child(interaction.label),
                         )
                         .child(
@@ -81,7 +83,7 @@ pub(super) fn render_common_group(
 
 pub(super) fn render_type_heading(
     title: &'static str,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     h_flex()
         .w_full()
@@ -94,7 +96,7 @@ pub(super) fn render_type_heading(
         .child(
             div()
                 .text_base()
-                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                 .text_color(theme.accent)
                 .child(title),
         )

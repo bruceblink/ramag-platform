@@ -7,13 +7,13 @@ mod tests;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use gpui::{
-    ClickEvent, Context, Entity, EventEmitter, FocusHandle, IntoElement, ParentElement, Point,
-    Render, ScrollHandle, SharedString, Styled, Subscription, Window, div, prelude::*, px,
-};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _, h_flex, notification::Notification, v_flex,
+};
+use gpui_kit::{
+    ClickEvent, Context, Entity, EventEmitter, FocusHandle, IntoElement, ParentElement, Point,
+    Render, ScrollHandle, SharedString, Styled, Subscription, Window, div, prelude::*, px,
 };
 use ramag_app::MongoService;
 use ramag_domain::entities::{ConflictPolicy, ConnectionConfig};
@@ -23,7 +23,7 @@ use ramag_ui::{CloseTab, MAX_EDITOR_TABS, ResultMemoryBudget, can_open_editor_ta
 use crate::actions::{NewMongoQueryTab, ToggleMongoEditor};
 use crate::views::query_tab::{MongoQueryTab, MongoQueryTabEvent};
 
-fn responsive_dialog_width(window: &Window, preferred: f32) -> gpui::Pixels {
+fn responsive_dialog_width(window: &Window, preferred: f32) -> gpui_kit::Pixels {
     let available = f32::from(window.viewport_size().width);
     px((available - 32.0).max(160.0).min(preferred))
 }

@@ -250,7 +250,7 @@ impl QueryTab {
         title_sql: String,
         is_run: bool,
         page_request: Option<PageRequest>,
-        result_handle: gpui::Entity<crate::views::result_panel::ResultPanel>,
+        result_handle: gpui_kit::Entity<crate::views::result_panel::ResultPanel>,
         plan_seq: Option<u64>,
         cx: &mut Context<Self>,
     ) {

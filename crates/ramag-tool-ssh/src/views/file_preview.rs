@@ -6,12 +6,12 @@ mod render;
 
 use std::{sync::Arc, time::Duration};
 
-use gpui::{AppContext as _, Context, Entity, Focusable as _, Subscription, Window};
-use gpui_component::{
+use gpui_kit::component::{
     WindowExt as _,
-    input::{InputEvent, InputState, Position, Search},
+    input::{EditorState, InputEvent, Position, Search},
     notification::Notification,
 };
+use gpui_kit::{AppContext as _, Context, Entity, Focusable as _, Subscription, Window};
 use ramag_app::SshService;
 use ramag_domain::entities::{
     MAX_REMOTE_FILE_PREVIEW_BYTES, RemoteEntry, RemoteEntryKind, RemoteFileChunkPosition,
@@ -134,7 +134,7 @@ struct RemoteFileEditor {
     owner: Entity<SshView>,
     profile: SshProfile,
     entry: RemoteEntry,
-    input: Entity<InputState>,
+    input: Entity<EditorState>,
     original_text: String,
     current_bytes: usize,
     current_lines: usize,
@@ -174,8 +174,8 @@ impl RemoteFileEditor {
         let auto_refresh_available = follow::supports_auto_refresh(&entry.path, windowed);
         let auto_refresh = follow::enables_auto_refresh(&entry.path);
         let input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .code_editor(language)
+            EditorState::new(window, cx)
+                .language(language)
                 .line_number(true)
                 .soft_wrap(false)
                 .indent_guides(false)

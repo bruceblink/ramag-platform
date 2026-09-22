@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use gpui::{AppContext as _, Context, Entity, ParentElement as _, Styled as _, Window, px};
-use gpui_component::{WindowExt as _, notification::Notification};
+use gpui_kit::component::{WindowExt as _, notification::Notification};
+use gpui_kit::{AppContext as _, Context, Entity, ParentElement as _, Styled as _, Window, px};
 use ramag_app::{AccountVerification, SavedObjectStorageAccount};
 use ramag_domain::entities::{ObjectStorageAccount, ObjectStorageAccountId};
 
@@ -131,7 +131,8 @@ impl ObjectStorageView {
         self.favorites.clear();
         self.set_form_value(&self.object_filter.clone(), "", window, cx);
         self.clear_object_detail("选择挂载点后浏览对象");
-        self.explorer_resize = cx.new(|_| gpui_component::resizable::ResizableState::default());
+        self.explorer_resize =
+            cx.new(|_| gpui_kit::component::resizable::ResizableState::default());
         self.load_mounts(id, window, cx);
     }
 

@@ -8,7 +8,7 @@ use chrono::Utc;
 
 use async_channel::{Receiver, Sender, bounded};
 use async_trait::async_trait;
-use gpui::{
+use gpui_kit::{
     AppContext as _, Context, IntoElement, Modifiers, ParentElement as _, Render, Styled as _,
     TestAppContext, VisualTestContext, Window, point, px, size,
 };
@@ -198,13 +198,13 @@ impl MqttDriver for BlockingSnapshotDriver {
 }
 
 pub(super) struct MqttTestHost {
-    pub(super) view: gpui::Entity<MqttView>,
+    pub(super) view: gpui_kit::Entity<MqttView>,
 }
 
 impl Render for MqttTestHost {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_component::Root::render_dialog_layer(window, cx);
-        gpui::div()
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
@@ -221,13 +221,13 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
         bounds.origin.y + bounds.size.height / 2.0,
     );
     cx.simulate_mouse_move(center, None, Modifiers::default());
-    cx.simulate_mouse_down(center, gpui::MouseButton::Left, Modifiers::default());
-    cx.simulate_mouse_up(center, gpui::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_up(center, gpui_kit::MouseButton::Left, Modifiers::default());
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_sidebar_collapses_and_can_be_reopened_in_narrow_window(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(MqttService::new(
         Arc::new(NoopMqttDriver),
         Arc::new(NoopStorage::default()),
@@ -237,7 +237,7 @@ fn mqtt_sidebar_collapses_and_can_be_reopened_in_narrow_window(cx: &mut TestAppC
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
 
@@ -306,9 +306,9 @@ fn mqtt_sidebar_collapses_and_can_be_reopened_in_narrow_window(cx: &mut TestAppC
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_profile_sidebar_shows_name_and_endpoint(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let storage = Arc::new(NoopStorage::default());
     let profile = MqttProfile::new("Docker MQTT UI", "127.0.0.1", 18883);
     storage
@@ -320,7 +320,7 @@ fn mqtt_profile_sidebar_shows_name_and_endpoint(cx: &mut TestAppContext) {
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
 
     visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
@@ -341,9 +341,9 @@ fn mqtt_profile_sidebar_shows_name_and_endpoint(cx: &mut TestAppContext) {
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let storage = Arc::new(NoopStorage::default());
     let connection_tests = Arc::new(AtomicUsize::new(0));
     let driver = Arc::new(RecordingMqttDriver {
@@ -355,7 +355,7 @@ fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
 
@@ -431,9 +431,9 @@ fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_snapshot_result_does_not_cross_profile_context(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let (release_sender, release_receiver) = bounded(1);
     let (started_sender, started_receiver) = bounded(1);
     let driver = Arc::new(BlockingSnapshotDriver {
@@ -448,7 +448,7 @@ fn mqtt_snapshot_result_does_not_cross_profile_context(cx: &mut TestAppContext) 
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
 
@@ -488,9 +488,9 @@ fn mqtt_snapshot_result_does_not_cross_profile_context(cx: &mut TestAppContext) 
     }));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_message_pages_keep_inputs_bounded_and_editable(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(MqttService::new(
         Arc::new(NoopMqttDriver),
         Arc::new(NoopStorage::default()),
@@ -500,7 +500,7 @@ fn mqtt_message_pages_keep_inputs_bounded_and_editable(cx: &mut TestAppContext) 
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
 
@@ -567,9 +567,9 @@ fn mqtt_message_pages_keep_inputs_bounded_and_editable(cx: &mut TestAppContext) 
     );
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_message_operations_reflow_inside_supported_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(MqttService::new(
         Arc::new(NoopMqttDriver),
         Arc::new(NoopStorage::default()),
@@ -579,7 +579,7 @@ fn mqtt_message_operations_reflow_inside_supported_window_widths(cx: &mut TestAp
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
     visual_cx.simulate_resize(size(px(1440.0), px(900.0)));
@@ -636,9 +636,9 @@ fn mqtt_message_operations_reflow_inside_supported_window_widths(cx: &mut TestAp
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_local_server_page_reflows_inside_supported_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(MqttService::new(
         Arc::new(NoopMqttDriver),
         Arc::new(NoopStorage::default()),
@@ -648,7 +648,7 @@ fn mqtt_local_server_page_reflows_inside_supported_window_widths(cx: &mut TestAp
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
     view.update(visual_cx, |view, cx| {
@@ -687,9 +687,9 @@ fn mqtt_local_server_page_reflows_inside_supported_window_widths(cx: &mut TestAp
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_local_server_event_timeline_consumes_and_clears_events(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let now = Utc::now();
     let message = MqttMessage {
         topic: "ui/events".into(),
@@ -744,7 +744,7 @@ fn mqtt_local_server_event_timeline_consumes_and_clears_events(cx: &mut TestAppC
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
 
@@ -814,9 +814,9 @@ fn mqtt_local_server_event_timeline_consumes_and_clears_events(cx: &mut TestAppC
     }));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_local_server_publish_uses_broker_injection_controls(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let publishes = Arc::new(Mutex::new(Vec::new()));
     let service = Arc::new(
         MqttService::new(Arc::new(NoopMqttDriver), Arc::new(NoopStorage::default()))
@@ -836,7 +836,7 @@ fn mqtt_local_server_publish_uses_broker_injection_controls(cx: &mut TestAppCont
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
     visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
@@ -869,9 +869,9 @@ fn mqtt_local_server_publish_uses_broker_injection_controls(cx: &mut TestAppCont
     assert!(recorded[0].retain);
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_local_server_snapshot_reads_online_clients_and_subscriptions(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let snapshot = MqttBrokerSnapshot {
         topics: vec![MqttTopicObservation {
             name: "devices/one/state".into(),
@@ -924,7 +924,7 @@ fn mqtt_local_server_snapshot_reads_online_clients_and_subscriptions(cx: &mut Te
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
     visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
@@ -974,9 +974,9 @@ fn mqtt_local_server_snapshot_reads_online_clients_and_subscriptions(cx: &mut Te
     }
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_local_server_accounts_can_fill_the_client_form(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(MqttService::new(
         Arc::new(NoopMqttDriver),
         Arc::new(NoopStorage::default()),
@@ -986,7 +986,7 @@ fn mqtt_local_server_accounts_can_fill_the_client_form(cx: &mut TestAppContext) 
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
     visual_cx.simulate_resize(size(px(1440.0), px(900.0)));
@@ -1027,9 +1027,9 @@ fn mqtt_local_server_accounts_can_fill_the_client_form(cx: &mut TestAppContext) 
     }));
 }
 
-#[gpui::test]
+#[gpui_kit::test]
 fn mqtt_client_permissions_reflow_inside_supported_window_widths(cx: &mut TestAppContext) {
-    cx.update(gpui_component::init);
+    cx.update(gpui_kit::component::init);
     let service = Arc::new(MqttService::new(
         Arc::new(NoopMqttDriver),
         Arc::new(NoopStorage::default()),
@@ -1039,7 +1039,7 @@ fn mqtt_client_permissions_reflow_inside_supported_window_widths(cx: &mut TestAp
         let view = cx.new(|cx| MqttView::new(service, window, cx));
         view_entity = Some(view.clone());
         let host = cx.new(|_| MqttTestHost { view });
-        gpui_component::Root::new(host, window, cx)
+        gpui_kit::component::Root::new(host, window, cx)
     });
     let view = view_entity.expect("MQTT 视图应初始化");
     let client = MosquittoClient {

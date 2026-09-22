@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use gpui::{Context, Window};
+use gpui_kit::{Context, Window};
 use ramag_domain::entities::{RepoConfig, RepoId};
 use ramag_domain::error::{DomainError, Result};
 
@@ -166,7 +166,7 @@ impl VcsView {
                         }
                         if open_paths_adjusted {
                             this.pending_notification = Some(
-                            gpui_component::notification::Notification::warning(format!(
+                            gpui_kit::component::notification::Notification::warning(format!(
                                 "上次仓库标签包含重复或超限项，仅恢复前 {MAX_OPEN_REPOS} 个有效标签"
                             ))
                             .autohide(true),
