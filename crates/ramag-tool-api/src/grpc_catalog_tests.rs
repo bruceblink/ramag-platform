@@ -174,4 +174,21 @@ fn api_request_sidebar_filters_all_saved_requests_with_collection_context(cx: &m
     assert!(visual_cx.debug_bounds("api-request-item-0").is_some());
     assert!(visual_cx.debug_bounds("api-request-item-1").is_some());
     assert!(visual_cx.debug_bounds("api-request-list-summary").is_some());
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.request_search
+                .update(cx, |input, cx| input.set_value("missing", window, cx));
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("api-request-item-0").is_none());
+    assert!(visual_cx.debug_bounds("api-request-list-empty").is_some());
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.request_search
+                .update(cx, |input, cx| input.set_value("", window, cx));
+        });
+    });
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("api-request-item-0").is_some());
 }
