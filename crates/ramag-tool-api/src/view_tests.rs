@@ -58,6 +58,9 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let sidebar = visual_cx
             .debug_bounds("api-sidebar")
             .expect("API 侧栏应渲染");
+        let request_search = visual_cx
+            .debug_bounds("api-request-search")
+            .expect("请求搜索框应渲染");
         let toolbar = visual_cx
             .debug_bounds("api-request-toolbar")
             .expect("请求工具栏应渲染");
@@ -84,6 +87,11 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         assert!(
             sidebar.bottom() <= content_root.bottom(),
             "侧栏不能越出主体底部"
+        );
+        assert!(
+            request_search.origin.x >= sidebar.origin.x
+                && request_search.right() <= sidebar.right(),
+            "请求搜索框不能越出侧栏: search={request_search:?}, sidebar={sidebar:?}"
         );
         assert!(
             editor.origin.y >= content_root.origin.y,

@@ -100,8 +100,20 @@ pub(super) fn render(
                 .child("请求列表"),
         )
         .child(
-            ramag_ui::cleanable_input(&view.request_search, "api-request-search-clear", false, cx)
-                .small(),
+            div()
+                .id("api-request-search")
+                .debug_selector(|| "api-request-search".into())
+                .w_full()
+                .min_w_0()
+                .child(
+                    ramag_ui::cleanable_input(
+                        &view.request_search,
+                        "api-request-search-clear",
+                        false,
+                        cx,
+                    )
+                    .small(),
+                ),
         )
         .child(
             div()
