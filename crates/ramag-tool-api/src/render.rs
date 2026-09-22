@@ -100,7 +100,7 @@ fn render_sidebar(
     theme: &gpui_component::Theme,
 ) -> gpui::AnyElement {
     let stacked = ApiView::is_stacked(window);
-    let current_request_name = view.request_name.read(cx).value().to_string();
+    let current_request_id = view.active_request_id.clone();
     let requests = view
         .workspace
         .collections
@@ -110,7 +110,7 @@ fn render_sidebar(
         .enumerate()
         .map(|(index, request)| {
             let request = request.clone();
-            let selected = current_request_name == request.name;
+            let selected = current_request_id.as_ref() == Some(&request.id);
             let mut item = ramag_ui::clickable_button(gpui::SharedString::from(format!(
                 "api-request-item-{index}"
             )))

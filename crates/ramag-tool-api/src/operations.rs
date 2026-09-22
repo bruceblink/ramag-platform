@@ -532,16 +532,39 @@ impl ApiView {
         if workspace.collections.is_empty() {
             workspace.collections.push(ApiCollection::new("默认请求"));
         }
-        let collection = &mut workspace.collections[0];
-        if let Some(existing) = collection
-            .requests
-            .iter_mut()
-            .find(|existing| existing.name == record.name)
-        {
-            *existing = record;
+        let active_request_id = self.active_request_id.clone();
+        let existing_location =
+            active_request_id.as_ref().and_then(|request_id| {
+                workspace.collections.iter().enumerate().find_map(
+                    |(collection_index, collection)| {
+                        collection
+                            .requests
+                            .iter()
+                            .position(|existing| &existing.id == request_id)
+                            .map(|request_index| (collection_index, request_index))
+                    },
+                )
+            });
+        let existing_location = existing_location.or_else(|| {
+            workspace.collections[0]
+                .requests
+                .iter()
+                .position(|existing| existing.name == record.name)
+                .map(|request_index| (0, request_index))
+        });
+        let saved_request_id = if let Some((collection_index, request_index)) = existing_location {
+            let request_id = workspace.collections[collection_index].requests[request_index]
+                .id
+                .clone();
+            let mut record = record;
+            record.id = request_id.clone();
+            workspace.collections[collection_index].requests[request_index] = record;
+            request_id
         } else {
-            collection.requests.push(record);
-        }
+            let request_id = record.id.clone();
+            workspace.collections[0].requests.push(record);
+            request_id
+        };
         self.saving = true;
         self.notice = None;
         let workspace_for_save = workspace.clone();
@@ -552,6 +575,7 @@ impl ApiView {
                 match result {
                     Ok(()) => {
                         view.workspace = workspace;
+                        view.active_request_id = Some(saved_request_id);
                         view.notice = Some(("请求、环境和断言已保存".into(), false));
                     }
                     Err(error) => view.notice = Some((error.to_string(), true)),

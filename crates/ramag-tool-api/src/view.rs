@@ -17,8 +17,8 @@ use ramag_domain::entities::{
     ApiAssertionResult, ApiBody, ApiBodyMode, ApiCancellation, ApiCollection,
     ApiCollectionRunResult, ApiEnvironment, ApiExtractedVariable, ApiGrpcDescriptor,
     ApiGrpcDiscoverySpec, ApiGrpcServiceSummary, ApiHistoryRecord, ApiMultipartPart,
-    ApiMultipartValue, ApiParameter, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot,
-    ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
+    ApiMultipartValue, ApiParameter, ApiProtocol, ApiRequestId, ApiRequestSpec,
+    ApiResponseSnapshot, ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
 };
 use ramag_domain::error::{DomainError, Result};
 
@@ -50,6 +50,7 @@ const API_RESPONSE_PREVIEW_BYTES: usize = 16 * 1024;
 pub struct ApiView {
     pub(crate) service: Option<Arc<ApiService>>,
     pub(crate) protocol: ApiProtocol,
+    pub(crate) active_request_id: Option<ApiRequestId>,
     pub(crate) request_name: Entity<InputState>,
     pub(crate) http_method: Entity<InputState>,
     pub(crate) http_url: Entity<InputState>,
@@ -113,7 +114,7 @@ impl ApiView {
     ) -> Self {
         let mut view = Self::without_service(window, cx);
         view.service = Some(service);
-        view.load_saved_workspace(cx);
+        view.load_saved_workspace(window, cx);
         view
     }
 
@@ -121,6 +122,7 @@ impl ApiView {
         Self {
             service: None,
             protocol: ApiProtocol::Http,
+            active_request_id: None,
             request_name: api_input(window, cx, "请求名称", "新请求"),
             http_method: api_input(window, cx, "GET / POST", "GET"),
             http_url: api_input(window, cx, "https://example.com", "{{base_url}}/json"),
@@ -241,11 +243,11 @@ impl ApiView {
     }
 
     /// 异步读取首个本地工作区；读取失败保留当前空白工作区，避免启动时阻塞工具页面。
-    fn load_saved_workspace(&mut self, cx: &mut Context<Self>) {
+    fn load_saved_workspace(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(service) = self.service.clone() else {
             return;
         };
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, async_cx| {
             let result = service.list_workspaces().await;
             let Some(workspace) = result
                 .ok()
@@ -257,9 +259,11 @@ impl ApiView {
                 .list_history(&workspace.id, 20)
                 .await
                 .unwrap_or_default();
-            let _ = this.update(cx, move |view, cx| {
+            let _ = this.update_in(async_cx, move |view, window, cx| {
                 view.workspace = workspace;
                 view.history = history;
+                let workspace = view.workspace.clone();
+                context::apply_imported_workspace(view, &workspace, window, cx);
                 cx.notify();
             });
         })

@@ -423,6 +423,7 @@ pub(crate) fn apply_request_to_view(
     window: &mut Window,
     cx: &mut Context<ApiView>,
 ) {
+    view.active_request_id = Some(request.id.clone());
     set_input(&view.request_name, request.name.clone(), window, cx);
     set_input(
         &view.assertions,

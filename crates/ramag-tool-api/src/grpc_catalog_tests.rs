@@ -88,10 +88,12 @@ fn api_saved_request_sidebar_opens_request_and_clears_stale_grpc_state(cx: &mut 
         "HTTP request",
         HttpRequestSpec::new("GET", "http://127.0.0.1:18089/json"),
     ));
-    collection.requests.push(ApiRequestRecord::new_grpc(
+    let grpc_record = ApiRequestRecord::new_grpc(
         "gRPC request",
         GrpcRequestSpec::new("http://127.0.0.1:18090", "api.Echo", "Unary"),
-    ));
+    );
+    let grpc_request_id = grpc_record.id.clone();
+    collection.requests.push(grpc_record);
     workspace.collections.push(collection);
 
     visual_cx.update(|window, app| {
@@ -123,6 +125,7 @@ fn api_saved_request_sidebar_opens_request_and_clears_stale_grpc_state(cx: &mut 
             view.grpc_metadata_name.read(app).value().to_string(),
             view.grpc_metadata_value.read(app).value().to_string(),
             view.grpc_services.len(),
+            view.active_request_id.clone(),
             view.notice.clone(),
         )
     });
@@ -132,6 +135,7 @@ fn api_saved_request_sidebar_opens_request_and_clears_stale_grpc_state(cx: &mut 
     assert_eq!(state.3, "Unary");
     assert!(state.4.is_empty());
     assert!(state.5.is_empty());
-    assert!(state.6 == 0);
-    assert_eq!(state.7, Some(("已打开请求：gRPC request".into(), false)));
+    assert_eq!(state.6, 0);
+    assert_eq!(state.7, Some(grpc_request_id));
+    assert_eq!(state.8, Some(("已打开请求：gRPC request".into(), false)));
 }
