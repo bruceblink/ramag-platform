@@ -1,6 +1,6 @@
-# GPUI Kit 依赖迁移可行性评估
+# GPUI Kit 依赖迁移实施基线
 
-评估日期：2026-09-19
+评估日期：2026-09-22
 
 ## 术语表与命名约定
 
@@ -14,23 +14,23 @@
 
 ## 结论
 
-迁移技术上可行，但 `gpui-kit` 不是当前依赖的单行替换。建议暂不在正在交付的功能分支中迁移，等 API-007 或当前功能队列收敛后，以独立迁移切片执行。
+迁移技术上可行，但 `gpui-kit` 不是当前依赖的单行替换。功能扩展主线已阶段性收敛，后续开发以 UI/功能缺陷修复和 `gpui-kit` 迁移为主；可复现的 UI/功能缺陷优先于迁移切片处理，迁移本身按独立批次提交和验收。
 
-主要原因：当前项目使用 Zed Git 主干的 `gpui`、`gpui_platform`、`gpui_macros`，以及 Git 版 `gpui-component` 和 `gpui-component-assets`；锁文件中的版本分别为 GPUI 0.2.2、组件库 0.5.1。`gpui-kit` 0.6.4 则聚合发布版 `gpui-pre` 0.3.5、`gpui-base` 0.6.4、`gpui-component` 0.6.4、`gpui-kit-assets` 和 `gpui-pre-platform`。这同时改变了包来源、版本族和库路径。
+主要原因：当前项目使用 Zed Git 主干的 `gpui`、`gpui_platform`、`gpui_macros`，以及 Git 版 `gpui-component` 和 `gpui-component-assets`；锁文件中的版本分别为 GPUI 0.2.2、组件库 0.5.1。当前发布版 `gpui-kit` 为 0.6.6，聚合 `gpui-pre` 0.3.6、`gpui-base` 0.6.6、`gpui-component` 0.6.6、`gpui-kit-assets` 和 `gpui-pre-platform`。这同时改变了包来源、版本族和库路径。
 
 ## 现状证据
 
 - 根 `Cargo.toml` 在 GPUI 配置中直接声明 3 个 Zed Git 包，并直接声明 2 个 `gpui-component` Git 包。
-- 15 个 workspace crate 直接依赖 `gpui`，15 个 workspace crate 直接依赖 `gpui-component`；源码中分别有约 432 个文件出现 `gpui::`/`use gpui`，约 327 个文件出现 `gpui_component::`/`use gpui_component`。
+- 15 个 workspace crate 直接依赖 `gpui`，15 个 workspace crate 直接依赖 `gpui-component`；当前源码中分别有 439 个文件出现 `gpui::`/`use gpui`，335 个文件出现 `gpui_component::`/`use gpui_component`，迁移需要覆盖源码、测试和 Cargo manifest。
 - `ramag-bin` 直接调用 `gpui_platform::application()`；`ramag-ui` 的 `RamagAssets` 直接回退到 `gpui_component_assets::Assets`，这两个入口需要分别映射到 `gpui_kit::platform` 和 `gpui_kit::assets`。
-- workspace 已经钉定 `lsp-types 0.97.0` 和 `ropey 2.0.0-beta.1`，与 GPUI Kit 0.6.4 的公开依赖版本一致，输入编辑器类型冲突风险低于旧版本迁移。
+- workspace 已经钉定 `lsp-types 0.97.0` 和 `ropey 2.0.0-beta.1`，与 GPUI Kit 0.6.6 的公开依赖版本一致，输入编辑器类型冲突风险低于旧版本迁移。
 
 ## 兼容性验证
 
 在仓库外建立临时最小 crate，仅依赖：
 
 ```toml
-gpui-kit = { version = "0.6.4", features = ["tree-sitter-languages", "test-support"] }
+gpui-kit = { version = "0.6.6", features = ["tree-sitter-languages", "test-support"] }
 ```
 
 验证结果：
@@ -38,7 +38,7 @@ gpui-kit = { version = "0.6.4", features = ["tree-sitter-languages", "test-suppo
 - `gpui_kit::{Render, Window, Context, ParentElement}`、`gpui_kit::component::{Root, Input, InputState, h_flex, v_flex}` 可以编译。
 - `cargo test --no-run --locked` 可以编译 `#[gpui_kit::test]` 测试宏。
 - `cargo test --locked facade_test -- --nocapture` 通过 1 项测试。
-- 该探针只证明 facade 的基础 API 和测试支持可用，没有证明 Ramag 全 workspace 已完成迁移。
+- 该探针只证明 facade 的基础 API 和测试支持可用，没有证明 Ramag 全 workspace 已完成迁移；workspace 迁移必须重新运行各工具的 headless 测试和真实服务回归。
 
 官方安装文档也将 `gpui-kit` 定义为应用侧的聚合依赖：应用不再直接列出 GPUI，组件、Base、Assets 和 Platform 分别从 `gpui_kit::component`、`gpui_kit::base`、`gpui_kit::assets` 和 `gpui_kit::platform` 访问。详见 [GPUI Kit Installation](https://gpui-kit.com/docs/installation/)。
 
@@ -74,6 +74,6 @@ gpui-kit = { version = "0.6.4", features = ["tree-sitter-languages", "test-suppo
 
 ## 决策
 
-当前决策：**可行，但延期执行，不在本次 API UI 修复中迁移**。
+当前决策：**正式进入后续开发主线；先处理可复现 UI/功能缺陷，再按独立切片推进 `gpui-kit` 迁移**。
 
-收益是依赖入口更简单、GPUI 组件版本族由 Kit 统一管理、后续升级路径更清晰。代价是约 15 个 crate 的依赖配置调整、数百个源码文件的命名空间迁移，以及跨 `gpui-component` 0.5.1 到 0.6.4 的 UI 行为回归。当前收益不足以抵消正在进行的 API/MQTT 功能交付风险；后续应以独立提交边界完成，不与业务功能混合。
+收益是依赖入口更简单、GPUI 组件版本族由 Kit 统一管理、后续升级路径更清晰。代价是 15 个 crate 的依赖配置调整、数百个源码文件的命名空间迁移，以及从 Git 版 `gpui-component` 0.5.1 到发布版 0.6.6 的 UI 行为回归。当前切换按 `GPUI-KIT-001` 主线执行；任何业务功能修复仍单独提交，不与依赖迁移混合。

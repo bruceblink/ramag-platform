@@ -1,10 +1,10 @@
 # Ramag Platform 主线开发计划
 
-> 状态：阶段 0 文档与基线收敛完成；阶段 1 的插件平台 P0-A、P0-B、PLAT-003 已完成；TERM-001 代码和真实 SSH 端点验收已完成；Kafka 阶段 25 单条消息生产代码、headless UI、本机 Docker KRaft 验收和纯 Rust 读取候选阶段性验证已完成；CMT-002 的 Docker 只读查询已完成，CMT-003 已完成 Registry v2 查询、认证失败映射、digest 回读和镜像操作取消边界，继续补齐本机镜像操作与清理验收
-> 更新日期：2026-09-17
-> 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台以及跨工具质量与构建流程
+> 状态：功能扩展主线已阶段性收敛；当前优先修复可复现的 UI 和功能缺陷；`GPUI-KIT-001` 依赖迁移已进入主线，按共享 UI、主程序和工具工作台分批验收；CMT-003 未完成的本机镜像写操作暂缓
+> 更新日期：2026-09-22
+> 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台、GPUI Kit 迁移以及跨工具质量与构建流程
 > 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
-> 当前交付切片：`CMT-003`，开始镜像仓库与镜像操作设计；Kubernetes 和容器生命周期写操作暂不展开
+> 当前交付切片：`GPUI-KIT-001`，先切换 workspace 依赖和共享入口；发现可复现的 UI/功能缺陷时，先插入独立修复切片
 
 ## 术语与命名规则
 
@@ -50,7 +50,8 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | SSH/终端 | `alacritty_terminal + GPUI` PTY 核心、SSH/SFTP 工作区、会话状态、每标签重连和 `-L/-R/-D` 参数模型已有；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 补真实 Windows 窗口证据和独立转发状态/停止面板；进入 `KAFKA-001` | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
 | Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail、Metrics Snapshot、Schema Registry 版本浏览、受保护的真实 Kafka JMX Exporter 本机链路和纯 Rust 读取候选已有 | `KAFKA-023` 三个消息定位切片和阶段 27 已完成，继续维护功能矩阵，再补真实 Windows 证据 | 纯 Rust 全能力替换、外部生态大模块和批量消息生产 |
 | 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 按 DBeaver/DataGrip 能力表推进结果查看、大字段恢复、对象导航、执行计划和迁移工作流的功能/UI 对齐 | 把 Redis/MongoDB 强行套用 SQL 语义 |
-| 容器管理工具 | CMT-001 已完成；CMT-002 已完成 Docker 只读查询、真实 WSL Engine 验收和 headless UI 验收；CMT-003 已补齐 Registry v2 查询、认证失败映射、digest 回读和镜像操作取消边界 | 继续完成本机镜像拉取/标记/推送/删除、取消回读和清理验收 | 远程明文 Docker TCP、动态插件、Secret 明文和任意 Shell |
+| 容器管理工具 | CMT-001 已完成；CMT-002 已完成 Docker 只读查询、真实 WSL Engine 验收和 headless UI 验收；CMT-003 已补齐 Registry v2 查询、认证失败映射、digest 回读和镜像操作取消边界 | 暂缓本机镜像拉取/标记/推送/删除、取消回读和清理验收，优先处理 UI/功能缺陷与 GPUI Kit 迁移 | 远程明文 Docker TCP、动态插件、Secret 明文和任意 Shell |
+| GPUI Kit 迁移 | 已完成发布包和 facade 基础 API 评估，当前依赖仍是 Zed Git GPUI 与 Git 版组件库 | 执行 `GPUI-KIT-001`，先迁移 workspace 依赖、共享 UI、主程序和测试入口 | 不把业务功能修复与依赖迁移混在同一提交；不以编译通过代替 UI 回归验收 |
 | 质量与工具链 | stable channel、统一 Cargo 命令、Windows MSVC 路线已建立 | 保持 CI、WSL Linux 验证、源码尺寸和 LF 规则一致 | 为单个平台恢复独立的日常编译命令 |
 
 跨产品的 UI 响应性问题不再单独生成一条长期大路线。出现新的可复现 P0/P1 问题时，按下面的交付切片规则插入当前队列，并在对应专项文档记录实现细节。
@@ -70,10 +71,11 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | `DB-001` | 数据库 | `ramag-app`、`ramag-tool-dbclient` | 待开始 | `PLAT-003` | 结果查看模式、大字段限制、编辑失败恢复和连接上下文隔离有测试 |
 | `CMT-001` | 容器管理 | `ramag-domain`、`ramag-tool-container`、`ramag-bin`、`ramag-ui` | 已完成 | `PLAT-003` | 工具入口、平台区分、连接配置校验、空工作台和 360/800/1024/1440 headless 布局测试 |
 | `CMT-002` | 容器管理 | `ramag-domain`、`ramag-app`、`ramag-infra-container-docker`、`ramag-tool-container` | 已完成（真实 WSL Engine；真实 Windows 原生窗口待补） | `CMT-001` | 真实 Engine 连接、版本、容器/镜像/网络/数据卷列表和详情；分页、404 安全错误、权限错误映射及 headless UI |
-| `CMT-003` | 容器管理 | `ramag-domain`、`ramag-app`、`ramag-infra-container-registry`、`ramag-infra-container-docker`、`ramag-tool-container` | 开发中（Registry v2 查询、认证失败映射、digest 回读和镜像操作取消边界已完成） | `CMT-002` | 查询、认证失败、digest 回读、取消、清理以及拉取、标记、推送和删除预览/执行；本机 Registry 与真实 UI 证据单独记录 |
+| `CMT-003` | 容器管理 | `ramag-domain`、`ramag-app`、`ramag-infra-container-registry`、`ramag-infra-container-docker`、`ramag-tool-container` | 暂缓（Registry v2 查询、认证失败映射、digest 回读和镜像操作取消边界已完成） | `CMT-002` | 后续恢复时补查询、认证失败、digest 回读、取消、清理以及拉取、标记、推送和删除的本机服务与真实 UI 证据 |
 | `UI-001` | 跨工具 UI | `ramag-ui`、各 `ramag-tool-*` | 进行中（数据库会话紧凑窗口切片已验收，其他工作台证据待补） | `PLAT-003` | 共享弹窗、工具栏、列表和详情区在 360/1024/1440 headless 窗口内换行、滚动且不越界；真实窗口证据单独记录 |
 | `DB-002` | 数据库 | `ramag-tool-dbclient`、`ramag-ui` | 待开始 | `DB-001` | 建立 DBeaver/DataGrip 功能矩阵，逐项实现并验收结果、对象导航、执行计划和迁移 UI，不以静态截图宣称完成 |
 | `KAFKA-023` | Kafka | `ramag-tool-kafka`、`ramag-ui`、`ramag-infra-kafka` | 开发中（三个定位切片和受保护的真实 JMX Exporter 本机链路已完成） | `KAFKA-025` | 功能矩阵已建立；继续补真实窗口证据和下一项 AKHQ/Offset Explorer 能力 |
+| `GPUI-KIT-001` | GPUI Kit 迁移 | workspace UI 依赖、`ramag-ui`、`ramag-bin`、共享测试入口 | 开发中（先切换依赖和共享入口） | 当前功能扩展已收敛 | `gpui-kit` 版本、feature、平台初始化、Assets、测试宏和共享 UI 入口完成第一批编译与测试；不改变领域和协议行为 |
 | `QUALITY-001` | 质量与工具链 | workspace 维护者 | 持续任务 | 每个交付切片 | stable toolchain、统一 Cargo 命令、LF、CI 过滤器和三平台发布证据保持一致 |
 
 `CMT-002` 实现与验收记录（2026-09-16）：新增 `ramag-infra-container-docker`，使用 `bollard` 0.21.1 接入 Unix socket、Windows named pipe 和 HTTPS；拒绝明文 `tcp://`/`http://`，把 Docker API 错误转换为安全分类，并限制响应大小、列表数量、分页和详情字段。`ramag-app` 新增 `ContainerService`，`ramag-tool-container` 首屏读取概览，按资源页签读取容器、镜像、网络和数据卷列表，点击列表行读取详情；`ramag-tool-container` headless 测试 2 项、Docker 适配器 Windows 单元测试 3 项、`ramag-app` 单元测试 209 项通过，`ramag-bin` 全目标 Clippy、workspace fmt 和 `git diff --check` 通过。随后使用 WSL `x86_64-unknown-linux-gnu` 目标和 Docker 默认上下文的 `unix:///var/run/docker.sock` 运行真实集成测试，连接、版本/概览、容器/镜像/网络/数据卷列表、分页、已有资源详情和不存在容器的 404 错误均通过；权限错误映射由安全错误单元测试覆盖。当前 Windows 环境仍不存在 `\\.\pipe\docker_engine`，所以真实 Windows named pipe 和原生窗口证据继续单独记录，但不阻塞本任务已有的真实 Engine 与 headless UI 验收。
