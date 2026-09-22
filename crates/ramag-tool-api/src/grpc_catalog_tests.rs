@@ -1,7 +1,10 @@
 use super::*;
 
 use gpui::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
-use ramag_domain::entities::{ApiGrpcMethodSummary, ApiGrpcServiceSummary, ApiProtocol};
+use ramag_domain::entities::{
+    ApiCollection, ApiGrpcMethodSummary, ApiGrpcServiceSummary, ApiProtocol, ApiRequestRecord,
+    ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
+};
 
 fn click(cx: &mut VisualTestContext, selector: &'static str) {
     let bounds = cx
@@ -67,4 +70,68 @@ fn api_grpc_catalog_selects_method_and_keeps_long_lists_bounded(cx: &mut TestApp
         )
     });
     assert_eq!(selected, ("api.Service0".into(), "Method3".into()));
+}
+
+#[gpui::test]
+fn api_saved_request_sidebar_opens_request_and_clears_stale_grpc_state(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 视图应初始化");
+    let mut workspace = ApiWorkspace::new("Saved requests");
+    let mut collection = ApiCollection::new("Default");
+    collection.requests.push(ApiRequestRecord::new_http(
+        "HTTP request",
+        HttpRequestSpec::new("GET", "http://127.0.0.1:18089/json"),
+    ));
+    collection.requests.push(ApiRequestRecord::new_grpc(
+        "gRPC request",
+        GrpcRequestSpec::new("http://127.0.0.1:18090", "api.Echo", "Unary"),
+    ));
+    workspace.collections.push(collection);
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.workspace = workspace.clone();
+            context::apply_imported_workspace(view, &workspace, window, cx);
+            view.grpc_metadata_name
+                .update(cx, |input, cx| input.set_value("stale", window, cx));
+            view.grpc_metadata_value
+                .update(cx, |input, cx| input.set_value("stale-value", window, cx));
+            view.grpc_services = vec![ApiGrpcServiceSummary {
+                name: "stale.Service".into(),
+                methods: Vec::new(),
+            }];
+        });
+    });
+    visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
+    visual_cx.run_until_parked();
+    click(visual_cx, "api-request-item-1");
+    visual_cx.run_until_parked();
+
+    let state = visual_cx.update(|_, app| {
+        let view = view.read(app);
+        (
+            view.protocol,
+            view.request_name.read(app).value().to_string(),
+            view.grpc_service.read(app).value().to_string(),
+            view.grpc_method.read(app).value().to_string(),
+            view.grpc_metadata_name.read(app).value().to_string(),
+            view.grpc_metadata_value.read(app).value().to_string(),
+            view.grpc_services.len(),
+            view.notice.clone(),
+        )
+    });
+    assert_eq!(state.0, ApiProtocol::Grpc);
+    assert_eq!(state.1, "gRPC request");
+    assert_eq!(state.2, "api.Echo");
+    assert_eq!(state.3, "Unary");
+    assert!(state.4.is_empty());
+    assert!(state.5.is_empty());
+    assert!(state.6 == 0);
+    assert_eq!(state.7, Some(("已打开请求：gRPC request".into(), false)));
 }

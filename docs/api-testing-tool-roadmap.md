@@ -467,3 +467,5 @@ git diff --check
 - OAuth2 Client Credentials 已由 API-008.3 完成；未完成项仅包括真实 Windows 窗口截图、键盘和鼠标证据，以及未纳入当前范围的 Authorization Code、Device Code 和 Refresh Token 流程。
 
 API 工作台主体对齐修正（2026-09-19）：修复 API 主体横向 Flex 默认垂直居中导致的编辑器顶部偏移、响应面板错位和工作区底部越界；主体、编辑器和请求/响应分栏改为拉伸填充，新增 1024/1440px 主体上下边界断言。Computer Use 仍无法取得可控原生窗口，本次 UI 验收使用 GPUI headless bounds 测试。
+
+API 已保存请求切换修正记录（2026-09-22）：左侧请求列表改为可点击控件，点击后回填对应 HTTP/gRPC 请求并显示当前请求；切换请求时清理旧响应、断言结果、变量回填、Collection 汇总、gRPC Service 目录和遗留 Metadata。`ramag-tool-api --lib` 21 项测试通过，Computer Use 仍无法取得可控原生窗口。

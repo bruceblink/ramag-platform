@@ -406,14 +406,23 @@ pub(crate) fn apply_imported_workspace(
         );
     }
 
-    let Some(request) = workspace
+    if let Some(request) = workspace
         .collections
         .iter()
         .flat_map(|collection| collection.requests.iter())
         .next()
-    else {
-        return;
-    };
+    {
+        apply_request_to_view(view, request, window, cx);
+    }
+}
+
+/// 将已保存请求回填到编辑器，并清理上一个请求的响应和临时目录状态。
+pub(crate) fn apply_request_to_view(
+    view: &mut ApiView,
+    request: &ApiRequestRecord,
+    window: &mut Window,
+    cx: &mut Context<ApiView>,
+) {
     set_input(&view.request_name, request.name.clone(), window, cx);
     set_input(
         &view.assertions,
@@ -427,6 +436,13 @@ pub(crate) fn apply_imported_workspace(
         window,
         cx,
     );
+    set_input(&view.grpc_metadata_name, String::new(), window, cx);
+    set_input(&view.grpc_metadata_value, String::new(), window, cx);
+    view.grpc_services.clear();
+    view.response = None;
+    view.assertion_results.clear();
+    view.extracted_variables.clear();
+    view.last_collection_run = None;
     match &request.request {
         ApiRequestSpec::Http(spec) => {
             view.protocol = ApiProtocol::Http;
@@ -501,6 +517,7 @@ pub(crate) fn apply_imported_workspace(
             }
         }
     }
+    view.notice = Some((format!("已打开请求：{}", request.name), false));
 }
 
 fn optional_input_value(field: &Entity<InputState>, cx: &App) -> Option<String> {

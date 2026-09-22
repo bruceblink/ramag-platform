@@ -4,7 +4,8 @@ use super::render_helpers::{
     render_extracted_variables, render_history, render_request_toolbar,
 };
 use super::*;
-use gpui::FontWeight;
+use gpui::{ClickEvent, FontWeight};
+use gpui_component::button::ButtonVariants as _;
 
 pub(super) fn render(
     view: &mut ApiView,
@@ -97,23 +98,41 @@ fn render_sidebar(
     cx: &mut Context<ApiView>,
     theme: &gpui_component::Theme,
 ) -> gpui::AnyElement {
+    let current_request_name = view.request_name.read(cx).value().to_string();
     let requests = view
         .workspace
         .collections
         .iter()
         .flat_map(|collection| collection.requests.iter())
         .take(50)
-        .map(|request| {
-            div()
-                .debug_selector(|| "api-request-item".into())
-                .min_w_0()
-                .truncate()
-                .child(format!(
-                    "{} · {}",
-                    protocol_label(request.protocol),
-                    request.name
-                ))
-                .into_any_element()
+        .enumerate()
+        .map(|(index, request)| {
+            let request = request.clone();
+            let selected = current_request_name == request.name;
+            let mut item = ramag_ui::clickable_button(gpui::SharedString::from(format!(
+                "api-request-item-{index}"
+            )))
+            .debug_selector(move || format!("api-request-item-{index}"))
+            .w_full()
+            .min_w_0()
+            .justify_start()
+            .truncate()
+            .xsmall()
+            .label(format!(
+                "{} · {}",
+                protocol_label(request.protocol),
+                request.name
+            ))
+            .on_click(cx.listener(move |view, _: &ClickEvent, window, cx| {
+                context::apply_request_to_view(view, &request, window, cx);
+                cx.notify();
+            }));
+            item = if selected {
+                item.primary()
+            } else {
+                item.ghost()
+            };
+            item.into_any_element()
         })
         .collect::<Vec<_>>();
     v_flex()
