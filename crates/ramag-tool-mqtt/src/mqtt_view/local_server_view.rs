@@ -808,6 +808,7 @@ impl MqttView {
 
         v_flex()
             .id("mqtt-local-server-scroll")
+            .debug_selector(|| "mqtt-local-server-scroll".into())
             .w_full()
             .min_w_0()
             .h_full()

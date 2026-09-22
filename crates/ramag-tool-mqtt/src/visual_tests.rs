@@ -9,8 +9,9 @@ use chrono::Utc;
 use async_channel::{Receiver, Sender, bounded};
 use async_trait::async_trait;
 use gpui_kit::{
-    AppContext as _, Context, IntoElement, Modifiers, ParentElement as _, Render, Styled as _,
-    TestAppContext, VisualTestContext, Window, point, px, size,
+    AppContext as _, Context, IntoElement, Modifiers, ParentElement as _, Render, ScrollDelta,
+    ScrollWheelEvent, Styled as _, TestAppContext, TouchPhase, VisualTestContext, Window, point,
+    px, size,
 };
 use ramag_app::MqttService;
 use ramag_domain::entities::{
@@ -223,6 +224,19 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
     cx.simulate_mouse_move(center, None, Modifiers::default());
     cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
     cx.simulate_mouse_up(center, gpui_kit::MouseButton::Left, Modifiers::default());
+}
+
+fn scroll_local_server(cx: &mut VisualTestContext, delta_y: f32) {
+    let bounds = cx
+        .debug_bounds("mqtt-local-server-scroll")
+        .expect("本地 MQTT Broker 滚动容器应参与布局");
+    cx.simulate_event(ScrollWheelEvent {
+        position: bounds.center(),
+        delta: ScrollDelta::Pixels(point(px(0.0), px(delta_y))),
+        touch_phase: TouchPhase::Moved,
+        ..Default::default()
+    });
+    cx.run_until_parked();
 }
 
 #[gpui_kit::test]
@@ -858,6 +872,7 @@ fn mqtt_local_server_publish_uses_broker_injection_controls(cx: &mut TestAppCont
     });
     visual_cx.run_until_parked();
 
+    scroll_local_server(visual_cx, -10000.0);
     click(visual_cx, "mqtt-local-server-publish");
     visual_cx.run_until_parked();
 
@@ -1008,6 +1023,7 @@ fn mqtt_local_server_accounts_can_fill_the_client_form(cx: &mut TestAppContext) 
     });
     visual_cx.run_until_parked();
 
+    scroll_local_server(visual_cx, -10000.0);
     click(visual_cx, "mqtt-local-server-add-user");
     visual_cx.run_until_parked();
     assert!(view.read_with(visual_cx, |view, _| {
@@ -1016,6 +1032,7 @@ fn mqtt_local_server_accounts_can_fill_the_client_form(cx: &mut TestAppContext) 
             && view.local_server_users[0].password == "secret"
     }));
 
+    scroll_local_server(visual_cx, 10000.0);
     click(visual_cx, "mqtt-local-server-use-client");
     visual_cx.run_until_parked();
     assert!(view.read_with(visual_cx, |view, cx| {
