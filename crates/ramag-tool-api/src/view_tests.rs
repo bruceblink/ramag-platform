@@ -55,6 +55,9 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let content_root = visual_cx
             .debug_bounds("api-content")
             .expect("API 主体容器应渲染");
+        let sidebar = visual_cx
+            .debug_bounds("api-sidebar")
+            .expect("API 侧栏应渲染");
         let toolbar = visual_cx
             .debug_bounds("api-request-toolbar")
             .expect("请求工具栏应渲染");
@@ -77,6 +80,11 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
             .debug_bounds("api-response")
             .expect("响应面板应渲染");
         assert!(editor.right() <= root.right(), "编辑器不能越出根节点");
+        assert!(sidebar.right() <= content_root.right(), "侧栏不能越出主体");
+        assert!(
+            sidebar.bottom() <= content_root.bottom(),
+            "侧栏不能越出主体底部"
+        );
         assert!(
             editor.origin.y >= content_root.origin.y,
             "编辑器不能垂直越过主体顶部"
@@ -142,6 +150,15 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
             assert!(
                 (response.bottom() - request_pane.bottom()).abs() <= px(1.0),
                 "左右分栏必须共享完整高度: pane={request_pane:?}, response={response:?}"
+            );
+        } else {
+            assert!(
+                (sidebar.size.width - content_root.size.width).abs() <= px(1.0),
+                "窄窗口侧栏应占满主体宽度: sidebar={sidebar:?}, content={content_root:?}"
+            );
+            assert!(
+                sidebar.size.height <= px(240.0),
+                "窄窗口侧栏高度应受限并保留请求编辑器空间: sidebar={sidebar:?}"
             );
         }
     }

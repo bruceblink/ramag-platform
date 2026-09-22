@@ -14,7 +14,7 @@ pub(super) fn render(
 ) -> gpui::AnyElement {
     let theme = cx.theme().clone();
     let stacked = ApiView::is_stacked(window);
-    let sidebar = render_sidebar(view, cx, &theme);
+    let sidebar = render_sidebar(view, window, cx, &theme);
     let editor = render_editor(view, window, cx, &theme);
     let content = if stacked {
         v_flex()
@@ -95,9 +95,11 @@ fn render_header(
 
 fn render_sidebar(
     view: &ApiView,
+    window: &Window,
     cx: &mut Context<ApiView>,
     theme: &gpui_component::Theme,
 ) -> gpui::AnyElement {
+    let stacked = ApiView::is_stacked(window);
     let current_request_name = view.request_name.read(cx).value().to_string();
     let requests = view
         .workspace
@@ -142,6 +144,9 @@ fn render_sidebar(
         .flex_none()
         .min_h_0()
         .min_w_0()
+        .when(stacked, |sidebar| sidebar.w_full().h(px(240.0)).flex_none())
+        .when(!stacked, |sidebar| sidebar.h_full())
+        .overflow_y_scroll()
         .gap(px(10.0))
         .p(px(12.0))
         .border_r_1()
