@@ -174,6 +174,7 @@ fn api_request_sidebar_filters_all_saved_requests_with_collection_context(cx: &m
     assert!(visual_cx.debug_bounds("api-request-item-0").is_some());
     assert!(visual_cx.debug_bounds("api-request-item-1").is_some());
     assert!(visual_cx.debug_bounds("api-request-list-summary").is_some());
+    assert!(visual_cx.debug_bounds("api-request-search-clear").is_some());
     visual_cx.update(|window, app| {
         view.update(app, |view, cx| {
             view.request_search
@@ -191,4 +192,5 @@ fn api_request_sidebar_filters_all_saved_requests_with_collection_context(cx: &m
     });
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("api-request-item-0").is_some());
+    assert!(visual_cx.debug_bounds("api-request-search-clear").is_none());
 }

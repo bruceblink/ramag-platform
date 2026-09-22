@@ -99,7 +99,10 @@ pub(super) fn render(
                 .text_color(theme.muted_foreground)
                 .child("请求列表"),
         )
-        .child(Input::new(&view.request_search).small())
+        .child(
+            ramag_ui::cleanable_input(&view.request_search, "api-request-search-clear", false, cx)
+                .small(),
+        )
         .child(
             div()
                 .id("api-request-list-summary")
