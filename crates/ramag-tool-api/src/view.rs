@@ -579,5 +579,8 @@ mod body_tests;
 #[path = "view_docker_tests.rs"]
 mod docker_tests;
 #[cfg(test)]
+#[path = "grpc_catalog_tests.rs"]
+mod grpc_catalog_tests;
+#[cfg(test)]
 #[path = "view_tests.rs"]
 mod tests;

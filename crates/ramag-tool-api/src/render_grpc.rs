@@ -87,6 +87,8 @@ fn render_catalog(
     cx: &mut Context<ApiView>,
     theme: &gpui_component::Theme,
 ) -> gpui::AnyElement {
+    let selected_service = view.grpc_service.read(cx).value().to_string();
+    let selected_method = view.grpc_method.read(cx).value().to_string();
     let mut catalog = v_flex()
         .id("api-grpc-catalog")
         .debug_selector(|| "api-grpc-catalog".into())
@@ -124,13 +126,15 @@ fn render_catalog(
             },
         ));
     } else {
+        let mut catalog_list = v_flex()
+            .id("api-grpc-catalog-list")
+            .debug_selector(|| "api-grpc-catalog-list".into())
+            .w_full()
+            .min_w_0()
+            .max_h(px(220.0))
+            .overflow_y_scroll()
+            .gap(px(6.0));
         for (service_index, service) in view.grpc_services.iter().take(32).enumerate() {
-            catalog = catalog.child(
-                div()
-                    .text_xs()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(service.name.clone()),
-            );
             let mut methods = h_flex().w_full().min_w_0().flex_wrap().gap(px(4.0));
             for (method_index, method) in service.methods.iter().take(64).enumerate() {
                 let service_name = service.name.clone();
@@ -141,30 +145,49 @@ fn render_catalog(
                     (true, false) => "Client",
                     (true, true) => "Bidi",
                 };
-                methods = methods.child(
-                    ramag_ui::clickable_button(gpui::SharedString::from(format!(
-                        "api-grpc-method-{service_index}-{method_index}"
-                    )))
-                    .debug_selector(|| "api-grpc-method".into())
-                    .xsmall()
-                    .ghost()
-                    .label(format!("{} · {method_kind}", method.name))
-                    .on_click(cx.listener(
-                        move |view, _: &ClickEvent, window, cx| {
-                            view.grpc_service.update(cx, |input, cx| {
-                                input.set_value(service_name.clone(), window, cx)
-                            });
-                            view.grpc_method.update(cx, |input, cx| {
-                                input.set_value(method_name.clone(), window, cx)
-                            });
-                            view.notice = Some(("已选择 gRPC Method".into(), false));
-                            cx.notify();
-                        },
-                    )),
-                );
+                let selected = selected_service == service_name && selected_method == method_name;
+                let selector = format!("api-grpc-method-{service_index}-{method_index}");
+                let mut button =
+                    ramag_ui::clickable_button(gpui::SharedString::from(selector.clone()))
+                        .debug_selector({
+                            let selector = selector.clone();
+                            move || selector.clone()
+                        })
+                        .xsmall()
+                        .label(format!("{} · {method_kind}", method.name));
+                button = if selected {
+                    button.primary()
+                } else {
+                    button.ghost()
+                };
+                methods = methods.child(button.on_click(cx.listener(
+                    move |view, _: &ClickEvent, window, cx| {
+                        view.grpc_service.update(cx, |input, cx| {
+                            input.set_value(service_name.clone(), window, cx)
+                        });
+                        view.grpc_method.update(cx, |input, cx| {
+                            input.set_value(method_name.clone(), window, cx)
+                        });
+                        view.notice = Some(("已选择 gRPC Method".into(), false));
+                        cx.notify();
+                    },
+                )));
             }
-            catalog = catalog.child(methods);
+            catalog_list = catalog_list.child(
+                v_flex()
+                    .w_full()
+                    .min_w_0()
+                    .gap(px(4.0))
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child(service.name.clone()),
+                    )
+                    .child(methods),
+            );
         }
+        catalog = catalog.child(catalog_list);
     }
     catalog.into_any_element()
 }

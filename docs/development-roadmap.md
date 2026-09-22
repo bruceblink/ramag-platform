@@ -315,3 +315,5 @@ API 工作台布局修正（2026-09-19）：请求工具栏将 Method/URL 与保
 API Params 编辑器修正（2026-09-19）：HTTP 工作台新增逐行 `name=value` 查询参数编辑器，导入的 Query 参数会回填并参与保存、发送和 Environment 模板展开；`ramag-tool-api` 12 项 headless 测试通过，Computer Use 仍无法取得可控原生窗口。
 
 API 工作台主体对齐修正（2026-09-19）：修复 API 主体横向 Flex 默认垂直居中导致的编辑器顶部偏移、响应面板错位和工作区底部越界；主体、编辑器和请求/响应分栏改为拉伸填充，新增 1024/1440px 主体上下边界断言。Computer Use 仍无法取得可控原生窗口，本次 UI 验收使用 GPUI headless bounds 测试。
+
+API gRPC Service 目录交互修正（2026-09-22）：Service/Method 目录改为独立的有界滚动区域，避免服务较多时把消息编辑器和响应区推到可视区域之外；当前选中的 Method 使用主按钮样式显示，点击目录会同步更新 Service 和 Method 输入框。`ramag-tool-api` 20 项库测试、Clippy、格式检查和源码行数检查通过；原生 Windows 窗口操作证据仍未取得。
