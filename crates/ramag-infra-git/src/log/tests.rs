@@ -91,7 +91,7 @@ fn non_repository_error_is_not_treated_as_empty_history()
     #[cfg(windows)]
     let temp = tempfile::tempdir_in(std::path::Path::new("C:\\"))?;
     #[cfg(not(windows))]
-    let temp = tempfile::tempdir_in(std::path::Path::new("/"))?;
+    let temp = tempfile::tempdir_in(std::env::temp_dir())?;
     assert!(run_log(temp.path(), &LogOptions::default()).is_err());
     Ok(())
 }
