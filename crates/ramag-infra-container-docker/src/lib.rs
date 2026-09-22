@@ -38,6 +38,9 @@ use serde::Serialize;
 use serde_json::Value;
 use tracing::debug;
 
+#[cfg(windows)]
+mod windows_ssh;
+
 const MAX_DOCKER_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -65,12 +68,13 @@ impl DockerDriver {
         }
         if !(address.starts_with("unix://")
             || address.starts_with("npipe://")
+            || address.starts_with("ssh://")
             || address.starts_with("https://"))
         {
             return Err(DomainError::Container(ContainerError::new(
                 ContainerErrorCategory::Unsupported,
                 "创建 Docker 连接",
-                "Docker 连接只支持 Unix socket、Windows named pipe 或 HTTPS",
+                "Docker 连接只支持 Unix socket、Windows named pipe、SSH 或 HTTPS",
             )));
         }
         Ok(())
@@ -78,8 +82,15 @@ impl DockerDriver {
 
     fn connect(profile: &ContainerEndpointProfile) -> Result<Docker> {
         Self::validate_profile(profile)?;
-        Docker::connect_with_host(&profile.address)
-            .map_err(|error| map_bollard_error("创建 Docker 连接", error))
+        #[cfg(windows)]
+        if profile.address.to_ascii_lowercase().starts_with("ssh://") {
+            return windows_ssh::connect(&profile.address).map_err(|error| {
+                map_bollard_error_with_endpoint("创建 Docker 连接", error, Some(&profile.address))
+            });
+        }
+        Docker::connect_with_host(&profile.address).map_err(|error| {
+            map_bollard_error_with_endpoint("创建 Docker 连接", error, Some(&profile.address))
+        })
     }
 
     async fn connect_and<T, F>(
@@ -108,7 +119,9 @@ impl DockerDriver {
                 let docker = Self::connect(&endpoint)?
                     .negotiate_version()
                     .await
-                    .map_err(|error| map_bollard_error(operation, error))?;
+                    .map_err(|error| {
+                        map_bollard_error_with_endpoint(operation, error, Some(&endpoint.address))
+                    })?;
                 action(docker, profile).await
             })
         })
@@ -702,6 +715,14 @@ async fn wait_for_operation_cancellation(cancellation: ContainerOperationCancell
 }
 
 fn map_bollard_error(operation: &'static str, error: BollardError) -> DomainError {
+    map_bollard_error_with_endpoint(operation, error, None)
+}
+
+fn map_bollard_error_with_endpoint(
+    operation: &'static str,
+    error: BollardError,
+    endpoint: Option<&str>,
+) -> DomainError {
     let (category, message, retryable) = match error {
         BollardError::DockerResponseServerError { status_code, .. } => {
             let (category, message) = match status_code {
@@ -743,6 +764,13 @@ fn map_bollard_error(operation: &'static str, error: BollardError) -> DomainErro
             "Docker Engine 请求失败",
             true,
         ),
+    };
+    let message = if matches!(category, ContainerErrorCategory::Network)
+        && endpoint.is_some_and(|address| address.starts_with("npipe://"))
+    {
+        "无法连接 Windows Docker named pipe；如果 Docker Engine 运行在 WSL 中，请将端点改为 ssh://<WSL用户名>@localhost，或配置 HTTPS/TLS Docker TCP 端点；也可以在 WSL 中运行 Linux 版本"
+    } else {
+        message
     };
     debug!(operation, category = ?category, retryable, "docker engine request failed");
     DomainError::Container(ContainerError::new(category, operation, message).retryable(retryable))
@@ -1189,6 +1217,8 @@ mod tests {
         );
         let local = ContainerEndpointProfile::new_docker("local", "unix:///var/run/docker.sock");
         assert!(DockerDriver::validate_profile(&local).is_ok());
+        let wsl = ContainerEndpointProfile::new_docker("wsl", "ssh://likanug@localhost");
+        assert!(DockerDriver::validate_profile(&wsl).is_ok());
     }
 
     #[test]

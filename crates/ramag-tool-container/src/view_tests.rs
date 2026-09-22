@@ -61,7 +61,11 @@ fn empty_workspace_stays_inside_supported_window_widths(cx: &mut TestAppContext)
         assert_inside(root, content, "容器管理内容区");
         assert_inside(content, empty, "容器管理空状态");
 
-        for selector in ["container-platform-picker", "container-connection-status"] {
+        for selector in [
+            "container-platform-picker",
+            "container-connection-status",
+            "container-connection-config",
+        ] {
             let bounds = cx
                 .debug_bounds(selector)
                 .unwrap_or_else(|| panic!("{selector} 应渲染"));

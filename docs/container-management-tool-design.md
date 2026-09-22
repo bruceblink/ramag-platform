@@ -54,13 +54,15 @@
 | 配置项 | Docker 连接配置 | Kubernetes 上下文 |
 |---|---|---|
 | 身份 | 稳定的本地配置 ID | 稳定的本地配置 ID 与 kubeconfig context 名称 |
-| 地址 | 本机 socket、Windows named pipe，或经 TLS 保护的 TCP 地址 | kubeconfig 指向的 API Server |
+| 地址 | 本机 socket、Windows named pipe、SSH 隧道，或经 TLS 保护的 TCP 地址 | kubeconfig 指向的 API Server |
 | 凭据 | TLS 客户端证书、token 或本机 socket 权限 | kubeconfig 支持的认证信息或外部认证插件结果 |
 | 保存位置 | Ramag 配置与秘密存储，日志只保留已脱敏的引用 | Ramag 配置只保留文件引用、context 名称和策略，敏感内容不复制到普通配置 |
 | 读取能力 | Engine version、资源列表、详情、日志 | 以实际 RBAC 返回的 API 资源和日志权限为准 |
 | 写入能力 | 由连接只读标记、生产保护模式和每项确认共同决定 | 由 Kubernetes RBAC、连接策略和每项确认共同决定 |
 
 Docker 连接配置在第一次使用时执行 API 版本协商和只读健康检查。Kubernetes 上下文在第一次使用时读取 API Server 版本、可访问命名空间和资源发现信息。认证失败、TLS 失败、权限不足、版本不兼容和取消请求必须显示为不同原因，不能统一显示为“连接失败”。
+
+Windows 程序不能直接打开 WSL 中的 Linux Unix socket。若 Docker Engine 运行在 WSL，容器管理工具支持通过 SSH 调用远端 `docker system dial-stdio`：在界面中把 Docker Engine 地址填写为 `ssh://<WSL用户名>@localhost`，并确保 Windows OpenSSH 可以登录 WSL 用户、主机校验已完成且该用户有权访问 `/var/run/docker.sock`。也可以填写经 TLS 保护的 `https://` Docker API 地址。若只使用 WSL 默认的 `unix:///var/run/docker.sock`，应在 WSL 中运行 Linux 版本的 Ramag。
 
 生产保护模式由用户在连接配置中显式设置，也可以由团队设置文件下发。处于生产保护模式的连接默认只读；启用写入前，用户需要重新确认连接配置和资源范围。工具不能根据名称包含 prod 就自动声称连接是生产环境。
 

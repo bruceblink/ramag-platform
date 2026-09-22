@@ -7963,12 +7963,15 @@ dependencies = [
  "async-trait",
  "bollard",
  "futures",
+ "hyper",
+ "hyper-util",
  "ramag-domain",
  "serde",
  "serde_json",
  "smol",
  "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]

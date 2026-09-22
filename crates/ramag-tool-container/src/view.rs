@@ -96,6 +96,9 @@ enum SelectedDetail {
 pub struct ContainerView {
     service: Option<Arc<ContainerService>>,
     registry_service: Option<Arc<ContainerRegistryService>>,
+    docker_endpoint_input: Option<Entity<InputState>>,
+    docker_input_subscription: Option<Subscription>,
+    docker_endpoint: String,
     registry_endpoint_input: Option<Entity<InputState>>,
     registry_input_subscription: Option<Subscription>,
     registry_endpoint: String,
@@ -133,6 +136,7 @@ impl ContainerView {
     ) -> Self {
         let mut view = Self::without_service();
         view.service = Some(service);
+        view.attach_docker_endpoint_input(_window, cx);
         view.refresh(cx);
         view
     }
@@ -146,6 +150,7 @@ impl ContainerView {
         let mut view = Self::without_service();
         view.service = Some(service);
         view.registry_service = Some(registry_service);
+        view.attach_docker_endpoint_input(window, cx);
         let endpoint = cx.new(|cx| {
             InputState::new(window, cx)
                 .placeholder("https://registry.example.com")
@@ -162,9 +167,13 @@ impl ContainerView {
     }
 
     fn without_service() -> Self {
+        let profile = initial_docker_profile();
         Self {
             service: None,
             registry_service: None,
+            docker_endpoint_input: None,
+            docker_input_subscription: None,
+            docker_endpoint: profile.address.clone(),
             registry_endpoint_input: None,
             registry_input_subscription: None,
             registry_endpoint: "https://registry.example.com".into(),
@@ -174,7 +183,7 @@ impl ContainerView {
             selected_registry_repository: None,
             registry_loading: false,
             registry_error: None,
-            profile: ContainerEndpointProfile::local_docker("本机 Docker"),
+            profile,
             platform: ContainerPlatform::Docker,
             section: ContainerSection::Overview,
             connection: None,
@@ -191,6 +200,24 @@ impl ContainerView {
         }
     }
 
+    fn attach_docker_endpoint_input(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let endpoint = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("unix:///var/run/docker.sock 或 ssh://用户@主机")
+                .default_value(self.docker_endpoint.clone())
+        });
+        let endpoint_for_observer = endpoint.clone();
+        self.docker_input_subscription = Some(cx.observe(&endpoint, move |view, _, cx| {
+            view.docker_endpoint = endpoint_for_observer.read(cx).value().to_string();
+            view.profile.address = view.docker_endpoint.clone();
+            view.request_id = view.request_id.wrapping_add(1);
+            view.clear_resource_state();
+            view.error = None;
+            cx.notify();
+        }));
+        self.docker_endpoint_input = Some(endpoint);
+    }
+
     fn refresh(&mut self, cx: &mut Context<Self>) {
         if self.section == ContainerSection::Registry {
             self.refresh_registry(cx);
@@ -199,13 +226,20 @@ impl ContainerView {
         let Some(service) = self.service.clone() else {
             return;
         };
+        self.sync_docker_endpoint(cx);
         self.request_id = self.request_id.wrapping_add(1);
         let request_id = self.request_id;
         let profile = self.profile.clone();
         let section = self.section;
         self.loading = true;
         self.error = None;
-        self.selected_detail = None;
+        self.clear_resource_state();
+        if let Err(error) = profile.validate() {
+            self.loading = false;
+            self.error = Some(error);
+            cx.notify();
+            return;
+        }
         cx.notify();
         cx.spawn(async move |this, async_cx| {
             let query = ContainerListQuery {
@@ -367,9 +401,7 @@ impl ContainerView {
         }
         self.platform = platform;
         self.section = ContainerSection::Overview;
-        self.connection = None;
-        self.overview = None;
-        self.selected_detail = None;
+        self.clear_resource_state();
         self.error = (platform == ContainerPlatform::Kubernetes)
             .then(|| "Kubernetes 只读查询将在 CMT-007 接入".into());
         cx.notify();
@@ -454,6 +486,26 @@ impl ContainerView {
                 self.error = Some(error.user_message());
             }
         }
+    }
+
+    fn sync_docker_endpoint(&mut self, cx: &mut Context<Self>) {
+        let endpoint = self
+            .docker_endpoint_input
+            .as_ref()
+            .map(|input| input.read(cx).value().trim().to_owned())
+            .unwrap_or_else(|| self.docker_endpoint.trim().to_owned());
+        self.docker_endpoint = endpoint.clone();
+        self.profile.address = endpoint;
+    }
+
+    fn clear_resource_state(&mut self) {
+        self.connection = None;
+        self.overview = None;
+        self.containers = None;
+        self.images = None;
+        self.networks = None;
+        self.volumes = None;
+        self.selected_detail = None;
     }
 }
 
@@ -553,6 +605,50 @@ impl Render for ContainerView {
                         cx,
                     )),
             );
+        let endpoint = self
+            .docker_endpoint_input
+            .as_ref()
+            .map(|input| {
+                Input::new(input)
+                    .small()
+                    .min_w(px(220.0))
+                    .flex_1()
+                    .disabled(self.platform != ContainerPlatform::Docker)
+                    .into_any_element()
+            })
+            .unwrap_or_else(|| {
+                div()
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(self.docker_endpoint.clone())
+                    .into_any_element()
+            });
+        let endpoint_toolbar = ramag_ui::responsive_toolbar()
+            .id("container-connection-config")
+            .debug_selector(|| "container-connection-config".into())
+            .items_center()
+            .child(
+                div()
+                    .flex_none()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("Docker Engine 地址"),
+            )
+            .child(endpoint)
+            .child(
+                ramag_ui::clickable_button("container-connect")
+                    .ghost()
+                    .small()
+                    .icon(ramag_ui::icons::refresh_cw())
+                    .label("连接")
+                    .disabled(
+                        self.loading
+                            || self.service.is_none()
+                            || self.platform == ContainerPlatform::Kubernetes,
+                    )
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.refresh(cx))),
+            );
+        let header = header.child(endpoint_toolbar);
 
         let navigation = v_flex()
             .id("container-resource-nav")
@@ -601,6 +697,16 @@ impl Render for ContainerView {
             .child(header)
             .child(body)
     }
+}
+
+fn initial_docker_profile() -> ContainerEndpointProfile {
+    let mut profile = ContainerEndpointProfile::local_docker("本机 Docker");
+    if let Ok(endpoint) = std::env::var("DOCKER_HOST")
+        && !endpoint.trim().is_empty()
+    {
+        profile.address = endpoint.trim().to_owned();
+    }
+    profile
 }
 
 impl ContainerView {
