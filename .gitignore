@@ -23,6 +23,7 @@ Cargo.lock.bak
 /tmp/
 /artifacts/
 /test-results/
+/scripts/api-test/__pycache__/
 
 # AI code
 CLAUDE.md
