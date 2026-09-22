@@ -9,6 +9,10 @@ from urllib.parse import parse_qs, urlparse
 
 
 AUTHORIZATION = "Basic " + base64.b64encode(b"api-user:api-pass").decode("ascii")
+OAUTH_CLIENT_AUTHORIZATION = "Basic " + base64.b64encode(b"oauth-client:oauth-secret").decode("ascii")
+OAUTH_ACCESS_TOKEN = "docker-oauth-token"
+OAUTH_RESOURCE_REQUESTS = 0
+OAUTH_RESOURCE_REQUESTS_LOCK = threading.Lock()
 
 
 class ApiHandler(BaseHTTPRequestHandler):
@@ -55,6 +59,22 @@ class ApiHandler(BaseHTTPRequestHandler):
                 )
             else:
                 self.send_json(200, {"authenticated": True})
+        elif parsed.path == "/oauth-protected":
+            global OAUTH_RESOURCE_REQUESTS
+            authorized = self.headers.get("Authorization") == f"Bearer {OAUTH_ACCESS_TOKEN}"
+            first_request = False
+            if authorized:
+                with OAUTH_RESOURCE_REQUESTS_LOCK:
+                    first_request = OAUTH_RESOURCE_REQUESTS == 0
+                    OAUTH_RESOURCE_REQUESTS += 1
+            if first_request or not authorized:
+                self.send_json(
+                    401,
+                    {"authenticated": False},
+                    {"WWW-Authenticate": "Bearer"},
+                )
+            else:
+                self.send_json(200, {"authenticated": True, "oauth2": True})
         elif parsed.path == "/delay":
             milliseconds = int(query.get("ms", ["0"])[0])
             time.sleep(max(0, min(milliseconds, 5_000)) / 1_000)
@@ -69,12 +89,34 @@ class ApiHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query, keep_blank_values=True)
-        if parsed.path.startswith("/echo/"):
+        if parsed.path == "/oauth/token":
+            self.send_oauth_token(self.read_body())
+        elif parsed.path.startswith("/echo/"):
             self.send_echo(parsed.path, query, self.read_body())
         elif parsed.path == "/multipart":
             self.send_multipart(self.read_body())
         else:
             self.send_json(404, {"error": "not-found"})
+
+    def send_oauth_token(self, body):
+        form = parse_qs(body.decode("utf-8", errors="replace"), keep_blank_values=True)
+        valid = (
+            self.headers.get("Authorization") == OAUTH_CLIENT_AUTHORIZATION
+            and form.get("grant_type") == ["client_credentials"]
+            and form.get("scope") == ["api.read"]
+        )
+        if not valid:
+            self.send_json(401, {"error": "invalid_client"}, {"WWW-Authenticate": "Basic"})
+            return
+        self.send_json(
+            200,
+            {
+                "access_token": OAUTH_ACCESS_TOKEN,
+                "token_type": "Bearer",
+                "expires_in": 300,
+                "scope": "api.read",
+            },
+        )
 
     def send_multipart(self, body):
         content_type = self.headers.get("Content-Type", "")

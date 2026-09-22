@@ -198,10 +198,10 @@ mod tests {
 
     use async_trait::async_trait;
     use ramag_domain::entities::{
-        ApiAssertion, ApiBody, ApiBodyMode, ApiCollection, ApiEnvironment, ApiMultipartPart,
-        ApiMultipartValue, ApiProtocol, ApiProxyConfig, ApiRequestRecord, ApiRequestSpec,
-        ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace,
-        GrpcRequestSpec, HttpRequestSpec,
+        ApiAssertion, ApiAuth, ApiBody, ApiBodyMode, ApiCollection, ApiEnvironment,
+        ApiMultipartPart, ApiMultipartValue, ApiOAuth2Config, ApiProtocol, ApiProxyConfig,
+        ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts,
+        ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
     };
     use ramag_domain::error::Result;
     use ramag_domain::traits::ApiDriver;
@@ -301,6 +301,43 @@ mod tests {
             ("proxy_password".into(), "secret".into()),
         ]);
         assert!(super::request::resolve_http_request(&spec, &unsafe_variables).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn resolves_oauth2_templates_for_grpc_without_creating_a_token()
+    -> std::result::Result<(), String> {
+        let mut spec = GrpcRequestSpec::new("{{grpc_endpoint}}", "api.docker.Echo", "Unary");
+        spec.auth = ApiAuth::OAuth2 {
+            config: ApiOAuth2Config {
+                token_url: "{{oauth_token_url}}".into(),
+                client_id: "{{client_id}}".into(),
+                client_secret: "{{client_secret}}".into(),
+                scope: Some("{{scope}}".into()),
+            },
+        };
+        let variables = BTreeMap::from([
+            ("grpc_endpoint".into(), "http://127.0.0.1:18090".into()),
+            (
+                "oauth_token_url".into(),
+                "http://127.0.0.1:18089/oauth/token".into(),
+            ),
+            ("client_id".into(), "client-id".into()),
+            ("client_secret".into(), "client-secret".into()),
+            ("scope".into(), "api.read".into()),
+        ]);
+        let resolved = super::request::resolve_request(&ApiRequestSpec::Grpc(spec), &variables)
+            .map_err(|error| error.to_string())?;
+        let ApiRequestSpec::Grpc(resolved) = resolved else {
+            return Err("应保留 gRPC 请求类型".into());
+        };
+        let ApiAuth::OAuth2 { config } = resolved.auth else {
+            return Err("应保留 OAuth2 配置".into());
+        };
+        assert_eq!(config.token_url, "http://127.0.0.1:18089/oauth/token");
+        assert_eq!(config.client_id, "client-id");
+        assert_eq!(config.client_secret, "client-secret");
+        assert_eq!(config.scope.as_deref(), Some("api.read"));
         Ok(())
     }
 

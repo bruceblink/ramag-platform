@@ -186,6 +186,7 @@ base64 = "0.22"
 toml = "0.9"
 # JumpServer REST API；使用 rustls，并读取系统证书库以兼容企业与内网证书链。
 reqwest = { version = "0.13", default-features = false, features = [
+    "form",
     "json",
     "multipart",
     "stream",
@@ -268,10 +269,11 @@ dashmap = "6"
 # Kafka 客户端；具体 crate 通过显式 feature 选择 librdkafka 的构建方式。
 rdkafka = { version = "0.39", default-features = false }
 
-# Docker Engine API；只启用 HTTP、Unix socket、Windows named pipe 和 providerless TLS。
+# Docker Engine API；支持 Unix socket、Windows named pipe、SSH 隧道和 providerless TLS。
 bollard = { version = "0.21.1", default-features = false, features = [
     "http",
     "pipe",
+    "ssh",
     "ssl_providerless",
 ] }
 # Kafka 纯 Rust 客户端；只由显式 pure-rust feature 拉入，不改变默认桌面构建。

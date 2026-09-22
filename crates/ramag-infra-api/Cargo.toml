@@ -30,6 +30,7 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 
 [build-dependencies]
+protox = { workspace = true }
 tonic-prost-build = { workspace = true }
 
 [dev-dependencies]

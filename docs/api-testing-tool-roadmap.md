@@ -1,6 +1,6 @@
 # API 测试工具开发计划
 
-> 状态：`API-000` 至 `API-007`、`API-008.1` 和 `API-008.2` 已完成；OAuth2 留作后续计划。首个可交付版本必须同时支持 HTTP 和 gRPC Unary、流式接口测试。
+> 状态：`API-000` 至 `API-007`、`API-008.1`、`API-008.2` 和 `API-008.3` 已完成。首个可交付版本已支持 HTTP 和 gRPC Unary、流式接口测试；原生 Windows 窗口操作证据仍单独记录。
 >
 > 适用范围：Ramag Platform 的 API 测试工作台、HTTP 请求、gRPC 请求、请求集合、环境变量、响应断言和本地测试服务验收。
 >
@@ -24,6 +24,8 @@
 | Metadata | gRPC Metadata | gRPC 请求 Headers、响应 Headers 和 Trailers 的协议元数据 | 不代表 Protobuf 消息字段 |
 | 双向 TLS | Mutual TLS / mTLS | 客户端和服务端互相使用证书完成身份校验的 TLS 连接 | 不代表只校验服务端证书的普通 HTTPS |
 | 显式代理 | Explicit Proxy | 请求明确指定的 HTTP 代理及其可选 Basic 认证；HTTPS/gRPC 隧道使用 CONNECT | 不代表系统代理、PAC、SOCKS 或 OAuth2 |
+| OAuth2 Client Credentials | Client Credentials | 使用 `client_id` 和 `client_secret` 向 Token Endpoint 获取短期访问令牌，并把令牌放入 HTTP Authorization 或 gRPC Metadata | 不代表用户登录授权、Refresh Token 或把访问令牌写入工作区 |
+| Token Endpoint | Token Endpoint | 接收 `grant_type=client_credentials` 和可选 `scope`，返回访问令牌的 HTTP 接口 | 不代表业务 API，也不接收令牌后的业务请求 |
 | 传输驱动 | Transport Driver | `ramag-domain` 定义、`ramag-infra-api` 实现的 HTTP/gRPC 协议适配接口 | 不代表 UI 视图或应用服务 |
 
 正文首次出现使用“规范中文名（English / Acronym）”，后续使用规范中文名；协议名称始终保留 `HTTP`、`HTTPS`、`gRPC`、`Protobuf` 和 `TLS` 的标准大小写。
@@ -119,6 +121,7 @@ flowchart LR
 - URL、Query 参数、Headers。
 - JSON、纯文本和 `application/x-www-form-urlencoded` 请求体。
 - Bearer Token、Basic Auth、API Key。
+- OAuth2 Client Credentials；访问令牌只在驱动内存中缓存，HTTP 401 会清除缓存并重试一次。
 - HTTP/HTTPS、TLS 校验、超时和取消。
 - 状态码、响应 Headers、正文、响应大小和耗时。
 - JSON 格式化、纯文本查看和正文大小限制。
@@ -152,6 +155,7 @@ flowchart LR
 - Service/Method 选择。
 - 动态 Protobuf 消息编辑和 Unary 调用。
 - 请求 Metadata、响应 Metadata、Trailers、Status 和耗时。
+- Basic/Bearer/API Key/OAuth2 Client Credentials；OAuth2 令牌以 Authorization Metadata 发送，Reflection 请求复用同一认证配置。
 - gRPC 状态码、Metadata、消息字段和耗时断言。
 
 #### API-003 代码与本机 Docker 集成记录（2026-09-19）
@@ -217,7 +221,7 @@ API-006 拆为三个独立验收切片，按顺序提交：
 2. Ramag JSON 与 Postman Collection v2.1 导入：输入大小有界，坏数据定位到 Collection、Folder、Request 和字段；导入后的请求必须复用 API-005 的环境变量、断言和执行链路。
 3. OpenAPI 3 JSON 导入：读取服务器、Path、Operation、Parameters、JSON Request Body 和示例，无法安全映射的引用或字段必须报告具体路径。
 
-三个 API-006 切片、API-007 的 Multipart 和 gRPC 流式调用切片，以及 API-008.1 的 mTLS、API-008.2 的显式代理切片均已完成；本文件保留每个切片的独立验收边界，OAuth2 仍留作 API-008.3。
+三个 API-006 切片、API-007 的 Multipart 和 gRPC 流式调用切片，以及 API-008.1 的 mTLS、API-008.2 的显式代理和 API-008.3 的 OAuth2 切片均已完成；本文件保留每个切片的独立验收边界。
 
 Collection 运行切片验收记录（2026-09-19）：`ApiService::run_collection` 按保存顺序串行调用 API-005 执行链路，共享 Environment 和取消标记；汇总每条请求的响应、错误、取消状态及通过/失败/取消计数，取消后不启动后续请求。API 工作台新增请求工具栏和 Collection 汇总，桌面端使用请求/响应并排布局，窄窗口改为纵向布局；Header、工具栏和主体之间增加 headless bounds 非重叠检查。
 
@@ -257,7 +261,7 @@ API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Par
 
 ### 3.10 API-007 Multipart 请求切片（2026-09-20）
 
-本切片完成 HTTP `multipart/form-data` 的领域、应用、驱动和工作台闭环；gRPC 流式调用的验收记录见下一节，mTLS 和显式代理已在 API-008.1、API-008.2 完成，OAuth2 仍属于 API-008.3 后续计划：
+本切片完成 HTTP `multipart/form-data` 的领域、应用、驱动和工作台闭环；gRPC 流式调用的验收记录见下一节，mTLS、显式代理和 OAuth2 的验收记录见后续章节：
 
 - `ramag-domain` 新增 `ApiBodyMode`、`ApiMultipartPart` 和文本/文件字段模型；限制字段数量最多 64 个，单个文件最多 16 MiB，文件正文总量最多 32 MiB，文件路径和文件名有独立长度上限。Multipart 请求不能手动设置 `Content-Type`，由驱动生成 boundary；旧版纯文本正文 JSON 仍可读取，Debug 输出不显示正文和文件路径。
 - `ramag-app` 展开 Multipart 字段名称、文本值、文件路径、文件名和字段 `Content-Type` 中的环境变量，不把 Multipart 请求降级为普通文本正文；请求变量、取消标记和应用层校验继续沿用 API-005 执行链路。
@@ -267,11 +271,11 @@ API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Par
 
 本切片通过：`cargo test --locked -p ramag-domain --lib` 213 项、`cargo test --locked -p ramag-app --lib` 223 项、`cargo test --locked -p ramag-infra-api --lib` 11 项、`cargo test --locked -p ramag-tool-api --lib` 15 项；真实 Docker 回归 `RAMAG_TEST_API_HTTP_URL=http://127.0.0.1:18089 cargo test --locked -p ramag-infra-api --test docker_http -- --test-threads=1` 1 项通过。目标 Clippy、workspace 提交钩子的格式/Clippy、源码尺寸检查和 `git diff --check` 均通过。
 
-未完成项：OAuth2 留作 API-008.3 后续计划；真实 Windows 窗口截图、键盘和鼠标证据仍受 Computer Use 空应用列表限制，不能用 headless GPUI 结果替代。
+未完成项：真实 Windows 窗口截图、键盘和鼠标证据仍受 Computer Use 空应用列表限制，不能用 headless GPUI 结果替代。
 
 ### 3.11 API-007 gRPC 流式调用切片（2026-09-20）
 
-本切片只实现 gRPC 流式调用，不扩展 mTLS、代理和 OAuth2：
+本切片只实现 gRPC 流式调用，不扩展 mTLS、代理和 OAuth2；三项能力在后续独立切片完成：
 
 - `ramag-domain` 允许 gRPC 流式请求正文使用换行，并增加最多 1024 条消息的限制；普通 Unary 请求仍按完整 Protobuf JSON 解析。
 - `ramag-infra-api` 根据 Descriptor 的 `client_streaming` 和 `server_streaming` 标记选择四种调用方式。Client Streaming 和 Bidirectional Streaming 的请求正文按行解析，每行一个 Protobuf JSON 对象；Server Streaming 和 Bidirectional Streaming 的响应保存为 JSON 数组，Client Streaming 的最终响应保持单个 JSON 对象。
@@ -280,13 +284,13 @@ API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Par
 - `ramag-tool-api` 将 gRPC 消息编辑器改为多行 JSON 编辑器，并明确提示流式请求的逐行格式；Unary 请求仍可使用普通 JSON 对象。
 - 本地进程内测试覆盖 Unary、Server Streaming、Client Streaming、Bidirectional Streaming、Reflection 方法标记和 Metadata；Docker gRPC 测试服务覆盖相同方法，并通过真实容器回归。
 
-本切片不实现 mTLS、代理或 OAuth2；三项能力保留在后续计划，后续设计需要分别补充证书双向校验、代理连接策略和 Token 安全存储/刷新边界。
+本切片不实现 mTLS、代理或 OAuth2；三项能力由后续独立切片分别补充，避免把流式消息处理和认证、连接配置改动混在同一提交中。
 
 本轮验收：`ramag-infra-api` 单元测试 15 项、Domain 213 项、App 223 项、API 工作台 15 项通过；Docker 镜像 `ramag-api-grpc-test:rust-1.91.0-bookworm` 构建成功，容器绑定 `127.0.0.1:18090 -> 50051` 并保持 `healthy`，真实 `docker_grpc` 回归通过 1 项，覆盖 Reflection、Unary、Server Streaming、Client Streaming、Bidirectional Streaming、Metadata、错误状态和取消。服务配置 `restart: unless-stopped`，保留运行供复验。
 
 ### 3.12 API-008.1 双向 TLS（Mutual TLS / mTLS）切片（2026-09-20）
 
-本切片完成 HTTP 和 gRPC 的双向 TLS 传输闭环；显式代理已由 API-008.2 完成，OAuth2 仍保留为 API-008.3 后续独立切片：
+本切片完成 HTTP 和 gRPC 的双向 TLS 传输闭环；显式代理和 OAuth2 继续使用独立传输切片：
 
 - `ramag-domain` 保留 CA、客户端证书和客户端密钥路径的有界配置；配置客户端身份时禁止使用 `verify=none`，避免客户端证书认证同时关闭服务端身份校验。
 - `ramag-tool-api` 增加共享 TLS/mTLS 编辑区，支持 `full`、`ca`、`none` 校验模式以及 CA、客户端证书和客户端密钥路径；HTTP 请求、gRPC 请求和 Server Reflection 使用同一份配置，导入/保存会保留路径。
@@ -297,7 +301,7 @@ API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Par
 
 ### 3.13 API-008.2 显式代理（Explicit Proxy）切片设计与实现边界（2026-09-20）
 
-本切片只处理显式 HTTP 代理：明文 HTTP 使用标准代理转发，HTTPS/gRPC 使用 HTTP CONNECT 隧道；不扩展系统代理、PAC、SOCKS、代理链或 OAuth2：
+本切片只处理显式 HTTP 代理：明文 HTTP 使用标准代理转发，HTTPS/gRPC 使用 HTTP CONNECT 隧道；不扩展系统代理、PAC、SOCKS、代理链或 OAuth2，OAuth2 由下一独立切片负责：
 
 - `ramag-domain` 增加共享 `ApiProxyConfig`；代理地址只接受 `http://`，禁止 URL 内嵌用户名/密码，用户名和密码必须成对配置并受长度、控制字符和 URL 结构校验限制。未配置代理时保持直连，不能读取进程环境中的代理变量。
 - `ramag-infra-api` 的 HTTP 驱动使用 reqwest 的显式代理配置；gRPC 和 Server Reflection 使用受限的 HTTP CONNECT 自定义连接器，先与代理建立 TCP 连接并完成有界的 `200 Connection Established` 校验，再交给现有 HTTP/2 和 TLS 链路。代理认证失败、CONNECT 非 2xx、目标地址无效和连接取消都返回安全的连接错误。
@@ -308,9 +312,23 @@ API Query 编辑器修正记录（2026-09-19）：HTTP 工作台新增有界 Par
 
 本切片验收记录（2026-09-21）：`cargo test --locked -p ramag-domain --lib` 通过 218 项，`cargo test --locked -p ramag-app --lib` 通过 224 项，`cargo test --locked -p ramag-infra-api --all-targets` 的单元目标通过 15 项，`cargo test --locked -p ramag-tool-api --lib` 通过 18 项；真实 Docker 回归使用 `127.0.0.1:18089`/`18091` 的 HTTP 服务和 `127.0.0.1:18090`/`18092` 的 gRPC 服务，并通过 `127.0.0.1:18093`/`18094` 的 Basic 认证代理。HTTP `docker_http` 代理回归 1 项、gRPC `docker_grpc` 代理回归 1 项通过，覆盖普通请求、mTLS、正确认证、错误认证、超时、Reflection、Unary 和取消。HTTP、gRPC 服务及两个代理容器均为 `healthy/running`，配置 `restart: unless-stopped` 并保留运行供复验；`cargo fmt --all -- --check`、workspace Clippy、源码尺寸检查、提交钩子检查和 `git diff --check` 通过。本轮不增加真实 Windows 窗口 UI 测试。
 
+### 3.14 API-008.3 OAuth2 Client Credentials 切片
+
+本切片完成 HTTP 和 gRPC API 调用的 OAuth2 Client Credentials 认证，范围和安全边界如下：
+
+- `ramag-domain` 增加 `ApiAuth::OAuth2` 和 `ApiOAuth2Config`，校验 Token Endpoint、Client ID、Client Secret 和可选 Scope；调试输出只保留 Token Endpoint 和 Scope，不显示 Client Secret。
+- `ramag-app` 在执行副本中展开 OAuth2 配置模板，再次校验展开结果；Client Secret 继续由现有加密工作区保存，访问令牌不进入请求记录、响应历史、导出文件或日志。
+- `ramag-infra-api` 使用 `client_credentials` 向 Token Endpoint 发起 `application/x-www-form-urlencoded` 请求，并通过 HTTP Basic 发送 Client ID/Client Secret。访问令牌只由进程内驱动缓存，按认证配置、TLS 和代理边界隔离，提前 10 秒刷新，缓存有效期最多 24 小时，Token Endpoint 响应最多读取 64 KiB。
+- HTTP 请求把访问令牌写入 `Authorization: Bearer ...`；收到 HTTP 401 时清除对应缓存并只重试一次。gRPC 请求和 Server Reflection 把访问令牌写入 `authorization` Metadata；收到 `Unauthenticated` 或 Reflection 的同类认证失败时清除缓存并只重试一次。
+- HTTP/gRPC Token Endpoint 请求复用当前 TLS、显式代理、超时和取消规则；Token Endpoint 的 400/401、无效令牌类型、空令牌、无效有效期和超大响应均返回安全错误，不包含 Client Secret 或访问令牌。
+- `ramag-tool-api` 的 HTTP/gRPC 认证编辑器支持 None、Basic、Bearer、OAuth2 Client Credentials 和 API Key；Client Secret、Bearer Token、API Key 值使用掩码控件，gRPC Reflection 与实际调用共用认证配置。
+- 本机 Docker HTTP/gRPC 回归服务增加 Token Endpoint、受保护 HTTP 资源和受保护 gRPC Unary 方法；OAuth2 变量由 `api-test.ps1` 和 `grpc-test.ps1` 自动注入，缺少变量时只跳过 OAuth2 子场景，不影响其他协议回归。
+
+本切片验收记录（2026-09-21）：`ramag-domain` 220 项、`ramag-app` 225 项、`ramag-infra-api --all-targets` 16 项单元测试及 2 项 Docker 集成测试、`ramag-tool-api --lib` 18 项通过。HTTP Docker 回归使用 `127.0.0.1:18089/oauth/token` 获取 `docker-oauth-token` 后访问 `/oauth-protected`；gRPC Docker 回归使用同一 Token Endpoint，并把令牌发送到受保护 Unary 方法。HTTP、gRPC 服务及两个 Basic 认证代理容器均为 `healthy/running`，配置 `restart: unless-stopped` 并保留运行供复验。`cargo fmt --all -- --check`、目标源码尺寸检查、`git diff --check` 和目标编译通过；真实 Windows 窗口截图、键盘和鼠标证据仍未完成。
+
 ## 4. 首期非目标
 
-- OAuth2 不阻塞当前双协议版本，单独排期到 API-008.3；mTLS 和显式代理已由 API-008.1、API-008.2 完成。
+- 不支持 OAuth2 Authorization Code、Device Code、Refresh Token、动态客户端注册或外部身份管理；当前只实现 Client Credentials。
 - 不执行任意 JavaScript 或 Lua 脚本；首期只提供声明式断言。
 - 不实现云端同步、团队协作和远程 Collection 服务。
 - 不通过 Shell、`curl` 或外部命令执行请求，避免命令拼接和凭据泄露。
@@ -372,7 +390,7 @@ ApiResponseSnapshot   = status, headers, metadata, body, timing, size, truncated
 | `API-008` | 扩展传输能力 | `API-007` | mTLS、代理和 OAuth2 | 每项能力都有独立安全配置、失败恢复和敏感信息处理证据 |
 | `API-008.1` | 双向 TLS（mTLS） | `API-008` | HTTP/gRPC 客户端证书和 CA 校验 | HTTP、gRPC 和 Server Reflection 均有本机 Docker 双向 TLS 证据 |
 | `API-008.2` | 显式 HTTP 代理 | `API-008` | HTTP 转发、HTTPS/gRPC CONNECT 隧道和 Basic 认证 | HTTP、gRPC 和 Server Reflection 均有本机 Docker 代理成功/失败证据 |
-| `API-008.3` | OAuth2 | `API-008` | Token 安全存储、刷新、失效和失败恢复 | HTTP、gRPC 请求及敏感配置处理均有独立协议和安全配置证据 |
+| `API-008.3` | OAuth2 | `API-008` | Token 安全存储、刷新、失效和失败恢复 | 已完成 HTTP、gRPC 请求、Reflection、工作台认证编辑器及敏感配置处理验收 |
 
 同一时间只推进一个 `API-*` 交付切片；每个独立切片完成测试后使用一个 Conventional Commit，并立即推送当前 `dev` 分支。
 
@@ -438,6 +456,7 @@ git diff --check
 10. `feat: add grpc streaming api requests`
 11. `feat: add api mutual tls transport`
 12. `feat: add api proxy support`
+13. `feat: add api oauth2 client credentials`
 
 首个双协议版本的完成条件是：`API-000` 至 `API-007` 均完成，API-007 的 Multipart 和 gRPC 四种调用形态有本地协议与 Docker 证据，UI headless 验收通过，并完成至少一组真实 Windows 窗口截图；当前代码和 Docker/headless 证据已满足前四项，原生窗口截图仍未完成，不能用 headless 结果替代。
 
@@ -445,8 +464,6 @@ git diff --check
 
 - `API-001` 至 `API-007` 的已实现范围均有本地协议测试、本机 Docker 集成验收和 API 工作台 headless 双协议验收记录。API-007 的 Multipart 和 gRPC 流式调用均已完成领域、应用、驱动、UI 和本机 Docker 验收；gRPC 工作台支持 Reflection、`FileDescriptorSet` 导入和原始 `.proto` 编译导入。
 - API 工作台的真实 Windows 窗口截图、键盘操作和鼠标操作仍未完成，原因是 Computer Use 返回可控应用列表为空；这项限制不影响已完成的 headless 布局/交互测试和 Docker 协议测试，但不能把 API-004 的窗口验收写成完成。
-- OAuth2 尚未实现，属于 API-008.3 后续独立切片，进入开发前仍需设计 Token 安全存储/刷新、失败恢复和敏感配置处理。mTLS 和显式代理已分别由 API-008.1、API-008.2 完成。
-
-下一项进入 API-008.3 OAuth2 切片，继续维护真实 Docker/协议证据和敏感配置边界。
+- OAuth2 Client Credentials 已由 API-008.3 完成；未完成项仅包括真实 Windows 窗口截图、键盘和鼠标证据，以及未纳入当前范围的 Authorization Code、Device Code 和 Refresh Token 流程。
 
 API 工作台主体对齐修正（2026-09-19）：修复 API 主体横向 Flex 默认垂直居中导致的编辑器顶部偏移、响应面板错位和工作区底部越界；主体、编辑器和请求/响应分栏改为拉伸填充，新增 1024/1440px 主体上下边界断言。Computer Use 仍无法取得可控原生窗口，本次 UI 验收使用 GPUI headless bounds 测试。

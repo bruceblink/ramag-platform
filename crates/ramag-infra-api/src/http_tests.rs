@@ -256,6 +256,84 @@ async fn supports_basic_and_api_key_auth_locations() {
     .await;
 }
 
+#[tokio::test]
+async fn rejects_manual_authorization_when_auth_is_configured() {
+    let mut spec = HttpRequestSpec::new("GET", "http://127.0.0.1:1/auth");
+    spec.headers
+        .push(ApiParameter::new("Authorization", "Bearer manual", true));
+    spec.auth = ApiAuth::Bearer {
+        token: "configured".into(),
+    };
+    let error = HttpApiDriver::new()
+        .expect("HTTP driver initializes")
+        .execute(
+            &ApiRequestSpec::Http(spec),
+            &BTreeMap::new(),
+            cancellation(),
+        )
+        .await
+        .expect_err("conflicting authorization should be rejected before connect");
+    assert!(matches!(
+        error,
+        DomainError::InvalidConfig(message)
+            if message.contains("不能与认证配置同时设置 authorization")
+    ));
+}
+
+#[tokio::test]
+async fn oauth2_client_credentials_fetches_and_applies_bearer_token() {
+    let mut token_server = spawn_server(
+        response(
+            "200 OK",
+            &[("Content-Type", "application/json")],
+            br#"{"access_token":"token-1","token_type":"Bearer","expires_in":300}"#,
+        ),
+        None,
+    )
+    .await;
+    let mut resource_server = spawn_server(
+        response(
+            "200 OK",
+            &[("Content-Type", "application/json")],
+            br#"{"oauth":true}"#,
+        ),
+        None,
+    )
+    .await;
+    let mut request = HttpRequestSpec::new("GET", resource_server.url("/protected"));
+    request.auth = ApiAuth::OAuth2 {
+        config: ramag_domain::entities::ApiOAuth2Config {
+            token_url: token_server.url("/oauth/token"),
+            client_id: "client-id".into(),
+            client_secret: "client-secret".into(),
+            scope: Some("api.read".into()),
+        },
+    };
+
+    let response = HttpApiDriver::new()
+        .expect("HTTP driver initializes")
+        .execute(
+            &ApiRequestSpec::Http(request),
+            &BTreeMap::new(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .await
+        .expect("OAuth2 resource request succeeds");
+    assert_eq!(response.status, ApiResponseStatus::Http { code: 200 });
+
+    let token_request = token_server.wait_for_request().await;
+    let token_request = String::from_utf8_lossy(&token_request);
+    assert!(token_request.contains("grant_type=client_credentials"));
+    assert!(token_request.contains("scope=api.read"));
+    assert!(token_request.contains("authorization: Basic Y2xpZW50LWlkOmNsaWVudC1zZWNyZXQ="));
+    let resource_request = resource_server.wait_for_request().await;
+    let resource_request = String::from_utf8_lossy(&resource_request);
+    assert!(resource_request.contains("authorization: Bearer token-1"));
+
+    token_server.stop().await;
+    resource_server.stop().await;
+}
+
 async fn execute_auth_case(auth: ApiAuth, expected: &str) {
     let mut server = spawn_server(response("200 OK", &[], b"ok"), None).await;
     let mut spec = HttpRequestSpec::new("GET", server.url("/auth"));

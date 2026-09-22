@@ -12,9 +12,9 @@ use http::Uri;
 use hyper_util::rt::TokioIo;
 use prost_reflect::DynamicMessage;
 use ramag_domain::entities::{
-    ApiCancellation, ApiParameter, ApiProtocol, ApiProxyConfig, ApiResponseSnapshot,
-    ApiResponseSnapshotParts, ApiResponseStatus, ApiTlsConfig, ApiTlsVerify,
-    MAX_API_PARAMETER_COUNT, MAX_API_RESPONSE_BODY_BYTES,
+    ApiAuth, ApiCancellation, ApiKeyLocation, ApiParameter, ApiProtocol, ApiProxyConfig,
+    ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiTlsConfig, ApiTlsVerify,
+    MAX_API_PARAMETER_COUNT, MAX_API_PARAMETER_VALUE_BYTES, MAX_API_RESPONSE_BODY_BYTES,
 };
 use ramag_domain::error::{DomainError, Result as DomainResult};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
@@ -31,8 +31,10 @@ use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity
 use tonic::{Response, Status};
 
 use crate::http::{
-    ExpandedParameter, ensure_not_cancelled as check_not_cancelled, expand_parameter, read_tls_file,
+    ExpandedParameter, ensure_not_cancelled as check_not_cancelled, expand_parameter,
+    expand_template, read_tls_file,
 };
+use crate::oauth2::{OAuth2TokenProvider, resolve_oauth2_config};
 
 pub(super) fn build_endpoint(
     endpoint_text: String,
@@ -271,6 +273,114 @@ pub(super) fn request_metadata(
         }
     }
     Ok(metadata)
+}
+
+/// 把 HTTP/gRPC 共用的认证配置转换为 gRPC Metadata；OAuth2 令牌只在本次调用的内存路径中出现。
+pub(super) struct AuthMetadataContext<'a> {
+    pub(super) variables: &'a std::collections::BTreeMap<String, String>,
+    pub(super) oauth2: &'a OAuth2TokenProvider,
+    pub(super) tls: &'a ApiTlsConfig,
+    pub(super) proxy: &'a ApiProxyConfig,
+    pub(super) timeout: Duration,
+    pub(super) cancelled: ApiCancellation,
+    pub(super) force_refresh: bool,
+}
+
+pub(super) async fn apply_auth_metadata(
+    auth: &ApiAuth,
+    metadata: &mut MetadataMap,
+    context: AuthMetadataContext<'_>,
+) -> DomainResult<()> {
+    if matches!(auth, ApiAuth::None) {
+        return Ok(());
+    }
+    if metadata.contains_key("authorization") {
+        return Err(DomainError::InvalidConfig(
+            "gRPC Metadata 不能与认证配置同时设置 authorization".into(),
+        ));
+    }
+    let (name, value) = match auth {
+        ApiAuth::None => return Ok(()),
+        ApiAuth::Basic { username, password } => {
+            let username = expand_template(
+                username,
+                context.variables,
+                "Basic 用户名",
+                MAX_API_PARAMETER_VALUE_BYTES,
+            )?;
+            let password = expand_template(
+                password,
+                context.variables,
+                "Basic 密码",
+                MAX_API_PARAMETER_VALUE_BYTES,
+            )?;
+            use base64::Engine as _;
+            let encoded =
+                base64::engine::general_purpose::STANDARD.encode(format!("{username}:{password}"));
+            ("authorization".to_string(), format!("Basic {encoded}"))
+        }
+        ApiAuth::Bearer { token } => (
+            "authorization".into(),
+            format!(
+                "Bearer {}",
+                expand_template(
+                    token,
+                    context.variables,
+                    "Bearer Token",
+                    MAX_API_PARAMETER_VALUE_BYTES,
+                )?
+            ),
+        ),
+        ApiAuth::OAuth2 { config } => {
+            let config = resolve_oauth2_config(config, context.variables)?;
+            let token = context
+                .oauth2
+                .access_token(
+                    &config,
+                    context.tls,
+                    context.proxy,
+                    context.timeout,
+                    context.cancelled,
+                    context.force_refresh,
+                )
+                .await?;
+            (
+                "authorization".into(),
+                format!("{} {}", token.scheme, token.value),
+            )
+        }
+        ApiAuth::ApiKey {
+            name,
+            value,
+            location,
+        } => {
+            if *location == ApiKeyLocation::Query {
+                return Err(DomainError::InvalidConfig(
+                    "gRPC API Key 只支持 Metadata Header 位置".into(),
+                ));
+            }
+            (
+                expand_template(
+                    name,
+                    context.variables,
+                    "API Key 名称",
+                    MAX_API_PARAMETER_VALUE_BYTES,
+                )?,
+                expand_template(
+                    value,
+                    context.variables,
+                    "API Key 值",
+                    MAX_API_PARAMETER_VALUE_BYTES,
+                )?,
+            )
+        }
+    };
+    let key = AsciiMetadataKey::from_bytes(name.as_bytes())
+        .map_err(|_| DomainError::InvalidConfig("gRPC 认证 Metadata 名称无效".into()))?;
+    let value = MetadataValue::try_from(value.as_str())
+        .map_err(|_| DomainError::InvalidConfig("gRPC 认证 Metadata 值无效".into()))?;
+    metadata.insert(key, value);
+    Ok(())
 }
 
 pub(super) fn success_snapshot(

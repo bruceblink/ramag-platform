@@ -68,6 +68,10 @@ switch ($Command) {
     "test" {
         Start-GrpcTest
         $env:RAMAG_TEST_API_GRPC_URL = $Endpoint
+        $env:RAMAG_TEST_API_OAUTH2_TOKEN_URL = "http://127.0.0.1:18089/oauth/token"
+        $env:RAMAG_TEST_API_OAUTH2_CLIENT_ID = "oauth-client"
+        $env:RAMAG_TEST_API_OAUTH2_CLIENT_SECRET = "oauth-secret"
+        $env:RAMAG_TEST_API_OAUTH2_SCOPE = "api.read"
         $env:RAMAG_TEST_API_GRPC_MTLS_URL = $TlsEndpoint
         $env:RAMAG_TEST_API_TLS_DIRECTORY = $TlsDirectory
         $env:RAMAG_TEST_API_GRPC_PROXY_URL = $ProxyEndpoint

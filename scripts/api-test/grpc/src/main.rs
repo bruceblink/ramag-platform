@@ -1,5 +1,7 @@
 use std::fs;
 use std::net::SocketAddr;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tonic::metadata::{BinaryMetadataValue, MetadataValue};
@@ -12,8 +14,10 @@ mod proto {
 
 const DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("api_docker");
 
-#[derive(Default)]
-struct EchoService;
+#[derive(Clone, Default)]
+struct EchoService {
+    reject_first_oauth: Arc<AtomicBool>,
+}
 
 type EchoResponseStream =
     tokio_stream::Iter<std::vec::IntoIter<Result<proto::EchoResponse, Status>>>;
@@ -26,6 +30,18 @@ fn check_metadata<T>(request: &Request<T>) -> Result<(), Status> {
         != Some("docker")
     {
         return Err(Status::invalid_argument("missing x-request metadata"));
+    }
+    Ok(())
+}
+
+fn check_oauth_metadata<T>(request: &Request<T>) -> Result<(), Status> {
+    if request
+        .metadata()
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        != Some("Bearer docker-oauth-token")
+    {
+        return Err(Status::unauthenticated("missing OAuth2 bearer token"));
     }
     Ok(())
 }
@@ -47,6 +63,12 @@ impl proto::echo_server::Echo for EchoService {
     ) -> Result<Response<proto::EchoResponse>, Status> {
         check_metadata(&request)?;
 
+        if request.get_ref().message == "oauth" {
+            if !self.reject_first_oauth.swap(true, Ordering::AcqRel) {
+                return Err(Status::unauthenticated("expired OAuth2 bearer token"));
+            }
+            check_oauth_metadata(&request)?;
+        }
         let message = request.into_inner().message;
         if message == "error" {
             let mut status = Status::failed_precondition("docker requested failure");
@@ -143,7 +165,7 @@ async fn serve(
         builder
     };
     builder
-        .add_service(proto::echo_server::EchoServer::new(EchoService))
+        .add_service(proto::echo_server::EchoServer::new(EchoService::default()))
         .add_service(reflection)
         .serve(address)
         .await?;

@@ -2,10 +2,10 @@ use super::*;
 
 use gpui::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_domain::entities::{
-    ApiAssertion, ApiAuth, ApiBody, ApiBodyMode, ApiCollection, ApiGrpcDescriptor, ApiParameter,
-    ApiProtocol, ApiProxyConfig, ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot,
-    ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
-    import_api_json,
+    ApiAssertion, ApiAuth, ApiBody, ApiBodyMode, ApiCollection, ApiGrpcDescriptor, ApiOAuth2Config,
+    ApiParameter, ApiProtocol, ApiProxyConfig, ApiRequestRecord, ApiRequestSpec,
+    ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus, ApiWorkspace,
+    GrpcRequestSpec, HttpRequestSpec, import_api_json,
 };
 
 fn click(cx: &mut VisualTestContext, selector: &'static str) {
@@ -284,8 +284,13 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
         .query
         .push(ApiParameter::new("q", "{{query}}", false));
     request.headers = vec![ApiParameter::new("Content-Type", "application/json", false)];
-    request.auth = ApiAuth::Bearer {
-        token: "{{token}}".into(),
+    request.auth = ApiAuth::OAuth2 {
+        config: ApiOAuth2Config {
+            token_url: "{{token_url}}".into(),
+            client_id: "{{client_id}}".into(),
+            client_secret: "{{client_secret}}".into(),
+            scope: Some("{{scope}}".into()),
+        },
     };
     request.body = Some(ApiBody::text(
         "{\"enabled\":true}",
@@ -317,7 +322,7 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
             view.request_name.read(app).value().to_string(),
             view.http_url.read(app).value().to_string(),
             view.http_query.read(app).value().to_string(),
-            view.http_auth.clone(),
+            view.auth_editor.label(),
             view.http_body_content_type.clone(),
             view.http_body.read(app).value().to_string(),
             view.proxy_url.read(app).value().to_string(),
@@ -328,12 +333,7 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
     assert_eq!(imported.0, "Imported Request");
     assert_eq!(imported.1, "{{base_url}}/users");
     assert_eq!(imported.2, "q={{query}}");
-    assert_eq!(
-        imported.3,
-        ApiAuth::Bearer {
-            token: "{{token}}".into()
-        }
-    );
+    assert_eq!(imported.3, "OAuth2 Client Credentials",);
     assert_eq!(imported.4, "application/json");
     assert_eq!(imported.5, "{\"enabled\":true}");
     assert_eq!(imported.6, "http://proxy.example:8080");
@@ -344,11 +344,21 @@ fn api_imported_request_populates_editor_and_preserves_authentication(cx: &mut T
         let view = view.read(app);
         request_from_view(view, app)
     });
-    assert!(matches!(
-        rebuilt,
-        Ok(ApiRequestSpec::Http(HttpRequestSpec { proxy, .. }))
-            if proxy == expected_proxy
-    ));
+    let Ok(ApiRequestSpec::Http(rebuilt)) = rebuilt else {
+        panic!("导入请求应保留 HTTP 类型");
+    };
+    assert_eq!(rebuilt.proxy, expected_proxy);
+    assert_eq!(
+        rebuilt.auth,
+        ApiAuth::OAuth2 {
+            config: ApiOAuth2Config {
+                token_url: "{{token_url}}".into(),
+                client_id: "{{client_id}}".into(),
+                client_secret: "{{client_secret}}".into(),
+                scope: Some("{{scope}}".into()),
+            },
+        }
+    );
 }
 
 #[gpui::test]
@@ -416,7 +426,7 @@ fn api_openapi_import_populates_request_editor_and_environment(cx: &mut TestAppC
             view.http_body.read(app).value().to_string(),
             view.environment_variables.read(app).value().to_string(),
             view.environment_sensitive.read(app).value().to_string(),
-            view.http_auth.clone(),
+            view.auth_editor.label(),
         )
     });
     assert_eq!(imported.0, "apiJson");
@@ -426,12 +436,7 @@ fn api_openapi_import_populates_request_editor_and_environment(cx: &mut TestAppC
     assert_eq!(imported.4, "{\"ok\":true}");
     assert!(imported.5.contains("version=api"));
     assert_eq!(imported.6, "openapi_bearerAuth_token");
-    assert_eq!(
-        imported.7,
-        ApiAuth::Bearer {
-            token: "{{openapi_bearerAuth_token}}".into()
-        }
-    );
+    assert_eq!(imported.7, "Bearer",);
 }
 
 #[test]

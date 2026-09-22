@@ -143,13 +143,17 @@ impl ApiView {
                 let handle = match kind {
                     GrpcImportKind::DescriptorSet => {
                         rfd::AsyncFileDialog::new()
+                            .set_title("选择 gRPC DescriptorSet 文件")
                             .add_filter("Protobuf FileDescriptorSet", &["bin", "fds", "desc"])
+                            .add_filter("所有文件", &["*"])
                             .pick_file()
                             .await
                     }
                     GrpcImportKind::ProtoSource => {
                         rfd::AsyncFileDialog::new()
-                            .add_filter("Protobuf source", &["proto"])
+                            .set_title("选择 gRPC .proto 源文件")
+                            .add_filter("Protobuf 源文件（.proto）", &["proto"])
+                            .add_filter("所有文件", &["*"])
                             .pick_file()
                             .await
                     }
@@ -406,6 +410,14 @@ impl ApiView {
         };
         let mut request = ApiGrpcDiscoverySpec::new(input_value(&self.grpc_endpoint, cx));
         request.descriptor = self.grpc_descriptor.clone();
+        request.auth = match self.auth_editor.to_auth(cx) {
+            Ok(auth) => auth,
+            Err(error) => {
+                self.notice = Some((error.to_string(), true));
+                cx.notify();
+                return;
+            }
+        };
         request.tls = match context::tls_from_view(self, cx) {
             Ok(tls) => tls,
             Err(error) => {

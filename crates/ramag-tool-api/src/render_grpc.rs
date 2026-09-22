@@ -66,6 +66,7 @@ pub(super) fn render_editor(
                     Input::new(&view.grpc_metadata_value).small(),
                 )),
         )
+        .child(view.auth_editor.render(cx, theme))
         .child(
             v_flex()
                 .gap(px(5.0))

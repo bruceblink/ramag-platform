@@ -6,10 +6,11 @@
 use std::collections::BTreeMap;
 
 use ramag_domain::entities::{
-    ApiAuth, ApiBody, ApiBodyMode, ApiMultipartPart, ApiMultipartValue, ApiParameter,
-    ApiProxyConfig, ApiRequestSpec, GrpcRequestSpec, HttpRequestSpec, MAX_API_GRPC_ENDPOINT_BYTES,
-    MAX_API_GRPC_METHOD_BYTES, MAX_API_GRPC_SERVICE_BYTES, MAX_API_MULTIPART_FILE_NAME_BYTES,
-    MAX_API_MULTIPART_PATH_BYTES, MAX_API_PARAMETER_NAME_BYTES, MAX_API_PARAMETER_VALUE_BYTES,
+    ApiAuth, ApiBody, ApiBodyMode, ApiMultipartPart, ApiMultipartValue, ApiOAuth2Config,
+    ApiParameter, ApiProxyConfig, ApiRequestSpec, GrpcRequestSpec, HttpRequestSpec,
+    MAX_API_GRPC_ENDPOINT_BYTES, MAX_API_GRPC_METHOD_BYTES, MAX_API_GRPC_SERVICE_BYTES,
+    MAX_API_MULTIPART_FILE_NAME_BYTES, MAX_API_MULTIPART_PATH_BYTES, MAX_API_OAUTH2_SCOPE_BYTES,
+    MAX_API_OAUTH2_URL_BYTES, MAX_API_PARAMETER_NAME_BYTES, MAX_API_PARAMETER_VALUE_BYTES,
     MAX_API_PROXY_CREDENTIAL_BYTES, MAX_API_PROXY_URL_BYTES, MAX_API_REQUEST_BODY_BYTES,
     MAX_API_URL_TEMPLATE_BYTES, resolve_template,
 };
@@ -124,50 +125,7 @@ pub(super) fn resolve_http_request(
         .iter()
         .map(|parameter| expand_parameter(parameter, variables, "HTTP Headers"))
         .collect::<Result<Vec<_>>>()?;
-    resolved.auth = match &spec.auth {
-        ApiAuth::None => ApiAuth::None,
-        ApiAuth::Basic { username, password } => ApiAuth::Basic {
-            username: expand(
-                username,
-                variables,
-                "Basic 用户名",
-                MAX_API_PARAMETER_VALUE_BYTES,
-            )?,
-            password: expand(
-                password,
-                variables,
-                "Basic 密码",
-                MAX_API_PARAMETER_VALUE_BYTES,
-            )?,
-        },
-        ApiAuth::Bearer { token } => ApiAuth::Bearer {
-            token: expand(
-                token,
-                variables,
-                "Bearer Token",
-                MAX_API_PARAMETER_VALUE_BYTES,
-            )?,
-        },
-        ApiAuth::ApiKey {
-            name,
-            value,
-            location,
-        } => ApiAuth::ApiKey {
-            name: expand(
-                name,
-                variables,
-                "API Key 名称",
-                MAX_API_PARAMETER_NAME_BYTES,
-            )?,
-            value: expand(
-                value,
-                variables,
-                "API Key 值",
-                MAX_API_PARAMETER_VALUE_BYTES,
-            )?,
-            location: *location,
-        },
-    };
+    resolved.auth = resolve_auth(&spec.auth, variables)?;
     resolved.body = match &spec.body {
         Some(body) => Some(match body.mode {
             ApiBodyMode::Text => ApiBody::text(
@@ -266,6 +224,7 @@ fn resolve_grpc_request(
 ) -> Result<GrpcRequestSpec> {
     let mut resolved = spec.clone();
     resolved.proxy = resolve_proxy_config(&spec.proxy, variables)?;
+    resolved.auth = resolve_auth(&spec.auth, variables)?;
     resolved.endpoint_template = expand(
         &spec.endpoint_template,
         variables,
@@ -297,4 +256,80 @@ fn resolve_grpc_request(
     )?;
     resolved.validate().map_err(DomainError::InvalidConfig)?;
     Ok(resolved)
+}
+
+fn resolve_auth(auth: &ApiAuth, variables: &BTreeMap<String, String>) -> Result<ApiAuth> {
+    match auth {
+        ApiAuth::None => Ok(ApiAuth::None),
+        ApiAuth::Basic { username, password } => Ok(ApiAuth::Basic {
+            username: expand(
+                username,
+                variables,
+                "Basic 用户名",
+                MAX_API_PARAMETER_VALUE_BYTES,
+            )?,
+            password: expand(
+                password,
+                variables,
+                "Basic 密码",
+                MAX_API_PARAMETER_VALUE_BYTES,
+            )?,
+        }),
+        ApiAuth::Bearer { token } => Ok(ApiAuth::Bearer {
+            token: expand(
+                token,
+                variables,
+                "Bearer Token",
+                MAX_API_PARAMETER_VALUE_BYTES,
+            )?,
+        }),
+        ApiAuth::OAuth2 { config } => Ok(ApiAuth::OAuth2 {
+            config: ApiOAuth2Config {
+                token_url: expand(
+                    &config.token_url,
+                    variables,
+                    "OAuth2 Token URL",
+                    MAX_API_OAUTH2_URL_BYTES,
+                )?,
+                client_id: expand(
+                    &config.client_id,
+                    variables,
+                    "OAuth2 Client ID",
+                    MAX_API_PARAMETER_VALUE_BYTES,
+                )?,
+                client_secret: expand(
+                    &config.client_secret,
+                    variables,
+                    "OAuth2 Client Secret",
+                    MAX_API_PARAMETER_VALUE_BYTES,
+                )?,
+                scope: config
+                    .scope
+                    .as_ref()
+                    .map(|scope| {
+                        expand(scope, variables, "OAuth2 Scope", MAX_API_OAUTH2_SCOPE_BYTES)
+                    })
+                    .transpose()?,
+            },
+        }),
+        ApiAuth::ApiKey {
+            name,
+            value,
+            location,
+        } => Ok(ApiAuth::ApiKey {
+            name: expand(
+                name,
+                variables,
+                "API Key 名称",
+                MAX_API_PARAMETER_NAME_BYTES,
+            )?,
+            value: expand(
+                value,
+                variables,
+                "API Key 值",
+                MAX_API_PARAMETER_VALUE_BYTES,
+            )?,
+            location: *location,
+        }),
+    }
 }

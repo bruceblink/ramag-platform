@@ -7,9 +7,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use ramag_domain::entities::{
-    ApiAuth, ApiBody, ApiCancellation, ApiMultipartPart, ApiParameter, ApiProxyConfig,
-    ApiRequestSpec, ApiResponseStatus, ApiTlsConfig, ApiTlsVerify, ApiWorkspace, HttpRequestSpec,
-    import_api_json,
+    ApiAuth, ApiBody, ApiCancellation, ApiMultipartPart, ApiOAuth2Config, ApiParameter,
+    ApiProxyConfig, ApiRequestSpec, ApiResponseStatus, ApiTlsConfig, ApiTlsVerify, ApiWorkspace,
+    HttpRequestSpec, import_api_json,
 };
 use ramag_domain::error::DomainError;
 use ramag_domain::traits::ApiDriver;
@@ -47,6 +47,17 @@ fn docker_proxy_config() -> Option<ApiProxyConfig> {
         url: Some(std::env::var("RAMAG_TEST_API_HTTP_PROXY_URL").ok()?),
         username: Some(std::env::var("RAMAG_TEST_API_PROXY_USERNAME").ok()?),
         password: Some(std::env::var("RAMAG_TEST_API_PROXY_PASSWORD").ok()?),
+    })
+}
+
+fn docker_oauth2_auth() -> Option<ApiAuth> {
+    Some(ApiAuth::OAuth2 {
+        config: ApiOAuth2Config {
+            token_url: std::env::var("RAMAG_TEST_API_OAUTH2_TOKEN_URL").ok()?,
+            client_id: std::env::var("RAMAG_TEST_API_OAUTH2_CLIENT_ID").ok()?,
+            client_secret: std::env::var("RAMAG_TEST_API_OAUTH2_CLIENT_SECRET").ok()?,
+            scope: Some(std::env::var("RAMAG_TEST_API_OAUTH2_SCOPE").ok()?),
+        },
     })
 }
 
@@ -204,6 +215,22 @@ async fn docker_http_fixture_covers_requests_errors_auth_timeout_and_cancellatio
         .await?;
     assert_eq!(authenticated.status, ApiResponseStatus::Http { code: 200 });
     assert!(body_text(&authenticated.body)?.contains("authenticated"));
+
+    if let Some(auth) = docker_oauth2_auth() {
+        let mut oauth = HttpRequestSpec::new("GET", format!("{endpoint}/oauth-protected"));
+        oauth.auth = auth;
+        let oauth = driver
+            .execute(
+                &ApiRequestSpec::Http(oauth),
+                &BTreeMap::new(),
+                cancellation(),
+            )
+            .await?;
+        assert_eq!(oauth.status, ApiResponseStatus::Http { code: 200 });
+        assert!(body_text(&oauth.body)?.contains("\"oauth2\":true"));
+    } else {
+        eprintln!("跳过 HTTP Docker OAuth2 回归；缺少 Token Endpoint 环境变量");
+    }
 
     let mut delayed = HttpRequestSpec::new("GET", format!("{endpoint}/delay?ms=250"));
     delayed.timeout_millis = 50;

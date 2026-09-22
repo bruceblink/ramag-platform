@@ -187,6 +187,8 @@ Actions → Desktop Release → Run workflow
 
 日常开发先在当前 PowerShell 激活 Windows MSVC 工具链；脚本通过 `vswhere.exe` 和 `vcvarsall.bat` 加载 Visual Studio 18 2026 的 x64 编译器、链接器、Windows SDK 和 CMake，并固定使用 `Visual Studio 18 2026` 的 x64 CMake 生成器，然后直接使用统一的 Cargo 命令：
 
+API 工作台的 gRPC 构建期 DescriptorSet 使用工作区内的 `protox` 纯 Rust 编译器生成，不依赖单独安装的 `protoc`；Windows 构建仍需要本节列出的 MSVC、Windows SDK、CMake 和 Release 所需的 `fxc.exe`。
+
 ```powershell
 . .\scripts\windows\enable-msvc-toolchain.ps1
 cargo build

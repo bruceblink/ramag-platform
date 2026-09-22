@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepositoryRoot = Split-Path -Parent (Split-Path -Parent $ScriptDirectory)
 $ComposeFile = Join-Path $ScriptDirectory "compose.yaml"
-$ProjectName = "ramag-api-http-test"
+$ProjectName = "api-test"
 $ContainerName = "ramag-api-http-test"
 $ProxyContainerName = "ramag-api-http-proxy-test"
 $TestHost = "127.0.0.1"
@@ -68,6 +68,10 @@ switch ($Command) {
     "test" {
         Start-ApiTest
         $env:RAMAG_TEST_API_HTTP_URL = $Endpoint
+        $env:RAMAG_TEST_API_OAUTH2_TOKEN_URL = "$Endpoint/oauth/token"
+        $env:RAMAG_TEST_API_OAUTH2_CLIENT_ID = "oauth-client"
+        $env:RAMAG_TEST_API_OAUTH2_CLIENT_SECRET = "oauth-secret"
+        $env:RAMAG_TEST_API_OAUTH2_SCOPE = "api.read"
         $env:RAMAG_TEST_API_HTTP_MTLS_URL = $TlsEndpoint
         $env:RAMAG_TEST_API_TLS_DIRECTORY = $TlsDirectory
         $env:RAMAG_TEST_API_HTTP_PROXY_URL = $ProxyEndpoint

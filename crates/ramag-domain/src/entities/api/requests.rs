@@ -106,6 +106,9 @@ pub struct ApiGrpcDiscoverySpec {
     /// Descriptor 来源；Reflection 需要建立网络连接，FileDescriptorSet 可离线解析。
     #[serde(default)]
     pub descriptor: ApiGrpcDescriptor,
+    /// Reflection 请求使用的认证配置；OAuth2 访问令牌只在驱动内存中生成。
+    #[serde(default)]
+    pub auth: ApiAuth,
     /// 服务端证书验证和客户端证书身份配置。
     #[serde(default)]
     pub tls: ApiTlsConfig,
@@ -123,6 +126,7 @@ impl ApiGrpcDiscoverySpec {
         Self {
             endpoint_template: endpoint_template.into(),
             descriptor: ApiGrpcDescriptor::default(),
+            auth: ApiAuth::default(),
             tls: ApiTlsConfig::default(),
             proxy: ApiProxyConfig::default(),
             timeout_millis: default_api_timeout(),
@@ -136,6 +140,7 @@ impl ApiGrpcDiscoverySpec {
             MAX_API_GRPC_ENDPOINT_BYTES,
         )?;
         self.descriptor.validate()?;
+        self.auth.validate()?;
         self.tls.validate()?;
         self.proxy.validate()?;
         validate_timeout(self.timeout_millis)
@@ -159,6 +164,9 @@ pub struct GrpcRequestSpec {
     /// 消息 Descriptor 来源；Reflection 会先查询目标服务，文件集合则完全离线。
     #[serde(default)]
     pub descriptor: ApiGrpcDescriptor,
+    /// gRPC 请求认证配置；OAuth2 令牌最终作为 Authorization Metadata 发送。
+    #[serde(default)]
+    pub auth: ApiAuth,
     /// gRPC Metadata 参数；敏感项只影响展示和历史记录，发送时仍按原值编码。
     #[serde(default)]
     pub metadata: Vec<ApiParameter>,
@@ -184,6 +192,7 @@ impl fmt::Debug for GrpcRequestSpec {
             .field("service", &self.service)
             .field("method", &self.method)
             .field("descriptor", &self.descriptor)
+            .field("auth", &self.auth)
             .field("metadata_count", &self.metadata.len())
             .field("message_bytes", &self.message.len())
             .field("tls", &self.tls)
@@ -205,6 +214,7 @@ impl GrpcRequestSpec {
             service: service.into(),
             method: method.into(),
             descriptor: ApiGrpcDescriptor::default(),
+            auth: ApiAuth::default(),
             metadata: Vec::new(),
             message: "{}".into(),
             tls: ApiTlsConfig::default(),
@@ -233,6 +243,7 @@ impl GrpcRequestSpec {
             false,
         )?;
         self.descriptor.validate()?;
+        self.auth.validate()?;
         self.tls.validate()?;
         self.proxy.validate()?;
         validate_timeout(self.timeout_millis)

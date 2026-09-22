@@ -3,15 +3,7 @@ use super::*;
 use gpui::ClickEvent;
 use gpui::FontWeight;
 use gpui_component::{Disableable as _, button::ButtonVariants as _};
-
-pub(super) fn auth_label(auth: &ApiAuth) -> &'static str {
-    match auth {
-        ApiAuth::None => "None",
-        ApiAuth::Basic { .. } => "Basic",
-        ApiAuth::Bearer { .. } => "Bearer",
-        ApiAuth::ApiKey { .. } => "API Key",
-    }
-}
+use ramag_ui::PointerDropdownMenu as _;
 
 pub(super) fn render_collection_button(
     view: &ApiView,
@@ -59,19 +51,44 @@ pub(super) fn render_request_toolbar(
         .label(if view.saving { "保存中" } else { "保存" })
         .disabled(view.saving || view.importing || view.loading || view.grpc_discovering)
         .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.save(cx)));
-    let import = ramag_ui::clickable_button("api-import")
-        .debug_selector(|| "api-import".into())
-        .xsmall()
-        .label(if view.importing {
-            "导入中"
-        } else {
-            "导入"
-        })
-        .disabled(view.importing || view.saving || view.loading || view.grpc_discovering)
-        .ghost()
-        .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
-            view.import(window, cx);
-        }));
+    let import = {
+        let current_protocol = view.protocol;
+        let view_entity = cx.entity();
+        ramag_ui::clickable_button("api-import")
+            .debug_selector(|| "api-import".into())
+            .xsmall()
+            .label(if view.importing {
+                "导入中"
+            } else {
+                "导入"
+            })
+            .disabled(view.importing || view.saving || view.loading || view.grpc_discovering)
+            .ghost()
+            .dropdown_caret(true)
+            .pointer_dropdown_menu(move |mut menu, _, _| {
+                let view = view_entity.clone();
+                menu = menu.item(ramag_ui::menu_item("导入工作区 JSON").on_click(
+                    move |_: &ClickEvent, window, cx| {
+                        view.update(cx, |view, cx| view.import(window, cx));
+                    },
+                ));
+                if current_protocol == ApiProtocol::Grpc {
+                    let view = view_entity.clone();
+                    menu = menu.item(ramag_ui::menu_item("导入 .proto").on_click(
+                        move |_: &ClickEvent, window, cx| {
+                            view.update(cx, |view, cx| view.import_grpc_proto(window, cx));
+                        },
+                    ));
+                    let view = view_entity.clone();
+                    menu = menu.item(ramag_ui::menu_item("导入 DescriptorSet").on_click(
+                        move |_: &ClickEvent, window, cx| {
+                            view.update(cx, |view, cx| view.import_grpc_descriptor(window, cx));
+                        },
+                    ));
+                }
+                menu
+            })
+    };
     let send = ramag_ui::clickable_button("api-send")
         .debug_selector(|| "api-send".into())
         .xsmall()

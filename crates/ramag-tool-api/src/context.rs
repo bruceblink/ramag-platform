@@ -430,7 +430,7 @@ pub(crate) fn apply_imported_workspace(
     match &request.request {
         ApiRequestSpec::Http(spec) => {
             view.protocol = ApiProtocol::Http;
-            view.http_auth = spec.auth.clone();
+            view.auth_editor.set_auth(&spec.auth, window, cx);
             set_tls_inputs(view, &spec.tls, window, cx);
             set_proxy_inputs(view, &spec.proxy, window, cx);
             view.http_body_mode = spec
@@ -476,7 +476,7 @@ pub(crate) fn apply_imported_workspace(
         ApiRequestSpec::Grpc(spec) => {
             view.protocol = ApiProtocol::Grpc;
             view.grpc_descriptor = spec.descriptor.clone();
-            view.http_auth = ApiAuth::None;
+            view.auth_editor.set_auth(&spec.auth, window, cx);
             set_tls_inputs(view, &spec.tls, window, cx);
             set_proxy_inputs(view, &spec.proxy, window, cx);
             view.http_body_mode = ApiBodyMode::Text;

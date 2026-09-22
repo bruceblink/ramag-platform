@@ -9,6 +9,7 @@ use ramag_domain::entities::{
     ApiCancellation, MAX_API_DESCRIPTOR_BYTES, MAX_API_GRPC_STREAM_MESSAGES,
 };
 use ramag_domain::error::{DomainError, Result as DomainResult};
+use tonic::metadata::MetadataMap;
 use tonic::{Request, Status};
 use tonic_reflection::pb::v1::{
     FileDescriptorResponse, ServerReflectionRequest, ServerReflectionResponse,
@@ -28,6 +29,7 @@ pub(super) async fn reflection_symbol_pool(
     service: &str,
     timeout: Duration,
     cancelled: ApiCancellation,
+    metadata: MetadataMap,
 ) -> DomainResult<DescriptorPool> {
     let request = ServerReflectionRequest {
         host: String::new(),
@@ -35,7 +37,7 @@ pub(super) async fn reflection_symbol_pool(
             server_reflection_request::MessageRequest::FileContainingSymbol(service.to_owned()),
         ),
     };
-    let responses = reflection_messages(channel, request, timeout, cancelled).await?;
+    let responses = reflection_messages(channel, request, timeout, cancelled, metadata).await?;
     descriptor_pool_from_reflection(responses)
 }
 
@@ -43,6 +45,7 @@ pub(super) async fn reflection_catalog_pool(
     channel: tonic::transport::Channel,
     timeout: Duration,
     cancelled: ApiCancellation,
+    metadata: MetadataMap,
 ) -> DomainResult<DescriptorPool> {
     let list_request = ServerReflectionRequest {
         host: String::new(),
@@ -50,8 +53,14 @@ pub(super) async fn reflection_catalog_pool(
             String::new(),
         )),
     };
-    let list =
-        reflection_messages(channel.clone(), list_request, timeout, cancelled.clone()).await?;
+    let list = reflection_messages(
+        channel.clone(),
+        list_request,
+        timeout,
+        cancelled.clone(),
+        metadata.clone(),
+    )
+    .await?;
     let service_names = list
         .into_iter()
         .find_map(|response| match response.message_response {
@@ -81,7 +90,14 @@ pub(super) async fn reflection_catalog_pool(
             ),
         };
         descriptor_bytes.extend(
-            reflection_messages(channel.clone(), request, timeout, cancelled.clone()).await?,
+            reflection_messages(
+                channel.clone(),
+                request,
+                timeout,
+                cancelled.clone(),
+                metadata.clone(),
+            )
+            .await?,
         );
     }
     descriptor_pool_from_reflection(descriptor_bytes)
@@ -92,9 +108,11 @@ async fn reflection_messages(
     request: ServerReflectionRequest,
     timeout: Duration,
     cancelled: ApiCancellation,
+    metadata: MetadataMap,
 ) -> DomainResult<Vec<ServerReflectionResponse>> {
     let mut client = ServerReflectionClient::new(channel);
     let mut request = Request::new(tokio_stream::iter([request]));
+    *request.metadata_mut() = metadata;
     request.set_timeout(timeout);
     let response = tokio::select! {
         result = client.server_reflection_info(request) => result.map_err(map_reflection_status)?,

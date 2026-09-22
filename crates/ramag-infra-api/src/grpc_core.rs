@@ -9,8 +9,8 @@ use http::uri::PathAndQuery;
 use prost::Message;
 use prost_reflect::{DynamicMessage, MessageDescriptor};
 use ramag_domain::entities::{
-    ApiCancellation, ApiGrpcDescriptor, ApiGrpcDiscoverySpec, ApiGrpcMethodSummary,
-    ApiGrpcServiceSummary, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot,
+    ApiAuth, ApiCancellation, ApiGrpcDescriptor, ApiGrpcDiscoverySpec, ApiGrpcMethodSummary,
+    ApiGrpcServiceSummary, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot, ApiResponseStatus,
 };
 use ramag_domain::error::{DomainError, Result as DomainResult};
 use ramag_domain::traits::ApiDriver;
@@ -27,23 +27,28 @@ mod transport;
 pub(crate) use descriptor::parse_request_messages;
 use descriptor::{descriptor_pool, find_method, reflection_symbol_pool};
 use transport::{
-    build_endpoint, connect_endpoint, request_metadata, status_snapshot, success_snapshot,
+    AuthMetadataContext, apply_auth_metadata, build_endpoint, connect_endpoint, request_metadata,
+    status_snapshot, success_snapshot,
 };
+
+use crate::oauth2::{OAuth2TokenProvider, resolve_oauth2_config};
 
 const MAX_DISCOVERED_SERVICES: usize = 256;
 
 pub type GrpcServiceMethod = ApiGrpcMethodSummary;
 pub type GrpcServiceSummary = ApiGrpcServiceSummary;
 
-/// 无状态的动态 gRPC 驱动，支持四种方法类型。
+/// 动态 gRPC 驱动，支持四种方法类型并在内存中缓存 OAuth2 访问令牌。
 #[derive(Clone, Debug, Default)]
-pub struct GrpcApiDriver;
+pub struct GrpcApiDriver {
+    oauth2: OAuth2TokenProvider,
+}
 
 impl GrpcApiDriver {
     /// 创建驱动并确保 rustls 已安装可用的加密 Provider。
     pub fn new() -> DomainResult<Self> {
         transport::ensure_tls_provider()?;
-        Ok(Self)
+        Ok(Self::default())
     }
 
     /// 从本地 Descriptor 或 Server Reflection 读取 Service/Method 目录。
@@ -67,8 +72,24 @@ impl GrpcApiDriver {
             ApiGrpcDescriptor::FileDescriptorSet { bytes } => descriptor_pool(bytes)?,
             ApiGrpcDescriptor::Reflection => {
                 let endpoint = build_endpoint(endpoint_text, &request.tls, timeout)?;
+                let mut metadata = request_metadata(&[], variables)?;
+                apply_auth_metadata(
+                    &request.auth,
+                    &mut metadata,
+                    AuthMetadataContext {
+                        variables,
+                        oauth2: &self.oauth2,
+                        tls: &request.tls,
+                        proxy: &proxy,
+                        timeout,
+                        cancelled: cancelled.clone(),
+                        force_refresh: false,
+                    },
+                )
+                .await?;
                 let channel = connect_endpoint(endpoint, &proxy, cancelled.clone()).await?;
-                descriptor::reflection_catalog_pool(channel, timeout, cancelled.clone()).await?
+                descriptor::reflection_catalog_pool(channel, timeout, cancelled.clone(), metadata)
+                    .await?
             }
         };
         let services = descriptor::service_summaries(&pool)?;
@@ -78,6 +99,20 @@ impl GrpcApiDriver {
             ));
         }
         Ok(services)
+    }
+
+    async fn invalidate_oauth2(
+        &self,
+        spec: &ramag_domain::entities::GrpcRequestSpec,
+        variables: &BTreeMap<String, String>,
+    ) -> DomainResult<bool> {
+        let ApiAuth::OAuth2 { config } = &spec.auth else {
+            return Ok(false);
+        };
+        let proxy = crate::http::resolve_proxy_config(&spec.proxy, variables)?;
+        let config = resolve_oauth2_config(config, variables)?;
+        self.oauth2.invalidate(&config, &spec.tls, &proxy).await;
+        Ok(true)
     }
 }
 
@@ -112,106 +147,137 @@ impl ApiDriver for GrpcApiDriver {
             }
         };
         spec.validate().map_err(DomainError::InvalidConfig)?;
-        transport::ensure_not_cancelled(&cancelled)?;
-        let proxy = crate::http::resolve_proxy_config(&spec.proxy, variables)?;
-
-        let endpoint_text = crate::http::expand_template(
-            &spec.endpoint_template,
-            variables,
-            "gRPC Endpoint 模板",
-            ramag_domain::entities::MAX_API_GRPC_ENDPOINT_BYTES,
-        )?;
-        let timeout = Duration::from_millis(spec.timeout_millis);
-        let endpoint = build_endpoint(endpoint_text, &spec.tls, timeout)?;
-        let channel = connect_endpoint(endpoint, &proxy, cancelled.clone()).await?;
-        let pool = match &spec.descriptor {
-            ApiGrpcDescriptor::Reflection => {
-                reflection_symbol_pool(channel.clone(), &spec.service, timeout, cancelled.clone())
-                    .await?
+        let snapshot = match execute_once(self, spec, variables, cancelled.clone(), false).await {
+            Ok(snapshot) => snapshot,
+            Err(error)
+                if is_unauthenticated_error(&error)
+                    && self.invalidate_oauth2(spec, variables).await? =>
+            {
+                execute_once(self, spec, variables, cancelled.clone(), true).await?
             }
-            ApiGrpcDescriptor::FileDescriptorSet { bytes } => descriptor_pool(bytes)?,
+            Err(error) => return Err(error),
         };
-        let method = find_method(&pool, &spec.service, &spec.method)?;
-        let message = crate::http::expand_template(
-            &spec.message,
+        if matches!(
+            &snapshot.status,
+            ApiResponseStatus::Grpc { code } if code == "Unauthenticated"
+        ) && self.invalidate_oauth2(spec, variables).await?
+        {
+            return execute_once(self, spec, variables, cancelled, true).await;
+        }
+        Ok(snapshot)
+    }
+}
+
+async fn execute_once(
+    driver: &GrpcApiDriver,
+    spec: &ramag_domain::entities::GrpcRequestSpec,
+    variables: &BTreeMap<String, String>,
+    cancelled: ApiCancellation,
+    force_refresh: bool,
+) -> DomainResult<ApiResponseSnapshot> {
+    transport::ensure_not_cancelled(&cancelled)?;
+    let proxy = crate::http::resolve_proxy_config(&spec.proxy, variables)?;
+
+    let endpoint_text = crate::http::expand_template(
+        &spec.endpoint_template,
+        variables,
+        "gRPC Endpoint 模板",
+        ramag_domain::entities::MAX_API_GRPC_ENDPOINT_BYTES,
+    )?;
+    let timeout = Duration::from_millis(spec.timeout_millis);
+    let endpoint = build_endpoint(endpoint_text, &spec.tls, timeout)?;
+    let mut metadata = request_metadata(&spec.metadata, variables)?;
+    apply_auth_metadata(
+        &spec.auth,
+        &mut metadata,
+        AuthMetadataContext {
             variables,
-            "gRPC 请求消息",
-            ramag_domain::entities::MAX_API_REQUEST_BODY_BYTES,
-        )?;
-        let request_messages =
-            parse_request_messages(&message, method.input(), method.is_client_streaming())?;
-        let metadata = request_metadata(&spec.metadata, variables)?;
-        let path = format!("/{}/{}", spec.service, spec.method);
-        let started = Instant::now();
-        let client = DynamicGrpcClient::new(channel);
-        if method.is_client_streaming() && method.is_server_streaming() {
-            let call = client.streaming_with_timeout(
-                &path,
-                request_messages,
-                method.output(),
-                metadata,
+            oauth2: &driver.oauth2,
+            tls: &spec.tls,
+            proxy: &proxy,
+            timeout,
+            cancelled: cancelled.clone(),
+            force_refresh,
+        },
+    )
+    .await?;
+    let channel = connect_endpoint(endpoint, &proxy, cancelled.clone()).await?;
+    let pool = match &spec.descriptor {
+        ApiGrpcDescriptor::Reflection => {
+            reflection_symbol_pool(
+                channel.clone(),
+                &spec.service,
                 timeout,
-            );
-            return match tokio::select! {
-                result = call => result,
-                _ = crate::http::wait_until_cancelled(cancelled.clone()) => {
-                    return Err(DomainError::Cancelled("gRPC 请求已取消".into()));
-                }
-            } {
-                Ok(response) => stream::collect_response_stream(response, started, cancelled).await,
-                Err(status) => status_snapshot(status, started),
-            };
+                cancelled.clone(),
+                metadata.clone(),
+            )
+            .await?
         }
+        ApiGrpcDescriptor::FileDescriptorSet { bytes } => descriptor_pool(bytes)?,
+    };
+    let method = find_method(&pool, &spec.service, &spec.method)?;
+    let message = crate::http::expand_template(
+        &spec.message,
+        variables,
+        "gRPC 请求消息",
+        ramag_domain::entities::MAX_API_REQUEST_BODY_BYTES,
+    )?;
+    let request_messages =
+        parse_request_messages(&message, method.input(), method.is_client_streaming())?;
+    let path = format!("/{}/{}", spec.service, spec.method);
+    let started = Instant::now();
+    let client = DynamicGrpcClient::new(channel);
+    if method.is_client_streaming() && method.is_server_streaming() {
+        let call = client.streaming_with_timeout(
+            &path,
+            request_messages,
+            method.output(),
+            metadata,
+            timeout,
+        );
+        return match tokio::select! {
+            result = call => result,
+            _ = crate::http::wait_until_cancelled(cancelled.clone()) => {
+                return Err(DomainError::Cancelled("gRPC 请求已取消".into()));
+            }
+        } {
+            Ok(response) => stream::collect_response_stream(response, started, cancelled).await,
+            Err(status) => status_snapshot(status, started),
+        };
+    }
 
-        if method.is_server_streaming() {
-            let request_message = request_messages
-                .into_iter()
-                .next()
-                .ok_or_else(|| DomainError::InvalidConfig("gRPC 请求消息不能为空".into()))?;
-            let call = client.server_streaming_with_timeout(
-                &path,
-                request_message,
-                method.output(),
-                metadata,
-                timeout,
-            );
-            return match tokio::select! {
-                result = call => result,
-                _ = crate::http::wait_until_cancelled(cancelled.clone()) => {
-                    return Err(DomainError::Cancelled("gRPC 请求已取消".into()));
-                }
-            } {
-                Ok(response) => stream::collect_response_stream(response, started, cancelled).await,
-                Err(status) => status_snapshot(status, started),
-            };
-        }
-
-        if method.is_client_streaming() {
-            let call = client.client_streaming_with_timeout(
-                &path,
-                request_messages,
-                method.output(),
-                metadata,
-                timeout,
-            );
-            return match tokio::select! {
-                result = call => result,
-                _ = crate::http::wait_until_cancelled(cancelled) => {
-                    return Err(DomainError::Cancelled("gRPC 请求已取消".into()));
-                }
-            } {
-                Ok(response) => success_snapshot(response, started),
-                Err(status) => status_snapshot(status, started),
-            };
-        }
-
+    if method.is_server_streaming() {
         let request_message = request_messages
             .into_iter()
             .next()
             .ok_or_else(|| DomainError::InvalidConfig("gRPC 请求消息不能为空".into()))?;
-        let call =
-            client.unary_with_timeout(&path, request_message, method.output(), metadata, timeout);
-        match tokio::select! {
+        let call = client.server_streaming_with_timeout(
+            &path,
+            request_message,
+            method.output(),
+            metadata,
+            timeout,
+        );
+        return match tokio::select! {
+            result = call => result,
+            _ = crate::http::wait_until_cancelled(cancelled.clone()) => {
+                return Err(DomainError::Cancelled("gRPC 请求已取消".into()));
+            }
+        } {
+            Ok(response) => stream::collect_response_stream(response, started, cancelled).await,
+            Err(status) => status_snapshot(status, started),
+        };
+    }
+
+    if method.is_client_streaming() {
+        let call = client.client_streaming_with_timeout(
+            &path,
+            request_messages,
+            method.output(),
+            metadata,
+            timeout,
+        );
+        return match tokio::select! {
             result = call => result,
             _ = crate::http::wait_until_cancelled(cancelled) => {
                 return Err(DomainError::Cancelled("gRPC 请求已取消".into()));
@@ -219,8 +285,31 @@ impl ApiDriver for GrpcApiDriver {
         } {
             Ok(response) => success_snapshot(response, started),
             Err(status) => status_snapshot(status, started),
-        }
+        };
     }
+
+    let request_message = request_messages
+        .into_iter()
+        .next()
+        .ok_or_else(|| DomainError::InvalidConfig("gRPC 请求消息不能为空".into()))?;
+    let call =
+        client.unary_with_timeout(&path, request_message, method.output(), metadata, timeout);
+    match tokio::select! {
+        result = call => result,
+        _ = crate::http::wait_until_cancelled(cancelled) => {
+            return Err(DomainError::Cancelled("gRPC 请求已取消".into()));
+        }
+    } {
+        Ok(response) => success_snapshot(response, started),
+        Err(status) => status_snapshot(status, started),
+    }
+}
+
+fn is_unauthenticated_error(error: &DomainError) -> bool {
+    matches!(
+        error,
+        DomainError::ConnectionFailed(message) if message.contains("Unauthenticated")
+    )
 }
 
 /// 通过运行时 Descriptor 调用 gRPC 方法。

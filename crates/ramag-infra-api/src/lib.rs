@@ -7,6 +7,7 @@
 #[path = "grpc_core.rs"]
 mod grpc;
 mod http;
+mod oauth2;
 
 pub use grpc::{DynamicGrpcClient, GrpcApiDriver, GrpcServiceMethod, GrpcServiceSummary};
 pub use http::HttpApiDriver;

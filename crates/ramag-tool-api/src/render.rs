@@ -1,6 +1,6 @@
 use super::render_body;
 use super::render_helpers::{
-    auth_label, render_assertion_results, render_collection_summary, render_context_editor,
+    render_assertion_results, render_collection_summary, render_context_editor,
     render_extracted_variables, render_history, render_request_toolbar,
 };
 use super::*;
@@ -294,22 +294,7 @@ fn render_http_editor(
                 )
                 .child(Input::new(&view.http_headers).small().h(px(112.0))),
         )
-        .child(
-            h_flex()
-                .justify_between()
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("Auth"),
-                )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child(auth_label(&view.http_auth)),
-                ),
-        )
+        .child(view.auth_editor.render(cx, theme))
         .child(render_body::render_http_body(view, cx, theme))
         .into_any_element()
 }

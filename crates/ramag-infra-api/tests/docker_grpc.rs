@@ -6,8 +6,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use ramag_domain::entities::{
-    ApiCancellation, ApiGrpcDescriptor, ApiGrpcDiscoverySpec, ApiParameter, ApiProxyConfig,
-    ApiRequestSpec, ApiResponseStatus, ApiTlsConfig, ApiTlsVerify, GrpcRequestSpec,
+    ApiAuth, ApiCancellation, ApiGrpcDescriptor, ApiGrpcDiscoverySpec, ApiOAuth2Config,
+    ApiParameter, ApiProxyConfig, ApiRequestSpec, ApiResponseStatus, ApiTlsConfig, ApiTlsVerify,
+    GrpcRequestSpec,
 };
 use ramag_domain::error::DomainError;
 use ramag_domain::traits::ApiDriver;
@@ -45,6 +46,17 @@ fn docker_proxy_config() -> Option<ApiProxyConfig> {
         url: Some(std::env::var("RAMAG_TEST_API_GRPC_PROXY_URL").ok()?),
         username: Some(std::env::var("RAMAG_TEST_API_PROXY_USERNAME").ok()?),
         password: Some(std::env::var("RAMAG_TEST_API_PROXY_PASSWORD").ok()?),
+    })
+}
+
+fn docker_oauth2_auth() -> Option<ApiAuth> {
+    Some(ApiAuth::OAuth2 {
+        config: ApiOAuth2Config {
+            token_url: std::env::var("RAMAG_TEST_API_OAUTH2_TOKEN_URL").ok()?,
+            client_id: std::env::var("RAMAG_TEST_API_OAUTH2_CLIENT_ID").ok()?,
+            client_secret: std::env::var("RAMAG_TEST_API_OAUTH2_CLIENT_SECRET").ok()?,
+            scope: Some(std::env::var("RAMAG_TEST_API_OAUTH2_SCOPE").ok()?),
+        },
     })
 }
 
@@ -102,6 +114,20 @@ async fn docker_grpc_fixture_covers_reflection_unary_metadata_status_and_cancell
             parameter.name == "x-response" && parameter.value == "docker-grpc"
         })
     );
+
+    if let Some(auth) = docker_oauth2_auth() {
+        let mut oauth = grpc_request(&endpoint, r#"{"message":"oauth"}"#);
+        if let ApiRequestSpec::Grpc(spec) = &mut oauth {
+            spec.auth = auth;
+        }
+        let oauth_response = driver.execute(&oauth, &variables, cancellation()).await?;
+        assert_eq!(
+            oauth_response.status,
+            ApiResponseStatus::Grpc { code: "ok".into() }
+        );
+    } else {
+        eprintln!("跳过 gRPC Docker OAuth2 回归；缺少 Token Endpoint 环境变量");
+    }
 
     let server_stream = driver
         .execute(

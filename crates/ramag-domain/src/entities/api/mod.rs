@@ -46,6 +46,8 @@ pub const MAX_API_TIMEOUT_MILLIS: u64 = 5 * 60 * 1000;
 pub const MAX_API_TLS_PATH_BYTES: usize = 32 * 1024;
 pub const MAX_API_PROXY_URL_BYTES: usize = 8 * 1024;
 pub const MAX_API_PROXY_CREDENTIAL_BYTES: usize = 8 * 1024;
+pub const MAX_API_OAUTH2_URL_BYTES: usize = 8 * 1024;
+pub const MAX_API_OAUTH2_SCOPE_BYTES: usize = 8 * 1024;
 pub const MAX_API_MULTIPART_PARTS: usize = 64;
 pub const MAX_API_MULTIPART_PATH_BYTES: usize = 32 * 1024;
 pub const MAX_API_MULTIPART_FILE_NAME_BYTES: usize = 1024;
@@ -154,6 +156,9 @@ pub enum ApiAuth {
     Bearer {
         token: String,
     },
+    OAuth2 {
+        config: ApiOAuth2Config,
+    },
     ApiKey {
         name: String,
         value: String,
@@ -174,6 +179,10 @@ impl fmt::Debug for ApiAuth {
             Self::Bearer { .. } => formatter
                 .debug_struct("Bearer")
                 .field("token", &"[REDACTED]")
+                .finish(),
+            Self::OAuth2 { config } => formatter
+                .debug_struct("OAuth2")
+                .field("config", config)
                 .finish(),
             Self::ApiKey { name, location, .. } => formatter
                 .debug_struct("ApiKey")
@@ -201,11 +210,84 @@ impl ApiAuth {
             Self::Bearer { token } => {
                 validate_text("Bearer Token", token, MAX_API_PARAMETER_VALUE_BYTES, false)
             }
+            Self::OAuth2 { config } => config.validate(),
             Self::ApiKey { name, value, .. } => {
                 validate_protocol_name("API Key 名称", name, MAX_API_PARAMETER_NAME_BYTES)?;
                 validate_text("API Key 值", value, MAX_API_PARAMETER_VALUE_BYTES, false)
             }
         }
+    }
+}
+
+/// OAuth2 Client Credentials 配置。
+///
+/// 这些字段属于工作区敏感配置，Storage 会在持久化时统一加密。访问令牌和刷新状态只由
+/// 基础设施驱动保存在内存中，不会写入该结构、执行历史、响应快照或导出文件。
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApiOAuth2Config {
+    /// OAuth2 Token Endpoint；只接受不含用户信息、查询和片段的 HTTP/HTTPS URL。
+    pub token_url: String,
+    /// Client Credentials flow 使用的客户端标识。
+    pub client_id: String,
+    /// Client Credentials flow 使用的客户端密钥。
+    pub client_secret: String,
+    /// 可选的空格分隔 scope；空值按未配置处理。
+    #[serde(default)]
+    pub scope: Option<String>,
+}
+
+impl fmt::Debug for ApiOAuth2Config {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ApiOAuth2Config")
+            .field("token_url", &self.token_url)
+            .field("client_id", &self.client_id)
+            .field("client_secret", &"[REDACTED]")
+            .field("scope", &self.scope)
+            .finish()
+    }
+}
+
+impl ApiOAuth2Config {
+    pub fn validate(&self) -> Result<(), String> {
+        validate_required_text(
+            "OAuth2 Token URL",
+            &self.token_url,
+            MAX_API_OAUTH2_URL_BYTES,
+        )?;
+        if !self.token_url.contains("{{") {
+            let parsed =
+                Url::parse(&self.token_url).map_err(|_| "OAuth2 Token URL 无效".to_string())?;
+            if !matches!(parsed.scheme(), "http" | "https") {
+                return Err("OAuth2 Token URL 只支持 http 或 https scheme".into());
+            }
+            if parsed.host_str().is_none()
+                || !parsed.username().is_empty()
+                || parsed.password().is_some()
+                || parsed.query().is_some()
+                || parsed.fragment().is_some()
+            {
+                return Err(
+                    "OAuth2 Token URL 必须包含有效主机且不能包含认证、查询参数或片段".into(),
+                );
+            }
+        }
+        validate_required_text(
+            "OAuth2 Client ID",
+            &self.client_id,
+            MAX_API_PARAMETER_VALUE_BYTES,
+        )?;
+        validate_required_text(
+            "OAuth2 Client Secret",
+            &self.client_secret,
+            MAX_API_PARAMETER_VALUE_BYTES,
+        )?;
+        if let Some(scope) = &self.scope
+            && !scope.trim().is_empty()
+        {
+            validate_text("OAuth2 Scope", scope, MAX_API_OAUTH2_SCOPE_BYTES, true)?;
+        }
+        Ok(())
     }
 }
 

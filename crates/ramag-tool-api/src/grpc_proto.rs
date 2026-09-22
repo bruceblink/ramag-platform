@@ -229,7 +229,10 @@ impl FileResolver for BoundedIncludeResolver {
         self.reserve_source_bytes(name, bytes.len())?;
         let source = String::from_utf8(bytes)
             .map_err(|_| Self::invalid_data(format!(".proto 文件必须使用 UTF-8 编码：{name}")))?;
-        File::from_source(name, &source)
+        // Windows 编辑器常用 UTF-8 BOM 保存源文件；Proto 语法本身不需要它，
+        // 在交给 protox 解析前去掉文件开头的 BOM，避免合法源文件被当作语法错误。
+        let source = source.strip_prefix('\u{feff}').unwrap_or(&source);
+        File::from_source(name, source)
     }
 }
 
@@ -262,6 +265,27 @@ mod tests {
             .get_service_by_name("api.test.Echo")
             .expect("Service 应存在");
         assert_eq!(service.methods().count(), 1);
+        assert!(pool.get_message_by_name("api.test.EchoRequest").is_some());
+    }
+
+    #[test]
+    fn compiles_proto_with_utf8_bom() {
+        let directory = tempfile::tempdir().expect("创建临时目录");
+        fs::write(
+            directory.path().join("common.proto"),
+            "syntax = \"proto3\"; package api.test; message EchoRequest { string message = 1; }",
+        )
+        .expect("写入依赖 proto");
+        fs::write(
+            directory.path().join("echo.proto"),
+            b"\xEF\xBB\xBFsyntax = \"proto3\"; package api.test; import \"common.proto\"; service Echo { rpc Unary(EchoRequest) returns (EchoRequest); }",
+        )
+        .expect("写入带 BOM 的入口 proto");
+
+        let bytes =
+            compile_descriptor_set(&directory.path().join("echo.proto")).expect("proto 编译应成功");
+        let pool = DescriptorPool::decode(bytes.as_slice()).expect("DescriptorSet 应可解码");
+        assert!(pool.get_service_by_name("api.test.Echo").is_some());
         assert!(pool.get_message_by_name("api.test.EchoRequest").is_some());
     }
 

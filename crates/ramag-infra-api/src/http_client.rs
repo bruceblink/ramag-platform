@@ -13,7 +13,7 @@ use super::read_tls_file;
 /// 客户端关闭自动重定向和环境代理，确保请求只经过调用方明确配置的代理；证书、私钥和
 /// Basic 认证只进入 reqwest 内存对象，不写入日志或错误文本。证书文件仍由父模块按统一
 /// 大小上限读取，避免这里产生另一套资源限制。
-pub(super) fn build_client(tls: &ApiTlsConfig, proxy: &ApiProxyConfig) -> Result<Client> {
+pub(crate) fn build_client(tls: &ApiTlsConfig, proxy: &ApiProxyConfig) -> Result<Client> {
     proxy
         .validate_resolved()
         .map_err(DomainError::InvalidConfig)?;

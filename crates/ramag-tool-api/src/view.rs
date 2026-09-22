@@ -14,7 +14,7 @@ use gpui_component::{
 };
 use ramag_app::{ApiService, new_api_cancellation};
 use ramag_domain::entities::{
-    ApiAssertionResult, ApiAuth, ApiBody, ApiBodyMode, ApiCancellation, ApiCollection,
+    ApiAssertionResult, ApiBody, ApiBodyMode, ApiCancellation, ApiCollection,
     ApiCollectionRunResult, ApiEnvironment, ApiExtractedVariable, ApiGrpcDescriptor,
     ApiGrpcDiscoverySpec, ApiGrpcServiceSummary, ApiHistoryRecord, ApiMultipartPart,
     ApiMultipartValue, ApiParameter, ApiProtocol, ApiRequestSpec, ApiResponseSnapshot,
@@ -22,6 +22,8 @@ use ramag_domain::entities::{
 };
 use ramag_domain::error::{DomainError, Result};
 
+#[path = "auth.rs"]
+mod auth;
 #[path = "context.rs"]
 mod context;
 #[path = "grpc_proto.rs"]
@@ -54,7 +56,7 @@ pub struct ApiView {
     pub(crate) http_query: Entity<InputState>,
     pub(crate) http_headers: Entity<InputState>,
     pub(crate) http_body: Entity<InputState>,
-    pub(crate) http_auth: ApiAuth,
+    pub(crate) auth_editor: auth::ApiAuthEditor,
     pub(crate) http_body_mode: ApiBodyMode,
     pub(crate) http_body_content_type: String,
     pub(crate) tls_verify: Entity<InputState>,
@@ -146,7 +148,7 @@ impl ApiView {
                 Some("json"),
                 8,
             ),
-            http_auth: ApiAuth::None,
+            auth_editor: auth::ApiAuthEditor::new(window, cx),
             http_body_mode: ApiBodyMode::Text,
             http_body_content_type: "application/json".into(),
             tls_verify: api_input(window, cx, "full / ca / none", "full"),
@@ -516,7 +518,7 @@ pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSp
             spec.proxy = context::proxy_from_view(view, cx)?;
             spec.query = parse_http_query(&input_value(&view.http_query, cx))?;
             spec.headers = parse_http_headers(&input_value(&view.http_headers, cx))?;
-            spec.auth = view.http_auth.clone();
+            spec.auth = view.auth_editor.to_auth(cx)?;
             let body = input_value(&view.http_body, cx);
             if !body.trim().is_empty() {
                 spec.body = Some(match view.http_body_mode {
@@ -546,6 +548,7 @@ pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSp
             .with_message(input_value(&view.grpc_message, cx));
             spec.tls = context::tls_from_view(view, cx)?;
             spec.proxy = context::proxy_from_view(view, cx)?;
+            spec.auth = view.auth_editor.to_auth(cx)?;
             spec.descriptor = view.grpc_descriptor.clone();
             let metadata_name = input_value(&view.grpc_metadata_name, cx);
             let metadata_value = input_value(&view.grpc_metadata_value, cx);

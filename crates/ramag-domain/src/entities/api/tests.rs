@@ -116,6 +116,69 @@ fn proxy_config_requires_safe_http_endpoint_and_redacts_password() {
 }
 
 #[test]
+fn oauth2_client_credentials_config_validates_and_redacts_secret() {
+    let config = ApiOAuth2Config {
+        token_url: "https://auth.example.test/oauth/token".into(),
+        client_id: "client-id".into(),
+        client_secret: "client-secret".into(),
+        scope: Some("api.read api.write".into()),
+    };
+    let debug = format!(
+        "{config:?} {:?}",
+        ApiAuth::OAuth2 {
+            config: config.clone()
+        }
+    );
+    assert!(debug.contains("auth.example.test"));
+    assert!(!debug.contains("client-secret"));
+    assert!(
+        HttpRequestSpec {
+            auth: ApiAuth::OAuth2 { config },
+            ..HttpRequestSpec::new("GET", "https://api.example.test/resource")
+        }
+        .validate()
+        .is_ok()
+    );
+
+    for token_url in [
+        "ftp://auth.example.test/token",
+        "https://user:password@auth.example.test/token",
+        "https://auth.example.test/token?client_secret=leak",
+    ] {
+        let config = ApiOAuth2Config {
+            token_url: token_url.into(),
+            client_id: "client-id".into(),
+            client_secret: "client-secret".into(),
+            scope: None,
+        };
+        assert!(
+            config.validate().is_err(),
+            "URL should be rejected: {token_url}"
+        );
+    }
+}
+
+#[test]
+fn grpc_oauth2_auth_defaults_and_serializes_without_access_token()
+-> std::result::Result<(), serde_json::Error> {
+    let config = ApiOAuth2Config {
+        token_url: "http://127.0.0.1:18089/oauth/token".into(),
+        client_id: "client-id".into(),
+        client_secret: "client-secret".into(),
+        scope: None,
+    };
+    let request = GrpcRequestSpec {
+        auth: ApiAuth::OAuth2 { config },
+        ..GrpcRequestSpec::new("http://127.0.0.1:18090", "api.Echo", "Unary")
+    };
+    let encoded = serde_json::to_string(&request)?;
+    assert!(!encoded.contains("access_token"));
+    assert!(encoded.contains("client_secret"));
+    assert!(request.validate().is_ok());
+    Ok(())
+}
+
+#[test]
 fn grpc_discovery_defaults_to_reflection_and_validates_endpoint() {
     let request = ApiGrpcDiscoverySpec::new("http://127.0.0.1:50051");
     assert!(matches!(request.descriptor, ApiGrpcDescriptor::Reflection));

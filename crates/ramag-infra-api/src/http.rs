@@ -12,19 +12,18 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use http::header::{CONTENT_TYPE, HeaderName, HeaderValue};
-use http::{HeaderMap, Method};
+use http::HeaderMap;
 use ramag_domain::entities::{
-    ApiAuth, ApiBodyMode, ApiCancellation, ApiKeyLocation, ApiMultipartValue, ApiParameter,
-    ApiProtocol, ApiProxyConfig, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts,
+    ApiAuth, ApiCancellation, ApiKeyLocation, ApiMultipartValue, ApiParameter, ApiProtocol,
+    ApiProxyConfig, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts,
     ApiResponseStatus, ApiTlsConfig, MAX_API_MULTIPART_FILE_BYTES,
     MAX_API_MULTIPART_FILE_NAME_BYTES, MAX_API_MULTIPART_PATH_BYTES, MAX_API_MULTIPART_TOTAL_BYTES,
     MAX_API_PARAMETER_COUNT, MAX_API_PARAMETER_NAME_BYTES, MAX_API_PARAMETER_VALUE_BYTES,
-    MAX_API_REQUEST_BODY_BYTES, MAX_API_RESPONSE_BODY_BYTES, MAX_API_URL_TEMPLATE_BYTES,
+    MAX_API_RESPONSE_BODY_BYTES,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::ApiDriver;
-use reqwest::{Client, RequestBuilder, Response, Url};
+use reqwest::{Client, RequestBuilder, Response};
 use rustls::crypto::CryptoProvider;
 use tokio::io::AsyncReadExt as _;
 
@@ -32,8 +31,11 @@ use tokio::io::AsyncReadExt as _;
 mod client;
 #[path = "http_proxy.rs"]
 mod proxy;
+#[path = "http_request.rs"]
+mod request;
 
-use client::build_client;
+use crate::oauth2::{OAuth2AccessToken, OAuth2TokenProvider, resolve_oauth2_config};
+pub(crate) use client::build_client;
 pub(crate) use proxy::resolve_proxy_config;
 
 pub(crate) const MAX_TLS_FILE_BYTES: usize = 4 * 1024 * 1024;
@@ -42,6 +44,7 @@ pub(crate) const CANCELLATION_POLL: Duration = Duration::from_millis(10);
 #[derive(Clone)]
 pub struct HttpApiDriver {
     client: Client,
+    oauth2: OAuth2TokenProvider,
 }
 
 impl HttpApiDriver {
@@ -50,6 +53,7 @@ impl HttpApiDriver {
         ensure_tls_provider()?;
         Ok(Self {
             client: build_client(&ApiTlsConfig::default(), &ApiProxyConfig::default())?,
+            oauth2: OAuth2TokenProvider::default(),
         })
     }
 }
@@ -76,92 +80,21 @@ impl ApiDriver for HttpApiDriver {
             }
         };
         spec.validate().map_err(DomainError::InvalidConfig)?;
-        ensure_not_cancelled(&cancelled)?;
-
-        let proxy = resolve_proxy_config(&spec.proxy, variables)?;
-        let client = if spec.tls == ApiTlsConfig::default() && proxy == ApiProxyConfig::default() {
-            self.client.clone()
-        } else {
-            build_client(&spec.tls, &proxy)?
-        };
-        let method = Method::from_bytes(spec.method.as_bytes())
-            .map_err(|_| DomainError::InvalidConfig("HTTP 方法无效".into()))?;
-        let url_text = expand_template(
-            &spec.url_template,
-            variables,
-            "HTTP URL 模板",
-            MAX_API_URL_TEMPLATE_BYTES,
-        )?;
-        let mut url = Url::parse(&url_text)
-            .map_err(|_| DomainError::InvalidConfig("HTTP URL 模板无效".into()))?;
-        if !matches!(url.scheme(), "http" | "https") {
-            return Err(DomainError::InvalidConfig(
-                "HTTP URL 只支持 http 或 https scheme".into(),
-            ));
-        }
-        if !url.username().is_empty() || url.password().is_some() {
-            return Err(DomainError::InvalidConfig(
-                "HTTP URL 不能包含用户名或密码".into(),
-            ));
-        }
-
-        let mut query = Vec::with_capacity(spec.query.len() + 1);
-        for parameter in &spec.query {
-            query.push(expand_parameter(parameter, variables, "HTTP 查询参数")?);
-        }
-        let mut header_parameters = Vec::with_capacity(spec.headers.len() + 1);
-        for parameter in &spec.headers {
-            header_parameters.push(expand_parameter(parameter, variables, "HTTP Headers")?);
-        }
-        apply_auth(&spec.auth, variables, &mut query, &mut header_parameters)?;
+        let (response, started) = self
+            .execute_once(spec, variables, cancelled.clone(), false)
+            .await?;
+        if response.status().as_u16() == 401
+            && let ApiAuth::OAuth2 { config } = &spec.auth
         {
-            let mut query_pairs = url.query_pairs_mut();
-            for (name, value, _) in &query {
-                query_pairs.append_pair(name, value);
-            }
+            let proxy = resolve_proxy_config(&spec.proxy, variables)?;
+            let config = resolve_oauth2_config(config, variables)?;
+            self.oauth2.invalidate(&config, &spec.tls, &proxy).await;
+            drop(response);
+            let (response, started) = self
+                .execute_once(spec, variables, cancelled.clone(), true)
+                .await?;
+            return read_response(response, started, cancelled).await;
         }
-
-        let mut builder = client
-            .request(method, url)
-            .timeout(Duration::from_millis(spec.timeout_millis));
-        for (name, value, _) in &header_parameters {
-            let name = HeaderName::try_from(name.as_str())
-                .map_err(|_| DomainError::InvalidConfig("HTTP Header 名称无效".into()))?;
-            let value = HeaderValue::try_from(value.as_str())
-                .map_err(|_| DomainError::InvalidConfig("HTTP Header 值无效".into()))?;
-            builder = builder.header(name, value);
-        }
-
-        if let Some(body) = &spec.body {
-            match body.mode {
-                ApiBodyMode::Text => {
-                    let body_value = expand_template(
-                        &body.value,
-                        variables,
-                        "HTTP 请求正文",
-                        MAX_API_REQUEST_BODY_BYTES,
-                    )?;
-                    if let Some(content_type) = &body.content_type
-                        && !header_parameters
-                            .iter()
-                            .any(|(name, _, _)| name.eq_ignore_ascii_case("content-type"))
-                    {
-                        let value = HeaderValue::try_from(content_type.as_str()).map_err(|_| {
-                            DomainError::InvalidConfig("HTTP Content-Type 无效".into())
-                        })?;
-                        builder = builder.header(CONTENT_TYPE, value);
-                    }
-                    builder = builder.body(body_value);
-                }
-                ApiBodyMode::Multipart => {
-                    let form = multipart_form(body, variables, cancelled.clone()).await?;
-                    builder = builder.multipart(form);
-                }
-            }
-        }
-
-        let started = Instant::now();
-        let response = send_request(builder, cancelled.clone()).await?;
         read_response(response, started, cancelled).await
     }
 }
@@ -328,6 +261,11 @@ fn apply_auth(
             )?;
             headers.push(("authorization".into(), format!("Bearer {token}"), true));
         }
+        ApiAuth::OAuth2 { .. } => {
+            return Err(DomainError::InvalidConfig(
+                "OAuth2 令牌必须由驱动在发送前生成".into(),
+            ));
+        }
         ApiAuth::ApiKey {
             name,
             value,
@@ -412,7 +350,10 @@ pub(crate) fn expand_template(
     Ok(output)
 }
 
-async fn send_request(builder: RequestBuilder, cancelled: ApiCancellation) -> Result<Response> {
+pub(crate) async fn send_request(
+    builder: RequestBuilder,
+    cancelled: ApiCancellation,
+) -> Result<Response> {
     // reqwest 的发送 Future 被 pin 后与取消轮询并行；取消时丢弃 Future 会关闭底层请求。
     let mut send = Box::pin(builder.send());
     tokio::select! {
@@ -561,6 +502,10 @@ fn base64_basic(username: &str, password: &str) -> String {
     use base64::Engine as _;
 
     base64::engine::general_purpose::STANDARD.encode(format!("{username}:{password}"))
+}
+
+fn oauth2_bearer_auth(token: OAuth2AccessToken) -> ApiAuth {
+    ApiAuth::Bearer { token: token.value }
 }
 
 #[cfg(test)]
