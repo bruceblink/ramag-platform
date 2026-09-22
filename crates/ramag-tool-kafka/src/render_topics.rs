@@ -233,9 +233,9 @@ impl KafkaView {
                     .when(narrow, |row| row.flex_col().items_stretch().justify_start())
                     .child(
                         v_flex()
-                            .h_full()
                             .flex_1()
                             .min_w_0()
+                            .when(!narrow, |copy| copy.h_full())
                             .when(narrow, |copy| copy.w_full().flex_none())
                             .gap(px(2.0))
                             .child(
