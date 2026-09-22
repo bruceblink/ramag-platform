@@ -139,3 +139,39 @@ fn api_saved_request_sidebar_opens_request_and_clears_stale_grpc_state(cx: &mut 
     assert_eq!(state.7, Some(grpc_request_id));
     assert_eq!(state.8, Some(("已打开请求：gRPC request".into(), false)));
 }
+
+#[gpui::test]
+fn api_request_sidebar_filters_all_saved_requests_with_collection_context(cx: &mut TestAppContext) {
+    cx.update(gpui_component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 视图应初始化");
+    let mut workspace = ApiWorkspace::new("Searchable");
+    let mut collection = ApiCollection::new("Orders");
+    collection.requests.push(ApiRequestRecord::new_http(
+        "Health",
+        HttpRequestSpec::new("GET", "http://127.0.0.1/health"),
+    ));
+    collection.requests.push(ApiRequestRecord::new_grpc(
+        "Create",
+        GrpcRequestSpec::new("http://127.0.0.1:18090", "api.Orders", "Create"),
+    ));
+    workspace.collections.push(collection);
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            view.workspace = workspace.clone();
+            context::apply_imported_workspace(view, &workspace, window, cx);
+            view.request_search
+                .update(cx, |input, cx| input.set_value("orders", window, cx));
+        });
+    });
+    visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("api-request-item-0").is_some());
+    assert!(visual_cx.debug_bounds("api-request-item-1").is_some());
+    assert!(visual_cx.debug_bounds("api-request-list-summary").is_some());
+}

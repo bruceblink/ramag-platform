@@ -101,14 +101,34 @@ fn render_sidebar(
 ) -> gpui::AnyElement {
     let stacked = ApiView::is_stacked(window);
     let current_request_id = view.active_request_id.clone();
+    let query = view.request_search.read(cx).value().trim().to_lowercase();
+    let total_request_count = view
+        .workspace
+        .collections
+        .iter()
+        .map(|collection| collection.requests.len())
+        .sum::<usize>();
     let requests = view
         .workspace
         .collections
         .iter()
-        .flat_map(|collection| collection.requests.iter())
+        .flat_map(|collection| {
+            collection
+                .requests
+                .iter()
+                .map(move |request| (collection.name.as_str(), request))
+        })
+        .filter(|(collection_name, request)| {
+            query.is_empty()
+                || collection_name.to_lowercase().contains(&query)
+                || request.name.to_lowercase().contains(&query)
+                || protocol_label(request.protocol)
+                    .to_lowercase()
+                    .contains(&query)
+        })
         .take(50)
         .enumerate()
-        .map(|(index, request)| {
+        .map(|(index, (collection_name, request))| {
             let request = request.clone();
             let selected = current_request_id.as_ref() == Some(&request.id);
             let mut item = ramag_ui::clickable_button(gpui::SharedString::from(format!(
@@ -121,7 +141,8 @@ fn render_sidebar(
             .truncate()
             .xsmall()
             .label(format!(
-                "{} · {}",
+                "{} / {} · {}",
+                collection_name,
                 protocol_label(request.protocol),
                 request.name
             ))
@@ -137,6 +158,16 @@ fn render_sidebar(
             item.into_any_element()
         })
         .collect::<Vec<_>>();
+    let visible_request_count = requests.len();
+    let list_summary = if query.is_empty() {
+        if total_request_count > visible_request_count {
+            format!("显示 {visible_request_count} / {total_request_count} 个请求")
+        } else {
+            format!("共 {total_request_count} 个请求")
+        }
+    } else {
+        format!("搜索“{query}”：显示 {visible_request_count} 个请求")
+    };
     v_flex()
         .id("api-sidebar")
         .debug_selector(|| "api-sidebar".into())
@@ -209,6 +240,15 @@ fn render_sidebar(
                         .text_xs()
                         .text_color(theme.muted_foreground)
                         .child("请求列表"),
+                )
+                .child(Input::new(&view.request_search).small())
+                .child(
+                    div()
+                        .id("api-request-list-summary")
+                        .debug_selector(|| "api-request-list-summary".into())
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(list_summary),
                 )
                 .children(requests),
         )

@@ -51,6 +51,7 @@ pub struct ApiView {
     pub(crate) service: Option<Arc<ApiService>>,
     pub(crate) protocol: ApiProtocol,
     pub(crate) active_request_id: Option<ApiRequestId>,
+    pub(crate) request_search: Entity<InputState>,
     pub(crate) request_name: Entity<InputState>,
     pub(crate) http_method: Entity<InputState>,
     pub(crate) http_url: Entity<InputState>,
@@ -119,10 +120,16 @@ impl ApiView {
     }
 
     pub(crate) fn without_service(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let request_search = cx.new(|cx| {
+            ramag_ui::bounded_search_input(window, cx).placeholder("搜索请求或 Collection")
+        });
+        cx.observe(&request_search, |_view, _, cx| cx.notify())
+            .detach();
         Self {
             service: None,
             protocol: ApiProtocol::Http,
             active_request_id: None,
+            request_search,
             request_name: api_input(window, cx, "请求名称", "新请求"),
             http_method: api_input(window, cx, "GET / POST", "GET"),
             http_url: api_input(window, cx, "https://example.com", "{{base_url}}/json"),
