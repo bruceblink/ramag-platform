@@ -320,8 +320,23 @@ impl RedisSessionPanel {
                     session_for_close.update(app, |this, _| this.clear_dialog_subscription());
                 })
                 .w(px(640.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(_w))
+                .margin_top(ramag_ui::responsive_dialog_top(_w))
                 .p(px(24.0))
-                .content(move |content, _, _| content.child(form.clone()))
+                .content(move |content, window, _| {
+                    let body_height = (ramag_ui::responsive_dialog_max_height(window) - px(96.0))
+                        .clamp(px(32.0), px(540.0));
+                    content.child(
+                        gpui_kit::div()
+                            .w_full()
+                            .h(body_height)
+                            .max_h(body_height)
+                            .min_h_0()
+                            .flex_none()
+                            .overflow_hidden()
+                            .child(form.clone()),
+                    )
+                })
         });
     }
 
@@ -366,8 +381,23 @@ impl RedisSessionPanel {
                     session_for_close.update(app, |this, _| this.clear_dialog_subscription());
                 })
                 .w(px(640.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(_w))
+                .margin_top(ramag_ui::responsive_dialog_top(_w))
                 .p(px(24.0))
-                .content(move |content, _, _| content.child(form.clone()))
+                .content(move |content, window, _| {
+                    let body_height = (ramag_ui::responsive_dialog_max_height(window) - px(96.0))
+                        .clamp(px(32.0), px(540.0));
+                    content.child(
+                        gpui_kit::div()
+                            .w_full()
+                            .h(body_height)
+                            .max_h(body_height)
+                            .min_h_0()
+                            .flex_none()
+                            .overflow_hidden()
+                            .child(form.clone()),
+                    )
+                })
         });
     }
 
@@ -556,3 +586,7 @@ mod tests {
         assert_eq!(truncate_for_dialog("a\nb\0c", 10), "a b�c");
     }
 }
+
+#[cfg(test)]
+#[path = "dialogs_render_test.rs"]
+mod render_test;

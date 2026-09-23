@@ -2,7 +2,7 @@
 
 use super::{LinesEditor, LinesKind};
 use gpui_kit::component::Root;
-use gpui_kit::{AppContext as _, Bounds, Pixels, TestAppContext, px, size};
+use gpui_kit::{AppContext as _, Bounds, Modifiers, MouseButton, Pixels, TestAppContext, px, size};
 
 fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
     assert!(
@@ -67,4 +67,26 @@ fn lines_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppContext)
             );
         }
     }
+}
+
+#[gpui_kit::test]
+fn lines_editor_add_button_appends_a_row(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let editor = cx.new(|cx| LinesEditor::new(LinesKind::List, window, cx));
+        Root::new(editor, window, cx)
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("redis-lines-row-0").is_some());
+
+    let add = cx
+        .debug_bounds("redis-lines-add")
+        .expect("List 编辑器应显示添加按钮");
+    let position = add.center();
+    cx.simulate_mouse_move(position, None, Modifiers::default());
+    cx.simulate_mouse_down(position, MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_up(position, MouseButton::Left, Modifiers::default());
+    cx.run_until_parked();
+
+    assert!(cx.debug_bounds("redis-lines-row-1").is_some());
 }
