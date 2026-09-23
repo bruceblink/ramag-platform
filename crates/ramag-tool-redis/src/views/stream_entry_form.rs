@@ -2,10 +2,10 @@
 
 use std::sync::Arc;
 
-use gpui_kit::component::{ActiveTheme, v_flex};
+use gpui_kit::component::{ActiveTheme, scroll::ScrollableElement as _, v_flex};
 use gpui_kit::{
-    ClickEvent, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Window,
-    div, prelude::*, px,
+    ClickEvent, Context, Entity, EventEmitter, InteractiveElement as _, IntoElement, ParentElement,
+    Render, Styled, Window, div, prelude::*, px,
 };
 use ramag_app::RedisService;
 use ramag_domain::entities::ConnectionConfig;
@@ -136,39 +136,58 @@ impl Render for StreamEntryForm {
 
         v_flex()
             .w_full()
-            .gap(px(14.0))
-            .pt(px(4.0))
-            .pb(px(4.0))
+            .h_full()
+            .min_h_0()
             .child(
                 div()
-                    .text_xs()
-                    .text_color(muted_fg)
-                    .child(format!("Stream: {} · ID 由服务端生成（*）", self.key)),
-            )
-            .child(
-                v_flex()
-                    .gap(px(6.0))
+                    .debug_selector(|| "redis-stream-fields-scroll".into())
+                    .flex_1()
+                    .min_h_0()
                     .child(
-                        div()
-                            .text_xs()
-                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                            .text_color(muted_fg)
-                            .child("字段"),
-                    )
-                    .child(self.editor.clone()),
+                        v_flex().size_full().overflow_y_scrollbar().child(
+                            v_flex()
+                                .w_full()
+                                .gap(px(14.0))
+                                .pt(px(4.0))
+                                .pb(px(4.0))
+                                .child(
+                                    div().text_xs().text_color(muted_fg).child(format!(
+                                        "Stream: {} · ID 由服务端生成（*）",
+                                        self.key
+                                    )),
+                                )
+                                .child(
+                                    v_flex()
+                                        .gap(px(6.0))
+                                        .child(
+                                            div()
+                                                .text_xs()
+                                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                                .text_color(muted_fg)
+                                                .child("字段"),
+                                        )
+                                        .child(self.editor.clone()),
+                                ),
+                        ),
+                    ),
             )
-            .child(div().h(px(1.0)).bg(border).my(px(2.0)))
-            .child(form_footer(
-                "se-stream",
-                "保存",
-                &self.state,
-                |this, _: &ClickEvent, _, cx| this.handle_cancel(cx),
-                |this, _: &ClickEvent, _, cx| {
-                    if !this.state.is_submitting() {
-                        this.handle_save(cx);
-                    }
-                },
-                cx,
-            ))
+            .child(div().h(px(1.0)).flex_none().bg(border).my(px(2.0)))
+            .child(
+                div()
+                    .debug_selector(|| "redis-stream-footer".into())
+                    .flex_none()
+                    .child(form_footer(
+                        "se-stream",
+                        "保存",
+                        &self.state,
+                        |this, _: &ClickEvent, _, cx| this.handle_cancel(cx),
+                        |this, _: &ClickEvent, _, cx| {
+                            if !this.state.is_submitting() {
+                                this.handle_save(cx);
+                            }
+                        },
+                        cx,
+                    )),
+            )
     }
 }
