@@ -150,9 +150,8 @@ fn server_sort_keeps_horizontal_scroll_position_across_result_reload(cx: &mut Te
         warnings: Vec::new(),
         truncated: false,
     });
-    let (panel, cx) = cx.add_window_view(ResultPanel::new);
-
-    panel.update(cx, |panel, cx| {
+    let (panel, cx) = cx.add_window_view(|window, cx| {
+        let mut panel = ResultPanel::new(window, cx);
         panel.state = ResultState::Ok(result.clone());
         panel.pagination = Some(ResultPagination {
             page: 0,
@@ -160,21 +159,49 @@ fn server_sort_keeps_horizontal_scroll_position_across_result_reload(cx: &mut Te
             has_more: true,
             total: TotalRows::Known(101),
         });
+        panel.set_col_width_override(1, px(1200.0));
+        panel.display_view_cache = Some(DisplayViewCache {
+            key: DisplayViewCacheKey {
+                result_identity: Arc::as_ptr(&result) as usize,
+                result_revision: 0,
+                sort_by: None,
+                column_filter: String::new(),
+                row_filter: super::RowFilter::Text(String::new()),
+                display_binary_16_as_uuid: true,
+            },
+            view: build_display_view(&result, None, "", ""),
+        });
+        panel
+    });
+    cx.simulate_resize(size(px(640.0), px(600.0)));
+    panel.update(cx, |_, cx| cx.notify());
+    cx.run_until_parked();
+
+    panel.read_with(cx, |panel, _| {
+        assert!(
+            panel.h_scroll.max_offset().x >= px(240.0),
+            "测试结果必须实际产生足够的横向滚动范围：max={:?}",
+            panel.h_scroll.max_offset()
+        );
+    });
+
+    panel.update(cx, |panel, cx| {
         panel.h_scroll.set_offset(point(px(-240.0), px(0.0)));
         panel.toggle_sort(1, cx);
         panel.set_state(ResultState::Running, cx);
         assert_eq!(panel.h_scroll.offset().x, px(-240.0));
         panel.set_state(ResultState::Ok(result.clone()), cx);
-    });
-
-    let display_view_key = panel.read_with(cx, |panel, app| {
-        super::display_view_key(panel, &result, app)
-    });
-    let display_view = build_display_view(&result, None, "", "");
-    panel.update(cx, |panel, _| {
+        panel.set_col_width_override(1, px(1200.0));
         panel.display_view_cache = Some(DisplayViewCache {
-            key: display_view_key,
-            view: display_view,
+            key: DisplayViewCacheKey {
+                result_identity: Arc::as_ptr(&result) as usize,
+                result_revision: panel.result_revision,
+                sort_by: panel.sort_by(),
+                column_filter: String::new(),
+                row_filter: super::RowFilter::Text(String::new()),
+                display_binary_16_as_uuid: true,
+            },
+            view: build_display_view(&result, None, "", ""),
         });
     });
     panel.read_with(cx, |panel, app| {
