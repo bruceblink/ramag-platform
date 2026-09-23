@@ -131,6 +131,7 @@ pub struct ApiView {
     pub(crate) cancelled: Option<Arc<AtomicBool>>,
     pub(crate) focus_handle: FocusHandle,
     pub(crate) layout_scroll: ScrollHandle,
+    pub(crate) compact_height_layout: bool,
     pub(crate) response_scroll: ScrollHandle,
     pub(crate) _subscriptions: Vec<Subscription>,
 }
@@ -265,6 +266,7 @@ impl ApiView {
             cancelled: None,
             focus_handle: cx.focus_handle(),
             layout_scroll: ScrollHandle::new(),
+            compact_height_layout: false,
             response_scroll: ScrollHandle::new(),
             _subscriptions: Vec::new(),
         }

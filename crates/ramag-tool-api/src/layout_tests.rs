@@ -169,4 +169,12 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
     });
     visual_cx.run_until_parked();
     assert!(visual_cx.update(|_, app| view.read(app).layout_scroll.offset().y < px(0.0)));
+
+    visual_cx.simulate_resize(size(px(360.0), px(640.0)));
+    visual_cx.run_until_parked();
+    assert_eq!(
+        visual_cx.update(|_, app| view.read(app).layout_scroll.offset().y),
+        px(0.0),
+        "恢复常规窗口高度后页面应回到顶部"
+    );
 }

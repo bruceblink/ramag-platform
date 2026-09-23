@@ -16,6 +16,11 @@ pub(super) fn render(
     let theme = cx.theme().clone();
     let stacked = ApiView::is_stacked(window);
     let compact_height = window.viewport_size().height < px(API_COMPACT_HEIGHT);
+    if view.compact_height_layout != compact_height {
+        view.compact_height_layout = compact_height;
+        view.layout_scroll
+            .set_offset(gpui_kit::point(px(0.0), px(0.0)));
+    }
     let sidebar = render_sidebar(view, window, cx, compact_height, &theme);
     let editor = render_editor(view, window, cx, &theme);
     let content = if stacked {
