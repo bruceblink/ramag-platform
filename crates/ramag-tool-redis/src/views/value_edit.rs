@@ -7,11 +7,12 @@ use gpui_kit::component::{
     button::ButtonVariants as _,
     h_flex,
     input::{Textarea, TextareaState},
+    scroll::ScrollableElement as _,
     v_flex,
 };
 use gpui_kit::{
-    ClickEvent, Context, Entity, EventEmitter, IntoElement, ParentElement, Render, Styled, Window,
-    div, prelude::*, px,
+    ClickEvent, Context, Entity, EventEmitter, InteractiveElement as _, IntoElement, ParentElement,
+    Render, Styled, Window, div, prelude::*, px,
 };
 use ramag_app::RedisService;
 use ramag_domain::entities::{ConnectionConfig, MAX_REDIS_COMMAND_ARG_BYTES};
@@ -130,10 +131,11 @@ impl ValueEditForm {
 }
 
 impl Render for ValueEditForm {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let muted_fg = theme.muted_foreground;
         let border = theme.border;
+        let input_height = (window.viewport_size().height - px(220.0)).clamp(px(72.0), px(420.0));
 
         let err = match &self.state {
             SubmitState::Idle | SubmitState::Submitting => None,
@@ -143,37 +145,59 @@ impl Render for ValueEditForm {
 
         v_flex()
             .w_full()
-            .gap(px(14.0))
-            .pt(px(4.0))
-            .pb(px(4.0))
+            .h_full()
+            .min_h_0()
             .child(
                 div()
-                    .text_xs()
-                    .text_color(muted_fg)
-                    .child(format!("Key: {}", self.key)),
-            )
-            .child(
-                v_flex()
-                    .gap(px(8.0))
+                    .debug_selector(|| "redis-value-edit-fields-scroll".into())
+                    .flex_1()
+                    .min_h_0()
                     .child(
-                        div()
-                            .text_xs()
-                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                            .text_color(muted_fg)
-                            .child("新值"),
-                    )
-                    .child(
-                        div().w_full().child(
-                            Textarea::new(&self.value_input)
-                                .h(px(220.0))
-                                .disabled(submitting),
+                        v_flex().size_full().overflow_y_scrollbar().child(
+                            v_flex()
+                                .w_full()
+                                .gap(px(14.0))
+                                .pt(px(4.0))
+                                .pb(px(4.0))
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(muted_fg)
+                                        .child(format!("Key: {}", self.key)),
+                                )
+                                .child(
+                                    v_flex()
+                                        .gap(px(8.0))
+                                        .child(
+                                            div()
+                                                .text_xs()
+                                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                                .text_color(muted_fg)
+                                                .child("新值"),
+                                        )
+                                        .child(
+                                            div()
+                                                .debug_selector(|| {
+                                                    "redis-value-edit-textarea".into()
+                                                })
+                                                .w_full()
+                                                .child(
+                                                    Textarea::new(&self.value_input)
+                                                        .h(input_height)
+                                                        .disabled(submitting),
+                                                ),
+                                        ),
+                                ),
                         ),
                     ),
             )
-            .child(div().h(px(1.0)).bg(border).my(px(2.0)))
+            .child(div().h(px(1.0)).flex_none().bg(border).my(px(2.0)))
             .child(
                 h_flex()
+                    .debug_selector(|| "redis-value-edit-footer".into())
                     .w_full()
+                    .flex_none()
+                    .gap(px(8.0))
                     .items_center()
                     .justify_between()
                     .child(
