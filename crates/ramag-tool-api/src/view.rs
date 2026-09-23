@@ -40,6 +40,8 @@ mod render_body;
 mod render_grpc;
 #[path = "render_helpers.rs"]
 mod render_helpers;
+#[path = "workspace.rs"]
+mod workspace;
 
 const FIELD_BYTES: usize = 64 * 1024;
 const API_SIDEBAR_WIDTH: f32 = 220.0;
@@ -74,6 +76,39 @@ impl ApiResponseTab {
             2 => Self::Timing,
             3 => Self::Assertions,
             _ => Self::Body,
+        }
+    }
+}
+
+/// API 工作区首次读取状态；失败前不允许把默认空工作区写回 Storage。
+///
+/// `NotStarted` 仅供没有接入应用服务的 headless 视图使用；有服务的视图从
+/// `Loading` 转为 `Empty`、`Loaded` 或 `Failed`。用户重试时重新进入 `Loading`，
+/// 每次请求用 generation 隔离迟到结果，避免旧读取覆盖新状态。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ApiWorkspaceLoadState {
+    NotStarted,
+    Loading,
+    Empty,
+    Loaded,
+    Failed,
+}
+
+impl ApiWorkspaceLoadState {
+    fn status_message(self) -> Option<&'static str> {
+        match self {
+            Self::NotStarted | Self::Loaded => None,
+            Self::Loading => Some("正在读取本地 API 工作区…"),
+            Self::Empty => Some("尚无已保存的 API 工作区；保存请求后会创建工作区"),
+            Self::Failed => Some("本地 API 工作区读取失败；保存已暂停，请检查存储后重试"),
+        }
+    }
+
+    fn save_block_message(self) -> Option<&'static str> {
+        match self {
+            Self::Loading => Some("本地 API 工作区仍在读取，请等待完成后再保存"),
+            Self::Failed => Some("本地 API 工作区读取失败，请重试后再保存"),
+            Self::NotStarted | Self::Empty | Self::Loaded => None,
         }
     }
 }
@@ -122,6 +157,8 @@ pub struct ApiView {
     pub(crate) extracted_variables: Vec<ApiExtractedVariable>,
     pub(crate) history: Vec<ApiHistoryRecord>,
     pub(crate) last_collection_run: Option<ApiCollectionRunResult>,
+    pub(crate) workspace_load_state: ApiWorkspaceLoadState,
+    pub(crate) workspace_load_generation: u64,
     pub(crate) loading: bool,
     pub(crate) saving: bool,
     pub(crate) importing: bool,
@@ -257,6 +294,8 @@ impl ApiView {
             extracted_variables: Vec::new(),
             history: Vec::new(),
             last_collection_run: None,
+            workspace_load_state: ApiWorkspaceLoadState::NotStarted,
+            workspace_load_generation: 0,
             loading: false,
             saving: false,
             importing: false,
@@ -278,34 +317,6 @@ impl ApiView {
 
     pub(crate) fn is_stacked(window: &Window) -> bool {
         Self::main_content_width(window) < API_STACK_BREAKPOINT
-    }
-
-    /// 异步读取首个本地工作区；读取失败保留当前空白工作区，避免启动时阻塞工具页面。
-    fn load_saved_workspace(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(service) = self.service.clone() else {
-            return;
-        };
-        cx.spawn_in(window, async move |this, async_cx| {
-            let result = service.list_workspaces().await;
-            let Some(workspace) = result
-                .ok()
-                .and_then(|workspaces| workspaces.into_iter().next())
-            else {
-                return;
-            };
-            let history = service
-                .list_history(&workspace.id, 20)
-                .await
-                .unwrap_or_default();
-            let _ = this.update_in(async_cx, move |view, window, cx| {
-                view.workspace = workspace;
-                view.history = history;
-                let workspace = view.workspace.clone();
-                context::apply_imported_workspace(view, &workspace, window, cx);
-                cx.notify();
-            });
-        })
-        .detach();
     }
 }
 
@@ -679,3 +690,6 @@ mod response_tabs_tests;
 #[cfg(test)]
 #[path = "view_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "workspace_load_tests.rs"]
+mod workspace_load_tests;

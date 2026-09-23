@@ -49,7 +49,13 @@ pub(super) fn render_request_toolbar(
         .debug_selector(|| "api-save".into())
         .xsmall()
         .label(if view.saving { "保存中" } else { "保存" })
-        .disabled(view.saving || view.importing || view.loading || view.grpc_discovering)
+        .disabled(
+            view.workspace_load_state.save_block_message().is_some()
+                || view.saving
+                || view.importing
+                || view.loading
+                || view.grpc_discovering,
+        )
         .on_click(cx.listener(|view, _: &ClickEvent, _, cx| view.save(cx)));
     let import = {
         let current_protocol = view.protocol;
@@ -62,7 +68,13 @@ pub(super) fn render_request_toolbar(
             } else {
                 "导入"
             })
-            .disabled(view.importing || view.saving || view.loading || view.grpc_discovering)
+            .disabled(
+                view.workspace_load_state.save_block_message().is_some()
+                    || view.importing
+                    || view.saving
+                    || view.loading
+                    || view.grpc_discovering,
+            )
             .ghost()
             .dropdown_caret(true)
             .pointer_dropdown_menu(move |mut menu, _, _| {

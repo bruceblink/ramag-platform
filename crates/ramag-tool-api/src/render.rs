@@ -1,6 +1,7 @@
 use super::render_body;
 use super::render_helpers::{render_context_editor, render_history, render_request_toolbar};
 use super::*;
+use gpui_kit::ClickEvent;
 use gpui_kit::FontWeight;
 
 #[path = "render_sidebar_requests.rs"]
@@ -185,9 +186,49 @@ fn render_sidebar(
                         )),
                 ),
         )
+        .children(render_workspace_load_status(view, cx, theme))
         .child(render_sidebar_requests::render(view, cx, theme))
         .child(render_history(&view.history, theme))
         .into_any_element()
+}
+
+fn render_workspace_load_status(
+    view: &ApiView,
+    cx: &mut Context<ApiView>,
+    theme: &gpui_kit::component::Theme,
+) -> Option<gpui_kit::AnyElement> {
+    use gpui_kit::component::button::ButtonVariants as _;
+
+    let message = view.workspace_load_state.status_message()?;
+    let state = view.workspace_load_state;
+    let mut status = h_flex()
+        .id("api-workspace-load-status")
+        .debug_selector(|| "api-workspace-load-status".into())
+        .w_full()
+        .min_w_0()
+        .items_center()
+        .gap(px(6.0))
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(message),
+        );
+    if state == ApiWorkspaceLoadState::Failed {
+        status = status.child(
+            ramag_ui::clickable_button("api-workspace-load-retry")
+                .debug_selector(|| "api-workspace-load-retry".into())
+                .xsmall()
+                .label("重试")
+                .ghost()
+                .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
+                    view.load_saved_workspace(window, cx);
+                })),
+        );
+    }
+    Some(status.into_any_element())
 }
 
 fn render_editor(

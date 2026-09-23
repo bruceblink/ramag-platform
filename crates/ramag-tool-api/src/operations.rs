@@ -9,6 +9,9 @@ use std::io::Read;
 impl ApiView {
     /// 打开本地 JSON 文件，交给应用服务导入并持久化；读取和解析都受大小限制且不执行脚本。
     pub(crate) fn import(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.block_workspace_write_until_loaded(cx) {
+            return;
+        }
         if self.saving || self.importing || self.loading {
             return;
         }
@@ -509,6 +512,9 @@ impl ApiView {
 
     /// 把请求、断言和当前环境写入默认 Collection，Storage 负责加密。
     pub(crate) fn save(&mut self, cx: &mut Context<Self>) {
+        if self.block_workspace_write_until_loaded(cx) {
+            return;
+        }
         let Some(service) = self.service.clone() else {
             self.notice = Some(("API 服务尚未接入".into(), true));
             cx.notify();
@@ -579,6 +585,7 @@ impl ApiView {
                     Ok(()) => {
                         view.workspace = workspace;
                         view.active_request_id = Some(saved_request_id);
+                        view.workspace_load_state = ApiWorkspaceLoadState::Loaded;
                         view.notice = Some(("请求、环境和断言已保存".into(), false));
                     }
                     Err(error) => view.notice = Some((error.to_string(), true)),
