@@ -2,7 +2,7 @@ use super::*;
 
 use gpui_kit::ClickEvent;
 use gpui_kit::component::button::ButtonVariants as _;
-use ramag_domain::entities::{ApiRequestRecord, ApiRequestSpec};
+use ramag_domain::entities::{ApiRequestRecord, ApiRequestSpec, ApiWorkspace};
 
 pub(super) fn render(
     view: &ApiView,
@@ -17,6 +17,11 @@ pub(super) fn render(
         .iter()
         .map(|collection| collection.requests.len())
         .sum::<usize>();
+    let matching_request_total = if query.is_empty() {
+        total_request_count
+    } else {
+        count_matching_requests(&view.workspace, &query)
+    };
     let requests = view
         .workspace
         .collections
@@ -70,7 +75,13 @@ pub(super) fn render(
             format!("共 {total_request_count} 个请求")
         }
     } else {
-        format!("搜索“{query}”：显示 {visible_request_count} 个请求")
+        if matching_request_total > visible_request_count {
+            format!(
+                "搜索“{query}”：匹配 {matching_request_total} 个请求，显示前 {visible_request_count} 个"
+            )
+        } else {
+            format!("搜索“{query}”：匹配 {matching_request_total} 个请求")
+        }
     };
     let request_list = if visible_request_count == 0 {
         div()
@@ -146,5 +157,40 @@ fn request_matches_query(collection_name: &str, request: &ApiRequestRecord, quer
         ApiRequestSpec::Grpc(spec) => {
             matches(&spec.endpoint_template) || matches(&spec.service) || matches(&spec.method)
         }
+    }
+}
+
+fn count_matching_requests(workspace: &ApiWorkspace, query: &str) -> usize {
+    workspace
+        .collections
+        .iter()
+        .flat_map(|collection| {
+            collection
+                .requests
+                .iter()
+                .map(move |request| (collection.name.as_str(), request))
+        })
+        .filter(|(collection_name, request)| request_matches_query(collection_name, request, query))
+        .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ramag_domain::entities::{ApiCollection, HttpRequestSpec};
+
+    #[test]
+    fn matching_request_count_includes_requests_beyond_render_limit() {
+        let mut workspace = ApiWorkspace::new("Saved requests");
+        let mut collection = ApiCollection::new("Orders");
+        for index in 0..55 {
+            collection.requests.push(ApiRequestRecord::new_http(
+                format!("Order request {index}"),
+                HttpRequestSpec::new("GET", format!("http://127.0.0.1/orders/{index}")),
+            ));
+        }
+        workspace.collections.push(collection);
+
+        assert_eq!(count_matching_requests(&workspace, "orders"), 55);
     }
 }
