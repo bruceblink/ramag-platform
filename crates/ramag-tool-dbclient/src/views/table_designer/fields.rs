@@ -1,7 +1,12 @@
 use super::*;
 
 impl TableDesigner {
-    pub(super) fn render_field_editor(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+    pub(super) fn render_field_editor(
+        &self,
+        visible_row_limit: usize,
+        compact_height: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement + use<> {
         let theme = cx.theme();
         let border = theme.border;
         let muted = theme.muted;
@@ -15,7 +20,7 @@ impl TableDesigner {
         let entity = cx.entity().clone();
         let reviewing = self.preview_sql.is_some();
         let active_fields = self.fields.iter().filter(|field| !field.deleted).count();
-        let visible_rows = visible_field_rows(active_fields, reviewing);
+        let visible_rows = visible_field_rows(active_fields, reviewing).min(visible_row_limit);
         let rows_height = px(visible_rows as f32 * FIELD_ROW_HEIGHT);
         let mut rows = v_flex().w_full();
 
@@ -139,7 +144,11 @@ impl TableDesigner {
                                     .text_xs()
                                     .font_weight(gpui_kit::FontWeight::MEDIUM)
                                     .text_color(muted_fg)
-                                    .child(div().w(px(170.0)).child("字段名"))
+                                    .child(div().w(px(170.0)).child(if compact_height {
+                                        format!("字段名 · {active_fields}")
+                                    } else {
+                                        "字段名".to_string()
+                                    }))
                                     .child(div().w(px(180.0)).child("类型"))
                                     .child(div().w(px(76.0)).text_center().child("允许 NULL"))
                                     .child(div().w(px(180.0)).child("默认值"))
@@ -153,6 +162,7 @@ impl TableDesigner {
                                     .min_h_0()
                                     .flex_none()
                                     .id("table-designer-fields-scroll")
+                                    .debug_selector(|| "table-designer-fields-scroll".into())
                                     .overflow_y_scroll()
                                     .track_scroll(&self.field_scroll)
                                     .child(rows),

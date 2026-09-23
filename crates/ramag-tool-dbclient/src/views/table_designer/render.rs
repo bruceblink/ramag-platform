@@ -1,10 +1,23 @@
 use super::*;
 
 use crate::views::table_designer::diff::{format_field_diff, render_field_diff_lines};
+use gpui_kit::component::scroll::ScrollableElement as _;
 
 impl Render for TableDesigner {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let field_editor = self.render_field_editor(cx);
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let viewport_height = f32::from(window.viewport_size().height);
+        let compact_height = viewport_height <= 420.0;
+        let visible_row_limit = if viewport_height <= 320.0 {
+            1
+        } else if viewport_height <= 640.0 {
+            MAX_VISIBLE_FIELD_ROWS - 1
+        } else {
+            MAX_VISIBLE_FIELD_ROWS
+        };
+        // Keep the editor content and cancel/preview controls within the dialog's free height.
+        let compact_body_height =
+            (ramag_ui::responsive_dialog_max_height(window) - px(166.0)).max(px(48.0));
+        let field_editor = self.render_field_editor(visible_row_limit, compact_height, cx);
         let theme = cx.theme();
         let border = theme.border;
         let muted = theme.muted;
@@ -48,6 +61,7 @@ impl Render for TableDesigner {
         let execute = entity.clone();
         let rename = entity.clone();
         let toggle_ddl = entity.clone();
+        let compact_add = entity.clone();
         let preview_cancel = entity.clone();
         let edit_cancel = entity.clone();
         let continue_editing = entity.clone();
@@ -66,57 +80,53 @@ impl Render for TableDesigner {
         } else {
             self.preview_diff.clone()
         };
+        let table_name_label = div().text_xs().text_color(muted_fg).child("表名");
+        let table_name_controls = ramag_ui::responsive_toolbar()
+            .flex_1()
+            .min_w_0()
+            .child(
+                Input::new(&self.table_name)
+                    .w(px(320.0))
+                    .max_w(px(320.0))
+                    .flex_1()
+                    .min_w_0()
+                    .disabled(reviewing || executing || show_ddl),
+            )
+            .when(has_table_name_change, |name| {
+                name.child(
+                    ramag_ui::clickable_button("table-designer-save-name")
+                        .debug_selector(|| "table-designer-save-name".into())
+                        .primary()
+                        .small()
+                        .label(if executing { "保存中…" } else { "保存" })
+                        .loading(executing)
+                        .disabled(reviewing || executing || show_ddl)
+                        .on_click(move |_: &ClickEvent, window, app| {
+                            rename.update(app, |this, cx| this.save_table_name(window, cx));
+                        }),
+                )
+            });
+        let table_name_section = v_flex()
+            .flex_1()
+            .min_w_0()
+            .when(compact_height, |section| {
+                section.flex_row().items_center().gap_2()
+            })
+            .when(!compact_height, |section| section.gap_1())
+            .child(table_name_label)
+            .child(table_name_controls);
         v_flex()
             .debug_selector(|| "table-designer-content".into())
             .w_full()
-            .gap_3()
+            .gap(if compact_height { px(8.0) } else { px(12.0) })
             .child(
                 ramag_ui::responsive_toolbar()
                     .debug_selector(|| "table-designer-top-toolbar".into())
                     .flex_none()
                     .items_end()
                     .justify_between()
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .min_w_0()
-                            .gap_1()
-                            .child(div().text_xs().text_color(muted_fg).child("表名"))
-                            .child(
-                                ramag_ui::responsive_toolbar()
-                                    .min_w_0()
-                                    .child(
-                                        Input::new(&self.table_name)
-                                            .w(px(320.0))
-                                            .max_w(px(320.0))
-                                            .flex_1()
-                                            .min_w_0()
-                                            .disabled(reviewing || executing || show_ddl),
-                                    )
-                                    .when(has_table_name_change, |name| {
-                                        name.child(
-                                            ramag_ui::clickable_button("table-designer-save-name")
-                                                .debug_selector(|| {
-                                                    "table-designer-save-name".into()
-                                                })
-                                                .primary()
-                                                .small()
-                                                .label(if executing {
-                                                    "保存中…"
-                                                } else {
-                                                    "保存"
-                                                })
-                                                .loading(executing)
-                                                .disabled(reviewing || executing || show_ddl)
-                                                .on_click(move |_: &ClickEvent, window, app| {
-                                                    rename.update(app, |this, cx| {
-                                                        this.save_table_name(window, cx)
-                                                    });
-                                                }),
-                                        )
-                                    }),
-                            ),
-                    )
+                    .when(compact_height, |toolbar| toolbar.items_center())
+                    .child(table_name_section)
                     .child(
                         ramag_ui::clickable_button("table-designer-show-ddl")
                             .debug_selector(|| "table-designer-show-ddl".into())
@@ -163,24 +173,84 @@ impl Render for TableDesigner {
                     v_flex()
                         .w_full()
                         .min_w_0()
-                        .gap_2()
-                        .child(
-                            v_flex()
-                                .gap_1()
+                        .when(compact_height, |section| {
+                            section.flex_1().min_h_0()
+                        })
+                        .when(!compact_height, |section| {
+                            section
+                                .gap_2()
                                 .child(
-                                    div()
-                                        .text_sm()
-                                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                                        .child("字段结构"),
+                                    v_flex()
+                                        .gap_1()
+                                        .child(
+                                            div()
+                                                .text_sm()
+                                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                                .child("字段结构"),
+                                        )
+                                        .child(
+                                            div()
+                                                .text_xs()
+                                                .text_color(muted_fg)
+                                                .child(format!("{active_fields} 个字段")),
+                                        ),
                                 )
+                        })
+                        .when(compact_height, |section| {
+                            section
+                                .flex_1()
+                                .min_h_0()
                                 .child(
-                                    div()
-                                        .text_xs()
-                                        .text_color(muted_fg)
-                                        .child(format!("{active_fields} 个字段")),
-                                ),
-                        )
-                        .child(field_editor),
+                                    ramag_ui::responsive_toolbar()
+                                        .items_center()
+                                        .justify_between()
+                                        .child(
+                                            h_flex()
+                                                .items_center()
+                                                .gap_2()
+                                                .child(
+                                                    div()
+                                                        .text_sm()
+                                                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                                        .child("字段结构"),
+                                                )
+                                                .child(
+                                                    div()
+                                                        .text_xs()
+                                                        .text_color(muted_fg)
+                                                        .child(format!("{active_fields} 个字段")),
+                                                ),
+                                        )
+                                        .child(
+                                            ramag_ui::clickable_button("field-add")
+                                                .debug_selector(|| "field-add".into())
+                                                .secondary()
+                                                .small()
+                                                .label("添加字段")
+                                                .disabled(executing)
+                                                .on_click(move |_, window, app| {
+                                                    compact_add.update(app, |this, cx| {
+                                                        this.add_field(window, cx)
+                                                    })
+                                                }),
+                                        ),
+                                )
+                        })
+                        .child(if compact_height {
+                            div()
+                                .h(compact_body_height)
+                                .max_h(compact_body_height)
+                                .min_h_0()
+                                .debug_selector(|| "table-designer-field-editor-viewport".into())
+                                .overflow_y_scrollbar()
+                                .child(field_editor)
+                                .into_any_element()
+                        } else {
+                            div()
+                                .debug_selector(|| "table-designer-field-editor-viewport".into())
+                                .child(field_editor)
+                                .into_any_element()
+                        }),
                 )
             })
             .when_some(preview_sql, |designer, sql| {
@@ -349,9 +419,11 @@ impl Render for TableDesigner {
                 |designer| {
                     designer.child(
                         ramag_ui::responsive_toolbar()
+                            .debug_selector(|| "table-designer-bottom-toolbar".into())
+                            .when(compact_height, |toolbar| toolbar.flex_none())
                             .flex_none()
                             .justify_between()
-                            .when(!show_ddl, |actions| {
+                            .when(!show_ddl && !compact_height, |actions| {
                                 actions.child(
                                     ramag_ui::clickable_button("field-add")
                                         .secondary()
