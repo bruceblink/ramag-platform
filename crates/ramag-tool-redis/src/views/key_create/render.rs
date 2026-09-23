@@ -44,7 +44,13 @@ impl Render for KeyCreateForm {
         let mut card_bg = secondary_bg;
         card_bg.a = 0.45;
 
-        let mut type_row = h_flex().w_full().items_center().gap(px(6.0));
+        let mut type_row = h_flex()
+            .id("redis-key-create-types")
+            .debug_selector(|| "redis-key-create-types".into())
+            .w_full()
+            .flex_wrap()
+            .items_center()
+            .gap(px(6.0));
         for t in CREATE_TYPES {
             let is_selected = self.selected_type == *t;
             let kind = *t;
@@ -63,10 +69,12 @@ impl Render for KeyCreateForm {
                 .flex_none();
 
             let btn_id = SharedString::from(format!("ktype-{}", t.as_scan_arg()));
+            let btn_selector = btn_id.clone();
             let mut btn = h_flex()
                 .id(btn_id)
+                .debug_selector(move || btn_selector.to_string())
                 .flex_1()
-                .min_w_0()
+                .min_w(px(92.0))
                 .items_center()
                 .justify_center()
                 .gap(px(6.0))

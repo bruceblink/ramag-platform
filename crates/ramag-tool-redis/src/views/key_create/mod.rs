@@ -389,7 +389,8 @@ impl KeyCreateForm {
 
 #[cfg(test)]
 mod tests {
-    use super::{PostWriteTtl, post_write_ttl};
+    use super::{KeyCreateForm, PostWriteTtl, post_write_ttl};
+    use gpui_kit::{AppContext as _, TestAppContext, component::Root, px, size};
     use ramag_domain::entities::RedisType;
 
     #[test]
@@ -407,5 +408,53 @@ mod tests {
             post_write_ttl(RedisType::None, Some(300)),
             PostWriteTtl::Expire(300)
         );
+    }
+
+    #[gpui_kit::test]
+    fn type_choices_wrap_without_compressing_labels_on_narrow_windows(cx: &mut TestAppContext) {
+        cx.update(gpui_kit::component::init);
+        let service = crate::views::key_detail::render_test::mock_service();
+        let config = crate::views::key_detail::render_test::mock_config();
+        let (_, cx) = cx.add_window_view(|window, cx| {
+            let form = cx.new(|cx| KeyCreateForm::new(service, config, 0, window, cx));
+            Root::new(form, window, cx)
+        });
+
+        for width in [180.0, 280.0, 600.0] {
+            cx.simulate_resize(size(px(width), px(520.0)));
+            cx.run_until_parked();
+
+            let row = cx
+                .debug_bounds("redis-key-create-types")
+                .expect("类型选择行应渲染");
+            let mut positions = Vec::new();
+            for selector in [
+                "ktype-string",
+                "ktype-list",
+                "ktype-hash",
+                "ktype-set",
+                "ktype-zset",
+                "ktype-stream",
+            ] {
+                let button = cx
+                    .debug_bounds(selector)
+                    .unwrap_or_else(|| panic!("{selector} 类型按钮应渲染"));
+                assert!(button.origin.x >= row.origin.x && button.right() <= row.right());
+                assert!(
+                    button.size.width >= px(92.0),
+                    "{selector} 类型按钮过窄：{button:?}"
+                );
+                positions.push(button);
+            }
+
+            if width == 180.0 {
+                assert!(
+                    positions
+                        .windows(2)
+                        .all(|pair| pair[1].origin.y > pair[0].origin.y),
+                    "最窄窗口应将类型按钮逐行排列：{positions:?}"
+                );
+            }
+        }
     }
 }
