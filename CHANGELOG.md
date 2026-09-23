@@ -4,6 +4,27 @@
 
 > 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
 
+Ramag Platform 0.2.0
+对比范围：v0.1.2..v0.2.0 发布日期：2026-09-23
+
+新增
+- API 工作台支持 HTTP 与 gRPC 请求、OpenAPI 和 Protocol Buffers 导入、gRPC 反射发现、multipart、代理、mTLS、OAuth 2.0、断言和响应变量提取。
+  - 保存的请求支持启动恢复、筛选、快速打开和响应详情分区查看。
+- 容器工作台支持 Registry 仓库与镜像管理，显示清单摘要和摘要值，并在操作期间支持取消。
+- MQTT 本地 Broker 增加客户端、发布记录和连接事件查看。
+
+优化
+- 将桌面 UI 主线迁移到 `gpui-kit`，统一 GPUI 平台、组件和资源依赖。
+- 优化 API、数据库、MongoDB、Redis、Kafka、MQTT、Git、SSH 和文件传输界面在窄窗口与紧凑对话框中的布局。
+
+修复
+- 修复 WSL 缺少 `XDG_RUNTIME_DIR` 时单实例保护停用的问题，并在启动失败时释放单实例 socket。
+- 改进 Linux 系统凭据服务缺失时的启动说明；交互终端直接显示错误，不再额外调用缺失的 `zenity`。
+- 修复 Windows 显示器 ID 类型不匹配导致的 Release 编译失败。
+
+构建
+- 将 workspace 版本升级到 `0.2.0`；三平台安装包、更新清单和 SHA-256 清单统一使用 `v0.2.0`。
+
 ## [0.1.2] - 2026-09-15
 
 ### 修复
@@ -184,6 +205,7 @@ v0.0.5 是一次聚焦稳定性、跨平台预览和日常工作流的维护版�
 
 [0.0.4]: https://github.com/tools-rs/ramag/compare/v0.0.3...v0.0.4
 [0.0.5]: https://github.com/tools-rs/ramag/compare/v0.0.4...v0.0.5
+[0.2.0]: https://github.com/bruceblink/ramag-platform/compare/v0.1.2...v0.2.0
 [0.1.0]: https://github.com/bruceblink/ramag-platform/releases/tag/v0.1.0
 [0.0.3]: https://github.com/tools-rs/ramag/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/tools-rs/ramag/compare/v0.0.1...v0.0.2
