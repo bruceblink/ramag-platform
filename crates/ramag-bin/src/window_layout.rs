@@ -16,11 +16,11 @@ pub(crate) fn preferred_display(
     // 按 DisplayId 匹配而非 Vec 位置：GPUI 会跳过信息获取失败的显示器，
     // 位置下标可能与系统枚举序号错位；DisplayId 恒等于枚举序号
     preferred_index
-        .and_then(|index| u32::try_from(index).ok())
+        .and_then(|index| u64::try_from(index).ok())
         .and_then(|id| {
             displays
                 .iter()
-                .find(|display| u32::from(display.id()) == id)
+                .find(|display| u64::from(display.id()) == id)
                 .cloned()
         })
         .or_else(|| cx.primary_display())
