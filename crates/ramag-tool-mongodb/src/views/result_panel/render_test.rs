@@ -165,7 +165,12 @@ fn result_toolbar_and_status_keep_actions_visible_in_three_window_widths(cx: &mu
         });
         panel
     });
-    for (width, height) in [(360.0, 280.0), (1024.0, 420.0), (1440.0, 420.0)] {
+    for (width, height) in [
+        (360.0, 240.0),
+        (360.0, 280.0),
+        (1024.0, 420.0),
+        (1440.0, 420.0),
+    ] {
         cx.simulate_resize(size(px(width), px(height)));
         panel.update(cx, |_, cx| cx.notify());
         cx.run_until_parked();
@@ -187,8 +192,16 @@ fn result_toolbar_and_status_keep_actions_visible_in_three_window_widths(cx: &mu
             .expect("MongoDB 下一页按钮应渲染");
 
         assert!(toolbar.right() <= px(width));
+        assert!(
+            toolbar.bottom() <= px(height),
+            "工具栏不能越出视口: {toolbar:?}"
+        );
         assert!(run.right() <= toolbar.right(), "运行按钮不能越出工具栏");
         assert!(status_context.size.width > px(0.0));
+        assert!(
+            status_bar.bottom() <= px(height),
+            "状态栏不能越出视口: {status_bar:?}"
+        );
         assert!(
             status_bar.origin.y >= toolbar.bottom(),
             "状态栏不能覆盖工具栏"
@@ -216,8 +229,13 @@ fn mongo_cell_detail_stays_inside_three_window_widths(cx: &mut TestAppContext) {
     let panel = panel_entity.expect("MongoDB result panel should be initialized");
     cx.run_until_parked();
 
-    for width in [360.0, 1024.0, 1440.0] {
-        cx.simulate_resize(size(px(width), px(620.0)));
+    for (width, height) in [
+        (360.0, 240.0),
+        (360.0, 620.0),
+        (1024.0, 620.0),
+        (1440.0, 620.0),
+    ] {
+        cx.simulate_resize(size(px(width), px(height)));
         panel.update_in(cx, |panel, window, cx| {
             panel.open_cell_dialog(
                 "payload".to_string(),
@@ -246,6 +264,22 @@ fn mongo_cell_detail_stays_inside_three_window_widths(cx: &mut TestAppContext) {
         assert!(
             title.right() <= px(width),
             "MongoDB 详情标题不能越出窗口：title={title:?}, width={width}"
+        );
+        assert!(
+            title.origin.y >= px(0.0),
+            "MongoDB 详情标题不能越出窗口顶部：title={title:?}, height={height}"
+        );
+        assert!(
+            title.bottom() <= px(height),
+            "MongoDB 详情标题不能越出窗口底部：title={title:?}, height={height}"
+        );
+        assert!(
+            scroll_area.origin.y >= title.bottom(),
+            "MongoDB 详情内容不能覆盖标题：title={title:?}, scroll_area={scroll_area:?}"
+        );
+        assert!(
+            scroll_area.bottom() <= px(height),
+            "MongoDB 详情内容不能越出窗口底部：scroll_area={scroll_area:?}, height={height}"
         );
         cx.update(|window, cx| window.close_dialog(cx));
         cx.run_until_parked();

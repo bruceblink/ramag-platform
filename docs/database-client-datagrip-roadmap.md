@@ -56,7 +56,7 @@ Ramag 已经具备多数据库连接、Schema 浏览、查询编辑、结果编�
 - `UI-002` 的结果列表、双向滚动和底部状态栏已在 `ea0a472` 完成 headless 边界检查；检查覆盖 360px 窄窗口，真实 Windows 窗口和实际数据库数据证据仍待环境恢复后补充。
 - `UI-003` 已在 `ba71d8e` 完成首个结果工具栏切片：SQL/MongoDB 的筛选区、运行按钮、结果状态栏和分页按钮在 360px、1024px、1440px headless 窗口中保持在父容器内，工具栏与状态栏不重叠。查询控制台顶部工具栏、详情查看器和查询历史内容的真实窗口与实际数据库证据仍未完成。
 - `UI-003` 的查询控制台顶部工具栏已在 `05874b5` 完成第二个切片：SQL/MongoDB 标签区可收缩并保留横向滚动，历史、示例和格式化操作区在 360px、1024px、1440px headless 窗口中保持可见且未越出工具栏；详情查看器、查询历史内容的真实窗口与实际数据库证据仍待补充。
-- `UI-003` 的详情查看器已在 `e6854be` 完成第三个切片：SQL 查看器保留长正文的水平滚动，MongoDB 查看器按当前窗口可用宽度收缩；`selected_cell_value_viewer_stays_inside_three_window_widths` 和 `mongo_cell_detail_stays_inside_three_window_widths` 在 360px、1024px、1440px headless 窗口中检查内容区域、滚动区域和关闭后的清理；真实窗口和实际数据库证据仍待补充。
+- `UI-003` 的详情查看器已在 `e6854be` 完成第三个切片：SQL 查看器保留长正文的水平滚动，MongoDB 查看器按当前窗口可用宽度收缩；`selected_cell_value_viewer_stays_inside_three_window_widths` 和 `mongo_cell_detail_stays_inside_three_window_widths` 在 360px、1024px、1440px headless 窗口中检查内容区域、滚动区域和关闭后的清理。后续又修复 MongoDB 详情弹框在 360×240 窗口中固定 400px 高度导致正文越界的问题，内容区现在按视口高度收缩并可滚动；真实窗口和实际数据库证据仍待补充。
 - `UI-003` 的查询历史已在 `79a9f18` 完成第四个切片：SQL/MongoDB 历史弹框按当前窗口宽度和高度收缩，搜索区、数量/状态提示、清空按钮和记录行操作组允许换行；带长查询记录和状态提示的 headless 测试在 360px、1024px、1440px 窗口中检查子项边界和重叠。真实 Windows 窗口和实际数据库连接证据仍待补充。
 - `UI-003` 的失败重试已在 `6afcd19` 完成：SQL 和 MongoDB 错误结果保留当前编辑器内容，重试入口在 360px、1024px、1440px 窗口中保持在错误区域内；SQL 与 MongoDB 的失败重试行为测试均通过。真实 Windows 窗口和实际数据库连接证据仍待补充。
 - `UI-001` 表结构对比标题栏已补齐紧凑窗口边界：源表/目标表连接上下文在窄窗口中单行省略，迁移预览、复制差异和刷新按钮继续留在响应式工具栏内；`schema_diff_toolbar_keeps_context_and_actions_inside_supported_widths` 覆盖 360/1024/1440px，目标库 307 项测试和 Clippy 通过。真实 Windows 窗口和实际数据库证据仍待补充。
