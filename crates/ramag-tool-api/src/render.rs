@@ -15,7 +15,8 @@ pub(super) fn render(
 ) -> gpui_kit::AnyElement {
     let theme = cx.theme().clone();
     let stacked = ApiView::is_stacked(window);
-    let sidebar = render_sidebar(view, window, cx, &theme);
+    let compact_height = window.viewport_size().height < px(API_COMPACT_HEIGHT);
+    let sidebar = render_sidebar(view, window, cx, compact_height, &theme);
     let editor = render_editor(view, window, cx, &theme);
     let content = if stacked {
         v_flex()
@@ -36,6 +37,9 @@ pub(super) fn render(
             .child(sidebar)
             .child(editor)
     };
+    let content = content.when(compact_height, |content| {
+        content.flex_none().min_h(px(API_COMPACT_CONTENT_HEIGHT))
+    });
     v_flex()
         .id("api-root")
         .debug_selector(|| "api-root".into())
@@ -43,6 +47,9 @@ pub(super) fn render(
         .min_w_0()
         .min_h_0()
         .bg(theme.background)
+        .when(compact_height, |root| {
+            root.overflow_y_scroll().track_scroll(&view.layout_scroll)
+        })
         .child(render_header(view, cx, &theme))
         .child(content)
         .into_any_element()
@@ -98,6 +105,7 @@ fn render_sidebar(
     view: &ApiView,
     window: &Window,
     cx: &mut Context<ApiView>,
+    compact_height: bool,
     theme: &gpui_kit::component::Theme,
 ) -> gpui_kit::AnyElement {
     let stacked = ApiView::is_stacked(window);
@@ -108,7 +116,14 @@ fn render_sidebar(
         .flex_none()
         .min_h_0()
         .min_w_0()
-        .when(stacked, |sidebar| sidebar.w_full().h(px(240.0)).flex_none())
+        .when(stacked, |sidebar| {
+            sidebar
+                .w_full()
+                .when(compact_height, |sidebar| {
+                    sidebar.h(px(API_COMPACT_SIDEBAR_HEIGHT)).flex_none()
+                })
+                .when(!compact_height, |sidebar| sidebar.flex_1().max_h(px(240.0)))
+        })
         .when(!stacked, |sidebar| sidebar.h_full())
         .overflow_y_scroll()
         .gap(px(10.0))

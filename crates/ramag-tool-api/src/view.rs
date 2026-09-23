@@ -44,6 +44,9 @@ mod render_helpers;
 const FIELD_BYTES: usize = 64 * 1024;
 const API_SIDEBAR_WIDTH: f32 = 220.0;
 const API_STACK_BREAKPOINT: f32 = 720.0;
+const API_COMPACT_HEIGHT: f32 = 600.0;
+const API_COMPACT_CONTENT_HEIGHT: f32 = 520.0;
+const API_COMPACT_SIDEBAR_HEIGHT: f32 = 120.0;
 const API_RESPONSE_PREVIEW_BYTES: usize = 16 * 1024;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -127,6 +130,7 @@ pub struct ApiView {
     pub(crate) request_generation: u64,
     pub(crate) cancelled: Option<Arc<AtomicBool>>,
     pub(crate) focus_handle: FocusHandle,
+    pub(crate) layout_scroll: ScrollHandle,
     pub(crate) response_scroll: ScrollHandle,
     pub(crate) _subscriptions: Vec<Subscription>,
 }
@@ -260,6 +264,7 @@ impl ApiView {
             request_generation: 0,
             cancelled: None,
             focus_handle: cx.focus_handle(),
+            layout_scroll: ScrollHandle::new(),
             response_scroll: ScrollHandle::new(),
             _subscriptions: Vec::new(),
         }
@@ -663,6 +668,9 @@ mod docker_tests;
 #[cfg(test)]
 #[path = "grpc_catalog_tests.rs"]
 mod grpc_catalog_tests;
+#[cfg(test)]
+#[path = "layout_tests.rs"]
+mod layout_tests;
 #[cfg(test)]
 #[path = "response_tabs_tests.rs"]
 mod response_tabs_tests;
