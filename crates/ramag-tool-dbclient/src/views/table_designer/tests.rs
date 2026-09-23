@@ -90,8 +90,14 @@ fn designer_toolbars_and_field_scroll_stay_inside_narrow_window(cx: &mut TestApp
         .expect("字段内容应渲染");
 
     for bounds in [top_toolbar, field_scroll] {
-        assert!(bounds.origin.x >= content.origin.x);
-        assert!(bounds.right() <= content.right());
+        assert!(
+            bounds.origin.x >= content.origin.x,
+            "{bounds:?} / {content:?}"
+        );
+        assert!(
+            bounds.right() <= content.right(),
+            "{bounds:?} / {content:?}"
+        );
     }
     for button in [save, show_ddl] {
         assert!(button.origin.x >= top_toolbar.origin.x);
@@ -101,6 +107,125 @@ fn designer_toolbars_and_field_scroll_stay_inside_narrow_window(cx: &mut TestApp
     }
     assert!(save.right() <= show_ddl.origin.x || show_ddl.right() <= save.origin.x);
     assert!(field_content.right() > field_scroll.right());
+}
+
+struct DesignerDialogTestHost {
+    designer: Entity<TableDesigner>,
+}
+
+impl gpui_kit::Render for DesignerDialogTestHost {
+    fn render(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl gpui_kit::IntoElement {
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        div()
+            .relative()
+            .size_full()
+            .child(self.designer.clone())
+            .children(dialog_layer)
+    }
+}
+
+#[gpui_kit::test]
+fn field_editor_and_actions_stay_inside_compact_dialog(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let columns = (0..8)
+        .map(|index| column(&format!("field_{index}"), "VARCHAR(255)", true))
+        .collect();
+    let mut designer_entity = None;
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let designer = cx.new(|cx| {
+            TableDesigner::new(
+                TableDesignerConfig {
+                    driver: DriverKind::Mysql,
+                    schema: "public".into(),
+                    table: "users".into(),
+                    columns,
+                    loading: false,
+                    ddl_loading: false,
+                    on_execute: Rc::new(|_, _, _, _| true),
+                    on_rename: Rc::new(|_, _, _, _, _, _| true),
+                },
+                window,
+                cx,
+            )
+        });
+        designer_entity = Some(designer.clone());
+        let host = cx.new(|_| DesignerDialogTestHost { designer });
+        gpui_kit::component::Root::new(host, window, cx)
+    });
+    let Some(designer) = designer_entity else {
+        unreachable!("测试窗口应创建表设计器")
+    };
+    cx.update(|window, app| {
+        let content = designer.clone();
+        window.open_dialog(app, move |dialog, window, _| {
+            let content = content.clone();
+            dialog
+                .title(
+                    div()
+                        .debug_selector(|| "table-designer-dialog-title".into())
+                        .child("修改表 · public.users"),
+                )
+                .close_button(false)
+                .width(ramag_ui::responsive_dialog_width(window, 1080.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
+                .content(move |body, _, _| body.child(content.clone()))
+        });
+    });
+    cx.run_until_parked();
+
+    for (width, height) in [(360.0, 240.0), (360.0, 620.0), (1024.0, 620.0)] {
+        cx.simulate_resize(size(px(width), px(height)));
+        cx.run_until_parked();
+
+        let title = cx
+            .debug_bounds("table-designer-dialog-title")
+            .expect("表设计器弹框标题应渲染");
+        let fields = cx
+            .debug_bounds("table-designer-field-editor-viewport")
+            .expect("字段编辑器可视区域应渲染");
+        let table = cx
+            .debug_bounds("table-designer-fields-h-scroll")
+            .expect("字段表格应渲染");
+        let toolbar = cx
+            .debug_bounds("table-designer-top-toolbar")
+            .expect("表设计器顶部工具栏应渲染");
+        let actions = cx
+            .debug_bounds("table-designer-bottom-toolbar")
+            .expect("表设计器底部操作区应渲染");
+        if height == 240.0 {
+            let add_field = cx
+                .debug_bounds("field-add")
+                .expect("紧凑布局的新增字段按钮应渲染");
+            assert!(add_field.origin.y >= title.bottom());
+            assert!(add_field.bottom() <= height.into());
+        }
+        assert!(title.origin.y >= px(0.0));
+        assert!(title.bottom() <= px(height));
+        assert!(fields.origin.y >= title.bottom());
+        assert!(
+            fields.bottom() <= px(height),
+            "字段滚动区不能越出窗口：toolbar={toolbar:?}, table={table:?}, fields={fields:?}, actions={actions:?}"
+        );
+        assert!(
+            actions.bottom() <= px(height),
+            "表设计器底部操作区不能越出窗口：title={title:?}, fields={fields:?}, actions={actions:?}, window={width}x{height}"
+        );
+        assert!(
+            fields.bottom() <= actions.origin.y,
+            "字段编辑区可视区域不能覆盖底部操作：table={table:?}, fields={fields:?}, actions={actions:?}, window={width}x{height}"
+        );
+        if height == 240.0 {
+            assert!(
+                table.bottom() > fields.bottom(),
+                "紧凑高度下字段内容应通过内部滚动保持可达：table={table:?}, viewport={fields:?}"
+            );
+        }
+    }
 }
 
 #[gpui_kit::test]
