@@ -23,7 +23,7 @@ pub(super) fn connect(address: &str) -> Result<Docker, BollardError> {
     parse_target(address).map_err(invalid_target)?;
     let address = address.to_owned();
     let closure_address = address.clone();
-    Ok(Docker::connect_with_custom_transport(
+    Docker::connect_with_custom_transport(
         move |request: BollardRequest| {
             let address = closure_address.clone();
             Box::pin(async move { request_over_ssh(&address, request).await })
@@ -31,7 +31,7 @@ pub(super) fn connect(address: &str) -> Result<Docker, BollardError> {
         Some(address),
         120,
         bollard::API_DEFAULT_VERSION,
-    )?)
+    )
 }
 
 async fn request_over_ssh(
