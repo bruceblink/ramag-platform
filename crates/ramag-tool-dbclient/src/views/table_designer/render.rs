@@ -3,17 +3,21 @@ use super::*;
 use crate::views::table_designer::diff::{format_field_diff, render_field_diff_lines};
 
 impl Render for TableDesigner {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let field_editor = self.render_field_editor(cx);
         let theme = cx.theme();
         let border = theme.border;
         let muted = theme.muted;
         let muted_fg = theme.muted_foreground;
         let entity = cx.entity().clone();
+        // Reserve space for the dialog title, designer toolbar, section title, and action row.
+        let available_content_height =
+            (ramag_ui::responsive_dialog_max_height(window) - px(170.0)).max(px(48.0));
+        let status_panel_height = available_content_height.max(px(96.0));
         if self.loading {
             return v_flex()
                 .w_full()
-                .h(px(360.0))
+                .h(status_panel_height.min(px(360.0)))
                 .items_center()
                 .justify_center()
                 .gap_3()
@@ -23,7 +27,7 @@ impl Render for TableDesigner {
         if let Some(error) = &self.load_error {
             return v_flex()
                 .w_full()
-                .h(px(300.0))
+                .h(status_panel_height.min(px(300.0)))
                 .items_center()
                 .justify_center()
                 .gap_3()
@@ -154,6 +158,7 @@ impl Render for TableDesigner {
                             self.ddl_text.clone(),
                             self.ddl_error.clone(),
                             &self.sql_scroll,
+                            available_content_height.min(px(TABLE_DDL_PANEL_HEIGHT)),
                             theme,
                         )),
                 )
@@ -349,6 +354,7 @@ impl Render for TableDesigner {
                 |designer| {
                     designer.child(
                         ramag_ui::responsive_toolbar()
+                            .debug_selector(|| "table-designer-bottom-toolbar".into())
                             .flex_none()
                             .justify_between()
                             .when(!show_ddl, |actions| {

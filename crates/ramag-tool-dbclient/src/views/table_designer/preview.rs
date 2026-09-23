@@ -5,12 +5,13 @@ pub(super) fn render_ddl_panel(
     ddl: Option<String>,
     error: Option<String>,
     scroll: &ScrollHandle,
+    panel_height: gpui_kit::Pixels,
     theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     let content = if loading {
         v_flex()
             .w_full()
-            .h(px(TABLE_DDL_PANEL_HEIGHT))
+            .h(panel_height)
             .items_center()
             .justify_center()
             .gap_2()
@@ -20,7 +21,7 @@ pub(super) fn render_ddl_panel(
     } else if let Some(error) = error {
         v_flex()
             .w_full()
-            .h(px(TABLE_DDL_PANEL_HEIGHT))
+            .h(panel_height)
             .items_center()
             .justify_center()
             .gap_2()
@@ -37,8 +38,9 @@ pub(super) fn render_ddl_panel(
         let highlighted_ddl = highlight_sql(ddl, &theme.highlight_theme);
         div()
             .w_full()
-            .h(px(TABLE_DDL_PANEL_HEIGHT))
+            .h(panel_height)
             .id("table-designer-ddl-scroll")
+            .debug_selector(|| "table-designer-ddl-scroll".into())
             .overflow_y_scroll()
             .track_scroll(scroll)
             .p_3()

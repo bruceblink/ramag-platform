@@ -21,6 +21,25 @@ fn column(name: &str, raw_type: &str, nullable: bool) -> Column {
     }
 }
 
+struct DesignerDialogTestHost {
+    designer: Entity<TableDesigner>,
+}
+
+impl gpui_kit::Render for DesignerDialogTestHost {
+    fn render(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl gpui_kit::IntoElement {
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        div()
+            .relative()
+            .size_full()
+            .child(self.designer.clone())
+            .children(dialog_layer)
+    }
+}
+
 fn designer(
     driver: DriverKind,
     columns: Vec<Column>,
@@ -101,6 +120,88 @@ fn designer_toolbars_and_field_scroll_stay_inside_narrow_window(cx: &mut TestApp
     }
     assert!(save.right() <= show_ddl.origin.x || show_ddl.right() <= save.origin.x);
     assert!(field_content.right() > field_scroll.right());
+}
+
+#[gpui_kit::test]
+fn ddl_preview_stays_inside_compact_window(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut designer_entity = None;
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let designer = cx.new(|cx| {
+            TableDesigner::new(
+                TableDesignerConfig {
+                    driver: DriverKind::Mysql,
+                    schema: "public".into(),
+                    table: "users".into(),
+                    columns: vec![column("id", "int", false)],
+                    loading: false,
+                    ddl_loading: false,
+                    on_execute: Rc::new(|_, _, _, _| true),
+                    on_rename: Rc::new(|_, _, _, _, _, _| true),
+                },
+                window,
+                cx,
+            )
+        });
+        designer_entity = Some(designer.clone());
+        let host = cx.new(|_| DesignerDialogTestHost { designer });
+        gpui_kit::component::Root::new(host, window, cx)
+    });
+    let Some(designer) = designer_entity else {
+        unreachable!("测试窗口应创建表设计器")
+    };
+    designer.update(cx, |designer, cx| {
+        designer.show_ddl = true;
+        designer.set_ddl("CREATE TABLE users (id INT);".into(), cx);
+    });
+    cx.update(|window, app| {
+        let content = designer.clone();
+        window.open_dialog(app, move |dialog, window, _| {
+            let content = content.clone();
+            dialog
+                .title(
+                    div()
+                        .debug_selector(|| "table-designer-dialog-title".into())
+                        .child("修改表 · public.users"),
+                )
+                .close_button(false)
+                .width(ramag_ui::responsive_dialog_width(window, 1080.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
+                .content(move |body, _, _| body.child(content.clone()))
+        });
+    });
+    cx.run_until_parked();
+
+    for (width, height) in [(360.0, 240.0), (360.0, 620.0), (1024.0, 620.0)] {
+        cx.simulate_resize(size(px(width), px(height)));
+        cx.run_until_parked();
+
+        let title = cx
+            .debug_bounds("table-designer-dialog-title")
+            .expect("表设计器弹框标题应渲染");
+        let ddl_scroll = cx
+            .debug_bounds("table-designer-ddl-scroll")
+            .expect("DDL 预览滚动区域应渲染");
+        let actions = cx
+            .debug_bounds("table-designer-bottom-toolbar")
+            .expect("表设计器底部操作区应渲染");
+        assert!(title.origin.y >= px(0.0));
+        assert!(title.bottom() <= px(height));
+        assert!(ddl_scroll.origin.y >= title.bottom());
+        assert!(
+            ddl_scroll.bottom() <= px(height),
+            "DDL 预览滚动区域不能越出窗口：ddl={ddl_scroll:?}, actions={actions:?}"
+        );
+        assert!(
+            actions.origin.y >= ddl_scroll.bottom(),
+            "底部操作区不能覆盖 DDL 预览：ddl={ddl_scroll:?}, actions={actions:?}"
+        );
+        assert!(
+            actions.bottom() <= px(height),
+            "表设计器底部操作区不能越出窗口：{actions:?}"
+        );
+    }
 }
 
 #[gpui_kit::test]
