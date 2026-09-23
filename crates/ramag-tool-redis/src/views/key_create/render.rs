@@ -3,6 +3,7 @@
 use gpui_kit::component::{
     ActiveTheme, h_flex,
     input::{Input, Textarea},
+    scroll::ScrollableElement as _,
     v_flex,
 };
 use gpui_kit::{
@@ -15,10 +16,10 @@ use super::{CREATE_TYPES, KeyCreateForm};
 use crate::views::form_shell::form_footer;
 
 impl KeyCreateForm {
-    fn render_editor(&self, disabled: bool) -> AnyElement {
+    fn render_editor(&self, disabled: bool, window: &Window) -> AnyElement {
         match self.selected_type {
             RedisType::String => Textarea::new(&self.string_input)
-                .h(px(220.0))
+                .h((window.viewport_size().height - px(360.0)).clamp(px(72.0), px(220.0)))
                 .disabled(disabled)
                 .into_any_element(),
             RedisType::List => self.list_editor.clone().into_any_element(),
@@ -32,7 +33,7 @@ impl KeyCreateForm {
 }
 
 impl Render for KeyCreateForm {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let muted_fg = theme.muted_foreground;
         let fg = theme.foreground;
@@ -114,65 +115,89 @@ impl Render for KeyCreateForm {
 
         v_flex()
             .w_full()
-            .gap(px(18.0))
-            .pt(px(2.0))
-            .pb(px(2.0))
+            .h_full()
+            .flex_1()
+            .min_h_0()
             .child(
-                v_flex()
-                    .gap(px(8.0))
-                    .child(section_title("键名", muted_fg, None))
+                div()
+                    .debug_selector(|| "redis-key-create-fields-scroll".into())
+                    .flex_1()
+                    .min_h_0()
                     .child(
-                        div()
-                            .w_full()
-                            .child(Input::new(&self.key_name).disabled(submitting)),
+                        v_flex().size_full().overflow_y_scrollbar().child(
+                            v_flex()
+                                .w_full()
+                                .gap(px(18.0))
+                                .pt(px(2.0))
+                                .pb(px(2.0))
+                                .child(
+                                    v_flex()
+                                        .gap(px(8.0))
+                                        .child(section_title("键名", muted_fg, None))
+                                        .child(div().w_full().child(
+                                            Input::new(&self.key_name).disabled(submitting),
+                                        )),
+                                )
+                                .child(
+                                    v_flex()
+                                        .gap(px(8.0))
+                                        .child(section_title("类型", muted_fg, None))
+                                        .child(type_row),
+                                )
+                                .child(
+                                    v_flex()
+                                        .gap(px(10.0))
+                                        .child(section_title(
+                                            &value_section_title,
+                                            muted_fg,
+                                            Some(current_color),
+                                        ))
+                                        .child(
+                                            div()
+                                                .debug_selector(|| {
+                                                    "redis-key-create-value-editor".into()
+                                                })
+                                                .w_full()
+                                                .p(px(14.0))
+                                                .rounded_md()
+                                                .border_1()
+                                                .border_color(border)
+                                                .bg(card_bg)
+                                                .child(self.render_editor(submitting, window)),
+                                        ),
+                                )
+                                .child(
+                                    v_flex()
+                                        .gap(px(8.0))
+                                        .child(section_title("TTL", muted_fg, None))
+                                        .child(self.ttl_picker.clone()),
+                                ),
+                        ),
                     ),
             )
+            .child(div().h(px(1.0)).flex_none().bg(border).my(px(2.0)))
             .child(
-                v_flex()
-                    .gap(px(8.0))
-                    .child(section_title("类型", muted_fg, None))
-                    .child(type_row),
+                div()
+                    .debug_selector(|| "redis-key-create-footer".into())
+                    .flex_none()
+                    .child(form_footer(
+                        "kc",
+                        "创建",
+                        &self.state,
+                        |this, _: &ClickEvent, _, cx| this.handle_cancel(cx),
+                        |this, _: &ClickEvent, _, cx| {
+                            if !this.state.is_submitting() {
+                                this.handle_create(cx);
+                            }
+                        },
+                        cx,
+                    )),
             )
-            .child(
-                v_flex()
-                    .gap(px(10.0))
-                    .child(section_title(
-                        &value_section_title,
-                        muted_fg,
-                        Some(current_color),
-                    ))
-                    .child(
-                        div()
-                            .w_full()
-                            .p(px(14.0))
-                            .rounded_md()
-                            .border_1()
-                            .border_color(border)
-                            .bg(card_bg)
-                            .child(self.render_editor(submitting)),
-                    ),
-            )
-            .child(
-                v_flex()
-                    .gap(px(8.0))
-                    .child(section_title("TTL", muted_fg, None))
-                    .child(self.ttl_picker.clone()),
-            )
-            .child(div().h(px(1.0)).bg(border).my(px(2.0)))
-            .child(form_footer(
-                "kc",
-                "创建",
-                &self.state,
-                |this, _: &ClickEvent, _, cx| this.handle_cancel(cx),
-                |this, _: &ClickEvent, _, cx| {
-                    if !this.state.is_submitting() {
-                        this.handle_create(cx);
-                    }
-                },
-                cx,
-            ))
     }
 }
+
+#[cfg(test)]
+mod render_test;
 
 fn section_title(text: &str, muted_fg: Hsla, dot_color: Option<Hsla>) -> impl IntoElement {
     let mut row = h_flex().items_center().gap(px(8.0));
