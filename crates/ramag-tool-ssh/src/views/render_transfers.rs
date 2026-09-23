@@ -126,8 +126,11 @@ fn transfer_row(task: TransferTask, cx: &mut Context<SshView>) -> impl IntoEleme
     let id_for_overwrite = id.clone();
     let id_for_cancel = id.clone();
     h_flex()
+        .debug_selector(|| "ssh-transfer-row".into())
         .w_full()
         .min_h(px(44.0))
+        .min_w_0()
+        .flex_wrap()
         .items_center()
         .gap(px(10.0))
         .px(px(10.0))
@@ -167,6 +170,7 @@ fn transfer_row(task: TransferTask, cx: &mut Context<SshView>) -> impl IntoEleme
         .child(
             div()
                 .w(px(150.0))
+                .flex_none()
                 .text_xs()
                 .text_color(cx.theme().muted_foreground)
                 .child(progress),

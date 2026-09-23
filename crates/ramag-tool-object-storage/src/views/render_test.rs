@@ -539,13 +539,26 @@ fn active_transfer_opens_bounded_progress_panel(cx: &mut TestAppContext) {
         }];
         cx.notify();
     });
-    cx.simulate_resize(size(px(1200.0), px(700.0)));
-    cx.run_until_parked();
+    for (width, height) in [(1200.0, 700.0), (360.0, 640.0)] {
+        cx.simulate_resize(size(px(width), px(height)));
+        cx.run_until_parked();
 
-    let panel = cx
-        .debug_bounds("object-transfer-panel")
-        .expect("active transfer should open progress panel");
-    assert!(cx.debug_bounds("object-transfers").is_some());
-    assert!(panel.size.width <= px(520.0));
-    assert!(panel.origin.x > px(500.0));
+        let panel = cx
+            .debug_bounds("object-transfer-panel")
+            .expect("active transfer should open progress panel");
+        let row = cx
+            .debug_bounds("object-transfer-active-row")
+            .expect("active transfer row should be rendered");
+        assert!(panel.size.width <= px(520.0));
+        assert!(panel.origin.x >= px(0.0));
+        assert!(panel.right() <= px(width));
+        assert!(
+            row.origin.x >= panel.origin.x && row.right() <= panel.right(),
+            "对象存储传输行不能越出浮层：panel={panel:?}, row={row:?}"
+        );
+        if width > 720.0 {
+            assert!(cx.debug_bounds("object-transfers").is_some());
+            assert!(panel.origin.x > px(500.0));
+        }
+    }
 }

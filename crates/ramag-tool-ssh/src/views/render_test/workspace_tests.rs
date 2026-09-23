@@ -521,6 +521,21 @@ fn restored_workspace_renders_files_terminal_placeholder_and_transfer(cx: &mut T
         "传输面板不应覆盖过多工作区：{:?}",
         transfers.size
     );
+    cx.simulate_resize(size(px(360.0), px(640.0)));
+    cx.run_until_parked();
+    let compact_panel = cx
+        .debug_bounds("ssh-transfer-panel")
+        .expect("紧凑窗口仍应显示传输面板");
+    let compact_row = cx
+        .debug_bounds("ssh-transfer-row")
+        .expect("紧凑窗口应显示传输行");
+    assert!(compact_panel.origin.x >= px(0.0));
+    assert!(compact_panel.right() <= px(360.0));
+    assert!(
+        compact_row.origin.x >= compact_panel.origin.x
+            && compact_row.right() <= compact_panel.right(),
+        "SSH 传输行不能越出紧凑浮层：panel={compact_panel:?}, row={compact_row:?}"
+    );
 
     view.update(cx, |view, cx| view.hide_transfer_panel(cx));
     cx.run_until_parked();

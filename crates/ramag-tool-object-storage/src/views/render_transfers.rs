@@ -138,10 +138,12 @@ fn active_transfer_row(
     } else {
         cx.theme().accent
     };
-
     h_flex()
+        .debug_selector(|| "object-transfer-active-row".into())
         .w_full()
         .min_h(px(44.0))
+        .min_w_0()
+        .flex_wrap()
         .items_center()
         .gap(px(10.0))
         .px(px(10.0))
@@ -169,6 +171,7 @@ fn active_transfer_row(
         .child(
             div()
                 .w(px(150.0))
+                .flex_none()
                 .text_xs()
                 .text_color(cx.theme().muted_foreground)
                 .child(transfer_progress(transferred, total)),
@@ -209,6 +212,8 @@ fn history_transfer_row(
         .id(("object-transfer-history", index))
         .w_full()
         .min_h(px(44.0))
+        .min_w_0()
+        .flex_wrap()
         .items_center()
         .gap(px(10.0))
         .px(px(10.0))
@@ -225,6 +230,7 @@ fn history_transfer_row(
         .child(
             div()
                 .w(px(150.0))
+                .flex_none()
                 .text_xs()
                 .text_color(cx.theme().muted_foreground)
                 .child("—"),
