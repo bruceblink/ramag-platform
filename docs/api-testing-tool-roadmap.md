@@ -483,3 +483,5 @@ API 请求筛选清除交互优化记录（2026-09-22）：请求搜索框复用
 API 请求搜索框布局验收记录（2026-09-22）：请求搜索框增加稳定容器和调试选择器，headless 布局测试覆盖 360/640/1024/1440 像素窗口，确认搜索框始终位于 API 侧栏内。`ramag-tool-api --lib` 22 项测试通过，Computer Use 仍无法取得可控原生窗口。
 
 API 请求目标搜索优化记录（2026-09-22）：请求侧栏搜索除 Collection、请求名和协议外，还匹配 HTTP 方法、URL、查询参数以及 gRPC Endpoint、Service 和 Method；不搜索 Headers、认证、正文等可能包含敏感值的内容。新增 HTTP/gRPC 目标字段回归测试，`ramag-tool-api --lib` 22 项测试通过，Computer Use 仍无法取得可控原生窗口。
+
+API 响应区页签修正记录（2026-09-23）：响应区使用 GPUI Kit 的 `TabBar` 将已有的正文、Headers/Metadata、耗时和断言/变量分为四个页签，避免长正文和多组摘要在同一面板连续堆叠；切换请求、协议、发送或运行 Collection 后统一回到正文页签，并清理上一请求的响应状态。新增两个 headless 交互测试，`ramag-tool-api --all-targets` 通过 24 项测试，目标 Clippy、源码尺寸、格式和差异检查通过。真实 Windows 窗口截图、键盘和鼠标证据仍未取得。

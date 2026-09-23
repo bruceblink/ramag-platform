@@ -46,6 +46,35 @@ const API_SIDEBAR_WIDTH: f32 = 220.0;
 const API_STACK_BREAKPOINT: f32 = 720.0;
 const API_RESPONSE_PREVIEW_BYTES: usize = 16 * 1024;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum ApiResponseTab {
+    #[default]
+    Body,
+    Headers,
+    Timing,
+    Assertions,
+}
+
+impl ApiResponseTab {
+    pub(crate) fn index(self) -> usize {
+        match self {
+            Self::Body => 0,
+            Self::Headers => 1,
+            Self::Timing => 2,
+            Self::Assertions => 3,
+        }
+    }
+
+    pub(crate) fn from_index(index: usize) -> Self {
+        match index {
+            1 => Self::Headers,
+            2 => Self::Timing,
+            3 => Self::Assertions,
+            _ => Self::Body,
+        }
+    }
+}
+
 /// API 工作台编辑状态；输入值先保留在 GPUI 状态中，点击发送时才构造领域请求。
 pub struct ApiView {
     pub(crate) service: Option<Arc<ApiService>>,
@@ -85,6 +114,7 @@ pub struct ApiView {
     pub(crate) grpc_discovery_generation: u64,
     pub(crate) grpc_discovery_cancelled: Option<ApiCancellation>,
     pub(crate) response: Option<ApiResponseSnapshot>,
+    pub(crate) response_tab: ApiResponseTab,
     pub(crate) assertion_results: Vec<ApiAssertionResult>,
     pub(crate) extracted_variables: Vec<ApiExtractedVariable>,
     pub(crate) history: Vec<ApiHistoryRecord>,
@@ -217,6 +247,7 @@ impl ApiView {
             grpc_discovery_generation: 0,
             grpc_discovery_cancelled: None,
             response: None,
+            response_tab: ApiResponseTab::Body,
             assertion_results: Vec::new(),
             extracted_variables: Vec::new(),
             history: Vec::new(),
@@ -632,6 +663,9 @@ mod docker_tests;
 #[cfg(test)]
 #[path = "grpc_catalog_tests.rs"]
 mod grpc_catalog_tests;
+#[cfg(test)]
+#[path = "response_tabs_tests.rs"]
+mod response_tabs_tests;
 #[cfg(test)]
 #[path = "view_tests.rs"]
 mod tests;

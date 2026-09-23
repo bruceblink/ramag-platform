@@ -13,6 +13,7 @@ impl ApiView {
         self.protocol = protocol;
         self.grpc_services.clear();
         self.response = None;
+        self.response_tab = ApiResponseTab::Body;
         self.assertion_results.clear();
         self.extracted_variables.clear();
         self.last_collection_run = None;

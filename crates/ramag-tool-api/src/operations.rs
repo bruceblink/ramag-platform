@@ -84,6 +84,7 @@ impl ApiView {
                         view.workspace = workspace.clone();
                         context::apply_imported_workspace(view, &workspace, window, cx);
                         view.response = None;
+                        view.response_tab = ApiResponseTab::Body;
                         view.assertion_results.clear();
                         view.extracted_variables.clear();
                         view.last_collection_run = None;
@@ -226,6 +227,7 @@ impl ApiView {
         self.cancelled = Some(cancelled.clone());
         self.loading = true;
         self.response = None;
+        self.response_tab = ApiResponseTab::Body;
         self.assertion_results.clear();
         self.extracted_variables.clear();
         self.last_collection_run = None;
@@ -326,6 +328,7 @@ impl ApiView {
         self.cancelled = Some(cancelled.clone());
         self.loading = true;
         self.response = None;
+        self.response_tab = ApiResponseTab::Body;
         self.assertion_results.clear();
         self.extracted_variables.clear();
         self.last_collection_run = None;

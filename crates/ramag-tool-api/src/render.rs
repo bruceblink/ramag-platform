@@ -1,13 +1,12 @@
 use super::render_body;
-use super::render_helpers::{
-    render_assertion_results, render_collection_summary, render_context_editor,
-    render_extracted_variables, render_history, render_request_toolbar,
-};
+use super::render_helpers::{render_context_editor, render_history, render_request_toolbar};
 use super::*;
 use gpui_kit::FontWeight;
 
 #[path = "render_sidebar_requests.rs"]
 mod render_sidebar_requests;
+#[path = "render_response.rs"]
+mod response_render;
 
 pub(super) fn render(
     view: &mut ApiView,
@@ -212,7 +211,7 @@ fn render_editor(
             .min_w_0()
             .min_h_0()
             .child(request_pane)
-            .child(render_response(view, cx, theme))
+            .child(response_render::render_response(view, cx, theme))
     } else {
         h_flex()
             .id("api-request-response")
@@ -222,7 +221,7 @@ fn render_editor(
             .min_h_0()
             .items_stretch()
             .child(request_pane)
-            .child(render_response(view, cx, theme))
+            .child(response_render::render_response(view, cx, theme))
     };
     v_flex()
         .id("api-editor")
@@ -278,234 +277,9 @@ fn render_http_editor(
         .into_any_element()
 }
 
-fn render_response(
-    view: &ApiView,
-    _cx: &mut Context<ApiView>,
-    theme: &gpui_kit::component::Theme,
-) -> gpui_kit::AnyElement {
-    let body = match &view.response {
-        Some(snapshot) => v_flex()
-            .id("api-response-content")
-            .debug_selector(|| "api-response-content".into())
-            .w_full()
-            .min_w_0()
-            .gap(px(8.0))
-            .child(
-                div()
-                    .text_sm()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(status_text(snapshot)),
-            )
-            .child(render_collection_summary(view, theme))
-            .child(render_assertion_results(&view.assertion_results, theme))
-            .child(render_extracted_variables(&view.extracted_variables, theme))
-            .child(response_parameters(snapshot, theme))
-            .child(
-                v_flex()
-                    .id("api-response-body")
-                    .debug_selector(|| "api-response-body".into())
-                    .w_full()
-                    .min_w_0()
-                    .gap(px(5.0))
-                    .child(
-                        h_flex()
-                            .justify_between()
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(theme.muted_foreground)
-                                    .child("正文"),
-                            )
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(theme.muted_foreground)
-                                    .child(body_format_label(snapshot)),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .w_full()
-                            .min_w_0()
-                            .p(px(10.0))
-                            .bg(theme.secondary)
-                            .rounded(px(5.0))
-                            .text_xs()
-                            .whitespace_normal()
-                            .child(body_preview(snapshot)),
-                    ),
-            )
-            .into_any_element(),
-        None => v_flex()
-            .id("api-response-empty")
-            .debug_selector(|| "api-response-empty".into())
-            .w_full()
-            .p(px(14.0))
-            .child(if view.loading {
-                "正在等待响应…"
-            } else {
-                "发送请求后显示响应"
-            })
-            .into_any_element(),
-    };
-    v_flex()
-        .id("api-response")
-        .debug_selector(|| "api-response".into())
-        .flex_1()
-        .h_full()
-        .min_h(px(160.0))
-        .min_w_0()
-        .overflow_y_scroll()
-        .track_scroll(&view.response_scroll)
-        .gap(px(8.0))
-        .p(px(12.0))
-        .border_1()
-        .border_color(theme.border)
-        .rounded(px(6.0))
-        .child(
-            h_flex()
-                .justify_between()
-                .child(
-                    div()
-                        .text_sm()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child("响应"),
-                )
-                .child(div().text_xs().text_color(theme.muted_foreground).child(
-                    match &view.notice {
-                        Some((message, _)) => message.clone(),
-                        None => "".into(),
-                    },
-                )),
-        )
-        .child(body)
-        .into_any_element()
-}
-
 fn protocol_label(protocol: ApiProtocol) -> &'static str {
     match protocol {
         ApiProtocol::Http => "HTTP",
         ApiProtocol::Grpc => "gRPC",
     }
-}
-
-fn response_parameters(
-    snapshot: &ApiResponseSnapshot,
-    theme: &gpui_kit::component::Theme,
-) -> gpui_kit::AnyElement {
-    v_flex()
-        .id("api-response-parameters")
-        .debug_selector(|| "api-response-parameters".into())
-        .w_full()
-        .min_w_0()
-        .gap(px(8.0))
-        .child(response_parameter_table(
-            "api-response-headers",
-            "Headers",
-            &snapshot.headers,
-            theme,
-        ))
-        .child(response_parameter_table(
-            "api-response-metadata",
-            "Metadata",
-            &snapshot.metadata,
-            theme,
-        ))
-        .into_any_element()
-}
-
-fn response_parameter_table(
-    id: &'static str,
-    label: &'static str,
-    parameters: &[ApiParameter],
-    theme: &gpui_kit::component::Theme,
-) -> gpui_kit::AnyElement {
-    let mut section = v_flex()
-        .id(id)
-        .debug_selector(move || id.into())
-        .w_full()
-        .min_w_0()
-        .gap(px(3.0))
-        .child(
-            h_flex()
-                .justify_between()
-                .child(
-                    div()
-                        .text_xs()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child(label),
-                )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child(format!("{} 项", parameters.len())),
-                ),
-        );
-
-    if parameters.is_empty() {
-        section = section.child(
-            div()
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child(format!("无 {}", label)),
-        );
-    } else {
-        section = section.child(
-            h_flex()
-                .w_full()
-                .min_w_0()
-                .gap(px(8.0))
-                .child(
-                    div()
-                        .w(px(150.0))
-                        .flex_none()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("名称"),
-                )
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("值"),
-                ),
-        );
-        for parameter in parameters.iter().take(16) {
-            section = section.child(
-                h_flex()
-                    .w_full()
-                    .min_w_0()
-                    .gap(px(8.0))
-                    .child(
-                        div()
-                            .w(px(150.0))
-                            .flex_none()
-                            .truncate()
-                            .text_xs()
-                            .child(parameter.name.clone()),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .truncate()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(parameter.value.clone()),
-                    ),
-            );
-        }
-        if parameters.len() > 16 {
-            section = section.child(
-                div()
-                    .text_xs()
-                    .text_color(theme.muted_foreground)
-                    .child(format!("…其余 {} 项未展开", parameters.len() - 16)),
-            );
-        }
-    }
-    section.into_any_element()
 }

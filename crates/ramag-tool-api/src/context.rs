@@ -442,6 +442,7 @@ pub(crate) fn apply_request_to_view(
     set_input(&view.grpc_metadata_value, String::new(), window, cx);
     view.grpc_services.clear();
     view.response = None;
+    view.response_tab = ApiResponseTab::Body;
     view.assertion_results.clear();
     view.extracted_variables.clear();
     view.last_collection_run = None;
