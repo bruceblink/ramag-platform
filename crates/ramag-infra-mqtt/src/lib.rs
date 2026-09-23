@@ -315,7 +315,7 @@ impl MosquittoStaticConfigDriver for LocalMosquittoStaticConfigDriver {
             return Err(local_file_error("替换 Mosquitto 静态配置", error));
         }
         if existing && let Err(error) = std::fs::remove_file(&backup) {
-            tracing::warn!(path = %file.path, error = %error, "Mosquitto 静态配置备份清理失败");
+            tracing::warn!(operation = "mqtt_local_config_backup_cleanup", path = %file.path, error = %error, "Mosquitto 静态配置备份清理失败");
         }
         Ok(())
     }
