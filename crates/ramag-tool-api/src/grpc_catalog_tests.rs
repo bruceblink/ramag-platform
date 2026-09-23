@@ -202,13 +202,19 @@ fn api_request_sidebar_filters_all_saved_requests_with_collection_context(cx: &m
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("api-request-item-0").is_none());
     assert!(visual_cx.debug_bounds("api-request-list-empty").is_some());
-    visual_cx.update(|window, app| {
-        view.update(app, |view, cx| {
-            view.request_search
-                .update(cx, |input, cx| input.set_value("", window, cx));
-        });
-    });
+    click(visual_cx, "api-request-search-clear");
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("api-request-item-0").is_some());
+    assert!(visual_cx.debug_bounds("api-request-item-1").is_some());
+    assert!(visual_cx.debug_bounds("api-request-list-empty").is_none());
     assert!(visual_cx.debug_bounds("api-request-search-clear").is_none());
+    let (search_value, search_focused) = visual_cx.update(|window, app| {
+        let search = view.read(app).request_search.read(app);
+        (
+            search.value().to_string(),
+            search.focus_handle(app).is_focused(window),
+        )
+    });
+    assert!(search_value.is_empty());
+    assert!(search_focused);
 }
