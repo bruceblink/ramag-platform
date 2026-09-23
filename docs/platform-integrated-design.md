@@ -418,7 +418,6 @@ SecureCRT 和 MobaXterm 用于划定产品参考范围，不代表 Ramag 已经�
 5. 补真实 Windows 窗口截图和键盘操作，确认 SSH 工作区在实际焦点、最小尺寸和 DPI 下的行为。
 6. 单独设计端口转发状态、错误和停止面板。
 7. 在 `KAFKA-023` 功能矩阵之后补生产 exporter 安全配置和真实 Windows Kafka 窗口证据；本机静态 OpenMetrics fixture 与真实 Kafka JMX Exporter 已覆盖端点接入链路，纯 Rust Transport 仍单独评估。
-8. 把 `docs/v0.0.5-release-todo.md` 和历史公告移入归档目录，避免被误当作当前计划。
 
 ## 10. 当前验证记录
 
