@@ -136,12 +136,12 @@ fn local_pty_accepts_tab_as_a_single_byte() {
         "/bin/bash",
         vec![
             "-c".into(),
-            "stty raw -echo; printf 'ramag-pty-ready\\n'; sleep 0.2; od -An -t u1 -N 1".into(),
+            "stty raw -echo; printf 'ramag-pty-ready\\n'; od -An -t u1 -N 1; sleep 0.5".into(),
         ],
     ))
     .unwrap();
 
-    // Delay the reader after the ready marker so the PTY can buffer input across scheduler timing.
+    // Keep the child alive after the result so the PTY reader drains its final output reliably.
     let ready_deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
     while std::time::Instant::now() < ready_deadline {
         let output = core
