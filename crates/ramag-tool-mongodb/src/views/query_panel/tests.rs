@@ -190,7 +190,12 @@ fn history_dialog_stays_inside_three_window_widths(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
 
-    for (width, height) in [(360.0, 620.0), (1024.0, 620.0), (1440.0, 620.0)] {
+    for (width, height) in [
+        (360.0, 240.0),
+        (360.0, 620.0),
+        (1024.0, 620.0),
+        (1440.0, 620.0),
+    ] {
         cx.simulate_resize(size(px(width), px(height)));
         panel.update_in(cx, |panel, window, cx| {
             panel.open_history_dialog(window, cx);

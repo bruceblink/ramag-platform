@@ -501,6 +501,9 @@ impl ResultPanel {
             let title = title.clone();
             let display = display.clone();
             let dialog_width = responsive_dialog_width(window, 720.0);
+            let dialog_max_height = ramag_ui::responsive_dialog_max_height(window);
+            let dialog_top = ramag_ui::responsive_dialog_top(window);
+            let detail_height = (dialog_max_height - px(112.0)).max(px(96.0)).min(px(400.0));
             let dialog_title = div()
                 .id("mongo-value-detail-title")
                 .debug_selector(|| "mongo-value-detail-title".into())
@@ -514,6 +517,8 @@ impl ResultPanel {
                 .title(dialog_title)
                 .close_button(false)
                 .w(dialog_width)
+                .max_h(dialog_max_height)
+                .margin_top(dialog_top)
                 .p(px(20.0))
                 .content(move |content, _, _| {
                     content.child(
@@ -522,7 +527,7 @@ impl ResultPanel {
                             .debug_selector(|| "mongo-value-detail-scroll".into())
                             .w_full()
                             .min_w_0()
-                            .h(px(400.0))
+                            .h(detail_height)
                             .overflow_y_scroll()
                             .child(
                                 ramag_ui::SelectableText::new(
