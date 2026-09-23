@@ -12,7 +12,7 @@ const KEY_LEN: usize = 32;
 /// 首次随机生成并写入系统凭据库；已有数据库时禁止静默重建丢失的密钥。
 pub fn get_or_create_master_key(allow_create: bool) -> Result<[u8; KEY_LEN]> {
     let entry = keyring::Entry::new(SERVICE, ACCOUNT)
-        .map_err(|e| DomainError::Storage(format!("初始化系统凭据库失败：{e}")))?;
+        .map_err(|e| credential_store_error("初始化系统凭据库失败", e))?;
 
     match entry.get_password() {
         Ok(hex_str) => {
@@ -36,8 +36,17 @@ pub fn get_or_create_master_key(allow_create: bool) -> Result<[u8; KEY_LEN]> {
         Err(keyring::Error::NoEntry) => Err(DomainError::Storage(
             "检测到已有加密数据库，但系统凭据库缺少主密钥；为避免覆盖恢复线索，已停止启动。请先恢复系统凭据，或备份并移走旧数据库后重试".into(),
         )),
-        Err(e) => Err(DomainError::Storage(format!("读取系统凭据库失败：{e}"))),
+        Err(e) => Err(credential_store_error("读取系统凭据库失败", e)),
     }
+}
+
+fn credential_store_error(action: &str, error: impl std::fmt::Display) -> DomainError {
+    let message = format!("{action}：{error}");
+    #[cfg(target_os = "linux")]
+    let message = format!(
+        "{message}。Linux 需要可用的 Secret Service；Ubuntu/WSL 可运行 `sudo apt install gnome-keyring`。WSL 没有桌面登录自动创建 D-Bus 会话时，请使用 `dbus-run-session -- <启动命令>` 启动应用，并确认会话能启动 `org.freedesktop.secrets`。"
+    );
+    DomainError::Storage(message)
 }
 
 fn generate_and_save(entry: &keyring::Entry) -> Result<[u8; KEY_LEN]> {
@@ -60,9 +69,27 @@ fn generate_and_save(entry: &keyring::Entry) -> Result<[u8; KEY_LEN]> {
 #[cfg(any(test, debug_assertions))]
 pub fn delete_master_key() -> Result<()> {
     let entry = keyring::Entry::new(SERVICE, ACCOUNT)
-        .map_err(|e| DomainError::Storage(format!("初始化系统凭据库失败：{e}")))?;
+        .map_err(|e| credential_store_error("初始化系统凭据库失败", e))?;
     match entry.delete_credential() {
         Ok(_) | Err(keyring::Error::NoEntry) => Ok(()),
-        Err(e) => Err(DomainError::Storage(format!("删除系统凭据条目失败：{e}"))),
+        Err(e) => Err(credential_store_error("删除系统凭据条目失败", e)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::credential_store_error;
+
+    #[test]
+    fn credential_store_errors_explain_linux_secret_service_requirement() {
+        let error = credential_store_error("读取系统凭据库失败", "service unavailable");
+        let message = error.to_string();
+
+        #[cfg(target_os = "linux")]
+        {
+            assert!(message.contains("gnome-keyring"));
+            assert!(message.contains("org.freedesktop.secrets"));
+        }
+        assert!(message.contains("service unavailable"));
     }
 }

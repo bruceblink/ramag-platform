@@ -21,6 +21,7 @@ use composition::*;
 use windows::*;
 
 use std::collections::HashMap;
+use std::io::IsTerminal;
 use std::sync::Arc;
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -110,6 +111,19 @@ struct OpenLogDir;
 #[action(namespace = ramag)]
 struct OpenFeedbackIssue;
 
+fn show_startup_error(title: &str, description: &str) {
+    if std::io::stderr().is_terminal() {
+        eprintln!("{title}\n\n{description}");
+        return;
+    }
+
+    let _ = rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title(title)
+        .set_description(description)
+        .show();
+}
+
 fn main() {
     if let Some(exit_code) = ramag_infra_ssh::run_askpass_helper(confirm_ssh_host) {
         std::process::exit(exit_code);
@@ -128,11 +142,10 @@ fn main() {
 
     if let Err(error) = install_tls_crypto_provider() {
         error!(operation = "tls_provider_init", error = %error, "TLS crypto provider initialization failed");
-        let _ = rfd::MessageDialog::new()
-            .set_level(rfd::MessageLevel::Error)
-            .set_title("Ramag 启动失败")
-            .set_description(format!("无法初始化安全网络组件：{error}"))
-            .show();
+        show_startup_error(
+            "Ramag 启动失败",
+            &format!("无法初始化安全网络组件：{error}"),
+        );
         std::process::exit(1);
     }
 
@@ -162,11 +175,10 @@ fn main() {
                 || "\n\n日志文件也无法创建，请检查用户目录权限。".to_string(),
                 |path| format!("\n\n日志：{}", path.display()),
             );
-            let _ = rfd::MessageDialog::new()
-                .set_level(rfd::MessageLevel::Error)
-                .set_title("Ramag 启动失败")
-                .set_description(format!("无法初始化本地数据或系统凭据库：\n\n{e}{log_hint}"))
-                .show();
+            show_startup_error(
+                "Ramag 启动失败",
+                &format!("无法初始化本地数据或系统凭据库：\n\n{e}{log_hint}"),
+            );
             std::process::exit(1);
         }
     };
@@ -178,11 +190,10 @@ fn main() {
         Ok(service) => service,
         Err(error) => {
             error!(operation = "api_service_init", error = %error, "API service initialization failed");
-            let _ = rfd::MessageDialog::new()
-                .set_level(rfd::MessageLevel::Error)
-                .set_title("Ramag 启动失败")
-                .set_description(format!("无法初始化 API 测试模块：\n\n{error}"))
-                .show();
+            show_startup_error(
+                "Ramag 启动失败",
+                &format!("无法初始化 API 测试模块：\n\n{error}"),
+            );
             std::process::exit(1);
         }
     };
@@ -202,11 +213,10 @@ fn main() {
         Ok(service) => service,
         Err(error) => {
             error!(operation = "object_storage_init", error = %error, "object storage initialization failed");
-            let _ = rfd::MessageDialog::new()
-                .set_level(rfd::MessageLevel::Error)
-                .set_title("Ramag 启动失败")
-                .set_description(format!("无法初始化对象存储模块：{error}"))
-                .show();
+            show_startup_error(
+                "Ramag 启动失败",
+                &format!("无法初始化对象存储模块：{error}"),
+            );
             std::process::exit(1);
         }
     };

@@ -139,6 +139,15 @@ cargo clippy-all    # 运行 Clippy，警告视为错误
 cargo test-all      # 运行 workspace 测试
 ```
 
+Linux 上 Ramag 使用 Secret Service 保存本地数据加密主密钥。Ubuntu/WSL 运行源码前需安装 `gnome-keyring`；WSL 通常没有桌面登录自动创建的 D-Bus 会话，可在会话中启动应用：
+
+```bash
+sudo apt install gnome-keyring
+dbus-run-session -- ./target/release/ramag
+```
+
+若运行 Debug 版本，把最后一行替换为 `dbus-run-session -- cargo run -p ramag-bin`。已有 redb 数据库但原系统凭据不可用时，Ramag 会停止启动以免覆盖数据；请先恢复创建该数据库时保存的主密钥，不要删除数据库或凭据条目。
+
 三个平台仍需要各自的原生开发组件：Windows 使用 Visual Studio 18 2026 Build Tools 的 C++ workload、Windows 10/11 SDK 和 CMake；Release 还需要 FXC 与 Inno Setup。macOS 需要 Xcode Command Line Tools；Linux 需要桌面开发库，完整列表见[桌面端构建与发布](docs/desktop-release.md#本地-linux-打包)。Rust stable channel、Cargo.lock 和日常命令由仓库统一管理。首次构建需要下载 GPUI 等依赖，耗时会明显长于后续增量构建。
 
 Windows 日常开发先在当前 PowerShell 激活 MSVC 环境；脚本通过 `vswhere.exe` 和 `vcvarsall.bat` 载入 Visual Studio 18 2026 的 x64 编译器、链接器、Windows SDK 和 CMake，并固定使用 `Visual Studio 18 2026` 的 x64 CMake 生成器。脚本只修改当前 PowerShell 进程，不替代 Cargo 命令，也不修改用户级环境变量：
