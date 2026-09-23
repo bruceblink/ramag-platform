@@ -498,7 +498,7 @@ impl RedisSessionPanel {
         self.set_dialog_subscription(sub);
         let form_for_dialog = form.clone();
         let session_for_close = cx.entity().clone();
-        window.open_dialog(cx, move |dialog, _w, _app| {
+        window.open_dialog(cx, move |dialog, window, _app| {
             let form = form_for_dialog.clone();
             let form_for_cancel = form_for_dialog.clone();
             let session_for_close = session_for_close.clone();
@@ -511,8 +511,23 @@ impl RedisSessionPanel {
                     session_for_close.update(app, |this, _| this.clear_dialog_subscription());
                 })
                 .w(px(640.0))
+                .max_h(ramag_ui::responsive_dialog_max_height(window))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .p(px(24.0))
-                .content(move |content, _, _| content.child(form.clone()))
+                .content(move |content, window, _| {
+                    let body_height = (ramag_ui::responsive_dialog_max_height(window) - px(96.0))
+                        .clamp(px(32.0), px(540.0));
+                    content.child(
+                        gpui_kit::div()
+                            .w_full()
+                            .h(body_height)
+                            .max_h(body_height)
+                            .min_h_0()
+                            .flex_none()
+                            .overflow_hidden()
+                            .child(form.clone()),
+                    )
+                })
         });
     }
 
@@ -545,47 +560,8 @@ pub(super) fn truncate_for_dialog(s: &str, max_chars: usize) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::truncate_for_dialog;
-
-    #[test]
-    fn short_string_unchanged() {
-        assert_eq!(truncate_for_dialog("abc", 10), "abc");
-    }
-
-    #[test]
-    fn exact_length_unchanged() {
-        assert_eq!(truncate_for_dialog("abcde", 5), "abcde");
-    }
-
-    #[test]
-    fn over_length_truncated() {
-        assert_eq!(truncate_for_dialog("abcdef", 3), "abc…");
-    }
-
-    #[test]
-    fn utf8_chinese_safe() {
-        // 5 个汉字 = 5 chars，截到 3 → 前 3 个汉字 + 省略号
-        assert_eq!(truncate_for_dialog("你好世界呀", 3), "你好世…");
-    }
-
-    #[test]
-    fn utf8_emoji_safe() {
-        // emoji 单独占 1 char（只算 unicode codepoint，足够避免 utf-8 边界 panic）
-        let r = truncate_for_dialog("ab😀cd", 3);
-        assert_eq!(r, "ab😀…");
-    }
-
-    #[test]
-    fn empty_string() {
-        assert_eq!(truncate_for_dialog("", 5), "");
-    }
-
-    #[test]
-    fn control_characters_are_safe_for_single_line_dialogs() {
-        assert_eq!(truncate_for_dialog("a\nb\0c", 10), "a b�c");
-    }
-}
+#[path = "dialogs_unit_test.rs"]
+mod unit_test;
 
 #[cfg(test)]
 #[path = "dialogs_render_test.rs"]
