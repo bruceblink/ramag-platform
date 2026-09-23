@@ -1,5 +1,6 @@
 //! Redis 会话：左 Key 树（DB 切换 / 搜索 / 新建），右 KeyDetail。点 key→load_key，切 DB→清主区
 
+mod create_dialog;
 mod dialogs;
 
 use std::rc::Rc;

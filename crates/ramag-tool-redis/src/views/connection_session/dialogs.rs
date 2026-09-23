@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use gpui_kit::component::{WindowExt as _, notification::Notification};
+use gpui_kit::component::WindowExt as _;
 use gpui_kit::{
     App, AppContext as _, Context, InteractiveElement as _, ParentElement, SharedString, Styled,
     Window, px,
@@ -12,7 +12,6 @@ use tracing::info;
 use super::RedisSessionPanel;
 use crate::views::hash_field_form::{HashFieldForm, HashFieldFormEvent, HashFieldFormMode};
 use crate::views::inline_text_preview;
-use crate::views::key_create::{KeyCreateEvent, KeyCreateForm};
 use crate::views::list_element_form::{ListElementForm, ListElementFormEvent};
 use crate::views::set_element_form::{SetElementForm, SetElementFormEvent};
 use crate::views::stream_entry_form::{StreamEntryForm, StreamEntryFormEvent};
@@ -35,65 +34,6 @@ impl RedisSessionPanel {
         if matches {
             self.detail.update(cx, |p, cx| p.reload_current(cx));
         }
-    }
-
-    pub(super) fn open_create_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let svc = self.service.clone();
-        let config = self.config.clone();
-        let db = self.db;
-        let form = cx.new(|cx| KeyCreateForm::new(svc, config, db, window, cx));
-        let tree_for_refresh = self.tree.clone();
-        let sub = cx.subscribe_in(
-            &form,
-            window,
-            move |this: &mut Self, _, ev: &KeyCreateEvent, window, cx| {
-                this.clear_dialog_subscription();
-                match ev {
-                    KeyCreateEvent::Created { key, ttl_warning } => {
-                        info!(
-                            operation = "redis_key_create",
-                            connection_id = %this.config.id,
-                            db = this.db,
-                            key_bytes = key.len(),
-                            "key created via dialog"
-                        );
-                        let new_key = key.clone();
-                        window.close_dialog(cx);
-                        if let Some(warning) = ttl_warning {
-                            ramag_ui::push_responsive_notification(
-                                window,
-                                Notification::warning(warning.clone())
-                                    .title("Key 已创建，但 TTL 未按预期设置"),
-                                cx,
-                            );
-                        }
-                        tree_for_refresh.update(cx, |t, cx| {
-                            t.refresh(cx);
-                            t.select_key_external(new_key.clone(), cx);
-                        });
-                    }
-                    KeyCreateEvent::Cancelled => window.close_dialog(cx),
-                }
-            },
-        );
-        self.set_dialog_subscription(sub);
-        let form_for_dialog = form.clone();
-        let session_for_close = cx.entity().clone();
-        window.open_dialog(cx, move |dialog, _w, _app| {
-            let form = form_for_dialog.clone();
-            let form_for_cancel = form_for_dialog.clone();
-            let session_for_close = session_for_close.clone();
-            dialog
-                .title("新建 Key")
-                .close_button(false)
-                .on_cancel(move |_, _, app| !form_for_cancel.read(app).is_submitting())
-                .on_close(move |_, _, app| {
-                    session_for_close.update(app, |this, _| this.clear_dialog_subscription());
-                })
-                .w(px(640.0))
-                .p(px(24.0))
-                .content(move |content, _, _| content.child(form.clone()))
-        });
     }
 
     pub(super) fn open_ttl_dialog(
