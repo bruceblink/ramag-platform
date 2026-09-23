@@ -383,6 +383,8 @@ impl SshView {
         self.workspaces
             .retain(|workspace| workspace.profile_id() != &id);
         self.workspace_resizes.remove(&id);
+        self.workspace_panel_widths.remove(&id);
+        self.workspace_resize_subscriptions.remove(&id);
         if self.active_workspace_id.as_ref() == Some(&id) {
             self.active_workspace_id = self
                 .workspaces

@@ -53,13 +53,55 @@ impl SshView {
                 .into_any_element();
         };
         let workspace_id = workspace.profile.id.clone();
-        let workspace_resize = self
-            .workspace_resizes
-            .entry(workspace_id.clone())
-            .or_insert_with(|| {
-                cx.new(|_| gpui_kit::component::resizable::ResizableState::default())
-            })
-            .clone();
+        let workspace_resize = if let Some(state) = self.workspace_resizes.get(&workspace_id) {
+            state.clone()
+        } else {
+            let state = cx.new(|_| gpui_kit::component::resizable::ResizableState::default());
+            let workspace_id_for_resize = workspace_id.clone();
+            let subscription = cx.subscribe_in(
+                &state,
+                window,
+                move |this, state, _: &gpui_kit::component::ResizablePanelEvent, _, cx| {
+                    if let Some(width) = state.read(cx).sizes().first().copied() {
+                        this.workspace_panel_widths
+                            .insert(workspace_id_for_resize.clone(), width);
+                        cx.notify();
+                    }
+                },
+            );
+            self.workspace_resizes
+                .insert(workspace_id.clone(), state.clone());
+            self.workspace_panel_widths
+                .insert(workspace_id.clone(), px(FILE_BROWSER_WIDTH_INITIAL));
+            self.workspace_resize_subscriptions
+                .insert(workspace_id.clone(), subscription);
+            state
+        };
+        // gpui-kit keeps resizable panels proportional when the window changes size.
+        // Restore the user's pixel width so an existing SSH workspace does not
+        // unexpectedly collapse after a window resize; the target is still bounded
+        // by the minimum width of the terminal panel and the current viewport.
+        let desired_width = self
+            .workspace_panel_widths
+            .get(&workspace_id)
+            .copied()
+            .unwrap_or_else(|| px(FILE_BROWSER_WIDTH_INITIAL));
+        let max_width = (f32::from(window.viewport_size().width) - FILE_BROWSER_WIDTH_MIN)
+            .clamp(FILE_BROWSER_WIDTH_MIN, FILE_BROWSER_WIDTH_MAX);
+        let target_width = desired_width.min(px(max_width));
+        let should_restore_width = {
+            let state = workspace_resize.read(cx);
+            state.container_size() > px(0.0)
+                && state
+                    .sizes()
+                    .first()
+                    .is_some_and(|current| *current != target_width)
+        };
+        if should_restore_width {
+            workspace_resize.update(cx, |state, state_cx| {
+                state.resize_panel(0, target_width, window, state_cx);
+            });
+        }
         let main = div()
             .id("ssh-workspace-main")
             .debug_selector(|| "ssh-workspace-main".into())

@@ -41,7 +41,9 @@ use gpui_kit::component::{
     input::{InputEvent, InputState},
     resizable::ResizableState,
 };
-use gpui_kit::{AppContext as _, Context, Entity, FocusHandle, Focusable, Subscription, Window};
+use gpui_kit::{
+    AppContext as _, Context, Entity, FocusHandle, Focusable, Pixels, Subscription, Window,
+};
 use ramag_app::SshService;
 use ramag_domain::entities::{SshCapability, SshProfile, SshProfileId};
 
@@ -57,6 +59,8 @@ pub struct SshView {
     query: String,
     directory_search: Entity<InputState>,
     workspace_resizes: HashMap<SshProfileId, Entity<ResizableState>>,
+    workspace_panel_widths: HashMap<SshProfileId, Pixels>,
+    workspace_resize_subscriptions: HashMap<SshProfileId, Subscription>,
     focused_search_once: bool,
     deleting_profile: bool,
     creating_rdp_web_session_profile: Option<SshProfileId>,
@@ -124,6 +128,8 @@ impl SshView {
             query: String::new(),
             directory_search,
             workspace_resizes: HashMap::new(),
+            workspace_panel_widths: HashMap::new(),
+            workspace_resize_subscriptions: HashMap::new(),
             focused_search_once: false,
             deleting_profile: false,
             creating_rdp_web_session_profile: None,
