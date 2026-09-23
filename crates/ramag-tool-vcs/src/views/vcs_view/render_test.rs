@@ -240,7 +240,7 @@ fn inject_file_content_session(v: &mut VcsView) {
     v.active_file_tab_idx = Some(0);
 }
 
-/// 输入框绘制依赖 gpui-component 的窗口根节点，测试必须复刻生产环境的 Root 包装。
+/// 输入框绘制依赖 `gpui_kit::component` 的窗口根节点，测试必须复刻生产环境的 Root 包装。
 fn add_vcs_window(cx: &mut TestAppContext) -> (Entity<VcsView>, &mut VisualTestContext) {
     cx.update(gpui_kit::component::init);
 

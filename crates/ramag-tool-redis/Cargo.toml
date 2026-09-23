@@ -32,7 +32,7 @@ flate2 = "1"
 serde = { workspace = true }
 schemars = { workspace = true }
 
-# 命令行补全 provider（实现 gpui-component CompletionProvider）
+# 命令行补全 provider（实现 gpui_kit::component::CompletionProvider）
 anyhow = { workspace = true }
 lsp-types = { workspace = true }
 ropey = { workspace = true }

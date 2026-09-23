@@ -27,7 +27,7 @@ fn skeleton_cell(theme: &Theme, width: Option<f32>) -> gpui_kit::Div {
     skeleton_line(theme, width, 8.0)
 }
 
-/// 使用 gpui-component 的循环呼吸动画；外层固定尺寸负责约束表格布局。
+/// 使用 `gpui_kit::component` 的循环呼吸动画；外层固定尺寸负责约束表格布局。
 fn skeleton_line(theme: &Theme, width: Option<f32>, height: f32) -> gpui_kit::Div {
     let mut line = div()
         .h(px(height))

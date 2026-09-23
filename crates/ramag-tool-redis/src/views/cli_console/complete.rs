@@ -1,4 +1,4 @@
-//! 命令行补全：实现 gpui-component CompletionProvider，补全 Redis 命令名 + 语法提示。
+//! 命令行补全：实现 `gpui_kit::component::CompletionProvider`，补全 Redis 命令名 + 语法提示。
 //! 仅在「行首命令位」触发；参数位不补（subcommand 暂不展开，保持 KISS）。
 
 use std::rc::Rc;

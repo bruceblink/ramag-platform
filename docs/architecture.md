@@ -190,7 +190,7 @@ SSH 管理视图：连接列表与 SSH 命令解析、JumpServer 资源导入、
 
 ### `ramag-ui`
 
-主壳：`Shell`（左 ActivityBar + 中央 Tool 视图）、`HomeView`（首页）、主题（VSCode 风暗/亮色板）、`RamagAssets`（rust-embed 内嵌 svg + 上游 gpui-component-assets 兜底）。
+主壳：`Shell`（左 ActivityBar + 中央 Tool 视图）、`HomeView`（首页）、主题（VSCode 风暗/亮色板）、`RamagAssets`（rust-embed 内嵌 svg + `gpui_kit::assets::Assets` 兜底）。
 
 ### `ramag-bin`（主入口）
 
@@ -220,11 +220,11 @@ GPUI 内部用 smol，sqlx / redis-rs / mongodb / SSH 基础设施依赖 tokio�
 
 **为什么分开**：Redis Pub/Sub、SSH 会话与传输是长生命周期任务，不应被 SQL 长查询挤占；MongoDB 同理独立一份。同种类型 driver（如多个 SQL）共享则合理。
 
-### 2) GPUI / gpui-component 不钉 git rev
+### 2) 通过 GPUI Kit 统一 UI 依赖
 
-钉 rev 会让 ramag 与 gpui-component 各自引用一份 `zed`，类型不互通（`Hsla` 等会被 cargo 当成两个不同类型，编译百余个错）。版本固定靠 `Cargo.lock`。
+应用只直接依赖发布版 `gpui-kit`，GPUI、组件、Assets 和 Platform 分别通过 `gpui_kit`、`gpui_kit::component`、`gpui_kit::assets` 和 `gpui_kit::platform` 使用。`Cargo.lock` 中的 `gpui-component` 是 Kit 的传递依赖，不应重新加入 workspace manifest。
 
-升级流程：`cargo update -p gpui` + 同步检查 workspace 钉的 `lsp-types` / `ropey` 是否与 gpui-component 内部一致——不一致会因 `InputState` LSP 接口类型不兼容而编译失败。
+升级流程：先修改根 `gpui-kit` 版本或 feature，再运行 `cargo check --workspace --all-targets`、`cargo test --workspace --lib`、格式和 Clippy 检查，并补做真实 Windows/macOS 窗口验收。不要单独升级底层 `gpui` 或组件包，也不要用命名空间别名恢复旧 API。
 
 ### 3) `redis` crate features 缺一不可
 
@@ -301,6 +301,6 @@ SQL 类共用 `ConnectionSession`，但本地文件型驱动仍需在连接表�
 
 - [Clean Architecture by Robert Martin](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
 - [zed-industries/zed](https://github.com/zed-industries/zed) — GPUI 框架来源
-- [gpui-component](https://github.com/longbridge/gpui-component) — UI 组件库
+- [gpui-kit](https://github.com/longbridge/gpui-kit) — 应用侧 GPUI 聚合依赖和 UI 组件入口
 - [gitoxide](https://github.com/Byron/gitoxide) — 纯 Rust Git 实现
 - [mongo-rust-driver](https://github.com/mongodb/mongo-rust-driver) — MongoDB 官方 Rust 驱动

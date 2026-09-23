@@ -11,7 +11,7 @@ use url::Url;
 
 /// 创建长文 Markdown 预览。
 ///
-/// `gpui-component` 的 TextView 会把行内代码直接绘制成主题 accent 背景；预览中仅在它的
+/// `gpui_kit::component` 的 TextView 会把行内代码直接绘制成主题 accent 背景；预览中仅在它的
 /// 布局、预绘制和绘制期间临时将 accent 置为透明，链接颜色、代码语义和虚拟滚动均保留。
 pub fn markdown_preview(source: impl Into<gpui_kit::SharedString>) -> impl IntoElement {
     MarkdownPreviewElement {
@@ -21,7 +21,7 @@ pub fn markdown_preview(source: impl Into<gpui_kit::SharedString>) -> impl IntoE
 
 /// 创建带仓库文件路径上下文的 Markdown 预览。
 ///
-/// `gpui-component` 的 Markdown 解析器会把图片和链接原样交给 GPUI。VCS 文件内容中的
+/// `gpui_kit::component` 的 Markdown 解析器会把图片和链接原样交给 GPUI。VCS 文件内容中的
 /// `docs/a.png`、`docs/a.md` 需要先相对于当前文档解析，否则图片会静默为空，链接会被系统
 /// 当作不完整 URL 处理并返回 macOS `-50`。
 pub fn markdown_preview_at_path(
@@ -282,7 +282,7 @@ impl Element for MarkdownPreviewElement {
 }
 
 /// TextView 的 Entity 可能在布局或预绘制阶段重建子树；三个阶段都临时覆盖才可稳定影响
-/// gpui-component 对行内代码背景的硬编码取色。
+/// `gpui_kit::component` 对行内代码背景的硬编码取色。
 fn with_transparent_accent<T>(cx: &mut App, render: impl FnOnce(&mut App) -> T) -> T {
     let original_accent = Theme::global(cx).accent;
     let transparent = Theme::global(cx).transparent;

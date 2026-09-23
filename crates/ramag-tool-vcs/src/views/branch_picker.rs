@@ -63,7 +63,7 @@ fn truncate_branch_display(s: &str) -> String {
 }
 
 /// 按 `/` 分组：单段直列、多项同前缀走 submenu（PopupMenu 的 inline 折叠会触发 dismiss，唯一可行方案）。
-/// 父级 PopupMenu 不能 `.scrollable(true)`，否则 submenu 失效（gpui-component 限制）。
+/// 父级 PopupMenu 不能 `.scrollable(true)`，否则 submenu 失效（`gpui_kit::component` 限制）。
 /// `is_remote=true` 使用远程图标且忽略 head_flag
 pub(super) fn render_branches_grouped(
     mut m: PopupMenu,
@@ -171,7 +171,7 @@ pub(super) fn open_new_branch_dialog(
                         .pointer_dropdown_menu_with_anchor(
                             gpui_kit::Anchor::TopLeft,
                             move |mut m, window, cx| {
-                                // 父级不可 scrollable —— 否则 submenu 不工作（gpui-component 限制）
+                                // 父级不可 scrollable —— 否则 submenu 不工作（`gpui_kit::component` 限制）
                                 // 限宽避免超长分支名撑破菜单（叶子内部已做中间省略截断）
                                 m = m.max_w(px(420.0));
                                 // 重置项：选当前 HEAD

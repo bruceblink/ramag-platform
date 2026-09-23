@@ -5,7 +5,7 @@ pub(super) fn language_for_remote_file(path: &str, text: &str) -> &'static str {
     match name {
         "Makefile" | "makefile" | "GNUmakefile" => return "make",
         "CMakeLists.txt" => return "cmake",
-        // gpui-component 暂无 Dockerfile 语法，Shell 高亮比纯文本更接近其结构。
+        // `gpui_kit::component` 暂无 Dockerfile 语法，Shell 高亮比纯文本更接近其结构。
         "Dockerfile" | "dockerfile" => return "bash",
         _ => {}
     }

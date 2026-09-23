@@ -298,7 +298,7 @@ git diff --cached --check
 
 ### 首次编译很慢
 
-GPUI 和相关 Git 依赖编译量较大。首次构建耗时长属于预期现象，后续修改应尽量使用单 crate 的 `cargo check` 和 `cargo test` 保持反馈速度。
+GPUI Kit 及其底层依赖编译量较大。首次构建耗时长属于预期现象，后续修改应尽量使用单 crate 的 `cargo check` 和 `cargo test` 保持反馈速度。
 
 ### 修改 UI 后没有自动进入目标页面
 
@@ -314,7 +314,7 @@ GPUI 的异步执行环境不是 Tokio。数据库、Redis、MongoDB 和 SSH 已
 
 ### 是否可以直接更新依赖
 
-不要为了普通功能开发刷新整个 `Cargo.lock`。GPUI 与 `gpui-component` 的 Git 依赖和类型版本需要保持一致，依赖升级应作为单独任务处理并执行完整检查。
+项目 UI 依赖入口是根 workspace 的 `gpui-kit`。普通功能开发不要刷新整个 `Cargo.lock`，也不要直接添加 `gpui`、`gpui_platform`、`gpui_macros` 或 `gpui-component` 依赖。只有明确进行 GPUI Kit 版本升级时，才作为独立任务修改 `gpui-kit` 版本和 feature，并执行全目标检查、workspace 测试和真实平台验收。
 
 ## 11. 开发检查清单
 

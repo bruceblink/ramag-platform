@@ -44,7 +44,7 @@ hex = { workspace = true }
 # 系统文件对话框（导出 CSV / JSON）
 rfd = { workspace = true }
 
-# SQL 自动补全（gpui-component CompletionProvider trait 接口要求）
+# SQL 自动补全（gpui_kit::component::CompletionProvider trait 接口要求）
 lsp-types = { workspace = true }
 ropey = { workspace = true }
 

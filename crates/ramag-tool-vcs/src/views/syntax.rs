@@ -14,7 +14,7 @@ use gpui_kit::{
 use ramag_domain::entities::{DiffLineKind, FileDiff};
 use ropey::Rope;
 
-/// 文件路径 → tree-sitter 语言名（均为 gpui-component `tree-sitter-languages` 内置）。
+/// 文件路径 → tree-sitter 语言名（均为 `gpui_kit::component` 的 `tree-sitter-languages` 内置）。
 /// 先按完整文件名匹配（Makefile / CMakeLists.txt 等无后缀），再按扩展名；
 /// 都不在表内（Cargo.lock、.gitignore 等）→ None，调用方走纯文本渲染。
 pub(super) fn lang_for_path(path: &str) -> Option<&'static str> {
@@ -69,7 +69,7 @@ pub(super) fn lang_for_path(path: &str) -> Option<&'static str> {
 
 /// 制表位宽度：tab 展开到 4 列边界（与等宽渲染一致）
 const TAB_W: usize = 4;
-/// 超长行完整显示，但跳过语法高亮；与 gpui-component Code Editor 的保护一致。
+/// 超长行完整显示，但跳过语法高亮；与 `gpui_kit::component` Code Editor 的保护一致。
 pub(super) const MAX_HIGHLIGHT_LINE_BYTES: usize = 10_000;
 /// 单份语法树最多解析 8 MiB；更大 Diff 仍可流畅查看，但退化为纯文本。
 const MAX_HIGHLIGHT_SOURCE_BYTES: usize = 8 * 1024 * 1024;

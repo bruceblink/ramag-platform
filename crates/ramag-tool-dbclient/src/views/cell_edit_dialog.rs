@@ -102,7 +102,7 @@ pub(super) fn open(
                 },
             ))
             .close_button(false)
-            // 显式宽度让 Dialog 在水平方向居中（gpui-component 内部用 width/2 算 x）
+            // 显式宽度让 Dialog 在水平方向居中（`gpui_kit::component` 内部用 width/2 算 x）
             .width(dialog_width)
             .max_h(dialog_max_height)
             .margin_top(dialog_top)

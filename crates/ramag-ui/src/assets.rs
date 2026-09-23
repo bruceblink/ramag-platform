@@ -1,4 +1,4 @@
-//! AssetSource：优先 ramag-ui 内嵌 svg（assets/icons），未命中回退 gpui_component_assets
+//! AssetSource：优先 ramag-ui 内嵌 svg（assets/icons），未命中回退 `gpui_kit::assets::Assets`
 
 use std::borrow::Cow;
 
