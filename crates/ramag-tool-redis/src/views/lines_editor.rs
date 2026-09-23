@@ -236,7 +236,11 @@ impl Render for LinesEditor {
         let mut list = v_flex().w_full().gap(px(6.0));
         for (idx, row) in self.rows.iter().enumerate() {
             let id = row.id;
-            let mut line = h_flex().w_full().items_center().gap(px(8.0));
+            let mut line = h_flex()
+                .debug_selector(move || format!("redis-lines-row-{id}"))
+                .w_full()
+                .items_center()
+                .gap(px(8.0));
             if matches!(self.kind, LinesKind::List) {
                 line = line.child(
                     div()
