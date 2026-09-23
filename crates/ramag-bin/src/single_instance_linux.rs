@@ -2,7 +2,9 @@
 //! 后启进程连接 socket 请求首实例唤起；失效 socket 仅在确认无法连接后清理。
 
 use std::io::{self, Read as _, Write as _};
-use std::os::unix::fs::FileTypeExt as _;
+use std::os::unix::fs::{
+    DirBuilderExt as _, FileTypeExt as _, MetadataExt as _, PermissionsExt as _,
+};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -77,7 +79,7 @@ pub(crate) fn acquire() -> InstanceRole {
         warn!(
             operation = "single_instance_init",
             reason = "runtime_directory_unavailable",
-            "XDG_RUNTIME_DIR unavailable; single-instance protection disabled"
+            "no private runtime directory is available; single-instance protection disabled"
         );
         return InstanceRole::Primary(PrimaryGuard::degraded());
     };
@@ -85,8 +87,93 @@ pub(crate) fn acquire() -> InstanceRole {
 }
 
 fn runtime_socket_path() -> Option<PathBuf> {
-    let directory = PathBuf::from(std::env::var_os("XDG_RUNTIME_DIR")?);
-    directory.is_absolute().then(|| directory.join(SOCKET_NAME))
+    let uid = std::fs::metadata("/proc/self").ok()?.uid();
+    let xdg_runtime = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from);
+    resolve_runtime_socket_path(xdg_runtime.as_deref(), &std::env::temp_dir(), uid)
+}
+
+fn resolve_runtime_socket_path(
+    xdg_runtime: Option<&Path>,
+    temp_directory: &Path,
+    uid: u32,
+) -> Option<PathBuf> {
+    if let Some(directory) = xdg_runtime {
+        match validate_runtime_directory(directory, uid) {
+            Ok(()) => return Some(directory.join(SOCKET_NAME)),
+            Err(error) => warn!(
+                operation = "single_instance_init",
+                error = %error,
+                path = %directory.display(),
+                "XDG_RUNTIME_DIR is not a private user directory; trying a per-user temporary directory"
+            ),
+        }
+    }
+
+    let directory = temp_directory.join(format!("ramag-{uid}"));
+    match ensure_private_runtime_directory(&directory, uid) {
+        Ok(()) => {
+            info!(
+                operation = "single_instance_init",
+                path = %directory.display(),
+                "using a private per-user temporary directory for single-instance coordination"
+            );
+            Some(directory.join(SOCKET_NAME))
+        }
+        Err(error) => {
+            warn!(
+                operation = "single_instance_init",
+                error = %error,
+                path = %directory.display(),
+                "create private per-user runtime directory failed"
+            );
+            None
+        }
+    }
+}
+
+fn validate_runtime_directory(path: &Path, uid: u32) -> io::Result<()> {
+    let metadata = std::fs::symlink_metadata(path)?;
+    let mode = metadata.mode() & 0o777;
+    if !metadata.file_type().is_dir()
+        || metadata.uid() != uid
+        || mode & 0o077 != 0
+        || mode & 0o700 != 0o700
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "runtime directory must be a real directory owned by the current user with mode 0700",
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_private_runtime_directory(path: &Path, uid: u32) -> io::Result<()> {
+    if !path.is_absolute() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "runtime directory path must be absolute",
+        ));
+    }
+
+    let mut builder = std::fs::DirBuilder::new();
+    builder.mode(0o700);
+    match builder.create(path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+        Err(error) => return Err(error),
+    }
+
+    let metadata = std::fs::symlink_metadata(path)?;
+    if !metadata.file_type().is_dir() || metadata.uid() != uid {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "runtime directory is not a real directory owned by the current user",
+        ));
+    }
+    if metadata.mode() & 0o077 != 0 || metadata.mode() & 0o700 != 0o700 {
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))?;
+    }
+    validate_runtime_directory(path, uid)
 }
 
 fn acquire_at(path: PathBuf) -> InstanceRole {
@@ -220,6 +307,39 @@ mod tests {
         }
         std::fs::create_dir(&directory)?;
         Ok((directory.join(SOCKET_NAME), directory))
+    }
+
+    #[test]
+    fn missing_xdg_runtime_uses_a_private_per_user_directory() -> io::Result<()> {
+        let (_, temp_directory) = test_socket("fallback")?;
+        let uid = std::fs::metadata("/proc/self")?.uid();
+
+        let socket = resolve_runtime_socket_path(None, &temp_directory, uid)
+            .ok_or_else(|| io::Error::other("private fallback directory was unavailable"))?;
+        let fallback = temp_directory.join(format!("ramag-{uid}"));
+        assert_eq!(socket, fallback.join(SOCKET_NAME));
+        validate_runtime_directory(&fallback, uid)?;
+
+        std::fs::remove_dir_all(temp_directory)
+    }
+
+    #[test]
+    fn unsafe_xdg_runtime_uses_the_private_fallback() -> io::Result<()> {
+        let (_, xdg_directory) = test_socket("unsafe-xdg")?;
+        let (_, temp_directory) = test_socket("unsafe-fallback")?;
+        let uid = std::fs::metadata("/proc/self")?.uid();
+
+        let socket = resolve_runtime_socket_path(Some(&xdg_directory), &temp_directory, uid)
+            .ok_or_else(|| io::Error::other("private fallback directory was unavailable"))?;
+        assert_eq!(
+            socket,
+            temp_directory
+                .join(format!("ramag-{uid}"))
+                .join(SOCKET_NAME)
+        );
+
+        std::fs::remove_dir_all(xdg_directory)?;
+        std::fs::remove_dir_all(temp_directory)
     }
 
     #[test]
