@@ -554,6 +554,8 @@ impl ContainerDriver for DockerDriver {
         if profile.read_only {
             return Err(DomainError::Forbidden(READ_ONLY_MESSAGE.into()));
         }
+        // Reject an already-cancelled request before opening a Docker connection.
+        ensure_operation_active(&cancellation)?;
         let request = request.clone();
         let credential = credential.cloned();
         Self::connect_and(
