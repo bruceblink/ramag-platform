@@ -164,8 +164,26 @@ fn server_sort_keeps_horizontal_scroll_position_across_result_reload(cx: &mut Te
         panel.toggle_sort(1, cx);
         panel.set_state(ResultState::Running, cx);
         assert_eq!(panel.h_scroll.offset().x, px(-240.0));
-        panel.set_state(ResultState::Ok(result), cx);
+        panel.set_state(ResultState::Ok(result.clone()), cx);
     });
+
+    let display_view_key = panel.read_with(cx, |panel, app| {
+        super::display_view_key(panel, &result, app)
+    });
+    let display_view = build_display_view(&result, None, "", "");
+    panel.update(cx, |panel, _| {
+        panel.display_view_cache = Some(DisplayViewCache {
+            key: display_view_key,
+            view: display_view,
+        });
+    });
+    panel.read_with(cx, |panel, app| {
+        let ResultState::Ok(result) = &panel.state else {
+            panic!("result state should be ready");
+        };
+        assert!(cached_display_view(panel, result, app).is_some());
+    });
+    cx.run_until_parked();
 
     panel.read_with(cx, |panel, _| {
         assert_eq!(panel.h_scroll.offset().x, px(-240.0));
