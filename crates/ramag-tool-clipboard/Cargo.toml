@@ -28,6 +28,6 @@ chrono = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-# 渲染测试：gpui test-support 提供 #[gpui::test]、TestAppContext 和 debug_bounds。
+# 渲染测试：gpui-kit test-support 提供 #[gpui_kit::test]、TestAppContext 和 debug_bounds。
 gpui-kit = { workspace = true, features = ["test-support"] }
 async-trait = { workspace = true }

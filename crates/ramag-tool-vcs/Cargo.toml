@@ -42,7 +42,7 @@ rfd = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-# 渲染测试：gpui test-support 提供 #[gpui::test] / TestAppContext / add_window_view（headless 渲染）
+# 渲染测试：gpui-kit test-support 提供 #[gpui_kit::test] / TestAppContext / add_window_view（headless 渲染）
 gpui-kit = { workspace = true, features = ["test-support"] }
 # mock GitDriver / Storage（trait 用 #[async_trait]）
 async-trait = { workspace = true }
