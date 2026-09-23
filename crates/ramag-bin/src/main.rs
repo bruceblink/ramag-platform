@@ -22,6 +22,7 @@ use windows::*;
 
 use std::collections::HashMap;
 use std::io::IsTerminal;
+use std::process::ExitCode;
 use std::sync::Arc;
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -124,7 +125,7 @@ fn show_startup_error(title: &str, description: &str) {
         .show();
 }
 
-fn main() {
+fn main() -> ExitCode {
     if let Some(exit_code) = ramag_infra_ssh::run_askpass_helper(confirm_ssh_host) {
         std::process::exit(exit_code);
     }
@@ -146,7 +147,7 @@ fn main() {
             "Ramag 启动失败",
             &format!("无法初始化安全网络组件：{error}"),
         );
-        std::process::exit(1);
+        return ExitCode::FAILURE;
     }
 
     // 单实例：通知已有进程唤起主窗口后退出，避免 redb 锁冲突；macOS 由 LaunchServices 保证。
@@ -158,7 +159,7 @@ fn main() {
                 role = "secondary",
                 "another instance is running; asked it to reveal and exiting"
             );
-            return;
+            return ExitCode::SUCCESS;
         }
         single_instance::InstanceRole::Primary(guard) => guard,
     };
@@ -179,7 +180,7 @@ fn main() {
                 "Ramag 启动失败",
                 &format!("无法初始化本地数据或系统凭据库：\n\n{e}{log_hint}"),
             );
-            std::process::exit(1);
+            return ExitCode::FAILURE;
         }
     };
 
@@ -194,7 +195,7 @@ fn main() {
                 "Ramag 启动失败",
                 &format!("无法初始化 API 测试模块：\n\n{error}"),
             );
-            std::process::exit(1);
+            return ExitCode::FAILURE;
         }
     };
     let mqtt_service: Arc<MqttService> = build_mqtt_service(storage.clone());
@@ -217,7 +218,7 @@ fn main() {
                 "Ramag 启动失败",
                 &format!("无法初始化对象存储模块：{error}"),
             );
-            std::process::exit(1);
+            return ExitCode::FAILURE;
         }
     };
     let update_service = build_update_service(storage.clone());
@@ -570,6 +571,7 @@ fn main() {
         }
     });
     info!(operation = "application_stop", "application stopped");
+    ExitCode::SUCCESS
 }
 
 const INITIAL_UPDATE_CHECK_DELAY: std::time::Duration = std::time::Duration::from_secs(3);
