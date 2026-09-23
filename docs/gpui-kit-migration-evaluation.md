@@ -28,6 +28,7 @@ GPUI Kit 迁移已在提交 `344c5b36` 完成。后续 UI 和工具功能开发�
 WSL 原生 ext4 工作区 `/home/likanug/workspace/ramag-platform` 已完成以下检查：
 
 - `cargo test --workspace --lib --quiet`：所有 workspace 库测试套件通过，无失败用例。
+- `cargo test --workspace --all-targets --quiet`：所有测试目标通过；需要外部环境的既有用例按仓库规则忽略或跳过。
 - `cargo check --workspace --all-targets`：所有 workspace target 检查通过。
 - 提交钩子中的格式、源码尺寸和 Clippy 检查通过。
 - Kafka、MQTT、SSH 的视觉和交互回归测试分别通过；近期修复已分别提交为 `c1d87082`、`f6a0a3bc` 和 `2b18f6eb`。
