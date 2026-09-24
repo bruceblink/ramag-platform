@@ -1,6 +1,4 @@
-use super::context::{
-    apply_extracted_variables_to_view, environment_from_view, request_record, upsert_environment,
-};
+use super::context::{apply_extracted_variables_to_view, environment_from_view, request_record};
 use super::grpc_proto::{self, GrpcImportKind};
 use super::*;
 
@@ -503,92 +501,6 @@ impl ApiView {
                         view.grpc_services.clear();
                         view.notice = Some((format!("gRPC Service 发现失败：{error}"), true));
                     }
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-    }
-
-    /// 把请求、断言和当前环境写入默认 Collection，Storage 负责加密。
-    pub(crate) fn save(&mut self, cx: &mut Context<Self>) {
-        if self.block_workspace_write_until_loaded(cx) {
-            return;
-        }
-        let Some(service) = self.service.clone() else {
-            self.notice = Some(("API 服务尚未接入".into(), true));
-            cx.notify();
-            return;
-        };
-        let record = match request_record(self, cx) {
-            Ok(record) => record,
-            Err(error) => {
-                self.notice = Some((error.to_string(), true));
-                cx.notify();
-                return;
-            }
-        };
-        let environment = match environment_from_view(self, cx) {
-            Ok(environment) => environment,
-            Err(error) => {
-                self.notice = Some((error.to_string(), true));
-                cx.notify();
-                return;
-            }
-        };
-        let mut workspace = self.workspace.clone();
-        upsert_environment(&mut workspace, environment);
-        if workspace.collections.is_empty() {
-            workspace.collections.push(ApiCollection::new("默认请求"));
-        }
-        let active_request_id = self.active_request_id.clone();
-        let existing_location =
-            active_request_id.as_ref().and_then(|request_id| {
-                workspace.collections.iter().enumerate().find_map(
-                    |(collection_index, collection)| {
-                        collection
-                            .requests
-                            .iter()
-                            .position(|existing| &existing.id == request_id)
-                            .map(|request_index| (collection_index, request_index))
-                    },
-                )
-            });
-        let existing_location = existing_location.or_else(|| {
-            workspace.collections[0]
-                .requests
-                .iter()
-                .position(|existing| existing.name == record.name)
-                .map(|request_index| (0, request_index))
-        });
-        let saved_request_id = if let Some((collection_index, request_index)) = existing_location {
-            let request_id = workspace.collections[collection_index].requests[request_index]
-                .id
-                .clone();
-            let mut record = record;
-            record.id = request_id.clone();
-            workspace.collections[collection_index].requests[request_index] = record;
-            request_id
-        } else {
-            let request_id = record.id.clone();
-            workspace.collections[0].requests.push(record);
-            request_id
-        };
-        self.saving = true;
-        self.notice = None;
-        let workspace_for_save = workspace.clone();
-        cx.spawn(async move |this, cx| {
-            let result = service.save_workspace(&workspace_for_save).await;
-            let _ = this.update(cx, |view, cx| {
-                view.saving = false;
-                match result {
-                    Ok(()) => {
-                        view.workspace = workspace;
-                        view.active_request_id = Some(saved_request_id);
-                        view.workspace_load_state = ApiWorkspaceLoadState::Loaded;
-                        view.notice = Some(("请求、环境和断言已保存".into(), false));
-                    }
-                    Err(error) => view.notice = Some((error.to_string(), true)),
                 }
                 cx.notify();
             });

@@ -6,8 +6,8 @@ use std::sync::{Arc, Mutex};
 use gpui_kit::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_app::ApiService;
 use ramag_domain::entities::{
-    ApiHistoryRecord, ApiWorkspace, ApiWorkspaceId, ConnectionConfig, ConnectionId, QueryRecord,
-    QueryRecordId,
+    ApiCollection, ApiHistoryRecord, ApiRequestRecord, ApiWorkspace, ApiWorkspaceId,
+    ConnectionConfig, ConnectionId, HttpRequestSpec, QueryRecord, QueryRecordId,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{ApiDriver, Storage};
@@ -16,7 +16,13 @@ use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
 struct WorkspaceTestStorage {
     fail_listing: AtomicBool,
     workspaces: Mutex<Vec<ApiWorkspace>>,
+    save_gate: Mutex<Option<WorkspaceSaveGate>>,
     save_calls: AtomicUsize,
+}
+
+struct WorkspaceSaveGate {
+    started: async_channel::Sender<()>,
+    release: async_channel::Receiver<bool>,
 }
 
 impl WorkspaceTestStorage {
@@ -24,8 +30,19 @@ impl WorkspaceTestStorage {
         Self {
             fail_listing: AtomicBool::new(fail_listing),
             workspaces: Mutex::new(workspaces),
+            save_gate: Mutex::new(None),
             save_calls: AtomicUsize::new(0),
         }
+    }
+
+    fn delay_next_save(&self) -> (async_channel::Receiver<()>, async_channel::Sender<bool>) {
+        let (started_sender, started_receiver) = async_channel::bounded(1);
+        let (release_sender, release_receiver) = async_channel::bounded(1);
+        *self.save_gate.lock().expect("锁定保存测试控制") = Some(WorkspaceSaveGate {
+            started: started_sender,
+            release: release_receiver,
+        });
+        (started_receiver, release_sender)
     }
 }
 
@@ -50,10 +67,30 @@ impl Storage for WorkspaceTestStorage {
 
     async fn save_api_workspace(&self, workspace: &ApiWorkspace) -> Result<()> {
         self.save_calls.fetch_add(1, Ordering::Relaxed);
-        self.workspaces
-            .lock()
-            .expect("锁定测试工作区")
-            .push(workspace.clone());
+        let gate = self.save_gate.lock().expect("锁定保存测试控制").take();
+        if let Some(gate) = gate {
+            gate.started
+                .send(())
+                .await
+                .map_err(|error| DomainError::Storage(error.to_string()))?;
+            if !gate
+                .release
+                .recv()
+                .await
+                .map_err(|error| DomainError::Storage(error.to_string()))?
+            {
+                return Err(DomainError::Storage("save-secret-sentinel".into()));
+            }
+        }
+        let mut workspaces = self.workspaces.lock().expect("锁定测试工作区");
+        if let Some(existing) = workspaces
+            .iter_mut()
+            .find(|existing| existing.id == workspace.id)
+        {
+            *existing = workspace.clone();
+        } else {
+            workspaces.push(workspace.clone());
+        }
         Ok(())
     }
 
@@ -113,6 +150,96 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
     cx.simulate_mouse_move(center, None, Modifiers::default());
     cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
     cx.simulate_mouse_up(center, gpui_kit::MouseButton::Left, Modifiers::default());
+}
+
+/// Verifies that a delayed save cannot replace a request selected after the save began.
+fn verify_delayed_save_preserves_newer_view(cx: &mut TestAppContext, succeed: bool) {
+    let first = ApiRequestRecord::new_http(
+        "First request",
+        HttpRequestSpec::new("GET", "http://127.0.0.1/first"),
+    );
+    let first_id = first.id.clone();
+    let second = ApiRequestRecord::new_http(
+        "Second request",
+        HttpRequestSpec::new("GET", "http://127.0.0.1/second"),
+    );
+    let second_id = second.id.clone();
+    let mut workspace = ApiWorkspace::new("Delayed Save");
+    let mut collection = ApiCollection::new("Requests");
+    collection.requests.extend([first, second]);
+    workspace.collections.push(collection);
+    let storage = Arc::new(WorkspaceTestStorage::new(false, vec![workspace]));
+    let (started, release) = storage.delay_next_save();
+    let (view, visual_cx) = add_view(cx, storage.clone());
+    assert_eq!(
+        wait_for_workspace_load(visual_cx, &view),
+        ApiWorkspaceLoadState::Loaded
+    );
+    assert_eq!(
+        visual_cx.update(|_, app| view.read(app).active_request_id.clone()),
+        Some(first_id)
+    );
+
+    visual_cx.update(|_, app| view.update(app, |view, cx| view.save(cx)));
+    for _ in 0..100 {
+        visual_cx.run_until_parked();
+        if started.try_recv().is_ok() {
+            break;
+        }
+        std::thread::yield_now();
+    }
+    assert_eq!(storage.save_calls.load(Ordering::Relaxed), 1);
+
+    visual_cx.update(|_, app| view.update(app, |view, cx| view.save(cx)));
+    visual_cx.update(|window, app| view.update(app, |view, cx| view.import(window, cx)));
+    let load_generation = visual_cx.update(|_, app| view.read(app).workspace_load_generation);
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| view.load_saved_workspace(window, cx));
+    });
+    assert_eq!(storage.save_calls.load(Ordering::Relaxed), 1);
+    assert_eq!(
+        visual_cx.update(|_, app| view.read(app).workspace_load_generation),
+        load_generation,
+        "保存期间重试读取不应并发启动"
+    );
+    assert!(!visual_cx.update(|_, app| view.read(app).importing));
+
+    click(visual_cx, "api-request-item-1");
+    visual_cx.update(|_, app| {
+        view.update(app, |view, cx| {
+            view.notice = Some(("较新的界面提示".into(), false));
+            cx.notify();
+        });
+    });
+    release.try_send(succeed).expect("应允许完成延迟保存");
+
+    for _ in 0..100 {
+        visual_cx.run_until_parked();
+        if !visual_cx.update(|_, app| view.read(app).saving) {
+            break;
+        }
+        std::thread::yield_now();
+    }
+    assert!(!visual_cx.update(|_, app| view.read(app).saving));
+    assert_eq!(
+        visual_cx.update(|_, app| view.read(app).active_request_id.clone()),
+        Some(second_id)
+    );
+    assert_eq!(
+        visual_cx.update(|_, app| view.read(app).notice.clone()),
+        Some(("较新的界面提示".into(), false))
+    );
+    assert!(!visual_cx.update(|_, app| {
+        view.read(app)
+            .notice
+            .as_ref()
+            .is_some_and(|(message, _)| message.contains("save-secret-sentinel"))
+    }));
+    assert_eq!(
+        storage.workspaces.lock().expect("锁定测试工作区").len(),
+        1,
+        "保存应更新现有工作区而不是重复创建"
+    );
 }
 
 fn add_view(
@@ -248,4 +375,14 @@ fn empty_workspace_list_is_distinct_and_allows_creating_a_workspace(cx: &mut Tes
             .debug_bounds("api-workspace-load-status")
             .is_none()
     );
+}
+
+#[gpui_kit::test]
+fn delayed_save_success_preserves_newer_request_selection(cx: &mut TestAppContext) {
+    verify_delayed_save_preserves_newer_view(cx, true);
+}
+
+#[gpui_kit::test]
+fn delayed_save_failure_preserves_newer_notice(cx: &mut TestAppContext) {
+    verify_delayed_save_preserves_newer_view(cx, false);
 }

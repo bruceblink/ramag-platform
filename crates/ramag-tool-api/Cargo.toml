@@ -19,6 +19,7 @@ rfd = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+async-channel = { workspace = true }
 async-trait = { workspace = true }
 gpui-kit = { workspace = true, features = ["test-support"] }
 ramag-infra-api = { workspace = true }
