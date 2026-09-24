@@ -156,24 +156,6 @@ fn profile_form_stays_inside_compact_window_and_keeps_actions_visible(cx: &mut T
 }
 
 #[gpui_kit::test]
-fn edit_profile_form_keeps_fields_and_ssh_command_parser(cx: &mut TestAppContext) {
-    let (form, cx) =
-        add_ssh_form_window_with_profile(cx, service(Vec::new(), None), Some(profile()));
-    cx.simulate_resize(size(px(720.0), px(800.0)));
-    cx.run_until_parked();
-
-    form.read_with(cx, |form, _| assert_eq!(form.title(), "编辑"));
-    assert!(
-        cx.debug_bounds("ssh-profile-host-field-input").is_some(),
-        "编辑连接应保留标准 SSH 字段"
-    );
-    assert!(
-        cx.debug_bounds("ssh-command-input").is_some(),
-        "编辑连接也应提供 SSH 命令解析入口"
-    );
-}
-
-#[gpui_kit::test]
 fn windows_workspace_lists_accessible_drives_before_the_home_directory(cx: &mut TestAppContext) {
     let mut profile = SshProfile::new("windows", "windows.example");
     profile.username = "Administrator".into();

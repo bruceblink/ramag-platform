@@ -21,9 +21,9 @@ use ramag_domain::entities::{
     JumpServerSession, QueryRecord, QueryRecordId, RemoteCapabilityState, RemoteDirectory,
     RemoteEntry, RemoteEntryKind, RemoteOperatingSystem, RemotePlatformPreference, RemoteShellKind,
     SftpNamespaceKind, SshAuthMode, SshCapability, SshDiagnosticOperation,
-    SshDiagnosticProviderKind, SshDiagnosticResult, SshLaunchCommand, SshPathFavorites, SshProfile,
-    SshProfileId, SshProfileOrigin, SshProgressFn, SshRemoteCapabilities, SshWorkspacePreference,
-    SshWorkspaceState, TransferCancellation,
+    SshDiagnosticProviderKind, SshDiagnosticResult, SshLaunchCommand, SshPathFavorites,
+    SshPortForward, SshProfile, SshProfileId, SshProfileOrigin, SshProgressFn,
+    SshRemoteCapabilities, SshWorkspacePreference, SshWorkspaceState, TransferCancellation,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{JumpServerDriver, SshDriver, Storage};
@@ -405,6 +405,7 @@ impl SshDriver for MockSshDriver {
     }
 }
 
+mod forwarding_tests;
 mod jumpserver_tests;
 mod lifecycle_tests;
 mod support;

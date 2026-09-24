@@ -58,7 +58,7 @@ pub(super) struct SshProfileFormPanel {
     pub(super) auth_mode: SshAuthMode,
     pub(super) production: bool,
     pub(super) remote_platform: RemotePlatformPreference,
-    port_forwardings: Vec<SshPortForward>,
+    pub(super) port_forwardings: Vec<SshPortForward>,
     rdp_web_enabled: Option<bool>,
     jumpserver_rdp_session: Option<JumpServerRdpSession>,
     pub(super) password_masked: bool,

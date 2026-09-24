@@ -401,6 +401,7 @@ impl SshProfileFormPanel {
                 "目录",
                 Input::new(&self.form.initial_directory).disabled(busy),
             ))
+            .child(self.render_port_forwardings(compact, cx))
             .child(
                 v_flex()
                     .id("ssh-profile-executable-field")
