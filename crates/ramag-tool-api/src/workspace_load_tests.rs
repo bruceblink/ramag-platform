@@ -16,6 +16,7 @@ use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
 struct WorkspaceTestStorage {
     fail_listing: AtomicBool,
     fail_history: AtomicBool,
+    fail_clear_history: AtomicBool,
     workspaces: Mutex<Vec<ApiWorkspace>>,
     save_calls: AtomicUsize,
     clear_history_calls: AtomicUsize,
@@ -26,6 +27,7 @@ impl WorkspaceTestStorage {
         Self {
             fail_listing: AtomicBool::new(fail_listing),
             fail_history: AtomicBool::new(false),
+            fail_clear_history: AtomicBool::new(false),
             workspaces: Mutex::new(workspaces),
             save_calls: AtomicUsize::new(0),
             clear_history_calls: AtomicUsize::new(0),
@@ -66,7 +68,11 @@ impl Storage for WorkspaceTestStorage {
 
     async fn clear_api_history(&self, _workspace_id: &ApiWorkspaceId) -> Result<()> {
         self.clear_history_calls.fetch_add(1, Ordering::Relaxed);
-        Ok(())
+        if self.fail_clear_history.load(Ordering::Relaxed) {
+            Err(DomainError::Storage("clear-history-secret-sentinel".into()))
+        } else {
+            Ok(())
+        }
     }
 
     async fn list_connections(&self) -> Result<Vec<ConnectionConfig>> {
@@ -370,5 +376,43 @@ fn api_history_can_be_cleared_from_the_sidebar_after_confirmation(cx: &mut TestA
     assert_eq!(
         visual_cx.update(|_, app| view.read(app).notice.clone()),
         Some(("执行历史已清空".into(), false))
+    );
+
+    let retained_request = ApiRequestRecord::new_http(
+        "失败后保留",
+        HttpRequestSpec::new("GET", "http://127.0.0.1/history-retained"),
+    );
+    view.update(visual_cx, |view, cx| {
+        view.history.push(ApiHistoryRecord::from_error(
+            &retained_request,
+            "保留测试历史",
+            &ApiEnvironment::new("测试环境"),
+        ));
+        cx.notify();
+    });
+    storage.fail_clear_history.store(true, Ordering::Relaxed);
+    view.update(visual_cx, |view, cx| view.clear_history(cx));
+    for _ in 0..100 {
+        visual_cx.run_until_parked();
+        if !view.read_with(visual_cx, |view, _| view.clearing_history) {
+            break;
+        }
+        std::thread::yield_now();
+    }
+    assert_eq!(
+        visual_cx.update(|_, app| view.read(app).history.len()),
+        1,
+        "持久化失败时必须保留界面中的历史"
+    );
+    let notice = visual_cx.update(|_, app| view.read(app).notice.clone());
+    assert_eq!(
+        notice,
+        Some(("清空执行历史失败；请检查本地存储后重试".into(), true))
+    );
+    assert!(
+        !notice
+            .expect("清理失败应显示提示")
+            .0
+            .contains("clear-history-secret-sentinel")
     );
 }

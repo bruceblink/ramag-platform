@@ -48,8 +48,8 @@ impl ApiView {
                         view.history.clear();
                         view.notice = Some(("执行历史已清空".into(), false));
                     }
-                    Err(error) => {
-                        view.notice = Some((format!("清空执行历史失败：{error}"), true));
+                    Err(_) => {
+                        view.notice = Some(("清空执行历史失败；请检查本地存储后重试".into(), true));
                     }
                 }
                 cx.notify();
