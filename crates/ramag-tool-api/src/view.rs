@@ -91,6 +91,7 @@ pub(crate) enum ApiWorkspaceLoadState {
     Loading,
     Empty,
     Loaded,
+    HistoryFailed,
     Failed,
 }
 
@@ -100,6 +101,7 @@ impl ApiWorkspaceLoadState {
             Self::NotStarted | Self::Loaded => None,
             Self::Loading => Some("正在读取本地 API 工作区…"),
             Self::Empty => Some("尚无已保存的 API 工作区；保存请求后会创建工作区"),
+            Self::HistoryFailed => Some("本地 API 工作区已加载，但执行历史读取失败"),
             Self::Failed => Some("本地 API 工作区读取失败；保存已暂停，请检查存储后重试"),
         }
     }
@@ -108,7 +110,7 @@ impl ApiWorkspaceLoadState {
         match self {
             Self::Loading => Some("本地 API 工作区仍在读取，请等待完成后再保存"),
             Self::Failed => Some("本地 API 工作区读取失败，请重试后再保存"),
-            Self::NotStarted | Self::Empty | Self::Loaded => None,
+            Self::NotStarted | Self::Empty | Self::Loaded | Self::HistoryFailed => None,
         }
     }
 }

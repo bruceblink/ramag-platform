@@ -466,6 +466,8 @@ git diff --check
 - API 工作台的真实 Windows 窗口截图、键盘操作和鼠标操作仍未完成，原因是 Computer Use 返回可控应用列表为空；这项限制不影响已完成的 headless 布局/交互测试和 Docker 协议测试，但不能把 API-004 的窗口验收写成完成。
 - OAuth2 Client Credentials 已由 API-008.3 完成；未完成项仅包括真实 Windows 窗口截图、键盘和鼠标证据，以及未纳入当前范围的 Authorization Code、Device Code 和 Refresh Token 流程。
 
+API 工作区历史读取失败提示修正（2026-09-24）：工作区主体读取成功但执行历史读取失败时，不再把历史静默显示为空列表；侧栏改为显示明确失败状态和重试入口，同时保留已加载的请求、环境和保存能力。Storage 原始错误不会进入界面提示。新增失败、重试和敏感信息不泄露回归测试，`ramag-tool-api --lib` 通过 28 项，workspace 全目标测试通过。
+
 API 工作台主体对齐修正（2026-09-19）：修复 API 主体横向 Flex 默认垂直居中导致的编辑器顶部偏移、响应面板错位和工作区底部越界；主体、编辑器和请求/响应分栏改为拉伸填充，新增 1024/1440px 主体上下边界断言。Computer Use 仍无法取得可控原生窗口，本次 UI 验收使用 GPUI headless bounds 测试。
 
 API 已保存请求切换修正记录（2026-09-22）：左侧请求列表改为可点击控件，点击后回填对应 HTTP/gRPC 请求并显示当前请求；切换请求时清理旧响应、断言结果、变量回填、Collection 汇总、gRPC Service 目录和遗留 Metadata。`ramag-tool-api --lib` 21 项测试通过，Computer Use 仍无法取得可控原生窗口。

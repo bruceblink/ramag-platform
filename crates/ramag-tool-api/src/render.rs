@@ -216,7 +216,10 @@ fn render_workspace_load_status(
                 .text_color(theme.muted_foreground)
                 .child(message),
         );
-    if state == ApiWorkspaceLoadState::Failed {
+    if matches!(
+        state,
+        ApiWorkspaceLoadState::Failed | ApiWorkspaceLoadState::HistoryFailed
+    ) {
         status = status.child(
             ramag_ui::clickable_button("api-workspace-load-retry")
                 .debug_selector(|| "api-workspace-load-retry".into())

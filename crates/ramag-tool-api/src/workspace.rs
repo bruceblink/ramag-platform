@@ -30,10 +30,7 @@ impl ApiView {
             let result = match service.list_workspaces().await {
                 Ok(workspaces) => match workspaces.into_iter().next() {
                     Some(workspace) => {
-                        let history = service
-                            .list_history(&workspace.id, 20)
-                            .await
-                            .unwrap_or_default();
+                        let history = service.list_history(&workspace.id, 20).await.ok();
                         Ok(Some((workspace, history)))
                     }
                     None => Ok(None),
@@ -48,8 +45,14 @@ impl ApiView {
                 match result {
                     Ok(Some((workspace, history))) => {
                         view.workspace = workspace;
-                        view.history = history;
-                        view.workspace_load_state = ApiWorkspaceLoadState::Loaded;
+                        view.history = history.clone().unwrap_or_default();
+                        view.workspace_load_state = if history.is_some() {
+                            ApiWorkspaceLoadState::Loaded
+                        } else {
+                            view.notice =
+                                Some(("工作区已加载，但执行历史读取失败；请点击重试".into(), true));
+                            ApiWorkspaceLoadState::HistoryFailed
+                        };
                         let workspace = view.workspace.clone();
                         context::apply_imported_workspace(view, &workspace, window, cx);
                     }
