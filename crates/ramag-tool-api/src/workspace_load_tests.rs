@@ -3,7 +3,9 @@ use super::*;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use gpui_kit::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
+use gpui_kit::{
+    IntoElement, Modifiers, Render, TestAppContext, VisualTestContext, Window, div, point, px, size,
+};
 use ramag_app::ApiService;
 use ramag_domain::entities::{
     ApiEnvironment, ApiHistoryRecord, ApiRequestRecord, ApiWorkspace, ApiWorkspaceId,
@@ -20,6 +22,21 @@ struct WorkspaceTestStorage {
     workspaces: Mutex<Vec<ApiWorkspace>>,
     save_calls: AtomicUsize,
     clear_history_calls: AtomicUsize,
+}
+
+struct ApiViewTestHost {
+    view: Entity<ApiView>,
+}
+
+impl Render for ApiViewTestHost {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+        div()
+            .relative()
+            .size_full()
+            .child(self.view.clone())
+            .children(dialog_layer)
+    }
 }
 
 impl WorkspaceTestStorage {
@@ -133,6 +150,34 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
     cx.simulate_mouse_up(center, gpui_kit::MouseButton::Left, Modifiers::default());
 }
 
+fn click_dialog_button(cx: &mut VisualTestContext, selector: &'static str) {
+    cx.executor()
+        .advance_clock(std::time::Duration::from_millis(300));
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    let bounds = cx
+        .debug_bounds(selector)
+        .unwrap_or_else(|| panic!("确认对话框按钮应渲染: {selector}"));
+    let center = point(
+        bounds.origin.x + bounds.size.width / 2.0,
+        bounds.origin.y + bounds.size.height / 2.0,
+    );
+    cx.simulate_mouse_move(center, None, Modifiers::default());
+    let bounds = cx.debug_bounds(selector).unwrap_or(bounds);
+    let center = point(
+        bounds.origin.x + bounds.size.width / 2.0,
+        bounds.origin.y + bounds.size.height / 2.0,
+    );
+    cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
+    let bounds = cx.debug_bounds(selector).unwrap_or(bounds);
+    let center = point(
+        bounds.origin.x + bounds.size.width / 2.0,
+        bounds.origin.y + bounds.size.height / 2.0,
+    );
+    cx.simulate_mouse_up(center, gpui_kit::MouseButton::Left, Modifiers::default());
+    cx.run_until_parked();
+}
+
 fn add_view(
     cx: &mut TestAppContext,
     storage: Arc<WorkspaceTestStorage>,
@@ -150,7 +195,8 @@ fn add_view(
         let service = service.clone();
         let view = cx.new(|cx| ApiView::with_service(service, window, cx));
         view_entity = Some(view.clone());
-        gpui_kit::component::Root::new(view, window, cx)
+        let host = cx.new(|_| ApiViewTestHost { view });
+        gpui_kit::component::Root::new(host, window, cx)
     });
     visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
     visual_cx.run_until_parked();
@@ -357,18 +403,20 @@ fn api_history_can_be_cleared_from_the_sidebar_after_confirmation(cx: &mut TestA
     }));
 
     assert_eq!(storage.clear_history_calls.load(Ordering::Relaxed), 0);
-    visual_cx.update(|window, app| {
-        view.update(app, |view, cx| view.confirm_clear_history(window, cx));
-    });
+    click(visual_cx, "api-history-clear");
     visual_cx.run_until_parked();
-    assert_eq!(storage.clear_history_calls.load(Ordering::Relaxed), 0);
-    assert!(visual_cx.update(|_, app| {
-        let view = view.read(app);
-        !view.history.is_empty() && !view.clearing_history
-    }));
-
-    // The shared confirmation dialog is covered by ramag-ui; invoke its confirmation action here.
-    view.update(visual_cx, |view, cx| view.clear_history(cx));
+    assert!(
+        visual_cx.update(|window, app| {
+            gpui_kit::component::WindowExt::has_active_dialog(window, app)
+        })
+    );
+    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_some());
+    click_dialog_button(visual_cx, "ramag-confirm-ok");
+    assert!(
+        !visual_cx.update(|window, app| {
+            gpui_kit::component::WindowExt::has_active_dialog(window, app)
+        })
+    );
 
     for _ in 0..100 {
         visual_cx.run_until_parked();
@@ -397,7 +445,14 @@ fn api_history_can_be_cleared_from_the_sidebar_after_confirmation(cx: &mut TestA
         cx.notify();
     });
     storage.fail_clear_history.store(true, Ordering::Relaxed);
-    view.update(visual_cx, |view, cx| view.clear_history(cx));
+    click(visual_cx, "api-history-clear");
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx.update(|window, app| {
+            gpui_kit::component::WindowExt::has_active_dialog(window, app)
+        })
+    );
+    click_dialog_button(visual_cx, "ramag-confirm-ok");
     for _ in 0..100 {
         visual_cx.run_until_parked();
         if !view.read_with(visual_cx, |view, _| view.clearing_history) {
