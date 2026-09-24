@@ -1,6 +1,6 @@
 # 代码审查与修复优化计划（2026-09-23）
 
-> 状态：R1、R2、R3、R5、R11 已完成并进入已验证、已推送的 `dev`；R3 源分支已清理；R4、R6-R10 尚待实施。
+> 状态：R1、R2、R3、R5、R11 已完成并进入已验证、已推送的 `dev`；R3 源分支已清理；R4 文档切片已在功能分支完成验证，待合并到 `dev`；R6-R10 尚待实施。
 >
 > 范围：本计划基于当前 `dev` / `v0.2.0` 基线，重点检查近期 API 工作台、数据库工作台、MQTT 工作台、启动生命周期和本地集成测试维护。计划只安排可复现、可独立验收的修复；不把真实 Windows 窗口证据或新的协议能力混入同一次提交。
 
@@ -22,7 +22,7 @@
 1. API 工作台把异步读取失败静默降级为空工作区，用户无法区分“没有保存数据”和“读取失败”。
 2. API 工作台的保存回调没有请求代次保护，启动读取或其他异步工作区更新迟到时可能覆盖新状态。
 3. API Collection 的历史写入错误会通过 `?` 直接结束整个集合，UI 收不到已完成结果汇总，缺少明确的持久化失败策略。
-4. 数据库测试与文档仍残留 MySQL 8.0 表述，而仓库规则已经要求 MySQL 8.4+；这会导致测试证据、开发文档和实际基线不一致。
+4. 审查时数据库测试与文档残留 MySQL 8.0 表述，而仓库规则已要求 MySQL 8.4+；R4 已在本计划执行记录中完成文档校正，原历史数据不再被描述为当前验收证据。
 5. 表设计器生成的 MySQL `CHANGE COLUMN` 定义没有保留 `AUTO_INCREMENT` 等生成属性；SQLite 对已存在数据的必填新增字段也没有在预览阶段拒绝。
 6. MQTT 订阅消息进入有界 UI 队列后遇到背压会静默丢弃，SSH 远程覆盖提交在新文件已替换成功后可能仍报告失败，Linux 单实例旧 Socket 清理存在并发竞态。
 7. 当前 workspace Clippy 基线本身未通过，阻塞提交前的统一质量检查。
@@ -55,13 +55,13 @@
 - 修复方向：明确持久化失败策略：保留部分 outcome 和停止原因，或在领域层提供“执行结果已完成、历史写入失败”的独立状态；不能为了显示完整而无限重试或重复发送请求。
 - 验收：协议失败继续产生失败 outcome；历史写入失败时 UI 显示明确的持久化错误和已完成数量；取消仍停止后续请求；敏感错误继续脱敏。
 
-### R4：MySQL 版本基线和证据不一致（P1）
+### R4：MySQL 版本基线和证据不一致（P1，已修复）
 
 - 位置：`docs/performance.md`、`docs/development-roadmap.md`、`docs/database-client-datagrip-roadmap.md` 及相关验收记录。
-- 现状：仓库 Compose 已使用 MySQL 8.4，但多处文档和历史验证记录仍写 MySQL 8.0；全局规则要求 MySQL 8.4+。
+- 审查时现状：仓库 Compose 已使用 MySQL 8.4，但多处文档和历史验证记录仍写 MySQL 8.0；全局规则要求 MySQL 8.4+。
 - 影响：读者无法判断当前测试是否满足最低版本要求；复制旧命令可能启动不符合基线的服务，导致行为和性能结论不可比。
-- 修复方向：将当前可执行配置、文档示例和验收说明统一到 MySQL 8.4；历史记录保留原始事实时明确标记为旧基线，不得作为当前完成证据。
-- 验收：`rg` 不再发现未标注的当前 MySQL 8.0 测试命令或镜像；Compose、脚本、README 和专项路线图版本一致。
+- 修复结果：当前 Compose 已核实使用 MySQL 8.4；相关路线图和性能报告明确 MySQL 8.4+ / PostgreSQL 17+ 当前基线，历史 8.0 结果保留原值并标注为旧基线，不作当前验收证据。
+- 验收：README、CI 与 scripts 未发现低于 MySQL 8.4 的当前镜像或测试命令；全文检索命中均为已标注历史记录、计划中的审查说明或非版本基线的官方文档 URL。详情与检查命令见第 2.2 节 R4 记录。
 
 ### R5：API 搜索清除交互缺少真实点击与焦点回归（P2）
 
@@ -140,6 +140,8 @@
 - R3 Docker 环境：HTTP 服务 `ramag-api-http-test` 使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，映射 `127.0.0.1:18089->8080` 和 `127.0.0.1:18091->8443`；gRPC 服务 `ramag-api-grpc-test` 使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，映射 `127.0.0.1:18090->50051` 和 `127.0.0.1:18092->50052`。执行期间两者均为 healthy，且在测试前已运行；本次未启动、停止或清理容器，测试后仍保持运行。
 - R3 UI 证据：API Docker 测试执行 headless GPUI 交互，先打开“断言”响应页签，再检查断言和 Collection 汇总；未运行真实 Windows 窗口验收。
 - R3 集成状态：已通过 `f7c74ea8` 合并到 `dev`，并随 `6d81150b` 推送到 `origin/dev`；目标分支通过 `cargo test --locked -p ramag-tool-api --all-targets`（29 项）、`cargo test --locked -p ramag-app --all-targets`（224 项单元测试、2 项 data-sync live、6 项 SQL live、9 项 transfer live）、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check`。源分支无未合并/未推送提交且无关联 worktree，已删除本地和远程引用。R4 随后单独执行；R6-R10 保持后续独立切片。
+- R4 分支实现与验证已完成：`docs/performance.md`、`docs/development-roadmap.md` 和 `docs/database-client-datagrip-roadmap.md` 明确 MySQL 8.4+ / PostgreSQL 17+ 当前基线，并给历史 MySQL 8.0 测量标注旧基线及“不是当前验收证据”；`scripts/db-test/compose.yaml` 已确认固定使用 MySQL `mysql:8.4`、PostgreSQL `postgres:17-alpine`、Redis `redis:7-alpine`、MongoDB `mongo:8.2`，分别绑定 `127.0.0.1:13306`、`:15432`、`:16379`、`:27018`。`db-test.sh` 使用 `docker compose up --detach --wait` 启动、普通停止保留数据卷、清理命令删除数据卷和本地测试凭据；README、CI 和脚本未发现 MySQL 8.0 镜像或当前测试命令。本切片没有改写历史结果，也没有运行或操作 Docker 服务；当前待合并 `dev`。
+- R4 验证：`rg -n -i "mysql.{0,45}8\\.0|8\\.0.{0,45}mysql|mysql:8\\.0|mysql-8\\.0"` 检出的文档命中均明确标作历史旧基线或计划中的待办描述；`crates/ramag-infra-mysql/src/errors.rs` 中 `/8.0/` 只属于 MySQL 官方错误参考文档 URL，不是运行版本或测试镜像。`git diff --check`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 和源码尺寸检查通过。此文档切片未运行集成测试。
 
 ## 3. 分阶段落地计划
 
@@ -156,13 +158,13 @@
 3. 为 Storage 失败、旧结果迟到和导入交错增加应用层与 headless UI 测试。
 4. 使用独立提交边界：读取错误处理与保存代次不得合并为一个提交；每项通过测试后立即推送当前开发分支。
 
-### 阶段 C：Collection 结果语义（代码与分支验证已完成，待 dev 集成）
+### 阶段 C：Collection 结果语义（已完成并进入 dev）
 
 1. 先补 R3 的失败继续测试和错误分类设计，再修改 `run_collection`。
 2. 明确可继续错误、停止错误、取消和 Storage 持久化失败的边界。
 3. 更新 API 工作台汇总显示和历史记录验收，使用本机 Docker HTTP/gRPC 服务复核成功、业务失败和取消。
 
-### 阶段 D：数据库基线与文档校正
+### 阶段 D：数据库基线与文档校正（分支验证已完成，待 dev 集成）
 
 1. 按 R4 逐文件修正文档和验收记录，历史旧事实保留“旧基线”标识。
 2. 检查 MySQL、PostgreSQL、Redis、MongoDB Compose 镜像、端口、启动和清理说明，确保当前示例满足 PostgreSQL 17+、MySQL 8.4+。
