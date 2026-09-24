@@ -202,6 +202,18 @@ fn subscription_status_label(state: MqttSubscriptionState) -> &'static str {
     }
 }
 
+fn subscription_status_text(status: &MqttSubscriptionStatus) -> String {
+    let label = subscription_status_label(status.state);
+    let Some(reason) = status.reason.as_deref().filter(|reason| !reason.is_empty()) else {
+        return label.into();
+    };
+    let mut bounded_reason = reason.chars().take(256).collect::<String>();
+    if reason.chars().count() > bounded_reason.chars().count() {
+        bounded_reason.push('…');
+    }
+    format!("{label}：{bounded_reason}")
+}
+
 /// Renders compact per-row QoS controls so each saved filter can be edited in place.
 fn subscription_qos_selector(
     index: usize,

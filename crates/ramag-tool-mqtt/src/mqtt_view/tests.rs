@@ -110,6 +110,24 @@
     }
 
     #[test]
+    fn subscription_status_text_keeps_failure_reason_bounded_and_readable() {
+        let status = MqttSubscriptionStatus {
+            filter: "devices/#".into(),
+            state: MqttSubscriptionState::Rejected,
+            reason: Some("Broker 拒绝订阅：没有权限".into()),
+        };
+        assert_eq!(subscription_status_text(&status), "失败：Broker 拒绝订阅：没有权限");
+
+        let status = MqttSubscriptionStatus {
+            reason: Some("x".repeat(512)),
+            ..status
+        };
+        let text = subscription_status_text(&status);
+        assert!(text.ends_with('…'));
+        assert!(text.chars().count() <= 260);
+    }
+
+    #[test]
     fn payload_formats_match_reference_client_wire_and_display_behavior() {
         assert_eq!(
             encode_publish_payload(MqttPayloadFormat::Plaintext, "hello").unwrap(),

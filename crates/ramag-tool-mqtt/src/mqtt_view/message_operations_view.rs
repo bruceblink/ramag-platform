@@ -347,9 +347,12 @@ impl MqttView {
                                 let selector = status_selector.clone();
                                 move || selector.to_string()
                             })
+                            .flex_1()
+                            .min_w_0()
                             .text_xs()
                             .text_color(status_color)
-                            .child(subscription_status_label(status.state)),
+                            .whitespace_normal()
+                            .child(subscription_status_text(&status)),
                     )
                     .child(topic_action)
                     .child(subscription_qos_selector(

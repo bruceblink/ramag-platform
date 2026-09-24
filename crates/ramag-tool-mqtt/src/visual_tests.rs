@@ -19,8 +19,8 @@ use ramag_domain::entities::{
     MosquittoClient, MosquittoDynamicSecuritySnapshot, MosquittoRole, MosquittoRoleBinding,
     MqttBrokerMetrics, MqttBrokerSnapshot, MqttLocalServerConfig, MqttLocalServerEvent,
     MqttLocalServerStatus, MqttMessage, MqttOnlineClient, MqttProfile, MqttPublishRequest,
-    MqttPublishResult, MqttQos, MqttSubscription, MqttTopicObservation, MqttTopicSource,
-    MqttUserProperty, QueryRecord, QueryRecordId,
+    MqttPublishResult, MqttQos, MqttSubscription, MqttSubscriptionState, MqttTopicObservation,
+    MqttTopicSource, MqttUserProperty, QueryRecord, QueryRecordId,
 };
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, MqttLocalServerDriver, Storage};
@@ -613,6 +613,9 @@ fn mqtt_message_operations_reflow_inside_supported_window_widths(cx: &mut TestAp
                 value: "headless-test".into(),
             }],
         });
+        view.subscription_statuses[0].state = MqttSubscriptionState::Rejected;
+        view.subscription_statuses[0].reason =
+            Some("Broker 拒绝订阅：当前账号没有访问此 Topic 的权限，请检查 ACL 配置".into());
         cx.notify();
     });
     visual_cx.run_until_parked();
@@ -632,6 +635,7 @@ fn mqtt_message_operations_reflow_inside_supported_window_widths(cx: &mut TestAp
             "mqtt-subscribe-options",
             "mqtt-subscribe-qos",
             "mqtt-subscribe-actions",
+            "mqtt-subscription-status-0",
             "mqtt-subscribe-message-meta",
             "mqtt-subscribe-message-retained",
             "mqtt-subscribe-message-duplicate",
