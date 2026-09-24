@@ -1,6 +1,6 @@
 # 代码审查与修复优化计划（2026-09-23）
 
-> 状态：R1-R5、R11 已进入已验证的 `dev`；R3 已推送并清理源分支；R4 已合并到 `dev` 并通过目标检查，待推送和清理源分支；R6-R10 尚待实施。
+> 状态：R1-R5、R11 已进入已验证、已推送的 `dev`；R3、R4 源分支均已清理；R6-R10 尚待实施。
 >
 > 范围：本计划基于当前 `dev` / `v0.2.0` 基线，重点检查近期 API 工作台、数据库工作台、MQTT 工作台、启动生命周期和本地集成测试维护。计划只安排可复现、可独立验收的修复；不把真实 Windows 窗口证据或新的协议能力混入同一次提交。
 
@@ -141,7 +141,7 @@
 - R3 UI 证据：API Docker 测试执行 headless GPUI 交互，先打开“断言”响应页签，再检查断言和 Collection 汇总；未运行真实 Windows 窗口验收。
 - R3 集成状态：已通过 `f7c74ea8` 合并到 `dev`，并随 `6d81150b` 推送到 `origin/dev`；目标分支通过 `cargo test --locked -p ramag-tool-api --all-targets`（29 项）、`cargo test --locked -p ramag-app --all-targets`（224 项单元测试、2 项 data-sync live、6 项 SQL live、9 项 transfer live）、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check`。源分支无未合并/未推送提交且无关联 worktree，已删除本地和远程引用。R4 随后单独执行；R6-R10 保持后续独立切片。
 - R4 已合并到 `dev`：`docs/performance.md`、`docs/development-roadmap.md` 和 `docs/database-client-datagrip-roadmap.md` 明确 MySQL 8.4+ / PostgreSQL 17+ 当前基线，并给历史 MySQL 8.0 测量标注旧基线及“不是当前验收证据”；`scripts/db-test/compose.yaml` 已确认固定使用 MySQL `mysql:8.4`、PostgreSQL `postgres:17-alpine`、Redis `redis:7-alpine`、MongoDB `mongo:8.2`，分别绑定 `127.0.0.1:13306`、`:15432`、`:16379`、`:27018`。`db-test.sh` 使用 `docker compose up --detach --wait` 启动、普通停止保留数据卷、清理命令删除数据卷和本地测试凭据；README、CI 和脚本未发现 MySQL 8.0 镜像或当前测试命令。本切片没有改写历史结果，也没有运行或操作 Docker 服务。
-- R4 验证：功能分支提交 `15513a44` 已通过 `e247d884` 合并到 `dev`；分支和目标分支均通过 `git diff --check`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 和源码尺寸检查。`rg -n -i "mysql.{0,45}8\\.0|8\\.0.{0,45}mysql|mysql:8\\.0|mysql-8\\.0"` 检出的文档命中均明确标作历史旧基线或审查记录；`crates/ramag-infra-mysql/src/errors.rs` 中 `/8.0/` 只属于 MySQL 官方错误参考文档 URL，不是运行版本或测试镜像。此文档切片未运行集成测试；当前待推送 `dev` 并清理源分支。
+- R4 验证：功能分支提交 `15513a44` 已通过 `e247d884` 合并到 `dev`，目标分支检查通过并随 `8d114073` 推送。分支和目标分支均通过 `git diff --check`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 和源码尺寸检查。`rg -n -i "mysql.{0,45}8\\.0|8\\.0.{0,45}mysql|mysql:8\\.0|mysql-8\\.0"` 检出的文档命中均明确标作历史旧基线或审查记录；`crates/ramag-infra-mysql/src/errors.rs` 中 `/8.0/` 只属于 MySQL 官方错误参考文档 URL，不是运行版本或测试镜像。此文档切片未运行集成测试。源分支无未合并/未推送提交且无关联 worktree，已删除本地和远程引用。
 
 ## 3. 分阶段落地计划
 
@@ -164,7 +164,7 @@
 2. 明确可继续错误、停止错误、取消和 Storage 持久化失败的边界。
 3. 更新 API 工作台汇总显示和历史记录验收，使用本机 Docker HTTP/gRPC 服务复核成功、业务失败和取消。
 
-### 阶段 D：数据库基线与文档校正（已合并 dev，待推送和分支清理）
+### 阶段 D：数据库基线与文档校正（已完成）
 
 1. 按 R4 逐文件修正文档和验收记录，历史旧事实保留“旧基线”标识。
 2. 检查 MySQL、PostgreSQL、Redis、MongoDB Compose 镜像、端口、启动和清理说明，确保当前示例满足 PostgreSQL 17+、MySQL 8.4+。

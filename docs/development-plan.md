@@ -64,7 +64,7 @@
 1. 已建立本文件及 `docs/code-review-remediation-plan-2026-09-23.md` 的审查基线。
 2. 已完成 R5 请求搜索清除按钮交互回归测试（`58675ea2`）、R11 workspace Clippy 修复（`480fc9b1`）、R1 工作区读取失败处理（`de232c7b`）和 R2 保存生命周期隔离（`fde33b9f`）；这些提交均已进入 `dev`。
 3. R3 Collection 历史写入失败时保留已执行结果，代码提交 `1204b397` 已合并到 `dev`，合并提交 `f7c74ea8`；目标 `dev` 已完成 API、app、fmt、Clippy、源码尺寸和差异检查并推送。
-4. R3 源分支 `feat/api-collection-results` 已在确认无未合并/未推送提交且无关联 worktree 后删除本地及远程引用。R4 MySQL 8.4 基线文档校正已通过 `e247d884` 合并到 `dev`，目标分支的文档差异、fmt、Clippy 和源码尺寸检查均通过；待推送并清理源分支。之后执行 R6 表设计器 DDL 安全性，随后按专项计划实施 R7、R8、R9、R10。每项单独设计、验收、提交、推送并合并到 `dev`。
+4. R3 源分支 `feat/api-collection-results` 和 R4 源分支 `docs/mysql-84-baseline` 均在确认无未合并/未推送提交且无关联 worktree 后删除本地及远程引用。R4 已通过 `e247d884` 合并到 `dev`，目标分支检查通过并随 `8d114073` 推送。下一项执行 R6 表设计器 DDL 安全性，随后按专项计划实施 R7、R8、R9、R10。每项单独设计、验收、提交、推送并合并到 `dev`。
 
 已完成事项及证据以本文件“切片执行记录”和 [`code-review-remediation-plan-2026-09-23.md`](code-review-remediation-plan-2026-09-23.md) 的执行记录为准，不再把已进入 `dev` 的改动列作待办。
 
@@ -116,4 +116,4 @@
 - 改动范围：性能报告、跨工具开发路线图、数据库专项路线图和代码审查执行记录；核对 `scripts/db-test/compose.yaml`、README、CI 和测试脚本，未改动运行时配置。
 - 验收：已检查 MySQL 8.0 命中均为带历史基线说明的记录或待办描述；README、CI 与 scripts 未发现低于 MySQL 8.4 的当前镜像或测试命令。`git diff --check`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 和源码尺寸检查均通过。
 - Docker：本切片仅校正文档，没有运行集成测试，也未启动、停止或清理 Docker 服务。已静态核对 Compose：MySQL `mysql:8.4` / `127.0.0.1:13306`、PostgreSQL `postgres:17-alpine` / `127.0.0.1:15432`、Redis `redis:7-alpine` / `127.0.0.1:16379`、MongoDB `mongo:8.2` / `127.0.0.1:27018`；`db-test.sh` 使用 `docker compose up --detach --wait` 启动，普通停止保留数据卷，清理命令会删除数据卷和本地测试凭据。此切片未运行这些命令。
-- Git：提交 `15513a44` 已在 `docs/mysql-84-baseline` 验证并推送，通过 `e247d884` 合并到 `dev`；目标分支检查已通过，待推送和清理源分支。
+- Git：提交 `15513a44` 已在 `docs/mysql-84-baseline` 验证并推送，通过 `e247d884` 合并到 `dev`；目标检查通过后，`dev` 已随 `8d114073` 推送。已确认该源分支无未合并/未推送提交且无关联 worktree，随后删除本地和远程引用。
