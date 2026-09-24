@@ -210,6 +210,16 @@ impl SshDriver for MockSshDriver {
         })
     }
 
+    async fn port_forward_command(&self, profile: &SshProfile) -> Result<SshLaunchCommand> {
+        Ok(SshLaunchCommand {
+            profile_id: profile.id.clone(),
+            authorization_generation: 0,
+            program: "/mock/ssh-forward".into(),
+            args: vec!["-N".into(), "--".into(), profile.host.clone()],
+            env: HashMap::new(),
+        })
+    }
+
     async fn report_terminal_launch_failure(&self, _executable: &str) {}
 
     async fn test_connection(&self, _profile: &SshProfile) -> Result<()> {

@@ -255,7 +255,7 @@ SecureCRT 和 MobaXterm 用于划定产品参考范围，不代表 Ramag 已经�
 |---|---|---|
 | Tab、会话列表和连接工作区 | 已有连接工作区和最多 8 个终端标签 | 补齐标签状态、收藏、分组和恢复 |
 | SSH/SFTP | 已有 | 继续稳定化和补真实环境验收 |
-| SSH Gateway、ProxyJump、端口转发 | profile 已支持解析和保存 `-L/-R/-D`，启动参数已由 `ramag-infra-ssh` 构造；真实端点已验证三类监听建立和停止；独立转发状态/停止 UI 未实现 | 单独补转发状态、错误和停止面板；多跳模型另行立项 |
+| SSH Gateway、ProxyJump、端口转发 | profile 支持解析和保存 `-L/-R/-D`，`ramag-infra-ssh` 为转发面板构造独立的 `ssh -N` 进程；工作区显示每条转发、运行/失败状态并提供停止入口；真实端点已验证三类监听建立和停止 | 继续补真实 Windows 窗口证据；多跳模型另行立项 |
 | Serial、Telnet、RDP、VNC、X11 | 未形成通用协议工具；JumpServer 有 RDP Web 目标 | 作为外部程序或独立适配器评估，不塞进终端核心 |
 | 会话日志和录制 | 未实现 | 先做有界文本日志，明确敏感数据策略 |
 | 脚本和宏 | 未实现 | 先不做任意代码执行，后续做受限命令序列 |
@@ -268,14 +268,14 @@ SecureCRT 和 MobaXterm 用于划定产品参考范围，不代表 Ramag 已经�
 
 - 同一 SSH 工作区中的多个终端互不覆盖输入、输出、焦点和退出状态。
 - 重连只替换目标终端；其他终端和文件浏览状态保持可用。
-- 端口转发显示监听地址、目标地址、方向、状态、错误和停止入口；关闭工作区时有界停止转发。
+- 端口转发显示监听地址、目标地址、方向、状态、错误和停止入口；独立 `ssh -N` 进程只在工作区范围内运行，关闭、保存或删除配置时有界停止。
 - SFTP 与终端使用独立会话，文件传输取消不会终止活动终端。
 - 生产连接默认禁止高风险远程写操作，所有解除保护的动作可见且需确认。
 - Host Key 不可信、认证失败、OpenSSH 不存在和远端路径错误都显示可操作的原因。
 - 终端输出、日志和诊断具备长度、时间和磁盘预算。
 - 真实 OpenSSH 端点至少覆盖 Linux Shell、Windows OpenSSH/SFTP 客户端、断线重连、三类端口转发和无效 Host Key 场景。
 
-`TERM-001` 的代码范围已覆盖会话状态、退出标签、目标标签重连、profile 中 `-L/-R/-D` 的解析/保存/参数构造，以及 OpenSSH 参数解析测试。Windows OpenSSH 客户端访问 WSL Ubuntu-26.04 临时 OpenSSH 端点已完成 Shell、SFTP、三类转发、转发停止、重连和错误 Host Key 验证；真实 Windows 窗口和独立转发状态/停止面板仍是后续验收或独立任务，不能用 headless 测试代替。
+`TERM-001` 的代码范围已覆盖会话状态、退出标签、目标标签重连、profile 中 `-L/-R/-D` 的解析/保存/独立进程参数构造，以及 OpenSSH 参数解析测试。Windows OpenSSH 客户端访问 WSL Ubuntu-26.04 临时 OpenSSH 端点已完成 Shell、SFTP、三类转发、转发停止、重连和错误 Host Key 验证；独立转发状态/停止面板已有 headless 交互覆盖，真实 Windows 窗口仍需单独验收。
 
 ## 6. 数据库连接工具设计
 
@@ -416,7 +416,7 @@ SecureCRT 和 MobaXterm 用于划定产品参考范围，不代表 Ramag 已经�
 3. 继续维护 [`docs/kafka-tool-roadmap.md`](kafka-tool-roadmap.md) 的 `KAFKA-023` 功能矩阵和未实现接口状态。
 4. 实现插件平台 P0 的描述、注册错误和静态生命周期适配器。
 5. 补真实 Windows 窗口截图和键盘操作，确认 SSH 工作区在实际焦点、最小尺寸和 DPI 下的行为。
-6. 单独设计端口转发状态、错误和停止面板。
+6. 继续补真实 Windows 窗口证据，并维护端口转发状态、错误和停止面板的运行时回归。
 7. 在 `KAFKA-023` 功能矩阵之后补生产 exporter 安全配置和真实 Windows Kafka 窗口证据；本机静态 OpenMetrics fixture 与真实 Kafka JMX Exporter 已覆盖端点接入链路，纯 Rust Transport 仍单独评估。
 
 ## 10. 当前验证记录

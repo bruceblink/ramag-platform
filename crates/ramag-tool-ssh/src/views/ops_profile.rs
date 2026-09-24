@@ -235,6 +235,7 @@ impl SshView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.stop_port_forwarding(&profile.id, cx);
         self.persist_profile(form, profile, window, cx);
     }
 
@@ -326,6 +327,7 @@ impl SshView {
             return;
         }
         self.deleting_profile = true;
+        self.stop_port_forwarding(&id, cx);
         let service = self.service.clone();
         cx.spawn_in(window, async move |this, async_cx| {
             let result = service.delete_profile(&id).await;

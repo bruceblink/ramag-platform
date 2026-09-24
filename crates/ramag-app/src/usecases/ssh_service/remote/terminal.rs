@@ -41,6 +41,37 @@ impl SshService {
         result
     }
 
+    pub async fn port_forward_command(
+        &self,
+        profile_id: &SshProfileId,
+    ) -> Result<SshLaunchCommand> {
+        let result = async {
+            let generation = self.terminal_generation_if_allowed(profile_id)?;
+            let profile = self
+                .storage
+                .get_ssh_profile(profile_id)
+                .await?
+                .ok_or_else(|| DomainError::NotFound("SSH 配置已删除".into()))?;
+            profile.validate().map_err(DomainError::InvalidConfig)?;
+            let mut command = self.driver.port_forward_command(&profile).await?;
+            if self.terminal_generation_if_allowed(profile_id)? != generation {
+                return Err(terminal_launch_cancelled());
+            }
+            command.authorization_generation = generation;
+            Ok(command)
+        }
+        .await;
+        if let Err(error) = &result {
+            tracing::warn!(
+                operation = "ssh_port_forward_command",
+                error = %error,
+                profile_id = %profile_id,
+                "prepare ssh port forwarding command failed"
+            );
+        }
+        result
+    }
+
     /// 生命周期操作期间禁止创建终端。
     pub fn block_terminal_launches(&self, profile_id: &SshProfileId) {
         let mut policy = self.terminal_policy.lock();

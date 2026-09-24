@@ -134,7 +134,7 @@ pub struct SshProfile {
     pub initial_directory: Option<String>,
     /// 自定义 OpenSSH 可执行文件必须是绝对路径。
     pub ssh_path: Option<String>,
-    /// 仅由交互终端继承的 OpenSSH 端口转发；SFTP 和诊断会话不会复用这些转发。
+    /// 由工作区独立管理的 OpenSSH 端口转发；交互终端、SFTP 和诊断会话不会复用该进程。
     #[serde(default)]
     pub port_forwardings: Vec<SshPortForward>,
 }

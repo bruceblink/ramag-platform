@@ -1,7 +1,7 @@
 # Ramag Platform 主线开发计划
 
 > 状态：功能扩展主线已阶段性收敛；当前优先修复可复现的 UI 和功能缺陷；`GPUI-KIT-001` 依赖迁移已完成，后续开发统一使用 `gpui-kit`；CMT-003 未完成的本机镜像写操作暂缓
-> 更新日期：2026-09-23
+> 更新日期：2026-09-24
 > 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台、GPUI Kit 迁移以及跨工具质量与构建流程
 > 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
 > 当前交付切片：UI/功能缺陷修复；GPUI Kit 依赖升级另立切片，发现可复现问题时先补充独立测试和修复提交
@@ -47,7 +47,7 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，把数据库、Kafka、Git�
 | 产品线 | 当前状态 | 下一项工作 | 暂不扩大的范围 |
 |---|---|---|---|
 | 插件平台 | P0-A、P0-B、PLAT-003 已完成，现有工具通过静态插件宿主注册并按生命周期管理 | 保持 P0-C 设置与权限接口待实现；后续按队列推进 `TERM-001` | 动态 ABI、插件市场、第三方不受信任代码 |
-| SSH/终端 | `alacritty_terminal + GPUI` PTY 核心、SSH/SFTP 工作区、会话状态、每标签重连和 `-L/-R/-D` 参数模型已有；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 补真实 Windows 窗口证据和独立转发状态/停止面板；进入 `KAFKA-001` | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
+| SSH/终端 | `alacritty_terminal + GPUI` PTY 核心、SSH/SFTP 工作区、会话状态、每标签重连和独立 `-L/-R/-D` 转发面板已有；Windows OpenSSH 客户端访问 WSL OpenSSH 端点的真实验证已完成 | 补真实 Windows 窗口证据；进入 `KAFKA-001` | 在终端核心内加入 SSH、RDP、VNC、Telnet 或 Serial 协议 |
 | Kafka 工作台 | 集群、Topic、消息读取/搜索/生产、ACL、配置、消费者组、实时 Tail、Metrics Snapshot、Schema Registry 版本浏览、受保护的真实 Kafka JMX Exporter 本机链路和纯 Rust 读取候选已有 | `KAFKA-023` 三个消息定位切片和阶段 27 已完成，继续维护功能矩阵，再补真实 Windows 证据 | 纯 Rust 全能力替换、外部生态大模块和批量消息生产 |
 | 数据库工作台 | SQL、Redis、MongoDB 查询、结果、事务和迁移基础能力已有 | 按 DBeaver/DataGrip 能力表推进结果查看、大字段恢复、对象导航、执行计划和迁移工作流的功能/UI 对齐 | 把 Redis/MongoDB 强行套用 SQL 语义 |
 | 容器管理工具 | CMT-001 已完成；CMT-002 已完成 Docker 只读查询、真实 WSL Engine 验收和 headless UI 验收；CMT-003 已补齐 Registry v2 查询、认证失败映射、digest 回读和镜像操作取消边界 | 暂缓本机镜像拉取/标记/推送/删除、取消回读和清理验收，优先处理 UI/功能缺陷与 GPUI Kit 迁移 | 远程明文 Docker TCP、动态插件、Secret 明文和任意 Shell |
@@ -233,7 +233,7 @@ Headless 结果不能描述为真实窗口结果；外部服务未启动时只�
 
 真实端点验证使用 Windows OpenSSH 9.5p2 客户端和 WSL Ubuntu-26.04 临时 OpenSSH 服务，覆盖 Shell 命令、SFTP `pwd`、`-L`/`-R`/`-D` 监听建立、停止本地转发后监听关闭、强制断开后的重新连接，以及错误 Host Key 被拒绝。临时密钥、授权文件、配置和服务进程均在脚本结束时清理，脚本未纳入仓库。
 
-未完成项：真实 Windows 窗口截图和键盘操作、独立转发状态/停止面板仍未完成；workspace 全量库测试被 `rdkafka-sys` 的 Windows GNU 构建前置条件阻断，错误为缺少 MSYS/MinGW CMake generator，与 TERM-001 源码无关。P0-C 设置与权限接口继续另行排期，不把 headless 结果写成真实窗口验收。
+未完成项：真实 Windows 窗口截图和键盘操作、workspace 全量库测试仍未完成。独立转发状态/停止面板已经补齐，workspace 关闭、保存和删除配置时会停止对应进程；workspace 全量库测试仍可能被 `rdkafka-sys` 的 Windows GNU 构建前置条件阻断，错误为缺少 MSYS/MinGW CMake generator，与 TERM-001 源码无关。P0-C 设置与权限接口继续另行排期，不把 headless 结果写成真实窗口验收。
 
 `UI-001` MQTT 权限预览切片（2026-09-14）：`ramag-tool-mqtt` 在窗口宽度小于 760px 时将 Mosquitto 用户权限预览从固定四列改为纵向信息块，宽窗口继续使用表格行，避免 Topic、Role 和权限信息越出内容区。`mqtt_client_permissions_reflow_inside_supported_window_widths` 覆盖 360/1024/1440 headless 窗口；`cargo test -p ramag-tool-mqtt --lib` 的 8 项测试、workspace MSVC Clippy、格式检查和 `git diff --check` 通过。`check-source-size.ps1` 仍报告既有的 `dynamic_security_operations.rs` 为 606 行，`HEAD` 基线同样为 606 行，本次未修改该文件。真实 Windows 窗口截图和键盘操作仍待补充。
 
@@ -353,6 +353,8 @@ API 工作区历史读取失败提示修正（2026-09-24）：工作区主体读
 
 API 执行历史摘要修正（2026-09-24）：侧栏历史行不再显示 Rust 枚举调试文本，改为显示通过/失败结果、HTTP 或 gRPC 协议、请求名称和可读状态；每行使用独立调试选择器，便于 headless 交互验收。新增 HTTP、gRPC、传输失败和无响应状态格式测试。
 
-SSH 配置端口转发摘要修正（2026-09-24）：SSH 配置表单现在显示已保存的 `-L`、`-R` 和 `-D` 转发参数及数量；没有转发时给出解析入口提示，长参数在窄窗口内省略，不再让已保存配置只存在于隐藏状态。新增编辑配置表单的转发摘要边界测试；独立转发状态和停止面板仍单独排期。
+SSH 配置端口转发摘要修正（2026-09-24）：SSH 配置表单现在显示已保存的 `-L`、`-R` 和 `-D` 转发参数及数量；没有转发时给出解析入口提示，长参数在窄窗口内省略，不再让已保存配置只存在于隐藏状态。新增编辑配置表单的转发摘要边界测试；独立转发状态和停止面板由后续切片补齐。
+
+SSH 独立端口转发面板（2026-09-24）：端口转发不再附加到交互终端命令，而是由 `ramag-infra-ssh` 构造独立的 `ssh -N` 进程；工作区面板显示每条 `-L`、`-R`、`-D` 转发、启动/运行/停止/失败状态，并提供启动和停止入口。关闭工作区、保存或删除配置时停止对应进程，启动失败只保留有界错误摘要。新增转发进程状态机和工作区面板测试；`ramag-app` 226 项、`ramag-infra-ssh` 63 项、`ramag-tool-ssh` 83 项测试，目标 Clippy、源码尺寸、格式和差异检查通过。
 表设计器字段编辑区紧凑高度修正（2026-09-23）：GPUI 弹框测试发现 360×240 窗口中，多个字段会把编辑区和取消/预览操作推出窗口。低矮窗口现在减少首屏字段行数并让字段内容在有界区域内滚动；新增字段操作放到字段标题行。headless 回归测试覆盖 360×240、360×620 和 1024×620，确认标题、字段可视区、新增按钮和底部操作均留在窗口内且不重叠。`ramag-tool-dbclient --all-targets` 316 项测试、workspace Clippy、格式、源码尺寸和差异检查通过；原生 Windows 窗口验收仍未完成。
 表设计器 DDL 预览紧凑高度修正（2026-09-23）：360×240 GPUI 弹框测试确认 420px 固定预览区会越出窗口，并把底部操作推出可用区域。现在按弹框可用高度收缩滚动区，并为标题、工具栏、分区标题和操作按钮留出空间；headless 回归测试覆盖 360×240、360×620 和 1024×620，确认标题、DDL 区和底部操作均留在窗口内且互不覆盖。`ramag-tool-dbclient --all-targets` 316 项测试、workspace Clippy、格式、源码尺寸和差异检查通过；原生 Windows 窗口验收仍未完成。

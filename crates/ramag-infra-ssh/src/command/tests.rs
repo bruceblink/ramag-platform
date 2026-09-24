@@ -120,7 +120,7 @@ fn terminal_directory_keeps_the_interactive_login_command() {
 }
 
 #[test]
-fn terminal_command_emits_separate_local_remote_and_dynamic_forward_arguments() {
+fn port_forward_command_emits_separate_local_remote_and_dynamic_forward_arguments() {
     let mut profile = profile();
     profile.port_forwardings = vec![
         SshPortForward::Local {
@@ -140,15 +140,16 @@ fn terminal_command_emits_separate_local_remote_and_dynamic_forward_arguments() 
             listen_port: 1080,
         },
     ];
-    let command = terminal_command(
+    let command = port_forward_command(
         &profile,
         &SshCapability {
             executable: "/usr/bin/ssh".into(),
             version: "OpenSSH_test".into(),
         },
-        None,
     )
     .unwrap();
+
+    assert!(command.args.contains(&"-N".into()));
 
     assert!(
         command

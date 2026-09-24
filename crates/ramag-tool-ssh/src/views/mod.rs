@@ -14,11 +14,13 @@ mod ops_files;
 mod ops_profile;
 mod ops_transfer;
 mod path_dialog;
+mod port_forward;
 mod profile_dialog;
 mod profile_form;
 mod remote_session_dialog;
 mod render;
 mod render_directory_helpers;
+mod render_forwarding_panel;
 mod render_jumpserver_connections;
 mod render_jumpserver_dialog;
 mod render_jumpserver_rows;
@@ -49,6 +51,7 @@ use ramag_app::SshService;
 use ramag_domain::entities::{SshCapability, SshProfile, SshProfileId};
 
 use model::{Notice, SshWorkspace, ViewMode};
+use port_forward::PortForwardManager;
 
 pub struct SshView {
     service: Arc<SshService>,
@@ -77,6 +80,7 @@ pub struct SshView {
     capability_generation: u64,
     persist_generation: u64,
     last_transfer_revision: u64,
+    port_forward_manager: PortForwardManager,
     focus_handle: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -146,6 +150,7 @@ impl SshView {
             capability_generation: 0,
             persist_generation: 0,
             last_transfer_revision: 0,
+            port_forward_manager: PortForwardManager::new(),
             focus_handle: cx.focus_handle(),
             _subscriptions: subscriptions,
         };
@@ -168,10 +173,11 @@ impl SshView {
                 if this
                     .update_in(async_cx, |this, _window, cx| {
                         let revision = this.service.transfer_revision();
+                        let forwarding_changed = this.refresh_port_forwarding_states();
                         if revision != this.last_transfer_revision {
                             this.last_transfer_revision = revision;
                             cx.notify();
-                        } else if this.refresh_terminal_states(cx) {
+                        } else if forwarding_changed || this.refresh_terminal_states(cx) {
                             // 终端退出状态属于子视图；低频刷新标签和会话状态即可。
                             cx.notify();
                         }

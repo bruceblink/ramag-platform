@@ -112,6 +112,7 @@ impl SshView {
                     return;
                 }
                 workspace.terminal_loading = false;
+                let mut should_start_port_forwarding = false;
                 let result = match command {
                     Ok(command) if service.terminal_launch_is_current(&command) => {
                         let executable = command.program.clone();
@@ -163,6 +164,8 @@ impl SshView {
                         };
                         workspace.active_terminal_id = Some(terminal_id);
                         workspace.session_state = SshSessionState::Connected;
+                        should_start_port_forwarding =
+                            !workspace.profile.port_forwardings.is_empty();
                         tracing::info!(
                             operation = "ssh_terminal_start",
                             profile_id = %id,
@@ -211,6 +214,9 @@ impl SshView {
                         );
                         this.notice = Some(Notice::error(format!("终端启动失败：{error}")));
                     }
+                }
+                if should_start_port_forwarding {
+                    this.start_port_forwarding(id.clone(), window, cx);
                 }
                 cx.notify();
             });

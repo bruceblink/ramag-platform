@@ -485,6 +485,7 @@ impl SshView {
                 }),
             )
             .child(tabs)
+            .child(self.render_port_forwarding_panel(workspace_id.clone(), cx))
             .when(production, |pane| {
                 pane.child(
                     h_flex().w_full().flex_none().px(px(8.0)).py(px(3.0)).child(

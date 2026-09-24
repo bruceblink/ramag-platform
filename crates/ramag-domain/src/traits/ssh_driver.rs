@@ -22,6 +22,9 @@ pub trait SshDriver: Send + Sync {
         initial_directory: Option<&str>,
     ) -> Result<SshLaunchCommand>;
 
+    /// 构造不占用交互终端的独立端口转发进程命令。
+    async fn port_forward_command(&self, profile: &SshProfile) -> Result<SshLaunchCommand>;
+
     /// PTY 启动可执行文件失败后清除能力缓存，使下次连接重新发现 OpenSSH。
     async fn report_terminal_launch_failure(&self, executable: &str);
 

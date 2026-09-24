@@ -33,3 +33,47 @@ fn edit_profile_form_keeps_fields_and_ssh_command_parser(cx: &mut TestAppContext
         "端口转发摘要应参与布局"
     );
 }
+
+#[gpui_kit::test]
+fn workspace_exposes_independent_port_forwarding_controls(cx: &mut TestAppContext) {
+    let mut saved_profile = profile();
+    saved_profile.port_forwardings = vec![SshPortForward::Dynamic {
+        bind_address: Some("127.0.0.1".into()),
+        listen_port: 1080,
+    }];
+    let profile_id = saved_profile.id.clone();
+    let preference = SshWorkspacePreference {
+        workspaces: vec![SshWorkspaceState {
+            profile_id: profile_id.clone(),
+            last_remote_path: "/home/alice".into(),
+        }],
+        active_profile_id: Some(profile_id.clone()),
+        path_favorites: Vec::new(),
+    };
+    let (view, cx) = add_ssh_window(cx, service(vec![saved_profile], Some(preference)));
+    cx.simulate_resize(size(px(1024.0), px(768.0)));
+    cx.run_until_parked();
+
+    assert!(
+        cx.debug_bounds("ssh-port-forwarding-panel").is_some(),
+        "工作区应显示独立端口转发面板"
+    );
+    assert!(
+        cx.debug_bounds("ssh-port-forwarding-row-0").is_some(),
+        "转发面板应显示每条转发"
+    );
+    assert!(
+        cx.debug_bounds("start-ssh-port-forwarding").is_some(),
+        "停止状态应提供启动入口"
+    );
+
+    view.update(cx, |view, cx| {
+        assert!(view.port_forward_manager.begin_start(&profile_id));
+        cx.notify();
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("stop-ssh-port-forwarding").is_some(),
+        "启动中的转发应提供停止入口"
+    );
+}

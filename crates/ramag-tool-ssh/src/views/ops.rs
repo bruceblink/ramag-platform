@@ -1,5 +1,6 @@
 //! 配置、工作区和终端生命周期操作。
 
+mod port_forward;
 mod terminal;
 use std::time::Duration;
 
@@ -380,6 +381,7 @@ impl SshView {
     }
 
     fn close_workspace(&mut self, id: SshProfileId, window: &mut Window, cx: &mut Context<Self>) {
+        self.stop_port_forwarding(&id, cx);
         self.workspaces
             .retain(|workspace| workspace.profile_id() != &id);
         self.workspace_resizes.remove(&id);

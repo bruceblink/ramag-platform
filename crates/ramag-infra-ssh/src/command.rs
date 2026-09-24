@@ -87,16 +87,36 @@ pub fn terminal_command(
     profile.validate().map_err(DomainError::InvalidConfig)?;
     let mut args = vec!["-tt".to_string()];
     args.extend(common_profile_args(profile));
-    args.extend(port_forward_args(profile)?);
-    if !profile.port_forwardings.is_empty() {
-        args.extend(["-o".into(), "ExitOnForwardFailure=yes".into()]);
-    }
     args.push("--".into());
     args.push(profile.host.clone());
     if let Some(path) = initial_directory {
         validate_remote_path(path).map_err(DomainError::InvalidConfig)?;
         RemotePath::parse_server_canonical(path).map_err(DomainError::InvalidConfig)?;
     }
+    Ok(SshLaunchCommand {
+        profile_id: profile.id.clone(),
+        authorization_generation: 0,
+        program: capability.executable.clone(),
+        args,
+        env: HashMap::new(),
+    })
+}
+
+pub fn port_forward_command(
+    profile: &SshProfile,
+    capability: &SshCapability,
+) -> Result<SshLaunchCommand> {
+    profile.validate().map_err(DomainError::InvalidConfig)?;
+    if profile.port_forwardings.is_empty() {
+        return Err(DomainError::InvalidConfig("未配置 SSH 端口转发".into()));
+    }
+    let mut args = vec!["-N".to_string()];
+    args.extend(common_profile_args(profile));
+    args.extend(port_forward_args(profile)?);
+    args.extend(["-o".into(), "ExitOnForwardFailure=yes".into()]);
+    args.extend(production_connection_args());
+    args.push("--".into());
+    args.push(profile.host.clone());
     Ok(SshLaunchCommand {
         profile_id: profile.id.clone(),
         authorization_generation: 0,

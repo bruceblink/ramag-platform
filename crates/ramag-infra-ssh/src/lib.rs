@@ -38,7 +38,8 @@ use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::SshDriver;
 
 use crate::command::{
-    OpenSshLocator, sftp_args, uses_windows_remote_sftp, windows_remote_sftp_args,
+    OpenSshLocator, port_forward_command, sftp_args, uses_windows_remote_sftp,
+    windows_remote_sftp_args,
 };
 use crate::runtime::{run_in_tokio, tokio_runtime};
 use crate::session::SessionCache;
@@ -68,6 +69,20 @@ impl SshDriver for OpenSshDriver {
             let capability = locator.probe(profile.ssh_path.clone()).await?;
             let mut command =
                 command::terminal_command(&profile, &capability, initial_directory.as_deref())?;
+            command.env = askpass.environment(&profile)?;
+            Ok(command)
+        })
+        .await
+    }
+
+    async fn port_forward_command(&self, profile: &SshProfile) -> Result<SshLaunchCommand> {
+        profile.validate().map_err(DomainError::InvalidConfig)?;
+        let locator = self.locator.clone();
+        let askpass = self.askpass.clone();
+        let profile = profile.clone();
+        run_in_tokio(async move {
+            let capability = locator.probe(profile.ssh_path.clone()).await?;
+            let mut command = port_forward_command(&profile, &capability)?;
             command.env = askpass.environment(&profile)?;
             Ok(command)
         })

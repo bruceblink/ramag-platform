@@ -1,4 +1,5 @@
 use super::*;
+use ramag_domain::entities::SshPortForward;
 
 #[test]
 fn transfer_store_enforces_queue_and_terminal_history_bounds() {
@@ -182,6 +183,27 @@ fn terminal_generation_invalidates_command_before_pty_start() {
     assert!(!service.terminal_launch_is_current(&command));
     assert!(matches!(
         futures::executor::block_on(service.terminal_command(&profile.id, None)),
+        Err(DomainError::Forbidden(_))
+    ));
+}
+
+#[test]
+fn port_forward_command_is_independent_and_obeys_terminal_generation() {
+    let mut profile = SshProfile::new("server", "server.example");
+    profile.port_forwardings = vec![SshPortForward::Dynamic {
+        bind_address: Some("127.0.0.1".into()),
+        listen_port: 1080,
+    }];
+    let service = SshService::new(Arc::new(TerminalDriver), Arc::new(NoopStorage::default()));
+    futures::executor::block_on(service.save_profile(&profile)).unwrap();
+
+    let command = futures::executor::block_on(service.port_forward_command(&profile.id)).unwrap();
+    assert_eq!(command.args.first().map(String::as_str), Some("-N"));
+    assert!(service.terminal_launch_is_current(&command));
+
+    service.block_terminal_launches(&profile.id);
+    assert!(matches!(
+        futures::executor::block_on(service.port_forward_command(&profile.id)),
         Err(DomainError::Forbidden(_))
     ));
 }
