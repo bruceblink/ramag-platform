@@ -1,6 +1,6 @@
 # 代码审查与修复优化计划（2026-09-23）
 
-> 状态：R1、R2、R5、R11 已完成并进入 `dev`；R3 已合并到 `dev` 并完成目标分支验证，待推送及源分支清理；R4、R6-R10 尚待实施。
+> 状态：R1、R2、R3、R5、R11 已完成并进入已验证、已推送的 `dev`；R3 源分支已清理；R4、R6-R10 尚待实施。
 >
 > 范围：本计划基于当前 `dev` / `v0.2.0` 基线，重点检查近期 API 工作台、数据库工作台、MQTT 工作台、启动生命周期和本地集成测试维护。计划只安排可复现、可独立验收的修复；不把真实 Windows 窗口证据或新的协议能力混入同一次提交。
 
@@ -139,7 +139,7 @@
 - R3 验证通过：`cargo test --locked -p ramag-tool-api --all-targets`（29 项）；`cargo test --locked -p ramag-app --all-targets`（224 项单元测试及集成测试）；`cargo test --locked -p ramag-domain --lib api -- --nocapture`（27 项）；`cargo fmt --all -- --check`；`cargo clippy --workspace --all-targets -- -D warnings`；`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/check-source-size.ps1`；`git diff --check`。
 - R3 Docker 环境：HTTP 服务 `ramag-api-http-test` 使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，映射 `127.0.0.1:18089->8080` 和 `127.0.0.1:18091->8443`；gRPC 服务 `ramag-api-grpc-test` 使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，映射 `127.0.0.1:18090->50051` 和 `127.0.0.1:18092->50052`。执行期间两者均为 healthy，且在测试前已运行；本次未启动、停止或清理容器，测试后仍保持运行。
 - R3 UI 证据：API Docker 测试执行 headless GPUI 交互，先打开“断言”响应页签，再检查断言和 Collection 汇总；未运行真实 Windows 窗口验收。
-- R3 集成状态：已通过 `f7c74ea8` 合并到 `dev`；目标分支通过 `cargo test --locked -p ramag-tool-api --all-targets`（29 项）、`cargo test --locked -p ramag-app --all-targets`（224 项单元测试、2 项 data-sync live、6 项 SQL live、9 项 transfer live）、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check`。`dev` 尚待推送，源分支清理待推送后进行。R4 随后单独执行；R6-R10 保持后续独立切片。
+- R3 集成状态：已通过 `f7c74ea8` 合并到 `dev`，并随 `6d81150b` 推送到 `origin/dev`；目标分支通过 `cargo test --locked -p ramag-tool-api --all-targets`（29 项）、`cargo test --locked -p ramag-app --all-targets`（224 项单元测试、2 项 data-sync live、6 项 SQL live、9 项 transfer live）、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check`。源分支无未合并/未推送提交且无关联 worktree，已删除本地和远程引用。R4 随后单独执行；R6-R10 保持后续独立切片。
 
 ## 3. 分阶段落地计划
 
