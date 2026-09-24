@@ -6,8 +6,8 @@ use std::sync::{Arc, Mutex};
 use gpui_kit::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use ramag_app::ApiService;
 use ramag_domain::entities::{
-    ApiHistoryRecord, ApiWorkspace, ApiWorkspaceId, ConnectionConfig, ConnectionId, QueryRecord,
-    QueryRecordId,
+    ApiEnvironment, ApiHistoryRecord, ApiRequestRecord, ApiWorkspace, ApiWorkspaceId,
+    ConnectionConfig, ConnectionId, HttpRequestSpec, QueryRecord, QueryRecordId,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{ApiDriver, Storage};
@@ -18,6 +18,7 @@ struct WorkspaceTestStorage {
     fail_history: AtomicBool,
     workspaces: Mutex<Vec<ApiWorkspace>>,
     save_calls: AtomicUsize,
+    clear_history_calls: AtomicUsize,
 }
 
 impl WorkspaceTestStorage {
@@ -27,6 +28,7 @@ impl WorkspaceTestStorage {
             fail_history: AtomicBool::new(false),
             workspaces: Mutex::new(workspaces),
             save_calls: AtomicUsize::new(0),
+            clear_history_calls: AtomicUsize::new(0),
         }
     }
 }
@@ -59,6 +61,11 @@ impl Storage for WorkspaceTestStorage {
             .lock()
             .expect("锁定测试工作区")
             .push(workspace.clone());
+        Ok(())
+    }
+
+    async fn clear_api_history(&self, _workspace_id: &ApiWorkspaceId) -> Result<()> {
+        self.clear_history_calls.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }
 
@@ -302,5 +309,66 @@ fn workspace_history_failure_is_visible_without_discarding_workspace(cx: &mut Te
         visual_cx
             .debug_bounds("api-workspace-load-status")
             .is_none()
+    );
+}
+
+#[gpui_kit::test]
+fn api_history_can_be_cleared_from_the_sidebar_after_confirmation(cx: &mut TestAppContext) {
+    let saved_workspace = ApiWorkspace::new("History Clear");
+    let storage = Arc::new(WorkspaceTestStorage::new(false, vec![saved_workspace]));
+    let (view, visual_cx) = add_view(cx, storage.clone());
+
+    assert_eq!(
+        wait_for_workspace_load(visual_cx, &view),
+        ApiWorkspaceLoadState::Loaded
+    );
+    view.update(visual_cx, |view, cx| {
+        let request = ApiRequestRecord::new_http(
+            "清理测试",
+            HttpRequestSpec::new("GET", "http://127.0.0.1/history"),
+        );
+        view.history.push(ApiHistoryRecord::from_error(
+            &request,
+            "测试历史",
+            &ApiEnvironment::new("测试环境"),
+        ));
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("api-history-clear").is_some());
+    assert!(visual_cx.update(|_, app| {
+        let view = view.read(app);
+        view.service.is_some()
+            && !view.history.is_empty()
+            && !view.clearing_history
+            && view.workspace_load_state == ApiWorkspaceLoadState::Loaded
+    }));
+
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| view.confirm_clear_history(window, cx));
+    });
+    visual_cx.run_until_parked();
+    visual_cx.run_until_parked();
+    assert!(visual_cx.update(|_, app| {
+        let view = view.read(app);
+        !view.history.is_empty() && !view.clearing_history
+    }));
+
+    // 共享确认弹窗的布局和按钮由 ramag-ui 专项测试覆盖；这里直接执行确认回调，
+    // 验证 API 工作台的 Storage 调用、成功状态和本地列表清理。
+    view.update(visual_cx, |view, cx| view.clear_history(cx));
+
+    for _ in 0..100 {
+        visual_cx.run_until_parked();
+        if storage.clear_history_calls.load(Ordering::Relaxed) > 0 {
+            break;
+        }
+        std::thread::yield_now();
+    }
+    assert_eq!(storage.clear_history_calls.load(Ordering::Relaxed), 1);
+    assert!(visual_cx.update(|_, app| view.read(app).history.is_empty()));
+    assert_eq!(
+        visual_cx.update(|_, app| view.read(app).notice.clone()),
+        Some(("执行历史已清空".into(), false))
     );
 }

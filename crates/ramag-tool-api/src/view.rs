@@ -28,6 +28,8 @@ mod auth;
 mod context;
 #[path = "grpc_proto.rs"]
 mod grpc_proto;
+#[path = "history_operations.rs"]
+mod history_operations;
 #[path = "lifecycle.rs"]
 mod lifecycle;
 #[path = "operations.rs"]
@@ -163,6 +165,7 @@ pub struct ApiView {
     pub(crate) workspace_load_generation: u64,
     pub(crate) loading: bool,
     pub(crate) saving: bool,
+    pub(crate) clearing_history: bool,
     pub(crate) importing: bool,
     pub(crate) notice: Option<(String, bool)>,
     pub(crate) workspace: ApiWorkspace,
@@ -300,6 +303,7 @@ impl ApiView {
             workspace_load_generation: 0,
             loading: false,
             saving: false,
+            clearing_history: false,
             importing: false,
             notice: None,
             workspace: ApiWorkspace::new("API Workspace"),

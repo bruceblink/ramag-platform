@@ -2,7 +2,7 @@ use super::*;
 
 use gpui_kit::ClickEvent;
 use gpui_kit::FontWeight;
-use gpui_kit::component::{Disableable as _, button::ButtonVariants as _};
+use gpui_kit::component::{Disableable as _, IconName, button::ButtonVariants as _};
 use ramag_ui::PointerDropdownMenu as _;
 
 pub(super) fn render_collection_button(
@@ -463,18 +463,44 @@ pub(super) fn render_extracted_variables(
 }
 
 pub(super) fn render_history(
-    history: &[ApiHistoryRecord],
+    view: &ApiView,
+    cx: &mut Context<ApiView>,
     theme: &gpui_kit::component::Theme,
 ) -> gpui_kit::AnyElement {
+    let history = &view.history;
     let mut section = v_flex()
         .id("api-history")
         .debug_selector(|| "api-history".into())
         .gap(px(4.0))
         .child(
-            div()
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child("执行历史"),
+            h_flex()
+                .w_full()
+                .min_w_0()
+                .items_center()
+                .justify_between()
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("执行历史"),
+                )
+                .child(
+                    ramag_ui::clickable_button("api-history-clear")
+                        .debug_selector(|| "api-history-clear".into())
+                        .xsmall()
+                        .ghost()
+                        .icon(IconName::Delete)
+                        .tooltip("清空执行历史")
+                        .disabled(
+                            view.service.is_none()
+                                || view.history.is_empty()
+                                || view.clearing_history
+                                || view.workspace_load_state.save_block_message().is_some(),
+                        )
+                        .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
+                            view.confirm_clear_history(window, cx);
+                        })),
+                ),
         );
     if history.is_empty() {
         section = section.child(
