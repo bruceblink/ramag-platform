@@ -484,15 +484,18 @@ pub(super) fn render_history(
                 .child("暂无执行记录"),
         );
     } else {
-        for item in history.iter().take(8) {
-            let status = item
-                .status
-                .as_ref()
-                .map(|status| format!("{status:?}"))
-                .unwrap_or_else(|| "失败".into());
+        for (index, item) in history.iter().take(8).enumerate() {
+            let result = if item.passed {
+                "通过"
+            } else if item.assertion_failed > 0 && item.status.is_some() {
+                "断言失败"
+            } else {
+                "失败"
+            };
+            let selector = format!("api-history-item-{index}");
             section = section.child(
                 div()
-                    .debug_selector(|| "api-history-item".into())
+                    .debug_selector(move || selector.clone())
                     .min_w_0()
                     .truncate()
                     .text_xs()
@@ -502,13 +505,55 @@ pub(super) fn render_history(
                         theme.muted_foreground
                     })
                     .child(format!(
-                        "{} · {} · {} ms",
-                        if item.passed { "通过" } else { "失败" },
-                        status,
+                        "{} · {} · {} · {} · {} ms",
+                        result,
+                        history_protocol_label(item.protocol),
+                        item.request_name,
+                        history_status_label(item.status.as_ref()),
                         item.elapsed_millis
                     )),
             );
         }
     }
     section.into_any_element()
+}
+
+fn history_status_label(status: Option<&ApiResponseStatus>) -> String {
+    match status {
+        Some(ApiResponseStatus::Http { code }) => format!("HTTP {code}"),
+        Some(ApiResponseStatus::Grpc { code }) => format!("gRPC {code}"),
+        Some(ApiResponseStatus::TransportError) => "传输错误".into(),
+        None => "无响应".into(),
+    }
+}
+
+fn history_protocol_label(protocol: ApiProtocol) -> &'static str {
+    match protocol {
+        ApiProtocol::Http => "HTTP",
+        ApiProtocol::Grpc => "gRPC",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn history_status_uses_user_facing_protocol_labels() {
+        assert_eq!(
+            history_status_label(Some(&ApiResponseStatus::Http { code: 200 })),
+            "HTTP 200"
+        );
+        assert_eq!(
+            history_status_label(Some(&ApiResponseStatus::Grpc { code: "ok".into() })),
+            "gRPC ok"
+        );
+        assert_eq!(
+            history_status_label(Some(&ApiResponseStatus::TransportError)),
+            "传输错误"
+        );
+        assert_eq!(history_status_label(None), "无响应");
+        assert_eq!(history_protocol_label(ApiProtocol::Http), "HTTP");
+        assert_eq!(history_protocol_label(ApiProtocol::Grpc), "gRPC");
+    }
 }
