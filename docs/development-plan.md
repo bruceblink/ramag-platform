@@ -63,8 +63,8 @@
 
 1. 已建立本文件及 `docs/code-review-remediation-plan-2026-09-23.md` 的审查基线。
 2. 已完成 R5 请求搜索清除按钮交互回归测试（`58675ea2`）、R11 workspace Clippy 修复（`480fc9b1`）、R1 工作区读取失败处理（`de232c7b`）和 R2 保存生命周期隔离（`fde33b9f`）；这些提交均已进入 `dev`。
-3. 当前切片完成 R3 Collection 历史写入失败时保留已执行结果（代码提交 `1204b397`）。目标测试、headless UI 测试、Docker HTTP/gRPC 集成测试、workspace fmt、Clippy 和源码尺寸检查均已通过；待将该分支合并到 `dev` 并在目标分支复验。
-4. R3 合并和复验完成后，执行 R4 MySQL 8.4 基线文档校正；随后按专项计划实施 R6、R7、R8、R9、R10。每项单独设计、验收、提交、推送并合并到 `dev`。
+3. R3 Collection 历史写入失败时保留已执行结果，代码提交 `1204b397` 已合并到 `dev`，合并提交 `f7c74ea8`。`dev` 上 API、app、fmt、Clippy、源码尺寸和差异检查均通过；待推送目标分支并清理源分支。
+4. R3 完成推送和源分支清理后，执行 R4 MySQL 8.4 基线文档校正；随后按专项计划实施 R6、R7、R8、R9、R10。每项单独设计、验收、提交、推送并合并到 `dev`。
 
 已完成事项及证据以本文件“切片执行记录”和 [`code-review-remediation-plan-2026-09-23.md`](code-review-remediation-plan-2026-09-23.md) 的执行记录为准，不再把已进入 `dev` 的改动列作待办。
 
