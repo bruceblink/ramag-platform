@@ -490,6 +490,7 @@ pub(super) fn render_history(
                         .small()
                         .ghost()
                         .icon(IconName::Delete)
+                        .label("清空")
                         .tooltip("清空执行历史")
                         .disabled(
                             view.service.is_none()
