@@ -341,7 +341,13 @@ fn api_history_can_be_cleared_from_the_sidebar_after_confirmation(cx: &mut TestA
         cx.notify();
     });
     visual_cx.run_until_parked();
-    assert!(visual_cx.debug_bounds("api-history-clear").is_some());
+    let clear_button = visual_cx
+        .debug_bounds("api-history-clear")
+        .expect("有执行历史时应显示清理按钮");
+    assert!(
+        clear_button.size.width >= px(24.0) && clear_button.size.height >= px(24.0),
+        "清理按钮应有可点击尺寸：{clear_button:?}"
+    );
     assert!(visual_cx.update(|_, app| {
         let view = view.read(app);
         view.service.is_some()
@@ -350,18 +356,18 @@ fn api_history_can_be_cleared_from_the_sidebar_after_confirmation(cx: &mut TestA
             && view.workspace_load_state == ApiWorkspaceLoadState::Loaded
     }));
 
+    assert_eq!(storage.clear_history_calls.load(Ordering::Relaxed), 0);
     visual_cx.update(|window, app| {
         view.update(app, |view, cx| view.confirm_clear_history(window, cx));
     });
     visual_cx.run_until_parked();
-    visual_cx.run_until_parked();
+    assert_eq!(storage.clear_history_calls.load(Ordering::Relaxed), 0);
     assert!(visual_cx.update(|_, app| {
         let view = view.read(app);
         !view.history.is_empty() && !view.clearing_history
     }));
 
-    // 共享确认弹窗的布局和按钮由 ramag-ui 专项测试覆盖；这里直接执行确认回调，
-    // 验证 API 工作台的 Storage 调用、成功状态和本地列表清理。
+    // The shared confirmation dialog is covered by ramag-ui; invoke its confirmation action here.
     view.update(visual_cx, |view, cx| view.clear_history(cx));
 
     for _ in 0..100 {

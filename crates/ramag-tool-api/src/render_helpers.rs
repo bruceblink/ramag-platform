@@ -487,7 +487,7 @@ pub(super) fn render_history(
                 .child(
                     ramag_ui::clickable_button("api-history-clear")
                         .debug_selector(|| "api-history-clear".into())
-                        .xsmall()
+                        .small()
                         .ghost()
                         .icon(IconName::Delete)
                         .tooltip("清空执行历史")
