@@ -6,8 +6,9 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::{AppContext as _, Context, Entity, EventEmitter, Subscription, Window};
 use ramag_app::SshService;
 use ramag_domain::entities::{
-    JumpServerRdpSession, RemotePlatformPreference, SshAuthMode, SshCapability, SshPortForward,
-    SshProfile, SshProfileId, SshProfileOrigin,
+    JumpServerRdpSession, RemoteCapabilityState, RemoteOperatingSystem, RemotePlatformPreference,
+    RemoteShellKind, SftpNamespaceKind, SftpTransportKind, SshAuthMode, SshCapability,
+    SshPortForward, SshProfile, SshProfileId, SshProfileOrigin, SshRemoteCapabilities,
 };
 
 use super::profile_form::ProfileForm;
@@ -358,19 +359,7 @@ impl SshProfileFormPanel {
                 this.operation = None;
                 this.feedback = Some(match result {
                     Ok(capabilities) => FormFeedback {
-                        message: format!(
-                            "测试完成 · OpenSSH {:?} · 认证 {:?} · 执行 {:?} · Terminal {:?} · SFTP {:?} · 通道 {:?} · 诊断 {:?} · 远端 {:?} · Shell {:?} · 路径 {:?}",
-                            capabilities.openssh_client,
-                            capabilities.ssh_authentication,
-                            capabilities.ssh_execution,
-                            capabilities.terminal,
-                            capabilities.sftp,
-                            capabilities.sftp_transport,
-                            capabilities.diagnostic,
-                            capabilities.operating_system,
-                            capabilities.shell,
-                            capabilities.sftp_namespace,
-                        ),
+                        message: format_remote_capabilities(&capabilities),
                         kind: FeedbackKind::Success,
                     },
                     Err(error) => FormFeedback {
@@ -472,4 +461,101 @@ fn current_user_home() -> Option<std::path::PathBuf> {
     #[cfg(not(windows))]
     let value = std::env::var_os("HOME");
     value.map(std::path::PathBuf::from)
+}
+
+fn format_remote_capabilities(capabilities: &SshRemoteCapabilities) -> String {
+    format!(
+        "测试完成 · OpenSSH {} · 认证 {} · 执行 {} · Terminal {} · SFTP {} · 通道 {} · 诊断 {} · 远端 {} · Shell {} · 路径 {}",
+        remote_capability_state_label(capabilities.openssh_client),
+        remote_capability_state_label(capabilities.ssh_authentication),
+        remote_capability_state_label(capabilities.ssh_execution),
+        remote_capability_state_label(capabilities.terminal),
+        remote_capability_state_label(capabilities.sftp),
+        sftp_transport_label(capabilities.sftp_transport),
+        remote_capability_state_label(capabilities.diagnostic),
+        remote_operating_system_label(capabilities.operating_system),
+        remote_shell_label(capabilities.shell),
+        sftp_namespace_label(capabilities.sftp_namespace),
+    )
+}
+
+fn remote_capability_state_label(state: RemoteCapabilityState) -> &'static str {
+    match state {
+        RemoteCapabilityState::Available => "可用",
+        RemoteCapabilityState::Unsupported => "不支持",
+        RemoteCapabilityState::Failed => "失败",
+        RemoteCapabilityState::BlockedByPolicy => "被策略阻止",
+        RemoteCapabilityState::NotProbed => "未探测",
+    }
+}
+
+fn sftp_transport_label(transport: Option<SftpTransportKind>) -> &'static str {
+    match transport {
+        Some(SftpTransportKind::StandardSubsystem) => "标准 SFTP",
+        Some(SftpTransportKind::WindowsCompatibility) => "Windows 兼容 SFTP",
+        None => "未确定",
+    }
+}
+
+fn remote_operating_system_label(operating_system: RemoteOperatingSystem) -> &'static str {
+    match operating_system {
+        RemoteOperatingSystem::Linux => "Linux",
+        RemoteOperatingSystem::Windows => "Windows",
+        RemoteOperatingSystem::Unknown => "未识别",
+    }
+}
+
+fn remote_shell_label(shell: RemoteShellKind) -> &'static str {
+    match shell {
+        RemoteShellKind::Posix => "POSIX",
+        RemoteShellKind::Cmd => "Windows CMD",
+        RemoteShellKind::WindowsPowerShell => "Windows PowerShell",
+        RemoteShellKind::PowerShellCore => "PowerShell Core",
+        RemoteShellKind::Unknown => "未识别",
+    }
+}
+
+fn sftp_namespace_label(namespace: SftpNamespaceKind) -> &'static str {
+    match namespace {
+        SftpNamespaceKind::Posix => "POSIX",
+        SftpNamespaceKind::WindowsDrive => "Windows 盘符",
+        SftpNamespaceKind::Virtual => "虚拟路径",
+        SftpNamespaceKind::Unknown => "未识别",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn remote_capability_feedback_uses_readable_labels() {
+        let capabilities = SshRemoteCapabilities {
+            openssh_client: RemoteCapabilityState::Available,
+            ssh_authentication: RemoteCapabilityState::BlockedByPolicy,
+            operating_system: RemoteOperatingSystem::Windows,
+            shell: RemoteShellKind::WindowsPowerShell,
+            ssh_execution: RemoteCapabilityState::Failed,
+            terminal: RemoteCapabilityState::Unsupported,
+            sftp: RemoteCapabilityState::NotProbed,
+            sftp_namespace: SftpNamespaceKind::WindowsDrive,
+            sftp_transport: Some(SftpTransportKind::WindowsCompatibility),
+            ..SshRemoteCapabilities::default()
+        };
+
+        let message = format_remote_capabilities(&capabilities);
+
+        assert!(message.contains("OpenSSH 可用"));
+        assert!(message.contains("认证 被策略阻止"));
+        assert!(message.contains("执行 失败"));
+        assert!(message.contains("Terminal 不支持"));
+        assert!(message.contains("SFTP 未探测"));
+        assert!(message.contains("通道 Windows 兼容 SFTP"));
+        assert!(message.contains("远端 Windows"));
+        assert!(message.contains("Shell Windows PowerShell"));
+        assert!(message.contains("路径 Windows 盘符"));
+        assert!(!message.contains("Available"));
+        assert!(!message.contains("BlockedByPolicy"));
+        assert!(!message.contains("WindowsPowerShell"));
+    }
 }
