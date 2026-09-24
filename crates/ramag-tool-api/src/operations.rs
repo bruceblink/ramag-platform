@@ -246,6 +246,7 @@ impl ApiView {
                 view.cancelled = None;
                 match result {
                     Ok(outcome) => {
+                        let history_persisted = outcome.history_persisted;
                         view.history.insert(0, outcome.history);
                         view.history.truncate(20);
                         match outcome.result {
@@ -271,6 +272,13 @@ impl ApiView {
                                     true,
                                 ));
                             }
+                        }
+                        if !history_persisted {
+                            view.notice = Some((
+                                "请求结果已完成，但执行历史写入失败；本次结果仅保留在当前界面"
+                                    .into(),
+                                true,
+                            ));
                         }
                     }
                     Err(error) => view.notice = Some((error.to_string(), true)),
@@ -372,15 +380,23 @@ impl ApiView {
                             view.response = Some(result.snapshot);
                         }
                         let stopped = if summary.stopped { "，已停止" } else { "" };
-                        let failed = summary.failed > 0 || summary.cancelled > 0;
+                        let failed = summary.failed > 0
+                            || summary.cancelled > 0
+                            || summary.history_persist_failed;
+                        let history_warning = if summary.history_persist_failed {
+                            "；执行历史写入失败，后续请求未启动"
+                        } else {
+                            ""
+                        };
                         view.notice = Some((
                             format!(
-                                "Collection {}：{} 通过 · {} 失败 · {} 取消{}",
+                                "Collection {}：{} 通过 · {} 失败 · {} 取消{}{}",
                                 summary.collection_name,
                                 summary.passed,
                                 summary.failed,
                                 summary.cancelled,
-                                stopped
+                                stopped,
+                                history_warning,
                             ),
                             failed,
                         ));
