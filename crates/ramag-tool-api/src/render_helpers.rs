@@ -252,7 +252,13 @@ pub(super) fn render_collection_summary(
             summary.passed,
             summary.failed,
             summary.cancelled,
-            if summary.stopped { " · 已停止" } else { "" }
+            if summary.history_persist_failed {
+                " · 历史写入失败，已停止"
+            } else if summary.stopped {
+                " · 已停止"
+            } else {
+                ""
+            }
         ),
         None => "Collection 尚未运行".into(),
     };

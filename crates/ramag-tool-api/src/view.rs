@@ -44,6 +44,8 @@ mod render_grpc;
 mod render_helpers;
 #[path = "workspace.rs"]
 mod workspace;
+#[path = "workspace_save.rs"]
+mod workspace_save;
 
 const FIELD_BYTES: usize = 64 * 1024;
 const API_SIDEBAR_WIDTH: f32 = 220.0;

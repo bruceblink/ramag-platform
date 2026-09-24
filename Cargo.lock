@@ -8860,6 +8860,7 @@ dependencies = [
 name = "ramag-tool-api"
 version = "0.2.0"
 dependencies = [
+ "async-channel 2.5.0",
  "async-trait",
  "gpui-kit",
  "protox",

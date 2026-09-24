@@ -90,6 +90,7 @@ fn api_workbench_sends_http_and_grpc_requests_to_local_docker_services(cx: &mut 
             .first()
             .is_some_and(|result| result.passed)
     }));
+    click(visual_cx, "api-response-tab-assertions");
     assert!(visual_cx.debug_bounds("api-assertion-results").is_some());
 
     click(visual_cx, "api-run-collection");
@@ -100,6 +101,7 @@ fn api_workbench_sends_http_and_grpc_requests_to_local_docker_services(cx: &mut 
             .map(|response| &response.status),
         Some(ApiResponseStatus::Http { code: 200 })
     ));
+    click(visual_cx, "api-response-tab-assertions");
     assert!(visual_cx.debug_bounds("api-collection-summary").is_some());
 
     visual_cx.update(|window, app| {

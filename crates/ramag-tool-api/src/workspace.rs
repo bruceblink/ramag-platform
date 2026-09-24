@@ -17,6 +17,9 @@ impl ApiView {
     /// allows saving a new workspace. The generation check prevents a late read from
     /// replacing state produced by a newer retry.
     pub(crate) fn load_saved_workspace(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.saving || self.importing {
+            return;
+        }
         let Some(service) = self.service.clone() else {
             return;
         };

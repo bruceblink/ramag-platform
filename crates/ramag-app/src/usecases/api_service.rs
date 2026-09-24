@@ -143,9 +143,13 @@ impl ApiService {
                 outcome::failure_outcome(record, environment, &message, cancelled)
             }
         };
-        self.storage
+        let history_persisted = self
+            .storage
             .append_api_history(workspace_id, &outcome.history)
-            .await?;
+            .await
+            .is_ok();
+        let mut outcome = outcome;
+        outcome.history_persisted = history_persisted;
         Ok(outcome)
     }
 
