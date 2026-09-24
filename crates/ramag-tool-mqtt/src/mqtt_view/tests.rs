@@ -102,6 +102,14 @@
     }
 
     #[test]
+    fn topic_source_labels_are_readable_instead_of_debug_names() {
+        assert_eq!(mqtt_topic_source_label(MqttTopicSource::Observed), "观测");
+        assert_eq!(mqtt_topic_source_label(MqttTopicSource::Retained), "保留");
+        assert_eq!(mqtt_topic_source_label(MqttTopicSource::Acl), "ACL");
+        assert_eq!(mqtt_topic_source_label(MqttTopicSource::Sys), "系统");
+    }
+
+    #[test]
     fn payload_formats_match_reference_client_wire_and_display_behavior() {
         assert_eq!(
             encode_publish_payload(MqttPayloadFormat::Plaintext, "hello").unwrap(),

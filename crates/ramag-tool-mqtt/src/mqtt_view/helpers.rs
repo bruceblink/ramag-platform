@@ -389,6 +389,15 @@ fn message_badge(
         .child(label.into())
 }
 
+fn mqtt_topic_source_label(source: MqttTopicSource) -> &'static str {
+    match source {
+        MqttTopicSource::Observed => "观测",
+        MqttTopicSource::Retained => "保留",
+        MqttTopicSource::Acl => "ACL",
+        MqttTopicSource::Sys => "系统",
+    }
+}
+
 fn capability_items(capabilities: MqttTransportCapabilities) -> [(&'static str, bool); 8] {
     [
         ("Native 构建可用", capabilities.build_available),

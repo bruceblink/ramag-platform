@@ -108,6 +108,8 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 
 本轮补齐本地 Broker 监测快照：`MqttLocalServerConfig` 支持连接上限，Native oximqtt Broker 在真实运行线程内汇总当前/峰值/累计连接、活动订阅、发布消息、Retain 消息、观察到的 Topic、每 Topic 发布次数/订阅客户端数/最后载荷大小，以及事件队列和控制队列的当前深度、容量和丢弃计数。保留消息使用本地 RetainStorage 枚举，主题目录达到有界容量时把完整性标记设为 false；UI 启动或刷新状态后自动读取服务端快照，展示连接数、主题目录、在线客户端和订阅关系。连接上限、Native 发布订阅、快照指标和 headless 页面布局均有回归测试，未把标准 MQTT 远端 Broker 的完整主题目录或通用队列指标误写成本地 Broker 能力。
 
+本轮修正 Topic 来源显示：消息操作区不再直接展示 Rust 枚举的 Debug 文本，`Observed`、`Retained`、`Acl`、`Sys` 分别显示为“观测”“保留”“ACL”“系统”。`ramag-tool-mqtt` 库测试新增四种来源标签回归，目标测试 31 项、目标 Clippy、格式、源码尺寸和差异检查均通过；这项 headless 证据仍不等同于真实 Windows 窗口验收。
+
 当前与参考项目仍存在的主要差距：
 
 - 本地 Broker 已提供有界的连接、订阅、发布和断开事件流，以及有界 Topic 目录、连接上限和队列运行指标；客户端强制断开、实时客户端快照更新仍未完成，远端标准 MQTT Broker 的完整 Topic 目录和通用队列指标也不在当前数据面能力内。

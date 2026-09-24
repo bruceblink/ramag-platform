@@ -125,7 +125,7 @@ impl MqttView {
                                 div()
                                     .text_xs()
                                     .text_color(theme.muted_foreground)
-                                    .child(format!("{:?}", topic.source)),
+                                    .child(mqtt_topic_source_label(topic.source)),
                             ),
                     );
                 }

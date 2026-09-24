@@ -38,7 +38,7 @@ use ramag_domain::{
         MqttMessageSinkResult, MqttProfile, MqttProfileId, MqttProtocolVersion, MqttPublishRequest,
         MqttQos, MqttSubscribeRequest, MqttSubscription, MqttSubscriptionCommand,
         MqttSubscriptionState, MqttSubscriptionStatus, MqttSubscriptionStatusSink, MqttTlsConfig,
-        MqttTransport as TransportKind, MqttTransportCapabilities,
+        MqttTopicSource, MqttTransport as TransportKind, MqttTransportCapabilities,
     },
     traits::{Tool, ToolMeta},
 };
