@@ -1,6 +1,6 @@
 # 代码审查与修复优化计划（2026-09-23）
 
-> 状态：审查完成；R1/R2 已在功能分支完成并通过目标验证，待合并到 `dev`；其余切片按阶段顺序实施。
+> 状态：R1、R2、R5、R11 已完成并进入 `dev`；R3 已在功能分支实现、验证并推送，待合并到 `dev`；R4、R6-R10 尚待实施。
 >
 > 范围：本计划基于当前 `dev` / `v0.2.0` 基线，重点检查近期 API 工作台、数据库工作台、MQTT 工作台、启动生命周期和本地集成测试维护。计划只安排可复现、可独立验收的修复；不把真实 Windows 窗口证据或新的协议能力混入同一次提交。
 
@@ -129,22 +129,34 @@
 - UI 证据：本轮没有真实 Windows 窗口操作；Computer Use 返回空应用列表，因此不能把现有 headless 结果描述为原生窗口验收。
 - 集成证据：本轮未启动或修改 Docker 服务；后续计划中的协议/数据库集成测试必须按本机 Docker、镜像版本、端口和清理状态单独记录。
 
+## 2.2 修复执行记录（截至 2026-09-24）
+
+- R5 已完成：`58675ea2 test: cover api request search clear interaction` 已进入 `dev`，补充清除按钮交互回归。此项提供 headless 证据，不代表真实 Windows 窗口验收。
+- R11 已完成：`480fc9b1 fix: remove redundant docker transport question mark` 已进入 `dev`；workspace Clippy 当前通过。
+- R1 已完成：`de232c7b fix: surface API workspace load failures` 已进入 `dev`。
+- R2 已完成：`fde33b9f fix(api): protect workspace save lifecycle` 已进入 `dev`。
+- R3 已完成代码与分支验证：`1204b397 fix(api): preserve collection results on history failure` 已推送到 `origin/feat/api-collection-results`。历史写入失败时保留已完成结果和当前响应，停止后续请求并显示不含敏感数据的提示；新增兼容旧数据的 serde 默认字段。失败注入测试确认仅失败前后实际执行的请求计入结果，不因存储错误重发请求。
+- R3 验证通过：`cargo test --locked -p ramag-tool-api --all-targets`（29 项）；`cargo test --locked -p ramag-app --all-targets`（224 项单元测试及集成测试）；`cargo test --locked -p ramag-domain --lib api -- --nocapture`（27 项）；`cargo fmt --all -- --check`；`cargo clippy --workspace --all-targets -- -D warnings`；`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/check-source-size.ps1`；`git diff --check`。
+- R3 Docker 环境：HTTP 服务 `ramag-api-http-test` 使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，映射 `127.0.0.1:18089->8080` 和 `127.0.0.1:18091->8443`；gRPC 服务 `ramag-api-grpc-test` 使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，映射 `127.0.0.1:18090->50051` 和 `127.0.0.1:18092->50052`。执行期间两者均为 healthy，且在测试前已运行；本次未启动、停止或清理容器，测试后仍保持运行。
+- R3 UI 证据：API Docker 测试执行 headless GPUI 交互，先打开“断言”响应页签，再检查断言和 Collection 汇总；未运行真实 Windows 窗口验收。
+- R3 集成状态：尚未合并到 `dev`，目标分支验证和源分支清理待完成。R4 随后单独执行；R6-R10 保持后续独立切片。
+
 ## 3. 分阶段落地计划
 
-### 阶段 A：交互回归与现有证据收敛
+### 阶段 A：交互回归与现有证据收敛（已完成）
 
 1. 实现 R5，单独提交 `test(api): cover request search clear interaction`。
 2. 运行 `cargo test --locked -p ramag-tool-api --all-targets`、`cargo fmt --all -- --check`、目标 Clippy、源码尺寸和 `git diff --check`。
 3. 更新 API 专项路线图，区分 headless 交互证据和真实 Windows 窗口证据。
 
-### 阶段 B：API 工作区生命周期可靠性
+### 阶段 B：API 工作区生命周期可靠性（已完成）
 
 1. 设计并实现 R1 的读取失败状态、重试入口和保存保护。
 2. 实现 R2 的保存代次/草稿版本隔离，并保留现有发送、Collection、gRPC 发现的取消语义。
 3. 为 Storage 失败、旧结果迟到和导入交错增加应用层与 headless UI 测试。
 4. 使用独立提交边界：读取错误处理与保存代次不得合并为一个提交；每项通过测试后立即推送当前开发分支。
 
-### 阶段 C：Collection 结果语义
+### 阶段 C：Collection 结果语义（代码与分支验证已完成，待 dev 集成）
 
 1. 先补 R3 的失败继续测试和错误分类设计，再修改 `run_collection`。
 2. 明确可继续错误、停止错误、取消和 Storage 持久化失败的边界。
@@ -170,7 +182,7 @@
 3. R10 先用可控并发测试复现 Socket 竞态，再选择锁或原子重试方案；不得仅增加 sleep 或扩大重试次数掩盖竞态。
 4. 三项分别提交、分别运行目标测试和必要的本机 Docker/真实端点验收；真实 Windows 窗口证据与协议正确性证据分开记录。
 
-### 阶段 G：质量基线恢复
+### 阶段 G：质量基线恢复（已完成）
 
 1. 先独立修复 R11，恢复 workspace Clippy 质量基线。
 2. 通过 fmt、Clippy、目标测试、源码尺寸和差异检查后，才开始提交本计划后续运行时代码切片。
