@@ -28,7 +28,13 @@ impl ApiService {
                 .execute_record(workspace_id, record, environment, cancelled.clone())
                 .await?;
             let was_cancelled = outcome.cancelled;
+            let history_persist_failed = !outcome.history_persisted;
             summary.push(outcome);
+            if history_persist_failed {
+                summary.history_persist_failed = true;
+                summary.stopped = true;
+                break;
+            }
             if was_cancelled {
                 summary.stopped = true;
                 break;
@@ -48,16 +54,94 @@ mod tests {
 
     use async_trait::async_trait;
     use ramag_domain::entities::{
-        ApiCancellation, ApiCollection, ApiEnvironment, ApiProtocol, ApiRequestRecord,
-        ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts, ApiResponseStatus,
-        ApiWorkspace, HttpRequestSpec,
+        ApiCancellation, ApiCollection, ApiEnvironment, ApiHistoryRecord, ApiProtocol,
+        ApiRequestRecord, ApiRequestSpec, ApiResponseSnapshot, ApiResponseSnapshotParts,
+        ApiResponseStatus, ApiWorkspace, ConnectionConfig, ConnectionId, HttpRequestSpec,
+        QueryRecord, QueryRecordId,
     };
     use ramag_domain::error::{DomainError, Result};
-    use ramag_domain::traits::ApiDriver;
+    use ramag_domain::traits::{ApiDriver, Storage};
     use tempfile::{TempDir, tempdir};
 
     use super::super::new_api_cancellation;
     use super::ApiService;
+
+    struct HistoryStorage {
+        fail_after: usize,
+        calls: std::sync::atomic::AtomicUsize,
+        records: Arc<Mutex<Vec<ApiHistoryRecord>>>,
+    }
+
+    #[async_trait]
+    impl Storage for HistoryStorage {
+        async fn list_connections(&self) -> Result<Vec<ConnectionConfig>> {
+            Ok(Vec::new())
+        }
+
+        async fn get_connection(&self, _id: &ConnectionId) -> Result<Option<ConnectionConfig>> {
+            Ok(None)
+        }
+
+        async fn save_connection(&self, _config: &ConnectionConfig) -> Result<()> {
+            Ok(())
+        }
+
+        async fn delete_connection(&self, _id: &ConnectionId) -> Result<()> {
+            Ok(())
+        }
+
+        async fn append_api_history(
+            &self,
+            _workspace_id: &ramag_domain::entities::ApiWorkspaceId,
+            record: &ApiHistoryRecord,
+        ) -> Result<()> {
+            let call = self.calls.fetch_add(1, Ordering::Relaxed);
+            if call >= self.fail_after {
+                return Err(DomainError::Storage("history-secret-sentinel".into()));
+            }
+            self.records
+                .lock()
+                .expect("记录测试历史")
+                .push(record.clone());
+            Ok(())
+        }
+
+        async fn list_api_history(
+            &self,
+            _workspace_id: &ramag_domain::entities::ApiWorkspaceId,
+            _limit: usize,
+        ) -> Result<Vec<ApiHistoryRecord>> {
+            Ok(self.records.lock().expect("读取测试历史").clone())
+        }
+
+        async fn append_history(&self, _record: &QueryRecord) -> Result<()> {
+            Ok(())
+        }
+
+        async fn list_history(
+            &self,
+            _connection_id: Option<&ConnectionId>,
+            _limit: usize,
+        ) -> Result<Vec<QueryRecord>> {
+            Ok(Vec::new())
+        }
+
+        async fn delete_history(&self, _id: &QueryRecordId) -> Result<()> {
+            Ok(())
+        }
+
+        async fn clear_history(&self, _connection_id: Option<&ConnectionId>) -> Result<()> {
+            Ok(())
+        }
+
+        async fn get_preference(&self, _key: &str) -> Result<Option<String>> {
+            Ok(None)
+        }
+
+        async fn set_preference(&self, _key: &str, _value: &str) -> Result<()> {
+            Ok(())
+        }
+    }
 
     struct OrderedDriver {
         protocol: ApiProtocol,
@@ -119,6 +203,11 @@ mod tests {
         Arc<Mutex<Option<ApiCancellation>>>,
         TempDir,
     );
+    type CollectionServiceState = (
+        ApiService,
+        Arc<Mutex<Vec<String>>>,
+        Arc<Mutex<Option<ApiCancellation>>>,
+    );
 
     fn build_service(cancel_after_first: bool) -> CollectionTestService {
         let directory = tempdir().expect("创建 Collection 测试目录");
@@ -144,6 +233,29 @@ mod tests {
         let service = ApiService::new(http_driver, grpc_driver, Arc::new(storage))
             .expect("创建 Collection 测试服务");
         (service, calls, active_cancellation, directory)
+    }
+
+    fn build_service_with_storage(
+        cancel_after_first: bool,
+        storage: Arc<dyn Storage>,
+    ) -> CollectionServiceState {
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let active_cancellation = Arc::new(Mutex::new(None));
+        let http_driver: Arc<dyn ApiDriver> = Arc::new(OrderedDriver {
+            protocol: ApiProtocol::Http,
+            calls: calls.clone(),
+            cancel_after_first,
+            active_cancellation: active_cancellation.clone(),
+        });
+        let grpc_driver: Arc<dyn ApiDriver> = Arc::new(OrderedDriver {
+            protocol: ApiProtocol::Grpc,
+            calls: Arc::new(Mutex::new(Vec::new())),
+            cancel_after_first: false,
+            active_cancellation: Arc::new(Mutex::new(None)),
+        });
+        let service = ApiService::new(http_driver, grpc_driver, storage)
+            .expect("创建自定义 Storage 的 Collection 测试服务");
+        (service, calls, active_cancellation)
     }
 
     fn collection_with_requests() -> ApiCollection {
@@ -248,5 +360,37 @@ mod tests {
         assert!(summary.outcomes.is_empty());
         assert!(summary.stopped);
         assert!(calls.lock().expect("读取预取消调用次数").is_empty());
+    }
+
+    #[tokio::test]
+    async fn preserves_completed_outcome_when_history_persistence_fails() {
+        let records = Arc::new(Mutex::new(Vec::new()));
+        let storage: Arc<dyn Storage> = Arc::new(HistoryStorage {
+            fail_after: 1,
+            calls: std::sync::atomic::AtomicUsize::new(0),
+            records: records.clone(),
+        });
+        let (service, calls, _active_cancellation) = build_service_with_storage(false, storage);
+        let workspace = ApiWorkspace::new("历史失败 Collection");
+        let mut environment = ApiEnvironment::new("local");
+        let summary = service
+            .run_collection(
+                &workspace.id,
+                &collection_with_requests(),
+                &mut environment,
+                new_api_cancellation(),
+            )
+            .await
+            .expect("历史写入失败仍应返回部分汇总");
+
+        assert_eq!(calls.lock().expect("读取历史失败调用顺序").len(), 2);
+        assert_eq!(summary.outcomes.len(), 2);
+        assert_eq!(summary.passed, 2);
+        assert_eq!(summary.failed, 0);
+        assert!(summary.stopped);
+        assert!(summary.history_persist_failed);
+        assert!(summary.outcomes[0].history_persisted);
+        assert!(!summary.outcomes[1].history_persisted);
+        assert_eq!(records.lock().expect("读取已保存历史").len(), 1);
     }
 }

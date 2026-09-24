@@ -29,6 +29,7 @@ pub(super) fn build_success_outcome(
         result: Some(result),
         error: None,
         cancelled: false,
+        history_persisted: true,
         history,
     })
 }
@@ -44,6 +45,7 @@ pub(super) fn failure_outcome(
         result: None,
         error: Some(error.to_string()),
         cancelled,
+        history_persisted: true,
         history: ApiHistoryRecord::from_error(record, error, environment),
     }
 }

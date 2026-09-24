@@ -61,14 +61,12 @@
 
 ## 三、当前执行顺序
 
-1. 保存本文件，并以现有 `docs/development-roadmap.md` 和审查修复计划作为背景依据。
-2. 检查并收敛当前 API 工作区未提交改动；先运行目标测试，确认它们是可继续的实现还是需要拆分。
-3. 按审查计划优先补 API 请求搜索清除的真实点击、列表恢复和焦点回归测试（R5）。
-4. 独立恢复 workspace Clippy 基线（R11），不得使用 `#[allow]` 或降低 lint 绕过检查。
-5. 处理 API 工作区读取/保存生命周期（R1、R2）。本轮已在 `feat/api-workspace-lifecycle` 完成保存代次保护、保存与导入互斥、迟到回调保护及回归测试；提交 `fde33b9f` 已推送，待合并到 `dev` 后复验。
-6. 继续处理 Collection 部分结果（R3）、数据库基线文档（R4）、表设计器 DDL 安全性（R6、R7）、MQTT 背压（R8）、SSH 远程提交状态（R9）和单实例竞态（R10）。每个问题独立验收和提交。
+1. 已建立本文件及 `docs/code-review-remediation-plan-2026-09-23.md` 的审查基线。
+2. 已完成 R5 请求搜索清除按钮交互回归测试（`58675ea2`）、R11 workspace Clippy 修复（`480fc9b1`）、R1 工作区读取失败处理（`de232c7b`）和 R2 保存生命周期隔离（`fde33b9f`）；这些提交均已进入 `dev`。
+3. 当前切片完成 R3 Collection 历史写入失败时保留已执行结果（代码提交 `1204b397`）。目标测试、headless UI 测试、Docker HTTP/gRPC 集成测试、workspace fmt、Clippy 和源码尺寸检查均已通过；待将该分支合并到 `dev` 并在目标分支复验。
+4. R3 合并和复验完成后，执行 R4 MySQL 8.4 基线文档校正；随后按专项计划实施 R6、R7、R8、R9、R10。每项单独设计、验收、提交、推送并合并到 `dev`。
 
-当前首个实现切片以代码和测试核对结果为准；如果已有未提交 API 改动尚未完成，先完成或拆分它，不覆盖其内容。
+已完成事项及证据以本文件“切片执行记录”和 [`code-review-remediation-plan-2026-09-23.md`](code-review-remediation-plan-2026-09-23.md) 的执行记录为准，不再把已进入 `dev` 的改动列作待办。
 
 ## 四、每个切片的执行顺序
 
@@ -100,3 +98,14 @@
 - UI、真实服务和远程验证的证据边界；
 - 未完成项或阻塞项；
 - 提交编号、推送结果、合并状态和分支清理结果。
+
+## 七、切片执行记录
+
+### R3：Collection 历史写入失败时保留已执行结果（2026-09-24）
+
+- 设计：将 HTTP/gRPC 驱动执行结果与历史持久化结果分开报告；Storage 写入失败时保留本次 outcome 和当前界面响应，停止启动下一条 Collection 请求，并通过固定提示说明历史未保存。新增字段带 serde 默认值以兼容旧数据。
+- 改动范围：API 服务、领域结果、API 工作台状态与提示、Collection Docker UI 回归测试；没有扩大重试或重复发送请求。
+- 验收：`cargo test --locked -p ramag-tool-api --all-targets`（29 项通过，含本机 Docker HTTP/gRPC 请求和 headless UI）；`cargo test --locked -p ramag-app --all-targets`（224 项单元测试及集成测试通过）；`cargo test --locked -p ramag-domain --lib api -- --nocapture`（27 项通过）；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、源码尺寸脚本及 `git diff --check` 均通过。
+- Docker 环境：`ramag-api-http-test`，镜像 `ramag-api-http-test:python-3.12.11-alpine-3.22`，端口 `127.0.0.1:18089->8080`、`127.0.0.1:18091->8443`，状态 healthy；`ramag-api-grpc-test`，镜像 `ramag-api-grpc-test:rust-1.91.0-bookworm`，端口 `127.0.0.1:18090->50051`、`127.0.0.1:18092->50052`，状态 healthy。两项服务在本次执行前已经运行；本次未启动、停止或清理容器，完成后仍保持运行。
+- UI 证据：headless GPUI 点击响应“断言”页签后验证断言与 Collection 汇总内容；未完成真实 Windows 窗口操作，因此不作为原生窗口验收证据。
+- Git：代码提交 `1204b397` 已推送至 `origin/feat/api-collection-results`；待合并 `dev`、在 `dev` 复验并清理该源分支。

@@ -61,7 +61,16 @@ pub struct ApiExecutionOutcome {
     pub error: Option<String>,
     #[serde(default)]
     pub cancelled: bool,
+    /// Indicates whether the redacted history record reached Storage. A request outcome can
+    /// still be shown when this is false, but a Collection must stop before starting another
+    /// external request so the UI can report the partial result without inviting a duplicate run.
+    #[serde(default = "default_history_persisted")]
+    pub history_persisted: bool,
     pub history: ApiHistoryRecord,
+}
+
+fn default_history_persisted() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,6 +82,9 @@ pub struct ApiCollectionRunResult {
     pub failed: usize,
     pub cancelled: usize,
     pub stopped: bool,
+    /// True when Storage rejected an outcome history record; the returned outcomes remain valid.
+    #[serde(default)]
+    pub history_persist_failed: bool,
 }
 
 impl ApiCollectionRunResult {
@@ -85,6 +97,7 @@ impl ApiCollectionRunResult {
             failed: 0,
             cancelled: 0,
             stopped: false,
+            history_persist_failed: false,
         }
     }
 
