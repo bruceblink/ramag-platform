@@ -156,6 +156,36 @@ fn profile_form_stays_inside_compact_window_and_keeps_actions_visible(cx: &mut T
 }
 
 #[gpui_kit::test]
+fn profile_form_feedback_wraps_without_pushing_footer_out_of_compact_window(
+    cx: &mut TestAppContext,
+) {
+    let (form, cx) = add_ssh_form_window(cx, service(Vec::new(), None));
+
+    cx.simulate_resize(size(px(360.0), px(240.0)));
+    form.update(cx, |form, cx| {
+        form.feedback = Some(super::super::profile_dialog::FormFeedback {
+            message: "测试完成 · OpenSSH 可用 · 认证 可用 · 执行 可用 · Terminal 可用 · SFTP 可用 · 通道 Windows 兼容 SFTP · 诊断 可用 · 远端 Windows · Shell Windows PowerShell · 路径 Windows 盘符"
+                .into(),
+            kind: super::super::profile_dialog::FeedbackKind::Success,
+        });
+        cx.notify();
+    });
+    cx.run_until_parked();
+
+    let viewport = size(px(360.0), px(240.0));
+    let feedback = cx
+        .debug_bounds("ssh-profile-form-feedback")
+        .expect("测试反馈应参与布局");
+    let footer = cx
+        .debug_bounds("ssh-profile-form-footer")
+        .expect("底部操作区应参与布局");
+    assert!(feedback.origin.x >= px(0.0) && feedback.right() <= viewport.width);
+    assert!(footer.origin.x >= px(0.0) && footer.right() <= viewport.width);
+    assert!(footer.origin.y >= px(0.0) && footer.bottom() <= viewport.height);
+    assert!(feedback.size.height > px(16.0), "长反馈应在窄窗口中换行");
+}
+
+#[gpui_kit::test]
 fn windows_workspace_lists_accessible_drives_before_the_home_directory(cx: &mut TestAppContext) {
     let mut profile = SshProfile::new("windows", "windows.example");
     profile.username = "Administrator".into();

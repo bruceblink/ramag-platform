@@ -151,10 +151,13 @@ impl Render for SshProfileFormPanel {
                                 };
                                 row.child(
                                     div()
+                                        .id("ssh-profile-form-feedback")
+                                        .debug_selector(|| "ssh-profile-form-feedback".into())
                                         .flex_1()
                                         .min_w_0()
                                         .text_xs()
                                         .text_color(color)
+                                        .whitespace_normal()
                                         .child(feedback.message.clone()),
                                 )
                             }),
