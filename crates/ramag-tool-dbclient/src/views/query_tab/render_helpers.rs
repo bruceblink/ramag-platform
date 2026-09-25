@@ -6,7 +6,9 @@ use gpui_kit::{ClickEvent, Entity, IntoElement, ParentElement, Styled, div, prel
 use ramag_ui::PointerDropdownMenu as _;
 
 use super::{QueryTab, QueryTabEvent};
-use crate::views::result_panel::{ResultPanel, RowSearchConversionStatus, RowSearchMode, SortDir};
+use crate::views::result_panel::{
+    ResultExportFormat, ResultPanel, RowSearchConversionStatus, RowSearchMode, SortDir,
+};
 
 pub(super) struct TransactionSavepointState {
     pub(super) transaction_busy: bool,
@@ -82,6 +84,43 @@ pub(super) fn order_by_menu(
                     },
                 ));
             }
+        }
+        menu
+    })
+}
+
+/// Builds the result export selector while keeping the selected-row scope explicit.
+/// CSV is shown first to match the reference toolbar; JSONL remains available for scripts.
+pub(super) fn result_export_menu(
+    result: Entity<ResultPanel>,
+    has_result: bool,
+    exporting: bool,
+) -> impl IntoElement {
+    let control = ramag_ui::clickable_button("export-btn")
+        .debug_selector(|| "export-btn".into())
+        .ghost()
+        .small()
+        .text()
+        .label(ResultExportFormat::Csv.label())
+        .dropdown_caret(true)
+        .tooltip(if exporting {
+            "导出任务进行中"
+        } else if has_result {
+            "导出选中行"
+        } else {
+            "没有可导出的结果"
+        })
+        .disabled(!has_result || exporting);
+    control.pointer_dropdown_menu(move |mut menu, _, _| {
+        for format in [ResultExportFormat::Csv, ResultExportFormat::Jsonl] {
+            let result = result.clone();
+            menu = menu.item(
+                ramag_ui::menu_item(format.label())
+                    .checked(format == ResultExportFormat::Csv)
+                    .on_click(move |_, _, app| {
+                        result.update(app, |panel, cx| panel.export_as(format, cx));
+                    }),
+            );
         }
         menu
     })
@@ -226,7 +265,9 @@ pub(super) fn transaction_toolbar_group(
         .min_w_0()
         .flex_wrap()
         .when(state.compact_toolbar, |this| this.w_full())
-        .when(!state.compact_toolbar, |this| this.flex_1())
+        // Keep the transaction controls' intrinsic width on desktop; the outer toolbar can wrap
+        // this group instead of shrinking savepoint actions beyond their hit targets.
+        .when(!state.compact_toolbar, |this| this.flex_none())
         .items_center()
         .gap_1()
         .child(transaction_mode_menu(
@@ -237,7 +278,13 @@ pub(super) fn transaction_toolbar_group(
             state.dml_busy,
             state.pending_cell_edits,
         ))
-        .child(transaction_controls)
+        .child(
+            div()
+                .min_w_0()
+                .when(state.compact_toolbar, |this| this.flex_1())
+                .when(!state.compact_toolbar, |this| this.flex_none())
+                .child(transaction_controls),
+        )
         .child(table_ddl_button(
             query_tab,
             state.ddl_target,

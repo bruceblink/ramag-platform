@@ -29,6 +29,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
+pub(crate) use export::ResultExportFormat;
 pub(crate) use helpers::{RowIdentity, derive_row_identity};
 pub(super) use lifecycle::global_memory_warning;
 use row_search::RowSearchState;

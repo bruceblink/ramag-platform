@@ -88,6 +88,16 @@ fn jsonl_basic() {
 }
 
 #[test]
+fn csv_escapes_values_and_keeps_null_fields_empty() {
+    let mut output = Vec::new();
+    write_csv(&mut output, &sample_result()).unwrap();
+    assert_eq!(
+        String::from_utf8(output).unwrap(),
+        "id,name,data\r\n1,张三,\r\n2,\"李, 四\",\"\"\"escaped\"\"\"\r\n"
+    );
+}
+
+#[test]
 fn indexed_view_preserves_row_order_and_column_projection() {
     let result = sample_result();
     let rows = [1, 0];

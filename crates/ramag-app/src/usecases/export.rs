@@ -282,7 +282,89 @@ fn remove_export_temp(path: &Path) {
     }
 }
 
-/// 流式导出 JSONL：每行一个紧凑 JSON 对象。
+/// Streams a CSV result with a header row and RFC 4180-compatible quoting.
+/// NULL values become empty fields, while commas, quotes, and newlines are preserved safely.
+pub fn write_csv(writer: &mut dyn Write, result: &QueryResult) -> Result<()> {
+    write_csv_view(writer, result, None, None)
+}
+
+/// Streams selected rows and columns as CSV without materializing the complete file.
+pub fn write_csv_view(
+    writer: &mut dyn Write,
+    result: &QueryResult,
+    row_indices: Option<&[usize]>,
+    column_indices: Option<&[usize]>,
+) -> Result<()> {
+    let columns: Vec<usize> = selected_indices(column_indices, result.columns.len()).collect();
+    write_csv_record(
+        writer,
+        columns
+            .iter()
+            .map(|&index| result.columns.get(index).map_or("", String::as_str)),
+    )?;
+
+    for row_index in selected_indices(row_indices, result.rows.len()) {
+        let Some(row) = result.rows.get(row_index) else {
+            continue;
+        };
+        let values = columns
+            .iter()
+            .map(|&column_index| {
+                row.values
+                    .get(column_index)
+                    .map_or_else(String::new, Value::to_clipboard_string)
+            })
+            .collect::<Vec<_>>();
+        write_csv_record(writer, values.iter().map(String::as_str))?;
+    }
+    Ok(())
+}
+
+fn write_csv_record<'a>(
+    writer: &mut dyn Write,
+    fields: impl IntoIterator<Item = &'a str>,
+) -> Result<()> {
+    let mut first = true;
+    for field in fields {
+        if !first {
+            writer
+                .write_all(b",")
+                .map_err(|error| DomainError::Storage(format!("写入 CSV 分隔符失败：{error}")))?;
+        }
+        first = false;
+        if field
+            .as_bytes()
+            .iter()
+            .any(|byte| matches!(byte, b',' | b'"' | b'\r' | b'\n'))
+        {
+            writer
+                .write_all(b"\"")
+                .map_err(|error| DomainError::Storage(format!("写入 CSV 引号失败：{error}")))?;
+            for (part_index, part) in field.split('"').enumerate() {
+                if part_index > 0 {
+                    writer.write_all(b"\"\"").map_err(|error| {
+                        DomainError::Storage(format!("写入 CSV 转义引号失败：{error}"))
+                    })?;
+                }
+                writer
+                    .write_all(part.as_bytes())
+                    .map_err(|error| DomainError::Storage(format!("写入 CSV 字段失败：{error}")))?;
+            }
+            writer
+                .write_all(b"\"")
+                .map_err(|error| DomainError::Storage(format!("写入 CSV 引号失败：{error}")))?;
+        } else {
+            writer
+                .write_all(field.as_bytes())
+                .map_err(|error| DomainError::Storage(format!("写入 CSV 字段失败：{error}")))?;
+        }
+    }
+    writer
+        .write_all(b"\r\n")
+        .map_err(|error| DomainError::Storage(format!("写入 CSV 换行失败：{error}")))
+}
+
+/// Streams a JSONL result: one compact JSON object per row.
 pub fn write_jsonl(writer: &mut dyn Write, result: &QueryResult) -> Result<()> {
     write_jsonl_view(writer, result, None, None)
 }

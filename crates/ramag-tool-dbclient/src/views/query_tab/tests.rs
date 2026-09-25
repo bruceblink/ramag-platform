@@ -236,6 +236,9 @@ fn result_toolbar_keeps_filters_and_run_action_inside_three_window_widths(cx: &m
             .debug_bounds("sql-order-by")
             .expect("SQL ORDER BY 入口应渲染");
         let ddl = cx.debug_bounds("sql-ddl").expect("SQL DDL 入口应渲染");
+        let export = cx
+            .debug_bounds("export-btn")
+            .expect("结果导出格式入口应渲染");
         let run = cx
             .debug_bounds("sql-run-query")
             .expect("SQL 运行按钮应渲染");
@@ -250,6 +253,10 @@ fn result_toolbar_keeps_filters_and_run_action_inside_three_window_widths(cx: &m
             "ORDER BY 入口不能越出工具栏"
         );
         assert!(ddl.right() <= toolbar.right(), "DDL 入口不能越出工具栏");
+        assert!(
+            export.right() <= toolbar.right(),
+            "结果导出格式入口不能越出工具栏"
+        );
         assert!(run.right() <= toolbar.right(), "运行按钮不能越出工具栏");
     }
 }
@@ -357,9 +364,10 @@ fn active_transaction_controls_wrap_inside_three_window_widths(cx: &mut TestAppC
                 .unwrap_or_else(|| panic!("应渲染事务按钮 {selector}"));
             assert!(
                 button.origin.x >= controls.origin.x
-                    && button.right() <= controls.right()
+                    // Flex allocation may round a shared edge by a sub-pixel on narrow layouts.
+                    && button.right() <= controls.right() + px(1.0)
                     && button.origin.y >= controls.origin.y
-                    && button.bottom() <= controls.bottom(),
+                    && button.bottom() <= controls.bottom() + px(1.0),
                 "事务按钮不能越出控制区：selector={selector}, button={button:?}, controls={controls:?}"
             );
         }

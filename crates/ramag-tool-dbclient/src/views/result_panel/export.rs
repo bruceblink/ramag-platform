@@ -12,6 +12,28 @@ use tracing::{error, info};
 use super::ResultPanel;
 use super::ResultState;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ResultExportFormat {
+    Csv,
+    Jsonl,
+}
+
+impl ResultExportFormat {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Csv => "CSV",
+            Self::Jsonl => "JSONL",
+        }
+    }
+
+    fn extension(self) -> &'static str {
+        match self {
+            Self::Csv => "csv",
+            Self::Jsonl => "jsonl",
+        }
+    }
+}
+
 enum ExportOutcome {
     Saved(PathBuf),
     Cancelled,
@@ -20,6 +42,10 @@ enum ExportOutcome {
 
 impl ResultPanel {
     pub fn export(&mut self, cx: &mut Context<Self>) {
+        self.export_as(ResultExportFormat::Jsonl, cx);
+    }
+
+    pub(crate) fn export_as(&mut self, format: ResultExportFormat, cx: &mut Context<Self>) {
         if self.exporting {
             self.pending_notification =
                 Some(Notification::info("已有导出任务正在进行").autohide(true));
@@ -79,23 +105,22 @@ impl ResultPanel {
             .unwrap_or("query")
             .to_string();
         let object = self.pinned_target.as_ref().map(|(_, table)| table.as_str());
+        let extension = format.extension();
         let default_name =
-            export::suggested_export_file_name(database_type, &database, object, true, "jsonl");
+            export::suggested_export_file_name(database_type, &database, object, true, extension);
         let connection_id = self
             .connection
             .as_ref()
             .map(|config| config.id.to_string())
             .unwrap_or_else(|| "-".to_string());
         let object_name = object.unwrap_or("-").to_string();
-        let ext = "jsonl";
-
         // 用户选定路径后才占用工作池，避免文件对话框阻塞其他任务。
         self.exporting = true;
         cx.notify();
         cx.spawn(async move |this, cx| {
             let path = rfd::AsyncFileDialog::new()
                 .set_file_name(&default_name)
-                .add_filter(ext, &[ext])
+                .add_filter(extension, &[extension])
                 .save_file()
                 .await
                 .map(|handle| handle.path().to_path_buf());
@@ -104,8 +129,13 @@ impl ResultPanel {
                 Some(path) => {
                     let write_path = path.clone();
                     match ramag_app::run_blocking(move || {
-                        export::write_atomic_with(&write_path, |writer| {
-                            export::write_jsonl_view(writer, &base, Some(&row_indices), None)
+                        export::write_atomic_with(&write_path, |writer| match format {
+                            ResultExportFormat::Csv => {
+                                export::write_csv_view(writer, &base, Some(&row_indices), None)
+                            }
+                            ResultExportFormat::Jsonl => {
+                                export::write_jsonl_view(writer, &base, Some(&row_indices), None)
+                            }
                         })
                     })
                     .await

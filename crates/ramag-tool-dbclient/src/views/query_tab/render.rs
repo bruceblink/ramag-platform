@@ -17,8 +17,8 @@ use ramag_domain::entities::MAX_SQL_QUERY_BYTES;
 use super::QueryTab;
 use super::comparison_toolbar::result_comparison_menu;
 use super::render_helpers::{
-    TransactionSavepointState, TransactionToolbarState, order_by_menu, result_view_tabs,
-    row_filter_prefix, row_search_input_suffix, transaction_savepoint_controls,
+    TransactionSavepointState, TransactionToolbarState, order_by_menu, result_export_menu,
+    result_view_tabs, row_filter_prefix, row_search_input_suffix, transaction_savepoint_controls,
     transaction_toolbar_group,
 };
 use super::sql_utils::format_elapsed;
@@ -86,6 +86,7 @@ impl Render for QueryTab {
             };
         let pending_cell_edit_count = self.result.read(cx).pending_cell_edit_count();
         let panel_for_btn = result_entity.read(cx);
+        let exporting = panel_for_btn.exporting;
         let has_selected =
             !panel_for_btn.selected_rows().is_empty() || panel_for_btn.selected_cell().is_some();
         // 写入口共用单表、视图、定位键和只读校验。
@@ -528,17 +529,11 @@ impl Render for QueryTab {
                                 this.open_table_import_dialog(window, cx);
                             })),
                     )
-                    .child(
-                        ramag_ui::clickable_button("export-btn")
-                    .ghost()
-                    .small()
-                    .icon(ramag_ui::icons::upload())
-                    .tooltip("导出")
-                    .disabled(!has_result)
-                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                this.active_result().update(cx, |r, cx| r.export(cx));
-                            })),
-                    )
+                    .child(result_export_menu(
+                        result_entity.clone(),
+                        has_result,
+                        exporting,
+                    ))
                     .when(running && self.cancel_handle.is_some(), |this| {
                         this.child(
                             ramag_ui::clickable_button("cancel-query")
