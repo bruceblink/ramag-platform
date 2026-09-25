@@ -1,16 +1,14 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
-use std::sync::Arc;
-
+use super::{DisplayViewCache, DisplayViewCacheKey, build_display_view, cached_display_view};
+use crate::views::result_panel::{ResultPagination, ResultPanel, ResultState, TotalRows};
 use gpui_kit::{
     AppContext as _, Context, Entity, IntoElement, Modifiers, ParentElement as _, Render,
     ScrollDelta, ScrollWheelEvent, Styled as _, TestAppContext, TouchPhase, Window, div, point, px,
     size,
 };
 use ramag_domain::entities::{QueryResult, Row, Value};
-
-use super::{DisplayViewCache, DisplayViewCacheKey, build_display_view, cached_display_view};
-use crate::views::result_panel::{ResultPagination, ResultPanel, ResultState, TotalRows};
+use std::sync::Arc;
 
 /// 测试宿主同时渲染结果面板和 GPUI Component 的对话框浮层。
 struct ResultDialogTestHost {
@@ -488,6 +486,15 @@ fn selected_cell_value_viewer_stays_inside_three_window_widths(cx: &mut TestAppC
             cx.debug_bounds("result-value-viewer-content-frame")
                 .is_some(),
             "value viewer should render a selectable bounded content area"
+        );
+        assert!(
+            cx.debug_bounds("result-value-viewer-meta").is_some(),
+            "value viewer should expose column type and value state metadata"
+        );
+        assert!(
+            cx.debug_bounds("result-value-viewer-copy-toolbar")
+                .is_some(),
+            "value viewer should expose copy format actions"
         );
         assert!(
             cx.debug_bounds("result-value-viewer-h-scrollbar").is_some(),

@@ -1,7 +1,8 @@
 //! SQL 结果面板渲染与复制。
 
 use gpui_kit::component::{
-    ActiveTheme, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+    ActiveTheme, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
+    notification::Notification, v_flex,
 };
 use gpui_kit::{
     ClickEvent, ClipboardItem, Context, Focusable as _, IntoElement, ParentElement, Render,
@@ -285,9 +286,15 @@ impl ResultPanel {
     /// 按指定格式复制选中单元格，只处理当前行列而不遍历整个结果集。
     pub(crate) fn copy_selected_cell_as(&mut self, format: CellCopyFormat, cx: &mut Context<Self>) {
         let Some((ri, ci)) = self.selected_cell else {
+            self.pending_notification =
+                Some(Notification::warning("请先选择一个结果单元格，再执行复制").autohide(true));
+            cx.notify();
             return;
         };
         let Some(value) = self.cell_value(ri, ci) else {
+            self.pending_notification =
+                Some(Notification::warning("当前单元格没有可复制的值").autohide(true));
+            cx.notify();
             return;
         };
         let driver = self
@@ -308,6 +315,9 @@ impl ResultPanel {
         cx: &mut Context<Self>,
     ) {
         let Some((ri, ci)) = self.selected_cell else {
+            self.pending_notification =
+                Some(Notification::warning("请先选择一个结果单元格，再查看值").autohide(true));
+            cx.notify();
             return;
         };
         let ResultState::Ok(result) = &self.state else {

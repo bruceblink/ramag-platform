@@ -125,14 +125,21 @@ pub(super) fn render_data_row(
             let value = panel.cell_value(source_idx, ci);
             let display = display_cell_value(value, 60, frame.display_binary_16_as_uuid);
             let is_null = value.is_none_or(|value| matches!(value, Value::Null));
+            let is_empty_text = matches!(value, Some(Value::Text(text)) if text.is_empty());
+            let is_structured_or_binary = matches!(value, Some(Value::Json(_) | Value::Bytes(_)));
+            let value_color = if is_null || is_empty_text {
+                frame.muted_fg
+            } else if is_structured_or_binary {
+                frame.accent
+            } else {
+                frame.fg
+            };
             // 选择状态使用源行下标，不能使用排序后的可见下标。
             let is_selected = selected == Some((source_idx, ci));
             let is_right = *frame.right_align.get(ci).unwrap_or(&false);
             let cw = frame.col_widths[ci];
             let row_idx = source_idx;
             let mono_font = frame.mono_font.clone();
-            let fg = frame.fg;
-            let muted_fg = frame.muted_fg;
             let border = frame.border;
             let accent = frame.accent;
             let is_editing = panel.editing_cell == Some((source_idx, ci));
@@ -156,7 +163,7 @@ pub(super) fn render_data_row(
                     .px_3()
                     .text_xs()
                     .font_family(mono_font)
-                    .text_color(if is_null { muted_fg } else { fg })
+                    .text_color(value_color)
                     .overflow_hidden()
                     .text_ellipsis()
                     .whitespace_nowrap()
