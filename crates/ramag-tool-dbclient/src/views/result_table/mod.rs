@@ -375,6 +375,8 @@ mod states;
 
 pub(super) use page_size::render_page_size_selector;
 pub(super) use render::render_table;
+#[cfg(test)]
+mod header_test;
 mod helpers;
 #[cfg(test)]
 mod render_test;

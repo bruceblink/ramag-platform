@@ -46,7 +46,7 @@
 
 ## 4. 当前切片
 
-`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，`DB-UX-003A` 已完成，当前推进 `DB-UX-003B`（稳定表头与双轴滚动加固）。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，`DB-UX-003A`、`DB-UX-003B` 已完成，当前推进 `DB-UX-003C`（大结果集列布局和滚动边界）。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
@@ -234,6 +234,21 @@
 - 质量：`cargo fmt --all -- --check`、workspace Clippy、源码尺寸检查和 `git diff --check` 通过。
 - 真实窗口：Computer Use 未启动原生窗口；本切片只记录 headless 和纯函数导出证据，未宣称真实文件对话框流程完成。
 - Git：验证通过后使用单一功能提交并推送 `main`；下一项为 `DB-UX-003B`（稳定表头与双轴滚动加固）。
+
+### DB-UX-003B：稳定表头与双轴滚动加固（2026-09-26，设计确认）
+
+- 设计：为结果网格建立独立表头验收锚点，确保表头随列横向移动但不随结果行纵向滚动；继续使用轴锁定滚轮、独立水平/垂直滚动条和底部状态栏布局。
+- 改动范围：结果表头稳定渲染选择器和纵向滚动回归；不改分页、排序、过滤、导出和单元格编辑语义。
+- 验收条件：横向滚轮不移动行，纵向滚轮不移动表头；滚动条仍不覆盖状态栏；通过结果表专项、dbclient 全量测试、fmt、Clippy、源码尺寸和 diff 检查。
+
+### DB-UX-003B：验收记录（2026-09-26）
+
+- 实现：结果表头新增独立 `result-header` 渲染锚点；纵向滚动回归现在明确比较滚动前后表头位置，同时保留横向轴锁定和滚动条设置开关验证。
+- Headless：`cargo test --locked -p ramag-tool-dbclient --lib result_table::render_test::result_scroll_horizontal_gesture_does_not_move_rows_vertically -- --nocapture` 与 `cargo test --locked -p ramag-tool-dbclient --lib result_table::header_test::result_header_stays_fixed_during_vertical_scroll -- --nocapture`（各 1 项通过）；`cargo test --locked -p ramag-tool-dbclient --lib --quiet`（333 项通过）。
+- Docker：本切片只验证内存结果网格和 GPUI 滚动，不访问数据库服务。
+- 质量：`cargo fmt --all -- --check`、workspace Clippy、源码尺寸检查和 `git diff --check` 通过。
+- 真实窗口：Computer Use 未启动原生窗口；本切片只记录 headless 滚动证据，未宣称真实窗口拖动滚动条完成。
+- Git：验证通过后使用单一功能提交并推送 `main`；下一项为 `DB-UX-003C`（大结果集列布局和滚动边界）。
 
 ## 5. 分支和清理
 

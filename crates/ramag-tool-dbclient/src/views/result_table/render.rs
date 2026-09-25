@@ -167,6 +167,8 @@ pub(in crate::views) fn render_table(
     };
 
     let header = h_flex()
+        .id("result-header")
+        .debug_selector(|| "result-header".into())
         .w(total_content_width)
         .h(px(34.0))
         .flex_none()
