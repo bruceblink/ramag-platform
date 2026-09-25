@@ -4,9 +4,10 @@ use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Selectable as _, Sizable as _, WindowExt as _,
     button::ButtonVariants as _, h_flex, v_flex,
 };
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Render, Styled, Window,
-    div, px, uniform_list,
+    div, img, px, uniform_list,
 };
 use ramag_domain::entities::DriverKind;
 use ramag_ui::PointerDropdownMenu as _;
@@ -354,6 +355,7 @@ impl Render for TableTreePanel {
         v_flex()
             .size_full()
             .overflow_hidden()
+            .child(render_connection_context(self, muted_fg, cx))
             .child(db_row)
             .child(header_bar)
             .children(transfer_row)
@@ -373,4 +375,111 @@ impl Render for TableTreePanel {
             )
             .into_any_element()
     }
+}
+
+/// 在对象树顶部显示当前连接上下文，避免用户在切换多个数据库标签后丢失目标。
+///
+/// 状态来自当前元数据生命周期：首次读取期间显示“连接中”，读取成功后显示“已连接”，
+/// 元数据失败时显示“连接失败”。这不是额外的心跳连接，不会为了绘制状态而发起网络请求。
+fn render_connection_context(
+    panel: &TableTreePanel,
+    muted_fg: gpui_kit::Hsla,
+    cx: &Context<TableTreePanel>,
+) -> impl IntoElement {
+    let theme = cx.theme();
+    let Some(connection) = panel.connection.as_ref() else {
+        return div()
+            .id("database-connection-context")
+            .debug_selector(|| "database-connection-context".into())
+            .h(px(36.0))
+            .flex_none()
+            .into_any_element();
+    };
+
+    let (status, status_color) = if panel.error.is_some() {
+        ("连接失败", theme.danger)
+    } else if panel.loading_schemas {
+        ("连接中", theme.accent)
+    } else if panel.schemas.is_empty() {
+        ("未加载", muted_fg)
+    } else {
+        ("已连接", theme.success)
+    };
+    let kind = match connection.driver {
+        DriverKind::Mysql => "MySQL",
+        DriverKind::Postgres => "PostgreSQL",
+        DriverKind::Sqlite => "SQLite",
+        DriverKind::Redis => "Redis",
+        DriverKind::Mongodb => "MongoDB",
+    };
+    let brand_icon = ramag_ui::icons::db_brand_icon(match connection.driver {
+        DriverKind::Mysql => "mysql",
+        DriverKind::Postgres => "postgres",
+        DriverKind::Sqlite => "sqlite",
+        DriverKind::Redis => "redis",
+        DriverKind::Mongodb => "mongodb",
+    });
+    let address = format!("{}:{}", connection.host, connection.port);
+    let name = connection.name.clone();
+    h_flex()
+        .id("database-connection-context")
+        .debug_selector(|| "database-connection-context".into())
+        .w_full()
+        .h(px(44.0))
+        .flex_none()
+        .items_center()
+        .gap(px(8.0))
+        .px(px(10.0))
+        .border_b_1()
+        .border_color(theme.border)
+        .child(
+            div()
+                .w(px(20.0))
+                .flex_none()
+                .flex()
+                .justify_center()
+                .when_some(brand_icon, |slot, icon| {
+                    slot.child(img(icon).size(px(16.0)))
+                }),
+        )
+        .child(
+            v_flex()
+                .flex_1()
+                .min_w_0()
+                .gap(px(1.0))
+                .child(
+                    div()
+                        .debug_selector(|| "database-connection-name".into())
+                        .min_w_0()
+                        .overflow_hidden()
+                        .text_ellipsis()
+                        .whitespace_nowrap()
+                        .text_xs()
+                        .text_color(theme.foreground)
+                        .child(name),
+                )
+                .child(
+                    div()
+                        .min_w_0()
+                        .overflow_hidden()
+                        .text_ellipsis()
+                        .whitespace_nowrap()
+                        .text_xs()
+                        .text_color(muted_fg)
+                        .child(format!("{kind} · {address}")),
+                ),
+        )
+        .child(
+            h_flex()
+                .id("database-connection-status")
+                .debug_selector(|| "database-connection-status".into())
+                .flex_none()
+                .items_center()
+                .gap(px(4.0))
+                .text_xs()
+                .text_color(status_color)
+                .child(div().size(px(6.0)).rounded_full().bg(status_color))
+                .child(status),
+        )
+        .into_any_element()
 }

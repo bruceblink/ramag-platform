@@ -1,6 +1,6 @@
 # Ramag Platform 新主线：JetBrains 工作区重设计
 
-> 状态：现行主线；`SHELL-001` 已完成，下一项为 `DB-UX-001`
+> 状态：现行主线；`SHELL-001` 已完成，`DB-UX-001` 正在推进 `DB-RED-01`
 > 更新日期：2026-09-26
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
@@ -76,7 +76,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | ID | 内容 | 状态 | 依赖 | 必要证据 |
 |---|---|---|---|---|
 | `SHELL-001` | 共享 JetBrains 工作区壳层和设计令牌 | 已完成（headless；真实窗口待补） | 阶段 A | Headless 三尺寸、可用时 Computer Use、fmt/Clippy |
-| `DB-UX-001` | 数据库对象导航器 | 待开始 | `SHELL-001` | 对象树交互、MySQL/PostgreSQL Docker、窗口证据 |
+| `DB-UX-001` | 数据库对象导航器 | 进行中（`DB-RED-01` 已完成） | `SHELL-001` | 对象树交互、MySQL/PostgreSQL Docker、窗口证据 |
 | `DB-UX-002` | 查询控制台和连接上下文 | 待开始 | `DB-UX-001` | SQL 执行/取消/标签回归、Docker、窗口证据 |
 | `DB-UX-003` | 结果数据网格 | 待开始 | `DB-UX-002` | 大数据量、双轴滚动、分页/编辑交互、窗口证据 |
 | `DB-UX-004` | 安全编辑与事务反馈 | 待开始 | `DB-UX-003` | 成功/失败/取消/回滚、MySQL/PostgreSQL Docker |

@@ -347,6 +347,15 @@ fn table_tree_toolbar_wraps_inside_sidebar_widths(cx: &mut TestAppContext) {
         let header = cx
             .debug_bounds("table-tree-header")
             .expect("表树工具栏应渲染");
+        let connection_context = cx
+            .debug_bounds("database-connection-context")
+            .expect("数据库连接上下文应渲染");
+        assert!(
+            connection_context.right() <= px(width) && connection_context.bottom() <= px(480.0),
+            "数据库连接上下文不能越出窗口：{connection_context:?}"
+        );
+        assert!(cx.debug_bounds("database-connection-name").is_some());
+        assert!(cx.debug_bounds("database-connection-status").is_some());
         assert!(header.size.width > px(0.0), "表树工具栏不能为零宽");
         assert!(header.right() <= px(width), "表树工具栏不能越出窗口");
         assert!(header.bottom() <= px(480.0), "表树工具栏不能越出窗口底部");
