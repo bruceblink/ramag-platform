@@ -11,7 +11,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use ramag_domain::entities::{
     MqttMessageSink, MqttMessageSinkResult, MqttProfile, MqttProtocolVersion, MqttPublishRequest,
-    MqttQos, MqttSubscribeRequest, MqttSubscription, MqttUserProperty,
+    MqttQos, MqttSubscribeRequest, MqttSubscription, MqttSubscriptionState, MqttUserProperty,
 };
 use ramag_domain::traits::MqttDriver;
 use ramag_infra_mqtt::NativeMqttTransport;
@@ -148,5 +148,129 @@ fn docker_mosquitto_delivers_messages_and_stops_idle_subscriptions() -> Result<(
         },
     ))
     .map_err(|error| format!("应清理本次 Docker MQTT 测试保留消息: {error}"))?;
+    Ok(())
+}
+
+/// Fill the bounded sink before delivering the second message, proving that both native protocol
+/// loops pause event polling and retry the original payload instead of silently discarding it.
+fn exercise_backpressured_subscription(
+    driver: NativeMqttTransport,
+    profile: MqttProfile,
+    protocol_label: &str,
+) -> Result<(), String> {
+    let topic = test_topic();
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let (sender, receiver) = sync_channel(1);
+    let sink: MqttMessageSink = Arc::new(move |message| match sender.try_send(message) {
+        Ok(()) => MqttMessageSinkResult::Accepted,
+        Err(TrySendError::Full(_)) => MqttMessageSinkResult::Backpressured,
+        Err(TrySendError::Disconnected(_)) => MqttMessageSinkResult::Closed,
+    });
+    let (status_sender, status_receiver) = sync_channel(4);
+    let subscription_profile = profile.clone();
+    let subscription_cancelled = cancelled.clone();
+    let subscription_topic = topic.clone();
+    let subscription = std::thread::spawn(move || {
+        smol::block_on(NativeMqttTransport::new().subscribe(
+            &subscription_profile,
+            &MqttSubscribeRequest {
+                subscriptions: vec![MqttSubscription {
+                    filter: subscription_topic,
+                    qos: MqttQos::AtLeastOnce,
+                    no_local: false,
+                }],
+            },
+            sink,
+            Arc::new(move |status| {
+                let _ = status_sender.send(status);
+            }),
+            async_channel::bounded(1).1,
+            subscription_cancelled,
+        ))
+    });
+    let status = match status_receiver.recv_timeout(Duration::from_secs(5)) {
+        Ok(status) => status,
+        Err(error) => {
+            cancelled.store(true, Ordering::Release);
+            let _ = subscription.join();
+            return Err(format!("{protocol_label} 订阅未返回状态：{error}"));
+        }
+    };
+    if status.state != MqttSubscriptionState::Subscribed {
+        cancelled.store(true, Ordering::Release);
+        let _ = subscription.join();
+        return Err(format!("{protocol_label} 订阅未成功：{status:?}"));
+    }
+
+    for payload in [b"backpressure-first".as_slice(), b"backpressure-second"] {
+        if let Err(error) = smol::block_on(driver.publish(
+            &profile,
+            &MqttPublishRequest {
+                topic: topic.clone(),
+                payload: payload.to_vec(),
+                qos: MqttQos::AtLeastOnce,
+                retain: false,
+                user_properties: Vec::new(),
+            },
+        )) {
+            cancelled.store(true, Ordering::Release);
+            let _ = subscription.join();
+            return Err(format!("{protocol_label} 背压测试发布失败：{error}"));
+        }
+    }
+
+    let first = match receiver.recv_timeout(Duration::from_secs(5)) {
+        Ok(message) => message,
+        Err(error) => {
+            cancelled.store(true, Ordering::Release);
+            let _ = subscription.join();
+            return Err(format!(
+                "{protocol_label} 背压测试未收到第一条消息：{error}"
+            ));
+        }
+    };
+    let second = match receiver.recv_timeout(Duration::from_secs(5)) {
+        Ok(message) => message,
+        Err(error) => {
+            cancelled.store(true, Ordering::Release);
+            let _ = subscription.join();
+            return Err(format!(
+                "{protocol_label} 背压解除后未收到第二条消息：{error}"
+            ));
+        }
+    };
+    if first.payload != b"backpressure-first" || second.payload != b"backpressure-second" {
+        cancelled.store(true, Ordering::Release);
+        let _ = subscription.join();
+        return Err(format!(
+            "{protocol_label} 背压消息顺序或内容不正确：first={:?}, second={:?}",
+            first.payload, second.payload
+        ));
+    }
+
+    cancelled.store(true, Ordering::Release);
+    let result = subscription
+        .join()
+        .map_err(|_| format!("{protocol_label} 背压订阅线程不应 panic"))?;
+    result.map_err(|error| format!("{protocol_label} 背压订阅结束失败：{error}"))
+}
+
+#[test]
+fn docker_mosquitto_retries_backpressured_messages_for_both_protocols() -> Result<(), String> {
+    let Some(v5_profile) = docker_profile(MqttProtocolVersion::V5) else {
+        eprintln!(
+            "Skipping Docker MQTT backpressure test; set RAMAG_TEST_MQTT_HOST and RAMAG_TEST_MQTT_PORT or run scripts/mqtt-test/mqtt-test.ps1 test."
+        );
+        return Ok(());
+    };
+    let Some(v311_profile) = docker_profile(MqttProtocolVersion::V311) else {
+        return Ok(());
+    };
+    let driver = NativeMqttTransport::new();
+    for (profile, label) in [(v5_profile, "MQTT 5"), (v311_profile, "MQTT 3.1.1")] {
+        smol::block_on(driver.test_connection(&profile))
+            .map_err(|error| format!("{label} 应连接到本机 Mosquitto：{error}"))?;
+        exercise_backpressured_subscription(driver, profile, label)?;
+    }
     Ok(())
 }

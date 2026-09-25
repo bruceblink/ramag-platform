@@ -1,10 +1,34 @@
 use std::collections::VecDeque;
 
+const SUBSCRIPTION_SINK_RETRY_DELAY: Duration = Duration::from_millis(10);
+
 struct SubscriptionRuntime {
     sink: MqttMessageSink,
     status_sink: MqttSubscriptionStatusSink,
     commands: MqttSubscriptionCommandReceiver,
     cancelled: Arc<AtomicBool>,
+}
+
+/// Delivers one subscription message without advancing the Broker event loop while the UI sink
+/// is full. The message is cloned only for bounded retry attempts; cancellation or a closed sink
+/// ends the subscription loop instead of silently dropping the payload.
+async fn deliver_subscription_message(
+    sink: &MqttMessageSink,
+    message: MqttMessage,
+    cancelled: &AtomicBool,
+) -> bool {
+    loop {
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            return false;
+        }
+        match sink(message.clone()) {
+            ramag_domain::entities::MqttMessageSinkResult::Accepted => return true,
+            ramag_domain::entities::MqttMessageSinkResult::Closed => return false,
+            ramag_domain::entities::MqttMessageSinkResult::Backpressured => {
+                tokio::time::sleep(SUBSCRIPTION_SINK_RETRY_DELAY).await;
+            }
+        }
+    }
 }
 
     fn create_v311_client(profile: &MqttProfile) -> Result<(AsyncClient, EventLoop)> {
@@ -424,10 +448,7 @@ struct SubscriptionRuntime {
                             user_properties: vec![],
                         };
                         message.validate().map_err(DomainError::InvalidConfig)?;
-                        if matches!(
-                            sink(message),
-                            ramag_domain::entities::MqttMessageSinkResult::Closed
-                        ) {
+                        if !deliver_subscription_message(&sink, message, &cancelled).await {
                             return Ok(());
                         }
                     }
@@ -612,10 +633,7 @@ struct SubscriptionRuntime {
                             user_properties,
                         };
                         message.validate().map_err(DomainError::InvalidConfig)?;
-                        if matches!(
-                            sink(message),
-                            ramag_domain::entities::MqttMessageSinkResult::Closed
-                        ) {
+                        if !deliver_subscription_message(&sink, message, &cancelled).await {
                             return Ok(());
                         }
                     }

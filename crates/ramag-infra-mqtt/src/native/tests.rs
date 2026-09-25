@@ -130,3 +130,71 @@
             };
             assert_eq!(category, Some(MqttErrorCategory::Unsupported));
         }
+
+        #[tokio::test(flavor = "current_thread")]
+        async fn backpressured_subscription_message_is_retried_until_accepted()
+        -> std::result::Result<(), String> {
+            use std::sync::atomic::{AtomicUsize, Ordering};
+
+            use async_channel::TrySendError;
+            use ramag_domain::entities::{MqttMessage, MqttMessageSinkResult, MqttQos};
+
+            let message = MqttMessage {
+                topic: "devices/state".into(),
+                payload: b"second".to_vec(),
+                qos: MqttQos::AtLeastOnce,
+                retain: false,
+                duplicate: false,
+                received_at: chrono::Utc::now(),
+                user_properties: Vec::new(),
+            };
+            let placeholder = MqttMessage {
+                payload: b"first".to_vec(),
+                ..message.clone()
+            };
+            let (sender, receiver) = async_channel::bounded(1);
+            sender
+                .try_send(placeholder)
+                .map_err(|error| format!("测试应先填满消息队列：{error}"))?;
+            let first_backpressure = Arc::new(tokio::sync::Notify::new());
+            let backpressure_signal = first_backpressure.clone();
+            let attempts = Arc::new(AtomicUsize::new(0));
+            let attempt_counter = attempts.clone();
+            let sink: MqttMessageSink = Arc::new(move |message| {
+                attempt_counter.fetch_add(1, Ordering::Relaxed);
+                match sender.try_send(message) {
+                    Ok(()) => MqttMessageSinkResult::Accepted,
+                    Err(TrySendError::Full(_)) => {
+                        backpressure_signal.notify_one();
+                        MqttMessageSinkResult::Backpressured
+                    }
+                    Err(TrySendError::Closed(_)) => MqttMessageSinkResult::Closed,
+                }
+            });
+            let cancelled = AtomicBool::new(false);
+            let delivery = deliver_subscription_message(
+                &sink,
+                message.clone(),
+                &cancelled,
+            );
+            let release = async {
+                first_backpressure.notified().await;
+                receiver
+                    .recv()
+                    .await
+                    .map_err(|error| format!("应取出占位消息：{error}"))
+            };
+            let (accepted, received_placeholder) = tokio::join!(delivery, release);
+            let received_placeholder = received_placeholder?;
+            assert_eq!(received_placeholder.payload, b"first");
+            if !accepted {
+                return Err("消息在背压解除前被取消或接收方关闭".into());
+            }
+            let received_message = receiver
+                .recv()
+                .await
+                .map_err(|error| format!("背压解除后应收到原消息：{error}"))?;
+            assert_eq!(received_message.payload, message.payload);
+            assert!(attempts.load(Ordering::Relaxed) >= 2);
+            Ok(())
+        }

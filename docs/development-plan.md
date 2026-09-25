@@ -1,7 +1,7 @@
 # Ramag Platform 后续开发计划
 
 更新日期：2026-09-25
-状态：已保存；R6、R7 已完成验证，R7 随本次独立提交推送。
+状态：已保存；R6、R7、R8 已完成验证，R8 随本次独立提交推送。
 适用范围：在现有主线路线图和代码审查修复计划基础上，继续收尾未提交改动、修复已知问题并完善已有功能。
 
 ## 术语表与命名约定
@@ -64,7 +64,7 @@
 1. 已建立本文件及 `docs/code-review-remediation-plan-2026-09-23.md` 的审查基线。
 2. R5 请求搜索清除按钮交互回归（`58675ea2`）、R11 workspace Clippy 修复（`480fc9b1`）、R1 工作区读取失败处理（`de232c7b`）和 R2 保存生命周期隔离（`fde33b9f`）已随 `dev` 的整合提交进入 `main`。
 3. R3 Collection 历史写入失败处理（`1204b397`）和 R4 MySQL 8.4 基线校正（`15513a44`）已先在原开发流程中验证，随后由 `9c14fa7a` 将已验证的 `dev` 整合到 `main`；`origin/main` 已完成推送。
-4. 已确认 `dev`、`feat/r6-mysql-generated-columns` 和 `fix/api-search-clear-regression` 没有未合并/未推送提交或关联 worktree，随后删除本地引用；远程 `origin/dev` 也已删除，当前仅保留 `main`/`origin/main`。R6 表设计器 DDL 安全性已完成实现和验证并推送；R7 已完成 SQLite 非空表新增必填字段保护，下一项按专项计划实施 R8、R9、R10。
+4. 已确认 `dev`、`feat/r6-mysql-generated-columns` 和 `fix/api-search-clear-regression` 没有未合并/未推送提交或关联 worktree，随后删除本地引用；远程 `origin/dev` 也已删除，当前仅保留 `main`/`origin/main`。R6 表设计器 DDL 安全性、R7 SQLite 非空表新增必填字段保护和 R8 MQTT 订阅背压修复均已完成验证并推送；下一项按专项计划实施 R9、R10。
 
 已完成事项及证据以本文件“切片执行记录”和 [`code-review-remediation-plan-2026-09-23.md`](code-review-remediation-plan-2026-09-23.md) 的执行记录为准，不再把已进入 `main` 的改动列作待办。
 
@@ -135,3 +135,12 @@
 - SQLite 测试环境：使用本机临时 SQLite 文件，不依赖 Docker；分别验证空表新增必填字段成功、非空表无默认值被 SQLite 拒绝、非空表带默认值成功，并回读列元数据确认约束和默认值。
 - UI 证据：Computer Use 原生应用接口在启动 Ramag 后仍返回空应用列表，无法完成真实窗口交互；已使用系统截图 `artifacts/ui-screenshots/r7-ramag-window-fallback.png` 和 headless 表设计器测试替代。截图只证明新构建可启动，不证明真实表设计器导航、行探测等待或点击流程。
 - Git：R7 以单一 Conventional Commit 提交并推送 `main`；R8-R10 继续保持独立切片。
+
+### R8：MQTT 订阅背压不丢消息（2026-09-25）
+
+- 设计：`MqttMessageSinkResult::Backpressured` 表示接收队列暂满，不是可忽略的丢弃结果。Native MQTT 3.1.1 和 MQTT 5 数据面保留原消息，暂停继续轮询 Broker 事件，按短间隔重试；取消或接收端关闭时结束订阅。
+- 改动范围：领域层明确 sink 背压接口约定；两个 Native 协议路径共用有界重试 helper；增加 native 单元测试、MQTT 5/3.1.1 本机 Docker 背压集成测试。没有扩大到本地 Broker 事件队列的独立策略。
+- 验收：`cargo test --locked -p ramag-infra-mqtt --features native --lib -- --nocapture`（17 项通过、1 项忽略）；`cargo test --locked -p ramag-tool-mqtt --lib`（32 项通过）；`cargo test --locked --workspace` 全部通过；`cargo clippy --workspace --all-targets -- -D warnings` 和 native feature Clippy、fmt、源码尺寸、`git diff --check` 均通过。
+- Docker 环境：本机容器 `ramag-mqtt-test` 使用 `eclipse-mosquitto:2.0.20`，绑定 `127.0.0.1:18883->1883`；`scripts/mqtt-test/mqtt-test.ps1 test` 启动并执行 MQTT 5 与 3.1.1 背压测试，随后执行 `... mqtt-test.ps1 clean` 删除容器和网络，无命名卷残留。
+- UI 证据：Computer Use 原生应用接口在启动最新 Ramag 后仍返回空应用列表，无法完成真实 MQTT 窗口交互；已使用系统截图 `artifacts/ui-screenshots/r8-ramag-window-fallback.png` 和 headless MQTT UI 测试替代。截图只证明数据库客户端窗口可启动，不证明订阅、队列背压或丢消息提示流程。
+- Git：R8 以单一 Conventional Commit 提交并推送 `main`；R9、R10 继续保持独立切片。

@@ -1,6 +1,6 @@
 # 代码审查与修复优化计划（2026-09-23）
 
-> 状态：R1-R7、R11 已进入已验证、已推送的 `main`；R3、R4 以及本次临时源分支均已清理；R8-R10 尚待实施。
+> 状态：R1-R8、R11 已进入已验证、已推送的 `main`；R3、R4 以及本次临时源分支均已清理；R9-R10 尚待实施。
 >
 > 范围：本计划基于当前 `main` / `v0.2.0` 基线，重点检查近期 API 工作台、数据库工作台、MQTT 工作台、启动生命周期和本地集成测试维护。计划只安排可复现、可独立验收的修复；不把真实 Windows 窗口证据或新的协议能力混入同一次提交。
 
@@ -24,7 +24,7 @@
 3. API Collection 的历史写入错误会通过 `?` 直接结束整个集合，UI 收不到已完成结果汇总，缺少明确的持久化失败策略。
 4. 审查时数据库测试与文档残留 MySQL 8.0 表述，而仓库规则已要求 MySQL 8.4+；R4 已在本计划执行记录中完成文档校正，原历史数据不再被描述为当前验收证据。
 5. 审查时表设计器生成的 MySQL `CHANGE COLUMN` 定义没有保留 `AUTO_INCREMENT` 等生成属性，SQLite 对已存在数据的必填新增字段也没有在预览阶段拒绝；R6、R7 已按计划修复并完成对应数据库验证。
-6. MQTT 订阅消息进入有界 UI 队列后遇到背压会静默丢弃，SSH 远程覆盖提交在新文件已替换成功后可能仍报告失败，Linux 单实例旧 Socket 清理存在并发竞态。
+6. 审查时 MQTT 订阅消息进入有界 UI 队列后遇到背压会静默丢弃，SSH 远程覆盖提交在新文件已替换成功后可能仍报告失败，Linux 单实例旧 Socket 清理存在并发竞态；R8 已修复，R9、R10 仍待实施。
 7. R11 的 workspace Clippy 基线问题已修复；后续切片仍必须在提交前通过统一 workspace 检查。
 
 本轮还确认一个验证缺口：API 搜索清除按钮已有实现，但现有测试通过直接写入空字符串验证恢复列表，没有真正模拟清除按钮点击或焦点回归。因此它应作为第一项交互回归切片，而不是继续把现有“已验证”记录当作完整交互证据。
@@ -89,13 +89,14 @@
 - 验收：本机 SQLite 空表和非空表分别验证；非空表必填无默认值在预览阶段被拒绝；有默认值、可空字段和空表场景生成并执行成功。
 - 修复结果（2026-09-25）：SQLite 打开表设计器时先执行 `SELECT 1 ... LIMIT 1` 探测是否存在数据；空表允许无默认值的必填字段，非空表要求默认值或允许 `NULL`，探测失败或未知时拒绝生成危险 SQL。headless 测试和 SQLite 驱动实际执行测试均已通过。
 
-### R8：MQTT 订阅背压会静默丢消息（P1）
+### R8：MQTT 订阅背压会静默丢消息（P1，已修复）
 
 - 位置：`crates/ramag-tool-mqtt/src/mqtt_view/mqtt_operations.rs` 的 32 条消息队列，以及 `crates/ramag-infra-mqtt/src/native/mqtt_data_plane.rs` 的 MQTT 3.1.1/5 发布处理。
 - 现状：UI 接收队列满时返回 `Backpressured`；两个 Native 数据面只对 `Closed` 停止，对 `Backpressured` 继续读取并丢弃当前消息，没有计数、状态提示或可选暂停策略。
 - 影响：高吞吐订阅期间用户看到的消息列表可能缺少消息，却无法知道丢失发生；这会影响调试、审计和问题复现。
 - 修复方向：明确产品策略：至少记录有界丢弃计数并在 UI 显示“已丢弃 N 条”，或让数据面在背压时暂停读取/断开订阅；不能静默把 `Backpressured` 当作成功。
 - 验收：人为阻塞 UI 接收方并填满队列，确认背压被记录、状态可见且不会误报完整接收；MQTT 3.1.1 和 MQTT 5 共用同一策略。
+- 修复结果（2026-09-25）：选择暂停读取策略；两个 Native 协议路径在 sink 返回 `Backpressured` 时保留原消息并重试，取消或接收端关闭时安全退出，不再静默丢弃。
 
 ### R9：SSH 远程覆盖提交的结果状态可能与目标文件不一致（P2）
 
@@ -146,6 +147,7 @@
 - R4 验证：功能分支提交 `15513a44` 通过 `e247d884` 合并到 `dev`，再由 `9c14fa7a` 整合到 `main` 并推送；目标分支和整合后的 `main` 均通过 `git diff --check`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 和源码尺寸检查。`rg -n -i "mysql.{0,45}8\\.0|8\\.0.{0,45}mysql|mysql:8\\.0|mysql-8\\.0"` 检出的文档命中均明确标作历史旧基线或审查记录；`crates/ramag-infra-mysql/src/errors.rs` 中 `/8.0/` 只属于 MySQL 官方错误参考文档 URL，不是运行版本或测试镜像。此文档切片未运行集成测试。源分支已清理。
 - R6 已完成并推送 `main`：`CHANGE COLUMN` 定义显式保留 `AUTO_INCREMENT`、生成表达式以及 `VIRTUAL`/`STORED` 属性，对不完整生成元数据和不支持的身份元数据拒绝生成 SQL。`cargo test --locked -p ramag-tool-dbclient --lib table_designer -- --nocapture`（21 项）、`cargo test --locked -p ramag-tool-dbclient --lib`（320 项）和 `cargo test --locked -p ramag-infra-mysql --test column_metadata -- --nocapture`（2 项）均通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 均通过。测试使用本机 `ramag-r6-mysql84` / `mysql:8.4`，端口 `127.0.0.1:13316->3306`，测试完成后执行 `docker rm -f`，容器和临时卷均已清理。Computer Use 原生应用接口不可用且应用列表为空，已改用系统截图 `artifacts/ui-screenshots/r6-system-fallback-window.png` 和 headless 表设计器测试；截图只证明 Ramag 窗口启动，不证明真实表设计器交互。
 - R7 已完成并推送 `main`：表设计器只在确认 SQLite 表为空时生成无默认值的 `NOT NULL` 新字段；非空表要求默认值或允许 `NULL`，未知状态拒绝生成。`cargo test --locked -p ramag-tool-dbclient --lib table_designer -- --nocapture`（25 项）和 `cargo test --locked -p ramag-infra-sqlite --lib -- --nocapture`（5 项）均通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 均通过。SQLite 验证使用本机临时文件，未依赖外部服务。Computer Use 启动 Ramag 后仍返回空应用列表，已改用系统截图 `artifacts/ui-screenshots/r7-ramag-window-fallback.png` 和 headless 表设计器测试；截图只证明新构建可启动，不证明真实表设计器交互。
+- R8 已完成并推送 `main`：`Backpressured` 现在暂停两个 Native MQTT 协议路径的事件读取并重试原消息。`cargo test --locked -p ramag-infra-mqtt --features native --lib -- --nocapture`（17 项通过、1 项忽略）、`cargo test --locked -p ramag-tool-mqtt --lib`（32 项）和本机 Docker 两协议背压集成测试（2 项）均通过；workspace 全量测试、fmt、默认与 native feature Clippy、源码尺寸和 `git diff --check` 均通过。Docker 使用 `ramag-mqtt-test` / `eclipse-mosquitto:2.0.20` / `127.0.0.1:18883->1883`，测试后执行 clean 删除容器和网络，无命名卷残留。Computer Use 启动最新 Ramag 后仍返回空应用列表，已改用系统截图 `artifacts/ui-screenshots/r8-ramag-window-fallback.png` 和 headless MQTT UI 测试；截图只证明数据库客户端窗口可启动，不证明真实 MQTT 订阅交互。
 
 ## 3. 分阶段落地计划
 
@@ -178,14 +180,14 @@
 
 1. R6 已通过 MySQL 8.4 Docker 元数据回读测试，保留属性的最小 SQL 表达范围已固定并推送到 `main`。
 2. R7 已通过 SQLite 空表/非空表执行测试；表行探测失败时采用拒绝生成的安全策略，没有伪造重建表迁移。
-3. R6 与 R7 保持独立提交；下一步进入 R8，并继续每项只提交实现、对应测试和必要文档。
+3. R6、R7 与 R8 保持独立提交；下一步进入 R9，并继续每项只提交实现、对应测试和必要文档。
 
-### 阶段 F：消息、传输与进程边界可靠性
+### 阶段 F：消息、传输与进程边界可靠性（R8 已完成，R9-R10 待实施）
 
-1. R8 先固定背压语义和用户可见计数，再修改两个 Native MQTT 数据面；补 MQTT 3.1.1/5 的同构测试。
+1. R8 已固定背压语义并修改两个 Native MQTT 数据面，MQTT 3.1.1/5 本机 Docker 同构测试通过。
 2. R9 建立 SFTP 提交结果模型，先验证替换成功/备份清理失败的部分成功状态，再调整 UI 文案和重试入口。
 3. R10 先用可控并发测试复现 Socket 竞态，再选择锁或原子重试方案；不得仅增加 sleep 或扩大重试次数掩盖竞态。
-4. 三项分别提交、分别运行目标测试和必要的本机 Docker/真实端点验收；真实 Windows 窗口证据与协议正确性证据分开记录。
+4. R9、R10 分别提交、分别运行目标测试和必要的本机 Docker/真实端点验收；真实 Windows 窗口证据与协议正确性证据分开记录。
 
 ### 阶段 G：质量基线恢复（已完成）
 

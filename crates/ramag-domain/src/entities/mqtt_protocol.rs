@@ -224,7 +224,10 @@ impl MqttMessage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MqttMessageSinkResult {
     Accepted,
+    /// The receiver is temporarily full; the caller must retain and retry this message before
+    /// polling more Broker events, otherwise the subscription would silently lose data.
     Backpressured,
+    /// The receiver no longer accepts messages; the caller should stop the subscription loop.
     Closed,
 }
 
