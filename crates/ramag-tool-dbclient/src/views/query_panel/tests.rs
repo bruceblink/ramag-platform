@@ -189,6 +189,75 @@ fn editor_toolbar_keeps_actions_visible_in_three_window_widths(cx: &mut TestAppC
     }
 }
 
+/// The Query Console context row keeps the active connection and Schema visible without
+/// displacing the scrollable query-tab strip at the supported workbench widths.
+#[gpui_kit::test]
+fn query_context_bar_keeps_connection_and_schema_inside_supported_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let service = Arc::new(ConnectionService::new(
+        HashMap::new(),
+        Arc::new(NoopStorage::default()),
+    ));
+    let schema_cache = SchemaCache::new_shared();
+    schema_cache.write().all_schemas = vec!["analytics".into(), "public".into()];
+    let connection = ConnectionConfig::new_mysql(
+        "非常长的分析数据库连接名称，用于上下文条省略测试",
+        "db.internal.example",
+        3306,
+        "ramag",
+    );
+    let mut panel_entity = None;
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let panel = cx.new(|cx| {
+            QueryPanel::new(
+                service,
+                schema_cache,
+                ramag_ui::ResultMemoryBudget::default(),
+                window,
+                cx,
+            )
+        });
+        panel_entity = Some(panel.clone());
+        gpui_kit::component::Root::new(panel, window, cx)
+    });
+    let panel = panel_entity.expect("查询面板应创建");
+
+    cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.set_connection(Some(connection), window, cx);
+            panel.set_active_schema(Some("analytics".into()), window, cx);
+            panel.toggle_editor(cx);
+        });
+    });
+    cx.run_until_parked();
+
+    for width in [360.0, 1024.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(640.0)));
+        panel.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+
+        let bar = cx
+            .debug_bounds("query-context-bar")
+            .expect("查询上下文条应渲染");
+        let connection = cx
+            .debug_bounds("query-context-connection")
+            .expect("连接上下文应渲染");
+        let schema = cx
+            .debug_bounds("query-context-schema")
+            .expect("Schema 下拉入口应渲染");
+        assert!(bar.right() <= px(width), "查询上下文条不能越出窗口");
+        assert!(
+            connection.right() <= bar.right(),
+            "连接上下文不能越出父容器"
+        );
+        assert!(schema.right() <= bar.right(), "Schema 入口不能越出父容器");
+        assert!(
+            schema.bottom() <= bar.bottom(),
+            "Schema 入口不能被上下文条裁掉"
+        );
+    }
+}
+
 /// Narrow sessions expose a tree toggle without taking horizontal space from the query surface.
 #[gpui_kit::test]
 fn compact_session_toolbar_only_appears_below_the_session_breakpoint(cx: &mut TestAppContext) {

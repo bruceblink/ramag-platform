@@ -29,6 +29,119 @@ impl Render for QueryPanel {
         let only_one = titles.len() <= 1;
         let can_add_tab = can_open_editor_tab(self.tabs.len());
 
+        let query_context_bar = {
+            let connection = self.connection.clone();
+            let schema = self.active_schema.clone();
+            let schemas = self.schema_cache.read().all_schemas.clone();
+            let panel = cx.entity();
+            let (connection_name, endpoint, driver) = connection.as_ref().map_or_else(
+                || ("未选择连接".to_string(), "连接上下文不可用".to_string(), ""),
+                |connection| {
+                    (
+                        connection.name.clone(),
+                        format!("{}:{}", connection.host, connection.port),
+                        match connection.driver {
+                            ramag_domain::entities::DriverKind::Mysql => "MySQL",
+                            ramag_domain::entities::DriverKind::Postgres => "PostgreSQL",
+                            ramag_domain::entities::DriverKind::Sqlite => "SQLite",
+                            ramag_domain::entities::DriverKind::Redis => "Redis",
+                            ramag_domain::entities::DriverKind::Mongodb => "MongoDB",
+                        },
+                    )
+                },
+            );
+            let schema_label = schema.clone().unwrap_or_else(|| "未选择 Schema".into());
+            let current_schema = schema.clone();
+            h_flex()
+                .id("query-context-bar")
+                .debug_selector(|| "query-context-bar".into())
+                .w_full()
+                .h(px(34.0))
+                .flex_none()
+                .items_center()
+                .gap_2()
+                .px_3()
+                .border_b_1()
+                .border_color(border)
+                .bg(theme.background)
+                .child(
+                    gpui_kit::component::Icon::new(IconName::HardDrive)
+                        .small()
+                        .text_color(muted_fg),
+                )
+                .child(
+                    v_flex()
+                        .id("query-context-connection")
+                        .debug_selector(|| "query-context-connection".into())
+                        .flex_1()
+                        .min_w_0()
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(fg)
+                                .whitespace_nowrap()
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .child(connection_name),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(muted_fg)
+                                .whitespace_nowrap()
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .child(if driver.is_empty() {
+                                    endpoint
+                                } else {
+                                    format!("{driver} · {endpoint}")
+                                }),
+                        ),
+                )
+                .child(
+                    gpui_kit::component::Icon::new(IconName::FolderClosed)
+                        .xsmall()
+                        .text_color(muted_fg),
+                )
+                .child({
+                    let disabled = connection.is_none() || schemas.is_empty();
+                    ramag_ui::clickable_button("query-context-schema")
+                        .debug_selector(|| "query-context-schema".into())
+                        .ghost()
+                        .small()
+                        .label(schema_label)
+                        .dropdown_caret(true)
+                        .disabled(disabled)
+                        .tooltip(if disabled {
+                            "当前连接尚未提供可用 Schema"
+                        } else {
+                            "切换当前查询 Schema"
+                        })
+                        .pointer_dropdown_menu(move |mut menu, _, _| {
+                            for candidate in schemas.clone() {
+                                let selected =
+                                    current_schema.as_deref() == Some(candidate.as_str());
+                                let panel = panel.clone();
+                                let value = candidate.clone();
+                                menu = menu.item(
+                                    ramag_ui::menu_item(candidate).checked(selected).on_click(
+                                        move |_, window, app| {
+                                            panel.update(app, |panel, cx| {
+                                                panel.set_active_schema(
+                                                    Some(value.clone()),
+                                                    window,
+                                                    cx,
+                                                );
+                                            });
+                                        },
+                                    ),
+                                );
+                            }
+                            menu
+                        })
+                })
+        };
+
         let current_view: Option<AnyView> = self.tabs.get(active).map(|t| t.clone().into());
 
         let tab_bar_items: Vec<gpui_kit::AnyElement> = titles
@@ -161,6 +274,9 @@ impl Render for QueryPanel {
             })
             .when(self.show_editor, |panel| {
                 panel.child(
+                    query_context_bar
+                )
+                .child(
                     ramag_ui::responsive_toolbar()
                         .debug_selector(|| "sql-editor-toolbar".into())
                         .flex_none()

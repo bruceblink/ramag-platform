@@ -46,7 +46,7 @@
 
 ## 4. 当前切片
 
-`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，下一项为 `DB-RED-05`。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 当前进入 `DB-RED-05A`（Query Console 上下文条）。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
@@ -111,7 +111,28 @@
 - Docker：本机 `mysql:8.4` 容器 `ramag-db-red04-mysql84` 使用 `127.0.0.1:13317 -> 3306`，本机 `postgres:17-alpine` 容器 `ramag-db-red04-postgres17` 使用 `127.0.0.1:15443 -> 5432`；两服务健康检查通过，MySQL/PostgreSQL `virtual_views` 集成测试各 1 项通过，实际返回当前会话列；测试后执行 `docker rm -f`，两个临时容器均不存在。
 - 质量：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
 - 真实窗口：按 Computer Use 初始化检查返回 `apps: []`，没有可操作的 Ramag/DataGrip 原生窗口；因此本切片只记录 headless 和真实 Docker 证据，未宣称真实窗口点击、刷新和查询标签流程完成。
-- Git：本记录对应一个独立功能提交并推送 `main`；下一项进入 `DB-RED-05`，继续按截图中的对象树与查询工作区标准推进。
+- Git：本记录对应一个独立功能提交并推送 `main`；下一项进入 `DB-RED-05A`，继续按截图中的对象树与查询工作区标准推进。
+
+### DB-RED-05A：Query Console 上下文条（2026-09-26，设计确认）
+
+- 设计：在查询标签栏上方增加稳定的连接/驱动/端点上下文条；Schema 使用已有元数据缓存提供下拉切换，切换沿用现有未提交状态确认和所有标签同步机制。上下文条在窄窗口保持单行省略，不挤压标签滚动区。
+- 改动范围：`QueryPanel` 查询上下文渲染、Schema 下拉入口、`Tx: Auto` 文案统一和对应 headless 边界测试；不在本切片实现结果网格分页/排序、DDL 操作或事务语义改造。
+- 安全边界：连接名称、主机和 Schema 只作为已验证配置/缓存文本展示；Schema 选择不拼接 SQL；没有连接或没有缓存 Schema 时显示明确占位并禁用下拉。
+- 验收条件：
+  - headless 在 `360x640`、`1024x768`、`1440x900` 验证上下文条、连接名称、Schema 入口、标签栏和右侧工具动作均在父容器内；长连接名和 Schema 不遮挡按钮；
+  - 通过 Schema 下拉选择后，所有 QueryTab 的活动 Schema 同步，原有未提交草稿/结果确认规则保持不变；
+  - `cargo fmt --all -- --check`、workspace Clippy、源码尺寸、目标测试和 `git diff --check` 全部通过；本切片不需要新增 Docker 服务；Computer Use 不可用时如实记录真实窗口限制。
+- 不做事项：不新增驱动协议、不执行数据库请求、不实现 `WHERE`/`ORDER BY` 网格筛选、不加入 DDL 执行按钮；这些分别归入后续 `DB-RED-05B`、`DB-RED-06`、`DB-RED-07`。
+
+### DB-RED-05A：验收记录（2026-09-26）
+
+- 实现：Query Console 在标签栏上方显示连接名称、驱动、端点和当前 Schema；Schema 下拉复用 `SchemaCache::all_schemas`，选择后调用既有 QueryPanel 上下文切换流程，所有 QueryTab 保持同一活动 Schema。
+- UI：上下文条固定 34px 高度，连接文本和端点在窄窗口省略，标签区继续独立水平滚动；事务状态统一显示 `Tx: Auto`、`Tx: Manual`、`Tx: Processing`、`Tx: Error`，与参考图控制条语义一致。
+- Headless：`cargo test --locked -p ramag-tool-dbclient --lib -- --nocapture`（329 项通过）；新增 `query_context_bar_keeps_connection_and_schema_inside_supported_widths` 覆盖 `360x640`、`1024x768`、`1440x900`，并复跑 QueryPanel 11 项与 QueryTab 56 项专项测试。
+- Docker：本切片只展示已缓存连接和 Schema，不新增或访问数据库服务。
+- 质量：`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 真实窗口：Computer Use 初始化检查返回 `apps: []`，没有可操作的 Ramag/DataGrip 原生窗口；本切片只记录 headless 证据，未宣称真实窗口下拉选择和标签滚动完成。
+- Git：验证通过后使用单一功能提交并推送 `main`；下一项为 `DB-RED-05B`（结果网格分页、排序和 `WHERE`/`ORDER BY` 条件条）。
 
 ## 5. 分支和清理
 

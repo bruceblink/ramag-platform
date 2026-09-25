@@ -63,13 +63,13 @@ impl QueryTab {
 
     pub(super) fn transaction_label(&self) -> &'static str {
         if self.transaction_busy {
-            "事务处理中"
+            "Tx: Processing"
         } else if self.transaction_error.is_some() {
-            "事务异常"
+            "Tx: Error"
         } else if self.transaction.is_some() {
-            "手动提交"
+            "Tx: Manual"
         } else {
-            "自动提交"
+            "Tx: Auto"
         }
     }
 

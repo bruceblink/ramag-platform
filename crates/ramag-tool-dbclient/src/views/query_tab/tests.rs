@@ -490,11 +490,11 @@ fn transaction_failure_status_is_explicit(cx: &mut TestAppContext) {
     });
 
     tab.update(cx, |tab, _cx| {
-        assert_eq!(tab.transaction_label(), "自动提交");
+        assert_eq!(tab.transaction_label(), "Tx: Auto");
         tab.transaction_error = Some("事务语句失败".into());
-        assert_eq!(tab.transaction_label(), "事务异常");
+        assert_eq!(tab.transaction_label(), "Tx: Error");
         tab.transaction_busy = true;
-        assert_eq!(tab.transaction_label(), "事务处理中");
+        assert_eq!(tab.transaction_label(), "Tx: Processing");
     });
 }
 
