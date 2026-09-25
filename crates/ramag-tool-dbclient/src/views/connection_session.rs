@@ -25,10 +25,6 @@ use crate::views::table_tree::{TableTreePanel, TreeEvent};
 /// 元数据缓存刷新间隔，用于同步外部结构变更。
 const CACHE_TTL: Duration = Duration::from_secs(60);
 
-const TREE_WIDTH_INITIAL: f32 = 280.0;
-const TREE_WIDTH_MIN: f32 = 180.0;
-const TREE_WIDTH_MAX: f32 = 600.0;
-
 pub struct ConnectionSession {
     config: ConnectionConfig,
     tree: Entity<TableTreePanel>,
@@ -401,26 +397,44 @@ impl ConnectionSession {
 impl Render for ConnectionSession {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let compact = is_compact_session_width(f32::from(window.viewport_size().width));
+        let viewport_width = f32::from(window.viewport_size().width);
+        let compact = is_compact_session_width(viewport_width);
         let tree_visible = !compact || self.tree_visible;
         let session_content = if tree_visible {
-            h_resizable("session-resize")
-                .with_state(&self.resize_state)
+            div()
+                .debug_selector(|| "database-workbench".into())
+                .size_full()
+                .min_w_0()
                 .child(
-                    resizable_panel()
-                        .size(px(TREE_WIDTH_INITIAL))
-                        .size_range(px(TREE_WIDTH_MIN)..px(TREE_WIDTH_MAX))
+                    h_resizable("session-resize")
+                        .with_state(&self.resize_state)
                         .child(
-                            div()
-                                .size_full()
-                                .border_r_1()
-                                .border_color(theme.border)
-                                .child(self.tree.clone()),
+                            resizable_panel()
+                                .size(px(ramag_ui::initial_navigation_width(viewport_width)))
+                                .size_range(
+                                    px(ramag_ui::WORKBENCH_NAV_MIN_WIDTH)
+                                        ..px(ramag_ui::WORKBENCH_NAV_MAX_WIDTH),
+                                )
+                                .child(
+                                    div()
+                                        .debug_selector(|| {
+                                            "database-workbench-object-explorer".into()
+                                        })
+                                        .size_full()
+                                        .border_r_1()
+                                        .border_color(theme.border)
+                                        .child(self.tree.clone()),
+                                ),
+                        )
+                        .child(
+                            resizable_panel().child(
+                                div()
+                                    .debug_selector(|| "database-workbench-query-workbench".into())
+                                    .size_full()
+                                    .min_w_0()
+                                    .child(self.queries.clone()),
+                            ),
                         ),
-                )
-                .child(
-                    resizable_panel()
-                        .child(div().size_full().min_w_0().child(self.queries.clone())),
                 )
                 .into_any_element()
         } else {

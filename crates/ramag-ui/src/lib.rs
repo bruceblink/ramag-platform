@@ -31,6 +31,7 @@ pub mod system_settings;
 pub mod theme;
 pub(crate) mod tool_layout;
 pub mod transfer_ui;
+pub mod workbench;
 
 pub use actions::{CloseTab, OpenRecentItems};
 pub use assets::RamagAssets;
@@ -87,6 +88,11 @@ pub use theme::{Mode, StorageGlobal, apply_theme, current_mode, init_theme};
 pub use transfer_ui::{
     TransferState, open_import_options_dialog, progress_sink, spawn_transfer_ticker,
     transfer_notification, transfer_progress_row,
+};
+pub use workbench::{
+    WORKBENCH_COMPACT_BREAKPOINT, WORKBENCH_DENSE_ROW_HEIGHT, WORKBENCH_NAV_DEFAULT_WIDTH,
+    WORKBENCH_NAV_MAX_WIDTH, WORKBENCH_NAV_MIN_WIDTH, WORKBENCH_STATUS_HEIGHT,
+    WORKBENCH_TAB_HEIGHT, WORKBENCH_TOOLBAR_HEIGHT, initial_navigation_width, is_compact_workbench,
 };
 
 pub const FEEDBACK_ISSUE_URL: &str = "https://github.com/bruceblink/ramag-platform/issues/new";
@@ -539,6 +545,9 @@ mod shared_ui_tests;
 
 #[cfg(test)]
 mod dialog_layout_tests;
+
+#[cfg(test)]
+mod shell_visual_tests;
 
 #[cfg(test)]
 mod input_limit_tests {

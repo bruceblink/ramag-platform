@@ -28,11 +28,9 @@ pub mod tree_helpers;
 
 pub use dbclient_view::DbClientView;
 
-pub(super) const COMPACT_SESSION_BREAKPOINT: f32 = 720.0;
-
 /// Keeps the database session responsive before a fixed tree would starve the query area.
 pub(super) fn is_compact_session_width(width: f32) -> bool {
-    width < COMPACT_SESSION_BREAKPOINT
+    ramag_ui::is_compact_workbench(width)
 }
 
 pub(super) fn inline_text_preview(text: &str, max_chars: usize) -> String {
@@ -66,12 +64,13 @@ mod inline_text_tests {
 
 #[cfg(test)]
 mod session_layout_tests {
-    use super::{COMPACT_SESSION_BREAKPOINT, is_compact_session_width};
+    use super::is_compact_session_width;
 
     #[test]
     fn compact_session_breakpoint_preserves_a_usable_query_area() {
-        assert!(is_compact_session_width(COMPACT_SESSION_BREAKPOINT - 1.0));
-        assert!(!is_compact_session_width(COMPACT_SESSION_BREAKPOINT));
-        assert!(!is_compact_session_width(COMPACT_SESSION_BREAKPOINT + 1.0));
+        let breakpoint = ramag_ui::WORKBENCH_COMPACT_BREAKPOINT;
+        assert!(is_compact_session_width(breakpoint - 1.0));
+        assert!(!is_compact_session_width(breakpoint));
+        assert!(!is_compact_session_width(breakpoint + 1.0));
     }
 }

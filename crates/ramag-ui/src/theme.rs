@@ -1,4 +1,4 @@
-//! VSCode 风格暗 / 亮主题。`init_theme` 启动时初始化，ActivityBar 主题按钮两态切换（浅 / 暗）
+//! JetBrains 风格暗 / 亮主题。`init_theme` 启动时初始化，主题按钮支持两态切换。
 
 use std::sync::Arc;
 
@@ -106,12 +106,11 @@ pub fn current_mode(cx: &App) -> Mode {
     }
 }
 
-/// VSCode Dark+ 配色
+/// JetBrains 风格深色工作区配色：中性深灰承载层次，蓝色只用于焦点、选中和动作。
 fn apply_dark_palette(theme: &mut Theme) {
-    // VSCode 蓝（#007ACC）
-    let accent = hsl(207.0, 100.0, 42.0);
-    let accent_hover = hsl(207.0, 100.0, 50.0);
-    let accent_active = hsl(207.0, 100.0, 36.0);
+    let accent = hsl(209.0, 100.0, 65.0);
+    let accent_hover = hsl(209.0, 100.0, 72.0);
+    let accent_active = hsl(209.0, 100.0, 55.0);
 
     theme.accent = accent;
     theme.accent_foreground = hsl(0.0, 0.0, 100.0);
@@ -121,22 +120,22 @@ fn apply_dark_palette(theme: &mut Theme) {
     theme.primary_foreground = hsl(0.0, 0.0, 100.0);
 
     theme.link = accent_hover;
-    theme.link_hover = hsl(207.0, 100.0, 60.0);
+    theme.link_hover = hsl(209.0, 100.0, 78.0);
     theme.link_active = accent_active;
 
-    theme.background = hsl(0.0, 0.0, 12.0); // #1E1E1E
-    theme.secondary = hsl(0.0, 0.0, 15.0); // #252526
-    theme.sidebar = hsl(0.0, 0.0, 15.0);
-    theme.title_bar = hsl(0.0, 0.0, 19.0);
-    theme.title_bar_border = hsl(0.0, 0.0, 25.0);
+    theme.background = hsl(210.0, 7.0, 11.0); // #1B1D1F 附近的中性工作区底色
+    theme.secondary = hsl(220.0, 6.0, 14.0); // #202225 附近的面板底色
+    theme.sidebar = hsl(220.0, 6.0, 14.0);
+    theme.title_bar = hsl(220.0, 7.0, 9.0);
+    theme.title_bar_border = hsl(220.0, 6.0, 23.0);
 
-    theme.border = hsl(0.0, 0.0, 25.0);
-    theme.input = hsl(0.0, 0.0, 18.0);
+    theme.border = hsl(220.0, 6.0, 23.0);
+    theme.input = hsl(220.0, 6.0, 17.0);
 
-    theme.foreground = hsl(0.0, 0.0, 80.0);
-    theme.muted = hsl(0.0, 0.0, 22.0);
-    theme.muted_foreground = hsl(0.0, 0.0, 55.0);
-    theme.secondary_foreground = hsl(0.0, 0.0, 80.0);
+    theme.foreground = hsl(220.0, 15.0, 86.0);
+    theme.muted = hsl(220.0, 6.0, 20.0);
+    theme.muted_foreground = hsl(220.0, 6.0, 60.0);
+    theme.secondary_foreground = hsl(220.0, 15.0, 86.0);
 
     theme.danger = hsl(0.0, 75.0, 55.0);
     theme.danger_hover = hsl(0.0, 75.0, 60.0);
@@ -161,12 +160,12 @@ fn apply_dark_palette(theme: &mut Theme) {
     theme.list_active_border = accent.opacity(0.45);
     theme.list_hover = accent.opacity(0.12);
 
-    theme.popover = hsl(0.0, 0.0, 17.0);
-    theme.popover_foreground = hsl(0.0, 0.0, 86.0);
+    theme.popover = hsl(220.0, 6.0, 16.0);
+    theme.popover_foreground = hsl(220.0, 15.0, 90.0);
 
     // 补全前缀高亮：暗色下浅蓝可见于选中态深蓝 bg
-    theme.blue = hsl(207.0, 90.0, 70.0);
-    theme.blue_light = hsl(207.0, 90.0, 80.0);
+    theme.blue = hsl(209.0, 90.0, 75.0);
+    theme.blue_light = hsl(209.0, 90.0, 84.0);
 }
 
 /// VSCode Light+ 配色

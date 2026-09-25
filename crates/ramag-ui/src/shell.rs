@@ -13,6 +13,7 @@ use gpui_kit::{
 use ramag_app::{DataSyncGate, StaticPluginHost, ToolRegistry};
 
 use crate::activity_bar::{ActivityBar, NavEvent, NavTarget};
+use crate::workbench::WORKBENCH_TOOLBAR_HEIGHT;
 
 pub struct Shell {
     activity_bar: Entity<ActivityBar>,
@@ -295,6 +296,8 @@ impl Render for Shell {
             .tooltip("切换主题")
             .on_click(|_, _, cx| crate::theme::toggle_theme(cx));
 
+        let shell_label = self.window_title();
+
         v_flex()
             .size_full()
             .bg(bg_color)
@@ -314,14 +317,26 @@ impl Render for Shell {
                             .items_stretch()
                             .child(
                                 h_flex()
+                                    .id("workbench-shell-header")
+                                    .debug_selector(|| "workbench-shell-header".into())
                                     .w_full()
-                                    .h(px(44.0))
+                                    .h(px(WORKBENCH_TOOLBAR_HEIGHT))
                                     .flex_none()
                                     .items_center()
-                                    .justify_end()
+                                    .bg(cx.theme().secondary)
                                     .px_3()
                                     .border_b_1()
                                     .border_color(cx.theme().border)
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w_0()
+                                            .overflow_hidden()
+                                            .text_ellipsis()
+                                            .text_xs()
+                                            .text_color(cx.theme().secondary_foreground)
+                                            .child(shell_label),
+                                    )
                                     .child(theme_toggle),
                             )
                             .child(

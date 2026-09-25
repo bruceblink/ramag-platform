@@ -1,7 +1,7 @@
 # Ramag Platform 执行计划与验收记录入口
 
 > 状态：现行执行规则
-> 更新日期：2026-09-25
+> 更新日期：2026-09-26
 > 主线：[`development-roadmap.md`](development-roadmap.md)
 > 统一 UI 标准：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
 > 历史执行记录：[`archive/2026-09-25-pre-datagrip-rebaseline/development-plan.md`](archive/2026-09-25-pre-datagrip-rebaseline/development-plan.md)
@@ -44,7 +44,18 @@
 
 ## 4. 当前切片
 
-当前按照 [`development-roadmap.md`](development-roadmap.md) 从 `SHELL-001` 开始。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+`SHELL-001` 已完成并推送；当前下一项是 `DB-UX-001`。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+
+### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
+
+- 设计：新增 `ramag-ui::workbench` 共享几何令牌，统一导航器宽度、720px 紧凑断点、工具栏/标签/密集行/状态栏高度；深色主题从 VSCode Dark+ 调整为中性深灰与高亮蓝的 JetBrains 工作区层次。
+- 改动范围：主壳层顶部工具栏、数据库会话左侧对象导航器/中央查询区的共享宽度与调试选择器；没有改动数据库查询、连接或事务语义。
+- Headless UI：`cargo test --locked -p ramag-ui --lib -- --nocapture`（95 项通过），覆盖 `360x640`、`1024x768`、`1440x900` 的壳层顶部区域；新增 `workbench_shell_header_stays_inside_supported_window_sizes`。
+- 数据库回归：`cargo test --locked -p ramag-tool-dbclient --lib -- --nocapture`（324 项通过），包含会话紧凑断点和既有对象树/查询/结果网格边界测试。
+- 质量检查：`cargo fmt --all`、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 在提交前通过。
+- Docker：本切片不改变数据库协议或数据行为，未启动 Docker 服务。
+- 真实窗口：Computer Use 当前无法发现可操作的 DataGrip/Ramag 原生窗口，因此没有把进程启动或 headless 结果描述为真实窗口验收；真实窗口截图和鼠标/键盘流程仍待环境恢复后补充。
+- Git：使用单一功能提交并推送 `main`；下一步进入 `DB-UX-001`。
 
 ## 5. 分支和清理
 
