@@ -303,6 +303,59 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sqlite_required_column_addition_respects_existing_rows()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("table_designer.sqlite3");
+        let config = ConnectionConfig::new_sqlite("local", path.to_string_lossy());
+        let driver = SqliteDriver::new();
+
+        driver
+            .execute(
+                &config,
+                &Query::new(
+                    "CREATE TABLE empty_rows (id INTEGER PRIMARY KEY); CREATE TABLE populated_rows (id INTEGER PRIMARY KEY); INSERT INTO populated_rows (id) VALUES (1);",
+                ),
+            )
+            .await?;
+
+        driver
+            .execute(
+                &config,
+                &Query::new("ALTER TABLE empty_rows ADD COLUMN required TEXT NOT NULL;"),
+            )
+            .await?;
+        assert!(
+            driver
+                .execute(
+                    &config,
+                    &Query::new("ALTER TABLE populated_rows ADD COLUMN required TEXT NOT NULL;",),
+                )
+                .await
+                .is_err(),
+            "SQLite 应拒绝在非空表中新增无默认值的 NOT NULL 字段"
+        );
+        driver
+            .execute(
+                &config,
+                &Query::new(
+                    "ALTER TABLE populated_rows ADD COLUMN required_with_default TEXT NOT NULL DEFAULT 'ready';",
+                ),
+            )
+            .await?;
+
+        let columns = driver
+            .list_columns(&config, "main", "populated_rows")
+            .await?;
+        assert!(columns.iter().any(|column| {
+            column.name == "required_with_default"
+                && !column.nullable
+                && column.default_value.as_deref() == Some("'ready'")
+        }));
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn sqlite_rejects_direct_transaction_controls_and_rolls_back_failed_batch()
     -> std::result::Result<(), Box<dyn std::error::Error>> {
         let directory = tempfile::tempdir()?;

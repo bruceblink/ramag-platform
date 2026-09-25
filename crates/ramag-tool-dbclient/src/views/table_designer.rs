@@ -59,6 +59,8 @@ pub(super) struct TableDesignerConfig {
     pub(super) schema: String,
     pub(super) table: String,
     pub(super) columns: Vec<Column>,
+    /// SQLite 新增必填字段只有在确认表为空时才能安全生成 DDL；`None` 表示尚未确认。
+    pub(super) table_has_rows: Option<bool>,
     pub(super) loading: bool,
     pub(super) ddl_loading: bool,
     pub(super) on_execute: ExecuteHandler,
@@ -99,6 +101,8 @@ pub(super) struct TableDesigner {
     ddl_loading: bool,
     ddl_text: Option<String>,
     ddl_error: Option<String>,
+    /// SQLite 表行存在性探测结果；未知时拒绝生成可能破坏已有数据的 DDL。
+    table_has_rows: Option<bool>,
     preview_sql: Option<String>,
     preview_diff: Option<Vec<FieldDiffLine>>,
     discard_confirming: bool,
@@ -137,6 +141,7 @@ impl TableDesigner {
             ddl_loading: config.ddl_loading,
             ddl_text: None,
             ddl_error: None,
+            table_has_rows: config.table_has_rows,
             preview_sql: None,
             preview_diff: None,
             discard_confirming: false,
@@ -292,6 +297,15 @@ impl TableDesigner {
     pub(super) fn set_load_error(&mut self, error: String, cx: &mut Context<Self>) {
         self.loading = false;
         self.load_error = Some(error);
+        cx.notify();
+    }
+
+    /// 写入 SQLite 行存在性探测结果，并清除可能基于旧结果生成的预览。
+    pub(super) fn set_table_has_rows(&mut self, has_rows: bool, cx: &mut Context<Self>) {
+        self.table_has_rows = Some(has_rows);
+        self.preview_sql = None;
+        self.preview_diff = None;
+        self.discard_confirming = false;
         cx.notify();
     }
 

@@ -4,6 +4,8 @@ use ramag_domain::entities::{ColumnKind, ColumnType};
 
 #[path = "../table_designer_attribute_tests.rs"]
 mod table_designer_attribute_tests;
+#[path = "../table_designer_sqlite_tests.rs"]
+mod table_designer_sqlite_tests;
 
 fn column(name: &str, raw_type: &str, nullable: bool) -> Column {
     Column {
@@ -48,6 +50,15 @@ fn designer(
     columns: Vec<Column>,
     cx: &mut TestAppContext,
 ) -> (Entity<TableDesigner>, &mut gpui_kit::VisualTestContext) {
+    designer_with_table_state(driver, columns, None, cx)
+}
+
+fn designer_with_table_state(
+    driver: DriverKind,
+    columns: Vec<Column>,
+    table_has_rows: Option<bool>,
+    cx: &mut TestAppContext,
+) -> (Entity<TableDesigner>, &mut gpui_kit::VisualTestContext) {
     let mut designer = None;
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| {
@@ -57,6 +68,7 @@ fn designer(
                     schema: "public".into(),
                     table: "users".into(),
                     columns,
+                    table_has_rows,
                     loading: false,
                     ddl_loading: false,
                     on_execute: Rc::new(|_, _, _, _| true),
@@ -146,6 +158,7 @@ fn field_editor_and_actions_stay_inside_compact_dialog(cx: &mut TestAppContext) 
                     schema: "public".into(),
                     table: "users".into(),
                     columns,
+                    table_has_rows: None,
                     loading: false,
                     ddl_loading: false,
                     on_execute: Rc::new(|_, _, _, _| true),
@@ -243,6 +256,7 @@ fn ddl_preview_stays_inside_compact_window(cx: &mut TestAppContext) {
                     schema: "public".into(),
                     table: "users".into(),
                     columns: vec![column("id", "int", false)],
+                    table_has_rows: None,
                     loading: false,
                     ddl_loading: false,
                     on_execute: Rc::new(|_, _, _, _| true),

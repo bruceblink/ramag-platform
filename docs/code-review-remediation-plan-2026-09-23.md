@@ -1,6 +1,6 @@
 # 代码审查与修复优化计划（2026-09-23）
 
-> 状态：R1-R6、R11 已进入已验证、已推送的 `main`；R3、R4 以及本次临时 R6 源分支均已清理；R7-R10 尚待实施。
+> 状态：R1-R7、R11 已进入已验证、已推送的 `main`；R3、R4 以及本次临时源分支均已清理；R8-R10 尚待实施。
 >
 > 范围：本计划基于当前 `main` / `v0.2.0` 基线，重点检查近期 API 工作台、数据库工作台、MQTT 工作台、启动生命周期和本地集成测试维护。计划只安排可复现、可独立验收的修复；不把真实 Windows 窗口证据或新的协议能力混入同一次提交。
 
@@ -23,7 +23,7 @@
 2. API 工作台的保存回调没有请求代次保护，启动读取或其他异步工作区更新迟到时可能覆盖新状态。
 3. API Collection 的历史写入错误会通过 `?` 直接结束整个集合，UI 收不到已完成结果汇总，缺少明确的持久化失败策略。
 4. 审查时数据库测试与文档残留 MySQL 8.0 表述，而仓库规则已要求 MySQL 8.4+；R4 已在本计划执行记录中完成文档校正，原历史数据不再被描述为当前验收证据。
-5. 表设计器生成的 MySQL `CHANGE COLUMN` 定义没有保留 `AUTO_INCREMENT` 等生成属性；SQLite 对已存在数据的必填新增字段也没有在预览阶段拒绝。
+5. 审查时表设计器生成的 MySQL `CHANGE COLUMN` 定义没有保留 `AUTO_INCREMENT` 等生成属性，SQLite 对已存在数据的必填新增字段也没有在预览阶段拒绝；R6、R7 已按计划修复并完成对应数据库验证。
 6. MQTT 订阅消息进入有界 UI 队列后遇到背压会静默丢弃，SSH 远程覆盖提交在新文件已替换成功后可能仍报告失败，Linux 单实例旧 Socket 清理存在并发竞态。
 7. R11 的 workspace Clippy 基线问题已修复；后续切片仍必须在提交前通过统一 workspace 检查。
 
@@ -80,13 +80,14 @@
 - 验收：自增主键仅修改注释、类型或可空性的 SQL 回读测试；本机 MySQL 8.4 执行前后读取列元数据，确认属性不变；非法或无法映射的生成属性有明确错误。
 - 修复结果（2026-09-25）：`CHANGE COLUMN` 现在保留 `AUTO_INCREMENT`、生成表达式和 `VIRTUAL`/`STORED` 属性，并对不完整生成元数据和不支持的身份元数据返回明确错误；MySQL 8.4 Docker 回读测试已确认变更前后属性一致。
 
-### R7：SQLite 已有数据表新增必填字段会生成不可执行 SQL（P1）
+### R7：SQLite 已有数据表新增必填字段会生成不可执行 SQL（P1，已修复）
 
 - 位置：`crates/ramag-tool-dbclient/src/views/table_designer/sql.rs` 的 `sqlite_field_sql`。
 - 现状：新增字段直接生成 `ALTER TABLE ... ADD COLUMN ... NOT NULL`，没有知道表是否为空，也没有要求默认值。
 - 影响：SQLite 对非空表新增无默认值的 `NOT NULL` 字段会拒绝执行；用户在预览阶段看到可执行样式的 DDL，点击执行才失败，且没有迁移重建指导。
 - 修复方向：在设计器上下文提供表行数/空表信息，或保守地拒绝“无默认值的非空新增字段”；需要保留该能力时生成有界的重建表迁移方案并明确风险。
 - 验收：本机 SQLite 空表和非空表分别验证；非空表必填无默认值在预览阶段被拒绝；有默认值、可空字段和空表场景生成并执行成功。
+- 修复结果（2026-09-25）：SQLite 打开表设计器时先执行 `SELECT 1 ... LIMIT 1` 探测是否存在数据；空表允许无默认值的必填字段，非空表要求默认值或允许 `NULL`，探测失败或未知时拒绝生成危险 SQL。headless 测试和 SQLite 驱动实际执行测试均已通过。
 
 ### R8：MQTT 订阅背压会静默丢消息（P1）
 
@@ -144,6 +145,7 @@
 - R4 已进入 `main`：`docs/performance.md`、`docs/development-roadmap.md` 和 `docs/database-client-datagrip-roadmap.md` 明确 MySQL 8.4+ / PostgreSQL 17+ 当前基线，并给历史 MySQL 8.0 测量标注旧基线及“不是当前验收证据”；`scripts/db-test/compose.yaml` 已确认固定使用 MySQL `mysql:8.4`、PostgreSQL `postgres:17-alpine`、Redis `redis:7-alpine`、MongoDB `mongo:8.2`，分别绑定 `127.0.0.1:13306`、`:15432`、`:16379`、`:27018`。`db-test.sh` 使用 `docker compose up --detach --wait` 启动、普通停止保留数据卷、清理命令删除数据卷和本地测试凭据；README、CI 和脚本未发现 MySQL 8.0 镜像或当前测试命令。本切片没有改写历史结果，也没有运行或操作 Docker 服务。源分支已清理。
 - R4 验证：功能分支提交 `15513a44` 通过 `e247d884` 合并到 `dev`，再由 `9c14fa7a` 整合到 `main` 并推送；目标分支和整合后的 `main` 均通过 `git diff --check`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 和源码尺寸检查。`rg -n -i "mysql.{0,45}8\\.0|8\\.0.{0,45}mysql|mysql:8\\.0|mysql-8\\.0"` 检出的文档命中均明确标作历史旧基线或审查记录；`crates/ramag-infra-mysql/src/errors.rs` 中 `/8.0/` 只属于 MySQL 官方错误参考文档 URL，不是运行版本或测试镜像。此文档切片未运行集成测试。源分支已清理。
 - R6 已完成并推送 `main`：`CHANGE COLUMN` 定义显式保留 `AUTO_INCREMENT`、生成表达式以及 `VIRTUAL`/`STORED` 属性，对不完整生成元数据和不支持的身份元数据拒绝生成 SQL。`cargo test --locked -p ramag-tool-dbclient --lib table_designer -- --nocapture`（21 项）、`cargo test --locked -p ramag-tool-dbclient --lib`（320 项）和 `cargo test --locked -p ramag-infra-mysql --test column_metadata -- --nocapture`（2 项）均通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 均通过。测试使用本机 `ramag-r6-mysql84` / `mysql:8.4`，端口 `127.0.0.1:13316->3306`，测试完成后执行 `docker rm -f`，容器和临时卷均已清理。Computer Use 原生应用接口不可用且应用列表为空，已改用系统截图 `artifacts/ui-screenshots/r6-system-fallback-window.png` 和 headless 表设计器测试；截图只证明 Ramag 窗口启动，不证明真实表设计器交互。
+- R7 已完成并推送 `main`：表设计器只在确认 SQLite 表为空时生成无默认值的 `NOT NULL` 新字段；非空表要求默认值或允许 `NULL`，未知状态拒绝生成。`cargo test --locked -p ramag-tool-dbclient --lib table_designer -- --nocapture`（25 项）和 `cargo test --locked -p ramag-infra-sqlite --lib -- --nocapture`（5 项）均通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 均通过。SQLite 验证使用本机临时文件，未依赖外部服务。Computer Use 启动 Ramag 后仍返回空应用列表，已改用系统截图 `artifacts/ui-screenshots/r7-ramag-window-fallback.png` 和 headless 表设计器测试；截图只证明新构建可启动，不证明真实表设计器交互。
 
 ## 3. 分阶段落地计划
 
@@ -172,11 +174,11 @@
 2. 检查 MySQL、PostgreSQL、Redis、MongoDB Compose 镜像、端口、启动和清理说明，确保当前示例满足 PostgreSQL 17+、MySQL 8.4+。
 3. 文档修改单独提交，避免与运行时代码或测试混合。
 
-### 阶段 E：表设计器 DDL 安全性（R6 已完成，R7 待实施）
+### 阶段 E：表设计器 DDL 安全性（R6、R7 已完成）
 
 1. R6 已通过 MySQL 8.4 Docker 元数据回读测试，保留属性的最小 SQL 表达范围已固定并推送到 `main`。
-2. 下一步实现 R7 的非空表防护或明确的重建表迁移路径，补空表/非空表执行测试。
-3. R6 与 R7 保持独立提交；后续每项只提交实现、对应测试和必要文档。
+2. R7 已通过 SQLite 空表/非空表执行测试；表行探测失败时采用拒绝生成的安全策略，没有伪造重建表迁移。
+3. R6 与 R7 保持独立提交；下一步进入 R8，并继续每项只提交实现、对应测试和必要文档。
 
 ### 阶段 F：消息、传输与进程边界可靠性
 

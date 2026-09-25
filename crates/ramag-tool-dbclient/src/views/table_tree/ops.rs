@@ -5,7 +5,7 @@ use std::rc::Rc;
 use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::notification::Notification;
 use gpui_kit::{AppContext as _, Context, Entity, ParentElement, Styled as _, Window};
-use ramag_domain::entities::DriverKind;
+use ramag_domain::entities::{DriverKind, Query};
 
 pub(super) use super::ddl_ops::TableDdlNotification;
 pub(super) use super::menus::{schema_context_menu, table_context_menu};
@@ -52,6 +52,7 @@ impl TableTreePanel {
                     schema: schema.clone(),
                     table: table.clone(),
                     columns: Vec::new(),
+                    table_has_rows: None,
                     loading: true,
                     ddl_loading,
                     on_execute: Self::modify_table_execute_handler(&schema, tree.clone()),
@@ -98,6 +99,7 @@ impl TableTreePanel {
                 schema,
                 table,
                 columns,
+                table_has_rows: None,
                 loading: false,
                 ddl_loading,
                 on_execute,
@@ -145,6 +147,7 @@ impl TableTreePanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Entity<crate::views::table_designer::TableDesigner> {
+        let driver = config.driver;
         let schema = config.schema.clone();
         let table = config.table.clone();
         let connection = self.connection.clone();
@@ -167,6 +170,45 @@ impl TableTreePanel {
                 .margin_top(ramag_ui::responsive_dialog_top(window))
                 .content(move |content, _, _| content.child(designer_for_content.clone()))
         });
+        if driver == DriverKind::Sqlite
+            && let Some(connection) = connection.clone()
+        {
+            let service = service.clone();
+            let designer_for_row_probe = designer.clone();
+            let schema_for_row_probe = schema.clone();
+            let table_for_row_probe = table.clone();
+            // SQLite 只需探测第一行；失败时保留未知状态，表设计器会拒绝危险 DDL。
+            cx.spawn_in(window, async move |_, async_cx| {
+                let qualified = format!(
+                    "{}.{}",
+                    connection.driver.quote_identifier(&schema_for_row_probe),
+                    connection.driver.quote_identifier(&table_for_row_probe)
+                );
+                let result = service
+                    .execute(
+                        &connection,
+                        &Query::new(format!("SELECT 1 FROM {qualified} LIMIT 1")),
+                    )
+                    .await
+                    .map(|result| !result.rows.is_empty());
+                if let Err(error) = &result {
+                    tracing::warn!(
+                        operation = "probe_sqlite_table_rows",
+                        error = %error,
+                        connection_id = %connection.id,
+                        schema = %schema_for_row_probe,
+                        table = %table_for_row_probe,
+                        "SQLite table row probe failed"
+                    );
+                }
+                if let Ok(has_rows) = result {
+                    let _ = designer_for_row_probe.update_in(async_cx, |designer, _, cx| {
+                        designer.set_table_has_rows(has_rows, cx);
+                    });
+                }
+            })
+            .detach();
+        }
         if let Some(connection) = connection {
             let designer_for_ddl = designer.clone();
             cx.spawn_in(window, async move |_, async_cx| {

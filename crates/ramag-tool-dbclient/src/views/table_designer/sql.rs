@@ -218,6 +218,23 @@ impl TableDesigner {
             format!(" DEFAULT {}", sql.default_value)
         };
         let Some(original) = &field.original else {
+            if !field.nullable && sql.default_value.is_empty() {
+                match self.table_has_rows {
+                    Some(false) => {}
+                    Some(true) => {
+                        return Err(format!(
+                            "SQLite 表 {} 已有数据，新增 NOT NULL 字段必须设置默认值或允许 NULL",
+                            self.original_table
+                        ));
+                    }
+                    None => {
+                        return Err(format!(
+                            "无法确认 SQLite 表 {} 是否为空，不能生成无默认值的 NOT NULL 新字段",
+                            self.original_table
+                        ));
+                    }
+                }
+            }
             out.push(format!(
                 "ALTER TABLE {table} ADD COLUMN {qname} {}{null}{default};",
                 sql.data_type
