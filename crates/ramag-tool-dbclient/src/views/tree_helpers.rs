@@ -20,6 +20,8 @@ pub(super) fn render_column_row(
     let pk_label = if col.is_primary_key { "🔑 " } else { "" };
     let null_mark = if col.nullable { "" } else { " *" };
     let name_for_copy = col.name.clone();
+    let name_element_id = SharedString::from(format!("{element_id}-field-name"));
+    let name_selector = SharedString::from(format!("{element_id}-field-name-frame"));
     h_flex()
         .id(element_id)
         .h(px(28.0))
@@ -39,7 +41,27 @@ pub(super) fn render_column_row(
                 .text_xs()
                 .text_color(fg)
                 .whitespace_nowrap()
-                .child(format!("{}{}{}", pk_label, col.name.clone(), null_mark)),
+                .child(pk_label),
+        )
+        .child(
+            div()
+                .debug_selector(move || name_selector.to_string())
+                .flex_none()
+                .h(px(20.0))
+                .items_center()
+                .whitespace_nowrap()
+                .child(
+                    ramag_ui::SelectableText::new(name_element_id, col.name.clone())
+                        .text_xs()
+                        .text_color(fg),
+                ),
+        )
+        .child(
+            div()
+                .text_xs()
+                .text_color(fg)
+                .whitespace_nowrap()
+                .child(null_mark),
         )
         .child(
             div()
@@ -102,3 +124,6 @@ pub(super) fn render_columns_placeholder(
         .child(text.into())
         .into_any_element()
 }
+
+#[cfg(test)]
+mod tests;

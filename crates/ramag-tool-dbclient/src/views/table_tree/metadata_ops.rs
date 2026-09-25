@@ -105,8 +105,10 @@ fn render_metadata_row(row: MetadataRow, cx: &mut Context<TableTreePanel>) -> An
     let entity = cx.entity().clone();
     let schema_for_menu = schema;
     let table_for_menu = table;
+    let row_selector = element_id.clone();
     div()
         .id(element_id)
+        .debug_selector(move || row_selector.to_string())
         .w_full()
         .h(px(28.0))
         .flex_none()

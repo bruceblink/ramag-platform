@@ -1,7 +1,7 @@
 # Ramag Platform 后续开发计划
 
 更新日期：2026-09-25
-状态：已保存；R6、R7、R8、R9 已完成验证，R9 随本次独立提交推送，下一项为 R10。
+状态：已保存；R6、R7、R8、R9、R10 和数据库对象树 UI-002 已完成验证，继续按独立切片推进。
 适用范围：在现有主线路线图和代码审查修复计划基础上，继续收尾未提交改动、修复已知问题并完善已有功能。
 
 ## 术语表与命名约定
@@ -64,7 +64,7 @@
 1. 已建立本文件及 `docs/code-review-remediation-plan-2026-09-23.md` 的审查基线。
 2. R5 请求搜索清除按钮交互回归（`58675ea2`）、R11 workspace Clippy 修复（`480fc9b1`）、R1 工作区读取失败处理（`de232c7b`）和 R2 保存生命周期隔离（`fde33b9f`）已随 `dev` 的整合提交进入 `main`。
 3. R3 Collection 历史写入失败处理（`1204b397`）和 R4 MySQL 8.4 基线校正（`15513a44`）已先在原开发流程中验证，随后由 `9c14fa7a` 将已验证的 `dev` 整合到 `main`；`origin/main` 已完成推送。
-4. 已确认 `dev`、`feat/r6-mysql-generated-columns` 和 `fix/api-search-clear-regression` 没有未合并/未推送提交或关联 worktree，随后删除本地引用；远程 `origin/dev` 也已删除，当前仅保留 `main`/`origin/main`。R6 表设计器 DDL 安全性、R7 SQLite 非空表新增必填字段保护、R8 MQTT 订阅背压修复、R9 SSH 覆盖提交结果和 R10 Linux 单实例竞态均已完成验证；后续继续按新增需求建立独立切片。
+4. 已确认 `dev`、`feat/r6-mysql-generated-columns` 和 `fix/api-search-clear-regression` 没有未合并/未推送提交或关联 worktree，随后删除本地引用；远程 `origin/dev` 也已删除，当前仅保留 `main`/`origin/main`。R6 表设计器 DDL 安全性、R7 SQLite 非空表新增必填字段保护、R8 MQTT 订阅背压修复、R9 SSH 覆盖提交结果、R10 Linux 单实例竞态和数据库对象树 UI-002 均已完成验证；后续继续按新增需求建立独立切片。
 
 已完成事项及证据以本文件“切片执行记录”和 [`code-review-remediation-plan-2026-09-23.md`](code-review-remediation-plan-2026-09-23.md) 的执行记录为准，不再把已进入 `main` 的改动列作待办。
 
@@ -160,3 +160,11 @@
 - 验收：WSL Ubuntu 24.04 中执行 `cargo test --locked -p ramag-bin --bin ramag single_instance::tests -- --nocapture`（5 项通过）；Windows workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
 - Docker/UI：本切片不需要外部服务；Computer Use 仍不可用，未新增真实窗口交互范围。
 - Git：R10 以单一 Conventional Commit 提交并推送 `main`。
+
+### UI-002：表树触发器归位与字段名复制交互（2026-09-25）
+
+- 设计：表属性弹窗只保留 DDL 预览，触发器元数据统一由表树的“触发器”分组承载，避免同一表发起两次触发器请求并在两个位置显示重复内容；字段行将字段名包裹为可拖拽选中的只读文本，同时保留主修饰键双击复制整字段名的快捷交互。
+- 改动范围：移除表属性触发器加载、滚动区和重复面板；复用既有表树触发器加载/分组/右键操作；`render_column_row` 增加可选中文本节点和稳定调试选择器；新增表属性、表树和字段渲染 headless 回归测试。没有改变触发器 SQL 编辑/删除规则，也没有改变列元数据查询协议。
+- 验收：`cargo test --locked -p ramag-tool-dbclient --lib table_properties -- --nocapture`（7 项通过）；`cargo test --locked -p ramag-tool-dbclient --lib table_tree -- --nocapture`（36 项通过）；`cargo test --locked -p ramag-tool-dbclient --lib column_name_is_selectable_and_trigger_stays_in_table_tree -- --nocapture`（1 项通过）；`cargo test --locked -p ramag-tool-dbclient --lib -- --nocapture`（324 项通过）；`cargo fmt --all -- --check`、workspace Clippy、源码尺寸检查和 `git diff --check` 均通过。
+- Docker/真实窗口：本切片不需要数据库服务；仅使用 headless GPUI 渲染和交互验收。Computer Use 原生窗口接口当前无法提供可用 Ramag 窗口，未把 headless 结果描述为真实窗口证据；系统截图未用于替代本切片的具体交互证明。
+- Git：完成最终测试后以单一 `fix(dbclient): move triggers to table tree` 提交并立即推送 `main`；不创建新分支或 worktree。

@@ -1,4 +1,4 @@
-//! 单表 DDL 预览与触发器只读信息。
+//! 单表只读 DDL 预览。
 
 use std::sync::Arc;
 
@@ -12,13 +12,12 @@ use gpui_kit::{
     point, prelude::*, px,
 };
 use ramag_app::ConnectionService;
-use ramag_domain::entities::{ConnectionConfig, Query, Trigger, Value};
+use ramag_domain::entities::{ConnectionConfig, Query, Value};
 use tracing::error;
 
 mod ddl;
-mod triggers;
 
-use self::{ddl::render_ddl, triggers::render as render_triggers};
+use self::ddl::render_ddl;
 
 const MODAL_WIDTH: f32 = 1160.0;
 const MODAL_HEIGHT: f32 = 650.0;
@@ -49,16 +48,12 @@ pub(crate) struct TablePropertiesDialog {
     ddl_loading: bool,
     ddl_text: Option<String>,
     ddl_error: Option<String>,
-    triggers_loading: bool,
-    triggers: Option<Vec<Trigger>>,
-    triggers_error: Option<String>,
     request_generation: u64,
     position: Option<Point<gpui_kit::Pixels>>,
     drag_state: Option<DragState>,
     focus_handle: FocusHandle,
     ddl_vertical_scroll: ScrollHandle,
     ddl_horizontal_scroll: ScrollHandle,
-    triggers_vertical_scroll: ScrollHandle,
 }
 
 impl TablePropertiesDialog {
@@ -79,16 +74,12 @@ impl TablePropertiesDialog {
             ddl_loading: false,
             ddl_text: None,
             ddl_error: None,
-            triggers_loading: false,
-            triggers: None,
-            triggers_error: None,
             request_generation: 0,
             position: None,
             drag_state: None,
             focus_handle: cx.focus_handle(),
             ddl_vertical_scroll: ScrollHandle::new(),
             ddl_horizontal_scroll: ScrollHandle::new(),
-            triggers_vertical_scroll: ScrollHandle::new(),
         };
         this.refresh(cx);
         this
@@ -106,30 +97,13 @@ impl TablePropertiesDialog {
         let schema = self.schema.clone();
         let table = self.table.clone();
         let is_view = self.is_view;
-        let trigger_service = service.clone();
-        let trigger_connection = connection.clone();
-        let trigger_schema = schema.clone();
-        let trigger_table = table.clone();
-        let trigger_is_view = is_view;
         self.ddl_loading = true;
         self.ddl_text = None;
         self.ddl_error = None;
-        self.triggers_loading = true;
-        self.triggers = None;
-        self.triggers_error = None;
         cx.notify();
 
         cx.spawn(async move |this, cx| {
-            let (ddl, triggers) = futures::join!(
-                load_table_ddl(service, connection.clone(), schema, table, is_view),
-                load_table_triggers(
-                    trigger_service,
-                    trigger_connection,
-                    trigger_schema,
-                    trigger_table,
-                    trigger_is_view,
-                ),
-            );
+            let ddl = load_table_ddl(service, connection.clone(), schema, table, is_view).await;
             let _ = this.update(cx, |this, cx| {
                 if this.request_generation != request_generation
                     || this.connection.id != connection.id
@@ -151,26 +125,9 @@ impl TablePropertiesDialog {
                         this.ddl_error = Some(format!("加载建表语句失败：{error:#}"));
                     }
                 }
-                this.triggers_loading = false;
-                match triggers {
-                    Ok(triggers) => this.triggers = Some(triggers),
-                    Err(error) => {
-                        error!(
-                            operation = "table_properties_triggers_load",
-                            connection_id = %this.connection.id,
-                            schema = %this.schema,
-                            table = %this.table,
-                            error = %error,
-                            "load table properties triggers failed"
-                        );
-                        this.triggers_error = Some(format!("加载触发器失败：{error:#}"));
-                    }
-                }
                 this.ddl_vertical_scroll
                     .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
                 this.ddl_horizontal_scroll
-                    .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
-                this.triggers_vertical_scroll
                     .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
                 cx.notify();
             });
@@ -220,8 +177,8 @@ impl TablePropertiesDialog {
             .ghost()
             .small()
             .icon(ramag_ui::icons::refresh_cw())
-            .tooltip("重新加载 DDL 和触发器")
-            .disabled(self.ddl_loading || self.triggers_loading)
+            .tooltip("重新加载 DDL")
+            .disabled(self.ddl_loading)
             .on_click(cx.listener(|this, _, _, cx| this.refresh(cx)));
 
         h_flex()
@@ -348,8 +305,6 @@ impl TablePropertiesDialog {
                     .flex_1()
                     .min_h_0()
                     .p(px(12.0))
-                    .gap(px(8.0))
-                    .child(render_triggers(self, theme, trigger_panel_height(size)))
                     .child(div().flex_1().min_h_0().child(render_ddl(
                         self.ddl_loading,
                         self.ddl_text.clone(),
@@ -404,13 +359,6 @@ fn modal_size(viewport: gpui_kit::Size<gpui_kit::Pixels>) -> gpui_kit::Size<gpui
     )
 }
 
-fn trigger_panel_height(modal_size: gpui_kit::Size<gpui_kit::Pixels>) -> gpui_kit::Pixels {
-    // Split the compact modal between trigger metadata and DDL while keeping
-    // the established panel height on normal desktop windows.
-    let content_height = (modal_size.height - px(48.0 + 24.0 + 8.0)).max(px(1.0));
-    (content_height / 2.0).clamp(px(48.0), px(172.0))
-}
-
 fn clamp_position(
     position: Point<gpui_kit::Pixels>,
     viewport: gpui_kit::Size<gpui_kit::Pixels>,
@@ -442,21 +390,6 @@ async fn load_table_ddl(
         .and_then(|row| row.values.iter().rev().find_map(value_as_ddl))
         .filter(|ddl| !ddl.trim().is_empty())
         .ok_or_else(|| anyhow::anyhow!("数据库未返回 {schema}.{table} 的定义"))
-}
-
-/// Loads table-level trigger metadata through the driver's bounded metadata API.
-/// Views return an empty list because they do not own table triggers in the supported drivers.
-async fn load_table_triggers(
-    service: Arc<ConnectionService>,
-    connection: ConnectionConfig,
-    schema: String,
-    table: String,
-    is_view: bool,
-) -> ramag_domain::error::Result<Vec<Trigger>> {
-    if is_view {
-        return Ok(Vec::new());
-    }
-    service.list_triggers(&connection, &schema, &table).await
 }
 
 fn value_as_ddl(value: &Value) -> Option<String> {
