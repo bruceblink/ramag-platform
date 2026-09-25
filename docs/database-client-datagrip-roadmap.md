@@ -48,7 +48,24 @@
 
 红框验收的视觉条件：区域边界、分隔线、行高、图标间距、选中色、滚动槽和状态栏符合统一 UI 标准；红框标注线本身不出现在产品中。`DB-RED-01` 至 `DB-RED-07` 任一项未通过时，只能报告为部分完成。
 
-## 3. 当前能力基线
+## 3. DataGrip 官方能力对比
+
+下表只采用 JetBrains 官方 DataGrip 文档作为功能参考；网页中的快捷键、版本号和平台细节不直接复制到 Ramag，Ramag 只吸收与红框工作区相关的可观察行为。
+
+| DataGrip 官方能力 | 参考页面 | Ramag 对标范围 | 对应验收 |
+|---|---|---|---|
+| Database Explorer：数据源、Schema、表和对象树；Speed Search、对象过滤、显示更多 Schema、分组、从编辑器定位、右键动作、DDL、结构对比、Diagram、导入导出和强制刷新 | [Database Explorer](https://www.jetbrains.com/help/datagrip/database-explorer.html) | `DB-RED-01..04` 的导航器；按需加载、过滤、收藏、最近访问、SQL 定位、DDL/Diagram/比较入口 | 真实 MySQL/PostgreSQL 元数据、空/失败/过期状态、树展开和上下文保持 |
+| Query Consoles：数据源绑定的多个控制台、独立连接 session、Files 中的 Database Consoles、默认 Schema、Services 中的 Output/Result 标签 | [Query consoles](https://www.jetbrains.com/help/datagrip/query-consoles.html)、[Sessions](https://www.jetbrains.com/help/datagrip/managing-connection-sessions.html)、[Services](https://www.jetbrains.com/help/datagrip/services-tool-window.html) | `DB-RED-05` 的多标签控制台、连接上下文、结果/输出标签和查询草稿；Files/Services 作为可停靠工具窗口 | 多标签并行执行、切换 Schema、取消和迟到回包隔离；标签和结果状态不串线 |
+| Data Editor：Table/Tree/Text 查看模式、过滤框、`WHERE`/`ORDER BY`、服务端 `ORDER BY` 与当前页客户端排序、列隐藏/重置、Value Editor、Aggregate View、数据提取器 | [Data editor and viewer](https://www.jetbrains.com/help/datagrip/data-editor-and-viewer.html)、[Database data views](https://www.jetbrains.com/help/datagrip/settings-tools-database-data-views.html) | `DB-RED-05` 的默认 Table 结果网格；先交付截图中的表格视图，再评估 Tree/Text 和提取器 | 大结果分页、过滤历史、排序语义、列宽/隐藏、长字段查看和滚动状态 |
+| Data Editor 修改：直接编辑、Add/Delete/Clone Row、`NULL`/DEFAULT、Preview Pending Changes、Submit、Revert Selected、取消正在执行的语句、LOB 读写 | [Submit changes to a database](https://www.jetbrains.com/help/datagrip/submitting-and-reverting-changes.html) | `DB-RED-05..06` 的安全编辑和失败恢复；仅在驱动能力声明允许时显示写入动作 | 未提交状态、DML 预览、提交/回滚、部分失败明细、敏感大字段有界读取 |
+| Tx 模式与会话：自动提交/手动提交、session 保存连接和事务控制状态，数据编辑器通过 `Tx` 下拉切换提交模式 | [Sessions](https://www.jetbrains.com/help/datagrip/managing-connection-sessions.html)、[Submit changes](https://www.jetbrains.com/help/datagrip/submitting-and-reverting-changes.html) | `DB-RED-06` 的 `Tx: Auto` 控件；自动/手动模式、开始/提交/回滚和失效恢复 | MySQL/PostgreSQL Docker 真实提交和回滚；不支持的驱动显示原因而不是隐藏失败 |
+| Query Plan：Explain Plan/Analyse、专用 Query Plan 标签、Operations Tree、Raw、Diagram、Flame Graph、复制数据库原生计划 | [Query execution plan](https://www.jetbrains.com/help/datagrip/query-execution-plan.html) | `DB-RED-05` 的结果标签和 `DB-UX-005`；先交付原始/结构化视图，再评估图形和火焰图 | Explain 失败保留原文；Analyse 风险提示；原生计划复制不丢列名或格式 |
+| Schema Comparison：同类型对象 Origin/Target、Migration 脚本、DDL/Object Properties Diff、变更颜色、Diff Viewer 和可修改脚本 | [Schema comparison and migration](https://www.jetbrains.com/help/datagrip/schema-comparison-and-migration.html) | `DB-RED-07` 的 DDL/迁移入口和 `DB-UX-005` 的结构协作 | 源/目标、脚本指纹、人工确认、破坏性变更分组、执行后元数据回读 |
+| 数据库全文搜索：不知道数据所在表时按数据内容搜索 | [Full-text search in databases](https://www.jetbrains.com/help/datagrip/full-text-search-for-databases.html) | `DB-UX-001`/`DB-UX-006` 的跨对象搜索；不把搜索结果伪装成普通表树节点 | 搜索范围、取消、结果上下文和敏感字段展示边界明确 |
+
+官方文档显示的更多 DataGrip 功能（脚本扩展、原生 `mysqldump`/`pg_dump`、插件生态、方言专用工具等）不自动进入本轮红框验收；只有加入新的用户验收区域后，才建立对应的 Ramag 切片。
+
+## 4. 当前能力基线
 
 以下能力已经在旧路线图或代码中存在，现阶段只作为可复用基础，不自动视为满足新视觉验收：
 
@@ -60,7 +77,7 @@
 
 旧功能的提交、测试、未完成项和真实窗口限制保留在归档文件；新切片必须重新检查截图要求中的对象树、工具栏、连接状态、网格密度和状态反馈。
 
-## 4. 实施队列
+## 5. 实施队列
 
 ### DB-UX-001：对象导航器（覆盖 `DB-RED-01` 至 `DB-RED-04`）
 
@@ -123,14 +140,14 @@
 - 结果网格有行数、字段预览和内存预算；排序、过滤、比较、导出都可取消。
 - UI 首帧、滚动和标签切换以可复现测量记录，不用主观“感觉流畅”作为结论。
 
-## 5. 驱动边界
+## 6. 驱动边界
 
 - **MySQL/PostgreSQL**：优先实现截图中的 SQL 查询、表格编辑、事务、DDL、EXPLAIN 和 Schema 工作流；分页、排序、生成列、Identity、外键动作按方言适配。
 - **MongoDB**：使用文档查询和文档编辑语义，结果可以使用网格但不伪造 SQL 事务或表结构。
 - **Redis**：使用 Key-Value/集合/流专用视图，不显示无意义的 Schema、列或 SQL 迁移入口。
 - 新驱动先声明能力，再决定渲染哪些按钮；不支持的动作显示原因，不渲染点击后必然失败的入口。
 
-## 6. 测试和环境记录
+## 7. 测试和环境记录
 
 目标 Rust 测试之外，涉及真实数据库时使用 `scripts/db-test/db-test.sh`：
 
@@ -145,6 +162,6 @@
 
 每个切片至少运行目标 crate 测试、headless GPUI 验收、`git diff --check`、`cargo fmt --all -- --check` 和 `cargo clippy --workspace --all-targets -- -D warnings`。涉及数据库 UI 时，另外记录真实窗口证据或 Computer Use 不可用的具体限制。
 
-## 7. 交付边界
+## 8. 交付边界
 
 本文件只定义数据库工作区的实现顺序和验收条件；平台壳层、跨工具迁移、分支和提交规则以 [`development-roadmap.md`](development-roadmap.md) 为准。旧版本的详细实现记录不在本文件重复维护，统一从归档入口追溯。
