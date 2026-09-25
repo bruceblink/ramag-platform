@@ -1,170 +1,51 @@
-# Ramag Platform 后续开发计划
+# Ramag Platform 执行计划与验收记录入口
 
-更新日期：2026-09-25
-状态：已保存；R6、R7、R8、R9、R10 和数据库对象树 UI-002 已完成验证，继续按独立切片推进。
-适用范围：在现有主线路线图和代码审查修复计划基础上，继续收尾未提交改动、修复已知问题并完善已有功能。
+> 状态：现行执行规则
+> 更新日期：2026-09-25
+> 主线：[`development-roadmap.md`](development-roadmap.md)
+> 统一 UI 标准：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
+> 历史执行记录：[`archive/2026-09-25-pre-datagrip-rebaseline/development-plan.md`](archive/2026-09-25-pre-datagrip-rebaseline/development-plan.md)
 
 ## 术语表与命名约定
 
-| 规范中文名 | English / Acronym | 当前计划中的职责边界 | 不代表什么 |
+| 规范中文名 | English / Acronym | 当前文件中的职责边界 | 不代表什么 |
 |---|---|---|---|
-| 开发切片 | Delivery Slice | 可以独立实现、验证、提交、推送和回滚的最小功能范围 | 不表示一次包含多个无关问题 |
-| 交互回归 | Interaction Regression | 使用 headless GPUI 测试模拟输入、点击、焦点和布局 | 不表示真实 Windows 窗口验收 |
-| 本机 Docker 集成测试 | Local Docker Integration Test | 使用本机 Docker 服务验证协议、数据库或外部服务适配 | 不表示远程集群或生产验证 |
-| 真实窗口证据 | Native Window Evidence | 通过 Windows 原生窗口截图和输入证明用户可见流程 | 不表示仅通过编译或单元测试 |
-| 目标分支 | Target Branch | 默认直接接收已验证提交的 `main`；只有用户明确指定功能分支时，才在验证后合并回 `main` | 不表示可以绕过验证直接合并 |
+| 设计确认 | Design Confirmation | 在实现前确认切片范围、界面规则和验收条件 | 不代表代码已完成 |
+| 验收记录 | Acceptance Record | 记录命令、环境、结果、证据边界和未完成项 | 不代表所有产品线都通过 |
+| 本机 Docker 集成 | Local Docker Integration | 使用本机容器验证真实数据库或协议服务 | 不代表远程集群或生产验证 |
+| 真实窗口 | Native Window | 通过 Computer Use 在 Windows 窗口中完成的操作 | 不代表 headless 渲染或进程启动 |
 
-## 一、总体目标
+## 1. 每个切片的固定顺序
 
-以收尾现有变更、修复可复现问题、完善已有功能为主线。每次只推进一个可独立验收的切片；完成对应验证后再提交和推送。未经验证的代码、UI 或集成结果不得标记为完成。
+1. 阅读现行主线和对应专项路线图，确认没有把归档事项重新列为待办。
+2. 写明问题证据、用户流程、设计、改动范围、不做事项和验收条件；先完成设计确认，再开始代码。
+3. 实现代码、测试、必要注释和文档；所有新建/修改文本文件使用 LF 换行。
+4. 先运行目标测试和 UI 验收，再运行 Rust workspace 的 `cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`git diff --check` 和适用的源码尺寸检查。
+5. 涉及外部服务时使用本机 Docker，记录服务名、镜像版本、端口、启动/健康状态和停止/清理状态。
+6. 测试通过后使用一个英文 Conventional Commit，立即推送 `main`；未经验证、部分完成或存在未说明无关改动时不得提交。
 
-现有详细审查项见 [`code-review-remediation-plan-2026-09-23.md`](code-review-remediation-plan-2026-09-23.md)，跨工具排期见 [`development-roadmap.md`](development-roadmap.md)。本文件只记录执行顺序和交付要求，不重新定义专项协议细节。
+## 2. UI 验收顺序
 
-## 二、阶段安排
+- 先在 headless GPUI 中验证 `360x640`、`1024x768`、`1440x900`；弹窗追加 `360x240`。
+- Computer Use 可用时，按真实用户流程完成启动、连接/加载、点击、键盘、滚动、编辑、取消和截图；每张截图对应一个验收条件。
+- Computer Use 不可用时，先记录启动、窗口发现或交互失败原因，再使用 headless 或系统截图作为替代，并明确没有覆盖的真实窗口行为。
+- 不得把系统截图、静态图片或仅进程启动描述为真实窗口交互完成。
 
-### 阶段 1：核对现状与收敛未提交改动
+## 3. 验收记录模板
 
-- 核对当前分支、远程跟踪关系、worktree 和未提交差异。
-- 按功能拆分未提交改动，标记已完成、待验证、未完成和阻塞项。
-- 记录每项问题的代码位置、复现步骤、影响范围、验收条件和测试命令。
-- 保留无关改动，不覆盖用户已有内容；不在没有证据时推断问题已解决。
-- 验收条件：确定首个切片的边界，并确认不会把无关改动带入提交。
+每个切片在对应专项文档追加以下字段：
 
-### 阶段 2：完成现有未提交功能
+- 切片 ID、日期、提交和推送结果；
+- 设计与改动范围、不做事项；
+- 目标测试、UI 尺寸和交互步骤；
+- Docker 服务、镜像、端口、启动/健康/清理状态；
+- Headless、真实窗口、数据库/协议结果及各自边界；
+- 未完成项、阻塞项和下一项依赖。
 
-- 优先收尾已经有实现但缺测试或错误处理的功能。
-- 补齐异常、失败、取消、重试和状态反馈路径。
-- 对用户可见功能先完成 headless 交互验收；真实窗口可用时补原生截图和输入证据。
-- 验收条件：功能可以独立运行和回归，必要测试通过，未完成限制已记录。
+## 4. 当前切片
 
-### 阶段 3：修复已知问题
+当前按照 [`development-roadmap.md`](development-roadmap.md) 从 `SHELL-001` 开始。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
 
-- 优先处理数据丢失、崩溃、敏感信息泄露和单实例/并发安全问题。
-- 其次处理结果错误、操作无响应、取消失效、资源未释放和状态覆盖。
-- 每个问题先建立复现证据，再实现修复和回归测试。
-- 验收条件：修复前测试能够暴露问题，修复后通过，相关流程没有回退。
+## 5. 分支和清理
 
-### 阶段 4：完善已有功能
-
-- 从现有队列中选择依赖满足、用户价值明确的最小功能。
-- 覆盖正常流程、空状态、失败反馈、重试、取消和边界尺寸。
-- 需要外部服务时使用本机 Docker，并记录服务、镜像版本、端口、启动和清理状态。
-- 验收条件：正常及异常流程通过，headless 与真实服务证据边界清楚。
-
-### 阶段 5：优化、集成与清理
-
-- 只根据可复现测量优化性能；记录优化前后结果。
-- 默认直接在最新 `main` 上开发和推送；没有特殊说明时不创建新的分支或 worktree。
-- 用户明确指定功能分支时，先基于最新 `main` 创建；分支验证通过后合并到 `main`，再验证并推送 `main`。
-- 目标分支已推送后，确认源分支无未合并/未推送提交且无关联 worktree，再删除本次明确合并的源分支。
-- 不删除 `main` 或没有明确纳入本次合并的分支；远程分支受保护或删除失败时保留并报告原因。
-
-## 三、当前执行顺序
-
-1. 已建立本文件及 `docs/code-review-remediation-plan-2026-09-23.md` 的审查基线。
-2. R5 请求搜索清除按钮交互回归（`58675ea2`）、R11 workspace Clippy 修复（`480fc9b1`）、R1 工作区读取失败处理（`de232c7b`）和 R2 保存生命周期隔离（`fde33b9f`）已随 `dev` 的整合提交进入 `main`。
-3. R3 Collection 历史写入失败处理（`1204b397`）和 R4 MySQL 8.4 基线校正（`15513a44`）已先在原开发流程中验证，随后由 `9c14fa7a` 将已验证的 `dev` 整合到 `main`；`origin/main` 已完成推送。
-4. 已确认 `dev`、`feat/r6-mysql-generated-columns` 和 `fix/api-search-clear-regression` 没有未合并/未推送提交或关联 worktree，随后删除本地引用；远程 `origin/dev` 也已删除，当前仅保留 `main`/`origin/main`。R6 表设计器 DDL 安全性、R7 SQLite 非空表新增必填字段保护、R8 MQTT 订阅背压修复、R9 SSH 覆盖提交结果、R10 Linux 单实例竞态和数据库对象树 UI-002 均已完成验证；后续继续按新增需求建立独立切片。
-
-已完成事项及证据以本文件“切片执行记录”和 [`code-review-remediation-plan-2026-09-23.md`](code-review-remediation-plan-2026-09-23.md) 的执行记录为准，不再把已进入 `main` 的改动列作待办。
-
-## 四、每个切片的执行顺序
-
-1. 先写清问题、设计、改动范围、不做事项和验收条件。
-2. 实现代码、必要注释、测试和文档；新建或修改文本文件统一使用 LF。
-3. 运行与风险匹配的目标测试和验收，记录命令、结果、环境和限制。
-4. Rust workspace 从根目录针对最终待提交内容依次通过：
-   - `cargo fmt --all -- --check`
-   - `cargo clippy --workspace --all-targets -- -D warnings`
-5. 测试通过后使用单一功能范围的 Conventional Commit，并立即推送当前开发分支。
-6. 默认不创建分支；用户明确要求分支时，先验证功能分支，再合并到 `main`，重新验证并推送 `main`，最后清理本次明确合并的源分支。
-
-## 五、环境和验证要求
-
-- 集成测试只使用本机 Docker；必须记录服务名、镜像版本、端口、启动状态和清理状态。
-- 数据库基线为 PostgreSQL 17+ 和 MySQL 8.4+；低版本旧记录必须标为历史基线，不能作为当前完成证据。
-- UI 验收优先使用真实窗口；只能使用 headless 时，明确记录真实窗口限制，不把 headless 结果描述为原生窗口验收。
-- 错误消息、历史、日志和测试输出不得包含密码、Token、完整请求正文或证书私钥。
-- Docker、真实窗口或远程 CI 不可用时，记录为未完成或环境限制，不用 mock、静态 fixture 或仅编译结果替代。
-
-## 六、任务记录模板
-
-每项切片在本文件或对应专项文档中记录：
-
-- 问题证据与优先级；
-- 设计和改动范围；
-- 验收条件与测试命令；
-- 测试环境、服务版本、端口和清理结果；
-- UI、真实服务和远程验证的证据边界；
-- 未完成项或阻塞项；
-- 提交编号、推送结果、合并状态和分支清理结果。
-
-## 七、切片执行记录
-
-### R3：Collection 历史写入失败时保留已执行结果（2026-09-24）
-
-- 设计：将 HTTP/gRPC 驱动执行结果与历史持久化结果分开报告；Storage 写入失败时保留本次 outcome 和当前界面响应，停止启动下一条 Collection 请求，并通过固定提示说明历史未保存。新增字段带 serde 默认值以兼容旧数据。
-- 改动范围：API 服务、领域结果、API 工作台状态与提示、Collection Docker UI 回归测试；没有扩大重试或重复发送请求。
-- 验收：`cargo test --locked -p ramag-tool-api --all-targets`（29 项通过，含本机 Docker HTTP/gRPC 请求和 headless UI）；`cargo test --locked -p ramag-app --all-targets`（224 项单元测试及集成测试通过）；`cargo test --locked -p ramag-domain --lib api -- --nocapture`（27 项通过）；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、源码尺寸脚本及 `git diff --check` 均通过。
-- Docker 环境：`ramag-api-http-test`，镜像 `ramag-api-http-test:python-3.12.11-alpine-3.22`，端口 `127.0.0.1:18089->8080`、`127.0.0.1:18091->8443`，状态 healthy；`ramag-api-grpc-test`，镜像 `ramag-api-grpc-test:rust-1.91.0-bookworm`，端口 `127.0.0.1:18090->50051`、`127.0.0.1:18092->50052`，状态 healthy。两项服务在本次执行前已经运行；本次未启动、停止或清理容器，完成后仍保持运行。
-- UI 证据：headless GPUI 点击响应“断言”页签后验证断言与 Collection 汇总内容；未完成真实 Windows 窗口操作，因此不作为原生窗口验收证据。
-- Git：代码提交 `1204b397` 已推送至原功能分支，随后随 `dev` 整合进入 `main`；`main` 已复验并推送，原功能分支已清理。
-
-### R4：MySQL 8.4 基线文档校正（2026-09-24）
-
-- 设计：将当前可执行基线与历史实测记录分开陈述；保留 MySQL 8.0 原始历史事实，但明确标注其不符合当前 MySQL 8.4+ 要求，不得作为当前验收证据。
-- 改动范围：性能报告、跨工具开发路线图、数据库专项路线图和代码审查执行记录；核对 `scripts/db-test/compose.yaml`、README、CI 和测试脚本，未改动运行时配置。
-- 验收：已检查 MySQL 8.0 命中均为带历史基线说明的记录或待办描述；README、CI 与 scripts 未发现低于 MySQL 8.4 的当前镜像或测试命令。`git diff --check`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 和源码尺寸检查均通过。
-- Docker：本切片仅校正文档，没有运行集成测试，也未启动、停止或清理 Docker 服务。已静态核对 Compose：MySQL `mysql:8.4` / `127.0.0.1:13306`、PostgreSQL `postgres:17-alpine` / `127.0.0.1:15432`、Redis `redis:7-alpine` / `127.0.0.1:16379`、MongoDB `mongo:8.2` / `127.0.0.1:27018`；`db-test.sh` 使用 `docker compose up --detach --wait` 启动，普通停止保留数据卷，清理命令会删除数据卷和本地测试凭据。此切片未运行这些命令。
-- Git：提交 `15513a44` 已在原文档分支验证并推送，通过 `e247d884` 合并到 `dev`，再由 `9c14fa7a` 整合到 `main`；目标检查通过后 `origin/main` 已推送。已确认源分支无未合并/未推送提交且无关联 worktree，随后删除本地和远程引用。
-
-### R6：MySQL 字段修改保留生成属性（2026-09-25）
-
-- 设计：MySQL `CHANGE COLUMN` 必须保留可安全表达的 `AUTO_INCREMENT`、生成表达式和 `VIRTUAL`/`STORED` 存储属性；当前字段模型无法完整表达的身份元数据或生成属性直接拒绝生成 SQL，避免静默降级。
-- 改动范围：`crates/ramag-tool-dbclient/src/views/table_designer/sql.rs` 保留字段生成属性并拒绝不完整元数据；`crates/ramag-infra-mysql/tests/column_metadata.rs` 增加 MySQL 元数据回读和变更验证；表设计器单元测试拆分到独立模块以保持源码尺寸限制。没有扩大到 R7 的 SQLite 非空表迁移。
-- 验收：`cargo test --locked -p ramag-tool-dbclient --lib table_designer -- --nocapture`（21 项通过）；`cargo test --locked -p ramag-tool-dbclient --lib`（320 项通过）；`cargo test --locked -p ramag-infra-mysql --test column_metadata -- --nocapture`（2 项通过）；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、源码尺寸检查和 `git diff --check` 均通过。
-- Docker 环境：本机容器 `ramag-r6-mysql84` 使用 `mysql:8.4`，绑定 `127.0.0.1:13316->3306`；测试期间启动并运行集成测试，完成后执行 `docker rm -f ramag-r6-mysql84`，容器和临时卷均已确认不存在。
-- UI 证据：Computer Use 原生应用接口仅返回浏览器运行时且应用列表为空，排查后无法完成真实窗口交互；已使用系统截图 `artifacts/ui-screenshots/r6-system-fallback-window.png` 和 headless 表设计器测试作为替代证据。截图只证明 Ramag 窗口可启动，不证明真实表设计器导航或点击流程，原生窗口覆盖范围仍未完成。
-- Git：R6 以单一 Conventional Commit 提交并推送 `main`；提交和远程状态以当前 `main`/`origin/main` 为准，R7-R10 继续保持独立切片。
-
-### R7：SQLite 非空表新增必填字段保护（2026-09-25）
-
-- 设计：表设计器在生成 SQLite `ADD COLUMN ... NOT NULL` 前，异步执行限定为首行探测的 `SELECT 1 ... LIMIT 1`。确认表为空时允许无默认值的必填字段；确认表已有数据时要求默认值或允许 `NULL`；探测未知或失败时拒绝生成危险 SQL。
-- 改动范围：`TableDesignerConfig` 和 `TableDesigner` 保存行存在性证据；表树打开设计器时为 SQLite 连接启动行探测；新增字段 SQL 保护、headless 表设计器测试和 SQLite 驱动实际执行测试。没有生成重建表迁移，也没有扩大到 R8 消息处理。
-- 验收：`cargo test --locked -p ramag-tool-dbclient --lib table_designer -- --nocapture`（25 项通过）；`cargo test --locked -p ramag-infra-sqlite --lib -- --nocapture`（5 项通过）；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、源码尺寸检查和 `git diff --check` 均通过。
-- SQLite 测试环境：使用本机临时 SQLite 文件，不依赖 Docker；分别验证空表新增必填字段成功、非空表无默认值被 SQLite 拒绝、非空表带默认值成功，并回读列元数据确认约束和默认值。
-- UI 证据：Computer Use 原生应用接口在启动 Ramag 后仍返回空应用列表，无法完成真实窗口交互；已使用系统截图 `artifacts/ui-screenshots/r7-ramag-window-fallback.png` 和 headless 表设计器测试替代。截图只证明新构建可启动，不证明真实表设计器导航、行探测等待或点击流程。
-- Git：R7 以单一 Conventional Commit 提交并推送 `main`；R8-R10 继续保持独立切片。
-
-### R8：MQTT 订阅背压不丢消息（2026-09-25）
-
-- 设计：`MqttMessageSinkResult::Backpressured` 表示接收队列暂满，不是可忽略的丢弃结果。Native MQTT 3.1.1 和 MQTT 5 数据面保留原消息，暂停继续轮询 Broker 事件，按短间隔重试；取消或接收端关闭时结束订阅。
-- 改动范围：领域层明确 sink 背压接口约定；两个 Native 协议路径共用有界重试 helper；增加 native 单元测试、MQTT 5/3.1.1 本机 Docker 背压集成测试。没有扩大到本地 Broker 事件队列的独立策略。
-- 验收：`cargo test --locked -p ramag-infra-mqtt --features native --lib -- --nocapture`（17 项通过、1 项忽略）；`cargo test --locked -p ramag-tool-mqtt --lib`（32 项通过）；`cargo test --locked --workspace` 全部通过；`cargo clippy --workspace --all-targets -- -D warnings` 和 native feature Clippy、fmt、源码尺寸、`git diff --check` 均通过。
-- Docker 环境：本机容器 `ramag-mqtt-test` 使用 `eclipse-mosquitto:2.0.20`，绑定 `127.0.0.1:18883->1883`；`scripts/mqtt-test/mqtt-test.ps1 test` 启动并执行 MQTT 5 与 3.1.1 背压测试，随后执行 `scripts/mqtt-test/mqtt-test.ps1 clean` 删除容器和网络，无命名卷残留。
-- UI 证据：Computer Use 原生应用接口在启动最新 Ramag 后仍返回空应用列表，无法完成真实 MQTT 窗口交互；已使用系统截图 `artifacts/ui-screenshots/r8-ramag-window-fallback.png` 和 headless MQTT UI 测试替代。截图只证明数据库客户端窗口可启动，不证明订阅、队列背压或丢消息提示流程。
-- Git：R8 以单一 Conventional Commit 提交并推送 `main`；R9 继续保持独立提交，R10 尚待实施。
-
-### R9：SSH 远程覆盖提交结果与目标状态一致（2026-09-25）
-
-- 设计：远程覆盖仍按“目标改名为备份、临时文件改名为目标、删除备份”的顺序执行。目标替换成功后，备份删除失败返回 `SshTransferOutcome` 的成功结果和有界告警，不再把已经生效的新文件报告为失败；临时文件替换失败继续回滚旧目标。
-- 改动范围：SSH 传输领域结果模型、SFTP 提交实现、传输任务历史和 SSH 传输面板告警展示；增加可控 SFTP 测试替身。不改变拒绝覆盖、目标类型校验和取消语义。
-- 验收：`cargo test --locked -p ramag-infra-ssh --lib`（64 项通过，含备份删除失败和替换失败回滚）；`cargo test --locked -p ramag-app --lib`（226 项通过，含成功告警保留）；`cargo test --locked -p ramag-tool-ssh --lib`（82 项通过）；fmt、workspace Clippy、源码尺寸和 `git diff --check` 均通过。
-- UI 证据：先运行 SSH 工具 headless 渲染测试；Computer Use 原生应用接口仍返回空应用列表，无法完成真实传输窗口交互，系统截图仅作为应用启动证据，不能替代传输告警点击验收。
-- Git：R9 以单一 Conventional Commit 提交并推送 `main`；R10 继续保持独立提交。
-
-### R10：Linux 单实例旧 Socket 清理竞态（2026-09-25）
-
-- 设计：为每个单实例 socket 使用持久的 `ramag.sock.lock` 文件，并通过 `File::lock()` 在内核层串行化“检查/清理旧 socket/重新 bind”流程；锁由文件描述符持有，进程异常退出时由内核自动释放。无法取得启动锁时直接作为 Secondary 退出，不放行双开。
-- 改动范围：`single_instance_linux.rs` 的启动锁、并发恢复测试和测试清理；保留现有失效 socket 类型校验、激活通知和守卫退出清理语义。
-- 验收：WSL Ubuntu 24.04 中执行 `cargo test --locked -p ramag-bin --bin ramag single_instance::tests -- --nocapture`（5 项通过）；Windows workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
-- Docker/UI：本切片不需要外部服务；Computer Use 仍不可用，未新增真实窗口交互范围。
-- Git：R10 以单一 Conventional Commit 提交并推送 `main`。
-
-### UI-002：表树触发器归位与字段名复制交互（2026-09-25）
-
-- 设计：表属性弹窗只保留 DDL 预览，触发器元数据统一由表树的“触发器”分组承载，避免同一表发起两次触发器请求并在两个位置显示重复内容；字段行将字段名包裹为可拖拽选中的只读文本，同时保留主修饰键双击复制整字段名的快捷交互。
-- 改动范围：移除表属性触发器加载、滚动区和重复面板；复用既有表树触发器加载/分组/右键操作；`render_column_row` 增加可选中文本节点和稳定调试选择器；新增表属性、表树和字段渲染 headless 回归测试。没有改变触发器 SQL 编辑/删除规则，也没有改变列元数据查询协议。
-- 验收：`cargo test --locked -p ramag-tool-dbclient --lib table_properties -- --nocapture`（7 项通过）；`cargo test --locked -p ramag-tool-dbclient --lib table_tree -- --nocapture`（36 项通过）；`cargo test --locked -p ramag-tool-dbclient --lib column_name_is_selectable_and_trigger_stays_in_table_tree -- --nocapture`（1 项通过）；`cargo test --locked -p ramag-tool-dbclient --lib -- --nocapture`（324 项通过）；`cargo fmt --all -- --check`、workspace Clippy、源码尺寸检查和 `git diff --check` 均通过。
-- Docker/真实窗口：本切片不需要数据库服务；仅使用 headless GPUI 渲染和交互验收。Computer Use 原生窗口接口当前无法提供可用 Ramag 窗口，未把 headless 结果描述为真实窗口证据；系统截图未用于替代本切片的具体交互证明。
-- Git：完成最终测试后以单一 `fix(dbclient): move triggers to table tree` 提交并立即推送 `main`；不创建新分支或 worktree。
+默认在最新 `main` 上开发和推送。只有用户明确要求功能分支时才创建分支；分支必须基于最新 `main`，验证后合并回 `main`，重新验证并推送，再确认源分支无未合并/未推送提交和关联 worktree 后清理。不得删除 `main` 或未明确纳入本次合并的分支。
