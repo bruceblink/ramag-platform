@@ -46,7 +46,7 @@
 
 ## 4. 当前切片
 
-`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`，当前进入 `DB-RED-07`（`DDL` 控件）。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，当前进入 `DB-UX-003`（结果数据网格加固）。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
@@ -202,6 +202,22 @@
 - 质量：`cargo fmt --all -- --check`、workspace Clippy、源码尺寸检查和 `git diff --check` 通过。
 - 真实窗口：Computer Use 初始化检查返回 `apps: []`，没有可操作的 Ramag/DataGrip 原生窗口；本切片只记录 headless 证据，未宣称真实窗口下拉点击完成。
 - Git：验证通过后使用单一功能提交并推送 `main`；下一项为 `DB-RED-07`（`DDL` 查看/复制入口）。
+
+### DB-RED-07：`DDL` 查看控件（2026-09-26，设计确认）
+
+- 设计：在截图对应的查询结果工具栏加入 `DDL` 入口；仅对对象树打开的单表或视图启用，打开现有只读 DDL 预览，复制和刷新继续由预览对话框提供。
+- 改动范围：QueryTab 工具栏、查询标签到连接会话的 DDL 事件链和已有表属性预览复用；不增加 DDL 执行、迁移或自动修改结构的动作。
+- 验收条件：无目标表、执行计划、查询/写操作进行中或存在未提交编辑时入口保持禁用并说明原因；有效入口打开目标对象的只读定义，定义内容可滚动、复制和刷新；三种窗口尺寸不越界，并通过目标 UI、fmt、Clippy、源码尺寸和 diff 检查。
+
+### DB-RED-07：验收记录（2026-09-26）
+
+- 实现：查询结果工具栏新增 `sql-ddl` 入口；事件由 QueryTab 转发至 QueryPanel，再由 ConnectionSession 打开现有 `TablePropertiesDialog`。预览明确显示只读定义，保留复制 DDL、刷新 DDL、垂直/水平滚动和错误重试边界；没有执行 DDL 的按钮。
+- 状态与安全：没有 pinned 表目标、执行计划可见、查询或 DML 忙、或存在未提交单元格修改时入口禁用；事件只携带 Schema、对象名和视图标志，不把 SQL 文本拼接到工具栏动作中。
+- Headless：`cargo test --locked -p ramag-tool-dbclient --lib query_tab -- --nocapture`（56 项通过）；`cargo test --locked -p ramag-tool-dbclient --lib table_properties -- --nocapture`（7 项通过）；覆盖 `360x480`、`1024x480`、`1440x480` 的工具栏入口边界，以及 `360x240`、`420x320`、`1024x720` 的 DDL 预览边界。
+- Docker：使用 Docker Desktop `desktop-linux` 的 `mysql:8.4`（127.0.0.1:13306）执行 `SHOW CREATE TABLE`，使用 `postgres:17-alpine`（127.0.0.1:15432）执行 `pg_get_viewdef`；同时启动的 `redis:7-alpine`（16379）和 `mongo:8.2`（27018）健康检查通过。探针对象、容器、网络和数据卷已通过 Compose `down --volumes --remove-orphans` 清理。
+- 质量：`cargo fmt --all -- --check`、workspace Clippy、源码尺寸检查和 `git diff --check` 通过。
+- 真实窗口：Computer Use 初始化检查返回 `apps: []`，没有可操作的 Ramag/DataGrip 原生窗口；本切片只记录 headless 和 Docker 证据，未宣称真实窗口 DDL 点击完成。
+- Git：验证通过后使用单一功能提交并推送 `main`；下一项进入 `DB-UX-003`（结果数据网格的稳定表头、双轴滚动和导出边界）。
 
 ## 5. 分支和清理
 

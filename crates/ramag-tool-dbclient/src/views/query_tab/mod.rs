@@ -127,6 +127,11 @@ pub enum QueryTabEvent {
     TableMetadataChanged {
         schema: String,
     },
+    ShowTableDdl {
+        schema: String,
+        table: String,
+        is_view: bool,
+    },
     LocateTableRequested {
         schema: String,
         table: String,

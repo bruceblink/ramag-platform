@@ -214,6 +214,13 @@ impl ConnectionSession {
                         tree.refresh_loaded_tables_for(schema, cx);
                     });
                 }
+                QueryPanelEvent::ShowTableDdl {
+                    schema,
+                    table,
+                    is_view,
+                } => {
+                    this.open_table_properties(schema.clone(), table.clone(), *is_view, window, cx);
+                }
                 QueryPanelEvent::LocateTableRequested { schema, table } => {
                     info!(
                         operation = "sql_table_navigation",

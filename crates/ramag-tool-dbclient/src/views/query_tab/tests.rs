@@ -235,6 +235,7 @@ fn result_toolbar_keeps_filters_and_run_action_inside_three_window_widths(cx: &m
         let order_by = cx
             .debug_bounds("sql-order-by")
             .expect("SQL ORDER BY 入口应渲染");
+        let ddl = cx.debug_bounds("sql-ddl").expect("SQL DDL 入口应渲染");
         let run = cx
             .debug_bounds("sql-run-query")
             .expect("SQL 运行按钮应渲染");
@@ -248,6 +249,7 @@ fn result_toolbar_keeps_filters_and_run_action_inside_three_window_widths(cx: &m
             order_by.right() <= toolbar.right(),
             "ORDER BY 入口不能越出工具栏"
         );
+        assert!(ddl.right() <= toolbar.right(), "DDL 入口不能越出工具栏");
         assert!(run.right() <= toolbar.right(), "运行按钮不能越出工具栏");
     }
 }
@@ -303,6 +305,7 @@ fn active_transaction_controls_wrap_inside_three_window_widths(cx: &mut TestAppC
         let mode = cx
             .debug_bounds("sql-transaction-mode")
             .expect("事务模式入口应渲染");
+        let ddl = cx.debug_bounds("sql-ddl").expect("DDL 入口应渲染");
         if width < 720.0 {
             assert!(
                 group.size.width >= toolbar.size.width - px(32.0),
@@ -334,6 +337,13 @@ fn active_transaction_controls_wrap_inside_three_window_widths(cx: &mut TestAppC
                 && mode.origin.y >= group.origin.y
                 && mode.bottom() <= group.bottom(),
             "事务模式入口不能越出事务操作组：mode={mode:?}, group={group:?}"
+        );
+        assert!(
+            ddl.origin.x >= group.origin.x
+                && ddl.right() <= group.right()
+                && ddl.origin.y >= group.origin.y
+                && ddl.bottom() <= group.bottom(),
+            "DDL 入口不能越出事务操作组：ddl={ddl:?}, group={group:?}"
         );
         for selector in [
             "transaction-commit",
@@ -397,6 +407,7 @@ fn inactive_transaction_control_wraps_inside_three_window_widths(cx: &mut TestAp
         let mode = cx
             .debug_bounds("sql-transaction-mode")
             .expect("事务模式入口应渲染");
+        let ddl = cx.debug_bounds("sql-ddl").expect("DDL 入口应渲染");
 
         assert!(
             group.origin.x >= toolbar.origin.x
@@ -418,6 +429,13 @@ fn inactive_transaction_control_wraps_inside_three_window_widths(cx: &mut TestAp
                 && mode.origin.y >= group.origin.y
                 && mode.bottom() <= group.bottom(),
             "事务模式入口不能越出事务操作组：mode={mode:?}, group={group:?}"
+        );
+        assert!(
+            ddl.origin.x >= group.origin.x
+                && ddl.right() <= group.right()
+                && ddl.origin.y >= group.origin.y
+                && ddl.bottom() <= group.bottom(),
+            "DDL 入口不能越出事务操作组：ddl={ddl:?}, group={group:?}"
         );
         assert!(
             begin.origin.x >= controls.origin.x

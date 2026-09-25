@@ -17,8 +17,9 @@ use ramag_domain::entities::MAX_SQL_QUERY_BYTES;
 use super::QueryTab;
 use super::comparison_toolbar::result_comparison_menu;
 use super::render_helpers::{
-    TransactionSavepointState, order_by_menu, result_view_tabs, row_filter_prefix,
-    row_search_input_suffix, transaction_mode_menu, transaction_savepoint_controls,
+    TransactionSavepointState, TransactionToolbarState, order_by_menu, result_view_tabs,
+    row_filter_prefix, row_search_input_suffix, transaction_savepoint_controls,
+    transaction_toolbar_group,
 };
 use super::sql_utils::format_elapsed;
 use super::toolbar::render_delete_button;
@@ -382,26 +383,21 @@ impl Render for QueryTab {
                                 .child("生产 · 只读"),
                         )
                     })
-                    .child(
-                        h_flex()
-                            .id("sql-transaction-group")
-                            .debug_selector(|| "sql-transaction-group".into())
-                            .min_w_0()
-                            .flex_wrap()
-                            .when(compact_toolbar, |this| this.w_full())
-                            .when(!compact_toolbar, |this| this.flex_1())
-                            .items_center()
-                            .gap_1()
-                            .child(transaction_mode_menu(
-                                query_tab_entity.clone(),
-                                self,
-                                accent,
-                                running,
-                                dml_busy,
-                                pending_cell_edit_count > 0,
-                            ))
-                            .child(transaction_controls),
-                    )
+                    .child(transaction_toolbar_group(
+                        query_tab_entity.clone(),
+                        self,
+                        transaction_controls,
+                        TransactionToolbarState {
+                            accent,
+                            running,
+                            dml_busy,
+                            pending_cell_edits: pending_cell_edit_count > 0,
+                            compact_toolbar,
+                            ddl_target: self.pinned_target.clone(),
+                            ddl_is_view: self.result.read(cx).target_is_view(),
+                            plan_visible,
+                        },
+                    ))
                     .when_some(result_summary, |this, summary| {
                         this.child(div().text_xs().text_color(muted_fg).child(summary))
                     })

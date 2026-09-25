@@ -35,6 +35,11 @@ pub enum QueryPanelEvent {
     TableMetadataChanged {
         schema: String,
     },
+    ShowTableDdl {
+        schema: String,
+        table: String,
+        is_view: bool,
+    },
     LocateTableRequested {
         schema: String,
         table: String,
@@ -125,6 +130,17 @@ impl QueryPanel {
             QueryTabEvent::TableMetadataChanged { schema } => {
                 cx.emit(QueryPanelEvent::TableMetadataChanged {
                     schema: schema.clone(),
+                });
+            }
+            QueryTabEvent::ShowTableDdl {
+                schema,
+                table,
+                is_view,
+            } => {
+                cx.emit(QueryPanelEvent::ShowTableDdl {
+                    schema: schema.clone(),
+                    table: table.clone(),
+                    is_view: *is_view,
                 });
             }
             QueryTabEvent::LocateTableRequested { schema, table } => {

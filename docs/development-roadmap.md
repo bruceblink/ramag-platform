@@ -1,6 +1,6 @@
 # Ramag Platform 新主线：JetBrains 工作区重设计
 
-> 状态：现行主线；`SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06` 已完成，当前推进 `DB-RED-07`
+> 状态：现行主线；`SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 已完成，当前推进 `DB-UX-003`
 > 更新日期：2026-09-26
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
@@ -77,8 +77,8 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 |---|---|---|---|---|
 | `SHELL-001` | 共享 JetBrains 工作区壳层和设计令牌 | 已完成（headless；真实窗口待补） | 阶段 A | Headless 三尺寸、可用时 Computer Use、fmt/Clippy |
 | `DB-UX-001` | 数据库对象导航器 | 进行中（`DB-RED-01`、`DB-RED-03`、`DB-RED-04` 已完成；`DB-RED-02` 需按新矩阵复验） | `SHELL-001` | 对象树交互、MySQL/PostgreSQL Docker、窗口证据 |
-| `DB-UX-002` | 查询控制台和连接上下文 | 进行中（当前 `DB-RED-07`；`DB-RED-05A` 至 `DB-RED-06` 已完成） | `DB-UX-001` | SQL 执行/取消/标签回归、Docker、窗口证据 |
-| `DB-UX-003` | 结果数据网格 | 待开始 | `DB-UX-002` | 大数据量、双轴滚动、分页/编辑交互、窗口证据 |
+| `DB-UX-002` | 查询控制台和连接上下文 | 功能切片完成（`DB-RED-05A` 至 `DB-RED-07`；真实窗口待补） | `DB-UX-001` | SQL 执行/取消/标签回归、Docker、窗口证据 |
+| `DB-UX-003` | 结果数据网格 | 进行中（下一切片：稳定表头、双轴滚动和导出边界） | `DB-UX-002` | 大数据量、双轴滚动、分页/编辑交互、窗口证据 |
 | `DB-UX-004` | 安全编辑与事务反馈 | 待开始 | `DB-UX-003` | 成功/失败/取消/回滚、MySQL/PostgreSQL Docker |
 | `DB-UX-005` | 分析、差异和迁移工作流 | 待开始 | `DB-UX-004` | 原始回退、人工确认、回读和窗口证据 |
 | `CROSS-UX-001` | API/Kafka/SSH/容器/Git 壳层迁移 | 待开始 | `SHELL-001` | 各工具专项交互与真实服务证据 |

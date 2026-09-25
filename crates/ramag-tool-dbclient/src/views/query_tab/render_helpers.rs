@@ -5,7 +5,7 @@ use gpui_kit::component::{
 use gpui_kit::{ClickEvent, Entity, IntoElement, ParentElement, Styled, div, prelude::*, px};
 use ramag_ui::PointerDropdownMenu as _;
 
-use super::QueryTab;
+use super::{QueryTab, QueryTabEvent};
 use crate::views::result_panel::{ResultPanel, RowSearchConversionStatus, RowSearchMode, SortDir};
 
 pub(super) struct TransactionSavepointState {
@@ -16,6 +16,17 @@ pub(super) struct TransactionSavepointState {
     pub(super) savepoint_count: usize,
     pub(super) latest_savepoint: Option<String>,
     pub(super) max_savepoints: usize,
+}
+
+pub(super) struct TransactionToolbarState {
+    pub(super) accent: gpui_kit::Hsla,
+    pub(super) running: bool,
+    pub(super) dml_busy: bool,
+    pub(super) pending_cell_edits: bool,
+    pub(super) compact_toolbar: bool,
+    pub(super) ddl_target: Option<(String, String)>,
+    pub(super) ddl_is_view: bool,
+    pub(super) plan_visible: bool,
 }
 
 /// Builds the result-grid ORDER BY menu from column metadata without accepting raw SQL text.
@@ -153,6 +164,89 @@ pub(super) fn transaction_mode_menu(
                 )
             })
         })
+}
+
+/// Builds the toolbar entry for a pinned table's read-only DDL preview.
+/// The preview is opened by the owning connection session so copy and refresh actions share
+/// the existing modal lifecycle; this button never executes or edits the returned SQL.
+pub(super) fn table_ddl_button(
+    query_tab: Entity<QueryTab>,
+    target: Option<(String, String)>,
+    is_view: bool,
+    plan_visible: bool,
+    running: bool,
+    dml_busy: bool,
+    pending_cell_edits: bool,
+) -> impl IntoElement {
+    let disabled = plan_visible || target.is_none() || running || dml_busy || pending_cell_edits;
+    let tooltip = if plan_visible {
+        "执行计划只读，无法定位 DDL"
+    } else if target.is_none() {
+        "请先从对象树打开单表"
+    } else if pending_cell_edits {
+        "请先提交或撤销未提交单元格修改"
+    } else if running || dml_busy {
+        "查询或写操作执行中，请稍候"
+    } else {
+        "打开当前表的只读 DDL 预览"
+    };
+    let target_for_click = target.clone();
+    ramag_ui::clickable_button("sql-ddl")
+        .debug_selector(|| "sql-ddl".into())
+        .ghost()
+        .small()
+        .label("DDL")
+        .tooltip(tooltip)
+        .disabled(disabled)
+        .on_click(move |_, _, app| {
+            let Some((schema, table)) = target_for_click.clone() else {
+                return;
+            };
+            query_tab.update(app, |_, cx| {
+                cx.emit(QueryTabEvent::ShowTableDdl {
+                    schema,
+                    table,
+                    is_view,
+                });
+            });
+        })
+}
+
+/// Groups the transaction mode, transaction actions, and DDL entry as one responsive toolbar unit.
+/// Keeping this layout together prevents the DDL button from escaping the same wrap boundary.
+pub(super) fn transaction_toolbar_group(
+    query_tab: Entity<QueryTab>,
+    tab: &QueryTab,
+    transaction_controls: impl IntoElement,
+    state: TransactionToolbarState,
+) -> impl IntoElement {
+    h_flex()
+        .id("sql-transaction-group")
+        .debug_selector(|| "sql-transaction-group".into())
+        .min_w_0()
+        .flex_wrap()
+        .when(state.compact_toolbar, |this| this.w_full())
+        .when(!state.compact_toolbar, |this| this.flex_1())
+        .items_center()
+        .gap_1()
+        .child(transaction_mode_menu(
+            query_tab.clone(),
+            tab,
+            state.accent,
+            state.running,
+            state.dml_busy,
+            state.pending_cell_edits,
+        ))
+        .child(transaction_controls)
+        .child(table_ddl_button(
+            query_tab,
+            state.ddl_target,
+            state.ddl_is_view,
+            state.plan_visible,
+            state.running,
+            state.dml_busy,
+            state.pending_cell_edits,
+        ))
 }
 
 /// Renders savepoint actions and disables them while related work is active.
