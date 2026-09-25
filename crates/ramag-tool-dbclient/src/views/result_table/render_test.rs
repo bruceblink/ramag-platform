@@ -283,6 +283,12 @@ fn result_status_keeps_paging_controls_visible_in_small_window(cx: &mut TestAppC
         let next_page = cx
             .debug_bounds("result-page-next")
             .expect("下一页按钮应渲染");
+        let page_range = cx
+            .debug_bounds("result-page-range")
+            .expect("分页范围应渲染");
+        let pagination_controls = cx
+            .debug_bounds("result-pagination-controls")
+            .expect("分页控制组应渲染");
         let table = cx.debug_bounds("result-h-scroll").expect("结果视口应渲染");
         let vertical_scrollbar = cx
             .debug_bounds("result-v-scrollbar")
@@ -317,6 +323,14 @@ fn result_status_keeps_paging_controls_visible_in_small_window(cx: &mut TestAppC
         assert!(
             next_page.right() <= status_bar.right(),
             "分页按钮不能被长状态文本推出状态栏"
+        );
+        assert!(
+            page_range.right() <= status_bar.right() && page_range.bottom() <= status_bar.bottom(),
+            "分页范围不能越出状态栏：range={page_range:?}, status_bar={status_bar:?}"
+        );
+        assert!(
+            pagination_controls.right() <= status_bar.right(),
+            "分页控制组不能越出状态栏：controls={pagination_controls:?}, status_bar={status_bar:?}"
         );
     }
 }

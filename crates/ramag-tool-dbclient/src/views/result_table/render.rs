@@ -1,4 +1,4 @@
-use super::pagination::parse_result_page;
+use super::pagination::render_pagination_controls;
 use super::states::{render_affected_result, render_row_search_blocker};
 use super::*;
 use crate::views::result_value::display_cell_value;
@@ -270,11 +270,6 @@ pub(in crate::views) fn render_table(
         ));
     }
     let pagination_ui = pagination;
-    let total_summary: Option<String> = pagination_ui.and_then(|p| match p.total {
-        TotalRows::Counting => Some("总行数计算中…".to_string()),
-        TotalRows::Known(n) => Some(format!("共 {n} 行")),
-        TotalRows::Unavailable => None,
-    });
     let total_pages: Option<u64> = pagination_ui.and_then(|p| match p.total {
         TotalRows::Known(n) if p.page_size > 0 => Some(n.div_ceil(p.page_size as u64).max(1)),
         _ => None,
@@ -293,23 +288,14 @@ pub(in crate::views) fn render_table(
         } else {
             status_parts.push(format!("命中 {visible_count} / {pre_filter_count} 行"));
         }
-    } else if pagination_ui.is_some() {
-        if total_rows == 0 {
-            status_parts.push("当前页 0 行".to_string());
+    } else if pagination_ui.is_none() {
+        if truncated {
+            status_parts.push(format!(
+                "显示 {pre_filter_count} / {total_rows} 行（已截断）"
+            ));
         } else {
-            let range_start = row_number_offset.saturating_add(1);
-            let range_end = row_number_offset.saturating_add(total_rows);
-            status_parts.push(format!("显示 {range_start}-{range_end} 行"));
+            status_parts.push(format!("{total_rows} 行"));
         }
-        if let Some(total_text) = total_summary {
-            status_parts.push(total_text);
-        }
-    } else if truncated {
-        status_parts.push(format!(
-            "显示 {pre_filter_count} / {total_rows} 行（已截断）"
-        ));
-    } else {
-        status_parts.push(format!("{total_rows} 行"));
     }
     let status_summary = status_parts.join(" · ");
 
@@ -323,14 +309,16 @@ pub(in crate::views) fn render_table(
         .overflow_hidden()
         .items_center()
         .gap_2()
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .overflow_hidden()
-                .text_ellipsis()
-                .child(status_summary),
-        )
+        .when(!status_summary.is_empty(), |this| {
+            this.child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .text_ellipsis()
+                    .child(status_summary),
+            )
+        })
         .child(div().flex_none().child(format!("· 耗时 {elapsed} ms")))
         .when_some(selected_scope, |this, scope| {
             this.child(div().flex_none().child(scope))
@@ -434,86 +422,15 @@ pub(in crate::views) fn render_table(
         .text_color(muted_fg)
         .child(status_context)
         .when_some(pagination_ui, |this, pagination| {
-            let has_previous_page = pagination.page > 0;
-            let previous_page = pagination.page.saturating_sub(1);
-            let next_page = pagination.page.saturating_add(1);
-            let panel_for_previous = panel_entity.clone();
-            let panel_for_next = panel_entity.clone();
-            this.child(render_page_size_selector(
-                pagination.page_size,
+            this.child(render_pagination_controls(
                 panel_entity.clone(),
-                pending_edit_count > 0 || dml_busy,
+                pagination,
+                total_pages,
+                row_number_offset,
+                total_rows,
+                pending_edit_count,
+                dml_busy,
             ))
-            .child(
-                ramag_ui::clickable_button("result-page-previous")
-                    .debug_selector(|| "result-page-previous".into())
-                    .ghost()
-                    .small()
-                    .label("上页")
-                    .disabled(!has_previous_page || pending_edit_count > 0 || dml_busy)
-                    .on_click(move |_, _, app| {
-                        panel_for_previous.update(app, |_, cx| {
-                            cx.emit(ResultPanelEvent::PageRequested(previous_page));
-                        });
-                    }),
-            )
-            .child(div().flex_none().child(match total_pages {
-                Some(pages) => format!("第 {} / {} 页", pagination.page + 1, pages),
-                None => format!("第 {} 页", pagination.page + 1),
-            }))
-            .when_some(
-                total_pages.filter(|pages| *pages > 1),
-                |this, total_pages| {
-                    let panel_for_jump = panel_entity.clone();
-                    let current_page = pagination.page.saturating_add(1);
-                    this.child(
-                        ramag_ui::clickable_button("result-page-jump")
-                            .debug_selector(|| "result-page-jump".into())
-                            .ghost()
-                            .small()
-                            .label("跳页")
-                            .tooltip(format!("输入 1-{total_pages} 的页码"))
-                            .disabled(pending_edit_count > 0 || dml_busy)
-                            .on_click(move |_, window, app| {
-                                let panel = panel_for_jump.clone();
-                                ramag_ui::open_bounded_prompt(
-                                    "跳转到结果页",
-                                    format!("输入 1-{total_pages} 的页码"),
-                                    &current_page.to_string(),
-                                    "跳转",
-                                    32,
-                                    move |value, _, app| match parse_result_page(
-                                        &value,
-                                        total_pages,
-                                    ) {
-                                        Ok(page) => panel.update(app, |_, cx| {
-                                            cx.emit(ResultPanelEvent::PageRequested(page));
-                                        }),
-                                        Err(message) => panel.update(app, |panel, cx| {
-                                            panel.notify_result_error(message, cx);
-                                        }),
-                                    },
-                                    window,
-                                    app,
-                                );
-                            }),
-                    )
-                },
-            )
-            .child(
-                ramag_ui::clickable_button("result-page-next")
-                    .debug_selector(|| "result-page-next".into())
-                    .ghost()
-                    .small()
-                    .label("下页")
-                    .tooltip("无排序时顺序不固定")
-                    .disabled(!pagination.has_more || pending_edit_count > 0 || dml_busy)
-                    .on_click(move |_, _, app| {
-                        panel_for_next.update(app, |_, cx| {
-                            cx.emit(ResultPanelEvent::PageRequested(next_page));
-                        });
-                    }),
-            )
         })
         .when(has_pending_insert || pending_edit_count > 0, |this| {
             this.child(mutation_actions)
