@@ -64,7 +64,7 @@
 1. 已建立本文件及 `docs/code-review-remediation-plan-2026-09-23.md` 的审查基线。
 2. R5 请求搜索清除按钮交互回归（`58675ea2`）、R11 workspace Clippy 修复（`480fc9b1`）、R1 工作区读取失败处理（`de232c7b`）和 R2 保存生命周期隔离（`fde33b9f`）已随 `dev` 的整合提交进入 `main`。
 3. R3 Collection 历史写入失败处理（`1204b397`）和 R4 MySQL 8.4 基线校正（`15513a44`）已先在原开发流程中验证，随后由 `9c14fa7a` 将已验证的 `dev` 整合到 `main`；`origin/main` 已完成推送。
-4. 已确认 `dev`、`feat/r6-mysql-generated-columns` 和 `fix/api-search-clear-regression` 没有未合并/未推送提交或关联 worktree，随后删除本地引用；远程 `origin/dev` 也已删除，当前仅保留 `main`/`origin/main`。R6 表设计器 DDL 安全性、R7 SQLite 非空表新增必填字段保护和 R8 MQTT 订阅背压修复均已完成验证并推送；下一项按专项计划实施 R9、R10。
+4. 已确认 `dev`、`feat/r6-mysql-generated-columns` 和 `fix/api-search-clear-regression` 没有未合并/未推送提交或关联 worktree，随后删除本地引用；远程 `origin/dev` 也已删除，当前仅保留 `main`/`origin/main`。R6 表设计器 DDL 安全性、R7 SQLite 非空表新增必填字段保护、R8 MQTT 订阅背压修复、R9 SSH 覆盖提交结果和 R10 Linux 单实例竞态均已完成验证；后续继续按新增需求建立独立切片。
 
 已完成事项及证据以本文件“切片执行记录”和 [`code-review-remediation-plan-2026-09-23.md`](code-review-remediation-plan-2026-09-23.md) 的执行记录为准，不再把已进入 `main` 的改动列作待办。
 
@@ -151,4 +151,12 @@
 - 改动范围：SSH 传输领域结果模型、SFTP 提交实现、传输任务历史和 SSH 传输面板告警展示；增加可控 SFTP 测试替身。不改变拒绝覆盖、目标类型校验和取消语义。
 - 验收：`cargo test --locked -p ramag-infra-ssh --lib`（64 项通过，含备份删除失败和替换失败回滚）；`cargo test --locked -p ramag-app --lib`（226 项通过，含成功告警保留）；`cargo test --locked -p ramag-tool-ssh --lib`（82 项通过）；fmt、workspace Clippy、源码尺寸和 `git diff --check` 均通过。
 - UI 证据：先运行 SSH 工具 headless 渲染测试；Computer Use 原生应用接口仍返回空应用列表，无法完成真实传输窗口交互，系统截图仅作为应用启动证据，不能替代传输告警点击验收。
-- Git：R9 以单一 Conventional Commit 提交并推送 `main`；R10 继续保持独立切片。
+- Git：R9 以单一 Conventional Commit 提交并推送 `main`；R10 继续保持独立提交。
+
+### R10：Linux 单实例旧 Socket 清理竞态（2026-09-25）
+
+- 设计：为每个单实例 socket 使用持久的 `ramag.sock.lock` 文件，并通过 `File::lock()` 在内核层串行化“检查/清理旧 socket/重新 bind”流程；锁由文件描述符持有，进程异常退出时由内核自动释放。无法取得启动锁时直接作为 Secondary 退出，不放行双开。
+- 改动范围：`single_instance_linux.rs` 的启动锁、并发恢复测试和测试清理；保留现有失效 socket 类型校验、激活通知和守卫退出清理语义。
+- 验收：WSL Ubuntu 24.04 中执行 `cargo test --locked -p ramag-bin --bin ramag single_instance::tests -- --nocapture`（5 项通过）；Windows workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- Docker/UI：本切片不需要外部服务；Computer Use 仍不可用，未新增真实窗口交互范围。
+- Git：R10 以单一 Conventional Commit 提交并推送 `main`。

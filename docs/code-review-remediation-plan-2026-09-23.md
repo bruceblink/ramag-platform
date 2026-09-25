@@ -1,6 +1,6 @@
 # 代码审查与修复优化计划（2026-09-23）
 
-> 状态：R1-R9、R11 已进入已验证、已推送的 `main`；R3、R4 以及本次临时源分支均已清理；R10 尚待实施。
+> 状态：R1-R11 已进入已验证、已推送的 `main`；R3、R4 以及本次临时源分支均已清理。
 >
 > 范围：本计划基于当前 `main` / `v0.2.0` 基线，重点检查近期 API 工作台、数据库工作台、MQTT 工作台、启动生命周期和本地集成测试维护。计划只安排可复现、可独立验收的修复；不把真实 Windows 窗口证据或新的协议能力混入同一次提交。
 
@@ -24,7 +24,7 @@
 3. API Collection 的历史写入错误会通过 `?` 直接结束整个集合，UI 收不到已完成结果汇总，缺少明确的持久化失败策略。
 4. 审查时数据库测试与文档残留 MySQL 8.0 表述，而仓库规则已要求 MySQL 8.4+；R4 已在本计划执行记录中完成文档校正，原历史数据不再被描述为当前验收证据。
 5. 审查时表设计器生成的 MySQL `CHANGE COLUMN` 定义没有保留 `AUTO_INCREMENT` 等生成属性，SQLite 对已存在数据的必填新增字段也没有在预览阶段拒绝；R6、R7 已按计划修复并完成对应数据库验证。
-6. 审查时 MQTT 订阅消息进入有界 UI 队列后遇到背压会静默丢弃，SSH 远程覆盖提交在新文件已替换成功后可能仍报告失败，Linux 单实例旧 Socket 清理存在并发竞态；R8、R9 已修复，R10 仍待实施。
+6. 审查时 MQTT 订阅消息进入有界 UI 队列后遇到背压会静默丢弃，SSH 远程覆盖提交在新文件已替换成功后可能仍报告失败，Linux 单实例旧 Socket 清理存在并发竞态；R8、R9、R10 已修复。
 7. R11 的 workspace Clippy 基线问题已修复；后续切片仍必须在提交前通过统一 workspace 检查。
 
 本轮还确认一个验证缺口：API 搜索清除按钮已有实现，但现有测试通过直接写入空字符串验证恢复列表，没有真正模拟清除按钮点击或焦点回归。因此它应作为第一项交互回归切片，而不是继续把现有“已验证”记录当作完整交互证据。
@@ -114,6 +114,7 @@
 - 影响：两个 Ramag 进程都可能继续作为主实例，破坏单实例保护并引发共享 Storage 或窗口状态竞争。
 - 修复方向：清理前后使用不可替换的身份校验/绑定竞态保护；优先使用原子占用、锁文件或能确认监听者仍不存在的流程，避免“检查后删除”跨越无保护窗口。
 - 验收：并发启动压力测试覆盖两个进程同时发现旧 Socket、A 已重新绑定而 B 尚未删除的交错；最终最多一个进程成为 Primary，另一个必须 Secondary 或明确失败。
+- 修复结果（2026-09-25）：使用内核 advisory lock 串行化旧 socket 恢复和重新绑定；锁获取失败时安全退出为 Secondary。WSL Ubuntu 24.04 并发测试确认两个启动者最终恰好一个 Primary、一个 Secondary，旧 socket 替换和激活通知回归均通过。
 
 ### R11：workspace Clippy 基线失败（P1，发布前检查阻塞）
 
@@ -150,6 +151,7 @@
 - R7 已完成并推送 `main`：表设计器只在确认 SQLite 表为空时生成无默认值的 `NOT NULL` 新字段；非空表要求默认值或允许 `NULL`，未知状态拒绝生成。`cargo test --locked -p ramag-tool-dbclient --lib table_designer -- --nocapture`（25 项）和 `cargo test --locked -p ramag-infra-sqlite --lib -- --nocapture`（5 项）均通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 均通过。SQLite 验证使用本机临时文件，未依赖外部服务。Computer Use 启动 Ramag 后仍返回空应用列表，已改用系统截图 `artifacts/ui-screenshots/r7-ramag-window-fallback.png` 和 headless 表设计器测试；截图只证明新构建可启动，不证明真实表设计器交互。
 - R8 已完成并推送 `main`：`Backpressured` 现在暂停两个 Native MQTT 协议路径的事件读取并重试原消息。`cargo test --locked -p ramag-infra-mqtt --features native --lib -- --nocapture`（17 项通过、1 项忽略）、`cargo test --locked -p ramag-tool-mqtt --lib`（32 项）和本机 Docker 两协议背压集成测试（2 项）均通过；workspace 全量测试、fmt、默认与 native feature Clippy、源码尺寸和 `git diff --check` 均通过。Docker 使用 `ramag-mqtt-test` / `eclipse-mosquitto:2.0.20` / `127.0.0.1:18883->1883`，测试后执行 clean 删除容器和网络，无命名卷残留。Computer Use 启动最新 Ramag 后仍返回空应用列表，已改用系统截图 `artifacts/ui-screenshots/r8-ramag-window-fallback.png` 和 headless MQTT UI 测试；截图只证明数据库客户端窗口可启动，不证明真实 MQTT 订阅交互。
 - R9 已完成并推送 `main`：远程覆盖提交区分“目标替换成功”和“备份清理失败”，告警通过 `SshTransferOutcome`、传输任务历史和 SSH 面板可见；SFTP 测试替身确认备份删除失败仍保留新目标，替换失败仍回滚。`cargo test --locked -p ramag-infra-ssh --lib`（64 项）、`cargo test --locked -p ramag-app --lib`（226 项）、`cargo test --locked -p ramag-tool-ssh --lib`（82 项）、fmt、workspace Clippy、源码尺寸和 `git diff --check` 均通过。本切片不需要外部服务，未启动 Docker。Computer Use 仍不可用，headless SSH 工具测试通过，系统截图只证明 Ramag 窗口可启动，不证明真实传输告警交互。
+- R10 已完成并推送 `main`：`single_instance_linux.rs` 用 `ramag.sock.lock` 和 `File::lock()` 保护旧 socket 清理与重新 bind，新增并发恢复测试。WSL Ubuntu 24.04 执行 `cargo test --locked -p ramag-bin --bin ramag single_instance::tests -- --nocapture`（5 项通过）；Windows fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。本切片未启动 Docker，也未新增真实窗口交互证据。
 
 ## 3. 分阶段落地计划
 
@@ -184,11 +186,11 @@
 2. R7 已通过 SQLite 空表/非空表执行测试；表行探测失败时采用拒绝生成的安全策略，没有伪造重建表迁移。
 3. R6、R7、R8 与 R9 保持独立提交；下一步进入 R10，并继续每项只提交实现、对应测试和必要文档。
 
-### 阶段 F：消息、传输与进程边界可靠性（R8、R9 已完成，R10 待实施）
+### 阶段 F：消息、传输与进程边界可靠性（R8-R10 已完成）
 
 1. R8 已固定背压语义并修改两个 Native MQTT 数据面，MQTT 3.1.1/5 本机 Docker 同构测试通过。
 2. R9 已建立 SFTP 提交结果模型，验证替换成功/备份清理失败的成功告警状态，并在传输历史和 UI 中显示告警；不改变替换失败回滚路径。
-3. R10 先用可控并发测试复现 Socket 竞态，再选择锁或原子重试方案；不得仅增加 sleep 或扩大重试次数掩盖竞态。
+3. R10 已用可控并发测试复现并修复 Socket 竞态，采用内核锁保护恢复流程；没有通过增加 sleep 或扩大重试次数掩盖竞态。
 4. R9、R10 分别提交、分别运行目标测试和必要的本机 Docker/真实端点验收；真实 Windows 窗口证据与协议正确性证据分开记录。
 
 ### 阶段 G：质量基线恢复（已完成）

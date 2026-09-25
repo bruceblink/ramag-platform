@@ -1,6 +1,7 @@
 //! Linux 单实例：在用户私有的 XDG runtime 目录监听 Unix socket。
 //! 后启进程连接 socket 请求首实例唤起；失效 socket 仅在确认无法连接后清理。
 
+use std::fs::{File, OpenOptions};
 use std::io::{self, Read as _, Write as _};
 use std::os::unix::fs::{
     DirBuilderExt as _, FileTypeExt as _, MetadataExt as _, PermissionsExt as _,
@@ -16,6 +17,7 @@ use std::time::Duration;
 use tracing::{info, warn};
 
 const SOCKET_NAME: &str = "ramag.sock";
+const STARTUP_LOCK_NAME: &str = "ramag.sock.lock";
 const ACTIVATE_MESSAGE: &[u8] = b"activate\n";
 
 pub(crate) enum InstanceRole {
@@ -177,6 +179,19 @@ fn ensure_private_runtime_directory(path: &Path, uid: u32) -> io::Result<()> {
 }
 
 fn acquire_at(path: PathBuf) -> InstanceRole {
+    let _startup_lock = match acquire_startup_lock(&path) {
+        Ok(lock) => lock,
+        Err(error) => {
+            warn!(
+                operation = "single_instance_init",
+                stage = "startup_lock",
+                error = %error,
+                path = %path.display(),
+                "acquire single-instance startup lock failed; exiting as secondary"
+            );
+            return InstanceRole::Secondary;
+        }
+    };
     match UnixListener::bind(&path) {
         Ok(listener) => start_primary(path, listener),
         Err(error) if error.kind() == io::ErrorKind::AddrInUse => {
@@ -201,6 +216,22 @@ fn acquire_at(path: PathBuf) -> InstanceRole {
             InstanceRole::Primary(PrimaryGuard::degraded())
         }
     }
+}
+
+/// 串行化旧 socket 清理和重新绑定；内核会在进程异常退出时自动释放 advisory lock。
+fn startup_lock_path(socket_path: &Path) -> PathBuf {
+    socket_path.with_file_name(STARTUP_LOCK_NAME)
+}
+
+fn acquire_startup_lock(socket_path: &Path) -> io::Result<File> {
+    let lock = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(startup_lock_path(socket_path))?;
+    lock.lock()?;
+    Ok(lock)
 }
 
 fn start_primary(path: PathBuf, listener: UnixListener) -> InstanceRole {
@@ -345,7 +376,7 @@ mod tests {
     #[test]
     fn second_instance_notifies_primary() -> io::Result<()> {
         let (path, directory) = test_socket("notify")?;
-        let primary = match acquire_at(path) {
+        let primary = match acquire_at(path.clone()) {
             InstanceRole::Primary(guard) => guard,
             InstanceRole::Secondary => {
                 return Err(io::Error::other("first instance was secondary"));
@@ -367,6 +398,7 @@ mod tests {
         }
         assert!(activated);
         drop(primary);
+        std::fs::remove_file(startup_lock_path(&directory.join(SOCKET_NAME)))?;
         std::fs::remove_dir(directory)
     }
 
@@ -374,11 +406,57 @@ mod tests {
     fn stale_socket_is_replaced() -> io::Result<()> {
         let (path, directory) = test_socket("stale")?;
         drop(UnixListener::bind(&path)?);
-        let primary = match acquire_at(path) {
+        let primary = match acquire_at(path.clone()) {
             InstanceRole::Primary(guard) => guard,
             InstanceRole::Secondary => return Err(io::Error::other("stale socket looked active")),
         };
         drop(primary);
+        std::fs::remove_file(startup_lock_path(&path))?;
+        std::fs::remove_dir(directory)
+    }
+
+    #[test]
+    fn concurrent_stale_socket_recovery_keeps_one_primary() -> io::Result<()> {
+        let (path, directory) = test_socket("concurrent-stale")?;
+        drop(UnixListener::bind(&path)?);
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let roles = std::thread::scope(|scope| {
+            let handles = (0..2)
+                .map(|_| {
+                    let barrier = barrier.clone();
+                    let path = path.clone();
+                    scope.spawn(move || {
+                        barrier.wait();
+                        acquire_at(path)
+                    })
+                })
+                .collect::<Vec<_>>();
+            handles
+                .into_iter()
+                .map(|handle| {
+                    handle
+                        .join()
+                        .map_err(|_| io::Error::other("startup thread panicked"))
+                })
+                .collect::<io::Result<Vec<_>>>()
+        })?;
+
+        assert_eq!(
+            roles
+                .iter()
+                .filter(|role| matches!(role, InstanceRole::Primary(_)))
+                .count(),
+            1
+        );
+        assert_eq!(
+            roles
+                .iter()
+                .filter(|role| matches!(role, InstanceRole::Secondary))
+                .count(),
+            1
+        );
+        drop(roles);
+        std::fs::remove_file(startup_lock_path(&path))?;
         std::fs::remove_dir(directory)
     }
 }
