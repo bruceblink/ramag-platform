@@ -46,10 +46,7 @@ impl TableDesigner {
                 comment: &comment,
             };
             match self.driver {
-                DriverKind::Mysql => {
-                    self.mysql_field_sql(field, &sql, &mut mysql_alter_clauses);
-                    Ok(())
-                }
+                DriverKind::Mysql => self.mysql_field_sql(field, &sql, &mut mysql_alter_clauses),
                 DriverKind::Postgres => {
                     self.postgres_field_sql(field, &qualified, &sql, &mut statements);
                     Ok(())
@@ -89,7 +86,17 @@ impl TableDesigner {
             _ => Err("当前数据库不支持表结构设计器".into()),
         }
     }
-    fn mysql_field_sql(&self, field: &FieldDraft, sql: &FieldSql<'_>, out: &mut Vec<String>) {
+    /// 生成 MySQL 字段变更并保留数据库返回的生成属性。
+    ///
+    /// `CHANGE COLUMN` 会重写整列定义；如果只输出编辑器中的类型、空值、默认值和注释，
+    /// MySQL 会静默丢掉 `AUTO_INCREMENT` 或生成列表达式。因此旧字段的元数据必须随定义
+    /// 一起重放；无法完整表达的元数据直接拒绝预览，避免执行后不可逆地改变列语义。
+    fn mysql_field_sql(
+        &self,
+        field: &FieldDraft,
+        sql: &FieldSql<'_>,
+        out: &mut Vec<String>,
+    ) -> Result<(), String> {
         let definition = mysql_definition(
             self.driver,
             sql.name,
@@ -97,7 +104,8 @@ impl TableDesigner {
             field.nullable,
             sql.default_value,
             sql.comment,
-        );
+            field.original.as_ref(),
+        )?;
         match &field.original {
             None => out.push(format!("ADD COLUMN {definition}")),
             Some(original)
@@ -117,6 +125,7 @@ impl TableDesigner {
             }
             _ => {}
         }
+        Ok(())
     }
 
     fn postgres_field_sql(
@@ -262,9 +271,21 @@ fn mysql_definition(
     nullable: bool,
     default_value: &str,
     comment: &str,
-) -> String {
+    original: Option<&Column>,
+) -> Result<String, String> {
+    let attributes = mysql_attributes(original)?;
+    if attributes.generated && !default_value.trim().is_empty() {
+        return Err(format!(
+            "MySQL 字段 {name} 同时包含生成表达式和默认值，无法安全生成 CHANGE COLUMN"
+        ));
+    }
+    if attributes.generated && attributes.auto_increment {
+        return Err(format!(
+            "MySQL 字段 {name} 同时包含生成表达式和 AUTO_INCREMENT，无法安全生成 CHANGE COLUMN"
+        ));
+    }
     let null = if nullable { " NULL" } else { " NOT NULL" };
-    let default = if default_value.is_empty() {
+    let default = if attributes.generated || default_value.is_empty() {
         String::new()
     } else {
         format!(" DEFAULT {default_value}")
@@ -274,10 +295,70 @@ fn mysql_definition(
     } else {
         format!(" COMMENT '{}'", escape_literal(comment))
     };
-    format!(
-        "{} {data_type}{null}{default}{comment}",
+    let generated = attributes.generated_clause;
+    let auto_increment = if attributes.auto_increment {
+        " AUTO_INCREMENT"
+    } else {
+        ""
+    };
+    Ok(format!(
+        "{} {data_type}{generated}{null}{default}{auto_increment}{comment}",
         driver.quote_identifier(name)
-    )
+    ))
+}
+
+/// MySQL `CHANGE COLUMN` 需要完整重放的列级属性。
+///
+/// 这些值只来自已加载的列元数据，不是编辑器中的自由输入；生成列表达式和自增标记
+/// 必须与原列一起输出，否则一次只改注释或类型也可能改变后续插入行为。
+struct MysqlAttributes {
+    generated_clause: String,
+    generated: bool,
+    auto_increment: bool,
+}
+
+/// 将 MySQL 原字段元数据转换为可重放的定义片段，并拒绝跨方言属性。
+fn mysql_attributes(original: Option<&Column>) -> Result<MysqlAttributes, String> {
+    let Some(original) = original else {
+        return Ok(MysqlAttributes {
+            generated_clause: String::new(),
+            generated: false,
+            auto_increment: false,
+        });
+    };
+    if original.identity_generation.is_some() {
+        return Err(format!(
+            "MySQL 字段 {} 包含不支持的 IDENTITY 属性，无法安全生成 CHANGE COLUMN",
+            original.name
+        ));
+    }
+    let expression = original
+        .generation_expression
+        .as_deref()
+        .map(str::trim)
+        .filter(|expression| !expression.is_empty());
+    if expression.is_some() != original.generated_storage.is_some() {
+        return Err(format!(
+            "MySQL 字段 {} 的生成列元数据不完整，无法安全生成 CHANGE COLUMN",
+            original.name
+        ));
+    }
+    let generated_clause = match (expression, original.generated_storage) {
+        (None, None) => String::new(),
+        (Some(expression), Some(storage)) => {
+            let storage = match storage {
+                ramag_domain::entities::GeneratedColumnStorage::Virtual => "VIRTUAL",
+                ramag_domain::entities::GeneratedColumnStorage::Stored => "STORED",
+            };
+            format!(" GENERATED ALWAYS AS ({expression}) {storage}")
+        }
+        _ => unreachable!("生成列元数据完整性已在上方检查"),
+    };
+    Ok(MysqlAttributes {
+        generated: expression.is_some(),
+        generated_clause,
+        auto_increment: original.is_auto_increment,
+    })
 }
 
 fn escape_literal(value: &str) -> String {

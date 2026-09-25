@@ -1,8 +1,8 @@
 # 代码审查与修复优化计划（2026-09-23）
 
-> 状态：R1-R5、R11 已进入已验证、已推送的 `dev`；R3、R4 源分支均已清理；R6-R10 尚待实施。
+> 状态：R1-R6、R11 已进入已验证、已推送的 `main`；R3、R4 以及本次临时 R6 源分支均已清理；R7-R10 尚待实施。
 >
-> 范围：本计划基于当前 `dev` / `v0.2.0` 基线，重点检查近期 API 工作台、数据库工作台、MQTT 工作台、启动生命周期和本地集成测试维护。计划只安排可复现、可独立验收的修复；不把真实 Windows 窗口证据或新的协议能力混入同一次提交。
+> 范围：本计划基于当前 `main` / `v0.2.0` 基线，重点检查近期 API 工作台、数据库工作台、MQTT 工作台、启动生命周期和本地集成测试维护。计划只安排可复现、可独立验收的修复；不把真实 Windows 窗口证据或新的协议能力混入同一次提交。
 
 ## 术语表与命名约定
 
@@ -25,7 +25,7 @@
 4. 审查时数据库测试与文档残留 MySQL 8.0 表述，而仓库规则已要求 MySQL 8.4+；R4 已在本计划执行记录中完成文档校正，原历史数据不再被描述为当前验收证据。
 5. 表设计器生成的 MySQL `CHANGE COLUMN` 定义没有保留 `AUTO_INCREMENT` 等生成属性；SQLite 对已存在数据的必填新增字段也没有在预览阶段拒绝。
 6. MQTT 订阅消息进入有界 UI 队列后遇到背压会静默丢弃，SSH 远程覆盖提交在新文件已替换成功后可能仍报告失败，Linux 单实例旧 Socket 清理存在并发竞态。
-7. 当前 workspace Clippy 基线本身未通过，阻塞提交前的统一质量检查。
+7. R11 的 workspace Clippy 基线问题已修复；后续切片仍必须在提交前通过统一 workspace 检查。
 
 本轮还确认一个验证缺口：API 搜索清除按钮已有实现，但现有测试通过直接写入空字符串验证恢复列表，没有真正模拟清除按钮点击或焦点回归。因此它应作为第一项交互回归切片，而不是继续把现有“已验证”记录当作完整交互证据。
 
@@ -71,13 +71,14 @@
 - 修复方向：使用 `gpui_kit::test::TestWindowExt::click` 点击 `api-request-search-clear`，断言搜索值为空、列表恢复、按钮消失且输入焦点回到搜索框。
 - 验收：目标 headless 测试通过；360/640px 至少有一组边界检查；Computer Use 可用时补原生窗口证据，不可用时明确记录限制。
 
-### R6：MySQL 字段修改可能丢失自增属性（P1）
+### R6：MySQL 字段修改可能丢失自增属性（P1，已修复）
 
 - 位置：`crates/ramag-tool-dbclient/src/views/table_designer/sql.rs` 的 `mysql_field_sql` 和 `mysql_definition`。
 - 现状：字段发生任意变化时使用 `CHANGE COLUMN`，但新定义只生成类型、可空、默认值和注释，没有根据原字段元数据保留 `AUTO_INCREMENT` 或其他生成表达式属性。
 - 影响：用户只修改注释或类型时，执行预览 SQL 可能把自增列变成普通列；后续插入可能失败或产生错误的主键分配。现有测试构造的字段都没有自增/生成属性，未覆盖该风险。
 - 修复方向：为 MySQL 生成定义时显式保留可安全重放的生成属性；对无法在当前编辑器中安全表达的属性拒绝生成 SQL，并提示使用完整 DDL/重建表流程。主键索引是否由数据库保留必须用 MySQL 8.4 Docker 实测确认，不凭静态字符串推断。
 - 验收：自增主键仅修改注释、类型或可空性的 SQL 回读测试；本机 MySQL 8.4 执行前后读取列元数据，确认属性不变；非法或无法映射的生成属性有明确错误。
+- 修复结果（2026-09-25）：`CHANGE COLUMN` 现在保留 `AUTO_INCREMENT`、生成表达式和 `VIRTUAL`/`STORED` 属性，并对不完整生成元数据和不支持的身份元数据返回明确错误；MySQL 8.4 Docker 回读测试已确认变更前后属性一致。
 
 ### R7：SQLite 已有数据表新增必填字段会生成不可执行 SQL（P1）
 
@@ -129,19 +130,20 @@
 - UI 证据：本轮没有真实 Windows 窗口操作；Computer Use 返回空应用列表，因此不能把现有 headless 结果描述为原生窗口验收。
 - 集成证据：本轮未启动或修改 Docker 服务；后续计划中的协议/数据库集成测试必须按本机 Docker、镜像版本、端口和清理状态单独记录。
 
-## 2.2 修复执行记录（截至 2026-09-24）
+## 2.2 修复执行记录（截至 2026-09-25）
 
-- R5 已完成：`58675ea2 test: cover api request search clear interaction` 已进入 `dev`，补充清除按钮交互回归。此项提供 headless 证据，不代表真实 Windows 窗口验收。
-- R11 已完成：`480fc9b1 fix: remove redundant docker transport question mark` 已进入 `dev`；workspace Clippy 当前通过。
-- R1 已完成：`de232c7b fix: surface API workspace load failures` 已进入 `dev`。
-- R2 已完成：`fde33b9f fix(api): protect workspace save lifecycle` 已进入 `dev`。
+- R5 已完成：`58675ea2 test: cover api request search clear interaction` 已随整合提交进入 `main`，补充清除按钮交互回归。此项提供 headless 证据，不代表真实 Windows 窗口验收。
+- R11 已完成：`480fc9b1 fix: remove redundant docker transport question mark` 已随整合提交进入 `main`；workspace Clippy 当前通过。
+- R1 已完成：`de232c7b fix: surface API workspace load failures` 已随整合提交进入 `main`。
+- R2 已完成：`fde33b9f fix(api): protect workspace save lifecycle` 已随整合提交进入 `main`。
 - R3 已完成代码与分支验证：`1204b397 fix(api): preserve collection results on history failure` 已推送到 `origin/feat/api-collection-results`。历史写入失败时保留已完成结果和当前响应，停止后续请求并显示不含敏感数据的提示；新增兼容旧数据的 serde 默认字段。失败注入测试确认仅失败前后实际执行的请求计入结果，不因存储错误重发请求。
 - R3 验证通过：`cargo test --locked -p ramag-tool-api --all-targets`（29 项）；`cargo test --locked -p ramag-app --all-targets`（224 项单元测试及集成测试）；`cargo test --locked -p ramag-domain --lib api -- --nocapture`（27 项）；`cargo fmt --all -- --check`；`cargo clippy --workspace --all-targets -- -D warnings`；`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/check-source-size.ps1`；`git diff --check`。
 - R3 Docker 环境：HTTP 服务 `ramag-api-http-test` 使用 `ramag-api-http-test:python-3.12.11-alpine-3.22`，映射 `127.0.0.1:18089->8080` 和 `127.0.0.1:18091->8443`；gRPC 服务 `ramag-api-grpc-test` 使用 `ramag-api-grpc-test:rust-1.91.0-bookworm`，映射 `127.0.0.1:18090->50051` 和 `127.0.0.1:18092->50052`。执行期间两者均为 healthy，且在测试前已运行；本次未启动、停止或清理容器，测试后仍保持运行。
 - R3 UI 证据：API Docker 测试执行 headless GPUI 交互，先打开“断言”响应页签，再检查断言和 Collection 汇总；未运行真实 Windows 窗口验收。
-- R3 集成状态：已通过 `f7c74ea8` 合并到 `dev`，并随 `6d81150b` 推送到 `origin/dev`；目标分支通过 `cargo test --locked -p ramag-tool-api --all-targets`（29 项）、`cargo test --locked -p ramag-app --all-targets`（224 项单元测试、2 项 data-sync live、6 项 SQL live、9 项 transfer live）、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check`。源分支无未合并/未推送提交且无关联 worktree，已删除本地和远程引用。R4 随后单独执行；R6-R10 保持后续独立切片。
-- R4 已合并到 `dev`：`docs/performance.md`、`docs/development-roadmap.md` 和 `docs/database-client-datagrip-roadmap.md` 明确 MySQL 8.4+ / PostgreSQL 17+ 当前基线，并给历史 MySQL 8.0 测量标注旧基线及“不是当前验收证据”；`scripts/db-test/compose.yaml` 已确认固定使用 MySQL `mysql:8.4`、PostgreSQL `postgres:17-alpine`、Redis `redis:7-alpine`、MongoDB `mongo:8.2`，分别绑定 `127.0.0.1:13306`、`:15432`、`:16379`、`:27018`。`db-test.sh` 使用 `docker compose up --detach --wait` 启动、普通停止保留数据卷、清理命令删除数据卷和本地测试凭据；README、CI 和脚本未发现 MySQL 8.0 镜像或当前测试命令。本切片没有改写历史结果，也没有运行或操作 Docker 服务。
-- R4 验证：功能分支提交 `15513a44` 已通过 `e247d884` 合并到 `dev`，目标分支检查通过并随 `8d114073` 推送。分支和目标分支均通过 `git diff --check`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 和源码尺寸检查。`rg -n -i "mysql.{0,45}8\\.0|8\\.0.{0,45}mysql|mysql:8\\.0|mysql-8\\.0"` 检出的文档命中均明确标作历史旧基线或审查记录；`crates/ramag-infra-mysql/src/errors.rs` 中 `/8.0/` 只属于 MySQL 官方错误参考文档 URL，不是运行版本或测试镜像。此文档切片未运行集成测试。源分支无未合并/未推送提交且无关联 worktree，已删除本地和远程引用。
+- R3 集成状态：已通过 `f7c74ea8` 合并到 `dev`，随后由 `9c14fa7a` 整合到 `main` 并推送 `origin/main`；目标分支通过 `cargo test --locked -p ramag-tool-api --all-targets`（29 项）、`cargo test --locked -p ramag-app --all-targets`（224 项单元测试、2 项 data-sync live、6 项 SQL live、9 项 transfer live）、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check`。源分支无未合并/未推送提交且无关联 worktree，已删除本地和远程引用。
+- R4 已进入 `main`：`docs/performance.md`、`docs/development-roadmap.md` 和 `docs/database-client-datagrip-roadmap.md` 明确 MySQL 8.4+ / PostgreSQL 17+ 当前基线，并给历史 MySQL 8.0 测量标注旧基线及“不是当前验收证据”；`scripts/db-test/compose.yaml` 已确认固定使用 MySQL `mysql:8.4`、PostgreSQL `postgres:17-alpine`、Redis `redis:7-alpine`、MongoDB `mongo:8.2`，分别绑定 `127.0.0.1:13306`、`:15432`、`:16379`、`:27018`。`db-test.sh` 使用 `docker compose up --detach --wait` 启动、普通停止保留数据卷、清理命令删除数据卷和本地测试凭据；README、CI 和脚本未发现 MySQL 8.0 镜像或当前测试命令。本切片没有改写历史结果，也没有运行或操作 Docker 服务。源分支已清理。
+- R4 验证：功能分支提交 `15513a44` 通过 `e247d884` 合并到 `dev`，再由 `9c14fa7a` 整合到 `main` 并推送；目标分支和整合后的 `main` 均通过 `git diff --check`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 和源码尺寸检查。`rg -n -i "mysql.{0,45}8\\.0|8\\.0.{0,45}mysql|mysql:8\\.0|mysql-8\\.0"` 检出的文档命中均明确标作历史旧基线或审查记录；`crates/ramag-infra-mysql/src/errors.rs` 中 `/8.0/` 只属于 MySQL 官方错误参考文档 URL，不是运行版本或测试镜像。此文档切片未运行集成测试。源分支已清理。
+- R6 已完成并推送 `main`：`CHANGE COLUMN` 定义显式保留 `AUTO_INCREMENT`、生成表达式以及 `VIRTUAL`/`STORED` 属性，对不完整生成元数据和不支持的身份元数据拒绝生成 SQL。`cargo test --locked -p ramag-tool-dbclient --lib table_designer -- --nocapture`（21 项）、`cargo test --locked -p ramag-tool-dbclient --lib`（320 项）和 `cargo test --locked -p ramag-infra-mysql --test column_metadata -- --nocapture`（2 项）均通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 均通过。测试使用本机 `ramag-r6-mysql84` / `mysql:8.4`，端口 `127.0.0.1:13316->3306`，测试完成后执行 `docker rm -f`，容器和临时卷均已清理。Computer Use 原生应用接口不可用且应用列表为空，已改用系统截图 `artifacts/ui-screenshots/r6-system-fallback-window.png` 和 headless 表设计器测试；截图只证明 Ramag 窗口启动，不证明真实表设计器交互。
 
 ## 3. 分阶段落地计划
 
@@ -158,7 +160,7 @@
 3. 为 Storage 失败、旧结果迟到和导入交错增加应用层与 headless UI 测试。
 4. 使用独立提交边界：读取错误处理与保存代次不得合并为一个提交；每项通过测试后立即推送当前开发分支。
 
-### 阶段 C：Collection 结果语义（已完成并进入 dev）
+### 阶段 C：Collection 结果语义（已完成并进入 main）
 
 1. 先补 R3 的失败继续测试和错误分类设计，再修改 `run_collection`。
 2. 明确可继续错误、停止错误、取消和 Storage 持久化失败的边界。
@@ -170,12 +172,11 @@
 2. 检查 MySQL、PostgreSQL、Redis、MongoDB Compose 镜像、端口、启动和清理说明，确保当前示例满足 PostgreSQL 17+、MySQL 8.4+。
 3. 文档修改单独提交，避免与运行时代码或测试混合。
 
-### 阶段 E：表设计器 DDL 安全性
+### 阶段 E：表设计器 DDL 安全性（R6 已完成，R7 待实施）
 
-1. 先为 R6 建立 MySQL 8.4 Docker 元数据回读测试，再决定保留属性的最小 SQL 表达范围。
-2. 实现 R6；如果当前字段模型无法表达某种生成属性，预览必须拒绝而不是静默降级。
-3. 实现 R7 的非空表防护或明确的重建表迁移路径，补空表/非空表执行测试。
-4. R6 与 R7 分成两个独立提交；每项只提交实现、对应测试和必要文档。
+1. R6 已通过 MySQL 8.4 Docker 元数据回读测试，保留属性的最小 SQL 表达范围已固定并推送到 `main`。
+2. 下一步实现 R7 的非空表防护或明确的重建表迁移路径，补空表/非空表执行测试。
+3. R6 与 R7 保持独立提交；后续每项只提交实现、对应测试和必要文档。
 
 ### 阶段 F：消息、传输与进程边界可靠性
 
@@ -195,7 +196,7 @@
 - UI：用户可见行为先通过 headless GPUI 交互/边界测试；Computer Use 可用时补真实窗口截图和输入，不可用时在记录中写明限制。
 - 集成：需要外部服务时只使用本机 Docker，记录服务名、镜像版本、端口、healthy/running 状态以及启动和清理状态。
 - 资源：运行前确认错误消息、历史、日志和测试输出不包含密码、Token、完整请求正文或证书私钥。
-- Git：每个独立可验收功能一次 Conventional Commit；测试通过后立即推送当前分支；未经明确要求不合并到 `main`。
+- Git：每个独立可验收功能一次 Conventional Commit；默认直接在 `main` 上验证、提交和推送；明确使用功能分支时，验证后合并回 `main` 并清理已合并源分支。
 
 ## 5. 暂不处理项
 

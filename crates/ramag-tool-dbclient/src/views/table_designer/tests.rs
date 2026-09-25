@@ -2,6 +2,9 @@ use super::*;
 use gpui_kit::{Entity, TestAppContext, VisualTestContext, px, size};
 use ramag_domain::entities::{ColumnKind, ColumnType};
 
+#[path = "../table_designer_attribute_tests.rs"]
+mod table_designer_attribute_tests;
+
 fn column(name: &str, raw_type: &str, nullable: bool) -> Column {
     Column {
         name: name.into(),

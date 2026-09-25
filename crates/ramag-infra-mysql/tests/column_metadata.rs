@@ -94,3 +94,87 @@ async fn list_columns_preserves_mysql_generation_metadata() {
         .await
         .expect("清理 MySQL 生成列测试表失败");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn mysql_change_column_keeps_generated_and_auto_increment_attributes() {
+    let Some(config) = config_from_env() else {
+        eprintln!("[SKIP] integration test skipped: 设置 RAMAG_TEST_MYSQL_* 环境变量后运行");
+        return;
+    };
+    let driver = MysqlDriver::new();
+    let schema = config
+        .database
+        .clone()
+        .unwrap_or_else(|| "midas_storage".into());
+    let table = format!("ramag_change_column_metadata_{}", std::process::id());
+    let quoted_table = format!("`{table}`");
+    driver
+        .execute(
+            &config,
+            &Query::new(format!(
+                "DROP TABLE IF EXISTS {quoted_table}; CREATE TABLE {quoted_table} (\
+                 id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,\
+                 price INT NOT NULL,\
+                 total INT GENERATED ALWAYS AS (price + 1) STORED)"
+            )),
+        )
+        .await
+        .expect("创建 MySQL CHANGE COLUMN 测试表失败");
+
+    driver
+        .execute(
+            &config,
+            &Query::new(format!(
+                "ALTER TABLE {quoted_table} \
+                 CHANGE COLUMN `id` `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'identifier', \
+                 CHANGE COLUMN `total` `total` BIGINT GENERATED ALWAYS AS (price + 1) STORED NOT NULL COMMENT 'computed'"
+            )),
+        )
+        .await
+        .expect("执行保留字段属性的 CHANGE COLUMN 失败");
+
+    let columns = driver
+        .list_columns(&config, &schema, &table)
+        .await
+        .expect("回读 CHANGE COLUMN 后的 MySQL 元数据失败");
+    let id = columns
+        .iter()
+        .find(|column| column.name == "id")
+        .expect("应回读 id 字段");
+    assert!(id.is_primary_key, "CHANGE COLUMN 不应移除主键索引");
+    assert!(
+        id.is_auto_increment,
+        "CHANGE COLUMN 不应移除 AUTO_INCREMENT"
+    );
+    assert_eq!(id.data_type.raw_type, "bigint");
+    assert_eq!(id.comment.as_deref(), Some("identifier"));
+    let total = columns
+        .iter()
+        .find(|column| column.name == "total")
+        .expect("应回读 total 字段");
+    assert_eq!(
+        total.generated_storage,
+        Some(GeneratedColumnStorage::Stored)
+    );
+    assert_eq!(total.data_type.raw_type, "bigint");
+    assert!(
+        !total.nullable,
+        "CHANGE COLUMN 应保留修改后的 NOT NULL 属性"
+    );
+    assert_eq!(total.comment.as_deref(), Some("computed"));
+    assert!(
+        total
+            .generation_expression
+            .as_deref()
+            .is_some_and(|expression| expression.replace('`', "").contains("price + 1")),
+        "CHANGE COLUMN 不应移除生成列表达式"
+    );
+
+    driver
+        .execute(
+            &config,
+            &Query::new(format!("DROP TABLE IF EXISTS {quoted_table};")),
+        )
+        .await
+        .expect("清理 MySQL CHANGE COLUMN 测试表失败");
+}
