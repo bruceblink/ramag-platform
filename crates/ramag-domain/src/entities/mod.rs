@@ -268,10 +268,10 @@ pub use ssh::{
     RemoteDirectory, RemoteEntry, RemoteEntryKind, RemoteFileChunk, RemoteFileChunkPosition,
     RemoteFilePreview, SshAuthMode, SshCapability, SshLaunchCommand, SshModuleSettings,
     SshPathFavorites, SshPortForward, SshPortForwardDirection, SshProfile, SshProfileId,
-    SshProfileOrigin, SshProgressFn, SshSessionState, SshWorkspacePreference, SshWorkspaceState,
-    TRANSFER_BUFFER_BYTES, TransferCancellation, TransferDirection, TransferId, TransferStatus,
-    TransferTask, join_remote_path, parent_remote_path, validate_local_transfer_path,
-    validate_remote_name, validate_remote_path,
+    SshProfileOrigin, SshProgressFn, SshSessionState, SshTransferOutcome, SshWorkspacePreference,
+    SshWorkspaceState, TRANSFER_BUFFER_BYTES, TransferCancellation, TransferDirection, TransferId,
+    TransferStatus, TransferTask, join_remote_path, parent_remote_path,
+    validate_local_transfer_path, validate_remote_name, validate_remote_path,
 };
 pub use ssh_diagnostic::{
     DEFAULT_DIAGNOSTIC_TIMEOUT_SECONDS, DiagnosticCancellation, DiagnosticErrorCode,

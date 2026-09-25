@@ -5,7 +5,7 @@ use ramag_domain::entities::{
     ConnectionConfig, ConnectionId, JumpServerAccount, JumpServerAsset, JumpServerAssetDetail,
     JumpServerCatalog, JumpServerConnection, JumpServerCredential, JumpServerOrganization,
     JumpServerRdpSession, JumpServerSession, QueryRecord, QueryRecordId, SshAuthMode,
-    SshPathFavorites, SshProfileOrigin, SshProgressFn, SshWorkspaceState,
+    SshPathFavorites, SshProfileOrigin, SshProgressFn, SshTransferOutcome, SshWorkspaceState,
 };
 use ramag_domain::error::READ_ONLY_MESSAGE;
 use ramag_domain::traits::JumpServerDriver;
@@ -387,8 +387,8 @@ impl SshDriver for TerminalDriver {
         _overwrite: OverwritePolicy,
         _cancellation: TransferCancellation,
         _progress: SshProgressFn,
-    ) -> Result<()> {
-        Ok(())
+    ) -> Result<SshTransferOutcome> {
+        Ok(SshTransferOutcome::default())
     }
 
     async fn download(

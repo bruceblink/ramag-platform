@@ -32,7 +32,8 @@ use ramag_domain::entities::{
     RemoteOperatingSystem, RemotePath, RemotePlatformPreference, SftpNamespaceKind,
     SftpTransportKind, SshCapability, SshDiagnosticOperation, SshDiagnosticResult,
     SshLaunchCommand, SshProfile, SshProfileId, SshProfileOrigin, SshProgressFn,
-    SshRemoteCapabilities, TransferCancellation, infer_sftp_namespace, validate_remote_path,
+    SshRemoteCapabilities, SshTransferOutcome, TransferCancellation, infer_sftp_namespace,
+    validate_remote_path,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::SshDriver;
@@ -376,7 +377,7 @@ impl SshDriver for OpenSshDriver {
         overwrite: OverwritePolicy,
         cancellation: TransferCancellation,
         progress: SshProgressFn,
-    ) -> Result<()> {
+    ) -> Result<SshTransferOutcome> {
         sftp_ops::upload(
             self,
             profile,

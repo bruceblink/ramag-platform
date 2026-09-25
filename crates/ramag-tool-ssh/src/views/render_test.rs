@@ -23,7 +23,8 @@ use ramag_domain::entities::{
     SftpNamespaceKind, SshAuthMode, SshCapability, SshDiagnosticOperation,
     SshDiagnosticProviderKind, SshDiagnosticResult, SshLaunchCommand, SshPathFavorites,
     SshPortForward, SshProfile, SshProfileId, SshProfileOrigin, SshProgressFn,
-    SshRemoteCapabilities, SshWorkspacePreference, SshWorkspaceState, TransferCancellation,
+    SshRemoteCapabilities, SshTransferOutcome, SshWorkspacePreference, SshWorkspaceState,
+    TransferCancellation,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{JumpServerDriver, SshDriver, Storage};
@@ -378,7 +379,7 @@ impl SshDriver for MockSshDriver {
         _overwrite: ramag_domain::entities::OverwritePolicy,
         _cancellation: TransferCancellation,
         _progress: SshProgressFn,
-    ) -> Result<()> {
+    ) -> Result<SshTransferOutcome> {
         Err(DomainError::NotImplemented("mock upload".into()))
     }
 

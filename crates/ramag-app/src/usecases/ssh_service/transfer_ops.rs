@@ -158,9 +158,10 @@ impl SshService {
             transfer_store.progress(&progress_id, transferred, total);
         });
         let local_path = PathBuf::from(&task.local_path);
-        let result = match task.direction {
+        let (result, warnings) = match task.direction {
             TransferDirection::Upload => {
-                self.driver
+                match self
+                    .driver
                     .upload(
                         &effective_profile,
                         &local_path,
@@ -170,8 +171,12 @@ impl SshService {
                         progress,
                     )
                     .await
+                {
+                    Ok(outcome) => (Ok(()), outcome.warnings),
+                    Err(error) => (Err(error), Vec::new()),
+                }
             }
-            TransferDirection::Download => {
+            TransferDirection::Download => (
                 self.driver
                     .download(
                         &effective_profile,
@@ -181,9 +186,10 @@ impl SshService {
                         cancellation.clone(),
                         progress,
                     )
-                    .await
-            }
-            TransferDirection::DownloadArchive => {
+                    .await,
+                Vec::new(),
+            ),
+            TransferDirection::DownloadArchive => (
                 self.driver
                     .download_directory(
                         &effective_profile,
@@ -193,11 +199,12 @@ impl SshService {
                         cancellation.clone(),
                         progress,
                     )
-                    .await
-            }
+                    .await,
+                Vec::new(),
+            ),
         };
         self.transfers
-            .finish(id, &result, cancellation.is_cancelled());
+            .finish(id, &result, warnings, cancellation.is_cancelled());
         match &result {
             Ok(()) => {
                 tracing::info!(
@@ -229,7 +236,7 @@ impl SshService {
             .any(|task| &task.id == id && task.status == TransferStatus::Waiting);
         if waiting {
             if let Some(task) = state.tasks.iter_mut().find(|task| &task.id == id) {
-                task.finish(Err("传输已取消".into()), true);
+                task.finish_with_warnings(Err("传输已取消".into()), Vec::new(), true);
             }
             state.cancellations.remove(id);
             state.prune_history();
@@ -336,7 +343,7 @@ impl SshService {
         error: &DomainError,
     ) {
         let failure = Err(DomainError::Other(error.message().into()));
-        self.transfers.finish(id, &failure, false);
+        self.transfers.finish(id, &failure, Vec::new(), false);
         tracing::warn!(
             operation = "ssh_transfer",
             error = %error,

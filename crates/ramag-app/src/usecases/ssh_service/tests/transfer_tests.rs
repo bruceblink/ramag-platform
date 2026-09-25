@@ -15,7 +15,7 @@ fn transfer_store_enforces_queue_and_terminal_history_bounds() {
             ))
             .unwrap();
         let _ = store.begin(&id).unwrap();
-        store.finish(&id, &Ok(()), false);
+        store.finish(&id, &Ok(()), Vec::new(), false);
     }
     let state = store.state.lock();
     assert_eq!(
@@ -54,6 +54,32 @@ fn transfer_store_rejects_more_than_bounded_active_tasks() {
 }
 
 #[test]
+fn transfer_store_keeps_success_warnings_visible_in_history() {
+    let store = TransferStore::new();
+    let id = store
+        .enqueue(TransferTask::new(
+            SshProfileId::new(),
+            TransferDirection::Upload,
+            "/tmp/source",
+            "/remote/target",
+        ))
+        .unwrap();
+    store.begin(&id).unwrap();
+    store.finish(
+        &id,
+        &Ok(()),
+        vec!["远程文件已替换，但清理覆盖备份失败".into()],
+        false,
+    );
+
+    let state = store.state.lock();
+    let task = state.tasks.iter().find(|task| task.id == id).unwrap();
+    assert_eq!(task.status, TransferStatus::Completed);
+    assert_eq!(task.warnings.len(), 1);
+    assert!(task.error.is_none());
+}
+
+#[test]
 fn cancelled_running_transfer_finishes_as_cancelled() {
     let store = TransferStore::new();
     let id = store
@@ -69,6 +95,7 @@ fn cancelled_running_transfer_finishes_as_cancelled() {
     store.finish(
         &id,
         &Err(DomainError::Other("传输已取消".into())),
+        Vec::new(),
         cancellation.is_cancelled(),
     );
 

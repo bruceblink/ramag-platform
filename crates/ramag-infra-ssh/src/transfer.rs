@@ -16,7 +16,8 @@ use tokio::time::timeout;
 
 use ramag_domain::entities::{
     MAX_CONCURRENT_PRODUCTION_DOWNLOADS, MAX_CONCURRENT_TRANSFERS, MAX_PRODUCTION_DOWNLOAD_BYTES,
-    MAX_PRODUCTION_DOWNLOAD_SECONDS, OverwritePolicy, SshProgressFn, TransferCancellation,
+    MAX_PRODUCTION_DOWNLOAD_SECONDS, OverwritePolicy, SshProgressFn, SshTransferOutcome,
+    TransferCancellation,
 };
 use ramag_domain::error::{DomainError, Result};
 
@@ -160,9 +161,15 @@ impl TransferEngine {
             cleanup_remote(&session, &temporary).await;
             return Err(error);
         }
-        if let Err(error) = commit_remote(&session, &temporary, &remote_path, true).await {
-            cleanup_remote(&session, &temporary).await;
-            return Err(error);
+        let outcome = match commit_remote(&session, &temporary, &remote_path, true).await {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                cleanup_remote(&session, &temporary).await;
+                return Err(error);
+            }
+        };
+        for warning in outcome.warnings {
+            tracing::warn!(operation = "ssh_file_save", warning = %warning, "remote file saved with cleanup warning");
         }
         Ok(())
     }
@@ -176,7 +183,7 @@ impl TransferEngine {
         overwrite: OverwritePolicy,
         cancellation: TransferCancellation,
         progress: SshProgressFn,
-    ) -> Result<()> {
+    ) -> Result<SshTransferOutcome> {
         let _permit = acquire_permit(self.semaphore.clone(), &cancellation).await?;
         ensure_not_cancelled(&cancellation)?;
         let metadata = tokio::fs::symlink_metadata(&local_path)
@@ -273,12 +280,15 @@ impl TransferEngine {
             return Err(error);
         }
 
-        if let Err(error) = commit_remote(&session, &temporary, &remote_path, existed).await {
-            cleanup_remote(&session, &temporary).await;
-            return Err(error);
-        }
+        let outcome = match commit_remote(&session, &temporary, &remote_path, existed).await {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                cleanup_remote(&session, &temporary).await;
+                return Err(error);
+            }
+        };
         progress(total, total);
-        Ok(())
+        Ok(outcome)
     }
 
     #[allow(clippy::too_many_arguments)]

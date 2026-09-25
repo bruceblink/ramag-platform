@@ -1,7 +1,7 @@
 # Ramag Platform 后续开发计划
 
 更新日期：2026-09-25
-状态：已保存；R6、R7、R8 已完成验证，R8 随本次独立提交推送。
+状态：已保存；R6、R7、R8、R9 已完成验证，R9 随本次独立提交推送，下一项为 R10。
 适用范围：在现有主线路线图和代码审查修复计划基础上，继续收尾未提交改动、修复已知问题并完善已有功能。
 
 ## 术语表与命名约定
@@ -141,6 +141,14 @@
 - 设计：`MqttMessageSinkResult::Backpressured` 表示接收队列暂满，不是可忽略的丢弃结果。Native MQTT 3.1.1 和 MQTT 5 数据面保留原消息，暂停继续轮询 Broker 事件，按短间隔重试；取消或接收端关闭时结束订阅。
 - 改动范围：领域层明确 sink 背压接口约定；两个 Native 协议路径共用有界重试 helper；增加 native 单元测试、MQTT 5/3.1.1 本机 Docker 背压集成测试。没有扩大到本地 Broker 事件队列的独立策略。
 - 验收：`cargo test --locked -p ramag-infra-mqtt --features native --lib -- --nocapture`（17 项通过、1 项忽略）；`cargo test --locked -p ramag-tool-mqtt --lib`（32 项通过）；`cargo test --locked --workspace` 全部通过；`cargo clippy --workspace --all-targets -- -D warnings` 和 native feature Clippy、fmt、源码尺寸、`git diff --check` 均通过。
-- Docker 环境：本机容器 `ramag-mqtt-test` 使用 `eclipse-mosquitto:2.0.20`，绑定 `127.0.0.1:18883->1883`；`scripts/mqtt-test/mqtt-test.ps1 test` 启动并执行 MQTT 5 与 3.1.1 背压测试，随后执行 `... mqtt-test.ps1 clean` 删除容器和网络，无命名卷残留。
+- Docker 环境：本机容器 `ramag-mqtt-test` 使用 `eclipse-mosquitto:2.0.20`，绑定 `127.0.0.1:18883->1883`；`scripts/mqtt-test/mqtt-test.ps1 test` 启动并执行 MQTT 5 与 3.1.1 背压测试，随后执行 `scripts/mqtt-test/mqtt-test.ps1 clean` 删除容器和网络，无命名卷残留。
 - UI 证据：Computer Use 原生应用接口在启动最新 Ramag 后仍返回空应用列表，无法完成真实 MQTT 窗口交互；已使用系统截图 `artifacts/ui-screenshots/r8-ramag-window-fallback.png` 和 headless MQTT UI 测试替代。截图只证明数据库客户端窗口可启动，不证明订阅、队列背压或丢消息提示流程。
-- Git：R8 以单一 Conventional Commit 提交并推送 `main`；R9、R10 继续保持独立切片。
+- Git：R8 以单一 Conventional Commit 提交并推送 `main`；R9 继续保持独立提交，R10 尚待实施。
+
+### R9：SSH 远程覆盖提交结果与目标状态一致（2026-09-25）
+
+- 设计：远程覆盖仍按“目标改名为备份、临时文件改名为目标、删除备份”的顺序执行。目标替换成功后，备份删除失败返回 `SshTransferOutcome` 的成功结果和有界告警，不再把已经生效的新文件报告为失败；临时文件替换失败继续回滚旧目标。
+- 改动范围：SSH 传输领域结果模型、SFTP 提交实现、传输任务历史和 SSH 传输面板告警展示；增加可控 SFTP 测试替身。不改变拒绝覆盖、目标类型校验和取消语义。
+- 验收：`cargo test --locked -p ramag-infra-ssh --lib`（64 项通过，含备份删除失败和替换失败回滚）；`cargo test --locked -p ramag-app --lib`（226 项通过，含成功告警保留）；`cargo test --locked -p ramag-tool-ssh --lib`（82 项通过）；fmt、workspace Clippy、源码尺寸和 `git diff --check` 均通过。
+- UI 证据：先运行 SSH 工具 headless 渲染测试；Computer Use 原生应用接口仍返回空应用列表，无法完成真实传输窗口交互，系统截图仅作为应用启动证据，不能替代传输告警点击验收。
+- Git：R9 以单一 Conventional Commit 提交并推送 `main`；R10 继续保持独立切片。

@@ -178,7 +178,7 @@ pub(super) async fn upload(
     overwrite: OverwritePolicy,
     cancellation: TransferCancellation,
     progress: SshProgressFn,
-) -> Result<()> {
+) -> Result<SshTransferOutcome> {
     validate_writable_profile_and_path(profile, remote_path)?;
     let profile = profile.clone();
     let local_path = local_path.to_path_buf();

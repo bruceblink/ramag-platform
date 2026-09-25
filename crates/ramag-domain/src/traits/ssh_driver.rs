@@ -8,7 +8,7 @@ use crate::entities::{
     DiagnosticCancellation, OverwritePolicy, RemoteDirectory, RemoteEntryKind, RemoteFileChunk,
     RemoteFileChunkPosition, RemoteFilePreview, SshCapability, SshDiagnosticOperation,
     SshDiagnosticResult, SshLaunchCommand, SshProfile, SshProfileId, SshProgressFn,
-    SshRemoteCapabilities, TransferCancellation,
+    SshRemoteCapabilities, SshTransferOutcome, TransferCancellation,
 };
 use crate::error::Result;
 
@@ -83,7 +83,7 @@ pub trait SshDriver: Send + Sync {
         overwrite: OverwritePolicy,
         cancellation: TransferCancellation,
         progress: SshProgressFn,
-    ) -> Result<()>;
+    ) -> Result<SshTransferOutcome>;
 
     #[allow(clippy::too_many_arguments)]
     async fn download(

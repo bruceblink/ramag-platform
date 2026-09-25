@@ -10,6 +10,7 @@ use uuid::Uuid;
 use super::jumpserver::JumpServerRdpSession;
 use super::ssh_diagnostic::RemotePlatformPreference;
 use super::ssh_remote_path::{RemotePath, infer_sftp_namespace};
+use super::transfer::MAX_TRANSFER_WARNINGS;
 
 #[path = "ssh_forward.rs"]
 mod ssh_forward;
@@ -352,6 +353,14 @@ pub enum TransferStatus {
     Cancelled,
 }
 
+/// SSH 文件传输完成后的附加结果。
+///
+/// `warnings` 只记录不影响目标文件提交的清理问题。调用方仍应把传输视为成功，
+/// 但必须把警告保留到任务历史中，避免用户因备份残留而误以为目标文件没有更新。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SshTransferOutcome {
+    pub warnings: Vec<String>,
+}
 impl TransferStatus {
     pub fn is_terminal(self) -> bool {
         matches!(self, Self::Completed | Self::Failed | Self::Cancelled)
@@ -363,7 +372,6 @@ pub enum OverwritePolicy {
     Refuse,
     Overwrite,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransferTask {
     pub id: TransferId,
@@ -375,6 +383,7 @@ pub struct TransferTask {
     pub total_bytes: u64,
     pub status: TransferStatus,
     pub error: Option<String>,
+    pub warnings: Vec<String>,
     pub created_at: DateTime<Utc>,
     pub finished_at: Option<DateTime<Utc>>,
 }
@@ -396,6 +405,7 @@ impl TransferTask {
             total_bytes: 0,
             status: TransferStatus::Waiting,
             error: None,
+            warnings: Vec::new(),
             created_at: Utc::now(),
             finished_at: None,
         }
@@ -419,6 +429,16 @@ impl TransferTask {
     }
 
     pub fn finish(&mut self, result: Result<(), String>, cancelled: bool) {
+        self.finish_with_warnings(result, Vec::new(), cancelled);
+    }
+
+    /// 结束任务并保留有界的成功后警告，供 UI 和日志显示清理等非致命问题。
+    pub fn finish_with_warnings(
+        &mut self,
+        result: Result<(), String>,
+        warnings: Vec<String>,
+        cancelled: bool,
+    ) {
         if self.status.is_terminal() {
             return;
         }
@@ -430,6 +450,7 @@ impl TransferTask {
             TransferStatus::Failed
         };
         self.error = result.err();
+        self.warnings = warnings.into_iter().take(MAX_TRANSFER_WARNINGS).collect();
         self.finished_at = Some(Utc::now());
     }
 }

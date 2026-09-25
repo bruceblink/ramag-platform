@@ -139,14 +139,14 @@ impl TransferStore {
         self.changed();
     }
 
-    fn finish(&self, id: &TransferId, result: &Result<()>, cancelled: bool) {
+    fn finish(&self, id: &TransferId, result: &Result<()>, warnings: Vec<String>, cancelled: bool) {
         let mut state = self.state.lock();
         if let Some(task) = state.tasks.iter_mut().find(|task| &task.id == id) {
             let result = result
                 .as_ref()
                 .map(|_| ())
                 .map_err(|error| bounded_error(error.to_string()));
-            task.finish(result, cancelled);
+            task.finish_with_warnings(result, warnings, cancelled);
         }
         state.cancellations.remove(id);
         state.prune_history();

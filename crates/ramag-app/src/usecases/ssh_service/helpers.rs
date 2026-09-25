@@ -89,7 +89,7 @@ pub(super) fn cancel_tasks(state: &mut TransferState, ids: &[TransferId]) {
             .any(|task| &task.id == id && task.status == TransferStatus::Waiting);
         if waiting {
             if let Some(task) = state.tasks.iter_mut().find(|task| &task.id == id) {
-                task.finish(Err("传输已取消".into()), true);
+                task.finish_with_warnings(Err("传输已取消".into()), Vec::new(), true);
             }
             state.cancellations.remove(id);
         } else if let Some(cancellation) = state.cancellations.get(id) {

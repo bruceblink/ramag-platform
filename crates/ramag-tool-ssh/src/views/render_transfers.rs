@@ -165,6 +165,16 @@ fn transfer_row(task: TransferTask, cx: &mut Context<SshView>) -> impl IntoEleme
                             .text_ellipsis()
                             .child(error),
                     )
+                })
+                .when(!task.warnings.is_empty(), |row| {
+                    row.child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().warning)
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .child(format!("警告：{}", task.warnings.join("；"))),
+                    )
                 }),
         )
         .child(
