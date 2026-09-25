@@ -194,6 +194,20 @@ macro_rules! impl_driver_for {
                 .await
             }
 
+            async fn list_server_objects(
+                &self,
+                config: &::ramag_domain::entities::ConnectionConfig,
+            ) -> ::ramag_domain::error::Result<
+                ::std::vec::Vec<::ramag_domain::entities::ServerObjectGroup>,
+            > {
+                let this = <$ty as ::std::clone::Clone>::clone(self);
+                let config = config.clone();
+                $crate::run_in_tokio(async move {
+                    $crate::list_server_objects_impl(&this, &config).await
+                })
+                .await
+            }
+
             async fn list_tables(
                 &self,
                 config: &::ramag_domain::entities::ConnectionConfig,

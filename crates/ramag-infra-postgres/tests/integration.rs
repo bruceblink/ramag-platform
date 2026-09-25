@@ -84,6 +84,19 @@ async fn list_schemas_returns_data() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn list_server_objects_returns_datagrip_groups() {
+    let config = require_env!();
+    let driver = PostgresDriver::new();
+    let groups = driver
+        .list_server_objects(&config)
+        .await
+        .expect("list_server_objects 失败");
+    assert!(groups.iter().any(|group| group.name == "collations"));
+    assert!(groups.iter().any(|group| group.name == "users"));
+    assert!(groups.iter().all(|group| !group.items.is_empty()));
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn list_tables_for_public() {
     let config = require_env!();
     let driver = PostgresDriver::new();

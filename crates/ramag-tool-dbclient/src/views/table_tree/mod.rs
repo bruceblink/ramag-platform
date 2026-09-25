@@ -14,6 +14,9 @@ mod render;
 mod render_tests;
 mod row;
 mod rows;
+mod server_objects;
+#[cfg(test)]
+mod server_objects_tests;
 mod transfer_ops;
 
 use std::cell::RefCell;
@@ -62,6 +65,7 @@ pub struct TableTreePanel {
     pub(super) table_request_generation: u64,
     pub(super) column_request_generation: u64,
     pub(super) table_columns: HashMap<(String, String), TableColumns>,
+    server_objects: server_objects::ServerObjectsState,
     pub(super) selected: Option<(String, String)>,
     pub(super) show_system: bool,
     pub(super) search: gpui_kit::Entity<InputState>,
@@ -149,6 +153,7 @@ pub(super) struct TableTreeNavigation<'a> {
     navigation_favorites: &'a HashSet<navigation::TableNavigationRef>,
     recent_tables: &'a [navigation::TableNavigationRef],
     collapsed_table_groups: &'a HashSet<(String, bool)>,
+    server_objects: Option<&'a server_objects::ServerObjectsState>,
 }
 
 #[derive(Debug, Clone)]
@@ -230,6 +235,7 @@ impl TableTreePanel {
             table_request_generation: 0,
             column_request_generation: 0,
             table_columns: HashMap::new(),
+            server_objects: server_objects::ServerObjectsState::default(),
             selected: None,
             show_system: false,
             search,
@@ -283,6 +289,7 @@ impl TableTreePanel {
         }
         self.cancel_full_search(cx);
         self.load_schemas(cx);
+        self.load_server_objects(cx);
     }
 
     /// 首次加载失败后重新激活会重试。
@@ -308,12 +315,14 @@ impl TableTreePanel {
         self.collapsed_table_groups.clear();
         self.cancel_full_search(cx);
         self.table_columns.clear();
+        self.server_objects.reset_for_connection();
         self.selected = None;
         self.pending_navigation = None;
         self.error = None;
         self.invalidate_tree_rows();
         if self.connection.is_some() {
             self.load_schemas(cx);
+            self.load_server_objects(cx);
         } else {
             self.metadata_generation = self.metadata_generation.wrapping_add(1);
             self.loading_schemas = false;

@@ -150,25 +150,26 @@ where
     }
 
     async fn server_version_impl(&self, pool: &Pool<Self::Db>) -> Result<String>;
-
     async fn list_schemas_impl(&self, pool: &Pool<Self::Db>) -> Result<Vec<Schema>>;
-
+    async fn list_server_objects_impl(
+        &self,
+        _pool: &Pool<Self::Db>,
+    ) -> Result<Vec<ramag_domain::entities::ServerObjectGroup>> {
+        Err(DomainError::NotImplemented("list_server_objects".into()))
+    }
     async fn list_tables_impl(&self, pool: &Pool<Self::Db>, schema: &str) -> Result<Vec<Table>>;
-
     async fn list_columns_impl(
         &self,
         pool: &Pool<Self::Db>,
         schema: &str,
         table: &str,
     ) -> Result<Vec<Column>>;
-
     async fn list_indexes_impl(
         &self,
         pool: &Pool<Self::Db>,
         schema: &str,
         table: &str,
     ) -> Result<Vec<Index>>;
-
     async fn list_foreign_keys_impl(
         &self,
         pool: &Pool<Self::Db>,
@@ -186,7 +187,7 @@ where
     }
 }
 
-async fn get_pool<B>(b: &B, config: &ConnectionConfig) -> Result<Pool<B::Db>>
+pub(crate) async fn get_pool<B>(b: &B, config: &ConnectionConfig) -> Result<Pool<B::Db>>
 where
     B: SqlBackend,
     for<'q> <B::Db as Database>::Arguments<'q>: IntoArguments<'q, B::Db>,

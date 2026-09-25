@@ -2,13 +2,15 @@
 //! 字符串列统一 `CONVERT(... USING utf8mb4)`，避开 sqlx 把某些环境的回包识为 VARBINARY 导致解码失败
 
 use ramag_domain::entities::{
-    Column, ForeignKey, ForeignKeyAction, GeneratedColumnStorage, Index, Schema, Table, Trigger,
+    Column, ForeignKey, ForeignKeyAction, GeneratedColumnStorage, Index, Schema, ServerObject,
+    ServerObjectGroup, Table, Trigger,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_infra_sql_shared::{
     METADATA_FETCH_LIMIT, ensure_metadata_item_limit, ensure_metadata_result_limit,
 };
 use sqlx::MySqlPool;
+use sqlx::mysql::MySqlDatabaseError;
 use tracing::debug;
 
 use crate::errors::map_mysql_error;
@@ -45,6 +47,93 @@ pub async fn list_schemas(pool: &MySqlPool) -> Result<Vec<Schema>> {
         .collect::<Vec<_>>();
     ensure_metadata_result_limit(&schemas, "Schema")?;
     Ok(schemas)
+}
+
+/// 列出 DataGrip 对象树中的只读服务端对象；用户权限不足时返回错误而不伪造空列表。
+pub async fn list_server_objects(pool: &MySqlPool) -> Result<Vec<ServerObjectGroup>> {
+    debug!(
+        operation = "sql_metadata_list_server_objects",
+        "listing server objects"
+    );
+
+    let collation_rows: Vec<(String, String)> = sqlx::query_as(
+        r#"
+        SELECT
+            CONVERT(COLLATION_NAME USING utf8mb4),
+            CONVERT(CHARACTER_SET_NAME USING utf8mb4)
+        FROM information_schema.COLLATIONS
+        ORDER BY COLLATION_NAME
+        LIMIT ?
+        "#,
+    )
+    .bind(METADATA_FETCH_LIMIT)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| map_mysql_error(&e))?;
+    ensure_metadata_item_limit(collation_rows.len(), "Collation")?;
+
+    let (user_rows, users_limited): (Vec<(String, String)>, bool) = match sqlx::query_as(
+        r#"
+        SELECT CONVERT(User USING utf8mb4), CONVERT(Host USING utf8mb4)
+        FROM mysql.user
+        ORDER BY User, Host
+        LIMIT ?
+        "#,
+    )
+    .bind(METADATA_FETCH_LIMIT)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => (rows, false),
+        Err(error) if is_mysql_privilege_error(&error) => {
+            // 普通应用账号通常不能读取 mysql.user；至少展示当前登录账号。
+            let rows = sqlx::query_as(
+                r#"
+                SELECT
+                    CONVERT(SUBSTRING_INDEX(CURRENT_USER(), '@', 1) USING utf8mb4),
+                    CONVERT(SUBSTRING_INDEX(CURRENT_USER(), '@', -1) USING utf8mb4)
+                "#,
+            )
+            .fetch_all(pool)
+            .await
+            .map_err(|e| map_mysql_error(&e))?;
+            (rows, true)
+        }
+        Err(error) => return Err(map_mysql_error(&error)),
+    };
+    ensure_metadata_item_limit(user_rows.len(), "User")?;
+
+    let groups = vec![
+        ServerObjectGroup {
+            name: "collations".into(),
+            items: collation_rows
+                .into_iter()
+                .map(|(name, charset)| ServerObject {
+                    name,
+                    detail: Some(charset),
+                })
+                .collect(),
+        },
+        ServerObjectGroup {
+            name: "users".into(),
+            items: user_rows
+                .into_iter()
+                .map(|(user, host)| ServerObject {
+                    name: format!("{user}@{host}"),
+                    detail: users_limited.then(|| "权限受限，仅显示当前账号".into()),
+                })
+                .collect(),
+        },
+    ];
+    ensure_metadata_result_limit(&groups, "Server Objects")?;
+    Ok(groups)
+}
+
+fn is_mysql_privilege_error(error: &sqlx::Error) -> bool {
+    error
+        .as_database_error()
+        .and_then(|database| database.try_downcast_ref::<MySqlDatabaseError>())
+        .is_some_and(|mysql| matches!(mysql.number(), 1044 | 1142 | 1227))
 }
 
 /// 列出普通表和视图。

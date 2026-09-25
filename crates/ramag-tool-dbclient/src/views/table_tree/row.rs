@@ -19,6 +19,7 @@ use gpui_kit::{
 use ramag_domain::entities::Schema;
 use ramag_domain::entities::{DriverKind, format_bytes};
 
+use super::server_objects::{self, ServerObjectRowKind};
 #[cfg(test)]
 use super::{SchemaTables, TableColumns};
 use super::{TableTreeNavigation, TableTreePanel, TableTreeSection, navigation::TableTreeFilter};
@@ -91,6 +92,14 @@ pub(super) enum TreeRow {
         text: String,
         is_expanded: bool,
     },
+    ServerObject {
+        kind: ServerObjectRowKind,
+        group_index: usize,
+        label: String,
+        detail: Option<String>,
+        count: usize,
+        is_expanded: bool,
+    },
     Table {
         key: Rc<(String, String)>,
         is_view: bool,
@@ -155,7 +164,6 @@ impl TreeRowsCacheEntry {
         (self.key == *key).then(|| self.view.clone())
     }
 }
-
 impl TableTreePanel {
     pub(super) fn tree_rows_view(&self, filter: &str) -> TreeRowsView {
         let key = TreeRowsCacheKey {
@@ -184,6 +192,7 @@ impl TableTreePanel {
                 navigation_favorites: &self.navigation_favorites,
                 recent_tables: &self.recent_tables,
                 collapsed_table_groups: &self.collapsed_table_groups,
+                server_objects: Some(&self.server_objects),
             },
         );
         self.tree_rows_cache.replace(Some(TreeRowsCacheEntry {
@@ -296,6 +305,9 @@ impl TableTreePanel {
                 muted_bg,
                 cx,
             ),
+            TreeRow::ServerObject { .. } => {
+                server_objects::render_tree_row(self, row, muted_fg, fg, cx)
+            }
             TreeRow::Table {
                 key,
                 is_view,
@@ -575,7 +587,6 @@ impl TableTreePanel {
         }
     }
 }
-
 fn section_icon(section: TableTreeSection) -> IconName {
     match section {
         TableTreeSection::Keys => IconName::File,

@@ -1,6 +1,8 @@
 //! SQL 类 driver 共享层。每个 driver impl [`SqlBackend`] + [`impl_driver_for!`] 宏即可获得 `Driver` 实现
 
-use ramag_domain::entities::{Column, ForeignKey, Index, Schema, Table, Trigger};
+use ramag_domain::entities::{
+    Column, ForeignKey, Index, Schema, ServerObject, ServerObjectGroup, Table, Trigger,
+};
 use ramag_domain::error::{DomainError, Result};
 
 pub mod backend;
@@ -8,6 +10,7 @@ pub mod errors;
 pub mod macros;
 pub mod pool;
 pub mod runtime;
+mod server_objects;
 pub mod sql;
 pub mod transaction;
 
@@ -21,6 +24,7 @@ pub use backend::{
 };
 pub use pool::PoolCache;
 pub use runtime::run_in_tokio;
+pub use server_objects::list_server_objects_impl;
 pub use transaction::{MAX_ACTIVE_TRANSACTIONS_PER_CONNECTION, TransactionStore};
 
 pub use ramag_domain::entities::MAX_METADATA_ITEMS;
@@ -150,6 +154,29 @@ impl MetadataRetainedBytes for Trigger {
             .saturating_add(self.timing.capacity())
             .saturating_add(self.event.capacity())
             .saturating_add(self.definition.capacity())
+    }
+}
+
+impl MetadataRetainedBytes for ServerObject {
+    fn retained_bytes(&self) -> usize {
+        std::mem::size_of::<Self>()
+            .saturating_add(self.name.capacity())
+            .saturating_add(optional_string_retained_bytes(&self.detail))
+    }
+}
+
+impl MetadataRetainedBytes for ServerObjectGroup {
+    fn retained_bytes(&self) -> usize {
+        self.items.iter().fold(
+            std::mem::size_of::<Self>()
+                .saturating_add(self.name.capacity())
+                .saturating_add(
+                    self.items
+                        .capacity()
+                        .saturating_mul(std::mem::size_of::<ServerObject>()),
+                ),
+            |total, item| total.saturating_add(item.retained_bytes()),
+        )
     }
 }
 

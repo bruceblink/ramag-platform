@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use ramag_domain::entities::{
     Column, ConnectionConfig, ConnectionId, DriverKind, ForeignKey, Index, Query, QueryResult,
-    Schema, Table, TransactionId, Trigger,
+    Schema, ServerObjectGroup, Table, TransactionId, Trigger,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{CancelHandle, Driver, Storage};
@@ -263,6 +263,20 @@ impl ConnectionService {
             self.driver_for(config)?.list_schemas(config).await
         );
         log_connection_result("sql_list_schemas", config, None, None, &result);
+        result
+    }
+
+    /// 读取对象树 Server Objects；元数据失败会保留驱动错误供 UI 展示。
+    pub async fn list_server_objects(
+        &self,
+        config: &ConnectionConfig,
+    ) -> Result<Vec<ServerObjectGroup>> {
+        let result = retry_idempotent_read!(
+            config.id,
+            self.evict_pool(config),
+            self.driver_for(config)?.list_server_objects(config).await
+        );
+        log_connection_result("sql_list_server_objects", config, None, None, &result);
         result
     }
 

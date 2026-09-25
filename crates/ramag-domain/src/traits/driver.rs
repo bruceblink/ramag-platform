@@ -6,8 +6,8 @@ use std::sync::atomic::AtomicU64;
 use async_trait::async_trait;
 
 use crate::entities::{
-    Column, ConnectionConfig, ConnectionId, ForeignKey, Index, Query, QueryResult, Schema, Table,
-    TransactionId, Trigger,
+    Column, ConnectionConfig, ConnectionId, ForeignKey, Index, Query, QueryResult, Schema,
+    ServerObjectGroup, Table, TransactionId, Trigger,
 };
 use crate::error::Result;
 
@@ -125,6 +125,16 @@ pub trait Driver: Send + Sync {
     }
 
     async fn list_schemas(&self, config: &ConnectionConfig) -> Result<Vec<Schema>>;
+
+    /// 列出 Server Objects 下的只读服务端对象；不支持的驱动返回 NotImplemented。
+    async fn list_server_objects(
+        &self,
+        _config: &ConnectionConfig,
+    ) -> Result<Vec<ServerObjectGroup>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "list_server_objects".into(),
+        ))
+    }
 
     async fn list_tables(&self, config: &ConnectionConfig, schema: &str) -> Result<Vec<Table>>;
 

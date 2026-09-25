@@ -2,7 +2,7 @@
 
 use ramag_domain::entities::{
     Column, ForeignKey, ForeignKeyAction, GeneratedColumnStorage, IdentityGeneration, Index,
-    Schema, Table, Trigger,
+    Schema, ServerObject, ServerObjectGroup, Table, Trigger,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_infra_sql_shared::{
@@ -43,6 +43,68 @@ pub async fn list_schemas(pool: &PgPool) -> Result<Vec<Schema>> {
         .collect::<Vec<_>>();
     ensure_metadata_result_limit(&schemas, "Schema")?;
     Ok(schemas)
+}
+
+/// 列出 PostgreSQL 的 collation 与 role，供对象树 Server Objects 分组使用。
+pub async fn list_server_objects(pool: &PgPool) -> Result<Vec<ServerObjectGroup>> {
+    debug!(
+        operation = "sql_metadata_list_server_objects",
+        "listing server objects"
+    );
+
+    let collation_rows: Vec<(String, String)> = sqlx::query_as(
+        r#"
+        SELECT collname::text, collprovider::text
+        FROM pg_catalog.pg_collation
+        ORDER BY collname
+        LIMIT $1
+        "#,
+    )
+    .bind(METADATA_FETCH_LIMIT)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| map_postgres_error(&e))?;
+    ensure_metadata_item_limit(collation_rows.len(), "Collation")?;
+
+    let user_rows: Vec<(String, String)> = sqlx::query_as(
+        r#"
+        SELECT rolname::text,
+               CASE WHEN rolcanlogin THEN 'LOGIN' ELSE 'NOLOGIN' END::text
+        FROM pg_catalog.pg_roles
+        ORDER BY rolname
+        LIMIT $1
+        "#,
+    )
+    .bind(METADATA_FETCH_LIMIT)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| map_postgres_error(&e))?;
+    ensure_metadata_item_limit(user_rows.len(), "Role")?;
+
+    let groups = vec![
+        ServerObjectGroup {
+            name: "collations".into(),
+            items: collation_rows
+                .into_iter()
+                .map(|(name, provider)| ServerObject {
+                    name,
+                    detail: Some(format!("provider {provider}")),
+                })
+                .collect(),
+        },
+        ServerObjectGroup {
+            name: "users".into(),
+            items: user_rows
+                .into_iter()
+                .map(|(name, login)| ServerObject {
+                    name,
+                    detail: Some(login),
+                })
+                .collect(),
+        },
+    ];
+    ensure_metadata_result_limit(&groups, "Server Objects")?;
+    Ok(groups)
 }
 
 /// 列出普通表、视图和物化视图。

@@ -10,6 +10,26 @@ pub struct Schema {
     pub collation: Option<String>,
 }
 
+/// Server Objects 下的一组只读服务端元数据。
+///
+/// `name` 是对象树中的稳定分组名，`items` 只包含当前连接有权限读取的对象；
+/// 驱动必须在查询失败时返回错误，调用方不能把权限不足伪装成空分组。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServerObjectGroup {
+    pub name: String,
+    pub items: Vec<ServerObject>,
+}
+
+/// Server Objects 分组下的单个只读对象。
+///
+/// `detail` 用于展示驱动提供的非敏感属性（例如字符集或 LOGIN 状态），不得包含密码、
+/// 授权令牌或完整权限正文；复制操作只复制 `name`。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServerObject {
+    pub name: String,
+    pub detail: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Table {
     pub name: String,

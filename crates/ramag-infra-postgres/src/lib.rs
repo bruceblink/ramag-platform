@@ -10,7 +10,8 @@ pub mod types;
 use async_trait::async_trait;
 
 use ramag_domain::entities::{
-    Column, ConnectionConfig, DriverKind, ForeignKey, Index, Schema, Table, Trigger, Value,
+    Column, ConnectionConfig, DriverKind, ForeignKey, Index, Schema, ServerObjectGroup, Table,
+    Trigger, Value,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::CancelHandle;
@@ -118,6 +119,10 @@ impl SqlBackend for PostgresDriver {
 
     async fn list_schemas_impl(&self, pool: &PgPool) -> Result<Vec<Schema>> {
         metadata::list_schemas(pool).await
+    }
+
+    async fn list_server_objects_impl(&self, pool: &PgPool) -> Result<Vec<ServerObjectGroup>> {
+        metadata::list_server_objects(pool).await
     }
 
     async fn list_tables_impl(&self, pool: &PgPool, schema: &str) -> Result<Vec<Table>> {
