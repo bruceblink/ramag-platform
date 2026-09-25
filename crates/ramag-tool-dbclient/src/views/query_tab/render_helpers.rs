@@ -76,6 +76,85 @@ pub(super) fn order_by_menu(
     })
 }
 
+/// Builds the Tx mode menu while routing every mutating action through QueryTab's transaction API.
+/// Auto-commit remains a non-action item when a manual transaction is open, preventing an implicit commit.
+pub(super) fn transaction_mode_menu(
+    query_tab: Entity<QueryTab>,
+    tab: &QueryTab,
+    accent: gpui_kit::Hsla,
+    running: bool,
+    dml_busy: bool,
+    pending_cell_edits: bool,
+) -> impl IntoElement {
+    let label = tab.transaction_label();
+    let has_connection = tab.connection.is_some();
+    let supports_transactions = tab
+        .connection
+        .as_ref()
+        .is_some_and(|connection| connection.driver.supports_transactions());
+    let transaction_active = tab.transaction.is_some();
+    let transaction_busy = tab.transaction_busy;
+    let blocked = transaction_busy || running || dml_busy || pending_cell_edits;
+    let can_begin = has_connection && supports_transactions && !transaction_active && !blocked;
+    let can_finish = transaction_active && !blocked;
+    let begin_tab = query_tab.clone();
+    let commit_tab = query_tab.clone();
+    let rollback_tab = query_tab;
+    ramag_ui::clickable_button("sql-transaction-mode")
+        .debug_selector(|| "sql-transaction-mode".into())
+        .text()
+        .small()
+        .child(div().flex_none().text_color(accent).child(label))
+        .dropdown_caret(true)
+        .tooltip("查看事务模式并执行提交或回滚")
+        .disabled(!has_connection && !transaction_active)
+        .pointer_dropdown_menu(move |mut menu, _, _| {
+            menu = menu.item(
+                ramag_ui::menu_item_with_disabled(
+                    "自动提交",
+                    transaction_active || transaction_busy,
+                )
+                .checked(!transaction_active && !transaction_busy),
+            );
+            let begin_tab_for_item = begin_tab.clone();
+            menu = menu.item(
+                ramag_ui::menu_item_with_disabled(
+                    "手动事务",
+                    !has_connection || !supports_transactions || transaction_active || blocked,
+                )
+                .checked(transaction_active)
+                .on_click(move |_: &ClickEvent, _, app| {
+                    if can_begin {
+                        begin_tab_for_item.update(app, |tab, cx| tab.begin_transaction(cx));
+                    }
+                }),
+            );
+            menu = menu.separator();
+            let commit_tab_for_item = commit_tab.clone();
+            menu = menu.item(
+                ramag_ui::menu_item_with_disabled("提交事务", !can_finish).on_click(
+                    move |_: &ClickEvent, _, app| {
+                        if can_finish {
+                            commit_tab_for_item
+                                .update(app, |tab, cx| tab.finish_transaction(true, cx));
+                        }
+                    },
+                ),
+            );
+            let rollback_tab_for_item = rollback_tab.clone();
+            menu.item({
+                ramag_ui::menu_item_with_disabled("回滚事务", !can_finish).on_click(
+                    move |_: &ClickEvent, _, app| {
+                        if can_finish {
+                            rollback_tab_for_item
+                                .update(app, |tab, cx| tab.finish_transaction(false, cx));
+                        }
+                    },
+                )
+            })
+        })
+}
+
 /// Renders savepoint actions and disables them while related work is active.
 pub(super) fn transaction_savepoint_controls(
     query_tab: Entity<QueryTab>,

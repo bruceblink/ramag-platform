@@ -300,6 +300,9 @@ fn active_transaction_controls_wrap_inside_three_window_widths(cx: &mut TestAppC
         let controls = cx
             .debug_bounds("sql-transaction-controls")
             .expect("事务控制区应渲染");
+        let mode = cx
+            .debug_bounds("sql-transaction-mode")
+            .expect("事务模式入口应渲染");
         if width < 720.0 {
             assert!(
                 group.size.width >= toolbar.size.width - px(32.0),
@@ -324,6 +327,13 @@ fn active_transaction_controls_wrap_inside_three_window_widths(cx: &mut TestAppC
                 && controls.origin.y >= group.origin.y
                 && controls.bottom() <= group.bottom(),
             "事务控制区不能越出事务操作组：controls={controls:?}, group={group:?}"
+        );
+        assert!(
+            mode.origin.x >= group.origin.x
+                && mode.right() <= group.right()
+                && mode.origin.y >= group.origin.y
+                && mode.bottom() <= group.bottom(),
+            "事务模式入口不能越出事务操作组：mode={mode:?}, group={group:?}"
         );
         for selector in [
             "transaction-commit",
@@ -384,6 +394,9 @@ fn inactive_transaction_control_wraps_inside_three_window_widths(cx: &mut TestAp
         let begin = cx
             .debug_bounds("transaction-begin")
             .expect("应渲染开始事务按钮");
+        let mode = cx
+            .debug_bounds("sql-transaction-mode")
+            .expect("事务模式入口应渲染");
 
         assert!(
             group.origin.x >= toolbar.origin.x
@@ -398,6 +411,13 @@ fn inactive_transaction_control_wraps_inside_three_window_widths(cx: &mut TestAp
                 && controls.origin.y >= group.origin.y
                 && controls.bottom() <= group.bottom(),
             "事务控制区不能越出事务操作组：controls={controls:?}, group={group:?}"
+        );
+        assert!(
+            mode.origin.x >= group.origin.x
+                && mode.right() <= group.right()
+                && mode.origin.y >= group.origin.y
+                && mode.bottom() <= group.bottom(),
+            "事务模式入口不能越出事务操作组：mode={mode:?}, group={group:?}"
         );
         assert!(
             begin.origin.x >= controls.origin.x

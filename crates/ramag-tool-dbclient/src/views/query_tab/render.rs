@@ -18,7 +18,7 @@ use super::QueryTab;
 use super::comparison_toolbar::result_comparison_menu;
 use super::render_helpers::{
     TransactionSavepointState, order_by_menu, result_view_tabs, row_filter_prefix,
-    row_search_input_suffix, transaction_savepoint_controls,
+    row_search_input_suffix, transaction_mode_menu, transaction_savepoint_controls,
 };
 use super::sql_utils::format_elapsed;
 use super::toolbar::render_delete_button;
@@ -49,7 +49,6 @@ impl Render for QueryTab {
         let latest_savepoint = transaction_savepoints
             .last()
             .map(|savepoint| savepoint.name.clone());
-        let transaction_label = self.transaction_label();
         let transaction_error = self.transaction_error.is_some();
         let result_entity = self.active_result();
         let data_result_entity = self.result.clone();
@@ -393,12 +392,14 @@ impl Render for QueryTab {
                             .when(!compact_toolbar, |this| this.flex_1())
                             .items_center()
                             .gap_1()
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(muted_fg)
-                                    .child(transaction_label),
-                            )
+                            .child(transaction_mode_menu(
+                                query_tab_entity.clone(),
+                                self,
+                                accent,
+                                running,
+                                dml_busy,
+                                pending_cell_edit_count > 0,
+                            ))
                             .child(transaction_controls),
                     )
                     .when_some(result_summary, |this, summary| {

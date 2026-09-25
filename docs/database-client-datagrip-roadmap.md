@@ -1,7 +1,7 @@
 # 数据库工作区主线：DataGrip 风格核心闭环
 
 > 状态：现行专项路线图
-> 更新日期：2026-09-25
+> 更新日期：2026-09-26
 > 共同视觉与交互基线：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
 > 跨工具顺序：[`development-roadmap.md`](development-roadmap.md)
 > 历史实现、待办和验收记录：[`archive/2026-09-25-pre-datagrip-rebaseline/database-client-datagrip-roadmap.md`](archive/2026-09-25-pre-datagrip-rebaseline/database-client-datagrip-roadmap.md)
@@ -115,9 +115,13 @@
 
 对齐截图中长文本/JSON 单元格的截断展示，补充单元格详情查看、当前值复制和 NULL/空字符串/二进制状态区分；详情只读取当前单元格，不复制整个结果集。保留现有虚拟行、列宽、排序、筛选、分页与编辑保护。
 
-#### DB-RED-06：`Tx: Auto` 事务控件（当前切片）
+#### DB-RED-06：`Tx: Auto` 事务控件（已完成）
 
 对齐截图工具栏中的 `Tx: Auto` 下拉入口，明确自动提交、手动事务、处理中和错误状态，并把开始、提交、回滚和未提交修改反馈收束到同一会话上下文。复用现有驱动能力声明、事务事件和保存点，不改写 SQL 执行或 DML 生成。
+
+#### DB-RED-07：`DDL` 控件（当前切片）
+
+提供当前对象的 DDL 查看、复制和刷新入口，明确只读预览与执行/迁移动作边界；执行前显示目标连接和风险并要求确认，失败保留原文和错误。
 
 ### DB-UX-003：结果数据网格（覆盖 `DB-RED-05`）
 
