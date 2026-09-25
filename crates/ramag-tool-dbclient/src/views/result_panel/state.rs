@@ -218,6 +218,22 @@ impl ResultPanel {
     }
 
     pub(crate) fn toggle_sort(&mut self, col_idx: usize, cx: &mut Context<Self>) {
+        let previous = self.sort_by;
+        let current = match previous {
+            Some((ci, SortDir::Asc)) if ci == col_idx => Some((col_idx, SortDir::Desc)),
+            Some((ci, SortDir::Desc)) if ci == col_idx => None,
+            _ => Some((col_idx, SortDir::Asc)),
+        };
+        self.set_sort_by(current, cx);
+    }
+
+    /// Sets an explicit result-column sort selected from the ORDER BY menu.
+    /// The same mutation path emits the paging event and preserves the guards used by header clicks.
+    pub(crate) fn set_sort_by(
+        &mut self,
+        current: Option<(usize, SortDir)>,
+        cx: &mut Context<Self>,
+    ) {
         if self.dml_busy {
             self.pending_notification =
                 Some(Notification::warning("上一写操作尚未完成，请稍候再排序结果").autohide(true));
@@ -232,11 +248,9 @@ impl ResultPanel {
             return;
         }
         let previous = self.sort_by;
-        let current = match previous {
-            Some((ci, SortDir::Asc)) if ci == col_idx => Some((col_idx, SortDir::Desc)),
-            Some((ci, SortDir::Desc)) if ci == col_idx => None,
-            _ => Some((col_idx, SortDir::Asc)),
-        };
+        if previous == current {
+            return;
+        }
         self.sort_by = current;
         self.sort_h_scroll_offset = self.pagination.map(|_| self.h_scroll.offset().x);
         self.clear_cell_edit_state();

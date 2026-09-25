@@ -188,6 +188,11 @@ fn server_sort_keeps_horizontal_scroll_position_across_result_reload(cx: &mut Te
     panel.update(cx, |panel, cx| {
         panel.h_scroll.set_offset(point(px(-240.0), px(0.0)));
         panel.toggle_sort(1, cx);
+        panel.set_sort_by(Some((0, crate::views::result_panel::SortDir::Desc)), cx);
+        assert_eq!(
+            panel.sort_by(),
+            Some((0, crate::views::result_panel::SortDir::Desc))
+        );
         panel.set_state(ResultState::Running, cx);
         assert_eq!(panel.h_scroll.offset().x, px(-240.0));
         panel.set_state(ResultState::Ok(result.clone()), cx);

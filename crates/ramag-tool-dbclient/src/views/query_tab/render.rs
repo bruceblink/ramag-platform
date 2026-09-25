@@ -17,8 +17,8 @@ use ramag_domain::entities::MAX_SQL_QUERY_BYTES;
 use super::QueryTab;
 use super::comparison_toolbar::result_comparison_menu;
 use super::render_helpers::{
-    TransactionSavepointState, result_view_tabs, row_filter_prefix, row_search_input_suffix,
-    transaction_savepoint_controls,
+    TransactionSavepointState, order_by_menu, result_view_tabs, row_filter_prefix,
+    row_search_input_suffix, transaction_savepoint_controls,
 };
 use super::sql_utils::format_elapsed;
 use super::toolbar::render_delete_button;
@@ -53,6 +53,11 @@ impl Render for QueryTab {
         let transaction_error = self.transaction_error.is_some();
         let result_entity = self.active_result();
         let data_result_entity = self.result.clone();
+        let current_sort = result_entity.read(cx).sort_by();
+        let sort_columns = match result_entity.read(cx).state() {
+            ResultState::Ok(result) => result.columns.clone(),
+            _ => Vec::new(),
+        };
         let (can_capture_comparison, has_comparison_baseline) = {
             let data_result_panel = data_result_entity.read(cx);
             (
@@ -321,8 +326,7 @@ impl Render for QueryTab {
                                             "sql-column-filter-clear",
                                             false,
                                             cx,
-                                        )
-                                            ,
+                                        ),
                                     ),
                             )
                             .child(
@@ -354,9 +358,15 @@ impl Render for QueryTab {
                                                 danger,
                                             ))
                                         }),
-                                ),
-                            )
+                                 ),
+                             )
                     })
+                    .child(order_by_menu(
+                        result_entity.clone(),
+                        current_sort,
+                        sort_columns,
+                        accent,
+                    ))
                     // 生产只读徽标：常驻工具条，与连接 Tab 徽标、写入口禁用同一语义
                     .when(is_production, |this| {
                         let mut chip_bg = warning;

@@ -6,7 +6,7 @@ use gpui_kit::{ClickEvent, Entity, IntoElement, ParentElement, Styled, div, prel
 use ramag_ui::PointerDropdownMenu as _;
 
 use super::QueryTab;
-use crate::views::result_panel::{ResultPanel, RowSearchConversionStatus, RowSearchMode};
+use crate::views::result_panel::{ResultPanel, RowSearchConversionStatus, RowSearchMode, SortDir};
 
 pub(super) struct TransactionSavepointState {
     pub(super) transaction_busy: bool,
@@ -16,6 +16,64 @@ pub(super) struct TransactionSavepointState {
     pub(super) savepoint_count: usize,
     pub(super) latest_savepoint: Option<String>,
     pub(super) max_savepoints: usize,
+}
+
+/// Builds the result-grid ORDER BY menu from column metadata without accepting raw SQL text.
+/// The selected column index and direction are sent back through ResultPanel's existing sort path.
+pub(super) fn order_by_menu(
+    result: Entity<ResultPanel>,
+    current_sort: Option<(usize, SortDir)>,
+    columns: Vec<String>,
+    accent: gpui_kit::Hsla,
+) -> impl IntoElement {
+    let order_by_label = current_sort
+        .and_then(|(index, direction)| columns.get(index).map(|name| (name, direction)))
+        .map_or_else(
+            || "ORDER BY".to_string(),
+            |(name, direction)| {
+                format!(
+                    "ORDER BY {name} {}",
+                    match direction {
+                        SortDir::Asc => "ASC",
+                        SortDir::Desc => "DESC",
+                    }
+                )
+            },
+        );
+    let selected_sort = current_sort;
+    let mut control = ramag_ui::clickable_button("sql-order-by")
+        .debug_selector(|| "sql-order-by".into())
+        .text()
+        .small()
+        .child(div().flex_none().text_color(accent).child(order_by_label))
+        .dropdown_caret(true)
+        .tooltip("按结果列选择升序或降序");
+    if columns.is_empty() {
+        control = control.disabled(true);
+    }
+    control.pointer_dropdown_menu(move |mut menu, _, _| {
+        for (index, name) in columns.iter().enumerate() {
+            for direction in [SortDir::Asc, SortDir::Desc] {
+                let result = result.clone();
+                let selected = selected_sort == Some((index, direction));
+                let label = format!(
+                    "{name} {}",
+                    match direction {
+                        SortDir::Asc => "ASC",
+                        SortDir::Desc => "DESC",
+                    }
+                );
+                menu = menu.item(ramag_ui::menu_item(label).checked(selected).on_click(
+                    move |_, _, app| {
+                        result.update(app, |panel, cx| {
+                            panel.set_sort_by(Some((index, direction)), cx);
+                        });
+                    },
+                ));
+            }
+        }
+        menu
+    })
 }
 
 /// Renders savepoint actions and disables them while related work is active.

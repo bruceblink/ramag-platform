@@ -232,6 +232,9 @@ fn result_toolbar_keeps_filters_and_run_action_inside_three_window_widths(cx: &m
         let filters = cx
             .debug_bounds("sql-result-filter-group")
             .expect("SQL 结果筛选区应渲染");
+        let order_by = cx
+            .debug_bounds("sql-order-by")
+            .expect("SQL ORDER BY 入口应渲染");
         let run = cx
             .debug_bounds("sql-run-query")
             .expect("SQL 运行按钮应渲染");
@@ -241,6 +244,10 @@ fn result_toolbar_keeps_filters_and_run_action_inside_three_window_widths(cx: &m
             "窄窗口下筛选区应保留可输入宽度：filters={filters:?}, toolbar={toolbar:?}"
         );
         assert!(filters.right() <= toolbar.right(), "筛选区不能越出工具栏");
+        assert!(
+            order_by.right() <= toolbar.right(),
+            "ORDER BY 入口不能越出工具栏"
+        );
         assert!(run.right() <= toolbar.right(), "运行按钮不能越出工具栏");
     }
 }
