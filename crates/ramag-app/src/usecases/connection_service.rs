@@ -13,6 +13,7 @@ use ramag_domain::traits::{CancelHandle, Driver, Storage};
 
 mod history;
 mod transaction;
+mod virtual_views;
 
 pub struct ConnectionService {
     drivers: HashMap<DriverKind, Arc<dyn Driver>>,
@@ -30,7 +31,7 @@ impl ConnectionService {
     }
 
     /// 获取配置对应的驱动。
-    fn driver_for(&self, config: &ConnectionConfig) -> Result<&Arc<dyn Driver>> {
+    pub(super) fn driver_for(&self, config: &ConnectionConfig) -> Result<&Arc<dyn Driver>> {
         if let Err(error) = config.validate().map_err(DomainError::InvalidConfig) {
             tracing::warn!(
                 operation = "connection_validate",

@@ -1,28 +1,26 @@
 //! SQL driver 的共享抽象与执行模板。
-
 mod query;
 mod warnings;
 use warnings::append_warnings_bounded;
 mod transaction;
-use query::*;
-use std::time::Instant;
-
-pub use transaction::{
-    MAX_SAVEPOINT_NAME_BYTES, begin_transaction_impl, commit_transaction_impl,
-    create_savepoint_impl, execute_in_transaction_impl, release_savepoint_impl,
-    rollback_to_savepoint_impl, rollback_transaction_impl,
-};
-
 use async_trait::async_trait;
 use futures::TryStreamExt as _;
+use query::*;
 use ramag_domain::entities::{
     Column, ConnectionConfig, DriverKind, ForeignKey, Index, Query, QueryResult, Row, Schema,
-    Table, Trigger, Value, Warning,
+    ServerObjectGroup, Table, Trigger, Value, VirtualView, Warning,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::CancelHandle;
 use sqlx::pool::PoolConnection;
 use sqlx::{Acquire as _, Database, Executor, IntoArguments, Pool};
+use std::time::Instant;
+pub use transaction::{
+    MAX_SAVEPOINT_NAME_BYTES, begin_transaction_impl, commit_transaction_impl,
+    create_savepoint_impl, execute_in_transaction_impl, release_savepoint_impl,
+    rollback_to_savepoint_impl, rollback_transaction_impl,
+};
+type MetadataList<T> = Vec<T>;
 use tracing::{debug, info, warn};
 
 use crate::errors::map_sqlx_common;
@@ -32,7 +30,6 @@ use crate::sql::{
     is_query_returning_rows, is_write_statement, split_statements_bounded, sql_has_no_limit_marker,
 };
 use crate::transaction::TransactionStore;
-
 /// 单次查询保留的警告上限，包含可能的截断提示。
 pub const MAX_QUERY_WARNINGS: usize = 1_000;
 /// 超过该估算常驻内存后提示风险，但继续加载。
@@ -42,14 +39,12 @@ const QUERY_RESULT_MEMORY_WARNING_BYTES: u64 =
 const MAX_QUERY_RESULT_BYTES: u64 = ramag_domain::entities::MAX_INTERACTIVE_RESULT_BYTES as u64;
 const MAX_QUERY_RESULT_COLUMNS: usize = 4_096;
 const MAX_QUERY_RESULT_METADATA_BYTES: u64 = 16 * 1024 * 1024;
-
 /// 异步执行一个 DML/DDL 语句并返回后端查询结果，供需要文本协议的驱动复用。
 pub type DmlFuture<'a, QueryResult> = std::pin::Pin<
     Box<
         dyn std::future::Future<Output = std::result::Result<QueryResult, sqlx::Error>> + Send + 'a,
     >,
 >;
-
 /// SQL driver 抽象；泛型约束适配 sqlx 0.8。
 #[async_trait]
 pub trait SqlBackend: Send + Sync + 'static
@@ -59,12 +54,9 @@ where
     for<'c> &'c mut <Self::Db as Database>::Connection: Executor<'c, Database = Self::Db>,
 {
     type Db: Database;
-
     fn name(&self) -> &'static str;
-
     /// 共享池在缓存命中前也必须确认 driver 类型，不能只依赖具体 build_pool 的 miss 路径。
     fn driver_kind(&self) -> DriverKind;
-
     fn cache(&self) -> &PoolCache<Self::Db>;
 
     /// Long-lived transaction slots are kept beside the driver's pool cache.
@@ -154,8 +146,17 @@ where
     async fn list_server_objects_impl(
         &self,
         _pool: &Pool<Self::Db>,
-    ) -> Result<Vec<ramag_domain::entities::ServerObjectGroup>> {
+    ) -> Result<MetadataList<ServerObjectGroup>> {
         Err(DomainError::NotImplemented("list_server_objects".into()))
+    }
+    async fn list_virtual_views_impl(
+        &self,
+        _pool: &Pool<Self::Db>,
+    ) -> Result<MetadataList<VirtualView>> {
+        Err(DomainError::NotImplemented("list_virtual_views".into()))
+    }
+    fn virtual_view_query(&self, _name: &str) -> Option<String> {
+        None
     }
     async fn list_tables_impl(&self, pool: &Pool<Self::Db>, schema: &str) -> Result<Vec<Table>>;
     async fn list_columns_impl(

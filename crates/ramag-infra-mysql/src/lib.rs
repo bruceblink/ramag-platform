@@ -10,7 +10,7 @@ use async_trait::async_trait;
 
 use ramag_domain::entities::{
     Column, ConnectionConfig, DriverKind, ForeignKey, Index, Schema, ServerObjectGroup, Table,
-    Trigger, Value, Warning,
+    Trigger, Value, VirtualView, Warning,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::CancelHandle;
@@ -160,6 +160,14 @@ impl SqlBackend for MysqlDriver {
 
     async fn list_server_objects_impl(&self, pool: &MySqlPool) -> Result<Vec<ServerObjectGroup>> {
         metadata::list_server_objects(pool).await
+    }
+
+    async fn list_virtual_views_impl(&self, pool: &MySqlPool) -> Result<Vec<VirtualView>> {
+        metadata::list_virtual_views(pool).await
+    }
+
+    fn virtual_view_query(&self, name: &str) -> Option<String> {
+        metadata::virtual_view_query(name)
     }
 
     async fn list_tables_impl(&self, pool: &MySqlPool, schema: &str) -> Result<Vec<Table>> {

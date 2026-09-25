@@ -7,7 +7,7 @@ use async_trait::async_trait;
 
 use crate::entities::{
     Column, ConnectionConfig, ConnectionId, ForeignKey, Index, Query, QueryResult, Schema,
-    ServerObjectGroup, Table, TransactionId, Trigger,
+    ServerObjectGroup, Table, TransactionId, Trigger, VirtualView,
 };
 use crate::error::Result;
 
@@ -134,6 +134,18 @@ pub trait Driver: Send + Sync {
         Err(crate::error::DomainError::NotImplemented(
             "list_server_objects".into(),
         ))
+    }
+
+    /// 列出数据库工具提供的只读虚拟视图；不支持的驱动返回 NotImplemented。
+    async fn list_virtual_views(&self, _config: &ConnectionConfig) -> Result<Vec<VirtualView>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "list_virtual_views".into(),
+        ))
+    }
+
+    /// 返回虚拟视图对应的只读查询；名称不受支持时返回 None。
+    fn virtual_view_query(&self, _name: &str) -> Option<String> {
+        None
     }
 
     async fn list_tables(&self, config: &ConnectionConfig, schema: &str) -> Result<Vec<Table>>;

@@ -253,6 +253,7 @@ pub use resource_limits::{
 pub use schema::{
     Column, ColumnKind, ColumnType, ForeignKey, ForeignKeyAction, GeneratedColumnStorage,
     IdentityGeneration, Index, Schema, ServerObject, ServerObjectGroup, Table, Trigger,
+    VirtualView,
 };
 pub use ssh::{
     MAX_CONCURRENT_PRODUCTION_DOWNLOADS, MAX_CONCURRENT_TRANSFERS,

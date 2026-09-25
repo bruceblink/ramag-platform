@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use gpui_kit::component::{
     ActiveTheme, WindowExt as _, h_flex,
+    notification::Notification,
     resizable::{ResizableState, h_resizable, resizable_panel},
 };
 use gpui_kit::{
@@ -88,6 +89,8 @@ impl ConnectionSession {
         let mut subs = Vec::new();
 
         let queries_clone = queries.clone();
+        let service_for_virtual_view = service.clone();
+        let config_for_virtual_view = config.clone();
         let driver_kind = config.driver;
         let connection_id = config.id.clone();
         subs.push(cx.subscribe_in(
@@ -172,6 +175,25 @@ impl ConnectionSession {
                 }
                 TreeEvent::ToggleSqlEditor => {
                     this.toggle_sql_editor(window, cx);
+                }
+                TreeEvent::VirtualViewSelected { name } => {
+                    let result =
+                        service_for_virtual_view.virtual_view_query(&config_for_virtual_view, name);
+                    match result {
+                        Ok(query) => {
+                            queries_clone.update(cx, |q, cx| {
+                                q.open_in_new_tab_and_run(query.sql, window, cx);
+                            });
+                        }
+                        Err(error) => {
+                            ramag_ui::push_responsive_notification(
+                                window,
+                                Notification::error(format!("无法打开虚拟视图：{error}"))
+                                    .autohide(true),
+                                cx,
+                            );
+                        }
+                    }
                 }
             },
         ));

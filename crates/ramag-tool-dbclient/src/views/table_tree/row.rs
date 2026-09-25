@@ -19,7 +19,7 @@ use gpui_kit::{
 use ramag_domain::entities::Schema;
 use ramag_domain::entities::{DriverKind, format_bytes};
 
-use super::server_objects::{self, ServerObjectRowKind};
+use super::server_objects::{self, ExplorerRowKind};
 #[cfg(test)]
 use super::{SchemaTables, TableColumns};
 use super::{TableTreeNavigation, TableTreePanel, TableTreeSection, navigation::TableTreeFilter};
@@ -93,7 +93,7 @@ pub(super) enum TreeRow {
         is_expanded: bool,
     },
     ServerObject {
-        kind: ServerObjectRowKind,
+        kind: ExplorerRowKind,
         group_index: usize,
         label: String,
         detail: Option<String>,
@@ -193,6 +193,7 @@ impl TableTreePanel {
                 recent_tables: &self.recent_tables,
                 collapsed_table_groups: &self.collapsed_table_groups,
                 server_objects: Some(&self.server_objects),
+                virtual_views: Some(&self.virtual_views),
             },
         );
         self.tree_rows_cache.replace(Some(TreeRowsCacheEntry {
@@ -305,6 +306,12 @@ impl TableTreePanel {
                 muted_bg,
                 cx,
             ),
+            TreeRow::ServerObject {
+                kind:
+                    super::server_objects::ExplorerRowKind::VirtualRoot
+                    | super::server_objects::ExplorerRowKind::VirtualItem,
+                ..
+            } => super::virtual_views::render_tree_row(self, row, muted_fg, fg, cx),
             TreeRow::ServerObject { .. } => {
                 server_objects::render_tree_row(self, row, muted_fg, fg, cx)
             }
@@ -524,7 +531,7 @@ impl TableTreePanel {
                     }))
                     .child(Icon::new(chevron).xsmall().text_color(muted_fg))
                     .child(
-                        Icon::new(section_icon(section))
+                        Icon::new(super::section_icons::section_icon(section))
                             .xsmall()
                             .text_color(muted_fg),
                     )
@@ -587,14 +594,5 @@ impl TableTreePanel {
         }
     }
 }
-fn section_icon(section: TableTreeSection) -> IconName {
-    match section {
-        TableTreeSection::Keys => IconName::File,
-        TableTreeSection::Indexes => IconName::File,
-        TableTreeSection::ForeignKeys => IconName::ArrowRight,
-        TableTreeSection::Triggers => IconName::Network,
-    }
-}
-
 #[cfg(test)]
 mod tests;

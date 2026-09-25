@@ -3,7 +3,7 @@
 
 use ramag_domain::entities::{
     Column, ForeignKey, ForeignKeyAction, GeneratedColumnStorage, Index, Schema, ServerObject,
-    ServerObjectGroup, Table, Trigger,
+    ServerObjectGroup, Table, Trigger, VirtualView,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_infra_sql_shared::{
@@ -134,6 +134,23 @@ fn is_mysql_privilege_error(error: &sqlx::Error) -> bool {
         .as_database_error()
         .and_then(|database| database.try_downcast_ref::<MySqlDatabaseError>())
         .is_some_and(|mysql| matches!(mysql.number(), 1044 | 1142 | 1227))
+}
+
+/// MySQL 提供的会话快照虚拟视图；结果查询在用户打开节点时执行。
+pub async fn list_virtual_views(_pool: &MySqlPool) -> Result<Vec<VirtualView>> {
+    Ok(vec![VirtualView {
+        name: "sessions".into(),
+        detail: Some("只读会话快照".into()),
+        read_only: true,
+    }])
+}
+
+pub fn virtual_view_query(name: &str) -> Option<String> {
+    (name == "sessions").then(|| {
+        "SELECT ID, USER, HOST, DB, COMMAND, TIME, STATE, INFO \
+         FROM information_schema.PROCESSLIST ORDER BY ID"
+            .to_string()
+    })
 }
 
 /// 列出普通表和视图。
@@ -464,7 +481,7 @@ pub async fn server_version(pool: &MySqlPool) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{has_extra_token, parse_generated_storage};
+    use super::{has_extra_token, parse_generated_storage, virtual_view_query};
     use ramag_domain::entities::GeneratedColumnStorage;
 
     #[test]
@@ -482,5 +499,12 @@ mod tests {
             parse_generated_storage("STORED GENERATED"),
             Some(GeneratedColumnStorage::Stored)
         );
+    }
+
+    #[test]
+    fn sessions_virtual_view_is_read_only_query() {
+        let sql = virtual_view_query("sessions").unwrap_or_default();
+        assert!(sql.contains("information_schema.PROCESSLIST"));
+        assert!(virtual_view_query("unknown").is_none());
     }
 }

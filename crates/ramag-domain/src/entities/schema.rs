@@ -30,6 +30,14 @@ pub struct ServerObject {
     pub detail: Option<String>,
 }
 
+/// 数据库工具提供的只读虚拟视图描述，不代表数据库中的物理 View。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VirtualView {
+    pub name: String,
+    pub detail: Option<String>,
+    pub read_only: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Table {
     pub name: String,

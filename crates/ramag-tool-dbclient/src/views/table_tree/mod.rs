@@ -14,10 +14,12 @@ mod render;
 mod render_tests;
 mod row;
 mod rows;
+mod section_icons;
 mod server_objects;
 #[cfg(test)]
 mod server_objects_tests;
 mod transfer_ops;
+mod virtual_views;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -66,6 +68,7 @@ pub struct TableTreePanel {
     pub(super) column_request_generation: u64,
     pub(super) table_columns: HashMap<(String, String), TableColumns>,
     server_objects: server_objects::ServerObjectsState,
+    virtual_views: virtual_views::VirtualViewsState,
     pub(super) selected: Option<(String, String)>,
     pub(super) show_system: bool,
     pub(super) search: gpui_kit::Entity<InputState>,
@@ -154,6 +157,7 @@ pub(super) struct TableTreeNavigation<'a> {
     recent_tables: &'a [navigation::TableNavigationRef],
     collapsed_table_groups: &'a HashSet<(String, bool)>,
     server_objects: Option<&'a server_objects::ServerObjectsState>,
+    virtual_views: Option<&'a virtual_views::VirtualViewsState>,
 }
 
 #[derive(Debug, Clone)]
@@ -183,6 +187,9 @@ pub enum TreeEvent {
         table: String,
     },
     ToggleSqlEditor,
+    VirtualViewSelected {
+        name: String,
+    },
 }
 
 impl EventEmitter<TreeEvent> for TableTreePanel {}
@@ -236,6 +243,7 @@ impl TableTreePanel {
             column_request_generation: 0,
             table_columns: HashMap::new(),
             server_objects: server_objects::ServerObjectsState::default(),
+            virtual_views: virtual_views::VirtualViewsState::default(),
             selected: None,
             show_system: false,
             search,
@@ -290,6 +298,7 @@ impl TableTreePanel {
         self.cancel_full_search(cx);
         self.load_schemas(cx);
         self.load_server_objects(cx);
+        self.load_virtual_views(cx);
     }
 
     /// 首次加载失败后重新激活会重试。
@@ -316,6 +325,7 @@ impl TableTreePanel {
         self.cancel_full_search(cx);
         self.table_columns.clear();
         self.server_objects.reset_for_connection();
+        self.virtual_views.reset_for_connection();
         self.selected = None;
         self.pending_navigation = None;
         self.error = None;
@@ -323,6 +333,7 @@ impl TableTreePanel {
         if self.connection.is_some() {
             self.load_schemas(cx);
             self.load_server_objects(cx);
+            self.load_virtual_views(cx);
         } else {
             self.metadata_generation = self.metadata_generation.wrapping_add(1);
             self.loading_schemas = false;

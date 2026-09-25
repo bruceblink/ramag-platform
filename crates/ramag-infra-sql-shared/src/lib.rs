@@ -1,7 +1,7 @@
 //! SQL 类 driver 共享层。每个 driver impl [`SqlBackend`] + [`impl_driver_for!`] 宏即可获得 `Driver` 实现
 
 use ramag_domain::entities::{
-    Column, ForeignKey, Index, Schema, ServerObject, ServerObjectGroup, Table, Trigger,
+    Column, ForeignKey, Index, Schema, ServerObject, ServerObjectGroup, Table, Trigger, VirtualView,
 };
 use ramag_domain::error::{DomainError, Result};
 
@@ -13,6 +13,7 @@ pub mod runtime;
 mod server_objects;
 pub mod sql;
 pub mod transaction;
+mod virtual_views;
 
 pub use backend::{
     DmlFuture, MAX_QUERY_WARNINGS, MAX_SAVEPOINT_NAME_BYTES, SqlBackend, begin_transaction_impl,
@@ -26,6 +27,7 @@ pub use pool::PoolCache;
 pub use runtime::run_in_tokio;
 pub use server_objects::list_server_objects_impl;
 pub use transaction::{MAX_ACTIVE_TRANSACTIONS_PER_CONNECTION, TransactionStore};
+pub use virtual_views::list_virtual_views_impl;
 
 pub use ramag_domain::entities::MAX_METADATA_ITEMS;
 pub const METADATA_FETCH_LIMIT: i64 = (MAX_METADATA_ITEMS + 1) as i64;
@@ -177,6 +179,14 @@ impl MetadataRetainedBytes for ServerObjectGroup {
                 ),
             |total, item| total.saturating_add(item.retained_bytes()),
         )
+    }
+}
+
+impl MetadataRetainedBytes for VirtualView {
+    fn retained_bytes(&self) -> usize {
+        std::mem::size_of::<Self>()
+            .saturating_add(self.name.capacity())
+            .saturating_add(optional_string_retained_bytes(&self.detail))
     }
 }
 

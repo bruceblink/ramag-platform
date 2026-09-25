@@ -11,6 +11,7 @@ use super::navigation::{
 };
 use super::row::{TableSizeStatus, TreeRow, TreeRowsView};
 use super::server_objects;
+use super::virtual_views;
 use super::{SchemaTables, TableColumns, TableTreeNavigation, TableTreeSection};
 use crate::sql_completion::is_system_schema;
 
@@ -37,6 +38,7 @@ pub(super) fn build_tree_rows(
             recent_tables: &[],
             collapsed_table_groups: &HashSet::new(),
             server_objects: None,
+            virtual_views: None,
         },
     )
 }
@@ -58,6 +60,7 @@ pub(super) fn build_tree_rows_with_navigation(
         recent_tables,
         collapsed_table_groups,
         server_objects,
+        virtual_views,
     } = navigation;
     let has_filter = !filter.is_empty();
     let mut visible: Vec<&Schema> = schemas
@@ -375,6 +378,9 @@ pub(super) fn build_tree_rows_with_navigation(
 
     if let Some(server_objects) = server_objects {
         server_objects::append_rows(&mut rows, server_objects, filter);
+    }
+    if let Some(virtual_views) = virtual_views {
+        virtual_views::append_rows(&mut rows, virtual_views, filter);
     }
 
     TreeRowsView {

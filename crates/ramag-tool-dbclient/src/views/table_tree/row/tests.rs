@@ -263,6 +263,7 @@ fn collapsed_table_group_hides_only_tables_and_keeps_views_visible() {
             recent_tables: &[],
             collapsed_table_groups: &collapsed,
             server_objects: None,
+            virtual_views: None,
         },
     );
 
@@ -519,6 +520,7 @@ fn navigation_filter_keeps_only_current_connection_tables() {
             recent_tables: &recent,
             collapsed_table_groups: &HashSet::new(),
             server_objects: None,
+            virtual_views: None,
         },
     );
     assert!(
@@ -542,6 +544,7 @@ fn navigation_filter_keeps_only_current_connection_tables() {
             recent_tables: &recent,
             collapsed_table_groups: &HashSet::new(),
             server_objects: None,
+            virtual_views: None,
         },
     );
     assert!(

@@ -37,10 +37,12 @@ impl ServerObjectsState {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum ServerObjectRowKind {
+pub(super) enum ExplorerRowKind {
     Root,
     Group,
     Item,
+    VirtualRoot,
+    VirtualItem,
 }
 
 impl TableTreePanel {
@@ -145,7 +147,7 @@ pub(super) fn append_rows(rows: &mut Vec<TreeRow>, state: &ServerObjectsState, f
 
     let is_expanded = state.is_expanded || has_filter;
     rows.push(TreeRow::ServerObject {
-        kind: ServerObjectRowKind::Root,
+        kind: ExplorerRowKind::Root,
         group_index: 0,
         label: "Server Objects".into(),
         detail: None,
@@ -188,7 +190,7 @@ pub(super) fn append_rows(rows: &mut Vec<TreeRow>, state: &ServerObjectsState, f
         }
         let group_expanded = has_filter || state.open_groups.contains(&group.name);
         rows.push(TreeRow::ServerObject {
-            kind: ServerObjectRowKind::Group,
+            kind: ExplorerRowKind::Group,
             group_index,
             label: group.name.clone(),
             detail: None,
@@ -209,7 +211,7 @@ pub(super) fn append_rows(rows: &mut Vec<TreeRow>, state: &ServerObjectsState, f
                 continue;
             }
             rows.push(TreeRow::ServerObject {
-                kind: ServerObjectRowKind::Item,
+                kind: ExplorerRowKind::Item,
                 group_index,
                 label: item.name.clone(),
                 detail: item.detail.clone(),
@@ -222,7 +224,7 @@ pub(super) fn append_rows(rows: &mut Vec<TreeRow>, state: &ServerObjectsState, f
 
 /// 根据行层级生成 DataGrip 风格的紧凑对象节点；子项的二次点击复制名称。
 struct ServerObjectRowSpec<'a> {
-    kind: ServerObjectRowKind,
+    kind: ExplorerRowKind,
     group_index: usize,
     label: &'a str,
     detail: Option<&'a str>,
@@ -256,14 +258,16 @@ fn render_row(
         IconName::ChevronRight
     };
     let indent = match kind {
-        ServerObjectRowKind::Root => 8.0,
-        ServerObjectRowKind::Group => 28.0,
-        ServerObjectRowKind::Item => 48.0,
+        ExplorerRowKind::Root | ExplorerRowKind::VirtualRoot => 8.0,
+        ExplorerRowKind::Group => 28.0,
+        ExplorerRowKind::Item | ExplorerRowKind::VirtualItem => 48.0,
     };
     let icon = match kind {
-        ServerObjectRowKind::Root => IconName::HardDrive,
-        ServerObjectRowKind::Group => IconName::Folder,
-        ServerObjectRowKind::Item => IconName::File,
+        ExplorerRowKind::Root => IconName::HardDrive,
+        ExplorerRowKind::Group => IconName::Folder,
+        ExplorerRowKind::Item => IconName::File,
+        ExplorerRowKind::VirtualRoot => IconName::Network,
+        ExplorerRowKind::VirtualItem => IconName::Eye,
     };
     let row_id = format!("server-object-{:?}-{}-{}", kind, group_index, label);
     let label = if count == 0 {
@@ -312,12 +316,12 @@ fn render_row(
         );
 
     match kind {
-        ServerObjectRowKind::Root => {
+        ExplorerRowKind::Root => {
             row = row.on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                 this.toggle_server_objects(cx);
             }));
         }
-        ServerObjectRowKind::Group => {
+        ExplorerRowKind::Group => {
             let group_name = panel
                 .server_objects
                 .groups
@@ -328,7 +332,7 @@ fn render_row(
                 this.toggle_server_object_group(group_name.clone(), cx);
             }));
         }
-        ServerObjectRowKind::Item => {
+        ExplorerRowKind::Item => {
             row = row.on_click(cx.listener(move |_, event: &ClickEvent, window, cx| {
                 if event.modifiers().secondary()
                     && ramag_ui::is_primary_modifier_double_click(event)
@@ -336,6 +340,9 @@ fn render_row(
                     ramag_ui::copy_text_with_notification(copy_value.clone(), window, cx);
                 }
             }));
+        }
+        ExplorerRowKind::VirtualRoot | ExplorerRowKind::VirtualItem => {
+            unreachable!("virtual rows use the virtual view renderer");
         }
     }
     row.into_any_element()

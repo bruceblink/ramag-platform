@@ -14,6 +14,8 @@
 | 验收记录 | Acceptance Record | 记录命令、环境、结果、证据边界和未完成项 | 不代表所有产品线都通过 |
 | 本机 Docker 集成 | Local Docker Integration | 使用本机容器验证真实数据库或协议服务 | 不代表远程集群或生产验证 |
 | 真实窗口 | Native Window | 通过 Computer Use 在 Windows 窗口中完成的操作 | 不代表 headless 渲染或进程启动 |
+| 虚拟视图 | Virtual View | 由数据库工具提供的只读对象树节点，通过系统目录或会话查询生成结果 | 不代表数据库中存在同名物理表或可写 View |
+| 会话快照 | Session Snapshot | 用户展开 `sessions` 时读取的当前连接会话结果集 | 不代表持久化审计记录或可编辑数据表 |
 
 ## 1. 每个切片的固定顺序
 
@@ -44,7 +46,7 @@
 
 ## 4. 当前切片
 
-`SHELL-001` 已完成并推送；当前正在推进 `DB-UX-001`，其中 `DB-RED-01`、`DB-RED-03` 已完成，下一项是 `DB-RED-04`。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，下一项为 `DB-RED-05`。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
@@ -87,6 +89,29 @@
 - Docker：本机临时 `mysql:8.4`（`127.0.0.1:13316`，`ramag-db-red03-mysql84`）和 `postgres:17-alpine`（`127.0.0.1:15442`，`ramag-db-red03-postgres17`）启动后健康检查通过；MySQL 独立 `server_objects` 集成测试 1 项通过，PostgreSQL `integration` 过滤测试 1 项通过；测试后执行 `docker rm -f`，临时容器不存在。此前旧 `ramag-db-test` 测试栈和 `mysql:8.0` 已按用户要求清理，不作为本次证据。
 - 真实窗口：Computer Use 当前无法发现可操作的 Ramag 原生窗口；本切片只有 headless/UI 行为和真实 Docker 元数据证据，未宣称真实窗口点击完成。
 - Git：验证通过后使用单一功能提交并推送 `main`；下一项进入 `DB-RED-04 Virtual views/sessions`。
+
+### DB-RED-04：Virtual views / sessions（2026-09-26，设计确认）
+
+- 设计：对象树在 `Server Objects` 之后显示 `Virtual views 1` 根节点和 `sessions` 子项；虚拟节点使用不同于物理表的图标和只读标识，沿用对象树刷新动作独立重新加载。展开/收起只改变虚拟节点，不改变真实 schema/table 的展开状态。
+- 真实行为：MySQL 的 `sessions` 使用 `information_schema.PROCESSLIST`，PostgreSQL 使用 `pg_catalog.pg_stat_activity`；打开子项创建新的只读查询标签并执行对应会话快照查询，不绑定表目标，因此不显示危险编辑入口。SQLite、Redis、MongoDB 返回明确的不支持状态。
+- 状态边界：虚拟视图列表和会话查询各自使用连接 ID、元数据代际和请求代际校验；刷新失败保留旧虚拟节点并显示错误；刷新不触发表树重载；空结果显示“无会话”而不是成功数据缺失。
+- 改动范围：`VirtualView` 领域实体、Driver/SQL shared 虚拟视图与查询能力、MySQL/PostgreSQL 驱动实现、ConnectionService、对象树状态/行渲染、虚拟视图打开事件和测试；不实现会话终止、用户编辑、物理 View DDL 或权限修改。
+- 验收条件：
+  - headless 覆盖根节点、只读图标/标识、对象树刷新、展开/收起、错误/空状态和宽度边界；点击 `sessions` 后打开独立查询标签，真实表选择和展开状态保持不变；
+  - MySQL 8.4 与 PostgreSQL 17 本机 Docker 真实执行 sessions 查询，验证至少一条当前会话或明确的空结果；不使用 mock 代替数据库证据；
+  - `cargo fmt --all -- --check`、workspace Clippy、源码尺寸、目标 crate 测试和 `git diff --check` 全部通过；Computer Use 不可用时如实记录未覆盖的真实窗口行为。
+- 不做事项：本切片不终止会话、不修改会话参数、不把 sessions 结果写回数据库、不实现其他 DataGrip Virtual views 类别；后续按新验收区域单独排期。
+
+### DB-RED-04：验收记录（2026-09-26）
+
+- 实现：新增 `VirtualView` 领域实体、Driver/SQL shared 转发和 MySQL/PostgreSQL `sessions` 能力；MySQL 使用 `information_schema.PROCESSLIST`，PostgreSQL 使用 `pg_catalog.pg_stat_activity`，SQLite/Redis/MongoDB 保持明确不支持。
+- UI：对象树显示 `Virtual views 1 → sessions`，使用 Network/Eye 图标和“只读会话快照”详情；根节点独立展开/收起，刷新沿用全局对象树刷新；打开 `sessions` 通过独立 `TreeEvent` 创建查询标签，不绑定表目标，因此不进入单元格编辑或 DDL 菜单。
+- 状态与安全：连接 ID、元数据代际和请求代际阻止迟到结果写回；刷新失败保留旧节点并显示错误；成功空结果显示“（无会话）”；虚拟视图名称只映射驱动固定 SQL，不拼接树文本。
+- Headless：`cargo test --locked -p ramag-tool-dbclient --lib table_tree -- --nocapture`（41 项通过），覆盖 Virtual views 根/子项、过滤、错误与空状态，并与既有对象树渲染边界回归一起通过；workspace 全量 `cargo test --locked --workspace` 通过。
+- Docker：本机 `mysql:8.4` 容器 `ramag-db-red04-mysql84` 使用 `127.0.0.1:13317 -> 3306`，本机 `postgres:17-alpine` 容器 `ramag-db-red04-postgres17` 使用 `127.0.0.1:15443 -> 5432`；两服务健康检查通过，MySQL/PostgreSQL `virtual_views` 集成测试各 1 项通过，实际返回当前会话列；测试后执行 `docker rm -f`，两个临时容器均不存在。
+- 质量：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
+- 真实窗口：按 Computer Use 初始化检查返回 `apps: []`，没有可操作的 Ramag/DataGrip 原生窗口；因此本切片只记录 headless 和真实 Docker 证据，未宣称真实窗口点击、刷新和查询标签流程完成。
+- Git：本记录对应一个独立功能提交并推送 `main`；下一项进入 `DB-RED-05`，继续按截图中的对象树与查询工作区标准推进。
 
 ## 5. 分支和清理
 

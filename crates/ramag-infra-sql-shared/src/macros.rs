@@ -208,6 +208,24 @@ macro_rules! impl_driver_for {
                 .await
             }
 
+            async fn list_virtual_views(
+                &self,
+                config: &::ramag_domain::entities::ConnectionConfig,
+            ) -> ::ramag_domain::error::Result<
+                ::std::vec::Vec<::ramag_domain::entities::VirtualView>,
+            > {
+                let this = <$ty as ::std::clone::Clone>::clone(self);
+                let config = config.clone();
+                $crate::run_in_tokio(async move {
+                    $crate::list_virtual_views_impl(&this, &config).await
+                })
+                .await
+            }
+
+            fn virtual_view_query(&self, name: &str) -> Option<String> {
+                <$ty as $crate::SqlBackend>::virtual_view_query(self, name)
+            }
+
             async fn list_tables(
                 &self,
                 config: &::ramag_domain::entities::ConnectionConfig,
