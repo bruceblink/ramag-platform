@@ -211,7 +211,13 @@ fn mqtt_message_options_reach_publish_and_subscribe_requests(cx: &mut TestAppCon
                 .update(cx, |input, cx| input.focus(window, cx));
         });
     });
-    visual_cx.simulate_keystrokes("ctrl-enter");
+    // The secondary shortcut is Ctrl+Enter on Windows/Linux and Cmd+Enter on macOS.
+    let primary_enter = if cfg!(target_os = "macos") {
+        "cmd-enter"
+    } else {
+        "ctrl-enter"
+    };
+    visual_cx.simulate_keystrokes(primary_enter);
     visual_cx.run_until_parked();
     assert_eq!(
         publish_requests
