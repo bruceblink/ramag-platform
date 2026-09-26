@@ -337,6 +337,43 @@ impl ResultPanel {
         self.selected_cell = cell;
     }
 
+    /// Returns whether the selected result cell has a local edit waiting for submission.
+    pub(crate) fn has_selected_pending_cell_edit(&self) -> bool {
+        self.selected_cell
+            .is_some_and(|cell| self.pending_cell_edits.contains_key(&cell))
+    }
+
+    /// Removes only the selected local edit and leaves the confirmed result and other edits intact.
+    pub(crate) fn clear_selected_pending_cell_edit(&mut self, cx: &mut Context<Self>) {
+        let Some(cell) = self.selected_cell else {
+            return;
+        };
+        if self.pending_cell_edits.remove(&cell).is_none() {
+            return;
+        }
+        self.pending_notification =
+            Some(Notification::info("已撤销选中的未提交单元格修改").autohide(true));
+        cx.notify();
+    }
+
+    /// Seeds a deterministic local edit for render and interaction tests without starting a request.
+    #[cfg(test)]
+    pub(crate) fn seed_pending_cell_edit_for_test(&mut self) {
+        self.seed_pending_cell_edit_for_test_at(0, 0);
+    }
+
+    /// Seeds a local edit at a chosen result coordinate for multi-edit behavior tests.
+    #[cfg(test)]
+    pub(crate) fn seed_pending_cell_edit_for_test_at(&mut self, row: usize, column: usize) {
+        self.pending_cell_edits.insert(
+            (row, column),
+            PendingCellEdit {
+                original: Value::Null,
+                current: Value::Text(format!("changed-{row}-{column}")),
+            },
+        );
+    }
+
     /// 切换结果数据源时列结构会变化；内容搜索作为用户条件跨表保留。
     pub fn clear_column_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.column_filter_input

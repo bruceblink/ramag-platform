@@ -426,18 +426,6 @@ impl ResultPanel {
         self.pending_cell_edits.len()
     }
 
-    /// Seeds one local edit for lifecycle tests without starting an async display-view build.
-    #[cfg(test)]
-    pub(crate) fn seed_pending_cell_edit_for_test(&mut self) {
-        self.pending_cell_edits.insert(
-            (0, 0),
-            PendingCellEdit {
-                original: Value::Null,
-                current: Value::Text("changed".into()),
-            },
-        );
-    }
-
     pub(super) fn has_pending_cell_edit(&self, ri: usize, ci: usize) -> bool {
         self.pending_cell_edits.contains_key(&(ri, ci))
     }

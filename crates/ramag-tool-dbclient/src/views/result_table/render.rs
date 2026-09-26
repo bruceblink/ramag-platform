@@ -201,6 +201,7 @@ pub(in crate::views) fn render_table(
 
     let has_pending_insert = panel.pending_insert().is_some();
     let pending_edit_count = panel.pending_cell_edit_count();
+    let selected_pending_edit = panel.has_selected_pending_cell_edit();
     let dml_busy = panel.dml_busy();
     let row_count = frame.display_indices.len() + if has_pending_insert { 1 } else { 0 };
 
@@ -369,8 +370,24 @@ pub(in crate::views) fn render_table(
         })
         .when(pending_edit_count > 0, |this| {
             let panel_for_cancel = panel_entity.clone();
+            let panel_for_selected_cancel = panel_entity.clone();
             let panel_for_submit = panel_entity.clone();
             this.child(
+                ramag_ui::clickable_button("cell-edit-revert-selected-bar")
+                    .debug_selector(|| "cell-edit-revert-selected-bar".into())
+                    .ghost()
+                    .small()
+                    .icon(IconName::Undo2)
+                    .label("撤销选中")
+                    .tooltip("撤销当前选中单元格的未提交修改")
+                    .disabled(dml_busy || !selected_pending_edit)
+                    .on_click(move |_, _, app| {
+                        panel_for_selected_cancel.update(app, |panel, cx| {
+                            panel.clear_selected_pending_cell_edit(cx);
+                        });
+                    }),
+            )
+            .child(
                 ramag_ui::clickable_button("cell-edits-cancel-bar")
                     .debug_selector(|| "cell-edits-cancel-bar".into())
                     .ghost()
