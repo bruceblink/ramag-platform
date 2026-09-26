@@ -49,7 +49,7 @@
 
 ## 4. 当前切片与后续平台队列
 
-`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C-1`、`DB-UX-003C-2`、`DB-UX-004B-3B`、`DB-UX-005A`、`DB-UX-005B`、`DB-UX-005C` 和 `DB-UX-005D` 的代码与 headless 验证已完成；涉及真实数据库的切片另有 MySQL 8.4/PostgreSQL 17 Docker 证据。当前等待 DB-UX-005 后续迁移差异收口。`DB-UX-004B-3B` 的 Computer Use 原生窗口证据仍待环境恢复后补验。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C-1`、`DB-UX-003C-2`、`DB-UX-004B-3B` 和 `DB-UX-005A` 至 `DB-UX-005E` 的代码与 headless 验证已完成；涉及真实数据库的切片另有 MySQL 8.4/PostgreSQL 17 Docker 证据。当前等待 DB-UX-005 剩余迁移差异收口。`DB-UX-004B-3B` 的 Computer Use 原生窗口证据仍待环境恢复后补验。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
 
 数据库分析主线完成后，后续开发按以下顺序推进：
 
@@ -379,6 +379,13 @@
 - 设计：当前完整迁移脚本生成稳定 SHA-256；预览显示完整指纹，复制文本和执行确认使用同一指纹。指纹只作为复核标识，不保存 SQL 正文，也不改变执行语义。
 - 验收条件：指纹稳定且对脚本变化敏感；预览、复制文本和确认上下文一致；长指纹在支持窗口内不溢出；目标 crate 测试、fmt、Clippy、源码尺寸和 `git diff --check` 通过。
 - 验收结果：预览显示完整 SHA-256，复制文本和执行确认复用同一指纹函数；`schema_diff_dialog` 定向测试 13 项、`ramag-tool-dbclient` 全量测试 344 项通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。真实窗口证据沿用当前 Computer Use 限制。
+
+### DB-UX-005E：唯一重命名候选迁移（2026-09-26，已完成代码与 headless 验证）
+
+- 问题证据：结构差异能标记唯一列重命名候选，但迁移生成器当前仍生成删除旧列和新增新列，可能丢失原列数据。
+- 设计：仅对未按名称匹配且两侧唯一、完整列定义一致（包含主键属性和双方已知且相同的列序号）的候选生成重命名；位置缺失、候选歧义或定义变化继续保守处理。MySQL 使用 `CHANGE COLUMN`，PostgreSQL/SQLite 使用 `RENAME COLUMN`。
+- 验收条件：唯一候选不生成 DROP/ADD；歧义和定义变化不自动重命名；方言单元测试、全量测试及质量检查通过。
+- 验收结果：MySQL/PostgreSQL/SQLite 唯一候选均生成对应方言的重命名 SQL；歧义、定义变化继续生成删除/新增；迁移定向测试 19 项、dbclient 全量测试 349 项通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。真实窗口证据沿用 Computer Use 当前限制。
 
 ## 5. 分支和清理
 

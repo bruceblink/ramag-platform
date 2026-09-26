@@ -12,8 +12,23 @@ pub(crate) fn append_column_changes(
     target: &[Column],
     statements: &mut Vec<MigrationStatement>,
 ) -> Result<(), String> {
+    let renames = unique_column_renames(source, target);
+    for (old, new) in &renames {
+        for sql in column_change_sql(driver, target_name, source, old, new)? {
+            statements.push(MigrationStatement {
+                sql,
+                destructive: true,
+                phase: MigrationPhase::ChangeColumns,
+            });
+        }
+    }
+
     for old in target {
-        if !source.iter().any(|new| same_name(&new.name, &old.name)) {
+        if !source.iter().any(|new| same_name(&new.name, &old.name))
+            && !renames
+                .iter()
+                .any(|(renamed_old, _)| same_name(&renamed_old.name, &old.name))
+        {
             let name = identifier(driver, &old.name, "字段名")?;
             statements.push(MigrationStatement {
                 sql: format!("ALTER TABLE {target_name} DROP COLUMN {name};"),
@@ -25,6 +40,12 @@ pub(crate) fn append_column_changes(
 
     for new in source {
         let Some(old) = target.iter().find(|old| same_name(&old.name, &new.name)) else {
+            if renames
+                .iter()
+                .any(|(_, renamed_new)| same_name(&renamed_new.name, &new.name))
+            {
+                continue;
+            }
             for sql in column_add_sql(driver, target_name, source, new)? {
                 statements.push(MigrationStatement {
                     sql,
@@ -50,6 +71,42 @@ pub(crate) fn append_column_changes(
         }
     }
     Ok(())
+}
+
+/// Finds one-to-one column rename candidates using the complete definition except the name.
+/// Ambiguous signatures stay as drop/add operations so a migration never guesses record identity.
+fn unique_column_renames<'a>(
+    source: &'a [Column],
+    target: &'a [Column],
+) -> Vec<(&'a Column, &'a Column)> {
+    let source_unmatched = source
+        .iter()
+        .filter(|new| !target.iter().any(|old| same_name(&old.name, &new.name)))
+        .collect::<Vec<_>>();
+    let target_unmatched = target
+        .iter()
+        .filter(|old| !source.iter().any(|new| same_name(&new.name, &old.name)))
+        .collect::<Vec<_>>();
+
+    target_unmatched
+        .iter()
+        .filter_map(|old| {
+            let source_candidates = source_unmatched
+                .iter()
+                .copied()
+                .filter(|new| column_rename_equivalent(old, new))
+                .collect::<Vec<_>>();
+            if source_candidates.len() != 1 {
+                return None;
+            }
+            let new = source_candidates[0];
+            let target_candidate_count = target_unmatched
+                .iter()
+                .filter(|candidate| column_rename_equivalent(candidate, new))
+                .count();
+            (target_candidate_count == 1).then_some((*old, new))
+        })
+        .collect()
 }
 
 fn column_add_sql(
@@ -409,8 +466,11 @@ fn column_equivalent(left: &Column, right: &Column) -> bool {
 }
 
 fn column_definition_equivalent(left: &Column, right: &Column) -> bool {
-    left.name == right.name
-        && left.data_type.raw_type == right.data_type.raw_type
+    left.name == right.name && column_definition_equivalent_without_name(left, right)
+}
+
+fn column_definition_equivalent_without_name(left: &Column, right: &Column) -> bool {
+    left.data_type.raw_type == right.data_type.raw_type
         && left.nullable == right.nullable
         && normalized_optional(left.default_value.as_deref())
             == normalized_optional(right.default_value.as_deref())
@@ -421,6 +481,15 @@ fn column_definition_equivalent(left: &Column, right: &Column) -> bool {
             == normalized_optional(right.generation_expression.as_deref())
         && left.generated_storage == right.generated_storage
         && left.identity_generation == right.identity_generation
+}
+
+fn column_rename_equivalent(left: &Column, right: &Column) -> bool {
+    column_definition_equivalent_without_name(left, right)
+        && left.is_primary_key == right.is_primary_key
+        && matches!(
+            (left.ordinal_position, right.ordinal_position),
+            (Some(left), Some(right)) if left == right
+        )
 }
 
 fn positions_equal(left: &Column, right: &Column) -> bool {

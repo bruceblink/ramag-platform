@@ -1,6 +1,6 @@
 # 数据库工作区主线：DataGrip 风格核心闭环
 
-> 状态：现行专项路线图；`DB-UX-005D` 迁移脚本指纹复核已完成代码与 headless 验证，后续进入迁移差异收口
+> 状态：现行专项路线图；`DB-UX-005E` 唯一重命名候选迁移已完成代码与 headless 验证，后续继续迁移差异收口
 > 更新日期：2026-09-26
 > 共同视觉与交互基线：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
 > 跨工具顺序：[`02-development-roadmap.md`](02-development-roadmap.md)
@@ -230,6 +230,14 @@
 - 改动范围：迁移脚本指纹展示、复制文本头部、执行确认上下文和对应 headless 回归；不改变 SQL 生成、审批存储格式、生产只读策略或数据库驱动。
 - 验收条件：相同脚本指纹稳定，不同脚本指纹不同；预览、复制文本和确认上下文使用同一指纹；长指纹在支持窗口内不溢出；迁移执行和既有审批测试继续通过。
 - 结果：预览显示完整 SHA-256，复制内容带同一指纹头部，执行确认说明复用同一指纹函数；`schema_diff_dialog` 定向测试 13 项、`ramag-tool-dbclient` 全量测试 344 项通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。真实窗口证据沿用现有 Computer Use 限制。
+
+#### DB-UX-005E：唯一重命名候选迁移（已完成代码与 headless 验证）
+
+- 问题：结构差异已经标记唯一的列重命名候选，但迁移生成器仍把完全不同的列名当作删除加新增，可能丢失原列数据。
+- 设计：仅当源侧和目标侧各自恰好存在一个未按名称匹配、且完整列定义（类型、主键、空值、默认值、注释、生成/自增属性和已知位置）完全一致的候选时，才生成显式重命名 SQL；位置缺失、候选不唯一或定义有任何差异时继续保守地生成删除/新增或返回现有人工复核提示。MySQL 使用 `CHANGE COLUMN` 保留完整定义，PostgreSQL/SQLite 使用 `RENAME COLUMN`。
+- 改动范围：列迁移候选配对、方言 SQL 和迁移单元测试；不改变结构差异候选算法、索引/外键依赖顺序、审批指纹或执行确认。
+- 验收条件：唯一候选只生成一次重命名且不生成 DROP/ADD；定义变化或候选歧义不自动重命名；MySQL/PostgreSQL/SQLite 方言测试、全量 dbclient 测试、fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 结果：MySQL 使用 `CHANGE COLUMN` 保留定义，PostgreSQL/SQLite 使用 `RENAME COLUMN`；仅唯一且完整定义一致时采用重命名，歧义或定义变化仍显示删除/新增。迁移定向测试 19 项、`ramag-tool-dbclient` 全量测试 349 项通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。真实窗口证据沿用现有 Computer Use 限制。
 
 ### DB-UX-005：分析、差异和迁移（覆盖 `DB-RED-07`）
 

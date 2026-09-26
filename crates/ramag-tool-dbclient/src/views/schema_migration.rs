@@ -147,3 +147,7 @@ pub(crate) fn build_migration_script(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[path = "schema_migration/rename_tests.rs"]
+mod rename_tests;
