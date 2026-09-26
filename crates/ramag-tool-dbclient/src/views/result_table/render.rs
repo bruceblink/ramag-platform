@@ -170,7 +170,7 @@ pub(in crate::views) fn render_table(
         .id("result-header")
         .debug_selector(|| "result-header".into())
         .w(total_content_width)
-        .h(px(34.0))
+        .h(RESULT_HEADER_HEIGHT)
         .flex_none()
         .items_center()
         .bg(secondary_bg)
@@ -472,7 +472,7 @@ pub(in crate::views) fn render_table(
                 .id("result-v-scrollbar")
                 .debug_selector(|| "result-v-scrollbar".into())
                 .absolute()
-                .top_0()
+                .top(RESULT_HEADER_HEIGHT)
                 .bottom_0()
                 .right_0()
                 .w(px(16.0))
@@ -480,6 +480,8 @@ pub(in crate::views) fn render_table(
                 .child(
                     Scrollbar::vertical(panel.uniform_scroll())
                         .id("result-v-scrollbar-control")
+                        // The uniform list is wider than the viewport; anchor the bar to this fixed rail.
+                        .viewport_from_layout()
                         .mode(ScrollbarMode::Always),
                 ),
         );

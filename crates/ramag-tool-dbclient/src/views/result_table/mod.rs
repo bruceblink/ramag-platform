@@ -25,6 +25,8 @@ use super::result_panel::{
 const DISPLAY_VIEW_DEBOUNCE: Duration = Duration::from_millis(160);
 /// 横向表格未做列虚拟化；限制交互式列数，避免异常宽结果创建数千个控件。
 const MAX_COLUMNS_DISPLAY: usize = 512;
+/// 固定表头高度；垂直滚动条视口从表头底部开始。
+const RESULT_HEADER_HEIGHT: gpui_kit::Pixels = px(34.0);
 
 /// 单帧共享数据，供虚拟列表闭包读取。
 struct TableRowFrame {

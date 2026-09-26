@@ -3,7 +3,7 @@ use super::{
     DisplayViewCache, DisplayViewCacheKey, MAX_ROWS_DISPLAY, RowFilter, build_display_view,
 };
 use crate::views::result_panel::{ResultPagination, ResultPanel, ResultState, TotalRows};
-use gpui_kit::{ScrollStrategy, TestAppContext, px, size};
+use gpui_kit::{Modifiers, ScrollStrategy, TestAppContext, point, px, size};
 use ramag_domain::entities::{QueryResult, Row, Value};
 use std::sync::Arc;
 
@@ -116,6 +116,16 @@ fn final_virtual_row_and_pagination_stay_inside_result_regions(cx: &mut TestAppC
     );
     assert!(long_header.size.width <= px(380.0));
     assert_eq!(wide_header.size.width, px(800.0));
+    assert_eq!(
+        vertical_scrollbar.origin.y,
+        header.bottom(),
+        "垂直滚动条应从固定列标题下方开始"
+    );
+    assert_eq!(
+        vertical_scrollbar.right(),
+        viewport.right(),
+        "垂直滚动条应固定在可视结果视口右侧"
+    );
     assert!(
         final_row.origin.y >= header.bottom() && final_row.bottom() <= viewport.bottom(),
         "末行必须留在结果行视口内：row={final_row:?}, header={header:?}, viewport={viewport:?}"
@@ -151,6 +161,56 @@ fn final_virtual_row_and_pagination_stay_inside_result_regions(cx: &mut TestAppC
             "跳转至末行后虚拟列表应有正向滚动偏移"
         );
     });
+
+    let before_left_edge_click = panel.read_with(cx, |panel, _| {
+        panel.uniform_scroll.0.borrow().base_handle.offset().y
+    });
+    let top_track_point = point(
+        vertical_scrollbar.right() - px(2.0),
+        vertical_scrollbar.origin.y + px(2.0),
+    );
+    cx.simulate_click(top_track_point, Modifiers::default());
+    let after_left_edge_click = panel.read_with(cx, |panel, _| {
+        panel.uniform_scroll.0.borrow().base_handle.offset().y
+    });
+    assert!(
+        after_left_edge_click > before_left_edge_click,
+        "横向滚动位于起点时，右侧垂直滚动条仍须响应点击并向上滚动：before={before_left_edge_click:?}, after={after_left_edge_click:?}"
+    );
+
+    panel.update(cx, |panel, cx| {
+        let max_horizontal_offset = panel.h_scroll.max_offset().x;
+        panel
+            .h_scroll
+            .set_offset(point(-max_horizontal_offset, px(0.0)));
+        panel
+            .uniform_scroll
+            .scroll_to_item(MAX_ROWS_DISPLAY - 1, ScrollStrategy::Bottom);
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let right_edge_scrollbar = cx
+        .debug_bounds("result-v-scrollbar")
+        .expect("水平滚动至末端后垂直滚动条仍应渲染");
+    assert_eq!(
+        right_edge_scrollbar.origin.x, vertical_scrollbar.origin.x,
+        "垂直滚动条的屏幕位置不能随横向内容移动"
+    );
+    let before_right_edge_click = panel.read_with(cx, |panel, _| {
+        panel.uniform_scroll.0.borrow().base_handle.offset().y
+    });
+    let top_track_point = point(
+        right_edge_scrollbar.right() - px(2.0),
+        right_edge_scrollbar.origin.y + px(2.0),
+    );
+    cx.simulate_click(top_track_point, Modifiers::default());
+    let after_right_edge_click = panel.read_with(cx, |panel, _| {
+        panel.uniform_scroll.0.borrow().base_handle.offset().y
+    });
+    assert!(
+        after_right_edge_click > before_right_edge_click,
+        "横向滚动到末端时同一条垂直滚动条仍须工作：before={before_right_edge_click:?}, after={after_right_edge_click:?}"
+    );
 }
 
 /// Exercises the ten-column, mixed-value shape used by the local MySQL bulk table.
