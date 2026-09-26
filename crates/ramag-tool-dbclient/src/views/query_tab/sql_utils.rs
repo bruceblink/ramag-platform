@@ -53,9 +53,9 @@ pub(super) fn strip_leading_comments(
     }
 }
 
-/// 高危语句检测：DELETE / UPDATE 无顶层 WHERE、DROP、TRUNCATE。
+/// 高危语句检测：DELETE / UPDATE 无顶层 WHERE、DROP、TRUNCATE，以及会执行目标查询的 EXPLAIN ANALYZE。
 /// 返回命中语句的风险描述（供执行前确认弹框展示）；普通写操作（带 WHERE 的
-/// UPDATE/DELETE、INSERT、ALTER 等）不拦，避免每次写操作都要确认
+/// UPDATE/DELETE、INSERT、ALTER 等）不拦，避免每次写操作都要确认。
 pub(super) fn detect_dangerous_statements(
     sql: &str,
     driver: ramag_domain::entities::DriverKind,
@@ -70,11 +70,8 @@ pub(super) fn detect_dangerous_statements(
         let Some(first) = tokens.first().map(|(keyword, _)| keyword.as_str()) else {
             continue;
         };
-        let risk = if first == "WITH"
-            || (first == "EXPLAIN"
-                && matches!(driver, ramag_domain::entities::DriverKind::Postgres)
-                && postgres_explain_executes(&tokens))
-        {
+        let explain_analyze = first == "EXPLAIN" && explain_analyze_executes(&tokens);
+        let risk = if first == "WITH" || (first == "EXPLAIN" && explain_analyze) {
             detect_dangerous_tokens(&tokens)
         } else {
             match first {
@@ -91,6 +88,11 @@ pub(super) fn detect_dangerous_statements(
         };
         if let Some(r) = risk {
             risks.push(format!("{r}：{}", make_short_title(body)));
+        } else if explain_analyze {
+            risks.push(format!(
+                "EXPLAIN ANALYZE 会执行目标查询（可能产生副作用或消耗资源）：{}",
+                make_short_title(body)
+            ));
         }
     }
     risks
@@ -118,8 +120,9 @@ fn detect_dangerous_tokens(tokens: &[(String, i32)]) -> Option<&'static str> {
     None
 }
 
-/// PostgreSQL 只有 EXPLAIN ANALYZE 会真正执行目标语句。
-fn postgres_explain_executes(tokens: &[(String, i32)]) -> bool {
+/// EXPLAIN ANALYZE 会真正执行目标语句；普通 EXPLAIN 只读取计划。
+/// 这里只检查 EXPLAIN 选项区域，避免把目标查询正文里的同名列或字符串误判为选项。
+fn explain_analyze_executes(tokens: &[(String, i32)]) -> bool {
     let statement_index =
         tokens
             .iter()

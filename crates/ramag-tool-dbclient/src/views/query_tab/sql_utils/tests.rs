@@ -336,6 +336,35 @@ fn dangerous_postgres_explain_analyze_checks_executed_statement() {
 }
 
 #[test]
+fn dangerous_explain_analyze_requires_confirmation_for_read_queries() {
+    for driver in [DriverKind::Mysql, DriverKind::Postgres] {
+        let risks = detect_dangerous_statements("EXPLAIN ANALYZE SELECT * FROM t", driver);
+        assert_eq!(risks.len(), 1, "{driver:?} should require confirmation");
+        assert!(risks[0].contains("会执行目标查询"));
+
+        let risks =
+            detect_dangerous_statements("EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM t", driver);
+        assert_eq!(
+            risks.len(),
+            1,
+            "{driver:?} option form should require confirmation"
+        );
+        assert!(risks[0].contains("会执行目标查询"));
+    }
+}
+
+#[test]
+fn dangerous_explain_without_analyze_stays_read_only() {
+    for driver in [DriverKind::Mysql, DriverKind::Postgres] {
+        assert!(detect_dangerous_statements("EXPLAIN SELECT analyze FROM t", driver).is_empty());
+        assert!(
+            detect_dangerous_statements("EXPLAIN SELECT 'ANALYZE' AS note FROM t", driver,)
+                .is_empty()
+        );
+    }
+}
+
+#[test]
 fn sqlformat_works() {
     let opts = sqlformat::FormatOptions {
         indent: sqlformat::Indent::Spaces(2),
