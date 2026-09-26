@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use ramag_domain::entities::QueryResult;
 
 use super::values::{
-    content_key, format_column, format_row, identity_key, identity_values_equal, push_line,
-    push_row_pair, rows_equal, values_equal,
+    format_column, format_row, identity_key, identity_values_equal, push_line, push_row_pair,
+    values_equal,
 };
 use super::{
     ColumnPair, ColumnStats, MAX_CELL_DIFFS, MAX_COLUMN_LINES, MAX_COMPARE_ROWS, MAX_ROW_LINES,
@@ -211,7 +211,7 @@ fn compare_rows(
             source_count,
             target_count,
         ),
-        _ => compare_content_rows(source, target, common_columns, source_count, target_count),
+        _ => compare_unkeyed_rows(source, target, source_count, target_count),
     }
 }
 
@@ -346,74 +346,35 @@ fn compare_keyed_rows(
     }
 }
 
-fn compare_content_rows(
+/// Shows every loaded row as added or removed when no reliable key exists.
+/// A content or position match would suggest a record identity that the database did not provide.
+fn compare_unkeyed_rows(
     source: &QueryResult,
     target: &QueryResult,
-    common_columns: &[ColumnPair],
     source_count: usize,
     target_count: usize,
 ) -> RowComparison {
-    let mut source_buckets: HashMap<RowKey, Vec<usize>> = HashMap::new();
-    for index in 0..source_count {
-        source_buckets
-            .entry(content_key(source.rows.get(index), common_columns, true))
-            .or_default()
-            .push(index);
-    }
-
-    let mut source_matched = vec![false; source_count];
-    let mut target_matched = vec![false; target_count];
-    for (target_index, target_matched) in target_matched.iter_mut().enumerate().take(target_count) {
-        let key = content_key(target.rows.get(target_index), common_columns, false);
-        let Some(source_candidates) = source_buckets.get(&key) else {
-            continue;
-        };
-        let source_index = source_candidates.iter().copied().find(|source_index| {
-            !source_matched[*source_index]
-                && rows_equal(
-                    source.rows.get(*source_index),
-                    target.rows.get(target_index),
-                    common_columns,
-                )
-        });
-        if let Some(source_index) = source_index {
-            source_matched[source_index] = true;
-            *target_matched = true;
-        }
-    }
-
     let mut lines = Vec::new();
-    let mut added = 0;
-    let mut removed = 0;
-    let mut unchanged = 0;
     let mut omitted_lines = 0;
-    for (index, matched) in source_matched.into_iter().enumerate() {
-        if matched {
-            unchanged += 1;
-        } else {
-            removed += 1;
-            push_line(
-                &mut lines,
-                MAX_ROW_LINES,
-                &mut omitted_lines,
-                ResultDiffKind::Removed,
-                ResultDiffCategory::Removed,
-                format_row(source, index),
-            );
-        }
+    for index in 0..source_count {
+        push_line(
+            &mut lines,
+            MAX_ROW_LINES,
+            &mut omitted_lines,
+            ResultDiffKind::Removed,
+            ResultDiffCategory::Removed,
+            format_row(source, index),
+        );
     }
-    for (index, matched) in target_matched.into_iter().enumerate() {
-        if !matched {
-            added += 1;
-            push_line(
-                &mut lines,
-                MAX_ROW_LINES,
-                &mut omitted_lines,
-                ResultDiffKind::Added,
-                ResultDiffCategory::Added,
-                format_row(target, index),
-            );
-        }
+    for index in 0..target_count {
+        push_line(
+            &mut lines,
+            MAX_ROW_LINES,
+            &mut omitted_lines,
+            ResultDiffKind::Added,
+            ResultDiffCategory::Added,
+            format_row(target, index),
+        );
     }
 
     RowComparison {
@@ -423,13 +384,13 @@ fn compare_content_rows(
         omitted_cell_diffs: 0,
         source_rows_compared: source_count,
         target_rows_compared: target_count,
-        added,
-        removed,
+        added: target_count,
+        removed: source_count,
         changed: 0,
-        unchanged,
-        unkeyed_source: 0,
-        unkeyed_target: 0,
-        mode: RowMatchMode::Content,
+        unchanged: 0,
+        unkeyed_source: source_count,
+        unkeyed_target: target_count,
+        mode: RowMatchMode::Unkeyed,
     }
 }
 

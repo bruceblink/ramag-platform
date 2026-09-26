@@ -125,7 +125,7 @@ pub(crate) struct ResultCellDiff {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RowMatchMode {
     Identity,
-    Content,
+    Unkeyed,
     Unavailable,
 }
 
@@ -133,7 +133,7 @@ impl RowMatchMode {
     pub(crate) fn label(self) -> &'static str {
         match self {
             Self::Identity => "按主键或唯一键匹配",
-            Self::Content => "按共有列内容匹配",
+            Self::Unkeyed => "无稳定键，按整行展示",
             Self::Unavailable => "无法匹配行",
         }
     }
@@ -264,10 +264,10 @@ pub(crate) fn format_result_diff(
             "警告：两次结果的分页或截断范围不同，不能据此判断完整结果集差异"
         );
     }
-    if diff.row_mode == RowMatchMode::Content {
+    if diff.row_mode == RowMatchMode::Unkeyed {
         let _ = writeln!(
             output,
-            "提示：未找到两侧都存在的稳定键；行修改可能显示为一条删除和一条新增"
+            "提示：未找到两侧都存在的稳定键；按整行新增/删除展示，未自动匹配行"
         );
     } else if diff.row_mode == RowMatchMode::Unavailable {
         let _ = writeln!(output, "提示：两次结果没有共有列，因此未比较行内容");
@@ -476,7 +476,7 @@ mod tests {
     }
 
     #[test]
-    fn content_matching_is_order_independent_and_preserves_duplicates() {
+    fn unkeyed_comparison_does_not_guess_row_matches() {
         let source = snapshot(
             &["value"],
             &["TEXT"],
@@ -498,13 +498,17 @@ mod tests {
 
         let diff = build_result_diff(&source, &target);
 
-        assert_eq!(diff.row_mode, RowMatchMode::Content);
-        assert_eq!(diff.rows_unchanged, 1);
-        assert_eq!(diff.rows_removed, 1);
-        assert_eq!(diff.rows_added, 1);
+        assert_eq!(diff.row_mode, RowMatchMode::Unkeyed);
+        assert_eq!(diff.rows_unchanged, 0);
+        assert_eq!(diff.rows_removed, 2);
+        assert_eq!(diff.rows_added, 2);
         assert_eq!(diff.rows_changed, 0);
+        assert_eq!(diff.unkeyed_source_rows, 2);
+        assert_eq!(diff.unkeyed_target_rows, 2);
         assert!(diff.cell_diffs.is_empty());
         assert_eq!(diff.omitted_cell_diffs, 0);
+        let copied = format_result_diff(&source, &target, &diff);
+        assert!(copied.contains("按整行新增/删除展示，未自动匹配行"));
     }
 
     #[test]

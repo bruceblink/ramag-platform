@@ -49,7 +49,7 @@
 
 ## 4. 当前切片与后续平台队列
 
-`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C-1`、`DB-UX-003C-2`、`DB-UX-004B-3B`、`DB-UX-005A` 和 `DB-UX-005B` 的代码、Docker 与 headless 验证已完成；当前等待 `DB-UX-005` 后续差异和迁移切片设计确认。`DB-UX-004B-3B` 的 Computer Use 原生窗口证据仍待环境恢复后补验。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C-1`、`DB-UX-003C-2`、`DB-UX-004B-3B`、`DB-UX-005A`、`DB-UX-005B` 和 `DB-UX-005C` 的代码与 headless 验证已完成；涉及真实数据库的切片另有 MySQL 8.4/PostgreSQL 17 Docker 证据。当前等待 DB-UX-005 后续迁移差异切片。`DB-UX-004B-3B` 的 Computer Use 原生窗口证据仍待环境恢复后补验。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
 
 数据库分析主线完成后，后续开发按以下顺序推进：
 
@@ -348,7 +348,7 @@
 
 - 设计：单元格 UPDATE、行内 DELETE、批量 DELETE 和 INSERT 的数据库失败统一写入结果面板的持久错误状态；状态栏继续显示有界摘要，当前操作入口保持可用，用户恢复连接后可从同一入口重试。
 - 验收结果：四类 DML 失败保留错误和草稿；MySQL 8.4（`127.0.0.1:13306`）与 PostgreSQL 17（`127.0.0.1:15432`）失效连接测试通过；`ramag-tool-dbclient` 全量测试、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。Computer Use 当前没有可操作的原生窗口，未宣称真实窗口验收。
-- 未完成项：原生窗口鼠标/键盘流程待 Computer Use 恢复后补验；下一项为 `DB-UX-005` 后续差异和迁移切片设计确认。
+- 未完成项：原生窗口鼠标/键盘流程待 Computer Use 恢复后补验；下一项进入 `DB-UX-005` 迁移差异切片。
 
 ### DB-UX-005A：EXPLAIN ANALYZE 执行风险确认（2026-09-26，已完成代码与 headless 验证）
 
@@ -365,6 +365,13 @@
 - 改动范围：`SchemaDiffDialog` 回读状态、迁移成功后的刷新回调和有界通知；不改变迁移 SQL 生成、执行审批、驱动协议或差异算法。
 - 验收条件：成功回读、回读警告和回读后仍有差异分别有测试；迁移执行失败不显示一致；回读使用最新请求代次，旧异步结果不能覆盖新连接或新表上下文；目标 crate 测试、headless 对话框测试、fmt、Clippy、源码尺寸和 `git diff --check` 通过。
 - 验收结果：回读一致、回读不完整和仍有差异三种状态测试通过；`schema_diff_dialog` 定向测试 12 项、`ramag-tool-dbclient` 全量测试 343 项通过；`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。该切片未改变数据库执行协议，真实窗口证据仍按现有 Computer Use 限制记录。
+
+### DB-UX-005C：无稳定键的结果差异安全边界（2026-09-26，已完成代码与 headless 验证）
+
+- 问题证据：两侧结果没有共同主键或非空唯一键时，旧实现会按共有列内容匹配相同的行；内容相同不能证明两行来自同一条数据库记录。
+- 设计：只有两侧都提供且值可用的主键或非空唯一键时才生成行级匹配和单元格差异；没有共同稳定键时，所有已加载源行按整行删除、目标行按整行新增展示，不按内容或位置猜测对应关系。
+- 改动范围：结果差异匹配模式、统计和提示；不改变稳定键来源、数据库查询、结果快照、分页和导出上限。
+- 验收结果：无稳定键即使存在相同内容也不产生未变化或单元格差异，稳定键路径继续保留单元格定位；`result_diff` 定向测试 8 项、`ramag-tool-dbclient` 全量测试 343 项通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。真实窗口证据沿用 Computer Use 当前不可用的限制。
 
 ## 5. 分支和清理
 

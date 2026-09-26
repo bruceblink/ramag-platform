@@ -323,8 +323,8 @@ impl ResultDiffDialog {
         if diff.scope_mismatch {
             notes.push("两次结果的分页或截断范围不同，不能据此判断完整结果集差异".to_string());
         }
-        if diff.row_mode == RowMatchMode::Content {
-            notes.push("未找到两侧都存在的稳定键；行修改可能显示为一条删除和一条新增".to_string());
+        if diff.row_mode == RowMatchMode::Unkeyed {
+            notes.push("未找到两侧都存在的稳定键；按整行新增/删除展示，未自动匹配行".to_string());
         } else if diff.row_mode == RowMatchMode::Unavailable {
             notes.push("两次结果没有共有列，因此未比较行内容".to_string());
         }

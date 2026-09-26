@@ -32,22 +32,6 @@ pub(super) fn identity_key(
     Some(RowKey(values))
 }
 
-pub(super) fn content_key(row: Option<&Row>, columns: &[ColumnPair], source_side: bool) -> RowKey {
-    RowKey(
-        columns
-            .iter()
-            .map(|column| {
-                let index = if source_side {
-                    column.source
-                } else {
-                    column.target
-                };
-                value_hash(row.and_then(|row| row.values.get(index)))
-            })
-            .collect(),
-    )
-}
-
 pub(super) fn identity_values_equal(
     source: Option<&Row>,
     target: Option<&Row>,
@@ -63,22 +47,6 @@ pub(super) fn identity_values_equal(
             (source, target),
             (Some(Value::Null), _) | (_, Some(Value::Null))
         ) && values_equal(source, target)
-    })
-}
-
-pub(super) fn rows_equal(
-    source: Option<&Row>,
-    target: Option<&Row>,
-    columns: &[ColumnPair],
-) -> bool {
-    let (Some(source), Some(target)) = (source, target) else {
-        return false;
-    };
-    columns.iter().all(|column| {
-        values_equal(
-            source.values.get(column.source),
-            target.values.get(column.target),
-        )
     })
 }
 

@@ -1,6 +1,6 @@
 # Ramag Platform 新主线：JetBrains 工作区重设计
 
-> 状态：现行主线；`SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07`、`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C`、`DB-UX-004A`、`DB-UX-004B-1`、`DB-UX-004B-2`、`DB-UX-004B-3A`、`DB-UX-004B-3B`、`DB-UX-005A`、`DB-UX-005B` 的代码、Docker 与 headless 验证已完成；数据库分析后续切片完成后进入原生 GPUI 插件标准化和 IT Tools 分步迁移。`DB-UX-004B-3B` 原生窗口证据待环境恢复后补验。
+> 状态：现行主线；`SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07`、`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C`、`DB-UX-004A`、`DB-UX-004B-1`、`DB-UX-004B-2`、`DB-UX-004B-3A`、`DB-UX-004B-3B`、`DB-UX-005A`、`DB-UX-005B`、`DB-UX-005C` 的代码与 headless 验证已完成；涉及真实数据库的切片另有 Docker 证据。数据库分析后续切片完成后进入原生 GPUI 插件标准化和 IT Tools 分步迁移。`DB-UX-004B-3B` 原生窗口证据待环境恢复后补验。
 > 更新日期：2026-09-26
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
@@ -105,7 +105,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `DB-UX-002` | 查询控制台和连接上下文 | 功能切片完成（`DB-RED-05A` 至 `DB-RED-07`；真实窗口待补） | `DB-UX-001` | SQL 执行/取消/标签回归、Docker、窗口证据 |
 | `DB-UX-003` | 结果数据网格 | 功能切片完成（`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C-1`、`DB-UX-003C-2`；原生拖拽证据待补） | `DB-UX-002` | 大数据量、双轴滚动、分页/编辑交互、窗口证据 |
 | `DB-UX-004` | 安全编辑与事务反馈 | 代码、Docker 与 headless 验证完成（`DB-UX-004B-3B` 原生窗口证据待补） | `DB-UX-003` | 成功/失败/取消/回滚、MySQL/PostgreSQL Docker |
-| `DB-UX-005` | 分析、差异和迁移工作流 | 进行中（`DB-UX-005A`、`DB-UX-005B` 已完成；后续差异和迁移切片待开始） | `DB-UX-004` | 原始回退、人工确认、回读和窗口证据 |
+| `DB-UX-005` | 分析、差异和迁移工作流 | 进行中（`DB-UX-005A`、`DB-UX-005B`、`DB-UX-005C` 已完成；后续迁移差异切片待开始） | `DB-UX-004` | 原始回退、人工确认、回读和窗口证据 |
 | `P0-C` | 插件设置与权限检查 | 计划中；等待 `DB-UX-005` 完成 | `DB-UX-005` | 命名空间隔离、类型/大小校验、迁移恢复和每次调用授权 |
 | `PLAT-004` | 多入口原生插件与标准工具入口 | 待开始；依赖 `P0-C` 完成并单独确认设计 | `DB-UX-005`、`P0-C` | GPUI 标准渲染、入口冲突、长输入和错误边界 |
 | `PLAT-005` | 按需激活与插件资源预算 | 待开始 | `PLAT-004` | 首次打开、取消、内存/结果上限和生命周期回收 |
