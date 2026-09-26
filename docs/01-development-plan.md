@@ -358,12 +358,13 @@
 - 验收条件：MySQL/PostgreSQL 的 `EXPLAIN ANALYZE SELECT` 均返回有界风险摘要；带危险 DML 的现有风险仍保留；普通 `EXPLAIN SELECT` 不弹确认；检测跳过字符串、注释、子查询中的同名文本；目标 crate 测试、fmt、Clippy、源码尺寸和 `git diff --check` 通过。
 - 验收结果：`ramag-tool-dbclient` 定向 SQL 风险测试 32 项、全量测试 340 项通过；`EXPLAIN ANALYZE SELECT` 和 PostgreSQL 选项形式均要求确认，普通 `EXPLAIN` 和查询正文中的 `ANALYZE` 不误报；`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。该切片没有新增布局或真实窗口流程，沿用现有 headless 证据，Computer Use 限制不影响本次纯风险检测验收。
 
-### DB-UX-005B：迁移执行后的目标结构回读校验（2026-09-26，设计确认）
+### DB-UX-005B：迁移执行后的目标结构回读校验（2026-09-26，已完成代码与 headless 验证）
 
 - 问题证据：迁移执行成功后当前流程只重新加载源表和目标表元数据，没有根据回读结果明确告诉用户目标结构是否已经一致；MySQL DDL 部分执行或元数据加载失败时，用户只能重新查看差异判断结果。
 - 设计：迁移执行成功后标记一次回读任务；刷新源/目标列、索引和外键元数据后，使用现有结构差异计算判断结果。无警告且没有新增/删除差异时显示“回读一致”；任一侧元数据不完整时显示回读不完整和原因；仍有差异时显示差异数量并保留结构差异面板，禁止宣称迁移完成。
 - 改动范围：`SchemaDiffDialog` 回读状态、迁移成功后的刷新回调和有界通知；不改变迁移 SQL 生成、执行审批、驱动协议或差异算法。
 - 验收条件：成功回读、回读警告和回读后仍有差异分别有测试；迁移执行失败不显示一致；回读使用最新请求代次，旧异步结果不能覆盖新连接或新表上下文；目标 crate 测试、headless 对话框测试、fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 验收结果：回读一致、回读不完整和仍有差异三种状态测试通过；`schema_diff_dialog` 定向测试 12 项、`ramag-tool-dbclient` 全量测试 343 项通过；`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。该切片未改变数据库执行协议，真实窗口证据仍按现有 Computer Use 限制记录。
 
 ## 5. 分支和清理
 

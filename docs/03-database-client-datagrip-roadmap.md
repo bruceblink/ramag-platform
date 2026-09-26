@@ -207,12 +207,13 @@
 - 验收：`EXPLAIN ANALYZE SELECT` 在两种 SQL 驱动上都要求确认；危险 DML 的既有提示继续保留；普通 `EXPLAIN SELECT` 不触发确认；字符串、注释和嵌套查询中的 `ANALYZE` 不误报；通过 dbclient 定向/全量测试、fmt、Clippy、源码尺寸和 diff 检查。
 - 结果：定向 SQL 风险测试 32 项、`ramag-tool-dbclient` 全量测试 340 项通过；`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。该切片为纯风险检测和执行前确认逻辑，没有新增真实窗口交互；Computer Use 限制单独保留，不影响本次代码验收。
 
-#### DB-UX-005B：迁移执行后的目标结构回读校验（设计确认）
+#### DB-UX-005B：迁移执行后的目标结构回读校验（已完成代码与 headless 验证）
 
 - 问题：迁移执行成功后当前流程只刷新源表和目标表元数据，没有根据回读结果判断目标结构是否一致。
 - 设计：成功执行迁移后自动回读列、索引和外键；无警告且差异为空时显示回读一致；元数据加载不完整时显示原因；仍有差异时显示有界差异数量并保留差异面板，不能宣称迁移完成。
 - 改动范围：`SchemaDiffDialog` 回读状态、刷新回调和通知；不改迁移 SQL 生成、执行审批、驱动协议或差异算法。
 - 验收：覆盖一致、警告和仍有差异三种回读结果，并验证请求代次不会让旧回读覆盖新上下文。
+- 结果：回读状态测试覆盖一致、警告和仍有差异；`schema_diff_dialog` 定向测试 12 项、`ramag-tool-dbclient` 全量测试 343 项通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。真实窗口限制沿用现有 Computer Use 记录。
 
 ### DB-UX-005：分析、差异和迁移（覆盖 `DB-RED-07`）
 
