@@ -136,6 +136,7 @@ pub(super) fn render_plan(
                 border,
                 muted_bg,
                 accent,
+                cx.theme().danger,
                 Some("当前 EXPLAIN 返回格式暂不支持结构化显示"),
                 false,
                 cx,
@@ -150,6 +151,7 @@ pub(super) fn render_plan(
             border,
             muted_bg,
             accent,
+            cx.theme().danger,
             None,
             tree.is_some(),
             cx,
@@ -258,6 +260,7 @@ fn render_raw_plan(
     border: gpui_kit::Hsla,
     muted_bg: gpui_kit::Hsla,
     accent: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
     note: Option<&str>,
     structured_available: bool,
     cx: &mut Context<ResultPanel>,
@@ -279,6 +282,7 @@ fn render_raw_plan(
         border,
         muted_bg,
         accent,
+        danger,
         cx,
     );
     v_flex()

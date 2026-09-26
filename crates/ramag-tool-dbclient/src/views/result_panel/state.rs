@@ -21,6 +21,7 @@ impl ResultPanel {
         }
         self.state = state;
         self.pending_cell_edits.clear();
+        self.dml_error = None;
         self.pagination = None;
         self.mark_result_changed();
         self.clear_cell_edit_state();
@@ -56,6 +57,7 @@ impl ResultPanel {
         }
         self.state = state;
         self.pending_cell_edits.clear();
+        self.dml_error = None;
         self.mark_result_changed();
         self.clear_cell_edit_state();
         if let Some(offset) = self.sort_h_scroll_offset.take() {
@@ -101,6 +103,7 @@ impl ResultPanel {
             "旧结果已按 LRU 释放，以保持全部标签结果不超过 512 MiB；查询文本仍保留".into(),
         );
         self.pending_cell_edits.clear();
+        self.dml_error = None;
         self.clear_released_result_context();
         self.column_completion_source.write().clear();
         self.pagination = None;
@@ -124,6 +127,7 @@ impl ResultPanel {
         self.comparison_baseline = None;
         self.pinned_target = None;
         self.pending_cell_edits.clear();
+        self.dml_error = None;
         self.clear_cell_edit_state();
         self.row_identity = None;
     }

@@ -60,6 +60,7 @@ fn selected_pending_edit_reverts_without_touching_other_drafts(cx: &mut TestAppC
             panel.seed_pending_cell_edit_for_test_at(0, 0);
             panel.seed_pending_cell_edit_for_test_at(0, 1);
             panel.selected_cell = Some((0, 0));
+            panel.dml_error = Some("数据库连接已断开，未提交修改仍保留".into());
             panel
         });
         panel_entity = Some(panel.clone());
@@ -81,6 +82,9 @@ fn selected_pending_edit_reverts_without_touching_other_drafts(cx: &mut TestAppC
         let selected = cx
             .debug_bounds("cell-edit-revert-selected-bar")
             .expect("撤销选中按钮应渲染");
+        let dml_error = cx
+            .debug_bounds("result-dml-error")
+            .expect("DML 错误状态应渲染");
         assert!(
             actions.origin.x >= status.origin.x
                 && actions.right() <= status.right()
@@ -92,6 +96,12 @@ fn selected_pending_edit_reverts_without_touching_other_drafts(cx: &mut TestAppC
                 && selected.right() <= actions.right()
                 && selected.origin.y >= actions.origin.y
                 && selected.bottom() <= actions.bottom()
+        );
+        assert!(
+            dml_error.origin.x >= status.origin.x
+                && dml_error.right() <= status.right()
+                && dml_error.origin.y >= status.origin.y
+                && dml_error.bottom() <= status.bottom()
         );
     }
 
@@ -124,5 +134,9 @@ fn selected_pending_edit_reverts_without_touching_other_drafts(cx: &mut TestAppC
     panel.update(cx, |panel, _| panel.set_selected_cell(Some((0, 1))));
     panel.read_with(cx, |panel, _| {
         assert!(panel.has_selected_pending_cell_edit())
+    });
+    panel.update(cx, |panel, cx| panel.clear_pending_cell_edits(cx));
+    panel.read_with(cx, |panel, _| {
+        assert!(panel.dml_error().is_none());
     });
 }

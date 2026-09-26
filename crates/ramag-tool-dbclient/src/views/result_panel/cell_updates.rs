@@ -214,6 +214,7 @@ impl ResultPanel {
         let result_revision = self.result_revision;
         let strategy = format!("按{}", identity.label);
         let commit_hint = auto_commit_hint(transaction.as_ref());
+        self.dml_error = None;
         self.dml_busy = true;
         cx.notify();
         cx.spawn(async move |this, cx| {
@@ -350,6 +351,7 @@ impl ResultPanel {
                             "已提交 {committed_edits} 项修改后，第 {} 行失败：{message}{remaining_note}",
                             row_index + 1
                         );
+                        this.dml_error = Some(message.clone());
                         cx.emit(ResultPanelEvent::MutationFailed(message.clone()));
                         Notification::error(message).autohide(false)
                     }

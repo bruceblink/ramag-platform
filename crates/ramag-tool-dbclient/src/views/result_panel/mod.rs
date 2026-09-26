@@ -109,6 +109,8 @@ struct VisibleSelectionCache {
 pub struct ResultPanel {
     pub(super) state: ResultState,
     pub(super) pending_notification: Option<Notification>,
+    /// 有界的最近一次 DML 错误；草稿仍在时用于结果状态栏的重试提示。
+    pub(super) dml_error: Option<String>,
     pub(super) selected_cell: Option<(usize, usize)>,
     /// 当前正在单元格内编辑的源行和列。
     pub(super) editing_cell: Option<(usize, usize)>,
@@ -212,6 +214,7 @@ impl ResultPanel {
         Self {
             state: ResultState::Empty,
             pending_notification: None,
+            dml_error: None,
             selected_cell: None,
             editing_cell: None,
             source_sql: None,
@@ -426,6 +429,10 @@ impl ResultPanel {
         self.pending_cell_edits.len()
     }
 
+    pub(super) fn dml_error(&self) -> Option<&str> {
+        self.dml_error.as_deref()
+    }
+
     /// Summarizes the current local drafts for confirmation without generating or sending SQL.
     pub(crate) fn pending_cell_edit_confirmation(&self) -> Option<String> {
         if self.pending_cell_edits.is_empty() {
@@ -486,6 +493,7 @@ impl ResultPanel {
     }
 
     pub(super) fn clear_pending_cell_edits(&mut self, cx: &mut Context<Self>) {
+        self.dml_error = None;
         let count = self.discard_pending_cell_edits();
         if count == 0 {
             return;

@@ -16,6 +16,7 @@ pub(in crate::views) fn render_table(
     border: gpui_kit::Hsla,
     muted_bg: gpui_kit::Hsla,
     accent: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
     cx: &mut Context<ResultPanel>,
 ) -> AnyElement {
     let columns = &result.columns;
@@ -203,6 +204,7 @@ pub(in crate::views) fn render_table(
     let pending_edit_count = panel.pending_cell_edit_count();
     let selected_pending_edit = panel.has_selected_pending_cell_edit();
     let dml_busy = panel.dml_busy();
+    let dml_error = panel.dml_error();
     let row_count = frame.display_indices.len() + if has_pending_insert { 1 } else { 0 };
 
     let frame_for_rows = frame.clone();
@@ -334,6 +336,19 @@ pub(in crate::views) fn render_table(
                     .overflow_hidden()
                     .text_ellipsis()
                     .child(info),
+            )
+        })
+        .when_some(dml_error, |this, error| {
+            this.child(
+                div()
+                    .id("result-dml-error")
+                    .debug_selector(|| "result-dml-error".into())
+                    .flex_1()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .text_ellipsis()
+                    .text_color(danger)
+                    .child(format!("写入失败：{error}")),
             )
         });
 

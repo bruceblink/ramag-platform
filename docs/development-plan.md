@@ -320,6 +320,15 @@
 - 验收条件：两个 Docker 测试均通过，临时表清理完成；目标 crate 测试、fmt、Clippy、源码尺寸和 diff 检查通过。
 - 验收结果：MySQL 8.4 与 PostgreSQL 17-alpine 的 `result_editor_update_round_trip_uses_*_dml_and_transactions` 均通过；`cargo test --locked -p ramag-infra-mysql --all-targets --quiet` 与 PostgreSQL 对应命令全通过；workspace Clippy、fmt、源码尺寸和 `git diff --check` 通过。Docker 容器和专用卷保持运行，临时测试表已清理；未宣称连接失效或原生窗口验收，下一项为 `DB-UX-004B-3`。
 
+### DB-UX-004B-3A：DML 连接失败状态与重试可见性（2026-09-26，已完成）
+
+- 问题证据：DML 失败目前主要通过全局 Toast 告知用户；结果表仍保留草稿，但状态栏没有稳定的失败锚点，窄窗口下也无法快速确认是否可以重试。
+- 设计：ResultPanel 保存当前 DML 失败摘要；结果状态栏显示有界错误文本，保留既有“提交修改”入口作为重试动作。开始新提交、提交成功、撤销全部草稿或载入新结果时清理摘要。
+- 安全规则：错误摘要只显示驱动返回的有界提示，不把密码或完整连接配置写入 UI；失败路径不清理本地草稿，不伪造提交成功。
+- 改动范围：ResultPanel 状态字段、结果表状态栏锚点和 `280/360/1024px` headless 回归；不改驱动协议、DML 生成和事务生命周期。
+- 验收条件：模拟 DML 失败后错误锚点不越界、草稿和重试入口保留；成功/撤销/新结果清除错误；目标测试、fmt、Clippy、源码尺寸和 diff 检查通过。Computer Use 原生窗口当前不可操作，必须单独记录限制。
+- 验收结果：`selected_pending_edit_reverts_without_touching_other_drafts` 扩展回归和 dbclient 全量 338 项通过；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`scripts/windows/check-source-size.ps1`、`git diff --check` 均通过。Computer Use `cua.getState()` 未发现原生应用，虽检测到 `Ramag — 数据库客户端` 进程窗口，也未执行真实交互；下一项为 `DB-UX-004B-3B`。
+
 ## 5. 分支和清理
 
 默认在最新 `main` 上开发和推送。只有用户明确要求功能分支时才创建分支；分支必须基于最新 `main`，验证后合并回 `main`，重新验证并推送，再确认源分支无未合并/未推送提交和关联 worktree 后清理。不得删除 `main` 或未明确纳入本次合并的分支。

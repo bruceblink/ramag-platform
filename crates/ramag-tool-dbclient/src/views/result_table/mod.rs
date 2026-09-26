@@ -405,6 +405,7 @@ pub(in crate::views) fn render_result_view(
         theme.border,
         theme.muted,
         theme.accent,
+        theme.danger,
         cx,
     )
 }
