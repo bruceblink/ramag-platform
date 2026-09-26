@@ -7,6 +7,7 @@ mod blocking;
 pub mod connection_transfer;
 mod plugin_lifecycle;
 mod plugin_settings;
+mod plugin_settings_store;
 pub mod tool_registry;
 pub mod usecases;
 
@@ -18,6 +19,10 @@ pub use plugin_lifecycle::{
     StaticPluginAdapter, StaticPluginHost,
 };
 pub use plugin_settings::{PluginSettingsError, PluginSettingsSnapshot};
+pub use plugin_settings_store::{
+    CURRENT_PLUGIN_SETTINGS_FORMAT_VERSION, MAX_PLUGIN_SETTINGS_PAYLOAD_BYTES, PluginSettingsLoad,
+    PluginSettingsStore, PluginSettingsStoreError,
+};
 pub use tool_registry::{TOOL_ORDER_PREF_KEY, ToolRegistry};
 pub use usecases::{
     AUTO_CHECK_INTERVAL, AccountVerification, ApiService, AvailableUpdate, ClipboardService,
