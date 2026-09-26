@@ -175,6 +175,14 @@
 - 不做事项：不在本切片运行真实 MySQL/PostgreSQL DML；后续 `DB-UX-004B-2` 使用本机 Docker 验证提交、回滚、取消、连接失效和属性回读。
 - 验收结果：结果表 headless 测试确认框入口和取消保留草稿通过；dbclient 全量 338 项测试、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。下一项为 `DB-UX-004B-2`，补齐本机 Docker MySQL 8.4/PostgreSQL 17 的真实 DML 与事务回读。
 
+#### DB-UX-004B-2：结果编辑器 DML 与事务真实回读（已完成）
+
+- 设计：为 MySQL 8.4 和 PostgreSQL 17 分别增加 Docker 集成测试，使用结果编辑器同类的主键定位 UPDATE；验证自动提交影响行数、事务内读取、回滚后独立连接保持原值，以及提交后独立连接读取新值。
+- 测试数据：每个测试创建带主键的临时表，使用进程号生成表名，测试末尾删除；不修改共享种子数据，不依赖远程服务。
+- 验收条件：测试明确使用 `127.0.0.1:13306` 的 MySQL 8.4 和 `127.0.0.1:15432` 的 PostgreSQL 17-alpine；两个驱动均通过自动提交 UPDATE、回滚和提交回读；测试失败时保留数据库错误并清楚标识后端。
+- 不做事项：不在本切片改 UI 或驱动协议，不覆盖连接失效和原生窗口交互；这些留给后续 `DB-UX-004B-3`。
+- 验收结果：MySQL 与 PostgreSQL 新增 DML 回读测试各 1 项通过；两个基础设施 crate 的 `--all-targets` 测试全部通过，workspace Clippy、fmt、源码尺寸和 `git diff --check` 通过。测试使用 `ramag-db-test-*` 专用容器和卷，临时表已删除，容器保持健康运行供后续窗口验收复用。
+
 ### DB-UX-005：分析、差异和迁移（覆盖 `DB-RED-07`）
 
 **范围**：原始/结构化 EXPLAIN、只读 Schema Diagram、表/结果差异、DDL 预览、迁移阶段摘要、脚本指纹、审批、执行和回读。

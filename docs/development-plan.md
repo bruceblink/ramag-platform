@@ -311,6 +311,15 @@
 - 验收条件：确认框覆盖 `280/360/1024px`；取消后草稿数量和内容不变；确认期间变更草稿后仍以最新状态进入安全提交路径；通过 dbclient 定向/全量测试、fmt、Clippy、源码尺寸和 diff 检查。
 - 验收结果：定向确认框测试和 dbclient 全量 338 项通过；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`scripts/windows/check-source-size.ps1`、`git diff --check` 均通过。真实 Docker DML 和原生窗口证据未在本切片宣称完成，下一项为 `DB-UX-004B-2`。
 
+### DB-UX-004B-2：结果编辑器 DML 与事务真实回读（2026-09-26，设计确认）
+
+- 问题证据：现有 Docker 事务测试主要覆盖驱动级 INSERT/事务接口，尚未证明结果编辑器按主键生成的 UPDATE 在 MySQL/PostgreSQL 两种方言中影响行数正确，并能由独立连接观察提交或回滚结果。
+- 设计：新增两个后端集成测试文件，分别创建临时主键表并执行自动提交 UPDATE、手动事务 UPDATE、事务内读取、回滚后外部读取和提交后外部读取；MySQL 保留 `LIMIT 1`，PostgreSQL 使用方言兼容 UPDATE。
+- 测试环境：只使用本机 Docker `mysql:8.4`（`127.0.0.1:13306`）和 `postgres:17-alpine`（`127.0.0.1:15432`），测试账号来自 `.ramag/db-test.env`；不使用远程集群或 mock。
+- 改动范围：`crates/ramag-infra-mysql/tests/result_editor_dml.rs`、`crates/ramag-infra-postgres/tests/result_editor_dml.rs` 及验收记录；不改 UI、驱动接口或共享种子数据。
+- 验收条件：两个 Docker 测试均通过，临时表清理完成；目标 crate 测试、fmt、Clippy、源码尺寸和 diff 检查通过。
+- 验收结果：MySQL 8.4 与 PostgreSQL 17-alpine 的 `result_editor_update_round_trip_uses_*_dml_and_transactions` 均通过；`cargo test --locked -p ramag-infra-mysql --all-targets --quiet` 与 PostgreSQL 对应命令全通过；workspace Clippy、fmt、源码尺寸和 `git diff --check` 通过。Docker 容器和专用卷保持运行，临时测试表已清理；未宣称连接失效或原生窗口验收，下一项为 `DB-UX-004B-3`。
+
 ## 5. 分支和清理
 
 默认在最新 `main` 上开发和推送。只有用户明确要求功能分支时才创建分支；分支必须基于最新 `main`，验证后合并回 `main`，重新验证并推送，再确认源分支无未合并/未推送提交和关联 worktree 后清理。不得删除 `main` 或未明确纳入本次合并的分支。
