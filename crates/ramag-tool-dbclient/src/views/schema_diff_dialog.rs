@@ -36,6 +36,48 @@ struct LoadedMetadata {
     warnings: Vec<String>,
 }
 
+/// Describes what the post-migration metadata readback proved about the target table.
+/// Missing metadata never counts as success, and remaining differences stay available for review.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum MigrationReadbackVerdict {
+    Consistent,
+    Incomplete { warnings: Vec<String> },
+    Diverged { difference_count: usize },
+}
+
+/// Compares freshly loaded source and target metadata without issuing another database call.
+fn evaluate_migration_readback(
+    source: &LoadedMetadata,
+    target: &LoadedMetadata,
+) -> MigrationReadbackVerdict {
+    let warnings = source
+        .warnings
+        .iter()
+        .map(|warning| format!("源表：{warning}"))
+        .chain(
+            target
+                .warnings
+                .iter()
+                .map(|warning| format!("目标表：{warning}")),
+        )
+        .take(4)
+        .collect::<Vec<_>>();
+    if !warnings.is_empty() {
+        return MigrationReadbackVerdict::Incomplete { warnings };
+    }
+
+    let difference_count = build_table_diff(&source.metadata, &target.metadata)
+        .into_iter()
+        .flat_map(|section| section.lines)
+        .filter(|line| line.kind != MetadataDiffKind::Context)
+        .count();
+    if difference_count == 0 {
+        MigrationReadbackVerdict::Consistent
+    } else {
+        MigrationReadbackVerdict::Diverged { difference_count }
+    }
+}
+
 pub(crate) struct SchemaDiffDialog {
     service: Arc<ConnectionService>,
     source_connection: ConnectionConfig,
@@ -56,6 +98,7 @@ pub(crate) struct SchemaDiffDialog {
     migration_visible: bool,
     saving_migration: bool,
     executing_migration: bool,
+    readback_pending: bool,
     migration_execution_generation: u64,
     migration_approvals: Vec<MigrationApprovalRecord>,
     pending_notification: Option<Notification>,
@@ -94,6 +137,7 @@ impl SchemaDiffDialog {
             migration_visible: false,
             saving_migration: false,
             executing_migration: false,
+            readback_pending: false,
             migration_execution_generation: 0,
             migration_approvals: Vec::new(),
             pending_notification: None,
@@ -151,6 +195,31 @@ impl SchemaDiffDialog {
                 this.loading = false;
                 this.source = Some(source);
                 this.target = Some(target);
+                if this.readback_pending {
+                    this.readback_pending = false;
+                    let verdict = match (this.source.as_ref(), this.target.as_ref()) {
+                        (Some(source), Some(target)) => evaluate_migration_readback(source, target),
+                        _ => MigrationReadbackVerdict::Incomplete {
+                            warnings: vec!["源表或目标表回读结果缺失".into()],
+                        },
+                    };
+                    this.pending_notification = Some(match verdict {
+                        MigrationReadbackVerdict::Consistent => {
+                            Notification::success("迁移回读一致：源表和目标表结构已匹配")
+                                .autohide(true)
+                        }
+                        MigrationReadbackVerdict::Incomplete { warnings } => Notification::warning(
+                            format!("迁移已执行，但回读不完整：{}", warnings.join("；")),
+                        )
+                        .autohide(true),
+                        MigrationReadbackVerdict::Diverged { difference_count } => {
+                            Notification::warning(format!(
+                                "迁移已执行，但回读仍有 {difference_count} 项结构差异，请人工复核"
+                            ))
+                            .autohide(true)
+                        }
+                    });
+                }
                 this.vertical_scroll
                     .set_offset(gpui_kit::Point::new(px(0.0), px(0.0)));
                 this.horizontal_scroll

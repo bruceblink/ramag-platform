@@ -285,6 +285,7 @@ impl SchemaDiffDialog {
                             ))
                             .autohide(true),
                         );
+                        this.readback_pending = true;
                         this.refresh(cx);
                     }
                     Err(error) => {

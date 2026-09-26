@@ -11,7 +11,9 @@ use ramag_domain::error::Result;
 use ramag_domain::traits::Storage;
 
 use super::super::schema_diff::TableMetadata;
-use super::{LoadedMetadata, SchemaDiffDialog};
+use super::{
+    LoadedMetadata, MigrationReadbackVerdict, SchemaDiffDialog, evaluate_migration_readback,
+};
 
 #[derive(Default)]
 struct NoopStorage;
@@ -98,6 +100,7 @@ fn test_dialog(cx: &mut TestAppContext) -> &mut gpui_kit::VisualTestContext {
             migration_visible: false,
             saving_migration: false,
             executing_migration: false,
+            readback_pending: false,
             migration_execution_generation: 0,
             migration_approvals: Vec::new(),
             pending_notification: None,
@@ -162,6 +165,7 @@ fn migration_dialog(cx: &mut TestAppContext) -> &mut gpui_kit::VisualTestContext
             migration_visible: true,
             saving_migration: false,
             executing_migration: false,
+            readback_pending: false,
             migration_execution_generation: 0,
             migration_approvals: Vec::new(),
             pending_notification: None,
@@ -188,6 +192,69 @@ fn test_column(name: &str, raw_type: &str) -> Column {
         generated_storage: None,
         identity_generation: None,
     }
+}
+
+#[test]
+fn migration_readback_accepts_matching_metadata() {
+    let metadata = TableMetadata {
+        columns: vec![test_column("id", "INT")],
+        ..TableMetadata::default()
+    };
+    let source = LoadedMetadata {
+        metadata: metadata.clone(),
+        warnings: Vec::new(),
+    };
+    let target = LoadedMetadata {
+        metadata,
+        warnings: Vec::new(),
+    };
+
+    assert_eq!(
+        evaluate_migration_readback(&source, &target),
+        MigrationReadbackVerdict::Consistent
+    );
+}
+
+#[test]
+fn migration_readback_rejects_incomplete_metadata() {
+    let source = LoadedMetadata {
+        metadata: TableMetadata::default(),
+        warnings: vec!["列加载失败：连接已断开".into()],
+    };
+    let target = LoadedMetadata {
+        metadata: TableMetadata::default(),
+        warnings: Vec::new(),
+    };
+
+    assert_eq!(
+        evaluate_migration_readback(&source, &target),
+        MigrationReadbackVerdict::Incomplete {
+            warnings: vec!["源表：列加载失败：连接已断开".into()]
+        }
+    );
+}
+
+#[test]
+fn migration_readback_reports_remaining_differences() {
+    let source = LoadedMetadata {
+        metadata: TableMetadata {
+            columns: vec![test_column("id", "INT")],
+            ..TableMetadata::default()
+        },
+        warnings: Vec::new(),
+    };
+    let target = LoadedMetadata {
+        metadata: TableMetadata {
+            columns: vec![test_column("legacy", "TEXT")],
+            ..TableMetadata::default()
+        },
+        warnings: Vec::new(),
+    };
+
+    assert!(matches!(
+        evaluate_migration_readback(&source, &target),
+        MigrationReadbackVerdict::Diverged { difference_count } if difference_count > 0
+    ));
 }
 
 fn assert_inside(
