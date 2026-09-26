@@ -200,11 +200,12 @@
 - 验收结果：UPDATE、单行/批量 DELETE、INSERT 统一写入持久 DML 错误状态；`ramag-tool-dbclient` 全量 338 项 headless 测试通过，覆盖三种窗口宽度、错误状态和最后一项草稿撤销清理；MySQL 8.4 与 PostgreSQL 17 Docker 失效连接测试各 2 项通过，容器保持健康运行。`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。
 - 原生窗口限制：Computer Use 当前返回空应用列表，且当前运行时没有可用的原生启动入口；因此本切片没有执行鼠标/键盘原生窗口流程，不能把 headless 或截图当作替代的真实窗口证据。后续可用真实窗口运行时补验。
 
-#### DB-UX-005A：EXPLAIN ANALYZE 执行风险确认（当前切片）
+#### DB-UX-005A：EXPLAIN ANALYZE 执行风险确认（已完成代码与 headless 验证）
 
 - 问题：`EXPLAIN ANALYZE` 会执行目标查询；当前风险提示只覆盖其中的危险写操作，普通 SELECT 仍缺少执行前确认。
 - 设计：对 MySQL/PostgreSQL 的 `EXPLAIN ANALYZE` 选项统一返回有界风险摘要，沿用现有执行代次和上下文变化校验；普通 `EXPLAIN` 保持只读直通，结构化与原始结果视图不变。
 - 验收：`EXPLAIN ANALYZE SELECT` 在两种 SQL 驱动上都要求确认；危险 DML 的既有提示继续保留；普通 `EXPLAIN SELECT` 不触发确认；字符串、注释和嵌套查询中的 `ANALYZE` 不误报；通过 dbclient 定向/全量测试、fmt、Clippy、源码尺寸和 diff 检查。
+- 结果：定向 SQL 风险测试 32 项、`ramag-tool-dbclient` 全量测试 340 项通过；`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。该切片为纯风险检测和执行前确认逻辑，没有新增真实窗口交互；Computer Use 限制单独保留，不影响本次代码验收。
 
 ### DB-UX-005：分析、差异和迁移（覆盖 `DB-RED-07`）
 

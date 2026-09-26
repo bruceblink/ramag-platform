@@ -49,7 +49,7 @@
 
 ## 4. 当前切片与后续平台队列
 
-`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C-1`、`DB-UX-003C-2` 和 `DB-UX-004B-3B` 的代码、Docker 与 headless 验证已完成；当前推进 `DB-UX-005A`（EXPLAIN ANALYZE 风险确认）。`DB-UX-004B-3B` 的 Computer Use 原生窗口证据仍待环境恢复后补验。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C-1`、`DB-UX-003C-2`、`DB-UX-004B-3B` 和 `DB-UX-005A` 的代码、Docker 与 headless 验证已完成；当前继续推进 `DB-UX-005` 的后续差异、迁移和回读切片。`DB-UX-004B-3B` 的 Computer Use 原生窗口证据仍待环境恢复后补验。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
 
 数据库分析主线完成后，后续开发按以下顺序推进：
 
@@ -61,7 +61,7 @@
 6. `CATALOG-001`：建立第一方工具目录，记录工具 ID、版本、平台、权限、数据处理和验收状态。
 7. `COLLAB-001`：建立本机优先的文档/结果共享边界，敏感数据默认不自动同步。
 
-这些项目在设计确认前不改变当前 `DB-UX-005A` 的实现范围，也不代表动态插件、第三方市场或远程协作已经实现。
+这些项目在设计确认前不改变当前 `DB-UX-005` 后续切片的实现范围，也不代表动态插件、第三方市场或远程协作已经实现。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
@@ -348,14 +348,15 @@
 
 - 设计：单元格 UPDATE、行内 DELETE、批量 DELETE 和 INSERT 的数据库失败统一写入结果面板的持久错误状态；状态栏继续显示有界摘要，当前操作入口保持可用，用户恢复连接后可从同一入口重试。
 - 验收结果：四类 DML 失败保留错误和草稿；MySQL 8.4（`127.0.0.1:13306`）与 PostgreSQL 17（`127.0.0.1:15432`）失效连接测试通过；`ramag-tool-dbclient` 全量测试、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。Computer Use 当前没有可操作的原生窗口，未宣称真实窗口验收。
-- 未完成项：原生窗口鼠标/键盘流程待 Computer Use 恢复后补验；下一项为 `DB-UX-005A`。
+- 未完成项：原生窗口鼠标/键盘流程待 Computer Use 恢复后补验；下一项为 `DB-UX-005` 的后续差异、迁移和回读切片。
 
-### DB-UX-005A：EXPLAIN ANALYZE 执行风险确认（2026-09-26，设计确认）
+### DB-UX-005A：EXPLAIN ANALYZE 执行风险确认（2026-09-26，已完成代码与 headless 验证）
 
 - 问题证据：当前 `EXPLAIN ANALYZE` 只有在目标语句本身包含 DELETE、UPDATE、DROP 或 TRUNCATE 时才命中高危检测；普通 SELECT 的 `EXPLAIN ANALYZE` 仍可直接执行，未向用户说明它会运行目标查询。
 - 设计：SQL 风险检测识别 MySQL/PostgreSQL 的 `EXPLAIN ANALYZE` 选项，无论目标语句是否写入都返回“会执行目标查询”的确认提示；继续沿用现有连接、Schema、编辑器和执行代次校验，用户确认后才提交计划请求。普通 `EXPLAIN` 保持只读直通，结构化/原始结果视图不变。
 - 改动范围：`query_tab` 风险检测纯函数、执行前确认分支及 headless 回归；不改数据库驱动协议、计划解析器、结果网格或 EXPLAIN SQL 生成规则。
 - 验收条件：MySQL/PostgreSQL 的 `EXPLAIN ANALYZE SELECT` 均返回有界风险摘要；带危险 DML 的现有风险仍保留；普通 `EXPLAIN SELECT` 不弹确认；检测跳过字符串、注释、子查询中的同名文本；目标 crate 测试、fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 验收结果：`ramag-tool-dbclient` 定向 SQL 风险测试 32 项、全量测试 340 项通过；`EXPLAIN ANALYZE SELECT` 和 PostgreSQL 选项形式均要求确认，普通 `EXPLAIN` 和查询正文中的 `ANALYZE` 不误报；`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。该切片没有新增布局或真实窗口流程，沿用现有 headless 证据，Computer Use 限制不影响本次纯风险检测验收。
 
 ## 5. 分支和清理
 
