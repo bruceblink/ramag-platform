@@ -4,7 +4,7 @@
 > 更新日期：2026-09-26
 > 主线：[`02-development-roadmap.md`](02-development-roadmap.md)
 > 统一 UI 标准：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
-> 历史执行记录：[`archive/2026-09-25-pre-datagrip-rebaseline/development-plan.md`](archive/2026-09-25-pre-datagrip-rebaseline/development-plan.md)
+> 历史执行记录：[`archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md`](archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md)
 
 ## 术语表与命名约定
 

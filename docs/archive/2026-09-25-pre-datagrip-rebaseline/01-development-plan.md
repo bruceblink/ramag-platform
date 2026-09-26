@@ -18,7 +18,7 @@
 
 以收尾现有变更、修复可复现问题、完善已有功能为主线。每次只推进一个可独立验收的切片；完成对应验证后再提交和推送。未经验证的代码、UI 或集成结果不得标记为完成。
 
-现有详细审查项见 [`07-code-review-remediation-plan-2026-09-23.md`](../../07-code-review-remediation-plan-2026-09-23.md)，跨工具排期见 [`development-roadmap.md`](development-roadmap.md)。本文件只记录执行顺序和交付要求，不重新定义专项协议细节。
+现有详细审查项见 [`07-code-review-remediation-plan-2026-09-23.md`](../../07-code-review-remediation-plan-2026-09-23.md)，跨工具排期见 [`02-development-roadmap.md`](02-development-roadmap.md)。本文件只记录执行顺序和交付要求，不重新定义专项协议细节。
 
 ## 二、阶段安排
 

@@ -40,15 +40,15 @@ Ramag 已经具备多数据库连接、Schema 浏览、查询编辑、结果编�
 - 结果数据编辑器统一使用表格视图；当前表格保留分页、双轴滚动、排序、筛选、单元格查看、复制和编辑能力，不再提供树形、文本或转置转换入口。
 - MySQL/PostgreSQL 的安全只读查询分页，以及 MongoDB 普通 `find` 的分页和哨兵行处理。
 - 结果表已经使用虚拟列表，并在最近提交中补齐了横向滚动和可见滚动条的基础布局。
-- 当前本机 SQL 集成测试基线为 MySQL 8.4+ 和 PostgreSQL 17+，由 [`scripts/db-test/compose.yaml`](../scripts/db-test/compose.yaml) 提供；下方 MySQL 8.0 取消测试是历史旧基线记录，不代表当前版本验收。
+- 当前本机 SQL 集成测试基线为 MySQL 8.4+ 和 PostgreSQL 17+，由 [`scripts/db-test/compose.yaml`](../../../scripts/db-test/compose.yaml) 提供；下方 MySQL 8.0 取消测试是历史旧基线记录，不代表当前版本验收。
 
 相关实现入口：
 
-- [`crates/ramag-tool-dbclient/src/views/query_tab/paging.rs`](../crates/ramag-tool-dbclient/src/views/query_tab/paging.rs)
-- [`crates/ramag-tool-mongodb/src/views/query_tab/paging.rs`](../crates/ramag-tool-mongodb/src/views/query_tab/paging.rs)
-- [`crates/ramag-tool-dbclient/src/views/result_table`](../crates/ramag-tool-dbclient/src/views/result_table)
-- [`crates/ramag-tool-mongodb/src/views/result_panel`](../crates/ramag-tool-mongodb/src/views/result_panel)
-- [`crates/ramag-domain/src/traits/driver.rs`](../crates/ramag-domain/src/traits/driver.rs)
+- [`crates/ramag-tool-dbclient/src/views/query_tab/paging.rs`](../../../crates/ramag-tool-dbclient/src/views/query_tab/paging.rs)
+- [`crates/ramag-tool-mongodb/src/views/query_tab/paging.rs`](../../../crates/ramag-tool-mongodb/src/views/query_tab/paging.rs)
+- [`crates/ramag-tool-dbclient/src/views/result_table`](../../../crates/ramag-tool-dbclient/src/views/result_table)
+- [`crates/ramag-tool-mongodb/src/views/result_panel`](../../../crates/ramag-tool-mongodb/src/views/result_panel)
+- [`crates/ramag-domain/src/traits/driver.rs`](../../../crates/ramag-domain/src/traits/driver.rs)
 
 当前最需要继续处理的问题：
 
