@@ -28,8 +28,9 @@ pub use error::{
 pub use traits::{
     ApiDriver, ContainerDriver, ContainerOperationCancellation, ContainerRegistryDriver, Driver,
     KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaMessageTailSink, KafkaMessageTailSinkResult,
-    KafkaProducerDriver, KafkaTransport, KvDriver, MosquittoDynamicSecurityDriver,
-    MosquittoStaticConfigDriver, MqttDriver, MqttTransport, PluginApiVersion, PluginCapability,
-    PluginDescriptor, PluginId, PluginRegistrationError, PluginSettingDefinition,
-    PluginSettingKind, PluginSettingValue, SshDriver, Storage, Tool, ToolMeta,
+    KafkaProducerDriver, KafkaTransport, KvDriver, MAX_PLUGIN_SETTING_LIST_ITEMS,
+    MAX_PLUGIN_SETTING_VALUE_BYTES, MosquittoDynamicSecurityDriver, MosquittoStaticConfigDriver,
+    MqttDriver, MqttTransport, PluginApiVersion, PluginCapability, PluginDescriptor, PluginId,
+    PluginRegistrationError, PluginSettingDefinition, PluginSettingKind, PluginSettingValue,
+    SshDriver, Storage, Tool, ToolMeta,
 };

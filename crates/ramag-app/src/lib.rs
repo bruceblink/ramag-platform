@@ -6,6 +6,7 @@
 mod blocking;
 pub mod connection_transfer;
 mod plugin_lifecycle;
+mod plugin_settings;
 pub mod tool_registry;
 pub mod usecases;
 
@@ -16,6 +17,7 @@ pub use plugin_lifecycle::{
     PluginLifecycleStage, PluginOperationError, PluginPermissionPolicy, PluginState, StaticPlugin,
     StaticPluginAdapter, StaticPluginHost,
 };
+pub use plugin_settings::{PluginSettingsError, PluginSettingsSnapshot};
 pub use tool_registry::{TOOL_ORDER_PREF_KEY, ToolRegistry};
 pub use usecases::{
     AUTO_CHECK_INTERVAL, AccountVerification, ApiService, AvailableUpdate, ClipboardService,

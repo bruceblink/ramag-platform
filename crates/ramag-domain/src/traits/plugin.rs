@@ -203,6 +203,14 @@ impl PluginSettingDefinition {
         Ok(())
     }
 
+    /// 校验运行时设置值；调用方应先校验包含该定义的插件清单。
+    pub fn validate_value(
+        &self,
+        value: &PluginSettingValue,
+    ) -> Result<(), PluginRegistrationError> {
+        self.validate_default(value)
+    }
+
     fn validate_default(
         &self,
         default: &PluginSettingValue,
