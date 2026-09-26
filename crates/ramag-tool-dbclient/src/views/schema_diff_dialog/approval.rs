@@ -281,7 +281,7 @@ fn merge_migration_approvals(
 }
 
 /// Returns a stable SHA-256 fingerprint without retaining the migration SQL itself.
-fn migration_sql_digest(sql: &str) -> String {
+pub(super) fn migration_sql_digest(sql: &str) -> String {
     hex::encode(Sha256::digest(sql.as_bytes()))
 }
 
@@ -457,6 +457,10 @@ mod tests {
         let sql = "ALTER TABLE accounts ADD COLUMN active boolean;";
         let digest = migration_sql_digest(sql);
         assert_eq!(digest, migration_sql_digest(sql));
+        assert_ne!(
+            digest,
+            migration_sql_digest("ALTER TABLE accounts DROP COLUMN active;")
+        );
         assert_eq!(digest.len(), 64);
         assert_ne!(digest, sql);
         assert!(digest.bytes().all(|byte| byte.is_ascii_hexdigit()));

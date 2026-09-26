@@ -157,7 +157,8 @@ impl SchemaDiffDialog {
         };
 
         let has_statements = script.statement_count > 0;
-        let copy_text = script.sql.clone();
+        let script_fingerprint = approval::migration_sql_digest(&script.sql);
+        let copy_text = super::migration_copy_text(script);
         let mut content = v_flex()
             .w(px(DIFF_VIEW_WIDTH))
             .gap(px(8.0))
@@ -246,6 +247,15 @@ impl SchemaDiffDialog {
                                 this.request_execute_migration(window, cx)
                             })),
                     ),
+            )
+            .child(
+                div()
+                    .debug_selector(|| "schema-migration-fingerprint".into())
+                    .w_full()
+                    .font_family(theme.mono_font_family.clone())
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child(format!("脚本 SHA-256：{script_fingerprint}")),
             )
             .child(div().text_xs().text_color(theme.muted_foreground).child(
                 if self.target_connection.production {

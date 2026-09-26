@@ -166,11 +166,13 @@ impl SchemaDiffDialog {
             DriverKind::Mysql => "MySQL DDL 可能隐式提交；执行失败时目标表可能已经部分变更。",
             _ => "当前数据库驱动不支持迁移 SQL 执行。",
         };
+        let script_fingerprint = approval::migration_sql_digest(&script.sql);
         let mut description = format!(
-            "目标连接：{}\n目标表：{}.{}\n将执行 {} 条迁移语句，其中 {} 条删除或修改。\n{}\n此操作会直接修改目标数据库。",
+            "目标连接：{}\n目标表：{}.{}\n脚本 SHA-256：{}\n将执行 {} 条迁移语句，其中 {} 条删除或修改。\n{}\n此操作会直接修改目标数据库。",
             self.target_connection.name,
             self.target_schema,
             self.target_table,
+            script_fingerprint,
             script.statement_count,
             script.destructive_statements,
             transaction_note,
@@ -364,6 +366,15 @@ impl SchemaDiffDialog {
     }
 }
 
+/// Prefixes copied SQL with the same fingerprint shown in the preview and confirmation.
+fn migration_copy_text(script: &MigrationScript) -> String {
+    format!(
+        "-- Ramag migration script SHA-256: {}\n\n{}",
+        approval::migration_sql_digest(&script.sql),
+        script.sql
+    )
+}
+
 /// Builds the execution query with the transaction rule supported by each SQL dialect.
 fn migration_query(driver: DriverKind, schema: &str, sql: String) -> Query {
     let query = Query::new(sql).with_schema(schema);
@@ -376,7 +387,8 @@ fn migration_query(driver: DriverKind, schema: &str, sql: String) -> Query {
 
 #[cfg(test)]
 mod tests {
-    use super::migration_query;
+    use super::{migration_copy_text, migration_query};
+    use crate::views::schema_migration::MigrationScript;
     use ramag_domain::entities::DriverKind;
 
     #[test]
@@ -391,5 +403,20 @@ mod tests {
         let query = migration_query(DriverKind::Mysql, "app", "SELECT 1".into());
         assert!(!query.transactional);
         assert_eq!(query.default_schema.as_deref(), Some("app"));
+    }
+
+    #[test]
+    fn copied_migration_script_keeps_the_preview_fingerprint() {
+        let script = MigrationScript {
+            sql: "ALTER TABLE `users` ADD COLUMN `active` BOOLEAN;".into(),
+            warnings: Vec::new(),
+            statement_count: 1,
+            destructive_statements: 0,
+            stages: Vec::new(),
+        };
+        let copied = migration_copy_text(&script);
+        let digest = super::approval::migration_sql_digest(&script.sql);
+        assert!(copied.starts_with(&format!("-- Ramag migration script SHA-256: {digest}")));
+        assert!(copied.ends_with(&script.sql));
     }
 }

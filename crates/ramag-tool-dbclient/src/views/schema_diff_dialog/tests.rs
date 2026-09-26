@@ -314,6 +314,10 @@ fn migration_stages_stay_inside_preview_at_supported_widths(cx: &mut TestAppCont
         let scroll = cx
             .debug_bounds("schema-migration-vertical-scroll")
             .expect("迁移预览滚动区应渲染");
+        let fingerprint = cx
+            .debug_bounds("schema-migration-fingerprint")
+            .expect("迁移脚本指纹应渲染");
         assert_inside(stages, scroll);
+        assert_inside(fingerprint, scroll);
     }
 }
