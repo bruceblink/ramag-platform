@@ -93,11 +93,14 @@ flowchart LR
 
 | 文档 | 应保留的职责 | 不应继续承载的内容 |
 |---|---|---|
+| [`docs/01-development-plan.md`](01-development-plan.md) | 当前切片执行顺序和验收记录模板 | 长期产品优先级 |
+| [`docs/02-development-roadmap.md`](02-development-roadmap.md) | 跨工具 UI、响应性、质量和验收 | Kafka 或数据库协议功能排期 |
+| [`docs/03-database-client-datagrip-roadmap.md`](03-database-client-datagrip-roadmap.md) | 当前数据库工作区功能和驱动差异 | 插件、Kafka 或 SSH 产品定义 |
+| [`docs/04-plugin-platform-roadmap.md`](04-plugin-platform-roadmap.md) | 插件平台边界和后续阶段任务 | 当前工具具体业务功能 |
+| [`docs/05-api-testing-tool-roadmap.md`](05-api-testing-tool-roadmap.md) | API 测试工作台功能和验收 | 跨工具 UI 排期 |
+| [`docs/06-kafka-tool-roadmap.md`](06-kafka-tool-roadmap.md) | Kafka 领域、传输、UI 和管理能力 | 数据库或通用 UI 排期 |
+| [`docs/07-code-review-remediation-plan-2026-09-23.md`](07-code-review-remediation-plan-2026-09-23.md) | 已完成代码审查修复计划的历史依据 | 新功能的当前排期 |
 | [`docs/architecture.md`](architecture.md) | 已实现 crate、依赖方向和技术决策 | 详细产品路线和长期功能愿望 |
-| [`docs/development-roadmap.md`](development-roadmap.md) | 跨工具 UI、响应性、质量和验收 | Kafka 或数据库协议功能排期 |
-| [`docs/plugin-platform-roadmap.md`](plugin-platform-roadmap.md) | 插件平台 P0-P4 设计和任务 | 当前工具具体业务功能 |
-| [`docs/kafka-tool-roadmap.md`](kafka-tool-roadmap.md) | Kafka 领域、传输、UI 和管理能力 | 数据库或通用 UI 排期 |
-| [`docs/database-client-datagrip-roadmap.md`](database-client-datagrip-roadmap.md) | 数据库工作流和驱动差异 | 插件、Kafka 或 SSH 产品定义 |
 | 本文 | 四条主线的统一产品边界、依赖关系和阶段顺序 | 逐个提交的执行日志 |
 
 本文不是替换这些专项文档，而是作为整合层；专项文档与本文冲突时，先修正专项文档的实现状态，再进入开发。
@@ -412,8 +415,8 @@ SecureCRT 和 MobaXterm 用于划定产品参考范围，不代表 Ramag 已经�
 ### 9.3 立即后续任务
 
 1. 修正 [`docs/architecture.md`](architecture.md) 和 [`README.md`](../README.md) 的 Kafka/System 工具清单。
-2. 修正 [`docs/development-roadmap.md`](development-roadmap.md) 的分支描述和历史完成项表达。
-3. 继续维护 [`docs/kafka-tool-roadmap.md`](kafka-tool-roadmap.md) 的 `KAFKA-023` 功能矩阵和未实现接口状态。
+2. 修正 [`docs/02-development-roadmap.md`](02-development-roadmap.md) 的分支描述和历史完成项表达。
+3. 继续维护 [`docs/06-kafka-tool-roadmap.md`](06-kafka-tool-roadmap.md) 的 `KAFKA-023` 功能矩阵和未实现接口状态。
 4. 实现插件平台 P0 的描述、注册错误和静态生命周期适配器。
 5. 补真实 Windows 窗口截图和键盘操作，确认 SSH 工作区在实际焦点、最小尺寸和 DPI 下的行为。
 6. 继续补真实 Windows 窗口证据，并维护端口转发状态、错误和停止面板的运行时回归。

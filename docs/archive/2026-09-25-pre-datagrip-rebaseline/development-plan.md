@@ -18,7 +18,7 @@
 
 以收尾现有变更、修复可复现问题、完善已有功能为主线。每次只推进一个可独立验收的切片；完成对应验证后再提交和推送。未经验证的代码、UI 或集成结果不得标记为完成。
 
-现有详细审查项见 [`code-review-remediation-plan-2026-09-23.md`](code-review-remediation-plan-2026-09-23.md)，跨工具排期见 [`development-roadmap.md`](development-roadmap.md)。本文件只记录执行顺序和交付要求，不重新定义专项协议细节。
+现有详细审查项见 [`07-code-review-remediation-plan-2026-09-23.md`](../../07-code-review-remediation-plan-2026-09-23.md)，跨工具排期见 [`development-roadmap.md`](development-roadmap.md)。本文件只记录执行顺序和交付要求，不重新定义专项协议细节。
 
 ## 二、阶段安排
 
@@ -61,12 +61,12 @@
 
 ## 三、当前执行顺序
 
-1. 已建立本文件及 `docs/code-review-remediation-plan-2026-09-23.md` 的审查基线。
+1. 已建立本文件及 `docs/07-code-review-remediation-plan-2026-09-23.md` 的审查基线。
 2. R5 请求搜索清除按钮交互回归（`58675ea2`）、R11 workspace Clippy 修复（`480fc9b1`）、R1 工作区读取失败处理（`de232c7b`）和 R2 保存生命周期隔离（`fde33b9f`）已随 `dev` 的整合提交进入 `main`。
 3. R3 Collection 历史写入失败处理（`1204b397`）和 R4 MySQL 8.4 基线校正（`15513a44`）已先在原开发流程中验证，随后由 `9c14fa7a` 将已验证的 `dev` 整合到 `main`；`origin/main` 已完成推送。
 4. 已确认 `dev`、`feat/r6-mysql-generated-columns` 和 `fix/api-search-clear-regression` 没有未合并/未推送提交或关联 worktree，随后删除本地引用；远程 `origin/dev` 也已删除，当前仅保留 `main`/`origin/main`。R6 表设计器 DDL 安全性、R7 SQLite 非空表新增必填字段保护、R8 MQTT 订阅背压修复、R9 SSH 覆盖提交结果、R10 Linux 单实例竞态和数据库对象树 UI-002 均已完成验证；后续继续按新增需求建立独立切片。
 
-已完成事项及证据以本文件“切片执行记录”和 [`code-review-remediation-plan-2026-09-23.md`](code-review-remediation-plan-2026-09-23.md) 的执行记录为准，不再把已进入 `main` 的改动列作待办。
+已完成事项及证据以本文件“切片执行记录”和 [`code-review-remediation-plan-2026-09-23.md`](../../07-code-review-remediation-plan-2026-09-23.md) 的执行记录为准，不再把已进入 `main` 的改动列作待办。
 
 ## 四、每个切片的执行顺序
 

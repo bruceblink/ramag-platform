@@ -4,7 +4,7 @@
 > 更新日期：2026-09-24
 > 适用范围：插件平台、数据库工作台、Kafka 工作台、SSH/终端工作台、GPUI Kit 迁移以及跨工具质量与构建流程
 > 分支策略：`main` 是稳定基线，`dev` 是集成分支，每个独立任务使用一个短期 `feat/<task-id>-<name>` 分支
-> 当前交付切片：UI/功能缺陷修复；GPUI Kit 依赖升级另立切片，发现可复现问题时先补充独立测试和修复提交。代码审查与修复优先级见 [`code-review-remediation-plan-2026-09-23.md`](code-review-remediation-plan-2026-09-23.md)。
+> 当前交付切片：UI/功能缺陷修复；GPUI Kit 依赖升级另立切片，发现可复现问题时先补充独立测试和修复提交。代码审查与修复优先级见 [`code-review-remediation-plan-2026-09-23.md`](../../07-code-review-remediation-plan-2026-09-23.md)。
 
 ## 术语与命名规则
 
@@ -18,7 +18,7 @@
 | UI 证据 | UI Evidence | headless 边界测试、真实窗口操作、截图或可复核日志 | 不表示只通过编译或单元测试 |
 | 真实服务证据 | Live Service Evidence | 使用实际数据库、Kafka、OpenSSH 或容器服务得到的结果 | 不表示模拟对象或静态 fixture 已覆盖生产行为 |
 
-专项文档负责领域细节，本文件负责跨工具排期和当前任务。插件平台见 [`plugin-platform-roadmap.md`](plugin-platform-roadmap.md)，Kafka 见 [`kafka-tool-roadmap.md`](kafka-tool-roadmap.md)，数据库见 [`database-client-datagrip-roadmap.md`](database-client-datagrip-roadmap.md)，API 测试工具见 [`api-testing-tool-roadmap.md`](api-testing-tool-roadmap.md)，架构边界见 [`architecture.md`](architecture.md)。专项文档不得重新定义本文件的跨工具优先级；发现状态冲突时，先修正实现状态和证据，再开始下一项任务。
+专项文档负责领域细节，本文件负责跨工具排期和当前任务。插件平台见 [`04-plugin-platform-roadmap.md`](../../04-plugin-platform-roadmap.md)，Kafka 见 [`06-kafka-tool-roadmap.md`](../../06-kafka-tool-roadmap.md)，数据库见 [`database-client-datagrip-roadmap.md`](database-client-datagrip-roadmap.md)，API 测试工具见 [`05-api-testing-tool-roadmap.md`](../../05-api-testing-tool-roadmap.md)，架构边界见 [`architecture.md`](../../architecture.md)。专项文档不得重新定义本文件的跨工具优先级；发现状态冲突时，先修正实现状态和证据，再开始下一项任务。
 
 ## 1. 目标和当前基线
 

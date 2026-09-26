@@ -2,7 +2,7 @@
 
 > 状态：现行执行规则
 > 更新日期：2026-09-26
-> 主线：[`development-roadmap.md`](development-roadmap.md)
+> 主线：[`02-development-roadmap.md`](02-development-roadmap.md)
 > 统一 UI 标准：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
 > 历史执行记录：[`archive/2026-09-25-pre-datagrip-rebaseline/development-plan.md`](archive/2026-09-25-pre-datagrip-rebaseline/development-plan.md)
 
@@ -16,6 +16,9 @@
 | 真实窗口 | Native Window | 通过 Computer Use 在 Windows 窗口中完成的操作 | 不代表 headless 渲染或进程启动 |
 | 虚拟视图 | Virtual View | 由数据库工具提供的只读对象树节点，通过系统目录或会话查询生成结果 | 不代表数据库中存在同名物理表或可写 View |
 | 会话快照 | Session Snapshot | 用户展开 `sessions` 时读取的当前连接会话结果集 | 不代表持久化审计记录或可编辑数据表 |
+| 原生工具插件 | Native Tool Plugin | 使用 Rust 逻辑和 GPUI 视图接入桌面宿主的插件 | 不代表允许使用 WebView 或外部窗口 |
+| 计算核心 | Compute Core | 不依赖 GPUI 的解析、转换、校验或计算模块 | 不代表可直接访问凭据、数据库或任意文件 |
+| 第一方工具目录 | First-party Catalog | 由项目维护、审查并随版本发布的工具清单 | 不代表第三方市场或不受信任代码已经开放 |
 
 ## 1. 每个切片的固定顺序
 
@@ -44,9 +47,21 @@
 - Headless、真实窗口、数据库/协议结果及各自边界；
 - 未完成项、阻塞项和下一项依赖。
 
-## 4. 当前切片
+## 4. 当前切片与后续平台队列
 
-`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，`DB-UX-003A`、`DB-UX-003B` 已完成，当前推进 `DB-UX-003C`（大结果集列布局和滚动边界）。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C-1`、`DB-UX-003C-2` 和 `DB-UX-004B-3B` 的代码、Docker 与 headless 验证已完成；当前推进 `DB-UX-005A`（EXPLAIN ANALYZE 风险确认）。`DB-UX-004B-3B` 的 Computer Use 原生窗口证据仍待环境恢复后补验。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+
+数据库分析主线完成后，后续开发按以下顺序推进：
+
+1. `P0-C`：完成插件设置命名空间、能力授权和运行时权限检查。
+2. `PLAT-004`：多入口原生 GPUI 插件和标准工具入口。
+3. `PLAT-005`：按需创建视图、任务取消以及输入/内存/结果资源预算。
+4. `TOOL-MIG-001`：以 JSON Path 为样例迁移 IT Tools 的纯计算核心和原生入口。
+5. `DUAL-CORE-001`：为已迁移核心评估 Web/WASM 适配；桌面端不使用 WebView。
+6. `CATALOG-001`：建立第一方工具目录，记录工具 ID、版本、平台、权限、数据处理和验收状态。
+7. `COLLAB-001`：建立本机优先的文档/结果共享边界，敏感数据默认不自动同步。
+
+这些项目在设计确认前不改变当前 `DB-UX-005A` 的实现范围，也不代表动态插件、第三方市场或远程协作已经实现。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
@@ -328,6 +343,19 @@
 - 改动范围：ResultPanel 状态字段、结果表状态栏锚点和 `280/360/1024px` headless 回归；不改驱动协议、DML 生成和事务生命周期。
 - 验收条件：模拟 DML 失败后错误锚点不越界、草稿和重试入口保留；成功/撤销/新结果清除错误；目标测试、fmt、Clippy、源码尺寸和 diff 检查通过。Computer Use 原生窗口当前不可操作，必须单独记录限制。
 - 验收结果：`selected_pending_edit_reverts_without_touching_other_drafts` 扩展回归和 dbclient 全量 338 项通过；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`scripts/windows/check-source-size.ps1`、`git diff --check` 均通过。Computer Use `cua.getState()` 未发现原生应用，虽检测到 `Ramag — 数据库客户端` 进程窗口，也未执行真实交互；下一项为 `DB-UX-004B-3B`。
+
+### DB-UX-004B-3B：所有结果编辑 DML 的失效连接反馈（2026-09-26，已完成代码与 headless 验证）
+
+- 设计：单元格 UPDATE、行内 DELETE、批量 DELETE 和 INSERT 的数据库失败统一写入结果面板的持久错误状态；状态栏继续显示有界摘要，当前操作入口保持可用，用户恢复连接后可从同一入口重试。
+- 验收结果：四类 DML 失败保留错误和草稿；MySQL 8.4（`127.0.0.1:13306`）与 PostgreSQL 17（`127.0.0.1:15432`）失效连接测试通过；`ramag-tool-dbclient` 全量测试、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。Computer Use 当前没有可操作的原生窗口，未宣称真实窗口验收。
+- 未完成项：原生窗口鼠标/键盘流程待 Computer Use 恢复后补验；下一项为 `DB-UX-005A`。
+
+### DB-UX-005A：EXPLAIN ANALYZE 执行风险确认（2026-09-26，设计确认）
+
+- 问题证据：当前 `EXPLAIN ANALYZE` 只有在目标语句本身包含 DELETE、UPDATE、DROP 或 TRUNCATE 时才命中高危检测；普通 SELECT 的 `EXPLAIN ANALYZE` 仍可直接执行，未向用户说明它会运行目标查询。
+- 设计：SQL 风险检测识别 MySQL/PostgreSQL 的 `EXPLAIN ANALYZE` 选项，无论目标语句是否写入都返回“会执行目标查询”的确认提示；继续沿用现有连接、Schema、编辑器和执行代次校验，用户确认后才提交计划请求。普通 `EXPLAIN` 保持只读直通，结构化/原始结果视图不变。
+- 改动范围：`query_tab` 风险检测纯函数、执行前确认分支及 headless 回归；不改数据库驱动协议、计划解析器、结果网格或 EXPLAIN SQL 生成规则。
+- 验收条件：MySQL/PostgreSQL 的 `EXPLAIN ANALYZE SELECT` 均返回有界风险摘要；带危险 DML 的现有风险仍保留；普通 `EXPLAIN SELECT` 不弹确认；检测跳过字符串、注释、子查询中的同名文本；目标 crate 测试、fmt、Clippy、源码尺寸和 `git diff --check` 通过。
 
 ## 5. 分支和清理
 

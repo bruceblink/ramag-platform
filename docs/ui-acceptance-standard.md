@@ -4,7 +4,7 @@
 > 更新日期：2026-09-25
 > 适用范围：数据库、API、Kafka、SSH/终端、容器、Git 以及后续 GPUI 工具
 > 设计参考：用户提供的 DataGrip 数据库工作区截图
-> 主线入口：[`development-roadmap.md`](development-roadmap.md)
+> 主线入口：[`02-development-roadmap.md`](02-development-roadmap.md)
 
 ## 术语表与命名约定
 
@@ -32,7 +32,7 @@
 4. **数据工作流**：用户可以从对象树进入查询控制台，再在结果网格中分页、横向/纵向滚动、查看单元格、复制、编辑和确认写入。
 5. **跨工具一致性**：其他子模块复用相同的窗口骨架、标签、工具栏、状态和错误反馈规则，只替换领域内容，不复制数据库专用语义。
 
-截图中的红框是验收区域标注，不是产品装饰；Ramag 不应渲染红色边框来“模拟”验收。数据库专项必须逐项实现这些区域的真实交互，编号和行为见 [`database-client-datagrip-roadmap.md`](database-client-datagrip-roadmap.md) 的红框验收矩阵。
+截图中的红框是验收区域标注，不是产品装饰；Ramag 不应渲染红色边框来“模拟”验收。数据库专项必须逐项实现这些区域的真实交互，编号和行为见 [`03-database-client-datagrip-roadmap.md`](03-database-client-datagrip-roadmap.md) 的红框验收矩阵。
 
 ## 2. 视觉基线
 
@@ -91,7 +91,7 @@
 
 ## 4. 数据库工作区功能验收
 
-数据库专项细节见 [`database-client-datagrip-roadmap.md`](database-client-datagrip-roadmap.md)。以下能力是截图对应的最低共同标准：
+数据库专项细节见 [`03-database-client-datagrip-roadmap.md`](03-database-client-datagrip-roadmap.md)。以下能力是截图对应的最低共同标准：
 
 1. 从对象导航器选择连接、Schema 和表后，可以打开查询控制台或表数据工作区，并在标题和状态中看到连接上下文。
 2. 查询控制台提供编辑、运行/停止、历史、事务模式、DDL/查询模式、搜索、过滤、刷新、复制、导入/导出和设置等与当前驱动能力匹配的入口。

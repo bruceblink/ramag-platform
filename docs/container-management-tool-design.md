@@ -296,4 +296,4 @@ Docker 或 kind 不可用时，相关集成测试必须标记为未完成。模�
 
 ## 与现有平台的关系
 
-容器管理工具使用现有静态工具插件、ToolRegistry、Shell、共享通知、设置和任务能力，不引入第三方动态插件加载。平台插件边界见 [plugin-platform-roadmap.md](plugin-platform-roadmap.md)，分层边界见 [architecture.md](architecture.md)。本文新增的 Docker 与 Kubernetes 范围不会改变数据库、Kafka、SSH、对象存储或现有插件生命周期的责任。
+容器管理工具使用现有静态工具插件、ToolRegistry、Shell、共享通知、设置和任务能力，不引入第三方动态插件加载。平台插件边界见 [04-plugin-platform-roadmap.md](04-plugin-platform-roadmap.md)，分层边界见 [architecture.md](architecture.md)。本文新增的 Docker 与 Kubernetes 范围不会改变数据库、Kafka、SSH、对象存储或现有插件生命周期的责任。

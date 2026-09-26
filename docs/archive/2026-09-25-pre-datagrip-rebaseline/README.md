@@ -11,8 +11,8 @@
 ## 新规范入口
 
 - [`../../ui-acceptance-standard.md`](../../ui-acceptance-standard.md)：参考图提取的统一视觉、布局、交互和证据标准。
-- [`../../development-roadmap.md`](../../development-roadmap.md)：当前跨工具主线和交付队列。
-- [`../../database-client-datagrip-roadmap.md`](../../database-client-datagrip-roadmap.md)：当前数据库专项主线。
-- [`../../development-plan.md`](../../development-plan.md)：当前切片执行顺序和验收记录模板。
+- [`../../02-development-roadmap.md`](../../02-development-roadmap.md)：当前跨工具主线和交付队列。
+- [`../../03-database-client-datagrip-roadmap.md`](../../03-database-client-datagrip-roadmap.md)：当前数据库专项主线。
+- [`../../01-development-plan.md`](../../01-development-plan.md)：当前切片执行顺序和验收记录模板。
 
 归档文件不因新标准而重写；如果历史记录与新标准冲突，以历史提交和历史证据为准，并在新路线图中重新验收。

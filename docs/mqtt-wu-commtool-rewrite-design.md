@@ -88,7 +88,7 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 | ramag-tool-mqtt/src/mqtt_view/message_timeline_operations.rs | 消息时间线暂停展示、恢复展示、清空本地消息和有界追加 | 本次 Phase 1 切片已实现，暂停不停止订阅连接 |
 | ramag-tool-mqtt/src/mqtt_view/message_viewer.rs | 消息右键菜单、JSON/文本格式查看、JSON 树节点、复制 Topic 和当前格式 | 本次 Phase 1 切片已实现，查看正文、树节点和复制内容均有大小上限 |
 
-已完成的近期 MQTT 切片包括原生订阅取消、MQTT 3.1.1/5 Docker 集成、QoS/Retain 选项、未保存配置生效、停止状态保护、消息元数据显示、本地 Broker 退出等待和匿名认证前置校验。详细验证记录保留在 docs/development-roadmap.md；这些记录不会替代本设计中新增功能的验收。
+已完成的近期 MQTT 切片包括原生订阅取消、MQTT 3.1.1/5 Docker 集成、QoS/Retain 选项、未保存配置生效、停止状态保护、消息元数据显示、本地 Broker 退出等待和匿名认证前置校验。详细验证记录保留在 docs/02-development-roadmap.md；这些记录不会替代本设计中新增功能的验收。
 
 本轮新增消息时间线控制：订阅运行时点击“暂停展示”只停止向当前窗口追加消息，MQTT 连接和接收任务继续运行；点击“恢复展示”后新消息继续追加；点击“清空时间线”只清除本地列表，不向 Broker 发送删除命令，也不改变 retained 消息。`ramag-tool-mqtt` 的 19 项库测试通过，其中包含 360px 和 1440px headless 布局及暂停、恢复、清空交互测试。真实 Windows 窗口和远端 Broker 验证仍未完成。
 

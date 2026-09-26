@@ -7,7 +7,7 @@
 > 功能矩阵：[`kafka-workbench-feature-matrix.md`](kafka-workbench-feature-matrix.md)
 > 当前基线：`dev`（阶段 18-28 的高规模列表、快照边界、单条消息生产、ksqlDB 查询、Schema Registry 版本浏览和消息搜索模式切片已同步，明文 KRaft/ksqlDB/Schema Registry Docker 回读、静态 OpenMetrics fixture 和真实 Kafka JMX Exporter HTTP 回读已复核；写请求不主动取消，生产安全配置和真实 Windows 截图仍待补充）
 > 实施分支：默认在 `dev` 开发；只保留并同步 `main` 和 `dev`，其他短期分支不作为长期开发入口
-> 当前主线：阶段 25 单条消息生产、阶段 26 ksqlDB 只读查询、阶段 27 Schema Registry 版本内容浏览、阶段 28 消息搜索文本/正则模式和 `KAFKA-023` 三个消息定位切片已完成，下一项继续完善 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/development-roadmap.md`](development-roadmap.md) 排期
+> 当前主线：阶段 25 单条消息生产、阶段 26 ksqlDB 只读查询、阶段 27 Schema Registry 版本内容浏览、阶段 28 消息搜索文本/正则模式和 `KAFKA-023` 三个消息定位切片已完成，下一项继续完善 AKHQ/Offset Explorer 功能矩阵；通用 UI 问题仍按 [`docs/02-development-roadmap.md`](02-development-roadmap.md) 排期
 
 ## 术语表与命名约定
 
@@ -88,9 +88,9 @@ Ramag 已经采用清晰的分层结构：
 
 ### 2.1 与其他开发计划的关系
 
-本路线图只负责 Kafka 消息管理工具。它与 [`docs/database-client-datagrip-roadmap.md`](database-client-datagrip-roadmap.md) 以及其他工具的路线图互不构成阶段依赖：
+本路线图只负责 Kafka 消息管理工具。它与 [`docs/03-database-client-datagrip-roadmap.md`](03-database-client-datagrip-roadmap.md) 以及其他工具的路线图互不构成阶段依赖：
 
-跨工具的 UI 和已知问题修复不再在本文件中另起一套排期，统一遵循 [`docs/development-roadmap.md`](development-roadmap.md)。
+跨工具的 UI 和已知问题修复不再在本文件中另起一套排期，统一遵循 [`docs/02-development-roadmap.md`](02-development-roadmap.md)。
 
 - Kafka 功能可以独立排期、开发、测试、提交、推送和回滚。
 - Kafka 的功能完成情况不以数据库客户端、VCS、SSH 或其他工具的未完成项为前置条件。
