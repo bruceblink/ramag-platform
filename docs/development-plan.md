@@ -302,6 +302,15 @@
 - 验收条件：在 280/360/1024px 窗口操作区和按钮不越界；两个草稿中选中一个并撤销后仅剩另一个；没有选中草稿时单项撤销入口不可用；通过 dbclient 定向测试、全量测试、fmt、Clippy、源码尺寸和 diff 检查。
 - 验收结果：定向测试和 dbclient 全量 338 项测试通过；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`scripts/windows/check-source-size.ps1`、`git diff --check` 均通过。未宣称真实窗口验收，下一项为 `DB-UX-004B` 的 Docker DML 与事务反馈。
 
+### DB-UX-004B-1：提交前 DML 确认（2026-09-26，已完成）
+
+- 问题证据：结果状态栏“提交修改”当前直接启动异步 DML，用户在 DataGrip 风格工作区中看不到本次将提交的草稿数量、影响行范围和事务模式，也缺少取消确认的统一入口。
+- 设计：提交按钮先调用本地摘要 API并打开确认框；确认回调再次调用既有 `commit_pending_cell_edits_async`，由当前状态重新校验连接、定位键、表上下文和 SQL 大小，不保存或复用确认前生成的 SQL。
+- 安全规则：取消、Esc、关闭确认框不清理草稿、不改变结果和事务；自动提交模式明确提示执行后落库，手动事务明确提示仍需提交事务；没有草稿时不打开确认框。
+- 改动范围：ResultPanel 摘要 API、结果状态栏确认入口、确认层响应式 headless 测试；不改 DML 生成、驱动协议和事务接口。
+- 验收条件：确认框覆盖 `280/360/1024px`；取消后草稿数量和内容不变；确认期间变更草稿后仍以最新状态进入安全提交路径；通过 dbclient 定向/全量测试、fmt、Clippy、源码尺寸和 diff 检查。
+- 验收结果：定向确认框测试和 dbclient 全量 338 项通过；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`scripts/windows/check-source-size.ps1`、`git diff --check` 均通过。真实 Docker DML 和原生窗口证据未在本切片宣称完成，下一项为 `DB-UX-004B-2`。
+
 ## 5. 分支和清理
 
 默认在最新 `main` 上开发和推送。只有用户明确要求功能分支时才创建分支；分支必须基于最新 `main`，验证后合并回 `main`，重新验证并推送，再确认源分支无未合并/未推送提交和关联 worktree 后清理。不得删除 `main` 或未明确纳入本次合并的分支。

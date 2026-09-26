@@ -426,6 +426,28 @@ impl ResultPanel {
         self.pending_cell_edits.len()
     }
 
+    /// Summarizes the current local drafts for confirmation without generating or sending SQL.
+    pub(crate) fn pending_cell_edit_confirmation(&self) -> Option<String> {
+        if self.pending_cell_edits.is_empty() {
+            return None;
+        }
+        let row_count = self
+            .pending_cell_edits
+            .keys()
+            .map(|(row, _)| *row)
+            .collect::<BTreeSet<_>>()
+            .len();
+        let mode = if self.transaction_id.is_some() {
+            "当前手动事务内执行，确认后仍需提交事务"
+        } else {
+            "自动提交，确认后立即写入数据库"
+        };
+        Some(format!(
+            "将提交 {} 项单元格修改，涉及 {row_count} 行。{mode}。确认后会重新生成安全定位 SQL。",
+            self.pending_cell_edits.len()
+        ))
+    }
+
     pub(super) fn has_pending_cell_edit(&self, ri: usize, ci: usize) -> bool {
         self.pending_cell_edits.contains_key(&(ri, ci))
     }

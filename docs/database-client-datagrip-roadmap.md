@@ -166,6 +166,15 @@
 - 不做事项：不在本切片完成 MySQL/PostgreSQL DML 真实提交、回滚、取消或连接失效测试；这些属于后续 `DB-UX-004B`。
 - 验收结果：`selected_pending_edit_reverts_without_touching_other_drafts` 通过，覆盖 `280/360/1024px`；`cargo test --locked -p ramag-tool-dbclient --lib --quiet` 通过（338 项）；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。真实窗口证据和 Docker DML 验收留给后续切片。
 
+#### DB-UX-004B-1：提交前 DML 确认（已完成）
+
+- 设计：点击结果状态栏“提交修改”先打开确认框，展示待提交单元格数量、涉及行数和自动提交/手动事务模式；确认回调重新从当前草稿生成定位 SQL，再进入既有 DML 执行路径。
+- 取消语义：取消、Esc 或关闭确认框只关闭确认层，保留全部本地草稿，不改变结果集和事务状态，也不发出数据库请求。
+- 改动范围：ResultPanel 提交摘要 API、结果状态栏确认入口和 headless GPUI 确认框回归；不改驱动协议、SQL 方言生成器或事务接口。
+- 验收条件：确认框在 `280/360/1024px` 内；取消后所有草稿仍存在；确认入口显示当前模式；确认期间修改草稿时，确认回调不会复用旧 SQL。
+- 不做事项：不在本切片运行真实 MySQL/PostgreSQL DML；后续 `DB-UX-004B-2` 使用本机 Docker 验证提交、回滚、取消、连接失效和属性回读。
+- 验收结果：结果表 headless 测试确认框入口和取消保留草稿通过；dbclient 全量 338 项测试、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。下一项为 `DB-UX-004B-2`，补齐本机 Docker MySQL 8.4/PostgreSQL 17 的真实 DML 与事务回读。
+
 ### DB-UX-005：分析、差异和迁移（覆盖 `DB-RED-07`）
 
 **范围**：原始/结构化 EXPLAIN、只读 Schema Diagram、表/结果差异、DDL 预览、迁移阶段摘要、脚本指纹、审批、执行和回读。

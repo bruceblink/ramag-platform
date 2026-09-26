@@ -415,10 +415,26 @@ pub(in crate::views) fn render_table(
                     })
                     .tooltip("按行提交当前结果中的未提交单元格修改")
                     .disabled(dml_busy)
-                    .on_click(move |_, _, app| {
-                        panel_for_submit.update(app, |panel, cx| {
-                            panel.commit_pending_cell_edits_async(cx);
-                        });
+                    .on_click(move |_, window, app| {
+                        let Some(summary) =
+                            panel_for_submit.read(app).pending_cell_edit_confirmation()
+                        else {
+                            return;
+                        };
+                        let panel_for_confirm = panel_for_submit.clone();
+                        ramag_ui::open_confirm(
+                            "确认提交修改？",
+                            summary,
+                            "提交修改",
+                            false,
+                            move |_, app| {
+                                panel_for_confirm.update(app, |panel, cx| {
+                                    panel.commit_pending_cell_edits_async(cx);
+                                });
+                            },
+                            window,
+                            app,
+                        );
                     }),
             )
         });

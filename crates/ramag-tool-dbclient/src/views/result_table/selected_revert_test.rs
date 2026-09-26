@@ -3,8 +3,8 @@
 use super::{DisplayViewCache, DisplayViewCacheKey, RowFilter, build_display_view};
 use crate::views::result_panel::{ResultPanel, ResultState};
 use gpui_kit::{
-    AppContext as _, Context, Entity, IntoElement, ParentElement as _, Render, Styled as _,
-    TestAppContext, Window, div, px, size,
+    AppContext as _, Context, Entity, IntoElement, Modifiers, ParentElement as _, Render,
+    Styled as _, TestAppContext, Window, div, px, size,
 };
 use ramag_domain::entities::{QueryResult, Row, Value};
 use std::sync::Arc;
@@ -94,6 +94,21 @@ fn selected_pending_edit_reverts_without_touching_other_drafts(cx: &mut TestAppC
                 && selected.bottom() <= actions.bottom()
         );
     }
+
+    let submit = cx
+        .debug_bounds("cell-edits-submit-bar")
+        .expect("提交修改按钮应渲染");
+    cx.simulate_click(submit.center(), Modifiers::default());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("ramag-confirm-ok").is_some());
+    let cancel = cx
+        .debug_bounds("ramag-confirm-cancel")
+        .expect("确认框取消按钮应渲染");
+    cx.simulate_click(cancel.center(), Modifiers::default());
+    cx.run_until_parked();
+    panel.read_with(cx, |panel, _| {
+        assert_eq!(panel.pending_cell_edit_count(), 2);
+    });
 
     panel.read_with(cx, |panel, _| {
         assert!(panel.has_selected_pending_cell_edit())
