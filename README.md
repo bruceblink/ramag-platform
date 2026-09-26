@@ -424,4 +424,4 @@ Ramag 支持 Linux x86_64、macOS 12+（Apple Silicon / Intel）和 Windows 10/1
 
 ## License
 
-[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+[GNU Affero General Public License v3.0 only](https://www.gnu.org/licenses/agpl-3.0.html)
