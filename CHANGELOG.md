@@ -4,6 +4,31 @@
 
 > 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
 
+## [0.3.0] - 2026-09-26
+
+Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.2.0...v0.3.0
+
+### 🚀 新功能 / Features
+
+- 建立 JetBrains 风格数据库工作区，加入连接上下文、真实 Server Objects 与会话视图，并完善查询控制台、排序、分页、事务、DDL 查看和结果导出入口（[工作区基线](https://github.com/bruceblink/ramag-platform/commit/feba0c40)，[连接上下文](https://github.com/bruceblink/ramag-platform/commit/40294304)，[DDL 查看](https://github.com/bruceblink/ramag-platform/commit/195de308)）。
+- 加强数据库结果网格的虚拟分页、列宽调整、固定表头、单元格查看/复制及 CSV、JSONL 导出；编辑器支持单项撤销、提交前确认和失败后保留草稿重试（[结果网格](https://github.com/bruceblink/ramag-platform/commit/21454233)，[编辑器确认](https://github.com/bruceblink/ramag-platform/commit/0272971e)）。
+- API 工作台加入执行历史管理与清理，SSH 工作区可独立配置端口转发（[API 历史](https://github.com/bruceblink/ramag-platform/commit/28d24f1c)，[SSH 转发](https://github.com/bruceblink/ramag-platform/commit/ea4c9ff7)）。
+
+### 🐛 问题修复 / Bug Fixes
+
+- 修复大结果集导致的栈溢出，并让垂直滚动条固定留在结果视口；同时改进数据库分页、列布局和服务器对象说明行的边界表现（[栈安全](https://github.com/bruceblink/ramag-platform/commit/76b5b2b6)，[滚动条定位](https://github.com/bruceblink/ramag-platform/commit/cc1dae2b)）。
+- 修复 API 历史保存失败时丢失已完成结果的问题，并改进工作区加载错误和历史清理错误提示（[结果保留](https://github.com/bruceblink/ramag-platform/commit/1204b397)，[加载错误](https://github.com/bruceblink/ramag-platform/commit/de232c7b)）。
+- 修复 MQTT 订阅背压下丢失消息、MySQL 列属性丢失、SQLite 必填列校验，以及 Linux 单实例 socket 恢复竞态（[MQTT 背压](https://github.com/bruceblink/ramag-platform/commit/3afbb077)，[MySQL 元数据](https://github.com/bruceblink/ramag-platform/commit/144c4001)，[Linux 启动](https://github.com/bruceblink/ramag-platform/commit/2b95ecf9)）。
+
+### 🧰 维护、文档与测试 / Maintenance, Docs & Tests
+
+- 增加 DataGrip 能力对照、JetBrains 工作区验收标准，以及基于本机 Docker 的 MySQL/PostgreSQL 结果编辑和事务回读测试（[数据库路线图](https://github.com/bruceblink/ramag-platform/commit/ff032b43)，[DML 回读测试](https://github.com/bruceblink/ramag-platform/commit/93de7145)）。
+- 扩展数据库对象树、分页、滚动、工具栏、编辑和 API 工作区的 headless 渲染与交互回归。
+
+### 📝 其他变更 / Other Changes
+
+- 项目及 workspace crates 统一采用 GNU Affero General Public License v3.0 only。
+
 Ramag Platform 0.2.0
 对比范围：v0.1.2..v0.2.0 发布日期：2026-09-23
 

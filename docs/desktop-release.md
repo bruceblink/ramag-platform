@@ -2,7 +2,7 @@
 
 > 状态：Linux x86_64、Windows x64、macOS ARM64/Intel 安装包已通过 GitHub Actions 发布；后续版本继续由同一工作流构建和校验。
 >
-> 更新日期：2026-09-23。
+> 更新日期：2026-09-26。
 >
 > 原则：本地负责开发与复现，对外桌面 Release 统一由 GitHub Actions 汇总并发布。
 
@@ -45,13 +45,13 @@ SHA256SUMS.txt
 
 ```toml
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 ```
 
 发布标签必须完全一致：
 
 ```text
-Cargo version 0.2.0  →  tag v0.2.0
+Cargo version 0.3.0  →  tag v0.3.0
 ```
 
 三个平台的脚本都通过 `cargo metadata --locked --no-deps` 读取唯一的 `ramag-bin` 版本。标签、应用版本或产物版本不一致时，发布会在上传前失败。
@@ -151,10 +151,10 @@ Actions → Desktop Release → Run workflow
 
 1. 修改根 `Cargo.toml` 的 workspace 版本，并通过 Cargo 检查同步 `Cargo.lock`；同步更新 `CHANGELOG.md` 和面向用户的版本说明。
 2. 完成本地发布前检查、手动 Action 和真实桌面验收。
-3. 创建与 Cargo 版本一致的带注释标签，例如 `v0.2.0`；标签注释用于证明发布标签有效，GitHub Release 说明由标签提交范围自动生成。
+3. 创建与 Cargo 版本一致的带注释标签，例如 `v0.3.0`；标签注释用于证明发布标签有效，GitHub Release 说明由标签提交范围自动生成。
 4. 推送标签，等待三个平台均通过后自动发布。
 
-如果标签已经存在，但发布任务因工作流自身问题失败，不要强制移动标签。在包含修复后的默认分支上手动运行 `Desktop Release`，将 `release_tag` 填为原标签（例如 `v0.2.0`）。工作流会检出并重新构建该标签，核对产物版本，重新生成提交范围变更说明并继续发布。
+如果标签已经存在，但发布任务因工作流自身问题失败，不要强制移动标签。在包含修复后的默认分支上手动运行 `Desktop Release`，将 `release_tag` 填为原标签（例如 `v0.3.0`）。工作流会检出并重新构建该标签，核对产物版本，重新生成提交范围变更说明并继续发布。
 
 正式使用前必须在 GitHub 设置中完成：
 
