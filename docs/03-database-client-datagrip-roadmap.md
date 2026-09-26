@@ -1,6 +1,6 @@
 # 数据库工作区主线：DataGrip 风格核心闭环
 
-> 状态：现行专项路线图；`DB-UX-005E` 唯一重命名候选迁移已完成代码与 headless 验证，后续继续迁移差异收口
+> 状态：现行专项路线图；`DB-UX-005F` 迁移阶段逐段复核已完成代码与 headless 验证，后续进入迁移差异收口
 > 更新日期：2026-09-26
 > 共同视觉与交互基线：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
 > 跨工具顺序：[`02-development-roadmap.md`](02-development-roadmap.md)
@@ -238,6 +238,14 @@
 - 改动范围：列迁移候选配对、方言 SQL 和迁移单元测试；不改变结构差异候选算法、索引/外键依赖顺序、审批指纹或执行确认。
 - 验收条件：唯一候选只生成一次重命名且不生成 DROP/ADD；定义变化或候选歧义不自动重命名；MySQL/PostgreSQL/SQLite 方言测试、全量 dbclient 测试、fmt、Clippy、源码尺寸和 `git diff --check` 通过。
 - 结果：MySQL 使用 `CHANGE COLUMN` 保留定义，PostgreSQL/SQLite 使用 `RENAME COLUMN`；仅唯一且完整定义一致时采用重命名，歧义或定义变化仍显示删除/新增。迁移定向测试 19 项、`ramag-tool-dbclient` 全量测试 349 项通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。真实窗口证据沿用现有 Computer Use 限制。
+
+#### DB-UX-005F：迁移阶段逐段复核（已完成代码与 headless 验证）
+
+- 问题：迁移预览已经按删除外键、删除索引、处理字段、恢复索引和恢复外键分阶段统计，但复制脚本和执行确认只显示总语句数，复核记录缺少阶段级风险摘要。
+- 设计：沿用生成器提供的阶段顺序和破坏性计数，生成有界的阶段复核摘要；复制内容在脚本指纹后附带摘要，执行确认在总量说明后附带相同摘要。阶段摘要只描述现有 SQL，不改变语句顺序、审批指纹或执行逻辑。
+- 改动范围：阶段摘要格式化、复制文本和确认说明；不增加逐阶段执行、自动跳过或新的数据库协议。
+- 验收条件：预览、复制文本和确认说明使用相同阶段顺序与计数；空阶段不输出虚假项目；长阶段标题和摘要在支持宽度内可滚动；现有迁移、审批、回读和全量测试继续通过。
+- 结果：复制文本和执行确认复用同一阶段摘要，覆盖阶段顺序、语句数和破坏性计数；`schema_diff_dialog` 定向测试 14 项、`ramag-tool-dbclient` 全量测试 351 项通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。真实窗口证据沿用现有 Computer Use 限制。
 
 ### DB-UX-005：分析、差异和迁移（覆盖 `DB-RED-07`）
 

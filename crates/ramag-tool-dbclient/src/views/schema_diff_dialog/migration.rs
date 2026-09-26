@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fmt::Write as _, path::PathBuf};
 
 use gpui_kit::component::notification::Notification;
 use gpui_kit::{Context, px};
@@ -167,6 +167,7 @@ impl SchemaDiffDialog {
             _ => "当前数据库驱动不支持迁移 SQL 执行。",
         };
         let script_fingerprint = approval::migration_sql_digest(&script.sql);
+        let stage_review = migration_stage_review(&script.stages);
         let mut description = format!(
             "目标连接：{}\n目标表：{}.{}\n脚本 SHA-256：{}\n将执行 {} 条迁移语句，其中 {} 条删除或修改。\n{}\n此操作会直接修改目标数据库。",
             self.target_connection.name,
@@ -177,6 +178,10 @@ impl SchemaDiffDialog {
             script.destructive_statements,
             transaction_note,
         );
+        if !stage_review.is_empty() {
+            description.push('\n');
+            description.push_str(&stage_review);
+        }
         if !script.warnings.is_empty() {
             description.push_str("\n生成提示：");
             for warning in script.warnings.iter().take(4) {
@@ -368,11 +373,47 @@ impl SchemaDiffDialog {
 
 /// Prefixes copied SQL with the same fingerprint shown in the preview and confirmation.
 fn migration_copy_text(script: &MigrationScript) -> String {
+    let stage_review = migration_stage_review(&script.stages);
+    let stage_comments = stage_review
+        .lines()
+        .map(|line| format!("-- {line}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let stage_block = if stage_comments.is_empty() {
+        String::new()
+    } else {
+        format!("-- 迁移阶段复核\n{stage_comments}\n\n")
+    };
     format!(
-        "-- Ramag migration script SHA-256: {}\n\n{}",
+        "-- Ramag migration script SHA-256: {}\n\n{stage_block}{}",
         approval::migration_sql_digest(&script.sql),
         script.sql
     )
+}
+
+/// Formats the generator's ordered stages so confirmation and copied SQL share one review summary.
+fn migration_stage_review(stages: &[super::super::schema_migration::MigrationStage]) -> String {
+    if stages.is_empty() {
+        return String::new();
+    }
+    let mut review = String::from("迁移阶段复核：");
+    for (index, stage) in stages.iter().enumerate() {
+        let risk = if stage.destructive_statements == 0 {
+            "无删除或修改"
+        } else {
+            "包含删除或修改"
+        };
+        let _ = write!(
+            review,
+            "\n{}. {}：{} 条语句，{}（{} 条）",
+            index + 1,
+            stage.title,
+            stage.statement_count,
+            risk,
+            stage.destructive_statements
+        );
+    }
+    review
 }
 
 /// Builds the execution query with the transaction rule supported by each SQL dialect.
@@ -418,5 +459,35 @@ mod tests {
         let digest = super::approval::migration_sql_digest(&script.sql);
         assert!(copied.starts_with(&format!("-- Ramag migration script SHA-256: {digest}")));
         assert!(copied.ends_with(&script.sql));
+    }
+
+    #[test]
+    fn stage_review_is_shared_by_confirmation_and_copy_format() {
+        let stages = vec![
+            crate::views::schema_migration::MigrationStage {
+                title: "处理字段变化",
+                statement_count: 2,
+                destructive_statements: 1,
+            },
+            crate::views::schema_migration::MigrationStage {
+                title: "恢复索引",
+                statement_count: 1,
+                destructive_statements: 0,
+            },
+        ];
+        let review = super::migration_stage_review(&stages);
+        assert!(review.contains("1. 处理字段变化：2 条语句，包含删除或修改（1 条）"));
+        assert!(review.contains("2. 恢复索引：1 条语句，无删除或修改（0 条）"));
+
+        let script = MigrationScript {
+            sql: "ALTER TABLE `users` ADD COLUMN `active` BOOLEAN;".into(),
+            warnings: Vec::new(),
+            statement_count: 1,
+            destructive_statements: 0,
+            stages,
+        };
+        let copied = migration_copy_text(&script);
+        assert!(copied.contains("-- 迁移阶段复核"));
+        assert!(copied.contains("-- 1. 处理字段变化：2 条语句，包含删除或修改（1 条）"));
     }
 }
