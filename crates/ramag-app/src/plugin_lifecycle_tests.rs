@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use ramag_domain::{PluginDescriptor, PluginId, Tool, ToolMeta};
+use ramag_domain::{PluginCapability, PluginDescriptor, PluginId, Tool, ToolMeta};
 
 use super::*;
 use crate::ToolRegistry;
@@ -324,4 +324,58 @@ fn operation_errors_are_bounded() {
 
     assert!(error.message().len() <= MAX_PLUGIN_OPERATION_ERROR_BYTES);
     assert!(error.message().ends_with("..."));
+}
+
+#[test]
+fn capability_checks_require_declaration_and_explicit_grant() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let plugin = RecordingPlugin::new("capable", events, false, false);
+    let mut policy = PluginPermissionPolicy::default();
+    policy.grant(
+        PluginId::new("capable").unwrap(),
+        PluginCapability::new("task.scoped"),
+    );
+    let host = StaticPluginHost::with_permission_policy(Arc::new(ToolRegistry::new()), policy);
+    host.register_plugin(Arc::new(plugin)).unwrap();
+    host.initialize_all();
+    let context = host.context("capable").unwrap();
+
+    assert!(matches!(
+        context.require_capability("task.scoped"),
+        Err(PluginContextError::CapabilityNotDeclared { .. })
+    ));
+    assert!(matches!(
+        context.require_capability("ui.entry"),
+        Err(PluginContextError::CapabilityNotGranted { .. })
+    ));
+}
+
+#[test]
+fn granted_declared_capability_is_rejected_after_unload() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let mut plugin = RecordingPlugin::new("capable", events, false, false);
+    plugin.descriptor = plugin
+        .descriptor
+        .clone()
+        .with_capabilities([PluginCapability::new("task.scoped")]);
+    let mut policy = PluginPermissionPolicy::default();
+    policy.grant(
+        PluginId::new("capable").unwrap(),
+        PluginCapability::new("task.scoped"),
+    );
+    let host = StaticPluginHost::with_permission_policy(Arc::new(ToolRegistry::new()), policy);
+    host.register_plugin(Arc::new(plugin)).unwrap();
+    host.initialize_all();
+    let context = host.context("capable").unwrap();
+    assert!(context.require_capability("task.scoped").is_ok());
+
+    host.shutdown_all();
+
+    assert!(matches!(
+        context.require_capability("task.scoped"),
+        Err(PluginContextError::Unavailable {
+            state: PluginState::Unloaded,
+            ..
+        })
+    ));
 }

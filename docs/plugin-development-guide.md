@@ -7,7 +7,7 @@
 | 静态插件 | Built-in Plugin | 编译进 Ramag、通过 Rust 接口注册的工具 | 不表示可从外部目录动态加载 |
 | 插件清单 | Plugin Descriptor | 描述身份、API 版本、入口、能力和设置模式 | 不表示已经授予全部权限 |
 | 插件宿主 | Static Plugin Host | 按顺序注册、初始化、诊断和关闭静态插件 | 不执行外部不受信任代码 |
-| 插件上下文 | Plugin Context | 在生命周期回调中标识插件并检查可用状态 | 不提供对 Shell 或 GPUI 内部状态的直接访问 |
+| 插件上下文 | Plugin Context | 在生命周期回调中标识插件并检查可用状态和能力授权 | 不提供对 Shell 或 GPUI 内部状态的直接访问 |
 
 本手册适用于当前 `bruceblink/ramag-platform` 的静态插件 API。动态插件、插件市场、外部插件进程和跨语言 ABI 尚未实现。
 
@@ -51,9 +51,13 @@ fn register_example(host: &StaticPluginHost) -> Result<(), Box<dyn std::error::E
 
 `ramag-bin` 在启动时创建 `StaticPluginHost`，注册内置工具后调用 `initialize_all`；退出时调用 `shutdown_all`。插件状态包括 `Registered`、`Initializing`、`Ready`、`ShuttingDown`、`Failed` 和 `Unloaded`。一个插件失败不得阻塞其他插件，也不得让失败插件继续出现在可用工具列表中。
 
+### 能力授予和运行时检查
+
+清单中的能力声明只说明插件需要什么，不能自动获得权限。宿主通过 `PluginPermissionPolicy` 按插件 ID 显式授予能力，再用 `PluginContext::require_capability` 包住每一次受控服务调用。该检查会先验证插件仍处于可用生命周期，再验证能力已在清单中声明且已由策略授予；默认策略不授予任何能力。设置命名空间和持久化迁移仍待 P0-C 后续切片。
+
 ## 测试和验收
 
-插件至少覆盖清单校验、重复入口、初始化失败隔离、逆序关闭、迟到上下文调用，以及 Activity Bar 和设置诊断在 360/1024/1440 宽度下的 headless 布局。提交前运行：
+插件至少覆盖清单校验、重复入口、初始化失败隔离、逆序关闭、迟到上下文调用、未声明/未授予能力拒绝，以及 Activity Bar 和设置诊断在 360/1024/1440 宽度下的 headless 布局。提交前运行：
 
 ```text
 cargo fmt --all -- --check

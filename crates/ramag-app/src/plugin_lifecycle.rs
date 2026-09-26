@@ -1,13 +1,13 @@
 //! 静态插件生命周期编排；不加载外部代码，也不暴露 UI 内部对象。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{
     Arc,
     atomic::{AtomicU8, Ordering},
 };
 
 use parking_lot::Mutex;
-use ramag_domain::{PluginDescriptor, PluginId, PluginRegistrationError, Tool};
+use ramag_domain::{PluginCapability, PluginDescriptor, PluginId, PluginRegistrationError, Tool};
 use thiserror::Error;
 
 use crate::ToolRegistry;
@@ -62,14 +62,22 @@ pub struct PluginContext {
 
 struct PluginContextInner {
     plugin_id: PluginId,
+    declared_capabilities: HashSet<PluginCapability>,
+    granted_capabilities: HashSet<PluginCapability>,
     state: AtomicU8,
 }
 
 impl PluginContext {
-    fn new(plugin_id: PluginId) -> Self {
+    fn new(
+        plugin_id: PluginId,
+        declared_capabilities: impl IntoIterator<Item = PluginCapability>,
+        granted_capabilities: impl IntoIterator<Item = PluginCapability>,
+    ) -> Self {
         Self {
             inner: Arc::new(PluginContextInner {
                 plugin_id,
+                declared_capabilities: declared_capabilities.into_iter().collect(),
+                granted_capabilities: granted_capabilities.into_iter().collect(),
                 state: AtomicU8::new(PluginState::Registered as u8),
             }),
         }
@@ -100,6 +108,25 @@ impl PluginContext {
         })
     }
 
+    /// 检查插件当前是否获准使用指定能力；声明、授予和生命周期都必须同时满足。
+    pub fn require_capability(&self, capability: &str) -> Result<(), PluginContextError> {
+        self.ensure_available()?;
+        let capability_value = PluginCapability::new(capability);
+        if !self.inner.declared_capabilities.contains(&capability_value) {
+            return Err(PluginContextError::CapabilityNotDeclared {
+                plugin_id: self.plugin_id().clone(),
+                capability: capability.to_owned(),
+            });
+        }
+        if !self.inner.granted_capabilities.contains(&capability_value) {
+            return Err(PluginContextError::CapabilityNotGranted {
+                plugin_id: self.plugin_id().clone(),
+                capability: capability.to_owned(),
+            });
+        }
+        Ok(())
+    }
+
     fn transition(&self, from: PluginState, to: PluginState) -> bool {
         self.inner
             .state
@@ -122,6 +149,33 @@ pub enum PluginContextError {
         plugin_id: PluginId,
         state: PluginState,
     },
+    #[error("插件 `{plugin_id}` 未声明能力 `{capability}`")]
+    CapabilityNotDeclared {
+        plugin_id: PluginId,
+        capability: String,
+    },
+    #[error("插件 `{plugin_id}` 未获准使用能力 `{capability}`")]
+    CapabilityNotGranted {
+        plugin_id: PluginId,
+        capability: String,
+    },
+}
+
+/// 宿主对插件能力的授予策略；默认不授予任何能力，避免清单声明自动扩大权限。
+#[derive(Debug, Clone, Default)]
+pub struct PluginPermissionPolicy {
+    grants: HashMap<PluginId, HashSet<PluginCapability>>,
+}
+
+impl PluginPermissionPolicy {
+    /// 授予一个插件已声明的能力；未声明的能力仍会在上下文检查时拒绝。
+    pub fn grant(&mut self, plugin_id: PluginId, capability: PluginCapability) {
+        self.grants.entry(plugin_id).or_default().insert(capability);
+    }
+
+    fn grants_for(&self, plugin_id: &PluginId) -> HashSet<PluginCapability> {
+        self.grants.get(plugin_id).cloned().unwrap_or_default()
+    }
 }
 
 /// 静态插件生命周期回调返回的有界错误。
@@ -275,17 +329,26 @@ pub struct StaticPluginHost {
     records: Mutex<Vec<PluginRecord>>,
     phase: Mutex<HostPhase>,
     operation_lock: Mutex<()>,
+    permission_policy: PluginPermissionPolicy,
     failures: Mutex<HashMap<PluginId, PluginDiagnosticFailure>>,
     registration_failures: Mutex<Vec<PluginDiagnostic>>,
 }
 
 impl StaticPluginHost {
     pub fn new(registry: Arc<ToolRegistry>) -> Self {
+        Self::with_permission_policy(registry, PluginPermissionPolicy::default())
+    }
+
+    pub fn with_permission_policy(
+        registry: Arc<ToolRegistry>,
+        permission_policy: PluginPermissionPolicy,
+    ) -> Self {
         Self {
             registry,
             records: Mutex::new(Vec::new()),
             phase: Mutex::new(HostPhase::Registering),
             operation_lock: Mutex::new(()),
+            permission_policy,
             failures: Mutex::new(HashMap::new()),
             registration_failures: Mutex::new(Vec::new()),
         }
@@ -317,7 +380,11 @@ impl StaticPluginHost {
         }
         self.records.lock().push(PluginRecord {
             plugin,
-            context: PluginContext::new(plugin_id.clone()),
+            context: PluginContext::new(
+                plugin_id.clone(),
+                descriptor.capabilities.clone(),
+                self.permission_policy.grants_for(&plugin_id),
+            ),
         });
         tracing::info!(operation = "plugin_host_register", plugin_id = %plugin_id, "static plugin accepted by host");
         Ok(())
