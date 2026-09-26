@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex};
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, px,
@@ -270,6 +270,9 @@ fn render_row(
         ExplorerRowKind::VirtualItem => IconName::Eye,
     };
     let row_id = format!("server-object-{:?}-{}-{}", kind, group_index, label);
+    let row_selector = format!("server-object-row-{:?}-{}-{}", kind, group_index, label);
+    let label_selector = format!("server-object-label-{:?}-{}-{}", kind, group_index, label);
+    let detail_selector = format!("server-object-detail-{:?}-{}-{}", kind, group_index, label);
     let label = if count == 0 {
         label.to_string()
     } else {
@@ -280,6 +283,7 @@ fn render_row(
     let muted_bg = cx.theme().muted;
     let mut row = h_flex()
         .id(row_id)
+        .debug_selector(move || row_selector.clone())
         .w_full()
         .h(px(28.0))
         .flex_none()
@@ -292,11 +296,16 @@ fn render_row(
         .child(Icon::new(chevron).xsmall().text_color(muted_fg))
         .child(Icon::new(icon).xsmall().text_color(muted_fg))
         .child(
-            v_flex()
+            h_flex()
                 .flex_1()
                 .min_w_0()
+                .overflow_hidden()
+                .gap_1()
                 .child(
                     div()
+                        .debug_selector(move || label_selector.clone())
+                        .flex_1()
+                        .min_w_0()
                         .text_xs()
                         .text_color(fg)
                         .whitespace_nowrap()
@@ -305,13 +314,16 @@ fn render_row(
                         .child(label),
                 )
                 .children(detail.as_ref().map(|value| {
+                    let detail_selector = detail_selector.clone();
                     div()
+                        .debug_selector(move || detail_selector.clone())
+                        .flex_none()
                         .text_xs()
                         .text_color(muted_fg)
                         .whitespace_nowrap()
                         .overflow_hidden()
                         .text_ellipsis()
-                        .child(value.clone())
+                        .child(format!("· {value}"))
                 })),
         );
 

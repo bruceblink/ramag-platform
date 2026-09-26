@@ -18,6 +18,8 @@ use super::TableTreePanel;
 use crate::sql_completion::SchemaCache;
 use crate::views::connection_list::ConnectionListPanel;
 
+mod server_object_layout_tests;
+
 #[derive(Default)]
 struct NoopStorage;
 

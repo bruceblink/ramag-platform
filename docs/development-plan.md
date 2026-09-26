@@ -280,6 +280,13 @@
 - 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`scripts/windows/check-source-size.ps1`、`git diff --check` 和 `cargo build --locked -p ramag-bin` 通过。
 - 未覆盖：Computer Use 未逐项拖动滚动条手柄；边界几何通过 headless GPUI 断言，真实窗口覆盖点击查询、设置分页、翻到第二页和滚动至末端。
 
+### DB-RED-03-UI-01：Server Objects 名称与说明行错位（2026-09-26，设计确认）
+
+- 问题证据：Collations 每项把名称和字符集说明堆叠显示，但对象树使用固定高度的 uniform list，说明文本溢出 28px 行并覆盖下一项名称。
+- 设计：保留 28px 统一行高，把可选说明改为主名称右侧的次要文字；名称优先占据剩余宽度并省略，说明保持单行并受行容器裁切。Server Objects 与 Virtual views 共用该规则，保留复制和点击语义。
+- 改动范围：只调整元数据树的名称/说明行布局、增加几何调试锚点和 GPUI 回归；不改数据库元数据内容、加载流程或复制行为。
+- 验收条件：headless GPUI 在 180/280/360px 窗口验证名称和说明横向分离、始终留在本行且不与下一行重叠；Computer Use 在本机 MySQL 8.4 的 Collations 中检查多项名称与字符集说明；通过定向测试、dbclient 全量测试、fmt、Clippy、源码尺寸和 diff 检查。
+
 ## 5. 分支和清理
 
 默认在最新 `main` 上开发和推送。只有用户明确要求功能分支时才创建分支；分支必须基于最新 `main`，验证后合并回 `main`，重新验证并推送，再确认源分支无未合并/未推送提交和关联 worktree 后清理。不得删除 `main` 或未明确纳入本次合并的分支。
