@@ -301,6 +301,7 @@ pub(super) fn render_data_row(
 
     h_flex()
         .id(SharedString::from(format!("row-{idx}")))
+        .debug_selector(move || format!("result-row-{idx}"))
         .w(frame.total_content_width)
         .h(px(32.0))
         .flex_none()

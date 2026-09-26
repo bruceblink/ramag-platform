@@ -265,6 +265,21 @@
 - 真实窗口：Ramag 原生窗口曾成功启动和截图，但 Computer Use 输入后连接管理页出现删除确认，随后连接列表显示为空；不能确认旧 `ramag-docker-mysql` 配置及其历史/草稿仍可用，因此停止后续应用设置操作。重置 Computer Use 后再次启动目标程序，`get_window_state` 报告 `foreground window did not report a process id`，刷新后的 `list_windows` 和 `list_apps` 均未返回 Ramag 窗口。没有完成原生窗口的连接配置或列宽拖拽验收；本记录只认定 headless GPUI 交互测试通过，不声称真实窗口通过。
 - 未完成项：根切片 `DB-UX-003C` 仍在进行；下一子切片为 `DB-UX-003C-2`，验证长表头、大结果集虚拟行末端、分页/滚动条与状态栏边界，并在 Computer Use 可可靠定位窗口后补原生流程证据。
 
+### DB-UX-003C-2：虚拟行末端和分页边界（2026-09-26，设计确认）
+
+- 设计：以结果面板支持的最大 10,000 行构造第二页结果，直接滚动到虚拟列表末行；长列标题和宽列同时存在，检查末行、垂直滚动条、水平滚动条、分页范围和状态栏各自保持在所属可视区域。
+- 改动范围：只增加 GPUI 结果网格边界回归，不改变服务端分页、结果内存预算、排序/过滤或查询协议。
+- 验收条件：跳到第 10,000 行后该行仍渲染在结果视口内；第 10,001–20,000 行范围和分页按钮留在状态栏内；滚动条不越过状态栏；通过定向测试、dbclient 全量测试、fmt、Clippy、源码尺寸和 diff 检查。
+
+### DB-UX-003C-2：验收记录（2026-09-26）
+
+- 实现：增加虚拟列表末行定位选择器和结果网格回归；覆盖 10,000 行页的第二页末行、长标题、800px 列宽、横纵滚动条与分页状态栏边界，并用混合类型十列结果复现 MySQL `bulk_records` 行形状。
+- Headless：`cargo test --locked -p ramag-tool-dbclient --lib --quiet`（336 项通过），包含 `final_virtual_row_and_pagination_stay_inside_result_regions` 与 `mixed_bulk_table_rows_render_in_the_result_grid`。
+- 真实窗口：Computer Use 使用普通 Cargo 构建的 Windows 程序打开本机 MySQL `bulk_records`；每页 10,000 行时进入第二页，结果行和 `10001-20000 of 100000` 分页范围可见。4 MiB 主线程栈的原生结果页滚动至第二页末端时，末行 `19982-20000` 仍在结果视口，水平滚动条与分页状态栏保持可见，窗口未闪退。
+- 本机 Docker：原生窗口读取本机服务 `ramag-visual-test-mysql84`，镜像 `mysql:8.4`，端口 `127.0.0.1:13318 -> 3306/tcp`，数据库 `ramag_ui_test`；验收时容器处于运行状态并按既有要求保留。Headless 测试只构造内存结果，不依赖 Docker。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`scripts/windows/check-source-size.ps1`、`git diff --check` 和 `cargo build --locked -p ramag-bin` 通过。
+- 未覆盖：Computer Use 未逐项拖动滚动条手柄；边界几何通过 headless GPUI 断言，真实窗口覆盖点击查询、设置分页、翻到第二页和滚动至末端。
+
 ## 5. 分支和清理
 
 默认在最新 `main` 上开发和推送。只有用户明确要求功能分支时才创建分支；分支必须基于最新 `main`，验证后合并回 `main`，重新验证并推送，再确认源分支无未合并/未推送提交和关联 worktree 后清理。不得删除 `main` 或未明确纳入本次合并的分支。

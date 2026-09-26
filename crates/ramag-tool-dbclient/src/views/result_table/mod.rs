@@ -380,6 +380,8 @@ mod header_test;
 mod helpers;
 #[cfg(test)]
 mod render_test;
+#[cfg(test)]
+mod virtual_rows_test;
 
 use cells::{render_data_row, render_header_cell, render_pending_row};
 
