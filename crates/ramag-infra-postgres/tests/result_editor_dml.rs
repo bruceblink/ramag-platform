@@ -158,3 +158,22 @@ async fn result_editor_update_round_trip_uses_postgres_dml_and_transactions() {
         .await
         .expect("清理 PostgreSQL 结果编辑测试表失败");
 }
+
+/// Confirms that a lost PostgreSQL endpoint returns a visible driver error instead of a false success.
+#[tokio::test(flavor = "multi_thread")]
+async fn result_editor_dml_reports_unreachable_postgres_connection() {
+    let Some(mut config) = config_from_env() else {
+        eprintln!("[SKIP] PostgreSQL 失效连接验收跳过：设置 RAMAG_TEST_PG_* 环境变量后运行");
+        return;
+    };
+    config.port = u16::MAX;
+    let driver = PostgresDriver::new();
+    let error = driver
+        .execute(&config, &Query::new("UPDATE missing_table SET value = 1"))
+        .await
+        .expect_err("不可达 PostgreSQL 端点必须返回错误");
+    assert!(
+        !error.to_string().trim().is_empty(),
+        "PostgreSQL 连接错误应包含可展示的摘要"
+    );
+}

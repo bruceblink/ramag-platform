@@ -1,6 +1,14 @@
 use super::*;
 
 impl ResultPanel {
+    /// Keeps a failed DML request visible after its toast disappears and preserves the retry context.
+    /// The caller owns the user-facing notification; this method only updates panel state and emits
+    /// the transaction error event so every generated write operation follows the same contract.
+    pub(in crate::views) fn record_dml_failure(&mut self, message: String, cx: &mut Context<Self>) {
+        self.dml_error = Some(message.clone());
+        cx.emit(ResultPanelEvent::MutationFailed(message));
+    }
+
     pub fn set_state(&mut self, state: ResultState, cx: &mut Context<Self>) {
         let state = self.account_result_memory(state, cx);
         let is_running = matches!(&state, ResultState::Running);
@@ -354,6 +362,9 @@ impl ResultPanel {
         };
         if self.pending_cell_edits.remove(&cell).is_none() {
             return;
+        }
+        if self.pending_cell_edits.is_empty() {
+            self.dml_error = None;
         }
         self.pending_notification =
             Some(Notification::info("已撤销选中的未提交单元格修改").autohide(true));

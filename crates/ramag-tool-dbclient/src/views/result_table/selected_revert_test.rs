@@ -60,7 +60,6 @@ fn selected_pending_edit_reverts_without_touching_other_drafts(cx: &mut TestAppC
             panel.seed_pending_cell_edit_for_test_at(0, 0);
             panel.seed_pending_cell_edit_for_test_at(0, 1);
             panel.selected_cell = Some((0, 0));
-            panel.dml_error = Some("数据库连接已断开，未提交修改仍保留".into());
             panel
         });
         panel_entity = Some(panel.clone());
@@ -68,6 +67,9 @@ fn selected_pending_edit_reverts_without_touching_other_drafts(cx: &mut TestAppC
         gpui_kit::component::Root::new(host, window, cx)
     });
     let panel = panel_entity.expect("result panel should be initialized");
+    panel.update(cx, |panel, cx| {
+        panel.record_dml_failure("数据库连接已断开，未提交修改仍保留".into(), cx);
+    });
 
     for width in [280.0, 360.0, 1024.0] {
         cx.simulate_resize(size(px(width), px(420.0)));

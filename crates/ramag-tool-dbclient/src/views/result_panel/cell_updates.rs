@@ -351,8 +351,7 @@ impl ResultPanel {
                             "已提交 {committed_edits} 项修改后，第 {} 行失败：{message}{remaining_note}",
                             row_index + 1
                         );
-                        this.dml_error = Some(message.clone());
-                        cx.emit(ResultPanelEvent::MutationFailed(message.clone()));
+                        this.record_dml_failure(message.clone(), cx);
                         Notification::error(message).autohide(false)
                     }
                 });

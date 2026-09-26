@@ -255,6 +255,7 @@ impl ResultPanel {
         let commit_hint = auto_commit_hint(transaction.as_ref());
 
         let result_revision = self.result_revision;
+        self.dml_error = None;
         self.dml_busy = true;
         cx.notify();
         cx.spawn(async move |this, cx| {
@@ -332,7 +333,7 @@ impl ResultPanel {
                     }
                     Err(e) => {
                         let message = e.write_hint("删除失败");
-                        cx.emit(super::ResultPanelEvent::MutationFailed(message.clone()));
+                        this.record_dml_failure(message.clone(), cx);
                         this.pending_notification =
                             Some(Notification::error(message).autohide(true));
                     }

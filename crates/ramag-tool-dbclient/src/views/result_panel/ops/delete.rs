@@ -82,6 +82,7 @@ impl ResultPanel {
         }
 
         let result_revision = self.result_revision;
+        self.dml_error = None;
         self.dml_busy = true;
         cx.notify();
         cx.spawn(async move |this, cx| {
@@ -151,11 +152,7 @@ impl ResultPanel {
                     let message = e.write_hint(&format!(
                         "已影响 {affected_rows} 行、{not_matched} 行未匹配后出错{stale_note}"
                     ));
-                    cx.emit(
-                        crate::views::result_panel::ResultPanelEvent::MutationFailed(
-                            message.clone(),
-                        ),
-                    );
+                    this.record_dml_failure(message.clone(), cx);
                     Notification::error(message).autohide(true)
                 } else {
                     let notice = batch_delete_notice(
@@ -251,6 +248,7 @@ impl ResultPanel {
             return false;
         }
         let result_revision = self.result_revision;
+        self.dml_error = None;
         self.dml_busy = true;
         cx.notify();
         cx.spawn(async move |this, cx| {
@@ -293,11 +291,7 @@ impl ResultPanel {
                             "insert row failed"
                         );
                         let message = e.write_hint("新增失败");
-                        cx.emit(
-                            crate::views::result_panel::ResultPanelEvent::MutationFailed(
-                                message.clone(),
-                            ),
-                        );
+                        this.record_dml_failure(message.clone(), cx);
                         this.pending_notification =
                             Some(Notification::error(message).autohide(true));
                     }

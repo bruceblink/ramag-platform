@@ -154,3 +154,22 @@ async fn result_editor_update_round_trip_uses_mysql_dml_and_transactions() {
         .await
         .expect("清理 MySQL 结果编辑测试表失败");
 }
+
+/// Confirms that a lost MySQL endpoint returns a visible driver error instead of a false success.
+#[tokio::test(flavor = "multi_thread")]
+async fn result_editor_dml_reports_unreachable_mysql_connection() {
+    let Some(mut config) = config_from_env() else {
+        eprintln!("[SKIP] MySQL 失效连接验收跳过：设置 RAMAG_TEST_MYSQL_* 环境变量后运行");
+        return;
+    };
+    config.port = u16::MAX;
+    let driver = MysqlDriver::new();
+    let error = driver
+        .execute(&config, &Query::new("UPDATE missing_table SET value = 1"))
+        .await
+        .expect_err("不可达 MySQL 端点必须返回错误");
+    assert!(
+        !error.to_string().trim().is_empty(),
+        "MySQL 连接错误应包含可展示的摘要"
+    );
+}
