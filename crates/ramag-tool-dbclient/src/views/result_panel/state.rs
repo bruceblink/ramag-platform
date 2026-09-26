@@ -200,6 +200,8 @@ impl ResultPanel {
         self.visible_selection_cache = None;
     }
 
+    /// Stores a manual result-column width after clamping it to the interactive layout bounds.
+    /// The guard also protects widths restored or supplied by tests from expanding the scroll area.
     pub(crate) fn set_col_width_override(&mut self, col_ix: usize, width: gpui_kit::Pixels) {
         let n_cols = match &self.state {
             ResultState::Ok(r) => r.columns.len(),
@@ -209,7 +211,7 @@ impl ResultPanel {
             self.col_width_overrides.resize(n_cols, None);
         }
         if col_ix < self.col_width_overrides.len() {
-            self.col_width_overrides[col_ix] = Some(width);
+            self.col_width_overrides[col_ix] = Some(clamp_result_column_width(width));
         }
     }
 

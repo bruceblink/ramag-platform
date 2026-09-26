@@ -44,6 +44,7 @@ pub(super) fn render_header_cell(
     let cw = col_widths[ci];
     div()
         .id(SharedString::from(format!("hdr-{ci}")))
+        .debug_selector(move || format!("result-header-col-{ci}"))
         .w(cw)
         .min_w(cw)
         .max_w(cw)
@@ -96,7 +97,7 @@ pub(super) fn render_header_cell(
                     this.child(div().flex_none().text_xs().text_color(muted_fg).child(a))
                 }),
         )
-        .child(render_col_resize_handle(ci, cx))
+        .child(render_col_resize_handle(ci, cw, cx))
         .into_any_element()
 }
 

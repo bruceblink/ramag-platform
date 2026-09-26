@@ -40,6 +40,18 @@ pub(crate) use row_search::{
 pub(super) const MAX_ROWS_DISPLAY: usize = 10_000;
 /// 行内新增最多创建的输入框数量，避免异常元数据一次生成数万控件。
 pub(super) const MAX_INSERT_COLUMNS: usize = 512;
+/// 可交互结果列的最小宽度，保证列名和拖拽热区仍可操作。
+pub(crate) const RESULT_COLUMN_MIN_WIDTH: f32 = 60.0;
+/// 可交互结果列的最大宽度，避免异常列宽扩大滚动内容和布局计算。
+pub(crate) const RESULT_COLUMN_MAX_WIDTH: f32 = 800.0;
+
+/// Clamp a user-controlled result-column width before it enters layout state.
+/// This keeps restored or programmatic values within the same bounds as drag resizing.
+pub(crate) fn clamp_result_column_width(width: gpui_kit::Pixels) -> gpui_kit::Pixels {
+    width
+        .max(px(RESULT_COLUMN_MIN_WIDTH))
+        .min(px(RESULT_COLUMN_MAX_WIDTH))
+}
 #[derive(Debug, Clone, Default)]
 pub enum ResultState {
     #[default]

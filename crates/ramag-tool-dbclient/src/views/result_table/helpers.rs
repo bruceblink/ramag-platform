@@ -7,7 +7,7 @@ use gpui_kit::{
 };
 use ramag_domain::entities::{MAX_SQL_QUERY_BYTES, QueryResult, Value};
 
-use crate::views::result_panel::ResultPanel;
+use crate::views::result_panel::{ResultPanel, clamp_result_column_width};
 use crate::views::result_value::display_cell_value;
 
 pub(super) fn estimate_col_width(
@@ -51,7 +51,7 @@ pub(super) fn estimate_col_width(
     px(est.clamp(MIN_W, MAX_W))
 }
 
-/// 列宽拖拽 drag value：携带列索引（被拖动的列）
+/// Identifies which result column owns the active resize gesture.
 #[derive(Clone)]
 pub(super) struct ColResizeDrag(pub usize);
 
@@ -61,10 +61,15 @@ impl gpui_kit::Render for ColResizeDrag {
     }
 }
 
-/// 表头每列右边缘的拖拽 handle（4px 宽，cursor-col-resize）
-pub(super) fn render_col_resize_handle(ci: usize, cx: &mut Context<ResultPanel>) -> AnyElement {
+/// Builds the 4px column-resize handle and starts each drag from the rendered width.
+pub(super) fn render_col_resize_handle(
+    ci: usize,
+    current_width: gpui_kit::Pixels,
+    cx: &mut Context<ResultPanel>,
+) -> AnyElement {
     div()
         .id(SharedString::from(format!("col-resize-{ci}")))
+        .debug_selector(move || format!("result-column-resize-{ci}"))
         .absolute()
         .right_0()
         .top_0()
@@ -77,15 +82,17 @@ pub(super) fn render_col_resize_handle(ci: usize, cx: &mut Context<ResultPanel>)
         .on_drag_move(
             cx.listener(move |this, e: &DragMoveEvent<ColResizeDrag>, _, cx| {
                 let drag = e.drag(cx);
-                let mouse_x = e.event.position.x;
-                let handle_right = e.bounds.right();
-                let delta = mouse_x - handle_right;
+                // GPUI broadcasts an active drag to each registered resize handle.
+                if drag.0 != ci {
+                    return;
+                }
+                let delta = e.event.position.x - e.bounds.right();
                 if delta == px(0.0) {
                     return;
                 }
-                let cur = this.col_width_override(drag.0).unwrap_or_else(|| px(180.0));
-                let new_w = (cur + delta).max(px(60.0)).min(px(800.0));
-                this.set_col_width_override(drag.0, new_w);
+                let current = this.col_width_override(drag.0).unwrap_or(current_width);
+                let new_width = clamp_result_column_width(current + delta);
+                this.set_col_width_override(drag.0, new_width);
                 cx.notify();
             }),
         )

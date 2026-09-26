@@ -250,6 +250,21 @@
 - 真实窗口：Computer Use 未启动原生窗口；本切片只记录 headless 滚动证据，未宣称真实窗口拖动滚动条完成。
 - Git：验证通过后使用单一功能提交并推送 `main`；下一项为 `DB-UX-003C`（大结果集列布局和滚动边界）。
 
+### DB-UX-003C-1：结果列宽边界和拖拽起点（2026-09-26，设计确认）
+
+- 设计：列宽以结果网格当前实际渲染宽度作为拖拽起点；估算宽度、手动宽度和拖拽结果共用 `60–800px` 范围，避免首拖跳变或异常宽度挤压工作区，同时保留超宽列横向浏览。
+- 改动范围：只约束结果列宽状态与表头 resize handle，并增加可检查的列锚点；不改变查询行数预算、服务端分页、筛选/排序语义或结果内存预算。
+- 验收条件：真实 GPUI 拖拽按当前列宽增量调整；小于/大于范围的设置分别限制到 `60px`/`800px`；渲染列宽和横向滚动范围一致；已有分页与滚动条窄窗测试继续通过，并通过 dbclient 全量测试、fmt、Clippy、源码尺寸和 diff 检查。
+
+### DB-UX-003C-1：验收记录（2026-09-26）
+
+- 实现：调整手柄只处理自己所属列的拖拽；列宽从当前渲染宽度继续计算；列宽写入状态前统一限制到 `60–800px`，表头锚点可直接检查渲染宽度。
+- Headless：`cargo test --locked -p ramag-tool-dbclient --lib result_table::header_test::result_column_width_is_clamped_before_layout -- --nocapture`、`cargo test --locked -p ramag-tool-dbclient --lib result_table::render_test::server_sort_keeps_horizontal_scroll_position_across_result_reload -- --nocapture` 各 1 项通过；`cargo test --locked -p ramag-tool-dbclient --lib --quiet`（334 项通过）。测试覆盖拖拽增量、最小/最大宽度、渲染宽度和横向滚动范围。
+- Docker：本机 `mysql:8.4` 容器 `ramag-visual-test-mysql84` 绑定 `127.0.0.1:13318 -> 3306`，数据库 `ramag_ui_test`；复用 `scripts/db-test/seed/mysql.sql` 初始化，`bulk_records` 为 100,000 行。数据卷 `ramag-visual-test-mysql84-data` 保留，容器按用户要求持续运行；本切片 UI 状态测试不依赖数据库，已通过本机连接执行 SQL 复核记录数，没有删除容器或卷。
+- 质量：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、PowerShell 源码尺寸检查和 `git diff --check` 通过；`cargo build --locked -p ramag-bin` 通过。
+- 真实窗口：Ramag 原生窗口曾成功启动和截图，但 Computer Use 输入后连接管理页出现删除确认，随后连接列表显示为空；不能确认旧 `ramag-docker-mysql` 配置及其历史/草稿仍可用，因此停止后续应用设置操作。重置 Computer Use 后再次启动目标程序，`get_window_state` 报告 `foreground window did not report a process id`，刷新后的 `list_windows` 和 `list_apps` 均未返回 Ramag 窗口。没有完成原生窗口的连接配置或列宽拖拽验收；本记录只认定 headless GPUI 交互测试通过，不声称真实窗口通过。
+- 未完成项：根切片 `DB-UX-003C` 仍在进行；下一子切片为 `DB-UX-003C-2`，验证长表头、大结果集虚拟行末端、分页/滚动条与状态栏边界，并在 Computer Use 可可靠定位窗口后补原生流程证据。
+
 ## 5. 分支和清理
 
 默认在最新 `main` 上开发和推送。只有用户明确要求功能分支时才创建分支；分支必须基于最新 `main`，验证后合并回 `main`，重新验证并推送，再确认源分支无未合并/未推送提交和关联 worktree 后清理。不得删除 `main` 或未明确纳入本次合并的分支。

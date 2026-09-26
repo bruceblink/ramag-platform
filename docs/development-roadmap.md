@@ -78,7 +78,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `SHELL-001` | 共享 JetBrains 工作区壳层和设计令牌 | 已完成（headless；真实窗口待补） | 阶段 A | Headless 三尺寸、可用时 Computer Use、fmt/Clippy |
 | `DB-UX-001` | 数据库对象导航器 | 进行中（`DB-RED-01`、`DB-RED-03`、`DB-RED-04` 已完成；`DB-RED-02` 需按新矩阵复验） | `SHELL-001` | 对象树交互、MySQL/PostgreSQL Docker、窗口证据 |
 | `DB-UX-002` | 查询控制台和连接上下文 | 功能切片完成（`DB-RED-05A` 至 `DB-RED-07`；真实窗口待补） | `DB-UX-001` | SQL 执行/取消/标签回归、Docker、窗口证据 |
-| `DB-UX-003` | 结果数据网格 | 进行中（当前 `DB-UX-003C`：大结果集列布局和滚动边界；`DB-UX-003A/B` 已完成） | `DB-UX-002` | 大数据量、双轴滚动、分页/编辑交互、窗口证据 |
+| `DB-UX-003` | 结果数据网格 | 进行中（当前 `DB-UX-003C-2`：大结果集和分页末端边界；`DB-UX-003C-1` 列宽约束已完成 headless 验收，原生窗口待补） | `DB-UX-002` | 大数据量、双轴滚动、分页/编辑交互、窗口证据 |
 | `DB-UX-004` | 安全编辑与事务反馈 | 待开始 | `DB-UX-003` | 成功/失败/取消/回滚、MySQL/PostgreSQL Docker |
 | `DB-UX-005` | 分析、差异和迁移工作流 | 待开始 | `DB-UX-004` | 原始回退、人工确认、回读和窗口证据 |
 | `CROSS-UX-001` | API/Kafka/SSH/容器/Git 壳层迁移 | 待开始 | `SHELL-001` | 各工具专项交互与真实服务证据 |
