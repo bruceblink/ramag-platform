@@ -2,7 +2,7 @@
 
 > 适用项目：`bruceblink/ramag-platform`。本路线只约束当前独立下游项目的插件平台演进，不代表 `tools-rs/ramag` 已接受或实现这些接口。
 >
-> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配、`CATALOG-001` 第一方工具目录、`COLLAB-001-A` 本机加密共享包边界和 `COLLAB-001-B1` 至 `COLLAB-001-B3` 协作切片已完成。Relay B4、生产 Relay、系统凭据库真实环境验收和第三方动态插件暂缓；当前重心是单机桌面端功能收口和真实窗口验收。桌面端明确禁止 WebView。
+> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配、`CATALOG-001` 第一方工具目录、`COLLAB-001-A` 本机加密共享包边界和 `COLLAB-001-B1` 至 `COLLAB-001-B3` 协作切片已完成。当前按 [`02-development-roadmap.md`](02-development-roadmap.md) 执行阶段 A、B；Relay B4、生产 Relay、系统凭据库真实环境验收、第三方动态插件和阶段 C 原生协同画布暂缓。桌面端明确禁止 WebView。
 
 ## 术语与命名规则
 
@@ -147,7 +147,7 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 | CATALOG-001：第一方工具目录 | 工具 ID、版本、平台、能力、数据处理和验收状态 | 目录只展示已审查入口；不执行未信任代码 |
 | COLLAB-001：本机优先协作 | 选择性共享、加密、冲突、撤销和审计边界 | 密码、JWT 密钥、连接配置和原始业务数据不自动同步 |
 
-执行顺序：完成数据库当前主线后先交付 `P0-C`，再开始 `PLAT-004` 和 `PLAT-005`；`TOOL-MIG-001`、`DUAL-CORE-001`、`CATALOG-001` 和 `COLLAB-001` 按各自依赖推进。该顺序先完善设置和权限底座，不提前开放第三方代码或远程插件市场。
+执行顺序：先按阶段 A 完成数据库迁移差异、真实窗口、系统凭据库和插件资源验收，再按阶段 B 逐个迁移 API、Kafka、SSH、容器和 Git 原生工作区。`TOOL-MIG-001`、`DUAL-CORE-001`、`CATALOG-001` 和 `COLLAB-001` 的当前范围已完成；不提前开放第三方代码或远程插件市场。
 
 每个任务单独测试、提交和推送。Rust workspace 变更还必须通过 workspace Clippy、格式、源文件大小检查和 `git diff --check`；涉及用户界面的任务必须先通过 headless UI 验收，并明确记录真实窗口不可用的限制。
 
@@ -248,7 +248,7 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 `ramag-app::PluginCatalog` 在静态插件注册时生成有界目录快照，原子校验插件/入口重复项并支持按插件卸载。目录记录插件 ID、入口 ID、API 版本、桌面/Web 平台、能力、数据处理方式和审核状态；默认静态插件只标记桌面原生，JSON Path 的共享计算核心另外标记 Web/WASM。设置页显示目录与运行状态，目录不执行未信任代码，桌面端仍不加载 WebView。
 
-验收覆盖目录模型、宿主多入口登记/卸载、JSON Path 双端平台标记和 360/1024/1440 headless 布局；下一项进入 `COLLAB-001`。
+验收覆盖目录模型、宿主多入口登记/卸载、JSON Path 双端平台标记和 360/1024/1440 headless 布局；`COLLAB-001` 当前本机范围已完成，后续画布共享归阶段 C 后置。
 
 ### COLLAB-001-A：本机优先共享包边界（已完成代码与测试）
 

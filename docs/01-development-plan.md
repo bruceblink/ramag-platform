@@ -47,26 +47,46 @@
 - Headless、真实窗口、数据库/协议结果及各自边界；
 - 未完成项、阻塞项和下一项依赖。
 
-## 4. 当前切片与后续平台队列
+## 4. 当前主线与后续切片
 
-`SHELL-001` 已完成并推送；`DB-UX-001` 已完成 `DB-RED-01`、`DB-RED-03`、`DB-RED-04`，`DB-UX-002` 已完成 `DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07` 的 headless 功能切片，`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C-1`、`DB-UX-003C-2`、`DB-UX-004B-3B` 和 `DB-UX-005A` 至 `DB-UX-005F` 的代码与 headless 验证已完成；涉及真实数据库的切片另有 MySQL 8.4/PostgreSQL 17 Docker 证据。当前等待 DB-UX-005 剩余迁移差异收口。`DB-UX-004B-3B` 的 Computer Use 原生窗口证据仍待环境恢复后补验。未完成的旧 UI-001、M1-M4、R 系列或工具专项事项必须先映射到新的切片 ID，并重新满足统一 UI 标准后才能恢复；不能仅修改状态文字宣称完成。
+### 阶段 A：单机桌面功能收口（当前执行）
 
-数据库分析主线完成后，后续开发按以下顺序推进：
+当前已完成 `SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A` 至 `DB-RED-07`、`DB-UX-003A` 至 `DB-UX-003C-2`、`DB-UX-004A`、`DB-UX-004B-1` 至 `DB-UX-004B-3B`、`DB-UX-005A` 至 `DB-UX-005F`、`PLAT-004`、`PLAT-005-A` 至 `PLAT-005-D`、`TOOL-MIG-001`、`DUAL-CORE-001`、`CATALOG-001` 和 `COLLAB-001-A/B1/B2/B3` 的代码与专项验证。涉及真实数据库的切片另有 MySQL 8.4/PostgreSQL 17 Docker 证据。
 
-1. `P0-C`：完成插件设置命名空间、能力授权和运行时权限检查（`P0-C-1` 至 `P0-C-6` 已完成；系统凭据库真实环境验收仍待补齐）。
-2. `PLAT-004-B`：统一 GPUI 入口渲染；未绑定专用工作台的入口显示经过校验的输入/输出边界。
-3. `PLAT-005-D`：静态插件入口执行器已接入入口校验、任务句柄保留和关闭取消。
-4. `TOOL-MIG-001-B`：JSON Path 原生 GPUI 入口已完成。
-5. `DUAL-CORE-001-A`：JSON Path Web/WASM 适配已完成。
-6. `CATALOG-001`：第一方工具目录已完成。
-7. `COLLAB-001-A`：已完成本机加密共享包模型、版本冲突保护、撤销和审计边界；不接入远程传输。
-8. `COLLAB-001-B`：进行中；B1 手动交接、B2 Relay 客户端和 B3 本机 Relay 已完成。Relay 后续服务能力暂缓，当前优先收口单机桌面端功能和真实窗口验收。
-9. `COLLAB-001-B1`：先补齐原生手动交接；用户明确点击后复制已校验的安全导出包，平台不自动同步或上传正文。
-10. `COLLAB-001-B2`：已完成受限 Relay 传输抽象和 HTTPS 客户端；只允许用户确认后发送已校验的非敏感共享包，服务端待补。
-11. `COLLAB-001-B3`：已完成与 B2 协议一致的本机 Relay 验证服务和 Docker HTTP 验收；不引入账号认证或生产部署承诺。
-12. `COLLAB-001-B4`：延期；Relay 到期回收、账号、权限、持久化和生产部署不进入当前桌面端主线。
+阶段 A 的执行顺序固定为：
 
-这些项目在设计确认前不改变当前 `DB-UX-005` 后续差异和迁移切片的实现范围，也不代表动态插件、第三方市场或远程协作已经实现。
+1. `A-DB-005`：已完成 MySQL 8.4 与 PostgreSQL 17 的迁移脚本回放和 PostgreSQL 失败回滚验证。
+2. `A-DB-RED-02`：当前执行，按新矩阵复验真实对象树元数据。
+3. `A-UI-REAL`：补齐数据库、插件目录和 JSON Path 的真实 Windows 流程；`DB-UX-004B-3B` 的 Computer Use 证据仍待环境恢复。
+4. `A-P0C`：完成系统凭据库、主密钥和秘密上下文真实环境验收。
+5. `A-PLAT-005`：接入真实工具入口并记录首次激活、取消、输入/输出和内存测量。
+6. `A-QUALITY`：完成性能、主题一致性和发布证据收口。
+
+未完成的旧 `UI-001`、`M1-M4`、`R` 系列或工具专项事项必须先映射到以上切片 ID，并重新满足统一 UI 标准，不能只修改状态文字宣称完成。
+
+### 阶段 B：复杂工具原生工作区迁移（阶段 A 完成后）
+
+按以下顺序逐个推进：`B-API-001`、`B-KAFKA-001`、`B-SSH-001`、`B-CONTAINER-001`、`B-GIT-001`。每个切片只覆盖一个工具，保留自己的连接、取消、错误、权限和领域数据模型；通过真实服务或本机 Docker 验收后再进入下一项。
+
+### 阶段 C：原生协同画布（后置）
+
+`CANVAS-001..006` 继续后置，不进入当前开发队列。未来在 Rust/GPUI 中参考 Excalidraw 的无限画布、场景元素、撤销重做、导出和协同体验；先使用 Ramag 自有 JSON 格式，再评估 `.excalidraw` 兼容和实时 Relay。桌面端不使用 WebView。
+
+`COLLAB-001-B4`、生产 Relay、账号权限、第三方动态插件、插件市场、签名、沙箱和升级回滚同样后置；现有 B1/B2/B3 只作为本机优先共享能力和验证服务保留。
+
+### CI-LINUX-001：Linux 构建缺少协作基础设施依赖（2026-09-27，已修复）
+
+- 问题：`ramag-bin` 在 Linux CI 中无条件导入 `ramag_infra_collaboration::HttpCollaborationRelay`，但该 crate 只声明在 macOS/Windows 的 target 依赖段，导致 `error[E0432] unresolved import ramag_infra_collaboration`。
+- 修复：将 `ramag-infra-collaboration` 移到 `ramag-bin` 的跨平台依赖区；保留剪贴板依赖的 macOS/Windows 条件，不修改 Relay 协议或运行时行为。
+- 验证：`cargo check --locked -p ramag-bin --all-targets`、`cargo test --locked -p ramag-bin --all-targets`（15 项）、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings` 和 `git diff --check` 通过；Linux 目标工具链在本机未安装，Linux CI 将负责最终原生构建验证。
+- Git：提交 `490e4e18`（`fix: include collaboration transport on linux`）已推送 `main`。
+
+### A-DB-005：迁移差异回放收口（2026-09-27，Docker 验证完成）
+
+- 目标：用真实 MySQL/PostgreSQL 服务回放当前迁移生成器覆盖的多语句脚本，确认字段、索引、主键和外键动作能够回读；确认 PostgreSQL 事务失败时保留旧结构。
+- Docker：复用本机已运行且健康的 `ramag-db-test-mysql`（`mysql:8.4`，`127.0.0.1:13306`）和 `ramag-db-test-postgres`（`postgres:17-alpine`，`127.0.0.1:15432`）。测试创建带进程后缀的临时表/Schema，并在测试末尾删除；本次不停止用户正在复用的容器、网络或数据卷。
+- 验收结果：设置 `RAMAG_TEST_MYSQL_*` 后运行 `cargo test --locked -p ramag-infra-mysql --test migration_replay -- --nocapture`，1 项通过；设置 `RAMAG_TEST_PG_*` 后运行 `cargo test --locked -p ramag-infra-postgres --test migration_replay -- --nocapture`，2 项通过，包含失败回滚。未把未设置环境变量时的跳过结果计为通过。
+- 未完成项：迁移对话框的真实 Windows 鼠标/键盘流程仍受 Computer Use 环境限制；下一项进入 `A-DB-RED-02`。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 

@@ -1,7 +1,7 @@
 # 数据库工作区主线：DataGrip 风格核心闭环
 
-> 状态：现行专项路线图；`DB-UX-005F` 迁移阶段逐段复核已完成代码与 headless 验证，后续进入迁移差异收口
-> 更新日期：2026-09-26
+> 状态：现行专项路线图；`DB-UX-005F` 迁移阶段逐段复核和 `A-DB-005` 真实 Docker 回放已完成，下一项为 `A-DB-RED-02` 对象树复验
+> 更新日期：2026-09-27
 > 共同视觉与交互基线：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 跨工具顺序：[`02-development-roadmap.md`](02-development-roadmap.md)
 > 历史实现、待办和验收记录：[`archive/2026-09-25-pre-datagrip-rebaseline/03-database-client-datagrip-roadmap.md`](archive/2026-09-25-pre-datagrip-rebaseline/03-database-client-datagrip-roadmap.md)
@@ -246,6 +246,13 @@
 - 改动范围：阶段摘要格式化、复制文本和确认说明；不增加逐阶段执行、自动跳过或新的数据库协议。
 - 验收条件：预览、复制文本和确认说明使用相同阶段顺序与计数；空阶段不输出虚假项目；长阶段标题和摘要在支持宽度内可滚动；现有迁移、审批、回读和全量测试继续通过。
 - 结果：复制文本和执行确认复用同一阶段摘要，覆盖阶段顺序、语句数和破坏性计数；`schema_diff_dialog` 定向测试 14 项、`ramag-tool-dbclient` 全量测试 351 项通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。真实窗口证据沿用现有 Computer Use 限制。
+
+#### A-DB-005：迁移差异回放收口（2026-09-27，Docker 验证完成）
+
+- 目标：用真实 MySQL/PostgreSQL 服务回放当前迁移生成器覆盖的多语句脚本，确认字段、索引、主键和外键动作能够回读；确认 PostgreSQL 事务失败时保留旧结构。
+- Docker：本机 `ramag-db-test-mysql` 使用 `mysql:8.4`、`127.0.0.1:13306`，本机 `ramag-db-test-postgres` 使用 `postgres:17-alpine`、`127.0.0.1:15432`；两者在测试前已健康运行，测试创建进程后缀临时表/Schema 并自行删除，没有停止用户复用的容器、网络或数据卷。
+- 结果：MySQL `migration_replay` 1 项通过；PostgreSQL `migration_replay` 2 项通过，包含失败回滚；未设置 `RAMAG_TEST_*` 时的跳过结果不计入通过。
+- 限制：迁移对话框的真实 Windows 鼠标/键盘流程仍待 Computer Use 环境恢复；下一项为 `A-DB-RED-02`。
 
 ### DB-UX-005：分析、差异和迁移（覆盖 `DB-RED-07`）
 
