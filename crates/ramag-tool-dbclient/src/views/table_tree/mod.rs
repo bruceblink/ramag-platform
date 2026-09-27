@@ -1,6 +1,8 @@
 mod compare;
 mod ddl;
 mod ddl_ops;
+#[cfg(test)]
+mod default_schema_tests;
 mod group_row;
 mod load;
 mod locate;
@@ -322,6 +324,7 @@ impl TableTreePanel {
         self.expanded.clear();
         self.open_schemas.clear();
         self.collapsed_table_groups.clear();
+        self.active_schema = None;
         self.cancel_full_search(cx);
         self.table_columns.clear();
         self.server_objects.reset_for_connection();
@@ -376,7 +379,7 @@ impl TableTreePanel {
                     Ok(schemas) => {
                         // Re-read expanded schemas after replacing the top-level list while the
                         // old rows remain visible until each metadata request completes.
-                        let schemas_to_refresh: Vec<String> = this
+                        let mut schemas_to_refresh: Vec<String> = this
                             .open_schemas
                             .iter()
                             .filter(|name| schemas.iter().any(|schema| &schema.name == *name))
@@ -396,10 +399,15 @@ impl TableTreePanel {
                         this.schemas = schemas;
                         this.ensure_navigation_coverage(cx);
                         this.invalidate_tree_rows();
-                        if this.active_schema.is_none()
-                            && let Some(default_name) = pick_default_schema(&conn, &this.schemas)
-                        {
-                            this.active_schema = Some(default_name.clone());
+                        if let Some(default_name) = open_default_schema_if_needed(
+                            &conn,
+                            &this.schemas,
+                            &mut this.active_schema,
+                            &mut this.open_schemas,
+                        ) {
+                            if !schemas_to_refresh.iter().any(|name| name == &default_name) {
+                                schemas_to_refresh.push(default_name.clone());
+                            }
                             cx.emit(TreeEvent::SchemaActivated {
                                 schema: default_name,
                             });
@@ -487,6 +495,23 @@ fn pick_default_schema(conn: &ConnectionConfig, schemas: &[Schema]) -> Option<St
     }
 }
 
+/// 为新连接选择并展开一个默认数据库/Schema，返回需要首次加载表元数据的名称。
+/// 已存在当前 Schema 时保留用户状态；只有连接切换后的空状态才会触发默认展开。
+fn open_default_schema_if_needed(
+    conn: &ConnectionConfig,
+    schemas: &[Schema],
+    active_schema: &mut Option<String>,
+    open_schemas: &mut HashSet<String>,
+) -> Option<String> {
+    if active_schema.is_some() {
+        return None;
+    }
+    let default_name = pick_default_schema(conn, schemas)?;
+    *active_schema = Some(default_name.clone());
+    open_schemas.insert(default_name.clone());
+    Some(default_name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -566,16 +591,5 @@ mod tests {
 
         assert_eq!(selected, None);
         assert_eq!(active_schema, None);
-    }
-
-    #[test]
-    fn only_initial_schema_load_uses_fullscreen_state() {
-        assert!(show_fullscreen_schema_loading(&[], true));
-        assert!(!show_fullscreen_schema_loading(&[schema("public")], true));
-        assert!(show_fullscreen_schema_error(&[], Some("offline")));
-        assert!(!show_fullscreen_schema_error(
-            &[schema("public")],
-            Some("offline")
-        ));
     }
 }

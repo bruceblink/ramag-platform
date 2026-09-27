@@ -164,12 +164,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 验收结果：资源回归测试通过；`ramag-tool-dbclient` 全量 351 项测试通过；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过；最新 x64 MSVC 可执行程序启动后日志未再出现 `skip-back`、`skip-forward` 或 `could not find asset`。
 - 不做事项：不改变第一页/上一页/下一页/最后一页的分页逻辑，不替换其它上游图标，不把启动成功扩大为完整真实窗口交互验收。
 
-### A-DB-RED-02-B：对象树默认焦点（设计确认，2026-09-27）
+### A-DB-RED-02-B：对象树默认焦点（2026-09-27，代码与 Windows 窗口替代验证完成）
 
 - 问题证据：连接初始化会把 `Server Objects` 根节点设置为展开，导致 collations/users 等服务器级对象占据默认视口，Schema/数据库列表被推到后面。
-- 设计：连接切换或重置时将 `ServerObjectsState::is_expanded` 设为 `false`；Schema、tables/views 和数据库列表继续按现有默认加载路径显示。用户点击 `Server Objects` 后仍可展开，刷新和筛选语义不变。
-- 验收条件：对象树状态测试确认连接重置后的根节点收起；`table_tree`/`ramag-tool-dbclient` 回归、三种窗口布局、fmt、Clippy、源码尺寸和 `git diff --check` 通过；最新 Windows 窗口截图中 Schema 列表位于 Server Objects 之前。
+- 设计：连接切换或重置时将 `ServerObjectsState::is_expanded` 设为 `false`，清除旧的当前 Schema，并在元数据首次返回后按驱动规则打开一个默认数据库/Schema，同时按需加载其 tables/views；刷新已有连接时保留用户的展开状态。用户点击 `Server Objects` 后仍可展开，刷新和筛选语义不变。
+- 验收条件：对象树状态测试确认连接重置后的根节点收起，默认数据库/Schema 行在新连接中展开；`table_tree`/`ramag-tool-dbclient` 回归、三种窗口布局、fmt、Clippy、源码尺寸和 `git diff --check` 通过；最新 Windows 窗口截图中数据库列表位于 Server Objects 之前。
 - 不做事项：不删除 Server Objects、不改变 collations/users 查询、不改变用户已经手动展开后的交互，也不把真实窗口替代截图写成 Computer Use 证据。
+- 验收结果：新增默认数据库/Schema 展开与保留用户状态测试；`views::table_tree` 44 项通过；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过；最新 x64 MSVC 可执行程序成功启动。系统窗口截图 `target/ui-fallback/default-schema-open.png` 显示 `ramag_ui_test` 的 tables/views 已展开且 `Server Objects` 默认收起；Win32 鼠标输入将其展开后再收起，分别保存 `server-objects-expanded-latest.png` 和 `server-objects-collapsed-latest.png`。Windows UI Automation 发现 42 个可访问控件并调用“数据结果”页签成功。
+- 证据边界：Computer Use 运行时仍只返回浏览器且 `apps: []`，因此本次使用真实 Windows 窗口的系统截图、Win32 输入和 UI Automation 作为替代证据；这不宣称 Computer Use 完整鼠标/键盘流程已经恢复。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
