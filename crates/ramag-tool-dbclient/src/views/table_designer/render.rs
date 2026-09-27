@@ -25,7 +25,7 @@ impl Render for TableDesigner {
         let entity = cx.entity().clone();
         // Reserve space for the dialog title, designer toolbar, section title, and action row.
         let available_content_height =
-            (ramag_ui::responsive_dialog_max_height(window) - px(170.0)).max(px(48.0));
+            (ramag_ui::responsive_dialog_max_height(window) - px(194.0)).max(px(48.0));
         let status_panel_height = available_content_height.max(px(96.0));
         if self.loading {
             return v_flex()

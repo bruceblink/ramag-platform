@@ -502,8 +502,8 @@ fn selected_cell_value_viewer_stays_inside_three_window_widths(cx: &mut TestAppC
         );
 
         let close = cx
-            .debug_bounds("result-value-viewer-close")
-            .expect("value viewer should expose a close action");
+            .debug_bounds("result-value-viewer-close-button")
+            .expect("value viewer should expose a close button");
         assert!(
             close.right() <= px(width),
             "关闭操作不能越出窗口：close={close:?}, width={width}"

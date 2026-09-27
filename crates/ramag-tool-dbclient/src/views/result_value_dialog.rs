@@ -190,6 +190,7 @@ pub(crate) fn open(
             .debug_selector(|| "result-value-viewer-close".into())
             .child(
                 ramag_ui::clickable_button("result-value-viewer-close-button")
+                    .debug_selector(|| "result-value-viewer-close-button".into())
                     .ghost()
                     .small()
                     .label("关闭")
