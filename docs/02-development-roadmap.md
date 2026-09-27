@@ -51,9 +51,9 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 
 1. `A-DB-005`：已完成 MySQL 8.4 与 PostgreSQL 17 的迁移脚本回放和 PostgreSQL 失败回滚验证；保留脚本指纹、阶段复核、人工确认、回读和破坏性变更保护。
 2. `A-DB-RED-02`：已完成 MySQL 8.4/PostgreSQL 17 Docker 元数据和 `table_tree` headless 复验；真实 Windows 流程仍待补。
-3. `A-UI-REAL`：当前执行，补齐数据库工作区、`DB-UX-004B-3B`、插件目录和 JSON Path 入口的真实 Windows 流程；Headless 证据与真实窗口证据分别记录。
+3. `A-UI-REAL`：真实窗口探测受 Computer Use 环境阻塞，状态保持未完成；不把替代证据写成真实窗口通过。
 4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和插件秘密上下文的真实环境验收；Linux Secret Service、macOS Keychain 和发布环境仍待分别验收，验证失败时保留安全拒绝状态。
-5. `A-PLAT-005`：接入一个以上真实工具入口，测量首次激活、取消、内存、输入、输出和关闭回收。
+5. `A-PLAT-005`：当前推进 JSON Path 真实静态入口的 headless 运行指标和任务回收；进程内存、真实窗口首次打开和跨平台环境仍待补。
 6. `A-QUALITY`：完成大结果集、对象树、首帧、主题一致性和发布检查，形成可复现测量记录。
 
 阶段 A 的每个子项独立设计、验证、提交和推送；同一时间只有一个子项处于开发中。
@@ -90,7 +90,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `DB-UX-005` | 分析、差异和迁移工作流 | 阶段 A 代码与 Docker 回放已完成；真实窗口和残余 UI 证据待补 | `DB-UX-004` | 原始回退、人工确认、回读和窗口证据 |
 | `P0-C` | 插件设置与权限检查 | Windows 主线代码与真实 Credential Manager/主密钥/秘密上下文验收完成；Linux Secret Service 与 macOS Keychain 待验收 | `DB-UX-005` | 命名空间隔离、类型/大小校验、迁移恢复、每次调用授权和真实系统凭据链路 |
 | `PLAT-004` | 多入口原生插件与标准工具入口 | 已完成代码与 headless 验证（`PLAT-004-A`、`PLAT-004-B`；真实窗口待补） | `DB-UX-005`、`P0-C` | GPUI 标准渲染、入口冲突、长输入和错误边界 |
-| `PLAT-005` | 按需激活与插件资源预算 | 阶段 A 进行中（`PLAT-005-A` 至 `PLAT-005-D` 已完成；待接入真实工具入口并测量） | `PLAT-004` | 首次打开、取消、内存/结果上限和生命周期回收 |
+| `PLAT-005` | 按需激活与插件资源预算 | 阶段 A 进行中（JSON Path 真实入口 headless 指标和任务回收已完成；进程内存与真实窗口证据待补） | `PLAT-004` | 首次打开、取消、内存/结果上限和生命周期回收 |
 | `TOOL-MIG-001` | JSON Path 计算核心与原生入口迁移 | 已完成（`TOOL-MIG-001-A`、`TOOL-MIG-001-B`） | `PLAT-004`、`PLAT-005` | Rust 核心、GPUI 入口、共享样例和回归 |
 | `DUAL-CORE-001` | 已迁移核心的 Web/WASM 双端适配评估 | 已完成（`DUAL-CORE-001-A`） | `TOOL-MIG-001` | Web 结果一致性、构建体积和桌面无 WebView 证据 |
 | `CROSS-UX-001` | API/Kafka/SSH/容器/Git 原生工作区迁移 | 阶段 B 后置，等待阶段 A 完成 | `SHELL-001`、`DB-UX-005` | 各工具专项交互与真实服务证据 |
@@ -98,7 +98,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `COLLAB-001-A` | 本机加密共享包、版本冲突、撤销和审计边界 | 已完成代码与专项测试 | `CATALOG-001` | 敏感数据阻断、加密落盘、冲突和撤销 |
 | `COLLAB-001-B` | 原生 GPUI 选择、导出/导入和远程协作入口 | 当前范围完成（B1、B2、B3 已完成；B4 到期回收及生产 Relay 后置） | `COLLAB-001-A` | 用户确认、选择性同步、冲突和审计 |
 | `CANVAS-001..006` | Excalidraw 风格原生协同画布 | 阶段 C 后置，尚未开始 | 阶段 A、B | 场景模型、GPUI 编辑器、本机共享和后续实时协同 |
-| `A-UI-REAL` | 阶段 A 真实 Windows 窗口证据收口 | 当前执行；Computer Use 可用性决定覆盖范围 | `DB-UX-001`、`DB-UX-002`、`DB-UX-003`、`DB-UX-004`、`PLAT-004`、`TOOL-MIG-001` | 启动、鼠标/键盘流程、截图和限制记录 |
+| `A-UI-REAL` | 阶段 A 真实 Windows 窗口证据收口 | 受 Computer Use 环境阻塞；替代证据已记录但不能替代完整窗口流程 | `DB-UX-001`、`DB-UX-002`、`DB-UX-003`、`DB-UX-004`、`PLAT-004`、`TOOL-MIG-001` | 启动、鼠标/键盘流程、截图和限制记录 |
 | `QUALITY-UX-001` | 性能、主题和发布证据收口 | 持续 | 各切片 | 测量、全量质量检查和发布记录 |
 
 ## 5. 交付规则

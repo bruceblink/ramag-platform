@@ -6,7 +6,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use futures::{
     future::{Either, FutureExt, select},
@@ -153,6 +153,7 @@ impl PluginTaskHandle {
         PluginTaskExecution {
             task,
             handle: Some(self),
+            started_at: Instant::now(),
         }
     }
 }
@@ -167,6 +168,7 @@ impl Drop for PluginTaskHandle {
 pub struct PluginTaskExecution {
     task: smol::Task<Result<Vec<u8>, PluginTaskRunError>>,
     handle: Option<PluginTaskHandle>,
+    started_at: Instant,
 }
 
 impl std::fmt::Debug for PluginTaskExecution {
@@ -187,10 +189,20 @@ impl std::fmt::Debug for PluginTaskExecution {
 
 impl PluginTaskExecution {
     /// 等待任务结束；任务完成后释放该任务在插件登记表中的名额。
-    pub async fn join(mut self) -> Result<Vec<u8>, PluginTaskRunError> {
+    pub async fn join(self) -> Result<Vec<u8>, PluginTaskRunError> {
+        self.join_with_metrics()
+            .await
+            .map(PluginTaskCompletion::into_output)
+    }
+
+    /// 等待任务结束并返回执行耗时和结果大小，供宿主记录资源验收数据。
+    pub async fn join_with_metrics(mut self) -> Result<PluginTaskCompletion, PluginTaskRunError> {
         let result = (&mut self.task).await;
         self.handle.take();
-        result
+        result.map(|output| PluginTaskCompletion {
+            output,
+            elapsed: self.started_at.elapsed(),
+        })
     }
 
     /// 请求任务通过生命周期取消信号尽快结束；实际中止仍要求操作协作式让出执行权。
@@ -219,6 +231,34 @@ impl PluginTaskExecution {
         self.handle
             .as_ref()
             .is_some_and(PluginTaskHandle::cancellation_requested)
+    }
+}
+
+/// 插件入口一次成功执行的结果和轻量运行指标。
+///
+/// `output` 仍受入口和任务预算限制；`elapsed` 从任务提交开始计时，包含调度等待，
+/// 可用于记录首次激活或入口执行的 headless 测量，但不代表完整窗口渲染或进程内存测量。
+#[derive(Debug, PartialEq, Eq)]
+pub struct PluginTaskCompletion {
+    output: Vec<u8>,
+    elapsed: Duration,
+}
+
+impl PluginTaskCompletion {
+    pub fn output(&self) -> &[u8] {
+        &self.output
+    }
+
+    pub fn output_bytes(&self) -> usize {
+        self.output.len()
+    }
+
+    pub fn elapsed(&self) -> Duration {
+        self.elapsed
+    }
+
+    pub fn into_output(self) -> Vec<u8> {
+        self.output
     }
 }
 

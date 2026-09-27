@@ -51,6 +51,8 @@ fn register_example(host: &StaticPluginHost) -> Result<(), Box<dyn std::error::E
 
 入口执行必须经过 `StaticPluginHost::execute_entry`。宿主先检查插件状态、入口 ID、输入大小、任务能力、超时和结果字节预算；插件不能绕过宿主直接创建无限任务或把结果写入其他插件状态。
 
+需要记录入口运行指标时，使用返回的 `PluginTaskExecution::join_with_metrics()`。它返回 `PluginTaskCompletion`，可读取受预算保护的结果、`elapsed()` 和 `output_bytes()`；普通调用继续使用 `join()`，以保持只关心结果的接口不变。`elapsed()` 从任务提交开始计时，包含调度等待，只用于 headless 运行记录，不等同于 GPUI 首帧时间或进程级内存测量。
+
 ## 第一方目录和双端核心
 
 每个静态插件注册成功后，宿主会从 `catalog_entries` 生成第一方目录项。默认实现只声明桌面原生支持；只有已经提供独立 Web/WASM 计算适配的入口才允许覆盖该方法并标记 `web: true`。目录记录 API 版本、能力、数据处理范围和审核状态，不执行目录中的代码。
@@ -99,7 +101,7 @@ impl StaticPlugin for ExamplePlugin {
 
 需要升级旧包络时，宿主通过 `PluginSettingsMigrator` 注册连续的版本步骤。每一步在内存中接收和返回有界的命名空间映射，所有步骤成功且生成的新快照通过清单校验后才可交给插件；迁移函数返回失败、缺少步骤或超过步骤上限都会拒绝启动，并保留主记录以便备份恢复。迁移不会自动写回配置，避免失败流程覆盖可恢复数据。
 
-敏感设置必须使用 `PluginSecretStore`，不能放入普通设置快照。秘密快照只接受清单中 `sensitive` 为真的键，宿主使用 `Storage::seal` 和 `Storage::unseal` 保存到独立的 `plugin.<plugin-id>.__secrets.v1` 密文键，并保留加密备份。密文前缀、包络版本、明文和密文大小都会校验；插件命名空间、普通设置键、类型或格式不匹配会被拒绝，日志和错误不会输出秘密正文。`StaticPluginHost` 在调用 `initialize` 前加载两个快照并写入 `PluginContext`；加载、恢复或迁移失败会禁用当前插件并从工具注册表移除。系统凭据库和主密钥的真实环境验收仍待完成。
+敏感设置必须使用 `PluginSecretStore`，不能放入普通设置快照。秘密快照只接受清单中 `sensitive` 为真的键，宿主使用 `Storage::seal` 和 `Storage::unseal` 保存到独立的 `plugin.<plugin-id>.__secrets.v1` 密文键，并保留加密备份。密文前缀、包络版本、明文和密文大小都会校验；插件命名空间、普通设置键、类型或格式不匹配会被拒绝，日志和错误不会输出秘密正文。`StaticPluginHost` 在调用 `initialize` 前加载两个快照并写入 `PluginContext`；加载、恢复或迁移失败会禁用当前插件并从工具注册表移除。Windows Credential Manager、主密钥和秘密上下文真实链路已完成；Linux Secret Service、macOS Keychain 和正式发布环境仍需分别验收。
 
 ## 测试和验收
 

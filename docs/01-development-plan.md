@@ -51,18 +51,18 @@
 
 ### 阶段 A：单机桌面功能收口（当前执行）
 
-当前已完成 `SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A` 至 `DB-RED-07`、`DB-UX-003A` 至 `DB-UX-003C-2`、`DB-UX-004A`、`DB-UX-004B-1` 至 `DB-UX-004B-3B`、`DB-UX-005A` 至 `DB-UX-005F`、`PLAT-004`、`PLAT-005-A` 至 `PLAT-005-D`、`TOOL-MIG-001`、`DUAL-CORE-001`、`CATALOG-001` 和 `COLLAB-001-A/B1/B2/B3` 的代码与专项验证。涉及真实数据库的切片另有 MySQL 8.4/PostgreSQL 17 Docker 证据。
+当前已完成 `SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A` 至 `DB-RED-07`、`DB-UX-003A` 至 `DB-UX-003C-2`、`DB-UX-004A`、`DB-UX-004B-1` 至 `DB-UX-004B-3B`、`DB-UX-005A` 至 `DB-UX-005F`、`PLAT-004`、`PLAT-005-A` 至 `PLAT-005-E`、`TOOL-MIG-001`、`DUAL-CORE-001`、`CATALOG-001` 和 `COLLAB-001-A/B1/B2/B3` 的代码与专项验证。涉及真实数据库的切片另有 MySQL 8.4/PostgreSQL 17 Docker 证据。
 
 阶段 A 的执行顺序固定为：
 
 1. `A-DB-005`：已完成 MySQL 8.4 与 PostgreSQL 17 的迁移脚本回放和 PostgreSQL 失败回滚验证。
 2. `A-DB-RED-02`：已完成 MySQL 8.4/PostgreSQL 17 Docker 元数据和 `table_tree` headless 复验；真实 Windows 流程仍待补。
-3. `A-UI-REAL`：当前执行，补齐数据库、插件目录和 JSON Path 的真实 Windows 流程；`DB-UX-004B-3B` 的 Computer Use 证据仍待环境恢复。
+3. `A-UI-REAL`：真实窗口探测受 Computer Use 环境阻塞，状态保持未完成；不把替代证据写成真实窗口通过。
 4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和秘密上下文真实环境验收；Linux Secret Service 与 macOS Keychain 仍待各自环境验收。
-5. `A-PLAT-005`：接入真实工具入口并记录首次激活、取消、输入/输出和内存测量。
+5. `A-PLAT-005`：当前执行不依赖窗口接管的真实 JSON Path 入口运行指标和任务回收；进程内存、取消和真实窗口证据仍待补。
 6. `A-QUALITY`：完成性能、主题一致性和发布证据收口。
 
-Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 的鼠标/键盘证据保持未完成；在不改变该状态的前提下，先完成不依赖窗口接管的 `A-P0C` 安全验收，阶段 A 仍须收口 `A-UI-REAL` 后才能进入阶段 B 的正式迁移队列。
+Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 的鼠标/键盘证据保持未完成；在不改变该状态的前提下，先推进不依赖窗口接管的 `A-PLAT-005` 运行指标切片。阶段 A 仍须收口 `A-UI-REAL` 后才能进入阶段 B 的正式迁移队列。
 
 未完成的旧 `UI-001`、`M1-M4`、`R` 系列或工具专项事项必须先映射到以上切片 ID，并重新满足统一 UI 标准，不能只修改状态文字宣称完成。
 
@@ -112,7 +112,16 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 真实验收：临时辅助程序运行 `RedbStorage::open`，使用现有系统主密钥打开临时数据库；`PluginSecretStore::save` 写入敏感设置后，原始偏好值以 `encrypted-v1:` 开头且不包含明文；`StaticPluginHost` 获得 `storage.plugin` 授权后成功把秘密快照装入 `PluginContext`；释放并重新打开 `RedbStorage` 后再次读取相同快照。辅助程序、临时数据库和生成的临时文件均已清理。
 - 结果：Windows Credential Manager → redb AES-GCM → `PluginSecretStore` → `StaticPluginHost`/`PluginContext` 的真实链路通过；本次没有记录秘密正文，也没有调用删除主密钥的调试接口。
 - 边界：本记录只覆盖当前 Windows 桌面主线；Linux Secret Service、macOS Keychain、正式安装包升级/迁移和真实窗口操作仍需独立验收，不把本记录扩展为跨平台或发布完成声明。
-- 状态：`A-P0C` Windows 主线完成；下一项继续 `A-UI-REAL` 的原生窗口证据收口，之后再进入 `A-PLAT-005`。
+- 状态：`A-P0C` Windows 主线完成；`A-UI-REAL` 仍受环境阻塞，下一项推进 `A-PLAT-005` 的 headless 运行指标切片。
+
+### A-PLAT-005：真实工具入口运行指标和任务回收（2026-09-27，headless 运行链路完成）
+
+- 设计：沿用 `StaticPluginHost::execute_entry` 的输入、输出、超时和生命周期边界，在不改变现有 `join()` 返回类型的前提下增加 `join_with_metrics()`；成功结果提供执行耗时和输出字节数，供后续首帧、资源和发布记录使用。
+- 实现：`PluginTaskExecution` 在提交任务时记录单调时钟；`PluginTaskCompletion` 暴露受预算保护的结果、`elapsed()` 和 `output_bytes()`。普通工具继续使用 `join()`，不会改变现有插件调用方。
+- 真实入口：`ramag-tool-json-path` 注册并初始化 `it-tools.json-path/json-path-extractor`，执行 JSON5 请求，读取指标后再次提交同一入口，确认 `join()` 会释放活动任务名额。
+- 验证：`cargo test --locked -p ramag-app plugin_tasks --lib -- --test-threads=1`（8 项通过）；`cargo test --locked -p ramag-tool-json-path real_entry_reports_headless_metrics_and_releases_task_slot --lib -- --nocapture --test-threads=1` 通过，当前运行记录为 activation `557.7µs`、execution `409.5µs`、output `7` bytes（数值随机器变化，不作为固定性能承诺）。
+- 证据边界：该记录覆盖真实静态插件入口的 headless 执行、结果预算和任务回收，不覆盖真实窗口首次打开、进程级空闲内存或 Computer Use 鼠标/键盘；取消路径仍由宿主专项测试覆盖，后续需补跨平台和发布环境测量。
+- 状态：`A-PLAT-005` 的 JSON Path 运行指标子切片完成；下一步补进程内存基线和更多真实入口，之后收口 `A-UI-REAL` 并进入阶段 B 的 `B-API-001` 设计确认。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 

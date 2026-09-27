@@ -41,8 +41,8 @@ pub use plugin_settings_store::{
 };
 pub use plugin_tasks::{
     MAX_PLUGIN_TASK_NAME_BYTES, MAX_PLUGIN_TASK_RESULT_BYTES, MAX_PLUGIN_TASK_TIMEOUT,
-    MAX_PLUGIN_TASKS, PluginTaskBudget, PluginTaskBudgetError, PluginTaskError,
-    PluginTaskExecution, PluginTaskHandle, PluginTaskRunError,
+    MAX_PLUGIN_TASKS, PluginTaskBudget, PluginTaskBudgetError, PluginTaskCompletion,
+    PluginTaskError, PluginTaskExecution, PluginTaskHandle, PluginTaskRunError,
 };
 pub use tool_registry::{TOOL_ORDER_PREF_KEY, ToolRegistry};
 pub use usecases::{

@@ -150,7 +150,7 @@ pub use view::JsonPathView;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     use ramag_app::{PluginPermissionPolicy, PluginTaskBudget, ToolRegistry};
     use ramag_domain::PluginCapability;
@@ -199,6 +199,60 @@ mod tests {
         assert_eq!(
             smol::block_on(execution.join()).expect("execution succeeds"),
             br#""Alice""#
+        );
+    }
+
+    #[test]
+    fn real_entry_reports_headless_metrics_and_releases_task_slot() {
+        let activation_started = Instant::now();
+        let mut policy = PluginPermissionPolicy::default();
+        policy.grant(
+            ramag_domain::PluginId::new(PLUGIN_ID).expect("static plugin ID is valid"),
+            PluginCapability::new("task.scoped"),
+        );
+        let host = StaticPluginHost::with_permission_policy(Arc::new(ToolRegistry::new()), policy);
+        register_json_path_plugin(&host).expect("plugin registers");
+        assert!(host.initialize_all().is_success());
+        let activation_elapsed = activation_started.elapsed();
+
+        let request = JsonPathRequest {
+            raw_json: "{ users: [{ name: 'Alice' }] }".into(),
+            path: "$.users[0].name".into(),
+        };
+        let execution = host
+            .execute_entry(
+                PLUGIN_ID,
+                ENTRY_ID,
+                serde_json::to_vec(&request).expect("request serializes"),
+                PluginTaskBudget::new(Duration::from_secs(1), 1024).expect("budget is valid"),
+            )
+            .expect("entry executes");
+        let task_id = execution.id();
+        let completion = smol::block_on(execution.join_with_metrics()).expect("execution succeeds");
+
+        assert!(task_id > 0);
+        assert_eq!(completion.output(), br#""Alice""#);
+        assert_eq!(completion.output_bytes(), br#""Alice""#.len());
+        assert!(completion.elapsed() <= activation_started.elapsed());
+
+        // Joining drops the execution handle, so the same bounded task slot can be reused.
+        let second_execution = host
+            .execute_entry(
+                PLUGIN_ID,
+                ENTRY_ID,
+                serde_json::to_vec(&request).expect("request serializes"),
+                PluginTaskBudget::new(Duration::from_secs(1), 1024).expect("budget is valid"),
+            )
+            .expect("task slot is released after join");
+        assert_eq!(
+            smol::block_on(second_execution.join()).expect("second execution succeeds"),
+            br#""Alice""#
+        );
+
+        eprintln!(
+            "json path headless measurement: activation={activation_elapsed:?}, execution={:?}, output_bytes={}",
+            completion.elapsed(),
+            completion.output_bytes()
         );
     }
 }
