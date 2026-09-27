@@ -11,6 +11,7 @@ use gpui_kit::{
     div, prelude::*, px,
 };
 use ramag_app::{DataSyncGate, StaticPluginHost, ToolRegistry};
+use ramag_domain::PluginEntryDescriptor;
 
 use crate::activity_bar::{ActivityBar, NavEvent, NavTarget};
 use crate::plugin_entry_view::StandardPluginEntryView;
@@ -23,6 +24,7 @@ pub struct Shell {
     /// 保留注册表以按 tool_id 解析工具名（窗口标题用）
     registry: Arc<ToolRegistry>,
     tool_views: HashMap<String, AnyView>,
+    standard_entries: HashMap<String, (String, PluginEntryDescriptor)>,
     home_view: Option<AnyView>,
     settings_view: Option<AnyView>,
     /// None=首页，Some(tool_id)=某工具
@@ -98,12 +100,11 @@ impl Shell {
             this.schedule_persist_bounds(window, cx);
         }));
 
-        let mut tool_views = HashMap::new();
+        let mut standard_entries = HashMap::new();
         for descriptor in registry.plugin_descriptors() {
             for entry in descriptor.entry_descriptors() {
                 let entry_id = entry.id.clone();
-                let view = cx.new(|_| StandardPluginEntryView::new(descriptor.id.as_str(), entry));
-                tool_views.insert(entry_id, view.into());
+                standard_entries.insert(entry_id, (descriptor.id.as_str().to_owned(), entry));
             }
         }
 
@@ -112,7 +113,8 @@ impl Shell {
             data_sync_gate,
             data_sync_overlay,
             registry: registry_for_title,
-            tool_views,
+            tool_views: HashMap::new(),
+            standard_entries,
             home_view: None,
             settings_view: None,
             selected: None,
@@ -235,6 +237,26 @@ impl Shell {
         self.tool_views.insert(tool_id.into(), view);
     }
 
+    /// 仅在用户第一次打开入口时创建标准视图，避免启动阶段为全部入口分配 GPUI 实体。
+    fn ensure_standard_view(&mut self, tool_id: &str, cx: &mut Context<Self>) {
+        if self.tool_views.contains_key(tool_id) {
+            return;
+        }
+        let Some((plugin_id, entry)) = self.standard_entries.get(tool_id).cloned() else {
+            return;
+        };
+        let view = cx.new(|_| StandardPluginEntryView::new(plugin_id, entry));
+        self.tool_views.insert(tool_id.to_owned(), view.into());
+    }
+
+    #[cfg(test)]
+    fn activate_for_test(&mut self, tool_id: &str, cx: &mut Context<Self>) {
+        self.ensure_standard_view(tool_id, cx);
+        self.selected = Some(tool_id.to_owned());
+        self.settings_selected = false;
+        cx.notify();
+    }
+
     pub fn retain_subscription(&mut self, subscription: Subscription) {
         self._subscriptions.push(subscription);
     }
@@ -255,7 +277,10 @@ impl Shell {
         }
         let (new_selected, settings_selected) = match target {
             NavTarget::Home => (None, false),
-            NavTarget::Tool(id) => (Some(id), false),
+            NavTarget::Tool(id) => {
+                self.ensure_standard_view(&id, cx);
+                (Some(id), false)
+            }
             NavTarget::Settings => (None, true),
         };
 
@@ -399,7 +424,38 @@ fn render_view_missing(cx: &Context<Shell>) -> impl IntoElement {
 
 #[cfg(test)]
 mod tests {
-    use super::WindowBoundsPref;
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
+
+    use std::sync::Arc;
+
+    use gpui_kit::{
+        AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, TestAppContext,
+        VisualTestContext, Window, div, px, size,
+    };
+    use ramag_app::{DataSyncGate, StaticPluginHost, ToolRegistry};
+    use ramag_domain::{PluginDescriptor, PluginEntryDescriptor, PluginId, Tool, ToolMeta};
+
+    use super::{Shell, WindowBoundsPref};
+
+    struct DummyTool {
+        meta: ToolMeta,
+    }
+
+    impl Tool for DummyTool {
+        fn meta(&self) -> &ToolMeta {
+            &self.meta
+        }
+    }
+
+    struct ShellHost {
+        shell: Entity<Shell>,
+    }
+
+    impl Render for ShellHost {
+        fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+            div().size_full().child(self.shell.clone())
+        }
+    }
 
     #[test]
     fn window_bounds_reject_invalid_values() {
@@ -421,6 +477,61 @@ mod tests {
         );
         assert!(
             WindowBoundsPref::parse(&" ".repeat(WindowBoundsPref::MAX_PREF_BYTES + 1)).is_err()
+        );
+    }
+
+    #[gpui_kit::test]
+    fn standard_entry_view_is_created_only_after_activation(cx: &mut TestAppContext) {
+        cx.update(gpui_kit::component::init);
+        let registry = Arc::new(ToolRegistry::new());
+        registry
+            .register_plugin(
+                PluginDescriptor::new(
+                    PluginId::new("lazy.plugin").expect("测试插件 ID 应有效"),
+                    "Lazy plugin",
+                    "lazy.entry",
+                )
+                .with_entries(vec![PluginEntryDescriptor::new("lazy.entry", "Lazy entry")]),
+                Arc::new(DummyTool {
+                    meta: ToolMeta::new("lazy.entry", "Lazy entry", ""),
+                }),
+            )
+            .expect("测试入口应注册");
+        let plugin_host = Arc::new(StaticPluginHost::new(registry.clone()));
+        let gate = Arc::new(DataSyncGate::default());
+        let mut shell_entity = None;
+        let (_, visual_cx) = cx.add_window_view(|window, cx| {
+            let shell = cx.new(|cx| {
+                Shell::new(
+                    registry.clone(),
+                    plugin_host.clone(),
+                    gate.clone(),
+                    window,
+                    cx,
+                )
+            });
+            shell_entity = Some(shell.clone());
+            ShellHost { shell }
+        });
+        let visual_cx: &mut VisualTestContext = visual_cx;
+        visual_cx.simulate_resize(size(px(800.0), px(600.0)));
+        visual_cx.run_until_parked();
+        assert!(
+            visual_cx
+                .debug_bounds("plugin-entry-view-lazy.entry")
+                .is_none()
+        );
+
+        shell_entity
+            .expect("Shell 实体应创建")
+            .update(visual_cx, |shell, cx| {
+                shell.activate_for_test("lazy.entry", cx);
+            });
+        visual_cx.run_until_parked();
+        assert!(
+            visual_cx
+                .debug_bounds("plugin-entry-view-lazy.entry")
+                .is_some()
         );
     }
 }
