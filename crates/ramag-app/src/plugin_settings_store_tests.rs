@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -150,6 +150,7 @@ fn missing_primary_uses_backup_and_two_corrupt_records_are_rejected() {
         assert!(loaded.recovered_from_backup);
         assert_eq!(loaded.snapshot.get("mode"), snapshot("safe").get("mode"));
 
+        storage.raw_set(&primary_key(&descriptor()), "not-json");
         storage.raw_set(&backup_key(&descriptor()), "also-not-json");
         assert!(matches!(
             store.load(&descriptor()).await,
@@ -188,5 +189,123 @@ fn empty_storage_returns_descriptor_defaults() {
             loaded.snapshot.get("mode"),
             Some(&PluginSettingValue::String("safe".into()))
         );
+    });
+}
+
+fn legacy_payload(value: &str) -> String {
+    let mut values = BTreeMap::new();
+    values.insert(
+        "plugin.example.tool.mode_old".to_owned(),
+        PluginSettingValue::String(value.into()),
+    );
+    serde_json::to_string(&StoredPluginSettings {
+        format_version: 0,
+        values,
+    })
+    .unwrap()
+}
+
+#[test]
+fn registered_migration_rewrites_legacy_key_before_snapshot_validation() {
+    block_on(async {
+        let storage = Arc::new(MemoryStorage::default());
+        storage.raw_set(&primary_key(&descriptor()), &legacy_payload("full"));
+        let mut migrator = PluginSettingsMigrator::new();
+        migrator
+            .register(0, 1, |mut values| {
+                let value = values
+                    .remove("plugin.example.tool.mode_old")
+                    .ok_or(PluginSettingsMigrationFailure)?;
+                values.insert("plugin.example.tool.mode".into(), value);
+                Ok(values)
+            })
+            .unwrap();
+        let store = PluginSettingsStore::with_migrator(storage, migrator);
+
+        let loaded = store.load(&descriptor()).await.unwrap();
+        assert!(!loaded.recovered_from_backup);
+        assert_eq!(loaded.snapshot.get("mode"), snapshot("full").get("mode"));
+    });
+}
+
+#[test]
+fn migration_failure_uses_current_backup_without_writing_over_it() {
+    block_on(async {
+        let storage = Arc::new(MemoryStorage::default());
+        let base_store = PluginSettingsStore::new(storage.clone());
+        base_store.save(&snapshot("safe")).await.unwrap();
+        base_store.save(&snapshot("full")).await.unwrap();
+        storage.raw_set(&primary_key(&descriptor()), &legacy_payload("full"));
+
+        let mut migrator = PluginSettingsMigrator::new();
+        migrator
+            .register(0, 1, |_values| Err(PluginSettingsMigrationFailure))
+            .unwrap();
+        let store = PluginSettingsStore::with_migrator(storage, migrator);
+
+        let loaded = store.load(&descriptor()).await.unwrap();
+        assert!(loaded.recovered_from_backup);
+        assert_eq!(loaded.snapshot.get("mode"), snapshot("safe").get("mode"));
+    });
+}
+
+#[test]
+fn missing_migration_step_rejects_startup_without_a_backup() {
+    block_on(async {
+        let storage = Arc::new(MemoryStorage::default());
+        storage.raw_set(&primary_key(&descriptor()), &legacy_payload("full"));
+        let store = PluginSettingsStore::new(storage);
+
+        assert!(matches!(
+            store.load(&descriptor()).await,
+            Err(PluginSettingsStoreError::Migration {
+                source: PluginSettingsMigrationError::MissingStep { from_version: 0 }
+            })
+        ));
+    });
+}
+
+#[test]
+fn migration_registration_is_continuous_and_bounded() {
+    let mut migrator = PluginSettingsMigrator::new();
+    assert!(matches!(
+        migrator.register(0, 2, |_values| Ok(BTreeMap::new())),
+        Err(PluginSettingsMigrationRegistrationError::NonConsecutiveVersions { .. })
+    ));
+    migrator
+        .register(0, 1, |_values| Ok(BTreeMap::new()))
+        .unwrap();
+    assert!(matches!(
+        migrator.register(0, 1, |_values| Ok(BTreeMap::new())),
+        Err(PluginSettingsMigrationRegistrationError::DuplicateStep { .. })
+    ));
+}
+
+#[test]
+fn migration_output_cannot_exceed_declared_setting_count() {
+    block_on(async {
+        let storage = Arc::new(MemoryStorage::default());
+        storage.raw_set(&primary_key(&descriptor()), &legacy_payload("full"));
+        let mut migrator = PluginSettingsMigrator::new();
+        migrator
+            .register(0, 1, |_values| {
+                Ok((0..=ramag_domain::traits::MAX_PLUGIN_SETTINGS)
+                    .map(|index| {
+                        (
+                            format!("plugin.example.tool.generated-{index}"),
+                            PluginSettingValue::Boolean(true),
+                        )
+                    })
+                    .collect())
+            })
+            .unwrap();
+        let store = PluginSettingsStore::with_migrator(storage, migrator);
+
+        assert!(matches!(
+            store.load(&descriptor()).await,
+            Err(PluginSettingsStoreError::Migration {
+                source: PluginSettingsMigrationError::TooManyValues { .. }
+            })
+        ));
     });
 }

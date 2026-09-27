@@ -20,8 +20,10 @@ pub use plugin_lifecycle::{
 };
 pub use plugin_settings::{PluginSettingsError, PluginSettingsSnapshot};
 pub use plugin_settings_store::{
-    CURRENT_PLUGIN_SETTINGS_FORMAT_VERSION, MAX_PLUGIN_SETTINGS_PAYLOAD_BYTES, PluginSettingsLoad,
-    PluginSettingsStore, PluginSettingsStoreError,
+    CURRENT_PLUGIN_SETTINGS_FORMAT_VERSION, MAX_PLUGIN_SETTINGS_MIGRATION_STEPS,
+    MAX_PLUGIN_SETTINGS_PAYLOAD_BYTES, PluginSettingsLoad, PluginSettingsMigrationError,
+    PluginSettingsMigrationFailure, PluginSettingsMigrationRegistrationError,
+    PluginSettingsMigrator, PluginSettingsStore, PluginSettingsStoreError,
 };
 pub use tool_registry::{TOOL_ORDER_PREF_KEY, ToolRegistry};
 pub use usecases::{
