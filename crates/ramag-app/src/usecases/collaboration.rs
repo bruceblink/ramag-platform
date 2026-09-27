@@ -74,6 +74,17 @@ impl CollaborationService {
         Ok(share)
     }
 
+    /// 导入用户明确提供的导出文本，并以新的本机草稿 ID 保存，避免覆盖现有包。
+    pub async fn import_manual_export(
+        &self,
+        encoded: &str,
+        actor: &str,
+    ) -> std::result::Result<CollaborationShare, CollaborationServiceError> {
+        let share = CollaborationShare::import_manual_export_json(encoded, actor)?;
+        self.storage.save_collaboration_share(&share).await?;
+        Ok(share)
+    }
+
     pub async fn revoke(
         &self,
         id: &CollaborationShareId,
@@ -192,5 +203,20 @@ mod tests {
         let share = block_on(service.create_local("内部草稿", vec![artifact])).unwrap();
         let error = block_on(service.prepare_manual_export(&share.id, "alice")).unwrap_err();
         assert!(matches!(error, CollaborationServiceError::Mutation(_)));
+    }
+
+    #[test]
+    fn imported_export_becomes_a_new_local_record() {
+        let (service, _directory) = service();
+        let source = block_on(service.create_local(
+            "可导出说明",
+            vec![CollaborationArtifact::document("说明", "safe")],
+        ))
+        .unwrap();
+        let exported = block_on(service.prepare_manual_export(&source.id, "alice")).unwrap();
+        let encoded = exported.manual_export_json().unwrap();
+        let imported = block_on(service.import_manual_export(&encoded, "bob")).unwrap();
+        assert_ne!(source.id, imported.id);
+        assert_eq!(block_on(service.list()).unwrap().len(), 2);
     }
 }

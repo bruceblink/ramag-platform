@@ -31,6 +31,7 @@ fn collaboration_view_keeps_confirmation_controls_inside_supported_widths(cx: &m
         visual_cx.run_until_parked();
         assert!(visual_cx.debug_bounds("collaboration-view").is_some());
         assert!(visual_cx.debug_bounds("collaboration-create").is_some());
+        assert!(visual_cx.debug_bounds("collaboration-import").is_some());
         assert!(visual_cx.debug_bounds("collaboration-status").is_some());
     }
 }

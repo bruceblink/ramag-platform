@@ -50,7 +50,9 @@ pub fn create_collaboration_view(
     window: &mut Window,
     cx: &mut App,
 ) -> Entity<CollaborationView> {
-    cx.new(|cx| CollaborationView::new(storage, window, cx))
+    let view = cx.new(|cx| CollaborationView::new(storage, window, cx));
+    view.update(cx, |view, cx| view.reload(cx));
+    view
 }
 
 pub use view::CollaborationView;

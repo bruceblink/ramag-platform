@@ -25,6 +25,7 @@ pub struct CollaborationView {
     service: Arc<CollaborationService>,
     title: Entity<InputState>,
     payload: Entity<EditorState>,
+    import_text: Entity<EditorState>,
     shares: Vec<CollaborationShare>,
     selected: Option<CollaborationShareId>,
     export_text: String,
@@ -49,10 +50,16 @@ impl CollaborationView {
                 .language("markdown")
                 .placeholder("只输入你明确选择的文档或查询结果预览")
         });
+        let import_text = cx.new(|cx| {
+            EditorState::new(window, cx)
+                .language("json")
+                .placeholder("粘贴用户明确提供的共享包 JSON")
+        });
         Self {
             service: Arc::new(CollaborationService::new(storage)),
             title,
             payload,
+            import_text,
             shares: Vec::new(),
             selected: None,
             export_text: String::new(),
@@ -61,7 +68,7 @@ impl CollaborationView {
         }
     }
 
-    fn reload(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn reload(&mut self, cx: &mut Context<Self>) {
         if self.busy {
             return;
         }
@@ -147,6 +154,37 @@ impl CollaborationView {
                         }
                         Err(error) => view.status = error.to_string(),
                     },
+                    Err(error) => view.status = format_service_error(error),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn import_manual(&mut self, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        let encoded = self.import_text.read(cx).value().to_string();
+        if encoded.trim().is_empty() {
+            self.status = "先粘贴共享包 JSON".into();
+            cx.notify();
+            return;
+        }
+        self.busy = true;
+        let service = self.service.clone();
+        cx.spawn(async move |this, cx| {
+            let result = service.import_manual_export(&encoded, ACTOR).await;
+            let _ = this.update(cx, |view, cx| {
+                view.busy = false;
+                match result {
+                    Ok(share) => {
+                        view.selected = Some(share.id.clone());
+                        view.shares.insert(0, share);
+                        view.export_text.clear();
+                        view.status = "已导入为新的本机草稿；未连接远端".into();
+                    }
                     Err(error) => view.status = format_service_error(error),
                 }
                 cx.notify();
@@ -279,6 +317,35 @@ impl Render for CollaborationView {
                             .text_xs()
                             .text_color(theme.muted_foreground)
                             .child("原生 GPUI 入口 · 加密草稿 · 用户确认后才准备导出"),
+                    ),
+            )
+            .child(
+                v_flex()
+                    .gap(px(8.0))
+                    .p(px(12.0))
+                    .border_1()
+                    .border_color(theme.border)
+                    .rounded(px(8.0))
+                    .child(div().text_sm().child("导入已确认的共享包"))
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child("导入会生成新的本机草稿，不会覆盖现有记录。"),
+                    )
+                    .child(Editor::new(&self.import_text).h(px(120.0)))
+                    .child(
+                        h_flex().justify_end().child(
+                            clickable_button("collaboration-import")
+                                .debug_selector(|| "collaboration-import".into())
+                                .ghost()
+                                .small()
+                                .label("导入为本机草稿")
+                                .disabled(self.busy)
+                                .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
+                                    view.import_manual(cx);
+                                })),
+                        ),
                     ),
             )
             .child(

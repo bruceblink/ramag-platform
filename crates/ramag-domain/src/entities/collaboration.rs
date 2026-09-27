@@ -18,6 +18,8 @@ pub const MAX_COLLABORATION_ARTIFACT_TITLE_BYTES: usize = 256;
 /// 单个入口和整个共享包的明文大小上限。
 pub const MAX_COLLABORATION_ARTIFACT_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_COLLABORATION_PAYLOAD_BYTES: usize = 16 * 1024 * 1024;
+/// 手动导出 JSON 允许的封装开销上限，防止导入时先分配无界文本。
+pub const MAX_COLLABORATION_EXPORT_BYTES: usize = MAX_COLLABORATION_PAYLOAD_BYTES + 512 * 1024;
 /// 单个共享包保留的审计事件数量。
 pub const MAX_COLLABORATION_AUDIT_EVENTS: usize = 128;
 pub const MAX_COLLABORATION_ACTOR_BYTES: usize = 128;
@@ -101,6 +103,7 @@ pub enum CollaborationAuditAction {
     Created,
     Updated,
     Shared,
+    Imported,
     Revoked,
     ConflictDetected,
 }
@@ -351,6 +354,41 @@ impl CollaborationShare {
             .map_err(|error| CollaborationValidationError::Serialize(error.to_string()))
     }
 
+    /// 从用户粘贴的已验证导出包创建新的本机草稿；不会复用外部 ID 或远端状态。
+    pub fn import_manual_export_json(
+        encoded: &str,
+        actor: &str,
+    ) -> Result<Self, CollaborationValidationError> {
+        if encoded.len() > MAX_COLLABORATION_EXPORT_BYTES {
+            return Err(CollaborationValidationError::Serialize(
+                "导入文本超过大小上限".into(),
+            ));
+        }
+        let imported: Self = serde_json::from_str(encoded)
+            .map_err(|error| CollaborationValidationError::Serialize(error.to_string()))?;
+        imported.validate()?;
+        if imported.state != CollaborationShareState::Shared
+            || imported.sync_policy != CollaborationSyncPolicy::ManualExport
+        {
+            return Err(CollaborationValidationError::NotExportable);
+        }
+        let now = Utc::now();
+        let mut local = Self {
+            id: CollaborationShareId::new(),
+            title: imported.title,
+            revision: 1,
+            state: CollaborationShareState::LocalDraft,
+            sync_policy: CollaborationSyncPolicy::LocalOnly,
+            artifacts: imported.artifacts,
+            audit: Vec::new(),
+            created_at: now,
+            updated_at: now,
+        };
+        local.push_audit(CollaborationAuditAction::Imported, actor)?;
+        local.validate()?;
+        Ok(local)
+    }
+
     fn bump_revision(&mut self) -> Result<(), CollaborationMutationError> {
         self.revision = self
             .revision
@@ -509,6 +547,22 @@ mod tests {
             Err(CollaborationMutationError::Conflict { .. })
         ));
         assert_eq!(share.title, current_title);
+        Ok(())
+    }
+
+    #[test]
+    fn manual_export_import_creates_a_new_local_draft() -> Result<(), Box<dyn std::error::Error>> {
+        let mut source = CollaborationShare::new_local("接口说明", vec![document()])?;
+        source.prepare_manual_export("alice")?;
+        let encoded = source.manual_export_json()?;
+        let imported = CollaborationShare::import_manual_export_json(&encoded, "bob")?;
+        assert_ne!(imported.id, source.id);
+        assert_eq!(imported.state, CollaborationShareState::LocalDraft);
+        assert_eq!(imported.sync_policy, CollaborationSyncPolicy::LocalOnly);
+        assert_eq!(
+            imported.audit.last().map(|event| event.action),
+            Some(CollaborationAuditAction::Imported)
+        );
         Ok(())
     }
 
