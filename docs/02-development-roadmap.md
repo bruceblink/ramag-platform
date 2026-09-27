@@ -1,6 +1,6 @@
 # Ramag Platform 新主线：JetBrains 工作区重设计
 
-> 状态：现行主线；`SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07`、`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C`、`DB-UX-004A`、`DB-UX-004B-1`、`DB-UX-004B-2`、`DB-UX-004B-3A`、`DB-UX-004B-3B`、`DB-UX-005A`、`DB-UX-005B`、`DB-UX-005C`、`DB-UX-005D`、`DB-UX-005E`、`DB-UX-005F`、`PLAT-004-A`、`PLAT-004-B`、`PLAT-005-A` 和 `PLAT-005-B` 的代码与验证已完成；涉及真实数据库的切片另有 Docker 证据。下一项为任务执行器超时和结果预算。`DB-UX-004B-3B` 原生窗口证据待环境恢复后补验。
+> 状态：现行主线；`SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07`、`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C`、`DB-UX-004A`、`DB-UX-004B-1`、`DB-UX-004B-2`、`DB-UX-004B-3A`、`DB-UX-004B-3B`、`DB-UX-005A`、`DB-UX-005B`、`DB-UX-005C`、`DB-UX-005D`、`DB-UX-005E`、`DB-UX-005F`、`PLAT-004-A`、`PLAT-004-B`、`PLAT-005-A`、`PLAT-005-B` 和 `PLAT-005-C` 的代码与验证已完成；涉及真实数据库的切片另有 Docker 证据。下一项为具体插件执行器接入。`DB-UX-004B-3B` 原生窗口证据待环境恢复后补验。
 > 更新日期：2026-09-26
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
@@ -108,7 +108,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `DB-UX-005` | 分析、差异和迁移工作流 | 进行中（`DB-UX-005A` 至 `DB-UX-005F` 已完成；剩余迁移差异收口待开始） | `DB-UX-004` | 原始回退、人工确认、回读和窗口证据 |
 | `P0-C` | 插件设置与权限检查 | 接口与宿主装配完成（`P0-C-1` 至 `P0-C-6`；系统凭据库真实环境验收待补） | `DB-UX-005` | 命名空间隔离、类型/大小校验、迁移恢复和每次调用授权 |
 | `PLAT-004` | 多入口原生插件与标准工具入口 | 已完成代码与 headless 验证（`PLAT-004-A`、`PLAT-004-B`；真实窗口待补） | `DB-UX-005`、`P0-C` | GPUI 标准渲染、入口冲突、长输入和错误边界 |
-| `PLAT-005` | 按需激活与插件资源预算 | 进行中（`PLAT-005-A`、`PLAT-005-B` 已完成；下一项为执行器超时和结果预算） | `PLAT-004` | 首次打开、取消、内存/结果上限和生命周期回收 |
+| `PLAT-005` | 按需激活与插件资源预算 | 进行中（`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C` 已完成；下一项为具体插件执行器接入） | `PLAT-004` | 首次打开、取消、内存/结果上限和生命周期回收 |
 | `TOOL-MIG-001` | JSON Path 计算核心与原生入口迁移 | 待开始 | `PLAT-004`、`PLAT-005` | Rust 核心、GPUI 入口、共享样例和回归 |
 | `DUAL-CORE-001` | 已迁移核心的 Web/WASM 双端适配评估 | 待开始 | `TOOL-MIG-001` | Web 结果一致性、构建体积和桌面无 WebView 证据 |
 | `CROSS-UX-001` | API/Kafka/SSH/容器/Git 原生工作区迁移 | 待开始 | `SHELL-001`、`DB-UX-005` | 各工具专项交互与真实服务证据 |
