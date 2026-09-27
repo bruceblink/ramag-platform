@@ -6,11 +6,11 @@ use std::sync::{
     atomic::{AtomicU8, Ordering},
 };
 
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 use ramag_domain::{PluginCapability, PluginDescriptor, PluginId, PluginRegistrationError, Tool};
 use thiserror::Error;
 
-use crate::ToolRegistry;
+use crate::{PluginSecretSnapshot, PluginSettingsSnapshot};
 
 /// 单个插件生命周期错误允许进入诊断和日志的最大字节数。
 pub const MAX_PLUGIN_OPERATION_ERROR_BYTES: usize = 512;
@@ -64,11 +64,13 @@ struct PluginContextInner {
     plugin_id: PluginId,
     declared_capabilities: HashSet<PluginCapability>,
     granted_capabilities: HashSet<PluginCapability>,
+    settings: RwLock<Option<PluginSettingsSnapshot>>,
+    secrets: RwLock<Option<PluginSecretSnapshot>>,
     state: AtomicU8,
 }
 
 impl PluginContext {
-    fn new(
+    pub(crate) fn new(
         plugin_id: PluginId,
         declared_capabilities: impl IntoIterator<Item = PluginCapability>,
         granted_capabilities: impl IntoIterator<Item = PluginCapability>,
@@ -78,6 +80,8 @@ impl PluginContext {
                 plugin_id,
                 declared_capabilities: declared_capabilities.into_iter().collect(),
                 granted_capabilities: granted_capabilities.into_iter().collect(),
+                settings: RwLock::new(None),
+                secrets: RwLock::new(None),
                 state: AtomicU8::new(PluginState::Registered as u8),
             }),
         }
@@ -127,14 +131,48 @@ impl PluginContext {
         Ok(())
     }
 
-    fn transition(&self, from: PluginState, to: PluginState) -> bool {
+    /// 返回已校验的普通设置副本；读取设置必须同时拥有存储能力和已加载快照。
+    pub fn settings_snapshot(&self) -> Result<PluginSettingsSnapshot, PluginContextError> {
+        self.require_capability("storage.plugin")?;
+        self.inner
+            .settings
+            .read()
+            .clone()
+            .ok_or_else(|| PluginContextError::SettingsUnavailable {
+                plugin_id: self.plugin_id().clone(),
+            })
+    }
+
+    /// 返回已校验的敏感设置副本；秘密值不会混入普通设置快照。
+    pub fn secret_snapshot(&self) -> Result<PluginSecretSnapshot, PluginContextError> {
+        self.require_capability("storage.plugin")?;
+        self.inner
+            .secrets
+            .read()
+            .clone()
+            .ok_or_else(|| PluginContextError::SecretsUnavailable {
+                plugin_id: self.plugin_id().clone(),
+            })
+    }
+
+    /// 宿主在初始化回调前安装已校验的普通设置和秘密快照；插件只能通过只读公开方法取得副本。
+    pub(crate) fn install_snapshots(
+        &self,
+        settings: PluginSettingsSnapshot,
+        secrets: PluginSecretSnapshot,
+    ) {
+        *self.inner.settings.write() = Some(settings);
+        *self.inner.secrets.write() = Some(secrets);
+    }
+
+    pub(crate) fn transition(&self, from: PluginState, to: PluginState) -> bool {
         self.inner
             .state
             .compare_exchange(from as u8, to as u8, Ordering::AcqRel, Ordering::Acquire)
             .is_ok()
     }
 
-    fn mark_unloaded(&self) {
+    pub(crate) fn mark_unloaded(&self) {
         self.inner
             .state
             .store(PluginState::Unloaded as u8, Ordering::Release);
@@ -159,6 +197,10 @@ pub enum PluginContextError {
         plugin_id: PluginId,
         capability: String,
     },
+    #[error("插件 `{plugin_id}` 的普通设置尚未加载")]
+    SettingsUnavailable { plugin_id: PluginId },
+    #[error("插件 `{plugin_id}` 的秘密设置尚未加载")]
+    SecretsUnavailable { plugin_id: PluginId },
 }
 
 /// 宿主对插件能力的授予策略；默认不授予任何能力，避免清单声明自动扩大权限。
@@ -173,7 +215,7 @@ impl PluginPermissionPolicy {
         self.grants.entry(plugin_id).or_default().insert(capability);
     }
 
-    fn grants_for(&self, plugin_id: &PluginId) -> HashSet<PluginCapability> {
+    pub(crate) fn grants_for(&self, plugin_id: &PluginId) -> HashSet<PluginCapability> {
         self.grants.get(plugin_id).cloned().unwrap_or_default()
     }
 }
@@ -301,281 +343,9 @@ impl StaticPlugin for StaticPluginAdapter {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum HostPhase {
-    Registering,
-    Running,
-    ShuttingDown,
-    Stopped,
-}
+pub use crate::plugin_host::{PluginHostError, StaticPluginHost};
 
-struct PluginRecord {
-    plugin: Arc<dyn StaticPlugin>,
-    context: PluginContext,
-}
-
-impl Clone for PluginRecord {
-    fn clone(&self) -> Self {
-        Self {
-            plugin: self.plugin.clone(),
-            context: self.context.clone(),
-        }
-    }
-}
-
-/// 管理静态插件注册、初始化、失败隔离和逆序关闭。
-pub struct StaticPluginHost {
-    registry: Arc<ToolRegistry>,
-    records: Mutex<Vec<PluginRecord>>,
-    phase: Mutex<HostPhase>,
-    operation_lock: Mutex<()>,
-    permission_policy: PluginPermissionPolicy,
-    failures: Mutex<HashMap<PluginId, PluginDiagnosticFailure>>,
-    registration_failures: Mutex<Vec<PluginDiagnostic>>,
-}
-
-impl StaticPluginHost {
-    pub fn new(registry: Arc<ToolRegistry>) -> Self {
-        Self::with_permission_policy(registry, PluginPermissionPolicy::default())
-    }
-
-    pub fn with_permission_policy(
-        registry: Arc<ToolRegistry>,
-        permission_policy: PluginPermissionPolicy,
-    ) -> Self {
-        Self {
-            registry,
-            records: Mutex::new(Vec::new()),
-            phase: Mutex::new(HostPhase::Registering),
-            operation_lock: Mutex::new(()),
-            permission_policy,
-            failures: Mutex::new(HashMap::new()),
-            registration_failures: Mutex::new(Vec::new()),
-        }
-    }
-
-    pub fn registry(&self) -> Arc<ToolRegistry> {
-        self.registry.clone()
-    }
-
-    /// 注册成功后返回；初始化由 `initialize_all` 统一按注册顺序执行。
-    pub fn register_plugin(&self, plugin: Arc<dyn StaticPlugin>) -> Result<(), PluginHostError> {
-        let _operation = self.operation_lock.lock();
-        let descriptor = plugin.descriptor().clone();
-        let plugin_id = descriptor.id.clone();
-        if *self.phase.lock() != HostPhase::Registering {
-            self.record_registration_failure(
-                descriptor,
-                format!("插件宿主已开始生命周期处理，不能注册插件 `{plugin_id}`"),
-            );
-            return Err(PluginHostError::RegistrationClosed { plugin_id });
-        }
-
-        if let Err(source) = self
-            .registry
-            .register_plugin(descriptor.clone(), plugin.tool())
-        {
-            self.record_registration_failure(descriptor, source.to_string());
-            return Err(PluginHostError::Registration { plugin_id, source });
-        }
-        self.records.lock().push(PluginRecord {
-            plugin,
-            context: PluginContext::new(
-                plugin_id.clone(),
-                descriptor.capabilities.clone(),
-                self.permission_policy.grants_for(&plugin_id),
-            ),
-        });
-        tracing::info!(operation = "plugin_host_register", plugin_id = %plugin_id, "static plugin accepted by host");
-        Ok(())
-    }
-
-    /// 按注册顺序初始化；一个插件失败不会阻塞后续插件。
-    pub fn initialize_all(&self) -> PluginLifecycleReport {
-        let _operation = self.operation_lock.lock();
-        {
-            let mut phase = self.phase.lock();
-            if *phase != HostPhase::Registering {
-                return PluginLifecycleReport::default();
-            }
-            *phase = HostPhase::Running;
-        }
-
-        let records = self.records.lock().clone();
-        let mut report = PluginLifecycleReport::default();
-        for record in records {
-            let plugin_id = record.context.plugin_id().clone();
-            if !record
-                .context
-                .transition(PluginState::Registered, PluginState::Initializing)
-            {
-                continue;
-            }
-
-            match record.plugin.initialize(&record.context) {
-                Ok(()) => {
-                    let _ = record
-                        .context
-                        .transition(PluginState::Initializing, PluginState::Ready);
-                    report.succeeded.push(plugin_id);
-                }
-                Err(error) => {
-                    record
-                        .context
-                        .transition(PluginState::Initializing, PluginState::Failed);
-                    self.registry
-                        .unregister_plugin(record.context.plugin_id().as_str());
-                    self.failures.lock().insert(
-                        plugin_id.clone(),
-                        PluginDiagnosticFailure {
-                            stage: PluginLifecycleStage::Initialize,
-                            message: error.message().to_owned(),
-                        },
-                    );
-                    tracing::warn!(
-                        operation = "plugin_initialize",
-                        plugin_id = %plugin_id,
-                        error = %error,
-                        "static plugin initialization failed; plugin disabled"
-                    );
-                    report.failures.push(PluginLifecycleFailure {
-                        plugin_id,
-                        stage: PluginLifecycleStage::Initialize,
-                        error,
-                    });
-                }
-            }
-        }
-        report
-    }
-
-    /// 按注册顺序逆序关闭已就绪插件；失败仍会释放当前插件并继续处理。
-    pub fn shutdown_all(&self) -> PluginLifecycleReport {
-        let _operation = self.operation_lock.lock();
-        {
-            let mut phase = self.phase.lock();
-            if matches!(*phase, HostPhase::ShuttingDown | HostPhase::Stopped) {
-                return PluginLifecycleReport::default();
-            }
-            *phase = HostPhase::ShuttingDown;
-        }
-
-        let records = self
-            .records
-            .lock()
-            .clone()
-            .into_iter()
-            .rev()
-            .collect::<Vec<_>>();
-        let mut report = PluginLifecycleReport::default();
-        for record in records {
-            let plugin_id = record.context.plugin_id().clone();
-            if record.context.state() == PluginState::Ready
-                && record
-                    .context
-                    .transition(PluginState::Ready, PluginState::ShuttingDown)
-            {
-                match record.plugin.shutdown(&record.context) {
-                    Ok(()) => report.succeeded.push(plugin_id.clone()),
-                    Err(error) => {
-                        self.failures.lock().insert(
-                            plugin_id.clone(),
-                            PluginDiagnosticFailure {
-                                stage: PluginLifecycleStage::Shutdown,
-                                message: error.message().to_owned(),
-                            },
-                        );
-                        tracing::warn!(
-                            operation = "plugin_shutdown",
-                            plugin_id = %plugin_id,
-                            error = %error,
-                            "static plugin shutdown failed; continuing"
-                        );
-                        report.failures.push(PluginLifecycleFailure {
-                            plugin_id: plugin_id.clone(),
-                            stage: PluginLifecycleStage::Shutdown,
-                            error,
-                        });
-                    }
-                }
-            }
-            record.context.mark_unloaded();
-            self.registry.unregister_plugin(plugin_id.as_str());
-        }
-        *self.phase.lock() = HostPhase::Stopped;
-        report
-    }
-
-    pub fn state(&self, plugin_id: &str) -> Option<PluginState> {
-        self.records
-            .lock()
-            .iter()
-            .find(|record| record.context.plugin_id().as_str() == plugin_id)
-            .map(|record| record.context.state())
-    }
-
-    pub fn context(&self, plugin_id: &str) -> Option<PluginContext> {
-        self.records
-            .lock()
-            .iter()
-            .find(|record| record.context.plugin_id().as_str() == plugin_id)
-            .map(|record| record.context.clone())
-    }
-
-    pub fn states(&self) -> Vec<(PluginId, PluginState)> {
-        self.records
-            .lock()
-            .iter()
-            .map(|record| (record.context.plugin_id().clone(), record.context.state()))
-            .collect()
-    }
-
-    /// 返回所有已注册插件以及注册阶段失败项，供 UI 展示可用入口和故障原因。
-    pub fn diagnostics(&self) -> Vec<PluginDiagnostic> {
-        let failures = self.failures.lock().clone();
-        let mut diagnostics = self
-            .records
-            .lock()
-            .iter()
-            .map(|record| {
-                let plugin_id = record.context.plugin_id().clone();
-                PluginDiagnostic {
-                    descriptor: record.plugin.descriptor().clone(),
-                    state: record.context.state(),
-                    failure: failures.get(&plugin_id).cloned(),
-                }
-            })
-            .collect::<Vec<_>>();
-        diagnostics.extend(self.registration_failures.lock().clone());
-        diagnostics
-    }
-
-    fn record_registration_failure(&self, descriptor: PluginDescriptor, message: String) {
-        self.registration_failures.lock().push(PluginDiagnostic {
-            descriptor,
-            state: PluginState::Failed,
-            failure: Some(PluginDiagnosticFailure {
-                stage: PluginLifecycleStage::Registration,
-                message: bounded_message(message),
-            }),
-        });
-    }
-}
-
-/// 插件未能进入宿主注册表时返回的错误。
-#[derive(Debug, Error)]
-pub enum PluginHostError {
-    #[error("插件 `{plugin_id}` 注册失败：{source}")]
-    Registration {
-        plugin_id: PluginId,
-        #[source]
-        source: PluginRegistrationError,
-    },
-    #[error("插件宿主已开始生命周期处理，不能注册插件 `{plugin_id}`")]
-    RegistrationClosed { plugin_id: PluginId },
-}
-
-fn bounded_message(mut message: String) -> String {
+pub(crate) fn bounded_message(mut message: String) -> String {
     if message.len() <= MAX_PLUGIN_OPERATION_ERROR_BYTES {
         return message;
     }

@@ -264,7 +264,7 @@ fn main() -> ExitCode {
         .cloned();
 
     // 启动时同步读取剪贴板开关，避免恢复到已隐藏的工具。
-    let plugin_host = build_plugin_host();
+    let plugin_host = build_plugin_host_with_storage(Some(storage.clone()));
     let registry = plugin_host.registry();
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     {

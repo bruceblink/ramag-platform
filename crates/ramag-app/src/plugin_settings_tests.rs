@@ -199,3 +199,25 @@ fn sensitive_settings_are_not_loaded_into_the_plain_snapshot() {
         PluginSettingsError::SensitiveSettingRequiresSecretStorage { key } if key == "token"
     ));
 }
+
+#[test]
+fn plain_snapshot_skips_sensitive_defaults_but_keeps_regular_settings() {
+    let mixed = descriptor().with_settings(vec![
+        PluginSettingDefinition::new("token", PluginSettingKind::String)
+            .sensitive(true)
+            .with_default(PluginSettingValue::String("secret".into())),
+        PluginSettingDefinition::new("enabled", PluginSettingKind::Boolean)
+            .with_default(PluginSettingValue::Boolean(true)),
+    ]);
+    let snapshot = PluginSettingsSnapshot::from_namespaced_values(
+        &mixed,
+        std::iter::empty::<(String, PluginSettingValue)>(),
+    )
+    .unwrap();
+
+    assert_eq!(snapshot.get("token"), None);
+    assert_eq!(
+        snapshot.get("enabled"),
+        Some(&PluginSettingValue::Boolean(true))
+    );
+}

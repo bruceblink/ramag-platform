@@ -5,6 +5,7 @@
 
 mod blocking;
 pub mod connection_transfer;
+mod plugin_host;
 mod plugin_lifecycle;
 mod plugin_secrets;
 mod plugin_settings;

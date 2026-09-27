@@ -1,10 +1,16 @@
 use std::sync::Arc;
 
+use futures::executor::block_on;
 use parking_lot::Mutex;
-use ramag_domain::{PluginCapability, PluginDescriptor, PluginId, Tool, ToolMeta};
+use ramag_domain::{
+    PluginCapability, PluginDescriptor, PluginId, PluginSettingDefinition, PluginSettingKind,
+    PluginSettingValue, Storage, Tool, ToolMeta,
+};
+use ramag_infra_storage::RedbStorage;
+use tempfile::tempdir;
 
 use super::*;
-use crate::ToolRegistry;
+use crate::{PluginSettingsMigrator, PluginSettingsStore, ToolRegistry};
 
 struct DummyTool {
     meta: ToolMeta,
@@ -324,6 +330,120 @@ fn operation_errors_are_bounded() {
 
     assert!(error.message().len() <= MAX_PLUGIN_OPERATION_ERROR_BYTES);
     assert!(error.message().ends_with("..."));
+}
+
+struct SettingsPlugin {
+    descriptor: PluginDescriptor,
+    tool: Arc<DummyTool>,
+    events: Arc<Mutex<Vec<String>>>,
+}
+
+impl SettingsPlugin {
+    fn new(events: Arc<Mutex<Vec<String>>>) -> Self {
+        let plugin_id = PluginId::new("settings.example").unwrap();
+        let descriptor = PluginDescriptor::new(plugin_id, "Settings", "settings.example")
+            .with_capabilities([
+                PluginCapability::new("ui.entry"),
+                PluginCapability::new("storage.plugin"),
+            ])
+            .with_settings(vec![
+                PluginSettingDefinition::new("mode", PluginSettingKind::Enum)
+                    .with_enum_values(["safe", "full"])
+                    .with_default(PluginSettingValue::String("safe".into())),
+            ]);
+        Self {
+            descriptor,
+            tool: Arc::new(DummyTool {
+                meta: ToolMeta::new("settings.example", "Settings", ""),
+            }),
+            events,
+        }
+    }
+}
+
+impl StaticPlugin for SettingsPlugin {
+    fn descriptor(&self) -> &PluginDescriptor {
+        &self.descriptor
+    }
+
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    fn initialize(&self, context: &PluginContext) -> Result<(), PluginOperationError> {
+        let snapshot = context
+            .settings_snapshot()
+            .map_err(|error| PluginOperationError::new(error.to_string()))?;
+        let mode = match snapshot.get("mode") {
+            Some(PluginSettingValue::String(value)) => value.clone(),
+            _ => "missing".into(),
+        };
+        self.events.lock().push(mode);
+        Ok(())
+    }
+}
+
+#[test]
+fn host_loads_settings_before_initialize_and_exposes_only_checked_snapshot() {
+    let directory = tempdir().unwrap();
+    let storage: Arc<dyn Storage> = Arc::new(
+        RedbStorage::open_with_key(directory.path().join("settings.redb").as_path(), &[7; 32])
+            .unwrap(),
+    );
+    let descriptor = SettingsPlugin::new(Arc::new(Mutex::new(Vec::new()))).descriptor;
+    let seed = PluginSettingsSnapshot::from_namespaced_values(
+        &descriptor,
+        [(
+            "plugin.settings.example.mode",
+            PluginSettingValue::String("full".into()),
+        )],
+    )
+    .unwrap();
+    block_on(PluginSettingsStore::new(storage.clone()).save(&seed)).unwrap();
+
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let host = StaticPluginHost::with_storage_and_permissions(
+        Arc::new(ToolRegistry::new()),
+        storage,
+        permissions_for_settings_plugin(),
+        PluginSettingsMigrator::default(),
+    );
+    host.register_plugin(Arc::new(SettingsPlugin::new(events.clone())))
+        .unwrap();
+
+    let report = host.initialize_all();
+
+    assert!(report.is_success());
+    assert_eq!(*events.lock(), ["full"]);
+    assert_eq!(host.registry().order(), ["settings.example"]);
+}
+
+#[test]
+fn settings_plugin_without_storage_fails_before_initialize() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let host = StaticPluginHost::with_permission_policy(
+        Arc::new(ToolRegistry::new()),
+        permissions_for_settings_plugin(),
+    );
+    host.register_plugin(Arc::new(SettingsPlugin::new(events.clone())))
+        .unwrap();
+
+    let report = host.initialize_all();
+
+    assert_eq!(report.succeeded.len(), 0);
+    assert_eq!(report.failures.len(), 1);
+    assert!(events.lock().is_empty());
+    assert_eq!(host.registry().count(), 0);
+    assert_eq!(host.state("settings.example"), Some(PluginState::Failed));
+}
+
+fn permissions_for_settings_plugin() -> PluginPermissionPolicy {
+    let mut policy = PluginPermissionPolicy::default();
+    policy.grant(
+        PluginId::new("settings.example").unwrap(),
+        PluginCapability::new("storage.plugin"),
+    );
+    policy
 }
 
 #[test]

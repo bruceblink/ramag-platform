@@ -1,6 +1,7 @@
 use super::{
     AUTO_CHECK_INTERVAL, GitHubUpdateDriver, INITIAL_UPDATE_CHECK_DELAY, JumpServerHttpDriver,
-    MainWindowOpenGate, build_plugin_host, build_tool_registry, install_tls_crypto_provider,
+    MainWindowOpenGate, build_plugin_host_with_storage, build_tool_registry,
+    install_tls_crypto_provider,
 };
 
 #[test]
@@ -36,7 +37,7 @@ fn main_window_open_gate_coalesces_repeated_requests() {
 
 #[test]
 fn built_in_plugins_are_ready_before_the_main_window_uses_the_registry() {
-    let host = build_plugin_host();
+    let host = build_plugin_host_with_storage(None);
 
     assert!(!host.states().is_empty());
     assert!(

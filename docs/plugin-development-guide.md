@@ -53,7 +53,7 @@ fn register_example(host: &StaticPluginHost) -> Result<(), Box<dyn std::error::E
 
 ### 能力授予和运行时检查
 
-清单中的能力声明只说明插件需要什么，不能自动获得权限。宿主通过 `PluginPermissionPolicy` 按插件 ID 显式授予能力，再用 `PluginContext::require_capability` 包住每一次受控服务调用。该检查会先验证插件仍处于可用生命周期，再验证能力已在清单中声明且已由策略授予；默认策略不授予任何能力。设置命名空间和持久化迁移仍待 P0-C 后续切片。
+清单中的能力声明只说明插件需要什么，不能自动获得权限。宿主通过 `PluginPermissionPolicy` 按插件 ID 显式授予能力，再用 `PluginContext::require_capability` 包住每一次受控服务调用。该检查会先验证插件仍处于可用生命周期，再验证能力已在清单中声明且已由策略授予；默认策略不授予任何能力。读取设置和秘密快照同样要求宿主授予 `storage.plugin`。
 
 ### 设置命名空间和运行时快照
 
@@ -61,11 +61,11 @@ fn register_example(host: &StaticPluginHost) -> Result<(), Box<dyn std::error::E
 
 设置修改通过 `update` 或 `update_namespaced` 生成新的快照，旧快照保持不变。这样运行中的插件只会看到通过校验的完整值集，后续原子持久化层可以在替换快照前执行迁移和备份。本切片不写配置文件、不迁移旧版本数据，也不把 `sensitive` 设置交给普通存储；秘密存储接口另行实现。
 
-`PluginSettingsStore` 将快照编码为版本 1 的 JSON 包络，使用 `plugin.<plugin-id>.__snapshot.v1` 保存主记录，并在替换前把旧主记录复制到 `plugin.<plugin-id>.__snapshot.backup.v1`。读取主记录失败时自动校验备份；两者都损坏时返回恢复失败，宿主不得启动受影响插件。备份和主记录只保存普通设置，迁移旧版本与敏感设置仍需后续专用接口。
+`PluginSettingsStore` 将快照编码为版本 1 的 JSON 包络，使用 `plugin.<plugin-id>.__snapshot.v1` 保存主记录，并在替换前把旧主记录复制到 `plugin.<plugin-id>.__snapshot.backup.v1`。读取主记录失败时自动校验备份；两者都损坏时返回恢复失败，宿主不得启动受影响插件。备份和主记录只保存普通设置，敏感设置由秘密存储单独处理。
 
 需要升级旧包络时，宿主通过 `PluginSettingsMigrator` 注册连续的版本步骤。每一步在内存中接收和返回有界的命名空间映射，所有步骤成功且生成的新快照通过清单校验后才可交给插件；迁移函数返回失败、缺少步骤或超过步骤上限都会拒绝启动，并保留主记录以便备份恢复。迁移不会自动写回配置，避免失败流程覆盖可恢复数据。
 
-敏感设置必须使用 `PluginSecretStore`，不能放入普通设置快照。秘密快照只接受清单中 `sensitive` 为真的键，宿主使用 `Storage::seal` 和 `Storage::unseal` 保存到独立的 `plugin.<plugin-id>.__secrets.v1` 密文键，并保留加密备份。密文前缀、包络版本、明文和密文大小都会校验；插件命名空间、普通设置键、类型或格式不匹配会被拒绝，日志和错误不会输出秘密正文。
+敏感设置必须使用 `PluginSecretStore`，不能放入普通设置快照。秘密快照只接受清单中 `sensitive` 为真的键，宿主使用 `Storage::seal` 和 `Storage::unseal` 保存到独立的 `plugin.<plugin-id>.__secrets.v1` 密文键，并保留加密备份。密文前缀、包络版本、明文和密文大小都会校验；插件命名空间、普通设置键、类型或格式不匹配会被拒绝，日志和错误不会输出秘密正文。`StaticPluginHost` 在调用 `initialize` 前加载两个快照并写入 `PluginContext`；加载、恢复或迁移失败会禁用当前插件并从工具注册表移除。系统凭据库和主密钥的真实环境验收仍待完成。
 
 ## 测试和验收
 

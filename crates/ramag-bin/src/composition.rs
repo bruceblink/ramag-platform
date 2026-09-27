@@ -60,8 +60,17 @@ pub(super) fn read_preferences(
     preferences
 }
 
-pub(super) fn build_plugin_host() -> Arc<StaticPluginHost> {
-    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+/// 生产组合根把共享本地存储注入插件宿主；测试组合可省略存储以保持无状态。
+pub(super) fn build_plugin_host_with_storage(
+    storage: Option<Arc<dyn Storage>>,
+) -> Arc<StaticPluginHost> {
+    let host = match storage {
+        Some(storage) => Arc::new(StaticPluginHost::with_storage(
+            Arc::new(ToolRegistry::new()),
+            storage,
+        )),
+        None => Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new()))),
+    };
     register_builtin_tool(&host, Arc::new(DbClientTool::new()));
     register_builtin_tool(&host, Arc::new(ApiTool::new()));
     register_builtin_tool(&host, Arc::new(KafkaTool::new()));
@@ -88,7 +97,7 @@ pub(super) fn build_plugin_host() -> Arc<StaticPluginHost> {
 
 #[cfg(test)]
 pub(super) fn build_tool_registry() -> Arc<ToolRegistry> {
-    build_plugin_host().registry()
+    build_plugin_host_with_storage(None).registry()
 }
 
 /// 通过静态插件适配器注册内置工具；单个描述错误不会阻塞其余工具装配。

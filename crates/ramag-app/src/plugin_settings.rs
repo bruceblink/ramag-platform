@@ -73,11 +73,6 @@ impl PluginSettingsSnapshot {
             .cloned()
             .map(|definition| (definition.key.clone(), definition))
             .collect::<BTreeMap<_, _>>();
-        if let Some(definition) = definitions.values().find(|definition| definition.sensitive) {
-            return Err(PluginSettingsError::SensitiveSettingRequiresSecretStorage {
-                key: definition.key.clone(),
-            });
-        }
         let mut snapshot_values = BTreeMap::new();
 
         for (qualified_key, value) in values {
@@ -94,6 +89,11 @@ impl PluginSettingsSnapshot {
                     key: setting_key.to_owned(),
                 }
             })?;
+            if definition.sensitive {
+                return Err(PluginSettingsError::SensitiveSettingRequiresSecretStorage {
+                    key: setting_key.to_owned(),
+                });
+            }
             validate_value(definition, &qualified_key, &value)?;
             if snapshot_values
                 .insert(setting_key.to_owned(), value)
@@ -104,7 +104,9 @@ impl PluginSettingsSnapshot {
         }
 
         for definition in definitions.values() {
-            if let Some(default) = &definition.default {
+            if !definition.sensitive
+                && let Some(default) = &definition.default
+            {
                 snapshot_values
                     .entry(definition.key.clone())
                     .or_insert_with(|| default.clone());
@@ -145,9 +147,14 @@ impl PluginSettingsSnapshot {
 
     /// 使用未加前缀的清单键生成当前插件的完整存储键。
     pub fn qualified_key(&self, key: &str) -> Result<String, PluginSettingsError> {
-        if !self.definitions.contains_key(key) {
+        let Some(definition) = self.definitions.get(key) else {
             return Err(PluginSettingsError::UnknownSetting {
                 plugin_id: self.plugin_id.clone(),
+                key: key.to_owned(),
+            });
+        };
+        if definition.sensitive {
+            return Err(PluginSettingsError::SensitiveSettingRequiresSecretStorage {
                 key: key.to_owned(),
             });
         }
