@@ -2,7 +2,7 @@
 
 > 适用项目：`bruceblink/ramag-platform`。本路线只约束当前独立下游项目的插件平台演进，不代表 `tools-rs/ramag` 已接受或实现这些接口。
 >
-> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配、`CATALOG-001` 第一方工具目录、`COLLAB-001-A` 本机加密共享包边界和 `COLLAB-001-B1` 至 `COLLAB-001-B3` 协作切片已完成，当前进入 `COLLAB-001-B4` Relay 到期回收。系统凭据库真实环境验收和第三方动态插件仍未开放。桌面端明确禁止 WebView，后续优先建设原生 GPUI 标准工具入口和本机优先协作。
+> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配、`CATALOG-001` 第一方工具目录、`COLLAB-001-A` 本机加密共享包边界和 `COLLAB-001-B1` 至 `COLLAB-001-B3` 协作切片已完成。Relay B4、生产 Relay、系统凭据库真实环境验收和第三方动态插件暂缓；当前重心是单机桌面端功能收口和真实窗口验收。桌面端明确禁止 WebView。
 
 ## 术语与命名规则
 
@@ -254,9 +254,9 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 先把用户明确选择的文档或结果建模为可验证共享包，并使用 `Storage` 主密钥加密后保存到本机。共享包只接受 `Document` 与 `QueryResultPreview` 类型；凭据、连接配置和 JWT/Token 等秘密直接拒绝。敏感或原始业务数据可以保留在本机加密草稿，但不能进入手动导出包。本切片实现 revision 冲突保护、撤销和有界审计，不接入网络传输或自动同步。`ramag-domain`、`ramag-infra-storage` 和 `ramag-app` 已完成对应模型、加密 redb 表和应用用例；敏感导出阻断、冲突不覆盖正文和撤销审计均有专项测试。
 
-### COLLAB-001-B：原生协作入口（B1-B3 已完成，B4 进行中）
+### COLLAB-001-B：原生协作入口（B1-B3 已完成，Relay 后续能力延期）
 
-首个本机入口已接入 `ramag-tool-collaboration`：用户可以在原生 GPUI 中创建、刷新、选择、准备导出文本、导入为新本机草稿和撤销本机草稿；B1 手动交接、B2 Relay 客户端和 B3 本机 Relay 已完成。视图只调用 `CollaborationService`，每次发送仍必须保留用户确认；密码、JWT 密钥、连接配置和原始业务数据默认禁止自动同步。B4 只处理开发 Relay 的到期回收，不把它描述为账号或生产服务能力。
+首个本机入口已接入 `ramag-tool-collaboration`：用户可以在原生 GPUI 中创建、刷新、选择、准备导出文本、导入为新本机草稿和撤销本机草稿；B1 手动交接、B2 Relay 客户端和 B3 本机 Relay 已完成。视图只调用 `CollaborationService`，每次发送仍必须保留用户确认；密码、JWT 密钥、连接配置和原始业务数据默认禁止自动同步。Relay 到期回收、账号、权限、持久化和生产部署延期，不进入当前单机桌面端主线。
 
 验收：`ramag-domain` 协作专项 5 项、`ramag-app` 协作专项 4 项、`ramag-tool-collaboration` 原生视图 3 项和 `ramag-bin` 回归 15 项通过；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。三种窗口宽度的 headless GPUI 检查覆盖草稿、导入和确认控件；当前 Computer Use 未暴露可启动的原生窗口，因此没有把 headless 结果描述为真实窗口验收。
 
@@ -292,13 +292,13 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 验收结果：`cargo test -p ramag-collaboration-relay` 通过 3 项路由与边界测试；`scripts/collaboration-relay/relay-test.ps1` 使用本机 Docker 构建 `ramag-collaboration-relay:local`，启动端口 `127.0.0.1:18080`，健康检查返回 `ok`，再由 `ramag-infra-collaboration` 客户端通过真实 HTTP 完成发布/读取回环测试，最后执行 `docker compose down --volumes --remove-orphans` 清理容器和网络。workspace fmt、Clippy、源码尺寸和 `git diff --check` 同步通过。该服务仍不提供账号认证、权限、持久化、到期、远端撤回或生产 HTTPS 部署。
 
-#### COLLAB-001-B4：Relay 共享包到期回收（设计确认）
+#### COLLAB-001-B4：Relay 共享包到期回收（延期，不进入当前主线）
 
 - 目标：为 B3 开发 Relay 增加有界的服务端到期时间和过期记录回收，避免内存共享包永久保留；到期只影响 Relay 读取，不伪称为本机撤销或远端审计删除。
 - 组件：`ramag-collaboration-relay` 在启动配置中读取有限的 TTL，发布收据返回 `expires_at`，读取过期 ID 返回统一的 `410 Gone` 错误并删除记录；客户端继续校验收据时间字段，不新增后台刷新或自动重试。
 - 配置边界：默认 TTL 为 24 小时，最大 TTL 为 7 天；零值或无法解析的环境变量回退到默认值。发布达到容量上限前先清理已过期记录，清理仍使用固定数量和有界字符串，不引入持久化。
 - 安全边界：B4 不增加账号、权限、租户隔离、令牌或远端撤回；B3 的回环绑定和非敏感导出校验继续有效，生产 Relay 仍需独立身份和存储设计。
-- 验收条件：有效包返回未来 `expires_at` 并可在 TTL 内读取；过期包读取返回 410 且不再占用容量；容量已满但包含过期包时可先回收再发布；无效 TTL 配置回退默认值；Docker 验收记录 TTL 环境变量、健康、真实 HTTP 读取和清理状态；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 当前状态：保留设计草案，不实现代码、不启动 Docker 验收；待单机桌面端主线完成后重新确认是否需要 Relay 到期回收、身份认证、权限和持久化。
 
 ## 关键设计约束
 
