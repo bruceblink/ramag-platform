@@ -4,7 +4,9 @@ use std::time::Duration;
 use gpui_kit::component::{
     ActiveTheme,
     animation::{EffectTransition, ease_in_out_cubic},
-    h_flex, v_flex,
+    h_flex,
+    scroll::ScrollableElement as _,
+    v_flex,
 };
 use gpui_kit::{
     AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent, EventEmitter,
@@ -143,7 +145,7 @@ impl Render for HomeView {
             let id_for_click = id.clone();
             let name = tool.meta().name.clone();
             let description = tool.meta().description.clone();
-            let icon = ActivityBar::icon_for_tool(id);
+            let icon = ActivityBar::icon_for_meta(tool.meta());
             let preview_icon = icon.clone();
             let preview_name = name.clone();
             let preview_description = description.clone();
@@ -172,7 +174,7 @@ impl Render for HomeView {
                 .border_color(card_border)
                 .rounded(px(10.0))
                 .relative()
-                .cursor_move()
+                .cursor_pointer()
                 .hover(move |this| this.border_color(accent_border))
                 .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
                     cx.emit(HomeEvent::OpenTool(id_for_click.clone()));
@@ -326,6 +328,7 @@ impl Render for HomeView {
             .bg(bg)
             .overflow_y_scroll()
             .track_scroll(&self.scroll)
+            .vertical_scrollbar(&self.scroll)
             .items_center()
             .on_mouse_up(MouseButton::Left, |_, _, cx| clear_tool_drag(cx))
             .child(

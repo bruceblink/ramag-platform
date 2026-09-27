@@ -1,5 +1,6 @@
 use gpui_kit::component::{
-    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
+    ActiveTheme, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
+    scroll::ScrollableElement as _,
 };
 use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div, prelude::*, px,
@@ -30,7 +31,7 @@ impl ObjectStorageView {
                 this.show_account_management(cx);
             }))
             .child(
-                Icon::new(IconName::HardDrive)
+                ramag_ui::icons::cloud()
                     .small()
                     .text_color(if manager_selected { foreground } else { muted }),
             )
@@ -52,7 +53,7 @@ impl ObjectStorageView {
             .id("object-workspace-tabs-scroll")
             .flex_1()
             .min_w_0()
-            .overflow_x_scroll();
+            .overflow_x_scrollbar();
         for id in &self.open_account_ids {
             let Some(account) = self.accounts.iter().find(|account| &account.id == id) else {
                 continue;

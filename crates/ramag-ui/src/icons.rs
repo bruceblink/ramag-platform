@@ -153,6 +153,54 @@ pub fn settings() -> Icon {
     Icon::default().path("icons/settings.svg")
 }
 
+/// Native SSH terminal icon; kept separate from generic server and console icons.
+#[inline]
+pub fn terminal() -> Icon {
+    Icon::default().path("icons/terminal.svg")
+}
+
+/// Container and image management icon.
+#[inline]
+pub fn container() -> Icon {
+    Icon::default().path("icons/container.svg")
+}
+
+/// Kafka topic and partition stream icon.
+#[inline]
+pub fn kafka() -> Icon {
+    Icon::default().path("icons/kafka.svg")
+}
+
+/// JSON and JSON Path structure icon.
+#[inline]
+pub fn json() -> Icon {
+    Icon::default().path("icons/json.svg")
+}
+
+/// Object storage provider icon.
+#[inline]
+pub fn cloud() -> Icon {
+    Icon::default().path("icons/cloud.svg")
+}
+
+/// Local collaboration and shared workspace icon.
+#[inline]
+pub fn users() -> Icon {
+    Icon::default().path("icons/users.svg")
+}
+
+/// Plugin catalog and extension icon.
+#[inline]
+pub fn plugin() -> Icon {
+    Icon::default().path("icons/plugin.svg")
+}
+
+/// Generic tool icon for a plugin that does not declare a known icon key.
+#[inline]
+pub fn toolbox() -> Icon {
+    Icon::default().path("icons/toolbox.svg")
+}
+
 #[inline]
 pub fn copy() -> Icon {
     Icon::default().path("icons/copy.svg")

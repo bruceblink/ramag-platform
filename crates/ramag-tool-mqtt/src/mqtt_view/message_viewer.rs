@@ -292,7 +292,7 @@ impl Render for MqttMessageViewer {
                     .w_full()
                     .min_w_0()
                     .h(px(content_height))
-                    .overflow_y_scroll()
+                    .overflow_y_scrollbar()
                     .p(px(12.0))
                     .bg(theme.background)
                     .child(self.render_payload(text, &theme, cx)),

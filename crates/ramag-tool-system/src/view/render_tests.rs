@@ -22,6 +22,46 @@ fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
     );
 }
 
+/// 通过生产订阅路径验证设置能更新已打开工具，且不重建监控状态。
+#[gpui_kit::test]
+fn monitor_settings_update_existing_view(cx: &mut TestAppContext) {
+    cx.update(|cx| {
+        gpui_kit::component::init(cx);
+        ramag_ui::set_monitor_settings(ramag_ui::MonitorSettings::default(), cx);
+    });
+    let mut entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| SystemView {
+            monitor: SystemMonitor::new(),
+            section: SystemSection::Performance,
+            termination_request: None,
+            termination_in_progress: false,
+            notice: None,
+            _settings_subscription: Some(super::super::observe_monitor_preferences(cx)),
+        });
+        entity = Some(view.clone());
+        Root::new(view, window, cx)
+    });
+    assert!(entity.is_some(), "monitor view missing");
+    let Some(view) = entity else { return };
+    visual_cx.update(|_, app| {
+        ramag_ui::set_monitor_settings(
+            ramag_ui::MonitorSettings {
+                refresh_rate: ramag_ui::MonitorRefreshRate::FiveSeconds,
+            },
+            app,
+        )
+    });
+    visual_cx.run_until_parked();
+    visual_cx.update(|_, app| {
+        assert_eq!(
+            view.read(app).monitor.refresh_interval(),
+            crate::RefreshInterval::FiveSeconds
+        )
+    });
+    assert!(visual_cx.debug_bounds("system-open-settings").is_some());
+}
+
 /// 在最窄支持宽度渲染真实视图，避免标题栏或任务表在组件边界外被裁切。
 #[gpui_kit::test]
 #[allow(clippy::expect_used)]
@@ -30,6 +70,7 @@ fn narrow_window_keeps_monitor_controls_and_process_table_inside_content(cx: &mu
     let (_, cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|_| SystemView {
             monitor: SystemMonitor::new(),
+            _settings_subscription: None,
             section: SystemSection::Processes,
             termination_request: None,
             termination_in_progress: false,
@@ -70,6 +111,7 @@ fn termination_confirmation_wraps_long_process_name_inside_supported_widths(
     let (_, cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|_| SystemView {
             monitor: SystemMonitor::new(),
+            _settings_subscription: None,
             section: SystemSection::Processes,
             termination_request: Some(TerminationRequest {
                 pid: 4242,
@@ -131,6 +173,7 @@ fn system_notice_wraps_long_message_inside_supported_widths(cx: &mut TestAppCont
     let (_, cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|_| SystemView {
             monitor: SystemMonitor::new(),
+            _settings_subscription: None,
             section: SystemSection::Processes,
             termination_request: None,
             termination_in_progress: false,
@@ -188,6 +231,7 @@ fn performance_layout_keeps_cpu_state_inside_parent_at_supported_widths(cx: &mut
         monitor.set_snapshot_for_test(snapshot);
         let view = cx.new(|_| SystemView {
             monitor,
+            _settings_subscription: None,
             section: SystemSection::Performance,
             termination_request: None,
             termination_in_progress: false,

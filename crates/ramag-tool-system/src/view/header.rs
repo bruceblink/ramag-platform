@@ -4,15 +4,13 @@ use gpui_kit::component::{
     ActiveTheme as _, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use gpui_kit::{
-    ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, SharedString, Styled,
-    Window, div, px,
+    ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Styled, Window, div, px,
 };
 
 use super::{SystemSection, SystemView};
-use crate::RefreshInterval;
 
 impl SystemView {
-    /// 根据窗口宽度重排标题和操作区，窄窗口仍保留刷新频率与立即刷新操作。
+    /// 根据窗口宽度重排标题和操作区，窄窗口保留状态、设置入口与立即刷新操作。
     pub(super) fn render_header(
         &self,
         window: &Window,
@@ -33,29 +31,20 @@ impl SystemView {
             cx,
         ));
 
-        let mut intervals = h_flex().gap(px(2.0));
-        for option in [
-            RefreshInterval::OneSecond,
-            RefreshInterval::TwoSeconds,
-            RefreshInterval::FiveSeconds,
-        ] {
-            let selected = option == interval;
-            let label = option.label();
-            let mut button = ramag_ui::clickable_button(SharedString::from(format!(
-                "system-interval-{}",
-                label
-            )))
-            .xsmall()
-            .label(label);
-            button = if selected {
-                button.primary()
-            } else {
-                button.ghost()
-            };
-            intervals = intervals.child(button.on_click(
-                cx.listener(move |this, _: &ClickEvent, _, cx| this.select_interval(option, cx)),
-            ));
-        }
+        let settings_button = ramag_ui::clickable_button("system-open-settings")
+            .debug_selector(|| "system-open-settings".into())
+            .ghost()
+            .small()
+            .icon(ramag_ui::icons::settings())
+            .tooltip("系统监控设置")
+            .on_click(|_, window, cx| {
+                window.dispatch_action(
+                    Box::new(ramag_ui::actions::OpenToolSettings {
+                        tool_id: "system".into(),
+                    }),
+                    cx,
+                );
+            });
         let theme = cx.theme();
 
         if window.viewport_size().width < px(720.0) {
@@ -115,7 +104,7 @@ impl SystemView {
                                         .text_color(theme.muted_foreground)
                                         .child(format!("刷新 {}", interval.status_label())),
                                 )
-                                .child(intervals)
+                                .child(settings_button)
                                 .child(
                                     ramag_ui::clickable_button("system-refresh")
                                         .ghost()
@@ -178,7 +167,7 @@ impl SystemView {
                             .text_color(theme.muted_foreground)
                             .child(format!("刷新 {}", interval.status_label())),
                     )
-                    .child(intervals)
+                    .child(settings_button)
                     .child(
                         ramag_ui::clickable_button("system-refresh")
                             .ghost()

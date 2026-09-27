@@ -57,6 +57,7 @@ pub(super) fn render_response(
         .min_w_0()
         .overflow_y_scroll()
         .track_scroll(&view.response_scroll)
+        .vertical_scrollbar(&view.response_scroll)
         .gap(px(8.0))
         .p(px(12.0))
         .border_1()

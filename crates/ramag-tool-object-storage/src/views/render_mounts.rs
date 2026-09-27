@@ -2,7 +2,7 @@
 
 use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Selectable as _, Sizable as _, StyledExt as _,
-    button::ButtonVariants as _, h_flex, v_flex,
+    button::ButtonVariants as _, h_flex, scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
     AnyElement, Context, IntoElement, ParentElement, SharedString, StatefulInteractiveElement as _,
@@ -181,7 +181,7 @@ impl ObjectStorageView {
                     .id("object-mounts-scroll")
                     .flex_1()
                     .min_h_0()
-                    .overflow_y_scroll()
+                    .overflow_y_scrollbar()
                     .child(rows),
             )
             .child(

@@ -4,6 +4,7 @@ use gpui_kit::component::{
     h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
     resizable::{h_resizable, resizable_panel},
+    scroll::ScrollableElement as _,
     v_flex,
 };
 use gpui_kit::{
@@ -40,7 +41,7 @@ impl ObjectStorageView {
             .flex_1()
             .min_w_0()
             .gap(px(5.0))
-            .overflow_x_scroll();
+            .overflow_x_scrollbar();
         for (index, (label, target)) in parts.into_iter().enumerate() {
             if index > 0 {
                 path_parts = path_parts.child(

@@ -279,7 +279,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                             window,
                             cx,
                         );
-                    shell.set_home_view(home_view.clone().into());
+                    shell.set_home_view(home_view.clone(), window, cx);
                     shell.set_settings_view(settings_view.clone().into());
                     shell.register_tool_view(DbClientTool::ID, dbclient_view.clone().into());
                     shell.register_tool_view(ApiTool::ID, api_view.into());
@@ -296,17 +296,6 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     shell.register_tool_view(SystemTool::ID, system_view.into());
                     shell.register_tool_view(JsonPathTool::ID, json_path_view.into());
                     shell.register_tool_view(CollaborationTool::ID, collaboration_view.into());
-
-                    let home_subscription: Subscription = cx.subscribe_in(
-                        &home_view,
-                        window,
-                        move |this: &mut Shell, _, event: &HomeEvent, window, cx| match event {
-                            HomeEvent::OpenTool(tool_id) => {
-                                this.navigate_to(NavTarget::Tool(tool_id.clone()), window, cx);
-                            }
-                        },
-                    );
-                    shell.retain_subscription(home_subscription);
 
                     shell
                 });
@@ -407,6 +396,7 @@ mod tests {
             true,
             SystemSettings {
                 minimize_to_tray: true,
+                ..Default::default()
             }
         ));
     }
@@ -418,6 +408,7 @@ mod tests {
                 true,
                 SystemSettings {
                     minimize_to_tray: true,
+                    ..Default::default()
                 }
             ),
             gpui_kit::QuitMode::Explicit
@@ -427,6 +418,7 @@ mod tests {
                 false,
                 SystemSettings {
                     minimize_to_tray: true,
+                    ..Default::default()
                 }
             ),
             gpui_kit::QuitMode::Default

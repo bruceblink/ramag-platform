@@ -1,6 +1,6 @@
 use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
-    h_flex, v_flex,
+    h_flex, scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, Window, div, img,
@@ -11,6 +11,8 @@ use ramag_domain::entities::{
 };
 
 use super::SshView;
+
+pub(super) use super::render_manager_helpers::{centered_message, environment_badge_colors};
 
 const CONTENT_MAX_W: f32 = 1080.0;
 
@@ -48,8 +50,9 @@ impl SshView {
 
         let header_inner = h_flex()
             .w_full()
+            .min_w_0()
             .items_center()
-            .gap(px(16.0))
+            .gap(px(8.0))
             .child(
                 div()
                     .id("ssh-profile-search")
@@ -113,9 +116,9 @@ impl SshView {
         let header = h_flex()
             .w_full()
             .justify_center()
-            .px(px(24.0))
-            .pt(px(22.0))
-            .pb(px(16.0))
+            .bg(cx.theme().secondary)
+            .px(px(12.0))
+            .py(px(8.0))
             .border_b_1()
             .border_color(border)
             .child(div().w_full().max_w(px(CONTENT_MAX_W)).child(header_inner));
@@ -147,9 +150,29 @@ impl SshView {
                 .into_any_element()
         } else if total == 0 {
             v_flex()
+                .id("ssh-empty-state")
+                .debug_selector(|| "ssh-empty-state".into())
                 .size_full()
                 .items_center()
                 .justify_center()
+                .gap(px(10.0))
+                .child(
+                    ramag_ui::icons::terminal()
+                        .small()
+                        .text_color(cx.theme().accent),
+                )
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .child("还没有 SSH 连接"),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(muted)
+                        .child("创建一个连接后，可在这里打开终端、文件和传输任务"),
+                )
                 .child(
                     ramag_ui::clickable_button("empty-add-ssh-profile")
                         .primary()
@@ -175,7 +198,7 @@ impl SshView {
             div()
                 .id("ssh-profile-list-scroll")
                 .size_full()
-                .overflow_y_scroll()
+                .overflow_y_scrollbar()
                 .py(px(10.0))
                 .child(
                     h_flex()
@@ -428,14 +451,6 @@ impl SshView {
     }
 }
 
-fn centered_message(message: &'static str, color: gpui_kit::Hsla) -> impl IntoElement {
-    v_flex()
-        .size_full()
-        .items_center()
-        .justify_center()
-        .child(div().text_sm().text_color(color).child(message))
-}
-
 fn profile_matches_query(profile: &SshProfile, query: &str) -> bool {
     contains_case_insensitive(&profile.name, query)
         || contains_case_insensitive(&profile.host, query)
@@ -570,21 +585,6 @@ fn status_badge(
         slot = slot.child(div().text_xs().text_color(foreground).child(label));
     }
     slot
-}
-
-pub(super) fn environment_badge_colors(
-    environment: &str,
-    fallback: gpui_kit::Hsla,
-) -> (gpui_kit::Hsla, gpui_kit::Hsla) {
-    let foreground = match environment.trim().to_ascii_lowercase().as_str() {
-        "dev" => gpui_kit::hsla(140.0 / 360.0, 0.55, 0.42, 1.0),
-        "test" => gpui_kit::hsla(35.0 / 360.0, 0.80, 0.45, 1.0),
-        "prod" => gpui_kit::hsla(0.0, 0.70, 0.55, 1.0),
-        _ => fallback,
-    };
-    let mut background = foreground;
-    background.a = 0.12;
-    (foreground, background)
 }
 
 #[cfg(test)]

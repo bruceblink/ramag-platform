@@ -3,7 +3,9 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use gpui_kit::component::{ActiveTheme, Sizable as _, h_flex, v_flex};
+use gpui_kit::component::{
+    ActiveTheme, Sizable as _, h_flex, scroll::ScrollableElement as _, v_flex,
+};
 use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div, img, prelude::*, px,
 };
@@ -49,6 +51,8 @@ impl ClipboardView {
                     .flex_1()
                     .min_h_0()
                     .overflow_y_scroll()
+                    .track_scroll(&self.detail_scroll)
+                    .vertical_scrollbar(&self.detail_scroll)
                     .child(body),
             )
             .children(actions)

@@ -1,4 +1,6 @@
-use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex, v_flex};
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, Sizable as _, h_flex, scroll::ScrollableElement as _, v_flex,
+};
 use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString,
     StatefulInteractiveElement as _, Styled, Window, div, hsla, prelude::*, px,
@@ -10,11 +12,12 @@ impl SettingsPage {
     fn icon(self) -> Icon {
         match self {
             Self::System => crate::icons::settings(),
+            Self::Monitor => crate::icons::gauge(),
             Self::Database => crate::icons::database(),
             Self::VersionControl => crate::icons::git_branch(),
             Self::Ssh => crate::activity_bar::ActivityBar::icon_for_tool("ssh"),
             Self::ObjectStorage => {
-                crate::activity_bar::ActivityBar::icon_for_tool("object-storage")
+                crate::activity_bar::ActivityBar::icon_for_tool("object_storage")
             }
             Self::Plugins => crate::activity_bar::ActivityBar::icon_for_tool("plugin"),
             Self::Update => Icon::new(IconName::Info),
@@ -65,6 +68,8 @@ impl SettingsView {
                                 this.clear_database_converter_test(window, cx);
                             }
                             this.selected_page = page;
+                            this.page_scroll
+                                .set_offset(gpui_kit::point(px(0.0), px(0.0)));
                             cx.notify();
                         }
                     }),
@@ -72,7 +77,13 @@ impl SettingsView {
                 .into_any_element(),
             );
         }
-        settings_navigation_shell(compact, theme.sidebar, theme.border, children)
+        settings_navigation_shell(
+            compact,
+            theme.sidebar,
+            theme.border,
+            children,
+            &self.navigation_scroll,
+        )
     }
 
     pub(super) fn render_selected_page(
@@ -84,6 +95,7 @@ impl SettingsView {
         let page = self.selected_page;
         let content = match page {
             SettingsPage::System => self.render_system_page(cx),
+            SettingsPage::Monitor => self.render_monitor_page(cx),
             SettingsPage::Database => self.render_database_page(cx),
             SettingsPage::VersionControl => managed_in_module_card("Git 配置", cx),
             SettingsPage::Ssh => self.render_ssh_page(cx),
@@ -97,6 +109,8 @@ impl SettingsView {
             .size_full()
             .id("settings-page-scroll")
             .overflow_y_scroll()
+            .track_scroll(&self.page_scroll)
+            .vertical_scrollbar(&self.page_scroll)
             .child(
                 v_flex()
                     .w_full()
@@ -140,6 +154,7 @@ fn settings_navigation_shell(
     sidebar: gpui_kit::Hsla,
     border: gpui_kit::Hsla,
     children: Vec<AnyElement>,
+    scroll: &gpui_kit::ScrollHandle,
 ) -> impl IntoElement {
     let title = div()
         .id("settings-navigation-title")
@@ -161,6 +176,8 @@ fn settings_navigation_shell(
             .items_start()
             .gap(px(4.0))
             .overflow_x_scroll()
+            .track_scroll(scroll)
+            .horizontal_scrollbar(scroll)
             .px(px(8.0))
             .py(px(8.0))
             .bg(sidebar)
@@ -168,6 +185,7 @@ fn settings_navigation_shell(
             .border_color(border)
             .child(title)
             .children(children)
+            .into_any_element()
     } else {
         v_flex()
             .id("settings-navigation")
@@ -179,11 +197,16 @@ fn settings_navigation_shell(
             .flex_none()
             .p(px(16.0))
             .gap(px(4.0))
+            .min_h_0()
+            .overflow_y_scroll()
+            .track_scroll(scroll)
+            .vertical_scrollbar(scroll)
             .bg(sidebar)
             .border_r_1()
             .border_color(border)
             .child(title)
             .children(children)
+            .into_any_element()
     }
 }
 
@@ -275,6 +298,7 @@ mod tests {
 
     struct SettingsNavigationTestHost {
         selected_page: SettingsPage,
+        scroll: gpui_kit::ScrollHandle,
     }
 
     impl Render for SettingsNavigationTestHost {
@@ -321,6 +345,7 @@ mod tests {
                                 theme.sidebar,
                                 theme.border,
                                 children,
+                                &self.scroll,
                             ),
                             div()
                                 .id("settings-test-page")
@@ -341,6 +366,7 @@ mod tests {
         cx.update(gpui_kit::component::init);
         let (_, visual_cx) = cx.add_window_view(|_, _| SettingsNavigationTestHost {
             selected_page: SettingsPage::System,
+            scroll: gpui_kit::ScrollHandle::new(),
         });
 
         for (width, height) in [(360.0, 520.0), (1024.0, 520.0), (1440.0, 520.0)] {
@@ -410,6 +436,7 @@ mod tests {
         cx.update(gpui_kit::component::init);
         let (host, visual_cx) = cx.add_window_view(|_, _| SettingsNavigationTestHost {
             selected_page: SettingsPage::System,
+            scroll: gpui_kit::ScrollHandle::new(),
         });
         visual_cx.simulate_resize(size(px(1024.0), px(520.0)));
         visual_cx.run_until_parked();

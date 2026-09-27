@@ -2,11 +2,11 @@
 
 use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
-    h_flex, v_flex,
+    h_flex, scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Render,
-    SharedString, StatefulInteractiveElement, Styled, Window, div, px,
+    SharedString, Styled, Window, div, px,
 };
 
 use super::helpers::{
@@ -544,7 +544,7 @@ impl Render for SystemView {
                 .w_full()
                 .flex_1()
                 .min_h_0()
-                .overflow_y_scroll()
+                .overflow_y_scrollbar()
                 .child(content),
         )
     }

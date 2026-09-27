@@ -1,6 +1,6 @@
 use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
-    h_flex,
+    h_flex, scroll::ScrollableElement as _,
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
@@ -16,12 +16,10 @@ impl VcsView {
         let fg = theme.foreground;
         let muted_fg = theme.muted_foreground;
         let border = theme.border;
-        let mut tab_bar_bg = theme.sidebar;
-        tab_bar_bg.l = (tab_bar_bg.l + 0.01).min(1.0);
+        let tab_bar_bg = theme.tab_bar;
         let muted_bg = theme.muted;
         let accent = theme.accent;
-        let mut accent_bg = theme.accent;
-        accent_bg.a = 0.15;
+        let accent_bg = theme.list_active;
         let on_list = matches!(self.active_view, ActiveView::RepoList);
 
         let mut bar = h_flex()
@@ -66,7 +64,8 @@ impl VcsView {
             .flex_1()
             .min_w_0()
             .overflow_x_scroll()
-            .track_scroll(&self.repos_scroll);
+            .track_scroll(&self.repos_scroll)
+            .horizontal_scrollbar(&self.repos_scroll);
         for repo in &self.open_repos {
             let is_active = !on_list
                 && self

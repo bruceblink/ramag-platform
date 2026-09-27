@@ -41,10 +41,46 @@ pub fn apply_theme(mode: Mode, cx: &mut App) {
             apply_light_palette(Theme::global_mut(cx));
         }
     }
+    normalize_component_palette(Theme::global_mut(cx));
     // 命令编辑器背景对齐主背景：gpui 默认 editor.background 是纯黑，浮在主背景上显突兀
     normalize_editor_highlight_theme(mode, cx);
     // 结果表和其它需要明确可发现性的内容区域会自行挂载滚动条；统一恢复可见轨道和滑块。
     configure_scrollbar_paint(Theme::global_mut(cx));
+    crate::system_settings::apply_display_settings(cx);
+}
+
+/// 从工作区语义色派生通用组件状态，防止上游默认主题与 Ramag 面板混色。
+/// 切换主题时重新赋值；选择态保留正文色，焦点与活动边框使用强调色。
+fn normalize_component_palette(theme: &mut Theme) {
+    theme.secondary_hover = theme.muted;
+    theme.secondary_active = theme.list_active;
+    theme.ring = theme.accent;
+    theme.accordion = theme.secondary;
+    theme.sidebar_foreground = theme.foreground;
+    theme.sidebar_border = theme.border;
+    theme.sidebar_accent = theme.list_active;
+    theme.sidebar_accent_foreground = theme.foreground;
+    theme.sidebar_primary = theme.primary;
+    theme.sidebar_primary_foreground = theme.primary_foreground;
+    theme.tab = theme.secondary;
+    theme.tab_bar = theme.secondary;
+    theme.tab_bar_segmented = theme.muted;
+    theme.tab_active = theme.background;
+    theme.tab_foreground = theme.muted_foreground;
+    theme.tab_active_foreground = theme.foreground;
+    theme.colors.list = theme.background;
+    theme.list_even = theme.secondary;
+    theme.list_head = theme.secondary;
+    theme.table = theme.background;
+    theme.table_even = theme.secondary;
+    theme.table_head = theme.secondary;
+    theme.table_head_foreground = theme.foreground;
+    theme.table_foot = theme.secondary;
+    theme.table_foot_foreground = theme.muted_foreground;
+    theme.table_hover = theme.list_hover;
+    theme.table_active = theme.list_active;
+    theme.table_active_border = theme.list_active_border;
+    theme.table_row_border = theme.border.opacity(0.45);
 }
 
 /// 切换浅色 / 深色主题，立即刷新全部窗口并把最终选择异步写入 Storage。
@@ -53,6 +89,11 @@ pub fn toggle_theme(cx: &mut App) {
         Mode::Light => Mode::Dark,
         Mode::Dark => Mode::Light,
     };
+    set_theme_preference(next, cx);
+}
+
+/// 设置页与快捷主题按钮共用同一存储键，避免保存两个互相覆盖的主题偏好。
+pub fn set_theme_preference(next: Mode, cx: &mut App) {
     apply_theme(next, cx);
     cx.refresh_windows();
     let preference = match next {

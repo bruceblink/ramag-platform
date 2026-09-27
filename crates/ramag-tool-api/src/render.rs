@@ -3,6 +3,7 @@ use super::render_helpers::{render_context_editor, render_history, render_reques
 use super::*;
 use gpui_kit::ClickEvent;
 use gpui_kit::FontWeight;
+use gpui_kit::component::scroll::ScrollableElement as _;
 
 #[path = "render_sidebar_requests.rs"]
 mod render_sidebar_requests;
@@ -54,7 +55,9 @@ pub(super) fn render(
         .min_h_0()
         .bg(theme.background)
         .when(compact_height, |root| {
-            root.overflow_y_scroll().track_scroll(&view.layout_scroll)
+            root.overflow_y_scroll()
+                .track_scroll(&view.layout_scroll)
+                .vertical_scrollbar(&view.layout_scroll)
         })
         .child(render_header(view, cx, &theme))
         .child(content)
@@ -69,6 +72,7 @@ fn render_header(
     h_flex()
         .id("api-header")
         .debug_selector(|| "api-header".into())
+        .bg(theme.secondary)
         .w_full()
         .min_w_0()
         .flex_none()
@@ -118,6 +122,7 @@ fn render_sidebar(
     v_flex()
         .id("api-sidebar")
         .debug_selector(|| "api-sidebar".into())
+        .bg(theme.sidebar)
         .w(px(API_SIDEBAR_WIDTH))
         .flex_none()
         .min_h_0()
@@ -132,6 +137,8 @@ fn render_sidebar(
         })
         .when(!stacked, |sidebar| sidebar.h_full())
         .overflow_y_scroll()
+        .track_scroll(&view.sidebar_scroll)
+        .vertical_scrollbar(&view.sidebar_scroll)
         .gap(px(10.0))
         .p(px(12.0))
         .border_r_1()
@@ -252,6 +259,8 @@ fn render_editor(
         .min_w_0()
         .min_h_0()
         .overflow_y_scroll()
+        .track_scroll(&view.request_scroll)
+        .vertical_scrollbar(&view.request_scroll)
         .gap(px(10.0))
         .p(px(14.0))
         .child(

@@ -4,7 +4,7 @@ use std::sync::atomic::Ordering;
 
 use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
-    v_flex,
+    scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
@@ -111,7 +111,7 @@ impl ObjectStorageView {
                     .id("object-transfer-scroll")
                     .w_full()
                     .max_h(px(324.0))
-                    .overflow_y_scroll()
+                    .overflow_y_scrollbar()
                     .child(rows),
             )
             .into_any_element()

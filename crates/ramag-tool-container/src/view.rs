@@ -7,6 +7,7 @@ use gpui_kit::component::{
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputState},
+    scroll::ScrollableElement as _,
     v_flex,
 };
 use gpui_kit::{
@@ -653,6 +654,7 @@ impl Render for ContainerView {
         let navigation = v_flex()
             .id("container-resource-nav")
             .debug_selector(|| "container-resource-nav".into())
+            .bg(theme.sidebar)
             .w(px(176.0))
             .flex_none()
             .gap(px(4.0))
@@ -721,7 +723,7 @@ impl ContainerView {
             .flex_1()
             .min_w_0()
             .min_h_0()
-            .overflow_y_scroll()
+            .overflow_y_scrollbar()
             .p(px(20.0))
             .gap(px(12.0));
         let loading = self.loading || self.registry_loading;

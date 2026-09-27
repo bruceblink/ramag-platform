@@ -82,8 +82,14 @@ pub use settings_view::SettingsView;
 pub use shell::{Shell, WindowBoundsPref};
 pub use shortcuts_dialog::open_shortcuts;
 pub use system_settings::{
-    SYSTEM_SETTINGS_PREF_KEY, SystemSettings, SystemSettingsGlobal, init_system_settings,
-    set_system_settings, system_settings,
+    InterfaceTextSize, SYSTEM_SETTINGS_PREF_KEY, ScrollbarVisibility, SystemSettings,
+    SystemSettingsGlobal, init_system_settings, save_system_settings, set_system_settings,
+    system_settings,
+};
+pub mod monitor_settings;
+pub use monitor_settings::{
+    MONITOR_SETTINGS_PREF_KEY, MonitorRefreshRate, MonitorSettings, MonitorSettingsGlobal,
+    init_monitor_settings, monitor_settings, save_monitor_settings, set_monitor_settings,
 };
 pub use theme::{Mode, StorageGlobal, apply_theme, current_mode, init_theme};
 pub use transfer_ui::{
@@ -162,6 +168,7 @@ pub fn responsive_toolbar() -> gpui_kit::Div {
     h_flex()
         .w_full()
         .min_w_0()
+        .min_h(px(WORKBENCH_TOOLBAR_HEIGHT))
         .flex_wrap()
         .items_center()
         .gap(px(8.0))
@@ -551,50 +558,4 @@ mod dialog_layout_tests;
 mod shell_visual_tests;
 
 #[cfg(test)]
-mod input_limit_tests {
-    use super::{
-        byte_prefix, clickable_button, clickable_checkbox, clickable_switch,
-        menu_item_with_disabled,
-    };
-    use gpui_kit::component::menu::PopupMenuItem;
-    use gpui_kit::{CursorStyle, Styled as _};
-
-    #[test]
-    fn byte_prefix_preserves_utf8_boundaries() {
-        assert_eq!(byte_prefix("你好世界", 7), "你好");
-        assert_eq!(byte_prefix("abc", 99), "abc");
-        assert_eq!(byte_prefix("abc", 0), "");
-    }
-
-    #[test]
-    fn clickable_components_use_pointing_hand_cursor() {
-        let mut button = clickable_button("cursor-test-button");
-        let mut checkbox = clickable_checkbox("cursor-test-checkbox");
-        let mut switch = clickable_switch("cursor-test-switch");
-
-        assert_eq!(button.style().mouse_cursor, Some(CursorStyle::PointingHand));
-        assert_eq!(
-            checkbox.style().mouse_cursor,
-            Some(CursorStyle::PointingHand)
-        );
-        assert_eq!(switch.style().mouse_cursor, Some(CursorStyle::PointingHand));
-    }
-
-    #[test]
-    fn menu_item_preserves_disabled_state() {
-        let enabled = menu_item_with_disabled("enabled", false);
-        let disabled = menu_item_with_disabled("disabled", true);
-
-        assert!(matches!(
-            enabled,
-            PopupMenuItem::ElementItem {
-                disabled: false,
-                ..
-            }
-        ));
-        assert!(matches!(
-            disabled,
-            PopupMenuItem::ElementItem { disabled: true, .. }
-        ));
-    }
-}
+mod input_limit_tests;

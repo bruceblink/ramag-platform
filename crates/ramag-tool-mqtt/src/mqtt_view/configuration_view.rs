@@ -157,7 +157,7 @@ impl MqttView {
                     .id("mqtt-profile-list-scroll")
                     .w_full()
                     .min_h_0()
-                    .overflow_y_scroll()
+                    .overflow_y_scrollbar()
                     .child(rows),
             )
             .child(
@@ -482,7 +482,7 @@ impl MqttView {
             .w_full()
             .min_w_0()
             .h_full()
-            .overflow_y_scroll()
+            .overflow_y_scrollbar()
             .p(px(16.0))
             .child(content)
     }

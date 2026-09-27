@@ -1,5 +1,6 @@
 mod clipboard;
 mod database;
+mod monitor;
 mod pages;
 mod ssh;
 mod system;
@@ -68,6 +69,7 @@ where
 enum SettingsPage {
     #[default]
     System,
+    Monitor,
     Database,
     VersionControl,
     Ssh,
@@ -78,8 +80,9 @@ enum SettingsPage {
 }
 
 impl SettingsPage {
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 9] = [
         Self::System,
+        Self::Monitor,
         Self::Database,
         Self::VersionControl,
         Self::Ssh,
@@ -92,6 +95,7 @@ impl SettingsPage {
     fn id(self) -> &'static str {
         match self {
             Self::System => "system",
+            Self::Monitor => "monitor",
             Self::Database => "database",
             Self::VersionControl => "version-control",
             Self::Ssh => "ssh",
@@ -105,6 +109,7 @@ impl SettingsPage {
     fn title(self) -> &'static str {
         match self {
             Self::System => "系统设置",
+            Self::Monitor => "系统监控",
             Self::Database => "数据库客户端",
             Self::VersionControl => "版本管理",
             Self::Ssh => "SSH 管理",
@@ -117,7 +122,8 @@ impl SettingsPage {
 
     fn description(self) -> &'static str {
         match self {
-            Self::System => "应用行为",
+            Self::System => "外观、滚动与窗口",
+            Self::Monitor => "采样与刷新",
             Self::Database => "连接与搜索",
             Self::VersionControl => "Git 行为",
             Self::Ssh => "SSH 与 SFTP",
@@ -165,7 +171,8 @@ enum DatabaseConverterTestDirection {
 
 pub struct SettingsView {
     selected_page: SettingsPage,
-    system_settings: crate::SystemSettings,
+    navigation_scroll: gpui_kit::ScrollHandle,
+    page_scroll: gpui_kit::ScrollHandle,
     clipboard_service: Option<Arc<ClipboardService>>,
     connection_service: Arc<ConnectionService>,
     ssh_service: Arc<SshService>,
@@ -211,7 +218,6 @@ impl SettingsView {
         let update_indicator_subscription =
             cx.observe_global::<crate::activity_bar::UpdateIndicatorGlobal>(|_, cx| cx.notify());
         let plugin_diagnostics = cx.new(|_| PluginDiagnosticsView::new(plugin_host));
-        let system_settings = crate::system_settings(cx);
         let (clipboard, loaded_revision) = clipboard_service
             .as_ref()
             .map(|service| service.settings_snapshot_with_revision())
@@ -339,7 +345,8 @@ impl SettingsView {
 
         Self {
             selected_page: SettingsPage::default(),
-            system_settings,
+            navigation_scroll: gpui_kit::ScrollHandle::new(),
+            page_scroll: gpui_kit::ScrollHandle::new(),
             clipboard_service,
             connection_service,
             ssh_service,
@@ -423,6 +430,36 @@ impl Render for SettingsView {
         let navigation = self.render_navigation(window, cx).into_any_element();
         let content = self.render_selected_page(window, cx);
         render_settings_layout(compact, navigation, content)
+    }
+}
+
+impl SettingsView {
+    /// 按工具 ID 选择已有设置页；切换时清理数据库临时测试，不复制连接配置。
+    pub(crate) fn open_tool_page(
+        &mut self,
+        tool_id: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let next = match tool_id {
+            "system" => SettingsPage::Monitor,
+            "dbclient" | "redis" => SettingsPage::Database,
+            "ssh" => SettingsPage::Ssh,
+            "clipboard" => SettingsPage::Clipboard,
+            "vcs" => SettingsPage::VersionControl,
+            "object_storage" | "object-storage" => SettingsPage::ObjectStorage,
+            _ => SettingsPage::System,
+        };
+        if self
+            .selected_page
+            .clears_database_test_when_switching_to(next)
+        {
+            self.clear_database_converter_test(window, cx);
+        }
+        self.selected_page = next;
+        self.page_scroll
+            .set_offset(gpui_kit::point(gpui_kit::px(0.0), gpui_kit::px(0.0)));
+        cx.notify();
     }
 }
 

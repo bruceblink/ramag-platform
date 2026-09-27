@@ -1,6 +1,8 @@
 use super::*;
 
-use gpui_kit::component::{Disableable as _, button::ButtonVariants as _};
+use gpui_kit::component::{
+    Disableable as _, button::ButtonVariants as _, scroll::ScrollableElement as _,
+};
 use gpui_kit::{ClickEvent, FontWeight};
 
 pub(super) fn render_editor(
@@ -132,7 +134,7 @@ fn render_catalog(
             .w_full()
             .min_w_0()
             .max_h(px(220.0))
-            .overflow_y_scroll()
+            .overflow_y_scrollbar()
             .gap(px(6.0));
         for (service_index, service) in view.grpc_services.iter().take(32).enumerate() {
             let mut methods = h_flex().w_full().min_w_0().flex_wrap().gap(px(4.0));

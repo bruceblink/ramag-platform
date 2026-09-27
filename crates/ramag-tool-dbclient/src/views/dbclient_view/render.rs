@@ -1,7 +1,8 @@
 //! DbClientView 渲染：顶部连接 Tab Bar + 中心内容（picker / session）
 
 use gpui_kit::component::{
-    ActiveTheme, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+    ActiveTheme, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
+    scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
     AnyView, ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window,
@@ -147,7 +148,8 @@ impl Render for DbClientView {
             .flex_1()
             .min_w_0()
             .overflow_x_scroll()
-            .track_scroll(&self.sessions_scroll);
+            .track_scroll(&self.sessions_scroll)
+            .horizontal_scrollbar(&self.sessions_scroll);
 
         for info in session_titles {
             let TabInfo {

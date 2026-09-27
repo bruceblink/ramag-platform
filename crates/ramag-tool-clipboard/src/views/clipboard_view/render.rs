@@ -1,6 +1,6 @@
 use gpui_kit::component::{
     ActiveTheme, Selectable as _, Sizable as _, button::ButtonVariants as _, h_flex, input::Input,
-    v_flex,
+    scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, Render, SharedString,
@@ -56,6 +56,8 @@ impl Render for ClipboardView {
                 div()
                     .flex_1()
                     .min_h_0()
+                    .relative()
+                    .vertical_scrollbar(&self.list_scroll)
                     .child(self.render_list(visible, cx)),
             )
             .child(
@@ -93,7 +95,12 @@ impl Render for ClipboardView {
                     .min_w_0()
                     .min_h_0()
                     .when(compact, |content| {
-                        content.flex_col().items_stretch().overflow_y_scroll()
+                        content
+                            .flex_col()
+                            .items_stretch()
+                            .overflow_y_scroll()
+                            .track_scroll(&self.content_scroll)
+                            .vertical_scrollbar(&self.content_scroll)
                     })
                     .child(list_pane)
                     .child(detail_pane),

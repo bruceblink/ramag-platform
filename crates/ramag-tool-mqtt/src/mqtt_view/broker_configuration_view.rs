@@ -194,7 +194,7 @@ impl MqttView {
             .w_full()
             .min_w_0()
             .h_full()
-            .overflow_y_scroll()
+            .overflow_y_scrollbar()
             .p(px(16.0))
             .child(body)
     }

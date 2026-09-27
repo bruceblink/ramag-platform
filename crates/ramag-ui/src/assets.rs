@@ -68,4 +68,31 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn embeds_all_builtin_tool_icons() {
+        for path in [
+            "icons/database.svg",
+            "icons/git-branch.svg",
+            "icons/clipboard.svg",
+            "icons/terminal.svg",
+            "icons/gauge.svg",
+            "icons/container.svg",
+            "icons/kafka.svg",
+            "icons/mqtt.svg",
+            "icons/api.svg",
+            "icons/json.svg",
+            "icons/cloud.svg",
+            "icons/users.svg",
+            "icons/plugin.svg",
+            "icons/globe.svg",
+            "icons/hash.svg",
+            "icons/toolbox.svg",
+        ] {
+            assert!(
+                RamagAssets.load(path).ok().flatten().is_some(),
+                "missing asset: {path}"
+            );
+        }
+    }
 }

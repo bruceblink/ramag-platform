@@ -6,6 +6,7 @@ use gpui_kit::component::{
     button::ButtonVariants as _,
     h_flex,
     resizable::{h_resizable, resizable_panel},
+    scroll::ScrollableElement as _,
     v_flex,
 };
 use gpui_kit::{
@@ -150,7 +151,7 @@ impl SshView {
             .flex_1()
             .min_w_0()
             .gap(px(5.0))
-            .overflow_x_scroll();
+            .overflow_x_scrollbar();
         for (index, (label, target)) in parts.into_iter().enumerate() {
             if index > 0 {
                 path_parts = path_parts.child(
@@ -262,7 +263,7 @@ impl SshView {
             .gap(px(4.0))
             .px(px(8.0))
             .py(px(2.0))
-            .overflow_x_scroll();
+            .overflow_x_scrollbar();
         for (terminal_id, fallback_label, terminal) in &terminal_views {
             let id = *terminal_id;
             let id_for_close = id;

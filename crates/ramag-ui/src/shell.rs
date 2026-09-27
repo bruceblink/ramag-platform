@@ -224,8 +224,23 @@ impl Shell {
         .detach();
     }
 
-    pub fn set_home_view(&mut self, view: AnyView) {
-        self.home_view = Some(view);
+    pub fn set_home_view(
+        &mut self,
+        view: Entity<crate::HomeView>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let subscription = cx.subscribe_in(
+            &view,
+            window,
+            |this, _, event: &crate::HomeEvent, window, cx| match event {
+                crate::HomeEvent::OpenTool(tool_id) => {
+                    this.navigate_to(NavTarget::Tool(tool_id.clone()), window, cx);
+                }
+            },
+        );
+        self.retain_subscription(subscription);
+        self.home_view = Some(view.into());
     }
 
     pub fn set_settings_view(&mut self, view: AnyView) {
@@ -333,12 +348,37 @@ impl Render for Shell {
             .on_click(|_, _, cx| crate::theme::toggle_theme(cx));
 
         let shell_label = self.window_title();
+        let settings_tool = self.selected.clone().filter(|id| {
+            matches!(
+                id.as_str(),
+                "dbclient" | "ssh" | "clipboard" | "vcs" | "object_storage"
+            )
+        });
 
         v_flex()
             .size_full()
             .bg(bg_color)
             .text_color(fg_color)
             .key_context("Shell")
+            .on_action(
+                cx.listener(|this, action: &crate::actions::OpenTool, window, cx| {
+                    this.navigate_to(NavTarget::Tool(action.tool_id.clone()), window, cx);
+                }),
+            )
+            .on_action(cx.listener(
+                |this, action: &crate::actions::OpenToolSettings, window, cx| {
+                    if let Some(view) = this
+                        .settings_view
+                        .clone()
+                        .and_then(|view| view.downcast::<crate::SettingsView>().ok())
+                    {
+                        view.update(cx, |settings, cx| {
+                            settings.open_tool_page(&action.tool_id, window, cx)
+                        });
+                        this.navigate_to(NavTarget::Settings, window, cx);
+                    }
+                },
+            ))
             .child(
                 h_flex()
                     .flex_1()
@@ -373,6 +413,25 @@ impl Render for Shell {
                                             .text_color(cx.theme().secondary_foreground)
                                             .child(shell_label),
                                     )
+                                    .when_some(settings_tool, |header, tool_id| {
+                                        header.child(
+                                            crate::clickable_button("shell-tool-settings")
+                                                .debug_selector(|| "shell-tool-settings".into())
+                                                .ghost()
+                                                .icon(crate::icons::settings())
+                                                .tooltip("当前工具设置")
+                                                .on_click(move |_, window, cx| {
+                                                    window.dispatch_action(
+                                                        Box::new(
+                                                            crate::actions::OpenToolSettings {
+                                                                tool_id: tool_id.clone(),
+                                                            },
+                                                        ),
+                                                        cx,
+                                                    )
+                                                }),
+                                        )
+                                    })
                                     .child(theme_toggle),
                             )
                             .child(
@@ -423,115 +482,5 @@ fn render_view_missing(cx: &Context<Shell>) -> impl IntoElement {
 }
 
 #[cfg(test)]
-mod tests {
-    #![allow(clippy::expect_used, clippy::unwrap_used)]
-
-    use std::sync::Arc;
-
-    use gpui_kit::{
-        AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, TestAppContext,
-        VisualTestContext, Window, div, px, size,
-    };
-    use ramag_app::{DataSyncGate, StaticPluginHost, ToolRegistry};
-    use ramag_domain::{PluginDescriptor, PluginEntryDescriptor, PluginId, Tool, ToolMeta};
-
-    use super::{Shell, WindowBoundsPref};
-
-    struct DummyTool {
-        meta: ToolMeta,
-    }
-
-    impl Tool for DummyTool {
-        fn meta(&self) -> &ToolMeta {
-            &self.meta
-        }
-    }
-
-    struct ShellHost {
-        shell: Entity<Shell>,
-    }
-
-    impl Render for ShellHost {
-        fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-            div().size_full().child(self.shell.clone())
-        }
-    }
-
-    #[test]
-    fn window_bounds_reject_invalid_values() {
-        assert!(
-            WindowBoundsPref::parse(
-                r#"{"x":10.0,"y":20.0,"w":1200.0,"h":780.0,"maximized":false}"#
-            )
-            .is_ok()
-        );
-        assert!(
-            WindowBoundsPref::parse(r#"{"x":10.0,"y":20.0,"w":-1.0,"h":780.0,"maximized":false}"#)
-                .is_err()
-        );
-        assert!(
-            WindowBoundsPref::parse(
-                r#"{"x":1000001.0,"y":20.0,"w":1200.0,"h":780.0,"maximized":false}"#
-            )
-            .is_err()
-        );
-        assert!(
-            WindowBoundsPref::parse(&" ".repeat(WindowBoundsPref::MAX_PREF_BYTES + 1)).is_err()
-        );
-    }
-
-    #[gpui_kit::test]
-    fn standard_entry_view_is_created_only_after_activation(cx: &mut TestAppContext) {
-        cx.update(gpui_kit::component::init);
-        let registry = Arc::new(ToolRegistry::new());
-        registry
-            .register_plugin(
-                PluginDescriptor::new(
-                    PluginId::new("lazy.plugin").expect("测试插件 ID 应有效"),
-                    "Lazy plugin",
-                    "lazy.entry",
-                )
-                .with_entries(vec![PluginEntryDescriptor::new("lazy.entry", "Lazy entry")]),
-                Arc::new(DummyTool {
-                    meta: ToolMeta::new("lazy.entry", "Lazy entry", ""),
-                }),
-            )
-            .expect("测试入口应注册");
-        let plugin_host = Arc::new(StaticPluginHost::new(registry.clone()));
-        let gate = Arc::new(DataSyncGate::default());
-        let mut shell_entity = None;
-        let (_, visual_cx) = cx.add_window_view(|window, cx| {
-            let shell = cx.new(|cx| {
-                Shell::new(
-                    registry.clone(),
-                    plugin_host.clone(),
-                    gate.clone(),
-                    window,
-                    cx,
-                )
-            });
-            shell_entity = Some(shell.clone());
-            ShellHost { shell }
-        });
-        let visual_cx: &mut VisualTestContext = visual_cx;
-        visual_cx.simulate_resize(size(px(800.0), px(600.0)));
-        visual_cx.run_until_parked();
-        assert!(
-            visual_cx
-                .debug_bounds("plugin-entry-view-lazy.entry")
-                .is_none()
-        );
-
-        shell_entity
-            .expect("Shell 实体应创建")
-            .update(visual_cx, |shell, cx| {
-                shell.activate_for_test("lazy.entry", cx);
-            });
-        visual_cx.run_until_parked();
-        assert!(
-            visual_cx
-                .debug_bounds("plugin-entry-view-lazy.entry")
-                .is_some()
-        );
-    }
-}
+#[path = "shell_tests.rs"]
+mod tests;

@@ -8,6 +8,7 @@ use gpui_kit::component::{
     button::ButtonVariants as _,
     h_flex,
     input::{Editor, EditorState, Input, InputState},
+    scroll::ScrollableElement as _,
     v_flex,
 };
 use gpui_kit::{
@@ -160,7 +161,7 @@ impl Render for JsonPathView {
             .size_full()
             .min_w_0()
             .min_h_0()
-            .overflow_y_scroll()
+            .overflow_y_scrollbar()
             .p(px(24.0))
             .gap(px(14.0))
             .child(

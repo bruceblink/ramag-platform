@@ -49,26 +49,10 @@ pub(super) fn spawn_clipboard_capture(service: Arc<ClipboardService>, cx: &mut A
 
 pub(super) const HOTKEY_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(80);
 
-pub(super) fn sync_clipboard_tool_visibility(
-    registry: &Arc<ToolRegistry>,
-    enabled: bool,
-    cx: &mut App,
-) {
-    if registry.set_enabled(ClipboardTool::ID, enabled) {
-        cx.refresh_windows();
-    }
-}
-
 /// 注册主窗口和剪贴板抽屉热键。
-pub(super) fn spawn_clipboard_hotkey(
-    service: Arc<ClipboardService>,
-    registry: Arc<ToolRegistry>,
-    deps: AppDeps,
-    cx: &mut App,
-) {
+pub(super) fn spawn_clipboard_hotkey(service: Arc<ClipboardService>, deps: AppDeps, cx: &mut App) {
     cx.spawn(async move |cx| {
         let mut enabled = service.prime_capture_enabled().await;
-        cx.update(|cx| sync_clipboard_tool_visibility(&registry, enabled, cx));
         let mut alternate = service.alternate_hotkey();
         let mut listener = HotkeyListener::register_clipboard_hotkey(alternate, enabled);
         if enabled {
@@ -134,7 +118,6 @@ pub(super) fn spawn_clipboard_hotkey(
             if now_enabled != enabled || now_alternate != alternate {
                 enabled = now_enabled;
                 alternate = now_alternate;
-                cx.update(|cx| sync_clipboard_tool_visibility(&registry, enabled, cx));
                 // 先注销旧组合，避免短暂并存。
                 drop(listener.take());
                 listener = HotkeyListener::register_clipboard_hotkey(alternate, enabled);

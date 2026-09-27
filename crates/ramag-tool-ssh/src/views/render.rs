@@ -2,7 +2,7 @@
 
 use gpui_kit::component::{
     ActiveTheme, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
-    notification::Notification, v_flex,
+    notification::Notification, scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
@@ -58,7 +58,7 @@ impl SshView {
             .id("ssh-workspace-tabs-scroll")
             .flex_1()
             .min_w_0()
-            .overflow_x_scroll();
+            .overflow_x_scrollbar();
         for workspace in &self.workspaces {
             let id = workspace.profile.id.clone();
             let id_for_close = id.clone();

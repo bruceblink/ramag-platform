@@ -137,7 +137,7 @@ impl MqttView {
             .w_full()
             .min_w_0()
             .h_full()
-            .overflow_y_scroll()
+            .overflow_y_scrollbar()
             .p(px(16.0))
             .child(body)
             .when(window.viewport_size().width < px(760.0), |view| {
@@ -234,7 +234,7 @@ impl MqttView {
             .w_full()
             .min_w_0()
             .h_full()
-            .overflow_y_scroll()
+            .overflow_y_scrollbar()
             .p(px(16.0))
             .child(body)
     }
@@ -697,7 +697,7 @@ impl MqttView {
             .w_full()
             .min_w_0()
             .h_full()
-            .overflow_y_scroll()
+            .overflow_y_scrollbar()
             .p(px(16.0))
             .child(body)
     }

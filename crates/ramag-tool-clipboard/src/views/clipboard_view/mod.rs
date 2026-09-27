@@ -32,6 +32,9 @@ pub struct ClipboardView {
     pub(super) search_gen: u64,
     pub(super) search_cancel: Arc<AtomicBool>,
     pub(super) list_scroll: UniformListScrollHandle,
+    /// 窄窗口整体分区和详情正文独立滚动，避免滚轮夺走列表选择位置。
+    pub(super) content_scroll: gpui_kit::ScrollHandle,
+    pub(super) detail_scroll: gpui_kit::ScrollHandle,
     pub(super) focus_handle: FocusHandle,
     pub(super) pending_notification: Option<gpui_kit::component::notification::Notification>,
     pub(super) img_cache: crate::views::image_cache::ImageCache,
@@ -87,6 +90,8 @@ impl ClipboardView {
             search_cancel: Arc::new(AtomicBool::new(false)),
             focused_search_once: false,
             list_scroll: UniformListScrollHandle::new(),
+            content_scroll: gpui_kit::ScrollHandle::new(),
+            detail_scroll: gpui_kit::ScrollHandle::new(),
             focus_handle: cx.focus_handle(),
             pending_notification: None,
             img_cache: crate::views::image_cache::ImageCache::new(),

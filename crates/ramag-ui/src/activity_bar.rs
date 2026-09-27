@@ -8,14 +8,16 @@ use gpui_kit::component::{
     button::ButtonVariants as _,
     h_flex,
     notification::Notification,
+    scroll::ScrollableElement as _,
     v_flex,
 };
 use gpui_kit::{
     Anchor, App, AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent,
-    EventEmitter, Global, IntoElement, MouseButton, ParentElement, Render, SharedString, Styled,
-    Subscription, Window, div, hsla, prelude::*, px,
+    EventEmitter, Global, IntoElement, MouseButton, ParentElement, Render, ScrollHandle,
+    SharedString, Styled, Subscription, Window, div, hsla, prelude::*, px,
 };
 use ramag_app::{StaticPluginHost, ToolRegistry, UpdateCheckResult};
+use ramag_domain::ToolMeta;
 
 use crate::PointerDropdownMenu as _;
 use crate::icons;
@@ -47,6 +49,8 @@ pub struct ActivityBar {
     plugin_host: Arc<StaticPluginHost>,
     selected: NavTarget,
     last_rendered_slots: Vec<Option<String>>,
+    /// 保留工具列表滚动位置；固定的首页和设置入口不参与滚动。
+    tool_scroll: ScrollHandle,
     _update_indicator_subscription: Subscription,
     _tool_layout_subscription: Subscription,
     _tool_drag_subscription: Subscription,
@@ -132,6 +136,7 @@ impl ActivityBar {
             plugin_host,
             selected: NavTarget::Home,
             last_rendered_slots,
+            tool_scroll: ScrollHandle::new(),
             _update_indicator_subscription: update_indicator_subscription,
             _tool_layout_subscription: tool_layout_subscription,
             _tool_drag_subscription: tool_drag_subscription,
@@ -163,21 +168,35 @@ impl ActivityBar {
 
     /// 首页复用此映射，保证入口图标一致。
     pub(crate) fn icon_for_tool(tool_id: &str) -> Icon {
-        match tool_id {
-            "dbclient" => icons::database(),
-            "vcs" => icons::git_branch(),
-            "clipboard" => icons::clipboard(),
-            "ssh" => Icon::new(IconName::SquareTerminal),
-            "system" => icons::gauge(),
-            "container" => Icon::new(IconName::HardDrive),
-            "kafka" => Icon::new(IconName::Network),
-            "mqtt" => icons::mqtt(),
-            "api" => icons::api(),
-            "jsonfmt" => Icon::new(IconName::File),
-            "url" => Icon::new(IconName::Globe),
-            "hash" => Icon::new(IconName::MemoryStick),
-            _ => Icon::new(IconName::Inbox),
-        }
+        Icon::default().path(tool_icon_path(tool_id, None))
+    }
+
+    /// 使用工具声明的图标键创建入口图标；未声明时按稳定工具 ID 选择内置图标。
+    pub(crate) fn icon_for_meta(meta: &ToolMeta) -> Icon {
+        Icon::default().path(tool_icon_path(&meta.id, meta.icon.as_deref()))
+    }
+}
+
+/// 将工具元数据映射到内嵌 SVG，避免上游字体图标在不同平台回退成相同外观。
+/// `declared_icon` 只允许使用本地白名单，未知插件图标统一回退到工具箱图标。
+fn tool_icon_path(tool_id: &str, declared_icon: Option<&str>) -> &'static str {
+    match declared_icon.unwrap_or(tool_id) {
+        "database" | "dbclient" => "icons/database.svg",
+        "git_branch" | "vcs" => "icons/git-branch.svg",
+        "clipboard" => "icons/clipboard.svg",
+        "terminal" | "ssh" => "icons/terminal.svg",
+        "gauge" | "system" => "icons/gauge.svg",
+        "box" | "container" => "icons/container.svg",
+        "server" | "kafka" => "icons/kafka.svg",
+        "mqtt" => "icons/mqtt.svg",
+        "api" => "icons/api.svg",
+        "braces" | "jsonfmt" | "json-path-extractor" => "icons/json.svg",
+        "cloud" | "object-storage" | "object_storage" => "icons/cloud.svg",
+        "users" | "collaboration" => "icons/users.svg",
+        "plugin" | "plugins" => "icons/plugin.svg",
+        "url" | "globe" => "icons/globe.svg",
+        "hash" => "icons/hash.svg",
+        _ => "icons/toolbox.svg",
     }
 }
 
@@ -239,7 +258,7 @@ impl Render for ActivityBar {
             let mut item = activity_item(
                 ActivityItemConfig {
                     id: format!("tool-{id}").into(),
-                    icon: Self::icon_for_tool(id),
+                    icon: Self::icon_for_meta(tool.meta()),
                     is_selected,
                     accent,
                     decoration: ActivityItemDecoration::new(
@@ -387,6 +406,8 @@ impl Render for ActivityBar {
                 .flex_1()
                 .min_h_0()
                 .overflow_y_scroll()
+                .track_scroll(&self.tool_scroll)
+                .vertical_scrollbar(&self.tool_scroll)
                 .child(tool_list),
         );
         container = container.child(
@@ -471,6 +492,10 @@ fn activity_item(
         show_badge,
     } = decoration;
     let transparent = hsla(0.0, 0.0, 0.0, 0.0);
+    let mut selected_bg = accent;
+    selected_bg.a = 0.14;
+    let mut hover_bg = cx.theme().muted;
+    hover_bg.a = 0.72;
     let preview_icon = icon.clone();
     let preview_name = tooltip.clone();
     let item_selector = format!("activity-{id}");
@@ -486,12 +511,16 @@ fn activity_item(
         )
     };
     button = button.tooltip(tooltip);
+    if is_selected {
+        button = button.text_color(accent);
+    }
     let mut item = h_flex()
         .id(SharedString::from(item_selector.clone()))
         .debug_selector(move || item_selector.clone())
         .w(px(BAR_WIDTH))
         .h(px(ITEM_HEIGHT))
         .relative()
+        .rounded(px(6.0))
         .bg(source_background.unwrap_or(transparent))
         .items_center()
         .justify_center()
@@ -502,6 +531,11 @@ fn activity_item(
                 .bg(if is_selected { accent } else { transparent }),
         )
         .child(button.on_click(on_click));
+    if is_selected {
+        item = item.bg(selected_bg);
+    }
+    // 选中入口在悬停时仍保留强调底色，避免与普通入口混淆。
+    item = item.hover(move |item| item.bg(if is_selected { selected_bg } else { hover_bg }));
     if let Some(drag) = tool_drag {
         let Some(source_index) = source_index else {
             return item;
@@ -528,44 +562,9 @@ fn activity_item(
 }
 
 #[cfg(test)]
-mod tests {
-    use ramag_app::AvailableUpdate;
-    use ramag_domain::entities::ReleaseInfo;
-
-    use super::{UpdateCheckResult, indicator_value};
-
-    fn available_result() -> UpdateCheckResult {
-        UpdateCheckResult::Available(AvailableUpdate {
-            release: ReleaseInfo {
-                version: "0.0.3".into(),
-                tag_name: "v0.0.3".into(),
-                release_url: "https://github.com/bruceblink/ramag-platform/releases/tag/v0.0.3"
-                    .into(),
-                notes: String::new(),
-                published_at: None,
-                assets: Vec::new(),
-            },
-            asset: None,
-        })
-    }
-
-    #[test]
-    fn update_indicator_tracks_only_real_update_results() {
-        assert!(!indicator_value(&UpdateCheckResult::UpToDate {
-            current_version: "0.0.2".into(),
-            latest_version: "0.0.2".into(),
-        }));
-        let available = available_result();
-        assert!(indicator_value(&available));
-        let UpdateCheckResult::Available(update) = available else {
-            unreachable!();
-        };
-        assert!(!indicator_value(&UpdateCheckResult::UnsupportedPlatform(
-            update
-        )));
-    }
-}
-
-#[cfg(test)]
 #[path = "activity_bar_visual_tests.rs"]
 mod activity_bar_visual_tests;
+
+#[cfg(test)]
+#[path = "activity_bar_tests.rs"]
+mod activity_bar_tests;

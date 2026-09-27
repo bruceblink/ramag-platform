@@ -1,17 +1,83 @@
 //! 应用级系统设置与 GPUI 全局状态。
 
-use gpui_kit::{App, Global};
+use gpui_kit::component::{Theme, scroll::ScrollbarMode};
+use gpui_kit::{App, Global, px};
 use serde::{Deserialize, Serialize};
 
 /// 系统设置在本地偏好存储中的键名。
 pub const SYSTEM_SETTINGS_PREF_KEY: &str = "system_settings";
 
-/// 应用级窗口行为设置。
+/// 公共界面字号档位；有界枚举防止损坏配置把全部控件缩成不可操作的尺寸。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InterfaceTextSize {
+    Compact,
+    #[default]
+    Standard,
+    Large,
+}
+
+impl InterfaceTextSize {
+    pub const ALL: [Self; 3] = [Self::Compact, Self::Standard, Self::Large];
+
+    pub fn pixels(self) -> f32 {
+        match self {
+            Self::Compact => 14.0,
+            Self::Standard => 16.0,
+            Self::Large => 18.0,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Compact => "紧凑",
+            Self::Standard => "标准",
+            Self::Large => "较大",
+        }
+    }
+}
+
+/// 所有工具共用的滚动条可见策略；默认常显以保证长内容的可发现性。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScrollbarVisibility {
+    #[default]
+    Always,
+    Hover,
+    Scrolling,
+}
+
+impl ScrollbarVisibility {
+    pub const ALL: [Self; 3] = [Self::Always, Self::Hover, Self::Scrolling];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Always => "始终显示",
+            Self::Hover => "悬停显示",
+            Self::Scrolling => "滚动时显示",
+        }
+    }
+
+    fn mode(self) -> ScrollbarMode {
+        match self {
+            Self::Always => ScrollbarMode::Always,
+            Self::Hover => ScrollbarMode::Hover,
+            Self::Scrolling => ScrollbarMode::Scrolling,
+        }
+    }
+}
+
+/// 应用级窗口与显示偏好，不包含连接、凭据或特定工具参数。
+/// 缺失字段使用兼容默认值；非法字段由启动路径报告并恢复默认。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SystemSettings {
     /// Windows 上关闭主窗口后是否保留进程并由任务栏托盘重新打开。
     #[serde(default)]
     pub minimize_to_tray: bool,
+    #[serde(default)]
+    pub text_size: InterfaceTextSize,
+    #[serde(default)]
+    pub scrollbar_visibility: ScrollbarVisibility,
 }
 
 impl SystemSettings {
@@ -42,6 +108,30 @@ pub fn system_settings(cx: &App) -> SystemSettings {
 /// 更新 GPUI 全局状态，供窗口生命周期和设置页面共享最新值。
 pub fn set_system_settings(settings: SystemSettings, cx: &mut App) {
     cx.set_global(SystemSettingsGlobal(settings));
+    apply_display_settings(cx);
+    cx.refresh_windows();
+}
+
+/// 应用显示偏好，主题切换和启动初始化共用此路径，不写入持久存储。
+pub(crate) fn apply_display_settings(cx: &mut App) {
+    let settings = system_settings(cx);
+    Theme::global_mut(cx).font_size = px(settings.text_size.pixels());
+    Theme::set_scrollbar_mode(settings.scrollbar_visibility.mode(), cx);
+}
+
+/// 更新公共设置并异步保存最后一次选择；保存失败由偏好存储记录错误。
+pub fn save_system_settings(settings: SystemSettings, cx: &mut App) {
+    match settings.to_json() {
+        Ok(json) => {
+            set_system_settings(settings, cx);
+            crate::preferences::persist_preference_latest(SYSTEM_SETTINGS_PREF_KEY, json, cx);
+        }
+        Err(error) => tracing::error!(
+            operation = "system_settings_save",
+            error,
+            "serialize system settings failed"
+        ),
+    }
 }
 
 /// 初始化系统设置；损坏配置不会意外启用后台驻留。
@@ -73,6 +163,7 @@ mod tests {
     fn enabled_setting_round_trips() -> Result<(), String> {
         let settings = SystemSettings {
             minimize_to_tray: true,
+            ..Default::default()
         };
         assert_eq!(SystemSettings::parse(&settings.to_json()?)?, settings);
         Ok(())
@@ -81,5 +172,53 @@ mod tests {
     #[test]
     fn invalid_setting_is_rejected() {
         assert!(SystemSettings::parse(r#"{"minimize_to_tray":"yes"}"#).is_err());
+    }
+
+    #[test]
+    fn legacy_settings_and_new_display_preferences_round_trip() -> Result<(), String> {
+        let old = SystemSettings::parse(r#"{"minimize_to_tray":true}"#)?;
+        assert!(old.minimize_to_tray);
+        assert_eq!(old.scrollbar_visibility, ScrollbarVisibility::Always);
+        assert_eq!(old.text_size, InterfaceTextSize::Standard);
+        for text_size in InterfaceTextSize::ALL {
+            for scrollbar_visibility in ScrollbarVisibility::ALL {
+                let next = SystemSettings {
+                    text_size,
+                    scrollbar_visibility,
+                    ..old
+                };
+                assert_eq!(SystemSettings::parse(&next.to_json()?)?, next);
+            }
+        }
+        assert!(SystemSettings::parse(r#"{"text_size":99999}"#).is_err());
+        assert!(SystemSettings::parse(r#"{"scrollbar_visibility":"missing"}"#).is_err());
+        Ok(())
+    }
+
+    /// 主题切换不能丢失用户显示偏好；损坏配置必须恢复可操作默认值。
+    #[gpui_kit::test]
+    fn display_preferences_survive_theme_changes(cx: &mut gpui_kit::TestAppContext) {
+        cx.update(|cx| {
+            gpui_kit::component::init(cx);
+            let settings = SystemSettings {
+                text_size: InterfaceTextSize::Large,
+                scrollbar_visibility: ScrollbarVisibility::Hover,
+                ..Default::default()
+            };
+            set_system_settings(settings, cx);
+            for mode in [crate::Mode::Dark, crate::Mode::Light, crate::Mode::Dark] {
+                crate::apply_theme(mode, cx);
+                let theme = Theme::global(cx);
+                assert_eq!(theme.font_size, px(18.0));
+                assert_eq!(theme.scrollbar_mode, ScrollbarMode::Hover);
+                assert_eq!(theme.tab_bar, theme.secondary);
+                assert_eq!(theme.sidebar_foreground, theme.foreground);
+                assert_eq!(theme.table_head, theme.secondary);
+                assert_eq!(theme.ring, theme.accent);
+            }
+            assert!(init_system_settings(Some("broken"), cx).is_err());
+            assert_eq!(system_settings(cx), SystemSettings::default());
+            assert_eq!(Theme::global(cx).scrollbar_mode, ScrollbarMode::Always);
+        });
     }
 }

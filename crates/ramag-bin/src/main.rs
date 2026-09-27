@@ -29,8 +29,8 @@ use std::sync::Arc;
 use gpui_kit::WindowKind;
 use gpui_kit::component::Root;
 use gpui_kit::{
-    Action, App, Bounds, KeyBinding, Menu, MenuItem, Subscription, TitlebarOptions, WindowBounds,
-    WindowOptions, prelude::*, px, size,
+    Action, App, Bounds, KeyBinding, Menu, MenuItem, TitlebarOptions, WindowBounds, WindowOptions,
+    prelude::*, px, size,
 };
 use ramag_app::{
     AUTO_CHECK_INTERVAL, ApiService, ClipboardService, ConnectionService, ContainerService,
@@ -92,10 +92,10 @@ use ramag_tool_system::{SystemTool, create_system_view};
 use ramag_tool_vcs::{CommitNow, PullNow, PushNow, ToggleHistoryPane, VcsTool, create_vcs_view};
 use ramag_ui::{
     CloseTab, DATABASE_RESULT_SETTINGS_PREF_KEY, DATABASE_SEARCH_SETTINGS_PREF_KEY,
-    FEEDBACK_ISSUE_URL, HomeEvent, HomeView, NavTarget, OpenRecentItems,
-    REDIS_TREE_SETTINGS_PREF_KEY, RamagAssets, SYSTEM_SETTINGS_PREF_KEY, SettingsView, Shell,
-    StorageGlobal, init_database_result_settings, init_database_search_settings,
-    init_redis_tree_settings, init_system_settings, init_theme, sync_update_indicator,
+    FEEDBACK_ISSUE_URL, HomeView, NavTarget, OpenRecentItems, REDIS_TREE_SETTINGS_PREF_KEY,
+    RamagAssets, SYSTEM_SETTINGS_PREF_KEY, SettingsView, Shell, StorageGlobal,
+    init_database_result_settings, init_database_search_settings, init_redis_tree_settings,
+    init_system_settings, init_theme, sync_update_indicator,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -255,6 +255,7 @@ fn main() -> ExitCode {
             DATABASE_SEARCH_SETTINGS_PREF_KEY,
             REDIS_TREE_SETTINGS_PREF_KEY,
             SYSTEM_SETTINGS_PREF_KEY,
+            ramag_ui::MONITOR_SETTINGS_PREF_KEY,
             ramag_ui::shortcuts_dialog::SHORTCUT_OVERRIDES_PREF_KEY,
             TOOL_ORDER_PREF_KEY,
         ],
@@ -270,33 +271,30 @@ fn main() -> ExitCode {
         .get(REDIS_TREE_SETTINGS_PREF_KEY)
         .cloned();
     let initial_system_settings_pref = startup_preferences.get(SYSTEM_SETTINGS_PREF_KEY).cloned();
+    let initial_monitor_settings_pref = startup_preferences
+        .get(ramag_ui::MONITOR_SETTINGS_PREF_KEY)
+        .cloned();
     let initial_shortcut_overrides = startup_preferences
         .get(ramag_ui::shortcuts_dialog::SHORTCUT_OVERRIDES_PREF_KEY)
         .cloned();
 
-    // 启动时同步读取剪贴板开关，避免恢复到已隐藏的工具。
+    // 采集开关只控制剪贴板行为，不控制工具入口可见性。
     let plugin_host = build_plugin_host_with_storage(Some(storage.clone()));
     let registry = plugin_host.registry();
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
-        let clipboard_enabled = clipboard_service.as_ref().is_some_and(|service| {
-            match tokio::runtime::Builder::new_current_thread()
+        if let Some(service) = clipboard_service.as_ref()
+            && let Err(error) = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-            {
-                Ok(runtime) => runtime.block_on(service.prime_capture_enabled()),
-                Err(error) => {
-                    warn!(
-                        operation = "clipboard_settings_load",
-                        error = %error,
-                        fallback = "tool_hidden",
-                        "load clipboard settings failed"
-                    );
-                    false
-                }
-            }
-        });
-        registry.set_enabled(ClipboardTool::ID, clipboard_enabled);
+                .map(|runtime| runtime.block_on(service.prime_capture_enabled()))
+        {
+            warn!(
+                operation = "clipboard_settings_load",
+                error = %error,
+                "load clipboard settings failed; keep clipboard tool visible"
+            );
+        }
     }
     if let Some(saved_order) = startup_preferences.get(TOOL_ORDER_PREF_KEY)
         && let Err(error) = registry.apply_order_json(saved_order)
@@ -358,6 +356,9 @@ fn main() -> ExitCode {
         }
         if let Err(error) = init_system_settings(initial_system_settings_pref.as_deref(), cx) {
             warn!(operation = "system_settings_load", error, "ignore invalid system settings");
+        }
+        if let Err(error) = ramag_ui::init_monitor_settings(initial_monitor_settings_pref.as_deref(), cx) {
+            warn!(operation = "monitor_settings_load", error, "ignore invalid monitor settings");
         }
         if let Err(error) =
             init_database_result_settings(initial_database_result_pref.as_deref(), cx)
@@ -526,7 +527,7 @@ fn main() -> ExitCode {
             cx.spawn(async move |_| preload_service.preload().await)
                 .detach();
             spawn_clipboard_capture(svc.clone(), cx);
-            spawn_clipboard_hotkey(svc, deps.registry.clone(), deps.clone(), cx);
+            spawn_clipboard_hotkey(svc, deps.clone(), cx);
         }
 
         let log_path_for_open = log_path.clone();

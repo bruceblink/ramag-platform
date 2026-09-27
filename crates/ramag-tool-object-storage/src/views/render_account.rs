@@ -1,5 +1,6 @@
 use gpui_kit::component::{
-    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
+    scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, MouseButton, ParentElement,
@@ -108,7 +109,7 @@ impl ObjectStorageView {
             div()
                 .id("object-account-list-scroll")
                 .size_full()
-                .overflow_y_scroll()
+                .overflow_y_scrollbar()
                 .py(px(10.0))
                 .child(
                     h_flex()

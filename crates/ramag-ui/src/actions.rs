@@ -11,3 +11,17 @@ pub struct CloseTab;
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize, JsonSchema, Action)]
 #[action(namespace = ramag)]
 pub struct OpenRecentItems;
+
+/// 从首页工具卡片打开对应的工具入口。
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, JsonSchema, Action)]
+#[action(namespace = ramag)]
+pub struct OpenTool {
+    pub tool_id: String,
+}
+
+/// 从工具栏打开该工具设置；工具 ID 只用于查找已注册设置页，不执行外部代码。
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, JsonSchema, Action)]
+#[action(namespace = ramag)]
+pub struct OpenToolSettings {
+    pub tool_id: String,
+}

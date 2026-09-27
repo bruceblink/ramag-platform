@@ -1,4 +1,5 @@
 use super::*;
+use gpui_kit::component::scroll::ScrollableElement as _;
 
 impl Render for CollaborationView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -17,7 +18,7 @@ impl Render for CollaborationView {
             .size_full()
             .min_w_0()
             .min_h_0()
-            .overflow_y_scroll()
+            .overflow_y_scrollbar()
             .p(px(24.0))
             .gap(px(14.0))
             .child(
@@ -212,7 +213,7 @@ impl Render for CollaborationView {
                                     .id("collaboration-export-text")
                                     .debug_selector(|| "collaboration-export-text".into())
                                     .max_h(px(220.0))
-                                    .overflow_y_scroll()
+                                    .overflow_y_scrollbar()
                                     .p(px(10.0))
                                     .bg(theme.secondary)
                                     .border_1()

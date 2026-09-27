@@ -1,4 +1,5 @@
 use super::*;
+use gpui_kit::component::scroll::ScrollableElement as _;
 
 impl KafkaView {
     /// Keeps the first Kafka action reachable when the real window has only a short viewport.
@@ -32,7 +33,7 @@ impl KafkaView {
             v_flex()
                 .id("kafka-welcome")
                 .size_full()
-                .overflow_y_scroll()
+                .overflow_y_scrollbar()
                 .items_center()
                 .justify_start()
                 .p(px(8.0))
@@ -141,6 +142,7 @@ impl KafkaView {
                 .id("kafka-workspace-tabs-scroll")
                 .overflow_x_scroll()
                 .track_scroll(&self.workspace_tabs_scroll)
+                .horizontal_scrollbar(&self.workspace_tabs_scroll)
                 .into_any_element()
         } else {
             tabs.flex_1()
@@ -148,6 +150,7 @@ impl KafkaView {
                 .id("kafka-workspace-tabs-scroll")
                 .overflow_x_scroll()
                 .track_scroll(&self.workspace_tabs_scroll)
+                .horizontal_scrollbar(&self.workspace_tabs_scroll)
                 .into_any_element()
         };
         let actions = h_flex()
@@ -186,6 +189,7 @@ impl KafkaView {
         let workspace_header = if compact {
             v_flex()
                 .debug_selector(|| "kafka-workspace-tabs".into())
+                .bg(theme.tab_bar)
                 .id("kafka-workspace-tabs")
                 .w_full()
                 .min_w_0()
@@ -203,6 +207,7 @@ impl KafkaView {
         } else {
             h_flex()
                 .debug_selector(|| "kafka-workspace-tabs".into())
+                .bg(theme.tab_bar)
                 .id("kafka-workspace-tabs")
                 .w_full()
                 .h(px(48.0))
