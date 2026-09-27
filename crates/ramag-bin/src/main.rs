@@ -50,6 +50,7 @@ use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
 use ramag_infra_clipboard::{
     HotkeyEvent, HotkeyListener, PlatformClipboardDriver, foreground_display_index,
 };
+use ramag_infra_collaboration::HttpCollaborationRelay;
 use ramag_infra_git::GitDriverImpl;
 use ramag_infra_kafka::{
     KafkaConnectHttpDriver, KsqlDbHttpDriver, PrometheusBrokerMetricsDriver, RdkafkaTransport,
@@ -225,6 +226,13 @@ fn main() -> ExitCode {
         }
     };
     let update_service = build_update_service(storage.clone());
+    let collaboration_relay = match HttpCollaborationRelay::new() {
+        Ok(relay) => Some(Arc::new(relay) as Arc<dyn ramag_domain::traits::CollaborationRelay>),
+        Err(error) => {
+            warn!(operation = "collaboration_relay_init", error = %error, "collaboration Relay unavailable");
+            None
+        }
+    };
     let container_service: Arc<ContainerService> = build_container_service();
     let container_registry_service = match build_container_registry_service() {
         Ok(service) => Some(service),
@@ -323,6 +331,7 @@ fn main() -> ExitCode {
         container_registry_service,
         update_service,
         storage,
+        collaboration_relay,
     };
 
     let app = gpui_kit::platform::application().with_assets(RamagAssets);

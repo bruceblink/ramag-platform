@@ -8480,6 +8480,7 @@ dependencies = [
  "ramag-domain",
  "ramag-infra-api",
  "ramag-infra-clipboard",
+ "ramag-infra-collaboration",
  "ramag-infra-container-docker",
  "ramag-infra-container-registry",
  "ramag-infra-git",
@@ -8578,6 +8579,20 @@ dependencies = [
  "ramag-domain",
  "tracing",
  "windows 0.57.0",
+]
+
+[[package]]
+name = "ramag-infra-collaboration"
+version = "0.3.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "ramag-domain",
+ "reqwest 0.13.4",
+ "rustls",
+ "serde",
+ "serde_json",
+ "url",
 ]
 
 [[package]]

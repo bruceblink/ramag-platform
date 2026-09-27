@@ -23,7 +23,7 @@ fn collaboration_view_keeps_confirmation_controls_inside_supported_widths(cx: &m
             .expect("storage opens"),
     );
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
-        let view = cx.new(|cx| CollaborationView::new(storage, None, window, cx));
+        let view = cx.new(|cx| CollaborationView::new(storage, None, None, window, cx));
         component::Root::new(view, window, cx)
     });
     for width in [360.0, 1024.0, 1440.0] {
@@ -32,6 +32,8 @@ fn collaboration_view_keeps_confirmation_controls_inside_supported_widths(cx: &m
         assert!(visual_cx.debug_bounds("collaboration-view").is_some());
         assert!(visual_cx.debug_bounds("collaboration-create").is_some());
         assert!(visual_cx.debug_bounds("collaboration-import").is_some());
+        assert!(visual_cx.debug_bounds("collaboration-publish").is_some());
+        assert!(visual_cx.debug_bounds("collaboration-fetch").is_some());
         assert!(visual_cx.debug_bounds("collaboration-status").is_some());
     }
 }

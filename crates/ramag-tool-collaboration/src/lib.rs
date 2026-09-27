@@ -7,7 +7,7 @@ mod view;
 use std::sync::Arc;
 
 use gpui_kit::{App, AppContext as _, Entity, Window};
-use ramag_domain::traits::{ClipboardDriver, Storage, Tool, ToolMeta};
+use ramag_domain::traits::{ClipboardDriver, CollaborationRelay, Storage, Tool, ToolMeta};
 
 pub const PLUGIN_ID: &str = "ramag.collaboration";
 pub const ENTRY_ID: &str = "collaboration";
@@ -48,10 +48,11 @@ impl Tool for CollaborationTool {
 pub fn create_collaboration_view(
     storage: Arc<dyn Storage>,
     clipboard: Option<Arc<dyn ClipboardDriver>>,
+    relay: Option<Arc<dyn CollaborationRelay>>,
     window: &mut Window,
     cx: &mut App,
 ) -> Entity<CollaborationView> {
-    let view = cx.new(|cx| CollaborationView::new(storage, clipboard, window, cx));
+    let view = cx.new(|cx| CollaborationView::new(storage, clipboard, relay, window, cx));
     view.update(cx, |view, cx| view.reload(cx));
     view
 }

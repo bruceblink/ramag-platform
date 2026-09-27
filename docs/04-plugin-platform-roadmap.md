@@ -270,11 +270,13 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 #### COLLAB-001-B2：受限 Relay 传输（设计确认）
 
 - 目标：为后续远程协作提供稳定的传输抽象和 HTTPS 客户端；本切片只发送已经通过本机导出校验的非敏感共享包，不实现服务端、账号体系或后台同步。
-- 协议：客户端向 `{base_url}/v1/collaboration/shares` 发送 `format=ramag.collaboration.v1` 与 `payload` 字段，服务端返回有界的 `remote_id`、`revision` 和可选到期时间；读取使用 `/v1/collaboration/shares/{remote_id}`，响应必须再次经过本机导入校验。
+- 协议：客户端向 `{base_url}/v1/collaboration/shares` 发送 `format=ramag.collaboration.v1` 与 `payload` 字段，服务端返回同一 `format` 及有界的 `remote_id`、`revision` 和可选到期时间；读取使用 `/v1/collaboration/shares/{remote_id}`，响应必须再次经过本机导入校验。
 - 地址边界：生产地址只接受 HTTPS；HTTP 仅允许回环地址用于本机开发测试；拒绝 URL 用户名、密码、片段、隐式代理和自动重定向。请求和响应正文均有 16 MiB 级别上限，错误不回显正文。
 - 负责组件：`ramag-domain` 定义 Relay 接口和收据模型，`ramag-infra-collaboration` 负责 HTTP/TLS、状态码和 JSON 边界，`ramag-app::CollaborationService` 负责用户确认后的发布/读取编排。
 - 不做事项：不保存远端凭据、不自动重试写操作、不在后台扫描、不把远端撤回伪称为本机撤销；真实 Relay 服务端和端到端 Docker 服务另行排期。
 - 验收条件：非法地址、过大请求、重定向、非 2xx 状态和越界响应均被拒绝；客户端只接受安全导出包；应用层发布前重新读取并校验共享包；使用 fake Relay 覆盖发布/读取/失败分支；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+
+实现结果：`ramag-domain` 新增 `CollaborationRelay` 接口和有限收据，`ramag-infra-collaboration` 提供禁止自动重定向的 HTTPS 客户端，`ramag-app` 在发布前重新读取并校验共享包，原生入口提供用户指定 Relay 地址、发送和读取导入操作。没有实现服务端、账号凭据、后台同步或自动重试；fake Relay 覆盖发布前阻断、发布和读取导入。
 
 ## 关键设计约束
 

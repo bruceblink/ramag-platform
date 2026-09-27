@@ -15,7 +15,7 @@ use gpui_kit::{
 };
 use ramag_app::{CollaborationService, CollaborationServiceError};
 use ramag_domain::entities::{CollaborationShare, CollaborationShareId};
-use ramag_domain::traits::{ClipboardDriver, Storage};
+use ramag_domain::traits::{ClipboardDriver, CollaborationRelay, Storage};
 use ramag_ui::clickable_button;
 
 const ACTOR: &str = "local-user";
@@ -25,6 +25,8 @@ pub struct CollaborationView {
     service: Arc<CollaborationService>,
     clipboard: Option<Arc<dyn ClipboardDriver>>,
     title: Entity<InputState>,
+    relay_endpoint: Entity<InputState>,
+    remote_id: Entity<InputState>,
     payload: Entity<EditorState>,
     import_text: Entity<EditorState>,
     shares: Vec<CollaborationShare>,
@@ -32,12 +34,14 @@ pub struct CollaborationView {
     export_text: String,
     status: String,
     busy: bool,
+    relay_available: bool,
 }
 
 impl CollaborationView {
     pub(crate) fn new(
         storage: Arc<dyn Storage>,
         clipboard: Option<Arc<dyn ClipboardDriver>>,
+        relay: Option<Arc<dyn CollaborationRelay>>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -45,6 +49,17 @@ impl CollaborationView {
             InputState::new(window, cx)
                 .placeholder("例如：接口排查说明")
                 .default_value("本机协作草稿")
+                .validate(|value, _| value.len() <= 256)
+        });
+        let relay_endpoint = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("Relay HTTPS 地址")
+                .default_value("https://relay.example")
+                .validate(|value, _| value.len() <= 4096)
+        });
+        let remote_id = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("远端共享包 ID")
                 .validate(|value, _| value.len() <= 256)
         });
         let payload = cx.new(|cx| {
@@ -58,9 +73,15 @@ impl CollaborationView {
                 .placeholder("粘贴用户明确提供的共享包 JSON")
         });
         Self {
-            service: Arc::new(CollaborationService::new(storage)),
+            relay_available: relay.is_some(),
+            service: Arc::new(match relay {
+                Some(relay) => CollaborationService::with_relay(storage, relay),
+                None => CollaborationService::new(storage),
+            }),
             clipboard: clipboard.clone(),
             title,
+            relay_endpoint,
+            remote_id,
             payload,
             import_text,
             shares: Vec::new(),
@@ -242,6 +263,73 @@ impl CollaborationView {
         .detach();
     }
 
+    fn publish_remote(&mut self, cx: &mut Context<Self>) {
+        let Some(id) = self.selected.clone() else {
+            self.status = "先选择一个本机草稿".into();
+            cx.notify();
+            return;
+        };
+        let endpoint = self.relay_endpoint.read(cx).value().trim().to_owned();
+        if endpoint.is_empty() {
+            self.status = "先填写 Relay HTTPS 地址".into();
+            cx.notify();
+            return;
+        }
+        if self.busy {
+            return;
+        }
+        self.busy = true;
+        let service = self.service.clone();
+        cx.spawn(async move |this, cx| {
+            let result = service.publish_remote(&id, &endpoint).await;
+            let _ = this.update(cx, |view, cx| {
+                view.busy = false;
+                match result {
+                    Ok(receipt) => {
+                        view.status = format!(
+                            "已发送到用户指定 Relay；远端 ID {}，未自动继续同步",
+                            receipt.remote_id
+                        );
+                    }
+                    Err(error) => view.status = format_service_error(error),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn import_remote(&mut self, cx: &mut Context<Self>) {
+        let endpoint = self.relay_endpoint.read(cx).value().trim().to_owned();
+        let remote_id = self.remote_id.read(cx).value().trim().to_owned();
+        if endpoint.is_empty() || remote_id.is_empty() {
+            self.status = "填写 Relay 地址和远端共享包 ID 后再读取".into();
+            cx.notify();
+            return;
+        }
+        if self.busy {
+            return;
+        }
+        self.busy = true;
+        let service = self.service.clone();
+        cx.spawn(async move |this, cx| {
+            let result = service.import_remote(&endpoint, &remote_id, ACTOR).await;
+            let _ = this.update(cx, |view, cx| {
+                view.busy = false;
+                match result {
+                    Ok(share) => {
+                        view.selected = Some(share.id.clone());
+                        view.shares.insert(0, share);
+                        view.status = "远端包已重新校验并导入为本机草稿".into();
+                    }
+                    Err(error) => view.status = format_service_error(error),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
     fn revoke(&mut self, cx: &mut Context<Self>) {
         let Some(id) = self.selected.clone() else {
             self.status = "先选择一个本机草稿".into();
@@ -337,196 +425,8 @@ fn format_service_error(error: CollaborationServiceError) -> String {
     error.to_string()
 }
 
-impl Render for CollaborationView {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme().clone();
-        let selected = self
-            .selected
-            .as_ref()
-            .and_then(|id| self.shares.iter().find(|share| &share.id == id));
-        let mut rows = v_flex().gap(px(8.0));
-        for (index, share) in self.shares.iter().cloned().enumerate() {
-            rows = rows.child(self.render_share_row(share, index, cx));
-        }
-        v_flex()
-            .id("collaboration-view")
-            .debug_selector(|| "collaboration-view".into())
-            .size_full()
-            .min_w_0()
-            .min_h_0()
-            .overflow_y_scroll()
-            .p(px(24.0))
-            .gap(px(14.0))
-            .child(
-                v_flex()
-                    .gap(px(5.0))
-                    .child(div().text_lg().child("本机协作"))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("原生 GPUI 入口 · 加密草稿 · 用户确认后才准备导出"),
-                    ),
-            )
-            .child(
-                v_flex()
-                    .gap(px(8.0))
-                    .p(px(12.0))
-                    .border_1()
-                    .border_color(theme.border)
-                    .rounded(px(8.0))
-                    .child(div().text_sm().child("导入已确认的共享包"))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("导入会生成新的本机草稿，不会覆盖现有记录。"),
-                    )
-                    .child(Editor::new(&self.import_text).h(px(120.0)))
-                    .child(
-                        h_flex().justify_end().child(
-                            clickable_button("collaboration-import")
-                                .debug_selector(|| "collaboration-import".into())
-                                .ghost()
-                                .small()
-                                .label("导入为本机草稿")
-                                .disabled(self.busy)
-                                .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
-                                    view.import_manual(cx);
-                                })),
-                        ),
-                    ),
-            )
-            .child(
-                v_flex()
-                    .gap(px(8.0))
-                    .p(px(12.0))
-                    .border_1()
-                    .border_color(theme.border)
-                    .rounded(px(8.0))
-                    .child(div().text_sm().child("新建本机草稿"))
-                    .child(Input::new(&self.title).w_full())
-                    .child(Editor::new(&self.payload).h(px(130.0)))
-                    .child(
-                        h_flex()
-                            .justify_end()
-                            .gap(px(8.0))
-                            .child(
-                                clickable_button("collaboration-refresh")
-                                    .debug_selector(|| "collaboration-refresh".into())
-                                    .ghost()
-                                    .small()
-                                    .label("刷新")
-                                    .disabled(self.busy)
-                                    .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
-                                        view.reload(cx);
-                                    })),
-                            )
-                            .child(
-                                clickable_button("collaboration-create")
-                                    .debug_selector(|| "collaboration-create".into())
-                                    .primary()
-                                    .small()
-                                    .label(if self.busy { "处理中…" } else { "保存本机草稿" })
-                                    .disabled(self.busy)
-                                    .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
-                                        view.create_draft(cx);
-                                    })),
-                            ),
-                    ),
-            )
-            .child(
-                v_flex()
-                    .gap(px(8.0))
-                    .child(div().text_sm().child("本机草稿"))
-                    .child(rows),
-            )
-            .when_some(selected, |view, share| {
-                view.child(
-                    v_flex()
-                        .gap(px(8.0))
-                        .p(px(12.0))
-                        .border_1()
-                        .border_color(theme.border)
-                        .rounded(px(8.0))
-                        .child(div().text_sm().child("用户确认操作"))
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(theme.muted_foreground)
-                                .child("敏感内容不能进入导出包；撤销只改变本机状态。"),
-                        )
-                        .child(
-                            h_flex()
-                                .flex_wrap()
-                                .gap(px(8.0))
-                                .child(
-                                    clickable_button("collaboration-export")
-                                        .debug_selector(|| "collaboration-export".into())
-                                        .primary()
-                                        .small()
-                                        .label("准备导出文本")
-                                        .disabled(self.busy || share.state == ramag_domain::CollaborationShareState::Revoked)
-                                        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
-                                            view.prepare_export(cx);
-                                        })),
-                                )
-                                .child(
-                                    clickable_button("collaboration-copy")
-                                        .debug_selector(|| "collaboration-copy".into())
-                                        .ghost()
-                                        .small()
-                                        .label("复制导出包")
-                                        .disabled(
-                                            self.busy
-                                                || self.clipboard.is_none()
-                                                || share.state
-                                                    == ramag_domain::CollaborationShareState::Revoked,
-                                        )
-                                        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
-                                            view.copy_export(cx);
-                                        })),
-                                )
-                                .child(
-                                    clickable_button("collaboration-revoke")
-                                        .debug_selector(|| "collaboration-revoke".into())
-                                        .danger()
-                                        .small()
-                                        .label("撤销本机草稿")
-                                        .disabled(self.busy || share.state == ramag_domain::CollaborationShareState::Revoked)
-                                        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
-                                            view.revoke(cx);
-                                        })),
-                                ),
-                        )
-                        .when(!self.export_text.is_empty(), |panel| {
-                            panel.child(
-                                div()
-                                    .id("collaboration-export-text")
-                                    .debug_selector(|| "collaboration-export-text".into())
-                                    .max_h(px(220.0))
-                                    .overflow_y_scroll()
-                                    .p(px(10.0))
-                                    .bg(theme.secondary)
-                                    .border_1()
-                                    .border_color(theme.border)
-                                    .rounded(px(6.0))
-                                    .text_xs()
-                                    .child(self.export_text.clone()),
-                            )
-                        }),
-                )
-            })
-            .child(
-                div()
-                    .id("collaboration-status")
-                    .debug_selector(|| "collaboration-status".into())
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(self.status.clone()),
-            )
-    }
-}
+#[path = "view_render.rs"]
+mod render;
 
 #[cfg(test)]
 #[path = "view_tests.rs"]

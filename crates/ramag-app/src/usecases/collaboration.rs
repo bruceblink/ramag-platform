@@ -7,17 +7,28 @@ use ramag_domain::entities::{
     CollaborationValidationError,
 };
 use ramag_domain::error::{DomainError, Result};
-use ramag_domain::traits::Storage;
+use ramag_domain::traits::{CollaborationRelay, Storage};
 use thiserror::Error;
 
 /// 编排本机共享包的创建、版本更新、手动导出准备和撤销。
 pub struct CollaborationService {
     storage: Arc<dyn Storage>,
+    relay: Option<Arc<dyn CollaborationRelay>>,
 }
 
 impl CollaborationService {
     pub fn new(storage: Arc<dyn Storage>) -> Self {
-        Self { storage }
+        Self {
+            storage,
+            relay: None,
+        }
+    }
+
+    pub fn with_relay(storage: Arc<dyn Storage>, relay: Arc<dyn CollaborationRelay>) -> Self {
+        Self {
+            storage,
+            relay: Some(relay),
+        }
     }
 
     pub async fn list(&self) -> Result<Vec<CollaborationShare>> {
@@ -83,6 +94,44 @@ impl CollaborationService {
         Ok(share.manual_export_json()?)
     }
 
+    /// 用户确认后发布安全导出包；没有配置 Relay 时明确拒绝，不自动降级为网络请求。
+    pub async fn publish_remote(
+        &self,
+        id: &CollaborationShareId,
+        endpoint: &str,
+    ) -> std::result::Result<ramag_domain::CollaborationRemoteReceipt, CollaborationServiceError>
+    {
+        let relay = self
+            .relay
+            .as_ref()
+            .ok_or(CollaborationServiceError::RelayUnavailable)?;
+        let payload = self.manual_export_json(id).await?;
+        relay
+            .publish(endpoint, &payload)
+            .await
+            .map_err(CollaborationServiceError::Relay)
+    }
+
+    /// 读取远端包后重新按本机导入规则校验，并生成新的本机草稿。
+    pub async fn import_remote(
+        &self,
+        endpoint: &str,
+        remote_id: &str,
+        actor: &str,
+    ) -> std::result::Result<CollaborationShare, CollaborationServiceError> {
+        let relay = self
+            .relay
+            .as_ref()
+            .ok_or(CollaborationServiceError::RelayUnavailable)?;
+        let remote = relay
+            .fetch(endpoint, remote_id)
+            .await
+            .map_err(CollaborationServiceError::Relay)?;
+        let share = CollaborationShare::import_manual_export_json(&remote.payload, actor)?;
+        self.storage.save_collaboration_share(&share).await?;
+        Ok(share)
+    }
+
     /// 导入用户明确提供的导出文本，并以新的本机草稿 ID 保存，避免覆盖现有包。
     pub async fn import_manual_export(
         &self,
@@ -130,13 +179,23 @@ pub enum CollaborationServiceError {
     Mutation(#[from] CollaborationMutationError),
     #[error(transparent)]
     Storage(#[from] DomainError),
+    #[error("远程协作 Relay 未配置")]
+    RelayUnavailable,
+    #[error("远程协作传输失败：{0}")]
+    Relay(DomainError),
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
     use futures::executor::block_on;
-    use ramag_domain::entities::{CollaborationDataClass, CollaborationShareState};
+    use ramag_domain::entities::{
+        CollaborationDataClass, CollaborationRemotePackage, CollaborationRemoteReceipt,
+        CollaborationShareState,
+    };
+    use ramag_domain::error::DomainError;
+    use ramag_domain::traits::CollaborationRelay;
     use ramag_infra_storage::RedbStorage;
     use std::path::Path;
     use tempfile::TempDir;
@@ -147,6 +206,47 @@ mod tests {
             RedbStorage::open_with_key(&directory.path().join("collaboration.redb"), &[9; 32])
                 .unwrap();
         (CollaborationService::new(Arc::new(storage)), directory)
+    }
+
+    struct FakeRelay {
+        payload: std::sync::Mutex<Option<String>>,
+    }
+
+    #[async_trait]
+    impl CollaborationRelay for FakeRelay {
+        async fn publish(
+            &self,
+            _endpoint: &str,
+            payload: &str,
+        ) -> ramag_domain::error::Result<CollaborationRemoteReceipt> {
+            *self.payload.lock().unwrap() = Some(payload.to_owned());
+            Ok(CollaborationRemoteReceipt {
+                remote_id: "remote-1".into(),
+                revision: 1,
+                expires_at: None,
+            })
+        }
+
+        async fn fetch(
+            &self,
+            _endpoint: &str,
+            _remote_id: &str,
+        ) -> ramag_domain::error::Result<CollaborationRemotePackage> {
+            let payload = self
+                .payload
+                .lock()
+                .unwrap()
+                .clone()
+                .ok_or_else(|| DomainError::NotFound("fake relay empty".into()))?;
+            Ok(CollaborationRemotePackage {
+                receipt: CollaborationRemoteReceipt {
+                    remote_id: "remote-1".into(),
+                    revision: 1,
+                    expires_at: None,
+                },
+                payload,
+            })
+        }
     }
 
     #[test]
@@ -241,5 +341,32 @@ mod tests {
         let prepared = block_on(service.prepare_manual_export(&share.id, "alice")).unwrap();
         let encoded = block_on(service.manual_export_json(&prepared.id)).unwrap();
         assert!(encoded.contains("交接说明"));
+    }
+
+    #[test]
+    fn relay_publishes_only_validated_export_and_imports_new_local_record() {
+        let directory = TempDir::new().unwrap();
+        let storage = ramag_infra_storage::RedbStorage::open_with_key(
+            &directory.path().join("collaboration.redb"),
+            &[9; 32],
+        )
+        .unwrap();
+        let relay = Arc::new(FakeRelay {
+            payload: std::sync::Mutex::new(None),
+        });
+        let service = CollaborationService::with_relay(Arc::new(storage), relay.clone());
+        let share = block_on(service.create_local(
+            "远程交接",
+            vec![CollaborationArtifact::document("说明", "safe")],
+        ))
+        .unwrap();
+        assert!(block_on(service.publish_remote(&share.id, "https://relay.example")).is_err());
+        let share = block_on(service.prepare_manual_export(&share.id, "alice")).unwrap();
+        let receipt = block_on(service.publish_remote(&share.id, "https://relay.example")).unwrap();
+        assert_eq!(receipt.remote_id, "remote-1");
+        let imported =
+            block_on(service.import_remote("https://relay.example", "remote-1", "bob")).unwrap();
+        assert_ne!(imported.id, share.id);
+        assert_eq!(imported.state, CollaborationShareState::LocalDraft);
     }
 }

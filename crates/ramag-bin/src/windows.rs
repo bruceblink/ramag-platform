@@ -26,6 +26,7 @@ pub(super) struct AppDeps {
     pub(super) container_registry_service: Option<Arc<ramag_app::ContainerRegistryService>>,
     pub(super) update_service: Option<Arc<UpdateService>>,
     pub(super) storage: Arc<dyn Storage>,
+    pub(super) collaboration_relay: Option<Arc<dyn ramag_domain::traits::CollaborationRelay>>,
 }
 
 /// 托盘和单实例激活优先复用此窗口。
@@ -149,6 +150,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         container_registry_service,
         update_service,
         storage,
+        collaboration_relay,
     } = deps;
     let fallback = Bounds::centered(None, size(px(1200.0), px(780.0)), cx);
     let window_bounds = match &saved_bounds {
@@ -252,6 +254,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                         clipboard_service
                             .as_ref()
                             .map(|service| service.driver().clone()),
+                        collaboration_relay.clone(),
                         window,
                         cx,
                     );

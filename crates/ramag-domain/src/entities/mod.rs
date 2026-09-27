@@ -66,11 +66,13 @@ pub use clipboard::{
 pub use collaboration::{
     CollaborationArtifact, CollaborationArtifactKind, CollaborationAuditAction,
     CollaborationAuditEvent, CollaborationDataClass, CollaborationMutationError,
-    CollaborationShare, CollaborationShareId, CollaborationShareState, CollaborationSyncPolicy,
+    CollaborationRemotePackage, CollaborationRemoteReceipt, CollaborationShare,
+    CollaborationShareId, CollaborationShareState, CollaborationSyncPolicy,
     CollaborationValidationError, MAX_COLLABORATION_ACTOR_BYTES, MAX_COLLABORATION_ARTIFACT_BYTES,
     MAX_COLLABORATION_ARTIFACT_TITLE_BYTES, MAX_COLLABORATION_ARTIFACTS,
     MAX_COLLABORATION_AUDIT_EVENTS, MAX_COLLABORATION_EXPORT_BYTES,
-    MAX_COLLABORATION_PAYLOAD_BYTES, MAX_COLLABORATION_SHARES, MAX_COLLABORATION_TITLE_BYTES,
+    MAX_COLLABORATION_PAYLOAD_BYTES, MAX_COLLABORATION_REMOTE_ID_BYTES, MAX_COLLABORATION_SHARES,
+    MAX_COLLABORATION_TITLE_BYTES,
 };
 pub use connection::{
     ConnectionConfig, ConnectionId, DriverKind, MAX_CONNECTION_CONFIGS,
