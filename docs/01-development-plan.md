@@ -148,6 +148,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不增加完整响应缓存、不改变传输层上限、不承诺二进制无损复制，不引入 WebView 或远端服务。
 - 验收结果：API 工作区 35 项测试通过；本机 Docker HTTP `ramag-api-http-test`（`python:3.12.11-alpine3.22`，`127.0.0.1:18089`，代理 `18093`）驱动测试 1 项通过；gRPC `ramag-api-grpc-test`（`rust:1.91.0-bookworm`，`127.0.0.1:18090`，代理 `18094`）驱动测试 1 项通过；API GPUI 工作区 HTTP/gRPC 联调 1 项通过。容器保持运行供后续复用，未宣称真实窗口验收；下一项进入 `B-KAFKA-001` 设计确认。
 
+### B-KAFKA-001-A：Kafka 集群运行上下文可取消（设计确认，2026-09-27）
+
+- 问题证据：Kafka 工作区切换集群或刷新时会并行读取 Metadata 和 Topic；概览页只有“同步中”骨架和刷新入口，用户无法主动停止较慢的 Broker 请求。取消只能依赖切换集群或销毁窗口，反馈不清晰。
+- 设计：在概览页加载状态的状态条增加“取消同步”按钮；按钮调用 `KafkaView::cancel_runtime_load`，设置底层取消标记、递增运行请求代次、清理刷新指标并保留已经存在的旧快照。取消后的迟到 Metadata/Topic 结果因代次和集群上下文不匹配而丢弃。已有“刷新元数据”按钮继续用于重新发起完整读取。
+- 验收条件：headless 测试在 `360x640`、`1024x768` 和 `1440x900` 验证取消按钮位于加载状态条内且不越界；点击后确认加载状态结束、取消提示保留、取消标记已设置、运行代次递增，迟到结果不能写回。Kafka 工作区回归、fmt、Clippy、源码尺寸和 `git diff --check` 全部通过。
+- 不做事项：不修改 Kafka 协议、Broker 超时、重试策略、旧快照内容或消息读取取消语义；不引入 WebView、远程 Relay 或新的连接配置。
+- 验收结果：`cargo test --locked -p ramag-tool-kafka --lib -- --test-threads=1` 38 项通过；新增 `kafka_loading_tables_keep_stable_geometry` 覆盖取消标记、运行代次、提示、旧快照边界和 `360x900`/`1200x780` 加载布局；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。最新 `ramag-bin` 已重新构建。
+- 证据边界：本会话的 Computer Use 运行时只暴露浏览器 API，原生 `@oai/sky` 的 `list_apps`/`get_window` 未提供，无法执行真实窗口点击；该切片保留 headless 通过，真实窗口证据待运行时恢复后补验。
+
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
 - 设计：新增 `ramag-ui::workbench` 共享几何令牌，统一导航器宽度、720px 紧凑断点、工具栏/标签/密集行/状态栏高度；深色主题从 VSCode Dark+ 调整为中性深灰与高亮蓝的 JetBrains 工作区层次。

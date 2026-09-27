@@ -65,7 +65,7 @@ impl KafkaView {
             .map(|topic| topic.partitions.len())
             .sum::<usize>();
         let content = if self.loading_runtime {
-            self.render_overview_loading(&theme, compact, narrow)
+            self.render_overview_loading(&theme, compact, narrow, cx)
         } else {
             match metadata {
                 None => v_flex()
@@ -264,6 +264,7 @@ impl KafkaView {
         theme: &gpui_kit::component::Theme,
         compact: bool,
         narrow: bool,
+        cx: &mut Context<Self>,
     ) -> gpui_kit::AnyElement {
         let metrics = h_flex()
             .id("kafka-overview-loading-metrics")
@@ -336,7 +337,18 @@ impl KafkaView {
                     .child(div().size(px(8.0)).rounded_full().bg(theme.warning))
                     .child(skeleton_bar(theme, 168.0, 8.0))
                     .child(div().flex_1().min_w_0())
-                    .child(skeleton_bar(theme, 240.0, 8.0)),
+                    .child(skeleton_bar(theme, 240.0, 8.0))
+                    .child(
+                        ramag_ui::clickable_button("kafka-runtime-cancel")
+                            .debug_selector(|| "kafka-runtime-cancel".into())
+                            .outline()
+                            .small()
+                            .icon(IconName::CircleX)
+                            .label("取消同步")
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                this.cancel_runtime_load(cx);
+                            })),
+                    ),
             )
             .child(skeleton_table(theme, 3, &snapshot_cluster_columns))
             .child(skeleton_section_heading(theme, 116.0, 250.0))

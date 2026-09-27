@@ -52,7 +52,9 @@ fn kafka_loading_tables_keep_stable_geometry(cx: &mut TestAppContext) {
     let Some(kafka_entity) = kafka_entity else {
         return;
     };
-    visual_cx.simulate_resize(size(px(1200.0), px(780.0)));
+    let runtime_cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let runtime_cancelled_for_test = runtime_cancelled.clone();
+    visual_cx.simulate_resize(size(px(1440.0), px(900.0)));
 
     kafka_entity.update(visual_cx, |view, cx| {
         view.clusters = vec![cluster.clone()];
@@ -61,6 +63,8 @@ fn kafka_loading_tables_keep_stable_geometry(cx: &mut TestAppContext) {
         view.topics.clear();
         view.loading_clusters = false;
         view.loading_runtime = true;
+        view.runtime_request_id = 7;
+        view.runtime_cancelled = Some(runtime_cancelled);
         view.section = KafkaSection::Overview;
         cx.notify();
     });
@@ -74,6 +78,7 @@ fn kafka_loading_tables_keep_stable_geometry(cx: &mut TestAppContext) {
             "kafka-overview-loading-metrics",
             "kafka-overview-metrics-snapshot",
             "kafka-overview-loading-status",
+            "kafka-runtime-cancel",
             "kafka-overview-loading-broker",
             "kafka-overview-loading-topic",
             "kafka-overview-loading-cluster",
@@ -84,14 +89,19 @@ fn kafka_loading_tables_keep_stable_geometry(cx: &mut TestAppContext) {
             && visual_cx.debug_bounds("kafka-overview-topic").is_none(),
         "概览加载期间不应先显示没有数据的正式内容"
     );
-    for selector in [
-        "kafka-overview-scroll-viewport",
-        "kafka-overview-scroll",
-        "kafka-overview-loading-metrics",
-        "kafka-overview-metrics-snapshot",
-        "kafka-overview-loading-sections",
-    ] {
-        super::assert_within_width(visual_cx, selector, 1200.0);
+    for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+        visual_cx.simulate_resize(size(px(width), px(height)));
+        visual_cx.run_until_parked();
+        for selector in [
+            "kafka-overview-scroll-viewport",
+            "kafka-overview-scroll",
+            "kafka-overview-loading-metrics",
+            "kafka-overview-metrics-snapshot",
+            "kafka-overview-loading-sections",
+            "kafka-runtime-cancel",
+        ] {
+            super::assert_within_width(visual_cx, selector, width);
+        }
     }
     let Some(viewport) = visual_cx.debug_bounds("kafka-overview-scroll-viewport") else {
         return;
@@ -105,17 +115,19 @@ fn kafka_loading_tables_keep_stable_geometry(cx: &mut TestAppContext) {
             && scrollbar.size.width == px(16.0),
         "概览加载态滚动条应保留在独立轨道中: viewport={viewport:?}, scrollbar={scrollbar:?}"
     );
-    visual_cx.simulate_resize(size(px(360.0), px(900.0)));
+    super::click(visual_cx, "kafka-runtime-cancel");
     visual_cx.run_until_parked();
-    for selector in [
-        "kafka-overview-scroll-viewport",
-        "kafka-overview-scroll",
-        "kafka-overview-loading-metrics",
-        "kafka-overview-metrics-snapshot",
-        "kafka-overview-loading-sections",
-    ] {
-        super::assert_within_width(visual_cx, selector, 360.0);
-    }
+    assert!(kafka_entity.read_with(visual_cx, |view, _| {
+        !view.loading_runtime
+            && view.runtime_request_id == 8
+            && view.runtime_cancelled.is_none()
+            && view
+                .notice
+                .as_ref()
+                .is_some_and(|(message, is_error)| !is_error && message.contains("集群同步已取消"))
+    }));
+    assert!(runtime_cancelled_for_test.load(std::sync::atomic::Ordering::Acquire));
+    assert!(visual_cx.debug_bounds("kafka-runtime-cancel").is_none());
     visual_cx.simulate_resize(size(px(1200.0), px(780.0)));
     visual_cx.run_until_parked();
 

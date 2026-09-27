@@ -103,6 +103,19 @@ impl KafkaView {
         self.load_runtime(config, window, cx);
     }
 
+    /// 取消当前集群元数据加载并保留已有快照；迟到的 Broker 结果由请求代次丢弃。
+    pub(super) fn cancel_runtime_load(&mut self, cx: &mut Context<Self>) {
+        if !self.loading_runtime {
+            return;
+        }
+        self.invalidate_runtime_request();
+        self.notice = Some((
+            "集群同步已取消；已有快照保持不变，迟到结果不会写入当前页面".into(),
+            false,
+        ));
+        cx.notify();
+    }
+
     pub(super) fn cluster_by_id(&self, id: &KafkaClusterId) -> Option<&KafkaClusterConfig> {
         self.clusters.iter().find(|cluster| &cluster.id == id)
     }
