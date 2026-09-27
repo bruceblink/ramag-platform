@@ -3,7 +3,7 @@
 > 状态：现行执行规则
 > 更新日期：2026-09-26
 > 主线：[`02-development-roadmap.md`](02-development-roadmap.md)
-> 统一 UI 标准：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
+> 统一 UI 标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 历史执行记录：[`archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md`](archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md)
 
 ## 术语表与命名约定
@@ -58,8 +58,9 @@
 3. `PLAT-005-D`：静态插件入口执行器已接入入口校验、任务句柄保留和关闭取消。
 4. `TOOL-MIG-001-B`：JSON Path 原生 GPUI 入口已完成。
 5. `DUAL-CORE-001-A`：JSON Path Web/WASM 适配已完成。
-6. `CATALOG-001`：第一方工具目录已完成；下一项建立本机优先的文档/结果共享边界。
-7. `COLLAB-001`：建立本机优先的文档/结果共享边界，敏感数据默认不自动同步。
+6. `CATALOG-001`：第一方工具目录已完成。
+7. `COLLAB-001-A`：建立本机加密共享包模型、版本冲突保护、撤销和审计边界；不接入远程传输。
+8. `COLLAB-001-B`：在原生 GPUI 中提供用户选择、导出/导入和远程协作入口，敏感数据默认不自动同步。
 
 这些项目在设计确认前不改变当前 `DB-UX-005` 后续差异和迁移切片的实现范围，也不代表动态插件、第三方市场或远程协作已经实现。
 
@@ -455,6 +456,14 @@
 - 设计：静态宿主在注册阶段生成第一方目录快照，记录插件 ID、入口 ID、API 版本、桌面/Web 支持、能力、数据处理边界和审核状态；目录登记失败时原子回滚工具注册，不执行任何未信任代码。
 - 实现：`ramag-app::PluginCatalog` 提供有界、去重和按插件卸载的目录模型；插件设置页新增“第一方工具目录”区域。静态插件默认标记桌面原生，JSON Path 入口同时标记 Web/WASM；目录与运行时工具列表分离，桌面端继续使用原生 GPUI，不加载 WebView。
 - 验收结果：目录原子登记/重复拒绝、宿主多入口登记与卸载、JSON Path 双端平台标记通过；`ramag-ui` 插件诊断在 360/1024/1440 headless 窗口显示目录并保持边界；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。下一项为 `COLLAB-001`。
+
+### COLLAB-001-A：本机优先共享包边界（设计确认）
+
+- 目标：把“用户明确选择的文档或结果”建模为可验证的共享包，并先落到本机加密存储；本切片不启动网络同步、不扫描远程目录、不自动上传任何内容。
+- 数据边界：共享包只接受 `Document` 和 `QueryResultPreview` 两类入口；凭据、连接配置和 JWT/Token 等秘密类型直接拒绝。标记为敏感或原始业务数据的内容可以留在本机加密草稿中，但不能进入手动导出包，除非后续切片增加单独的用户确认策略。
+- 状态与冲突：每个包带单调递增 revision、`LocalDraft`/`Shared`/`Revoked` 状态和有界审计事件；更新必须带期望 revision，过期更新只记录冲突审计，不覆盖当前内容。
+- 加密与撤销：`Storage` 使用主密钥加密共享包后再落盘；撤销只改变本机包状态并写审计，不删除历史证据，不代表远端已撤回。
+- 验收条件：领域校验拒绝越界和敏感导出；本机 redb 重启后可恢复且明文不出现在表值；错误 revision 不覆盖数据并产生冲突记录；撤销后不能再次导出；workspace 测试、fmt、Clippy、源码尺寸和 `git diff --check` 通过。Docker 和真实窗口不属于本切片。
 
 ## 5. 分支和清理
 

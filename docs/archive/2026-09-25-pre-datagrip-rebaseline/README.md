@@ -10,7 +10,7 @@
 
 ## 新规范入口
 
-- [`../../ui-acceptance-standard.md`](../../ui-acceptance-standard.md)：参考图提取的统一视觉、布局、交互和证据标准。
+- [`../../07-ui-acceptance-standard.md`](../../07-ui-acceptance-standard.md)：参考图提取的统一视觉、布局、交互和证据标准。
 - [`../../02-development-roadmap.md`](../../02-development-roadmap.md)：当前跨工具主线和交付队列。
 - [`../../03-database-client-datagrip-roadmap.md`](../../03-database-client-datagrip-roadmap.md)：当前数据库专项主线。
 - [`../../01-development-plan.md`](../../01-development-plan.md)：当前切片执行顺序和验收记录模板。

@@ -2,7 +2,7 @@
 
 > 状态：现行专项路线图；`DB-UX-005F` 迁移阶段逐段复核已完成代码与 headless 验证，后续进入迁移差异收口
 > 更新日期：2026-09-26
-> 共同视觉与交互基线：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
+> 共同视觉与交互基线：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 跨工具顺序：[`02-development-roadmap.md`](02-development-roadmap.md)
 > 历史实现、待办和验收记录：[`archive/2026-09-25-pre-datagrip-rebaseline/03-database-client-datagrip-roadmap.md`](archive/2026-09-25-pre-datagrip-rebaseline/03-database-client-datagrip-roadmap.md)
 

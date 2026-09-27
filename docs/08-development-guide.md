@@ -2,7 +2,7 @@
 
 本文面向第一次参与 Ramag Platform 开发的贡献者，目标是帮助开发者先建立可运行基线，再沿一条真实功能调用链理解项目，而不是从头阅读全部 crate。当前应用仍称为 Ramag，本仓库负责独立下游平台化演进。
 
-架构细节请配合阅读[架构说明](architecture.md)，主线排期请参考[主线开发计划](02-development-roadmap.md)，构建和发布流程请参考[桌面端构建与发布](desktop-release.md)。
+架构细节请配合阅读[架构说明](06-architecture.md)，主线排期请参考[主线开发计划](02-development-roadmap.md)，构建和发布流程请参考[桌面端构建与发布](desktop-release.md)。
 
 ## 1. 开始之前
 
@@ -151,7 +151,7 @@ open_main_window()
 
 不要先阅读所有基础设施实现。建议按以下顺序理解项目：
 
-1. 阅读[架构说明](architecture.md)，理解分层和依赖方向。
+1. 阅读[架构说明](06-architecture.md)，理解分层和依赖方向。
 2. 从 [`main()`](../crates/ramag-bin/src/main.rs) 了解应用启动阶段。
 3. 阅读 [`composition.rs`](../crates/ramag-bin/src/composition.rs)，了解具体实现如何注入 Service。
 4. 阅读 [`windows.rs`](../crates/ramag-bin/src/windows.rs)，了解视图如何创建并注册到 `Shell`。

@@ -314,7 +314,7 @@ mod tests {
         let source = r#"[构建](docs/desktop-release.md#本地-linux-打包)
 ![二维码](docs/community/group-qr.png)
 <img src="docs/community/personal-qr.png">
-<a href='docs/development-guide.md'>架构</a>
+<a href='docs/08-development-guide.md'>架构</a>
 [官网](https://example.com/docs)"#;
 
         // 基准用真实存在的绝对路径：硬编码 Unix 路径（/repo/...）在 Windows 上不是绝对
@@ -330,7 +330,7 @@ mod tests {
         let desktop: String = desktop.into();
         assert!(resolved.contains(&desktop));
 
-        let guide = Url::from_file_path(base.join("docs/development-guide.md"))
+        let guide = Url::from_file_path(base.join("docs/08-development-guide.md"))
             .map_err(|_| "failed to convert development guide path to URL".to_owned())?;
         let guide: String = guide.into();
         assert!(resolved.contains(&guide));

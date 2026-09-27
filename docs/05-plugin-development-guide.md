@@ -9,7 +9,7 @@
 | 插件宿主 | Static Plugin Host | 按顺序注册、初始化、诊断和关闭静态插件 | 不执行外部不受信任代码 |
 | 插件上下文 | Plugin Context | 在生命周期回调中标识插件并检查可用状态和能力授权 | 不提供对 Shell 或 GPUI 内部状态的直接访问 |
 
-本手册适用于当前 `bruceblink/ramag-platform` 的静态插件 API。动态插件、插件市场、外部插件进程和跨语言 ABI 尚未实现。
+本手册适用于当前 `bruceblink/ramag-platform` 的静态插件 API。动态插件、插件市场、外部插件进程和跨语言 ABI 尚未实现。插件平台的排期和边界以同目录的 [`04-plugin-platform-roadmap.md`](04-plugin-platform-roadmap.md) 为准。
 
 ## 能力范围
 
@@ -45,6 +45,40 @@ fn register_example(host: &StaticPluginHost) -> Result<(), Box<dyn std::error::E
 
 需要自定义资源清理时，实现 `StaticPlugin` 的 `initialize` 和 `shutdown`。初始化失败只禁用当前插件；宿主继续处理后续插件。关闭按成功初始化的逆序执行，关闭后的 `PluginContext::ensure_available` 会拒绝迟到调用。
 
+## 多入口和标准入口
+
+一个插件可以通过 `PluginDescriptor::with_entries` 声明多个 `PluginEntryDescriptor`。每个入口必须有稳定 ID、显示名称、输入/输出数据类型和载荷上限；所有入口由宿主一次校验、一次注册，任一入口无效时整组拒绝。复杂工作台可以注册自己的 GPUI 视图，轻量入口使用平台标准入口面板，不得把网页页面嵌入桌面窗口。
+
+入口执行必须经过 `StaticPluginHost::execute_entry`。宿主先检查插件状态、入口 ID、输入大小、任务能力、超时和结果字节预算；插件不能绕过宿主直接创建无限任务或把结果写入其他插件状态。
+
+## 第一方目录和双端核心
+
+每个静态插件注册成功后，宿主会从 `catalog_entries` 生成第一方目录项。默认实现只声明桌面原生支持；只有已经提供独立 Web/WASM 计算适配的入口才允许覆盖该方法并标记 `web: true`。目录记录 API 版本、能力、数据处理范围和审核状态，不执行目录中的代码。
+
+```rust
+use ramag_app::PluginCatalogEntry;
+
+impl StaticPlugin for ExamplePlugin {
+    // descriptor/tool/execute implementations omitted
+    fn catalog_entries(&self) -> Vec<PluginCatalogEntry> {
+        self.descriptor()
+            .entry_descriptors()
+            .iter()
+            .map(|entry| {
+                PluginCatalogEntry::desktop_only(self.descriptor(), entry)
+                    .with_web_support(true)
+            })
+            .collect()
+    }
+}
+```
+
+桌面端直接调用 `ramag-domain` 的纯 Rust 计算核心；Web 端可以在独立 crate 中提供 `wasm_bindgen` 适配。WASM 适配只能接收有界的序列化输入并返回有界结果，不得获得桌面凭据、网络、文件系统或 GPUI 能力。参考实现是 `ramag-tool-json-path` 与 `ramag-tool-json-path-wasm`。
+
+## 插件设置和敏感数据
+
+普通设置只通过 `PluginSettingsSnapshot` 进入插件，敏感设置只通过 `PluginSecretStore` 进入插件。插件不得把密码、JWT、连接配置、原始业务数据或完整请求正文写入日志、目录元数据、普通设置或错误文本。需要共享文档或查询结果时，使用本机优先协作模型；默认只保存本机加密草稿，手动导出必须由用户明确触发并再次通过数据分类校验。
+
 ## 清单、设置和生命周期
 
 需要声明完整描述时，使用 `PluginDescriptor::new`，再通过 builder 添加说明、能力和设置。设置只允许 `Boolean`、`Integer`、`String`、`Enum` 和 `StringList`，并受数量、长度和枚举值上限约束。API 主版本不同、重复插件 ID、重复入口 ID、未知能力、非法设置键和默认值类型错误都会在注册阶段返回诊断。
@@ -75,7 +109,7 @@ fn register_example(host: &StaticPluginHost) -> Result<(), Box<dyn std::error::E
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --locked
-bash scripts/check-source-size.sh
+pwsh -NoProfile -File scripts/windows/check-source-size.ps1
 git diff --check
 ```
 
@@ -83,4 +117,13 @@ git diff --check
 
 ## 当前未实现能力
 
-当前版本不能安装或加载第三方动态插件，不能执行插件包中的外部代码，不能从远程市场发现或升级插件，也没有跨语言 ABI、签名验证、沙箱、安装回滚和独立插件进程。需要这些能力时，应先更新 `docs/04-plugin-platform-roadmap.md`，完成威胁模型、权限边界和协议决策，再新增独立实现任务。
+当前版本不能安装或加载第三方动态插件，不能执行插件包中的外部代码，不能从远程市场发现或升级插件，也没有跨语言 ABI、签名验证、沙箱、安装回滚和独立插件进程。需要这些能力时，应先更新 `04-plugin-platform-roadmap.md`，完成威胁模型、权限边界和协议决策，再新增独立实现任务。
+
+## 交付顺序
+
+1. 先更新主线文档中的设计确认和验收条件。
+2. 在 `ramag-domain` 定义有界实体和纯计算核心，再在 `ramag-app` 编排宿主服务。
+3. 在 `ramag-tool-*` 中实现 GPUI 视图，并在 `ramag-bin` 完成依赖装配。
+4. 通过目标单元测试、headless UI 和 workspace 检查后，使用一个英文 Conventional Commit 提交并推送 `main`。
+
+插件开发不得以一次性迁移整个 Web 工具集为目标；先选择一个可独立验证的纯计算入口，再逐步扩展目录、设置和双端适配。

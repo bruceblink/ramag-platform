@@ -3,7 +3,7 @@
 > 状态：现行主线；`SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07`、`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C`、`DB-UX-004A`、`DB-UX-004B-1`、`DB-UX-004B-2`、`DB-UX-004B-3A`、`DB-UX-004B-3B`、`DB-UX-005A`、`DB-UX-005B`、`DB-UX-005C`、`DB-UX-005D`、`DB-UX-005E`、`DB-UX-005F`、`PLAT-004-A`、`PLAT-004-B`、`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D`、`TOOL-MIG-001-A`、`TOOL-MIG-001-B`、`DUAL-CORE-001-A` 和 `CATALOG-001` 的代码与验证已完成；涉及真实数据库的切片另有 Docker 证据。下一项为 `COLLAB-001` 本机优先协作。`DB-UX-004B-3B` 原生窗口证据待环境恢复后补验。
 > 更新日期：2026-09-26
 > 适用范围：所有 GPUI 工具和共享 UI
-> 共同验收标准：[`ui-acceptance-standard.md`](ui-acceptance-standard.md)
+> 共同验收标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 历史设计、待办与完成记录：[`archive/2026-09-25-pre-datagrip-rebaseline/`](archive/2026-09-25-pre-datagrip-rebaseline/)
 
 ## 术语表与命名约定
@@ -41,7 +41,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 - 共享 UI 已有 GPUI Kit、响应式弹窗、工具栏和多种 headless 边界测试，但真实窗口证据并不覆盖全部工具。
 - MySQL 8.4+、PostgreSQL 17+ 是当前数据库集成基线；旧版本记录仅作为历史事实保留。
 
-这些内容只能作为实现起点。新功能必须同时满足 [`ui-acceptance-standard.md`](ui-acceptance-standard.md)，不能因为旧测试通过就跳过截图对应的布局、状态和操作验收。
+这些内容只能作为实现起点。新功能必须同时满足 [`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)，不能因为旧测试通过就跳过截图对应的布局、状态和操作验收。
 
 ## 3. 阶段主线
 
@@ -87,7 +87,8 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 ### 阶段 F：第一方目录与本机优先协作（P1）
 
 1. `CATALOG-001`：建立第一方工具目录，记录工具 ID、版本、支持平台、权限、数据处理方式和验收状态；首期只列出随 Ramag 发布的内置插件，第三方来源需等独立信任评审后再纳入。
-2. `COLLAB-001`：建立本机优先的结果/文档共享模型，明确选择、加密、冲突处理、撤销和审计边界；不自动上传密码、JWT 密钥、连接配置或原始业务数据。
+2. `COLLAB-001-A`：先建立本机加密共享包、版本冲突、撤销和审计边界，不接入远程传输。
+3. `COLLAB-001-B`：再提供原生 GPUI 的明确选择、导出/导入和远程协作入口；不自动上传密码、JWT 密钥、连接配置或原始业务数据。
 3. 外部动态插件、签名、来源、崩溃隔离、升级回滚和市场分发继续按插件平台路线图的 P4 评估，未完成前不执行不受信任代码。
 
 ### 阶段 G：性能与发布验收（P1）
@@ -113,7 +114,8 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `DUAL-CORE-001` | 已迁移核心的 Web/WASM 双端适配评估 | 已完成（`DUAL-CORE-001-A`） | `TOOL-MIG-001` | Web 结果一致性、构建体积和桌面无 WebView 证据 |
 | `CROSS-UX-001` | API/Kafka/SSH/容器/Git 原生工作区迁移 | 待开始 | `SHELL-001`、`DB-UX-005` | 各工具专项交互与真实服务证据 |
 | `CATALOG-001` | 第一方工具目录和能力说明 | 已完成（代码与 headless；真实窗口待补） | `PLAT-004`、`TOOL-MIG-001`、`DUAL-CORE-001` | 清单校验、平台标识、权限和版本记录 |
-| `COLLAB-001` | 本机优先的结果/文档共享与远程协作边界 | 下一项 | `CATALOG-001` | 敏感数据阻断、选择性同步、冲突和审计 |
+| `COLLAB-001-A` | 本机加密共享包、版本冲突、撤销和审计边界 | 下一项 | `CATALOG-001` | 敏感数据阻断、加密落盘、冲突和撤销 |
+| `COLLAB-001-B` | 原生 GPUI 选择、导出/导入和远程协作入口 | 待开始 | `COLLAB-001-A` | 用户确认、选择性同步、冲突和审计 |
 | `QUALITY-UX-001` | 性能、主题和发布证据收口 | 持续 | 各切片 | 测量、全量质量检查和发布记录 |
 
 ## 5. 交付规则

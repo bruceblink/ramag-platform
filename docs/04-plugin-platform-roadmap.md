@@ -2,7 +2,7 @@
 
 > 适用项目：`bruceblink/ramag-platform`。本路线只约束当前独立下游项目的插件平台演进，不代表 `tools-rs/ramag` 已接受或实现这些接口。
 >
-> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配和 `CATALOG-001` 第一方工具目录已完成，下一项为 `COLLAB-001` 本机优先协作。系统凭据库真实环境验收和第三方动态插件仍未开放。桌面端明确禁止 WebView，后续优先建设原生 GPUI 标准工具入口和本机优先协作。
+> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配和 `CATALOG-001` 第一方工具目录已完成，当前进入 `COLLAB-001-A` 本机加密共享包边界。系统凭据库真实环境验收和第三方动态插件仍未开放。桌面端明确禁止 WebView，后续优先建设原生 GPUI 标准工具入口和本机优先协作。
 
 ## 术语与命名规则
 
@@ -84,7 +84,7 @@ Zed 的核心借鉴是“按扩展能力选择 Rust/WASM 运行方式，并让�
 | `crates/ramag-ui/src/shell.rs:17`、`:221` | `Shell` 保存统一窗口状态，`register_tool_view` 接收 GPUI `AnyView` | 仅内置插件使用原生视图；外部插件提交结构化贡献点或独立窗口消息 |
 | `crates/ramag-bin/src/composition.rs:63` | `build_tool_registry` 在入口侧创建并组装注册表 | 第一阶段包装为静态插件注册入口，不复制现有工具实例或业务状态 |
 | `crates/ramag-bin/src/windows.rs:234-246` | 主窗口显式创建并注册数据库、Kafka、VCS、剪贴板、SSH、对象存储和系统工具视图 | 保留该装配路径作为内置插件适配样例；动态发现另行接入，不混入业务工具改造 |
-| `docs/architecture.md:18-40`、`:196-254` | `ramag-tool-*` 是独立 crate，但由 `ramag-bin` 负责组合 | 将 crate 边界视为内置插件边界，不把 crate 边界误认为稳定的第三方 ABI |
+| `docs/06-architecture.md:18-40`、`:196-254` | `ramag-tool-*` 是独立 crate，但由 `ramag-bin` 负责组合 | 将 crate 边界视为内置插件边界，不把 crate 边界误认为稳定的第三方 ABI |
 
 推荐的调用关系是：
 
@@ -250,9 +250,13 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 验收覆盖目录模型、宿主多入口登记/卸载、JSON Path 双端平台标记和 360/1024/1440 headless 布局；下一项进入 `COLLAB-001`。
 
-### COLLAB-001：第一方目录之后的本机优先协作
+### COLLAB-001-A：本机优先共享包边界（设计确认）
 
-协作层先实现用户明确选择的文档或结果共享，使用本机加密存储和可审计的同步记录；密码、JWT 密钥、连接配置和原始业务数据默认禁止自动同步。
+先把用户明确选择的文档或结果建模为可验证共享包，并使用 `Storage` 主密钥加密后保存到本机。共享包只接受 `Document` 与 `QueryResultPreview` 类型；凭据、连接配置和 JWT/Token 等秘密直接拒绝。敏感或原始业务数据可以保留在本机加密草稿，但不能进入手动导出包。本切片实现 revision 冲突保护、撤销和有界审计，不接入网络传输或自动同步。
+
+### COLLAB-001-B：原生协作入口（待开始）
+
+在 `COLLAB-001-A` 的模型上增加 GPUI 的明确选择、导出/导入和远程协作入口；每次发送都需要用户确认，密码、JWT 密钥、连接配置和原始业务数据默认禁止自动同步。
 
 ## 关键设计约束
 
