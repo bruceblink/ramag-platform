@@ -13,6 +13,7 @@ use gpui_kit::{
 use ramag_app::{DataSyncGate, StaticPluginHost, ToolRegistry};
 
 use crate::activity_bar::{ActivityBar, NavEvent, NavTarget};
+use crate::plugin_entry_view::StandardPluginEntryView;
 use crate::workbench::WORKBENCH_TOOLBAR_HEIGHT;
 
 pub struct Shell {
@@ -97,12 +98,21 @@ impl Shell {
             this.schedule_persist_bounds(window, cx);
         }));
 
+        let mut tool_views = HashMap::new();
+        for descriptor in registry.plugin_descriptors() {
+            for entry in descriptor.entry_descriptors() {
+                let entry_id = entry.id.clone();
+                let view = cx.new(|_| StandardPluginEntryView::new(descriptor.id.as_str(), entry));
+                tool_views.insert(entry_id, view.into());
+            }
+        }
+
         Self {
             activity_bar,
             data_sync_gate,
             data_sync_overlay,
             registry: registry_for_title,
-            tool_views: HashMap::new(),
+            tool_views,
             home_view: None,
             settings_view: None,
             selected: None,
@@ -221,6 +231,7 @@ impl Shell {
     }
 
     pub fn register_tool_view(&mut self, tool_id: impl Into<String>, view: AnyView) {
+        // 专用工作台视图覆盖标准入口面板；未覆盖的入口继续使用统一原生 GPUI 面板。
         self.tool_views.insert(tool_id.into(), view);
     }
 
