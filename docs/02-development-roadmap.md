@@ -53,7 +53,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 2. `A-DB-RED-02`：已完成 MySQL 8.4/PostgreSQL 17 Docker 元数据和 `table_tree` headless 复验；真实 Windows 流程仍待补。
 3. `A-UI-REAL`：真实窗口探测受 Computer Use 环境阻塞，状态保持未完成；不把替代证据写成真实窗口通过。
 4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和插件秘密上下文的真实环境验收；Linux Secret Service、macOS Keychain 和发布环境仍待分别验收，验证失败时保留安全拒绝状态。
-5. `A-PLAT-005`：当前推进 JSON Path 真实静态入口的 headless 运行指标和任务回收；进程内存、真实窗口首次打开和跨平台环境仍待补。
+5. `A-PLAT-005`：JSON Path 真实静态入口已完成 headless 运行指标、任务回收和 Windows 系统 UI Automation/截图替代验收；当前调试构建已记录进程内存样本，Linux/macOS、发布构建和 Computer Use 证据仍待补。
 6. `A-QUALITY`：完成大结果集、对象树、首帧、主题一致性和发布检查，形成可复现测量记录。
 
 阶段 A 的每个子项独立设计、验证、提交和推送；同一时间只有一个子项处于开发中。

@@ -124,6 +124,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 证据边界：该记录覆盖真实静态插件入口的 headless 执行、结果预算和任务回收，宿主取消路径同时记录 `PluginTaskOutcome`；不覆盖真实窗口首次打开、进程级空闲内存或 Computer Use 鼠标/键盘，后续需补跨平台和发布环境测量。
 - 状态：`A-PLAT-005` 的 JSON Path 运行指标子切片完成；下一步补进程内存基线和更多真实入口，之后收口 `A-UI-REAL` 并进入阶段 B 的 `B-API-001` 设计确认。
 
+### A-PLAT-005-UI：JSON Path 原生入口与资源采样验收（2026-09-27，替代窗口证据完成）
+
+- 真实流程：启动最新 x64 MSVC `ramag.exe`，切换到 JSON Path 提取器，通过 Windows UI Automation 调用“提取”；输入 `$.users[*].name` 返回 `Alice`、`Bob` 两项，未访问网络或远端服务。
+- 证据：系统窗口截图 `target/ui-fallback/json-path-extract.png` 保存 JSON5 输入、路径、提取按钮、完成状态和结果；UI Automation 发现入口控件并成功调用一次提取。
+- 资源采样：同一进程在 JSON Path 窗口激活后记录 Working Set 约 `113.9 MiB`、Private Bytes 约 `112.3 MiB`；另一次冷启动采样为 Working Set `110.7 MiB`、Private Bytes `111.2 MiB`。数值只作为当前 Windows 调试构建的可复查样本，不作为跨机器预算承诺。
+- 证据边界：Computer Use 运行时仍只返回浏览器且 `apps: []`，本记录使用真实 Windows 窗口截图、UI Automation 和进程采样作为替代证据；Linux/macOS、发布构建和 Computer Use 完整流程仍未验收。
+
 ### B-API-001-A：协议切换取消活动请求（设计确认，2026-09-27）
 
 - 问题证据：API 工作区在 HTTP/gRPC 请求执行期间切换协议时，原逻辑只清理编辑器和 gRPC 发现状态；活动请求的取消标记与 `request_generation` 没有同步失效，迟到的旧响应仍可能覆盖新协议工作区。
