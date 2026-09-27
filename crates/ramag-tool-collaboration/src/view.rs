@@ -15,7 +15,7 @@ use gpui_kit::{
 };
 use ramag_app::{CollaborationService, CollaborationServiceError};
 use ramag_domain::entities::{CollaborationShare, CollaborationShareId};
-use ramag_domain::traits::Storage;
+use ramag_domain::traits::{ClipboardDriver, Storage};
 use ramag_ui::clickable_button;
 
 const ACTOR: &str = "local-user";
@@ -23,6 +23,7 @@ const ACTOR: &str = "local-user";
 /// 本机协作视图状态；正文只在 GPUI 编辑器和应用层服务之间短暂流转。
 pub struct CollaborationView {
     service: Arc<CollaborationService>,
+    clipboard: Option<Arc<dyn ClipboardDriver>>,
     title: Entity<InputState>,
     payload: Entity<EditorState>,
     import_text: Entity<EditorState>,
@@ -36,6 +37,7 @@ pub struct CollaborationView {
 impl CollaborationView {
     pub(crate) fn new(
         storage: Arc<dyn Storage>,
+        clipboard: Option<Arc<dyn ClipboardDriver>>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -57,13 +59,18 @@ impl CollaborationView {
         });
         Self {
             service: Arc::new(CollaborationService::new(storage)),
+            clipboard: clipboard.clone(),
             title,
             payload,
             import_text,
             shares: Vec::new(),
             selected: None,
             export_text: String::new(),
-            status: "仅保存在本机加密存储中".into(),
+            status: if clipboard.is_some() {
+                "仅保存在本机加密存储中".into()
+            } else {
+                "当前平台没有剪贴板能力；可手动复制导出文本".into()
+            },
             busy: false,
         }
     }
@@ -186,6 +193,48 @@ impl CollaborationView {
                         view.status = "已导入为新的本机草稿；未连接远端".into();
                     }
                     Err(error) => view.status = format_service_error(error),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn copy_export(&mut self, cx: &mut Context<Self>) {
+        let Some(id) = self.selected.clone() else {
+            self.status = "先选择一个本机草稿".into();
+            cx.notify();
+            return;
+        };
+        let Some(clipboard) = self.clipboard.clone() else {
+            self.status = "当前平台没有剪贴板能力；请手动复制导出文本".into();
+            cx.notify();
+            return;
+        };
+        if self.busy {
+            return;
+        }
+        self.busy = true;
+        let service = self.service.clone();
+        cx.spawn(async move |this, cx| {
+            let result = service
+                .manual_export_json(&id)
+                .await
+                .map_err(|error| error.to_string())
+                .and_then(|text| {
+                    clipboard
+                        .write_text(&text, None)
+                        .map(|()| text)
+                        .map_err(|error| error.to_string())
+                });
+            let _ = this.update(cx, |view, cx| {
+                view.busy = false;
+                match result {
+                    Ok(text) => {
+                        view.export_text = text;
+                        view.status = "已复制安全导出包；不会自动发送到远端".into();
+                    }
+                    Err(error) => view.status = format!("复制导出包失败：{error}"),
                 }
                 cx.notify();
             });
@@ -420,6 +469,22 @@ impl Render for CollaborationView {
                                         .disabled(self.busy || share.state == ramag_domain::CollaborationShareState::Revoked)
                                         .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
                                             view.prepare_export(cx);
+                                        })),
+                                )
+                                .child(
+                                    clickable_button("collaboration-copy")
+                                        .debug_selector(|| "collaboration-copy".into())
+                                        .ghost()
+                                        .small()
+                                        .label("复制导出包")
+                                        .disabled(
+                                            self.busy
+                                                || self.clipboard.is_none()
+                                                || share.state
+                                                    == ramag_domain::CollaborationShareState::Revoked,
+                                        )
+                                        .on_click(cx.listener(|view, _: &ClickEvent, _, cx| {
+                                            view.copy_export(cx);
                                         })),
                                 )
                                 .child(

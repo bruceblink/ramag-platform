@@ -23,7 +23,7 @@ fn collaboration_view_keeps_confirmation_controls_inside_supported_widths(cx: &m
             .expect("storage opens"),
     );
     let (_, visual_cx) = cx.add_window_view(|window, cx| {
-        let view = cx.new(|cx| CollaborationView::new(storage, window, cx));
+        let view = cx.new(|cx| CollaborationView::new(storage, None, window, cx));
         component::Root::new(view, window, cx)
     });
     for width in [360.0, 1024.0, 1440.0] {

@@ -74,6 +74,15 @@ impl CollaborationService {
         Ok(share)
     }
 
+    /// 重新读取并校验可导出的共享包；调用方可在用户确认后交给平台剪贴板。
+    pub async fn manual_export_json(
+        &self,
+        id: &CollaborationShareId,
+    ) -> std::result::Result<String, CollaborationServiceError> {
+        let share = self.find_required(id).await?;
+        Ok(share.manual_export_json()?)
+    }
+
     /// 导入用户明确提供的导出文本，并以新的本机草稿 ID 保存，避免覆盖现有包。
     pub async fn import_manual_export(
         &self,
@@ -218,5 +227,19 @@ mod tests {
         let imported = block_on(service.import_manual_export(&encoded, "bob")).unwrap();
         assert_ne!(source.id, imported.id);
         assert_eq!(block_on(service.list()).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn service_revalidates_export_before_handoff() {
+        let (service, _directory) = service();
+        let share = block_on(service.create_local(
+            "交接说明",
+            vec![CollaborationArtifact::document("说明", "safe")],
+        ))
+        .unwrap();
+        assert!(block_on(service.manual_export_json(&share.id)).is_err());
+        let prepared = block_on(service.prepare_manual_export(&share.id, "alice")).unwrap();
+        let encoded = block_on(service.manual_export_json(&prepared.id)).unwrap();
+        assert!(encoded.contains("交接说明"));
     }
 }

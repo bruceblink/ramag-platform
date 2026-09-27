@@ -247,7 +247,14 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                 let system_view = create_system_view(window, cx);
                 let json_path_view = create_json_path_view(plugin_host.clone(), window, cx);
                 let collaboration_view =
-                    ramag_tool_collaboration::create_collaboration_view(storage.clone(), window, cx);
+                    ramag_tool_collaboration::create_collaboration_view(
+                        storage.clone(),
+                        clipboard_service
+                            .as_ref()
+                            .map(|service| service.driver().clone()),
+                        window,
+                        cx,
+                    );
                 let settings_view = cx.new(|cx| {
                     SettingsView::new(
                         plugin_host.clone(),

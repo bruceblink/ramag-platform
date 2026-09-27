@@ -7,7 +7,7 @@ mod view;
 use std::sync::Arc;
 
 use gpui_kit::{App, AppContext as _, Entity, Window};
-use ramag_domain::traits::{Storage, Tool, ToolMeta};
+use ramag_domain::traits::{ClipboardDriver, Storage, Tool, ToolMeta};
 
 pub const PLUGIN_ID: &str = "ramag.collaboration";
 pub const ENTRY_ID: &str = "collaboration";
@@ -47,10 +47,11 @@ impl Tool for CollaborationTool {
 /// 创建原生 GPUI 协作入口；Storage 由组合根注入，视图不直接打开数据库文件。
 pub fn create_collaboration_view(
     storage: Arc<dyn Storage>,
+    clipboard: Option<Arc<dyn ClipboardDriver>>,
     window: &mut Window,
     cx: &mut App,
 ) -> Entity<CollaborationView> {
-    let view = cx.new(|cx| CollaborationView::new(storage, window, cx));
+    let view = cx.new(|cx| CollaborationView::new(storage, clipboard, window, cx));
     view.update(cx, |view, cx| view.reload(cx));
     view
 }
