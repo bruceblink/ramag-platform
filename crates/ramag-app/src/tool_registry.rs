@@ -1,6 +1,6 @@
 //! 工具注册表，支持按用户布局顺序查询和动态隐藏工具入口。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use parking_lot::RwLock;
@@ -59,21 +59,67 @@ impl ToolRegistry {
         self.register_plugin(descriptor, tool)
     }
 
-    /// 注册一个静态插件；失败只返回诊断，不修改现有工具列表。
+    /// 注册一个单入口静态插件；失败只返回诊断，不修改现有工具列表。
     pub fn register_plugin(
         &self,
         descriptor: PluginDescriptor,
         tool: Arc<dyn Tool>,
     ) -> Result<(), PluginRegistrationError> {
+        self.register_plugin_entries(descriptor, vec![tool])
+    }
+
+    /// 原子注册一个插件的全部工具入口；任一入口不匹配时整组保持未注册。
+    pub fn register_plugin_entries(
+        &self,
+        descriptor: PluginDescriptor,
+        plugin_tools: Vec<Arc<dyn Tool>>,
+    ) -> Result<(), PluginRegistrationError> {
         descriptor.validate()?;
-        let tool_id = tool.meta().id.clone();
-        if descriptor.entry_id != tool_id {
-            return Err(PluginRegistrationError::EntryIdMismatch {
+        let entries = descriptor.entry_descriptors();
+        if entries.len() != plugin_tools.len() {
+            return Err(PluginRegistrationError::EntryCountMismatch {
                 plugin_id: descriptor.id.clone(),
-                entry_id: descriptor.entry_id.clone(),
-                tool_id,
+                expected: entries.len(),
+                actual: plugin_tools.len(),
             });
         }
+        let entry_ids = entries
+            .iter()
+            .map(|entry| entry.id.as_str())
+            .collect::<HashSet<_>>();
+        let mut tool_ids = HashSet::with_capacity(plugin_tools.len());
+        for tool in &plugin_tools {
+            let tool_id = tool.meta().id.as_str();
+            if !entry_ids.contains(tool_id) {
+                return Err(PluginRegistrationError::EntryIdMismatch {
+                    plugin_id: descriptor.id.clone(),
+                    entry_id: descriptor.entry_id.clone(),
+                    tool_id: tool_id.to_owned(),
+                });
+            }
+            if !tool_ids.insert(tool_id) {
+                return Err(PluginRegistrationError::DuplicateEntryId {
+                    entry_id: tool_id.to_owned(),
+                });
+            }
+        }
+        for entry in &entries {
+            if !tool_ids.contains(entry.id.as_str()) {
+                return Err(PluginRegistrationError::MissingToolEntry {
+                    plugin_id: descriptor.id.clone(),
+                    entry_id: entry.id.clone(),
+                });
+            }
+        }
+        let ordered_tools = entries
+            .iter()
+            .filter_map(|entry| {
+                plugin_tools
+                    .iter()
+                    .find(|tool| tool.meta().id == entry.id)
+                    .cloned()
+            })
+            .collect::<Vec<_>>();
 
         let mut tools = self.tools.write();
         if tools.iter().any(|entry| {
@@ -86,49 +132,56 @@ impl ToolRegistry {
                 id: descriptor.id.clone(),
             });
         }
-        if tools
+        if let Some(duplicate) = tools
             .iter()
-            .any(|entry| entry.tool.meta().id == descriptor.entry_id)
+            .find(|entry| entry_ids.contains(entry.tool.meta().id.as_str()))
         {
             return Err(PluginRegistrationError::DuplicateEntryId {
-                entry_id: descriptor.entry_id.clone(),
+                entry_id: duplicate.tool.meta().id.clone(),
             });
         }
         tracing::info!(
             operation = "plugin_register",
             plugin_id = %descriptor.id,
-            entry_id = %descriptor.entry_id,
+            entry_count = entries.len(),
             "static plugin registered"
         );
-        tools.push(ToolEntry {
-            tool,
-            enabled: true,
-            plugin: Some(descriptor),
-        });
+        for tool in ordered_tools {
+            tools.push(ToolEntry {
+                tool,
+                enabled: true,
+                plugin: Some(descriptor.clone()),
+            });
+        }
         Ok(())
     }
 
     /// 返回已通过校验并注册的静态插件描述，不暴露工具运行时状态。
     pub fn plugin_descriptors(&self) -> Vec<PluginDescriptor> {
+        let mut seen = HashSet::new();
         self.tools
             .read()
             .iter()
-            .filter_map(|entry| entry.plugin.clone())
+            .filter_map(|entry| {
+                let plugin = entry.plugin.clone()?;
+                seen.insert(plugin.id.clone()).then_some(plugin)
+            })
             .collect()
     }
 
     /// 移除一个已注册的静态插件；普通工具和其他插件不受影响。
     pub fn unregister_plugin(&self, plugin_id: &str) -> bool {
         let mut tools = self.tools.write();
-        let Some(index) = tools.iter().position(|entry| {
-            entry
+        let before = tools.len();
+        tools.retain(|entry| {
+            !entry
                 .plugin
                 .as_ref()
                 .is_some_and(|plugin| plugin.id.as_str() == plugin_id)
-        }) else {
+        });
+        if before == tools.len() {
             return false;
-        };
-        tools.remove(index);
+        }
         tracing::info!(
             operation = "plugin_unregister",
             plugin_id,
@@ -373,181 +426,5 @@ impl ToolRegistry {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use ramag_domain::ToolMeta;
-
-    struct DummyTool {
-        meta: ToolMeta,
-    }
-
-    impl Tool for DummyTool {
-        fn meta(&self) -> &ToolMeta {
-            &self.meta
-        }
-    }
-
-    fn dummy(id: &str, name: &str) -> Arc<DummyTool> {
-        Arc::new(DummyTool {
-            meta: ToolMeta::new(id, name, ""),
-        })
-    }
-
-    #[test]
-    fn register_and_list() {
-        let reg = ToolRegistry::new();
-        reg.register(dummy("a", "ToolA"));
-        reg.register(dummy("b", "ToolB"));
-        assert_eq!(reg.count(), 2);
-        assert!(reg.find("a").is_some());
-        assert!(reg.find("missing").is_none());
-    }
-
-    #[test]
-    fn duplicate_registration_ignored() {
-        let reg = ToolRegistry::new();
-        reg.register(dummy("dup", "Tool1"));
-        reg.register(dummy("dup", "Tool2"));
-        assert_eq!(reg.count(), 1);
-    }
-
-    #[test]
-    fn disabled_tool_hidden_from_list_and_find() {
-        let reg = ToolRegistry::new();
-        reg.register(dummy("a", "ToolA"));
-        reg.register(dummy("b", "ToolB"));
-
-        assert!(reg.set_enabled("a", false));
-        assert_eq!(reg.count(), 1);
-        assert!(reg.find("a").is_none());
-        assert_eq!(reg.list().len(), 1);
-        // 重复设置同一状态与未注册 id 均不算变化
-        assert!(!reg.set_enabled("a", false));
-        assert!(!reg.set_enabled("missing", true));
-
-        assert!(reg.set_enabled("a", true));
-        assert!(reg.find("a").is_some());
-        assert_eq!(reg.count(), 2);
-    }
-
-    #[test]
-    fn reorder_updates_visible_tool_order() {
-        let reg = ToolRegistry::new();
-        reg.register(dummy("a", "ToolA"));
-        reg.register(dummy("b", "ToolB"));
-        reg.register(dummy("c", "ToolC"));
-
-        assert!(reg.reorder("c", "a", true));
-        assert_eq!(reg.order(), ["c", "a", "b"]);
-        assert!(reg.reorder("c", "b", false));
-        assert_eq!(reg.order(), ["a", "b", "c"]);
-        assert!(!reg.reorder("a", "missing", true));
-    }
-
-    #[test]
-    fn reorder_to_target_moves_item_into_target_slot() {
-        let reg = ToolRegistry::new();
-        reg.register(dummy("a", "ToolA"));
-        reg.register(dummy("b", "ToolB"));
-        reg.register(dummy("c", "ToolC"));
-        reg.register(dummy("d", "ToolD"));
-
-        assert!(reg.reorder_to_target("a", "c"));
-        assert_eq!(reg.order(), ["b", "c", "a", "d"]);
-        assert!(reg.reorder_to_target("d", "b"));
-        assert_eq!(reg.order(), ["d", "b", "c", "a"]);
-        assert!(!reg.reorder_to_target("a", "a"));
-    }
-
-    #[test]
-    fn move_to_end_places_item_after_last_visible_tool() {
-        let reg = ToolRegistry::new();
-        reg.register(dummy("a", "ToolA"));
-        reg.register(dummy("b", "ToolB"));
-        reg.register(dummy("c", "ToolC"));
-
-        assert!(reg.move_to_end("b"));
-        assert_eq!(reg.order(), ["a", "c", "b"]);
-        assert!(!reg.move_to_end("b"));
-    }
-
-    #[test]
-    fn reorder_to_index_moves_item_to_the_requested_visible_slot() {
-        let reg = ToolRegistry::new();
-        reg.register(dummy("a", "ToolA"));
-        reg.register(dummy("b", "ToolB"));
-        reg.register(dummy("c", "ToolC"));
-
-        assert!(reg.reorder_to_index("c", 0));
-        assert_eq!(reg.order(), ["c", "a", "b"]);
-        assert!(reg.reorder_to_index("c", 3));
-        assert_eq!(reg.order(), ["a", "b", "c"]);
-        assert!(!reg.reorder_to_index("b", 1));
-    }
-
-    #[test]
-    fn reorder_to_index_keeps_disabled_tools_in_the_registry() {
-        let reg = ToolRegistry::new();
-        reg.register(dummy("a", "ToolA"));
-        reg.register(dummy("hidden", "Hidden"));
-        reg.register(dummy("b", "ToolB"));
-        assert!(reg.set_enabled("hidden", false));
-
-        assert!(reg.reorder_to_index("b", 0));
-        assert_eq!(reg.order(), ["b", "a", "hidden"]);
-        assert_eq!(reg.list().len(), 2);
-    }
-
-    #[test]
-    fn apply_order_keeps_new_tools_after_saved_tools() {
-        let reg = ToolRegistry::new();
-        reg.register(dummy("a", "ToolA"));
-        reg.register(dummy("b", "ToolB"));
-        reg.register(dummy("c", "ToolC"));
-
-        assert!(reg.apply_order(&["b".into(), "a".into()]));
-        assert_eq!(reg.order(), ["b", "a", "c"]);
-        assert!(reg.apply_order_json(r#"["c","a"]"#).unwrap());
-        assert_eq!(reg.order(), ["c", "a", "b"]);
-        assert!(reg.apply_order_json("not-json").is_err());
-    }
-
-    #[test]
-    fn builtin_registration_keeps_tool_behavior_and_records_descriptor() {
-        let reg = ToolRegistry::new();
-        reg.register_builtin(dummy("example", "Example")).unwrap();
-
-        assert_eq!(reg.order(), ["example"]);
-        let plugins = reg.plugin_descriptors();
-        assert_eq!(plugins.len(), 1);
-        assert_eq!(plugins[0].id.as_str(), "example");
-        assert_eq!(plugins[0].entry_id, "example");
-    }
-
-    #[test]
-    fn plugin_registration_rejects_duplicate_and_mismatched_entries() {
-        let reg = ToolRegistry::new();
-        reg.register_builtin(dummy("example", "Example")).unwrap();
-
-        let duplicate = PluginDescriptor::new(
-            PluginId::new("example").unwrap(),
-            "Another Example",
-            "other",
-        );
-        assert!(matches!(
-            reg.register_plugin(duplicate, dummy("other", "Other")),
-            Err(PluginRegistrationError::DuplicatePluginId { .. })
-        ));
-
-        let mismatch = PluginDescriptor::new(
-            PluginId::new("different").unwrap(),
-            "Different",
-            "different",
-        );
-        assert!(matches!(
-            reg.register_plugin(mismatch, dummy("another", "Another")),
-            Err(PluginRegistrationError::EntryIdMismatch { .. })
-        ));
-        assert_eq!(reg.order(), ["example"]);
-    }
-}
+#[path = "tool_registry_tests.rs"]
+mod tests;

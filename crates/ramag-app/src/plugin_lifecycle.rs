@@ -298,6 +298,11 @@ pub trait StaticPlugin: Send + Sync {
     fn descriptor(&self) -> &PluginDescriptor;
     fn tool(&self) -> Arc<dyn Tool>;
 
+    /// 返回该插件提供的全部工具入口；旧插件默认只暴露兼容的单入口。
+    fn tools(&self) -> Vec<Arc<dyn Tool>> {
+        vec![self.tool()]
+    }
+
     /// 宿主已将插件置为 Initializing 后调用；默认实现只确认上下文有效。
     fn initialize(&self, context: &PluginContext) -> Result<(), PluginOperationError> {
         context

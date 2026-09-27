@@ -242,6 +242,7 @@ fn render_diagnostic_row(
     let descriptor = &diagnostic.descriptor;
     let state_color = state_color(diagnostic.state, success, warning, danger, muted);
     let row_id = format!("plugin-state-{}", descriptor.id);
+    let entry_count = descriptor.entry_descriptors().len();
     let mut row = v_flex()
         .id(row_id.clone())
         .debug_selector(move || row_id.clone())
@@ -278,7 +279,7 @@ fn render_diagnostic_row(
                                 .child(descriptor.name.clone()),
                         )
                         .child(div().text_xs().text_color(muted).child(format!(
-                            "{} · 入口 ID：{}",
+                            "{} · {entry_count} 个入口 · 主入口 ID：{}",
                             descriptor.id, descriptor.entry_id
                         ))),
                 )

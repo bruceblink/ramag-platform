@@ -5,6 +5,13 @@ use std::{collections::HashSet, fmt};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[path = "plugin_entry.rs"]
+mod plugin_entry;
+pub use plugin_entry::{
+    MAX_PLUGIN_ENTRIES, MAX_PLUGIN_ENTRY_PAYLOAD_BYTES, PluginEntryDataKind, PluginEntryDataSpec,
+    PluginEntryDescriptor,
+};
+
 /// 当前宿主支持的插件 API 版本。
 pub const CURRENT_PLUGIN_API_VERSION: PluginApiVersion = PluginApiVersion::new(1, 0);
 /// 插件 ID、入口 ID 和设置键允许的最大字节数。
@@ -263,6 +270,8 @@ pub struct PluginDescriptor {
     pub name: String,
     pub description: String,
     pub entry_id: String,
+    #[serde(default)]
+    pub entries: Vec<PluginEntryDescriptor>,
     pub capabilities: Vec<PluginCapability>,
     pub settings: Vec<PluginSettingDefinition>,
 }
@@ -276,6 +285,7 @@ impl PluginDescriptor {
             name: name.into(),
             description: String::new(),
             entry_id: entry_id.into(),
+            entries: Vec::new(),
             capabilities: vec![PluginCapability::new("ui.entry")],
             settings: Vec::new(),
         }
@@ -304,6 +314,23 @@ impl PluginDescriptor {
         self
     }
 
+    /// 设置插件的多入口清单；`entry_id` 必须仍然出现在入口列表中作为兼容主入口。
+    pub fn with_entries(mut self, entries: Vec<PluginEntryDescriptor>) -> Self {
+        self.entries = entries;
+        self
+    }
+
+    /// 返回显式入口，旧版单入口清单则按既有字段生成一个兼容入口。
+    pub fn entry_descriptors(&self) -> Vec<PluginEntryDescriptor> {
+        if self.entries.is_empty() {
+            return vec![
+                PluginEntryDescriptor::new(&self.entry_id, &self.name)
+                    .with_description(&self.description),
+            ];
+        }
+        self.entries.clone()
+    }
+
     /// 按当前宿主 API 校验插件清单。
     pub fn validate(&self) -> Result<(), PluginRegistrationError> {
         self.validate_for(CURRENT_PLUGIN_API_VERSION)
@@ -329,6 +356,27 @@ impl PluginDescriptor {
             true,
         )?;
         validate_identifier("插件入口 ID", &self.entry_id, MAX_PLUGIN_ENTRY_ID_BYTES)?;
+
+        let entries = self.entry_descriptors();
+        if entries.len() > MAX_PLUGIN_ENTRIES {
+            return Err(PluginRegistrationError::TooManyEntries {
+                max: MAX_PLUGIN_ENTRIES,
+            });
+        }
+        let mut entry_ids = HashSet::with_capacity(entries.len());
+        for entry in &entries {
+            entry.validate()?;
+            if !entry_ids.insert(&entry.id) {
+                return Err(PluginRegistrationError::DuplicateEntryDescriptor {
+                    entry_id: entry.id.clone(),
+                });
+            }
+        }
+        if !entry_ids.contains(&self.entry_id) {
+            return Err(PluginRegistrationError::MissingPrimaryEntry {
+                entry_id: self.entry_id.clone(),
+            });
+        }
 
         if self.capabilities.len() > MAX_PLUGIN_CAPABILITIES {
             return Err(PluginRegistrationError::TooManyCapabilities {
@@ -395,6 +443,25 @@ pub enum PluginRegistrationError {
     DuplicateSetting { key: String },
     #[error("插件设置超过 {max} 项")]
     TooManySettings { max: usize },
+    #[error("插件入口超过 {max} 项")]
+    TooManyEntries { max: usize },
+    #[error("插件入口描述重复：{entry_id}")]
+    DuplicateEntryDescriptor { entry_id: String },
+    #[error("插件主入口 `{entry_id}` 未出现在多入口清单中")]
+    MissingPrimaryEntry { entry_id: String },
+    #[error("插件 `{plugin_id}` 没有提供清单入口 `{entry_id}` 对应的工具")]
+    MissingToolEntry {
+        plugin_id: PluginId,
+        entry_id: String,
+    },
+    #[error("插件入口 `{entry_id}` 无效：{reason}")]
+    InvalidEntry { entry_id: String, reason: String },
+    #[error("插件 `{plugin_id}` 需要 {expected} 个工具入口，实际提供 {actual} 个")]
+    EntryCountMismatch {
+        plugin_id: PluginId,
+        expected: usize,
+        actual: usize,
+    },
     #[error("插件 ID 已注册：{id}")]
     DuplicatePluginId { id: PluginId },
     #[error("工具入口已注册：{entry_id}")]
@@ -468,124 +535,5 @@ fn invalid_setting(key: &str, reason: impl Into<String>) -> PluginRegistrationEr
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn descriptor() -> Result<PluginDescriptor, PluginRegistrationError> {
-        let plugin_id = PluginId::new("example.tool")?;
-        Ok(PluginDescriptor::new(plugin_id, "Example", "example")
-            .with_description("A built-in example tool")
-            .with_capabilities([
-                PluginCapability::new("ui.entry"),
-                PluginCapability::new("task.scoped"),
-            ])
-            .with_settings(vec![
-                PluginSettingDefinition::new("mode", PluginSettingKind::Enum)
-                    .with_enum_values(["safe", "full"])
-                    .with_default(PluginSettingValue::String("safe".into())),
-            ]))
-    }
-
-    #[test]
-    fn valid_descriptor_passes_all_registration_checks() {
-        let Ok(descriptor) = descriptor() else {
-            return;
-        };
-        assert!(descriptor.validate().is_ok());
-        assert!(PluginApiVersion::new(1, 0).is_supported_by(CURRENT_PLUGIN_API_VERSION));
-    }
-
-    #[test]
-    fn identifiers_reject_uppercase_and_path_characters() {
-        assert!(matches!(
-            PluginId::new("Example.Tool"),
-            Err(PluginRegistrationError::InvalidIdentifier { .. })
-        ));
-        assert!(matches!(
-            PluginId::new("../tool"),
-            Err(PluginRegistrationError::InvalidIdentifier { .. })
-        ));
-    }
-
-    #[test]
-    fn unsupported_api_version_is_rejected() {
-        let Ok(descriptor) = descriptor() else {
-            return;
-        };
-        let descriptor = descriptor.with_api_version(PluginApiVersion::new(2, 0));
-        assert!(matches!(
-            descriptor.validate(),
-            Err(PluginRegistrationError::UnsupportedApiVersion { .. })
-        ));
-    }
-
-    #[test]
-    fn unknown_and_duplicate_capabilities_are_rejected() {
-        let Ok(descriptor) = descriptor() else {
-            return;
-        };
-        let unknown = descriptor
-            .clone()
-            .with_capabilities([PluginCapability::new("network.any")]);
-        assert!(matches!(
-            unknown.validate(),
-            Err(PluginRegistrationError::UnknownCapability { .. })
-        ));
-
-        let duplicate = descriptor.with_capabilities([
-            PluginCapability::new("ui.entry"),
-            PluginCapability::new("ui.entry"),
-        ]);
-        assert!(matches!(
-            duplicate.validate(),
-            Err(PluginRegistrationError::DuplicateCapability { .. })
-        ));
-    }
-
-    #[test]
-    fn setting_schema_rejects_type_and_enum_default_mismatches() {
-        let Ok(descriptor) = descriptor() else {
-            return;
-        };
-        let wrong_type = descriptor.clone().with_settings(vec![
-            PluginSettingDefinition::new("enabled", PluginSettingKind::Boolean)
-                .with_default(PluginSettingValue::String("yes".into())),
-        ]);
-        assert!(matches!(
-            wrong_type.validate(),
-            Err(PluginRegistrationError::InvalidSetting { .. })
-        ));
-
-        let wrong_enum = descriptor.with_settings(vec![
-            PluginSettingDefinition::new("mode", PluginSettingKind::Enum)
-                .with_enum_values(["safe", "full"])
-                .with_default(PluginSettingValue::String("unknown".into())),
-        ]);
-        assert!(matches!(
-            wrong_enum.validate(),
-            Err(PluginRegistrationError::InvalidSetting { .. })
-        ));
-    }
-
-    #[test]
-    fn deserialized_invalid_descriptor_is_caught_before_registration() {
-        let Ok(descriptor) = descriptor() else {
-            return;
-        };
-        let serialized = serde_json::to_value(descriptor);
-        assert!(serialized.is_ok());
-        let Some(mut value) = serialized.ok() else {
-            return;
-        };
-        value["id"] = serde_json::json!("Bad.Plugin");
-        let deserialized: Result<PluginDescriptor, _> = serde_json::from_value(value);
-        assert!(deserialized.is_ok());
-        let Some(descriptor) = deserialized.ok() else {
-            return;
-        };
-        assert!(matches!(
-            descriptor.validate(),
-            Err(PluginRegistrationError::InvalidIdentifier { .. })
-        ));
-    }
-}
+#[path = "plugin_tests.rs"]
+mod tests;

@@ -42,11 +42,12 @@ pub use mqtt_transport::MqttTransport;
 pub use object_storage_driver::ObjectStorageDriver;
 pub use plugin::{
     CURRENT_PLUGIN_API_VERSION, KNOWN_PLUGIN_CAPABILITIES, MAX_PLUGIN_CAPABILITIES,
-    MAX_PLUGIN_DESCRIPTION_BYTES, MAX_PLUGIN_ENTRY_ID_BYTES, MAX_PLUGIN_ENUM_VALUES,
-    MAX_PLUGIN_ID_BYTES, MAX_PLUGIN_NAME_BYTES, MAX_PLUGIN_SETTING_KEY_BYTES,
-    MAX_PLUGIN_SETTING_LIST_ITEMS, MAX_PLUGIN_SETTING_VALUE_BYTES, MAX_PLUGIN_SETTINGS,
-    PluginApiVersion, PluginCapability, PluginDescriptor, PluginId, PluginRegistrationError,
-    PluginSettingDefinition, PluginSettingKind, PluginSettingValue,
+    MAX_PLUGIN_DESCRIPTION_BYTES, MAX_PLUGIN_ENTRIES, MAX_PLUGIN_ENTRY_ID_BYTES,
+    MAX_PLUGIN_ENTRY_PAYLOAD_BYTES, MAX_PLUGIN_ENUM_VALUES, MAX_PLUGIN_ID_BYTES,
+    MAX_PLUGIN_NAME_BYTES, MAX_PLUGIN_SETTING_KEY_BYTES, MAX_PLUGIN_SETTING_LIST_ITEMS,
+    MAX_PLUGIN_SETTING_VALUE_BYTES, MAX_PLUGIN_SETTINGS, PluginApiVersion, PluginCapability,
+    PluginDescriptor, PluginEntryDataKind, PluginEntryDataSpec, PluginEntryDescriptor, PluginId,
+    PluginRegistrationError, PluginSettingDefinition, PluginSettingKind, PluginSettingValue,
 };
 pub use ssh_driver::SshDriver;
 pub use storage::Storage;

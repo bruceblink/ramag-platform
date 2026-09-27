@@ -134,7 +134,7 @@ impl StaticPluginHost {
 
         if let Err(source) = self
             .registry
-            .register_plugin(descriptor.clone(), plugin.tool())
+            .register_plugin_entries(descriptor.clone(), plugin.tools())
         {
             self.record_registration_failure(descriptor, source.to_string());
             return Err(PluginHostError::Registration { plugin_id, source });

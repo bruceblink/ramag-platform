@@ -3,8 +3,8 @@ use std::sync::Arc;
 use futures::executor::block_on;
 use parking_lot::Mutex;
 use ramag_domain::{
-    PluginCapability, PluginDescriptor, PluginId, PluginSettingDefinition, PluginSettingKind,
-    PluginSettingValue, Storage, Tool, ToolMeta,
+    PluginCapability, PluginDescriptor, PluginEntryDescriptor, PluginId, PluginSettingDefinition,
+    PluginSettingKind, PluginSettingValue, Storage, Tool, ToolMeta,
 };
 use ramag_infra_storage::RedbStorage;
 use tempfile::tempdir;
@@ -330,6 +330,77 @@ fn operation_errors_are_bounded() {
 
     assert!(error.message().len() <= MAX_PLUGIN_OPERATION_ERROR_BYTES);
     assert!(error.message().ends_with("..."));
+}
+
+struct MultiEntryPlugin {
+    descriptor: PluginDescriptor,
+    tools: Vec<Arc<DummyTool>>,
+    events: Arc<Mutex<Vec<String>>>,
+}
+
+impl MultiEntryPlugin {
+    fn new(events: Arc<Mutex<Vec<String>>>) -> Self {
+        let plugin_id = PluginId::new("bundle.example").unwrap();
+        let descriptor =
+            PluginDescriptor::new(plugin_id, "Bundle", "bundle.first").with_entries(vec![
+                PluginEntryDescriptor::new("bundle.first", "First"),
+                PluginEntryDescriptor::new("bundle.second", "Second"),
+            ]);
+        Self {
+            descriptor,
+            tools: vec![
+                Arc::new(DummyTool {
+                    meta: ToolMeta::new("bundle.first", "First", ""),
+                }),
+                Arc::new(DummyTool {
+                    meta: ToolMeta::new("bundle.second", "Second", ""),
+                }),
+            ],
+            events,
+        }
+    }
+}
+
+impl StaticPlugin for MultiEntryPlugin {
+    fn descriptor(&self) -> &PluginDescriptor {
+        &self.descriptor
+    }
+
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tools[0].clone()
+    }
+
+    fn tools(&self) -> Vec<Arc<dyn Tool>> {
+        self.tools
+            .iter()
+            .cloned()
+            .map(|tool| tool as Arc<dyn Tool>)
+            .collect()
+    }
+
+    fn initialize(&self, context: &PluginContext) -> Result<(), PluginOperationError> {
+        context
+            .ensure_available()
+            .map_err(|error| PluginOperationError::new(error.to_string()))?;
+        self.events.lock().push("initialized".into());
+        Ok(())
+    }
+}
+
+#[test]
+fn host_registers_multiple_entries_and_unloads_them_as_one_plugin() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let host = StaticPluginHost::new(Arc::new(ToolRegistry::new()));
+    host.register_plugin(Arc::new(MultiEntryPlugin::new(events.clone())))
+        .unwrap();
+
+    assert_eq!(host.registry().order(), ["bundle.first", "bundle.second"]);
+    assert_eq!(host.registry().plugin_descriptors().len(), 1);
+    assert_eq!(host.initialize_all().succeeded.len(), 1);
+    assert_eq!(*events.lock(), ["initialized"]);
+
+    host.shutdown_all();
+    assert_eq!(host.registry().count(), 0);
 }
 
 struct SettingsPlugin {
