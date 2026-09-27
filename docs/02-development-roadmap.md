@@ -50,8 +50,8 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 阶段 A 只处理已经存在的桌面功能、验收证据和资源边界，不新增画布或远程 Relay 产品面。
 
 1. `A-DB-005`：已完成 MySQL 8.4 与 PostgreSQL 17 的迁移脚本回放和 PostgreSQL 失败回滚验证；保留脚本指纹、阶段复核、人工确认、回读和破坏性变更保护。
-2. `A-DB-RED-02`：当前执行；按新矩阵复验对象树表结构、字段、索引和真实驱动元数据；不能用静态分组代替真实对象。
-3. `A-UI-REAL`：补齐数据库工作区、`DB-UX-004B-3B`、插件目录和 JSON Path 入口的真实 Windows 流程；Headless 证据与真实窗口证据分别记录。
+2. `A-DB-RED-02`：已完成 MySQL 8.4/PostgreSQL 17 Docker 元数据和 `table_tree` headless 复验；真实 Windows 流程仍待补。
+3. `A-UI-REAL`：当前执行，补齐数据库工作区、`DB-UX-004B-3B`、插件目录和 JSON Path 入口的真实 Windows 流程；Headless 证据与真实窗口证据分别记录。
 4. `A-P0C`：完成系统凭据库、主密钥和插件秘密上下文的真实环境验收，验证失败时保留安全拒绝状态。
 5. `A-PLAT-005`：接入一个以上真实工具入口，测量首次激活、取消、内存、输入、输出和关闭回收。
 6. `A-QUALITY`：完成大结果集、对象树、首帧、主题一致性和发布检查，形成可复现测量记录。
@@ -83,7 +83,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | ID | 内容 | 状态 | 依赖 | 必要证据 |
 |---|---|---|---|---|
 | `SHELL-001` | 共享 JetBrains 工作区壳层和设计令牌 | 已完成（headless；真实窗口待补） | 阶段 A | Headless 三尺寸、可用时 Computer Use、fmt/Clippy |
-| `DB-UX-001` | 数据库对象导航器 | 阶段 A 进行中（`DB-RED-02` 待复验） | `SHELL-001` | 对象树交互、MySQL/PostgreSQL Docker、窗口证据 |
+| `DB-UX-001` | 数据库对象导航器 | 阶段 A 代码、headless 与 Docker 复验完成；真实窗口待补 | `SHELL-001` | 对象树交互、MySQL/PostgreSQL Docker、窗口证据 |
 | `DB-UX-002` | 查询控制台和连接上下文 | 功能切片完成（`DB-RED-05A` 至 `DB-RED-07`；真实窗口待补） | `DB-UX-001` | SQL 执行/取消/标签回归、Docker、窗口证据 |
 | `DB-UX-003` | 结果数据网格 | 功能切片完成（`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C-1`、`DB-UX-003C-2`；原生拖拽证据待补） | `DB-UX-002` | 大数据量、双轴滚动、分页/编辑交互、窗口证据 |
 | `DB-UX-004` | 安全编辑与事务反馈 | 代码、Docker 与 headless 验证完成（`DB-UX-004B-3B` 原生窗口证据待补） | `DB-UX-003` | 成功/失败/取消/回滚、MySQL/PostgreSQL Docker |
@@ -98,6 +98,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `COLLAB-001-A` | 本机加密共享包、版本冲突、撤销和审计边界 | 已完成代码与专项测试 | `CATALOG-001` | 敏感数据阻断、加密落盘、冲突和撤销 |
 | `COLLAB-001-B` | 原生 GPUI 选择、导出/导入和远程协作入口 | 当前范围完成（B1、B2、B3 已完成；B4 到期回收及生产 Relay 后置） | `COLLAB-001-A` | 用户确认、选择性同步、冲突和审计 |
 | `CANVAS-001..006` | Excalidraw 风格原生协同画布 | 阶段 C 后置，尚未开始 | 阶段 A、B | 场景模型、GPUI 编辑器、本机共享和后续实时协同 |
+| `A-UI-REAL` | 阶段 A 真实 Windows 窗口证据收口 | 当前执行；Computer Use 可用性决定覆盖范围 | `DB-UX-001`、`DB-UX-002`、`DB-UX-003`、`DB-UX-004`、`PLAT-004`、`TOOL-MIG-001` | 启动、鼠标/键盘流程、截图和限制记录 |
 | `QUALITY-UX-001` | 性能、主题和发布证据收口 | 持续 | 各切片 | 测量、全量质量检查和发布记录 |
 
 ## 5. 交付规则

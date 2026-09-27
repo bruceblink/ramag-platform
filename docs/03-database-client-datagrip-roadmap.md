@@ -1,6 +1,6 @@
 # 数据库工作区主线：DataGrip 风格核心闭环
 
-> 状态：现行专项路线图；`DB-UX-005F` 迁移阶段逐段复核和 `A-DB-005` 真实 Docker 回放已完成，下一项为 `A-DB-RED-02` 对象树复验
+> 状态：现行专项路线图；`DB-UX-005F`、`A-DB-005` 和 `A-DB-RED-02` 的代码、headless 与 Docker 验证已完成，下一项为 `A-UI-REAL` 真实窗口证据
 > 更新日期：2026-09-27
 > 共同视觉与交互基线：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 跨工具顺序：[`02-development-roadmap.md`](02-development-roadmap.md)
@@ -88,6 +88,12 @@
 1. 连接失败或刷新失败时保留原连接名和旧树内容，错误区提供重试；成功恢复后只更新受影响节点。
 2. 长表名、Schema 名和统计值在 `240..520px` 侧栏内不互相覆盖；过滤/清空搜索不丢失连接和 Schema 上下文。
 3. MySQL 8.4 与 PostgreSQL 17 Docker 实际元数据可展开；MongoDB/Redis 显示各自对象模型，不伪造表/列层级。
+
+#### A-DB-RED-02：对象树真实元数据复验（2026-09-27，Docker 与 headless 验证完成）
+
+- Docker：复用本机健康的 `ramag-db-test-mysql`（`mysql:8.4`，`127.0.0.1:13306`）和 `ramag-db-test-postgres`（`postgres:17-alpine`，`127.0.0.1:15432`）；MySQL `list_` 集成测试 4 项、PostgreSQL `list_` 集成测试 4 项、两端临时触发器测试各 1 项通过。临时对象由测试清理，未停止用户复用的容器、网络或数据卷。
+- Headless：`cargo test --locked -p ramag-tool-dbclient --lib table_tree -- --nocapture` 通过 42 项，覆盖 Schema 刷新保留旧树、表/列/键/索引/触发器分组、搜索、过滤、连接隔离和窄窗口布局。
+- 结果：真实驱动元数据、表树代码和 headless 交互达到当前矩阵要求；真实 Windows 鼠标/键盘流程仍未验收，下一项为 `A-UI-REAL`。
 
 ### DB-UX-002：查询控制台（覆盖 `DB-RED-05` 至 `DB-RED-07` 的界面入口）
 

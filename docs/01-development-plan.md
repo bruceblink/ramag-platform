@@ -56,8 +56,8 @@
 阶段 A 的执行顺序固定为：
 
 1. `A-DB-005`：已完成 MySQL 8.4 与 PostgreSQL 17 的迁移脚本回放和 PostgreSQL 失败回滚验证。
-2. `A-DB-RED-02`：当前执行，按新矩阵复验真实对象树元数据。
-3. `A-UI-REAL`：补齐数据库、插件目录和 JSON Path 的真实 Windows 流程；`DB-UX-004B-3B` 的 Computer Use 证据仍待环境恢复。
+2. `A-DB-RED-02`：已完成 MySQL 8.4/PostgreSQL 17 Docker 元数据和 `table_tree` headless 复验；真实 Windows 流程仍待补。
+3. `A-UI-REAL`：当前执行，补齐数据库、插件目录和 JSON Path 的真实 Windows 流程；`DB-UX-004B-3B` 的 Computer Use 证据仍待环境恢复。
 4. `A-P0C`：完成系统凭据库、主密钥和秘密上下文真实环境验收。
 5. `A-PLAT-005`：接入真实工具入口并记录首次激活、取消、输入/输出和内存测量。
 6. `A-QUALITY`：完成性能、主题一致性和发布证据收口。
@@ -86,7 +86,20 @@
 - 目标：用真实 MySQL/PostgreSQL 服务回放当前迁移生成器覆盖的多语句脚本，确认字段、索引、主键和外键动作能够回读；确认 PostgreSQL 事务失败时保留旧结构。
 - Docker：复用本机已运行且健康的 `ramag-db-test-mysql`（`mysql:8.4`，`127.0.0.1:13306`）和 `ramag-db-test-postgres`（`postgres:17-alpine`，`127.0.0.1:15432`）。测试创建带进程后缀的临时表/Schema，并在测试末尾删除；本次不停止用户正在复用的容器、网络或数据卷。
 - 验收结果：设置 `RAMAG_TEST_MYSQL_*` 后运行 `cargo test --locked -p ramag-infra-mysql --test migration_replay -- --nocapture`，1 项通过；设置 `RAMAG_TEST_PG_*` 后运行 `cargo test --locked -p ramag-infra-postgres --test migration_replay -- --nocapture`，2 项通过，包含失败回滚。未把未设置环境变量时的跳过结果计为通过。
-- 未完成项：迁移对话框的真实 Windows 鼠标/键盘流程仍受 Computer Use 环境限制；下一项进入 `A-DB-RED-02`。
+- 未完成项：迁移对话框的真实 Windows 鼠标/键盘流程仍受 Computer Use 环境限制；`A-DB-RED-02` 已完成，下一项进入 `A-UI-REAL`。
+
+### A-DB-RED-02：对象树真实元数据复验（2026-09-27，Docker 与 headless 验证完成）
+
+- Docker：复用本机健康的 `ramag-db-test-mysql`（`mysql:8.4`，`127.0.0.1:13306`）和 `ramag-db-test-postgres`（`postgres:17-alpine`，`127.0.0.1:15432`）；MySQL `list_` 集成测试 4 项、PostgreSQL `list_` 集成测试 4 项、两端临时触发器测试各 1 项通过。测试创建的临时对象由测试清理，未停止用户复用的容器、网络或数据卷。
+- Headless：`cargo test --locked -p ramag-tool-dbclient --lib table_tree -- --nocapture` 通过 42 项，覆盖 Schema 刷新保留旧树、表/列/键/索引/触发器分组、搜索、过滤、连接隔离和窄窗口布局。
+- 结果：`DB-RED-02` 的真实驱动元数据、表树代码和 headless 交互达到当前矩阵要求；真实 Windows 鼠标/键盘流程仍未验收，不能把本记录写成完整 UI 通过。
+- 下一项：`A-UI-REAL`，先确认 Computer Use 能否稳定发现并操作 Ramag 原生窗口。
+
+### A-UI-REAL：真实 Windows 窗口证据探测（2026-09-27，未完成）
+
+- Computer Use 探测：启动前后 `cua.getState()` 均返回 `apps: []`；本机实际启动 `target/debug/ramag.exe` 后，进程存在且窗口标题为 `Ramag — 数据库客户端`，但 Computer Use 仍无法发现可操作窗口。
+- 证据边界：没有执行鼠标、键盘、滚动或截图验收；headless、进程存在和系统截图都不能替代真实窗口交互证据。探测结束后已停止临时 Ramag 进程。
+- 状态：`A-UI-REAL` 继续保持未完成，等待 Computer Use 能稳定发现窗口后再补验数据库、插件目录和 JSON Path 流程；不因此修改既有功能完成状态。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
