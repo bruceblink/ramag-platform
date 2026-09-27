@@ -148,6 +148,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不增加完整响应缓存、不改变传输层上限、不承诺二进制无损复制，不引入 WebView 或远端服务。
 - 验收结果：API 工作区 35 项测试通过；本机 Docker HTTP `ramag-api-http-test`（`python:3.12.11-alpine3.22`，`127.0.0.1:18089`，代理 `18093`）驱动测试 1 项通过；gRPC `ramag-api-grpc-test`（`rust:1.91.0-bookworm`，`127.0.0.1:18090`，代理 `18094`）驱动测试 1 项通过；API GPUI 工作区 HTTP/gRPC 联调 1 项通过。容器保持运行供后续复用，未宣称真实窗口验收；下一项进入 `B-KAFKA-001` 设计确认。
 
+### B-API-001-UI：API 工作区 Windows 窗口与 Docker 请求验收（2026-09-27，替代窗口证据完成）
+
+- 环境：复用本机健康的 `ramag-api-http-test`（`python:3.12.11-alpine3.22`，`127.0.0.1:18089`）和 HTTP 代理 `ramag-api-http-proxy-test`（`127.0.0.1:18093`）；容器未停止，未改变测试数据。
+- 真实流程：启动最新 x64 MSVC `ramag.exe`，通过 Windows UI Automation 切换到 API 工作区并调用“发送”；工作区使用已有 `base_url=http://127.0.0.1:18089` 环境变量完成 GET 请求，窗口回显 `HTTP 200 · 3 ms · 43 bytes`、断言通过和 JSON 正文 `ok=true`。
+- 证据：系统窗口截图 `target/ui-fallback/api-send-docker.png` 保存了请求编辑、环境变量、发送按钮、响应状态和 JSON 结果；UI Automation 在发送前后均发现 47 个可访问控件，并通过 `InvokePattern` 调用发送按钮。
+- 证据边界：Computer Use 运行时仍只返回浏览器且 `apps: []`，因此本记录使用真实 Windows 窗口的系统截图、UI Automation 和本机 Docker 回包作为替代证据；不宣称 Computer Use 鼠标/键盘流程已经恢复。API 工作区真实窗口仍需在 Computer Use 恢复后补验，下一项继续 `B-KAFKA-001`。
+
 ### B-KAFKA-001-A：Kafka 集群运行上下文可取消（设计确认，2026-09-27）
 
 - 问题证据：Kafka 工作区切换集群或刷新时会并行读取 Metadata 和 Topic；概览页只有“同步中”骨架和刷新入口，用户无法主动停止较慢的 Broker 请求。取消只能依赖切换集群或销毁窗口，反馈不清晰。
