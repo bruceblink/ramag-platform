@@ -2,7 +2,8 @@
 
 > 状态：现行执行规则
 > 更新日期：2026-09-27
-> 主线：[`02-development-roadmap.md`](02-development-roadmap.md)
+> 主线：阶段 A 单机桌面收口与阶段 B 原生工作区迁移；阶段 C 继续后置
+> 路线图：[`02-development-roadmap.md`](02-development-roadmap.md)
 > 统一 UI 标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 历史执行记录：[`archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md`](archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md)
 
@@ -49,7 +50,7 @@
 
 ## 4. 当前主线与后续切片
 
-### 阶段 A：单机桌面功能收口（当前执行）
+### 阶段 A：单机桌面功能收口（当前主线，与阶段 B 并行推进）
 
 当前已完成 `SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A` 至 `DB-RED-07`、`DB-UX-003A` 至 `DB-UX-003C-2`、`DB-UX-004A`、`DB-UX-004B-1` 至 `DB-UX-004B-3B`、`DB-UX-005A` 至 `DB-UX-005F`、`PLAT-004`、`PLAT-005-A` 至 `PLAT-005-E`、`TOOL-MIG-001`、`DUAL-CORE-001`、`CATALOG-001` 和 `COLLAB-001-A/B1/B2/B3` 的代码与专项验证。涉及真实数据库的切片另有 MySQL 8.4/PostgreSQL 17 Docker 证据。
 
@@ -62,13 +63,13 @@
 5. `A-PLAT-005`：当前执行不依赖窗口接管的真实 JSON Path 入口运行指标和任务回收；进程内存、取消和真实窗口证据仍待补。
 6. `A-QUALITY`：完成性能、主题一致性和发布证据收口。
 
-Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 的鼠标/键盘证据保持未完成；在不改变该状态的前提下，先推进不依赖窗口接管的 `A-PLAT-005` 运行指标切片。阶段 A 仍须收口 `A-UI-REAL` 后才能进入阶段 B 的正式迁移队列。
+Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 的鼠标/键盘证据保持未完成；在不改变该状态的前提下，继续推进不依赖窗口接管的 `A-PLAT-005` 和 `A-QUALITY` 收口。阶段 B 已在平台壳层、权限边界和 headless/Docker 证据满足后并行推进；真实窗口缺口只限制对应窗口证据，不阻止已设计并通过专项验证的原生工作区切片。
 
 未完成的旧 `UI-001`、`M1-M4`、`R` 系列或工具专项事项必须先映射到以上切片 ID，并重新满足统一 UI 标准，不能只修改状态文字宣称完成。
 
-### 阶段 B：复杂工具原生工作区迁移（阶段 A 完成后）
+### 阶段 B：复杂工具原生工作区迁移（当前主线，与阶段 A 收口并行）
 
-按以下顺序逐个推进：`B-API-001`、`B-KAFKA-001`、`B-SSH-001`、`B-CONTAINER-001`、`B-GIT-001`。每个切片只覆盖一个工具，保留自己的连接、取消、错误、权限和领域数据模型；通过真实服务或本机 Docker 验收后再进入下一项。
+按以下顺序逐个推进：`B-API-001`、`B-KAFKA-001`、`B-SSH-001`、`B-CONTAINER-001`、`B-GIT-001`。每个切片只覆盖一个工具，保留自己的连接、取消、错误、权限和领域数据模型；通过 headless 与真实服务或本机 Docker 验收后再进入下一项，真实窗口证据在 Computer Use 恢复后补齐。
 
 ### 阶段 C：原生协同画布（后置）
 
@@ -145,6 +146,7 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 设计：在响应正文标题行增加复制按钮；点击时从当前 `ApiResponseSnapshot.body` 生成 UTF-8 有损文本并写入系统剪贴板，不重新读取网络响应，也不突破响应缓冲区上限。正文是否截断仍由耗时页明确显示，复制动作只复制当前已保留内容。
 - 验收条件：headless 测试确认有响应时复制控件可见，点击后剪贴板等于有界正文；无响应时不显示控件。API 响应标签、窄窗口布局和已有正文截断测试继续通过。
 - 不做事项：不增加完整响应缓存、不改变传输层上限、不承诺二进制无损复制，不引入 WebView 或远端服务。
+- 验收结果：API 工作区 35 项测试通过；本机 Docker HTTP `ramag-api-http-test`（`python:3.12.11-alpine3.22`，`127.0.0.1:18089`，代理 `18093`）驱动测试 1 项通过；gRPC `ramag-api-grpc-test`（`rust:1.91.0-bookworm`，`127.0.0.1:18090`，代理 `18094`）驱动测试 1 项通过；API GPUI 工作区 HTTP/gRPC 联调 1 项通过。容器保持运行供后续复用，未宣称真实窗口验收；下一项进入 `B-KAFKA-001` 设计确认。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
