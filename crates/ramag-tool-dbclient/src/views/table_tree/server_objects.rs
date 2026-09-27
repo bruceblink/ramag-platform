@@ -29,7 +29,8 @@ impl ServerObjectsState {
         self.loading = false;
         self.groups.clear();
         self.error = None;
-        self.is_expanded = true;
+        // 新连接先展示 Schema/数据库列表；Server Objects 需要用户明确展开，避免抢占默认视口。
+        self.is_expanded = false;
         self.open_groups.clear();
         self.groups_initialized = false;
         self.request_generation = self.request_generation.wrapping_add(1);

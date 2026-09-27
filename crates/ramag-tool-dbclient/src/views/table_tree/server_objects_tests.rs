@@ -10,6 +10,16 @@ use super::server_objects::{ExplorerRowKind, ServerObjectsState};
 use super::virtual_views::VirtualViewsState;
 
 #[test]
+fn resetting_connection_collapses_server_objects_by_default() {
+    let mut state = ServerObjectsState {
+        is_expanded: true,
+        ..Default::default()
+    };
+    state.reset_for_connection();
+    assert!(!state.is_expanded);
+}
+
+#[test]
 fn rows_keep_datagrip_group_counts_and_children() {
     let mut state = ServerObjectsState {
         is_expanded: true,

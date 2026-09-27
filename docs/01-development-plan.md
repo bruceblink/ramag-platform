@@ -164,6 +164,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 验收结果：资源回归测试通过；`ramag-tool-dbclient` 全量 351 项测试通过；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过；最新 x64 MSVC 可执行程序启动后日志未再出现 `skip-back`、`skip-forward` 或 `could not find asset`。
 - 不做事项：不改变第一页/上一页/下一页/最后一页的分页逻辑，不替换其它上游图标，不把启动成功扩大为完整真实窗口交互验收。
 
+### A-DB-RED-02-B：对象树默认焦点（设计确认，2026-09-27）
+
+- 问题证据：连接初始化会把 `Server Objects` 根节点设置为展开，导致 collations/users 等服务器级对象占据默认视口，Schema/数据库列表被推到后面。
+- 设计：连接切换或重置时将 `ServerObjectsState::is_expanded` 设为 `false`；Schema、tables/views 和数据库列表继续按现有默认加载路径显示。用户点击 `Server Objects` 后仍可展开，刷新和筛选语义不变。
+- 验收条件：对象树状态测试确认连接重置后的根节点收起；`table_tree`/`ramag-tool-dbclient` 回归、三种窗口布局、fmt、Clippy、源码尺寸和 `git diff --check` 通过；最新 Windows 窗口截图中 Schema 列表位于 Server Objects 之前。
+- 不做事项：不删除 Server Objects、不改变 collations/users 查询、不改变用户已经手动展开后的交互，也不把真实窗口替代截图写成 Computer Use 证据。
+
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
 - 设计：新增 `ramag-ui::workbench` 共享几何令牌，统一导航器宽度、720px 紧凑断点、工具栏/标签/密集行/状态栏高度；深色主题从 VSCode Dark+ 调整为中性深灰与高亮蓝的 JetBrains 工作区层次。
