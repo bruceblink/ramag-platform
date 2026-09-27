@@ -2,6 +2,16 @@ use super::*;
 
 impl ApiView {
     pub(crate) fn set_protocol(&mut self, protocol: ApiProtocol, cx: &mut Context<Self>) {
+        // 切换协议会使当前请求上下文失效；先取消后台驱动并递增代际，避免旧响应回写新编辑器。
+        let request_active = self.loading || self.cancelled.is_some();
+        if let Some(cancelled) = &self.cancelled {
+            cancelled.store(true, Ordering::Relaxed);
+        }
+        if request_active {
+            self.request_generation = self.request_generation.wrapping_add(1);
+            self.loading = false;
+            self.cancelled = None;
+        }
         if self.grpc_discovering {
             if let Some(cancelled) = &self.grpc_discovery_cancelled {
                 cancelled.store(true, Ordering::Relaxed);

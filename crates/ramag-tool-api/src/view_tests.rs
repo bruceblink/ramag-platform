@@ -1,6 +1,9 @@
 use super::*;
 
+use std::sync::atomic::Ordering;
+
 use gpui_kit::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
+use ramag_app::new_api_cancellation;
 use ramag_domain::entities::{
     ApiAssertion, ApiAuth, ApiBody, ApiBodyMode, ApiCollection, ApiGrpcDescriptor, ApiOAuth2Config,
     ApiParameter, ApiProtocol, ApiProxyConfig, ApiRequestRecord, ApiRequestSpec,
@@ -81,6 +84,47 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
         visual_cx.update(|_, cx| view.read(cx).http_body_mode),
         ApiBodyMode::Text
     );
+}
+
+#[gpui_kit::test]
+fn api_protocol_switch_cancels_inflight_request_and_invalidates_late_response(
+    cx: &mut TestAppContext,
+) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_kit::component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 视图应初始化");
+    let cancellation = new_api_cancellation();
+    let initial_generation = visual_cx.update(|_, app| {
+        view.update(app, |view, _| {
+            view.loading = true;
+            view.cancelled = Some(cancellation.clone());
+            view.request_generation
+        })
+    });
+
+    visual_cx.update(|_, app| {
+        view.update(app, |view, cx| view.set_protocol(ApiProtocol::Grpc, cx));
+    });
+
+    let state = visual_cx.update(|_, app| {
+        let view = view.read(app);
+        (
+            view.loading,
+            view.request_generation,
+            view.cancelled.is_none(),
+            view.protocol,
+        )
+    });
+    assert!(!state.0, "协议切换后旧请求不能继续显示为加载中");
+    assert_eq!(state.1, initial_generation.wrapping_add(1));
+    assert!(state.2, "协议切换后不能保留旧请求句柄");
+    assert_eq!(state.3, ApiProtocol::Grpc);
+    assert!(cancellation.load(Ordering::Relaxed));
 }
 
 #[gpui_kit::test]

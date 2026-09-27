@@ -62,7 +62,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 
 阶段 B 按用户频率和领域风险逐个迁移复杂工具，不共享不适用的数据模型：
 
-1. `B-API-001`：API 工作区的请求编辑、环境、历史、响应和真实 Docker HTTP/gRPC 验收。
+1. `B-API-001`：API 工作区的请求编辑、环境、历史、响应和真实 Docker HTTP/gRPC 验收；当前先执行 `B-API-001-A` 协议切换取消活动请求。
 2. `B-KAFKA-001`：Kafka 连接、Topic、消息、Schema Registry 和 Broker 状态工作区。
 3. `B-SSH-001`：SSH/终端、SFTP、端口转发和连接生命周期工作区。
 4. `B-CONTAINER-001`：容器、镜像、日志、执行和资源状态工作区。
