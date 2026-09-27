@@ -1,6 +1,6 @@
 # Ramag Platform 新主线：JetBrains 工作区重设计
 
-> 状态：现行主线；`SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07`、`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C`、`DB-UX-004A`、`DB-UX-004B-1`、`DB-UX-004B-2`、`DB-UX-004B-3A`、`DB-UX-004B-3B`、`DB-UX-005A`、`DB-UX-005B`、`DB-UX-005C`、`DB-UX-005D`、`DB-UX-005E`、`DB-UX-005F`、`PLAT-004-A`、`PLAT-004-B`、`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D`、`TOOL-MIG-001-A`、`TOOL-MIG-001-B`、`DUAL-CORE-001-A`、`CATALOG-001` 和 `COLLAB-001-A` 的代码与验证已完成；涉及真实数据库的切片另有 Docker 证据。下一项为 `COLLAB-001-B` 原生协作入口。`DB-UX-004B-3B` 原生窗口证据待环境恢复后补验。
+> 状态：现行主线；`SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A`、`DB-RED-05B`、`DB-RED-05C`、`DB-RED-05D`、`DB-RED-06`、`DB-RED-07`、`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C`、`DB-UX-004A`、`DB-UX-004B-1`、`DB-UX-004B-2`、`DB-UX-004B-3A`、`DB-UX-004B-3B`、`DB-UX-005A`、`DB-UX-005B`、`DB-UX-005C`、`DB-UX-005D`、`DB-UX-005E`、`DB-UX-005F`、`PLAT-004-A`、`PLAT-004-B`、`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D`、`TOOL-MIG-001-A`、`TOOL-MIG-001-B`、`DUAL-CORE-001-A`、`CATALOG-001`、`COLLAB-001-A`、`COLLAB-001-B1`、`COLLAB-001-B2` 和 `COLLAB-001-B3` 的代码与验证已完成；涉及真实数据库的切片另有 Docker 证据。下一项为 `COLLAB-001-B4` Relay 到期回收设计与实现。`DB-UX-004B-3B` 原生窗口证据待环境恢复后补验。
 > 更新日期：2026-09-27
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
@@ -115,7 +115,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `CROSS-UX-001` | API/Kafka/SSH/容器/Git 原生工作区迁移 | 待开始 | `SHELL-001`、`DB-UX-005` | 各工具专项交互与真实服务证据 |
 | `CATALOG-001` | 第一方工具目录和能力说明 | 已完成（代码与 headless；真实窗口待补） | `PLAT-004`、`TOOL-MIG-001`、`DUAL-CORE-001` | 清单校验、平台标识、权限和版本记录 |
 | `COLLAB-001-A` | 本机加密共享包、版本冲突、撤销和审计边界 | 已完成代码与专项测试 | `CATALOG-001` | 敏感数据阻断、加密落盘、冲突和撤销 |
-| `COLLAB-001-B` | 原生 GPUI 选择、导出/导入和远程协作入口 | 进行中（B1、B2、B3 已完成；账号、权限、持久化和生产 Relay 仍待实现） | `COLLAB-001-A` | 用户确认、选择性同步、冲突和审计 |
+| `COLLAB-001-B` | 原生 GPUI 选择、导出/导入和远程协作入口 | 进行中（B1、B2、B3 已完成；B4 到期回收设计确认；账号、权限、持久化和生产 Relay 仍待实现） | `COLLAB-001-A` | 用户确认、选择性同步、冲突和审计 |
 | `QUALITY-UX-001` | 性能、主题和发布证据收口 | 持续 | 各切片 | 测量、全量质量检查和发布记录 |
 
 ## 5. 交付规则
