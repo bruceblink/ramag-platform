@@ -2,8 +2,10 @@ use super::render_helpers::{
     render_assertion_results, render_collection_summary, render_extracted_variables,
 };
 use super::*;
+use gpui_kit::ClickEvent;
 use gpui_kit::FontWeight;
 use gpui_kit::component::tab::{Tab, TabBar};
+use gpui_kit::component::{IconName, button::ButtonVariants as _};
 
 pub(super) fn render_response(
     view: &ApiView,
@@ -13,7 +15,7 @@ pub(super) fn render_response(
     let body = match &view.response {
         Some(snapshot) => {
             let selected = match view.response_tab {
-                ApiResponseTab::Body => render_response_body(snapshot, theme),
+                ApiResponseTab::Body => render_response_body(snapshot, cx, theme),
                 ApiResponseTab::Headers => response_parameters(snapshot, theme),
                 ApiResponseTab::Timing => render_response_timing(snapshot, theme),
                 ApiResponseTab::Assertions => render_response_assertions(view, theme),
@@ -123,6 +125,7 @@ fn render_response_tabs(view: &ApiView, cx: &mut Context<ApiView>) -> gpui_kit::
 
 fn render_response_body(
     snapshot: &ApiResponseSnapshot,
+    cx: &mut Context<ApiView>,
     theme: &gpui_kit::component::Theme,
 ) -> gpui_kit::AnyElement {
     v_flex()
@@ -133,6 +136,8 @@ fn render_response_body(
         .gap(px(5.0))
         .child(
             h_flex()
+                .items_center()
+                .gap(px(6.0))
                 .justify_between()
                 .child(
                     div()
@@ -142,9 +147,26 @@ fn render_response_body(
                 )
                 .child(
                     div()
+                        .flex_1()
+                        .min_w_0()
                         .text_xs()
                         .text_color(theme.muted_foreground)
                         .child(body_format_label(snapshot)),
+                )
+                .child(
+                    ramag_ui::clickable_button("api-response-copy")
+                        .debug_selector(|| "api-response-copy".into())
+                        .xsmall()
+                        .ghost()
+                        .icon(IconName::Copy)
+                        .tooltip(if snapshot.truncated {
+                            "复制已保留正文（正文已截断）"
+                        } else {
+                            "复制正文"
+                        })
+                        .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
+                            view.copy_response_body(window, cx);
+                        })),
                 ),
         )
         .child(

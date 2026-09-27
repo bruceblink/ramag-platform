@@ -1,6 +1,15 @@
 use super::*;
 
 impl ApiView {
+    /// 将当前已保留的响应正文复制到系统剪贴板；不会重新读取网络响应或扩大缓存边界。
+    pub(crate) fn copy_response_body(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(snapshot) = self.response.as_ref() else {
+            return;
+        };
+        let body = String::from_utf8_lossy(&snapshot.body).into_owned();
+        ramag_ui::copy_text_with_notification(body, window, cx);
+    }
+
     pub(crate) fn set_protocol(&mut self, protocol: ApiProtocol, cx: &mut Context<Self>) {
         // 切换协议会使当前请求上下文失效；先取消后台驱动并递增代际，避免旧响应回写新编辑器。
         let request_active = self.loading || self.cancelled.is_some();

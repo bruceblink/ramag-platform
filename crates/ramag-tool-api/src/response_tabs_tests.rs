@@ -88,6 +88,38 @@ fn api_response_tabs_switch_between_existing_response_sections(cx: &mut TestAppC
 }
 
 #[gpui_kit::test]
+fn api_response_body_copy_uses_retained_snapshot(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_kit::component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 视图应初始化");
+    visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("api-response-copy").is_none());
+    visual_cx.update(|_, app| {
+        view.update(app, |view, cx| {
+            view.response = Some(response_snapshot());
+            cx.notify();
+        });
+    });
+    visual_cx.run_until_parked();
+
+    assert!(visual_cx.debug_bounds("api-response-copy").is_some());
+    click(visual_cx, "api-response-copy");
+    visual_cx.run_until_parked();
+
+    let copied = visual_cx
+        .read_from_clipboard()
+        .and_then(|item| item.text())
+        .unwrap_or_default();
+    assert_eq!(copied, r#"{"ok":true}"#);
+}
+
+#[gpui_kit::test]
 fn api_response_tab_resets_to_body_when_protocol_clears_response(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let mut view_entity = None;
