@@ -276,17 +276,21 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 - 不做事项：不保存远端凭据、不自动重试写操作、不在后台扫描、不把远端撤回伪称为本机撤销；真实 Relay 服务端和端到端 Docker 服务另行排期。
 - 验收条件：非法地址、过大请求、重定向、非 2xx 状态和越界响应均被拒绝；客户端只接受安全导出包；应用层发布前重新读取并校验共享包；使用 fake Relay 覆盖发布/读取/失败分支；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
 
-实现结果：`ramag-domain` 新增 `CollaborationRelay` 接口和有限收据，`ramag-infra-collaboration` 提供禁止自动重定向的 HTTPS 客户端，`ramag-app` 在发布前重新读取并校验共享包，原生入口提供用户指定 Relay 地址、发送和读取导入操作。没有实现服务端、账号凭据、后台同步或自动重试；fake Relay 覆盖发布前阻断、发布和读取导入。
+实现结果：`ramag-domain` 新增 `CollaborationRelay` 接口和有限收据，`ramag-infra-collaboration` 提供禁止自动重定向的 HTTPS 客户端，`ramag-app` 在发布前重新读取并校验共享包，原生入口提供用户指定 Relay 地址、发送和读取导入操作。B2 只负责客户端传输抽象；服务端、账号凭据、后台同步和自动重试属于后续范围，fake Relay 仅覆盖发布前阻断、发布和读取导入。
 
-验收结果：`ramag-infra-collaboration` 3 项协议边界测试、`ramag-app` 6 项协作测试、`ramag-tool-collaboration` 3 项原生视图测试和 `ramag-bin` 15 项回归通过；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。当前没有真实 Relay 服务端或远程 Docker 集成证据，不将客户端测试描述为端到端远程协作完成。
+验收结果：`ramag-infra-collaboration` 3 项协议边界测试、`ramag-app` 6 项协作测试、`ramag-tool-collaboration` 3 项原生视图测试和 `ramag-bin` 15 项回归通过；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。B2 客户端测试不包含服务端启动，因此端到端 Docker 证据由 B3 单独记录。
 
-#### COLLAB-001-B3：本机 Relay 服务（设计确认）
+#### COLLAB-001-B3：本机 Relay 服务（已完成实现与 Docker 验收）
 
 - 目标：实现与 B2 协议一致的最小 Relay 服务，验证发布、读取、格式校验、容量上限和错误边界，为后续账号、权限、到期和多用户协作保留独立扩展点。
 - 组件：新增 `ramag-collaboration-relay` crate，HTTP 路由只暴露 `POST/GET /v1/collaboration/shares`；服务端只保存通过 `CollaborationShare::manual_export_json` 校验的非敏感导出包。
 - 运行边界：默认仅绑定回环地址，内存存储最多 256 个共享包，不记录 payload，不提供账号认证、自动同步、续期或远端撤回；进程重启清空数据，明确属于开发验证服务。
 - 错误边界：请求正文、响应和远端 ID 均有上限；格式不匹配、敏感内容、过大正文、未知 ID 和容量耗尽返回有界 JSON 错误，不回显共享正文。
 - 验收条件：路由单测覆盖成功发布/读取、敏感内容拒绝、格式拒绝、大小拒绝、未知 ID 和容量上限；本机 Docker 启动服务后由客户端真实 HTTP 发布/读取一次，记录镜像、端口、健康和清理状态；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。该服务不代表生产部署完成。
+
+实现结果：新增 `ramag-collaboration-relay` crate 和 `scripts/collaboration-relay/` Docker 验收脚本。服务提供 `/health`、发布和读取路由，使用内存存储、256 个共享包上限和 16 MiB 级别请求上限；默认绑定 `127.0.0.1:18080`，Docker 验收时显式绑定 `0.0.0.0:18080`。响应只返回有界收据或通用错误，不回显被拒绝正文。
+
+验收结果：`cargo test -p ramag-collaboration-relay` 通过 3 项路由与边界测试；`scripts/collaboration-relay/relay-test.ps1` 使用本机 Docker 构建 `ramag-collaboration-relay:local`，启动端口 `127.0.0.1:18080`，健康检查返回 `ok`，再由 `ramag-infra-collaboration` 客户端通过真实 HTTP 完成发布/读取回环测试，最后执行 `docker compose down --volumes --remove-orphans` 清理容器和网络。workspace fmt、Clippy、源码尺寸和 `git diff --check` 同步通过。该服务仍不提供账号认证、权限、持久化、到期、远端撤回或生产 HTTPS 部署。
 
 ## 关键设计约束
 

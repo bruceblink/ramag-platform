@@ -250,4 +250,33 @@ mod tests {
     fn client_can_be_constructed_without_network_access() {
         assert!(HttpCollaborationRelay::new().is_ok());
     }
+
+    #[tokio::test]
+    async fn docker_relay_round_trip_when_endpoint_is_configured() {
+        let Some(endpoint) = std::env::var_os("RAMAG_COLLAB_RELAY_URL") else {
+            return;
+        };
+        let endpoint = endpoint.to_string_lossy();
+        let mut share = ramag_domain::CollaborationShare::new_local(
+            "Docker Relay",
+            vec![ramag_domain::CollaborationArtifact::document(
+                "说明", "safe",
+            )],
+        )
+        .expect("local share");
+        share
+            .prepare_manual_export("docker-test")
+            .expect("prepare export");
+        let payload = share.manual_export_json().expect("export payload");
+        let relay = HttpCollaborationRelay::new().expect("relay client");
+        let receipt = relay
+            .publish(&endpoint, &payload)
+            .await
+            .expect("docker relay publish");
+        let fetched = relay
+            .fetch(&endpoint, &receipt.remote_id)
+            .await
+            .expect("docker relay fetch");
+        assert_eq!(fetched.payload, payload);
+    }
 }

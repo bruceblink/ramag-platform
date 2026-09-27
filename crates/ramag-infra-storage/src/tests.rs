@@ -113,6 +113,7 @@ fn fresh_storage_initializes_complete_schema() {
         "clip_search_meta".to_string(),
         "clip_uuid_meta".to_string(),
         "clips".to_string(),
+        "collaboration_shares".to_string(),
         "connections".to_string(),
         "kafka_clusters".to_string(),
         "mqtt_profiles".to_string(),

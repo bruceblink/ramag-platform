@@ -1,0 +1,15 @@
+services:
+  collaboration-relay:
+    build:
+      context: ../..
+      dockerfile: scripts/collaboration-relay/Dockerfile
+    image: ramag-collaboration-relay:local
+    environment:
+      RAMAG_RELAY_BIND: "0.0.0.0:18080"
+    ports:
+      - "127.0.0.1:18080:18080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:18080/health | grep -q '^ok$'"]
+      interval: 5s
+      timeout: 2s
+      retries: 3

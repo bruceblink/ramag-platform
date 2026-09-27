@@ -1,0 +1,8 @@
+.git
+.github
+target
+target-msvc-*
+artifacts
+.ramag
+*.log
+node_modules
