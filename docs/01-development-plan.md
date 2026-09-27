@@ -171,6 +171,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 验收结果：`cargo test --locked -p ramag-tool-kafka --lib -- --test-threads=1` 38 项通过；新增 `kafka_loading_tables_keep_stable_geometry` 覆盖取消标记、运行代次、提示、旧快照边界和 `360x900`/`1200x780` 加载布局；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。最新 `ramag-bin` 已重新构建。
 - 证据边界：本会话的 Computer Use 运行时只暴露浏览器 API，原生 `@oai/sky` 的 `list_apps`/`get_window` 未提供，无法执行真实窗口点击；该切片保留 headless 通过，真实窗口证据待运行时恢复后补验。
 
+### B-KAFKA-001-A-UI：Kafka 集群同步取消 Windows 窗口验收（2026-09-27，替代窗口证据完成）
+
+- 真实流程：启动最新 x64 MSVC `ramag.exe`，切换到 Kafka 工作区并选择已有 `Ramag-Docker-Kafka` 配置（`127.0.0.1:19092`），在概览同步状态出现后通过 Windows UI Automation 调用“取消同步”。
+- 结果：窗口显示“集群同步已取消；已有快照保持不变，迟到结果不会写入当前页面”；系统窗口截图保存为 `target/ui-fallback/kafka-cancel-flow.png`，UI Automation 在同步中状态发现 30 个控件并成功调用取消按钮。
+- 服务边界：本次取消流程在 Broker 请求返回前完成，未把失败回包写成成功；Kafka Docker 镜像拉取因体积和网络耗时未完成，因此没有宣称真实 Kafka Broker 回读，后续仍需用本机 Docker Kafka 完成成功连接、Topic 和消息流程。
+- 证据边界：Computer Use 运行时仍只返回浏览器且 `apps: []`，本记录使用真实 Windows 窗口截图、UI Automation 和取消状态作为替代证据；Computer Use 完整流程待运行时恢复。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
