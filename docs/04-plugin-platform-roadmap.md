@@ -254,9 +254,9 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 先把用户明确选择的文档或结果建模为可验证共享包，并使用 `Storage` 主密钥加密后保存到本机。共享包只接受 `Document` 与 `QueryResultPreview` 类型；凭据、连接配置和 JWT/Token 等秘密直接拒绝。敏感或原始业务数据可以保留在本机加密草稿，但不能进入手动导出包。本切片实现 revision 冲突保护、撤销和有界审计，不接入网络传输或自动同步。`ramag-domain`、`ramag-infra-storage` 和 `ramag-app` 已完成对应模型、加密 redb 表和应用用例；敏感导出阻断、冲突不覆盖正文和撤销审计均有专项测试。
 
-### COLLAB-001-B：原生协作入口（待开始）
+### COLLAB-001-B：原生协作入口（进行中）
 
-在 `COLLAB-001-A` 的模型上增加 GPUI 的明确选择、导出/导入和远程协作入口；每次发送都需要用户确认，密码、JWT 密钥、连接配置和原始业务数据默认禁止自动同步。
+首个本机入口已接入 `ramag-tool-collaboration`：用户可以在原生 GPUI 中创建、刷新、选择、准备导出文本和撤销本机草稿；视图只调用 `CollaborationService`，不打开网络客户端。导入、实际远程传输、远端撤回确认和剪贴板发送仍未开放；每次发送仍必须保留用户确认，密码、JWT 密钥、连接配置和原始业务数据默认禁止自动同步。
 
 ## 关键设计约束
 
