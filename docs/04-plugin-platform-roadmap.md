@@ -267,6 +267,15 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 - 安全规则：复制前重新校验 `Shared`/`ManualExport` 状态和数据分类；敏感内容、凭据、连接配置和原始业务数据继续拒绝；没有平台剪贴板能力时按钮保持不可用并给出原因；复制动作不启动后台同步、不记录剪贴板正文、不自动发送。
 - 验收条件：安全导出包可由用户点击复制；敏感草稿无法复制；复制失败保留当前导出文本并显示有界错误；headless 三尺寸覆盖按钮可见性和禁用状态；通过目标测试、workspace fmt、Clippy、源码尺寸和 `git diff --check`。真实远程服务和自动同步不属于本切片。
 
+#### COLLAB-001-B2：受限 Relay 传输（设计确认）
+
+- 目标：为后续远程协作提供稳定的传输抽象和 HTTPS 客户端；本切片只发送已经通过本机导出校验的非敏感共享包，不实现服务端、账号体系或后台同步。
+- 协议：客户端向 `{base_url}/v1/collaboration/shares` 发送 `format=ramag.collaboration.v1` 与 `payload` 字段，服务端返回有界的 `remote_id`、`revision` 和可选到期时间；读取使用 `/v1/collaboration/shares/{remote_id}`，响应必须再次经过本机导入校验。
+- 地址边界：生产地址只接受 HTTPS；HTTP 仅允许回环地址用于本机开发测试；拒绝 URL 用户名、密码、片段、隐式代理和自动重定向。请求和响应正文均有 16 MiB 级别上限，错误不回显正文。
+- 负责组件：`ramag-domain` 定义 Relay 接口和收据模型，`ramag-infra-collaboration` 负责 HTTP/TLS、状态码和 JSON 边界，`ramag-app::CollaborationService` 负责用户确认后的发布/读取编排。
+- 不做事项：不保存远端凭据、不自动重试写操作、不在后台扫描、不把远端撤回伪称为本机撤销；真实 Relay 服务端和端到端 Docker 服务另行排期。
+- 验收条件：非法地址、过大请求、重定向、非 2xx 状态和越界响应均被拒绝；客户端只接受安全导出包；应用层发布前重新读取并校验共享包；使用 fake Relay 覆盖发布/读取/失败分支；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+
 ## 关键设计约束
 
 - 插件 ID、API 版本和权限名称必须是稳定、可校验且可记录的字符串；不得使用显示名称作为身份。
