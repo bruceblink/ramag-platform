@@ -8499,6 +8499,7 @@ dependencies = [
  "ramag-tool-clipboard",
  "ramag-tool-container",
  "ramag-tool-dbclient",
+ "ramag-tool-json-path",
  "ramag-tool-kafka",
  "ramag-tool-mongodb",
  "ramag-tool-mqtt",
@@ -8940,6 +8941,19 @@ dependencies = [
  "smol",
  "sqlformat",
  "tracing",
+]
+
+[[package]]
+name = "ramag-tool-json-path"
+version = "0.3.0"
+dependencies = [
+ "gpui-kit",
+ "ramag-app",
+ "ramag-domain",
+ "ramag-ui",
+ "serde",
+ "serde_json",
+ "smol",
 ]
 
 [[package]]

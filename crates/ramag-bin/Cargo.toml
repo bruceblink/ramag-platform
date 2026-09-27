@@ -30,6 +30,7 @@ ramag-tool-ssh = { workspace = true }
 ramag-tool-object-storage = { workspace = true }
 ramag-tool-container = { workspace = true }
 ramag-tool-system = { workspace = true }
+ramag-tool-json-path = { workspace = true }
 ramag-infra-mysql = { workspace = true }
 ramag-infra-postgres = { workspace = true }
 ramag-infra-sqlite = { workspace = true }

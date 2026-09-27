@@ -35,8 +35,9 @@ use gpui_kit::{
 use ramag_app::{
     AUTO_CHECK_INTERVAL, ApiService, ClipboardService, ConnectionService, ContainerService,
     DataSyncGate, DataSyncService, KafkaService, MongoService, MqttService, ObjectStorageService,
-    PluginLifecycleReport, RedisService, SshService, StaticPluginAdapter, StaticPluginHost,
-    TOOL_ORDER_PREF_KEY, ToolRegistry, UpdateService,
+    PluginLifecycleReport, PluginPermissionPolicy, PluginSettingsMigrator, RedisService,
+    SshService, StaticPluginAdapter, StaticPluginHost, TOOL_ORDER_PREF_KEY, ToolRegistry,
+    UpdateService,
 };
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use ramag_domain::traits::ClipboardDriver;
@@ -79,6 +80,7 @@ use ramag_tool_dbclient::{
     DbClientTool, ExplainQuery, FindInResults, FormatSql, NewQueryTab, RunQuery,
     RunStatementAtCursor, ToggleRedisConsole, ToggleSqlEditor, create_dbclient_view,
 };
+use ramag_tool_json_path::{JsonPathTool, create_json_path_view, register_json_path_plugin};
 use ramag_tool_kafka::{KafkaTool, create_kafka_view};
 use ramag_tool_mongodb::{FormatMongoJson, NewMongoQueryTab, RunMongoQuery, ToggleMongoEditor};
 use ramag_tool_mqtt::{MqttTool, create_mqtt_view};

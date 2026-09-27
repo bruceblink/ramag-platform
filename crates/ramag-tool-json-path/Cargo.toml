@@ -1,0 +1,22 @@
+[package]
+name = "ramag-tool-json-path"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Ramag 原生 JSON Path 提取器插件"
+
+[lints]
+workspace = true
+
+[dependencies]
+gpui-kit = { workspace = true }
+ramag-app = { workspace = true }
+ramag-domain = { workspace = true }
+ramag-ui = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+gpui-kit = { workspace = true, features = ["test-support"] }
+smol = { workspace = true }

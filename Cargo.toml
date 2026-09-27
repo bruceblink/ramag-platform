@@ -34,6 +34,7 @@ members = [
     "crates/ramag-tool-object-storage",
     "crates/ramag-tool-container",
     "crates/ramag-tool-system",
+    "crates/ramag-tool-json-path",
     "crates/ramag-ui",
     "crates/ramag-bin",
 ]
@@ -81,6 +82,7 @@ ramag-tool-ssh = { path = "crates/ramag-tool-ssh" }
 ramag-tool-object-storage = { path = "crates/ramag-tool-object-storage" }
 ramag-tool-container = { path = "crates/ramag-tool-container" }
 ramag-tool-system = { path = "crates/ramag-tool-system" }
+ramag-tool-json-path = { path = "crates/ramag-tool-json-path" }
 ramag-ui = { path = "crates/ramag-ui" }
 
 # macOS FFI（剪贴板驱动；与 gpui_macos 同款绑定与版本，依赖树内已有零新增编译单元）
