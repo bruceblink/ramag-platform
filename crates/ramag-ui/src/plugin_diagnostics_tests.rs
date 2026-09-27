@@ -139,6 +139,12 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
         let summary = visual_cx
             .debug_bounds("plugin-summary")
             .expect("插件概览应渲染");
+        let catalog = visual_cx
+            .debug_bounds("plugin-catalog")
+            .expect("第一方目录应渲染");
+        let catalog_entry = visual_cx
+            .debug_bounds("plugin-catalog-ready-entry-ready-entry")
+            .expect("第一方目录入口应渲染");
         let available = visual_cx
             .debug_bounds("plugin-available")
             .expect("可用入口区域应渲染");
@@ -168,6 +174,8 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
         assert!(root.origin.y >= scroll.origin.y);
         for child in [
             summary,
+            catalog,
+            catalog_entry,
             available,
             states,
             ready,
@@ -179,5 +187,6 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
         }
         assert!(broken.bottom() <= states.bottom());
         assert!(entry.bottom() <= available.bottom());
+        assert!(catalog_entry.bottom() <= catalog.bottom());
     }
 }

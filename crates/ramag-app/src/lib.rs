@@ -5,6 +5,7 @@
 
 mod blocking;
 pub mod connection_transfer;
+mod plugin_catalog;
 mod plugin_host;
 mod plugin_lifecycle;
 mod plugin_secrets;
@@ -15,6 +16,10 @@ pub mod tool_registry;
 pub mod usecases;
 
 pub use blocking::run_blocking;
+pub use plugin_catalog::{
+    MAX_PLUGIN_CATALOG_ENTRIES, PluginCatalog, PluginCatalogAcceptance, PluginCatalogEntry,
+    PluginCatalogError, PluginDataHandling,
+};
 pub use plugin_host::PluginEntryExecutionError;
 pub use plugin_lifecycle::{
     MAX_PLUGIN_OPERATION_ERROR_BYTES, PluginContext, PluginContextError, PluginDiagnostic,

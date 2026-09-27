@@ -57,8 +57,8 @@
 2. `PLAT-004-B`：统一 GPUI 入口渲染；未绑定专用工作台的入口显示经过校验的输入/输出边界。
 3. `PLAT-005-D`：静态插件入口执行器已接入入口校验、任务句柄保留和关闭取消。
 4. `TOOL-MIG-001-B`：JSON Path 原生 GPUI 入口已完成。
-5. `DUAL-CORE-001-A`：JSON Path Web/WASM 适配已完成；下一项建立第一方工具目录。
-6. `CATALOG-001`：建立第一方工具目录，记录工具 ID、版本、平台、权限、数据处理和验收状态。
+5. `DUAL-CORE-001-A`：JSON Path Web/WASM 适配已完成。
+6. `CATALOG-001`：第一方工具目录已完成；下一项建立本机优先的文档/结果共享边界。
 7. `COLLAB-001`：建立本机优先的文档/结果共享边界，敏感数据默认不自动同步。
 
 这些项目在设计确认前不改变当前 `DB-UX-005` 后续差异和迁移切片的实现范围，也不代表动态插件、第三方市场或远程协作已经实现。
@@ -448,7 +448,13 @@
 
 - 设计：新增 `ramag-tool-json-path-wasm`，仅暴露 JSON 编码请求/响应的 `wasm_bindgen` 函数；它复用 `ramag-domain::json_path`，不引入 GPUI、凭据、网络或文件系统能力。
 - 兼容性：WASM 与桌面使用相同的 JSON5、路径和结果格式；结构化错误上限为 512 字节。桌面组合根不依赖该适配，继续直接调用原生 Rust/GPUI 插件。
-- 验收结果：WASM 适配单元测试 2 项通过；`cargo build --locked -p ramag-tool-json-path-wasm --target wasm32-unknown-unknown --release` 通过，产物约 581 KiB；下一项为 `CATALOG-001`。
+- 验收结果：WASM 适配单元测试 2 项通过；`cargo build --locked -p ramag-tool-json-path-wasm --target wasm32-unknown-unknown --release` 通过，产物约 581 KiB。
+
+### CATALOG-001：第一方工具目录（已完成代码与 headless 验证）
+
+- 设计：静态宿主在注册阶段生成第一方目录快照，记录插件 ID、入口 ID、API 版本、桌面/Web 支持、能力、数据处理边界和审核状态；目录登记失败时原子回滚工具注册，不执行任何未信任代码。
+- 实现：`ramag-app::PluginCatalog` 提供有界、去重和按插件卸载的目录模型；插件设置页新增“第一方工具目录”区域。静态插件默认标记桌面原生，JSON Path 入口同时标记 Web/WASM；目录与运行时工具列表分离，桌面端继续使用原生 GPUI，不加载 WebView。
+- 验收结果：目录原子登记/重复拒绝、宿主多入口登记与卸载、JSON Path 双端平台标记通过；`ramag-ui` 插件诊断在 360/1024/1440 headless 窗口显示目录并保持边界；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。下一项为 `COLLAB-001`。
 
 ## 5. 分支和清理
 

@@ -2,7 +2,7 @@
 
 > 适用项目：`bruceblink/ramag-platform`。本路线只约束当前独立下游项目的插件平台演进，不代表 `tools-rs/ramag` 已接受或实现这些接口。
 >
-> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口和 `DUAL-CORE-001-A` Web/WASM 适配已完成，下一项建立第一方工具目录。系统凭据库真实环境验收和第三方动态插件仍未开放。桌面端明确禁止 WebView，后续优先建设原生 GPUI 标准工具入口和第一方工具目录。
+> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配和 `CATALOG-001` 第一方工具目录已完成，下一项为 `COLLAB-001` 本机优先协作。系统凭据库真实环境验收和第三方动态插件仍未开放。桌面端明确禁止 WebView，后续优先建设原生 GPUI 标准工具入口和本机优先协作。
 
 ## 术语与命名规则
 
@@ -244,9 +244,15 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 `DUAL-CORE-001-A` 已完成：`ramag-tool-json-path-wasm` 以 JSON 编码请求/响应暴露 `wasm_bindgen` 适配，复用 `ramag-domain::json_path`，并在 `wasm32-unknown-unknown` release 目标成功构建约 581 KiB 产物。WASM 端和桌面端共享 JSON5、路径、结果和错误样例；桌面端不加载该 WASM 产物，也不引入 WebView。
 
-### CATALOG-001 与 COLLAB-001：第一方目录和本机优先协作
+### CATALOG-001：第一方目录（已完成代码与 headless 验证）
 
-第一方目录先服务内置或已审查插件，记录版本、能力、平台、数据处理和验收状态。协作层先实现用户明确选择的文档或结果共享，使用本机加密存储和可审计的同步记录；密码、JWT 密钥、连接配置和原始业务数据默认禁止自动同步。
+`ramag-app::PluginCatalog` 在静态插件注册时生成有界目录快照，原子校验插件/入口重复项并支持按插件卸载。目录记录插件 ID、入口 ID、API 版本、桌面/Web 平台、能力、数据处理方式和审核状态；默认静态插件只标记桌面原生，JSON Path 的共享计算核心另外标记 Web/WASM。设置页显示目录与运行状态，目录不执行未信任代码，桌面端仍不加载 WebView。
+
+验收覆盖目录模型、宿主多入口登记/卸载、JSON Path 双端平台标记和 360/1024/1440 headless 布局；下一项进入 `COLLAB-001`。
+
+### COLLAB-001：第一方目录之后的本机优先协作
+
+协作层先实现用户明确选择的文档或结果共享，使用本机加密存储和可审计的同步记录；密码、JWT 密钥、连接配置和原始业务数据默认禁止自动同步。
 
 ## 关键设计约束
 

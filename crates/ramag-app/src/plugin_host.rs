@@ -14,8 +14,8 @@ use crate::plugin_lifecycle::{
     PluginState, StaticPlugin, bounded_message,
 };
 use crate::{
-    PluginSecretStore, PluginSettingsMigrator, PluginSettingsStore, PluginTaskBudget,
-    PluginTaskExecution, ToolRegistry,
+    PluginCatalog, PluginCatalogError, PluginSecretStore, PluginSettingsMigrator,
+    PluginSettingsStore, PluginTaskBudget, PluginTaskExecution, ToolRegistry,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,6 +49,7 @@ pub struct StaticPluginHost {
     permission_policy: PluginPermissionPolicy,
     storage: Option<Arc<dyn Storage>>,
     settings_migrator: PluginSettingsMigrator,
+    catalog: Mutex<PluginCatalog>,
     failures: Mutex<HashMap<PluginId, PluginDiagnosticFailure>>,
     registration_failures: Mutex<Vec<PluginDiagnostic>>,
 }
@@ -113,6 +114,7 @@ impl StaticPluginHost {
             permission_policy,
             storage,
             settings_migrator,
+            catalog: Mutex::new(PluginCatalog::new()),
             failures: Mutex::new(HashMap::new()),
             registration_failures: Mutex::new(Vec::new()),
         }
@@ -120,6 +122,11 @@ impl StaticPluginHost {
 
     pub fn registry(&self) -> Arc<ToolRegistry> {
         self.registry.clone()
+    }
+
+    /// 返回第一方目录快照；目录项来自已注册的静态插件清单，不触发插件代码。
+    pub fn catalog(&self) -> Vec<crate::PluginCatalogEntry> {
+        self.catalog.lock().entries()
     }
 
     /// 注册成功后返回；初始化由 `initialize_all` 统一按注册顺序执行。
@@ -141,6 +148,11 @@ impl StaticPluginHost {
         {
             self.record_registration_failure(descriptor, source.to_string());
             return Err(PluginHostError::Registration { plugin_id, source });
+        }
+        if let Err(source) = self.catalog.lock().register(plugin.catalog_entries()) {
+            self.registry.unregister_plugin(plugin_id.as_str());
+            self.record_registration_failure(descriptor, source.to_string());
+            return Err(PluginHostError::Catalog { plugin_id, source });
         }
         self.records.lock().push(PluginRecord {
             plugin,
@@ -289,6 +301,7 @@ impl StaticPluginHost {
             }
             record.context.mark_unloaded();
             self.registry.unregister_plugin(plugin_id.as_str());
+            self.catalog.lock().remove_plugin(plugin_id.as_str());
         }
         *self.phase.lock() = HostPhase::Stopped;
         report
@@ -448,6 +461,12 @@ pub enum PluginHostError {
     },
     #[error("插件宿主已开始生命周期处理，不能注册插件 `{plugin_id}`")]
     RegistrationClosed { plugin_id: PluginId },
+    #[error("插件 `{plugin_id}` 目录登记失败：{source}")]
+    Catalog {
+        plugin_id: PluginId,
+        #[source]
+        source: PluginCatalogError,
+    },
 }
 
 /// 静态插件入口提交前的校验或适配错误。

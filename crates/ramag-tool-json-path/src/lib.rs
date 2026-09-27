@@ -8,7 +8,8 @@ use std::sync::Arc;
 
 use gpui_kit::{App, AppContext as _, Entity, Window};
 use ramag_app::{
-    PluginContext, PluginEntryFuture, PluginOperationError, StaticPlugin, StaticPluginHost,
+    PluginCatalogEntry, PluginContext, PluginEntryFuture, PluginOperationError, StaticPlugin,
+    StaticPluginHost,
 };
 use ramag_domain::json_path::{
     MAX_JSON_INPUT_BYTES, MAX_JSON_PATH_OUTPUT_BYTES, extract_json_path,
@@ -97,6 +98,17 @@ impl StaticPlugin for JsonPathPlugin {
         self.tool.clone()
     }
 
+    /// JSON Path 的计算核心同时编译为 Web/WASM；桌面入口仍由 GPUI 原生视图承载。
+    fn catalog_entries(&self) -> Vec<PluginCatalogEntry> {
+        self.descriptor()
+            .entry_descriptors()
+            .iter()
+            .map(|entry| {
+                PluginCatalogEntry::desktop_only(self.descriptor(), entry).with_web_support(true)
+            })
+            .collect()
+    }
+
     fn execute(
         &self,
         entry_id: &str,
@@ -156,6 +168,10 @@ mod tests {
                 .iter()
                 .any(|capability| capability.as_str() == "task.scoped")
         );
+        let catalog = plugin.catalog_entries();
+        assert_eq!(catalog.len(), 1);
+        assert!(catalog[0].desktop);
+        assert!(catalog[0].web);
     }
 
     #[test]

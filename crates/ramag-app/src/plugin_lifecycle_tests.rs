@@ -396,11 +396,21 @@ fn host_registers_multiple_entries_and_unloads_them_as_one_plugin() {
 
     assert_eq!(host.registry().order(), ["bundle.first", "bundle.second"]);
     assert_eq!(host.registry().plugin_descriptors().len(), 1);
+    assert_eq!(
+        host.catalog()
+            .iter()
+            .map(|entry| entry.entry_id.as_str())
+            .collect::<Vec<_>>(),
+        ["bundle.first", "bundle.second"]
+    );
+    assert!(host.catalog().iter().all(|entry| entry.desktop));
+    assert!(host.catalog().iter().all(|entry| !entry.web));
     assert_eq!(host.initialize_all().succeeded.len(), 1);
     assert_eq!(*events.lock(), ["initialized"]);
 
     host.shutdown_all();
     assert_eq!(host.registry().count(), 0);
+    assert!(host.catalog().is_empty());
 }
 
 struct SettingsPlugin {

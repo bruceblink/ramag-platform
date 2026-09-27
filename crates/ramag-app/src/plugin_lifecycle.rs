@@ -13,7 +13,7 @@ use ramag_domain::{PluginCapability, PluginDescriptor, PluginId, PluginRegistrat
 use thiserror::Error;
 
 use crate::plugin_tasks::{PluginTaskError, PluginTaskHandle, PluginTaskRegistry};
-use crate::{PluginSecretSnapshot, PluginSettingsSnapshot};
+use crate::{PluginCatalogEntry, PluginSecretSnapshot, PluginSettingsSnapshot};
 
 /// 单个插件生命周期错误允许进入诊断和日志的最大字节数。
 pub const MAX_PLUGIN_OPERATION_ERROR_BYTES: usize = 512;
@@ -342,6 +342,15 @@ pub trait StaticPlugin: Send + Sync {
     /// 返回该插件提供的全部工具入口；旧插件默认只暴露兼容的单入口。
     fn tools(&self) -> Vec<Arc<dyn Tool>> {
         vec![self.tool()]
+    }
+
+    /// 返回宿主可审查的目录项；静态插件默认只声明桌面原生支持。
+    fn catalog_entries(&self) -> Vec<PluginCatalogEntry> {
+        self.descriptor()
+            .entry_descriptors()
+            .iter()
+            .map(|entry| PluginCatalogEntry::desktop_only(self.descriptor(), entry))
+            .collect()
     }
 
     /// 宿主已将插件置为 Initializing 后调用；默认实现只确认上下文有效。
