@@ -41,27 +41,29 @@ impl ApiView {
         cx.notify();
     }
 
+    /// 取消当前请求或 gRPC 发现，并清理代际与句柄，防止迟到回调继续回写视图。
     pub(crate) fn cancel(&mut self, cx: &mut Context<Self>) {
+        let request_active = self.loading || self.cancelled.is_some();
         if let Some(cancelled) = &self.cancelled {
             cancelled.store(true, Ordering::Relaxed);
         }
         if let Some(cancelled) = &self.grpc_discovery_cancelled {
             cancelled.store(true, Ordering::Relaxed);
         }
-        let was_loading = self.loading;
         let was_discovering = self.grpc_discovering;
-        if was_loading {
+        if request_active {
             self.request_generation = self.request_generation.wrapping_add(1);
             self.loading = false;
+            self.cancelled = None;
         }
         if was_discovering {
             self.grpc_discovery_generation = self.grpc_discovery_generation.wrapping_add(1);
             self.grpc_discovering = false;
             self.grpc_discovery_cancelled = None;
         }
-        if was_loading || was_discovering {
+        if request_active || was_discovering {
             self.notice = Some((
-                if was_loading {
+                if request_active {
                     "请求已取消"
                 } else {
                     "gRPC Service 发现已取消"

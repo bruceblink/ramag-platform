@@ -128,6 +128,45 @@ fn api_protocol_switch_cancels_inflight_request_and_invalidates_late_response(
 }
 
 #[gpui_kit::test]
+fn api_cancel_clears_active_request_handle_and_invalidates_late_response(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_kit::component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 视图应初始化");
+    let cancellation = new_api_cancellation();
+    let initial_generation = visual_cx.update(|_, app| {
+        view.update(app, |view, _| {
+            view.loading = true;
+            view.cancelled = Some(cancellation.clone());
+            view.request_generation
+        })
+    });
+
+    visual_cx.update(|_, app| {
+        view.update(app, |view, cx| view.cancel(cx));
+    });
+
+    let state = visual_cx.update(|_, app| {
+        let view = view.read(app);
+        (
+            view.loading,
+            view.request_generation,
+            view.cancelled.is_none(),
+            view.notice.clone(),
+        )
+    });
+    assert!(!state.0, "取消后请求不能继续显示为加载中");
+    assert_eq!(state.1, initial_generation.wrapping_add(1));
+    assert!(state.2, "取消后不能保留旧请求句柄");
+    assert_eq!(state.3, Some(("请求已取消".into(), false)));
+    assert!(cancellation.load(Ordering::Relaxed));
+}
+
+#[gpui_kit::test]
 fn api_grpc_descriptor_set_survives_request_build_and_import(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let mut view_entity = None;
