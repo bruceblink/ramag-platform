@@ -8497,6 +8497,7 @@ dependencies = [
  "ramag-infra-update",
  "ramag-tool-api",
  "ramag-tool-clipboard",
+ "ramag-tool-collaboration",
  "ramag-tool-container",
  "ramag-tool-dbclient",
  "ramag-tool-json-path",
@@ -8899,6 +8900,19 @@ dependencies = [
  "schemars",
  "serde",
  "tracing",
+]
+
+[[package]]
+name = "ramag-tool-collaboration"
+version = "0.3.0"
+dependencies = [
+ "gpui-kit",
+ "ramag-app",
+ "ramag-domain",
+ "ramag-infra-storage",
+ "ramag-ui",
+ "smol",
+ "tempfile",
 ]
 
 [[package]]

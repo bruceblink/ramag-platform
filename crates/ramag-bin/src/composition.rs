@@ -92,6 +92,10 @@ pub(super) fn build_plugin_host_with_storage(
     register_builtin_tool(&host, Arc::new(ObjectStorageTool::new()));
     register_builtin_tool(&host, Arc::new(ContainerTool::new()));
     register_builtin_tool(&host, Arc::new(SystemTool::new()));
+    register_builtin_tool(
+        &host,
+        Arc::new(ramag_tool_collaboration::CollaborationTool::new()),
+    );
     if let Err(error) = register_json_path_plugin(&host) {
         warn!(
             operation = "json_path_plugin_register",

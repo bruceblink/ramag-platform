@@ -246,6 +246,8 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                 };
                 let system_view = create_system_view(window, cx);
                 let json_path_view = create_json_path_view(plugin_host.clone(), window, cx);
+                let collaboration_view =
+                    ramag_tool_collaboration::create_collaboration_view(storage.clone(), window, cx);
                 let settings_view = cx.new(|cx| {
                     SettingsView::new(
                         plugin_host.clone(),
@@ -283,6 +285,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     shell.register_tool_view(ContainerTool::ID, container_view.into());
                     shell.register_tool_view(SystemTool::ID, system_view.into());
                     shell.register_tool_view(JsonPathTool::ID, json_path_view.into());
+                    shell.register_tool_view(CollaborationTool::ID, collaboration_view.into());
 
                     let home_subscription: Subscription = cx.subscribe_in(
                         &home_view,

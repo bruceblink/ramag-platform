@@ -73,6 +73,7 @@ use ramag_tool_clipboard::{
     ClipboardImageCache, ClipboardTool, SelectNextClip, SelectPrevClip,
     create_clipboard_drawer_with_cache, create_clipboard_view,
 };
+use ramag_tool_collaboration::CollaborationTool;
 use ramag_tool_container::{
     ContainerTool, create_container_view, create_container_view_with_registry,
 };

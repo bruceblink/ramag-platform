@@ -1,0 +1,22 @@
+[package]
+name = "ramag-tool-collaboration"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Ramag 原生本机优先协作工具插件"
+
+[lints]
+workspace = true
+
+[dependencies]
+gpui-kit = { workspace = true }
+ramag-app = { workspace = true }
+ramag-domain = { workspace = true }
+ramag-ui = { workspace = true }
+
+[dev-dependencies]
+gpui-kit = { workspace = true, features = ["test-support"] }
+ramag-infra-storage = { workspace = true }
+smol = { workspace = true }
+tempfile = "3"

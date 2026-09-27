@@ -35,6 +35,7 @@ members = [
     "crates/ramag-tool-container",
     "crates/ramag-tool-system",
     "crates/ramag-tool-json-path",
+    "crates/ramag-tool-collaboration",
     "crates/ramag-tool-json-path-wasm",
     "crates/ramag-ui",
     "crates/ramag-bin",
@@ -84,6 +85,7 @@ ramag-tool-object-storage = { path = "crates/ramag-tool-object-storage" }
 ramag-tool-container = { path = "crates/ramag-tool-container" }
 ramag-tool-system = { path = "crates/ramag-tool-system" }
 ramag-tool-json-path = { path = "crates/ramag-tool-json-path" }
+ramag-tool-collaboration = { path = "crates/ramag-tool-collaboration" }
 ramag-tool-json-path-wasm = { path = "crates/ramag-tool-json-path-wasm" }
 ramag-ui = { path = "crates/ramag-ui" }
 

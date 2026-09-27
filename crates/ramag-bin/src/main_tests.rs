@@ -89,6 +89,7 @@ fn clipboard_tool_is_registered_last() {
             "object_storage",
             "container",
             "system",
+            "collaboration",
             "json-path-extractor",
             "clipboard"
         ]
