@@ -2,6 +2,7 @@
 
 pub mod entities;
 pub mod error;
+pub mod json_path;
 pub mod traits;
 
 pub use entities::{
@@ -24,6 +25,11 @@ pub use entities::{
 pub use error::{
     ContainerError, ContainerErrorCategory, DomainError, KafkaError, KafkaErrorCategory, MqttError,
     MqttErrorCategory, Result,
+};
+pub use json_path::{
+    JsonPathError, JsonPathSegment, MAX_JSON_INPUT_BYTES, MAX_JSON_PATH_BYTES,
+    MAX_JSON_PATH_MATCHES, MAX_JSON_PATH_OUTPUT_BYTES, extract_json_path, query_json_path,
+    tokenize_json_path,
 };
 pub use traits::{
     ApiDriver, ContainerDriver, ContainerOperationCancellation, ContainerRegistryDriver, Driver,
