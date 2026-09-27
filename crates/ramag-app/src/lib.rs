@@ -6,6 +6,7 @@
 mod blocking;
 pub mod connection_transfer;
 mod plugin_lifecycle;
+mod plugin_secrets;
 mod plugin_settings;
 mod plugin_settings_store;
 pub mod tool_registry;
@@ -17,6 +18,11 @@ pub use plugin_lifecycle::{
     PluginDiagnosticFailure, PluginHostError, PluginLifecycleFailure, PluginLifecycleReport,
     PluginLifecycleStage, PluginOperationError, PluginPermissionPolicy, PluginState, StaticPlugin,
     StaticPluginAdapter, StaticPluginHost,
+};
+pub use plugin_secrets::{
+    CURRENT_PLUGIN_SECRET_FORMAT_VERSION, MAX_PLUGIN_SECRET_PLAINTEXT_BYTES,
+    MAX_PLUGIN_SECRET_STORED_BYTES, PluginSecretError, PluginSecretSnapshot, PluginSecretStore,
+    PluginSecretStoreError,
 };
 pub use plugin_settings::{PluginSettingsError, PluginSettingsSnapshot};
 pub use plugin_settings_store::{
