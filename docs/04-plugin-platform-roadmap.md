@@ -2,7 +2,7 @@
 
 > 适用项目：`bruceblink/ramag-platform`。本路线只约束当前独立下游项目的插件平台演进，不代表 `tools-rs/ramag` 已接受或实现这些接口。
 >
-> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心和 `TOOL-MIG-001-B` 原生 GPUI 入口已完成，下一项评估 Web/WASM 双端核心适配。系统凭据库真实环境验收和第三方动态插件仍未开放。桌面端明确禁止 WebView，后续优先建设原生 GPUI 标准工具入口和第一方工具目录。
+> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口和 `DUAL-CORE-001-A` Web/WASM 适配已完成，下一项建立第一方工具目录。系统凭据库真实环境验收和第三方动态插件仍未开放。桌面端明确禁止 WebView，后续优先建设原生 GPUI 标准工具入口和第一方工具目录。
 
 ## 术语与命名规则
 
@@ -241,6 +241,8 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 ### DUAL-CORE-001：双端计算核心适配
 
 为已迁移的纯计算核心建立 Web/WASM 适配和共享测试样例。桌面端直接调用 Rust 核心，Web 端按需加载 WASM；平台目录记录每个入口的 `desktop`、`web` 支持状态和限制。
+
+`DUAL-CORE-001-A` 已完成：`ramag-tool-json-path-wasm` 以 JSON 编码请求/响应暴露 `wasm_bindgen` 适配，复用 `ramag-domain::json_path`，并在 `wasm32-unknown-unknown` release 目标成功构建约 581 KiB 产物。WASM 端和桌面端共享 JSON5、路径、结果和错误样例；桌面端不加载该 WASM 产物，也不引入 WebView。
 
 ### CATALOG-001 与 COLLAB-001：第一方目录和本机优先协作
 

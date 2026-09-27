@@ -8957,6 +8957,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ramag-tool-json-path-wasm"
+version = "0.3.0"
+dependencies = [
+ "ramag-domain",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "ramag-tool-kafka"
 version = "0.3.0"
 dependencies = [

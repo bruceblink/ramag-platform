@@ -35,6 +35,7 @@ members = [
     "crates/ramag-tool-container",
     "crates/ramag-tool-system",
     "crates/ramag-tool-json-path",
+    "crates/ramag-tool-json-path-wasm",
     "crates/ramag-ui",
     "crates/ramag-bin",
 ]
@@ -83,6 +84,7 @@ ramag-tool-object-storage = { path = "crates/ramag-tool-object-storage" }
 ramag-tool-container = { path = "crates/ramag-tool-container" }
 ramag-tool-system = { path = "crates/ramag-tool-system" }
 ramag-tool-json-path = { path = "crates/ramag-tool-json-path" }
+ramag-tool-json-path-wasm = { path = "crates/ramag-tool-json-path-wasm" }
 ramag-ui = { path = "crates/ramag-ui" }
 
 # macOS FFI（剪贴板驱动；与 gpui_macos 同款绑定与版本，依赖树内已有零新增编译单元）
@@ -167,6 +169,7 @@ async-compression = { version = "0.4", features = ["futures-io", "gzip"] }
 serde = { version = "1", features = ["derive"] }
 # 保留对象插入顺序，使 JSON Path 通配符和 Web 工具的 JSON.stringify 顺序一致。
 serde_json = { version = "1", features = ["preserve_order"] }
+wasm-bindgen = "0.2"
 json5 = "1"
 regex = "1"
 base64 = "0.22"
@@ -235,7 +238,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "local-time"] 
 
 # 工具
 chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1", features = ["v4", "v5", "serde"] }
+# `js` supplies randomness when the pure core is compiled for wasm32; desktop uses the same
+# UUID API without changing its native entropy source.
+uuid = { version = "1", features = ["v4", "v5", "serde", "js"] }
 parking_lot = "0.12"
 # 加密剪贴历史深度搜索：并行兜底扫描 + 带密钥 Bloom token；均已存在于依赖树。
 rayon = "1"
