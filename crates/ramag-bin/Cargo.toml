@@ -38,6 +38,7 @@ ramag-infra-sqlite = { workspace = true }
 ramag-infra-redis = { workspace = true }
 ramag-infra-mongodb = { workspace = true }
 ramag-infra-storage = { workspace = true }
+ramag-infra-collaboration = { workspace = true }
 ramag-infra-git = { workspace = true }
 ramag-infra-tunnel = { workspace = true }
 ramag-infra-ssh = { workspace = true }
@@ -78,7 +79,6 @@ rfd = { workspace = true }
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
 ramag-tool-clipboard = { workspace = true }
 ramag-infra-clipboard = { workspace = true }
-ramag-infra-collaboration = { workspace = true }
 
 # Windows 平台集成：系统托盘（Shell_NotifyIcon）+ 单实例（命名互斥体/事件）
 [target.'cfg(target_os = "windows")'.dependencies]
