@@ -1,7 +1,7 @@
 # Ramag Platform 执行计划与验收记录入口
 
 > 状态：现行执行规则
-> 更新日期：2026-09-27
+> 更新日期：2026-09-28
 > 主线：阶段 A 单机桌面收口与阶段 B 原生工作区迁移；阶段 C 继续后置
 > 路线图：[`02-development-roadmap.md`](02-development-roadmap.md)
 > 统一 UI 标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
@@ -78,13 +78,14 @@
 - 窗口证据：Windows 最新调试程序启动并响应，系统截图 `target/ui-fallback/clipboard-activity-bar.png` 显示剪贴板工具入口；Computer Use 仍返回 `apps: []`，没有将该截图描述为 Computer Use，也没有宣称完成真实鼠标点击流程。首页卡片点击由 headless 交互测试验证。
 - Git：修复提交 `12b8728e` 已推送 `main`；本节对应的专项 UI 回归和记录在后续提交中单独推送。
 
-### A-CI-UI-002：修复跨平台桌面 UI 回归（2026-09-27，本机验证通过，跨平台 CI 复验中）
+### A-CI-UI-002：修复跨平台桌面 UI 回归（2026-09-28，跨平台 CI 验收完成）
 
 - 问题证据：`main` 的 GitHub Desktop CI 在 Windows、macOS 和 Linux workspace 测试中发现，表设计器 DDL 预览窗口高度 620px 时底部操作区超出视口；Linux 另有单元格值查看器测试点击关闭容器而非实际关闭按钮，导致关闭状态断言失败。
 - 设计：表设计器按对话框实测标题、工具栏、分区标题、底部操作和内边距调整正文预留高度，保留 DDL 内部滚动；值查看器测试定位实际关闭按钮中心执行点击，验证关闭对话框，不改关闭业务逻辑。
 - 验收条件：两个定向 GPUI 测试和 `ramag-tool-dbclient` 全量测试通过；workspace fmt、Clippy、源码尺寸和差异检查通过；推送后 Desktop CI 的 Windows/macOS/Linux workspace 测试均通过。
 - 不做事项：不改变表结构 SQL、数据写入、对话框最大宽高策略或值查看器内容行为；不通过放宽断言或跳过平台测试规避回归。
-- 实施与本机验收：DDL 预览正文预留高度从 170px 调整为 194px，给响应式标题、工具栏和底部操作留足空间；值查看器关闭测试现在点击带调试选择器的实际按钮。表设计器与值查看器定向测试通过，`ramag-tool-dbclient` 全量 354 项通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。跨平台 CI 结果待本次推送复验。
+- 实施与本机验收：DDL 预览正文预留高度从 170px 调整为 194px，给响应式标题、工具栏和底部操作留足空间；值查看器关闭测试现在点击带调试选择器的实际按钮。两个定向 GPUI 测试通过，`ramag-tool-dbclient` 全量 354 项和 `cargo test --locked --workspace --all-targets -- --test-threads=1` 通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 跨平台验收：提交 `39a577ee` 的 GitHub Desktop CI run `36331218913` 在 Windows x64、Linux x86_64 和 macOS 三个平台全部通过，包括 workspace 全量测试、fmt、Clippy 和源码检查。本次没有使用 WSL 验证。
 
 ### 阶段 A：单机桌面功能收口（当前主线，与阶段 B 并行推进）
 
