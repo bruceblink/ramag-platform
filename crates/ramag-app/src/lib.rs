@@ -15,11 +15,12 @@ pub mod tool_registry;
 pub mod usecases;
 
 pub use blocking::run_blocking;
+pub use plugin_host::PluginEntryExecutionError;
 pub use plugin_lifecycle::{
     MAX_PLUGIN_OPERATION_ERROR_BYTES, PluginContext, PluginContextError, PluginDiagnostic,
-    PluginDiagnosticFailure, PluginHostError, PluginLifecycleFailure, PluginLifecycleReport,
-    PluginLifecycleStage, PluginOperationError, PluginPermissionPolicy, PluginState, StaticPlugin,
-    StaticPluginAdapter, StaticPluginHost,
+    PluginDiagnosticFailure, PluginEntryFuture, PluginHostError, PluginLifecycleFailure,
+    PluginLifecycleReport, PluginLifecycleStage, PluginOperationError, PluginPermissionPolicy,
+    PluginState, StaticPlugin, StaticPluginAdapter, StaticPluginHost,
 };
 pub use plugin_secrets::{
     CURRENT_PLUGIN_SECRET_FORMAT_VERSION, MAX_PLUGIN_SECRET_PLAINTEXT_BYTES,
@@ -35,8 +36,8 @@ pub use plugin_settings_store::{
 };
 pub use plugin_tasks::{
     MAX_PLUGIN_TASK_NAME_BYTES, MAX_PLUGIN_TASK_RESULT_BYTES, MAX_PLUGIN_TASK_TIMEOUT,
-    MAX_PLUGIN_TASKS, PluginTaskBudget, PluginTaskBudgetError, PluginTaskError, PluginTaskHandle,
-    PluginTaskRunError,
+    MAX_PLUGIN_TASKS, PluginTaskBudget, PluginTaskBudgetError, PluginTaskError,
+    PluginTaskExecution, PluginTaskHandle, PluginTaskRunError,
 };
 pub use tool_registry::{TOOL_ORDER_PREF_KEY, ToolRegistry};
 pub use usecases::{

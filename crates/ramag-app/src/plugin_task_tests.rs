@@ -1,10 +1,11 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use parking_lot::Mutex;
 use ramag_domain::{PluginCapability, PluginDescriptor, PluginId, Tool, ToolMeta};
 
 use super::*;
-use crate::ToolRegistry;
+use crate::{PluginEntryExecutionError, PluginTaskBudget, PluginTaskRunError, ToolRegistry};
 
 struct DummyTaskTool {
     meta: ToolMeta,
@@ -62,6 +63,7 @@ struct TaskPlugin {
     descriptor: PluginDescriptor,
     tool: Arc<DummyTaskTool>,
     handle: Arc<Mutex<Option<PluginTaskHandle>>>,
+    delay: Duration,
 }
 
 impl StaticPlugin for TaskPlugin {
@@ -79,6 +81,21 @@ impl StaticPlugin for TaskPlugin {
             .map_err(|error| PluginOperationError::new(error.to_string()))?;
         *self.handle.lock() = Some(handle);
         Ok(())
+    }
+
+    fn execute(
+        &self,
+        _entry_id: &str,
+        input: Vec<u8>,
+        _context: &PluginContext,
+    ) -> Result<PluginEntryFuture, PluginOperationError> {
+        let delay = self.delay;
+        Ok(Box::pin(async move {
+            if !delay.is_zero() {
+                smol::Timer::after(delay).await;
+            }
+            Ok(input)
+        }))
     }
 }
 
@@ -98,6 +115,7 @@ fn host_shutdown_cancels_plugin_tasks_before_shutdown_callback() {
             meta: ToolMeta::new("task.example", "Task", ""),
         }),
         handle: handle.clone(),
+        delay: Duration::ZERO,
     };
     let mut policy = PluginPermissionPolicy::default();
     policy.grant(plugin_id, PluginCapability::new("task.scoped"));
@@ -109,4 +127,107 @@ fn host_shutdown_cancels_plugin_tasks_before_shutdown_callback() {
     host.shutdown_all();
 
     assert!(handle.lock().as_ref().unwrap().cancellation_requested());
+}
+
+#[test]
+fn host_executes_valid_entry_and_enforces_input_boundary() {
+    let registry = Arc::new(ToolRegistry::new());
+    let handle = Arc::new(Mutex::new(None));
+    let plugin_id = PluginId::new("task.example").unwrap();
+    let descriptor = PluginDescriptor::new(plugin_id.clone(), "Task", "task.example")
+        .with_capabilities([
+            PluginCapability::new("ui.entry"),
+            PluginCapability::new("task.scoped"),
+        ]);
+    let plugin = TaskPlugin {
+        descriptor,
+        tool: Arc::new(DummyTaskTool {
+            meta: ToolMeta::new("task.example", "Task", ""),
+        }),
+        handle,
+        delay: Duration::ZERO,
+    };
+    let mut policy = PluginPermissionPolicy::default();
+    policy.grant(plugin_id.clone(), PluginCapability::new("task.scoped"));
+    let host = StaticPluginHost::with_permission_policy(registry, policy);
+    host.register_plugin(Arc::new(plugin)).unwrap();
+    assert!(host.initialize_all().is_success());
+
+    let execution = host
+        .execute_entry(
+            plugin_id.as_str(),
+            "task.example",
+            b"hello".to_vec(),
+            PluginTaskBudget::new(Duration::from_secs(1), 32).unwrap(),
+        )
+        .unwrap();
+    assert_eq!(smol::block_on(execution.join()).unwrap(), b"hello");
+    let oversized_result = host
+        .execute_entry(
+            plugin_id.as_str(),
+            "task.example",
+            b"hello".to_vec(),
+            PluginTaskBudget::new(Duration::from_secs(1), 2).unwrap(),
+        )
+        .unwrap();
+    assert!(matches!(
+        smol::block_on(oversized_result.join()),
+        Err(PluginTaskRunError::ResultTooLarge { actual: 5, max: 2 })
+    ));
+    assert!(matches!(
+        host.execute_entry(
+            plugin_id.as_str(),
+            "missing",
+            Vec::new(),
+            PluginTaskBudget::new(Duration::from_secs(1), 32).unwrap(),
+        ),
+        Err(PluginEntryExecutionError::EntryNotFound { .. })
+    ));
+    assert!(matches!(
+        host.execute_entry(
+            plugin_id.as_str(),
+            "task.example",
+            vec![0; 64 * 1024 + 1],
+            PluginTaskBudget::new(Duration::from_secs(1), 32).unwrap(),
+        ),
+        Err(PluginEntryExecutionError::InputTooLarge { .. })
+    ));
+}
+
+#[test]
+fn host_shutdown_cancels_submitted_entry_execution() {
+    let registry = Arc::new(ToolRegistry::new());
+    let plugin_id = PluginId::new("task.slow").unwrap();
+    let descriptor = PluginDescriptor::new(plugin_id.clone(), "Slow task", "task.slow")
+        .with_capabilities([
+            PluginCapability::new("ui.entry"),
+            PluginCapability::new("task.scoped"),
+        ]);
+    let plugin = TaskPlugin {
+        descriptor,
+        tool: Arc::new(DummyTaskTool {
+            meta: ToolMeta::new("task.slow", "Slow task", ""),
+        }),
+        handle: Arc::new(Mutex::new(None)),
+        delay: Duration::from_secs(1),
+    };
+    let mut policy = PluginPermissionPolicy::default();
+    policy.grant(plugin_id.clone(), PluginCapability::new("task.scoped"));
+    let host = StaticPluginHost::with_permission_policy(registry, policy);
+    host.register_plugin(Arc::new(plugin)).unwrap();
+    assert!(host.initialize_all().is_success());
+
+    let execution = host
+        .execute_entry(
+            plugin_id.as_str(),
+            "task.slow",
+            Vec::new(),
+            PluginTaskBudget::new(Duration::from_secs(1), 32).unwrap(),
+        )
+        .unwrap();
+    host.shutdown_all();
+    assert!(matches!(
+        smol::block_on(execution.join()),
+        Err(PluginTaskRunError::Cancelled)
+    ));
 }

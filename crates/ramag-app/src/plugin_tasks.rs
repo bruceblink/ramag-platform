@@ -1,6 +1,7 @@
 //! 插件任务的有界句柄和生命周期取消状态。
 
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -137,40 +138,87 @@ impl PluginTaskHandle {
         budget: PluginTaskBudget,
     ) -> Result<Vec<u8>, PluginTaskRunError>
     where
-        F: std::future::Future<Output = Result<Vec<u8>, String>>,
+        F: Future<Output = Result<Vec<u8>, String>>,
     {
-        if self.cancellation_requested() {
-            return Err(PluginTaskRunError::Cancelled);
-        }
+        run_operation(self.cancellation.clone(), operation, budget).await
+    }
 
-        let operation = operation.fuse();
-        let timeout = smol::Timer::after(budget.timeout).fuse();
-        let cancelled = wait_for_cancellation(self.cancellation.clone()).fuse();
-        pin_mut!(operation, timeout, cancelled);
-
-        let outcome = select(select(operation, timeout), cancelled).await;
-        let result = match outcome {
-            Either::Left((Either::Left((result, _)), _)) => result,
-            Either::Left((Either::Right((_, _)), _)) => return Err(PluginTaskRunError::TimedOut),
-            Either::Right((_, _)) => return Err(PluginTaskRunError::Cancelled),
+    /// 将异步操作提交到轻量任务执行器，并保留句柄直到任务完成或被丢弃。
+    pub fn spawn<F>(self, operation: F, budget: PluginTaskBudget) -> PluginTaskExecution
+    where
+        F: Future<Output = Result<Vec<u8>, String>> + Send + 'static,
+    {
+        let cancellation = self.cancellation.clone();
+        let task = smol::spawn(run_operation(cancellation, operation, budget));
+        PluginTaskExecution {
+            task,
+            handle: Some(self),
         }
-        .map_err(|message| PluginTaskRunError::Failed {
-            message: bound_task_error(message),
-        })?;
-
-        if result.len() > budget.max_result_bytes {
-            return Err(PluginTaskRunError::ResultTooLarge {
-                actual: result.len(),
-                max: budget.max_result_bytes,
-            });
-        }
-        Ok(result)
     }
 }
 
 impl Drop for PluginTaskHandle {
     fn drop(&mut self) {
         self.registry.inner.lock().tasks.remove(&self.id);
+    }
+}
+
+/// 已提交的插件任务；持有任务句柄以保证宿主关闭仍能发出取消信号。
+pub struct PluginTaskExecution {
+    task: smol::Task<Result<Vec<u8>, PluginTaskRunError>>,
+    handle: Option<PluginTaskHandle>,
+}
+
+impl std::fmt::Debug for PluginTaskExecution {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PluginTaskExecution")
+            .field("task_id", &self.handle.as_ref().map(PluginTaskHandle::id))
+            .field(
+                "cancellation_requested",
+                &self
+                    .handle
+                    .as_ref()
+                    .is_some_and(PluginTaskHandle::cancellation_requested),
+            )
+            .finish()
+    }
+}
+
+impl PluginTaskExecution {
+    /// 等待任务结束；任务完成后释放该任务在插件登记表中的名额。
+    pub async fn join(mut self) -> Result<Vec<u8>, PluginTaskRunError> {
+        let result = (&mut self.task).await;
+        self.handle.take();
+        result
+    }
+
+    /// 请求任务通过生命周期取消信号尽快结束；实际中止仍要求操作协作式让出执行权。
+    pub fn request_cancel(&self) {
+        if let Some(handle) = &self.handle {
+            handle.cancellation.store(true, Ordering::Release);
+        }
+    }
+
+    /// 将任务交给执行器后台运行；句柄会保留到任务结束，关闭流程仍可取消它。
+    pub fn detach(mut self) {
+        let task = self.task;
+        let handle = self.handle.take();
+        smol::spawn(async move {
+            let _handle = handle;
+            let _ = task.await;
+        })
+        .detach();
+    }
+
+    pub fn id(&self) -> u64 {
+        self.handle.as_ref().map_or(0, PluginTaskHandle::id)
+    }
+
+    pub fn cancellation_requested(&self) -> bool {
+        self.handle
+            .as_ref()
+            .is_some_and(PluginTaskHandle::cancellation_requested)
     }
 }
 
@@ -207,6 +255,14 @@ impl PluginTaskBudget {
             max_result_bytes,
         })
     }
+
+    pub fn timeout(&self) -> Duration {
+        self.timeout
+    }
+
+    pub fn max_result_bytes(&self) -> usize {
+        self.max_result_bytes
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
@@ -236,6 +292,42 @@ async fn wait_for_cancellation(cancellation: Arc<AtomicBool>) {
         }
         smol::Timer::after(TASK_CANCEL_POLL).await;
     }
+}
+
+async fn run_operation<F>(
+    cancellation: Arc<AtomicBool>,
+    operation: F,
+    budget: PluginTaskBudget,
+) -> Result<Vec<u8>, PluginTaskRunError>
+where
+    F: Future<Output = Result<Vec<u8>, String>>,
+{
+    if cancellation.load(Ordering::Acquire) {
+        return Err(PluginTaskRunError::Cancelled);
+    }
+
+    let operation = operation.fuse();
+    let timeout = smol::Timer::after(budget.timeout).fuse();
+    let cancelled = wait_for_cancellation(cancellation).fuse();
+    pin_mut!(operation, timeout, cancelled);
+
+    let outcome = select(select(operation, timeout), cancelled).await;
+    let result = match outcome {
+        Either::Left((Either::Left((result, _)), _)) => result,
+        Either::Left((Either::Right((_, _)), _)) => return Err(PluginTaskRunError::TimedOut),
+        Either::Right((_, _)) => return Err(PluginTaskRunError::Cancelled),
+    }
+    .map_err(|message| PluginTaskRunError::Failed {
+        message: bound_task_error(message),
+    })?;
+
+    if result.len() > budget.max_result_bytes {
+        return Err(PluginTaskRunError::ResultTooLarge {
+            actual: result.len(),
+            max: budget.max_result_bytes,
+        });
+    }
+    Ok(result)
 }
 
 fn bound_task_error(message: String) -> String {
@@ -392,5 +484,23 @@ mod tests {
         ));
         canceller.join().unwrap();
         assert!(matches!(cancelled, Err(PluginTaskRunError::Cancelled)));
+    }
+
+    #[test]
+    fn spawned_task_keeps_registration_until_join_and_can_be_cancelled() {
+        let registry = Arc::new(PluginTaskRegistry::new());
+        let handle = registry.start("background").unwrap();
+        let execution = handle.spawn(
+            async {
+                smol::Timer::after(Duration::from_secs(1)).await;
+                Ok::<_, String>(Vec::new())
+            },
+            PluginTaskBudget::new(Duration::from_secs(1), 1).unwrap(),
+        );
+        assert_eq!(registry.active_count(), 1);
+        execution.request_cancel();
+        let result = smol::block_on(execution.join());
+        assert!(matches!(result, Err(PluginTaskRunError::Cancelled)));
+        assert_eq!(registry.active_count(), 0);
     }
 }

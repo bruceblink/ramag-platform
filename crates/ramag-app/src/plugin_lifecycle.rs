@@ -1,6 +1,8 @@
 //! 静态插件生命周期编排；不加载外部代码，也不暴露 UI 内部对象。
 
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::{
     Arc,
     atomic::{AtomicU8, Ordering},
@@ -15,6 +17,10 @@ use crate::{PluginSecretSnapshot, PluginSettingsSnapshot};
 
 /// 单个插件生命周期错误允许进入诊断和日志的最大字节数。
 pub const MAX_PLUGIN_OPERATION_ERROR_BYTES: usize = 512;
+
+/// 静态插件入口执行适配返回的有界异步结果；宿主负责超时、取消和结果上限。
+pub type PluginEntryFuture =
+    Pin<Box<dyn Future<Output = Result<Vec<u8>, String>> + Send + 'static>>;
 
 /// 静态插件当前所处的生命周期状态。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -350,6 +356,16 @@ pub trait StaticPlugin: Send + Sync {
         context
             .ensure_available()
             .map_err(|error| PluginOperationError::new(error.to_string()))
+    }
+
+    /// 创建一个入口异步操作；默认插件只有清单和专用工作台，不伪造标准入口结果。
+    fn execute(
+        &self,
+        _entry_id: &str,
+        _input: Vec<u8>,
+        _context: &PluginContext,
+    ) -> Result<PluginEntryFuture, PluginOperationError> {
+        Err(PluginOperationError::new("插件未提供入口执行适配"))
     }
 }
 

@@ -13,7 +13,10 @@ use crate::plugin_lifecycle::{
     PluginLifecycleReport, PluginLifecycleStage, PluginOperationError, PluginPermissionPolicy,
     PluginState, StaticPlugin, bounded_message,
 };
-use crate::{PluginSecretStore, PluginSettingsMigrator, PluginSettingsStore, ToolRegistry};
+use crate::{
+    PluginSecretStore, PluginSettingsMigrator, PluginSettingsStore, PluginTaskBudget,
+    PluginTaskExecution, ToolRegistry,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum HostPhase {
@@ -307,6 +310,64 @@ impl StaticPluginHost {
             .map(|record| record.context.clone())
     }
 
+    /// 校验并提交一个静态插件入口；返回值持有任务句柄直到等待或分离完成。
+    pub fn execute_entry(
+        &self,
+        plugin_id: &str,
+        entry_id: &str,
+        input: Vec<u8>,
+        budget: PluginTaskBudget,
+    ) -> Result<PluginTaskExecution, PluginEntryExecutionError> {
+        let record = self
+            .records
+            .lock()
+            .iter()
+            .find(|record| record.context.plugin_id().as_str() == plugin_id)
+            .cloned()
+            .ok_or_else(|| PluginEntryExecutionError::PluginNotFound {
+                plugin_id: plugin_id.to_owned(),
+            })?;
+        if record.context.state() != PluginState::Ready {
+            return Err(PluginEntryExecutionError::NotReady {
+                plugin_id: plugin_id.to_owned(),
+                state: record.context.state(),
+            });
+        }
+
+        let entry = record
+            .plugin
+            .descriptor()
+            .entry_descriptors()
+            .into_iter()
+            .find(|entry| entry.id == entry_id)
+            .ok_or_else(|| PluginEntryExecutionError::EntryNotFound {
+                plugin_id: plugin_id.to_owned(),
+                entry_id: entry_id.to_owned(),
+            })?;
+        if input.len() > entry.input.max_bytes {
+            return Err(PluginEntryExecutionError::InputTooLarge {
+                entry_id: entry.id,
+                actual: input.len(),
+                max: entry.input.max_bytes,
+            });
+        }
+
+        let task_budget = PluginTaskBudget::new(
+            budget.timeout(),
+            budget.max_result_bytes().min(entry.output.max_bytes),
+        )
+        .map_err(PluginEntryExecutionError::InvalidBudget)?;
+        let task = record
+            .context
+            .start_task(format!("entry:{entry_id}"))
+            .map_err(PluginEntryExecutionError::TaskUnavailable)?;
+        let operation = record
+            .plugin
+            .execute(entry_id, input, &record.context)
+            .map_err(PluginEntryExecutionError::Operation)?;
+        Ok(task.spawn(operation, task_budget))
+    }
+
     pub fn states(&self) -> Vec<(PluginId, PluginState)> {
         self.records
             .lock()
@@ -387,4 +448,30 @@ pub enum PluginHostError {
     },
     #[error("插件宿主已开始生命周期处理，不能注册插件 `{plugin_id}`")]
     RegistrationClosed { plugin_id: PluginId },
+}
+
+/// 静态插件入口提交前的校验或适配错误。
+#[derive(Debug, Error)]
+pub enum PluginEntryExecutionError {
+    #[error("插件 `{plugin_id}` 未注册")]
+    PluginNotFound { plugin_id: String },
+    #[error("插件 `{plugin_id}` 当前状态为 {state}，入口不可执行")]
+    NotReady {
+        plugin_id: String,
+        state: PluginState,
+    },
+    #[error("插件 `{plugin_id}` 没有入口 `{entry_id}`")]
+    EntryNotFound { plugin_id: String, entry_id: String },
+    #[error("入口 `{entry_id}` 输入超过 {max} 字节（实际 {actual} 字节）")]
+    InputTooLarge {
+        entry_id: String,
+        actual: usize,
+        max: usize,
+    },
+    #[error("入口预算无效：{0}")]
+    InvalidBudget(#[source] crate::PluginTaskBudgetError),
+    #[error("插件任务不可用：{0}")]
+    TaskUnavailable(#[source] crate::PluginContextError),
+    #[error("入口执行适配失败：{0}")]
+    Operation(#[source] PluginOperationError),
 }
