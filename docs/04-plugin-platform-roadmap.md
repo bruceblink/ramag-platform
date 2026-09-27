@@ -280,6 +280,14 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 验收结果：`ramag-infra-collaboration` 3 项协议边界测试、`ramag-app` 6 项协作测试、`ramag-tool-collaboration` 3 项原生视图测试和 `ramag-bin` 15 项回归通过；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。当前没有真实 Relay 服务端或远程 Docker 集成证据，不将客户端测试描述为端到端远程协作完成。
 
+#### COLLAB-001-B3：本机 Relay 服务（设计确认）
+
+- 目标：实现与 B2 协议一致的最小 Relay 服务，验证发布、读取、格式校验、容量上限和错误边界，为后续账号、权限、到期和多用户协作保留独立扩展点。
+- 组件：新增 `ramag-collaboration-relay` crate，HTTP 路由只暴露 `POST/GET /v1/collaboration/shares`；服务端只保存通过 `CollaborationShare::manual_export_json` 校验的非敏感导出包。
+- 运行边界：默认仅绑定回环地址，内存存储最多 256 个共享包，不记录 payload，不提供账号认证、自动同步、续期或远端撤回；进程重启清空数据，明确属于开发验证服务。
+- 错误边界：请求正文、响应和远端 ID 均有上限；格式不匹配、敏感内容、过大正文、未知 ID 和容量耗尽返回有界 JSON 错误，不回显共享正文。
+- 验收条件：路由单测覆盖成功发布/读取、敏感内容拒绝、格式拒绝、大小拒绝、未知 ID 和容量上限；本机 Docker 启动服务后由客户端真实 HTTP 发布/读取一次，记录镜像、端口、健康和清理状态；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。该服务不代表生产部署完成。
+
 ## 关键设计约束
 
 - 插件 ID、API 版本和权限名称必须是稳定、可校验且可记录的字符串；不得使用显示名称作为身份。
