@@ -10,6 +10,7 @@ use parking_lot::RwLock;
 use ramag_domain::{PluginCapability, PluginDescriptor, PluginId, PluginRegistrationError, Tool};
 use thiserror::Error;
 
+use crate::plugin_tasks::{PluginTaskError, PluginTaskHandle, PluginTaskRegistry};
 use crate::{PluginSecretSnapshot, PluginSettingsSnapshot};
 
 /// 单个插件生命周期错误允许进入诊断和日志的最大字节数。
@@ -66,6 +67,7 @@ struct PluginContextInner {
     granted_capabilities: HashSet<PluginCapability>,
     settings: RwLock<Option<PluginSettingsSnapshot>>,
     secrets: RwLock<Option<PluginSecretSnapshot>>,
+    tasks: Arc<PluginTaskRegistry>,
     state: AtomicU8,
 }
 
@@ -82,6 +84,7 @@ impl PluginContext {
                 granted_capabilities: granted_capabilities.into_iter().collect(),
                 settings: RwLock::new(None),
                 secrets: RwLock::new(None),
+                tasks: Arc::new(PluginTaskRegistry::new()),
                 state: AtomicU8::new(PluginState::Registered as u8),
             }),
         }
@@ -155,6 +158,27 @@ impl PluginContext {
             })
     }
 
+    /// 为插件创建受能力和数量上限约束的任务句柄；句柄丢弃后释放活动任务名额。
+    pub fn start_task(
+        &self,
+        name: impl Into<String>,
+    ) -> Result<PluginTaskHandle, PluginContextError> {
+        self.require_capability("task.scoped")?;
+        if self.state() == PluginState::ShuttingDown {
+            return Err(PluginContextError::TaskUnavailable {
+                plugin_id: self.plugin_id().clone(),
+                source: PluginTaskError::NotAccepting,
+            });
+        }
+        self.inner
+            .tasks
+            .start(name)
+            .map_err(|source| PluginContextError::TaskUnavailable {
+                plugin_id: self.plugin_id().clone(),
+                source,
+            })
+    }
+
     /// 宿主在初始化回调前安装已校验的普通设置和秘密快照；插件只能通过只读公开方法取得副本。
     pub(crate) fn install_snapshots(
         &self,
@@ -173,9 +197,14 @@ impl PluginContext {
     }
 
     pub(crate) fn mark_unloaded(&self) {
+        self.stop_tasks();
         self.inner
             .state
             .store(PluginState::Unloaded as u8, Ordering::Release);
+    }
+
+    pub(crate) fn stop_tasks(&self) {
+        self.inner.tasks.cancel_all();
     }
 }
 
@@ -201,6 +230,12 @@ pub enum PluginContextError {
     SettingsUnavailable { plugin_id: PluginId },
     #[error("插件 `{plugin_id}` 的秘密设置尚未加载")]
     SecretsUnavailable { plugin_id: PluginId },
+    #[error("插件 `{plugin_id}` 的任务不可用：{source}")]
+    TaskUnavailable {
+        plugin_id: PluginId,
+        #[source]
+        source: PluginTaskError,
+    },
 }
 
 /// 宿主对插件能力的授予策略；默认不授予任何能力，避免清单声明自动扩大权限。
@@ -367,3 +402,7 @@ pub(crate) fn bounded_message(mut message: String) -> String {
 #[cfg(test)]
 #[path = "plugin_lifecycle_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "plugin_task_tests.rs"]
+mod task_tests;

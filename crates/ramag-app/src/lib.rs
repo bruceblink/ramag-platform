@@ -10,6 +10,7 @@ mod plugin_lifecycle;
 mod plugin_secrets;
 mod plugin_settings;
 mod plugin_settings_store;
+mod plugin_tasks;
 pub mod tool_registry;
 pub mod usecases;
 
@@ -31,6 +32,9 @@ pub use plugin_settings_store::{
     MAX_PLUGIN_SETTINGS_PAYLOAD_BYTES, PluginSettingsLoad, PluginSettingsMigrationError,
     PluginSettingsMigrationFailure, PluginSettingsMigrationRegistrationError,
     PluginSettingsMigrator, PluginSettingsStore, PluginSettingsStoreError,
+};
+pub use plugin_tasks::{
+    MAX_PLUGIN_TASK_NAME_BYTES, MAX_PLUGIN_TASKS, PluginTaskError, PluginTaskHandle,
 };
 pub use tool_registry::{TOOL_ORDER_PREF_KEY, ToolRegistry};
 pub use usecases::{

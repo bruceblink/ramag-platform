@@ -174,6 +174,7 @@ impl StaticPluginHost {
             }
 
             if let Err(error) = self.prepare_context(&record) {
+                record.context.stop_tasks();
                 record
                     .context
                     .transition(PluginState::Initializing, PluginState::Failed);
@@ -202,6 +203,7 @@ impl StaticPluginHost {
                     report.succeeded.push(plugin_id);
                 }
                 Err(error) => {
+                    record.context.stop_tasks();
                     record
                         .context
                         .transition(PluginState::Initializing, PluginState::Failed);
@@ -257,6 +259,7 @@ impl StaticPluginHost {
                     .context
                     .transition(PluginState::Ready, PluginState::ShuttingDown)
             {
+                record.context.stop_tasks();
                 match record.plugin.shutdown(&record.context) {
                     Ok(()) => report.succeeded.push(plugin_id.clone()),
                     Err(error) => {
