@@ -226,8 +226,11 @@ fn host_shutdown_cancels_submitted_entry_execution() {
         )
         .unwrap();
     host.shutdown_all();
+    let outcome = smol::block_on(execution.join_with_outcome());
     assert!(matches!(
-        smol::block_on(execution.join()),
+        outcome.result(),
         Err(PluginTaskRunError::Cancelled)
     ));
+    assert!(outcome.elapsed() >= Duration::ZERO);
+    assert_eq!(outcome.output_bytes(), None);
 }

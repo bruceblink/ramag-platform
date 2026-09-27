@@ -117,10 +117,10 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 ### A-PLAT-005：真实工具入口运行指标和任务回收（2026-09-27，headless 运行链路完成）
 
 - 设计：沿用 `StaticPluginHost::execute_entry` 的输入、输出、超时和生命周期边界，在不改变现有 `join()` 返回类型的前提下增加 `join_with_metrics()`；成功结果提供执行耗时和输出字节数，供后续首帧、资源和发布记录使用。
-- 实现：`PluginTaskExecution` 在提交任务时记录单调时钟；`PluginTaskCompletion` 暴露受预算保护的结果、`elapsed()` 和 `output_bytes()`。普通工具继续使用 `join()`，不会改变现有插件调用方。
+- 实现：`PluginTaskExecution` 在提交任务时记录单调时钟；成功结果通过 `PluginTaskCompletion` 暴露受预算保护的结果、`elapsed()` 和 `output_bytes()`，失败、取消和超时通过 `PluginTaskOutcome` 保留同样的耗时与输出边界。普通工具继续使用 `join()`，不会改变现有插件调用方。
 - 真实入口：`ramag-tool-json-path` 注册并初始化 `it-tools.json-path/json-path-extractor`，执行 JSON5 请求，读取指标后再次提交同一入口，确认 `join()` 会释放活动任务名额。
 - 验证：`cargo test --locked -p ramag-app plugin_tasks --lib -- --test-threads=1`（8 项通过）；`cargo test --locked -p ramag-tool-json-path real_entry_reports_headless_metrics_and_releases_task_slot --lib -- --nocapture --test-threads=1` 通过，当前运行记录为 activation `557.7µs`、execution `409.5µs`、output `7` bytes（数值随机器变化，不作为固定性能承诺）。
-- 证据边界：该记录覆盖真实静态插件入口的 headless 执行、结果预算和任务回收，不覆盖真实窗口首次打开、进程级空闲内存或 Computer Use 鼠标/键盘；取消路径仍由宿主专项测试覆盖，后续需补跨平台和发布环境测量。
+- 证据边界：该记录覆盖真实静态插件入口的 headless 执行、结果预算和任务回收，宿主取消路径同时记录 `PluginTaskOutcome`；不覆盖真实窗口首次打开、进程级空闲内存或 Computer Use 鼠标/键盘，后续需补跨平台和发布环境测量。
 - 状态：`A-PLAT-005` 的 JSON Path 运行指标子切片完成；下一步补进程内存基线和更多真实入口，之后收口 `A-UI-REAL` 并进入阶段 B 的 `B-API-001` 设计确认。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）

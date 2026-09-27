@@ -226,7 +226,7 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 `PLAT-005-D` 已完成：`StaticPlugin::execute` 为静态插件提供可选的入口执行适配，`StaticPluginHost::execute_entry` 在启动前校验插件状态、入口身份和输入上限，并把入口输出上限收敛到任务预算。`PluginTaskExecution` 持有任务句柄直到等待或分离任务结束，宿主关闭时仍可取消运行中的入口；未实现适配的插件只返回有界诊断，不加载动态代码或 WebView。
 
-`PLAT-005-E` 已完成 headless 运行指标切片：`PluginTaskExecution::join_with_metrics` 返回受预算保护的 `PluginTaskCompletion`，记录任务提交后的耗时和输出字节数；兼容的 `join` 继续只返回输出。JSON Path 真实静态入口测试记录首次注册/初始化、执行结果和二次提交，确认任务完成后释放活动名额。该指标不代表 GPUI 首帧或进程级内存，真实窗口和跨平台资源基线继续留在阶段 A。
+`PLAT-005-E` 已完成 headless 运行指标切片：`PluginTaskExecution::join_with_metrics` 返回受预算保护的 `PluginTaskCompletion`，记录任务提交后的耗时和输出字节数；`join_with_outcome` 让成功、取消、超时和失败共享同一耗时记录；兼容的 `join` 继续只返回输出。JSON Path 真实静态入口测试记录首次注册/初始化、执行结果和二次提交，确认任务完成后释放活动名额。该指标不代表 GPUI 首帧或进程级内存，真实窗口和跨平台资源基线继续留在阶段 A。
 
 ### PLAT-005：按需激活与资源预算
 

@@ -51,7 +51,7 @@ fn register_example(host: &StaticPluginHost) -> Result<(), Box<dyn std::error::E
 
 入口执行必须经过 `StaticPluginHost::execute_entry`。宿主先检查插件状态、入口 ID、输入大小、任务能力、超时和结果字节预算；插件不能绕过宿主直接创建无限任务或把结果写入其他插件状态。
 
-需要记录入口运行指标时，使用返回的 `PluginTaskExecution::join_with_metrics()`。它返回 `PluginTaskCompletion`，可读取受预算保护的结果、`elapsed()` 和 `output_bytes()`；普通调用继续使用 `join()`，以保持只关心结果的接口不变。`elapsed()` 从任务提交开始计时，包含调度等待，只用于 headless 运行记录，不等同于 GPUI 首帧时间或进程级内存测量。
+需要记录成功入口运行指标时，使用返回的 `PluginTaskExecution::join_with_metrics()`。它返回 `PluginTaskCompletion`，可读取受预算保护的结果、`elapsed()` 和 `output_bytes()`；需要同时记录取消、超时或失败时，使用 `join_with_outcome()` 返回的 `PluginTaskOutcome`。普通调用继续使用 `join()`，以保持只关心结果的接口不变。`elapsed()` 从任务提交开始计时，包含调度等待，只用于 headless 运行记录，不等同于 GPUI 首帧时间或进程级内存测量。
 
 ## 第一方目录和双端核心
 

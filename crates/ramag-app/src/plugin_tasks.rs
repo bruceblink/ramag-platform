@@ -190,19 +190,22 @@ impl std::fmt::Debug for PluginTaskExecution {
 impl PluginTaskExecution {
     /// 等待任务结束；任务完成后释放该任务在插件登记表中的名额。
     pub async fn join(self) -> Result<Vec<u8>, PluginTaskRunError> {
-        self.join_with_metrics()
-            .await
-            .map(PluginTaskCompletion::into_output)
+        self.join_with_outcome().await.into_result()
     }
 
     /// 等待任务结束并返回执行耗时和结果大小，供宿主记录资源验收数据。
-    pub async fn join_with_metrics(mut self) -> Result<PluginTaskCompletion, PluginTaskRunError> {
+    pub async fn join_with_metrics(self) -> Result<PluginTaskCompletion, PluginTaskRunError> {
+        self.join_with_outcome().await.into_completion()
+    }
+
+    /// 等待任务结束并保留成功或失败的统一运行指标。
+    pub async fn join_with_outcome(mut self) -> PluginTaskOutcome {
         let result = (&mut self.task).await;
         self.handle.take();
-        result.map(|output| PluginTaskCompletion {
-            output,
+        PluginTaskOutcome {
+            result,
             elapsed: self.started_at.elapsed(),
-        })
+        }
     }
 
     /// 请求任务通过生命周期取消信号尽快结束；实际中止仍要求操作协作式让出执行权。
@@ -259,6 +262,41 @@ impl PluginTaskCompletion {
 
     pub fn into_output(self) -> Vec<u8> {
         self.output
+    }
+}
+
+/// 插件入口一次执行的统一结果和轻量运行指标。
+///
+/// 失败结果也保留耗时，便于取消、超时和错误验收与成功执行使用同一份记录；结果正文
+/// 仍由任务预算限制，调用方只能通过 `into_result` 取出受控输出或有界错误。
+#[derive(Debug, PartialEq, Eq)]
+pub struct PluginTaskOutcome {
+    result: Result<Vec<u8>, PluginTaskRunError>,
+    elapsed: Duration,
+}
+
+impl PluginTaskOutcome {
+    pub fn result(&self) -> &Result<Vec<u8>, PluginTaskRunError> {
+        &self.result
+    }
+
+    pub fn elapsed(&self) -> Duration {
+        self.elapsed
+    }
+
+    pub fn output_bytes(&self) -> Option<usize> {
+        self.result.as_ref().ok().map(Vec::len)
+    }
+
+    pub fn into_result(self) -> Result<Vec<u8>, PluginTaskRunError> {
+        self.result
+    }
+
+    fn into_completion(self) -> Result<PluginTaskCompletion, PluginTaskRunError> {
+        self.result.map(|output| PluginTaskCompletion {
+            output,
+            elapsed: self.elapsed,
+        })
     }
 }
 
@@ -539,8 +577,13 @@ mod tests {
         );
         assert_eq!(registry.active_count(), 1);
         execution.request_cancel();
-        let result = smol::block_on(execution.join());
-        assert!(matches!(result, Err(PluginTaskRunError::Cancelled)));
+        let outcome = smol::block_on(execution.join_with_outcome());
+        assert!(matches!(
+            outcome.result(),
+            Err(PluginTaskRunError::Cancelled)
+        ));
+        assert!(outcome.elapsed() >= Duration::ZERO);
+        assert_eq!(outcome.output_bytes(), None);
         assert_eq!(registry.active_count(), 0);
     }
 }
