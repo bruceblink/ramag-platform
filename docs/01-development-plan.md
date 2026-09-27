@@ -212,8 +212,18 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 
 - 真实流程：启动最新 x64 MSVC `ramag.exe`，切换到 Kafka 工作区并选择已有 `Ramag-Docker-Kafka` 配置（`127.0.0.1:19092`），在概览同步状态出现后通过 Windows UI Automation 调用“取消同步”。
 - 结果：窗口显示“集群同步已取消；已有快照保持不变，迟到结果不会写入当前页面”；系统窗口截图保存为 `target/ui-fallback/kafka-cancel-flow.png`，UI Automation 在同步中状态发现 30 个控件并成功调用取消按钮。
-- 服务边界：本次取消流程在 Broker 请求返回前完成，未把失败回包写成成功；Kafka Docker 镜像拉取因体积和网络耗时未完成，因此没有宣称真实 Kafka Broker 回读，后续仍需用本机 Docker Kafka 完成成功连接、Topic 和消息流程。
+- 服务边界：本次取消流程在 Broker 请求返回前完成，未把失败回包写成成功；Kafka Docker 回读另由 `B-KAFKA-001-B` 记录，不把取消流程本身扩大为成功连接验收。
 - 证据边界：Computer Use 运行时仍只返回浏览器且 `apps: []`，本记录使用真实 Windows 窗口截图、UI Automation 和取消状态作为替代证据；Computer Use 完整流程待运行时恢复。
+
+### B-KAFKA-001-B：Kafka 本机 Docker 连接、消息回读与工作区依赖验收（2026-09-28，代码与 Docker 验证完成）
+
+- 设计确认：使用仓库现有 Kafka 工作区和生产驱动完成真实 Broker 元数据、Topic、消息、消费组、偏移、生产回读、Connect、Schema Registry、ksqlDB 和 Broker 指标边界验证；不改变 Kafka 协议、连接配置模型、读写权限或工作区状态结构。
+- 测试环境：本机 Docker Compose 项目 `ramag-kafka-test`，`apache/kafka:4.0.0`（`127.0.0.1:19092`）、Kafka Connect（`127.0.0.1:18083`）、Schema Registry（`127.0.0.1:18081`）、ksqlDB（`127.0.0.1:18088`）、OpenMetrics fixture（`127.0.0.1:19100`）和 JMX exporter（`127.0.0.1:19101`）。启动前构建 `ramag-kafka-jmx-exporter:1.6.0`，所有服务健康检查通过。
+- 测试数据：`scripts/kafka-test/kafka-test.ps1 -Command seed -MessageCount 5000` 创建 3 分区的 `ramag.integration.messages` 并写入 5,000 条确定性消息，同时创建 60 个不同名称/分区数的 UI Topic；准备 ksqlDB 流和两个 Schema Registry 版本。
+- 验收命令：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/kafka-test/kafka-test.ps1 -Command test`。结果为 native `docker_kafka.rs` 12 项通过，pure-Rust `docker_kafka_pure_rust.rs` 1 项通过；覆盖元数据、61 个 Topic、5,000 条消息按 offset/time 读取与搜索、消费组和 offset 重置、生产后回读、Topic 管理、Connect、Schema Registry、ksqlDB 和 JMX 指标。
+- 清理结果：测试结束执行 `scripts/kafka-test/kafka-test.ps1 -Command clean`，专用容器、网络和 `ramag-kafka-test-data` 卷均已删除；未影响其他本机 Docker 服务。
+- 证据边界：本机 Docker 和 headless/替代窗口证据通过；Computer Use 仍无法发现原生窗口，因此 Kafka 工作区完整鼠标/键盘流程仍未验收，不将系统截图或 UI Automation 描述为 Computer Use 证据。
+- 状态：`B-KAFKA-001` 的代码、headless、取消流程替代证据和本机 Docker 成功回读已完成；保留原生 Computer Use 窗口证据缺口。下一项进入 `B-SSH-001` 设计确认。
 
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
