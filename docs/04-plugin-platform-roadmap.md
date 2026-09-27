@@ -278,6 +278,8 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 实现结果：`ramag-domain` 新增 `CollaborationRelay` 接口和有限收据，`ramag-infra-collaboration` 提供禁止自动重定向的 HTTPS 客户端，`ramag-app` 在发布前重新读取并校验共享包，原生入口提供用户指定 Relay 地址、发送和读取导入操作。没有实现服务端、账号凭据、后台同步或自动重试；fake Relay 覆盖发布前阻断、发布和读取导入。
 
+验收结果：`ramag-infra-collaboration` 3 项协议边界测试、`ramag-app` 6 项协作测试、`ramag-tool-collaboration` 3 项原生视图测试和 `ramag-bin` 15 项回归通过；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。当前没有真实 Relay 服务端或远程 Docker 集成证据，不将客户端测试描述为端到端远程协作完成。
+
 ## 关键设计约束
 
 - 插件 ID、API 版本和权限名称必须是稳定、可校验且可记录的字符串；不得使用显示名称作为身份。

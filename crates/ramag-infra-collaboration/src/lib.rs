@@ -163,6 +163,11 @@ impl CollaborationRelay for HttpCollaborationRelay {
             .map_err(|_| DomainError::ConnectionFailed("协作 Relay 请求失败".into()))?;
         let body: RelayResponse = self.read_json(response).await?;
         let receipt = body.receipt()?;
+        if receipt.remote_id != remote_id {
+            return Err(DomainError::InvalidConfig(
+                "协作 Relay 返回了不匹配的远端 ID".into(),
+            ));
+        }
         let payload = body
             .payload
             .ok_or_else(|| DomainError::InvalidConfig("协作 Relay 响应缺少 payload".into()))?;
