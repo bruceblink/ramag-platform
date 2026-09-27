@@ -23,6 +23,7 @@ macro_rules! retry_idempotent_read {
 pub mod api_service;
 pub mod clip_thumb;
 pub mod clipboard_service;
+pub mod collaboration;
 pub mod connection_service;
 pub mod container_registry_service;
 pub mod container_service;
@@ -40,6 +41,7 @@ pub mod update_service;
 
 pub use api_service::{ApiService, new_api_cancellation};
 pub use clipboard_service::{CaptureDecision, ClipboardService, HotkeyState, decide_capture};
+pub use collaboration::{CollaborationService, CollaborationServiceError};
 pub use connection_service::ConnectionService;
 pub use container_registry_service::ContainerRegistryService;
 pub use container_service::ContainerService;

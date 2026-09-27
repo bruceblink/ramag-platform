@@ -5,9 +5,9 @@ use async_trait::async_trait;
 
 use crate::entities::{
     ApiHistoryRecord, ApiWorkspace, ApiWorkspaceId, ClipId, ClipItem, ClipSearchResult,
-    ConnectionConfig, ConnectionId, KafkaClusterConfig, KafkaClusterId, MqttProfile, MqttProfileId,
-    ObjectStorageAccount, ObjectStorageAccountId, QueryHistoryPage, QueryRecord, QueryRecordId,
-    RepoConfig, RepoId, SshProfile, SshProfileId,
+    CollaborationShare, CollaborationShareId, ConnectionConfig, ConnectionId, KafkaClusterConfig,
+    KafkaClusterId, MqttProfile, MqttProfileId, ObjectStorageAccount, ObjectStorageAccountId,
+    QueryHistoryPage, QueryRecord, QueryRecordId, RepoConfig, RepoId, SshProfile, SshProfileId,
 };
 use crate::error::Result;
 
@@ -60,6 +60,34 @@ pub trait Storage: Send + Sync {
     async fn delete_api_workspace(&self, _id: &ApiWorkspaceId) -> Result<()> {
         Err(crate::error::DomainError::NotImplemented(
             "delete_api_workspace".into(),
+        ))
+    }
+
+    /// 保存本机优先协作共享包；实现必须在持久化前加密正文。
+    async fn save_collaboration_share(&self, _share: &CollaborationShare) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "save_collaboration_share".into(),
+        ))
+    }
+
+    async fn list_collaboration_shares(&self) -> Result<Vec<CollaborationShare>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "list_collaboration_shares".into(),
+        ))
+    }
+
+    async fn get_collaboration_share(
+        &self,
+        _id: &CollaborationShareId,
+    ) -> Result<Option<CollaborationShare>> {
+        Err(crate::error::DomainError::NotImplemented(
+            "get_collaboration_share".into(),
+        ))
+    }
+
+    async fn delete_collaboration_share(&self, _id: &CollaborationShareId) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "delete_collaboration_share".into(),
         ))
     }
 
