@@ -258,6 +258,8 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 首个本机入口已接入 `ramag-tool-collaboration`：用户可以在原生 GPUI 中创建、刷新、选择、准备导出文本、导入为新本机草稿和撤销本机草稿；视图只调用 `CollaborationService`，不打开网络客户端。实际远程传输、远端撤回确认和剪贴板发送仍未开放；每次发送仍必须保留用户确认，密码、JWT 密钥、连接配置和原始业务数据默认禁止自动同步。
 
+验收：`ramag-domain` 协作专项 5 项、`ramag-app` 协作专项 4 项、`ramag-tool-collaboration` 原生视图 3 项和 `ramag-bin` 回归 15 项通过；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。三种窗口宽度的 headless GPUI 检查覆盖草稿、导入和确认控件；当前 Computer Use 未暴露可启动的原生窗口，因此没有把 headless 结果描述为真实窗口验收。
+
 ## 关键设计约束
 
 - 插件 ID、API 版本和权限名称必须是稳定、可校验且可记录的字符串；不得使用显示名称作为身份。
