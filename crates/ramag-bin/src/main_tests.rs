@@ -117,6 +117,7 @@ fn clipboard_tool_is_not_registered_on_linux() {
             "object_storage",
             "container",
             "system",
+            "collaboration",
             "json-path-extractor"
         ]
     );
