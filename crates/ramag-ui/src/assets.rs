@@ -57,4 +57,15 @@ mod tests {
 
         assert!(loaded.is_some());
     }
+
+    #[test]
+    fn embeds_result_pagination_icons_used_by_upstream_icon_names() {
+        for path in ["icons/skip-back.svg", "icons/skip-forward.svg"] {
+            let loaded = RamagAssets.load(path).ok().flatten();
+            assert!(
+                loaded.is_some(),
+                "pagination asset should be embedded: {path}"
+            );
+        }
+    }
 }

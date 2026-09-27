@@ -157,6 +157,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 验收结果：`cargo test --locked -p ramag-tool-kafka --lib -- --test-threads=1` 38 项通过；新增 `kafka_loading_tables_keep_stable_geometry` 覆盖取消标记、运行代次、提示、旧快照边界和 `360x900`/`1200x780` 加载布局；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。最新 `ramag-bin` 已重新构建。
 - 证据边界：本会话的 Computer Use 运行时只暴露浏览器 API，原生 `@oai/sky` 的 `list_apps`/`get_window` 未提供，无法执行真实窗口点击；该切片保留 headless 通过，真实窗口证据待运行时恢复后补验。
 
+### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
+
+- 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
+- 修复：在 `ramag-ui/assets/icons` 内嵌两个分页 SVG；`RamagAssets` 优先加载本地资源，因此不改动上游图标枚举和分页事件语义。
+- 验收结果：资源回归测试通过；`ramag-tool-dbclient` 全量 351 项测试通过；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过；最新 x64 MSVC 可执行程序启动后日志未再出现 `skip-back`、`skip-forward` 或 `could not find asset`。
+- 不做事项：不改变第一页/上一页/下一页/最后一页的分页逻辑，不替换其它上游图标，不把启动成功扩大为完整真实窗口交互验收。
+
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
 - 设计：新增 `ramag-ui::workbench` 共享几何令牌，统一导航器宽度、720px 紧凑断点、工具栏/标签/密集行/状态栏高度；深色主题从 VSCode Dark+ 调整为中性深灰与高亮蓝的 JetBrains 工作区层次。
