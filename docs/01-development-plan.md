@@ -225,6 +225,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 证据边界：本机 Docker 和 headless/替代窗口证据通过；Computer Use 仍无法发现原生窗口，因此 Kafka 工作区完整鼠标/键盘流程仍未验收，不将系统截图或 UI Automation 描述为 Computer Use 证据。
 - 状态：`B-KAFKA-001` 的代码、headless、取消流程替代证据和本机 Docker 成功回读已完成；保留原生 Computer Use 窗口证据缺口。下一项进入 `B-SSH-001` 设计确认。
 
+### B-SSH-001-A：本机 OpenSSH/SFTP 工作区端到端验收（设计确认，2026-09-28）
+
+- 问题证据：SSH 工具已有终端、SFTP、文件预览、传输队列和端口转发代码及 82 项 headless 测试，但当前主线缺少可重复的本机 Docker OpenSSH 服务验收记录；没有真实服务证据就不能确认连接、目录、上传下载、保存、重命名、归档和清理链路。
+- 设计：新增专用 `scripts/ssh-test` Docker 测试环境，使用固定的 Debian 12 OpenSSH 服务和临时 Ed25519 测试密钥；测试脚本负责生成密钥、启动健康检查、设置 `RAMAG_TEST_SSH_*` 环境变量、运行现有 `ramag-infra-ssh/tests/integration.rs`，最后删除容器、网络、卷、密钥和临时目录。测试只访问本机 Docker，不使用远程集群、真实账号或生产主机。
+- 验收范围：真实 SSH 连接探测、SFTP 目录创建与列表、256 KiB 上传及进度、完整预览与尾部读取、远程保存、下载回读、重命名、目录归档、归档内容核验、远端清理和驱动关闭；失败路径必须保留有界错误并执行清理。
+- 不做事项：不在本切片新增 SSH 协议、不改变 Host Key 策略、认证模型、生产只读策略或终端 UI；端口转发、JumpServer 和真实窗口鼠标/键盘流程继续分别记录，不把 Docker 驱动回读扩大为 Computer Use 证据。
+- 验收条件：headless SSH UI、Docker OpenSSH/SFTP 集成、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 全部通过；记录镜像、端口、健康状态、启动和清理结果。Computer Use 不可用时明确保留原生窗口缺口。
+- 实施顺序：先提交本设计确认，再实现 Docker 测试脚本和 compose 配置，随后运行真实集成测试并独立提交；通过后进入 `B-SSH-001-B` 的终端/端口转发回读。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。

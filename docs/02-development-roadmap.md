@@ -64,7 +64,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 
 1. `B-API-001`：API 工作区的请求编辑、环境、历史、响应和真实 Docker HTTP/gRPC 验收；`B-API-001-A/B/C` 已完成代码、headless 和本机 Docker 验收，`B-API-001-UI` 已完成 Windows 系统 UI Automation 与截图替代证据，Computer Use 原生窗口证据待运行时恢复；下一项进入 `B-KAFKA-001` 设计确认。
 2. `B-KAFKA-001`：Kafka 连接、Topic、消息、Schema Registry 和 Broker 状态工作区；`B-KAFKA-001-A/B` 已完成代码、headless、Windows 系统 UI Automation 取消流程替代证据和本机 Docker Kafka 成功连接/Topic/消息回读，Computer Use 原生窗口证据待运行时恢复。
-3. `B-SSH-001`：SSH/终端、SFTP、端口转发和连接生命周期工作区。
+3. `B-SSH-001`：SSH/终端、SFTP、端口转发和连接生命周期工作区；当前先执行 `B-SSH-001-A` 本机 Docker OpenSSH/SFTP 端到端验收，再处理终端和端口转发回读。
 4. `B-CONTAINER-001`：容器、镜像、日志、执行和资源状态工作区。
 5. `B-GIT-001`：Git 仓库、分支、差异、提交和推送工作区。
 
@@ -93,7 +93,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `PLAT-005` | 按需激活与插件资源预算 | 阶段 A 进行中（JSON Path 真实入口 headless 指标和任务回收已完成；进程内存与真实窗口证据待补） | `PLAT-004` | 首次打开、取消、内存/结果上限和生命周期回收 |
 | `TOOL-MIG-001` | JSON Path 计算核心与原生入口迁移 | 已完成（`TOOL-MIG-001-A`、`TOOL-MIG-001-B`） | `PLAT-004`、`PLAT-005` | Rust 核心、GPUI 入口、共享样例和回归 |
 | `DUAL-CORE-001` | 已迁移核心的 Web/WASM 双端适配评估 | 已完成（`DUAL-CORE-001-A`） | `TOOL-MIG-001` | Web 结果一致性、构建体积和桌面无 WebView 证据 |
-| `CROSS-UX-001` | API/Kafka/SSH/容器/Git 原生工作区迁移 | 阶段 B 进行中；API 与 Kafka 代码/headless/Docker 证据完成，Kafka 原生窗口证据待 Computer Use 恢复；下一项为 SSH | `SHELL-001`、`DB-UX-005` | 各工具专项交互与真实服务证据 |
+| `CROSS-UX-001` | API/Kafka/SSH/容器/Git 原生工作区迁移 | 阶段 B 进行中；API 与 Kafka 代码/headless/Docker 证据完成，Kafka 原生窗口证据待 Computer Use 恢复；当前开发切片为 `B-SSH-001-A` | `SHELL-001`、`DB-UX-005` | 各工具专项交互与真实服务证据 |
 | `CATALOG-001` | 第一方工具目录和能力说明 | 已完成（代码与 headless；真实窗口待补） | `PLAT-004`、`TOOL-MIG-001`、`DUAL-CORE-001` | 清单校验、平台标识、权限和版本记录 |
 | `COLLAB-001-A` | 本机加密共享包、版本冲突、撤销和审计边界 | 已完成代码与专项测试 | `CATALOG-001` | 敏感数据阻断、加密落盘、冲突和撤销 |
 | `COLLAB-001-B` | 原生 GPUI 选择、导出/导入和远程协作入口 | 当前范围完成（B1、B2、B3 已完成；B4 到期回收及生产 Relay 后置） | `COLLAB-001-A` | 用户确认、选择性同步、冲突和审计 |
