@@ -2,7 +2,7 @@
 
 > 适用项目：`bruceblink/ramag-platform`。本路线只约束当前独立下游项目的插件平台演进，不代表 `tools-rs/ramag` 已接受或实现这些接口。
 >
-> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配和 `CATALOG-001` 第一方工具目录已完成，当前进入 `COLLAB-001-A` 本机加密共享包边界。系统凭据库真实环境验收和第三方动态插件仍未开放。桌面端明确禁止 WebView，后续优先建设原生 GPUI 标准工具入口和本机优先协作。
+> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配、`CATALOG-001` 第一方工具目录和 `COLLAB-001-A` 本机加密共享包边界已完成，当前进入 `COLLAB-001-B` 原生协作入口。系统凭据库真实环境验收和第三方动态插件仍未开放。桌面端明确禁止 WebView，后续优先建设原生 GPUI 标准工具入口和本机优先协作。
 
 ## 术语与命名规则
 
@@ -250,9 +250,9 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 验收覆盖目录模型、宿主多入口登记/卸载、JSON Path 双端平台标记和 360/1024/1440 headless 布局；下一项进入 `COLLAB-001`。
 
-### COLLAB-001-A：本机优先共享包边界（设计确认）
+### COLLAB-001-A：本机优先共享包边界（已完成代码与测试）
 
-先把用户明确选择的文档或结果建模为可验证共享包，并使用 `Storage` 主密钥加密后保存到本机。共享包只接受 `Document` 与 `QueryResultPreview` 类型；凭据、连接配置和 JWT/Token 等秘密直接拒绝。敏感或原始业务数据可以保留在本机加密草稿，但不能进入手动导出包。本切片实现 revision 冲突保护、撤销和有界审计，不接入网络传输或自动同步。
+先把用户明确选择的文档或结果建模为可验证共享包，并使用 `Storage` 主密钥加密后保存到本机。共享包只接受 `Document` 与 `QueryResultPreview` 类型；凭据、连接配置和 JWT/Token 等秘密直接拒绝。敏感或原始业务数据可以保留在本机加密草稿，但不能进入手动导出包。本切片实现 revision 冲突保护、撤销和有界审计，不接入网络传输或自动同步。`ramag-domain`、`ramag-infra-storage` 和 `ramag-app` 已完成对应模型、加密 redb 表和应用用例；敏感导出阻断、冲突不覆盖正文和撤销审计均有专项测试。
 
 ### COLLAB-001-B：原生协作入口（待开始）
 
