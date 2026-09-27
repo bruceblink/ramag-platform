@@ -78,8 +78,9 @@
 
 - 问题：`ramag-bin` 在 Linux CI 中无条件导入 `ramag_infra_collaboration::HttpCollaborationRelay`，但该 crate 只声明在 macOS/Windows 的 target 依赖段，导致 `error[E0432] unresolved import ramag_infra_collaboration`。
 - 修复：将 `ramag-infra-collaboration` 移到 `ramag-bin` 的跨平台依赖区；保留剪贴板依赖的 macOS/Windows 条件，不修改 Relay 协议或运行时行为。
-- 验证：`cargo check --locked -p ramag-bin --all-targets`、`cargo test --locked -p ramag-bin --all-targets`（15 项）、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings` 和 `git diff --check` 通过；Linux 目标工具链在本机未安装，Linux CI 将负责最终原生构建验证。
-- Git：提交 `490e4e18`（`fix: include collaboration transport on linux`）已推送 `main`。
+- Linux 回归修复：跨平台依赖生效后，Linux 插件注册表会包含协作工具；同步更新 Linux 专项断言，避免把已注册的 `collaboration` 误判为多余工具。
+- 验证：在本机 WSL2 `Ubuntu-24.04`（x86_64）按 Linux CI 使用 `cargo check-all` 通过；修复断言后运行 `cargo test --locked -p ramag-bin --all-targets -- --test-threads=1`，20 项通过。Windows MSVC 同一目标测试 15 项通过，`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查、日志约定检查和 `git diff --check` 通过。
+- Git：提交 `490e4e18`（`fix: include collaboration transport on linux`）和 `97a108f4`（`fix: update linux plugin registry expectation`）均已推送 `main`。
 
 ### A-DB-005：迁移差异回放收口（2026-09-27，Docker 验证完成）
 
@@ -98,8 +99,9 @@
 ### A-UI-REAL：真实 Windows 窗口证据探测（2026-09-27，未完成）
 
 - Computer Use 探测：启动前后 `cua.getState()` 均返回 `apps: []`；本机实际启动 `target/debug/ramag.exe` 后，进程存在且窗口标题为 `Ramag — 数据库客户端`，但 Computer Use 仍无法发现可操作窗口。
-- 证据边界：没有执行鼠标、键盘、滚动或截图验收；headless、进程存在和系统截图都不能替代真实窗口交互证据。探测结束后已停止临时 Ramag 进程。
-- 状态：`A-UI-REAL` 继续保持未完成，等待 Computer Use 能稳定发现窗口后再补验数据库、插件目录和 JSON Path 流程；不因此修改既有功能完成状态。
+- 替代证据：在确认 Computer Use 不可用后，使用系统窗口截图 `target/ui-fallback/ramag-window.png` 和 Windows UI Automation 检查原生窗口，发现 34 个按钮节点并成功调用“数据结果”页签一次；headless 交互测试继续作为布局和状态证据。
+- 证据边界：替代证据只确认窗口可启动、主要控件可被系统 UI Automation 发现并完成一次安全页签调用，不能替代 Computer Use 的完整鼠标/键盘、滚动、编辑和截图流程。探测结束后已停止临时 Ramag 进程。
+- 状态：`A-UI-REAL` 继续保持未完成，等待 Computer Use 能稳定发现窗口后再补验完整数据库、插件目录和 JSON Path 流程；不因此修改既有功能完成状态。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 
