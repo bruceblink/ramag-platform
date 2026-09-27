@@ -67,6 +67,17 @@
 - 作用域规则：连接地址、凭据、API 单次请求参数、Kafka/MQTT 集群配置、Git 仓库配置与云存储账号仍在所属对象的编辑/设置面板内，不复制为应用级默认值；所有入口说明其作用范围。
 - 验收：旧配置解析、保存后读取、主题往返切换、设置页跨尺寸布局、工具配置即时应用与工具入口跳转；最终 fmt、Clippy 和对应 UI 回归通过后独立提交并推送。
 
+### A-TOOL-NAV-001：剪贴板入口可见与首页卡片导航（2026-09-27，已修复与 headless 验收）
+
+- 问题证据：剪贴板采集/全局热键开关曾同步设置 `ToolRegistry` 的入口启用状态，关闭后台采集会同时从首页和活动栏移除入口；首页卡片原先通过 action 分发打开工具，点击后不能稳定切换到详情视图。
+- 设计：采集开关只控制后台采集与热键，不改变工具可见性；首页卡片发出带工具 ID 的打开事件，由 `Shell::set_home_view` 统一订阅并导航，保持首页入口与活动栏使用同一工具详情路由。
+- 验收条件：首页和侧边栏均能定位剪贴板入口；点击首页卡片后 `Shell` 选中剪贴板并显示工具详情；工具注册、Shell UI/headless 交互、workspace fmt/Clippy、源码尺寸和差异检查通过。
+- 不做事项：不改变剪贴板存储、采集策略或热键默认值；不依赖 WebView，也不要求采集开启后才可查看已有剪贴板历史。
+- 实施：启动时不再将剪贴板采集设置同步成工具隐藏状态；运行时热键设置变化只更新采集与唤起行为。`Shell::set_home_view` 持有并订阅首页事件，首页卡片按工具 ID 导航。
+- 验收结果：GPUI headless 测试 `clipboard_is_visible_in_home_and_sidebar_and_opens_detail` 检查剪贴板卡片、活动栏入口、点击后的选中 ID 和详情视图；`ramag-bin` 的 `clipboard_tool_is_registered_last` 确认 Windows 内置注册表包含剪贴板。相关 UI 106 项、系统工具 21 项、主程序 15 项测试通过；fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 窗口证据：Windows 最新调试程序启动并响应，系统截图 `target/ui-fallback/clipboard-activity-bar.png` 显示剪贴板工具入口；Computer Use 仍返回 `apps: []`，没有将该截图描述为 Computer Use，也没有宣称完成真实鼠标点击流程。首页卡片点击由 headless 交互测试验证。
+- Git：修复提交 `12b8728e` 已推送 `main`；本节对应的专项 UI 回归和记录在后续提交中单独推送。
+
 ### 阶段 A：单机桌面功能收口（当前主线，与阶段 B 并行推进）
 
 当前已完成 `SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A` 至 `DB-RED-07`、`DB-UX-003A` 至 `DB-UX-003C-2`、`DB-UX-004A`、`DB-UX-004B-1` 至 `DB-UX-004B-3B`、`DB-UX-005A` 至 `DB-UX-005F`、`PLAT-004`、`PLAT-005-A` 至 `PLAT-005-E`、`TOOL-MIG-001`、`DUAL-CORE-001`、`CATALOG-001` 和 `COLLAB-001-A/B1/B2/B3` 的代码与专项验证。涉及真实数据库的切片另有 MySQL 8.4/PostgreSQL 17 Docker 证据。

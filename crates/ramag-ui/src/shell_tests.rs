@@ -106,24 +106,24 @@ fn standard_entry_view_is_created_only_after_activation(cx: &mut TestAppContext)
     );
 }
 
-/// 首页卡片使用窗口动作路由，确保点击后进入与侧栏相同的工具详情视图。
+/// 验证剪贴板入口同时出现在首页和活动栏，且首页点击能打开对应工具详情。
 #[gpui_kit::test]
-fn home_tool_card_opens_registered_tool_detail(cx: &mut TestAppContext) {
+fn clipboard_is_visible_in_home_and_sidebar_and_opens_detail(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let registry = Arc::new(ToolRegistry::new());
     registry
         .register_plugin(
             PluginDescriptor::new(
-                PluginId::new("home.plugin").expect("测试插件 ID 应有效"),
-                "Home plugin",
-                "home.entry",
+                PluginId::new("clipboard.plugin").expect("剪贴板插件 ID 应有效"),
+                "剪贴板",
+                "clipboard",
             )
-            .with_entries(vec![PluginEntryDescriptor::new("home.entry", "Home entry")]),
+            .with_entries(vec![PluginEntryDescriptor::new("clipboard", "剪贴板")]),
             Arc::new(DummyTool {
-                meta: ToolMeta::new("home.entry", "Home entry", "Home card"),
+                meta: ToolMeta::new("clipboard", "剪贴板", "剪贴历史与快速粘贴"),
             }),
         )
-        .expect("首页测试入口应注册");
+        .expect("剪贴板入口应注册");
     let plugin_host = Arc::new(StaticPluginHost::new(registry.clone()));
     let gate = Arc::new(DataSyncGate::default());
     let mut shell_entity = None;
@@ -147,20 +147,24 @@ fn home_tool_card_opens_registered_tool_detail(cx: &mut TestAppContext) {
     visual_cx.simulate_resize(size(px(800.0), px(600.0)));
     visual_cx.run_until_parked();
 
+    assert!(
+        visual_cx.debug_bounds("activity-tool-clipboard").is_some(),
+        "剪贴板入口应显示在侧边栏"
+    );
     let card = visual_cx
-        .debug_bounds("home-tool-home.entry")
-        .expect("首页应显示已注册工具卡片");
+        .debug_bounds("home-tool-clipboard")
+        .expect("首页应显示剪贴板工具卡片");
     visual_cx.simulate_click(card.center(), Modifiers::default());
     visual_cx.run_until_parked();
 
     let selected = shell_entity
         .expect("Shell 实体应创建")
         .read_with(visual_cx, |shell, _| shell.selected.clone());
-    assert_eq!(selected.as_deref(), Some("home.entry"));
+    assert_eq!(selected.as_deref(), Some("clipboard"));
     assert!(
         visual_cx
-            .debug_bounds("plugin-entry-view-home.entry")
+            .debug_bounds("plugin-entry-view-clipboard")
             .is_some(),
-        "首页卡片点击后应显示工具详情"
+        "首页剪贴板卡片点击后应显示工具详情"
     );
 }
