@@ -260,6 +260,13 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 验收：`ramag-domain` 协作专项 5 项、`ramag-app` 协作专项 4 项、`ramag-tool-collaboration` 原生视图 3 项和 `ramag-bin` 回归 15 项通过；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。三种窗口宽度的 headless GPUI 检查覆盖草稿、导入和确认控件；当前 Computer Use 未暴露可启动的原生窗口，因此没有把 headless 结果描述为真实窗口验收。
 
+#### COLLAB-001-B1：原生手动交接（设计确认）
+
+- 目标：在共享包已经进入 `Shared` 状态后，提供一个用户明确点击的“复制导出包”动作，让用户通过现有系统剪贴板或其他已确认渠道完成跨设备手动交接。
+- 负责组件：`ramag-tool-collaboration` 负责按钮状态和反馈，`ramag-app::CollaborationService` 负责重新读取并校验导出包，平台 `ClipboardDriver` 负责写入系统剪贴板。
+- 安全规则：复制前重新校验 `Shared`/`ManualExport` 状态和数据分类；敏感内容、凭据、连接配置和原始业务数据继续拒绝；没有平台剪贴板能力时按钮保持不可用并给出原因；复制动作不启动后台同步、不记录剪贴板正文、不自动发送。
+- 验收条件：安全导出包可由用户点击复制；敏感草稿无法复制；复制失败保留当前导出文本并显示有界错误；headless 三尺寸覆盖按钮可见性和禁用状态；通过目标测试、workspace fmt、Clippy、源码尺寸和 `git diff --check`。真实远程服务和自动同步不属于本切片。
+
 ## 关键设计约束
 
 - 插件 ID、API 版本和权限名称必须是稳定、可校验且可记录的字符串；不得使用显示名称作为身份。
