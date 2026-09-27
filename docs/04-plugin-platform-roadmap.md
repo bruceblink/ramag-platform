@@ -2,7 +2,7 @@
 
 > 适用项目：`bruceblink/ramag-platform`。本路线只约束当前独立下游项目的插件平台演进，不代表 `tools-rs/ramag` 已接受或实现这些接口。
 >
-> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配、`CATALOG-001` 第一方工具目录、`COLLAB-001-A` 本机加密共享包边界和 `COLLAB-001-B1` 至 `COLLAB-001-B3` 协作切片已完成。当前按 [`02-development-roadmap.md`](02-development-roadmap.md) 执行阶段 A、B；Relay B4、生产 Relay、系统凭据库真实环境验收、第三方动态插件和阶段 C 原生协同画布暂缓。桌面端明确禁止 WebView。
+> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；Windows 主线的系统凭据库、主密钥和秘密上下文真实验收已完成，Linux Secret Service 与 macOS Keychain 环境验收仍待补充。`PLAT-005-A`、`PLAT-005-B`、`PLAT-005-C`、`PLAT-005-D` 按需视图、任务生命周期、执行预算和静态入口执行器已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配、`CATALOG-001` 第一方工具目录、`COLLAB-001-A` 本机加密共享包边界和 `COLLAB-001-B1` 至 `COLLAB-001-B3` 协作切片已完成。当前按 [`02-development-roadmap.md`](02-development-roadmap.md) 执行阶段 A、B；Relay B4、生产 Relay、第三方动态插件和阶段 C 原生协同画布暂缓。桌面端明确禁止 WebView。
 
 ## 术语与命名规则
 
@@ -334,15 +334,15 @@ P0-B 已在提交 `9b98b2e` 完成：`ramag-app` 新增 `StaticPluginHost`、`St
 
 `P0-C-5` 设计已确认：`PluginSecretStore` 只接受清单中标记为 `sensitive` 的设置键，使用 `Storage::seal/unseal` 加密后保存到 `plugin.<plugin-id>.__secrets.v1`，上一份密文保留在独立备份键。普通 `PluginSettingsSnapshot` 不读取或导出敏感值；秘密快照只允许当前插件的敏感键，未知键、普通键、类型错误、越权命名空间和明文包络均拒绝。读取主密文失败时校验备份，两份都失败则拒绝启动；错误、日志和测试诊断不包含秘密正文。
 
-`P0-C-5` 已完成：`PluginSecretStore` 使用 `Storage::seal/unseal` 保存版本 1 密文和加密备份，`PluginSecretSnapshot` 只允许清单中的敏感键；普通键、越权命名空间、类型错误、明文包络和损坏密文均被拒绝。秘密专项 7 项、应用层全量 253 项、workspace Clippy、格式、源码尺寸和差异检查通过。当前切片验证了存储接口和内存替身，系统凭据库/主密钥真实环境和宿主上下文装配另行验收。
+`P0-C-5` 已完成：`PluginSecretStore` 使用 `Storage::seal/unseal` 保存版本 1 密文和加密备份，`PluginSecretSnapshot` 只允许清单中的敏感键；普通键、越权命名空间、类型错误、明文包络和损坏密文均被拒绝。秘密专项 7 项、应用层全量 253 项、workspace Clippy、格式、源码尺寸和差异检查通过。随后在 Windows Credential Manager 和临时 redb 上完成真实主密钥、敏感设置保存/重启读取及宿主上下文装配验收。
 
 `P0-C-6` 设计已确认：`StaticPluginHost` 增加可选的 `Storage` 和设置迁移器；声明设置的插件在初始化前按顺序加载普通设置快照和敏感秘密快照，任一读取、恢复或迁移错误都将插件置为失败并从工具注册表移除。`PluginContext::settings_snapshot` 和 `secret_snapshot` 先检查 `storage.plugin` 能力，再返回只读副本；未配置存储的测试宿主仍可注册无设置插件，但不能访问设置 API。宿主只把校验后的快照交给生命周期回调，不把 Storage、文件路径或其他插件命名空间暴露给插件。
 
-`P0-C-6` 已完成：`ramag-bin` 启动组合根把共享本地 `Storage` 注入 `StaticPluginHost`，宿主在插件初始化前加载并校验普通设置与秘密快照；加载失败会隔离插件，成功快照只能通过具备 `storage.plugin` 的 `PluginContext` 只读接口获取。宿主专项测试覆盖 Redb 存储预加载和无存储失败路径，`ramag-app` 全量 256 项、`ramag-bin` 启动前置测试、workspace Clippy、格式、源码大小和差异检查均通过。系统凭据库/主密钥真实环境验收仍是后续未完成项。
+`P0-C-6` 已完成：`ramag-bin` 启动组合根把共享本地 `Storage` 注入 `StaticPluginHost`，宿主在插件初始化前加载并校验普通设置与秘密快照；加载失败会隔离插件，成功快照只能通过具备 `storage.plugin` 的 `PluginContext` 只读接口获取。宿主专项测试覆盖 Redb 存储预加载和无存储失败路径，`ramag-app` 全量 256 项、`ramag-bin` 启动前置测试、workspace Clippy、格式、源码大小和差异检查均通过。Windows Credential Manager/主密钥真实链路已通过；Linux Secret Service、macOS Keychain 和正式发布环境仍需独立验证。
 
 ## 未完成项
 
 - 动态插件加载方式尚未选定，不能宣称已有第三方插件兼容能力。
 - 真实 Windows 窗口证据仍受 `node_repl exec context not found` 限制；UI 验收继续使用截图和 headless 渲染/交互测试，并单独记录限制。
 - 插件签名、权限审批、崩溃隔离和升级回滚属于 P4 评估结果，未完成前不得加载不受信任的外部代码。
-- 系统凭据库/主密钥运行环境的真实验收尚未完成；未通过该验收前，不能宣称生产环境的敏感设置安全持久化。
+- Windows Credential Manager/主密钥运行环境的真实验收已完成；Linux Secret Service、macOS Keychain 和正式发布环境仍未验收，不能把 Windows 开发机证据扩展为跨平台或生产环境声明。

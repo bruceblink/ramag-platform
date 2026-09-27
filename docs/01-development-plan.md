@@ -58,9 +58,11 @@
 1. `A-DB-005`：已完成 MySQL 8.4 与 PostgreSQL 17 的迁移脚本回放和 PostgreSQL 失败回滚验证。
 2. `A-DB-RED-02`：已完成 MySQL 8.4/PostgreSQL 17 Docker 元数据和 `table_tree` headless 复验；真实 Windows 流程仍待补。
 3. `A-UI-REAL`：当前执行，补齐数据库、插件目录和 JSON Path 的真实 Windows 流程；`DB-UX-004B-3B` 的 Computer Use 证据仍待环境恢复。
-4. `A-P0C`：完成系统凭据库、主密钥和秘密上下文真实环境验收。
+4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和秘密上下文真实环境验收；Linux Secret Service 与 macOS Keychain 仍待各自环境验收。
 5. `A-PLAT-005`：接入真实工具入口并记录首次激活、取消、输入/输出和内存测量。
 6. `A-QUALITY`：完成性能、主题一致性和发布证据收口。
+
+Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 的鼠标/键盘证据保持未完成；在不改变该状态的前提下，先完成不依赖窗口接管的 `A-P0C` 安全验收，阶段 A 仍须收口 `A-UI-REAL` 后才能进入阶段 B 的正式迁移队列。
 
 未完成的旧 `UI-001`、`M1-M4`、`R` 系列或工具专项事项必须先映射到以上切片 ID，并重新满足统一 UI 标准，不能只修改状态文字宣称完成。
 
@@ -102,6 +104,15 @@
 - 替代证据：在确认 Computer Use 不可用后，使用系统窗口截图 `target/ui-fallback/ramag-window.png` 和 Windows UI Automation 检查原生窗口，发现 34 个按钮节点并成功调用“数据结果”页签一次；headless 交互测试继续作为布局和状态证据。
 - 证据边界：替代证据只确认窗口可启动、主要控件可被系统 UI Automation 发现并完成一次安全页签调用，不能替代 Computer Use 的完整鼠标/键盘、滚动、编辑和截图流程。探测结束后已停止临时 Ramag 进程。
 - 状态：`A-UI-REAL` 继续保持未完成，等待 Computer Use 能稳定发现窗口后再补验完整数据库、插件目录和 JSON Path 流程；不因此修改既有功能完成状态。
+
+### A-P0C：系统凭据库、主密钥和秘密上下文真实环境验收（2026-09-27，Windows 已完成）
+
+- 设计：只使用临时 redb 文件验证真实 Windows Credential Manager、主密钥派生的加密存储和插件上下文装配；不删除或重建现有主密钥，不触碰生产数据库和用户保存的插件偏好。
+- 环境证据：`cmdkey /list` 只检查凭据元数据，确认存在 `LegacyGeneric:target=master-key.ramag`、账户名为 `master-key` 的 Credential Manager 条目；没有读取或输出凭据值。
+- 真实验收：临时辅助程序运行 `RedbStorage::open`，使用现有系统主密钥打开临时数据库；`PluginSecretStore::save` 写入敏感设置后，原始偏好值以 `encrypted-v1:` 开头且不包含明文；`StaticPluginHost` 获得 `storage.plugin` 授权后成功把秘密快照装入 `PluginContext`；释放并重新打开 `RedbStorage` 后再次读取相同快照。辅助程序、临时数据库和生成的临时文件均已清理。
+- 结果：Windows Credential Manager → redb AES-GCM → `PluginSecretStore` → `StaticPluginHost`/`PluginContext` 的真实链路通过；本次没有记录秘密正文，也没有调用删除主密钥的调试接口。
+- 边界：本记录只覆盖当前 Windows 桌面主线；Linux Secret Service、macOS Keychain、正式安装包升级/迁移和真实窗口操作仍需独立验收，不把本记录扩展为跨平台或发布完成声明。
+- 状态：`A-P0C` Windows 主线完成；下一项继续 `A-UI-REAL` 的原生窗口证据收口，之后再进入 `A-PLAT-005`。
 
 ### SHELL-001：共享工作区令牌与双区框架（2026-09-26）
 

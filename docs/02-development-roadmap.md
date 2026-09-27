@@ -52,7 +52,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 1. `A-DB-005`：已完成 MySQL 8.4 与 PostgreSQL 17 的迁移脚本回放和 PostgreSQL 失败回滚验证；保留脚本指纹、阶段复核、人工确认、回读和破坏性变更保护。
 2. `A-DB-RED-02`：已完成 MySQL 8.4/PostgreSQL 17 Docker 元数据和 `table_tree` headless 复验；真实 Windows 流程仍待补。
 3. `A-UI-REAL`：当前执行，补齐数据库工作区、`DB-UX-004B-3B`、插件目录和 JSON Path 入口的真实 Windows 流程；Headless 证据与真实窗口证据分别记录。
-4. `A-P0C`：完成系统凭据库、主密钥和插件秘密上下文的真实环境验收，验证失败时保留安全拒绝状态。
+4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和插件秘密上下文的真实环境验收；Linux Secret Service、macOS Keychain 和发布环境仍待分别验收，验证失败时保留安全拒绝状态。
 5. `A-PLAT-005`：接入一个以上真实工具入口，测量首次激活、取消、内存、输入、输出和关闭回收。
 6. `A-QUALITY`：完成大结果集、对象树、首帧、主题一致性和发布检查，形成可复现测量记录。
 
@@ -88,7 +88,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `DB-UX-003` | 结果数据网格 | 功能切片完成（`DB-UX-003A`、`DB-UX-003B`、`DB-UX-003C-1`、`DB-UX-003C-2`；原生拖拽证据待补） | `DB-UX-002` | 大数据量、双轴滚动、分页/编辑交互、窗口证据 |
 | `DB-UX-004` | 安全编辑与事务反馈 | 代码、Docker 与 headless 验证完成（`DB-UX-004B-3B` 原生窗口证据待补） | `DB-UX-003` | 成功/失败/取消/回滚、MySQL/PostgreSQL Docker |
 | `DB-UX-005` | 分析、差异和迁移工作流 | 阶段 A 代码与 Docker 回放已完成；真实窗口和残余 UI 证据待补 | `DB-UX-004` | 原始回退、人工确认、回读和窗口证据 |
-| `P0-C` | 插件设置与权限检查 | 阶段 A 待真实环境验收（`P0-C-1` 至 `P0-C-6` 代码完成） | `DB-UX-005` | 命名空间隔离、类型/大小校验、迁移恢复和每次调用授权 |
+| `P0-C` | 插件设置与权限检查 | Windows 主线代码与真实 Credential Manager/主密钥/秘密上下文验收完成；Linux Secret Service 与 macOS Keychain 待验收 | `DB-UX-005` | 命名空间隔离、类型/大小校验、迁移恢复、每次调用授权和真实系统凭据链路 |
 | `PLAT-004` | 多入口原生插件与标准工具入口 | 已完成代码与 headless 验证（`PLAT-004-A`、`PLAT-004-B`；真实窗口待补） | `DB-UX-005`、`P0-C` | GPUI 标准渲染、入口冲突、长输入和错误边界 |
 | `PLAT-005` | 按需激活与插件资源预算 | 阶段 A 进行中（`PLAT-005-A` 至 `PLAT-005-D` 已完成；待接入真实工具入口并测量） | `PLAT-004` | 首次打开、取消、内存/结果上限和生命周期回收 |
 | `TOOL-MIG-001` | JSON Path 计算核心与原生入口迁移 | 已完成（`TOOL-MIG-001-A`、`TOOL-MIG-001-B`） | `PLAT-004`、`PLAT-005` | Rust 核心、GPUI 入口、共享样例和回归 |
