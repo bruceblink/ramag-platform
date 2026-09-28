@@ -252,6 +252,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不新增 SSH 协议、不改变 Host Key 策略、认证模型、端口转发配置格式、终端 UI 或 JumpServer 行为；不把 114 的部署服务作为测试目标，不保留远端临时进程和目录。
 - 实施顺序：先提交本设计确认，再补充真实终端/端口转发回读测试并独立提交；通过后进入 `B-CONTAINER-001` 设计确认。
 
+### B-CONTAINER-001-A：Docker 资源筛选入口（设计确认，2026-09-28）
+
+- 问题证据：容器应用服务和 Docker 适配器已经支持 `ContainerListQuery.search`，但工作区始终发送空筛选词；用户只能读取整页容器、镜像、网络或数据卷，无法按名称、镜像、标签或地址快速缩小结果。
+- 设计：在 Docker 资源列表工具栏增加一个有界筛选输入和明确的“筛选”按钮。按钮读取当前输入并重新提交 `ContainerListQuery`；后端继续负责 trim、大小限制和不区分大小写匹配。切换资源、修改 Docker 地址或重新筛选时递增已有 `request_id`，迟到结果不能覆盖当前页面。
+- 验收条件：headless 测试在 `360x640`、`1024x768` 和 `1440x900` 确认筛选输入及按钮位于内容区内且可见；应用服务测试确认筛选请求原样传到 `ContainerDriver`，Docker 适配器测试确认筛选结果和分页边界；`ramag-tool-container`、`ramag-app`、`ramag-infra-container-docker` 目标测试、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不新增日志、容器生命周期、Docker exec、Kubernetes 资源、Registry 凭据或真实窗口验收；不把本地 UI 筛选扩展成无上限的全量加载。
+- 实施顺序：先提交本设计确认，再实现筛选入口和目标测试；通过后独立提交并进入容器详情/日志的下一项设计确认。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
