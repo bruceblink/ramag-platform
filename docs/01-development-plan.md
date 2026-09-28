@@ -319,6 +319,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 质量检查：代码提交前还需通过 `cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check`。
 - 证据边界：本切片证明 Docker 单容器的实时 tail、分片组装、回压、停止和窗口边界；它不提供 VictoriaLogs 级别的集中索引、LogSQL 查询、跨容器聚合或自动重连，也没有宣称真实 Windows 原生窗口验收。
 
+### B-CONTAINER-001-E：持续日志暂停展示（设计确认，2026-09-28）
+
+- 问题证据：持续读取开始后，当前页面只能继续刷新或停止连接；用户查看较早日志、复制内容或等待某个事件时，无法暂时冻结可见行。直接停止消费接收通道又会让 Docker 流触发回压，暂停操作和停止连接混在一起。
+- 设计：在日志页面增加“暂停展示”和“恢复展示”。暂停只冻结当前可见日志行，不设置 Docker 取消标记；接收任务继续从有界通道取行，并把待显示行放入独立的有界待显示窗口。恢复时按接收顺序把待显示行合并到当前日志窗口。
+- 窗口限制：待显示窗口复用 `MAX_CONTAINER_LOG_LINES` 和 `MAX_CONTAINER_LOG_BYTES`；超出时移除最早待显示行，并在日志摘要中累计显示被移除的数量。当前可见窗口仍沿用持续读取的 5,000 行和 2 MiB 限制。停止、切换容器、切换页面或页面销毁时清空待显示窗口并取消 Docker 流。
+- 验收条件：应用层不改变持续读取接口和敏感行隐藏；headless 测试在 `360x640`、`1024x768` 和 `1440x900` 确认暂停/恢复/停止按钮在日志工具栏内；状态测试确认暂停期间可见行不变、待显示行有界，恢复后按顺序合并；适配器回压和本机 Docker 持续回读回归通过；目标测试、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不实现查询过滤、自动滚动开关、复制、导出、自动重连、VictoriaLogs/LogSQL、跨容器聚合、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再实现页面暂停状态、待显示窗口和 headless 测试；本机 Docker 不新增写操作，代码验证通过后独立提交，下一项再处理复制或导出中的一个明确边界。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
