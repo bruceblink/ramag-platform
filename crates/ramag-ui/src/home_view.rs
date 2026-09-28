@@ -11,7 +11,7 @@ use gpui_kit::component::{
 use gpui_kit::{
     AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent, EventEmitter,
     IntoElement, MouseButton, ParentElement, Render, ScrollHandle, SharedString, Styled,
-    Subscription, Window, div, hsla, prelude::*, px,
+    Subscription, Window, div, prelude::*, px,
 };
 
 use ramag_app::ToolRegistry;
@@ -30,14 +30,6 @@ pub enum HomeEvent {
     OpenTool(String),
 }
 
-const RAMAG_LOGO: &[&str] = &[
-    "██████╗  █████╗ ███╗   ███╗ █████╗  ██████╗ ",
-    "██╔══██╗██╔══██╗████╗ ████║██╔══██╗██╔════╝ ",
-    "██████╔╝███████║██╔████╔██║███████║██║  ███╗",
-    "██╔══██╗██╔══██║██║╚██╔╝██║██╔══██║██║   ██║",
-    "██║  ██║██║  ██║██║ ╚═╝ ██║██║  ██║╚██████╔╝",
-    "╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝ ",
-];
 const TOOL_CARD_WIDTH: f32 = 280.0;
 const TOOL_CARD_HEIGHT: f32 = 112.0;
 const TOOL_CARD_GAP: f32 = 16.0;
@@ -90,7 +82,6 @@ impl Render for HomeView {
         let theme = cx.theme();
         let muted_fg = theme.muted_foreground;
         let accent = theme.accent;
-        let mono = theme.mono_font_family.clone();
         let bg = theme.background;
         let border = theme.border;
         let fg = theme.foreground;
@@ -145,6 +136,7 @@ impl Render for HomeView {
             let id_for_click = id.clone();
             let name = tool.meta().name.clone();
             let description = tool.meta().description.clone();
+            let tooltip = format!("{name} — {description}");
             let icon = ActivityBar::icon_for_meta(tool.meta());
             let preview_icon = icon.clone();
             let preview_name = name.clone();
@@ -167,14 +159,17 @@ impl Render for HomeView {
                 .debug_selector(move || debug_card_id.to_string())
                 .w(px(card_width))
                 .h(px(TOOL_CARD_HEIGHT))
-                .p(px(20.0))
+                .p(px(16.0))
                 .gap(px(10.0))
                 .bg(card_background)
                 .border_1()
                 .border_color(card_border)
-                .rounded(px(10.0))
+                .rounded(px(8.0))
                 .relative()
                 .cursor_pointer()
+                .tooltip(move |window, cx| {
+                    gpui_kit::component::tooltip::Tooltip::new(tooltip.clone()).build(window, cx)
+                })
                 .hover(move |this| this.border_color(accent_border))
                 .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
                     cx.emit(HomeEvent::OpenTool(id_for_click.clone()));
@@ -196,18 +191,44 @@ impl Render for HomeView {
                 }))
                 .child(
                     h_flex()
+                        .w_full()
+                        .min_w_0()
+                        .pr(px(14.0))
                         .items_center()
                         .gap(px(8.0))
-                        .child(div().text_color(accent).child(icon))
+                        .child(
+                            h_flex()
+                                .size(px(28.0))
+                                .flex_none()
+                                .items_center()
+                                .justify_center()
+                                .rounded(px(6.0))
+                                .bg(accent.opacity(0.10))
+                                .text_color(accent)
+                                .child(icon),
+                        )
                         .child(
                             div()
+                                .flex_1()
+                                .min_w_0()
+                                .overflow_hidden()
+                                .text_ellipsis()
                                 .text_sm()
                                 .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                 .text_color(fg)
                                 .child(name),
                         ),
                 )
-                .child(div().text_xs().text_color(muted_fg).child(description))
+                .child(
+                    div()
+                        .w_full()
+                        .min_w_0()
+                        .h(px(36.0))
+                        .overflow_hidden()
+                        .text_xs()
+                        .text_color(muted_fg)
+                        .child(description),
+                )
                 .child(
                     div()
                         .absolute()
@@ -338,7 +359,7 @@ impl Render for HomeView {
                     .p(px(home_content_padding(window_width)))
                     .gap(px(if compact { 24.0 } else { 36.0 }))
                     .items_center()
-                    .child(render_logo(mono, accent, compact))
+                    .child(render_home_header(item_count, cx))
                     .child(tool_grid),
             )
     }
@@ -405,40 +426,43 @@ fn reorder_animation_offset_for_width(
     )
 }
 
-fn render_logo(mono: SharedString, accent: gpui_kit::Hsla, compact: bool) -> impl IntoElement {
-    if compact {
-        return v_flex()
-            .id("home-logo")
-            .debug_selector(|| "home-logo".into())
-            .items_center()
-            .font_family(mono)
-            .text_size(px(16.0))
-            .font_weight(gpui_kit::FontWeight::BOLD)
-            .child("RAMAG")
-            .into_any_element();
-    }
-
-    let mut lines = Vec::with_capacity(RAMAG_LOGO.len());
-    for (i, line) in RAMAG_LOGO.iter().enumerate() {
-        let alpha = 1.0 - (i as f32) * 0.06;
-        let color = hsla(accent.h, accent.s, accent.l, alpha);
-        lines.push(
-            div()
-                .text_color(color)
-                .line_height(px(13.0))
-                .child(SharedString::from(line.to_string())),
-        );
-    }
-
+/// 标题与工具网格共用宽度；文字层级在窄窗口和较大字号下仍可自然换行。
+fn render_home_header(tool_count: usize, cx: &gpui_kit::App) -> impl IntoElement {
     v_flex()
         .id("home-logo")
         .debug_selector(|| "home-logo".into())
-        .items_center()
-        .font_family(mono)
-        .text_size(px(14.0))
-        .font_weight(gpui_kit::FontWeight::BOLD)
-        .children(lines)
-        .into_any_element()
+        .w_full()
+        .min_w_0()
+        .max_w(px(TOOL_GRID_WIDTH))
+        .gap(px(8.0))
+        .child(
+            h_flex()
+                .w_full()
+                .justify_between()
+                .items_center()
+                .child(
+                    div()
+                        .text_2xl()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .child("Ramag"),
+                )
+                .child(
+                    div()
+                        .px(px(8.0))
+                        .py(px(4.0))
+                        .rounded(px(6.0))
+                        .bg(cx.theme().secondary)
+                        .text_xs()
+                        .text_color(cx.theme().muted_foreground)
+                        .child(format!("{tool_count} 个工具")),
+                ),
+        )
+        .child(
+            div()
+                .text_sm()
+                .text_color(cx.theme().muted_foreground)
+                .child("选择工具开始工作，拖动卡片可调整顺序"),
+        )
 }
 
 #[cfg(test)]

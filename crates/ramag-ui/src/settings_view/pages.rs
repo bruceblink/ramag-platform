@@ -174,17 +174,23 @@ fn settings_navigation_shell(
             .h(px(66.0))
             .flex_none()
             .items_start()
-            .gap(px(4.0))
+            .relative()
             .overflow_x_scroll()
             .track_scroll(scroll)
             .horizontal_scrollbar(scroll)
-            .px(px(8.0))
-            .py(px(8.0))
             .bg(sidebar)
             .border_b_1()
             .border_color(border)
-            .child(title)
-            .children(children)
+            // 内边距属于内容，滚动层与覆盖滑块始终共用无内边距的视口。
+            .child(
+                h_flex()
+                    .flex_none()
+                    .items_center()
+                    .gap(px(4.0))
+                    .p(px(8.0))
+                    .child(title)
+                    .children(children),
+            )
             .into_any_element()
     } else {
         v_flex()
@@ -195,8 +201,7 @@ fn settings_navigation_shell(
             // percentage height that can resolve against page content after a switch.
             .self_stretch()
             .flex_none()
-            .p(px(16.0))
-            .gap(px(4.0))
+            .relative()
             .min_h_0()
             .overflow_y_scroll()
             .track_scroll(scroll)
@@ -204,8 +209,15 @@ fn settings_navigation_shell(
             .bg(sidebar)
             .border_r_1()
             .border_color(border)
-            .child(title)
-            .children(children)
+            .child(
+                v_flex()
+                    .w_full()
+                    .flex_none()
+                    .p(px(16.0))
+                    .gap(px(4.0))
+                    .child(title)
+                    .children(children),
+            )
             .into_any_element()
     }
 }
@@ -235,6 +247,7 @@ fn settings_navigation_item(
         .debug_selector(move || debug_selector.clone())
         .w_full()
         .h(px(38.0))
+        .flex_none()
         .when(compact, |item| {
             item.w(px(SETTINGS_COMPACT_NAV_ITEM_WIDTH)).flex_none()
         })
@@ -245,7 +258,7 @@ fn settings_navigation_item(
         .bg(background)
         .text_color(foreground)
         .cursor_pointer()
-        .hover(move |item| item.bg(style.hover))
+        .hover(move |item| item.bg(if selected { style.active } else { style.hover }))
         .on_click(on_click)
         .child(page.icon().small())
         .child(div().text_sm().child(page.title()))
@@ -428,6 +441,44 @@ mod tests {
                 assert!(update.origin.y > system.origin.y);
             }
         }
+    }
+
+    /// 内容较少时滚动范围必须为零；窗口变矮时保持行高并允许滚到最后一项。
+    #[gpui_kit::test]
+    fn settings_navigation_only_scrolls_when_content_overflows(cx: &mut TestAppContext) {
+        cx.update(gpui_kit::component::init);
+        let (host, cx) = cx.add_window_view(|_, _| SettingsNavigationTestHost {
+            selected_page: SettingsPage::System,
+            scroll: gpui_kit::ScrollHandle::new(),
+        });
+        for (width, height) in [(1440.0, 900.0), (1024.0, 768.0)] {
+            cx.simulate_resize(size(px(width), px(height)));
+            cx.run_until_parked();
+            let offset = host.read_with(cx, |host, _| host.scroll.max_offset());
+            assert_eq!(offset.y, px(0.0), "完整导航无需滚动，不应出现伪滚动条");
+        }
+        cx.simulate_resize(size(px(1024.0), px(280.0)));
+        cx.run_until_parked();
+        let max_offset = host.read_with(cx, |host, _| host.scroll.max_offset());
+        assert!(max_offset.y > px(0.0), "低窗口需要真实纵向滚动");
+        host.update(cx, |host, cx| {
+            host.scroll
+                .set_offset(gpui_kit::point(px(0.0), -max_offset.y));
+            cx.notify();
+        });
+        cx.run_until_parked();
+        let last = cx
+            .debug_bounds("settings-page-update")
+            .expect("最后一项存在");
+        let nav = cx.debug_bounds("settings-navigation").expect("导航存在");
+        assert_eq!(last.size.height, px(38.0), "低窗口不能压扁导航项");
+        assert!(last.bottom() <= nav.bottom(), "滚动后最后一项可访问");
+        cx.simulate_resize(size(px(1440.0), px(900.0)));
+        cx.run_until_parked();
+        assert_eq!(
+            host.read_with(cx, |host, _| host.scroll.max_offset().y),
+            px(0.0)
+        );
     }
 
     /// 切换到数据库客户端后，导航列仍与设置根布局保持顶部和底部对齐。
