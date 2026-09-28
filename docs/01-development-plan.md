@@ -484,6 +484,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不新增 Git 命令，不改变暂存、取消暂存和丢弃的驱动语义，不增加批量丢弃入口，不调整远程同步或提交模型，不把本项扩展为真实窗口验收。
 - 实施顺序：先提交本设计确认，再修改批量按钮的路径传递和回归测试；定向测试通过后独立提交并推送，随后补充 `B-GIT-001` 的真实临时仓库回放记录。
 
+### B-GIT-001-A：批量工作区操作使用路径快照（代码与本地 Git 回放完成，2026-09-28）
+
+- 实现：变更组的“全暂存”和“全取消”按钮在渲染时保存去重后的相对路径集合；点击时直接把路径交给已有 `run_file_op`，不再使用状态数组下标回查，避免文件监听刷新后把操作落到另一条路径。暂存、取消暂存、丢弃、状态刷新和文件标签同步的原有语义保持不变。
+- 定向回归：新增测试覆盖状态数组重排、重复下标和无效下标，确认批量操作仍使用原先渲染时的 `src/first.rs`、`src/second.rs` 路径集合；`ramag-tool-vcs` 全量 133 项通过，5 项性能观察测试按设计忽略。
+- 本地 Git 回放：使用测试创建的临时 Git 仓库和 bare remote，运行 `cargo test --locked -p ramag-infra-git --test integration -- --test-threads=1`，40 项通过；运行 `cargo test --locked -p ramag-infra-git --lib -- --test-threads=1`，73 项通过，1 项性能观察测试忽略。回放覆盖仓库打开/关闭、工作区状态、暂存/取消暂存、提交、分支、差异、stash、tag、rebase、冲突继续/中止、bare remote 推送和跟踪分支。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过；提交 `a399426f docs: define git batch path snapshot acceptance`、`2e4cec85 fix(vcs): snapshot bulk operation paths` 已推送 `origin/main`。
+- 证据边界：本切片证明批量工作区操作在本地状态刷新期间使用稳定路径，并证明 Git 驱动的临时仓库回放；不提供真实 Windows 原生窗口鼠标/键盘证据，不验证 114 服务器，不改变远程仓库数据，也不把 Computer Use 缺口写成已完成。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
