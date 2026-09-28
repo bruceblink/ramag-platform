@@ -312,9 +312,13 @@ fn continuous_log_controls_stay_inside_supported_window_widths(cx: &mut TestAppC
         let copy = visual_cx
             .debug_bounds("container-logs-copy")
             .expect("复制日志按钮应渲染");
+        let export = visual_cx
+            .debug_bounds("container-logs-export")
+            .expect("导出日志按钮应渲染");
         assert_inside(content, controls, "持续读取控制区");
         assert_inside(controls, follow, "持续读取按钮");
         assert_inside(controls, copy, "复制日志按钮");
+        assert_inside(controls, export, "导出日志按钮");
     }
 }
 
@@ -364,10 +368,14 @@ fn paused_log_controls_stay_inside_supported_window_widths(cx: &mut TestAppConte
         let copy = visual_cx
             .debug_bounds("container-logs-copy")
             .expect("复制日志按钮应渲染");
+        let export = visual_cx
+            .debug_bounds("container-logs-export")
+            .expect("导出日志按钮应渲染");
         assert_inside(content, controls, "暂停控制区");
         assert_inside(controls, pause, "恢复展示按钮");
         assert_inside(controls, stop, "停止持续读取按钮");
         assert_inside(controls, copy, "复制日志按钮");
+        assert_inside(controls, export, "导出日志按钮");
     }
 }
 

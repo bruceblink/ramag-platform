@@ -378,6 +378,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不导出待显示队列、Docker 原始流、历史查询条件、容器详情或敏感原文；不实现滚动归档、自动命名批量导出、VictoriaLogs/LogSQL、跨容器聚合、自动重连、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再实现系统保存对话框、原子写入调用、通知和 headless/文件测试；验证通过后独立提交，下一项再处理容器资源状态中的一个明确边界。
 
+### B-CONTAINER-001-H：导出当前容器日志窗口（代码与 headless 验证完成，2026-09-28）
+
+- 实现：容器日志工具栏新增“导出日志”按钮，使用 `rfd::AsyncFileDialog` 让用户选择 `.log` 或 `.txt` 文件；导出调用 `ramag_app::usecases::export::write_atomic`，成功和失败均通过统一通知反馈，保存对话框取消不会写文件。
+- 内容边界：导出复用 `container_logs_copy_text`，只读取当前可见 `DockerContainerLogs.lines`，沿用敏感信息隐藏结果、stdout/stderr 标签、UTF-8 边界和 `MAX_CONTAINER_LOG_BYTES` 限制；不读取暂停中的待显示队列，也不改变实时 tail 或暂停状态。
+- 测试：`ramag-tool-container` 17 项通过，新增文件内容和原子临时文件清理测试；`360x640`、`1024x768`、`1440x900` 下导出按钮与日志控制区边界测试通过；`ramag-domain` 234 项、`ramag-app` 283 项、`ramag-infra-container-docker` 14 项通过，3 项本机 Docker 测试按设计保持忽略。
+- 质量检查：`cargo fmt --all -- --check`、源码尺寸检查和 `git diff --check` 通过；提交前继续执行 workspace Clippy。
+- 证据边界：本切片证明当前可见日志可以安全写入用户选择的本地文件；不提供真实系统保存对话框点击、滚动归档、自动命名批量导出、VictoriaLogs/LogSQL、跨容器聚合、自动重连、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。

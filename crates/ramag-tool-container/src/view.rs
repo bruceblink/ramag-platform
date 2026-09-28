@@ -12,6 +12,7 @@ use gpui_kit::component::{
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputState},
+    notification::Notification,
     scroll::ScrollableElement as _,
     v_flex,
 };
@@ -135,6 +136,7 @@ pub struct ContainerView {
     volumes: Option<ContainerPage<DockerVolumeSummary>>,
     logs: Option<DockerContainerLogs>,
     logs_loading: bool,
+    logs_exporting: bool,
     log_cancellation: Option<Arc<AtomicBool>>,
     logs_following: bool,
     log_follow_cancellation: Option<Arc<AtomicBool>>,
@@ -227,6 +229,7 @@ impl ContainerView {
             volumes: None,
             logs: None,
             logs_loading: false,
+            logs_exporting: false,
             log_cancellation: None,
             logs_following: false,
             log_follow_cancellation: None,
@@ -688,6 +691,95 @@ impl ContainerView {
         ramag_ui::copy_text_with_notification(text, window, cx);
     }
 
+    fn export_container_logs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.logs_exporting {
+            return;
+        }
+        let Some(logs) = self.logs.as_ref() else {
+            return;
+        };
+        let text = container_logs_copy_text(logs);
+        if text.is_empty() {
+            return;
+        }
+        let logs = logs.clone();
+        let container_id = self
+            .selected_log_container
+            .as_deref()
+            .unwrap_or(&logs.container_id)
+            .to_owned();
+        let file_name = ramag_app::usecases::export::suggested_export_file_name(
+            "container",
+            &container_id,
+            None,
+            false,
+            "log",
+        );
+        self.logs_exporting = true;
+        cx.notify();
+        cx.spawn_in(window, async move |this, async_cx| {
+            let outcome: std::result::Result<Option<std::path::PathBuf>, String> = async {
+                let Some(handle) = rfd::AsyncFileDialog::new()
+                    .set_file_name(&file_name)
+                    .add_filter("日志文本", &["log", "txt"])
+                    .save_file()
+                    .await
+                else {
+                    return Ok(None);
+                };
+                let path = handle.path().to_path_buf();
+                let write_path = path.clone();
+                ramag_app::run_blocking(move || write_container_logs(&write_path, &logs))
+                    .await
+                    .map_err(|error| format!("写入日志导出失败：{error}"))?;
+                Ok(Some(path))
+            }
+            .await;
+            let _ = this.update_in(async_cx, |view, window, cx| {
+                view.logs_exporting = false;
+                match outcome {
+                    Ok(None) => {}
+                    Ok(Some(path)) => ramag_ui::push_responsive_notification(
+                        window,
+                        Notification::success(format!("日志已导出到 {}", path.display()))
+                            .autohide(true),
+                        cx,
+                    ),
+                    Err(error) => ramag_ui::push_responsive_notification(
+                        window,
+                        Notification::error(error).autohide(true),
+                        cx,
+                    ),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn render_export_logs_button(&self, cx: &mut Context<Self>) -> AnyElement {
+        ramag_ui::clickable_button("container-logs-export")
+            .ghost()
+            .small()
+            .icon(IconName::File)
+            .label(if self.logs_exporting {
+                "导出中..."
+            } else {
+                "导出日志"
+            })
+            .debug_selector(|| "container-logs-export".into())
+            .tooltip(if self.logs_exporting {
+                "日志导出进行中"
+            } else {
+                "导出当前已保留日志"
+            })
+            .disabled(self.logs_exporting)
+            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                this.export_container_logs(window, cx);
+            }))
+            .into_any_element()
+    }
+
     fn render_copy_logs_button(&self, cx: &mut Context<Self>) -> AnyElement {
         ramag_ui::clickable_button("container-logs-copy")
             .ghost()
@@ -1116,7 +1208,9 @@ impl ContainerView {
                         .id("container-logs-controls")
                         .debug_selector(|| "container-logs-controls".into())
                         .when(has_copyable_logs, |toolbar| {
-                            toolbar.child(self.render_copy_logs_button(cx))
+                            toolbar
+                                .child(self.render_export_logs_button(cx))
+                                .child(self.render_copy_logs_button(cx))
                         })
                         .child(
                             ramag_ui::clickable_button("container-logs-follow-pause")
@@ -1156,7 +1250,9 @@ impl ContainerView {
                         .id("container-logs-controls")
                         .debug_selector(|| "container-logs-controls".into())
                         .when(has_copyable_logs, |toolbar| {
-                            toolbar.child(self.render_copy_logs_button(cx))
+                            toolbar
+                                .child(self.render_export_logs_button(cx))
+                                .child(self.render_copy_logs_button(cx))
                         })
                         .child(
                             ramag_ui::clickable_button("container-logs-follow")
@@ -2104,6 +2200,10 @@ fn container_logs_copy_text(logs: &DockerContainerLogs) -> String {
     text
 }
 
+fn write_container_logs(path: &std::path::Path, logs: &DockerContainerLogs) -> Result<()> {
+    ramag_app::usecases::export::write_atomic(path, &container_logs_copy_text(logs))
+}
+
 fn append_bounded_text(target: &mut String, value: &str, max_bytes: usize) -> bool {
     for character in value.chars() {
         let next_bytes = target.len().saturating_add(character.len_utf8());
@@ -2135,3 +2235,7 @@ mod tests;
 #[cfg(test)]
 #[path = "copy_tests.rs"]
 mod copy_tests;
+
+#[cfg(test)]
+#[path = "export_tests.rs"]
+mod export_tests;

@@ -8964,6 +8964,7 @@ dependencies = [
  "ramag-app",
  "ramag-domain",
  "ramag-ui",
+ "rfd",
 ]
 
 [[package]]
