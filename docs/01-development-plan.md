@@ -427,14 +427,17 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 提交：代码提交为 `78231b4e feat(container): filter retained log window`，已推送到 `origin/main`。
 - 证据边界：本切片证明当前已保留日志窗口可以本地筛选；不提供 VictoriaLogs/LogSQL、正则表达式、时间范围、跨容器聚合、服务端索引、日志高亮、自动重连、滚动历史归档、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
 
-### B-CONTAINER-001-L：Docker Engine 容量摘要（设计确认，2026-09-28）
+### B-CONTAINER-001-L：Docker Engine 容量摘要（代码与测试完成，2026-09-28）
 
 - 问题证据：Docker 概览请求已经从 Engine `info` 响应读取 `NCPU` 和 `MemTotal`，领域对象也保存为 `DockerOverview.cpu_count` 与 `DockerOverview.memory_bytes`，但概览页面只显示容器、镜像、网络和数据卷数量，用户看不到当前 Engine 的基础容量信息。
 - 设计：在现有概览卡片组增加“CPU 核数”和“内存”两项，直接显示已读取的可选值；Docker 未返回字段时显示“未知”，内存使用现有 GiB/MiB/B 规则格式化，不把缺失值当成零。
 - 只读边界：只复用已有 `overview` 请求和 `DockerOverview` 字段，不新增 Docker API、定时刷新、容器写操作或跨主机数据；卡片只描述 Engine 容量，不把它表示为容器当前使用量。
 - 验收条件：文本测试覆盖缺失值、KiB/MiB/GiB 格式和已知 CPU 核数；headless 测试在 `360x640`、`1024x768` 和 `1440x900` 确认 7 张概览卡片和 Engine 信息位于内容区内；容器工作区、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
 - 不做事项：不实现 Docker `stats`、容器 CPU/内存使用量、网络吞吐、磁盘 IO、历史曲线、自动刷新、阈值告警、Kubernetes 资源指标或真实 Windows 原生窗口验收。
-- 实施顺序：先提交本设计确认，再补充容量卡片、格式化函数和三种窗口边界测试；通过后独立提交，下一项再处理容器 stats 或其他明确边界。
+- 实现：概览卡片组新增“CPU 核数”和“内存”，分别读取 `DockerOverview.cpu_count` 与 `DockerOverview.memory_bytes`；缺失值显示“未知”，内存按 B/KiB/MiB/GiB 格式化，并为 7 张卡片增加稳定调试选择器。
+- 测试：新增 `overview_tests.rs`，覆盖缺失值和容量格式化，以及 `360x640`、`1024x768`、`1440x900` 下 7 张卡片位于概览面板内；容器工具 24 项测试通过；`cargo fmt --all`、源码尺寸检查、`git diff --check` 和 workspace Clippy 通过。
+- 提交：代码提交为 `b52940da feat(container): show engine capacity summary`，已推送到 `origin/main`。
+- 证据边界：本切片证明概览页可以显示 Docker Engine 的基础 CPU/内存容量；不提供 Docker `stats`、容器 CPU/内存使用量、网络吞吐、磁盘 IO、历史曲线、自动刷新、阈值告警、Kubernetes 资源指标或真实 Windows 原生窗口验收。
 
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
