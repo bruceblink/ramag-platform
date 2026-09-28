@@ -1468,30 +1468,54 @@ impl ContainerView {
         };
         let cards = [
             (
+                "containers",
                 "容器",
                 overview.counts.containers.to_string(),
                 IconName::HardDrive,
             ),
             (
+                "running",
                 "运行中",
                 overview.counts.running_containers.to_string(),
                 IconName::CircleCheck,
             ),
-            ("镜像", overview.counts.images.to_string(), IconName::File),
             (
+                "images",
+                "镜像",
+                overview.counts.images.to_string(),
+                IconName::File,
+            ),
+            (
+                "networks",
                 "网络",
                 optional_number(overview.counts.networks),
                 IconName::Network,
             ),
             (
+                "volumes",
                 "数据卷",
                 optional_number(overview.counts.volumes),
                 IconName::HardDrive,
             ),
+            (
+                "cpu",
+                "CPU 核数",
+                optional_number(overview.cpu_count),
+                IconName::HardDrive,
+            ),
+            (
+                "memory",
+                "内存",
+                format_capacity_bytes(overview.memory_bytes),
+                IconName::MemoryStick,
+            ),
         ]
         .into_iter()
-        .map(|(label, value, icon)| {
+        .map(|(key, label, value, icon)| {
+            let selector = format!("container-overview-card-{key}");
             v_flex()
+                .id(selector.clone())
+                .debug_selector(move || selector.clone())
                 .flex_1()
                 .min_w(px(108.0))
                 .gap(px(6.0))
@@ -2315,6 +2339,21 @@ fn optional_number(value: Option<usize>) -> String {
     value.map_or_else(|| "未知".into(), |value| value.to_string())
 }
 
+fn format_capacity_bytes(value: Option<u64>) -> String {
+    let Some(value) = value else {
+        return "未知".into();
+    };
+    if value >= 1024 * 1024 * 1024 {
+        format!("{:.1} GiB", value as f64 / (1024.0 * 1024.0 * 1024.0))
+    } else if value >= 1024 * 1024 {
+        format!("{:.1} MiB", value as f64 / (1024.0 * 1024.0))
+    } else if value >= 1024 {
+        format!("{:.1} KiB", value as f64 / 1024.0)
+    } else {
+        format!("{} B", value)
+    }
+}
+
 fn container_detail_text(detail: &DockerContainerDetail) -> String {
     let summary = &detail.summary;
     format!(
@@ -2456,3 +2495,7 @@ mod scroll_tests;
 #[cfg(test)]
 #[path = "filter_tests.rs"]
 mod filter_tests;
+
+#[cfg(test)]
+#[path = "overview_tests.rs"]
+mod overview_tests;
