@@ -351,6 +351,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
 - 证据边界：本切片证明复制的是经过敏感信息处理且已在当前窗口保留的内容；不提供原始 Docker 流复制、待显示队列复制、文件导出、查询过滤、自动重连、VictoriaLogs/LogSQL、跨容器聚合和真实 Windows 原生窗口验收。
 
+### B-CONTAINER-001-G：实时 tail 不重复历史日志（设计确认，2026-09-28）
+
+- 问题证据：日志页面先读取最近 200 行，再点击“持续读取”时仍使用默认 `tail=200`。Docker `follow=true` 会先返回这 200 行，页面再把它们追加到已有窗口，导致历史日志重复，和 VictoriaLogs 这类“已有内容加后续新行”的 tail 体验不一致。
+- 设计：历史读取继续使用 `ContainerLogQuery::validate`，要求 `tail` 在 1 到 `MAX_CONTAINER_LOG_TAIL` 之间；持续读取增加单独的 `validate_for_follow`，只允许 `tail=0` 表示不回放已有日志，或使用合法的正数查询。容器日志页面点击持续读取时传入 `tail=0`，Docker 流只向有界 sink 发送连接建立后的新日志。敏感信息隐藏、分片组装、回压、暂停展示和窗口上限保持不变。
+- 生命周期：持续读取仍由 Docker `follow=true` 长连接提供；停止、切换容器、切换页面和页面销毁继续设置取消标记。这个切片不把 `tail=0` 扩展为历史读取默认值，也不改变用户主动刷新历史日志的语义。
+- 验收条件：领域测试确认普通历史查询拒绝 `tail=0`、持续查询接受 `tail=0` 并仍校验时间范围；应用服务测试确认 `tail=0` 能传到驱动且敏感行仍被隐藏；本机 Docker 持续读取测试确认预先输出的历史行不进入 follow 结果、连接后的新行可以实时收到；容器工作区回归、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不实现日志时间游标、断线自动重连、跨容器聚合、VictoriaLogs/LogSQL 查询、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再实现 follow 查询校验、页面查询和回归测试；本机 Docker 证明历史行不重复后独立提交，下一项再处理文件导出或容器资源状态中的一个明确边界。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
