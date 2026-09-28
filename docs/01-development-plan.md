@@ -268,6 +268,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 本机 Docker 回读：当前 Engine `29.7.2` 运行正常；`cargo test --locked -p ramag-infra-container-docker reads_local_engine_without_write_operations --lib -- --ignored --nocapture --test-threads=1` 通过，完成连接、概览、容器/镜像/网络/数据卷列表和分页读取。测试只读，没有创建、修改或删除本机资源。
 - 证据边界：本切片的代码、headless、本地适配器单元和本机 Docker 只读回读均通过；没有宣称真实 Windows 原生窗口验收，镜像操作、容器生命周期和日志仍待独立切片。
 
+### B-CONTAINER-001-B：Docker 历史日志读取（设计确认，2026-09-28）
+
+- 问题证据：容器详情目前只能显示路径、环境变量键、挂载和网络数量，Docker 适配器没有日志读取接口，用户无法在工作区内查看容器输出，也没有统一的行数和字节上限。
+- 设计：新增 Docker 历史日志查询模型，支持 `tail`、`since`、`until` 和 `timestamps`；从容器详情进入“日志”页面后读取 `stdout`/`stderr`，按日志流保留行信息。单次结果最多保留 5,000 行和 2 MiB，超出部分只记录丢弃数量并显示截断状态。应用层校验容器 ID、时间范围和查询上限，迟到结果继续由现有 `request_id` 隔离。
+- 安全边界：本切片只在工作区内显示有界历史日志，不提供复制、导出或持续跟随；应用层对疑似密码、Token、Authorization 和私钥样式日志行整行隐藏，隐藏失败时不把原文送入 UI。日志不写入操作记录或普通配置。
+- 验收条件：领域测试覆盖查询边界和时间顺序；应用服务测试确认查询转发与敏感行隐藏；Docker 适配器测试覆盖 stdout/stderr 映射、行数/字节上限和协议错误；headless 测试覆盖容器详情入口、日志页面和 `360x640`、`1024x768`、`1440x900` 内容边界；本机 Docker 读取专用日志容器并清理资源，fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不实现 follow、暂停/恢复、复制、导出、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再实现领域/应用/适配器日志接口和历史日志页面；本机 Docker 回读通过后独立提交，下一项再处理日志跟随和取消。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
