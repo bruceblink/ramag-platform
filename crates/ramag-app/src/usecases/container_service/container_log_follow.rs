@@ -17,7 +17,9 @@ impl ContainerService {
         cancellation: ContainerOperationCancellation,
     ) -> Result<()> {
         Self::ensure_docker(profile)?;
-        query.validate().map_err(DomainError::InvalidConfig)?;
+        query
+            .validate_for_follow()
+            .map_err(DomainError::InvalidConfig)?;
         if cancellation.load(Ordering::Relaxed) {
             return Err(DomainError::Container(ContainerError::new(
                 ContainerErrorCategory::Cancelled,

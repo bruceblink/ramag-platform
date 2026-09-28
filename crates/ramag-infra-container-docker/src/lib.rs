@@ -644,7 +644,9 @@ impl ContainerDriver for DockerDriver {
         cancellation: ContainerOperationCancellation,
     ) -> Result<()> {
         let id = validate_resource_id(id, "容器 ID")?;
-        query.validate().map_err(DomainError::InvalidConfig)?;
+        query
+            .validate_for_follow()
+            .map_err(DomainError::InvalidConfig)?;
         ensure_container_logs_active(&cancellation)?;
         let query = query.clone();
         Self::connect_and(
@@ -2104,7 +2106,7 @@ mod tests {
                     driver.follow_container_logs(
                         &profile,
                         &name,
-                        &ContainerLogQuery::default(),
+                        &ContainerLogQuery::follow_new_lines(),
                         sink,
                         std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
                     ),
@@ -2128,8 +2130,7 @@ mod tests {
             result.expect("本机持续日志回读应成功");
             cleanup.expect("专用持续日志容器应清理");
             let received = received.lock().expect("本机持续日志行锁不应中毒");
-            assert!(received.iter().any(|line| line == "initial-line"));
-            assert!(received.iter().any(|line| line == "follow-line"));
+            assert_eq!(received.as_slice(), ["follow-line"]);
         });
     }
 }

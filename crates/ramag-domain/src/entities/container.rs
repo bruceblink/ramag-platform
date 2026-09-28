@@ -395,9 +395,27 @@ impl Default for ContainerLogQuery {
 
 impl ContainerLogQuery {
     pub fn validate(&self) -> Result<(), String> {
-        if self.tail == 0 || self.tail > MAX_CONTAINER_LOG_TAIL {
+        self.validate_with_tail(false)
+    }
+
+    /// 为持续读取创建只接收连接建立后新日志的查询，不回放已有日志。
+    pub fn follow_new_lines() -> Self {
+        Self {
+            tail: 0,
+            ..Self::default()
+        }
+    }
+
+    /// 持续读取允许 `tail=0`，历史读取仍必须至少请求一行。
+    pub fn validate_for_follow(&self) -> Result<(), String> {
+        self.validate_with_tail(true)
+    }
+
+    fn validate_with_tail(&self, allow_empty_tail: bool) -> Result<(), String> {
+        if (!allow_empty_tail && self.tail == 0) || self.tail > MAX_CONTAINER_LOG_TAIL {
+            let minimum_tail = usize::from(!allow_empty_tail);
             return Err(format!(
-                "容器日志行数必须在 1 到 {MAX_CONTAINER_LOG_TAIL} 之间"
+                "容器日志行数必须在 {minimum_tail} 到 {MAX_CONTAINER_LOG_TAIL} 之间"
             ));
         }
         for (field, value) in [("日志开始时间", self.since), ("日志结束时间", self.until)]
@@ -747,13 +765,25 @@ mod tests {
         assert!(query.validate().is_ok());
 
         assert!(ContainerLogQuery { tail: 0, ..query }.validate().is_err());
+        let follow_query = ContainerLogQuery::follow_new_lines();
+        assert_eq!(follow_query.tail, 0);
+        assert!(follow_query.validate_for_follow().is_ok());
+        assert!(follow_query.validate().is_err());
+        assert!(
+            ContainerLogQuery {
+                tail: MAX_CONTAINER_LOG_TAIL + 1,
+                ..follow_query.clone()
+            }
+            .validate_for_follow()
+            .is_err()
+        );
         assert!(
             ContainerLogQuery {
                 since: Some(20),
                 until: Some(10),
-                ..query
+                ..follow_query
             }
-            .validate()
+            .validate_for_follow()
             .is_err()
         );
         assert!(

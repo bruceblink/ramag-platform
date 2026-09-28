@@ -360,6 +360,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不实现日志时间游标、断线自动重连、跨容器聚合、VictoriaLogs/LogSQL 查询、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再实现 follow 查询校验、页面查询和回归测试；本机 Docker 证明历史行不重复后独立提交，下一项再处理文件导出或容器资源状态中的一个明确边界。
 
+### B-CONTAINER-001-G：实时 tail 不重复历史日志（代码与 Docker 验证完成，2026-09-28）
+
+- 实现：`ContainerLogQuery` 增加 `follow_new_lines()` 和 `validate_for_follow()`；普通历史读取仍拒绝 `tail=0`，持续读取专门使用 `tail=0`。容器页面点击“持续读取”时不再重复请求最近 200 行，Docker `follow=true` 只把连接建立后的新日志交给有界 sink。
+- 测试：领域测试确认历史查询与持续查询对 `tail=0` 的边界不同；应用服务测试确认 `tail=0` 传给驱动且敏感行仍被隐藏；Docker 适配器的分片、回压、关闭和取消测试通过；容器工作区 15 项测试通过。
+- 本机 Docker：`cargo test --offline -p ramag-infra-container-docker follows_dedicated_container_logs_and_cleans_resource --lib -- --ignored --nocapture --test-threads=1` 通过。专用容器先写入 `initial-line`，再延迟写入 `follow-line`；follow 结果严格只收到 `follow-line`，测试后专用容器已清理。
+- 质量检查：目标测试和 `cargo fmt --all -- --check`、`git diff --check` 通过；提交前继续执行 workspace Clippy 和源码尺寸检查。
+- 证据边界：本切片证明单容器 Docker follow 的“历史窗口接后续新行”语义；不提供日志时间游标、断线自动重连、跨容器聚合、VictoriaLogs/LogSQL 查询、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。

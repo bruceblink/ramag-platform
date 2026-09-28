@@ -24,7 +24,7 @@ impl ContainerDriver for FollowDriver {
         sink: ContainerLogSink,
         cancellation: ContainerOperationCancellation,
     ) -> Result<()> {
-        assert_eq!(query.tail, 20);
+        assert_eq!(query.tail, 0);
         assert!(!cancellation.load(std::sync::atomic::Ordering::Relaxed));
         assert_eq!(
             sink(DockerContainerLogLine {
@@ -41,10 +41,7 @@ impl ContainerDriver for FollowDriver {
 fn follow_container_logs_redacts_lines_before_delivering_them() {
     let service = ContainerService::new(Arc::new(FollowDriver));
     let profile = ContainerEndpointProfile::new_docker("test", "unix:///var/run/docker.sock");
-    let query = ContainerLogQuery {
-        tail: 20,
-        ..Default::default()
-    };
+    let query = ContainerLogQuery::follow_new_lines();
     let received = Arc::new(Mutex::new(Vec::new()));
     let received_for_sink = received.clone();
     let sink: ContainerLogSink = Arc::new(move |line| {

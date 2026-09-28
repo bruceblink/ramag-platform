@@ -596,7 +596,7 @@ impl ContainerView {
             return;
         };
         let profile = self.profile.clone();
-        let query = ContainerLogQuery::default();
+        let query = ContainerLogQuery::follow_new_lines();
         let cancellation = Arc::new(AtomicBool::new(false));
         let (sender, receiver) = bounded(CONTAINER_LOG_CHANNEL_CAPACITY);
         let sink: ContainerLogSink = Arc::new(move |line| match sender.try_send(line) {
