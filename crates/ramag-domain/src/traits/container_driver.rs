@@ -59,6 +59,7 @@ pub trait ContainerDriver: Send + Sync {
         _profile: &ContainerEndpointProfile,
         _container_id: &str,
         _query: &ContainerLogQuery,
+        _cancellation: ContainerOperationCancellation,
     ) -> Result<DockerContainerLogs> {
         Err(crate::error::DomainError::NotImplemented(
             "container_logs".into(),

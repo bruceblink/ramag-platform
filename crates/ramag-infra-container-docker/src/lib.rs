@@ -244,7 +244,9 @@ impl DockerDriver {
         docker: Docker,
         id: String,
         query: ContainerLogQuery,
+        cancellation: ContainerOperationCancellation,
     ) -> Result<DockerContainerLogs> {
+        ensure_container_logs_active(&cancellation)?;
         let mut options = LogsOptionsBuilder::default()
             .follow(false)
             .stdout(true)
@@ -257,7 +259,18 @@ impl DockerDriver {
         if let Some(until) = query.until {
             options = options.until(to_docker_log_time(until)?);
         }
-        let mut stream = docker.logs(&id, Some(options.build()));
+        let stream = docker.logs(&id, Some(options.build()));
+        Self::collect_container_log_stream(id, stream, cancellation).await
+    }
+
+    async fn collect_container_log_stream<S>(
+        id: String,
+        mut stream: S,
+        cancellation: ContainerOperationCancellation,
+    ) -> Result<DockerContainerLogs>
+    where
+        S: futures::Stream<Item = std::result::Result<LogOutput, BollardError>> + Unpin,
+    {
         let mut result = DockerContainerLogs {
             container_id: id,
             lines: Vec::new(),
@@ -265,7 +278,12 @@ impl DockerDriver {
             dropped_lines: 0,
             truncated: false,
         };
-        while let Some(item) = stream.next().await {
+        while let Some(item) = tokio::select! {
+            _ = wait_for_operation_cancellation(cancellation.clone()) => {
+                return Err(container_logs_cancelled());
+            }
+            item = stream.next() => item,
+        } {
             let output = item.map_err(|error| map_bollard_error("读取 Docker 容器日志", error))?;
             append_log_output(output, &mut result);
         }
@@ -549,14 +567,18 @@ impl ContainerDriver for DockerDriver {
         profile: &ContainerEndpointProfile,
         id: &str,
         query: &ContainerLogQuery,
+        cancellation: ContainerOperationCancellation,
     ) -> Result<DockerContainerLogs> {
         let id = validate_resource_id(id, "容器 ID")?;
         query.validate().map_err(DomainError::InvalidConfig)?;
+        ensure_container_logs_active(&cancellation)?;
         let query = query.clone();
         Self::connect_and(
             profile,
             "读取 Docker 容器日志",
-            move |docker, _profile| Box::pin(Self::container_logs_async(docker, id, query)),
+            move |docker, _profile| {
+                Box::pin(Self::container_logs_async(docker, id, query, cancellation))
+            },
         )
         .await
     }
@@ -751,6 +773,22 @@ fn image_operation_cancelled() -> DomainError {
         "执行 Docker 镜像操作",
         "Docker 镜像操作已取消",
     ))
+}
+
+fn container_logs_cancelled() -> DomainError {
+    DomainError::Container(ContainerError::new(
+        ContainerErrorCategory::Cancelled,
+        "读取 Docker 容器日志",
+        "Docker 容器日志读取已取消",
+    ))
+}
+
+fn ensure_container_logs_active(cancellation: &ContainerOperationCancellation) -> Result<()> {
+    if cancellation.load(Ordering::Relaxed) {
+        Err(container_logs_cancelled())
+    } else {
+        Ok(())
+    }
 }
 
 fn ensure_operation_active(cancellation: &ContainerOperationCancellation) -> Result<()> {
@@ -1421,6 +1459,51 @@ mod tests {
     }
 
     #[test]
+    fn cancelled_container_logs_are_rejected_before_connecting_engine() {
+        let profile = ContainerEndpointProfile::local_docker("本机 Docker");
+        let cancellation = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let result = smol::block_on(DockerDriver::new().container_logs(
+            &profile,
+            "container-1",
+            &ContainerLogQuery::default(),
+            cancellation,
+        ));
+        assert!(matches!(
+            result,
+            Err(DomainError::Container(error))
+                if error.category == ContainerErrorCategory::Cancelled
+        ));
+    }
+
+    #[test]
+    fn cancellation_stops_a_pending_container_log_stream() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("日志取消测试运行时应创建");
+        runtime.block_on(async {
+            let cancellation = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let cancellation_for_task = cancellation.clone();
+            let setter = tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                cancellation_for_task.store(true, Ordering::Relaxed);
+            });
+            let result = DockerDriver::collect_container_log_stream(
+                "container-1".into(),
+                futures::stream::pending::<std::result::Result<LogOutput, BollardError>>(),
+                cancellation,
+            )
+            .await;
+            setter.await.expect("取消标记任务应完成");
+            assert!(matches!(
+                result,
+                Err(DomainError::Container(error))
+                    if error.category == ContainerErrorCategory::Cancelled
+            ));
+        });
+    }
+
+    #[test]
     fn maps_server_permissions_without_returning_server_body() {
         let error = map_bollard_error(
             "读取 Docker 容器列表",
@@ -1630,6 +1713,7 @@ mod tests {
                     docker.clone(),
                     name.clone(),
                     ContainerLogQuery::default(),
+                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 )
                 .await
                 .map_err(|error| format!("读取日志失败: {error:?}"))?;

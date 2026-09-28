@@ -1,6 +1,9 @@
 //! 容器管理工具的 Docker 只读工作台。
 
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Icon, IconName, Selectable as _, Sizable as _,
@@ -127,6 +130,7 @@ pub struct ContainerView {
     volumes: Option<ContainerPage<DockerVolumeSummary>>,
     logs: Option<DockerContainerLogs>,
     logs_loading: bool,
+    log_cancellation: Option<Arc<AtomicBool>>,
     selected_log_container: Option<String>,
     selected_detail: Option<SelectedDetail>,
     loading: bool,
@@ -212,6 +216,7 @@ impl ContainerView {
             volumes: None,
             logs: None,
             logs_loading: false,
+            log_cancellation: None,
             selected_log_container: None,
             selected_detail: None,
             loading: false,
@@ -514,11 +519,16 @@ impl ContainerView {
             return;
         };
         let profile = self.profile.clone();
+        if let Some(cancellation) = self.log_cancellation.take() {
+            cancellation.store(true, Ordering::Relaxed);
+        }
+        let cancellation = Arc::new(AtomicBool::new(false));
         self.section = ContainerSection::Logs;
         self.selected_detail = None;
         self.selected_log_container = Some(container_id.clone());
         self.logs = None;
         self.logs_loading = true;
+        self.log_cancellation = Some(cancellation.clone());
         self.error = None;
         self.request_id = self.request_id.wrapping_add(1);
         let request_id = self.request_id;
@@ -526,13 +536,14 @@ impl ContainerView {
         cx.spawn(async move |this, async_cx| {
             let query = ContainerLogQuery::default();
             let result = service
-                .container_logs(&profile, &container_id, &query)
+                .container_logs_with_cancel(&profile, &container_id, &query, cancellation)
                 .await;
             let _ = this.update(async_cx, |view, cx| {
                 if view.request_id != request_id {
                     return;
                 }
                 view.logs_loading = false;
+                view.log_cancellation = None;
                 match result {
                     Ok(logs) => {
                         view.logs = Some(logs);
@@ -547,6 +558,17 @@ impl ContainerView {
             });
         })
         .detach();
+    }
+
+    fn cancel_container_logs(&mut self, cx: &mut Context<Self>) {
+        let Some(cancellation) = self.log_cancellation.take() else {
+            return;
+        };
+        cancellation.store(true, Ordering::Relaxed);
+        self.request_id = self.request_id.wrapping_add(1);
+        self.logs_loading = false;
+        self.error = Some("容器日志读取已取消；迟到结果不会写入当前页面".into());
+        cx.notify();
     }
 
     fn set_detail<T>(&mut self, result: Result<T>)
@@ -598,6 +620,9 @@ impl ContainerView {
         self.volumes = None;
         self.logs = None;
         self.logs_loading = false;
+        if let Some(cancellation) = self.log_cancellation.take() {
+            cancellation.store(true, Ordering::Relaxed);
+        }
         self.selected_log_container = None;
         self.selected_detail = None;
     }
@@ -840,6 +865,24 @@ impl ContainerView {
         );
         if let Some(filter) = self.render_resource_filter(theme, cx) {
             content = content.child(filter);
+        }
+        if self.section == ContainerSection::Logs && self.logs_loading {
+            content = content.child(
+                ramag_ui::responsive_toolbar()
+                    .id("container-logs-controls")
+                    .debug_selector(|| "container-logs-controls".into())
+                    .child(
+                        ramag_ui::clickable_button("container-logs-cancel")
+                            .ghost()
+                            .small()
+                            .icon(IconName::CircleX)
+                            .label("停止读取")
+                            .debug_selector(|| "container-logs-cancel".into())
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                this.cancel_container_logs(cx);
+                            })),
+                    ),
+            );
         }
         if let Some(error) = &self.error {
             let mut background = theme.danger;

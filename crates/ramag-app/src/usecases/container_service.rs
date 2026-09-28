@@ -1,6 +1,9 @@
 //! 容器管理应用服务：把结构化只读请求转交给容器基础设施适配器。
 
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use ramag_domain::entities::{
     ContainerEndpointProfile, ContainerImageOperationPreview, ContainerImageOperationRequest,
@@ -9,7 +12,9 @@ use ramag_domain::entities::{
     DockerContainerSummary, DockerImageDetail, DockerImageSummary, DockerNetworkDetail,
     DockerNetworkSummary, DockerOverview, DockerVolumeDetail, DockerVolumeSummary,
 };
-use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
+use ramag_domain::error::{
+    ContainerError, ContainerErrorCategory, DomainError, READ_ONLY_MESSAGE, Result,
+};
 use ramag_domain::traits::{ContainerDriver, ContainerOperationCancellation};
 
 /// 容器管理只依赖领域接口；Docker 客户端类型不进入应用层和 UI。
@@ -67,11 +72,34 @@ impl ContainerService {
         container_id: &str,
         query: &ContainerLogQuery,
     ) -> Result<DockerContainerLogs> {
+        self.container_logs_with_cancel(
+            profile,
+            container_id,
+            query,
+            Arc::new(AtomicBool::new(false)),
+        )
+        .await
+    }
+
+    pub async fn container_logs_with_cancel(
+        &self,
+        profile: &ContainerEndpointProfile,
+        container_id: &str,
+        query: &ContainerLogQuery,
+        cancellation: ContainerOperationCancellation,
+    ) -> Result<DockerContainerLogs> {
         Self::ensure_docker(profile)?;
         query.validate().map_err(DomainError::InvalidConfig)?;
+        if cancellation.load(Ordering::Relaxed) {
+            return Err(DomainError::Container(ContainerError::new(
+                ContainerErrorCategory::Cancelled,
+                "读取 Docker 容器日志",
+                "Docker 容器日志读取已取消",
+            )));
+        }
         let logs = self
             .driver
-            .container_logs(profile, container_id, query)
+            .container_logs(profile, container_id, query, cancellation)
             .await?;
         Ok(redact_container_logs(logs))
     }
@@ -327,8 +355,10 @@ mod tests {
             _profile: &ContainerEndpointProfile,
             _container_id: &str,
             query: &ContainerLogQuery,
+            cancellation: ContainerOperationCancellation,
         ) -> Result<DockerContainerLogs> {
             assert_eq!(query.tail, 20);
+            assert!(!cancellation.load(Ordering::Relaxed));
             Ok(DockerContainerLogs {
                 container_id: "container-1".into(),
                 lines: vec![
@@ -421,6 +451,18 @@ mod tests {
         assert!(matches!(
             smol::block_on(service.container_logs(&profile, "container-1", &invalid)),
             Err(DomainError::InvalidConfig(_))
+        ));
+
+        let cancellation = Arc::new(AtomicBool::new(true));
+        assert!(matches!(
+            smol::block_on(service.container_logs_with_cancel(
+                &profile,
+                "container-1",
+                &query,
+                cancellation,
+            )),
+            Err(DomainError::Container(error))
+                if error.category == ContainerErrorCategory::Cancelled
         ));
     }
 

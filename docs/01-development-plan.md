@@ -293,6 +293,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不实现 follow、暂停/恢复、复制、导出、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再实现取消标记、页面停止入口和目标测试；通过后独立提交，下一项处理 follow 的持续输出边界。
 
+### B-CONTAINER-001-C：停止 Docker 历史日志读取（代码与 headless 验证完成，2026-09-28）
+
+- 实现：日志读取增加 `ContainerOperationCancellation` 入口，保留无取消参数的兼容方法；Docker 流等待期间使用取消分支，页面新增“停止读取”按钮。停止时设置标记、递增 `request_id`、结束加载并保留提示，迟到日志不会写回。
+- 测试：`ramag-app` 容器服务专项 8 项通过，确认预先取消不会进入驱动；`ramag-infra-container-docker` 普通测试 10 项通过、2 项真实 Docker 测试保持忽略，新增待处理日志流取消测试；`ramag-tool-container` 8 项通过，覆盖日志停止按钮在窄窗口内的边界。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
+- 证据边界：本切片证明了应用层预先取消、适配器等待中的取消分支和 headless 停止入口；follow、暂停/恢复、复制/导出、Kubernetes Pod 日志、Docker exec、容器生命周期写操作和真实 Windows 原生窗口仍未验收。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。

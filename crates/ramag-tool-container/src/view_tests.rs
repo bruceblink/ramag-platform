@@ -227,6 +227,7 @@ fn historical_logs_stay_inside_narrow_content_bounds(cx: &mut TestAppContext) {
     view.update(visual_cx, |view, cx| {
         view.section = ContainerSection::Logs;
         view.selected_log_container = Some("container-logs".into());
+        view.logs_loading = true;
         view.logs = Some(DockerContainerLogs {
             container_id: "container-logs".into(),
             lines: vec![DockerContainerLogLine {
@@ -254,9 +255,17 @@ fn historical_logs_stay_inside_narrow_content_bounds(cx: &mut TestAppContext) {
     let line = visual_cx
         .debug_bounds("container-log-line-0")
         .expect("日志行应渲染");
+    let controls = visual_cx
+        .debug_bounds("container-logs-controls")
+        .expect("日志控制区应渲染");
+    let cancel = visual_cx
+        .debug_bounds("container-logs-cancel")
+        .expect("停止读取按钮应渲染");
     assert_inside(content, panel, "日志面板");
     assert_inside(panel, output, "日志输出区");
     assert_inside(output, line, "日志行");
+    assert_inside(content, controls, "日志控制区");
+    assert_inside(controls, cancel, "停止读取按钮");
 }
 
 #[gpui_kit::test]
