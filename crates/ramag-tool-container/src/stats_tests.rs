@@ -5,7 +5,7 @@ use ramag_domain::error::{ContainerError, ContainerErrorCategory, DomainError};
 
 use super::{
     ContainerSection, ContainerView, MAX_CONTAINER_STATS_HISTORY, SelectedDetail,
-    container_stats_history_text, container_stats_text,
+    container_stats_history_text, container_stats_text, stats_trend_bar_height,
 };
 
 fn assert_inside(parent: Bounds<Pixels>, child: Bounds<Pixels>, label: &str) {
@@ -120,6 +120,15 @@ fn successful_stats_refreshes_keep_ordered_bounded_history() {
     assert!(text.starts_with("最近 20 次成功刷新\n1 · sample-22"));
 }
 
+#[test]
+fn stats_trend_bar_height_bounds_percentages_and_unknown_values() {
+    assert_eq!(stats_trend_bar_height(None), 4.0);
+    assert_eq!(stats_trend_bar_height(Some(0.0)), 4.0);
+    assert_eq!(stats_trend_bar_height(Some(50.0)), 26.0);
+    assert_eq!(stats_trend_bar_height(Some(100.0)), 48.0);
+    assert_eq!(stats_trend_bar_height(Some(150.0)), 48.0);
+}
+
 #[gpui_kit::test]
 fn container_stats_panel_stays_inside_supported_window_widths(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
@@ -156,6 +165,15 @@ fn container_stats_panel_stays_inside_supported_window_widths(cx: &mut TestAppCo
         let history = visual_cx
             .debug_bounds("container-detail-stats-history-panel")
             .expect("容器指标历史面板应渲染");
+        let trend = visual_cx
+            .debug_bounds("container-detail-stats-trend-panel")
+            .expect("容器指标趋势面板应渲染");
+        let cpu_trend = visual_cx
+            .debug_bounds("container-detail-stats-cpu-trend")
+            .expect("CPU 趋势行应渲染");
+        let memory_trend = visual_cx
+            .debug_bounds("container-detail-stats-memory-trend")
+            .expect("内存趋势行应渲染");
         let refresh = visual_cx
             .debug_bounds("container-detail-stats")
             .expect("刷新指标按钮应渲染");
@@ -164,5 +182,8 @@ fn container_stats_panel_stays_inside_supported_window_widths(cx: &mut TestAppCo
         assert_inside(actions, refresh, "刷新指标按钮");
         assert_inside(detail, stats, "容器资源指标面板");
         assert_inside(detail, history, "容器指标历史面板");
+        assert_inside(detail, trend, "容器指标趋势面板");
+        assert_inside(trend, cpu_trend, "CPU 趋势行");
+        assert_inside(trend, memory_trend, "内存趋势行");
     }
 }

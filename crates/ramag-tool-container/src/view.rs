@@ -513,6 +513,7 @@ impl ContainerView {
         }
         self.section = section;
         self.selected_detail = None;
+        self.clear_container_stats();
         self.refresh(cx);
     }
 
@@ -532,12 +533,7 @@ impl ContainerView {
                 Some(SelectedDetail::Container(detail)) if detail.summary.id == id
             )
         {
-            self.container_stats = None;
-            self.container_stats_history.clear();
-            if let Some(cancellation) = self.stats_cancellation.take() {
-                cancellation.store(true, Ordering::Relaxed);
-            }
-            self.stats_loading = false;
+            self.clear_container_stats();
         }
         self.request_id = self.request_id.wrapping_add(1);
         let request_id = self.request_id;
@@ -1057,6 +1053,10 @@ impl ContainerView {
         self.logs_follow_evicted_lines = 0;
         self.selected_log_container = None;
         self.selected_detail = None;
+        self.clear_container_stats();
+    }
+
+    fn clear_container_stats(&mut self) {
         self.container_stats = None;
         self.container_stats_history.clear();
         self.stats_loading = false;
@@ -2226,6 +2226,10 @@ impl ContainerView {
                         theme,
                     )),
             );
+            panel = panel.child(render_container_stats_trend(
+                &self.container_stats_history,
+                theme,
+            ));
         }
         Some(panel.into_any_element())
     }
@@ -2510,6 +2514,111 @@ fn container_stats_history_text(history: &VecDeque<DockerContainerStats>) -> Str
         ));
     }
     text
+}
+
+fn render_container_stats_trend(
+    history: &VecDeque<DockerContainerStats>,
+    theme: &gpui_kit::component::theme::Theme,
+) -> AnyElement {
+    let cpu_values = history
+        .iter()
+        .map(|stats| stats.cpu_percent)
+        .collect::<Vec<_>>();
+    let memory_values = history
+        .iter()
+        .map(|stats| stats.memory_percent)
+        .collect::<Vec<_>>();
+    v_flex()
+        .id("container-detail-stats-trend-panel")
+        .debug_selector(|| "container-detail-stats-trend-panel".into())
+        .w_full()
+        .gap(px(8.0))
+        .p(px(14.0))
+        .border_1()
+        .border_color(theme.border)
+        .rounded(px(6.0))
+        .child(
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("指标趋势（最早 → 最新）"),
+        )
+        .child(render_stats_trend_row(
+            "CPU",
+            "container-detail-stats-cpu-trend",
+            &cpu_values,
+            theme,
+            false,
+        ))
+        .child(render_stats_trend_row(
+            "内存",
+            "container-detail-stats-memory-trend",
+            &memory_values,
+            theme,
+            true,
+        ))
+        .into_any_element()
+}
+
+fn render_stats_trend_row(
+    label: &'static str,
+    selector: &'static str,
+    values: &[Option<f64>],
+    theme: &gpui_kit::component::theme::Theme,
+    success_color: bool,
+) -> AnyElement {
+    let color = if success_color {
+        theme.success
+    } else {
+        theme.accent
+    };
+    let bars = values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            let bar_color = value.map_or(theme.muted_foreground, |_| color);
+            let height = stats_trend_bar_height(*value);
+            div()
+                .id(format!("{selector}-bar-{index}"))
+                .debug_selector(move || format!("{selector}-bar-{index}"))
+                .flex_1()
+                .min_w(px(4.0))
+                .h(px(48.0))
+                .items_end()
+                .child(div().w_full().h(px(height)).rounded(px(2.0)).bg(bar_color))
+                .into_any_element()
+        })
+        .collect::<Vec<_>>();
+    h_flex()
+        .id(selector)
+        .debug_selector(|| selector.into())
+        .w_full()
+        .items_center()
+        .gap(px(8.0))
+        .child(
+            div()
+                .w(px(36.0))
+                .flex_none()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(label),
+        )
+        .child(
+            h_flex()
+                .flex_1()
+                .min_w_0()
+                .h(px(48.0))
+                .items_end()
+                .gap(px(3.0))
+                .children(bars),
+        )
+        .into_any_element()
+}
+
+fn stats_trend_bar_height(value: Option<f64>) -> f32 {
+    value.map_or(4.0, |value| {
+        4.0 + (value.clamp(0.0, 100.0) as f32 / 100.0) * 44.0
+    })
 }
 
 fn container_detail_text(detail: &DockerContainerDetail) -> String {
