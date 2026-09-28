@@ -335,6 +335,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
 - 证据边界：本切片证明暂停展示不会停止 Docker 流读取，待显示内容仍有界且能按顺序恢复；没有新增本机 Docker 写操作，也不覆盖复制、导出、自动重连、VictoriaLogs/LogSQL、跨容器聚合和真实 Windows 原生窗口验收。
 
+### B-CONTAINER-001-F：复制当前容器日志窗口（设计确认，2026-09-28）
+
+- 问题证据：当前日志页面已能显示历史窗口和持续读取窗口，但用户无法把当前已保留内容带到工单或终端；持续读取时复制不应重新请求 Docker，也不能把暂停期间已移除或尚未恢复的原始数据偷偷加入剪贴板。
+- 设计：在日志工具栏增加“复制日志”按钮，复制当前可见 `DockerContainerLogs.lines` 的文本。每行按 `stream: message` 输出并以换行分隔；历史日志和持续日志都经过应用层敏感信息隐藏后才进入可见窗口，因此复制只读取已经展示的数据。按钮不读取 Docker、不改变持续连接、暂停状态或请求代次。
+- 大小和状态：复制文本使用与日志窗口相同的有界内容；构造文本时按 UTF-8 字符边界限制在 `MAX_CONTAINER_LOG_BYTES` 内，超出的尾部不进入剪贴板，并在按钮提示中说明复制的是“当前已保留内容”。空日志窗口不显示可用复制按钮。
+- 验收条件：纯函数测试确认 stdout/stderr 标签、换行和 UTF-8 边界；headless 测试在 `360x640`、`1024x768` 和 `1440x900` 确认复制按钮位于日志工具栏内，暂停时只复制当前可见行而不复制待显示窗口；复制操作使用现有 `ramag_ui::copy_text_with_notification` 并显示统一成功通知；目标测试、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不复制待显示窗口、Docker 原始流、日志查询条件、容器详情或敏感原文；不实现文件导出、查询过滤、自动重连、VictoriaLogs/LogSQL、跨容器聚合、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再实现复制文本构造、日志工具栏入口和 headless 测试；不新增本机 Docker 写操作，代码验证通过后独立提交，下一项再处理文件导出或容器资源状态中的一个明确边界。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
