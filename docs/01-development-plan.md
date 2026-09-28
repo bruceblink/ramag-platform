@@ -761,12 +761,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 验收条件：headless GPUI 在 180/280/360px 窗口验证名称和说明横向分离、始终留在本行且不与下一行重叠；Computer Use 在本机 MySQL 8.4 的 Collations 中检查多项名称与字符集说明；通过定向测试、dbclient 全量测试、fmt、Clippy、源码尺寸和 diff 检查。
 - 验收结果：`server_object_details_stay_inline_without_overlapping_following_rows` 覆盖 180/280/360px，并同时检查 Server Objects 与 Virtual views 的名称、说明和相邻行边界；`ramag-tool-dbclient` 全量 356 项通过，`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。Computer Use 当前仍无法发现可操作的原生窗口，因此本记录只确认代码与 headless 证据，未宣称真实窗口流程通过。
 
-### DB-RED-03-UI-02：结果网格垂直滚动条随横向内容偏移（2026-09-26，设计确认）
+### DB-RED-03-UI-02：结果网格垂直滚动条随横向内容偏移（2026-09-28，代码与 headless 验收完成）
 
 - 问题证据：本机 MySQL `bulk_records` 结果集的垂直滚动条要等横向滚动到最右端才进入可视区域，横向位置在起点时右侧没有滑块。
 - 原因：垂直 `Scrollbar` 默认使用宽结果列表的 `UniformListScrollHandle` 视口边界定位滑块；列表随横向内容变宽，滚动条横坐标也被定位到完整内容的最右端。
 - 设计：垂直滚动条使用固定在结果视口右侧的布局边界作为绘制视口，并从 34px 表头下方开始；保持滚动内容尺寸仍来自虚拟列表句柄，不改变横向滚动、分页或滚轮分轴行为。
 - 验收条件：headless GPUI 确认固定滚动条视口与数据行视口左右对齐、起始位置和横向末端不变，长结果页保留正向垂直滚动范围；系统截图在 Computer Use 不可用时验证本机 MySQL 8.4 多行结果的右侧滑块在横向起点可见；通过 dbclient 定向测试、fmt、Clippy、源码尺寸和 diff 检查。
+- 验收结果：`final_virtual_row_and_pagination_stay_inside_result_regions` 覆盖 10,000 行第二页末端、长表头、800px 列宽、横向起点与末端，并验证垂直滚动条固定在结果视口右侧且可响应点击；`ramag-tool-dbclient` 全量 356 项通过，`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。Computer Use 当前仍不可用，本记录不把 headless 或系统截图描述为真实窗口验收。
 
 ### DB-UX-004A：撤销选中的未提交单元格修改（2026-09-26，已完成）
 
