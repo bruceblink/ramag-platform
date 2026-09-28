@@ -25,7 +25,9 @@ pub mod update_driver;
 pub use api_driver::ApiDriver;
 pub use clipboard_driver::ClipboardDriver;
 pub use collaboration_relay::CollaborationRelay;
-pub use container_driver::{ContainerDriver, ContainerOperationCancellation};
+pub use container_driver::{
+    ContainerDriver, ContainerLogSink, ContainerLogSinkResult, ContainerOperationCancellation,
+};
 pub use container_registry_driver::ContainerRegistryDriver;
 pub use doc_driver::DocDriver;
 pub use driver::{CancelHandle, Driver};

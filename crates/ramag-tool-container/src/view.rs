@@ -5,6 +5,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
+use async_channel::{TrySendError, bounded};
 use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Icon, IconName, Selectable as _, Sizable as _,
     button::ButtonVariants as _,
@@ -25,12 +26,15 @@ use ramag_domain::{
         ContainerRegistryProfile, ContainerRegistryRepository, ContainerRegistryTag,
         DockerConnectionInfo, DockerContainerDetail, DockerContainerLogs, DockerContainerSummary,
         DockerImageDetail, DockerImageSummary, DockerNetworkDetail, DockerNetworkSummary,
-        DockerOverview, DockerVolumeDetail, DockerVolumeSummary, MAX_CONTAINER_QUERY_BYTES,
+        DockerOverview, DockerVolumeDetail, DockerVolumeSummary, MAX_CONTAINER_LOG_BYTES,
+        MAX_CONTAINER_LOG_LINES, MAX_CONTAINER_QUERY_BYTES,
     },
     error::Result,
+    traits::{ContainerLogSink, ContainerLogSinkResult},
 };
 
 const RESOURCE_PAGE_SIZE: usize = 100;
+const CONTAINER_LOG_CHANNEL_CAPACITY: usize = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ContainerSection {
@@ -131,6 +135,9 @@ pub struct ContainerView {
     logs: Option<DockerContainerLogs>,
     logs_loading: bool,
     log_cancellation: Option<Arc<AtomicBool>>,
+    logs_following: bool,
+    log_follow_cancellation: Option<Arc<AtomicBool>>,
+    logs_follow_evicted_lines: usize,
     selected_log_container: Option<String>,
     selected_detail: Option<SelectedDetail>,
     loading: bool,
@@ -217,6 +224,9 @@ impl ContainerView {
             logs: None,
             logs_loading: false,
             log_cancellation: None,
+            logs_following: false,
+            log_follow_cancellation: None,
+            logs_follow_evicted_lines: 0,
             selected_log_container: None,
             selected_detail: None,
             loading: false,
@@ -522,6 +532,9 @@ impl ContainerView {
         if let Some(cancellation) = self.log_cancellation.take() {
             cancellation.store(true, Ordering::Relaxed);
         }
+        if let Some(cancellation) = self.log_follow_cancellation.take() {
+            cancellation.store(true, Ordering::Relaxed);
+        }
         let cancellation = Arc::new(AtomicBool::new(false));
         self.section = ContainerSection::Logs;
         self.selected_detail = None;
@@ -529,6 +542,8 @@ impl ContainerView {
         self.logs = None;
         self.logs_loading = true;
         self.log_cancellation = Some(cancellation.clone());
+        self.logs_following = false;
+        self.logs_follow_evicted_lines = 0;
         self.error = None;
         self.request_id = self.request_id.wrapping_add(1);
         let request_id = self.request_id;
@@ -558,6 +573,109 @@ impl ContainerView {
             });
         })
         .detach();
+    }
+
+    fn start_container_log_follow(&mut self, cx: &mut Context<Self>) {
+        if self.logs_loading || self.logs_following {
+            return;
+        }
+        let Some(service) = self.service.clone() else {
+            return;
+        };
+        let Some(container_id) = self.selected_log_container.clone() else {
+            return;
+        };
+        let profile = self.profile.clone();
+        let query = ContainerLogQuery::default();
+        let cancellation = Arc::new(AtomicBool::new(false));
+        let (sender, receiver) = bounded(CONTAINER_LOG_CHANNEL_CAPACITY);
+        let sink: ContainerLogSink = Arc::new(move |line| match sender.try_send(line) {
+            Ok(()) => ContainerLogSinkResult::Accepted,
+            Err(TrySendError::Full(_)) => ContainerLogSinkResult::Backpressured,
+            Err(TrySendError::Closed(_)) => ContainerLogSinkResult::Closed,
+        });
+
+        self.request_id = self.request_id.wrapping_add(1);
+        let request_id = self.request_id;
+        self.logs_following = true;
+        self.log_follow_cancellation = Some(cancellation.clone());
+        self.error = None;
+        cx.notify();
+
+        let service_for_reader = service.clone();
+        let cancellation_for_reader = cancellation.clone();
+        cx.spawn(async move |this, async_cx| {
+            let result = service_for_reader
+                .follow_container_logs(
+                    &profile,
+                    &container_id,
+                    &query,
+                    sink,
+                    cancellation_for_reader,
+                )
+                .await;
+            let _ = this.update(async_cx, |view, cx| {
+                if view.request_id != request_id {
+                    return;
+                }
+                view.logs_following = false;
+                view.log_follow_cancellation = None;
+                if let Err(error) = result {
+                    view.error = Some(error.user_message());
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+
+        cx.spawn(async move |this, async_cx| {
+            while let Ok(line) = receiver.recv().await {
+                let _ = this.update(async_cx, |view, cx| {
+                    if view.request_id != request_id {
+                        return;
+                    }
+                    view.append_follow_log_line(line);
+                    cx.notify();
+                });
+            }
+        })
+        .detach();
+    }
+
+    fn stop_container_log_follow(&mut self, cx: &mut Context<Self>) {
+        let Some(cancellation) = self.log_follow_cancellation.take() else {
+            return;
+        };
+        cancellation.store(true, Ordering::Relaxed);
+        self.request_id = self.request_id.wrapping_add(1);
+        self.logs_following = false;
+        self.error = Some("容器日志持续读取已停止；当前窗口保留".into());
+        cx.notify();
+    }
+
+    fn append_follow_log_line(&mut self, mut line: ramag_domain::entities::DockerContainerLogLine) {
+        let Some(logs) = self.logs.as_mut() else {
+            return;
+        };
+        let mut evicted: usize = 0;
+        if line.message.len() > MAX_CONTAINER_LOG_BYTES {
+            line.message = "[持续日志行超过大小上限，已丢弃]".into();
+            evicted = 1;
+        }
+        let line_bytes = line.message.len();
+        while (!logs.lines.is_empty() && logs.lines.len() >= MAX_CONTAINER_LOG_LINES)
+            || (!logs.lines.is_empty()
+                && logs.bytes.saturating_add(line_bytes) > MAX_CONTAINER_LOG_BYTES)
+        {
+            let removed = logs.lines.remove(0);
+            logs.bytes = logs.bytes.saturating_sub(removed.message.len());
+            evicted = evicted.saturating_add(1);
+        }
+        if line_bytes <= MAX_CONTAINER_LOG_BYTES {
+            logs.lines.push(line);
+            logs.bytes = logs.bytes.saturating_add(line_bytes);
+        }
+        self.logs_follow_evicted_lines = self.logs_follow_evicted_lines.saturating_add(evicted);
     }
 
     fn cancel_container_logs(&mut self, cx: &mut Context<Self>) {
@@ -623,6 +741,11 @@ impl ContainerView {
         if let Some(cancellation) = self.log_cancellation.take() {
             cancellation.store(true, Ordering::Relaxed);
         }
+        if let Some(cancellation) = self.log_follow_cancellation.take() {
+            cancellation.store(true, Ordering::Relaxed);
+        }
+        self.logs_following = false;
+        self.logs_follow_evicted_lines = 0;
         self.selected_log_container = None;
         self.selected_detail = None;
     }
@@ -866,23 +989,57 @@ impl ContainerView {
         if let Some(filter) = self.render_resource_filter(theme, cx) {
             content = content.child(filter);
         }
-        if self.section == ContainerSection::Logs && self.logs_loading {
-            content = content.child(
-                ramag_ui::responsive_toolbar()
-                    .id("container-logs-controls")
-                    .debug_selector(|| "container-logs-controls".into())
-                    .child(
-                        ramag_ui::clickable_button("container-logs-cancel")
-                            .ghost()
-                            .small()
-                            .icon(IconName::CircleX)
-                            .label("停止读取")
-                            .debug_selector(|| "container-logs-cancel".into())
-                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                this.cancel_container_logs(cx);
-                            })),
-                    ),
-            );
+        if self.section == ContainerSection::Logs && self.selected_log_container.is_some() {
+            let control = if self.logs_loading {
+                Some(
+                    ramag_ui::clickable_button("container-logs-cancel")
+                        .ghost()
+                        .small()
+                        .icon(IconName::CircleX)
+                        .label("停止读取")
+                        .debug_selector(|| "container-logs-cancel".into())
+                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                            this.cancel_container_logs(cx);
+                        }))
+                        .into_any_element(),
+                )
+            } else if self.logs_following {
+                Some(
+                    ramag_ui::clickable_button("container-logs-follow-stop")
+                        .ghost()
+                        .small()
+                        .icon(IconName::CircleX)
+                        .label("停止持续读取")
+                        .debug_selector(|| "container-logs-follow-stop".into())
+                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                            this.stop_container_log_follow(cx);
+                        }))
+                        .into_any_element(),
+                )
+            } else if self.logs.is_some() {
+                Some(
+                    ramag_ui::clickable_button("container-logs-follow")
+                        .ghost()
+                        .small()
+                        .icon(IconName::Play)
+                        .label("持续读取")
+                        .debug_selector(|| "container-logs-follow".into())
+                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                            this.start_container_log_follow(cx);
+                        }))
+                        .into_any_element(),
+                )
+            } else {
+                None
+            };
+            if let Some(control) = control {
+                content = content.child(
+                    ramag_ui::responsive_toolbar()
+                        .id("container-logs-controls")
+                        .debug_selector(|| "container-logs-controls".into())
+                        .child(control),
+                );
+            }
         }
         if let Some(error) = &self.error {
             let mut background = theme.danger;
@@ -1388,14 +1545,24 @@ impl ContainerView {
             .as_deref()
             .unwrap_or(&logs.container_id);
         let summary = format!(
-            "容器 {container_id} · {} 行 · {} bytes{}",
+            "容器 {container_id} · {} 行 · {} bytes{}{}{}",
             logs.lines.len(),
             logs.bytes,
             if logs.truncated {
                 format!(" · 已丢弃 {} 行", logs.dropped_lines)
             } else {
                 String::new()
-            }
+            },
+            if self.logs_follow_evicted_lines > 0 {
+                format!(" · 持续窗口已移除 {} 行", self.logs_follow_evicted_lines)
+            } else {
+                String::new()
+            },
+            if self.logs_following {
+                " · 持续读取中"
+            } else {
+                ""
+            },
         );
         v_flex()
             .id("container-logs-panel")

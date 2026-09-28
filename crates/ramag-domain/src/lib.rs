@@ -40,8 +40,9 @@ pub use json_path::{
     tokenize_json_path,
 };
 pub use traits::{
-    ApiDriver, ContainerDriver, ContainerOperationCancellation, ContainerRegistryDriver, Driver,
-    KafkaAdminDriver, KafkaBrokerMetricsDriver, KafkaMessageTailSink, KafkaMessageTailSinkResult,
+    ApiDriver, ContainerDriver, ContainerLogSink, ContainerLogSinkResult,
+    ContainerOperationCancellation, ContainerRegistryDriver, Driver, KafkaAdminDriver,
+    KafkaBrokerMetricsDriver, KafkaMessageTailSink, KafkaMessageTailSinkResult,
     KafkaProducerDriver, KafkaTransport, KvDriver, MAX_PLUGIN_ENTRIES,
     MAX_PLUGIN_ENTRY_PAYLOAD_BYTES, MAX_PLUGIN_SETTING_LIST_ITEMS, MAX_PLUGIN_SETTING_VALUE_BYTES,
     MosquittoDynamicSecurityDriver, MosquittoStaticConfigDriver, MqttDriver, MqttTransport,

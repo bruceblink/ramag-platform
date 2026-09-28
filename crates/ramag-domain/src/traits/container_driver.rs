@@ -7,14 +7,25 @@ use async_trait::async_trait;
 use crate::entities::{
     ContainerEndpointProfile, ContainerImageOperationRequest, ContainerImageOperationResult,
     ContainerListQuery, ContainerLogQuery, ContainerPage, ContainerRegistryCredential,
-    DockerConnectionInfo, DockerContainerDetail, DockerContainerLogs, DockerContainerSummary,
-    DockerImageDetail, DockerImageSummary, DockerNetworkDetail, DockerNetworkSummary,
-    DockerOverview, DockerVolumeDetail, DockerVolumeSummary,
+    DockerConnectionInfo, DockerContainerDetail, DockerContainerLogLine, DockerContainerLogs,
+    DockerContainerSummary, DockerImageDetail, DockerImageSummary, DockerNetworkDetail,
+    DockerNetworkSummary, DockerOverview, DockerVolumeDetail, DockerVolumeSummary,
 };
 use crate::error::Result;
 
 /// 镜像操作的取消标记；基础设施层在请求和流式响应之间检查它。
 pub type ContainerOperationCancellation = Arc<AtomicBool>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContainerLogSinkResult {
+    Accepted,
+    Backpressured,
+    Closed,
+}
+
+/// Docker 持续日志的有界接收入口；返回 Backpressured 时，适配器必须保留当前行并稍后重试。
+pub type ContainerLogSink =
+    Arc<dyn Fn(DockerContainerLogLine) -> ContainerLogSinkResult + Send + Sync>;
 
 /// 容器工具只通过该接口访问外部平台；具体 HTTP、socket 和 named pipe 代码留在基础设施层。
 #[async_trait]
@@ -63,6 +74,19 @@ pub trait ContainerDriver: Send + Sync {
     ) -> Result<DockerContainerLogs> {
         Err(crate::error::DomainError::NotImplemented(
             "container_logs".into(),
+        ))
+    }
+
+    async fn follow_container_logs(
+        &self,
+        _profile: &ContainerEndpointProfile,
+        _container_id: &str,
+        _query: &ContainerLogQuery,
+        _sink: ContainerLogSink,
+        _cancellation: ContainerOperationCancellation,
+    ) -> Result<()> {
+        Err(crate::error::DomainError::NotImplemented(
+            "container_follow_logs".into(),
         ))
     }
 

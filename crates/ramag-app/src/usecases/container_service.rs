@@ -17,6 +17,11 @@ use ramag_domain::error::{
 };
 use ramag_domain::traits::{ContainerDriver, ContainerOperationCancellation};
 
+mod container_log_follow;
+
+#[cfg(test)]
+mod container_service_follow_tests;
+
 /// 容器管理只依赖领域接口；Docker 客户端类型不进入应用层和 UI。
 pub struct ContainerService {
     driver: Arc<dyn ContainerDriver>,
@@ -230,8 +235,7 @@ pub fn unsupported_kubernetes(profile: &ContainerEndpointProfile) -> Result<()> 
 fn redact_container_logs(mut logs: DockerContainerLogs) -> DockerContainerLogs {
     let mut changed = false;
     for line in &mut logs.lines {
-        if contains_sensitive_log_marker(&line.message) {
-            line.message = "[日志行包含敏感信息，已隐藏]".into();
+        if redact_container_log_line(line) {
             changed = true;
         }
     }
@@ -239,6 +243,14 @@ fn redact_container_logs(mut logs: DockerContainerLogs) -> DockerContainerLogs {
         logs.bytes = logs.lines.iter().map(|line| line.message.len()).sum();
     }
     logs
+}
+
+fn redact_container_log_line(line: &mut ramag_domain::entities::DockerContainerLogLine) -> bool {
+    if !contains_sensitive_log_marker(&line.message) {
+        return false;
+    }
+    line.message = "[日志行包含敏感信息，已隐藏]".into();
+    true
 }
 
 fn contains_sensitive_log_marker(message: &str) -> bool {

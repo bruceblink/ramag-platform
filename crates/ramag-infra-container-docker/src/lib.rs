@@ -20,7 +20,7 @@ use bollard::{
 };
 use futures::StreamExt;
 use ramag_domain::{
-    ContainerDriver, ContainerOperationCancellation,
+    ContainerDriver, ContainerLogSink, ContainerLogSinkResult, ContainerOperationCancellation,
     entities::{
         ContainerEndpointProfile, ContainerImageOperationKind, ContainerImageOperationRequest,
         ContainerImageOperationResult, ContainerListQuery, ContainerLogQuery, ContainerPage,
@@ -261,6 +261,58 @@ impl DockerDriver {
         }
         let stream = docker.logs(&id, Some(options.build()));
         Self::collect_container_log_stream(id, stream, cancellation).await
+    }
+
+    async fn follow_container_logs_async(
+        docker: Docker,
+        id: String,
+        query: ContainerLogQuery,
+        sink: ContainerLogSink,
+        cancellation: ContainerOperationCancellation,
+    ) -> Result<()> {
+        ensure_container_logs_active(&cancellation)?;
+        let mut options = LogsOptionsBuilder::default()
+            .follow(true)
+            .stdout(true)
+            .stderr(true)
+            .timestamps(query.timestamps)
+            .tail(&query.tail.to_string());
+        if let Some(since) = query.since {
+            options = options.since(to_docker_log_time(since)?);
+        }
+        if let Some(until) = query.until {
+            options = options.until(to_docker_log_time(until)?);
+        }
+        let stream = docker.logs(&id, Some(options.build()));
+        Self::follow_container_log_stream(stream, sink, cancellation).await
+    }
+
+    async fn follow_container_log_stream<S>(
+        mut stream: S,
+        sink: ContainerLogSink,
+        cancellation: ContainerOperationCancellation,
+    ) -> Result<()>
+    where
+        S: futures::Stream<Item = std::result::Result<LogOutput, BollardError>> + Unpin,
+    {
+        let mut assembler = FollowLogAssembler::default();
+        while let Some(item) = tokio::select! {
+            _ = wait_for_operation_cancellation(cancellation.clone()) => {
+                return Err(container_logs_cancelled());
+            }
+            item = stream.next() => item,
+        } {
+            let output =
+                item.map_err(|error| map_bollard_error("持续读取 Docker 容器日志", error))?;
+            if !emit_follow_log_lines(&sink, assembler.append(output), cancellation.clone()).await?
+            {
+                return Ok(());
+            }
+        }
+        if !emit_follow_log_lines(&sink, assembler.finish(), cancellation).await? {
+            return Ok(());
+        }
+        Ok(())
     }
 
     async fn collect_container_log_stream<S>(
@@ -578,6 +630,34 @@ impl ContainerDriver for DockerDriver {
             "读取 Docker 容器日志",
             move |docker, _profile| {
                 Box::pin(Self::container_logs_async(docker, id, query, cancellation))
+            },
+        )
+        .await
+    }
+
+    async fn follow_container_logs(
+        &self,
+        profile: &ContainerEndpointProfile,
+        id: &str,
+        query: &ContainerLogQuery,
+        sink: ContainerLogSink,
+        cancellation: ContainerOperationCancellation,
+    ) -> Result<()> {
+        let id = validate_resource_id(id, "容器 ID")?;
+        query.validate().map_err(DomainError::InvalidConfig)?;
+        ensure_container_logs_active(&cancellation)?;
+        let query = query.clone();
+        Self::connect_and(
+            profile,
+            "持续读取 Docker 容器日志",
+            move |docker, _profile| {
+                Box::pin(Self::follow_container_logs_async(
+                    docker,
+                    id,
+                    query,
+                    sink,
+                    cancellation,
+                ))
             },
         )
         .await
@@ -916,7 +996,92 @@ fn to_docker_log_time(value: i64) -> Result<i32> {
         .map_err(|_| DomainError::InvalidConfig("容器日志时间超出 Docker 支持范围".into()))
 }
 
-fn append_log_output(output: LogOutput, result: &mut DockerContainerLogs) {
+async fn emit_follow_log_lines(
+    sink: &ContainerLogSink,
+    lines: Vec<DockerContainerLogLine>,
+    cancellation: ContainerOperationCancellation,
+) -> Result<bool> {
+    for line in lines {
+        loop {
+            ensure_container_logs_active(&cancellation)?;
+            match sink(line.clone()) {
+                ContainerLogSinkResult::Accepted => break,
+                ContainerLogSinkResult::Closed => return Ok(false),
+                ContainerLogSinkResult::Backpressured => {
+                    tokio::select! {
+                        _ = wait_for_operation_cancellation(cancellation.clone()) => {
+                            return Err(container_logs_cancelled());
+                        }
+                        _ = tokio::time::sleep(Duration::from_millis(25)) => {}
+                    }
+                }
+            }
+        }
+    }
+    Ok(true)
+}
+
+#[derive(Default)]
+struct FollowLogAssembler {
+    stdout: String,
+    stderr: String,
+    stdin: String,
+    console: String,
+}
+
+impl FollowLogAssembler {
+    fn append(&mut self, output: LogOutput) -> Vec<DockerContainerLogLine> {
+        let (stream, message) = match output {
+            LogOutput::StdOut { message } => (DockerLogStream::Stdout, message),
+            LogOutput::StdErr { message } => (DockerLogStream::Stderr, message),
+            LogOutput::StdIn { message } => (DockerLogStream::Stdin, message),
+            LogOutput::Console { message } => (DockerLogStream::Console, message),
+        };
+        let buffer = match stream {
+            DockerLogStream::Stdout => &mut self.stdout,
+            DockerLogStream::Stderr => &mut self.stderr,
+            DockerLogStream::Stdin => &mut self.stdin,
+            DockerLogStream::Console => &mut self.console,
+        };
+        buffer.push_str(&String::from_utf8_lossy(message.as_ref()));
+        let mut lines = Vec::new();
+        while let Some(newline) = buffer.find('\n') {
+            let message = buffer[..newline].to_owned();
+            buffer.drain(..=newline);
+            lines.push(follow_log_line(stream, message));
+        }
+        if buffer.len() > MAX_CONTAINER_LOG_BYTES {
+            buffer.clear();
+            lines.push(follow_log_line(
+                stream,
+                "[持续日志行超过大小上限，已截断]".into(),
+            ));
+        }
+        lines
+    }
+
+    fn finish(self) -> Vec<DockerContainerLogLine> {
+        [
+            (DockerLogStream::Stdout, self.stdout),
+            (DockerLogStream::Stderr, self.stderr),
+            (DockerLogStream::Stdin, self.stdin),
+            (DockerLogStream::Console, self.console),
+        ]
+        .into_iter()
+        .filter(|(_, message)| !message.is_empty())
+        .map(|(stream, message)| follow_log_line(stream, message))
+        .collect()
+    }
+}
+
+fn follow_log_line(stream: DockerLogStream, message: String) -> DockerContainerLogLine {
+    DockerContainerLogLine {
+        stream,
+        message: message.strip_suffix('\r').unwrap_or(&message).to_owned(),
+    }
+}
+
+fn log_output_lines(output: LogOutput) -> Vec<DockerContainerLogLine> {
     let (stream, message) = match output {
         LogOutput::StdOut { message } => (DockerLogStream::Stdout, message),
         LogOutput::StdErr { message } => (DockerLogStream::Stderr, message),
@@ -924,13 +1089,24 @@ fn append_log_output(output: LogOutput, result: &mut DockerContainerLogs) {
         LogOutput::Console { message } => (DockerLogStream::Console, message),
     };
     let text = String::from_utf8_lossy(message.as_ref());
-    for raw_line in text.split_inclusive('\n') {
-        let line = raw_line
-            .strip_suffix('\n')
-            .unwrap_or(raw_line)
-            .strip_suffix('\r')
-            .unwrap_or_else(|| raw_line.strip_suffix('\n').unwrap_or(raw_line));
-        let line_bytes = line.len();
+    text.split_inclusive('\n')
+        .map(|raw_line| {
+            let line = raw_line
+                .strip_suffix('\n')
+                .unwrap_or(raw_line)
+                .strip_suffix('\r')
+                .unwrap_or_else(|| raw_line.strip_suffix('\n').unwrap_or(raw_line));
+            DockerContainerLogLine {
+                stream,
+                message: line.to_owned(),
+            }
+        })
+        .collect()
+}
+
+fn append_log_output(output: LogOutput, result: &mut DockerContainerLogs) {
+    for line in log_output_lines(output) {
+        let line_bytes = line.message.len();
         if result.lines.len() >= MAX_CONTAINER_LOG_LINES
             || result.bytes.saturating_add(line_bytes) > MAX_CONTAINER_LOG_BYTES
         {
@@ -938,10 +1114,7 @@ fn append_log_output(output: LogOutput, result: &mut DockerContainerLogs) {
             result.truncated = true;
             continue;
         }
-        result.lines.push(DockerContainerLogLine {
-            stream,
-            message: line.to_owned(),
-        });
+        result.lines.push(line);
         result.bytes = result.bytes.saturating_add(line_bytes);
     }
 }
@@ -1504,6 +1677,134 @@ mod tests {
     }
 
     #[test]
+    fn follow_log_stream_retries_backpressured_lines_without_dropping_them() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("持续日志测试运行时应创建");
+        runtime.block_on(async {
+            let attempts = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let attempts_for_sink = attempts.clone();
+            let sink: ContainerLogSink = std::sync::Arc::new(move |line| {
+                assert_eq!(line.message, "follow");
+                if attempts_for_sink.fetch_add(1, Ordering::Relaxed) == 0 {
+                    ContainerLogSinkResult::Backpressured
+                } else {
+                    ContainerLogSinkResult::Accepted
+                }
+            });
+            let result = DockerDriver::follow_container_log_stream(
+                futures::stream::iter([Ok(LogOutput::StdOut {
+                    message: "follow\n".into(),
+                })]),
+                sink,
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            )
+            .await;
+            assert!(result.is_ok());
+            assert_eq!(attempts.load(Ordering::Relaxed), 2);
+        });
+    }
+
+    #[test]
+    fn follow_log_stream_assembles_split_lines_per_output_stream() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("持续日志组装测试运行时应创建");
+        runtime.block_on(async {
+            let received = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+            let received_for_sink = received.clone();
+            let sink: ContainerLogSink = std::sync::Arc::new(move |line| {
+                received_for_sink
+                    .lock()
+                    .expect("持续日志行锁不应中毒")
+                    .push((line.stream, line.message));
+                ContainerLogSinkResult::Accepted
+            });
+            let result = DockerDriver::follow_container_log_stream(
+                futures::stream::iter([
+                    Ok(LogOutput::StdOut {
+                        message: "part".into(),
+                    }),
+                    Ok(LogOutput::StdErr {
+                        message: "error\n".into(),
+                    }),
+                    Ok(LogOutput::StdOut {
+                        message: "ial\nnext".into(),
+                    }),
+                    Ok(LogOutput::StdOut {
+                        message: " line".into(),
+                    }),
+                ]),
+                sink,
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            )
+            .await;
+            assert!(result.is_ok());
+            let received = received.lock().expect("持续日志行锁不应中毒");
+            assert_eq!(received.len(), 3);
+            assert_eq!(received[0].1, "error");
+            assert_eq!(received[1].1, "partial");
+            assert_eq!(received[2].1, "next line");
+        });
+    }
+
+    #[test]
+    fn follow_log_stream_stops_when_sink_is_closed() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("持续日志关闭测试运行时应创建");
+        runtime.block_on(async {
+            let sink: ContainerLogSink = std::sync::Arc::new(|_| ContainerLogSinkResult::Closed);
+            let result = DockerDriver::follow_container_log_stream(
+                futures::stream::iter([Ok(LogOutput::StdOut {
+                    message: "closed\n".into(),
+                })]),
+                sink,
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            );
+            let result = tokio::time::timeout(Duration::from_secs(1), result)
+                .await
+                .expect("关闭 sink 后持续日志应结束");
+            assert!(result.is_ok());
+        });
+    }
+
+    #[test]
+    fn follow_log_stream_cancels_while_waiting_for_backpressure() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("持续日志取消测试运行时应创建");
+        runtime.block_on(async {
+            let cancellation = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let cancellation_for_task = cancellation.clone();
+            let setter = tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                cancellation_for_task.store(true, Ordering::Relaxed);
+            });
+            let sink: ContainerLogSink =
+                std::sync::Arc::new(|_| ContainerLogSinkResult::Backpressured);
+            let result = DockerDriver::follow_container_log_stream(
+                futures::stream::iter([Ok(LogOutput::StdOut {
+                    message: "follow\n".into(),
+                })]),
+                sink,
+                cancellation,
+            )
+            .await;
+            setter.await.expect("持续日志取消任务应完成");
+            assert!(matches!(
+                result,
+                Err(DomainError::Container(error))
+                    if error.category == ContainerErrorCategory::Cancelled
+            ));
+        });
+    }
+
+    #[test]
     fn maps_server_permissions_without_returning_server_body() {
         let error = map_bollard_error(
             "读取 Docker 容器列表",
@@ -1735,6 +2036,100 @@ mod tests {
                 .await;
             result.expect("本机 Docker 日志回读应成功");
             cleanup.expect("专用日志容器应清理");
+        });
+    }
+
+    #[test]
+    #[ignore = "需要本机 Docker Engine 和本地 alpine 镜像，使用 cargo test -- --ignored 执行"]
+    fn follows_dedicated_container_logs_and_cleans_resource() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("持续日志集成测试运行时应创建");
+        runtime.block_on(async {
+            use bollard::models::ContainerCreateBody;
+            use bollard::query_parameters::CreateContainerOptionsBuilder;
+            use std::collections::HashMap;
+
+            let docker =
+                Docker::connect_with_local_defaults().expect("本机 Docker 持续日志测试应连接");
+            let name = format!("ramag-container-log-follow-test-{}", std::process::id());
+            let _ = docker
+                .remove_container(
+                    &name,
+                    Some(
+                        bollard::query_parameters::RemoveContainerOptionsBuilder::default()
+                            .force(true)
+                            .build(),
+                    ),
+                )
+                .await;
+            let mut labels = HashMap::new();
+            labels.insert("ramag.test-suite".into(), "container-log-follow".into());
+            docker
+                .create_container(
+                    Some(CreateContainerOptionsBuilder::default().name(&name).build()),
+                    ContainerCreateBody {
+                        image: Some("alpine:3.20".into()),
+                        cmd: Some(vec![
+                            "sh".into(),
+                            "-c".into(),
+                            "printf 'initial-line\\n'; sleep 1; printf 'follow-line\\n'".into(),
+                        ]),
+                        labels: Some(labels),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .expect("专用持续日志容器应创建");
+
+            let received = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+            let received_for_sink = received.clone();
+            let sink: ContainerLogSink = std::sync::Arc::new(move |line| {
+                received_for_sink
+                    .lock()
+                    .expect("本机持续日志行锁不应中毒")
+                    .push(line.message);
+                ContainerLogSinkResult::Accepted
+            });
+            let profile = ContainerEndpointProfile::local_docker("本机 Docker");
+            let driver = DockerDriver::new();
+            let result = async {
+                docker
+                    .start_container(&name, None)
+                    .await
+                    .map_err(|error| format!("启动持续日志容器失败: {error}"))?;
+                tokio::time::timeout(
+                    Duration::from_secs(10),
+                    driver.follow_container_logs(
+                        &profile,
+                        &name,
+                        &ContainerLogQuery::default(),
+                        sink,
+                        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    ),
+                )
+                .await
+                .map_err(|_| "持续日志回读超时".to_string())?
+                .map_err(|error| format!("持续日志回读失败: {error:?}"))?;
+                Ok::<(), String>(())
+            }
+            .await;
+            let cleanup = docker
+                .remove_container(
+                    &name,
+                    Some(
+                        bollard::query_parameters::RemoveContainerOptionsBuilder::default()
+                            .force(true)
+                            .build(),
+                    ),
+                )
+                .await;
+            result.expect("本机持续日志回读应成功");
+            cleanup.expect("专用持续日志容器应清理");
+            let received = received.lock().expect("本机持续日志行锁不应中毒");
+            assert!(received.iter().any(|line| line == "initial-line"));
+            assert!(received.iter().any(|line| line == "follow-line"));
         });
     }
 }

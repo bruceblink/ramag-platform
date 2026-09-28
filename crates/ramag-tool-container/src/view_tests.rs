@@ -6,7 +6,8 @@ use gpui_kit::{AppContext as _, Bounds, MouseButton, Pixels, TestAppContext, px,
 
 use super::{ContainerSection, ContainerView};
 use ramag_domain::entities::{
-    ContainerPage, DockerContainerLogLine, DockerContainerLogs, DockerImageSummary, DockerLogStream,
+    ContainerPage, DockerContainerLogLine, DockerContainerLogs, DockerImageSummary,
+    DockerLogStream, MAX_CONTAINER_LOG_BYTES, MAX_CONTAINER_LOG_LINES,
 };
 
 fn assert_inside(parent: Bounds<Pixels>, child: Bounds<Pixels>, label: &str) {
@@ -240,32 +241,96 @@ fn historical_logs_stay_inside_narrow_content_bounds(cx: &mut TestAppContext) {
         });
         cx.notify();
     });
-    visual_cx.simulate_resize(size(px(360.0), px(640.0)));
-    visual_cx.run_until_parked();
+    for width in [360.0, 1024.0, 1440.0] {
+        visual_cx.simulate_resize(size(px(width), px(640.0)));
+        visual_cx.run_until_parked();
 
-    let content = visual_cx
-        .debug_bounds("container-content")
-        .expect("容器内容区应渲染");
-    let panel = visual_cx
-        .debug_bounds("container-logs-panel")
-        .expect("日志面板应渲染");
-    let output = visual_cx
-        .debug_bounds("container-logs-output")
-        .expect("日志输出区应渲染");
-    let line = visual_cx
-        .debug_bounds("container-log-line-0")
-        .expect("日志行应渲染");
-    let controls = visual_cx
-        .debug_bounds("container-logs-controls")
-        .expect("日志控制区应渲染");
-    let cancel = visual_cx
-        .debug_bounds("container-logs-cancel")
-        .expect("停止读取按钮应渲染");
-    assert_inside(content, panel, "日志面板");
-    assert_inside(panel, output, "日志输出区");
-    assert_inside(output, line, "日志行");
-    assert_inside(content, controls, "日志控制区");
-    assert_inside(controls, cancel, "停止读取按钮");
+        let content = visual_cx
+            .debug_bounds("container-content")
+            .expect("容器内容区应渲染");
+        let panel = visual_cx
+            .debug_bounds("container-logs-panel")
+            .expect("日志面板应渲染");
+        let output = visual_cx
+            .debug_bounds("container-logs-output")
+            .expect("日志输出区应渲染");
+        let line = visual_cx
+            .debug_bounds("container-log-line-0")
+            .expect("日志行应渲染");
+        let controls = visual_cx
+            .debug_bounds("container-logs-controls")
+            .expect("日志控制区应渲染");
+        let cancel = visual_cx
+            .debug_bounds("container-logs-cancel")
+            .expect("停止读取按钮应渲染");
+        assert_inside(content, panel, "日志面板");
+        assert_inside(panel, output, "日志输出区");
+        assert_inside(output, line, "日志行");
+        assert_inside(content, controls, "日志控制区");
+        assert_inside(controls, cancel, "停止读取按钮");
+    }
+}
+
+#[gpui_kit::test]
+fn continuous_log_controls_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ContainerView::new(window, cx));
+        view_entity = Some(view.clone());
+        Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("容器管理视图应初始化");
+    view.update(visual_cx, |view, cx| {
+        view.section = ContainerSection::Logs;
+        view.selected_log_container = Some("container-follow".into());
+        view.logs = Some(DockerContainerLogs {
+            container_id: "container-follow".into(),
+            lines: Vec::new(),
+            bytes: 0,
+            dropped_lines: 0,
+            truncated: false,
+        });
+        cx.notify();
+    });
+
+    for width in [360.0, 1024.0, 1440.0] {
+        visual_cx.simulate_resize(size(px(width), px(640.0)));
+        visual_cx.run_until_parked();
+        let content = visual_cx
+            .debug_bounds("container-content")
+            .expect("容器内容区应渲染");
+        let controls = visual_cx
+            .debug_bounds("container-logs-controls")
+            .expect("持续读取控制区应渲染");
+        let follow = visual_cx
+            .debug_bounds("container-logs-follow")
+            .expect("持续读取按钮应渲染");
+        assert_inside(content, controls, "持续读取控制区");
+        assert_inside(controls, follow, "持续读取按钮");
+    }
+}
+
+#[test]
+fn continuous_log_window_evicts_oldest_lines_within_budgets() {
+    let mut view = ContainerView::without_service();
+    view.logs = Some(DockerContainerLogs {
+        container_id: "container-follow".into(),
+        lines: Vec::new(),
+        bytes: 0,
+        dropped_lines: 0,
+        truncated: false,
+    });
+    for index in 0..(MAX_CONTAINER_LOG_LINES + 1) {
+        view.append_follow_log_line(DockerContainerLogLine {
+            stream: DockerLogStream::Stdout,
+            message: format!("line-{index}"),
+        });
+    }
+    let logs = view.logs.as_ref().expect("持续日志窗口应存在");
+    assert_eq!(logs.lines.len(), MAX_CONTAINER_LOG_LINES);
+    assert!(logs.bytes <= MAX_CONTAINER_LOG_BYTES);
+    assert_eq!(view.logs_follow_evicted_lines, 1);
 }
 
 #[gpui_kit::test]

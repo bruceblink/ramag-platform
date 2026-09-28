@@ -310,6 +310,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不实现暂停展示、复制、导出、自动重连、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收；不把持续窗口扩展为无界日志存储。
 - 实施顺序：先提交本设计确认，再实现领域 sink、应用转发、Docker 流读取、页面控制和目标测试；本机 Docker 回读通过后独立提交，下一项再处理暂停展示或复制导出中的一个明确边界。
 
+### B-CONTAINER-001-D：Docker 日志持续读取（代码与 Docker 验证完成，2026-09-28）
+
+- 实现：新增 `ContainerLogSink` 和 `follow_container_logs` 接口；Docker 适配器使用 `follow=true` 保持日志 HTTP 流，按 stdout/stderr 分别组装跨网络分片的完整日志行。应用层沿用敏感行隐藏，页面通过容量为 128 的有界通道接收日志，并在 5,000 行、2 MiB 窗口内滚动移除最早内容。
+- 生命周期：通道满时适配器暂停读取并重试当前日志行；停止按钮、切换容器、切换页面和页面销毁设置取消标记，关闭通道或取消流读取后远端连接结束。持续读取和历史读取共用 `request_id` 隔离，迟到行不会写入新的日志页面。
+- 测试：`ramag-app` 容器服务专项 9 项通过，覆盖敏感行隐藏；`ramag-infra-container-docker` 普通测试 14 项通过、2 项既有本机 Docker 测试和 1 项持续日志 Docker 测试按设计标记忽略；`ramag-tool-container` 10 项通过，覆盖 `360x640`、`1024x768`、`1440x900` 控件边界和窗口滚动上限。
+- 本机 Docker：`cargo test --offline -p ramag-infra-container-docker follows_dedicated_container_logs_and_cleans_resource --lib -- --ignored --nocapture --test-threads=1` 通过；专用 Alpine 容器先输出 `initial-line`，延迟后输出 `follow-line`，持续连接收到两条日志，测试后没有 `ramag-container-log-follow-test` 残留。
+- 质量检查：代码提交前还需通过 `cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check`。
+- 证据边界：本切片证明 Docker 单容器的实时 tail、分片组装、回压、停止和窗口边界；它不提供 VictoriaLogs 级别的集中索引、LogSQL 查询、跨容器聚合或自动重连，也没有宣称真实 Windows 原生窗口验收。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
