@@ -45,7 +45,15 @@ fn fixture_from_env() -> Result<Option<Fixture>> {
         })?);
     }
     profile.username = std::env::var("RAMAG_TEST_SSH_USER").unwrap_or_default();
-    if let Ok(key_path) = std::env::var("RAMAG_TEST_SSH_KEY_PATH") {
+    if let Ok(password) = std::env::var("RAMAG_TEST_SSH_PASSWORD") {
+        if password.is_empty() {
+            return Err(DomainError::InvalidConfig(
+                "RAMAG_TEST_SSH_PASSWORD 不能为空".into(),
+            ));
+        }
+        profile.auth_mode = SshAuthMode::Password;
+        profile.password = password;
+    } else if let Ok(key_path) = std::env::var("RAMAG_TEST_SSH_KEY_PATH") {
         profile.auth_mode = SshAuthMode::KeyFile;
         profile.key_path = Some(key_path);
     }
@@ -60,7 +68,9 @@ async fn openssh_sftp_round_trip_is_streamed_and_cleaned() -> Result<()> {
     let Some(fixture) = fixture_from_env()? else {
         return Ok(());
     };
-    let driver = OpenSshDriver::new();
+    let driver = std::env::var_os("RAMAG_TEST_SSH_ASKPASS_EXECUTABLE")
+        .map(OpenSshDriver::with_askpass_executable)
+        .unwrap_or_default();
     let case_name = format!("case-{}", uuid::Uuid::new_v4());
     let case_directory =
         join_remote_path(&fixture.root, &case_name).map_err(DomainError::InvalidConfig)?;

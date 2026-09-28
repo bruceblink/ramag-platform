@@ -1,6 +1,7 @@
 //! OpenSSH 驱动实例与会话管理器生命周期。
 
 use super::*;
+use std::path::PathBuf;
 
 pub struct OpenSshDriver {
     pub(super) locator: OpenSshLocator,
@@ -14,7 +15,17 @@ pub struct OpenSshDriver {
 
 impl OpenSshDriver {
     pub fn new() -> Self {
-        let askpass = Arc::new(askpass::AskPassBroker::new());
+        Self::with_askpass(Arc::new(askpass::AskPassBroker::new()))
+    }
+
+    /// 为独立集成测试进程指定可处理 Ramag AskPass 协议的辅助程序。
+    pub fn with_askpass_executable(path: impl Into<PathBuf>) -> Self {
+        Self::with_askpass(Arc::new(askpass::AskPassBroker::with_executable(
+            path.into(),
+        )))
+    }
+
+    fn with_askpass(askpass: Arc<askpass::AskPassBroker>) -> Self {
         Self {
             locator: OpenSshLocator::default(),
             sessions: SessionCache::new(askpass.clone()),

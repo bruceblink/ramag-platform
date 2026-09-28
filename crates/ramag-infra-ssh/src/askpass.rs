@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::io::{self, Read as _, Write as _};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
@@ -26,12 +27,21 @@ const MAX_PROMPT_BYTES: usize = 4096;
 
 pub(crate) struct AskPassBroker {
     server: Mutex<Option<BrokerServer>>,
+    executable: Option<PathBuf>,
 }
 
 impl AskPassBroker {
     pub(crate) fn new() -> Self {
         Self {
             server: Mutex::new(None),
+            executable: None,
+        }
+    }
+
+    pub(crate) fn with_executable(executable: PathBuf) -> Self {
+        Self {
+            server: Mutex::new(None),
+            executable: Some(executable),
         }
     }
 
@@ -39,8 +49,14 @@ impl AskPassBroker {
         if profile.auth_mode != SshAuthMode::Password {
             return Ok(HashMap::new());
         }
-        let executable = std::env::current_exe()
-            .map_err(|error| DomainError::Other(format!("定位 Ramag AskPass 程序失败：{error}")))?;
+        let executable = self.executable.clone().map_or_else(
+            || {
+                std::env::current_exe().map_err(|error| {
+                    DomainError::Other(format!("定位 Ramag AskPass 程序失败：{error}"))
+                })
+            },
+            Ok,
+        )?;
         let executable = executable.to_str().ok_or_else(|| {
             DomainError::InvalidConfig("Ramag 程序路径不是有效 UTF-8，无法启用密码认证".into())
         })?;
