@@ -234,6 +234,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 验收条件：headless SSH UI、Docker OpenSSH/SFTP 集成、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 全部通过；记录镜像、端口、健康状态、启动和清理结果。Computer Use 不可用时明确保留原生窗口缺口。
 - 实施顺序：先提交本设计确认，再实现 Docker 测试脚本和 compose 配置，随后运行真实集成测试并独立提交；通过后进入 `B-SSH-001-B` 的终端/端口转发回读。
 
+### B-SSH-001-A：114 服务器 OpenSSH/SFTP 端到端验收（代码与远端验证完成，2026-09-28）
+
+- 代码：集成测试支持通过当前进程的 `RAMAG_TEST_SSH_PASSWORD` 选择密码认证，并可指定构建后的 `ramag` AskPass 辅助程序；密码只在内存中的一次性 AskPass 通道内使用，不写入命令参数、仓库或测试输出。生产驱动默认行为不变。
+- 测试服务器：使用 `10.17.17.114` 的 `csnt` 账户和 SSH/SFTP 服务，密码由既有 `CODEX_DEPLOY_SSH_PASSWORD` 系统环境变量经 `SSH_ASKPASS` 读取；测试没有输出密码，也没有访问部署目录 `/home/csnt/architecture/docker-compose-all/`。
+- 验收范围：在服务器 `/tmp` 下创建带唯一后缀的测试目录，完成连接探测、SFTP 目录创建与列表、256 KiB 上传及进度、完整预览、尾部读取、远程保存、下载回读、重命名、目录归档、归档内容核验、远端文件删除和驱动关闭；测试结束后删除该测试目录。
+- 验收结果：`cargo test --locked -p ramag-infra-ssh --test integration -- --nocapture` 在 114 服务器上 1 项通过；`cargo test --locked -p ramag-infra-ssh --lib -- --test-threads=1` 65 项通过；`cargo test --locked -p ramag-tool-ssh --lib -- --test-threads=1` 85 项通过；`cargo build --locked -p ramag-bin`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
+- 清理结果：114 上的唯一临时目录已删除；本机 SSH 测试容器、临时公钥和临时文件已清理，没有停止或修改其他本机服务。
+- 证据边界：本次证明了 SSH/SFTP 驱动对指定服务器的真实回放和原生工作区 headless 测试；终端、端口转发、JumpServer 和 Computer Use 原生窗口流程仍属于 `B-SSH-001-B` 或后续验收，不把本次结果扩展为完整 SSH 工作区交付。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
