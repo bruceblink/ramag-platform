@@ -311,6 +311,124 @@ fn continuous_log_controls_stay_inside_supported_window_widths(cx: &mut TestAppC
     }
 }
 
+#[gpui_kit::test]
+fn paused_log_controls_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ContainerView::new(window, cx));
+        view_entity = Some(view.clone());
+        Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("容器管理视图应初始化");
+    view.update(visual_cx, |view, cx| {
+        view.section = ContainerSection::Logs;
+        view.selected_log_container = Some("container-paused".into());
+        view.logs_following = true;
+        view.log_follow_paused = true;
+        view.logs = Some(DockerContainerLogs {
+            container_id: "container-paused".into(),
+            lines: Vec::new(),
+            bytes: 0,
+            dropped_lines: 0,
+            truncated: false,
+        });
+        cx.notify();
+    });
+
+    for width in [360.0, 1024.0, 1440.0] {
+        visual_cx.simulate_resize(size(px(width), px(640.0)));
+        visual_cx.run_until_parked();
+        let content = visual_cx
+            .debug_bounds("container-content")
+            .expect("容器内容区应渲染");
+        let controls = visual_cx
+            .debug_bounds("container-logs-controls")
+            .expect("暂停控制区应渲染");
+        let pause = visual_cx
+            .debug_bounds("container-logs-follow-pause")
+            .expect("恢复展示按钮应渲染");
+        let stop = visual_cx
+            .debug_bounds("container-logs-follow-stop")
+            .expect("停止持续读取按钮应渲染");
+        assert_inside(content, controls, "暂停控制区");
+        assert_inside(controls, pause, "恢复展示按钮");
+        assert_inside(controls, stop, "停止持续读取按钮");
+    }
+}
+
+#[gpui_kit::test]
+fn pause_and_resume_controls_freeze_then_flush_log_lines(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ContainerView::new(window, cx));
+        view_entity = Some(view.clone());
+        Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("容器管理视图应初始化");
+    view.update(visual_cx, |view, cx| {
+        view.section = ContainerSection::Logs;
+        view.selected_log_container = Some("container-paused".into());
+        view.logs_following = true;
+        view.log_follow_cancellation = Some(std::sync::Arc::new(
+            std::sync::atomic::AtomicBool::new(false),
+        ));
+        view.logs = Some(DockerContainerLogs {
+            container_id: "container-paused".into(),
+            lines: vec![DockerContainerLogLine {
+                stream: DockerLogStream::Stdout,
+                message: "visible".into(),
+            }],
+            bytes: 7,
+            dropped_lines: 0,
+            truncated: false,
+        });
+        cx.notify();
+    });
+    visual_cx.simulate_resize(size(px(360.0), px(640.0)));
+    visual_cx.run_until_parked();
+
+    let pause_button = visual_cx
+        .debug_bounds("container-logs-follow-pause")
+        .expect("暂停展示按钮应渲染");
+    let point = pause_button.center();
+    visual_cx.simulate_mouse_down(point, MouseButton::Left, Modifiers::default());
+    visual_cx.simulate_mouse_up(point, MouseButton::Left, Modifiers::default());
+    visual_cx.run_until_parked();
+    assert!(visual_cx.update(|_, app| view.read(app).log_follow_paused));
+
+    view.update(visual_cx, |view, cx| {
+        view.queue_follow_log_line(DockerContainerLogLine {
+            stream: DockerLogStream::Stderr,
+            message: "pending".into(),
+        });
+        cx.notify();
+    });
+    assert!(visual_cx.update(|_, app| {
+        let view = view.read(app);
+        view.logs.as_ref().is_some_and(|logs| logs.lines.len() == 1)
+            && view.pending_follow_lines.len() == 1
+    }));
+
+    let resume_button = visual_cx
+        .debug_bounds("container-logs-follow-pause")
+        .expect("恢复展示按钮应继续渲染");
+    let point = resume_button.center();
+    visual_cx.simulate_mouse_down(point, MouseButton::Left, Modifiers::default());
+    visual_cx.simulate_mouse_up(point, MouseButton::Left, Modifiers::default());
+    visual_cx.run_until_parked();
+    assert!(visual_cx.update(|_, app| {
+        let view = view.read(app);
+        !view.log_follow_paused
+            && view.pending_follow_lines.is_empty()
+            && view
+                .logs
+                .as_ref()
+                .is_some_and(|logs| logs.lines.len() == 2 && logs.lines[1].message == "pending")
+    }));
+}
+
 #[test]
 fn continuous_log_window_evicts_oldest_lines_within_budgets() {
     let mut view = ContainerView::without_service();
@@ -330,6 +448,52 @@ fn continuous_log_window_evicts_oldest_lines_within_budgets() {
     let logs = view.logs.as_ref().expect("持续日志窗口应存在");
     assert_eq!(logs.lines.len(), MAX_CONTAINER_LOG_LINES);
     assert!(logs.bytes <= MAX_CONTAINER_LOG_BYTES);
+    assert_eq!(view.logs_follow_evicted_lines, 1);
+}
+
+#[test]
+fn paused_log_window_keeps_visible_lines_until_resume_and_bounds_pending_lines() {
+    let mut view = ContainerView::without_service();
+    view.logs_following = true;
+    view.log_follow_paused = true;
+    view.logs = Some(DockerContainerLogs {
+        container_id: "container-paused".into(),
+        lines: vec![DockerContainerLogLine {
+            stream: DockerLogStream::Stdout,
+            message: "visible".into(),
+        }],
+        bytes: 7,
+        dropped_lines: 0,
+        truncated: false,
+    });
+    view.queue_follow_log_line(DockerContainerLogLine {
+        stream: DockerLogStream::Stdout,
+        message: "waiting-1".into(),
+    });
+    view.queue_follow_log_line(DockerContainerLogLine {
+        stream: DockerLogStream::Stdout,
+        message: "waiting-2".into(),
+    });
+    assert_eq!(view.logs.as_ref().expect("日志窗口应存在").lines.len(), 1);
+    assert_eq!(view.pending_follow_lines.len(), 2);
+
+    view.resume_container_log_follow();
+    let logs = view.logs.as_ref().expect("日志窗口应存在");
+    assert_eq!(logs.lines.len(), 3);
+    assert_eq!(logs.lines[1].message, "waiting-1");
+    assert_eq!(logs.lines[2].message, "waiting-2");
+    assert!(view.pending_follow_lines.is_empty());
+
+    view.log_follow_paused = true;
+    view.logs_follow_evicted_lines = 0;
+    for index in 0..(MAX_CONTAINER_LOG_LINES + 1) {
+        view.queue_follow_log_line(DockerContainerLogLine {
+            stream: DockerLogStream::Stdout,
+            message: format!("pending-{index}"),
+        });
+    }
+    assert_eq!(view.pending_follow_lines.len(), MAX_CONTAINER_LOG_LINES);
+    assert!(view.pending_follow_bytes <= MAX_CONTAINER_LOG_BYTES);
     assert_eq!(view.logs_follow_evicted_lines, 1);
 }
 

@@ -328,6 +328,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不实现查询过滤、自动滚动开关、复制、导出、自动重连、VictoriaLogs/LogSQL、跨容器聚合、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再实现页面暂停状态、待显示窗口和 headless 测试；本机 Docker 不新增写操作，代码验证通过后独立提交，下一项再处理复制或导出中的一个明确边界。
 
+### B-CONTAINER-001-E：持续日志暂停展示（代码与 headless 验证完成，2026-09-28）
+
+- 实现：持续读取工具栏新增“暂停展示”“恢复展示”和“停止持续读取”控制。暂停只冻结当前可见窗口，后台接收任务继续消费有界通道；待显示行使用独立的 `VecDeque`，按 5,000 行和 2 MiB 限制滚动移除最早内容，恢复时按接收顺序合并到可见窗口。
+- 测试：`ramag-tool-container` 13 项通过，覆盖 `360x640`、`1024x768`、`1440x900` 控件边界、暂停后的可见行保持、恢复后的顺序合并以及待显示窗口上限；`ramag-app` 283 项通过；`ramag-infra-container-docker` 普通测试 14 项通过、3 项本机 Docker 测试按设计保持忽略。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
+- 证据边界：本切片证明暂停展示不会停止 Docker 流读取，待显示内容仍有界且能按顺序恢复；没有新增本机 Docker 写操作，也不覆盖复制、导出、自动重连、VictoriaLogs/LogSQL、跨容器聚合和真实 Windows 原生窗口验收。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
