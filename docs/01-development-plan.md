@@ -285,6 +285,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
 - 证据边界：本切片完成领域、应用、Docker 适配器、headless 和本机 Docker 历史日志回读；follow、停止/恢复、复制/导出、Kubernetes Pod 日志、Docker exec、容器生命周期写操作和真实 Windows 原生窗口仍未验收。
 
+### B-CONTAINER-001-C：停止 Docker 历史日志读取（设计确认，2026-09-28）
+
+- 问题证据：历史日志读取虽然有行数和字节上限，但当前页面没有停止入口；在 Docker 流响应较慢或连接异常时，用户只能等待请求结束或切换页面，旧结果也没有独立取消标记。
+- 设计：为日志读取复用 `ContainerOperationCancellation`，应用服务保留无取消参数的兼容入口，并增加带取消标记的日志读取入口。日志流每次等待 Docker 响应前检查取消标记；页面点击“停止读取”后设置标记、递增 `request_id`、结束加载状态并丢弃迟到结果。
+- 验收条件：应用层测试确认已取消请求不会进入 Docker；Docker 适配器测试确认流读取返回 `ContainerErrorCategory::Cancelled`；headless 测试在 `360x640`、`1024x768` 和 `1440x900` 确认停止按钮位于日志工具栏内，点击后加载结束、提示保留且迟到结果不能覆盖页面；workspace 目标测试、fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不实现 follow、暂停/恢复、复制、导出、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再实现取消标记、页面停止入口和目标测试；通过后独立提交，下一项处理 follow 的持续输出边界。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
