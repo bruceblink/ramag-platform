@@ -194,8 +194,8 @@ fn render_sidebar(
                 ),
         )
         .children(render_workspace_load_status(view, cx, theme))
-        .child(render_sidebar_requests::render(view, cx, theme))
         .child(render_history(view, cx, theme))
+        .child(render_sidebar_requests::render(view, cx, theme))
         .into_any_element()
 }
 

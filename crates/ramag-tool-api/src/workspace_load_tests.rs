@@ -466,10 +466,21 @@ fn api_history_can_be_cleared_from_the_sidebar_after_confirmation(cx: &mut TestA
         ));
         cx.notify();
     });
+    visual_cx.simulate_resize(size(px(360.0), px(640.0)));
     visual_cx.run_until_parked();
+    let sidebar = visual_cx
+        .debug_bounds("api-sidebar")
+        .expect("窄窗口侧栏应渲染");
     let clear_button = visual_cx
         .debug_bounds("api-history-clear")
         .expect("有执行历史时应显示清理按钮");
+    assert!(
+        clear_button.origin.x >= sidebar.origin.x
+            && clear_button.right() <= sidebar.right()
+            && clear_button.origin.y >= sidebar.origin.y
+            && clear_button.bottom() <= sidebar.bottom(),
+        "窄窗口清理按钮应留在可见侧栏内：button={clear_button:?}, sidebar={sidebar:?}"
+    );
     assert!(
         clear_button.size.width >= px(24.0) && clear_button.size.height >= px(24.0),
         "清理按钮应有可点击尺寸：{clear_button:?}"
