@@ -117,6 +117,8 @@ pub(crate) fn apply_display_settings(cx: &mut App) {
     let settings = system_settings(cx);
     Theme::global_mut(cx).font_size = px(settings.text_size.pixels());
     Theme::set_scrollbar_mode(settings.scrollbar_visibility.mode(), cx);
+    // 字号和主题切换都要更新 Base 的副本，保持文字、滚动条与组件主题一致。
+    Theme::sync_base(cx);
 }
 
 /// 更新公共设置并异步保存最后一次选择；保存失败由偏好存储记录错误。

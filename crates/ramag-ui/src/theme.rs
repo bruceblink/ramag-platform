@@ -46,12 +46,19 @@ pub fn apply_theme(mode: Mode, cx: &mut App) {
     normalize_editor_highlight_theme(mode, cx);
     // 结果表和其它需要明确可发现性的内容区域会自行挂载滚动条；统一恢复可见轨道和滑块。
     configure_scrollbar_paint(Theme::global_mut(cx));
+    // gpui-component 的按钮读已解析令牌，Base 滚动条读独立主题副本；
+    // 修改 colors 后必须同时同步，避免出现默认白按钮和旧色滑块。
+    let theme = Theme::global_mut(cx);
+    theme.tokens = (&theme.colors).into();
     crate::system_settings::apply_display_settings(cx);
 }
 
 /// 从工作区语义色派生通用组件状态，防止上游默认主题与 Ramag 面板混色。
 /// 切换主题时重新赋值；选择态保留正文色，焦点与活动边框使用强调色。
 fn normalize_component_palette(theme: &mut Theme) {
+    theme.radius = gpui_kit::px(6.0);
+    theme.radius_lg = gpui_kit::px(8.0);
+    theme.caret = theme.foreground;
     theme.secondary_hover = theme.muted;
     theme.secondary_active = theme.list_active;
     theme.ring = theme.accent;
@@ -81,6 +88,40 @@ fn normalize_component_palette(theme: &mut Theme) {
     theme.table_active = theme.list_active;
     theme.table_active_border = theme.list_active_border;
     theme.table_row_border = theme.border.opacity(0.45);
+    normalize_button_palette(theme);
+}
+
+/// 所有通用按钮从应用语义色派生，防止默认、选中、悬停和按下状态混用上游配色。
+/// 每组同时设置背景和文字；业务视图只选择语义，不再自行指定近似颜色。
+fn normalize_button_palette(theme: &mut Theme) {
+    theme.button = theme.secondary;
+    theme.button_hover = theme.muted;
+    theme.button_active = theme.list_active;
+    theme.button_foreground = theme.foreground;
+    theme.button_primary = theme.primary;
+    theme.button_primary_hover = theme.primary_hover;
+    theme.button_primary_active = theme.primary_active;
+    theme.button_primary_foreground = theme.primary_foreground;
+    theme.button_secondary = theme.secondary;
+    theme.button_secondary_hover = theme.secondary_hover;
+    theme.button_secondary_active = theme.secondary_active;
+    theme.button_secondary_foreground = theme.secondary_foreground;
+    theme.button_danger = theme.danger;
+    theme.button_danger_hover = theme.danger_hover;
+    theme.button_danger_active = theme.danger_active;
+    theme.button_danger_foreground = theme.danger_foreground;
+    theme.button_success = theme.success;
+    theme.button_success_hover = theme.success_hover;
+    theme.button_success_active = theme.success_active;
+    theme.button_success_foreground = theme.success_foreground;
+    theme.button_warning = theme.warning;
+    theme.button_warning_hover = theme.warning_hover;
+    theme.button_warning_active = theme.warning_active;
+    theme.button_warning_foreground = theme.warning_foreground;
+    theme.button_info = theme.info;
+    theme.button_info_hover = theme.info_hover;
+    theme.button_info_active = theme.info_active;
+    theme.button_info_foreground = theme.info_foreground;
 }
 
 /// 切换浅色 / 深色主题，立即刷新全部窗口并把最终选择异步写入 Storage。
@@ -158,7 +199,7 @@ fn apply_dark_palette(theme: &mut Theme) {
     theme.primary = accent;
     theme.primary_hover = accent_hover;
     theme.primary_active = accent_active;
-    theme.primary_foreground = hsl(0.0, 0.0, 100.0);
+    theme.primary_foreground = hsl(210.0, 7.0, 11.0);
 
     theme.link = accent_hover;
     theme.link_hover = hsl(209.0, 100.0, 78.0);
@@ -178,20 +219,25 @@ fn apply_dark_palette(theme: &mut Theme) {
     theme.muted_foreground = hsl(220.0, 6.0, 60.0);
     theme.secondary_foreground = hsl(220.0, 15.0, 86.0);
 
-    theme.danger = hsl(0.0, 75.0, 55.0);
-    theme.danger_hover = hsl(0.0, 75.0, 60.0);
-    theme.danger_active = hsl(0.0, 75.0, 48.0);
-    theme.danger_foreground = hsl(0.0, 0.0, 100.0);
+    theme.danger = hsl(355.0, 65.0, 68.0);
+    theme.danger_hover = hsl(355.0, 65.0, 74.0);
+    theme.danger_active = hsl(355.0, 65.0, 62.0);
+    theme.danger_foreground = theme.background;
 
     theme.success = hsl(120.0, 50.0, 45.0);
     theme.success_hover = hsl(120.0, 50.0, 52.0);
     theme.success_active = hsl(120.0, 50.0, 38.0);
-    theme.success_foreground = hsl(0.0, 0.0, 100.0);
+    theme.success_foreground = theme.background;
+
+    theme.warning = hsl(40.0, 73.0, 61.0);
+    theme.warning_hover = hsl(40.0, 73.0, 68.0);
+    theme.warning_active = hsl(40.0, 73.0, 54.0);
+    theme.warning_foreground = theme.background;
 
     theme.info = accent;
     theme.info_hover = accent_hover;
     theme.info_active = accent_active;
-    theme.info_foreground = hsl(0.0, 0.0, 100.0);
+    theme.info_foreground = theme.background;
 
     theme.selection = accent.opacity(0.35);
 
@@ -250,6 +296,11 @@ fn apply_light_palette(theme: &mut Theme) {
     theme.success_active = hsl(120.0, 45.0, 26.0);
     theme.success_foreground = hsl(0.0, 0.0, 100.0);
 
+    theme.warning = hsl(34.0, 92.0, 32.0);
+    theme.warning_hover = hsl(34.0, 92.0, 28.0);
+    theme.warning_active = hsl(34.0, 92.0, 24.0);
+    theme.warning_foreground = hsl(0.0, 0.0, 100.0);
+
     theme.info = accent;
     theme.info_hover = accent_hover;
     theme.info_active = accent_active;
@@ -285,6 +336,10 @@ impl Opacity for Hsla {
         self
     }
 }
+
+#[cfg(test)]
+#[path = "theme_palette_tests.rs"]
+mod palette_tests;
 
 #[cfg(test)]
 mod tests {
