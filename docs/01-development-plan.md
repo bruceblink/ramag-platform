@@ -439,6 +439,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 提交：代码提交为 `b52940da feat(container): show engine capacity summary`，已推送到 `origin/main`。
 - 证据边界：本切片证明概览页可以显示 Docker Engine 的基础 CPU/内存容量；不提供 Docker `stats`、容器 CPU/内存使用量、网络吞吐、磁盘 IO、历史曲线、自动刷新、阈值告警、Kubernetes 资源指标或真实 Windows 原生窗口验收。
 
+### B-CONTAINER-001-M：单次容器资源指标快照（设计确认，2026-09-28）
+
+- 问题证据：容器详情当前显示状态、健康检查、路径、环境变量、挂载和网络数量，但用户无法在当前详情中查看容器的 CPU、内存和网络收发情况；Docker 适配器尚未向应用层暴露 `stats` 快照。
+- 设计：在容器详情操作区增加“刷新指标”，调用 Docker `stats` 的单次读取模式；详情面板展示 CPU 使用率、内存使用/限制、内存使用率、网络接收/发送字节和采样时间。字段缺失时显示“未知”，保留上一次成功指标直到新请求成功，刷新失败只显示错误。
+- 只读边界：只调用单次 `stats` 查询，不启动持续指标流，不修改容器，不创建定时器；CPU 使用率按 Docker 的前后 CPU 时间和系统时间计算，若 Docker 没有足够样本则显示“未知”。指标属于当前详情容器，不跨容器聚合。
+- 验收条件：领域/应用测试覆盖 CPU 计算、内存和网络字段、缺失字段以及刷新失败保留旧指标；Docker 适配器测试覆盖 stats 响应转换；headless 测试在 `360x640`、`1024x768` 和 `1440x900` 确认指标区域和刷新按钮位于详情面板内；工作区、只读 Docker 回放、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不实现持续指标流、历史曲线、定时刷新、阈值告警、磁盘 IO/PID 细分、跨容器聚合、VictoriaLogs/LogSQL、Kubernetes 指标、容器生命周期写操作或真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再增加领域接口、Docker 单次读取、详情刷新入口和边界测试；通过后独立提交，下一项再处理指标历史或其他明确边界。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
