@@ -116,6 +116,9 @@ pub struct ContainerView {
     resource_search_input: Option<Entity<InputState>>,
     resource_search_subscription: Option<Subscription>,
     resource_search: String,
+    logs_search_input: Option<Entity<InputState>>,
+    logs_search_subscription: Option<Subscription>,
+    logs_search: String,
     registry_endpoint_input: Option<Entity<InputState>>,
     registry_input_subscription: Option<Subscription>,
     registry_endpoint: String,
@@ -156,6 +159,7 @@ pub struct ContainerView {
 impl ContainerView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let mut view = Self::without_service();
+        view.attach_logs_search_input(window, cx);
         view.attach_resource_search_input(window, cx);
         view
     }
@@ -167,6 +171,7 @@ impl ContainerView {
     ) -> Self {
         let mut view = Self::without_service();
         view.service = Some(service);
+        view.attach_logs_search_input(_window, cx);
         view.attach_docker_endpoint_input(_window, cx);
         view.attach_resource_search_input(_window, cx);
         view.refresh(cx);
@@ -182,6 +187,7 @@ impl ContainerView {
         let mut view = Self::without_service();
         view.service = Some(service);
         view.registry_service = Some(registry_service);
+        view.attach_logs_search_input(window, cx);
         view.attach_docker_endpoint_input(window, cx);
         view.attach_resource_search_input(window, cx);
         let endpoint = cx.new(|cx| {
@@ -210,6 +216,9 @@ impl ContainerView {
             resource_search_input: None,
             resource_search_subscription: None,
             resource_search: String::new(),
+            logs_search_input: None,
+            logs_search_subscription: None,
+            logs_search: String::new(),
             registry_endpoint_input: None,
             registry_input_subscription: None,
             registry_endpoint: "https://registry.example.com".into(),
@@ -278,6 +287,21 @@ impl ContainerView {
             cx.notify();
         }));
         self.resource_search_input = Some(search);
+    }
+
+    fn attach_logs_search_input(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let search = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("筛选当前日志窗口")
+                .validate(|value, _| value.len() <= MAX_CONTAINER_QUERY_BYTES)
+        });
+        let search_for_observer = search.clone();
+        self.logs_search_subscription = Some(cx.observe(&search, move |view, _, cx| {
+            view.logs_search = search_for_observer.read(cx).value().to_string();
+            view.logs_scroll = ScrollHandle::new();
+            cx.notify();
+        }));
+        self.logs_search_input = Some(search);
     }
 
     fn refresh(&mut self, cx: &mut Context<Self>) {
@@ -536,7 +560,12 @@ impl ContainerView {
         .detach();
     }
 
-    fn open_container_logs(&mut self, container_id: String, cx: &mut Context<Self>) {
+    fn open_container_logs(
+        &mut self,
+        container_id: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(service) = self.service.clone() else {
             return;
         };
@@ -553,6 +582,10 @@ impl ContainerView {
         self.selected_log_container = Some(container_id.clone());
         self.logs = None;
         self.logs_scroll = ScrollHandle::new();
+        self.logs_search.clear();
+        if let Some(search) = &self.logs_search_input {
+            search.update(cx, |state, cx| state.set_value("", window, cx));
+        }
         self.logs_loading = true;
         self.log_cancellation = Some(cancellation.clone());
         self.logs_following = false;
@@ -1191,6 +1224,7 @@ impl ContainerView {
             content = content.child(filter);
         }
         if self.section == ContainerSection::Logs && self.selected_log_container.is_some() {
+            content = content.child(self.render_log_filter(theme, cx));
             let has_copyable_logs = self
                 .logs
                 .as_ref()
@@ -1311,6 +1345,53 @@ impl ContainerView {
             ContainerSection::Registry => self.render_registry(theme, cx),
         };
         content.child(section_content).into_any_element()
+    }
+
+    fn render_log_filter(
+        &self,
+        theme: &gpui_kit::component::theme::Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let input = self
+            .logs_search_input
+            .as_ref()
+            .map(|input| {
+                ramag_ui::cleanable_input(input, "container-log-filter-clear", false, cx)
+                    .small()
+                    .prefix(
+                        Icon::new(IconName::Search)
+                            .small()
+                            .text_color(theme.muted_foreground),
+                    )
+                    .into_any_element()
+            })
+            .unwrap_or_else(|| {
+                div()
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child("筛选当前日志窗口")
+                    .into_any_element()
+            });
+        ramag_ui::responsive_toolbar()
+            .id("container-log-filter")
+            .debug_selector(|| "container-log-filter".into())
+            .items_center()
+            .child(
+                div()
+                    .flex_none()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("日志筛选"),
+            )
+            .child(
+                div()
+                    .id("container-log-filter-input")
+                    .debug_selector(|| "container-log-filter-input".into())
+                    .flex_1()
+                    .min_w(px(180.0))
+                    .child(input),
+            )
+            .into_any_element()
     }
 
     fn render_resource_filter(
@@ -1755,10 +1836,13 @@ impl ContainerView {
             )
             .into_any_element();
         };
+        let normalized_search = normalize_log_search(&self.logs_search);
+        let matched_lines = filtered_log_line_count(logs, &normalized_search);
         let rows = logs
             .lines
             .iter()
             .enumerate()
+            .filter(|(_, line)| log_line_matches(line, &normalized_search))
             .map(|(index, line)| {
                 h_flex()
                     .id(format!("container-log-line-{index}"))
@@ -1789,9 +1873,14 @@ impl ContainerView {
             .as_deref()
             .unwrap_or(&logs.container_id);
         let summary = format!(
-            "容器 {container_id} · {} 行 · {} bytes{}{}{}{}",
+            "容器 {container_id} · {matched_lines}/{} 行匹配 · {} bytes{}{}{}{}{}",
             logs.lines.len(),
             logs.bytes,
+            if normalized_search.is_empty() {
+                String::new()
+            } else {
+                format!(" · 筛选：{}", self.logs_search.trim())
+            },
             if logs.truncated {
                 format!(" · 已丢弃 {} 行", logs.dropped_lines)
             } else {
@@ -1816,6 +1905,22 @@ impl ContainerView {
                 String::new()
             },
         );
+        let output = if rows.is_empty() {
+            div()
+                .id("container-log-filter-empty")
+                .debug_selector(|| "container-log-filter-empty".into())
+                .w_full()
+                .text_sm()
+                .text_color(theme.muted_foreground)
+                .child(if normalized_search.is_empty() {
+                    "当前没有日志"
+                } else {
+                    "没有匹配当前筛选条件的日志"
+                })
+                .into_any_element()
+        } else {
+            v_flex().gap(px(6.0)).children(rows).into_any_element()
+        };
         v_flex()
             .id("container-logs-panel")
             .debug_selector(|| "container-logs-panel".into())
@@ -1831,8 +1936,7 @@ impl ContainerView {
                     .overflow_y_scroll()
                     .track_scroll(&self.logs_scroll)
                     .vertical_scrollbar(&self.logs_scroll)
-                    .gap(px(6.0))
-                    .children(rows),
+                    .child(output),
             )
             .into_any_element()
     }
@@ -1954,8 +2058,12 @@ impl ContainerView {
                                 .label("查看日志")
                                 .debug_selector(|| "container-open-logs".into())
                                 .disabled(self.service.is_none() || self.detail_loading)
-                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                                    this.open_container_logs(container_id_for_logs.clone(), cx);
+                                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                                    this.open_container_logs(
+                                        container_id_for_logs.clone(),
+                                        window,
+                                        cx,
+                                    );
                                 })),
                         )
                         .into_any_element(),
@@ -2259,6 +2367,23 @@ fn format_container_created_at(value: Option<i64>) -> String {
         .unwrap_or_else(|| format!("Unix {value}"))
 }
 
+fn normalize_log_search(value: &str) -> String {
+    value.trim().to_lowercase()
+}
+
+fn log_line_matches(line: &DockerContainerLogLine, normalized_search: &str) -> bool {
+    normalized_search.is_empty()
+        || line.message.to_lowercase().contains(normalized_search)
+        || line.stream.label().contains(normalized_search)
+}
+
+fn filtered_log_line_count(logs: &DockerContainerLogs, normalized_search: &str) -> usize {
+    logs.lines
+        .iter()
+        .filter(|line| log_line_matches(line, normalized_search))
+        .count()
+}
+
 fn container_logs_copy_text(logs: &DockerContainerLogs) -> String {
     let mut text = String::new();
     for line in &logs.lines {
@@ -2327,3 +2452,7 @@ mod detail_tests;
 #[cfg(test)]
 #[path = "scroll_tests.rs"]
 mod scroll_tests;
+
+#[cfg(test)]
+#[path = "filter_tests.rs"]
+mod filter_tests;
