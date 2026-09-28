@@ -677,6 +677,31 @@ impl ContainerView {
         cx.notify();
     }
 
+    fn copy_container_logs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(logs) = self.logs.as_ref() else {
+            return;
+        };
+        let text = container_logs_copy_text(logs);
+        if text.is_empty() {
+            return;
+        }
+        ramag_ui::copy_text_with_notification(text, window, cx);
+    }
+
+    fn render_copy_logs_button(&self, cx: &mut Context<Self>) -> AnyElement {
+        ramag_ui::clickable_button("container-logs-copy")
+            .ghost()
+            .small()
+            .icon(IconName::Copy)
+            .label("复制日志")
+            .debug_selector(|| "container-logs-copy".into())
+            .tooltip("复制当前已保留日志")
+            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                this.copy_container_logs(window, cx);
+            }))
+            .into_any_element()
+    }
+
     fn toggle_container_log_follow_pause(&mut self, cx: &mut Context<Self>) {
         if !self.logs_following {
             return;
@@ -1063,6 +1088,10 @@ impl ContainerView {
             content = content.child(filter);
         }
         if self.section == ContainerSection::Logs && self.selected_log_container.is_some() {
+            let has_copyable_logs = self
+                .logs
+                .as_ref()
+                .is_some_and(|logs| !logs.lines.is_empty());
             let controls = if self.logs_loading {
                 Some(
                     ramag_ui::responsive_toolbar()
@@ -1086,6 +1115,9 @@ impl ContainerView {
                     ramag_ui::responsive_toolbar()
                         .id("container-logs-controls")
                         .debug_selector(|| "container-logs-controls".into())
+                        .when(has_copyable_logs, |toolbar| {
+                            toolbar.child(self.render_copy_logs_button(cx))
+                        })
                         .child(
                             ramag_ui::clickable_button("container-logs-follow-pause")
                                 .ghost()
@@ -1123,6 +1155,9 @@ impl ContainerView {
                     ramag_ui::responsive_toolbar()
                         .id("container-logs-controls")
                         .debug_selector(|| "container-logs-controls".into())
+                        .when(has_copyable_logs, |toolbar| {
+                            toolbar.child(self.render_copy_logs_button(cx))
+                        })
                         .child(
                             ramag_ui::clickable_button("container-logs-follow")
                                 .ghost()
@@ -2048,6 +2083,38 @@ fn optional_number(value: Option<usize>) -> String {
     value.map_or_else(|| "未知".into(), |value| value.to_string())
 }
 
+fn container_logs_copy_text(logs: &DockerContainerLogs) -> String {
+    let mut text = String::new();
+    for line in &logs.lines {
+        if text.len() >= MAX_CONTAINER_LOG_BYTES {
+            break;
+        }
+        let line_start = text.len();
+        if !text.is_empty() {
+            text.push('\n');
+        }
+        if !append_bounded_text(&mut text, line.stream.label(), MAX_CONTAINER_LOG_BYTES)
+            || !append_bounded_text(&mut text, ": ", MAX_CONTAINER_LOG_BYTES)
+            || !append_bounded_text(&mut text, &line.message, MAX_CONTAINER_LOG_BYTES)
+        {
+            text.truncate(line_start);
+            break;
+        }
+    }
+    text
+}
+
+fn append_bounded_text(target: &mut String, value: &str, max_bytes: usize) -> bool {
+    for character in value.chars() {
+        let next_bytes = target.len().saturating_add(character.len_utf8());
+        if next_bytes > max_bytes {
+            return false;
+        }
+        target.push(character);
+    }
+    true
+}
+
 fn format_bytes(value: Option<i64>) -> String {
     let Some(value) = value else {
         return "大小未知".into();
@@ -2064,3 +2131,7 @@ fn format_bytes(value: Option<i64>) -> String {
 #[cfg(test)]
 #[path = "view_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "copy_tests.rs"]
+mod copy_tests;

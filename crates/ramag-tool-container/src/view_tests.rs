@@ -286,8 +286,11 @@ fn continuous_log_controls_stay_inside_supported_window_widths(cx: &mut TestAppC
         view.selected_log_container = Some("container-follow".into());
         view.logs = Some(DockerContainerLogs {
             container_id: "container-follow".into(),
-            lines: Vec::new(),
-            bytes: 0,
+            lines: vec![DockerContainerLogLine {
+                stream: DockerLogStream::Stdout,
+                message: "ready".into(),
+            }],
+            bytes: 5,
             dropped_lines: 0,
             truncated: false,
         });
@@ -306,8 +309,12 @@ fn continuous_log_controls_stay_inside_supported_window_widths(cx: &mut TestAppC
         let follow = visual_cx
             .debug_bounds("container-logs-follow")
             .expect("持续读取按钮应渲染");
+        let copy = visual_cx
+            .debug_bounds("container-logs-copy")
+            .expect("复制日志按钮应渲染");
         assert_inside(content, controls, "持续读取控制区");
         assert_inside(controls, follow, "持续读取按钮");
+        assert_inside(controls, copy, "复制日志按钮");
     }
 }
 
@@ -328,8 +335,11 @@ fn paused_log_controls_stay_inside_supported_window_widths(cx: &mut TestAppConte
         view.log_follow_paused = true;
         view.logs = Some(DockerContainerLogs {
             container_id: "container-paused".into(),
-            lines: Vec::new(),
-            bytes: 0,
+            lines: vec![DockerContainerLogLine {
+                stream: DockerLogStream::Stdout,
+                message: "visible".into(),
+            }],
+            bytes: 7,
             dropped_lines: 0,
             truncated: false,
         });
@@ -351,9 +361,13 @@ fn paused_log_controls_stay_inside_supported_window_widths(cx: &mut TestAppConte
         let stop = visual_cx
             .debug_bounds("container-logs-follow-stop")
             .expect("停止持续读取按钮应渲染");
+        let copy = visual_cx
+            .debug_bounds("container-logs-copy")
+            .expect("复制日志按钮应渲染");
         assert_inside(content, controls, "暂停控制区");
         assert_inside(controls, pause, "恢复展示按钮");
         assert_inside(controls, stop, "停止持续读取按钮");
+        assert_inside(controls, copy, "复制日志按钮");
     }
 }
 
