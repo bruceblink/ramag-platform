@@ -395,6 +395,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不实现容器启动/停止/重启/删除、Docker stats 实时 CPU/内存曲线、Kubernetes Pod 状态、自动刷新定时器、VictoriaLogs/LogSQL、跨容器聚合或真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再补充详情状态文本、刷新入口和边界测试；只读 Docker 回放确认详情字段后独立提交，下一项再处理容器生命周期或资源指标中的一个明确边界。
 
+### B-CONTAINER-001-I：容器详情状态与健康信息刷新（代码与 Docker 验证完成，2026-09-28）
+
+- 实现：容器详情面板新增状态、状态说明、健康检查和 RFC3339 创建时间；`running`、`paused`、`exited`、`healthy` 等 Docker 值转换为直接可读的中文，缺失健康检查明确显示“未配置健康检查”。详情操作区新增“刷新状态”，复用当前容器 `get_container` 和 `request_id` 隔离，不增加容器写操作。
+- 测试：`ramag-tool-container` 19 项通过，覆盖状态/健康文本以及 `360x640`、`1024x768`、`1440x900` 详情面板和刷新按钮边界；`ramag-app` 283 项通过；`ramag-infra-container-docker` 普通测试 14 项通过、3 项本机 Docker 测试按设计保持忽略。
+- 本机 Docker：`cargo test --offline -p ramag-infra-container-docker reads_local_engine_without_write_operations --lib -- --ignored --nocapture --test-threads=1` 通过，真实 Engine `29.7.2` 的连接、概览、列表、分页和容器详情只读回放成功，没有创建、修改或删除本机资源。
+- 质量检查：目标测试和 `cargo fmt --all -- --check`、源码尺寸检查、`git diff --check` 通过；提交前继续执行 workspace Clippy。
+- 证据边界：本切片证明容器详情可以显示并重新读取 Docker inspect 状态；不提供 Docker stats 实时 CPU/内存曲线、自动刷新定时器、容器生命周期写操作、Kubernetes Pod 状态、VictoriaLogs/LogSQL、跨容器聚合或真实 Windows 原生窗口验收。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。

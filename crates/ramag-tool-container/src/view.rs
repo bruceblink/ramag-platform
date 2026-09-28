@@ -1866,14 +1866,7 @@ impl ContainerView {
     ) -> Option<AnyElement> {
         let detail = match &self.selected_detail {
             None => return None,
-            Some(SelectedDetail::Container(v)) => format!(
-                "容器 {}\n路径：{}\n环境变量：{} 个\n挂载：{} 个\n网络：{} 个",
-                v.summary.id,
-                v.path.as_deref().unwrap_or("未知"),
-                v.env_keys.len(),
-                v.mounts.len(),
-                v.networks.len()
-            ),
+            Some(SelectedDetail::Container(v)) => container_detail_text(v),
             Some(SelectedDetail::Image(v)) => {
                 let operation_preview = self
                     .service
@@ -1919,30 +1912,52 @@ impl ContainerView {
                     .map_or_else(|| "未知".into(), |count| count.to_string())
             ),
         };
-        let log_action = match &self.selected_detail {
+        let detail_actions = match &self.selected_detail {
             Some(SelectedDetail::Container(value)) => {
-                let container_id = value.summary.id.clone();
+                let container_id_for_logs = value.summary.id.clone();
+                let container_id_for_refresh = value.summary.id.clone();
                 Some(
-                    ramag_ui::clickable_button("container-open-logs")
-                        .ghost()
-                        .small()
-                        .icon(ramag_ui::icons::scroll_text())
-                        .label("查看日志")
-                        .disabled(self.service.is_none() || self.detail_loading)
-                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            this.open_container_logs(container_id.clone(), cx);
-                        }))
+                    ramag_ui::responsive_toolbar()
+                        .id("container-detail-actions")
+                        .debug_selector(|| "container-detail-actions".into())
+                        .child(
+                            ramag_ui::clickable_button("container-detail-refresh")
+                                .ghost()
+                                .small()
+                                .icon(ramag_ui::icons::refresh_cw())
+                                .label("刷新状态")
+                                .debug_selector(|| "container-detail-refresh".into())
+                                .tooltip("重新读取容器状态和健康检查")
+                                .disabled(self.service.is_none() || self.detail_loading)
+                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                    this.load_detail(container_id_for_refresh.clone(), cx);
+                                })),
+                        )
+                        .child(
+                            ramag_ui::clickable_button("container-open-logs")
+                                .ghost()
+                                .small()
+                                .icon(ramag_ui::icons::scroll_text())
+                                .label("查看日志")
+                                .debug_selector(|| "container-open-logs".into())
+                                .disabled(self.service.is_none() || self.detail_loading)
+                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                    this.open_container_logs(container_id_for_logs.clone(), cx);
+                                })),
+                        )
                         .into_any_element(),
                 )
             }
             _ => None,
         };
         let mut panel = v_flex()
+            .id("container-detail-panel")
+            .debug_selector(|| "container-detail-panel".into())
             .w_full()
             .gap(px(8.0))
             .child(info_panel("详情", detail, theme));
-        if let Some(log_action) = log_action {
-            panel = panel.child(ramag_ui::responsive_toolbar().child(log_action));
+        if let Some(detail_actions) = detail_actions {
+            panel = panel.child(detail_actions);
         }
         Some(panel.into_any_element())
     }
@@ -2179,6 +2194,58 @@ fn optional_number(value: Option<usize>) -> String {
     value.map_or_else(|| "未知".into(), |value| value.to_string())
 }
 
+fn container_detail_text(detail: &DockerContainerDetail) -> String {
+    let summary = &detail.summary;
+    format!(
+        "容器 {}\n状态：{}\n状态说明：{}\n健康检查：{}\n创建时间：{}\n路径：{}\n环境变量：{} 个\n挂载：{} 个\n网络：{} 个",
+        summary.id,
+        container_state_label(summary.state.as_deref()),
+        summary.status.as_deref().unwrap_or("未知"),
+        container_health_label(summary.health.as_deref()),
+        format_container_created_at(summary.created),
+        detail.path.as_deref().unwrap_or("未知"),
+        detail.env_keys.len(),
+        detail.mounts.len(),
+        detail.networks.len()
+    )
+}
+
+fn container_state_label(value: Option<&str>) -> String {
+    let Some(value) = value else {
+        return "未知".into();
+    };
+    match value.to_ascii_lowercase().as_str() {
+        "created" => "已创建".into(),
+        "running" => "运行中".into(),
+        "paused" => "已暂停".into(),
+        "restarting" => "重启中".into(),
+        "exited" => "已退出".into(),
+        "dead" => "已失效".into(),
+        _ => value.to_owned(),
+    }
+}
+
+fn container_health_label(value: Option<&str>) -> String {
+    let Some(value) = value else {
+        return "未配置健康检查".into();
+    };
+    match value.to_ascii_lowercase().as_str() {
+        "starting" => "启动检查中".into(),
+        "healthy" => "健康".into(),
+        "unhealthy" => "不健康".into(),
+        _ => value.to_owned(),
+    }
+}
+
+fn format_container_created_at(value: Option<i64>) -> String {
+    let Some(value) = value else {
+        return "未知".into();
+    };
+    chrono::DateTime::from_timestamp(value, 0)
+        .map(|timestamp| timestamp.to_rfc3339())
+        .unwrap_or_else(|| format!("Unix {value}"))
+}
+
 fn container_logs_copy_text(logs: &DockerContainerLogs) -> String {
     let mut text = String::new();
     for line in &logs.lines {
@@ -2239,3 +2306,7 @@ mod copy_tests;
 #[cfg(test)]
 #[path = "export_tests.rs"]
 mod export_tests;
+
+#[cfg(test)]
+#[path = "detail_tests.rs"]
+mod detail_tests;

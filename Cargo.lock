@@ -8960,6 +8960,7 @@ name = "ramag-tool-container"
 version = "0.3.0"
 dependencies = [
  "async-channel 2.5.0",
+ "chrono",
  "gpui-kit",
  "ramag-app",
  "ramag-domain",

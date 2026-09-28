@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 async-channel = { workspace = true }
+chrono = { workspace = true }
 ramag-app = { workspace = true }
 ramag-domain = { workspace = true }
 ramag-ui = { workspace = true }
