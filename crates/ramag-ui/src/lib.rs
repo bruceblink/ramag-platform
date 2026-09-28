@@ -11,6 +11,7 @@ pub mod database_result_settings;
 pub mod database_search;
 mod dialog_layout;
 pub mod editor_workspace;
+mod filter_field;
 pub mod home_view;
 pub mod icons;
 pub mod markdown;
@@ -66,6 +67,7 @@ pub use editor_workspace::{
     EditorDraftPref, EditorWorkspacePref, MAX_EDITOR_DRAFT_BYTES, MAX_EDITOR_TABS,
     MAX_EDITOR_WORKSPACE_PREF_BYTES, MAX_EDITOR_WORKSPACE_TEXT_BYTES, can_open_editor_tab,
 };
+pub use filter_field::filter_field;
 pub use home_view::{HomeEvent, HomeView};
 pub use markdown::{markdown_preview, markdown_preview_at_path};
 pub use mutation_gate::{AsyncMutationGate, MutationToken};
@@ -244,25 +246,28 @@ pub fn cleanable_editor(
     clear_id: impl Into<gpui_kit::SharedString>,
     disabled: bool,
     cx: &gpui_kit::App,
-) -> gpui_kit::Div {
+) -> gpui_kit::Stateful<gpui_kit::Div> {
     use gpui_kit::component::input::Editor;
     use gpui_kit::component::{
-        ActiveTheme as _, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
+        ActiveTheme as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
     };
     use gpui_kit::prelude::FluentBuilder as _;
-    use gpui_kit::{InteractiveElement as _, ParentElement as _, Styled as _};
+    use gpui_kit::{Focusable as _, InteractiveElement as _, ParentElement as _, Styled as _};
 
     let clear_id = clear_id.into();
     let clear_selector = clear_id.to_string();
     let state_for_clear = state.clone();
-    h_flex()
-        .w_full()
-        .min_w_0()
+    filter_field(format!("{clear_id}-frame"), &state.focus_handle(cx), cx)
         .child(
             Editor::new(state)
                 .flex_1()
                 .min_w_0()
+                .h(cx.theme().font_size * 1.25 + gpui_kit::px(16.0))
+                .font_family(cx.theme().font_family.clone())
+                .text_sm()
+                .line_height(gpui_kit::rems(1.25))
                 .disabled(disabled)
+                .appearance(false)
                 .bordered(false),
         )
         .when(!disabled && !state.read(cx).value().is_empty(), |this| {

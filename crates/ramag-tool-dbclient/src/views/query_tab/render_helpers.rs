@@ -509,6 +509,7 @@ pub(super) fn row_search_input_suffix(
         })
         .child(
             ramag_ui::clickable_button("sql-row-filter-clear")
+                .debug_selector(|| "sql-row-filter-clear".into())
                 .icon(IconName::CircleX)
                 .ghost()
                 .xsmall()

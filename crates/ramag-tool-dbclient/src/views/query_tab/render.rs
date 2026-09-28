@@ -9,8 +9,8 @@ use gpui_kit::component::{
     v_flex,
 };
 use gpui_kit::{
-    AppContext as _, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled,
-    Window, div, prelude::*, px,
+    AppContext as _, ClickEvent, Context, Entity, Focusable as _, IntoElement, ParentElement,
+    Render, Styled, Window, div, prelude::*, px,
 };
 use ramag_domain::entities::MAX_SQL_QUERY_BYTES;
 
@@ -290,9 +290,11 @@ impl Render for QueryTab {
                             .flex_1()
                             // 保留两组筛选输入的可用宽度；空间不足时让后续操作换到下一行。
                             .min_w(px(220.0))
+                            .items_center()
                             .gap_2()
                             .child(
                                 div()
+                                    .debug_selector(|| "sql-column-filter-field".into())
                                     .flex_1()
                                     .min_w_0()
                                     .on_action(
@@ -331,16 +333,16 @@ impl Render for QueryTab {
                                     ),
                             )
                             .child(
-                                div()
-                                    .flex_none()
-                                    .w(px(1.0))
-                                    .h(px(20.0))
-                                    .bg(border),
-                            )
-                            .child(
                                 div().flex_1().min_w_0().child(
+                                    ramag_ui::filter_field(
+                                        "sql-row-filter-field",
+                                        &row_input.focus_handle(cx),
+                                        cx,
+                                    ).child(
                                     Input::new(&row_input)
-                                        .small()
+                                        .h_full()
+                                        .min_w_0()
+                                        .appearance(false)
                                         .bordered(false)
                                         .focus_bordered(false)
                                         .prefix(row_filter_prefix(
@@ -359,7 +361,7 @@ impl Render for QueryTab {
                                                 danger,
                                             ))
                                         }),
-                                 ),
+                                 )),
                              )
                     })
                     .child(order_by_menu(

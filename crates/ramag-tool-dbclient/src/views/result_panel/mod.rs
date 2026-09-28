@@ -177,6 +177,9 @@ impl ResultPanel {
         let column_filter_input = cx.new(|cx| {
             let mut state = EditorState::new(window, cx)
                 .line_number(false)
+                .soft_wrap(false)
+                .searchable(false)
+                .scroll_beyond_last_line(Some(0))
                 .placeholder("过滤列（逗号分隔多列名）");
             state.lsp_mut().completion_provider = Some(provider);
             state
