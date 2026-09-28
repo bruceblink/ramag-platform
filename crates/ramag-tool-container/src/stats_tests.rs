@@ -3,7 +3,10 @@ use gpui_kit::{AppContext as _, Bounds, Pixels, TestAppContext, px, size};
 use ramag_domain::entities::{DockerContainerDetail, DockerContainerStats, DockerContainerSummary};
 use ramag_domain::error::{ContainerError, ContainerErrorCategory, DomainError};
 
-use super::{ContainerSection, ContainerView, SelectedDetail, container_stats_text};
+use super::{
+    ContainerSection, ContainerView, MAX_CONTAINER_STATS_HISTORY, SelectedDetail,
+    container_stats_history_text, container_stats_text,
+};
 
 fn assert_inside(parent: Bounds<Pixels>, child: Bounds<Pixels>, label: &str) {
     assert!(
@@ -89,6 +92,34 @@ fn failed_stats_refresh_keeps_the_previous_snapshot() {
     assert!(view.error.is_some());
 }
 
+#[test]
+fn successful_stats_refreshes_keep_ordered_bounded_history() {
+    let mut view = ContainerView::without_service();
+    for index in 0..(MAX_CONTAINER_STATS_HISTORY + 3) {
+        let mut stats = test_stats();
+        stats.read_at = Some(format!("sample-{index}"));
+        view.apply_container_stats_result(Ok(stats));
+    }
+    assert_eq!(
+        view.container_stats_history.len(),
+        MAX_CONTAINER_STATS_HISTORY
+    );
+    assert_eq!(
+        view.container_stats_history
+            .front()
+            .and_then(|stats| stats.read_at.as_deref()),
+        Some("sample-3")
+    );
+    assert_eq!(
+        view.container_stats_history
+            .back()
+            .and_then(|stats| stats.read_at.as_deref()),
+        Some("sample-22")
+    );
+    let text = container_stats_history_text(&view.container_stats_history);
+    assert!(text.starts_with("最近 20 次成功刷新\n1 · sample-22"));
+}
+
 #[gpui_kit::test]
 fn container_stats_panel_stays_inside_supported_window_widths(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
@@ -103,6 +134,7 @@ fn container_stats_panel_stays_inside_supported_window_widths(cx: &mut TestAppCo
         view.section = ContainerSection::Containers;
         view.selected_detail = Some(SelectedDetail::Container(test_detail()));
         view.container_stats = Some(test_stats());
+        view.container_stats_history.push_back(test_stats());
         cx.notify();
     });
 
@@ -121,6 +153,9 @@ fn container_stats_panel_stays_inside_supported_window_widths(cx: &mut TestAppCo
         let stats = visual_cx
             .debug_bounds("container-detail-stats-panel")
             .expect("容器资源指标面板应渲染");
+        let history = visual_cx
+            .debug_bounds("container-detail-stats-history-panel")
+            .expect("容器指标历史面板应渲染");
         let refresh = visual_cx
             .debug_bounds("container-detail-stats")
             .expect("刷新指标按钮应渲染");
@@ -128,5 +163,6 @@ fn container_stats_panel_stays_inside_supported_window_widths(cx: &mut TestAppCo
         assert_inside(detail, actions, "容器详情操作区");
         assert_inside(actions, refresh, "刷新指标按钮");
         assert_inside(detail, stats, "容器资源指标面板");
+        assert_inside(detail, history, "容器指标历史面板");
     }
 }

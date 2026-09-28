@@ -38,6 +38,7 @@ use ramag_domain::{
 
 const RESOURCE_PAGE_SIZE: usize = 100;
 const CONTAINER_LOG_CHANNEL_CAPACITY: usize = 128;
+const MAX_CONTAINER_STATS_HISTORY: usize = 20;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ContainerSection {
@@ -152,6 +153,7 @@ pub struct ContainerView {
     selected_log_container: Option<String>,
     selected_detail: Option<SelectedDetail>,
     container_stats: Option<DockerContainerStats>,
+    container_stats_history: VecDeque<DockerContainerStats>,
     stats_loading: bool,
     stats_cancellation: Option<Arc<AtomicBool>>,
     loading: bool,
@@ -255,6 +257,7 @@ impl ContainerView {
             selected_log_container: None,
             selected_detail: None,
             container_stats: None,
+            container_stats_history: VecDeque::new(),
             stats_loading: false,
             stats_cancellation: None,
             loading: false,
@@ -530,6 +533,7 @@ impl ContainerView {
             )
         {
             self.container_stats = None;
+            self.container_stats_history.clear();
             if let Some(cancellation) = self.stats_cancellation.take() {
                 cancellation.store(true, Ordering::Relaxed);
             }
@@ -618,7 +622,11 @@ impl ContainerView {
         self.stats_cancellation = None;
         match result {
             Ok(stats) => {
-                self.container_stats = Some(stats);
+                self.container_stats = Some(stats.clone());
+                self.container_stats_history.push_back(stats);
+                while self.container_stats_history.len() > MAX_CONTAINER_STATS_HISTORY {
+                    self.container_stats_history.pop_front();
+                }
                 self.error = None;
             }
             Err(error) => {
@@ -1050,6 +1058,7 @@ impl ContainerView {
         self.selected_log_container = None;
         self.selected_detail = None;
         self.container_stats = None;
+        self.container_stats_history.clear();
         self.stats_loading = false;
         if let Some(cancellation) = self.stats_cancellation.take() {
             cancellation.store(true, Ordering::Relaxed);
@@ -2206,6 +2215,18 @@ impl ContainerView {
                     .child(info_panel("资源指标", container_stats_text(stats), theme)),
             );
         }
+        if !self.container_stats_history.is_empty() {
+            panel = panel.child(
+                div()
+                    .id("container-detail-stats-history-panel")
+                    .debug_selector(|| "container-detail-stats-history-panel".into())
+                    .child(info_panel(
+                        "最近指标",
+                        container_stats_history_text(&self.container_stats_history),
+                        theme,
+                    )),
+            );
+        }
         Some(panel.into_any_element())
     }
 }
@@ -2472,6 +2493,23 @@ fn container_stats_text(stats: &DockerContainerStats) -> String {
         format_capacity_bytes(stats.network_rx_bytes),
         format_capacity_bytes(stats.network_tx_bytes)
     )
+}
+
+fn container_stats_history_text(history: &VecDeque<DockerContainerStats>) -> String {
+    let mut text = format!("最近 {} 次成功刷新", history.len());
+    for (index, stats) in history.iter().rev().enumerate() {
+        text.push_str(&format!(
+            "\n{} · {} · CPU {} · 内存 {} / {} · 网络接收 {} · 网络发送 {}",
+            index + 1,
+            stats.read_at.as_deref().unwrap_or("未知时间"),
+            format_percent(stats.cpu_percent),
+            format_capacity_bytes(stats.memory_usage_bytes),
+            format_capacity_bytes(stats.memory_limit_bytes),
+            format_capacity_bytes(stats.network_rx_bytes),
+            format_capacity_bytes(stats.network_tx_bytes)
+        ));
+    }
+    text
 }
 
 fn container_detail_text(detail: &DockerContainerDetail) -> String {
