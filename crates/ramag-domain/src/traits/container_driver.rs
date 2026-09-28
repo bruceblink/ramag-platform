@@ -6,10 +6,10 @@ use async_trait::async_trait;
 
 use crate::entities::{
     ContainerEndpointProfile, ContainerImageOperationRequest, ContainerImageOperationResult,
-    ContainerListQuery, ContainerPage, ContainerRegistryCredential, DockerConnectionInfo,
-    DockerContainerDetail, DockerContainerSummary, DockerImageDetail, DockerImageSummary,
-    DockerNetworkDetail, DockerNetworkSummary, DockerOverview, DockerVolumeDetail,
-    DockerVolumeSummary,
+    ContainerListQuery, ContainerLogQuery, ContainerPage, ContainerRegistryCredential,
+    DockerConnectionInfo, DockerContainerDetail, DockerContainerLogs, DockerContainerSummary,
+    DockerImageDetail, DockerImageSummary, DockerNetworkDetail, DockerNetworkSummary,
+    DockerOverview, DockerVolumeDetail, DockerVolumeSummary,
 };
 use crate::error::Result;
 
@@ -51,6 +51,17 @@ pub trait ContainerDriver: Send + Sync {
     ) -> Result<DockerContainerDetail> {
         Err(crate::error::DomainError::NotImplemented(
             "container_get_container".into(),
+        ))
+    }
+
+    async fn container_logs(
+        &self,
+        _profile: &ContainerEndpointProfile,
+        _container_id: &str,
+        _query: &ContainerLogQuery,
+    ) -> Result<DockerContainerLogs> {
+        Err(crate::error::DomainError::NotImplemented(
+            "container_logs".into(),
         ))
     }
 

@@ -277,6 +277,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不实现 follow、暂停/恢复、复制、导出、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再实现领域/应用/适配器日志接口和历史日志页面；本机 Docker 回读通过后独立提交，下一项再处理日志跟随和取消。
 
+### B-CONTAINER-001-B：Docker 历史日志读取（代码与 Docker 验证完成，2026-09-28）
+
+- 实现：新增 `ContainerLogQuery`、`DockerContainerLogs` 和 `ContainerDriver::container_logs`；Docker 适配器读取 stdout/stderr，按 5,000 行和 2 MiB 保留结果，并返回丢弃行数和截断状态。容器详情新增“查看日志”入口和独立日志页面，应用层隐藏密码、Token、Authorization、Bearer 和私钥样式日志行。
+- 测试：`ramag-domain` 全量 234 项通过，`ramag-app` 全量 282 项通过，`ramag-infra-container-docker` 普通测试 8 项通过、2 项保持忽略，`ramag-tool-container` 8 项通过；headless 覆盖日志导航、日志输出和 `360x640` 内容边界。
+- 本机 Docker：`cargo test --locked -p ramag-infra-container-docker reads_dedicated_container_logs_and_cleans_resource --lib -- --ignored --nocapture --test-threads=1` 通过；测试使用本地 `alpine:3.20`、`ramag.test-suite=container-logs` 标签读取 stdout/stderr，结束后专用容器已删除，现有本机服务未改变。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
+- 证据边界：本切片完成领域、应用、Docker 适配器、headless 和本机 Docker 历史日志回读；follow、停止/恢复、复制/导出、Kubernetes Pod 日志、Docker exec、容器生命周期写操作和真实 Windows 原生窗口仍未验收。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。

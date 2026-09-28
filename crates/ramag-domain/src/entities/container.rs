@@ -23,6 +23,11 @@ pub const MAX_CONTAINER_MOUNTS: usize = 512;
 pub const MAX_CONTAINER_NETWORKS: usize = 512;
 pub const MAX_CONTAINER_REPOSITORY_REFERENCES: usize = 2_048;
 pub const MAX_CONTAINER_IMAGE_REFERENCE_BYTES: usize = 4 * 1024;
+pub const DEFAULT_CONTAINER_LOG_TAIL: usize = 200;
+pub const MAX_CONTAINER_LOG_TAIL: usize = 5_000;
+pub const MAX_CONTAINER_LOG_LINES: usize = 5_000;
+pub const MAX_CONTAINER_LOG_BYTES: usize = 2 * 1024 * 1024;
+pub const MAX_CONTAINER_LOG_UNIX_SECONDS: i64 = i32::MAX as i64;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ContainerEndpointId(pub Uuid);
@@ -362,6 +367,91 @@ pub struct ContainerPage<T> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContainerLogQuery {
+    #[serde(default = "default_container_log_tail")]
+    pub tail: usize,
+    #[serde(default)]
+    pub since: Option<i64>,
+    #[serde(default)]
+    pub until: Option<i64>,
+    #[serde(default)]
+    pub timestamps: bool,
+}
+
+const fn default_container_log_tail() -> usize {
+    DEFAULT_CONTAINER_LOG_TAIL
+}
+
+impl Default for ContainerLogQuery {
+    fn default() -> Self {
+        Self {
+            tail: default_container_log_tail(),
+            since: None,
+            until: None,
+            timestamps: false,
+        }
+    }
+}
+
+impl ContainerLogQuery {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.tail == 0 || self.tail > MAX_CONTAINER_LOG_TAIL {
+            return Err(format!(
+                "容器日志行数必须在 1 到 {MAX_CONTAINER_LOG_TAIL} 之间"
+            ));
+        }
+        for (field, value) in [("日志开始时间", self.since), ("日志结束时间", self.until)]
+        {
+            if value.is_some_and(|value| !(0..=MAX_CONTAINER_LOG_UNIX_SECONDS).contains(&value)) {
+                return Err(format!("{field}超出 Unix 时间范围"));
+            }
+        }
+        if self
+            .since
+            .zip(self.until)
+            .is_some_and(|(since, until)| since > until)
+        {
+            return Err("容器日志开始时间不能晚于结束时间".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DockerLogStream {
+    Stdout,
+    Stderr,
+    Stdin,
+    Console,
+}
+
+impl DockerLogStream {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Stdout => "stdout",
+            Self::Stderr => "stderr",
+            Self::Stdin => "stdin",
+            Self::Console => "console",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DockerContainerLogLine {
+    pub stream: DockerLogStream,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DockerContainerLogs {
+    pub container_id: String,
+    pub lines: Vec<DockerContainerLogLine>,
+    pub bytes: usize,
+    pub dropped_lines: usize,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DockerEngineVersion {
     pub api_version: Option<String>,
     pub min_api_version: Option<String>,
@@ -648,5 +738,31 @@ mod tests {
         assert!(query.validate().is_ok());
         assert_eq!(query.normalized_search().as_deref(), Some("nginx"));
         assert!(ContainerListQuery { page: 0, ..query }.validate().is_err());
+    }
+
+    #[test]
+    fn log_query_defaults_and_rejects_invalid_time_ranges() {
+        let query = ContainerLogQuery::default();
+        assert_eq!(query.tail, DEFAULT_CONTAINER_LOG_TAIL);
+        assert!(query.validate().is_ok());
+
+        assert!(ContainerLogQuery { tail: 0, ..query }.validate().is_err());
+        assert!(
+            ContainerLogQuery {
+                since: Some(20),
+                until: Some(10),
+                ..query
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            ContainerLogQuery {
+                since: Some(-1),
+                ..query
+            }
+            .validate()
+            .is_err()
+        );
     }
 }

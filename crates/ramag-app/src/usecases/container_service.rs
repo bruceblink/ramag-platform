@@ -4,10 +4,10 @@ use std::sync::{Arc, atomic::AtomicBool};
 
 use ramag_domain::entities::{
     ContainerEndpointProfile, ContainerImageOperationPreview, ContainerImageOperationRequest,
-    ContainerImageOperationResult, ContainerListQuery, ContainerPage, ContainerRegistryCredential,
-    DockerConnectionInfo, DockerContainerDetail, DockerContainerSummary, DockerImageDetail,
-    DockerImageSummary, DockerNetworkDetail, DockerNetworkSummary, DockerOverview,
-    DockerVolumeDetail, DockerVolumeSummary,
+    ContainerImageOperationResult, ContainerListQuery, ContainerLogQuery, ContainerPage,
+    ContainerRegistryCredential, DockerConnectionInfo, DockerContainerDetail, DockerContainerLogs,
+    DockerContainerSummary, DockerImageDetail, DockerImageSummary, DockerNetworkDetail,
+    DockerNetworkSummary, DockerOverview, DockerVolumeDetail, DockerVolumeSummary,
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 use ramag_domain::traits::{ContainerDriver, ContainerOperationCancellation};
@@ -59,6 +59,21 @@ impl ContainerService {
     ) -> Result<DockerContainerDetail> {
         Self::ensure_docker(profile)?;
         self.driver.get_container(profile, container_id).await
+    }
+
+    pub async fn container_logs(
+        &self,
+        profile: &ContainerEndpointProfile,
+        container_id: &str,
+        query: &ContainerLogQuery,
+    ) -> Result<DockerContainerLogs> {
+        Self::ensure_docker(profile)?;
+        query.validate().map_err(DomainError::InvalidConfig)?;
+        let logs = self
+            .driver
+            .container_logs(profile, container_id, query)
+            .await?;
+        Ok(redact_container_logs(logs))
     }
 
     pub async fn list_images(
@@ -184,13 +199,48 @@ pub fn unsupported_kubernetes(profile: &ContainerEndpointProfile) -> Result<()> 
     ))
 }
 
+fn redact_container_logs(mut logs: DockerContainerLogs) -> DockerContainerLogs {
+    let mut changed = false;
+    for line in &mut logs.lines {
+        if contains_sensitive_log_marker(&line.message) {
+            line.message = "[日志行包含敏感信息，已隐藏]".into();
+            changed = true;
+        }
+    }
+    if changed {
+        logs.bytes = logs.lines.iter().map(|line| line.message.len()).sum();
+    }
+    logs
+}
+
+fn contains_sensitive_log_marker(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    [
+        "password=",
+        "password:",
+        "\"password\"",
+        "passwd=",
+        "passwd:",
+        "token=",
+        "token:",
+        "\"token\"",
+        "access_token",
+        "client_secret",
+        "authorization",
+        "bearer ",
+        "-----begin ",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use async_trait::async_trait;
     use ramag_domain::entities::{
-        ContainerListQuery, ContainerPage, ContainerPlatform, DockerContainerSummary,
-        DockerEngineVersion, DockerResourceCounts,
+        ContainerListQuery, ContainerPage, ContainerPlatform, DockerContainerLogLine,
+        DockerContainerSummary, DockerEngineVersion, DockerLogStream, DockerResourceCounts,
     };
     use ramag_domain::error::{ContainerError, ContainerErrorCategory};
     use std::sync::atomic::Ordering;
@@ -202,6 +252,8 @@ mod tests {
     struct QueryCaptureDriver {
         captured: Arc<std::sync::Mutex<Option<ContainerListQuery>>>,
     }
+
+    struct LogCaptureDriver;
 
     #[async_trait]
     impl ContainerDriver for MockContainerDriver {
@@ -269,6 +321,34 @@ mod tests {
     }
 
     #[async_trait]
+    impl ContainerDriver for LogCaptureDriver {
+        async fn container_logs(
+            &self,
+            _profile: &ContainerEndpointProfile,
+            _container_id: &str,
+            query: &ContainerLogQuery,
+        ) -> Result<DockerContainerLogs> {
+            assert_eq!(query.tail, 20);
+            Ok(DockerContainerLogs {
+                container_id: "container-1".into(),
+                lines: vec![
+                    DockerContainerLogLine {
+                        stream: DockerLogStream::Stdout,
+                        message: "server ready".into(),
+                    },
+                    DockerContainerLogLine {
+                        stream: DockerLogStream::Stderr,
+                        message: "password=super-secret".into(),
+                    },
+                ],
+                bytes: 31,
+                dropped_lines: 0,
+                truncated: false,
+            })
+        }
+    }
+
+    #[async_trait]
     impl ContainerDriver for CancellationContainerDriver {
         async fn execute_image_operation(
             &self,
@@ -320,6 +400,28 @@ mod tests {
         assert_eq!(captured.page, 2);
         assert_eq!(captured.page_size, 25);
         assert_eq!(captured.search.as_deref(), Some("  Web API  "));
+    }
+
+    #[test]
+    fn container_logs_validate_query_and_hide_sensitive_lines() {
+        let service = ContainerService::new(Arc::new(LogCaptureDriver));
+        let profile = ContainerEndpointProfile::new_docker("test", "unix:///var/run/docker.sock");
+        let query = ContainerLogQuery {
+            tail: 20,
+            ..Default::default()
+        };
+
+        let logs = smol::block_on(service.container_logs(&profile, "container-1", &query))
+            .expect("容器日志请求应成功");
+        assert_eq!(logs.lines[0].message, "server ready");
+        assert_eq!(logs.lines[1].message, "[日志行包含敏感信息，已隐藏]");
+        assert!(!logs.lines[1].message.contains("super-secret"));
+
+        let invalid = ContainerLogQuery { tail: 0, ..query };
+        assert!(matches!(
+            smol::block_on(service.container_logs(&profile, "container-1", &invalid)),
+            Err(DomainError::InvalidConfig(_))
+        ));
     }
 
     #[test]

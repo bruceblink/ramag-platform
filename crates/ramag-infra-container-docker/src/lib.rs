@@ -11,10 +11,11 @@ use async_trait::async_trait;
 use bollard::{
     Docker,
     auth::DockerCredentials,
+    container::LogOutput,
     errors::Error as BollardError,
     query_parameters::{
-        CreateImageOptionsBuilder, ListContainersOptionsBuilder, PushImageOptionsBuilder,
-        RemoveImageOptionsBuilder, TagImageOptionsBuilder,
+        CreateImageOptionsBuilder, ListContainersOptionsBuilder, LogsOptionsBuilder,
+        PushImageOptionsBuilder, RemoveImageOptionsBuilder, TagImageOptionsBuilder,
     },
 };
 use futures::StreamExt;
@@ -22,13 +23,14 @@ use ramag_domain::{
     ContainerDriver, ContainerOperationCancellation,
     entities::{
         ContainerEndpointProfile, ContainerImageOperationKind, ContainerImageOperationRequest,
-        ContainerImageOperationResult, ContainerListQuery, ContainerPage,
+        ContainerImageOperationResult, ContainerListQuery, ContainerLogQuery, ContainerPage,
         ContainerRegistryCredential, DockerConnectionInfo, DockerContainerDetail,
-        DockerContainerPort, DockerContainerSummary, DockerEngineVersion, DockerImageDetail,
-        DockerImageSummary, DockerLabel, DockerMountSummary, DockerNetworkAttachment,
-        DockerNetworkDetail, DockerNetworkSubnet, DockerNetworkSummary, DockerOverview,
-        DockerResourceCounts, DockerVolumeDetail, DockerVolumeSummary, MAX_CONTAINER_LABELS,
-        MAX_CONTAINER_MOUNTS, MAX_CONTAINER_NETWORKS, MAX_CONTAINER_PORTS,
+        DockerContainerLogLine, DockerContainerLogs, DockerContainerPort, DockerContainerSummary,
+        DockerEngineVersion, DockerImageDetail, DockerImageSummary, DockerLabel, DockerLogStream,
+        DockerMountSummary, DockerNetworkAttachment, DockerNetworkDetail, DockerNetworkSubnet,
+        DockerNetworkSummary, DockerOverview, DockerResourceCounts, DockerVolumeDetail,
+        DockerVolumeSummary, MAX_CONTAINER_LABELS, MAX_CONTAINER_LOG_BYTES,
+        MAX_CONTAINER_LOG_LINES, MAX_CONTAINER_MOUNTS, MAX_CONTAINER_NETWORKS, MAX_CONTAINER_PORTS,
         MAX_CONTAINER_REPOSITORY_REFERENCES, MAX_CONTAINER_RESOURCE_ID_BYTES,
         MAX_CONTAINER_RESOURCE_ITEMS,
     },
@@ -236,6 +238,38 @@ impl DockerDriver {
             .map_err(|error| map_bollard_error("读取 Docker 容器详情", error))?;
         let value = json_value(&value, "Docker 容器详情响应")?;
         container_detail(&value)
+    }
+
+    async fn container_logs_async(
+        docker: Docker,
+        id: String,
+        query: ContainerLogQuery,
+    ) -> Result<DockerContainerLogs> {
+        let mut options = LogsOptionsBuilder::default()
+            .follow(false)
+            .stdout(true)
+            .stderr(true)
+            .timestamps(query.timestamps)
+            .tail(&query.tail.to_string());
+        if let Some(since) = query.since {
+            options = options.since(to_docker_log_time(since)?);
+        }
+        if let Some(until) = query.until {
+            options = options.until(to_docker_log_time(until)?);
+        }
+        let mut stream = docker.logs(&id, Some(options.build()));
+        let mut result = DockerContainerLogs {
+            container_id: id,
+            lines: Vec::new(),
+            bytes: 0,
+            dropped_lines: 0,
+            truncated: false,
+        };
+        while let Some(item) = stream.next().await {
+            let output = item.map_err(|error| map_bollard_error("读取 Docker 容器日志", error))?;
+            append_log_output(output, &mut result);
+        }
+        Ok(result)
     }
 
     async fn list_images_async(
@@ -506,6 +540,23 @@ impl ContainerDriver for DockerDriver {
             profile,
             "读取 Docker 容器详情",
             move |docker, profile| Box::pin(Self::get_container_async(docker, profile, id)),
+        )
+        .await
+    }
+
+    async fn container_logs(
+        &self,
+        profile: &ContainerEndpointProfile,
+        id: &str,
+        query: &ContainerLogQuery,
+    ) -> Result<DockerContainerLogs> {
+        let id = validate_resource_id(id, "容器 ID")?;
+        query.validate().map_err(DomainError::InvalidConfig)?;
+        let query = query.clone();
+        Self::connect_and(
+            profile,
+            "读取 Docker 容器日志",
+            move |docker, _profile| Box::pin(Self::container_logs_async(docker, id, query)),
         )
         .await
     }
@@ -820,6 +871,41 @@ fn validate_resource_id(value: &str, field: &str) -> Result<String> {
         )));
     }
     Ok(value.to_owned())
+}
+
+fn to_docker_log_time(value: i64) -> Result<i32> {
+    i32::try_from(value)
+        .map_err(|_| DomainError::InvalidConfig("容器日志时间超出 Docker 支持范围".into()))
+}
+
+fn append_log_output(output: LogOutput, result: &mut DockerContainerLogs) {
+    let (stream, message) = match output {
+        LogOutput::StdOut { message } => (DockerLogStream::Stdout, message),
+        LogOutput::StdErr { message } => (DockerLogStream::Stderr, message),
+        LogOutput::StdIn { message } => (DockerLogStream::Stdin, message),
+        LogOutput::Console { message } => (DockerLogStream::Console, message),
+    };
+    let text = String::from_utf8_lossy(message.as_ref());
+    for raw_line in text.split_inclusive('\n') {
+        let line = raw_line
+            .strip_suffix('\n')
+            .unwrap_or(raw_line)
+            .strip_suffix('\r')
+            .unwrap_or_else(|| raw_line.strip_suffix('\n').unwrap_or(raw_line));
+        let line_bytes = line.len();
+        if result.lines.len() >= MAX_CONTAINER_LOG_LINES
+            || result.bytes.saturating_add(line_bytes) > MAX_CONTAINER_LOG_BYTES
+        {
+            result.dropped_lines = result.dropped_lines.saturating_add(1);
+            result.truncated = true;
+            continue;
+        }
+        result.lines.push(DockerContainerLogLine {
+            stream,
+            message: line.to_owned(),
+        });
+        result.bytes = result.bytes.saturating_add(line_bytes);
+    }
 }
 
 fn paginate<T>(mut items: Vec<T>, query: &ContainerListQuery) -> ContainerPage<T> {
@@ -1276,6 +1362,65 @@ mod tests {
     }
 
     #[test]
+    fn maps_log_streams_and_marks_line_or_byte_truncation() {
+        let mut result = DockerContainerLogs {
+            container_id: "container-1".into(),
+            lines: Vec::new(),
+            bytes: 0,
+            dropped_lines: 0,
+            truncated: false,
+        };
+        append_log_output(
+            LogOutput::StdOut {
+                message: "one\r\ntwo\n".into(),
+            },
+            &mut result,
+        );
+        append_log_output(
+            LogOutput::StdErr {
+                message: "error".into(),
+            },
+            &mut result,
+        );
+        assert_eq!(result.lines.len(), 3);
+        assert_eq!(result.lines[0].message, "one");
+        assert_eq!(result.lines[0].stream, DockerLogStream::Stdout);
+        assert_eq!(result.lines[2].stream, DockerLogStream::Stderr);
+
+        result.lines.resize(
+            MAX_CONTAINER_LOG_LINES,
+            DockerContainerLogLine {
+                stream: DockerLogStream::Console,
+                message: "line".into(),
+            },
+        );
+        append_log_output(
+            LogOutput::Console {
+                message: "overflow".into(),
+            },
+            &mut result,
+        );
+        assert!(result.truncated);
+        assert_eq!(result.dropped_lines, 1);
+
+        let mut byte_limited = DockerContainerLogs {
+            container_id: "container-1".into(),
+            lines: Vec::new(),
+            bytes: MAX_CONTAINER_LOG_BYTES,
+            dropped_lines: 0,
+            truncated: false,
+        };
+        append_log_output(
+            LogOutput::StdOut {
+                message: "overflow".into(),
+            },
+            &mut byte_limited,
+        );
+        assert!(byte_limited.truncated);
+        assert_eq!(byte_limited.dropped_lines, 1);
+    }
+
+    #[test]
     fn maps_server_permissions_without_returning_server_body() {
         let error = map_bollard_error(
             "读取 Docker 容器列表",
@@ -1424,5 +1569,88 @@ mod tests {
                 .expect("本机 Docker 数据卷详情应成功");
             assert_eq!(detail.summary.name, volume.name);
         }
+    }
+
+    #[test]
+    #[ignore = "需要本机 Docker Engine 和本地 alpine 镜像，使用 cargo test -- --ignored 执行"]
+    fn reads_dedicated_container_logs_and_cleans_resource() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("日志集成测试运行时应创建");
+        runtime.block_on(async {
+            use bollard::models::ContainerCreateBody;
+            use bollard::query_parameters::CreateContainerOptionsBuilder;
+            use futures::TryStreamExt;
+            use std::collections::HashMap;
+
+            let docker =
+                Docker::connect_with_local_defaults().expect("本机 Docker 日志集成测试应连接");
+            let name = format!("ramag-container-log-test-{}", std::process::id());
+            let _ = docker
+                .remove_container(
+                    &name,
+                    Some(
+                        bollard::query_parameters::RemoveContainerOptionsBuilder::default()
+                            .force(true)
+                            .build(),
+                    ),
+                )
+                .await;
+            let mut labels = HashMap::new();
+            labels.insert("ramag.test-suite".into(), "container-logs".into());
+            docker
+                .create_container(
+                    Some(CreateContainerOptionsBuilder::default().name(&name).build()),
+                    ContainerCreateBody {
+                        image: Some("alpine:3.20".into()),
+                        cmd: Some(vec![
+                            "sh".into(),
+                            "-c".into(),
+                            "printf 'stdout-line\\n'; printf 'stderr-line\\n' >&2".into(),
+                        ]),
+                        labels: Some(labels),
+                        ..Default::default()
+                    },
+                )
+                .await
+                .expect("专用日志容器应创建");
+
+            let result = async {
+                docker
+                    .start_container(&name, None)
+                    .await
+                    .map_err(|error| format!("启动日志容器失败: {error}"))?;
+                docker
+                    .wait_container(&name, None)
+                    .try_collect::<Vec<_>>()
+                    .await
+                    .map_err(|error| format!("等待日志容器失败: {error}"))?;
+                let logs = DockerDriver::container_logs_async(
+                    docker.clone(),
+                    name.clone(),
+                    ContainerLogQuery::default(),
+                )
+                .await
+                .map_err(|error| format!("读取日志失败: {error:?}"))?;
+                assert!(logs.lines.iter().any(|line| line.message == "stdout-line"));
+                assert!(logs.lines.iter().any(|line| line.message == "stderr-line"));
+                assert!(!logs.truncated);
+                Ok::<(), String>(())
+            }
+            .await;
+            let cleanup = docker
+                .remove_container(
+                    &name,
+                    Some(
+                        bollard::query_parameters::RemoveContainerOptionsBuilder::default()
+                            .force(true)
+                            .build(),
+                    ),
+                )
+                .await;
+            result.expect("本机 Docker 日志回读应成功");
+            cleanup.expect("专用日志容器应清理");
+        });
     }
 }

@@ -18,11 +18,11 @@ use ramag_app::{ContainerRegistryService, ContainerService};
 use ramag_domain::{
     entities::{
         ContainerEndpointProfile, ContainerImageOperationKind, ContainerImageOperationRequest,
-        ContainerListQuery, ContainerPage, ContainerPlatform, ContainerRegistryProfile,
-        ContainerRegistryRepository, ContainerRegistryTag, DockerConnectionInfo,
-        DockerContainerDetail, DockerContainerSummary, DockerImageDetail, DockerImageSummary,
-        DockerNetworkDetail, DockerNetworkSummary, DockerOverview, DockerVolumeDetail,
-        DockerVolumeSummary, MAX_CONTAINER_QUERY_BYTES,
+        ContainerListQuery, ContainerLogQuery, ContainerPage, ContainerPlatform,
+        ContainerRegistryProfile, ContainerRegistryRepository, ContainerRegistryTag,
+        DockerConnectionInfo, DockerContainerDetail, DockerContainerLogs, DockerContainerSummary,
+        DockerImageDetail, DockerImageSummary, DockerNetworkDetail, DockerNetworkSummary,
+        DockerOverview, DockerVolumeDetail, DockerVolumeSummary, MAX_CONTAINER_QUERY_BYTES,
     },
     error::Result,
 };
@@ -36,16 +36,18 @@ pub enum ContainerSection {
     Images,
     Networks,
     Volumes,
+    Logs,
     Registry,
 }
 
 impl ContainerSection {
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 7] = [
         Self::Overview,
         Self::Containers,
         Self::Images,
         Self::Networks,
         Self::Volumes,
+        Self::Logs,
         Self::Registry,
     ];
 
@@ -56,6 +58,7 @@ impl ContainerSection {
             Self::Images => "镜像",
             Self::Networks => "网络",
             Self::Volumes => "数据卷",
+            Self::Logs => "日志",
             Self::Registry => "镜像仓库",
         }
     }
@@ -65,6 +68,7 @@ impl ContainerSection {
             Self::Overview | Self::Containers | Self::Volumes => IconName::HardDrive,
             Self::Images => IconName::File,
             Self::Networks => IconName::Network,
+            Self::Logs => IconName::File,
             Self::Registry => IconName::File,
         }
     }
@@ -121,6 +125,9 @@ pub struct ContainerView {
     images: Option<ContainerPage<DockerImageSummary>>,
     networks: Option<ContainerPage<DockerNetworkSummary>>,
     volumes: Option<ContainerPage<DockerVolumeSummary>>,
+    logs: Option<DockerContainerLogs>,
+    logs_loading: bool,
+    selected_log_container: Option<String>,
     selected_detail: Option<SelectedDetail>,
     loading: bool,
     detail_loading: bool,
@@ -203,6 +210,9 @@ impl ContainerView {
             images: None,
             networks: None,
             volumes: None,
+            logs: None,
+            logs_loading: false,
+            selected_log_container: None,
             selected_detail: None,
             loading: false,
             detail_loading: false,
@@ -248,6 +258,9 @@ impl ContainerView {
             self.refresh_registry(cx);
             return;
         }
+        if self.section == ContainerSection::Logs {
+            return;
+        }
         let Some(service) = self.service.clone() else {
             return;
         };
@@ -285,6 +298,7 @@ impl ContainerView {
                 ContainerSection::Volumes => {
                     LoadResult::Volumes(service.list_volumes(&profile, &query).await)
                 }
+                ContainerSection::Logs => unreachable!("日志页面不通过资源刷新读取"),
                 ContainerSection::Registry => unreachable!("Registry 已在 refresh_registry 处理"),
             };
             let _ = this.update(async_cx, |view, cx| {
@@ -467,6 +481,7 @@ impl ContainerView {
                     DetailResult::Volume(service.get_volume(&profile, &id).await)
                 }
                 ContainerSection::Overview => return,
+                ContainerSection::Logs => return,
                 ContainerSection::Registry => return,
             };
             let _ = this.update(async_cx, |view, cx| {
@@ -486,6 +501,46 @@ impl ContainerView {
                     }
                     DetailResult::Volume(result) => {
                         view.set_detail(result.map(SelectedDetail::Volume))
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn open_container_logs(&mut self, container_id: String, cx: &mut Context<Self>) {
+        let Some(service) = self.service.clone() else {
+            return;
+        };
+        let profile = self.profile.clone();
+        self.section = ContainerSection::Logs;
+        self.selected_detail = None;
+        self.selected_log_container = Some(container_id.clone());
+        self.logs = None;
+        self.logs_loading = true;
+        self.error = None;
+        self.request_id = self.request_id.wrapping_add(1);
+        let request_id = self.request_id;
+        cx.notify();
+        cx.spawn(async move |this, async_cx| {
+            let query = ContainerLogQuery::default();
+            let result = service
+                .container_logs(&profile, &container_id, &query)
+                .await;
+            let _ = this.update(async_cx, |view, cx| {
+                if view.request_id != request_id {
+                    return;
+                }
+                view.logs_loading = false;
+                match result {
+                    Ok(logs) => {
+                        view.logs = Some(logs);
+                        view.error = None;
+                    }
+                    Err(error) => {
+                        view.logs = None;
+                        view.error = Some(error.user_message());
                     }
                 }
                 cx.notify();
@@ -541,6 +596,9 @@ impl ContainerView {
         self.images = None;
         self.networks = None;
         self.volumes = None;
+        self.logs = None;
+        self.logs_loading = false;
+        self.selected_log_container = None;
         self.selected_detail = None;
     }
 }
@@ -805,6 +863,7 @@ impl ContainerView {
             ContainerSection::Images => self.render_images(theme, cx),
             ContainerSection::Networks => self.render_networks(theme, cx),
             ContainerSection::Volumes => self.render_volumes(theme, cx),
+            ContainerSection::Logs => self.render_logs(theme),
             ContainerSection::Registry => self.render_registry(theme, cx),
         };
         content.child(section_content).into_any_element()
@@ -988,7 +1047,7 @@ impl ContainerView {
                     .collect()
             })
             .unwrap_or_default();
-        self.render_resource_list(rows, "暂无容器", theme)
+        self.render_resource_list(rows, "暂无容器", theme, cx)
     }
 
     fn render_images(
@@ -1022,7 +1081,7 @@ impl ContainerView {
                     .collect()
             })
             .unwrap_or_default();
-        self.render_resource_list(rows, "暂无镜像", theme)
+        self.render_resource_list(rows, "暂无镜像", theme, cx)
     }
 
     fn render_registry(
@@ -1206,7 +1265,7 @@ impl ContainerView {
                     .collect()
             })
             .unwrap_or_default();
-        self.render_resource_list(rows, "暂无网络", theme)
+        self.render_resource_list(rows, "暂无网络", theme, cx)
     }
 
     fn render_volumes(
@@ -1237,7 +1296,81 @@ impl ContainerView {
                     .collect()
             })
             .unwrap_or_default();
-        self.render_resource_list(rows, "暂无数据卷", theme)
+        self.render_resource_list(rows, "暂无数据卷", theme, cx)
+    }
+
+    fn render_logs(&self, theme: &gpui_kit::component::theme::Theme) -> AnyElement {
+        let Some(logs) = &self.logs else {
+            return empty_state(
+                if self.logs_loading {
+                    "正在读取容器日志..."
+                } else {
+                    "从容器详情打开日志"
+                },
+                theme,
+            )
+            .into_any_element();
+        };
+        let rows = logs
+            .lines
+            .iter()
+            .enumerate()
+            .map(|(index, line)| {
+                h_flex()
+                    .id(format!("container-log-line-{index}"))
+                    .debug_selector(move || format!("container-log-line-{index}"))
+                    .w_full()
+                    .items_start()
+                    .gap(px(8.0))
+                    .child(
+                        div()
+                            .flex_none()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child(line.stream.label()),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .text_xs()
+                            .whitespace_normal()
+                            .child(line.message.clone()),
+                    )
+                    .into_any_element()
+            })
+            .collect::<Vec<_>>();
+        let container_id = self
+            .selected_log_container
+            .as_deref()
+            .unwrap_or(&logs.container_id);
+        let summary = format!(
+            "容器 {container_id} · {} 行 · {} bytes{}",
+            logs.lines.len(),
+            logs.bytes,
+            if logs.truncated {
+                format!(" · 已丢弃 {} 行", logs.dropped_lines)
+            } else {
+                String::new()
+            }
+        );
+        v_flex()
+            .id("container-logs-panel")
+            .debug_selector(|| "container-logs-panel".into())
+            .w_full()
+            .gap(px(12.0))
+            .child(info_panel("日志摘要", summary, theme))
+            .child(
+                v_flex()
+                    .id("container-logs-output")
+                    .debug_selector(|| "container-logs-output".into())
+                    .w_full()
+                    .max_h(px(420.0))
+                    .overflow_y_scrollbar()
+                    .gap(px(6.0))
+                    .children(rows),
+            )
+            .into_any_element()
     }
 
     fn render_resource_list(
@@ -1245,6 +1378,7 @@ impl ContainerView {
         rows: Vec<AnyElement>,
         empty: &'static str,
         theme: &gpui_kit::component::theme::Theme,
+        cx: &mut Context<Self>,
     ) -> AnyElement {
         let body = if rows.is_empty() {
             empty_state(
@@ -1263,7 +1397,7 @@ impl ContainerView {
                 .children(rows)
                 .into_any_element()
         };
-        let detail = self.render_detail(theme);
+        let detail = self.render_detail(theme, cx);
         v_flex()
             .id("container-resource-panel")
             .debug_selector(|| "container-resource-panel".into())
@@ -1274,7 +1408,11 @@ impl ContainerView {
             .into_any_element()
     }
 
-    fn render_detail(&self, theme: &gpui_kit::component::theme::Theme) -> Option<AnyElement> {
+    fn render_detail(
+        &self,
+        theme: &gpui_kit::component::theme::Theme,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let detail = match &self.selected_detail {
             None => return None,
             Some(SelectedDetail::Container(v)) => format!(
@@ -1330,7 +1468,32 @@ impl ContainerView {
                     .map_or_else(|| "未知".into(), |count| count.to_string())
             ),
         };
-        Some(info_panel("详情", detail, theme).into_any_element())
+        let log_action = match &self.selected_detail {
+            Some(SelectedDetail::Container(value)) => {
+                let container_id = value.summary.id.clone();
+                Some(
+                    ramag_ui::clickable_button("container-open-logs")
+                        .ghost()
+                        .small()
+                        .icon(ramag_ui::icons::scroll_text())
+                        .label("查看日志")
+                        .disabled(self.service.is_none() || self.detail_loading)
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            this.open_container_logs(container_id.clone(), cx);
+                        }))
+                        .into_any_element(),
+                )
+            }
+            _ => None,
+        };
+        let mut panel = v_flex()
+            .w_full()
+            .gap(px(8.0))
+            .child(info_panel("详情", detail, theme));
+        if let Some(log_action) = log_action {
+            panel = panel.child(ramag_ui::responsive_toolbar().child(log_action));
+        }
+        Some(panel.into_any_element())
     }
 }
 
@@ -1387,6 +1550,7 @@ fn resource_button_with_width(
         ContainerSection::Images => "container-resource-images",
         ContainerSection::Networks => "container-resource-networks",
         ContainerSection::Volumes => "container-resource-volumes",
+        ContainerSection::Logs => "container-resource-logs",
         ContainerSection::Registry => "container-resource-registry",
     };
     let mut button = ramag_ui::clickable_button(id)

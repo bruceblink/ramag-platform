@@ -5,7 +5,9 @@ use gpui_kit::component::Root;
 use gpui_kit::{AppContext as _, Bounds, MouseButton, Pixels, TestAppContext, px, size};
 
 use super::{ContainerSection, ContainerView};
-use ramag_domain::entities::{ContainerPage, DockerImageSummary};
+use ramag_domain::entities::{
+    ContainerPage, DockerContainerLogLine, DockerContainerLogs, DockerImageSummary, DockerLogStream,
+};
 
 fn assert_inside(parent: Bounds<Pixels>, child: Bounds<Pixels>, label: &str) {
     assert!(
@@ -148,6 +150,7 @@ fn compact_resource_navigation_wraps_without_full_width_rows(cx: &mut TestAppCon
         "container-resource-images",
         "container-resource-networks",
         "container-resource-volumes",
+        "container-resource-logs",
         "container-resource-registry",
     ] {
         let button = cx
@@ -209,6 +212,51 @@ fn resource_query_preserves_bounded_search_for_the_driver() {
     assert_eq!(query.page_size, 100);
     assert_eq!(query.search.as_deref(), Some("  alpine  "));
     assert_eq!(query.normalized_search().as_deref(), Some("alpine"));
+}
+
+#[gpui_kit::test]
+fn historical_logs_stay_inside_narrow_content_bounds(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ContainerView::new(window, cx));
+        view_entity = Some(view.clone());
+        Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("容器管理视图应初始化");
+    view.update(visual_cx, |view, cx| {
+        view.section = ContainerSection::Logs;
+        view.selected_log_container = Some("container-logs".into());
+        view.logs = Some(DockerContainerLogs {
+            container_id: "container-logs".into(),
+            lines: vec![DockerContainerLogLine {
+                stream: DockerLogStream::Stdout,
+                message: "server ready".into(),
+            }],
+            bytes: 12,
+            dropped_lines: 0,
+            truncated: false,
+        });
+        cx.notify();
+    });
+    visual_cx.simulate_resize(size(px(360.0), px(640.0)));
+    visual_cx.run_until_parked();
+
+    let content = visual_cx
+        .debug_bounds("container-content")
+        .expect("容器内容区应渲染");
+    let panel = visual_cx
+        .debug_bounds("container-logs-panel")
+        .expect("日志面板应渲染");
+    let output = visual_cx
+        .debug_bounds("container-logs-output")
+        .expect("日志输出区应渲染");
+    let line = visual_cx
+        .debug_bounds("container-log-line-0")
+        .expect("日志行应渲染");
+    assert_inside(content, panel, "日志面板");
+    assert_inside(panel, output, "日志输出区");
+    assert_inside(output, line, "日志行");
 }
 
 #[gpui_kit::test]
