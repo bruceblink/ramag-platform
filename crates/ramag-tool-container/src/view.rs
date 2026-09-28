@@ -1212,11 +1212,14 @@ impl Render for ContainerView {
             .debug_selector(|| "container-resource-nav".into())
             .bg(theme.sidebar)
             .w(px(176.0))
+            .h_full()
+            .min_h_0()
             .flex_none()
             .gap(px(4.0))
             .p(px(10.0))
             .border_r_1()
             .border_color(theme.border)
+            .overflow_y_scrollbar()
             .children(
                 ContainerSection::ALL
                     .into_iter()
@@ -1226,7 +1229,9 @@ impl Render for ContainerView {
         let content = self.render_content(&theme, cx);
         let body = if compact {
             v_flex()
-                .size_full()
+                .flex_1()
+                .w_full()
+                .min_h_0()
                 .child(
                     ramag_ui::responsive_toolbar()
                         .id("container-compact-resource-nav")
@@ -1244,7 +1249,14 @@ impl Render for ContainerView {
                 )
                 .child(content)
         } else {
-            h_flex().size_full().child(navigation).child(content)
+            // 横向工作区必须从顶部拉伸两列；h_flex 默认垂直居中会把短导航悬在半空。
+            h_flex()
+                .flex_1()
+                .w_full()
+                .min_h_0()
+                .items_stretch()
+                .child(navigation)
+                .child(content)
         };
         v_flex()
             .id("container-view")

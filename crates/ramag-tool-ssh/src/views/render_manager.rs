@@ -153,6 +153,9 @@ impl SshView {
                 .id("ssh-empty-state")
                 .debug_selector(|| "ssh-empty-state".into())
                 .size_full()
+                .min_w_0()
+                .px(px(24.0))
+                .text_center()
                 .items_center()
                 .justify_center()
                 .gap(px(10.0))
@@ -170,6 +173,9 @@ impl SshView {
                 .child(
                     div()
                         .text_xs()
+                        .w_full()
+                        .min_w_0()
+                        .max_w(px(320.0))
                         .text_color(muted)
                         .child("创建一个连接后，可在这里打开终端、文件和传输任务"),
                 )

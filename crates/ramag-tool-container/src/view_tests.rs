@@ -89,6 +89,18 @@ fn empty_workspace_stays_inside_supported_window_widths(cx: &mut TestAppContext)
                 .debug_bounds("container-resource-nav")
                 .expect("宽窗口应渲染资源导航");
             assert_inside(root, navigation, "资源导航");
+            assert_eq!(
+                navigation.origin.y, content.origin.y,
+                "导航与正文应顶部对齐"
+            );
+            assert_eq!(navigation.bottom(), content.bottom(), "侧栏应撑满工作区");
+            let overview = cx
+                .debug_bounds("container-resource-overview")
+                .expect("首个导航项应渲染");
+            assert!(
+                overview.origin.y - navigation.origin.y <= px(12.0),
+                "导航项必须从顶部开始，不能垂直居中：{overview:?} / {navigation:?}"
+            );
             assert!(
                 cx.debug_bounds("container-compact-resource-nav").is_none(),
                 "宽窗口不应重复渲染紧凑导航"
