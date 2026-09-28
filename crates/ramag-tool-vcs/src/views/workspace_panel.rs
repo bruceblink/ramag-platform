@@ -454,6 +454,16 @@ fn git_file_name(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
 }
 
+/// 批量操作保存渲染时的路径，避免状态刷新后用旧下标命中其他文件。
+fn snapshot_file_paths(status: &WorkingTreeStatus, file_indices: &[usize]) -> Vec<String> {
+    let mut seen = HashSet::with_capacity(file_indices.len());
+    file_indices
+        .iter()
+        .filter_map(|index| status.files.get(*index).map(|file| file.path.clone()))
+        .filter(|path| seen.insert(path.clone()))
+        .collect()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn bulk_op_button(
     kind: &'static str,
@@ -461,7 +471,7 @@ fn bulk_op_button(
     label: &'static str,
     op: FileOp,
     icon: IconName,
-    file_indices: Rc<Vec<usize>>,
+    file_paths: Rc<Vec<String>>,
     busy: bool,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
@@ -473,12 +483,7 @@ fn bulk_op_button(
         .label(label)
         .disabled(busy)
         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-            let paths = this.status.as_ref().map_or_else(Vec::new, |status| {
-                file_indices
-                    .iter()
-                    .filter_map(|index| status.files.get(*index).map(|file| file.path.clone()))
-                    .collect()
-            });
+            let paths = file_paths.as_ref().clone();
             if !paths.is_empty() {
                 this.run_file_op(op, paths, cx);
             }

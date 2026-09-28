@@ -62,7 +62,11 @@ impl VcsView {
         let muted_fg = theme.muted_foreground;
         let border = theme.border;
         let busy = self.busy;
-        let count = file_indices.len();
+        let file_paths = self.status.as_ref().map_or_else(Vec::new, |status| {
+            super::snapshot_file_paths(status, file_indices)
+        });
+        let file_paths = Rc::new(file_paths);
+        let count = file_paths.len();
         let badge_color = match kind {
             GroupKind::Conflict => theme.danger,
             GroupKind::Staged => theme.accent,
@@ -80,7 +84,7 @@ impl VcsView {
                     "全暂存",
                     FileOp::Stage,
                     IconName::Plus,
-                    file_indices.clone(),
+                    file_paths.clone(),
                     busy,
                     cx,
                 ))
@@ -91,7 +95,7 @@ impl VcsView {
                 "全取消",
                 FileOp::Unstage,
                 IconName::Minus,
-                file_indices.clone(),
+                file_paths.clone(),
                 busy,
                 cx,
             )),
