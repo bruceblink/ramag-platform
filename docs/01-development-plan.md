@@ -243,6 +243,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 清理结果：114 上的唯一临时目录已删除；本机 SSH 测试容器、临时公钥和临时文件已清理，没有停止或修改其他本机服务。
 - 证据边界：本次证明了 SSH/SFTP 驱动对指定服务器的真实回放和原生工作区 headless 测试；终端、端口转发、JumpServer 和 Computer Use 原生窗口流程仍属于 `B-SSH-001-B` 或后续验收，不把本次结果扩展为完整 SSH 工作区交付。
 
+### B-SSH-001-B：114 服务器终端与端口转发回读（设计确认，2026-09-28）
+
+- 问题证据：现有 SSH 工作区已经生成带 PTY 的终端命令，并由独立进程管理端口转发；现有 headless 测试覆盖命令参数、状态转换和进程回收，但还没有在 114 服务器上读取远端终端输出，也没有通过本地转发端口读取远端服务数据。
+- 设计：集成测试使用 `OpenSshDriver` 生成终端和端口转发命令。终端测试通过 114 的 `csnt` 账户启动带 PTY 的远端 Shell，写入固定输出标记和退出命令，只保留有界输出并检查进程退出。端口转发测试在 114 的 `/tmp` 下启动只监听 `127.0.0.1` 的临时 TCP 回显服务，使用生成的本地 `-L` 转发命令连接本地端口，回读固定标记后停止转发进程并删除远端服务。
+- 测试边界：密码继续由 `CODEX_DEPLOY_SSH_PASSWORD` 经 `SSH_ASKPASS` 读取；测试不得输出密码，不得写入仓库或命令行，不得访问 `/home/csnt/architecture/docker-compose-all/`，不得改变 114 上的常驻服务、SSH 配置或防火墙规则。
+- 验收条件：114 真实终端回读确认标记和退出状态；114 真实端口转发回读确认本地连接、远端固定数据和停止后的端口释放；`ramag-infra-ssh`、`ramag-tool-ssh` 目标测试、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 全部通过。Computer Use 不可用时，只记录真实服务和 headless 证据，不把它扩展为原生窗口鼠标/键盘验收。
+- 不做事项：不新增 SSH 协议、不改变 Host Key 策略、认证模型、端口转发配置格式、终端 UI 或 JumpServer 行为；不把 114 的部署服务作为测试目标，不保留远端临时进程和目录。
+- 实施顺序：先提交本设计确认，再补充真实终端/端口转发回读测试并独立提交；通过后进入 `B-CONTAINER-001` 设计确认。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
