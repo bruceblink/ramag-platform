@@ -386,6 +386,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 质量检查：`cargo fmt --all -- --check`、源码尺寸检查和 `git diff --check` 通过；提交前继续执行 workspace Clippy。
 - 证据边界：本切片证明当前可见日志可以安全写入用户选择的本地文件；不提供真实系统保存对话框点击、滚动归档、自动命名批量导出、VictoriaLogs/LogSQL、跨容器聚合、自动重连、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
 
+### B-CONTAINER-001-I：容器详情状态与健康信息刷新（设计确认，2026-09-28）
+
+- 问题证据：Docker 适配器已经从 `inspect` 响应解析容器的 `State`、`Status`、`Health` 和创建时间，但详情面板只显示路径、环境变量键、挂载数量和网络数量。容器停止、重启或健康状态变化后，用户必须离开详情再重新加载列表，无法在当前上下文确认结果。
+- 设计：在容器详情面板增加状态、状态说明、健康检查和创建时间；保留 Docker 返回的可选字段，缺失时显示“未知”，不把缺失数据当成健康或运行成功。在详情操作区增加“刷新状态”按钮，复用当前容器 `get_container` 查询和 `request_id` 隔离，只替换当前详情，不改变列表筛选、日志 follow 或任何容器生命周期状态。
+- 只读边界：本切片只调用 Docker `inspect`，不新增启动、停止、重启、删除、exec、资源限制或写配置接口。刷新失败保留原详情并显示错误，不把失败回包写成新状态。
+- 验收条件：Docker 适配器单元测试确认 `State`、`Status`、`Health` 解析；headless 测试在 `360x640`、`1024x768` 和 `1440x900` 确认状态详情和“刷新状态”按钮位于内容区内；应用和容器工作区回归、只读 Docker 回放、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不实现容器启动/停止/重启/删除、Docker stats 实时 CPU/内存曲线、Kubernetes Pod 状态、自动刷新定时器、VictoriaLogs/LogSQL、跨容器聚合或真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再补充详情状态文本、刷新入口和边界测试；只读 Docker 回放确认详情字段后独立提交，下一项再处理容器生命周期或资源指标中的一个明确边界。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
