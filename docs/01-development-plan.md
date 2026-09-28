@@ -260,6 +260,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不新增日志、容器生命周期、Docker exec、Kubernetes 资源、Registry 凭据或真实窗口验收；不把本地 UI 筛选扩展成无上限的全量加载。
 - 实施顺序：先提交本设计确认，再实现筛选入口和目标测试；通过后独立提交并进入容器详情/日志的下一项设计确认。
 
+### B-CONTAINER-001-A：Docker 资源筛选入口（代码与 headless 验证完成，2026-09-28）
+
+- 实现：容器、镜像、网络和数据卷页面新增有界筛选输入与“筛选”按钮；工作区把输入放入 `ContainerListQuery.search`，应用服务保持原值转交，Docker 适配器继续执行大小写不敏感匹配、分页和响应数量限制。输入和按钮在没有外部服务时仍显示为禁用状态，连接切换和迟到结果继续使用已有 `request_id` 隔离。
+- 测试：`ramag-tool-container` 7 项通过，覆盖 `360x640`、`1024x768`、`1440x900` 下的筛选控件边界和查询构造；`ramag-app` 容器服务专项 7 项通过，确认筛选请求到达 `ContainerDriver`；`ramag-infra-container-docker` 7 项通过、1 项本机 Docker 测试按设计保持忽略，新增名称、镜像、标签、网络和端口筛选命中测试。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
+- 证据边界：本切片只完成代码、headless 和本地适配器单元验证，没有启动本机 Docker，也没有宣称真实 Windows 原生窗口或真实 Docker Engine 验收；下一项进入容器详情与日志设计确认。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。

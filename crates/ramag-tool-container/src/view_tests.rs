@@ -162,6 +162,56 @@ fn compact_resource_navigation_wraps_without_full_width_rows(cx: &mut TestAppCon
 }
 
 #[gpui_kit::test]
+fn resource_filter_controls_stay_inside_content_on_narrow_and_wide_windows(
+    cx: &mut TestAppContext,
+) {
+    cx.update(gpui_kit::component::init);
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ContainerView::new(window, cx));
+        Root::new(view, window, cx)
+    });
+
+    for width in [360.0, 1024.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(640.0)));
+        cx.run_until_parked();
+        let navigation = cx
+            .debug_bounds("container-resource-containers")
+            .expect("容器资源入口应渲染");
+        let point = navigation.center();
+        cx.simulate_mouse_down(point, MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_up(point, MouseButton::Left, Modifiers::default());
+        cx.run_until_parked();
+
+        let content = cx
+            .debug_bounds("container-content")
+            .expect("容器内容区应渲染");
+        let filter = cx
+            .debug_bounds("container-resource-filter")
+            .expect("资源筛选工具栏应渲染");
+        let input = cx
+            .debug_bounds("container-resource-filter-input")
+            .expect("资源筛选输入应渲染");
+        let apply = cx
+            .debug_bounds("container-resource-filter-apply")
+            .expect("资源筛选按钮应渲染");
+        assert_inside(content, filter, "资源筛选工具栏");
+        assert_inside(filter, input, "资源筛选输入");
+        assert_inside(filter, apply, "资源筛选按钮");
+    }
+}
+
+#[test]
+fn resource_query_preserves_bounded_search_for_the_driver() {
+    let mut view = ContainerView::without_service();
+    view.resource_search = "  alpine  ".into();
+    let query = view.resource_query();
+    assert_eq!(query.page, 1);
+    assert_eq!(query.page_size, 100);
+    assert_eq!(query.search.as_deref(), Some("  alpine  "));
+    assert_eq!(query.normalized_search().as_deref(), Some("alpine"));
+}
+
+#[gpui_kit::test]
 fn image_rows_keep_long_names_and_subtitles_inside_narrow_window(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let mut view_entity = None;

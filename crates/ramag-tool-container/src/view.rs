@@ -22,7 +22,7 @@ use ramag_domain::{
         ContainerRegistryRepository, ContainerRegistryTag, DockerConnectionInfo,
         DockerContainerDetail, DockerContainerSummary, DockerImageDetail, DockerImageSummary,
         DockerNetworkDetail, DockerNetworkSummary, DockerOverview, DockerVolumeDetail,
-        DockerVolumeSummary,
+        DockerVolumeSummary, MAX_CONTAINER_QUERY_BYTES,
     },
     error::Result,
 };
@@ -100,6 +100,9 @@ pub struct ContainerView {
     docker_endpoint_input: Option<Entity<InputState>>,
     docker_input_subscription: Option<Subscription>,
     docker_endpoint: String,
+    resource_search_input: Option<Entity<InputState>>,
+    resource_search_subscription: Option<Subscription>,
+    resource_search: String,
     registry_endpoint_input: Option<Entity<InputState>>,
     registry_input_subscription: Option<Subscription>,
     registry_endpoint: String,
@@ -126,8 +129,10 @@ pub struct ContainerView {
 }
 
 impl ContainerView {
-    pub fn new(_window: &mut Window, _cx: &mut Context<Self>) -> Self {
-        Self::without_service()
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let mut view = Self::without_service();
+        view.attach_resource_search_input(window, cx);
+        view
     }
 
     pub fn with_service(
@@ -138,6 +143,7 @@ impl ContainerView {
         let mut view = Self::without_service();
         view.service = Some(service);
         view.attach_docker_endpoint_input(_window, cx);
+        view.attach_resource_search_input(_window, cx);
         view.refresh(cx);
         view
     }
@@ -152,6 +158,7 @@ impl ContainerView {
         view.service = Some(service);
         view.registry_service = Some(registry_service);
         view.attach_docker_endpoint_input(window, cx);
+        view.attach_resource_search_input(window, cx);
         let endpoint = cx.new(|cx| {
             InputState::new(window, cx)
                 .placeholder("https://registry.example.com")
@@ -175,6 +182,9 @@ impl ContainerView {
             docker_endpoint_input: None,
             docker_input_subscription: None,
             docker_endpoint: profile.address.clone(),
+            resource_search_input: None,
+            resource_search_subscription: None,
+            resource_search: String::new(),
             registry_endpoint_input: None,
             registry_input_subscription: None,
             registry_endpoint: "https://registry.example.com".into(),
@@ -219,6 +229,20 @@ impl ContainerView {
         self.docker_endpoint_input = Some(endpoint);
     }
 
+    fn attach_resource_search_input(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let search = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("筛选名称、镜像、标签或地址")
+                .validate(|value, _| value.len() <= MAX_CONTAINER_QUERY_BYTES)
+        });
+        let search_for_observer = search.clone();
+        self.resource_search_subscription = Some(cx.observe(&search, move |view, _, cx| {
+            view.resource_search = search_for_observer.read(cx).value().to_string();
+            cx.notify();
+        }));
+        self.resource_search_input = Some(search);
+    }
+
     fn refresh(&mut self, cx: &mut Context<Self>) {
         if self.section == ContainerSection::Registry {
             self.refresh_registry(cx);
@@ -228,10 +252,12 @@ impl ContainerView {
             return;
         };
         self.sync_docker_endpoint(cx);
+        self.sync_resource_search(cx);
         self.request_id = self.request_id.wrapping_add(1);
         let request_id = self.request_id;
         let profile = self.profile.clone();
         let section = self.section;
+        let query = self.resource_query();
         self.loading = true;
         self.error = None;
         self.clear_resource_state();
@@ -243,11 +269,6 @@ impl ContainerView {
         }
         cx.notify();
         cx.spawn(async move |this, async_cx| {
-            let query = ContainerListQuery {
-                page: 1,
-                page_size: RESOURCE_PAGE_SIZE,
-                search: None,
-            };
             let result = match section {
                 ContainerSection::Overview => {
                     LoadResult::Overview(Box::new(service.overview(&profile).await))
@@ -499,6 +520,20 @@ impl ContainerView {
         self.profile.address = endpoint;
     }
 
+    fn sync_resource_search(&mut self, cx: &mut Context<Self>) {
+        if let Some(input) = &self.resource_search_input {
+            self.resource_search = input.read(cx).value().to_string();
+        }
+    }
+
+    fn resource_query(&self) -> ContainerListQuery {
+        ContainerListQuery {
+            page: 1,
+            page_size: RESOURCE_PAGE_SIZE,
+            search: (!self.resource_search.trim().is_empty()).then(|| self.resource_search.clone()),
+        }
+    }
+
     fn clear_resource_state(&mut self) {
         self.connection = None;
         self.overview = None;
@@ -745,6 +780,9 @@ impl ContainerView {
                         .child(if loading { "读取中..." } else { "" }),
                 ),
         );
+        if let Some(filter) = self.render_resource_filter(theme, cx) {
+            content = content.child(filter);
+        }
         if let Some(error) = &self.error {
             let mut background = theme.danger;
             background.a = 0.12;
@@ -770,6 +808,74 @@ impl ContainerView {
             ContainerSection::Registry => self.render_registry(theme, cx),
         };
         content.child(section_content).into_any_element()
+    }
+
+    fn render_resource_filter(
+        &self,
+        theme: &gpui_kit::component::theme::Theme,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        if !matches!(
+            self.section,
+            ContainerSection::Containers
+                | ContainerSection::Images
+                | ContainerSection::Networks
+                | ContainerSection::Volumes
+        ) {
+            return None;
+        }
+        let disabled =
+            self.loading || self.service.is_none() || self.platform != ContainerPlatform::Docker;
+        let input = self
+            .resource_search_input
+            .as_ref()
+            .map(|input| {
+                div()
+                    .id("container-resource-filter-input")
+                    .debug_selector(|| "container-resource-filter-input".into())
+                    .flex_1()
+                    .min_w(px(180.0))
+                    .child(Input::new(input).small().disabled(disabled))
+                    .into_any_element()
+            })
+            .unwrap_or_else(|| {
+                div()
+                    .id("container-resource-filter-input")
+                    .debug_selector(|| "container-resource-filter-input".into())
+                    .flex_1()
+                    .min_w(px(180.0))
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child("筛选名称、镜像、标签或地址")
+                    .into_any_element()
+            });
+        Some(
+            ramag_ui::responsive_toolbar()
+                .id("container-resource-filter")
+                .debug_selector(|| "container-resource-filter".into())
+                .items_center()
+                .child(
+                    div()
+                        .flex_none()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("资源筛选"),
+                )
+                .child(input)
+                .child(
+                    ramag_ui::clickable_button("container-resource-filter-apply")
+                        .ghost()
+                        .small()
+                        .icon(ramag_ui::icons::list_filter())
+                        .label("筛选")
+                        .disabled(disabled)
+                        .debug_selector(|| "container-resource-filter-apply".into())
+                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                            this.refresh(cx);
+                        })),
+                )
+                .into_any_element(),
+        )
     }
 
     fn render_overview(&self, theme: &gpui_kit::component::theme::Theme) -> AnyElement {

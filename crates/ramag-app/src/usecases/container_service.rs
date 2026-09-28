@@ -188,13 +188,20 @@ pub fn unsupported_kubernetes(profile: &ContainerEndpointProfile) -> Result<()> 
 mod tests {
     use super::*;
     use async_trait::async_trait;
-    use ramag_domain::entities::{ContainerPlatform, DockerEngineVersion, DockerResourceCounts};
+    use ramag_domain::entities::{
+        ContainerListQuery, ContainerPage, ContainerPlatform, DockerContainerSummary,
+        DockerEngineVersion, DockerResourceCounts,
+    };
     use ramag_domain::error::{ContainerError, ContainerErrorCategory};
     use std::sync::atomic::Ordering;
 
     struct MockContainerDriver;
 
     struct CancellationContainerDriver;
+
+    struct QueryCaptureDriver {
+        captured: Arc<std::sync::Mutex<Option<ContainerListQuery>>>,
+    }
 
     #[async_trait]
     impl ContainerDriver for MockContainerDriver {
@@ -244,6 +251,24 @@ mod tests {
     }
 
     #[async_trait]
+    impl ContainerDriver for QueryCaptureDriver {
+        async fn list_containers(
+            &self,
+            _profile: &ContainerEndpointProfile,
+            query: &ContainerListQuery,
+        ) -> Result<ContainerPage<DockerContainerSummary>> {
+            *self.captured.lock().expect("筛选请求锁不应中毒") = Some(query.clone());
+            Ok(ContainerPage {
+                items: Vec::new(),
+                page: query.page,
+                page_size: query.page_size,
+                total: 0,
+                has_more: false,
+            })
+        }
+    }
+
+    #[async_trait]
     impl ContainerDriver for CancellationContainerDriver {
         async fn execute_image_operation(
             &self,
@@ -270,6 +295,31 @@ mod tests {
         let connection =
             smol::block_on(service.test_connection(&profile)).expect("connection test should pass");
         assert_eq!(connection.endpoint_id, profile.id);
+    }
+
+    #[test]
+    fn forwards_resource_search_to_driver_without_rewriting_it() {
+        let captured = Arc::new(std::sync::Mutex::new(None));
+        let service = ContainerService::new(Arc::new(QueryCaptureDriver {
+            captured: captured.clone(),
+        }));
+        let profile = ContainerEndpointProfile::new_docker("test", "unix:///var/run/docker.sock");
+        let query = ContainerListQuery {
+            page: 2,
+            page_size: 25,
+            search: Some("  Web API  ".into()),
+        };
+
+        smol::block_on(service.list_containers(&profile, &query)).expect("容器列表筛选请求应成功");
+
+        let captured = captured
+            .lock()
+            .expect("筛选请求锁不应中毒")
+            .clone()
+            .expect("驱动应收到容器列表筛选请求");
+        assert_eq!(captured.page, 2);
+        assert_eq!(captured.page_size, 25);
+        assert_eq!(captured.search.as_deref(), Some("  Web API  "));
     }
 
     #[test]

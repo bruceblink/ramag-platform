@@ -1237,6 +1237,45 @@ mod tests {
     }
 
     #[test]
+    fn resource_search_matches_names_images_labels_and_addresses_case_insensitively() {
+        let summary = DockerContainerSummary {
+            id: "container-123".into(),
+            names: vec!["/web-api".into()],
+            image: Some("registry.example.test/team/api:stable".into()),
+            image_id: None,
+            command: None,
+            created: None,
+            state: Some("running".into()),
+            status: None,
+            health: None,
+            ports: vec![ramag_domain::entities::DockerContainerPort {
+                ip: Some("127.0.0.1".into()),
+                private_port: Some(8080),
+                public_port: Some(18080),
+                protocol: Some("tcp".into()),
+            }],
+            networks: vec!["frontend".into()],
+            labels: vec![DockerLabel {
+                key: "owner".into(),
+                value: "platform-team".into(),
+            }],
+        };
+
+        let matches = |term: &str| {
+            let query = ContainerListQuery {
+                page: 1,
+                page_size: 100,
+                search: Some(term.into()),
+            };
+            matches_search(&summary, query.normalized_search().as_deref())
+        };
+        for term in ["WEB-API", "TEAM/API", "PLATFORM-TEAM", "18080", "FRONTEND"] {
+            assert!(matches(term), "资源筛选应命中 {term}");
+        }
+        assert!(!matches("missing"));
+    }
+
+    #[test]
     fn maps_server_permissions_without_returning_server_body() {
         let error = map_bollard_error(
             "读取 Docker 容器列表",
