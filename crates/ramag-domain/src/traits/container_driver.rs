@@ -8,8 +8,9 @@ use crate::entities::{
     ContainerEndpointProfile, ContainerImageOperationRequest, ContainerImageOperationResult,
     ContainerListQuery, ContainerLogQuery, ContainerPage, ContainerRegistryCredential,
     DockerConnectionInfo, DockerContainerDetail, DockerContainerLogLine, DockerContainerLogs,
-    DockerContainerSummary, DockerImageDetail, DockerImageSummary, DockerNetworkDetail,
-    DockerNetworkSummary, DockerOverview, DockerVolumeDetail, DockerVolumeSummary,
+    DockerContainerStats, DockerContainerSummary, DockerImageDetail, DockerImageSummary,
+    DockerNetworkDetail, DockerNetworkSummary, DockerOverview, DockerVolumeDetail,
+    DockerVolumeSummary,
 };
 use crate::error::Result;
 
@@ -62,6 +63,17 @@ pub trait ContainerDriver: Send + Sync {
     ) -> Result<DockerContainerDetail> {
         Err(crate::error::DomainError::NotImplemented(
             "container_get_container".into(),
+        ))
+    }
+
+    async fn container_stats(
+        &self,
+        _profile: &ContainerEndpointProfile,
+        _container_id: &str,
+        _cancellation: ContainerOperationCancellation,
+    ) -> Result<DockerContainerStats> {
+        Err(crate::error::DomainError::NotImplemented(
+            "container_stats".into(),
         ))
     }
 

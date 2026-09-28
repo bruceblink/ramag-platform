@@ -15,7 +15,8 @@ use bollard::{
     errors::Error as BollardError,
     query_parameters::{
         CreateImageOptionsBuilder, ListContainersOptionsBuilder, LogsOptionsBuilder,
-        PushImageOptionsBuilder, RemoveImageOptionsBuilder, TagImageOptionsBuilder,
+        PushImageOptionsBuilder, RemoveImageOptionsBuilder, StatsOptionsBuilder,
+        TagImageOptionsBuilder,
     },
 };
 use futures::StreamExt;
@@ -25,14 +26,14 @@ use ramag_domain::{
         ContainerEndpointProfile, ContainerImageOperationKind, ContainerImageOperationRequest,
         ContainerImageOperationResult, ContainerListQuery, ContainerLogQuery, ContainerPage,
         ContainerRegistryCredential, DockerConnectionInfo, DockerContainerDetail,
-        DockerContainerLogLine, DockerContainerLogs, DockerContainerPort, DockerContainerSummary,
-        DockerEngineVersion, DockerImageDetail, DockerImageSummary, DockerLabel, DockerLogStream,
-        DockerMountSummary, DockerNetworkAttachment, DockerNetworkDetail, DockerNetworkSubnet,
-        DockerNetworkSummary, DockerOverview, DockerResourceCounts, DockerVolumeDetail,
-        DockerVolumeSummary, MAX_CONTAINER_LABELS, MAX_CONTAINER_LOG_BYTES,
-        MAX_CONTAINER_LOG_LINES, MAX_CONTAINER_MOUNTS, MAX_CONTAINER_NETWORKS, MAX_CONTAINER_PORTS,
-        MAX_CONTAINER_REPOSITORY_REFERENCES, MAX_CONTAINER_RESOURCE_ID_BYTES,
-        MAX_CONTAINER_RESOURCE_ITEMS,
+        DockerContainerLogLine, DockerContainerLogs, DockerContainerPort, DockerContainerStats,
+        DockerContainerSummary, DockerEngineVersion, DockerImageDetail, DockerImageSummary,
+        DockerLabel, DockerLogStream, DockerMountSummary, DockerNetworkAttachment,
+        DockerNetworkDetail, DockerNetworkSubnet, DockerNetworkSummary, DockerOverview,
+        DockerResourceCounts, DockerVolumeDetail, DockerVolumeSummary, MAX_CONTAINER_LABELS,
+        MAX_CONTAINER_LOG_BYTES, MAX_CONTAINER_LOG_LINES, MAX_CONTAINER_MOUNTS,
+        MAX_CONTAINER_NETWORKS, MAX_CONTAINER_PORTS, MAX_CONTAINER_REPOSITORY_REFERENCES,
+        MAX_CONTAINER_RESOURCE_ID_BYTES, MAX_CONTAINER_RESOURCE_ITEMS,
     },
     error::{ContainerError, ContainerErrorCategory, DomainError, READ_ONLY_MESSAGE, Result},
 };
@@ -238,6 +239,35 @@ impl DockerDriver {
             .map_err(|error| map_bollard_error("读取 Docker 容器详情", error))?;
         let value = json_value(&value, "Docker 容器详情响应")?;
         container_detail(&value)
+    }
+
+    async fn container_stats_async(
+        docker: Docker,
+        id: String,
+        cancellation: ContainerOperationCancellation,
+    ) -> Result<DockerContainerStats> {
+        ensure_container_stats_active(&cancellation)?;
+        let mut stream = docker.stats(
+            &id,
+            Some(
+                StatsOptionsBuilder::default()
+                    .stream(false)
+                    .one_shot(true)
+                    .build(),
+            ),
+        );
+        let item = tokio::select! {
+            _ = wait_for_operation_cancellation(cancellation.clone()) => {
+                return Err(container_stats_cancelled());
+            }
+            item = stream.next() => item,
+        };
+        let response = item
+            .ok_or_else(|| protocol_error("Docker Engine 没有返回容器指标"))?
+            .map_err(|error| map_bollard_error("读取 Docker 容器指标", error))?;
+        ensure_container_stats_active(&cancellation)?;
+        let value = json_value(&response, "Docker 容器指标响应")?;
+        container_stats(&value, id)
     }
 
     async fn container_logs_async(
@@ -614,6 +644,22 @@ impl ContainerDriver for DockerDriver {
         .await
     }
 
+    async fn container_stats(
+        &self,
+        profile: &ContainerEndpointProfile,
+        id: &str,
+        cancellation: ContainerOperationCancellation,
+    ) -> Result<DockerContainerStats> {
+        let id = validate_resource_id(id, "容器 ID")?;
+        ensure_container_stats_active(&cancellation)?;
+        Self::connect_and(
+            profile,
+            "读取 Docker 容器指标",
+            move |docker, _profile| Box::pin(Self::container_stats_async(docker, id, cancellation)),
+        )
+        .await
+    }
+
     async fn container_logs(
         &self,
         profile: &ContainerEndpointProfile,
@@ -865,9 +911,25 @@ fn container_logs_cancelled() -> DomainError {
     ))
 }
 
+fn container_stats_cancelled() -> DomainError {
+    DomainError::Container(ContainerError::new(
+        ContainerErrorCategory::Cancelled,
+        "读取 Docker 容器指标",
+        "Docker 容器指标读取已取消",
+    ))
+}
+
 fn ensure_container_logs_active(cancellation: &ContainerOperationCancellation) -> Result<()> {
     if cancellation.load(Ordering::Relaxed) {
         Err(container_logs_cancelled())
+    } else {
+        Ok(())
+    }
+}
+
+fn ensure_container_stats_active(cancellation: &ContainerOperationCancellation) -> Result<()> {
+    if cancellation.load(Ordering::Relaxed) {
+        Err(container_stats_cancelled())
     } else {
         Ok(())
     }
@@ -1331,6 +1393,79 @@ fn container_detail(value: &Value) -> Result<DockerContainerDetail> {
     })
 }
 
+fn container_stats(value: &Value, container_id: String) -> Result<DockerContainerStats> {
+    let cpu_delta = nested_u64(value, &["cpu_stats", "cpu_usage", "total_usage"])
+        .zip(nested_u64(
+            value,
+            &["precpu_stats", "cpu_usage", "total_usage"],
+        ))
+        .and_then(|(current, previous)| current.checked_sub(previous));
+    let system_delta = nested_u64(value, &["cpu_stats", "system_cpu_usage"])
+        .zip(nested_u64(value, &["precpu_stats", "system_cpu_usage"]))
+        .and_then(|(current, previous)| current.checked_sub(previous));
+    let online_cpus = nested_u64(value, &["cpu_stats", "online_cpus"]).or_else(|| {
+        value
+            .get("cpu_stats")
+            .and_then(|stats| stats.get("cpu_usage"))
+            .and_then(|usage| usage.get("percpu_usage"))
+            .and_then(Value::as_array)
+            .map(|values| values.len() as u64)
+    });
+    let cpu_percent = cpu_delta
+        .zip(system_delta)
+        .zip(online_cpus)
+        .filter(|((_, system_delta), _)| *system_delta > 0)
+        .map(|((cpu_delta, system_delta), online_cpus)| {
+            cpu_delta as f64 / system_delta as f64 * online_cpus as f64 * 100.0
+        });
+    let memory = value.get("memory_stats");
+    let memory_usage_bytes = memory.and_then(|memory| {
+        u64_number(memory, &["usage"])
+            .or_else(|| u64_number(memory, &["privateworkingset"]))
+            .or_else(|| u64_number(memory, &["commitbytes"]))
+    });
+    let memory_limit_bytes = memory.and_then(|memory| {
+        u64_number(memory, &["limit"]).or_else(|| u64_number(memory, &["commitbytes"]))
+    });
+    let memory_percent = memory_usage_bytes
+        .zip(memory_limit_bytes)
+        .filter(|(_, limit)| *limit > 0)
+        .map(|(usage, limit)| usage as f64 / limit as f64 * 100.0);
+    Ok(DockerContainerStats {
+        container_id,
+        name: string(value, &["name", "Name"]),
+        read_at: string(value, &["read", "Read"]),
+        cpu_percent,
+        memory_usage_bytes,
+        memory_limit_bytes,
+        memory_percent,
+        network_rx_bytes: sum_network_bytes(value, "rx_bytes"),
+        network_tx_bytes: sum_network_bytes(value, "tx_bytes"),
+    })
+}
+
+fn nested_u64(value: &Value, keys: &[&str]) -> Option<u64> {
+    keys.iter()
+        .try_fold(value, |current, key| current.get(*key))
+        .and_then(Value::as_u64)
+}
+
+fn sum_network_bytes(value: &Value, field: &str) -> Option<u64> {
+    value
+        .get("networks")
+        .and_then(Value::as_object)
+        .map(|networks| {
+            networks.values().fold(0_u64, |total, network| {
+                total.saturating_add(
+                    network
+                        .get(field)
+                        .and_then(Value::as_u64)
+                        .unwrap_or_default(),
+                )
+            })
+        })
+}
+
 fn mounts(value: &Value) -> Vec<DockerMountSummary> {
     get(value, &["Mounts", "mounts"])
         .and_then(Value::as_array)
@@ -1572,6 +1707,59 @@ mod tests {
             assert!(matches(term), "资源筛选应命中 {term}");
         }
         assert!(!matches("missing"));
+    }
+
+    #[test]
+    fn maps_container_stats_cpu_memory_networks_and_missing_fields() {
+        let value = serde_json::json!({
+            "id": "container-1",
+            "name": "/web",
+            "read": "2026-09-28T00:00:00Z",
+            "cpu_stats": {
+                "cpu_usage": {"total_usage": 2_000_000_000_u64},
+                "system_cpu_usage": 4_000_000_000_u64,
+                "online_cpus": 2
+            },
+            "precpu_stats": {
+                "cpu_usage": {"total_usage": 1_000_000_000_u64},
+                "system_cpu_usage": 2_000_000_000_u64
+            },
+            "memory_stats": {"usage": 512, "limit": 1024},
+            "networks": {
+                "eth0": {"rx_bytes": 10, "tx_bytes": 5},
+                "eth1": {"rx_bytes": 20, "tx_bytes": 7}
+            }
+        });
+        let stats = container_stats(&value, "container-1".into()).expect("指标响应应解析");
+        assert_eq!(stats.name.as_deref(), Some("/web"));
+        assert_eq!(stats.cpu_percent, Some(100.0));
+        assert_eq!(stats.memory_usage_bytes, Some(512));
+        assert_eq!(stats.memory_limit_bytes, Some(1024));
+        assert_eq!(stats.memory_percent, Some(50.0));
+        assert_eq!(stats.network_rx_bytes, Some(30));
+        assert_eq!(stats.network_tx_bytes, Some(12));
+
+        let missing = container_stats(&serde_json::json!({}), "container-2".into())
+            .expect("缺失字段仍应返回有界指标");
+        assert_eq!(missing.cpu_percent, None);
+        assert_eq!(missing.memory_usage_bytes, None);
+        assert_eq!(missing.network_rx_bytes, None);
+    }
+
+    #[test]
+    fn cancelled_container_stats_are_rejected_before_connecting_engine() {
+        let profile = ContainerEndpointProfile::local_docker("本机 Docker");
+        let cancellation = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let result = smol::block_on(DockerDriver::new().container_stats(
+            &profile,
+            "container-1",
+            cancellation,
+        ));
+        assert!(matches!(
+            result,
+            Err(DomainError::Container(error))
+                if error.category == ContainerErrorCategory::Cancelled
+        ));
     }
 
     #[test]
@@ -1939,6 +2127,19 @@ mod tests {
             let detail = smol::block_on(driver.get_container(&profile, &container.id))
                 .expect("本机 Docker 容器详情应成功");
             assert_eq!(detail.summary.id, container.id);
+        }
+        if let Some(container) = containers
+            .items
+            .iter()
+            .find(|container| container.state.as_deref() == Some("running"))
+        {
+            let stats = smol::block_on(driver.container_stats(
+                &profile,
+                &container.id,
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            ))
+            .expect("本机 Docker 容器指标应成功");
+            assert_eq!(stats.container_id, container.id);
         }
         if let Some(image) = images.items.first() {
             let detail = smol::block_on(driver.get_image(&profile, &image.id))

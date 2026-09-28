@@ -577,6 +577,19 @@ pub struct DockerContainerDetail {
     pub networks: Vec<DockerNetworkAttachment>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DockerContainerStats {
+    pub container_id: String,
+    pub name: Option<String>,
+    pub read_at: Option<String>,
+    pub cpu_percent: Option<f64>,
+    pub memory_usage_bytes: Option<u64>,
+    pub memory_limit_bytes: Option<u64>,
+    pub memory_percent: Option<f64>,
+    pub network_rx_bytes: Option<u64>,
+    pub network_tx_bytes: Option<u64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DockerImageSummary {
     pub id: String,

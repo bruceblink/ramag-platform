@@ -27,9 +27,10 @@ use ramag_domain::{
         ContainerListQuery, ContainerLogQuery, ContainerPage, ContainerPlatform,
         ContainerRegistryProfile, ContainerRegistryRepository, ContainerRegistryTag,
         DockerConnectionInfo, DockerContainerDetail, DockerContainerLogLine, DockerContainerLogs,
-        DockerContainerSummary, DockerImageDetail, DockerImageSummary, DockerNetworkDetail,
-        DockerNetworkSummary, DockerOverview, DockerVolumeDetail, DockerVolumeSummary,
-        MAX_CONTAINER_LOG_BYTES, MAX_CONTAINER_LOG_LINES, MAX_CONTAINER_QUERY_BYTES,
+        DockerContainerStats, DockerContainerSummary, DockerImageDetail, DockerImageSummary,
+        DockerNetworkDetail, DockerNetworkSummary, DockerOverview, DockerVolumeDetail,
+        DockerVolumeSummary, MAX_CONTAINER_LOG_BYTES, MAX_CONTAINER_LOG_LINES,
+        MAX_CONTAINER_QUERY_BYTES,
     },
     error::Result,
     traits::{ContainerLogSink, ContainerLogSinkResult},
@@ -150,6 +151,9 @@ pub struct ContainerView {
     logs_follow_evicted_lines: usize,
     selected_log_container: Option<String>,
     selected_detail: Option<SelectedDetail>,
+    container_stats: Option<DockerContainerStats>,
+    stats_loading: bool,
+    stats_cancellation: Option<Arc<AtomicBool>>,
     loading: bool,
     detail_loading: bool,
     error: Option<String>,
@@ -250,6 +254,9 @@ impl ContainerView {
             logs_follow_evicted_lines: 0,
             selected_log_container: None,
             selected_detail: None,
+            container_stats: None,
+            stats_loading: false,
+            stats_cancellation: None,
             loading: false,
             detail_loading: false,
             error: None,
@@ -512,6 +519,22 @@ impl ContainerView {
         };
         let profile = self.profile.clone();
         let section = self.section;
+        if let Some(cancellation) = self.stats_cancellation.take() {
+            cancellation.store(true, Ordering::Relaxed);
+        }
+        self.stats_loading = false;
+        if section == ContainerSection::Containers
+            && !matches!(
+                &self.selected_detail,
+                Some(SelectedDetail::Container(detail)) if detail.summary.id == id
+            )
+        {
+            self.container_stats = None;
+            if let Some(cancellation) = self.stats_cancellation.take() {
+                cancellation.store(true, Ordering::Relaxed);
+            }
+            self.stats_loading = false;
+        }
         self.request_id = self.request_id.wrapping_add(1);
         let request_id = self.request_id;
         self.detail_loading = true;
@@ -558,6 +581,50 @@ impl ContainerView {
             });
         })
         .detach();
+    }
+
+    fn load_container_stats(&mut self, container_id: String, cx: &mut Context<Self>) {
+        let Some(service) = self.service.clone() else {
+            return;
+        };
+        if let Some(cancellation) = self.stats_cancellation.take() {
+            cancellation.store(true, Ordering::Relaxed);
+        }
+        let cancellation = Arc::new(AtomicBool::new(false));
+        let profile = self.profile.clone();
+        self.stats_loading = true;
+        self.stats_cancellation = Some(cancellation.clone());
+        self.error = None;
+        let request_id = self.request_id.wrapping_add(1);
+        self.request_id = request_id;
+        cx.notify();
+        cx.spawn(async move |this, async_cx| {
+            let result = service
+                .container_stats(&profile, &container_id, cancellation.clone())
+                .await;
+            let _ = this.update(async_cx, |view, cx| {
+                if view.request_id != request_id {
+                    return;
+                }
+                view.apply_container_stats_result(result);
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    fn apply_container_stats_result(&mut self, result: Result<DockerContainerStats>) {
+        self.stats_loading = false;
+        self.stats_cancellation = None;
+        match result {
+            Ok(stats) => {
+                self.container_stats = Some(stats);
+                self.error = None;
+            }
+            Err(error) => {
+                self.error = Some(error.user_message());
+            }
+        }
     }
 
     fn open_container_logs(
@@ -982,6 +1049,11 @@ impl ContainerView {
         self.logs_follow_evicted_lines = 0;
         self.selected_log_container = None;
         self.selected_detail = None;
+        self.container_stats = None;
+        self.stats_loading = false;
+        if let Some(cancellation) = self.stats_cancellation.take() {
+            cancellation.store(true, Ordering::Relaxed);
+        }
     }
 }
 
@@ -2057,6 +2129,7 @@ impl ContainerView {
             Some(SelectedDetail::Container(value)) => {
                 let container_id_for_logs = value.summary.id.clone();
                 let container_id_for_refresh = value.summary.id.clone();
+                let container_id_for_stats = value.summary.id.clone();
                 Some(
                     ramag_ui::responsive_toolbar()
                         .id("container-detail-actions")
@@ -2072,6 +2145,27 @@ impl ContainerView {
                                 .disabled(self.service.is_none() || self.detail_loading)
                                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                     this.load_detail(container_id_for_refresh.clone(), cx);
+                                })),
+                        )
+                        .child(
+                            ramag_ui::clickable_button("container-detail-stats")
+                                .ghost()
+                                .small()
+                                .icon(IconName::MemoryStick)
+                                .label(if self.stats_loading {
+                                    "读取指标中..."
+                                } else {
+                                    "刷新指标"
+                                })
+                                .debug_selector(|| "container-detail-stats".into())
+                                .tooltip("读取一次容器 CPU、内存和网络指标")
+                                .disabled(
+                                    self.service.is_none()
+                                        || self.detail_loading
+                                        || self.stats_loading,
+                                )
+                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                    this.load_container_stats(container_id_for_stats.clone(), cx);
                                 })),
                         )
                         .child(
@@ -2103,6 +2197,14 @@ impl ContainerView {
             .child(info_panel("详情", detail, theme));
         if let Some(detail_actions) = detail_actions {
             panel = panel.child(detail_actions);
+        }
+        if let Some(stats) = &self.container_stats {
+            panel = panel.child(
+                div()
+                    .id("container-detail-stats-panel")
+                    .debug_selector(|| "container-detail-stats-panel".into())
+                    .child(info_panel("资源指标", container_stats_text(stats), theme)),
+            );
         }
         Some(panel.into_any_element())
     }
@@ -2354,6 +2456,24 @@ fn format_capacity_bytes(value: Option<u64>) -> String {
     }
 }
 
+fn format_percent(value: Option<f64>) -> String {
+    value.map_or_else(|| "未知".into(), |value| format!("{value:.1}%"))
+}
+
+fn container_stats_text(stats: &DockerContainerStats) -> String {
+    format!(
+        "容器 {}\n采样时间：{}\nCPU 使用率：{}\n内存：{} / {}（{}）\n网络接收：{}\n网络发送：{}",
+        stats.container_id,
+        stats.read_at.as_deref().unwrap_or("未知"),
+        format_percent(stats.cpu_percent),
+        format_capacity_bytes(stats.memory_usage_bytes),
+        format_capacity_bytes(stats.memory_limit_bytes),
+        format_percent(stats.memory_percent),
+        format_capacity_bytes(stats.network_rx_bytes),
+        format_capacity_bytes(stats.network_tx_bytes)
+    )
+}
+
 fn container_detail_text(detail: &DockerContainerDetail) -> String {
     let summary = &detail.summary;
     format!(
@@ -2499,3 +2619,7 @@ mod filter_tests;
 #[cfg(test)]
 #[path = "overview_tests.rs"]
 mod overview_tests;
+
+#[cfg(test)]
+#[path = "stats_tests.rs"]
+mod stats_tests;

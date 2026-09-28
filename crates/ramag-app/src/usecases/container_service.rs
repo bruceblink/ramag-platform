@@ -9,8 +9,9 @@ use ramag_domain::entities::{
     ContainerEndpointProfile, ContainerImageOperationPreview, ContainerImageOperationRequest,
     ContainerImageOperationResult, ContainerListQuery, ContainerLogQuery, ContainerPage,
     ContainerRegistryCredential, DockerConnectionInfo, DockerContainerDetail, DockerContainerLogs,
-    DockerContainerSummary, DockerImageDetail, DockerImageSummary, DockerNetworkDetail,
-    DockerNetworkSummary, DockerOverview, DockerVolumeDetail, DockerVolumeSummary,
+    DockerContainerStats, DockerContainerSummary, DockerImageDetail, DockerImageSummary,
+    DockerNetworkDetail, DockerNetworkSummary, DockerOverview, DockerVolumeDetail,
+    DockerVolumeSummary,
 };
 use ramag_domain::error::{
     ContainerError, ContainerErrorCategory, DomainError, READ_ONLY_MESSAGE, Result,
@@ -21,6 +22,9 @@ mod container_log_follow;
 
 #[cfg(test)]
 mod container_service_follow_tests;
+
+#[cfg(test)]
+mod container_service_stats_tests;
 
 /// 容器管理只依赖领域接口；Docker 客户端类型不进入应用层和 UI。
 pub struct ContainerService {
@@ -69,6 +73,25 @@ impl ContainerService {
     ) -> Result<DockerContainerDetail> {
         Self::ensure_docker(profile)?;
         self.driver.get_container(profile, container_id).await
+    }
+
+    pub async fn container_stats(
+        &self,
+        profile: &ContainerEndpointProfile,
+        container_id: &str,
+        cancellation: ContainerOperationCancellation,
+    ) -> Result<DockerContainerStats> {
+        Self::ensure_docker(profile)?;
+        if cancellation.load(Ordering::Relaxed) {
+            return Err(DomainError::Container(ContainerError::new(
+                ContainerErrorCategory::Cancelled,
+                "读取 Docker 容器指标",
+                "Docker 容器指标读取已取消",
+            )));
+        }
+        self.driver
+            .container_stats(profile, container_id, cancellation)
+            .await
     }
 
     pub async fn container_logs(
