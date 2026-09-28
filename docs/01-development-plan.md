@@ -300,6 +300,16 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
 - 证据边界：本切片证明了应用层预先取消、适配器等待中的取消分支和 headless 停止入口；follow、暂停/恢复、复制/导出、Kubernetes Pod 日志、Docker exec、容器生命周期写操作和真实 Windows 原生窗口仍未验收。
 
+### B-CONTAINER-001-D：Docker 日志持续读取（设计确认，2026-09-28）
+
+- 问题证据：当前工作区只能读取一次性的历史日志；容器继续输出新日志时，用户必须离开日志页面再重新打开，无法观察正在运行的容器。
+- 设计：新增 Docker 日志持续读取接口，复用 `ContainerLogQuery`、`ContainerOperationCancellation` 和现有敏感行隐藏规则。适配器使用 Docker `follow=true` 读取日志流，把每个完整日志行交给有界 sink；应用层只转发已校验的 Docker 请求，页面用有界异步通道接收行并追加到当前日志窗口。
+- 背压和生命周期：页面通道固定容量；通道暂时写满时，适配器暂停读取下一条日志并重试，不丢弃已经从 Docker 取出的日志，也不继续增加内存。用户停止、切换容器、切换页面或页面销毁时设置取消标记并关闭接收端；适配器遇到关闭的 sink 时结束远端日志读取。
+- 窗口限制：持续窗口最多保留 `MAX_CONTAINER_LOG_LINES` 行和 `MAX_CONTAINER_LOG_BYTES` 字节，超过限制时从最早行开始移除并累计移除数量；历史日志的“读取截断”状态与持续窗口的“滚动移除”状态分开显示。持续读取不写入历史记录、普通配置或操作日志。
+- 验收条件：领域测试覆盖持续读取 sink 结果和窗口滚动边界；应用服务测试确认 Docker 校验、取消转发和敏感行隐藏；Docker 适配器测试确认 `follow=true`、有界 sink 回压、关闭 sink 和取消均能结束读取；headless 测试确认 `360x640`、`1024x768` 和 `1440x900` 下持续读取/停止按钮及日志窗口不越界；本机 Docker 使用专用日志容器回读至少一条初始日志和一条后续日志，停止后无测试容器残留；目标测试、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不实现暂停展示、复制、导出、自动重连、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收；不把持续窗口扩展为无界日志存储。
+- 实施顺序：先提交本设计确认，再实现领域 sink、应用转发、Docker 流读取、页面控制和目标测试；本机 Docker 回读通过后独立提交，下一项再处理暂停展示或复制导出中的一个明确边界。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
