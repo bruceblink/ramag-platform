@@ -17,8 +17,8 @@ use gpui_kit::component::{
     v_flex,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled,
-    Subscription, Window, div, prelude::*, px,
+    AnyElement, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, ScrollHandle,
+    Styled, Subscription, Window, div, prelude::*, px,
 };
 use ramag_app::{ContainerRegistryService, ContainerService};
 use ramag_domain::{
@@ -137,6 +137,7 @@ pub struct ContainerView {
     logs: Option<DockerContainerLogs>,
     logs_loading: bool,
     logs_exporting: bool,
+    logs_scroll: ScrollHandle,
     log_cancellation: Option<Arc<AtomicBool>>,
     logs_following: bool,
     log_follow_cancellation: Option<Arc<AtomicBool>>,
@@ -230,6 +231,7 @@ impl ContainerView {
             logs: None,
             logs_loading: false,
             logs_exporting: false,
+            logs_scroll: ScrollHandle::new(),
             log_cancellation: None,
             logs_following: false,
             log_follow_cancellation: None,
@@ -550,6 +552,7 @@ impl ContainerView {
         self.selected_detail = None;
         self.selected_log_container = Some(container_id.clone());
         self.logs = None;
+        self.logs_scroll = ScrollHandle::new();
         self.logs_loading = true;
         self.log_cancellation = Some(cancellation.clone());
         self.logs_following = false;
@@ -575,6 +578,7 @@ impl ContainerView {
                 match result {
                     Ok(logs) => {
                         view.logs = Some(logs);
+                        view.logs_scroll.scroll_to_bottom();
                         view.error = None;
                     }
                     Err(error) => {
@@ -814,6 +818,7 @@ impl ContainerView {
         for line in pending {
             self.append_follow_log_line(line);
         }
+        self.logs_scroll.scroll_to_bottom();
     }
 
     fn queue_follow_log_line(&mut self, line: DockerContainerLogLine) {
@@ -846,23 +851,28 @@ impl ContainerView {
             self.logs_follow_evicted_lines = self.logs_follow_evicted_lines.saturating_add(1);
             return;
         }
-        let Some(logs) = self.logs.as_mut() else {
-            return;
-        };
         let mut evicted: usize = 0;
-        while (!logs.lines.is_empty() && logs.lines.len() >= MAX_CONTAINER_LOG_LINES)
-            || (!logs.lines.is_empty()
-                && logs.bytes.saturating_add(line_bytes) > MAX_CONTAINER_LOG_BYTES)
         {
-            let removed = logs.lines.remove(0);
-            logs.bytes = logs.bytes.saturating_sub(removed.message.len());
-            evicted = evicted.saturating_add(1);
-        }
-        if line_bytes <= MAX_CONTAINER_LOG_BYTES {
-            logs.lines.push(line);
-            logs.bytes = logs.bytes.saturating_add(line_bytes);
+            let Some(logs) = self.logs.as_mut() else {
+                return;
+            };
+            while (!logs.lines.is_empty() && logs.lines.len() >= MAX_CONTAINER_LOG_LINES)
+                || (!logs.lines.is_empty()
+                    && logs.bytes.saturating_add(line_bytes) > MAX_CONTAINER_LOG_BYTES)
+            {
+                let removed = logs.lines.remove(0);
+                logs.bytes = logs.bytes.saturating_sub(removed.message.len());
+                evicted = evicted.saturating_add(1);
+            }
+            if line_bytes <= MAX_CONTAINER_LOG_BYTES {
+                logs.lines.push(line);
+                logs.bytes = logs.bytes.saturating_add(line_bytes);
+            }
         }
         self.logs_follow_evicted_lines = self.logs_follow_evicted_lines.saturating_add(evicted);
+        if !self.log_follow_paused {
+            self.logs_scroll.scroll_to_bottom();
+        }
     }
 
     fn cancel_container_logs(&mut self, cx: &mut Context<Self>) {
@@ -925,6 +935,7 @@ impl ContainerView {
         self.volumes = None;
         self.logs = None;
         self.logs_loading = false;
+        self.logs_scroll = ScrollHandle::new();
         if let Some(cancellation) = self.log_cancellation.take() {
             cancellation.store(true, Ordering::Relaxed);
         }
@@ -1817,7 +1828,9 @@ impl ContainerView {
                     .debug_selector(|| "container-logs-output".into())
                     .w_full()
                     .max_h(px(420.0))
-                    .overflow_y_scrollbar()
+                    .overflow_y_scroll()
+                    .track_scroll(&self.logs_scroll)
+                    .vertical_scrollbar(&self.logs_scroll)
                     .gap(px(6.0))
                     .children(rows),
             )
@@ -2310,3 +2323,7 @@ mod export_tests;
 #[cfg(test)]
 #[path = "detail_tests.rs"]
 mod detail_tests;
+
+#[cfg(test)]
+#[path = "scroll_tests.rs"]
+mod scroll_tests;
