@@ -368,6 +368,16 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 质量检查：目标测试和 `cargo fmt --all -- --check`、`git diff --check` 通过；提交前继续执行 workspace Clippy 和源码尺寸检查。
 - 证据边界：本切片证明单容器 Docker follow 的“历史窗口接后续新行”语义；不提供日志时间游标、断线自动重连、跨容器聚合、VictoriaLogs/LogSQL 查询、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
 
+### B-CONTAINER-001-H：导出当前容器日志窗口（设计确认，2026-09-28）
+
+- 问题证据：当前日志窗口已经支持历史读取、实时 tail、暂停展示和复制，但复制结果仍需要手动转存；用户需要把当前内容作为 `.log` 或 `.txt` 文件交给工单、审查或离线分析。
+- 设计：在日志工具栏增加“导出日志”按钮。点击后打开系统保存对话框，默认文件名使用容器标识和 `.log` 扩展名；用户选择路径后，应用把当前可见 `DockerContainerLogs.lines` 按 `stream: message` 格式写入 UTF-8 文本文件。导出复用 `container_logs_copy_text`，因此继续使用已经脱敏、按 `MAX_CONTAINER_LOG_BYTES` 限制的内容。
+- 文件写入：复用 `ramag_app::usecases::export::write_atomic`，在目标目录先完整写入临时文件、同步并替换目标文件；取消保存对话框不产生文件，写入失败清理临时文件并保留原目标文件。保存文件名和路径由用户明确选择，不自动写入工作区或临时目录。
+- 实时读取边界：导出只读取当前可见窗口，不读取 Docker、不读取暂停中的待显示队列、不改变 follow 连接、暂停状态、请求代次或日志窗口内容。导出期间按钮进入忙碌状态，完成或失败通过统一通知反馈。
+- 验收条件：纯函数测试确认导出文本和复制文本完全一致；文件写入测试确认 UTF-8 内容、原子替换和失败清理；headless 测试在 `360x640`、`1024x768` 和 `1440x900` 确认导出按钮位于日志工具栏内，暂停时只导出当前可见行；目标测试、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不导出待显示队列、Docker 原始流、历史查询条件、容器详情或敏感原文；不实现滚动归档、自动命名批量导出、VictoriaLogs/LogSQL、跨容器聚合、自动重连、Kubernetes Pod 日志、Docker exec、容器生命周期写操作或真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再实现系统保存对话框、原子写入调用、通知和 headless/文件测试；验证通过后独立提交，下一项再处理容器资源状态中的一个明确边界。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
