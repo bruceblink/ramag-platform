@@ -13,6 +13,7 @@ use gpui_kit::{
 };
 use ramag_domain::entities::{ReflogEntry, contains_case_insensitive};
 
+use super::helpers::stable_path_element_id;
 use super::vcs_view::VcsView;
 
 /// 每行高度（与 commit 行 28px 对齐，视觉一致）
@@ -78,7 +79,6 @@ impl VcsView {
                         .map(|i| {
                             let entry_index = indices_rc[i];
                             render_reflog_row(
-                                i,
                                 &entries_rc[entry_index],
                                 busy,
                                 fg,
@@ -152,10 +152,20 @@ fn matches_reflog_query(entry: &ReflogEntry, query_lower: &str) -> bool {
         || entry.commit.0.starts_with(query_lower)
 }
 
+fn reflog_entry_key(entry: &ReflogEntry) -> String {
+    format!(
+        "{}|{}|{}|{}|{}",
+        entry.commit.0,
+        entry.selector,
+        entry.action,
+        entry.subject,
+        entry.timestamp.timestamp_millis()
+    )
+}
+
 /// 单条 reflog 行渲染（在 uniform_list closure 内调）
 #[allow(clippy::too_many_arguments)]
 fn render_reflog_row(
-    idx: usize,
     e: &ReflogEntry,
     busy: bool,
     fg: gpui_kit::Hsla,
@@ -177,7 +187,9 @@ fn render_reflog_row(
         _ => muted_fg,
     };
     let commit_for_btn = e.commit.0.clone();
-    let row_id = SharedString::from(format!("vcs-reflog-row-{idx}"));
+    let entry_key = reflog_entry_key(e);
+    let row_id = stable_path_element_id("reflog-row", &entry_key);
+    let checkout_id = stable_path_element_id("reflog-checkout", &entry_key);
 
     h_flex()
         .id(row_id)
@@ -249,7 +261,7 @@ fn render_reflog_row(
                 .child(time_str),
         )
         .child(
-            ramag_ui::clickable_button(SharedString::from(format!("vcs-reflog-checkout-{idx}")))
+            ramag_ui::clickable_button(checkout_id)
                 .ghost()
                 .xsmall()
                 .icon(gpui_kit::component::IconName::ArrowRight)
@@ -322,5 +334,19 @@ mod tests {
                 .get(&Rc::new(entries.as_ref().clone()), "checkout")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn reflog_entry_key_is_stable_and_record_specific() {
+        let entry = reflog_entry();
+        assert_eq!(reflog_entry_key(&entry), reflog_entry_key(&entry));
+
+        let mut changed = entry.clone();
+        changed.subject = "另一个提交".into();
+        assert_ne!(reflog_entry_key(&entry), reflog_entry_key(&changed));
+
+        changed = entry.clone();
+        changed.commit = CommitId("fedcba654321".into());
+        assert_ne!(reflog_entry_key(&entry), reflog_entry_key(&changed));
     }
 }

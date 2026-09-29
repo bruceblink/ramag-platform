@@ -3,7 +3,7 @@ use super::add_vcs_window;
 use crate::views::vcs_view::{CompareState, VcsView};
 use gpui_kit::{TestAppContext, px, size};
 use ramag_domain::entities::{
-    Commit, CommitId, FileChangeKind, FileStatus, RebaseAction, RebaseTodo, Signature,
+    Commit, CommitId, FileChangeKind, FileStatus, RebaseAction, RebaseTodo, ReflogEntry, Signature,
     WorkingTreeStatus,
 };
 use std::rc::Rc;
@@ -282,6 +282,63 @@ fn vcs_view_renders_commit_detail_rows_after_file_reorder(cx: &mut TestAppContex
         assert_eq!(
             v.commit_files.first().map(|file| file.path.as_str()),
             Some("src/main.rs")
+        );
+    });
+}
+
+fn inject_reflog(v: &mut VcsView) {
+    let repo = super::mock_repo();
+    v.open_repos = vec![repo.clone()];
+    v.repo = Some(repo);
+    v.active_view = ActiveView::Session;
+    v.history_pane_visible = true;
+    v.showing_reflog = true;
+    v.reflog_entries = Rc::new(vec![
+        ReflogEntry {
+            commit: CommitId("commit-a".into()),
+            selector: "HEAD@{0}".into(),
+            action: "commit".into(),
+            subject: "first reflog entry".into(),
+            timestamp: chrono::Utc::now(),
+        },
+        ReflogEntry {
+            commit: CommitId("commit-b".into()),
+            selector: "HEAD@{1}".into(),
+            action: "checkout".into(),
+            subject: "second reflog entry".into(),
+            timestamp: chrono::Utc::now(),
+        },
+    ]);
+}
+
+/// Reflog 行按记录字段保持标识；列表重排后在三种窗口尺寸下重新渲染不 panic。
+#[gpui_kit::test]
+fn vcs_view_renders_reflog_rows_after_entry_reorder(cx: &mut TestAppContext) {
+    let (view, cx) = add_vcs_window(cx);
+
+    view.update(cx, |v, cx| {
+        inject_reflog(v);
+        cx.notify();
+    });
+    cx.run_until_parked();
+
+    for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+        cx.simulate_resize(size(px(width), px(height)));
+        view.update(cx, |v, cx| {
+            let mut entries = v.reflog_entries.as_ref().clone();
+            entries.reverse();
+            v.reflog_entries = Rc::new(entries);
+            cx.notify();
+        });
+        cx.run_until_parked();
+    }
+
+    view.read_with(cx, |v, _| {
+        assert_eq!(
+            v.reflog_entries
+                .first()
+                .map(|entry| entry.commit.0.as_str()),
+            Some("commit-b")
         );
     });
 }
