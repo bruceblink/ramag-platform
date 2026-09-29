@@ -561,6 +561,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不改变分支、Tag 或远程仓库的 Git 命令和确认流程，不改变历史过滤规则、折叠状态或列表排序，不处理提交历史列表本身的分页目标，不把本项扩展为真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再改造历史左栏行数据和稳定行标识，补充单元回归；定向测试通过后独立提交并推送，随后补充本切片验收记录。
 
+### B-GIT-001-E：历史侧栏行使用对象快照（代码与 headless 回归完成，2026-09-29）
+
+- 实现：历史左栏的本地分支、远程分支、Tag 和远程仓库行现在保存渲染时的对象副本；渲染、历史过滤和操作菜单直接使用副本，不再按数组下标读取当前列表。分支、Tag 和远程仓库的行标识改为使用类型和名称，列表重排不会把旧行复用成另一个对象。
+- 定向回归：新增测试在生成行后重排分支列表并修改远程地址，确认已有行仍保留原分支顺序、原远程地址和 Tag 名称；`ramag-tool-vcs` 全量 139 项测试中 134 项通过，5 项性能观察测试按设计忽略。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过；代码提交 `0dfb012e fix(vcs): stabilize history sidebar rows` 已推送 `origin/main`。
+- 证据边界：本切片证明历史左栏的异步刷新不会让旧行按下标改指向另一分支、Tag 或远程仓库；不提供真实 Windows 原生窗口鼠标/键盘证据，不访问 114 服务器，不改变 Git 命令语义，也不把 Computer Use 缺口写成已完成。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
