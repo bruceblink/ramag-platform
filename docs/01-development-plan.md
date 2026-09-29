@@ -622,6 +622,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 提交：设计确认提交为 `dfbb7fd6`，代码提交为 `1e18ee42`，均已推送到 `origin/main`。
 - 证据边界：本切片证明 headless 标签模型在列表重排和目标消失时不会把关闭动作改指向其它标签；不提供真实 Windows 原生窗口鼠标/键盘证据，不访问 114 服务器，也不改变 Git 驱动命令语义。
 
+### B-GIT-001-I：交互式 Rebase 行按提交 ID重新定位（设计确认，2026-09-29）
+
+- 问题证据：交互式 Rebase 计划的操作菜单、上移和下移按钮当前保存渲染时的数组下标。用户先移动一行后，旧菜单或迟到的点击事件仍可能把该下标应用到另一条提交，错误修改 Rebase 计划。
+- 设计：使用 `RebaseTodo.hash` 作为行的稳定目标；操作回调只保存提交 ID，执行时从当前 `rebase_todos` 重新定位索引，再校验当前位置是否允许 `Squash`/`Fixup` 和上移/下移。目标已经不存在时不修改其它行，只提示计划已更新。行、操作菜单和上下移按钮的调试选择器改用提交 ID派生的稳定标识。
+- 状态边界：Rebase 计划仍按当前列表顺序提交给 `interactive_rebase_execute`；提交 ID只用于 UI 目标定位，不改变 Git 协议、RebaseAction 规则、计划顺序或执行确认。第一条提交的合并限制在操作执行时再次检查，避免旧界面状态绕过限制。
+- 验收条件：纯函数测试确认列表重排后按提交 ID找到原提交、目标消失时没有回退到其它索引、第一条提交不能被改成 `Squash`/`Fixup`；headless 渲染检查确认行和控制使用稳定标识；`ramag-tool-vcs` 全量测试、workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不改变 Git Rebase 脚本、提交 ID校验、冲突处理、执行确认、分支状态或真实 Windows 原生窗口验收，不把本项扩展为远程仓库操作。
+- 实施顺序：先提交本设计确认，再实现按提交 ID定位、操作时重新校验和回归测试；目标测试通过后独立提交并推送，随后继续补充 Git 工作区其它异步操作边界。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
