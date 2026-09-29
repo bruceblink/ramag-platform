@@ -5,12 +5,12 @@ use gpui_kit::component::{
     h_flex,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, div,
     prelude::FluentBuilder as _, px,
 };
 use ramag_domain::entities::RepoOperation;
 
-use super::helpers::{ConflictOp, OperationStep};
+use super::helpers::{ConflictOp, OperationStep, stable_path_element_id};
 use super::vcs_view::VcsView;
 
 impl VcsView {
@@ -106,14 +106,13 @@ impl VcsView {
 }
 
 pub(super) fn conflict_buttons(
-    idx: usize,
     path: &str,
     busy: bool,
     cx: &mut Context<VcsView>,
 ) -> Vec<AnyElement> {
     let path_for_view = path.to_string();
     let view_btn = {
-        let id = SharedString::from(format!("vcs-conflict-view-{idx}"));
+        let id = stable_path_element_id("conflict-view", path);
         ramag_ui::clickable_button(id)
             .ghost()
             .xsmall()
@@ -129,7 +128,6 @@ pub(super) fn conflict_buttons(
         view_btn,
         conflict_btn(
             "use-ours",
-            idx,
             path,
             "采纳左侧".into(),
             IconName::ArrowLeft,
@@ -139,7 +137,6 @@ pub(super) fn conflict_buttons(
         ),
         conflict_btn(
             "use-theirs",
-            idx,
             path,
             "采纳右侧".into(),
             IconName::ArrowRight,
@@ -149,7 +146,6 @@ pub(super) fn conflict_buttons(
         ),
         conflict_btn(
             "mark-resolved",
-            idx,
             path,
             "标记已解决".into(),
             IconName::Check,
@@ -163,7 +159,6 @@ pub(super) fn conflict_buttons(
 #[allow(clippy::too_many_arguments)]
 fn conflict_btn(
     kind: &'static str,
-    idx: usize,
     path: &str,
     tooltip: String,
     icon: IconName,
@@ -171,7 +166,7 @@ fn conflict_btn(
     busy: bool,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
-    let id = SharedString::from(format!("vcs-conflict-{kind}-{idx}"));
+    let id = stable_path_element_id(&format!("conflict-{kind}"), path);
     let path_owned = path.to_string();
     ramag_ui::clickable_button(id)
         .ghost()

@@ -1,12 +1,7 @@
 use super::*;
 
 impl VcsView {
-    pub(super) fn render_change_row(
-        &self,
-        i: usize,
-        row: &ChangeRow,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
+    pub(super) fn render_change_row(&self, row: &ChangeRow, cx: &mut Context<Self>) -> AnyElement {
         match row {
             ChangeRow::Header {
                 title,
@@ -16,13 +11,14 @@ impl VcsView {
             ChangeRow::Dir {
                 display_name,
                 dir_path,
+                kind,
                 depth,
                 is_collapsed,
                 file_count,
             } => self.render_change_dir_row(
-                i,
                 display_name,
                 dir_path,
+                *kind,
                 *depth,
                 *is_collapsed,
                 *file_count,
@@ -33,7 +29,7 @@ impl VcsView {
                 .h(px(ROW_H))
                 .flex_none()
                 .pl(px((*depth as f32) * 12.0))
-                .child(self.render_file_row(i, file, *kind, cx))
+                .child(self.render_file_row(file, *kind, cx))
                 .into_any_element(),
         }
     }
@@ -121,9 +117,9 @@ impl VcsView {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn render_change_dir_row(
         &self,
-        i: usize,
         display_name: &str,
         dir_path: &str,
+        kind: GroupKind,
         depth: usize,
         is_collapsed: bool,
         file_count: usize,
@@ -133,7 +129,7 @@ impl VcsView {
         let fg = theme.foreground;
         let muted_fg = theme.muted_foreground;
         let hover_bg = theme.muted;
-        let id = SharedString::from(format!("vcs-ch-dir-{i}"));
+        let id = stable_file_element_id("change-dir", kind, dir_path);
         let chevron = if is_collapsed {
             IconName::ChevronRight
         } else {

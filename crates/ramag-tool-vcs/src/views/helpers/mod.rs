@@ -1,8 +1,10 @@
 mod commit_row;
 mod file_tab_target;
+mod stable_id;
 
 pub(super) use commit_row::render_commit_row;
 pub(super) use file_tab_target::{FileTabTarget, find_file_tab_index};
+pub(super) use stable_id::{stable_file_element_id, stable_path_element_id};
 
 use gpui_kit::component::{Disableable as _, IconName, Sizable as _, button::ButtonVariants as _};
 use gpui_kit::{AnyElement, ClickEvent, Context, IntoElement, SharedString, Window};
@@ -320,14 +322,14 @@ pub(super) enum TagOp {
 }
 
 pub(super) fn file_op_button(
-    id_parts: (&'static str, usize),
+    id_prefix: &'static str,
     label: &'static str,
     op: FileOp,
     path: String,
     busy: bool,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
-    let id = SharedString::from(format!("vcs-{}-{}", id_parts.0, id_parts.1));
+    let id = stable_path_element_id(id_prefix, &path);
     let mut btn = ramag_ui::clickable_button(id)
         .ghost()
         .xsmall()

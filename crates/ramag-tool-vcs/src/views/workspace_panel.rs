@@ -17,7 +17,9 @@ use ramag_domain::entities::{
     FileChangeKind, FileStatus, WorkingTreeStatus, contains_case_insensitive,
 };
 
-use super::helpers::{FileOp, GroupKind, code_letter_color, code_to_letter, file_op_button};
+use super::helpers::{
+    FileOp, GroupKind, code_letter_color, code_to_letter, file_op_button, stable_file_element_id,
+};
 use super::vcs_view::VcsView;
 use super::workspace_conflict::conflict_buttons;
 
@@ -33,6 +35,7 @@ enum ChangeRow {
     Dir {
         display_name: String,
         dir_path: String,
+        kind: GroupKind,
         depth: usize,
         is_collapsed: bool,
         file_count: usize,
@@ -140,7 +143,7 @@ impl VcsView {
                 let rows_rc = rows_rc.clone();
                 move |this, range: Range<usize>, _w, cx| {
                     range
-                        .map(|i| this.render_change_row(i, &rows_rc[i], cx))
+                        .map(|i| this.render_change_row(&rows_rc[i], cx))
                         .collect::<Vec<_>>()
                 }
             }),
@@ -256,6 +259,7 @@ impl VcsView {
                 } => out.push(ChangeRow::Dir {
                     display_name,
                     dir_path,
+                    kind,
                     depth,
                     is_collapsed,
                     file_count,
@@ -281,7 +285,6 @@ impl VcsView {
 
     pub(super) fn render_file_row(
         &self,
-        idx: usize,
         f: &FileStatus,
         kind: GroupKind,
         cx: &mut Context<Self>,
@@ -318,7 +321,7 @@ impl VcsView {
             .unwrap_or(false);
         let buttons: Vec<AnyElement> = match kind {
             GroupKind::Staged => vec![file_op_button(
-                ("unstage", idx),
+                "unstage",
                 "取消暂存",
                 FileOp::Unstage,
                 path_for_buttons.clone(),
@@ -327,7 +330,7 @@ impl VcsView {
             )],
             GroupKind::Unstaged => vec![
                 file_op_button(
-                    ("stage", idx),
+                    "stage",
                     "暂存",
                     FileOp::Stage,
                     path_for_buttons.clone(),
@@ -335,7 +338,7 @@ impl VcsView {
                     cx,
                 ),
                 file_op_button(
-                    ("discard", idx),
+                    "discard",
                     "丢弃",
                     FileOp::Discard,
                     path_for_buttons.clone(),
@@ -344,14 +347,14 @@ impl VcsView {
                 ),
             ],
             GroupKind::Untracked => vec![file_op_button(
-                ("stage-u", idx),
+                "stage-u",
                 "暂存",
                 FileOp::Stage,
                 path_for_buttons.clone(),
                 busy,
                 cx,
             )],
-            GroupKind::Conflict => conflict_buttons(idx, &f.path, busy, cx),
+            GroupKind::Conflict => conflict_buttons(&f.path, busy, cx),
         };
 
         // 「查看历史」按钮：所有非 Untracked 文件都可看（untracked 文件还没进 git，无历史）
@@ -359,7 +362,7 @@ impl VcsView {
             None
         } else {
             let path_for_history = f.path.clone();
-            let id = SharedString::from(format!("vcs-file-history-{idx}-{kind:?}"));
+            let id = stable_file_element_id("file-history", kind, &f.path);
             Some(
                 ramag_ui::clickable_button(id)
                     .ghost()
@@ -378,7 +381,7 @@ impl VcsView {
             buttons.insert(0, b);
         }
 
-        let row_id = SharedString::from(format!("vcs-file-{idx}-{kind:?}"));
+        let row_id = stable_file_element_id("file-row", kind, &f.path);
         let mut row = h_flex()
             .id(row_id)
             .h(px(ROW_H))
