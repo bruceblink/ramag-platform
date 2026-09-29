@@ -748,6 +748,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 提交：设计确认提交为 `ef4a0033`；代码提交为 `bad8ed3c fix(vcs): stabilize git ref sidebar selectors`，已推送到 `origin/main`。
 - 证据边界：本切片只证明 GPUI 节点身份和 headless 调试定位在名称边界、类别区分及列表重排后保持稳定；不提供真实仓库 Git 操作、真实 Windows 原生窗口鼠标和键盘验收，SSH 集成测试仍由用户自行验证。
 
+### B-GIT-001-U：提交历史行窄窗口布局与稳定定位（设计确认，2026-09-29）
+
+- 问题证据：提交历史行把作者、相对时间和短哈希固定为 140/96/70px，历史面板在 360px 窗口中还要分配左侧导航栏，固定列会挤出内容区；行节点 ID 只取提交 ID 的前 12 个字符，极短 ID 或相同前缀会造成定位不稳定。
+- 设计：提交行保留提交说明、引用标签、作者、时间和短哈希的信息层级；作者、时间和哈希列允许收缩并对文本做省略，引用标签容器在窄宽度内裁剪，主体说明继续占用剩余空间。行 ID 和调试选择器使用完整提交 ID 的有界哈希，点击与上下文菜单仍携带完整 ID。
+- 验收条件：headless 渲染在 360px、720px 和 1440px 窗口中确认提交行不超出历史内容区域；稳定标识测试确认相同提交稳定、仅前缀相同的不同提交仍分离；`ramag-tool-vcs` 目标测试、workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不改变历史查询、分页、选中、复制、比较、Cherry-pick、Checkout、Revert、Reset 或远程 Git 语义，不把本项扩展为真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再调整提交行布局和稳定标识，补充窄窗口 headless 回归；验证通过后独立提交并推送，随后补充本切片验收记录。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
