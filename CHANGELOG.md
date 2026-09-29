@@ -4,6 +4,28 @@
 
 > 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
 
+## [0.4.0] - 2026-09-29
+
+Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.3.0...v0.4.0
+
+### 🚀 新功能 / Features
+
+- 完善容器管理工作台，支持资源筛选、有限历史日志、持续跟随、暂停展示、复制/导出和资源统计趋势（[日志工作流](https://github.com/bruceblink/ramag-platform/commit/7f4ecd04)，[统计趋势](https://github.com/bruceblink/ramag-platform/commit/6343e5f4)）。
+- 扩展插件平台和本地协作能力，加入静态 JSON Path 入口、按需激活、多入口目录、任务生命周期控制和本地加密共享（[插件入口](https://github.com/bruceblink/ramag-platform/commit/86166388)，[本地协作](https://github.com/bruceblink/ramag-platform/commit/36126bed)）。
+
+### 🐛 问题修复 / Bug Fixes
+
+- 修复 Git 工作区批量操作、Pull 合并和 Stash 清理的目标定位与非交互行为，并稳定 Diff、历史、文件和远程操作的 UI 标识（[Pull 合并](https://github.com/bruceblink/ramag-platform/commit/302b3f12)，[稳定标识](https://github.com/bruceblink/ramag-platform/commit/d175e215)）。
+- 改进数据库、容器、SSH、API 和首页设置布局在紧凑窗口中的边界、滚动和取消反馈；补齐分页图标资源并恢复原生工具导航可见性（[紧凑布局](https://github.com/bruceblink/ramag-platform/commit/39a577ee)，[分页资源](https://github.com/bruceblink/ramag-platform/commit/c3f89d04)）。
+
+### 🔒 安全 / Security
+
+- 插件秘密配置使用加密存储，并按能力授权和调用上下文限制访问（[插件秘密](https://github.com/bruceblink/ramag-platform/commit/2330be93)，[能力授权](https://github.com/bruceblink/ramag-platform/commit/f8607cc9)）。
+
+### 🧰 维护、文档与测试 / Maintenance, Docs & Tests
+
+- 增加本机 Docker 的 SSH、容器和数据库回放，以及跨工作台 headless UI 验收；同步更新开发计划、架构文档和三平台发布校验。
+
 ## [0.3.0] - 2026-09-26
 
 Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.2.0...v0.3.0

@@ -8449,7 +8449,7 @@ checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
 name = "ramag-app"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -8480,7 +8480,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-bin"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "directories",
@@ -8533,7 +8533,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-collaboration-relay"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "axum",
  "chrono",
@@ -8548,7 +8548,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-domain"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-channel 2.5.0",
  "async-trait",
@@ -8565,7 +8565,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-api"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -8591,7 +8591,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-clipboard"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-channel 2.5.0",
  "cocoa 0.26.0",
@@ -8608,7 +8608,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-collaboration"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -8623,7 +8623,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-container-docker"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-std",
  "async-trait",
@@ -8642,7 +8642,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-container-registry"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "ramag-domain",
@@ -8657,7 +8657,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-git"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -8673,7 +8673,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-kafka"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -8692,7 +8692,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-mongodb"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "bson",
@@ -8709,7 +8709,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-mqtt"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-channel 2.5.0",
  "async-trait",
@@ -8726,7 +8726,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-mysql"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -8741,7 +8741,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-object-storage"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -8766,7 +8766,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-postgres"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -8782,7 +8782,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-redis"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -8797,7 +8797,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-sql-shared"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -8812,7 +8812,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-sqlite"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "ramag-domain",
@@ -8826,7 +8826,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-ssh"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-compression",
  "async-std",
@@ -8852,7 +8852,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-storage"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "aes-gcm",
  "async-trait",
@@ -8877,7 +8877,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-tunnel"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "ramag-domain",
  "tracing",
@@ -8885,7 +8885,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-infra-update"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "directories",
@@ -8902,7 +8902,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-terminal"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "alacritty_terminal",
  "gpui-kit",
@@ -8912,7 +8912,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-api"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-channel 2.5.0",
  "async-trait",
@@ -8930,7 +8930,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-clipboard"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -8945,7 +8945,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-collaboration"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "gpui-kit",
  "ramag-app",
@@ -8958,7 +8958,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-container"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-channel 2.5.0",
  "chrono",
@@ -8971,7 +8971,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-dbclient"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9003,7 +9003,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-json-path"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "gpui-kit",
  "ramag-app",
@@ -9016,7 +9016,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-json-path-wasm"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "ramag-domain",
  "serde",
@@ -9026,7 +9026,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-kafka"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-channel 2.5.0",
  "async-trait",
@@ -9045,7 +9045,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-mongodb"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9068,7 +9068,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-mqtt"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-channel 2.5.0",
  "async-trait",
@@ -9084,7 +9084,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-object-storage"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "gpui-kit",
@@ -9100,7 +9100,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-redis"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9122,7 +9122,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-ssh"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "gpui-kit",
@@ -9139,7 +9139,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-system"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "gpui-kit",
  "parking_lot",
@@ -9150,7 +9150,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-tool-vcs"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -9170,7 +9170,7 @@ dependencies = [
 
 [[package]]
 name = "ramag-ui"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "futures",
  "gpui-kit",
