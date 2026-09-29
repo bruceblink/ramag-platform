@@ -724,6 +724,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 提交：设计确认提交为 `ed81d6c8`，代码提交为 `d309828e`，均已推送到 `origin/main`。
 - 证据边界：本切片证明 Unified/Split Diff 行节点在 hunk 顺序变化后继续绑定原 hunk 内容，并覆盖 headless 行选择器回归；不提供真实仓库操作、真实 Windows 原生窗口鼠标和键盘证据。
 
+### B-GIT-001-S：Diff 折叠占位行使用稳定目标标识（设计确认，2026-09-29）
+
+- 问题证据：Split Diff 的长 Context 折叠占位行使用 `hunk_idx` 和 Context 段首行下标生成节点 ID，用户点击后也把这两个下标写入 `expanded_diff_spacers`。Diff 刷新或 hunk 顺序变化后，原来的展开状态可能落到另一段内容，节点调试定位也会跟着数组位置变化。
+- 设计：以文件路径、旧路径、hunk 完整内容和 Context 段首行位置计算稳定占位键；`SplitKey::Spacer`、折叠占位行节点 ID、调试选择器和展开状态统一使用该键。hunk 重排后按稳定键保留原占位行的展开状态，未找到对应 hunk 时不按相邻下标兜底。
+- 状态边界：只调整折叠占位行的 GPUI 节点身份和展开状态索引，不改变 Context 折叠阈值、首尾保留行、左右栏对齐、点击展开语义、滚动或 Git Diff 内容。
+- 验收条件：稳定占位键测试确认 hunk 重排后仍定位同一 Context 段，且展开第一段不会误展开另一段；headless 测试在长 Context Diff 中按稳定选择器找到占位行，并在 hunk 顺序变化后继续找到原目标；`ramag-tool-vcs` 全量测试、workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不改变 Diff 对齐算法、语法高亮、hunk 暂存/丢弃、Git patch 内容、真实仓库回放或真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再修改 `expanded_diff_spacers` 和 `SplitKey::Spacer` 的键类型，补稳定键单元测试与 headless 回归；定向测试及质量检查通过后独立提交并推送，随后补充本节的完成证据。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
