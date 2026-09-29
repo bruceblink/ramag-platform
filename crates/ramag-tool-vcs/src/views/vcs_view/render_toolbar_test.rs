@@ -3,6 +3,8 @@
 use super::{add_vcs_window, inject_diff_session};
 use gpui_kit::{Bounds, Pixels, TestAppContext, px, size};
 
+#[path = "remote_dialog_render_test.rs"]
+mod remote_dialog_render_test;
 #[path = "render_repo_list_test.rs"]
 mod render_repo_list_test;
 

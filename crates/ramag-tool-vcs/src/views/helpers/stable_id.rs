@@ -67,6 +67,18 @@ mod tests {
     }
 
     #[test]
+    fn first_push_remote_id_is_stable_and_remote_specific() {
+        assert_eq!(
+            stable_path_element_id("first-push-remote", "upstream"),
+            stable_path_element_id("first-push-remote", "upstream")
+        );
+        assert_ne!(
+            stable_path_element_id("first-push-remote", "upstream"),
+            stable_path_element_id("first-push-remote", "fork")
+        );
+    }
+
+    #[test]
     fn file_element_id_separates_change_groups() {
         assert_ne!(
             stable_file_element_id("row", GroupKind::Staged, "src/lib.rs"),

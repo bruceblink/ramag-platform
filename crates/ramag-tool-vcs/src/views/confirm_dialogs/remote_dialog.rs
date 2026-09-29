@@ -3,9 +3,11 @@
 use gpui_kit::component::{
     ActiveTheme, Sizable as _, WindowExt as _, button::ButtonVariants as _, h_flex, v_flex,
 };
-use gpui_kit::{ClickEvent, Context, ParentElement, Styled, Window, div, px};
+use gpui_kit::{
+    ClickEvent, Context, InteractiveElement as _, ParentElement, Styled, Window, div, px,
+};
 
-use super::super::helpers::RemoteOp;
+use super::super::helpers::{RemoteOp, stable_path_element_id};
 use super::super::vcs_view::VcsView;
 
 impl VcsView {
@@ -58,13 +60,16 @@ impl VcsView {
                     let view = view.clone();
                     move |content, _, cx| {
                         let mut choices = v_flex().w_full().gap(px(6.0));
-                        for (index, remote) in remotes.iter().enumerate() {
+                        for remote in &remotes {
                             let remote_for_click = remote.clone();
                             let branch_for_click = branch.clone();
                             let view_for_click = view.clone();
-                            let button = ramag_ui::clickable_button(format!(
-                                "vcs-first-push-remote-{index}"
+                            let remote_selector = format!("vcs-first-push-remote-{remote}");
+                            let button = ramag_ui::clickable_button(stable_path_element_id(
+                                "first-push-remote",
+                                remote,
                             ))
+                            .debug_selector(move || remote_selector.clone())
                             .small()
                             .w_full()
                             .label(format!("{remote}/{branch}"))
