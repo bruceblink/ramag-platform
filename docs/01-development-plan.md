@@ -546,6 +546,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不修改 `GitDriver` 的索引接口，不改变 stash 列表顺序、搜索、冲突处理或临时 checkout 备份流程，不访问远程仓库，不把真实 Windows 原生窗口流程写入本切片。
 - 实施顺序：先提交本设计确认，再调整 `StashOp`、行按钮和执行前索引定位；完成编译与质量检查后独立提交并推送，随后补充验收记录。
 
+### B-GIT-001-D：Stash 操作用提交 ID 重新定位（代码与 headless 回归完成，2026-09-29）
+
+- 实现：Stash 行按钮和删除确认捕获完整 stash 提交 ID；执行 Apply、Pop、Drop 前重新读取当前列表，按提交 ID找到最新索引，再调用原有驱动接口。目标已被外部删除时返回“列表已更新，请刷新后重试”，不会把旧位置当作新目标。
+- 验收结果：`ramag-tool-vcs` 全量 133 项通过，5 项性能观察测试按设计忽略；`cargo check --locked -p ramag-tool-vcs`、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 提交：代码提交 `e3896583 fix(vcs): resolve stash actions by commit` 已推送 `origin/main`。
+- 证据边界：本切片证明 UI 操作目标与当前 stash 提交保持一致，并保留 Git 驱动的索引接口；不提供真实 Windows 原生窗口鼠标/键盘证据，不访问远程仓库，也不把 Computer Use 缺口写成已完成。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
