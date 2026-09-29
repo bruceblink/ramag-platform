@@ -8471,6 +8471,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "smol",
+ "sysinfo 0.38.4",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",

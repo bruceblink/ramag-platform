@@ -152,7 +152,10 @@ mod tests {
     use super::*;
     use std::time::{Duration, Instant};
 
-    use ramag_app::{PluginPermissionPolicy, PluginTaskBudget, ToolRegistry};
+    use ramag_app::{
+        PluginEntryExecutionError, PluginPermissionPolicy, PluginTaskBudget, ToolRegistry,
+        current_process_memory,
+    };
     use ramag_domain::PluginCapability;
 
     #[test]
@@ -205,6 +208,7 @@ mod tests {
     #[test]
     fn real_entry_reports_headless_metrics_and_releases_task_slot() {
         let activation_started = Instant::now();
+        let memory_before = current_process_memory().expect("current process memory is available");
         let mut policy = PluginPermissionPolicy::default();
         policy.grant(
             ramag_domain::PluginId::new(PLUGIN_ID).expect("static plugin ID is valid"),
@@ -214,6 +218,8 @@ mod tests {
         register_json_path_plugin(&host).expect("plugin registers");
         assert!(host.initialize_all().is_success());
         let activation_elapsed = activation_started.elapsed();
+        let memory_after_activation =
+            current_process_memory().expect("current process memory is available");
 
         let request = JsonPathRequest {
             raw_json: "{ users: [{ name: 'Alice' }] }".into(),
@@ -234,6 +240,8 @@ mod tests {
         assert_eq!(completion.output(), br#""Alice""#);
         assert_eq!(completion.output_bytes(), br#""Alice""#.len());
         assert!(completion.elapsed() <= activation_started.elapsed());
+        let memory_after_first_execution =
+            current_process_memory().expect("current process memory is available");
 
         // Joining drops the execution handle, so the same bounded task slot can be reused.
         let second_execution = host
@@ -244,15 +252,47 @@ mod tests {
                 PluginTaskBudget::new(Duration::from_secs(1), 1024).expect("budget is valid"),
             )
             .expect("task slot is released after join");
-        assert_eq!(
-            smol::block_on(second_execution.join()).expect("second execution succeeds"),
-            br#""Alice""#
+        let second_completion = smol::block_on(second_execution.join_with_metrics())
+            .expect("second execution succeeds");
+        assert_eq!(second_completion.output(), br#""Alice""#);
+        let memory_after_second_execution =
+            current_process_memory().expect("current process memory is available");
+
+        let oversized_input = host.execute_entry(
+            PLUGIN_ID,
+            ENTRY_ID,
+            vec![0; MAX_JSON_INPUT_BYTES + 1],
+            PluginTaskBudget::new(Duration::from_secs(1), 1024).expect("budget is valid"),
         );
+        assert!(matches!(
+            oversized_input,
+            Err(PluginEntryExecutionError::InputTooLarge { .. })
+        ));
+
+        for sample in [
+            memory_before,
+            memory_after_activation,
+            memory_after_first_execution,
+            memory_after_second_execution,
+        ] {
+            assert_eq!(sample.pid, std::process::id());
+            assert!(sample.resident_bytes > 0);
+            assert!(sample.virtual_bytes >= sample.resident_bytes);
+        }
 
         eprintln!(
-            "json path headless measurement: activation={activation_elapsed:?}, execution={:?}, output_bytes={}",
+            "json path headless measurement: activation={activation_elapsed:?}, first_execution={:?}, second_execution={:?}, output_bytes={}, memory_before={} resident/{} virtual, memory_after_activation={} resident/{} virtual, memory_after_first={} resident/{} virtual, memory_after_second={} resident/{} virtual",
             completion.elapsed(),
-            completion.output_bytes()
+            second_completion.elapsed(),
+            completion.output_bytes(),
+            memory_before.resident_bytes,
+            memory_before.virtual_bytes,
+            memory_after_activation.resident_bytes,
+            memory_after_activation.virtual_bytes,
+            memory_after_first_execution.resident_bytes,
+            memory_after_first_execution.virtual_bytes,
+            memory_after_second_execution.resident_bytes,
+            memory_after_second_execution.virtual_bytes,
         );
     }
 }

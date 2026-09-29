@@ -12,6 +12,7 @@ mod plugin_secrets;
 mod plugin_settings;
 mod plugin_settings_store;
 mod plugin_tasks;
+mod process_memory;
 pub mod tool_registry;
 pub mod usecases;
 
@@ -44,6 +45,7 @@ pub use plugin_tasks::{
     MAX_PLUGIN_TASKS, PluginTaskBudget, PluginTaskBudgetError, PluginTaskCompletion,
     PluginTaskError, PluginTaskExecution, PluginTaskHandle, PluginTaskOutcome, PluginTaskRunError,
 };
+pub use process_memory::{ProcessMemorySnapshot, current_process_memory};
 pub use tool_registry::{TOOL_ORDER_PREF_KEY, ToolRegistry};
 pub use usecases::{
     AUTO_CHECK_INTERVAL, AccountVerification, ApiService, AvailableUpdate, ClipboardService,
