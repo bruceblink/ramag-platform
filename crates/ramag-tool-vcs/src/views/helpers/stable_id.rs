@@ -21,9 +21,20 @@ pub(crate) fn stable_file_element_id(prefix: &str, kind: GroupKind, path: &str) 
     SharedString::from(format!("vcs-{prefix}-{:016x}", hasher.finish()))
 }
 
+pub(crate) fn stable_compare_file_element_id(from: &str, to: &str, path: &str) -> SharedString {
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "compare-file".hash(&mut hasher);
+    from.hash(&mut hasher);
+    to.hash(&mut hasher);
+    path.hash(&mut hasher);
+    SharedString::from(format!("vcs-compare-file-{:016x}", hasher.finish()))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{stable_file_element_id, stable_path_element_id};
+    use super::{stable_compare_file_element_id, stable_file_element_id, stable_path_element_id};
     use crate::views::helpers::GroupKind;
 
     #[test]
@@ -47,6 +58,22 @@ mod tests {
         assert_eq!(
             stable_file_element_id("row", GroupKind::Staged, "src/lib.rs"),
             stable_file_element_id("row", GroupKind::Staged, "src/lib.rs")
+        );
+    }
+
+    #[test]
+    fn compare_file_element_id_includes_revision_range_and_path() {
+        assert_eq!(
+            stable_compare_file_element_id("from-a", "to-b", "src/lib.rs"),
+            stable_compare_file_element_id("from-a", "to-b", "src/lib.rs")
+        );
+        assert_ne!(
+            stable_compare_file_element_id("from-a", "to-b", "src/lib.rs"),
+            stable_compare_file_element_id("from-a", "to-c", "src/lib.rs")
+        );
+        assert_ne!(
+            stable_compare_file_element_id("from-a", "to-b", "src/lib.rs"),
+            stable_compare_file_element_id("from-a", "to-b", "src/main.rs")
         );
     }
 }

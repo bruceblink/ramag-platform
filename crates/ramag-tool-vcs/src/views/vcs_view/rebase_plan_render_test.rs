@@ -1,6 +1,6 @@
 use super::super::super::helpers::{ActiveView, FilesViewMode};
 use super::add_vcs_window;
-use crate::views::vcs_view::VcsView;
+use crate::views::vcs_view::{CompareState, VcsView};
 use gpui_kit::{TestAppContext, px, size};
 use ramag_domain::entities::{
     FileChangeKind, FileStatus, RebaseAction, RebaseTodo, WorkingTreeStatus,
@@ -100,6 +100,66 @@ fn vcs_view_renders_workspace_rows_after_status_reorder(cx: &mut TestAppContext)
     view.read_with(cx, |v, _| {
         assert_eq!(
             v.status.as_ref().expect("workspace status").files[0].path,
+            "src/main.rs"
+        );
+    });
+}
+
+fn inject_compare_files(v: &mut VcsView) {
+    let repo = super::mock_repo();
+    v.open_repos = vec![repo.clone()];
+    v.repo = Some(repo);
+    v.active_view = ActiveView::Session;
+    v.files_view_mode = FilesViewMode::Changes;
+    v.compare = Some(CompareState {
+        from: "from-commit".into(),
+        to: "to-commit".into(),
+        from_label: "from".into(),
+        to_label: "to".into(),
+        files: std::rc::Rc::new(vec![
+            FileStatus {
+                path: "src/lib.rs".into(),
+                old_path: None,
+                staged: Some(FileChangeKind::Modified),
+                unstaged: None,
+            },
+            FileStatus {
+                path: "src/main.rs".into(),
+                old_path: None,
+                staged: Some(FileChangeKind::Added),
+                unstaged: None,
+            },
+        ]),
+        loading: false,
+    });
+}
+
+/// 分支比较文件行按比较范围和路径保持标识；列表重排后在三种窗口尺寸下重新渲染不 panic。
+#[gpui_kit::test]
+fn vcs_view_renders_compare_rows_after_file_reorder(cx: &mut TestAppContext) {
+    let (view, cx) = add_vcs_window(cx);
+
+    view.update(cx, |v, cx| {
+        inject_compare_files(v);
+        cx.notify();
+    });
+    cx.run_until_parked();
+
+    for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+        cx.simulate_resize(size(px(width), px(height)));
+        view.update(cx, |v, cx| {
+            let compare = v.compare.as_mut().expect("compare state");
+            let mut files = compare.files.as_ref().clone();
+            files.reverse();
+            compare.files = std::rc::Rc::new(files);
+            cx.notify();
+        });
+        cx.run_until_parked();
+    }
+
+    view.read_with(cx, |v, _| {
+        assert_eq!(
+            v.compare.as_ref().expect("compare state").files[0].path,
             "src/main.rs"
         );
     });

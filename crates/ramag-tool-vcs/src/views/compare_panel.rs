@@ -7,14 +7,15 @@ use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, div, prelude::*, px,
-    uniform_list,
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, div, prelude::*, px, uniform_list,
 };
 use ramag_domain::entities::{FileStatus, contains_case_insensitive};
 use tracing::{error, info};
 
 use super::compare_picker::CompareSide;
-use super::helpers::{FileTabSource, code_letter_color, code_to_letter};
+use super::helpers::{
+    FileTabSource, code_letter_color, code_to_letter, stable_compare_file_element_id,
+};
 use super::vcs_view::{CompareState, VcsView};
 
 const COMPARE_ROW_H: f32 = 28.0;
@@ -330,7 +331,6 @@ impl VcsView {
                             let file_index = *visible_indices.get(row_index)?;
                             let file = files.get(file_index)?;
                             Some(render_compare_file_row(
-                                file_index,
                                 file,
                                 &from,
                                 &to,
@@ -356,7 +356,6 @@ impl VcsView {
 }
 
 fn render_compare_file_row(
-    index: usize,
     file: &FileStatus,
     from: &str,
     to: &str,
@@ -388,7 +387,7 @@ fn render_compare_file_row(
         });
     let mut selected_bg = theme.accent;
     selected_bg.a = 0.16;
-    let row_id = SharedString::from(format!("vcs-compare-file-{index}"));
+    let row_id = stable_compare_file_element_id(from, to, &file.path);
     let from = from.to_string();
     let to = to.to_string();
     let mut row = h_flex()
