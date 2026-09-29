@@ -591,6 +591,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不改变脏工作区切换、临时 Stash 创建、分支检出或失败恢复语义，不修改 Git 驱动的 Stash 索引接口，不访问远程仓库，不把本项扩展为真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再改造临时 Stash 的提交 ID 解析和二次定位，补充列表重排回归；定向测试通过后独立提交并推送，随后补充本切片验收记录。
 
+### B-GIT-001-G：自动 Stash 清理按提交 ID重新定位（代码与 headless 回归完成，2026-09-29）
+
+- 实现：脏工作区切换成功后的临时 Stash 清理先按唯一标记取得提交 ID，再重新读取列表并按提交 ID解析最新下标；列表读取失败、临时提交消失或重新定位失败时不执行 `stash_drop`，保留备份并报告原因。
+- 定向回归：新增测试覆盖外部条目插入导致列表重排，以及临时提交消失的情况；前者仍解析到原提交的新下标，后者不会改指向其他条目。`ramag-tool-vcs` 全量 142 项测试中 137 项通过，5 项性能观察测试按设计忽略。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过；代码提交 `a2444817 fix(vcs): relocate temporary stash cleanup` 已推送 `origin/main`。
+- 证据边界：本切片证明自动临时 Stash 清理按稳定提交重新定位并在无法确认目标时保留备份；不提供真实 Windows 原生窗口鼠标/键盘证据，不访问 114 服务器，不改变 Git 驱动的 Stash 索引接口，也不把 Computer Use 缺口写成已完成。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
