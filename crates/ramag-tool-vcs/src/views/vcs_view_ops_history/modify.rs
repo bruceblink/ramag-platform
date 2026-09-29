@@ -1,7 +1,7 @@
 //! VcsView 历史变更（破坏性 / HEAD 移动）：Reset / Revert / 切换分支前的 stash / discard
 
 use gpui_kit::Context;
-use ramag_domain::entities::{BranchKind, ResetKind};
+use ramag_domain::entities::{BranchKind, ResetKind, Stash};
 use tracing::{error, info};
 
 use super::super::helpers::{BranchOp, reset_kind_label};
@@ -271,17 +271,12 @@ impl VcsView {
             // 仅 checkout 成功后永久删除；按唯一 marker 重新定位，避免外部进程新增 stash
             // 导致 index 0 指向别人的条目。
             let drop_result = if checkout_result.is_ok() {
-                let temporary_idx = driver.list_stashes(&repo).await.map(|stashes| {
-                    stashes
-                        .iter()
-                        .find(|stash| stash.message.contains(&marker))
-                        .map(|stash| stash.id.0)
-                });
-                Some(match temporary_idx {
-                    Ok(Some(idx)) => driver.stash_drop(&repo, idx).await,
-                    Ok(None) => Err(ramag_domain::error::DomainError::Other(
-                        "未找到 Ramag 创建的临时 stash，已保留全部 stash 以避免误删".into(),
-                    )),
+                let temporary_commit = match driver.list_stashes(&repo).await {
+                    Ok(stashes) => stash_commit_with_marker(&stashes, &marker).ok_or_else(|| {
+                        ramag_domain::error::DomainError::Other(
+                            "未找到 Ramag 创建的临时 stash，已保留全部 stash 以避免误删".into(),
+                        )
+                    }),
                     Err(error) => {
                         tracing::error!(
                             operation = "vcs_checkout_discard",
@@ -293,6 +288,35 @@ impl VcsView {
                             "无法读取 Stash 列表，为避免误删已保留临时备份：{error}"
                         )))
                     }
+                };
+                Some(match temporary_commit {
+                    Ok(stable_commit) => {
+                        let current_index = match driver.list_stashes(&repo).await {
+                            Ok(stashes) => stash_index_for_commit(&stashes, &stable_commit)
+                                .ok_or_else(|| {
+                                    ramag_domain::error::DomainError::Other(
+                                        "临时 stash 列表已更新，未找到原提交；已保留临时备份以避免误删"
+                                            .into(),
+                                    )
+                                }),
+                            Err(error) => {
+                                tracing::error!(
+                                    operation = "vcs_checkout_discard",
+                                    repo_id = %repo,
+                                    error = %error,
+                                    "reload temporary stashes failed"
+                                );
+                                Err(ramag_domain::error::DomainError::Other(format!(
+                                    "无法重新读取 Stash 列表，为避免误删已保留临时备份：{error}"
+                                )))
+                            }
+                        };
+                        match current_index {
+                            Ok(idx) => driver.stash_drop(&repo, idx).await,
+                            Err(error) => Err(error),
+                        }
+                    }
+                    Err(error) => Err(error),
                 })
             } else {
                 None
@@ -375,5 +399,65 @@ impl VcsView {
             });
         })
         .detach();
+    }
+}
+
+fn stash_commit_with_marker(stashes: &[Stash], marker: &str) -> Option<String> {
+    stashes
+        .iter()
+        .find(|stash| stash.message.contains(marker))
+        .map(|stash| stash.commit.0.clone())
+}
+
+fn stash_index_for_commit(stashes: &[Stash], commit: &str) -> Option<usize> {
+    stashes
+        .iter()
+        .find(|stash| stash.commit.0 == commit)
+        .map(|stash| stash.id.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{stash_commit_with_marker, stash_index_for_commit};
+    use ramag_domain::entities::{CommitId, Stash, StashId};
+
+    fn stash(id: usize, commit: &str, message: &str) -> Stash {
+        Stash {
+            id: StashId(id),
+            message: message.into(),
+            commit: CommitId(commit.into()),
+            timestamp: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn temporary_stash_is_relocated_by_commit_after_list_reorders() {
+        let marker = "ramag-discard-test";
+        let temporary = stash(0, "temporary-commit", marker);
+        let initial = vec![temporary.clone()];
+        let stable_commit = stash_commit_with_marker(&initial, marker);
+        assert_eq!(stable_commit.as_deref(), Some("temporary-commit"));
+
+        let refreshed = vec![
+            stash(0, "external-new", "external entry"),
+            stash(1, "other", "other entry"),
+            stash(2, "temporary-commit", marker),
+        ];
+        assert_eq!(
+            stable_commit
+                .as_deref()
+                .and_then(|commit| stash_index_for_commit(&refreshed, commit)),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn missing_temporary_stash_is_not_resolved_to_another_entry() {
+        let stashes = vec![stash(0, "other", "external entry")];
+        assert_eq!(
+            stash_commit_with_marker(&stashes, "ramag-discard-test"),
+            None
+        );
+        assert_eq!(stash_index_for_commit(&stashes, "temporary-commit"), None);
     }
 }
