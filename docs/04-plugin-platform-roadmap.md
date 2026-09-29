@@ -2,7 +2,7 @@
 
 > 适用项目：`bruceblink/ramag-platform`。本路线只约束当前独立下游项目的插件平台演进，不代表 `tools-rs/ramag` 已接受或实现这些接口。
 >
-> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；Windows 主线的系统凭据库、主密钥和秘密上下文真实验收已完成，Linux Secret Service 与 macOS Keychain 环境验收仍待补充。`PLAT-005-A` 至 `PLAT-005-E` 的按需视图、任务生命周期、执行预算、静态入口执行器和 JSON Path headless 运行指标已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配、`CATALOG-001` 第一方工具目录、`COLLAB-001-A` 本机加密共享包边界和 `COLLAB-001-B1` 至 `COLLAB-001-B3` 协作切片已完成。当前按 [`02-development-roadmap.md`](02-development-roadmap.md) 执行阶段 A、B；Relay B4、生产 Relay、第三方动态插件和阶段 C 原生协同画布暂缓。桌面端明确禁止 WebView。
+> 当前状态：P0-A 接口模型、静态工具注册适配、P0-B 生命周期、`PLAT-003` 平台 UI 诊断、`P0-C-1` 至 `P0-C-6` 插件设置与秘密上下文切片以及 `PLAT-004-A`、`PLAT-004-B` 多入口清单与原生入口渲染已完成；Windows 主线的系统凭据库、主密钥和秘密上下文真实验收已完成，Linux Secret Service 与 macOS Keychain 环境验收仍待补充。`PLAT-005-A` 至 `PLAT-005-F` 的按需视图、任务生命周期、执行预算、静态入口执行器、JSON Path headless 运行指标和 WSL 当前进程内存多场景回放已完成，`TOOL-MIG-001-A` JSON Path 纯计算核心、`TOOL-MIG-001-B` 原生 GPUI 入口、`DUAL-CORE-001-A` Web/WASM 适配、`CATALOG-001` 第一方工具目录、`COLLAB-001-A` 本机加密共享包边界和 `COLLAB-001-B1` 至 `COLLAB-001-B3` 协作切片已完成。当前按 [`02-development-roadmap.md`](02-development-roadmap.md) 执行阶段 A、B；Relay B4、生产 Relay、第三方动态插件和阶段 C 原生协同画布暂缓。桌面端明确禁止 WebView。
 
 ## 术语与命名规则
 
@@ -228,9 +228,11 @@ Plugin Manifest -> validator -> Plugin Registry -> Shell contribution model
 
 `PLAT-005-E` 已完成 headless 运行指标切片：`PluginTaskExecution::join_with_metrics` 返回受预算保护的 `PluginTaskCompletion`，记录任务提交后的耗时和输出字节数；`join_with_outcome` 让成功、取消、超时和失败共享同一耗时记录；兼容的 `join` 继续只返回输出。JSON Path 真实静态入口测试记录首次注册/初始化、执行结果和二次提交，确认任务完成后释放活动名额。该指标不代表 GPUI 首帧或进程级内存，真实窗口和跨平台资源基线继续留在阶段 A。
 
+`PLAT-005-F` 已完成当前进程资源样本切片：`ramag-app::current_process_memory` 按当前 PID 读取常驻内存和虚拟内存，无法读取时返回 `None`，不把样本转换为固定预算。JSON Path 真实入口回放在初始化前、初始化后、首次执行后和再次执行后记录样本，同时验证成功结果、输出字节数、输入上限和任务名额释放。WSL 回放通过 `ramag-app` 285 项测试和 `ramag-tool-json-path` 5 项测试；样本只证明本次 WSL 调试构建的过程，不替代 Windows/Linux/macOS 发布构建、真实窗口或 Computer Use 验收。
+
 ### PLAT-005：按需激活与资源预算
 
-把入口登记与视图创建分离，未打开的工具不创建视图；插件任务与生命周期绑定，关闭、禁用和卸载时取消或等待任务。验收记录首次打开耗时、入口执行耗时、输出大小、空闲内存、任务取消、输入上限、结果上限和恢复失败行为。当前 JSON Path 已有 headless 运行指标和任务回收记录，进程内存与真实窗口证据仍未完成。
+把入口登记与视图创建分离，未打开的工具不创建视图；插件任务与生命周期绑定，关闭、禁用和卸载时取消或等待任务。验收记录首次打开耗时、入口执行耗时、输出大小、进程内存样本、任务取消、输入上限、结果上限和恢复失败行为。当前 JSON Path 已有 headless 运行指标、任务回收和 WSL 进程内存多场景记录；真实窗口、跨平台和发布构建证据仍分别由阶段 A 的验收项跟踪。
 
 ### TOOL-MIG-001：首个 IT Tools 原生迁移样例
 

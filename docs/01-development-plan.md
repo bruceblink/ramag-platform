@@ -104,7 +104,7 @@
 
 ### 阶段 A：单机桌面功能收口（当前主线，与阶段 B 并行推进）
 
-当前已完成 `SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A` 至 `DB-RED-07`、`DB-UX-003A` 至 `DB-UX-003C-2`、`DB-UX-004A`、`DB-UX-004B-1` 至 `DB-UX-004B-3B`、`DB-UX-005A` 至 `DB-UX-005F`、`PLAT-004`、`PLAT-005-A` 至 `PLAT-005-E`、`TOOL-MIG-001`、`DUAL-CORE-001`、`CATALOG-001` 和 `COLLAB-001-A/B1/B2/B3` 的代码与专项验证。涉及真实数据库的切片另有 MySQL 8.4/PostgreSQL 17 Docker 证据。
+当前已完成 `SHELL-001`、`DB-RED-01`、`DB-RED-03`、`DB-RED-04`、`DB-RED-05A` 至 `DB-RED-07`、`DB-UX-003A` 至 `DB-UX-003C-2`、`DB-UX-004A`、`DB-UX-004B-1` 至 `DB-UX-004B-3B`、`DB-UX-005A` 至 `DB-UX-005F`、`PLAT-004`、`PLAT-005-A` 至 `PLAT-005-F`、`TOOL-MIG-001`、`DUAL-CORE-001`、`CATALOG-001` 和 `COLLAB-001-A/B1/B2/B3` 的代码与专项验证。涉及真实数据库的切片另有 MySQL 8.4/PostgreSQL 17 Docker 证据。
 
 阶段 A 的执行顺序固定为：
 
@@ -112,10 +112,10 @@
 2. `A-DB-RED-02`：已完成 MySQL 8.4/PostgreSQL 17 Docker 元数据和 `table_tree` headless 复验；真实 Windows 流程仍待补。
 3. `A-UI-REAL`：真实窗口探测受 Computer Use 环境阻塞，状态保持未完成；不把替代证据写成真实窗口通过。
 4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和秘密上下文真实环境验收；Linux Secret Service 与 macOS Keychain 仍待各自环境验收。
-5. `A-PLAT-005`：当前执行不依赖窗口接管的真实 JSON Path 入口运行指标和任务回收；进程内存、取消和真实窗口证据仍待补。
+5. `A-PLAT-005`：已完成不依赖窗口接管的真实 JSON Path 入口运行指标、任务回收和 WSL 当前进程内存多场景记录；Windows UI Automation/截图替代验收已完成，Linux/macOS、发布构建和 Computer Use 真实窗口证据仍待补。
 6. `A-QUALITY`：完成性能、主题一致性和发布证据收口。
 
-Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 的鼠标/键盘证据保持未完成；在不改变该状态的前提下，继续推进不依赖窗口接管的 `A-PLAT-005` 和 `A-QUALITY` 收口。阶段 B 已在平台壳层、权限边界和 headless/Docker 证据满足后并行推进；真实窗口缺口只限制对应窗口证据，不阻止已设计并通过专项验证的原生工作区切片。
+Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 的鼠标/键盘证据保持未完成。`A-PLAT-005` 已补齐 WSL headless 进程内存基线和 Windows UI Automation/截图替代证据，但 Linux/macOS、发布构建和 Computer Use 真实窗口证据仍待分别验收。阶段 B 已在平台壳层、权限边界和 headless/Docker 证据满足后并行推进；真实窗口缺口只限制对应窗口证据，不阻止已设计并通过专项验证的原生工作区切片。
 
 未完成的旧 `UI-001`、`M1-M4`、`R` 系列或工具专项事项必须先映射到以上切片 ID，并重新满足统一 UI 标准，不能只修改状态文字宣称完成。
 
@@ -173,8 +173,8 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 实现：`PluginTaskExecution` 在提交任务时记录单调时钟；成功结果通过 `PluginTaskCompletion` 暴露受预算保护的结果、`elapsed()` 和 `output_bytes()`，失败、取消和超时通过 `PluginTaskOutcome` 保留同样的耗时与输出边界。普通工具继续使用 `join()`，不会改变现有插件调用方。
 - 真实入口：`ramag-tool-json-path` 注册并初始化 `it-tools.json-path/json-path-extractor`，执行 JSON5 请求，读取指标后再次提交同一入口，确认 `join()` 会释放活动任务名额。
 - 验证：`cargo test --locked -p ramag-app plugin_tasks --lib -- --test-threads=1`（8 项通过）；`cargo test --locked -p ramag-tool-json-path real_entry_reports_headless_metrics_and_releases_task_slot --lib -- --nocapture --test-threads=1` 通过，当前运行记录为 activation `557.7µs`、execution `409.5µs`、output `7` bytes（数值随机器变化，不作为固定性能承诺）。
-- 证据边界：该记录覆盖真实静态插件入口的 headless 执行、结果预算和任务回收，宿主取消路径同时记录 `PluginTaskOutcome`；不覆盖真实窗口首次打开、进程级空闲内存或 Computer Use 鼠标/键盘，后续需补跨平台和发布环境测量。
-- 状态：`A-PLAT-005` 的 JSON Path 运行指标子切片完成；下一步补进程内存基线和更多真实入口，之后收口 `A-UI-REAL` 并进入阶段 B 的 `B-API-001` 设计确认。
+- 证据边界：该记录覆盖真实静态插件入口的 headless 执行、结果预算和任务回收，宿主取消路径同时记录 `PluginTaskOutcome`；不覆盖真实窗口首次打开、稳定的空闲内存长期基线或 Computer Use 鼠标/键盘。进程内存阶段样本由 `A-PLAT-005-F` 补充，跨平台和发布环境测量仍需分别进行。
+- 状态：`A-PLAT-005` 的 JSON Path 运行指标子切片完成；后续进程内存基线和多场景回放已由 `A-PLAT-005-F` 补充，真实窗口缺口仍由 `A-UI-REAL` 单独跟踪。
 
 ### A-PLAT-005-UI：JSON Path 原生入口与资源采样验收（2026-09-27，替代窗口证据完成）
 
@@ -183,13 +183,17 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 资源采样：同一进程在 JSON Path 窗口激活后记录 Working Set 约 `113.9 MiB`、Private Bytes 约 `112.3 MiB`；另一次冷启动采样为 Working Set `110.7 MiB`、Private Bytes `111.2 MiB`。数值只作为当前 Windows 调试构建的可复查样本，不作为跨机器预算承诺。
 - 证据边界：Computer Use 运行时仍只返回浏览器且 `apps: []`，本记录使用真实 Windows 窗口截图、UI Automation 和进程采样作为替代证据；Linux/macOS、发布构建和 Computer Use 完整流程仍未验收。
 
-### A-PLAT-005-F：真实入口进程内存基线与多场景回放（设计确认，2026-09-29）
+### A-PLAT-005-F：真实入口进程内存基线与多场景回放（已完成，2026-09-29）
 
 - 问题证据：插件入口运行指标目前只有任务耗时和输出字节数；Windows 替代验收虽然记录过 Working Set 与 Private Bytes，但 Rust headless 回放没有统一的当前进程采样接口，也没有把首次初始化、首次执行和再次执行的内存样本放在同一份记录中。
 - 设计：在 `ramag-app` 增加只读取当前进程的跨平台内存采样函数，返回 PID、常驻内存和虚拟内存；操作系统无法提供数据时返回 `None`，不改变插件任务预算、取消、超时或结果上限。扩展 JSON Path 真实入口回放，在初始化前、初始化后、首次执行后和再次执行后记录采样，同时保留入口结果、输出字节数和任务名额释放检查。
 - 验收条件：应用层单元测试确认采样结果只对应当前 PID；JSON Path 真实入口测试在 WSL 中输出四个阶段的内存字节数，确认入口执行成功、再次执行成功并释放任务名额；超出入口输入上限时被宿主拒绝；目标测试、workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
 - 不做事项：不把采样值转成固定跨机器预算，不在运行时 UI 增加常驻监控面板，不改变任务预算或插件权限，不把单个真实入口回放扩展成动态插件、外部进程或真实 Windows Computer Use 流程。
-- 实施顺序：先提交本设计确认，再实现进程采样接口和 JSON Path 回放扩展；目标测试通过后独立提交并推送，随后补充 WSL 采样记录和证据边界。
+- 实现：`ramag-app::current_process_memory` 只采样当前进程，返回 PID、常驻内存和虚拟内存；操作系统无法提供当前进程数据时返回 `None`。JSON Path 真实入口回放在初始化前、初始化后、首次执行后和再次执行后记录样本，并保留成功结果、输出字节数、任务名额释放和超大输入拒绝检查。
+- 验收结果：`cargo test --locked -p ramag-app --lib -- --test-threads=1` 的 285 项测试通过；`cargo test --locked -p ramag-tool-json-path --all-targets -- --test-threads=1` 的 5 项测试通过；workspace fmt、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 均通过。
+- WSL 采样记录：同一 JSON Path 入口的常驻内存为 `13.0 → 15.6 → 17.8 → 17.8 MiB`，虚拟内存为 `162.8 → 162.8 → 295.0 → 295.0 MiB`；首次和再次执行都返回 `Alice`，输入超过 `MAX_JSON_INPUT_BYTES` 时由宿主拒绝。字节数是本次 WSL 回放的复查样本，不是跨机器预算承诺。
+- 证据边界：本切片证明 WSL 中当前进程采样、真实静态入口初始化、首次/再次执行、结果上限和任务回收链路；不证明 Windows/Linux/macOS 发布构建的统一数值、真实窗口首帧或 Computer Use 鼠标/键盘流程。
+- 提交：设计确认已在 `26cad8fc` 提交，实现和测试已在 `b2f77e0f` 提交；两个提交均已推送到 `origin/main`。
 
 ### B-API-001-A：协议切换取消活动请求（设计确认，2026-09-27）
 
