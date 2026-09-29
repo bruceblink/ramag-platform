@@ -531,6 +531,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不改变 Fetch/Pull/Push 的驱动参数、确认对话框、取消机制、错误处理或远程数据；不新增自动同步，不把快捷键作为唯一入口，不把真实 Windows 原生窗口流程写入本切片。
 - 实施顺序：先提交本设计确认，再调整工具栏归属和窄窗口回归；目标测试通过后独立提交并推送，随后补充本切片验收记录。
 
+### B-GIT-001-C：普通工作区显示远程操作入口（代码与 headless 验证完成，2026-09-29）
+
+- 实现：把远程快速操作、远程菜单和进行中的取消入口移到文件工作区工具栏；用户不打开 History 面板也能看到 Fetch、Pull、Push、强推和当前同步进度。History 工具栏保留搜索和筛选控件，去掉重复的远程入口。
+- 验收结果：VCS headless 布局测试覆盖 History 关闭、History 打开、180px/280px/600px 文件栏和 360px/800px/1440px 窗口；确认远程快速操作和远程菜单位于文件工具栏内，History 工具栏不再重复渲染。`ramag-tool-vcs` 全量 133 项通过，5 项性能观察测试按设计忽略。
+- 质量检查：`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过；代码提交 `a980e50a fix(vcs): expose remote actions in workspace toolbar` 已推送 `origin/main`。
+- 证据边界：本切片证明远程操作入口在 headless 文件工作区中可见且布局受控；不提供真实 Windows 原生窗口鼠标/键盘证据，不改变 Fetch/Pull/Push 语义，不访问 114 服务器，也不把 Computer Use 缺口写成已完成。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
