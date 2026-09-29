@@ -56,6 +56,18 @@ pub(crate) fn stable_diff_line_element_id(
     stable_path_element_id(prefix, &format!("{hunk_key}:{line_idx}"))
 }
 
+/// 为长 Context 折叠占位行生成与 hunk 顺序无关的稳定键。
+pub(crate) fn stable_diff_spacer_key(diff: &FileDiff, hunk_idx: usize, run_start: usize) -> u64 {
+    use std::hash::{Hash, Hasher};
+
+    let hunk_key = stable_hunk_key(diff, hunk_idx).unwrap_or_default();
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "diff-spacer".hash(&mut hasher);
+    hunk_key.hash(&mut hasher);
+    run_start.hash(&mut hasher);
+    hasher.finish()
+}
+
 pub(crate) fn stable_file_element_id(prefix: &str, kind: GroupKind, path: &str) -> SharedString {
     use std::hash::{Hash, Hasher};
 
@@ -95,8 +107,8 @@ pub(crate) fn stable_commit_path_element_id(
 mod tests {
     use super::{
         find_hunk_index_by_key, stable_commit_path_element_id, stable_compare_file_element_id,
-        stable_diff_line_element_id, stable_file_element_id, stable_hunk_key,
-        stable_path_element_id,
+        stable_diff_line_element_id, stable_diff_spacer_key, stable_file_element_id,
+        stable_hunk_key, stable_path_element_id,
     };
     use crate::views::helpers::GroupKind;
 
@@ -175,6 +187,36 @@ mod tests {
             stable_file_element_id("row", GroupKind::Staged, "src/lib.rs"),
             stable_file_element_id("row", GroupKind::Staged, "src/lib.rs")
         );
+    }
+
+    #[test]
+    fn diff_spacer_key_follows_hunk_after_reorder() {
+        let hunk = |old_start: u32, text: &str| ramag_domain::entities::Hunk {
+            old_start,
+            old_lines: 1,
+            new_start: old_start,
+            new_lines: 1,
+            heading: None,
+            lines: vec![ramag_domain::entities::DiffLine {
+                kind: ramag_domain::entities::DiffLineKind::Context,
+                old_lineno: Some(old_start),
+                new_lineno: Some(old_start),
+                text: text.into(),
+            }],
+        };
+        let mut diff = ramag_domain::entities::FileDiff {
+            path: "src/lib.rs".into(),
+            old_path: None,
+            change_kind: ramag_domain::entities::FileChangeKind::Modified,
+            binary: false,
+            old_mode: None,
+            new_mode: None,
+            hunks: vec![hunk(10, "first"), hunk(20, "second")],
+        };
+        let first_key = stable_diff_spacer_key(&diff, 0, 4);
+        diff.hunks.reverse();
+        assert_eq!(first_key, stable_diff_spacer_key(&diff, 1, 4));
+        assert_ne!(first_key, stable_diff_spacer_key(&diff, 1, 5));
     }
 
     #[test]

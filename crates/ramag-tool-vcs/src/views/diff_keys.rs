@@ -4,6 +4,8 @@ use std::collections::HashSet;
 
 use ramag_domain::entities::{DiffLineKind, FileDiff};
 
+use super::helpers::stable_diff_spacer_key;
+
 /// Unified 模式扁平 key：hunk header 或单行
 #[derive(Clone, Copy)]
 pub(super) enum UnifiedKey {
@@ -23,12 +25,10 @@ pub(super) enum SplitKey {
         right: Option<usize>,
     },
     Spacer {
-        /// 所属 hunk 索引（点击展开时与 run_start 一起作为 expanded_diff_spacers 的 key）
-        hunk_idx: usize,
-        /// 该 Context 段的首行 line_idx（同 hunk 内 spacer 唯一标识）
-        run_start: usize,
         /// 被折叠的行数（首尾 KEEP 行不算）
         skipped: usize,
+        /// 由文件 Diff、hunk 内容和 Context 段首行计算的稳定展开键。
+        stable_key: u64,
     },
 }
 
@@ -68,7 +68,7 @@ pub(super) fn build_split_keys(
     diff: &FileDiff,
     changes_only: bool,
     collapse: bool,
-    expanded_spacers: &HashSet<(usize, usize)>,
+    expanded_spacers: &HashSet<u64>,
 ) -> Vec<SplitKey> {
     let mut out = Vec::new();
     for (h_idx, h) in diff.hunks.iter().enumerate() {
@@ -89,7 +89,8 @@ pub(super) fn build_split_keys(
                 return;
             }
             let run_start = run[0];
-            let user_expanded = expanded_spacers.contains(&(h_idx, run_start));
+            let stable_key = stable_diff_spacer_key(diff, h_idx, run_start);
+            let user_expanded = expanded_spacers.contains(&stable_key);
             if collapse && !changes_only && run.len() >= SPLIT_SPACER_THRESHOLD && !user_expanded {
                 // 保留前 KEEP 行 + Spacer + 后 KEEP 行
                 let n = run.len();
@@ -101,9 +102,8 @@ pub(super) fn build_split_keys(
                     });
                 }
                 out.push(SplitKey::Spacer {
-                    hunk_idx: h_idx,
-                    run_start,
                     skipped: n - SPLIT_SPACER_KEEP * 2,
+                    stable_key,
                 });
                 for &i in run.iter().skip(n - SPLIT_SPACER_KEEP) {
                     out.push(SplitKey::Pair {
@@ -266,5 +266,48 @@ mod tests {
         let d = diff(vec![line(DiffLineKind::Context, "ctx")]);
         let keys = build_split_keys(&d, false, true, &HashSet::new());
         assert_eq!(pairs(&keys), vec![(Some(0), Some(0))], "context 两侧同行");
+    }
+
+    #[test]
+    fn split_spacer_expansion_follows_hunk_after_reorder() {
+        let hunk = |start: u32, marker: &str| {
+            let mut lines = (0..8)
+                .map(|index| line(DiffLineKind::Context, &format!("{marker}-{index}")))
+                .collect::<Vec<_>>();
+            lines.push(line(DiffLineKind::Add, marker));
+            ramag_domain::entities::Hunk {
+                old_start: start,
+                old_lines: 9,
+                new_start: start,
+                new_lines: 9,
+                heading: None,
+                lines,
+            }
+        };
+        let mut diff = FileDiff {
+            path: "f".into(),
+            old_path: None,
+            change_kind: ramag_domain::entities::FileChangeKind::Modified,
+            binary: false,
+            old_mode: None,
+            new_mode: None,
+            hunks: vec![hunk(1, "first"), hunk(20, "second")],
+        };
+        let first_key = stable_diff_spacer_key(&diff, 0, 0);
+        let expanded = HashSet::from([first_key]);
+        let initial = build_split_keys(&diff, false, true, &expanded);
+        assert!(!initial.iter().any(|key| {
+            matches!(key, SplitKey::Spacer { stable_key, .. } if *stable_key == first_key)
+        }));
+
+        diff.hunks.reverse();
+        let reordered = build_split_keys(&diff, false, true, &expanded);
+        assert!(!reordered.iter().any(|key| {
+            matches!(key, SplitKey::Spacer { stable_key, .. } if *stable_key == first_key)
+        }));
+        let second_key = stable_diff_spacer_key(&diff, 0, 0);
+        assert!(reordered.iter().any(|key| {
+            matches!(key, SplitKey::Spacer { stable_key, .. } if *stable_key == second_key)
+        }));
     }
 }

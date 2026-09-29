@@ -65,6 +65,43 @@ fn unified_diff() -> FileDiff {
     }
 }
 
+fn spacer_hunk(start: u32, marker: &str) -> Hunk {
+    let mut lines = (0..8)
+        .map(|index| DiffLine {
+            kind: DiffLineKind::Context,
+            old_lineno: Some(start + index),
+            new_lineno: Some(start + index),
+            text: format!("{marker}-{index}"),
+        })
+        .collect::<Vec<_>>();
+    lines.push(DiffLine {
+        kind: DiffLineKind::Add,
+        old_lineno: None,
+        new_lineno: Some(start + 8),
+        text: marker.into(),
+    });
+    Hunk {
+        old_start: start,
+        old_lines: 8,
+        new_start: start,
+        new_lines: 9,
+        heading: Some(marker.into()),
+        lines,
+    }
+}
+
+fn spacer_diff() -> FileDiff {
+    FileDiff {
+        path: "a.rs".into(),
+        old_path: None,
+        change_kind: ramag_domain::entities::FileChangeKind::Modified,
+        binary: false,
+        old_mode: None,
+        new_mode: None,
+        hunks: vec![spacer_hunk(1, "first"), spacer_hunk(20, "second")],
+    }
+}
+
 fn install_diff(view: &mut super::super::VcsView, diff: FileDiff) {
     let diff = Rc::new(diff);
     view.current_diff = Some(diff.clone());
@@ -121,4 +158,43 @@ fn diff_hunk_buttons_keep_stable_selectors_after_reorder(cx: &mut TestAppContext
     });
     cx.run_until_parked();
     assert!(cx.debug_bounds(unified_line_selector).is_some());
+}
+
+/// 长 Context 的折叠占位行在 hunk 顺序变化后继续绑定原内容，展开状态也不转移到另一段。
+#[gpui_kit::test]
+fn diff_spacer_keeps_stable_selector_and_expansion_after_reorder(cx: &mut TestAppContext) {
+    let (view, cx) = add_vcs_window(cx);
+    let initial = spacer_diff();
+    let first_key = crate::views::helpers::stable_diff_spacer_key(&initial, 0, 0);
+    let second_key = crate::views::helpers::stable_diff_spacer_key(&initial, 1, 0);
+    let first_selector: &'static str =
+        Box::leak(format!("vcs-diff-spacer-L-{first_key:016x}").into_boxed_str());
+    let second_selector: &'static str =
+        Box::leak(format!("vcs-diff-spacer-L-{second_key:016x}").into_boxed_str());
+
+    view.update(cx, |view, cx| {
+        inject_diff_session(view);
+        install_diff(view, initial.clone());
+        cx.notify();
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds(first_selector).is_some());
+    assert!(cx.debug_bounds(second_selector).is_some());
+
+    let mut reordered = initial;
+    reordered.hunks.reverse();
+    view.update(cx, |view, cx| {
+        view.expanded_diff_spacers.insert(first_key);
+        install_diff(view, reordered);
+        cx.notify();
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds(first_selector).is_none(),
+        "原 hunk 的占位行展开后不应继续显示"
+    );
+    assert!(
+        cx.debug_bounds(second_selector).is_some(),
+        "另一 hunk 的占位行不应被原展开状态吞掉"
+    );
 }

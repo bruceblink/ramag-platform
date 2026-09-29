@@ -52,7 +52,7 @@ pub(super) struct DiffLayoutCacheEntry {
     diff: Weak<FileDiff>,
     changes_only: bool,
     collapse: bool,
-    expanded_spacers: HashSet<(usize, usize)>,
+    expanded_spacers: HashSet<u64>,
     layout: DiffLayout,
 }
 
@@ -62,7 +62,7 @@ impl DiffLayoutCacheEntry {
         diff: &Rc<FileDiff>,
         changes_only: bool,
         collapse: bool,
-        expanded_spacers: &HashSet<(usize, usize)>,
+        expanded_spacers: &HashSet<u64>,
     ) -> Option<DiffLayout> {
         let cached = self.diff.upgrade()?;
         (Rc::ptr_eq(&cached, diff)
@@ -79,7 +79,7 @@ pub(super) fn prepare_diff_layout(
     diff: &Rc<FileDiff>,
     changes_only: bool,
     collapse: bool,
-    expanded_spacers: &HashSet<(usize, usize)>,
+    expanded_spacers: &HashSet<u64>,
 ) -> DiffLayout {
     if let Some(layout) = cache
         .borrow()
@@ -484,12 +484,10 @@ fn build_content_list(
                             )
                         }
                         SplitKey::Spacer {
-                            hunk_idx,
-                            run_start,
                             skipped,
-                        } => {
-                            render_content_spacer(side, hunk_idx, run_start, skipped, muted_fg, cx)
-                        }
+                            stable_key,
+                            ..
+                        } => render_content_spacer(side, stable_key, skipped, muted_fg, cx),
                     }
                 })
                 .collect::<Vec<_>>()

@@ -120,7 +120,7 @@ pub struct VcsView {
     pub(super) collapsed_tag: bool,
     pub(super) collapsed_remote_repos: bool,
     pub(super) history_left_rows_cache: RefCell<Option<HistoryLeftRowsCacheEntry>>,
-    pub(super) expanded_diff_spacers: std::collections::HashSet<(usize, usize)>,
+    pub(super) expanded_diff_spacers: std::collections::HashSet<u64>,
     pub(super) remotes: Vec<Remote>,
     pub(super) loading_remotes: bool,
     pub(super) remotes_request_seq: u64,

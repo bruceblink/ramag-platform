@@ -193,15 +193,16 @@ pub(super) fn render_gutter_spacer(_side: &'static str, muted_bg: gpui_kit::Hsla
 /// content spacer：「跳过 X 行（点击展开）」整行可点击触发 expanded_diff_spacers 写入
 pub(super) fn render_content_spacer(
     side: &'static str,
-    hunk_idx: usize,
-    run_start: usize,
+    stable_key: u64,
     skipped: usize,
     muted_fg: gpui_kit::Hsla,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
-    let row_id = SharedString::from(format!("vcs-diff-spacer-{side}-{hunk_idx}-{run_start}"));
+    let row_id = SharedString::from(format!("vcs-diff-spacer-{side}-{stable_key:016x}"));
+    let row_selector = row_id.to_string();
     h_flex()
         .id(row_id)
+        .debug_selector(move || row_selector.clone())
         .w_full()
         .h(px(DIFF_ROW_H))
         .flex_none()
@@ -212,7 +213,7 @@ pub(super) fn render_content_spacer(
         .cursor_pointer()
         .child(format!("───── 跳过 {skipped} 行未变更（点击展开） ─────"))
         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-            this.expanded_diff_spacers.insert((hunk_idx, run_start));
+            this.expanded_diff_spacers.insert(stable_key);
             cx.notify();
         }))
         .into_any_element()
