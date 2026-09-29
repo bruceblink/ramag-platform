@@ -186,11 +186,11 @@ impl FileTab {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub(super) enum StashOp {
-    Apply(usize),
-    Pop(usize),
-    Drop(usize),
+    Apply(String),
+    Pop(String),
+    Drop(String),
 }
 
 #[derive(Debug, Clone)]

@@ -123,10 +123,27 @@ impl VcsView {
         self.loading_stashes = false;
 
         cx.spawn(async move |this, cx| {
-            let result = match op {
-                StashOp::Apply(idx) => driver.stash_apply(&repo, idx, false).await,
-                StashOp::Pop(idx) => driver.stash_apply(&repo, idx, true).await,
-                StashOp::Drop(idx) => driver.stash_drop(&repo, idx).await,
+            let (stable_id, pop) = match &op {
+                StashOp::Apply(stable_id) => (stable_id.clone(), false),
+                StashOp::Pop(stable_id) => (stable_id.clone(), true),
+                StashOp::Drop(stable_id) => (stable_id.clone(), false),
+            };
+            let current_index = driver.list_stashes(&repo).await.and_then(|stashes| {
+                stashes
+                    .iter()
+                    .find(|stash| stash.commit.0 == stable_id)
+                    .map(|stash| stash.id.0)
+                    .ok_or_else(|| {
+                        ramag_domain::error::DomainError::Other(
+                            "Stash 列表已更新，未找到原操作目标；请刷新后重试".into(),
+                        )
+                    })
+            });
+            let result = match (current_index, &op) {
+                (Ok(idx), StashOp::Apply(_)) => driver.stash_apply(&repo, idx, false).await,
+                (Ok(idx), StashOp::Pop(_)) => driver.stash_apply(&repo, idx, pop).await,
+                (Ok(idx), StashOp::Drop(_)) => driver.stash_drop(&repo, idx).await,
+                (Err(error), _) => Err(error),
             };
             // 操作后刷新 stashes + status
             let new_stashes = driver.list_stashes(&repo).await;

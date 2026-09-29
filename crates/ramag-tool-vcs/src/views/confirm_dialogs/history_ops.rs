@@ -32,23 +32,25 @@ impl VcsView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let StashOp::Drop(idx) = op else {
+        let StashOp::Drop(stable_id) = op else {
             self.run_stash_op(op, cx);
             return;
         };
         let stash_msg = self
             .stashes
-            .get(idx)
+            .iter()
+            .find(|stash| stash.commit.0 == stable_id)
             .map(|s| s.message.clone())
-            .unwrap_or_else(|| format!("stash@{{{idx}}}"));
+            .unwrap_or_else(|| format!("stash commit {stable_id}"));
         let view = cx.entity();
+        let stable_id_for_run = stable_id.clone();
         open_confirm_dialog(
             view,
             "删除 stash？",
             format!("将永久删除 stash「{stash_msg}」。"),
             "删除",
             true,
-            move |this, cx| this.run_stash_op(StashOp::Drop(idx), cx),
+            move |this, cx| this.run_stash_op(StashOp::Drop(stable_id_for_run.clone()), cx),
             window,
             cx,
         );

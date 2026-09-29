@@ -91,6 +91,7 @@ fn stash_row(s: &Stash, busy: bool, cx: &mut Context<VcsView>) -> impl IntoEleme
     let muted_fg = theme.muted_foreground;
     let mono = theme.mono_font_family.clone();
     let idx = s.id.0;
+    let stable_id = s.commit.0.clone();
 
     v_flex()
         .gap(px(2.0))
@@ -125,27 +126,42 @@ fn stash_row(s: &Stash, busy: bool, cx: &mut Context<VcsView>) -> impl IntoEleme
                 .gap(px(6.0))
                 .items_center()
                 .child(side_op_button(
-                    format!("vcs-side-stash-apply-{idx}"),
+                    format!("vcs-side-stash-apply-{stable_id}"),
                     "应用",
                     IconName::ArrowDown,
                     busy,
-                    move |this, window, cx| this.confirm_stash_op(StashOp::Apply(idx), window, cx),
+                    {
+                        let stable_id = stable_id.clone();
+                        move |this, window, cx| {
+                            this.confirm_stash_op(StashOp::Apply(stable_id.clone()), window, cx)
+                        }
+                    },
                     cx,
                 ))
                 .child(side_op_button(
-                    format!("vcs-side-stash-pop-{idx}"),
+                    format!("vcs-side-stash-pop-{stable_id}"),
                     "弹出",
                     IconName::Check,
                     busy,
-                    move |this, window, cx| this.confirm_stash_op(StashOp::Pop(idx), window, cx),
+                    {
+                        let stable_id = s.commit.0.clone();
+                        move |this, window, cx| {
+                            this.confirm_stash_op(StashOp::Pop(stable_id.clone()), window, cx)
+                        }
+                    },
                     cx,
                 ))
                 .child(side_op_button(
-                    format!("vcs-side-stash-drop-{idx}"),
+                    format!("vcs-side-stash-drop-{stable_id}"),
                     "丢弃",
                     ramag_ui::icons::trash(),
                     busy,
-                    move |this, window, cx| this.confirm_stash_op(StashOp::Drop(idx), window, cx),
+                    {
+                        let stable_id = s.commit.0.clone();
+                        move |this, window, cx| {
+                            this.confirm_stash_op(StashOp::Drop(stable_id.clone()), window, cx)
+                        }
+                    },
                     cx,
                 ))
                 .child(div().flex_1())
