@@ -576,6 +576,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不改变暂存、取消暂存、丢弃、冲突解决和文件历史的 Git 命令，不改变目录排序、折叠状态、搜索过滤或批量路径去重，不把本项扩展为真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再改造变更树行的文件和路径快照，补充重排回归；定向测试通过后独立提交并推送，随后补充本切片验收记录。
 
+### B-GIT-001-F：工作区单文件行使用状态快照（代码与 headless 回归完成，2026-09-29）
+
+- 实现：变更树表头保存生成时的路径集合，单文件行保存生成时的完整 `FileStatus`；虚拟列表渲染、暂存/取消暂存、文件历史和冲突操作直接使用这些快照，不再按 `file_index` 从当前工作区状态回查。
+- 定向回归：新增测试在生成文件行后重排状态数组并修改新位置的路径，确认旧行仍保留 `src/first.rs`、原始修改状态、深度和 `Unstaged` 分组；批量路径去重和状态重排回归继续通过。`ramag-tool-vcs` 全量 140 项测试中 135 项通过，5 项性能观察测试按设计忽略。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过；代码提交 `ad2724e0 fix(vcs): snapshot workspace file rows` 已推送 `origin/main`。
+- 证据边界：本切片证明虚拟变更行在异步状态刷新期间仍使用生成时的文件和操作类型；不提供真实 Windows 原生窗口鼠标/键盘证据，不访问 114 服务器，不改变 Git 驱动命令语义，也不把 Computer Use 缺口写成已完成。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
