@@ -5,13 +5,14 @@ use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _, WindowExt as _,
     button::ButtonVariants as _,
     h_flex,
-    input::Input,
+    input::{Input, InputState},
     menu::{ContextMenuExt as _, PopupMenu},
+    scroll::ScrollableElement as _,
     v_flex,
 };
 use gpui_kit::{
     AnyElement, App, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement,
-    ParentElement, SharedString, Styled, Window, div, prelude::*, px,
+    ParentElement, ScrollHandle, SharedString, Styled, Window, div, prelude::*, px,
 };
 use ramag_domain::entities::{Branch, Remote, Tag};
 
@@ -234,6 +235,7 @@ fn open_create_branch_dialog(view: Entity<VcsView>, window: &mut Window, app: &m
     super::branch_picker::open_new_branch_dialog(view, head, local, remote, window, app);
 }
 
+/// 打开当前仓库的标签表单；正文随视口滚动，取消不会提交表单。
 fn open_create_tag_dialog(view: Entity<VcsView>, window: &mut Window, app: &mut App) {
     let (name, message) = {
         let this = view.read(app);
@@ -245,7 +247,9 @@ fn open_create_tag_dialog(view: Entity<VcsView>, window: &mut Window, app: &mut 
     for input in [&name, &message] {
         input.update(app, |state, cx| state.set_value("", window, cx));
     }
-    window.open_dialog(app, move |dialog, _, _| {
+    let scroll = ScrollHandle::new();
+    window.open_dialog(app, move |dialog, window, _| {
+        let scroll = scroll.clone();
         let content_name = name.clone();
         let content_message = message.clone();
         dialog
@@ -255,15 +259,23 @@ fn open_create_tag_dialog(view: Entity<VcsView>, window: &mut Window, app: &mut 
                 |_, _| {},
             ))
             .close_button(false)
-            .width(px(520.0))
-            .margin_top(px(160.0))
-            .content(move |content, _, _| {
+            .width(ramag_ui::responsive_dialog_width(window, 520.0))
+            .margin_top(ramag_ui::responsive_dialog_top(window))
+            .content(move |content, window, cx| {
                 content.child(
-                    v_flex()
-                        .w_full()
-                        .gap(px(8.0))
-                        .child(Input::new(&content_name).small())
-                        .child(Input::new(&content_message).small()),
+                    create_dialog_body(window, &scroll)
+                        .child(create_dialog_field(
+                            "vcs-create-name",
+                            "标签名称",
+                            &content_name,
+                            cx,
+                        ))
+                        .child(create_dialog_field(
+                            "vcs-create-detail",
+                            "备注（可选）",
+                            &content_message,
+                            cx,
+                        )),
                 )
             })
             .footer(create_dialog_footer(
@@ -275,6 +287,7 @@ fn open_create_tag_dialog(view: Entity<VcsView>, window: &mut Window, app: &mut 
     });
 }
 
+/// 打开当前仓库的远程配置表单；标签始终可见，正文可在短窗口内滚动。
 fn open_create_remote_dialog(view: Entity<VcsView>, window: &mut Window, app: &mut App) {
     let (name, url) = {
         let this = view.read(app);
@@ -286,7 +299,9 @@ fn open_create_remote_dialog(view: Entity<VcsView>, window: &mut Window, app: &m
     for input in [&name, &url] {
         input.update(app, |state, cx| state.set_value("", window, cx));
     }
-    window.open_dialog(app, move |dialog, _, _| {
+    let scroll = ScrollHandle::new();
+    window.open_dialog(app, move |dialog, window, _| {
+        let scroll = scroll.clone();
         let content_name = name.clone();
         let content_url = url.clone();
         dialog
@@ -296,15 +311,23 @@ fn open_create_remote_dialog(view: Entity<VcsView>, window: &mut Window, app: &m
                 |_, _| {},
             ))
             .close_button(false)
-            .width(px(560.0))
-            .margin_top(px(160.0))
-            .content(move |content, _, _| {
+            .width(ramag_ui::responsive_dialog_width(window, 560.0))
+            .margin_top(ramag_ui::responsive_dialog_top(window))
+            .content(move |content, window, cx| {
                 content.child(
-                    v_flex()
-                        .w_full()
-                        .gap(px(8.0))
-                        .child(Input::new(&content_name).small())
-                        .child(Input::new(&content_url).small()),
+                    create_dialog_body(window, &scroll)
+                        .child(create_dialog_field(
+                            "vcs-create-name",
+                            "远程名称",
+                            &content_name,
+                            cx,
+                        ))
+                        .child(create_dialog_field(
+                            "vcs-create-detail",
+                            "仓库地址（HTTPS / SSH）",
+                            &content_url,
+                            cx,
+                        )),
                 )
             })
             .footer(create_dialog_footer(
@@ -316,31 +339,71 @@ fn open_create_remote_dialog(view: Entity<VcsView>, window: &mut Window, app: &m
     });
 }
 
+/// 给标题、操作区和内边距预留高度，两个字段只在独立正文中滚动。
+fn create_dialog_body(window: &Window, scroll: &ScrollHandle) -> gpui_kit::Stateful<gpui_kit::Div> {
+    let body_height = (ramag_ui::responsive_dialog_max_height(window) - px(140.0)).max(px(48.0));
+    v_flex()
+        .id("vcs-create-fields")
+        .debug_selector(|| "vcs-create-fields".into())
+        .w_full()
+        .min_w_0()
+        .h(body_height)
+        .max_h(body_height)
+        .overflow_y_scroll()
+        .track_scroll(scroll)
+        .vertical_scrollbar(scroll)
+        .gap(px(8.0))
+}
+
+/// 字段标签独立于占位文字，输入后仍能辨认用途；文字和控件保持同一宽度。
+fn create_dialog_field(
+    id: &'static str,
+    label: &'static str,
+    input: &Entity<InputState>,
+    cx: &App,
+) -> impl IntoElement {
+    v_flex()
+        .w_full()
+        .min_w_0()
+        .flex_none()
+        .gap(px(4.0))
+        .child(
+            div()
+                .text_xs()
+                .text_color(cx.theme().muted_foreground)
+                .child(label),
+        )
+        .child(
+            div()
+                .debug_selector(move || id.into())
+                .w_full()
+                .min_w_0()
+                .child(Input::new(input).w_full().min_w_0().small()),
+        )
+}
+
+/// 复用共享操作区，使取消和提交在窄窗口中保持独立的命中范围。
 fn create_dialog_footer(
     id: &'static str,
     label: &'static str,
     view: gpui_kit::Entity<VcsView>,
     submit: impl Fn(&mut VcsView, &mut Context<VcsView>) + 'static,
 ) -> impl IntoElement {
-    h_flex()
-        .w_full()
-        .justify_end()
-        .gap(px(8.0))
-        .child(
-            ramag_ui::clickable_button(format!("{id}-cancel"))
-                .ghost()
-                .small()
-                .label("取消")
-                .on_click(|_: &ClickEvent, window, app| window.close_dialog(app)),
-        )
-        .child(
-            ramag_ui::clickable_button(id)
-                .primary()
-                .small()
-                .label(label)
-                .on_click(move |_: &ClickEvent, window, app| {
-                    view.update(app, |this, cx| submit(this, cx));
-                    window.close_dialog(app);
-                }),
-        )
+    ramag_ui::dialog_action_footer(
+        ramag_ui::clickable_button(format!("{id}-cancel"))
+            .debug_selector(move || format!("{id}-cancel"))
+            .ghost()
+            .small()
+            .label("取消")
+            .on_click(|_: &ClickEvent, window, app| window.close_dialog(app)),
+        ramag_ui::clickable_button(id)
+            .debug_selector(move || id.into())
+            .primary()
+            .small()
+            .label(label)
+            .on_click(move |_: &ClickEvent, window, app| {
+                view.update(app, |this, cx| submit(this, cx));
+                window.close_dialog(app);
+            }),
+    )
 }
