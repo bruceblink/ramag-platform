@@ -15,12 +15,7 @@ use ramag_ui::PointerDropdownMenu as _;
 use super::sidebar::LEFT_ROW_H;
 use super::vcs_view::VcsView;
 
-pub(super) fn remote_row(
-    idx: usize,
-    r: &Remote,
-    busy: bool,
-    cx: &mut Context<VcsView>,
-) -> impl IntoElement {
+pub(super) fn remote_row(r: &Remote, busy: bool, cx: &mut Context<VcsView>) -> impl IntoElement {
     let theme = cx.theme();
     let fg = theme.foreground;
     let muted_fg = theme.muted_foreground;
@@ -30,7 +25,7 @@ pub(super) fn remote_row(
 
     let name = r.name.clone();
     let url = r.fetch_url.clone();
-    let row_id = SharedString::from(format!("vcs-side-remote-{idx}-{name}"));
+    let row_id = SharedString::from(format!("vcs-side-remote-{name}"));
 
     let entity = cx.entity();
     let mut row = h_flex()
@@ -81,7 +76,7 @@ pub(super) fn remote_row(
     let menu_name = name.clone();
     let menu_url = url.clone();
     row = row.child(
-        ramag_ui::clickable_button(SharedString::from(format!("vcs-side-remote-more-{idx}")))
+        ramag_ui::clickable_button(SharedString::from(format!("vcs-side-remote-more-{name}")))
             .ghost()
             .xsmall()
             .icon(ramag_ui::icons::ellipsis())

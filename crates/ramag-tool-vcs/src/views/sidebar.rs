@@ -13,6 +13,7 @@ use gpui_kit::{
     AnyElement, App, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement,
     ParentElement, SharedString, Styled, Window, div, prelude::*, px,
 };
+use ramag_domain::entities::{Branch, Remote, Tag};
 
 use super::helpers::HistoryRefFilter;
 use super::vcs_view::VcsView;
@@ -39,14 +40,14 @@ pub(super) enum LeftRow {
         section: SidebarSection,
     },
     Branch {
-        idx: usize,
+        branch: Branch,
         is_remote: bool,
     },
     Tag {
-        idx: usize,
+        tag: Tag,
     },
     Remote {
-        idx: usize,
+        remote: Remote,
     },
     Empty(&'static str),
 }
@@ -61,43 +62,22 @@ impl VcsView {
                 collapsed,
                 section,
             } => section_header(title, *count, *collapsed, *section, self.busy, cx),
-            LeftRow::Branch { idx, is_remote } => {
-                let branch = if *is_remote {
-                    self.remote_branches.get(*idx)
-                } else {
-                    self.local_branches.get(*idx)
-                };
-                branch.map_or_else(
-                    || div().h(px(LEFT_ROW_H)).into_any_element(),
-                    |branch| {
-                        let selected = self.history_ref_filter.as_ref().is_some_and(|filter| {
-                            filter.revision
-                                == HistoryRefFilter::branch(&branch.name, *is_remote).revision
-                        });
-                        super::sidebar_branches::branch_row(
-                            *idx, branch, self.busy, *is_remote, selected, cx,
-                        )
-                        .into_any_element()
-                    },
-                )
+            LeftRow::Branch { branch, is_remote } => {
+                let selected = self.history_ref_filter.as_ref().is_some_and(|filter| {
+                    filter.revision == HistoryRefFilter::branch(&branch.name, *is_remote).revision
+                });
+                super::sidebar_branches::branch_row(branch, self.busy, *is_remote, selected, cx)
+                    .into_any_element()
             }
-            LeftRow::Tag { idx } => self.tags.get(*idx).map_or_else(
-                || div().h(px(LEFT_ROW_H)).into_any_element(),
-                |tag| {
-                    let selected = self.history_ref_filter.as_ref().is_some_and(|filter| {
-                        filter.revision == HistoryRefFilter::tag(&tag.name).revision
-                    });
-                    super::sidebar_tags::tag_row(*idx, tag, self.busy, selected, cx)
-                        .into_any_element()
-                },
-            ),
-            LeftRow::Remote { idx } => self.remotes.get(*idx).map_or_else(
-                || div().h(px(LEFT_ROW_H)).into_any_element(),
-                |remote| {
-                    super::sidebar_remotes::remote_row(*idx, remote, self.busy, cx)
-                        .into_any_element()
-                },
-            ),
+            LeftRow::Tag { tag } => {
+                let selected = self.history_ref_filter.as_ref().is_some_and(|filter| {
+                    filter.revision == HistoryRefFilter::tag(&tag.name).revision
+                });
+                super::sidebar_tags::tag_row(tag, self.busy, selected, cx).into_any_element()
+            }
+            LeftRow::Remote { remote } => {
+                super::sidebar_remotes::remote_row(remote, self.busy, cx).into_any_element()
+            }
             LeftRow::Empty(msg) => {
                 let muted_fg = cx.theme().muted_foreground;
                 h_flex()

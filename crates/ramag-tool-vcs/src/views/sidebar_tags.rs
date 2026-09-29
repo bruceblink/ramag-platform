@@ -18,7 +18,6 @@ use super::sidebar::LEFT_ROW_H;
 use super::vcs_view::VcsView;
 
 pub(super) fn tag_row(
-    idx: usize,
     t: &Tag,
     busy: bool,
     selected: bool,
@@ -39,7 +38,7 @@ pub(super) fn tag_row(
         None => t.commit.short().to_string(),
     };
     let name = t.name.clone();
-    let row_id = SharedString::from(format!("vcs-side-tag-{idx}-{name}"));
+    let row_id = SharedString::from(format!("vcs-side-tag-{name}"));
 
     let entity = cx.entity();
     let filter = HistoryRefFilter::tag(&name);
@@ -103,7 +102,7 @@ pub(super) fn tag_row(
                 cx.stop_propagation()
             })
             .child(
-                ramag_ui::clickable_button(SharedString::from(format!("vcs-side-tag-more-{idx}")))
+                ramag_ui::clickable_button(SharedString::from(format!("vcs-side-tag-more-{name}")))
                     .ghost()
                     .xsmall()
                     .icon(ramag_ui::icons::ellipsis())

@@ -19,7 +19,6 @@ use super::sidebar::LEFT_ROW_H;
 use super::vcs_view::VcsView;
 
 pub(super) fn branch_row(
-    idx: usize,
     b: &Branch,
     busy: bool,
     is_remote: bool,
@@ -46,7 +45,7 @@ pub(super) fn branch_row(
         _ => None,
     };
 
-    let row_id = SharedString::from(format!("vcs-side-br-{}-{}-{}", idx, is_remote, name));
+    let row_id = SharedString::from(format!("vcs-side-br-{is_remote}-{name}"));
     let prefix_icon = if is_head {
         Icon::new(ramag_ui::icons::circle_dot())
             .xsmall()
@@ -111,7 +110,7 @@ pub(super) fn branch_row(
         let n = name.clone();
         let commit = commit.clone();
         ramag_ui::clickable_button(SharedString::from(format!(
-            "vcs-side-br-more-{idx}-{is_remote}"
+            "vcs-side-br-more-{is_remote}-{name}"
         )))
         .ghost()
         .xsmall()
