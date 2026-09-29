@@ -11,7 +11,7 @@ use gpui_kit::{
 use ramag_domain::entities::{Commit, FileStatus};
 
 use super::file_tree::{Row, build_tree, flatten};
-use super::helpers::{code_letter_color, code_to_letter};
+use super::helpers::{code_letter_color, code_to_letter, stable_commit_path_element_id};
 use super::vcs_view::VcsView;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -253,7 +253,6 @@ fn render_files_tree(
                 range
                     .map(|i| {
                         render_tree_row(
-                            i,
                             &rows_rc[i],
                             &files_rc,
                             &this.selected_commit_file,
@@ -275,7 +274,6 @@ fn render_files_tree(
 
 #[allow(clippy::too_many_arguments)]
 fn render_tree_row(
-    idx_in_rows: usize,
     row: &Row,
     files: &Rc<Vec<FileStatus>>,
     selected: &Option<String>,
@@ -297,7 +295,7 @@ fn render_tree_row(
             is_collapsed,
             file_count,
         } => {
-            let id = SharedString::from(format!("vcs-cd-dir-{idx_in_rows}"));
+            let id = stable_commit_path_element_id("cd-dir", commit_id, dir_path);
             let chevron = if *is_collapsed {
                 IconName::ChevronRight
             } else {
@@ -362,7 +360,7 @@ fn render_tree_row(
             let is_selected = selected.as_deref() == Some(f.path.as_str());
             let path_for_click = f.path.clone();
             let commit_for_click = commit_id.to_string();
-            let id = SharedString::from(format!("vcs-cd-file-{idx_in_rows}"));
+            let id = stable_commit_path_element_id("cd-file", commit_id, &f.path);
             let mut row = h_flex()
                 .id(id)
                 .gap(px(8.0))

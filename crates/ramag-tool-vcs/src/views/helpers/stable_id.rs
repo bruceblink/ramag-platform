@@ -32,9 +32,26 @@ pub(crate) fn stable_compare_file_element_id(from: &str, to: &str, path: &str) -
     SharedString::from(format!("vcs-compare-file-{:016x}", hasher.finish()))
 }
 
+pub(crate) fn stable_commit_path_element_id(
+    prefix: &str,
+    commit: &str,
+    path: &str,
+) -> SharedString {
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    prefix.hash(&mut hasher);
+    commit.hash(&mut hasher);
+    path.hash(&mut hasher);
+    SharedString::from(format!("vcs-{prefix}-{:016x}", hasher.finish()))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{stable_compare_file_element_id, stable_file_element_id, stable_path_element_id};
+    use super::{
+        stable_commit_path_element_id, stable_compare_file_element_id, stable_file_element_id,
+        stable_path_element_id,
+    };
     use crate::views::helpers::GroupKind;
 
     #[test]
@@ -74,6 +91,22 @@ mod tests {
         assert_ne!(
             stable_compare_file_element_id("from-a", "to-b", "src/lib.rs"),
             stable_compare_file_element_id("from-a", "to-b", "src/main.rs")
+        );
+    }
+
+    #[test]
+    fn commit_path_element_id_includes_commit_and_path() {
+        assert_eq!(
+            stable_commit_path_element_id("commit-file", "commit-a", "src/lib.rs"),
+            stable_commit_path_element_id("commit-file", "commit-a", "src/lib.rs")
+        );
+        assert_ne!(
+            stable_commit_path_element_id("commit-file", "commit-a", "src/lib.rs"),
+            stable_commit_path_element_id("commit-file", "commit-b", "src/lib.rs")
+        );
+        assert_ne!(
+            stable_commit_path_element_id("commit-file", "commit-a", "src/lib.rs"),
+            stable_commit_path_element_id("commit-file", "commit-a", "src/main.rs")
         );
     }
 }

@@ -3,8 +3,10 @@ use super::add_vcs_window;
 use crate::views::vcs_view::{CompareState, VcsView};
 use gpui_kit::{TestAppContext, px, size};
 use ramag_domain::entities::{
-    FileChangeKind, FileStatus, RebaseAction, RebaseTodo, WorkingTreeStatus,
+    Commit, CommitId, FileChangeKind, FileStatus, RebaseAction, RebaseTodo, Signature,
+    WorkingTreeStatus,
 };
+use std::rc::Rc;
 
 fn inject_rebase_plan(v: &mut VcsView) {
     let repo = super::mock_repo();
@@ -213,6 +215,72 @@ fn vcs_view_renders_project_rows_after_source_reorder(cx: &mut TestAppContext) {
     view.read_with(cx, |v, _| {
         assert_eq!(
             v.project_files.first().map(String::as_str),
+            Some("src/main.rs")
+        );
+    });
+}
+
+fn inject_commit_detail(v: &mut VcsView) {
+    let repo = super::mock_repo();
+    let signature = Signature {
+        name: "Ramag Test".into(),
+        email: "ramag@example.test".into(),
+        timestamp: chrono::Utc::now(),
+    };
+    v.open_repos = vec![repo.clone()];
+    v.repo = Some(repo);
+    v.active_view = ActiveView::Session;
+    v.history_pane_visible = true;
+    v.viewing_commit = Some(Rc::new(Commit {
+        id: CommitId("commit-detail-test".into()),
+        parents: Vec::new(),
+        author: signature.clone(),
+        committer: signature,
+        subject: "commit detail".into(),
+        body: String::new(),
+        refs: Vec::new(),
+    }));
+    v.commit_files = Rc::new(vec![
+        FileStatus {
+            path: "src/lib.rs".into(),
+            old_path: None,
+            staged: Some(FileChangeKind::Modified),
+            unstaged: None,
+        },
+        FileStatus {
+            path: "src/main.rs".into(),
+            old_path: None,
+            staged: Some(FileChangeKind::Added),
+            unstaged: None,
+        },
+    ]);
+}
+
+/// 提交详情文件树按提交和路径保持行标识；文件列表重排后在三种窗口尺寸下重新渲染。
+#[gpui_kit::test]
+fn vcs_view_renders_commit_detail_rows_after_file_reorder(cx: &mut TestAppContext) {
+    let (view, cx) = add_vcs_window(cx);
+
+    view.update(cx, |v, cx| {
+        inject_commit_detail(v);
+        cx.notify();
+    });
+    cx.run_until_parked();
+
+    for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+        cx.simulate_resize(size(px(width), px(height)));
+        view.update(cx, |v, cx| {
+            let mut files = v.commit_files.as_ref().clone();
+            files.reverse();
+            v.commit_files = Rc::new(files);
+            cx.notify();
+        });
+        cx.run_until_parked();
+    }
+
+    view.read_with(cx, |v, _| {
+        assert_eq!(
+            v.commit_files.first().map(|file| file.path.as_str()),
             Some("src/main.rs")
         );
     });
