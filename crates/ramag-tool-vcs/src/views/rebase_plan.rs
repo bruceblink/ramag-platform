@@ -154,8 +154,8 @@ impl VcsView {
                         };
                         Some(rebase_todo_row(
                             idx,
-                            action,
                             &hash,
+                            action,
                             &subject,
                             can_move_up,
                             can_move_down,
@@ -228,10 +228,15 @@ impl VcsView {
     /// 修改某个 todo 的 action（dropdown 回调调用）
     pub(super) fn change_rebase_action(
         &mut self,
-        idx: usize,
+        hash: String,
         action: RebaseAction,
         cx: &mut Context<Self>,
     ) {
+        let Some(idx) = find_rebase_todo_index(&self.rebase_todos, &hash) else {
+            self.error = Some("Rebase 计划已更新，请重新选择提交".into());
+            cx.notify();
+            return;
+        };
         if let Some(todo) = self.rebase_todos.get_mut(idx) {
             if !is_rebase_action_valid(idx, action) {
                 self.error =
@@ -245,7 +250,12 @@ impl VcsView {
     }
 
     /// 上移 / 下移 todo（up=true 往前挪）
-    pub(super) fn move_rebase_todo(&mut self, idx: usize, up: bool, cx: &mut Context<Self>) {
+    pub(super) fn move_rebase_todo(&mut self, hash: String, up: bool, cx: &mut Context<Self>) {
+        let Some(idx) = find_rebase_todo_index(&self.rebase_todos, &hash) else {
+            self.error = Some("Rebase 计划已更新，请重新选择提交".into());
+            cx.notify();
+            return;
+        };
         let todos = &mut self.rebase_todos;
         let would_make_invalid_first = (up
             && idx == 1
@@ -274,9 +284,9 @@ impl VcsView {
 /// 单行 todo 渲染：[action dropdown] [hash] [subject] [↑] [↓]
 #[allow(clippy::too_many_arguments)]
 fn rebase_todo_row(
-    idx: usize,
+    row_index: usize,
+    todo_hash: &str,
     action: RebaseAction,
-    hash: &str,
     subject: &str,
     can_move_up: bool,
     can_move_down: bool,
@@ -289,9 +299,9 @@ fn rebase_todo_row(
     let fg = theme.foreground;
     let hover_bg = theme.muted;
     let mono = theme.mono_font_family.clone();
-    let short_hash: String = hash.chars().take(7).collect();
+    let short_hash: String = todo_hash.chars().take(7).collect();
     let subject_owned = super::inline_text_preview(subject, 240);
-    let row_id = SharedString::from(format!("vcs-rb-row-{idx}-{short_hash}"));
+    let row_id = SharedString::from(format!("vcs-rb-row-{todo_hash}"));
 
     let action_label_color = match action {
         RebaseAction::Drop => theme.danger,
@@ -300,34 +310,38 @@ fn rebase_todo_row(
     };
 
     let entity_a = entity.clone();
-    let action_btn = ramag_ui::clickable_button(SharedString::from(format!("vcs-rb-action-{idx}")))
-        .ghost()
-        .xsmall()
-        .label(action.label_zh())
-        .w(px(72.0))
-        .text_color(action_label_color)
-        .pointer_dropdown_menu(move |mut menu: PopupMenu, _: &mut Window, _| {
-            for a in all_rebase_actions() {
-                let ent = entity_a.clone();
-                menu = menu.item(
-                    ramag_ui::menu_item_with_disabled(
-                        a.label_zh(),
-                        !is_rebase_action_valid(idx, a),
-                    )
-                    .on_click(
-                        move |_: &ClickEvent, _: &mut Window, app: &mut App| {
-                            ent.update(app, |this, cx| {
-                                this.change_rebase_action(idx, a, cx);
-                            });
-                        },
-                    ),
-                );
-            }
-            menu
-        });
+    let todo_hash_owned = todo_hash.to_string();
+    let action_btn = ramag_ui::clickable_button(SharedString::from(format!(
+        "vcs-rb-action-{todo_hash_owned}"
+    )))
+    .ghost()
+    .xsmall()
+    .label(action.label_zh())
+    .w(px(72.0))
+    .text_color(action_label_color)
+    .pointer_dropdown_menu(move |mut menu: PopupMenu, _: &mut Window, _| {
+        for a in all_rebase_actions() {
+            let ent = entity_a.clone();
+            let hash_for_action = todo_hash_owned.clone();
+            menu = menu.item(
+                ramag_ui::menu_item_with_disabled(
+                    a.label_zh(),
+                    !is_rebase_action_valid(row_index, a),
+                )
+                .on_click(move |_: &ClickEvent, _: &mut Window, app: &mut App| {
+                    ent.update(app, |this, cx| {
+                        this.change_rebase_action(hash_for_action.clone(), a, cx);
+                    });
+                }),
+            );
+        }
+        menu
+    });
 
     let entity_up = entity.clone();
     let entity_dn = entity.clone();
+    let todo_hash_for_up = todo_hash.to_string();
+    let todo_hash_for_down = todo_hash.to_string();
 
     div()
         .id(row_id)
@@ -367,33 +381,48 @@ fn rebase_todo_row(
                     cx.stop_propagation()
                 })
                 .child(
-                    ramag_ui::clickable_button(SharedString::from(format!("vcs-rb-up-{idx}")))
-                        .ghost()
-                        .xsmall()
-                        .icon(IconName::ArrowUp)
-                        .tooltip("上移")
-                        .disabled(busy || !can_move_up)
-                        .on_click(move |_: &ClickEvent, _: &mut Window, app: &mut App| {
+                    ramag_ui::clickable_button(SharedString::from(format!(
+                        "vcs-rb-up-{todo_hash}"
+                    )))
+                    .ghost()
+                    .xsmall()
+                    .icon(IconName::ArrowUp)
+                    .tooltip("上移")
+                    .disabled(busy || !can_move_up)
+                    .on_click(
+                        move |_: &ClickEvent, _: &mut Window, app: &mut App| {
                             entity_up.update(app, |this, cx| {
-                                this.move_rebase_todo(idx, true, cx);
+                                this.move_rebase_todo(todo_hash_for_up.clone(), true, cx);
                             });
-                        }),
+                        },
+                    ),
                 )
                 .child(
-                    ramag_ui::clickable_button(SharedString::from(format!("vcs-rb-dn-{idx}")))
-                        .ghost()
-                        .xsmall()
-                        .icon(IconName::ArrowDown)
-                        .tooltip("下移")
-                        .disabled(busy || !can_move_down)
-                        .on_click(move |_: &ClickEvent, _: &mut Window, app: &mut App| {
+                    ramag_ui::clickable_button(SharedString::from(format!(
+                        "vcs-rb-dn-{todo_hash}"
+                    )))
+                    .ghost()
+                    .xsmall()
+                    .icon(IconName::ArrowDown)
+                    .tooltip("下移")
+                    .disabled(busy || !can_move_down)
+                    .on_click(
+                        move |_: &ClickEvent, _: &mut Window, app: &mut App| {
                             entity_dn.update(app, |this, cx| {
-                                this.move_rebase_todo(idx, false, cx);
+                                this.move_rebase_todo(todo_hash_for_down.clone(), false, cx);
                             });
-                        }),
+                        },
+                    ),
                 ),
         )
         .into_any_element()
+}
+
+fn find_rebase_todo_index(
+    todos: &[ramag_domain::entities::RebaseTodo],
+    hash: &str,
+) -> Option<usize> {
+    todos.iter().position(|todo| todo.hash == hash)
 }
 
 fn all_rebase_actions() -> [RebaseAction; 4] {
@@ -411,8 +440,16 @@ fn is_rebase_action_valid(idx: usize, action: RebaseAction) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_rebase_action_valid;
-    use ramag_domain::entities::RebaseAction;
+    use super::{find_rebase_todo_index, is_rebase_action_valid};
+    use ramag_domain::entities::{RebaseAction, RebaseTodo};
+
+    fn todo(hash: &str, action: RebaseAction) -> RebaseTodo {
+        RebaseTodo {
+            action,
+            hash: hash.into(),
+            subject: format!("subject-{hash}"),
+        }
+    }
 
     #[test]
     fn first_rebase_item_cannot_merge_into_missing_parent() {
@@ -420,5 +457,41 @@ mod tests {
         assert!(!is_rebase_action_valid(0, RebaseAction::Fixup));
         assert!(is_rebase_action_valid(0, RebaseAction::Pick));
         assert!(is_rebase_action_valid(1, RebaseAction::Squash));
+    }
+
+    #[test]
+    fn rebase_target_follows_commit_after_plan_reorders() {
+        let target = todo("bbb", RebaseAction::Pick);
+        let reordered = vec![
+            todo("aaa", RebaseAction::Pick),
+            target,
+            todo("ccc", RebaseAction::Pick),
+        ];
+
+        assert_eq!(find_rebase_todo_index(&reordered, "bbb"), Some(1));
+    }
+
+    #[test]
+    fn missing_rebase_target_does_not_fall_back_to_another_index() {
+        let todos = vec![
+            todo("aaa", RebaseAction::Pick),
+            todo("ccc", RebaseAction::Pick),
+        ];
+
+        assert_eq!(find_rebase_todo_index(&todos, "bbb"), None);
+    }
+
+    #[test]
+    fn rebase_target_id_is_unique_for_distinct_commits() {
+        let todos = vec![
+            todo("aaa", RebaseAction::Pick),
+            todo("bbb", RebaseAction::Pick),
+        ];
+
+        assert_ne!(todos[0].hash, todos[1].hash);
+        assert_ne!(
+            find_rebase_todo_index(&todos, "aaa"),
+            find_rebase_todo_index(&todos, "bbb")
+        );
     }
 }

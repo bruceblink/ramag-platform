@@ -17,9 +17,10 @@ use ramag_domain::entities::{
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{GitDriver, Storage};
 use std::{path::Path, sync::Arc};
+#[path = "rebase_plan_render_test.rs"]
+mod rebase_plan_render_test;
 #[path = "render_toolbar_test.rs"]
 mod render_toolbar_test;
-/// 空壳 GitDriver：render 是纯展示、不调 driver，方法只需可编译且不 panic
 struct MockGit;
 #[async_trait]
 impl GitDriver for MockGit {
@@ -240,7 +241,6 @@ fn inject_file_content_session(v: &mut VcsView) {
     v.active_file_tab_idx = Some(0);
 }
 
-/// 输入框绘制依赖 `gpui_kit::component` 的窗口根节点，测试必须复刻生产环境的 Root 包装。
 fn add_vcs_window(cx: &mut TestAppContext) -> (Entity<VcsView>, &mut VisualTestContext) {
     cx.update(gpui_kit::component::init);
 
