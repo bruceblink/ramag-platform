@@ -515,6 +515,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不改变 Pull 的 rebase 选择、冲突处理、凭据助手、远程地址或分支跟踪规则；不访问 114 服务器，不修改 GitHub/Gitea 远程仓库，不把真实 Windows 原生窗口流程写入本切片。
 - 实施顺序：先提交本设计确认，再修改 Pull 参数构造和临时远程回放测试；验证通过后独立提交并推送，随后补充本切片验收记录。
 
+### B-GIT-001-B：Pull 远程回放与非交互合并（代码与本地 Git 回放完成，2026-09-29）
+
+- 实现：普通 Pull 显式传入 `--no-rebase --no-edit`，在分叉历史下选择合并并直接采用 Git 默认合并信息；rebase Pull 保持 `--rebase`；带进度 Pull 同步使用对应参数，继续通过 stderr 读取进度和取消状态。
+- 单元回归：新增 Pull 参数测试，确认普通 Pull 含 `--no-rebase --no-edit`，带进度普通 Pull 同时含 `--progress`，rebase Pull 不带普通合并参数。
+- 本地 Git 回放：使用临时 bare remote 和临时工作目录生成远程提交，验证普通 Pull 快进后读取远程文件、分叉 Pull 合并后同时保留本地和远程文件及两侧提交、带进度 Pull 快进后读取远程文件；三项测试均通过。
+- 质量检查：`cargo test --locked -p ramag-infra-git --all-targets -- --test-threads=1` 通过，结果为驱动单元测试 74 项、集成测试 43 项，性能测试 1 项按环境条件忽略；`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。设计提交 `f2112aea docs: define git pull acceptance`、代码提交 `302b3f12 fix(git): make pull merge noninteractive` 已推送 `origin/main`。
+- 证据边界：本切片证明 Git 驱动可在本地临时远程中完成快进、分叉合并和带进度 Pull；不提供真实 Windows 原生窗口鼠标/键盘证据，不访问 114 服务器，不修改 GitHub/Gitea 远程仓库，也不把 Computer Use 缺口写成已完成。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
