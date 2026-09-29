@@ -59,12 +59,12 @@ impl VcsView {
     /// 暂存区片段回退可逆；工作区片段丢弃需确认。
     pub(in crate::views) fn confirm_discard_hunk(
         &mut self,
-        hunk_idx: usize,
+        hunk_key: String,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if self.active_changes_kind_is_staged() {
-            self.discard_hunk(hunk_idx, cx);
+            self.discard_hunk(hunk_key, cx);
             return;
         }
         let view = cx.entity();
@@ -74,7 +74,7 @@ impl VcsView {
             "将永久丢弃此段未暂存改动。".into(),
             "丢弃",
             true,
-            move |this, cx| this.discard_hunk(hunk_idx, cx),
+            move |this, cx| this.discard_hunk(hunk_key, cx),
             window,
             cx,
         );

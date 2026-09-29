@@ -1,4 +1,7 @@
 use super::*;
+use gpui_kit::InteractiveElement as _;
+
+use super::super::helpers::{stable_hunk_key, stable_path_element_id};
 
 /// 构建中间列 uniform_list（与左右栏共享 scroll_v 做垂直同步）
 /// Header 行承载「回滚此 hunk」按钮（enable_discard 时）；Pair 行展示该行 blame author（has_blame 时）
@@ -37,7 +40,7 @@ pub(super) fn build_middle_list(
                     }
                     // hunk 中点行 + 可回滚：渲染居中回滚按钮（替换该行 blame，仿 VSCode）
                     if enable_discard && let Some(&hunk_idx) = button_rows.get(&i) {
-                        return render_middle_revert(hunk_idx, staged_diff, busy, cx);
+                        return render_middle_revert(&diff_rc, hunk_idx, staged_diff, busy, cx);
                     }
                     match keys[i] {
                         SplitKey::Header { .. } => div()
@@ -85,11 +88,17 @@ pub(super) fn build_middle_list(
 /// 中间列 hunk 操作按钮：放在 hunk 中点行、水平居中（仿 VSCode；仅 enable_discard 时渲染到此）。
 /// 未暂存：暂存此 hunk（部分暂存核心操作）+ 丢弃（不可恢复，经确认）；已暂存：移出暂存区
 pub(super) fn render_middle_revert(
+    diff: &ramag_domain::entities::FileDiff,
     hunk_idx: usize,
     staged: bool,
     busy: bool,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
+    let Some(hunk_key) = stable_hunk_key(diff, hunk_idx) else {
+        return div().w_full().h(px(DIFF_ROW_H)).into_any_element();
+    };
+    let stage_selector = format!("vcs-hunk-stage-{hunk_key}");
+    let discard_selector = format!("vcs-hunk-discard-{hunk_key}");
     let mut row = h_flex()
         .w_full()
         .h(px(DIFF_ROW_H))
@@ -98,28 +107,36 @@ pub(super) fn render_middle_revert(
         .gap(px(2.0));
     if !staged {
         row = row.child(
-            ramag_ui::clickable_button(SharedString::from(format!("vcs-hunk-stage-{hunk_idx}")))
+            ramag_ui::clickable_button(stable_path_element_id("hunk-stage", &hunk_key))
+                .debug_selector(move || stage_selector.clone())
                 .ghost()
                 .xsmall()
                 .icon(gpui_kit::component::IconName::Plus)
                 .tooltip("暂存")
                 .disabled(busy)
-                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                    this.stage_hunk(hunk_idx, cx);
-                })),
+                .on_click({
+                    let hunk_key = hunk_key.clone();
+                    cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.stage_hunk(hunk_key.clone(), cx);
+                    })
+                }),
         );
     }
     let tip = if staged { "取消暂存" } else { "丢弃" };
     row.child(
-        ramag_ui::clickable_button(SharedString::from(format!("vcs-hunk-discard-{hunk_idx}")))
+        ramag_ui::clickable_button(stable_path_element_id("hunk-discard", &hunk_key))
+            .debug_selector(move || discard_selector.clone())
             .ghost()
             .xsmall()
             .icon(gpui_kit::component::IconName::Undo)
             .tooltip(tip)
             .disabled(busy)
-            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                this.confirm_discard_hunk(hunk_idx, window, cx);
-            })),
+            .on_click({
+                let hunk_key = hunk_key.clone();
+                cx.listener(move |this, _: &ClickEvent, window, cx| {
+                    this.confirm_discard_hunk(hunk_key.clone(), window, cx);
+                })
+            }),
     )
     .into_any_element()
 }

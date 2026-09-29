@@ -4,7 +4,7 @@ use gpui_kit::Context;
 use ramag_domain::entities::{DiffLineKind, FileChangeKind, FileDiff, MAX_GIT_PATCH_BYTES};
 use tracing::{error, info};
 
-use super::helpers::{FileTabSource, GroupKind};
+use super::helpers::{FileTabSource, GroupKind, find_hunk_index_by_key};
 use super::vcs_view::VcsView;
 
 impl VcsView {
@@ -25,11 +25,16 @@ impl VcsView {
 
     /// 回滚 hunk：Unstaged 走 discard_patch（reverse 到 index）/ Staged 走 unstage_patch（reverse 撤回工作区）。
     /// 失败常因 diff 拉取后工作区或 index 又改过，patch 上下文不匹配
-    pub(super) fn discard_hunk(&mut self, hunk_idx: usize, cx: &mut Context<Self>) {
+    pub(super) fn discard_hunk(&mut self, hunk_key: String, cx: &mut Context<Self>) {
         let Some(repo) = self.repo.as_ref().map(|r| r.id.clone()) else {
             return;
         };
         let Some(diff) = self.current_diff.clone() else {
+            return;
+        };
+        let Some(hunk_idx) = find_hunk_index_by_key(&diff, &hunk_key) else {
+            self.error = Some("Diff 已更新，请重新选择改动片段".into());
+            cx.notify();
             return;
         };
         let path_for_log = diff.path.clone();
@@ -122,11 +127,16 @@ impl VcsView {
     }
 
     /// 暂存单个 hunk（`git apply --cached`）：部分暂存的核心操作，仅未暂存 diff 可用
-    pub(super) fn stage_hunk(&mut self, hunk_idx: usize, cx: &mut Context<Self>) {
+    pub(super) fn stage_hunk(&mut self, hunk_key: String, cx: &mut Context<Self>) {
         let Some(repo) = self.repo.as_ref().map(|r| r.id.clone()) else {
             return;
         };
         let Some(diff) = self.current_diff.clone() else {
+            return;
+        };
+        let Some(hunk_idx) = find_hunk_index_by_key(&diff, &hunk_key) else {
+            self.error = Some("Diff 已更新，请重新选择改动片段".into());
+            cx.notify();
             return;
         };
         let path_for_log = diff.path.clone();

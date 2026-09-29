@@ -1,4 +1,5 @@
 use gpui_kit::SharedString;
+use ramag_domain::entities::{DiffLineKind, FileDiff};
 
 use super::GroupKind;
 
@@ -9,6 +10,40 @@ pub(crate) fn stable_path_element_id(prefix: &str, path: &str) -> SharedString {
     prefix.hash(&mut hasher);
     path.hash(&mut hasher);
     SharedString::from(format!("vcs-{prefix}-{:016x}", hasher.finish()))
+}
+
+/// 为当前文件 Diff 中的 hunk 生成与位置无关的稳定键。
+pub(crate) fn stable_hunk_key(diff: &FileDiff, hunk_idx: usize) -> Option<String> {
+    use std::hash::{Hash, Hasher};
+
+    let hunk = diff.hunks.get(hunk_idx)?;
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "diff-hunk".hash(&mut hasher);
+    diff.path.hash(&mut hasher);
+    diff.old_path.hash(&mut hasher);
+    hunk.old_start.hash(&mut hasher);
+    hunk.old_lines.hash(&mut hasher);
+    hunk.new_start.hash(&mut hasher);
+    hunk.new_lines.hash(&mut hasher);
+    hunk.heading.hash(&mut hasher);
+    for line in &hunk.lines {
+        match line.kind {
+            DiffLineKind::Context => 0u8,
+            DiffLineKind::Add => 1,
+            DiffLineKind::Delete => 2,
+        }
+        .hash(&mut hasher);
+        line.old_lineno.hash(&mut hasher);
+        line.new_lineno.hash(&mut hasher);
+        line.text.hash(&mut hasher);
+    }
+    Some(format!("{:016x}", hasher.finish()))
+}
+
+pub(crate) fn find_hunk_index_by_key(diff: &FileDiff, key: &str) -> Option<usize> {
+    diff.hunks.iter().enumerate().find_map(|(index, _)| {
+        (stable_hunk_key(diff, index).as_deref() == Some(key)).then_some(index)
+    })
 }
 
 pub(crate) fn stable_file_element_id(prefix: &str, kind: GroupKind, path: &str) -> SharedString {
@@ -49,8 +84,8 @@ pub(crate) fn stable_commit_path_element_id(
 #[cfg(test)]
 mod tests {
     use super::{
-        stable_commit_path_element_id, stable_compare_file_element_id, stable_file_element_id,
-        stable_path_element_id,
+        find_hunk_index_by_key, stable_commit_path_element_id, stable_compare_file_element_id,
+        stable_file_element_id, stable_hunk_key, stable_path_element_id,
     };
     use crate::views::helpers::GroupKind;
 
@@ -76,6 +111,38 @@ mod tests {
             stable_path_element_id("first-push-remote", "upstream"),
             stable_path_element_id("first-push-remote", "fork")
         );
+    }
+
+    #[test]
+    fn hunk_key_follows_content_after_hunks_reorder() {
+        let hunk = |old_start: u32, text: &str| ramag_domain::entities::Hunk {
+            old_start,
+            old_lines: 1,
+            new_start: old_start,
+            new_lines: 1,
+            heading: None,
+            lines: vec![ramag_domain::entities::DiffLine {
+                kind: ramag_domain::entities::DiffLineKind::Add,
+                old_lineno: None,
+                new_lineno: Some(old_start),
+                text: text.into(),
+            }],
+        };
+        let mut diff = ramag_domain::entities::FileDiff {
+            path: "src/lib.rs".into(),
+            old_path: None,
+            change_kind: ramag_domain::entities::FileChangeKind::Modified,
+            binary: false,
+            old_mode: None,
+            new_mode: None,
+            hunks: vec![hunk(10, "first"), hunk(20, "second")],
+        };
+        let first_key = stable_hunk_key(&diff, 0);
+        assert!(first_key.is_some(), "第一个 hunk 应有稳定键");
+        let first_key = first_key.unwrap_or_default();
+        diff.hunks.reverse();
+        assert_eq!(find_hunk_index_by_key(&diff, &first_key), Some(1));
+        assert_eq!(find_hunk_index_by_key(&diff, "missing"), None);
     }
 
     #[test]
