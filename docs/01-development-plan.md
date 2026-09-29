@@ -507,6 +507,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过；提交 `a399426f docs: define git batch path snapshot acceptance`、`2e4cec85 fix(vcs): snapshot bulk operation paths` 已推送 `origin/main`。
 - 证据边界：本切片证明批量工作区操作在本地状态刷新期间使用稳定路径，并证明 Git 驱动的临时仓库回放；不提供真实 Windows 原生窗口鼠标/键盘证据，不验证 114 服务器，不改变远程仓库数据，也不把 Computer Use 缺口写成已完成。
 
+### B-GIT-001-B：Pull 远程回放与非交互合并（设计确认，2026-09-29）
+
+- 问题证据：Git 驱动已有 `push`、`fetch` 和界面 Pull 调用，但集成测试没有覆盖 Pull 的快进和分叉历史；Pull 的合并路径也没有明确传入 `--no-edit`，桌面进程只能依赖环境中的编辑器设置完成合并提交。
+- 设计：普通 Pull 和带进度的 Pull 共用参数构造；快进和 rebase 保持原有行为，普通合并显式加入 `--no-edit`，让 Git 使用默认合并信息并直接结束，不等待编辑器。新增临时 bare remote 回放：先验证远程提交快进到本地，再制造本地与远程各有一个提交的分叉历史，确认 Pull 能完成合并并保留两侧文件与提交。
+- 验收条件：集成测试必须覆盖普通 Pull 和带进度 Pull 的成功路径、快进后的工作区状态、分叉合并后的提交历史和文件内容；Git 远程参数单元测试确认合并 Pull 含 `--no-edit`、rebase Pull 不含该参数；`ramag-infra-git` 目标测试、workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不改变 Pull 的 rebase 选择、冲突处理、凭据助手、远程地址或分支跟踪规则；不访问 114 服务器，不修改 GitHub/Gitea 远程仓库，不把真实 Windows 原生窗口流程写入本切片。
+- 实施顺序：先提交本设计确认，再修改 Pull 参数构造和临时远程回放测试；验证通过后独立提交并推送，随后补充本切片验收记录。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
