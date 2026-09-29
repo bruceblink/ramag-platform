@@ -55,7 +55,7 @@ fn collapsed_tree_does_not_materialize_hidden_descendants() {
     assert_eq!(rows.len(), 2);
     assert!(matches!(&rows[0], ProjectRow::Dir { name, .. } if name == "src"));
     assert!(
-        matches!(&rows[1], ProjectRow::File { name, path_index: 0, .. } if name == "README.md")
+        matches!(&rows[1], ProjectRow::File { name, path, .. } if name == "README.md" && path == "README.md")
     );
 }
 
@@ -71,7 +71,7 @@ fn expanded_tree_materializes_only_open_levels() {
         matches!(&rows[1], ProjectRow::Dir { name, is_expanded: false, depth: 1, .. } if name == "nested")
     );
     assert!(
-        matches!(&rows[2], ProjectRow::File { name, path_index: 0, depth: 1 } if name == "a.rs")
+        matches!(&rows[2], ProjectRow::File { name, path, depth: 1 } if name == "a.rs" && path == "src/a.rs")
     );
 }
 
@@ -98,14 +98,29 @@ fn status_kind_map_keeps_display_precedence() {
 
     let kinds = build_status_kind_map(&project_files, &files);
 
-    assert_eq!(kinds.get(&2), Some(&FileChangeKind::Modified));
-    assert_eq!(kinds.get(&1), Some(&FileChangeKind::Conflicted));
-    assert!(!kinds.contains_key(&0));
+    assert_eq!(kinds.get("modified.rs"), Some(&FileChangeKind::Modified));
+    assert_eq!(kinds.get("conflict.rs"), Some(&FileChangeKind::Conflicted));
+    assert!(!kinds.contains_key("clean.rs"));
+}
+
+#[test]
+fn project_file_rows_keep_path_after_source_reorders() {
+    let mut paths = ["a.rs", "b.rs"].map(str::to_string).to_vec();
+    let rows = build_project_rows(&paths, &[0, 1], &std::collections::HashSet::new());
+    assert!(matches!(rows.first(), Some(ProjectRow::File { .. })));
+    let Some(ProjectRow::File { path, .. }) = rows.first() else {
+        return;
+    };
+    assert_eq!(path, "a.rs");
+
+    paths.reverse();
+    assert_eq!(paths[0], "b.rs");
+    assert_eq!(path, "a.rs");
 }
 
 #[test]
 fn status_cache_requires_matching_refresh_identity_and_length() {
-    let kinds = Rc::new(HashMap::new());
+    let kinds: Rc<HashMap<String, FileChangeKind>> = Rc::new(HashMap::new());
     let cache = ProjectStatusCacheEntry {
         project_files_version: 7,
         status_request_seq: 9,

@@ -164,3 +164,56 @@ fn vcs_view_renders_compare_rows_after_file_reorder(cx: &mut TestAppContext) {
         );
     });
 }
+
+fn inject_project_files(v: &mut VcsView) {
+    let repo = super::mock_repo();
+    v.open_repos = vec![repo.clone()];
+    v.repo = Some(repo);
+    v.active_view = ActiveView::Session;
+    v.files_view_mode = FilesViewMode::Project;
+    v.project_files = vec![
+        "README.md".into(),
+        "src/lib.rs".into(),
+        "src/main.rs".into(),
+    ];
+    v.project_files_version = 1;
+    v.project_expanded_dirs = std::collections::HashSet::from(["src".into()]);
+    v.project_expanded_dirs_version = 1;
+    v.status = Some(WorkingTreeStatus {
+        files: vec![FileStatus {
+            path: "src/lib.rs".into(),
+            old_path: None,
+            staged: None,
+            unstaged: Some(FileChangeKind::Modified),
+        }],
+        ..Default::default()
+    });
+}
+
+/// Project Files 的缓存行保存路径；源路径数组重排后，旧行仍能在三种窗口尺寸下安全重绘。
+#[gpui_kit::test]
+fn vcs_view_renders_project_rows_after_source_reorder(cx: &mut TestAppContext) {
+    let (view, cx) = add_vcs_window(cx);
+
+    view.update(cx, |v, cx| {
+        inject_project_files(v);
+        cx.notify();
+    });
+    cx.run_until_parked();
+
+    for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+        cx.simulate_resize(size(px(width), px(height)));
+        view.update(cx, |v, cx| {
+            v.project_files.reverse();
+            cx.notify();
+        });
+        cx.run_until_parked();
+    }
+
+    view.read_with(cx, |v, _| {
+        assert_eq!(
+            v.project_files.first().map(String::as_str),
+            Some("src/main.rs")
+        );
+    });
+}

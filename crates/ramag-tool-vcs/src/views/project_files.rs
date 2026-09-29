@@ -4,12 +4,12 @@ use std::rc::Rc;
 
 use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex, v_flex};
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
-    prelude::*, px, uniform_list,
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, div, prelude::*, px,
+    uniform_list,
 };
 use ramag_domain::entities::{FileChangeKind, FileStatus, contains_case_insensitive};
 
-use super::helpers::{code_letter_color, code_to_letter};
+use super::helpers::{code_letter_color, code_to_letter, stable_path_element_id};
 use super::vcs_view::VcsView;
 
 /// 行高固定为 28px。
@@ -23,7 +23,7 @@ pub(super) enum ProjectRow {
     },
     File {
         name: String,
-        path_index: usize,
+        path: String,
         depth: usize,
     },
 }
@@ -42,7 +42,7 @@ pub(super) struct ProjectStatusCacheEntry {
     status_request_seq: u64,
     files_identity: usize,
     files_len: usize,
-    kinds: Rc<HashMap<usize, FileChangeKind>>,
+    kinds: Rc<HashMap<String, FileChangeKind>>,
 }
 
 impl ProjectStatusCacheEntry {
@@ -52,7 +52,7 @@ impl ProjectStatusCacheEntry {
         status_request_seq: u64,
         files_identity: usize,
         files_len: usize,
-    ) -> Option<Rc<HashMap<usize, FileChangeKind>>> {
+    ) -> Option<Rc<HashMap<String, FileChangeKind>>> {
         (self.project_files_version == project_files_version
             && self.status_request_seq == status_request_seq
             && self.files_identity == files_identity
@@ -143,7 +143,7 @@ fn flatten_path_range(
         if !relative.contains('/') {
             out.push(ProjectRow::File {
                 name: relative.to_string(),
-                path_index,
+                path: path.clone(),
                 depth,
             });
         }
@@ -233,7 +233,7 @@ impl VcsView {
                 let status_kinds = status_kinds.clone();
                 move |this, range: Range<usize>, _w, cx| {
                     range
-                        .map(|i| this.render_project_row(i, &rows_rc[i], status_kinds.as_ref(), cx))
+                        .map(|i| this.render_project_row(&rows_rc[i], status_kinds.as_ref(), cx))
                         .collect::<Vec<_>>()
                 }
             }),
@@ -248,7 +248,7 @@ impl VcsView {
             .into_any_element()
     }
 
-    fn project_status_kinds(&self) -> Rc<HashMap<usize, FileChangeKind>> {
+    fn project_status_kinds(&self) -> Rc<HashMap<String, FileChangeKind>> {
         let (files_identity, files_len) = self.status.as_ref().map_or((0, 0), |status| {
             (status.files.as_ptr() as usize, status.files.len())
         });
@@ -284,9 +284,8 @@ impl VcsView {
 
     fn render_project_row(
         &self,
-        row_index: usize,
         row: &ProjectRow,
-        status_kinds: &HashMap<usize, FileChangeKind>,
+        status_kinds: &HashMap<String, FileChangeKind>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         match row {
@@ -295,37 +294,19 @@ impl VcsView {
                 dir_path,
                 depth,
                 is_expanded,
-            } => self.render_pf_dir_row(
-                row_index,
+            } => self.render_pf_dir_row(name.clone(), dir_path.clone(), *depth, *is_expanded, cx),
+            ProjectRow::File { name, path, depth } => self.render_pf_file_row(
                 name.clone(),
-                dir_path.clone(),
+                path.clone(),
                 *depth,
-                *is_expanded,
+                status_kinds.get(path).copied(),
                 cx,
-            ),
-            ProjectRow::File {
-                name,
-                path_index,
-                depth,
-            } => self.project_files.get(*path_index).map_or_else(
-                || div().h(px(28.0)).into_any_element(),
-                |full_path| {
-                    self.render_pf_file_row(
-                        *path_index,
-                        name.clone(),
-                        full_path.clone(),
-                        *depth,
-                        status_kinds.get(path_index).copied(),
-                        cx,
-                    )
-                },
             ),
         }
     }
 
     fn render_pf_dir_row(
         &self,
-        row_index: usize,
         name: String,
         dir_path: String,
         depth: usize,
@@ -342,7 +323,7 @@ impl VcsView {
             IconName::ChevronRight
         };
         let dir_path_for_toggle = dir_path.clone();
-        let row_id = SharedString::from(format!("vcs-pf-dir-{row_index}"));
+        let row_id = stable_path_element_id("pf-dir", &dir_path);
 
         h_flex()
             .id(row_id)
@@ -388,7 +369,6 @@ impl VcsView {
 
     fn render_pf_file_row(
         &self,
-        path_index: usize,
         name: String,
         full_path: String,
         depth: usize,
@@ -418,7 +398,7 @@ impl VcsView {
         let is_selected = self.selected_pf_path.as_deref() == Some(full_path.as_str());
 
         let path_for_open = full_path.clone();
-        let row_id = SharedString::from(format!("vcs-pf-file-{path_index}"));
+        let row_id = stable_path_element_id("pf-file", &full_path);
 
         let mut row = h_flex()
             .id(row_id)
@@ -518,18 +498,19 @@ fn pick_display_kind(f: &FileStatus) -> Option<FileChangeKind> {
 fn build_status_kind_map(
     project_files: &[String],
     files: &[FileStatus],
-) -> HashMap<usize, FileChangeKind> {
+) -> HashMap<String, FileChangeKind> {
     let mut kinds = HashMap::with_capacity(files.len());
     for file in files {
         let Some(kind) = pick_display_kind(file) else {
             continue;
         };
-        let Ok(path_index) =
-            project_files.binary_search_by(|path| path.as_str().cmp(file.path.as_str()))
-        else {
+        if project_files
+            .binary_search_by(|path| path.as_str().cmp(file.path.as_str()))
+            .is_err()
+        {
             continue;
-        };
-        kinds.insert(path_index, kind);
+        }
+        kinds.insert(file.path.clone(), kind);
     }
     kinds
 }
