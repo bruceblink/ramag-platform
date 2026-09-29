@@ -1,10 +1,12 @@
 //! 首次推送的远程选择。
 
 use gpui_kit::component::{
-    ActiveTheme, Sizable as _, WindowExt as _, button::ButtonVariants as _, h_flex, v_flex,
+    ActiveTheme, Sizable as _, WindowExt as _, button::ButtonVariants as _, h_flex,
+    scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
-    ClickEvent, Context, InteractiveElement as _, ParentElement, Styled, Window, div, px,
+    ClickEvent, Context, InteractiveElement as _, ParentElement, ScrollHandle,
+    StatefulInteractiveElement as _, Styled, Window, div, px,
 };
 
 use super::super::helpers::{RemoteOp, stable_path_element_id};
@@ -34,8 +36,11 @@ impl VcsView {
         } else {
             "选择推送目标"
         };
-        window.open_dialog(cx, move |dialog, _, _| {
+        let scroll = ScrollHandle::new();
+        window.open_dialog(cx, move |dialog, window, _| {
+            let scroll = scroll.clone();
             let cancel = ramag_ui::clickable_button("vcs-first-push-cancel")
+                .debug_selector(|| "vcs-first-push-cancel".into())
                 .ghost()
                 .small()
                 .label("取消")
@@ -52,14 +57,19 @@ impl VcsView {
                     |_, _| {},
                 ))
                 .close_button(false)
-                .width(px(520.0))
-                .margin_top(px(150.0))
+                .width(ramag_ui::responsive_dialog_width(window, 520.0))
+                .margin_top(ramag_ui::responsive_dialog_top(window))
                 .content({
                     let remotes = remotes.clone();
                     let branch = branch.clone();
                     let view = view.clone();
-                    move |content, _, cx| {
-                        let mut choices = v_flex().w_full().gap(px(6.0));
+                    move |content, window, cx| {
+                        let mut choices = v_flex()
+                            .id("vcs-first-push-choices")
+                            .debug_selector(|| "vcs-first-push-choices".into())
+                            .w_full()
+                            .min_w_0()
+                            .gap(px(6.0));
                         for remote in &remotes {
                             let remote_for_click = remote.clone();
                             let branch_for_click = branch.clone();
@@ -96,6 +106,16 @@ impl VcsView {
                                 },
                             ));
                         }
+                        choices = choices
+                            .h((ramag_ui::responsive_dialog_max_height(window) - px(150.0))
+                                .max(px(48.0)))
+                            .max_h(
+                                (ramag_ui::responsive_dialog_max_height(window) - px(150.0))
+                                    .max(px(48.0)),
+                            )
+                            .overflow_y_scroll()
+                            .track_scroll(&scroll)
+                            .vertical_scrollbar(&scroll);
                         content.child(
                             v_flex()
                                 .w_full()
@@ -110,7 +130,14 @@ impl VcsView {
                         )
                     }
                 })
-                .footer(h_flex().w_full().items_center().justify_end().child(cancel))
+                .footer(
+                    h_flex()
+                        .debug_selector(|| "vcs-first-push-footer".into())
+                        .w_full()
+                        .items_center()
+                        .justify_end()
+                        .child(cancel),
+                )
         });
     }
 

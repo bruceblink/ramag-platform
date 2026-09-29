@@ -154,31 +154,61 @@ fn add_vcs_dialog_window(cx: &mut TestAppContext) -> (Entity<VcsView>, &mut Visu
 #[gpui_kit::test]
 fn first_push_remote_picker_uses_remote_name_selectors(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_dialog_window(cx);
-    cx.update(|window, app| {
-        view.update(app, |view, cx| {
-            view.remotes = vec![
-                Remote {
-                    name: "upstream".into(),
-                    fetch_url: "https://example.test/upstream.git".into(),
-                    push_url: None,
-                },
-                Remote {
-                    name: "fork".into(),
-                    fetch_url: "https://example.test/fork.git".into(),
-                    push_url: None,
-                },
-            ];
-            view.confirm_remote_op(RemoteOp::Push, window, cx);
+    for (width, height) in [
+        (360.0, 240.0),
+        (360.0, 640.0),
+        (1024.0, 768.0),
+        (1440.0, 900.0),
+    ] {
+        cx.simulate_resize(gpui_kit::size(gpui_kit::px(width), gpui_kit::px(height)));
+        cx.update(|window, app| {
+            view.update(app, |view, cx| {
+                view.remotes = vec![
+                    Remote {
+                        name: "upstream".into(),
+                        fetch_url: "https://example.test/upstream.git".into(),
+                        push_url: None,
+                    },
+                    Remote {
+                        name: "fork".into(),
+                        fetch_url: "https://example.test/fork.git".into(),
+                        push_url: None,
+                    },
+                ];
+                view.confirm_remote_op(RemoteOp::Push, window, cx);
+            });
         });
-    });
-    cx.run_until_parked();
+        cx.run_until_parked();
 
-    for remote in ["upstream", "fork"] {
-        let selector: &'static str =
-            Box::leak(format!("vcs-first-push-remote-{remote}").into_boxed_str());
+        let viewport = Bounds::new(point(px(0.0), px(0.0)), size(px(width), px(height)));
+        let dialog = cx.debug_bounds("dialog-0").expect("首次 Push 弹窗应打开");
+        assert_dialog_bounds(viewport, dialog, "首次 Push 弹窗");
+        let choices = cx
+            .debug_bounds("vcs-first-push-choices")
+            .expect("远程选择区应参与布局");
+        let footer = cx
+            .debug_bounds("vcs-first-push-footer")
+            .expect("取消操作区应参与布局");
+        assert_dialog_bounds(dialog, choices, "远程选择区");
+        assert_dialog_bounds(dialog, footer, "取消操作区");
+
+        for remote in ["upstream", "fork"] {
+            let selector: &'static str =
+                Box::leak(format!("vcs-first-push-remote-{remote}").into_boxed_str());
+            let button = cx
+                .debug_bounds(selector)
+                .expect("首次 Push 应渲染远程选择按钮");
+            assert_dialog_bounds(choices, button, "远程选择按钮");
+        }
+
+        let cancel = cx
+            .debug_bounds("vcs-first-push-cancel")
+            .expect("取消按钮应可见");
+        cx.simulate_click(cancel.center(), Modifiers::default());
+        cx.run_until_parked();
         assert!(
-            cx.debug_bounds(selector).is_some(),
-            "首次 Push 应渲染 {remote} 远程选择按钮"
+            cx.debug_bounds("dialog-0").is_none(),
+            "取消应关闭首次 Push 弹窗"
         );
     }
 }
