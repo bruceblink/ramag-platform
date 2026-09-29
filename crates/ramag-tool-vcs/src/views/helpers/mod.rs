@@ -1,6 +1,8 @@
 mod commit_row;
+mod file_tab_target;
 
 pub(super) use commit_row::render_commit_row;
+pub(super) use file_tab_target::{FileTabTarget, find_file_tab_index};
 
 use gpui_kit::component::{Disableable as _, IconName, Sizable as _, button::ButtonVariants as _};
 use gpui_kit::{AnyElement, ClickEvent, Context, IntoElement, SharedString, Window};
@@ -123,7 +125,7 @@ pub(super) enum RemoteOp {
     PushForce,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) enum GroupKind {
     Staged,
     Unstaged,

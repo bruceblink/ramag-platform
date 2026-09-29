@@ -4,7 +4,7 @@ use gpui_kit::Context;
 use ramag_domain::entities::DiffKind;
 use tracing::error;
 
-use super::helpers::{FileTab, FileTabSource, GroupKind};
+use super::helpers::{FileTab, FileTabSource, FileTabTarget, GroupKind, find_file_tab_index};
 use super::vcs_view::VcsView;
 use super::vcs_view_ops_repo::read_raw_file_content;
 
@@ -163,9 +163,22 @@ impl VcsView {
 
     /// 关闭文件标签。
     pub(super) fn close_file_tab(&mut self, idx: usize, cx: &mut Context<Self>) {
-        if idx >= self.file_tabs.len() {
+        let Some(target) = self.file_tabs.get(idx).map(FileTab::target) else {
             return;
-        }
+        };
+        self.close_file_tab_target(target, cx);
+    }
+
+    /// 按渲染时保存的路径和来源重新定位标签，避免刷新后的旧下标误关其它标签。
+    pub(super) fn close_file_tab_target(&mut self, target: FileTabTarget, cx: &mut Context<Self>) {
+        let Some(idx) = find_file_tab_index(&self.file_tabs, &target) else {
+            self.notify_warning("文件标签列表已更新，请重新选择后再关闭", cx);
+            return;
+        };
+        self.close_file_tab_at(idx, cx);
+    }
+
+    fn close_file_tab_at(&mut self, idx: usize, cx: &mut Context<Self>) {
         self.capture_active_project_draft(cx);
         if self.file_tabs[idx].is_dirty() {
             self.pending_notification = Some(

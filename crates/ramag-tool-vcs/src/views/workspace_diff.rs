@@ -152,8 +152,10 @@ impl VcsView {
                 tab.path.split('/').next_back().unwrap_or(&tab.path),
                 160,
             ));
-            let tab_id = SharedString::from(format!("vcs-ftab-{idx}"));
-            let close_id = SharedString::from(format!("vcs-ftab-close-{idx}"));
+            let target = tab.target();
+            let target_id = target.element_id();
+            let tab_id = SharedString::from(format!("vcs-ftab-{target_id}"));
+            let close_id = SharedString::from(format!("vcs-ftab-close-{target_id}"));
             let dot_color = match &tab.source {
                 FileTabSource::Changes(GroupKind::Staged) => accent,
                 FileTabSource::Changes(GroupKind::Unstaged) => {
@@ -169,6 +171,7 @@ impl VcsView {
             let show_dot = !matches!(tab.source, FileTabSource::ProjectFiles) || tab.is_dirty();
             let path_for_click = tab.path.clone();
             let source_for_click = tab.source.clone();
+            let close_target = target.clone();
 
             let mut tab_el = h_flex()
                 .id(tab_id)
@@ -197,7 +200,7 @@ impl VcsView {
                         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                             // 阻止冒泡到 tab 的 select on_click（否则关了又被重新打开 = 关不掉）
                             cx.stop_propagation();
-                            this.close_file_tab(idx, cx);
+                            this.close_file_tab_target(close_target.clone(), cx);
                         })),
                 )
                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
