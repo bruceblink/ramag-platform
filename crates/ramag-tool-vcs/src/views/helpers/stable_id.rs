@@ -150,6 +150,21 @@ mod tests {
     }
 
     #[test]
+    fn commit_row_id_uses_full_commit_identity() {
+        let prefix = "a".repeat(12);
+        let first = format!("{}11111111111111111111111111111111", prefix);
+        let second = format!("{}22222222222222222222222222222222", prefix);
+        assert_eq!(
+            stable_path_element_id("commit-row", &first),
+            stable_path_element_id("commit-row", &first)
+        );
+        assert_ne!(
+            stable_path_element_id("commit-row", &first),
+            stable_path_element_id("commit-row", &second)
+        );
+    }
+
+    #[test]
     fn sidebar_ref_ids_are_stable_and_category_specific() {
         assert_eq!(
             stable_branch_element_id(false, "feature/ui"),

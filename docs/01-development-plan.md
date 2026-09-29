@@ -756,6 +756,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不改变历史查询、分页、选中、复制、比较、Cherry-pick、Checkout、Revert、Reset 或远程 Git 语义，不把本项扩展为真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再调整提交行布局和稳定标识，补充窄窗口 headless 回归；验证通过后独立提交并推送，随后补充本切片验收记录。
 
+### B-GIT-001-U：提交历史行窄窗口布局与稳定定位（代码与 headless 验收完成，2026-09-29）
+
+- 实现：提交行的作者、时间和短哈希列改为可收缩且允许文本省略，引用标签容器在窄宽度裁剪；行节点和调试选择器改为完整提交 ID 的有界哈希，点击和上下文菜单继续携带完整 ID。
+- 验收结果：`cargo test --locked -p ramag-tool-vcs --lib -- --test-threads=1` 通过 166 项，5 项性能观察测试按设计忽略；新增稳定 ID 回归和 360/720/1440px 提交行边界测试通过。`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
+- 真实窗口：Computer Use 初始化后 `cua.getState()` 在启动前后均返回 `apps: []`，虽然本机进程可启动并显示 `Ramag — 容器管理` 窗口，但运行时没有可操作的原生窗口；本切片只保留 headless 证据，不把进程启动描述为真实窗口验收。
+- 证据边界：本切片只证明提交历史行在支持窗口宽度内保持布局边界，并且节点定位不依赖短哈希前缀；不提供真实 Windows 鼠标/键盘流程或远程 Git 回放。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。

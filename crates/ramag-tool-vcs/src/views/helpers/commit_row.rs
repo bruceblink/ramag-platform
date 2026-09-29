@@ -12,7 +12,7 @@ use ramag_domain::entities::{Commit, MAX_GIT_NAME_ARG_BYTES, ResetKind};
 
 use super::super::commit_graph::{CommitGraphRow, lane_color, render_lane_gutter};
 use super::super::vcs_view::VcsView;
-use super::{BranchOp, TagOp};
+use super::{BranchOp, TagOp, stable_path_element_id};
 
 const MAX_VISIBLE_REF_CHIPS: usize = 8;
 
@@ -38,7 +38,11 @@ pub(in crate::views) fn render_commit_row(
     let entity = cx.entity().clone();
     let cid = c.id.0.clone();
 
-    let mut refs_row = h_flex().gap(px(4.0)).flex_none();
+    let mut refs_row = h_flex()
+        .gap(px(4.0))
+        .flex_shrink_1()
+        .min_w_0()
+        .overflow_hidden();
     for r in c.refs.iter().take(MAX_VISIBLE_REF_CHIPS) {
         refs_row = refs_row.child(ref_chip(r, accent));
     }
@@ -49,8 +53,8 @@ pub(in crate::views) fn render_commit_row(
         ));
     }
 
-    let row_key: String = cid.chars().take(12).collect();
-    let row_id = SharedString::from(format!("vcs-commit-row-{row_key}"));
+    let row_id = stable_path_element_id("commit-row", &cid);
+    let row_selector = row_id.to_string();
 
     let cid_click = cid.clone();
     let on_click_handler = cx.listener(move |this, _: &ClickEvent, _, cx| {
@@ -59,6 +63,7 @@ pub(in crate::views) fn render_commit_row(
 
     let mut row = h_flex()
         .id(row_id)
+        .debug_selector(move || row_selector.clone())
         .w_full()
         .py(px(2.0))
         .items_center()
@@ -87,7 +92,8 @@ pub(in crate::views) fn render_commit_row(
         )
         .child(
             div()
-                .flex_none()
+                .flex_shrink_1()
+                .min_w_0()
                 .w(px(140.0))
                 .px(px(6.0))
                 .text_xs()
@@ -98,7 +104,8 @@ pub(in crate::views) fn render_commit_row(
         )
         .child(
             div()
-                .flex_none()
+                .flex_shrink_1()
+                .min_w_0()
                 .w(px(96.0))
                 .px(px(6.0))
                 .text_xs()
@@ -107,7 +114,8 @@ pub(in crate::views) fn render_commit_row(
         )
         .child(
             div()
-                .flex_none()
+                .flex_shrink_1()
+                .min_w_0()
                 .w(px(70.0))
                 .px(px(6.0))
                 .text_xs()

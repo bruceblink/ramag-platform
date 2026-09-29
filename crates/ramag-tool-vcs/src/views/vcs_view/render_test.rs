@@ -15,6 +15,8 @@ use ramag_domain::entities::{
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{GitDriver, Storage};
 use std::{path::Path, sync::Arc};
+#[path = "commit_row_render_test.rs"]
+mod commit_row_render_test;
 #[path = "rebase_plan_render_test.rs"]
 mod rebase_plan_render_test;
 #[path = "render_toolbar_test.rs"]
@@ -46,10 +48,8 @@ impl GitDriver for MockGit {
         Err(DomainError::NotImplemented("mock".into()))
     }
 }
-
 /// 空壳 Storage：render 不调 storage
 struct MockStorage;
-
 #[async_trait]
 impl Storage for MockStorage {
     async fn list_connections(&self) -> Result<Vec<ConnectionConfig>> {
@@ -101,7 +101,6 @@ fn dline(kind: DiffLineKind, old: Option<u32>, new: Option<u32>, text: &str) -> 
         text: text.into(),
     }
 }
-
 /// 含 context + delete + add 的多行 diff（触发 split 双栏配对渲染）。
 /// 用 `.rs` 路径 + 真 Rust 代码行，让语法高亮路径（SyntaxHighlighter）参与渲染验证。
 fn test_diff() -> FileDiff {
