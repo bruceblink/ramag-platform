@@ -538,6 +538,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 质量检查：`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过；代码提交 `a980e50a fix(vcs): expose remote actions in workspace toolbar` 已推送 `origin/main`。
 - 证据边界：本切片证明远程操作入口在 headless 文件工作区中可见且布局受控；不提供真实 Windows 原生窗口鼠标/键盘证据，不改变 Fetch/Pull/Push 语义，不访问 114 服务器，也不把 Computer Use 缺口写成已完成。
 
+### B-GIT-001-D：Stash 操作用提交 ID 重新定位（设计确认，2026-09-29）
+
+- 问题证据：Stash 列表按钮当前保存 `stash@{n}` 下标。用户筛选列表、另一进程新增或删除 stash 后，旧按钮仍可能把应用、弹出或删除操作发送到新的同一位置。
+- 设计：`StashOp` 保存 stash 的提交 ID；按钮和删除确认框都捕获该 ID。执行操作前，视图从当前 stash 列表按提交 ID重新定位索引，再调用现有 `GitDriver::stash_apply` 或 `stash_drop`；找不到对应提交时拒绝操作并提示列表已更新，驱动接口和 Git 命令保持不变。
+- 验收条件：代码检查确认 Apply、Pop、Drop 和删除确认都不直接捕获旧下标；提交 ID 重新定位后仍调用正确的当前索引；Stash 行按钮 ID 使用稳定提交 ID；`ramag-tool-vcs` 编译、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不修改 `GitDriver` 的索引接口，不改变 stash 列表顺序、搜索、冲突处理或临时 checkout 备份流程，不访问远程仓库，不把真实 Windows 原生窗口流程写入本切片。
+- 实施顺序：先提交本设计确认，再调整 `StashOp`、行按钮和执行前索引定位；完成编译与质量检查后独立提交并推送，随后补充验收记录。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
