@@ -714,6 +714,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 提交：设计确认提交为 `7ecf7350`，代码提交为 `8a2ba3bf`，均已推送到 `origin/main`。
 - 证据边界：本切片证明 Diff hunk 节点和暂存/丢弃回调在顺序变化后继续绑定同一段内容，并覆盖 headless 重排回归；不提供真实仓库 Git 操作、真实 Windows 原生窗口鼠标和键盘证据。
 
+### B-GIT-001-R：Diff 行节点使用稳定目标标识（设计确认，2026-09-29）
+
+- 问题证据：Unified 和 Split Diff 的行、行号、代码内容及左右栏节点 ID 使用 hunk 下标和行下标生成。Diff 刷新或 hunk 顺序变化后，同一个 GPUI 节点 ID 可能被复用给另一行，影响调试定位和节点状态复用；行号点击回调本身使用实际行号，不改变这次切片的业务语义。
+- 设计：使用当前文件路径、旧路径、hunk 内容和 hunk 内行位置生成稳定行目标；Unified 行以及 Split 的左右行号、代码内容节点统一使用稳定 ID，并保留复制文本、inline blame 和差异渲染逻辑。hunk 重新排序时，同一 hunk 内相同行继续保持同一目标。
+- 状态边界：稳定 ID 只用于 Diff GPUI 节点和调试选择器，不改变 patch、复制、blame、滚动、语法高亮或 hunk 暂存/丢弃行为；不把行位置 ID 用作 Git 文件路径、持久化键或异步请求代次。
+- 验收条件：稳定 ID 单元测试确认 hunk 重排后同一行 ID 不变、不同位置或不同内容的行 ID 分离；headless 测试覆盖 Unified 和 Split Diff，在两段 hunk 顺序反转后仍能按原行选择器定位；`ramag-tool-vcs` 全量测试、workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不改变 Diff 对齐算法、语法高亮、blame 请求、Git patch 内容、hunk 操作或真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再改造 Unified/Split 行节点 ID 和回归测试；目标测试通过后独立提交并推送，随后补充本切片验收记录。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
