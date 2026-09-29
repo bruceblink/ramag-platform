@@ -28,7 +28,7 @@ enum ChangeRow {
     Header {
         title: &'static str,
         kind: GroupKind,
-        file_indices: Rc<Vec<usize>>,
+        file_paths: Rc<Vec<String>>,
     },
     Dir {
         display_name: String,
@@ -38,7 +38,7 @@ enum ChangeRow {
         file_count: usize,
     },
     File {
-        file_index: usize,
+        file: FileStatus,
         depth: usize,
         kind: GroupKind,
     },
@@ -236,10 +236,11 @@ impl VcsView {
             return;
         }
         let file_indices = Rc::new(file_indices);
+        let file_paths = Rc::new(snapshot_file_paths(files, &file_indices));
         out.push(ChangeRow::Header {
             title,
             kind,
-            file_indices: file_indices.clone(),
+            file_paths,
         });
         let tree = super::file_tree::build_tree_for_indices(files, &file_indices);
         let mut trows: Vec<super::file_tree::Row> = Vec::with_capacity(file_indices.len() * 2);
@@ -259,11 +260,11 @@ impl VcsView {
                     is_collapsed,
                     file_count,
                 }),
-                super::file_tree::Row::File { idx, depth } => out.push(ChangeRow::File {
-                    file_index: idx,
-                    depth,
-                    kind,
-                }),
+                super::file_tree::Row::File { idx, depth } => {
+                    if let Some(row) = snapshot_file_row(files, idx, depth, kind) {
+                        out.push(row);
+                    }
+                }
             }
         }
     }
@@ -455,13 +456,25 @@ fn git_file_name(path: &str) -> &str {
 }
 
 /// 批量操作保存渲染时的路径，避免状态刷新后用旧下标命中其他文件。
-fn snapshot_file_paths(status: &WorkingTreeStatus, file_indices: &[usize]) -> Vec<String> {
+fn snapshot_file_paths(files: &[FileStatus], file_indices: &[usize]) -> Vec<String> {
     let mut seen = HashSet::with_capacity(file_indices.len());
     file_indices
         .iter()
-        .filter_map(|index| status.files.get(*index).map(|file| file.path.clone()))
+        .filter_map(|index| files.get(*index).map(|file| file.path.clone()))
         .filter(|path| seen.insert(path.clone()))
         .collect()
+}
+
+fn snapshot_file_row(
+    files: &[FileStatus],
+    file_index: usize,
+    depth: usize,
+    kind: GroupKind,
+) -> Option<ChangeRow> {
+    files
+        .get(file_index)
+        .cloned()
+        .map(|file| ChangeRow::File { file, depth, kind })
 }
 
 #[allow(clippy::too_many_arguments)]

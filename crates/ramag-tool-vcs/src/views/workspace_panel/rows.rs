@@ -11,8 +11,8 @@ impl VcsView {
             ChangeRow::Header {
                 title,
                 kind,
-                file_indices,
-            } => self.render_change_header_row(title, *kind, file_indices, cx),
+                file_paths,
+            } => self.render_change_header_row(title, *kind, file_paths, cx),
             ChangeRow::Dir {
                 display_name,
                 dir_path,
@@ -28,26 +28,13 @@ impl VcsView {
                 *file_count,
                 cx,
             ),
-            ChangeRow::File {
-                file_index,
-                depth,
-                kind,
-            } => self
-                .status
-                .as_ref()
-                .and_then(|status| status.files.get(*file_index))
-                .map_or_else(
-                    || div().h(px(ROW_H)).into_any_element(),
-                    |file| {
-                        div()
-                            .w_full()
-                            .h(px(ROW_H))
-                            .flex_none()
-                            .pl(px((*depth as f32) * 12.0))
-                            .child(self.render_file_row(i, file, *kind, cx))
-                            .into_any_element()
-                    },
-                ),
+            ChangeRow::File { file, depth, kind } => div()
+                .w_full()
+                .h(px(ROW_H))
+                .flex_none()
+                .pl(px((*depth as f32) * 12.0))
+                .child(self.render_file_row(i, file, *kind, cx))
+                .into_any_element(),
         }
     }
 
@@ -55,17 +42,13 @@ impl VcsView {
         &self,
         title: &'static str,
         kind: GroupKind,
-        file_indices: &Rc<Vec<usize>>,
+        file_paths: &Rc<Vec<String>>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
         let muted_fg = theme.muted_foreground;
         let border = theme.border;
         let busy = self.busy;
-        let file_paths = self.status.as_ref().map_or_else(Vec::new, |status| {
-            super::snapshot_file_paths(status, file_indices)
-        });
-        let file_paths = Rc::new(file_paths);
         let count = file_paths.len();
         let badge_color = match kind {
             GroupKind::Conflict => theme.danger,
@@ -77,7 +60,7 @@ impl VcsView {
         badge_bg.a = 0.14;
 
         let bulk_btn: Option<AnyElement> = match kind {
-            GroupKind::Unstaged | GroupKind::Untracked if !file_indices.is_empty() => {
+            GroupKind::Unstaged | GroupKind::Untracked if !file_paths.is_empty() => {
                 Some(bulk_op_button(
                     "stage-all",
                     title,
@@ -89,7 +72,7 @@ impl VcsView {
                     cx,
                 ))
             }
-            GroupKind::Staged if !file_indices.is_empty() => Some(bulk_op_button(
+            GroupKind::Staged if !file_paths.is_empty() => Some(bulk_op_button(
                 "unstage-all",
                 title,
                 "全取消",
