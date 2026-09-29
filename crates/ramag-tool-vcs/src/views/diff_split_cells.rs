@@ -5,16 +5,18 @@ use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement,
     SharedString, Styled, div, prelude::*, px,
 };
-use ramag_domain::entities::{DiffLine, DiffLineKind};
+use ramag_domain::entities::{DiffLine, DiffLineKind, FileDiff};
 
 use super::diff_panel::{
     DIFF_ROW_H, SPLIT_MARKER_W, line_no_cell, line_no_cell_clickable, line_palette,
 };
+use super::helpers::stable_diff_line_element_id;
 use super::vcs_view::VcsView;
 
 /// gutter 单元格：左栏 `[marker][lineno]`；右栏 `[lineno][marker]`（blame 移至中间列）
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render_gutter_cell(
+    diff: &FileDiff,
     side: &'static str,
     line: Option<(usize, &DiffLine)>,
     hunk_idx: usize,
@@ -43,8 +45,9 @@ pub(super) fn render_gutter_cell(
     };
 
     let (_bg, _, marker_color) = line_palette(line.kind);
-    let row_id = SharedString::from(format!("vcs-diff-gut-{side}-{hunk_idx}-{line_idx}"));
-    let lineno_id = SharedString::from(format!("vcs-diff-ln-{side}-{hunk_idx}-{line_idx}"));
+    let row_id = stable_diff_line_element_id("diff-gutter", diff, hunk_idx, line_idx);
+    let lineno_id = stable_diff_line_element_id("diff-line-number", diff, hunk_idx, line_idx);
+    let row_selector = format!("{side}-{}", row_id);
     let lineno_value = if is_left {
         line.old_lineno
     } else {
@@ -70,7 +73,11 @@ pub(super) fn render_gutter_cell(
             DiffLineKind::Context => " ",
         });
 
-    let mut row = h_flex().id(row_id).h(px(DIFF_ROW_H)).text_xs();
+    let mut row = h_flex()
+        .id(row_id)
+        .debug_selector(move || row_selector.clone())
+        .h(px(DIFF_ROW_H))
+        .text_xs();
     if is_left {
         row = row.child(marker_div).child(lineno_div);
     } else {
@@ -82,6 +89,7 @@ pub(super) fn render_gutter_cell(
 /// content 单元格：渲染已准备好的代码行，宽度由外层 list `w(content_w)` 撑开。
 #[allow(clippy::too_many_arguments)]
 pub(super) fn render_content_cell(
+    diff: &FileDiff,
     side: &'static str,
     line: Option<(usize, &DiffLine)>,
     hunk_idx: usize,
@@ -99,14 +107,14 @@ pub(super) fn render_content_cell(
             .into_any_element();
     };
     let (bg, _, _) = line_palette(line.kind);
-    let row_id = SharedString::from(format!("vcs-diff-cnt-{side}-{hunk_idx}-{line_idx}"));
+    let row_id = stable_diff_line_element_id("diff-content-row", diff, hunk_idx, line_idx);
+    let text_id = stable_diff_line_element_id("diff-content-text", diff, hunk_idx, line_idx);
+    let row_selector = format!("{side}-{}", row_id);
     let line_for_copy = line.text.clone();
     let code_line = code_line.unwrap_or_else(|| super::syntax::plain_code_line(&line.text));
 
     let text_div = div()
-        .id(SharedString::from(format!(
-            "vcs-diff-cnt-text-{side}-{hunk_idx}-{line_idx}"
-        )))
+        .id(text_id)
         .flex_1()
         .min_w(px(content_w))
         .px(px(4.0))
@@ -119,6 +127,7 @@ pub(super) fn render_content_cell(
 
     let mut row = h_flex()
         .id(row_id)
+        .debug_selector(move || row_selector.clone())
         .h(px(DIFF_ROW_H))
         .min_w(px(content_w))
         .child(text_div);

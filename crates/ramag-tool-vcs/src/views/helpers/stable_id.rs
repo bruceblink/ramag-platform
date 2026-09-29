@@ -46,6 +46,16 @@ pub(crate) fn find_hunk_index_by_key(diff: &FileDiff, key: &str) -> Option<usize
     })
 }
 
+pub(crate) fn stable_diff_line_element_id(
+    prefix: &str,
+    diff: &FileDiff,
+    hunk_idx: usize,
+    line_idx: usize,
+) -> SharedString {
+    let hunk_key = stable_hunk_key(diff, hunk_idx).unwrap_or_default();
+    stable_path_element_id(prefix, &format!("{hunk_key}:{line_idx}"))
+}
+
 pub(crate) fn stable_file_element_id(prefix: &str, kind: GroupKind, path: &str) -> SharedString {
     use std::hash::{Hash, Hasher};
 
@@ -85,7 +95,8 @@ pub(crate) fn stable_commit_path_element_id(
 mod tests {
     use super::{
         find_hunk_index_by_key, stable_commit_path_element_id, stable_compare_file_element_id,
-        stable_file_element_id, stable_hunk_key, stable_path_element_id,
+        stable_diff_line_element_id, stable_file_element_id, stable_hunk_key,
+        stable_path_element_id,
     };
     use crate::views::helpers::GroupKind;
 
@@ -140,9 +151,18 @@ mod tests {
         let first_key = stable_hunk_key(&diff, 0);
         assert!(first_key.is_some(), "第一个 hunk 应有稳定键");
         let first_key = first_key.unwrap_or_default();
+        let first_line_id = stable_diff_line_element_id("diff-row", &diff, 0, 0);
         diff.hunks.reverse();
         assert_eq!(find_hunk_index_by_key(&diff, &first_key), Some(1));
         assert_eq!(find_hunk_index_by_key(&diff, "missing"), None);
+        assert_eq!(
+            first_line_id,
+            stable_diff_line_element_id("diff-row", &diff, 1, 0)
+        );
+        assert_ne!(
+            first_line_id,
+            stable_diff_line_element_id("diff-row", &diff, 1, 1)
+        );
     }
 
     #[test]

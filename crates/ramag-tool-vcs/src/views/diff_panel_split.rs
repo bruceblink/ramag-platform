@@ -392,6 +392,7 @@ fn build_gutter_list(
                             let line_idx = if is_left { left } else { right };
                             let line = line_idx.map(|li| (li, &diff_rc.hunks[hunk_idx].lines[li]));
                             render_gutter_cell(
+                                &diff_rc,
                                 side,
                                 line,
                                 hunk_idx,
@@ -471,6 +472,7 @@ fn build_content_list(
                                     .unwrap_or_else(|| super::syntax::plain_code_line(&line.text))
                             });
                             render_content_cell(
+                                &diff_rc,
                                 side,
                                 line,
                                 hunk_idx,

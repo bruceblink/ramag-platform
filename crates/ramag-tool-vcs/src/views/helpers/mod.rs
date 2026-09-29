@@ -6,7 +6,7 @@ pub(super) use commit_row::render_commit_row;
 pub(super) use file_tab_target::{FileTabTarget, find_file_tab_index};
 pub(super) use stable_id::{
     find_hunk_index_by_key, stable_commit_path_element_id, stable_compare_file_element_id,
-    stable_file_element_id, stable_hunk_key, stable_path_element_id,
+    stable_diff_line_element_id, stable_file_element_id, stable_hunk_key, stable_path_element_id,
 };
 
 use gpui_kit::component::{Disableable as _, IconName, Sizable as _, button::ButtonVariants as _};

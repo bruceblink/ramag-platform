@@ -41,6 +41,30 @@ fn two_hunk_diff() -> FileDiff {
     diff
 }
 
+fn unified_diff() -> FileDiff {
+    FileDiff {
+        path: "a.rs".into(),
+        old_path: None,
+        change_kind: ramag_domain::entities::FileChangeKind::Modified,
+        binary: false,
+        old_mode: None,
+        new_mode: None,
+        hunks: vec![Hunk {
+            old_start: 0,
+            old_lines: 0,
+            new_start: 1,
+            new_lines: 1,
+            heading: None,
+            lines: vec![DiffLine {
+                kind: DiffLineKind::Add,
+                old_lineno: None,
+                new_lineno: Some(1),
+                text: "added".into(),
+            }],
+        }],
+    }
+}
+
 fn install_diff(view: &mut super::super::VcsView, diff: FileDiff) {
     let diff = Rc::new(diff);
     view.current_diff = Some(diff.clone());
@@ -56,6 +80,10 @@ fn diff_hunk_buttons_keep_stable_selectors_after_reorder(cx: &mut TestAppContext
     let initial = two_hunk_diff();
     let first_key =
         crate::views::helpers::stable_hunk_key(&initial, 0).expect("第一个 hunk 应有稳定键");
+    let split_line_id =
+        crate::views::helpers::stable_diff_line_element_id("diff-gutter", &initial, 0, 0);
+    let split_line_selector: &'static str =
+        Box::leak(format!("L-{split_line_id}").into_boxed_str());
     view.update(cx, |view, cx| {
         inject_diff_session(view);
         install_diff(view, initial.clone());
@@ -69,6 +97,7 @@ fn diff_hunk_buttons_keep_stable_selectors_after_reorder(cx: &mut TestAppContext
         Box::leak(format!("vcs-hunk-discard-{first_key}").into_boxed_str());
     assert!(cx.debug_bounds(stage_selector).is_some());
     assert!(cx.debug_bounds(discard_selector).is_some());
+    assert!(cx.debug_bounds(split_line_selector).is_some());
 
     let mut reordered = initial;
     reordered.hunks.reverse();
@@ -79,4 +108,17 @@ fn diff_hunk_buttons_keep_stable_selectors_after_reorder(cx: &mut TestAppContext
     cx.run_until_parked();
     assert!(cx.debug_bounds(stage_selector).is_some());
     assert!(cx.debug_bounds(discard_selector).is_some());
+    assert!(cx.debug_bounds(split_line_selector).is_some());
+
+    let unified = unified_diff();
+    let unified_line_id =
+        crate::views::helpers::stable_diff_line_element_id("diff-line", &unified, 0, 0);
+    let unified_line_selector: &'static str =
+        Box::leak(unified_line_id.to_string().into_boxed_str());
+    view.update(cx, |view, cx| {
+        install_diff(view, unified);
+        cx.notify();
+    });
+    cx.run_until_parked();
+    assert!(cx.debug_bounds(unified_line_selector).is_some());
 }

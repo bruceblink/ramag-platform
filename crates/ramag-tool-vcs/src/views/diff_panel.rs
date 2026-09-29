@@ -11,6 +11,7 @@ use gpui_kit::{
 use ramag_domain::entities::{DiffLine, DiffLineKind, FileDiff};
 use ramag_ui::RestrictUniformListToAxisExt as _;
 
+use super::helpers::stable_diff_line_element_id;
 use super::vcs_view::VcsView;
 
 /// 单行高度（uniform_list 要求等高，hunk header 也压缩到这个高度）
@@ -97,6 +98,7 @@ pub(super) fn render_file_diff(
                                     })
                                     .unwrap_or_else(|| super::syntax::plain_code_line(&line.text));
                                 render_diff_line(
+                                    &diff_rc,
                                     line,
                                     hunk_idx,
                                     line_idx,
@@ -253,6 +255,7 @@ pub(super) fn render_diff_empty(diff: &FileDiff, muted_fg: gpui_kit::Hsla) -> Op
 
 #[allow(clippy::too_many_arguments)]
 fn render_diff_line(
+    diff: &FileDiff,
     line: &DiffLine,
     hunk_idx: usize,
     line_idx: usize,
@@ -265,10 +268,11 @@ fn render_diff_line(
     cx: &mut Context<VcsView>,
 ) -> impl IntoElement {
     let (bg, marker, marker_color) = line_palette(line.kind);
-    let row_id = SharedString::from(format!("vcs-diff-line-{hunk_idx}-{line_idx}"));
-    let old_id = SharedString::from(format!("vcs-diff-old-{hunk_idx}-{line_idx}"));
-    let new_id = SharedString::from(format!("vcs-diff-new-{hunk_idx}-{line_idx}"));
-    let content_id = SharedString::from(format!("vcs-diff-content-{hunk_idx}-{line_idx}"));
+    let row_id = stable_diff_line_element_id("diff-line", diff, hunk_idx, line_idx);
+    let old_id = stable_diff_line_element_id("diff-old", diff, hunk_idx, line_idx);
+    let new_id = stable_diff_line_element_id("diff-new", diff, hunk_idx, line_idx);
+    let content_id = stable_diff_line_element_id("diff-content", diff, hunk_idx, line_idx);
+    let row_selector = row_id.to_string();
     let line_for_copy = line.text.clone();
     let content = div()
         .id(content_id)
@@ -283,6 +287,7 @@ fn render_diff_line(
         .child(super::syntax::render_code_line(code_line, fg, mono.clone()));
     let mut row = h_flex()
         .id(row_id)
+        .debug_selector(move || row_selector.clone())
         .w_full()
         .h(px(DIFF_ROW_H))
         .flex_none()
