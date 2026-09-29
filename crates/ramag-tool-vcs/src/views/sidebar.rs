@@ -120,12 +120,14 @@ pub(super) fn section_header(
         }
     ));
     let hover_bg = theme.muted;
+    let selector = id.to_string();
 
     let can_create = !matches!(sec, SidebarSection::Remote);
     let entity = cx.entity();
 
     let row = h_flex()
         .id(id)
+        .debug_selector(move || selector.clone())
         .h(px(LEFT_ROW_H))
         .flex_none()
         .gap(px(4.0))

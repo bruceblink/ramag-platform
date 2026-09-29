@@ -6,12 +6,11 @@ use gpui_kit::component::{
     h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
 };
-use gpui_kit::{
-    Context, Entity, InteractiveElement, IntoElement, ParentElement, SharedString, Styled, div, px,
-};
+use gpui_kit::{Context, Entity, InteractiveElement, IntoElement, ParentElement, Styled, div, px};
 use ramag_domain::entities::Remote;
 use ramag_ui::PointerDropdownMenu as _;
 
+use super::helpers::{stable_path_element_id, stable_remote_element_id};
 use super::sidebar::LEFT_ROW_H;
 use super::vcs_view::VcsView;
 
@@ -25,11 +24,14 @@ pub(super) fn remote_row(r: &Remote, busy: bool, cx: &mut Context<VcsView>) -> i
 
     let name = r.name.clone();
     let url = r.fetch_url.clone();
-    let row_id = SharedString::from(format!("vcs-side-remote-{name}"));
+    let row_id = stable_remote_element_id(&name);
+    let row_selector = row_id.to_string();
+    let name_selector = row_selector.clone();
 
     let entity = cx.entity();
     let mut row = h_flex()
         .id(row_id)
+        .debug_selector(move || row_selector.clone())
         .h(px(LEFT_ROW_H))
         .flex_none()
         .gap(px(6.0))
@@ -52,6 +54,7 @@ pub(super) fn remote_row(r: &Remote, busy: bool, cx: &mut Context<VcsView>) -> i
                 .child(
                     div()
                         .min_w_0()
+                        .debug_selector(move || name_selector.clone())
                         .overflow_hidden()
                         .text_ellipsis()
                         .text_sm()
@@ -75,8 +78,11 @@ pub(super) fn remote_row(r: &Remote, busy: bool, cx: &mut Context<VcsView>) -> i
     let menu_entity = entity.clone();
     let menu_name = name.clone();
     let menu_url = url.clone();
-    row = row.child(
-        ramag_ui::clickable_button(SharedString::from(format!("vcs-side-remote-more-{name}")))
+    row = row.child({
+        let more_id = stable_path_element_id("side-remote-more", &name);
+        let more_selector = more_id.to_string();
+        ramag_ui::clickable_button(more_id)
+            .debug_selector(move || more_selector.clone())
             .ghost()
             .xsmall()
             .icon(ramag_ui::icons::ellipsis())
@@ -89,8 +95,8 @@ pub(super) fn remote_row(r: &Remote, busy: bool, cx: &mut Context<VcsView>) -> i
                     menu_url.clone(),
                     busy,
                 )
-            }),
-    );
+            })
+    });
     row.context_menu(move |menu: PopupMenu, _, _| {
         remote_actions_menu(menu, entity.clone(), name.clone(), url.clone(), busy)
     })

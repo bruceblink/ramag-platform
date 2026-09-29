@@ -7,14 +7,17 @@ use gpui_kit::component::{
     menu::{ContextMenuExt as _, PopupMenu},
 };
 use gpui_kit::{
-    Context, Entity, InteractiveElement, IntoElement, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled, div, px,
+    Context, Entity, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement,
+    Styled, div, px,
 };
 use ramag_domain::entities::Branch;
 use ramag_ui::PointerDropdownMenu as _;
 
 use super::confirm_dialogs::open_confirm_dialog;
-use super::helpers::{BranchOp, HistoryRefFilter, checkout_remote_branch_op};
+use super::helpers::{
+    BranchOp, HistoryRefFilter, checkout_remote_branch_op, stable_branch_element_id,
+    stable_path_element_id,
+};
 use super::sidebar::LEFT_ROW_H;
 use super::vcs_view::VcsView;
 
@@ -45,7 +48,9 @@ pub(super) fn branch_row(
         _ => None,
     };
 
-    let row_id = SharedString::from(format!("vcs-side-br-{is_remote}-{name}"));
+    let row_id = stable_branch_element_id(is_remote, &name);
+    let row_selector = row_id.to_string();
+    let name_selector = row_selector.clone();
     let prefix_icon = if is_head {
         Icon::new(ramag_ui::icons::circle_dot())
             .xsmall()
@@ -60,6 +65,7 @@ pub(super) fn branch_row(
 
     let mut row = h_flex()
         .id(row_id)
+        .debug_selector(move || row_selector.clone())
         .h(px(LEFT_ROW_H))
         .flex_none()
         .gap(px(6.0))
@@ -72,6 +78,7 @@ pub(super) fn branch_row(
             div()
                 .flex_1()
                 .min_w_0()
+                .debug_selector(move || name_selector.clone())
                 .text_sm()
                 .font_weight(if is_head {
                     gpui_kit::FontWeight::SEMIBOLD
@@ -109,16 +116,15 @@ pub(super) fn branch_row(
         let ent = entity.clone();
         let n = name.clone();
         let commit = commit.clone();
-        ramag_ui::clickable_button(SharedString::from(format!(
-            "vcs-side-br-more-{is_remote}-{name}"
-        )))
-        .ghost()
-        .xsmall()
-        .icon(ramag_ui::icons::ellipsis())
-        .tooltip("分支")
-        .pointer_dropdown_menu_with_anchor(
-            gpui_kit::Anchor::BottomRight,
-            move |menu, _, _| {
+        let more_id = stable_path_element_id("side-branch-more", &format!("{is_remote}:{name}"));
+        let more_selector = more_id.to_string();
+        ramag_ui::clickable_button(more_id)
+            .debug_selector(move || more_selector.clone())
+            .ghost()
+            .xsmall()
+            .icon(ramag_ui::icons::ellipsis())
+            .tooltip("分支")
+            .pointer_dropdown_menu_with_anchor(gpui_kit::Anchor::BottomRight, move |menu, _, _| {
                 branch_actions_menu(
                     menu,
                     ent.clone(),
@@ -127,8 +133,7 @@ pub(super) fn branch_row(
                     is_remote,
                     busy,
                 )
-            },
-        )
+            })
     };
     row = row.child(
         div()

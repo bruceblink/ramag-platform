@@ -1,7 +1,5 @@
 //! GPUI 渲染测试：headless 在内存渲染 VcsView（含 diff session 态）。
-//! 验证整条 diff 渲染管线不 panic；截图被 macOS 屏幕录制权限挡，本测试是可重复真机验证替代。
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-
 use super::super::helpers::{ActiveView, FileContentSnapshot, FileTab, FileTabSource, GroupKind};
 use super::VcsView;
 use async_trait::async_trait;
@@ -21,6 +19,8 @@ use std::{path::Path, sync::Arc};
 mod rebase_plan_render_test;
 #[path = "render_toolbar_test.rs"]
 mod render_toolbar_test;
+#[path = "sidebar_ref_render_test.rs"]
+mod sidebar_ref_render_test;
 struct MockGit;
 #[async_trait]
 impl GitDriver for MockGit {

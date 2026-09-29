@@ -12,6 +12,18 @@ pub(crate) fn stable_path_element_id(prefix: &str, path: &str) -> SharedString {
     SharedString::from(format!("vcs-{prefix}-{:016x}", hasher.finish()))
 }
 
+pub(crate) fn stable_branch_element_id(is_remote: bool, name: &str) -> SharedString {
+    stable_path_element_id("side-branch", &format!("{is_remote}:{name}"))
+}
+
+pub(crate) fn stable_remote_element_id(name: &str) -> SharedString {
+    stable_path_element_id("side-remote", name)
+}
+
+pub(crate) fn stable_tag_element_id(name: &str) -> SharedString {
+    stable_path_element_id("side-tag", name)
+}
+
 /// 为当前文件 Diff 中的 hunk 生成与位置无关的稳定键。
 pub(crate) fn stable_hunk_key(diff: &FileDiff, hunk_idx: usize) -> Option<String> {
     use std::hash::{Hash, Hasher};
@@ -106,9 +118,10 @@ pub(crate) fn stable_commit_path_element_id(
 #[cfg(test)]
 mod tests {
     use super::{
-        find_hunk_index_by_key, stable_commit_path_element_id, stable_compare_file_element_id,
-        stable_diff_line_element_id, stable_diff_spacer_key, stable_file_element_id,
-        stable_hunk_key, stable_path_element_id,
+        find_hunk_index_by_key, stable_branch_element_id, stable_commit_path_element_id,
+        stable_compare_file_element_id, stable_diff_line_element_id, stable_diff_spacer_key,
+        stable_file_element_id, stable_hunk_key, stable_path_element_id, stable_remote_element_id,
+        stable_tag_element_id,
     };
     use crate::views::helpers::GroupKind;
 
@@ -133,6 +146,26 @@ mod tests {
         assert_ne!(
             stable_path_element_id("first-push-remote", "upstream"),
             stable_path_element_id("first-push-remote", "fork")
+        );
+    }
+
+    #[test]
+    fn sidebar_ref_ids_are_stable_and_category_specific() {
+        assert_eq!(
+            stable_branch_element_id(false, "feature/ui"),
+            stable_branch_element_id(false, "feature/ui")
+        );
+        assert_ne!(
+            stable_branch_element_id(false, "feature/ui"),
+            stable_branch_element_id(true, "feature/ui")
+        );
+        assert_ne!(
+            stable_branch_element_id(false, "feature/ui"),
+            stable_branch_element_id(false, "feature ui")
+        );
+        assert_ne!(
+            stable_remote_element_id("origin"),
+            stable_tag_element_id("origin")
         );
     }
 

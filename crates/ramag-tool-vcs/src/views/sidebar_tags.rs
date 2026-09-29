@@ -7,13 +7,13 @@ use gpui_kit::component::{
     menu::{ContextMenuExt as _, PopupMenu},
 };
 use gpui_kit::{
-    Context, Entity, InteractiveElement, IntoElement, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled, div, px,
+    Context, Entity, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement,
+    Styled, div, px,
 };
 use ramag_domain::entities::Tag;
 use ramag_ui::PointerDropdownMenu as _;
 
-use super::helpers::{HistoryRefFilter, TagOp};
+use super::helpers::{HistoryRefFilter, TagOp, stable_path_element_id, stable_tag_element_id};
 use super::sidebar::LEFT_ROW_H;
 use super::vcs_view::VcsView;
 
@@ -38,12 +38,15 @@ pub(super) fn tag_row(
         None => t.commit.short().to_string(),
     };
     let name = t.name.clone();
-    let row_id = SharedString::from(format!("vcs-side-tag-{name}"));
+    let row_id = stable_tag_element_id(&name);
+    let row_selector = row_id.to_string();
+    let name_selector = row_selector.clone();
 
     let entity = cx.entity();
     let filter = HistoryRefFilter::tag(&name);
     let mut row = h_flex()
         .id(row_id)
+        .debug_selector(move || row_selector.clone())
         .h(px(LEFT_ROW_H))
         .flex_none()
         .gap(px(6.0))
@@ -67,6 +70,7 @@ pub(super) fn tag_row(
                 .child(
                     div()
                         .min_w_0()
+                        .debug_selector(move || name_selector.clone())
                         .overflow_hidden()
                         .text_ellipsis()
                         .text_sm()
@@ -101,8 +105,11 @@ pub(super) fn tag_row(
             .on_mouse_down(gpui_kit::MouseButton::Left, |_, _, cx| {
                 cx.stop_propagation()
             })
-            .child(
-                ramag_ui::clickable_button(SharedString::from(format!("vcs-side-tag-more-{name}")))
+            .child({
+                let more_id = stable_path_element_id("side-tag-more", &name);
+                let more_selector = more_id.to_string();
+                ramag_ui::clickable_button(more_id)
+                    .debug_selector(move || more_selector.clone())
                     .ghost()
                     .xsmall()
                     .icon(ramag_ui::icons::ellipsis())
@@ -112,8 +119,8 @@ pub(super) fn tag_row(
                         move |menu, _, _| {
                             tag_actions_menu(menu, menu_entity.clone(), menu_name.clone(), busy)
                         },
-                    ),
-            ),
+                    )
+            }),
     );
     row.context_menu(move |menu: PopupMenu, _, _| {
         tag_actions_menu(menu, entity.clone(), name.clone(), busy)

@@ -29,6 +29,7 @@ impl VcsView {
                 }
             }),
         )
+        .debug_selector(|| "vcs-history-left-rows".into())
         .track_scroll(&self.history_left_scroll)
         .flex_1();
 
