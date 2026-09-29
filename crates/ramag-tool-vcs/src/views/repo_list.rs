@@ -8,8 +8,8 @@ use gpui_kit::component::{
     button::ButtonVariants as _, h_flex, input::Input, v_flex,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, FontWeight, IntoElement, ParentElement, SharedString, Styled,
-    Window, div, prelude::*, px, uniform_list,
+    AnyElement, ClickEvent, Context, FontWeight, IntoElement, ParentElement, Styled, Window, div,
+    prelude::*, px, uniform_list,
 };
 
 impl VcsView {
@@ -70,6 +70,7 @@ impl VcsView {
 }
 use ramag_domain::entities::{RepoConfig, contains_case_insensitive};
 
+use super::helpers::stable_path_element_id;
 use super::vcs_view::VcsView;
 
 const CONTENT_MAX_W: f32 = 1080.0;
@@ -215,7 +216,6 @@ impl VcsView {
                                     .justify_center()
                                     .px(px(24.0))
                                     .child(div().w_full().max_w(px(CONTENT_MAX_W)).child(repo_row(
-                                        row_index,
                                         &repos_rc[repo_index],
                                         compact,
                                         busy,
@@ -413,7 +413,6 @@ fn clone_repo_name(source: &str) -> Option<String> {
 
 #[allow(clippy::too_many_arguments)]
 fn repo_row(
-    idx: usize,
     r: &RepoConfig,
     compact: bool,
     busy: bool,
@@ -430,8 +429,13 @@ fn repo_row(
 
     let path_for_open = r.path.clone();
     let path_for_remove = r.path.clone();
-    let row_id = SharedString::from(format!("vcs-repo-row-{idx}-{}", r.id));
-    let del_id = SharedString::from(format!("vcs-repo-del-{idx}-{}", r.id));
+    let stable_key = r.id.to_string();
+    let row_id = stable_path_element_id("repo-row", &stable_key);
+    let del_id = stable_path_element_id("repo-del", &stable_key);
+    let row_selector = format!("vcs-repo-row-{stable_key}");
+    let name_selector = format!("vcs-repo-row-name-{stable_key}");
+    let path_selector = format!("vcs-repo-row-path-{stable_key}");
+    let actions_selector = format!("vcs-repo-row-actions-{stable_key}");
 
     let mono = cx.theme().mono_font_family.clone();
 
@@ -451,7 +455,7 @@ fn repo_row(
                 .child("Git"),
         );
     let name = div()
-        .debug_selector(move || format!("vcs-repo-row-name-{idx}"))
+        .debug_selector(move || name_selector.clone())
         .flex_1()
         .min_w_0()
         .text_sm()
@@ -462,7 +466,7 @@ fn repo_row(
         .text_ellipsis()
         .child(super::inline_text_preview(&r.name, 160));
     let path = div()
-        .debug_selector(move || format!("vcs-repo-row-path-{idx}"))
+        .debug_selector(move || path_selector.clone())
         .flex_none()
         .w(if compact { px(0.0) } else { px(360.0) })
         .when(compact, |this| this.w_full().pl(px(64.0)))
@@ -474,7 +478,7 @@ fn repo_row(
         .text_ellipsis()
         .child(super::inline_text_preview(&r.path, 240));
     let actions = h_flex()
-        .debug_selector(move || format!("vcs-repo-row-actions-{idx}"))
+        .debug_selector(move || actions_selector.clone())
         .flex_none()
         .gap(px(4.0))
         .w(px(36.0))
@@ -519,7 +523,7 @@ fn repo_row(
         row = row.child(badge).child(name).child(path).child(actions);
     }
     row.id(row_id)
-        .debug_selector(move || format!("vcs-repo-row-{idx}"))
+        .debug_selector(move || row_selector.clone())
         .cursor_pointer()
         .hover(move |this| this.bg(hover_bg))
         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
