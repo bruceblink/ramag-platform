@@ -610,6 +610,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过；代码提交 `a2444817 fix(vcs): relocate temporary stash cleanup` 已推送 `origin/main`。
 - 证据边界：本切片证明自动临时 Stash 清理按稳定提交重新定位并在无法确认目标时保留备份；不提供真实 Windows 原生窗口鼠标/键盘证据，不访问 114 服务器，不改变 Git 驱动的 Stash 索引接口，也不把 Computer Use 缺口写成已完成。
 
+### B-GIT-001-H：文件标签关闭按稳定目标定位（设计确认，2026-09-29）
+
+- 问题证据：文件标签的关闭按钮当前保存渲染时的数组下标并调用 `close_file_tab`。工作区状态刷新会重建 Changes 标签顺序；如果旧界面事件在刷新后到达，下标可能对应另一份文件，关闭动作就会误关标签。
+- 设计：文件标签保存路径和完整 `FileTabSource` 作为稳定目标，关闭按钮按当前标签列表重新定位目标后再关闭；目标不存在时不按下标猜测，也不关闭其它标签，只提示标签列表已更新。标签和关闭按钮的调试选择器同步使用目标标识，列表重排不会复用成另一目标的节点。
+- 状态边界：键盘关闭当前活动标签继续使用当前活动状态；文件标签的选择、异步 diff 回写、草稿保存和缓存预算保持现有路径/来源匹配规则。稳定目标只覆盖关闭入口，不改变标签顺序、仓库状态刷新或 Git 命令。
+- 验收条件：纯函数测试确认标签重排后仍定位原路径/来源、目标消失时返回无结果；headless 渲染检查确认标签和关闭按钮使用稳定目标标识；`ramag-tool-vcs` 全量测试、workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不改变文件标签的选择语义、Git 驱动接口、Changes 状态刷新、Project Files 草稿保存、提交/暂存/丢弃行为，不把本项扩展为真实 Windows 原生窗口验收。
+- 实施顺序：先提交本设计确认，再实现标签目标构造、关闭前重新定位和测试；定向测试通过后独立提交并推送，随后继续补充 Git 工作区其它异步操作边界。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
