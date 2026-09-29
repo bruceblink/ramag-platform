@@ -258,6 +258,19 @@ impl VcsView {
                         this.toggle_history_pane(cx);
                     })),
             );
+            search_row = search_row
+                .child(
+                    div()
+                        .debug_selector(|| "vcs-files-quick-action".into())
+                        .flex_none()
+                        .child(self.render_sync_quick_action(cx)),
+                )
+                .child(
+                    div()
+                        .debug_selector(|| "vcs-files-remote-actions".into())
+                        .flex_none()
+                        .child(self.render_remote_actions(cx)),
+                );
         }
         v_flex()
             .debug_selector(|| "vcs-files-toolbar".into())

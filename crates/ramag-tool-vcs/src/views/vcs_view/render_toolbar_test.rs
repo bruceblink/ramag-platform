@@ -22,6 +22,9 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |view, cx| {
         inject_diff_session(view);
+        let status = view.status.as_mut().expect("测试仓库应有状态");
+        status.ahead = Some(1);
+        status.behind = Some(2);
         cx.notify();
     });
     cx.simulate_resize(size(px(1440.0), px(720.0)));
@@ -65,6 +68,8 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
             "vcs-refresh",
             "vcs-pf-toggle-all",
             "vcs-history-pane-toggle",
+            "vcs-files-quick-action",
+            "vcs-files-remote-actions",
         ] {
             let control = cx.debug_bounds(selector).expect("VCS 文件栏控件应渲染");
             let parent = if selector.starts_with("vcs-files-tab") || selector == "vcs-branch-picker"
@@ -75,6 +80,11 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
             };
             assert_inside(&parent, &control, selector);
         }
+
+        assert!(
+            cx.debug_bounds("vcs-history-remote-actions").is_none(),
+            "History 未打开时不应渲染重复远程操作入口"
+        );
 
         if width == 180.0 {
             let history = cx
@@ -124,14 +134,28 @@ fn vcs_history_toolbar_wraps_controls_inside_supported_window_widths(cx: &mut Te
         assert_inside(&history_content, &toolbar, "历史搜索工具栏");
         assert_inside(&toolbar, &search, "历史搜索框");
 
-        for selector in [
-            "vcs-history-reflog-toggle",
-            "vcs-history-search-action",
-            "vcs-history-quick-action",
-            "vcs-history-remote-actions",
-        ] {
+        for selector in ["vcs-history-reflog-toggle", "vcs-history-search-action"] {
             let control = cx.debug_bounds(selector).expect("历史工具栏控件应渲染");
             assert_inside(&toolbar, &control, selector);
+        }
+
+        for selector in ["vcs-files-quick-action", "vcs-files-remote-actions"] {
+            let control = cx.debug_bounds(selector).expect("文件工具栏远程控件应渲染");
+            assert_inside(
+                &cx.debug_bounds("vcs-files-search-toolbar")
+                    .expect("VCS 搜索工具栏应渲染"),
+                &control,
+                selector,
+            );
+            assert!(
+                cx.debug_bounds(if selector == "vcs-files-quick-action" {
+                    "vcs-history-quick-action"
+                } else {
+                    "vcs-history-remote-actions"
+                })
+                .is_none(),
+                "History 工具栏不应重复渲染远程控件"
+            );
         }
 
         if width == 360.0 {

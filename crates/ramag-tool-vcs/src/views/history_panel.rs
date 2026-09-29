@@ -222,19 +222,7 @@ impl VcsView {
                     })),
             );
         }
-        row = row.child(
-            div()
-                .debug_selector(|| "vcs-history-quick-action".into())
-                .flex_none()
-                .child(self.render_sync_quick_action(cx)),
-        );
-        row.child(
-            div()
-                .debug_selector(|| "vcs-history-remote-actions".into())
-                .flex_none()
-                .child(self.render_remote_actions(cx)),
-        )
-        .into_any_element()
+        row.into_any_element()
     }
 
     /// 渲染分支、历史与详情三栏。
