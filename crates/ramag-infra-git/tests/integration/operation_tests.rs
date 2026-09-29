@@ -72,6 +72,124 @@ fn branch_created_from_remote_explicitly_tracks_upstream() {
 }
 
 #[test]
+fn pull_fast_forward_reads_remote_commit_and_file() {
+    let (driver, id, tmp) = setup();
+    commit_file(&driver, &id, tmp.path(), "base.txt", "base\n", "base");
+    let branch = current_branch(&driver, &id);
+    let bare = tempfile::TempDir::new().unwrap();
+    run_git(bare.path(), &["init", "--bare", "--quiet"]);
+    block_on(driver.add_remote(&id, "origin", bare.path().to_str().unwrap())).unwrap();
+    block_on(driver.push(&id, "origin", &branch, true, false)).unwrap();
+
+    let remote_worktree = tempfile::TempDir::new().unwrap();
+    clone_remote(bare.path(), &remote_worktree);
+    write(remote_worktree.path(), "remote.txt", "remote\n");
+    run_git(remote_worktree.path(), &["add", "--", "remote.txt"]);
+    run_git(
+        remote_worktree.path(),
+        &["commit", "--quiet", "-m", "remote change"],
+    );
+    run_git(
+        remote_worktree.path(),
+        &["push", "--quiet", "origin", &branch],
+    );
+
+    block_on(driver.pull(&id, "origin", &branch, false)).unwrap();
+    let status = block_on(driver.status(&id)).unwrap();
+    assert!(status.files.is_empty(), "快进 Pull 后工作区应干净");
+    assert_eq!(
+        std::fs::read_to_string(tmp.path().join("remote.txt")).unwrap(),
+        "remote\n"
+    );
+    let history = block_on(driver.log(&id, LogOptions::default())).unwrap();
+    assert_eq!(history[0].subject, "remote change");
+}
+
+#[test]
+fn pull_merge_keeps_both_sides_without_opening_editor() {
+    let (driver, id, tmp) = setup();
+    commit_file(&driver, &id, tmp.path(), "base.txt", "base\n", "base");
+    let branch = current_branch(&driver, &id);
+    let bare = tempfile::TempDir::new().unwrap();
+    run_git(bare.path(), &["init", "--bare", "--quiet"]);
+    block_on(driver.add_remote(&id, "origin", bare.path().to_str().unwrap())).unwrap();
+    block_on(driver.push(&id, "origin", &branch, true, false)).unwrap();
+
+    let remote_worktree = tempfile::TempDir::new().unwrap();
+    clone_remote(bare.path(), &remote_worktree);
+    write(remote_worktree.path(), "remote.txt", "remote\n");
+    run_git(remote_worktree.path(), &["add", "--", "remote.txt"]);
+    run_git(
+        remote_worktree.path(),
+        &["commit", "--quiet", "-m", "remote change"],
+    );
+    run_git(
+        remote_worktree.path(),
+        &["push", "--quiet", "origin", &branch],
+    );
+
+    write(tmp.path(), "local.txt", "local\n");
+    block_on(driver.stage(&id, &["local.txt".into()])).unwrap();
+    block_on(driver.commit(&id, "local change", false, false)).unwrap();
+
+    block_on(driver.pull(&id, "origin", &branch, false)).unwrap();
+    let status = block_on(driver.status(&id)).unwrap();
+    assert!(status.files.is_empty(), "合并 Pull 后工作区应干净");
+    assert_eq!(
+        std::fs::read_to_string(tmp.path().join("local.txt")).unwrap(),
+        "local\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(tmp.path().join("remote.txt")).unwrap(),
+        "remote\n"
+    );
+    let history = block_on(driver.log(&id, LogOptions::default())).unwrap();
+    assert!(history[0].subject.starts_with("Merge"));
+    assert!(
+        history
+            .iter()
+            .any(|commit| commit.subject == "local change")
+    );
+    assert!(
+        history
+            .iter()
+            .any(|commit| commit.subject == "remote change")
+    );
+}
+
+#[test]
+fn pull_streaming_fast_forward_reads_remote_commit() {
+    let (driver, id, tmp) = setup();
+    commit_file(&driver, &id, tmp.path(), "base.txt", "base\n", "base");
+    let branch = current_branch(&driver, &id);
+    let bare = tempfile::TempDir::new().unwrap();
+    run_git(bare.path(), &["init", "--bare", "--quiet"]);
+    block_on(driver.add_remote(&id, "origin", bare.path().to_str().unwrap())).unwrap();
+    block_on(driver.push(&id, "origin", &branch, true, false)).unwrap();
+
+    let remote_worktree = tempfile::TempDir::new().unwrap();
+    clone_remote(bare.path(), &remote_worktree);
+    write(remote_worktree.path(), "stream.txt", "stream\n");
+    run_git(remote_worktree.path(), &["add", "--", "stream.txt"]);
+    run_git(
+        remote_worktree.path(),
+        &["commit", "--quiet", "-m", "stream change"],
+    );
+    run_git(
+        remote_worktree.path(),
+        &["push", "--quiet", "origin", &branch],
+    );
+
+    let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let progress = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    block_on(driver.pull_streaming(&id, "origin", &branch, false, cancel, progress)).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(tmp.path().join("stream.txt")).unwrap(),
+        "stream\n"
+    );
+}
+
+#[test]
 fn stash_save_apply() {
     let (driver, id, tmp) = setup();
     commit_file(&driver, &id, tmp.path(), "a.txt", "base\n", "init");

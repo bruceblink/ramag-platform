@@ -64,6 +64,30 @@ fn current_branch(driver: &GitDriverImpl, id: &RepoId) -> String {
         .expect("应有 HEAD 分支")
 }
 
+fn run_git(dir: &Path, args: &[&str]) {
+    let status = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(args)
+        .status()
+        .unwrap();
+    assert!(status.success(), "git {:?} 失败", args);
+}
+
+fn clone_remote(remote: &Path, destination: &tempfile::TempDir) {
+    let status = std::process::Command::new("git")
+        .args(["clone", "--quiet"])
+        .arg(remote)
+        .arg(destination.path())
+        .status()
+        .unwrap();
+    assert!(status.success(), "clone bare remote 失败");
+    git_config(destination.path(), "user.email", "remote@ramag.dev");
+    git_config(destination.path(), "user.name", "Ramag Remote");
+    git_config(destination.path(), "commit.gpgsign", "false");
+    git_config(destination.path(), "core.autocrlf", "false");
+}
+
 #[path = "integration/operation_tests.rs"]
 mod operation_tests;
 #[path = "integration/remote_diff_tests.rs"]

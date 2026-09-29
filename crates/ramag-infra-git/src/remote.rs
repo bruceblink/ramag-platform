@@ -77,13 +77,9 @@ pub fn push(
 pub fn pull(repo_path: &Path, remote: &str, branch: &str, rebase: bool) -> Result<()> {
     validate_name_arg(remote, "远程名")?;
     validate_name_arg(branch, "分支名")?;
-    let mut args: Vec<&str> = vec!["pull"];
-    if rebase {
-        args.push("--rebase");
-    }
-    args.push(remote);
-    args.push(branch);
-    run_git_bytes(repo_path, &args).map(|_| ())
+    let args = build_pull_args(false, remote, branch, rebase);
+    let args_ref = args.iter().map(String::as_str).collect::<Vec<_>>();
+    run_git_bytes(repo_path, &args_ref).map(|_| ())
 }
 
 // 支持进度与取消的流式操作。
@@ -141,13 +137,26 @@ pub fn pull_streaming(
 ) -> Result<()> {
     validate_name_arg(remote, "远程名")?;
     validate_name_arg(branch, "分支名")?;
-    let mut args: Vec<&str> = vec!["pull", "--progress"];
-    if rebase {
-        args.push("--rebase");
+    let args = build_pull_args(true, remote, branch, rebase);
+    let args_ref = args.iter().map(String::as_str).collect::<Vec<_>>();
+    run_git_streaming(repo_path, &args_ref, cancel, progress)
+}
+
+/// 生成桌面进程使用的 Pull 参数；普通合并直接采用 Git 默认提交信息，不打开编辑器。
+fn build_pull_args(progress: bool, remote: &str, branch: &str, rebase: bool) -> Vec<String> {
+    let mut args = vec!["pull".to_string()];
+    if progress {
+        args.push("--progress".to_string());
     }
-    args.push(remote);
-    args.push(branch);
-    run_git_streaming(repo_path, &args, cancel, progress)
+    if rebase {
+        args.push("--rebase".to_string());
+    } else {
+        args.push("--no-rebase".to_string());
+        args.push("--no-edit".to_string());
+    }
+    args.push(remote.to_string());
+    args.push(branch.to_string());
+    args
 }
 
 /// 一条 remote 两行（fetch 和 push）；fetch==push 时只留 fetch_url
@@ -217,6 +226,33 @@ fn remote_parse_error(index: usize, reason: &str) -> DomainError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pull_args_disable_editor_for_merge_but_not_rebase() {
+        assert_eq!(
+            build_pull_args(false, "origin", "main", false),
+            vec!["pull", "--no-rebase", "--no-edit", "origin", "main"]
+        );
+        assert_eq!(
+            build_pull_args(true, "origin", "main", false),
+            vec![
+                "pull",
+                "--progress",
+                "--no-rebase",
+                "--no-edit",
+                "origin",
+                "main"
+            ]
+        );
+        assert_eq!(
+            build_pull_args(false, "origin", "main", true),
+            vec!["pull", "--rebase", "origin", "main"]
+        );
+        assert_eq!(
+            build_pull_args(true, "origin", "main", true),
+            vec!["pull", "--progress", "--rebase", "origin", "main"]
+        );
+    }
 
     #[test]
     fn parses_single_remote_with_same_fetch_push() -> Result<()> {
