@@ -523,6 +523,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 质量检查：`cargo test --locked -p ramag-infra-git --all-targets -- --test-threads=1` 通过，结果为驱动单元测试 74 项、集成测试 43 项，性能测试 1 项按环境条件忽略；`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。设计提交 `f2112aea docs: define git pull acceptance`、代码提交 `302b3f12 fix(git): make pull merge noninteractive` 已推送 `origin/main`。
 - 证据边界：本切片证明 Git 驱动可在本地临时远程中完成快进、分叉合并和带进度 Pull；不提供真实 Windows 原生窗口鼠标/键盘证据，不访问 114 服务器，不修改 GitHub/Gitea 远程仓库，也不把 Computer Use 缺口写成已完成。
 
+### B-GIT-001-C：普通工作区显示远程操作入口（设计确认，2026-09-29）
+
+- 问题证据：Push/Pull/Fetch 和取消按钮目前只挂在底部 History 工具栏；用户停留在 Project 或 Changes 视图且未打开 History 面板时，看不到远程同步入口，只能依赖快捷键。
+- 设计：把现有远程快速操作和远程菜单移动到文件工作区工具栏；快速操作继续只在存在 ahead/behind 时显示，远程菜单继续提供 Fetch、Pull、Push 和强推，进行中的远程操作继续显示进度和取消按钮。History 工具栏只保留历史搜索、筛选和分页相关控件，避免同一操作出现两个入口。
+- 验收条件：headless GPUI 在 180px、280px、600px 文件栏宽度以及 360px、800px、1440px 窗口宽度确认远程快速操作、远程菜单和取消按钮均留在文件工具栏内；关闭 History 面板时远程菜单仍可见，打开 History 面板时不出现重复远程控件；已有 VCS 渲染与远程操作语义不变。
+- 不做事项：不改变 Fetch/Pull/Push 的驱动参数、确认对话框、取消机制、错误处理或远程数据；不新增自动同步，不把快捷键作为唯一入口，不把真实 Windows 原生窗口流程写入本切片。
+- 实施顺序：先提交本设计确认，再调整工具栏归属和窄窗口回归；目标测试通过后独立提交并推送，随后补充本切片验收记录。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
