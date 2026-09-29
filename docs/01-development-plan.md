@@ -679,10 +679,10 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 问题证据：Reflog 经过客户端筛选后，行和 Checkout 按钮使用过滤结果中的可见下标生成节点 ID。搜索条件变化、异步刷新或列表重排后，旧节点可能被复用给另一条记录；Checkout 回调虽然保存提交 ID，但节点定位仍依赖下标。
 - 设计与实现：以 Reflog 记录的提交 ID、selector、操作、主题和时间组成记录键，再为行和 Checkout 按钮生成固定长度的稳定 ID；Checkout 回调继续只使用提交 ID，不改变检出确认和 detached HEAD 处理。
 - 状态边界：只调整 GPUI 节点身份和调试选择器，不改变 Reflog 搜索字段、排序、分页、提交目标、历史面板切换或 Git 命令；同一记录在不同过滤结果中的 ID保持不变。
-- 验收结果：Reflog 记录键测试确认相同记录生成相同 ID，不同提交或记录字段不会冲突；headless 测试 `vcs_view_renders_reflog_rows_after_entry_reorder` 在列表重排后于 `360x640`、`1024x768` 和 `1440x900` 重新渲染 Reflog，未发生崩溃。`ramag-tool-vcs` 全量 161 项测试中 156 项通过、5 项性能观察测试按设计忽略；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 验收结果：Reflog 记录键测试确认相同记录生成相同 ID，不同提交或记录字段不会冲突；已有 Reflog 查询字段测试继续通过，headless 测试 `vcs_view_renders_reflog_rows_after_entry_reorder` 在列表重排后于 `360x640`、`1024x768` 和 `1440x900` 重新渲染 Reflog，未发生崩溃。`ramag-tool-vcs` 全量 161 项测试中 156 项通过、5 项性能观察测试按设计忽略；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
 - 不做事项：不改变 Reflog 数据读取、Checkout 确认、分支状态、远程操作或真实 Windows 原生窗口验收；不把本切片扩展为真实仓库 Reflog 回放。
 - 提交：设计确认提交为 `fe2cddaa`，代码提交为 `6859457b`，均已推送到 `origin/main`。
-- 证据边界：本切片证明 Reflog 行和 Checkout 入口在筛选/列表重排后不再依赖可见数组下标；headless 渲染覆盖三种窗口尺寸，但不提供真实 Windows 原生窗口的像素边界、鼠标和键盘证据。
+- 证据边界：本切片证明 Reflog 行和 Checkout 入口在列表重排后不再依赖可见数组下标，并保留原有查询字段匹配测试；headless 渲染覆盖三种窗口尺寸，但不提供真实 Windows 原生窗口的像素边界、鼠标和键盘证据。
 
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
