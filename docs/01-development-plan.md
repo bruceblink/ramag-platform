@@ -912,7 +912,7 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 测试：`ramag-tool-redis` 全量 `113` 项测试通过；新增 `transcript_error_uses_the_current_theme_danger_color`，确认错误转录行读取调用方危险色，普通、弱化和强调行仍保留各自颜色；现有 Key 详情三种窗口布局和命令行窄窗口工具栏回归继续通过。`rg` 检查确认 Redis 生产代码不再直接调用 `gpui_kit::red()`。
 - 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`bash scripts/check-source-size.sh` 和 `git diff --check` 通过。
 - Docker 与发布边界：本切片未启动本机 Docker，未构建或上传 `v0.4.0` release，未运行 Kubernetes；没有把单元测试或 headless 结果扩大为真实窗口主题切换证据。
-- Git：设计确认提交 `56fbaea6` 已推送；实现代码和测试待本记录提交后独立推送 `main`。
+- Git：设计确认提交 `56fbaea6` 和实现提交 `5520fa95` 已独立推送 `main`，继续阶段 A 主题一致性收口。
 
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
