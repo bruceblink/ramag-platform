@@ -16,6 +16,7 @@ impl VcsView {
         let theme = cx.theme();
         let muted_fg = theme.muted_foreground;
         let fg = theme.foreground;
+        let (error_fg, truncated_warning) = project_file_state_colors(theme.danger, theme.warning);
 
         if self.loading_file_content {
             return placeholder("加载中…", muted_fg);
@@ -25,7 +26,7 @@ impl VcsView {
             return placeholder("在左侧选择文件以查看内容", muted_fg);
         };
         if let Some(error) = &snapshot.error {
-            return placeholder(error.clone(), gpui_kit::hsla(0.0, 0.65, 0.55, 1.0));
+            return placeholder(error.clone(), error_fg);
         }
         if snapshot.binary {
             return placeholder("（二进制文件，未渲染内容）", muted_fg);
@@ -79,7 +80,7 @@ impl VcsView {
             actions,
         ));
         if snapshot.truncated {
-            body = body.child(truncated_banner(muted_fg));
+            body = body.child(truncated_banner(muted_fg, truncated_warning));
         }
 
         let content = if markdown && !show_source {
@@ -165,8 +166,15 @@ fn is_markdown_path(path: &str) -> bool {
         })
 }
 
-fn truncated_banner(muted_fg: gpui_kit::Hsla) -> AnyElement {
-    let mut bg = gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0);
+fn project_file_state_colors(
+    danger: gpui_kit::Hsla,
+    warning: gpui_kit::Hsla,
+) -> (gpui_kit::Hsla, gpui_kit::Hsla) {
+    (danger, warning)
+}
+
+fn truncated_banner(muted_fg: gpui_kit::Hsla, warning: gpui_kit::Hsla) -> AnyElement {
+    let mut bg = warning;
     bg.a = 0.10;
     div()
         .w_full()
@@ -190,12 +198,23 @@ fn placeholder(text: impl Into<SharedString>, color: gpui_kit::Hsla) -> AnyEleme
 
 #[cfg(test)]
 mod tests {
-    use super::is_markdown_path;
+    use super::{is_markdown_path, project_file_state_colors};
 
     #[test]
     fn markdown_extensions_are_case_insensitive() {
         assert!(is_markdown_path("README.md"));
         assert!(is_markdown_path("docs/guide.MARKDOWN"));
         assert!(!is_markdown_path("notes.txt"));
+    }
+
+    #[test]
+    fn project_file_state_colors_follow_theme_tokens() {
+        let danger = gpui_kit::hsla(0.95, 0.7, 0.5, 1.0);
+        let warning = gpui_kit::hsla(0.12, 0.8, 0.55, 1.0);
+
+        assert_eq!(
+            project_file_state_colors(danger, warning),
+            (danger, warning)
+        );
     }
 }

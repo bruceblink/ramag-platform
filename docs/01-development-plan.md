@@ -898,6 +898,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不启动本机 Docker，不重新构建或上传 `v0.4.0` 安装包，不运行 Kubernetes；不把 headless 主题颜色结果扩大为真实 Windows 原生窗口主题切换验收，SSH 集成测试继续由用户自行验证。
 - 实施顺序：先提交本设计确认，再替换 Project Files 状态颜色来源并补回归；验证通过后独立提交并推送 `main`，继续阶段 A 质量收口。
 
+### A-QUALITY-THEME-005：VCS 文件内容状态使用主题语义色（代码与 headless 验收完成，2026-09-30）
+
+- 实现：Project Files 内容区的读取错误改为使用当前主题 `danger`，大文件截断提示背景改为使用当前主题 `warning` 并保留原有透明度；文件读取、编辑禁用、Markdown 预览和 4 MiB 上限未改变。
+- 测试：新增 `project_file_state_colors_follow_theme_tokens`，确认错误和截断状态颜色直接采用调用方传入的主题语义色；`ramag-tool-vcs` 全量 186 项中 181 项通过、5 项性能观察测试按设计忽略，现有 Project Files 渲染和三种窗口布局回归继续通过。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
+- 证据边界：headless 测试证明颜色入口不再固定使用红/黄值；没有把 headless 主题结果扩大为真实 Windows 原生窗口主题切换验收，114 服务器终端/端口转发集成回放仍由用户自行验证。
+- 未完成项：没有启动本机 Docker，没有重新构建或上传 `v0.4.0` 安装包，没有运行 Kubernetes；Diff 增删色、Git 状态类别色和语法高亮仍保持现状。
+- Git：设计确认提交 `1610ecb8` 已先行推送；实现代码、回归测试和本验收记录随本切片独立提交并推送 `main`。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。
