@@ -140,6 +140,7 @@ impl VcsView {
 
         let mut bar = h_flex()
             .id("vcs-ftab-bar")
+            .debug_selector(|| "vcs-ftab-bar".into())
             .w_full()
             .flex_none()
             .border_b_1()
@@ -157,12 +158,7 @@ impl VcsView {
             let target_id = target.element_id();
             let tab_id = SharedString::from(format!("vcs-ftab-{target_id}"));
             let close_id = SharedString::from(format!("vcs-ftab-close-{target_id}"));
-            let dot_color = match &tab.source {
-                FileTabSource::Changes(kind) => status_colors.group(*kind, muted_fg),
-                FileTabSource::ProjectFiles => gpui_kit::hsla(210.0 / 360.0, 0.6, 0.55, 1.0),
-                FileTabSource::Commit { .. } => gpui_kit::hsla(280.0 / 360.0, 0.55, 0.55, 1.0),
-                FileTabSource::Compare { .. } => gpui_kit::hsla(160.0 / 360.0, 0.55, 0.5, 1.0),
-            };
+            let dot_color = status_colors.file_tab(&tab.source, muted_fg);
             // Changes / Commit 的圆点表达来源状态；Project Files 只在尚未落盘时显示。
             let show_dot = !matches!(tab.source, FileTabSource::ProjectFiles) || tab.is_dirty();
             let path_for_click = tab.path.clone();

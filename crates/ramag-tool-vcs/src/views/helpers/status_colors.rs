@@ -1,4 +1,4 @@
-use super::GroupKind;
+use super::{FileTabSource, GroupKind};
 
 /// Git 工作区共用的状态颜色；展示层从当前主题创建，避免各处维护固定色值。
 #[derive(Clone, Copy)]
@@ -51,12 +51,25 @@ impl GitStatusColors {
     pub(in crate::views) fn remote(self) -> gpui_kit::Hsla {
         self.info
     }
+
+    pub(in crate::views) fn file_tab(
+        self,
+        source: &FileTabSource,
+        fallback: gpui_kit::Hsla,
+    ) -> gpui_kit::Hsla {
+        match source {
+            FileTabSource::Changes(kind) => self.group(*kind, fallback),
+            FileTabSource::ProjectFiles => self.info,
+            FileTabSource::Commit { .. } => self.accent,
+            FileTabSource::Compare { .. } => self.success,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::GitStatusColors;
-    use crate::views::helpers::GroupKind;
+    use crate::views::helpers::{FileTabSource, GroupKind};
 
     fn colors() -> GitStatusColors {
         GitStatusColors {
@@ -100,5 +113,40 @@ mod tests {
 
         assert_eq!(colors.tag(), colors.warning);
         assert_eq!(colors.remote(), colors.info);
+    }
+
+    #[test]
+    fn file_tab_sources_use_theme_semantic_colors() {
+        let colors = colors();
+        let fallback = gpui_kit::hsla(0.66, 0.66, 0.56, 1.0);
+
+        assert_eq!(
+            colors.file_tab(&FileTabSource::ProjectFiles, fallback),
+            colors.info
+        );
+        assert_eq!(
+            colors.file_tab(
+                &FileTabSource::Commit {
+                    commit_id: "abc1234".into(),
+                    change_kind: None,
+                },
+                fallback,
+            ),
+            colors.accent
+        );
+        assert_eq!(
+            colors.file_tab(
+                &FileTabSource::Compare {
+                    from: "main".into(),
+                    to: "feature/ui".into(),
+                },
+                fallback,
+            ),
+            colors.success
+        );
+        assert_eq!(
+            colors.file_tab(&FileTabSource::Changes(GroupKind::Untracked), fallback),
+            fallback
+        );
     }
 }

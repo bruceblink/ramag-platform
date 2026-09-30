@@ -988,6 +988,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不重新构建或上传 `v0.4.0` 安装包，不启动本机 Docker，不运行 Kubernetes；不改变 Diff 增删行底色、Git 状态映射、引用解析、主题调色板或真实 Windows 原生窗口操作。
 - 实施顺序：先推送本设计确认，再替换文件标签来源颜色并补截图测试；目标测试和质量检查通过后独立提交并推送 `main`，继续阶段 A 主题一致性收口。
 
+### A-QUALITY-THEME-010：文件标签来源颜色使用主题语义色（代码与 headless 验收完成，2026-09-30）
+
+- 实现：文件标签中的 Project Files、Commit 和 Compare 来源圆点分别读取当前主题的 `info`、`accent` 和 `success`；Changes 标签继续按 Git 状态显示颜色。文件标签栏增加 `vcs-ftab-bar` 稳定调试选择器，方便布局和截图测试定位。
+- 测试：新增 `file_tab_sources_use_theme_semantic_colors`，确认三类来源和未跟踪状态分别使用主题颜色或弱化正文色；新增 `vcs_file_tab_sources_fit_supported_window_sizes`，在 `360x640`、`1024x768` 和 `1440x900` 检查标签栏边界。`ramag-tool-vcs` 全量测试 `188` 项通过、`5` 项性能观察测试按设计忽略。
+- 截图测试：新增 `captures_vcs_file_tab_screenshot`。在 macOS Metal 主线程视觉运行器中，它会捕获 `1024x768` VCS 工作区帧，检查尺寸和非空像素，并写入 `target/ui-screenshots/vcs-file-tabs-1024x768.png`。当前 WSL/Linux 的 GPUI 测试平台没有 headless 图像渲染器，因此本次只执行了三尺寸 headless 布局回归，没有生成像素 PNG；Computer Use 原生窗口运行时也未恢复，不把这两项限制写成截图已通过。
+- 质量检查：`cargo fmt --all -- --check`、workspace Clippy、源码尺寸检查和 `git diff --check` 通过；未重新构建或上传 `v0.4.0` 安装包，未启动 Docker，未运行 Kubernetes。
+- Git：设计确认提交 `4f086e8c` 已先行推送；实现代码、回归测试和本验收记录随本切片独立提交并推送 `main`。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。

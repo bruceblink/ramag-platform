@@ -17,6 +17,8 @@ use ramag_domain::traits::{GitDriver, Storage};
 use std::{path::Path, sync::Arc};
 #[path = "commit_row_render_test.rs"]
 mod commit_row_render_test;
+#[path = "file_tab_visual_test.rs"]
+mod file_tab_visual_test;
 #[path = "rebase_plan_render_test.rs"]
 mod rebase_plan_render_test;
 #[path = "render_toolbar_test.rs"]
@@ -205,7 +207,6 @@ fn inject_scroll_diff_session(v: &mut VcsView) {
     v.file_tabs[0].cached_diff_syntax = Some(syntax);
     v.diff_view_mode = super::super::helpers::DiffViewMode::FullFile;
 }
-
 /// 注入 Project Files 直接查看文件内容的 Session 态。
 fn inject_file_content_session(v: &mut VcsView) {
     let repo = mock_repo();
