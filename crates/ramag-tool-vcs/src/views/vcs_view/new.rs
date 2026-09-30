@@ -245,6 +245,7 @@ impl VcsView {
             diff_request_seq: 0,
             view_mode: ViewMode::Workspace,
             history_commits: std::rc::Rc::new(Vec::new()),
+            history_commit_ids: std::collections::HashSet::new(),
             history_retained_bytes: 0,
             history_limit_reached: false,
             history_graph_rows: std::rc::Rc::new(Vec::new()),

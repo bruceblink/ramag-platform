@@ -97,6 +97,7 @@ pub struct VcsView {
     pub(super) diff_request_seq: u64,
     pub(super) view_mode: ViewMode,
     pub(super) history_commits: std::rc::Rc<Vec<std::rc::Rc<Commit>>>,
+    pub(super) history_commit_ids: std::collections::HashSet<String>,
     pub(super) history_retained_bytes: usize,
     /// 达到条数或内存上限后停止自动翻页。
     pub(super) history_limit_reached: bool,
@@ -440,31 +441,43 @@ impl VcsView {
 
     pub(super) fn set_history_commits(&mut self, commits: Vec<Commit>) -> (bool, usize) {
         let retained = super::history_retention::replace(commits);
-        self.history_retained_bytes = retained.retained_bytes;
-        self.history_limit_reached = retained.limit_reached;
-        let added_count = retained.added_count;
+        let super::history_retention::RetainedHistory {
+            commits,
+            retained_bytes,
+            limit_reached,
+            added_count,
+            added_ids: _,
+        } = retained;
+        self.history_retained_bytes = retained_bytes;
+        self.history_limit_reached = limit_reached;
+        self.history_commit_ids = commits.iter().map(|commit| commit.id.0.clone()).collect();
         self.history_graph_state = Default::default();
-        self.history_graph_rows =
-            std::rc::Rc::new(self.history_graph_state.append(&retained.commits));
-        self.history_commits = std::rc::Rc::new(retained.commits);
+        self.history_graph_rows = std::rc::Rc::new(self.history_graph_state.append(&commits));
+        self.history_commits = std::rc::Rc::new(commits);
         (self.history_limit_reached, added_count)
     }
 
     pub(super) fn append_history_commits(&mut self, commits: Vec<Commit>) -> (bool, usize) {
         let retained = super::history_retention::append(
             &self.history_commits,
+            &self.history_commit_ids,
             self.history_retained_bytes,
             commits,
         );
-        self.history_retained_bytes = retained.retained_bytes;
-        self.history_limit_reached = retained.limit_reached;
-        let added_count = retained.added_count;
+        let super::history_retention::RetainedHistory {
+            commits,
+            retained_bytes,
+            limit_reached,
+            added_count,
+            added_ids,
+        } = retained;
+        self.history_retained_bytes = retained_bytes;
+        self.history_limit_reached = limit_reached;
+        self.history_commit_ids.extend(added_ids);
         let previous_len = self.history_commits.len();
-        let new_rows = self
-            .history_graph_state
-            .append(&retained.commits[previous_len..]);
+        let new_rows = self.history_graph_state.append(&commits[previous_len..]);
         std::rc::Rc::make_mut(&mut self.history_graph_rows).extend(new_rows);
-        self.history_commits = std::rc::Rc::new(retained.commits);
+        self.history_commits = std::rc::Rc::new(commits);
         (self.history_limit_reached, added_count)
     }
 

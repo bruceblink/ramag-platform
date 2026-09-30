@@ -12,6 +12,7 @@ pub(super) struct RetainedHistory {
     pub(super) retained_bytes: usize,
     pub(super) limit_reached: bool,
     pub(super) added_count: usize,
+    pub(super) added_ids: Vec<String>,
 }
 
 pub(super) fn replace(commits: Vec<Commit>) -> RetainedHistory {
@@ -26,11 +27,13 @@ pub(super) fn replace(commits: Vec<Commit>) -> RetainedHistory {
 
 pub(super) fn append(
     existing: &[Rc<Commit>],
+    existing_ids: &HashSet<String>,
     retained_bytes: usize,
     commits: Vec<Commit>,
 ) -> RetainedHistory {
-    retain_with_limits(
+    retain_with_limits_using_ids(
         existing,
+        existing_ids,
         retained_bytes,
         commits,
         MAX_HISTORY_COMMITS,
@@ -45,20 +48,41 @@ fn retain_with_limits(
     max_commits: usize,
     max_bytes: usize,
 ) -> RetainedHistory {
+    let existing_ids = existing
+        .iter()
+        .map(|commit| commit.id.0.clone())
+        .collect::<HashSet<_>>();
+    retain_with_limits_using_ids(
+        existing,
+        &existing_ids,
+        retained_bytes,
+        incoming,
+        max_commits,
+        max_bytes,
+    )
+}
+
+fn retain_with_limits_using_ids(
+    existing: &[Rc<Commit>],
+    existing_ids: &HashSet<String>,
+    retained_bytes: usize,
+    incoming: Vec<Commit>,
+    max_commits: usize,
+    max_bytes: usize,
+) -> RetainedHistory {
     let incoming_len = incoming.len();
     let capacity = existing.len().saturating_add(incoming_len).min(max_commits);
     let mut commits = Vec::with_capacity(capacity);
     commits.extend(existing.iter().cloned());
-    let mut seen_ids = existing
-        .iter()
-        .map(|commit| commit.id.0.clone())
-        .collect::<HashSet<_>>();
+    let mut incoming_ids = HashSet::with_capacity(incoming_len);
     let mut bytes = retained_bytes;
     let mut added_count = 0usize;
+    let mut added_ids = Vec::with_capacity(incoming_len.min(max_commits));
     let mut truncated = false;
 
     for commit in incoming {
-        if !seen_ids.insert(commit.id.0.clone()) {
+        let commit_id = commit.id.0.clone();
+        if existing_ids.contains(&commit_id) || !incoming_ids.insert(commit_id.clone()) {
             continue;
         }
         if commits.len() >= max_commits {
@@ -78,6 +102,7 @@ fn retain_with_limits(
         commits.push(Rc::new(commit));
         bytes = next_bytes;
         added_count += 1;
+        added_ids.push(commit_id);
     }
 
     let limit_reached =
@@ -87,6 +112,7 @@ fn retain_with_limits(
         retained_bytes: bytes,
         limit_reached,
         added_count,
+        added_ids,
     }
 }
 
@@ -155,6 +181,7 @@ mod tests {
 
         assert_eq!(retained.commits.len(), 2);
         assert_eq!(retained.added_count, 2);
+        assert_eq!(retained.added_ids, ["1", "2"]);
         assert!(retained.limit_reached);
     }
 
@@ -173,6 +200,7 @@ mod tests {
         assert_eq!(retained.commits.len(), 1);
         assert!(Rc::ptr_eq(&retained.commits[0], &existing));
         assert_eq!(retained.added_count, 0);
+        assert!(retained.added_ids.is_empty());
         assert!(retained.limit_reached);
     }
 
@@ -190,6 +218,7 @@ mod tests {
         assert_eq!(retained.commits[0].id.0, "1");
         assert_eq!(retained.commits[1].id.0, "2");
         assert_eq!(retained.added_count, 2);
+        assert_eq!(retained.added_ids, ["1", "2"]);
         assert!(!retained.limit_reached);
     }
 
@@ -208,6 +237,24 @@ mod tests {
         assert!(Rc::ptr_eq(&retained.commits[0], &existing));
         assert_eq!(retained.commits[1].id.0, "2");
         assert_eq!(retained.added_count, 1);
+        assert_eq!(retained.added_ids, ["2"]);
         assert!(!retained.limit_reached);
+    }
+
+    #[test]
+    fn append_uses_existing_id_index_without_copying_old_ids() {
+        let existing = Rc::new(commit("1", 0));
+        let existing_ids = [String::from("1")].into_iter().collect();
+        let retained = append(
+            std::slice::from_ref(&existing),
+            &existing_ids,
+            commit_retained_bytes(&existing),
+            vec![commit("1", 10), commit("2", 0)],
+        );
+
+        assert_eq!(retained.commits.len(), 2);
+        assert!(Rc::ptr_eq(&retained.commits[0], &existing));
+        assert_eq!(retained.added_ids, ["2"]);
+        assert_eq!(retained.added_count, 1);
     }
 }
