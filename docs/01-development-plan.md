@@ -910,11 +910,20 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 ### A-QUALITY-THEME-006：Git 状态颜色使用主题语义色（设计确认，2026-09-30）
 
 - 问题证据：Git 工作区的未暂存组徽标、Changes 文件标签圆点以及状态字母 `M/A/D/R/C/T/U` 仍使用固定 HSLA 色值；明暗主题变化时，这些状态颜色不会跟随应用主题，且相同的状态在不同区域可能颜色不一致。
-- 设计：把修改、添加、删除、重命名/复制、类型变化和冲突分别映射到当前主题的 `warning`、`success`、`danger`、`info`、`info` 和 `danger`；未暂存组和标签圆点共用 `warning`，冲突共用 `danger`，暂存组继续使用 `accent`，未跟踪文件继续使用弱化正文色。Project Files、Commit、Compare 标签的来源分类色不在本切片改动范围。
+- 设计：把修改、添加、删除、重命名/复制、类型变化和冲突分别映射到当前主题的 `warning`、`success`、`danger`、`info`、`info` 和 `danger`；变更组徽标与对应 Changes 标签圆点使用相同的组颜色：未暂存为 `warning`、冲突为 `danger`、暂存为 `accent`、未跟踪为弱化正文色。Project Files、Commit、Compare 标签的来源分类色不在本切片改动范围。
 - 改动范围：统一 Git 变更组徽标、Changes 文件标签圆点及工作区/比较/提交详情/Project Files 文件状态字母的颜色映射，并补充纯函数测试；不改变文件状态分类、Git 命令、行身份、标签交互或 Diff 内容。
 - 验收条件：状态颜色映射测试确认 `M/A/D/R/C/T/U` 分别读取预期主题色；headless 渲染在现有 Git 工作区、比较列表和提交详情路径通过；`ramag-tool-vcs` 全量测试、workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
 - 不做事项：不启动本机 Docker，不重新构建或上传 `v0.4.0` 安装包，不运行 Kubernetes；不修改 Diff 增删行底色、Reflog 操作类型色或 Project Files/Commit/Compare 来源分类色，不把 headless 结果扩大为真实 Windows 原生窗口主题切换验收。
 - 实施顺序：先提交本设计确认，再把 Git 状态颜色映射切换到当前主题并补回归；验证通过后独立提交并推送 `main`，继续阶段 A 主题一致性收口。
+
+### A-QUALITY-THEME-006：Git 状态颜色使用主题语义色（代码与 headless 验收完成，2026-09-30）
+
+- 实现：新增共享的 Git 状态颜色映射，从当前主题读取状态色；工作区分组徽标和 Changes 标签圆点按暂存、未暂存、冲突、未跟踪状态显示；工作区、比较、提交详情和 Project Files 中的 `M/A/D/R/C/T/U` 状态字母改用主题语义色。文件状态分类、Git 命令、标签来源分类色和 Diff 增删行底色保持不变。
+- 测试：新增状态字母和变更组颜色映射测试，确认 `M/A/D/R/C/T/U` 及四种分组使用预期主题色或弱化正文色；`cargo test --locked -p ramag-tool-vcs --all-targets -- --test-threads=1` 通过，188 项中 183 项通过、5 项性能观察测试按设计忽略；现有工作区、比较列表、提交详情和 Project Files headless 渲染回归通过。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`bash scripts/check-source-size.sh` 和 `git diff --check` 通过。
+- 证据边界：颜色映射单元测试和 headless 渲染回归通过；没有把 headless 结果扩大为真实 Windows 原生窗口明暗主题切换验收。
+- 未完成项：没有启动本机 Docker 或构建 Release 安装包，没有运行 Kubernetes；真实窗口主题切换仍待原生窗口验收环境恢复。
+- Git：设计确认提交 `e5f81437` 已先行推送；实现代码和本验收记录随本切片独立提交并推送 `main`。
 
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 

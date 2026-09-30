@@ -18,7 +18,7 @@ use ramag_domain::entities::{
 };
 
 use super::helpers::{
-    FileOp, GroupKind, code_letter_color, code_to_letter, file_op_button, stable_file_element_id,
+    FileOp, GitStatusColors, GroupKind, code_to_letter, file_op_button, stable_file_element_id,
 };
 use super::vcs_view::VcsView;
 use super::workspace_conflict::conflict_buttons;
@@ -290,6 +290,7 @@ impl VcsView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme();
+        let status_colors = GitStatusColors::from_theme(theme);
         let fg = theme.foreground;
         let muted_fg = theme.muted_foreground;
         let hover_bg = theme.muted;
@@ -302,7 +303,7 @@ impl VcsView {
             GroupKind::Conflict => f.staged.or(f.unstaged),
         };
         let code = code_to_letter(code_kind);
-        let code_color = code_letter_color(code, muted_fg);
+        let code_color = status_colors.letter(code, muted_fg);
 
         let path_label = match (&f.old_path, &f.path) {
             (Some(old), new) if old != new => {

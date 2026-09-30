@@ -7,7 +7,7 @@ use gpui_kit::{
     prelude::*, px,
 };
 
-use super::helpers::{FileTabSource, GroupKind};
+use super::helpers::{FileTabSource, GitStatusColors, GroupKind};
 use super::vcs_view::VcsView;
 
 impl VcsView {
@@ -134,6 +134,7 @@ impl VcsView {
         let border = theme.border;
         let accent = theme.accent;
         let muted_bg = theme.muted;
+        let status_colors = GitStatusColors::from_theme(theme);
         let mut accent_bg = accent;
         accent_bg.a = 0.12;
 
@@ -157,12 +158,7 @@ impl VcsView {
             let tab_id = SharedString::from(format!("vcs-ftab-{target_id}"));
             let close_id = SharedString::from(format!("vcs-ftab-close-{target_id}"));
             let dot_color = match &tab.source {
-                FileTabSource::Changes(GroupKind::Staged) => accent,
-                FileTabSource::Changes(GroupKind::Unstaged) => {
-                    gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0)
-                }
-                FileTabSource::Changes(GroupKind::Untracked) => muted_fg,
-                FileTabSource::Changes(GroupKind::Conflict) => gpui_kit::hsla(0.0, 0.65, 0.55, 1.0),
+                FileTabSource::Changes(kind) => status_colors.group(*kind, muted_fg),
                 FileTabSource::ProjectFiles => gpui_kit::hsla(210.0 / 360.0, 0.6, 0.55, 1.0),
                 FileTabSource::Commit { .. } => gpui_kit::hsla(280.0 / 360.0, 0.55, 0.55, 1.0),
                 FileTabSource::Compare { .. } => gpui_kit::hsla(160.0 / 360.0, 0.55, 0.5, 1.0),

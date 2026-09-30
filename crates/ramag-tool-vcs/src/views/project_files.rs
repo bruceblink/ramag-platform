@@ -9,7 +9,7 @@ use gpui_kit::{
 };
 use ramag_domain::entities::{FileChangeKind, FileStatus, contains_case_insensitive};
 
-use super::helpers::{code_letter_color, code_to_letter, stable_path_element_id};
+use super::helpers::{GitStatusColors, code_to_letter, stable_path_element_id};
 use super::vcs_view::VcsView;
 
 /// 行高固定为 28px。
@@ -376,6 +376,7 @@ impl VcsView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
+        let status_colors = GitStatusColors::from_theme(theme);
         let fg = theme.foreground;
         let muted_fg = theme.muted_foreground;
         let hover_bg = theme.muted;
@@ -383,7 +384,7 @@ impl VcsView {
         accent_bg.a = 0.10;
 
         let letter = code_to_letter(status_kind);
-        let letter_color = code_letter_color(letter, muted_fg);
+        let letter_color = status_colors.letter(letter, muted_fg);
         let status_element = status_kind.map(|_| {
             div()
                 .flex_none()

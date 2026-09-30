@@ -42,16 +42,12 @@ impl VcsView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
+        let status_colors = GitStatusColors::from_theme(theme);
         let muted_fg = theme.muted_foreground;
         let border = theme.border;
         let busy = self.busy;
         let count = file_paths.len();
-        let badge_color = match kind {
-            GroupKind::Conflict => theme.danger,
-            GroupKind::Staged => theme.accent,
-            GroupKind::Unstaged => gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0),
-            GroupKind::Untracked => muted_fg,
-        };
+        let badge_color = status_colors.group(kind, muted_fg);
         let mut badge_bg = badge_color;
         badge_bg.a = 0.14;
 

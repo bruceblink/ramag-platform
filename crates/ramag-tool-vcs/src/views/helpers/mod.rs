@@ -1,6 +1,7 @@
 mod commit_row;
 mod file_tab_target;
 mod stable_id;
+mod status_colors;
 
 pub(super) use commit_row::render_commit_row;
 pub(super) use file_tab_target::{FileTabTarget, find_file_tab_index};
@@ -10,6 +11,7 @@ pub(super) use stable_id::{
     stable_file_element_id, stable_hunk_key, stable_path_element_id, stable_remote_element_id,
     stable_tag_element_id,
 };
+pub(super) use status_colors::GitStatusColors;
 
 use gpui_kit::component::{Disableable as _, IconName, Sizable as _, button::ButtonVariants as _};
 use gpui_kit::{AnyElement, ClickEvent, Context, IntoElement, SharedString, Window};
@@ -382,19 +384,6 @@ pub(super) fn code_to_letter(kind: Option<FileChangeKind>) -> &'static str {
         Some(FileChangeKind::Untracked) => "?",
         Some(FileChangeKind::Conflicted) => "U",
         None => " ",
-    }
-}
-
-pub(super) fn code_letter_color(code: &str, fallback: gpui_kit::Hsla) -> gpui_kit::Hsla {
-    match code {
-        "M" => gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0),
-        "A" => gpui_kit::hsla(140.0 / 360.0, 0.55, 0.45, 1.0),
-        "D" => gpui_kit::hsla(0.0, 0.65, 0.55, 1.0),
-        "R" => gpui_kit::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
-        "C" => gpui_kit::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
-        "T" => gpui_kit::hsla(280.0 / 360.0, 0.55, 0.55, 1.0),
-        "U" => gpui_kit::hsla(0.0, 0.75, 0.5, 1.0),
-        _ => fallback,
     }
 }
 

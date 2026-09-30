@@ -11,7 +11,7 @@ use gpui_kit::{
 use ramag_domain::entities::{Commit, FileStatus};
 
 use super::file_tree::{Row, build_tree, flatten};
-use super::helpers::{code_letter_color, code_to_letter, stable_commit_path_element_id};
+use super::helpers::{GitStatusColors, code_to_letter, stable_commit_path_element_id};
 use super::vcs_view::VcsView;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -283,6 +283,7 @@ fn render_tree_row(
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
     let theme = cx.theme();
+    let status_colors = GitStatusColors::from_theme(theme);
     let hover_bg = theme.muted;
     let mut sel_bg = theme.accent;
     sel_bg.a = 0.16;
@@ -343,7 +344,7 @@ fn render_tree_row(
         Row::File { idx, depth } => {
             let f = &files[*idx];
             let code = code_to_letter(f.staged);
-            let code_color = code_letter_color(code, muted_fg);
+            let code_color = status_colors.letter(code, muted_fg);
             let label = match (&f.old_path, &f.path) {
                 (Some(old), new) if old != new => {
                     let old_base = old.rsplit('/').next().unwrap_or(old.as_str());

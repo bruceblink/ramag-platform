@@ -14,7 +14,7 @@ use tracing::{error, info};
 
 use super::compare_picker::CompareSide;
 use super::helpers::{
-    FileTabSource, code_letter_color, code_to_letter, find_file_tab_index,
+    FileTabSource, GitStatusColors, code_to_letter, find_file_tab_index,
     stable_compare_file_element_id,
 };
 use super::vcs_view::{CompareState, VcsView};
@@ -383,12 +383,13 @@ fn render_compare_file_row(
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
     let theme = cx.theme();
+    let status_colors = GitStatusColors::from_theme(theme);
     let muted_fg = theme.muted_foreground;
     let fg = theme.foreground;
     let hover_bg = theme.muted;
     let kind = file.staged.or(file.unstaged);
     let code = code_to_letter(kind);
-    let code_color = code_letter_color(code, muted_fg);
+    let code_color = status_colors.letter(code, muted_fg);
     let path = file.path.clone();
     let path_label = match (&file.old_path, file.path.as_str()) {
         (Some(old), new) if old != new => format!("{old} → {new}"),
