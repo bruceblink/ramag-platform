@@ -733,7 +733,7 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不改变 Diff 对齐算法、语法高亮、hunk 暂存/丢弃、Git patch 内容、真实仓库回放或真实 Windows 原生窗口验收。
 - 实现：新增稳定折叠占位键，把 `expanded_diff_spacers` 和 `SplitKey::Spacer` 的展开状态从 `(hunk_idx, run_start)` 改为稳定 `u64` 键；占位行 ID 和调试选择器使用稳定键，hunk 重排后继续绑定原 Context 段。
 - 验收结果：稳定键单元测试确认 hunk 重排后键不变、Context 段位置变化后键分离；折叠布局测试确认已展开的第一段不会误展开另一段；headless 测试 `diff_spacer_keeps_stable_selector_and_expansion_after_reorder` 在两段长 Context Diff 中按稳定选择器定位占位行，并在 hunk 顺序变化后确认原目标展开、另一目标仍显示。`ramag-tool-vcs` 全量 169 项测试中 164 项通过、5 项性能观察测试按设计忽略；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
-- 提交：设计确认提交为 `b1d704f1`；代码提交待本次验证后创建并推送。
+- 提交：设计确认提交为 `b1d704f1`；代码提交为 `959ecb3c fix(vcs): stabilize diff spacer expansion`，验收记录提交为 `9ccdeb22 docs: record diff spacer identity evidence`，均已推送到 `origin/main`。
 - 证据边界：本切片证明折叠占位行的状态和节点定位不再依赖 hunk 数组下标，并覆盖 headless 重排回归；不提供真实仓库 Git 操作、真实 Windows 原生窗口鼠标和键盘证据。
 
 ### B-GIT-001-T：分支、远程和标签侧栏使用安全稳定标识（代码与 headless 回归完成，2026-09-29）
