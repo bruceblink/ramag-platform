@@ -215,6 +215,8 @@ impl TableTreePanel {
         self.recent_tables.insert(0, reference);
         self.recent_tables.truncate(MAX_RECENT_TABLES);
         self.persist_navigation_state(cx);
+        self.invalidate_tree_rows();
+        cx.notify();
     }
 
     pub(super) fn set_table_filter(&mut self, filter: TableTreeFilter, cx: &mut Context<Self>) {

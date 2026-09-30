@@ -18,6 +18,7 @@ use super::TableTreePanel;
 use crate::sql_completion::SchemaCache;
 use crate::views::connection_list::ConnectionListPanel;
 
+mod navigation_filter_tests;
 mod server_object_layout_tests;
 
 #[derive(Default)]
