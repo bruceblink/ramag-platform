@@ -54,7 +54,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 3. `A-UI-REAL`：真实窗口探测受 Computer Use 环境阻塞，状态保持未完成；不把替代证据写成真实窗口通过。
 4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和插件秘密上下文的真实环境验收；Linux Secret Service、macOS Keychain 和发布环境仍待分别验收，验证失败时保留安全拒绝状态。
 5. `A-PLAT-005`：JSON Path 真实静态入口已完成 headless 运行指标、任务回收、WSL 当前进程内存多场景回放和 Windows 系统 UI Automation/截图替代验收；Linux/macOS、发布构建和 Computer Use 真实窗口证据仍待补。
-6. `A-QUALITY`：`A-QUALITY-VCS-001` 历史提交 ID 索引复用、`A-QUALITY-DBCLIENT-001` 恢复连接标签首帧延迟物化、`A-QUALITY-DBCLIENT-002` 宽结果列索引按可见范围保留、`A-QUALITY-TREE-001` 最近访问筛选的对象树缓存刷新、`A-QUALITY-THEME-001` 对象树错误状态使用主题语义色和 `A-QUALITY-THEME-002` 连接表单/连接列表使用主题状态色已完成；阶段 A 质量记录继续补齐对象树和主题一致性；阶段 B 的 `B-GIT-001-Z`、`B-GIT-001-AA` 文件标签生命周期边界已完成，继续按 Git 工作区边界推进；`v0.4.0` 已由 GitHub Release 发布，后续日常开发不在本机重复构建安装包，正式版本发布时按标签执行既有 GitHub Actions 流程。
+6. `A-QUALITY`：`A-QUALITY-VCS-001` 历史提交 ID 索引复用、`A-QUALITY-DBCLIENT-001` 恢复连接标签首帧延迟物化、`A-QUALITY-DBCLIENT-002` 宽结果列索引按可见范围保留、`A-QUALITY-TREE-001` 最近访问筛选的对象树缓存刷新、`A-QUALITY-THEME-001` 对象树错误状态使用主题语义色和 `A-QUALITY-THEME-002` 连接表单/连接列表使用主题状态色已完成；阶段 A 质量记录继续补齐对象树和主题一致性；阶段 B 的 `B-GIT-001-Z`、`B-GIT-001-AA` 文件标签生命周期边界已完成，当前进入 `B-GIT-001-AB` 会话缓存标签恢复；`v0.4.0` 已由 GitHub Release 发布，后续日常开发不在本机重复构建安装包，正式版本发布时按标签执行既有 GitHub Actions 流程。
 
 阶段 A 的每个子项独立设计、验证、提交和推送；同一时间只有一个子项处于开发中。
 
@@ -66,7 +66,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 2. `B-KAFKA-001`：Kafka 连接、Topic、消息、Schema Registry 和 Broker 状态工作区；`B-KAFKA-001-A/B` 已完成代码、headless、Windows 系统 UI Automation 取消流程替代证据和本机 Docker Kafka 成功连接/Topic/消息回读，Computer Use 原生窗口证据待运行时恢复。
 3. `B-SSH-001`：SSH/终端、SFTP、端口转发和连接生命周期工作区；`B-SSH-001-A` 已完成代码、headless 和 `10.17.17.114` 真实 OpenSSH/SFTP 回放，`B-SSH-001-B` 的 114 终端/端口转发回放由用户自行验证。
 4. `B-CONTAINER-001`：容器、镜像、日志、执行和资源状态工作区；当前计划中的筛选、历史/持续日志、导出和资源指标切片已完成代码与对应 headless/Docker 验证。
-5. `B-GIT-001`：Git 仓库、分支、差异、提交和推送工作区；`B-GIT-001-A` 至 `B-GIT-001-AA` 已完成对应代码与 headless/本地 Git 回放，继续按工作区状态刷新和异步边界推进。
+5. `B-GIT-001`：Git 仓库、分支、差异、提交和推送工作区；`B-GIT-001-A` 至 `B-GIT-001-AA` 已完成对应代码与 headless/本地 Git 回放，当前实施 `B-GIT-001-AB` 会话缓存标签恢复。
 
 每个工具保留自己的连接、取消、错误、权限和数据模型；每个切片完成真实服务或本机 Docker 验收后再进入下一项。
 
