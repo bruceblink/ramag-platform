@@ -12,7 +12,7 @@ use ramag_domain::entities::{
 
 use super::SshView;
 pub(super) use super::render_manager_helpers::{
-    EnvironmentBadgePalette, centered_message, environment_badge_colors,
+    EnvironmentBadgePalette, centered_message, environment_badge_colors, workspace_tab_dot_color,
 };
 
 const CONTENT_MAX_W: f32 = 1080.0;

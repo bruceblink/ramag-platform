@@ -71,27 +71,17 @@ impl SshView {
             let selected = self.view_mode == ViewMode::Workspace
                 && self.active_workspace_id.as_ref() == Some(&id);
             let label = workspace.profile.name.clone();
-            let dot_color = if workspace.terminal_loading
-                || workspace.sftp_loading
-                || workspace.file_preview_loading
-            {
-                gpui_kit::hsla(45.0 / 360.0, 0.9, 0.55, 1.0)
-            } else if workspace.sftp_error.is_some() || workspace.profile.production {
-                theme.danger
-            } else {
-                workspace
-                    .profile
-                    .environment
-                    .as_deref()
-                    .map(|environment| {
-                        super::render_manager::environment_badge_colors(
-                            environment,
-                            environment_palette,
-                        )
-                        .0
-                    })
-                    .unwrap_or(muted)
-            };
+            let dot_color = super::render_manager::workspace_tab_dot_color(
+                workspace.terminal_loading
+                    || workspace.sftp_loading
+                    || workspace.file_preview_loading,
+                workspace.sftp_error.is_some(),
+                workspace.profile.production,
+                workspace.profile.environment.as_deref(),
+                theme.warning,
+                theme.danger,
+                environment_palette,
+            );
             let mut tab = h_flex()
                 .id(SharedString::from(format!("ssh-workspace-tab-{id}")))
                 .flex_none()

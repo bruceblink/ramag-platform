@@ -50,3 +50,23 @@ pub(super) fn environment_badge_colors(
     background.a = 0.12;
     (foreground, background)
 }
+
+pub(super) fn workspace_tab_dot_color(
+    loading: bool,
+    has_error: bool,
+    production: bool,
+    environment: Option<&str>,
+    loading_color: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
+    palette: EnvironmentBadgePalette,
+) -> gpui_kit::Hsla {
+    if loading {
+        loading_color
+    } else if has_error || production {
+        danger
+    } else {
+        environment
+            .map(|value| environment_badge_colors(value, palette).0)
+            .unwrap_or(palette.fallback)
+    }
+}
