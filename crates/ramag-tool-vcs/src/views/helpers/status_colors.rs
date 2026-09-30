@@ -43,6 +43,14 @@ impl GitStatusColors {
             _ => fallback,
         }
     }
+
+    pub(in crate::views) fn tag(self) -> gpui_kit::Hsla {
+        self.warning
+    }
+
+    pub(in crate::views) fn remote(self) -> gpui_kit::Hsla {
+        self.info
+    }
 }
 
 #[cfg(test)]
@@ -84,5 +92,13 @@ mod tests {
         assert_eq!(colors.group(GroupKind::Unstaged, fallback), colors.warning);
         assert_eq!(colors.group(GroupKind::Conflict, fallback), colors.danger);
         assert_eq!(colors.group(GroupKind::Untracked, fallback), fallback);
+    }
+
+    #[test]
+    fn sidebar_reference_icons_use_theme_semantic_colors() {
+        let colors = colors();
+
+        assert_eq!(colors.tag(), colors.warning);
+        assert_eq!(colors.remote(), colors.info);
     }
 }

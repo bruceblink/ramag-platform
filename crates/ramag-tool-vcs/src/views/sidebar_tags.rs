@@ -13,7 +13,9 @@ use gpui_kit::{
 use ramag_domain::entities::Tag;
 use ramag_ui::PointerDropdownMenu as _;
 
-use super::helpers::{HistoryRefFilter, TagOp, stable_path_element_id, stable_tag_element_id};
+use super::helpers::{
+    GitStatusColors, HistoryRefFilter, TagOp, stable_path_element_id, stable_tag_element_id,
+};
 use super::sidebar::LEFT_ROW_H;
 use super::vcs_view::VcsView;
 
@@ -28,7 +30,7 @@ pub(super) fn tag_row(
     let muted_fg = theme.muted_foreground;
     let mono = theme.mono_font_family.clone();
     let hover_bg = theme.muted;
-    let tag_color = gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0);
+    let tag_color = GitStatusColors::from_theme(theme).tag();
     let mut selected_bg = theme.accent;
     selected_bg.a = 0.14;
 

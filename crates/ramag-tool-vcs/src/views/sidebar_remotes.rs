@@ -10,7 +10,7 @@ use gpui_kit::{Context, Entity, InteractiveElement, IntoElement, ParentElement, 
 use ramag_domain::entities::Remote;
 use ramag_ui::PointerDropdownMenu as _;
 
-use super::helpers::{stable_path_element_id, stable_remote_element_id};
+use super::helpers::{GitStatusColors, stable_path_element_id, stable_remote_element_id};
 use super::sidebar::LEFT_ROW_H;
 use super::vcs_view::VcsView;
 
@@ -20,7 +20,7 @@ pub(super) fn remote_row(r: &Remote, busy: bool, cx: &mut Context<VcsView>) -> i
     let muted_fg = theme.muted_foreground;
     let mono = theme.mono_font_family.clone();
     let hover_bg = theme.muted;
-    let remote_color = gpui_kit::hsla(200.0 / 360.0, 0.6, 0.55, 1.0);
+    let remote_color = GitStatusColors::from_theme(theme).remote();
 
     let name = r.name.clone();
     let url = r.fetch_url.clone();
