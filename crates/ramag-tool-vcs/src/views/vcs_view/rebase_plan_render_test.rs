@@ -253,6 +253,121 @@ fn closing_compare_restores_stable_file_tab_selection(cx: &mut TestAppContext) {
     });
 }
 
+/// 状态刷新移除 Changes 标签时按清理前位置恢复相邻标签，并保留重新归类后的标签。
+#[gpui_kit::test]
+fn status_refresh_restores_file_tab_position_after_change_removal(cx: &mut TestAppContext) {
+    let (view, cx) = add_vcs_window(cx);
+    let repo = super::mock_repo();
+
+    view.update(cx, |v, cx| {
+        v.open_repos = vec![repo.clone()];
+        v.repo = Some(repo.clone());
+        v.status = Some(WorkingTreeStatus {
+            files: vec![
+                FileStatus {
+                    path: "before.rs".into(),
+                    old_path: None,
+                    staged: None,
+                    unstaged: Some(FileChangeKind::Modified),
+                },
+                FileStatus {
+                    path: "after.rs".into(),
+                    old_path: None,
+                    staged: None,
+                    unstaged: Some(FileChangeKind::Modified),
+                },
+            ],
+            ..Default::default()
+        });
+        v.file_tabs = vec![
+            file_tab("before.rs", FileTabSource::Changes(GroupKind::Unstaged)),
+            file_tab("gone.rs", FileTabSource::Changes(GroupKind::Unstaged)),
+            file_tab("project.rs", FileTabSource::ProjectFiles),
+            file_tab(
+                "commit.rs",
+                FileTabSource::Commit {
+                    commit_id: "commit-id".into(),
+                    change_kind: None,
+                },
+            ),
+        ];
+        v.active_file_tab_idx = Some(1);
+        v.sync_changes_tabs_with_status(cx);
+
+        assert_eq!(v.active_file_tab_idx, Some(1));
+        assert_eq!(v.file_tabs[1].path, "project.rs");
+        assert_eq!(v.selected_pf_path.as_deref(), Some("project.rs"));
+
+        v.status = Some(WorkingTreeStatus {
+            files: vec![FileStatus {
+                path: "redirected.rs".into(),
+                old_path: None,
+                staged: Some(FileChangeKind::Modified),
+                unstaged: None,
+            }],
+            ..Default::default()
+        });
+        let mut redirected = file_tab("redirected.rs", FileTabSource::Changes(GroupKind::Unstaged));
+        redirected.cached_diff = Some(Rc::new(super::test_diff()));
+        v.file_tabs = vec![
+            file_tab("before.rs", FileTabSource::ProjectFiles),
+            redirected,
+            file_tab(
+                "after.rs",
+                FileTabSource::Commit {
+                    commit_id: "commit-id".into(),
+                    change_kind: None,
+                },
+            ),
+        ];
+        v.active_file_tab_idx = Some(1);
+        v.selected_pf_path = Some("before.rs".into());
+        v.sync_changes_tabs_with_status(cx);
+
+        assert_eq!(v.active_file_tab_idx, Some(1));
+        assert_eq!(v.file_tabs[1].path, "redirected.rs");
+        assert_eq!(
+            v.file_tabs[1].source,
+            FileTabSource::Changes(GroupKind::Staged)
+        );
+        assert_eq!(
+            v.selected_file,
+            Some(("redirected.rs".into(), GroupKind::Staged))
+        );
+
+        v.status = Some(WorkingTreeStatus {
+            files: vec![FileStatus {
+                path: "active.rs".into(),
+                old_path: None,
+                staged: None,
+                unstaged: Some(FileChangeKind::Modified),
+            }],
+            ..Default::default()
+        });
+        v.file_tabs = vec![
+            file_tab(
+                "removed-before.rs",
+                FileTabSource::Changes(GroupKind::Unstaged),
+            ),
+            file_tab("active.rs", FileTabSource::ProjectFiles),
+            file_tab(
+                "last.rs",
+                FileTabSource::Commit {
+                    commit_id: "commit-id".into(),
+                    change_kind: None,
+                },
+            ),
+        ];
+        v.active_file_tab_idx = Some(1);
+        v.selected_pf_path = Some("active.rs".into());
+        v.sync_changes_tabs_with_status(cx);
+
+        assert_eq!(v.active_file_tab_idx, Some(0));
+        assert_eq!(v.file_tabs[0].path, "active.rs");
+        assert_eq!(v.selected_pf_path.as_deref(), Some("active.rs"));
+    });
+}
+
 fn inject_project_files(v: &mut VcsView) {
     let repo = super::mock_repo();
     v.open_repos = vec![repo.clone()];

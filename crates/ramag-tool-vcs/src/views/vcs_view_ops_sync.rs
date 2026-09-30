@@ -377,8 +377,8 @@ impl VcsView {
         {
             return;
         }
-        let active_identity = self
-            .active_file_tab_idx
+        let active_index = self.active_file_tab_idx;
+        let active_identity = active_index
             .and_then(|i| self.file_tabs.get(i))
             .map(|t| (t.path.clone(), t.source.clone()));
 
@@ -443,8 +443,16 @@ impl VcsView {
                 }
             }
             None => {
-                // 活动标签被关闭时顺延；没有标签则清空主区。
-                self.active_file_tab_idx = self.file_tabs.len().checked_sub(1);
+                // 活动标签被关闭时保留清理前的位置；没有活动位置时才选末尾标签。
+                self.active_file_tab_idx = if self.file_tabs.is_empty() {
+                    None
+                } else {
+                    Some(
+                        active_index
+                            .unwrap_or(self.file_tabs.len() - 1)
+                            .min(self.file_tabs.len() - 1),
+                    )
+                };
                 if let Some(idx) = self.active_file_tab_idx {
                     let tab = self.file_tabs[idx].clone();
                     match tab.source {

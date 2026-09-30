@@ -847,6 +847,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不重新构建或上传 `v0.4.0` 安装包，不启动本机 Docker，不运行 Kubernetes；不代替用户执行 114 服务器终端/端口转发集成回放，不把 headless 结果扩大为真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再实现状态刷新后的原位置恢复和 headless 回归；验证通过后独立提交并推送 `main`，继续阶段 B Git 工作区边界开发。
 
+### B-GIT-001-AA：工作区状态刷新后保留相邻文件标签（代码与 headless 验收完成，2026-09-30）
+
+- 实现：`sync_changes_tabs_with_status_paths` 保存刷新前的活动下标和稳定目标；状态标签被删除时，先按路径与来源恢复，目标不存在时按刷新前位置选择剩余标签，位置超出范围时取最后一个；状态分组变化仍复用既有选择函数，主区选择状态与缓存按原流程同步。
+- 验收结果：新增 `status_refresh_restores_file_tab_position_after_change_removal` 回归，覆盖活动 Changes 标签被移除、Changes 标签重定向到其它分组以及前方标签被移除三种情况；`cargo test --locked -p ramag-tool-vcs --all-targets -- --test-threads=1` 共 182 项，其中 177 项通过、5 项性能观察测试按设计忽略；workspace fmt、Clippy、源码尺寸检查和 `git diff --check` 通过。
+- 证据边界：headless 回归证明状态刷新后剩余标签顺序、稳定目标、活动下标和主区选择状态按预期恢复；没有把 headless 结果扩大为真实 Windows 原生窗口验收，114 服务器终端/端口转发集成回放仍由用户自行验证。
+- 未完成项：没有重新构建或上传 `v0.4.0` 安装包，没有启动本机 Docker，没有运行 Kubernetes；没有改变 Git 状态分组、Diff 读取、文件缓存或写操作协议。
+- Git：设计确认提交 `db68bc34` 已先行推送；实现代码、回归测试和本验收记录随本切片独立提交并推送 `main`。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。
