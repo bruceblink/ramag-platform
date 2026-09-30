@@ -897,6 +897,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 证据边界：测试证明连接状态色来自调用方主题语义色，未知环境仍回退到弱化正文色；没有把 headless 结果扩大为真实窗口主题切换或发布构建证据。
 - Git：设计确认提交 `6612a25f` 和实现提交 `6008c283` 已独立推送 `main`，继续阶段 A 主题一致性收口。
 
+### A-QUALITY-THEME-003：Redis 工作区状态错误使用主题语义色（设计确认，2026-09-30）
+
+- 问题证据：Redis 工作区的 Key 详情加载失败、TTL/内存估算重试、值编辑和 TTL 编辑失败、通用表单错误、命令行错误输出及生产只读提示仍直接使用 `gpui_kit::red()`；切换浅色/深色主题时，这些状态不会跟随当前主题的危险色。
+- 设计：所有 Redis 错误状态和生产只读提示读取当前 `Theme::danger`；Key 详情把危险色传给头部和正文，表单底部从当前 `Context` 读取，命令行转录行把 `LineTone::Error` 映射到调用方传入的危险色。Redis 数据类型标签的固定品牌色、正文色、弱化文字色和操作语义保持不变。
+- 改动范围：只调整 Redis 视图的错误/只读颜色来源，补充命令行状态颜色纯函数测试和现有 Key 详情、命令行窄窗口回归；不改变 Redis 请求、错误文案、生产保护、提交状态或数据类型标签。
+- 验收条件：生产代码中不再出现 Redis 视图直接调用 `gpui_kit::red()`；错误转录行使用调用方传入的主题危险色，其他转录状态仍使用原有颜色；`ramag-tool-redis` 全量测试、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不启动本机 Docker，不构建或上传 `v0.4.0` release，不运行 Kubernetes；不把 headless 结果扩大为真实窗口主题切换或原生鼠标/键盘验收，Computer Use 证据继续按阶段 A 的既有边界记录。
+- 实施顺序：先提交本设计确认，再替换 Redis 视图颜色来源并补测试；目标测试和质量检查通过后独立提交并推送 `main`，继续阶段 A 主题一致性收口。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
