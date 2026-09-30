@@ -1040,6 +1040,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不启动本机 Docker，不重新构建或上传 `v0.4.0` 安装包，不运行 Kubernetes；不把 headless 结果扩大为真实 Windows 原生窗口主题切换验收。
 - 实施顺序：先推送本设计确认，再替换对象存储会话加载圆点颜色并补测试；目标测试和质量检查通过后独立提交并推送 `main`，继续阶段 A 主题一致性收口。
 
+### A-QUALITY-THEME-013：对象存储会话加载状态使用主题警示色（代码与 headless 验收完成，2026-09-30）
+
+- 实现：对象存储工作区标签的账号会话圆点改为读取调用方主题：`Loading` 和 `Unverified` 使用 `warning`，`Configured` 使用 `success`，没有状态的会话使用 `muted_foreground`；账号标签、关闭操作、会话加载和对象列表行为未改变。
+- 测试：新增 `account_session_dots_follow_theme_status_colors`，覆盖加载、已配置、未验证和无状态四种映射；对象存储 crate 全量 `26` 项测试通过，包含账号行三种窗口宽度和账号表单紧凑窗口回归。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`bash scripts/check-source-size.sh` 和 `git diff --check` 通过；未启动本机 Docker，未重新构建或上传 `v0.4.0` 安装包，未运行 Kubernetes。
+- 证据边界：测试证明会话状态圆点读取当前主题状态色，且既有账号行和表单布局保持边界；没有提供真实 Windows 原生窗口主题切换的鼠标/键盘或像素截图证据。
+- Git：设计确认提交 `1399d523` 已先行推送；实现代码、测试和本验收记录随本切片独立提交并推送 `main`。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。

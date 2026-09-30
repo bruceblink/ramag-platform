@@ -61,12 +61,12 @@ impl ObjectStorageView {
             let selected = !manager_selected && self.selected_account_id.as_ref() == Some(id);
             let account_id = id.clone();
             let close_id = id.clone();
-            let dot_color = match self.account_session_states.get(id) {
-                Some(AccountSessionState::Loading) => gpui_kit::hsla(45.0 / 360.0, 0.9, 0.55, 1.0),
-                Some(AccountSessionState::Configured) => theme.success,
-                Some(AccountSessionState::Unverified) => theme.warning,
-                None => muted,
-            };
+            let dot_color = account_session_state_color(
+                self.account_session_states.get(id).copied(),
+                theme.warning,
+                theme.success,
+                muted,
+            );
             let mut tab = h_flex()
                 .id(SharedString::from(format!("object-session-{id}")))
                 .flex_none()
@@ -141,5 +141,63 @@ impl ObjectStorageView {
             .bg(theme.secondary)
             .child(manager_tab)
             .child(sessions)
+    }
+}
+
+fn account_session_state_color(
+    state: Option<AccountSessionState>,
+    warning: gpui_kit::Hsla,
+    success: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+) -> gpui_kit::Hsla {
+    match state {
+        Some(AccountSessionState::Loading | AccountSessionState::Unverified) => warning,
+        Some(AccountSessionState::Configured) => success,
+        None => muted,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::account_session_state_color;
+    use crate::views::model::AccountSessionState;
+
+    #[test]
+    fn account_session_dots_follow_theme_status_colors() {
+        let warning = gpui_kit::hsla(0.1, 0.2, 0.3, 1.0);
+        let success = gpui_kit::hsla(0.2, 0.3, 0.4, 1.0);
+        let muted = gpui_kit::hsla(0.3, 0.4, 0.5, 1.0);
+
+        assert_eq!(
+            account_session_state_color(
+                Some(AccountSessionState::Loading),
+                warning,
+                success,
+                muted
+            ),
+            warning
+        );
+        assert_eq!(
+            account_session_state_color(
+                Some(AccountSessionState::Configured),
+                warning,
+                success,
+                muted,
+            ),
+            success
+        );
+        assert_eq!(
+            account_session_state_color(
+                Some(AccountSessionState::Unverified),
+                warning,
+                success,
+                muted,
+            ),
+            warning
+        );
+        assert_eq!(
+            account_session_state_color(None, warning, success, muted),
+            muted
+        );
     }
 }
