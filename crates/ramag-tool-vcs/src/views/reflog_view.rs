@@ -64,6 +64,8 @@ impl VcsView {
         let mono = theme.mono_font_family.clone();
         let fg = theme.foreground;
         let accent = theme.accent;
+        let info = theme.info;
+        let danger = theme.danger;
 
         let body = uniform_list(
             "vcs-reflog-rows",
@@ -84,6 +86,8 @@ impl VcsView {
                                 fg,
                                 muted_fg,
                                 accent,
+                                info,
+                                danger,
                                 hover_bg,
                                 mono.clone(),
                                 cx,
@@ -163,6 +167,21 @@ fn reflog_entry_key(entry: &ReflogEntry) -> String {
     )
 }
 
+fn reflog_action_color(
+    action: &str,
+    accent: gpui_kit::Hsla,
+    info: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+) -> gpui_kit::Hsla {
+    match action {
+        "commit" | "commit (initial)" | "commit (amend)" => accent,
+        "checkout" | "merge" | "rebase" | "rebase (start)" | "rebase (finish)" => info,
+        "reset" => danger,
+        _ => muted_fg,
+    }
+}
+
 /// 单条 reflog 行渲染（在 uniform_list closure 内调）
 #[allow(clippy::too_many_arguments)]
 fn render_reflog_row(
@@ -171,21 +190,15 @@ fn render_reflog_row(
     fg: gpui_kit::Hsla,
     muted_fg: gpui_kit::Hsla,
     accent: gpui_kit::Hsla,
+    info: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
     hover_bg: gpui_kit::Hsla,
     mono: SharedString,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
     let short_hash = e.commit.short();
     let time_str = e.timestamp.format("%m-%d %H:%M").to_string();
-    let action_color = match e.action.as_str() {
-        "commit" | "commit (initial)" | "commit (amend)" => accent,
-        "checkout" => gpui_kit::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
-        "reset" => gpui_kit::hsla(0.0, 0.65, 0.55, 1.0),
-        "merge" | "rebase" | "rebase (start)" | "rebase (finish)" => {
-            gpui_kit::hsla(280.0 / 360.0, 0.55, 0.55, 1.0)
-        }
-        _ => muted_fg,
-    };
+    let action_color = reflog_action_color(&e.action, accent, info, danger, muted_fg);
     let commit_for_btn = e.commit.0.clone();
     let entry_key = reflog_entry_key(e);
     let row_id = stable_path_element_id("reflog-row", &entry_key);
@@ -348,5 +361,40 @@ mod tests {
         changed = entry.clone();
         changed.commit = CommitId("fedcba654321".into());
         assert_ne!(reflog_entry_key(&entry), reflog_entry_key(&changed));
+    }
+
+    #[test]
+    fn reflog_actions_use_theme_semantic_colors() {
+        let accent = gpui_kit::hsla(0.11, 0.61, 0.51, 1.0);
+        let info = gpui_kit::hsla(0.22, 0.62, 0.52, 1.0);
+        let danger = gpui_kit::hsla(0.33, 0.63, 0.53, 1.0);
+        let muted_fg = gpui_kit::hsla(0.44, 0.64, 0.54, 1.0);
+
+        for action in ["commit", "commit (initial)", "commit (amend)"] {
+            assert_eq!(
+                reflog_action_color(action, accent, info, danger, muted_fg),
+                accent
+            );
+        }
+        for action in [
+            "checkout",
+            "merge",
+            "rebase",
+            "rebase (start)",
+            "rebase (finish)",
+        ] {
+            assert_eq!(
+                reflog_action_color(action, accent, info, danger, muted_fg),
+                info
+            );
+        }
+        assert_eq!(
+            reflog_action_color("reset", accent, info, danger, muted_fg),
+            danger
+        );
+        assert_eq!(
+            reflog_action_color("unknown", accent, info, danger, muted_fg),
+            muted_fg
+        );
     }
 }
