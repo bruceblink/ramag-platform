@@ -830,6 +830,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不重新构建或上传 `v0.4.0` 安装包，不运行 Kubernetes，不新增 Docker 或远端 Git 服务；不把 headless 结果扩大为真实 Windows 原生窗口验收，SSH 集成测试继续由用户自行验证。
 - 实施顺序：先提交设计确认，再实现比较标签清理后的稳定恢复和回归测试；验证通过后独立提交并推送 `main`，继续阶段 B Git 工作区边界开发。
 
+### B-GIT-001-Z：关闭分支比较后恢复既有文件标签（代码与 headless 验收完成，2026-09-30）
+
+- 实现：`clear_compare_state` 在移除比较标签前保存当前非比较标签的 `FileTabTarget` 和原位置；清理后先按稳定目标恢复标签，当前标签属于比较范围时按原位置选择相邻标签，最后通过既有 `activate_file_tab_state` 同步选择状态和缓存内容。没有剩余标签时继续清空主区。
+- 验收结果：新增 `closing_compare_restores_stable_file_tab_selection` 回归，覆盖比较标签前后的非比较标签、活动比较标签关闭后的相邻标签和没有剩余标签三种情况；`cargo test --locked -p ramag-tool-vcs --all-targets -- --test-threads=1` 共 181 项，其中 176 项通过、5 项性能观察测试按设计忽略；workspace fmt、Clippy、源码尺寸检查和 `git diff --check` 通过。
+- 证据边界：headless 回归证明文件标签数量、稳定目标、活动下标和主区选择状态在关闭比较后可恢复；没有把 headless 结果扩大为真实 Windows 原生窗口验收，SSH 集成测试仍由用户自行验证。
+- 未完成项：没有重新构建或上传 `v0.4.0` 安装包，没有运行 Kubernetes，也没有新增 Docker 或远端 Git 服务；比较文件读取、Git 参数和写操作仍未在本切片中改变。
+- Git：设计确认提交 `2893f914` 已推送；实现代码、回归测试和本验收记录随本切片独立提交并推送 `main`。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。

@@ -1,4 +1,4 @@
-use super::super::super::helpers::{ActiveView, FilesViewMode};
+use super::super::super::helpers::{ActiveView, FileTab, FileTabSource, FilesViewMode, GroupKind};
 use super::add_vcs_window;
 use crate::views::vcs_view::{CompareState, VcsView};
 use gpui_kit::{TestAppContext, px, size};
@@ -164,6 +164,92 @@ fn vcs_view_renders_compare_rows_after_file_reorder(cx: &mut TestAppContext) {
             v.compare.as_ref().expect("compare state").files[0].path,
             "src/main.rs"
         );
+    });
+}
+
+fn compare_state() -> CompareState {
+    CompareState {
+        from: "from-commit".into(),
+        to: "to-commit".into(),
+        from_label: "from".into(),
+        to_label: "to".into(),
+        files: Rc::new(Vec::new()),
+        loading: false,
+    }
+}
+
+fn file_tab(path: &str, source: FileTabSource) -> FileTab {
+    FileTab {
+        path: path.into(),
+        source,
+        cached_diff: None,
+        cached_diff_syntax: None,
+        cached_content: None,
+    }
+}
+
+/// 关闭比较后按稳定目标恢复非比较标签；当前标签属于比较范围时选择相邻标签。
+#[gpui_kit::test]
+fn closing_compare_restores_stable_file_tab_selection(cx: &mut TestAppContext) {
+    let (view, cx) = add_vcs_window(cx);
+
+    view.update(cx, |v, _| {
+        v.file_tabs = vec![
+            file_tab("before.rs", FileTabSource::Changes(GroupKind::Unstaged)),
+            file_tab(
+                "compare.rs",
+                FileTabSource::Compare {
+                    from: "from-commit".into(),
+                    to: "to-commit".into(),
+                },
+            ),
+            file_tab("after.rs", FileTabSource::ProjectFiles),
+        ];
+        v.active_file_tab_idx = Some(2);
+        v.compare = Some(compare_state());
+        v.clear_compare_state();
+
+        assert_eq!(v.active_file_tab_idx, Some(1));
+        assert_eq!(v.file_tabs[1].path, "after.rs");
+        assert_eq!(v.selected_pf_path.as_deref(), Some("after.rs"));
+
+        v.file_tabs = vec![
+            file_tab("before.rs", FileTabSource::Changes(GroupKind::Unstaged)),
+            file_tab(
+                "compare.rs",
+                FileTabSource::Compare {
+                    from: "from-commit".into(),
+                    to: "to-commit".into(),
+                },
+            ),
+            file_tab("after.rs", FileTabSource::ProjectFiles),
+        ];
+        v.active_file_tab_idx = Some(1);
+        v.selected_pf_path = None;
+        v.compare = Some(compare_state());
+        v.clear_compare_state();
+
+        assert_eq!(v.active_file_tab_idx, Some(1));
+        assert_eq!(v.file_tabs[1].path, "after.rs");
+        assert_eq!(v.selected_pf_path.as_deref(), Some("after.rs"));
+
+        v.file_tabs = vec![file_tab(
+            "compare.rs",
+            FileTabSource::Compare {
+                from: "from-commit".into(),
+                to: "to-commit".into(),
+            },
+        )];
+        v.active_file_tab_idx = Some(0);
+        v.selected_pf_path = None;
+        v.compare = Some(compare_state());
+        v.clear_compare_state();
+
+        assert!(v.file_tabs.is_empty());
+        assert!(v.active_file_tab_idx.is_none());
+        assert!(v.selected_file.is_none());
+        assert!(v.selected_pf_path.is_none());
+        assert!(v.current_diff.is_none());
     });
 }
 

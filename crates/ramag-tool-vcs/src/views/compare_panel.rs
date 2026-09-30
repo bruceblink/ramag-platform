@@ -14,7 +14,8 @@ use tracing::{error, info};
 
 use super::compare_picker::CompareSide;
 use super::helpers::{
-    FileTabSource, code_letter_color, code_to_letter, stable_compare_file_element_id,
+    FileTabSource, code_letter_color, code_to_letter, find_file_tab_index,
+    stable_compare_file_element_id,
 };
 use super::vcs_view::{CompareState, VcsView};
 
@@ -147,16 +148,34 @@ impl VcsView {
     /// 清理比较请求和活动状态；切仓或切到其他文件视图时也调用此方法。
     pub(super) fn clear_compare_state(&mut self) {
         self.compare_request_seq = self.compare_request_seq.wrapping_add(1);
+        let active_index = self.active_file_tab_idx;
+        let active_target = active_index
+            .and_then(|index| self.file_tabs.get(index))
+            .filter(|tab| !matches!(tab.source, FileTabSource::Compare { .. }))
+            .map(|tab| tab.target());
         self.compare = None;
         self.file_tabs
             .retain(|tab| !matches!(tab.source, FileTabSource::Compare { .. }));
-        self.active_file_tab_idx = None;
+        // 先按稳定目标恢复原来的非比较标签；当前标签属于比较范围时，按旧位置选择相邻标签。
+        let fallback_index = active_index
+            .filter(|_| !self.file_tabs.is_empty())
+            .map(|index| index.min(self.file_tabs.len() - 1));
+        let restored_index = active_target
+            .as_ref()
+            .and_then(|target| find_file_tab_index(&self.file_tabs, target))
+            .or(fallback_index);
+        self.active_file_tab_idx = restored_index;
         self.selected_file = None;
         self.current_diff = None;
         self.current_diff_syntax = None;
         self.loading_diff = false;
         self.diff_fullscreen = false;
         self.reset_blame_context();
+        if let Some(index) = restored_index
+            && let Some(tab) = self.file_tabs.get(index).cloned()
+        {
+            self.activate_file_tab_state(tab);
+        }
     }
 
     pub(super) fn render_compare_files_view(&self, cx: &mut Context<Self>) -> AnyElement {
