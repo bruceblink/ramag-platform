@@ -906,6 +906,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不启动本机 Docker，不构建或上传 `v0.4.0` release，不运行 Kubernetes；不把 headless 结果扩大为真实窗口主题切换或原生鼠标/键盘验收，Computer Use 证据继续按阶段 A 的既有边界记录。
 - 实施顺序：先提交本设计确认，再替换 Redis 视图颜色来源并补测试；目标测试和质量检查通过后独立提交并推送 `main`，继续阶段 A 主题一致性收口。
 
+### A-QUALITY-THEME-003：Redis 工作区状态错误使用主题语义色（代码与 headless 验收完成，2026-09-30）
+
+- 实现：Key 详情正文、TTL/内存估算重试、值编辑、TTL 编辑和通用表单底部均改为使用当前 `Theme::danger`；命令行生产只读提示和 `LineTone::Error` 也通过当前渲染上下文传入危险色。Redis 数据类型标签颜色保持不变。
+- 测试：`ramag-tool-redis` 全量 `113` 项测试通过；新增 `transcript_error_uses_the_current_theme_danger_color`，确认错误转录行读取调用方危险色，普通、弱化和强调行仍保留各自颜色；现有 Key 详情三种窗口布局和命令行窄窗口工具栏回归继续通过。`rg` 检查确认 Redis 生产代码不再直接调用 `gpui_kit::red()`。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`bash scripts/check-source-size.sh` 和 `git diff --check` 通过。
+- Docker 与发布边界：本切片未启动本机 Docker，未构建或上传 `v0.4.0` release，未运行 Kubernetes；没有把单元测试或 headless 结果扩大为真实窗口主题切换证据。
+- Git：设计确认提交 `56fbaea6` 已推送；实现代码和测试待本记录提交后独立推送 `main`。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。

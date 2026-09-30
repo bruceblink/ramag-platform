@@ -77,6 +77,21 @@ enum LineTone {
     Error,
 }
 
+fn transcript_tone_color(
+    tone: LineTone,
+    fg: gpui_kit::Hsla,
+    muted_fg: gpui_kit::Hsla,
+    accent: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
+) -> gpui_kit::Hsla {
+    match tone {
+        LineTone::Normal => fg,
+        LineTone::Muted => muted_fg,
+        LineTone::Accent => accent,
+        LineTone::Error => danger,
+    }
+}
+
 fn tone_of(line: &str) -> LineTone {
     if line.contains("(integer)") || line.contains("(double)") || line.contains("(boolean)") {
         LineTone::Accent

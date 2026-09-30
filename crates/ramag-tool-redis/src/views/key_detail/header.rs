@@ -18,6 +18,7 @@ pub(super) fn render_header(
     fg: gpui_kit::Hsla,
     muted_fg: gpui_kit::Hsla,
     accent: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
     border: gpui_kit::Hsla,
     compact: bool,
     cx: &mut Context<KeyDetailPanel>,
@@ -79,7 +80,7 @@ pub(super) fn render_header(
                 .ghost()
                 .xsmall()
                 .label("重试")
-                .text_color(gpui_kit::red())
+                .text_color(danger)
                 .tooltip(error.clone())
                 .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.reload_ttl(cx))),
         )
@@ -138,6 +139,7 @@ pub(super) fn render_header(
         panel.size_error.as_deref(),
         muted_fg,
         accent,
+        danger,
         cx,
     ));
 
@@ -305,6 +307,7 @@ fn render_size_chip(
     error: Option<&str>,
     muted_fg: gpui_kit::Hsla,
     accent: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
     cx: &mut Context<KeyDetailPanel>,
 ) -> impl IntoElement + use<> {
     if let Some(n) = bytes {
@@ -325,7 +328,7 @@ fn render_size_chip(
             .ghost()
             .xsmall()
             .label("重试")
-            .text_color(gpui_kit::red())
+            .text_color(danger)
             .tooltip(message.to_string())
             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.estimate_size(cx)))
             .into_any_element()

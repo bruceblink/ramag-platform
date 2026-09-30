@@ -11,6 +11,7 @@ impl Render for CliConsole {
         let bg = theme.background;
         let secondary_bg = theme.secondary;
         let accent = theme.primary;
+        let danger = theme.danger;
         let read_only_write = if self.config.production {
             let input = self.input.read(cx);
             let input_value = input.value();
@@ -61,7 +62,7 @@ impl Render for CliConsole {
                         .flex_1()
                         .min_w_0()
                         .text_xs()
-                        .text_color(gpui_kit::red())
+                        .text_color(danger)
                         .whitespace_normal()
                         .child("只读：写命令已禁用"),
                 )
@@ -105,7 +106,7 @@ impl Render for CliConsole {
                                         .filter_map(|index| {
                                             let row = this.transcript_rows.get(index)?;
                                             Some(render_transcript_row(
-                                                row, fg, muted_fg, accent, cx,
+                                                row, fg, muted_fg, accent, danger, cx,
                                             ))
                                         })
                                         .collect()
@@ -190,6 +191,7 @@ fn render_transcript_row(
     fg: gpui_kit::Hsla,
     muted_fg: gpui_kit::Hsla,
     accent: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
     cx: &mut Context<CliConsole>,
 ) -> gpui_kit::AnyElement {
     match row {
@@ -227,12 +229,7 @@ fn render_transcript_row(
             .child(SharedString::from(format!("{command} · {meta}")))
             .into_any_element(),
         TranscriptRow::Body { line, tone } => {
-            let color = match tone {
-                LineTone::Normal => fg,
-                LineTone::Muted => muted_fg,
-                LineTone::Accent => accent,
-                LineTone::Error => gpui_kit::red(),
-            };
+            let color = super::transcript_tone_color(*tone, fg, muted_fg, accent, danger);
             div()
                 .h(px(ROW_H))
                 .w_full()

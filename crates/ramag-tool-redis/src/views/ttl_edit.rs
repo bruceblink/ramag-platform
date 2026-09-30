@@ -154,6 +154,7 @@ impl Render for TtlEditForm {
         let theme = cx.theme();
         let muted_fg = theme.muted_foreground;
         let border = theme.border;
+        let danger = theme.danger;
 
         let current_label = match self.initial_ttl_ms {
             Some(-1) => "当前：永久（无 TTL）".to_string(),
@@ -207,7 +208,7 @@ impl Render for TtlEditForm {
                             .flex_1()
                             .min_w_0()
                             .text_xs()
-                            .text_color(gpui_kit::red())
+                            .text_color(danger)
                             .child(err.unwrap_or_default()),
                     )
                     .child(

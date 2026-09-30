@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
-use gpui_kit::component::{Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex};
+use gpui_kit::component::{
+    ActiveTheme as _, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex,
+};
 use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, Window, div, px,
 };
@@ -64,7 +66,7 @@ pub fn form_footer<V: 'static>(
                 .flex_1()
                 .min_w_0()
                 .text_xs()
-                .text_color(gpui_kit::red())
+                .text_color(cx.theme().danger)
                 .child(state.error().unwrap_or_default()),
         )
         .child(

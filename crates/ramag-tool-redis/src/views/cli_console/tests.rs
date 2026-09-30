@@ -1,13 +1,38 @@
 use super::{
-    Entry, MAX_TRANSCRIPT_ENTRIES, MAX_TRANSCRIPT_LINES, Outcome, clear_completed_entries,
-    command_preview, next_cursor, outcome_line_count, pending_command_count, prev_cursor,
-    prune_transcript_entries, push_command_history, redis_value_retained_bytes,
-    split_display_lines, transcript_line_count,
+    Entry, LineTone, MAX_TRANSCRIPT_ENTRIES, MAX_TRANSCRIPT_LINES, Outcome,
+    clear_completed_entries, command_preview, next_cursor, outcome_line_count,
+    pending_command_count, prev_cursor, prune_transcript_entries, push_command_history,
+    redis_value_retained_bytes, split_display_lines, transcript_line_count, transcript_tone_color,
 };
 use std::collections::VecDeque;
 
 fn ok_lines(text: &str) -> Outcome {
     Outcome::Ok(std::sync::Arc::new(split_display_lines(text)))
+}
+
+#[test]
+fn transcript_error_uses_the_current_theme_danger_color() {
+    let foreground = gpui_kit::hsla(0.1, 0.2, 0.3, 1.0);
+    let muted = gpui_kit::hsla(0.2, 0.3, 0.4, 1.0);
+    let accent = gpui_kit::hsla(0.3, 0.4, 0.5, 1.0);
+    let danger = gpui_kit::hsla(0.4, 0.5, 0.6, 1.0);
+
+    assert_eq!(
+        transcript_tone_color(LineTone::Error, foreground, muted, accent, danger),
+        danger
+    );
+    assert_eq!(
+        transcript_tone_color(LineTone::Normal, foreground, muted, accent, danger),
+        foreground
+    );
+    assert_eq!(
+        transcript_tone_color(LineTone::Muted, foreground, muted, accent, danger),
+        muted
+    );
+    assert_eq!(
+        transcript_tone_color(LineTone::Accent, foreground, muted, accent, danger),
+        accent
+    );
 }
 
 #[test]

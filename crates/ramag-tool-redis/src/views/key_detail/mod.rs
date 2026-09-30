@@ -219,6 +219,7 @@ impl Render for KeyDetailPanel {
         let border = theme.border;
         let bg = theme.background;
         let accent = theme.accent;
+        let danger = theme.danger;
 
         let Some(key) = self.key.clone() else {
             return v_flex()
@@ -239,8 +240,17 @@ impl Render for KeyDetailPanel {
 
         // 窄窗口把标题元数据和操作区分成上下两行，避免固定操作挤出详情面板。
         let compact_header = f32::from(window.viewport_size().width) < 720.0;
-        let header =
-            header::render_header(self, &key, fg, muted_fg, accent, border, compact_header, cx);
+        let header = header::render_header(
+            self,
+            &key,
+            fg,
+            muted_fg,
+            accent,
+            danger,
+            border,
+            compact_header,
+            cx,
+        );
         let view_mode = self.value_view_mode;
 
         // body + 是否自带虚拟滚动：容器类型走 uniform_list（自滚动），其余走普通滚动
@@ -262,7 +272,7 @@ impl Render for KeyDetailPanel {
                     .p(px(14.0))
                     .gap_2()
                     .items_start()
-                    .child(div().text_sm().text_color(gpui_kit::red()).child(err))
+                    .child(div().text_sm().text_color(danger).child(err))
                     .child(
                         ramag_ui::clickable_button("redis-key-load-retry")
                             .outline()

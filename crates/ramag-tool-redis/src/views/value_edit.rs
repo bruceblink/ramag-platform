@@ -135,6 +135,7 @@ impl Render for ValueEditForm {
         let theme = cx.theme();
         let muted_fg = theme.muted_foreground;
         let border = theme.border;
+        let danger = theme.danger;
         let input_height = (window.viewport_size().height - px(220.0)).clamp(px(72.0), px(420.0));
 
         let err = match &self.state {
@@ -205,7 +206,7 @@ impl Render for ValueEditForm {
                             .flex_1()
                             .min_w_0()
                             .text_xs()
-                            .text_color(gpui_kit::red())
+                            .text_color(danger)
                             .child(err.unwrap_or_default()),
                     )
                     .child(
