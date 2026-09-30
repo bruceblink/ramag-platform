@@ -11,6 +11,26 @@ use gpui_kit::{
 
 use super::{CenterMode, DbClientView};
 
+fn session_tab_status_colors(
+    stale: bool,
+    health: Option<(bool, bool)>,
+    warning: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
+    success: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+) -> (gpui_kit::Hsla, &'static str, gpui_kit::Hsla) {
+    if stale {
+        return (warning, "需重连", warning);
+    }
+
+    match health {
+        None => (muted, "未连接", muted),
+        Some((true, _)) => (warning, "连接中", warning),
+        Some((false, true)) => (danger, "连接失败", danger),
+        Some((false, false)) => (success, "已连接", success),
+    }
+}
+
 impl Render for DbClientView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // 异步失败提示：Render 持 Window 时统一推送（与各面板同款）
@@ -153,20 +173,8 @@ impl Render for DbClientView {
             let close_id = SharedString::from(format!("conn-tab-close-{idx}"));
 
             // 标签状态与会话实体绑定：已完成首次连接显示绿色，未实例化的恢复标签明确显示未连接。
-            let (dot_color, status_label, status_color) = if stale {
-                (warning, "需重连", warning)
-            } else {
-                match health {
-                    None => (muted_fg, "未连接", muted_fg),
-                    Some((true, _)) => (
-                        gpui_kit::hsla(45.0 / 360.0, 0.9, 0.55, 1.0),
-                        "连接中",
-                        gpui_kit::hsla(45.0 / 360.0, 0.9, 0.55, 1.0),
-                    ),
-                    Some((false, true)) => (danger, "连接失败", danger),
-                    Some((false, false)) => (success, "已连接", success),
-                }
-            };
+            let (dot_color, status_label, status_color) =
+                session_tab_status_colors(stale, health, warning, danger, success, muted_fg);
 
             let mut tab = h_flex()
                 .id(tab_id)
@@ -348,5 +356,39 @@ impl DbClientView {
                             })),
                     ),
             )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::session_tab_status_colors;
+
+    #[test]
+    fn session_tab_statuses_follow_theme_colors() {
+        let warning = gpui_kit::hsla(0.1, 0.2, 0.3, 1.0);
+        let danger = gpui_kit::hsla(0.2, 0.3, 0.4, 1.0);
+        let success = gpui_kit::hsla(0.3, 0.4, 0.5, 1.0);
+        let muted = gpui_kit::hsla(0.4, 0.5, 0.6, 1.0);
+
+        assert_eq!(
+            session_tab_status_colors(true, Some((false, true)), warning, danger, success, muted),
+            (warning, "需重连", warning)
+        );
+        assert_eq!(
+            session_tab_status_colors(false, None, warning, danger, success, muted),
+            (muted, "未连接", muted)
+        );
+        assert_eq!(
+            session_tab_status_colors(false, Some((true, false)), warning, danger, success, muted),
+            (warning, "连接中", warning)
+        );
+        assert_eq!(
+            session_tab_status_colors(false, Some((false, true)), warning, danger, success, muted),
+            (danger, "连接失败", danger)
+        );
+        assert_eq!(
+            session_tab_status_colors(false, Some((false, false)), warning, danger, success, muted),
+            (success, "已连接", success)
+        );
     }
 }

@@ -1057,6 +1057,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不启动本机 Docker 数据库，不重新构建或上传 `v0.4.0` 安装包，不运行 Kubernetes；不把 headless 结果扩大为真实 Windows 原生窗口主题切换验收。
 - 实施顺序：先推送本设计确认，再替换数据库会话连接中颜色并补测试；目标测试和质量检查通过后独立提交并推送 `main`，继续阶段 A 主题一致性收口。
 
+### A-QUALITY-THEME-014：数据库会话连接中状态使用主题警示色（代码与 headless 验收完成，2026-09-30）
+
+- 实现：数据库客户端会话标签的状态颜色抽成纯映射；过期会话、连接中使用当前主题 `warning`，未连接使用 `muted_foreground`，连接失败使用 `danger`，已连接使用 `success`。状态文案、生产标记、连接实体懒加载和点击切换逻辑未改变。
+- 测试：新增 `session_tab_statuses_follow_theme_colors`，覆盖需重连、未连接、连接中、连接失败和已连接五种状态；`cargo test --locked -p ramag-tool-dbclient --lib -- --test-threads=1` 共 `363` 项全部通过。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`bash scripts/check-source-size.sh` 和 `git diff --check` 通过；未启动本机 Docker 数据库，未重新构建或上传 `v0.4.0` 安装包，未运行 Kubernetes。
+- 证据边界：测试证明数据库会话标签从当前主题读取连接状态颜色，并保留现有恢复、连接列表和三种窗口布局行为；没有提供真实 Windows 原生窗口主题切换的鼠标/键盘或像素截图证据。
+- Git：设计确认提交 `5469315d` 已先行推送；实现代码、测试和本验收记录随本切片独立提交并推送 `main`。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。
