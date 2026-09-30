@@ -1,7 +1,7 @@
 //! 单行数据库连接。
 
 use gpui_kit::component::{
-    Sizable as _,
+    ActiveTheme as _, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     menu::{ContextMenuExt as _, PopupMenu},
@@ -116,7 +116,9 @@ pub(super) fn connection_row(
             .child(text)
     };
 
-    let danger = gpui_kit::hsla(0.0, 0.7, 0.55, 1.0);
+    let danger = cx.theme().danger;
+    let success = cx.theme().success;
+    let warning = cx.theme().warning;
     let mut prod_bg = danger;
     prod_bg.a = 0.15;
 
@@ -160,7 +162,8 @@ pub(super) fn connection_row(
             if environment.trim().is_empty() {
                 slot
             } else {
-                let (env_fg, env_bg) = environment_badge_colors(&environment, muted_fg);
+                let (env_fg, env_bg) =
+                    environment_badge_colors(&environment, muted_fg, success, warning, danger);
                 slot.child(
                     div()
                         .px(px(6.0))
@@ -275,14 +278,47 @@ pub(super) fn connection_row(
 fn environment_badge_colors(
     environment: &str,
     fallback_fg: gpui_kit::Hsla,
+    success: gpui_kit::Hsla,
+    warning: gpui_kit::Hsla,
+    danger: gpui_kit::Hsla,
 ) -> (gpui_kit::Hsla, gpui_kit::Hsla) {
     let fg = match environment.trim().to_ascii_lowercase().as_str() {
-        "dev" => gpui_kit::hsla(140.0 / 360.0, 0.55, 0.42, 1.0),
-        "test" => gpui_kit::hsla(35.0 / 360.0, 0.80, 0.45, 1.0),
-        "prod" => gpui_kit::hsla(0.0, 0.70, 0.55, 1.0),
+        "dev" => success,
+        "test" => warning,
+        "prod" => danger,
         _ => fallback_fg,
     };
     let mut bg = fg;
     bg.a = 0.12;
     (fg, bg)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::environment_badge_colors;
+
+    #[test]
+    fn environment_badges_use_theme_status_colors() {
+        let fallback = gpui_kit::hsla(0.1, 0.2, 0.3, 1.0);
+        let success = gpui_kit::hsla(0.2, 0.3, 0.4, 1.0);
+        let warning = gpui_kit::hsla(0.3, 0.4, 0.5, 1.0);
+        let danger = gpui_kit::hsla(0.4, 0.5, 0.6, 1.0);
+
+        assert_eq!(
+            environment_badge_colors("dev", fallback, success, warning, danger).0,
+            success
+        );
+        assert_eq!(
+            environment_badge_colors("test", fallback, success, warning, danger).0,
+            warning
+        );
+        assert_eq!(
+            environment_badge_colors("PROD", fallback, success, warning, danger).0,
+            danger
+        );
+        assert_eq!(
+            environment_badge_colors("custom", fallback, success, warning, danger).0,
+            fallback
+        );
+    }
 }

@@ -16,7 +16,7 @@ impl ConnectionFormPanel {
         let muted_fg = theme.muted_foreground;
         let muted = theme.muted;
         let on = self.production;
-        let danger = gpui_kit::hsla(0.0, 0.7, 0.55, 1.0);
+        let danger = theme.danger;
 
         let track = h_flex()
             .w(px(36.0))
@@ -117,6 +117,8 @@ impl Render for ConnectionFormPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let muted_fg = theme.muted_foreground;
+        let success = theme.success;
+        let danger = theme.danger;
         let border = theme.border;
         // 小窗口仅滚动主体，保持操作区可见。
         let compact = window.viewport_size().width < px(680.0);
@@ -131,8 +133,8 @@ impl Render for ConnectionFormPanel {
         let (test_msg, test_failed) = match &self.test_state {
             TestState::Idle => (None, false),
             TestState::Testing => (Some(("测试中…".to_string(), muted_fg)), false),
-            TestState::Success => (Some(("✓ 连接成功".to_string(), gpui_kit::green())), false),
-            TestState::Failed(msg) => (Some((msg.clone(), gpui_kit::red())), true),
+            TestState::Success => (Some(("✓ 连接成功".to_string(), success)), false),
+            TestState::Failed(msg) => (Some((msg.clone(), danger)), true),
         };
 
         let driver_selector: Option<gpui_kit::AnyElement> = matches!(self.mode, FormMode::Create)
