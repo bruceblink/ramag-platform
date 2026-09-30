@@ -233,6 +233,19 @@ pub(super) fn ensure_display_view(
     None
 }
 
+/// Prepare the cache synchronously so layout tests never start a real worker thread.
+#[cfg(test)]
+pub(in crate::views) fn prepare_display_view_for_test(
+    panel: &mut ResultPanel,
+    result: &QueryResult,
+    cx: &gpui_kit::App,
+) {
+    panel.display_view_cache = Some(DisplayViewCache {
+        key: display_view_key(panel, result, cx),
+        view: build_display_view(result, panel.sort_by(), "", ""),
+    });
+}
+
 #[cfg(test)]
 fn build_display_view(
     result: &QueryResult,

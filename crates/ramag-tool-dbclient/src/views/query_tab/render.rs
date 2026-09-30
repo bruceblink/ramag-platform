@@ -4,15 +4,13 @@ use gpui_kit::component::{
     ActiveTheme, Disableable as _, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
-    input::{Editor, Input, InputState},
-    notification::Notification,
+    input::{Editor, Input},
     v_flex,
 };
 use gpui_kit::{
-    AppContext as _, ClickEvent, Context, Entity, Focusable as _, IntoElement, ParentElement,
-    Render, Styled, Window, div, prelude::*, px,
+    ClickEvent, Context, Focusable as _, IntoElement, ParentElement, Render, Styled, Window, div,
+    prelude::*, px,
 };
-use ramag_domain::entities::MAX_SQL_QUERY_BYTES;
 
 use super::QueryTab;
 use super::comparison_toolbar::result_comparison_menu;
@@ -22,12 +20,12 @@ use super::render_helpers::{
     transaction_toolbar_group,
 };
 use super::sql_utils::format_elapsed;
-use super::toolbar::render_delete_button;
+use super::toolbar::{render_delete_button, render_insert_button};
 use super::transaction::MAX_TRANSACTION_SAVEPOINTS;
 
 use crate::actions::{ExplainQuery, FormatSql, RunQuery, RunStatementAtCursor};
 use crate::views::is_compact_session_width;
-use crate::views::result_panel::{MAX_INSERT_COLUMNS, ResultState};
+use crate::views::result_panel::ResultState;
 
 impl Render for QueryTab {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -254,12 +252,7 @@ impl Render for QueryTab {
                         .flex_none()
                         .border_b_1()
                         .border_color(border)
-                        .child(
-                            Editor::new(&self.editor)
-                                .h_full()
-                                .bordered(false)
-                                ,
-                        ),
+                        .child(Editor::new(&self.editor).h_full().bordered(false)),
                 )
             })
             .child(
@@ -276,12 +269,10 @@ impl Render for QueryTab {
                         let col_input = result_entity.read(cx).column_filter_entity().clone();
                         let row_input = result_entity.read(cx).row_filter_entity().clone();
                         let row_search_mode = result_entity.read(cx).row_search_mode();
-                        let row_search_status = result_entity
-                            .read(cx)
-                            .row_search_conversion_status(cx);
+                        let row_search_status =
+                            result_entity.read(cx).row_search_conversion_status(cx);
                         let row_filter_has_value = !row_input.read(cx).value().is_empty();
-                        let id_conversion_ready =
-                            ramag_ui::database_search_settings(cx).is_ready();
+                        let id_conversion_ready = ramag_ui::database_search_settings(cx).is_ready();
                         let result_for_row_mode = result_entity.clone();
                         let col_for_up = col_input.clone();
                         let col_for_down = col_input.clone();
@@ -323,14 +314,12 @@ impl Render for QueryTab {
                                             });
                                         },
                                     )
-                                    .child(
-                                        ramag_ui::cleanable_editor(
-                                            &col_input,
-                                            "sql-column-filter-clear",
-                                            false,
-                                            cx,
-                                        ),
-                                    ),
+                                    .child(ramag_ui::cleanable_editor(
+                                        &col_input,
+                                        "sql-column-filter-clear",
+                                        false,
+                                        cx,
+                                    )),
                             )
                             .child(
                                 div().flex_1().min_w_0().child(
@@ -338,31 +327,33 @@ impl Render for QueryTab {
                                         "sql-row-filter-field",
                                         &row_input.focus_handle(cx),
                                         cx,
-                                    ).child(
-                                    Input::new(&row_input)
-                                        .h_full()
-                                        .min_w_0()
-                                        .appearance(false)
-                                        .bordered(false)
-                                        .focus_bordered(false)
-                                        .prefix(row_filter_prefix(
-                                            row_search_mode,
-                                            result_for_row_mode,
-                                            accent,
-                                            muted_fg,
-                                            id_conversion_ready,
-                                        ))
-                                        .when(row_filter_has_value, |input| {
-                                            input.suffix(row_search_input_suffix(
-                                                row_input,
-                                                row_search_status,
+                                    )
+                                    .child(
+                                        Input::new(&row_input)
+                                            .h_full()
+                                            .min_w_0()
+                                            .appearance(false)
+                                            .bordered(false)
+                                            .focus_bordered(false)
+                                            .prefix(row_filter_prefix(
+                                                row_search_mode,
+                                                result_for_row_mode,
                                                 accent,
                                                 muted_fg,
-                                                danger,
+                                                id_conversion_ready,
                                             ))
-                                        }),
-                                 )),
-                             )
+                                            .when(row_filter_has_value, |input| {
+                                                input.suffix(row_search_input_suffix(
+                                                    row_input,
+                                                    row_search_status,
+                                                    accent,
+                                                    muted_fg,
+                                                    danger,
+                                                ))
+                                            }),
+                                    ),
+                                ),
+                            )
                     })
                     .child(order_by_menu(
                         result_entity.clone(),
@@ -411,168 +402,97 @@ impl Render for QueryTab {
                         has_comparison_baseline,
                         can_cross_connection_compare,
                     ))
-                    .child({
-                        let can_insert = !plan_visible
-                            && insert_reason.is_none()
-                            && !has_pending_insert
-                            && pending_cell_edit_count == 0;
-                        let insert_tip: gpui_kit::SharedString = if let Some(reason) = insert_reason {
-                            reason.into()
-                        } else if has_pending_insert {
-                            "请先处理草稿".into()
-                        } else if pending_cell_edit_count > 0 {
-                            "请先提交或撤销未提交单元格修改".into()
-                        } else {
-                            "新增行".into()
-                        };
-                        ramag_ui::clickable_button("toolbar-insert")
-                            .ghost()
-                            .small()
-                            .icon(IconName::Plus)
-                            .tooltip(insert_tip)
-                            .disabled(!can_insert)
-                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                let Some(conn) = this.connection.clone() else {
-                                    return;
-                                };
-                                let Some((schema, table)) = this.pinned_target.clone() else {
-                                    return;
-                                };
-                                let svc = this.service.clone();
-                                let panel = this.active_result();
-                                let handle = window.window_handle();
-                                cx.spawn(async move |_, cx| {
-                                    let cols = svc.list_columns(&conn, &schema, &table).await;
-                                    let _ = cx.update_window(handle, |_, window, app| match cols {
-                                        Ok(cols) => {
-                                            if cols.len() > MAX_INSERT_COLUMNS {
-                                                ramag_ui::push_responsive_notification(
-                                                    window,
-                                                    Notification::warning(format!(
-                                                        "该表有 {} 列，超过行内新增的 {} 列上限；请使用 INSERT SQL",
-                                                        cols.len(),
-                                                        MAX_INSERT_COLUMNS
-                                                    ))
-                                                    .autohide(true),
-                                                    app,
-                                                );
-                                                return;
-                                            }
-                                            let inputs: Vec<Entity<InputState>> = cols
-                                                .iter()
-                                                .map(|col| {
-                                                    let placeholder = format!(
-                                                        "{} · {}",
-                                                        col.data_type.raw_type,
-                                                        if col.nullable {
-                                                            "可空"
-                                                        } else {
-                                                            "必填"
-                                                        }
-                                                    );
-                                                    app.new(|cx_inner| {
-                                                        InputState::new(window, cx_inner)
-                                                            .validate(|value, _| {
-                                                                value.len()
-                                                                    <= MAX_SQL_QUERY_BYTES
-                                                            })
-                                                            .placeholder(placeholder)
-                                                    })
-                                                })
-                                                .collect();
-                                            let first_input = inputs.first().cloned();
-                                            panel.update(app, |r, cx| {
-                                                r.start_insert(cols, inputs, cx);
-                                            });
-                                            if let Some(input) = first_input {
-                                                input.update(app, |state, cx_inner| {
-                                                    state.focus(window, cx_inner);
-                                                });
-                                            }
-                                        }
-                                        Err(e) => {
-                                            ramag_ui::push_responsive_notification(
-                                                window,
-                                                Notification::error(format!("拉取表结构失败：{e}"))
-                                                    .autohide(true),
-                                                app,
-                                            );
-                                        }
-                                    });
-                                })
-                                .detach();
-                            }))
-                    })
-                    .child(render_delete_button(
-                        plan_visible,
-                        has_selected,
-                        modify_reason,
-                        cx,
-                    ))
+                    // Keep data actions and Run/Cancel together when the outer toolbar wraps.
                     .child(
-                        // 与导出配对：仅表树打开的单表结果可导入（pinned 表即目标）
-                        ramag_ui::clickable_button("import-btn")
-                            .ghost()
-                            .small()
-                            .icon(ramag_ui::icons::download())
-                            .tooltip(if pending_cell_edit_count > 0 {
-                                "请先提交或撤销未提交单元格修改"
-                            } else if self.pinned_target.is_some() {
-                                "导入数据"
-                            } else {
-                                "请先打开表"
-                            })
-                            .disabled(
-                                plan_visible
-                                    || self.pinned_target.is_none()
-                                    || pending_cell_edit_count > 0,
+                        h_flex()
+                            .debug_selector(|| "sql-result-action-group".into())
+                            .flex_none()
+                            .items_center()
+                            .gap_1()
+                            .child(render_insert_button(
+                                plan_visible,
+                                insert_reason,
+                                has_pending_insert,
+                                pending_cell_edit_count,
+                                cx,
+                            ))
+                            .child(render_delete_button(
+                                plan_visible,
+                                has_selected,
+                                modify_reason,
+                                cx,
+                            ))
+                            .child(
+                                // 与导出配对：仅表树打开的单表结果可导入（pinned 表即目标）
+                                ramag_ui::clickable_button("import-btn")
+                                    .debug_selector(|| "sql-result-import".into())
+                                    .ghost()
+                                    .small()
+                                    .icon(ramag_ui::icons::download())
+                                    .tooltip(if pending_cell_edit_count > 0 {
+                                        "请先提交或撤销未提交单元格修改"
+                                    } else if self.pinned_target.is_some() {
+                                        "导入数据"
+                                    } else {
+                                        "请先打开表"
+                                    })
+                                    .disabled(
+                                        plan_visible
+                                            || self.pinned_target.is_none()
+                                            || pending_cell_edit_count > 0,
+                                    )
+                                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                        this.open_table_import_dialog(window, cx);
+                                    })),
                             )
-                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                this.open_table_import_dialog(window, cx);
-                            })),
-                    )
-                    .child(result_export_menu(
-                        result_entity.clone(),
-                        has_result,
-                        exporting,
-                    ))
-                    .when(running && self.cancel_handle.is_some(), |this| {
-                        this.child(
-                            ramag_ui::clickable_button("cancel-query")
-                    .danger()
-                    .small()
-                    .icon(IconName::Close)
-                    .tooltip("取消")
-                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                    this.handle_cancel(window, cx);
-                                })),
-                        )
-                    })
-                    .when(!running, |this| {
-                        this.child(
-                            ramag_ui::clickable_button("run-query")
-                                .debug_selector(|| "sql-run-query".into())
-                    .primary()
-                    .small()
-                    .icon(IconName::Play)
-                            .tooltip(if pending_cell_edit_count > 0 {
-                                "请先提交或撤销未提交单元格修改"
-                            } else if dml_busy {
-                                "上一写操作尚未完成，请稍候"
-                            } else {
-                                "运行"
+                            .child(result_export_menu(
+                                result_entity.clone(),
+                                has_result,
+                                exporting,
+                            ))
+                            .when(running && self.cancel_handle.is_some(), |this| {
+                                this.child(
+                                    ramag_ui::clickable_button("cancel-query")
+                                        .debug_selector(|| "sql-cancel-query".into())
+                                        .danger()
+                                        .small()
+                                        .icon(IconName::Close)
+                                        .tooltip("取消")
+                                        .on_click(cx.listener(
+                                            |this, _: &ClickEvent, window, cx| {
+                                                this.handle_cancel(window, cx);
+                                            },
+                                        )),
+                                )
                             })
-                        .disabled(
-                            !has_connection
-                                || self.transaction_busy
-                                || dml_busy
-                                || pending_cell_edit_count > 0,
-                        )
-                                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                    this.handle_run(window, cx);
-                                })),
-                        )
-                    }),
+                            .when(!running, |this| {
+                                this.child(
+                                    ramag_ui::clickable_button("run-query")
+                                        .debug_selector(|| "sql-run-query".into())
+                                        .primary()
+                                        .small()
+                                        .icon(IconName::Play)
+                                        .tooltip(if pending_cell_edit_count > 0 {
+                                            "请先提交或撤销未提交单元格修改"
+                                        } else if dml_busy {
+                                            "上一写操作尚未完成，请稍候"
+                                        } else {
+                                            "运行"
+                                        })
+                                        .disabled(
+                                            !has_connection
+                                                || self.transaction_busy
+                                                || dml_busy
+                                                || pending_cell_edit_count > 0,
+                                        )
+                                        .on_click(cx.listener(
+                                            |this, _: &ClickEvent, window, cx| {
+                                                this.handle_run(window, cx);
+                                            },
+                                        )),
+                                )
+                            }),
+                    ),
             )
             .child(result_view_tabs(
                 query_tab_entity,
@@ -581,12 +501,6 @@ impl Render for QueryTab {
                 border,
                 secondary_bg,
             ))
-            .child(
-                div()
-                    .flex_1()
-                    .min_h_0()
-                    .min_w_0()
-                    .child(result_entity),
-            )
+            .child(div().flex_1().min_h_0().min_w_0().child(result_entity))
     }
 }

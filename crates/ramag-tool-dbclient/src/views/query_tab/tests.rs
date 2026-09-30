@@ -21,6 +21,9 @@ struct NoopStorage;
 #[path = "filter_layout_tests.rs"]
 mod filter_layout_tests;
 
+#[path = "toolbar_layout_tests.rs"]
+mod toolbar_layout_tests;
+
 #[test]
 fn metadata_refresh_prefers_active_schema_and_ignores_empty_names() {
     assert_eq!(

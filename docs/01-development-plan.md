@@ -1649,6 +1649,17 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不启动本机 Docker，不重新构建或上传 `v0.4.0` 安装包；Computer Use 不可用时，系统截图只作为回退证据，不写成 Computer Use 原生窗口证据。
 - 实施顺序：先提交本设计确认，再实现动作组布局与回归测试；验证通过后使用独立功能提交并推送 `main`。
 
+### A-QUALITY-UI-05：数据库结果工具栏动作组对齐（代码与窗口验收完成，2026-09-30）
+
+- 实现：新增行、删除、导入、CSV 和运行/取消共用一个不拆行的动作组，组内间距为 4px；外层空间不足时整组换行。新增行按钮的既有代码移至 `toolbar.rs`，使渲染文件保持在 600 行上限内，禁用条件、回调和按钮顺序保留。
+- Headless：新增 GPUI 几何回归，覆盖深色/浅色、标准/大字号、空结果/已有结果/事务处理中并导出/查询运行并可取消，以及 `360/560/720/1024/1440px` 有效宽度，共 80 种组合；逐项检查动作组边界和每个按钮的共同中心线。结果视图使用同步测试辅助代码准备，不启动真实后台计算线程；原有 `360x480/1024x480/1440x480` 工具栏测试继续通过。
+- 验证：`ramag-tool-dbclient` 全量 367 项通过；workspace fmt、Clippy（`--all-targets --locked -- -D warnings`）、源码尺寸和 `git diff --check` 通过；`cargo build --locked -p ramag-bin` 成功，验收使用当前 `target/debug/ramag.exe`，没有使用已安装的旧程序。
+- 窗口：按 Computer Use 技能导入 `@oai/sky` 后，`list_apps`、`get_window` 和 `get_window_state` 已恢复；用返回的窗口和最新截图完成对象树打开表、CSV 菜单打开/Esc 关闭，以及 `1024x768` 下点击整组换行后的运行按钮。表查询再次返回 `1-100 of 100000`，按钮位置和结果区边界正常；`1440x900` 动作组保持一行。
+- 证据类型：精确尺寸由用户已授权的 Win32 `SetWindowPos` 设置；Computer Use 截图与点击结果保存在本聊天的工具记录。另用 `PrintWindow` 保存系统截图 `target/ui-fallback/dbclient-toolbar-result-1024x768-20260930.png`、`dbclient-toolbar-result-1440x900-20260930.png`、`dbclient-toolbar-export-menu-1440x900-20260930.png` 和 `dbclient-toolbar-run-1024x768-20260930.png`，这些文件只代表系统截图，不能写成 Computer Use 截图文件。
+- 功能边界：原生运行按钮最初执行恢复的草稿时返回 SQL 语法错误；从对象树打开表后生成的只读查询正常返回结果，本切片没有改写 SQL 解析或分页。新增、删除、导入、实际文件导出和真实事务取消不属于本次窗口操作范围，相关状态保留 headless 验证。
+- Docker：`com.docker.service` 为 `Stopped`，未启动 Docker Desktop/backend、容器或镜像，没有新增端口和清理对象；窗口只复用已有连接，不将该读取记作本机 Docker 集成测试通过。未重新构建或上传 `v0.4.0` 安装包。
+- Git：设计提交 `f0aa88d5` 已推送；实现、测试和本验收记录随本功能独立提交并推送 `main`。
+
 ## 5. 分支和清理
 
 默认在最新 `main` 上开发和推送。只有用户明确要求功能分支时才创建分支；分支必须基于最新 `main`，验证后合并回 `main`，重新验证并推送，再确认源分支无未合并/未推送提交和关联 worktree 后清理。不得删除 `main` 或未明确纳入本次合并的分支。
