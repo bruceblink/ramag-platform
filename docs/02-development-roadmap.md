@@ -54,7 +54,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 3. `A-UI-REAL`：真实窗口探测受 Computer Use 环境阻塞，状态保持未完成；不把替代证据写成真实窗口通过。
 4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和插件秘密上下文的真实环境验收；Linux Secret Service、macOS Keychain 和发布环境仍待分别验收，验证失败时保留安全拒绝状态。
 5. `A-PLAT-005`：JSON Path 真实静态入口已完成 headless 运行指标、任务回收、WSL 当前进程内存多场景回放和 Windows 系统 UI Automation/截图替代验收；Linux/macOS、发布构建和 Computer Use 真实窗口证据仍待补。
-6. `A-QUALITY`：正在执行 `A-QUALITY-RELEASE-001` Linux x86_64 发布构建复验；随后继续补齐可用平台的发布证据和大结果集、对象树、首帧、主题一致性记录。
+6. `A-QUALITY`：继续补齐大结果集、对象树、首帧和主题一致性记录；`v0.4.0` 已由 GitHub Release 发布，后续日常开发不在本机重复构建安装包，正式版本发布时按标签执行既有 GitHub Actions 流程。
 
 阶段 A 的每个子项独立设计、验证、提交和推送；同一时间只有一个子项处于开发中。
 
@@ -99,7 +99,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `COLLAB-001-B` | 原生 GPUI 选择、导出/导入和远程协作入口 | 当前范围完成（B1、B2、B3 已完成；B4 到期回收及生产 Relay 后置） | `COLLAB-001-A` | 用户确认、选择性同步、冲突和审计 |
 | `CANVAS-001..006` | Excalidraw 风格原生协同画布 | 阶段 C 后置，尚未开始 | 阶段 A、B | 场景模型、GPUI 编辑器、本机共享和后续实时协同 |
 | `A-UI-REAL` | 阶段 A 真实 Windows 窗口证据收口 | 受 Computer Use 环境阻塞；替代证据已记录但不能替代完整窗口流程 | `DB-UX-001`、`DB-UX-002`、`DB-UX-003`、`DB-UX-004`、`PLAT-004`、`TOOL-MIG-001` | 启动、鼠标/键盘流程、截图和限制记录 |
-| `QUALITY-UX-001` | 性能、主题和发布证据收口 | 进行中；当前切片为 `A-QUALITY-RELEASE-001` Linux x86_64 发布构建复验 | 各切片 | 测量、全量质量检查和发布记录 |
+| `QUALITY-UX-001` | 性能、主题和发布证据收口 | 持续；日常开发聚焦性能、主题和 headless 交互质量，正式版本发布时再按标签执行发布检查 | 各切片 | 测量、全量质量检查和发布记录 |
 
 ## 5. 交付规则
 

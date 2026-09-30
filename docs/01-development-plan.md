@@ -798,15 +798,6 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 证据边界：本切片只证明 Git 历史分页位置、完整提交 ID 去重和异步请求代际保护；不改变 Git 驱动接口、搜索/引用/路径过滤或 Git 写操作，SSH 集成测试仍由用户自行验证。
 - Git：设计确认提交 `c072dfb2` 已推送；代码提交完成后进入阶段 A 的 `QUALITY-UX-001` 质量与发布检查。
 
-### A-QUALITY-RELEASE-001：Linux x86_64 发布构建可复现性（设计确认，2026-09-30）
-
-- 问题证据：当前 `main` 已完成新的 Git 工作区切片，但阶段 A 仍缺少基于这份最新代码的 Linux x86_64 Release 构建、Debian 安装包、AppImage 和 SHA-256 清单记录；现有 `v0.4.0` 发布记录不能代替当前提交的重新验证。
-- 设计：在 WSL 原生 Linux x86_64 工作区运行 Linux 打包逻辑回归，并执行 `scripts/package-linux.sh` 生成本地安装包；检查 Cargo 版本、ELF 架构、Debian 包内容、AppImage 可提取内容和 `SHA256SUMS.txt` 回读。当前提交不是发布标签，不创建新标签、不发布 GitHub Release、不部署远程环境。
-- 验收条件：`scripts/linux/package-tests.sh` 通过；可用时运行 `shellcheck`；Linux 打包脚本完成 Release 编译并生成两种安装包，版本、文件名、架构、桌面元数据、AppImage 启动文件和 SHA-256 回读全部通过；把命令、产物路径、校验值和未覆盖的跨平台范围记录到本计划。
-- 范围：只验证现有 Linux 发布脚本和当前提交的本地产物，不修改安装器协议、版本号、发布工作流或发布标签。
-- 不做事项：没有 macOS/Windows 原生构建环境时不伪造对应平台结果；不把本地未打标签产物上传为正式 Release，不运行 Kubernetes 或远程部署验证。
-- 实施顺序：先提交本设计确认，再运行 Linux 逻辑测试和本地打包；结果明确后补充验收记录并独立提交、推送，随后再评估阶段 A 其余跨平台发布证据。
-
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。
