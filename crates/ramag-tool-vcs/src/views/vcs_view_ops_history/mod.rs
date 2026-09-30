@@ -26,11 +26,15 @@ impl VcsView {
         let Some(repo) = self.repo.as_ref().map(|repo| repo.id.clone()) else {
             return;
         };
+        self.commit_copy_request_seq = self.commit_copy_request_seq.wrapping_add(1);
+        let request_seq = self.commit_copy_request_seq;
         let driver = self.driver.clone();
         cx.spawn(async move |this, cx| {
             let result = driver.commit_details(&repo, &commit_id).await;
             let _ = this.update(cx, |this, cx| {
-                if !this.is_current_repo(&repo) {
+                if !this.is_current_repo(&repo)
+                    || !should_apply_commit_copy_response(this.commit_copy_request_seq, request_seq)
+                {
                     return;
                 }
                 match result {
@@ -345,6 +349,10 @@ impl VcsView {
         self.loading_commit_files = false;
         cx.notify();
     }
+}
+
+fn should_apply_commit_copy_response(current_request_seq: u64, response_request_seq: u64) -> bool {
+    current_request_seq == response_request_seq
 }
 
 /// 只有提交历史的搜索框被清空时才自动重载；reflog 由本地即时过滤，不应触发 Git 查询。

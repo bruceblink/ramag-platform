@@ -139,6 +139,8 @@ pub struct VcsView {
     pub(super) loading_commit_files: bool,
     /// 提交详情请求代际，防止旧回包覆盖。
     pub(super) commit_detail_request_seq: u64,
+    /// 提交信息复制请求代际，只接受最近一次点击的回包。
+    pub(super) commit_copy_request_seq: u64,
     pub(super) commit_files_collapsed: std::collections::HashSet<String>,
     pub(super) commit_files_collapsed_version: u64,
     pub(super) commit_files_rows_cache: RefCell<Option<CommitFilesRowsCacheEntry>>,
@@ -360,6 +362,7 @@ impl VcsView {
         self.commit_file_diff = None;
         self.loading_commit_files = false;
         self.commit_detail_request_seq = self.commit_detail_request_seq.wrapping_add(1);
+        self.commit_copy_request_seq = self.commit_copy_request_seq.wrapping_add(1);
         self.show_rebase_plan = false;
         self.rebase_todos.clear();
         self.rebase_scroll = UniformListScrollHandle::new();

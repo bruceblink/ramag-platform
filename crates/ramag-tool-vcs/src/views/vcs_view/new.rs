@@ -281,6 +281,7 @@ impl VcsView {
             commit_file_diff: None,
             loading_commit_files: false,
             commit_detail_request_seq: 0,
+            commit_copy_request_seq: 0,
             commit_files_collapsed: std::collections::HashSet::new(),
             commit_files_collapsed_version: 0,
             commit_files_rows_cache: RefCell::new(None),

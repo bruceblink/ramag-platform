@@ -1,6 +1,14 @@
 #![allow(clippy::unwrap_used)]
 
-use super::{parse_search_query, should_apply_empty_history_search};
+use super::{
+    parse_search_query, should_apply_commit_copy_response, should_apply_empty_history_search,
+};
+
+#[test]
+fn commit_copy_response_only_applies_to_latest_request() {
+    assert!(!should_apply_commit_copy_response(2, 1));
+    assert!(should_apply_commit_copy_response(2, 2));
+}
 
 #[test]
 fn clearing_commit_search_reloads_but_reflog_stays_local() {
