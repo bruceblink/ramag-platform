@@ -3,7 +3,7 @@
 
 use super::super::SshView;
 use super::support::service;
-use gpui_kit::{VisualTestAppContext, platform, px, size};
+use gpui_kit::{AppContext as _, VisualTestAppContext, platform, px, size};
 use ramag_domain::entities::SshProfile;
 use std::fs;
 use std::sync::Arc;
