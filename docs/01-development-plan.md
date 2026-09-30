@@ -979,6 +979,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 未完成项：没有启动本机 Docker 或构建 Release 安装包，没有运行 Kubernetes；真实窗口主题切换仍待原生窗口验收环境恢复。
 - Git：设计确认提交 `8196a37b` 已先行推送；实现代码和本验收记录随本切片独立提交并推送 `main`。
 
+### A-QUALITY-THEME-010：文件标签来源颜色使用主题语义色（设计确认，2026-09-30）
+
+- 问题证据：工作区文件标签中 Project Files、Commit 和 Compare 的来源圆点仍直接使用固定蓝色、紫色和绿色；主题切换后颜色不会随当前工作区主题变化，也没有和侧栏引用、Git 状态颜色共用语义入口。
+- 设计：保留 Changes 标签按暂存、未暂存、未跟踪和冲突显示状态色；Project Files 使用主题 `info`，Commit 使用主题 `accent`，Compare 使用主题 `success`。标签文字、关闭按钮、来源识别和稳定目标 ID 不变。
+- 改动范围：只调整文件标签来源圆点的颜色映射、共享颜色辅助函数和回归测试；增加一项可在具备 GPUI 图像渲染器的环境中执行的 VCS 截图测试，验证 1024×768 工作区帧能被捕获并写入 `target/ui-screenshots/`。不改变标签顺序、标签关闭、Diff 读取或 Git 操作。
+- 验收条件：来源颜色测试确认 Project Files、Commit、Compare 分别读取传入主题的 `info`/`accent`/`success`；现有 `ramag-tool-vcs` headless 布局和交互测试继续通过；具备 GPUI 图像渲染器时截图测试确认画布尺寸并生成 PNG；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。Linux WSL 当前没有 GPUI headless 图像渲染器时，只记录结构化 headless 证据和截图测试未执行原因，不把它写成像素截图已通过。
+- 不做事项：不重新构建或上传 `v0.4.0` 安装包，不启动本机 Docker，不运行 Kubernetes；不改变 Diff 增删行底色、Git 状态映射、引用解析、主题调色板或真实 Windows 原生窗口操作。
+- 实施顺序：先推送本设计确认，再替换文件标签来源颜色并补截图测试；目标测试和质量检查通过后独立提交并推送 `main`，继续阶段 A 主题一致性收口。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。
