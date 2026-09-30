@@ -10,6 +10,14 @@ use super::helpers::{BranchOp, FileOp, FileTabSource, HISTORY_PAGE_SIZE};
 use super::vcs_view::VcsView;
 use super::vcs_view_ops_history::parse_search_query;
 
+fn next_history_skip(skip: usize, fetched: usize) -> usize {
+    skip.saturating_add(fetched)
+}
+
+fn history_page_has_more(fetched: usize, added_count: usize, limit_reached: bool) -> bool {
+    fetched >= HISTORY_PAGE_SIZE && !limit_reached && added_count > 0
+}
+
 impl VcsView {
     pub(in crate::views) fn run_branch_op(&mut self, op: BranchOp, cx: &mut Context<Self>) {
         if let Some(operation) = self.status.as_ref().and_then(|status| status.operation) {
@@ -274,6 +282,7 @@ impl VcsView {
                 self.set_history_commits(Vec::new());
             }
             self.history_has_more = false;
+            self.history_next_skip = 0;
             self.loading_history = false;
             cx.notify();
             return;
@@ -332,12 +341,14 @@ impl VcsView {
                 match result {
                     Ok(commits) => {
                         let got = commits.len();
-                        let limit_reached = if skip == 0 {
+                        let (limit_reached, added_count) = if skip == 0 {
                             this.set_history_commits(commits)
                         } else {
                             this.append_history_commits(commits)
                         };
-                        this.history_has_more = got >= HISTORY_PAGE_SIZE && !limit_reached;
+                        this.history_next_skip = next_history_skip(skip, got);
+                        this.history_has_more =
+                            history_page_has_more(got, added_count, limit_reached);
                     }
                     Err(e) => {
                         this.error = Some(format!("加载历史失败：{e}"));
@@ -562,5 +573,23 @@ impl VcsView {
             });
         })
         .detach();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{HISTORY_PAGE_SIZE, history_page_has_more, next_history_skip};
+
+    #[test]
+    fn next_skip_uses_returned_page_position_not_retained_row_count() {
+        assert_eq!(next_history_skip(1_000, 1_000), 2_000);
+        assert_eq!(next_history_skip(usize::MAX, 1), usize::MAX);
+    }
+
+    #[test]
+    fn duplicate_only_page_stops_without_claiming_the_cache_limit() {
+        assert!(!history_page_has_more(HISTORY_PAGE_SIZE, 0, false));
+        assert!(history_page_has_more(HISTORY_PAGE_SIZE, 1, false));
+        assert!(!history_page_has_more(HISTORY_PAGE_SIZE, 1, true));
     }
 }

@@ -350,6 +350,7 @@ impl VcsView {
 
         let count = self.history_commits.len();
         let has_more = self.history_has_more;
+        let next_skip = self.history_next_skip;
         let is_loading = self.loading_history;
         let total_rows = count + usize::from(has_more);
         // 共享列表，避免每帧复制。
@@ -374,7 +375,7 @@ impl VcsView {
                             if i == count && has_more {
                                 if !is_loading {
                                     cx.defer_in(window, move |this, _, cx| {
-                                        this.load_history_page(count, cx);
+                                        this.load_history_page(next_skip, cx);
                                     });
                                 }
                                 return div()

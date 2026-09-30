@@ -250,6 +250,7 @@ impl VcsView {
             history_graph_rows: std::rc::Rc::new(Vec::new()),
             history_graph_state: Default::default(),
             history_has_more: false,
+            history_next_skip: 0,
             history_request_seq: 0,
             loading_history: false,
             stashes: Vec::new(),

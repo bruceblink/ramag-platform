@@ -1,6 +1,6 @@
 //! History 提交缓存的条数与内存预算；分页追加只复制 `Rc`，不深拷贝旧提交正文。
 
-use std::rc::Rc;
+use std::{collections::HashSet, rc::Rc};
 
 use ramag_domain::entities::Commit;
 
@@ -11,6 +11,7 @@ pub(super) struct RetainedHistory {
     pub(super) commits: Vec<Rc<Commit>>,
     pub(super) retained_bytes: usize,
     pub(super) limit_reached: bool,
+    pub(super) added_count: usize,
 }
 
 pub(super) fn replace(commits: Vec<Commit>) -> RetainedHistory {
@@ -48,33 +49,44 @@ fn retain_with_limits(
     let capacity = existing.len().saturating_add(incoming_len).min(max_commits);
     let mut commits = Vec::with_capacity(capacity);
     commits.extend(existing.iter().cloned());
+    let mut seen_ids = existing
+        .iter()
+        .map(|commit| commit.id.0.clone())
+        .collect::<HashSet<_>>();
     let mut bytes = retained_bytes;
-    let mut accepted = 0usize;
+    let mut added_count = 0usize;
+    let mut truncated = false;
 
     for commit in incoming {
+        if !seen_ids.insert(commit.id.0.clone()) {
+            continue;
+        }
         if commits.len() >= max_commits {
+            truncated = true;
             break;
         }
         let payload_bytes = commit_retained_bytes(&commit);
         let Some(next_bytes) = bytes.checked_add(payload_bytes) else {
+            truncated = true;
             break;
         };
         // 单条异常大的首个 commit 仍保留，避免历史区变成空白；后续条目停止追加。
         if !commits.is_empty() && next_bytes > max_bytes {
+            truncated = true;
             break;
         }
         commits.push(Rc::new(commit));
         bytes = next_bytes;
-        accepted += 1;
+        added_count += 1;
     }
 
-    let limit_reached = accepted < incoming_len
-        || commits.len() >= max_commits
-        || (!commits.is_empty() && bytes >= max_bytes);
+    let limit_reached =
+        truncated || commits.len() >= max_commits || (!commits.is_empty() && bytes >= max_bytes);
     RetainedHistory {
         commits,
         retained_bytes: bytes,
         limit_reached,
+        added_count,
     }
 }
 
@@ -142,6 +154,7 @@ mod tests {
         );
 
         assert_eq!(retained.commits.len(), 2);
+        assert_eq!(retained.added_count, 2);
         assert!(retained.limit_reached);
     }
 
@@ -159,6 +172,42 @@ mod tests {
 
         assert_eq!(retained.commits.len(), 1);
         assert!(Rc::ptr_eq(&retained.commits[0], &existing));
+        assert_eq!(retained.added_count, 0);
         assert!(retained.limit_reached);
+    }
+
+    #[test]
+    fn replacement_deduplicates_full_commit_ids_without_reporting_a_limit() {
+        let retained = retain_with_limits(
+            &[],
+            0,
+            vec![commit("1", 0), commit("1", 10), commit("2", 0)],
+            10,
+            usize::MAX,
+        );
+
+        assert_eq!(retained.commits.len(), 2);
+        assert_eq!(retained.commits[0].id.0, "1");
+        assert_eq!(retained.commits[1].id.0, "2");
+        assert_eq!(retained.added_count, 2);
+        assert!(!retained.limit_reached);
+    }
+
+    #[test]
+    fn append_deduplicates_existing_ids_and_keeps_new_commits() {
+        let existing = Rc::new(commit("1", 0));
+        let retained = retain_with_limits(
+            std::slice::from_ref(&existing),
+            commit_retained_bytes(&existing),
+            vec![commit("1", 10), commit("2", 0)],
+            10,
+            usize::MAX,
+        );
+
+        assert_eq!(retained.commits.len(), 2);
+        assert!(Rc::ptr_eq(&retained.commits[0], &existing));
+        assert_eq!(retained.commits[1].id.0, "2");
+        assert_eq!(retained.added_count, 1);
+        assert!(!retained.limit_reached);
     }
 }
