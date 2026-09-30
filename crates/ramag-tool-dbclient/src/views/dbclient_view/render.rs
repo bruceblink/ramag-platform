@@ -5,8 +5,8 @@ use gpui_kit::component::{
     scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
-    AnyView, ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window,
-    div, prelude::*, px,
+    AnyView, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Render,
+    SharedString, Styled, Window, div, prelude::*, px,
 };
 
 use super::{CenterMode, DbClientView};
@@ -29,6 +29,43 @@ fn session_tab_status_colors(
         Some((false, true)) => (danger, "连接失败", danger),
         Some((false, false)) => (success, "已连接", success),
     }
+}
+
+/// 根据窗口宽度限制连接标签标题，给类型、状态和关闭按钮保留稳定空间。
+///
+/// 返回值只影响标题显示区域；标签本身仍可以通过横向滚动容器访问全部内容。
+fn session_tab_title_max_width(viewport_width: f32) -> f32 {
+    if viewport_width < 720.0 {
+        140.0
+    } else if viewport_width < 1120.0 {
+        180.0
+    } else {
+        240.0
+    }
+}
+
+/// 渲染受约束的连接标签标题，并保留完整名称的悬停提示。
+fn render_session_tab_title(
+    title: String,
+    id: SharedString,
+    max_width: f32,
+    text_color: gpui_kit::Hsla,
+) -> impl IntoElement {
+    let title_for_tooltip = title.clone();
+    let debug_selector = format!("{id}-bounds");
+    div()
+        .id(id)
+        .debug_selector(move || debug_selector.clone())
+        .min_w_0()
+        .max_w(px(max_width))
+        .text_xs()
+        .text_color(text_color)
+        .overflow_hidden()
+        .text_ellipsis()
+        .tooltip(move |window, cx| {
+            gpui_kit::component::tooltip::Tooltip::new(title_for_tooltip.clone()).build(window, cx)
+        })
+        .child(title)
 }
 
 impl Render for DbClientView {
@@ -78,6 +115,8 @@ impl Render for DbClientView {
         let warning = theme.warning;
         let danger = theme.danger;
         let success = theme.success;
+        let tab_title_max_width =
+            session_tab_title_max_width(f32::from(window.viewport_size().width));
 
         let active = self.active_session;
 
@@ -171,10 +210,17 @@ impl Render for DbClientView {
             } = info;
             let tab_id = SharedString::from(format!("conn-tab-{idx}"));
             let close_id = SharedString::from(format!("conn-tab-close-{idx}"));
+            let title_id = SharedString::from(format!("conn-tab-title-{idx}"));
 
             // 标签状态与会话实体绑定：已完成首次连接显示绿色，未实例化的恢复标签明确显示未连接。
             let (dot_color, status_label, status_color) =
                 session_tab_status_colors(stale, health, warning, danger, success, muted_fg);
+            let title_element = render_session_tab_title(
+                title,
+                title_id,
+                tab_title_max_width,
+                if is_active { fg } else { muted_fg },
+            );
 
             let mut tab = h_flex()
                 .id(tab_id)
@@ -187,12 +233,7 @@ impl Render for DbClientView {
                 .border_color(border)
                 .cursor_pointer()
                 .child(div().w(px(8.0)).h(px(8.0)).rounded_full().bg(dot_color))
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(if is_active { fg } else { muted_fg })
-                        .child(title.clone()),
-                )
+                .child(title_element)
                 .child(div().text_xs().text_color(muted_fg).child(kind_label))
                 .child(div().text_xs().text_color(status_color).child(status_label))
                 // 生产徽标持续可见，与 driver 层拦截、写入口禁用保持同一语义。
@@ -361,7 +402,57 @@ impl DbClientView {
 
 #[cfg(test)]
 mod tests {
-    use super::session_tab_status_colors;
+    use super::{render_session_tab_title, session_tab_status_colors, session_tab_title_max_width};
+    use gpui_kit::{IntoElement, Render, TestAppContext, Window, px, size};
+
+    struct SessionTabTitlePreview {
+        title: String,
+    }
+
+    impl Render for SessionTabTitlePreview {
+        fn render(
+            &mut self,
+            window: &mut Window,
+            _: &mut gpui_kit::Context<Self>,
+        ) -> impl IntoElement {
+            render_session_tab_title(
+                self.title.clone(),
+                "session-tab-title".into(),
+                session_tab_title_max_width(f32::from(window.viewport_size().width)),
+                gpui_kit::hsla(0.0, 0.0, 0.9, 1.0),
+            )
+        }
+    }
+
+    #[gpui_kit::test]
+    fn session_tab_title_stays_within_its_responsive_width(cx: &mut TestAppContext) {
+        cx.update(gpui_kit::component::init);
+        let (_, cx) = cx.add_window_view(|_, _| SessionTabTitlePreview {
+            title: "a-very-long-connection-name-that-must-remain-discoverable".into(),
+        });
+
+        for width in [360.0, 1024.0, 1440.0] {
+            let max_width = session_tab_title_max_width(width);
+            cx.simulate_resize(size(px(width), px(240.0)));
+            cx.run_until_parked();
+
+            let bounds = cx
+                .debug_bounds("session-tab-title-bounds")
+                .expect("会话标签标题应渲染");
+            assert!(
+                bounds.size.width <= px(max_width),
+                "标题宽度不能超过响应式上限：bounds={bounds:?}, max={max_width}"
+            );
+        }
+    }
+
+    #[test]
+    fn session_tab_title_width_leaves_room_for_context_actions() {
+        assert_eq!(session_tab_title_max_width(360.0), 140.0);
+        assert_eq!(session_tab_title_max_width(1024.0), 180.0);
+        assert_eq!(session_tab_title_max_width(1440.0), 240.0);
+        assert!(session_tab_title_max_width(360.0) < session_tab_title_max_width(1440.0));
+    }
 
     #[test]
     fn session_tab_statuses_follow_theme_colors() {
