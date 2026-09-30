@@ -465,6 +465,25 @@ fn table_size_status_distinguishes_missing_and_failed_metadata() {
 }
 
 #[test]
+fn table_size_status_color_uses_theme_semantic_tokens() {
+    let foreground = gpui_kit::hsla(0.2, 0.3, 0.4, 1.0);
+    let warning = gpui_kit::hsla(0.3, 0.4, 0.5, 1.0);
+    let danger = gpui_kit::hsla(0.4, 0.5, 0.6, 1.0);
+    let muted = gpui_kit::hsla(0.5, 0.6, 0.7, 1.0);
+
+    let colors = (foreground, warning, danger, muted);
+    for (status, expected) in [
+        (TableSizeStatus::Failed, danger),
+        (TableSizeStatus::Stale, warning),
+        (TableSizeStatus::Known, foreground),
+        (TableSizeStatus::Loading, muted),
+        (TableSizeStatus::Unknown, muted),
+    ] {
+        assert_eq!(status.color(colors), expected);
+    }
+}
+
+#[test]
 fn navigation_filter_keeps_only_current_connection_tables() {
     let connection_id = ConnectionId::new();
     let other_connection_id = ConnectionId::new();

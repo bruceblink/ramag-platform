@@ -27,7 +27,7 @@ impl Render for TableTreePanel {
             ramag_ui::push_responsive_notification(window, n, cx);
         }
         let muted_fg = cx.theme().muted_foreground;
-        let red = gpui_kit::red();
+        let danger = cx.theme().danger;
 
         if self.connection.is_none() {
             return v_flex()
@@ -60,7 +60,7 @@ impl Render for TableTreePanel {
                 .child(
                     div()
                         .text_xs()
-                        .text_color(red)
+                        .text_color(danger)
                         .child(format!("加载失败：{err}")),
                 )
                 .child(

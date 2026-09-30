@@ -12,7 +12,7 @@ use gpui_kit::component::{
     menu::{ContextMenuExt as _, PopupMenu},
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    AnyElement, ClickEvent, Context, Hsla, IntoElement, ParentElement, SharedString, Styled, div,
     prelude::*, px,
 };
 #[cfg(test)]
@@ -55,6 +55,15 @@ impl TableSizeStatus {
             Self::Known
         } else {
             Self::Unknown
+        }
+    }
+
+    pub(super) fn color(self, colors: (Hsla, Hsla, Hsla, Hsla)) -> Hsla {
+        match self {
+            Self::Failed => colors.2,
+            Self::Stale => colors.1,
+            Self::Known => colors.0,
+            Self::Loading | Self::Unknown => colors.3,
         }
     }
 
@@ -210,7 +219,7 @@ impl TableTreePanel {
         let accent_fg = cx.theme().accent_foreground;
         let fg = cx.theme().foreground;
         let warning = cx.theme().warning;
-        let red = gpui_kit::red();
+        let danger = cx.theme().danger;
 
         match row {
             TreeRow::Schema {
@@ -286,7 +295,7 @@ impl TableTreePanel {
                 .pr_2()
                 .pt(px(6.0))
                 .text_xs()
-                .text_color(if *is_error { red } else { muted_fg })
+                .text_color(if *is_error { danger } else { muted_fg })
                 .whitespace_nowrap()
                 .overflow_hidden()
                 .text_ellipsis()
@@ -447,14 +456,7 @@ impl TableTreePanel {
                                 .text_color(if is_selected {
                                     accent_fg
                                 } else {
-                                    match size_status {
-                                        TableSizeStatus::Failed => red,
-                                        TableSizeStatus::Stale => warning,
-                                        TableSizeStatus::Known => fg,
-                                        TableSizeStatus::Loading | TableSizeStatus::Unknown => {
-                                            muted_fg
-                                        }
-                                    }
+                                    size_status.color((fg, warning, danger, muted_fg))
                                 })
                                 .child(size),
                         )
@@ -476,7 +478,7 @@ impl TableTreePanel {
                 row.into_any_element()
             }
             TreeRow::TablePlaceholder { text, is_error } => {
-                render_columns_placeholder(text.clone(), if *is_error { red } else { muted_fg })
+                render_columns_placeholder(text.clone(), if *is_error { danger } else { muted_fg })
             }
             TreeRow::Column { key, column_index } => self
                 .table_columns
