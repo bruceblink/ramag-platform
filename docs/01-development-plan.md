@@ -929,7 +929,7 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 测试：`ramag-ui` 全量 `109` 项测试通过；新增 `shared_error_text_color_follows_the_active_theme`，覆盖浅色→深色→浅色切换并确认错误颜色始终跟随当前主题；现有对话框、设置页三种窗口尺寸回归继续通过。`rg` 检查确认 `ramag-ui` 生产代码不再直接调用 `gpui_kit::red()`。
 - 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`bash scripts/check-source-size.sh` 和 `git diff --check` 通过。
 - Docker 与发布边界：本切片未启动本机 Docker，未构建或上传 `v0.4.0` release，未运行 Kubernetes；没有把 headless 对话框或设置测试扩大为真实窗口主题切换证据。
-- Git：设计确认提交 `6fa162f0` 已推送；实现代码和测试待本记录提交后独立推送 `main`。
+- Git：设计确认提交 `6fa162f0` 和实现提交 `5ae9734a` 已独立推送 `main`，继续阶段 A 主题一致性收口。
 
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
