@@ -1,6 +1,38 @@
 use super::*;
 
 #[test]
+fn session_index_tracks_connection_id_after_list_reordering() {
+    let first =
+        ramag_domain::entities::ConnectionConfig::new_mysql("first", "127.0.0.1", 3306, "root");
+    let second =
+        ramag_domain::entities::ConnectionConfig::new_mysql("second", "127.0.0.1", 3307, "root");
+    let third =
+        ramag_domain::entities::ConnectionConfig::new_mysql("third", "127.0.0.1", 3308, "root");
+    let target_id = second.id.clone();
+    let mut sessions = vec![
+        SessionSlot {
+            entity: None,
+            config: first,
+            stale: false,
+        },
+        SessionSlot {
+            entity: None,
+            config: second,
+            stale: false,
+        },
+        SessionSlot {
+            entity: None,
+            config: third,
+            stale: false,
+        },
+    ];
+
+    sessions.remove(0);
+
+    assert_eq!(session_index_by_id(&sessions, &target_id), Some(0));
+}
+
+#[test]
 fn open_sessions_parser_accepts_new_and_legacy_formats() {
     let id = ramag_domain::entities::ConnectionId::new();
     let modern = serde_json::to_string(&OpenSessionsPref {

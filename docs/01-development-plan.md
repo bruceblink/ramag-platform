@@ -1631,6 +1631,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不启动本机 Docker，不重新构建或上传 `v0.4.0` 安装包，不把 headless 结果扩大为 Computer Use 原生窗口证据。
 - 实施顺序：先提交本设计确认，再替换 UI 回调的索引捕获并补回归；验证通过后使用独立功能提交并推送 `main`。
 
+### A-QUALITY-DBCLIENT-003：会话标签使用稳定连接标识（代码与 headless 验收完成，2026-09-30）
+
+- 实现：会话标签选择、关闭、stale 面板重连和关闭回调改为捕获 `ConnectionId`，执行时解析当前会话位置；标签、标题和关闭按钮的调试标识改用连接 ID，列表重排后不会复用旧下标指向相邻连接。同步内部状态更新仍使用当前索引。
+- 测试：新增列表重排后按连接 ID 解析原会话的回归；`ramag-tool-dbclient` 全量 `366` 项通过，包含 `360x240`、`1024x240`、`1440x240` 标签标题 headless 边界测试。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查和 `git diff --check` 通过。
+- Docker 与发布边界：本切片只验证会话标签目标解析和布局，不访问数据库服务，未启动本机 Docker，未构建或上传 `v0.4.0` 安装包。
+- 原生窗口证据：按 `computer-use` 技能重新初始化 `@oai/sky` 时返回 `Trusted RPC service is not configured: sky`；当前无法获取 Windows 原生窗口或执行鼠标/键盘流程。因此本切片只认 headless GPUI 和单元测试证据，没有宣称 Computer Use 原生窗口验收通过。
+- Git：设计确认提交 `d0f04f23` 已推送；实现、测试和本验收记录随本切片独立提交并推送 `main`。
+
 ## 5. 分支和清理
 
 默认在最新 `main` 上开发和推送。只有用户明确要求功能分支时才创建分支；分支必须基于最新 `main`，验证后合并回 `main`，重新验证并推送，再确认源分支无未合并/未推送提交和关联 worktree 后清理。不得删除 `main` 或未明确纳入本次合并的分支。

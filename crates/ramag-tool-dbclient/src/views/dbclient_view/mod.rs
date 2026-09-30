@@ -224,6 +224,16 @@ fn queue_restored_session_slots(
     )
 }
 
+/// Resolve a session's current vector position from its stable connection ID.
+///
+/// UI callbacks may run after another tab was removed, so the position captured
+/// during rendering is not a safe identity. Returning the current position keeps
+/// existing synchronous state transitions while preventing actions from moving
+/// to a neighboring connection.
+pub(super) fn session_index_by_id(sessions: &[SessionSlot], id: &ConnectionId) -> Option<usize> {
+    sessions.iter().position(|session| session.config.id == *id)
+}
+
 impl DbClientView {
     fn persist_open_sessions(&self, cx: &mut Context<Self>) {
         let ids: Vec<ramag_domain::entities::ConnectionId> =
@@ -378,6 +388,18 @@ impl DbClientView {
         self.materialize_slot(idx, window, cx);
     }
 
+    pub(super) fn reconnect_slot_by_id(
+        &mut self,
+        id: ConnectionId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(idx) = session_index_by_id(&self.sessions, &id) else {
+            return;
+        };
+        self.reconnect_slot(idx, window, cx);
+    }
+
     fn open_session(
         &mut self,
         config: ConnectionConfig,
@@ -471,6 +493,13 @@ impl DbClientView {
         cx.notify();
     }
 
+    pub(super) fn close_session_by_id(&mut self, id: ConnectionId, cx: &mut Context<Self>) {
+        let Some(idx) = session_index_by_id(&self.sessions, &id) else {
+            return;
+        };
+        self.close_session(idx, cx);
+    }
+
     pub(super) fn select_session(
         &mut self,
         idx: usize,
@@ -491,6 +520,18 @@ impl DbClientView {
             self.persist_open_sessions(cx);
             cx.notify();
         }
+    }
+
+    pub(super) fn select_session_by_id(
+        &mut self,
+        id: ConnectionId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(idx) = session_index_by_id(&self.sessions, &id) else {
+            return;
+        };
+        self.select_session(idx, window, cx);
     }
 
     pub(super) fn show_picker(&mut self, cx: &mut Context<Self>) {

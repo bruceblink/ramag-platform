@@ -10,6 +10,7 @@ use gpui_kit::{
 };
 
 use super::{CenterMode, DbClientView};
+use ramag_domain::entities::ConnectionId;
 
 fn session_tab_status_colors(
     stale: bool,
@@ -122,7 +123,7 @@ impl Render for DbClientView {
 
         /// Tab 条目的展示快照
         struct TabInfo {
-            idx: usize,
+            id: ConnectionId,
             title: String,
             kind_label: &'static str,
             is_active: bool,
@@ -136,7 +137,7 @@ impl Render for DbClientView {
             .iter()
             .enumerate()
             .map(|(i, s)| TabInfo {
-                idx: i,
+                id: s.config.id.clone(),
                 title: s.config.name.clone(),
                 kind_label: super::driver_kind_label(s.config.driver),
                 is_active: Some(i) == active,
@@ -200,7 +201,7 @@ impl Render for DbClientView {
 
         for info in session_titles {
             let TabInfo {
-                idx,
+                id: session_id,
                 title,
                 kind_label,
                 is_active,
@@ -208,9 +209,11 @@ impl Render for DbClientView {
                 stale,
                 production,
             } = info;
-            let tab_id = SharedString::from(format!("conn-tab-{idx}"));
-            let close_id = SharedString::from(format!("conn-tab-close-{idx}"));
-            let title_id = SharedString::from(format!("conn-tab-title-{idx}"));
+            let tab_id = SharedString::from(format!("conn-tab-{session_id}"));
+            let close_id = SharedString::from(format!("conn-tab-close-{session_id}"));
+            let title_id = SharedString::from(format!("conn-tab-title-{session_id}"));
+            let close_session_id = session_id.clone();
+            let select_session_id = session_id.clone();
 
             // 标签状态与会话实体绑定：已完成首次连接显示绿色，未实例化的恢复标签明确显示未连接。
             let (dot_color, status_label, status_color) =
@@ -260,11 +263,11 @@ impl Render for DbClientView {
                         .tooltip("关闭")
                         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                             cx.stop_propagation();
-                            this.close_session(idx, cx);
+                            this.close_session_by_id(close_session_id.clone(), cx);
                         })),
                 )
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                    this.select_session(idx, window, cx);
+                    this.select_session_by_id(select_session_id.clone(), window, cx);
                 }));
 
             if is_active && !on_picker_active {
@@ -284,8 +287,8 @@ impl Render for DbClientView {
         let center_view: gpui_kit::AnyElement = match &self.center {
             CenterMode::Session => {
                 match active.and_then(|i| self.sessions.get(i).map(|s| (i, s))) {
-                    Some((idx, slot)) if slot.stale => self
-                        .render_stale_panel(idx, &slot.config.name, cx)
+                    Some((_, slot)) if slot.stale => self
+                        .render_stale_panel(slot.config.id.clone(), &slot.config.name, cx)
                         .into_any_element(),
                     Some((_, slot)) => match &slot.entity {
                         Some(entity) => {
@@ -340,11 +343,13 @@ impl DbClientView {
     /// 配置已更新的暂停面板：说明原因 + 一键重连 / 关闭标签
     fn render_stale_panel(
         &self,
-        idx: usize,
+        id: ConnectionId,
         name: &str,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let theme = cx.theme();
+        let reconnect_id = id.clone();
+        let close_id = id;
         let muted_fg = theme.muted_foreground;
         let fg = theme.foreground;
         let warning = theme.warning;
@@ -383,7 +388,7 @@ impl DbClientView {
                             .small()
                             .label("重连")
                             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                                this.reconnect_slot(idx, window, cx);
+                                this.reconnect_slot_by_id(reconnect_id.clone(), window, cx);
                             })),
                     )
                     .child(
@@ -393,7 +398,7 @@ impl DbClientView {
                             .label("关闭")
                             .text_color(fg)
                             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                                this.close_session(idx, cx);
+                                this.close_session_by_id(close_id.clone(), cx);
                             })),
                     ),
             )
