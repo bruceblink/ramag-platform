@@ -54,7 +54,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 3. `A-UI-REAL`：真实窗口探测受 Computer Use 环境阻塞，状态保持未完成；不把替代证据写成真实窗口通过。
 4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和插件秘密上下文的真实环境验收；Linux Secret Service、macOS Keychain 和发布环境仍待分别验收，验证失败时保留安全拒绝状态。
 5. `A-PLAT-005`：JSON Path 真实静态入口已完成 headless 运行指标、任务回收、WSL 当前进程内存多场景回放和 Windows 系统 UI Automation/截图替代验收；Linux/macOS、发布构建和 Computer Use 真实窗口证据仍待补。
-6. `A-QUALITY`：`A-QUALITY-VCS-001` 历史提交 ID 索引复用已完成；阶段 A 质量记录继续补齐大结果集、对象树、首帧和主题一致性，阶段 B 当前推进 `B-GIT-001-Y` 提交详情目标失效；`v0.4.0` 已由 GitHub Release 发布，后续日常开发不在本机重复构建安装包，正式版本发布时按标签执行既有 GitHub Actions 流程。
+6. `A-QUALITY`：`A-QUALITY-VCS-001` 历史提交 ID 索引复用已完成；阶段 A 质量记录继续补齐大结果集、对象树、首帧和主题一致性；阶段 B 的 `B-GIT-001-Y` 提交详情目标失效已完成，继续按 Git 工作区边界推进；`v0.4.0` 已由 GitHub Release 发布，后续日常开发不在本机重复构建安装包，正式版本发布时按标签执行既有 GitHub Actions 流程。
 
 阶段 A 的每个子项独立设计、验证、提交和推送；同一时间只有一个子项处于开发中。
 
@@ -93,7 +93,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 | `PLAT-005` | 按需激活与插件资源预算 | 阶段 A 进行中（JSON Path 真实入口 headless 指标和任务回收已完成；进程内存与真实窗口证据待补） | `PLAT-004` | 首次打开、取消、内存/结果上限和生命周期回收 |
 | `TOOL-MIG-001` | JSON Path 计算核心与原生入口迁移 | 已完成（`TOOL-MIG-001-A`、`TOOL-MIG-001-B`） | `PLAT-004`、`PLAT-005` | Rust 核心、GPUI 入口、共享样例和回归 |
 | `DUAL-CORE-001` | 已迁移核心的 Web/WASM 双端适配评估 | 已完成（`DUAL-CORE-001-A`） | `TOOL-MIG-001` | Web 结果一致性、构建体积和桌面无 WebView 证据 |
-| `CROSS-UX-001` | API/Kafka/SSH/容器/Git 原生工作区迁移 | 阶段 B 进行中；API、Kafka 和 SSH/SFTP 代码/headless/真实服务证据已完成，容器 Docker 日志历史读取、停止、持续 tail、暂停展示、当前窗口复制、follow 不重复历史日志、当前窗口导出、详情状态与健康信息刷新、实时跟随最新行、当前日志窗口本地筛选、Docker Engine 容量摘要、单次容器资源指标快照、指标快照历史窗口以及指标趋势条已完成代码、headless、本机 Docker 回放；Git 已完成批量工作区路径快照修复、Pull 快进/分叉合并/带进度回放、普通工作区远程操作入口、Stash 提交 ID 稳定定位、历史侧栏对象快照、工作区单文件状态快照、自动 Stash 提交 ID 清理、稳定引用选择器、历史行窄窗口布局、Tag/远程创建弹窗、首次 Push 远程选择弹窗以及历史分页位置与重复提交保护的代码、headless、临时仓库和 bare remote 回放，当前推进 HEAD 变化后的提交详情目标失效；Kafka 与 SSH 原生窗口证据待 Computer Use 恢复，SSH 终端/端口转发回放由用户自行验证 | `SHELL-001`、`DB-UX-005` | 各工具专项交互与真实服务证据 |
+| `CROSS-UX-001` | API/Kafka/SSH/容器/Git 原生工作区迁移 | 阶段 B 进行中；API、Kafka 和 SSH/SFTP 代码/headless/真实服务证据已完成，容器 Docker 日志历史读取、停止、持续 tail、暂停展示、当前窗口复制、follow 不重复历史日志、当前窗口导出、详情状态与健康信息刷新、实时跟随最新行、当前日志窗口本地筛选、Docker Engine 容量摘要、单次容器资源指标快照、指标快照历史窗口以及指标趋势条已完成代码、headless、本机 Docker 回放；Git 已完成批量工作区路径快照修复、Pull 快进/分叉合并/带进度回放、普通工作区远程操作入口、Stash 提交 ID 稳定定位、历史侧栏对象快照、工作区单文件状态快照、自动 Stash 提交 ID 清理、稳定引用选择器、历史行窄窗口布局、Tag/远程创建弹窗、首次 Push 远程选择弹窗、历史分页位置与重复提交保护以及 HEAD 变化后的提交详情目标失效的代码、headless、临时仓库和 bare remote 回放；Kafka 与 SSH 原生窗口证据待 Computer Use 恢复，SSH 终端/端口转发回放由用户自行验证 | `SHELL-001`、`DB-UX-005` | 各工具专项交互与真实服务证据 |
 | `CATALOG-001` | 第一方工具目录和能力说明 | 已完成（代码与 headless；真实窗口待补） | `PLAT-004`、`TOOL-MIG-001`、`DUAL-CORE-001` | 清单校验、平台标识、权限和版本记录 |
 | `COLLAB-001-A` | 本机加密共享包、版本冲突、撤销和审计边界 | 已完成代码与专项测试 | `CATALOG-001` | 敏感数据阻断、加密落盘、冲突和撤销 |
 | `COLLAB-001-B` | 原生 GPUI 选择、导出/导入和远程协作入口 | 当前范围完成（B1、B2、B3 已完成；B4 到期回收及生产 Relay 后置） | `COLLAB-001-A` | 用户确认、选择性同步、冲突和审计 |

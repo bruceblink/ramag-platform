@@ -1,3 +1,6 @@
+#[cfg(test)]
+#[path = "head_change_render_test.rs"]
+mod head_change_render_test;
 mod new;
 mod render;
 #[cfg(test)]

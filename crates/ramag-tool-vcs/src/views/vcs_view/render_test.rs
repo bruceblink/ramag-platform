@@ -240,7 +240,7 @@ fn inject_file_content_session(v: &mut VcsView) {
     v.active_file_tab_idx = Some(0);
 }
 
-fn add_vcs_window(cx: &mut TestAppContext) -> (Entity<VcsView>, &mut VisualTestContext) {
+pub(super) fn add_vcs_window(cx: &mut TestAppContext) -> (Entity<VcsView>, &mut VisualTestContext) {
     cx.update(gpui_kit::component::init);
 
     let mut view = None;

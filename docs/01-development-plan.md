@@ -814,6 +814,13 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不重新构建 `v0.4.0` 安装包，不运行 Kubernetes；SSH 集成测试和真实 Windows 窗口仍由既有验收边界覆盖。
 - 实施顺序：先提交设计确认，再补详情失效和 headless 回归；通过后独立提交并推送，继续阶段 B Git 工作区边界开发。
 
+### B-GIT-001-Y：HEAD 变化后提交详情目标失效（代码与 headless 验收完成，2026-09-30）
+
+- 实现：`refresh_after_head_change` 在刷新工作区和历史前关闭当前提交详情，递增 `commit_detail_request_seq`，清空旧提交文件树、选中文件和加载状态；HEAD 变化期间到达的旧详情回包因此不能继续写入界面。
+- 验收结果：新增 `head_change_invalidates_commit_detail_target` headless 回归，确认旧提交目标、文件树和加载状态均清理且请求代际递增；`ramag-tool-vcs` 全量 180 项中 175 项通过、5 项性能观察测试按设计忽略；workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 真实窗口：Computer Use 当前没有可操作的 Ramag 原生窗口；本切片只保留 headless 证据，不把进程启动描述为真实窗口验收。
+- Git：设计确认已由 `cc967cea` 推送；代码提交完成后继续阶段 B Git 工作区边界开发。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。

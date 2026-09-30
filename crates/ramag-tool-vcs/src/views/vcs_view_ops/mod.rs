@@ -142,6 +142,10 @@ impl VcsView {
 
     /// HEAD 变化后清理缓存并刷新。
     pub(in crate::views) fn refresh_after_head_change(&mut self, cx: &mut Context<Self>) {
+        // HEAD 变化后旧提交详情和文件树不再对应当前历史；先失效详情回包，避免旧数据写回。
+        if self.viewing_commit.is_some() || self.loading_commit_files {
+            self.close_commit_detail(cx);
+        }
         if self.compare.is_some() {
             self.clear_compare_state();
         }
