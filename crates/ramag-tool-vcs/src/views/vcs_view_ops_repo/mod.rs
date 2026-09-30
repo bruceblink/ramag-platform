@@ -8,6 +8,7 @@ use tracing::{error, info};
 
 use super::helpers::{
     ActiveView, FileContentSnapshot, FileTab, FileTabSource, FilesViewMode, PendingFileEditorLoad,
+    find_file_tab_index,
 };
 use super::vcs_view::{RepoSessionState, VcsView};
 
@@ -303,6 +304,28 @@ fn strip_file_tab_payloads(file_tabs: &mut [FileTab]) {
         tab.cached_diff_syntax = None;
         tab.cached_content = None;
     }
+}
+
+/// 移除不可恢复的 Compare 标签后，按稳定目标或原位置保留活动标签。
+fn prepare_cached_file_tabs(
+    file_tabs: &mut Vec<FileTab>,
+    active_file_tab_idx: Option<usize>,
+) -> Option<usize> {
+    let active_target = active_file_tab_idx
+        .and_then(|index| file_tabs.get(index))
+        .filter(|tab| !matches!(tab.source, FileTabSource::Compare { .. }))
+        .map(FileTab::target);
+    file_tabs.retain(|tab| !matches!(tab.source, FileTabSource::Compare { .. }));
+
+    let fallback_index = active_file_tab_idx
+        .filter(|_| !file_tabs.is_empty())
+        .map(|index| index.min(file_tabs.len() - 1));
+    let restored_index = active_target
+        .as_ref()
+        .and_then(|target| find_file_tab_index(file_tabs, target))
+        .or(fallback_index);
+    strip_file_tab_payloads(file_tabs);
+    restored_index
 }
 
 /// 仅在写入版本匹配时清除草稿标记。

@@ -864,6 +864,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不重新构建或上传 `v0.4.0` 安装包，不启动本机 Docker，不运行 Kubernetes；不代替用户执行 114 服务器终端/端口转发集成回放，不把 headless 结果扩大为真实 Windows 原生窗口验收。
 - 实施顺序：先提交本设计确认，再实现会话缓存的稳定标签恢复和 headless 回归；验证通过后独立提交并推送 `main`，继续阶段 B Git 工作区边界开发。
 
+### B-GIT-001-AB：仓库会话缓存恢复稳定文件标签（代码与 headless 验收完成，2026-09-30）
+
+- 实现：新增会话缓存标签整理步骤，在移除 Compare 标签前记录活动标签的稳定目标和原位置；保存时优先按稳定目标计算新的活动下标，活动标签属于 Compare 或已不存在时按原位置选择相邻标签，并继续清理缓存正文。恢复流程保持现有标签顺序和 `activate_file_tab_state` 行为，不改变会话缓存结构。
+- 验收结果：新增 `cached_session_tabs_restore_non_compare_target_or_neighbor` 和 `restoring_repo_session_keeps_non_compare_file_tab_active`，覆盖活动非比较标签、活动 Compare 标签和 Compare-only 标签；`cargo test --locked -p ramag-tool-vcs --all-targets -- --test-threads=1` 共 184 项，其中 179 项通过、5 项性能观察测试按设计忽略；workspace fmt、Clippy、源码尺寸检查和 `git diff --check` 通过。
+- 证据边界：headless GPUI 回归实际调用会话保存与恢复流程，确认缓存下标、标签顺序和恢复后的主区选择状态一致；没有把 headless 结果扩大为真实 Windows 原生窗口验收，114 服务器终端/端口转发集成回放仍由用户自行验证。
+- 未完成项：没有重新构建或上传 `v0.4.0` 安装包，没有启动本机 Docker，没有运行 Kubernetes；没有改变 Git 驱动参数、文件内容读取、提交草稿或仓库写操作。
+- Git：设计确认提交 `5124b872` 已先行推送；实现代码、回归测试和本验收记录随本切片独立提交并推送 `main`。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。

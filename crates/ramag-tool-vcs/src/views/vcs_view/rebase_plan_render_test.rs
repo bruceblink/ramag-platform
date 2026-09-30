@@ -368,6 +368,53 @@ fn status_refresh_restores_file_tab_position_after_change_removal(cx: &mut TestA
     });
 }
 
+/// 仓库会话缓存移除 Compare 标签后，恢复流程仍能激活原来的非比较标签。
+#[gpui_kit::test]
+fn restoring_repo_session_keeps_non_compare_file_tab_active(cx: &mut TestAppContext) {
+    let (view, cx) = add_vcs_window(cx);
+    let repo = super::mock_repo();
+
+    view.update(cx, |v, cx| {
+        v.open_repos = vec![repo.clone()];
+        v.repo = Some(repo.clone());
+        v.file_tabs = vec![
+            file_tab("before.rs", FileTabSource::ProjectFiles),
+            file_tab(
+                "compare.rs",
+                FileTabSource::Compare {
+                    from: "from-commit".into(),
+                    to: "to-commit".into(),
+                },
+            ),
+            file_tab(
+                "after.rs",
+                FileTabSource::Commit {
+                    commit_id: "commit-id".into(),
+                    change_kind: None,
+                },
+            ),
+        ];
+        v.active_file_tab_idx = Some(2);
+        v.save_current_session_to_cache(cx);
+
+        let cached = v
+            .repo_session_cache
+            .get(&repo.path)
+            .expect("仓库会话应已缓存");
+        assert_eq!(cached.active_file_tab_idx, Some(1));
+        assert_eq!(cached.file_tabs.len(), 2);
+        assert_eq!(cached.file_tabs[1].path, "after.rs");
+
+        v.file_tabs.clear();
+        v.active_file_tab_idx = None;
+        assert!(v.restore_session_from_cache(&repo.path, cx));
+        assert_eq!(v.active_file_tab_idx, Some(1));
+        assert_eq!(v.selected_commit_file.as_deref(), Some("after.rs"));
+        assert_eq!(v.file_tabs[1].path, "after.rs");
+    });
+    cx.run_until_parked();
+}
+
 fn inject_project_files(v: &mut VcsView) {
     let repo = super::mock_repo();
     v.open_repos = vec![repo.clone()];

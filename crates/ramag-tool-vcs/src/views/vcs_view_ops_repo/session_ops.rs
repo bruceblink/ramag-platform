@@ -136,15 +136,15 @@ impl VcsView {
         }
         // 缓存仅保留标签元数据。
         let mut file_tabs = self.file_tabs.clone();
-        file_tabs.retain(|tab| !matches!(tab.source, FileTabSource::Compare { .. }));
-        strip_file_tab_payloads(&mut file_tabs);
+        let active_file_tab_idx =
+            prepare_cached_file_tabs(&mut file_tabs, self.active_file_tab_idx);
         cache_repo_session(
             &mut self.repo_session_cache,
             &mut self.repo_session_order,
             path,
             RepoSessionState {
                 file_tabs,
-                active_file_tab_idx: self.active_file_tab_idx,
+                active_file_tab_idx,
                 commit_text,
                 commit_amend: self.commit_amend,
                 commit_sign: self.commit_sign,
