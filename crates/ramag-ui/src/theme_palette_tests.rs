@@ -62,3 +62,15 @@ fn component_tokens_follow_palette_after_theme_round_trip(cx: &mut gpui_kit::Tes
         });
     }
 }
+
+#[gpui_kit::test]
+fn shared_error_text_color_follows_the_active_theme(cx: &mut gpui_kit::TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    for mode in [Mode::Light, Mode::Dark, Mode::Light] {
+        cx.update(|app| {
+            apply_theme(mode, app);
+            let theme = Theme::global(app);
+            assert_eq!(crate::error_text_color(theme), theme.danger);
+        });
+    }
+}

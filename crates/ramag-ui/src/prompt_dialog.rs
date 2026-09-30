@@ -258,6 +258,7 @@ pub fn open_reveal_masked_prompt(
             })
             .content(move |content, _, cx| {
                 let muted_fg = cx.theme().muted_foreground;
+                let danger = crate::error_text_color(cx.theme());
                 let masked_now = *masked_for_content.borrow();
                 let value = input_for_content.read(cx).value();
                 let error_line = error_for_content
@@ -292,7 +293,7 @@ pub fn open_reveal_masked_prompt(
                         .child(div().text_sm().text_color(muted_fg).child(desc.clone()))
                         .child(Input::new(&input_for_content).small().suffix(toggle))
                         .when_some(error_line, |this, message| {
-                            this.child(div().text_xs().text_color(gpui_kit::red()).child(message))
+                            this.child(div().text_xs().text_color(danger).child(message))
                         }),
                 )
             })
@@ -411,6 +412,7 @@ fn open_prompt_impl(
                 let empty_error = empty_error.clone();
                 move |content, _, cx| {
                     let muted_fg = cx.theme().muted_foreground;
+                    let danger = crate::error_text_color(cx.theme());
                     let show_empty_error = *empty_error.borrow()
                         && input_for_content.read(cx).value().trim().is_empty();
                     content.child(
@@ -420,12 +422,7 @@ fn open_prompt_impl(
                             .child(div().text_sm().text_color(muted_fg).child(desc.clone()))
                             .child(Input::new(&input_for_content).small())
                             .when(show_empty_error, |this| {
-                                this.child(
-                                    div()
-                                        .text_xs()
-                                        .text_color(gpui_kit::red())
-                                        .child("输入不能为空"),
-                                )
+                                this.child(div().text_xs().text_color(danger).child("输入不能为空"))
                             }),
                     )
                 }

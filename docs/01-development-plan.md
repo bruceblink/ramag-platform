@@ -923,6 +923,14 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不启动本机 Docker，不构建或上传 `v0.4.0` release，不运行 Kubernetes；不把 headless 对话框或设置测试扩大为真实窗口主题切换证据。
 - 实施顺序：先提交本设计确认，再调整公共颜色入口和调用方并补测试；验证通过后独立提交并推送 `main`，继续阶段 A 主题一致性收口。
 
+### A-QUALITY-THEME-004：公共提示和剪贴板设置错误使用主题语义色（代码与 headless 验收完成，2026-09-30）
+
+- 实现：新增 `ramag-ui::error_text_color` 共享入口返回当前主题 `danger`；普通/掩码输入对话框的校验错误，以及剪贴板设置页的设置读取异常和全局热键失败提示均改用该入口。输入、设置保存和热键状态逻辑未改变。
+- 测试：`ramag-ui` 全量 `109` 项测试通过；新增 `shared_error_text_color_follows_the_active_theme`，覆盖浅色→深色→浅色切换并确认错误颜色始终跟随当前主题；现有对话框、设置页三种窗口尺寸回归继续通过。`rg` 检查确认 `ramag-ui` 生产代码不再直接调用 `gpui_kit::red()`。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`bash scripts/check-source-size.sh` 和 `git diff --check` 通过。
+- Docker 与发布边界：本切片未启动本机 Docker，未构建或上传 `v0.4.0` release，未运行 Kubernetes；没有把 headless 对话框或设置测试扩大为真实窗口主题切换证据。
+- Git：设计确认提交 `6fa162f0` 已推送；实现代码和测试待本记录提交后独立推送 `main`。
+
 ### A-QUALITY-ICON-001：结果分页图标资源完整性（2026-09-27）
 
 - 问题证据：数据库结果页使用上游 `IconName::SkipBack` 和 `IconName::SkipForward`，运行时加载 `icons/skip-back.svg`、`icons/skip-forward.svg` 时资源不存在，日志持续出现 `could not find asset at path`，但窗口仍能启动。

@@ -108,6 +108,11 @@ pub const FEEDBACK_ISSUE_URL: &str = "https://github.com/bruceblink/ramag-platfo
 pub const COMMUNITY_URL: &str =
     "https://github.com/bruceblink/ramag-platform/blob/main/README.md#社区--community";
 
+/// 返回共享界面错误文字使用的当前主题危险色。
+pub(crate) fn error_text_color(theme: &gpui_kit::component::Theme) -> gpui_kit::Hsla {
+    theme.danger
+}
+
 /// 数据库、SSH 与云存储共用的生产保护文案，避免同一语义在各工具中漂移。
 pub const PRODUCTION_MODE_LABEL: &str = "生产模式（只读保护）";
 pub const PRODUCTION_BADGE_LABEL: &str = "生产";

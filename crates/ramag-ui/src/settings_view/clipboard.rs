@@ -26,6 +26,7 @@ impl SettingsView {
         let theme = cx.theme();
         let muted = theme.muted_foreground;
         let border = theme.border;
+        let danger = crate::error_text_color(theme);
         let settings = self.clipboard.clone();
         let disabled = self.saving_clipboard;
 
@@ -39,14 +40,14 @@ impl SettingsView {
                 page.child(
                     div()
                         .text_xs()
-                        .text_color(gpui_kit::red())
+                        .text_color(danger)
                         .child("设置读取异常，采集已自动暂停；重新保存任一设置可尝试修复。"),
                 )
             })
             .when(
                 settings.enabled && matches!(service.hotkey_state(), HotkeyState::Failed),
                 |page| {
-                    page.child(div().text_xs().text_color(gpui_kit::red()).child(format!(
+                    page.child(div().text_xs().text_color(danger).child(format!(
                         "全局热键 {} 注册失败：组合键可能被其它应用占用，可尝试切换备用热键。",
                         clipboard_hotkey(settings.alternate_hotkey)
                     )))
