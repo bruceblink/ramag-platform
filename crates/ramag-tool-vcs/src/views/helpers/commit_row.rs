@@ -25,6 +25,9 @@ pub(in crate::views) fn render_commit_row(
     fg: gpui_kit::Hsla,
     muted_fg: gpui_kit::Hsla,
     accent: gpui_kit::Hsla,
+    warning: gpui_kit::Hsla,
+    success: gpui_kit::Hsla,
+    info: gpui_kit::Hsla,
     selected: bool,
     cx: &mut Context<VcsView>,
 ) -> AnyElement {
@@ -44,12 +47,15 @@ pub(in crate::views) fn render_commit_row(
         .min_w_0()
         .overflow_hidden();
     for r in c.refs.iter().take(MAX_VISIBLE_REF_CHIPS) {
-        refs_row = refs_row.child(ref_chip(r, accent));
+        refs_row = refs_row.child(ref_chip(r, accent, warning, success, info));
     }
     if c.refs.len() > MAX_VISIBLE_REF_CHIPS {
         refs_row = refs_row.child(ref_chip(
             &format!("… +{}", c.refs.len() - MAX_VISIBLE_REF_CHIPS),
             accent,
+            warning,
+            success,
+            info,
         ));
     }
 
@@ -300,27 +306,35 @@ fn relative_time(ts: &chrono::DateTime<chrono::Utc>) -> String {
 }
 
 /// commit refs 标签：根据 ref 名前缀决定颜色（HEAD / origin/* / tag: *）
-fn ref_chip(name: &str, accent: gpui_kit::Hsla) -> AnyElement {
+fn ref_chip_tone(
+    name: &str,
+    accent: gpui_kit::Hsla,
+    warning: gpui_kit::Hsla,
+    success: gpui_kit::Hsla,
+    info: gpui_kit::Hsla,
+) -> gpui_kit::Hsla {
     // tag 名习惯以 "tag: " 前缀（git log --decorate）
-    let (label, tone) = if let Some(rest) = name.strip_prefix("tag: ") {
-        (
-            super::super::inline_text_preview(rest, 80),
-            gpui_kit::hsla(40.0 / 360.0, 0.7, 0.55, 1.0),
-        )
+    if name.starts_with("tag: ") {
+        warning
     } else if name.starts_with("HEAD") {
-        (
-            super::super::inline_text_preview(name, 80),
-            gpui_kit::hsla(140.0 / 360.0, 0.55, 0.45, 1.0),
-        )
+        success
     } else if name.contains('/') {
         // remote-tracking：origin/main 等
-        (
-            super::super::inline_text_preview(name, 80),
-            gpui_kit::hsla(220.0 / 360.0, 0.6, 0.55, 1.0),
-        )
+        info
     } else {
-        (super::super::inline_text_preview(name, 80), accent)
-    };
+        accent
+    }
+}
+
+fn ref_chip(
+    name: &str,
+    accent: gpui_kit::Hsla,
+    warning: gpui_kit::Hsla,
+    success: gpui_kit::Hsla,
+    info: gpui_kit::Hsla,
+) -> AnyElement {
+    let tone = ref_chip_tone(name, accent, warning, success, info);
+    let label = name.strip_prefix("tag: ").unwrap_or(name);
     let mut bg = tone;
     bg.a = 0.16;
     div()
@@ -331,6 +345,44 @@ fn ref_chip(name: &str, accent: gpui_kit::Hsla) -> AnyElement {
         .text_xs()
         .font_weight(gpui_kit::FontWeight::SEMIBOLD)
         .text_color(tone)
-        .child(label)
+        .child(super::super::inline_text_preview(label, 80))
         .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ref_chip_tone;
+
+    #[test]
+    fn ref_chip_tones_follow_theme_semantic_colors() {
+        let accent = gpui_kit::hsla(0.11, 0.61, 0.51, 1.0);
+        let warning = gpui_kit::hsla(0.22, 0.62, 0.52, 1.0);
+        let success = gpui_kit::hsla(0.33, 0.63, 0.53, 1.0);
+        let info = gpui_kit::hsla(0.44, 0.64, 0.54, 1.0);
+
+        assert_eq!(
+            ref_chip_tone("tag: v1.0", accent, warning, success, info),
+            warning
+        );
+        assert_eq!(
+            ref_chip_tone("HEAD -> main", accent, warning, success, info),
+            success
+        );
+        assert_eq!(
+            ref_chip_tone("origin/main", accent, warning, success, info),
+            info
+        );
+        assert_eq!(
+            ref_chip_tone("feature/ui", accent, warning, success, info),
+            info
+        );
+        assert_eq!(
+            ref_chip_tone("main", accent, warning, success, info),
+            accent
+        );
+        assert_eq!(
+            ref_chip_tone("…另有 2 个引用已省略", accent, warning, success, info),
+            accent
+        );
+    }
 }

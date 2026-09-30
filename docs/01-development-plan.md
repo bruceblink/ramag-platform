@@ -952,6 +952,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不启动本机 Docker，不重新构建或上传 `v0.4.0` 安装包，不运行 Kubernetes；不把 headless 测试扩大为真实 Windows 原生窗口主题切换验收。
 - 实施顺序：先推送设计确认，再接入当前主题颜色并补映射测试；验证通过后独立提交并推送 `main`，继续阶段 A 主题一致性收口。
 
+### A-QUALITY-THEME-008：提交历史引用标签使用主题语义色（代码与 headless 验收完成，2026-09-30）
+
+- 实现：提交历史中的 Tag 使用当前主题 `warning`，HEAD 使用 `success`，带斜线的引用使用 `info`，普通引用和省略提示使用 `accent`；标签文字和半透明背景共用同一主题颜色。Git 引用解析、名称截断、提交行布局和操作菜单未改变。
+- 测试：新增引用标签颜色映射测试，覆盖 Tag、HEAD、带斜线引用、普通引用和省略提示；`cargo test --locked -p ramag-tool-vcs --all-targets -- --test-threads=1` 通过，190 项中 185 项通过、5 项性能观察测试按设计忽略；现有提交历史 headless 行渲染回归通过。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`bash scripts/check-source-size.sh` 和 `git diff --check` 通过。
+- 证据边界：引用颜色映射测试和提交历史 headless 渲染回归通过；没有把 headless 结果扩大为真实 Windows 原生窗口明暗主题切换验收。
+- 未完成项：没有启动本机 Docker 或构建 Release 安装包，没有运行 Kubernetes；真实窗口主题切换仍待原生窗口验收环境恢复。
+- Git：设计确认提交 `d045e0a2` 已先行推送；实现代码和本验收记录随本切片独立提交并推送 `main`。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。

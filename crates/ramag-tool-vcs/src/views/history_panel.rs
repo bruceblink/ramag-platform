@@ -404,6 +404,9 @@ impl VcsView {
                                     fg,
                                     muted_fg,
                                     accent,
+                                    cx.theme().warning,
+                                    cx.theme().success,
+                                    cx.theme().info,
                                     is_selected,
                                     cx,
                                 ))
