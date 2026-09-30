@@ -20,34 +20,22 @@ impl Render for DbClientView {
         // 跨重启恢复：首帧只建占位槽（不连库），仅上次激活的那个立即建会话；
         // 其余标签首次点击时才真正连接，避免恢复 N 个标签时全部拉元数据 / SCAN
         if let Some((configs, active_id)) = self.pending_restore.take() {
-            if self.restore_allowed {
-                for config in configs {
-                    if self.sessions.len() >= super::MAX_CONNECTION_SESSIONS {
-                        break;
-                    }
-                    if self
-                        .sessions
-                        .iter()
-                        .any(|session| session.config.id == config.id)
-                    {
-                        continue;
-                    }
-                    self.sessions.push(super::SessionSlot {
-                        entity: None,
-                        config,
-                        stale: false,
-                    });
-                }
-                if !self.sessions.is_empty() {
-                    let idx = active_id
-                        .and_then(|id| self.sessions.iter().position(|s| s.config.id == id))
-                        .unwrap_or(0);
-                    self.active_session = Some(idx);
-                    self.center = CenterMode::Session;
-                    self.materialize_slot(idx, window, cx);
-                }
-            }
+            let active_index = self
+                .restore_allowed
+                .then(|| {
+                    super::queue_restored_session_slots(
+                        &mut self.sessions,
+                        configs,
+                        active_id.as_ref(),
+                    )
+                })
+                .flatten();
             self.restore_allowed = false;
+            if let Some(idx) = active_index {
+                self.active_session = Some(idx);
+                self.center = CenterMode::Session;
+                self.materialize_slot(idx, window, cx);
+            }
         }
         // 中央区为激活会话但实体尚未创建（如恢复兜底路径）：此处有 Window，补建
         if matches!(self.center, CenterMode::Session)

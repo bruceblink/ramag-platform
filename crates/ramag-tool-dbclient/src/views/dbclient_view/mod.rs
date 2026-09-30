@@ -188,6 +188,42 @@ fn parse_open_sessions(json: &str) -> Result<(OpenSessionsPref, bool), String> {
     Ok((pref, adjusted))
 }
 
+/// 将恢复配置先放入未建立会话实体的占位槽，并返回应该立即显示的标签位置。
+///
+/// 这里只处理列表状态；真正的连接和元数据加载由调用方对激活槽单独执行。
+fn queue_restored_session_slots(
+    sessions: &mut Vec<SessionSlot>,
+    configs: Vec<ConnectionConfig>,
+    active_id: Option<&ConnectionId>,
+) -> Option<usize> {
+    for config in configs {
+        if sessions.len() >= MAX_CONNECTION_SESSIONS {
+            break;
+        }
+        if sessions
+            .iter()
+            .any(|session| session.config.id == config.id)
+        {
+            continue;
+        }
+        sessions.push(SessionSlot {
+            entity: None,
+            config,
+            stale: false,
+        });
+    }
+
+    if sessions.is_empty() {
+        return None;
+    }
+
+    Some(
+        active_id
+            .and_then(|id| sessions.iter().position(|session| session.config.id == *id))
+            .unwrap_or(0),
+    )
+}
+
 impl DbClientView {
     fn persist_open_sessions(&self, cx: &mut Context<Self>) {
         let ids: Vec<ramag_domain::entities::ConnectionId> =
