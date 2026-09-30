@@ -1005,6 +1005,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 不做事项：不代替用户执行 `10.17.17.114` 的 SSH 终端和端口转发集成回放，不启动本机 Docker，不重新构建或上传 `v0.4.0` 安装包，不运行 Kubernetes；不把 headless 结果扩大为真实 Windows 原生窗口主题切换验收。
 - 实施顺序：先推送本设计确认，再接入当前主题颜色、补充 SSH 管理器布局和截图测试；目标测试和质量检查通过后独立提交并推送 `main`，继续阶段 A 主题一致性收口。
 
+### A-QUALITY-THEME-011：SSH 环境标签使用主题语义色（代码与 headless 验收完成，2026-09-30）
+
+- 实现：SSH 连接管理器和工作区标签统一读取当前主题的 `success`、`warning`、`danger`，分别用于 `dev`、`test`、`prod`；未知环境回退到当前主题的 `muted_foreground`，标签背景继续使用文字颜色的 `0.12` 透明度。连接筛选、终端、远程桌面、SFTP 和端口转发行为未改变。
+- 测试：新增 `environment_badges_follow_the_active_theme_palette`，覆盖大小写、首尾空白、未知环境和背景透明度；既有 SSH 管理器连接行在 `360x640`、`1024x768` 和 `1440x900` 的边界回归继续通过。`cargo test --locked -p ramag-tool-ssh --lib -- --test-threads=1` 共 `85` 项全部通过。
+- 截图测试：新增 `captures_ssh_manager_environment_badges_screenshot`，在 macOS Metal 主线程视觉运行器中捕获 `1024x768` SSH 管理器帧，检查尺寸和非空像素，并写入 `target/ui-screenshots/ssh-manager-environment-badges-1024x768.png`。当前 WSL/Linux 没有 GPUI headless 图像渲染器，本次截图筛选命令实际为 `0` 项，未生成 PNG；只保留代码级截图测试和 headless 布局证据，不把它写成像素截图已通过。
+- 质量检查：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`bash scripts/check-source-size.sh` 和 `git diff --check` 通过；未启动本机 Docker，未重新构建或上传 `v0.4.0` 安装包，未运行 Kubernetes。
+- 证据边界：测试证明 SSH 环境标签和工作区标签会读取调用方传入的主题颜色，并在三种窗口尺寸中保持连接行边界；没有提供真实 Windows 原生窗口主题切换的鼠标/键盘证据，也没有代替用户执行 `10.17.17.114` 的终端和端口转发集成回放。
+- Git：设计确认提交 `4963ca4c` 已先行推送；实现代码、测试和本验收记录随本切片独立提交并推送 `main`。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。

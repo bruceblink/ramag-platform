@@ -11,8 +11,9 @@ use ramag_domain::entities::{
 };
 
 use super::SshView;
-
-pub(super) use super::render_manager_helpers::{centered_message, environment_badge_colors};
+pub(super) use super::render_manager_helpers::{
+    EnvironmentBadgePalette, centered_message, environment_badge_colors,
+};
 
 const CONTENT_MAX_W: f32 = 1080.0;
 
@@ -265,6 +266,8 @@ impl SshView {
         let muted = cx.theme().muted_foreground;
         let accent = cx.theme().accent;
         let danger = cx.theme().danger;
+        let environment_palette =
+            EnvironmentBadgePalette::new(cx.theme().success, cx.theme().warning, danger, muted);
         let mut badge_bg = accent;
         badge_bg.a = 0.12;
         let mut production_bg = danger;
@@ -326,7 +329,7 @@ impl SshView {
                     .text_ellipsis()
                     .child(name),
             )
-            .child(environment_badge(index, environment, muted))
+            .child(environment_badge(index, environment, environment_palette))
             .child(platform_badge(index, remote_platform, accent))
             .child({
                 let slot = div()
@@ -507,7 +510,7 @@ fn secondary_column(width: f32, text: String, color: gpui_kit::Hsla) -> impl Int
 fn environment_badge(
     index: usize,
     environment: String,
-    fallback: gpui_kit::Hsla,
+    palette: EnvironmentBadgePalette,
 ) -> impl IntoElement {
     let slot = div()
         .debug_selector(move || format!("ssh-profile-environment-{index}"))
@@ -518,7 +521,7 @@ fn environment_badge(
     if environment.trim().is_empty() {
         slot
     } else {
-        let (foreground, background) = environment_badge_colors(&environment, fallback);
+        let (foreground, background) = environment_badge_colors(&environment, palette);
         slot.child(
             div()
                 .px(px(6.0))

@@ -12,15 +12,39 @@ pub(super) fn centered_message(message: &'static str, color: gpui_kit::Hsla) -> 
 
 /// Map a profile environment to a readable badge color while preserving the
 /// current theme's fallback for unknown values.
+#[derive(Clone, Copy)]
+pub(super) struct EnvironmentBadgePalette {
+    pub(super) dev: gpui_kit::Hsla,
+    pub(super) test: gpui_kit::Hsla,
+    pub(super) prod: gpui_kit::Hsla,
+    pub(super) fallback: gpui_kit::Hsla,
+}
+
+impl EnvironmentBadgePalette {
+    pub(super) fn new(
+        dev: gpui_kit::Hsla,
+        test: gpui_kit::Hsla,
+        prod: gpui_kit::Hsla,
+        fallback: gpui_kit::Hsla,
+    ) -> Self {
+        Self {
+            dev,
+            test,
+            prod,
+            fallback,
+        }
+    }
+}
+
 pub(super) fn environment_badge_colors(
     environment: &str,
-    fallback: gpui_kit::Hsla,
+    palette: EnvironmentBadgePalette,
 ) -> (gpui_kit::Hsla, gpui_kit::Hsla) {
     let foreground = match environment.trim().to_ascii_lowercase().as_str() {
-        "dev" => gpui_kit::hsla(140.0 / 360.0, 0.55, 0.42, 1.0),
-        "test" => gpui_kit::hsla(35.0 / 360.0, 0.80, 0.45, 1.0),
-        "prod" => gpui_kit::hsla(0.0, 0.70, 0.55, 1.0),
-        _ => fallback,
+        "dev" => palette.dev,
+        "test" => palette.test,
+        "prod" => palette.prod,
+        _ => palette.fallback,
     };
     let mut background = foreground;
     background.a = 0.12;

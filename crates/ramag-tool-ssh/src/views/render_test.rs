@@ -419,6 +419,9 @@ impl SshDriver for MockSshDriver {
 mod forwarding_tests;
 mod jumpserver_tests;
 mod lifecycle_tests;
+#[cfg(target_os = "macos")]
+#[path = "render_test/ssh_manager_visual_test.rs"]
+mod ssh_manager_visual_test;
 mod support;
 mod toolbar_tests;
 mod workspace_tests;

@@ -21,6 +21,12 @@ impl SshView {
         let muted = theme.muted_foreground;
         let accent = theme.accent;
         let muted_bg = theme.muted;
+        let environment_palette = super::render_manager::EnvironmentBadgePalette {
+            dev: theme.success,
+            test: theme.warning,
+            prod: theme.danger,
+            fallback: muted,
+        };
         let manager_selected = self.view_mode == ViewMode::Manager;
         let mut manager_tab = h_flex()
             .id("ssh-manager-tab")
@@ -78,7 +84,11 @@ impl SshView {
                     .environment
                     .as_deref()
                     .map(|environment| {
-                        super::render_manager::environment_badge_colors(environment, muted).0
+                        super::render_manager::environment_badge_colors(
+                            environment,
+                            environment_palette,
+                        )
+                        .0
                     })
                     .unwrap_or(muted)
             };

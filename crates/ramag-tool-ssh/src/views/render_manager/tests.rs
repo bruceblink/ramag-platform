@@ -1,16 +1,31 @@
 use ramag_domain::entities::{RemotePlatformPreference, SshAuthMode, SshProfile, SshProfileOrigin};
 
 use super::{
-    environment_badge_colors, is_jumpserver_profile, platform_label, profile_matches_query,
+    EnvironmentBadgePalette, environment_badge_colors, is_jumpserver_profile, platform_label,
+    profile_matches_query,
 };
 
 #[test]
-fn environment_presets_have_distinct_badge_colors() {
-    let fallback = gpui_kit::black();
-    assert_ne!(
-        environment_badge_colors("dev", fallback).0,
-        environment_badge_colors("prod", fallback).0
+fn environment_badges_follow_the_active_theme_palette() {
+    let palette = EnvironmentBadgePalette {
+        dev: gpui_kit::hsla(0.1, 0.2, 0.3, 1.0),
+        test: gpui_kit::hsla(0.2, 0.3, 0.4, 1.0),
+        prod: gpui_kit::hsla(0.3, 0.4, 0.5, 1.0),
+        fallback: gpui_kit::hsla(0.4, 0.5, 0.6, 1.0),
+    };
+
+    assert_eq!(environment_badge_colors("dev", palette).0, palette.dev);
+    assert_eq!(environment_badge_colors("TEST", palette).0, palette.test);
+    assert_eq!(environment_badge_colors(" prod ", palette).0, palette.prod);
+    assert_eq!(
+        environment_badge_colors("staging", palette).0,
+        palette.fallback
     );
+
+    for environment in ["dev", "test", "prod", "staging"] {
+        let (_, background) = environment_badge_colors(environment, palette);
+        assert_eq!(background.a, 0.12);
+    }
 }
 
 #[test]
