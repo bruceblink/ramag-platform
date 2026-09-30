@@ -925,6 +925,15 @@ Computer Use 当前仍无法发现可操作的原生窗口，因此 `A-UI-REAL` 
 - 未完成项：没有启动本机 Docker 或构建 Release 安装包，没有运行 Kubernetes；真实窗口主题切换仍待原生窗口验收环境恢复。
 - Git：设计确认提交 `e5f81437` 已先行推送；实现代码和本验收记录随本切片独立提交并推送 `main`。
 
+### A-QUALITY-THEME-007：Reflog 操作标签使用主题语义色（设计确认，2026-09-30）
+
+- 问题证据：Reflog 中 `checkout`、`reset`、`merge` 和 `rebase` 操作标签直接使用固定 HSLA 颜色，切换主题后颜色不变；提交操作和未知操作已分别使用主题 `accent` 与 `muted_foreground`。
+- 设计：提交操作继续使用 `accent`；`checkout` 与 `merge/rebase` 使用主题 `info`；`reset` 使用主题 `danger`；未知操作继续使用 `muted_foreground`。只替换颜色来源，保留操作文字、行布局和交互。
+- 改动范围：仅调整 Reflog 操作标签的颜色映射并补充映射测试；不改变筛选、缓存、提交 ID、Checkout 操作或 Reflog 数据来源。
+- 验收条件：映射测试覆盖提交、Checkout、Reset、Merge/Rebase 及未知操作；`ramag-tool-vcs` 全量 headless 测试、workspace fmt、Clippy、源码尺寸和 `git diff --check` 通过。
+- 不做事项：不调整 Commit/Tag/HEAD/远程分支引用标签颜色，不启动本机 Docker，不构建 `v0.4.0` Release 安装包，不运行 Kubernetes；不把 headless 结果扩大为真实 Windows 原生窗口主题切换验收。
+- 实施顺序：先推送本设计确认，再修改 Reflog 颜色来源并补测试；验证通过后独立提交并推送 `main`，继续阶段 A 主题一致性收口。
+
 ### A-QUALITY-VCS-001：历史提交去重索引复用（设计确认，2026-09-30）
 
 - 问题证据：`B-GIT-001-X` 已按完整提交 ID 保护重复回包，但每次分页追加仍从全部已保留提交重新复制 ID 到 `HashSet`。历史缓存达到 100,000 条时，每翻一页都会重复扫描并分配已有 ID，功能正确但不符合大结果集质量目标。
