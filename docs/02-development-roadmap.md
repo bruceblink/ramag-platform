@@ -1,7 +1,7 @@
 # Ramag Platform 最新主线：单机桌面收口与原生工作区迁移
 
 > 状态：现行主线；阶段 A 单机桌面收口与阶段 B 原生工作区迁移并行执行，阶段 C（原生协同画布）后置。现有数据库、插件、IT Tools、本机协作和 Relay B3 切片保留其已验证状态；Relay B4、生产 Relay、动态插件市场和画布实现不进入当前开发队列。Linux 构建依赖与插件注册表回归修复已在 `490e4e18`、`97a108f4` 推送。
-> 更新日期：2026-09-30
+> 更新日期：2026-10-01
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
@@ -23,7 +23,7 @@
 
 ## 1. 目标和边界
 
-Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工作区：用户可以在稳定的左侧对象导航、中央标签工作区和辅助工具窗口之间连续完成“定位对象、编辑内容、执行操作、检查结果、处理错误”的流程。
+Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、图表和短过渡，由 GPUI 实现紧凑、可扫描和流畅的原生工作区。用户继续在左侧对象导航、中央标签工作区和辅助工具窗口之间完成“定位对象、编辑内容、执行操作、检查结果、处理错误”的流程；数据库领域工作流继续参考 DataGrip。具体通过条件统一记录在 [`01-development-plan.md`](01-development-plan.md) 的整体 UI 验收矩阵中。
 
 “复刻 DataGrip”在本项目中的可执行含义是：复刻参考图所体现的核心工作区结构、信息层级、操作发现性、网格工作流和安全反馈；不承诺复制 DataGrip 的全部数据库方言、插件生态或内部实现。
 
@@ -56,7 +56,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和插件秘密上下文的真实环境验收；Linux Secret Service、macOS Keychain 和发布环境仍待分别验收，验证失败时保留安全拒绝状态。
 5. `A-PLAT-005`：JSON Path 真实静态入口已完成 headless 运行指标、任务回收、WSL 当前进程内存多场景回放和 Windows 系统 UI Automation/截图替代验收；Linux/macOS、发布构建和 Computer Use 真实窗口证据仍待补。
 6. `A-QUALITY`：`A-QUALITY-VCS-001` 历史提交 ID 索引复用、`A-QUALITY-DBCLIENT-001` 恢复连接标签首帧延迟物化、`A-QUALITY-DBCLIENT-002` 宽结果列索引按可见范围保留、`A-QUALITY-TREE-001` 最近访问筛选的对象树缓存刷新、`A-QUALITY-THEME-001` 至 `A-QUALITY-THEME-014` 主题语义色收口、`A-QUALITY-UI-03` 数据库客户端 Windows 截图与列筛选替代验收、`A-QUALITY-UI-04` 数据库会话标签长名称 headless 布局验收、`A-QUALITY-DBCLIENT-003` 会话标签稳定连接标识验收和 `A-QUALITY-UI-05` 结果工具栏动作组 headless/Computer Use 窗口验收已完成；阶段 A 质量记录继续补齐对象树、主题一致性和可执行截图测试；阶段 B 的 `B-GIT-001-Z`、`B-GIT-001-AA`、`B-GIT-001-AB`、`B-GIT-001-AC` 文件标签和提交信息异步边界已完成，继续按 Git 工作区边界推进；`v0.4.0` 已由 GitHub Release 发布，日常开发不重复构建安装包，正式版本发布时按标签使用既有 GitHub Actions 流程。
-7. `A-SYSTEM-PULSE-001`/`A-SYSTEM-PULSE-UI-001` 已在 `e38f2fd8` 完成采集替换与十页监控，公共组件在 `d2710bf6` 建立；`A-PULSE-SHELL-001` 已在 `165b8e9c` 完成紧凑页头与不可用状态。`A-PULSE-HOME-001` 首页代码、headless 与真实窗口导航/排序验收已完成；后续逐项执行设置、数据库、SSH、VCS、容器和对象存储切片。专项设计和验收记录见 [`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)。
+7. `A-SYSTEM-PULSE-001`/`A-SYSTEM-PULSE-UI-001` 在 `e38f2fd8` 完成采集替换与十页接入，公共组件在 `d2710bf6` 建立；`A-PULSE-SHELL-001` 在 `165b8e9c` 完成紧凑页头，`A-PULSE-HOME-001` 在 `7bb599c2` 完成首页和原导航/排序验收。用户要求整体达到 System Pulse 的鲜明、流畅观感，先落实 [`01-development-plan.md`](01-development-plan.md) 的整体 UI 验收矩阵，再按公共视觉/动效、监控视觉深化、Shell/首页复核、设置、数据库、SSH、VCS、容器、对象存储顺序实施，并覆盖其他已注册工具。当前设置改动未提交，新矩阵的全部适用项仍需逐页验收；历史通过不等于整体完成。来源、设计和记录见 [`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)。
 
 阶段 A 的每个子项独立设计、验证、提交和推送；同一时间只有一个子项处于开发中。
 
