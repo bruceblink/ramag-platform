@@ -16,6 +16,15 @@ pub struct ChartPoint {
     pub value: Option<f64>,
 }
 
+/// Borrows one sensor series and assigns its line color. The chart copies at
+/// most 120 recent points from each of the first 8 series before painting, so
+/// callers retain ownership and rendering work stays bounded.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ChartSeries<'a> {
+    pub points: &'a [ChartPoint],
+    pub color: Hsla,
+}
+
 /// 指标当前可用状态；颜色始终从 Ramag 当前主题读取。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PulseStatus {
@@ -331,7 +340,26 @@ pub fn pulse_time_chart_with_color(
     line_color: Hsla,
     cx: &gpui_kit::App,
 ) -> Div {
-    let points = bounded_chart_points(points);
+    pulse_time_chart_with_series(
+        &[ChartSeries {
+            points,
+            color: line_color,
+        }],
+        max_value,
+        height,
+        cx,
+    )
+}
+
+/// Draws at most 8 independently gapped, colored series on one shared time axis.
+pub fn pulse_time_chart_with_series(
+    series: &[ChartSeries<'_>],
+    max_value: f64,
+    height: Pixels,
+    cx: &gpui_kit::App,
+) -> Div {
+    let series = bounded_chart_series(series);
+    let time_bounds = chart_time_bounds(&series);
     let theme = cx.theme();
     let chart_bg = theme.muted;
     let grid_color = theme.border.opacity(0.42);
@@ -344,7 +372,13 @@ pub fn pulse_time_chart_with_color(
         |_, _, _| (),
         move |bounds, _, window, _| {
             paint_time_chart(
-                bounds, window, &points, max_value, chart_bg, grid_color, line_color,
+                bounds,
+                window,
+                &series,
+                time_bounds,
+                max_value,
+                chart_bg,
+                grid_color,
             );
         },
     );
@@ -361,11 +395,11 @@ pub fn pulse_time_chart_with_color(
 fn paint_time_chart(
     bounds: Bounds<Pixels>,
     window: &mut Window,
-    points: &[ChartPoint],
+    series: &[BoundedChartSeries],
+    time_bounds: Option<(f64, f64)>,
     max_value: f64,
     background: Hsla,
     grid_color: Hsla,
-    line_color: Hsla,
 ) {
     let origin = bounds.origin + point(px(1.0), px(1.0));
     let width = (bounds.size.width - px(2.0)).max(px(1.0));
@@ -385,40 +419,74 @@ fn paint_time_chart(
     if let Ok(path) = grid.build() {
         window.paint_path(path, grid_color);
     }
-    let segments = normalized_chart_segments(points, max_value);
-    let mut line = PathBuilder::stroke(px(2.0));
-    for (x1, y1, x2, y2) in &segments {
-        line.move_to(point(
-            origin.x + width * *x1,
-            origin.y + height * (1.0 - *y1),
-        ));
-        line.line_to(point(
-            origin.x + width * *x2,
-            origin.y + height * (1.0 - *y2),
-        ));
+    for series in series {
+        let segments =
+            normalized_chart_segments_with_bounds(&series.points, max_value, time_bounds);
+        let mut line = PathBuilder::stroke(px(2.0));
+        for (x1, y1, x2, y2) in &segments {
+            line.move_to(point(
+                origin.x + width * *x1,
+                origin.y + height * (1.0 - *y1),
+            ));
+            line.line_to(point(
+                origin.x + width * *x2,
+                origin.y + height * (1.0 - *y2),
+            ));
+        }
+        if !segments.is_empty()
+            && let Ok(path) = line.build()
+        {
+            window.paint_path(path, series.color);
+        }
+        if let Some((x, y)) = series
+            .points
+            .last()
+            .and_then(|sample| normalized_chart_point_with_bounds(*sample, max_value, time_bounds))
+        {
+            let marker = px(5.0).min(width).min(height);
+            let current = point(origin.x + width * x, origin.y + height * (1.0 - y));
+            window.paint_quad(
+                fill(
+                    Bounds::new(
+                        current - point(marker / 2.0, marker / 2.0),
+                        size(marker, marker),
+                    ),
+                    series.color,
+                )
+                .corner_radii(marker / 2.0),
+            );
+        }
     }
-    if !segments.is_empty()
-        && let Ok(path) = line.build()
-    {
-        window.paint_path(path, line_color);
-    }
-    if let Some((x, y)) = points
-        .last()
-        .and_then(|sample| normalized_chart_point(*sample, points, max_value))
-    {
-        let marker = px(5.0).min(width).min(height);
-        let current = point(origin.x + width * x, origin.y + height * (1.0 - y));
-        window.paint_quad(
-            fill(
-                Bounds::new(
-                    current - point(marker / 2.0, marker / 2.0),
-                    size(marker, marker),
-                ),
-                line_color,
-            )
-            .corner_radii(marker / 2.0),
-        );
-    }
+}
+
+// Owns bounded copies only; it never retains collector handles or caller data.
+struct BoundedChartSeries {
+    points: Vec<ChartPoint>,
+    color: Hsla,
+}
+
+// The axis is the finite timestamp union so sensors with different windows align.
+fn chart_time_bounds(series: &[BoundedChartSeries]) -> Option<(f64, f64)> {
+    let mut times = series
+        .iter()
+        .flat_map(|series| series.points.iter().map(|point| point.at_seconds))
+        .filter(|time| time.is_finite());
+    let first = times.next()?;
+    Some(times.fold((first, first), |(min, max), time| {
+        (min.min(time), max.max(time))
+    }))
+}
+
+// Copies recent samples while keeping both per-series and total work bounded.
+fn bounded_chart_series(series: &[ChartSeries<'_>]) -> Vec<BoundedChartSeries> {
+    series
+        .iter()
+        .take(8)
+        .map(|series| BoundedChartSeries {
+            points: bounded_chart_points(series.points),
+            color: series.color,
+        })
+        .collect()
 }
 
 fn bounded_chart_points(points: &[ChartPoint]) -> Vec<ChartPoint> {
@@ -433,21 +501,13 @@ fn bounded_chart_points(points: &[ChartPoint]) -> Vec<ChartPoint> {
         .collect()
 }
 
-fn normalized_chart_point(
+// Rejects invalid samples, which breaks only their own line and suppresses its marker.
+fn normalized_chart_point_with_bounds(
     sample: ChartPoint,
-    points: &[ChartPoint],
     max_value: f64,
+    time_bounds: Option<(f64, f64)>,
 ) -> Option<(f32, f32)> {
-    let first_time = points
-        .iter()
-        .map(|point| point.at_seconds)
-        .filter(|time| time.is_finite())
-        .reduce(f64::min)?;
-    let last_time = points
-        .iter()
-        .map(|point| point.at_seconds)
-        .filter(|time| time.is_finite())
-        .reduce(f64::max)?;
+    let (first_time, last_time) = time_bounds?;
     if !sample.at_seconds.is_finite() {
         return None;
     }
@@ -459,12 +519,16 @@ fn normalized_chart_point(
     ))
 }
 
-/// 提取相邻有效样本组成的归一化线段；None 和非递增时间会中断连接。
-fn normalized_chart_segments(points: &[ChartPoint], max_value: f64) -> Vec<(f32, f32, f32, f32)> {
+/// Joins increasing adjacent valid samples; missing or invalid points break this series only.
+fn normalized_chart_segments_with_bounds(
+    points: &[ChartPoint],
+    max_value: f64,
+    time_bounds: Option<(f64, f64)>,
+) -> Vec<(f32, f32, f32, f32)> {
     let mut segments = Vec::new();
     let mut previous: Option<(f64, (f32, f32))> = None;
     for sample in points.iter().copied() {
-        let current = normalized_chart_point(sample, points, max_value);
+        let current = normalized_chart_point_with_bounds(sample, max_value, time_bounds);
         let Some(current) = current else {
             previous = None;
             continue;

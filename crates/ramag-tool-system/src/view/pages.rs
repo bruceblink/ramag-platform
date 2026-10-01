@@ -4,6 +4,8 @@ mod devices;
 mod processes;
 mod settings;
 mod summary;
+mod summary_activity;
+mod summary_metrics;
 
 use gpui_kit::AnyElement;
 use gpui_kit::{Context, Window};

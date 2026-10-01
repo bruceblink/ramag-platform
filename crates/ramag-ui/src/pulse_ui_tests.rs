@@ -53,6 +53,20 @@ impl Render for PulseComponentsHost {
                 value: Some(67.0),
             },
         ];
+        let second_samples = [
+            ChartPoint {
+                at_seconds: 11.0,
+                value: Some(20.0),
+            },
+            ChartPoint {
+                at_seconds: 15.0,
+                value: Some(45.0),
+            },
+            ChartPoint {
+                at_seconds: 20.0,
+                value: Some(60.0),
+            },
+        ];
         let selections_for_tab = self.selections.clone();
         let selections_for_device = self.selections.clone();
         v_flex()
@@ -99,7 +113,21 @@ impl Render for PulseComponentsHost {
                 "最近一次读数已过期",
                 cx,
             ))
-            .child(pulse_panel(cx).child(pulse_time_chart(&samples, 100.0, px(120.0), cx)))
+            .child(pulse_panel(cx).child(pulse_time_chart_with_series(
+                &[
+                    ChartSeries {
+                        points: &samples,
+                        color: cx.theme().accent,
+                    },
+                    ChartSeries {
+                        points: &second_samples,
+                        color: cx.theme().success,
+                    },
+                ],
+                100.0,
+                px(120.0),
+                cx,
+            )))
     }
 }
 
@@ -200,10 +228,101 @@ fn chart_uses_elapsed_time_and_breaks_across_missing_samples() {
             value: Some(90.0),
         },
     ];
-    let segments = normalized_chart_segments(&points, 100.0);
+    let segments = normalized_chart_segments_with_bounds(
+        &points,
+        100.0,
+        chart_time_bounds(&bounded_chart_series(&[ChartSeries {
+            points: &points,
+            color: gpui_kit::hsla(0.0, 0.0, 0.5, 1.0),
+        }])),
+    );
     assert_eq!(segments.len(), 2);
     assert!((segments[0].0 - 0.0).abs() < f32::EPSILON);
     assert!((segments[0].2 - 0.2).abs() < f32::EPSILON);
     assert!((segments[1].0 - 0.8).abs() < f32::EPSILON);
     assert!((segments[1].2 - 1.0).abs() < f32::EPSILON);
+}
+
+#[test]
+fn multi_series_share_time_bounds_without_connecting_across_gaps() {
+    let first = [
+        ChartPoint {
+            at_seconds: 10.0,
+            value: Some(10.0),
+        },
+        ChartPoint {
+            at_seconds: 20.0,
+            value: None,
+        },
+        ChartPoint {
+            at_seconds: 30.0,
+            value: Some(30.0),
+        },
+    ];
+    let second = [
+        ChartPoint {
+            at_seconds: 20.0,
+            value: Some(20.0),
+        },
+        ChartPoint {
+            at_seconds: 30.0,
+            value: Some(30.0),
+        },
+        ChartPoint {
+            at_seconds: 40.0,
+            value: None,
+        },
+    ];
+    let series = bounded_chart_series(&[
+        ChartSeries {
+            points: &first,
+            color: gpui_kit::hsla(0.0, 1.0, 0.5, 1.0),
+        },
+        ChartSeries {
+            points: &second,
+            color: gpui_kit::hsla(0.5, 1.0, 0.5, 1.0),
+        },
+    ]);
+    let bounds = chart_time_bounds(&series);
+    assert_eq!(bounds, Some((10.0, 40.0)));
+
+    let first_segments = normalized_chart_segments_with_bounds(&series[0].points, 100.0, bounds);
+    let second_segments = normalized_chart_segments_with_bounds(&series[1].points, 100.0, bounds);
+    assert!(first_segments.is_empty());
+    assert_eq!(second_segments.len(), 1);
+    assert!((second_segments[0].0 - (1.0 / 3.0)).abs() < f32::EPSILON);
+    assert!((second_segments[0].2 - (2.0 / 3.0)).abs() < f32::EPSILON);
+    let Some(last) = series[1].points.last() else {
+        unreachable!("the bounded input series preserves its samples");
+    };
+    assert!(normalized_chart_point_with_bounds(*last, 100.0, bounds).is_none());
+}
+
+#[test]
+fn chart_bounds_each_series_and_total_series_count() {
+    let samples = (0..150)
+        .map(|index| ChartPoint {
+            at_seconds: f64::from(index),
+            value: Some(f64::from(index)),
+        })
+        .collect::<Vec<_>>();
+    let colors = (0_u8..10)
+        .map(|index| gpui_kit::hsla(f32::from(index) / 10.0, 1.0, 0.5, 1.0))
+        .collect::<Vec<_>>();
+    let input = colors
+        .iter()
+        .map(|color| ChartSeries {
+            points: &samples,
+            color: *color,
+        })
+        .collect::<Vec<_>>();
+    let rendered = bounded_chart_series(&input);
+    assert_eq!(rendered.len(), 8);
+    assert!(rendered.iter().all(|series| series.points.len() == 120));
+    assert_eq!(
+        rendered[0].points.first().map(|point| point.at_seconds),
+        Some(30.0)
+    );
+    assert_eq!(rendered[0].color, colors[0]);
+    assert_eq!(rendered[7].color, colors[7]);
 }

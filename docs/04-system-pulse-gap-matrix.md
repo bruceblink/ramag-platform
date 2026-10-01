@@ -19,9 +19,9 @@
 
 ## 1. 范围与依据
 
-用户要求充分吸收 System Pulse 的优点，同时明确功能完善和已知 UI/功能 bug 优先，过渡动画及特效后置。本矩阵比较固定提交的源码、用户指南和截图与 Ramag 实现；先补缺少的业务能力、状态与可操作性，再深化视觉与动效。
+用户要求逐项对齐 System Pulse 的实际运行功能和 UI，功能完善和已知 UI/功能 bug 优先，键盘增强、过渡动画及特效后置。本矩阵以本机运行的固定提交作为主要对照：先操作参考程序，再在 Ramag 中复现相同流程，核对数据来源、状态、布局和操作结果。源码、用户指南和历史截图辅助解释差异；仅有当前项目截图、源码或 headless 结果不能证明已与参考程序对齐。
 
-参考源码在本机 `target/system-pulse-reference`，已用 `git rev-parse HEAD` 核对提交。2026-10-01 的 `git ls-remote origin HEAD` 返回同一提交，当前上游 HEAD 与固定基准一致；网页读取失败后使用 Git 远程核对，不检查 GitHub CI。参考依据为 [上游用户指南](https://github.com/eas4ai/system-pulse/blob/f1be5d51d24c21fa8c740be79200bdda3df3a00c/docs/user-guide.md)、`src/process_panel.rs`、`src/screen_summary.rs`、`src/settings.rs`、`src/workspace.rs` 与 `assets/screens/`。截图只用于视觉基准，不复制字体、图片或窗口资源。
+参考源码在本机 `F:/project/system-pulse`，已用 `git rev-parse HEAD` 核对提交。2026-10-01 在该目录使用 `cargo run --locked` 编译并启动真实 Windows 程序；`SYSTEM_PULSE_STATE_DIR` 指向独立的临时配置目录，不读取或修改用户已有设置。参考依据包含真实窗口操作、[上游用户指南](https://github.com/eas4ai/system-pulse/blob/f1be5d51d24c21fa8c740be79200bdda3df3a00c/docs/user-guide.md)、`src/process_panel.rs`、`src/screen_summary.rs`、`src/settings.rs` 和 `src/workspace.rs`。保留 Ramag 壳层与主题约定，不复制参考字体、图片或窗口资源。
 
 “充分吸收”逐项记录已接入、存在缺口、待验证或后置，不用总测试数或页面名称数量计算完成比例。继续沿用 Ramag 原生 GPUI、工具注册、全局设置和后台任务生命周期。上游功能与 Ramag 多工具工作台存在职责差异时，记录对应实现及理由，而非启动另一个监控应用。
 
@@ -32,8 +32,8 @@
 | 十页固定信息架构 | Summary、CPU、Memory、GPU、Disks、Network、Energy、Thermals、Processes、Settings 已接入；硬件缺失仍保留页面 | 已接入；逐页检查正常、空、失败、不可用与过期，不能用导航存在代替数据正确 |
 | 状态化真实采样 | `ramag-infra-system` 已纳入进程读写速率、线程数、用户读取失败原因、设备、诊断和平台后端；UI 尚未充分呈现进程字段 | P1；复用现有快照，不新建第二个采集器；不可用/失败值保留原因和单位 |
 | 安全进程操作 | 已确认、拒绝自进程、核对 PID/精确启动身份/名称；当前强制操作已明确为“强制退出”，并显示未保存数据及子进程边界。温和结束尚未提供 | 强制风险表达已收口；温和结束按平台能力独立实现。确认/取消、身份变化、失败与退出回读分别验证，不用 UI 文案验收代表平台操作能力新增 |
-| 进程表与详情 | `02A` 已补齐七列双方向排序、读写单位、失败原因提示、紧凑行与横向滚动；搜索名称/PID/用户，最多显示有界行数。行选择详情与键盘行导航仍缺失 | P1；`02B` 补绑定完整身份的选中详情，`02C` 补键盘行导航；字段/交互分别验收 |
-| Summary 信息组合 | 当前 CPU/内存读数和趋势、Top 进程已接入；GPU/磁盘/网络主要为设备数量入口，Summary 缺少 Energy 读数入口及这些子系统趋势 | P1；补真实 GPU/磁盘读写/网络 RX/TX/能耗趋势。1440x900 与 1024x768 首屏组合及 360x640 滚动验证，图表保留缺口和时间；Energy 使用命名传感器，不能加总包/组件功率 |
+| 进程表与详情 | `02A` 已补齐七列双方向排序、读写单位、失败原因提示、紧凑行与横向滚动；`02B` 已接入完整身份绑定详情、退出/PID 复用/过期提示。搜索名称/PID/用户，最多显示有界行数；键盘行导航仍缺失 | P1；`02C` 补键盘行导航；字段/交互分别验收 |
+| Summary 信息组合 | 当前 CPU/内存读数和趋势、Top 进程已接入；GPU/磁盘/网络主要为设备数量入口，Summary 缺少 Energy/Thermals 入口及这些子系统趋势，也缺少上游 CPU 频率/温度、逐逻辑处理器趋势和内存可用/缓存/swap 数值组合 | P1；逐子系统补所选来源的 GPU/磁盘读写/网络 RX/TX/能耗/温度趋势和读数。1440x900 与 1024x768 首屏组合及 360x640 滚动验证，图表保留缺口和时间；Energy 使用命名传感器，不能加总包/组件功率 |
 | 物理单位与曲线量程 | 已有物理单位、时间图表和缺口处理；缺少上游组合量表、悬停传感器/量程说明及图例的逐页核对 | P1 图例/单位/量程先核对，量表表现后续深化；CPU 进程可超过单核 100%，能耗不能推算系统总功率 |
 | 网络默认接口选择 | Linux 快照及 UI 已使用 main-table 默认路由选择，手动选择优先；连接归属字段表达接口地址/TCP 表关联，不代表跨平台默认路由。Windows/macOS 自动选择待核对 | P1 核验；Linux IPv4/IPv6 路由、无默认路由、手动优先、设备移除/恢复均有断言；其他平台独立记录，不静默替换已保存设备 |
 | Energy 单传感器选择 | 独立 Energy 页已显示通用传感器网格，尚无单个能耗传感器选择与选中历史；隐藏偏好不能替代选择 | P1；稳定 ID 选择与恢复，明确包/组件/电池等作用范围、W/J 单位；缺失/失败/过期保留原因，禁止推算系统总功率 |
@@ -53,13 +53,13 @@
 
 1. `A-QUALITY-SETTINGS-SAVE-001`：收口保存失败原因、重试与实际回读，保持界面可操作。
 2. `A-PULSE-GAP-01`：明确当前进程操作是强制退出，修复风险文字和紧凑操作区。
-3. `A-PULSE-GAP-02`：进程表多列排序、访问失败原因、选中进程详情和键盘操作，按字段/交互拆分提交。
-4. `A-PULSE-GAP-03`：Summary 子系统真实读数与趋势，逐子系统验证来源时间、范围、缺口和布局。
-5. `A-PULSE-GAP-04`：页签键盘导航、自动/手动设备选择优先和上次页面恢复。
+3. `A-PULSE-GAP-02A/B`：进程表多列排序、访问失败原因与选中进程详情；已完成。`02C` 键盘操作按用户要求后置。
+4. `A-PULSE-GAP-03`：Summary 子系统真实读数与趋势、CPU/内存信息组合及布局，逐子系统验证来源时间、范围和缺口；当前主线。
+5. `A-PULSE-GAP-04`：自动/手动设备选择优先和上次页面恢复；页签键盘导航后置。
 6. `A-PULSE-GAP-05`：监控预设管理与配置恢复；每个写操作保留独立确认与失败反馈。
 7. `A-PULSE-GAP-06`：Energy/Thermals 单传感器选择、最热当前传感器、平台温和结束与授权结果；各功能独立提交，平台操作分别验证。
 8. `A-PULSE-GAP-07`：服务和历史生命周期、托盘图及宿主恢复。
-9. `A-PULSE-GAP-08`：剩余视觉细节、量表、过渡动效和发布性能专项；逐步推广公共组件至其他工具。
+9. `A-PULSE-GAP-08`：剩余视觉细节与量表；功能/UI 数据视图对齐之后再实施 `02C` 键盘、页签快捷键、过渡动效和发布性能专项。
 
 每个独立功能先写问题、设计与验收，再实现和运行匹配本机检查，通过后独立提交并立即推送 `main`。涉及数据库或协议服务时才使用本机 Docker；纯监控、UI 和本地偏好切片记录 Docker 不适用。Computer Use 证据、headless 证据、真实硬件准确性和发布性能各自注明范围。
 
@@ -71,7 +71,7 @@
 |---|---|---|
 | 设置保存 | `ramag-ui::preferences::tests`、`preferences::status_tests`；实际 redb 值、最新 revision、失败草稿重试、慢写入可操作、三尺寸状态与重试区域 | 隔离设置预览点击主题/字号/刷新并切页；失败/延迟注入保持 headless 证据，不冒充真实磁盘故障 |
 | 进程风险与详情 | `ramag-tool-system::view::render_test` 和进程排序单元测试；确认/取消不改变目标、身份变更拒绝、各物理字段排序、缺失值和长名称、详情稳定身份 | 仅测试拥有的子进程；新增温和结束/授权按平台单独回读，不操作用户进程 |
-| Summary 趋势 | `ramag-tool-system::view::render_test`；使用快照/历史测试数据构造当前、预热、失败、不可用、过期、时间缺口与空设备，三尺寸检查每个子系统图例/单位/来源时间/主要区域可达 | 同主题参考截图和本机实际监控；测试数据不能证明硬件精度 |
+| Summary 趋势 | `ramag-tool-system::view::render_test`；使用快照/历史测试数据构造当前、预热、失败、不可用、过期、时间缺口与空设备，三尺寸检查每个子系统图例/单位/来源时间/主要区域可达 | 实际启动 System Pulse，操作设备切换、分页往返和采样刷新，再在同主题、同尺寸 Ramag 窗口执行同一流程；分别记录参考结果、Ramag 结果和剩余差距，测试数据不能证明硬件精度 |
 | 网络选择与恢复 | `ramag-infra-system::host::network_route::tests` 与监控选择测试；IPv4 优先、IPv6 回退、物理接口回退、手动优先、设备消失保留 ID 和原因 | Linux 路由本机验证，Windows/macOS 自动选择另列；未运行的平台保持未验证 |
 | Energy/Thermals | 监控页面测试；选择稳定 ID、保存后重建、仅当前温度取最大、选中不可用保留原因、不同能耗范围不加总 | PawnIO、EMI、GPU/Apple 等实际硬件分别记录；没有硬件不能宣称精度通过 |
 | 预设/配置恢复/生命周期 | 独立的存储/监控测试；创建/重命名/覆盖/删除确认及取消、损坏数据不覆盖、重建前后历史连续性、容量/退出释放 | 隔离配置与预览，不覆盖用户设置；托盘宿主恢复需真实窗口证据 |
@@ -126,4 +126,55 @@ Computer Use 在 `1024x768` 亮色窗口完成 Processes 导航、PID 升序/降
 
 Computer Use 已在隔离亮色 `1024x768` 预览中选择本轮专属子进程、检查身份和实时字段、隐藏列表目标后保持详情、取消危险确认及关闭详情；结束该测试子进程后观察详情移除旧指标并显示缺失原因。PID 复用、过期和原生长文字滚动的其余矩阵由 headless 覆盖，不描述为原生故障注入。仅操作本轮测试目标，没有改动用户存储或发送用户进程信号；Docker 与 GitHub CI 不适用或未检查，发布性能和键盘操作继续保持未完成。
 
-最终 workspace 回归通过，日志 `target/pulse-details-axis-transparent-window-workspace-tests-20261001.log`；fmt、workspace all-target Clippy `-D warnings`、源码尺寸、差异与 LF 检查通过。环境变量控制或忽略的服务测试不计为本机 Docker 集成证据。下一项为 `A-PULSE-GAP-02C` 的进程表键盘导航。
+最终 workspace 回归通过，日志 `target/pulse-details-axis-transparent-window-workspace-tests-20261001.log`；fmt、workspace all-target Clippy `-D warnings`、源码尺寸、差异与 LF 检查通过。环境变量控制或忽略的服务测试不计为本机 Docker 集成证据。按用户后续指示，下一项进入 `A-PULSE-GAP-03` 的 Summary 功能与 UI 对齐。
+
+## 8. Summary 设备活动趋势设计
+
+2026-10-01 用户明确功能与 UI 视图对齐为当前主线，键盘导航属于后置增强。实际运行固定提交的 System Pulse 后，`A-PULSE-GAP-03A` 先将网络与磁盘的设备数量入口改为所选设备的真实活动区：设备名称、磁盘容量、双向速率图例和两条共用时间/量程的趋势曲线，并保留进入详细页面的图标入口。此切片只验收磁盘/网络活动能力；Summary 的整体组合布局及其余子系统仍未对齐。
+
+Summary 与详细页面使用同一设备选择规则：保存的手动 ID 优先，网络其次使用快照推荐接口，最后使用首个匹配设备。已保存设备消失时显示该 ID 和不可用原因，不能静默换到其他设备。磁盘使用所选卷的读取/写入速率，网络使用所选接口的 RX/TX；只从同一 monitor_id、Rate 类型和 B/s 单位的描述读取历史，不能混用累计计数或跨设备加总。真实零保留，预热/失败/不可用/过期/无效值显示对应状态与原因，曲线断开缺失和采样中断。两条曲线使用共同来源时间范围，单位和量程一致，最多保留既有有界历史。
+
+验收包含两设备明显不同的读数、手动/推荐/缺失 ID、历史时间不齐、当前零、各状态、非有限值、长设备名称和原因、明暗三尺寸及大字号。真实窗口核对设备名称、图例、图表和进入页面后设备一致；不把本机读数展示当成网卡/磁盘硬件精度证明。Docker 服务、镜像、端口不适用。后续分别补 CPU/内存紧凑组合、GPU、Energy/Thermals 的真实读数和趋势；键盘、动效与发布性能后置。
+
+### 真实参考窗口观察与后续设计
+
+Computer Use 在 `1282x912` 暗色 System Pulse 窗口观察到：首排依次是 CPU/Clock/Temp/GPU 四个小型竖向量表、CPU overview 和 Top CPU processes；第二排为全宽 Memory utilization，包含已用/总量、趋势、RAM available 和 Swap used。下面五个子系统为 Disks、Network、Energy、GPU、Thermals，当前宽度分成三项和两项。宽屏的一排五项及窄屏行为需另外实际核对，不能由源码推断为已验收。
+
+参考磁盘页通过菜单从 C 盘切到 F 盘，容量从约 `162.8 / 299.8 GiB` 变为 `390.9 / 465.8 GiB`；返回 Summary 后保留 F 盘，活动图和容量对应所选盘。磁盘读取使用绿色、写入使用黄色，网络接收使用蓝色、发送使用黄色，两条方向曲线共用量程。实时 CPU、磁盘和网络读数会随采样变化，双窗口验收比较来源、单位、状态及行为，不要求不同采样时刻数值完全相等。
+
+下一项 `03B` 按上述实际组合调整 CPU/内存区域：四个小型量表使用主机 CPU 利用率、CPU 频率、当前最高温度和所选 GPU 利用率；CPU overview 显示主机归一化读数、历史和逻辑处理器数量；Top 进程保持单核 CPU 口径；内存全宽显示已用/总量、可用 RAM 和 swap。每个量表使用自己的物理单位和来源，不把核心数量替代四个量表；缺失、失败和过期值保留状态。Energy/Thermals/GPU 活动及详细分页的剩余差距分别验收。
+
+### 2026-10-01 `A-PULSE-GAP-03B` 实际布局对齐
+
+参考 System Pulse 的真实 `1282x912` 窗口和可访问树，Ramag Summary 首屏已重排为：四个领域色量表、CPU overview 历史图、Top CPU processes；第二排为全宽 Memory utilization，显示已用/总量趋势及 Available、Cache、Swap used；磁盘和网络活动卡继续位于下方。CPU、频率、温度、GPU、内存和状态文本均从现有传感器描述与快照读取，不用零填充不可用值。
+
+Ramag 隔离预览重新构建后在真实窗口回读：CPU、Clock、GPU 量表、CPU overview、Top CPU processes 和全宽 Memory utilization 均可见，窗口继续滚动到磁盘/网络活动区域；无 CPU 温度传感器时显示“不可用”，缓存字段未暴露时显示紧凑的“不可用”状态，完整采集器原因通过悬浮提示保留，避免挤压 Swap 标签。主窗口恢复下限和原生最小尺寸统一为 `960x640`，与 System Pulse 的窗口约束一致；组件 headless 仍覆盖 `360x640`，用于验证内容在窄视口中滚动可达，而不是把真实桌面窗口压缩到不可读尺寸。
+
+本切片完成 Summary 的首屏布局与数据组合对齐，不代表 Energy/Thermals/GPU 详细趋势、宽屏五卡同排或跨平台硬件精度已完成。下一切片先按同一真实窗口流程补齐剩余子系统。
+
+### 2026-10-01 `A-PULSE-GAP-03A` 真实运行验收
+
+参考程序以固定提交 `f1be5d51d24c21fa8c740be79200bdda3df3a00c` 在 `F:/project/system-pulse` 本机编译运行，窗口为 `1282x912` 暗色主题。Computer Use 操作磁盘下拉框从 `C:\` 切到 `F:\`，回到 Summary 后仍显示 `F:\`，容量和读写曲线随所选文件系统更新；网络页下拉框显示多个接口，双向曲线和累计值分别保留。参考程序 Summary 在同一窗口观察到磁盘、网络、能耗、GPU、温度子系统组合。
+
+Ramag 隔离预览使用 `cargo build --locked -p ramag-bin --example ui-preview` 构建并运行 `system dark 1282 912`，在真实窗口回读 Summary：磁盘卡显示所选 `C:\`、容量、读取/写入单位和双向趋势，网络卡显示所选接口、接收/发送单位和双向趋势，GPU 设备入口可达；活动卡箭头可进入对应详细页。代码测试构造两个不同设备、保存设备优先、网络默认接口、缺失设备、零值、失败/过期、非有限值、时间缺口和窄窗口滚动导航，`ramag-tool-system` 42 项与 `ramag-ui` 126 项通过。
+
+本切片的真实窗口证据只证明活动来源、单位、选择保持和页面操作，不证明磁盘/网卡硬件精度，也不证明参考程序与 Ramag 在不同采样时刻的数值相等。CPU/内存 Summary 组合已由 `03B` 覆盖；Energy/Thermals/GPU 趋势和 1440 宽屏五卡布局仍属于后续未完成项。
+
+### 2026-10-01 十页真实窗口逐页对比
+
+本次验收使用 Computer Use 分别操作两个真实窗口，而不是只读取截图或 headless 输出：System Pulse 固定提交 `f1be5d51d24c21fa8c740be79200bdda3df3a00c`，Ramag 使用当前隔离 `ui-preview` 构建；两者均在暗色主题、约 `1282x912` 窗口中先观察参考页，再执行对应的 Ramag 页操作。进程页额外在两边输入相同的 `system-pulse` 搜索条件并回读过滤结果。表中的“通过”只表示本行列出的功能和状态已被真实窗口复现，不表示整页视觉已经完成。
+
+| 页签 | System Pulse 真实观察 | Ramag 真实观察 | 本轮结论 |
+|---|---|---|---|
+| Summary | 首排为 CPU/Clock/Temp/GPU 量表、CPU overview、Top CPU processes；第二排为全宽 Memory utilization；下方显示 Disks、Network、Energy、GPU、Thermals 活动卡 | 已按同样的信息顺序显示 CPU/Clock/Temp/GPU、CPU overview、Top CPU processes、全宽 Memory，以及磁盘/网络活动卡；缺失温度和缓存字段保留不可用原因 | `03A/03B` 功能和首屏组合通过；缓存字段的长原因文本、宽屏五卡同排仍是视觉差距 |
+| CPU | Overall meter、24 个逻辑处理器图表、Uptime、进程数和 CPU package power | CPU 利用率、频率、进程/线程、逐核心传感器卡和历史图 | 功能来源覆盖；图表网格和底部摘要布局仍未一一对齐 |
+| Memory | Overall meter、全宽 Memory utilization、RAM used/total/available/free 与 Swap used/total | RAM used/total/available/free、Swap、cache/buffers/other 和 page faults 卡片，带不可用原因 | 数据字段覆盖；参考的单图加底部六项布局仍是后续 UI 差距 |
+| GPU | 选定 NVIDIA GeForce RTX 3060，使用历史图、VRAM 量表、共享内存、温度、功率、时钟和风扇字段 | 同一 GPU 的 usage、VRAM、共享内存、温度、功率、时钟和风扇卡片 | 传感器功能通过；选中标题、量表与卡片布局仍需统一 |
+| Disks | 文件系统下拉选择器、Filesystem used 量表、读写合并趋势和容量说明；Computer Use 已验证 `C:\` 切换 `F:\` 后保持 | 磁盘页签选择器、Filesystem used/read/write/IOPS/latency 卡片；Summary 保持所选磁盘 | 选择、容量和读写来源通过；下拉选择器与合并趋势布局待对齐 |
+| Network | 接口下拉选择器、RX/TX 合并趋势、累计 RX/TX | 接口页签、RX/RX total/TX/TX total/TCP 卡片；Summary 保持所选接口 | 接口和双向数据通过；选择器、趋势和累计值位置待对齐 |
+| Energy | 选定 CPU package power 的量表和历史图，下面列出 CPU package 与 NVIDIA GPU measured power channels | GPU power 与 CPU package power 两张实时历史卡 | 真实功率来源已覆盖；缺少选中主传感器、量表、来源说明和 measured channels 组合 |
+| Thermals | 选定 GPU temperature，突出最热当前传感器、温度量表、历史图和传感器卡；提供 CPU temperature 授权按钮 | CPU temperature、GPU temperature、CPU package temperature 三张卡；不可用字段显示原因 | 当前温度和不可用状态通过；缺少参考的选中/最热信息组合和授权入口 |
+| Processes | 搜索框、End task/Force quit、PID/Name/CPU(one core)/Memory/Read I/O/Write I/O/User 列；搜索 `system-pulse` 后保留两个进程 | 搜索框、按 CPU 排序选择器、PID/Name/User/CPU/Memory/Read/Write/操作列；相同搜索后保留两个进程 | 搜索和字段功能通过；操作列更丰富，排序和列顺序仍有视觉/交互差异；键盘行导航按要求后置 |
+| Settings | Appearance（主题、界面字体、数字字体）、Sampling（0.5/1/2/5s）和 Presets（内置预设、命名输入、保存） | 采样频率（1/2/5s）、CPU 温度采集开关和 Collector status 诊断列表 | 采样和诊断能力覆盖；主题/字体/预设与参考职责未对齐，列为下一独立切片 |
+
+本轮十页验收的结果是：`03A/03B` 的 Summary 交付范围已通过真实窗口对照，CPU、Memory、GPU、Disks、Network、Processes、Thermals 的主要数据来源和状态可见；Energy 以及 Settings 的组合差异、各详细页的参考布局差异仍保持为未完成项。后续每个切片继续执行“参考窗口操作 -> Ramag 同流程 -> 记录结果”的顺序，不能以静态截图、旧测试或单纯编译成功替代该证据。

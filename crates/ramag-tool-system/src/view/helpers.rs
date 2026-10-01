@@ -108,15 +108,6 @@ pub(super) fn format_value(value: f64, unit: &Unit) -> String {
     }
 }
 
-pub(super) fn metric_parts(value: f64, unit: &Unit) -> (String, String) {
-    if matches!(unit, Unit::Bytes | Unit::BytesPerSecond | Unit::Hertz)
-        && let Some((number, label)) = format_value(value, unit).rsplit_once(' ')
-    {
-        return (number.to_owned(), label.to_owned());
-    }
-    (format!("{value:.1}"), unit_label(unit).to_owned())
-}
-
 pub(super) fn page_title(
     section: SystemSection,
     subtitle: &'static str,
@@ -178,19 +169,39 @@ pub(super) fn render_chart(
     height: gpui_kit::Pixels,
     line: gpui_kit::Hsla,
     cx: &gpui_kit::App,
-) -> impl IntoElement {
-    let first = points
+) -> gpui_kit::Div {
+    render_chart_series(
+        &[ramag_ui::pulse_ui::ChartSeries {
+            points,
+            color: line,
+        }],
+        maximum,
+        unit,
+        height,
+        cx,
+    )
+}
+
+/// Gives related physical series one scale and elapsed-time axis, without summing their values.
+/// The time labels cover the same bounded samples that the shared chart copies for painting.
+pub(super) fn render_chart_series(
+    series: &[ramag_ui::pulse_ui::ChartSeries<'_>],
+    maximum: f64,
+    unit: &Unit,
+    height: gpui_kit::Pixels,
+    cx: &gpui_kit::App,
+) -> gpui_kit::Div {
+    let times = series
         .iter()
-        .find(|point| point.at_seconds.is_finite())
-        .map(|point| point.at_seconds);
-    let last = points
-        .iter()
-        .rev()
-        .find(|point| point.at_seconds.is_finite())
-        .map(|point| point.at_seconds);
-    let duration = first
-        .zip(last)
-        .map_or(0.0, |(first, last)| (last - first).max(0.0));
+        .take(8)
+        .flat_map(|series| series.points.iter().rev().take(120))
+        .map(|point| point.at_seconds)
+        .filter(|time| time.is_finite());
+    let range = times.fold(None, |range, time| match range {
+        Some((first, last)) => Some((f64::min(first, time), f64::max(last, time))),
+        None => Some((time, time)),
+    });
+    let duration = range.map_or(0.0, |(first, last)| (last - first).max(0.0));
     let maximum = chart_axis_maximum(maximum);
     let theme = cx.theme();
     let mut axis = v_flex()
@@ -234,11 +245,9 @@ pub(super) fn render_chart(
                 .gap(px(CHART_AXIS_GAP))
                 .child(axis)
                 .child(
-                    ramag_ui::pulse_ui::pulse_time_chart_with_color(
-                        points, maximum, height, line, cx,
-                    )
-                    .flex_1()
-                    .min_w_0(),
+                    ramag_ui::pulse_ui::pulse_time_chart_with_series(series, maximum, height, cx)
+                        .flex_1()
+                        .min_w_0(),
                 ),
         )
         .child(

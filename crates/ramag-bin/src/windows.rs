@@ -3,8 +3,10 @@
 use super::*;
 use ramag_ui::SystemSettings;
 
-const MAIN_WINDOW_MIN_WIDTH: f32 = 360.0;
-const MAIN_WINDOW_MIN_HEIGHT: f32 = 240.0;
+// Keep the native window large enough for the monitor shell and its responsive
+// page content; smaller layouts remain covered by headless component tests.
+const MAIN_WINDOW_MIN_WIDTH: f32 = 960.0;
+const MAIN_WINDOW_MIN_HEIGHT: f32 = 640.0;
 
 /// 主窗口重建时复用的依赖。
 #[derive(Clone)]
@@ -157,7 +159,10 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         Some(p) => {
             let b = Bounds::new(
                 gpui_kit::point(px(p.x), px(p.y)),
-                size(px(p.w.max(800.0)), px(p.h.max(500.0))),
+                size(
+                    px(p.w.max(MAIN_WINDOW_MIN_WIDTH)),
+                    px(p.h.max(MAIN_WINDOW_MIN_HEIGHT)),
+                ),
             );
             // 显示器移除后回退居中，避免窗口恢复到屏幕外。
             let title_pt = gpui_kit::point(b.origin.x + b.size.width / 2.0, b.origin.y + px(16.0));
@@ -431,7 +436,7 @@ mod tests {
 
     #[test]
     fn main_window_minimum_matches_compact_ui_acceptance_size() {
-        assert_eq!(MAIN_WINDOW_MIN_WIDTH, 360.0);
-        assert_eq!(MAIN_WINDOW_MIN_HEIGHT, 240.0);
+        assert_eq!(MAIN_WINDOW_MIN_WIDTH, 960.0);
+        assert_eq!(MAIN_WINDOW_MIN_HEIGHT, 640.0);
     }
 }
