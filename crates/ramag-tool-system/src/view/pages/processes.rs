@@ -12,6 +12,7 @@ use ramag_infra_system::ProcessRow;
 use ramag_ui::PointerDropdownMenu as _;
 
 mod cells;
+mod details;
 use super::super::{SystemSection, SystemView, helpers};
 use crate::{MAX_VISIBLE_PROCESSES, MonitorSnapshot, ProcessSort, ProcessSortDirection};
 use cells::{cell, col, metric_cell, metric_columns, metric_display};
@@ -89,8 +90,11 @@ impl SystemView {
                     .text_color(theme.muted_foreground)
                     .child(description),
             )
-            .child(controls)
-            .child(table);
+            .child(controls);
+        if self.selected_process.is_some() {
+            page = page.child(self.render_process_details(snapshot, window, cx));
+        }
+        page = page.child(table);
         if snapshot.collection_stale {
             page = page.child(ramag_ui::pulse_ui::pulse_status_notice(
                 ramag_ui::pulse_ui::PulseStatus::Stale,
@@ -279,8 +283,14 @@ impl SystemView {
         cx: &Context<Self>,
     ) -> impl IntoElement {
         let pid = process.identity.pid;
+        let identity = process.identity.clone();
+        let name = process.name.clone();
         let theme = cx.theme();
         let mut row = h_flex()
+            .id(format!(
+                "system-process-select-{pid}-{}",
+                identity.start_time_ticks
+            ))
             .debug_selector(move || format!("system-process-row-{pid}"))
             .w_full()
             .min_h(px(38.0))
@@ -288,7 +298,23 @@ impl SystemView {
             .gap(px(6.0))
             .px(px(8.0))
             .border_b_1()
-            .border_color(theme.border.opacity(0.55));
+            .border_color(theme.border.opacity(0.55))
+            .bg(
+                if self
+                    .selected_process
+                    .as_ref()
+                    .is_some_and(|selected| selected.identity == identity)
+                {
+                    theme.primary.opacity(0.10)
+                } else {
+                    theme.background
+                },
+            )
+            .cursor_pointer()
+            .hover(|style| style.bg(theme.accent))
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.select_process(identity.clone(), name.clone(), cx);
+            }));
         row = row.child(cell(pid, "pid", pid.to_string(), 56.0, None, theme));
         row = row.child(
             cell(pid, "name", process.name.clone(), 0.0, None, theme)
@@ -345,6 +371,8 @@ impl SystemView {
         }
         for process in rows.iter().take(MAX_VISIBLE_PROCESSES) {
             let pid = process.identity.pid;
+            let selected_identity = process.identity.clone();
+            let selected_name = process.name.clone();
             let identity = h_flex()
                 .w_full()
                 .min_w_0()
@@ -394,6 +422,10 @@ impl SystemView {
             }
             table = table.child(
                 v_flex()
+                    .id(format!(
+                        "system-process-select-{pid}-{}",
+                        selected_identity.start_time_ticks
+                    ))
                     .debug_selector(move || format!("system-process-row-{pid}"))
                     .w_full()
                     .min_w_0()
@@ -401,6 +433,22 @@ impl SystemView {
                     .py(px(8.0))
                     .border_b_1()
                     .border_color(theme.border.opacity(0.55))
+                    .bg(
+                        if self
+                            .selected_process
+                            .as_ref()
+                            .is_some_and(|selected| selected.identity == selected_identity)
+                        {
+                            theme.primary.opacity(0.10)
+                        } else {
+                            theme.background
+                        },
+                    )
+                    .cursor_pointer()
+                    .hover(|style| style.bg(theme.accent))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.select_process(selected_identity.clone(), selected_name.clone(), cx);
+                    }))
                     .child(identity)
                     .child(metrics),
             );
@@ -445,6 +493,7 @@ impl SystemView {
         } else {
             button.on_click(cx.listener(move |this, _, _, cx| {
                 this.prepare_termination(identity.clone(), name.clone(), cx);
+                cx.stop_propagation();
             }))
         }
     }

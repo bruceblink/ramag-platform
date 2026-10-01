@@ -43,6 +43,8 @@ fn test_view(
         notice: None,
         process_search: search,
         process_table_scroll: gpui_kit::ScrollHandle::new(),
+        selected_process: None,
+        process_detail_scroll: gpui_kit::ScrollHandle::new(),
         presentation: ramag_ui::MonitorPresentationSettings::default(),
         _settings_subscription: None,
         _search_subscription: Some(subscription),
@@ -400,3 +402,6 @@ mod termination_tests;
 
 #[path = "process_tests.rs"]
 mod process_tests;
+
+#[path = "process_detail_tests.rs"]
+mod process_detail_tests;

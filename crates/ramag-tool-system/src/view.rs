@@ -8,6 +8,9 @@ use gpui_kit::{AppContext as _, Context, Entity, FocusHandle, ScrollHandle, Wind
 use super::{ProcessSort, RefreshInterval, StableProcessIdentity, SystemMonitor};
 use helpers::notice_for_termination;
 
+mod process_selection;
+use process_selection::SelectedProcess;
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(super) enum SystemSection {
     #[default]
@@ -107,6 +110,10 @@ pub struct SystemView {
     pub(super) process_search: Entity<InputState>,
     /// Scrolls only the desktop table; sampling and sorting retain the user's column position.
     pub(super) process_table_scroll: ScrollHandle,
+    /// Stores only one complete process identity; live details are resolved from each new snapshot.
+    selected_process: Option<SelectedProcess>,
+    /// Retains bounded detail body scrolling without moving the close control during sampling.
+    pub(super) process_detail_scroll: ScrollHandle,
     pub(super) presentation: ramag_ui::MonitorPresentationSettings,
     _search_subscription: Option<gpui_kit::Subscription>,
     /// Dropping the view unregisters observers and stops the periodic redraw task.
@@ -166,6 +173,8 @@ impl SystemView {
             notice: None,
             process_search,
             process_table_scroll: ScrollHandle::new(),
+            selected_process: None,
+            process_detail_scroll: ScrollHandle::new(),
             presentation,
             _search_subscription: Some(search_subscription),
             _settings_subscription: Some(settings_subscription),
@@ -186,6 +195,34 @@ impl SystemView {
 
     pub(super) fn select_process_sort(&mut self, sort: ProcessSort, cx: &mut Context<Self>) {
         self.monitor.set_process_sort(sort);
+        cx.notify();
+    }
+
+    /// Captures a verified lifetime for read-only details; delayed clicks never target a new PID owner.
+    pub(super) fn select_process(
+        &mut self,
+        identity: StableProcessIdentity,
+        name: String,
+        cx: &mut Context<Self>,
+    ) {
+        if identity.start_time_ticks == 0 {
+            return;
+        }
+        if self
+            .selected_process
+            .as_ref()
+            .is_none_or(|selected| selected.identity != identity)
+        {
+            self.process_detail_scroll = ScrollHandle::new();
+            self.selected_process = Some(SelectedProcess { identity, name });
+            cx.notify();
+        }
+    }
+
+    /// Closes only the read-only details; force-quit confirmation keeps its separately captured target.
+    pub(super) fn close_process_details(&mut self, cx: &mut Context<Self>) {
+        self.selected_process = None;
+        self.process_detail_scroll = ScrollHandle::new();
         cx.notify();
     }
 
