@@ -175,7 +175,7 @@ Ramag 隔离预览使用 `cargo build --locked -p ramag-bin --example ui-preview
 | Energy | 通过右上设备选择器切换到 `CPU · CPU package power`；主读数、量表和历史图使用该传感器，下面保留 CPU package 与 NVIDIA GPU measured power channels | 通过 Energy 页下拉菜单在 GPU power 与 CPU package power 间切换；主读数、量表、历史图、来源/范围/单位和 measured channels 均随稳定 ID 更新 | `A-PULSE-GAP-06-Energy` 真实窗口功能通过；Ramag 保留工作台壳层和紧凑标题，精确字体/卡片排布留在视觉细节切片 |
 | Thermals | 选定 GPU temperature，突出最热当前传感器、温度量表、历史图和传感器卡；提供 CPU temperature 授权按钮 | CPU temperature、GPU temperature、CPU package temperature 三张卡；不可用字段显示原因 | 当前温度和不可用状态通过；缺少参考的选中/最热信息组合和授权入口 |
 | Processes | 搜索框、End task/Force quit、PID/Name/CPU(one core)/Memory/Read I/O/Write I/O/User 列；搜索 `system-pulse` 后保留两个进程 | 搜索框、按 CPU 排序选择器、PID/Name/User/CPU/Memory/Read/Write/操作列；相同搜索后保留两个进程 | 搜索和字段功能通过；操作列更丰富，排序和列顺序仍有视觉/交互差异；键盘行导航按要求后置 |
-| Settings | Appearance（主题、界面字体、数字字体）、Sampling（0.5/1/2/5s）和 Presets（内置预设、命名输入、保存） | 采样频率（1/2/5s）、CPU 温度采集开关和 Collector status 诊断列表 | 采样和诊断能力覆盖；主题/字体/预设与参考职责未对齐，列为下一独立切片 |
+| Settings | Appearance（主题、界面字体、数字字体）、Sampling（0.5/1/2/5s）和 Presets（内置预设、命名输入、保存） | 主题、字号、滚动条、界面字体、数值字体和 Collector status；采样频率仍为 1/2/5s | `A-PULSE-GAP-09` 已完成字体选择、即时预览、主题切换保持和保存回读；0.5s 采样及完整工作区预设仍未对齐 |
 
 本轮十页验收的结果是：`03A/03B` 的 Summary 交付范围和 `06-Energy` 的主传感器选择已通过真实窗口对照，CPU、Memory、GPU、Disks、Network、Processes、Thermals 的主要数据来源和状态可见；Settings 的主题/字体/预设职责、Thermals 的最热传感器组合以及各详细页的精确布局仍保持为未完成项。后续每个切片继续执行“参考窗口操作 -> Ramag 同流程 -> 记录结果”的顺序，不能以静态截图、旧测试或单纯编译成功替代该证据。
 
@@ -187,4 +187,10 @@ Ramag 使用刚构建的 `cargo build --locked -p ramag-bin --example ui-preview
 
 实现以稳定传感器 ID 保存 `energy` 选择，CPU package power 是无偏好时的默认来源；保存 ID 消失时保留不可用原因，不自动改选其他传感器。采集快照过期时主值和量表停止显示为实时数据，历史曲线继续保留上下文；零值仍按有效 `0 W` 显示。
 
-验证命令：`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1`（45 项通过）、`cargo build --locked -p ramag-bin --example ui-preview`（通过）、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸、`git diff --check` 和修改文本 LF 检查。纯本地监控/UI 切片不使用 Docker；没有宣称 GPU/温度/跨平台硬件精度完成。下一项继续按差距矩阵处理 Settings 主题/字体/预设职责，Thermals 单传感器另行提交。
+验证命令：`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1`（45 项通过）、`cargo build --locked -p ramag-bin --example ui-preview`（通过）、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸、`git diff --check` 和修改文本 LF 检查。纯本地监控/UI 切片不使用 Docker；没有宣称 GPU/温度/跨平台硬件精度完成。下一项进入 Settings 完整工作区预设与 0.5s 采样的职责拆分，Thermals 单传感器另行提交。
+
+### 2026-10-02 `A-PULSE-GAP-09-Settings-Appearance` 真实窗口验收
+
+System Pulse 使用固定提交 `f1be5d51d24c21fa8c740be79200bdda3df3a00c` 的真实窗口，在 Settings -> Appearance 观察 Theme、Interface font、Numeric font 和 Typography preview；选择 `IBM Plex Sans` 与 `IBM Plex Mono` 后，参考窗口即时更新按钮状态和预览。Ramag 使用刚构建的 `cargo build --locked -p ramag-bin --example ui-preview` 隔离窗口，打开系统设置后通过 Computer Use 选择同样的两种字体，回读“系统设置：已保存”、按钮选中态和数字预览变化，再切换浅色主题，字体选择保持不变。两边均未把采样或预设操作混入本切片；Ramag 的中文工作台壳层和响应式设置卡保持现有产品约定。
+
+Headless 覆盖 `360x640`、`1024x768`、`1440x900` 的设置控件边界、明暗主题、序列化默认值、未知字体拒绝、主题切换保持和保存状态；真实窗口证据覆盖 1024x768 Ramag 与参考 Settings 页面。Ramag 预览进程已停止，未读取用户连接或凭据；System Pulse 参考进程保持运行。下一项进入 Settings 完整工作区预设与 0.5s 采样的职责拆分，Thermals 单传感器继续独立验收。

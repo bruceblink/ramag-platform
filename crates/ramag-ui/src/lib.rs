@@ -85,9 +85,9 @@ pub use settings_view::SettingsView;
 pub use shell::{Shell, WindowBoundsPref};
 pub use shortcuts_dialog::open_shortcuts;
 pub use system_settings::{
-    InterfaceTextSize, SYSTEM_SETTINGS_PREF_KEY, ScrollbarVisibility, SystemSettings,
-    SystemSettingsGlobal, init_system_settings, save_system_settings, set_system_settings,
-    system_settings,
+    InterfaceFont, InterfaceTextSize, NumericFont, SYSTEM_SETTINGS_PREF_KEY, ScrollbarVisibility,
+    SystemSettings, SystemSettingsGlobal, init_system_settings, save_system_settings,
+    set_system_settings, system_settings,
 };
 pub mod monitor_settings;
 pub use monitor_settings::{

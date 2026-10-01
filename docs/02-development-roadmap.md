@@ -88,7 +88,7 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 | ID | 内容 | 状态 | 依赖 | 必要证据 |
 |---|---|---|---|---|
 | `A-QUALITY-SETTINGS-SAVE-001` | 系统/监控偏好的保存中、失败原因、重试及实际回读 | 本机代码、headless 和限定真实窗口验收完成，详见执行计划 | 现有偏好存储 | 同 key 写入顺序、慢写入可操作性、redb 重开回读、明暗三尺寸；真实窗口成功保存及导航 |
-| `A-PULSE-GAP-01..08` | System Pulse 剩余优点逐项吸收 | `01` 风险表达、`02A` 七列排序、`02B` 完整身份详情、`03A` 磁盘/网络真实活动趋势、`03B` Summary CPU/内存组合和 `06-Energy` 主传感器选择已完成本机目标/headless/Computer Use 实际参考窗口对照；下一项优先处理 Settings 的主题/字体/预设职责对齐。`02C` 键盘、动效与性能按用户要求后置；详见 [`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md) | 对应独立功能及测试 | 进程详情/排序、Summary 趋势、选择恢复、预设、传感器选择、生命周期分别记录 |
+| `A-PULSE-GAP-01..09` | System Pulse 剩余优点逐项吸收 | `01` 风险表达、`02A` 七列排序、`02B` 完整身份详情、`03A` 磁盘/网络真实活动趋势、`03B` Summary CPU/内存组合、`06-Energy` 主传感器选择和 `09-Settings-Appearance` 字体选择已完成本机目标/headless/Computer Use 实际参考窗口对照；下一项拆分 Settings 的 0.5s 采样与完整工作区预设。`02C` 键盘、动效与性能按用户要求后置；详见 [`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md) | 对应独立功能及测试 | 进程详情/排序、Summary 趋势、选择恢复、预设、传感器选择、生命周期分别记录 |
 | `SHELL-001` | 共享 JetBrains 工作区壳层和设计令牌 | 已完成（headless；真实窗口待补） | 阶段 A | Headless 三尺寸、可用时 Computer Use、fmt/Clippy |
 | `DB-UX-001` | 数据库对象导航器 | 阶段 A 代码、headless 与 Docker 复验完成；真实窗口待补 | `SHELL-001` | 对象树交互、MySQL/PostgreSQL Docker、窗口证据 |
 | `DB-UX-002` | 查询控制台和连接上下文 | 功能切片完成（`DB-RED-05A` 至 `DB-RED-07`；真实窗口待补） | `DB-UX-001` | SQL 执行/取消/标签回归、Docker、窗口证据 |

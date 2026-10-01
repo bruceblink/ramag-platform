@@ -107,7 +107,7 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
             "settings-save-status-system_settings",
             "settings-save-retry-system_settings",
             "settings-page-system",
-            r#"{"minimize_to_tray":false,"text_size":"large","scrollbar_visibility":"always"}"#,
+            r#"{"minimize_to_tray":false,"text_size":"large","scrollbar_visibility":"always","interface_font":"inter","numeric_font":"jetbrains_mono"}"#,
         ),
         (
             "system",

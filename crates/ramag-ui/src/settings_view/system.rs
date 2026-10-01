@@ -10,7 +10,7 @@ use gpui_kit::{
 
 use super::{SettingsView, pages::settings_card};
 use crate::{
-    InterfaceTextSize, ScrollbarVisibility, SystemSettings,
+    InterfaceFont, InterfaceTextSize, NumericFont, ScrollbarVisibility, SystemSettings,
     theme::{Mode, current_mode, set_theme_preference},
 };
 
@@ -74,6 +74,38 @@ pub(super) fn system_settings_panel(
             )
         })
         .collect();
+    let interface_fonts = InterfaceFont::ALL
+        .into_iter()
+        .enumerate()
+        .map(|(index, choice)| {
+            choice_button(
+                format!("settings-interface-font-{index}"),
+                choice.label(),
+                settings.interface_font == choice,
+                move |_, _, cx| {
+                    let mut next = crate::system_settings(cx);
+                    next.interface_font = choice;
+                    crate::save_system_settings(next, cx);
+                },
+            )
+        })
+        .collect();
+    let numeric_fonts = NumericFont::ALL
+        .into_iter()
+        .enumerate()
+        .map(|(index, choice)| {
+            choice_button(
+                format!("settings-numeric-font-{index}"),
+                choice.label(),
+                settings.numeric_font == choice,
+                move |_, _, cx| {
+                    let mut next = crate::system_settings(cx);
+                    next.numeric_font = choice;
+                    crate::save_system_settings(next, cx);
+                },
+            )
+        })
+        .collect();
     let tray_description = if cfg!(target_os = "windows") {
         "关闭主窗口后应用继续运行，可从任务栏托盘重新打开。"
     } else {
@@ -100,12 +132,56 @@ pub(super) fn system_settings_panel(
                     theme,
                 ))
                 .child(setting_row(
+                    "settings-interface-font-row",
+                    "界面字体",
+                    "应用于页面标题、导航和普通文本。",
+                    interface_fonts,
+                    theme,
+                ))
+                .child(setting_row(
+                    "settings-numeric-font-row",
+                    "数值字体",
+                    "应用于指标、单位和等宽数据，保持数字对齐。",
+                    numeric_fonts,
+                    theme,
+                ))
+                .child(setting_row(
                     "settings-scrollbar-row",
                     "滚动条",
                     "控制可滚动区域的显示方式，推荐始终显示。",
                     scrollbars,
                     theme,
-                )),
+                ))
+                .child(
+                    v_flex()
+                        .id("settings-typography-preview")
+                        .debug_selector(|| "settings-typography-preview".into())
+                        .w_full()
+                        .min_w_0()
+                        .gap_2()
+                        .p_3()
+                        .border_l_2()
+                        .border_color(theme.accent)
+                        .bg(theme.background)
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child("排版预览"),
+                        )
+                        .child(
+                            div()
+                                .font_family(theme.font_family.clone())
+                                .child("The quick brown fox jumps over the lazy dog."),
+                        )
+                        .child(
+                            div()
+                                .font_family(theme.mono_font_family.clone())
+                                .text_lg()
+                                .text_color(theme.accent)
+                                .child("0123456789 · 64.2 % · 8.5 GiB"),
+                        ),
+                ),
         )
         .child(settings_card("窗口行为", theme.border).child(setting_row(
             "settings-tray-row",

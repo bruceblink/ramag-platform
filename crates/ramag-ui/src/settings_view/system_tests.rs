@@ -60,9 +60,12 @@ fn public_settings_fit_both_themes_and_apply_without_resetting_other_values(
             for selector in [
                 "settings-theme-row",
                 "settings-text-size-row",
+                "settings-interface-font-row",
+                "settings-numeric-font-row",
                 "settings-scrollbar-row",
                 "settings-tray-row",
                 "settings-scrollbar-2",
+                "settings-typography-preview",
             ] {
                 let bounds = cx.debug_bounds(selector);
                 assert!(bounds.is_some(), "missing {selector}");
@@ -75,6 +78,8 @@ fn public_settings_fit_both_themes_and_apply_without_resetting_other_values(
         }
     }
     click(cx, "settings-text-size-0");
+    click(cx, "settings-interface-font-1");
+    click(cx, "settings-numeric-font-1");
     click(cx, "settings-scrollbar-1");
     click(cx, "settings-theme-0");
     cx.update(|_, app| {
@@ -86,8 +91,21 @@ fn public_settings_fit_both_themes_and_apply_without_resetting_other_values(
             crate::system_settings(app).scrollbar_visibility,
             ScrollbarVisibility::Hover
         );
+        assert_eq!(
+            crate::system_settings(app).interface_font,
+            InterfaceFont::IbmPlexSans
+        );
+        assert_eq!(
+            crate::system_settings(app).numeric_font,
+            NumericFont::IbmPlexMono
+        );
         assert_eq!(current_mode(app), Mode::Light);
         assert_eq!(Theme::global(app).font_size, px(14.0));
+        assert_eq!(Theme::global(app).font_family.as_ref(), "IBM Plex Sans");
+        assert_eq!(
+            Theme::global(app).mono_font_family.as_ref(),
+            "IBM Plex Mono"
+        );
         assert_eq!(
             Theme::global(app).scrollbar_mode,
             gpui_kit::component::scroll::ScrollbarMode::Hover

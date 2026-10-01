@@ -17,6 +17,57 @@ pub enum InterfaceTextSize {
     Large,
 }
 
+/// 应用级界面字体；只允许随应用发布的字体，避免配置引用不存在的系统字体。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InterfaceFont {
+    #[default]
+    Inter,
+    IbmPlexSans,
+}
+
+impl InterfaceFont {
+    pub const ALL: [Self; 2] = [Self::Inter, Self::IbmPlexSans];
+
+    pub fn family(self) -> &'static str {
+        match self {
+            Self::Inter => "Inter Variable",
+            Self::IbmPlexSans => "IBM Plex Sans",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Inter => "Inter",
+            Self::IbmPlexSans => "IBM Plex Sans",
+        }
+    }
+}
+
+/// 应用级数字和指标字体；与界面字体分开保存，保证数据读数保持等宽可比较。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NumericFont {
+    #[default]
+    JetbrainsMono,
+    IbmPlexMono,
+}
+
+impl NumericFont {
+    pub const ALL: [Self; 2] = [Self::JetbrainsMono, Self::IbmPlexMono];
+
+    pub fn family(self) -> &'static str {
+        match self {
+            Self::JetbrainsMono => "JetBrains Mono",
+            Self::IbmPlexMono => "IBM Plex Mono",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        self.family()
+    }
+}
+
 impl InterfaceTextSize {
     pub const ALL: [Self; 3] = [Self::Compact, Self::Standard, Self::Large];
 
@@ -78,6 +129,10 @@ pub struct SystemSettings {
     pub text_size: InterfaceTextSize,
     #[serde(default)]
     pub scrollbar_visibility: ScrollbarVisibility,
+    #[serde(default)]
+    pub interface_font: InterfaceFont,
+    #[serde(default)]
+    pub numeric_font: NumericFont,
 }
 
 impl SystemSettings {
@@ -115,7 +170,10 @@ pub fn set_system_settings(settings: SystemSettings, cx: &mut App) {
 /// 应用显示偏好，主题切换和启动初始化共用此路径，不写入持久存储。
 pub(crate) fn apply_display_settings(cx: &mut App) {
     let settings = system_settings(cx);
-    Theme::global_mut(cx).font_size = px(settings.text_size.pixels());
+    let theme = Theme::global_mut(cx);
+    theme.font_size = px(settings.text_size.pixels());
+    theme.font_family = settings.interface_font.family().into();
+    theme.mono_font_family = settings.numeric_font.family().into();
     Theme::set_scrollbar_mode(settings.scrollbar_visibility.mode(), cx);
     // 字号和主题切换都要更新 Base 的副本，保持文字、滚动条与组件主题一致。
     Theme::sync_base(cx);
@@ -182,14 +240,22 @@ mod tests {
         assert!(old.minimize_to_tray);
         assert_eq!(old.scrollbar_visibility, ScrollbarVisibility::Always);
         assert_eq!(old.text_size, InterfaceTextSize::Standard);
+        assert_eq!(old.interface_font, InterfaceFont::Inter);
+        assert_eq!(old.numeric_font, NumericFont::JetbrainsMono);
         for text_size in InterfaceTextSize::ALL {
             for scrollbar_visibility in ScrollbarVisibility::ALL {
-                let next = SystemSettings {
-                    text_size,
-                    scrollbar_visibility,
-                    ..old
-                };
-                assert_eq!(SystemSettings::parse(&next.to_json()?)?, next);
+                for interface_font in InterfaceFont::ALL {
+                    for numeric_font in NumericFont::ALL {
+                        let next = SystemSettings {
+                            text_size,
+                            scrollbar_visibility,
+                            interface_font,
+                            numeric_font,
+                            ..old
+                        };
+                        assert_eq!(SystemSettings::parse(&next.to_json()?)?, next);
+                    }
+                }
             }
         }
         assert!(SystemSettings::parse(r#"{"text_size":99999}"#).is_err());
@@ -212,6 +278,8 @@ mod tests {
                 crate::apply_theme(mode, cx);
                 let theme = Theme::global(cx);
                 assert_eq!(theme.font_size, px(18.0));
+                assert_eq!(theme.font_family.as_ref(), "Inter Variable");
+                assert_eq!(theme.mono_font_family.as_ref(), "JetBrains Mono");
                 assert_eq!(theme.scrollbar_mode, ScrollbarMode::Hover);
                 assert_eq!(theme.tab_bar, theme.secondary);
                 assert_eq!(theme.sidebar_foreground, theme.foreground);
@@ -221,6 +289,35 @@ mod tests {
             assert!(init_system_settings(Some("broken"), cx).is_err());
             assert_eq!(system_settings(cx), SystemSettings::default());
             assert_eq!(Theme::global(cx).scrollbar_mode, ScrollbarMode::Always);
+        });
+    }
+
+    /// 字体选择必须在主题切换中保持，并在损坏配置回退时恢复默认字体。
+    #[gpui_kit::test]
+    fn font_preferences_survive_theme_changes(cx: &mut gpui_kit::TestAppContext) {
+        cx.update(|cx| {
+            gpui_kit::component::init(cx);
+            set_system_settings(
+                SystemSettings {
+                    interface_font: InterfaceFont::IbmPlexSans,
+                    numeric_font: NumericFont::IbmPlexMono,
+                    ..Default::default()
+                },
+                cx,
+            );
+            for mode in [crate::Mode::Light, crate::Mode::Dark] {
+                crate::apply_theme(mode, cx);
+                let theme = Theme::global(cx);
+                assert_eq!(theme.font_family.as_ref(), "IBM Plex Sans");
+                assert_eq!(theme.mono_font_family.as_ref(), "IBM Plex Mono");
+            }
+            assert!(init_system_settings(Some(r#"{"interface_font":"missing"}"#), cx).is_err());
+            assert_eq!(system_settings(cx), SystemSettings::default());
+            assert_eq!(Theme::global(cx).font_family.as_ref(), "Inter Variable");
+            assert_eq!(
+                Theme::global(cx).mono_font_family.as_ref(),
+                "JetBrains Mono"
+            );
         });
     }
 }
