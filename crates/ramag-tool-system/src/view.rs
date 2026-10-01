@@ -105,6 +105,8 @@ pub struct SystemView {
     pub(super) termination_in_progress: bool,
     pub(super) notice: Option<Notice>,
     pub(super) process_search: Entity<InputState>,
+    /// Scrolls only the desktop table; sampling and sorting retain the user's column position.
+    pub(super) process_table_scroll: ScrollHandle,
     pub(super) presentation: ramag_ui::MonitorPresentationSettings,
     _search_subscription: Option<gpui_kit::Subscription>,
     /// Dropping the view unregisters observers and stops the periodic redraw task.
@@ -117,7 +119,8 @@ impl SystemView {
         let monitor = SystemMonitor::new();
         apply_monitor_preferences(&monitor, cx);
         let settings_subscription = observe_monitor_preferences(cx);
-        let process_search = cx.new(|cx| InputState::new(window, cx));
+        let process_search = cx
+            .new(|cx| ramag_ui::bounded_search_input(window, cx).placeholder("名称 / PID / 用户"));
         let search_subscription = cx.subscribe_in(
             &process_search,
             window,
@@ -162,6 +165,7 @@ impl SystemView {
             termination_in_progress: false,
             notice: None,
             process_search,
+            process_table_scroll: ScrollHandle::new(),
             presentation,
             _search_subscription: Some(search_subscription),
             _settings_subscription: Some(settings_subscription),

@@ -7,6 +7,9 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 use ramag_infra_system::{Availability, Reading, SamplingService, SensorDescriptor, Snapshot};
 
+#[path = "monitor/process_order.rs"]
+mod process_order;
+
 pub use ramag_infra_system::ProcessIdentity as StableProcessIdentity;
 
 pub const HISTORY_SECONDS: f64 = 60.0;
@@ -14,20 +17,63 @@ pub const MAX_VISIBLE_PROCESSES: usize = 120;
 const MAX_HISTORY_POINTS: usize = 120;
 const MAX_HISTORY_SERIES: usize = 4096;
 
+/// Selects one cached process field without changing collection or process identity.
+/// Stable IDs are independent of translated labels; only current finite metrics sort as values.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ProcessSort {
     #[default]
     Cpu,
     Memory,
+    Pid,
+    Name,
+    User,
+    Read,
+    Write,
 }
 
 impl ProcessSort {
     pub fn label(self) -> &'static str {
         match self {
             Self::Cpu => "CPU",
-            Self::Memory => "Memory",
+            Self::Memory => "内存",
+            Self::Pid => "PID",
+            Self::Name => "名称",
+            Self::User => "用户",
+            Self::Read => "读取速率",
+            Self::Write => "写入速率",
         }
     }
+
+    pub fn stable_id(self) -> &'static str {
+        match self {
+            Self::Cpu => "cpu",
+            Self::Memory => "memory",
+            Self::Pid => "pid",
+            Self::Name => "name",
+            Self::User => "user",
+            Self::Read => "read",
+            Self::Write => "write",
+        }
+    }
+
+    /// Stable UI enumeration order shared by sort controls and acceptance checks.
+    pub const ALL: [Self; 7] = [
+        Self::Cpu,
+        Self::Memory,
+        Self::Pid,
+        Self::Name,
+        Self::User,
+        Self::Read,
+        Self::Write,
+    ];
+}
+
+/// Defines the ordering of valid values; missing entries remain last in either direction.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ProcessSortDirection {
+    Ascending,
+    #[default]
+    Descending,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -265,6 +311,7 @@ struct MonitorState {
     received_at: Instant,
     interval: RefreshInterval,
     sort: ProcessSort,
+    sort_direction: ProcessSortDirection,
 }
 
 /// Clones share one worker and one cache. UI methods never perform host reads
@@ -299,6 +346,7 @@ impl SystemMonitor {
                 received_at: Instant::now(),
                 interval: RefreshInterval::default(),
                 sort: ProcessSort::default(),
+                sort_direction: ProcessSortDirection::default(),
             })),
         }
     }
@@ -312,8 +360,22 @@ impl SystemMonitor {
     pub fn process_sort(&self) -> ProcessSort {
         self.state.lock().sort
     }
+    pub fn process_sort_direction(&self) -> ProcessSortDirection {
+        self.state.lock().sort_direction
+    }
+    /// Selects a column's initial direction, or reverses the already selected column.
+    /// The cache lock changes only presentation preferences; no host read is triggered.
     pub fn set_process_sort(&self, sort: ProcessSort) {
-        self.state.lock().sort = sort;
+        let mut state = self.state.lock();
+        if state.sort == sort {
+            state.sort_direction = match state.sort_direction {
+                ProcessSortDirection::Ascending => ProcessSortDirection::Descending,
+                ProcessSortDirection::Descending => ProcessSortDirection::Ascending,
+            };
+        } else {
+            state.sort = sort;
+            state.sort_direction = sort.default_direction();
+        }
     }
     /// Changes the worker interval before updating the UI preference; a failed
     /// worker update preserves the previous interval and records its error.
@@ -431,6 +493,7 @@ impl SystemMonitor {
                 received_at: Instant::now(),
                 interval: RefreshInterval::default(),
                 sort: ProcessSort::default(),
+                sort_direction: ProcessSortDirection::default(),
             })),
         }
     }
@@ -469,3 +532,7 @@ pub enum TerminateResult {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[path = "monitor/process_order_tests.rs"]
+mod process_order_tests;

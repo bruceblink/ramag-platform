@@ -25,7 +25,13 @@ fn test_view(
     cx: &mut Context<SystemView>,
     snapshot: MonitorSnapshot,
 ) -> SystemView {
-    let search = cx.new(|cx| gpui_kit::component::input::InputState::new(window, cx));
+    let search =
+        cx.new(|cx| ramag_ui::bounded_search_input(window, cx).placeholder("名称 / PID / 用户"));
+    let subscription = cx.subscribe_in(&search, window, |_, _, event: &InputEvent, _, cx| {
+        if matches!(event, InputEvent::Change) {
+            cx.notify();
+        }
+    });
     SystemView {
         monitor: SystemMonitor::with_snapshot(snapshot),
         section: SystemSection::Summary,
@@ -36,9 +42,10 @@ fn test_view(
         termination_in_progress: false,
         notice: None,
         process_search: search,
+        process_table_scroll: gpui_kit::ScrollHandle::new(),
         presentation: ramag_ui::MonitorPresentationSettings::default(),
         _settings_subscription: None,
-        _search_subscription: None,
+        _search_subscription: Some(subscription),
     }
 }
 
@@ -390,3 +397,6 @@ fn termination_confirmation_keeps_the_captured_stable_identity(cx: &mut TestAppC
 
 #[path = "termination_tests.rs"]
 mod termination_tests;
+
+#[path = "process_tests.rs"]
+mod process_tests;

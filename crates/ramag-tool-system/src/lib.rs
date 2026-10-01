@@ -4,8 +4,9 @@ mod monitor;
 mod view;
 
 pub use monitor::{
-    HISTORY_SECONDS, MAX_VISIBLE_PROCESSES, MonitorSnapshot, ProcessSort, ReadingStatus,
-    RefreshInterval, SensorSample, StableProcessIdentity, SystemMonitor, TerminateResult,
+    HISTORY_SECONDS, MAX_VISIBLE_PROCESSES, MonitorSnapshot, ProcessSort, ProcessSortDirection,
+    ReadingStatus, RefreshInterval, SensorSample, StableProcessIdentity, SystemMonitor,
+    TerminateResult,
 };
 pub use ramag_infra_system::Unit as PhysicalUnit;
 pub use view::SystemView;
