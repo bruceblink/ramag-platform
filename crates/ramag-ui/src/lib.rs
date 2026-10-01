@@ -97,6 +97,12 @@ pub use monitor_settings::{
     monitor_settings, save_monitor_presentation_settings, save_monitor_settings,
     set_monitor_presentation_settings, set_monitor_settings,
 };
+pub mod monitor_presets;
+pub use monitor_presets::{
+    MONITOR_PRESETS_PREF_KEY, MonitorPreset, MonitorPresetLibrary, MonitorPresetLibraryGlobal,
+    init_monitor_preset_library, monitor_preset_library, save_monitor_preset_library,
+    set_monitor_preset_library,
+};
 pub use theme::{Mode, StorageGlobal, apply_theme, current_mode, init_theme};
 pub use transfer_ui::{
     TransferState, open_import_options_dialog, progress_sink, spawn_transfer_ticker,

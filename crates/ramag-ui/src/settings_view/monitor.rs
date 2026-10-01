@@ -1,7 +1,7 @@
 //! 系统监控专属设置页；设置不再占用工作区工具栏。
 
-use gpui_kit::component::ActiveTheme;
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement};
+use gpui_kit::component::{ActiveTheme, v_flex};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, px};
 
 use super::{
     SettingsView,
@@ -29,14 +29,19 @@ impl SettingsView {
                 )
             })
             .collect();
-        settings_card("采样与刷新", cx.theme().border)
-            .child(setting_row(
-                "settings-monitor-rate-row",
-                "刷新频率",
-                "仅影响本机系统监控；立即应用并在下次启动时恢复。",
-                choices,
-                cx.theme(),
-            ))
+        v_flex()
+            .w_full()
+            .gap(px(16.0))
+            .child(
+                settings_card("采样与刷新", cx.theme().border).child(setting_row(
+                    "settings-monitor-rate-row",
+                    "刷新频率",
+                    "仅影响本机系统监控；立即应用并在下次启动时恢复。",
+                    choices,
+                    cx.theme(),
+                )),
+            )
+            .child(self.monitor_preset_manager.clone())
             .into_any_element()
     }
 }

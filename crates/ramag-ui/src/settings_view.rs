@@ -1,6 +1,7 @@
 mod clipboard;
 mod database;
 mod monitor;
+mod monitor_presets;
 mod pages;
 mod ssh;
 mod system;
@@ -204,6 +205,7 @@ pub struct SettingsView {
     database_transferring: bool,
     pending_notification: Option<Notification>,
     plugin_diagnostics: Entity<PluginDiagnosticsView>,
+    monitor_preset_manager: Entity<monitor_presets::MonitorPresetManager>,
     _update_indicator_subscription: Subscription,
 }
 
@@ -220,6 +222,8 @@ impl SettingsView {
         let update_indicator_subscription =
             cx.observe_global::<crate::activity_bar::UpdateIndicatorGlobal>(|_, cx| cx.notify());
         let plugin_diagnostics = cx.new(|_| PluginDiagnosticsView::new(plugin_host));
+        let monitor_preset_manager =
+            cx.new(|cx| monitor_presets::MonitorPresetManager::new(window, cx));
         let (clipboard, loaded_revision) = clipboard_service
             .as_ref()
             .map(|service| service.settings_snapshot_with_revision())
@@ -378,6 +382,7 @@ impl SettingsView {
             database_transferring: false,
             pending_notification: None,
             plugin_diagnostics,
+            monitor_preset_manager,
             _update_indicator_subscription: update_indicator_subscription,
         }
     }

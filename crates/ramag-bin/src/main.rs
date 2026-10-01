@@ -260,6 +260,7 @@ fn main() -> ExitCode {
             SYSTEM_SETTINGS_PREF_KEY,
             ramag_ui::MONITOR_SETTINGS_PREF_KEY,
             ramag_ui::MONITOR_PRESENTATION_SETTINGS_PREF_KEY,
+            ramag_ui::MONITOR_PRESETS_PREF_KEY,
             ramag_ui::shortcuts_dialog::SHORTCUT_OVERRIDES_PREF_KEY,
             TOOL_ORDER_PREF_KEY,
         ],
@@ -280,6 +281,9 @@ fn main() -> ExitCode {
         .cloned();
     let initial_monitor_presentation_pref = startup_preferences
         .get(ramag_ui::MONITOR_PRESENTATION_SETTINGS_PREF_KEY)
+        .cloned();
+    let initial_monitor_presets_pref = startup_preferences
+        .get(ramag_ui::MONITOR_PRESETS_PREF_KEY)
         .cloned();
     let initial_shortcut_overrides = startup_preferences
         .get(ramag_ui::shortcuts_dialog::SHORTCUT_OVERRIDES_PREF_KEY)
@@ -369,6 +373,9 @@ fn main() -> ExitCode {
         }
         if let Err(error) = ramag_ui::init_monitor_presentation_settings(initial_monitor_presentation_pref.as_deref(), cx) {
             warn!(operation = "monitor_presentation_settings_load", error, "ignore invalid monitor presentation settings");
+        }
+        if let Err(error) = ramag_ui::init_monitor_preset_library(initial_monitor_presets_pref.as_deref(), cx) {
+            warn!(operation = "monitor_preset_library_load", error, "ignore invalid monitor preset library");
         }
         if let Err(error) =
             init_database_result_settings(initial_database_result_pref.as_deref(), cx)
