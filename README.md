@@ -415,6 +415,7 @@ Ramag 支持 Linux x86_64、macOS 12+（Apple Silicon / Intel）和 Windows 10/1
 - [性能报告：VCS、数据库与剪贴板](docs/performance.md)
 - [开发主线与设计文档](docs/README.md)
 - [执行计划](docs/01-development-plan.md)
+- [System Pulse 优点吸收与差距矩阵](docs/04-system-pulse-gap-matrix.md)
 - [插件开发指南](docs/05-plugin-development-guide.md)
 - [架构说明](docs/06-architecture.md)
 - [桌面端构建与发布](docs/desktop-release.md)

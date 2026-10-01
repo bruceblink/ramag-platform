@@ -121,7 +121,7 @@ pub(crate) fn apply_display_settings(cx: &mut App) {
     Theme::sync_base(cx);
 }
 
-/// 更新公共设置并异步保存最后一次选择；保存失败由偏好存储记录错误。
+/// 更新公共设置并异步保存最后一次选择；设置页显示保存结果并允许重试失败值。
 pub fn save_system_settings(settings: SystemSettings, cx: &mut App) {
     match settings.to_json() {
         Ok(json) => {

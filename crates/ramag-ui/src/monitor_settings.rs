@@ -169,7 +169,7 @@ pub fn init_monitor_settings(preference: Option<&str>, cx: &mut App) -> Result<(
     }
 }
 
-/// 保存最新选择并通知已打开的工具；写入失败由统一偏好存储记录。
+/// 保存最新选择并通知已打开的工具；设置页显示写入失败原因并允许重试。
 pub fn save_monitor_settings(settings: MonitorSettings, cx: &mut App) {
     match serde_json::to_string(&settings) {
         Ok(json) => {

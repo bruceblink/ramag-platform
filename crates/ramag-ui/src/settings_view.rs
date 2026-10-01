@@ -13,6 +13,8 @@ use gpui_kit::component::{
     h_flex,
     input::{InputEvent, InputState},
     notification::Notification,
+    scroll::ScrollableElement as _,
+    v_flex,
 };
 use gpui_kit::{
     AppContext as _, Context, Entity, InteractiveElement as _, IntoElement, ParentElement, Render,
@@ -429,6 +431,35 @@ impl Render for SettingsView {
         let compact = settings_is_compact(window);
         let navigation = self.render_navigation(window, cx).into_any_element();
         let content = self.render_selected_page(window, cx);
+        let keys: &[(&str, &str)] = match self.selected_page {
+            SettingsPage::System => &[
+                ("theme_mode", "主题"),
+                (crate::SYSTEM_SETTINGS_PREF_KEY, "系统设置"),
+            ],
+            SettingsPage::Monitor => &[(crate::MONITOR_SETTINGS_PREF_KEY, "刷新频率")],
+            _ => &[],
+        };
+        let content = v_flex()
+            .size_full()
+            .min_h_0()
+            .when_some(
+                crate::preferences::status::preference_status(keys, cx),
+                |content, status| {
+                    content.child(
+                        div()
+                            .debug_selector(|| "settings-save-area".into())
+                            .w_full()
+                            .h_auto()
+                            .flex_none()
+                            .px_3()
+                            .py_2()
+                            .max_h(gpui_kit::px(160.0))
+                            .overflow_y_scrollbar()
+                            .child(status),
+                    )
+                },
+            )
+            .child(div().flex_1().min_h_0().child(content));
         render_settings_layout(compact, navigation, content)
     }
 }

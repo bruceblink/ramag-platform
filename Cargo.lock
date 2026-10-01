@@ -9244,16 +9244,20 @@ dependencies = [
 name = "ramag-ui"
 version = "0.4.0"
 dependencies = [
+ "async-trait",
  "futures",
  "gpui-kit",
  "parking_lot",
  "ramag-app",
  "ramag-domain",
+ "ramag-infra-ssh",
+ "ramag-infra-storage",
  "rfd",
  "rust-embed",
  "schemars",
  "serde",
  "serde_json",
+ "smol",
  "tracing",
  "url",
 ]

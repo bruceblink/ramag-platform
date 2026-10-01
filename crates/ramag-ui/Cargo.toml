@@ -38,3 +38,8 @@ parking_lot = { workspace = true }
 [dev-dependencies]
 # 侧栏交互测试：验证外部链接交由 GPUI 测试平台打开。
 gpui-kit = { workspace = true, features = ["test-support"] }
+# Isolated settings acceptance uses the production store and an unconnected SSH driver.
+ramag-infra-storage.workspace = true
+ramag-infra-ssh.workspace = true
+async-trait.workspace = true
+smol.workspace = true
