@@ -120,7 +120,7 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
         ),
         (
             "system",
-            "settings-monitor-rate-2",
+            "settings-monitor-rate-3",
             crate::MONITOR_SETTINGS_PREF_KEY,
             "settings-save-status-monitor_settings",
             "settings-save-retry-monitor_settings",

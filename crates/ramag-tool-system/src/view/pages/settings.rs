@@ -20,6 +20,7 @@ impl SystemView {
         let theme = cx.theme();
         let mut rates = h_flex().w_full().flex_wrap().gap(px(7.0));
         for interval in [
+            RefreshInterval::HalfSecond,
             RefreshInterval::OneSecond,
             RefreshInterval::TwoSeconds,
             RefreshInterval::FiveSeconds,

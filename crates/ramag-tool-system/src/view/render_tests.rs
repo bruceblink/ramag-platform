@@ -336,6 +336,7 @@ fn device_selection_sensor_visibility_and_refresh_settings_apply_immediately(
     });
 
     for (selector, interval) in [
+        ("system-refresh-0.5s", crate::RefreshInterval::HalfSecond),
         ("system-refresh-1s", crate::RefreshInterval::OneSecond),
         ("system-refresh-2s", crate::RefreshInterval::TwoSeconds),
         ("system-refresh-5s", crate::RefreshInterval::FiveSeconds),
@@ -345,6 +346,22 @@ fn device_selection_sensor_visibility_and_refresh_settings_apply_immediately(
         visual.run_until_parked();
         visual.update(|_, app| assert_eq!(view.read(app).monitor.refresh_interval(), interval));
     }
+}
+
+#[gpui_kit::test]
+fn persisted_half_second_refresh_is_applied_when_monitor_starts(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    cx.update(|app| {
+        ramag_ui::set_monitor_settings(
+            ramag_ui::MonitorSettings {
+                refresh_rate: ramag_ui::MonitorRefreshRate::HalfSecond,
+            },
+            app,
+        );
+    });
+    let monitor = SystemMonitor::with_snapshot(MonitorSnapshot::default());
+    cx.update(|app| apply_monitor_preferences(&monitor, app));
+    assert_eq!(monitor.refresh_interval(), RefreshInterval::HalfSecond);
 }
 
 fn energy_snapshot() -> MonitorSnapshot {

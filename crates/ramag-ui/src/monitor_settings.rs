@@ -15,6 +15,7 @@ const MAX_PRESENTATION_ID_BYTES: usize = 256;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MonitorRefreshRate {
+    HalfSecond,
     #[default]
     OneSecond,
     TwoSeconds,
@@ -22,9 +23,15 @@ pub enum MonitorRefreshRate {
 }
 
 impl MonitorRefreshRate {
-    pub const ALL: [Self; 3] = [Self::OneSecond, Self::TwoSeconds, Self::FiveSeconds];
+    pub const ALL: [Self; 4] = [
+        Self::HalfSecond,
+        Self::OneSecond,
+        Self::TwoSeconds,
+        Self::FiveSeconds,
+    ];
     pub fn label(self) -> &'static str {
         match self {
+            Self::HalfSecond => "0.5 秒",
             Self::OneSecond => "1 秒",
             Self::TwoSeconds => "2 秒",
             Self::FiveSeconds => "5 秒",
@@ -207,6 +214,14 @@ mod tests {
         assert_eq!(
             serialized.ok().as_deref(),
             Some(r#"{"refresh_rate":"five_seconds"}"#)
+        );
+
+        let half_second = MonitorSettings {
+            refresh_rate: MonitorRefreshRate::HalfSecond,
+        };
+        assert_eq!(
+            serde_json::to_string(&half_second).ok().as_deref(),
+            Some(r#"{"refresh_rate":"half_second"}"#)
         );
     }
 

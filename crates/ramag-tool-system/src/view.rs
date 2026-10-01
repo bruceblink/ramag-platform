@@ -289,6 +289,7 @@ impl SystemView {
     ) {
         self.monitor.set_refresh_interval(interval);
         let rate = match interval {
+            RefreshInterval::HalfSecond => ramag_ui::MonitorRefreshRate::HalfSecond,
             RefreshInterval::OneSecond => ramag_ui::MonitorRefreshRate::OneSecond,
             RefreshInterval::TwoSeconds => ramag_ui::MonitorRefreshRate::TwoSeconds,
             RefreshInterval::FiveSeconds => ramag_ui::MonitorRefreshRate::FiveSeconds,
@@ -340,6 +341,7 @@ mod render;
 /// Converts the persisted refresh choice into the sampler's bounded interval.
 fn apply_monitor_preferences(monitor: &SystemMonitor, cx: &gpui_kit::App) {
     let rate = match ramag_ui::monitor_settings(cx).refresh_rate {
+        ramag_ui::MonitorRefreshRate::HalfSecond => RefreshInterval::HalfSecond,
         ramag_ui::MonitorRefreshRate::OneSecond => RefreshInterval::OneSecond,
         ramag_ui::MonitorRefreshRate::TwoSeconds => RefreshInterval::TwoSeconds,
         ramag_ui::MonitorRefreshRate::FiveSeconds => RefreshInterval::FiveSeconds,

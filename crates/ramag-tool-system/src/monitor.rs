@@ -78,6 +78,7 @@ pub enum ProcessSortDirection {
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum RefreshInterval {
+    HalfSecond,
     #[default]
     OneSecond,
     TwoSeconds,
@@ -86,14 +87,16 @@ pub enum RefreshInterval {
 
 impl RefreshInterval {
     pub fn duration(self) -> Duration {
-        Duration::from_secs(match self {
-            Self::OneSecond => 1,
-            Self::TwoSeconds => 2,
-            Self::FiveSeconds => 5,
-        })
+        match self {
+            Self::HalfSecond => Duration::from_millis(500),
+            Self::OneSecond => Duration::from_secs(1),
+            Self::TwoSeconds => Duration::from_secs(2),
+            Self::FiveSeconds => Duration::from_secs(5),
+        }
     }
     pub fn label(self) -> &'static str {
         match self {
+            Self::HalfSecond => "0.5s",
             Self::OneSecond => "1s",
             Self::TwoSeconds => "2s",
             Self::FiveSeconds => "5s",
@@ -536,3 +539,30 @@ mod tests;
 #[cfg(test)]
 #[path = "monitor/process_order_tests.rs"]
 mod process_order_tests;
+
+#[cfg(test)]
+mod refresh_interval_tests {
+    use super::RefreshInterval;
+    use std::time::Duration;
+
+    #[test]
+    fn sampling_intervals_match_reference_cadences() {
+        assert_eq!(
+            RefreshInterval::HalfSecond.duration(),
+            Duration::from_millis(500)
+        );
+        assert_eq!(
+            RefreshInterval::OneSecond.duration(),
+            Duration::from_secs(1)
+        );
+        assert_eq!(
+            RefreshInterval::TwoSeconds.duration(),
+            Duration::from_secs(2)
+        );
+        assert_eq!(
+            RefreshInterval::FiveSeconds.duration(),
+            Duration::from_secs(5)
+        );
+        assert_eq!(RefreshInterval::HalfSecond.label(), "0.5s");
+    }
+}
