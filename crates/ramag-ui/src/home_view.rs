@@ -31,7 +31,7 @@ pub enum HomeEvent {
 }
 
 const TOOL_CARD_WIDTH: f32 = 280.0;
-const TOOL_CARD_HEIGHT: f32 = 112.0;
+const TOOL_CARD_HEIGHT: f32 = 96.0;
 const TOOL_CARD_GAP: f32 = 16.0;
 const TOOL_GRID_WIDTH: f32 = TOOL_CARD_WIDTH * 3.0 + TOOL_CARD_GAP * 2.0;
 
@@ -85,9 +85,9 @@ impl Render for HomeView {
         let bg = theme.background;
         let border = theme.border;
         let fg = theme.foreground;
-        let card_bg = theme.secondary;
+        let card_bg = theme.background;
         let window_width = f32::from(window.bounds().size.width);
-        let compact = home_content_padding(window_width) < 32.0;
+        let compact = window_width < 640.0;
         let card_width = home_card_width(window_width);
 
         let mut accent_border = accent;
@@ -136,6 +136,8 @@ impl Render for HomeView {
             let id_for_click = id.clone();
             let name = tool.meta().name.clone();
             let description = tool.meta().description.clone();
+            let title_selector = format!("home-tool-title-{id}");
+            let description_selector = format!("home-tool-description-{id}");
             let tooltip = format!("{name} — {description}");
             let icon = ActivityBar::icon_for_meta(tool.meta());
             let preview_icon = icon.clone();
@@ -151,7 +153,7 @@ impl Render for HomeView {
             let card_border = if is_dragged {
                 accent.opacity(0.78)
             } else {
-                border
+                border.opacity(0.65)
             };
 
             let mut card = v_flex()
@@ -159,12 +161,12 @@ impl Render for HomeView {
                 .debug_selector(move || debug_card_id.to_string())
                 .w(px(card_width))
                 .h(px(TOOL_CARD_HEIGHT))
-                .p(px(16.0))
-                .gap(px(10.0))
+                .p(px(12.0))
+                .gap(px(8.0))
                 .bg(card_background)
                 .border_1()
                 .border_color(card_border)
-                .rounded(px(8.0))
+                .rounded(px(6.0))
                 .relative()
                 .cursor_pointer()
                 .tooltip(move |window, cx| {
@@ -198,17 +200,16 @@ impl Render for HomeView {
                         .gap(px(8.0))
                         .child(
                             h_flex()
-                                .size(px(28.0))
+                                .size(px(24.0))
                                 .flex_none()
                                 .items_center()
                                 .justify_center()
-                                .rounded(px(6.0))
-                                .bg(accent.opacity(0.10))
                                 .text_color(accent)
                                 .child(icon),
                         )
                         .child(
                             div()
+                                .debug_selector(move || title_selector.clone())
                                 .flex_1()
                                 .min_w_0()
                                 .overflow_hidden()
@@ -221,6 +222,7 @@ impl Render for HomeView {
                 )
                 .child(
                     div()
+                        .debug_selector(move || description_selector.clone())
                         .w_full()
                         .min_w_0()
                         .h(px(36.0))
@@ -357,10 +359,17 @@ impl Render for HomeView {
                     .w_full()
                     .max_w(px(960.0))
                     .p(px(home_content_padding(window_width)))
-                    .gap(px(if compact { 24.0 } else { 36.0 }))
+                    .gap(px(if compact { 16.0 } else { 24.0 }))
                     .items_center()
                     .child(render_home_header(item_count, cx))
-                    .child(tool_grid),
+                    .child(tool_grid)
+                    .when(!has_tools, |content| {
+                        content.child(crate::pulse_ui::pulse_status_notice(
+                            crate::pulse_ui::PulseStatus::Unavailable,
+                            "暂无可用工具",
+                            cx,
+                        ))
+                    }),
             )
     }
 }
@@ -380,7 +389,7 @@ fn home_content_width(window_width: f32) -> f32 {
 
 /// Use smaller edge padding on compact windows so one card still has usable width.
 fn home_content_padding(window_width: f32) -> f32 {
-    if window_width < 640.0 { 16.0 } else { 32.0 }
+    if window_width < 640.0 { 12.0 } else { 24.0 }
 }
 
 /// Shrink the single-column card only when the main pane cannot fit its desktop width.
@@ -428,41 +437,12 @@ fn reorder_animation_offset_for_width(
 
 /// 标题与工具网格共用宽度；文字层级在窄窗口和较大字号下仍可自然换行。
 fn render_home_header(tool_count: usize, cx: &gpui_kit::App) -> impl IntoElement {
-    v_flex()
+    crate::pulse_ui::pulse_page_title("工具", Some(format!("{tool_count} 个可用工具")), cx)
         .id("home-logo")
         .debug_selector(|| "home-logo".into())
         .w_full()
         .min_w_0()
         .max_w(px(TOOL_GRID_WIDTH))
-        .gap(px(8.0))
-        .child(
-            h_flex()
-                .w_full()
-                .justify_between()
-                .items_center()
-                .child(
-                    div()
-                        .text_2xl()
-                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                        .child("Ramag"),
-                )
-                .child(
-                    div()
-                        .px(px(8.0))
-                        .py(px(4.0))
-                        .rounded(px(6.0))
-                        .bg(cx.theme().secondary)
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
-                        .child(format!("{tool_count} 个工具")),
-                ),
-        )
-        .child(
-            div()
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child("选择工具开始工作，拖动卡片可调整顺序"),
-        )
 }
 
 #[cfg(test)]

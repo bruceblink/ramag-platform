@@ -1,7 +1,7 @@
 # Ramag Platform 执行计划与验收记录入口
 
 > 状态：现行执行规则
-> 更新日期：2026-09-30
+> 更新日期：2026-10-01
 > 主线：阶段 A 单机桌面收口与阶段 B 原生工作区迁移；阶段 C 继续后置
 > 路线图：[`02-development-roadmap.md`](02-development-roadmap.md)
 > 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
@@ -50,6 +50,10 @@
 - 未完成项、阻塞项和下一项依赖。
 
 ## 4. 当前主线与后续切片
+
+### A-PULSE-HOME-001：首页视觉推广（2026-10-01，代码与 UI 验收完成）
+
+首页复用 Pulse 公共页面标题，工具项采用 96px 固定高度、6px 圆角、轻量主题边界和紧凑图标/文字层级；保留点击、拖拽排序和侧栏同步。117 项 `ramag-ui` 测试通过，headless 覆盖明暗主题三个尺寸、空状态、长文字、滚动、点击和拖拽释放。Computer Use 本次恢复，完成真实窗口首页入口点击、返回和窄/宽窗口排序；历史失败记录保留，不扩大其他切片的原生验收结论。详见 [`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)。后续按独立切片继续设置与各工具视觉推广。
 
 ### A-QUALITY-UI-02：公共视觉规范与工具入口优化（2026-09-28，代码与 headless 验收完成）
 
