@@ -79,7 +79,7 @@ fn vcs_file_tab_sources_fit_supported_window_sizes(cx: &mut TestAppContext) {
 #[test]
 #[ignore = "需要 macOS 主线程 Metal 视觉测试运行器"]
 fn captures_vcs_file_tab_screenshot() {
-    use gpui_kit::{VisualTestAppContext, platform};
+    use gpui_kit::{AppContext as _, VisualTestAppContext, platform};
     use std::fs;
     use std::sync::Arc;
 
