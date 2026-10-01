@@ -17,6 +17,53 @@ fn checked<T, E: Debug>(result: Result<T, E>) -> TestResult<T> {
     result.map_err(|error| io::Error::other(format!("{error:?}")).into())
 }
 
+// Inspect native window styles and alpha so the test verifies actual transparency.
+fn window_state(pid: u32) -> TestResult<(usize, usize, usize)> {
+    struct Probe {
+        pid: u32,
+        windows: usize,
+        visible: usize,
+        transparent: usize,
+    }
+    unsafe extern "system" fn visit(window: HWND, context: LPARAM) -> BOOL {
+        // EnumWindows calls synchronously with this stack-owned probe.
+        let probe = unsafe { &mut *(context.0 as *mut Probe) };
+        let mut owner = 0;
+        unsafe { GetWindowThreadProcessId(window, Some(&mut owner)) };
+        if owner == probe.pid {
+            probe.windows += 1;
+            use ::windows::Win32::UI::WindowsAndMessaging::{
+                GWL_EXSTYLE, GetLayeredWindowAttributes, GetWindowLongPtrW, IsWindowVisible,
+                WS_EX_LAYERED,
+            };
+            let visible = unsafe { IsWindowVisible(window).as_bool() };
+            if visible {
+                probe.visible += 1;
+            }
+            let extended_style = unsafe { GetWindowLongPtrW(window, GWL_EXSTYLE) };
+            if visible && extended_style & WS_EX_LAYERED.0 as isize != 0 {
+                let mut alpha = u8::MAX;
+                if unsafe { GetLayeredWindowAttributes(window, None, Some(&mut alpha), None) }
+                    .is_ok()
+                    && alpha == 0
+                {
+                    probe.transparent += 1;
+                }
+            }
+        }
+        BOOL(1)
+    }
+
+    let mut probe = Probe {
+        pid,
+        windows: 0,
+        visible: 0,
+        transparent: 0,
+    };
+    checked(unsafe { EnumWindows(Some(visit), LPARAM((&mut probe as *mut Probe) as isize)) })?;
+    Ok((probe.windows, probe.visible, probe.transparent))
+}
+
 struct TempDirectory(PathBuf);
 impl Drop for TempDirectory {
     fn drop(&mut self) {
@@ -211,6 +258,10 @@ fn native_graceful_close_honors_refusal_and_never_messages_an_unrelated_process(
     };
     {
         let (mut control, _, control_log) = start("cooperative", "control")?;
+        let (control_windows, control_visible, control_transparent) = window_state(control.0.id())?;
+        assert!(control_windows > 0);
+        assert!(control_visible > 0);
+        assert_eq!(control_transparent, control_visible);
         for (mode, expected) in [
             ("cooperative", Ok(ProcessActionOutcome::ExitObserved)),
             ("refusing", Err(Failure::CloseRefused)),
@@ -226,12 +277,42 @@ fn native_graceful_close_honors_refusal_and_never_messages_an_unrelated_process(
                 Err(Failure::IdentityChanged)
             );
             assert!(target.0.try_wait()?.is_none());
-            assert_eq!(std::fs::read_to_string(&log)?, "ready\n");
+            let (windows, visible, transparent) = window_state(target.0.id())?;
+            if mode == "windowless" {
+                assert_eq!(windows, 0);
+            } else {
+                assert!(windows > 0, "GUI fixture must own a top-level window");
+                assert!(visible > 0, "GUI fixture must retain window visibility");
+                assert_eq!(
+                    transparent, visible,
+                    "every shown window must have zero alpha"
+                );
+            }
+            assert_eq!(
+                std::fs::read_to_string(&log)?,
+                if mode == "windowless" {
+                    "ready\n"
+                } else {
+                    "ready:transparent\n"
+                }
+            );
             assert_eq!(send(&identity, None, ProcessSignal::Terminate), expected);
             assert!(control.0.try_wait()?.is_none());
-            assert_eq!(std::fs::read_to_string(&control_log)?, "ready\n");
+            assert_eq!(
+                std::fs::read_to_string(&control_log)?,
+                "ready:transparent\n"
+            );
             if mode != "cooperative" {
                 assert!(target.0.try_wait()?.is_none());
+            }
+            if mode == "refusing" {
+                let (windows, visible, transparent) = window_state(target.0.id())?;
+                assert!(windows > 0, "refusing fixture must keep its window");
+                assert!(visible > 0, "refusal must preserve native window behavior");
+                assert_eq!(
+                    transparent, visible,
+                    "refusal must not expose the fixture window"
+                );
             }
         }
     }

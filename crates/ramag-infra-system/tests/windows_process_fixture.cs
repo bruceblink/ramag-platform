@@ -16,7 +16,8 @@ class SystemPulseProcessFixture : Form
         Text = "System Pulse owned process fixture: " + mode;
         Width = 440;
         Height = 110;
-        Shown += delegate { File.AppendAllText(log, "ready\n"); };
+        Opacity = 0.0;
+        Shown += delegate { File.AppendAllText(log, "ready:transparent\n"); };
         // A killed or disconnected harness cannot leave its GUI targets behind.
         var expiry = new System.Windows.Forms.Timer();
         expiry.Interval = 300000;
@@ -24,6 +25,9 @@ class SystemPulseProcessFixture : Form
         FormClosed += delegate { expiry.Dispose(); };
         expiry.Start();
     }
+
+    // Restart Manager requires a shown GUI window, but the test must never take desktop focus.
+    protected override bool ShowWithoutActivation { get { return true; } }
 
     protected override void WndProc(ref Message message)
     {
@@ -67,7 +71,12 @@ class SystemPulseProcessFixture : Form
                 File.AppendAllText(args[1], "tick\n");
             }
         }
-        else Application.Run(new SystemPulseProcessFixture(args[0], args[1]));
+        else
+        {
+            // Zero alpha preserves Restart Manager's main-window classification without a popup.
+            using (var fixture = new SystemPulseProcessFixture(args[0], args[1]))
+                Application.Run(fixture);
+        }
         return 0;
     }
 }
