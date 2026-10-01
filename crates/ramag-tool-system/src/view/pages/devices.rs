@@ -141,11 +141,10 @@ impl SystemView {
         snapshot: &MonitorSnapshot,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let kind = if section == SystemSection::Energy {
-            SensorKind::Power
-        } else {
-            SensorKind::Temperature
-        };
+        if section == SystemSection::Energy {
+            return self.render_energy_page(snapshot, cx);
+        }
+        let kind = SensorKind::Temperature;
         let readings = snapshot
             .host
             .sensors
@@ -154,11 +153,7 @@ impl SystemView {
             .filter(|sensor| !self.presentation.hidden_sensors.contains(&sensor.id))
             .collect::<Vec<_>>();
         let content = if readings.is_empty() {
-            let message = if section == SystemSection::Thermals {
-                "当前平台没有可用温度传感器，或温度采集尚未启用。"
-            } else {
-                "当前平台没有可用功率传感器。"
-            };
+            let message = "当前平台没有可用温度传感器，或温度采集尚未启用。";
             ramag_ui::pulse_ui::pulse_status_notice(
                 ramag_ui::pulse_ui::PulseStatus::Unavailable,
                 message,
@@ -166,11 +161,7 @@ impl SystemView {
             )
             .into_any_element()
         } else {
-            let line = if section == SystemSection::Energy {
-                cx.theme().warning
-            } else {
-                cx.theme().danger
-            };
+            let line = cx.theme().danger;
             sensor_grid(
                 readings,
                 snapshot,
@@ -188,6 +179,108 @@ impl SystemView {
             .child(helpers::page_title(section, page_description(section), cx))
             .child(content)
             .into_any_element()
+    }
+
+    /// Renders the selected power channel and the complete measured-channel list.
+    fn render_energy_page(&self, snapshot: &MonitorSnapshot, cx: &mut Context<Self>) -> AnyElement {
+        let readings = snapshot
+            .host
+            .sensors
+            .iter()
+            .filter(|sensor| sensor.kind == SensorKind::Power)
+            .filter(|sensor| !self.presentation.hidden_sensors.contains(&sensor.id))
+            .collect::<Vec<_>>();
+        let saved_id = self
+            .presentation
+            .selected_sensors
+            .get("energy")
+            .map(String::as_str);
+        let selected = selected_power_sensor(&readings, saved_id);
+        let selector = super::energy::energy_sensor_selector(
+            &readings,
+            saved_id,
+            selected.map(|sensor| sensor.id.as_str()),
+            cx.entity().clone(),
+        );
+        let maximum_gap = self.monitor.refresh_interval().duration().as_secs_f64() * 3.0;
+        let primary = selected
+            .map(|sensor| super::energy::energy_primary(sensor, snapshot, maximum_gap, cx))
+            .unwrap_or_else(|| {
+                let message = saved_id.map_or(
+                    "当前平台没有可用功率传感器。",
+                    |_| "已保存的功率传感器当前不可用；请选择其他传感器。",
+                );
+                ramag_ui::pulse_ui::pulse_status_notice(
+                    ramag_ui::pulse_ui::PulseStatus::Unavailable,
+                    message,
+                    cx,
+                )
+                .into_any_element()
+            });
+        let channels = if readings.is_empty() {
+            div()
+                .debug_selector(|| "system-energy-measured-channels".into())
+                .into_any_element()
+        } else {
+            v_flex()
+                .debug_selector(|| "system-energy-measured-channels".into())
+                .w_full()
+                .min_w_0()
+                .gap(px(8.0))
+                .child(
+                    div()
+                        .text_lg()
+                        .font_weight(gpui_kit::FontWeight::MEDIUM)
+                        .child("Measured power channels"),
+                )
+                .child(sensor_grid(
+                    readings,
+                    snapshot,
+                    maximum_gap,
+                    cx.theme().warning,
+                    cx,
+                ))
+                .into_any_element()
+        };
+        v_flex()
+            .debug_selector(|| "system-page-energy".into())
+            .w_full()
+            .min_w_0()
+            .gap(px(14.0))
+            .p(px(20.0))
+            .child(
+                h_flex()
+                    .w_full()
+                    .min_w_0()
+                    .flex_wrap()
+                    .items_center()
+                    .justify_between()
+                    .gap(px(10.0))
+                    .child(helpers::page_title(
+                        SystemSection::Energy,
+                        page_description(SystemSection::Energy),
+                        cx,
+                    ))
+                    .child(selector),
+            )
+            .child(primary)
+            .child(channels)
+            .into_any_element()
+    }
+}
+
+/// Resolves a saved power sensor without silently replacing a missing identity.
+pub(crate) fn selected_power_sensor<'a>(
+    readings: &[&'a SensorDescriptor],
+    saved_id: Option<&str>,
+) -> Option<&'a SensorDescriptor> {
+    match saved_id {
+        Some(id) => readings.iter().find(|sensor| sensor.id == id).copied(),
+        None => readings
+            .iter()
+            .find(|sensor| sensor.title.eq_ignore_ascii_case("CPU package power"))
+            .copied()
+            .or_else(|| readings.first().copied()),
     }
 }
 
@@ -239,11 +332,7 @@ fn sensor_card(
     line: gpui_kit::Hsla,
     cx: &Context<SystemView>,
 ) -> AnyElement {
-    let current = sample.and_then(SensorSample::chart_value);
-    let mut status = sample.map_or(crate::ReadingStatus::Unavailable, |sample| sample.status);
-    if status == crate::ReadingStatus::Current && current.is_none() {
-        status = crate::ReadingStatus::Failed;
-    }
+    let (status, current) = super::energy::displayed_sensor_state(snapshot, sample);
     let message = current.map_or_else(
         || status.label().to_owned(),
         |value| helpers::format_value(value, &descriptor.unit),
@@ -323,7 +412,7 @@ fn selector_id(id: &str) -> String {
         .collect()
 }
 
-fn chart_max(descriptor: &SensorDescriptor, snapshot: &MonitorSnapshot) -> f64 {
+pub(super) fn chart_max(descriptor: &SensorDescriptor, snapshot: &MonitorSnapshot) -> f64 {
     if let Some(scale) = descriptor
         .scale
         .filter(|value| value.is_finite() && *value > 0.0)

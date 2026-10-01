@@ -36,7 +36,7 @@
 | Summary 信息组合 | 当前 CPU/内存读数和趋势、Top 进程已接入；GPU/磁盘/网络主要为设备数量入口，Summary 缺少 Energy/Thermals 入口及这些子系统趋势，也缺少上游 CPU 频率/温度、逐逻辑处理器趋势和内存可用/缓存/swap 数值组合 | P1；逐子系统补所选来源的 GPU/磁盘读写/网络 RX/TX/能耗/温度趋势和读数。1440x900 与 1024x768 首屏组合及 360x640 滚动验证，图表保留缺口和时间；Energy 使用命名传感器，不能加总包/组件功率 |
 | 物理单位与曲线量程 | 已有物理单位、时间图表和缺口处理；缺少上游组合量表、悬停传感器/量程说明及图例的逐页核对 | P1 图例/单位/量程先核对，量表表现后续深化；CPU 进程可超过单核 100%，能耗不能推算系统总功率 |
 | 网络默认接口选择 | Linux 快照及 UI 已使用 main-table 默认路由选择，手动选择优先；连接归属字段表达接口地址/TCP 表关联，不代表跨平台默认路由。Windows/macOS 自动选择待核对 | P1 核验；Linux IPv4/IPv6 路由、无默认路由、手动优先、设备移除/恢复均有断言；其他平台独立记录，不静默替换已保存设备 |
-| Energy 单传感器选择 | 独立 Energy 页已显示通用传感器网格，尚无单个能耗传感器选择与选中历史；隐藏偏好不能替代选择 | P1；稳定 ID 选择与恢复，明确包/组件/电池等作用范围、W/J 单位；缺失/失败/过期保留原因，禁止推算系统总功率 |
+| Energy 单传感器选择 | Energy 页按稳定传感器 ID 选择一个主功率来源，显示选中读数、量表、历史图、来源/范围/单位，并保留全部 measured channels；已保存 ID 缺失时显示不可用原因，不静默切换，也不把包/组件功率相加 | `A-PULSE-GAP-06-Energy` 已完成；Thermals 的最热传感器和平台授权另行验收 |
 | 温度重点信息 | 当前通用传感器网格与 Windows 温度授权入口已接入；缺少单传感器选择及最热当前传感器的突出呈现 | P1；选择与恢复独立验证，另一个传感器被选择或不可用时仍显示最热当前读数；预热/失败/过期不得参与最热值计算 |
 | 设备和传感器偏好 | 已持久化设备选择与隐藏传感器；上游不可用传感器自动隐藏，Ramag 原计划保留原因 | 保留 Ramag 的明确不可用原因；可增加“隐藏不可用”偏好，默认不能造成导航跳动；失败/过期仍可辨识 |
 | 键盘与屏幕恢复 | 设备偏好已保存，固定页签可点击；尚未证明方向键/Home/End、Ctrl+Tab 循环及监控上次页面恢复 | P1；真实键盘和 headless 命中测试，焦点可见且不困在表格，恢复不改变业务选择 |
@@ -172,9 +172,19 @@ Ramag 隔离预览使用 `cargo build --locked -p ramag-bin --example ui-preview
 | GPU | 选定 NVIDIA GeForce RTX 3060，使用历史图、VRAM 量表、共享内存、温度、功率、时钟和风扇字段 | 同一 GPU 的 usage、VRAM、共享内存、温度、功率、时钟和风扇卡片 | 传感器功能通过；选中标题、量表与卡片布局仍需统一 |
 | Disks | 文件系统下拉选择器、Filesystem used 量表、读写合并趋势和容量说明；Computer Use 已验证 `C:\` 切换 `F:\` 后保持 | 磁盘页签选择器、Filesystem used/read/write/IOPS/latency 卡片；Summary 保持所选磁盘 | 选择、容量和读写来源通过；下拉选择器与合并趋势布局待对齐 |
 | Network | 接口下拉选择器、RX/TX 合并趋势、累计 RX/TX | 接口页签、RX/RX total/TX/TX total/TCP 卡片；Summary 保持所选接口 | 接口和双向数据通过；选择器、趋势和累计值位置待对齐 |
-| Energy | 选定 CPU package power 的量表和历史图，下面列出 CPU package 与 NVIDIA GPU measured power channels | GPU power 与 CPU package power 两张实时历史卡 | 真实功率来源已覆盖；缺少选中主传感器、量表、来源说明和 measured channels 组合 |
+| Energy | 通过右上设备选择器切换到 `CPU · CPU package power`；主读数、量表和历史图使用该传感器，下面保留 CPU package 与 NVIDIA GPU measured power channels | 通过 Energy 页下拉菜单在 GPU power 与 CPU package power 间切换；主读数、量表、历史图、来源/范围/单位和 measured channels 均随稳定 ID 更新 | `A-PULSE-GAP-06-Energy` 真实窗口功能通过；Ramag 保留工作台壳层和紧凑标题，精确字体/卡片排布留在视觉细节切片 |
 | Thermals | 选定 GPU temperature，突出最热当前传感器、温度量表、历史图和传感器卡；提供 CPU temperature 授权按钮 | CPU temperature、GPU temperature、CPU package temperature 三张卡；不可用字段显示原因 | 当前温度和不可用状态通过；缺少参考的选中/最热信息组合和授权入口 |
 | Processes | 搜索框、End task/Force quit、PID/Name/CPU(one core)/Memory/Read I/O/Write I/O/User 列；搜索 `system-pulse` 后保留两个进程 | 搜索框、按 CPU 排序选择器、PID/Name/User/CPU/Memory/Read/Write/操作列；相同搜索后保留两个进程 | 搜索和字段功能通过；操作列更丰富，排序和列顺序仍有视觉/交互差异；键盘行导航按要求后置 |
 | Settings | Appearance（主题、界面字体、数字字体）、Sampling（0.5/1/2/5s）和 Presets（内置预设、命名输入、保存） | 采样频率（1/2/5s）、CPU 温度采集开关和 Collector status 诊断列表 | 采样和诊断能力覆盖；主题/字体/预设与参考职责未对齐，列为下一独立切片 |
 
-本轮十页验收的结果是：`03A/03B` 的 Summary 交付范围已通过真实窗口对照，CPU、Memory、GPU、Disks、Network、Processes、Thermals 的主要数据来源和状态可见；Energy 以及 Settings 的组合差异、各详细页的参考布局差异仍保持为未完成项。后续每个切片继续执行“参考窗口操作 -> Ramag 同流程 -> 记录结果”的顺序，不能以静态截图、旧测试或单纯编译成功替代该证据。
+本轮十页验收的结果是：`03A/03B` 的 Summary 交付范围和 `06-Energy` 的主传感器选择已通过真实窗口对照，CPU、Memory、GPU、Disks、Network、Processes、Thermals 的主要数据来源和状态可见；Settings 的主题/字体/预设职责、Thermals 的最热传感器组合以及各详细页的精确布局仍保持为未完成项。后续每个切片继续执行“参考窗口操作 -> Ramag 同流程 -> 记录结果”的顺序，不能以静态截图、旧测试或单纯编译成功替代该证据。
+
+### 2026-10-02 `A-PULSE-GAP-06-Energy` 单传感器选择验收
+
+本切片先在本机 `F:/project/system-pulse` 的真实窗口打开 Energy 页，使用 Computer Use 打开右上设备选择器，选择 `CPU · CPU package power`；参考窗口回读主读数 `29.3 W`、主图量程 `0.0–42.1 W`，对应 CPU package measured channel 同步显示 `29.3 W`，GPU channel 保留独立的 `14.6 W`。采样值随时间变化，数值相等只作为同一帧的内部一致性检查，不作为两个进程跨时刻的硬件精度比较。
+
+Ramag 使用刚构建的 `cargo build --locked -p ramag-bin --example ui-preview` 隔离窗口，在同一 Energy 页通过 Computer Use 依次选择 GPU power、再选择 CPU package power；窗口回读选中名称、来源/范围/单位、黄色量表、历史图和 measured channels，选择按钮在两次操作后恢复为 `CPU package power`。Ramag 的工作台壳层和紧凑标题保持不变，主内容组合与参考程序对应；实测值因两个窗口的采样时间不同而变化。
+
+实现以稳定传感器 ID 保存 `energy` 选择，CPU package power 是无偏好时的默认来源；保存 ID 消失时保留不可用原因，不自动改选其他传感器。采集快照过期时主值和量表停止显示为实时数据，历史曲线继续保留上下文；零值仍按有效 `0 W` 显示。
+
+验证命令：`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1`（45 项通过）、`cargo build --locked -p ramag-bin --example ui-preview`（通过）、`cargo fmt --all -- --check`、workspace Clippy、源码尺寸、`git diff --check` 和修改文本 LF 检查。纯本地监控/UI 切片不使用 Docker；没有宣称 GPU/温度/跨平台硬件精度完成。下一项继续按差距矩阵处理 Settings 主题/字体/预设职责，Thermals 单传感器另行提交。

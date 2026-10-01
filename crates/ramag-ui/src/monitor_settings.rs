@@ -44,6 +44,10 @@ pub struct MonitorSettings {
 pub struct MonitorPresentationSettings {
     #[serde(default)]
     pub selected_devices: BTreeMap<String, String>,
+    /// Maps a page kind to one stable sensor identity; values are bounded and
+    /// contain display preference only, never samples or sensitive readings.
+    #[serde(default)]
+    pub selected_sensors: BTreeMap<String, String>,
     #[serde(default)]
     pub hidden_sensors: BTreeSet<String>,
 }
@@ -54,11 +58,18 @@ impl MonitorPresentationSettings {
         self.selected_devices.retain(|sensor, device| {
             valid_presentation_id(sensor) && valid_presentation_id(device)
         });
+        self.selected_sensors
+            .retain(|kind, sensor| valid_presentation_id(kind) && valid_presentation_id(sensor));
         self.hidden_sensors
             .retain(|sensor| valid_presentation_id(sensor));
         while self.selected_devices.len() > MAX_PRESENTATION_ENTRIES {
             if let Some(key) = self.selected_devices.keys().next_back().cloned() {
                 self.selected_devices.remove(&key);
+            }
+        }
+        while self.selected_sensors.len() > MAX_PRESENTATION_ENTRIES {
+            if let Some(key) = self.selected_sensors.keys().next_back().cloned() {
+                self.selected_sensors.remove(&key);
             }
         }
         while self.hidden_sensors.len() > MAX_PRESENTATION_ENTRIES {
@@ -209,10 +220,15 @@ mod tests {
                     "host-1".to_owned(),
                 ),
             ]),
+            selected_sensors: BTreeMap::from([("energy".to_owned(), "cpu.power".to_owned())]),
             hidden_sensors: BTreeSet::from(["gpu.temp".to_owned(), String::new()]),
         }
         .bounded();
         assert_eq!(settings.selected_devices.len(), 1);
+        assert_eq!(
+            settings.selected_sensors.get("energy").map(String::as_str),
+            Some("cpu.power")
+        );
         assert!(settings.hidden_sensors.contains("gpu.temp"));
         assert_eq!(settings.hidden_sensors.len(), 1);
     }

@@ -7,6 +7,7 @@ use ramag_infra_system::{
     SensorDescriptor, SensorKind, Unit,
 };
 use std::cell::RefCell;
+use std::collections::{BTreeMap, VecDeque};
 use std::rc::Rc;
 
 macro_rules! required {
@@ -343,6 +344,175 @@ fn device_selection_sensor_visibility_and_refresh_settings_apply_immediately(
         visual.simulate_click(bounds.center(), gpui_kit::Modifiers::default());
         visual.run_until_parked();
         visual.update(|_, app| assert_eq!(view.read(app).monitor.refresh_interval(), interval));
+    }
+}
+
+fn energy_snapshot() -> MonitorSnapshot {
+    let sensor = |id: &str, title: &str, source: &str, scope: &str| SensorDescriptor {
+        id: id.into(),
+        monitor_id: "power".into(),
+        title: title.into(),
+        kind: SensorKind::Power,
+        unit: Unit::Watts,
+        source: source.into(),
+        scope: scope.into(),
+        scale: None,
+    };
+    let sample = |value: f64| SensorSample {
+        at_seconds: 1.0,
+        value: Some(value),
+        total: None,
+        status: ReadingStatus::Current,
+        reason: None,
+    };
+    let sensors = vec![
+        sensor(
+            "cpu:host/power",
+            "CPU package power",
+            "windows-energy",
+            "CPU package",
+        ),
+        sensor(
+            "gpu:0/power",
+            "NVIDIA GPU power",
+            "windows-gpu",
+            "GPU board",
+        ),
+    ];
+    MonitorSnapshot {
+        host: ramag_infra_system::Snapshot {
+            sensors,
+            ..Default::default()
+        },
+        histories: BTreeMap::from([
+            ("cpu:host/power".into(), VecDeque::from([sample(65.0)])),
+            ("gpu:0/power".into(), VecDeque::from([sample(14.0)])),
+        ]),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn energy_selection_preserves_stable_ids_and_missing_saved_sensor() {
+    let snapshot = energy_snapshot();
+    let readings = snapshot.host.sensors.iter().collect::<Vec<_>>();
+    assert_eq!(
+        crate::view::pages::selected_power_sensor(&readings, None).map(|sensor| sensor.id.as_str()),
+        Some("cpu:host/power")
+    );
+    assert_eq!(
+        crate::view::pages::selected_power_sensor(&readings, Some("gpu:0/power"))
+            .map(|sensor| sensor.id.as_str()),
+        Some("gpu:0/power")
+    );
+    assert!(
+        crate::view::pages::selected_power_sensor(&readings, Some("power:removed")).is_none(),
+        "a missing saved sensor must not silently select another channel"
+    );
+    let reversed = readings.iter().copied().rev().collect::<Vec<_>>();
+    assert_eq!(
+        crate::view::pages::selected_power_sensor(&reversed, None).map(|sensor| sensor.id.as_str()),
+        Some("cpu:host/power"),
+        "CPU package power is the stable default when no preference exists"
+    );
+    let mut stale = snapshot.clone();
+    stale.collection_stale = true;
+    assert_eq!(
+        crate::view::pages::displayed_sensor_state(&stale, stale.latest("cpu:host/power")),
+        (ReadingStatus::Stale, None),
+        "a stalled collection must not expose an old sample as live power"
+    );
+}
+
+#[gpui_kit::test]
+fn energy_page_renders_selected_primary_and_measured_channels(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let entity = Rc::new(RefCell::new(None));
+    let entity_for_view = entity.clone();
+    let (_, visual) = cx.add_window_view(move |window, cx| {
+        let view = cx.new(|view_cx| {
+            let mut view = test_view(window, view_cx, energy_snapshot());
+            view.section = SystemSection::Energy;
+            view
+        });
+        *entity_for_view.borrow_mut() = Some(view.clone());
+        Root::new(view, window, cx)
+    });
+    visual.simulate_resize(size(px(1024.0), px(768.0)));
+    visual.run_until_parked();
+    for selector in [
+        "system-page-energy",
+        "system-energy-sensor-selector",
+        "system-energy-primary-meter",
+        "system-energy-primary-value",
+        "system-energy-primary-chart",
+        "system-energy-domain",
+        "system-energy-measured-channels",
+        "system-sensor-cpu-host-power",
+        "system-sensor-gpu-0-power",
+    ] {
+        assert!(
+            visual.debug_bounds(selector).is_some(),
+            "missing {selector}"
+        );
+    }
+    let selector = required!(
+        visual.debug_bounds("system-energy-sensor-selector"),
+        "energy sensor selector"
+    );
+    visual.simulate_click(selector.center(), gpui_kit::Modifiers::default());
+    visual.run_until_parked();
+    let option = required!(
+        visual.debug_bounds("system-energy-sensor-option-gpu-0-power"),
+        "GPU power option"
+    );
+    visual.simulate_click(option.center(), gpui_kit::Modifiers::default());
+    visual.run_until_parked();
+    let view = required!(entity.borrow().clone(), "system view missing");
+    visual.update(|_, app| {
+        assert_eq!(
+            view.read(app)
+                .presentation
+                .selected_sensors
+                .get("energy")
+                .map(String::as_str),
+            Some("gpu:0/power")
+        );
+        assert_eq!(
+            ramag_ui::monitor_presentation_settings(app)
+                .selected_sensors
+                .get("energy")
+                .map(String::as_str),
+            Some("gpu:0/power")
+        );
+    });
+    for width in [360.0, 1024.0, 1440.0] {
+        visual.simulate_resize(size(px(width), px(768.0)));
+        visual.run_until_parked();
+        let page = required!(visual.debug_bounds("system-page-energy"), "energy page");
+        let primary = required!(
+            visual.debug_bounds("system-energy-primary-meter"),
+            "energy primary meter"
+        );
+        let channels = required!(
+            visual.debug_bounds("system-energy-measured-channels"),
+            "energy measured channels"
+        );
+        assert!(
+            primary.left() >= page.left() && primary.right() <= page.right(),
+            "primary meter overflows {width}px Energy page"
+        );
+        assert!(
+            channels.left() >= page.left() && channels.right() <= page.right(),
+            "measured channels overflow {width}px Energy page"
+        );
+        for selector in ["system-sensor-cpu-host-power", "system-sensor-gpu-0-power"] {
+            let card = required!(visual.debug_bounds(selector), "energy sensor card");
+            assert!(
+                card.left() >= channels.left() && card.right() <= channels.right(),
+                "{selector} overflows {width}px measured channels"
+            );
+        }
     }
 }
 

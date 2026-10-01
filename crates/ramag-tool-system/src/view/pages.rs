@@ -1,11 +1,17 @@
 //! Focused page renderers keep the monitor UI readable and below source limits.
 
 mod devices;
+mod energy;
 mod processes;
 mod settings;
 mod summary;
 mod summary_activity;
 mod summary_metrics;
+
+#[cfg(test)]
+pub(crate) use devices::selected_power_sensor;
+#[cfg(test)]
+pub(crate) use energy::displayed_sensor_state;
 
 use gpui_kit::AnyElement;
 use gpui_kit::{Context, Window};
