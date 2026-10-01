@@ -9,6 +9,7 @@
 | 03 | [数据库工作区路线图](03-database-client-datagrip-roadmap.md) | 数据库工作区功能、驱动差异和 DataGrip 风格验收 |
 | 03 | [System Pulse 采集与 UI 吸收](03-system-pulse-adoption-plan.md) | 本机监控源码迁移、公共视觉基础和后续工具推广 |
 | 04 | [插件平台路线图](04-plugin-platform-roadmap.md) | 插件 API、权限、生命周期、目录和协作边界 |
+| 04 | [System Pulse 差距矩阵](04-system-pulse-gap-matrix.md) | 固定来源对照、剩余优点、独立切片顺序和本机验收入口 |
 | 05 | [插件开发指南](05-plugin-development-guide.md) | 内置插件的实现、测试、注册和安全边界 |
 | 06 | [架构说明](06-architecture.md) | 已实现分层、依赖方向和技术决策 |
 | 07 | [UI 验收标准](07-ui-acceptance-standard.md) | GPUI 布局、交互、证据和真实窗口边界 |

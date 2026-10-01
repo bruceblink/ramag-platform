@@ -5,6 +5,7 @@
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
+> System Pulse 差距与执行顺序：[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)
 > 历史设计、待办与完成记录：[`archive/2026-09-25-pre-datagrip-rebaseline/`](archive/2026-09-25-pre-datagrip-rebaseline/)
 
 ## 术语表与命名约定
@@ -56,7 +57,7 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和插件秘密上下文的真实环境验收；Linux Secret Service、macOS Keychain 和发布环境仍待分别验收，验证失败时保留安全拒绝状态。
 5. `A-PLAT-005`：JSON Path 真实静态入口已完成 headless 运行指标、任务回收、WSL 当前进程内存多场景回放和 Windows 系统 UI Automation/截图替代验收；Linux/macOS、发布构建和 Computer Use 真实窗口证据仍待补。
 6. `A-QUALITY`：`A-QUALITY-VCS-001` 历史提交 ID 索引复用、`A-QUALITY-DBCLIENT-001` 恢复连接标签首帧延迟物化、`A-QUALITY-DBCLIENT-002` 宽结果列索引按可见范围保留、`A-QUALITY-TREE-001` 最近访问筛选的对象树缓存刷新、`A-QUALITY-THEME-001` 至 `A-QUALITY-THEME-014` 主题语义色收口、`A-QUALITY-UI-03` 数据库客户端 Windows 截图与列筛选替代验收、`A-QUALITY-UI-04` 数据库会话标签长名称 headless 布局验收、`A-QUALITY-DBCLIENT-003` 会话标签稳定连接标识验收和 `A-QUALITY-UI-05` 结果工具栏动作组 headless/Computer Use 窗口验收已完成；阶段 A 质量记录继续补齐对象树、主题一致性和可执行截图测试；阶段 B 的 `B-GIT-001-Z`、`B-GIT-001-AA`、`B-GIT-001-AB`、`B-GIT-001-AC` 文件标签和提交信息异步边界已完成，继续按 Git 工作区边界推进；`v0.4.0` 已由 GitHub Release 发布，日常开发不重复构建安装包，正式版本发布时按标签使用既有 GitHub Actions 流程。
-7. `A-SYSTEM-PULSE-001`/`A-SYSTEM-PULSE-UI-001` 在 `e38f2fd8` 完成原采集替换与十页接入范围，公共组件在 `d2710bf6` 建立；采集器内部保留固定 sysinfo 后端依赖，业务层只调用本地系统采集器。`A-PULSE-SHELL-001` 在 `165b8e9c` 完成紧凑页头，`A-PULSE-HOME-001` 在 `7bb599c2` 完成首页和原导航/排序验收。整体视觉与流畅性按 [`01-development-plan.md`](01-development-plan.md) 的 `2.2` 至 `2.5` 重新验收。系统减少动画同步 `A-PULSE-MOTION-001` 是设置页过渡验收的前置项，性能采样工具 `A-PULSE-PROFILING-001` 是发布性能验收的前置工具；布局、导航和保存可先验证，全部适用条件通过后才完成设置切片。之后继续监控视觉深化、Shell/首页复核及数据库、SSH、VCS、容器、对象存储和其他注册工具。当前三个切片均有未提交实现，最终验证仍待完成；历史通过不等于整体完成。来源、设计和记录见 [`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)。
+7. `A-SYSTEM-PULSE-001`/`A-SYSTEM-PULSE-UI-001` 在 `e38f2fd8` 完成原采集替换与十页接入范围，公共组件在 `d2710bf6` 建立；采集器内部保留固定 sysinfo 后端依赖，业务层只调用本地系统采集器。`A-PULSE-SHELL-001` 在 `165b8e9c` 完成紧凑页头，`A-PULSE-HOME-001` 在 `7bb599c2` 完成首页和原导航/排序验收。剩余功能和 UI 差距按 [`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md) 逐项实施；设置保存修复先验收，系统减少动画同步和发布性能采样后置，不作为功能修复的前置条件。整体视觉与流畅性仍按 [`01-development-plan.md`](01-development-plan.md) 的矩阵分别记录，历史通过不等于整体完成。来源、设计和记录见 [`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)。
 
 阶段 A 的每个子项独立设计、验证、提交和推送；同一时间只有一个子项处于开发中。
 
@@ -80,10 +81,14 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 
 ## 4. 当前交付队列
 
+2026-10-01 用户调整优先级：先完善功能、修复已知 UI/功能 bug 和完成本机编译测试；加载反馈、等待期间的可操作性及错误恢复属于基本功能。System Pulse 吸收按差距矩阵逐项推进；过渡动画、特效、系统动画偏好同步和发布性能追踪后置。本轮不检查 GitHub CI，跨平台和实际硬件结论保留原证据范围。
+
 同一时间只允许一个切片处于“开发中”。状态以代码、测试和证据为准，不以计划文字推断完成。
 
 | ID | 内容 | 状态 | 依赖 | 必要证据 |
 |---|---|---|---|---|
+| `A-QUALITY-SETTINGS-SAVE-001` | 系统/监控偏好的保存中、失败原因、重试及实际回读 | 当前功能修复切片，待最终本机验收 | 现有偏好存储 | 同 key 写入顺序、慢写入可操作性、redb 回读、明暗三尺寸及真实窗口 |
+| `A-PULSE-GAP-01..08` | System Pulse 剩余优点逐项吸收 | 按 [`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md) 执行；进程风险文字优先，动效最后 | 对应独立功能及测试 | 进程详情/排序、Summary 趋势、键盘/选择恢复、预设、传感器选择、生命周期分别记录 |
 | `SHELL-001` | 共享 JetBrains 工作区壳层和设计令牌 | 已完成（headless；真实窗口待补） | 阶段 A | Headless 三尺寸、可用时 Computer Use、fmt/Clippy |
 | `DB-UX-001` | 数据库对象导航器 | 阶段 A 代码、headless 与 Docker 复验完成；真实窗口待补 | `SHELL-001` | 对象树交互、MySQL/PostgreSQL Docker、窗口证据 |
 | `DB-UX-002` | 查询控制台和连接上下文 | 功能切片完成（`DB-RED-05A` 至 `DB-RED-07`；真实窗口待补） | `DB-UX-001` | SQL 执行/取消/标签回归、Docker、窗口证据 |
