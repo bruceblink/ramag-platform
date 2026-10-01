@@ -2,11 +2,14 @@
 
 use gpui_kit::IntoElement;
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
-use gpui_kit::{ParentElement, Styled, div, px};
+use gpui_kit::{InteractiveElement, ParentElement, Styled, div, px};
 use ramag_infra_system::{SensorDescriptor, Unit};
 
 use super::{Notice, SystemSection};
 use crate::{ReadingStatus, TerminateResult};
+
+const CHART_AXIS_WIDTH: f32 = 64.0;
+const CHART_AXIS_GAP: f32 = 6.0;
 
 pub(super) fn notice_for_termination(result: TerminateResult) -> Notice {
     match result {
@@ -166,7 +169,8 @@ pub(super) fn chart_points(
     points
 }
 
-/// Shows physical chart bounds and actual elapsed history beside the shared chart primitive.
+/// Places left-aligned physical bounds beside the plot and keeps its time labels on the same edge.
+/// A bounded axis column gives the plot the remaining width; long units wrap within that column.
 pub(super) fn render_chart(
     points: &[ramag_ui::pulse_ui::ChartPoint],
     maximum: f64,
@@ -187,7 +191,38 @@ pub(super) fn render_chart(
     let duration = first
         .zip(last)
         .map_or(0.0, |(first, last)| (last - first).max(0.0));
+    let maximum = chart_axis_maximum(maximum);
     let theme = cx.theme();
+    let mut axis = v_flex()
+        .debug_selector(|| "system-chart-axis".into())
+        .w(px(CHART_AXIS_WIDTH))
+        .flex_none()
+        .h(height)
+        .justify_between()
+        .items_start()
+        .child(
+            div()
+                .debug_selector(|| "system-chart-axis-max".into())
+                .min_w_0()
+                .max_w(px(CHART_AXIS_WIDTH))
+                .whitespace_normal()
+                .text_xs()
+                // Use the tick font's own height so wrapped units fit compact 54px sensor plots.
+                .line_height(gpui_kit::rems(0.75))
+                .text_color(theme.muted_foreground)
+                .child(format_value(maximum, unit)),
+        );
+    axis = axis.child(
+        div()
+            .debug_selector(|| "system-chart-axis-min".into())
+            .min_w_0()
+            .max_w(px(CHART_AXIS_WIDTH))
+            .whitespace_normal()
+            .text_xs()
+            .line_height(gpui_kit::rems(0.75))
+            .text_color(theme.muted_foreground)
+            .child("0"),
+    );
     v_flex()
         .w_full()
         .min_w_0()
@@ -195,39 +230,55 @@ pub(super) fn render_chart(
         .child(
             h_flex()
                 .w_full()
-                .justify_between()
+                .min_w_0()
+                .gap(px(CHART_AXIS_GAP))
+                .child(axis)
                 .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child(format!("0 {}", unit_label(unit))),
-                )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child(format!("最大 {}", format_value(maximum, unit))),
+                    ramag_ui::pulse_ui::pulse_time_chart_with_color(
+                        points, maximum, height, line, cx,
+                    )
+                    .flex_1()
+                    .min_w_0(),
                 ),
         )
-        .child(ramag_ui::pulse_ui::pulse_time_chart_with_color(
-            points, maximum, height, line, cx,
-        ))
         .child(
             h_flex()
                 .w_full()
-                .justify_between()
-                .child(div().text_xs().text_color(theme.muted_foreground).child(
-                    if duration > 0.0 {
-                        format!("{duration:.0}s 前")
-                    } else {
-                        "开始采样".into()
-                    },
-                ))
+                .min_w_0()
+                .gap(px(CHART_AXIS_GAP))
+                .child(div().w(px(CHART_AXIS_WIDTH)).flex_none())
                 .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("现在"),
+                    h_flex()
+                        .debug_selector(|| "system-chart-time-range".into())
+                        .flex_1()
+                        .min_w_0()
+                        .justify_between()
+                        .child(div().text_xs().text_color(theme.muted_foreground).child(
+                            if duration > 0.0 {
+                                format!("{duration:.0}s 前")
+                            } else {
+                                "开始采样".into()
+                            },
+                        ))
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child("现在"),
+                        ),
                 ),
         )
 }
+
+/// Keeps the axis scale positive and finite so its labels match the chart primitive's fallback.
+fn chart_axis_maximum(maximum: f64) -> f64 {
+    if maximum.is_finite() && maximum > 0.0 {
+        maximum
+    } else {
+        1.0
+    }
+}
+
+#[cfg(test)]
+#[path = "helpers/chart_axis_tests.rs"]
+mod chart_axis_tests;
