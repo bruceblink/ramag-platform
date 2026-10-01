@@ -31,6 +31,7 @@ fn test_view(
         section: SystemSection::Summary,
         termination_request: None,
         termination_focus: cx.focus_handle(),
+        termination_scroll: gpui_kit::ScrollHandle::new(),
         termination_focus_requested: false,
         termination_in_progress: false,
         notice: None,
@@ -387,57 +388,5 @@ fn termination_confirmation_keeps_the_captured_stable_identity(cx: &mut TestAppC
     visual.update(|_, app| assert!(view.read(app).termination_request.is_none()));
 }
 
-#[gpui_kit::test]
-fn confirmation_actions_fit_a_compact_360_by_240_view(cx: &mut TestAppContext) {
-    cx.update(gpui_kit::component::init);
-    let mut view_entity = None;
-    let (_, visual) = cx.add_window_view(|window, cx| {
-        let view = cx.new(|view_cx| test_view(window, view_cx, MonitorSnapshot::default()));
-        view_entity = Some(view.clone());
-        Root::new(view, window, cx)
-    });
-    visual.simulate_resize(size(px(360.0), px(240.0)));
-    let view = required!(view_entity, "system view");
-    visual.update(|_window, app| {
-        let description = view.update(app, |this, cx| {
-            this.prepare_termination(
-                crate::StableProcessIdentity {
-                    pid: 4242,
-                    start_time_ticks: 1,
-                },
-                "long-running-worker-process".into(),
-                cx,
-            )
-        });
-        assert!(
-            description.is_some(),
-            "eligible process should open confirmation"
-        );
-    });
-    visual.run_until_parked();
-    let cancel = required!(
-        visual.debug_bounds("system-kill-cancel"),
-        "cancel button bounds"
-    );
-    let confirm = required!(
-        visual.debug_bounds("system-kill-confirm"),
-        "confirm button bounds"
-    );
-    let card = required!(
-        visual.debug_bounds("system-termination-card"),
-        "confirmation card bounds"
-    );
-    assert!(card.left() >= px(0.0) && card.right() <= px(360.0));
-    assert!(card.top() >= px(0.0) && card.bottom() <= px(240.0));
-    assert!(cancel.left() >= px(0.0) && cancel.right() <= px(360.0));
-    assert!(confirm.left() >= px(0.0) && confirm.right() <= px(360.0));
-    assert!(cancel.top() >= px(0.0) && cancel.bottom() <= px(240.0));
-    assert!(confirm.top() >= px(0.0) && confirm.bottom() <= px(240.0));
-    assert!(cancel.right() <= confirm.left());
-    visual.update(|window, app| {
-        assert!(view.read(app).termination_focus.is_focused(window));
-    });
-    visual.simulate_keystrokes("escape");
-    visual.run_until_parked();
-    visual.update(|_, app| assert!(view.read(app).termination_request.is_none()));
-}
+#[path = "termination_tests.rs"]
+mod termination_tests;

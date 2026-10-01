@@ -77,9 +77,9 @@ impl SystemView {
             .min_w_0()
             .gap(px(0.0));
         let (pid_width, cpu_width, memory_width, action_width, gap, padding) = if compact {
-            (42.0, 48.0, 62.0, 44.0, 4.0, 6.0)
+            (42.0, 48.0, 62.0, 32.0, 4.0, 6.0)
         } else {
-            (56.0, 62.0, 88.0, 56.0, 8.0, 9.0)
+            (56.0, 62.0, 88.0, 84.0, 8.0, 9.0)
         };
         table = table.child(
             h_flex()
@@ -129,11 +129,7 @@ impl SystemView {
                     )),
             );
         }
-        let description = format!(
-            "{} 个匹配进程 · 按 {:?} 排序 · 结束操作会再次核对进程身份",
-            rows.len(),
-            sort
-        );
+        let description = format!("{} 个匹配进程 · 按 {} 排序", rows.len(), sort.label());
         let mut page = v_flex()
             .debug_selector(|| "system-page-processes".into())
             .w_full()
@@ -168,6 +164,7 @@ impl SystemView {
         page.into_any_element()
     }
 
+    /// Shows a fixed action column: compact icons retain a tooltip, desktop labels name force quit.
     fn process_row(
         &self,
         process: &ProcessRow,
@@ -182,16 +179,24 @@ impl SystemView {
         let self_process = pid == std::process::id();
         let disabled = unsafe_identity || self_process || self.termination_in_progress;
         let button = ramag_ui::clickable_button(format!("system-kill-{pid}"))
-            .debug_selector(|| format!("system-kill-{pid}"))
+            .debug_selector(move || format!("system-kill-{pid}"))
             .xsmall()
-            .label("结束")
             .danger()
             .disabled(disabled)
             .tooltip(if self_process {
-                "不能结束当前 Ramag 进程"
+                "不能强制退出当前 Ramag 进程"
+            } else if unsafe_identity {
+                "无法验证此进程身份，不能强制退出"
+            } else if self.termination_in_progress {
+                "正在处理强制退出请求"
             } else {
-                "强制结束此进程"
+                "强制退出此进程，可能丢失未保存数据"
             });
+        let button = if compact {
+            button.icon(gpui_kit::component::IconName::CircleX)
+        } else {
+            button.label("强制退出")
+        };
         let button = if disabled {
             button
         } else {
@@ -205,11 +210,12 @@ impl SystemView {
             |user| format!("{} · {}", process.name, user),
         );
         let (pid_width, cpu_width, memory_width, action_width, gap, padding) = if compact {
-            (42.0, 48.0, 62.0, 44.0, 4.0, 6.0)
+            (42.0, 48.0, 62.0, 32.0, 4.0, 6.0)
         } else {
-            (56.0, 62.0, 88.0, 56.0, 8.0, 9.0)
+            (56.0, 62.0, 88.0, 84.0, 8.0, 9.0)
         };
         let row = h_flex()
+            .debug_selector(move || format!("system-process-row-{pid}"))
             .w_full()
             .min_h(px(38.0))
             .items_center()
@@ -243,7 +249,7 @@ impl SystemView {
                 memory_width,
                 theme,
             ))
-            .child(div().w(px(action_width)).child(button));
+            .child(div().w(px(action_width)).flex_none().child(button));
         row.into_any_element()
     }
 }

@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use gpui_kit::component::input::{InputEvent, InputState};
-use gpui_kit::{AppContext as _, Context, Entity, FocusHandle, Window};
+use gpui_kit::{AppContext as _, Context, Entity, FocusHandle, ScrollHandle, Window};
 
 use super::{ProcessSort, RefreshInterval, StableProcessIdentity, SystemMonitor};
 use helpers::notice_for_termination;
@@ -68,10 +68,22 @@ impl SystemSection {
     }
 }
 
+/// Captures one confirmed target independently of sorting, filtering and PID reuse.
+/// Only the identity-checked worker may act on it; cancelling drops the request without signaling.
 #[derive(Clone, Debug)]
 pub(super) struct TerminationRequest {
     pub identity: StableProcessIdentity,
     pub name: String,
+}
+
+impl TerminationRequest {
+    /// Names the captured target and the data-loss boundary before destructive confirmation.
+    fn description(&self) -> String {
+        format!(
+            "可能丢失未保存数据；仅影响此进程，不包括子进程。强制退出 {}（PID {}）？",
+            self.name, self.identity.pid
+        )
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -86,6 +98,8 @@ pub struct SystemView {
     pub(super) section: SystemSection,
     pub(super) termination_request: Option<TerminationRequest>,
     pub(super) termination_focus: FocusHandle,
+    /// Retains body scrolling across sampling redraws and resets for each newly captured target.
+    pub(super) termination_scroll: ScrollHandle,
     /// Focus moves into the dialog once per opening so sampling renders do not steal Tab focus.
     pub(super) termination_focus_requested: bool,
     pub(super) termination_in_progress: bool,
@@ -143,6 +157,7 @@ impl SystemView {
             section: SystemSection::default(),
             termination_request: None,
             termination_focus: cx.focus_handle(),
+            termination_scroll: ScrollHandle::new(),
             termination_focus_requested: false,
             termination_in_progress: false,
             notice: None,
@@ -170,6 +185,7 @@ impl SystemView {
         cx.notify();
     }
 
+    /// Captures a safe target for confirmation; no operating-system operation happens here.
     pub(super) fn prepare_termination(
         &mut self,
         identity: StableProcessIdentity,
@@ -186,11 +202,10 @@ impl SystemView {
         }
         self.notice = None;
         self.termination_focus_requested = false;
-        let description = format!(
-            "强制结束 {}（PID {}）？确认时会重新核对进程启动身份。",
-            name, identity.pid,
-        );
-        self.termination_request = Some(TerminationRequest { identity, name });
+        self.termination_scroll = ScrollHandle::new();
+        let request = TerminationRequest { identity, name };
+        let description = request.description();
+        self.termination_request = Some(request);
         cx.notify();
         Some(description)
     }

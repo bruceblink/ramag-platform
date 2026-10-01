@@ -11,7 +11,7 @@ use crate::{ReadingStatus, TerminateResult};
 pub(super) fn notice_for_termination(result: TerminateResult) -> Notice {
     match result {
         TerminateResult::RefusedSelf { pid } => Notice {
-            message: format!("拒绝结束当前 Ramag 进程（PID {pid}）"),
+            message: format!("拒绝强制退出当前 Ramag 进程（PID {pid}）"),
             error: true,
         },
         TerminateResult::Missing { pid } => Notice {
@@ -37,11 +37,11 @@ pub(super) fn notice_for_termination(result: TerminateResult) -> Notice {
             error: true,
         },
         TerminateResult::Sent { pid, name } => Notice {
-            message: format!("已向 {name}（PID {pid}）发送强制结束请求"),
+            message: format!("已向 {name}（PID {pid}）发送强制退出请求"),
             error: false,
         },
         TerminateResult::Failed { pid, name, reason } => Notice {
-            message: format!("无法结束 {name}（PID {pid}）：{reason}"),
+            message: format!("无法强制退出 {name}（PID {pid}）：{reason}"),
             error: true,
         },
     }

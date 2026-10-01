@@ -5,22 +5,27 @@ use gpui_kit::component::{
     scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
-    Context, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement, Render, Styled,
-    Window, div, px,
+    Context, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement, Render,
+    StatefulInteractiveElement as _, Styled, Window, div, px,
 };
 
 use super::SystemView;
 
 impl SystemView {
-    fn render_termination_confirmation(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// Keeps the scrollable target description bounded while title and actions remain reachable.
+    fn render_termination_confirmation(
+        &self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let Some(request) = self.termination_request.as_ref() else {
             return div().into_any_element();
         };
-        let title = "强制结束进程";
-        let description = format!(
-            "强制结束 {}（PID {}）？确认时会重新核对进程启动身份。",
-            request.name, request.identity.pid
-        );
+        let title = "强制退出进程";
+        let description = request.description();
+        let card_height = (f32::from(window.viewport_size().height) - 24.0).max(0.0);
+        // Reserve padding, two gaps, title and actions even at the largest supported font.
+        let body_height = (card_height - 128.0).max(0.0);
         let mut shade = gpui_kit::black();
         shade.a = 0.58;
         let theme = cx.theme();
@@ -53,7 +58,8 @@ impl SystemView {
                     .debug_selector(|| "system-termination-card".into())
                     .w_full()
                     .max_w(px(420.0))
-                    .max_h_full()
+                    .max_h(px(card_height))
+                    .min_h_0()
                     .gap(px(12.0))
                     .p(px(16.0))
                     .rounded(px(6.0))
@@ -61,16 +67,32 @@ impl SystemView {
                     .border_color(theme.border)
                     .bg(theme.background)
                     .text_color(theme.foreground)
-                    .child(div().text_lg().child(title))
                     .child(
                         div()
+                            .debug_selector(|| "system-termination-title".into())
+                            .flex_none()
+                            .text_lg()
+                            .child(title),
+                    )
+                    .child(
+                        div()
+                            .id("system-termination-body")
+                            .debug_selector(|| "system-termination-body".into())
+                            .flex_shrink_1()
+                            .min_h_0()
+                            .max_h(px(body_height))
                             .min_w_0()
                             .text_sm()
                             .whitespace_normal()
+                            .track_scroll(&self.termination_scroll)
+                            .overflow_y_scroll()
+                            .vertical_scrollbar(&self.termination_scroll)
                             .child(description),
                     )
                     .child(
                         h_flex()
+                            .debug_selector(|| "system-termination-actions".into())
+                            .flex_none()
                             .flex_wrap()
                             .justify_end()
                             .gap(px(8.0))
@@ -100,7 +122,7 @@ impl SystemView {
                                     .debug_selector(|| "system-kill-confirm".into())
                                     .danger()
                                     .small()
-                                    .label("强制结束")
+                                    .label("强制退出")
                                     .on_key_down(cx.listener(
                                         |this, event: &KeyDownEvent, _, cx| {
                                             if matches!(
@@ -165,7 +187,7 @@ impl Render for SystemView {
                 self.termination_focus_requested = true;
                 window.focus(&self.termination_focus, cx);
             }
-            root = root.child(self.render_termination_confirmation(cx));
+            root = root.child(self.render_termination_confirmation(window, cx));
         }
         root
     }
