@@ -4,6 +4,7 @@
 > 更新日期：2026-09-30
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
+> 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
 > 历史设计、待办与完成记录：[`archive/2026-09-25-pre-datagrip-rebaseline/`](archive/2026-09-25-pre-datagrip-rebaseline/)
 
 ## 术语表与命名约定
@@ -55,6 +56,7 @@ Ramag 的目标是以 GPUI 的原生性能承载 JetBrains 风格的高密度工
 4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和插件秘密上下文的真实环境验收；Linux Secret Service、macOS Keychain 和发布环境仍待分别验收，验证失败时保留安全拒绝状态。
 5. `A-PLAT-005`：JSON Path 真实静态入口已完成 headless 运行指标、任务回收、WSL 当前进程内存多场景回放和 Windows 系统 UI Automation/截图替代验收；Linux/macOS、发布构建和 Computer Use 真实窗口证据仍待补。
 6. `A-QUALITY`：`A-QUALITY-VCS-001` 历史提交 ID 索引复用、`A-QUALITY-DBCLIENT-001` 恢复连接标签首帧延迟物化、`A-QUALITY-DBCLIENT-002` 宽结果列索引按可见范围保留、`A-QUALITY-TREE-001` 最近访问筛选的对象树缓存刷新、`A-QUALITY-THEME-001` 至 `A-QUALITY-THEME-014` 主题语义色收口、`A-QUALITY-UI-03` 数据库客户端 Windows 截图与列筛选替代验收、`A-QUALITY-UI-04` 数据库会话标签长名称 headless 布局验收、`A-QUALITY-DBCLIENT-003` 会话标签稳定连接标识验收和 `A-QUALITY-UI-05` 结果工具栏动作组 headless/Computer Use 窗口验收已完成；阶段 A 质量记录继续补齐对象树、主题一致性和可执行截图测试；阶段 B 的 `B-GIT-001-Z`、`B-GIT-001-AA`、`B-GIT-001-AB`、`B-GIT-001-AC` 文件标签和提交信息异步边界已完成，继续按 Git 工作区边界推进；`v0.4.0` 已由 GitHub Release 发布，日常开发不重复构建安装包，正式版本发布时按标签使用既有 GitHub Actions 流程。
+7. `A-SYSTEM-PULSE-001`：将系统监控采集替换为状态化 Pulse 采集边界，加入固定 Summary/CPU/Memory/GPU/Disks/Network/Energy/Thermals/Processes/Settings 导航；专项设计和验收记录见 [`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)。
 
 阶段 A 的每个子项独立设计、验证、提交和推送；同一时间只有一个子项处于开发中。
 

@@ -22,6 +22,7 @@ mod plugin_entry_view;
 pub mod pointer_menu;
 pub mod preferences;
 pub mod prompt_dialog;
+pub mod pulse_ui;
 pub mod recent_items_dialog;
 pub mod redis_tree_settings;
 pub mod result_memory;
@@ -90,8 +91,11 @@ pub use system_settings::{
 };
 pub mod monitor_settings;
 pub use monitor_settings::{
-    MONITOR_SETTINGS_PREF_KEY, MonitorRefreshRate, MonitorSettings, MonitorSettingsGlobal,
-    init_monitor_settings, monitor_settings, save_monitor_settings, set_monitor_settings,
+    MONITOR_PRESENTATION_SETTINGS_PREF_KEY, MONITOR_SETTINGS_PREF_KEY, MonitorPresentationSettings,
+    MonitorPresentationSettingsGlobal, MonitorRefreshRate, MonitorSettings, MonitorSettingsGlobal,
+    init_monitor_presentation_settings, init_monitor_settings, monitor_presentation_settings,
+    monitor_settings, save_monitor_presentation_settings, save_monitor_settings,
+    set_monitor_presentation_settings, set_monitor_settings,
 };
 pub use theme::{Mode, StorageGlobal, apply_theme, current_mode, init_theme};
 pub use transfer_ui::{

@@ -1,10 +1,11 @@
-# Ramag UI 统一验收标准：JetBrains 工作区基线
+# Ramag UI 统一验收标准：领域工作区与 Pulse 视觉基础
 
 > 状态：现行规范
-> 更新日期：2026-09-25
+> 更新日期：2026-10-01
 > 适用范围：数据库、API、Kafka、SSH/终端、容器、Git 以及后续 GPUI 工具
-> 设计参考：用户提供的 DataGrip 数据库工作区截图
+> 设计参考：System Pulse 的视觉层级与监控页面；DataGrip 的数据库领域工作流
 > 主线入口：[`02-development-roadmap.md`](02-development-roadmap.md)
+> 系统监控专项：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
 
 ## 术语表与命名约定
 
@@ -35,6 +36,10 @@
 截图中的红框是验收区域标注，不是产品装饰；Ramag 不应渲染红色边框来“模拟”验收。数据库专项必须逐项实现这些区域的真实交互，编号和行为见 [`03-database-client-datagrip-roadmap.md`](03-database-client-datagrip-roadmap.md) 的红框验收矩阵。
 
 ## 2. 视觉基线
+
+### 2.0 Pulse 公共视觉基础
+
+全局视觉采用 System Pulse 的清晰页面标题、自然分区、轻量边界、克制强调色和状态表达。数据库领域保留既定对象树与编辑工作区结构，其他工具按领域组织导航。页面区块不嵌套装饰卡片，独立指标使用不超过 6px 的圆角。当前、预热、不可用、失败、过期必须可辨识；图表使用来源时间和物理单位，缺失读数断线。设备选择按稳定 ID 保存，设备消失时显示原因。公共实现集中在 `ramag-ui::pulse_ui`，业务视图不再另造近似令牌。
 
 ### 2.1 设计令牌
 

@@ -4,6 +4,7 @@
 > 更新日期：2026-09-30
 > 主线：阶段 A 单机桌面收口与阶段 B 原生工作区迁移；阶段 C 继续后置
 > 路线图：[`02-development-roadmap.md`](02-development-roadmap.md)
+> 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
 > 统一 UI 标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 历史执行记录：[`archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md`](archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md)
 
