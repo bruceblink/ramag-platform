@@ -15,7 +15,6 @@ use ramag_domain::PluginEntryDescriptor;
 
 use crate::activity_bar::{ActivityBar, NavEvent, NavTarget};
 use crate::plugin_entry_view::StandardPluginEntryView;
-use crate::workbench::WORKBENCH_TOOLBAR_HEIGHT;
 
 pub struct Shell {
     activity_bar: Entity<ActivityBar>,
@@ -138,6 +137,23 @@ impl Shell {
                 .map(|t| format!("Ramag — {}", t.meta().name))
                 .unwrap_or_else(|| "Ramag".to_string()),
         }
+    }
+
+    /// Resolves the visible page name from tool metadata, independently of the OS title.
+    /// Missing tools retain an explicit state instead of presenting a stale tool name.
+    fn page_title(&self) -> String {
+        if self.settings_selected {
+            return "设置".into();
+        }
+        self.selected.as_ref().map_or_else(
+            || "首页".into(),
+            |id| {
+                self.registry
+                    .find(id)
+                    .map(|tool| tool.meta().name.clone())
+                    .unwrap_or_else(|| "工具不可用".into())
+            },
+        )
     }
 
     /// 防抖 600ms 落盘窗口 bounds：拖动期间高频回调只取最终静止值。
@@ -342,12 +358,16 @@ impl Render for Shell {
             crate::theme::Mode::Dark => IconName::Sun,
         };
         let theme_toggle = crate::clickable_button("shell-theme-toggle")
+            .debug_selector(|| "shell-theme-toggle".into())
             .ghost()
+            .size(px(28.0))
+            .p_0()
+            .flex_none()
             .icon(Icon::new(theme_icon))
             .tooltip("切换主题")
             .on_click(|_, _, cx| crate::theme::toggle_theme(cx));
 
-        let shell_label = self.window_title();
+        let shell_label = self.page_title();
         let settings_tool = self.selected.clone().filter(|id| {
             matches!(
                 id.as_str(),
@@ -392,32 +412,17 @@ impl Render for Shell {
                             .min_w_0()
                             .items_stretch()
                             .child(
-                                h_flex()
+                                crate::pulse_ui::pulse_workbench_header(shell_label, cx)
                                     .id("workbench-shell-header")
                                     .debug_selector(|| "workbench-shell-header".into())
-                                    .w_full()
-                                    .h(px(WORKBENCH_TOOLBAR_HEIGHT))
-                                    .flex_none()
-                                    .items_center()
-                                    .bg(cx.theme().secondary)
-                                    .px_3()
-                                    .border_b_1()
-                                    .border_color(cx.theme().border)
-                                    .child(
-                                        div()
-                                            .flex_1()
-                                            .min_w_0()
-                                            .overflow_hidden()
-                                            .text_ellipsis()
-                                            .text_xs()
-                                            .text_color(cx.theme().secondary_foreground)
-                                            .child(shell_label),
-                                    )
                                     .when_some(settings_tool, |header, tool_id| {
                                         header.child(
                                             crate::clickable_button("shell-tool-settings")
                                                 .debug_selector(|| "shell-tool-settings".into())
                                                 .ghost()
+                                                .size(px(28.0))
+                                                .p_0()
+                                                .flex_none()
                                                 .icon(crate::icons::settings())
                                                 .tooltip("当前工具设置")
                                                 .on_click(move |_, window, cx| {
@@ -436,6 +441,7 @@ impl Render for Shell {
                             )
                             .child(
                                 div()
+                                    .debug_selector(|| "workbench-shell-content".into())
                                     .flex_1()
                                     // The header already consumes the fixed top row; flex growth
                                     // must determine the remaining content height without adding
@@ -466,18 +472,21 @@ impl Render for Shell {
 }
 
 fn render_view_missing(cx: &Context<Shell>) -> impl IntoElement {
-    let theme = cx.theme();
     v_flex()
+        .debug_selector(|| "shell-view-unavailable".into())
         .size_full()
         .items_center()
         .justify_center()
-        .gap_2()
-        .child(div().text_lg().child("视图未注册"))
+        .p(px(16.0))
         .child(
             div()
-                .text_sm()
-                .text_color(theme.muted_foreground)
-                .child("请检查 ramag-bin/main.rs 是否调用了 register_tool_view"),
+                .w_full()
+                .max_w(px(360.0))
+                .child(crate::pulse_ui::pulse_status_notice(
+                    crate::pulse_ui::PulseStatus::Unavailable,
+                    "该页面暂不可用",
+                    cx,
+                )),
         )
 }
 

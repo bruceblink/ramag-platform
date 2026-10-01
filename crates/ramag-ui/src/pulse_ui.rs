@@ -5,8 +5,8 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     Bounds, Div, Hsla, InteractiveElement as _, ParentElement as _, PathBuilder, Pixels,
-    SharedString, Styled as _, Window, canvas, div, fill, point, prelude::FluentBuilder as _, px,
-    size,
+    SharedString, StatefulInteractiveElement as _, Styled as _, Window, canvas, div, fill, point,
+    prelude::FluentBuilder as _, px, size,
 };
 
 /// 图表样本使用相对秒数，`None` 表示传感器缺失或采样间断。
@@ -45,6 +45,55 @@ impl PulseStatus {
             Self::Failed => theme.danger,
         }
     }
+}
+
+/// Creates an unframed, compact workbench header. The title shrinks before the
+/// caller's fixed-size actions, and its tooltip retains the complete page name.
+pub fn pulse_workbench_header(title: impl Into<SharedString>, cx: &gpui_kit::App) -> Div {
+    let theme = cx.theme();
+    let title = title.into();
+    let tooltip = title.clone();
+    h_flex()
+        .debug_selector(|| "pulse-workbench-header".into())
+        .w_full()
+        .min_w_0()
+        .h(px(crate::workbench::WORKBENCH_TOOLBAR_HEIGHT))
+        .flex_none()
+        .items_center()
+        .gap(px(8.0))
+        .px(px(12.0))
+        .bg(theme.background)
+        .border_b_1()
+        .border_color(theme.border.opacity(0.65))
+        .child(
+            div()
+                .debug_selector(|| "pulse-workbench-brand".into())
+                .flex_none()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("Ramag"),
+        )
+        .child(
+            gpui_kit::component::Icon::new(gpui_kit::component::IconName::ChevronRight)
+                .size(px(12.0))
+                .text_color(theme.muted_foreground),
+        )
+        .child(
+            div()
+                .id("pulse-workbench-title")
+                .debug_selector(|| "pulse-workbench-title".into())
+                .flex_1()
+                .min_w_0()
+                .overflow_hidden()
+                .text_ellipsis()
+                .text_sm()
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                .text_color(theme.foreground)
+                .tooltip(move |window, cx| {
+                    gpui_kit::component::tooltip::Tooltip::new(tooltip.clone()).build(window, cx)
+                })
+                .child(title),
+        )
 }
 
 /// 创建页面标题区域；返回可继续添加按钮或状态的 `Div`。

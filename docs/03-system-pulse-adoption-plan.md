@@ -69,3 +69,24 @@
 Computer Use 能获取预览窗口及截图，但新鲜窗口状态下点击仍返回 `foreground window did not report a process id`。已尝试重新列出窗口、重新取得窗口、激活和刷新状态，错误仍复现；完整真实窗口鼠标键盘流程未验收。替代证据为上述 GPUI headless 渲染/交互测试和系统截图 `target/ui-fallback/system-pulse-summary-dark-1024x768-20261001.png`。截图对应 `cargo build --locked -p ramag-bin --example ui-preview` 后的 Windows 实际窗口，客户区目标 1024x768、含系统边框 1040x807，显示真实 CPU/内存变化及进程；截图不能证明搜索、终止确认、UAC 或设置持久化的原生操作。预览不读取用户配置或连接，验收后已停止测试进程。删除 `%TEMP%/ramag-ui-preview-6088.redb`、`ramag-ui-preview-28552.redb`、`ramag-ui-preview-22888.redb` 被自动审批检查以 `blocked by policy` 拒绝，三个专属临时文件保留，清理未完成。
 
 Windows 可选温度读取的协议、授权状态和失败路径通过测试；本机没有执行 PawnIO 实际驱动读取。NVIDIA、Linux Intel/AMD 和 Apple 原生硬件准确性仍待各自平台验收。推送后的 GitHub Actions 状态另行核查，不以本机跨平台编译代替远端 CI 结果。
+
+## 后续视觉推广队列
+
+| 切片 | 组件职责与实施范围 | 验收证据 |
+|---|---|---|
+| `A-PULSE-SHELL-001` | 平台壳层复用公共紧凑页头：品牌与当前页面分级、主题语义边界、固定图标命中尺寸；工具缺失使用明确不可用状态 | 明暗主题三个尺寸、长工具名、首页/工具/设置切换、主题切换、不可用视图；Computer Use 或如实记录的替代证据 |
+| `A-PULSE-HOME-001` | 首页采用公共标题和统一轻量工具项边界、密度与响应式间距 | 三个尺寸、入口点击、滚动和现有拖拽排序回归 |
+| `A-PULSE-SETTINGS-001` | 设置采用公共标题与分区层级、统一导航状态和响应式间距 | 导航切换、长文字、表单命中、保存回归 |
+| `A-PULSE-DB-001` | 数据库保留对象树和编辑工作区，统一标题、工具栏、状态与表格边界 | 布局和领域导航 headless、本机 Docker 在业务行为变化时执行 |
+| `A-PULSE-SSH-001` | SSH 保留连接/终端/SFTP 流程，统一标题和连接状态表达 | 连接名称与状态可见、页面导航、终端区域和紧凑窗口 |
+| `A-PULSE-VCS-001` | VCS 保留仓库、文件、历史与 Diff，统一标题和状态边界 | 页面导航、长仓库/文件名、滚动与状态回归 |
+| `A-PULSE-CONTAINER-001` | 容器保留资源、日志和性能流程，统一标题、趋势与状态 | 页面导航、长资源名、空/失败状态和性能布局 |
+| `A-PULSE-OBJECT-001` | 对象存储保留连接、对象列表和传输流程，统一标题与表格状态 | 页面导航、长对象名、列表滚动和传输状态 |
+
+`A-PULSE-SHELL-001` 设计确认沿用用户已确认的全局 UI 吸收范围；当前进入实施。页头保持既有 32px 高度，主题及工具设置按钮保持 28px 固定命中区域，长标题省略且可查看全名。平台壳层不在运行界面暴露 crate 名或注册 API。每个切片通过最终 fmt、workspace Clippy、风险匹配测试与 UI 验收后独立提交并推送。
+
+### 2026-10-01 Shell 切片验证
+
+`A-PULSE-SHELL-001` 已完成代码和 headless 验收。`ramag-ui` 测试从 114 项增加到 115 项；新增 `pulse_shell_keeps_titles_actions_and_navigation_reachable`，覆盖明暗主题、`360x640`/`1024x768`/`1440x900`、长工具名、首页/工具/设置导航、主题切换、固定 28px 操作按钮、内容区边界和缺失工具不可用状态。`cargo test --locked -p ramag-ui --lib -- --test-threads=1` 全部通过，fmt、workspace Clippy、源码尺寸和差异检查通过。
+
+Windows 实际窗口截图 `target/ui-fallback/pulse-shell-summary-dark-1024x768-20261001.png` 显示 `Ramag > 系统监控` 页头、紧凑边界、十标签和实时监控页面。Computer Use 重新发现窗口、激活并刷新截图成功，但一次观察后的点击仍返回 `foreground window did not report a process id`；完整原生点击流程继续标记未验收，截图只作为视觉证据。
