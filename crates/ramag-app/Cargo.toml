@@ -42,7 +42,7 @@ tokio = { workspace = true }
 semver = { workspace = true }
 
 # 当前进程资源基线采样
-sysinfo = { workspace = true }
+ramag-infra-system = { workspace = true }
 
 [dev-dependencies]
 # decide_capture 等纯逻辑测试无需额外 mock；保留位以备扩展

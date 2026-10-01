@@ -4,10 +4,42 @@ mod monitor;
 mod view;
 
 pub use monitor::{
-    DiskSnapshot, HISTORY_SECONDS, MAX_VISIBLE_PROCESSES, MonitorSnapshot, ProcessSnapshot,
-    ProcessSort, RefreshInterval, SystemMonitor, TerminateResult,
+    HISTORY_SECONDS, MAX_VISIBLE_PROCESSES, MonitorSnapshot, ProcessSort, ReadingStatus,
+    RefreshInterval, SensorSample, StableProcessIdentity, SystemMonitor, TerminateResult,
 };
+pub use ramag_infra_system::Unit as PhysicalUnit;
 pub use view::SystemView;
+
+/// Dispatch fixed-operation helpers before GPUI or storage initialization.
+/// The bounded argument list includes the executable; ordinary launches retain
+/// their original privileges and return None without changing a process.
+pub fn system_helper_entry(arguments: impl IntoIterator<Item = std::ffi::OsString>) -> Option<i32> {
+    let arguments = arguments.into_iter().take(10).collect::<Vec<_>>();
+    ramag_infra_system::windows_thermal::helper_entry(arguments.iter().cloned()).or_else(|| {
+        ramag_infra_system::process_control::helper_entry(arguments.into_iter().skip(1))
+    })
+}
+
+#[cfg(test)]
+mod helper_tests {
+    use super::system_helper_entry;
+
+    #[test]
+    fn helpers_reject_invalid_requests_before_application_startup() {
+        assert_eq!(
+            system_helper_entry(["ramag", "--other"].map(Into::into)),
+            None
+        );
+        assert_eq!(
+            system_helper_entry(["ramag", "--system-pulse-process-action"].map(Into::into)),
+            Some(13)
+        );
+        assert!(
+            system_helper_entry(["ramag", "--system-pulse-cpu-temperature-helper"].map(Into::into))
+                .is_some_and(|code| code != 0)
+        );
+    }
+}
 
 use gpui_kit::{App, AppContext as _, Entity, Window};
 use ramag_domain::traits::{Tool, ToolMeta};

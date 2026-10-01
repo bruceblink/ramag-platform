@@ -17,6 +17,9 @@ use ramag_ui::{HomeView, Mode, NavTarget, RamagAssets, SettingsView, Shell};
 
 /// 参数只选择预览页面、主题和窗口大小；数据始终来自本次新建的临时存储。
 fn main() -> anyhow::Result<()> {
+    if let Some(code) = ramag_tool_system::system_helper_entry(std::env::args_os()) {
+        std::process::exit(code);
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     let page = args.first().cloned().unwrap_or_else(|| "settings".into());
     let mode = if args.get(1).is_some_and(|mode| mode == "dark") {
@@ -71,6 +74,9 @@ fn main() -> anyhow::Result<()> {
                     ..Default::default()
                 },
                 move |window, cx| {
+                    // Native window creation can synchronize the OS appearance.
+                    // Apply the requested acceptance theme after that initial sync.
+                    ramag_ui::apply_theme(mode, cx);
                     let home = cx.new(|cx| HomeView::new(registry.clone(), cx));
                     let settings = cx.new(|cx| {
                         SettingsView::new(

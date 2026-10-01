@@ -14,7 +14,7 @@ ramag-domain = { workspace = true }
 ramag-ui = { workspace = true }
 gpui-kit = { workspace = true }
 parking_lot = { workspace = true }
-sysinfo = { workspace = true }
+ramag-infra-system = { workspace = true }
 
 [dev-dependencies]
 gpui-kit = { workspace = true, features = ["test-support"] }

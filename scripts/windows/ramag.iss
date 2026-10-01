@@ -63,6 +63,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
 Source: "{#RepoRoot}LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#RepoRoot}crates\ramag-infra-system\COPYING"; DestDir: "{app}\system-pulse"; Flags: ignoreversion
+Source: "{#RepoRoot}crates\ramag-infra-system\SOURCE.md"; DestDir: "{app}\system-pulse"; Flags: ignoreversion
+Source: "{#RepoRoot}crates\ramag-infra-system\vendor\pawnio-intel-msr\*"; DestDir: "{app}\system-pulse\pawnio-intel-msr"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

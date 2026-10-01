@@ -1,15 +1,18 @@
-//! 本机系统指标采集与进程安全操作。
+//! Owned System Pulse samples adapted to the Ramag tool lifecycle.
 
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
-use sysinfo::{Disks, Networks, Pid, System};
+use ramag_infra_system::{Availability, Reading, SamplingService, SensorDescriptor, Snapshot};
 
-/// 图表保留的滚动时间窗口，和 AppWorkbench 的原始行为保持一致。
+pub use ramag_infra_system::ProcessIdentity as StableProcessIdentity;
+
 pub const HISTORY_SECONDS: f64 = 60.0;
-/// 进程页最多渲染的行数，避免系统进程数量异常时创建无界 UI 元素。
 pub const MAX_VISIBLE_PROCESSES: usize = 120;
+const MAX_HISTORY_POINTS: usize = 120;
+const MAX_HISTORY_SERIES: usize = 4096;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ProcessSort {
@@ -19,7 +22,6 @@ pub enum ProcessSort {
 }
 
 impl ProcessSort {
-    /// 返回排序按钮使用的短标签。
     pub fn label(self) -> &'static str {
         match self {
             Self::Cpu => "CPU",
@@ -37,7 +39,6 @@ pub enum RefreshInterval {
 }
 
 impl RefreshInterval {
-    /// 把用户可选的刷新档位转换为后台轮询周期。
     pub fn duration(self) -> Duration {
         Duration::from_secs(match self {
             Self::OneSecond => 1,
@@ -45,8 +46,6 @@ impl RefreshInterval {
             Self::FiveSeconds => 5,
         })
     }
-
-    /// 返回设置栏显示的紧凑标签。
     pub fn label(self) -> &'static str {
         match self {
             Self::OneSecond => "1s",
@@ -54,63 +53,392 @@ impl RefreshInterval {
             Self::FiveSeconds => "5s",
         }
     }
+}
 
-    /// 返回状态提示使用的完整英文单位，便于和数值区分。
-    pub fn status_label(self) -> &'static str {
+/// Presentation state is independent of the collector's availability enum.
+/// Staleness is computed from the monotonic source time; timers cannot invent
+/// new measurements or fill missing chart intervals with the last value.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReadingStatus {
+    Current,
+    WarmingUp,
+    Unavailable,
+    Failed,
+    Stale,
+}
+
+impl ReadingStatus {
+    pub fn label(self) -> &'static str {
         match self {
-            Self::OneSecond => "1 second",
-            Self::TwoSeconds => "2 seconds",
-            Self::FiveSeconds => "5 seconds",
+            Self::Current => "当前",
+            Self::WarmingUp => "预热中",
+            Self::Unavailable => "不可用",
+            Self::Failed => "读取失败",
+            Self::Stale => "已过期",
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct ProcessSnapshot {
-    pub pid: u32,
-    pub name: String,
-    pub cpu_percent: f32,
-    pub memory_bytes: u64,
+/// Each sample retains its source time and physical operands. Only Current
+/// samples are charted; unavailable/failed/stale samples create visible gaps.
+#[derive(Clone, Debug)]
+pub struct SensorSample {
+    pub at_seconds: f64,
+    pub value: Option<f64>,
+    pub total: Option<f64>,
+    pub status: ReadingStatus,
+    pub reason: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct DiskSnapshot {
-    pub device: String,
-    pub mount_point: String,
-    pub file_system: String,
-    pub total_bytes: u64,
-    pub used_bytes: u64,
-    pub available_bytes: u64,
-    pub usage_percent: u8,
+impl SensorSample {
+    pub fn chart_value(&self) -> Option<f64> {
+        (self.status == ReadingStatus::Current)
+            .then_some(self.value)
+            .flatten()
+    }
 }
 
+/// Read-only data cloned for one render. Raw observations and process rows
+/// remain owned, and histories are bounded by both time and point/series count.
 #[derive(Clone, Debug, Default)]
 pub struct MonitorSnapshot {
-    pub elapsed_seconds: f64,
-    pub cpu_percent: f32,
-    pub core_usages: Vec<f32>,
-    pub core_histories: Vec<Vec<[f64; 2]>>,
-    pub memory_total: u64,
-    pub memory_used: u64,
-    pub swap_total: u64,
-    pub swap_used: u64,
-    pub disk_read_rate_mb: f64,
-    pub disk_write_rate_mb: f64,
-    pub network_received_rate_mb: f64,
-    pub network_transmitted_rate_mb: f64,
-    pub processes: Vec<ProcessSnapshot>,
-    pub disks: Vec<DiskSnapshot>,
-    pub cpu_history: Vec<[f64; 2]>,
-    pub memory_history: Vec<[f64; 2]>,
-    pub swap_history: Vec<[f64; 2]>,
-    pub disk_read_history: Vec<[f64; 2]>,
-    pub disk_write_history: Vec<[f64; 2]>,
-    pub network_received_history: Vec<[f64; 2]>,
-    pub network_transmitted_history: Vec<[f64; 2]>,
-    pub data_warning: Option<String>,
+    pub host: Snapshot,
+    pub histories: BTreeMap<String, VecDeque<SensorSample>>,
+    pub collection_error: Option<String>,
+    /// Ages process metrics and the device inventory as well as chart samples.
+    /// The last owned rows stay visible, but their values must not look current.
+    pub collection_stale: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+impl MonitorSnapshot {
+    pub fn latest(&self, sensor_id: &str) -> Option<&SensorSample> {
+        self.histories
+            .get(sensor_id)
+            .and_then(|history| history.back())
+    }
+
+    /// Accept each sequence once. Retired sensors leave the bounded history
+    /// store, and a missing reading appends an unavailable outcome for its id.
+    fn accept(&mut self, host: Snapshot) -> bool {
+        if host.sequence <= self.host.sequence {
+            return false;
+        }
+        let at = host.capture_finished_ns as f64 / 1_000_000_000.0;
+        let sensor_ids = host
+            .sensors
+            .iter()
+            .take(MAX_HISTORY_SERIES)
+            .map(|sensor| sensor.id.as_str())
+            .collect::<BTreeSet<_>>();
+        let readings = host
+            .readings
+            .iter()
+            .map(|reading| (reading.sensor_id.as_str(), reading))
+            .collect::<BTreeMap<_, _>>();
+        self.histories
+            .retain(|id, _| sensor_ids.contains(id.as_str()));
+        for descriptor in host.sensors.iter().take(MAX_HISTORY_SERIES) {
+            let reading = readings.get(descriptor.id.as_str()).copied();
+            let sample = sample_for_reading(reading, at);
+            let history = self.histories.entry(descriptor.id.clone()).or_default();
+            if history
+                .back()
+                .is_some_and(|previous| sample.at_seconds <= previous.at_seconds)
+            {
+                continue;
+            }
+            history.push_back(sample);
+            while history.len() > MAX_HISTORY_POINTS
+                || history
+                    .front()
+                    .is_some_and(|sample| sample.at_seconds < at - HISTORY_SECONDS)
+            {
+                history.pop_front();
+            }
+        }
+        self.host = host;
+        self.collection_error = None;
+        self.collection_stale = false;
+        true
+    }
+
+    fn mark_stale(&mut self, age: Duration, interval: RefreshInterval) -> bool {
+        let now = self.host.capture_finished_ns as f64 / 1_000_000_000.0 + age.as_secs_f64();
+        let threshold = interval.duration().as_secs_f64() * 3.0;
+        let collection_stale = self.host.sequence > 0 && age.as_secs_f64() > threshold;
+        let mut changed = self.collection_stale != collection_stale;
+        self.collection_stale = collection_stale;
+        for sample in self
+            .histories
+            .values_mut()
+            .filter_map(|history| history.back_mut())
+        {
+            if sample.status == ReadingStatus::Current && now - sample.at_seconds > threshold {
+                sample.status = ReadingStatus::Stale;
+                changed = true;
+            }
+        }
+        changed
+    }
+
+    pub fn descriptor(&self, id: &str) -> Option<&SensorDescriptor> {
+        self.host.sensors.iter().find(|sensor| sensor.id == id)
+    }
+
+    /// Returns a process metric only while both the snapshot and reading are
+    /// current. Kept rows cannot manufacture a zero or hide a stalled worker.
+    pub fn process_value(&self, reading: &Reading) -> Option<f64> {
+        if self.collection_stale || reading.availability != Availability::Available {
+            return None;
+        }
+        reading.value.filter(|value| value.is_finite())
+    }
+}
+
+/// Validates finite values at the collector boundary. An available reading
+/// without valid operands is a failed source, never a measured zero.
+fn sample_for_reading(reading: Option<&Reading>, capture_at: f64) -> SensorSample {
+    let Some(reading) = reading else {
+        return SensorSample {
+            at_seconds: capture_at,
+            value: None,
+            total: None,
+            status: ReadingStatus::Unavailable,
+            reason: Some("该传感器本次没有返回数据".into()),
+        };
+    };
+    let valid = reading.value.is_some_and(f64::is_finite)
+        && reading
+            .total
+            .is_none_or(|total| total.is_finite() && total >= 0.0);
+    let status = match reading.availability {
+        Availability::Available if valid => ReadingStatus::Current,
+        Availability::Available | Availability::Failed => ReadingStatus::Failed,
+        Availability::WarmingUp => ReadingStatus::WarmingUp,
+        Availability::Unavailable => ReadingStatus::Unavailable,
+    };
+    let at_seconds = if status == ReadingStatus::Current {
+        reading
+            .observations
+            .iter()
+            .map(|observation| observation.captured_ns)
+            .max()
+            .map_or(capture_at, |ns| ns as f64 / 1_000_000_000.0)
+    } else {
+        capture_at
+    };
+    SensorSample {
+        at_seconds,
+        value: (status == ReadingStatus::Current)
+            .then_some(reading.value)
+            .flatten(),
+        total: (status == ReadingStatus::Current)
+            .then_some(reading.total)
+            .flatten(),
+        status,
+        reason: if reading.availability == Availability::Available && !valid {
+            Some("采集源返回了无效读数".into())
+        } else {
+            reading.reason.clone()
+        },
+    }
+}
+
+/// The sampling worker owns all OS handles. Runtime teardown transfers the
+/// service to a cleanup thread so its final join cannot freeze a GPUI window.
+struct Runtime {
+    service: Option<SamplingService>,
+}
+
+impl Drop for Runtime {
+    fn drop(&mut self) {
+        if let Some(service) = self.service.take() {
+            std::thread::spawn(move || drop(service));
+        }
+    }
+}
+
+/// The cache lock protects only owned UI data and preferences. `received_at`
+/// ages the source timestamp after delivery; redraws never reset freshness.
+struct MonitorState {
+    snapshot: MonitorSnapshot,
+    received_at: Instant,
+    interval: RefreshInterval,
+    sort: ProcessSort,
+}
+
+/// Clones share one worker and one cache. UI methods never perform host reads
+/// under this cache lock; sampling and process signals have separate owners.
+#[derive(Clone)]
+pub struct SystemMonitor {
+    runtime: Arc<Runtime>,
+    state: Arc<Mutex<MonitorState>>,
+}
+
+impl Default for SystemMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SystemMonitor {
+    /// Starts a worker once; startup errors remain visible in the empty cache.
+    pub fn new() -> Self {
+        let started = SamplingService::start(RefreshInterval::default().duration());
+        let (service, collection_error) = match started {
+            Ok(service) => (Some(service), None),
+            Err(error) => (None, Some(error)),
+        };
+        Self {
+            runtime: Arc::new(Runtime { service }),
+            state: Arc::new(Mutex::new(MonitorState {
+                snapshot: MonitorSnapshot {
+                    collection_error,
+                    ..Default::default()
+                },
+                received_at: Instant::now(),
+                interval: RefreshInterval::default(),
+                sort: ProcessSort::default(),
+            })),
+        }
+    }
+
+    pub fn snapshot(&self) -> MonitorSnapshot {
+        self.state.lock().snapshot.clone()
+    }
+    pub fn refresh_interval(&self) -> RefreshInterval {
+        self.state.lock().interval
+    }
+    pub fn process_sort(&self) -> ProcessSort {
+        self.state.lock().sort
+    }
+    pub fn set_process_sort(&self, sort: ProcessSort) {
+        self.state.lock().sort = sort;
+    }
+    /// Changes the worker interval before updating the UI preference; a failed
+    /// worker update preserves the previous interval and records its error.
+    pub fn set_refresh_interval(&self, interval: RefreshInterval) {
+        if let Some(service) = &self.runtime.service
+            && let Err(error) = service.set_interval(interval.duration())
+        {
+            self.state.lock().snapshot.collection_error = Some(error);
+            return;
+        }
+        self.state.lock().interval = interval;
+    }
+
+    /// Consume at most the newest worker snapshot and age existing values.
+    /// This can run on a GPUI timer because it does no OS collection or waiting.
+    pub fn refresh_if_due(&self) -> bool {
+        let host = self
+            .runtime
+            .service
+            .as_ref()
+            .and_then(SamplingService::take_latest);
+        let mut state = self.state.lock();
+        let accepted = host.is_some_and(|host| state.snapshot.accept(host));
+        if accepted {
+            state.received_at = Instant::now();
+        }
+        let interval = state.interval;
+        let age = state.received_at.elapsed();
+        state.snapshot.mark_stale(age, interval) || accepted
+    }
+
+    pub fn refresh_now(&self) {
+        if let Some(service) = &self.runtime.service {
+            service.request_refresh();
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    /// Explicitly controls the optional elevated temperature reader. Call from
+    /// the background executor because enabling can start its platform helper.
+    pub fn set_cpu_temperatures(&self, enabled: bool) -> Result<(), String> {
+        let service = self.runtime.service.as_ref().ok_or("采集服务未启动")?;
+        if enabled {
+            service.enable_cpu_temperatures()
+        } else {
+            service.disable_cpu_temperatures();
+            Ok(())
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn cpu_temperatures_enabled(&self) -> bool {
+        self.runtime
+            .service
+            .as_ref()
+            .is_some_and(SamplingService::cpu_temperatures_enabled)
+    }
+
+    /// Send to the identity captured when the user opened confirmation. The
+    /// collector's native action rechecks identity while pinning the OS handle.
+    pub fn terminate_process(
+        &self,
+        identity: &StableProcessIdentity,
+        expected_name: &str,
+    ) -> TerminateResult {
+        if identity.pid == std::process::id() {
+            return TerminateResult::RefusedSelf { pid: identity.pid };
+        }
+        let snapshot = self.snapshot();
+        let Some(row) = snapshot
+            .host
+            .processes
+            .iter()
+            .find(|row| row.identity.pid == identity.pid)
+        else {
+            return TerminateResult::Missing { pid: identity.pid };
+        };
+        if row.identity != *identity {
+            return TerminateResult::ChangedIdentity {
+                pid: identity.pid,
+                expected_start_time: identity.start_time_ticks,
+                actual_start_time: row.identity.start_time_ticks,
+            };
+        }
+        if row.name != expected_name {
+            return TerminateResult::Changed {
+                pid: identity.pid,
+                expected_name: expected_name.into(),
+                actual_name: row.name.clone(),
+            };
+        }
+        match ramag_infra_system::process_control::send_signal_checked(
+            identity,
+            expected_name,
+            ramag_infra_system::process_control::ProcessSignal::Kill,
+        ) {
+            Ok(()) => TerminateResult::Sent {
+                pid: identity.pid,
+                name: row.name.clone(),
+            },
+            Err(reason) => TerminateResult::Failed {
+                pid: identity.pid,
+                name: row.name.clone(),
+                reason,
+            },
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_snapshot(snapshot: MonitorSnapshot) -> Self {
+        Self {
+            runtime: Arc::new(Runtime { service: None }),
+            state: Arc::new(Mutex::new(MonitorState {
+                snapshot,
+                received_at: Instant::now(),
+                interval: RefreshInterval::default(),
+                sort: ProcessSort::default(),
+            })),
+        }
+    }
+}
+
+/// Reports why the captured confirmation was accepted or refused. A successful
+/// signal means the request was sent; it does not promise observed process exit.
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TerminateResult {
     RefusedSelf {
         pid: u32,
@@ -123,6 +451,11 @@ pub enum TerminateResult {
         expected_name: String,
         actual_name: String,
     },
+    ChangedIdentity {
+        pid: u32,
+        expected_start_time: u64,
+        actual_start_time: u64,
+    },
     Sent {
         pid: u32,
         name: String,
@@ -130,469 +463,9 @@ pub enum TerminateResult {
     Failed {
         pid: u32,
         name: String,
+        reason: String,
     },
 }
 
-/// 可在线程间共享的系统采集器；锁只保护采集器状态，不把 GPUI 类型带入采集层。
-#[derive(Clone)]
-pub struct SystemMonitor {
-    state: Arc<Mutex<MonitorState>>,
-}
-
-impl Default for SystemMonitor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SystemMonitor {
-    /// 创建空采集器；昂贵的系统读取会在后台首次刷新时执行。
-    pub fn new() -> Self {
-        Self {
-            state: Arc::new(Mutex::new(MonitorState::new())),
-        }
-    }
-
-    /// 读取一份独立快照，避免渲染期间持有锁或暴露内部可变状态。
-    pub fn snapshot(&self) -> MonitorSnapshot {
-        self.state.lock().snapshot.clone()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn set_snapshot_for_test(&self, snapshot: MonitorSnapshot) {
-        self.state.lock().snapshot = snapshot;
-    }
-
-    /// 读取当前刷新档位，不暴露内部锁或采集器对象。
-    pub fn refresh_interval(&self) -> RefreshInterval {
-        self.state.lock().refresh_interval
-    }
-
-    /// 更新刷新档位，下一次后台轮询按新周期判断是否采样。
-    pub fn set_refresh_interval(&self, interval: RefreshInterval) {
-        self.state.lock().refresh_interval = interval;
-    }
-
-    /// 读取当前进程排序规则，供视图绘制选中状态。
-    pub fn process_sort(&self) -> ProcessSort {
-        self.state.lock().process_sort
-    }
-
-    /// 更新排序规则并立即重排已缓存的进程快照。
-    pub fn set_process_sort(&self, sort: ProcessSort) {
-        let mut state = self.state.lock();
-        state.process_sort = sort;
-        sort_processes(&mut state.snapshot.processes, sort);
-    }
-
-    /// 返回距上次成功采样的时间，用于诊断后台刷新是否停滞。
-    pub fn last_refresh_age(&self) -> Option<Duration> {
-        self.state.lock().last_refresh_at.map(|last| last.elapsed())
-    }
-
-    /// 后台轮询调用此方法；到达刷新周期时采集一次并返回 true。
-    pub fn refresh_if_due(&self) -> bool {
-        let mut state = self.state.lock();
-        if !state.refresh_due() {
-            return false;
-        }
-        state.refresh_now();
-        true
-    }
-
-    /// 手动刷新使用此入口，调用方应把它放到 GPUI 后台任务中执行。
-    pub fn refresh_now(&self) {
-        self.state.lock().refresh_now();
-    }
-
-    /// 终止前重新读取进程并核对名称，降低 PID 被复用时误杀其它进程的风险。
-    pub fn terminate_process(&self, pid: u32, expected_name: &str) -> TerminateResult {
-        let mut state = self.state.lock();
-        if pid == std::process::id() {
-            return TerminateResult::RefusedSelf { pid };
-        }
-
-        state.system.refresh_all();
-        let Some(process) = state.system.process(Pid::from_u32(pid)) else {
-            return TerminateResult::Missing { pid };
-        };
-        let actual_name = process.name().to_string_lossy().into_owned();
-        if actual_name != expected_name {
-            return TerminateResult::Changed {
-                pid,
-                expected_name: expected_name.to_owned(),
-                actual_name,
-            };
-        }
-        if process.kill() {
-            TerminateResult::Sent {
-                pid,
-                name: actual_name,
-            }
-        } else {
-            TerminateResult::Failed {
-                pid,
-                name: actual_name,
-            }
-        }
-    }
-}
-
-struct MonitorState {
-    system: System,
-    networks: Networks,
-    disks: Disks,
-    started_at: Instant,
-    last_refresh_at: Option<Instant>,
-    previous_disk_read_total: Option<u64>,
-    previous_disk_write_total: Option<u64>,
-    previous_network_received_total: Option<u64>,
-    previous_network_transmitted_total: Option<u64>,
-    refresh_interval: RefreshInterval,
-    process_sort: ProcessSort,
-    snapshot: MonitorSnapshot,
-}
-
-impl MonitorState {
-    fn new() -> Self {
-        Self {
-            // 只创建采集器，首份数据由后台任务刷新，避免打开工具时阻塞 GPUI 线程。
-            system: System::new(),
-            networks: Networks::new(),
-            disks: Disks::new(),
-            started_at: Instant::now(),
-            last_refresh_at: None,
-            previous_disk_read_total: None,
-            previous_disk_write_total: None,
-            previous_network_received_total: None,
-            previous_network_transmitted_total: None,
-            refresh_interval: RefreshInterval::default(),
-            process_sort: ProcessSort::default(),
-            snapshot: MonitorSnapshot::default(),
-        }
-    }
-
-    fn refresh_due(&self) -> bool {
-        self.last_refresh_at
-            .is_none_or(|last| last.elapsed() >= self.refresh_interval.duration())
-    }
-
-    /// 采集 CPU、内存、进程、磁盘和网络，并把历史数据截断到 60 秒。
-    fn refresh_now(&mut self) {
-        let now = Instant::now();
-        let elapsed_seconds = now.duration_since(self.started_at).as_secs_f64();
-        let interval_seconds = self
-            .last_refresh_at
-            .map(|last| now.duration_since(last).as_secs_f64())
-            .unwrap_or_else(|| self.refresh_interval.duration().as_secs_f64())
-            .max(f64::EPSILON);
-
-        self.system.refresh_all();
-        let mut processes = Vec::with_capacity(self.system.processes().len());
-        let mut disk_read_total = 0_u64;
-        let mut disk_write_total = 0_u64;
-        for (pid, process) in self.system.processes() {
-            let disk_usage = process.disk_usage();
-            disk_read_total = disk_read_total.saturating_add(disk_usage.total_read_bytes);
-            disk_write_total = disk_write_total.saturating_add(disk_usage.total_written_bytes);
-            processes.push(ProcessSnapshot {
-                pid: pid.as_u32(),
-                name: process.name().to_string_lossy().into_owned(),
-                cpu_percent: process.cpu_usage(),
-                memory_bytes: process.memory(),
-            });
-        }
-        sort_processes(&mut processes, self.process_sort);
-
-        let cpu_percent = self.system.global_cpu_usage();
-        let core_usages = self
-            .system
-            .cpus()
-            .iter()
-            .map(|cpu| cpu.cpu_usage())
-            .collect::<Vec<_>>();
-        let mut core_histories = self.snapshot.core_histories.clone();
-        update_core_histories(
-            &mut core_histories,
-            &core_usages,
-            elapsed_seconds,
-            elapsed_seconds - HISTORY_SECONDS,
-        );
-
-        self.networks.refresh(true);
-        let (network_received_total, network_transmitted_total) = self.network_totals();
-        self.disks.refresh(true);
-        let disks = collect_disks(&self.disks);
-
-        let disk_read_rate_mb = counter_rate(
-            disk_read_total,
-            self.previous_disk_read_total,
-            interval_seconds,
-        );
-        let disk_write_rate_mb = counter_rate(
-            disk_write_total,
-            self.previous_disk_write_total,
-            interval_seconds,
-        );
-        let network_received_rate_mb = counter_rate(
-            network_received_total,
-            self.previous_network_received_total,
-            interval_seconds,
-        );
-        let network_transmitted_rate_mb = counter_rate(
-            network_transmitted_total,
-            self.previous_network_transmitted_total,
-            interval_seconds,
-        );
-
-        let memory_total = self.system.total_memory();
-        let memory_used = self.system.used_memory();
-        let swap_total = self.system.total_swap();
-        let swap_used = self.system.used_swap();
-        let mut snapshot = MonitorSnapshot {
-            elapsed_seconds,
-            cpu_percent,
-            core_usages,
-            core_histories,
-            memory_total,
-            memory_used,
-            swap_total,
-            swap_used,
-            disk_read_rate_mb,
-            disk_write_rate_mb,
-            network_received_rate_mb,
-            network_transmitted_rate_mb,
-            processes,
-            disks,
-            ..self.snapshot.clone()
-        };
-
-        push_history(
-            &mut snapshot.cpu_history,
-            elapsed_seconds,
-            cpu_percent as f64,
-        );
-        push_history(
-            &mut snapshot.memory_history,
-            elapsed_seconds,
-            percentage(memory_used, memory_total),
-        );
-        push_history(
-            &mut snapshot.swap_history,
-            elapsed_seconds,
-            percentage(swap_used, swap_total),
-        );
-        push_history(
-            &mut snapshot.disk_read_history,
-            elapsed_seconds,
-            disk_read_rate_mb,
-        );
-        push_history(
-            &mut snapshot.disk_write_history,
-            elapsed_seconds,
-            disk_write_rate_mb,
-        );
-        push_history(
-            &mut snapshot.network_received_history,
-            elapsed_seconds,
-            network_received_rate_mb,
-        );
-        push_history(
-            &mut snapshot.network_transmitted_history,
-            elapsed_seconds,
-            network_transmitted_rate_mb,
-        );
-
-        let minimum_elapsed = elapsed_seconds - HISTORY_SECONDS;
-        trim_history(&mut snapshot.cpu_history, minimum_elapsed);
-        for history in &mut snapshot.core_histories {
-            trim_history(history, minimum_elapsed);
-        }
-        trim_history(&mut snapshot.memory_history, minimum_elapsed);
-        trim_history(&mut snapshot.swap_history, minimum_elapsed);
-        trim_history(&mut snapshot.disk_read_history, minimum_elapsed);
-        trim_history(&mut snapshot.disk_write_history, minimum_elapsed);
-        trim_history(&mut snapshot.network_received_history, minimum_elapsed);
-        trim_history(&mut snapshot.network_transmitted_history, minimum_elapsed);
-
-        let mut warnings = Vec::new();
-        if snapshot.core_usages.is_empty() {
-            warnings.push("CPU 核心数据不可用");
-        }
-        if snapshot.processes.is_empty() {
-            warnings.push("进程列表不可用");
-        }
-        if snapshot.disks.is_empty() {
-            warnings.push("磁盘列表不可用");
-        }
-        snapshot.data_warning = (!warnings.is_empty()).then(|| warnings.join("; "));
-
-        self.snapshot = snapshot;
-        self.previous_disk_read_total = Some(disk_read_total);
-        self.previous_disk_write_total = Some(disk_write_total);
-        self.previous_network_received_total = Some(network_received_total);
-        self.previous_network_transmitted_total = Some(network_transmitted_total);
-        self.last_refresh_at = Some(now);
-    }
-
-    fn network_totals(&self) -> (u64, u64) {
-        self.networks
-            .iter()
-            .fold((0_u64, 0_u64), |(received, transmitted), (_, data)| {
-                (
-                    received.saturating_add(data.total_received()),
-                    transmitted.saturating_add(data.total_transmitted()),
-                )
-            })
-    }
-}
-
-fn sort_processes(processes: &mut [ProcessSnapshot], sort: ProcessSort) {
-    processes.sort_by(|left, right| {
-        let ordering = match sort {
-            ProcessSort::Cpu => right.cpu_percent.total_cmp(&left.cpu_percent),
-            ProcessSort::Memory => right.memory_bytes.cmp(&left.memory_bytes),
-        };
-        ordering.then_with(|| left.name.cmp(&right.name))
-    });
-}
-
-fn collect_disks(disks: &Disks) -> Vec<DiskSnapshot> {
-    disks
-        .iter()
-        .map(|disk| {
-            let total_bytes = disk.total_space();
-            let available_bytes = disk.available_space();
-            let used_bytes = total_bytes.saturating_sub(available_bytes);
-            let mount_point = disk.mount_point().to_string_lossy().into_owned();
-            let name = disk.name().to_string_lossy().into_owned();
-            DiskSnapshot {
-                device: if name.trim().is_empty() {
-                    mount_point.clone()
-                } else {
-                    name
-                },
-                mount_point,
-                file_system: disk.file_system().to_string_lossy().into_owned(),
-                total_bytes,
-                used_bytes,
-                available_bytes,
-                usage_percent: percentage(used_bytes, total_bytes).round() as u8,
-            }
-        })
-        .collect()
-}
-
-/// 用两次累计计数的差值计算每秒 MiB；首次采样只建立基线。
-fn counter_rate(current: u64, previous: Option<u64>, interval_seconds: f64) -> f64 {
-    let Some(previous) = previous else {
-        return 0.0;
-    };
-    current.saturating_sub(previous) as f64 / 1_000_000.0 / interval_seconds.max(f64::EPSILON)
-}
-
-/// 计算占用百分比并处理零容量和异常超界值。
-fn percentage(used: u64, total: u64) -> f64 {
-    if total == 0 {
-        0.0
-    } else {
-        ((used as f64 / total as f64) * 100.0).clamp(0.0, 100.0)
-    }
-}
-
-fn push_history(history: &mut Vec<[f64; 2]>, elapsed: f64, value: f64) {
-    history.push([elapsed, value]);
-}
-
-/// 按当前 CPU 核心数调整历史列表，并追加本次采样，防止核心数量变化后索引错位。
-fn update_core_histories(
-    histories: &mut Vec<Vec<[f64; 2]>>,
-    usages: &[f32],
-    elapsed: f64,
-    minimum_elapsed: f64,
-) {
-    histories.truncate(usages.len());
-    histories.resize_with(usages.len(), Vec::new);
-    for (history, usage) in histories.iter_mut().zip(usages) {
-        push_history(history, elapsed, f64::from(*usage));
-        trim_history(history, minimum_elapsed);
-    }
-}
-
-/// 删除 60 秒窗口之前的点，限制历史数据的内存增长。
-fn trim_history(history: &mut Vec<[f64; 2]>, minimum_elapsed: f64) {
-    history.retain(|point| point[0] >= minimum_elapsed);
-}
-
 #[cfg(test)]
-mod tests {
-    use super::{
-        ProcessSnapshot, ProcessSort, SystemMonitor, TerminateResult, counter_rate, percentage,
-        sort_processes, trim_history, update_core_histories,
-    };
-
-    #[test]
-    fn percentage_handles_zero_and_caps() {
-        assert_eq!(percentage(1, 0), 0.0);
-        assert_eq!(percentage(50, 100), 50.0);
-        assert_eq!(percentage(120, 100), 100.0);
-    }
-
-    #[test]
-    fn counter_rate_uses_saturating_delta() {
-        assert_eq!(counter_rate(3_000_000, Some(1_000_000), 2.0), 1.0);
-        assert_eq!(counter_rate(1_000_000, Some(3_000_000), 2.0), 0.0);
-        assert_eq!(counter_rate(1_000_000, None, 2.0), 0.0);
-    }
-
-    #[test]
-    fn history_removes_points_before_threshold() {
-        let mut history = vec![[1.0, 10.0], [40.0, 20.0], [61.0, 30.0]];
-        trim_history(&mut history, 41.0);
-        assert_eq!(history, vec![[61.0, 30.0]]);
-    }
-
-    #[test]
-    fn core_histories_follow_the_current_core_count() {
-        let mut histories = vec![vec![[1.0, 10.0]], vec![[61.0, 20.0]], vec![[61.0, 30.0]]];
-        update_core_histories(&mut histories, &[42.0, 8.0], 62.0, 2.0);
-
-        assert_eq!(histories.len(), 2);
-        assert_eq!(histories[0].last(), Some(&[62.0, 42.0]));
-        assert_eq!(histories[1].last(), Some(&[62.0, 8.0]));
-    }
-
-    #[test]
-    fn process_sort_orders_cpu_and_memory_descending() {
-        let mut rows = vec![
-            ProcessSnapshot {
-                pid: 1,
-                name: "alpha".to_owned(),
-                cpu_percent: 2.0,
-                memory_bytes: 30,
-            },
-            ProcessSnapshot {
-                pid: 2,
-                name: "beta".to_owned(),
-                cpu_percent: 4.0,
-                memory_bytes: 10,
-            },
-        ];
-        sort_processes(&mut rows, ProcessSort::Cpu);
-        assert_eq!(rows[0].pid, 2);
-        sort_processes(&mut rows, ProcessSort::Memory);
-        assert_eq!(rows[0].pid, 1);
-    }
-
-    #[test]
-    fn terminate_refuses_the_current_process() {
-        let monitor = SystemMonitor::new();
-        let result = monitor.terminate_process(std::process::id(), "ramag");
-        assert_eq!(
-            result,
-            TerminateResult::RefusedSelf {
-                pid: std::process::id()
-            }
-        );
-    }
-}
+mod tests;

@@ -72,6 +72,12 @@ install -Dm644 "$LINUX_DIR/$APP_ID.desktop" \
 install -Dm644 "$SCRIPT_DIR/icons/ramag.svg" \
     "$deb_root/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
 install -Dm644 "$REPO_DIR/LICENSE" "$deb_root/usr/share/doc/ramag/LICENSE"
+for notice in COPYING SOURCE.md; do
+    install -Dm644 "$REPO_DIR/crates/ramag-infra-system/$notice" \
+        "$deb_root/usr/share/doc/ramag/system-pulse/$notice"
+done
+install -Dm644 "$REPO_DIR/crates/ramag-infra-system/src/intel/UAPI-NOTICE" \
+    "$deb_root/usr/share/doc/ramag/system-pulse/UAPI-NOTICE"
 installed_size="$(du -sk "$deb_root/usr" | awk '{print $1}')"
 mkdir -p "$deb_root/DEBIAN"
 sed -e "s/@VERSION@/$version/g" -e "s/@INSTALLED_SIZE@/$installed_size/g" \
@@ -98,6 +104,7 @@ APPIMAGE_EXTRACT_AND_RUN=1 "$linuxdeploy" \
     --desktop-file "$LINUX_DIR/$APP_ID.desktop" \
     --icon-file "$appimage_icon"
 install -Dm644 "$REPO_DIR/LICENSE" "$app_dir/usr/share/doc/ramag/LICENSE"
+cp -R "$deb_root/usr/share/doc/ramag/system-pulse" "$app_dir/usr/share/doc/ramag/system-pulse"
 appimage_squashfs="$BUILD_DIR/Ramag.squashfs"
 mksquashfs "$app_dir" "$appimage_squashfs" \
     -noappend -all-root -comp zstd -b 131072 >/dev/null

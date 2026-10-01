@@ -1,6 +1,6 @@
 # System Pulse 采集替换与 Ramag UI 吸收计划
 
-> 状态：实施中；本文件的验收记录以实际命令和窗口操作为准。
+> 状态：系统监控替换和公共 UI 已验证；其他工具的视觉推广及跨平台原生验收继续按独立切片执行。
 > 设计确认：用户于 2026-10-01 确认按本计划实现。
 > 来源：https://github.com/eas4ai/system-pulse/tree/f1be5d51d24c21fa8c740be79200bdda3df3a00c
 
@@ -51,5 +51,21 @@
 - 原生流程：优先使用 Computer Use 运行隔离 UI 预览，完成打开、切换、滚动、查询和设置流程。失败时记录具体错误、恢复尝试和替代证据，不能用静态截图或 headless 结果代替原生验收结论。
 - 质量检查：目标测试、workspace 测试、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、源码尺寸和差异/LF 检查；推送后复核 Linux/macOS/Windows CI。
 - 外部服务：本切片没有数据库或协议变更，Docker 服务、镜像、端口、启动与清理均为不适用。
-- 公共组件验收：Windows workspace 默认测试通过；Pulse 组件测试覆盖明暗主题、窄/宽窗口、命中区域、时间轴缺口和最多 120 点。展示偏好测试覆盖旧刷新配置兼容、无效 ID 和容量边界。最终 fmt、workspace Clippy、源码尺寸和差异检查须在提交前通过。
-- 系统监控与原生采集的最终验收记录随接入提交补充。
+- 公共组件验收：`d2710bf6` 已推送 `main`。Windows `cargo test --locked -p ramag-ui --lib -- --test-threads=1` 的 114 项测试通过；Pulse 组件测试覆盖明暗主题、窄/宽窗口、命中区域、时间轴缺口和最多 120 点。展示偏好测试覆盖旧刷新配置兼容、无效 ID 和容量边界。
+
+### 2026-10-01 系统监控接入验证
+
+| 验证范围 | 命令或证据 | 结果与限制 |
+|---|---|---|
+| Windows 系统采集器 | `cargo test --locked -p ramag-infra-system --lib -- --test-threads=1` | 111 通过，1 个真实 GPU 测试默认忽略；进程身份、原生进程控制、helper 协议、超时与调用进程退出行为通过 |
+| Windows GPU | `cargo test --locked -p ramag-infra-system --lib windows_gpu::native::tests::present_wddm_adapter_provides_current_scheduler_and_memory_readings -- --ignored --exact` | 本机 WDDM 调度器利用率和 GPU 内存测试通过；不代表已核对所有厂商、温度或功率的硬件精度 |
+| Windows 系统监控 | `cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` | 16 通过；headless 包含三个要求尺寸、明暗主题十标签、设备缺失/选择、显隐、刷新、360x240 确认与稳定进程身份 |
+| Windows workspace | `cargo test --locked --workspace -- --test-threads=1` | 默认测试和文档测试通过；其他工具的环境变量控制或忽略的集成测试不计为 Docker 集成证据 |
+| Linux 系统采集器 | WSL Ubuntu 24.04 中 `CARGO_TARGET_DIR=target/pulse-linux cargo test --locked -p ramag-infra-system --lib` 和该 crate 的 all-target Clippy | 161 项测试通过，Clippy 通过；没有在 Linux 原生桌面运行 GPUI |
+| macOS 系统采集器 | 分别针对 `aarch64-apple-darwin`、`x86_64-apple-darwin` 执行该 crate 的 `cargo clippy --locked --all-targets -- -D warnings` | 条件编译路径和测试源码通过；未在 macOS 主机执行 IOReport、SMC、HID 或进程控制 |
+| Rust 与源码检查 | 最终 `cargo fmt --all -- --check`、workspace all-target Clippy `-D warnings`、Windows 源码尺寸脚本、`git diff --check`、修改文本 LF 检查 | 全部通过；新增采集代码不含 Clippy 抑制 |
+| 发布脚本 | WSL 中 `bash -n scripts/package-linux.sh scripts/build-dmg.sh`、Linux/macOS 打包逻辑测试 | 通过；许可证文件已接入三平台打包脚本，未重新构建或发布安装包 |
+
+Computer Use 能获取预览窗口及截图，但新鲜窗口状态下点击仍返回 `foreground window did not report a process id`。已尝试重新列出窗口、重新取得窗口、激活和刷新状态，错误仍复现；完整真实窗口鼠标键盘流程未验收。替代证据为上述 GPUI headless 渲染/交互测试和系统截图 `target/ui-fallback/system-pulse-summary-dark-1024x768-20261001.png`。截图对应 `cargo build --locked -p ramag-bin --example ui-preview` 后的 Windows 实际窗口，客户区目标 1024x768、含系统边框 1040x807，显示真实 CPU/内存变化及进程；截图不能证明搜索、终止确认、UAC 或设置持久化的原生操作。预览不读取用户配置或连接，验收后已停止测试进程。删除 `%TEMP%/ramag-ui-preview-6088.redb`、`ramag-ui-preview-28552.redb`、`ramag-ui-preview-22888.redb` 被自动审批检查以 `blocked by policy` 拒绝，三个专属临时文件保留，清理未完成。
+
+Windows 可选温度读取的协议、授权状态和失败路径通过测试；本机没有执行 PawnIO 实际驱动读取。NVIDIA、Linux Intel/AMD 和 Apple 原生硬件准确性仍待各自平台验收。推送后的 GitHub Actions 状态另行核查，不以本机跨平台编译代替远端 CI 结果。

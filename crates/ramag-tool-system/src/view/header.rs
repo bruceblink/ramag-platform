@@ -1,184 +1,116 @@
-//! 系统监控标题栏及刷新操作的响应式布局。
+//! Stable, responsive navigation for the ten System Pulse monitor pages.
 
 use gpui_kit::component::{
-    ActiveTheme as _, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+    ActiveTheme as _, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use gpui_kit::{
-    ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Styled, Window, div, px,
+    Context, InteractiveElement as _, IntoElement, ParentElement, Styled, Window, div, px,
 };
 
 use super::{SystemSection, SystemView};
 
 impl SystemView {
-    /// 根据窗口宽度重排标题和操作区，窄窗口保留状态、设置入口与立即刷新操作。
+    /// Places the application identity, stable page tabs, and refresh action above content.
     pub(super) fn render_header(
         &self,
         window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let interval = self.monitor.refresh_interval();
-        let mut tabs = h_flex().gap(px(4.0));
-        tabs = tabs.child(self.section_button(
-            SystemSection::Performance,
-            "性能监控",
-            ramag_ui::icons::gauge(),
+        let tabs = SystemSection::ALL.map(|section| ramag_ui::pulse_ui::PulseTab {
+            id: section.id().into(),
+            title: section.title().into(),
+        });
+        let view = cx.entity().clone();
+        let navigation = ramag_ui::pulse_ui::pulse_tabs(
+            &tabs,
+            self.section.id(),
+            window,
             cx,
-        ));
-        tabs = tabs.child(self.section_button(
-            SystemSection::Processes,
-            "任务管理器",
-            Icon::new(IconName::MemoryStick),
-            cx,
-        ));
-
-        let settings_button = ramag_ui::clickable_button("system-open-settings")
-            .debug_selector(|| "system-open-settings".into())
-            .ghost()
-            .small()
-            .icon(ramag_ui::icons::settings())
-            .tooltip("系统监控设置")
-            .on_click(|_, window, cx| {
-                window.dispatch_action(
-                    Box::new(ramag_ui::actions::OpenToolSettings {
-                        tool_id: "system".into(),
-                    }),
-                    cx,
-                );
-            });
+            move |selected, _, app| {
+                if let Some(section) = SystemSection::ALL
+                    .into_iter()
+                    .find(|candidate| candidate.id() == selected.as_ref())
+                {
+                    view.update(app, |this, cx| this.select_section(section, cx));
+                }
+            },
+        );
         let theme = cx.theme();
-
-        if window.viewport_size().width < px(720.0) {
-            return v_flex()
-                .debug_selector(|| "system-header".to_owned())
-                .w_full()
-                .flex_none()
-                .gap(px(8.0))
-                .px_4()
-                .py(px(10.0))
-                .border_b_1()
-                .border_color(theme.border)
-                .bg(theme.secondary)
-                .child(
-                    h_flex()
-                        .w_full()
-                        .items_center()
-                        .gap(px(10.0))
-                        .child(ramag_ui::icons::gauge().text_color(theme.accent))
-                        .child(
-                            v_flex()
-                                .flex_1()
-                                .min_w_0()
-                                .gap(px(1.0))
-                                .child(
-                                    div()
-                                        .text_sm()
-                                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                                        .child("系统监控"),
-                                )
-                                .child(
-                                    div()
-                                        .text_xs()
-                                        .text_color(theme.muted_foreground)
-                                        .child("本机性能与运行中进程"),
-                                ),
-                        ),
-                )
-                .child(
-                    h_flex()
-                        .debug_selector(|| "system-header-controls".to_owned())
-                        .w_full()
-                        .flex_wrap()
-                        .items_center()
-                        .gap(px(8.0))
-                        .child(tabs)
-                        .child(
-                            h_flex()
-                                .flex_1()
-                                .min_w_0()
-                                .flex_wrap()
-                                .items_center()
-                                .gap(px(8.0))
-                                .child(
-                                    div()
-                                        .text_xs()
-                                        .text_color(theme.muted_foreground)
-                                        .child(format!("刷新 {}", interval.status_label())),
-                                )
-                                .child(settings_button)
-                                .child(
-                                    ramag_ui::clickable_button("system-refresh")
-                                        .ghost()
-                                        .small()
-                                        .icon(ramag_ui::icons::refresh_cw())
-                                        .tooltip("立即刷新")
-                                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                            this.refresh_now(cx);
-                                        })),
-                                ),
-                        ),
-                )
-                .into_any_element();
-        }
-
-        h_flex()
-            .debug_selector(|| "system-header".to_owned())
+        v_flex()
+            .debug_selector(|| "system-header".into())
             .w_full()
             .flex_none()
-            .items_center()
-            .justify_between()
-            .gap(px(12.0))
-            .px_4()
-            .py(px(10.0))
+            .gap(px(10.0))
+            .px(px(18.0))
+            .pt(px(14.0))
+            .pb(px(10.0))
             .border_b_1()
-            .border_color(theme.border)
-            .bg(theme.secondary)
+            .border_color(theme.border.opacity(0.75))
+            .bg(theme.background)
             .child(
                 h_flex()
-                    .min_w_0()
+                    .w_full()
                     .items_center()
-                    .gap(px(10.0))
-                    .child(ramag_ui::icons::gauge().text_color(theme.accent))
+                    .justify_between()
+                    .gap(px(12.0))
                     .child(
                         v_flex()
-                            .gap(px(1.0))
+                            .min_w_0()
+                            .gap(px(2.0))
                             .child(
                                 div()
                                     .text_sm()
                                     .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                                    .child("系统监控"),
+                                    .child("System Monitor"),
                             )
                             .child(
                                 div()
                                     .text_xs()
                                     .text_color(theme.muted_foreground)
-                                    .child("本机性能与运行中进程"),
+                                    .child("本机性能与设备状态"),
                             ),
                     )
-                    .child(tabs),
-            )
-            .child(
-                h_flex()
-                    .flex_none()
-                    .items_center()
-                    .gap(px(8.0))
                     .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("刷新 {}", interval.status_label())),
-                    )
-                    .child(settings_button)
-                    .child(
-                        ramag_ui::clickable_button("system-refresh")
-                            .ghost()
-                            .small()
-                            .icon(ramag_ui::icons::refresh_cw())
-                            .tooltip("立即刷新")
-                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                this.refresh_now(cx);
-                            })),
+                        h_flex()
+                            .flex_none()
+                            .items_center()
+                            .gap(px(8.0))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child(format!(
+                                        "刷新 {}",
+                                        self.monitor.refresh_interval().label()
+                                    )),
+                            )
+                            .child(
+                                ramag_ui::clickable_button("system-open-settings")
+                                    .debug_selector(|| "system-open-settings".into())
+                                    .ghost()
+                                    .small()
+                                    .icon(ramag_ui::icons::settings())
+                                    .tooltip("全局系统工具设置")
+                                    .on_click(|_, window, cx| {
+                                        window.dispatch_action(
+                                            Box::new(ramag_ui::actions::OpenToolSettings {
+                                                tool_id: "system".into(),
+                                            }),
+                                            cx,
+                                        )
+                                    }),
+                            )
+                            .child(
+                                ramag_ui::clickable_button("system-refresh")
+                                    .debug_selector(|| "system-refresh".into())
+                                    .ghost()
+                                    .small()
+                                    .icon(ramag_ui::icons::refresh_cw())
+                                    .tooltip("立即采样")
+                                    .on_click(cx.listener(|this, _, _, cx| this.refresh_now(cx))),
+                            ),
                     ),
             )
-            .into_any_element()
+            .child(navigation)
     }
 }

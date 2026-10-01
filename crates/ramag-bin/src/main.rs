@@ -130,6 +130,9 @@ fn show_startup_error(title: &str, description: &str) {
 }
 
 fn main() -> ExitCode {
+    if let Some(code) = ramag_tool_system::system_helper_entry(std::env::args_os()) {
+        std::process::exit(code);
+    }
     if let Some(exit_code) = ramag_infra_ssh::run_askpass_helper(confirm_ssh_host) {
         std::process::exit(exit_code);
     }
@@ -256,6 +259,7 @@ fn main() -> ExitCode {
             REDIS_TREE_SETTINGS_PREF_KEY,
             SYSTEM_SETTINGS_PREF_KEY,
             ramag_ui::MONITOR_SETTINGS_PREF_KEY,
+            ramag_ui::MONITOR_PRESENTATION_SETTINGS_PREF_KEY,
             ramag_ui::shortcuts_dialog::SHORTCUT_OVERRIDES_PREF_KEY,
             TOOL_ORDER_PREF_KEY,
         ],
@@ -273,6 +277,9 @@ fn main() -> ExitCode {
     let initial_system_settings_pref = startup_preferences.get(SYSTEM_SETTINGS_PREF_KEY).cloned();
     let initial_monitor_settings_pref = startup_preferences
         .get(ramag_ui::MONITOR_SETTINGS_PREF_KEY)
+        .cloned();
+    let initial_monitor_presentation_pref = startup_preferences
+        .get(ramag_ui::MONITOR_PRESENTATION_SETTINGS_PREF_KEY)
         .cloned();
     let initial_shortcut_overrides = startup_preferences
         .get(ramag_ui::shortcuts_dialog::SHORTCUT_OVERRIDES_PREF_KEY)
@@ -359,6 +366,9 @@ fn main() -> ExitCode {
         }
         if let Err(error) = ramag_ui::init_monitor_settings(initial_monitor_settings_pref.as_deref(), cx) {
             warn!(operation = "monitor_settings_load", error, "ignore invalid monitor settings");
+        }
+        if let Err(error) = ramag_ui::init_monitor_presentation_settings(initial_monitor_presentation_pref.as_deref(), cx) {
+            warn!(operation = "monitor_presentation_settings_load", error, "ignore invalid monitor presentation settings");
         }
         if let Err(error) =
             init_database_result_settings(initial_database_result_pref.as_deref(), cx)

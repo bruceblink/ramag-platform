@@ -174,6 +174,10 @@ mkdir -p "$APP/Contents/Resources"
 cp "$BIN_PATH" "$APP/Contents/MacOS/Ramag"
 cp "$ICNS" "$APP/Contents/Resources/ramag.icns"
 cp "$REPO_DIR/LICENSE" "$APP/Contents/Resources/LICENSE"
+mkdir -p "$APP/Contents/Resources/system-pulse"
+cp "$REPO_DIR/crates/ramag-infra-system/COPYING" "$APP/Contents/Resources/system-pulse/COPYING"
+cp "$REPO_DIR/crates/ramag-infra-system/SOURCE.md" "$APP/Contents/Resources/system-pulse/SOURCE.md"
+cp "$REPO_DIR/crates/ramag-infra-system/src/apple/NOTICE.md" "$APP/Contents/Resources/system-pulse/APPLE-NOTICE.md"
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
