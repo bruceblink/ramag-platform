@@ -1,7 +1,7 @@
 # System Pulse 优点吸收与差距矩阵
 
-> 状态：差距已核对，按独立切片实施
-> 日期：2026-10-01
+> 状态：完整源码迁入方案已于 2026-10-02 确认并正在实施；以下旧视图差距记录保留供追溯，不作为迁入后的完成证据
+> 日期：2026-10-02
 > 参考提交：`f1be5d51d24c21fa8c740be79200bdda3df3a00c`
 > 专项设计：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
 > 验收标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
@@ -234,3 +234,13 @@ Ramag 使用 `cargo build --locked -p ramag-bin --example ui-preview` 后的隔�
 ### 2026-10-02 `A-PULSE-GAP-10` 采样读数视图补齐
 
 System Pulse Settings 的 Sampling 分区实际显示当前周期的大号数值、`seconds between readings` 单位、较短周期的 CPU 影响说明和自动保存提示。Ramag 原系统监控 Settings 只有 `0.5s/1s/2s/5s` 四个按钮，当前周期只能从页头刷新文字间接判断。本补充切片将这四项信息放入同一采样面板，读数直接来自 `SystemMonitor::refresh_interval()`，并在 `360x640`、`1024x768`、`1440x900` 和明暗主题下检查按钮与说明仍可见。采样更新、持久化和跨页面同步不在本次代码范围内。
+
+### 2026-10-02 Summary 逐区域视觉对齐设计
+
+用户要求以本地 System Pulse 源码和真实运行结果逐页对齐，进程键盘增强后置。本轮按已确认的 `A-PULSE-GAP-03` 范围，先完成截图标出的 Summary 区域，再进入详细页。每项通过匹配测试、Computer Use、最终 fmt/Clippy 后独立提交推送。
+
+1. `03D-Summary-Visual`：采用参考程序的中性背景、领域配色、Michroma 标题和数字字体；首排量表固定 245px，CPU 图与进程表按剩余宽度分配，窄窗口换行。量表改为 30 段，温度取全部真实温度传感器中最高的当前有限值；逻辑核心信息置于 CPU 概览下，进程表显示列头、总数和八行交替背景。内存增加分段量表；Summary 趋势使用顶部左对齐量程、顶部右侧历史时长、细密网格、缺口独立面积填充和末值标记，消除宽轴标签预留。磁盘、网络、GPU 卡片的标题、主值、设备、趋势和图例与参考顺序一致。
+2. `03E-Summary-Energy`：补上第三张 Energy 卡，沿用详细页的稳定传感器选择，保留零值、缺失、失败和过期状态，不能加总不同范围的功率。
+3. `03F-Summary-Thermals`：补齐温度卡和三加二/宽屏五卡布局，采用真实所选温度来源和动态摄氏范围。
+
+验收使用明暗主题及 `360x640`、`1024x768`、`1440x900` headless 区域/交互检查，并通过 Computer Use 分别观察参考程序和刚构建的 Ramag 真实窗口，核对 Summary 首排、内存、底部卡片及详情入口。保留原生 `960x640` 最小窗口尺寸；小尺寸 headless 只检查布局退化，不代表原生允许缩到该尺寸。启动新 System Pulse 前关闭旧实例并核对数量。Docker 服务、镜像、端口和清理均不适用。

@@ -31,6 +31,7 @@ pub fn init_theme(preference: Option<&str>, cx: &mut App) {
 }
 
 pub fn apply_theme(mode: Mode, cx: &mut App) {
+    crate::assets::register_monitor_font(cx);
     match mode {
         Mode::Dark => {
             Theme::change(ThemeMode::Dark, None, cx);

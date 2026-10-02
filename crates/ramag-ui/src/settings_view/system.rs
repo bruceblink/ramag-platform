@@ -8,7 +8,7 @@ use gpui_kit::{
     div, prelude::*,
 };
 
-use super::{SettingsView, pages::settings_card};
+use super::{SettingsView, pages::pulse_settings_card};
 use crate::{
     InterfaceFont, InterfaceTextSize, NumericFont, ScrollbarVisibility, SystemSettings,
     theme::{Mode, current_mode, set_theme_preference},
@@ -111,79 +111,78 @@ pub(super) fn system_settings_panel(
     } else {
         "当前平台尚未完成托盘驻留验证。"
     };
-    v_flex()
-        .w_full()
-        .min_w_0()
-        .gap_4()
+    let appearance_card = pulse_settings_card("Appearance", theme)
+        .flex_basis(gpui_kit::px(460.0))
+        .flex_grow(1.0)
+        .child(setting_row(
+            "settings-theme-row",
+            "Theme",
+            "应用于全部工具和设置面板。",
+            themes,
+            theme,
+        ))
+        .child(setting_row(
+            "settings-text-size-row",
+            "Interface size",
+            "统一调整界面文字；代码和终端保留各自的等宽字体设置。",
+            sizes,
+            theme,
+        ))
+        .child(setting_row(
+            "settings-interface-font-row",
+            "Interface font",
+            "应用于页面标题、导航和普通文本。",
+            interface_fonts,
+            theme,
+        ))
+        .child(setting_row(
+            "settings-numeric-font-row",
+            "Numeric font",
+            "应用于指标、单位和等宽数据，保持数字对齐。",
+            numeric_fonts,
+            theme,
+        ))
+        .child(setting_row(
+            "settings-scrollbar-row",
+            "Scrollbar",
+            "控制可滚动区域的显示方式，推荐始终显示。",
+            scrollbars,
+            theme,
+        ))
         .child(
-            settings_card("外观与交互", theme.border)
-                .child(setting_row(
-                    "settings-theme-row",
-                    "主题",
-                    "应用于全部工具和设置面板。",
-                    themes,
-                    theme,
-                ))
-                .child(setting_row(
-                    "settings-text-size-row",
-                    "界面字号",
-                    "统一调整界面文字；代码和终端保留各自的等宽字体设置。",
-                    sizes,
-                    theme,
-                ))
-                .child(setting_row(
-                    "settings-interface-font-row",
-                    "界面字体",
-                    "应用于页面标题、导航和普通文本。",
-                    interface_fonts,
-                    theme,
-                ))
-                .child(setting_row(
-                    "settings-numeric-font-row",
-                    "数值字体",
-                    "应用于指标、单位和等宽数据，保持数字对齐。",
-                    numeric_fonts,
-                    theme,
-                ))
-                .child(setting_row(
-                    "settings-scrollbar-row",
-                    "滚动条",
-                    "控制可滚动区域的显示方式，推荐始终显示。",
-                    scrollbars,
-                    theme,
-                ))
+            v_flex()
+                .id("settings-typography-preview")
+                .debug_selector(|| "settings-typography-preview".into())
+                .w_full()
+                .min_w_0()
+                .gap_2()
+                .p_3()
+                .border_l_2()
+                .border_color(theme.accent)
+                .bg(theme.background)
                 .child(
-                    v_flex()
-                        .id("settings-typography-preview")
-                        .debug_selector(|| "settings-typography-preview".into())
-                        .w_full()
-                        .min_w_0()
-                        .gap_2()
-                        .p_3()
-                        .border_l_2()
-                        .border_color(theme.accent)
-                        .bg(theme.background)
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(theme.muted_foreground)
-                                .child("排版预览"),
-                        )
-                        .child(
-                            div()
-                                .font_family(theme.font_family.clone())
-                                .child("The quick brown fox jumps over the lazy dog."),
-                        )
-                        .child(
-                            div()
-                                .font_family(theme.mono_font_family.clone())
-                                .text_lg()
-                                .text_color(theme.accent)
-                                .child("0123456789 · 64.2 % · 8.5 GiB"),
-                        ),
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("Typography preview"),
+                )
+                .child(
+                    div()
+                        .font_family(theme.font_family.clone())
+                        .child("The quick brown fox jumps over the lazy dog."),
+                )
+                .child(
+                    div()
+                        .font_family(theme.mono_font_family.clone())
+                        .text_lg()
+                        .text_color(theme.accent)
+                        .child("0123456789 · 64.2 % · 8.5 GiB"),
                 ),
-        )
-        .child(settings_card("窗口行为", theme.border).child(setting_row(
+        );
+    let window_card = pulse_settings_card("Window behavior", theme)
+        .flex_basis(gpui_kit::px(300.0))
+        .flex_grow(1.0)
+        .child(setting_row(
             "settings-tray-row",
             "关闭时最小化到托盘",
             tray_description,
@@ -194,10 +193,19 @@ pub(super) fn system_settings_panel(
                         let mut next = crate::system_settings(cx);
                         next.minimize_to_tray = *value;
                         crate::save_system_settings(next, cx);
-                    }).into_any_element()
+                    })
+                    .into_any_element(),
             ],
             theme,
-        )))
+        ));
+    h_flex()
+        .w_full()
+        .min_w_0()
+        .flex_wrap()
+        .items_stretch()
+        .gap_3()
+        .child(appearance_card)
+        .child(window_card)
         .into_any_element()
 }
 

@@ -7,6 +7,7 @@
 > 主线入口：[`02-development-roadmap.md`](02-development-roadmap.md)
 > 系统监控专项：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
 > System Pulse 差距矩阵：[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)
+> 2026-10-02 系统监控完整源码迁入方案已获用户确认，见[完整源码迁入方案](03-system-pulse-adoption-plan.md#2026-10-02-完整源码迁入方案)。系统监控采用来源实际程序逐页验收，优先于本文仅吸收原则、不复制资源的旧边界；其他工具仍按领域工作区验收。
 
 ## 术语表与命名约定
 

@@ -8,6 +8,7 @@
 > System Pulse 差距与执行顺序：[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)
 > 统一 UI 标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 历史执行记录：[`archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md`](archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md)
+> 2026-10-02 系统监控路线调整：暂停旧视图增量对齐；[完整源码迁入方案](03-system-pulse-adoption-plan.md#2026-10-02-完整源码迁入方案待确认)待确认，确认后优先执行，原记录不代表完整迁入已通过。
 
 ## 术语表与命名约定
 

@@ -12,8 +12,20 @@ struct PreviousProcess {
 fn cached_pid_requires_reset(known_ticks: Option<u64>, current_ticks: Option<u64>) -> bool {
     match (known_ticks, current_ticks) {
         (Some(known), Some(current)) => known != current,
-        _ => true,
+        // An inaccessible process cannot prove that its PID changed.
+        _ => false,
     }
+}
+
+fn process_cache_requires_reset(
+    cached: &BTreeMap<u32, u64>,
+    current: &BTreeMap<u32, PreviousProcess>,
+    pids: impl IntoIterator<Item = u32>,
+) -> bool {
+    pids.into_iter().any(|pid| {
+        let current_ticks = current.get(&pid).map(|process| process.native_ticks);
+        cached_pid_requires_reset(cached.get(&pid).copied(), current_ticks)
+    })
 }
 
 pub(super) struct ProcessIdentitySnapshot {
@@ -21,22 +33,40 @@ pub(super) struct ProcessIdentitySnapshot {
     pub(super) cache_reset: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ProcessIdentityState {
+    Stable(u64),
+    Unavailable(&'static str),
+}
+
 fn stable_process_identity(
     before: Option<PreviousProcess>,
     after: Option<(u64, u64)>,
     sysinfo_start: u64,
     cache_reset: bool,
-) -> Option<u64> {
-    let before = before?;
-    let (native_after, unix_after) = after?;
+) -> ProcessIdentityState {
+    let Some((native_after, unix_after)) = after else {
+        return ProcessIdentityState::Unavailable("native process identity is unavailable");
+    };
+    let Some(before) = before else {
+        return ProcessIdentityState::Unavailable("waiting for a second identity observation");
+    };
     if before.native_ticks != native_after
         || before.unix_seconds != unix_after
         || (!cache_reset && before.sysinfo_seconds != sysinfo_start)
         || unix_after != sysinfo_start
     {
-        return None;
+        return ProcessIdentityState::Unavailable(
+            "process identity changed during the sysinfo refresh",
+        );
     }
-    Some(native_after)
+    ProcessIdentityState::Stable(native_after)
+}
+
+fn invalidate_process_counter(counters: &mut Counters, key: &str, reason: &str) {
+    let _ = counters.derive(key, Err(reason.to_owned()), |_a, _b, _elapsed| {
+        unreachable!("failed observations do not invoke the counter formula")
+    });
 }
 
 impl HostCollector {
@@ -63,15 +93,14 @@ impl HostCollector {
                 )
             })
             .collect();
-        let cache_reset = self.process_system.processes().keys().any(|pid| {
-            let current = previous
-                .get(&pid.as_u32())
-                .map(|process| process.native_ticks);
-            cached_pid_requires_reset(
-                self.portable_process_identities.get(&pid.as_u32()).copied(),
-                current,
-            )
-        });
+        let cache_reset = process_cache_requires_reset(
+            &self.portable_process_identities,
+            &previous,
+            self.process_system
+                .processes()
+                .keys()
+                .map(|pid| pid.as_u32()),
+        );
         if cache_reset {
             self.process_system = sysinfo::System::new();
         }
@@ -81,9 +110,8 @@ impl HostCollector {
         }
     }
 
-    /// Refreshes process metrics and publishes only rows whose exact native identity and
-    /// sysinfo Unix-second start value agree with the pre-refresh process. Unstable PIDs are
-    /// omitted; their metric baselines are pruned by the collector's end-of-capture cleanup.
+    /// Refreshes process metrics and keeps every sysinfo row. Only matching native identities
+    /// receive a nonzero action identity; other rows remain visible and their rates restart.
     pub(super) fn collect_portable_processes(
         &mut self,
         snapshot: &mut Snapshot,
@@ -105,39 +133,57 @@ impl HostCollector {
         let users = sysinfo::Users::new_with_refreshed_list();
         let mut thread_total = Some(0u64);
         let candidate_count = self.process_system.processes().len();
-        let mut observed = BTreeMap::new();
+        let mut observed = self.portable_process_identities.clone();
+        let mut unverified = 0usize;
         for (pid, process) in self.process_system.processes() {
             let process_id = pid.as_u32();
             let native_after =
                 crate::process_control::native_start_time_with_unix_seconds(process_id);
-            let Some(start_time_ticks) = stable_process_identity(
+            let (start_time_ticks, identity_reason) = match stable_process_identity(
                 identity_snapshot.previous.get(&process_id).copied(),
                 native_after,
                 process.start_time(),
                 identity_snapshot.cache_reset,
-            ) else {
-                continue;
+            ) {
+                ProcessIdentityState::Stable(ticks) => {
+                    observed.insert(process_id, ticks);
+                    (ticks, None)
+                }
+                ProcessIdentityState::Unavailable(reason) => {
+                    unverified += 1;
+                    (0, Some(reason))
+                }
             };
-            observed.insert(process_id, start_time_ticks);
             let identity = ProcessIdentity {
                 pid: process_id,
                 start_time_ticks,
             };
             let key = format!("process:{}:{}", identity.pid, identity.start_time_ticks);
             let source = "sysinfo::Process::accumulated_cpu_time (milliseconds)";
-            let cpu_percent = self.counters.derive(
-                &format!("{key}/cpu"),
-                Ok(api_raw(
-                    source,
-                    window,
-                    [("cpu_ms", process.accumulated_cpu_time())],
-                )),
-                |a, b, elapsed| Ok(delta(a, b, "cpu_ms")? as f64 / 10.0 / elapsed),
-            );
+            let cpu_key = format!("{key}/cpu");
+            let cpu_percent = if let Some(reason) = identity_reason {
+                invalidate_process_counter(&mut self.counters, &cpu_key, reason);
+                missing(&cpu_key, Availability::WarmingUp, reason.into())
+            } else {
+                self.counters.derive(
+                    &cpu_key,
+                    Ok(api_raw(
+                        source,
+                        window,
+                        [("cpu_ms", process.accumulated_cpu_time())],
+                    )),
+                    |a, b, elapsed| Ok(delta(a, b, "cpu_ms")? as f64 / 10.0 / elapsed),
+                )
+            };
             let disk = process.disk_usage();
             let mut rate = |suffix: &str, bytes: u64| {
+                let counter_key = format!("{key}/{suffix}");
+                if let Some(reason) = identity_reason {
+                    invalidate_process_counter(&mut self.counters, &counter_key, reason);
+                    return missing(&counter_key, Availability::WarmingUp, reason.into());
+                }
                 self.counters.derive(
-                    &format!("{key}/{suffix}"),
+                    &counter_key,
                     Ok(api_raw(
                         "sysinfo::Process::disk_usage",
                         window,
@@ -192,53 +238,48 @@ impl HostCollector {
                 threads,
             });
         }
+        let live_pids: std::collections::BTreeSet<_> = self
+            .process_system
+            .processes()
+            .keys()
+            .map(|pid| pid.as_u32())
+            .collect();
+        observed.retain(|pid, _| live_pids.contains(pid));
         self.portable_process_identities = observed;
-        let identity_pending = snapshot.processes.len() < candidate_count;
-        let processes = if identity_pending {
-            missing(
-                "cpu:host/processes",
-                Availability::WarmingUp,
-                "Waiting for stable native identities before publishing the process count".into(),
-            )
-        } else {
-            api_integer(
-                "cpu:host/processes",
-                "sysinfo::System::processes",
-                snapshot.processes.len() as u64,
-                window,
-            )
-        };
+        if unverified > 0 {
+            snapshot.diagnostics.push(BackendDiagnostic {
+                backend: "sysinfo-process-identities".into(),
+                availability: Availability::WarmingUp,
+                reason: format!(
+                    "{unverified} enumerated process row(s) have identity 0 and are read-only; process counter rates restart when identity is unavailable"
+                ),
+            });
+        }
+        let processes = api_integer(
+            "cpu:host/processes",
+            "sysinfo::System::processes",
+            candidate_count as u64,
+            window,
+        );
         sensor(
             snapshot,
             ("cpu:host", "processes", "Processes"),
             SensorKind::Counter,
             Unit::Count,
             "sysinfo::System::processes",
-            if identity_pending {
-                "Count waits for stable native identities"
-            } else {
-                "Enumerated processes with stable native identities"
-            },
+            "All enumerated sysinfo processes; rows with identity 0 are read-only",
             processes,
         );
-        let threads = if identity_pending {
-            missing(
-                "cpu:host/threads",
-                Availability::WarmingUp,
-                "Waiting for stable native identities before publishing thread totals".into(),
-            )
-        } else {
-            thread_total.map_or_else(
-                || {
-                    missing(
-                        "cpu:host/threads",
-                        Availability::Unavailable,
-                        "Thread counts are not exposed for all processes by sysinfo".into(),
-                    )
-                },
-                |count| api_integer("cpu:host/threads", "sysinfo::Process::tasks", count, window),
-            )
-        };
+        let threads = thread_total.map_or_else(
+            || {
+                missing(
+                    "cpu:host/threads",
+                    Availability::Unavailable,
+                    "Thread counts are not exposed for all processes by sysinfo".into(),
+                )
+            },
+            |count| api_integer("cpu:host/threads", "sysinfo::Process::tasks", count, window),
+        );
         sensor(
             snapshot,
             ("cpu:host", "threads", "Threads"),
@@ -254,7 +295,11 @@ impl HostCollector {
 
 #[cfg(test)]
 mod tests {
-    use super::{PreviousProcess, cached_pid_requires_reset, stable_process_identity};
+    use super::{
+        PreviousProcess, ProcessIdentityState, cached_pid_requires_reset,
+        process_cache_requires_reset, stable_process_identity,
+    };
+    use std::collections::BTreeMap;
 
     #[test]
     fn reused_pid_or_changed_cached_sysinfo_record_is_rejected() {
@@ -265,27 +310,33 @@ mod tests {
         };
         assert_eq!(
             stable_process_identity(Some(original), Some((700, 42)), 42, false),
-            Some(700)
+            ProcessIdentityState::Stable(700)
         );
         assert_eq!(
             stable_process_identity(Some(original), Some((701, 42)), 42, false),
-            None
+            ProcessIdentityState::Unavailable(
+                "process identity changed during the sysinfo refresh"
+            )
         );
         assert_eq!(
             stable_process_identity(Some(original), Some((700, 42)), 43, false),
-            None
+            ProcessIdentityState::Unavailable(
+                "process identity changed during the sysinfo refresh"
+            )
         );
         assert_eq!(
             stable_process_identity(Some(original), Some((700, 43)), 42, true),
-            None
+            ProcessIdentityState::Unavailable(
+                "process identity changed during the sysinfo refresh"
+            )
         );
         assert_eq!(
             stable_process_identity(None, Some((700, 42)), 42, false),
-            None
+            ProcessIdentityState::Unavailable("waiting for a second identity observation")
         );
         assert_eq!(
             stable_process_identity(Some(original), None, 42, false),
-            None
+            ProcessIdentityState::Unavailable("native process identity is unavailable")
         );
     }
 
@@ -296,8 +347,8 @@ mod tests {
         assert_eq!(old_ticks / 10_000_000, new_ticks / 10_000_000);
         assert!(!cached_pid_requires_reset(Some(old_ticks), Some(old_ticks)));
         assert!(cached_pid_requires_reset(Some(old_ticks), Some(new_ticks)));
-        assert!(cached_pid_requires_reset(Some(old_ticks), None));
-        assert!(cached_pid_requires_reset(None, Some(new_ticks)));
+        assert!(!cached_pid_requires_reset(Some(old_ticks), None));
+        assert!(!cached_pid_requires_reset(None, Some(new_ticks)));
 
         let before_refresh = PreviousProcess {
             native_ticks: new_ticks,
@@ -311,7 +362,47 @@ mod tests {
                 1_700_000_000,
                 true,
             ),
-            Some(new_ticks)
+            ProcessIdentityState::Stable(new_ticks)
+        );
+    }
+
+    #[test]
+    fn inaccessible_identity_does_not_reset_the_process_cache() {
+        assert_eq!(
+            stable_process_identity(None, None, 0, false),
+            ProcessIdentityState::Unavailable("native process identity is unavailable")
+        );
+        assert_eq!(
+            stable_process_identity(None, Some((700, 42)), 42, false),
+            ProcessIdentityState::Unavailable("waiting for a second identity observation")
+        );
+        assert!(!cached_pid_requires_reset(None, None));
+    }
+
+    #[test]
+    fn permanently_inaccessible_pid_does_not_repeatedly_reset_process_cache() {
+        let cached = BTreeMap::from([(77, 700)]);
+        for _ in 0..4 {
+            assert!(!process_cache_requires_reset(
+                &cached,
+                &BTreeMap::new(),
+                [77]
+            ));
+        }
+    }
+
+    #[test]
+    fn zero_identity_is_refused_by_process_control() {
+        let result = crate::process_control::send_signal(
+            &crate::ProcessIdentity {
+                pid: 77,
+                start_time_ticks: 0,
+            },
+            crate::process_control::ProcessSignal::Kill,
+        );
+        assert_eq!(
+            result,
+            Err("The selected process has no verified start identity".into())
         );
     }
 }

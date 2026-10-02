@@ -1,15 +1,33 @@
-//! 本机系统监控与任务管理器工具。
+//! System Pulse's complete monitor hosted inside Ramag's GPUI application.
+//! The source layout is preserved so upstream behavior can be compared directly.
 
-mod monitor;
-mod view;
+mod assets;
+mod controls;
+mod dashboard;
+mod diagnostics;
+#[cfg(test)]
+mod fixture;
+mod layout;
+mod live;
+mod meters;
+#[cfg(test)]
+mod native_tests;
+mod panel;
+mod panel_context;
+mod processes;
+mod screen_charts;
+mod screen_data;
+mod screen_pages;
+mod screen_style;
+mod screen_summary;
+#[cfg(test)]
+mod screen_tests;
+pub mod screens;
+mod settings;
+mod storage;
+pub mod workspace;
 
-pub use monitor::{
-    HISTORY_SECONDS, MAX_VISIBLE_PROCESSES, MonitorSnapshot, ProcessSort, ProcessSortDirection,
-    ReadingStatus, RefreshInterval, SensorSample, StableProcessIdentity, SystemMonitor,
-    TerminateResult,
-};
-pub use ramag_infra_system::Unit as PhysicalUnit;
-pub use view::SystemView;
+pub use screens::ApplicationView as SystemView;
 
 /// Dispatch fixed-operation helpers before GPUI or storage initialization.
 /// The bounded argument list includes the executable; ordinary launches retain
@@ -47,6 +65,9 @@ use ramag_domain::traits::{Tool, ToolMeta};
 
 /// 在主窗口中创建系统工具视图；采集工作由视图内部的后台任务执行。
 pub fn create_system_view(window: &mut Window, cx: &mut App) -> Entity<SystemView> {
+    if let Err(error) = assets::install(cx) {
+        eprintln!("{error}");
+    }
     cx.new(|cx_inner| SystemView::new(window, cx_inner))
 }
 

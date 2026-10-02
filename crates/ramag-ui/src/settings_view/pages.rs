@@ -290,6 +290,32 @@ pub(super) fn settings_card(title: &'static str, border: gpui_kit::Hsla) -> gpui
         )
 }
 
+/// Creates the compact System Pulse-style settings panel used by migrated pages.
+/// The panel keeps the host theme and responsive width while giving the section
+/// title the bundled display font used by the reference Settings screen.
+pub(super) fn pulse_settings_card(
+    title: &'static str,
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::Div {
+    v_flex()
+        .w_full()
+        .min_w_0()
+        .p(px(16.0))
+        .gap(px(12.0))
+        .border_1()
+        .border_color(theme.border.opacity(0.78))
+        .rounded(px(6.0))
+        .bg(theme.secondary)
+        .child(
+            div()
+                .font_family("Michroma")
+                .text_size(px(19.0))
+                .font_weight(gpui_kit::FontWeight::MEDIUM)
+                .text_color(theme.foreground)
+                .child(title),
+        )
+}
+
 fn managed_in_module_card(title: &'static str, cx: &Context<SettingsView>) -> AnyElement {
     let muted = cx.theme().muted_foreground;
     settings_card(title, cx.theme().border)

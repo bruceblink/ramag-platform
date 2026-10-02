@@ -13,10 +13,35 @@ struct LocalAssets;
 #[derive(Default, Clone, Copy)]
 pub struct RamagAssets;
 
+struct MonitorFontLoaded;
+impl gpui_kit::Global for MonitorFontLoaded {}
+
+/// Registers the small bundled monitor heading font once per app, including isolated previews.
+/// Its OFL notice is embedded alongside the font so packaged builds retain the license.
+pub(crate) fn register_monitor_font(cx: &mut gpui_kit::App) {
+    if cx.try_global::<MonitorFontLoaded>().is_some() {
+        return;
+    }
+    let result = cx
+        .text_system()
+        .add_fonts(vec![Cow::Borrowed(include_bytes!(
+            "../assets/Michroma-Regular.ttf"
+        ))]);
+    if let Err(error) = result {
+        tracing::warn!(%error, "monitor heading font could not be loaded");
+    }
+    cx.set_global(MonitorFontLoaded);
+}
+
 impl AssetSource for RamagAssets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
         if path.is_empty() {
             return Ok(None);
+        }
+        if path == "fonts/Michroma-OFL.txt" {
+            return Ok(Some(Cow::Borrowed(include_bytes!(
+                "../assets/Michroma-OFL.txt"
+            ))));
         }
         if let Some(file) = LocalAssets::get(path) {
             return Ok(Some(file.data));

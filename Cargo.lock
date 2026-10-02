@@ -8973,6 +8973,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ramag-system-model"
+version = "0.4.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ramag-terminal"
 version = "0.4.0"
 dependencies = [
@@ -9217,7 +9225,11 @@ dependencies = [
  "parking_lot",
  "ramag-domain",
  "ramag-infra-system",
+ "ramag-system-model",
  "ramag-ui",
+ "serde",
+ "serde_json",
+ "smol",
 ]
 
 [[package]]

@@ -5,8 +5,9 @@ use ramag_ui::SystemSettings;
 
 // Keep the native window large enough for the monitor shell and its responsive
 // page content; smaller layouts remain covered by headless component tests.
-const MAIN_WINDOW_MIN_WIDTH: f32 = 960.0;
-const MAIN_WINDOW_MIN_HEIGHT: f32 = 640.0;
+// Preserve Pulse's 960x640 content area after Ramag's 48px rail and 32px header.
+const MAIN_WINDOW_MIN_WIDTH: f32 = 1008.0;
+const MAIN_WINDOW_MIN_HEIGHT: f32 = 672.0;
 
 /// 主窗口重建时复用的依赖。
 #[derive(Clone)]
@@ -436,7 +437,7 @@ mod tests {
 
     #[test]
     fn main_window_minimum_matches_compact_ui_acceptance_size() {
-        assert_eq!(MAIN_WINDOW_MIN_WIDTH, 960.0);
-        assert_eq!(MAIN_WINDOW_MIN_HEIGHT, 640.0);
+        assert_eq!(MAIN_WINDOW_MIN_WIDTH, 1008.0);
+        assert_eq!(MAIN_WINDOW_MIN_HEIGHT, 672.0);
     }
 }

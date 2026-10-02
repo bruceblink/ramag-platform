@@ -1,0 +1,441 @@
+//! Appearance, sampling, and preset controls.
+use crate::controls::{self, FocusEntry};
+use crate::screen_style::{self, heading, palette, section};
+use crate::workspace::{Command, Shared};
+use gpui_kit::base::{Button, ElementExt, Scrollbar, ScrollbarMode};
+use gpui_kit::component::Theme;
+use gpui_kit::prelude::FluentBuilder;
+use gpui_kit::*;
+use std::collections::BTreeMap;
+use system_pulse_model::{Appearance, ColorTheme, NumericFont, UiFont};
+
+pub(crate) fn apply(appearance: Appearance, window: &mut Window, cx: &mut App) {
+    let theme = Theme::global_mut(cx);
+    theme.font_family = appearance.ui_font.family().into();
+    theme.mono_font_family = appearance.numeric_font.family().into();
+    Theme::sync_base(cx);
+    window.refresh();
+}
+
+/// Apply a saved user choice through the host theme API; initialization only applies fonts.
+pub(crate) fn apply_user_choice(appearance: Appearance, window: &mut Window, cx: &mut App) {
+    let mode = match appearance.theme {
+        ColorTheme::Dark => ramag_ui::theme::Mode::Dark,
+        ColorTheme::Light => ramag_ui::theme::Mode::Light,
+    };
+    ramag_ui::theme::apply_theme(mode, cx);
+    apply(appearance, window, cx);
+}
+
+pub(crate) struct SettingsPanel {
+    shared: Shared,
+    scroll: ScrollHandle,
+    controls: BTreeMap<&'static str, FocusEntry>,
+    pub(crate) presets: Option<Entity<crate::workspace::presets::PresetManager>>,
+}
+impl SettingsPanel {
+    pub(crate) fn new(shared: Shared, cx: &mut App) -> Self {
+        let controls = [
+            "settings-dark",
+            "settings-light",
+            "settings-inter",
+            "settings-plex-sans",
+            "settings-jetbrains",
+            "settings-plex-mono",
+            "settings-500",
+            "settings-1000",
+            "settings-2000",
+            "settings-5000",
+        ]
+        .into_iter()
+        .map(|id| (id, FocusEntry::new(cx)))
+        .collect();
+        Self {
+            shared,
+            scroll: ScrollHandle::default(),
+            controls,
+            presets: None,
+        }
+    }
+
+    pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
+        if let Some(presets) = &self.presets {
+            presets.update(cx, |_, cx| cx.notify());
+        }
+        cx.notify();
+    }
+
+    fn choice(
+        &self,
+        id: &'static str,
+        label: impl Into<SharedString>,
+        selected: bool,
+        command: Command,
+        cx: &App,
+    ) -> Button {
+        let target = self.shared.borrow().owner.clone();
+        let outer = self.shared.borrow().scroll.clone();
+        let inner = self.scroll.clone();
+        let focus = self.controls[id].clone();
+        let label = label.into();
+        let colors = palette(cx);
+        let accent = screen_style::accent(system_pulse_model::Screen::Settings, cx);
+        let ring = accent;
+        Button::new(id)
+            .accessibility_label(label.clone())
+            .track_focus(&focus.handle)
+            .aria_toggled(if selected {
+                gpui_kit::accesskit::Toggled::True
+            } else {
+                gpui_kit::accesskit::Toggled::False
+            })
+            .h_9()
+            .px_3()
+            .flex()
+            .items_center()
+            .justify_center()
+            .gap_2()
+            .min_w(px(64.))
+            .border_1()
+            .rounded(px(6.))
+            .border_color(if selected { accent } else { colors.border })
+            .bg(if selected {
+                colors.selected
+            } else {
+                colors.raised
+            })
+            .text_color(if selected { accent } else { colors.text })
+            .hover(move |style| style.border_color(accent))
+            .focus_visible(move |style| style.border_color(ring))
+            .debug_selector(move || id.into())
+            .on_click(move |_, window, cx| {
+                if let Some(owner) = &target {
+                    let _ =
+                        owner.update(cx, |owner, cx| owner.command(command.clone(), window, cx));
+                }
+            })
+            .on_prepaint(move |mut bounds, window, _| {
+                if focus.entered(window) {
+                    bounds = bounds.dilate(px(1.));
+                    bounds.origin += controls::reveal(bounds, &inner);
+                    controls::reveal(bounds, &outer);
+                    window.refresh();
+                }
+            })
+            .child(label)
+    }
+}
+
+impl Render for SettingsPanel {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.presets.is_none() {
+            self.presets = Some(cx.new(|_| {
+                crate::workspace::presets::PresetManager::new(
+                    self.shared.clone(),
+                    self.scroll.clone(),
+                )
+            }));
+        }
+        let appearance = self.shared.borrow().session.workspace.appearance;
+        let interval = self.shared.borrow().session.workspace.interval_ms;
+        let colors = palette(cx);
+        let accent = screen_style::accent(system_pulse_model::Screen::Settings, cx);
+        let appearance_panel = section(cx)
+            .id("settings-appearance-panel")
+            .debug_selector(|| "settings-appearance-panel".into())
+            .flex_basis(px(460.))
+            .flex_grow(1.)
+            .p_4()
+            .gap_4()
+            .child(heading("Appearance", 22., cx))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .child(div().text_sm().text_color(colors.muted).child("Theme"))
+                    .child(
+                        div().flex().flex_wrap().gap_2().children(
+                            [
+                                ("settings-dark", "Dark", ColorTheme::Dark),
+                                ("settings-light", "Light", ColorTheme::Light),
+                            ]
+                            .into_iter()
+                            .map(|(id, label, theme)| {
+                                self.choice(
+                                    id,
+                                    label,
+                                    appearance.theme == theme,
+                                    Command::Appearance(Appearance {
+                                        theme,
+                                        ..appearance
+                                    }),
+                                    cx,
+                                )
+                            }),
+                        ),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .gap_4()
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(colors.muted)
+                                    .child("Interface font"),
+                            )
+                            .child(
+                                div().flex().flex_wrap().gap_2().children(
+                                    [
+                                        ("settings-inter", UiFont::Inter),
+                                        ("settings-plex-sans", UiFont::IbmPlexSans),
+                                    ]
+                                    .into_iter()
+                                    .map(|(id, ui_font)| {
+                                        self.choice(
+                                            id,
+                                            ui_font.label(),
+                                            appearance.ui_font == ui_font,
+                                            Command::Appearance(Appearance {
+                                                ui_font,
+                                                ..appearance
+                                            }),
+                                            cx,
+                                        )
+                                    }),
+                                ),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(colors.muted)
+                                    .child("Numeric font"),
+                            )
+                            .child(
+                                div().flex().flex_wrap().gap_2().children(
+                                    [
+                                        ("settings-jetbrains", NumericFont::JetbrainsMono),
+                                        ("settings-plex-mono", NumericFont::IbmPlexMono),
+                                    ]
+                                    .into_iter()
+                                    .map(
+                                        |(id, numeric_font)| {
+                                            self.choice(
+                                                id,
+                                                numeric_font.family(),
+                                                appearance.numeric_font == numeric_font,
+                                                Command::Appearance(Appearance {
+                                                    numeric_font,
+                                                    ..appearance
+                                                }),
+                                                cx,
+                                            )
+                                        },
+                                    ),
+                                ),
+                            ),
+                    ),
+            )
+            .child(
+                div()
+                    .p_3()
+                    .rounded(px(6.))
+                    .bg(colors.background)
+                    .border_l_2()
+                    .border_color(accent)
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(colors.muted)
+                            .child("Typography preview"),
+                    )
+                    .child("The quick brown fox jumps over the lazy dog.")
+                    .child(
+                        div()
+                            .text_size(px(22.))
+                            .font_family(appearance.numeric_font.family())
+                            .text_color(accent)
+                            .child("0123456789 · 64.2 % · 8.5 GiB"),
+                    ),
+            );
+        let sampling_panel = section(cx)
+            .id("settings-sampling-panel")
+            .debug_selector(|| "settings-sampling-panel".into())
+            .flex_basis(px(300.))
+            .flex_grow(1.)
+            .p_4()
+            .gap_4()
+            .child(heading("Sampling", 22., cx))
+            .child(
+                div()
+                    .flex()
+                    .items_baseline()
+                    .gap_2()
+                    .child(
+                        div()
+                            .font_family(appearance.numeric_font.family())
+                            .text_size(px(36.))
+                            .text_color(accent)
+                            .child(format!("{:.1}", interval as f64 / 1000.)),
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(colors.muted)
+                            .child("seconds between readings"),
+                    ),
+            )
+            .child(
+                div().flex().flex_wrap().gap_2().children(
+                    [
+                        ("settings-500", 500, "0.5 s"),
+                        ("settings-1000", 1000, "1 s"),
+                        ("settings-2000", 2000, "2 s"),
+                        ("settings-5000", 5000, "5 s"),
+                    ]
+                    .into_iter()
+                    .map(|(id, ms, label)| {
+                        self.choice(id, label, interval == ms, Command::Interval(ms), cx)
+                    }),
+                ),
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(colors.muted)
+                    .child("Shorter intervals update more often and use more CPU."),
+            )
+            .child(
+                div()
+                    .mt_auto()
+                    .pt_3()
+                    .border_t_1()
+                    .border_color(colors.border)
+                    .text_sm()
+                    .text_color(colors.muted)
+                    .child("Changes apply immediately and save automatically."),
+            );
+        let content = div()
+            .flex()
+            .flex_col()
+            .gap_3()
+            .p_1()
+            .pr_3()
+            .text_color(colors.text)
+            .child(
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .gap_3()
+                    .items_stretch()
+                    .child(appearance_panel)
+                    .child(sampling_panel),
+            )
+            .when_some(self.presets.clone(), |view, presets| view.child(presets));
+        div()
+            .size_full()
+            .relative()
+            .child(
+                crate::workspace::scroll_viewport("settings-scroll", "settings:viewport".into())
+                    .size_full()
+                    .overflow_y_scroll()
+                    .track_scroll(&self.scroll)
+                    .child(content),
+            )
+            .child(Scrollbar::vertical(&self.scroll).mode(ScrollbarMode::Always))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Appearance, ColorTheme, NumericFont, UiFont};
+    use crate::native_tests::{draw, settings_harness};
+    use crate::workspace::Command;
+    use gpui_kit::component::{ActiveTheme, ThemeMode};
+    use gpui_kit::{Modifiers, TestAppContext};
+
+    #[gpui_kit::test]
+    fn choices_apply_theme_and_fonts_restore_and_reveal_keyboard_focus(cx: &mut TestAppContext) {
+        let (view, settings, cx) = settings_harness(cx);
+        for id in [
+            "settings-light",
+            "settings-plex-sans",
+            "settings-plex-mono",
+            "settings-5000",
+        ] {
+            cx.update(|window, cx| {
+                settings.read(cx).controls[id]
+                    .handle
+                    .clone()
+                    .focus(window, cx)
+            });
+            draw(cx);
+            let bounds = cx.debug_bounds(id).unwrap();
+            let viewport = cx.read(|cx| settings.read(cx).scroll.bounds());
+            assert!(
+                bounds.top() >= viewport.top() && bounds.bottom() <= viewport.bottom(),
+                "{id} must be visible after keyboard focus"
+            );
+            cx.simulate_click(bounds.center(), Modifiers::none());
+            draw(cx);
+        }
+        let expected = Appearance {
+            theme: ColorTheme::Light,
+            ui_font: UiFont::IbmPlexSans,
+            numeric_font: NumericFont::IbmPlexMono,
+        };
+        cx.read(|cx| {
+            let data = view.read(cx).shared.borrow();
+            assert_eq!(data.session.workspace.appearance, expected);
+            assert_eq!(data.session.workspace.interval_ms, 5000);
+            assert_eq!(cx.theme().mode, ThemeMode::Light);
+            assert_eq!(cx.theme().font_family.as_ref(), "IBM Plex Sans");
+            assert_eq!(cx.theme().mono_font_family.as_ref(), "IBM Plex Mono");
+        });
+        let raw = cx.read(|cx| {
+            view.read(cx)
+                .shared
+                .borrow()
+                .session
+                .autosave_json()
+                .unwrap()
+        });
+        cx.update(|window, cx| {
+            view.update(cx, |view, cx| {
+                view.command(Command::Appearance(Appearance::default()), window, cx)
+            })
+        });
+        assert_eq!(cx.read(|cx| cx.theme().mode), ThemeMode::Dark);
+        cx.update(|window, cx| view.update(cx, |view, cx| view.restore(&raw, window, cx)));
+        draw(cx);
+        assert_eq!(
+            cx.read(|cx| view.read(cx).shared.borrow().session.workspace.appearance),
+            expected
+        );
+        assert_eq!(
+            cx.read(|cx| ramag_ui::theme::current_mode(cx)),
+            ramag_ui::theme::Mode::Light
+        );
+        assert_eq!(
+            cx.read(|cx| cx.theme().mono_font_family.to_string()),
+            "IBM Plex Mono"
+        );
+    }
+}

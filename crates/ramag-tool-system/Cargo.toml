@@ -15,6 +15,10 @@ ramag-ui = { workspace = true }
 gpui-kit = { workspace = true }
 parking_lot = { workspace = true }
 ramag-infra-system = { workspace = true }
+system-pulse-model = { package = "ramag-system-model", path = "../ramag-system-model" }
+serde.workspace = true
+serde_json.workspace = true
+smol = "2"
 
 [dev-dependencies]
 gpui-kit = { workspace = true, features = ["test-support"] }

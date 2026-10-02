@@ -113,7 +113,7 @@ fn common_backend_exposes_host_memory_and_real_process_identity()
 }
 
 #[test]
-fn process_count_waits_for_native_identity_warmup_instead_of_reporting_zero() {
+fn process_count_reports_enumerated_rows_without_waiting_for_native_identity() {
     if !sysinfo::IS_SUPPORTED_SYSTEM {
         return;
     }
@@ -129,14 +129,11 @@ fn process_count_waits_for_native_identity_warmup_instead_of_reporting_zero() {
         .find(|reading| reading.sensor_id == "cpu:host/processes");
     assert!(count.is_some());
     let Some(count) = count else { return };
-    assert_eq!(count.value, None);
-    assert_eq!(count.availability, Availability::WarmingUp);
-    assert!(
-        count
-            .reason
-            .as_deref()
-            .is_some_and(|reason| reason.contains("identit"))
+    assert_eq!(
+        count.value,
+        Some(collector.process_system.processes().len() as f64)
     );
+    assert_eq!(count.availability, Availability::Available);
 }
 
 #[test]

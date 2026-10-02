@@ -37,6 +37,7 @@ members = [
     "crates/ramag-tool-container",
     "crates/ramag-tool-system",
     "crates/ramag-infra-system",
+    "crates/ramag-system-model",
     "crates/ramag-tool-json-path",
     "crates/ramag-tool-collaboration",
     "crates/ramag-tool-json-path-wasm",
