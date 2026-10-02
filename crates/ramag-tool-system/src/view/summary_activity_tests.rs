@@ -134,6 +134,19 @@ pub(crate) fn activity_snapshot() -> MonitorSnapshot {
             ]),
         );
     }
+    for (id, usage) in [("gpu-a", 0.0), ("gpu-b", 78.0)] {
+        sensors.push(sensor(
+            id,
+            "usage",
+            SensorKind::Percentage,
+            Unit::Percent,
+            Some(100.0),
+        ));
+        histories.insert(
+            format!("{id}/usage"),
+            VecDeque::from([sample(10.0, usage / 2.0, None), sample(11.0, usage, None)]),
+        );
+    }
     MonitorSnapshot {
         host: Snapshot {
             monitors: vec![
@@ -162,6 +175,7 @@ pub(crate) fn activity_snapshot() -> MonitorSnapshot {
                     "network-b/rx",
                 ),
                 monitor("gpu-a", "Graphics", MonitorKind::Gpu, "gpu-a/usage"),
+                monitor("gpu-b", "Graphics B", MonitorKind::Gpu, "gpu-b/usage"),
             ],
             sensors,
             preferred_network_monitor_id: Some("network-b".into()),
@@ -450,7 +464,14 @@ fn activity_cards_follow_device_selection_preserve_gaps_and_navigate(cx: &mut Te
             .is_some()
     );
     assert!(visual.debug_bounds("system-summary-open-network").is_some());
-    assert!(visual.debug_bounds("system-subsystem-gpu").is_some());
+    assert!(visual.debug_bounds("system-summary-gpu-gpu-a").is_some());
+    assert_eq!(
+        visual
+            .debug_bounds("system-summary-gpu-value")
+            .map(|bounds| bounds.size.width > px(0.0)),
+        Some(true)
+    );
+    assert!(visual.debug_bounds("system-summary-open-gpu").is_some());
     assert!(visual.debug_bounds("system-subsystem-disks").is_none());
     assert!(visual.debug_bounds("system-subsystem-network").is_none());
 
@@ -468,7 +489,7 @@ fn activity_cards_follow_device_selection_preserve_gaps_and_navigate(cx: &mut Te
     });
     visual.run_until_parked();
     let gpu = required!(
-        visual.debug_bounds("system-subsystem-gpu"),
+        visual.debug_bounds("system-summary-open-gpu"),
         "GPU navigation action"
     );
     visual.simulate_click(gpu.center(), gpui_kit::Modifiers::default());

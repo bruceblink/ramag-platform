@@ -11,6 +11,7 @@ use gpui_kit::{
 use ramag_infra_system::{MonitorDescriptor, MonitorKind, SensorDescriptor, SensorKind, Unit};
 
 use super::super::{SystemSection, SystemView, helpers};
+use super::summary_gpu;
 use crate::{MonitorSnapshot, ReadingStatus, SensorSample};
 
 #[derive(Clone, Copy)]
@@ -258,47 +259,8 @@ pub(super) fn render_activity_cards(
     for kind in [ActivityKind::DISK, ActivityKind::NETWORK] {
         cards = cards.child(activity_card(view, snapshot, kind, cx));
     }
-    cards = cards.child(gpu_entry(snapshot, cx));
+    cards = cards.child(summary_gpu::render_activity_card(view, snapshot, cx));
     cards.into_any_element()
-}
-
-fn gpu_entry(snapshot: &MonitorSnapshot, cx: &mut Context<SystemView>) -> AnyElement {
-    // Keep the existing GPU inventory shortcut while disk and network gain real activity charts.
-    let count = snapshot
-        .host
-        .monitors
-        .iter()
-        .filter(|monitor| monitor.kind == MonitorKind::Gpu)
-        .count();
-    let view_entity = cx.entity().clone();
-    ramag_ui::pulse_ui::pulse_panel(cx)
-        .flex_1()
-        .min_w(px(130.0))
-        .debug_selector(|| "system-subsystem-gpu".into())
-        .child(
-            v_flex()
-                .gap(px(4.0))
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
-                        .child("GPU"),
-                )
-                .child(
-                    div()
-                        .text_sm()
-                        .font_weight(gpui_kit::FontWeight::MEDIUM)
-                        .child(if count == 0 {
-                            "不可用".to_owned()
-                        } else {
-                            format!("{count} 个设备")
-                        }),
-                ),
-        )
-        .on_mouse_up(gpui_kit::MouseButton::Left, move |_, _, app| {
-            view_entity.update(app, |view, cx| view.select_section(SystemSection::Gpu, cx));
-        })
-        .into_any_element()
 }
 
 fn activity_card(

@@ -6,6 +6,7 @@ mod processes;
 mod settings;
 mod summary;
 mod summary_activity;
+mod summary_gpu;
 mod summary_metrics;
 mod thermals;
 

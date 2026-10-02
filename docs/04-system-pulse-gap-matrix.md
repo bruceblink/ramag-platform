@@ -152,6 +152,20 @@ Ramag 隔离预览重新构建后在真实窗口回读：CPU、Clock、GPU 量�
 
 本切片完成 Summary 的首屏布局与数据组合对齐，不代表 Energy/Thermals/GPU 详细趋势、宽屏五卡同排或跨平台硬件精度已完成。下一切片先按同一真实窗口流程补齐剩余子系统。
 
+### 2026-10-02 `A-PULSE-GAP-03C` GPU Summary 卡片设计确认
+
+System Pulse 的 Summary 在 GPU 子系统区域显示当前选定 GPU 的利用率和历史趋势，图表固定使用 `0–100%` 百分比范围，并保留进入 GPU 详细页的操作。Ramag 当前只显示 GPU 设备数量，不能在 Summary 直接判断利用率或时间变化。本切片只补 GPU Summary 卡片，不改 GPU 详细页、采集器或设备选择设置。
+
+实现沿用 Summary 已有的稳定 GPU 选择规则：保存的 GPU ID 优先，没有保存值时选首个 GPU；保存的设备消失时继续显示该 ID 和不可用原因，不能静默切换。利用率只读取所选 monitor 的 summary sensor，要求百分比单位和有效的 `0..=100` 值；真实零值保留，预热、失败、过期、缺失和无效值保留状态及原因。历史点沿用采集时间和缺口规则，卡片使用 GPU 领域色、当前读数、`0 %` 与最大值标签，并保留进入详细页的图标按钮。
+
+验收覆盖两个不同 GPU 的选择与回退、有效零值、预热/失败/过期/缺失/非有限和越界值、三种窗口尺寸、明暗主题及 16px/18px 字号。目标测试、workspace fmt、Clippy、源码尺寸、差异/LF 检查通过后，再用 Computer Use 先观察 System Pulse Summary 的 GPU 卡片，再在同尺寸 Ramag 窗口执行同一页签和详细页导航流程。硬件精度、跨平台驱动和 GPU 详细页布局另行记录；Docker 不适用。
+
+### 2026-10-02 `A-PULSE-GAP-03C` GPU Summary 真实窗口验收
+
+Computer Use 先启动并确认只有一个 System Pulse 参考窗口（`1282x912`），Summary 可访问树回读 GPU 读数 `30.0 %`、GPU 历史图 `0.0–100.0 %` 和 GPU 页签。随后启动当前 `ui_preview` 构建并确认只有一个 Ramag 监控窗口（`1271x944`）；同一流程回读 Summary 页签，点击 GPU 页签后出现 `NVIDIA GeForce RTX 3060` 设备入口，再返回 Summary 并滚动到下方子系统区域观察 GPU 卡片。两窗口均由 Computer Use 捕获真实窗口状态，未使用旧安装程序或第二个并行实例。
+
+Ramag 的 GPU Summary 卡片现在显示所选设备、利用率百分比、`0–100%` 纵轴趋势、过期/失败/不可用原因和进入 GPU 详细页的箭头；稳定设备选择、有效零值、越界值、过期值和缺失 ID 由 `summary_gpu_tests` 的 headless 回归覆盖。`ramag-tool-system` 全量 58 项、fmt、workspace Clippy、源码尺寸、`git diff --check` 和 UI preview 构建通过。实际 GPU 硬件精度、跨平台驱动和详细页卡片排布仍未在本切片宣称完成；Docker 不适用。
+
 ### 2026-10-01 `A-PULSE-GAP-03A` 真实运行验收
 
 参考程序以固定提交 `f1be5d51d24c21fa8c740be79200bdda3df3a00c` 在 `F:/project/system-pulse` 本机编译运行，窗口为 `1282x912` 暗色主题。Computer Use 操作磁盘下拉框从 `C:\` 切到 `F:\`，回到 Summary 后仍显示 `F:\`，容量和读写曲线随所选文件系统更新；网络页下拉框显示多个接口，双向曲线和累计值分别保留。参考程序 Summary 在同一窗口观察到磁盘、网络、能耗、GPU、温度子系统组合。
