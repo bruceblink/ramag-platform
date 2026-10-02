@@ -36,8 +36,8 @@
 | Summary 信息组合 | 当前 CPU/内存读数和趋势、Top 进程已接入；GPU/磁盘/网络主要为设备数量入口，Summary 缺少 Energy/Thermals 入口及这些子系统趋势，也缺少上游 CPU 频率/温度、逐逻辑处理器趋势和内存可用/缓存/swap 数值组合 | P1；逐子系统补所选来源的 GPU/磁盘读写/网络 RX/TX/能耗/温度趋势和读数。1440x900 与 1024x768 首屏组合及 360x640 滚动验证，图表保留缺口和时间；Energy 使用命名传感器，不能加总包/组件功率 |
 | 物理单位与曲线量程 | 已有物理单位、时间图表和缺口处理；缺少上游组合量表、悬停传感器/量程说明及图例的逐页核对 | P1 图例/单位/量程先核对，量表表现后续深化；CPU 进程可超过单核 100%，能耗不能推算系统总功率 |
 | 网络默认接口选择 | Linux 快照及 UI 已使用 main-table 默认路由选择，手动选择优先；连接归属字段表达接口地址/TCP 表关联，不代表跨平台默认路由。Windows/macOS 自动选择待核对 | P1 核验；Linux IPv4/IPv6 路由、无默认路由、手动优先、设备移除/恢复均有断言；其他平台独立记录，不静默替换已保存设备 |
-| Energy 单传感器选择 | Energy 页按稳定传感器 ID 选择一个主功率来源，显示选中读数、量表、历史图、来源/范围/单位，并保留全部 measured channels；已保存 ID 缺失时显示不可用原因，不静默切换，也不把包/组件功率相加 | `A-PULSE-GAP-06-Energy` 已完成；Thermals 的最热传感器和平台授权另行验收 |
-| 温度重点信息 | 当前通用传感器网格与 Windows 温度授权入口已接入；缺少单传感器选择及最热当前传感器的突出呈现 | P1；选择与恢复独立验证，另一个传感器被选择或不可用时仍显示最热当前读数；预热/失败/过期不得参与最热值计算 |
+| Energy 单传感器选择 | Energy 页按稳定传感器 ID 选择一个主功率来源，显示选中读数、量表、历史图、来源/范围/单位，并保留全部 measured channels；已保存 ID 缺失时显示不可用原因，不静默切换，也不把包/组件功率相加 | `A-PULSE-GAP-06-Energy` 已完成；真实值随采样变化不作为跨窗口精度比较 |
+| 温度重点信息 | Thermals 页按稳定传感器 ID 选择主温度来源，突出最热当前传感器，显示动态摄氏量程、历史图、全部温度卡片和 Windows CPU 温度授权入口；保存 ID 缺失、过期、失败和不可用状态均保留原因 | `A-PULSE-GAP-06-Thermals` 已完成；Headless 覆盖多状态和多传感器规则，Computer Use 覆盖参考/Ramag 同流程，其他硬件平台与授权成功路径另行验证 |
 | 设备和传感器偏好 | 已持久化设备选择与隐藏传感器；上游不可用传感器自动隐藏，Ramag 原计划保留原因 | 保留 Ramag 的明确不可用原因；可增加“隐藏不可用”偏好，默认不能造成导航跳动；失败/过期仍可辨识 |
 | 键盘与屏幕恢复 | 设备偏好已保存，固定页签可点击；尚未证明方向键/Home/End、Ctrl+Tab 循环及监控上次页面恢复 | P1；真实键盘和 headless 命中测试，焦点可见且不困在表格，恢复不改变业务选择 |
 | 命名监控预设 | `MonitorPresetLibrary` 有版本、名称/数量/字节上限；支持 Default、Minimal、GPU Focus、Developer 内置入口，以及命名预设创建/应用/重命名/覆盖/删除 | 已实现并通过目标测试与真实窗口流程；固定十页结构不写入快照，连接、凭据、历史样本和不可迁移布局仍排除 |
@@ -57,7 +57,7 @@
 4. `A-PULSE-GAP-03`：Summary 子系统真实读数与趋势、CPU/内存信息组合及布局，逐子系统验证来源时间、范围和缺口；当前主线。
 5. `A-PULSE-GAP-04`：自动/手动设备选择优先和上次页面恢复；页签键盘导航后置。
 6. `A-PULSE-GAP-05`：监控预设管理与配置恢复；已完成固定监控工作台快照、内置入口和独立写操作确认；完整跨页面工作区布局仍不进入 Ramag 预设。
-7. `A-PULSE-GAP-06`：Energy/Thermals 单传感器选择、最热当前传感器、平台温和结束与授权结果；各功能独立提交，平台操作分别验证。
+7. `A-PULSE-GAP-06`：Energy/Thermals 单传感器选择、最热当前传感器、动态摄氏量程和授权结果；Energy 与 Thermals 已分别提交并完成本机验收。
 8. `A-PULSE-GAP-07`：服务和历史生命周期、托盘图及宿主恢复。
 9. `A-PULSE-GAP-08`：剩余视觉细节与量表；功能/UI 数据视图对齐之后再实施 `02C` 键盘、页签快捷键、过渡动效和发布性能专项。
 
@@ -173,11 +173,11 @@ Ramag 隔离预览使用 `cargo build --locked -p ramag-bin --example ui-preview
 | Disks | 文件系统下拉选择器、Filesystem used 量表、读写合并趋势和容量说明；Computer Use 已验证 `C:\` 切换 `F:\` 后保持 | 磁盘页签选择器、Filesystem used/read/write/IOPS/latency 卡片；Summary 保持所选磁盘 | 选择、容量和读写来源通过；下拉选择器与合并趋势布局待对齐 |
 | Network | 接口下拉选择器、RX/TX 合并趋势、累计 RX/TX | 接口页签、RX/RX total/TX/TX total/TCP 卡片；Summary 保持所选接口 | 接口和双向数据通过；选择器、趋势和累计值位置待对齐 |
 | Energy | 通过右上设备选择器切换到 `CPU · CPU package power`；主读数、量表和历史图使用该传感器，下面保留 CPU package 与 NVIDIA GPU measured power channels | 通过 Energy 页下拉菜单在 GPU power 与 CPU package power 间切换；主读数、量表、历史图、来源/范围/单位和 measured channels 均随稳定 ID 更新 | `A-PULSE-GAP-06-Energy` 真实窗口功能通过；Ramag 保留工作台壳层和紧凑标题，精确字体/卡片排布留在视觉细节切片 |
-| Thermals | 选定 GPU temperature，突出最热当前传感器、温度量表、历史图和传感器卡；提供 CPU temperature 授权按钮 | CPU temperature、GPU temperature、CPU package temperature 三张卡；不可用字段显示原因 | 当前温度和不可用状态通过；缺少参考的选中/最热信息组合和授权入口 |
+| Thermals | 选定 GPU temperature，突出最热当前传感器、温度量表、历史图和传感器卡；提供 CPU temperature 授权按钮 | CPU temperature、GPU temperature、CPU package temperature 三张卡；选择器、动态摄氏量程、不可用字段原因和授权入口均可见 | `A-PULSE-GAP-06-Thermals` 真实窗口功能通过；不同平台硬件精度和授权成功路径另行验证 |
 | Processes | 搜索框、End task/Force quit、PID/Name/CPU(one core)/Memory/Read I/O/Write I/O/User 列；搜索 `system-pulse` 后保留两个进程 | 搜索框、按 CPU 排序选择器、PID/Name/User/CPU/Memory/Read/Write/操作列；相同搜索后保留两个进程 | 搜索和字段功能通过；操作列更丰富，排序和列顺序仍有视觉/交互差异；键盘行导航按要求后置 |
 | Settings | Appearance（主题、界面字体、数字字体）、Sampling（0.5/1/2/5s）和 Presets（内置预设、命名输入、保存） | 主题、字号、滚动条、界面字体、数值字体、0.5/1/2/5s 采样、采集状态和固定监控预设管理 | `A-PULSE-GAP-05`、`09`、`10` 已通过目标测试和限定真实窗口对照；跨页面可停靠布局仍不适用 |
 
-本轮十页验收的结果是：`03A/03B` 的 Summary 交付范围、`06-Energy` 的主传感器选择、`09-Settings-Appearance` 的字体选择、`10-Settings-Sampling` 的四档采样和 `05` 的固定监控预设管理已通过目标测试与限定真实窗口对照，CPU、Memory、GPU、Disks、Network、Processes、Thermals 的主要数据来源和状态可见；Thermals 的最热传感器组合以及各详细页的精确布局仍保持为未完成项。后续每个切片继续执行“参考窗口操作 -> Ramag 同流程 -> 记录结果”的顺序，不能以静态截图、旧测试或单纯编译成功替代该证据。
+本轮十页验收的结果是：`03A/03B` 的 Summary 交付范围、`06-Energy` 的主传感器选择、`06-Thermals` 的最热/选中温度组合、`09-Settings-Appearance` 的字体选择、`10-Settings-Sampling` 的四档采样和 `05` 的固定监控预设管理已通过目标测试与限定真实窗口对照，CPU、Memory、GPU、Disks、Network、Processes、Thermals 的主要数据来源和状态可见；各详细页的精确布局、跨平台硬件精度和键盘增强仍按矩阵单独记录。后续每个切片继续执行“参考窗口操作 -> Ramag 同流程 -> 记录结果”的顺序，不能以静态截图、旧测试或单纯编译成功替代该证据。
 
 ### 2026-10-02 `A-PULSE-GAP-06-Energy` 单传感器选择验收
 
@@ -208,3 +208,11 @@ System Pulse 参考窗口在 Settings -> Presets 显示 Default、Minimal、GPU 
 随后在两边按同一写操作顺序核对命名预设：Ramag 输入 `Work` 保存，回读列表行和绿色保存状态；点击覆盖后出现确认区域，取消不改变行；点击删除后出现确认区域，取消保留行，确认删除后列表清空并显示结果状态。命名预设使用版本化 `MonitorPresetLibrary`，限制名称、数量和序列化字节数，内置名称不能被自定义预设占用；应用预设只写采样和设备/传感器展示偏好，不写连接、凭据、历史样本或全局外观。
 
 Headless 覆盖库解析/序列化、未知版本、内置名称冲突、创建/应用/覆盖/重命名/删除和确认取消；`cargo test --locked -p ramag-ui monitor_preset --lib -- --test-threads=1` 为 4 项通过，`cargo build --locked -p ramag-bin --example ui-preview` 通过。Computer Use 证据覆盖 System Pulse `1282x912` Settings 与 Ramag `1024x768` 隔离窗口的入口、采样状态、列表和确认流程；隔离预览不证明生产 redb 重启后的实际回读，Ramag 固定页面不能宣称等价于 System Pulse 的可停靠工作区布局。纯本地 UI/偏好切片不使用 Docker；System Pulse 参考进程继续运行。
+
+### 2026-10-02 `A-PULSE-GAP-06-Thermals` 温度选择和实时范围验收
+
+System Pulse 使用固定提交 `f1be5d51d24c21fa8c740be79200bdda3df3a00c` 的 `1282x912` 暗色真实窗口。Computer Use 在 Thermals 页回读 `NVIDIA GeForce RTX 3060 · GPU temperature` 选择器、`Hottest current sensor` 独立读数、温度量表、选中传感器历史图、`Temperature sensors` 卡片和 `Enable CPU temperatures...` 授权入口；温度纵轴按当前历史样本显示约 `40.0–42.0 °C`，没有把摄氏温度固定成 `0–100`。
+
+Ramag 使用 `cargo build --locked -p ramag-bin --example ui-preview` 后的隔离真实窗口，按同一顺序进入 Thermals。页面现在显示设备名和传感器名的选择器，菜单带勾选状态和 `320px` 滚动上限；切换到 `CPU · CPU temperature` 后主传感器保持该稳定 ID 并显示“不可用”及采集原因，同时最热摘要仍显示 GPU 当前温度。点击一次 CPU 温度授权按钮后回读“已请求启用 CPU 温度采集”和按钮状态，没有出现重复帮助程序窗口；CPU 温度仍因本机硬件未暴露而保持不可用。温度量表、主历史图和传感器卡片使用同一有限历史范围，当前零值、负值、非有限值、过期和失败读数不会伪装成实时数值。
+
+实现以 `selected_sensors["thermals"]` 保存选择；无保存 ID 时默认最高的有限 `Current` 摄氏读数，并以稳定 ID 处理并列；保存 ID 消失时保留不可用状态，不静默换选。共享图表增加显式物理范围和有限值过滤，CPU 授权请求增加操作中互斥，传感器菜单支持滚动。`ramag-tool-system` 54 项、`ramag-ui` 131 项、`cargo build --locked -p ramag-bin --example ui-preview`、fmt 和 workspace Clippy `-D warnings` 通过；本地监控/UI 切片不使用 Docker。Headless 覆盖多传感器、零/负值、NaN/Infinity、非 Current 状态、并列和缺失选择；Computer Use 证据覆盖参考窗口和 Ramag 的真实页面、菜单切换、不可用状态及授权入口。不同采样时刻的硬件读数不作数值相等验收，多平台硬件精度和 CPU 授权成功路径仍需在对应主机单独验证。

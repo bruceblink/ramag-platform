@@ -7,11 +7,14 @@ mod settings;
 mod summary;
 mod summary_activity;
 mod summary_metrics;
+mod thermals;
 
 #[cfg(test)]
 pub(crate) use devices::selected_power_sensor;
 #[cfg(test)]
 pub(crate) use energy::displayed_sensor_state;
+#[cfg(test)]
+pub(crate) use thermals::{hottest_current_temperature, selected_thermal_sensor};
 
 use gpui_kit::AnyElement;
 use gpui_kit::{Context, Window};

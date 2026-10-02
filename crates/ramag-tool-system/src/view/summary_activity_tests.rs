@@ -195,6 +195,8 @@ pub(crate) fn test_view(
         termination_focus_requested: false,
         termination_in_progress: false,
         notice: None,
+        #[cfg(target_os = "windows")]
+        cpu_temperature_request_in_flight: false,
         process_search,
         process_table_scroll: gpui_kit::ScrollHandle::new(),
         selected_process: None,

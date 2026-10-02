@@ -107,6 +107,8 @@ pub struct SystemView {
     pub(super) termination_focus_requested: bool,
     pub(super) termination_in_progress: bool,
     pub(super) notice: Option<Notice>,
+    #[cfg(target_os = "windows")]
+    pub(super) cpu_temperature_request_in_flight: bool,
     pub(super) process_search: Entity<InputState>,
     /// Scrolls only the desktop table; sampling and sorting retain the user's column position.
     pub(super) process_table_scroll: ScrollHandle,
@@ -171,6 +173,8 @@ impl SystemView {
             termination_focus_requested: false,
             termination_in_progress: false,
             notice: None,
+            #[cfg(target_os = "windows")]
+            cpu_temperature_request_in_flight: false,
             process_search,
             process_table_scroll: ScrollHandle::new(),
             selected_process: None,
@@ -304,13 +308,19 @@ impl SystemView {
 
     #[cfg(target_os = "windows")]
     pub(super) fn set_cpu_temperatures(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.cpu_temperature_request_in_flight {
+            return;
+        }
+        self.cpu_temperature_request_in_flight = true;
         let monitor = self.monitor.clone();
+        cx.notify();
         cx.spawn(async move |this, async_cx| {
             let result = async_cx
                 .background_executor()
                 .spawn(async move { monitor.set_cpu_temperatures(enabled) })
                 .await;
             let _ = this.update(async_cx, |view, cx| {
+                view.cpu_temperature_request_in_flight = false;
                 view.notice = Some(match result {
                     Ok(()) => Notice {
                         message: if enabled {

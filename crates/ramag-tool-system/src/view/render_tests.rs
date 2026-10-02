@@ -10,6 +10,9 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
 use std::rc::Rc;
 
+#[path = "thermals_render_tests.rs"]
+mod thermal_render_tests;
+
 macro_rules! required {
     ($value:expr, $message:literal) => {{
         let value = $value;
@@ -42,6 +45,8 @@ fn test_view(
         termination_focus_requested: false,
         termination_in_progress: false,
         notice: None,
+        #[cfg(target_os = "windows")]
+        cpu_temperature_request_in_flight: false,
         process_search: search,
         process_table_scroll: gpui_kit::ScrollHandle::new(),
         selected_process: None,

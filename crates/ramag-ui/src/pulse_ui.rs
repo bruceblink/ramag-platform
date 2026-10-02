@@ -358,16 +358,23 @@ pub fn pulse_time_chart_with_series(
     height: Pixels,
     cx: &gpui_kit::App,
 ) -> Div {
+    pulse_time_chart_with_series_range(series, 0.0, max_value, height, cx)
+}
+
+/// Draws chart series against an explicit physical range, including signed temperatures.
+pub fn pulse_time_chart_with_series_range(
+    series: &[ChartSeries<'_>],
+    min_value: f64,
+    max_value: f64,
+    height: Pixels,
+    cx: &gpui_kit::App,
+) -> Div {
     let series = bounded_chart_series(series);
     let time_bounds = chart_time_bounds(&series);
     let theme = cx.theme();
     let chart_bg = theme.muted;
     let grid_color = theme.border.opacity(0.42);
-    let max_value = if max_value.is_finite() && max_value > 0.0 {
-        max_value
-    } else {
-        1.0
-    };
+    let (min_value, max_value) = chart_value_range(min_value, max_value);
     let chart = canvas(
         |_, _, _| (),
         move |bounds, _, window, _| {
@@ -376,7 +383,7 @@ pub fn pulse_time_chart_with_series(
                 window,
                 &series,
                 time_bounds,
-                max_value,
+                (min_value, max_value),
                 chart_bg,
                 grid_color,
             );
@@ -397,10 +404,11 @@ fn paint_time_chart(
     window: &mut Window,
     series: &[BoundedChartSeries],
     time_bounds: Option<(f64, f64)>,
-    max_value: f64,
+    value_range: (f64, f64),
     background: Hsla,
     grid_color: Hsla,
 ) {
+    let (min_value, max_value) = value_range;
     let origin = bounds.origin + point(px(1.0), px(1.0));
     let width = (bounds.size.width - px(2.0)).max(px(1.0));
     let height = (bounds.size.height - px(2.0)).max(px(1.0));
@@ -421,7 +429,7 @@ fn paint_time_chart(
     }
     for series in series {
         let segments =
-            normalized_chart_segments_with_bounds(&series.points, max_value, time_bounds);
+            normalized_chart_segments_with_range(&series.points, min_value, max_value, time_bounds);
         let mut line = PathBuilder::stroke(px(2.0));
         for (x1, y1, x2, y2) in &segments {
             line.move_to(point(
@@ -438,11 +446,9 @@ fn paint_time_chart(
         {
             window.paint_path(path, series.color);
         }
-        if let Some((x, y)) = series
-            .points
-            .last()
-            .and_then(|sample| normalized_chart_point_with_bounds(*sample, max_value, time_bounds))
-        {
+        if let Some((x, y)) = series.points.last().and_then(|sample| {
+            normalized_chart_point_with_range(*sample, min_value, max_value, time_bounds)
+        }) {
             let marker = px(5.0).min(width).min(height);
             let current = point(origin.x + width * x, origin.y + height * (1.0 - y));
             window.paint_quad(
@@ -502,8 +508,18 @@ fn bounded_chart_points(points: &[ChartPoint]) -> Vec<ChartPoint> {
 }
 
 // Rejects invalid samples, which breaks only their own line and suppresses its marker.
+#[cfg(test)]
 fn normalized_chart_point_with_bounds(
     sample: ChartPoint,
+    max_value: f64,
+    time_bounds: Option<(f64, f64)>,
+) -> Option<(f32, f32)> {
+    normalized_chart_point_with_range(sample, 0.0, max_value, time_bounds)
+}
+
+fn normalized_chart_point_with_range(
+    sample: ChartPoint,
+    min_value: f64,
     max_value: f64,
     time_bounds: Option<(f64, f64)>,
 ) -> Option<(f32, f32)> {
@@ -515,20 +531,30 @@ fn normalized_chart_point_with_bounds(
     let span = (last_time - first_time).max(f64::EPSILON);
     Some((
         ((sample.at_seconds - first_time) / span).clamp(0.0, 1.0) as f32,
-        (value / max_value).clamp(0.0, 1.0) as f32,
+        ((value - min_value) / (max_value - min_value)).clamp(0.0, 1.0) as f32,
     ))
 }
 
 /// Joins increasing adjacent valid samples; missing or invalid points break this series only.
+#[cfg(test)]
 fn normalized_chart_segments_with_bounds(
     points: &[ChartPoint],
+    max_value: f64,
+    time_bounds: Option<(f64, f64)>,
+) -> Vec<(f32, f32, f32, f32)> {
+    normalized_chart_segments_with_range(points, 0.0, max_value, time_bounds)
+}
+
+fn normalized_chart_segments_with_range(
+    points: &[ChartPoint],
+    min_value: f64,
     max_value: f64,
     time_bounds: Option<(f64, f64)>,
 ) -> Vec<(f32, f32, f32, f32)> {
     let mut segments = Vec::new();
     let mut previous: Option<(f64, (f32, f32))> = None;
     for sample in points.iter().copied() {
-        let current = normalized_chart_point_with_bounds(sample, max_value, time_bounds);
+        let current = normalized_chart_point_with_range(sample, min_value, max_value, time_bounds);
         let Some(current) = current else {
             previous = None;
             continue;
@@ -541,6 +567,24 @@ fn normalized_chart_segments_with_bounds(
         previous = Some((sample.at_seconds, current));
     }
     segments
+}
+
+fn chart_value_range(min_value: f64, max_value: f64) -> (f64, f64) {
+    let min_value = if min_value.is_finite() {
+        min_value
+    } else {
+        0.0
+    };
+    let max_value = if max_value.is_finite() {
+        max_value
+    } else {
+        1.0
+    };
+    if max_value > min_value {
+        (min_value, max_value)
+    } else {
+        (min_value - 1.0, max_value + 1.0)
+    }
 }
 
 #[cfg(test)]

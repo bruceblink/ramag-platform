@@ -170,12 +170,14 @@ pub(super) fn render_chart(
     line: gpui_kit::Hsla,
     cx: &gpui_kit::App,
 ) -> gpui_kit::Div {
-    render_chart_series(
+    render_chart_series_with_range(
         &[ramag_ui::pulse_ui::ChartSeries {
             points,
             color: line,
         }],
+        0.0,
         maximum,
+        "0".into(),
         unit,
         height,
         cx,
@@ -187,6 +189,42 @@ pub(super) fn render_chart(
 pub(super) fn render_chart_series(
     series: &[ramag_ui::pulse_ui::ChartSeries<'_>],
     maximum: f64,
+    unit: &Unit,
+    height: gpui_kit::Pixels,
+    cx: &gpui_kit::App,
+) -> gpui_kit::Div {
+    render_chart_series_with_range(series, 0.0, maximum, "0".into(), unit, height, cx)
+}
+
+/// Renders a chart with explicit physical bounds so signed temperatures keep their range.
+pub(super) fn render_chart_with_range(
+    points: &[ramag_ui::pulse_ui::ChartPoint],
+    minimum: f64,
+    maximum: f64,
+    unit: &Unit,
+    height: gpui_kit::Pixels,
+    line: gpui_kit::Hsla,
+    cx: &gpui_kit::App,
+) -> gpui_kit::Div {
+    render_chart_series_with_range(
+        &[ramag_ui::pulse_ui::ChartSeries {
+            points,
+            color: line,
+        }],
+        minimum,
+        maximum,
+        format_value(minimum, unit),
+        unit,
+        height,
+        cx,
+    )
+}
+
+fn render_chart_series_with_range(
+    series: &[ramag_ui::pulse_ui::ChartSeries<'_>],
+    minimum: f64,
+    maximum: f64,
+    minimum_label: String,
     unit: &Unit,
     height: gpui_kit::Pixels,
     cx: &gpui_kit::App,
@@ -232,7 +270,7 @@ pub(super) fn render_chart_series(
             .text_xs()
             .line_height(gpui_kit::rems(0.75))
             .text_color(theme.muted_foreground)
-            .child("0"),
+            .child(minimum_label),
     );
     v_flex()
         .w_full()
@@ -245,9 +283,11 @@ pub(super) fn render_chart_series(
                 .gap(px(CHART_AXIS_GAP))
                 .child(axis)
                 .child(
-                    ramag_ui::pulse_ui::pulse_time_chart_with_series(series, maximum, height, cx)
-                        .flex_1()
-                        .min_w_0(),
+                    ramag_ui::pulse_ui::pulse_time_chart_with_series_range(
+                        series, minimum, maximum, height, cx,
+                    )
+                    .flex_1()
+                    .min_w_0(),
                 ),
         )
         .child(

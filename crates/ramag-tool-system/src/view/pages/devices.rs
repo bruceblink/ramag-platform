@@ -144,6 +144,9 @@ impl SystemView {
         if section == SystemSection::Energy {
             return self.render_energy_page(snapshot, cx);
         }
+        if section == SystemSection::Thermals {
+            return self.render_thermals_page(snapshot, cx);
+        }
         let kind = SensorKind::Temperature;
         let readings = snapshot
             .host
@@ -297,7 +300,7 @@ fn page_description(section: SystemSection) -> &'static str {
     }
 }
 
-fn sensor_grid(
+pub(super) fn sensor_grid(
     readings: Vec<&SensorDescriptor>,
     snapshot: &MonitorSnapshot,
     maximum_gap: f64,
@@ -350,6 +353,27 @@ fn sensor_card(
         },
     );
     let points = helpers::chart_points(snapshot, &descriptor.id, maximum_gap);
+    let chart = if descriptor.unit == ramag_infra_system::Unit::Celsius {
+        let (minimum, maximum) = chart_range(descriptor, snapshot);
+        helpers::render_chart_with_range(
+            &points,
+            minimum,
+            maximum,
+            &descriptor.unit,
+            px(54.0),
+            line,
+            cx,
+        )
+    } else {
+        helpers::render_chart(
+            &points,
+            chart_max(descriptor, snapshot),
+            &descriptor.unit,
+            px(54.0),
+            line,
+            cx,
+        )
+    };
     ramag_ui::pulse_ui::pulse_panel(cx)
         .debug_selector(|| format!("system-sensor-{}", selector_id(&descriptor.id)))
         .flex_1()
@@ -380,14 +404,7 @@ fn sensor_card(
                     cx,
                 )),
         )
-        .child(helpers::render_chart(
-            &points,
-            chart_max(descriptor, snapshot),
-            &descriptor.unit,
-            px(54.0),
-            line,
-            cx,
-        ))
+        .child(chart)
         .child(
             div()
                 .w_full()
@@ -440,4 +457,26 @@ pub(super) fn chart_max(descriptor: &SensorDescriptor, snapshot: &MonitorSnapsho
         },
         |value| (value * 1.15).max(f64::EPSILON),
     )
+}
+
+/// Uses the finite observed temperature domain so Celsius charts do not invent a 0-100 range.
+pub(super) fn chart_range(descriptor: &SensorDescriptor, snapshot: &MonitorSnapshot) -> (f64, f64) {
+    let values = snapshot
+        .histories
+        .get(&descriptor.id)
+        .into_iter()
+        .flatten()
+        .filter_map(SensorSample::chart_value)
+        .filter(|value| value.is_finite());
+    let Some((minimum, maximum)) = values.fold(None::<(f64, f64)>, |range, value| match range {
+        Some((minimum, maximum)) => Some((minimum.min(value), maximum.max(value))),
+        None => Some((value, value)),
+    }) else {
+        return (0.0, 1.0);
+    };
+    if maximum > minimum {
+        (minimum, maximum)
+    } else {
+        (minimum - 1.0, maximum + 1.0)
+    }
 }

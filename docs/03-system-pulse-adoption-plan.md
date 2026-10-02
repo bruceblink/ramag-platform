@@ -91,6 +91,14 @@ Energy 页的主传感器选择使用采集器提供的稳定传感器 ID，展�
 
 实现先通过 `ramag-tool-system` 的选择解析、菜单点击、保存回读、缺失 ID、快照过期和 `360x640`/`1024x768`/`1440x900` 布局测试，再在同尺寸真实 System Pulse 与 Ramag 窗口执行“打开 Energy -> 打开选择器 -> 选择 CPU package power -> 回读主值和 measured channel”的流程。数值只在同一应用快照内核对；两个实时进程的不同采样时刻不用于硬件精度结论。Docker 不适用，Thermals 单传感器和平台授权另行验收。
 
+### `A-PULSE-GAP-06-Thermals` 设计与验收边界
+
+Thermals 沿用 Energy 的稳定传感器选择持久化，但只接受摄氏温度描述。无保存 ID 时选择有限 `Current` 样本中的最高温度，并按传感器 ID 稳定处理并列；保存 ID 缺失时保留不可用身份，不能静默改选。最热摘要独立于手动选择，预热、失败、不可用、过期、停滞采集和非有限数值都不能参与当前最高值。
+
+页面顺序与 System Pulse 对齐：温度选择器和 Windows CPU 温度授权入口位于标题区，随后显示最热摘要、选中温度的量表和动态物理范围历史图，最后显示全部温度传感器卡片。图表的上下界从有限历史样本计算，负温度和零值保持真实值；菜单有界并可滚动，授权请求执行期间不允许重复提交。CPU 温度授权仍由受限平台帮助程序执行，硬件不支持时显示采集原因。
+
+Headless 必须覆盖稳定 ID、并列、零/负值、NaN/Infinity、所有非 Current 状态、缺失选择、菜单点击和 `360x640`/`1024x768`/`1440x900` 边界。Computer Use 先观察固定提交的 System Pulse Thermals，再在同尺寸 Ramag 窗口执行打开选择器、切换 CPU/GPU 温度、回读最热值与不可用原因、点击授权入口的流程。数值只在同一快照内核对；本机 GPU/CPU 温度精度、其他硬件平台和授权成功路径分别记录，Docker 不适用。
+
 ### `A-PULSE-GAP-09-Settings-Appearance` 设计与验收边界
 
 Settings 外观切片只收口应用级显示职责：主题、界面字号、滚动条策略、界面字体和数值字体都由 `SystemSettings` 保存，并在选择后立即应用到 GPUI 全局主题。界面字体提供 `Inter Variable` 与 `IBM Plex Sans`，数值字体提供 `JetBrains Mono` 与 `IBM Plex Mono`；缺失字段继续使用参考程序一致的默认值，未知枚举值拒绝读取并回退为可操作默认配置。

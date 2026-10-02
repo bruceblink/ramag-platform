@@ -144,6 +144,7 @@ impl SensorSample {
         (self.status == ReadingStatus::Current)
             .then_some(self.value)
             .flatten()
+            .filter(|value| value.is_finite())
     }
 }
 
