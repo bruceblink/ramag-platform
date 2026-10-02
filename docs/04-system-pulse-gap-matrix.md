@@ -216,3 +216,7 @@ System Pulse 使用固定提交 `f1be5d51d24c21fa8c740be79200bdda3df3a00c` 的 `
 Ramag 使用 `cargo build --locked -p ramag-bin --example ui-preview` 后的隔离真实窗口，按同一顺序进入 Thermals。页面现在显示设备名和传感器名的选择器，菜单带勾选状态和 `320px` 滚动上限；切换到 `CPU · CPU temperature` 后主传感器保持该稳定 ID 并显示“不可用”及采集原因，同时最热摘要仍显示 GPU 当前温度。点击一次 CPU 温度授权按钮后回读“已请求启用 CPU 温度采集”和按钮状态，没有出现重复帮助程序窗口；CPU 温度仍因本机硬件未暴露而保持不可用。温度量表、主历史图和传感器卡片使用同一有限历史范围，当前零值、负值、非有限值、过期和失败读数不会伪装成实时数值。
 
 实现以 `selected_sensors["thermals"]` 保存选择；无保存 ID 时默认最高的有限 `Current` 摄氏读数，并以稳定 ID 处理并列；保存 ID 消失时保留不可用状态，不静默换选。共享图表增加显式物理范围和有限值过滤，CPU 授权请求增加操作中互斥，传感器菜单支持滚动。`ramag-tool-system` 54 项、`ramag-ui` 131 项、`cargo build --locked -p ramag-bin --example ui-preview`、fmt 和 workspace Clippy `-D warnings` 通过；本地监控/UI 切片不使用 Docker。Headless 覆盖多传感器、零/负值、NaN/Infinity、非 Current 状态、并列和缺失选择；Computer Use 证据覆盖参考窗口和 Ramag 的真实页面、菜单切换、不可用状态及授权入口。不同采样时刻的硬件读数不作数值相等验收，多平台硬件精度和 CPU 授权成功路径仍需在对应主机单独验证。
+
+### 2026-10-02 `A-PULSE-GAP-10` 采样读数视图补齐
+
+System Pulse Settings 的 Sampling 分区实际显示当前周期的大号数值、`seconds between readings` 单位、较短周期的 CPU 影响说明和自动保存提示。Ramag 原系统监控 Settings 只有 `0.5s/1s/2s/5s` 四个按钮，当前周期只能从页头刷新文字间接判断。本补充切片将这四项信息放入同一采样面板，读数直接来自 `SystemMonitor::refresh_interval()`，并在 `360x640`、`1024x768`、`1440x900` 和明暗主题下检查按钮与说明仍可见。采样更新、持久化和跨页面同步不在本次代码范围内。

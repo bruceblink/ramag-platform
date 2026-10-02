@@ -1,7 +1,7 @@
 use super::super::*;
 use crate::{MonitorSnapshot, ReadingStatus, SensorSample, SystemMonitor};
 use gpui_kit::component::Root;
-use gpui_kit::{Context, TestAppContext, Window, px, size};
+use gpui_kit::{Context, TestAppContext, Window, point, px, size};
 use ramag_infra_system::{
     Availability, MonitorDescriptor, MonitorKind, ProcessIdentity, ProcessRow, Reading,
     SensorDescriptor, SensorKind, Unit,
@@ -9,10 +9,10 @@ use ramag_infra_system::{
 use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
 use std::rc::Rc;
-
+#[path = "sampling_render_tests.rs"]
+mod sampling_render_tests;
 #[path = "thermals_render_tests.rs"]
 mod thermal_render_tests;
-
 macro_rules! required {
     ($value:expr, $message:literal) => {{
         let value = $value;
@@ -23,7 +23,6 @@ macro_rules! required {
         }
     }};
 }
-
 fn test_view(
     window: &mut Window,
     cx: &mut Context<SystemView>,
@@ -322,7 +321,8 @@ fn device_selection_sensor_visibility_and_refresh_settings_apply_immediately(
         visual.debug_bounds("system-sensor-visible-gpu1-usage"),
         "sensor visibility checkbox"
     );
-    visual.simulate_click(checkbox.center(), gpui_kit::Modifiers::default());
+    let target = point(checkbox.origin.x + px(8.), checkbox.origin.y + px(4.));
+    visual.simulate_click(target, gpui_kit::Modifiers::default());
     visual.run_until_parked();
     visual.update(|_, app| {
         assert!(

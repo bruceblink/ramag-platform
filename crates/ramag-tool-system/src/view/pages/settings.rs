@@ -212,7 +212,49 @@ impl SystemView {
                                 .font_weight(gpui_kit::FontWeight::MEDIUM)
                                 .child("采样频率"),
                         )
-                        .child(rates),
+                        .child(
+                            h_flex()
+                                .debug_selector(|| "system-refresh-current".into())
+                                .w_full()
+                                .flex_wrap()
+                                .items_baseline()
+                                .gap(px(8.0))
+                                .child(
+                                    div()
+                                        .debug_selector(|| "system-refresh-current-value".into())
+                                        .text_2xl()
+                                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                        .text_color(theme.accent)
+                                        .child(refresh_interval_value(
+                                            self.monitor.refresh_interval(),
+                                        )),
+                                )
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .text_color(theme.muted_foreground)
+                                        .child("秒/次"),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .debug_selector(|| "system-refresh-description".into())
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child("采样间隔越短，更新越频繁，也会占用更多 CPU。"),
+                        )
+                        .child(rates)
+                        .child(
+                            div()
+                                .debug_selector(|| "system-refresh-save-note".into())
+                                .w_full()
+                                .pt(px(8.0))
+                                .border_t_1()
+                                .border_color(theme.border.opacity(0.6))
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child("修改会立即应用并自动保存。"),
+                        ),
                 ),
             )
             .when_some(thermal_opt_in, |page, toggle| {
@@ -273,6 +315,11 @@ impl SystemView {
     }
 }
 
+/// Formats the active collector interval for the large Sampling readout.
+fn refresh_interval_value(interval: RefreshInterval) -> String {
+    format!("{:.1}", interval.duration().as_secs_f64())
+}
+
 fn monitor_title<'a>(snapshot: &'a MonitorSnapshot, monitor_id: &str) -> &'a str {
     snapshot
         .host
@@ -292,4 +339,18 @@ fn selector_id(id: &str) -> String {
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::refresh_interval_value;
+    use crate::RefreshInterval;
+
+    #[test]
+    fn refresh_interval_value_uses_seconds_with_one_decimal() {
+        assert_eq!(refresh_interval_value(RefreshInterval::HalfSecond), "0.5");
+        assert_eq!(refresh_interval_value(RefreshInterval::OneSecond), "1.0");
+        assert_eq!(refresh_interval_value(RefreshInterval::TwoSeconds), "2.0");
+        assert_eq!(refresh_interval_value(RefreshInterval::FiveSeconds), "5.0");
+    }
 }
