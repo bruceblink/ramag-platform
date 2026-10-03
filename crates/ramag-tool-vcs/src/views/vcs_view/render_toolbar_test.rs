@@ -20,9 +20,9 @@ fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
     );
 }
 
-/// 模式文字、独立分支选择行、搜索和固定操作在各侧栏宽度下保持清楚层级。
+/// 模式导航与分支选择在常规宽度同排，在窄侧栏自动换行。
 #[gpui_kit::test]
-fn vcs_files_toolbar_uses_labeled_modes_and_full_width_branch_row(cx: &mut TestAppContext) {
+fn vcs_files_toolbar_compact_navigation_wraps_at_supported_widths(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |view, cx| {
         inject_diff_session(view);
@@ -50,6 +50,9 @@ fn vcs_files_toolbar_uses_labeled_modes_and_full_width_branch_row(cx: &mut TestA
         let toolbar = cx
             .debug_bounds("vcs-files-toolbar")
             .expect("VCS 文件栏工具栏应渲染");
+        let navigation_toolbar = cx
+            .debug_bounds("vcs-files-navigation-toolbar")
+            .expect("VCS 导航工具栏应渲染");
         let mode_toolbar = cx
             .debug_bounds("vcs-files-mode-toolbar")
             .expect("VCS 模式工具栏应渲染");
@@ -63,6 +66,7 @@ fn vcs_files_toolbar_uses_labeled_modes_and_full_width_branch_row(cx: &mut TestA
             .debug_bounds("vcs-files-search")
             .expect("VCS 文件搜索框应渲染");
         assert_inside(&files_column, &toolbar, "VCS 文件栏工具栏");
+        assert_inside(&toolbar, &navigation_toolbar, "VCS 导航工具栏");
         assert_inside(&toolbar, &mode_toolbar, "VCS 模式工具栏");
         assert_inside(&toolbar, &branch_toolbar, "VCS 分支工具栏");
         assert_inside(&toolbar, &search_toolbar, "VCS 搜索工具栏");
@@ -111,18 +115,25 @@ fn vcs_files_toolbar_uses_labeled_modes_and_full_width_branch_row(cx: &mut TestA
             changes_tab.origin.y, stash_tab.origin.y,
             "变更与储藏模式应保持在同一导航行"
         );
-        assert!(
-            branch_toolbar.origin.y >= mode_toolbar.bottom(),
-            "分支选择器应位于模式导航下方：modes={mode_toolbar:?}, branch={branch_toolbar:?}"
-        );
+        if width == 180.0 {
+            assert!(
+                branch_toolbar.origin.y >= mode_toolbar.bottom(),
+                "最窄侧栏应将分支选择器换到模式行下方：modes={mode_toolbar:?}, branch={branch_toolbar:?}"
+            );
+            assert!(
+                branch_picker.size.width >= px(width - 40.0),
+                "换行后的分支选择器应填充侧栏：width={width}, picker={branch_picker:?}"
+            );
+        } else {
+            assert_eq!(
+                branch_toolbar.origin.y, mode_toolbar.origin.y,
+                "常规侧栏应将分支选择器与模式导航保持同排：width={width}, modes={mode_toolbar:?}, branch={branch_toolbar:?}"
+            );
+        }
         assert_inside(&branch_toolbar, &branch_picker, "分支选择器");
         assert!(
-            branch_picker.size.width >= px(width - 40.0),
-            "分支选择器应填充文件栏可用宽度：width={width}, picker={branch_picker:?}"
-        );
-        assert!(
-            search_toolbar.origin.y >= branch_toolbar.bottom(),
-            "搜索工具栏应位于分支行下方：branch={branch_toolbar:?}, search={search_toolbar:?}"
+            search_toolbar.origin.y >= navigation_toolbar.bottom(),
+            "搜索工具栏应位于导航组下方：navigation={navigation_toolbar:?}, search={search_toolbar:?}"
         );
 
         let tab_widths = [
@@ -136,6 +147,16 @@ fn vcs_files_toolbar_uses_labeled_modes_and_full_width_branch_row(cx: &mut TestA
                 .all(|tab_width| (*tab_width - tab_widths[0]).abs() <= 1.0),
             "三种模式应使用等宽标签：width={width}, tabs={tab_widths:?}"
         );
+        assert!(
+            tab_widths[0] >= 40.0 && tab_widths[0] <= 72.0,
+            "模式标签应保持紧凑并可读：width={width}, tabs={tab_widths:?}"
+        );
+        if width == 600.0 {
+            assert!(
+                branch_picker.size.width <= px(320.0),
+                "宽侧栏下分支选择器应有宽度上限：picker={branch_picker:?}"
+            );
+        }
 
         if width == 180.0 {
             let history = cx

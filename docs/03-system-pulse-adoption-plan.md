@@ -388,6 +388,21 @@ VCS 文件栏在常规宽度下移除空闲时占满弹性空间的占位项，�
 - 原生窗口：本机 `2026-10-03 19:33 +08:00`，Computer Use 打开完整工作区构建 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `12564`，`ExecutablePath` 已核对），在 1555×924 暗色窗口检查 `F:\project\ramag`。三个文字模式标签、活动态、独立全宽分支行、搜索及空 Diff 面板均可见；切换“变更”显示工作区干净状态，返回“项目”恢复文件树。打开分支菜单后以 Escape 关闭，没有执行 Git 写操作。长分支名仍使用省略显示，完整值保留在悬浮提示中。
 - 回滚边界：仅调整 `ide_layout.rs`、对应工具栏布局测试与本记录；未改 Git 状态读取、分支菜单、文件选择、仓库会话或操作参数。
 
+### A-UI-VCS-003：压缩并统一文件栏导航布局（代码与构建验证完成，原生验收待继续，2026-10-03）
+
+- 问题证据：最新用户截图中，文件模式、当前分支和搜索操作分散在多层工具栏；分支控件与模式区域的对齐不一致，导航占用过多垂直空间。
+- 实施范围：在常规侧栏宽度下将等宽“项目 / 变更 / 储藏”模式组与分支选择器编排到同一导航行，模式组保持左侧、分支选择器使用有界弹性宽度并靠右；窄侧栏自动将分支选择器换到下一行。搜索、刷新、展开、历史和远程操作继续独立成行；统一内边距和分隔线。保持现有控件 ID、分支菜单、模式状态和 Git 回调。
+- 验收条件：Headless GPUI 覆盖 180、280、600px 侧栏，确认 280/600px 导航同排、180px 自动换行，分支文本和控件不越界，搜索行始终位于导航组下方；原生验收使用当前源码构建的完整 Ramag 窗口核对默认尺寸和模式切换。运行 VCS 全量测试、fmt、目标 Clippy、完整程序构建、源码尺寸和差异检查。
+- 回滚边界：只回滚 `ide_layout.rs`、对应 VCS 工具栏布局测试及本记录，不回滚已完成的 VCS 公共样式、空状态或 Git 操作实现。
+- 代码验证：`vcs_files_toolbar_compact_navigation_wraps_at_supported_widths` 与 VCS 全量测试通过（188 项通过、0 失败、5 项性能观察用例 ignored）；VCS all-target Clippy `-D warnings`、workspace fmt、Windows 源码尺寸、UTF-8/LF 和 `git diff --check` 通过。标准 `target/debug/ramag.exe` 因现有窗口占用无法覆盖；PowerShell 使用独立输出目录执行 `$env:CARGO_TARGET_DIR='target/vcs-layout-validation'; cargo build --locked -p ramag-bin` 成功，生成 `target/vcs-layout-validation/debug/ramag.exe`。
+- 原生验收状态：Computer Use 确认唯一现有 Ramag 窗口仍打开“新建连接”表单。Ramag 的单实例守卫会把新启动请求转发给该旧实例，因此本轮没有启动到新构建，也没有关闭或丢弃当前表单；当前窗口不能作为本次导航改动的原生验收证据。用户处理该表单并允许重启后，再使用独立构建完成原生核对。
+
+### 2026-10-03 GitHub CI 日志字段修复
+
+GitHub Actions 的 `make size-check log-check` 在日志约定检查中失败，定位到内嵌 Michroma 字体加载失败时的 `tracing::warn!` 没有以 `operation` 字段开头。日志现已使用 `operation = "monitor_heading_font_register"`，并继续保留结构化 `error` 字段。
+
+Windows 本机重跑 `bash -lc 'make size-check log-check'` 通过；`cargo test --locked -p ramag-ui --lib -- --test-threads=1` 的 132 项测试、该 crate 的 all-target Clippy、workspace fmt 和完整 `ramag-bin` 构建均通过。完整程序写入 `target/vcs-layout-validation/debug/ramag.exe`，避免覆盖被现有应用窗口占用的默认可执行文件；这项构建结果不作为新的原生 UI 验收。
+
 ### 2026-10-03 对象存储账号空状态优化验收
 
 对象存储无账号状态从孤立的“新建”按钮改为 Pulse 轻量面板：增加存储图标、“暂无对象存储账号”标题、COS/OSS 后续操作说明和“新建账号”主操作，并在窄内容区保留 16px 外边距。新建入口仍打开原账号表单；未修改账号、凭据、Bucket、连接和存储行为。

@@ -21,7 +21,10 @@ const TOP_HEIGHT_MAX: f32 = 1400.0;
 pub(super) const LEFT_WIDTH_INITIAL: f32 = 280.0;
 pub(super) const LEFT_WIDTH_MIN: f32 = 180.0;
 pub(super) const LEFT_WIDTH_MAX: f32 = 600.0;
-const MODE_TABS_MIN_WIDTH: f32 = 144.0;
+const MODE_TABS_MIN_WIDTH: f32 = 132.0;
+const MODE_TABS_MAX_WIDTH: f32 = 216.0;
+const BRANCH_PICKER_MIN_WIDTH: f32 = 108.0;
+const BRANCH_PICKER_MAX_WIDTH: f32 = 320.0;
 const BRANCH_PICKER_LABEL_CHARS: usize = 28;
 
 impl VcsView {
@@ -130,9 +133,10 @@ impl VcsView {
             FilesViewMode::Stash,
         ];
         let mut tabs_row = h_flex()
-            .debug_selector(|| "vcs-files-mode-tabs".into())
+            .debug_selector(|| "vcs-files-mode-toolbar".into())
             .flex_1()
             .min_w(px(MODE_TABS_MIN_WIDTH))
+            .max_w(px(MODE_TABS_MAX_WIDTH))
             .gap(px(2.0))
             .items_center();
         for mode in modes {
@@ -157,28 +161,28 @@ impl VcsView {
                 )
                 .into_any_element()
         });
-        let mut mode_row = ramag_ui::responsive_toolbar()
-            .debug_selector(|| "vcs-files-mode-toolbar".into())
+        let mut navigation_row = ramag_ui::responsive_toolbar()
+            .debug_selector(|| "vcs-files-navigation-toolbar".into())
             .w_full()
             .px(px(10.0))
             .py(px(6.0))
             .border_b_1()
             .border_color(border)
+            .justify_between()
             .gap(px(8.0))
             .items_center()
             .child(tabs_row);
+        navigation_row = navigation_row.child(
+            div()
+                .debug_selector(|| "vcs-files-branch-toolbar".into())
+                .flex_1()
+                .min_w(px(BRANCH_PICKER_MIN_WIDTH))
+                .max_w(px(BRANCH_PICKER_MAX_WIDTH))
+                .child(self.render_branch_picker(cx)),
+        );
         if let Some(busy_indicator) = busy_indicator {
-            mode_row = mode_row.child(busy_indicator);
+            navigation_row = navigation_row.child(busy_indicator);
         }
-
-        let branch_row = ramag_ui::responsive_toolbar()
-            .debug_selector(|| "vcs-files-branch-toolbar".into())
-            .w_full()
-            .px(px(10.0))
-            .py(px(6.0))
-            .border_b_1()
-            .border_color(border)
-            .child(self.render_branch_picker(cx));
 
         let mut search_row = ramag_ui::responsive_toolbar()
             .debug_selector(|| "vcs-files-search-toolbar".into())
@@ -282,8 +286,7 @@ impl VcsView {
             .debug_selector(|| "vcs-files-toolbar".into())
             .w_full()
             .flex_none()
-            .child(mode_row)
-            .child(branch_row)
+            .child(navigation_row)
             .child(search_row)
             .into_any_element()
     }
