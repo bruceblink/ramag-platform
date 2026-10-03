@@ -42,26 +42,30 @@ impl ObjectStorageView {
             .collect::<Vec<_>>();
         let show_manual_count = f32::from(window.viewport_size().width) >= 900.0;
 
-        let header_inner = h_flex()
-            .w_full()
+        let header_inner = ramag_ui::responsive_toolbar()
+            .debug_selector(|| "object-account-toolbar".into())
             .items_center()
-            .gap(px(16.0))
             .child(
                 div().flex_1().min_w_0().child(
-                    div().max_w(px(360.0)).child(
-                        ramag_ui::cleanable_input(
-                            &self.account_search,
-                            "object-account-search-clear",
-                            false,
-                            cx,
-                        )
-                        .small()
-                        .prefix(Icon::new(IconName::Search).small().text_color(muted)),
-                    ),
+                    div()
+                        .debug_selector(|| "object-account-search-input".into())
+                        .max_w(px(360.0))
+                        .child(
+                            ramag_ui::cleanable_input(
+                                &self.account_search,
+                                "object-account-search-clear",
+                                false,
+                                cx,
+                            )
+                            .small()
+                            .id("object-account-search-input")
+                            .prefix(Icon::new(IconName::Search).small().text_color(muted)),
+                        ),
                 ),
             )
             .child(
                 ramag_ui::clickable_button("object-new-account")
+                    .debug_selector(|| "object-new-account".into())
                     .outline()
                     .small()
                     .icon(IconName::Plus)
@@ -70,15 +74,31 @@ impl ObjectStorageView {
                         this.show_new_account(window, cx);
                     })),
             );
-        let header = h_flex()
+        let header = v_flex()
+            .debug_selector(|| "object-account-header".into())
             .w_full()
-            .justify_center()
-            .px(px(24.0))
-            .pt(px(22.0))
-            .pb(px(16.0))
             .border_b_1()
             .border_color(border)
-            .child(div().w_full().max_w(px(CONTENT_MAX_W)).child(header_inner));
+            .child(
+                h_flex().w_full().justify_center().px(px(16.0)).child(
+                    v_flex()
+                        .w_full()
+                        .max_w(px(CONTENT_MAX_W))
+                        .gap(px(10.0))
+                        .pt(px(16.0))
+                        .pb(px(12.0))
+                        .child(
+                            ramag_ui::pulse_ui::pulse_page_title(
+                                "对象存储",
+                                Some("账号与 Bucket 管理"),
+                                cx,
+                            )
+                            .id("object-account-page-title")
+                            .debug_selector(|| "object-account-page-title".into()),
+                        )
+                        .child(header_inner),
+                ),
+            );
 
         let body = if self.loading && self.accounts.is_empty() {
             centered_message("加载中…", muted).into_any_element()
@@ -108,15 +128,24 @@ impl ObjectStorageView {
                 }));
             div()
                 .id("object-account-list-scroll")
+                .debug_selector(|| "object-account-list-scroll".into())
                 .size_full()
                 .overflow_y_scrollbar()
-                .py(px(10.0))
                 .child(
                     h_flex()
                         .w_full()
                         .justify_center()
-                        .px(px(24.0))
-                        .child(div().w_full().max_w(px(CONTENT_MAX_W)).child(rows)),
+                        .px(px(16.0))
+                        .py(px(10.0))
+                        .child(
+                            ramag_ui::pulse_ui::pulse_panel(cx)
+                                .id("object-account-list-panel")
+                                .debug_selector(|| "object-account-list-panel".into())
+                                .max_w(px(CONTENT_MAX_W))
+                                .p_0()
+                                .overflow_hidden()
+                                .child(div().w_full().child(rows)),
+                        ),
                 )
                 .into_any_element()
         };

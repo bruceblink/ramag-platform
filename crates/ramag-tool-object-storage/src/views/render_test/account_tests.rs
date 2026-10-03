@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use gpui_kit::{TestAppContext, px, size};
 use ramag_domain::entities::{CloudProvider, ManualBucket, ObjectStorageAccount};
+use ramag_ui::Mode;
 
 use super::{add_form_window, add_workspace_window, service};
 
@@ -118,6 +119,72 @@ fn account_form_stays_inside_compact_window_and_keeps_actions_visible(cx: &mut T
                 bounds.origin.x >= px(0.0) && bounds.right() <= viewport.width,
                 "{selector} 越出窗口：{bounds:?}"
             );
+        }
+    }
+}
+
+/// 验证账号管理的 Pulse 标题、响应式工具栏和轻量列表面板不越出客户区。
+#[gpui_kit::test]
+fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestAppContext) {
+    let (view, cx) = add_workspace_window(cx, service());
+    view.update(cx, |view, cx| {
+        view.accounts = Arc::new(vec![
+            ObjectStorageAccount::new(
+                "production-account-with-a-long-name",
+                CloudProvider::AliyunOss,
+            ),
+            ObjectStorageAccount::new("archive", CloudProvider::TencentCos),
+        ]);
+        view.loading = false;
+        view.management_visible = true;
+        cx.notify();
+    });
+
+    for mode in [Mode::Light, Mode::Dark] {
+        cx.update(|_, app| ramag_ui::apply_theme(mode, app));
+        for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+            cx.simulate_resize(size(px(width), px(height)));
+            cx.run_until_parked();
+
+            let title = cx
+                .debug_bounds("object-account-page-title")
+                .expect("账号管理页标题应显示");
+            let toolbar = cx
+                .debug_bounds("object-account-toolbar")
+                .expect("账号管理工具栏应显示");
+            let search = cx
+                .debug_bounds("object-account-search-input")
+                .expect("账号搜索框应显示");
+            let create = cx
+                .debug_bounds("object-new-account")
+                .expect("新建账号入口应显示");
+            let list = cx
+                .debug_bounds("object-account-list-panel")
+                .expect("账号列表面板应显示");
+
+            for (name, bounds) in [
+                ("title", title),
+                ("toolbar", toolbar),
+                ("search", search),
+                ("create", create),
+                ("list", list),
+            ] {
+                assert!(
+                    bounds.left() >= px(0.0),
+                    "{name} exceeds left edge: {bounds:?}"
+                );
+                assert!(
+                    bounds.right() <= px(width),
+                    "{name} exceeds right edge: {bounds:?}"
+                );
+                assert!(
+                    bounds.bottom() <= px(height),
+                    "{name} exceeds bottom edge: {bounds:?}"
+                );
+            }
+            assert!(title.bottom() <= toolbar.top(), "标题应位于工具栏上方");
+            assert!(toolbar.bottom() <= list.top(), "工具栏应位于账号列表上方");
+            assert!(search.right() <= create.left(), "新建入口不得覆盖搜索框");
         }
     }
 }
