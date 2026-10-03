@@ -23,13 +23,15 @@ impl StandardPluginEntryView {
 }
 
 impl Render for StandardPluginEntryView {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let entry_id = self.entry.id.clone();
         let input_kind = data_kind_label(self.entry.input.kind);
         let output_kind = data_kind_label(self.entry.output.kind);
         let input_limit = format_bytes(self.entry.input.max_bytes);
         let output_limit = format_bytes(self.entry.output.max_bytes);
+        let compact = f32::from(window.viewport_size().width) < 720.0;
+        let metadata = format!("插件 {} · 入口 {}", self.plugin_id, entry_id);
 
         v_flex()
             .id(format!("plugin-entry-view-{}", self.entry.id))
@@ -50,18 +52,11 @@ impl Render for StandardPluginEntryView {
                     .w_full()
                     .min_w_0()
                     .gap(px(6.0))
-                    .child(
-                        div()
-                            .text_lg()
-                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                            .child(self.entry.name.clone()),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("插件 {} · 入口 {}", self.plugin_id, entry_id)),
-                    )
+                    .child(crate::pulse_ui::pulse_page_title(
+                        self.entry.name.clone(),
+                        Some(metadata),
+                        cx,
+                    ))
                     .when(!self.entry.description.is_empty(), |this| {
                         this.child(
                             div()
@@ -78,22 +73,10 @@ impl Render for StandardPluginEntryView {
                     .w_full()
                     .min_w_0()
                     .gap(px(12.0))
-                    .child(contract_card(
-                        "输入",
-                        input_kind,
-                        input_limit,
-                        theme.border,
-                        theme.secondary,
-                        theme.muted_foreground,
-                    ))
-                    .child(contract_card(
-                        "输出",
-                        output_kind,
-                        output_limit,
-                        theme.border,
-                        theme.secondary,
-                        theme.muted_foreground,
-                    )),
+                    .when(compact, |row| row.flex_col())
+                    .when(!compact, |row| row.flex_row())
+                    .child(contract_card("输入", input_kind, input_limit, cx))
+                    .child(contract_card("输出", output_kind, output_limit, cx)),
             )
             .child(
                 v_flex()
@@ -103,21 +86,16 @@ impl Render for StandardPluginEntryView {
                     .min_w_0()
                     .p(px(16.0))
                     .gap(px(6.0))
-                    .border_1()
-                    .border_color(theme.border)
-                    .rounded(px(8.0))
-                    .child(
-                        div()
-                            .text_sm()
-                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                            .child("原生入口已登记"),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("当前入口只有清单描述，执行适配将在入口任务运行时接入。"),
-                    ),
+                    .child(crate::pulse_ui::pulse_display_heading(
+                        "原生入口已登记",
+                        18.0,
+                        cx,
+                    ))
+                    .child(crate::pulse_ui::pulse_status_notice(
+                        crate::pulse_ui::PulseStatus::Unavailable,
+                        "当前入口只有清单描述，执行适配将在入口任务运行时接入。",
+                        cx,
+                    )),
             )
     }
 }
@@ -126,27 +104,26 @@ fn contract_card(
     title: &'static str,
     kind: &'static str,
     limit: String,
-    border: gpui_kit::Hsla,
-    background: gpui_kit::Hsla,
-    muted: gpui_kit::Hsla,
+    cx: &mut Context<StandardPluginEntryView>,
 ) -> impl IntoElement {
-    v_flex()
+    let theme = cx.theme();
+    crate::pulse_ui::pulse_panel(cx)
         .id(format!("plugin-entry-contract-{title}"))
         .debug_selector(move || format!("plugin-entry-contract-{title}"))
         .flex_1()
         .min_w_0()
-        .p(px(14.0))
         .gap(px(4.0))
-        .bg(background)
-        .border_1()
-        .border_color(border)
-        .rounded(px(8.0))
-        .child(div().text_xs().text_color(muted).child(title))
+        .child(
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(title),
+        )
         .child(div().text_sm().child(kind))
         .child(
             div()
                 .text_xs()
-                .text_color(muted)
+                .text_color(theme.muted_foreground)
                 .child(format!("最大 {limit}")),
         )
 }

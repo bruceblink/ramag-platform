@@ -40,6 +40,9 @@ fn standard_entry_contract_stays_inside_supported_windows(cx: &mut TestAppContex
         let header = visual_cx
             .debug_bounds("plugin-entry-header")
             .expect("入口标题应渲染");
+        let page_title = visual_cx
+            .debug_bounds("pulse-page-title")
+            .expect("入口应使用公共 Pulse 页面标题");
         let contract = visual_cx
             .debug_bounds("plugin-entry-contract")
             .expect("输入输出契约应渲染");
@@ -52,13 +55,27 @@ fn standard_entry_contract_stays_inside_supported_windows(cx: &mut TestAppContex
         let unbound = visual_cx
             .debug_bounds("plugin-entry-unbound")
             .expect("未绑定说明应渲染");
+        let notice = visual_cx
+            .debug_bounds("pulse-status-notice")
+            .expect("未绑定入口应使用公共状态提示");
 
         assert_eq!(root.size.width, px(width));
-        for child in [header, contract, input, output, unbound] {
+        for child in [header, page_title, contract, input, output, unbound, notice] {
             assert!(child.origin.x >= root.origin.x);
             assert!(child.right() <= root.right());
             assert!(child.origin.y >= root.origin.y);
             assert!(child.bottom() <= root.bottom());
+        }
+        if width < 720.0 {
+            assert!(
+                input.bottom() <= output.origin.y,
+                "窄窗口下输入和输出契约应纵向排列: input={input:?}, output={output:?}"
+            );
+        } else {
+            assert!(
+                input.right() <= output.origin.x,
+                "宽窗口下输入和输出契约应横向排列: input={input:?}, output={output:?}"
+            );
         }
     }
 }

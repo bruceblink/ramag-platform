@@ -139,6 +139,9 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
         let summary = visual_cx
             .debug_bounds("plugin-summary")
             .expect("插件概览应渲染");
+        let metric = visual_cx
+            .debug_bounds("pulse-metric-card")
+            .expect("插件概览应使用 Pulse 指标卡");
         let catalog = visual_cx
             .debug_bounds("plugin-catalog")
             .expect("第一方目录应渲染");
@@ -174,6 +177,7 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
         assert!(root.origin.y >= scroll.origin.y);
         for child in [
             summary,
+            metric,
             catalog,
             catalog_entry,
             available,
