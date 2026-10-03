@@ -144,8 +144,10 @@ impl KafkaView {
         self.selected_topic = None;
         self.metadata = None;
         self.topics.clear();
+        self.topics_loaded = false;
         self.reset_topic_paging();
         self.consumer_groups.clear();
+        self.consumer_groups_loaded = false;
         self.selected_consumer_group = None;
         self.consumer_group_error = None;
         self.message_page = None;
@@ -241,8 +243,10 @@ impl KafkaView {
         self.invalidate_topic_operation();
         self.metadata = None;
         self.topics.clear();
+        self.topics_loaded = false;
         self.reset_topic_paging();
         self.consumer_groups.clear();
+        self.consumer_groups_loaded = false;
         self.selected_consumer_group = None;
         self.consumer_group_error = None;
         self.message_page = None;
@@ -441,8 +445,10 @@ impl KafkaView {
         self.clear_acl_snapshot();
         self.invalidate_acl_operation();
         self.consumer_groups.clear();
+        self.consumer_groups_loaded = false;
         self.selected_consumer_group = None;
         self.consumer_group_error = None;
+        self.topics_loaded = false;
         self.reset_topic_paging();
         let request_id = self.runtime_request_id;
         let context_cluster_id = self.selected_cluster_id.clone();
@@ -471,12 +477,14 @@ impl KafkaView {
                     (Ok(metadata), Ok(topics)) => {
                         this.metadata = Some(metadata);
                         this.topics = topics;
+                        this.topics_loaded = true;
                         this.runtime_error = None;
                         this.notice = Some(("集群元数据已更新".into(), false));
                     }
                     (Err(metadata_error), Ok(topics)) => {
                         this.metadata = None;
                         this.topics = topics;
+                        this.topics_loaded = true;
                         this.runtime_error =
                             Some(format!("元数据读取失败：{}", metadata_error.user_message()));
                         this.notice = Some((
@@ -487,6 +495,7 @@ impl KafkaView {
                     (Ok(metadata), Err(topic_error)) => {
                         this.metadata = Some(metadata);
                         this.topics.clear();
+                        this.topics_loaded = false;
                         this.runtime_error = Some(format!(
                             "Topic 列表读取失败：{}",
                             topic_error.user_message()
@@ -499,6 +508,7 @@ impl KafkaView {
                     (Err(error), Err(topic_error)) => {
                         this.metadata = None;
                         this.topics.clear();
+                        this.topics_loaded = false;
                         this.runtime_error = Some(format!(
                             "元数据读取失败：{}；Topic 列表读取失败：{}",
                             error.user_message(),

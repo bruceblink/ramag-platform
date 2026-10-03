@@ -34,6 +34,7 @@ impl KafkaView {
         let service = self.service.clone();
         self.consumer_group_cancelled = Some(cancelled.clone());
         self.loading_consumer_groups = true;
+        self.consumer_groups_loaded = false;
         self.consumer_group_error = None;
         self.notice = Some(("正在读取 Kafka 消费者组…".into(), false));
         cx.spawn_in(window, async move |this, cx| {
@@ -48,6 +49,7 @@ impl KafkaView {
                 }
                 this.loading_consumer_groups = false;
                 this.consumer_group_cancelled = None;
+                this.consumer_groups_loaded = true;
                 match result {
                     Ok(groups) => {
                         let selected = this.selected_consumer_group.clone().filter(|group_id| {

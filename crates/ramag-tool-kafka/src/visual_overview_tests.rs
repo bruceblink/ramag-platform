@@ -113,6 +113,14 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             visual_cx.debug_bounds("kafka-overview"),
             visual_cx.debug_bounds("kafka-overview-scroll"),
             visual_cx.debug_bounds("kafka-overview-metrics"),
+            visual_cx.debug_bounds("kafka-overview-key-data"),
+            visual_cx.debug_bounds("kafka-overview-key-data-grid"),
+            visual_cx.debug_bounds("kafka-overview-key-data-topics"),
+            visual_cx.debug_bounds("kafka-overview-key-data-consumer-groups"),
+            visual_cx.debug_bounds("kafka-overview-key-data-schema"),
+            visual_cx.debug_bounds("kafka-overview-key-data-connect"),
+            visual_cx.debug_bounds("kafka-overview-key-data-acls"),
+            visual_cx.debug_bounds("kafka-overview-key-data-ksqldb"),
             visual_cx.debug_bounds("kafka-overview-sections"),
             visual_cx.debug_bounds("kafka-overview-primary"),
             visual_cx.debug_bounds("kafka-overview-broker"),
@@ -142,6 +150,14 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             Some(overview),
             Some(scroll),
             Some(metrics),
+            Some(key_data),
+            Some(key_data_grid),
+            Some(key_data_topics),
+            Some(key_data_groups),
+            Some(key_data_schema),
+            Some(key_data_connect),
+            Some(key_data_acls),
+            Some(key_data_ksqldb),
             Some(sections),
             Some(primary),
             Some(broker),
@@ -191,6 +207,21 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             "概览内容应提供不覆盖内容的垂直滚动条: scroll={scroll:?}, viewport={overview_viewport:?}, scrollbar={overview_scrollbar:?}"
         );
         assert!(metrics.right() <= scroll.right());
+        assert!(key_data.right() <= scroll.right());
+        assert!(key_data_grid.right() <= key_data.right());
+        for card in [
+            key_data_topics,
+            key_data_groups,
+            key_data_schema,
+            key_data_connect,
+            key_data_acls,
+            key_data_ksqldb,
+        ] {
+            assert!(
+                card.right() <= key_data_grid.right(),
+                "关键数据卡片不能越出摘要面板：width={width}, card={card:?}, grid={key_data_grid:?}"
+            );
+        }
         assert!(sections.right() <= scroll.right());
         assert!(primary.right() <= sections.right());
         assert!(broker.right() <= primary.right());

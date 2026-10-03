@@ -72,8 +72,10 @@ impl KafkaView {
                         set_value(&this.produce_topic_input, "", _window, cx);
                         this.metadata = None;
                         this.topics.clear();
+                        this.topics_loaded = false;
                         this.reset_topic_paging();
                         this.consumer_groups.clear();
+                        this.consumer_groups_loaded = false;
                         this.selected_consumer_group = None;
                         this.consumer_group_error = None;
                         this.message_page = None;

@@ -211,6 +211,7 @@ pub struct KafkaView {
     selected_topic: Option<String>,
     metadata: Option<KafkaClusterMetadata>,
     topics: Vec<KafkaTopic>,
+    topics_loaded: bool,
     topic_page_index: usize,
     topic_page_size: usize,
     topic_scroll: UniformListScrollHandle,
@@ -218,6 +219,7 @@ pub struct KafkaView {
     workspace_tabs_scroll: ScrollHandle,
     partition_health_scroll: UniformListScrollHandle,
     consumer_groups: Vec<KafkaConsumerGroup>,
+    consumer_groups_loaded: bool,
     selected_consumer_group: Option<String>,
     consumer_group_error: Option<String>,
     schema_subjects: Vec<KafkaSchemaRegistrySubject>,
@@ -452,6 +454,7 @@ mod render_messages;
 mod render_metrics;
 mod render_metrics_partition;
 mod render_overview;
+mod render_overview_key_data;
 mod render_schema_registry;
 mod render_schema_registry_detail;
 mod render_sidebar;

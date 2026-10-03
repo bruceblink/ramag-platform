@@ -464,3 +464,11 @@ Computer Use 向下滚动目录，确认长列表在 Settings 内容区内部滚
 完整构建 `F:\project\ramag-platform\target\vcs-layout-validation\debug\ramag.exe`（PID `21760`，窗口 `Ramag — API 测试`）从首页打开 API 工作区。真实窗口显示 Pulse 页面标题“API 测试”、HTTP/gRPC 请求工作区、请求编辑区、响应面板、断言/变量和历史记录；切换 HTTP 与 gRPC 后对应字段、标签和操作区保持在工作区内。
 
 本机 Docker 服务保持运行并仅执行只读测试请求：`ramag-api-http-test`（`python:3.12.11-alpine-3.22`，`127.0.0.1:18089 -> 8080`）返回 HTTP `200` JSON；`ramag-api-grpc-test`（`rust:1.91.0-bookworm`，`127.0.0.1:18090 -> 50051`）返回 gRPC `docker echo: hello`，响应面板和历史记录均更新。未保存请求、未输入凭据、未修改服务或测试数据；API 断言、取消、导入/保存和 Collection 业务仍沿用既有目标测试与 Docker 证据边界。
+
+### 2026-10-03 Kafka 概览关键数据摘要切片
+
+Kafka 概览新增 System-tool 风格的“关键数据”轻量面板，集中显示 Topics、消费者组、Schema Registry、Kafka Connect、ACL 和 ksqlDB 的当前状态。Topic 数量来自已读取的 Broker 快照；消费者组新增明确的“未读取/已读取/读取失败”状态边界，避免空列表同时表示“没有数据”和“尚未请求”。Schema Registry、Kafka Connect 和 ksqlDB 继续根据保存的端点显示“未配置”，ACL 和其它懒加载资源显示“未读取”，异步加载或失败状态保留警告/错误语义。
+
+本切片只改变概览呈现和消费者组快照状态，不在打开概览时预加载外部资源，不改变 Kafka 协议、配置、权限、Topic/消息操作或页签懒加载。摘要卡片使用公共 Pulse 状态标签、面板边界和响应式换行；关键区域在 `360`、`900`、`1200` 和 `1440` 宽度的 headless GPUI 测试中保持在内容区内，并验证新增面板不会覆盖指标分区点击入口。
+
+验证结果：`cargo test --locked -p ramag-tool-kafka --lib -- --test-threads=1` 通过 38 项；Kafka 目标 all-target Clippy、`cargo fmt --all -- --check`、Windows 源码尺寸检查、`git diff --check` 和完整 `cargo build --locked -p ramag-bin` 通过。未启动 Docker、未连接外部 Kafka、未执行 GitHub CI 监测；完整程序构建产物为当前工作区的 `target/debug/ramag.exe`。本切片没有 Computer Use 原生窗口证据，保留既有运行时服务限制。
