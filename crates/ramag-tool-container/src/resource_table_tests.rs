@@ -55,11 +55,14 @@ fn image_rows_render_in_a_scrollable_table_on_narrow_window(cx: &mut TestAppCont
     let panel = visual_cx
         .debug_bounds("container-view")
         .expect("容器管理工作台应渲染");
+    let content = visual_cx
+        .debug_bounds("container-content")
+        .expect("资源列表内容区应渲染");
     let table_panel = visual_cx
         .debug_bounds("container-resource-panel")
         .expect("镜像表格面板应渲染");
     let table_viewport = visual_cx
-        .debug_bounds("container-resource-table-scroll")
+        .debug_bounds("container-resource-table-vertical-scroll")
         .expect("窄窗口应保留横向滚动表格视口");
     let row = visual_cx
         .debug_bounds("container-resource-image-image-123")
@@ -91,6 +94,10 @@ fn image_rows_render_in_a_scrollable_table_on_narrow_window(cx: &mut TestAppCont
         "镜像表格滚动视口应位于面板内: panel={table_panel:?}, viewport={table_viewport:?}"
     );
     assert!(
+        table_panel.bottom() >= content.bottom() - px(20.0),
+        "资源表格面板应延伸到内容区底部并填满可用高度: content={content:?}, panel={table_panel:?}"
+    );
+    assert!(
         horizontal_overflow > px(0.0),
         "窄窗口下表格列应通过横向滚动访问: max_offset={horizontal_overflow:?}"
     );
@@ -105,6 +112,78 @@ fn image_rows_render_in_a_scrollable_table_on_narrow_window(cx: &mut TestAppCont
     assert!(
         header.size.height > px(0.0),
         "镜像表格列标题应可见: header={header:?}"
+    );
+}
+
+#[gpui_kit::test]
+fn resource_list_fills_remaining_height_and_scrolls_long_tables(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ContainerView::new(window, cx));
+        view_entity = Some(view.clone());
+        Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("容器管理视图应初始化");
+    view.update(visual_cx, |view, cx| {
+        view.section = ContainerSection::Containers;
+        view.loading = false;
+        view.containers = Some(ContainerPage {
+            items: (0..40)
+                .map(|index| DockerContainerSummary {
+                    id: format!("container-{index}"),
+                    names: vec![format!("/service-{index}")],
+                    image: Some("example/service:latest".into()),
+                    image_id: None,
+                    command: None,
+                    created: None,
+                    state: Some("running".into()),
+                    status: Some("Up 2 hours (healthy)".into()),
+                    health: Some("healthy".into()),
+                    ports: Vec::new(),
+                    networks: vec!["bridge".into()],
+                    labels: Vec::new(),
+                })
+                .collect(),
+            page: 1,
+            page_size: 100,
+            total: 40,
+            has_more: false,
+        });
+        cx.notify();
+    });
+    visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
+    visual_cx.run_until_parked();
+
+    let content = visual_cx
+        .debug_bounds("container-content")
+        .expect("资源列表内容区应渲染");
+    let panel = visual_cx
+        .debug_bounds("container-resource-panel")
+        .expect("容器资源表格面板应渲染");
+    let viewport = visual_cx
+        .debug_bounds("container-resource-table-vertical-scroll")
+        .expect("表格应保留独立的纵向滚动区");
+    let table = visual_cx
+        .debug_bounds("container-resource-table-container")
+        .expect("容器数据行表格应渲染");
+    let last_row = visual_cx
+        .debug_bounds("container-resource-container-container-39")
+        .expect("最后一条容器资源行应渲染");
+    let vertical_overflow =
+        visual_cx.update(|_, cx| view.read(cx).resource_table_scroll.max_offset().y);
+
+    assert!(
+        panel.bottom() >= content.bottom() - px(20.0),
+        "表格面板应延伸到内容区底部: content={content:?}, panel={panel:?}"
+    );
+    assert!(
+        viewport.size.height > px(300.0),
+        "表格滚动区应占据页面剩余高度: viewport={viewport:?}"
+    );
+    assert!(
+        vertical_overflow > px(0.0),
+        "长表格应在填满窗口后继续纵向滚动: max_offset={vertical_overflow:?}, viewport={viewport:?}, table={table:?}, last_row={last_row:?}"
     );
 }
 

@@ -1373,6 +1373,8 @@ impl Render for ContainerView {
             .id("container-view")
             .debug_selector(|| "container-view".into())
             .size_full()
+            .font_family(theme.font_family.clone())
+            .text_size(px(14.0))
             .bg(theme.background)
             .text_color(theme.foreground)
             .child(header)
@@ -1396,13 +1398,19 @@ impl ContainerView {
         theme: &gpui_kit::component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let resource_list = matches!(
+            self.section,
+            ContainerSection::Containers
+                | ContainerSection::Images
+                | ContainerSection::Networks
+                | ContainerSection::Volumes
+        );
         let mut content = v_flex()
             .id("container-content")
             .debug_selector(|| "container-content".into())
             .flex_1()
             .min_w_0()
             .min_h_0()
-            .overflow_y_scrollbar()
             .p(px(16.0))
             .gap(px(12.0));
         let loading = self.loading || self.registry_loading;
@@ -1542,7 +1550,30 @@ impl ContainerView {
             ContainerSection::Logs => self.render_logs(theme, cx),
             ContainerSection::Registry => self.render_registry(theme, cx),
         };
-        content.child(section_content).into_any_element()
+        if resource_list {
+            let content = content.child(
+                v_flex()
+                    .id("container-resource-section-content")
+                    .debug_selector(|| "container-resource-section-content".into())
+                    .w_full()
+                    .flex_1()
+                    .min_w_0()
+                    .min_h_0()
+                    .child(section_content),
+            );
+            // Resource tables use their own two-axis viewport; an open detail pane
+            // returns page scrolling so long diagnostic details remain reachable.
+            if self.selected_detail.is_some() {
+                content.overflow_y_scrollbar().into_any_element()
+            } else {
+                content.into_any_element()
+            }
+        } else {
+            content
+                .overflow_y_scrollbar()
+                .child(section_content)
+                .into_any_element()
+        }
     }
 
     fn render_log_filter(
@@ -2203,15 +2234,18 @@ impl ContainerView {
             _ => "资源",
         };
         let body = if rows.is_empty() {
-            empty_state(
-                if self.loading {
-                    "正在读取资源..."
-                } else {
-                    empty
-                },
-                cx,
-            )
-            .into_any_element()
+            div()
+                .flex_1()
+                .min_h_0()
+                .child(empty_state(
+                    if self.loading {
+                        "正在读取资源..."
+                    } else {
+                        empty
+                    },
+                    cx,
+                ))
+                .into_any_element()
         } else {
             let resource_count = rows.len();
             let column_count = columns.len();
@@ -2221,9 +2255,8 @@ impl ContainerView {
             let header = TableRow::new(SharedString::from(header_id.clone()), 1)
                 .w_full()
                 .flex()
-                .h_8()
+                .h_7()
                 .flex_none()
-                .bg(theme.muted)
                 .debug_selector(move || header_id.clone())
                 .children(columns.iter().enumerate().map(|(index, column)| {
                     let cell_id = format!("container-resource-{kind}-header-{}", column.key);
@@ -2245,7 +2278,7 @@ impl ContainerView {
                                 .w_full()
                                 .overflow_hidden()
                                 .text_ellipsis()
-                                .text_xs()
+                                .text_size(px(11.0))
                                 .font_weight(gpui_kit::FontWeight::MEDIUM)
                                 .text_color(theme.muted_foreground)
                                 .child(column.label),
@@ -2275,22 +2308,36 @@ impl ContainerView {
                     ))
                 },
             );
+            // Keep one bounded viewport for both axes so the table contributes its
+            // real row height while retaining horizontal access to every column.
             v_flex()
                 .id("container-resource-table-frame")
                 .debug_selector(|| "container-resource-table-frame".into())
                 .w_full()
                 .min_w_0()
+                .flex_1()
+                .min_h_0()
                 .gap(px(4.0))
                 .child(
                     div()
-                        .id("container-resource-table-scroll")
-                        .debug_selector(|| "container-resource-table-scroll".into())
-                        .w_full()
+                        .id("container-resource-table-vertical-scroll")
+                        .debug_selector(|| "container-resource-table-vertical-scroll".into())
+                        .size_full()
+                        .flex_1()
                         .min_w_0()
-                        .overflow_x_scroll()
+                        .min_h_0()
+                        .overflow_scroll()
                         .track_scroll(&self.resource_table_scroll)
-                        .child(table),
+                        .child(
+                            div()
+                                .id("container-resource-table-scroll")
+                                .debug_selector(|| "container-resource-table-scroll".into())
+                                .w_full()
+                                .min_w(px(total_width))
+                                .child(table),
+                        ),
                 )
+                .child(Scrollbar::vertical(&self.resource_table_scroll).mode(ScrollbarMode::Always))
                 .child(
                     Scrollbar::horizontal(&self.resource_table_scroll).mode(ScrollbarMode::Always),
                 )
@@ -2300,6 +2347,8 @@ impl ContainerView {
         ramag_ui::pulse_ui::pulse_panel(cx)
             .id("container-resource-panel")
             .debug_selector(|| "container-resource-panel".into())
+            .flex_1()
+            .min_h_0()
             .gap(px(12.0))
             .child(body)
             .when_some(detail, |panel, detail| panel.child(detail))
@@ -2562,11 +2611,11 @@ fn resource_table_row(
     let row_id = format!("container-resource-{kind}-{}", row.id);
     let row_selector = row_id.clone();
     let selected = selected_id == Some(row.id.as_str());
-    let zebra = theme.muted.opacity(0.12);
+    let zebra = theme.success.opacity(0.045);
     TableRow::new(SharedString::from(row_id.clone()), row_index + 2)
         .w_full()
         .flex()
-        .h_8()
+        .h_7()
         .flex_none()
         .when(!selected && row_index.is_multiple_of(2), |row| {
             row.bg(zebra)
@@ -2595,7 +2644,8 @@ fn resource_table_row(
                             .min_w_0()
                             .overflow_hidden()
                             .text_ellipsis()
-                            .when(matches!(column.key, "size" | "containers"), |cell| {
+                            .text_color(theme.foreground)
+                            .when(matches!(column.key, "id" | "size" | "containers"), |cell| {
                                 cell.font_family(theme.mono_font_family.clone())
                             })
                             .debug_selector(move || text_selector.clone())
