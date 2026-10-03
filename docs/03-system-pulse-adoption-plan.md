@@ -458,3 +458,9 @@ Computer Use 真实窗口验证了页面标题、搜索框、类型筛选、条�
 完整构建 `F:\project\ramag-platform\target\vcs-layout-validation\debug\ramag.exe`（PID `28716`，窗口 `Ramag — 设置`）打开全局 Settings 的“插件”页面。运行概览显示插件总数 `12`、已就绪 `12`、待处理 `0`；第一方工具目录卡片使用统一 Pulse 标题层级、轻量面板、状态点、字体和间距，数据库、API、Kafka、MQTT、VCS、SSH、对象存储、容器、系统监控、本机协作和 JSON Path 等条目可见。
 
 Computer Use 向下滚动目录，确认长列表在 Settings 内容区内部滚动，左侧设置导航保持固定，末端条目没有越出窗口；本轮只检查目录和状态展示，没有执行插件任务、连接、凭据或外部服务操作。插件标准入口的领域流程仍按既有 headless 测试边界记录，不把目录页面验收扩大为所有插件业务完成。
+
+### 2026-10-03 API 工作区完整程序验收
+
+完整构建 `F:\project\ramag-platform\target\vcs-layout-validation\debug\ramag.exe`（PID `21760`，窗口 `Ramag — API 测试`）从首页打开 API 工作区。真实窗口显示 Pulse 页面标题“API 测试”、HTTP/gRPC 请求工作区、请求编辑区、响应面板、断言/变量和历史记录；切换 HTTP 与 gRPC 后对应字段、标签和操作区保持在工作区内。
+
+本机 Docker 服务保持运行并仅执行只读测试请求：`ramag-api-http-test`（`python:3.12.11-alpine-3.22`，`127.0.0.1:18089 -> 8080`）返回 HTTP `200` JSON；`ramag-api-grpc-test`（`rust:1.91.0-bookworm`，`127.0.0.1:18090 -> 50051`）返回 gRPC `docker echo: hello`，响应面板和历史记录均更新。未保存请求、未输入凭据、未修改服务或测试数据；API 断言、取消、导入/保存和 Collection 业务仍沿用既有目标测试与 Docker 证据边界。
