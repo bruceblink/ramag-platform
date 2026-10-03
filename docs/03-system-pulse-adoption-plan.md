@@ -520,3 +520,9 @@ Summary 与各详细页的历史图此前把量程和历史时长放在图表顶
 Summary 底部 Energy 卡片此前只在当前功率传感器可见时加入布局；当保存的传感器被隐藏或暂时不可用时，整张卡会消失，页面组合不再与 System-tool 的固定子系统区域一致。本切片保留 Energy 卡，即使当前没有可用功率样本也显示不可用状态和历史等待区域；真实零值、失败、过期及可用功率样本继续复用已有选择和状态表达，不合并不同范围的功率来源，也不改变 Energy 详细页或传感器持久化。
 
 新增 `summary_keeps_energy_card_when_all_power_sensors_are_unavailable`，隐藏 CPU 与两张 GPU 的功率传感器后确认 Summary Energy 图表区域仍在且选中功率通道为空；原有零值、缺口和功率网格测试继续通过。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 106 项；workspace all-target Clippy、workspace fmt、Windows 源码尺寸检查和 `git diff --check` 通过。当前完整程序由 `F:\project\ramag-platform\target\debug\ramag.exe` 构建并启动，PID `18276`、窗口标题 `Ramag — Kafka`，确认使用当前工作区产物；Computer Use 仍返回 `Trusted RPC service not configured: sky`，本切片不宣称原生鼠标/键盘验收，也不恢复 GitHub CI 监测。
+
+### 2026-10-04 Summary Thermals 卡片状态保持
+
+Summary 底部 Thermals 卡片现在与 Energy 一样属于固定子系统区域：当 CPU、GPU 和其它温度传感器均被隐藏、暂时不可用或没有当前有限读数时，卡片仍显示不可用/等待状态，历史区域不因最高温度选择为空而消失。存在有效温度时继续使用最高当前有限传感器和动态摄氏量程；不改变 Thermals 详细页的稳定传感器选择、授权入口、负温度和失败原因。
+
+新增 `summary_keeps_thermals_card_when_all_temperature_sensors_are_unavailable`，隐藏 CPU、GPU A 和 GPU B 的温度传感器后确认 Summary Thermals 图表区域仍在且最高当前温度为空；既有温度选择、缺失、非有限和状态测试继续通过。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 107 项；workspace all-target Clippy、workspace fmt、Windows 源码尺寸检查和 `git diff --check` 通过。当前完整程序由 `F:\project\ramag-platform\target\debug\ramag.exe` 构建并启动，PID `10216`、窗口标题 `Ramag — Kafka`，确认使用当前工作区产物；Computer Use 仍返回 `Trusted RPC service not configured: sky`，本切片不宣称原生鼠标/键盘验收，也不恢复 GitHub CI 监测。

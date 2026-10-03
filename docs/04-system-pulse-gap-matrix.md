@@ -250,3 +250,9 @@ System Pulse Settings 的 Sampling 分区实际显示当前周期的大号数值
 Summary 现在始终保留 Energy 子系统卡片：当前选中的功率传感器被隐藏、读取失败或暂时没有可用样本时，卡片显示不可用/等待状态，历史区域不因 `Option<Channel>::None` 而从固定五卡布局中消失。可用样本仍按稳定传感器选择绘制，真实 `0 W` 保持为零，错误、过期和缺口继续使用采集状态，不把 CPU 包功率、GPU 功率或其它范围相加。
 
 `summary_keeps_energy_card_when_all_power_sensors_are_unavailable` 在合成快照中隐藏 CPU、GPU A 和 GPU B 的功率传感器，断言 `summary-history:energy` 仍在且 `selected_channel(Screen::Energy)` 保持为空；`energy_primary_and_sensor_grid_render_zero_values_and_capture_gaps` 继续覆盖真实零值和历史缺口。`ramag-tool-system` 全量 106 项通过，workspace Clippy、fmt、源码尺寸和差异检查通过；完整源码程序 `target/debug/ramag.exe` 已启动核对，Computer Use 服务不可用，不把启动证据扩大为原生交互验收。
+
+### 2026-10-04 `03F-Summary-Thermals` 不可用状态保留
+
+Summary 现在始终保留 Thermals 子系统卡片：当前最高温度为空时，卡片显示不可用/等待状态并保留图表区域；有效温度仍按最高当前有限读数绘制，负温度、动态摄氏范围、失败、过期和缺口继续沿用采集状态，不把缺失读数填成零。
+
+`summary_keeps_thermals_card_when_all_temperature_sensors_are_unavailable` 在合成快照中隐藏 CPU、GPU A 和 GPU B 的温度传感器，断言 `summary-history:thermals` 仍在且 `highest_current` 为空；Thermals 详细页的传感器选择和授权测试不变。`ramag-tool-system` 全量 107 项通过，workspace Clippy、fmt、源码尺寸和差异检查通过；完整源码程序 `target/debug/ramag.exe` 已启动核对，Computer Use 服务不可用，不把启动证据扩大为原生交互验收。

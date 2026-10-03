@@ -444,7 +444,9 @@ pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
         ("Thermals", Screen::Thermals, temperature),
     ]
     .into_iter()
-    .filter(|(_, screen, channel)| *screen == Screen::Energy || channel.is_some())
+    .filter(|(_, screen, channel)| {
+        matches!(screen, Screen::Energy | Screen::Thermals) || channel.is_some()
+    })
     .collect();
     // Keep each of five cards at least 320px wide. Below that, use balanced
     // rows of three and two; grid tracks fill each row without rounded widths

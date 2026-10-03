@@ -146,6 +146,50 @@ fn summary_keeps_energy_card_when_all_power_sensors_are_unavailable(cx: &mut Tes
 }
 
 #[gpui_kit::test]
+fn summary_keeps_thermals_card_when_all_temperature_sensors_are_unavailable(
+    cx: &mut TestAppContext,
+) {
+    use crate::workspace::Command;
+
+    let (view, cx) = populated(cx);
+    for (monitor, sensor) in [
+        ("cpu:host".to_owned(), "cpu:host/temperature".to_owned()),
+        (
+            fixture::GPU_A.to_owned(),
+            format!("{}/temperature", fixture::GPU_A),
+        ),
+        (
+            fixture::GPU_B.to_owned(),
+            format!("{}/temperature", fixture::GPU_B),
+        ),
+    ] {
+        command(&view, Command::SensorVisible(monitor, sensor), cx);
+    }
+    command(&view, Command::Screen(Screen::Summary), cx);
+
+    let card = cx
+        .debug_bounds("summary-history:thermals")
+        .unwrap_or_else(|| {
+            std::panic::resume_unwind(Box::new("missing Summary Thermals history card"))
+        });
+    assert!(card.size.width > gpui_kit::px(0.) && card.size.height > gpui_kit::px(0.));
+    cx.read(|cx| {
+        let data = view.read(cx).shared.borrow();
+        assert!(
+            crate::screen_data::highest_current(
+                &data,
+                &crate::screen_data::by_quantity(
+                    &data,
+                    system_pulse_model::Quantity::Temperature,
+                    system_pulse_model::PhysicalUnit::Celsius,
+                ),
+            )
+            .is_none()
+        );
+    });
+}
+
+#[gpui_kit::test]
 fn selected_gpu_survives_reordering_restore_and_disconnect_without_switching(
     cx: &mut TestAppContext,
 ) {
