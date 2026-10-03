@@ -201,6 +201,8 @@ impl Render for ConnectionListPanel {
             .size_full();
             h_flex()
                 .w_full()
+                .flex_1()
+                .min_h_0()
                 .justify_center()
                 .px(px(24.0))
                 .py(px(10.0))
@@ -209,6 +211,8 @@ impl Render for ConnectionListPanel {
                         .id("connection-list-panel")
                         .debug_selector(|| "connection-list-panel".into())
                         .max_w(px(CONTENT_MAX_W))
+                        .h_full()
+                        .min_h_0()
                         .p_0()
                         .overflow_hidden()
                         .child(rows),
@@ -216,19 +220,31 @@ impl Render for ConnectionListPanel {
                 .into_any_element()
         };
 
-        v_flex().size_full().bg(bg).child(header).child(body)
+        v_flex()
+            .size_full()
+            .min_h_0()
+            .bg(bg)
+            .child(header)
+            .child(body)
     }
 }
 
 /// 空状态：只放一个居中主按钮
 fn empty_state(cx: &mut Context<ConnectionListPanel>) -> impl IntoElement {
-    v_flex().size_full().items_center().justify_center().child(
-        ramag_ui::clickable_button("empty-add")
-            .primary()
-            .icon(IconName::Plus)
-            .label("新建")
-            .on_click(cx.listener(|_this, _: &ClickEvent, _, cx| {
-                cx.emit(ListEvent::RequestNew);
-            })),
-    )
+    v_flex()
+        .id("connection-list-empty-state")
+        .debug_selector(|| "connection-list-empty-state".into())
+        .size_full()
+        .items_center()
+        .justify_center()
+        .child(
+            ramag_ui::clickable_button("empty-add")
+                .debug_selector(|| "connection-list-empty-add".into())
+                .primary()
+                .icon(IconName::Plus)
+                .label("新建")
+                .on_click(cx.listener(|_this, _: &ClickEvent, _, cx| {
+                    cx.emit(ListEvent::RequestNew);
+                })),
+        )
 }

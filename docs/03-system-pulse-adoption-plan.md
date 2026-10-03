@@ -392,3 +392,19 @@ VCS 文件栏在常规宽度下移除空闲时占满弹性空间的占位项，�
 Computer Use 使用同一完整构建（PID `34508`）检查 1555×924 暗色窗口中的 DBClient `ramag_ui_test.bulk_records` 结果页。结果表从查询工具栏下方铺满工作区，表头、分页和双向滚动条保持可见；本机只读翻页由 `1–100` 到 `101–200`，横向滚动可查看 `payload` 与 `binary_token` 列，纵向滚动仍在当前 100 行页内移动。返回第一页后恢复了表格的首屏和左侧列；未执行事务、写入 SQL 或数据修改。与同窗 System-tool Summary 对照，深色背景、边界和紧凑排版保持一致，结果表保留数据密度所需的较小行文。
 
 本机 Docker 服务为 `ramag-visual-test-mysql84`（`mysql:8.4`，`127.0.0.1:13318 -> 3306/tcp`），检查时已运行约 10 小时；本轮未启动或停止该服务，也未执行独立 Docker 集成测试。`cargo test --locked -p ramag-tool-dbclient --lib -- --test-threads=1` 通过 368 项；`cargo fmt --all -- --check` 和 DBClient all-target Clippy `-D warnings` 通过。此记录只覆盖真实连接下的结果表、分页和滚动；连接管理、查询编辑器、其它驱动及写入/事务流程仍待独立验收。
+
+### 2026-10-03 DBClient 连接列表视口高度修复计划
+
+本机 `17:58 +08:00` 使用当前工作区完整构建的 Ramag（进程路径 `F:\project\ramag-platform\target\debug\ramag.exe`，PID `34508`）在 1555×924 暗色窗口打开“数据源管理”。标题、副标题、连接搜索和新建图标可见，但主体在等待异步加载后仍为空白；窗口保留一个已连接 MySQL 会话标签，因此原生观察不能单独判定持久化连接列表的数量。进一步检查发现非空列表分支把 `uniform_list(size_full)` 放在没有高度约束的横向容器中；新增的 `360x640` 单连接 headless 断言复现列表面板只有 `312x2`，确认视口高度塌缩是主要布局缺陷。空列表新建操作在 headless 三种窗口尺寸中已验证可见。
+
+本切片只修复非空连接列表的高度塌缩：视口填充标题区下方工作区；已加载空列表的新建操作保持可见。不得改变连接存储、查询/预取、会话标签或数据库内容。Headless 测试覆盖单连接列表填充视口及空列表操作在 `360x640`、`1024x768`、`1440x900` 内可见；真实窗口复查已保存连接行和新建表单打开/取消，不保存连接、不运行数据库写操作。加载/失败状态、搜索无匹配和多行滚动仍按后续验收逐项检查；本切片不将它们标记为已验收。
+
+### 2026-10-03 DBClient 连接列表视口修复验收
+
+`ConnectionListPanel` 的非空主体改为填充标题区下方剩余高度，并约束 Pulse 面板和列表的最小高度；保留 `uniform_list` 与已有连接选择回调。回归测试此前在 `360x640` 复现 `312x2` 面板高度，修复后在 `360x640`、`1024x768`、`1440x900` 三种尺寸均验证面板高度至少 400px 且页面标题、工具栏、列表、搜索和新建入口不越界。空列表的新建操作在相同尺寸内保持可见。
+
+Computer Use 使用完整构建 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `19712`，进程路径已由 Windows 进程表核对），在 1555×924 暗色窗口打开“数据源管理”。已保存的 `127.0.0.1:13318` MySQL 连接行和版本 `8.4.9` 可见，列表面板从页头下方延伸至客户区底部；新建连接表单可打开并取消，回到原连接行，未保存表单或更改连接配置。查询编辑器中预存的 `SELECT * FROM ramag_ui_test.bulk_records` 只读查询显示结果；未启动事务、执行写入或修改测试数据。此轮原生检查没有多行连接可供滚动，加载/失败及搜索无匹配状态也未覆盖。
+
+全量目标测试 `cargo test --locked -p ramag-tool-dbclient --lib -- --test-threads=1` 通过 369 项；目标 Clippy、workspace all-target Clippy `-D warnings`、`cargo fmt --all -- --check`、完整构建 `cargo build --locked -p ramag-bin`、Windows 源码尺寸脚本、UTF-8/LF 与 `git diff --check` 均通过。
+
+本机 `2026-10-03 18:18 +08:00` 由 `Get-Date` 核对。MySQL 服务在检查开始前已运行约 10 小时，容器创建于 2026-09-26：`ramag-visual-test-mysql84`，镜像 `mysql:8.4`（窗口报告版本 `8.4.9`），端口 `127.0.0.1:13318 -> 3306/tcp`，专用具名卷 `ramag-visual-test-mysql84-data`。本轮未启动服务；原生列表读取及上述 SELECT 为只读。验收窗口关闭后已删除该测试容器和专用数据卷，并核实容器、卷均不存在；未运行单独的 Docker 集成测试。DBClient 其他驱动、写入/事务流程和原生多行滚动仍待验收。
