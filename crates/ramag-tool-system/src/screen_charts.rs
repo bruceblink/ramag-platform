@@ -1,5 +1,3 @@
-#[cfg(test)]
-use crate::test_support::TestUnwrapExt;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::*;
@@ -124,9 +122,9 @@ fn meter_ratio(ratio: Option<f64>) -> Option<f64> {
         .map(|ratio| ratio.clamp(0., 1.))
 }
 
-fn range_label(range: (f64, f64), unit: &str) -> String {
+fn unit_divisor(unit: &str) -> f64 {
     // Sample.value remains physical; Sample.unit already includes its display prefix.
-    let divisor = ["B/s", "B", "Hz"]
+    ["B/s", "B", "Hz"]
         .iter()
         .find_map(|suffix| {
             let prefix = unit.strip_suffix(suffix)?;
@@ -143,11 +141,34 @@ fn range_label(range: (f64, f64), unit: &str) -> String {
                 _ => 1.,
             })
         })
-        .unwrap_or(1.);
+        .unwrap_or(1.)
+}
+
+fn range_label(range: (f64, f64), unit: &str) -> String {
+    let divisor = unit_divisor(unit);
     format!(
         "Scale: {:.1}–{:.1} {unit}",
         range.0 / divisor,
         range.1 / divisor
+    )
+}
+
+fn axis_label(value: f64, unit: &str, zero: bool) -> String {
+    if zero && value == 0. {
+        return "0".into();
+    }
+    let divisor = unit_divisor(unit);
+    if unit.is_empty() {
+        format!("{value:.1}")
+    } else {
+        format!("{:.1} {unit}", value / divisor)
+    }
+}
+
+fn axis_labels(range: (f64, f64), unit: &str) -> (String, String) {
+    (
+        axis_label(range.1, unit, false),
+        axis_label(range.0, unit, true),
     )
 }
 
@@ -177,10 +198,8 @@ pub(crate) fn history_chart(
         .last()
         .map_or("", |sample| sample.unit.as_str());
     let scale_label = range_label(range, unit);
-    let elapsed = format!(
-        "{:.1} s history",
-        time.1.saturating_sub(time.0) as f64 / 1000.
-    );
+    let elapsed = format!("{:.1} s", time.1.saturating_sub(time.0) as f64 / 1000.);
+    let (top_axis_label, bottom_axis_label) = axis_labels(range, unit);
     let values = series
         .iter()
         .map(|series| {
@@ -300,16 +319,11 @@ pub(crate) fn history_chart(
         150.
     };
     let compact = height < 140.;
-    let visible_scale = if compact {
-        scale_label.trim_start_matches("Scale: ").to_owned()
-    } else {
-        scale_label
-    };
-    let visible_elapsed = if compact {
-        elapsed.trim_end_matches(" history").to_owned()
-    } else {
-        elapsed
-    };
+    let axis_width = 64.;
+    let axis_top_id = format!("{id}:axis-top");
+    let axis_bottom_id = format!("{id}:axis-bottom");
+    let axis_id = format!("{id}:axis");
+    let plot_id = format!("{id}:plot");
     div()
         .id(id.clone())
         .accessibility_id(id.to_string())
@@ -324,41 +338,95 @@ pub(crate) fn history_chart(
         .child(
             div()
                 .flex()
-                .flex_shrink_0()
-                .justify_between()
                 .gap(px(4.))
-                .h(px(if compact { 12. } else { 14. }))
-                .line_height(px(if compact { 12. } else { 14. }))
-                .text_size(px(if compact { 9. } else { 10. }))
-                .text_color(cx.theme().muted_foreground)
-                .child(visible_scale)
-                .child(visible_elapsed),
-        )
-        .child(
-            div()
                 .relative()
                 .flex_1()
                 .min_h_0()
                 .w_full()
-                .border_1()
-                .border_color(accent.opacity(0.4))
-                .rounded_sm()
-                .overflow_hidden()
-                .bg(accent.opacity(if dark { 0.035 } else { 0.025 }))
-                .child(chart)
-                .when(!has_points, |this| {
-                    this.child(
-                        div()
-                            .absolute()
-                            .inset_0()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .text_size(px(11.))
-                            .text_color(cx.theme().muted_foreground)
-                            .child(waiting),
-                    )
-                }),
+                .child(
+                    div()
+                        .id(axis_id.clone())
+                        .debug_selector(move || axis_id.clone())
+                        .flex_none()
+                        .w(px(axis_width))
+                        .h_full()
+                        .flex()
+                        .flex_col()
+                        .justify_between()
+                        .items_start()
+                        .text_size(px(if compact { 9. } else { 10. }))
+                        .line_height(px(if compact { 11. } else { 12. }))
+                        .text_color(cx.theme().muted_foreground)
+                        .child(
+                            div()
+                                .id(axis_top_id.clone())
+                                .debug_selector(move || axis_top_id.clone())
+                                .max_w(px(axis_width))
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .child(top_axis_label),
+                        )
+                        .child(
+                            div()
+                                .id(axis_bottom_id.clone())
+                                .debug_selector(move || axis_bottom_id.clone())
+                                .max_w(px(axis_width))
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .child(bottom_axis_label),
+                        ),
+                )
+                .child(
+                    div()
+                        .id(plot_id.clone())
+                        .debug_selector(move || plot_id.clone())
+                        .relative()
+                        .flex_1()
+                        .min_w_0()
+                        .min_h_0()
+                        .flex()
+                        .flex_col()
+                        .child(
+                            div()
+                                .relative()
+                                .flex_1()
+                                .min_h_0()
+                                .w_full()
+                                .border_1()
+                                .border_color(accent.opacity(0.4))
+                                .rounded_sm()
+                                .overflow_hidden()
+                                .bg(accent.opacity(if dark { 0.035 } else { 0.025 }))
+                                .child(chart)
+                                .when(!has_points, |this| {
+                                    this.child(
+                                        div()
+                                            .absolute()
+                                            .inset_0()
+                                            .flex()
+                                            .items_center()
+                                            .justify_center()
+                                            .text_size(px(11.))
+                                            .text_color(cx.theme().muted_foreground)
+                                            .child(waiting),
+                                    )
+                                }),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .justify_between()
+                                .text_size(px(if compact { 9. } else { 10. }))
+                                .line_height(px(if compact { 11. } else { 12. }))
+                                .text_color(cx.theme().muted_foreground)
+                                .child(if time.0 == time.1 {
+                                    "now".into()
+                                } else {
+                                    format!("{elapsed} ago")
+                                })
+                                .child("now"),
+                        ),
+                ),
         )
         .into_any_element()
 }
@@ -421,157 +489,5 @@ pub(crate) fn segmented_meter(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use system_pulse_model::{PhysicalUnit, ReadingStatus};
-
-    fn sample(at_ms: u64, value: f64) -> Sample {
-        Sample::measured(
-            at_ms,
-            Quantity::Percentage,
-            value,
-            None,
-            PhysicalUnit::Percent,
-        )
-        .test_unwrap()
-    }
-
-    fn series(samples: Vec<Sample>) -> ChartSeries {
-        ChartSeries {
-            label: "CPU".into(),
-            color: hsla(0.3, 0.8, 0.6, 1.),
-            samples,
-        }
-    }
-
-    #[::core::prelude::v1::test]
-    fn uneven_timestamps_align_across_series_without_float_clock_loss() {
-        let origin = u64::MAX - 1000;
-        let series = vec![
-            series(vec![
-                sample(origin, 0.),
-                sample(origin + 100, 50.),
-                sample(origin + 1000, 100.),
-            ]),
-            series(vec![sample(origin + 500, 25.)]),
-        ];
-        let time = time_domain(&series);
-        assert_eq!(time, (origin, origin + 1000));
-        let trace = trace_segments(&series[0].samples, time, (0., 100.));
-        assert_eq!(trace[0][1], ChartPoint { x: 0.1, y: 0.5 });
-        assert_eq!(
-            trace_segments(&series[1].samples, time, (0., 100.))[0][0].x,
-            0.5
-        );
-    }
-
-    #[::core::prelude::v1::test]
-    fn unavailable_and_nonfinite_samples_break_both_trace_and_area() {
-        let mut samples = vec![
-            sample(0, 20.),
-            sample(100, 40.),
-            sample(200, 50.),
-            sample(300, 70.),
-            sample(400, 80.),
-        ];
-        samples[1].status = ReadingStatus::Unavailable;
-        samples[3].value = Some(f64::NAN);
-        let segments = trace_segments(&samples, (0, 400), (0., 100.));
-        assert_eq!(
-            segments.iter().map(Vec::len).collect::<Vec<_>>(),
-            vec![1, 1, 1]
-        );
-        assert_eq!(segments[1][0].x, 0.5);
-    }
-
-    #[::core::prelude::v1::test]
-    fn stale_latest_never_gets_current_marker() {
-        let mut samples = vec![sample(0, 20.), sample(100, 40.)];
-        assert!(latest_point(&samples, (0, 100), (0., 100.)).is_some());
-        samples[1].status = ReadingStatus::Stale;
-        assert!(latest_point(&samples, (0, 100), (0., 100.)).is_none());
-        assert_eq!(trace_segments(&samples, (0, 100), (0., 100.))[0].len(), 1);
-    }
-
-    #[::core::prelude::v1::test]
-    fn empty_single_and_zero_domains_stay_finite() {
-        assert_eq!(value_domain(&[], None), (0., 1.));
-        assert!(trace_segments(&[], (0, 0), (0., 1.)).is_empty());
-        let series = vec![series(vec![sample(42, 0.)])];
-        let range = value_domain(&series, None);
-        assert_eq!(range, (0., 1.));
-        assert_eq!(
-            trace_segments(&series[0].samples, (42, 42), range)[0][0],
-            ChartPoint { x: 1., y: 1. }
-        );
-        assert_eq!(value_domain(&series, Some((f64::NAN, 0.))), range);
-    }
-
-    #[::core::prelude::v1::test]
-    fn shared_range_covers_every_series_and_keeps_temperature_negative() {
-        assert_eq!(
-            value_domain(
-                &[series(vec![sample(0, 20.)]), series(vec![sample(0, 80.)])],
-                None
-            ),
-            (0., 80.)
-        );
-        let cold = Sample::measured(0, Quantity::Temperature, -5., None, PhysicalUnit::Celsius)
-            .test_unwrap();
-        let range = value_domain(&[series(vec![cold])], None);
-        assert!(range.0 < -5. && range.1 > -5.);
-    }
-
-    #[::core::prelude::v1::test]
-    fn ratios_clamp_but_unavailable_and_nonfinite_do_not_light_cells() {
-        assert_eq!(meter_ratio(None), None);
-        assert_eq!(meter_ratio(Some(f64::NAN)), None);
-        assert_eq!(meter_ratio(Some(f64::INFINITY)), None);
-        assert_eq!(meter_ratio(Some(-1.)), Some(0.));
-        assert_eq!(meter_ratio(Some(0.)), Some(0.));
-        assert_eq!(meter_ratio(Some(0.5)), Some(0.5));
-        assert_eq!(meter_ratio(Some(2.)), Some(1.));
-    }
-
-    #[::core::prelude::v1::test]
-    fn range_labels_convert_base_values_without_relabelling_bytes_as_gibibytes() {
-        assert_eq!(
-            range_label((0., 2. * 1024_f64.powi(3)), "GiB"),
-            "Scale: 0.0–2.0 GiB"
-        );
-        assert_eq!(
-            range_label((0., 3. * 1024_f64.powi(2)), "MiB/s"),
-            "Scale: 0.0–3.0 MiB/s"
-        );
-        assert_eq!(range_label((0., 4e9), "GHz"), "Scale: 0.0–4.0 GHz");
-        assert_eq!(range_label((-5., 20.), "°C"), "Scale: -5.0–20.0 °C");
-    }
-
-    #[::core::prelude::v1::test]
-    fn out_of_order_samples_cannot_draw_backwards_or_claim_latest_marker() {
-        let samples = vec![sample(100, 10.), sample(300, 30.), sample(200, 20.)];
-        let segments = trace_segments(&samples, (100, 300), (0., 100.));
-        assert_eq!(segments.len(), 1);
-        assert_eq!(segments[0].len(), 2);
-        assert!(latest_point(&samples, (100, 300), (0., 100.)).is_none());
-    }
-
-    #[::core::prelude::v1::test]
-    fn finite_extremes_cannot_overflow_chart_coordinates() {
-        let point = chart_point(&sample(100, 0.), (0, 100), (-f64::MAX, f64::MAX)).test_unwrap();
-        assert_eq!(point, ChartPoint { x: 1., y: 0.5 });
-        for value in [-f64::MAX, f64::MAX] {
-            let extreme =
-                Sample::measured(0, Quantity::Temperature, value, None, PhysicalUnit::Celsius)
-                    .test_unwrap();
-            let series = vec![series(vec![extreme])];
-            let range = value_domain(&series, None);
-            assert!(range.0.is_finite() && range.1.is_finite() && range.0 < range.1);
-            assert!(
-                trace_segments(&series[0].samples, (0, 0), range)[0][0]
-                    .y
-                    .is_finite()
-            );
-        }
-    }
-}
+#[path = "screen_charts_tests.rs"]
+mod tests;

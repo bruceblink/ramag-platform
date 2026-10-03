@@ -508,3 +508,9 @@ JSON Path 提取器的路径输入、提取按钮和标签原先使用固定横�
 数据库客户端的连接标签此前已经显示状态，但激活 SQL、MongoDB 或 Redis 会话后，中央工作区直接从对象树、Key 树或查询区开始，缺少 System-tool 风格的页面标题、连接上下文和统一状态层级。本切片在 `DbClientView` 根部增加共享的会话上下文栏：标题显示连接名，副标题显示驱动和端点，状态徽章复用“未连接/连接中/已连接/连接失败/需重连”的真实会话语义。连接树、查询编辑器、MongoDB 集合树、Redis Key 详情、命令行、标签关闭和连接生命周期均未改变。
 
 新增 `session_context_header_stays_inside_supported_window_sizes`，覆盖 `360x640`、`1024x768` 和 `1440x900` 的标题、状态和容器边界；`session_pulse_status_preserves_connection_semantics` 锁定五种状态映射。`cargo test --locked -p ramag-tool-dbclient --lib -- --test-threads=1` 通过 371 项；目标 Clippy、workspace all-target Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。完整程序由 `F:\project\ramag-platform\target\debug\ramag.exe` 启动核对，PID `26660`、窗口标题 `Ramag — Kafka`，确认运行路径来自当前工作区。Computer Use 探测返回 `Trusted RPC service is not configured: sky`，本切片不宣称原生鼠标/键盘验收；按用户最新要求不恢复 GitHub CI 监测。
+
+### 2026-10-04 Summary 图表纵轴标签对齐
+
+Summary 与各详细页的历史图此前把量程和历史时长放在图表顶部横向排列，纵轴下限和上限没有形成左侧刻度区；窄窗口下这会留下较大空白，也使 `0 %`/`0 B` 容易被误读为当前读数。本切片把有效量程上限与下限移到绘图区左侧固定 `64px` 的刻度区，标签左对齐；上限保留物理单位，下限为零时只显示 `0`，负温度和其它非零下限保留单位。绘图区从刻度区右侧开始，时间轴的起点和终点与绘图区同一左/右边界；实时指标仍来自页面已有最新样本，缺失/失败/过期样本继续断线或显示状态，不填充为零。
+
+新增 `axis_labels_stay_left_aligned_and_plot_starts_after_compact_axis`，覆盖 `256`、`640` 和 `1024` 宽度，断言 `64px` 刻度区、上/下标签左边缘、绘图区边界和非零可用宽度；`axis_labels_keep_zero_without_unit_and_physical_units` 锁定百分比、GiB 和负温度文案。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 105 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查和 `git diff --check` 通过。随后使用当前源码完整程序 `F:\project\ramag-platform\target\debug\ramag.exe` 构建并核对启动路径，不使用 `ui-preview`；Computer Use 当前返回 `Trusted RPC service is not configured: sky`，因此本切片不宣称原生鼠标/键盘验收，也不恢复 GitHub CI 监测。

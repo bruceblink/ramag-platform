@@ -187,6 +187,12 @@ Ramag 隔离预览使用 `cargo build --locked -p ramag-bin --example ui-preview
 
 本轮十页验收的结果是：`03A/03B` 的 Summary 交付范围、`06-Energy` 的主传感器选择、`06-Thermals` 的最热/选中温度组合、`09-Settings-Appearance` 的字体选择、`10-Settings-Sampling` 的四档采样和 `05` 的固定监控预设管理已通过目标测试与限定真实窗口对照，CPU、Memory、GPU、Disks、Network、Processes、Thermals 的主要数据来源和状态可见；各详细页的精确布局、跨平台硬件精度和键盘增强仍按矩阵单独记录。后续每个切片继续执行“参考窗口操作 -> Ramag 同流程 -> 记录结果”的顺序，不能以静态截图、旧测试或单纯编译成功替代该证据。
 
+### 2026-10-04 `A-QUALITY-CHART-AXIS-001` 图表纵轴布局修复
+
+图表刻度由顶部横向读数改为绘图区左侧固定 `64px` 纵轴区：最大量程标签位于顶部、零值标签位于底部，两个标签左对齐；零值刻度不重复单位，非零值和负温度保留物理单位。历史图的绘图区和底部时间轴共用同一左/右边界，CPU、内存、GPU、磁盘、网络、能耗和温度图共用这套布局。实时指标仍读取最新样本，`0` 只在真实样本或有效轴下限出现，不把缺失数据改写成零。
+
+`axis_labels_stay_left_aligned_and_plot_starts_after_compact_axis` 覆盖 `256`、`640`、`1024` 宽度并断言刻度区、标签左边缘和绘图区边界；`axis_labels_keep_zero_without_unit_and_physical_units` 覆盖 `%`、`GiB`、负温度单位。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 105 项；目标 Clippy、workspace fmt、Windows 源码尺寸和 `git diff --check` 通过。完整程序使用当前源码 `target/debug/ramag.exe` 构建和启动路径核对；Computer Use 仍因 `Trusted RPC service is not configured: sky` 不可用，本轮不宣称原生交互验收，不检查 GitHub CI。
+
 ### 2026-10-02 `A-PULSE-GAP-06-Energy` 单传感器选择验收
 
 本切片先在本机 `F:/project/system-pulse` 的真实窗口打开 Energy 页，使用 Computer Use 打开右上设备选择器，选择 `CPU · CPU package power`；参考窗口回读主读数 `29.3 W`、主图量程 `0.0–42.1 W`，对应 CPU package measured channel 同步显示 `29.3 W`，GPU channel 保留独立的 `14.6 W`。采样值随时间变化，数值相等只作为同一帧的内部一致性检查，不作为两个进程跨时刻的硬件精度比较。
