@@ -28,7 +28,11 @@ pub(crate) fn register_monitor_font(cx: &mut gpui_kit::App) {
             "../assets/Michroma-Regular.ttf"
         ))]);
     if let Err(error) = result {
-        tracing::warn!(%error, "monitor heading font could not be loaded");
+        tracing::warn!(
+            operation = "monitor_heading_font_register",
+            error = %error,
+            "monitor heading font could not be loaded"
+        );
     }
     cx.set_global(MonitorFontLoaded);
 }
