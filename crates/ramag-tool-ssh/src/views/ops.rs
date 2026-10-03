@@ -15,7 +15,7 @@ use tracing::error;
 use super::SshView;
 use super::model::{
     Notice, SshWorkspace, TerminalTab, ViewMode, can_close_terminal, terminal_has_exited,
-    terminal_index_after_close,
+    terminal_index_after_close, terminal_session_state, workspace_session_state,
 };
 
 impl SshView {
@@ -125,21 +125,15 @@ impl SshView {
                 let core = terminal.view.read(cx).core();
                 !core.is_closed() && core.exit_status().is_none()
             });
-            let all_terminals_exited = !workspace.terminals.is_empty()
-                && workspace
-                    .terminals
-                    .iter()
-                    .all(|terminal| terminal_has_exited(terminal.view.read(cx).core()));
-            let next_state = if has_live_terminal {
-                Some(SshSessionState::Connected)
-            } else if all_terminals_exited {
-                Some(SshSessionState::Exited)
-            } else {
-                None
-            };
-            if let Some(next_state) = next_state
-                && workspace.session_state != next_state
-            {
+            let next_state = workspace_session_state(
+                workspace.session_state,
+                workspace.terminal_loading,
+                workspace.terminals.iter().map(|terminal| {
+                    let core = terminal.view.read(cx).core();
+                    terminal_session_state(core.exit_status().as_ref(), terminal_has_exited(core))
+                }),
+            );
+            if workspace.session_state != next_state {
                 workspace.session_state = next_state;
                 should_notify = true;
             }

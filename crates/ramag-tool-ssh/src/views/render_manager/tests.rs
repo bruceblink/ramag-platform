@@ -1,9 +1,7 @@
 use ramag_domain::entities::{RemotePlatformPreference, SshAuthMode, SshProfile, SshProfileOrigin};
 
-use super::{
-    EnvironmentBadgePalette, environment_badge_colors, is_jumpserver_profile, platform_label,
-    profile_matches_query, workspace_tab_dot_color,
-};
+use super::super::render_manager_helpers::{environment_badge_colors, platform_label};
+use super::{EnvironmentBadgePalette, is_jumpserver_profile, profile_matches_query};
 
 #[test]
 fn environment_badges_follow_the_active_theme_palette() {
@@ -26,39 +24,6 @@ fn environment_badges_follow_the_active_theme_palette() {
         let (_, background) = environment_badge_colors(environment, palette);
         assert_eq!(background.a, 0.12);
     }
-}
-
-#[test]
-fn workspace_loading_dot_uses_theme_warning_before_other_states() {
-    let palette = EnvironmentBadgePalette::new(
-        gpui_kit::hsla(0.1, 0.2, 0.3, 1.0),
-        gpui_kit::hsla(0.2, 0.3, 0.4, 1.0),
-        gpui_kit::hsla(0.3, 0.4, 0.5, 1.0),
-        gpui_kit::hsla(0.4, 0.5, 0.6, 1.0),
-    );
-    let warning = gpui_kit::hsla(0.5, 0.6, 0.7, 1.0);
-    let danger = gpui_kit::hsla(0.6, 0.7, 0.8, 1.0);
-
-    assert_eq!(
-        workspace_tab_dot_color(true, true, true, Some("prod"), warning, danger, palette),
-        warning
-    );
-    assert_eq!(
-        workspace_tab_dot_color(false, true, false, Some("dev"), warning, danger, palette),
-        danger
-    );
-    assert_eq!(
-        workspace_tab_dot_color(false, false, true, Some("dev"), warning, danger, palette),
-        danger
-    );
-    assert_eq!(
-        workspace_tab_dot_color(false, false, false, Some("test"), warning, danger, palette),
-        palette.test
-    );
-    assert_eq!(
-        workspace_tab_dot_color(false, false, false, None, warning, danger, palette),
-        palette.fallback
-    );
 }
 
 #[test]

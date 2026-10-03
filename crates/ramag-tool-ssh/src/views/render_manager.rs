@@ -6,13 +6,12 @@ use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, Window, div, img,
     prelude::*, px,
 };
-use ramag_domain::entities::{
-    RemotePlatformPreference, SshAuthMode, SshProfile, SshProfileOrigin, contains_case_insensitive,
-};
+use ramag_domain::entities::{SshAuthMode, SshProfile};
 
 use super::SshView;
 pub(super) use super::render_manager_helpers::{
-    EnvironmentBadgePalette, centered_message, environment_badge_colors, workspace_tab_dot_color,
+    EnvironmentBadgePalette, centered_message, environment_badge, is_jumpserver_profile,
+    platform_badge, profile_matches_query, secondary_column,
 };
 
 const CONTENT_MAX_W: f32 = 1080.0;
@@ -49,11 +48,8 @@ impl SshView {
         let border = cx.theme().border;
         let muted = cx.theme().muted_foreground;
 
-        let header_inner = h_flex()
-            .w_full()
-            .min_w_0()
-            .items_center()
-            .gap(px(8.0))
+        let toolbar = ramag_ui::responsive_toolbar()
+            .debug_selector(|| "ssh-profile-toolbar".into())
             .child(
                 div()
                     .id("ssh-profile-search")
@@ -114,12 +110,25 @@ impl SshView {
                     })),
             );
 
+        let header_inner = v_flex()
+            .w_full()
+            .gap(px(12.0))
+            .child(
+                ramag_ui::pulse_ui::pulse_page_title(
+                    "SSH 管理",
+                    Some("连接、终端与 SFTP 工作区"),
+                    cx,
+                )
+                .id("ssh-manager-page-title")
+                .debug_selector(|| "ssh-manager-page-title".into()),
+            )
+            .child(toolbar);
         let header = h_flex()
             .w_full()
             .justify_center()
-            .bg(cx.theme().secondary)
-            .px(px(12.0))
-            .py(px(8.0))
+            .px(px(16.0))
+            .pt(px(18.0))
+            .pb(px(14.0))
             .border_b_1()
             .border_color(border)
             .child(div().w_full().max_w(px(CONTENT_MAX_W)).child(header_inner));
@@ -458,142 +467,6 @@ impl SshView {
                     ),
             )
     }
-}
-
-fn profile_matches_query(profile: &SshProfile, query: &str) -> bool {
-    contains_case_insensitive(&profile.name, query)
-        || contains_case_insensitive(&profile.host, query)
-        || contains_case_insensitive(&profile.username, query)
-        || profile
-            .environment
-            .as_deref()
-            .is_some_and(|environment| contains_case_insensitive(environment, query))
-}
-
-fn is_jumpserver_profile(profile: &SshProfile) -> bool {
-    profile.origin == SshProfileOrigin::JumpServer
-        || (profile.auth_mode == SshAuthMode::Password
-            && is_legacy_jumpserver_username(&profile.username))
-}
-
-fn is_legacy_jumpserver_username(username: &str) -> bool {
-    let mut parts = username.split('#');
-    let (Some(login), Some(account), Some(asset_id)) = (parts.next(), parts.next(), parts.next())
-    else {
-        return false;
-    };
-    !login.is_empty() && !account.is_empty() && parts.next().is_none() && looks_like_uuid(asset_id)
-}
-
-fn looks_like_uuid(value: &str) -> bool {
-    value.len() == 36
-        && value.bytes().enumerate().all(|(index, byte)| {
-            if matches!(index, 8 | 13 | 18 | 23) {
-                byte == b'-'
-            } else {
-                byte.is_ascii_hexdigit()
-            }
-        })
-}
-
-fn secondary_column(width: f32, text: String, color: gpui_kit::Hsla) -> impl IntoElement {
-    div()
-        .flex_none()
-        .w(px(width))
-        .text_xs()
-        .text_color(color)
-        .overflow_hidden()
-        .text_ellipsis()
-        .child(text)
-}
-
-fn environment_badge(
-    index: usize,
-    environment: String,
-    palette: EnvironmentBadgePalette,
-) -> impl IntoElement {
-    let slot = div()
-        .debug_selector(move || format!("ssh-profile-environment-{index}"))
-        .flex_none()
-        .w(px(64.0))
-        .flex()
-        .justify_center();
-    if environment.trim().is_empty() {
-        slot
-    } else {
-        let (foreground, background) = environment_badge_colors(&environment, palette);
-        slot.child(
-            div()
-                .px(px(6.0))
-                .py(px(1.0))
-                .rounded(px(4.0))
-                .text_xs()
-                .text_color(foreground)
-                .bg(background)
-                .max_w_full()
-                .overflow_hidden()
-                .text_ellipsis()
-                .child(environment),
-        )
-    }
-}
-
-fn platform_badge(
-    index: usize,
-    platform: RemotePlatformPreference,
-    color: gpui_kit::Hsla,
-) -> impl IntoElement {
-    let mut background = color;
-    background.a = 0.12;
-    status_badge(
-        format!("ssh-profile-platform-{index}"),
-        76.0,
-        platform_label(platform),
-        color,
-        Some(background),
-    )
-}
-
-fn platform_label(platform: RemotePlatformPreference) -> &'static str {
-    match platform {
-        RemotePlatformPreference::Auto => "自动",
-        RemotePlatformPreference::Linux => "Linux",
-        RemotePlatformPreference::Windows => "Windows",
-    }
-}
-
-fn status_badge(
-    id: String,
-    width: f32,
-    label: &'static str,
-    foreground: gpui_kit::Hsla,
-    background: Option<gpui_kit::Hsla>,
-) -> impl IntoElement {
-    let debug_selector = id.clone();
-    let mut slot = div()
-        .id(SharedString::from(id))
-        .debug_selector(move || debug_selector.clone())
-        .flex_none()
-        .w(px(width))
-        .flex()
-        .justify_center();
-    if let Some(background) = background {
-        slot = slot.child(
-            div()
-                .px(px(6.0))
-                .py(px(1.0))
-                .rounded(px(4.0))
-                .text_xs()
-                .text_color(foreground)
-                .bg(background)
-                .overflow_hidden()
-                .text_ellipsis()
-                .child(label),
-        );
-    } else {
-        slot = slot.child(div().text_xs().text_color(foreground).child(label));
-    }
-    slot
 }
 
 #[cfg(test)]

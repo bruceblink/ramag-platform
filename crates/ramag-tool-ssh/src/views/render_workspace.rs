@@ -20,7 +20,10 @@ use ramag_domain::entities::{
 use std::ops::Range;
 
 use super::SshView;
-use super::model::{SshWorkspace, can_close_terminal, session_state_text, terminal_has_exited};
+use super::model::{
+    SshWorkspace, can_close_terminal, session_pulse_status, session_state_text,
+    terminal_has_exited, terminal_pulse_status, terminal_tab_label,
+};
 use super::render_directory_helpers::{
     RemoteDirectoryDrag, RemoteEntryMenuState, centered_message, directory_counts,
     directory_counts_at, filtered_entry_indices, remote_breadcrumbs, remote_entry_row,
@@ -54,6 +57,58 @@ impl SshView {
                 .into_any_element();
         };
         let workspace_id = workspace.profile.id.clone();
+        let endpoint = workspace.profile.port.map_or_else(
+            || workspace.profile.host.clone(),
+            |port| format!("{}:{port}", workspace.profile.host),
+        );
+        let session_state = workspace.session_state;
+        let workspace_header = h_flex()
+            .id("ssh-workspace-page-header")
+            .debug_selector(|| "ssh-workspace-page-header".into())
+            .w_full()
+            .min_w_0()
+            .flex_wrap()
+            .items_center()
+            .justify_between()
+            .gap(px(12.0))
+            .px(px(16.0))
+            .py(px(12.0))
+            .border_b_1()
+            .border_color(cx.theme().border.opacity(0.78))
+            .child(
+                ramag_ui::pulse_ui::pulse_page_title(
+                    workspace.profile.name.clone(),
+                    Some(endpoint),
+                    cx,
+                )
+                .id("ssh-workspace-page-title")
+                .debug_selector(|| "ssh-workspace-page-title".into())
+                .flex_1()
+                .min_w_0(),
+            )
+            .child(
+                h_flex()
+                    .id("ssh-workspace-connection-status")
+                    .debug_selector(|| "ssh-workspace-connection-status".into())
+                    .flex_none()
+                    .items_center()
+                    .gap(px(8.0))
+                    .child(ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                        session_pulse_status(session_state),
+                        session_state_text(session_state),
+                        cx,
+                    ))
+                    .child(
+                        ramag_ui::clickable_button("ssh-workspace-back-to-manager")
+                            .outline()
+                            .small()
+                            .icon(IconName::Network)
+                            .label("连接管理")
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                this.show_manager(cx);
+                            })),
+                    ),
+            );
         let workspace_resize = if let Some(state) = self.workspace_resizes.get(&workspace_id) {
             state.clone()
         } else {
@@ -106,7 +161,8 @@ impl SshView {
         let main = div()
             .id("ssh-workspace-main")
             .debug_selector(|| "ssh-workspace-main".into())
-            .size_full()
+            .flex_1()
+            .min_h_0()
             .child(
                 h_resizable("ssh-workspace-resize")
                     .with_state(&workspace_resize)
@@ -125,9 +181,10 @@ impl SshView {
                         )),
                     )),
             );
-        div()
+        v_flex()
             .size_full()
             .relative()
+            .child(workspace_header)
             .child(main)
             .child(self.render_transfer_queue(cx))
             .into_any_element()
@@ -233,7 +290,6 @@ impl SshView {
             return div().into_any_element();
         };
         let terminal_loading = workspace.terminal_loading;
-        let session_state = workspace.session_state;
         let production = workspace.profile.production;
         let connection_available = self.profile_connection_available(&workspace.profile);
         let active_terminal_id = workspace.active_terminal_id;
@@ -275,18 +331,12 @@ impl SshView {
             let exit_status = core.exit_status();
             let finished = terminal_has_exited(core);
             let can_reconnect = finished;
-            let display = match exit_status {
-                Some(status) => format!(
-                    "{label} [退出{}]",
-                    status
-                        .code
-                        .map_or_else(String::new, |code| format!(": {code}"))
-                ),
-                None if finished => format!("{label} [已关闭]"),
-                None => label,
-            };
+            let (terminal_status, terminal_status_label) =
+                terminal_pulse_status(exit_status.as_ref(), finished);
+            let display = terminal_tab_label(&label, exit_status.as_ref(), finished);
             let mut tab = h_flex()
                 .id(("ssh-terminal-tab", id))
+                .debug_selector(move || format!("ssh-terminal-tab-{id}"))
                 .flex_none()
                 .max_w(px(260.0))
                 .items_center()
@@ -313,43 +363,68 @@ impl SshView {
                         .text_ellipsis()
                         .child(display),
                 )
+                .child(
+                    div()
+                        .id(SharedString::from(format!(
+                            "ssh-terminal-session-status-{id}"
+                        )))
+                        .debug_selector(move || format!("ssh-terminal-session-status-{id}"))
+                        .flex_none()
+                        .child(ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                            terminal_status,
+                            terminal_status_label,
+                            cx,
+                        )),
+                )
                 .when(can_reconnect, |tab| {
                     tab.child(
-                        ramag_ui::clickable_button(("reconnect-ssh-terminal", id))
-                            .ghost()
-                            .xsmall()
-                            .label("重连")
-                            .disabled(terminal_loading || !connection_available)
-                            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                                cx.stop_propagation();
-                                this.reconnect_terminal(
-                                    reconnect_workspace_id.clone(),
-                                    id,
-                                    window,
-                                    cx,
-                                );
-                            })),
+                        div()
+                            .debug_selector(move || format!("ssh-terminal-reconnect-{id}"))
+                            .flex_none()
+                            .child(
+                                ramag_ui::clickable_button(("reconnect-ssh-terminal", id))
+                                    .ghost()
+                                    .xsmall()
+                                    .label("重连")
+                                    .disabled(terminal_loading || !connection_available)
+                                    .on_click(cx.listener(
+                                        move |this, _: &ClickEvent, window, cx| {
+                                            cx.stop_propagation();
+                                            this.reconnect_terminal(
+                                                reconnect_workspace_id.clone(),
+                                                id,
+                                                window,
+                                                cx,
+                                            );
+                                        },
+                                    )),
+                            ),
                     )
                 })
                 .when(terminals_can_close, |tab| {
                     tab.child(
-                        ramag_ui::clickable_button(("close-ssh-terminal", id_for_close))
-                            .ghost()
-                            .xsmall()
-                            .icon(IconName::Close)
-                            .tooltip("关闭")
-                            .on_click(cx.listener({
-                                let workspace_id = workspace_id.clone();
-                                move |this, _: &ClickEvent, window, cx| {
-                                    cx.stop_propagation();
-                                    this.close_terminal(
-                                        workspace_id.clone(),
-                                        id_for_close,
-                                        window,
-                                        cx,
-                                    );
-                                }
-                            })),
+                        div()
+                            .debug_selector(move || format!("ssh-terminal-close-{id_for_close}"))
+                            .flex_none()
+                            .child(
+                                ramag_ui::clickable_button(("close-ssh-terminal", id_for_close))
+                                    .ghost()
+                                    .xsmall()
+                                    .icon(IconName::Close)
+                                    .tooltip("关闭")
+                                    .on_click(cx.listener({
+                                        let workspace_id = workspace_id.clone();
+                                        move |this, _: &ClickEvent, window, cx| {
+                                            cx.stop_propagation();
+                                            this.close_terminal(
+                                                workspace_id.clone(),
+                                                id_for_close,
+                                                window,
+                                                cx,
+                                            );
+                                        }
+                                    })),
+                            ),
                     )
                 });
             if selected {
@@ -378,20 +453,7 @@ impl SshView {
             .border_b_1()
             .border_color(border)
             .bg(secondary)
-            .child(tabs_strip)
-            .child(
-                div()
-                    .flex_none()
-                    .pr(px(10.0))
-                    .text_xs()
-                    .text_color(match session_state {
-                        ramag_domain::entities::SshSessionState::Failed => warning,
-                        ramag_domain::entities::SshSessionState::Connecting
-                        | ramag_domain::entities::SshSessionState::Reconnecting => muted,
-                        _ => foreground,
-                    })
-                    .child(session_state_text(session_state)),
-            );
+            .child(tabs_strip);
 
         let empty_workspace_id = workspace_id.clone();
         let body = terminal_views

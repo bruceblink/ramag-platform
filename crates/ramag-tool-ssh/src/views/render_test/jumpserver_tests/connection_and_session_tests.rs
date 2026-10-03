@@ -21,6 +21,12 @@ fn connection_manager_renders_without_openssh_side_effects(cx: &mut TestAppConte
     let search = cx
         .debug_bounds("ssh-profile-search")
         .expect("SSH 搜索区应参与布局");
+    let title = cx
+        .debug_bounds("ssh-manager-page-title")
+        .expect("SSH 管理页应显示公共页面标题");
+    let toolbar = cx
+        .debug_bounds("ssh-profile-toolbar")
+        .expect("SSH 管理页应显示响应式工具栏");
     let row = cx
         .debug_bounds("ssh-profile-row-0")
         .expect("SSH 连接行应参与布局");
@@ -52,6 +58,14 @@ fn connection_manager_renders_without_openssh_side_effects(cx: &mut TestAppConte
         search.size.width > px(300.0),
         "搜索区宽度异常：{:?}",
         search.size
+    );
+    assert!(
+        title.origin.x >= px(0.0) && title.right() <= px(1200.0),
+        "公共页面标题不能越出窗口：{title:?}"
+    );
+    assert!(
+        toolbar.origin.x >= px(0.0) && toolbar.right() <= px(1200.0),
+        "响应式工具栏不能越出窗口：{toolbar:?}"
     );
     assert!(
         row.size.width <= px(1080.0),

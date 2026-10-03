@@ -10,23 +10,19 @@ use gpui_kit::{
 };
 
 use super::SshView;
-use super::model::ViewMode;
+use super::model::{ViewMode, session_pulse_status, session_state_text};
 use crate::{CloseSshTerminal, NewSshTerminal};
 
 impl SshView {
-    fn render_tabs(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_tabs(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let border = theme.border;
         let fg = theme.foreground;
         let muted = theme.muted_foreground;
         let accent = theme.accent;
         let muted_bg = theme.muted;
-        let environment_palette = super::render_manager::EnvironmentBadgePalette {
-            dev: theme.success,
-            test: theme.warning,
-            prod: theme.danger,
-            fallback: muted,
-        };
+        let workspace_tab_max_width =
+            px((f32::from(window.viewport_size().width) - 120.0).clamp(220.0, 420.0));
         let manager_selected = self.view_mode == ViewMode::Manager;
         let mut manager_tab = h_flex()
             .id("ssh-manager-tab")
@@ -65,26 +61,24 @@ impl SshView {
             .flex_1()
             .min_w_0()
             .overflow_x_scrollbar();
-        for workspace in &self.workspaces {
+        for (index, workspace) in self.workspaces.iter().enumerate() {
             let id = workspace.profile.id.clone();
             let id_for_close = id.clone();
             let selected = self.view_mode == ViewMode::Workspace
                 && self.active_workspace_id.as_ref() == Some(&id);
             let label = workspace.profile.name.clone();
-            let dot_color = super::render_manager::workspace_tab_dot_color(
-                workspace.terminal_loading
-                    || workspace.sftp_loading
-                    || workspace.file_preview_loading,
-                workspace.sftp_error.is_some(),
-                workspace.profile.production,
-                workspace.profile.environment.as_deref(),
-                theme.warning,
-                theme.danger,
-                environment_palette,
-            );
+            let status_label = session_state_text(workspace.session_state);
+            let status = session_pulse_status(workspace.session_state);
+            let name_selector = format!("ssh-workspace-tab-name-{index}");
+            let status_selector = format!("ssh-workspace-tab-status-{index}");
+            let status_id = SharedString::from(format!("ssh-workspace-tab-status-{id}"));
+            let tab_selector = format!("ssh-workspace-tab-{index}");
             let mut tab = h_flex()
                 .id(SharedString::from(format!("ssh-workspace-tab-{id}")))
+                .debug_selector(move || tab_selector.clone())
                 .flex_none()
+                .min_w_0()
+                .max_w(workspace_tab_max_width)
                 .items_center()
                 .gap_2()
                 .px_3()
@@ -92,41 +86,57 @@ impl SshView {
                 .border_r_1()
                 .border_color(border)
                 .cursor_pointer()
-                .child(div().size(px(8.0)).rounded_full().bg(dot_color))
                 .child(
                     div()
+                        .debug_selector(move || name_selector.clone())
+                        .flex_1()
+                        .min_w_0()
                         .text_xs()
                         .text_color(if selected { fg } else { muted })
+                        .overflow_hidden()
+                        .text_ellipsis()
                         .child(label),
                 )
                 .child(
                     div()
-                        .text_xs()
-                        .text_color(if workspace.profile.production {
-                            theme.danger
-                        } else {
-                            muted
-                        })
-                        .child(if workspace.profile.production {
-                            ramag_ui::PRODUCTION_BADGE_LABEL
-                        } else {
-                            "SSH"
-                        }),
+                        .id(status_id)
+                        .debug_selector(move || status_selector.clone())
+                        .flex_none()
+                        .aria_label(status_label)
+                        .child(ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                            status,
+                            status_label,
+                            cx,
+                        )),
                 )
+                .when(workspace.profile.production, |tab| {
+                    tab.child(
+                        div()
+                            .flex_none()
+                            .text_xs()
+                            .text_color(theme.danger)
+                            .child(ramag_ui::PRODUCTION_BADGE_LABEL),
+                    )
+                })
                 .child(
-                    ramag_ui::clickable_button(SharedString::from(format!(
-                        "close-ssh-workspace-{id_for_close}"
-                    )))
-                    .ghost()
-                    .xsmall()
-                    .icon(IconName::Close)
-                    .tooltip("关闭")
-                    .on_click(cx.listener(
-                        move |this, _: &ClickEvent, window, cx| {
-                            cx.stop_propagation();
-                            this.request_close_workspace(id_for_close.clone(), window, cx);
-                        },
-                    )),
+                    div()
+                        .debug_selector(move || format!("ssh-workspace-tab-close-{index}"))
+                        .flex_none()
+                        .child(
+                            ramag_ui::clickable_button(SharedString::from(format!(
+                                "close-ssh-workspace-{id_for_close}"
+                            )))
+                            .ghost()
+                            .xsmall()
+                            .icon(IconName::Close)
+                            .tooltip("关闭")
+                            .on_click(cx.listener(
+                                move |this, _: &ClickEvent, window, cx| {
+                                    cx.stop_propagation();
+                                    this.request_close_workspace(id_for_close.clone(), window, cx);
+                                },
+                            )),
+                        ),
                 )
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                     this.select_workspace(id.clone(), window, cx);
@@ -143,6 +153,7 @@ impl SshView {
 
         h_flex()
             .id("ssh-workspace-tabs")
+            .debug_selector(|| "ssh-workspace-tabs".into())
             .w_full()
             .flex_none()
             .border_b_1()
@@ -244,7 +255,7 @@ impl Render for SshView {
                 this.close_active_terminal_or_workspace(window, cx);
                 cx.stop_propagation();
             }))
-            .child(self.render_tabs(cx))
+            .child(self.render_tabs(window, cx))
             .child(div().flex_1().min_h_0().child(body))
     }
 }
