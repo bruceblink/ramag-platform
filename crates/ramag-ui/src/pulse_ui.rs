@@ -1,12 +1,13 @@
 //! 可复用的 System Pulse 风格监控 UI 基础组件。
 
-use gpui_kit::component::{
-    ActiveTheme as _, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
-};
+mod pulse_navigation;
+pub use pulse_navigation::{PulseTab, pulse_device_selector, pulse_tabs};
+
+use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
 use gpui_kit::{
     Bounds, Div, Hsla, InteractiveElement as _, ParentElement as _, PathBuilder, Pixels,
     SharedString, StatefulInteractiveElement as _, Styled as _, Window, canvas, div, fill, point,
-    prelude::FluentBuilder as _, px, size,
+    prelude::FluentBuilder as _, px, rgb, size,
 };
 
 /// 图表样本使用相对秒数，`None` 表示传感器缺失或采样间断。
@@ -54,6 +55,56 @@ impl PulseStatus {
             Self::Failed => theme.danger,
         }
     }
+}
+
+/// System Tool 的中性表面色；应用主题与各工具共享这组明暗令牌。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PulsePalette {
+    pub background: Hsla,
+    pub surface: Hsla,
+    pub raised: Hsla,
+    pub border: Hsla,
+    pub text: Hsla,
+    pub muted: Hsla,
+    pub selected: Hsla,
+}
+
+pub fn pulse_palette(cx: &gpui_kit::App) -> PulsePalette {
+    pulse_palette_for_mode(crate::theme::current_mode(cx))
+}
+
+pub(crate) fn pulse_palette_for_mode(mode: crate::theme::Mode) -> PulsePalette {
+    if mode == crate::theme::Mode::Dark {
+        PulsePalette {
+            background: rgb(0x242523).into(),
+            surface: rgb(0x1f201e).into(),
+            raised: rgb(0x2c2d2a).into(),
+            border: rgb(0x42443e).into(),
+            text: rgb(0xe2e4df).into(),
+            muted: rgb(0xa4a79e).into(),
+            selected: rgb(0x303b54).into(),
+        }
+    } else {
+        PulsePalette {
+            background: rgb(0xf3f4f1).into(),
+            surface: rgb(0xffffff).into(),
+            raised: rgb(0xe6e9e1).into(),
+            border: rgb(0xcbd0c5).into(),
+            text: rgb(0x252923).into(),
+            muted: rgb(0x596252).into(),
+            selected: rgb(0xdce8f7).into(),
+        }
+    }
+}
+
+/// Draws the shared System Tool display face at a caller-selected hierarchy size.
+pub fn pulse_display_heading(text: impl Into<SharedString>, size: f32, cx: &gpui_kit::App) -> Div {
+    div()
+        .text_size(px(size * 0.86))
+        .font_family("Michroma")
+        .font_weight(gpui_kit::FontWeight::MEDIUM)
+        .text_color(pulse_palette(cx).text)
+        .child(text.into())
 }
 
 /// Creates an unframed, compact workbench header. The title shrinks before the
@@ -112,22 +163,25 @@ pub fn pulse_page_title(
     cx: &gpui_kit::App,
 ) -> Div {
     let theme = cx.theme();
-    let foreground = theme.foreground;
     let muted = theme.muted_foreground;
+    let title = title.into();
     v_flex()
         .debug_selector(|| "pulse-page-title".into())
         .w_full()
         .min_w_0()
         .gap(px(4.0))
         .child(
-            div()
-                .text_xl()
-                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                .text_color(foreground)
-                .child(title.into()),
+            pulse_display_heading(title, 22.0, cx)
+                .debug_selector(|| "pulse-page-title-text".into()),
         )
         .when_some(subtitle, |this, subtitle| {
-            this.child(div().text_sm().text_color(muted).child(subtitle.into()))
+            this.child(
+                div()
+                    .debug_selector(|| "pulse-page-subtitle".into())
+                    .text_sm()
+                    .text_color(muted)
+                    .child(subtitle.into()),
+            )
         })
 }
 
@@ -140,8 +194,8 @@ pub fn pulse_panel(cx: &gpui_kit::App) -> Div {
         .items_stretch()
         .p(px(14.0))
         .border_1()
-        .border_color(theme.border.opacity(0.78))
-        .rounded(px(6.0))
+        .border_color(theme.border)
+        .rounded(px(8.0))
         .bg(theme.secondary)
 }
 
@@ -184,6 +238,14 @@ pub fn pulse_metric_card(
 
 /// 创建简洁状态标签。
 pub fn pulse_status_badge(status: PulseStatus, cx: &gpui_kit::App) -> Div {
+    pulse_status_badge_with_label(status, status.label(), cx)
+}
+/// 创建保留领域文案的状态标签；颜色和布局仍由统一 Pulse 状态决定。
+pub fn pulse_status_badge_with_label(
+    status: PulseStatus,
+    label: impl Into<SharedString>,
+    cx: &gpui_kit::App,
+) -> Div {
     let color = status.color(cx.theme());
     div()
         .debug_selector(|| "pulse-status-badge".into())
@@ -193,7 +255,7 @@ pub fn pulse_status_badge(status: PulseStatus, cx: &gpui_kit::App) -> Div {
         .bg(color.opacity(0.12))
         .text_xs()
         .text_color(color)
-        .child(status.label())
+        .child(label.into())
 }
 
 /// 创建带状态色和原因的读数提示。
@@ -223,103 +285,6 @@ pub fn pulse_status_notice(
                 .text_color(foreground)
                 .child(message.into()),
         )
-}
-
-/// 单个监控页签；ID 是调用方稳定的业务标识，标题仅供显示。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PulseTab {
-    pub id: SharedString,
-    pub title: SharedString,
-}
-
-/// 创建窄窗口可换行的页签带，点击后把稳定 ID 交回调用方。
-pub fn pulse_tabs(
-    tabs: &[PulseTab],
-    selected_id: &str,
-    window: &Window,
-    cx: &gpui_kit::App,
-    on_select: impl Fn(SharedString, &mut Window, &mut gpui_kit::App) + 'static,
-) -> Div {
-    let compact = f32::from(window.viewport_size().width) < 720.0;
-    let theme = cx.theme();
-    let on_select = std::rc::Rc::new(on_select);
-    let mut row = h_flex()
-        .debug_selector(|| "pulse-tabs".into())
-        .w_full()
-        .min_w_0()
-        .flex_wrap()
-        .gap(px(if compact { 4.0 } else { 8.0 }));
-    for (index, tab) in tabs.iter().enumerate() {
-        let selected = tab.id.as_ref() == selected_id;
-        let callback = on_select.clone();
-        let id = tab.id.clone();
-        let selector = format!("pulse-tab-{index}");
-        let button = crate::clickable_button(format!("pulse-tab-{index}"))
-            .debug_selector(move || selector.clone())
-            .small()
-            .max_w(px(220.0))
-            .label(tab.title.clone())
-            .when(selected, |button| {
-                button
-                    .bg(theme.list_active)
-                    .text_color(theme.foreground)
-                    .border_color(theme.list_active_border)
-            })
-            .when(!selected, |button| {
-                button.ghost().text_color(theme.muted_foreground)
-            })
-            .on_click(move |_, window, cx| callback(id.clone(), window, cx));
-        row = row.child(button);
-    }
-    row
-}
-
-/// 创建设备选择控件；空集合时显示提示，设备变化不会改变控件布局规则。
-pub fn pulse_device_selector(
-    devices: &[(SharedString, SharedString)],
-    selected_id: Option<&str>,
-    cx: &gpui_kit::App,
-    on_select: impl Fn(SharedString, &mut Window, &mut gpui_kit::App) + 'static,
-) -> Div {
-    let theme = cx.theme();
-    let callback = std::rc::Rc::new(on_select);
-    let mut row = h_flex()
-        .debug_selector(|| "pulse-device-selector".into())
-        .w_full()
-        .min_w_0()
-        .flex_wrap()
-        .gap(px(6.0));
-    if devices.is_empty() {
-        return row.child(
-            div()
-                .text_sm()
-                .text_color(theme.muted_foreground)
-                .child("无可用设备"),
-        );
-    }
-    for (index, (id, label)) in devices.iter().enumerate() {
-        let selected = selected_id == Some(id.as_ref());
-        let selector = format!("pulse-device-{index}");
-        let id = id.clone();
-        let callback = callback.clone();
-        let button = crate::clickable_button(format!("pulse-device-{index}"))
-            .debug_selector(move || selector.clone())
-            .small()
-            .max_w(px(280.0))
-            .label(label.clone())
-            .when(selected, |button| {
-                button
-                    .bg(theme.list_active)
-                    .text_color(theme.foreground)
-                    .border_color(theme.list_active_border)
-            })
-            .when(!selected, |button| {
-                button.ghost().text_color(theme.muted_foreground)
-            })
-            .on_click(move |_, window, cx| callback(id.clone(), window, cx));
-        row = row.child(button);
-    }
-    row
 }
 
 /// 创建按真实时间间距绘制的趋势图；缺失样本会断开折线，最多绘制最近 120 点。

@@ -7,6 +7,7 @@ use std::sync::{
 };
 
 use async_channel::{TrySendError, bounded};
+use gpui_kit::base::{Scrollbar, ScrollbarMode, Table, TableCell, TableRow};
 use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Icon, IconName, Selectable as _, Sizable as _,
     button::ButtonVariants as _,
@@ -17,8 +18,8 @@ use gpui_kit::component::{
     v_flex,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, ScrollHandle,
-    Styled, Subscription, Window, div, prelude::*, px,
+    AnyElement, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Role,
+    ScrollHandle, SharedString, Styled, Subscription, Window, div, prelude::*, px,
 };
 use ramag_app::{ContainerRegistryService, ContainerService};
 use ramag_domain::{
@@ -27,9 +28,9 @@ use ramag_domain::{
         ContainerListQuery, ContainerLogQuery, ContainerPage, ContainerPlatform,
         ContainerRegistryProfile, ContainerRegistryRepository, ContainerRegistryTag,
         DockerConnectionInfo, DockerContainerDetail, DockerContainerLogLine, DockerContainerLogs,
-        DockerContainerStats, DockerContainerSummary, DockerImageDetail, DockerImageSummary,
-        DockerNetworkDetail, DockerNetworkSummary, DockerOverview, DockerVolumeDetail,
-        DockerVolumeSummary, MAX_CONTAINER_LOG_BYTES, MAX_CONTAINER_LOG_LINES,
+        DockerContainerPort, DockerContainerStats, DockerContainerSummary, DockerImageDetail,
+        DockerImageSummary, DockerNetworkDetail, DockerNetworkSummary, DockerOverview,
+        DockerVolumeDetail, DockerVolumeSummary, MAX_CONTAINER_LOG_BYTES, MAX_CONTAINER_LOG_LINES,
         MAX_CONTAINER_QUERY_BYTES,
     },
     error::Result,
@@ -39,6 +40,135 @@ use ramag_domain::{
 const RESOURCE_PAGE_SIZE: usize = 100;
 const CONTAINER_LOG_CHANNEL_CAPACITY: usize = 128;
 const MAX_CONTAINER_STATS_HISTORY: usize = 20;
+
+#[derive(Clone, Copy)]
+struct ResourceTableColumn {
+    key: &'static str,
+    label: &'static str,
+    width: f32,
+}
+
+struct ResourceTableRow {
+    id: String,
+    cells: Vec<String>,
+}
+
+const CONTAINER_TABLE_COLUMNS: [ResourceTableColumn; 5] = [
+    ResourceTableColumn {
+        key: "name",
+        label: "名称",
+        width: 210.0,
+    },
+    ResourceTableColumn {
+        key: "image",
+        label: "镜像",
+        width: 270.0,
+    },
+    ResourceTableColumn {
+        key: "status",
+        label: "状态",
+        width: 190.0,
+    },
+    ResourceTableColumn {
+        key: "ports",
+        label: "端口映射",
+        width: 190.0,
+    },
+    ResourceTableColumn {
+        key: "networks",
+        label: "网络",
+        width: 170.0,
+    },
+];
+
+const IMAGE_TABLE_COLUMNS: [ResourceTableColumn; 5] = [
+    ResourceTableColumn {
+        key: "reference",
+        label: "镜像 / 标签",
+        width: 300.0,
+    },
+    ResourceTableColumn {
+        key: "id",
+        label: "镜像 ID",
+        width: 180.0,
+    },
+    ResourceTableColumn {
+        key: "size",
+        label: "大小",
+        width: 110.0,
+    },
+    ResourceTableColumn {
+        key: "containers",
+        label: "使用容器",
+        width: 120.0,
+    },
+    ResourceTableColumn {
+        key: "platform",
+        label: "平台",
+        width: 180.0,
+    },
+];
+
+const NETWORK_TABLE_COLUMNS: [ResourceTableColumn; 5] = [
+    ResourceTableColumn {
+        key: "name",
+        label: "名称",
+        width: 210.0,
+    },
+    ResourceTableColumn {
+        key: "driver",
+        label: "驱动",
+        width: 130.0,
+    },
+    ResourceTableColumn {
+        key: "scope",
+        label: "范围",
+        width: 110.0,
+    },
+    ResourceTableColumn {
+        key: "containers",
+        label: "容器数",
+        width: 110.0,
+    },
+    ResourceTableColumn {
+        key: "subnets",
+        label: "子网",
+        width: 270.0,
+    },
+];
+
+const VOLUME_TABLE_COLUMNS: [ResourceTableColumn; 6] = [
+    ResourceTableColumn {
+        key: "name",
+        label: "名称",
+        width: 210.0,
+    },
+    ResourceTableColumn {
+        key: "driver",
+        label: "驱动",
+        width: 130.0,
+    },
+    ResourceTableColumn {
+        key: "scope",
+        label: "范围",
+        width: 110.0,
+    },
+    ResourceTableColumn {
+        key: "containers",
+        label: "引用容器",
+        width: 120.0,
+    },
+    ResourceTableColumn {
+        key: "size",
+        label: "使用空间",
+        width: 130.0,
+    },
+    ResourceTableColumn {
+        key: "mountpoint",
+        label: "挂载点",
+        width: 300.0,
+    },
+];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ContainerSection {
@@ -121,6 +251,7 @@ pub struct ContainerView {
     logs_search_input: Option<Entity<InputState>>,
     logs_search_subscription: Option<Subscription>,
     logs_search: String,
+    resource_table_scroll: ScrollHandle,
     registry_endpoint_input: Option<Entity<InputState>>,
     registry_input_subscription: Option<Subscription>,
     registry_endpoint: String,
@@ -225,6 +356,7 @@ impl ContainerView {
             logs_search_input: None,
             logs_search_subscription: None,
             logs_search: String::new(),
+            resource_table_scroll: ScrollHandle::new(),
             registry_endpoint_input: None,
             registry_input_subscription: None,
             registry_endpoint: "https://registry.example.com".into(),
@@ -1071,15 +1203,17 @@ impl Render for ContainerView {
         let theme = cx.theme().clone();
         let compact = f32::from(window.viewport_size().width) < 720.0;
         let section = self.section;
-        let status = self
-            .connection
-            .as_ref()
-            .and_then(|v| v.server_version.clone())
-            .unwrap_or_else(|| "未连接".into());
-        let status_icon = if self.connection.is_some() {
-            IconName::CircleCheck
+        let (status, connection_status) = if let Some(connection) = &self.connection {
+            let status = connection.server_version.as_deref().map_or_else(
+                || "已连接".to_owned(),
+                |version| format!("已连接 · {version}"),
+            );
+            (status, ramag_ui::pulse_ui::PulseStatus::Current)
         } else {
-            IconName::CircleX
+            (
+                "未连接".to_owned(),
+                ramag_ui::pulse_ui::PulseStatus::Unavailable,
+            )
         };
 
         let header = v_flex()
@@ -1087,53 +1221,30 @@ impl Render for ContainerView {
             .debug_selector(|| "container-header".into())
             .w_full()
             .flex_none()
-            .gap(px(10.0))
-            .px(px(20.0))
-            .py(px(14.0))
+            .gap(px(8.0))
+            .px(px(16.0))
+            .py(px(12.0))
             .border_b_1()
             .border_color(theme.border)
             .child(
                 ramag_ui::responsive_toolbar()
                     .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                                    .child("容器管理"),
-                            )
-                            .child(
-                                div()
-                                    .id("container-subtitle")
-                                    .debug_selector(|| "container-subtitle".into())
-                                    .text_xs()
-                                    .text_color(theme.muted_foreground)
-                                    .whitespace_nowrap()
-                                    .text_ellipsis()
-                                    .child("Docker Engine 只读查询"),
-                            ),
+                        ramag_ui::pulse_ui::pulse_page_title(
+                            "容器管理",
+                            Some("Docker Engine 只读查询"),
+                            cx,
+                        )
+                        .flex_1()
+                        .min_w_0(),
                     )
                     .child(
-                        h_flex()
-                            .id("container-connection-status")
-                            .debug_selector(|| "container-connection-status".into())
-                            .flex_none()
-                            .items_center()
-                            .gap(px(6.0))
-                            .px(px(10.0))
-                            .py(px(6.0))
-                            .border_1()
-                            .border_color(theme.border)
-                            .rounded(px(6.0))
-                            .child(Icon::new(status_icon).small())
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(theme.muted_foreground)
-                                    .child(status),
-                            ),
+                        ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                            connection_status,
+                            status,
+                            cx,
+                        )
+                        .id("container-connection-status")
+                        .debug_selector(|| "container-connection-status".into()),
                     )
                     .child(
                         ramag_ui::clickable_button("container-refresh")
@@ -1292,26 +1403,24 @@ impl ContainerView {
             .min_w_0()
             .min_h_0()
             .overflow_y_scrollbar()
-            .p(px(20.0))
+            .p(px(16.0))
             .gap(px(12.0));
         let loading = self.loading || self.registry_loading;
         content = content.child(
             ramag_ui::responsive_toolbar()
                 .items_center()
                 .child(
-                    div().flex_1().min_w_0().child(
-                        div()
-                            .text_lg()
-                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                            .child(self.section.label()),
-                    ),
+                    ramag_ui::pulse_ui::pulse_display_heading(self.section.label(), 20.0, cx)
+                        .flex_1()
+                        .min_w_0(),
                 )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child(if loading { "读取中..." } else { "" }),
-                ),
+                .when(loading, |toolbar| {
+                    toolbar.child(ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                        ramag_ui::pulse_ui::PulseStatus::Warming,
+                        "读取中",
+                        cx,
+                    ))
+                }),
         );
         if let Some(filter) = self.render_resource_filter(theme, cx) {
             content = content.child(filter);
@@ -1413,28 +1522,24 @@ impl ContainerView {
             }
         }
         if let Some(error) = &self.error {
-            let mut background = theme.danger;
-            background.a = 0.12;
             content = content.child(
-                h_flex()
+                div()
                     .id("container-error")
                     .debug_selector(|| "container-error".into())
-                    .w_full()
-                    .gap(px(8.0))
-                    .p(px(10.0))
-                    .bg(background)
-                    .text_color(theme.danger)
-                    .child(Icon::new(IconName::CircleX))
-                    .child(div().flex_1().min_w_0().child(error.clone())),
+                    .child(ramag_ui::pulse_ui::pulse_status_notice(
+                        ramag_ui::pulse_ui::PulseStatus::Failed,
+                        error.clone(),
+                        cx,
+                    )),
             );
         }
         let section_content = match self.section {
-            ContainerSection::Overview => self.render_overview(theme),
+            ContainerSection::Overview => self.render_overview(theme, cx),
             ContainerSection::Containers => self.render_containers(theme, cx),
             ContainerSection::Images => self.render_images(theme, cx),
             ContainerSection::Networks => self.render_networks(theme, cx),
             ContainerSection::Volumes => self.render_volumes(theme, cx),
-            ContainerSection::Logs => self.render_logs(theme),
+            ContainerSection::Logs => self.render_logs(theme, cx),
             ContainerSection::Registry => self.render_registry(theme, cx),
         };
         content.child(section_content).into_any_element()
@@ -1555,9 +1660,13 @@ impl ContainerView {
         )
     }
 
-    fn render_overview(&self, theme: &gpui_kit::component::theme::Theme) -> AnyElement {
+    fn render_overview(
+        &self,
+        theme: &gpui_kit::component::theme::Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let Some(overview) = &self.overview else {
-            return empty_state("连接 Docker Engine 后显示概览", theme).into_any_element();
+            return empty_state("连接 Docker Engine 后显示概览", cx).into_any_element();
         };
         let cards = [
             (
@@ -1613,9 +1722,10 @@ impl ContainerView {
                 .min_w(px(108.0))
                 .gap(px(6.0))
                 .p(px(14.0))
+                .bg(theme.secondary)
                 .border_1()
                 .border_color(theme.border)
-                .rounded(px(6.0))
+                .rounded(px(8.0))
                 .child(Icon::new(icon).small().text_color(theme.muted_foreground))
                 .child(
                     div()
@@ -1632,10 +1742,9 @@ impl ContainerView {
                 .into_any_element()
         })
         .collect::<Vec<_>>();
-        v_flex()
+        ramag_ui::pulse_ui::pulse_panel(cx)
             .id("container-overview-panel")
             .debug_selector(|| "container-overview-panel".into())
-            .w_full()
             .gap(px(14.0))
             .child(h_flex().w_full().flex_wrap().gap(px(10.0)).children(cards))
             .child(info_panel(
@@ -1650,7 +1759,7 @@ impl ContainerView {
                     overview.version.api_version.as_deref().unwrap_or("未知"),
                     overview.version.os.as_deref().unwrap_or("未知系统")
                 ),
-                theme,
+                cx,
             ))
             .into_any_element()
     }
@@ -1666,30 +1775,36 @@ impl ContainerView {
             .map(|page| {
                 page.items
                     .iter()
-                    .map(|item| {
-                        resource_row(
-                            "container",
-                            item.id.clone(),
+                    .map(|item| ResourceTableRow {
+                        id: item.id.clone(),
+                        cells: vec![
                             item.names
                                 .first()
-                                .cloned()
-                                .unwrap_or_else(|| item.id.clone()),
-                            format!(
-                                "{} · {}",
-                                item.image.as_deref().unwrap_or("未知镜像"),
-                                item.status
-                                    .as_deref()
-                                    .or(item.state.as_deref())
-                                    .unwrap_or("未知状态")
-                            ),
-                            self,
-                            cx,
-                        )
+                                .map(|name| name.trim_start_matches('/'))
+                                .filter(|name| !name.is_empty())
+                                .unwrap_or(&item.id)
+                                .to_owned(),
+                            resource_value(item.image.as_deref()),
+                            item.status
+                                .as_deref()
+                                .or(item.state.as_deref())
+                                .map(str::to_owned)
+                                .unwrap_or_else(|| "未知状态".into()),
+                            format_container_ports(&item.ports),
+                            format_resource_values(item.networks.iter().map(String::as_str)),
+                        ],
                     })
-                    .collect()
+                    .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        self.render_resource_list(rows, "暂无容器", theme, cx)
+        self.render_resource_list(
+            "container",
+            &CONTAINER_TABLE_COLUMNS,
+            rows,
+            "暂无容器",
+            theme,
+            cx,
+        )
     }
 
     fn render_images(
@@ -1703,27 +1818,27 @@ impl ContainerView {
             .map(|page| {
                 page.items
                     .iter()
-                    .map(|item| {
-                        resource_row(
-                            "image",
-                            item.id.clone(),
+                    .map(|item| ResourceTableRow {
+                        id: item.id.clone(),
+                        cells: vec![
                             item.repository_tags
                                 .first()
                                 .cloned()
-                                .unwrap_or_else(|| item.id.clone()),
-                            format!(
-                                "{} · {}",
-                                format_bytes(item.size_bytes),
-                                item.operating_system.as_deref().unwrap_or("未知系统")
+                                .unwrap_or_else(|| short_resource_id(&item.id)),
+                            short_resource_id(&item.id),
+                            format_bytes(item.size_bytes),
+                            item.containers
+                                .map_or_else(|| "—".into(), |count| count.to_string()),
+                            format_image_platform(
+                                item.operating_system.as_deref(),
+                                item.architecture.as_deref(),
                             ),
-                            self,
-                            cx,
-                        )
+                        ],
                     })
-                    .collect()
+                    .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        self.render_resource_list(rows, "暂无镜像", theme, cx)
+        self.render_resource_list("image", &IMAGE_TABLE_COLUMNS, rows, "暂无镜像", theme, cx)
     }
 
     fn render_registry(
@@ -1748,10 +1863,9 @@ impl ContainerView {
                     .child(self.registry_endpoint.clone())
                     .into_any_element()
             });
-        let mut content = v_flex()
+        let mut content = ramag_ui::pulse_ui::pulse_panel(cx)
             .id("container-registry-panel")
             .debug_selector(|| "container-registry-panel".into())
-            .w_full()
             .gap(px(12.0))
             .child(
                 ramag_ui::responsive_toolbar()
@@ -1841,7 +1955,7 @@ impl ContainerView {
                 } else {
                     "输入 Registry 端点后查询"
                 },
-                theme,
+                cx,
             )
             .into_any_element()
         } else {
@@ -1857,7 +1971,7 @@ impl ContainerView {
                 || "尚未查询".into(),
                 |repositories| format!("{} 个仓库", repositories.len()),
             ),
-            theme,
+            cx,
         ));
         content = content.child(repositories);
         if let Some(repository) = &self.selected_registry_repository {
@@ -1874,7 +1988,7 @@ impl ContainerView {
                     }
                 },
             );
-            content = content.child(info_panel("Tag", format!("{repository}：{tags}"), theme));
+            content = content.child(info_panel("Tag", format!("{repository}：{tags}"), cx));
         }
         content.into_any_element()
     }
@@ -1890,24 +2004,31 @@ impl ContainerView {
             .map(|page| {
                 page.items
                     .iter()
-                    .map(|item| {
-                        resource_row(
-                            "network",
-                            item.id.clone(),
+                    .map(|item| ResourceTableRow {
+                        id: item.id.clone(),
+                        cells: vec![
                             item.name.clone().unwrap_or_else(|| item.id.clone()),
-                            format!(
-                                "{} · {} 个容器",
-                                item.driver.as_deref().unwrap_or("未知驱动"),
-                                item.container_count
+                            resource_value(item.driver.as_deref()),
+                            resource_value(item.scope.as_deref()),
+                            item.container_count.to_string(),
+                            format_resource_values(
+                                item.subnets
+                                    .iter()
+                                    .filter_map(|subnet| subnet.subnet.as_deref()),
                             ),
-                            self,
-                            cx,
-                        )
+                        ],
                     })
-                    .collect()
+                    .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        self.render_resource_list(rows, "暂无网络", theme, cx)
+        self.render_resource_list(
+            "network",
+            &NETWORK_TABLE_COLUMNS,
+            rows,
+            "暂无网络",
+            theme,
+            cx,
+        )
     }
 
     fn render_volumes(
@@ -1921,27 +2042,35 @@ impl ContainerView {
             .map(|page| {
                 page.items
                     .iter()
-                    .map(|item| {
-                        resource_row(
-                            "volume",
+                    .map(|item| ResourceTableRow {
+                        id: item.name.clone(),
+                        cells: vec![
                             item.name.clone(),
-                            item.name.clone(),
-                            format!(
-                                "{} · {}",
-                                item.driver.as_deref().unwrap_or("未知驱动"),
-                                item.mountpoint.as_deref().unwrap_or("未知挂载点")
-                            ),
-                            self,
-                            cx,
-                        )
+                            resource_value(item.driver.as_deref()),
+                            resource_value(item.scope.as_deref()),
+                            item.container_count.to_string(),
+                            format_bytes(item.usage_size_bytes),
+                            resource_value(item.mountpoint.as_deref()),
+                        ],
                     })
-                    .collect()
+                    .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        self.render_resource_list(rows, "暂无数据卷", theme, cx)
+        self.render_resource_list(
+            "volume",
+            &VOLUME_TABLE_COLUMNS,
+            rows,
+            "暂无数据卷",
+            theme,
+            cx,
+        )
     }
 
-    fn render_logs(&self, theme: &gpui_kit::component::theme::Theme) -> AnyElement {
+    fn render_logs(
+        &self,
+        theme: &gpui_kit::component::theme::Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let Some(logs) = &self.logs else {
             return empty_state(
                 if self.logs_loading {
@@ -1949,7 +2078,7 @@ impl ContainerView {
                 } else {
                     "从容器详情打开日志"
                 },
-                theme,
+                cx,
             )
             .into_any_element();
         };
@@ -2038,12 +2167,11 @@ impl ContainerView {
         } else {
             v_flex().gap(px(6.0)).children(rows).into_any_element()
         };
-        v_flex()
+        ramag_ui::pulse_ui::pulse_panel(cx)
             .id("container-logs-panel")
             .debug_selector(|| "container-logs-panel".into())
-            .w_full()
             .gap(px(12.0))
-            .child(info_panel("日志摘要", summary, theme))
+            .child(info_panel("日志摘要", summary, cx))
             .child(
                 v_flex()
                     .id("container-logs-output")
@@ -2060,11 +2188,20 @@ impl ContainerView {
 
     fn render_resource_list(
         &self,
-        rows: Vec<AnyElement>,
+        kind: &'static str,
+        columns: &'static [ResourceTableColumn],
+        rows: Vec<ResourceTableRow>,
         empty: &'static str,
         theme: &gpui_kit::component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let kind_label = match kind {
+            "container" => "容器",
+            "image" => "镜像",
+            "network" => "网络",
+            "volume" => "数据卷",
+            _ => "资源",
+        };
         let body = if rows.is_empty() {
             empty_state(
                 if self.loading {
@@ -2072,25 +2209,113 @@ impl ContainerView {
                 } else {
                     empty
                 },
-                theme,
+                cx,
             )
             .into_any_element()
         } else {
-            v_flex()
+            let resource_count = rows.len();
+            let column_count = columns.len();
+            let total_width = columns.iter().map(|column| column.width).sum::<f32>();
+            let selected_id = self.selected_resource_id(kind);
+            let header_id = format!("container-resource-{kind}-header");
+            let header = TableRow::new(SharedString::from(header_id.clone()), 1)
                 .w_full()
-                .gap(px(6.0))
-                .children(rows)
+                .flex()
+                .h_8()
+                .flex_none()
+                .bg(theme.muted)
+                .debug_selector(move || header_id.clone())
+                .children(columns.iter().enumerate().map(|(index, column)| {
+                    let cell_id = format!("container-resource-{kind}-header-{}", column.key);
+                    let cell_selector = cell_id.clone();
+                    TableCell::new(SharedString::from(cell_id.clone()), index + 1)
+                        .accessibility_id(cell_id)
+                        .role(Role::ColumnHeader)
+                        .aria_label(column.label)
+                        .w(px(column.width))
+                        .flex_none()
+                        .when(index == 0, |cell| cell.flex_grow(1.0))
+                        .px_2()
+                        .flex()
+                        .items_center()
+                        .overflow_hidden()
+                        .debug_selector(move || cell_selector.clone())
+                        .child(
+                            div()
+                                .w_full()
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .text_xs()
+                                .font_weight(gpui_kit::FontWeight::MEDIUM)
+                                .text_color(theme.muted_foreground)
+                                .child(column.label),
+                        )
+                }));
+            let table_id = format!("container-resource-table-{kind}");
+            let table = rows.into_iter().enumerate().fold(
+                Table::new(SharedString::from(table_id.clone()))
+                    .row_count(resource_count + 1)
+                    .column_count(column_count)
+                    .accessibility_label(format!("{kind_label}资源列表，共 {} 行", resource_count))
+                    .w_full()
+                    .min_w(px(total_width))
+                    .flex()
+                    .flex_col()
+                    .debug_selector(move || table_id.clone())
+                    .child(header),
+                |table, (index, row)| {
+                    table.child(resource_table_row(
+                        kind,
+                        columns,
+                        row,
+                        index,
+                        selected_id,
+                        theme,
+                        cx,
+                    ))
+                },
+            );
+            v_flex()
+                .id("container-resource-table-frame")
+                .debug_selector(|| "container-resource-table-frame".into())
+                .w_full()
+                .min_w_0()
+                .gap(px(4.0))
+                .child(
+                    div()
+                        .id("container-resource-table-scroll")
+                        .debug_selector(|| "container-resource-table-scroll".into())
+                        .w_full()
+                        .min_w_0()
+                        .overflow_x_scroll()
+                        .track_scroll(&self.resource_table_scroll)
+                        .child(table),
+                )
+                .child(
+                    Scrollbar::horizontal(&self.resource_table_scroll).mode(ScrollbarMode::Always),
+                )
                 .into_any_element()
         };
         let detail = self.render_detail(theme, cx);
-        v_flex()
+        ramag_ui::pulse_ui::pulse_panel(cx)
             .id("container-resource-panel")
             .debug_selector(|| "container-resource-panel".into())
-            .w_full()
             .gap(px(12.0))
             .child(body)
             .when_some(detail, |panel, detail| panel.child(detail))
             .into_any_element()
+    }
+
+    fn selected_resource_id(&self, kind: &str) -> Option<&str> {
+        match (kind, self.selected_detail.as_ref()) {
+            ("container", Some(SelectedDetail::Container(detail))) => {
+                Some(detail.summary.id.as_str())
+            }
+            ("image", Some(SelectedDetail::Image(detail))) => Some(detail.summary.id.as_str()),
+            ("network", Some(SelectedDetail::Network(detail))) => Some(detail.summary.id.as_str()),
+            ("volume", Some(SelectedDetail::Volume(detail))) => Some(detail.summary.name.as_str()),
+            _ => None,
+        }
     }
 
     fn render_detail(
@@ -2210,12 +2435,11 @@ impl ContainerView {
             }
             _ => None,
         };
-        let mut panel = v_flex()
+        let mut panel = ramag_ui::pulse_ui::pulse_panel(cx)
             .id("container-detail-panel")
             .debug_selector(|| "container-detail-panel".into())
-            .w_full()
             .gap(px(8.0))
-            .child(info_panel("详情", detail, theme));
+            .child(info_panel("详情", detail, cx));
         if let Some(detail_actions) = detail_actions {
             panel = panel.child(detail_actions);
         }
@@ -2224,7 +2448,7 @@ impl ContainerView {
                 div()
                     .id("container-detail-stats-panel")
                     .debug_selector(|| "container-detail-stats-panel".into())
-                    .child(info_panel("资源指标", container_stats_text(stats), theme)),
+                    .child(info_panel("资源指标", container_stats_text(stats), cx)),
             );
         }
         if !self.container_stats_history.is_empty() {
@@ -2235,7 +2459,7 @@ impl ContainerView {
                     .child(info_panel(
                         "最近指标",
                         container_stats_history_text(&self.container_stats_history),
-                        theme,
+                        cx,
                     )),
             );
             panel = panel.child(render_container_stats_trend(
@@ -2320,71 +2544,138 @@ fn resource_button_with_width(
         .into_any_element()
 }
 
-fn resource_row(
+fn resource_table_row(
     kind: &'static str,
-    id: String,
-    title: String,
-    subtitle: String,
-    view: &ContainerView,
+    columns: &'static [ResourceTableColumn],
+    row: ResourceTableRow,
+    row_index: usize,
+    selected_id: Option<&str>,
+    theme: &gpui_kit::component::theme::Theme,
     cx: &mut Context<ContainerView>,
-) -> AnyElement {
-    let theme = cx.theme();
-    let detail_id = id.clone();
-    let row_id = format!("container-resource-{kind}-{id}");
+) -> TableRow {
+    debug_assert_eq!(
+        row.cells.len(),
+        columns.len(),
+        "resource table row must match its column definition"
+    );
+    let detail_id = row.id.clone();
+    let row_id = format!("container-resource-{kind}-{}", row.id);
     let row_selector = row_id.clone();
-    let title_selector = format!("{row_id}-title");
-    let subtitle_selector = format!("{row_id}-subtitle");
-    ramag_ui::clickable_button(row_id)
-        .ghost()
+    let selected = selected_id == Some(row.id.as_str());
+    let zebra = theme.muted.opacity(0.12);
+    TableRow::new(SharedString::from(row_id.clone()), row_index + 2)
         .w_full()
-        .justify_start()
+        .flex()
+        .h_8()
+        .flex_none()
+        .when(!selected && row_index.is_multiple_of(2), |row| {
+            row.bg(zebra)
+        })
+        .when(selected, |row| row.bg(theme.secondary))
         .debug_selector(move || row_selector.clone())
-        .on_click(
-            cx.listener(move |this, _: &ClickEvent, _, cx| this.load_detail(detail_id.clone(), cx)),
-        )
-        .child(
-            h_flex()
-                .w_full()
-                .min_w_0()
-                .gap(px(10.0))
-                .child(
-                    Icon::new(IconName::HardDrive)
-                        .small()
-                        .text_color(theme.muted_foreground),
-                )
-                .child(
-                    v_flex()
-                        .flex_1()
-                        .min_w_0()
-                        .gap(px(2.0))
-                        .child(
-                            div()
-                                .debug_selector(move || title_selector.clone())
-                                .min_w_0()
-                                .text_sm()
-                                .truncate()
-                                .child(title),
-                        )
-                        .child(
-                            div()
-                                .debug_selector(move || subtitle_selector.clone())
-                                .min_w_0()
-                                .text_xs()
-                                .text_color(theme.muted_foreground)
-                                .truncate()
-                                .child(subtitle),
-                        ),
-                )
-                .when(view.detail_loading, |row| {
-                    row.child(
+        .children(row.cells.into_iter().zip(columns.iter()).enumerate().map(
+            |(index, (value, column))| {
+                let cell_id = format!("{row_id}-cell-{}", column.key);
+                let cell_selector = cell_id.clone();
+                let text_selector = format!("{cell_id}-text");
+                TableCell::new(SharedString::from(cell_id.clone()), index + 1)
+                    .accessibility_id(cell_id)
+                    .aria_label(format!("{}：{value}", column.label))
+                    .w(px(column.width))
+                    .flex_none()
+                    .when(index == 0, |cell| cell.flex_grow(1.0))
+                    .px_2()
+                    .flex()
+                    .items_center()
+                    .overflow_hidden()
+                    .debug_selector(move || cell_selector.clone())
+                    .child(
                         div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("读取详情..."),
+                            .w_full()
+                            .min_w_0()
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .when(matches!(column.key, "size" | "containers"), |cell| {
+                                cell.font_family(theme.mono_font_family.clone())
+                            })
+                            .debug_selector(move || text_selector.clone())
+                            .child(value),
                     )
-                }),
-        )
-        .into_any_element()
+            },
+        ))
+        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+            this.load_detail(detail_id.clone(), cx);
+        }))
+}
+
+fn resource_value(value: Option<&str>) -> String {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map_or_else(|| "—".into(), str::to_owned)
+}
+
+fn format_resource_values<'a>(values: impl IntoIterator<Item = &'a str>) -> String {
+    let values = values
+        .into_iter()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+    if values.is_empty() {
+        "—".into()
+    } else {
+        values.join(", ")
+    }
+}
+
+fn format_container_ports(ports: &[DockerContainerPort]) -> String {
+    let mappings = ports
+        .iter()
+        .filter_map(|port| {
+            let protocol = port
+                .protocol
+                .as_deref()
+                .filter(|protocol| !protocol.is_empty())
+                .unwrap_or("tcp");
+            match (port.public_port, port.private_port) {
+                (Some(public), Some(private)) => {
+                    let host = port
+                        .ip
+                        .as_deref()
+                        .filter(|ip| !ip.is_empty() && *ip != "0.0.0.0")
+                        .map_or_else(|| public.to_string(), |ip| format!("{ip}:{public}"));
+                    Some(format!("{host} → {private}/{protocol}"))
+                }
+                (Some(public), None) => Some(format!("{public}/{protocol}")),
+                (None, Some(private)) => Some(format!("{private}/{protocol}")),
+                (None, None) => None,
+            }
+        })
+        .collect::<Vec<_>>();
+    if mappings.is_empty() {
+        "—".into()
+    } else {
+        mappings.join(", ")
+    }
+}
+
+fn format_image_platform(os: Option<&str>, architecture: Option<&str>) -> String {
+    match (os.map(str::trim), architecture.map(str::trim)) {
+        (Some(os), Some(architecture)) if !os.is_empty() && !architecture.is_empty() => {
+            format!("{os}/{architecture}")
+        }
+        (Some(os), _) if !os.is_empty() => os.into(),
+        (_, Some(architecture)) if !architecture.is_empty() => architecture.into(),
+        _ => "—".into(),
+    }
+}
+
+fn short_resource_id(id: &str) -> String {
+    id.strip_prefix("sha256:")
+        .unwrap_or(id)
+        .chars()
+        .take(12)
+        .collect()
 }
 
 fn registry_repository_row(
@@ -2430,32 +2721,23 @@ fn registry_repository_row(
         .into_any_element()
 }
 
-fn info_panel(
-    title: &'static str,
-    text: String,
-    theme: &gpui_kit::component::theme::Theme,
-) -> impl IntoElement {
-    v_flex()
-        .w_full()
+fn info_panel(title: &'static str, text: String, cx: &gpui_kit::App) -> impl IntoElement {
+    ramag_ui::pulse_ui::pulse_panel(cx)
         .gap(px(8.0))
-        .p(px(14.0))
-        .border_1()
-        .border_color(theme.border)
-        .rounded(px(6.0))
+        .child(ramag_ui::pulse_ui::pulse_display_heading(title, 16.0, cx))
         .child(
             div()
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child(title),
+                .text_sm()
+                .text_color(cx.theme().foreground)
+                .child(text),
         )
-        .child(div().text_sm().child(text))
 }
 
-fn empty_state(text: &'static str, theme: &gpui_kit::component::theme::Theme) -> impl IntoElement {
-    v_flex()
+fn empty_state(text: &'static str, cx: &gpui_kit::App) -> impl IntoElement {
+    ramag_ui::pulse_ui::pulse_panel(cx)
         .id("container-empty-state")
         .debug_selector(|| "container-empty-state".into())
-        .w_full()
+        .min_h(px(180.0))
         .items_center()
         .justify_center()
         .gap(px(8.0))
@@ -2464,12 +2746,12 @@ fn empty_state(text: &'static str, theme: &gpui_kit::component::theme::Theme) ->
         .child(
             Icon::new(IconName::HardDrive)
                 .large()
-                .text_color(theme.muted_foreground),
+                .text_color(ramag_ui::pulse_ui::pulse_palette(cx).muted),
         )
         .child(
             div()
                 .text_sm()
-                .text_color(theme.muted_foreground)
+                .text_color(ramag_ui::pulse_ui::pulse_palette(cx).muted)
                 .child(text),
         )
 }
@@ -2754,6 +3036,10 @@ fn format_bytes(value: Option<i64>) -> String {
 #[cfg(test)]
 #[path = "view_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "resource_table_tests.rs"]
+mod resource_table_tests;
 
 #[cfg(test)]
 #[path = "copy_tests.rs"]
