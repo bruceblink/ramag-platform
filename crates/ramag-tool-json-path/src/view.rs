@@ -185,11 +185,19 @@ impl Render for JsonPathView {
                     ),
             )
             .child(
-                h_flex()
+                ramag_ui::responsive_toolbar()
+                    .id("json-path-controls")
+                    .debug_selector(|| "json-path-controls".into())
                     .items_center()
-                    .gap(px(8.0))
                     .child(div().text_sm().child("JSON Path"))
-                    .child(Input::new(&self.path).flex_1().min_w_0())
+                    .child(
+                        div()
+                            .id("json-path-path-input")
+                            .debug_selector(|| "json-path-path-input".into())
+                            .flex_1()
+                            .min_w(px(140.0))
+                            .child(Input::new(&self.path).w_full()),
+                    )
                     .child(
                         clickable_button("json-path-run")
                             .debug_selector(|| "json-path-run".into())

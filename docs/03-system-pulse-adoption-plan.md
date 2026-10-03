@@ -496,3 +496,9 @@ SSH 连接管理列表原先只显示名称、环境、平台、认证方式和�
 API 页头原先在 Pulse 页面标题右侧保留泛化的 “API Workspace” 文本和弹性占位，宽窗口产生无意义空白，窄窗口时标题与上下文层级不稳定。现改为显示当前协议徽章（HTTP 或 gRPC），去掉占位和泛化英文标签；请求编辑、保存、发送、取消、响应和历史流程保持不变。
 
 扩展 API 响应式布局断言，覆盖 `360x240`、`1024x240`、`360x640`、`640x800`、`1024x768` 和 `1440x900`，验证协议徽章与页面标题共同留在页头内。`cargo test --locked -p ramag-tool-api --lib -- --test-threads=1` 通过 35 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。当前完整程序已由 `F:\project\ramag-platform\target\debug\ramag.exe` 启动核对；Computer Use 当前没有原生窗口应用，本切片不宣称真实窗口鼠标/键盘验收，也不恢复 GitHub CI 监测。
+
+### 2026-10-03 JSON Path 响应式执行栏对齐
+
+JSON Path 提取器的路径输入、提取按钮和标签原先使用固定横向布局，窄窗口下没有复用公共工具栏的换行边界。现改为 `ramag_ui::responsive_toolbar`，输入区保留有界最小宽度，提取按钮在 `360`、`1024` 和 `1440` 宽度内保持可见；原生 JSON5 编辑器、插件宿主执行、结果输出、错误状态和任务预算不变。
+
+扩展 `json_path_view_keeps_native_controls_visible_at_supported_widths`，断言响应式控制栏、路径输入和提取按钮在三种宽度内保持边界。`cargo test --locked -p ramag-tool-json-path --all-targets -- --test-threads=1` 通过 5 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。当前完整程序已由 `F:\project\ramag-platform\target\debug\ramag.exe` 启动核对；Computer Use 当前没有原生窗口应用，本切片不宣称真实窗口鼠标/键盘验收，也不恢复 GitHub CI 监测。

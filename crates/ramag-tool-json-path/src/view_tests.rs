@@ -30,7 +30,30 @@ fn json_path_view_keeps_native_controls_visible_at_supported_widths(cx: &mut Tes
             "JSON Path 页头应在支持的窗口宽度下保持可见"
         );
         assert!(visual_cx.debug_bounds("json-path-status").is_some());
+        let controls = visual_cx
+            .debug_bounds("json-path-controls")
+            .expect("JSON Path 控制栏应渲染");
+        let path_input = visual_cx
+            .debug_bounds("json-path-path-input")
+            .expect("JSON Path 输入框应渲染");
         assert!(visual_cx.debug_bounds("json-path-run").is_some());
+        let run = visual_cx
+            .debug_bounds("json-path-run")
+            .expect("JSON Path 执行按钮应渲染");
         assert!(visual_cx.debug_bounds("json-path-output").is_some());
+        assert!(
+            path_input.origin.x >= controls.origin.x
+                && path_input.right() <= controls.right()
+                && path_input.origin.y >= controls.origin.y
+                && path_input.bottom() <= controls.bottom(),
+            "JSON Path 输入框不能越出响应式控制栏: controls={controls:?}, input={path_input:?}"
+        );
+        assert!(
+            run.origin.x >= controls.origin.x
+                && run.right() <= controls.right()
+                && run.origin.y >= controls.origin.y
+                && run.bottom() <= controls.bottom(),
+            "JSON Path 执行按钮不能越出响应式控制栏: controls={controls:?}, run={run:?}"
+        );
     }
 }
