@@ -41,8 +41,8 @@ impl Render for ClipboardView {
             .min_w_0()
             .when(compact, |pane| {
                 pane.w_full()
-                    .h(px(320.0))
-                    .flex_none()
+                    .flex_1()
+                    .min_h(px(240.0))
                     .border_b_1()
                     .border_color(border)
             })
@@ -76,7 +76,7 @@ impl Render for ClipboardView {
         let detail_pane = div()
             .debug_selector(|| "clipboard-view-detail-pane".into())
             .min_w_0()
-            .when(compact, |pane| pane.w_full().h(px(360.0)).flex_none())
+            .when(compact, |pane| pane.w_full().flex_1().min_h(px(240.0)))
             .when(!compact, |pane| pane.flex_1().h_full())
             .child(self.render_detail(cx));
 
@@ -539,6 +539,10 @@ mod tests {
                 assert!(
                     detail.origin.y >= list.bottom(),
                     "紧凑窗口应将详情区放在列表区下方：list={list:?}, detail={detail:?}"
+                );
+                assert!(
+                    list.size.height >= px(240.0) && detail.size.height >= px(240.0),
+                    "紧凑窗口列表和详情应填充可用高度且保留最小可读区域：list={list:?}, detail={detail:?}"
                 );
             } else {
                 assert_inside(&content, &list, "列表区");

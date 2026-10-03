@@ -478,3 +478,9 @@ Kafka 概览新增 System-tool 风格的“关键数据”轻量面板，集中�
 MQTT 配置页头原先在连接状态徽章和测试/保存操作组之间放置了额外的弹性空容器，导致宽窗口出现无意义的横向空白、窄窗口出现过大的纵向间距。移除该占位后，Pulse 页面标题、连接状态和操作组按同一层级排列；MQTT 配置、测试连接、保存、发布、订阅和本地服务流程保持不变。
 
 新增 `mqtt_header_keeps_status_and_actions_compact_at_supported_widths`，覆盖 `360`、`768`、`1024` 和 `1440` 宽度，断言窄窗口状态徽章与操作组相邻换行、宽窗口状态位于操作组左侧且所有内容留在窗口内。`cargo test --locked -p ramag-tool-mqtt --lib -- --test-threads=1` 通过 33 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。Computer Use 当前只返回浏览器且没有原生窗口应用，本切片不宣称真实窗口鼠标/键盘验收，也不恢复 GitHub CI 监测。
+
+### 2026-10-03 剪贴板窄窗口内容区填充
+
+剪贴板主视图在窄窗口原先把列表和详情固定为 `320px` 与 `360px`，窗口高度变化时会留下不协调的空白，长内容也只能依赖外层整体滚动。列表和详情现在在内容区内使用弹性高度并保留 `240px` 最小可读区域，各自的内部滚动、搜索、类型筛选、详情选择和复制/清理操作不变。
+
+扩展 `clipboard_content_reflows_list_and_detail_inside_supported_widths`，在 `360`、`800`、`1024` 和 `1440` 宽度检查窄窗口两 pane 的最小高度、上下顺序及常规窗口的左右布局。`cargo test --locked -p ramag-tool-clipboard --lib -- --test-threads=1` 通过 22 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。Computer Use 当前没有可操作的原生窗口应用，本切片不宣称真实窗口鼠标/键盘验收，也不恢复 GitHub CI 监测。
