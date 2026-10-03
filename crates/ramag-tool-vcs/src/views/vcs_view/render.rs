@@ -265,7 +265,7 @@ impl Render for VcsView {
                     }
                 }),
             )
-            .child(self.render_tabs(cx))
+            .child(self.render_tabs(window, cx))
             .child(div().flex_1().min_h_0().child(body))
     }
 }

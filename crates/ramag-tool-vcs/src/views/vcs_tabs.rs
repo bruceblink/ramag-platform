@@ -3,7 +3,7 @@ use gpui_kit::component::{
     h_flex, scroll::ScrollableElement as _,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, div,
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, Window, div,
     prelude::*, px,
 };
 
@@ -11,7 +11,7 @@ use super::helpers::ActiveView;
 use super::vcs_view::VcsView;
 
 impl VcsView {
-    pub(super) fn render_tabs(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_tabs(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme();
         let fg = theme.foreground;
         let muted_fg = theme.muted_foreground;
@@ -21,8 +21,12 @@ impl VcsView {
         let accent = theme.accent;
         let accent_bg = theme.list_active;
         let on_list = matches!(self.active_view, ActiveView::RepoList);
+        let compact = f32::from(window.viewport_size().width) < 720.0;
+        let title_limit = if compact { 16 } else { 28 };
+        let title_width = if compact { 150.0 } else { 240.0 };
 
         let mut bar = h_flex()
+            .debug_selector(|| "vcs-tabs".into())
             .w_full()
             .flex_none()
             .border_b_1()
@@ -79,6 +83,23 @@ impl VcsView {
             let tab_id = SharedString::from(format!("vcs-tab-repo-{}", repo.id));
             let label_id = SharedString::from(format!("vcs-tab-label-{}", repo.id));
             let close_id = SharedString::from(format!("vcs-tab-close-{}", repo.id));
+            let tab_title: AnyElement = if is_active {
+                ramag_ui::pulse_ui::pulse_page_title(
+                    super::inline_text_preview(&repo.name, title_limit),
+                    None::<String>,
+                    cx,
+                )
+                .id("vcs-session-page-title")
+                .debug_selector(|| "vcs-session-page-title".into())
+                .max_w(px(title_width))
+                .into_any_element()
+            } else {
+                div()
+                    .text_xs()
+                    .text_color(if is_active { fg } else { muted_fg })
+                    .child(name.clone())
+                    .into_any_element()
+            };
 
             // 标签与关闭按钮独立处理点击。
             let mut tab = h_flex()
@@ -94,7 +115,8 @@ impl VcsView {
                         .items_center()
                         .gap(px(6.0))
                         .px(px(12.0))
-                        .py(px(7.0))
+                        .when(is_active, |label| label.py(px(0.0)))
+                        .when(!is_active, |label| label.py(px(7.0)))
                         .cursor_pointer()
                         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                             if this
@@ -110,12 +132,7 @@ impl VcsView {
                             }
                         }))
                         .child(div().w(px(8.0)).h(px(8.0)).rounded_full().bg(accent))
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(if is_active { fg } else { muted_fg })
-                                .child(name),
-                        ),
+                        .child(tab_title),
                 )
                 .child(
                     ramag_ui::clickable_button(close_id)

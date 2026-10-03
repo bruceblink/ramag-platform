@@ -27,12 +27,7 @@ const BRANCH_PICKER_LABEL_CHARS: usize = 18;
 impl VcsView {
     pub(super) fn render_ide_layout(&self, cx: &mut Context<Self>) -> AnyElement {
         let row = h_flex().size_full().min_h_0();
-        let mut main_layout = v_flex().size_full();
-        if let Some(banner) = self.render_error_banner(cx) {
-            main_layout = main_layout.child(banner);
-        }
         // 全屏时仅保留标签和差异主区。
-        let main_layout = main_layout.child(self.render_op_banner(cx));
         let fullscreen_diff = self.diff_fullscreen
             && !self.show_rebase_plan
             && self.conflict_editor_path.is_none()
@@ -42,6 +37,14 @@ impl VcsView {
                 .is_some_and(|tab| {
                     !matches!(&tab.source, super::helpers::FileTabSource::ProjectFiles)
                 });
+        let mut main_layout = v_flex()
+            .debug_selector(|| "vcs-ide-layout-root".into())
+            .size_full()
+            .min_w_0();
+        if let Some(banner) = self.render_error_banner(cx) {
+            main_layout = main_layout.child(banner);
+        }
+        let main_layout = main_layout.child(self.render_op_banner(cx));
         let main_layout = if fullscreen_diff {
             main_layout.child(div().flex_1().min_h_0().child(self.render_main_area(cx)))
         } else if self.history_pane_visible {
