@@ -4,6 +4,13 @@ use gpui_kit::component::scroll::ScrollableElement as _;
 impl Render for CollaborationView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
+        let status_kind = if self.busy {
+            ramag_ui::pulse_ui::PulseStatus::Warming
+        } else if self.relay_available {
+            ramag_ui::pulse_ui::PulseStatus::Current
+        } else {
+            ramag_ui::pulse_ui::PulseStatus::Unavailable
+        };
         let selected = self
             .selected
             .as_ref()
@@ -22,14 +29,33 @@ impl Render for CollaborationView {
             .p(px(24.0))
             .gap(px(14.0))
             .child(
-                v_flex()
-                    .gap(px(5.0))
-                    .child(div().text_lg().child("本机协作"))
+                ramag_ui::responsive_toolbar()
+                    .id("collaboration-page-header")
+                    .debug_selector(|| "collaboration-page-header".into())
+                    .items_center()
                     .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("原生 GPUI 入口 · 加密草稿 · 用户确认后才准备导出"),
+                        ramag_ui::pulse_ui::pulse_page_title(
+                            "本机协作",
+                            Some("原生 GPUI 入口 · 加密草稿 · 用户确认后才准备导出"),
+                            cx,
+                        )
+                        .flex_1()
+                        .min_w_0(),
+                    )
+                    .child(
+                        ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                            status_kind,
+                            if self.busy {
+                                "处理中"
+                            } else if self.relay_available {
+                                "Relay 可用"
+                            } else {
+                                "仅本机"
+                            },
+                            cx,
+                        )
+                        .id("collaboration-status-badge")
+                        .debug_selector(|| "collaboration-status-badge".into()),
                     ),
             )
             .child(
@@ -229,9 +255,11 @@ impl Render for CollaborationView {
                 div()
                     .id("collaboration-status")
                     .debug_selector(|| "collaboration-status".into())
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(self.status.clone()),
+                    .child(ramag_ui::pulse_ui::pulse_status_notice(
+                        status_kind,
+                        self.status.clone(),
+                        cx,
+                    )),
             )
     }
 }
