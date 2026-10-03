@@ -386,3 +386,9 @@ VCS 文件栏在常规宽度下移除空闲时占满弹性空间的占位项，�
 `empty_account_state_stays_inside_supported_window_sizes_and_themes` 覆盖明暗主题与 `360x640`、`1024x768`、`1440x900`，检查面板、标题、说明和操作都留在内容区内且顺序稳定。`cargo test --locked -p ramag-tool-object-storage --lib -- --test-threads=1` 通过 28 项；`cargo fmt --all -- --check`、workspace all-target Clippy `-D warnings`、`cargo build --locked -p ramag-bin`、Windows 源码尺寸脚本和 `git diff --check` 均通过。此本地 GPUI 空状态切片不使用 Docker。
 
 本机时间 `2026-10-03 17:20 +08:00` 由 `Get-Date` 核对。Computer Use 使用完整工作区构建 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `34508`，`ExecutablePath` 已核对），在暗色 1555×924 窗口检查账号空状态；点击“新建账号”打开现有表单后取消，回到同一空状态，没有输入或保存凭据。此记录仅验收无账号状态；已配置账号的原生列表、Bucket/对象浏览和传输流程仍待逐项对比，不以 headless 测试替代。
+
+### 2026-10-03 DBClient 结果表原生验收
+
+Computer Use 使用同一完整构建（PID `34508`）检查 1555×924 暗色窗口中的 DBClient `ramag_ui_test.bulk_records` 结果页。结果表从查询工具栏下方铺满工作区，表头、分页和双向滚动条保持可见；本机只读翻页由 `1–100` 到 `101–200`，横向滚动可查看 `payload` 与 `binary_token` 列，纵向滚动仍在当前 100 行页内移动。返回第一页后恢复了表格的首屏和左侧列；未执行事务、写入 SQL 或数据修改。与同窗 System-tool Summary 对照，深色背景、边界和紧凑排版保持一致，结果表保留数据密度所需的较小行文。
+
+本机 Docker 服务为 `ramag-visual-test-mysql84`（`mysql:8.4`，`127.0.0.1:13318 -> 3306/tcp`），检查时已运行约 10 小时；本轮未启动或停止该服务，也未执行独立 Docker 集成测试。`cargo test --locked -p ramag-tool-dbclient --lib -- --test-threads=1` 通过 368 项；`cargo fmt --all -- --check` 和 DBClient all-target Clippy `-D warnings` 通过。此记录只覆盖真实连接下的结果表、分页和滚动；连接管理、查询编辑器、其它驱动及写入/事务流程仍待独立验收。
