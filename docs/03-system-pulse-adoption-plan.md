@@ -514,3 +514,9 @@ JSON Path 提取器的路径输入、提取按钮和标签原先使用固定横�
 Summary 与各详细页的历史图此前把量程和历史时长放在图表顶部横向排列，纵轴下限和上限没有形成左侧刻度区；窄窗口下这会留下较大空白，也使 `0 %`/`0 B` 容易被误读为当前读数。本切片把有效量程上限与下限移到绘图区左侧固定 `64px` 的刻度区，标签左对齐；上限保留物理单位，下限为零时只显示 `0`，负温度和其它非零下限保留单位。绘图区从刻度区右侧开始，时间轴的起点和终点与绘图区同一左/右边界；实时指标仍来自页面已有最新样本，缺失/失败/过期样本继续断线或显示状态，不填充为零。
 
 新增 `axis_labels_stay_left_aligned_and_plot_starts_after_compact_axis`，覆盖 `256`、`640` 和 `1024` 宽度，断言 `64px` 刻度区、上/下标签左边缘、绘图区边界和非零可用宽度；`axis_labels_keep_zero_without_unit_and_physical_units` 锁定百分比、GiB 和负温度文案。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 105 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查和 `git diff --check` 通过。随后使用当前源码完整程序 `F:\project\ramag-platform\target\debug\ramag.exe` 构建并核对启动路径，不使用 `ui-preview`；Computer Use 当前返回 `Trusted RPC service is not configured: sky`，因此本切片不宣称原生鼠标/键盘验收，也不恢复 GitHub CI 监测。
+
+### 2026-10-04 Summary Energy 卡片状态保持
+
+Summary 底部 Energy 卡片此前只在当前功率传感器可见时加入布局；当保存的传感器被隐藏或暂时不可用时，整张卡会消失，页面组合不再与 System-tool 的固定子系统区域一致。本切片保留 Energy 卡，即使当前没有可用功率样本也显示不可用状态和历史等待区域；真实零值、失败、过期及可用功率样本继续复用已有选择和状态表达，不合并不同范围的功率来源，也不改变 Energy 详细页或传感器持久化。
+
+新增 `summary_keeps_energy_card_when_all_power_sensors_are_unavailable`，隐藏 CPU 与两张 GPU 的功率传感器后确认 Summary Energy 图表区域仍在且选中功率通道为空；原有零值、缺口和功率网格测试继续通过。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 106 项；workspace all-target Clippy、workspace fmt、Windows 源码尺寸检查和 `git diff --check` 通过。当前完整程序由 `F:\project\ramag-platform\target\debug\ramag.exe` 构建并启动，PID `18276`、窗口标题 `Ramag — Kafka`，确认使用当前工作区产物；Computer Use 仍返回 `Trusted RPC service not configured: sky`，本切片不宣称原生鼠标/键盘验收，也不恢复 GitHub CI 监测。

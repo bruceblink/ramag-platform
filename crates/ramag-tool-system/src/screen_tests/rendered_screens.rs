@@ -114,6 +114,38 @@ fn energy_primary_and_sensor_grid_render_zero_values_and_capture_gaps(cx: &mut T
 }
 
 #[gpui_kit::test]
+fn summary_keeps_energy_card_when_all_power_sensors_are_unavailable(cx: &mut TestAppContext) {
+    use crate::workspace::Command;
+
+    let (view, cx) = populated(cx);
+    for (monitor, sensor) in [
+        ("cpu:host".to_owned(), "cpu:host/power".to_owned()),
+        (
+            fixture::GPU_A.to_owned(),
+            format!("{}/power", fixture::GPU_A),
+        ),
+        (
+            fixture::GPU_B.to_owned(),
+            format!("{}/power", fixture::GPU_B),
+        ),
+    ] {
+        command(&view, Command::SensorVisible(monitor, sensor), cx);
+    }
+    command(&view, Command::Screen(Screen::Summary), cx);
+
+    let card = cx
+        .debug_bounds("summary-history:energy")
+        .unwrap_or_else(|| {
+            std::panic::resume_unwind(Box::new("missing Summary Energy history card"))
+        });
+    assert!(card.size.width > gpui_kit::px(0.) && card.size.height > gpui_kit::px(0.));
+    cx.read(|cx| {
+        let data = view.read(cx).shared.borrow();
+        assert!(crate::screen_data::selected_channel(&data, Screen::Energy).is_none());
+    });
+}
+
+#[gpui_kit::test]
 fn selected_gpu_survives_reordering_restore_and_disconnect_without_switching(
     cx: &mut TestAppContext,
 ) {

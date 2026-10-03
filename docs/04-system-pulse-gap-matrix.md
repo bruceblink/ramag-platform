@@ -244,3 +244,9 @@ System Pulse Settings 的 Sampling 分区实际显示当前周期的大号数值
 3. `03F-Summary-Thermals`：补齐温度卡和三加二/宽屏五卡布局，采用真实所选温度来源和动态摄氏范围。
 
 验收使用明暗主题及 `360x640`、`1024x768`、`1440x900` headless 区域/交互检查，并通过 Computer Use 分别观察参考程序和刚构建的 Ramag 真实窗口，核对 Summary 首排、内存、底部卡片及详情入口。保留原生 `960x640` 最小窗口尺寸；小尺寸 headless 只检查布局退化，不代表原生允许缩到该尺寸。启动新 System Pulse 前关闭旧实例并核对数量。Docker 服务、镜像、端口和清理均不适用。
+
+### 2026-10-04 `03E-Summary-Energy` 不可用状态保留
+
+Summary 现在始终保留 Energy 子系统卡片：当前选中的功率传感器被隐藏、读取失败或暂时没有可用样本时，卡片显示不可用/等待状态，历史区域不因 `Option<Channel>::None` 而从固定五卡布局中消失。可用样本仍按稳定传感器选择绘制，真实 `0 W` 保持为零，错误、过期和缺口继续使用采集状态，不把 CPU 包功率、GPU 功率或其它范围相加。
+
+`summary_keeps_energy_card_when_all_power_sensors_are_unavailable` 在合成快照中隐藏 CPU、GPU A 和 GPU B 的功率传感器，断言 `summary-history:energy` 仍在且 `selected_channel(Screen::Energy)` 保持为空；`energy_primary_and_sensor_grid_render_zero_values_and_capture_gaps` 继续覆盖真实零值和历史缺口。`ramag-tool-system` 全量 106 项通过，workspace Clippy、fmt、源码尺寸和差异检查通过；完整源码程序 `target/debug/ramag.exe` 已启动核对，Computer Use 服务不可用，不把启动证据扩大为原生交互验收。
