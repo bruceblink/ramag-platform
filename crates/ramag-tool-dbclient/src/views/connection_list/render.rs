@@ -6,8 +6,8 @@ use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Render, Styled, Window, div, px,
-    uniform_list,
+    AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
+    Styled, Window, div, px, uniform_list,
 };
 
 use super::row::connection_row;
@@ -52,33 +52,51 @@ impl Render for ConnectionListPanel {
         // 大屏限宽 1080px 居中，header 和列表共用同宽容器
         const CONTENT_MAX_W: f32 = 1080.0;
 
-        let header_inner = h_flex()
+        let header_inner = v_flex()
             .w_full()
-            .items_center()
-            .gap(px(16.0))
+            .gap(px(12.0))
             .child(
-                div().flex_1().min_w_0().child(
-                    div().max_w(px(360.0)).child(
-                        ramag_ui::cleanable_input(
-                            &self.search,
-                            "connection-search-clear",
-                            false,
-                            cx,
-                        )
-                        .small()
-                        .prefix(Icon::new(IconName::Search).small().text_color(muted_fg)),
-                    ),
-                ),
+                ramag_ui::pulse_ui::pulse_page_title(
+                    "数据库客户端",
+                    Some("连接、对象树与查询工作区"),
+                    cx,
+                )
+                .id("connection-list-page-title")
+                .debug_selector(|| "connection-list-page-title".into()),
             )
             .child(
-                ramag_ui::clickable_button("add-connection")
-                    .outline()
-                    .small()
-                    .icon(IconName::Plus)
-                    .tooltip("新建")
-                    .on_click(cx.listener(|_this, _: &ClickEvent, _, cx| {
-                        cx.emit(ListEvent::RequestNew);
-                    })),
+                ramag_ui::responsive_toolbar()
+                    .debug_selector(|| "connection-list-toolbar".into())
+                    .child(
+                        div().flex_1().min_w_0().child(
+                            div()
+                                .debug_selector(|| "connection-search-field".into())
+                                .max_w(px(360.0))
+                                .child(
+                                    ramag_ui::cleanable_input(
+                                        &self.search,
+                                        "connection-search-clear",
+                                        false,
+                                        cx,
+                                    )
+                                    .small()
+                                    .prefix(
+                                        Icon::new(IconName::Search).small().text_color(muted_fg),
+                                    ),
+                                ),
+                        ),
+                    )
+                    .child(
+                        ramag_ui::clickable_button("add-connection")
+                            .debug_selector(|| "add-connection".into())
+                            .outline()
+                            .small()
+                            .icon(IconName::Plus)
+                            .tooltip("新建")
+                            .on_click(cx.listener(|_this, _: &ClickEvent, _, cx| {
+                                cx.emit(ListEvent::RequestNew);
+                            })),
+                    ),
             );
 
         let header = h_flex()
@@ -181,10 +199,20 @@ impl Render for ConnectionListPanel {
                 }),
             )
             .size_full();
-            div()
-                .size_full()
+            h_flex()
+                .w_full()
+                .justify_center()
+                .px(px(24.0))
                 .py(px(10.0))
-                .child(rows)
+                .child(
+                    ramag_ui::pulse_ui::pulse_panel(cx)
+                        .id("connection-list-panel")
+                        .debug_selector(|| "connection-list-panel".into())
+                        .max_w(px(CONTENT_MAX_W))
+                        .p_0()
+                        .overflow_hidden()
+                        .child(rows),
+                )
                 .into_any_element()
         };
 

@@ -239,6 +239,9 @@ fn query_context_bar_keeps_connection_and_schema_inside_supported_widths(cx: &mu
         let bar = cx
             .debug_bounds("query-context-bar")
             .expect("查询上下文条应渲染");
+        let title = cx
+            .debug_bounds("query-workspace-page-title")
+            .expect("查询工作区页面标题应渲染");
         let connection = cx
             .debug_bounds("query-context-connection")
             .expect("连接上下文应渲染");
@@ -246,6 +249,10 @@ fn query_context_bar_keeps_connection_and_schema_inside_supported_widths(cx: &mu
             .debug_bounds("query-context-schema")
             .expect("Schema 下拉入口应渲染");
         assert!(bar.right() <= px(width), "查询上下文条不能越出窗口");
+        assert!(
+            title.right() <= bar.right() && title.bottom() <= bar.bottom(),
+            "查询工作区标题不能越出上下文条"
+        );
         assert!(
             connection.right() <= bar.right(),
             "连接上下文不能越出父容器"

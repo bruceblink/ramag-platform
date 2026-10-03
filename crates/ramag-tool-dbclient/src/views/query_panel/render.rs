@@ -29,7 +29,7 @@ impl Render for QueryPanel {
         let only_one = titles.len() <= 1;
         let can_add_tab = can_open_editor_tab(self.tabs.len());
 
-        let query_context_bar = {
+        let query_context_row = {
             let connection = self.connection.clone();
             let schema = self.active_schema.clone();
             let schemas = self.schema_cache.read().all_schemas.clone();
@@ -53,8 +53,6 @@ impl Render for QueryPanel {
             let schema_label = schema.clone().unwrap_or_else(|| "未选择 Schema".into());
             let current_schema = schema.clone();
             h_flex()
-                .id("query-context-bar")
-                .debug_selector(|| "query-context-bar".into())
                 .w_full()
                 .h(px(34.0))
                 .flex_none()
@@ -141,6 +139,28 @@ impl Render for QueryPanel {
                         })
                 })
         };
+        let query_context_bar = v_flex()
+            .id("query-context-bar")
+            .debug_selector(|| "query-context-bar".into())
+            .w_full()
+            .min_w_0()
+            .flex_none()
+            .gap(px(8.0))
+            .px_3()
+            .py(px(8.0))
+            .border_b_1()
+            .border_color(border)
+            .bg(theme.background)
+            .child(
+                ramag_ui::pulse_ui::pulse_page_title(
+                    "查询工作区",
+                    Some("SQL 编辑、执行与结果表"),
+                    cx,
+                )
+                .id("query-workspace-page-title")
+                .debug_selector(|| "query-workspace-page-title".into()),
+            )
+            .child(query_context_row);
 
         let current_view: Option<AnyView> = self.tabs.get(active).map(|t| t.clone().into());
 

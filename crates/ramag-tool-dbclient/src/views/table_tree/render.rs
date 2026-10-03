@@ -396,14 +396,14 @@ fn render_connection_context(
             .into_any_element();
     };
 
-    let (status, status_color) = if panel.error.is_some() {
-        ("连接失败", theme.danger)
+    let (status, pulse_status) = if panel.error.is_some() {
+        ("连接失败", ramag_ui::pulse_ui::PulseStatus::Failed)
     } else if panel.loading_schemas {
-        ("连接中", theme.accent)
+        ("连接中", ramag_ui::pulse_ui::PulseStatus::Warming)
     } else if panel.schemas.is_empty() {
-        ("未加载", muted_fg)
+        ("未加载", ramag_ui::pulse_ui::PulseStatus::Unavailable)
     } else {
-        ("已连接", theme.success)
+        ("已连接", ramag_ui::pulse_ui::PulseStatus::Current)
     };
     let kind = match connection.driver {
         DriverKind::Mysql => "MySQL",
@@ -475,11 +475,11 @@ fn render_connection_context(
                 .debug_selector(|| "database-connection-status".into())
                 .flex_none()
                 .items_center()
-                .gap(px(4.0))
-                .text_xs()
-                .text_color(status_color)
-                .child(div().size(px(6.0)).rounded_full().bg(status_color))
-                .child(status),
+                .child(ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                    pulse_status,
+                    status,
+                    cx,
+                )),
         )
         .into_any_element()
 }

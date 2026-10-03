@@ -296,14 +296,18 @@ impl Render for DbClientView {
                             div().size_full().child(view).into_any_element()
                         }
                         // 兜底：实体缺失（本帧顶部已尝试补建），显示占位避免空白
-                        None => div()
+                        None => v_flex()
                             .size_full()
-                            .flex()
                             .items_center()
                             .justify_center()
-                            .text_xs()
-                            .text_color(muted_fg)
-                            .child("正在打开连接…")
+                            .p(px(16.0))
+                            .child(div().w_full().max_w(px(360.0)).child(
+                                ramag_ui::pulse_ui::pulse_status_notice(
+                                    ramag_ui::pulse_ui::PulseStatus::Warming,
+                                    "正在打开连接…",
+                                    cx,
+                                ),
+                            ))
                             .into_any_element(),
                     },
                     None => {
@@ -352,20 +356,17 @@ impl DbClientView {
         let close_id = id;
         let muted_fg = theme.muted_foreground;
         let fg = theme.foreground;
-        let warning = theme.warning;
 
         v_flex()
             .size_full()
             .items_center()
             .justify_center()
             .gap_2()
-            .child(
-                div()
-                    .text_sm()
-                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                    .text_color(warning)
-                    .child(format!("连接「{name}」的配置已更新")),
-            )
+            .child(ramag_ui::pulse_ui::pulse_status_notice(
+                ramag_ui::pulse_ui::PulseStatus::Stale,
+                format!("连接「{name}」的配置已更新"),
+                cx,
+            ))
             .child(
                 div()
                     .text_xs()
