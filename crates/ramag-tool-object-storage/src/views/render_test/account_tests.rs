@@ -188,3 +188,52 @@ fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestA
         }
     }
 }
+
+/// Empty accounts should keep the Pulse panel and setup action inside supported layouts.
+#[gpui_kit::test]
+fn empty_account_state_stays_inside_supported_window_sizes_and_themes(cx: &mut TestAppContext) {
+    let (view, cx) = add_workspace_window(cx, service());
+    view.update(cx, |view, cx| {
+        view.accounts = Arc::new(Vec::new());
+        view.loading = false;
+        view.management_visible = true;
+        cx.notify();
+    });
+
+    for mode in [Mode::Light, Mode::Dark] {
+        cx.update(|_, app| ramag_ui::apply_theme(mode, app));
+        for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+            cx.simulate_resize(size(px(width), px(height)));
+            cx.run_until_parked();
+
+            let body = cx
+                .debug_bounds("object-account-empty-body")
+                .expect("账号空状态主体应渲染");
+            let panel = cx
+                .debug_bounds("object-account-empty-state")
+                .expect("账号空状态应使用 Pulse 面板");
+            let title = cx
+                .debug_bounds("object-account-empty-title")
+                .expect("账号空状态标题应渲染");
+            let description = cx
+                .debug_bounds("object-account-empty-description")
+                .expect("账号空状态说明应渲染");
+            let action = cx
+                .debug_bounds("object-account-empty-cta")
+                .expect("新建账号操作应渲染");
+
+            assert_inside(body, panel, "对象存储账号空状态面板");
+            assert_inside(panel, title, "对象存储账号空状态标题");
+            assert_inside(panel, description, "对象存储账号空状态说明");
+            assert_inside(panel, action, "对象存储账号空状态操作");
+            assert!(
+                panel.size.width <= px(480.0) && panel.size.height >= px(220.0),
+                "空状态面板应保持有界尺寸：panel={panel:?}"
+            );
+            assert!(
+                title.bottom() <= description.top() && description.bottom() <= action.top(),
+                "空状态应保留标题、说明、操作顺序：title={title:?}, description={description:?}, action={action:?}"
+            );
+        }
+    }
+}

@@ -103,19 +103,49 @@ impl ObjectStorageView {
         let body = if self.loading && self.accounts.is_empty() {
             centered_message("加载中…", muted).into_any_element()
         } else if self.accounts.is_empty() {
-            v_flex()
+            h_flex()
+                .debug_selector(|| "object-account-empty-body".into())
                 .size_full()
                 .items_center()
                 .justify_center()
-                .gap(px(10.0))
+                .px(px(16.0))
                 .child(
-                    ramag_ui::clickable_button("empty-add-object-account")
-                        .primary()
-                        .icon(IconName::Plus)
-                        .label("新建")
-                        .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                            this.show_new_account(window, cx);
-                        })),
+                    ramag_ui::pulse_ui::pulse_panel(cx)
+                        .id("object-account-empty-state")
+                        .debug_selector(|| "object-account-empty-state".into())
+                        .max_w(px(480.0))
+                        .min_h(px(220.0))
+                        .items_center()
+                        .justify_center()
+                        .gap(px(10.0))
+                        .p(px(24.0))
+                        .text_center()
+                        .child(
+                            Icon::new(IconName::HardDrive)
+                                .large()
+                                .text_color(ramag_ui::pulse_ui::pulse_palette(cx).muted),
+                        )
+                        .child(
+                            ramag_ui::pulse_ui::pulse_display_heading("暂无对象存储账号", 16.0, cx)
+                                .debug_selector(|| "object-account-empty-title".into()),
+                        )
+                        .child(
+                            div()
+                                .debug_selector(|| "object-account-empty-description".into())
+                                .text_sm()
+                                .text_color(muted)
+                                .child("添加 COS 或 OSS 账号后即可查看 Bucket 并管理对象。"),
+                        )
+                        .child(
+                            ramag_ui::clickable_button("empty-add-object-account")
+                                .debug_selector(|| "object-account-empty-cta".into())
+                                .primary()
+                                .icon(IconName::Plus)
+                                .label("新建账号")
+                                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                    this.show_new_account(window, cx);
+                                })),
+                        ),
                 )
                 .into_any_element()
         } else if visible.is_empty() {

@@ -378,3 +378,11 @@ VCS 文件栏在常规宽度下移除空闲时占满弹性空间的占位项，�
 目标测试 `vcs_files_toolbar_wraps_controls_inside_supported_widths` 覆盖 180、280、600px 文件栏：断言控件不越界，280/600px 下分支选择器与模式按钮同排，180px 下换行且保持至少 140px 宽。`cargo test --locked -p ramag-tool-vcs --lib -- --test-threads=1` 通过（188 项通过、0 失败、5 项性能观察用例 ignored）；workspace all-target Clippy `-D warnings`、`cargo fmt --all -- --check`、`cargo build --locked -p ramag-bin`、Windows 源码尺寸脚本与 `git diff --check` 均通过。
 
 本机时间 `2026-10-03 16:55 +08:00` 由 `Get-Date` 核对。Computer Use 使用工作区完整构建 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `33796`，`ExecutablePath` 已核对），先关闭已安装版后再启动；默认暗色窗口截图为 1528×924。打开 `F:\project\ramag` 仓库后，模式图标、分支选择器和搜索工具栏层级清楚；分支栏在模式按钮同排填充可用宽度。打开 `README.md` 后布局保持稳定。此原生复核仅覆盖该默认窗口和侧栏宽度；窄/宽侧栏由 headless 测试覆盖，未执行 Git 写操作。
+
+### 2026-10-03 对象存储账号空状态优化验收
+
+对象存储无账号状态从孤立的“新建”按钮改为 Pulse 轻量面板：增加存储图标、“暂无对象存储账号”标题、COS/OSS 后续操作说明和“新建账号”主操作，并在窄内容区保留 16px 外边距。新建入口仍打开原账号表单；未修改账号、凭据、Bucket、连接和存储行为。
+
+`empty_account_state_stays_inside_supported_window_sizes_and_themes` 覆盖明暗主题与 `360x640`、`1024x768`、`1440x900`，检查面板、标题、说明和操作都留在内容区内且顺序稳定。`cargo test --locked -p ramag-tool-object-storage --lib -- --test-threads=1` 通过 28 项；`cargo fmt --all -- --check`、workspace all-target Clippy `-D warnings`、`cargo build --locked -p ramag-bin`、Windows 源码尺寸脚本和 `git diff --check` 均通过。此本地 GPUI 空状态切片不使用 Docker。
+
+本机时间 `2026-10-03 17:20 +08:00` 由 `Get-Date` 核对。Computer Use 使用完整工作区构建 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `34508`，`ExecutablePath` 已核对），在暗色 1555×924 窗口检查账号空状态；点击“新建账号”打开现有表单后取消，回到同一空状态，没有输入或保存凭据。此记录仅验收无账号状态；已配置账号的原生列表、Bucket/对象浏览和传输流程仍待逐项对比，不以 headless 测试替代。
