@@ -472,3 +472,9 @@ Kafka 概览新增 System-tool 风格的“关键数据”轻量面板，集中�
 本切片只改变概览呈现和消费者组快照状态，不在打开概览时预加载外部资源，不改变 Kafka 协议、配置、权限、Topic/消息操作或页签懒加载。摘要卡片使用公共 Pulse 状态标签、面板边界和响应式换行；关键区域在 `360`、`900`、`1200` 和 `1440` 宽度的 headless GPUI 测试中保持在内容区内，并验证新增面板不会覆盖指标分区点击入口。
 
 验证结果：`cargo test --locked -p ramag-tool-kafka --lib -- --test-threads=1` 通过 38 项；Kafka 目标 all-target Clippy、`cargo fmt --all -- --check`、Windows 源码尺寸检查、`git diff --check` 和完整 `cargo build --locked -p ramag-bin` 通过。未启动 Docker、未连接外部 Kafka、未执行 GitHub CI 监测；完整程序构建产物为当前工作区的 `target/debug/ramag.exe`。本切片没有 Computer Use 原生窗口证据，保留既有运行时服务限制。
+
+### 2026-10-03 MQTT 配置页头紧凑对齐
+
+MQTT 配置页头原先在连接状态徽章和测试/保存操作组之间放置了额外的弹性空容器，导致宽窗口出现无意义的横向空白、窄窗口出现过大的纵向间距。移除该占位后，Pulse 页面标题、连接状态和操作组按同一层级排列；MQTT 配置、测试连接、保存、发布、订阅和本地服务流程保持不变。
+
+新增 `mqtt_header_keeps_status_and_actions_compact_at_supported_widths`，覆盖 `360`、`768`、`1024` 和 `1440` 宽度，断言窄窗口状态徽章与操作组相邻换行、宽窗口状态位于操作组左侧且所有内容留在窗口内。`cargo test --locked -p ramag-tool-mqtt --lib -- --test-threads=1` 通过 33 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。Computer Use 当前只返回浏览器且没有原生窗口应用，本切片不宣称真实窗口鼠标/键盘验收，也不恢复 GitHub CI 监测。

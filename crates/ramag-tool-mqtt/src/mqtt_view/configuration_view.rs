@@ -238,6 +238,7 @@ impl MqttView {
             MqttProfileConnectionStatus::Failed => ramag_ui::pulse_ui::PulseStatus::Failed,
         };
         let mut actions = h_flex()
+            .debug_selector(|| "mqtt-header-actions".into())
             .flex_wrap()
             .items_center()
             .justify_end()
@@ -331,11 +332,6 @@ impl MqttView {
                             cx,
                         )
                         .debug_selector(|| "mqtt-header-status-badge".into()),
-                    )
-                    .child(
-                        v_flex()
-                            .min_w_0()
-                            .flex_1(),
                     )
                     .child(actions),
             )

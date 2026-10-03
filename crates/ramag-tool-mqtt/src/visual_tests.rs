@@ -366,6 +366,58 @@ fn mqtt_profile_sidebar_shows_name_and_endpoint(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn mqtt_header_keeps_status_and_actions_compact_at_supported_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let storage = Arc::new(NoopStorage::default());
+    storage
+        .mqtt_profiles
+        .lock()
+        .expect("写入 MQTT 测试配置锁")
+        .push(MqttProfile::new("布局测试 Broker", "127.0.0.1", 1883));
+    let service = Arc::new(MqttService::new(Arc::new(NoopMqttDriver), storage));
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| MqttView::new(service, window, cx));
+        let host = cx.new(|_| MqttTestHost { view });
+        gpui_kit::component::Root::new(host, window, cx)
+    });
+
+    for width in [360.0, 768.0, 1024.0, 1440.0] {
+        visual_cx.simulate_resize(size(px(width), px(768.0)));
+        visual_cx.run_until_parked();
+
+        let title = visual_cx
+            .debug_bounds("mqtt-page-title")
+            .expect("MQTT 页面标题应渲染");
+        let status = visual_cx
+            .debug_bounds("mqtt-header-status-badge")
+            .expect("MQTT 状态徽章应渲染");
+        let actions = visual_cx
+            .debug_bounds("mqtt-header-actions")
+            .expect("MQTT 页头操作组应渲染");
+
+        assert!(
+            title.right() <= actions.right() && actions.right() <= px(width),
+            "MQTT 页头内容不能越出窗口: width={width}, title={title:?}, actions={actions:?}"
+        );
+        if width < 900.0 {
+            assert!(
+                actions.origin.y >= status.bottom(),
+                "窄窗口操作组应位于状态徽章之后: width={width}, status={status:?}, actions={actions:?}"
+            );
+            assert!(
+                actions.origin.y - status.bottom() <= px(16.0),
+                "窄窗口状态与操作组之间不应出现额外空白: width={width}, status={status:?}, actions={actions:?}"
+            );
+        } else {
+            assert!(
+                status.right() <= actions.origin.x,
+                "宽窗口状态徽章应位于操作组左侧: width={width}, status={status:?}, actions={actions:?}"
+            );
+        }
+    }
+}
+
+#[gpui_kit::test]
 fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let storage = Arc::new(NoopStorage::default());
