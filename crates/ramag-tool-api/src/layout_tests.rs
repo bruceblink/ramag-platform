@@ -35,6 +35,9 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let header = visual_cx
             .debug_bounds("api-header")
             .expect("API Header 应渲染");
+        let page_title = visual_cx
+            .debug_bounds("api-page-title")
+            .expect("API Pulse 页面标题应渲染");
         let content_root = visual_cx
             .debug_bounds("api-content")
             .expect("API 主体容器应渲染");
@@ -93,6 +96,12 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         assert!(
             header.bottom() <= content_root.origin.y,
             "Header 不能与主体重叠: root={root:?}, header={header:?}, content={content_root:?}"
+        );
+        assert!(
+            page_title.origin.x >= header.origin.x
+                && page_title.right() <= header.right()
+                && page_title.bottom() <= header.bottom(),
+            "API 页面标题不能越出页头: title={page_title:?}, header={header:?}"
         );
         assert!(
             toolbar.bottom() <= workbench.origin.y,

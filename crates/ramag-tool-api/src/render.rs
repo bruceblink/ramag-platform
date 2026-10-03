@@ -66,7 +66,7 @@ pub(super) fn render(
 
 fn render_header(
     _view: &mut ApiView,
-    _cx: &mut Context<ApiView>,
+    cx: &mut Context<ApiView>,
     theme: &gpui_kit::component::Theme,
 ) -> gpui_kit::AnyElement {
     h_flex()
@@ -84,22 +84,11 @@ fn render_header(
         .border_b_1()
         .border_color(theme.border)
         .child(
-            v_flex()
+            ramag_ui::pulse_ui::pulse_page_title("API 测试", Some("HTTP 与 gRPC 请求工作区"), cx)
+                .id("api-page-title")
+                .debug_selector(|| "api-page-title".into())
                 .flex_1()
-                .min_w(px(160.0))
-                .gap(px(2.0))
-                .child(
-                    div()
-                        .text_base()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child("API 测试"),
-                )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("HTTP 与 gRPC 请求工作区"),
-                ),
+                .min_w(px(160.0)),
         )
         .child(div().flex_1().min_w_0())
         .child(
@@ -202,40 +191,46 @@ fn render_sidebar(
 fn render_workspace_load_status(
     view: &ApiView,
     cx: &mut Context<ApiView>,
-    theme: &gpui_kit::component::Theme,
+    _theme: &gpui_kit::component::Theme,
 ) -> Option<gpui_kit::AnyElement> {
     use gpui_kit::component::button::ButtonVariants as _;
 
     let message = view.workspace_load_state.status_message()?;
     let state = view.workspace_load_state;
-    let mut status = h_flex()
+    let pulse_status = match state {
+        ApiWorkspaceLoadState::Loading => ramag_ui::pulse_ui::PulseStatus::Warming,
+        ApiWorkspaceLoadState::Empty => ramag_ui::pulse_ui::PulseStatus::Unavailable,
+        ApiWorkspaceLoadState::HistoryFailed | ApiWorkspaceLoadState::Failed => {
+            ramag_ui::pulse_ui::PulseStatus::Failed
+        }
+        ApiWorkspaceLoadState::NotStarted | ApiWorkspaceLoadState::Loaded => {
+            ramag_ui::pulse_ui::PulseStatus::Unavailable
+        }
+    };
+    let mut status = v_flex()
         .id("api-workspace-load-status")
         .debug_selector(|| "api-workspace-load-status".into())
         .w_full()
         .min_w_0()
-        .items_center()
-        .gap(px(6.0))
         .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child(message),
+            ramag_ui::pulse_ui::pulse_status_notice(pulse_status, message, cx)
+                .debug_selector(|| "api-workspace-load-notice".into()),
         );
     if matches!(
         state,
         ApiWorkspaceLoadState::Failed | ApiWorkspaceLoadState::HistoryFailed
     ) {
         status = status.child(
-            ramag_ui::clickable_button("api-workspace-load-retry")
-                .debug_selector(|| "api-workspace-load-retry".into())
-                .xsmall()
-                .label("重试")
-                .ghost()
-                .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
-                    view.load_saved_workspace(window, cx);
-                })),
+            h_flex().justify_end().pt(px(6.0)).child(
+                ramag_ui::clickable_button("api-workspace-load-retry")
+                    .debug_selector(|| "api-workspace-load-retry".into())
+                    .xsmall()
+                    .label("重试")
+                    .ghost()
+                    .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
+                        view.load_saved_workspace(window, cx);
+                    })),
+            ),
         );
     }
     Some(status.into_any_element())
