@@ -86,6 +86,23 @@ impl Render for ClipboardView {
             .on_action(cx.listener(Self::on_select_prev))
             .size_full()
             .min_w_0()
+            .child(
+                h_flex()
+                    .id("clipboard-view-page-header")
+                    .debug_selector(|| "clipboard-view-page-header".into())
+                    .w_full()
+                    .min_w_0()
+                    .flex_none()
+                    .px(px(14.0))
+                    .py(px(10.0))
+                    .border_b_1()
+                    .border_color(border)
+                    .child(
+                        ramag_ui::pulse_ui::pulse_page_title("剪贴板", Some("本地历史和搜索"), cx)
+                            .id("clipboard-view-page-title")
+                            .debug_selector(|| "clipboard-view-page-title".into()),
+                    ),
+            )
             .child(self.render_toolbar(cx))
             .child(
                 h_flex()
@@ -449,6 +466,14 @@ mod tests {
             let toolbar = cx.debug_bounds("clipboard-view-toolbar");
             assert!(toolbar.is_some(), "剪贴板主页面工具栏应渲染");
             let Some(toolbar) = toolbar else { continue };
+            let page_title = cx.debug_bounds("clipboard-view-page-title");
+            assert!(page_title.is_some(), "剪贴板 Pulse 页面标题应渲染");
+            if let Some(page_title) = page_title {
+                assert!(
+                    page_title.right() <= toolbar.right(),
+                    "剪贴板页面标题不能越出工具栏宽度: title={page_title:?}, toolbar={toolbar:?}"
+                );
+            }
             let search_pane = cx.debug_bounds("clipboard-view-search-pane");
             assert!(search_pane.is_some(), "剪贴板搜索区应渲染");
             let Some(search_pane) = search_pane else {
