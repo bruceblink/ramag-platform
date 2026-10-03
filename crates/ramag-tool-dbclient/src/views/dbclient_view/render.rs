@@ -69,6 +69,71 @@ fn render_session_tab_title(
         .child(title)
 }
 
+fn session_pulse_status(
+    stale: bool,
+    health: Option<(bool, bool)>,
+) -> (ramag_ui::pulse_ui::PulseStatus, &'static str) {
+    if stale {
+        return (ramag_ui::pulse_ui::PulseStatus::Stale, "需重连");
+    }
+
+    match health {
+        None => (ramag_ui::pulse_ui::PulseStatus::Unavailable, "未连接"),
+        Some((true, _)) => (ramag_ui::pulse_ui::PulseStatus::Warming, "连接中"),
+        Some((false, true)) => (ramag_ui::pulse_ui::PulseStatus::Failed, "连接失败"),
+        Some((false, false)) => (ramag_ui::pulse_ui::PulseStatus::Current, "已连接"),
+    }
+}
+
+fn render_session_context_header(
+    title: String,
+    subtitle: String,
+    status: ramag_ui::pulse_ui::PulseStatus,
+    status_label: &'static str,
+    cx: &gpui_kit::App,
+) -> impl IntoElement {
+    div()
+        .id("dbclient-session-header")
+        .debug_selector(|| "dbclient-session-header".into())
+        .w_full()
+        .min_w_0()
+        .flex()
+        .flex_wrap()
+        .items_center()
+        .justify_between()
+        .gap_2()
+        .px_4()
+        .py_2()
+        .border_b_1()
+        .border_color(cx.theme().border.opacity(0.65))
+        .bg(cx.theme().background)
+        .child(
+            div()
+                .id("dbclient-session-header-title")
+                .debug_selector(|| "dbclient-session-header-title".into())
+                .flex_1()
+                .min_w(px(160.0))
+                .min_w_0()
+                .overflow_hidden()
+                .child(ramag_ui::pulse_ui::pulse_page_title(
+                    title,
+                    Some(subtitle),
+                    cx,
+                )),
+        )
+        .child(
+            div()
+                .id("dbclient-session-header-status")
+                .debug_selector(|| "dbclient-session-header-status".into())
+                .flex_none()
+                .child(ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                    status,
+                    status_label,
+                    cx,
+                )),
+        )
+}
+
 impl Render for DbClientView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // 异步失败提示：Render 持 Window 时统一推送（与各面板同款）
@@ -321,6 +386,31 @@ impl Render for DbClientView {
                 div().size_full().child(view).into_any_element()
             }
         };
+        let session_context_header = (!on_picker_active)
+            .then(|| {
+                active
+                    .and_then(|index| self.sessions.get(index))
+                    .map(|slot| {
+                        let (status, status_label) = session_pulse_status(
+                            slot.stale,
+                            slot.entity.as_ref().map(|entity| entity.health(cx)),
+                        );
+                        let subtitle = format!(
+                            "{} · {}:{}",
+                            super::driver_kind_label(slot.config.driver),
+                            slot.config.host,
+                            slot.config.port
+                        );
+                        render_session_context_header(
+                            slot.config.name.clone(),
+                            subtitle,
+                            status,
+                            status_label,
+                            cx,
+                        )
+                    })
+            })
+            .flatten();
 
         v_flex()
             .key_context("DbClientView")
@@ -339,6 +429,7 @@ impl Render for DbClientView {
             .bg(bg)
             .text_color(fg)
             .child(tab_bar)
+            .when_some(session_context_header, |view, header| view.child(header))
             .child(div().flex_1().min_h_0().child(center_view))
     }
 }
@@ -407,85 +498,5 @@ impl DbClientView {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{render_session_tab_title, session_tab_status_colors, session_tab_title_max_width};
-    use gpui_kit::{IntoElement, Render, TestAppContext, Window, px, size};
-
-    struct SessionTabTitlePreview {
-        title: String,
-    }
-
-    impl Render for SessionTabTitlePreview {
-        fn render(
-            &mut self,
-            window: &mut Window,
-            _: &mut gpui_kit::Context<Self>,
-        ) -> impl IntoElement {
-            render_session_tab_title(
-                self.title.clone(),
-                "session-tab-title".into(),
-                session_tab_title_max_width(f32::from(window.viewport_size().width)),
-                gpui_kit::hsla(0.0, 0.0, 0.9, 1.0),
-            )
-        }
-    }
-
-    #[gpui_kit::test]
-    fn session_tab_title_stays_within_its_responsive_width(cx: &mut TestAppContext) {
-        cx.update(gpui_kit::component::init);
-        let (_, cx) = cx.add_window_view(|_, _| SessionTabTitlePreview {
-            title: "a-very-long-connection-name-that-must-remain-discoverable".into(),
-        });
-
-        for width in [360.0, 1024.0, 1440.0] {
-            let max_width = session_tab_title_max_width(width);
-            cx.simulate_resize(size(px(width), px(240.0)));
-            cx.run_until_parked();
-
-            let bounds = cx
-                .debug_bounds("session-tab-title-bounds")
-                .expect("会话标签标题应渲染");
-            assert!(
-                bounds.size.width <= px(max_width),
-                "标题宽度不能超过响应式上限：bounds={bounds:?}, max={max_width}"
-            );
-        }
-    }
-
-    #[test]
-    fn session_tab_title_width_leaves_room_for_context_actions() {
-        assert_eq!(session_tab_title_max_width(360.0), 140.0);
-        assert_eq!(session_tab_title_max_width(1024.0), 180.0);
-        assert_eq!(session_tab_title_max_width(1440.0), 240.0);
-        assert!(session_tab_title_max_width(360.0) < session_tab_title_max_width(1440.0));
-    }
-
-    #[test]
-    fn session_tab_statuses_follow_theme_colors() {
-        let warning = gpui_kit::hsla(0.1, 0.2, 0.3, 1.0);
-        let danger = gpui_kit::hsla(0.2, 0.3, 0.4, 1.0);
-        let success = gpui_kit::hsla(0.3, 0.4, 0.5, 1.0);
-        let muted = gpui_kit::hsla(0.4, 0.5, 0.6, 1.0);
-
-        assert_eq!(
-            session_tab_status_colors(true, Some((false, true)), warning, danger, success, muted),
-            (warning, "需重连", warning)
-        );
-        assert_eq!(
-            session_tab_status_colors(false, None, warning, danger, success, muted),
-            (muted, "未连接", muted)
-        );
-        assert_eq!(
-            session_tab_status_colors(false, Some((true, false)), warning, danger, success, muted),
-            (warning, "连接中", warning)
-        );
-        assert_eq!(
-            session_tab_status_colors(false, Some((false, true)), warning, danger, success, muted),
-            (danger, "连接失败", danger)
-        );
-        assert_eq!(
-            session_tab_status_colors(false, Some((false, false)), warning, danger, success, muted),
-            (success, "已连接", success)
-        );
-    }
-}
+#[path = "render_tests.rs"]
+mod tests;

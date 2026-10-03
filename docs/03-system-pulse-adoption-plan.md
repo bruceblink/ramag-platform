@@ -502,3 +502,9 @@ API 页头原先在 Pulse 页面标题右侧保留泛化的 “API Workspace” 
 JSON Path 提取器的路径输入、提取按钮和标签原先使用固定横向布局，窄窗口下没有复用公共工具栏的换行边界。现改为 `ramag_ui::responsive_toolbar`，输入区保留有界最小宽度，提取按钮在 `360`、`1024` 和 `1440` 宽度内保持可见；原生 JSON5 编辑器、插件宿主执行、结果输出、错误状态和任务预算不变。
 
 扩展 `json_path_view_keeps_native_controls_visible_at_supported_widths`，断言响应式控制栏、路径输入和提取按钮在三种宽度内保持边界。`cargo test --locked -p ramag-tool-json-path --all-targets -- --test-threads=1` 通过 5 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。当前完整程序已由 `F:\project\ramag-platform\target\debug\ramag.exe` 启动核对；Computer Use 当前没有原生窗口应用，本切片不宣称真实窗口鼠标/键盘验收，也不恢复 GitHub CI 监测。
+
+### 2026-10-04 DBClient 会话上下文栏对齐
+
+数据库客户端的连接标签此前已经显示状态，但激活 SQL、MongoDB 或 Redis 会话后，中央工作区直接从对象树、Key 树或查询区开始，缺少 System-tool 风格的页面标题、连接上下文和统一状态层级。本切片在 `DbClientView` 根部增加共享的会话上下文栏：标题显示连接名，副标题显示驱动和端点，状态徽章复用“未连接/连接中/已连接/连接失败/需重连”的真实会话语义。连接树、查询编辑器、MongoDB 集合树、Redis Key 详情、命令行、标签关闭和连接生命周期均未改变。
+
+新增 `session_context_header_stays_inside_supported_window_sizes`，覆盖 `360x640`、`1024x768` 和 `1440x900` 的标题、状态和容器边界；`session_pulse_status_preserves_connection_semantics` 锁定五种状态映射。`cargo test --locked -p ramag-tool-dbclient --lib -- --test-threads=1` 通过 371 项；目标 Clippy、workspace all-target Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。完整程序由 `F:\project\ramag-platform\target\debug\ramag.exe` 启动核对，PID `26660`、窗口标题 `Ramag — Kafka`，确认运行路径来自当前工作区。Computer Use 探测返回 `Trusted RPC service is not configured: sky`，本切片不宣称原生鼠标/键盘验收；按用户最新要求不恢复 GitHub CI 监测。
