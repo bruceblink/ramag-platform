@@ -131,9 +131,9 @@ impl VcsView {
         ];
         let mut tabs_row = h_flex()
             .debug_selector(|| "vcs-files-mode-tabs".into())
-            .flex_1()
-            .min_w_0()
-            .flex_wrap()
+            // Keep these compact mode buttons together; shrinking this row caused
+            // the navigation icons to stack vertically beside the branch picker.
+            .flex_none()
             .gap(px(2.0))
             .items_center();
         for mode in modes {

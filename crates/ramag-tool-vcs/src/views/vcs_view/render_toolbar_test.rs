@@ -85,6 +85,40 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
             assert_inside(&parent, &control, selector);
         }
 
+        let project_tab = cx
+            .debug_bounds("vcs-files-tab-project")
+            .expect("项目文件模式应渲染");
+        let changes_tab = cx
+            .debug_bounds("vcs-files-tab-changes")
+            .expect("变更模式应渲染");
+        let stash_tab = cx
+            .debug_bounds("vcs-files-tab-stash")
+            .expect("储藏模式应渲染");
+        let branch_picker = cx
+            .debug_bounds("vcs-branch-picker")
+            .expect("分支选择器应渲染");
+        assert_eq!(
+            project_tab.origin.y, changes_tab.origin.y,
+            "项目文件和变更模式应保持在同一导航行"
+        );
+        assert_eq!(
+            changes_tab.origin.y, stash_tab.origin.y,
+            "变更和储藏模式应保持在同一导航行"
+        );
+        assert!(
+            project_tab.right() <= branch_picker.origin.x
+                || branch_picker.right() <= project_tab.origin.x
+                || project_tab.bottom() <= branch_picker.origin.y
+                || branch_picker.bottom() <= project_tab.origin.y,
+            "项目文件模式和分支选择器不能重叠：tab={project_tab:?}, branch={branch_picker:?}"
+        );
+        if width >= 280.0 {
+            assert!(
+                branch_picker.size.width >= px(140.0),
+                "标准文件栏宽度应为分支选择器保留可读空间：width={width}, branch={branch_picker:?}"
+            );
+        }
+
         assert!(
             cx.debug_bounds("vcs-history-remote-actions").is_none(),
             "History 未打开时不应渲染重复远程操作入口"
@@ -195,13 +229,21 @@ fn vcs_empty_diff_status_stays_inside_main_panel_at_narrow_width(cx: &mut TestAp
     let status = cx
         .debug_bounds("ramag-centered-status-message")
         .expect("Diff 空状态提示应渲染");
+    let panel = cx
+        .debug_bounds("vcs-empty-diff-panel")
+        .expect("Diff 空状态应渲染为 Pulse 面板");
+    let description = cx
+        .debug_bounds("vcs-empty-diff-description")
+        .expect("Diff 空状态应说明文件选择方式");
 
     assert!(
         status.origin.x >= files_column.right(),
         "Diff 空状态提示不能覆盖文件栏：files={files_column:?}, status={status:?}"
     );
+    assert_inside(&panel, &status, "Diff 空状态标题");
+    assert_inside(&panel, &description, "Diff 空状态说明");
     assert!(
-        status.right() <= px(360.0),
-        "Diff 空状态提示不能越出窄窗口右侧：status={status:?}"
+        panel.right() <= px(360.0),
+        "Diff 空状态面板不能越出窄窗口右侧：panel={panel:?}"
     );
 }

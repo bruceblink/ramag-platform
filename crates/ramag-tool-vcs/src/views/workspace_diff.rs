@@ -13,7 +13,7 @@ use super::vcs_view::VcsView;
 impl VcsView {
     pub(super) fn render_diff_block(&self, cx: &mut Context<Self>) -> AnyElement {
         // 提前 clone 主题字段，避免后续 cx.listener 借用冲突
-        let (fg, muted_fg, accent, muted_bg, border, mono) = {
+        let (fg, muted_fg, accent, muted_bg, border, mono, secondary) = {
             let theme = cx.theme();
             (
                 theme.foreground,
@@ -22,13 +22,62 @@ impl VcsView {
                 theme.muted,
                 theme.border,
                 theme.mono_font_family.clone(),
+                theme.secondary,
             )
         };
 
         let active_tab = self.active_file_tab_idx.and_then(|i| self.file_tabs.get(i));
         let Some(tab) = active_tab else {
             self.diff_layout_cache.borrow_mut().take();
-            return ramag_ui::centered_status("选中左侧文件查看变更", muted_fg);
+            let mut icon_bg = accent;
+            icon_bg.a = 0.12;
+            return v_flex()
+                .debug_selector(|| "vcs-empty-diff-state".into())
+                .size_full()
+                .min_w_0()
+                .items_center()
+                .justify_center()
+                .px(px(20.0))
+                .child(
+                    ramag_ui::pulse_ui::pulse_panel(cx)
+                        .debug_selector(|| "vcs-empty-diff-panel".into())
+                        .max_w(px(420.0))
+                        .w_full()
+                        .p(px(22.0))
+                        .items_center()
+                        .gap(px(8.0))
+                        .bg(secondary)
+                        .child(
+                            h_flex()
+                                .w(px(40.0))
+                                .h(px(40.0))
+                                .items_center()
+                                .justify_center()
+                                .rounded(px(12.0))
+                                .bg(icon_bg)
+                                .child(ramag_ui::icons::git_compare().text_color(accent)),
+                        )
+                        .child(
+                            div()
+                                .debug_selector(|| "ramag-centered-status-message".into())
+                                .w_full()
+                                .text_center()
+                                .text_base()
+                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                .text_color(fg)
+                                .child("选择文件查看变更"),
+                        )
+                        .child(
+                            div()
+                                .debug_selector(|| "vcs-empty-diff-description".into())
+                                .max_w(px(360.0))
+                                .text_center()
+                                .text_sm()
+                                .text_color(muted_fg)
+                                .child("选择左侧项目文件或变更项，查看 Git 差异。"),
+                        ),
+                )
+                .into_any_element();
         };
         let blame_supported = match &tab.source {
             FileTabSource::Changes(GroupKind::Unstaged) => true,
