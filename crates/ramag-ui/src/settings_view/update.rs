@@ -5,7 +5,7 @@ use gpui_kit::{
 };
 use ramag_app::{AvailableUpdate, UpdateCheckResult};
 
-use super::{SettingsView, UpdateUiState, pages::settings_card};
+use super::{SettingsView, UpdateUiState, pages::pulse_settings_card};
 
 impl SettingsView {
     pub(super) fn sync_update_state(&mut self) {
@@ -40,7 +40,7 @@ impl SettingsView {
             });
         let update = update_from_state(&self.update_state).cloned();
 
-        settings_card("版本信息", cx.theme().border)
+        pulse_settings_card("版本信息", theme)
             .child(render_update_toolbar(
                 format!("当前版本：{current_version}"),
                 update,

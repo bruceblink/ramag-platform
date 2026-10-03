@@ -1,4 +1,4 @@
-use super::{SettingsView, pages::settings_card};
+use super::{SettingsView, pages::pulse_settings_card};
 use crate::platform::{auto_paste_description, clipboard_hotkey};
 use gpui_kit::component::{
     ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex,
@@ -14,7 +14,7 @@ use tracing::error;
 impl SettingsView {
     pub(super) fn render_clipboard_page(&self, cx: &mut Context<Self>) -> AnyElement {
         let Some(service) = self.clipboard_service.as_ref() else {
-            return settings_card("当前平台不可用", cx.theme().border)
+            return pulse_settings_card("当前平台不可用", cx.theme())
                 .child(
                     div()
                         .text_sm()
@@ -54,7 +54,7 @@ impl SettingsView {
                 },
             )
             .child(
-                settings_card("功能开关", border)
+                pulse_settings_card("功能开关", theme)
                     .child(clipboard_toggle_row(
                         "settings-clip-enabled",
                         "启用剪贴板",
@@ -113,7 +113,7 @@ impl SettingsView {
             )
             .when(settings.enabled, |page| {
                 page.child(
-                    settings_card("采集与粘贴", border)
+                    pulse_settings_card("采集与粘贴", theme)
                         .child(clipboard_toggle_row(
                             "settings-clip-hotkey-alt",
                             "备用全局热键",

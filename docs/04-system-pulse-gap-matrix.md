@@ -256,3 +256,7 @@ Summary 现在始终保留 Energy 子系统卡片：当前选中的功率传感�
 Summary 现在始终保留 Thermals 子系统卡片：当前最高温度为空时，卡片显示不可用/等待状态并保留图表区域；有效温度仍按最高当前有限读数绘制，负温度、动态摄氏范围、失败、过期和缺口继续沿用采集状态，不把缺失读数填成零。
 
 `summary_keeps_thermals_card_when_all_temperature_sensors_are_unavailable` 在合成快照中隐藏 CPU、GPU A 和 GPU B 的温度传感器，断言 `summary-history:thermals` 仍在且 `highest_current` 为空；Thermals 详细页的传感器选择和授权测试不变。`ramag-tool-system` 全量 107 项通过，workspace Clippy、fmt、源码尺寸和差异检查通过；完整源码程序 `target/debug/ramag.exe` 已启动核对，Computer Use 服务不可用，不把启动证据扩大为原生交互验收。
+
+### 2026-10-04 `A-PULSE-SETTINGS-001` 卡片样式统一
+
+Settings 的剪贴板、版本更新、数据库偏好和托管模块卡片现在全部复用 `pulse_settings_card`，与系统外观、采样和监控预设共享标题字体、背景、边界和间距；页面导航和各领域操作保持原实现。`cargo test --locked -p ramag-ui --lib -- --test-threads=1` 通过 132 项；workspace Clippy、fmt、源码尺寸和差异检查通过，完整源码程序已启动核对。Computer Use 服务不可用，本轮只记录完整程序启动路径，不宣称原生鼠标/键盘验收。

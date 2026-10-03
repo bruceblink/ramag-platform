@@ -526,3 +526,9 @@ Summary 底部 Energy 卡片此前只在当前功率传感器可见时加入布�
 Summary 底部 Thermals 卡片现在与 Energy 一样属于固定子系统区域：当 CPU、GPU 和其它温度传感器均被隐藏、暂时不可用或没有当前有限读数时，卡片仍显示不可用/等待状态，历史区域不因最高温度选择为空而消失。存在有效温度时继续使用最高当前有限传感器和动态摄氏量程；不改变 Thermals 详细页的稳定传感器选择、授权入口、负温度和失败原因。
 
 新增 `summary_keeps_thermals_card_when_all_temperature_sensors_are_unavailable`，隐藏 CPU、GPU A 和 GPU B 的温度传感器后确认 Summary Thermals 图表区域仍在且最高当前温度为空；既有温度选择、缺失、非有限和状态测试继续通过。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 107 项；workspace all-target Clippy、workspace fmt、Windows 源码尺寸检查和 `git diff --check` 通过。当前完整程序由 `F:\project\ramag-platform\target\debug\ramag.exe` 构建并启动，PID `10216`、窗口标题 `Ramag — Kafka`，确认使用当前工作区产物；Computer Use 仍返回 `Trusted RPC service not configured: sky`，本切片不宣称原生鼠标/键盘验收，也不恢复 GitHub CI 监测。
+
+### 2026-10-04 Settings 卡片统一为 Pulse 样式
+
+全局 Settings 中剪贴板、更新、数据库偏好和托管模块仍使用旧的 8px 外框卡片，标题字号、背景和边界与 System-tool 风格不一致。本切片统一改用已有 `pulse_settings_card`：Michroma 分区标题、6px 圆角、主题次级背景、统一内边距和间距；设置导航、保存状态、导入/导出、数据库转换、剪贴板清理和更新链接行为均保持不变。
+
+`cargo test --locked -p ramag-ui --lib -- --test-threads=1` 通过 132 项；workspace all-target Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前完整程序 `cargo build --locked -p ramag-bin` 均通过。完整程序由 `F:\project\ramag-platform\target\debug\ramag.exe` 启动核对，PID `13316`、窗口标题 `Ramag — Kafka`，确认使用当前工作区产物；Computer Use 仍返回 `Trusted RPC service not configured: sky`，本切片不宣称原生鼠标/键盘验收，也不恢复 GitHub CI 监测。

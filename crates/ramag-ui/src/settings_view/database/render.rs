@@ -145,7 +145,7 @@ impl SettingsView {
             .w_full()
             .gap(px(16.0))
             .child(
-                super::super::pages::settings_card("连接配置", theme.border)
+                super::super::pages::pulse_settings_card("连接配置", theme)
                     .child(
                         h_flex()
                             .w_full()
@@ -214,7 +214,7 @@ impl SettingsView {
                 )
             })
             .child(
-                super::super::pages::settings_card("Redis Key 树", theme.border).child(
+                super::super::pages::pulse_settings_card("Redis Key 树", theme).child(
                     h_flex()
                         .w_full()
                         .items_center()
@@ -243,7 +243,7 @@ impl SettingsView {
                 ),
             )
             .child(
-                super::super::pages::settings_card("搜索配置", theme.border)
+                super::super::pages::pulse_settings_card("搜索配置", theme)
                     .child(
                         h_flex()
                             .w_full()
@@ -295,7 +295,7 @@ impl SettingsView {
                     }),
             )
             .child(
-                super::super::pages::settings_card("结果显示", theme.border).child(
+                super::super::pages::pulse_settings_card("结果显示", theme).child(
                     v_flex()
                         .w_full()
                         .gap(px(12.0))
