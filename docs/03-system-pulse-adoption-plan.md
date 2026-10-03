@@ -484,3 +484,9 @@ MQTT 配置页头原先在连接状态徽章和测试/保存操作组之间放�
 剪贴板主视图在窄窗口原先把列表和详情固定为 `320px` 与 `360px`，窗口高度变化时会留下不协调的空白，长内容也只能依赖外层整体滚动。列表和详情现在在内容区内使用弹性高度并保留 `240px` 最小可读区域，各自的内部滚动、搜索、类型筛选、详情选择和复制/清理操作不变。
 
 扩展 `clipboard_content_reflows_list_and_detail_inside_supported_widths`，在 `360`、`800`、`1024` 和 `1440` 宽度检查窄窗口两 pane 的最小高度、上下顺序及常规窗口的左右布局。`cargo test --locked -p ramag-tool-clipboard --lib -- --test-threads=1` 通过 22 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。Computer Use 当前没有可操作的原生窗口应用，本切片不宣称真实窗口鼠标/键盘验收，也不恢复 GitHub CI 监测。
+
+### 2026-10-03 SSH 连接管理状态列对齐
+
+SSH 连接管理列表原先只显示名称、环境、平台、认证方式和操作入口；已打开工作区的实际连接状态只在顶部标签和工作区页头可见，返回管理页后无法快速判断连接是否仍然连接、重连中、失败或已退出。列表行现在增加 Pulse 状态徽章：未打开的配置显示“未连接”，已打开工作区复用 `SshSessionState` 的“连接中/已连接/重连中/连接失败/已退出”语义；名称、环境、平台、认证、JumpServer 和删除/编辑回调保持不变。
+
+新增 `manager_rows_show_connection_status_inside_supported_widths`，覆盖 `360`、`1024` 和 `1440` 宽度，验证状态徽章始终留在连接行内；`manager_session_status_labels_keep_runtime_meaning` 锁定六种状态文案。`cargo test --locked -p ramag-tool-ssh --lib -- --test-threads=1` 通过 89 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。当前完整程序已由 `F:\project\ramag-platform\target\debug\ramag.exe` 启动核对；Computer Use 当前没有原生窗口应用，本切片不宣称真实窗口鼠标/键盘验收，也不恢复 GitHub CI 监测。

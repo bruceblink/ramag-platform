@@ -9,12 +9,17 @@ use gpui_kit::{
 use ramag_domain::entities::{SshAuthMode, SshProfile};
 
 use super::SshView;
+use super::model::{session_pulse_status, session_state_text};
 pub(super) use super::render_manager_helpers::{
     EnvironmentBadgePalette, centered_message, environment_badge, is_jumpserver_profile,
     platform_badge, profile_matches_query, secondary_column,
 };
 
 const CONTENT_MAX_W: f32 = 1080.0;
+
+fn session_status_label(state: ramag_domain::entities::SshSessionState) -> &'static str {
+    session_state_text(state)
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum RowDensity {
@@ -268,6 +273,14 @@ impl SshView {
         let name = profile.name.clone();
         let jumpserver = is_jumpserver_profile(&profile);
         let selected = self.active_workspace_id.as_ref() == Some(&id);
+        let session_state = self
+            .workspaces
+            .iter()
+            .find(|workspace| workspace.profile_id() == &id)
+            .map(|workspace| workspace.session_state)
+            .unwrap_or(ramag_domain::entities::SshSessionState::Disconnected);
+        let session_status = session_pulse_status(session_state);
+        let session_status_label = session_status_label(session_state);
         let connection_available = self.profile_connection_available(&profile);
         let rdp_busy = self.creating_rdp_web_session_profile.is_some();
         let id_for_rdp = id.clone();
@@ -337,6 +350,16 @@ impl SshView {
                     .overflow_hidden()
                     .text_ellipsis()
                     .child(name),
+            )
+            .child(
+                div()
+                    .debug_selector(move || format!("ssh-profile-status-{index}"))
+                    .flex_none()
+                    .child(ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                        session_status,
+                        session_status_label,
+                        cx,
+                    )),
             )
             .child(environment_badge(index, environment, environment_palette))
             .child(platform_badge(index, remote_platform, accent))

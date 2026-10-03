@@ -1,7 +1,11 @@
-use ramag_domain::entities::{RemotePlatformPreference, SshAuthMode, SshProfile, SshProfileOrigin};
+use ramag_domain::entities::{
+    RemotePlatformPreference, SshAuthMode, SshProfile, SshProfileOrigin, SshSessionState,
+};
 
 use super::super::render_manager_helpers::{environment_badge_colors, platform_label};
-use super::{EnvironmentBadgePalette, is_jumpserver_profile, profile_matches_query};
+use super::{
+    EnvironmentBadgePalette, is_jumpserver_profile, profile_matches_query, session_status_label,
+};
 
 #[test]
 fn environment_badges_follow_the_active_theme_palette() {
@@ -59,4 +63,20 @@ fn platform_labels_are_stable_for_manager_badges() {
     assert_eq!(platform_label(RemotePlatformPreference::Windows), "Windows");
     assert_eq!(platform_label(RemotePlatformPreference::Linux), "Linux");
     assert_eq!(platform_label(RemotePlatformPreference::Auto), "自动");
+}
+
+#[test]
+fn manager_session_status_labels_keep_runtime_meaning() {
+    assert_eq!(
+        session_status_label(SshSessionState::Disconnected),
+        "未连接"
+    );
+    assert_eq!(session_status_label(SshSessionState::Connecting), "连接中");
+    assert_eq!(session_status_label(SshSessionState::Connected), "已连接");
+    assert_eq!(
+        session_status_label(SshSessionState::Reconnecting),
+        "重连中"
+    );
+    assert_eq!(session_status_label(SshSessionState::Exited), "已退出");
+    assert_eq!(session_status_label(SshSessionState::Failed), "连接失败");
 }

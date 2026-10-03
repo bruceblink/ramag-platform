@@ -419,6 +419,7 @@ impl SshDriver for MockSshDriver {
 mod forwarding_tests;
 mod jumpserver_tests;
 mod lifecycle_tests;
+mod manager_tests;
 mod restored_workspace_tests;
 #[cfg(target_os = "macos")]
 #[path = "render_test/ssh_manager_visual_test.rs"]
