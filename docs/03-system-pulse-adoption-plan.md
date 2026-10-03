@@ -370,3 +370,11 @@ Windows 使用系统客户端区动画开关，macOS 使用系统辅助功能的
 VCS 布局切片由 `f0c36752` 完成：文件栏模式按钮不再因弹性收缩而纵向堆叠，分支选择器与文件搜索/刷新操作保留清楚层级；没有选中文件时，右侧主区用居中的 Pulse 面板说明下一步操作。Computer Use 使用 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `12776`，已核对 `ExecutablePath`）打开 VCS 仓库工作区；文件模式按钮横向排列，分支选择器和搜索各自对齐，README.md 预览打开后这些控件保持位置，未执行写入或 Git 操作。真实窗口复核也发现空状态说明末尾标点曾独占一行，文案已收短并在最终构建中确认单行显示。
 
 验证：`cargo test --locked -p ramag-tool-container -p ramag-ui --lib -- --test-threads=1`（容器 31 项、`ramag-ui` 132 项）及此前 `cargo test --locked --workspace -- --test-threads=1` 通过；VCS `cargo test --locked -p ramag-tool-vcs --lib -- --test-threads=1` 188 项通过、0 失败、5 项性能观察用例 ignored；workspace all-target Clippy `-D warnings`、`cargo build --locked -p ramag-bin`、fmt、Windows 源码尺寸脚本和 `git diff --check` 通过。workspace 默认测试将 Docker 专项用例标记为 ignored；本轮容器列表真实数据来自完整程序只读连接，不把 ignored 测试计为集成测试通过。三个 UI 切片已分别提交并推送 `main`；接着按表格/列表、编辑/连接工作区顺序继续真实窗口验收。
+
+### 2026-10-03 VCS 分支栏布局优化验收
+
+VCS 文件栏在常规宽度下移除空闲时占满弹性空间的占位项，模式按钮与分支选择器保持同一行；分支栏按侧栏剩余宽度伸展，宽度限制在 140–320px，并将可见分支文本上限由 18 个字符提高到 28 个字符。最窄侧栏下分支栏完整换到模式行下方，搜索和固定操作仍留在下一层。未改变 Git 状态读取或任何仓库操作。
+
+目标测试 `vcs_files_toolbar_wraps_controls_inside_supported_widths` 覆盖 180、280、600px 文件栏：断言控件不越界，280/600px 下分支选择器与模式按钮同排，180px 下换行且保持至少 140px 宽。`cargo test --locked -p ramag-tool-vcs --lib -- --test-threads=1` 通过（188 项通过、0 失败、5 项性能观察用例 ignored）；workspace all-target Clippy `-D warnings`、`cargo fmt --all -- --check`、`cargo build --locked -p ramag-bin`、Windows 源码尺寸脚本与 `git diff --check` 均通过。
+
+本机时间 `2026-10-03 16:55 +08:00` 由 `Get-Date` 核对。Computer Use 使用工作区完整构建 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `33796`，`ExecutablePath` 已核对），先关闭已安装版后再启动；默认暗色窗口截图为 1528×924。打开 `F:\project\ramag` 仓库后，模式图标、分支选择器和搜索工具栏层级清楚；分支栏在模式按钮同排填充可用宽度。打开 `README.md` 后布局保持稳定。此原生复核仅覆盖该默认窗口和侧栏宽度；窄/宽侧栏由 headless 测试覆盖，未执行 Git 写操作。

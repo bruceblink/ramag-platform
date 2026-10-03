@@ -21,8 +21,9 @@ const TOP_HEIGHT_MAX: f32 = 1400.0;
 pub(super) const LEFT_WIDTH_INITIAL: f32 = 280.0;
 pub(super) const LEFT_WIDTH_MIN: f32 = 180.0;
 pub(super) const LEFT_WIDTH_MAX: f32 = 600.0;
-const BRANCH_PICKER_WIDTH: f32 = 178.0;
-const BRANCH_PICKER_LABEL_CHARS: usize = 18;
+const BRANCH_PICKER_MIN_WIDTH: f32 = 140.0;
+const BRANCH_PICKER_MAX_WIDTH: f32 = 320.0;
+const BRANCH_PICKER_LABEL_CHARS: usize = 28;
 
 impl VcsView {
     pub(super) fn render_ide_layout(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -139,7 +140,7 @@ impl VcsView {
         for mode in modes {
             tabs_row = tabs_row.child(self.mode_tab_button(mode, active, cx));
         }
-        let busy_indicator: AnyElement = if let Some(label) = self.busy_label {
+        let busy_indicator = self.busy_label.map(|label| {
             h_flex()
                 .debug_selector(|| "vcs-files-busy-indicator".into())
                 .flex_1()
@@ -157,14 +158,8 @@ impl VcsView {
                         .child(label),
                 )
                 .into_any_element()
-        } else {
-            div()
-                .debug_selector(|| "vcs-files-busy-indicator".into())
-                .flex_1()
-                .min_w_0()
-                .into_any_element()
-        };
-        let mode_row = ramag_ui::responsive_toolbar()
+        });
+        let mut mode_row = ramag_ui::responsive_toolbar()
             .debug_selector(|| "vcs-files-mode-toolbar".into())
             .w_full()
             .px(px(10.0))
@@ -173,9 +168,11 @@ impl VcsView {
             .border_color(border)
             .gap(px(8.0))
             .items_center()
-            .child(tabs_row)
-            .child(busy_indicator)
-            .child(self.render_branch_picker(cx));
+            .child(tabs_row);
+        if let Some(busy_indicator) = busy_indicator {
+            mode_row = mode_row.child(busy_indicator);
+        }
+        let mode_row = mode_row.child(self.render_branch_picker(cx));
 
         let mut search_row = ramag_ui::responsive_toolbar()
             .debug_selector(|| "vcs-files-search-toolbar".into())
@@ -345,9 +342,9 @@ impl VcsView {
             .and_then(|status| status.head_commit.as_ref())
             .is_some();
         div()
-            .flex_shrink_1()
-            .min_w_0()
-            .w(px(BRANCH_PICKER_WIDTH))
+            .flex_1()
+            .min_w(px(BRANCH_PICKER_MIN_WIDTH))
+            .max_w(px(BRANCH_PICKER_MAX_WIDTH))
             .overflow_hidden()
             .child(
                 ramag_ui::clickable_button("vcs-branch-picker")

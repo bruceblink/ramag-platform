@@ -117,6 +117,19 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
                 branch_picker.size.width >= px(140.0),
                 "标准文件栏宽度应为分支选择器保留可读空间：width={width}, branch={branch_picker:?}"
             );
+            assert_eq!(
+                project_tab.origin.y, branch_picker.origin.y,
+                "常规文件栏宽度应让分支选择器与模式按钮保持在同一行：width={width}, tab={project_tab:?}, branch={branch_picker:?}"
+            );
+        } else {
+            assert!(
+                branch_picker.size.width >= px(140.0),
+                "窄文件栏换行后仍应保留分支选择器的最小可读宽度：branch={branch_picker:?}"
+            );
+            assert!(
+                branch_picker.origin.y > stash_tab.origin.y,
+                "最窄文件栏应将分支选择器完整放到模式行下方：tab={stash_tab:?}, branch={branch_picker:?}"
+            );
         }
 
         assert!(
