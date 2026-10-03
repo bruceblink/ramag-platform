@@ -335,3 +335,9 @@ Windows 使用系统客户端区动画开关，macOS 使用系统辅助功能的
 - `5567879d`：本机协作页复用 Pulse 页面标题、Relay/本机状态徽标和状态通知，保留加密草稿、人工导出、导入、复制、远端交接和撤销流程；目标测试 3 项。
 
 六个切片的目标 Clippy、格式检查和提交钩子均通过；未改变协议、凭据或外部服务契约。Computer Use 服务仍未配置，本轮证据限于当前源码的 headless 视觉/交互测试、构建和提交钩子，未把静态截图或启动检查扩展为原生鼠标键盘验收。
+
+### 2026-10-03 当前构建验收
+
+使用当前源码重新执行 `cargo build --locked -p ramag-bin`，产物为 `F:\project\ramag-platform\target\debug\ramag.exe`；先关闭旧实例后启动该产物，窗口标题与进程路径均对应当前工作区。Computer Use 观察到系统监控 Summary 的 CPU、内存、磁盘、网络、能耗和温度均来自实时样本，图表标签与顶部读数一致，没有旧截图中的错误 `0` 首帧。容器资源表的真实数据链路通过 `ramag-infra-container-docker` 本机 Docker Engine 只读连接测试；容器、镜像、网络和数据卷表格的窄窗口、横向滚动、列标题和行边界由容器工具 30 项 headless 测试覆盖。当前窗口随后被用户切换到数据库客户端，未继续复用旧窗口坐标。
+
+本次完整工作区测试 `cargo test --locked --workspace -- --test-threads=1`、`cargo fmt --all -- --check` 均通过；本机 Docker Engine ignored 测试 `reads_local_engine_without_write_operations` 通过。Computer Use 真实窗口证据与 headless 表格证据分别记录，不把其中一类替代另一类。
