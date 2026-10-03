@@ -1,6 +1,8 @@
 //! Snapshot-boundary integration cases. These inputs model the descriptors emitted
 //! by the native adapters; native source validation remains in collector tests.
 use super::*;
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 use collectors::{MonitorKind, RawObservation, Reading, SensorDescriptor, SensorKind, Unit};
 use system_pulse_model::{Meter, Session};
 
@@ -92,7 +94,7 @@ fn snapshot(sequence: u64, at_ms: u64, sensors: Vec<SensorDescriptor>) -> Snapsh
             summary_sensor_id: sensors
                 .iter()
                 .find(|s| s.monitor_id == id)
-                .unwrap()
+                .test_unwrap()
                 .id
                 .clone(),
             id,
@@ -130,11 +132,15 @@ fn snapshot(sequence: u64, at_ms: u64, sensors: Vec<SensorDescriptor>) -> Snapsh
 
 fn label(workspace: &Workspace, history: &HistoryStore, source: &SensorDescriptor) -> String {
     let monitor = &workspace.monitors[&source.monitor_id];
-    let sensor = monitor.sensors.iter().find(|s| s.id == source.id).unwrap();
+    let sensor = monitor
+        .sensors
+        .iter()
+        .find(|s| s.id == source.id)
+        .test_unwrap();
     crate::meters::sensor_label(
         monitor,
         sensor,
-        history.latest(&monitor.id, &sensor.id).unwrap(),
+        history.latest(&monitor.id, &sensor.id).test_unwrap(),
     )
 }
 
@@ -142,17 +148,17 @@ fn label(workspace: &Workspace, history: &HistoryStore, source: &SensorDescripto
 fn gpu_memory_preserves_quantity_labels_and_capacity_compatibility() {
     let snapshot = snapshot(1, 1000, descriptors());
     let mut workspace = Workspace::new(serde_json::json!({}));
-    let mut history = HistoryStore::new(2).unwrap();
+    let mut history = HistoryStore::new(2).test_unwrap();
     LiveState::default()
         .accept(&snapshot, &mut workspace, &mut history, 1000, 1000)
-        .unwrap();
+        .test_unwrap();
     for source in &snapshot.sensors {
-        let sample = history.latest(&source.monitor_id, &source.id).unwrap();
+        let sample = history.latest(&source.monitor_id, &source.id).test_unwrap();
         let sensor = workspace.monitors[&source.monitor_id]
             .sensors
             .iter()
             .find(|s| s.id == source.id)
-            .unwrap();
+            .test_unwrap();
         let expected = match source.kind {
             SensorKind::Counter => Quantity::Counter,
             SensorKind::Scalar => Quantity::Scalar,
@@ -233,16 +239,16 @@ fn gpu_unknown_or_zero_total_never_borrows_ram_or_process_capacity() {
             threads: unrelated,
         });
         let mut workspace = Workspace::new(serde_json::json!({}));
-        let mut history = HistoryStore::new(2).unwrap();
+        let mut history = HistoryStore::new(2).test_unwrap();
         LiveState::default()
             .accept(&snapshot, &mut workspace, &mut history, 1000, 1000)
-            .unwrap();
+            .test_unwrap();
         for source in snapshot
             .sensors
             .iter()
             .filter(|s| s.monitor_id != "memory:host")
         {
-            let sample = history.latest(&source.monitor_id, &source.id).unwrap();
+            let sample = history.latest(&source.monitor_id, &source.id).test_unwrap();
             assert_eq!(
                 sample.total,
                 if source.kind == SensorKind::Capacity {
@@ -255,7 +261,7 @@ fn gpu_unknown_or_zero_total_never_borrows_ram_or_process_capacity() {
             assert_eq!(sample.value, Some(GIB));
             assert!(label(&workspace, &history, source).contains(&source.title));
         }
-        let sample = history.latest("memory:host", &ram.id).unwrap();
+        let sample = history.latest("memory:host", &ram.id).test_unwrap();
         assert_eq!(sample.quantity, Quantity::Capacity);
         assert_eq!(sample.capacity_ratio(), Some(0.5));
         assert!(label(&workspace, &history, &ram).contains("Memory · RAM · 16.0 / 32.0 GiB"));
@@ -277,10 +283,10 @@ fn gpu_same_name_devices_with_colliding_suffixes_have_distinct_labels() {
     });
     let snapshot = snapshot(1, 1000, sensors.to_vec());
     let mut workspace = Workspace::new(serde_json::json!({}));
-    let mut history = HistoryStore::new(2).unwrap();
+    let mut history = HistoryStore::new(2).test_unwrap();
     LiveState::default()
         .accept(&snapshot, &mut workspace, &mut history, 1000, 1000)
-        .unwrap();
+        .test_unwrap();
     assert_ne!(
         label(&workspace, &history, &sensors[0]),
         label(&workspace, &history, &sensors[1])
@@ -291,10 +297,10 @@ fn gpu_same_name_devices_with_colliding_suffixes_have_distinct_labels() {
 fn gpu_mixed_vendor_choices_and_metadata_survive_restore_absence_and_reorder() {
     let mut snapshot = snapshot(1, 1000, descriptors());
     let mut workspace = Workspace::new(serde_json::json!({"layout": "split"}));
-    let mut history = HistoryStore::new(2).unwrap();
+    let mut history = HistoryStore::new(2).test_unwrap();
     let mut live = LiveState::default();
     live.accept(&snapshot, &mut workspace, &mut history, 1000, 1000)
-        .unwrap();
+        .test_unwrap();
     for (index, source) in snapshot.sensors.iter().enumerate() {
         let panel = workspace.panel_mut(&source.monitor_id);
         panel.collapsed = true;
@@ -314,7 +320,7 @@ fn gpu_mixed_vendor_choices_and_metadata_survive_restore_absence_and_reorder() {
         rejected: None,
     }
     .autosave_json()
-    .unwrap();
+    .test_unwrap();
     let mut session = Session::restore(&json, Workspace::new(serde_json::json!({})), |dock| {
         assert_eq!(dock, &serde_json::json!({"layout": "split"}));
         Ok(())
@@ -332,11 +338,11 @@ fn gpu_mixed_vendor_choices_and_metadata_survive_restore_absence_and_reorder() {
         2000,
         1000,
     )
-    .unwrap();
+    .test_unwrap();
     assert_eq!(history.series_count(), 1); // Only the process census remains.
     for source in &snapshot.sensors {
         let monitor = &session.workspace.monitors[&source.monitor_id];
-        let missing = crate::meters::summary_sample(monitor, &history).unwrap();
+        let missing = crate::meters::summary_sample(monitor, &history).test_unwrap();
         assert_eq!(missing.status, ReadingStatus::Unavailable);
         assert_eq!(missing.value, None);
         assert_eq!(missing.unit, "B");
@@ -351,12 +357,16 @@ fn gpu_mixed_vendor_choices_and_metadata_survive_restore_absence_and_reorder() {
     }
     snapshot.capture_finished_ns = 3_000_000_000;
     live.accept(&snapshot, &mut session.workspace, &mut history, 3000, 1000)
-        .unwrap();
+        .test_unwrap();
     assert_eq!(session.workspace.panels, expected.panels);
     assert_eq!(history.series_count(), snapshot.sensors.len() + 1);
     for source in &snapshot.sensors {
         let monitor = &session.workspace.monitors[&source.monitor_id];
-        let descriptor = monitor.sensors.iter().find(|s| s.id == source.id).unwrap();
+        let descriptor = monitor
+            .sensors
+            .iter()
+            .find(|s| s.id == source.id)
+            .test_unwrap();
         let saved = session.workspace.panels[&source.monitor_id].sensors[&source.id].meter;
         if source.kind != SensorKind::Capacity && saved == Meter::Bar {
             assert_eq!(descriptor.quantity.compatible(saved), Meter::Number);
@@ -370,10 +380,10 @@ fn gpu_mixed_vendor_choices_and_metadata_survive_restore_absence_and_reorder() {
 fn gpu_cached_source_does_not_abort_fresh_fields_or_refresh_old_memory() {
     let mut snapshot = snapshot(1, 1000, descriptors());
     let mut workspace = Workspace::new(serde_json::json!({}));
-    let mut history = HistoryStore::new(2).unwrap();
+    let mut history = HistoryStore::new(2).test_unwrap();
     let mut live = LiveState::default();
     live.accept(&snapshot, &mut workspace, &mut history, 1000, 1000)
-        .unwrap();
+        .test_unwrap();
     snapshot.sequence = 2;
     snapshot.capture_finished_ns = 5_000_000_000;
     // Apple native values repeat an old capture while every other adapter is fresh.
@@ -383,14 +393,14 @@ fn gpu_cached_source_does_not_abort_fresh_fields_or_refresh_old_memory() {
         }
     }
     live.accept(&snapshot, &mut workspace, &mut history, 5000, 1000)
-        .unwrap();
+        .test_unwrap();
     for source in &snapshot.sensors {
-        let sample = history.latest(&source.monitor_id, &source.id).unwrap();
+        let sample = history.latest(&source.monitor_id, &source.id).test_unwrap();
         if source.monitor_id == APPLE {
             assert_eq!(sample.status, ReadingStatus::Stale);
             assert_eq!(sample.at_ms, 1000);
             assert_eq!(sample.chart_value(), None);
-            assert_eq!(history.samples(APPLE, &source.id).unwrap().len(), 1);
+            assert_eq!(history.samples(APPLE, &source.id).test_unwrap().len(), 1);
             assert!(label(&workspace, &history, source).contains("Stale"));
         } else {
             assert_eq!(sample.status, ReadingStatus::Current);
@@ -408,9 +418,9 @@ fn gpu_cached_source_does_not_abort_fresh_fields_or_refresh_old_memory() {
         };
     }
     live.accept(&snapshot, &mut workspace, &mut history, 6000, 1000)
-        .unwrap();
+        .test_unwrap();
     for source in &snapshot.sensors {
-        let sample = history.latest(&source.monitor_id, &source.id).unwrap();
+        let sample = history.latest(&source.monitor_id, &source.id).test_unwrap();
         assert_eq!(
             sample.at_ms,
             if source.monitor_id == APPLE {
@@ -430,7 +440,7 @@ fn gpu_cached_source_does_not_abort_fresh_fields_or_refresh_old_memory() {
         assert!(
             history
                 .samples(&source.monitor_id, &source.id)
-                .unwrap()
+                .test_unwrap()
                 .len()
                 <= 2
         );
@@ -441,10 +451,10 @@ fn gpu_cached_source_does_not_abort_fresh_fields_or_refresh_old_memory() {
 fn gpu_failed_cached_values_are_explicit_and_recover_independently() {
     let mut snapshot = snapshot(1, 1000, descriptors());
     let mut workspace = Workspace::new(serde_json::json!({}));
-    let mut history = HistoryStore::new(2).unwrap();
+    let mut history = HistoryStore::new(2).test_unwrap();
     let mut live = LiveState::default();
     live.accept(&snapshot, &mut workspace, &mut history, 1000, 1000)
-        .unwrap();
+        .test_unwrap();
     for (sequence, availability, expected) in [
         (2, Availability::Failed, ReadingStatus::Failed),
         (3, Availability::Unavailable, ReadingStatus::Unavailable),
@@ -473,9 +483,9 @@ fn gpu_failed_cached_values_are_explicit_and_recover_independently() {
             sequence * 1000,
             1000,
         )
-        .unwrap();
+        .test_unwrap();
         let id = format!("{APPLE}/shared-allocated");
-        let sample = history.latest(APPLE, &id).unwrap();
+        let sample = history.latest(APPLE, &id).test_unwrap();
         assert_eq!(sample.status, expected);
         assert_eq!(
             sample.value,
@@ -487,16 +497,16 @@ fn gpu_failed_cached_values_are_explicit_and_recover_independently() {
             sample.at_ms,
             if sequence == 5 { 4000 } else { sequence * 1000 }
         );
-        let source = snapshot.sensors.iter().find(|s| s.id == id).unwrap();
+        let source = snapshot.sensors.iter().find(|s| s.id == id).test_unwrap();
         assert!(label(&workspace, &history, source).contains("native memory query outcome"));
         assert_eq!(
             history
                 .latest(APPLE, &format!("{APPLE}/shared-in-use"))
-                .unwrap()
+                .test_unwrap()
                 .status,
             ReadingStatus::Current
         );
-        assert!(history.samples(APPLE, &id).unwrap().len() <= 2);
+        assert!(history.samples(APPLE, &id).test_unwrap().len() <= 2);
     }
 }
 
@@ -510,10 +520,10 @@ fn gpu_fresh_snapshot_survives_repeated_host_census_observation() {
         ..snapshot.readings[0].clone()
     });
     let mut workspace = Workspace::new(serde_json::json!({}));
-    let mut history = HistoryStore::new(2).unwrap();
+    let mut history = HistoryStore::new(2).test_unwrap();
     let mut live = LiveState::default();
     live.accept(&snapshot, &mut workspace, &mut history, 1000, 1000)
-        .unwrap();
+        .test_unwrap();
     snapshot.sequence = 2;
     snapshot.capture_finished_ns = 5_000_000_000;
     for reading in &mut snapshot.readings {
@@ -522,14 +532,14 @@ fn gpu_fresh_snapshot_survives_repeated_host_census_observation() {
         }
     }
     live.accept(&snapshot, &mut workspace, &mut history, 5000, 1000)
-        .unwrap();
+        .test_unwrap();
     assert_eq!(live.sequence, Some(2));
-    let census = history.latest("processes", "count").unwrap();
+    let census = history.latest("processes", "count").test_unwrap();
     assert_eq!(census.status, ReadingStatus::Stale);
     assert_eq!(census.at_ms, 1000);
-    assert_eq!(history.samples("processes", "count").unwrap().len(), 1);
+    assert_eq!(history.samples("processes", "count").test_unwrap().len(), 1);
     for source in &snapshot.sensors {
-        let sample = history.latest(&source.monitor_id, &source.id).unwrap();
+        let sample = history.latest(&source.monitor_id, &source.id).test_unwrap();
         assert_eq!(sample.status, ReadingStatus::Current);
         assert_eq!(sample.at_ms, 5000);
     }
@@ -544,13 +554,13 @@ fn gpu_fresh_snapshot_survives_repeated_host_census_observation() {
         }
     }
     live.accept(&snapshot, &mut workspace, &mut history, 6000, 1000)
-        .unwrap();
-    let census = history.latest("processes", "count").unwrap();
+        .test_unwrap();
+    let census = history.latest("processes", "count").test_unwrap();
     assert_eq!(census.status, ReadingStatus::Failed);
     assert_eq!(census.value, None);
     assert_eq!(census.at_ms, 6000);
     assert_eq!(census.quantity, Quantity::Counter);
-    assert_eq!(history.samples("processes", "count").unwrap().len(), 2);
+    assert_eq!(history.samples("processes", "count").test_unwrap().len(), 2);
     assert!(
         crate::meters::value(Some(census)).contains("Failed · count · Process census query failed")
     );

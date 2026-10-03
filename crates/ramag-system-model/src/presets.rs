@@ -138,15 +138,17 @@ impl PresetLibrary {
 mod tests {
     use super::*;
     #[test]
-    fn named_presets_keep_independent_workspace_choices() {
+    fn presets_do_not_persist_workspace_sampling_cadence() -> Result<(), String> {
         let mut library = PresetLibrary::default();
         let mut workspace = Workspace::new(serde_json::json!({}));
         workspace.interval_ms = 2000;
-        assert!(library.create("Work", workspace.clone()).is_ok());
-        workspace.interval_ms = 5000;
-        assert!(library.create("Quiet", workspace.clone()).is_ok());
-        assert_eq!(library.presets["Work"].interval_ms, 2000);
-        assert_eq!(library.presets["Quiet"].interval_ms, 5000);
+        library.create("Work", workspace)?;
+
+        let raw = library.to_json()?;
+        assert!(!raw.contains("interval_ms"));
+        let restored = PresetLibrary::from_json(&raw)?;
+        assert_eq!(restored.presets["Work"].interval_ms, 1000);
+        Ok(())
     }
 }
 
@@ -167,16 +169,24 @@ mod mutation_tests {
         assert_eq!(library, original);
         let mut changed = workspace();
         changed.interval_ms = 5000;
-        changed.appearance.theme = crate::ColorTheme::Light;
         changed.panel_mut("cpu:host").collapsed = true;
         assert!(library.overwrite("work", changed.clone()).is_ok());
         assert!(library.rename("Work", "Coding").is_ok());
         assert!(library.get("Work").is_none());
-        assert_eq!(library.get("coding"), Some(&changed));
+        assert_eq!(
+            library.get("coding").map(|workspace| &workspace.panels),
+            Some(&changed.panels)
+        );
+        let serialized = library.to_json()?;
+        let restored = PresetLibrary::from_json(&serialized)?;
+        assert_eq!(
+            restored
+                .get("coding")
+                .map(|workspace| workspace.interval_ms),
+            Some(1000)
+        );
         assert_eq!(library.get("Quiet"), Some(&workspace()));
-        let raw = library.to_json()?;
-        let roundtrip = PresetLibrary::from_json(&raw)?;
-        assert_eq!(roundtrip, library);
+        assert_eq!(restored.get("Quiet"), Some(&workspace()));
         assert!(library.remove("Coding").is_ok());
         assert_eq!(library.presets.len(), 1);
         Ok(())
@@ -199,7 +209,7 @@ mod mutation_tests {
         }
         assert!(library.create(&"a".repeat(65), workspace()).is_err());
         let mut invalid = workspace();
-        invalid.interval_ms = 13;
+        invalid.schema_version = 2;
         assert!(library.create("Invalid", invalid).is_err());
         assert!(library.presets.is_empty());
     }

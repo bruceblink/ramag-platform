@@ -1,4 +1,6 @@
 use crate::meters;
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::*;
 use system_pulse_model::{HistoryStore, MonitorDescriptor, Quantity};
@@ -145,7 +147,7 @@ mod tests {
         }
     }
     fn history() -> HistoryStore {
-        let mut history = HistoryStore::new(4).unwrap();
+        let mut history = HistoryStore::new(4).test_unwrap();
         for (id, value) in [
             ("total", 1000.),
             ("other", 600.),
@@ -159,7 +161,7 @@ mod tests {
                     &format!("memory:host/{id}"),
                     sample(value, 1),
                 )
-                .unwrap();
+                .test_unwrap();
         }
         history
     }
@@ -169,7 +171,7 @@ mod tests {
         assert_eq!(memory_segments(&history), Some([0.6, 0.25, 0.05, 0.1]));
         history
             .push("memory:host", "memory:host/free", sample(200., 2))
-            .unwrap();
+            .test_unwrap();
         assert!(
             memory_segments(&history).is_none(),
             "different observation times must not compose"
@@ -179,6 +181,6 @@ mod tests {
             memory_segments(&history).is_none(),
             "stale bytes must not look current"
         );
-        assert!(memory_segments(&HistoryStore::new(1).unwrap()).is_none());
+        assert!(memory_segments(&HistoryStore::new(1).test_unwrap()).is_none());
     }
 }

@@ -1,4 +1,6 @@
 use super::*;
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 
 use ramag_infra_system::{Availability, Reading, SensorDescriptor, SensorKind, Snapshot, Unit};
 fn reading(value: Option<f64>, availability: Availability) -> Reading {
@@ -38,12 +40,15 @@ fn failed_and_delayed_values_keep_status_and_reason() {
         .push(reading(Some(34.), Availability::Available));
     let mut state = LiveState::default();
     let mut workspace = Workspace::new(serde_json::json!({}));
-    let mut history = HistoryStore::new(10).unwrap();
+    let mut history = HistoryStore::new(10).test_unwrap();
     state
         .accept(&snapshot, &mut workspace, &mut history, 4000, 1000)
-        .unwrap();
+        .test_unwrap();
     assert_eq!(
-        history.latest("cpu:host", "cpu:host/usage").unwrap().status,
+        history
+            .latest("cpu:host", "cpu:host/usage")
+            .test_unwrap()
+            .status,
         ReadingStatus::Stale
     );
     assert!(
@@ -52,7 +57,10 @@ fn failed_and_delayed_values_keep_status_and_reason() {
             .is_err()
     );
     assert_eq!(
-        history.samples("cpu:host", "cpu:host/usage").unwrap().len(),
+        history
+            .samples("cpu:host", "cpu:host/usage")
+            .test_unwrap()
+            .len(),
         1
     );
 }
@@ -127,11 +135,11 @@ fn restored_absent_metadata_and_discovery_preserve_user_choices() {
         .accept(
             &snapshot,
             &mut workspace,
-            &mut HistoryStore::new(2).unwrap(),
+            &mut HistoryStore::new(2).test_unwrap(),
             0,
             1000,
         )
-        .unwrap();
+        .test_unwrap();
     assert!(workspace.panels["amdgpu:stable"].collapsed);
     assert!(
         catalog(&workspace)

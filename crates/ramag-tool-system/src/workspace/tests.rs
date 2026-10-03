@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod process_presentation_tests {
+    #[cfg(test)]
+    use crate::test_support::TestUnwrapExt;
     use crate::workspace::Snapshot;
     use gpui_kit::TestAppContext;
 
@@ -49,9 +51,9 @@ mod process_presentation_tests {
                 data.prepare_processes_at(22_001);
                 assert!(data.processes[0].cells[2].contains("Stale"));
                 assert!(data.processes[0].cells[3].contains("No access"));
-                assert_eq!(data.snapshot.as_ref().unwrap().sequence, 1);
+                assert_eq!(data.snapshot.as_ref().test_unwrap().sequence, 1);
                 assert_eq!(
-                    data.snapshot.as_ref().unwrap().processes[0]
+                    data.snapshot.as_ref().test_unwrap().processes[0]
                         .cpu_percent
                         .value,
                     Some(42.)
@@ -62,7 +64,91 @@ mod process_presentation_tests {
 }
 
 #[cfg(test)]
+mod monitor_settings_tests {
+    #[cfg(test)]
+    use crate::test_support::TestUnwrapExt;
+    use crate::workspace::WorkspaceView;
+    use gpui_kit::{AppContext, TestAppContext};
+
+    #[gpui_kit::test]
+    fn global_sampling_changes_update_workspace_and_survive_layout_restore(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(gpui_kit::component::init);
+        let mut workspace = None;
+        let (_, cx) = cx.add_window_view(|window, cx| {
+            let view = cx.new(|cx| WorkspaceView::new_fixture(window, cx));
+            workspace = Some(view.clone());
+            gpui_kit::component::Root::new(view, window, cx)
+        });
+        let workspace = workspace.test_unwrap();
+
+        cx.update(|_, app| {
+            ramag_ui::set_monitor_settings(
+                ramag_ui::MonitorSettings {
+                    refresh_rate: ramag_ui::MonitorRefreshRate::HalfSecond,
+                },
+                app,
+            );
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            cx.read(|cx| workspace
+                .read(cx)
+                .shared
+                .borrow()
+                .session
+                .workspace
+                .interval_ms),
+            500
+        );
+
+        let raw = cx.read(|cx| {
+            let mut saved_workspace = workspace.read(cx).shared.borrow().session.workspace.clone();
+            saved_workspace.interval_ms = 5_000;
+            serde_json::to_string(&saved_workspace).test_unwrap()
+        });
+        cx.update(|window, app| {
+            workspace.update(app, |view, cx| view.restore(&raw, window, cx));
+        });
+        assert_eq!(
+            cx.read(|cx| workspace
+                .read(cx)
+                .shared
+                .borrow()
+                .session
+                .workspace
+                .interval_ms),
+            500,
+            "restoring a layout must retain the global sampling cadence"
+        );
+
+        cx.update(|_, app| {
+            ramag_ui::set_monitor_settings(
+                ramag_ui::MonitorSettings {
+                    refresh_rate: ramag_ui::MonitorRefreshRate::TwoSeconds,
+                },
+                app,
+            );
+        });
+        cx.run_until_parked();
+        assert_eq!(
+            cx.read(|cx| workspace
+                .read(cx)
+                .shared
+                .borrow()
+                .session
+                .workspace
+                .interval_ms),
+            2_000
+        );
+    }
+}
+
+#[cfg(test)]
 mod diagnostic_delivery_tests {
+    #[cfg(test)]
+    use crate::test_support::TestUnwrapExt;
     use crate::workspace::{Snapshot, WorkspaceView};
     use gpui_kit::{AppContext, Element, Role, TestAppContext};
     use std::time::Duration;
@@ -78,9 +164,9 @@ mod diagnostic_delivery_tests {
             view = Some(workspace.clone());
             gpui_kit::component::Root::new(workspace, window, cx)
         });
-        let view = view.unwrap();
+        let view = view.test_unwrap();
         let dir = std::env::temp_dir().join(format!("pulse-stale-delivery-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::create_dir_all(&dir).test_unwrap();
         let path = dir.join("latest.json");
         let reading = ramag_infra_system::Reading {
             sensor_id: "cpu:host/usage".into(),
@@ -136,19 +222,19 @@ mod diagnostic_delivery_tests {
         };
         cx.update(|window, cx| {
             view.update(cx, |this, cx| {
-                this.diagnostics =
-                    Some(crate::diagnostics::Writer::start_with_trace(path.clone(), true).unwrap());
+                this.diagnostics = Some(
+                    crate::diagnostics::Writer::start_with_trace(path.clone(), true).test_unwrap(),
+                );
                 this.accept_snapshot(snapshot, window, cx);
             })
         });
         let deadline = std::time::Instant::now() + Duration::from_secs(2);
         let before: serde_json::Value = loop {
-            if let Ok(raw) = std::fs::read_to_string(&path) {
-                if let Ok(record) = serde_json::from_str::<serde_json::Value>(&raw) {
-                    if record["snapshot"]["sequence"] == 43 {
-                        break record;
-                    }
-                }
+            if let Ok(raw) = std::fs::read_to_string(&path)
+                && let Ok(record) = serde_json::from_str::<serde_json::Value>(&raw)
+                && record["snapshot"]["sequence"] == 43
+            {
+                break record;
             }
             assert!(
                 std::time::Instant::now() < deadline,
@@ -162,7 +248,7 @@ mod diagnostic_delivery_tests {
                 .borrow()
                 .history
                 .samples("cpu:host", "cpu:host/usage")
-                .unwrap()
+                .test_unwrap()
                 .len()
         });
         cx.update(|window, cx| {
@@ -183,27 +269,34 @@ mod diagnostic_delivery_tests {
         let writer = cx.update(|_, cx| view.update(cx, |this, _| this.diagnostics.take()));
         drop(writer); // Flush the bounded worker's final record, without another collection.
         let after: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+            serde_json::from_str(&std::fs::read_to_string(&path).test_unwrap()).test_unwrap();
         let mapping = |record: &serde_json::Value, id: &str| {
             record["rendered"]
                 .as_array()
-                .unwrap()
+                .test_unwrap()
                 .iter()
                 .find(|r| r["element_id"] == id)
-                .unwrap()
+                .test_unwrap()
                 .clone()
         };
         let id = "cpu:host:value:cpu:host/usage";
         assert_eq!(mapping(&before, id)["sample"]["status"], "current");
         cx.read(|cx| {
             let data = view.read(cx).shared.borrow();
-            let monitor = data.catalog.iter().find(|m| m.id == "cpu:host").unwrap();
-            let sample = data.history.latest("cpu:host", "cpu:host/usage").unwrap();
+            let monitor = data
+                .catalog
+                .iter()
+                .find(|m| m.id == "cpu:host")
+                .test_unwrap();
+            let sample = data
+                .history
+                .latest("cpu:host", "cpu:host/usage")
+                .test_unwrap();
             assert_eq!(sample.status, system_pulse_model::ReadingStatus::Stale);
             assert_eq!(
                 data.history
                     .samples("cpu:host", "cpu:host/usage")
-                    .unwrap()
+                    .test_unwrap()
                     .len(),
                 initial_history_len
             );
@@ -224,11 +317,11 @@ mod diagnostic_delivery_tests {
             assert!(data.processes[0].cells[2].contains("Stale"));
         });
         assert_eq!(
-            after["render_revision"].as_u64().unwrap(),
-            before["render_revision"].as_u64().unwrap() + 1
+            after["render_revision"].as_u64().test_unwrap(),
+            before["render_revision"].as_u64().test_unwrap() + 1
         );
         assert_eq!(before["rendered_at_collector_ms"], 20_000);
-        assert!(after["rendered_at_collector_ms"].as_u64().unwrap() >= 23_000);
+        assert!(after["rendered_at_collector_ms"].as_u64().test_unwrap() >= 23_000);
         assert_eq!(
             mapping(&after, id)["sample"]["at_ms"],
             mapping(&before, id)["sample"]["at_ms"]
@@ -239,8 +332,8 @@ mod diagnostic_delivery_tests {
         let timing_path = path.with_extension("publication-timing.json");
         assert!(timing_path.is_file(), "opt-in publication timings missing");
         let timing: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(&timing_path).unwrap()).unwrap();
-        let records = timing["history"]["records"].as_array().unwrap();
+            serde_json::from_slice(&std::fs::read(&timing_path).test_unwrap()).test_unwrap();
+        let records = timing["history"]["records"].as_array().test_unwrap();
         assert_eq!(records.len(), 2);
         for record in records {
             assert_eq!(record["sequence"], 43);
@@ -256,7 +349,7 @@ mod diagnostic_delivery_tests {
                 "dequeue_ns",
             ]
             .iter()
-            .map(|key| stages[key].as_u64().unwrap())
+            .map(|key| stages[key].as_u64().test_unwrap())
             .collect();
             assert!(values.windows(2).all(|pair| pair[0] <= pair[1]));
         }
@@ -268,14 +361,16 @@ mod diagnostic_delivery_tests {
             records[0]["stages"]["model_completed_ns"],
             records[1]["stages"]["model_completed_ns"]
         );
-        std::fs::remove_file(timing_path).unwrap();
-        std::fs::remove_file(path).unwrap();
-        std::fs::remove_dir(dir).unwrap();
+        std::fs::remove_file(timing_path).test_unwrap();
+        std::fs::remove_file(path).test_unwrap();
+        std::fs::remove_dir(dir).test_unwrap();
     }
 }
 
 #[cfg(test)]
 mod preset_bound_tests {
+    #[cfg(test)]
+    use crate::test_support::TestUnwrapExt;
     use crate::workspace::{Command, WorkspaceView};
     use gpui_kit::{AppContext, TestAppContext};
 
@@ -290,10 +385,10 @@ mod preset_bound_tests {
             view = Some(workspace.clone());
             gpui_kit::component::Root::new(workspace, window, cx)
         });
-        let view = view.unwrap();
+        let view = view.test_unwrap();
         cx.update(|window, cx| {
             view.update(cx, |this, cx| {
-                let previous = this.shared.borrow().session.autosave_json().unwrap();
+                let previous = this.shared.borrow().session.autosave_json().test_unwrap();
                 this.preset = Some(previous.clone());
                 this.shared
                     .borrow_mut()
@@ -302,7 +397,7 @@ mod preset_bound_tests {
                     .monitors
                     .values_mut()
                     .next()
-                    .unwrap()
+                    .test_unwrap()
                     .title = "x".repeat(system_pulse_model::MAX_CONFIGURATION_BYTES + 1);
                 this.command(Command::SavePreset, window, cx);
                 assert!(

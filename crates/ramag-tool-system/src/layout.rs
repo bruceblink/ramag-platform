@@ -1,4 +1,6 @@
 //! Built-in dock templates resolved against discovered monitor identities.
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 use gpui_kit::base::dock::{DockAreaState, PanelInfo, PanelState};
 use gpui_kit::{Axis, px};
 use system_pulse_model::{BuiltinPreset, MonitorDescriptor, Workspace};
@@ -135,7 +137,7 @@ mod tests {
         let network = catalog
             .iter_mut()
             .find(|monitor| monitor.id == "interface:fixture-lan")
-            .unwrap();
+            .test_unwrap();
         network.id = "network:mac:02:00:00:00:00:01:name:eth0".into();
         let id = network.id.clone();
         let workspace = preset(BuiltinPreset::Developer, &catalog);
@@ -151,8 +153,8 @@ mod tests {
             }
         }
         assert!(contains(&workspace.dock, &id));
-        workspace.validate().unwrap();
-        super::super::workspace::validate_dock_mode(&workspace.dock, true).unwrap();
+        workspace.validate().test_unwrap();
+        super::super::workspace::validate_dock_mode(&workspace.dock, true).test_unwrap();
     }
 
     #[test]
@@ -160,8 +162,8 @@ mod tests {
         let catalog = crate::fixture::catalog();
         for kind in BuiltinPreset::ALL {
             let workspace = preset(kind, &catalog);
-            workspace.validate().unwrap();
-            super::super::workspace::validate_dock_mode(&workspace.dock, true).unwrap();
+            workspace.validate().test_unwrap();
+            super::super::workspace::validate_dock_mode(&workspace.dock, true).test_unwrap();
             assert!(workspace.panels["processes"].visible);
             assert!(!workspace.panels["settings"].visible);
         }
@@ -206,11 +208,10 @@ pub(crate) fn initialize(
 mod first_launch_tests {
     use super::*;
     #[test]
-    fn first_snapshot_arranges_primary_monitors_and_keeps_saved_appearance() {
+    fn first_snapshot_arranges_primary_monitors_without_reapplying_layout() {
         let catalog = crate::fixture::catalog();
         let mut workspace =
-            Workspace::new(serde_json::to_value(crate::workspace::default_dock()).unwrap());
-        workspace.appearance.theme = system_pulse_model::ColorTheme::Light;
+            Workspace::new(serde_json::to_value(crate::workspace::default_dock()).test_unwrap());
         let mut pending = true;
         assert!(initialize(&mut workspace, &catalog, &mut pending).is_some());
         assert!(!pending);
@@ -220,11 +221,7 @@ mod first_launch_tests {
             !workspace.panels["settings"].visible
                 && !workspace.panels["interface:fixture-lan"].visible
         );
-        assert_eq!(
-            workspace.appearance.theme,
-            system_pulse_model::ColorTheme::Light
-        );
-        workspace.panels.get_mut("cpu").unwrap().visible = false;
+        workspace.panels.get_mut("cpu").test_unwrap().visible = false;
         let saved = workspace.clone();
         assert!(initialize(&mut workspace, &catalog, &mut pending).is_none());
         assert_eq!(

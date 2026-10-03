@@ -1,4 +1,6 @@
 //! Screen projections over the accepted snapshot. No collection or synthetic samples.
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 use crate::workspace::Data;
 use ramag_infra_system::MonitorKind;
 use system_pulse_model::{PhysicalUnit, Quantity, ReadingStatus, Sample, Screen};
@@ -333,7 +335,7 @@ mod tests {
     #[test]
     fn zero_is_visible_and_stale_does_not_become_current() {
         let mut sample =
-            Sample::measured(1, Quantity::Power, 0., None, PhysicalUnit::Watts).unwrap();
+            Sample::measured(1, Quantity::Power, 0., None, PhysicalUnit::Watts).test_unwrap();
         assert_eq!(sample.chart_value(), Some(0.));
         assert!(compact_value(Some(&sample)).starts_with('0'));
         sample.status = ReadingStatus::Stale;

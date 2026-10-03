@@ -12,7 +12,7 @@ use gpui_kit::{
     SharedString, Styled, Window, div, px,
 };
 
-use super::pages::settings_card;
+use super::pages::pulse_settings_card;
 
 #[derive(Clone)]
 enum Confirmation {
@@ -167,7 +167,8 @@ impl MonitorPresetManager {
             cx.notify();
             return;
         };
-        crate::save_monitor_settings(preset.monitor_settings, cx);
+        // Sampling cadence is application-wide. Applying a layout preset must
+        // leave the user's current global cadence untouched.
         crate::save_monitor_presentation_settings(preset.presentation, cx);
         self.notice = Some((format!("已应用预设：{name}"), false));
         cx.notify();
@@ -176,7 +177,8 @@ impl MonitorPresetManager {
     /// Applies a built-in reference preset without adding it to the persisted library.
     fn apply_builtin(&mut self, builtin: BuiltinPreset, cx: &mut Context<Self>) {
         let snapshot = builtin.snapshot(crate::monitor_presentation_settings(cx));
-        crate::save_monitor_settings(snapshot.monitor_settings, cx);
+        // Built-in presets change the layout and sensor presentation only;
+        // refresh cadence belongs to the global System Settings page.
         crate::save_monitor_presentation_settings(snapshot.presentation, cx);
         self.notice = Some((format!("已应用内置预设：{}", builtin.name()), false));
         cx.notify();
@@ -280,7 +282,7 @@ impl Render for MonitorPresetManager {
             );
         }
 
-        let mut card = settings_card("监控预设", theme.border)
+        let mut card = pulse_settings_card("Presets", theme)
             .child(
                 div()
                     .text_xs()
@@ -399,7 +401,7 @@ impl Render for MonitorPresetManager {
             );
         }
 
-        card
+        card.into_any_element()
     }
 }
 
@@ -475,6 +477,20 @@ mod tests {
             assert_eq!(
                 crate::monitor_settings(app).refresh_rate,
                 crate::MonitorRefreshRate::OneSecond
+            );
+            crate::set_monitor_settings(
+                crate::MonitorSettings {
+                    refresh_rate: crate::MonitorRefreshRate::FiveSeconds,
+                },
+                app,
+            );
+        });
+        click(visual, "monitor-preset-apply-0");
+        visual.update(|_, app| {
+            assert_eq!(
+                crate::monitor_settings(app).refresh_rate,
+                crate::MonitorRefreshRate::FiveSeconds,
+                "applying a saved layout must preserve the global sampling cadence"
             );
         });
 

@@ -1,3 +1,5 @@
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::*;
@@ -431,7 +433,7 @@ mod tests {
             None,
             PhysicalUnit::Percent,
         )
-        .unwrap()
+        .test_unwrap()
     }
 
     fn series(samples: Vec<Sample>) -> ChartSeries {
@@ -514,8 +516,8 @@ mod tests {
             ),
             (0., 80.)
         );
-        let cold =
-            Sample::measured(0, Quantity::Temperature, -5., None, PhysicalUnit::Celsius).unwrap();
+        let cold = Sample::measured(0, Quantity::Temperature, -5., None, PhysicalUnit::Celsius)
+            .test_unwrap();
         let range = value_domain(&[series(vec![cold])], None);
         assert!(range.0 < -5. && range.1 > -5.);
     }
@@ -556,12 +558,12 @@ mod tests {
 
     #[::core::prelude::v1::test]
     fn finite_extremes_cannot_overflow_chart_coordinates() {
-        let point = chart_point(&sample(100, 0.), (0, 100), (-f64::MAX, f64::MAX)).unwrap();
+        let point = chart_point(&sample(100, 0.), (0, 100), (-f64::MAX, f64::MAX)).test_unwrap();
         assert_eq!(point, ChartPoint { x: 1., y: 0.5 });
         for value in [-f64::MAX, f64::MAX] {
             let extreme =
                 Sample::measured(0, Quantity::Temperature, value, None, PhysicalUnit::Celsius)
-                    .unwrap();
+                    .test_unwrap();
             let series = vec![series(vec![extreme])];
             let range = value_domain(&series, None);
             assert!(range.0.is_finite() && range.1.is_finite() && range.0 < range.1);

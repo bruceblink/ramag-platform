@@ -1,4 +1,6 @@
 use super::*;
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 impl WorkspaceView {
     pub(crate) fn screen_notice(&self) -> String {
         if let Some(rejected) = &self.shared.borrow().session.rejected {
@@ -217,13 +219,14 @@ mod live_tests {
     use super::*;
     #[::core::prelude::v1::test]
     fn live_restore_rejects_copied_fixture_workspace_and_preserves_original() {
-        let mut copied = Workspace::new(serde_json::to_value(default_dock()).unwrap());
+        let mut copied = Workspace::new(serde_json::to_value(default_dock()).test_unwrap());
         fixture::discover(&mut copied, &fixture::catalog());
-        let raw = serde_json::to_string(&copied).unwrap();
-        let fallback =
-            Workspace::new(serde_json::to_value(default_dock_for(&live::presentations())).unwrap());
+        let raw = serde_json::to_string(&copied).test_unwrap();
+        let fallback = Workspace::new(
+            serde_json::to_value(default_dock_for(&live::presentations())).test_unwrap(),
+        );
         let restored = restore_session(&raw, fallback.clone(), false);
-        assert_eq!(restored.rejected.as_ref().unwrap().original, raw);
+        assert_eq!(restored.rejected.as_ref().test_unwrap().original, raw);
         assert!(restored.autosave_json().is_err());
         assert_eq!(restored.workspace.dock, fallback.dock);
         assert!(
@@ -237,7 +240,7 @@ mod live_tests {
         panels_only.panel_mut("gpu:fixture-a");
         assert!(
             restore_session(
-                &serde_json::to_string(&panels_only).unwrap(),
+                &serde_json::to_string(&panels_only).test_unwrap(),
                 fallback,
                 false
             )
@@ -253,11 +256,11 @@ mod live_tests {
             summary: "usage".into(),
             sensors: vec![],
         };
-        let dock = serde_json::to_value(default_dock_for(&[missing])).unwrap();
+        let dock = serde_json::to_value(default_dock_for(&[missing])).test_unwrap();
         assert!(validate_dock(&dock).is_ok());
         let workspace = Workspace::new(dock);
         let restored = restore_session(
-            &serde_json::to_string(&workspace).unwrap(),
+            &serde_json::to_string(&workspace).test_unwrap(),
             workspace,
             false,
         );

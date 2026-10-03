@@ -252,8 +252,8 @@ fn memory(state: &Data, cx: &App) -> AnyElement {
         .flex()
         .flex_col()
         .gap_4()
-        .when(used.is_none(), |view| view.child(empty("RAM usage hidden or unavailable",
-            "Other available memory readings are shown below. Sensor visibility is in Settings.", cx)))
+         .when(used.is_none(), |view| view.child(empty("RAM usage hidden or unavailable",
+            "Other available memory readings are shown below. Sensor visibility is in Ramag system Settings.", cx)))
         .when_some(used, |view, used| view.child(hero_meter(&used, state, Screen::Memory, cx))
             .child(section(cx).child(heading("Memory utilization", 19., cx))
                 .child(chart(&used, state, color, 350., cx))))

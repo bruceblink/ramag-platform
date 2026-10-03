@@ -1,3 +1,5 @@
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 use system_pulse_model::{HistoryStore, ReadingStatus, Sample, Workspace};
 
 use system_pulse_model::{
@@ -150,19 +152,41 @@ pub(crate) fn advance(history: &mut HistoryStore, tick: u64) -> Result<(), Strin
     Ok(())
 }
 
+pub(crate) fn processes() -> Vec<crate::live::ProcessView> {
+    (0..500)
+        .map(|index| crate::live::ProcessView {
+            numeric: [None; 5],
+            identity: ramag_infra_system::ProcessIdentity {
+                pid: 1000 + index,
+                start_time_ticks: 1,
+            },
+            cells: vec![
+                (1000 + index).to_string(),
+                format!("fixture-process-{index}"),
+                format!("{}%", index % 100),
+                "1 MiB".into(),
+                "1 KiB/s".into(),
+                "2 KiB/s".into(),
+                "1 count".into(),
+                "fixture".into(),
+            ],
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn fixtures_continue_through_gaps_and_keep_stable_identity() {
-        let mut history = HistoryStore::new(12).unwrap();
+        let mut history = HistoryStore::new(12).test_unwrap();
         for tick in 1..=14 {
-            advance(&mut history, tick).unwrap();
+            advance(&mut history, tick).test_unwrap();
         }
-        let cpu = history.samples("cpu", "overall").unwrap();
+        let cpu = history.samples("cpu", "overall").test_unwrap();
         assert_eq!(cpu.len(), 12);
-        assert_eq!(cpu.front().unwrap().at_ms, 3000);
-        assert_eq!(cpu.back().unwrap().at_ms, 14000);
+        assert_eq!(cpu.front().test_unwrap().at_ms, 3000);
+        assert_eq!(cpu.back().test_unwrap().at_ms, 14000);
         assert_eq!(cpu.iter().filter(|s| s.chart_value().is_none()).count(), 2);
         assert!(history.latest("gpu:fixture-a", "utilization").is_some());
         assert!(history.latest("gpu:fixture-b", "utilization").is_some());
@@ -181,7 +205,7 @@ mod tests {
         changed
             .iter_mut()
             .find(|monitor| monitor.id == "cpu")
-            .unwrap()
+            .test_unwrap()
             .sensors
             .retain(|sensor| sensor.id != "core0");
         discover(&mut workspace, &changed);
@@ -205,26 +229,4 @@ mod tests {
             assert_eq!(next.at_ms - first.at_ms, 12_000);
         }
     }
-}
-
-pub(crate) fn processes() -> Vec<crate::live::ProcessView> {
-    (0..500)
-        .map(|index| crate::live::ProcessView {
-            numeric: [None; 5],
-            identity: ramag_infra_system::ProcessIdentity {
-                pid: 1000 + index,
-                start_time_ticks: 1,
-            },
-            cells: vec![
-                (1000 + index).to_string(),
-                format!("fixture-process-{index}"),
-                format!("{}%", index % 100),
-                "1 MiB".into(),
-                "1 KiB/s".into(),
-                "2 KiB/s".into(),
-                "1 count".into(),
-                "fixture".into(),
-            ],
-        })
-        .collect()
 }

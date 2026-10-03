@@ -1,4 +1,4 @@
-//! 系统监控工具偏好；独立存储，只影响采样频率，不影响应用主题或网络工具。
+//! 应用级系统监控偏好；设置入口位于全局 System Settings 页面。
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -100,9 +100,14 @@ impl Global for MonitorPresentationSettingsGlobal {}
 
 /// 首次使用或测试未初始化时使用兼容的 1 秒周期。
 pub fn monitor_settings(cx: &App) -> MonitorSettings {
+    monitor_settings_if_initialized(cx).unwrap_or_default()
+}
+
+/// Returns the saved setting only after the preference loader or settings page
+/// has initialized it, allowing older workspace data to remain a fallback.
+pub fn monitor_settings_if_initialized(cx: &App) -> Option<MonitorSettings> {
     cx.try_global::<MonitorSettingsGlobal>()
         .map(|global| global.0)
-        .unwrap_or_default()
 }
 
 /// 返回传感器显隐和设备选择偏好；未初始化时保持所有传感器可见。

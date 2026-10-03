@@ -1,4 +1,6 @@
 //! Collector-shaped input for the tabbed screen tests. Never compiled into the application.
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 use ramag_infra_system::{
     Availability, MonitorDescriptor, MonitorKind, ProcessIdentity, ProcessRow, Reading,
     SensorDescriptor, SensorKind, Snapshot, Unit,
@@ -228,7 +230,7 @@ pub(super) fn snapshot(sequence: u64) -> Snapshot {
             .readings
             .iter_mut()
             .find(|reading| reading.sensor_id == "cpu:host/power")
-            .unwrap();
+            .test_unwrap();
         gap.value = None;
         gap.availability = Availability::Unavailable;
         gap.reason = Some("Fixture capture gap".into());

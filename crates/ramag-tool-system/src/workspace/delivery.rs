@@ -309,6 +309,8 @@ impl WorkspaceView {
         if let Some(rejected) = self.shared.borrow().session.rejected.clone() {
             session.rejected = Some(rejected);
         }
+        session.workspace.interval_ms =
+            Self::effective_interval_ms(session.workspace.interval_ms, cx);
         let interval = Duration::from_millis(session.workspace.interval_ms);
         if let Some(service) = &self.service
             && let Err(e) = service.set_interval(interval)
@@ -318,9 +320,6 @@ impl WorkspaceView {
         if !self.fixture_mode {
             self.shared.borrow_mut().catalog = live::catalog(&session.workspace);
         }
-        // Restoring a saved workspace must update both fonts and the host theme;
-        // otherwise the model says Light while the visible window stays Dark.
-        crate::settings::apply_user_choice(session.workspace.appearance, window, cx);
         self.shared.borrow_mut().session = session;
         let state = {
             let raw = self.shared.borrow().session.workspace.dock.clone();

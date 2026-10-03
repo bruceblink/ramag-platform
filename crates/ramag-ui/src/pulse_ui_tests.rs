@@ -8,6 +8,25 @@ use gpui_kit::{
     VisualTestContext, px, size,
 };
 
+#[gpui_kit::test]
+fn pulse_palette_and_application_theme_share_the_same_surfaces(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    for mode in [crate::theme::Mode::Dark, crate::theme::Mode::Light] {
+        cx.update(|app| crate::theme::apply_theme(mode, app));
+        cx.update(|app| {
+            let palette = pulse_palette(app);
+            let theme = gpui_kit::component::Theme::global(app);
+            assert_eq!(palette.background, theme.background);
+            assert_eq!(palette.surface, theme.secondary);
+            assert_eq!(palette.raised, theme.muted);
+            assert_eq!(palette.border, theme.border);
+            assert_eq!(palette.text, theme.foreground);
+            assert_eq!(palette.muted, theme.muted_foreground);
+            assert_eq!(palette.selected, theme.list_active);
+        });
+    }
+}
+
 struct PulseComponentsHost {
     selections: Rc<RefCell<Vec<String>>>,
 }

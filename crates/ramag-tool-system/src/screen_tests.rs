@@ -1,3 +1,5 @@
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 use crate::{
     native_tests::{draw, native_key},
     screens::{ApplicationView, ScreenView},
@@ -15,10 +17,10 @@ fn accept(
 ) {
     let sequence = snapshot.sequence;
     cx.update(|window, cx| {
-        let owner = view.read(cx).shared.borrow().owner.clone().unwrap();
+        let owner = view.read(cx).shared.borrow().owner.clone().test_unwrap();
         owner
             .update(cx, |owner, cx| owner.accept_snapshot(snapshot, window, cx))
-            .unwrap();
+            .test_unwrap();
     });
     draw(cx);
     cx.read(|cx| {
@@ -28,7 +30,7 @@ fn accept(
                 .borrow()
                 .snapshot
                 .as_ref()
-                .unwrap()
+                .test_unwrap()
                 .sequence,
             sequence
         )
@@ -41,10 +43,10 @@ fn command(
     cx: &mut VisualTestContext,
 ) {
     cx.update(|window, cx| {
-        let owner = view.read(cx).shared.borrow().owner.clone().unwrap();
+        let owner = view.read(cx).shared.borrow().owner.clone().test_unwrap();
         owner
             .update(cx, |owner, cx| owner.command(command, window, cx))
-            .unwrap();
+            .test_unwrap();
     });
     draw(cx);
 }
@@ -66,7 +68,7 @@ fn harness(cx: &mut TestAppContext) -> (Entity<ScreenView>, &mut VisualTestConte
         gpui_kit::component::Root::new(view, window, cx)
     });
     draw(cx);
-    (screens.unwrap(), cx)
+    (screens.test_unwrap(), cx)
 }
 
 fn active(view: &Entity<ScreenView>, cx: &VisualTestContext) -> Screen {

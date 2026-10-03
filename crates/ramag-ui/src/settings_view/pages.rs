@@ -12,7 +12,6 @@ impl SettingsPage {
     fn icon(self) -> Icon {
         match self {
             Self::System => crate::icons::settings(),
-            Self::Monitor => crate::icons::gauge(),
             Self::Database => crate::icons::database(),
             Self::VersionControl => crate::icons::git_branch(),
             Self::Ssh => crate::activity_bar::ActivityBar::icon_for_tool("ssh"),
@@ -95,7 +94,6 @@ impl SettingsView {
         let page = self.selected_page;
         let content = match page {
             SettingsPage::System => self.render_system_page(cx),
-            SettingsPage::Monitor => self.render_monitor_page(cx),
             SettingsPage::Database => self.render_database_page(cx),
             SettingsPage::VersionControl => managed_in_module_card("Git 配置", cx),
             SettingsPage::Ssh => self.render_ssh_page(cx),
@@ -108,6 +106,7 @@ impl SettingsView {
         v_flex()
             .size_full()
             .id("settings-page-scroll")
+            .debug_selector(|| "settings-page-scroll".into())
             .overflow_y_scroll()
             .track_scroll(&self.page_scroll)
             .vertical_scrollbar(&self.page_scroll)

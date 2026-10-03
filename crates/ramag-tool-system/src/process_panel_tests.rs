@@ -3,6 +3,8 @@ use super::{
     process_action_block_reason,
 };
 use crate::native_tests::{draw, native_key, process_harness};
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 use gpui_kit::{AppContext, Entity, Modifiers, TestAppContext, VisualTestContext, point, px};
 
 fn focus_table(processes: &Entity<MonitorPanel>, cx: &mut VisualTestContext) {
@@ -60,12 +62,12 @@ fn unverified_process_remains_selectable_but_cannot_open_action_confirmation(
             .position(|&index| {
                 processes.read(cx).shared.borrow().processes[index].identity == unknown
             })
-            .unwrap()
+            .test_unwrap()
     });
     assert_eq!(visible_index, 0);
     let row = cx
         .debug_bounds("process-row:0")
-        .expect("unverified process row remains rendered");
+        .test_unwrap_msg("unverified process row remains rendered");
     cx.simulate_click(row.center(), Modifiers::none());
     draw(cx);
     assert_eq!(
@@ -118,16 +120,16 @@ fn search_and_sort_controls_preserve_identity_and_navigate_visible_rows(cx: &mut
         cx.read(|cx| processes.read(cx).process_projection()),
         vec![1, 2, 0]
     );
-    let row = cx.debug_bounds("process-row:0").unwrap();
+    let row = cx.debug_bounds("process-row:0").test_unwrap();
     cx.simulate_mouse_move(row.center(), None, Modifiers::none());
     draw(cx);
     cx.simulate_click(row.origin + point(px(15.), px(10.)), Modifiers::none());
     draw(cx);
     let selected = cx
         .read(|cx| processes.read(cx).selected.clone())
-        .expect("pointer selects a row");
+        .test_unwrap_msg("pointer selects a row");
     assert_eq!(cx.read(|cx| processes.read(cx).selected_index()), Some(1));
-    let heading = cx.debug_bounds("process-sort:2").unwrap();
+    let heading = cx.debug_bounds("process-sort:2").test_unwrap();
     cx.simulate_click(heading.center(), Modifiers::none());
     draw(cx);
     assert_eq!(
@@ -138,7 +140,7 @@ fn search_and_sort_controls_preserve_identity_and_navigate_visible_rows(cx: &mut
         cx.read(|cx| processes.read(cx).selected.clone()),
         Some(selected.clone())
     );
-    let input = cx.read(|cx| processes.read(cx).process_state.input.clone().unwrap());
+    let input = cx.read(|cx| processes.read(cx).process_state.input.clone().test_unwrap());
     cx.update(|window, cx| {
         input.update(cx, |input, cx| {
             input.set_value("FIREFOX", window, cx);
@@ -188,12 +190,12 @@ fn confirmation_cancel_keeps_identity_and_fixture_execution_reports_error(cx: &m
             .process_state
             .confirmation
             .as_ref()
-            .unwrap()
+            .test_unwrap()
             .0
             .clone()),
         identity
     );
-    let cancel = cx.debug_bounds("process-action:cancel").unwrap();
+    let cancel = cx.debug_bounds("process-action:cancel").test_unwrap();
     cx.simulate_mouse_move(cancel.center(), None, Modifiers::none());
     draw(cx);
     cx.simulate_click(cancel.center(), Modifiers::none());
@@ -211,7 +213,7 @@ fn confirmation_cancel_keeps_identity_and_fixture_execution_reports_error(cx: &m
         })
     });
     draw(cx);
-    let confirm = cx.debug_bounds("process-action:confirm").unwrap();
+    let confirm = cx.debug_bounds("process-action:confirm").test_unwrap();
     cx.simulate_click(confirm.center(), Modifiers::none());
     draw(cx);
     cx.read(|cx| {
@@ -264,7 +266,7 @@ fn pending_action_rejects_duplicate_confirmation_and_selection_changes(cx: &mut 
                 this.shared.borrow().process_action.notice,
                 "Awaiting Windows authorization"
             );
-            let confirmation = this.process_state.confirmation.as_ref().unwrap();
+            let confirmation = this.process_state.confirmation.as_ref().test_unwrap();
             assert_eq!(confirmation.0, original);
             assert_eq!(confirmation.2, ProcessSignal::Kill);
         });

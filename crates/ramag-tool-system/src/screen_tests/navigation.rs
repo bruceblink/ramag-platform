@@ -1,4 +1,6 @@
 use super::*;
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 
 #[gpui_kit::test]
 fn summary_top_cpu_processes_follow_live_snapshots(cx: &mut TestAppContext) {
@@ -12,8 +14,12 @@ fn summary_top_cpu_processes_follow_live_snapshots(cx: &mut TestAppContext) {
         );
         assert_eq!(data.processes[0].cells[1], "compiler");
     });
-    let compiler = cx.debug_bounds("summary-process:401:40100:name").unwrap();
-    let idle = cx.debug_bounds("summary-process:402:40200:name").unwrap();
+    let compiler = cx
+        .debug_bounds("summary-process:401:40100:name")
+        .test_unwrap();
+    let idle = cx
+        .debug_bounds("summary-process:402:40200:name")
+        .test_unwrap();
     assert!(
         compiler.origin.y < idle.origin.y,
         "Summary sorts by CPU usage"
@@ -32,8 +38,12 @@ fn summary_top_cpu_processes_follow_live_snapshots(cx: &mut TestAppContext) {
         cx,
     );
     assert!(cx.debug_bounds("summary-process:401:40100:name").is_none());
-    let compiler = cx.debug_bounds("summary-process:401:40101:name").unwrap();
-    let idle = cx.debug_bounds("summary-process:402:40200:name").unwrap();
+    let compiler = cx
+        .debug_bounds("summary-process:401:40101:name")
+        .test_unwrap();
+    let idle = cx
+        .debug_bounds("summary-process:402:40200:name")
+        .test_unwrap();
     assert!(
         idle.origin.y < compiler.origin.y,
         "Latest CPU changes the visible order"
@@ -41,7 +51,7 @@ fn summary_top_cpu_processes_follow_live_snapshots(cx: &mut TestAppContext) {
     cx.read(|cx| {
         let data = view.read(cx).shared.borrow();
         assert_eq!(data.processes[0].cells[1], "replacement compiler");
-        assert_eq!(data.snapshot.as_ref().unwrap().sequence, 6);
+        assert_eq!(data.snapshot.as_ref().test_unwrap().sequence, 6);
     });
 }
 
@@ -118,7 +128,7 @@ fn reopening_processes_uses_background_snapshots_and_retained_history(cx: &mut T
         application = Some(app.clone());
         gpui_kit::component::Root::new(app, window, cx)
     });
-    let app = application.unwrap();
+    let app = application.test_unwrap();
     let screen = cx.read(|cx| app.read(cx).screens.clone());
     accept(&screen, fixture::snapshot(1), cx);
     command(
@@ -127,7 +137,7 @@ fn reopening_processes_uses_background_snapshots_and_retained_history(cx: &mut T
         cx,
     );
     let shared = cx.read(|cx| screen.read(cx).shared.clone());
-    let owner = shared.borrow().owner.clone().unwrap();
+    let owner = shared.borrow().owner.clone().test_unwrap();
     cx.update(|_, cx| app.update(cx, |app, cx| app.detach_window(cx)));
     for sequence in 2..=5 {
         let mut snapshot = fixture::snapshot(sequence);
@@ -137,7 +147,7 @@ fn reopening_processes_uses_background_snapshots_and_retained_history(cx: &mut T
                 .update(cx, |owner, cx| {
                     owner.accept_background_snapshot(snapshot, cx)
                 })
-                .unwrap()
+                .test_unwrap()
         });
         assert!(shared.borrow().processes.is_empty());
     }
@@ -145,18 +155,18 @@ fn reopening_processes_uses_background_snapshots_and_retained_history(cx: &mut T
         .borrow()
         .history
         .samples("cpu:host", "cpu:host/usage")
-        .unwrap()
+        .test_unwrap()
         .len();
     assert_eq!(history_len, 5);
     cx.update(|window, cx| app.update(cx, |app, cx| app.attach_window(window, cx)));
     draw(cx);
     let data = shared.borrow();
-    assert_eq!(data.snapshot.as_ref().unwrap().sequence, 5);
+    assert_eq!(data.snapshot.as_ref().test_unwrap().sequence, 5);
     assert_eq!(data.processes[0].cells[1], "background 5");
     assert_eq!(
         data.history
             .samples("cpu:host", "cpu:host/usage")
-            .unwrap()
+            .test_unwrap()
             .len(),
         history_len
     );
@@ -183,7 +193,7 @@ fn summary_graphs_fill_rows_when_the_window_resizes(cx: &mut TestAppContext) {
             "summary-history:thermals",
         ]
         .into_iter()
-        .map(|selector| cx.debug_bounds(selector).unwrap())
+        .map(|selector| cx.debug_bounds(selector).test_unwrap())
         .collect();
         for row in charts.chunks(columns) {
             assert!(
@@ -191,7 +201,7 @@ fn summary_graphs_fill_rows_when_the_window_resizes(cx: &mut TestAppContext) {
                 "Summary cards wrapped before the row was full at {width}px: {charts:?}"
             );
             assert_eq!(row[0].origin.x, charts[0].origin.x);
-            let right = row.last().unwrap().right();
+            let right = row.last().test_unwrap().right();
             assert!(
                 (right.as_f32() - (width - 25.)).abs() <= 1.,
                 "Summary row left unused space at {width}px: {charts:?}"
@@ -211,26 +221,26 @@ fn summary_graphs_fill_rows_when_the_window_resizes(cx: &mut TestAppContext) {
 fn detached_workspace_keeps_cpu_history_and_preferences(cx: &mut TestAppContext) {
     let (view, cx) = populated(cx);
     command(&view, crate::workspace::Command::Screen(Screen::Memory), cx);
-    let owner = cx.read(|cx| view.read(cx).shared.borrow().owner.clone().unwrap());
+    let owner = cx.read(|cx| view.read(cx).shared.borrow().owner.clone().test_unwrap());
     cx.update(|_, cx| {
         owner
             .update(cx, |owner, cx| owner.detach_window(cx))
-            .unwrap();
+            .test_unwrap();
         for sequence in 6..=130 {
             owner
                 .update(cx, |owner, cx| {
                     owner.accept_background_snapshot(fixture::snapshot(sequence), cx)
                 })
-                .unwrap();
+                .test_unwrap();
         }
     });
     cx.read(|cx| {
         let data = view.read(cx).shared.borrow();
-        assert_eq!(data.snapshot.as_ref().unwrap().sequence, 130);
+        assert_eq!(data.snapshot.as_ref().test_unwrap().sequence, 130);
         assert_eq!(
             data.history
                 .samples("cpu:host", "cpu:host/usage")
-                .unwrap()
+                .test_unwrap()
                 .len(),
             120
         );
@@ -239,16 +249,16 @@ fn detached_workspace_keeps_cpu_history_and_preferences(cx: &mut TestAppContext)
     cx.update(|window, cx| {
         owner
             .update(cx, |owner, cx| owner.attach_window(window, cx))
-            .unwrap()
+            .test_unwrap()
     });
     cx.read(|cx| {
         let data = view.read(cx).shared.borrow();
-        assert_eq!(data.snapshot.as_ref().unwrap().sequence, 130);
+        assert_eq!(data.snapshot.as_ref().test_unwrap().sequence, 130);
         assert_eq!(data.session.workspace.screens.active, Screen::Memory);
         assert_eq!(
             data.history
                 .samples("cpu:host", "cpu:host/usage")
-                .unwrap()
+                .test_unwrap()
                 .len(),
             120
         );
@@ -311,16 +321,19 @@ fn every_tab_is_clickable_and_preserves_the_legacy_layout(cx: &mut TestAppContex
         "screen-tab:energy",
         "screen-tab:thermals",
         "screen-tab:processes",
-        "screen-tab:settings",
     ]) {
         let bounds = cx
             .debug_bounds(selector)
-            .expect("tab is in production root");
+            .test_unwrap_msg("tab is in production root");
         cx.simulate_click(bounds.center(), Modifiers::default());
         draw(cx);
         assert_eq!(active(&view, cx), screen);
         cx.read(|cx| assert_eq!(view.read(cx).shared.borrow().session.workspace.dock, before));
     }
+    assert!(
+        cx.debug_bounds("screen-tab:settings").is_none(),
+        "the removed monitor Settings screen must not be navigable"
+    );
 }
 
 #[gpui_kit::test]
@@ -337,13 +350,13 @@ fn arrows_home_end_and_control_tab_switch_screens(cx: &mut TestAppContext) {
     assert_eq!(active(&view, cx), Screen::Cpu);
     native_key("end", cx);
     draw(cx);
-    assert_eq!(active(&view, cx), Screen::Settings);
+    assert_eq!(active(&view, cx), Screen::Processes);
     native_key("ctrl-tab", cx);
     draw(cx);
     assert_eq!(active(&view, cx), Screen::Summary);
     native_key("ctrl-shift-tab", cx);
     draw(cx);
-    assert_eq!(active(&view, cx), Screen::Settings);
+    assert_eq!(active(&view, cx), Screen::Processes);
     native_key("home", cx);
     draw(cx);
     assert_eq!(active(&view, cx), Screen::Summary);
@@ -360,13 +373,16 @@ fn keyboard_switching_works_immediately_after_application_creation(cx: &mut Test
 
 #[gpui_kit::test]
 fn keyboard_switching_survives_builtin_preset_from_settings(cx: &mut TestAppContext) {
-    let (view, cx) = harness(cx);
-    let settings = cx.debug_bounds("screen-tab:settings").unwrap();
-    cx.simulate_click(settings.center(), Modifiers::default());
+    let (application, cx) = crate::native_tests::application_harness(cx);
+    let view = cx.read(|cx| application.read(cx).screens.clone());
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.select(Screen::Settings, window, cx);
+        })
+    });
     draw(cx);
     assert_eq!(active(&view, cx), Screen::Settings);
-    let setting = cx.debug_bounds("settings-dark").unwrap();
-    cx.simulate_click(setting.center(), Modifiers::default());
+    assert!(cx.debug_bounds("open-ramag-settings").is_some());
     draw(cx);
     command(
         &view,
@@ -385,16 +401,16 @@ fn keyboard_switching_survives_builtin_preset_from_settings(cx: &mut TestAppCont
 fn keyboard_switching_survives_accepting_recovered_settings(cx: &mut TestAppContext) {
     let (view, cx) = harness(cx);
     cx.update(|window, cx| {
-        let owner = view.read(cx).shared.borrow().owner.clone().unwrap();
+        let owner = view.read(cx).shared.borrow().owner.clone().test_unwrap();
         owner
             .update(cx, |owner, cx| {
                 owner.restore("invalid saved workspace", window, cx)
             })
-            .unwrap();
+            .test_unwrap();
     });
     draw(cx);
     cx.read(|cx| assert!(view.read(cx).shared.borrow().session.rejected.is_some()));
-    let recovery = cx.debug_bounds("accept-screen-recovery").unwrap();
+    let recovery = cx.debug_bounds("accept-screen-recovery").test_unwrap();
     cx.simulate_click(recovery.center(), Modifiers::default());
     draw(cx);
     assert!(cx.debug_bounds("accept-screen-recovery").is_none());

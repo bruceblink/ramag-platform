@@ -76,6 +76,8 @@ impl WorkspaceView {
             live::catalog(&session.workspace)
         };
         live::discover(&mut session.workspace, &catalog);
+        session.workspace.interval_ms =
+            Self::effective_interval_ms(session.workspace.interval_ms, cx);
         let interval = Duration::from_millis(session.workspace.interval_ms);
         let service = if live {
             match SamplingService::start(interval) {
@@ -96,7 +98,6 @@ impl WorkspaceView {
         } else {
             None
         };
-        crate::settings::apply(session.workspace.appearance, window, cx);
         let shared = Rc::new(RefCell::new(Data {
             session,
             history: HistoryStore::new(120).unwrap_or_else(|error| {
@@ -138,6 +139,7 @@ impl WorkspaceView {
             fixture_mode,
             initial_layout_pending: live && !has_saved_workspace && !read_blocked,
             service,
+            monitor_settings_subscription: None,
             accepted_unix_ns: 0,
             accepted_model_timing: None,
             diagnostic_revision: 0,
@@ -152,6 +154,11 @@ impl WorkspaceView {
             confirm_layout_reset: false,
             cancel_layout_reset_focus: cx.focus_handle(),
         };
+        view.monitor_settings_subscription = Some(
+            cx.observe_global::<ramag_ui::MonitorSettingsGlobal>(|this, cx| {
+                this.sync_monitor_settings(cx);
+            }),
+        );
         #[cfg(test)]
         if fixture_mode {
             view.advance(cx);

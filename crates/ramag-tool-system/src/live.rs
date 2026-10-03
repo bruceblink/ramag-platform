@@ -22,6 +22,8 @@ pub(crate) fn presentations() -> Vec<Monitor> {
             summary: "count".into(),
             sensors: vec![],
         },
+        // Retain the legacy workspace panel for layout/preset compatibility.
+        // It is no longer a navigable monitor screen.
         Monitor {
             id: "settings".into(),
             title: "Settings".into(),

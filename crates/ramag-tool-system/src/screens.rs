@@ -8,7 +8,7 @@ use crate::{
 };
 use gpui_kit::base::{ElementExt, Scrollbar, ScrollbarMode, Tab, Tabs};
 use gpui_kit::component::{
-    Disableable, Sizable,
+    ActiveTheme, Disableable, Sizable,
     button::Button,
     menu::{DropdownMenu, PopupMenuItem},
 };
@@ -100,11 +100,6 @@ pub(crate) struct ScreenView {
 }
 
 impl ScreenView {
-    #[cfg(test)]
-    pub(crate) fn settings_panel(&self) -> Entity<crate::settings::SettingsPanel> {
-        self.settings.clone()
-    }
-
     fn new(shared: Shared, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let monitor = crate::live::presentations()
             .into_iter()
@@ -118,11 +113,19 @@ impl ScreenView {
         let processes = cx.new(|cx| MonitorPanel::new_standalone(monitor, shared.clone(), cx));
         let settings = cx.new(|cx| crate::settings::SettingsPanel::new(shared.clone(), cx));
         let active = shared.borrow().session.workspace.screens.active;
-        let focus: BTreeMap<_, _> = Screen::ALL
+        let mut focus: BTreeMap<_, _> = Screen::ALL
             .into_iter()
             .map(|screen| (screen, FocusEntry::new(cx)))
             .collect();
+        // Keep the removed Settings screen addressable for old tests and
+        // programmatic migration paths, while never exposing it in navigation.
+        focus.insert(Screen::Settings, FocusEntry::new(cx));
         focus[&active].handle.focus(window, cx);
+        let mut scrolls: BTreeMap<_, _> = Screen::ALL
+            .into_iter()
+            .map(|screen| (screen, ScrollHandle::default()))
+            .collect();
+        scrolls.insert(Screen::Settings, ScrollHandle::default());
         Self {
             shared,
             processes,
@@ -130,10 +133,7 @@ impl ScreenView {
             focus,
             rendered_screen: active,
             content_width: None,
-            scrolls: Screen::ALL
-                .into_iter()
-                .map(|screen| (screen, ScrollHandle::default()))
-                .collect(),
+            scrolls,
             tab_scroll: ScrollHandle::default(),
         }
     }
@@ -216,7 +216,7 @@ impl ScreenView {
                         "left" => screen.adjacent(false),
                         "right" => screen.adjacent(true),
                         "home" => Screen::Summary,
-                        "end" => Screen::Settings,
+                        "end" => Screen::Processes,
                         "enter" | "space" => screen,
                         _ => return,
                     };
@@ -342,7 +342,12 @@ impl Render for ScreenView {
             .unwrap_or_else(|| window.viewport_size().width.as_f32())
             - 32.)
             .max(320.);
-        let interval = data.session.workspace.interval_ms as f64 / 1000.;
+        let interval = match ramag_ui::monitor_settings(cx).refresh_rate {
+            ramag_ui::MonitorRefreshRate::HalfSecond => 0.5,
+            ramag_ui::MonitorRefreshRate::OneSecond => 1.0,
+            ramag_ui::MonitorRefreshRate::TwoSeconds => 2.0,
+            ramag_ui::MonitorRefreshRate::FiveSeconds => 5.0,
+        };
         let current = data
             .history
             .latest("cpu:host", "cpu:host/usage")
@@ -358,7 +363,7 @@ impl Render for ScreenView {
             "{status} · {} readable processes · {interval} s update",
             data.process_count()
         );
-        let ui_font = data.session.workspace.appearance.ui_font.family();
+        let ui_font = cx.theme().font_family.clone();
         let page = match active {
             Screen::Summary => crate::screen_summary::render(&data, width, cx),
             Screen::Processes => self.processes.clone().into_any_element(),

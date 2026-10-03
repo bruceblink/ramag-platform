@@ -123,10 +123,9 @@ pub(crate) enum Command {
     RecallPreset,
     Recover,
     Interval(u64),
-    Appearance(system_pulse_model::Appearance),
+    Preset(presets::PresetCommand),
     Screen(system_pulse_model::Screen),
     ScreenDevice(system_pulse_model::Screen, String),
-    Preset(presets::PresetCommand),
     Scroll(f32, f32),
 }
 
@@ -315,6 +314,7 @@ pub struct WorkspaceView {
     fixture_mode: bool,
     initial_layout_pending: bool,
     service: Option<SamplingService>,
+    monitor_settings_subscription: Option<Subscription>,
     accepted_unix_ns: u64,
     accepted_model_timing: Option<(u64, u64)>,
     diagnostic_revision: u64,
@@ -328,6 +328,34 @@ pub struct WorkspaceView {
     visibility_controls: BTreeMap<String, crate::controls::FocusEntry>,
     confirm_layout_reset: bool,
     cancel_layout_reset_focus: FocusHandle,
+}
+
+impl WorkspaceView {
+    /// Applies the application-wide cadence to the sampler and shared status.
+    /// Uninitialized preferences use their global default, never a workspace value.
+    pub(super) fn effective_interval_ms(_legacy_interval_ms: u64, cx: &App) -> u64 {
+        match ramag_ui::monitor_settings(cx).refresh_rate {
+            ramag_ui::MonitorRefreshRate::HalfSecond => 500,
+            ramag_ui::MonitorRefreshRate::OneSecond => 1_000,
+            ramag_ui::MonitorRefreshRate::TwoSeconds => 2_000,
+            ramag_ui::MonitorRefreshRate::FiveSeconds => 5_000,
+        }
+    }
+
+    /// Observes one settings update and refreshes stale thresholds and status text.
+    fn sync_monitor_settings(&mut self, cx: &mut Context<Self>) {
+        let interval_ms =
+            Self::effective_interval_ms(self.shared.borrow().session.workspace.interval_ms, cx);
+        if let Some(service) = &self.service
+            && let Err(error) = service.set_interval(Duration::from_millis(interval_ms))
+        {
+            self.notice = error;
+            cx.notify();
+            return;
+        }
+        self.shared.borrow_mut().session.workspace.interval_ms = interval_ms;
+        self.notify_panels(cx);
+    }
 }
 
 impl Command {

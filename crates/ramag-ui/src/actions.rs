@@ -25,3 +25,8 @@ pub struct OpenTool {
 pub struct OpenToolSettings {
     pub tool_id: String,
 }
+
+/// Opens Ramag's application-level System settings page from embedded tools.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize, JsonSchema, Action)]
+#[action(namespace = ramag)]
+pub struct OpenSystemSettings;

@@ -319,20 +319,22 @@ impl WorkspaceView {
                 self.preset_command(command, window, cx);
                 return;
             }
-            Command::Appearance(appearance) => {
-                self.shared.borrow_mut().session.workspace.appearance = appearance;
-                crate::settings::apply_user_choice(appearance, window, cx);
-            }
             Command::Interval(ms) => {
-                if let Some(service) = &self.service
-                    && let Err(error) = service.set_interval(Duration::from_millis(ms))
-                {
-                    self.notice = error;
-                    return;
-                }
-                if [500, 1000, 2000, 5000].contains(&ms) {
-                    self.shared.borrow_mut().session.workspace.interval_ms = ms;
-                }
+                let rate = match ms {
+                    500 => ramag_ui::MonitorRefreshRate::HalfSecond,
+                    1_000 => ramag_ui::MonitorRefreshRate::OneSecond,
+                    2_000 => ramag_ui::MonitorRefreshRate::TwoSeconds,
+                    5_000 => ramag_ui::MonitorRefreshRate::FiveSeconds,
+                    _ => {
+                        self.notice = format!("Unsupported sampling interval: {ms} ms");
+                        return;
+                    }
+                };
+                ramag_ui::save_monitor_settings(
+                    ramag_ui::MonitorSettings { refresh_rate: rate },
+                    cx,
+                );
+                self.shared.borrow_mut().session.workspace.interval_ms = ms;
             }
             Command::Save => {}
         }

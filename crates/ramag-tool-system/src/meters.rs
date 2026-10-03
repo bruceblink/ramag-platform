@@ -1,3 +1,5 @@
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 use gpui_kit::component::ActiveTheme;
 use gpui_kit::*;
 use system_pulse_model::{Meter, ReadingStatus, Sample};
@@ -287,7 +289,7 @@ mod absent_summary_tests {
                 unit: PhysicalUnit::Celsius,
             }],
         };
-        let mut history = HistoryStore::new(2).unwrap();
+        let mut history = HistoryStore::new(2).test_unwrap();
         history
             .push(
                 &monitor.id,
@@ -299,9 +301,9 @@ mod absent_summary_tests {
                     None,
                     PhysicalUnit::Celsius,
                 )
-                .unwrap(),
+                .test_unwrap(),
             )
-            .unwrap();
+            .test_unwrap();
         assert_eq!(summary(&monitor, &history), "Retained GPU · -5.0 °C");
         history.retain_keys(&std::collections::BTreeSet::new());
         let expected = "Retained GPU · Unavailable · °C · Sensor or device absent";
@@ -312,12 +314,12 @@ mod absent_summary_tests {
             .monitors
             .insert(monitor.id.clone(), monitor.clone());
         let restored: Workspace =
-            serde_json::from_str(&serde_json::to_string(&workspace).unwrap()).unwrap();
+            serde_json::from_str(&serde_json::to_string(&workspace).test_unwrap()).test_unwrap();
         assert!(restored.panels[&monitor.id].collapsed);
         assert_eq!(
             summary(
                 &restored.monitors[&monitor.id],
-                &HistoryStore::new(2).unwrap()
+                &HistoryStore::new(2).test_unwrap()
             ),
             expected
         );

@@ -1,6 +1,5 @@
 mod clipboard;
 mod database;
-mod monitor;
 mod monitor_presets;
 mod pages;
 mod ssh;
@@ -72,7 +71,6 @@ where
 enum SettingsPage {
     #[default]
     System,
-    Monitor,
     Database,
     VersionControl,
     Ssh,
@@ -83,9 +81,8 @@ enum SettingsPage {
 }
 
 impl SettingsPage {
-    const ALL: [Self; 9] = [
+    const ALL: [Self; 8] = [
         Self::System,
-        Self::Monitor,
         Self::Database,
         Self::VersionControl,
         Self::Ssh,
@@ -98,7 +95,6 @@ impl SettingsPage {
     fn id(self) -> &'static str {
         match self {
             Self::System => "system",
-            Self::Monitor => "monitor",
             Self::Database => "database",
             Self::VersionControl => "version-control",
             Self::Ssh => "ssh",
@@ -112,7 +108,6 @@ impl SettingsPage {
     fn title(self) -> &'static str {
         match self {
             Self::System => "系统设置",
-            Self::Monitor => "系统监控",
             Self::Database => "数据库客户端",
             Self::VersionControl => "版本管理",
             Self::Ssh => "SSH 管理",
@@ -126,7 +121,6 @@ impl SettingsPage {
     fn description(self) -> &'static str {
         match self {
             Self::System => "外观、滚动与窗口",
-            Self::Monitor => "采样与刷新",
             Self::Database => "连接与搜索",
             Self::VersionControl => "Git 行为",
             Self::Ssh => "SSH 与 SFTP",
@@ -440,8 +434,8 @@ impl Render for SettingsView {
             SettingsPage::System => &[
                 ("theme_mode", "主题"),
                 (crate::SYSTEM_SETTINGS_PREF_KEY, "系统设置"),
+                (crate::MONITOR_SETTINGS_PREF_KEY, "刷新频率"),
             ],
-            SettingsPage::Monitor => &[(crate::MONITOR_SETTINGS_PREF_KEY, "刷新频率")],
             _ => &[],
         };
         let content = v_flex()
@@ -478,7 +472,7 @@ impl SettingsView {
         cx: &mut Context<Self>,
     ) {
         let next = match tool_id {
-            "system" => SettingsPage::Monitor,
+            "system" => SettingsPage::System,
             "dbclient" | "redis" => SettingsPage::Database,
             "ssh" => SettingsPage::Ssh,
             "clipboard" => SettingsPage::Clipboard,

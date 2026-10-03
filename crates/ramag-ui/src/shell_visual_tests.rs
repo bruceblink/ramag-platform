@@ -119,18 +119,16 @@ fn pulse_shell_keeps_titles_actions_and_navigation_reachable(cx: &mut TestAppCon
             let header = bounds(visual, "workbench-shell-header");
             let brand = bounds(visual, "pulse-workbench-brand");
             let title = bounds(visual, "pulse-workbench-title");
-            let settings = bounds(visual, "shell-tool-settings");
             let theme = bounds(visual, "shell-theme-toggle");
             let content = bounds(visual, "workbench-shell-content");
-            for element in [brand, title, settings, theme] {
+            for element in [brand, title, theme] {
                 assert!(element.left() >= header.left() && element.right() <= header.right());
                 assert!(element.top() >= header.top() && element.bottom() <= header.bottom());
             }
             assert!(brand.right() <= title.left());
-            assert!(title.right() <= settings.left());
-            assert!(settings.right() <= theme.left());
+            assert!(title.right() <= theme.left());
+            assert!(visual.debug_bounds("shell-tool-settings").is_none());
             assert_eq!(theme.size, size(px(28.0), px(28.0)));
-            assert_eq!(settings.size, theme.size);
             assert!(content.top() >= header.bottom() && content.bottom() <= px(height));
             click(visual, "shell-theme-toggle");
             let changed = visual.update(|_, cx| crate::current_mode(cx));

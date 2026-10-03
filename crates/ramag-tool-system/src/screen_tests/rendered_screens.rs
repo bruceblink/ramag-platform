@@ -1,7 +1,9 @@
 use super::*;
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 
 #[gpui_kit::test]
-fn all_ten_screens_render_populated_collector_data(cx: &mut TestAppContext) {
+fn all_nine_navigable_screens_render_populated_collector_data(cx: &mut TestAppContext) {
     let (view, cx) = populated(cx);
     for (screen, selector) in [
         (Screen::Summary, "history:cpu:host/usage"),
@@ -13,12 +15,13 @@ fn all_ten_screens_render_populated_collector_data(cx: &mut TestAppContext) {
         (Screen::Energy, "history:cpu:host/power"),
         (Screen::Thermals, "history:cpu:host/temperature"),
         (Screen::Processes, "process-table"),
-        (Screen::Settings, "settings-dark"),
     ] {
         command(&view, crate::workspace::Command::Screen(screen), cx);
-        let bounds = cx
-            .debug_bounds(selector)
-            .unwrap_or_else(|| panic!("missing populated {screen:?} content: {selector}"));
+        let bounds = cx.debug_bounds(selector).unwrap_or_else(|| {
+            std::panic::resume_unwind(Box::new(format!(
+                "missing populated {screen:?} content: {selector}"
+            )))
+        });
         assert!(bounds.size.width > gpui_kit::px(0.) && bounds.size.height > gpui_kit::px(0.));
         assert_eq!(active(&view, cx), screen);
     }
@@ -27,17 +30,37 @@ fn all_ten_screens_render_populated_collector_data(cx: &mut TestAppContext) {
         assert_eq!(data.processes.len(), 2);
         assert_eq!(data.processes[0].identity.pid, 401);
         assert_eq!(crate::screen_data::cpu_cores(&data).len(), 4);
-        for monitor in &data.snapshot.as_ref().unwrap().monitors {
+        for monitor in &data.snapshot.as_ref().test_unwrap().monitors {
             assert!(
                 data.history
                     .latest(&monitor.id, &monitor.summary_sensor_id)
-                    .unwrap()
+                    .test_unwrap()
                     .chart_value()
                     .is_some(),
                 "missing current summary for {}",
                 monitor.id
             );
         }
+    });
+}
+
+#[gpui_kit::test]
+fn summary_metric_labels_follow_latest_cpu_and_memory_samples(cx: &mut TestAppContext) {
+    let (view, cx) = populated(cx);
+    command(
+        &view,
+        crate::workspace::Command::Screen(Screen::Summary),
+        cx,
+    );
+
+    cx.read(|cx| {
+        let data = view.read(cx).shared.borrow();
+        let cpu = crate::screen_data::find(&data, "cpu:host", "usage").test_unwrap();
+        let memory = crate::screen_data::find(&data, "memory:host", "used").test_unwrap();
+        assert_eq!(cpu.value(&data), "33.0 %");
+        assert_eq!(memory.value(&data), "12.0 / 32.0 GiB");
+        assert_ne!(cpu.value(&data), "0 %");
+        assert_ne!(memory.value(&data), "0 B");
     });
 }
 
@@ -50,8 +73,8 @@ fn energy_primary_and_sensor_grid_render_zero_values_and_capture_gaps(cx: &mut T
         cx,
     );
     command(&view, crate::workspace::Command::Screen(Screen::Energy), cx);
-    let primary = cx.debug_bounds("selected-channel-history").unwrap();
-    let grid = cx.debug_bounds("history:cpu:host/power").unwrap();
+    let primary = cx.debug_bounds("selected-channel-history").test_unwrap();
+    let grid = cx.debug_bounds("history:cpu:host/power").test_unwrap();
     assert_eq!(primary.size.height, gpui_kit::px(260.));
     assert_eq!(grid.size.height, gpui_kit::px(95.));
     assert!(grid.origin.y > primary.origin.y);
@@ -61,7 +84,7 @@ fn energy_primary_and_sensor_grid_render_zero_values_and_capture_gaps(cx: &mut T
     );
     cx.read(|cx| {
         let data = view.read(cx).shared.borrow();
-        let selected = crate::screen_data::selected_channel(&data, Screen::Energy).unwrap();
+        let selected = crate::screen_data::selected_channel(&data, Screen::Energy).test_unwrap();
         let rows = crate::screen_data::by_quantity(
             &data,
             system_pulse_model::Quantity::Power,
@@ -83,7 +106,7 @@ fn energy_primary_and_sensor_grid_render_zero_values_and_capture_gaps(cx: &mut T
         let zero = rows
             .iter()
             .find(|row| row.monitor == fixture::GPU_B)
-            .unwrap();
+            .test_unwrap();
         assert_eq!(zero.measured(&data), Some(0.));
         assert!(zero.value(&data).starts_with('0'));
         assert!(selected.value(&data).contains("43"));
@@ -125,8 +148,8 @@ fn selected_gpu_survives_reordering_restore_and_disconnect_without_switching(
             crate::screen_data::selected_device(&data, Screen::Gpu).as_deref(),
             Some(fixture::GPU_B)
         );
-        let json = data.session.autosave_json().unwrap();
-        let restored: system_pulse_model::Workspace = serde_json::from_str(&json).unwrap();
+        let json = data.session.autosave_json().test_unwrap();
+        let restored: system_pulse_model::Workspace = serde_json::from_str(&json).test_unwrap();
         assert_eq!(restored.screens.devices[&Screen::Gpu], fixture::GPU_B);
     });
     let mut disconnected = fixture::snapshot(7);
@@ -159,7 +182,7 @@ fn selected_gpu_survives_reordering_restore_and_disconnect_without_switching(
         assert!(
             data.history
                 .latest(fixture::GPU_A, &format!("{}/usage", fixture::GPU_A))
-                .unwrap()
+                .test_unwrap()
                 .chart_value()
                 .is_some()
         );
@@ -250,7 +273,7 @@ fn hidden_sensors_stay_hidden_after_new_snapshots_and_tab_switches(cx: &mut Test
         assert!(
             data.history
                 .latest("cpu:host", "cpu:host/power")
-                .unwrap()
+                .test_unwrap()
                 .chart_value()
                 .is_some(),
             "hiding presentation must preserve collection"
@@ -284,21 +307,21 @@ fn hiding_used_memory_preserves_other_memory_readings(cx: &mut TestAppContext) {
         "screen-stat:memory:host/cache",
         "screen-stat:memory:host/swap",
     ] {
-        let bounds = cx
-            .debug_bounds(selector)
-            .unwrap_or_else(|| panic!("hiding Used also hid {selector}"));
+        let bounds = cx.debug_bounds(selector).unwrap_or_else(|| {
+            std::panic::resume_unwind(Box::new(format!("hiding Used also hid {selector}")))
+        });
         assert!(bounds.size.width > gpui_kit::px(0.) && bounds.size.height > gpui_kit::px(0.));
     }
     cx.read(|cx| {
         let data = view.read(cx).shared.borrow();
-        let available = crate::screen_data::find(&data, "memory:host", "available").unwrap();
+        let available = crate::screen_data::find(&data, "memory:host", "available").test_unwrap();
         assert_eq!(available.measured(&data), Some(20. * 1024_f64.powi(3)));
-        let swap = crate::screen_data::find(&data, "memory:host", "swap").unwrap();
+        let swap = crate::screen_data::find(&data, "memory:host", "swap").test_unwrap();
         assert_eq!(swap.measured(&data), Some(0.));
         assert!(
             data.history
                 .latest("memory:host", "memory:host/used")
-                .unwrap()
+                .test_unwrap()
                 .chart_value()
                 .is_some()
         );
@@ -321,7 +344,7 @@ fn unavailable_selected_thermal_sensor_keeps_other_charts_and_hottest_reading(
     assert!(cx.debug_bounds("selected-channel-history").is_some());
     cx.read(|cx| {
         let data = view.read(cx).shared.borrow();
-        let selected = crate::screen_data::selected_channel(&data, Screen::Thermals).unwrap();
+        let selected = crate::screen_data::selected_channel(&data, Screen::Thermals).test_unwrap();
         assert_eq!(selected.measured(&data), Some(46.));
     });
 
@@ -336,7 +359,7 @@ fn unavailable_selected_thermal_sensor_keeps_other_charts_and_hottest_reading(
             cx.debug_bounds("history:gpu:pci:0000:01:00.0/temperature")
                 .is_some()
         );
-        let indicator = cx.debug_bounds("thermal-hottest").unwrap();
+        let indicator = cx.debug_bounds("thermal-hottest").test_unwrap();
         assert!(indicator.size.width > gpui_kit::px(0.));
         assert!(indicator.size.height > gpui_kit::px(0.));
         cx.read(|cx| {
@@ -351,7 +374,7 @@ fn unavailable_selected_thermal_sensor_keeps_other_charts_and_hottest_reading(
                 system_pulse_model::Quantity::Temperature,
                 system_pulse_model::PhysicalUnit::Celsius,
             );
-            let hottest = crate::screen_data::highest_current(&data, &temperatures).unwrap();
+            let hottest = crate::screen_data::highest_current(&data, &temperatures).test_unwrap();
             assert_eq!(hottest.sensor, "cpu:host/temperature");
             assert_eq!(hottest.measured(&data), Some(expected_hottest));
         });

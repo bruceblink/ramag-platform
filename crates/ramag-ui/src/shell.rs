@@ -368,13 +368,6 @@ impl Render for Shell {
             .on_click(|_, _, cx| crate::theme::toggle_theme(cx));
 
         let shell_label = self.page_title();
-        let settings_tool = self.selected.clone().filter(|id| {
-            matches!(
-                id.as_str(),
-                "dbclient" | "ssh" | "clipboard" | "vcs" | "object_storage"
-            )
-        });
-
         v_flex()
             .size_full()
             .bg(bg_color)
@@ -399,6 +392,20 @@ impl Render for Shell {
                     }
                 },
             ))
+            .on_action(
+                cx.listener(|this, _: &crate::actions::OpenSystemSettings, window, cx| {
+                    if let Some(view) = this
+                        .settings_view
+                        .clone()
+                        .and_then(|view| view.downcast::<crate::SettingsView>().ok())
+                    {
+                        view.update(cx, |settings, cx| {
+                            settings.open_tool_page("system", window, cx)
+                        });
+                        this.navigate_to(NavTarget::Settings, window, cx);
+                    }
+                }),
+            )
             .child(
                 h_flex()
                     .flex_1()
@@ -415,28 +422,6 @@ impl Render for Shell {
                                 crate::pulse_ui::pulse_workbench_header(shell_label, cx)
                                     .id("workbench-shell-header")
                                     .debug_selector(|| "workbench-shell-header".into())
-                                    .when_some(settings_tool, |header, tool_id| {
-                                        header.child(
-                                            crate::clickable_button("shell-tool-settings")
-                                                .debug_selector(|| "shell-tool-settings".into())
-                                                .ghost()
-                                                .size(px(28.0))
-                                                .p_0()
-                                                .flex_none()
-                                                .icon(crate::icons::settings())
-                                                .tooltip("当前工具设置")
-                                                .on_click(move |_, window, cx| {
-                                                    window.dispatch_action(
-                                                        Box::new(
-                                                            crate::actions::OpenToolSettings {
-                                                                tool_id: tool_id.clone(),
-                                                            },
-                                                        ),
-                                                        cx,
-                                                    )
-                                                }),
-                                        )
-                                    })
                                     .child(theme_toggle),
                             )
                             .child(

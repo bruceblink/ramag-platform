@@ -140,9 +140,11 @@ pub struct Workspace {
     pub panels: BTreeMap<String, PanelState>,
     #[serde(default)]
     pub monitors: BTreeMap<String, MonitorDescriptor>,
-    #[serde(default = "default_interval_ms")]
+    /// Legacy cadence is accepted when reading old layouts but never persisted.
+    #[serde(default = "default_interval_ms", skip_serializing)]
     pub interval_ms: u64,
-    #[serde(default)]
+    /// Legacy appearance is read for old files but never written or used as an application setting.
+    #[serde(default, skip_serializing)]
     pub appearance: crate::Appearance,
     #[serde(default)]
     pub screens: crate::ScreenState,
@@ -173,9 +175,6 @@ impl Workspace {
                 self.schema_version
             ));
         }
-        if ![500, 1000, 2000, 5000].contains(&self.interval_ms) {
-            return Err("Unsupported sampling interval".into());
-        }
         for (id, monitor) in &self.monitors {
             if id.trim().is_empty()
                 || id != &monitor.id
@@ -197,6 +196,22 @@ impl Workspace {
                 return Err(format!("Empty sensor identity in {id}"));
             }
         }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod compatibility_tests {
+    use super::Workspace;
+
+    #[test]
+    fn legacy_workspace_appearance_is_ignored_and_removed_on_save()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let legacy = r#"{"dock":{},"interval_ms":5000,"appearance":{"theme":"light","ui_font":"ibm_plex_sans","numeric_font":"ibm_plex_mono"}}"#;
+        let workspace: Workspace = serde_json::from_str(legacy)?;
+        let saved = serde_json::to_value(workspace)?;
+        assert!(saved.get("appearance").is_none());
+        assert!(saved.get("interval_ms").is_none());
         Ok(())
     }
 }

@@ -179,6 +179,7 @@ impl WorkspaceView {
 #[cfg(test)]
 mod tests {
     use super::load;
+    use crate::test_support::TestUnwrapExt;
     use system_pulse_model::{PresetLibrary, Workspace};
     #[test]
     fn legacy_import_and_bad_library_preserve_original_files() {
@@ -187,10 +188,10 @@ mod tests {
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .test_unwrap()
                 .as_nanos()
         ));
-        std::fs::create_dir(&dir).unwrap();
+        std::fs::create_dir(&dir).test_unwrap();
         struct Cleanup(std::path::PathBuf);
         impl Drop for Cleanup {
             fn drop(&mut self) {
@@ -199,36 +200,36 @@ mod tests {
         }
         let _cleanup = Cleanup(dir.clone());
         let workspace =
-            Workspace::new(serde_json::to_value(crate::workspace::default_dock()).unwrap());
-        let legacy = serde_json::to_string(&workspace).unwrap();
-        std::fs::write(dir.join("preset.json"), &legacy).unwrap();
+            Workspace::new(serde_json::to_value(crate::workspace::default_dock()).test_unwrap());
+        let legacy = serde_json::to_string(&workspace).test_unwrap();
+        std::fs::write(dir.join("preset.json"), &legacy).test_unwrap();
         let (imported, error) = load(Some(&dir), Some(&legacy), true);
         assert!(error.is_none());
         assert_eq!(
-            imported.get("Imported preset").unwrap().dock,
+            imported.get("Imported preset").test_unwrap().dock,
             workspace.dock
         );
         assert_eq!(
-            std::fs::read_to_string(dir.join("preset.json")).unwrap(),
+            std::fs::read_to_string(dir.join("preset.json")).test_unwrap(),
             legacy
         );
         assert!(!dir.join("presets.json").exists());
         let mut library = PresetLibrary::default();
-        library.create("New library", workspace).unwrap();
-        std::fs::write(dir.join("presets.json"), library.to_json().unwrap()).unwrap();
+        library.create("New library", workspace).test_unwrap();
+        std::fs::write(dir.join("presets.json"), library.to_json().test_unwrap()).test_unwrap();
         let (loaded, error) = load(Some(&dir), Some(&legacy), true);
         assert!(error.is_none());
         assert_eq!(loaded, library);
-        std::fs::write(dir.join("presets.json"), "{broken").unwrap();
+        std::fs::write(dir.join("presets.json"), "{broken").test_unwrap();
         let (loaded, error) = load(Some(&dir), Some(&legacy), true);
         assert!(error.is_some());
         assert!(loaded.presets.is_empty());
         assert_eq!(
-            std::fs::read_to_string(dir.join("presets.json")).unwrap(),
+            std::fs::read_to_string(dir.join("presets.json")).test_unwrap(),
             "{broken"
         );
         assert_eq!(
-            std::fs::read_to_string(dir.join("preset.json")).unwrap(),
+            std::fs::read_to_string(dir.join("preset.json")).test_unwrap(),
             legacy
         );
     }

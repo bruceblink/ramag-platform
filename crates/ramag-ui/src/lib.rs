@@ -94,8 +94,8 @@ pub use monitor_settings::{
     MONITOR_PRESENTATION_SETTINGS_PREF_KEY, MONITOR_SETTINGS_PREF_KEY, MonitorPresentationSettings,
     MonitorPresentationSettingsGlobal, MonitorRefreshRate, MonitorSettings, MonitorSettingsGlobal,
     init_monitor_presentation_settings, init_monitor_settings, monitor_presentation_settings,
-    monitor_settings, save_monitor_presentation_settings, save_monitor_settings,
-    set_monitor_presentation_settings, set_monitor_settings,
+    monitor_settings, monitor_settings_if_initialized, save_monitor_presentation_settings,
+    save_monitor_settings, set_monitor_presentation_settings, set_monitor_settings,
 };
 pub mod monitor_presets;
 pub use monitor_presets::{

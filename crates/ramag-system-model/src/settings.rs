@@ -1,4 +1,5 @@
-//! Curated, portable appearance choices. Unknown saved choices are rejected.
+//! Legacy workspace appearance types kept only to read old workspace files.
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -16,20 +17,6 @@ pub enum UiFont {
     Inter,
     IbmPlexSans,
 }
-impl UiFont {
-    pub fn family(self) -> &'static str {
-        match self {
-            Self::Inter => "Inter Variable",
-            Self::IbmPlexSans => "IBM Plex Sans",
-        }
-    }
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Inter => "Inter",
-            Self::IbmPlexSans => "IBM Plex Sans",
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -38,14 +25,6 @@ pub enum NumericFont {
     JetbrainsMono,
     IbmPlexMono,
 }
-impl NumericFont {
-    pub fn family(self) -> &'static str {
-        match self {
-            Self::JetbrainsMono => "JetBrains Mono",
-            Self::IbmPlexMono => "IBM Plex Mono",
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -53,34 +32,4 @@ pub struct Appearance {
     pub theme: ColorTheme,
     pub ui_font: UiFont,
     pub numeric_font: NumericFont,
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::Workspace;
-    #[test]
-    fn legacy_workspace_receives_complete_appearance_defaults()
-    -> Result<(), Box<dyn std::error::Error>> {
-        let workspace: Workspace = serde_json::from_str(r#"{"dock":{}}"#)?;
-        let value = serde_json::to_value(workspace)?;
-        assert_eq!(
-            value["appearance"],
-            serde_json::json!({"theme":"dark", "ui_font":"inter", "numeric_font":"jetbrains_mono"})
-        );
-        Ok(())
-    }
-    #[test]
-    fn appearance_roundtrips_and_unknown_choices_are_rejected()
-    -> Result<(), Box<dyn std::error::Error>> {
-        let raw = serde_json::json!({"dock":{}, "appearance":{"theme":"light", "ui_font":"ibm_plex_sans", "numeric_font":"ibm_plex_mono"}});
-        let workspace: Workspace = serde_json::from_value(raw.clone())?;
-        assert_eq!(
-            serde_json::to_value(workspace)?["appearance"].clone(),
-            raw["appearance"]
-        );
-        let mut invalid = raw;
-        invalid["appearance"]["ui_font"] = "unbundled-font".into();
-        assert!(serde_json::from_value::<Workspace>(invalid).is_err());
-        Ok(())
-    }
 }

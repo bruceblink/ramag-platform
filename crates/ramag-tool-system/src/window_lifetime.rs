@@ -15,11 +15,6 @@ impl WorkspaceView {
 
     pub(crate) fn attach_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.shared.borrow_mut().scroll = ScrollHandle::default();
-        crate::settings::apply(
-            self.shared.borrow().session.workspace.appearance,
-            window,
-            cx,
-        );
         self.dock = Self::create_dock(&self.shared, window, cx);
         self.attached_window = Some(window.window_handle());
         self.keyboard_repaint_pending = false;

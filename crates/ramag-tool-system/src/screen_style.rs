@@ -2,40 +2,11 @@ use gpui_kit::component::ActiveTheme;
 use gpui_kit::*;
 use system_pulse_model::Screen;
 
-#[derive(Clone, Copy)]
-pub(crate) struct Palette {
-    pub background: Hsla,
-    pub surface: Hsla,
-    pub raised: Hsla,
-    pub border: Hsla,
-    pub text: Hsla,
-    pub muted: Hsla,
-    pub selected: Hsla,
+pub(crate) fn palette(cx: &App) -> Palette {
+    ramag_ui::pulse_ui::pulse_palette(cx)
 }
 
-pub(crate) fn palette(cx: &App) -> Palette {
-    if cx.theme().is_dark() {
-        Palette {
-            background: rgb(0x242523).into(),
-            surface: rgb(0x1f201e).into(),
-            raised: rgb(0x2c2d2a).into(),
-            border: rgb(0x42443e).into(),
-            text: rgb(0xe2e4df).into(),
-            muted: rgb(0xa4a79e).into(),
-            selected: rgb(0x303b54).into(),
-        }
-    } else {
-        Palette {
-            background: rgb(0xf3f4f1).into(),
-            surface: rgb(0xffffff).into(),
-            raised: rgb(0xe6e9e1).into(),
-            border: rgb(0xcbd0c5).into(),
-            text: rgb(0x252923).into(),
-            muted: rgb(0x596252).into(),
-            selected: rgb(0xdce8f7).into(),
-        }
-    }
-}
+type Palette = ramag_ui::pulse_ui::PulsePalette;
 
 pub(crate) fn accent(screen: Screen, cx: &App) -> Hsla {
     let dark = cx.theme().is_dark();
@@ -80,12 +51,7 @@ pub(crate) fn accent(screen: Screen, cx: &App) -> Hsla {
 }
 
 pub(crate) fn heading(text: impl Into<SharedString>, size: f32, cx: &App) -> Div {
-    div()
-        .text_size(px(size * 0.86))
-        .font_family("Michroma")
-        .font_weight(FontWeight::MEDIUM)
-        .text_color(palette(cx).text)
-        .child(text.into())
+    ramag_ui::pulse_ui::pulse_display_heading(text, size, cx)
 }
 
 pub(crate) fn section(cx: &App) -> Div {

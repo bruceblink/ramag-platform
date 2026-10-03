@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use gpui_kit::component::{Theme, ThemeMode, highlighter::HighlightTheme};
-use gpui_kit::{App, Global, Hsla, hsla};
+use gpui_kit::{App, Global, Hsla, hsla, rgb};
 use ramag_domain::traits::Storage;
 
 /// 让 UI 层切主题时访问 Storage 做持久化
@@ -191,7 +191,8 @@ pub fn current_mode(cx: &App) -> Mode {
 
 /// JetBrains 风格深色工作区配色：中性深灰承载层次，蓝色只用于焦点、选中和动作。
 fn apply_dark_palette(theme: &mut Theme) {
-    let accent = hsl(209.0, 100.0, 65.0);
+    let pulse = crate::pulse_ui::pulse_palette_for_mode(Mode::Dark);
+    let accent = rgb(0x6aacf0).into();
     let accent_hover = hsl(209.0, 100.0, 72.0);
     let accent_active = hsl(209.0, 100.0, 55.0);
 
@@ -200,25 +201,25 @@ fn apply_dark_palette(theme: &mut Theme) {
     theme.primary = accent;
     theme.primary_hover = accent_hover;
     theme.primary_active = accent_active;
-    theme.primary_foreground = hsl(210.0, 7.0, 11.0);
+    theme.primary_foreground = pulse.background;
 
     theme.link = accent_hover;
     theme.link_hover = hsl(209.0, 100.0, 78.0);
     theme.link_active = accent_active;
 
-    theme.background = hsl(210.0, 7.0, 11.0); // #1B1D1F 附近的中性工作区底色
-    theme.secondary = hsl(220.0, 6.0, 14.0); // #202225 附近的面板底色
-    theme.sidebar = hsl(220.0, 6.0, 14.0);
-    theme.title_bar = hsl(220.0, 7.0, 9.0);
-    theme.title_bar_border = hsl(220.0, 6.0, 23.0);
+    theme.background = pulse.background;
+    theme.secondary = pulse.surface;
+    theme.sidebar = pulse.background;
+    theme.title_bar = pulse.background;
+    theme.title_bar_border = pulse.border;
 
-    theme.border = hsl(220.0, 6.0, 23.0);
-    theme.input = hsl(220.0, 6.0, 17.0);
+    theme.border = pulse.border;
+    theme.input = pulse.raised;
 
-    theme.foreground = hsl(220.0, 15.0, 86.0);
-    theme.muted = hsl(220.0, 6.0, 20.0);
-    theme.muted_foreground = hsl(220.0, 6.0, 60.0);
-    theme.secondary_foreground = hsl(220.0, 15.0, 86.0);
+    theme.foreground = pulse.text;
+    theme.muted = pulse.raised;
+    theme.muted_foreground = pulse.muted;
+    theme.secondary_foreground = pulse.text;
 
     theme.danger = hsl(355.0, 65.0, 68.0);
     theme.danger_hover = hsl(355.0, 65.0, 74.0);
@@ -240,16 +241,15 @@ fn apply_dark_palette(theme: &mut Theme) {
     theme.info_active = accent_active;
     theme.info_foreground = theme.background;
 
-    theme.selection = accent.opacity(0.35);
+    theme.selection = pulse.selected;
 
-    // 列表/菜单选中与悬停：暗色下用稍浓的淡化 accent（深底上要看得出），
-    // 配普通 foreground 文字仍可读；不要实色 accent 压住文字
-    theme.list_active = accent.opacity(0.24);
+    // Match System Tool's selected surface while keeping hover restrained.
+    theme.list_active = pulse.selected;
     theme.list_active_border = accent.opacity(0.45);
     theme.list_hover = accent.opacity(0.12);
 
-    theme.popover = hsl(220.0, 6.0, 16.0);
-    theme.popover_foreground = hsl(220.0, 15.0, 90.0);
+    theme.popover = pulse.raised;
+    theme.popover_foreground = pulse.text;
 
     // 补全前缀高亮：暗色下浅蓝可见于选中态深蓝 bg
     theme.blue = hsl(209.0, 90.0, 75.0);
@@ -258,7 +258,8 @@ fn apply_dark_palette(theme: &mut Theme) {
 
 /// VSCode Light+ 配色
 fn apply_light_palette(theme: &mut Theme) {
-    let accent = hsl(207.0, 100.0, 38.0);
+    let pulse = crate::pulse_ui::pulse_palette_for_mode(Mode::Light);
+    let accent = rgb(0x326ead).into();
     let accent_hover = hsl(207.0, 100.0, 32.0);
     let accent_active = hsl(207.0, 100.0, 28.0);
 
@@ -273,19 +274,19 @@ fn apply_light_palette(theme: &mut Theme) {
     theme.link_hover = accent_hover;
     theme.link_active = accent_active;
 
-    theme.background = hsl(0.0, 0.0, 100.0); // #FFFFFF
-    theme.secondary = hsl(0.0, 0.0, 96.0); // #F3F3F3
-    theme.sidebar = hsl(0.0, 0.0, 96.0);
-    theme.title_bar = hsl(0.0, 0.0, 92.0);
-    theme.title_bar_border = hsl(0.0, 0.0, 82.0);
+    theme.background = pulse.background;
+    theme.secondary = pulse.surface;
+    theme.sidebar = pulse.background;
+    theme.title_bar = pulse.background;
+    theme.title_bar_border = pulse.border;
 
-    theme.border = hsl(0.0, 0.0, 85.0);
-    theme.input = hsl(0.0, 0.0, 100.0);
+    theme.border = pulse.border;
+    theme.input = pulse.raised;
 
-    theme.foreground = hsl(0.0, 0.0, 12.0);
-    theme.muted = hsl(0.0, 0.0, 92.0);
-    theme.muted_foreground = hsl(0.0, 0.0, 38.0);
-    theme.secondary_foreground = hsl(0.0, 0.0, 12.0);
+    theme.foreground = pulse.text;
+    theme.muted = pulse.raised;
+    theme.muted_foreground = pulse.muted;
+    theme.secondary_foreground = pulse.text;
 
     theme.danger = hsl(0.0, 65.0, 48.0);
     theme.danger_hover = hsl(0.0, 65.0, 42.0);
@@ -307,15 +308,15 @@ fn apply_light_palette(theme: &mut Theme) {
     theme.info_active = accent_active;
     theme.info_foreground = hsl(0.0, 0.0, 100.0);
 
-    theme.selection = accent.opacity(0.20);
+    theme.selection = pulse.selected;
 
-    // 列表/菜单选中与悬停：亮色下用更淡的 accent（白底上淡蓝），保证暗字可读
-    theme.list_active = accent.opacity(0.14);
+    // Keep selected lists and menus on the same cool neutral surface as System Tool.
+    theme.list_active = pulse.selected;
     theme.list_active_border = accent.opacity(0.30);
     theme.list_hover = accent.opacity(0.07);
 
-    theme.popover = hsl(0.0, 0.0, 100.0);
-    theme.popover_foreground = hsl(0.0, 0.0, 12.0);
+    theme.popover = pulse.surface;
+    theme.popover_foreground = pulse.text;
 
     // 补全前缀高亮：浅色下 blue 须比 accent 更亮才能看清
     theme.blue = hsl(207.0, 100.0, 65.0);

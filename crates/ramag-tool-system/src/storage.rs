@@ -1,4 +1,6 @@
 use crate::diagnostics::timing::{Timing, bounded_error};
+#[cfg(test)]
+use crate::test_support::{TestUnwrapErrExt, TestUnwrapExt};
 use std::{
     collections::BTreeMap,
     fs,
@@ -204,20 +206,20 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("pulse-short-reader-{}", std::process::id()));
         let path = dir.join("latest.json");
         let storage = Storage::default();
-        storage.write_diagnostic(&path, 1, "old").unwrap();
+        storage.write_diagnostic(&path, 1, "old").test_unwrap();
         let reader = fs::OpenOptions::new()
             .read(true)
             .share_mode(1)
             .open(&path)
-            .unwrap();
+            .test_unwrap();
         let release = std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(40));
             drop(reader);
         });
         let result = storage.write_diagnostic(&path, 2, "new");
-        release.join().unwrap();
-        let actual = fs::read_to_string(&path).unwrap();
-        fs::remove_dir_all(dir).unwrap();
+        release.join().test_unwrap();
+        let actual = fs::read_to_string(&path).test_unwrap();
+        fs::remove_dir_all(dir).test_unwrap();
         assert!(result.is_ok(), "{result:?}");
         assert_eq!(actual, "new");
     }
@@ -229,21 +231,21 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("pulse-held-reader-{}", std::process::id()));
         let path = dir.join("latest.json");
         let storage = Storage::default();
-        storage.write_diagnostic(&path, 1, "old").unwrap();
+        storage.write_diagnostic(&path, 1, "old").test_unwrap();
         let reader = fs::OpenOptions::new()
             .read(true)
             .share_mode(1)
             .open(&path)
-            .unwrap();
+            .test_unwrap();
         let started = std::time::Instant::now();
         assert!(storage.write_diagnostic(&path, 2, "new").is_err());
         assert!(started.elapsed() < std::time::Duration::from_secs(2));
-        assert_eq!(fs::read_to_string(&path).unwrap(), "old");
-        assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
+        assert_eq!(fs::read_to_string(&path).test_unwrap(), "old");
+        assert_eq!(fs::read_dir(&dir).test_unwrap().count(), 1);
         drop(reader);
-        storage.write_diagnostic(&path, 2, "new").unwrap();
-        assert_eq!(fs::read_to_string(&path).unwrap(), "new");
-        fs::remove_dir_all(dir).unwrap();
+        storage.write_diagnostic(&path, 2, "new").test_unwrap();
+        assert_eq!(fs::read_to_string(&path).test_unwrap(), "new");
+        fs::remove_dir_all(dir).test_unwrap();
     }
 
     #[test]
@@ -255,14 +257,14 @@ mod tests {
             let path = dir.join(name);
             let data = serde_json::json!({"target": name, "revision": 1}).to_string();
             if name == "latest.json" {
-                storage.write_diagnostic(&path, 1, &data).unwrap();
+                storage.write_diagnostic(&path, 1, &data).test_unwrap();
             } else {
-                storage.write(&path, 1, &data).unwrap();
+                storage.write(&path, 1, &data).test_unwrap();
             }
-            assert_eq!(fs::read_to_string(&path).unwrap(), data);
+            assert_eq!(fs::read_to_string(&path).test_unwrap(), data);
         }
-        assert_eq!(fs::read_dir(&dir).unwrap().count(), 3);
-        fs::remove_dir_all(dir).unwrap();
+        assert_eq!(fs::read_dir(&dir).test_unwrap().count(), 3);
+        fs::remove_dir_all(dir).test_unwrap();
     }
 
     #[test]
@@ -275,15 +277,19 @@ mod tests {
         let latest = serde_json::json!({"render_revision": 3, "payload": "complete"});
         storage
             .write_diagnostic(&path, 1, &previous.to_string())
-            .unwrap();
+            .test_unwrap();
         storage
             .write_diagnostic(&path, 3, &latest.to_string())
-            .unwrap();
-        storage.clone().write_diagnostic(&path, 2, "stale").unwrap();
-        let actual: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            .test_unwrap();
+        storage
+            .clone()
+            .write_diagnostic(&path, 2, "stale")
+            .test_unwrap();
+        let actual: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).test_unwrap()).test_unwrap();
         assert_eq!(actual, latest);
-        assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
-        fs::remove_dir_all(dir).unwrap();
+        assert_eq!(fs::read_dir(&dir).test_unwrap().count(), 1);
+        fs::remove_dir_all(dir).test_unwrap();
     }
 
     #[test]
@@ -291,21 +297,23 @@ mod tests {
         let dir =
             std::env::temp_dir().join(format!("pulse-diagnostic-replace-{}", std::process::id()));
         let target = dir.join("latest.json");
-        fs::create_dir_all(&target).unwrap();
-        fs::write(target.join("original"), "preserve").unwrap();
+        fs::create_dir_all(&target).test_unwrap();
+        fs::write(target.join("original"), "preserve").test_unwrap();
         let storage = Storage::default();
-        let error = storage.write_diagnostic(&target, 3, "new").unwrap_err();
+        let error = storage
+            .write_diagnostic(&target, 3, "new")
+            .test_unwrap_err();
         assert!(error.contains("Save") && error.contains("latest.json"));
         assert_eq!(
-            fs::read_to_string(target.join("original")).unwrap(),
+            fs::read_to_string(target.join("original")).test_unwrap(),
             "preserve"
         );
-        assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
-        fs::remove_dir_all(&target).unwrap();
+        assert_eq!(fs::read_dir(&dir).test_unwrap().count(), 1);
+        fs::remove_dir_all(&target).test_unwrap();
         let data = r#"{"render_revision":2}"#;
-        storage.write_diagnostic(&target, 2, data).unwrap();
-        assert_eq!(fs::read_to_string(&target).unwrap(), data);
-        fs::remove_dir_all(dir).unwrap();
+        storage.write_diagnostic(&target, 2, data).test_unwrap();
+        assert_eq!(fs::read_to_string(&target).test_unwrap(), data);
+        fs::remove_dir_all(dir).test_unwrap();
     }
 
     #[test]
@@ -313,49 +321,49 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("system-pulse-storage-{}", std::process::id()));
         let path = dir.join("state.json");
         let storage = Storage::default();
-        storage.write(&path, 2, "new").unwrap();
-        storage.write(&path, 1, "old").unwrap();
-        assert_eq!(read(&path).unwrap().as_deref(), Some("new"));
-        fs::remove_file(path).unwrap();
-        fs::remove_dir(dir).unwrap();
+        storage.write(&path, 2, "new").test_unwrap();
+        storage.write(&path, 1, "old").test_unwrap();
+        assert_eq!(read(&path).test_unwrap().as_deref(), Some("new"));
+        fs::remove_file(path).test_unwrap();
+        fs::remove_dir(dir).test_unwrap();
     }
     #[test]
     fn reads_are_bounded_and_invalid_bytes_remain_untouched() {
         let dir = std::env::temp_dir().join(format!("system-pulse-read-{}", std::process::id()));
-        fs::create_dir_all(&dir).unwrap();
+        fs::create_dir_all(&dir).test_unwrap();
         let path = dir.join("state.json");
         let bytes = vec![b'x'; MAX_CONFIGURATION_BYTES + 1];
-        fs::write(&path, &bytes).unwrap();
-        assert!(read(&path).unwrap_err().contains("16 MiB"));
-        assert_eq!(fs::read(&path).unwrap(), bytes);
-        fs::write(&path, [255]).unwrap();
-        assert!(read(&path).unwrap_err().contains("UTF-8"));
-        assert_eq!(fs::read(&path).unwrap(), [255]);
+        fs::write(&path, &bytes).test_unwrap();
+        assert!(read(&path).test_unwrap_err().contains("16 MiB"));
+        assert_eq!(fs::read(&path).test_unwrap(), bytes);
+        fs::write(&path, [255]).test_unwrap();
+        assert!(read(&path).test_unwrap_err().contains("UTF-8"));
+        assert_eq!(fs::read(&path).test_unwrap(), [255]);
         assert!(read(&dir).is_err());
-        fs::remove_file(path).unwrap();
-        fs::remove_dir(dir).unwrap();
+        fs::remove_file(path).test_unwrap();
+        fs::remove_dir(dir).test_unwrap();
     }
 
     #[test]
     fn failed_atomic_replace_does_not_modify_original_target() {
         let dir = std::env::temp_dir().join(format!("system-pulse-write-{}", std::process::id()));
-        fs::create_dir_all(&dir).unwrap();
+        fs::create_dir_all(&dir).test_unwrap();
         let target = dir.join("state.json");
-        fs::create_dir(&target).unwrap();
-        fs::write(target.join("original"), "preserve").unwrap();
+        fs::create_dir(&target).test_unwrap();
+        fs::write(target.join("original"), "preserve").test_unwrap();
         assert!(Storage::default().write(&target, 1, "new").is_err());
         assert_eq!(
-            fs::read_to_string(target.join("original")).unwrap(),
+            fs::read_to_string(target.join("original")).test_unwrap(),
             "preserve"
         );
         assert_eq!(
-            fs::read_dir(&dir).unwrap().count(),
+            fs::read_dir(&dir).test_unwrap().count(),
             1,
             "failed temporary write must be cleaned up"
         );
-        fs::remove_file(target.join("original")).unwrap();
-        fs::remove_dir(target).unwrap();
-        fs::remove_dir(dir).unwrap();
+        fs::remove_file(target.join("original")).test_unwrap();
+        fs::remove_dir(target).test_unwrap();
+        fs::remove_dir(dir).test_unwrap();
     }
     fn retained_workspace() -> system_pulse_model::Workspace {
         use system_pulse_model::{
@@ -392,8 +400,8 @@ mod tests {
             children.push(serde_json::json!({"panel_name":"TabPanel", "info":{"tabs":{"active_index":0}}, "children":[{"panel_name":"SystemPulseMonitor","info":{"panel":{"monitor_id":id}},"children":[]}]}));
         }
         workspace.dock = serde_json::json!({"version":1,"center":{"panel_name":"StackPanel","info":{"stack":{"axis":1,"sizes":vec![280.; children.len()]}},"children":children}});
-        workspace.validate().unwrap();
-        crate::workspace::validate_dock(&workspace.dock).unwrap();
+        workspace.validate().test_unwrap();
+        crate::workspace::validate_dock(&workspace.dock).test_unwrap();
         workspace
     }
 
@@ -404,7 +412,7 @@ mod tests {
             workspace: workspace.clone(),
             rejected: None,
         };
-        let raw = session.autosave_json().unwrap();
+        let raw = session.autosave_json().test_unwrap();
         assert!(
             raw.len() > 1_048_576,
             "regression must exceed the original read bound"
@@ -413,8 +421,8 @@ mod tests {
         let storage = Storage::default();
         for name in ["workspace.json", "preset.json"] {
             let path = dir.join(name);
-            storage.write(&path, 1, &raw).unwrap();
-            let loaded = read(&path).unwrap().unwrap();
+            storage.write(&path, 1, &raw).test_unwrap();
+            let loaded = read(&path).test_unwrap().test_unwrap();
             assert_eq!(loaded, raw);
             let restored = system_pulse_model::Session::restore(
                 &loaded,
@@ -423,9 +431,9 @@ mod tests {
             );
             assert!(restored.rejected.is_none());
             assert_eq!(restored.workspace, workspace);
-            fs::remove_file(path).unwrap();
+            fs::remove_file(path).test_unwrap();
         }
-        fs::remove_dir(dir).unwrap();
+        fs::remove_dir(dir).test_unwrap();
     }
 
     #[test]
@@ -433,32 +441,35 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("pulse-save-bound-{}", std::process::id()));
         let storage = Storage::default();
         let mut workspace = retained_workspace();
-        let previous = serde_json::to_string(&workspace).unwrap();
-        workspace.monitors.values_mut().next().unwrap().title =
+        let previous = serde_json::to_string(&workspace).test_unwrap();
+        workspace.monitors.values_mut().next().test_unwrap().title =
             "x".repeat(MAX_CONFIGURATION_BYTES + 1);
-        let oversized = serde_json::to_string(&workspace).unwrap();
+        let oversized = serde_json::to_string(&workspace).test_unwrap();
         for name in ["workspace.json", "preset.json"] {
             let path = dir.join(name);
-            storage.write(&path, 1, &previous).unwrap();
+            storage.write(&path, 1, &previous).test_unwrap();
             let result = storage.write(&path, 3, &oversized);
             assert!(
                 result.is_err(),
                 "over-limit save must be rejected before replacing {name}"
             );
-            let error = result.unwrap_err();
+            let error = result.test_unwrap_err();
             assert!(
                 error.contains("16 MiB") && error.contains(name),
                 "save error must identify the limit and target"
             );
-            assert_eq!(read(&path).unwrap().as_deref(), Some(previous.as_str()));
             assert_eq!(
-                fs::read_dir(&dir).unwrap().count(),
+                read(&path).test_unwrap().as_deref(),
+                Some(previous.as_str())
+            );
+            assert_eq!(
+                fs::read_dir(&dir).test_unwrap().count(),
                 1,
                 "rejected save must not leave a temporary file"
             );
-            storage.write(&path, 2, &previous).unwrap();
-            fs::remove_file(path).unwrap();
+            storage.write(&path, 2, &previous).test_unwrap();
+            fs::remove_file(path).test_unwrap();
         }
-        fs::remove_dir(dir).unwrap();
+        fs::remove_dir(dir).test_unwrap();
     }
 }

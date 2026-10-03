@@ -18,6 +18,8 @@ impl Render for SettingsPanelHost {
                 crate::system_settings(cx),
                 current_mode(cx),
                 cx.theme(),
+                crate::MonitorSettings::default(),
+                None,
             ))
     }
 }

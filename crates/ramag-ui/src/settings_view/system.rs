@@ -4,8 +4,8 @@ use gpui_kit::component::{
     ActiveTheme, Sizable as _, Theme, button::ButtonVariants as _, h_flex, v_flex,
 };
 use gpui_kit::{
-    AnyElement, App, ClickEvent, Context, IntoElement, ParentElement, SharedString, Styled, Window,
-    div, prelude::*,
+    AnyElement, App, ClickEvent, Context, Entity, IntoElement, ParentElement, SharedString, Styled,
+    Window, div, prelude::*,
 };
 
 use super::{SettingsView, pages::pulse_settings_card};
@@ -16,7 +16,13 @@ use crate::{
 
 impl SettingsView {
     pub(super) fn render_system_page(&self, cx: &mut Context<Self>) -> AnyElement {
-        system_settings_panel(crate::system_settings(cx), current_mode(cx), cx.theme())
+        system_settings_panel(
+            crate::system_settings(cx),
+            current_mode(cx),
+            cx.theme(),
+            crate::monitor_settings(cx),
+            Some(self.monitor_preset_manager.clone()),
+        )
     }
 }
 
@@ -29,6 +35,8 @@ pub(super) fn system_settings_panel(
     settings: SystemSettings,
     mode: Mode,
     theme: &Theme,
+    monitor_settings: crate::MonitorSettings,
+    monitor_presets: Option<Entity<super::monitor_presets::MonitorPresetManager>>,
 ) -> AnyElement {
     let themes = [(Mode::Light, "浅色"), (Mode::Dark, "深色")]
         .into_iter()
@@ -198,12 +206,72 @@ pub(super) fn system_settings_panel(
             ],
             theme,
         ));
+    let interval_seconds = match monitor_settings.refresh_rate {
+        crate::MonitorRefreshRate::HalfSecond => "0.5",
+        crate::MonitorRefreshRate::OneSecond => "1.0",
+        crate::MonitorRefreshRate::TwoSeconds => "2.0",
+        crate::MonitorRefreshRate::FiveSeconds => "5.0",
+    };
+    let sampling = pulse_settings_card("Sampling", theme)
+        .child(
+            h_flex()
+                .items_baseline()
+                .gap_2()
+                .child(
+                    div()
+                        .font_family(theme.mono_font_family.clone())
+                        .text_size(gpui_kit::px(36.0))
+                        .text_color(theme.accent)
+                        .child(interval_seconds),
+                )
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(theme.muted_foreground)
+                        .child("seconds between readings"),
+                ),
+        )
+        .child(setting_row(
+            "settings-monitor-rate-row",
+            "Refresh interval",
+            "Shorter intervals update more often and use more CPU.",
+            crate::MonitorRefreshRate::ALL
+                .into_iter()
+                .enumerate()
+                .map(|(index, rate)| {
+                    choice_button(
+                        format!("settings-monitor-rate-{index}"),
+                        rate.label(),
+                        monitor_settings.refresh_rate == rate,
+                        move |_, _, cx| {
+                            crate::save_monitor_settings(
+                                crate::MonitorSettings { refresh_rate: rate },
+                                cx,
+                            );
+                        },
+                    )
+                })
+                .collect(),
+            theme,
+        ))
+        .child(
+            div()
+                .mt_auto()
+                .pt_3()
+                .border_t_1()
+                .border_color(theme.border)
+                .text_sm()
+                .text_color(theme.muted_foreground)
+                .child("Changes apply immediately and save automatically."),
+        )
+        .when_some(monitor_presets, |view, presets| view.child(presets));
     h_flex()
         .w_full()
         .min_w_0()
         .flex_wrap()
         .items_stretch()
         .gap_3()
+        .child(sampling)
         .child(appearance_card)
         .child(window_card)
         .into_any_element()

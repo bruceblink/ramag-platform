@@ -1,4 +1,6 @@
 use super::*;
+#[cfg(test)]
+use crate::test_support::TestUnwrapExt;
 
 #[gpui_kit::test]
 fn process_table_fills_resized_windows_and_keeps_columns_aligned(cx: &mut TestAppContext) {
@@ -13,8 +15,8 @@ fn process_table_fills_resized_windows_and_keeps_columns_aligned(cx: &mut TestAp
     for width in [1280., 1800., 2560., 960., 1280.] {
         cx.simulate_resize(size(px(width), px(1000.)));
         draw(cx);
-        let viewport = cx.debug_bounds("process-table").unwrap();
-        let last = cx.debug_bounds("process-sort:7").unwrap();
+        let viewport = cx.debug_bounds("process-table").test_unwrap();
+        let last = cx.debug_bounds("process-sort:7").test_unwrap();
         if width >= 1280. {
             assert!(
                 (last.right() + px(8.) - (viewport.right() - px(1.))).abs() <= px(1.),
@@ -39,8 +41,8 @@ fn process_table_fills_resized_windows_and_keeps_columns_aligned(cx: &mut TestAp
                 assert!(cx.debug_bounds(cell).is_none());
                 continue;
             }
-            let heading = cx.debug_bounds(heading).unwrap();
-            let cell = cx.debug_bounds(cell).unwrap();
+            let heading = cx.debug_bounds(heading).test_unwrap();
+            let cell = cx.debug_bounds(cell).test_unwrap();
             assert!(
                 (heading.left() - cell.left()).abs() <= px(1.),
                 "left edge at {width}, column {column}"
@@ -50,7 +52,7 @@ fn process_table_fills_resized_windows_and_keeps_columns_aligned(cx: &mut TestAp
                 "right edge at {width}, column {column}"
             );
         }
-        name_widths.push(cx.debug_bounds("process-sort:1").unwrap().size.width);
+        name_widths.push(cx.debug_bounds("process-sort:1").test_unwrap().size.width);
     }
     assert!(name_widths[1] > name_widths[0]);
     assert!(name_widths[2] > name_widths[1]);
@@ -69,7 +71,7 @@ fn process_search_stays_compact_when_the_window_grows(cx: &mut TestAppContext) {
     for width in [1280., 1800., 2560., 960., 1280.] {
         cx.simulate_resize(size(px(width), px(640.)));
         draw(cx);
-        let search = cx.debug_bounds("process-search").unwrap();
+        let search = cx.debug_bounds("process-search").test_unwrap();
         assert_eq!(search.size.width, px(280.), "search width at {width}");
         assert!(search.left() >= px(0.) && search.right() <= px(width));
     }

@@ -4,7 +4,8 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use gpui_kit::component::Root;
 use gpui_kit::{
-    AppContext as _, Bounds, Modifiers, Pixels, TestAppContext, VisualTestContext, px, size,
+    AppContext as _, Bounds, Modifiers, Pixels, ScrollDelta, ScrollWheelEvent, TestAppContext,
+    TouchPhase, VisualTestContext, point, px, size,
 };
 use ramag_app::{ConnectionService, SshService, StaticPluginHost, ToolRegistry};
 use ramag_domain::traits::Storage;
@@ -124,7 +125,7 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
             crate::MONITOR_SETTINGS_PREF_KEY,
             "settings-save-status-monitor_settings",
             "settings-save-retry-monitor_settings",
-            "settings-page-monitor",
+            "settings-page-system",
             r#"{"refresh_rate":"five_seconds"}"#,
         ),
     ];
@@ -132,15 +133,42 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
     for (tool, control, key, status, retry, nav_page, expected) in cases {
         open_page(&view, visual, tool);
         click(visual, nav_page);
+        visual.simulate_resize(size(px(1440.0), px(900.0)));
+        visual.run_until_parked();
+        if control.starts_with("settings-monitor") {
+            // Sampling now lives in the shared System page below Appearance;
+            // use a wide acceptance viewport before exercising its real hit target.
+            assert!(bounds(visual, control).size.width > px(0.0));
+        }
         let before = stored(visual, storage.as_ref(), key);
         test_storage.fail_next_preference_write();
+        if control.starts_with("settings-monitor") {
+            let viewport = bounds(visual, "settings-page-scroll");
+            visual.simulate_event(ScrollWheelEvent {
+                position: viewport.center(),
+                delta: ScrollDelta::Pixels(point(px(0.0), px(720.0))),
+                modifiers: Modifiers::default(),
+                touch_phase: TouchPhase::Moved,
+            });
+            visual.run_until_parked();
+        }
         click(visual, control);
 
         visual.update(|_, app| {
-            assert!(matches!(
-                crate::preferences::preference_save_status(key, app),
-                Some(crate::preferences::PreferenceSaveStatus::Failed(_))
-            ));
+            if key == crate::MONITOR_SETTINGS_PREF_KEY {
+                assert_eq!(
+                    crate::monitor_settings(app).refresh_rate,
+                    crate::MonitorRefreshRate::FiveSeconds,
+                    "sampling control did not apply its selected rate"
+                );
+            }
+            assert!(
+                matches!(
+                    crate::preferences::preference_save_status(key, app),
+                    Some(crate::preferences::PreferenceSaveStatus::Failed(_))
+                ),
+                "expected a failed save status for {key}"
+            );
         });
         assert_eq!(stored(visual, storage.as_ref(), key), before);
 

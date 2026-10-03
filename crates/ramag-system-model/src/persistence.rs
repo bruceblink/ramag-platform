@@ -80,3 +80,25 @@ impl Session {
         self.rejected = None;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Session;
+    use crate::Workspace;
+
+    #[test]
+    fn autosave_keeps_global_sampling_and_appearance_out_of_workspace() -> Result<(), String> {
+        let mut workspace = Workspace::new(serde_json::json!({}));
+        workspace.interval_ms = 5_000;
+        workspace.appearance.theme = crate::ColorTheme::Light;
+        let session = Session {
+            workspace,
+            rejected: None,
+        };
+
+        let saved = session.autosave_json()?;
+        assert!(!saved.contains("interval_ms"));
+        assert!(!saved.contains("appearance"));
+        Ok(())
+    }
+}

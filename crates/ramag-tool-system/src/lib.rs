@@ -25,6 +25,8 @@ mod screen_tests;
 pub mod screens;
 mod settings;
 mod storage;
+#[cfg(test)]
+mod test_support;
 pub mod workspace;
 
 pub use screens::ApplicationView as SystemView;
