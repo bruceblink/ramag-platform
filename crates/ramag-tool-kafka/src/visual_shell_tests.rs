@@ -11,6 +11,7 @@ pub(super) fn assert_compact_shell(
         visual_cx.debug_bounds("kafka-sidebar"),
         visual_cx.debug_bounds("kafka-main"),
         visual_cx.debug_bounds("kafka-header"),
+        visual_cx.debug_bounds("kafka-page-title"),
         visual_cx.debug_bounds("kafka-header-actions"),
         visual_cx.debug_bounds("kafka-workspace-tabs"),
         visual_cx.debug_bounds("kafka-config-actions"),
@@ -24,6 +25,7 @@ pub(super) fn assert_compact_shell(
         Some(compact_sidebar),
         Some(compact_main),
         Some(compact_header),
+        Some(compact_page_title),
         Some(compact_header_actions),
         Some(compact_tabs),
         Some(compact_config_actions),
@@ -37,6 +39,11 @@ pub(super) fn assert_compact_shell(
     assert!(compact_main.size.width <= px(680.0));
     assert!(compact_sidebar.origin.y + compact_sidebar.size.height <= compact_main.origin.y);
     assert!(compact_header_actions.origin.x >= compact_header.origin.x);
+    assert!(
+        compact_page_title.origin.x >= compact_header.origin.x
+            && compact_page_title.right() <= compact_header.right()
+            && compact_page_title.bottom() <= compact_header.bottom()
+    );
     assert!(
         compact_header_actions.origin.x + compact_header_actions.size.width
             <= compact_header.origin.x + compact_header.size.width

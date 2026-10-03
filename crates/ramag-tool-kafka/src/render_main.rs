@@ -15,13 +15,13 @@ impl KafkaView {
             .map(|config| config.name.clone())
             .unwrap_or_else(|| "新建 Kafka 集群".into());
         let status = if self.loading_runtime {
-            ("同步中", theme.warning)
+            ("同步中", ramag_ui::pulse_ui::PulseStatus::Warming)
         } else if self.runtime_error.is_some() {
-            ("同步失败", theme.danger)
+            ("同步失败", ramag_ui::pulse_ui::PulseStatus::Failed)
         } else if self.metadata.is_some() {
-            ("已连接", theme.success)
+            ("已连接", ramag_ui::pulse_ui::PulseStatus::Current)
         } else {
-            ("未连接", theme.muted_foreground)
+            ("未连接", ramag_ui::pulse_ui::PulseStatus::Unavailable)
         };
         let admin_mode_label = if self.read_only.allows_admin() {
             "管理已启用"
@@ -75,26 +75,18 @@ impl KafkaView {
                             .min_w_0()
                             .when(compact, |row| row.w_full().flex_none())
                             .gap(px(10.0))
-                            .child(div().size(px(9.0)).rounded_full().bg(status.1))
                             .child(
-                                v_flex()
+                                ramag_ui::pulse_ui::pulse_page_title(title, Some(status.0), cx)
+                                    .id("kafka-page-title")
+                                    .debug_selector(|| "kafka-page-title".into())
                                     .flex_1()
-                                    .min_w_0()
-                                    .gap(px(2.0))
-                                    .child(
-                                        div()
-                                            .text_sm()
-                                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                                            .truncate()
-                                            .child(title),
-                                    )
-                                    .child(
-                                        div()
-                                            .text_xs()
-                                            .text_color(status.1)
-                                            .truncate()
-                                            .child(status.0),
-                                    ),
+                                    .min_w_0(),
+                            )
+                            .child(
+                                ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                                    status.1, status.0, cx,
+                                )
+                                .debug_selector(|| "kafka-header-status-badge".into()),
                             ),
                     )
                     .child(
@@ -185,32 +177,20 @@ impl KafkaView {
         notice: (String, bool),
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let theme = cx.theme().clone();
         let (message, is_error) = notice;
-        h_flex()
-            .id("kafka-notice")
-            .w_full()
-            .flex_none()
-            .items_center()
-            .gap(px(8.0))
-            .px(px(22.0))
-            .py(px(8.0))
-            .bg(if is_error {
-                theme.danger.opacity(0.1)
+        ramag_ui::pulse_ui::pulse_status_notice(
+            if is_error {
+                ramag_ui::pulse_ui::PulseStatus::Failed
             } else {
-                theme.accent.opacity(0.08)
-            })
-            .text_xs()
-            .text_color(if is_error {
-                theme.danger
-            } else {
-                theme.muted_foreground
-            })
-            .child(Icon::new(if is_error {
-                IconName::TriangleAlert
-            } else {
-                IconName::CircleCheck
-            }))
-            .child(message)
+                ramag_ui::pulse_ui::PulseStatus::Current
+            },
+            message,
+            cx,
+        )
+        .id("kafka-notice")
+        .w_full()
+        .flex_none()
+        .px(px(22.0))
+        .py(px(8.0))
     }
 }
