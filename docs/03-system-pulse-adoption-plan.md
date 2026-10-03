@@ -322,3 +322,14 @@ Windows 使用系统客户端区动画开关，macOS 使用系统辅助功能的
 本轮目标测试均通过：容器 30 项、VCS 188 项、对象存储 27 项、DBClient 368 项、SSH 87 项、系统模型 9 项、系统监控 103 项、Ramag UI 132 项；对应目标 Clippy 均以 `-D warnings` 通过。`cargo test --locked --workspace -- --test-threads=1`、`cargo fmt --all -- --check`、workspace all-target Clippy 和 `cargo build --locked -p ramag-bin` 均已通过。构建使用 `F:\project\ramag-platform\target\debug\ramag.exe`，曾关闭旧实例后重新编译并启动，确认窗口标题为 `Ramag — 容器管理`。
 
 本轮 Computer Use 的 Sky 服务返回 `Trusted RPC service is not configured: sky`，未能绑定真实窗口，因此当前新增工具切片只计入 headless 渲染/交互测试、源码构建和启动窗口检查；不把启动检查扩展为鼠标键盘原生验收，也不使用 `ui-preview` 作为验收程序。待 Computer Use 服务恢复后，按本计划从首页逐工具复核标题、表格、滚动、空/加载/失败状态和连接状态。
+
+### 2026-10-03 API、Kafka、MQTT 与剪贴板切片验证
+
+公共样式推广继续覆盖后续工具：
+
+- `4eba6ca3`：API 工作区页头和本地工作区加载/失败状态复用 Pulse 页面标题与状态通知，保留 HTTP/gRPC、导入、保存、发送、取消和重试流程；目标测试 35 项。
+- `7ac9083c`：Kafka 主工作区复用 Pulse 页面标题、连接状态徽章和状态通知，保留 Broker、Topic、消息、Consumer Group、Schema、Connect、ACL 和只读/管理权限流程；目标测试 38 项。
+- `afd1134c`：MQTT 配置页复用 Pulse 页面标题和连接状态徽章，保留 MQTT 版本/传输配置、测试连接、保存、发布、订阅和本地服务流程；目标测试 32 项。
+- `7a86487a`：剪贴板主视图增加 Pulse 页面标题，保留历史列表、详情、搜索、类型筛选、复制和清理流程；目标测试 21 项。
+
+四个切片的目标 Clippy、格式检查和提交钩子均通过；未改变协议、凭据或外部服务契约。Computer Use 服务仍未配置，本轮证据限于当前源码的 headless 视觉/交互测试、构建和提交钩子，未把静态截图或启动检查扩展为原生鼠标键盘验收。
