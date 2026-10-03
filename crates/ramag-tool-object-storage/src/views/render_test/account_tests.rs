@@ -128,13 +128,18 @@ fn account_form_stays_inside_compact_window_and_keeps_actions_visible(cx: &mut T
 fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestAppContext) {
     let (view, cx) = add_workspace_window(cx, service());
     view.update(cx, |view, cx| {
-        view.accounts = Arc::new(vec![
-            ObjectStorageAccount::new(
-                "production-account-with-a-long-name",
-                CloudProvider::AliyunOss,
-            ),
-            ObjectStorageAccount::new("archive", CloudProvider::TencentCos),
-        ]);
+        view.accounts = Arc::new(
+            (0..32)
+                .map(|index| {
+                    let provider = if index % 2 == 0 {
+                        CloudProvider::AliyunOss
+                    } else {
+                        CloudProvider::TencentCos
+                    };
+                    ObjectStorageAccount::new(format!("account-{index:02}"), provider)
+                })
+                .collect(),
+        );
         view.loading = false;
         view.management_visible = true;
         cx.notify();
@@ -161,6 +166,12 @@ fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestA
             let list = cx
                 .debug_bounds("object-account-list-panel")
                 .expect("账号列表面板应显示");
+            let scroll = cx
+                .debug_bounds("object-account-list-scroll")
+                .expect("账号行应保留面板内的滚动区域");
+            let last_row = cx
+                .debug_bounds("object-account-row-31")
+                .expect("长账号列表末行应参与布局");
 
             for (name, bounds) in [
                 ("title", title),
@@ -182,9 +193,28 @@ fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestA
                     "{name} exceeds bottom edge: {bounds:?}"
                 );
             }
+            assert!(
+                scroll.origin.x >= list.origin.x
+                    && scroll.origin.y >= list.origin.y
+                    && scroll.right() <= list.right()
+                    && scroll.bottom() > list.bottom(),
+                "长列表的滚动内容应在面板内部延伸并由视口裁切：list={list:?}, scroll={scroll:?}"
+            );
+            assert!(
+                list.size.height >= px(400.0) && scroll.size.height >= px(380.0),
+                "账号列表和内部滚动区域应填充剩余工作区：list={list:?}, scroll={scroll:?}"
+            );
+            assert!(
+                last_row.origin.y >= scroll.origin.y && last_row.bottom() > list.bottom(),
+                "长列表末行应位于可滚动视口之后：last_row={last_row:?}, scroll={scroll:?}"
+            );
             assert!(title.bottom() <= toolbar.top(), "标题应位于工具栏上方");
             assert!(toolbar.bottom() <= list.top(), "工具栏应位于账号列表上方");
             assert!(search.right() <= create.left(), "新建入口不得覆盖搜索框");
+            assert!(
+                list.size.height >= px(400.0),
+                "账号列表面板应填充标题区下方的剩余空间：{list:?} at {width}x{height}"
+            );
         }
     }
 }

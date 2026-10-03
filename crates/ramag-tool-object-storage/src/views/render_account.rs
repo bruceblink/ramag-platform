@@ -156,14 +156,12 @@ impl ObjectStorageView {
                 .children(visible.into_iter().enumerate().map(|(index, account)| {
                     self.render_account_row(index, account, show_manual_count, cx)
                 }));
-            div()
-                .id("object-account-list-scroll")
-                .debug_selector(|| "object-account-list-scroll".into())
+            v_flex()
                 .size_full()
-                .overflow_y_scrollbar()
                 .child(
                     h_flex()
-                        .w_full()
+                        .size_full()
+                        .items_stretch()
                         .justify_center()
                         .px(px(16.0))
                         .py(px(10.0))
@@ -172,9 +170,20 @@ impl ObjectStorageView {
                                 .id("object-account-list-panel")
                                 .debug_selector(|| "object-account-list-panel".into())
                                 .max_w(px(CONTENT_MAX_W))
+                                .h_full()
+                                .min_h_0()
                                 .p_0()
                                 .overflow_hidden()
-                                .child(div().w_full().child(rows)),
+                                .child(
+                                    div()
+                                        .id("object-account-list-scroll")
+                                        .debug_selector(|| "object-account-list-scroll".into())
+                                        .w_full()
+                                        .flex_1()
+                                        .min_h_0()
+                                        .overflow_y_scrollbar()
+                                        .child(div().w_full().child(rows)),
+                                ),
                         ),
                 )
                 .into_any_element()
