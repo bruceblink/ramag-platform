@@ -20,9 +20,9 @@ fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
     );
 }
 
-/// 文件栏在最小可拖动宽度下，模式、搜索和固定操作都不能越出工具栏。
+/// 模式文字、独立分支选择行、搜索和固定操作在各侧栏宽度下保持清楚层级。
 #[gpui_kit::test]
-fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppContext) {
+fn vcs_files_toolbar_uses_labeled_modes_and_full_width_branch_row(cx: &mut TestAppContext) {
     let (view, cx) = add_vcs_window(cx);
     view.update(cx, |view, cx| {
         inject_diff_session(view);
@@ -53,6 +53,9 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
         let mode_toolbar = cx
             .debug_bounds("vcs-files-mode-toolbar")
             .expect("VCS 模式工具栏应渲染");
+        let branch_toolbar = cx
+            .debug_bounds("vcs-files-branch-toolbar")
+            .expect("VCS 分支工具栏应渲染");
         let search_toolbar = cx
             .debug_bounds("vcs-files-search-toolbar")
             .expect("VCS 搜索工具栏应渲染");
@@ -61,6 +64,7 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
             .expect("VCS 文件搜索框应渲染");
         assert_inside(&files_column, &toolbar, "VCS 文件栏工具栏");
         assert_inside(&toolbar, &mode_toolbar, "VCS 模式工具栏");
+        assert_inside(&toolbar, &branch_toolbar, "VCS 分支工具栏");
         assert_inside(&toolbar, &search_toolbar, "VCS 搜索工具栏");
         assert_inside(&search_toolbar, &search, "VCS 文件搜索框");
 
@@ -68,7 +72,11 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
             "vcs-files-tab-project",
             "vcs-files-tab-changes",
             "vcs-files-tab-stash",
-            "vcs-branch-picker",
+        ] {
+            let control = cx.debug_bounds(selector).expect("VCS 模式标签应渲染");
+            assert_inside(&mode_toolbar, &control, selector);
+        }
+        for selector in [
             "vcs-refresh",
             "vcs-pf-toggle-all",
             "vcs-history-pane-toggle",
@@ -76,14 +84,12 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
             "vcs-files-remote-actions",
         ] {
             let control = cx.debug_bounds(selector).expect("VCS 文件栏控件应渲染");
-            let parent = if selector.starts_with("vcs-files-tab") || selector == "vcs-branch-picker"
-            {
-                mode_toolbar
-            } else {
-                search_toolbar
-            };
-            assert_inside(&parent, &control, selector);
+            assert_inside(&search_toolbar, &control, selector);
         }
+        assert!(
+            cx.debug_bounds("vcs-history-remote-actions").is_none(),
+            "History 未打开时不应渲染重复远程操作入口"
+        );
 
         let project_tab = cx
             .debug_bounds("vcs-files-tab-project")
@@ -99,42 +105,36 @@ fn vcs_files_toolbar_wraps_controls_inside_supported_widths(cx: &mut TestAppCont
             .expect("分支选择器应渲染");
         assert_eq!(
             project_tab.origin.y, changes_tab.origin.y,
-            "项目文件和变更模式应保持在同一导航行"
+            "项目与变更模式应保持在同一导航行"
         );
         assert_eq!(
             changes_tab.origin.y, stash_tab.origin.y,
-            "变更和储藏模式应保持在同一导航行"
+            "变更与储藏模式应保持在同一导航行"
         );
         assert!(
-            project_tab.right() <= branch_picker.origin.x
-                || branch_picker.right() <= project_tab.origin.x
-                || project_tab.bottom() <= branch_picker.origin.y
-                || branch_picker.bottom() <= project_tab.origin.y,
-            "项目文件模式和分支选择器不能重叠：tab={project_tab:?}, branch={branch_picker:?}"
+            branch_toolbar.origin.y >= mode_toolbar.bottom(),
+            "分支选择器应位于模式导航下方：modes={mode_toolbar:?}, branch={branch_toolbar:?}"
         );
-        if width >= 280.0 {
-            assert!(
-                branch_picker.size.width >= px(140.0),
-                "标准文件栏宽度应为分支选择器保留可读空间：width={width}, branch={branch_picker:?}"
-            );
-            assert_eq!(
-                project_tab.origin.y, branch_picker.origin.y,
-                "常规文件栏宽度应让分支选择器与模式按钮保持在同一行：width={width}, tab={project_tab:?}, branch={branch_picker:?}"
-            );
-        } else {
-            assert!(
-                branch_picker.size.width >= px(140.0),
-                "窄文件栏换行后仍应保留分支选择器的最小可读宽度：branch={branch_picker:?}"
-            );
-            assert!(
-                branch_picker.origin.y > stash_tab.origin.y,
-                "最窄文件栏应将分支选择器完整放到模式行下方：tab={stash_tab:?}, branch={branch_picker:?}"
-            );
-        }
+        assert_inside(&branch_toolbar, &branch_picker, "分支选择器");
+        assert!(
+            branch_picker.size.width >= px(width - 40.0),
+            "分支选择器应填充文件栏可用宽度：width={width}, picker={branch_picker:?}"
+        );
+        assert!(
+            search_toolbar.origin.y >= branch_toolbar.bottom(),
+            "搜索工具栏应位于分支行下方：branch={branch_toolbar:?}, search={search_toolbar:?}"
+        );
 
+        let tab_widths = [
+            f32::from(project_tab.size.width),
+            f32::from(changes_tab.size.width),
+            f32::from(stash_tab.size.width),
+        ];
         assert!(
-            cx.debug_bounds("vcs-history-remote-actions").is_none(),
-            "History 未打开时不应渲染重复远程操作入口"
+            tab_widths
+                .iter()
+                .all(|tab_width| (*tab_width - tab_widths[0]).abs() <= 1.0),
+            "三种模式应使用等宽标签：width={width}, tabs={tab_widths:?}"
         );
 
         if width == 180.0 {

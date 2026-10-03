@@ -379,6 +379,15 @@ VCS 文件栏在常规宽度下移除空闲时占满弹性空间的占位项，�
 
 本机时间 `2026-10-03 16:55 +08:00` 由 `Get-Date` 核对。Computer Use 使用工作区完整构建 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `33796`，`ExecutablePath` 已核对），先关闭已安装版后再启动；默认暗色窗口截图为 1528×924。打开 `F:\project\ramag` 仓库后，模式图标、分支选择器和搜索工具栏层级清楚；分支栏在模式按钮同排填充可用宽度。打开 `README.md` 后布局保持稳定。此原生复核仅覆盖该默认窗口和侧栏宽度；窄/宽侧栏由 headless 测试覆盖，未执行 Git 写操作。
 
+### A-UI-VCS-002：工作区导航层级优化（代码与完整程序验收完成，2026-10-03）
+
+- 问题证据：用户截图指出 VCS 文件栏顶部布局失衡。修改前的完整构建只有三个图标模式入口，且与当前分支选择器共用一行；模式含义不直观，当前分支文字也受到横向空间限制。
+- 实现：模式切换改为等宽“项目 / 变更 / 储藏”文字标签，分支选择器独占下一行并填充文件栏宽度；搜索和刷新、展开、历史及远程操作保留在第三行。分支菜单、模式状态与 Git 操作回调不变。
+- Headless：`vcs_files_toolbar_uses_labeled_modes_and_full_width_branch_row` 在 180、280、600px 侧栏宽度检查模式标签同排等宽、分支行位于模式下方且占满可用宽度、搜索和固定操作均留在各自工具栏内。`cargo test --locked -p ramag-tool-vcs --all-targets -- --test-threads=1` 通过 188 项，5 项性能观察用例按设计忽略。
+- 质量：`cargo fmt --all -- --check`、workspace all-target Clippy `-D warnings`、`cargo build --locked -p ramag-bin`、Windows 源码尺寸检查、UTF-8/LF 和 `git diff --check` 均通过。
+- 原生窗口：本机 `2026-10-03 19:33 +08:00`，Computer Use 打开完整工作区构建 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `12564`，`ExecutablePath` 已核对），在 1555×924 暗色窗口检查 `F:\project\ramag`。三个文字模式标签、活动态、独立全宽分支行、搜索及空 Diff 面板均可见；切换“变更”显示工作区干净状态，返回“项目”恢复文件树。打开分支菜单后以 Escape 关闭，没有执行 Git 写操作。长分支名仍使用省略显示，完整值保留在悬浮提示中。
+- 回滚边界：仅调整 `ide_layout.rs`、对应工具栏布局测试与本记录；未改 Git 状态读取、分支菜单、文件选择、仓库会话或操作参数。
+
 ### 2026-10-03 对象存储账号空状态优化验收
 
 对象存储无账号状态从孤立的“新建”按钮改为 Pulse 轻量面板：增加存储图标、“暂无对象存储账号”标题、COS/OSS 后续操作说明和“新建账号”主操作，并在窄内容区保留 16px 外边距。新建入口仍打开原账号表单；未修改账号、凭据、Bucket、连接和存储行为。

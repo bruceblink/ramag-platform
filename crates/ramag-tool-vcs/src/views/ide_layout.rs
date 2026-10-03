@@ -21,8 +21,7 @@ const TOP_HEIGHT_MAX: f32 = 1400.0;
 pub(super) const LEFT_WIDTH_INITIAL: f32 = 280.0;
 pub(super) const LEFT_WIDTH_MIN: f32 = 180.0;
 pub(super) const LEFT_WIDTH_MAX: f32 = 600.0;
-const BRANCH_PICKER_MIN_WIDTH: f32 = 140.0;
-const BRANCH_PICKER_MAX_WIDTH: f32 = 320.0;
+const MODE_TABS_MIN_WIDTH: f32 = 144.0;
 const BRANCH_PICKER_LABEL_CHARS: usize = 28;
 
 impl VcsView {
@@ -132,9 +131,8 @@ impl VcsView {
         ];
         let mut tabs_row = h_flex()
             .debug_selector(|| "vcs-files-mode-tabs".into())
-            // Keep these compact mode buttons together; shrinking this row caused
-            // the navigation icons to stack vertically beside the branch picker.
-            .flex_none()
+            .flex_1()
+            .min_w(px(MODE_TABS_MIN_WIDTH))
             .gap(px(2.0))
             .items_center();
         for mode in modes {
@@ -172,7 +170,15 @@ impl VcsView {
         if let Some(busy_indicator) = busy_indicator {
             mode_row = mode_row.child(busy_indicator);
         }
-        let mode_row = mode_row.child(self.render_branch_picker(cx));
+
+        let branch_row = ramag_ui::responsive_toolbar()
+            .debug_selector(|| "vcs-files-branch-toolbar".into())
+            .w_full()
+            .px(px(10.0))
+            .py(px(6.0))
+            .border_b_1()
+            .border_color(border)
+            .child(self.render_branch_picker(cx));
 
         let mut search_row = ramag_ui::responsive_toolbar()
             .debug_selector(|| "vcs-files-search-toolbar".into())
@@ -277,6 +283,7 @@ impl VcsView {
             .w_full()
             .flex_none()
             .child(mode_row)
+            .child(branch_row)
             .child(search_row)
             .into_any_element()
     }
@@ -342,9 +349,8 @@ impl VcsView {
             .and_then(|status| status.head_commit.as_ref())
             .is_some();
         div()
-            .flex_1()
-            .min_w(px(BRANCH_PICKER_MIN_WIDTH))
-            .max_w(px(BRANCH_PICKER_MAX_WIDTH))
+            .w_full()
+            .min_w_0()
             .overflow_hidden()
             .child(
                 ramag_ui::clickable_button("vcs-branch-picker")
@@ -440,21 +446,18 @@ impl VcsView {
     ) -> AnyElement {
         let id = gpui_kit::SharedString::from(format!("vcs-files-tab-{}", mode.id_str()));
         let is_active = mode == active;
-        let mut btn = ramag_ui::clickable_button(id)
+        let btn = ramag_ui::clickable_button(id)
             .ghost()
             .small()
-            .flex_none()
+            .compact()
+            .flex_1()
+            .min_w_0()
             .debug_selector({
                 let id = mode.id_str();
                 move || format!("vcs-files-tab-{id}")
             })
             .selected(is_active)
-            .tooltip(mode.label());
-        btn = match mode {
-            FilesViewMode::Project => btn.icon(ramag_ui::icons::files()),
-            FilesViewMode::Changes => btn.icon(ramag_ui::icons::git_compare()),
-            FilesViewMode::Stash => btn.icon(ramag_ui::icons::archive()),
-        };
+            .label(mode.label());
         btn.on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
             this.set_files_view_mode(mode, cx);
         }))
