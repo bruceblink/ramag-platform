@@ -2,6 +2,7 @@
 
 > 状态：2026-10-02 完整源码迁入方案已确认，正在实施；停止旧监控视图的增量对齐。
 > 设计确认：用户于 2026-10-02 回复“确认，按此方案执行”；2026-10-01 的原吸收方案保留为历史记录。
+> 当前主线：用户于 2026-10-03 再次确认，将已迁入的 `system-tool` UI 设计和样式推广到整个 Ramag；旧监控增量对齐和键盘增强不再作为当前开发入口。
 > 来源：https://github.com/eas4ai/system-pulse/tree/f1be5d51d24c21fa8c740be79200bdda3df3a00c
 > 优点吸收与剩余差距：[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)
 
@@ -73,6 +74,16 @@ Computer Use 按 Summary、CPU、Memory、GPU、Disks、Network、Energy、Therm
 本节是已确认的替换设计，不是实施或验收完成记录。上一轮 Summary 和字体修改已经保留本地备份；迁入时逐项盘点有效来源资源，移除被整体替换的旧页面修改。
 
 以下原吸收计划、历史提交和验收记录保留供追溯。本节优先于其中“保留旧监控视图”“独立实现近似 UI”“不复制字体资源”等冲突约定；历史通过结果不自动证明完整源码迁入已经验收。
+
+### 2026-10-03 全应用公共样式推广
+
+设计基准为当前已验收的 `ramag-tool-system/src/screen_style.rs`，不是旧的 Ramag 主题或新设计稿。先把其明暗配色、Michroma 标题、数值字体、8px 面板边界和紧凑间距收口到 `ramag-ui`，让系统监控与其他工具消费同一来源；按钮、输入、菜单、表格、弹窗和滚动条由宿主主题同步。连接状态和危险操作继续使用真实领域语义，不把监控的业务布局复制到编辑器或终端。
+
+实施顺序为公共视觉规则、壳层/首页/全局设置、数据库/对象存储/SSH 已有改动复验，然后 VCS、容器、API、Kafka、MQTT、剪贴板、JSON Path、协作和插件入口。每个工具保留其对象树、编辑器、结果表、快捷键、确认和异步状态；页面、工具栏、列表、空/加载/失败状态和主要工作区都需核查，不能以增加一个标题宣布整个工具完成。
+
+验收覆盖明暗主题、标准/最大字号和 `360x640`、`1024x768`、`1440x900` 的 headless 布局与控件回归。原生使用本工作区新构建的 `target/debug/ramag.exe`，从首页逐工具进入、往返、滚动和操作；不用安装版或 `ui-preview`。只读样式改动不新增外部服务，Docker 不适用；SSH 本机 WSL 连接单独标为本机运行证据，不算 Docker 集成。
+
+最终检查运行 `cargo test --locked --workspace -- --test-threads=1`、`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo build --locked -p ramag-bin`、源码尺寸和差异/LF 检查。发现 lint 或布局失败应修复源码/测试，不压低 lint。回滚边界按各工具渲染文件、公共主题和对应测试划分，保留此前迁入、配置兼容和无关改动；尚未逐工具验收的部分继续列为未完成。
 
 ## 实施顺序与接口
 
@@ -182,6 +193,66 @@ Ramag 的系统监控由十个固定页面组成，不能把 System Pulse 的可
 
 ## 后续视觉推广队列
 
+### 2026-10-02 Settings 统一设计
+
+当前系统监控 Settings 同时提供 Appearance、Sampling 和工具内布局预设；Ramag 全局 Settings 已分别提供应用外观（主题、字号、滚动条、界面/数值字体、窗口行为）以及系统监控采样和传感器展示预设。Appearance 与 Sampling 是重复入口，且写入不同状态：监控工具内 Appearance 写入 `workspace.json`，全局外观写入 `system_settings`；同一刷新周期分别有 Ramag 全局值和工具工作区值。两种预设作用范围不同：全局预设保存采样与传感器展示偏好，工具布局预设保存面板布局，两者不合并或删除。
+
+本切片统一以 Ramag 全局 Settings 管理应用外观与采样：系统监控工具内 Settings 移除 Appearance、Sampling 控件，保留布局预设并提供直接打开 Ramag 系统设置的按钮。全局 System Settings 拥有应用外观、采样及传感器展示预设；工具工作区继续保存面板布局。旧 `workspace.json` 中的 `appearance` 字段暂时保留用于读取兼容，但不再覆盖应用全局主题或字体；序列化时省略此字段，新偏好只写入 Ramag 设置存储。旧命名布局预设格式保持可读取，回放时不修改全局外观。
+
+不在本切片重排其他工具 Settings，也不删除全局设置存储键、监控设置数据或工具布局预设。验收覆盖迁移入口存在且能请求打开 `system` 设置页、监控工具页不再渲染旧 Appearance/Sampling 控件、工具布局预设仍可用、全局设置仍能修改采样和外观，以及旧工作区恢复不会覆盖应用级外观。目标测试、`cargo fmt --all -- --check` 和目标 Clippy 通过后再交付；workspace all-target Clippy 当前被既有测试代码中的 unwrap/expect lint 阻挡；本切片不涉及外部服务，Docker 不适用。
+
+### `A-PULSE-DB-001` 数据库客户端 UI 对齐设计与验收边界
+
+数据库客户端保留现有连接管理、对象树、查询编辑器、结果表和领域回调；本切片只统一视觉边界。`DbClientView` 增加公共页面标题，连接列表使用统一的标题下工具栏与轻量面板，查询工作区复用公共工具栏和状态提示，结果表外框和底部状态栏使用同一主题边界。现有连接标签、Schema 选择、查询执行、事务、筛选、分页、导入导出和失败重试的控件 ID 与回调保持不变。
+
+验收覆盖明暗主题与 `360x640`、`1024x768`、`1440x900` 三种窗口尺寸：页面标题、连接工具栏、对象树工具栏、查询上下文、结果工具栏、结果表和状态栏必须在客户区内，长连接名和长状态文案不得覆盖操作区；已有领域导航和结果表回归测试继续通过。本切片只涉及本地 GPUI 渲染，Docker 不适用；若不改变连接或数据库行为，不启动外部服务。回滚边界为恢复本节涉及的 DBClient 渲染文件和对应 headless 布局测试，不回滚此前系统监控、Settings 或公共 Pulse 组件。
+
+### 2026-10-02 DBClient 切片验证
+
+`A-PULSE-DB-001` 已完成 headless UI 对齐：连接列表增加公共页面标题、响应式工具栏和 Pulse 轻量面板；查询工作区增加公共页面标题；对象树连接状态复用 Pulse 状态标签；连接建立中的占位和配置过期面板复用 Pulse 状态提示。连接标签、Schema、查询、事务、结果筛选、分页、导入导出、重试和既有控件回调未改变。
+
+`cargo test --locked -p ramag-tool-dbclient --lib -- --test-threads=1` 通过 368 项；`cargo test --locked -p ramag-ui --lib -- --test-threads=1` 通过 131 项；`cargo clippy --locked -p ramag-tool-dbclient --all-targets -- -D warnings`、`cargo fmt --all -- --check` 和 `git diff --check` 通过。连接列表新增 `360x640`、`1024x768`、`1440x900` 布局断言，查询上下文和对象树测试同步检查公共标题/状态边界。Docker 不适用；本轮未完成 Computer Use 原生窗口点击，证据范围为 headless 渲染和交互测试。
+
+### `A-PULSE-OBJECT-001` 对象存储账号管理设计与验收边界
+
+对象存储账号管理主视图采用 `ramag-ui::pulse_ui` 的页面标题、紧凑工具栏和轻量面板：页面标题显示“对象存储”和账号管理职责，标题下方保留账号搜索与新建入口，账号列表使用统一边界、背景和 6px 圆角。账号服务商、只读状态、Bucket 数量、编辑和删除操作继续使用对象存储自己的领域表达与已有回调；本切片不改变连接凭据、账号存储、筛选、创建、编辑、删除和确认流程，也不改动 Settings。
+
+验收覆盖明暗主题与 `360x640`、`1024x768`、`1440x900` 三种窗口尺寸：页面标题、搜索框、新建按钮和账号列表面板必须在客户区内，窄窗口允许工具栏换行，长账号名必须省略且不覆盖操作区；已有账号服务商图标、筛选和账号操作测试继续通过。该切片只涉及 GPUI 本地渲染，不使用 Docker；交付前运行对象存储目标测试、`cargo fmt --all -- --check` 和目标 Clippy。
+
+### 2026-10-02 系统监控设置入口收口
+
+系统监控页签移除 `Settings` 导航项，旧工作区状态中的 `active: "settings"` 在读取时迁移到 `Summary`；旧布局面板和预设数据仍保持读取兼容，不再把它作为监控页签展示。Ramag 壳层移除工具右上角齿轮入口，系统外观、采样和监控预设统一从左下角全局 Settings 进入；主题切换图标保留。
+
+验证使用当前源码完整构建的 `target/debug/ramag.exe`，未将 `ui-preview` 作为最终运行验收程序。完整程序启动窗口标题为 `Ramag — 系统监控`，实际屏幕截图 `target/ui-fallback/ramag-full-system-settings-removal-20261002.png` 显示九个监控页签、无右上角齿轮和保留的左下角全局设置入口。Computer Use 重新初始化后仍返回 `apps: []`，无法绑定原生窗口；截图属于替代视觉证据，不扩展为 Computer Use 鼠标/键盘验收。
+
+`cargo test --locked -p ramag-system-model --lib -- --test-threads=1`（9 项）、`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1`（103 项）、`cargo test --locked -p ramag-ui --lib -- --test-threads=1`（131 项）、`cargo build --locked -p ramag-bin`、`cargo fmt --all -- --check` 和源文件尺寸检查通过。目标 all-target Clippy 仍被工作区既有测试代码中的 `unwrap_used`/`collapsible_if` 告警阻挡，未将其描述为通过；本切片不使用 Docker。
+
+### 2026-10-02 Settings 与 Summary 读数验证
+
+全局 `MonitorSettings` 现在是生产采样器和状态栏的唯一运行来源；系统监控工具内的旧布局预设仍可恢复面板状态，但不会覆盖采样周期。旧 `workspace.json` 和旧布局预设仍可读取 `interval_ms`、`appearance`，保存时不再写回这两个旧字段。Summary 的 CPU 与内存顶部指标直接读取最新历史样本，并由回归测试锁定非零样本不得退化为 `0 %` 或 `0 B`。
+
+目标测试和目标 Clippy 已通过：`ramag-tool-system` 104 项、`ramag-ui` 131 项、`ramag-system-model` 8 项、`ramag-tool-object-storage` 27 项；`cargo fmt --all -- --check` 和 `git diff --check` 通过。workspace all-target Clippy 仍被既有测试代码中的 373 个 `unwrap_used`/`collapsible_if` 告警阻挡，未将该结果描述为通过。当时 Computer Use 无法发现 Ramag 原生窗口，本节仅记录 headless 证据；后续原生窗口验收见 SSH UI 对齐验证。
+
+### 2026-10-02 SSH UI 对齐验证
+
+`A-PULSE-SSH-001` 已完成首个公共 UI 对齐切片：SSH 管理页复用 `pulse_page_title` 和 `responsive_toolbar`，保留搜索、远程会话、JumpServer 导入和新建连接入口；工作区新增连接标题、Endpoint、统一 Pulse 状态标签和返回连接管理入口。`SshSessionState` 到 `PulseStatus` 的映射集中在呈现模型中，连接、终端和 SFTP 领域回调未改变。工作区页头改为响应式纵向布局，主体不会覆盖标题区域。
+
+`cargo test --locked -p ramag-tool-ssh --lib -- --test-threads=1` 通过 85 项；`cargo clippy --locked -p ramag-tool-ssh --all-targets -- -D warnings`、`cargo fmt --all -- --check` 和 `git diff --check` 通过。当前源码完整构建 `cargo build --locked -p ramag-bin` 通过，运行验证使用 `target/debug/ramag.exe`，未使用 `ui-preview`。
+
+Computer Use 已绑定当前源码构建的唯一 `Ramag — 系统监控` 窗口：Summary 实际显示非零 CPU `7.7 %` 和内存 `21.3 / 47.9 GiB`，确认截图中的 `0 % / 0 B` 回归已修复；切换到 SSH 后，真实窗口显示 `Ramag > SSH 管理`、`SSH 管理` 页面标题、连接/终端/SFTP 副标题、搜索工具栏和空连接状态。当前没有测试连接，不在验收中创建或保存用户连接；工作区页头与六种状态映射由 headless 测试覆盖。
+
+### 2026-10-02 WSL SSH 原生全链路验收
+
+在本机 `Ubuntu-24.04` WSL 中安装并启动 `openssh-server`，保持 WSL 运行后由当前源码构建的 `target/debug/ramag.exe` 连接 `127.0.0.1:22`。应用严格主机指纹校验；通过受信任的 WSL `ssh-keyscan` 将本机指纹写入当前用户 `known_hosts` 后，SSH 表单测试实际返回：`OpenSSH 可用`、`认证 可用`、`执行 可用`、`Terminal 可用`、`SFTP 可用`、`通道 标准 SFTP`、`诊断 可用`、`远端 Linux`、`Shell POSIX`、`路径 POSIX`。
+
+保存连接后，Computer Use 在同一个完整 Ramag 窗口中打开 `WSL 本机` 工作区，确认状态为“已连接”，SFTP 显示 `/home/likanug` 内容并可进入 `.config`，终端显示真实 Ubuntu 登录提示和 POSIX shell 就绪状态；点击加号后第二个终端标签成功创建并显示独立登录提示。没有通过 UI 自动输入远端 shell 命令，终端命令执行语义继续由 OpenSSH 集成测试和现有 headless 测试覆盖；本次原生证据覆盖连接、主机指纹、认证、SFTP 浏览、终端启动和多终端标签。
+
+### 2026-10-02 SSH 标签连接状态修复设计
+
+真实 WSL 工作区已连接，但顶部连接标签仍显示灰点和固定 `SSH`，与页头“已连接”不一致。灰点此前同时依赖文件加载、SFTP 错误和环境标记，并不表示连接状态。本切片将工作区标签与页头统一使用 `SshSessionState` 的六种运行状态和公共 Pulse 状态样式，连接名与关闭入口保留；生产环境警告独立显示，目录加载不覆盖连接状态。终端标签保留编号和退出码，并按该终端自身的运行/退出结果展示状态，不能把其他终端的连接状态当作自身状态。现有工作区状态来自终端启动及生命周期，不新增 SSH 握手确认；因此单个终端仍使用“运行中”等进程状态文案，SFTP 可用性与终端生命周期分别记录。
+
+验收覆盖六种工作区状态、终端正常/异常退出、目录加载不影响已连接标签，以及明暗主题下 `360x640`、`1024x768`、`1440x900` 长连接名称与操作边界。运行 `cargo test --locked -p ramag-tool-ssh --lib -- --test-threads=1`、`cargo clippy --locked -p ramag-tool-ssh --all-targets -- -D warnings`、`cargo fmt --all -- --check` 和 `git diff --check`；构建 `cargo build --locked -p ramag-bin` 后，通过 Computer Use 检查当前源码完整程序中的 WSL 连接与多终端标签，不使用安装版或 `ui-preview`。本切片不改变 SSH、SFTP 协议或凭据，Docker 不适用；回滚仅恢复本切片涉及的 SSH 标签呈现、状态展示辅助函数和对应测试，不回滚已有设置与公共 UI 改动。
+
 2026-10-01 用户明确将功能完善与已知 UI/功能问题置于主线。当前顺序按差距矩阵执行，加载反馈、等待期间可操作和失败恢复先验收；动效、特效及发布性能优化后置，不阻挡独立功能修复。本轮不检查 GitHub CI。已有历史测试记录继续按其范围引用。
 
 | 切片 | 组件职责与实施范围 | 验收证据 |
@@ -215,7 +286,7 @@ Computer Use 本次恢复成功：在隔离预览的 `1024x768` 暗色窗口点�
 
 ### 设置切片设计
 
-`A-PULSE-SETTINGS-001` 按已确认范围继续实施：页面标题复用公共 Pulse 标题，设置分区改为带顶部轻量分隔线的自然布局，去除整段设置的装饰外框；统一导航项尺寸、选中标记和悬停状态，补齐键盘焦点，保留桌面侧栏和窄窗口横向滚动导航。互斥选项使用分段控件，页面切换采用 140ms 短过渡并遵守减少动画偏好。控件继续显示真实配置，修改与异步保存仍使用现有服务和存储键；连接导入导出、转换程序和剪贴历史清理流程不变。共享分区用于系统、监控、数据库、SSH 和剪贴板设置，来源状态复用公共状态提示。验收覆盖明暗主题三个尺寸、最大字号、所有可用设置页面的导航/滚动/长文字、监控刷新与系统偏好保存、SSH 兼容开关保存；真实窗口使用隔离预览，不读取用户配置或连接，不操作系统安全设置。不新增数据库或协议服务，Docker 不适用。
+`A-PULSE-SETTINGS-001` 按已确认范围继续实施：页面标题复用公共 Pulse 标题，设置分区改为带顶部轻量分隔线的自然布局，去除整段设置的装饰外框；统一导航项尺寸、选中标记和悬停状态，补齐键盘焦点，保留桌面侧栏和窄窗口横向滚动导航。互斥选项使用分段控件，页面切换采用 140ms 短过渡并遵守减少动画偏好。控件继续显示真实配置，修改与异步保存仍使用现有服务和存储键；连接导入导出、转换程序和剪贴历史清理流程不变。系统监控外观、采样和预设并入系统设置页；其他工具设置保留各自页面。验收覆盖明暗主题三个尺寸、最大字号、所有可用设置页面的导航/滚动/长文字、监控刷新与系统偏好保存、SSH 兼容开关保存；真实窗口使用隔离预览，不读取用户配置或连接，不操作系统安全设置。不新增数据库或协议服务，Docker 不适用。
 
 设置页过渡作为后置优化，在 `A-PULSE-MOTION-001` 独立验证后再验收。页面布局、导航、加载、保存回读和失败重试按独立功能验收；具体条件以开发计划 `2.5` 为准，未覆盖的整体视觉、过渡和发布性能继续列为未完成。
 
@@ -236,3 +307,18 @@ Windows 使用系统客户端区动画开关，macOS 使用系统辅助功能的
 采样工具的正确性使用已知事件和有界容量验证；平台 present 提交、显示合成器呈现与实际可见反馈各自注明边界。原始日志缺少所需事件、样本不足、事件丢失或显示追踪不可用时，性能条件保留未完成，禁止把工具编译通过或调试程序计时当作发布性能达标。该切片不读取配置或连接，不改生产默认 profiler feature；Docker 不适用。
 
 采样工具独立检查窗口与事件匹配、乱序/重复事件、10000 条容量、120 秒停止、丢失计数、缺失指标 `null`、JSONL 写入失败和退出恢复原 profiler 状态。GPUI 输入处理、draw 和平台提交日志只支持对应阶段的诊断；点击到可见反馈仍需平台显示追踪或同步录像。发布性能使用统一标准 `2.0.4` 的固定操作流程，不足 300 个活动帧时保留未完成，不请求额外装饰帧补足数量。
+
+### 2026-10-03 公共 Pulse 样式推广阶段验证
+
+当前主线已按工具边界形成独立提交：
+
+- `235c60d3`：容器资源改为统一的 Pulse 表格列表，保留容器、镜像、网络、数据卷、日志和性能流程。
+- `f0088d61`：VCS 仓库列表、Session 标签、错误状态和窄窗口边界复用 Pulse 标题、工具栏和状态面板。
+- `19df8c90`：对象存储账号页复用 Pulse 页面标题、响应式工具栏和轻量账号列表面板。
+- `3908bcf9`：DBClient 连接列表、对象树、查询工作区和结果边界复用 Pulse 视觉规则。
+- `fee19b3f`：SSH 管理和工作区统一连接状态、终端退出状态和 Pulse 状态标签，保留 SFTP、终端和 JumpServer 行为。
+- `456513a0`：系统监控 Settings 收口到 Ramag 全局 Settings，移除监控 Settings 页签和工具右上角设置入口，旧工作区状态迁移到 Summary；同时修复系统工具测试代码的 workspace Clippy 阻塞。
+
+本轮目标测试均通过：容器 30 项、VCS 188 项、对象存储 27 项、DBClient 368 项、SSH 87 项、系统模型 9 项、系统监控 103 项、Ramag UI 132 项；对应目标 Clippy 均以 `-D warnings` 通过。`cargo test --locked --workspace -- --test-threads=1`、`cargo fmt --all -- --check`、workspace all-target Clippy 和 `cargo build --locked -p ramag-bin` 均已通过。构建使用 `F:\project\ramag-platform\target\debug\ramag.exe`，曾关闭旧实例后重新编译并启动，确认窗口标题为 `Ramag — 容器管理`。
+
+本轮 Computer Use 的 Sky 服务返回 `Trusted RPC service is not configured: sky`，未能绑定真实窗口，因此当前新增工具切片只计入 headless 渲染/交互测试、源码构建和启动窗口检查；不把启动检查扩展为鼠标键盘原生验收，也不使用 `ui-preview` 作为验收程序。待 Computer Use 服务恢复后，按本计划从首页逐工具复核标题、表格、滚动、空/加载/失败状态和连接状态。
