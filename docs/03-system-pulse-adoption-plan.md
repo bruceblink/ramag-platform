@@ -452,3 +452,9 @@ Computer Use 使用完整构建 `F:\project\ramag-platform\target\debug\ramag.ex
 完整构建 `F:\project\ramag-platform\target\vcs-layout-validation\debug\ramag.exe`（PID `13864`，窗口 `Ramag — 剪贴板`）中复现了剪贴板筛选状态问题：选中历史条目后输入无匹配搜索词，左侧列表显示无匹配，但右侧仍残留旧详情。修复后，详情选择只保留当前搜索/类型筛选结果中的条目；筛选结果为空时同步清除选中 ID 和详情缓存，右侧回到“选择左侧条目查看详情”。
 
 Computer Use 真实窗口验证了页面标题、搜索框、类型筛选、条目详情、无匹配状态和详情清空流程；使用已有本地测试条目，未写入外部服务、未删除历史、未输入凭据。`cargo test --locked -p ramag-tool-clipboard --lib -- --test-threads=1` 通过 22 项，新增选中项可见性回归；目标 all-target Clippy、workspace fmt、完整 `ramag-bin` 构建和 `git diff --check` 通过。
+
+### 2026-10-03 插件目录真实窗口验收
+
+完整构建 `F:\project\ramag-platform\target\vcs-layout-validation\debug\ramag.exe`（PID `28716`，窗口 `Ramag — 设置`）打开全局 Settings 的“插件”页面。运行概览显示插件总数 `12`、已就绪 `12`、待处理 `0`；第一方工具目录卡片使用统一 Pulse 标题层级、轻量面板、状态点、字体和间距，数据库、API、Kafka、MQTT、VCS、SSH、对象存储、容器、系统监控、本机协作和 JSON Path 等条目可见。
+
+Computer Use 向下滚动目录，确认长列表在 Settings 内容区内部滚动，左侧设置导航保持固定，末端条目没有越出窗口；本轮只检查目录和状态展示，没有执行插件任务、连接、凭据或外部服务操作。插件标准入口的领域流程仍按既有 headless 测试边界记录，不把目录页面验收扩大为所有插件业务完成。
