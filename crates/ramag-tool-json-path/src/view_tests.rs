@@ -25,6 +25,11 @@ fn json_path_view_keeps_native_controls_visible_at_supported_widths(cx: &mut Tes
         visual_cx.simulate_resize(size(px(width), px(900.0)));
         visual_cx.run_until_parked();
         assert!(visual_cx.debug_bounds("json-path-view").is_some());
+        assert!(
+            visual_cx.debug_bounds("json-path-page-header").is_some(),
+            "JSON Path 页头应在支持的窗口宽度下保持可见"
+        );
+        assert!(visual_cx.debug_bounds("json-path-status").is_some());
         assert!(visual_cx.debug_bounds("json-path-run").is_some());
         assert!(visual_cx.debug_bounds("json-path-output").is_some());
     }

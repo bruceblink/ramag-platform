@@ -145,14 +145,14 @@ fn format_task_error(error: PluginTaskRunError) -> String {
 impl Render for JsonPathView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let status = if self.running {
-            "正在执行…"
+        let (status, status_kind) = if self.running {
+            ("正在执行…", ramag_ui::pulse_ui::PulseStatus::Warming)
         } else if self.error.is_some() {
-            "执行失败"
+            ("执行失败", ramag_ui::pulse_ui::PulseStatus::Failed)
         } else if self.output.is_empty() {
-            "等待执行"
+            ("等待执行", ramag_ui::pulse_ui::PulseStatus::Unavailable)
         } else {
-            "执行完成"
+            ("执行完成", ramag_ui::pulse_ui::PulseStatus::Current)
         };
         let error = self.error.clone();
         v_flex()
@@ -165,14 +165,23 @@ impl Render for JsonPathView {
             .p(px(24.0))
             .gap(px(14.0))
             .child(
-                v_flex()
-                    .gap(px(5.0))
-                    .child(div().text_lg().child("JSON Path 提取器"))
+                ramag_ui::responsive_toolbar()
+                    .id("json-path-page-header")
+                    .debug_selector(|| "json-path-page-header".into())
+                    .items_center()
                     .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("原生 GPUI 入口 · JSON5 输入 · 本机优先执行"),
+                        ramag_ui::pulse_ui::pulse_page_title(
+                            "JSON Path 提取器",
+                            Some("原生 GPUI 入口 · JSON5 输入 · 本机优先执行"),
+                            cx,
+                        )
+                        .flex_1()
+                        .min_w_0(),
+                    )
+                    .child(
+                        ramag_ui::pulse_ui::pulse_status_badge_with_label(status_kind, status, cx)
+                            .id("json-path-status")
+                            .debug_selector(|| "json-path-status".into()),
                     ),
             )
             .child(
