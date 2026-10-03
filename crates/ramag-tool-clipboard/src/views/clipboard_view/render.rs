@@ -25,6 +25,7 @@ impl Render for ClipboardView {
         let border = theme.border;
         let muted = theme.muted_foreground;
         let visible = self.visible_items(cx);
+        self.reconcile_selection(&visible);
         let count = visible.len();
         let total_bytes = visible
             .iter()

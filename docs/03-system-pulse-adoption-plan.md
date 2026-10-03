@@ -446,3 +446,9 @@ Computer Use 使用完整构建 `F:\project\ramag-platform\target\debug\ramag.ex
 `account_manager_uses_shared_page_hierarchy_at_supported_widths` 在明暗主题及 `360x640`、`1024x768`、`1440x900` 下使用 32 个内存合成账号验证面板与内层视口高度、长列表末行越过视口以及各控件边界；这些账号只存在于测试进程，没有写入用户存储或远程服务。`cargo test --locked -p ramag-tool-object-storage --lib -- --test-threads=1` 通过 28 项；workspace all-target Clippy `-D warnings`、`cargo fmt --all -- --check`、Windows 源码尺寸脚本、UTF-8/LF 和差异检查通过。完整程序 `cargo build --locked -p ramag-bin` 通过。
 
 本机 `2026-10-03 18:51 +08:00` 由 `Get-Date` 核对。Computer Use 使用完整构建 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `31940`，Windows 进程路径已核对），在 1555×924 暗色窗口确认对象存储页头、搜索、新建入口及空状态面板保持可见。没有已保存云账号，因此真实配置账号、Bucket/对象浏览和传输仍未验收；本轮未连接对象存储服务、创建账号或保存凭据，Docker 不适用。
+
+### 2026-10-03 剪贴板筛选详情状态修复验收
+
+完整构建 `F:\project\ramag-platform\target\vcs-layout-validation\debug\ramag.exe`（PID `13864`，窗口 `Ramag — 剪贴板`）中复现了剪贴板筛选状态问题：选中历史条目后输入无匹配搜索词，左侧列表显示无匹配，但右侧仍残留旧详情。修复后，详情选择只保留当前搜索/类型筛选结果中的条目；筛选结果为空时同步清除选中 ID 和详情缓存，右侧回到“选择左侧条目查看详情”。
+
+Computer Use 真实窗口验证了页面标题、搜索框、类型筛选、条目详情、无匹配状态和详情清空流程；使用已有本地测试条目，未写入外部服务、未删除历史、未输入凭据。`cargo test --locked -p ramag-tool-clipboard --lib -- --test-threads=1` 通过 22 项，新增选中项可见性回归；目标 all-target Clippy、workspace fmt、完整 `ramag-bin` 构建和 `git diff --check` 通过。

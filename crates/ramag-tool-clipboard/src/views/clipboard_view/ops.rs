@@ -18,6 +18,15 @@ const SEARCH_DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(25
 const SEARCH_LIMIT: usize = 500;
 
 impl ClipboardView {
+    /// 让详情只跟随当前筛选结果中的条目，避免搜索或类型筛选后继续显示旧详情。
+    pub(super) fn reconcile_selection(&mut self, visible: &[Arc<ClipItem>]) {
+        if selection_is_visible(self.selected.as_ref(), visible) {
+            return;
+        }
+        self.selected = None;
+        self.detail_text_cache = None;
+    }
+
     pub(super) fn reload(&mut self, cx: &mut Context<Self>) {
         self.loaded_revision = self.service.revision();
         self.items = self.service.cached_snapshot();
@@ -425,9 +434,35 @@ fn undo_remaining(deadline: Instant, now: Instant) -> Option<Duration> {
         .filter(|remaining| !remaining.is_zero())
 }
 
+fn selection_is_visible(selected: Option<&ClipId>, visible: &[Arc<ClipItem>]) -> bool {
+    selected.is_none_or(|selected| visible.iter().any(|item| &item.id == selected))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
+    use ramag_domain::entities::ClipKind;
+
+    fn clip(id: ClipId) -> Arc<ClipItem> {
+        let now = Utc::now();
+        Arc::new(ClipItem {
+            id,
+            kind: ClipKind::Text,
+            text: Some("test".to_string()),
+            rtf: None,
+            image_path: None,
+            thumb_path: None,
+            image_dims: None,
+            files: Vec::new(),
+            preview: "test".to_string(),
+            source: None,
+            byte_size: 4,
+            content_hash: "test".to_string(),
+            created_at: now,
+            last_used_at: now,
+        })
+    }
 
     #[test]
     fn delayed_undo_uses_original_deadline() {
@@ -440,5 +475,19 @@ mod tests {
         );
         assert!(undo_remaining(deadline, deadline).is_none());
         assert!(undo_remaining(deadline, deadline + Duration::from_secs(1)).is_none());
+    }
+
+    #[test]
+    fn selection_is_visible_only_when_current_result_contains_it() {
+        let selected = ClipId::new();
+        let other = clip(ClipId::new());
+
+        assert!(!selection_is_visible(Some(&selected), &[]));
+        assert!(!selection_is_visible(Some(&selected), &[other]));
+        assert!(selection_is_visible(
+            Some(&selected),
+            &[clip(selected.clone())]
+        ));
+        assert!(selection_is_visible(None, &[]));
     }
 }
