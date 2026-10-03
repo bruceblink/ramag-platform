@@ -38,6 +38,9 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let page_title = visual_cx
             .debug_bounds("api-page-title")
             .expect("API Pulse 页面标题应渲染");
+        let protocol_badge = visual_cx
+            .debug_bounds("api-header-protocol")
+            .expect("API 页头应显示当前协议");
         let content_root = visual_cx
             .debug_bounds("api-content")
             .expect("API 主体容器应渲染");
@@ -102,6 +105,13 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
                 && page_title.right() <= header.right()
                 && page_title.bottom() <= header.bottom(),
             "API 页面标题不能越出页头: title={page_title:?}, header={header:?}"
+        );
+        assert!(
+            protocol_badge.origin.x >= header.origin.x
+                && protocol_badge.right() <= header.right()
+                && protocol_badge.origin.y >= header.origin.y
+                && protocol_badge.bottom() <= header.bottom(),
+            "API 协议徽章不能越出页头: badge={protocol_badge:?}, header={header:?}"
         );
         assert!(
             toolbar.bottom() <= workbench.origin.y,

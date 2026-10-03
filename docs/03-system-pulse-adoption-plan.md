@@ -490,3 +490,9 @@ MQTT 配置页头原先在连接状态徽章和测试/保存操作组之间放�
 SSH 连接管理列表原先只显示名称、环境、平台、认证方式和操作入口；已打开工作区的实际连接状态只在顶部标签和工作区页头可见，返回管理页后无法快速判断连接是否仍然连接、重连中、失败或已退出。列表行现在增加 Pulse 状态徽章：未打开的配置显示“未连接”，已打开工作区复用 `SshSessionState` 的“连接中/已连接/重连中/连接失败/已退出”语义；名称、环境、平台、认证、JumpServer 和删除/编辑回调保持不变。
 
 新增 `manager_rows_show_connection_status_inside_supported_widths`，覆盖 `360`、`1024` 和 `1440` 宽度，验证状态徽章始终留在连接行内；`manager_session_status_labels_keep_runtime_meaning` 锁定六种状态文案。`cargo test --locked -p ramag-tool-ssh --lib -- --test-threads=1` 通过 89 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。当前完整程序已由 `F:\project\ramag-platform\target\debug\ramag.exe` 启动核对；Computer Use 当前没有原生窗口应用，本切片不宣称真实窗口鼠标/键盘验收，也不恢复 GitHub CI 监测。
+
+### 2026-10-03 API 页头协议徽章对齐
+
+API 页头原先在 Pulse 页面标题右侧保留泛化的 “API Workspace” 文本和弹性占位，宽窗口产生无意义空白，窄窗口时标题与上下文层级不稳定。现改为显示当前协议徽章（HTTP 或 gRPC），去掉占位和泛化英文标签；请求编辑、保存、发送、取消、响应和历史流程保持不变。
+
+扩展 API 响应式布局断言，覆盖 `360x240`、`1024x240`、`360x640`、`640x800`、`1024x768` 和 `1440x900`，验证协议徽章与页面标题共同留在页头内。`cargo test --locked -p ramag-tool-api --lib -- --test-threads=1` 通过 35 项；目标 Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前源码完整程序 `cargo build --locked -p ramag-bin` 均通过。当前完整程序已由 `F:\project\ramag-platform\target\debug\ramag.exe` 启动核对；Computer Use 当前没有原生窗口应用，本切片不宣称真实窗口鼠标/键盘验收，也不恢复 GitHub CI 监测。

@@ -65,7 +65,7 @@ pub(super) fn render(
 }
 
 fn render_header(
-    _view: &mut ApiView,
+    view: &mut ApiView,
     cx: &mut Context<ApiView>,
     theme: &gpui_kit::component::Theme,
 ) -> gpui_kit::AnyElement {
@@ -90,12 +90,14 @@ fn render_header(
                 .flex_1()
                 .min_w(px(160.0)),
         )
-        .child(div().flex_1().min_w_0())
         .child(
-            div()
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child("API Workspace"),
+            ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                ramag_ui::pulse_ui::PulseStatus::Current,
+                protocol_label(view.protocol),
+                cx,
+            )
+            .id("api-header-protocol")
+            .debug_selector(|| "api-header-protocol".into()),
         )
         .into_any_element()
 }
