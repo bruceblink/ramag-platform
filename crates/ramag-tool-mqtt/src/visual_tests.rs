@@ -343,6 +343,16 @@ fn mqtt_profile_sidebar_shows_name_and_endpoint(cx: &mut TestAppContext) {
     let sidebar = visual_cx
         .debug_bounds("mqtt-sidebar")
         .expect("MQTT 配置栏应渲染");
+    let page_title = visual_cx
+        .debug_bounds("mqtt-page-title")
+        .expect("MQTT Pulse 页面标题应渲染");
+    let main = visual_cx
+        .debug_bounds("mqtt-main")
+        .expect("MQTT 主区应渲染");
+    assert!(
+        page_title.right() <= main.right() && page_title.bottom() <= main.bottom(),
+        "MQTT 页面标题不能越出主区: title={page_title:?}, main={main:?}"
+    );
     for selector in ["mqtt-profile-name", "mqtt-profile-status"] {
         let bounds = visual_cx
             .debug_bounds(selector)

@@ -225,6 +225,18 @@ impl MqttView {
             || "新建 MQTT 配置".to_string(),
             |profile| profile.name.clone(),
         );
+        let connection_status = self
+            .selected_profile_id
+            .as_ref()
+            .and_then(|id| self.profile_connection_statuses.get(id))
+            .copied()
+            .unwrap_or_default();
+        let pulse_status = match connection_status {
+            MqttProfileConnectionStatus::Untested => ramag_ui::pulse_ui::PulseStatus::Unavailable,
+            MqttProfileConnectionStatus::Testing => ramag_ui::pulse_ui::PulseStatus::Warming,
+            MqttProfileConnectionStatus::Reachable => ramag_ui::pulse_ui::PulseStatus::Current,
+            MqttProfileConnectionStatus::Failed => ramag_ui::pulse_ui::PulseStatus::Failed,
+        };
         let mut actions = h_flex()
             .flex_wrap()
             .items_center()
@@ -302,22 +314,28 @@ impl MqttView {
                         row.flex_col().items_stretch()
                     })
                     .child(
+                        ramag_ui::pulse_ui::pulse_page_title(
+                            selected_name,
+                            Some(connection_status.label()),
+                            cx,
+                        )
+                        .id("mqtt-page-title")
+                        .debug_selector(|| "mqtt-page-title".into())
+                        .flex_1()
+                        .min_w_0(),
+                    )
+                    .child(
+                        ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                            pulse_status,
+                            connection_status.label(),
+                            cx,
+                        )
+                        .debug_selector(|| "mqtt-header-status-badge".into()),
+                    )
+                    .child(
                         v_flex()
                             .min_w_0()
-                            .gap(px(2.0))
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                                    .truncate()
-                                    .child(selected_name),
-                            )
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(theme.muted_foreground)
-                                    .child("真实 Broker 数据由 Native MQTT 驱动返回"),
-                            ),
+                            .flex_1(),
                     )
                     .child(actions),
             )
