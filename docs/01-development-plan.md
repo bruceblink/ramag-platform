@@ -1,14 +1,14 @@
 # Ramag Platform 执行计划与验收记录入口
 
 > 状态：现行执行规则
-> 更新日期：2026-10-01
+> 更新日期：2026-10-03
 > 主线：阶段 A 单机桌面收口与阶段 B 原生工作区迁移；阶段 C 继续后置
 > 路线图：[`02-development-roadmap.md`](02-development-roadmap.md)
 > 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
 > System Pulse 差距与执行顺序：[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)
 > 统一 UI 标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 历史执行记录：[`archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md`](archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md)
-> 2026-10-02 系统监控路线调整：暂停旧视图增量对齐；[完整源码迁入方案](03-system-pulse-adoption-plan.md#2026-10-02-完整源码迁入方案待确认)待确认，确认后优先执行，原记录不代表完整迁入已通过。
+> 当前 UI 推广队列与进度重排：[System Pulse 迁入和 Ramag 全应用样式计划](03-system-pulse-adoption-plan.md#2026-10-03-当前进度重排与执行队列)。
 
 ## 术语表与命名约定
 
@@ -73,11 +73,9 @@
 
 ### 2.3 完成范围与顺序
 
-当前顺序以 [`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md) 为准：先修设置保存反馈与进程风险文案，再补进程详情、Summary 趋势、选择和配置恢复。整体视觉推广继续覆盖系统监控、Shell/首页、设置、数据库、SSH、VCS、容器、对象存储，以及 API、Kafka、MQTT、剪贴板、JSON Path 和协作入口。Redis 和 MongoDB 随数据库切片验收。数据库遵守专项工作流标准；终端和复杂表格采用可读领域密度。动效与发布性能作为后续独立优化。
+2026-10-03 重排后，当前执行顺序以 [`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md#2026-10-03-当前进度重排与执行队列) 为准：容器列表视口/字体和插件入口/诊断视图已完成代码与验收，分别以 `72ce4f18`、`1b17e891` 推送；随后使用源码完整构建的 Ramag 程序逐工具核验，再按列表型工作区、编辑/连接型工作区及工具余项分片修复真实差异。
 
-已有采集替换、Shell 和首页提交的历史验证结果保留，它们不自动证明新整体标准已经通过。设置整体视觉仍需逐页复验，保存等功能修复独立记录结果；整体目标只有在所有目标页面的适用条件都有证据后才能完成。
-
-当前颜色映射仍有待修正项：监控磁盘页使用警告色、能耗页使用通用强调色，与绿色/黄色领域色目标不同；该差异进入监控视觉深化切片。`A-PULSE-MOTION-001` 与 `A-PULSE-PROFILING-001` 后置；只有独立验证后才能用于动效和发布性能验收，不作为设置保存或其他功能修复的前置条件。源码存在、headless 手动开关及静态截图均不证明系统偏好同步或发布性能已验收。
+完整 System Pulse 迁入、全局监控 Settings 收口及公共样式首轮推广已有提交和验收记录。旧的 `04-system-pulse-gap-matrix.md` 保留进程、Summary 和平台采集边界的历史证据，除非真实运行重新发现相关缺陷，不再作为新 UI 工作的排队入口。整体验收仍需逐页记录；headless 测试、构建启动和已接入公共标题不能代替完整程序交互核对。应用级设置留在全局 Settings，工具独有选项留在业务上下文，只合并真实重复项。动效及发布性能后置。
 
 ### 2.4 系统采集替换验收
 
