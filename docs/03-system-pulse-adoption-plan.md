@@ -562,3 +562,11 @@ SSH 工作区的远端目录此前只有连续文件行，文件类型、大小�
 数据库客户端连接列表的加载态原先只有居中的纯文本；读取失败时虽然保留旧连接行，但失败原因没有进入列表层级，用户无法判断当前数据是否仍然是上一次成功读取的快照。本切片将加载态统一为 Pulse `Warming` 状态通知；空列表失败态使用 `Failed` 状态通知和“重试”入口；已有连接行发生刷新失败时，在列表面板顶部保留同一失败通知和重试入口，同时继续显示旧列表，避免把失败误读为空数据。连接存储、版本探测、连接生命周期和重试回调保持不变。
 
 新增 `connection_list_loading_and_failures_use_pulse_status_notices`，覆盖 `360x640` 加载态、空列表失败态、重试边界以及旧列表保留时的失败通知；DBClient `372` 项测试全部通过，目标 all-target Clippy、workspace fmt、`git diff --check` 和当前完整程序 `cargo build --locked -p ramag-bin` 通过。Computer Use 使用进程路径已核对的 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `31760`）真实窗口 `Ramag — 数据库客户端` 验收：打开“数据源管理”时观察到 Pulse“预热中 / 正在读取本地连接列表…”通知，读取完成后连接列表占满内容区；输入 `no-such-connection` 观察到明确的“没有匹配连接”空状态，随后清空搜索恢复连接行。失败注入只在 headless 测试中执行，没有写入连接或数据库数据，Docker 不适用。
+
+### 2026-10-04 本机 MySQL 数据源连接恢复
+
+本轮优先处理用户截图中 `127.0.0.1:13318` 的连接失败，不扩展其它工具 UI。检查保存的连接端点、本机 Docker 测试服务和连接日志；确认最初失败由 visual MySQL 服务未运行引起，服务恢复后又发现保存连接使用了与当前 fixture 不一致的账号，随后修正本机连接配置。代码侧修复同一连接 ID 配置变化时的版本缓存与在途探测失效，并让 SQL 版本预取在连接池断连后执行一次幂等重试，保留连接 ID、已保存凭据和查询工作区。
+
+验收条件：本机 MySQL 8.4 测试服务健康，当前源码完整构建的 Ramag 显示“已连接”，可以读取 `ramag_ui_test` 对象树和 `bulk_records`；仅执行只读查询，不重建健康服务、不删除数据卷、不输入或保存新凭据。验证命令为 workspace fmt、workspace all-target Clippy、DBClient library tests、源码尺寸/日志检查、完整 `cargo build --locked -p ramag-bin` 和 Computer Use 真实窗口测试。回滚边界仅为连接列表缓存修复；本地测试服务与未相关修改不纳入代码回滚。
+
+验收结果：`ramag-visual-test-mysql84` 为 `mysql:8.4`、`127.0.0.1:13318`、`running/healthy`；当前源码完整构建的 `F:\project\ramag-platform\target\debug\ramag.exe` 于 2026-10-04 12:59:17 (+08:00) 启动，Computer Use 真实窗口显示 `127.0.0.1:13318` 为“已连接”，读取 `ramag_ui_test` schema、四个表/一个视图，并打开 `bulk_records` 完成 100 行只读查询。应用日志记录 schema cache 成功和查询成功，没有新的 `sql_pool_create` 失败。DBClient 373 项测试、目标 Clippy、workspace all-target Clippy、fmt、源码尺寸、日志约束和 `git diff --check` 通过；完整程序在修复并关闭旧进程后重新编译通过。`bash scripts/db-test/db-test.sh up` 在当前 PowerShell/WSL 入口因健康服务已占用 13306/15432 等端口而触发重建重试并失败，现有专用容器仍保持健康，未删除数据卷；该命令输出不作为应用失败证据。

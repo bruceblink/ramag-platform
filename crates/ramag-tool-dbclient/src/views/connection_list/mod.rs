@@ -152,6 +152,11 @@ impl ConnectionListPanel {
                             .iter()
                             .map(|connection| connection.id.clone())
                             .collect();
+                        // 同一连接 ID 的配置可能更换主机、端口或凭据；旧版本探测不能
+                        // 继续代表新端点。取消在途请求并清除缓存，下次打开连接时按新配置重探测。
+                        for config in &changed {
+                            this.invalidate_version(&config.id);
+                        }
                         this.versions.retain(|id, _| current_ids.contains(id));
                         this.connections = Arc::new(list);
                         this.filtered_indices_cache.get_mut().take();
@@ -225,7 +230,9 @@ impl ConnectionListPanel {
                 let restart = request.restart_config.clone();
 
                 if was_cancelled {
-                    evict_version_resources(&mysql_svc, &redis_svc, &mongo_svc, &conn.id);
+                    // 配置刷新、关闭标签和保存表单都会在发出取消后由拥有者
+                    // 清理连接池。这里不能再按连接 ID 清理：新配置可能已经
+                    // 建立了同 ID 的新池，旧探测回包会误删新连接。
                 } else {
                     match result {
                         Ok(version) => {
@@ -268,8 +275,7 @@ impl ConnectionListPanel {
 
     /// 使版本缓存失效并取消旧探测。
     pub fn invalidate_version(&mut self, id: &ConnectionId) {
-        self.versions.remove(id);
-        self.cancel_version_prefetch(id);
+        invalidate_version_state(&mut self.versions, &mut self.version_requests, id);
     }
 
     pub fn connections(&self) -> &[ConnectionConfig] {
@@ -336,6 +342,19 @@ fn changed_connections(
                 .cloned(),
         )
         .collect()
+}
+
+/// 清理一个连接的版本缓存和在途探测状态。
+fn invalidate_version_state(
+    versions: &mut HashMap<ConnectionId, String>,
+    version_requests: &mut HashMap<ConnectionId, VersionRequest>,
+    id: &ConnectionId,
+) {
+    versions.remove(id);
+    if let Some(request) = version_requests.get_mut(id) {
+        request.cancelled.store(true, Ordering::Release);
+        request.restart_config = None;
+    }
 }
 
 /// 可写且同引擎存在另一连接时允许同步。
@@ -433,6 +452,41 @@ mod tests {
             &[updated.clone(), added.clone()],
         );
         assert_eq!(changed, vec![updated, added, deleted]);
+    }
+
+    #[test]
+    fn changed_connection_invalidates_version_cache_and_request() {
+        let previous = ConnectionConfig::new_mysql("local", "127.0.0.1", 13318, "root");
+        let mut current = previous.clone();
+        current.port = 13306;
+        current.username = "ramag".into();
+        let changed = changed_connections(
+            std::slice::from_ref(&previous),
+            std::slice::from_ref(&current),
+        );
+        assert_eq!(changed, vec![current.clone()]);
+
+        let mut versions = HashMap::from([(current.id.clone(), "8.4.9".to_string())]);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let mut version_requests = HashMap::from([(
+            current.id.clone(),
+            VersionRequest {
+                config: previous,
+                cancelled: cancelled.clone(),
+                restart_config: Some(current.clone()),
+            },
+        )]);
+
+        invalidate_version_state(&mut versions, &mut version_requests, &current.id);
+
+        assert!(versions.is_empty());
+        assert!(cancelled.load(Ordering::Acquire));
+        assert_eq!(
+            version_requests
+                .get(&current.id)
+                .and_then(|request| request.restart_config.as_ref()),
+            None
+        );
     }
 
     #[test]

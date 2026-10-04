@@ -233,10 +233,13 @@ impl ConnectionService {
     }
 
     pub async fn server_version(&self, config: &ConnectionConfig) -> Result<String> {
-        let result = match self.driver_for(config) {
-            Ok(driver) => driver.server_version(config).await,
-            Err(error) => Err(error),
-        };
+        // 版本探测也会复用连接池；若服务刚恢复或旧池已断开，先淘汰旧池再重试一次。
+        // 这条路径由连接列表预取调用，不能把一次短暂断连固化成永久失败状态。
+        let result = retry_idempotent_read!(
+            config.id,
+            self.evict_pool(config),
+            self.driver_for(config)?.server_version(config).await
+        );
         log_connection_result("sql_server_version", config, None, None, &result);
         result
     }
