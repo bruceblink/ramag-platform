@@ -94,17 +94,20 @@ impl ObjectStorageView {
                             .text_sm()
                             .child(mount.bucket.clone()),
                     )
-                    .when_some(mount.root_prefix.clone(), |row, prefix| {
-                        row.child(
-                            div()
-                                .max_w(px(100.0))
-                                .overflow_hidden()
-                                .text_ellipsis()
-                                .text_xs()
-                                .text_color(muted)
-                                .child(format!("/{prefix}")),
-                        )
-                    }),
+                    .child(
+                        div()
+                            .w(px(100.0))
+                            .flex_none()
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .text_right()
+                            .text_xs()
+                            .text_color(muted)
+                            .child(mount.root_prefix.as_deref().map_or_else(
+                                || "根目录".to_owned(),
+                                |prefix| format!("/{prefix}"),
+                            )),
+                    ),
             );
         }
         let summary = format!(
@@ -177,8 +180,28 @@ impl ObjectStorageView {
                     ),
             )
             .child(
+                h_flex()
+                    .id("object-mount-columns")
+                    .debug_selector(|| "object-mount-columns".into())
+                    .w_full()
+                    .h(px(28.0))
+                    .flex_none()
+                    .items_center()
+                    .gap(px(8.0))
+                    .px(px(10.0))
+                    .border_b_1()
+                    .border_color(border)
+                    .bg(cx.theme().secondary)
+                    .text_xs()
+                    .text_color(muted)
+                    .child(div().w(px(16.0)).flex_none())
+                    .child(div().flex_1().min_w_0().child("Bucket"))
+                    .child(div().w(px(100.0)).flex_none().text_right().child("根路径")),
+            )
+            .child(
                 div()
                     .id("object-mounts-scroll")
+                    .debug_selector(|| "object-mounts-scroll".into())
                     .flex_1()
                     .min_h_0()
                     .overflow_y_scrollbar()

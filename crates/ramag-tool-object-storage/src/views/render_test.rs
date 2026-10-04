@@ -364,6 +364,12 @@ fn object_workspace_matches_the_shared_compact_file_browser(cx: &mut TestAppCont
     let columns = cx
         .debug_bounds("object-directory-columns")
         .expect("object columns should be rendered");
+    let mount_columns = cx
+        .debug_bounds("object-mount-columns")
+        .expect("mount columns should be rendered");
+    let mounts_scroll = cx
+        .debug_bounds("object-mounts-scroll")
+        .expect("mount list should be rendered");
     let summary = cx
         .debug_bounds("object-directory-summary")
         .expect("summary should be rendered");
@@ -373,6 +379,8 @@ fn object_workspace_matches_the_shared_compact_file_browser(cx: &mut TestAppCont
     assert!(toolbar.origin.y < columns.origin.y);
     assert!(columns.origin.y < directory.origin.y);
     assert!(directory.origin.y < summary.origin.y);
+    assert!(mount_columns.size.height >= px(28.0));
+    assert!(mount_columns.bottom() <= mounts_scroll.origin.y);
     assert!(
         cx.debug_bounds("object-path-part-0").is_some(),
         "根路径应渲染为可点击面包屑"

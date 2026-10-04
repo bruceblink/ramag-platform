@@ -538,3 +538,9 @@ Summary 底部 Thermals 卡片现在与 Energy 一样属于固定子系统区域
 对象存储账号管理在宽窗口中原先只有连续账号行，没有列层级，服务商、状态、Bucket 数量和操作入口难以与 System-tool 的表格列表对应。本切片在账号列表面板内增加固定表头，并让表头与账号行共用相同的列宽、间距、背景和边界：账号、服务商、状态、Bucket、操作。表头固定在内部滚动区上方，长账号列表继续只在面板内滚动；`360px` 紧凑窗口隐藏表头并保留原有可换行账号行，账号选择、搜索、新建、编辑、删除、凭据和 Bucket 流程不变。
 
 `account_manager_uses_shared_page_hierarchy_at_supported_widths` 新增宽窗口表头与五个列槽的边界断言，继续覆盖明暗主题、`360x640`、`1024x768` 和 `1440x900`；`cargo test --locked -p ramag-tool-object-storage --lib -- --test-threads=1` 通过 28 项，随后 `cargo test --locked --workspace -- --test-threads=1` 全部通过（外部服务专用用例按既有规则 ignored）。目标 Clippy、workspace fmt、Windows 源码尺寸脚本、`git diff --check` 和当前完整程序 `cargo build --locked -p ramag-bin` 通过。Computer Use 返回 `Trusted RPC service is not configured: sky`，本切片记录 headless、构建和启动前检查，不宣称原生鼠标/键盘验收；本地对象存储 UI 不使用 Docker，也不恢复 GitHub CI 监测。
+
+### 2026-10-04 对象存储 Bucket 导航表格对齐
+
+Bucket 导航原先只有按区域分组的连续行，根路径没有稳定的列层级；本切片增加固定的 `Bucket`/`根路径` 表头，并让行与表头共用图标槽、弹性名称列和 100px 根路径列。没有根路径的挂载显示“根目录”，长列表继续只在内部滚动区域滚动，区域分组、搜索、选择、刷新、收藏和对象浏览回调均保持不变。
+
+`object_workspace_matches_the_shared_compact_file_browser` 增加表头和滚动视口边界断言；对象存储 28 项测试、`cargo test --locked --workspace -- --test-threads=1`、workspace all-target Clippy、workspace fmt、Windows 源码尺寸检查、UTF-8/LF、`git diff --check` 和 `cargo build --locked -p ramag-bin` 均通过。Computer Use 使用 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `18276`，2026-10-04 08:33 +08:00）核对了当前编译程序的对象存储空状态、页头、搜索和新建入口；本机没有已保存对象存储账号，因此 Bucket 表头与多行挂载只计入 headless 验收，未输入或保存云凭据，也未连接远端服务。本轮不监测 GitHub CI。
