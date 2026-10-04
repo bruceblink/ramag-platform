@@ -156,6 +156,12 @@ fn container_stats_panel_stays_inside_supported_window_widths(cx: &mut TestAppCo
         let detail = visual_cx
             .debug_bounds("container-detail-panel")
             .expect("容器详情面板应渲染");
+        let viewport = visual_cx
+            .debug_bounds("container-detail-scroll")
+            .expect("详情应保留独立滚动视口");
+        let information = visual_cx
+            .debug_bounds("container-detail-information")
+            .expect("详情与资源指标应位于同一滚动内容中");
         let actions = visual_cx
             .debug_bounds("container-detail-actions")
             .expect("容器详情操作区应渲染");
@@ -178,11 +184,17 @@ fn container_stats_panel_stays_inside_supported_window_widths(cx: &mut TestAppCo
             .debug_bounds("container-detail-stats")
             .expect("刷新指标按钮应渲染");
         assert_inside(content, detail, "容器详情面板");
+        assert_inside(detail, viewport, "详情滚动视口");
+        assert!(viewport.size.height > px(0.0));
         assert_inside(detail, actions, "容器详情操作区");
         assert_inside(actions, refresh, "刷新指标按钮");
-        assert_inside(detail, stats, "容器资源指标面板");
-        assert_inside(detail, history, "容器指标历史面板");
-        assert_inside(detail, trend, "容器指标趋势面板");
+        assert_inside(information, stats, "容器资源指标面板");
+        assert_inside(information, history, "容器指标历史面板");
+        assert_inside(information, trend, "容器指标趋势面板");
+        assert!(
+            information.size.height > viewport.size.height,
+            "长详情应产生独立滚动内容，而不是扩大工作区"
+        );
         assert_inside(trend, cpu_trend, "CPU 趋势行");
         assert_inside(trend, memory_trend, "内存趋势行");
     }

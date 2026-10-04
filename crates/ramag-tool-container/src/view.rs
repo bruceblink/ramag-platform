@@ -252,6 +252,7 @@ pub struct ContainerView {
     logs_search_subscription: Option<Subscription>,
     logs_search: String,
     resource_table_scroll: ScrollHandle,
+    detail_scroll: ScrollHandle,
     registry_endpoint_input: Option<Entity<InputState>>,
     registry_input_subscription: Option<Subscription>,
     registry_endpoint: String,
@@ -357,6 +358,7 @@ impl ContainerView {
             logs_search_subscription: None,
             logs_search: String::new(),
             resource_table_scroll: ScrollHandle::new(),
+            detail_scroll: ScrollHandle::new(),
             registry_endpoint_input: None,
             registry_input_subscription: None,
             registry_endpoint: "https://registry.example.com".into(),
@@ -713,6 +715,17 @@ impl ContainerView {
             });
         })
         .detach();
+    }
+
+    /// Closing details invalidates pending detail reads and cancels owned metrics
+    /// work so a late response cannot reopen the panel or retain its history.
+    fn close_detail(&mut self, cx: &mut Context<Self>) {
+        self.request_id = self.request_id.wrapping_add(1);
+        self.selected_detail = None;
+        self.detail_loading = false;
+        self.detail_scroll = ScrollHandle::new();
+        self.clear_container_stats();
+        cx.notify();
     }
 
     fn load_container_stats(&mut self, container_id: String, cx: &mut Context<Self>) {
@@ -1128,6 +1141,7 @@ impl ContainerView {
     {
         match result {
             Ok(detail) => {
+                self.detail_scroll = ScrollHandle::new();
                 self.selected_detail = Some(detail.into());
                 self.error = None;
             }
@@ -1561,13 +1575,7 @@ impl ContainerView {
                     .min_h_0()
                     .child(section_content),
             );
-            // Resource tables use their own two-axis viewport; an open detail pane
-            // returns page scrolling so long diagnostic details remain reachable.
-            if self.selected_detail.is_some() {
-                content.overflow_y_scrollbar().into_any_element()
-            } else {
-                content.into_any_element()
-            }
+            content.into_any_element()
         } else {
             content
                 .overflow_y_scrollbar()
@@ -2344,13 +2352,25 @@ impl ContainerView {
                 .into_any_element()
         };
         let detail = self.render_detail(theme, cx);
-        ramag_ui::pulse_ui::pulse_panel(cx)
+        // The table and details share the available height. Each owns its scroll
+        // viewport, keeping selection and actions visible without page scrolling.
+        v_flex()
             .id("container-resource-panel")
             .debug_selector(|| "container-resource-panel".into())
+            .w_full()
+            .min_w_0()
             .flex_1()
             .min_h_0()
             .gap(px(12.0))
-            .child(body)
+            .child(
+                ramag_ui::pulse_ui::pulse_panel(cx)
+                    .flex_1()
+                    .flex_grow(1.4)
+                    .min_w_0()
+                    .min_h_0()
+                    .overflow_hidden()
+                    .child(body),
+            )
             .when_some(detail, |panel, detail| panel.child(detail))
             .into_any_element()
     }
@@ -2484,38 +2504,83 @@ impl ContainerView {
             }
             _ => None,
         };
-        let mut panel = ramag_ui::pulse_ui::pulse_panel(cx)
-            .id("container-detail-panel")
-            .debug_selector(|| "container-detail-panel".into())
-            .gap(px(8.0))
-            .child(info_panel("详情", detail, cx));
-        if let Some(detail_actions) = detail_actions {
-            panel = panel.child(detail_actions);
-        }
+        let mut content = v_flex()
+            .debug_selector(|| "container-detail-information".into())
+            .w_full()
+            .min_w_0()
+            .gap(px(12.0))
+            .child(detail_info_section("基本信息", detail, cx));
         if let Some(stats) = &self.container_stats {
-            panel = panel.child(
+            content = content.child(
                 div()
                     .id("container-detail-stats-panel")
                     .debug_selector(|| "container-detail-stats-panel".into())
-                    .child(info_panel("资源指标", container_stats_text(stats), cx)),
-            );
-        }
-        if !self.container_stats_history.is_empty() {
-            panel = panel.child(
-                div()
-                    .id("container-detail-stats-history-panel")
-                    .debug_selector(|| "container-detail-stats-history-panel".into())
-                    .child(info_panel(
-                        "最近指标",
-                        container_stats_history_text(&self.container_stats_history),
+                    .child(detail_info_section(
+                        "资源指标",
+                        container_stats_text(stats),
                         cx,
                     )),
             );
-            panel = panel.child(render_container_stats_trend(
-                &self.container_stats_history,
-                theme,
-            ));
         }
+        if !self.container_stats_history.is_empty() {
+            content = content
+                .child(
+                    div()
+                        .id("container-detail-stats-history-panel")
+                        .debug_selector(|| "container-detail-stats-history-panel".into())
+                        .child(detail_info_section(
+                            "最近指标",
+                            container_stats_history_text(&self.container_stats_history),
+                            cx,
+                        )),
+                )
+                .child(render_container_stats_trend(
+                    &self.container_stats_history,
+                    theme,
+                ));
+        }
+        let mut panel = ramag_ui::pulse_ui::pulse_panel(cx)
+            .id("container-detail-panel")
+            .debug_selector(|| "container-detail-panel".into())
+            .flex_1()
+            .min_w_0()
+            .min_h_0()
+            .gap(px(8.0))
+            .child(
+                h_flex()
+                    .w_full()
+                    .flex_none()
+                    .items_center()
+                    .justify_between()
+                    .child(ramag_ui::pulse_ui::pulse_display_heading("详情", 20.0, cx))
+                    .child(
+                        ramag_ui::clickable_button("container-detail-close")
+                            .debug_selector(|| "container-detail-close".into())
+                            .ghost()
+                            .small()
+                            .icon(IconName::Close)
+                            .tooltip("关闭详情，恢复完整列表")
+                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                this.close_detail(cx);
+                            })),
+                    ),
+            );
+        if let Some(detail_actions) = detail_actions {
+            panel = panel.child(detail_actions);
+        }
+        panel = panel.child(
+            v_flex()
+                .id("container-detail-scroll")
+                .debug_selector(|| "container-detail-scroll".into())
+                .w_full()
+                .flex_1()
+                .min_w_0()
+                .min_h_0()
+                .overflow_y_scroll()
+                .track_scroll(&self.detail_scroll)
+                .vertical_scrollbar(&self.detail_scroll)
+                .child(content),
+        );
         Some(panel.into_any_element())
     }
 }
@@ -2777,6 +2842,22 @@ fn info_panel(title: &'static str, text: String, cx: &gpui_kit::App) -> impl Int
         .child(ramag_ui::pulse_ui::pulse_display_heading(title, 16.0, cx))
         .child(
             div()
+                .text_sm()
+                .text_color(cx.theme().foreground)
+                .child(text),
+        )
+}
+
+fn detail_info_section(title: &'static str, text: String, cx: &gpui_kit::App) -> impl IntoElement {
+    v_flex()
+        .w_full()
+        .min_w_0()
+        .gap(px(6.0))
+        .child(ramag_ui::pulse_ui::pulse_display_heading(title, 16.0, cx))
+        .child(
+            div()
+                .w_full()
+                .min_w_0()
                 .text_sm()
                 .text_color(cx.theme().foreground)
                 .child(text),
@@ -3102,6 +3183,10 @@ mod export_tests;
 #[cfg(test)]
 #[path = "detail_tests.rs"]
 mod detail_tests;
+
+#[cfg(test)]
+#[path = "detail_layout_tests.rs"]
+mod detail_layout_tests;
 
 #[cfg(test)]
 #[path = "scroll_tests.rs"]
