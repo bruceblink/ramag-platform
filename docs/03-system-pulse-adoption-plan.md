@@ -555,4 +555,4 @@ SSH 工作区的远端目录此前只有连续文件行，文件类型、大小�
 
 提交 `c4b7beb9` 修复 GitHub Actions run `37165423364` 在 Linux、macOS 和 Windows 的统一 `Lint all targets` 失败。Rust 1.99 对旧版 `async-trait` 宏展开触发 `clippy::double_must_use`，锁文件更新 `async-trait` `0.1.89` 到 `0.1.92`；Rust 1.99 同时将两处 `AtomicUsize::fetch_update` 标为弃用，分别在对象存储传输队列和 API `.proto` 总量限制中改用 `compare_exchange_weak` CAS 循环，保持边界与并发语义不变。
 
-修复后的 Rust 1.99 `fmt-check`、`check-all`、`clippy-all` 和 `test-all` 均通过，源码尺寸与日志约束也通过；Windows Pester 未安装，本机未执行 Windows 打包测试，但原失败 run 的三平台打包步骤已经通过。修复已推送 `main`，新 run `37168698317` 由当前提交触发，等待 GitHub 结果时继续本地 UI 主线，不把本地工具链结果冒充远端完成。
+修复后的 Rust 1.99 `fmt-check`、`check-all`、`clippy-all` 和 `test-all` 均通过，源码尺寸与日志约束也通过；Windows Pester 未安装，本机未执行 Windows 打包测试，但原失败 run 的三平台打包步骤已经通过。修复已推送 `main`，新 run `37168698317` 于 `2026-10-04 10:02:46 +08:00` 终态成功：Linux、macOS 和 Windows 的格式、全目标检查、lint、workspace tests 与清理步骤均通过，无失败步骤。
