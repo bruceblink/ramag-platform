@@ -556,3 +556,9 @@ SSH 工作区的远端目录此前只有连续文件行，文件类型、大小�
 提交 `c4b7beb9` 修复 GitHub Actions run `37165423364` 在 Linux、macOS 和 Windows 的统一 `Lint all targets` 失败。Rust 1.99 对旧版 `async-trait` 宏展开触发 `clippy::double_must_use`，锁文件更新 `async-trait` `0.1.89` 到 `0.1.92`；Rust 1.99 同时将两处 `AtomicUsize::fetch_update` 标为弃用，分别在对象存储传输队列和 API `.proto` 总量限制中改用 `compare_exchange_weak` CAS 循环，保持边界与并发语义不变。
 
 修复后的 Rust 1.99 `fmt-check`、`check-all`、`clippy-all` 和 `test-all` 均通过，源码尺寸与日志约束也通过；Windows Pester 未安装，本机未执行 Windows 打包测试，但原失败 run 的三平台打包步骤已经通过。修复已推送 `main`，新 run `37168698317` 于 `2026-10-04 10:02:46 +08:00` 终态成功：Linux、macOS 和 Windows 的格式、全目标检查、lint、workspace tests 与清理步骤均通过，无失败步骤。
+
+### 2026-10-04 DBClient 连接列表状态通知对齐
+
+数据库客户端连接列表的加载态原先只有居中的纯文本；读取失败时虽然保留旧连接行，但失败原因没有进入列表层级，用户无法判断当前数据是否仍然是上一次成功读取的快照。本切片将加载态统一为 Pulse `Warming` 状态通知；空列表失败态使用 `Failed` 状态通知和“重试”入口；已有连接行发生刷新失败时，在列表面板顶部保留同一失败通知和重试入口，同时继续显示旧列表，避免把失败误读为空数据。连接存储、版本探测、连接生命周期和重试回调保持不变。
+
+新增 `connection_list_loading_and_failures_use_pulse_status_notices`，覆盖 `360x640` 加载态、空列表失败态、重试边界以及旧列表保留时的失败通知；DBClient `372` 项测试全部通过，目标 all-target Clippy、workspace fmt、`git diff --check` 和当前完整程序 `cargo build --locked -p ramag-bin` 通过。Computer Use 使用进程路径已核对的 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `31760`）真实窗口 `Ramag — 数据库客户端` 验收：打开“数据源管理”时观察到 Pulse“预热中 / 正在读取本地连接列表…”通知，读取完成后连接列表占满内容区；输入 `no-such-connection` 观察到明确的“没有匹配连接”空状态，随后清空搜索恢复连接行。失败注入只在 headless 测试中执行，没有写入连接或数据库数据，Docker 不适用。

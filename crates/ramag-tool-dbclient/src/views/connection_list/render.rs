@@ -7,7 +7,7 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
-    Styled, Window, div, px, uniform_list,
+    Styled, Window, div, prelude::FluentBuilder, px, uniform_list,
 };
 
 use super::row::connection_row;
@@ -114,26 +114,24 @@ impl Render for ConnectionListPanel {
                 .size_full()
                 .items_center()
                 .justify_center()
-                .child(div().text_sm().text_color(muted_fg).child("加载中…"))
+                .p(px(16.0))
+                .child(
+                    div()
+                        .id("connection-list-loading-notice")
+                        .debug_selector(|| "connection-list-loading-notice".into())
+                        .w_full()
+                        .max_w(px(CONTENT_MAX_W))
+                        .child(ramag_ui::pulse_ui::pulse_status_notice(
+                            ramag_ui::pulse_ui::PulseStatus::Warming,
+                            "正在读取本地连接列表…",
+                            cx,
+                        )),
+                )
                 .into_any_element()
         } else if total == 0 {
             // 加载失败不能显示为空状态。
             if let Some(err) = self.load_error.clone() {
-                v_flex()
-                    .size_full()
-                    .items_center()
-                    .justify_center()
-                    .gap(px(10.0))
-                    .child(div().text_sm().text_color(theme.danger).child(err))
-                    .child(
-                        ramag_ui::clickable_button("conn-list-retry")
-                            .small()
-                            .label("重试")
-                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                this.refresh(cx);
-                            })),
-                    )
-                    .into_any_element()
+                status_with_retry("connection-list-error-notice", err, cx)
             } else {
                 empty_state(cx).into_any_element()
             }
@@ -199,6 +197,35 @@ impl Render for ConnectionListPanel {
                 }),
             )
             .size_full();
+            let content = v_flex()
+                .size_full()
+                .min_h_0()
+                .p_0()
+                .overflow_hidden()
+                .when_some(self.load_error.clone(), |content, error| {
+                    content.child(
+                        div()
+                            .id("connection-list-error-notice")
+                            .debug_selector(|| "connection-list-error-notice".into())
+                            .w_full()
+                            .flex_none()
+                            .p(px(10.0))
+                            .child(ramag_ui::pulse_ui::pulse_status_notice(
+                                ramag_ui::pulse_ui::PulseStatus::Failed,
+                                error,
+                                cx,
+                            ))
+                            .child(
+                                ramag_ui::clickable_button("conn-list-retry")
+                                    .small()
+                                    .label("重试")
+                                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                        this.refresh(cx);
+                                    })),
+                            ),
+                    )
+                })
+                .child(rows);
             h_flex()
                 .w_full()
                 .flex_1()
@@ -215,7 +242,7 @@ impl Render for ConnectionListPanel {
                         .min_h_0()
                         .p_0()
                         .overflow_hidden()
-                        .child(rows),
+                        .child(content),
                 )
                 .into_any_element()
         };
@@ -227,6 +254,42 @@ impl Render for ConnectionListPanel {
             .child(header)
             .child(body)
     }
+}
+
+/// Keep load failures visible while preserving an already loaded connection list.
+fn status_with_retry(
+    id: &'static str,
+    message: String,
+    cx: &mut Context<ConnectionListPanel>,
+) -> AnyElement {
+    v_flex()
+        .id(id)
+        .debug_selector(move || id.into())
+        .size_full()
+        .items_center()
+        .justify_center()
+        .gap(px(10.0))
+        .p(px(16.0))
+        .child(
+            div()
+                .w_full()
+                .max_w(px(1080.0))
+                .child(ramag_ui::pulse_ui::pulse_status_notice(
+                    ramag_ui::pulse_ui::PulseStatus::Failed,
+                    message,
+                    cx,
+                )),
+        )
+        .child(
+            ramag_ui::clickable_button("conn-list-retry")
+                .debug_selector(|| "conn-list-retry".into())
+                .small()
+                .label("重试")
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                    this.refresh(cx);
+                })),
+        )
+        .into_any_element()
 }
 
 /// 空状态：只放一个居中主按钮

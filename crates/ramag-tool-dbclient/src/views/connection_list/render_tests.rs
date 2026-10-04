@@ -206,3 +206,74 @@ fn empty_connection_list_action_stays_visible_at_supported_sizes(cx: &mut TestAp
         );
     }
 }
+
+#[gpui_kit::test]
+fn connection_list_loading_and_failures_use_pulse_status_notices(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let storage: Arc<dyn Storage> = Arc::new(NoopStorage);
+    let service = Arc::new(ConnectionService::new(HashMap::new(), storage.clone()));
+    let redis_service = Arc::new(RedisService::new(
+        Arc::new(ramag_infra_redis::RedisDriver::new()),
+        storage.clone(),
+    ));
+    let mongo_service = Arc::new(MongoService::new(
+        Arc::new(ramag_infra_mongodb::MongoDriver::new()),
+        storage,
+    ));
+    let mut panel_entity = None;
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let entity = cx.new(|panel_cx| {
+            let mut panel =
+                ConnectionListPanel::new(service, redis_service, mongo_service, window, panel_cx);
+            panel.refresh_generation = panel.refresh_generation.wrapping_add(1);
+            panel.loading = true;
+            panel.loaded_revision = panel.service.revision();
+            panel
+        });
+        panel_entity = Some(entity.clone());
+        ConnectionListTestHost { panel: entity }
+    });
+    let panel = panel_entity.expect("连接列表面板应创建");
+
+    cx.simulate_resize(size(px(360.0), px(640.0)));
+    cx.run_until_parked();
+    let loading = cx
+        .debug_bounds("connection-list-loading-notice")
+        .expect("加载态应使用 Pulse 状态通知");
+    assert!(loading.size.width > px(0.0) && loading.size.height > px(0.0));
+
+    panel.update(cx, |panel, cx| {
+        panel.loading = false;
+        panel.load_error = Some("读取连接列表失败：存储暂时不可用".into());
+        panel.connections = Arc::new(Vec::new());
+        cx.notify();
+    });
+    cx.run_until_parked();
+    let error = cx
+        .debug_bounds("connection-list-error-notice")
+        .expect("空列表失败态应使用 Pulse 状态通知");
+    let retry = cx
+        .debug_bounds("conn-list-retry")
+        .expect("空列表失败态应保留重试入口");
+    assert!(error.right() <= px(360.0));
+    assert!(retry.right() <= px(360.0) && retry.bottom() <= px(640.0));
+
+    panel.update(cx, |panel, cx| {
+        panel.connections = Arc::new(vec![ConnectionConfig::new_mysql(
+            "stale connection",
+            "db.internal.example",
+            3306,
+            "ramag",
+        )]);
+        cx.notify();
+    });
+    cx.run_until_parked();
+    assert!(
+        cx.debug_bounds("connection-list-error-notice").is_some(),
+        "保留旧列表时也必须显示加载失败原因"
+    );
+    assert!(
+        cx.debug_bounds("connection-list-panel").is_some(),
+        "加载失败不应隐藏仍可用的旧列表"
+    );
+}
