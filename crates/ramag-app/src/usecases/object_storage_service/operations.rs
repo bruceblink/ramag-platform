@@ -301,15 +301,23 @@ impl ObjectStorageService {
         &self,
         cancellation: &TransferCancellation,
     ) -> Result<tokio::sync::OwnedSemaphorePermit> {
-        self.queued_transfers
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |queued| {
-                (queued < MAX_OBJECT_STORAGE_QUEUED_TRANSFERS).then_some(queued + 1)
-            })
-            .map_err(|_| {
-                DomainError::Other(format!(
+        let mut queued = self.queued_transfers.load(Ordering::Acquire);
+        loop {
+            if queued >= MAX_OBJECT_STORAGE_QUEUED_TRANSFERS {
+                return Err(DomainError::Other(format!(
                     "等待传输已达 {MAX_OBJECT_STORAGE_QUEUED_TRANSFERS} 个上限"
-                ))
-            })?;
+                )));
+            }
+            match self.queued_transfers.compare_exchange_weak(
+                queued,
+                queued + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => break,
+                Err(current) => queued = current,
+            }
+        }
         let acquire = Box::pin(self.transfer_slots.clone().acquire_owned());
         let cancellation = cancellation.clone();
         let cancelled = Box::pin(async move {

@@ -159,18 +159,26 @@ impl BoundedIncludeResolver {
     }
 
     fn reserve_source_bytes(&self, name: &str, bytes: usize) -> Result<(), protox::Error> {
-        self.total_source_bytes
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
-                current
-                    .checked_add(bytes)
-                    .filter(|next| *next <= MAX_API_PROTO_SOURCE_TOTAL_BYTES)
-            })
-            .map(|_| ())
-            .map_err(|_| {
-                Self::invalid_data(format!(
+        let mut current = self.total_source_bytes.load(Ordering::Acquire);
+        loop {
+            let Some(next) = current
+                .checked_add(bytes)
+                .filter(|next| *next <= MAX_API_PROTO_SOURCE_TOTAL_BYTES)
+            else {
+                return Err(Self::invalid_data(format!(
                     "导入的 .proto 源文件总量超过 {MAX_API_PROTO_SOURCE_TOTAL_BYTES} bytes 上限（{name}）"
-                ))
-            })
+                )));
+            };
+            match self.total_source_bytes.compare_exchange_weak(
+                current,
+                next,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return Ok(()),
+                Err(observed) => current = observed,
+            }
+        }
     }
 }
 
