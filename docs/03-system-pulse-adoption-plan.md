@@ -550,3 +550,9 @@ Bucket 导航原先只有按区域分组的连续行，根路径没有稳定的�
 SSH 工作区的远端目录此前只有连续文件行，文件类型、大小、修改时间和权限没有稳定的列层级，宽文件栏与 System-tool 的列表/表格信息密度不一致。本切片在文件栏宽度达到 `420px` 时显示固定表头和四个元数据列：名称、类型、大小、修改时间、权限；文件行与表头使用相同的图标槽、间距和列宽。窄文件栏（`180px`/`280px`）只保留名称列，避免固定元数据列挤压远端文件名；目录大小、缺失时间和缺失权限显示为明确的短横线，文件大小使用共享字节单位格式。连接、SFTP、终端、预览、下载、重命名、删除、拖拽和生产只读行为保持不变。
 
 `directory_toolbar_wraps_controls_inside_supported_file_browser_widths` 扩展检查表头在三种文件栏宽度内可见，宽栏元数据表头和行列不越界，中/窄栏隐藏可选列；`remote_entry_metadata_labels_keep_units_and_missing_values_explicit` 锁定文件单位、目录占位和权限格式。`cargo test --locked -p ramag-tool-ssh --lib -- --test-threads=1` 通过 90 项，目标 all-target Clippy、`cargo fmt --all -- --check` 和 `git diff --check` 通过。该切片不需要 Docker；真实 WSL 连接和原生窗口流程沿用既有证据范围，Computer Use 仅在可用时补充窗口列宽核对。
+
+### 2026-10-04 三平台 CI 质量门修复
+
+提交 `c4b7beb9` 修复 GitHub Actions run `37165423364` 在 Linux、macOS 和 Windows 的统一 `Lint all targets` 失败。Rust 1.99 对旧版 `async-trait` 宏展开触发 `clippy::double_must_use`，锁文件更新 `async-trait` `0.1.89` 到 `0.1.92`；Rust 1.99 同时将两处 `AtomicUsize::fetch_update` 标为弃用，分别在对象存储传输队列和 API `.proto` 总量限制中改用 `compare_exchange_weak` CAS 循环，保持边界与并发语义不变。
+
+修复后的 Rust 1.99 `fmt-check`、`check-all`、`clippy-all` 和 `test-all` 均通过，源码尺寸与日志约束也通过；Windows Pester 未安装，本机未执行 Windows 打包测试，但原失败 run 的三平台打包步骤已经通过。修复已推送 `main`，新 run `37168698317` 由当前提交触发，等待 GitHub 结果时继续本地 UI 主线，不把本地工具链结果冒充远端完成。
