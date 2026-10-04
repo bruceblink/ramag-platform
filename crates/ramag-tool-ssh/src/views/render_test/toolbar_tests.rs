@@ -78,10 +78,14 @@ fn directory_toolbar_wraps_controls_inside_supported_file_browser_widths(cx: &mu
         let toolbar = cx
             .debug_bounds("ssh-directory-toolbar")
             .expect("SSH 目录工具栏应渲染");
+        let table_header = cx
+            .debug_bounds("ssh-directory-table-header")
+            .expect("SSH 目录表头应渲染");
         let search = cx
             .debug_bounds("ssh-directory-search")
             .expect("SSH 目录搜索框应渲染");
         assert_inside(file_browser, toolbar, "SSH 目录工具栏");
+        assert_inside(file_browser, table_header, "SSH 目录表头");
         assert_inside(toolbar, search, "SSH 目录搜索框");
 
         for selector in ["sftp-refresh", "sftp-upload", "sftp-mkdir"] {
@@ -96,6 +100,33 @@ fn directory_toolbar_wraps_controls_inside_supported_file_browser_widths(cx: &mu
             assert!(
                 refresh.origin.y > search.origin.y,
                 "最小文件栏宽度应让操作按钮换到搜索框下方：search={search:?}, refresh={refresh:?}"
+            );
+            assert!(
+                cx.debug_bounds("ssh-directory-table-header-kind").is_none(),
+                "窄文件栏只显示名称列，避免元数据列挤压文件名"
+            );
+        } else if browser_width >= 420.0 {
+            for selector in [
+                "ssh-directory-table-header-kind",
+                "ssh-directory-table-header-size",
+                "ssh-directory-table-header-modified",
+                "ssh-directory-table-header-permissions",
+                "sftp-entry-kind-0",
+                "sftp-entry-size-0",
+                "sftp-entry-modified-0",
+                "sftp-entry-permissions-0",
+            ] {
+                assert_inside(
+                    file_browser,
+                    cx.debug_bounds(selector)
+                        .unwrap_or_else(|| panic!("{selector} 应渲染")),
+                    selector,
+                );
+            }
+        } else {
+            assert!(
+                cx.debug_bounds("ssh-directory-table-header-kind").is_none(),
+                "中等文件栏仍应隐藏元数据列，避免固定列挤压名称"
             );
         }
     }

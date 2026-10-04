@@ -544,3 +544,9 @@ Summary 底部 Thermals 卡片现在与 Energy 一样属于固定子系统区域
 Bucket 导航原先只有按区域分组的连续行，根路径没有稳定的列层级；本切片增加固定的 `Bucket`/`根路径` 表头，并让行与表头共用图标槽、弹性名称列和 100px 根路径列。没有根路径的挂载显示“根目录”，长列表继续只在内部滚动区域滚动，区域分组、搜索、选择、刷新、收藏和对象浏览回调均保持不变。
 
 `object_workspace_matches_the_shared_compact_file_browser` 增加表头和滚动视口边界断言；对象存储 28 项测试、`cargo test --locked --workspace -- --test-threads=1`、workspace all-target Clippy、workspace fmt、Windows 源码尺寸检查、UTF-8/LF、`git diff --check` 和 `cargo build --locked -p ramag-bin` 均通过。Computer Use 使用 `F:\project\ramag-platform\target\debug\ramag.exe`（PID `18276`，2026-10-04 08:33 +08:00）核对了当前编译程序的对象存储空状态、页头、搜索和新建入口；本机没有已保存对象存储账号，因此 Bucket 表头与多行挂载只计入 headless 验收，未输入或保存云凭据，也未连接远端服务。本轮不监测 GitHub CI。
+
+### 2026-10-04 SSH/SFTP 文件列表表格层级对齐
+
+SSH 工作区的远端目录此前只有连续文件行，文件类型、大小、修改时间和权限没有稳定的列层级，宽文件栏与 System-tool 的列表/表格信息密度不一致。本切片在文件栏宽度达到 `420px` 时显示固定表头和四个元数据列：名称、类型、大小、修改时间、权限；文件行与表头使用相同的图标槽、间距和列宽。窄文件栏（`180px`/`280px`）只保留名称列，避免固定元数据列挤压远端文件名；目录大小、缺失时间和缺失权限显示为明确的短横线，文件大小使用共享字节单位格式。连接、SFTP、终端、预览、下载、重命名、删除、拖拽和生产只读行为保持不变。
+
+`directory_toolbar_wraps_controls_inside_supported_file_browser_widths` 扩展检查表头在三种文件栏宽度内可见，宽栏元数据表头和行列不越界，中/窄栏隐藏可选列；`remote_entry_metadata_labels_keep_units_and_missing_values_explicit` 锁定文件单位、目录占位和权限格式。`cargo test --locked -p ramag-tool-ssh --lib -- --test-threads=1` 通过 90 项，目标 all-target Clippy、`cargo fmt --all -- --check` 和 `git diff --check` 通过。该切片不需要 Docker；真实 WSL 连接和原生窗口流程沿用既有证据范围，Computer Use 仅在可用时补充窗口列宽核对。

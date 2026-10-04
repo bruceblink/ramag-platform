@@ -25,8 +25,9 @@ use super::model::{
     terminal_has_exited, terminal_pulse_status, terminal_tab_label,
 };
 use super::render_directory_helpers::{
-    RemoteDirectoryDrag, RemoteEntryMenuState, centered_message, directory_counts,
-    directory_counts_at, filtered_entry_indices, remote_breadcrumbs, remote_entry_row,
+    RemoteDirectoryDrag, RemoteEntryMenuState, RemoteEntryRowState, centered_message,
+    directory_counts, directory_counts_at, filtered_entry_indices, remote_breadcrumbs,
+    remote_entry_row,
 };
 
 const FILE_BROWSER_WIDTH_INITIAL: f32 = 280.0;
@@ -171,7 +172,11 @@ impl SshView {
                             .flex_none()
                             .size(px(FILE_BROWSER_WIDTH_INITIAL))
                             .size_range(px(FILE_BROWSER_WIDTH_MIN)..px(FILE_BROWSER_WIDTH_MAX))
-                            .child(self.render_file_browser(workspace_id.clone(), cx)),
+                            .child(self.render_file_browser(
+                                workspace_id.clone(),
+                                target_width,
+                                cx,
+                            )),
                     )
                     .child(resizable_panel().child(
                         div().size_full().min_w_0().child(self.render_terminal_pane(

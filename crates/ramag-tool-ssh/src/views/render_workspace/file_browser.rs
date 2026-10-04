@@ -1,9 +1,11 @@
 use super::*;
+use gpui_kit::Pixels;
 
 impl SshView {
     pub(super) fn render_file_browser(
         &self,
         workspace_id: SshProfileId,
+        browser_width: Pixels,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let Some(workspace) = self
@@ -61,6 +63,7 @@ impl SshView {
             .any(|task| task.profile_id == workspace_id);
         let transfers_visible = workspace.transfers_visible;
         let border = cx.theme().border;
+        let show_metadata_columns = f32::from(browser_width) >= 420.0;
 
         let show_transfers = has_transfers;
         let toolbar = ramag_ui::responsive_toolbar()
@@ -220,7 +223,8 @@ impl SshView {
                 operation_busy: busy,
                 preview_loading,
             };
-            uniform_list(
+            let table_header = render_remote_table_header(show_metadata_columns, cx);
+            let rows = uniform_list(
                 SharedString::from(format!("sftp-directory-{workspace_id}")),
                 visible_len,
                 cx.processor({
@@ -237,13 +241,16 @@ impl SshView {
                                     .map_or(row_index, |indices| indices[row_index]);
                                 remote_entry_row(
                                     entries[index].clone(),
-                                    selected_path.as_ref(),
                                     workspace_id.clone(),
                                     index,
-                                    loading
-                                        && loading_path.as_deref()
-                                            == Some(entries[index].path.as_str()),
-                                    menu_state,
+                                    RemoteEntryRowState {
+                                        selected_path: selected_path.as_ref(),
+                                        loading: loading
+                                            && loading_path.as_deref()
+                                                == Some(entries[index].path.as_str()),
+                                        menu_state,
+                                        show_metadata_columns,
+                                    },
                                     cx,
                                 )
                             })
@@ -251,8 +258,22 @@ impl SshView {
                     }
                 }),
             )
-            .size_full()
-            .into_any_element()
+            .size_full();
+            v_flex()
+                .size_full()
+                .min_w_0()
+                .child(table_header)
+                .child(
+                    div()
+                        .id("ssh-directory-list-scroll")
+                        .debug_selector(|| "ssh-directory-list-scroll".into())
+                        .flex_1()
+                        .min_h_0()
+                        .min_w_0()
+                        .overflow_y_scrollbar()
+                        .child(rows),
+                )
+                .into_any_element()
         };
 
         v_flex()
@@ -281,4 +302,71 @@ impl SshView {
             )
             .into_any_element()
     }
+}
+
+fn render_remote_table_header(
+    show_metadata_columns: bool,
+    cx: &mut Context<SshView>,
+) -> AnyElement {
+    let theme = cx.theme();
+    h_flex()
+        .id("ssh-directory-table-header")
+        .debug_selector(|| "ssh-directory-table-header".into())
+        .w_full()
+        .h(px(30.0))
+        .flex_none()
+        .items_center()
+        .gap(px(8.0))
+        .px(px(10.0))
+        .border_b_1()
+        .border_color(theme.border)
+        .bg(theme.secondary)
+        .text_xs()
+        .text_color(theme.muted_foreground)
+        .child(
+            div()
+                .id("ssh-directory-table-header-name")
+                .debug_selector(|| "ssh-directory-table-header-name".into())
+                .flex_1()
+                .min_w_0()
+                .child("名称"),
+        )
+        .when(show_metadata_columns, |header| {
+            header
+                .child(
+                    div()
+                        .id("ssh-directory-table-header-kind")
+                        .debug_selector(|| "ssh-directory-table-header-kind".into())
+                        .w(px(64.0))
+                        .flex_none()
+                        .child("类型"),
+                )
+                .child(
+                    div()
+                        .id("ssh-directory-table-header-size")
+                        .debug_selector(|| "ssh-directory-table-header-size".into())
+                        .w(px(88.0))
+                        .flex_none()
+                        .text_right()
+                        .child("大小"),
+                )
+                .child(
+                    div()
+                        .id("ssh-directory-table-header-modified")
+                        .debug_selector(|| "ssh-directory-table-header-modified".into())
+                        .w(px(136.0))
+                        .flex_none()
+                        .child("修改时间"),
+                )
+                .child(
+                    div()
+                        .id("ssh-directory-table-header-permissions")
+                        .debug_selector(|| "ssh-directory-table-header-permissions".into())
+                        .w(px(72.0))
+                        .flex_none()
+                        .text_right()
+                        .child("权限"),
+                )
+        })
+        .into_any_element()
 }

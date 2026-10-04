@@ -15,7 +15,7 @@ use gpui_kit::{
 };
 use ramag_domain::entities::{
     RemoteEntry, RemoteEntryKind, RemotePath, SshProfileId, contains_case_insensitive,
-    infer_sftp_namespace,
+    format_bytes, infer_sftp_namespace,
 };
 
 use super::SshView;
@@ -193,15 +193,25 @@ pub(super) struct RemoteEntryMenuState {
     pub preview_loading: bool,
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct RemoteEntryRowState<'a> {
+    pub selected_path: Option<&'a String>,
+    pub loading: bool,
+    pub menu_state: RemoteEntryMenuState,
+    pub show_metadata_columns: bool,
+}
+
 pub(super) fn remote_entry_row(
     entry: RemoteEntry,
-    selected_path: Option<&String>,
     workspace_id: SshProfileId,
     index: usize,
-    loading: bool,
-    menu_state: RemoteEntryMenuState,
+    state: RemoteEntryRowState<'_>,
     cx: &mut Context<SshView>,
 ) -> AnyElement {
+    let selected_path = state.selected_path;
+    let loading = state.loading;
+    let menu_state = state.menu_state;
+    let show_metadata_columns = state.show_metadata_columns;
     let selected = selected_path == Some(&entry.path);
     let icon = match entry.kind {
         RemoteEntryKind::Directory => IconName::Folder,
@@ -215,6 +225,10 @@ pub(super) fn remote_entry_row(
         .flatten();
     let workspace_for_right_click = workspace_id.clone();
     let path_for_right_click = entry.path.clone();
+    let entry_kind = remote_entry_kind_label(entry.kind);
+    let entry_size = remote_entry_size_label(&entry);
+    let entry_modified = remote_entry_modified_label(&entry);
+    let entry_permissions = remote_entry_permissions_label(&entry);
     let actions = remote_entry_actions(entry.kind, menu_state.allow_write);
     let has_context_menu = !actions.is_empty();
     let entity_for_menu = cx.entity();
@@ -281,6 +295,50 @@ pub(super) fn remote_entry_row(
                 .text_ellipsis()
                 .child(entry.name),
         )
+        .when(show_metadata_columns, |row| {
+            row.child(
+                div()
+                    .id(("sftp-entry-kind", index))
+                    .debug_selector(move || format!("sftp-entry-kind-{index}"))
+                    .w(px(64.0))
+                    .flex_none()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(entry_kind),
+            )
+            .child(
+                div()
+                    .id(("sftp-entry-size", index))
+                    .debug_selector(move || format!("sftp-entry-size-{index}"))
+                    .w(px(88.0))
+                    .flex_none()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .text_right()
+                    .child(entry_size),
+            )
+            .child(
+                div()
+                    .id(("sftp-entry-modified", index))
+                    .debug_selector(move || format!("sftp-entry-modified-{index}"))
+                    .w(px(136.0))
+                    .flex_none()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(entry_modified),
+            )
+            .child(
+                div()
+                    .id(("sftp-entry-permissions", index))
+                    .debug_selector(move || format!("sftp-entry-permissions-{index}"))
+                    .w(px(72.0))
+                    .flex_none()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .text_right()
+                    .child(entry_permissions),
+            )
+        })
         .when_some(entry_drag, |row, drag| {
             row.cursor_pointer().on_drag(drag, |drag, position, _, cx| {
                 cx.new(|_| drag.clone().position(position))
@@ -300,6 +358,37 @@ pub(super) fn remote_entry_row(
     } else {
         row.into_any_element()
     }
+}
+
+pub(super) fn remote_entry_kind_label(kind: RemoteEntryKind) -> &'static str {
+    match kind {
+        RemoteEntryKind::File => "文件",
+        RemoteEntryKind::Directory => "目录",
+        RemoteEntryKind::Symlink => "链接",
+        RemoteEntryKind::Other => "其他",
+    }
+}
+
+pub(super) fn remote_entry_size_label(entry: &RemoteEntry) -> String {
+    if entry.kind == RemoteEntryKind::File {
+        format_bytes(entry.size)
+    } else {
+        "—".into()
+    }
+}
+
+pub(super) fn remote_entry_modified_label(entry: &RemoteEntry) -> String {
+    entry
+        .modified_at
+        .map(|modified| modified.format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_else(|| "—".into())
+}
+
+pub(super) fn remote_entry_permissions_label(entry: &RemoteEntry) -> String {
+    entry
+        .permissions
+        .map(|permissions| format!("{:o}", permissions & 0o7777))
+        .unwrap_or_else(|| "—".into())
 }
 
 pub(super) fn remote_entry_activation(kind: RemoteEntryKind) -> RemoteEntryActivation {

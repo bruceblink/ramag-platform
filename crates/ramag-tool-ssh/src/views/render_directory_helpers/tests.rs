@@ -180,3 +180,31 @@ fn remote_entry_action_labels_are_two_characters() {
         assert_eq!(action.label().chars().count(), 2);
     }
 }
+
+#[test]
+fn remote_entry_metadata_labels_keep_units_and_missing_values_explicit() {
+    let file = RemoteEntry {
+        name: "readme.md".into(),
+        path: "/tmp/readme.md".into(),
+        kind: RemoteEntryKind::File,
+        size: 2048,
+        permissions: Some(0o100644),
+        modified_at: None,
+    };
+    let directory = RemoteEntry {
+        name: "src".into(),
+        path: "/tmp/src".into(),
+        kind: RemoteEntryKind::Directory,
+        size: 0,
+        permissions: None,
+        modified_at: None,
+    };
+
+    assert_eq!(remote_entry_kind_label(file.kind), "文件");
+    assert_eq!(remote_entry_size_label(&file), "2 KiB");
+    assert_eq!(remote_entry_permissions_label(&file), "644");
+    assert_eq!(remote_entry_modified_label(&file), "—");
+    assert_eq!(remote_entry_kind_label(directory.kind), "目录");
+    assert_eq!(remote_entry_size_label(&directory), "—");
+    assert_eq!(remote_entry_permissions_label(&directory), "—");
+}
