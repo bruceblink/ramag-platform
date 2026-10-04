@@ -156,6 +156,20 @@ impl ObjectStorageView {
                 .children(visible.into_iter().enumerate().map(|(index, account)| {
                     self.render_account_row(index, account, show_manual_count, cx)
                 }));
+            let table = v_flex()
+                .w_full()
+                .min_h_0()
+                .child(self.render_account_table_header(show_manual_count, cx))
+                .child(
+                    div()
+                        .id("object-account-list-scroll")
+                        .debug_selector(|| "object-account-list-scroll".into())
+                        .w_full()
+                        .flex_1()
+                        .min_h_0()
+                        .overflow_y_scrollbar()
+                        .child(rows),
+                );
             v_flex()
                 .size_full()
                 .child(
@@ -174,16 +188,7 @@ impl ObjectStorageView {
                                 .min_h_0()
                                 .p_0()
                                 .overflow_hidden()
-                                .child(
-                                    div()
-                                        .id("object-account-list-scroll")
-                                        .debug_selector(|| "object-account-list-scroll".into())
-                                        .w_full()
-                                        .flex_1()
-                                        .min_h_0()
-                                        .overflow_y_scrollbar()
-                                        .child(div().w_full().child(rows)),
-                                ),
+                                .child(table),
                         ),
                 )
                 .into_any_element()
@@ -194,6 +199,82 @@ impl ObjectStorageView {
             .bg(cx.theme().background)
             .child(header)
             .child(div().flex_1().min_h_0().child(body))
+            .into_any_element()
+    }
+
+    fn render_account_table_header(
+        &self,
+        show_manual_count: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        if !show_manual_count {
+            return div()
+                .id("object-account-table-header")
+                .debug_selector(|| "object-account-table-header".into())
+                .h(px(0.0))
+                .flex_none()
+                .into_any_element();
+        }
+
+        let theme = cx.theme();
+        h_flex()
+            .id("object-account-table-header")
+            .debug_selector(|| "object-account-table-header".into())
+            .w_full()
+            .flex_none()
+            .items_center()
+            .gap(px(8.0))
+            .px(px(14.0))
+            .py(px(8.0))
+            .border_b_1()
+            .border_color(theme.border)
+            .bg(theme.secondary)
+            .text_xs()
+            .text_color(theme.muted_foreground)
+            .child(div().w(px(24.0)).flex_none())
+            .child(
+                div()
+                    .id("object-account-table-header-name")
+                    .debug_selector(|| "object-account-table-header-name".into())
+                    .flex_1()
+                    .min_w_0()
+                    .child("账号"),
+            )
+            .child(
+                div()
+                    .id("object-account-table-header-provider")
+                    .debug_selector(|| "object-account-table-header-provider".into())
+                    .w(px(120.0))
+                    .flex_none()
+                    .text_center()
+                    .child("服务商"),
+            )
+            .child(
+                div()
+                    .id("object-account-table-header-status")
+                    .debug_selector(|| "object-account-table-header-status".into())
+                    .w(px(56.0))
+                    .flex_none()
+                    .text_center()
+                    .child("状态"),
+            )
+            .child(
+                div()
+                    .id("object-account-table-header-buckets")
+                    .debug_selector(|| "object-account-table-header-buckets".into())
+                    .w(px(140.0))
+                    .flex_none()
+                    .child("Bucket"),
+            )
+            .child(
+                div()
+                    .id("object-account-table-header-actions")
+                    .debug_selector(|| "object-account-table-header-actions".into())
+                    .w(px(72.0))
+                    .flex_none()
+                    .text_right()
+                    .child("操作"),
+            )
             .into_any_element()
     }
 

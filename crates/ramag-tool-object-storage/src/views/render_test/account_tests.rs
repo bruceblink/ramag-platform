@@ -166,6 +166,14 @@ fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestA
             let list = cx
                 .debug_bounds("object-account-list-panel")
                 .expect("账号列表面板应显示");
+            let table_header = if width >= 900.0 {
+                Some(
+                    cx.debug_bounds("object-account-table-header")
+                        .expect("宽窗口账号列表应显示表头"),
+                )
+            } else {
+                None
+            };
             let scroll = cx
                 .debug_bounds("object-account-list-scroll")
                 .expect("账号行应保留面板内的滚动区域");
@@ -215,6 +223,21 @@ fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestA
                 list.size.height >= px(400.0),
                 "账号列表面板应填充标题区下方的剩余空间：{list:?} at {width}x{height}"
             );
+            if let Some(table_header) = table_header {
+                assert_inside(list, table_header, "对象存储账号表头");
+                for selector in [
+                    "object-account-table-header-name",
+                    "object-account-table-header-provider",
+                    "object-account-table-header-status",
+                    "object-account-table-header-buckets",
+                    "object-account-table-header-actions",
+                ] {
+                    let column = cx
+                        .debug_bounds(selector)
+                        .unwrap_or_else(|| panic!("{selector} 应渲染"));
+                    assert_inside(table_header, column, selector);
+                }
+            }
         }
     }
 }

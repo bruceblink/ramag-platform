@@ -532,3 +532,9 @@ Summary 底部 Thermals 卡片现在与 Energy 一样属于固定子系统区域
 全局 Settings 中剪贴板、更新、数据库偏好和托管模块仍使用旧的 8px 外框卡片，标题字号、背景和边界与 System-tool 风格不一致。本切片统一改用已有 `pulse_settings_card`：Michroma 分区标题、6px 圆角、主题次级背景、统一内边距和间距；设置导航、保存状态、导入/导出、数据库转换、剪贴板清理和更新链接行为均保持不变。
 
 `cargo test --locked -p ramag-ui --lib -- --test-threads=1` 通过 132 项；workspace all-target Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前完整程序 `cargo build --locked -p ramag-bin` 均通过。完整程序由 `F:\project\ramag-platform\target\debug\ramag.exe` 启动核对，PID `13316`、窗口标题 `Ramag — Kafka`，确认使用当前工作区产物；Computer Use 仍返回 `Trusted RPC service not configured: sky`，本切片不宣称原生鼠标/键盘验收，也不恢复 GitHub CI 监测。
+
+### 2026-10-03 对象存储账号列表表头对齐
+
+对象存储账号管理在宽窗口中原先只有连续账号行，没有列层级，服务商、状态、Bucket 数量和操作入口难以与 System-tool 的表格列表对应。本切片在账号列表面板内增加固定表头，并让表头与账号行共用相同的列宽、间距、背景和边界：账号、服务商、状态、Bucket、操作。表头固定在内部滚动区上方，长账号列表继续只在面板内滚动；`360px` 紧凑窗口隐藏表头并保留原有可换行账号行，账号选择、搜索、新建、编辑、删除、凭据和 Bucket 流程不变。
+
+`account_manager_uses_shared_page_hierarchy_at_supported_widths` 新增宽窗口表头与五个列槽的边界断言，继续覆盖明暗主题、`360x640`、`1024x768` 和 `1440x900`；`cargo test --locked -p ramag-tool-object-storage --lib -- --test-threads=1` 通过 28 项，随后 `cargo test --locked --workspace -- --test-threads=1` 全部通过（外部服务专用用例按既有规则 ignored）。目标 Clippy、workspace fmt、Windows 源码尺寸脚本、`git diff --check` 和当前完整程序 `cargo build --locked -p ramag-bin` 通过。Computer Use 返回 `Trusted RPC service is not configured: sky`，本切片记录 headless、构建和启动前检查，不宣称原生鼠标/键盘验收；本地对象存储 UI 不使用 Docker，也不恢复 GitHub CI 监测。
