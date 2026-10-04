@@ -6,6 +6,28 @@
 > 来源：https://github.com/eas4ai/system-pulse/tree/f1be5d51d24c21fa8c740be79200bdda3df3a00c
 > 优点吸收与剩余差距：[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)
 
+## 2026-10-04 暂存切片：容器列表与详情同屏
+
+当前源码完整程序的真实窗口中，选中容器会将详情追加到满高表格下方，主要信息与操作需要整页滚动才能访问。本切片只修改容器资源工作区：列表保持填满剩余空间，选中后的详情使用有界高度和独立滚动区，增加关闭入口以恢复完整列表；容器、镜像、网络和数据卷共用此布局，保留现有选择、刷新、指标与日志行为。
+
+用户随后明确要求先对齐 System Pulse 视图。容器切片的代码和测试保留在工作区，暂停后续功能扩展；尚未完成完整的真实窗口验收，不随监控图表修复提交。
+
+验收条件：标准及宽窗口中表格与详情同时可见、互不覆盖，长详情在面板内部滚动，关闭后列表恢复全高；明暗主题和窄尺寸 headless 防御测试保持内容及操作可达。验证运行容器 library tests、workspace fmt、workspace all-target Clippy、源码尺寸及 LF/diff 检查、完整 `cargo build --locked -p ramag-bin`，并用 Computer Use 对当前构建执行资源选择、详情关闭、滚动及只读操作。集成仅使用本机现有健康 Docker 服务，不重建健康实例、不删除数据卷。回滚边界为容器视图渲染与新增布局测试，不修改公共主题、协议或凭据。
+
+本次真实窗口另外发现两项待修复功能差异，列为下一切片：容器列表已读取成功，顶部仍显示“未连接”；容器列表有健康状态，但详情的状态、健康和创建时间显示未知。源码核对分别对应资源刷新清空连接状态、Docker inspect 响应复用平铺列表解析器。这两项不属于本轮布局验收通过范围，需独立修复状态生命周期和 inspect 字段映射，并复验同一个本机 Docker 容器。
+
+## 2026-10-04 用户插入优先项：监控图表标签恢复来源布局
+
+用户在本轮真实窗口测试期间指出 CPU、内存、磁盘、网络、能耗、GPU 和温度图表的刻度标签与绘图区间距过大，并再次指定 `F:/project/system-pulse/` 为参考。源码对比确认：来源 `screen_charts.rs` 使用绘图区上方的量程/历史行，与全宽绘图区共用左右边界；Ramag 的后续修改增加了固定 64px 左列和底部时间行。本切片恢复来源的图表容器布局，移除额外左列，保留真实量程、物理单位、缺失读数、历史与绘图行为。
+
+验收条件：公共 `history_chart` 的量程行左端与绘图区左端一致，历史行右端与绘图区右端一致，所有监控图表使用同一布局；窄图表、百分比、GiB、速率和负温度标签不遮挡绘图区。验证系统工具目标测试、workspace fmt/Clippy、完整构建及 Computer Use 同主题真实窗口，直接核对来源源码与独立参考程序。只启动一个 System Pulse 参考实例。回滚边界仅为 `screen_charts.rs` 和布局测试，容器切片保持独立；Docker 不适用。
+
+完成结果：量程与历史标签恢复到绘图区上方同一行，移除固定 64px 左列及底部时间行，标签行与绘图区共用左右边界。来源的紧凑图表显示范围及秒数，常规高度显示 `Scale: …` 和 `… s history`；保留网格、曲线、量程计算、单位换算及当前读数。极窄宽度时仅让左侧量程文本省略，右侧时长保持可见。
+
+验证结果：系统工具 library tests 106/106、容器既有及暂存布局 tests 32/32、workspace fmt、workspace all-target 严格 Clippy、源码尺寸、LF 和 diff 检查通过。新增结构测试覆盖 160/256/640px 图表宽度、CPU 百分比、GiB、PiB/s 和负温度；检查量程行与绘图区同宽，以及左右标签互不覆盖。完整 `ramag-bin` 构建成功，实际运行文件为 `F:/project/ramag-platform/target/x86_64-pc-windows-msvc/debug/ramag.exe`（2026-10-04 16:19:47），未使用 ui-preview 或安装目录中的程序。
+
+Computer Use 直接对照 `F:/project/system-pulse/target/debug/system-pulse.exe` 的真实窗口。原版仅运行一个实例；Ramag 在 1555px 宽窗口和缩窄至约 1321px 后，逐页观察 Summary、CPU、Memory、GPU、Disks、Network、Energy、Thermals：量程标签贴齐绘图区左边缘，时长贴齐右边缘，曲线和网格保留，CPU 核心小图与长速率标签没有旧左列空白。Summary 上下滚动可访问七类图表。此记录仅覆盖当前图表布局与现有明暗样式中的暗色运行结果，不扩展为进程操作、硬件授权、外部服务或所有平台验收；Docker 不适用。
+
 ## 2026-10-03 当前进度重排与执行队列
 
 System Pulse 固定来源的完整监控实现和十页 UI 已迁入 `ramag-tool-system`，用户已完成该 UI 的迁入验收。System Monitor 的 Appearance、Sampling 和 Presets 已收口到 Ramag 全局 Settings，监控页签和重复的工具级设置入口已移除。主程序 Summary 的 CPU/内存非零读数、图表纵轴和 SSH 本机 WSL 连接状态也有代码及运行验收记录。

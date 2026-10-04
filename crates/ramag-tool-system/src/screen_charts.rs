@@ -153,25 +153,6 @@ fn range_label(range: (f64, f64), unit: &str) -> String {
     )
 }
 
-fn axis_label(value: f64, unit: &str, zero: bool) -> String {
-    if zero && value == 0. {
-        return "0".into();
-    }
-    let divisor = unit_divisor(unit);
-    if unit.is_empty() {
-        format!("{value:.1}")
-    } else {
-        format!("{:.1} {unit}", value / divisor)
-    }
-}
-
-fn axis_labels(range: (f64, f64), unit: &str) -> (String, String) {
-    (
-        axis_label(range.1, unit, false),
-        axis_label(range.0, unit, true),
-    )
-}
-
 pub(crate) fn history_chart(
     id: impl Into<SharedString>,
     series: Vec<ChartSeries>,
@@ -199,7 +180,6 @@ pub(crate) fn history_chart(
         .map_or("", |sample| sample.unit.as_str());
     let scale_label = range_label(range, unit);
     let elapsed = format!("{:.1} s", time.1.saturating_sub(time.0) as f64 / 1000.);
-    let (top_axis_label, bottom_axis_label) = axis_labels(range, unit);
     let values = series
         .iter()
         .map(|series| {
@@ -319,10 +299,19 @@ pub(crate) fn history_chart(
         150.
     };
     let compact = height < 140.;
-    let axis_width = 64.;
-    let axis_top_id = format!("{id}:axis-top");
-    let axis_bottom_id = format!("{id}:axis-bottom");
-    let axis_id = format!("{id}:axis");
+    let visible_scale = if compact {
+        scale_label.trim_start_matches("Scale: ").to_owned()
+    } else {
+        scale_label
+    };
+    let visible_elapsed = if compact {
+        elapsed
+    } else {
+        format!("{elapsed} history")
+    };
+    let range_row_id = format!("{id}:range-row");
+    let range_label_id = format!("{id}:range-label");
+    let elapsed_id = format!("{id}:elapsed");
     let plot_id = format!("{id}:plot");
     div()
         .id(id.clone())
@@ -337,96 +326,62 @@ pub(crate) fn history_chart(
         .gap(px(if compact { 2. } else { 4. }))
         .child(
             div()
+                .id(range_row_id.clone())
+                .debug_selector(move || range_row_id.clone())
                 .flex()
+                .w_full()
+                .flex_shrink_0()
+                .justify_between()
                 .gap(px(4.))
+                .h(px(if compact { 12. } else { 14. }))
+                .line_height(px(if compact { 12. } else { 14. }))
+                .text_size(px(if compact { 9. } else { 10. }))
+                .text_color(cx.theme().muted_foreground)
+                .child(
+                    div()
+                        .id(range_label_id.clone())
+                        .debug_selector(move || range_label_id.clone())
+                        .flex_1()
+                        .min_w_0()
+                        .overflow_hidden()
+                        .text_ellipsis()
+                        .child(visible_scale),
+                )
+                .child(
+                    div()
+                        .id(elapsed_id.clone())
+                        .debug_selector(move || elapsed_id.clone())
+                        .flex_shrink_0()
+                        .child(visible_elapsed),
+                ),
+        )
+        .child(
+            div()
+                .id(plot_id.clone())
+                .debug_selector(move || plot_id.clone())
                 .relative()
                 .flex_1()
                 .min_h_0()
                 .w_full()
-                .child(
-                    div()
-                        .id(axis_id.clone())
-                        .debug_selector(move || axis_id.clone())
-                        .flex_none()
-                        .w(px(axis_width))
-                        .h_full()
-                        .flex()
-                        .flex_col()
-                        .justify_between()
-                        .items_start()
-                        .text_size(px(if compact { 9. } else { 10. }))
-                        .line_height(px(if compact { 11. } else { 12. }))
-                        .text_color(cx.theme().muted_foreground)
-                        .child(
-                            div()
-                                .id(axis_top_id.clone())
-                                .debug_selector(move || axis_top_id.clone())
-                                .max_w(px(axis_width))
-                                .overflow_hidden()
-                                .text_ellipsis()
-                                .child(top_axis_label),
-                        )
-                        .child(
-                            div()
-                                .id(axis_bottom_id.clone())
-                                .debug_selector(move || axis_bottom_id.clone())
-                                .max_w(px(axis_width))
-                                .overflow_hidden()
-                                .text_ellipsis()
-                                .child(bottom_axis_label),
-                        ),
-                )
-                .child(
-                    div()
-                        .id(plot_id.clone())
-                        .debug_selector(move || plot_id.clone())
-                        .relative()
-                        .flex_1()
-                        .min_w_0()
-                        .min_h_0()
-                        .flex()
-                        .flex_col()
-                        .child(
-                            div()
-                                .relative()
-                                .flex_1()
-                                .min_h_0()
-                                .w_full()
-                                .border_1()
-                                .border_color(accent.opacity(0.4))
-                                .rounded_sm()
-                                .overflow_hidden()
-                                .bg(accent.opacity(if dark { 0.035 } else { 0.025 }))
-                                .child(chart)
-                                .when(!has_points, |this| {
-                                    this.child(
-                                        div()
-                                            .absolute()
-                                            .inset_0()
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .text_size(px(11.))
-                                            .text_color(cx.theme().muted_foreground)
-                                            .child(waiting),
-                                    )
-                                }),
-                        )
-                        .child(
-                            div()
-                                .flex()
-                                .justify_between()
-                                .text_size(px(if compact { 9. } else { 10. }))
-                                .line_height(px(if compact { 11. } else { 12. }))
-                                .text_color(cx.theme().muted_foreground)
-                                .child(if time.0 == time.1 {
-                                    "now".into()
-                                } else {
-                                    format!("{elapsed} ago")
-                                })
-                                .child("now"),
-                        ),
-                ),
+                .border_1()
+                .border_color(accent.opacity(0.4))
+                .rounded_sm()
+                .overflow_hidden()
+                .bg(accent.opacity(if dark { 0.035 } else { 0.025 }))
+                .child(chart)
+                .when(!has_points, |this| {
+                    this.child(
+                        div()
+                            .absolute()
+                            .inset_0()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .text_size(px(11.))
+                            .text_color(cx.theme().muted_foreground)
+                            .child(waiting),
+                    )
+                }),
         )
         .into_any_element()
 }

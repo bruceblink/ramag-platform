@@ -1,6 +1,6 @@
 use super::{
-    ChartPoint, ChartSeries, axis_labels, chart_point, history_chart, latest_point, meter_ratio,
-    range_label, time_domain, trace_segments, value_domain,
+    ChartPoint, ChartSeries, chart_point, history_chart, latest_point, meter_ratio, range_label,
+    time_domain, trace_segments, value_domain,
 };
 use crate::test_support::TestUnwrapExt;
 use gpui_kit::{Context, IntoElement, Render, TestAppContext, Window, hsla, px, size};
@@ -18,66 +18,143 @@ fn sample(at_ms: u64, value: f64) -> Sample {
 }
 
 fn series(samples: Vec<Sample>) -> ChartSeries {
+    named_series("CPU", samples)
+}
+
+fn named_series(label: &str, samples: Vec<Sample>) -> ChartSeries {
     ChartSeries {
-        label: "CPU".into(),
+        label: label.into(),
         color: hsla(0.3, 0.8, 0.6, 1.),
         samples,
     }
 }
 
+fn measured_sample(
+    at_ms: u64,
+    quantity: Quantity,
+    value: f64,
+    total: Option<f64>,
+    unit: PhysicalUnit,
+) -> Sample {
+    Sample::measured(at_ms, quantity, value, total, unit).test_unwrap()
+}
+
+type SeriesFactory = fn() -> Vec<ChartSeries>;
+
+fn cpu_series() -> Vec<ChartSeries> {
+    vec![series(vec![sample(0, 0.), sample(6_000, 83.)])]
+}
+
+fn memory_series() -> Vec<ChartSeries> {
+    let gib = 1024_f64.powi(3);
+    vec![named_series(
+        "Memory",
+        vec![
+            measured_sample(
+                0,
+                Quantity::Capacity,
+                2. * gib,
+                Some(8. * gib),
+                PhysicalUnit::Bytes,
+            ),
+            measured_sample(
+                6_000,
+                Quantity::Capacity,
+                6. * gib,
+                Some(8. * gib),
+                PhysicalUnit::Bytes,
+            ),
+        ],
+    )]
+}
+
+fn temperature_series() -> Vec<ChartSeries> {
+    vec![named_series(
+        "Thermal",
+        vec![
+            measured_sample(0, Quantity::Temperature, -30., None, PhysicalUnit::Celsius),
+            measured_sample(
+                6_000,
+                Quantity::Temperature,
+                -5.,
+                None,
+                PhysicalUnit::Celsius,
+            ),
+        ],
+    )]
+}
+
+fn network_rate_series() -> Vec<ChartSeries> {
+    let pib = 1024_f64.powi(5);
+    vec![named_series(
+        "Network",
+        vec![
+            measured_sample(
+                0,
+                Quantity::Rate,
+                2. * pib,
+                None,
+                PhysicalUnit::BytesPerSecond,
+            ),
+            measured_sample(
+                6_000,
+                Quantity::Rate,
+                8. * pib,
+                None,
+                PhysicalUnit::BytesPerSecond,
+            ),
+        ],
+    )]
+}
+
 struct ChartPreview {
-    series: Vec<ChartSeries>,
+    series_factory: SeriesFactory,
 }
 
 impl Render for ChartPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        history_chart(
-            "chart-test",
-            std::mem::take(&mut self.series),
-            120.,
-            None,
-            cx,
-        )
+        history_chart("chart-test", (self.series_factory)(), 120., None, cx)
     }
 }
 
 #[gpui_kit::test]
-fn axis_labels_stay_left_aligned_and_plot_starts_after_compact_axis(cx: &mut TestAppContext) {
+fn range_and_elapsed_align_with_full_width_plot_for_narrow_chart_units(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let (view, cx) = cx.add_window_view(|_, _| ChartPreview {
-        series: vec![series(vec![sample(0, 20.), sample(1000, 80.)])],
+        series_factory: cpu_series,
     });
 
-    for width in [256.0, 640.0, 1024.0] {
-        cx.simulate_resize(size(px(width), px(240.)));
-        view.update(cx, |_, cx| cx.notify());
-        cx.run_until_parked();
+    for series_factory in [
+        cpu_series as SeriesFactory,
+        memory_series,
+        temperature_series,
+        network_rate_series,
+    ] {
+        view.update(cx, |preview, cx| {
+            preview.series_factory = series_factory;
+            cx.notify();
+        });
 
-        let root = cx.debug_bounds("chart-test").test_unwrap();
-        let axis = cx.debug_bounds("chart-test:axis").test_unwrap();
-        let top = cx.debug_bounds("chart-test:axis-top").test_unwrap();
-        let bottom = cx.debug_bounds("chart-test:axis-bottom").test_unwrap();
-        let plot = cx.debug_bounds("chart-test:plot").test_unwrap();
-        assert_eq!(axis.size.width, px(64.));
-        assert_eq!(top.origin.x, axis.origin.x);
-        assert_eq!(bottom.origin.x, axis.origin.x);
-        assert!(plot.origin.x > axis.right());
-        assert!(plot.right() <= root.right());
-        assert!(plot.size.width > px(0.));
+        for width in [160.0, 256.0, 640.0] {
+            cx.simulate_resize(size(px(width), px(240.)));
+            view.update(cx, |_, cx| cx.notify());
+            cx.run_until_parked();
+
+            let root = cx.debug_bounds("chart-test").test_unwrap();
+            let row = cx.debug_bounds("chart-test:range-row").test_unwrap();
+            let range = cx.debug_bounds("chart-test:range-label").test_unwrap();
+            let elapsed = cx.debug_bounds("chart-test:elapsed").test_unwrap();
+            let plot = cx.debug_bounds("chart-test:plot").test_unwrap();
+            assert_eq!(row.origin.x, plot.origin.x);
+            assert_eq!(row.right(), plot.right());
+            assert_eq!(range.origin.x, plot.origin.x);
+            assert!(range.right() <= elapsed.origin.x);
+            assert_eq!(elapsed.right(), plot.right());
+            assert_eq!(plot.origin.x, root.origin.x);
+            assert_eq!(plot.right(), root.right());
+            assert!(plot.size.width > px(0.));
+        }
     }
-}
-
-#[test]
-fn axis_labels_keep_zero_without_unit_and_physical_units() {
-    assert_eq!(axis_labels((0., 100.), "%"), ("100.0 %".into(), "0".into()));
-    assert_eq!(
-        axis_labels((0., 2. * 1024_f64.powi(3)), "GiB"),
-        ("2.0 GiB".into(), "0".into())
-    );
-    assert_eq!(
-        axis_labels((-5., 20.), "°C"),
-        ("20.0 °C".into(), "-5.0 °C".into())
-    );
 }
 
 #[test]
@@ -179,8 +256,13 @@ fn range_labels_convert_base_values_without_relabelling_bytes_as_gibibytes() {
         range_label((0., 3. * 1024_f64.powi(2)), "MiB/s"),
         "Scale: 0.0–3.0 MiB/s"
     );
+    assert_eq!(
+        range_label((0., 8. * 1024_f64.powi(5)), "PiB/s"),
+        "Scale: 0.0–8.0 PiB/s"
+    );
     assert_eq!(range_label((0., 4e9), "GHz"), "Scale: 0.0–4.0 GHz");
     assert_eq!(range_label((-5., 20.), "°C"), "Scale: -5.0–20.0 °C");
+    assert_eq!(range_label((0., 100.), "%"), "Scale: 0.0–100.0 %");
 }
 
 #[test]
