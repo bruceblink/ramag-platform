@@ -136,22 +136,24 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
         visual.simulate_resize(size(px(1440.0), px(900.0)));
         visual.run_until_parked();
         if control.starts_with("settings-monitor") {
-            // Sampling now lives in the shared System page below Appearance;
-            // use a wide acceptance viewport before exercising its real hit target.
-            assert!(bounds(visual, control).size.width > px(0.0));
+            // Sampling may share the first row with Appearance at wide sizes;
+            // only scroll when the selected control is actually outside the viewport.
+            let control_bounds = bounds(visual, control);
+            assert!(control_bounds.size.width > px(0.0));
+            let viewport = bounds(visual, "settings-page-scroll");
+            if control_bounds.top() < viewport.top() || control_bounds.bottom() > viewport.bottom()
+            {
+                visual.simulate_event(ScrollWheelEvent {
+                    position: viewport.center(),
+                    delta: ScrollDelta::Pixels(point(px(0.0), px(720.0))),
+                    modifiers: Modifiers::default(),
+                    touch_phase: TouchPhase::Moved,
+                });
+                visual.run_until_parked();
+            }
         }
         let before = stored(visual, storage.as_ref(), key);
         test_storage.fail_next_preference_write();
-        if control.starts_with("settings-monitor") {
-            let viewport = bounds(visual, "settings-page-scroll");
-            visual.simulate_event(ScrollWheelEvent {
-                position: viewport.center(),
-                delta: ScrollDelta::Pixels(point(px(0.0), px(720.0))),
-                modifiers: Modifiers::default(),
-                touch_phase: TouchPhase::Moved,
-            });
-            visual.run_until_parked();
-        }
         click(visual, control);
 
         visual.update(|_, app| {

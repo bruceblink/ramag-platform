@@ -113,7 +113,11 @@ impl SettingsView {
             .child(
                 v_flex()
                     .w_full()
-                    .max_w(px(820.0))
+                    .max_w(px(if page == SettingsPage::System {
+                        1180.0
+                    } else {
+                        820.0
+                    }))
                     .mx_auto()
                     .p(px(if compact { 16.0 } else { 28.0 }))
                     .gap(px(if compact { 16.0 } else { 24.0 }))

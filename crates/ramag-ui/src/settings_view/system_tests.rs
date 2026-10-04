@@ -77,6 +77,44 @@ fn public_settings_fit_both_themes_and_apply_without_resetting_other_values(
                     "{selector}: {bounds:?}"
                 );
             }
+            let appearance = cx.debug_bounds("settings-appearance-card");
+            assert!(appearance.is_some(), "Appearance card should render");
+            let appearance = appearance.unwrap_or_default();
+            let sampling = cx.debug_bounds("settings-sampling-card");
+            assert!(sampling.is_some(), "Sampling card should render");
+            let sampling = sampling.unwrap_or_default();
+            let window = cx.debug_bounds("settings-window-card");
+            assert!(window.is_some(), "Window card should render");
+            let window = window.unwrap_or_default();
+            let primary_row = cx.debug_bounds("settings-system-primary-row");
+            assert!(primary_row.is_some(), "primary settings row should render");
+            let primary_row = primary_row.unwrap_or_default();
+            assert!(
+                appearance.left() >= px(0.0)
+                    && appearance.right() <= px(width)
+                    && sampling.left() >= px(0.0)
+                    && sampling.right() <= px(width)
+                    && window.left() >= px(0.0)
+                    && window.right() <= px(width),
+                "system settings cards must stay inside the viewport at {width}x{height}"
+            );
+            assert!(
+                primary_row.bottom() >= appearance.bottom()
+                    && primary_row.bottom() >= sampling.bottom()
+                    && primary_row.bottom() >= window.bottom(),
+                "primary settings row must contain every card at {width}x{height}"
+            );
+            if width >= 900.0 {
+                assert_eq!(
+                    appearance.origin.y, sampling.origin.y,
+                    "Appearance and Sampling should share a row at {width}px"
+                );
+            } else {
+                assert!(
+                    sampling.origin.y >= appearance.bottom(),
+                    "Sampling should wrap below Appearance at {width}px"
+                );
+            }
         }
     }
     click(cx, "settings-text-size-0");

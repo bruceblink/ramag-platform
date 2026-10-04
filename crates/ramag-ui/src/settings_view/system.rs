@@ -120,6 +120,8 @@ pub(super) fn system_settings_panel(
         "当前平台尚未完成托盘驻留验证。"
     };
     let appearance_card = pulse_settings_card("Appearance", theme)
+        .id("settings-appearance-card")
+        .debug_selector(|| "settings-appearance-card".into())
         .flex_basis(gpui_kit::px(460.0))
         .flex_grow(1.0)
         .child(setting_row(
@@ -188,6 +190,8 @@ pub(super) fn system_settings_panel(
                 ),
         );
     let window_card = pulse_settings_card("Window behavior", theme)
+        .id("settings-window-card")
+        .debug_selector(|| "settings-window-card".into())
         .flex_basis(gpui_kit::px(300.0))
         .flex_grow(1.0)
         .child(setting_row(
@@ -213,6 +217,10 @@ pub(super) fn system_settings_panel(
         crate::MonitorRefreshRate::FiveSeconds => "5.0",
     };
     let sampling = pulse_settings_card("Sampling", theme)
+        .id("settings-sampling-card")
+        .debug_selector(|| "settings-sampling-card".into())
+        .flex_basis(gpui_kit::px(300.0))
+        .flex_grow(1.0)
         .child(
             h_flex()
                 .items_baseline()
@@ -263,17 +271,36 @@ pub(super) fn system_settings_panel(
                 .text_sm()
                 .text_color(theme.muted_foreground)
                 .child("Changes apply immediately and save automatically."),
-        )
-        .when_some(monitor_presets, |view, presets| view.child(presets));
-    h_flex()
+        );
+    let primary_row = h_flex()
+        .id("settings-system-primary-row")
+        .debug_selector(|| "settings-system-primary-row".into())
         .w_full()
         .min_w_0()
         .flex_wrap()
-        .items_stretch()
+        .items_start()
         .gap_3()
-        .child(sampling)
         .child(appearance_card)
-        .child(window_card)
+        .child(sampling)
+        .child(window_card);
+    v_flex()
+        .id("settings-system-layout")
+        .debug_selector(|| "settings-system-layout".into())
+        .w_full()
+        .min_w_0()
+        .flex_col()
+        .gap_3()
+        .child(primary_row)
+        .when_some(monitor_presets, |view, presets| {
+            view.child(
+                div()
+                    .id("settings-monitor-presets")
+                    .debug_selector(|| "settings-monitor-presets".into())
+                    .w_full()
+                    .min_w_0()
+                    .child(presets),
+            )
+        })
         .into_any_element()
 }
 
