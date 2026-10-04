@@ -22,6 +22,10 @@ $ProxyUsername = "proxy-user"
 $ProxyPassword = "proxy-secret"
 $TlsDirectory = Join-Path $ScriptDirectory "tls"
 $CargoWrapper = Join-Path $RepositoryRoot "scripts\windows\invoke-cargo-msvc.ps1"
+$DockerLifecycleScript = Join-Path $RepositoryRoot "scripts\windows\docker-test-lifecycle.ps1"
+$DockerTestContainers = @($ContainerName, $ProxyContainerName)
+
+. $DockerLifecycleScript
 
 function Invoke-ApiCompose {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
@@ -47,8 +51,20 @@ function Wait-ApiHealthy {
 }
 
 function Start-ApiTest {
-    Invoke-ApiCompose -Arguments @("up", "--build", "--detach")
-    Wait-ApiHealthy
+    Repair-RamagDockerTestContainers `
+        -ContainerNames $DockerTestContainers `
+        -LogPrefix "api-test" | Out-Null
+    try {
+        Invoke-ApiCompose -Arguments @("up", "--build", "--detach")
+        Wait-ApiHealthy
+    } catch {
+        Write-Warning "[api-test] Docker HTTP fixture is unavailable; recreating its containers before retrying."
+        Recreate-RamagDockerTestContainers `
+            -ContainerNames $DockerTestContainers `
+            -LogPrefix "api-test"
+        Invoke-ApiCompose -Arguments @("up", "--build", "--detach")
+        Wait-ApiHealthy
+    }
 }
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {

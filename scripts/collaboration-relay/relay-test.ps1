@@ -2,8 +2,30 @@ $ErrorActionPreference = 'Stop'
 
 $compose = Join-Path $PSScriptRoot 'compose.yaml'
 $projectName = 'ramag-collaboration-relay-test'
+$repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$dockerLifecycleScript = Join-Path $repositoryRoot 'scripts\windows\docker-test-lifecycle.ps1'
+$dockerTestContainers = @('ramag-collaboration-relay-test')
 
-docker compose -p $projectName -f $compose up --build -d
+. $dockerLifecycleScript
+
+Repair-RamagDockerTestContainers `
+    -ContainerNames $dockerTestContainers `
+    -LogPrefix 'collaboration-relay-test' | Out-Null
+try {
+    docker compose -p $projectName -f $compose up --build -d
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker compose failed with exit code $LASTEXITCODE"
+    }
+} catch {
+    Write-Warning '[collaboration-relay-test] Relay fixture is unavailable; recreating its container before retrying.'
+    Recreate-RamagDockerTestContainers `
+        -ContainerNames $dockerTestContainers `
+        -LogPrefix 'collaboration-relay-test'
+    docker compose -p $projectName -f $compose up --build -d
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker compose failed with exit code $LASTEXITCODE"
+    }
+}
 $previousRelayUrl = $env:RAMAG_COLLAB_RELAY_URL
 try {
     $deadline = (Get-Date).AddMinutes(5)

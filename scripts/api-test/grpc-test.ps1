@@ -22,6 +22,10 @@ $ProxyUsername = "proxy-user"
 $ProxyPassword = "proxy-secret"
 $TlsDirectory = Join-Path $ScriptDirectory "tls"
 $CargoWrapper = Join-Path $RepositoryRoot "scripts\windows\invoke-cargo-msvc.ps1"
+$DockerLifecycleScript = Join-Path $RepositoryRoot "scripts\windows\docker-test-lifecycle.ps1"
+$DockerTestContainers = @($ContainerName, $ProxyContainerName)
+
+. $DockerLifecycleScript
 
 function Invoke-GrpcCompose {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
@@ -47,8 +51,20 @@ function Wait-GrpcHealthy {
 }
 
 function Start-GrpcTest {
-    Invoke-GrpcCompose -Arguments @("up", "--build", "--detach")
-    Wait-GrpcHealthy
+    Repair-RamagDockerTestContainers `
+        -ContainerNames $DockerTestContainers `
+        -LogPrefix "api-grpc-test" | Out-Null
+    try {
+        Invoke-GrpcCompose -Arguments @("up", "--build", "--detach")
+        Wait-GrpcHealthy
+    } catch {
+        Write-Warning "[api-grpc-test] Docker gRPC fixture is unavailable; recreating its containers before retrying."
+        Recreate-RamagDockerTestContainers `
+            -ContainerNames $DockerTestContainers `
+            -LogPrefix "api-grpc-test"
+        Invoke-GrpcCompose -Arguments @("up", "--build", "--detach")
+        Wait-GrpcHealthy
+    }
 }
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {

@@ -14,6 +14,10 @@ $ProjectName = "ramag-mqtt-test"
 $TestHost = "127.0.0.1"
 $TestPort = "18883"
 $CargoWrapper = Join-Path $RepositoryRoot "scripts\windows\invoke-cargo-msvc.ps1"
+$DockerLifecycleScript = Join-Path $RepositoryRoot "scripts\windows\docker-test-lifecycle.ps1"
+$DockerTestContainers = @("ramag-mqtt-test")
+
+. $DockerLifecycleScript
 
 function Invoke-MqttCompose {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
@@ -37,8 +41,20 @@ function Wait-MqttHealthy {
 }
 
 function Start-MqttTest {
-    Invoke-MqttCompose -Arguments @("up", "--detach")
-    Wait-MqttHealthy
+    Repair-RamagDockerTestContainers `
+        -ContainerNames $DockerTestContainers `
+        -LogPrefix "mqtt-test" | Out-Null
+    try {
+        Invoke-MqttCompose -Arguments @("up", "--detach")
+        Wait-MqttHealthy
+    } catch {
+        Write-Warning "[mqtt-test] Mosquitto fixture is unavailable; recreating its container before retrying."
+        Recreate-RamagDockerTestContainers `
+            -ContainerNames $DockerTestContainers `
+            -LogPrefix "mqtt-test"
+        Invoke-MqttCompose -Arguments @("up", "--detach")
+        Wait-MqttHealthy
+    }
 }
 
 switch ($Command) {

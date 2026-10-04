@@ -27,6 +27,10 @@ $KnownHostsBackupPath = Join-Path $KeyDirectory "known_hosts.backup"
 $KnownHostsExisted = $false
 $SshDirectoryCreated = $false
 $TestKeyCreated = $false
+$DockerLifecycleScript = Join-Path $RepositoryRoot "scripts\windows\docker-test-lifecycle.ps1"
+$DockerTestContainers = @($ContainerName)
+
+. $DockerLifecycleScript
 
 function Invoke-SshCompose {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
@@ -77,22 +81,37 @@ function New-TestKey {
 }
 
 function Ensure-SshHealthy {
-    Invoke-SshCompose -Arguments @("up", "--build", "--detach")
-    for ($attempt = 1; $attempt -le 30; $attempt++) {
-        $health = (& docker inspect --format "{{.State.Health.Status}}" $ContainerName 2>$null | Out-String).Trim()
-        if ($health -eq "healthy") {
-            Write-Host "[ssh-test] OpenSSH/SFTP fixture is healthy at $TestHost`:$TestPort"
-            return
-        }
-        $state = (& docker inspect --format "{{.State.Status}}" $ContainerName 2>$null | Out-String).Trim()
-        if ($state -eq "exited" -or $state -eq "dead") {
+    Repair-RamagDockerTestContainers `
+        -ContainerNames $DockerTestContainers `
+        -LogPrefix "ssh-test" | Out-Null
+    for ($attemptNumber = 1; $attemptNumber -le 2; $attemptNumber++) {
+        try {
+            Invoke-SshCompose -Arguments @("up", "--build", "--detach")
+            for ($attempt = 1; $attempt -le 30; $attempt++) {
+                $health = (& docker inspect --format "{{.State.Health.Status}}" $ContainerName 2>$null | Out-String).Trim()
+                if ($health -eq "healthy") {
+                    Write-Host "[ssh-test] OpenSSH/SFTP fixture is healthy at $TestHost`:$TestPort"
+                    return
+                }
+                $state = (& docker inspect --format "{{.State.Status}}" $ContainerName 2>$null | Out-String).Trim()
+                if ($state -eq "exited" -or $state -eq "dead") {
+                    $logs = (& docker logs $ContainerName 2>&1 | Out-String).Trim()
+                    throw "OpenSSH fixture stopped before becoming healthy.`n$logs"
+                }
+                Start-Sleep -Seconds 1
+            }
             $logs = (& docker logs $ContainerName 2>&1 | Out-String).Trim()
-            throw "OpenSSH fixture stopped before becoming healthy.`n$logs"
+            throw "OpenSSH fixture did not become healthy within 30 seconds.`n$logs"
+        } catch {
+            if ($attemptNumber -eq 2) {
+                throw
+            }
+            Write-Warning "[ssh-test] OpenSSH fixture is unavailable; recreating its container before retrying."
+            Recreate-RamagDockerTestContainers `
+                -ContainerNames $DockerTestContainers `
+                -LogPrefix "ssh-test"
         }
-        Start-Sleep -Seconds 1
     }
-    $logs = (& docker logs $ContainerName 2>&1 | Out-String).Trim()
-    throw "OpenSSH fixture did not become healthy within 30 seconds.`n$logs"
 }
 
 function Save-KnownHosts {

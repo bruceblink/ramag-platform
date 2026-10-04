@@ -1,5 +1,6 @@
 services:
   collaboration-relay:
+    container_name: ramag-collaboration-relay-test
     build:
       context: ../..
       dockerfile: scripts/collaboration-relay/Dockerfile

@@ -160,13 +160,66 @@ compose() {
         "$@"
 }
 
+unavailable_container_ids() {
+    local ids id state_health state health
+    ids="$(compose ps -aq 2>/dev/null || true)"
+    [[ -n "$ids" ]] || return 0
+
+    while IFS= read -r id; do
+        [[ -n "$id" ]] || continue
+        state_health="$(docker inspect \
+            --format '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}' \
+            "$id" 2>/dev/null || true)"
+        [[ -n "$state_health" ]] || continue
+        state="${state_health%%|*}"
+        health="${state_health#*|}"
+        if [[ "$state" != "running" || "$health" == "unhealthy" ]]; then
+            printf '%s\n' "$id"
+        fi
+    done <<<"$ids"
+}
+
+stop_remove_container_ids() {
+    local id name
+    for id in "$@"; do
+        [[ -n "$id" ]] || continue
+        name="$(docker inspect --format '{{.Name}}' "$id" 2>/dev/null | sed 's#^/##' || true)"
+        log "Stopping and removing unavailable Docker test container ${name:-$id}"
+        docker stop --time 10 "$id" >/dev/null 2>&1 || true
+        docker rm --force "$id" >/dev/null
+    done
+}
+
+repair_unavailable_containers() {
+    local ids
+    ids="$(unavailable_container_ids)"
+    [[ -n "$ids" ]] || return 0
+    mapfile -t ids_array <<<"$ids"
+    stop_remove_container_ids "${ids_array[@]}"
+}
+
+recreate_all_containers() {
+    local ids
+    ids="$(compose ps -aq 2>/dev/null || true)"
+    [[ -n "$ids" ]] || return 0
+    mapfile -t ids_array <<<"$ids"
+    stop_remove_container_ids "${ids_array[@]}"
+}
+
 start_databases() {
     prepare
+    repair_unavailable_containers
     log "Starting MySQL, PostgreSQL, Redis, and MongoDB"
     if ! compose up --detach --wait --wait-timeout 180; then
         compose ps || true
         compose logs --tail=80 || true
-        fail "Database startup failed. Check whether ports 13306, 15432, 16379, or 27018 are already in use."
+        log "Database fixture is unavailable; stopping and removing its containers before retrying."
+        recreate_all_containers
+        if ! compose up --detach --wait --wait-timeout 180; then
+            compose ps || true
+            compose logs --tail=80 || true
+            fail "Database startup failed after recreating the test containers. Check whether ports 13306, 15432, 16379, or 27018 are already in use."
+        fi
     fi
     log "All database health checks passed"
 }

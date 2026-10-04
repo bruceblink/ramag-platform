@@ -29,6 +29,17 @@ $KsqlDbEndpoint = "http://127.0.0.1:18088"
 $SchemaRegistryEndpoint = "http://127.0.0.1:18081"
 $TopicName = "ramag.integration.messages"
 $script:WslKeepAliveProcess = $null
+$DockerLifecycleScript = Join-Path $RepositoryRoot "scripts\windows\docker-test-lifecycle.ps1"
+$DockerTestContainers = @(
+    $ContainerName,
+    $ConnectContainerName,
+    $MetricsContainerName,
+    "ramag-kafka-jmx-exporter-test",
+    $KsqlDbContainerName,
+    $SchemaRegistryContainerName
+)
+
+. $DockerLifecycleScript
 
 $DockerCommand = Get-Command docker -ErrorAction SilentlyContinue
 if ($null -eq $DockerCommand) {
@@ -319,7 +330,7 @@ function Wait-SchemaRegistryHealthy {
     throw "Schema Registry health check timed out.`n$logs"
 }
 
-function Ensure-Healthy {
+function Start-KafkaCompose {
     $imageInspectArguments = @("image", "inspect", "ramag-kafka-jmx-exporter:1.6.0")
     $previousErrorActionPreference = $ErrorActionPreference
     try {
@@ -337,12 +348,32 @@ function Ensure-Healthy {
         Write-TestLog "Kafka JMX exporter image is missing; building it before startup."
         Invoke-Compose -ComposeArguments @("up", "-d", "--build")
     }
-    Wait-Healthy
-    Wait-ConnectHealthy
-    Wait-MetricsHealthy
-    Wait-BrokerMetricsHealthy
-    Wait-KsqlDbHealthy
-    Wait-SchemaRegistryHealthy
+}
+
+function Ensure-Healthy {
+    Repair-RamagDockerTestContainers `
+        -ContainerNames $DockerTestContainers `
+        -LogPrefix "kafka-test" | Out-Null
+    for ($attemptNumber = 1; $attemptNumber -le 2; $attemptNumber++) {
+        try {
+            Start-KafkaCompose
+            Wait-Healthy
+            Wait-ConnectHealthy
+            Wait-MetricsHealthy
+            Wait-BrokerMetricsHealthy
+            Wait-KsqlDbHealthy
+            Wait-SchemaRegistryHealthy
+            return
+        } catch {
+            if ($attemptNumber -eq 2) {
+                throw
+            }
+            Write-TestLog "Kafka Docker fixture is unavailable; recreating its containers before retrying."
+            Recreate-RamagDockerTestContainers `
+                -ContainerNames $DockerTestContainers `
+                -LogPrefix "kafka-test"
+        }
+    }
 }
 
 function Get-FixtureLines {

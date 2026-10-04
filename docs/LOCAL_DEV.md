@@ -34,3 +34,14 @@ pwsh -File scripts/kafka-test/kafka-test.ps1 -Command clean
 ```
 
 `clean` 会删除专用容器、网络和数据卷，不要把它用于其他 Compose 项目。
+
+## Docker 测试服务故障恢复
+
+本机 Docker 集成测试入口在启动前会检查自己管理的测试容器。发现容器处于
+`exited`、`dead`、`created`、`restarting`、`paused` 或 `unhealthy` 状态时，
+脚本会先停止并移除该测试实例，再由 Compose 创建新实例。启动或健康检查失败
+时也会执行一次同样的清理并重试，避免复用已经不可用的容器。
+
+该行为已接入数据库、HTTP、gRPC、MQTT、SSH、Kafka 和协作中继测试入口。故障
+恢复只操作脚本声明的专用容器，不删除数据卷；数据库凭据和 Kafka 数据仍按各自
+脚本的 `down`/`clean` 策略处理。
