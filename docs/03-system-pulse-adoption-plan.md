@@ -533,7 +533,7 @@ Summary 底部 Thermals 卡片现在与 Energy 一样属于固定子系统区域
 
 `cargo test --locked -p ramag-ui --lib -- --test-threads=1` 通过 132 项；workspace all-target Clippy、workspace fmt、Windows 源码尺寸检查、`git diff --check` 和当前完整程序 `cargo build --locked -p ramag-bin` 均通过。完整程序由 `F:\project\ramag-platform\target\debug\ramag.exe` 启动核对，PID `13316`、窗口标题 `Ramag — Kafka`，确认使用当前工作区产物；Computer Use 仍返回 `Trusted RPC service not configured: sky`，本切片不宣称原生鼠标/键盘验收，也不恢复 GitHub CI 监测。
 
-### 2026-10-03 对象存储账号列表表头对齐
+### 2026-10-04 对象存储账号列表表头对齐
 
 对象存储账号管理在宽窗口中原先只有连续账号行，没有列层级，服务商、状态、Bucket 数量和操作入口难以与 System-tool 的表格列表对应。本切片在账号列表面板内增加固定表头，并让表头与账号行共用相同的列宽、间距、背景和边界：账号、服务商、状态、Bucket、操作。表头固定在内部滚动区上方，长账号列表继续只在面板内滚动；`360px` 紧凑窗口隐藏表头并保留原有可换行账号行，账号选择、搜索、新建、编辑、删除、凭据和 Bucket 流程不变。
 
