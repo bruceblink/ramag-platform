@@ -38,3 +38,48 @@ pub(super) fn read_test_temperature(server: &OwnedHandle, expected_pid: u32) -> 
     }
     Err("real helper test timed out".into())
 }
+
+pub(super) fn write_terminal_test_frame(
+    request: &Request,
+    backend: Backend,
+    error: Option<u64>,
+) -> Result<()> {
+    let name = pipe_name(request);
+    let pipe = own(unsafe {
+        CreateFileW(
+            PCWSTR(name.as_ptr()),
+            (FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES).0,
+            FILE_SHARE_NONE,
+            None,
+            OPEN_EXISTING,
+            FILE_FLAGS_AND_ATTRIBUTES(0),
+            None,
+        )
+    }
+    .map_err(|reason| format!("open terminal test pipe: {reason}"))?);
+    unsafe { SetNamedPipeHandleState(raw(&pipe), Some(&PIPE_NOWAIT), None, None) }
+        .map_err(|reason| format!("set terminal test pipe mode: {reason}"))?;
+    if let Some(error) = error {
+        let frequency = frequency()?;
+        let before = counter()?;
+        let after = counter()?;
+        let bytes = Frame {
+            backend,
+            sequence: 1,
+            target: 0,
+            status: 0,
+            before,
+            after,
+            frequency,
+            error,
+        }
+        .encode();
+        let mut written = 0;
+        unsafe { WriteFile(raw(&pipe), Some(&bytes), Some(&mut written), None) }
+            .map_err(|reason| format!("write terminal test frame: {reason}"))?;
+        if written != 64 {
+            return Err("terminal test frame was not written in full".into());
+        }
+    }
+    Ok(())
+}

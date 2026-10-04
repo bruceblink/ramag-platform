@@ -108,6 +108,8 @@ This is not a mirror of the upstream repository. General fixes may be prepared a
 
 Git 功能需要系统已安装 `git`；SSH 管理、内嵌终端和数据库 SSH 隧道需要系统 OpenSSH。数据库、Git 仓库、SSH 凭据和剪贴板内容不会上传到 Ramag 服务。
 
+Windows CPU 温度监测需要单个物理 CPU 包、受支持的型号及单独安装的[官方签名 PawnIO 驱动](https://github.com/namazso/PawnIO.Setup/releases/tag/2.2.0)。当前支持 Intel Alder Lake 型号 `0x9a`（具备 package DTS）和 AMD Zen 3 系列 `0x19` / 型号 `0x21`（包括 Ryzen 9 5900X）。在系统监控 Thermals 页点击 **Enable CPU temperatures…**，由用户确认 Windows 授权；Ramag 主窗口保持原权限。缺少驱动、授权被拒或采集失败时显示具体原因，不填充虚假的零温度。Ramag 不自动安装驱动；禁用或退出后需要重新启用温度采集。
+
 ### 从源码运行
 
 准备 [Git](https://git-scm.com/)、[rustup](https://rustup.rs/) 和平台构建工具。仓库已通过 `rust-toolchain.toml` 统一使用 Rust stable channel；Windows 激活脚本固定使用 Visual Studio 18 2026 的 MSVC host/target，Linux 和 macOS 继续使用本机 host，不需要手动切换 Rust 版本。

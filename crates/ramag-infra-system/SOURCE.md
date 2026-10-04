@@ -16,6 +16,16 @@ its LGPL-2.1-or-later license, provenance, and complete pinned source archive
 under `vendor/pawnio-intel-msr/`. `IntelMSR.bin` and `source-upstream.tar.gz`
 are preserved byte-for-byte from the upstream System Pulse checkout.
 
+The AMD Zen 3 extension adds the unmodified signed `AMDFamily17.bin` from
+PawnIO.Modules 0.2.11 under `vendor/pawnio-amd-smn/`. Its provenance notice
+references the same pinned complete source archive and LGPL license above.
+The extension is limited to AMD family 0x19 / model 0x21 and the fixed package
+temperature SMN register 0x59800, with a bounded shared PCI mutex. It does not
+expose arbitrary hardware operations. The local helper protocol tags the
+Intel/AMD operands separately, validates the selected backend, and preserves
+terminal error frames after a short-lived helper exits. Driver availability
+is checked before requesting elevation; driver installation remains separate.
+
 The upstream collector already depends on sysinfo `0.37.2`. Ramag's former
 workspace and business-crate sysinfo declarations are replaced by this collector;
 sysinfo remains a private platform-backend dependency rather than a second

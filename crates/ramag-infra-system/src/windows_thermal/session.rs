@@ -96,6 +96,7 @@ mod tests {
     use std::sync::Arc;
     fn frame() -> Frame {
         Frame {
+            backend: super::super::protocol::Backend::Intel,
             sequence: 1,
             target: 100 << 16,
             status: (1 << 31) | (65 << 16),
