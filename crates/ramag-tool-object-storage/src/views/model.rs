@@ -5,6 +5,7 @@ use std::sync::atomic::AtomicU64;
 use std::time::Duration;
 
 use super::account_sort::AccountSort;
+use super::mount_sort::MountSort;
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::resizable::ResizableState;
 use gpui_kit::{
@@ -87,6 +88,7 @@ pub struct ObjectStorageView {
     pub(super) account_session_states: HashMap<ObjectStorageAccountId, AccountSessionState>,
     pub(super) management_visible: bool,
     pub(super) mounts: Arc<Vec<ObjectStorageMount>>,
+    pub(super) mount_sort: Option<MountSort>,
     pub(super) mount_search: Entity<InputState>,
     pub(super) selected_mount: Option<ObjectStorageMount>,
     pub(super) capabilities: Option<ObjectCapabilities>,
@@ -166,6 +168,7 @@ impl ObjectStorageView {
             account_session_states: HashMap::new(),
             management_visible: true,
             mounts: Arc::new(Vec::new()),
+            mount_sort: None,
             mount_search,
             selected_mount: None,
             capabilities: None,

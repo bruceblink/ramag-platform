@@ -626,3 +626,9 @@ SSH 工作区的远端目录此前只有连续文件行，文件类型、大小�
 `cargo test --locked -p ramag-tool-object-storage --lib -- --test-threads=1` 通过 32 项，覆盖列比较、大小写与稳定性、数字数量、方向切换、四个表头可见性/点击以及排序后选中账号 ID 保持。workspace all-target Clippy `-D warnings`、`cargo fmt --all -- --check`、Windows 源码尺寸检查、`git diff --check` 和完整 `cargo build --locked -p ramag-bin` 通过。完整程序从 `F:\project\ramag-platform\target\debug\ramag.exe` 启动，进程路径与工作区构建一致；Computer Use 初始化及重置后的应用清单均未返回可控原生窗口，原生点击、键盘和截图验收未完成，headless 测试不替代该证据。未连接对象存储服务或读取/保存账号凭据。
 
 本轮按用户授权删除孤立的旧专用卷 `ramag-visual-test-mysql84-data`，重新创建 `ramag-visual-test-mysql84`（`mysql:8.4`，`127.0.0.1:13318 -> 3306/tcp`，状态 `running/healthy`，挂载全新同名专用卷）。种子检查为 `bulk_records=100000`、`type_matrix=3`、`large_values=1`、`spatial_samples=1`；单独的 `ramag-db-test-mysql` 未改动，临时种子副本已删除，没有打印或记录凭据。本轮未重新执行 DBClient 原生连接和表查询，因此先前连接验收记录不扩展为对新卷的 UI 端到端证明。
+
+### 2026-10-05 对象存储 Bucket 导航列排序
+
+Bucket 导航表原先只有静态的 Bucket/根路径表头，列表一直按区域、Bucket 和根路径固定排序。本切片让两个可见列头支持升降序排序：区域分组继续按名称升序排列，所选列在各自区域内排序；Bucket 与路径按不区分大小写的文本比较，根目录作为空路径参与排序，同值保持输入顺序。首次点击为升序，同列再次点击切换降序，切换列恢复升序；只重排当前过滤后的视图行，当前挂载按稳定 ID 保持选中，不触发远端请求或写操作。
+
+新增纯排序规则与 GPUI 行序交互测试：`mount_sort_keeps_region_groups_and_sorts_visible_columns_stably` 覆盖两列、方向和区域分组；`mount_table_columns_sort_rows_and_preserve_selected_mount` 点击两个实际列头，检查排序后的行坐标及选中 ID。`cargo test --locked -p ramag-tool-object-storage --lib -- --test-threads=1` 通过 35 项；workspace all-target 严格 Clippy `-D warnings`、格式、源码尺寸、差异/LF 检查均通过；`cargo build --locked -p ramag-bin --target-dir target/object-storage-mount-sort` 完整构建成功。新构建产物尚未启动：原生 Computer Use 重置后仍未枚举应用窗口，且旧构建仍运行；因此没有对新产物进行真实窗口点击或截图验收。

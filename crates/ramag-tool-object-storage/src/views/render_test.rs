@@ -22,6 +22,7 @@ use super::account_form::AccountFormPanel;
 use super::model::{ObjectTransferDirection, TransferUi};
 
 mod account_tests;
+mod mount_sort_tests;
 
 struct TestObjectStorage;
 

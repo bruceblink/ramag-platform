@@ -5,11 +5,14 @@ use gpui_kit::component::{
     button::ButtonVariants as _, h_flex, scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
-    AnyElement, Context, IntoElement, ParentElement, SharedString, StatefulInteractiveElement as _,
-    Styled, div, prelude::*, px,
+    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Role, SharedString,
+    StatefulInteractiveElement as _, Styled, div, prelude::*, px,
 };
 
 use super::model::ObjectStorageView;
+use super::mount_sort::{
+    MountSortColumn, mount_sort_description, mount_sort_icon, next_mount_sort, sort_mounts,
+};
 
 impl ObjectStorageView {
     pub(super) fn render_mounts(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -36,13 +39,7 @@ impl ObjectStorageView {
                         .is_some_and(|prefix| prefix.to_lowercase().contains(&query))
             })
             .collect();
-        mounts.sort_by(|left, right| {
-            (&left.region, &left.bucket, &left.root_prefix).cmp(&(
-                &right.region,
-                &right.bucket,
-                &right.root_prefix,
-            ))
-        });
+        sort_mounts(&mut mounts, self.mount_sort);
         if mounts.is_empty() {
             rows = rows.child(
                 div()
@@ -70,9 +67,11 @@ impl ObjectStorageView {
                 .as_ref()
                 .is_some_and(|value| value.id == mount.id);
             let target = mount.clone();
+            let row_selector = format!("object-mount-row-{}", mount.bucket);
             rows = rows.child(
                 h_flex()
                     .id(SharedString::from(format!("object-mount-{}", mount.id)))
+                    .debug_selector(move || row_selector.clone())
                     .w_full()
                     .h(px(36.0))
                     .items_center()
@@ -195,8 +194,22 @@ impl ObjectStorageView {
                     .text_xs()
                     .text_color(muted)
                     .child(div().w(px(16.0)).flex_none())
-                    .child(div().flex_1().min_w_0().child("Bucket"))
-                    .child(div().w(px(100.0)).flex_none().text_right().child("根路径")),
+                    .child(self.render_mount_sort_header(
+                        MountSortColumn::Bucket,
+                        "Bucket",
+                        None,
+                        true,
+                        false,
+                        cx,
+                    ))
+                    .child(self.render_mount_sort_header(
+                        MountSortColumn::RootPath,
+                        "根路径",
+                        Some(100.0),
+                        false,
+                        true,
+                        cx,
+                    )),
             )
             .child(
                 div()
@@ -222,6 +235,58 @@ impl ObjectStorageView {
                     .text_color(muted)
                     .child(summary),
             )
+    }
+
+    fn render_mount_sort_header(
+        &self,
+        column: MountSortColumn,
+        label: &'static str,
+        width: Option<f32>,
+        flexible: bool,
+        right_aligned: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let description = mount_sort_description(self.mount_sort, column, label);
+        let icon = mount_sort_icon(self.mount_sort, column);
+        let foreground = cx.theme().foreground;
+        let selector = format!("object-mount-sort-{}", column.key());
+        let debug_selector = selector.clone();
+        let mut header = h_flex()
+            .id(SharedString::from(selector))
+            .debug_selector(move || debug_selector.clone())
+            .role(Role::Button)
+            .aria_label(description)
+            .items_center()
+            .gap(px(4.0))
+            .min_w_0()
+            .cursor_pointer()
+            .hover(move |header| header.text_color(foreground))
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                this.mount_sort = Some(next_mount_sort(this.mount_sort, column));
+                cx.notify();
+            }))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .text_ellipsis()
+                    .when(right_aligned, |label| label.text_right())
+                    .text_color(cx.theme().muted_foreground)
+                    .child(label),
+            )
+            .child(
+                Icon::new(icon)
+                    .xsmall()
+                    .text_color(cx.theme().muted_foreground),
+            );
+        if let Some(width) = width {
+            header = header.w(px(width)).flex_none();
+        }
+        if flexible {
+            header = header.flex_1();
+        }
+        header.into_any_element()
     }
 }
 
