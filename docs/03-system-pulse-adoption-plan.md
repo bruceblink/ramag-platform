@@ -12,13 +12,21 @@
 
 验收覆盖表格与详情同时可见、详情区独立滚动及关闭后列表恢复；目标测试、workspace 格式与 Clippy、源码尺寸、差异检查和完整 `ramag-bin` 构建通过。Computer Use 在当前完整构建中实际选择容器并观察列表/详情同屏。后续测试发现的连接状态及 inspect 字段问题在 2026-10-05 独立修复，不混入布局提交。
 
-## 2026-10-05 当前切片：Docker 连接状态与 inspect 详情映射
+## 2026-10-05 已完成：Docker 连接状态与 inspect 详情映射
 
 容器列表成功返回后，顶部仍可能显示“未连接”；详情还可能因 Docker inspect 使用嵌套响应而显示未知状态、健康和创建时间。本切片让任何成功的 Docker 资源页读取都建立最小已连接状态，后续刷新只清理资源数据而保留连接信息；连接失败时仍清空连接状态。容器详情按 inspect 响应读取名称、镜像、创建时间、嵌套运行状态/健康状态、启动/结束时间、退出码及网络名称，并从启动字段生成可读状态说明。
 
 验收结果：`cargo test --locked -p ramag-infra-container-docker -p ramag-tool-container --lib -- --test-threads=1` 通过（infra 19 项、container 33 项，另有 3 项按需运行的测试被忽略）；`tests::reads_local_engine_without_write_operations` 使用本机引擎实际运行并通过。`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查、`git diff --check` 和 `cargo build --locked -p ramag-bin` 均通过。
 
 Computer Use 验收使用 `F:/project/ramag-platform/target/debug/ramag.exe` 真实窗口“Ramag — 容器管理”。窗口顶部显示绿色“已连接 · 29.7.2”；表格显示 `ramag-container-inspect-acceptance-20261005` 为 `Up 49 seconds (healthy)`；选中后详情显示“状态：运行中”“健康检查：健康”“状态说明：启动于 2026-10-05T03:45:39.199894002Z”和创建时间 `2026-10-05T03:25:03+00:00`。本机 Docker Engine 为 `29.7.2 linux/amd64`，通过 `npipe:////./pipe/docker_engine` 连接。验证用 `alpine:3.22` 临时容器没有端口映射或挂载，验收后已删除并确认不存在；没有改动其他服务容器或数据卷。回滚边界仅为本切片的 Docker 连接状态保存、inspect 字段映射及对应测试。
+
+## 2026-10-05 已完成：容器资源表格列排序
+
+容器管理的容器、镜像、网络和数据卷页面都使用资源表格。为这些表格的每个列头增加可见、可操作的排序状态：首次点击按升序，继续点击同一列切换降序/升序，切换列时从升序开始；每张表独立记住当前排序。文本按不区分大小写的顺序比较，大小和容器数量按原始数值比较；缺失值固定排在末尾，相等值保持当前相对顺序。只对当前载入的资源行重排，不调用 Docker 写操作，也不改变选择的资源身份或详情内容。
+
+验收结果：`cargo test --locked -p ramag-tool-container --lib -- --test-threads=1` 通过（34 项）；资源表测试覆盖四类表格的每个排序列头，以及忽略大小写的文本顺序、原始数值顺序、同值稳定性、缺失值在两个方向均排末尾和方向切换。`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查、`git diff --check` 和 `cargo build --locked -p ramag-bin` 均通过。
+
+Computer Use 使用本次完整构建 `F:/project/ramag-platform/target/debug/ramag.exe`。容器页实际点击名称列，确认升序和再次点击后的降序；镜像页点击大小列，确认当前镜像按大小递增；网络页点击容器数列，数据卷页点击使用空间列，两个页面都显示升序箭头并在可访问名称中报告当前排序方向。该 Docker 环境网络容器数均为 0，数据卷大小均未知，因此这两列的非同值行重排由数值比较单元测试覆盖。四页均由同一个 `render_resource_list` 表格实现提供排序按钮及方向反馈；验证期间只执行只读 Docker 查询，没有创建或修改 Docker 资源。回滚边界限于容器资源表的排序状态、比较逻辑、列头反馈和对应测试。
 
 ## 2026-10-04 用户插入优先项：监控图表标签恢复来源布局
 

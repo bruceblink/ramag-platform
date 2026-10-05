@@ -5,7 +5,10 @@ use ramag_domain::entities::{
     DockerNetworkSummary, DockerVolumeSummary,
 };
 
-use super::{ContainerSection, ContainerView};
+use super::{
+    ContainerSection, ContainerView, ResourceSortValue, ResourceTableColumn, ResourceTableRow,
+    next_resource_sort_state, sort_resource_rows,
+};
 
 fn single_item_page<T>(item: T) -> ContainerPage<T> {
     ContainerPage {
@@ -15,6 +18,94 @@ fn single_item_page<T>(item: T) -> ContainerPage<T> {
         total: 1,
         has_more: false,
     }
+}
+
+#[test]
+fn resource_tables_sort_text_numbers_stably_and_keep_missing_values_last() {
+    let columns = [
+        ResourceTableColumn {
+            key: "name",
+            label: "名称",
+            width: 120.0,
+        },
+        ResourceTableColumn {
+            key: "size",
+            label: "大小",
+            width: 80.0,
+        },
+    ];
+    let rows = vec![
+        sortable_row("beta-first", "Beta", Some(10)),
+        sortable_row("alpha", "Alpha", Some(2)),
+        sortable_row("beta-second", "beta", Some(4)),
+        ResourceTableRow {
+            id: "missing".into(),
+            cells: vec!["—".into(), "—".into()],
+            sort_values: vec![ResourceSortValue::Missing, ResourceSortValue::Missing],
+        },
+    ];
+
+    let name_ascending = next_resource_sort_state(None, "name");
+    assert_eq!(
+        sorted_ids(sort_resource_rows(
+            rows.clone(),
+            &columns,
+            Some(name_ascending)
+        )),
+        ["alpha", "beta-first", "beta-second", "missing"]
+    );
+    let name_descending = next_resource_sort_state(Some(name_ascending), "name");
+    assert!(!name_descending.ascending);
+    assert_eq!(
+        sorted_ids(sort_resource_rows(
+            rows.clone(),
+            &columns,
+            Some(name_descending)
+        )),
+        ["beta-first", "beta-second", "alpha", "missing"]
+    );
+
+    let size_ascending = next_resource_sort_state(Some(name_descending), "size");
+    assert!(size_ascending.ascending);
+    assert_eq!(
+        sorted_ids(sort_resource_rows(
+            rows.clone(),
+            &columns,
+            Some(size_ascending)
+        )),
+        ["alpha", "beta-second", "beta-first", "missing"]
+    );
+    let size_descending = next_resource_sort_state(Some(size_ascending), "size");
+    assert_eq!(
+        sorted_ids(sort_resource_rows(rows, &columns, Some(size_descending))),
+        ["beta-first", "beta-second", "alpha", "missing"]
+    );
+}
+
+fn sortable_row(id: &str, name: &str, size: Option<i128>) -> ResourceTableRow {
+    ResourceTableRow {
+        id: id.into(),
+        cells: vec![
+            name.into(),
+            size.map_or_else(|| "—".into(), |size| size.to_string()),
+        ],
+        sort_values: vec![
+            ResourceSortValue::text(Some(name)),
+            ResourceSortValue::number(size),
+        ],
+    }
+}
+
+fn sorted_ids(rows: Vec<ResourceTableRow>) -> Vec<&'static str> {
+    rows.iter()
+        .map(|row| match row.id.as_str() {
+            "alpha" => "alpha",
+            "beta-first" => "beta-first",
+            "beta-second" => "beta-second",
+            "missing" => "missing",
+            _ => panic!("未预期的资源 ID"),
+        })
+        .collect()
 }
 
 #[gpui_kit::test]
@@ -256,30 +347,59 @@ fn resource_sections_render_consistent_pulse_tables(cx: &mut TestAppContext) {
         cx.notify();
     });
 
-    for (section, table_selector, header_selector, row_selector) in [
+    for (section, table_selector, header_selector, row_selector, sort_selectors) in [
         (
             ContainerSection::Containers,
             "container-resource-table-container",
             "container-resource-container-header-name",
             "container-resource-container-container-123",
+            &[
+                "container-resource-container-sort-name",
+                "container-resource-container-sort-image",
+                "container-resource-container-sort-status",
+                "container-resource-container-sort-ports",
+                "container-resource-container-sort-networks",
+            ][..],
         ),
         (
             ContainerSection::Images,
             "container-resource-table-image",
             "container-resource-image-header-reference",
             "container-resource-image-img1234567890",
+            &[
+                "container-resource-image-sort-reference",
+                "container-resource-image-sort-id",
+                "container-resource-image-sort-size",
+                "container-resource-image-sort-containers",
+                "container-resource-image-sort-platform",
+            ][..],
         ),
         (
             ContainerSection::Networks,
             "container-resource-table-network",
             "container-resource-network-header-driver",
             "container-resource-network-network-123",
+            &[
+                "container-resource-network-sort-name",
+                "container-resource-network-sort-driver",
+                "container-resource-network-sort-scope",
+                "container-resource-network-sort-containers",
+                "container-resource-network-sort-subnets",
+            ][..],
         ),
         (
             ContainerSection::Volumes,
             "container-resource-table-volume",
             "container-resource-volume-header-mountpoint",
             "container-resource-volume-app-data",
+            &[
+                "container-resource-volume-sort-name",
+                "container-resource-volume-sort-driver",
+                "container-resource-volume-sort-scope",
+                "container-resource-volume-sort-containers",
+                "container-resource-volume-sort-size",
+                "container-resource-volume-sort-mountpoint",
+            ][..],
         ),
     ] {
         view.update(visual_cx, |view, cx| {
@@ -297,5 +417,10 @@ fn resource_sections_render_consistent_pulse_tables(cx: &mut TestAppContext) {
         visual_cx
             .debug_bounds(row_selector)
             .unwrap_or_else(|| panic!("{row_selector} 表格资源行应渲染"));
+        for selector in sort_selectors {
+            visual_cx
+                .debug_bounds(selector)
+                .unwrap_or_else(|| panic!("{selector} 排序列头应可见且可操作"));
+        }
     }
 }

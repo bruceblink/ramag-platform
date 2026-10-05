@@ -1,6 +1,6 @@
 //! 容器管理工具的 Docker 只读工作台。
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -48,9 +48,47 @@ struct ResourceTableColumn {
     width: f32,
 }
 
+#[derive(Clone)]
 struct ResourceTableRow {
     id: String,
     cells: Vec<String>,
+    sort_values: Vec<ResourceSortValue>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum ResourceSortValue {
+    Missing,
+    Text(String),
+    Number(i128),
+}
+
+impl ResourceSortValue {
+    fn text(value: Option<&str>) -> Self {
+        value
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_lowercase)
+            .map_or(Self::Missing, Self::Text)
+    }
+
+    fn number(value: Option<i128>) -> Self {
+        value.map_or(Self::Missing, Self::Number)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ResourceSortState {
+    column: &'static str,
+    ascending: bool,
+}
+
+impl Default for ResourceSortState {
+    fn default() -> Self {
+        Self {
+            column: "",
+            ascending: true,
+        }
+    }
 }
 
 const CONTAINER_TABLE_COLUMNS: [ResourceTableColumn; 5] = [
@@ -252,6 +290,7 @@ pub struct ContainerView {
     logs_search_subscription: Option<Subscription>,
     logs_search: String,
     resource_table_scroll: ScrollHandle,
+    resource_sorts: HashMap<&'static str, ResourceSortState>,
     detail_scroll: ScrollHandle,
     registry_endpoint_input: Option<Entity<InputState>>,
     registry_input_subscription: Option<Subscription>,
@@ -358,6 +397,7 @@ impl ContainerView {
             logs_search_subscription: None,
             logs_search: String::new(),
             resource_table_scroll: ScrollHandle::new(),
+            resource_sorts: HashMap::new(),
             detail_scroll: ScrollHandle::new(),
             registry_endpoint_input: None,
             registry_input_subscription: None,
@@ -660,6 +700,19 @@ impl ContainerView {
         self.selected_detail = None;
         self.clear_container_stats();
         self.refresh(cx);
+    }
+
+    /// Keep the sort choice local to each resource table and toggle direction
+    /// only when the active column is clicked again.
+    fn toggle_resource_sort(
+        &mut self,
+        kind: &'static str,
+        column: &'static str,
+        cx: &mut Context<Self>,
+    ) {
+        let next = next_resource_sort_state(self.resource_sorts.get(kind).copied(), column);
+        self.resource_sorts.insert(kind, next);
+        cx.notify();
     }
 
     fn load_detail(&mut self, id: String, cx: &mut Context<Self>) {
@@ -1831,24 +1884,43 @@ impl ContainerView {
             .map(|page| {
                 page.items
                     .iter()
-                    .map(|item| ResourceTableRow {
-                        id: item.id.clone(),
-                        cells: vec![
-                            item.names
-                                .first()
-                                .map(|name| name.trim_start_matches('/'))
-                                .filter(|name| !name.is_empty())
-                                .unwrap_or(&item.id)
-                                .to_owned(),
-                            resource_value(item.image.as_deref()),
-                            item.status
-                                .as_deref()
-                                .or(item.state.as_deref())
-                                .map(str::to_owned)
-                                .unwrap_or_else(|| "未知状态".into()),
-                            format_container_ports(&item.ports),
-                            format_resource_values(item.networks.iter().map(String::as_str)),
-                        ],
+                    .map(|item| {
+                        let name = item
+                            .names
+                            .first()
+                            .map(|name| name.trim_start_matches('/'))
+                            .filter(|name| !name.is_empty())
+                            .unwrap_or(&item.id)
+                            .to_owned();
+                        let image = resource_value(item.image.as_deref());
+                        let status = item
+                            .status
+                            .as_deref()
+                            .or(item.state.as_deref())
+                            .unwrap_or("未知状态")
+                            .to_owned();
+                        let ports = format_container_ports(&item.ports);
+                        let networks =
+                            format_resource_values(item.networks.iter().map(String::as_str));
+                        ResourceTableRow {
+                            id: item.id.clone(),
+                            cells: vec![
+                                name.clone(),
+                                image,
+                                status.clone(),
+                                ports.clone(),
+                                networks.clone(),
+                            ],
+                            sort_values: vec![
+                                ResourceSortValue::text(Some(&name)),
+                                ResourceSortValue::text(item.image.as_deref()),
+                                ResourceSortValue::text(Some(&status)),
+                                ResourceSortValue::text(Some(&ports)),
+                                ResourceSortValue::text(
+                                    (!item.networks.is_empty()).then_some(networks.as_str()),
+                                ),
+                            ],
+                        }
                     })
                     .collect::<Vec<_>>()
             })
@@ -1874,22 +1946,32 @@ impl ContainerView {
             .map(|page| {
                 page.items
                     .iter()
-                    .map(|item| ResourceTableRow {
-                        id: item.id.clone(),
-                        cells: vec![
-                            item.repository_tags
-                                .first()
-                                .cloned()
-                                .unwrap_or_else(|| short_resource_id(&item.id)),
-                            short_resource_id(&item.id),
-                            format_bytes(item.size_bytes),
-                            item.containers
-                                .map_or_else(|| "—".into(), |count| count.to_string()),
-                            format_image_platform(
-                                item.operating_system.as_deref(),
-                                item.architecture.as_deref(),
-                            ),
-                        ],
+                    .map(|item| {
+                        let reference = item
+                            .repository_tags
+                            .first()
+                            .cloned()
+                            .unwrap_or_else(|| short_resource_id(&item.id));
+                        let id = short_resource_id(&item.id);
+                        let size = format_bytes(item.size_bytes);
+                        let containers = item
+                            .containers
+                            .map_or_else(|| "—".into(), |count| count.to_string());
+                        let platform = format_image_platform(
+                            item.operating_system.as_deref(),
+                            item.architecture.as_deref(),
+                        );
+                        ResourceTableRow {
+                            id: item.id.clone(),
+                            cells: vec![reference.clone(), id, size, containers, platform.clone()],
+                            sort_values: vec![
+                                ResourceSortValue::text(Some(&reference)),
+                                ResourceSortValue::text(Some(&item.id)),
+                                ResourceSortValue::number(item.size_bytes.map(i128::from)),
+                                ResourceSortValue::number(item.containers.map(i128::from)),
+                                ResourceSortValue::text(Some(&platform)),
+                            ],
+                        }
                     })
                     .collect::<Vec<_>>()
             })
@@ -2060,19 +2142,29 @@ impl ContainerView {
             .map(|page| {
                 page.items
                     .iter()
-                    .map(|item| ResourceTableRow {
-                        id: item.id.clone(),
-                        cells: vec![
-                            item.name.clone().unwrap_or_else(|| item.id.clone()),
-                            resource_value(item.driver.as_deref()),
-                            resource_value(item.scope.as_deref()),
-                            item.container_count.to_string(),
-                            format_resource_values(
-                                item.subnets
-                                    .iter()
-                                    .filter_map(|subnet| subnet.subnet.as_deref()),
-                            ),
-                        ],
+                    .map(|item| {
+                        let name = item.name.clone().unwrap_or_else(|| item.id.clone());
+                        let driver = resource_value(item.driver.as_deref());
+                        let scope = resource_value(item.scope.as_deref());
+                        let containers = item.container_count.to_string();
+                        let subnets = format_resource_values(
+                            item.subnets
+                                .iter()
+                                .filter_map(|subnet| subnet.subnet.as_deref()),
+                        );
+                        ResourceTableRow {
+                            id: item.id.clone(),
+                            cells: vec![name.clone(), driver, scope, containers, subnets.clone()],
+                            sort_values: vec![
+                                ResourceSortValue::text(Some(&name)),
+                                ResourceSortValue::text(item.driver.as_deref()),
+                                ResourceSortValue::text(item.scope.as_deref()),
+                                ResourceSortValue::Number(item.container_count as i128),
+                                ResourceSortValue::text(
+                                    (!item.subnets.is_empty()).then_some(subnets.as_str()),
+                                ),
+                            ],
+                        }
                     })
                     .collect::<Vec<_>>()
             })
@@ -2098,16 +2190,31 @@ impl ContainerView {
             .map(|page| {
                 page.items
                     .iter()
-                    .map(|item| ResourceTableRow {
-                        id: item.name.clone(),
-                        cells: vec![
-                            item.name.clone(),
-                            resource_value(item.driver.as_deref()),
-                            resource_value(item.scope.as_deref()),
-                            item.container_count.to_string(),
-                            format_bytes(item.usage_size_bytes),
-                            resource_value(item.mountpoint.as_deref()),
-                        ],
+                    .map(|item| {
+                        let driver = resource_value(item.driver.as_deref());
+                        let scope = resource_value(item.scope.as_deref());
+                        let containers = item.container_count.to_string();
+                        let size = format_bytes(item.usage_size_bytes);
+                        let mountpoint = resource_value(item.mountpoint.as_deref());
+                        ResourceTableRow {
+                            id: item.name.clone(),
+                            cells: vec![
+                                item.name.clone(),
+                                driver,
+                                scope,
+                                containers,
+                                size,
+                                mountpoint,
+                            ],
+                            sort_values: vec![
+                                ResourceSortValue::text(Some(&item.name)),
+                                ResourceSortValue::text(item.driver.as_deref()),
+                                ResourceSortValue::text(item.scope.as_deref()),
+                                ResourceSortValue::Number(item.container_count as i128),
+                                ResourceSortValue::number(item.usage_size_bytes.map(i128::from)),
+                                ResourceSortValue::text(item.mountpoint.as_deref()),
+                            ],
+                        }
                     })
                     .collect::<Vec<_>>()
             })
@@ -2251,6 +2358,8 @@ impl ContainerView {
         theme: &gpui_kit::component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let sort = self.resource_sorts.get(kind).copied();
+        let rows = sort_resource_rows(rows, columns, sort);
         let kind_label = match kind {
             "container" => "容器",
             "image" => "镜像",
@@ -2286,6 +2395,22 @@ impl ContainerView {
                 .children(columns.iter().enumerate().map(|(index, column)| {
                     let cell_id = format!("container-resource-{kind}-header-{}", column.key);
                     let cell_selector = cell_id.clone();
+                    let column_key = column.key;
+                    let active_sort = sort.filter(|sort| sort.column == column_key);
+                    let (sort_icon, sort_description) = match active_sort {
+                        Some(sort) if sort.ascending => (
+                            IconName::ArrowUp,
+                            format!("{}，当前升序，点击切换为降序", column.label),
+                        ),
+                        Some(_) => (
+                            IconName::ArrowDown,
+                            format!("{}，当前降序，点击切换为升序", column.label),
+                        ),
+                        None => (
+                            IconName::ChevronsUpDown,
+                            format!("{}，点击按此列排序", column.label),
+                        ),
+                    };
                     TableCell::new(SharedString::from(cell_id.clone()), index + 1)
                         .accessibility_id(cell_id)
                         .role(Role::ColumnHeader)
@@ -2299,14 +2424,37 @@ impl ContainerView {
                         .overflow_hidden()
                         .debug_selector(move || cell_selector.clone())
                         .child(
-                            div()
+                            h_flex()
+                                .id(format!("container-resource-{kind}-sort-{column_key}"))
+                                .debug_selector(move || {
+                                    format!("container-resource-{kind}-sort-{column_key}")
+                                })
+                                .role(Role::Button)
+                                .aria_label(sort_description)
                                 .w_full()
-                                .overflow_hidden()
-                                .text_ellipsis()
-                                .text_size(px(11.0))
-                                .font_weight(gpui_kit::FontWeight::MEDIUM)
-                                .text_color(theme.muted_foreground)
-                                .child(column.label),
+                                .min_w_0()
+                                .gap(px(4.0))
+                                .items_center()
+                                .cursor_pointer()
+                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                    this.toggle_resource_sort(kind, column_key, cx);
+                                }))
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w_0()
+                                        .overflow_hidden()
+                                        .text_ellipsis()
+                                        .text_size(px(11.0))
+                                        .font_weight(gpui_kit::FontWeight::MEDIUM)
+                                        .text_color(theme.muted_foreground)
+                                        .child(column.label),
+                                )
+                                .child(
+                                    Icon::new(sort_icon)
+                                        .xsmall()
+                                        .text_color(theme.muted_foreground),
+                                ),
                         )
                 }));
             let table_id = format!("container-resource-table-{kind}");
@@ -2738,6 +2886,84 @@ fn resource_table_row(
         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
             this.load_detail(detail_id.clone(), cx);
         }))
+}
+
+/// Sort the currently loaded rows with typed keys so numeric fields never use
+/// formatted labels and unavailable values stay at the bottom in both directions.
+fn sort_resource_rows(
+    mut rows: Vec<ResourceTableRow>,
+    columns: &[ResourceTableColumn],
+    sort: Option<ResourceSortState>,
+) -> Vec<ResourceTableRow> {
+    let Some(sort) = sort else {
+        return rows;
+    };
+    let Some(column_index) = columns.iter().position(|column| column.key == sort.column) else {
+        return rows;
+    };
+
+    rows.sort_by(|left, right| {
+        let left = left
+            .sort_values
+            .get(column_index)
+            .unwrap_or(&ResourceSortValue::Missing);
+        let right = right
+            .sort_values
+            .get(column_index)
+            .unwrap_or(&ResourceSortValue::Missing);
+        compare_resource_sort_values(left, right, sort.ascending)
+    });
+    rows
+}
+
+fn next_resource_sort_state(
+    current: Option<ResourceSortState>,
+    column: &'static str,
+) -> ResourceSortState {
+    match current.filter(|sort| sort.column == column) {
+        Some(sort) => ResourceSortState {
+            column,
+            ascending: !sort.ascending,
+        },
+        None => ResourceSortState {
+            column,
+            ascending: true,
+        },
+    }
+}
+
+fn compare_resource_sort_values(
+    left: &ResourceSortValue,
+    right: &ResourceSortValue,
+    ascending: bool,
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+
+    match (left, right) {
+        (ResourceSortValue::Missing, ResourceSortValue::Missing) => Ordering::Equal,
+        (ResourceSortValue::Missing, _) => Ordering::Greater,
+        (_, ResourceSortValue::Missing) => Ordering::Less,
+        (ResourceSortValue::Text(left), ResourceSortValue::Text(right)) => {
+            compare_for_direction(left.cmp(right), ascending)
+        }
+        (ResourceSortValue::Number(left), ResourceSortValue::Number(right)) => {
+            compare_for_direction(left.cmp(right), ascending)
+        }
+        (ResourceSortValue::Text(_), ResourceSortValue::Number(_)) => {
+            compare_for_direction(Ordering::Less, ascending)
+        }
+        (ResourceSortValue::Number(_), ResourceSortValue::Text(_)) => {
+            compare_for_direction(Ordering::Greater, ascending)
+        }
+    }
+}
+
+fn compare_for_direction(ordering: std::cmp::Ordering, ascending: bool) -> std::cmp::Ordering {
+    if ascending {
+        ordering
+    } else {
+        ordering.reverse()
+    }
 }
 
 fn resource_value(value: Option<&str>) -> String {
