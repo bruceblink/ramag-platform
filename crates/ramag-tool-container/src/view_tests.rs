@@ -4,7 +4,7 @@ use gpui_kit::Modifiers;
 use gpui_kit::component::Root;
 use gpui_kit::{AppContext as _, Bounds, MouseButton, Pixels, TestAppContext, px, size};
 
-use super::{ContainerSection, ContainerView};
+use super::{ContainerSection, ContainerView, RESOURCE_PAGE_SIZE};
 use ramag_domain::entities::{
     DockerContainerLogLine, DockerContainerLogs, DockerLogStream, MAX_CONTAINER_LOG_BYTES,
     MAX_CONTAINER_LOG_LINES,
@@ -229,6 +229,54 @@ fn resource_query_preserves_bounded_search_for_the_driver() {
     assert_eq!(query.page_size, 100);
     assert_eq!(query.search.as_deref(), Some("  alpine  "));
     assert_eq!(query.normalized_search().as_deref(), Some("alpine"));
+}
+
+#[test]
+fn successful_resource_page_establishes_and_refresh_preserves_engine_connection() {
+    let mut view = ContainerView::without_service();
+    let connection = ramag_domain::entities::DockerConnectionInfo {
+        endpoint_id: view.profile.id.clone(),
+        api_version: Some("1.55".into()),
+        server_version: Some("29.7.2".into()),
+        server_name: Some("docker-desktop".into()),
+        operating_system: Some("linux".into()),
+        architecture: Some("x86_64".into()),
+        read_only: true,
+    };
+    let page =
+        ramag_domain::entities::ContainerPage::<ramag_domain::entities::DockerContainerSummary> {
+            items: Vec::new(),
+            page: 1,
+            page_size: RESOURCE_PAGE_SIZE,
+            total: 0,
+            has_more: false,
+        };
+    view.store_page(Ok(page), |view, page| view.containers = Some(page));
+    let resource_connection = view
+        .connection
+        .as_ref()
+        .expect("成功的 Docker 资源读取应确立连接状态");
+    assert_eq!(resource_connection.endpoint_id, connection.endpoint_id);
+    assert!(resource_connection.server_version.is_none());
+    assert!(resource_connection.read_only);
+
+    view.connection = Some(connection.clone());
+    let next_page =
+        ramag_domain::entities::ContainerPage::<ramag_domain::entities::DockerContainerSummary> {
+            items: Vec::new(),
+            page: 1,
+            page_size: RESOURCE_PAGE_SIZE,
+            total: 0,
+            has_more: false,
+        };
+    view.store_page(Ok(next_page), |view, page| view.containers = Some(page));
+    assert_eq!(view.connection.as_ref(), Some(&connection));
+
+    view.clear_resource_data();
+    assert_eq!(view.connection.as_ref(), Some(&connection));
+
+    view.clear_resource_state();
+    assert!(view.connection.is_none());
 }
 
 #[gpui_kit::test]

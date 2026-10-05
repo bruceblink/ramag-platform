@@ -68,10 +68,10 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 1. `B-API-001`：API 工作区的请求编辑、环境、历史、响应和真实 Docker HTTP/gRPC 验收；`B-API-001-A/B/C` 已完成代码、headless 和本机 Docker 验收，`B-API-001-UI` 已完成 Windows 系统 UI Automation 与截图替代证据，Computer Use 原生窗口证据待运行时恢复；下一项进入 `B-KAFKA-001` 设计确认。
 2. `B-KAFKA-001`：Kafka 连接、Topic、消息、Schema Registry 和 Broker 状态工作区；`B-KAFKA-001-A/B` 已完成代码、headless、Windows 系统 UI Automation 取消流程替代证据和本机 Docker Kafka 成功连接/Topic/消息回读，Computer Use 原生窗口证据待运行时恢复。
 3. `B-SSH-001`：SSH/终端、SFTP、端口转发和连接生命周期工作区；`B-SSH-001-A` 已完成代码、headless 和 `10.17.17.114` 真实 OpenSSH/SFTP 回放，`B-SSH-001-B` 的 114 终端/端口转发回放由用户自行验证。
-4. `B-CONTAINER-001`：容器、镜像、日志、执行和资源状态工作区；当前计划中的筛选、历史/持续日志、导出和资源指标切片已完成代码与对应 headless/Docker 验证。
+4. `B-CONTAINER-001`：容器、镜像、日志、执行和资源状态工作区；筛选、历史/持续日志、导出、资源指标、列表与详情同屏布局、连接状态保留及 Docker inspect 详情映射已完成代码和对应 headless/Docker 验证。2026-10-05 使用完整程序与 Computer Use 确认引擎连接标记及容器运行、健康、创建时间信息均可见。
 5. `B-GIT-001`：Git 仓库、分支、差异、提交和推送工作区；`B-GIT-001-A` 至 `B-GIT-001-AC` 已完成对应代码与 headless/本地 Git 回放，继续按工作区状态刷新和异步边界推进。
 
-每个工具保留自己的连接、取消、错误、权限和数据模型；每个切片完成真实服务或本机 Docker 验收后再进入下一项。
+每个工具保留自己的连接、取消、错误、权限和数据模型；每个切片完成真实服务或本机 Docker 验收后再进入下一项。容器领域本次使用 Docker Engine `29.7.2 linux/amd64` 和无端口/挂载的 `alpine:3.22` 临时健康检查容器完成真实窗口核对，随后移除临时容器；其他 Docker 测试实例与数据卷未作更改。
 
 ### 阶段 C：原生协同画布（后置）
 

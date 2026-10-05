@@ -6,15 +6,19 @@
 > 来源：https://github.com/eas4ai/system-pulse/tree/f1be5d51d24c21fa8c740be79200bdda3df3a00c
 > 优点吸收与剩余差距：[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)
 
-## 2026-10-04 暂存切片：容器列表与详情同屏
+## 2026-10-04 已完成：容器列表与详情同屏
 
-当前源码完整程序的真实窗口中，选中容器会将详情追加到满高表格下方，主要信息与操作需要整页滚动才能访问。本切片只修改容器资源工作区：列表保持填满剩余空间，选中后的详情使用有界高度和独立滚动区，增加关闭入口以恢复完整列表；容器、镜像、网络和数据卷共用此布局，保留现有选择、刷新、指标与日志行为。
+容器资源工作区现在让列表填满剩余视口，选中后的详情使用有界高度和独立滚动区，并提供关闭入口以恢复完整列表；容器、镜像、网络和数据卷共用此布局，保留选择、刷新、指标与日志行为。实现已提交为 `30970ee6 fix(container): bound details in a separate pane`。
 
-用户随后明确要求先对齐 System Pulse 视图。容器切片的代码和测试保留在工作区，暂停后续功能扩展；尚未完成完整的真实窗口验收，不随监控图表修复提交。
+验收覆盖表格与详情同时可见、详情区独立滚动及关闭后列表恢复；目标测试、workspace 格式与 Clippy、源码尺寸、差异检查和完整 `ramag-bin` 构建通过。Computer Use 在当前完整构建中实际选择容器并观察列表/详情同屏。后续测试发现的连接状态及 inspect 字段问题在 2026-10-05 独立修复，不混入布局提交。
 
-验收条件：标准及宽窗口中表格与详情同时可见、互不覆盖，长详情在面板内部滚动，关闭后列表恢复全高；明暗主题和窄尺寸 headless 防御测试保持内容及操作可达。验证运行容器 library tests、workspace fmt、workspace all-target Clippy、源码尺寸及 LF/diff 检查、完整 `cargo build --locked -p ramag-bin`，并用 Computer Use 对当前构建执行资源选择、详情关闭、滚动及只读操作。集成仅使用本机现有健康 Docker 服务，不重建健康实例、不删除数据卷。回滚边界为容器视图渲染与新增布局测试，不修改公共主题、协议或凭据。
+## 2026-10-05 当前切片：Docker 连接状态与 inspect 详情映射
 
-本次真实窗口另外发现两项待修复功能差异，列为下一切片：容器列表已读取成功，顶部仍显示“未连接”；容器列表有健康状态，但详情的状态、健康和创建时间显示未知。源码核对分别对应资源刷新清空连接状态、Docker inspect 响应复用平铺列表解析器。这两项不属于本轮布局验收通过范围，需独立修复状态生命周期和 inspect 字段映射，并复验同一个本机 Docker 容器。
+容器列表成功返回后，顶部仍可能显示“未连接”；详情还可能因 Docker inspect 使用嵌套响应而显示未知状态、健康和创建时间。本切片让任何成功的 Docker 资源页读取都建立最小已连接状态，后续刷新只清理资源数据而保留连接信息；连接失败时仍清空连接状态。容器详情按 inspect 响应读取名称、镜像、创建时间、嵌套运行状态/健康状态、启动/结束时间、退出码及网络名称，并从启动字段生成可读状态说明。
+
+验收结果：`cargo test --locked -p ramag-infra-container-docker -p ramag-tool-container --lib -- --test-threads=1` 通过（infra 19 项、container 33 项，另有 3 项按需运行的测试被忽略）；`tests::reads_local_engine_without_write_operations` 使用本机引擎实际运行并通过。`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、源码尺寸检查、`git diff --check` 和 `cargo build --locked -p ramag-bin` 均通过。
+
+Computer Use 验收使用 `F:/project/ramag-platform/target/debug/ramag.exe` 真实窗口“Ramag — 容器管理”。窗口顶部显示绿色“已连接 · 29.7.2”；表格显示 `ramag-container-inspect-acceptance-20261005` 为 `Up 49 seconds (healthy)`；选中后详情显示“状态：运行中”“健康检查：健康”“状态说明：启动于 2026-10-05T03:45:39.199894002Z”和创建时间 `2026-10-05T03:25:03+00:00`。本机 Docker Engine 为 `29.7.2 linux/amd64`，通过 `npipe:////./pipe/docker_engine` 连接。验证用 `alpine:3.22` 临时容器没有端口映射或挂载，验收后已删除并确认不存在；没有改动其他服务容器或数据卷。回滚边界仅为本切片的 Docker 连接状态保存、inspect 字段映射及对应测试。
 
 ## 2026-10-04 用户插入优先项：监控图表标签恢复来源布局
 

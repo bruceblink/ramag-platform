@@ -1227,6 +1227,16 @@ fn i64_number(value: &Value, keys: &[&str]) -> Option<i64> {
     get(value, keys).and_then(Value::as_i64)
 }
 
+fn unix_timestamp(value: &Value, keys: &[&str]) -> Option<i64> {
+    i64_number(value, keys).or_else(|| {
+        string(value, keys).and_then(|timestamp| {
+            chrono::DateTime::parse_from_rfc3339(&timestamp)
+                .ok()
+                .map(|timestamp| timestamp.timestamp())
+        })
+    })
+}
+
 fn u64_number(value: &Value, keys: &[&str]) -> Option<u64> {
     get(value, keys).and_then(Value::as_u64)
 }
@@ -1345,20 +1355,57 @@ fn ports(value: &Value) -> Vec<DockerContainerPort> {
 
 fn container_detail(value: &Value) -> Result<DockerContainerDetail> {
     let mut summary_value = value.clone();
-    if let Some(config) = get(value, &["Config", "config"])
-        && let Some(object) = summary_value.as_object_mut()
-    {
-        if let Some(image) = string(config, &["Image", "image"]) {
+    let config = get(value, &["Config", "config"]);
+    let state = get(value, &["State", "state"]);
+    let network_settings = get(value, &["NetworkSettings", "network_settings"]);
+    if let Some(object) = summary_value.as_object_mut() {
+        if let Some(name) = string(value, &["Name", "name"]) {
+            object.insert("Names".into(), serde_json::json!([name]));
+        }
+        if let Some(image_id) = string(value, &["ImageID", "image_id", "Image"]) {
+            object.insert("ImageID".into(), Value::String(image_id));
+        }
+        if let Some(image) = config.and_then(|value| string(value, &["Image", "image"])) {
             object.insert("Image".into(), Value::String(image));
         }
-        if let Some(labels) = get(config, &["Labels", "labels"]) {
+        if let Some(labels) = config.and_then(|value| get(value, &["Labels", "labels"])) {
             object.insert("Labels".into(), labels.clone());
+        }
+        if let Some(created) = unix_timestamp(value, &["Created", "created"]) {
+            object.insert("Created".into(), Value::from(created));
+        }
+        if let Some(state) = state {
+            if let Some(status) = string(state, &["Status", "status"]) {
+                object.insert("State".into(), Value::String(status));
+            }
+            if let Some(status) = container_inspect_status(state) {
+                object.insert("Status".into(), Value::String(status));
+            }
+            if let Some(health) = get(state, &["Health", "health"])
+                .and_then(|value| string(value, &["Status", "status"]))
+            {
+                object.insert("Health".into(), Value::String(health));
+            }
+        }
+        if let Some(networks) = network_settings
+            .and_then(|value| get(value, &["Networks", "networks"]))
+            .and_then(Value::as_object)
+        {
+            object.insert(
+                "Networks".into(),
+                Value::Array(
+                    networks
+                        .keys()
+                        .take(MAX_CONTAINER_NETWORKS)
+                        .cloned()
+                        .map(Value::String)
+                        .collect(),
+                ),
+            );
         }
     }
     let summary = container_summary(&summary_value)?;
-    let config = get(value, &["Config", "config"]);
     let host_config = get(value, &["HostConfig", "host_config"]);
-    let network_settings = get(value, &["NetworkSettings", "network_settings"]);
     Ok(DockerContainerDetail {
         summary,
         path: string(value, &["Path", "path"]),
@@ -1391,6 +1438,35 @@ fn container_detail(value: &Value) -> Result<DockerContainerDetail> {
                 .unwrap_or(&Value::Null),
         ),
     })
+}
+
+fn container_inspect_status(state: &Value) -> Option<String> {
+    let status = string(state, &["Status", "status"])?;
+    Some(match status.to_ascii_lowercase().as_str() {
+        "running" => nonzero_inspect_timestamp(state, &["StartedAt", "started_at"]).map_or_else(
+            || "容器运行中".into(),
+            |started| format!("启动于 {started}"),
+        ),
+        "exited" => {
+            let exit_code = i64_number(state, &["ExitCode", "exit_code"]);
+            let finished = nonzero_inspect_timestamp(state, &["FinishedAt", "finished_at"]);
+            match (exit_code, finished) {
+                (Some(code), Some(finished)) => format!("退出码 {code} · 结束于 {finished}"),
+                (Some(code), None) => format!("退出码 {code}"),
+                (None, Some(finished)) => format!("结束于 {finished}"),
+                (None, None) => "容器已退出".into(),
+            }
+        }
+        "created" => "等待启动".into(),
+        "paused" => "已暂停".into(),
+        "restarting" => "正在重启".into(),
+        "dead" => "容器已失效".into(),
+        _ => status,
+    })
+}
+
+fn nonzero_inspect_timestamp(value: &Value, keys: &[&str]) -> Option<String> {
+    string(value, keys).filter(|timestamp| !timestamp.starts_with("0001-01-01"))
 }
 
 fn container_stats(value: &Value, container_id: String) -> Result<DockerContainerStats> {
@@ -1707,6 +1783,57 @@ mod tests {
             assert!(matches(term), "资源筛选应命中 {term}");
         }
         assert!(!matches("missing"));
+    }
+
+    #[test]
+    fn maps_nested_container_inspect_state_health_and_timestamps() {
+        let value = serde_json::json!({
+            "Id": "container-1",
+            "Created": "2023-11-14T22:13:20Z",
+            "Name": "/web",
+            "Image": "sha256:image-id",
+            "State": {
+                "Status": "running",
+                "StartedAt": "2023-11-14T22:14:00Z",
+                "FinishedAt": "0001-01-01T00:00:00Z",
+                "ExitCode": 0,
+                "Health": {"Status": "healthy"}
+            },
+            "Config": {
+                "Image": "alpine:3.20",
+                "Labels": {"app": "web"},
+                "Env": ["APP_MODE=prod"]
+            },
+            "NetworkSettings": {
+                "Networks": {
+                    "bridge": {"NetworkID": "network-1", "IPAddress": "172.17.0.2"}
+                }
+            }
+        });
+
+        let detail = container_detail(&value).expect("inspect 响应应映射为详情");
+        assert_eq!(detail.summary.id, "container-1");
+        assert_eq!(detail.summary.names, vec!["/web"]);
+        assert_eq!(detail.summary.image.as_deref(), Some("alpine:3.20"));
+        assert_eq!(detail.summary.image_id.as_deref(), Some("sha256:image-id"));
+        assert_eq!(detail.summary.created, Some(1_700_000_000));
+        assert_eq!(detail.summary.state.as_deref(), Some("running"));
+        assert_eq!(
+            detail.summary.status.as_deref(),
+            Some("启动于 2023-11-14T22:14:00Z")
+        );
+        assert_eq!(detail.summary.health.as_deref(), Some("healthy"));
+        assert_eq!(detail.summary.networks, vec!["bridge"]);
+        assert_eq!(detail.summary.labels[0].key, "app");
+        assert_eq!(detail.env_keys, vec!["APP_MODE"]);
+
+        let mut without_health = value;
+        without_health["State"]
+            .as_object_mut()
+            .expect("State 应是对象")
+            .remove("Health");
+        let detail = container_detail(&without_health).expect("无健康检查详情仍应解析");
+        assert!(detail.summary.health.is_none());
     }
 
     #[test]
@@ -2127,6 +2254,13 @@ mod tests {
             let detail = smol::block_on(driver.get_container(&profile, &container.id))
                 .expect("本机 Docker 容器详情应成功");
             assert_eq!(detail.summary.id, container.id);
+            assert_eq!(detail.summary.names, container.names);
+            assert_eq!(detail.summary.created, container.created);
+            assert_eq!(detail.summary.state, container.state);
+            assert!(detail.summary.status.is_some());
+            if let Some(health) = detail.summary.health.as_deref() {
+                assert!(matches!(health, "starting" | "healthy" | "unhealthy"));
+            }
         }
         if let Some(container) = containers
             .items

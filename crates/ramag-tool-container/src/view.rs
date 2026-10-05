@@ -468,7 +468,7 @@ impl ContainerView {
         let query = self.resource_query();
         self.loading = true;
         self.error = None;
-        self.clear_resource_state();
+        self.clear_resource_data();
         if let Err(error) = profile.validate() {
             self.loading = false;
             self.error = Some(error);
@@ -619,6 +619,17 @@ impl ContainerView {
     ) {
         match result {
             Ok(page) => {
+                if self.platform == ContainerPlatform::Docker && self.connection.is_none() {
+                    self.connection = Some(DockerConnectionInfo {
+                        endpoint_id: self.profile.id.clone(),
+                        api_version: None,
+                        server_version: None,
+                        server_name: None,
+                        operating_system: None,
+                        architecture: None,
+                        read_only: self.profile.read_only,
+                    });
+                }
                 store(self, page);
                 self.error = None;
             }
@@ -1178,6 +1189,12 @@ impl ContainerView {
 
     fn clear_resource_state(&mut self) {
         self.connection = None;
+        self.clear_resource_data();
+    }
+
+    /// Clear the selected page and its owned work while retaining the last
+    /// successful Engine handshake across resource navigation and refreshes.
+    fn clear_resource_data(&mut self) {
         self.overview = None;
         self.containers = None;
         self.images = None;
