@@ -4,10 +4,14 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, MouseButton, ParentElement,
-    SharedString, Styled, Window, div, img, prelude::*, px,
+    Role, SharedString, Styled, Window, div, img, prelude::*, px,
 };
 use ramag_domain::entities::{CloudProvider, ObjectStorageAccount};
 
+use super::account_sort::{
+    AccountSortColumn, account_sort_description, account_sort_icon, next_account_sort,
+    sort_accounts,
+};
 use super::model::ObjectStorageView;
 
 const CONTENT_MAX_W: f32 = 1080.0;
@@ -26,7 +30,7 @@ impl ObjectStorageView {
             .value()
             .to_string()
             .to_lowercase();
-        let visible = self
+        let mut visible = self
             .accounts
             .iter()
             .filter(|account| {
@@ -40,6 +44,9 @@ impl ObjectStorageView {
             })
             .cloned()
             .collect::<Vec<_>>();
+        if let Some(sort) = self.account_sort {
+            sort_accounts(&mut visible, sort);
+        }
         let show_manual_count = f32::from(window.viewport_size().width) >= 900.0;
 
         let header_inner = ramag_ui::responsive_toolbar()
@@ -232,40 +239,38 @@ impl ObjectStorageView {
             .text_xs()
             .text_color(theme.muted_foreground)
             .child(div().w(px(24.0)).flex_none())
-            .child(
-                div()
-                    .id("object-account-table-header-name")
-                    .debug_selector(|| "object-account-table-header-name".into())
-                    .flex_1()
-                    .min_w_0()
-                    .child("账号"),
-            )
-            .child(
-                div()
-                    .id("object-account-table-header-provider")
-                    .debug_selector(|| "object-account-table-header-provider".into())
-                    .w(px(120.0))
-                    .flex_none()
-                    .text_center()
-                    .child("服务商"),
-            )
-            .child(
-                div()
-                    .id("object-account-table-header-status")
-                    .debug_selector(|| "object-account-table-header-status".into())
-                    .w(px(56.0))
-                    .flex_none()
-                    .text_center()
-                    .child("状态"),
-            )
-            .child(
-                div()
-                    .id("object-account-table-header-buckets")
-                    .debug_selector(|| "object-account-table-header-buckets".into())
-                    .w(px(140.0))
-                    .flex_none()
-                    .child("Bucket"),
-            )
+            .child(self.render_account_sort_header(
+                AccountSortColumn::Name,
+                "账号",
+                None,
+                true,
+                false,
+                cx,
+            ))
+            .child(self.render_account_sort_header(
+                AccountSortColumn::Provider,
+                "服务商",
+                Some(120.0),
+                false,
+                true,
+                cx,
+            ))
+            .child(self.render_account_sort_header(
+                AccountSortColumn::ReadOnly,
+                "状态",
+                Some(56.0),
+                false,
+                true,
+                cx,
+            ))
+            .child(self.render_account_sort_header(
+                AccountSortColumn::BucketCount,
+                "Bucket",
+                Some(140.0),
+                false,
+                false,
+                cx,
+            ))
             .child(
                 div()
                     .id("object-account-table-header-actions")
@@ -276,6 +281,61 @@ impl ObjectStorageView {
                     .child("操作"),
             )
             .into_any_element()
+    }
+
+    fn render_account_sort_header(
+        &self,
+        column: AccountSortColumn,
+        label: &'static str,
+        width: Option<f32>,
+        flexible: bool,
+        centered: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let sort = self.account_sort;
+        let description = account_sort_description(sort, column, label);
+        let icon = account_sort_icon(sort, column);
+        let foreground = cx.theme().foreground;
+        let selector = format!("object-account-table-sort-{}", column.key());
+        let debug_selector = selector.clone();
+        let mut header = h_flex()
+            .id(SharedString::from(selector))
+            .debug_selector(move || debug_selector.clone())
+            .role(Role::Button)
+            .aria_label(description)
+            .items_center()
+            .gap(px(4.0))
+            .min_w_0()
+            .cursor_pointer()
+            .hover(move |header| header.text_color(foreground))
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                this.account_sort = Some(next_account_sort(this.account_sort, column));
+                cx.notify();
+            }))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .text_ellipsis()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(label),
+            )
+            .child(
+                Icon::new(icon)
+                    .xsmall()
+                    .text_color(cx.theme().muted_foreground),
+            );
+        if let Some(width) = width {
+            header = header.w(px(width)).flex_none();
+        }
+        if flexible {
+            header = header.flex_1();
+        }
+        if centered {
+            header = header.justify_center();
+        }
+        header.into_any_element()
     }
 
     fn render_account_row(

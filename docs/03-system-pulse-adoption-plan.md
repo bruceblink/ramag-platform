@@ -1,6 +1,6 @@
 # System Pulse 采集替换与 Ramag UI 吸收计划
 
-> 状态：2026-10-04 重新基线：System Pulse 完整迁入、监控设置收口和公共样式首轮推广已完成；当前进入逐工具真实窗口验收与差异修复。
+> 状态：2026-10-05 重新核对：System Pulse 完整迁入、监控设置收口和公共样式首轮推广已完成；当前继续逐工具验收与差异修复，原生窗口验收按 Computer Use 可用性单独记录。
 > 设计确认：用户于 2026-10-02 回复“确认，按此方案执行”；2026-10-01 的原吸收方案保留为历史记录。
 > 当前主线：以完整编译的 Ramag 程序逐工具核对真实运行界面和功能状态，把 `system-tool` 作为公共视觉基准；先修已知布局、字体和状态问题，再按工具分片推广，动效与性能专项后置。
 > 来源：https://github.com/eas4ai/system-pulse/tree/f1be5d51d24c21fa8c740be79200bdda3df3a00c
@@ -618,3 +618,11 @@ SSH 工作区的远端目录此前只有连续文件行，文件类型、大小�
 验收条件：本机 MySQL 8.4 测试服务健康，当前源码完整构建的 Ramag 显示“已连接”，可以读取 `ramag_ui_test` 对象树和 `bulk_records`；仅执行只读查询，不重建健康服务、不删除数据卷、不输入或保存新凭据。验证命令为 workspace fmt、workspace all-target Clippy、DBClient library tests、源码尺寸/日志检查、完整 `cargo build --locked -p ramag-bin` 和 Computer Use 真实窗口测试。回滚边界仅为连接列表缓存修复；本地测试服务与未相关修改不纳入代码回滚。
 
 验收结果：`ramag-visual-test-mysql84` 为 `mysql:8.4`、`127.0.0.1:13318`、`running/healthy`；当前源码完整构建的 `F:\project\ramag-platform\target\debug\ramag.exe` 于 2026-10-04 12:59:17 (+08:00) 启动，Computer Use 真实窗口显示 `127.0.0.1:13318` 为“已连接”，读取 `ramag_ui_test` schema、四个表/一个视图，并打开 `bulk_records` 完成 100 行只读查询。应用日志记录 schema cache 成功和查询成功，没有新的 `sql_pool_create` 失败。DBClient 373 项测试、目标 Clippy、workspace all-target Clippy、fmt、源码尺寸、日志约束和 `git diff --check` 通过；完整程序在修复并关闭旧进程后重新编译通过。`bash scripts/db-test/db-test.sh up` 在当前 PowerShell/WSL 入口因健康服务已占用 13306/15432 等端口而触发重建重试并失败，现有专用容器仍保持健康，未删除数据卷；该命令输出不作为应用失败证据。
+
+### 2026-10-05 对象存储账号表格列排序
+
+对象存储账号页已有账号、服务商、状态和 Bucket 表头，但此前只是静态文本；容器资源表和 System-tool 表格已有可操作的排序反馈。本切片让四个账号列头可点击：账号名按不区分大小写的文本排序，服务商按阿里云 OSS、腾讯云 COS 的固定产品顺序排序，只读状态和 Bucket 数量按原始布尔值/数量排序。首次点击升序，再次点击同列切换方向，换列重置为升序；相等项保持输入次序。仅重排筛选后的视图副本，默认顺序、持久化数据和按账号 ID 保存的选择不变；操作列不参与排序，窄窗口隐藏表头时不显示排序入口。
+
+`cargo test --locked -p ramag-tool-object-storage --lib -- --test-threads=1` 通过 32 项，覆盖列比较、大小写与稳定性、数字数量、方向切换、四个表头可见性/点击以及排序后选中账号 ID 保持。workspace all-target Clippy `-D warnings`、`cargo fmt --all -- --check`、Windows 源码尺寸检查、`git diff --check` 和完整 `cargo build --locked -p ramag-bin` 通过。完整程序从 `F:\project\ramag-platform\target\debug\ramag.exe` 启动，进程路径与工作区构建一致；Computer Use 初始化及重置后的应用清单均未返回可控原生窗口，原生点击、键盘和截图验收未完成，headless 测试不替代该证据。未连接对象存储服务或读取/保存账号凭据。
+
+本轮按用户授权删除孤立的旧专用卷 `ramag-visual-test-mysql84-data`，重新创建 `ramag-visual-test-mysql84`（`mysql:8.4`，`127.0.0.1:13318 -> 3306/tcp`，状态 `running/healthy`，挂载全新同名专用卷）。种子检查为 `bulk_records=100000`、`type_matrix=3`、`large_values=1`、`spatial_samples=1`；单独的 `ramag-db-test-mysql` 未改动，临时种子副本已删除，没有打印或记录凭据。本轮未重新执行 DBClient 原生连接和表查询，因此先前连接验收记录不扩展为对新卷的 UI 端到端证明。

@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::time::Duration;
 
+use super::account_sort::AccountSort;
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::resizable::ResizableState;
 use gpui_kit::{
@@ -80,6 +81,7 @@ pub struct ObjectStorageView {
     pub(super) accounts: Arc<Vec<ObjectStorageAccount>>,
     pub(super) account_search: Entity<InputState>,
     pub(super) selected_account_id: Option<ObjectStorageAccountId>,
+    pub(super) account_sort: Option<AccountSort>,
     pub(super) open_account_ids: Vec<ObjectStorageAccountId>,
     pub(super) session_preference_loaded: bool,
     pub(super) account_session_states: HashMap<ObjectStorageAccountId, AccountSessionState>,
@@ -158,6 +160,7 @@ impl ObjectStorageView {
             accounts: Arc::new(Vec::new()),
             account_search,
             selected_account_id: None,
+            account_sort: None,
             open_account_ids: Vec::new(),
             session_preference_loaded: false,
             account_session_states: HashMap::new(),

@@ -2,10 +2,11 @@
 
 use std::sync::Arc;
 
-use gpui_kit::{TestAppContext, px, size};
+use gpui_kit::{Modifiers, TestAppContext, VisualTestContext, px, size};
 use ramag_domain::entities::{CloudProvider, ManualBucket, ObjectStorageAccount};
 use ramag_ui::Mode;
 
+use super::super::account_sort::{AccountSort, AccountSortColumn};
 use super::{add_form_window, add_workspace_window, service};
 
 fn assert_inside(
@@ -20,6 +21,14 @@ fn assert_inside(
             && child.bottom() <= parent.bottom(),
         "{label} 越出父容器：parent={parent:?}, child={child:?}"
     );
+}
+
+fn click_selector(visual: &mut VisualTestContext, selector: &'static str) {
+    let bounds = visual
+        .debug_bounds(selector)
+        .unwrap_or_else(|| panic!("{selector} 应可点击"));
+    visual.simulate_click(bounds.center(), Modifiers::default());
+    visual.run_until_parked();
 }
 
 /// 账号行中的固定徽标和操作组在窄窗口内应换行，而不是推出列表内容区。
@@ -79,6 +88,67 @@ fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
             );
         }
     }
+}
+
+#[gpui_kit::test]
+fn account_table_sort_headers_toggle_and_preserve_selected_identity(cx: &mut TestAppContext) {
+    let (view, visual) = add_workspace_window(cx, service());
+    let accounts = vec![
+        ObjectStorageAccount::new("zeta", CloudProvider::TencentCos),
+        ObjectStorageAccount::new("Alpha", CloudProvider::AliyunOss),
+    ];
+    let selected_id = accounts[0].id.clone();
+    view.update(visual, |view, cx| {
+        view.accounts = Arc::new(accounts);
+        view.selected_account_id = Some(selected_id.clone());
+        view.loading = false;
+        view.management_visible = true;
+        cx.notify();
+    });
+    visual.simulate_resize(size(px(1024.0), px(768.0)));
+    visual.run_until_parked();
+
+    for selector in [
+        "object-account-table-sort-name",
+        "object-account-table-sort-provider",
+        "object-account-table-sort-status",
+        "object-account-table-sort-buckets",
+    ] {
+        visual
+            .debug_bounds(selector)
+            .unwrap_or_else(|| panic!("{selector} 应显示为可操作的排序表头"));
+    }
+
+    click_selector(visual, "object-account-table-sort-name");
+    assert_eq!(
+        visual.update(|_, app| view.read(app).account_sort),
+        Some(AccountSort {
+            column: AccountSortColumn::Name,
+            ascending: true,
+        })
+    );
+    click_selector(visual, "object-account-table-sort-name");
+    assert_eq!(
+        visual.update(|_, app| view.read(app).account_sort),
+        Some(AccountSort {
+            column: AccountSortColumn::Name,
+            ascending: false,
+        })
+    );
+    click_selector(visual, "object-account-table-sort-provider");
+    assert_eq!(
+        visual.update(|_, app| {
+            let view = view.read(app);
+            (view.account_sort, view.selected_account_id.clone())
+        }),
+        (
+            Some(AccountSort {
+                column: AccountSortColumn::Provider,
+                ascending: true,
+            }),
+            Some(selected_id),
+        )
+    );
 }
 
 #[gpui_kit::test]
@@ -174,6 +244,17 @@ fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestA
             } else {
                 None
             };
+            if width >= 900.0 {
+                for selector in [
+                    "object-account-table-sort-name",
+                    "object-account-table-sort-provider",
+                    "object-account-table-sort-status",
+                    "object-account-table-sort-buckets",
+                ] {
+                    cx.debug_bounds(selector)
+                        .unwrap_or_else(|| panic!("{selector} 应在宽窗口显示"));
+                }
+            }
             let scroll = cx
                 .debug_bounds("object-account-list-scroll")
                 .expect("账号行应保留面板内的滚动区域");
@@ -226,15 +307,15 @@ fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestA
             if let Some(table_header) = table_header {
                 assert_inside(list, table_header, "对象存储账号表头");
                 for selector in [
-                    "object-account-table-header-name",
-                    "object-account-table-header-provider",
-                    "object-account-table-header-status",
-                    "object-account-table-header-buckets",
+                    "object-account-table-sort-name",
+                    "object-account-table-sort-provider",
+                    "object-account-table-sort-status",
+                    "object-account-table-sort-buckets",
                     "object-account-table-header-actions",
                 ] {
                     let column = cx
                         .debug_bounds(selector)
-                        .unwrap_or_else(|| panic!("{selector} 应渲染"));
+                        .unwrap_or_else(|| panic!("{selector} 应作为表头控件渲染"));
                     assert_inside(table_header, column, selector);
                 }
             }
