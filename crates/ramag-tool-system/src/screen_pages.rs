@@ -1,3 +1,5 @@
+mod environmental;
+
 use crate::{
     screen_charts::{ChartSeries, history_chart, segmented_meter},
     screen_data::{self as data, Channel},
@@ -146,7 +148,7 @@ pub(crate) fn render(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyE
         Screen::Memory => memory(state, cx),
         Screen::Gpu => gpu(state, width, cx),
         Screen::Disks | Screen::Network => device(screen, state, cx),
-        Screen::Energy | Screen::Thermals => environmental(screen, state, width, cx),
+        Screen::Energy | Screen::Thermals => environmental::render(screen, state, width, cx),
         _ => Empty.into_any_element(),
     }
 }
@@ -446,136 +448,5 @@ fn device(screen: Screen, state: &Data, cx: &App) -> AnyElement {
         .child(div().flex().flex_wrap().gap_4().children(rows.iter().map(|channel| stat(channel, state, cx))))
         .when(screen == Screen::Disks, |view| view.child(div().text_size(px(12.)).text_color(palette(cx).muted)
             .child("Capacity describes this filesystem. Transfer rates describe its backing block device.")))
-        .into_any_element()
-}
-
-fn environmental(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyElement {
-    let (quantity, unit) = if screen == Screen::Energy {
-        (Quantity::Power, PhysicalUnit::Watts)
-    } else {
-        (Quantity::Temperature, PhysicalUnit::Celsius)
-    };
-    let rows = data::environmental_channels(state, quantity, unit);
-    let selected = data::selected_channel(state, screen);
-    if rows.is_empty() {
-        return empty(
-            if screen == Screen::Energy {
-                "No power measurement available"
-            } else {
-                "No temperature measurement available"
-            },
-            "This screen uses measured sensor data. Choose an available sensor when one is reported.",
-            cx,
-        );
-    }
-    let hottest = (screen == Screen::Thermals)
-        .then(|| data::highest_current(state, &rows))
-        .flatten();
-    let color = accent(screen, cx);
-    let grid_width = if width >= 1100. {
-        (width - 24.) / 3.
-    } else {
-        (width - 12.) / 2.
-    };
-    div()
-        .flex()
-        .flex_col()
-        .gap_4()
-        .when_some(hottest, |view, hottest| {
-            view.child(
-                div()
-                    .flex()
-                    .flex_wrap()
-                    .items_center()
-                    .gap_2()
-                    .child(div().text_sm().text_color(palette(cx).muted).child(format!(
-                        "Hottest current sensor · {} · {}",
-                        hottest.device, hottest.label
-                    )))
-                    .child(
-                        crate::meters::metric_label("thermal-hottest".into(), hottest.value(state))
-                            .debug_selector(|| "thermal-hottest".into())
-                            .text_color(color)
-                            .font_family(cx.theme().mono_font_family.clone()),
-                    ),
-            )
-        })
-        .when(selected.is_none(), |view| {
-            view.child(empty(
-                "Selected sensor unavailable",
-                "Its saved identity is preserved. Choose an available sensor above.",
-                cx,
-            ))
-        })
-        .when_some(selected, |view, selected| {
-            view.child(hero_meter(&selected, state, screen, cx)).child(
-                section(cx)
-                    .child(heading(selected.label.clone(), 20., cx))
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(palette(cx).muted)
-                            .child(selected.device.clone()),
-                    )
-                    .child(
-                        div()
-                            .id("selected-channel-history")
-                            .debug_selector(|| "selected-channel-history".into())
-                            .child(chart(&selected, state, color, 260., cx)),
-                    )
-                    .when(!selected.scope.is_empty(), |view| {
-                        view.child(
-                            div()
-                                .text_size(px(12.))
-                                .text_color(palette(cx).muted)
-                                .child(selected.scope.clone()),
-                        )
-                    }),
-            )
-        })
-        .child(heading(
-            if screen == Screen::Thermals {
-                "Temperature sensors"
-            } else {
-                "Measured power channels"
-            },
-            24.,
-            cx,
-        ))
-        .child(
-            div()
-                .flex()
-                .flex_wrap()
-                .gap_3()
-                .children(rows.iter().map(|channel| {
-                    section(cx)
-                        .w(px(grid_width))
-                        .flex_none()
-                        .border_color(color.opacity(0.4))
-                        .child(
-                            div()
-                                .text_size(px(12.))
-                                .text_color(palette(cx).muted)
-                                .child(channel.device.clone()),
-                        )
-                        .child(stat(channel, state, cx))
-                        .when_some(
-                            channel
-                                .latest(state)
-                                .and_then(|sample| sample.reason.clone()),
-                            |view, reason| {
-                                let id = format!("sensor-availability:{}", channel.sensor);
-                                view.child(
-                                    div()
-                                        .debug_selector(move || id.clone())
-                                        .text_sm()
-                                        .text_color(palette(cx).muted)
-                                        .child(reason),
-                                )
-                            },
-                        )
-                        .child(chart(channel, state, color, 95., cx))
-                })),
-        )
         .into_any_element()
 }

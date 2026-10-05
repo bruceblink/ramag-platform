@@ -40,17 +40,19 @@ Computer Use 使用本次完整构建 `F:/project/ramag-platform/target/debug/ra
 
 Computer Use 直接对照 `F:/project/system-pulse/target/debug/system-pulse.exe` 的真实窗口。原版仅运行一个实例；Ramag 在 1555px 宽窗口和缩窄至约 1321px 后，逐页观察 Summary、CPU、Memory、GPU、Disks、Network、Energy、Thermals：量程标签贴齐绘图区左边缘，时长贴齐右边缘，曲线和网格保留，CPU 核心小图与长速率标签没有旧左列空白。Summary 上下滚动可访问七类图表。此记录仅覆盖当前图表布局与现有明暗样式中的暗色运行结果，不扩展为进程操作、硬件授权、外部服务或所有平台验收；Docker 不适用。
 
-## 2026-10-04 当前切片：CPU 温度开启失败
+## 2026-10-05 已完成：AMD CPU 温度真实读取与 Thermals 来源标识分区
 
-真实窗口的 CPU 温度卡片显示 `Connect temperature helper` 和 `0x800700E8`。Ramag 与固定来源使用同一命名管道流程：短命帮助程序发送初始化错误帧后马上退出，父进程可能在读取错误帧前收到客户端关闭错误，掩盖真实失败原因。本机 CPU 为 AMD Ryzen 9 5900X，现有受限读取只支持 Intel Alder Lake 0x9a；未发现已安装的 PawnIO 驱动或已有温度 WMI 服务。
+初始真实窗口中的 CPU 温度卡片显示 `Connect temperature helper` 和 `0x800700E8`。Ramag 与固定来源使用同一命名管道流程：短命帮助程序发送初始化错误帧后马上退出，父进程可能在读取错误帧前收到客户端关闭错误，掩盖真实失败原因。本机 CPU 为 AMD Ryzen 9 5900X；初次检查时受限读取只支持 Intel Alder Lake 0x9a，也未发现已安装的 PawnIO 驱动或温度 WMI 服务。
 
 范围：修复有界终止帧交付和硬件能力检查，使用官方签名 `AMDFamily17.bin` 0.2.11 增加 AMD Zen 3 family `0x19` / model `0x21` 的固定温度读取。仅调用 `ioctl_read_smn` 读取 `0x59800`，等待共享 PCI 互斥量最多 250ms，不开放任意寄存器或调节操作。任何采集失败都保留具体原因和缺失读数，不填零。应用窗口保持原权限，帮助程序只执行固定读取，保留管道身份校验、取消、调用者退出和超时限制；不自动安装驱动。回滚边界为 Windows 温度帮助程序、协议、固定模块及其专用测试，不修改 GPU 采集器或其他工具。
 
-验收：本地真实命名管道复现并验证短命错误帧、身份不符、超时与取消；验证 CPU 能力、温度单位/范围及错误状态；运行受影响 library tests、workspace fmt/Clippy、源码尺寸/LF/diff 检查及完整构建。用最新完整程序在 Thermals 请求启用并回读状态，Windows 授权由用户操作；缺少驱动或硬件不支持时明确记录尚无真实 CPU 温度读数，不将模拟测试当作硬件验收。Docker 不适用。
+验收：本地真实命名管道复现并验证短命错误帧、身份不符、超时与取消；验证 CPU 能力、温度单位/范围及错误状态；运行受影响 library tests、workspace fmt/Clippy、源码尺寸/LF/diff 检查及完整构建。用最新完整程序在 Thermals 请求启用并回读状态。Docker 不适用。
 
 来源：新增模块保持官方签名字节，SHA-256 为 `dae74615761b78bdf064dfb3e136252ddcc6fc727d88f14738d0e5800d427a91`；对应 [PawnIO.Modules 0.2.11](https://github.com/namazso/PawnIO.Modules/releases/tag/0.2.11) 和既有 LGPL 文本、完整源归档。温度解码遵循 [AMD 模块的固定 SMN 操作](https://github.com/namazso/PawnIO.Modules/blob/52a7e536dff3e53c96917a28caac5e0fa6510696/AMDFamily17.p) 与 [LibreHardwareMonitor 的 Tctl/Tdie 读取](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/LibreHardwareMonitorLib/Hardware/Cpu/Amd17Cpu.cs)：每单位 0.125°C，按范围选择位扣除 49°C。协议分别标识 Intel/AMD 原始操作数，拒绝错用、越界、短帧和重放。
 
-本机验证：infra-system library tests 129 项通过、1 项 ignored；system-tool library tests 106 项通过；workspace fmt、all-target 严格 Clippy、源码尺寸、LF/diff 检查及完整构建通过。真实命名管道覆盖 Intel/AMD 短命客户端终止帧、错误 PID、无帧断连及尚未连接状态；另覆盖实际互斥量竞争超时、温度小数/零/负值/范围、错后端原始操作数和取消状态。当前完整程序为 `target/x86_64-pc-windows-msvc/debug/ramag.exe`（2026-10-04 18:20:05）。Computer Use 在 Thermals 执行启用重试，CPU 卡片明确显示缺少 PawnIO（`0x80070002`），Enable 仍可重试，Disable 保持不可用，GPU 温度继续更新；没有出现旧 `0x800700E8` 或虚构 CPU 温度。本机尚未安装驱动，真实 CPU 寄存器读取与授权成功流程仍待验证，不把上述测试当作硬件读数验收。官方 PawnIO 2.2.0 安装器已在仓库外下载并核验官方 SHA-256 和有效 Authenticode 签名，未执行安装；Docker 不适用。
+本机验证：infra-system library tests 129 项通过、1 项 ignored；system-tool library tests 106 项通过；workspace fmt、all-target 严格 Clippy、源码尺寸、LF/diff 检查及完整构建通过。真实命名管道覆盖 Intel/AMD 短命客户端终止帧、错误 PID、无帧断连及尚未连接状态；另覆盖实际互斥量竞争超时、温度小数/零/负值/范围、错后端原始操作数和取消状态。Computer Use 曾在 Thermals 回读缺少 PawnIO（`0x80070002`）；后续本机检查确认 PawnIO 驱动服务已运行。
+
+硬件与最新构建验收（2026-10-05）：当前完整程序为 `F:/project/ramag-platform/target/debug/ramag.exe`，进程路径已核实为本项目构建，不是安装目录版本。Thermals 点击启用后，按钮变为可用的 Disable，CPU package 温度读数为 `63.5 °C` 且历史图有连续采样；同屏 NVIDIA RTX 3060 GPU 读数为 `44.0 °C` 并持续刷新，确认 AMD CPU 数据来自真实温度后端而非测试数据。随后修正来源标签歧义：全局最高温度和所选传感器各自位于独立面板；所选面板显示设备/传感器标签、温度计和值，历史图位于同一所选传感器上下文中。Headless 回归使用 GPU B `46 °C` 被选中、CPU `63 °C` 为全局最高的样例，验证最高读数面板、所选读数面板与所选 GPU 图表的垂直分组和来源身份。完整 `ramag-tool-system` 测试 106 项、workspace all-target 严格 Clippy、fmt、源码尺寸、diff 检查及完整 `ramag-bin` 构建通过；Computer Use 真实窗口也复现 GPU 已选、CPU 更热的组合，两个来源标签清晰分组。没有创建或修改 Docker 资源。
 
 ## 2026-10-03 当前进度重排与执行队列
 

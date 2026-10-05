@@ -418,10 +418,26 @@ fn unavailable_selected_thermal_sensor_keeps_other_charts_and_hottest_reading(
     );
     command(&view, Command::Screen(Screen::Thermals), cx);
     assert!(cx.debug_bounds("selected-channel-history").is_some());
+    assert!(
+        cx.debug_bounds("history:gpu:pci:0000:02:00.0/temperature")
+            .is_some()
+    );
+    let hottest_panel = cx.debug_bounds("thermal-hottest-panel").test_unwrap();
+    let selected_panel = cx.debug_bounds("selected-channel-panel").test_unwrap();
+    let selected_chart = cx.debug_bounds("selected-channel-history").test_unwrap();
+    assert!(hottest_panel.bottom() <= selected_panel.origin.y);
+    assert!(selected_panel.bottom() <= selected_chart.origin.y);
     cx.read(|cx| {
         let data = view.read(cx).shared.borrow();
         let selected = crate::screen_data::selected_channel(&data, Screen::Thermals).test_unwrap();
         assert_eq!(selected.measured(&data), Some(46.));
+        let temperatures = crate::screen_data::by_quantity(
+            &data,
+            system_pulse_model::Quantity::Temperature,
+            system_pulse_model::PhysicalUnit::Celsius,
+        );
+        let hottest = crate::screen_data::highest_current(&data, &temperatures).test_unwrap();
+        assert_ne!(selected.sensor, hottest.sensor);
     });
 
     let assert_other_temperatures = |expected_hottest: f64, cx: &mut VisualTestContext| {
