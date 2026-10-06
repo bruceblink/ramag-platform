@@ -83,6 +83,7 @@ fn active(view: &Entity<ScreenView>, cx: &VisualTestContext) -> Screen {
     })
 }
 
+mod memory_summary;
 mod navigation;
 mod process_table;
 mod rendered_screens;

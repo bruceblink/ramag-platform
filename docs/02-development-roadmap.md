@@ -81,14 +81,14 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 
 ## 4. 当前交付队列
 
-2026-10-01 用户调整优先级：先完善功能、修复已知 UI/功能 bug 和完成本机编译测试；加载反馈、等待期间的可操作性及错误恢复属于基本功能。System Pulse 对齐按差距矩阵逐项推进，每项先操作本机实际参考程序，再在同尺寸 Ramag 中核对功能、来源、状态和页面布局，当前项目截图不能单独作为对齐依据。键盘增强、过渡动画、特效、系统动画偏好同步和发布性能追踪后置。本轮不检查 GitHub CI，跨平台和实际硬件结论保留原证据范围。
+2026-10-06 用户调整当前主线：优先完成 UI 对齐和功能修复；加载反馈、等待期间可操作性及错误恢复也属于基本功能。System Pulse 对齐按差距矩阵逐项推进，每项先操作本机实际参考程序，再在同尺寸 Ramag 中核对功能、来源、状态和页面布局，当前项目截图不能单独作为对齐依据。进程键盘行导航已有实现和筛选/排序后的可见行回归；过渡动画、特效、系统动画偏好同步和发布性能追踪后置。本轮不检查 GitHub CI，跨平台和实际硬件结论保留原证据范围。
 
 同一时间只允许一个切片处于“开发中”。状态以代码、测试和证据为准，不以计划文字推断完成。
 
 | ID | 内容 | 状态 | 依赖 | 必要证据 |
 |---|---|---|---|---|
 | `A-QUALITY-SETTINGS-SAVE-001` | 系统/监控偏好的保存中、失败原因、重试及实际回读 | 本机代码、headless 和限定真实窗口验收完成，详见执行计划 | 现有偏好存储 | 同 key 写入顺序、慢写入可操作性、redb 重开回读、明暗三尺寸；真实窗口成功保存及导航 |
-| `A-PULSE-GAP-01..10` | System Pulse 剩余优点逐项吸收 | `01` 风险表达、`02A` 七列排序、`02B` 完整身份详情、`03A` 磁盘/网络真实活动趋势、`03B` Summary CPU/内存组合、`06-Energy` 主传感器选择、`09-Settings-Appearance` 字体选择和 `10-Settings-Sampling` 四档采样已完成本机目标/headless/Computer Use 实际参考窗口对照；预设快照与损坏保护见 `A-PULSE-GAP-11`。`02C` 键盘、动效与性能按用户要求后置；详见 [`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md) | 对应独立功能及测试 | 进程详情/排序、Summary 趋势、选择恢复、预设、传感器选择、生命周期分别记录 |
+| `A-PULSE-GAP-01..10` | System Pulse 剩余优点逐项吸收 | `01` 风险表达、`02A` 七列排序、`02B` 完整身份详情、`03A` 磁盘/网络真实活动趋势、`03B` Summary CPU/内存组合、`06-Energy` 主传感器选择、`09-Settings-Appearance` 字体选择和 `10-Settings-Sampling` 四档采样已完成本机目标/headless/Computer Use 实际参考窗口对照；进程键盘行导航已有实现和 headless 回归；预设快照与损坏保护见 `A-PULSE-GAP-11`。过渡动画、特效和性能专项后置；详见 [`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md) | 对应独立功能及测试 | 进程详情/排序、Summary 趋势、选择恢复、预设、传感器选择、生命周期分别记录 |
 | `A-PULSE-GAP-11` | Settings 完整监控预设快照与损坏数据保护 | 已完成：应用命名/内置预设时同步恢复采样周期和设备/传感器展示；监控预设解析失败时禁止覆盖原值并显示恢复原因；结果见差距矩阵 | `A-PULSE-GAP-05`、`A-PULSE-GAP-10` | 目标与全量 `ramag-ui` 测试、损坏预设 redb 重开回读、三尺寸/明暗 headless、完整程序 Settings 原生验收、fmt/Clippy/源码尺寸/LF/diff 均通过 |
 | `A-PULSE-SETTINGS-002` | System Settings 卡片纵向排列 | 已完成：Appearance、Sampling、Window behavior 按单列依次排列；Presets 保持后续独立分区，详见差距矩阵 | `A-PULSE-GAP-11` | 明暗主题三尺寸 headless、完整程序暗色真实窗口布局、目标与全量 `ramag-ui` 测试、fmt/Clippy/源码尺寸/LF/diff 均通过 |
 | `SHELL-001` | 共享 JetBrains 工作区壳层和设计令牌 | 已完成（headless；真实窗口待补） | 阶段 A | Headless 三尺寸、可用时 Computer Use、fmt/Clippy |

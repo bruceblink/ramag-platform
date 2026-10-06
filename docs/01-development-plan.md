@@ -138,7 +138,7 @@
 - 目标与 UI：排序单元测试覆盖七个字段双方向、缺失值最后、失败/不可用/预热/过期/非有限值、稳定 PID/启动身份和中文搜索；headless 覆盖明暗主题 × 16px/18px × `360x640`、`1024x768`、`1440x900`，另测 `640x640` 横向滚动、表头/行列对齐、紧凑菜单、方向按钮、中文筛选和确认目标。
 - 本机检查：`ramag-infra-system` 111 项通过、`ramag-tool-system` 30 项通过、`ramag-ui` 124 项通过；采集器保留 1 项既有忽略测试。`cargo build --locked -p ramag-bin`、`cargo build --locked -p ramag-bin --example ui-preview`、最终 workspace 回归、fmt、workspace all-target Clippy `-D warnings`、源码尺寸、差异和 LF 检查通过。目标/workspace 日志分别为 `target/pulse-process-table-final-tests-20261001.log` 和 `target/pulse-process-table-workspace-tests-20261001.log`。环境变量控制或忽略的服务测试不计为 Docker 证据；服务、镜像、端口、启动和清理均不适用。本轮预览、测试子进程和临时存储已清理。
 - 真实窗口：使用 `computer-use` 的隔离 `ui-preview`，在 `1024x768` 亮色窗口完成 Processes 导航、PID 升序/降序切换、搜索测试子进程、打开强制退出确认并点击取消；回读确认测试子进程仍在运行。`360x640` 暗色窗口核对紧凑身份/2×2 指标、菜单字段、读写速率排序和方向提示。原生证据不覆盖真实终止授权、跨平台采集、硬件准确性或发布性能；这些仍按矩阵分别记录。
-- 边界：本切片不新增进程详情、温和结束或键盘行导航；`A-PULSE-GAP-02B` 绑定选中进程详情，`02C` 接入键盘行导航。
+- 边界：本切片聚焦进程表字段与排序；选中进程详情、温和结束和 PID 复用状态分别按后续功能切片处理。
 
 ### A-QUALITY-SETTINGS-SAVE-001：系统与监控偏好保存反馈（2026-10-01，本机验收完成）
 

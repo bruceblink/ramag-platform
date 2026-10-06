@@ -181,6 +181,19 @@ fn subsystem(
         .into_any_element()
 }
 
+/// Retain full source diagnostics for hover and accessibility while the Summary row shows a compact value.
+fn memory_metric_detail(sample: Option<&system_pulse_model::Sample>, scope: &str) -> String {
+    format!("{}\n{scope}", crate::meters::value(sample))
+}
+
+/// Keep present memory sensors visible in Summary unless the user hid them, including unavailable readings.
+fn memory_status_channel(data: &Data, suffix: &str) -> Option<Channel> {
+    let id = format!("memory:host/{suffix}");
+    data::channels(data).into_iter().find(|channel| {
+        channel.sensor == id && data::sensor_visible(data, &channel.monitor, &channel.sensor)
+    })
+}
+
 pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
     let cpu = data::find(state, "cpu:host", "usage");
     let clock = data::highest_current(
@@ -408,9 +421,20 @@ pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
                 ["available", "cache", "swap"]
                     .into_iter()
                     .filter_map(|suffix| {
-                        let channel = data::find(state, "memory:host", suffix)?;
+                        let channel = memory_status_channel(state, suffix)?;
+                        let selector = format!("summary-memory:{suffix}");
+                        let detail = memory_metric_detail(channel.latest(state), &channel.scope);
+                        let tooltip = detail.clone();
+                        let metric = crate::meters::metric_text(
+                            format!("summary-memory-value:{suffix}"),
+                            detail,
+                            channel.value(state),
+                        )
+                        .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx));
                         Some(
                             div()
+                                .id(SharedString::from(format!("summary-memory-row:{suffix}")))
+                                .debug_selector(move || selector.clone())
                                 .flex_1()
                                 .min_w_0()
                                 .flex()
@@ -421,10 +445,7 @@ pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
                                         .text_color(palette(cx).muted)
                                         .child(channel.label.clone()),
                                 )
-                                .child(crate::meters::metric_label(
-                                    format!("summary-memory:{suffix}"),
-                                    channel.value(state),
-                                )),
+                                .child(metric),
                         )
                     }),
             ),
@@ -482,4 +503,32 @@ pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
                 })),
         )
         .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::memory_metric_detail;
+    use crate::screen_data::compact_value;
+    use system_pulse_model::{Quantity, ReadingStatus, Sample};
+
+    #[::core::prelude::v1::test]
+    fn memory_metric_detail_preserves_long_failure_reason_with_compact_visible_status() {
+        let reason = "cache read denied by the platform memory provider ".repeat(8);
+        let sample = Sample {
+            at_ms: 1,
+            value: None,
+            text: String::new(),
+            unit: "GiB".into(),
+            status: ReadingStatus::Unavailable,
+            quantity: Quantity::Capacity,
+            total: None,
+            reason: Some(reason.clone()),
+        };
+
+        assert_eq!(compact_value(Some(&sample)), "Unavailable");
+        let detail = memory_metric_detail(Some(&sample), "Measured channel on memory:host");
+        assert!(detail.contains("Unavailable · GiB"));
+        assert!(detail.contains(&reason));
+        assert!(detail.contains("Measured channel on memory:host"));
+    }
 }

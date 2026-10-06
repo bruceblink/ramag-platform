@@ -1,8 +1,8 @@
 # System Pulse 采集替换与 Ramag UI 吸收计划
 
-> 状态：2026-10-05 重新核对：System Pulse 完整迁入、监控设置收口和公共样式首轮推广已完成；当前继续逐工具验收与差异修复，原生窗口验收按 Computer Use 可用性单独记录。
+> 状态：2026-10-06 重新核对：System Pulse 完整迁入、监控设置收口和公共样式首轮推广已完成；按当前主线继续 UI 对齐和功能修复，原生窗口验收按 Computer Use 可用性单独记录。
 > 设计确认：用户于 2026-10-02 回复“确认，按此方案执行”；2026-10-01 的原吸收方案保留为历史记录。
-> 当前主线：以完整编译的 Ramag 程序逐工具核对真实运行界面和功能状态，把 `system-tool` 作为公共视觉基准；先修已知布局、字体和状态问题，再按工具分片推广，动效与性能专项后置。
+> 当前主线：优先修复已知 UI 差异和功能问题；以完整编译的 Ramag 程序逐工具核对运行界面和功能状态，把 `system-tool` 作为公共视觉基准；先修布局、字体和状态，再按工具分片推广，动效与性能专项后置。
 > 来源：https://github.com/eas4ai/system-pulse/tree/f1be5d51d24c21fa8c740be79200bdda3df3a00c
 > 优点吸收与剩余差距：[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)
 
@@ -644,3 +644,11 @@ Bucket 导航表原先只有静态的 Bucket/根路径表头，列表一直按�
 本轮为后续数据库客户端验收启动了本机测试服务：`ramag-visual-test-mysql84`（`mysql:8.4`，`127.0.0.1:13318`）、`ramag-db-test-mysql`（`mysql:8.4`，`127.0.0.1:13306`）、`ramag-db-test-postgres`（`postgres:17-alpine`，`127.0.0.1:15432`）、`ramag-db-test-redis`（`redis:7-alpine`，`127.0.0.1:16379`）和 `ramag-db-test-mongo`（`mongo:8.2`，`127.0.0.1:27018`），均为 `running/healthy`。复用 `scripts/db-test/compose.yaml` 和本机忽略文件中的测试配置；未输出、复制或写入任何密码。服务及其专用数据卷保持运行，未清理任何卷。本轮 Computer Use 未提供可操作的 Windows 原生窗口，因此只确认了容器健康，没有通过 Ramag DBClient 保存连接、执行查询或读取用户存储配置。
 
 本轮尝试拉取 MinIO 镜像时 registry 返回 `401 Unauthorized`，未创建 MinIO 容器或数据卷；随后启动 RustFS 本地 S3 测试服务 `ramag-object-storage-test`（`docker.io/rustfs/rustfs:latest`，镜像 digest `sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c`，S3 API `127.0.0.1:19000`，Console `127.0.0.1:19001`，专用卷 `ramag-object-storage-test-data`）。`GET /health/ready` 与 Console health 均返回 HTTP 200；服务和数据卷保持运行。根凭据启动时随机生成并注入容器，未输出或写入仓库文件。RustFS 官方容器支持本地 S3 兼容测试，但 Ramag 当前只实现腾讯云 COS 与阿里云 OSS，Endpoint 校验要求相应服务商官方 HTTPS 主机，因此此容器尚不能接入现有对象存储账号流程。对象列表和传输的完整程序验收仍需要专用 COS/OSS 测试账号及明确的可写测试前缀，或另行实现并验证 S3 兼容服务商支持。
+
+### 2026-10-06 Summary 内存采样原因可见性修复
+
+Summary 原先通过 `Channel::value` 显示 available/cache/swap 读数；采样值缺失时只显示 `Unavailable`，没有呈现 `Sample.reason`。通用 `screen_data::find` 还会过滤 unavailable 传感器，因此缓存采样失败后整行消失，无法发现具体原因。
+
+现在 Summary 从监控目录读取仍由用户设为可见的内存通道，即使最新状态为 unavailable 也保留行。行内显示紧凑状态；悬浮提示和无障碍名称/值包含状态、单位、完整原因及传感器范围。用户主动隐藏传感器后，行仍会移除；未更改采集器、详细 Memory 页或偏好存储。
+
+`memory_metric_detail_preserves_long_failure_reason_with_compact_visible_status` 验证短状态与完整原因/范围分离；`summary_long_memory_failure_reason_does_not_expand_the_metric_row` 注入长 cache 错误，在 `360x640`、`1024x768`、`1440x900` 验证行边界，并确认隐藏偏好生效。两项目标测试、workspace fmt、all-target Clippy `-D warnings`、`cargo build --locked -p ramag-bin` 和 `scripts/windows/check-source-size.ps1` 均通过。Computer Use 本轮只返回浏览器、`apps: []`；未做原生窗口截图或点击验收，Headless 几何结果不替代该证据。Docker 服务、镜像、端口和清理不适用。回滚边界为 `screen_summary.rs`、`screen_tests/memory_summary.rs` 及本节和差距矩阵状态。
