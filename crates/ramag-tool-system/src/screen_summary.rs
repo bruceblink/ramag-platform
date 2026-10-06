@@ -86,6 +86,12 @@ fn subsystem(
     cx: &App,
 ) -> AnyElement {
     let color = accent(screen, cx);
+    let unavailable = if matches!(screen, Screen::Energy | Screen::Thermals) && channel.is_none() {
+        data::selected_environmental_channel(state, screen)
+            .filter(|channel| data::unavailable_detail(channel, state).is_some())
+    } else {
+        None
+    };
     let label = channel
         .as_ref()
         .map(|channel| channel.value(state))
@@ -93,7 +99,31 @@ fn subsystem(
     let detail = channel
         .as_ref()
         .map(|channel| channel.device.clone())
+        .or_else(|| {
+            unavailable
+                .as_ref()
+                .map(|channel| format!("{} · {}", channel.device, channel.label))
+        })
         .unwrap_or_else(|| "No available sensor".into());
+    let value = if let Some(channel) = &unavailable {
+        let detail = data::unavailable_detail(channel, state)
+            .unwrap_or_else(|| format!("{} · {} · Unavailable", channel.device, channel.label));
+        let tooltip = detail.clone();
+        crate::meters::metric_text(
+            format!("summary-value:{}", screen.id()),
+            detail,
+            "Unavailable".into(),
+        )
+        .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
+        .font_family(cx.theme().mono_font_family.clone())
+        .text_size(px(if screen == Screen::Disks { 12. } else { 16. }))
+        .text_color(color)
+    } else {
+        crate::meters::metric_label(format!("summary-value:{}", screen.id()), label)
+            .font_family(cx.theme().mono_font_family.clone())
+            .text_size(px(if screen == Screen::Disks { 12. } else { 16. }))
+            .text_color(color)
+    };
     let channels: Vec<_> = if matches!(screen, Screen::Disks | Screen::Network) {
         data::selected_device(state, screen)
             .map(|id| {
@@ -108,8 +138,10 @@ fn subsystem(
                     .collect()
             })
             .unwrap_or_default()
+    } else if let Some(channel) = channel {
+        vec![channel]
     } else {
-        channel.into_iter().collect()
+        unavailable.clone().into_iter().collect()
     };
     let secondary_color = accent(Screen::Thermals, cx);
     let chart_series = channels
@@ -135,12 +167,7 @@ fn subsystem(
                 .justify_between()
                 .gap_2()
                 .child(heading(title.to_owned(), 19., cx))
-                .child(
-                    crate::meters::metric_label(format!("summary-value:{}", screen.id()), label)
-                        .font_family(cx.theme().mono_font_family.clone())
-                        .text_size(px(if screen == Screen::Disks { 12. } else { 16. }))
-                        .text_color(color),
-                ),
+                .child(value),
         )
         .child(
             div()

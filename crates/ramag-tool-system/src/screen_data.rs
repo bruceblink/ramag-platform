@@ -197,6 +197,49 @@ pub(crate) fn environmental_channels(
         .collect()
 }
 
+/// Return the saved Energy or Thermals channel even when its latest sample is unavailable.
+pub(crate) fn selected_environmental_channel(data: &Data, screen: Screen) -> Option<Channel> {
+    let (quantity, unit) = match screen {
+        Screen::Energy => (Quantity::Power, PhysicalUnit::Watts),
+        Screen::Thermals => (Quantity::Temperature, PhysicalUnit::Celsius),
+        _ => return None,
+    };
+    let id = selected_device(data, screen)?;
+    let snapshot = data.snapshot.as_ref()?;
+    channels(data).into_iter().find(|channel| {
+        channel.sensor == id
+            && channel.quantity == quantity
+            && channel.unit == unit
+            && sensor_visible(data, &channel.monitor, &channel.sensor)
+            && snapshot
+                .sensors
+                .iter()
+                .any(|sensor| sensor.id == channel.sensor)
+    })
+}
+
+/// Build the full accessible description for an unavailable environmental sensor.
+pub(crate) fn unavailable_detail(channel: &Channel, data: &Data) -> Option<String> {
+    let sample = channel.latest(data)?;
+    (sample.status == ReadingStatus::Unavailable).then(|| {
+        let mut parts = vec![
+            channel.device.clone(),
+            channel.label.clone(),
+            "Unavailable".into(),
+        ];
+        if !sample.unit.is_empty() {
+            parts.push(sample.unit.clone());
+        }
+        if let Some(reason) = sample.reason.as_ref().filter(|reason| !reason.is_empty()) {
+            parts.push(reason.clone());
+        }
+        if !channel.scope.is_empty() {
+            parts.push(channel.scope.clone());
+        }
+        parts.join(" · ")
+    })
+}
+
 pub(crate) fn highest_current(data: &Data, channels: &[Channel]) -> Option<Channel> {
     channels
         .iter()
@@ -289,17 +332,14 @@ pub(crate) fn selected_device(data: &Data, screen: Screen) -> Option<String> {
 }
 
 pub(crate) fn selected_channel(data: &Data, screen: Screen) -> Option<Channel> {
-    let id = selected_device(data, screen)?;
     if matches!(screen, Screen::Energy | Screen::Thermals) {
-        let (quantity, unit) = if screen == Screen::Energy {
-            (Quantity::Power, PhysicalUnit::Watts)
-        } else {
-            (Quantity::Temperature, PhysicalUnit::Celsius)
-        };
-        return environmental_channels(data, quantity, unit)
-            .into_iter()
-            .find(|channel| channel.sensor == id);
+        let channel = selected_environmental_channel(data, screen)?;
+        return channel
+            .latest(data)
+            .is_some_and(|sample| sample.status != ReadingStatus::Unavailable)
+            .then_some(channel);
     }
+    let id = selected_device(data, screen)?;
     channels(data)
         .into_iter()
         .find(|channel| channel.sensor == id && channel.visible(data))

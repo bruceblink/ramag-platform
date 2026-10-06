@@ -4,9 +4,56 @@ use crate::{
     screen_style::{accent, empty, heading, palette, section},
     workspace::Data,
 };
-use gpui_kit::component::ActiveTheme;
+use gpui_kit::component::{ActiveTheme, tooltip::Tooltip};
 use gpui_kit::{prelude::FluentBuilder, *};
 use system_pulse_model::{PhysicalUnit, Quantity, Screen};
+
+fn unavailable_selection(channel: &data::Channel, state: &Data, cx: &App) -> AnyElement {
+    let screen = if channel.quantity == Quantity::Power {
+        Screen::Energy
+    } else {
+        Screen::Thermals
+    };
+    let color = accent(screen, cx);
+    let detail = data::unavailable_detail(channel, state)
+        .unwrap_or_else(|| format!("{} · {} · Unavailable", channel.device, channel.label));
+    let tooltip = detail.clone();
+    let has_history = channel
+        .samples(state)
+        .iter()
+        .any(|sample| sample.chart_value().is_some());
+    section(cx)
+        .id("selected-channel-unavailable")
+        .debug_selector(|| "selected-channel-unavailable".into())
+        .role(Role::Group)
+        .aria_label(format!("Selected sensor unavailable: {detail}"))
+        .child(heading("Selected sensor unavailable", 18., cx))
+        .child(
+            div()
+                .text_sm()
+                .text_color(palette(cx).muted)
+                .child(format!("{} · {}", channel.device, channel.label)),
+        )
+        .child(
+            crate::meters::metric_text(
+                "selected-channel-unavailable-value".into(),
+                detail,
+                "Unavailable".into(),
+            )
+            .font_family(cx.theme().mono_font_family.clone())
+            .text_color(color)
+            .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx)),
+        )
+        .when(has_history, |view| {
+            view.child(
+                div()
+                    .id("selected-channel-history")
+                    .debug_selector(|| "selected-channel-history".into())
+                    .child(chart(channel, state, color, 260., cx)),
+            )
+        })
+        .into_any_element()
+}
 
 pub(super) fn render(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyElement {
     let (quantity, unit) = if screen == Screen::Energy {
@@ -16,7 +63,12 @@ pub(super) fn render(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyE
     };
     let rows = data::environmental_channels(state, quantity, unit);
     let selected = data::selected_channel(state, screen);
+    let unavailable = data::selected_environmental_channel(state, screen)
+        .filter(|channel| data::unavailable_detail(channel, state).is_some());
     if rows.is_empty() {
+        if let Some(channel) = unavailable.as_ref() {
+            return unavailable_selection(channel, state, cx);
+        }
         return empty(
             if screen == Screen::Energy {
                 "No power measurement available"
@@ -30,6 +82,7 @@ pub(super) fn render(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyE
     let hottest = (screen == Screen::Thermals)
         .then(|| data::highest_current(state, &rows))
         .flatten();
+    let has_unavailable_selection = unavailable.is_some();
     let color = accent(screen, cx);
     let grid_width = if width >= 1100. {
         (width - 24.) / 3.
@@ -87,7 +140,10 @@ pub(super) fn render(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyE
                     ),
             )
         })
-        .when(selected.is_none(), |view| {
+        .when_some(unavailable, |view, channel| {
+            view.child(unavailable_selection(&channel, state, cx))
+        })
+        .when(selected.is_none() && !has_unavailable_selection, |view| {
             view.child(empty(
                 "Selected sensor unavailable",
                 "Its saved identity is preserved. Choose an available sensor above.",

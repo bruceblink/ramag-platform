@@ -267,6 +267,19 @@ mod accessibility_tests {
         assert_eq!(node.value(), Some("CPU · Usage · 42.0 %"));
         assert_eq!(node.author_id(), Some("cpu:host:value:usage"));
     }
+
+    #[::core::prelude::v1::test]
+    fn compact_unavailable_metric_keeps_its_reason_accessible() {
+        let detail = "GPU B · Temperature · Unavailable · °C · Firmware sensor disabled";
+        let label = metric_text(
+            "summary-value:thermals".into(),
+            detail.into(),
+            "Unavailable".into(),
+        );
+        let mut node = gpui_kit::accesskit::Node::new(Role::Label);
+        label.write_a11y_info(&mut node);
+        assert_eq!(node.value(), Some(detail));
+    }
 }
 
 #[cfg(test)]

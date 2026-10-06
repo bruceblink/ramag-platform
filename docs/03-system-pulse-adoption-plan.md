@@ -56,6 +56,8 @@ Computer Use 直接对照 `F:/project/system-pulse/target/debug/system-pulse.exe
 
 ## 2026-10-03 当前进度重排与执行队列
 
+2026-10-06 用户将当前主线明确切换到 UI 对齐和现有功能修复。逐工具完整程序验收与可复现差距优先；页面动效和性能专项继续后置。全局 Settings 的 Appearance、Sampling、Window behavior 三张卡已由 `7dc36a53` 改为纵向排列，GPUI 几何回归覆盖 `360`、`1024`、`1440` 宽度，本轮重跑通过。
+
 System Pulse 固定来源的完整监控实现和十页 UI 已迁入 `ramag-tool-system`，用户已完成该 UI 的迁入验收。System Monitor 的 Appearance、Sampling 和 Presets 已收口到 Ramag 全局 Settings，监控页签和重复的工具级设置入口已移除。主程序 Summary 的 CPU/内存非零读数、图表纵轴和 SSH 本机 WSL 连接状态也有代码及运行验收记录。
 
 公共 Pulse 样式首轮已覆盖 Shell、首页、Settings、DBClient、SSH、VCS、容器、对象存储、API、Kafka、MQTT、剪贴板、JSON Path 和协作页面。现有提交证明这些切片已接入共享标题、面板、状态或列表组件；headless 测试和编译证明的范围仍限于相应布局、交互和构建，不能代替用户要求的逐工具完整程序验收，也不能据此宣称所有视图已经对齐。
@@ -652,3 +654,11 @@ Summary 原先通过 `Channel::value` 显示 available/cache/swap 读数；采�
 现在 Summary 从监控目录读取仍由用户设为可见的内存通道，即使最新状态为 unavailable 也保留行。行内显示紧凑状态；悬浮提示和无障碍名称/值包含状态、单位、完整原因及传感器范围。用户主动隐藏传感器后，行仍会移除；未更改采集器、详细 Memory 页或偏好存储。
 
 `memory_metric_detail_preserves_long_failure_reason_with_compact_visible_status` 验证短状态与完整原因/范围分离；`summary_long_memory_failure_reason_does_not_expand_the_metric_row` 注入长 cache 错误，在 `360x640`、`1024x768`、`1440x900` 验证行边界，并确认隐藏偏好生效。两项目标测试、workspace fmt、all-target Clippy `-D warnings`、`cargo build --locked -p ramag-bin` 和 `scripts/windows/check-source-size.ps1` 均通过。Computer Use 本轮只返回浏览器、`apps: []`；未做原生窗口截图或点击验收，Headless 几何结果不替代该证据。Docker 服务、镜像、端口和清理不适用。回滚边界为 `screen_summary.rs`、`screen_tests/memory_summary.rs` 及本节和差距矩阵状态。
+
+### 2026-10-06 Energy/Thermals 不可用传感器原因显示
+
+Energy 与 Thermals 详细页和 Summary 之前在已保存传感器的最新状态变为 `Unavailable` 时只显示通用状态，丢失采样器提供的具体 `Sample.reason`。不可用样本会从常规环境通道筛选中移除，因此所选来源的历史图也随之消失。
+
+现在通过当前快照中的稳定传感器 ID 保留已选通道，即使最新样本不可用；详细页与 Summary 行内显示紧凑状态，悬浮提示和无障碍值包括设备、传感器、状态、单位、原因与范围。已采集的历史图继续显示，最新不可用样本仍作为曲线缺口处理，不静默切换来源；真正不在当前快照中的传感器继续使用缺失状态。
+
+`selected_energy_and_thermal_failures_keep_identity_and_reason` 分别注入功率和温度传感器不可用状态，验证稳定选择、原因描述、详细页状态面板和历史图保留，并检查 Summary 继续包含对应状态卡片。`compact_unavailable_metric_keeps_its_reason_accessible` 验证紧凑可见值的无障碍值保留完整原因。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 110 项；Settings 几何回归 1 项通过；workspace all-target Clippy `-D warnings`、fmt、Windows 源码尺寸和 `git diff --check` 通过。标准 `cargo build --locked -p ramag-bin` 因进程 `28316` 正在运行 `target/debug/ramag.exe` 且锁定该路径而未能覆盖产物；`cargo build --locked -p ramag-bin --target-dir target/ui-environmental-reason-verify` 在独立目录完整成功。Computer Use 只返回浏览器且 `apps: []`；未完成原生窗口截图或点击验收。Docker 不适用。回滚边界为 `screen_data.rs`、`screen_pages/environmental.rs`、`screen_summary.rs`、`meters.rs`、对应测试及本节/差距矩阵记录。
