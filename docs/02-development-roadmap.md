@@ -1,7 +1,7 @@
 # Ramag Platform 最新主线：单机桌面收口与原生工作区迁移
 
 > 状态：现行主线；阶段 A 单机桌面收口与阶段 B 原生工作区迁移并行执行，阶段 C（原生协同画布）后置。现有数据库、插件、IT Tools、本机协作和 Relay B3 切片保留其已验证状态；Relay B4、生产 Relay、动态插件市场和画布实现不进入当前开发队列。Linux 构建依赖与插件注册表回归修复已在 `490e4e18`、`97a108f4` 推送。
-> 更新日期：2026-10-03
+> 更新日期：2026-10-06
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
@@ -88,7 +88,9 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 | ID | 内容 | 状态 | 依赖 | 必要证据 |
 |---|---|---|---|---|
 | `A-QUALITY-SETTINGS-SAVE-001` | 系统/监控偏好的保存中、失败原因、重试及实际回读 | 本机代码、headless 和限定真实窗口验收完成，详见执行计划 | 现有偏好存储 | 同 key 写入顺序、慢写入可操作性、redb 重开回读、明暗三尺寸；真实窗口成功保存及导航 |
-| `A-PULSE-GAP-01..10` | System Pulse 剩余优点逐项吸收 | `01` 风险表达、`02A` 七列排序、`02B` 完整身份详情、`03A` 磁盘/网络真实活动趋势、`03B` Summary CPU/内存组合、`06-Energy` 主传感器选择、`09-Settings-Appearance` 字体选择和 `10-Settings-Sampling` 四档采样已完成本机目标/headless/Computer Use 实际参考窗口对照；下一项冻结并实现 Settings 完整工作区预设。`02C` 键盘、动效与性能按用户要求后置；详见 [`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md) | 对应独立功能及测试 | 进程详情/排序、Summary 趋势、选择恢复、预设、传感器选择、生命周期分别记录 |
+| `A-PULSE-GAP-01..10` | System Pulse 剩余优点逐项吸收 | `01` 风险表达、`02A` 七列排序、`02B` 完整身份详情、`03A` 磁盘/网络真实活动趋势、`03B` Summary CPU/内存组合、`06-Energy` 主传感器选择、`09-Settings-Appearance` 字体选择和 `10-Settings-Sampling` 四档采样已完成本机目标/headless/Computer Use 实际参考窗口对照；预设快照与损坏保护见 `A-PULSE-GAP-11`。`02C` 键盘、动效与性能按用户要求后置；详见 [`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md) | 对应独立功能及测试 | 进程详情/排序、Summary 趋势、选择恢复、预设、传感器选择、生命周期分别记录 |
+| `A-PULSE-GAP-11` | Settings 完整监控预设快照与损坏数据保护 | 已完成：应用命名/内置预设时同步恢复采样周期和设备/传感器展示；监控预设解析失败时禁止覆盖原值并显示恢复原因；结果见差距矩阵 | `A-PULSE-GAP-05`、`A-PULSE-GAP-10` | 目标与全量 `ramag-ui` 测试、损坏预设 redb 重开回读、三尺寸/明暗 headless、完整程序 Settings 原生验收、fmt/Clippy/源码尺寸/LF/diff 均通过 |
+| `A-PULSE-SETTINGS-002` | System Settings 卡片纵向排列 | 排队：Appearance、Sampling、Window behavior 三张卡片按单列依次排列；Presets 保持后续独立分区 | `A-PULSE-GAP-11` | 明暗主题和 `360x640`、`1024x768`、`1440x900` headless 顺序/边界、完整程序原生布局、fmt/Clippy/源码尺寸/LF/diff |
 | `SHELL-001` | 共享 JetBrains 工作区壳层和设计令牌 | 已完成（headless；真实窗口待补） | 阶段 A | Headless 三尺寸、可用时 Computer Use、fmt/Clippy |
 | `DB-UX-001` | 数据库对象导航器 | 阶段 A 代码、headless 与 Docker 复验完成；真实窗口待补 | `SHELL-001` | 对象树交互、MySQL/PostgreSQL Docker、窗口证据 |
 | `DB-UX-002` | 查询控制台和连接上下文 | 功能切片完成（`DB-RED-05A` 至 `DB-RED-07`；真实窗口待补） | `DB-UX-001` | SQL 执行/取消/标签回归、Docker、窗口证据 |

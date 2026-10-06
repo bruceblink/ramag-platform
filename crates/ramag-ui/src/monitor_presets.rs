@@ -160,46 +160,79 @@ fn validate_name(name: &str) -> Result<String, String> {
     Ok(name.to_owned())
 }
 
-pub struct MonitorPresetLibraryGlobal(MonitorPresetLibrary);
+#[derive(Clone)]
+struct MonitorPresetLibraryState {
+    library: MonitorPresetLibrary,
+    load_error: Option<String>,
+}
+
+pub struct MonitorPresetLibraryGlobal(MonitorPresetLibraryState);
 impl Global for MonitorPresetLibraryGlobal {}
 
 pub fn monitor_preset_library(cx: &App) -> MonitorPresetLibrary {
     cx.try_global::<MonitorPresetLibraryGlobal>()
-        .map(|global| global.0.clone())
+        .map(|global| global.0.library.clone())
         .unwrap_or_default()
 }
 
-pub fn set_monitor_preset_library(library: MonitorPresetLibrary, cx: &mut App) {
-    cx.set_global(MonitorPresetLibraryGlobal(library));
+/// Reports invalid persisted data while keeping it untouched until explicit repair.
+pub fn monitor_preset_library_load_error(cx: &App) -> Option<String> {
+    cx.try_global::<MonitorPresetLibraryGlobal>()
+        .and_then(|global| global.0.load_error.clone())
+}
+
+fn publish_monitor_preset_library(
+    library: MonitorPresetLibrary,
+    load_error: Option<String>,
+    cx: &mut App,
+) {
+    cx.set_global(MonitorPresetLibraryGlobal(MonitorPresetLibraryState {
+        library,
+        load_error,
+    }));
     cx.refresh_windows();
+}
+
+/// Replaces the in-memory library without clearing a persisted-load error.
+/// Only a successful initialization from valid stored data unlocks saving again.
+pub fn set_monitor_preset_library(library: MonitorPresetLibrary, cx: &mut App) {
+    let load_error = monitor_preset_library_load_error(cx);
+    publish_monitor_preset_library(library, load_error, cx);
 }
 
 pub fn init_monitor_preset_library(preference: Option<&str>, cx: &mut App) -> Result<(), String> {
     match preference.map(MonitorPresetLibrary::parse).transpose() {
         Ok(library) => {
-            set_monitor_preset_library(library.unwrap_or_default(), cx);
+            publish_monitor_preset_library(library.unwrap_or_default(), None, cx);
             Ok(())
         }
         Err(error) => {
-            set_monitor_preset_library(MonitorPresetLibrary::default(), cx);
+            publish_monitor_preset_library(
+                MonitorPresetLibrary::default(),
+                Some(error.clone()),
+                cx,
+            );
             Err(error)
         }
     }
 }
 
-/// Publishes a valid library immediately and lets the shared preference writer persist it.
-pub fn save_monitor_preset_library(library: MonitorPresetLibrary, cx: &mut App) {
-    match library.to_json() {
-        Ok(json) => {
-            set_monitor_preset_library(library, cx);
-            crate::preferences::persist_preference_latest(MONITOR_PRESETS_PREF_KEY, json, cx);
-        }
-        Err(error) => tracing::error!(
-            operation = "monitor_preset_library_save",
-            error,
-            "serialize monitor preset library failed"
-        ),
+/// Publishes a valid library and queues persistence unless the stored value failed to load.
+/// Returns validation and load-protection errors before any write is queued.
+pub fn save_monitor_preset_library(
+    library: MonitorPresetLibrary,
+    cx: &mut App,
+) -> Result<(), String> {
+    if let Some(load_error) = monitor_preset_library_load_error(cx) {
+        return Err(format!(
+            "监控预设库读取失败，已拒绝覆盖原数据：{load_error}"
+        ));
     }
+
+    let json = library.to_json()?;
+    publish_monitor_preset_library(library, None, cx);
+    crate::preferences::persist_preference_latest(MONITOR_PRESETS_PREF_KEY, json, cx);
+    Ok(())
 }
 
 #[cfg(test)]
@@ -232,6 +265,7 @@ mod tests {
     fn malformed_or_oversized_library_is_rejected() {
         assert!(MonitorPresetLibrary::parse(r#"{"version":2,"presets":{}}"#).is_err());
         assert!(MonitorPresetLibrary::parse(r#"{"version":1,"presets":{"":"bad"}}"#).is_err());
+        assert!(MonitorPresetLibrary::parse(&" ".repeat(MAX_PRESET_LIBRARY_BYTES + 1)).is_err());
         assert!(
             MonitorPresetLibrary::default()
                 .clone()
@@ -256,5 +290,93 @@ mod tests {
         assert!(library.remove("Coding"));
         assert!(!library.remove("Coding"));
         Ok(())
+    }
+
+    #[gpui_kit::test]
+    fn invalid_library_save_keeps_original_redb_value_after_reopen(
+        cx: &mut gpui_kit::TestAppContext,
+    ) {
+        use ramag_domain::traits::Storage as _;
+        use ramag_infra_storage::RedbStorage;
+        use std::sync::Arc;
+
+        cx.update(gpui_kit::component::init);
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "ramag-monitor-presets-test-{}-{stamp}.redb",
+            std::process::id()
+        ));
+        let opened = RedbStorage::open_with_key(&path, &[0x6d; 32]);
+        assert!(opened.is_ok(), "isolated preference database should open");
+        let Ok(store) = opened else { return };
+        let original = r#"{"version":7,"presets":{}}"#;
+        let write_result =
+            futures::executor::block_on(store.set_preference(MONITOR_PRESETS_PREF_KEY, original));
+        assert!(write_result.is_ok(), "test value should be written to redb");
+
+        let test_store = Arc::new(crate::preferences::test_storage::SettingsTestStorage::new(
+            store,
+        ));
+        let storage: Arc<dyn ramag_domain::traits::Storage> = test_store.clone();
+        let loaded = futures::executor::block_on(storage.get_preference(MONITOR_PRESETS_PREF_KEY));
+        assert_eq!(loaded.ok().flatten().as_deref(), Some(original));
+
+        let mut load_result = None;
+        cx.update(|app| {
+            app.set_global(crate::StorageGlobal(storage.clone()));
+            load_result = Some(init_monitor_preset_library(Some(original), app));
+        });
+        assert!(load_result.is_some_and(|result| result.is_err()));
+
+        let mut candidate = MonitorPresetLibrary::default();
+        let candidate_result = candidate.upsert("Work", MonitorPreset::default());
+        assert!(candidate_result.is_ok());
+        let mut save_result = None;
+        cx.update(|app| {
+            save_result = Some(save_monitor_preset_library(candidate, app));
+        });
+        assert!(save_result.is_some_and(|result| result.is_err()));
+
+        let value_after_attempt =
+            futures::executor::block_on(storage.get_preference(MONITOR_PRESETS_PREF_KEY));
+        assert_eq!(
+            value_after_attempt.ok().flatten().as_deref(),
+            Some(original)
+        );
+        cx.update(|app| app.remove_global::<crate::StorageGlobal>());
+        drop(storage);
+        drop(test_store);
+
+        let reopened_result = RedbStorage::open_with_key(&path, &[0x6d; 32]);
+        assert!(reopened_result.is_ok(), "preference database should reopen");
+        let Ok(reopened) = reopened_result else {
+            let _ = std::fs::remove_file(&path);
+            return;
+        };
+        let reopened_value =
+            futures::executor::block_on(reopened.get_preference(MONITOR_PRESETS_PREF_KEY));
+        assert_eq!(reopened_value.ok().flatten().as_deref(), Some(original));
+        drop(reopened);
+        let removed = std::fs::remove_file(&path);
+        assert!(
+            removed.is_ok(),
+            "isolated preference database should be removed"
+        );
+    }
+
+    #[gpui_kit::test]
+    fn valid_library_reload_clears_the_load_error(cx: &mut gpui_kit::TestAppContext) {
+        cx.update(gpui_kit::component::init);
+        cx.update(|app| {
+            assert!(init_monitor_preset_library(Some("{"), app).is_err());
+            assert!(monitor_preset_library_load_error(app).is_some());
+            assert!(
+                init_monitor_preset_library(Some(r#"{"version":1,"presets":{}}"#), app).is_ok()
+            );
+            assert!(monitor_preset_library_load_error(app).is_none());
+        });
     }
 }

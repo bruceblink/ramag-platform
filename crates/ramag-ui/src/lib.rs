@@ -100,8 +100,8 @@ pub use monitor_settings::{
 pub mod monitor_presets;
 pub use monitor_presets::{
     MONITOR_PRESETS_PREF_KEY, MonitorPreset, MonitorPresetLibrary, MonitorPresetLibraryGlobal,
-    init_monitor_preset_library, monitor_preset_library, save_monitor_preset_library,
-    set_monitor_preset_library,
+    init_monitor_preset_library, monitor_preset_library, monitor_preset_library_load_error,
+    save_monitor_preset_library, set_monitor_preset_library,
 };
 pub use theme::{Mode, StorageGlobal, apply_theme, current_mode, init_theme};
 pub use transfer_ui::{

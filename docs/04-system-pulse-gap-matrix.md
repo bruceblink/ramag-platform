@@ -260,3 +260,19 @@ Summary 现在始终保留 Thermals 子系统卡片：当前最高温度为空�
 ### 2026-10-04 `A-PULSE-SETTINGS-001` 卡片样式统一
 
 Settings 的剪贴板、版本更新、数据库偏好和托管模块卡片现在全部复用 `pulse_settings_card`，与系统外观、采样和监控预设共享标题字体、背景、边界和间距；页面导航和各领域操作保持原实现。`cargo test --locked -p ramag-ui --lib -- --test-threads=1` 通过 132 项；workspace Clippy、fmt、源码尺寸和差异检查通过，完整源码程序已启动核对。Computer Use 服务不可用，本轮只记录完整程序启动路径，不宣称原生鼠标/键盘验收。
+
+### 2026-10-06 `A-PULSE-GAP-11` Settings 监控预设快照与损坏数据保护
+
+本切片只处理 Ramag 固定十页监控工作区的设置快照，不实现可停靠页面布局。命名预设和内置预设应用时同时恢复采样周期、设备选择、传感器选择和传感器显隐；采样值仍通过兼容的 `monitor_settings` 键持久化，展示值仍使用 `monitor_presentation_settings`。连接、凭据、实时/历史样本、采集器运行态和全局外观继续排除。
+
+如果 `monitor_presets` 格式损坏、版本不支持或超过大小上限，启动时保留原存储值和解析错误状态；缺少该键或空值仍按空库正常初始化。Settings 禁用命名预设的创建、应用、重命名、覆盖和删除入口，并显示损坏原因；内置预设仍可修改上述两个独立偏好键。此切片不把未解析原文复制到备份键，也不提供自动重置；修复或移除损坏键后重启才可恢复命名库编辑。保存函数本身必须执行同一写入保护，不能只依赖禁用 UI 控件。
+
+验收要求：目标测试覆盖无效 JSON、未知版本、超大值、拒绝保存后仍保留原值、有效重载解锁及命名预设的采样/展示完整回放；真实 `RedbStorage` 写入损坏值、重开后读取并确认字节内容未改变。Headless UI 验证损坏提示、命名操作入口隐藏和内置预设可用，明暗主题及 `360x640`、`1024x768`、`1440x900` 尺寸；完整程序真实窗口核对 Settings 的新状态和正常预设应用。运行 `cargo test --locked -p ramag-ui monitor_preset --lib -- --test-threads=1`、`cargo fmt --all -- --check`、workspace all-target Clippy、Windows 源码尺寸脚本、`git diff --check` 和修改文本 LF 检查。该切片不访问外部服务，Docker 不适用。回滚边界为 `monitor_presets.rs`、`settings_view/monitor_presets.rs`、对应目标测试与本节记录，不回滚 Settings 其他页面、`monitor_settings` 存储格式或监控采样器。
+
+验收结果（2026-10-06）：`cargo test --locked -p ramag-ui monitor_preset --lib -- --test-threads=1` 7 项通过，`cargo test --locked -p ramag-ui --lib -- --test-threads=1` 135 项通过；覆盖损坏/未知版本/超大库拒绝、redb 写入后重开仍保留原值、有效重载解除锁定、命名预设完整回放与确认流程。Windows `cargo build --locked -p ramag-bin`、fmt、workspace all-target 严格 Clippy、源码尺寸、`git diff --check` 均通过。完整程序为 `F:\project\ramag-platform\target\debug\ramag.exe`，版本 `0.4.0`、SHA-256 `527A595A45A843A005EFA6FDB46BA6BA17649B8F6857A629182A0D618F14F883`；Computer Use 在 `1626x927` 暗色真实窗口进入 Settings，点击 `Minimal` 后刷新显示 `5.0` 秒和“已保存”，再点击 `Developer` 恢复既有 `0.5` 秒并显示“已保存”。本机没有命名预设，因此命名应用由 headless 覆盖；真实窗口没有写入或删除预设。采样设置最终恢复原 `0.5` 秒，Docker 不适用。
+
+### 2026-10-06 `A-PULSE-SETTINGS-002` System Settings 卡片纵向排列设计
+
+按当前用户截图，将红框中的 `Appearance`、`Sampling`、`Window behavior` 改为单列纵向排列，顺序保持不变；三张卡片占满设置内容区宽度，`Presets` 仍位于这组卡片之后。卡片内部控件、存储键、回调和设置值保持现有行为。
+
+Headless 验收在明暗主题及 `360x640`、`1024x768`、`1440x900` 窗口中确认三张卡片纵向不重叠、顺序正确且不超出内容边界；已有外观、采样、托盘控件继续可见并可用。Computer Use 使用当前源码构建的 Ramag 实际窗口检查纵向布局与 Presets 后续位置。运行 `cargo test --locked -p ramag-ui public_settings_fit_both_themes_and_apply_without_resetting_other_values --lib -- --test-threads=1`、`cargo fmt --all -- --check`、workspace all-target Clippy、Windows 源码尺寸脚本、`git diff --check` 和修改文本 LF 检查。该布局切片不访问外部服务，Docker 不适用。回滚边界为 `settings_view/system.rs`、`settings_view/system_tests.rs` 与本节，不改变系统设置存储或预设恢复行为。

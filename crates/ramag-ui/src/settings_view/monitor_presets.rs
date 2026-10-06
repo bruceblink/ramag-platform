@@ -99,11 +99,8 @@ impl MonitorPresetManager {
         message: String,
         cx: &mut Context<Self>,
     ) {
-        match library.to_json() {
-            Ok(_) => {
-                crate::save_monitor_preset_library(library, cx);
-                self.notice = Some((message, false));
-            }
+        match crate::save_monitor_preset_library(library, cx) {
+            Ok(()) => self.notice = Some((message, false)),
             Err(error) => self.notice = Some((error, true)),
         }
         self.confirmation = None;
@@ -167,8 +164,8 @@ impl MonitorPresetManager {
             cx.notify();
             return;
         };
-        // Sampling cadence is application-wide. Applying a layout preset must
-        // leave the user's current global cadence untouched.
+        // Preset application intentionally restores the application-wide cadence too.
+        crate::save_monitor_settings(preset.monitor_settings, cx);
         crate::save_monitor_presentation_settings(preset.presentation, cx);
         self.notice = Some((format!("已应用预设：{name}"), false));
         cx.notify();
@@ -177,8 +174,7 @@ impl MonitorPresetManager {
     /// Applies a built-in reference preset without adding it to the persisted library.
     fn apply_builtin(&mut self, builtin: BuiltinPreset, cx: &mut Context<Self>) {
         let snapshot = builtin.snapshot(crate::monitor_presentation_settings(cx));
-        // Built-in presets change the layout and sensor presentation only;
-        // refresh cadence belongs to the global System Settings page.
+        crate::save_monitor_settings(snapshot.monitor_settings, cx);
         crate::save_monitor_presentation_settings(snapshot.presentation, cx);
         self.notice = Some((format!("已应用内置预设：{}", builtin.name()), false));
         cx.notify();
@@ -220,6 +216,7 @@ impl Render for MonitorPresetManager {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let library = crate::monitor_preset_library(cx);
+        let load_error = crate::monitor_preset_library_load_error(cx);
         let names = library.presets.keys().cloned().collect::<Vec<_>>();
         let mut rows = Vec::new();
         for (index, name) in names.iter().enumerate() {
@@ -310,34 +307,51 @@ impl Render for MonitorPresetManager {
                     .child(div().text_xs().text_color(theme.muted_foreground).child(
                         "内置预设只调整 Ramag 可迁移的采样和展示偏好；固定页面结构保持不变。",
                     )),
-            )
-            .child(
-                h_flex()
-                    .w_full()
-                    .min_w_0()
-                    .flex_wrap()
-                    .gap(px(8.0))
-                    .child(Input::new(&self.input).flex_1().min_w(px(180.0)).small())
-                    .child(
-                        crate::clickable_button("monitor-preset-save")
-                            .debug_selector(|| "monitor-preset-save".into())
-                            .small()
-                            .primary()
-                            .label("保存当前监控状态")
-                            .on_click(
-                                cx.listener(|this, _, window, cx| this.save_current(window, cx)),
-                            ),
-                    ),
-            )
-            .child(v_flex().w_full().gap(px(4.0)).children(rows));
+            );
 
-        if names.is_empty() {
+        if let Some(error) = load_error {
             card = card.child(
                 div()
+                    .id("monitor-preset-load-error")
+                    .debug_selector(|| "monitor-preset-load-error".into())
                     .text_xs()
-                    .text_color(theme.muted_foreground)
-                    .child("暂无命名预设"),
+                    .text_color(theme.danger)
+                    .child(format!(
+                        "本地预设库无法读取，原数据已保留；命名预设编辑已停用。修复或移除 monitor_presets 偏好后重启。原因：{error}"
+                    )),
             );
+        } else {
+            card = card
+                .child(
+                    h_flex()
+                        .w_full()
+                        .min_w_0()
+                        .flex_wrap()
+                        .gap(px(8.0))
+                        .child(Input::new(&self.input).flex_1().min_w(px(180.0)).small())
+                        .child(
+                            crate::clickable_button("monitor-preset-save")
+                                .debug_selector(|| "monitor-preset-save".into())
+                                .small()
+                                .primary()
+                                .label("保存当前监控状态")
+                                .on_click(
+                                    cx.listener(|this, _, window, cx| {
+                                        this.save_current(window, cx)
+                                    }),
+                                ),
+                        ),
+                )
+                .child(v_flex().w_full().gap(px(4.0)).children(rows));
+
+            if names.is_empty() {
+                card = card.child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("暂无命名预设"),
+                );
+            }
         }
 
         if let Some((message, error)) = &self.notice {
@@ -406,136 +420,7 @@ impl Render for MonitorPresetManager {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::MonitorPresetManager;
-    use gpui_kit::component::Root;
-    use gpui_kit::{AppContext, Modifiers, TestAppContext, VisualTestContext, px, size};
-    use std::cell::RefCell;
-    use std::rc::Rc;
+mod recovery_tests;
 
-    fn click(cx: &mut VisualTestContext, selector: &'static str) {
-        let bounds = cx.debug_bounds(selector);
-        assert!(bounds.is_some(), "missing preset control: {selector}");
-        let Some(bounds) = bounds else { return };
-        cx.simulate_mouse_move(bounds.center(), None, Modifiers::default());
-        cx.simulate_mouse_down(
-            bounds.center(),
-            gpui_kit::MouseButton::Left,
-            Modifiers::default(),
-        );
-        cx.simulate_mouse_up(
-            bounds.center(),
-            gpui_kit::MouseButton::Left,
-            Modifiers::default(),
-        );
-        cx.run_until_parked();
-    }
-
-    #[gpui_kit::test]
-    fn manager_covers_create_apply_overwrite_rename_and_delete_confirmations(
-        cx: &mut TestAppContext,
-    ) {
-        cx.update(gpui_kit::component::init);
-        cx.update(|app| {
-            crate::set_monitor_settings(crate::MonitorSettings::default(), app);
-            crate::set_monitor_presentation_settings(
-                crate::MonitorPresentationSettings::default(),
-                app,
-            );
-        });
-        let entity = Rc::new(RefCell::new(None));
-        let entity_for_window = entity.clone();
-        let (_, visual) = cx.add_window_view(|window, cx| {
-            let manager = cx.new(|cx| MonitorPresetManager::new(window, cx));
-            *entity_for_window.borrow_mut() = Some(manager.clone());
-            Root::new(manager, window, cx)
-        });
-        visual.simulate_resize(size(px(800.0), px(900.0)));
-        visual.run_until_parked();
-        let manager = entity.borrow().clone();
-        assert!(manager.is_some(), "preset manager missing");
-        let Some(manager) = manager else { return };
-
-        visual.update(|window, app| {
-            manager.update(app, |manager, cx| {
-                manager
-                    .input
-                    .update(cx, |state, cx| state.set_value("Work", window, cx));
-            });
-        });
-        click(visual, "monitor-preset-save");
-        assert!(visual.debug_bounds("monitor-preset-apply-0").is_some());
-        assert_eq!(
-            visual.read(|app| crate::monitor_preset_library(app).presets["Work"]
-                .monitor_settings
-                .refresh_rate),
-            crate::MonitorRefreshRate::OneSecond
-        );
-
-        click(visual, "monitor-preset-apply-0");
-        visual.update(|_, app| {
-            assert_eq!(
-                crate::monitor_settings(app).refresh_rate,
-                crate::MonitorRefreshRate::OneSecond
-            );
-            crate::set_monitor_settings(
-                crate::MonitorSettings {
-                    refresh_rate: crate::MonitorRefreshRate::FiveSeconds,
-                },
-                app,
-            );
-        });
-        click(visual, "monitor-preset-apply-0");
-        visual.update(|_, app| {
-            assert_eq!(
-                crate::monitor_settings(app).refresh_rate,
-                crate::MonitorRefreshRate::FiveSeconds,
-                "applying a saved layout must preserve the global sampling cadence"
-            );
-        });
-
-        visual.update(|_, app| {
-            crate::set_monitor_settings(
-                crate::MonitorSettings {
-                    refresh_rate: crate::MonitorRefreshRate::TwoSeconds,
-                },
-                app,
-            );
-        });
-        click(visual, "monitor-preset-overwrite-0");
-        assert!(visual.debug_bounds("monitor-preset-confirmation").is_some());
-        click(visual, "monitor-preset-cancel");
-        click(visual, "monitor-preset-overwrite-0");
-        click(visual, "monitor-preset-confirm-overwrite");
-        assert_eq!(
-            visual.read(|app| crate::monitor_preset_library(app).presets["Work"]
-                .monitor_settings
-                .refresh_rate),
-            crate::MonitorRefreshRate::TwoSeconds
-        );
-
-        visual.update(|window, app| {
-            manager.update(app, |manager, cx| {
-                manager
-                    .input
-                    .update(cx, |state, cx| state.set_value("Coding", window, cx));
-            });
-        });
-        click(visual, "monitor-preset-rename-0");
-        assert!(visual.read(|app| {
-            crate::monitor_preset_library(app)
-                .presets
-                .contains_key("Coding")
-        }));
-        click(visual, "monitor-preset-delete-0");
-        click(visual, "monitor-preset-cancel");
-        assert!(visual.read(|app| {
-            crate::monitor_preset_library(app)
-                .presets
-                .contains_key("Coding")
-        }));
-        click(visual, "monitor-preset-delete-0");
-        click(visual, "monitor-preset-confirm-delete");
-        assert!(visual.read(|app| crate::monitor_preset_library(app).presets.is_empty()));
-    }
-}
+#[cfg(test)]
+mod workflow_tests;
