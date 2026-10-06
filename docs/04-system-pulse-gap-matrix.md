@@ -271,8 +271,10 @@ Settings 的剪贴板、版本更新、数据库偏好和托管模块卡片现�
 
 验收结果（2026-10-06）：`cargo test --locked -p ramag-ui monitor_preset --lib -- --test-threads=1` 7 项通过，`cargo test --locked -p ramag-ui --lib -- --test-threads=1` 135 项通过；覆盖损坏/未知版本/超大库拒绝、redb 写入后重开仍保留原值、有效重载解除锁定、命名预设完整回放与确认流程。Windows `cargo build --locked -p ramag-bin`、fmt、workspace all-target 严格 Clippy、源码尺寸、`git diff --check` 均通过。完整程序为 `F:\project\ramag-platform\target\debug\ramag.exe`，版本 `0.4.0`、SHA-256 `527A595A45A843A005EFA6FDB46BA6BA17649B8F6857A629182A0D618F14F883`；Computer Use 在 `1626x927` 暗色真实窗口进入 Settings，点击 `Minimal` 后刷新显示 `5.0` 秒和“已保存”，再点击 `Developer` 恢复既有 `0.5` 秒并显示“已保存”。本机没有命名预设，因此命名应用由 headless 覆盖；真实窗口没有写入或删除预设。采样设置最终恢复原 `0.5` 秒，Docker 不适用。
 
-### 2026-10-06 `A-PULSE-SETTINGS-002` System Settings 卡片纵向排列设计
+### 2026-10-06 `A-PULSE-SETTINGS-002` System Settings 卡片纵向排列
 
 按当前用户截图，将红框中的 `Appearance`、`Sampling`、`Window behavior` 改为单列纵向排列，顺序保持不变；三张卡片占满设置内容区宽度，`Presets` 仍位于这组卡片之后。卡片内部控件、存储键、回调和设置值保持现有行为。
 
 Headless 验收在明暗主题及 `360x640`、`1024x768`、`1440x900` 窗口中确认三张卡片纵向不重叠、顺序正确且不超出内容边界；已有外观、采样、托盘控件继续可见并可用。Computer Use 使用当前源码构建的 Ramag 实际窗口检查纵向布局与 Presets 后续位置。运行 `cargo test --locked -p ramag-ui public_settings_fit_both_themes_and_apply_without_resetting_other_values --lib -- --test-threads=1`、`cargo fmt --all -- --check`、workspace all-target Clippy、Windows 源码尺寸脚本、`git diff --check` 和修改文本 LF 检查。该布局切片不访问外部服务，Docker 不适用。回滚边界为 `settings_view/system.rs`、`settings_view/system_tests.rs` 与本节，不改变系统设置存储或预设恢复行为。
+
+验收结果（2026-10-06）：实现将 Appearance、Sampling、Window behavior 三张卡片改为全宽单列，并按该顺序排列，Presets 仍在下方。目标 headless 测试在明暗主题及 `360x640`、`1024x768`、`1440x900` 三种窗口中通过，检查卡片边界、顺序和既有控制；`cargo test --locked -p ramag-ui --lib -- --test-threads=1` 全量 135 项通过。`cargo fmt --all -- --check`、workspace all-target 严格 Clippy、Windows 源码尺寸脚本、`git diff --check` 和 LF 检查通过。`cargo build --locked -p ramag-bin` 构建成功；完整程序 `F:\project\ramag-platform\target\debug\ramag.exe`，版本 `0.4.0`，SHA-256 `FDF6A1F75906144D2FB852D4935541D97B664C5819B731E93A44AF809839F516`。Computer Use 在该源码进程的 `1626x927` 暗色真实窗口中核对到 Appearance、Sampling、Window behavior 纵向依次出现，Presets 紧随其后；检查时采样周期仍为 `0.5` 秒，托盘开关保持关闭。Docker 不适用。

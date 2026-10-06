@@ -86,9 +86,12 @@ fn public_settings_fit_both_themes_and_apply_without_resetting_other_values(
             let window = cx.debug_bounds("settings-window-card");
             assert!(window.is_some(), "Window card should render");
             let window = window.unwrap_or_default();
-            let primary_row = cx.debug_bounds("settings-system-primary-row");
-            assert!(primary_row.is_some(), "primary settings row should render");
-            let primary_row = primary_row.unwrap_or_default();
+            let primary_column = cx.debug_bounds("settings-system-primary-column");
+            assert!(
+                primary_column.is_some(),
+                "primary settings column should render"
+            );
+            let primary_column = primary_column.unwrap_or_default();
             assert!(
                 appearance.left() >= px(0.0)
                     && appearance.right() <= px(width)
@@ -99,22 +102,15 @@ fn public_settings_fit_both_themes_and_apply_without_resetting_other_values(
                 "system settings cards must stay inside the viewport at {width}x{height}"
             );
             assert!(
-                primary_row.bottom() >= appearance.bottom()
-                    && primary_row.bottom() >= sampling.bottom()
-                    && primary_row.bottom() >= window.bottom(),
-                "primary settings row must contain every card at {width}x{height}"
+                primary_column.bottom() >= appearance.bottom()
+                    && primary_column.bottom() >= sampling.bottom()
+                    && primary_column.bottom() >= window.bottom(),
+                "primary settings column must contain every card at {width}x{height}"
             );
-            if width >= 900.0 {
-                assert_eq!(
-                    appearance.origin.y, sampling.origin.y,
-                    "Appearance and Sampling should share a row at {width}px"
-                );
-            } else {
-                assert!(
-                    sampling.origin.y >= appearance.bottom(),
-                    "Sampling should wrap below Appearance at {width}px"
-                );
-            }
+            assert!(
+                sampling.origin.y >= appearance.bottom() && window.origin.y >= sampling.bottom(),
+                "Appearance, Sampling, and Window behavior must stack vertically at {width}x{height}"
+            );
         }
     }
     click(cx, "settings-text-size-0");

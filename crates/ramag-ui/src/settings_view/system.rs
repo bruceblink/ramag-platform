@@ -122,8 +122,8 @@ pub(super) fn system_settings_panel(
     let appearance_card = pulse_settings_card("Appearance", theme)
         .id("settings-appearance-card")
         .debug_selector(|| "settings-appearance-card".into())
-        .flex_basis(gpui_kit::px(460.0))
-        .flex_grow(1.0)
+        .w_full()
+        .min_w_0()
         .child(setting_row(
             "settings-theme-row",
             "Theme",
@@ -192,8 +192,8 @@ pub(super) fn system_settings_panel(
     let window_card = pulse_settings_card("Window behavior", theme)
         .id("settings-window-card")
         .debug_selector(|| "settings-window-card".into())
-        .flex_basis(gpui_kit::px(300.0))
-        .flex_grow(1.0)
+        .w_full()
+        .min_w_0()
         .child(setting_row(
             "settings-tray-row",
             "关闭时最小化到托盘",
@@ -219,8 +219,8 @@ pub(super) fn system_settings_panel(
     let sampling = pulse_settings_card("Sampling", theme)
         .id("settings-sampling-card")
         .debug_selector(|| "settings-sampling-card".into())
-        .flex_basis(gpui_kit::px(300.0))
-        .flex_grow(1.0)
+        .w_full()
+        .min_w_0()
         .child(
             h_flex()
                 .items_baseline()
@@ -272,13 +272,12 @@ pub(super) fn system_settings_panel(
                 .text_color(theme.muted_foreground)
                 .child("Changes apply immediately and save automatically."),
         );
-    let primary_row = h_flex()
-        .id("settings-system-primary-row")
-        .debug_selector(|| "settings-system-primary-row".into())
+    let primary_column = v_flex()
+        .id("settings-system-primary-column")
+        .debug_selector(|| "settings-system-primary-column".into())
         .w_full()
         .min_w_0()
-        .flex_wrap()
-        .items_start()
+        .flex_col()
         .gap_3()
         .child(appearance_card)
         .child(sampling)
@@ -290,7 +289,7 @@ pub(super) fn system_settings_panel(
         .min_w_0()
         .flex_col()
         .gap_3()
-        .child(primary_row)
+        .child(primary_column)
         .when_some(monitor_presets, |view, presets| {
             view.child(
                 div()
