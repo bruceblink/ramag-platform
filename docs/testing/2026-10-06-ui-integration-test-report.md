@@ -28,7 +28,8 @@
 | 格式、严格 Clippy | `cargo fmt --all -- --check` 与 workspace Clippy `-D warnings` 通过 |
 | 源码尺寸、差异 | `scripts/windows/check-source-size.ps1` 与 `git diff --check` 通过 |
 | 最终 Windows 调试构建 | `ramag-bin` 构建成功；产物位于 `target/ui-environmental-reason-verify/x86_64-pc-windows-msvc/debug/ramag.exe`，218,829,312 bytes |
-| 正式 Windows Release 构建 | 正在运行；结果待本次构建结束后补记 |
+| 正式 Windows Release 构建 | `scripts/build-windows.ps1 -Release` 成功；x64 Release 产物版本 0.4.0，102,537,216 bytes |
+| 安装版替换与启动 | `D:\Program Files\Ramag\ramag.exe` 已替换；安装文件 SHA-256 与 Release 产物一致，旧版保存在 `.bak-20261006-190927`。启动后进程正常响应，窗口标题为 `Ramag — 数据库客户端`。Computer Use 桌面窗口枚举不可用，本次未取得安装版截图或交互证据 |
 
 DBClient 十万行 SQL 表通过真实表头点击完成升序、降序和清除排序。自动测试调用的交互覆盖范围及 MongoDB 原生窗口排序仍须分别记录，不由这次 SQL 交互替代。尝试增加的 SQL/MongoDB 确定性点击测试因后台工作线程与 GPUI 测试调度器不兼容而移除；没有把失败尝试计为通过，现有排序规则和渲染测试继续保留。
 
