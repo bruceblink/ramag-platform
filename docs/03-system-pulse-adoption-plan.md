@@ -640,3 +640,7 @@ Bucket 导航表原先只有静态的 Bucket/根路径表头，列表一直按�
 随后从侧栏打开 DBClient，当前配置同样没有已保存数据源。打开并关闭新建连接表单，未输入凭据、测试连接或保存连接；没有执行数据库查询。只读检查发现 `ramag-visual-test-mysql84` 原为停止状态。本轮启动后首个 Docker 状态为 `running/starting`，但因为当前 DBClient 没有可用数据源，未等待服务就绪或尝试连接；随后停止容器并确认回到 `exited`。服务为 `mysql:8.4`，端口映射为 `127.0.0.1:13318 -> 3306/tcp`；本轮没有完成 Docker 集成验收。
 
 以上数据源缺失使这两个工作区的列表排序、连接和查询流程无法在当前本机配置中复验。本记录不把空状态和打开表单写成完整功能验收；后续应在不读取或保存真实凭据的前提下，使用已配置的本机测试数据源继续验收，或先推进不依赖这些数据的独立列表型切片。
+
+本轮为后续数据库客户端验收启动了本机测试服务：`ramag-visual-test-mysql84`（`mysql:8.4`，`127.0.0.1:13318`）、`ramag-db-test-mysql`（`mysql:8.4`，`127.0.0.1:13306`）、`ramag-db-test-postgres`（`postgres:17-alpine`，`127.0.0.1:15432`）、`ramag-db-test-redis`（`redis:7-alpine`，`127.0.0.1:16379`）和 `ramag-db-test-mongo`（`mongo:8.2`，`127.0.0.1:27018`），均为 `running/healthy`。复用 `scripts/db-test/compose.yaml` 和本机忽略文件中的测试配置；未输出、复制或写入任何密码。服务及其专用数据卷保持运行，未清理任何卷。本轮 Computer Use 未提供可操作的 Windows 原生窗口，因此只确认了容器健康，没有通过 Ramag DBClient 保存连接、执行查询或读取用户存储配置。
+
+本轮未创建对象存储模拟器。应用目前只实现腾讯云 COS 与阿里云 OSS，Endpoint 校验要求对应服务商的官方 HTTPS 主机；本地 S3 服务不能用于现有账号流程。尝试拉取 MinIO 镜像时 registry 返回 `401 Unauthorized`，没有创建 MinIO 容器或数据卷。要继续验收对象列表与传输，需要专用 COS/OSS 测试账号及明确的可写测试前缀，或另行实现并验证 S3 兼容服务商支持。
