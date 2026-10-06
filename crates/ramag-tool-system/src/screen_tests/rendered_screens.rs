@@ -461,6 +461,10 @@ fn unavailable_selected_thermal_sensor_keeps_other_charts_and_hottest_reading(
                 Some(selected_id.as_str())
             );
             assert!(crate::screen_data::selected_channel(&data, Screen::Thermals).is_none());
+            let picker = crate::screens::device_picker_state(&data, Screen::Thermals);
+            assert_eq!(picker.label, format!("Unavailable · {selected_id}"));
+            assert!(picker.accessibility_label.contains(&selected_id));
+            assert!(!picker.choices.is_empty());
             let temperatures = crate::screen_data::by_quantity(
                 &data,
                 system_pulse_model::Quantity::Temperature,

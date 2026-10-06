@@ -16,6 +16,66 @@ use gpui_kit::{prelude::FluentBuilder, *};
 use std::collections::BTreeMap;
 use system_pulse_model::Screen;
 
+pub(crate) struct DevicePickerState {
+    pub(crate) choices: Vec<screen_data::DeviceChoice>,
+    pub(crate) selected: Option<String>,
+    pub(crate) label: String,
+    pub(crate) accessibility_label: String,
+}
+
+/// Keep a saved but missing Energy/Thermals identity visible while leaving available choices selectable.
+pub(crate) fn device_picker_state(
+    data: &crate::workspace::Data,
+    screen: Screen,
+) -> DevicePickerState {
+    let choices = screen_data::devices(data, screen);
+    let selected = screen_data::selected_device(data, screen);
+    let selected_choice = choices
+        .iter()
+        .find(|choice| Some(&choice.id) == selected.as_ref());
+    let unavailable = if matches!(screen, Screen::Energy | Screen::Thermals) {
+        screen_data::selected_environmental_channel(data, screen)
+            .filter(|channel| screen_data::unavailable_detail(channel, data).is_some())
+    } else {
+        None
+    };
+    let label = selected_choice
+        .map(|choice| choice.label.clone())
+        .or_else(|| {
+            unavailable
+                .as_ref()
+                .map(|channel| format!("Unavailable · {} · {}", channel.device, channel.label))
+        })
+        .or_else(|| selected.as_ref().map(|id| format!("Unavailable · {id}")))
+        .unwrap_or_else(|| {
+            if matches!(screen, Screen::Energy | Screen::Thermals) {
+                if choices.is_empty() {
+                    "No available sensors".into()
+                } else {
+                    "Choose a sensor".into()
+                }
+            } else {
+                "No available devices".into()
+            }
+        });
+    let description = unavailable
+        .as_ref()
+        .and_then(|channel| screen_data::unavailable_detail(channel, data))
+        .or_else(|| {
+            selected
+                .as_ref()
+                .filter(|_| selected_choice.is_none())
+                .map(|id| format!("Saved sensor is unavailable: {id}"))
+        })
+        .unwrap_or_else(|| label.clone());
+    DevicePickerState {
+        choices,
+        selected,
+        accessibility_label: format!("{} device: {label}. {description}", screen.title()),
+        label,
+    }
+}
+
 pub struct ApplicationView {
     // Own the sampler, persistence tasks and the legacy layout compatibility state.
     _workspace: Entity<WorkspaceView>,
@@ -250,31 +310,17 @@ impl ScreenView {
 
     fn device_picker(&self, screen: Screen) -> AnyElement {
         let data = self.shared.borrow();
-        let choices = screen_data::devices(&data, screen);
-        let selected = screen_data::selected_device(&data, screen);
-        let label = choices
-            .iter()
-            .find(|choice| Some(&choice.id) == selected.as_ref())
-            .map(|choice| choice.label.clone())
-            .unwrap_or_else(|| {
-                if matches!(screen, Screen::Energy | Screen::Thermals) {
-                    return if choices.is_empty() {
-                        "No available sensors"
-                    } else {
-                        "Choose a sensor"
-                    }
-                    .into();
-                }
-                selected
-                    .clone()
-                    .map(|id| format!("Unavailable · {id}"))
-                    .unwrap_or_else(|| "No available devices".into())
-            });
+        let DevicePickerState {
+            choices,
+            selected,
+            label,
+            accessibility_label,
+        } = device_picker_state(&data, screen);
         let owner = data.owner.clone();
         drop(data);
         Button::new(SharedString::from(format!("screen-device:{}", screen.id())))
             .accessibility_id(format!("screen-device:{}", screen.id()))
-            .accessibility_label(format!("{} device: {label}", screen.title()))
+            .accessibility_label(accessibility_label)
             .small()
             .max_w(px(640.))
             .label(label)

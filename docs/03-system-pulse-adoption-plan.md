@@ -662,3 +662,9 @@ Energy 与 Thermals 详细页和 Summary 之前在已保存传感器的最新状
 现在通过当前快照中的稳定传感器 ID 保留已选通道，即使最新样本不可用；详细页与 Summary 行内显示紧凑状态，悬浮提示和无障碍值包括设备、传感器、状态、单位、原因与范围。已采集的历史图继续显示，最新不可用样本仍作为曲线缺口处理，不静默切换来源；真正不在当前快照中的传感器继续使用缺失状态。
 
 `selected_energy_and_thermal_failures_keep_identity_and_reason` 分别注入功率和温度传感器不可用状态，验证稳定选择、原因描述、详细页状态面板和历史图保留，并检查 Summary 继续包含对应状态卡片。`compact_unavailable_metric_keeps_its_reason_accessible` 验证紧凑可见值的无障碍值保留完整原因。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 110 项；Settings 几何回归 1 项通过；workspace all-target Clippy `-D warnings`、fmt、Windows 源码尺寸和 `git diff --check` 通过。标准 `cargo build --locked -p ramag-bin` 因进程 `28316` 正在运行 `target/debug/ramag.exe` 且锁定该路径而未能覆盖产物；`cargo build --locked -p ramag-bin --target-dir target/ui-environmental-reason-verify` 在独立目录完整成功。Computer Use 只返回浏览器且 `apps: []`；未完成原生窗口截图或点击验收。Docker 不适用。回滚边界为 `screen_data.rs`、`screen_pages/environmental.rs`、`screen_summary.rs`、`meters.rs`、对应测试及本节/差距矩阵记录。
+
+### 2026-10-06 Energy/Thermals 选择器保留不可用来源身份
+
+上一切片已让 Energy/Thermals 详情和 Summary 显示不可用样本原因，但选择器在保存的来源不属于当前可用菜单项时仍显示“Choose a sensor”或“No available sensors”，看不到当前选中 ID。现在当前样本不可用时，选择器显示设备和传感器名，并在无障碍描述中提供完整状态、单位、原因和范围；保存 ID 从当前快照消失时显示 `Unavailable · ID`。其他可用来源仍留在菜单中供用户主动切换，选择状态不会自动变化。
+
+`selected_energy_and_thermal_failures_keep_identity_and_reason` 现验证不可用读数的选择器名称、完整原因和可选替代项；`unavailable_selected_thermal_sensor_keeps_other_charts_and_hottest_reading` 验证传感器隐藏或从快照消失时选择器保留 ID。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 110 项；workspace all-target Clippy `-D warnings`、fmt、Windows 源码尺寸和 `git diff --check` 通过；完整 `cargo build --locked -p ramag-bin` 成功。程序以 `target/debug/ramag.exe` 启动，PID `28304`，进程路径已核对；Computer Use 返回 `apps: []`，未完成原生窗口截图或点击验收。Docker 不适用。回滚边界为 `screens.rs`、对应 System-tool 测试及本节/差距矩阵记录。

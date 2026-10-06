@@ -51,6 +51,19 @@ fn selected_energy_and_thermal_failures_keep_identity_and_reason(cx: &mut TestAp
             let detail = crate::screen_data::unavailable_detail(&selected, &data).test_unwrap();
             assert!(detail.contains(reason), "{detail}");
             assert!(detail.contains(&selected.label), "{detail}");
+            let picker = crate::screens::device_picker_state(&data, screen);
+            assert_eq!(picker.selected.as_deref(), Some(id.as_str()));
+            assert!(
+                picker.label.starts_with("Unavailable ·"),
+                "{}",
+                picker.label
+            );
+            assert!(!picker.choices.iter().any(|choice| choice.id == id));
+            assert!(
+                !picker.choices.is_empty(),
+                "alternatives should remain selectable"
+            );
+            assert!(picker.accessibility_label.contains(reason));
         });
 
         command(
