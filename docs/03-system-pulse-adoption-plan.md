@@ -632,3 +632,11 @@ SSH 工作区的远端目录此前只有连续文件行，文件类型、大小�
 Bucket 导航表原先只有静态的 Bucket/根路径表头，列表一直按区域、Bucket 和根路径固定排序。本切片让两个可见列头支持升降序排序：区域分组继续按名称升序排列，所选列在各自区域内排序；Bucket 与路径按不区分大小写的文本比较，根目录作为空路径参与排序，同值保持输入顺序。首次点击为升序，同列再次点击切换降序，切换列恢复升序；只重排当前过滤后的视图行，当前挂载按稳定 ID 保持选中，不触发远端请求或写操作。
 
 新增纯排序规则与 GPUI 行序交互测试：`mount_sort_keeps_region_groups_and_sorts_visible_columns_stably` 覆盖两列、方向和区域分组；`mount_table_columns_sort_rows_and_preserve_selected_mount` 点击两个实际列头，检查排序后的行坐标及选中 ID。`cargo test --locked -p ramag-tool-object-storage --lib -- --test-threads=1` 通过 35 项；workspace all-target 严格 Clippy `-D warnings`、格式、源码尺寸、差异/LF 检查均通过；`cargo build --locked -p ramag-bin --target-dir target/object-storage-mount-sort` 完整构建成功。新构建产物 `F:\project\ramag-platform\target\object-storage-mount-sort\debug\ramag.exe` 已启动，进程路径已核对；Computer Use 重置并在启动后重新枚举仍未返回可控应用窗口，因此只记录启动证据，没有对新产物进行真实窗口点击或截图验收。
+
+### 2026-10-06 对象存储与 DBClient 完整程序数据源基线
+
+真实窗口验收使用源码构建 `F:\project\ramag-platform\target\object-storage-mount-sort\debug\ramag.exe`，文件版本 `0.4.0`、SHA-256 `7C19562CE97A7E9A2FAE349C30B683283A3CAFAA33B81DA8FAC388A8E9195160`；Computer Use 返回的窗口进程路径与该源码产物一致，窗口截图为 `1626x927`，浅色主题。从首页打开对象存储后，账号列表显示无已保存账号；打开新建 COS 账号表单并用 Escape 关闭，未输入或保存账号凭据。因此真实窗口只验证了空状态和表单打开/取消，账号排序、Bucket 导航排序、对象列表及传输仍未验收。
+
+随后从侧栏打开 DBClient，当前配置同样没有已保存数据源。打开并关闭新建连接表单，未输入凭据、测试连接或保存连接；没有执行数据库查询。只读检查发现 `ramag-visual-test-mysql84` 原为停止状态。本轮启动后首个 Docker 状态为 `running/starting`，但因为当前 DBClient 没有可用数据源，未等待服务就绪或尝试连接；随后停止容器并确认回到 `exited`。服务为 `mysql:8.4`，端口映射为 `127.0.0.1:13318 -> 3306/tcp`；本轮没有完成 Docker 集成验收。
+
+以上数据源缺失使这两个工作区的列表排序、连接和查询流程无法在当前本机配置中复验。本记录不把空状态和打开表单写成完整功能验收；后续应在不读取或保存真实凭据的前提下，使用已配置的本机测试数据源继续验收，或先推进不依赖这些数据的独立列表型切片。
