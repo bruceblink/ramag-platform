@@ -266,6 +266,19 @@ impl HostCollector {
                 "sysinfo does not expose this host memory field on this platform",
             );
         }
+        #[cfg(target_os = "windows")]
+        {
+            let preference = super::windows_network::preferred_alias(&self.networks);
+            if let Some(alias) = preference.alias
+                && let Some(data) = self.networks.get(&alias)
+            {
+                let mac = data.mac_address().to_string();
+                s.preferred_network_monitor_id = Some(network_identity(&alias, Some(&mac), None));
+            }
+            for error in preference.failures {
+                diagnostic(s, "windows-network-route", error);
+            }
+        }
         for (name, data) in &self.networks {
             let mac = data.mac_address().to_string();
             let id = network_identity(name, Some(&mac), None);

@@ -668,3 +668,15 @@ Energy 与 Thermals 详细页和 Summary 之前在已保存传感器的最新状
 上一切片已让 Energy/Thermals 详情和 Summary 显示不可用样本原因，但选择器在保存的来源不属于当前可用菜单项时仍显示“Choose a sensor”或“No available sensors”，看不到当前选中 ID。现在当前样本不可用时，选择器显示设备和传感器名，并在无障碍描述中提供完整状态、单位、原因和范围；保存 ID 从当前快照消失时显示 `Unavailable · ID`。其他可用来源仍留在菜单中供用户主动切换，选择状态不会自动变化。
 
 `selected_energy_and_thermal_failures_keep_identity_and_reason` 现验证不可用读数的选择器名称、完整原因和可选替代项；`unavailable_selected_thermal_sensor_keeps_other_charts_and_hottest_reading` 验证传感器隐藏或从快照消失时选择器保留 ID。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 110 项；workspace all-target Clippy `-D warnings`、fmt、Windows 源码尺寸和 `git diff --check` 通过；完整 `cargo build --locked -p ramag-bin` 成功。程序以 `target/debug/ramag.exe` 启动，PID `28304`，进程路径已核对；Computer Use 返回 `apps: []`，未完成原生窗口截图或点击验收。Docker 不适用。回滚边界为 `screens.rs`、对应 System-tool 测试及本节/差距矩阵记录。
+
+### 2026-10-06 Processes 选中详情线程数补齐
+
+`02B` 设计要求选中进程详情展示线程数，但实现沿用表格列清单，省略了 `Threads`。现在详情使用独立字段列表展示线程数，桌面表仍保持七列。
+
+新增 `selected_process_details_show_thread_count`，通过 GPUI 行点击验证选中详情渲染线程数字段。`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 111 项；workspace all-target Clippy `-D warnings`、fmt、源码尺寸及差异检查通过；`cargo build --locked -p ramag-bin --target-dir target/ui-environmental-reason-verify` 成功。当前 PID `28304` 的工作区调试程序保持运行；Computer Use 只返回浏览器、`apps: []`，未进行原生窗口截图或点击验收。Docker 不适用。回滚边界为 `processes.rs`、`process_panel.rs`、对应测试及本节/差距矩阵状态。
+
+### 2026-10-06 排序样式与完整测试复验
+
+用户将主线切换为 UI 对齐与功能修复，要求统一排序列表并进行完整测试。可排序表头现复用公共图标、字重、间距与主题色，覆盖进程、Docker、SQL、MongoDB、对象存储账号和挂载；数据库 ORDER BY 控件同步方向图标。Windows 网络默认路由映射修复了自动选中 Teredo 的问题，用户已保存选择仍保留。
+
+本机 workspace 全量测试在四个 Docker 数据库和完整测试数据下退出 0；格式、严格 workspace Clippy、源码尺寸与最终构建通过。Computer Use 已恢复可控真实窗口；进程 PID 双方向排序、选中 Threads 详情、设置纵向布局、MySQL 十万行分页与排序、Docker 镜像排序/筛选完成。更多工具流程、Docker 镜像/端口、原生证据边界和 SSH 测试清理事故记录见 [本轮集成测试报告](testing/2026-10-06-ui-integration-test-report.md)。此前各节“窗口不可用”是原切片的历史结果，不再代表本轮状态。

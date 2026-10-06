@@ -78,6 +78,40 @@ fn process_search_stays_compact_when_the_window_grows(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn selected_process_details_show_thread_count(cx: &mut TestAppContext) {
+    use gpui_kit::{Modifiers, MouseButton};
+
+    let (view, cx) = populated(cx);
+    command(
+        &view,
+        crate::workspace::Command::Screen(Screen::Processes),
+        cx,
+    );
+    let row = cx.debug_bounds("process-row:0").test_unwrap();
+    let center = row.center();
+    cx.simulate_mouse_move(center, None, Modifiers::default());
+    cx.simulate_mouse_down(center, MouseButton::Left, Modifiers::default());
+    cx.simulate_mouse_up(center, MouseButton::Left, Modifiers::default());
+    draw(cx);
+
+    assert_eq!(
+        crate::processes::PROCESS_DETAIL_COLUMNS,
+        &[2, 3, 4, 5, 6, 7]
+    );
+    assert_eq!(crate::live::PROCESS_COLUMNS[6], "Threads");
+    assert!(cx.debug_bounds("process-detail-field:6").is_some());
+    assert!(cx.debug_bounds("process-details").is_some());
+    cx.read(|cx| {
+        let data = view.read(cx).shared.borrow();
+        assert!(
+            data.processes
+                .iter()
+                .any(|process| process.cells[6].contains("count"))
+        );
+    });
+}
+
+#[gpui_kit::test]
 fn environmental_screens_hide_unavailable_sensors(cx: &mut TestAppContext) {
     use crate::workspace::Command;
     let (view, cx) = populated(cx);

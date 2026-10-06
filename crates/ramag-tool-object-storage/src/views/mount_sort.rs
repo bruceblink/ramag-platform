@@ -1,4 +1,3 @@
-use gpui_kit::component::IconName;
 use ramag_domain::entities::ObjectStorageMount;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,11 +54,14 @@ pub(super) fn sort_mounts(mounts: &mut [&ObjectStorageMount], sort: Option<Mount
     });
 }
 
-pub(super) fn mount_sort_icon(sort: Option<MountSort>, column: MountSortColumn) -> IconName {
+pub(super) fn mount_sort_direction(
+    sort: Option<MountSort>,
+    column: MountSortColumn,
+) -> Option<ramag_ui::SortDirection> {
     match sort.filter(|sort| sort.column == column) {
-        Some(sort) if sort.ascending => IconName::ArrowUp,
-        Some(_) => IconName::ArrowDown,
-        None => IconName::ChevronsUpDown,
+        Some(sort) if sort.ascending => Some(ramag_ui::SortDirection::Ascending),
+        Some(_) => Some(ramag_ui::SortDirection::Descending),
+        None => None,
     }
 }
 
@@ -91,10 +93,9 @@ pub(super) fn next_mount_sort(current: Option<MountSort>, column: MountSortColum
 #[cfg(test)]
 mod tests {
     use super::{
-        MountSort, MountSortColumn, mount_sort_description, mount_sort_icon, next_mount_sort,
+        MountSort, MountSortColumn, mount_sort_description, mount_sort_direction, next_mount_sort,
         sort_mounts,
     };
-    use gpui_kit::component::IconName;
     use ramag_domain::entities::{
         CloudProvider, HttpsEndpoint, ObjectStorageAccountId, ObjectStorageMount,
         ObjectStorageMountId,
@@ -192,13 +193,10 @@ mod tests {
     fn mount_sort_headers_expose_direction_and_reset_when_the_column_changes() {
         let bucket = next_mount_sort(None, MountSortColumn::Bucket);
         assert!(matches!(
-            mount_sort_icon(Some(bucket), MountSortColumn::Bucket),
-            IconName::ArrowUp
+            mount_sort_direction(Some(bucket), MountSortColumn::Bucket),
+            Some(ramag_ui::SortDirection::Ascending)
         ));
-        assert!(matches!(
-            mount_sort_icon(Some(bucket), MountSortColumn::RootPath),
-            IconName::ChevronsUpDown
-        ));
+        assert!(mount_sort_direction(Some(bucket), MountSortColumn::RootPath).is_none());
         assert_eq!(
             mount_sort_description(Some(bucket), MountSortColumn::Bucket, "Bucket"),
             "Bucket，当前升序，点击切换为降序"

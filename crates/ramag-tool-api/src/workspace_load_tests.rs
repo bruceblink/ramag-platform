@@ -17,6 +17,8 @@ use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
 
 #[path = "workspace_history_tests.rs"]
 mod workspace_history_tests;
+#[path = "workspace_save_tests.rs"]
+mod workspace_save_tests;
 
 struct WorkspaceTestStorage {
     fail_listing: AtomicBool,
@@ -427,7 +429,7 @@ fn empty_workspace_list_is_distinct_and_allows_creating_a_workspace(cx: &mut Tes
     });
     for _ in 0..100 {
         visual_cx.run_until_parked();
-        if storage.save_calls.load(Ordering::Relaxed) > 0 {
+        if !visual_cx.update(|_, app| view.read(app).saving) {
             break;
         }
         std::thread::yield_now();
@@ -437,6 +439,20 @@ fn empty_workspace_list_is_distinct_and_allows_creating_a_workspace(cx: &mut Tes
         visual_cx.update(|_, app| view.read(app).workspace_load_state),
         ApiWorkspaceLoadState::Loaded
     );
+    visual_cx.update(|_, app| {
+        let saved = view.read(app);
+        assert_eq!(saved.workspace.collections.len(), 1);
+        assert_eq!(saved.workspace.collections[0].requests.len(), 1);
+        assert_eq!(
+            saved.active_request_id.as_ref(),
+            Some(&saved.workspace.collections[0].requests[0].id)
+        );
+        assert_eq!(saved.notice, Some(("请求、环境和断言已保存".into(), false)));
+        let first = super::context::environment_from_view(saved, app).unwrap();
+        let second = super::context::environment_from_view(saved, app).unwrap();
+        assert_eq!(first, second);
+        assert_eq!(first.id, saved.runtime_environment.id);
+    });
     assert!(
         visual_cx
             .debug_bounds("api-workspace-load-status")

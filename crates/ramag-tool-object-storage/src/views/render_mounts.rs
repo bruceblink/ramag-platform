@@ -11,7 +11,7 @@ use gpui_kit::{
 
 use super::model::ObjectStorageView;
 use super::mount_sort::{
-    MountSortColumn, mount_sort_description, mount_sort_icon, next_mount_sort, sort_mounts,
+    MountSortColumn, mount_sort_description, mount_sort_direction, next_mount_sort, sort_mounts,
 };
 
 impl ObjectStorageView {
@@ -247,7 +247,7 @@ impl ObjectStorageView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let description = mount_sort_description(self.mount_sort, column, label);
-        let icon = mount_sort_icon(self.mount_sort, column);
+        let direction = mount_sort_direction(self.mount_sort, column);
         let foreground = cx.theme().foreground;
         let selector = format!("object-mount-sort-{}", column.key());
         let debug_selector = selector.clone();
@@ -257,7 +257,6 @@ impl ObjectStorageView {
             .role(Role::Button)
             .aria_label(description)
             .items_center()
-            .gap(px(4.0))
             .min_w_0()
             .cursor_pointer()
             .hover(move |header| header.text_color(foreground))
@@ -265,21 +264,18 @@ impl ObjectStorageView {
                 this.mount_sort = Some(next_mount_sort(this.mount_sort, column));
                 cx.notify();
             }))
-            .child(
+            .child(ramag_ui::sortable_header_content(
                 div()
                     .flex_1()
                     .min_w_0()
                     .overflow_hidden()
                     .text_ellipsis()
                     .when(right_aligned, |label| label.text_right())
-                    .text_color(cx.theme().muted_foreground)
                     .child(label),
-            )
-            .child(
-                Icon::new(icon)
-                    .xsmall()
-                    .text_color(cx.theme().muted_foreground),
-            );
+                direction,
+                cx.theme().muted_foreground,
+                foreground,
+            ));
         if let Some(width) = width {
             header = header.w(px(width)).flex_none();
         }

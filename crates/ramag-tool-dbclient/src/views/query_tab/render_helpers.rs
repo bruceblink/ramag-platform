@@ -54,10 +54,15 @@ pub(super) fn order_by_menu(
             },
         );
     let selected_sort = current_sort;
+    let direction = current_sort.map(|(_, direction)| match direction {
+        SortDir::Asc => ramag_ui::SortDirection::Ascending,
+        SortDir::Desc => ramag_ui::SortDirection::Descending,
+    });
     let mut control = ramag_ui::clickable_button("sql-order-by")
         .debug_selector(|| "sql-order-by".into())
         .text()
         .small()
+        .icon(ramag_ui::sort_icon_name(direction))
         .child(div().flex_none().text_color(accent).child(order_by_label))
         .dropdown_caret(true)
         .tooltip("按结果列选择升序或降序");

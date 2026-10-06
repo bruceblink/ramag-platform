@@ -12,10 +12,12 @@ use format_helpers::{
     format_assertions, format_parameters, format_query_parameters, format_response_variables,
 };
 
-/// 从可见环境输入和运行时敏感值构造执行环境；敏感值不会回填到编辑器。
+/// 从可见输入和运行时敏感值构造执行环境，保留当前环境身份，使异步
+/// 保存能区分真正的草稿变化；敏感值不会回填到编辑器。
 pub(crate) fn environment_from_view(view: &ApiView, cx: &App) -> Result<ApiEnvironment> {
     let mut environment =
         parse_environment_values(&textarea_value(&view.environment_variables, cx))?;
+    environment.id = view.runtime_environment.id.clone();
     apply_sensitive_references(
         &mut environment,
         &textarea_value(&view.environment_sensitive, cx),

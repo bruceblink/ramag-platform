@@ -109,8 +109,9 @@ impl ApiView {
                             view.notice = Some(("请求、环境和断言已保存".into(), false));
                         }
                     }
-                    Err(error) if draft_is_unchanged => {
-                        view.notice = Some((error.to_string(), true));
+                    Err(_) if draft_is_unchanged => {
+                        // Storage errors can contain paths or request/secret values.
+                        view.notice = Some(("保存请求失败；请检查本地存储后重试".into(), true));
                     }
                     Err(_) => {}
                 }

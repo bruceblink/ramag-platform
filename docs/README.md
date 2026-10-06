@@ -16,3 +16,5 @@
 | 08 | [开发入门指南](08-development-guide.md) | 环境准备、代码阅读顺序和贡献流程 |
 
 历史计划和验收记录保留在 [`archive/2026-09-25-pre-datagrip-rebaseline/`](archive/2026-09-25-pre-datagrip-rebaseline/) 供追溯，不作为当前待办。已完成、重复或与当前主线冲突的旧计划已移除；新增计划必须使用两位数字前缀，并同步更新本目录和仓库链接。
+
+本机测试证据：[2026-10-06 完整测试与 UI 功能测试报告](testing/2026-10-06-ui-integration-test-report.md)。报告记录实际通过范围、外部服务环境和未完成项，不另起开发排期。

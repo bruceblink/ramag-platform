@@ -355,12 +355,13 @@ impl MonitorPanel {
             )
             .child(
                 div().flex().flex_wrap().gap_4().children(
-                    processes::VISIBLE_PROCESS_COLUMNS
+                    processes::PROCESS_DETAIL_COLUMNS
                         .iter()
                         .copied()
-                        .filter(|column| *column >= 2)
                         .map(|column| {
+                            let selector = format!("process-detail-field:{column}");
                             div()
+                                .debug_selector(move || selector.clone())
                                 .flex()
                                 .flex_col()
                                 .gap_1()
@@ -526,13 +527,17 @@ impl MonitorPanel {
                     .child(TableRow::new("process-columns", 1).flex().h_7().flex_none()
                         .children(processes::VISIBLE_PROCESS_COLUMNS.iter().enumerate().map(|(visible_index, &column)| {
                             let title = live::PROCESS_COLUMNS[column];
+                            let direction = (self.process_state.sort.column == column).then_some(
+                                if self.process_state.sort.descending { ramag_ui::SortDirection::Descending } else { ramag_ui::SortDirection::Ascending }
+                            );
                             TableCell::new(("process-heading", column), visible_index + 1).role(Role::ColumnHeader)
                                 .aria_label(format!("Sort by {title}")).w(px(widths[column])).flex_none()
                                 .when(column == 1, |cell| cell.flex_grow(1.))
                                 .child(Button::new(("sort-process", column)).accessibility_label(format!("Sort by {title}")).ghost().small().w_full().px_2().justify_start()
-                                    .child(div().w_full().when(column == 0 || (2..7).contains(&column), |label| label.text_right()).debug_selector(move || format!("process-sort:{column}")).child(format!("{title}{}", if self.process_state.sort.column == column {
-                                        if self.process_state.sort.descending { " ↓" } else { " ↑" }
-                                    } else { "" })))
+                                    .child(ramag_ui::sortable_header_content(
+                                        div().flex_1().min_w_0().when(column == 0 || (2..7).contains(&column), |label| label.text_right()).child(title),
+                                        direction, cx.theme().muted_foreground, cx.theme().foreground,
+                                    ).debug_selector(move || format!("process-sort:{column}")))
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.process_state.sort.select(column);
                                         this.process_reveal_pending = true;

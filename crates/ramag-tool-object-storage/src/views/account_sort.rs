@@ -1,4 +1,3 @@
-use gpui_kit::component::IconName;
 use ramag_domain::entities::{CloudProvider, ObjectStorageAccount};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,11 +63,14 @@ pub(super) fn sort_accounts(accounts: &mut [ObjectStorageAccount], sort: Account
     });
 }
 
-pub(super) fn account_sort_icon(sort: Option<AccountSort>, column: AccountSortColumn) -> IconName {
+pub(super) fn account_sort_direction(
+    sort: Option<AccountSort>,
+    column: AccountSortColumn,
+) -> Option<ramag_ui::SortDirection> {
     match sort.filter(|sort| sort.column == column) {
-        Some(sort) if sort.ascending => IconName::ArrowUp,
-        Some(_) => IconName::ArrowDown,
-        None => IconName::ChevronsUpDown,
+        Some(sort) if sort.ascending => Some(ramag_ui::SortDirection::Ascending),
+        Some(_) => Some(ramag_ui::SortDirection::Descending),
+        None => None,
     }
 }
 

@@ -2397,19 +2397,16 @@ impl ContainerView {
                     let cell_selector = cell_id.clone();
                     let column_key = column.key;
                     let active_sort = sort.filter(|sort| sort.column == column_key);
-                    let (sort_icon, sort_description) = match active_sort {
+                    let (direction, sort_description) = match active_sort {
                         Some(sort) if sort.ascending => (
-                            IconName::ArrowUp,
+                            Some(ramag_ui::SortDirection::Ascending),
                             format!("{}，当前升序，点击切换为降序", column.label),
                         ),
                         Some(_) => (
-                            IconName::ArrowDown,
+                            Some(ramag_ui::SortDirection::Descending),
                             format!("{}，当前降序，点击切换为升序", column.label),
                         ),
-                        None => (
-                            IconName::ChevronsUpDown,
-                            format!("{}，点击按此列排序", column.label),
-                        ),
+                        None => (None, format!("{}，点击按此列排序", column.label)),
                     };
                     TableCell::new(SharedString::from(cell_id.clone()), index + 1)
                         .accessibility_id(cell_id)
@@ -2433,28 +2430,22 @@ impl ContainerView {
                                 .aria_label(sort_description)
                                 .w_full()
                                 .min_w_0()
-                                .gap(px(4.0))
                                 .items_center()
                                 .cursor_pointer()
                                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                     this.toggle_resource_sort(kind, column_key, cx);
                                 }))
-                                .child(
+                                .child(ramag_ui::sortable_header_content(
                                     div()
                                         .flex_1()
                                         .min_w_0()
                                         .overflow_hidden()
                                         .text_ellipsis()
-                                        .text_size(px(11.0))
-                                        .font_weight(gpui_kit::FontWeight::MEDIUM)
-                                        .text_color(theme.muted_foreground)
                                         .child(column.label),
-                                )
-                                .child(
-                                    Icon::new(sort_icon)
-                                        .xsmall()
-                                        .text_color(theme.muted_foreground),
-                                ),
+                                    direction,
+                                    theme.muted_foreground,
+                                    theme.foreground,
+                                )),
                         )
                 }));
             let table_id = format!("container-resource-table-{kind}");

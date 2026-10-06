@@ -19,6 +19,7 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         (360.0, 640.0),
         (640.0, 800.0),
         (1024.0, 768.0),
+        (1202.0, 812.0),
         (1440.0, 900.0),
     ] {
         visual_cx.simulate_resize(size(px(width), px(height)));
@@ -195,5 +196,43 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         visual_cx.update(|_, app| view.read(app).layout_scroll.offset().y),
         px(0.0),
         "恢复常规窗口高度后页面应回到顶部"
+    );
+}
+
+/// The desktop request pane must scroll all the way to its last connection fields.
+#[gpui_kit::test]
+fn desktop_request_pane_scroll_reaches_proxy_fields(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_kit::component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 视图应初始化");
+    visual_cx.simulate_resize(size(px(1202.0), px(812.0)));
+    visual_cx.run_until_parked();
+    let max_offset = visual_cx.update(|_, app| view.read(app).request_scroll.max_offset());
+    assert!(max_offset.y > px(0.0));
+    view.update(visual_cx, |view, cx| {
+        view.request_scroll
+            .set_offset(point(px(0.0), -max_offset.y));
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
+    let pane = visual_cx
+        .debug_bounds("api-request-pane")
+        .expect("请求面板应存在");
+    let proxy = visual_cx
+        .debug_bounds("api-proxy-editor")
+        .expect("代理字段应存在");
+    assert!(proxy.size.height > px(0.0));
+    assert!(
+        proxy.bottom() <= pane.bottom() + px(1.0),
+        "滚动到底后代理字段仍越出面板: {proxy:?} / {pane:?}"
+    );
+    assert!(
+        proxy.origin.y >= pane.origin.y,
+        "代理字段应完整可见: {proxy:?} / {pane:?}"
     );
 }

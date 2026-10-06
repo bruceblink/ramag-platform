@@ -1,8 +1,9 @@
 //! Presentation-only process ordering. OS actions remain in the collector crate.
 use crate::live::ProcessView;
 
-// Canonical collector columns keep their meaning when presentation hides one.
+// Keep the reference table's seven columns while exposing all readings in details.
 pub(crate) const VISIBLE_PROCESS_COLUMNS: &[usize] = &[0, 1, 2, 3, 4, 5, 7];
+pub(crate) const PROCESS_DETAIL_COLUMNS: &[usize] = &[2, 3, 4, 5, 6, 7];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct ProcessSort {

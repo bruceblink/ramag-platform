@@ -22,12 +22,29 @@ pub(super) fn build_connection_service()
     drivers.insert(DriverKind::Sqlite, Arc::new(SqliteDriver::new()));
 
     let storage_impl =
-        RedbStorage::open_default().map_err(|e| anyhow::anyhow!("初始化 redb 存储失败: {e}"))?;
+        open_application_storage().map_err(|e| anyhow::anyhow!("初始化 redb 存储失败: {e}"))?;
     info!(operation = "storage_open", path = %storage_impl.path().display(), "storage opened");
     let storage: Arc<dyn Storage> = Arc::new(storage_impl);
 
     let svc = Arc::new(ConnectionService::new(drivers, storage.clone()));
     Ok((svc, storage))
+}
+
+/// Debug UI acceptance can use an absolute, isolated data directory while
+/// retaining the normal system-key encryption. Release builds always open
+/// the platform data directory; this switch never copies existing records.
+fn open_application_storage() -> ramag_domain::error::Result<RedbStorage> {
+    #[cfg(debug_assertions)]
+    if let Some(directory) = std::env::var_os("RAMAG_UI_TEST_DATA_DIR") {
+        let directory = std::path::PathBuf::from(directory);
+        if !directory.is_absolute() {
+            return Err(ramag_domain::error::DomainError::Storage(
+                "UI 测试数据目录必须是绝对路径".into(),
+            ));
+        }
+        return RedbStorage::open(&directory.join("ramag.redb"));
+    }
+    RedbStorage::open_default()
 }
 
 /// 启动期同步批量读取偏好。current-thread runtime 不创建后台工作线程；同一批 key 共用一次初始化。

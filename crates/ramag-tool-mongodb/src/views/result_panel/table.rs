@@ -297,20 +297,22 @@ fn render_header(
         let col = &columns[ci];
         let path = col.path.clone();
         let kind = col.kind;
-        let arrow: Option<&'static str> = match &current_sort {
-            Some((p, SortDir::Asc)) if *p == path => Some("▲"),
-            Some((p, SortDir::Desc)) if *p == path => Some("▼"),
+        let direction = match &current_sort {
+            Some((p, SortDir::Asc)) if *p == path => Some(ramag_ui::SortDirection::Ascending),
+            Some((p, SortDir::Desc)) if *p == path => Some(ramag_ui::SortDirection::Descending),
             _ => None,
         };
         let path_for_click = path.clone();
         row = row.child(
             h_flex()
                 .id(SharedString::from(format!("mongo-hdr-{ci}")))
+                .debug_selector(move || format!("mongo-result-header-col-{ci}"))
+                .role(gpui_kit::Role::ColumnHeader)
+                .aria_label(format!("Sort by {path}"))
                 .w(px(CELL_WIDTH))
                 .flex_none()
                 .h_full()
                 .px_3()
-                .gap_1p5()
                 .items_center()
                 .border_r_1()
                 .border_color(border)
@@ -320,27 +322,34 @@ fn render_header(
                 .on_click(cx.listener(move |panel, _: &gpui_kit::ClickEvent, _, cx| {
                     panel.toggle_sort(path_for_click.clone(), cx)
                 }))
-                .child(
-                    div()
+                .child(ramag_ui::sortable_header_content(
+                    h_flex()
+                        .flex_1()
                         .min_w_0()
-                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                        .text_color(fg)
+                        .items_center()
+                        .gap_1p5()
                         .overflow_hidden()
-                        .text_ellipsis()
-                        .whitespace_nowrap()
-                        .child(SharedString::from(sanitize_inline(&path))),
-                )
-                .child(
-                    div()
-                        .flex_none()
-                        .font_weight(gpui_kit::FontWeight::NORMAL)
-                        .text_color(muted)
-                        .whitespace_nowrap()
-                        .child(SharedString::from(kind)),
-                )
-                .when_some(arrow, |this, a| {
-                    this.child(div().flex_none().text_color(muted).child(a))
-                }),
+                        .child(
+                            div()
+                                .min_w_0()
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .whitespace_nowrap()
+                                .child(SharedString::from(sanitize_inline(&path))),
+                        )
+                        .child(
+                            div()
+                                .flex_none()
+                                .font_weight(gpui_kit::FontWeight::NORMAL)
+                                .text_color(muted)
+                                .whitespace_nowrap()
+                                .child(SharedString::from(kind)),
+                        )
+                        .into_any_element(),
+                    direction,
+                    muted,
+                    fg,
+                )),
         );
     }
     row

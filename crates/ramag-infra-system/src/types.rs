@@ -21,7 +21,8 @@ pub struct Snapshot {
     pub diagnostics: Vec<BackendDiagnostic>,
     #[serde(default)]
     pub network_attribution: Option<NetworkAttribution>,
-    /// Linux default-route interface, falling back to a physical interface.
+    /// Preferred default-route interface. Linux can fall back to a physical
+    /// interface; Windows prefers IPv4, then IPv6, using effective route metrics.
     #[serde(default)]
     pub preferred_network_monitor_id: Option<String>,
 }

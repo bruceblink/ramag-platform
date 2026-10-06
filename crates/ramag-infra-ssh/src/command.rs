@@ -114,7 +114,8 @@ pub fn port_forward_command(
     args.extend(common_profile_args(profile));
     args.extend(port_forward_args(profile)?);
     args.extend(["-o".into(), "ExitOnForwardFailure=yes".into()]);
-    args.extend(production_connection_args());
+    // A forwarding session must retain its requested -L/-R/-D listeners.
+    args.extend(production_connection_args(false));
     args.push("--".into());
     args.push(profile.host.clone());
     Ok(SshLaunchCommand {
@@ -164,7 +165,7 @@ pub fn sftp_args(profile: &SshProfile) -> Result<Vec<String>> {
     ];
     args.extend(common_profile_args(profile));
     if profile.production {
-        args.extend(production_connection_args());
+        args.extend(production_connection_args(true));
     }
     args.push("-s".into());
     args.push("--".into());
@@ -198,7 +199,7 @@ pub(crate) fn windows_remote_sftp_args(profile: &SshProfile) -> Result<Vec<Strin
         "ConnectTimeout=10".into(),
     ];
     args.extend(common_profile_args(profile));
-    args.extend(production_connection_args());
+    args.extend(production_connection_args(true));
     args.push("--".into());
     args.push(profile.host.clone());
     args.push(WINDOWS_SFTP_SERVER_COMMAND.into());
@@ -268,7 +269,7 @@ pub fn diagnostic_args(profile: &SshProfile, remote_command: &str) -> Result<Vec
         "ConnectTimeout=10".into(),
     ];
     args.extend(common_profile_args(profile));
-    args.extend(production_connection_args());
+    args.extend(production_connection_args(true));
     args.push("--".into());
     args.push(profile.host.clone());
     args.push(remote_command.to_string());
@@ -299,9 +300,15 @@ pub(crate) fn terminal_probe_args(profile: &SshProfile) -> Result<Vec<String>> {
     Ok(args)
 }
 
-fn production_connection_args() -> Vec<String> {
+/// SFTP and diagnostics clear forwarding configuration; dedicated forwarding
+/// commands retain listeners. All paths disable unrelated command/tunnel effects.
+fn production_connection_args(clear_all_forwardings: bool) -> Vec<String> {
     [
-        "ClearAllForwardings=yes",
+        if clear_all_forwardings {
+            "ClearAllForwardings=yes"
+        } else {
+            "ClearAllForwardings=no"
+        },
         "ForwardAgent=no",
         "ForwardX11=no",
         "PermitLocalCommand=no",

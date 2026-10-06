@@ -9,7 +9,7 @@ use gpui_kit::{
 use ramag_domain::entities::{CloudProvider, ObjectStorageAccount};
 
 use super::account_sort::{
-    AccountSortColumn, account_sort_description, account_sort_icon, next_account_sort,
+    AccountSortColumn, account_sort_description, account_sort_direction, next_account_sort,
     sort_accounts,
 };
 use super::model::ObjectStorageView;
@@ -294,7 +294,7 @@ impl ObjectStorageView {
     ) -> AnyElement {
         let sort = self.account_sort;
         let description = account_sort_description(sort, column, label);
-        let icon = account_sort_icon(sort, column);
+        let direction = account_sort_direction(sort, column);
         let foreground = cx.theme().foreground;
         let selector = format!("object-account-table-sort-{}", column.key());
         let debug_selector = selector.clone();
@@ -304,7 +304,6 @@ impl ObjectStorageView {
             .role(Role::Button)
             .aria_label(description)
             .items_center()
-            .gap(px(4.0))
             .min_w_0()
             .cursor_pointer()
             .hover(move |header| header.text_color(foreground))
@@ -313,18 +312,18 @@ impl ObjectStorageView {
                 cx.notify();
             }))
             .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .overflow_hidden()
-                    .text_ellipsis()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(label),
-            )
-            .child(
-                Icon::new(icon)
-                    .xsmall()
-                    .text_color(cx.theme().muted_foreground),
+                ramag_ui::sortable_header_content(
+                    div()
+                        .when(!centered, |label| label.flex_1())
+                        .min_w_0()
+                        .overflow_hidden()
+                        .text_ellipsis()
+                        .child(label),
+                    direction,
+                    cx.theme().muted_foreground,
+                    foreground,
+                )
+                .when(centered, |content| content.justify_center()),
             );
         if let Some(width) = width {
             header = header.w(px(width)).flex_none();

@@ -5,8 +5,10 @@ impl KafkaView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
-        let stacked_root = kafka_main_content_width(window) < 900.0;
         let compact = f32::from(window.viewport_size().width) < 1280.0;
+        // A stacked table/detail needs the same outer scrolling breakpoint;
+        // otherwise fixed controls consume its entire remaining height.
+        let stacked_root = compact;
         let page = self.message_page.as_ref();
         let page_count = self.message_page_count();
         let current_page = self.message_page_index.min(page_count.saturating_sub(1));
@@ -276,7 +278,7 @@ impl KafkaView {
                     .items_stretch()
                     .when(compact, |row| row.flex_col())
                     .when(stacked_root, |row| {
-                        row.h(px(COMPACT_MESSAGE_RESULTS_HEIGHT))
+                        row.flex_none().h(px(COMPACT_MESSAGE_RESULTS_HEIGHT))
                     })
                     .gap(px(14.0))
                     .child(

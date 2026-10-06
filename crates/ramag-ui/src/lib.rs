@@ -30,6 +30,7 @@ pub mod result_paging;
 pub mod settings_view;
 pub mod shell;
 pub mod shortcuts_dialog;
+pub mod sort_header;
 pub mod system_settings;
 pub mod theme;
 pub(crate) mod tool_layout;
@@ -84,6 +85,7 @@ pub use result_paging::{
 pub use settings_view::SettingsView;
 pub use shell::{Shell, WindowBoundsPref};
 pub use shortcuts_dialog::open_shortcuts;
+pub use sort_header::{SortDirection, sort_icon_name, sort_indicator, sortable_header_content};
 pub use system_settings::{
     InterfaceFont, InterfaceTextSize, NumericFont, SYSTEM_SETTINGS_PREF_KEY, ScrollbarVisibility,
     SystemSettings, SystemSettingsGlobal, init_system_settings, save_system_settings,

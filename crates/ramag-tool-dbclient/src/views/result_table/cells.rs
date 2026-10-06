@@ -36,9 +36,9 @@ pub(super) fn render_header_cell(
         .get(ci)
         .filter(|s| !s.is_empty())
         .map(|s| SharedString::from(s.to_lowercase()));
-    let sort_arrow: Option<&'static str> = match current_sort {
-        Some((c, SortDir::Asc)) if c == ci => Some("▲"),
-        Some((c, SortDir::Desc)) if c == ci => Some("▼"),
+    let direction = match current_sort {
+        Some((c, SortDir::Asc)) if c == ci => Some(ramag_ui::SortDirection::Ascending),
+        Some((c, SortDir::Desc)) if c == ci => Some(ramag_ui::SortDirection::Descending),
         _ => None,
     };
     let cw = col_widths[ci];
@@ -68,34 +68,39 @@ pub(super) fn render_header_cell(
                 .w_full()
                 .h_full()
                 .px_3()
-                .gap_1p5()
                 .items_center()
                 .overflow_hidden()
-                .child(
-                    div()
+                .child(ramag_ui::sortable_header_content(
+                    h_flex()
+                        .flex_1()
                         .min_w_0()
-                        .text_xs()
-                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                        .text_color(fg)
+                        .gap_1p5()
+                        .items_center()
                         .overflow_hidden()
-                        .text_ellipsis()
-                        .whitespace_nowrap()
-                        .child(SharedString::from(col.clone())),
-                )
-                .when_some(type_label, |this, t| {
-                    this.child(
-                        div()
-                            .flex_none()
-                            .text_xs()
-                            .font_weight(gpui_kit::FontWeight::NORMAL)
-                            .text_color(muted_fg)
-                            .whitespace_nowrap()
-                            .child(t),
-                    )
-                })
-                .when_some(sort_arrow, |this, a| {
-                    this.child(div().flex_none().text_xs().text_color(muted_fg).child(a))
-                }),
+                        .child(
+                            div()
+                                .min_w_0()
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .whitespace_nowrap()
+                                .child(SharedString::from(col.clone())),
+                        )
+                        .when_some(type_label, |this, t| {
+                            this.child(
+                                div()
+                                    .flex_none()
+                                    .text_xs()
+                                    .font_weight(gpui_kit::FontWeight::NORMAL)
+                                    .text_color(muted_fg)
+                                    .whitespace_nowrap()
+                                    .child(t),
+                            )
+                        })
+                        .into_any_element(),
+                    direction,
+                    muted_fg,
+                    fg,
+                )),
         )
         .child(render_col_resize_handle(ci, cw, cx))
         .into_any_element()

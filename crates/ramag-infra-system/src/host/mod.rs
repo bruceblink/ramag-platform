@@ -21,6 +21,8 @@ mod proc;
 mod process;
 #[cfg(any(test, all(target_os = "macos", target_arch = "aarch64")))]
 mod temperature;
+#[cfg(target_os = "windows")]
+mod windows_network;
 
 pub struct HostCollector {
     origin: Instant,

@@ -8,11 +8,21 @@ function Get-RamagDockerTestContainerState {
         [string]$ContainerName
     )
 
-    $inspection = @(
-        & docker inspect --format "{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}" `
-            $ContainerName 2>$null
-    )
-    if ($LASTEXITCODE -ne 0 -or $inspection.Count -eq 0) {
+    # Windows PowerShell 5.1 promotes native stderr into a terminating error under
+    # Stop preference. Keep the missing-container probe quiet until its exit code
+    # can classify the expected absence.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $inspection = @(
+            & docker inspect --format "{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}" `
+                $ContainerName 2>$null
+        )
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($exitCode -ne 0 -or $inspection.Count -eq 0) {
         return $null
     }
 

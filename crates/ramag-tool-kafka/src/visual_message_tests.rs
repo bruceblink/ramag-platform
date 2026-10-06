@@ -68,6 +68,7 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
         view.loading_clusters = false;
         view.loading_runtime = false;
         view.loading_messages = false;
+        view.selected_topic = Some("ramag.integration.messages".into());
         let record = KafkaMessageRecord {
             topic: "ramag.integration.messages".into(),
             partition: 1,
@@ -91,6 +92,15 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
         cx.notify();
     });
     visual_cx.run_until_parked();
+    // Topic controls push the result below the first viewport; interact only
+    // after scrolling the actual page so the row is visible and clickable.
+    kafka_entity.update(visual_cx, |view, cx| {
+        let max = view.message_page_scroll.max_offset();
+        view.message_page_scroll
+            .set_offset(gpui_kit::point(px(0.0), -max.y));
+        cx.notify();
+    });
+    visual_cx.run_until_parked();
     let row_bounds = visual_cx.debug_bounds("kafka-message-row-0");
     assert!(row_bounds.is_some(), "消息行应参与布局");
     let Some(row_bounds) = row_bounds else {
@@ -99,12 +109,24 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
     visual_cx.simulate_click(row_bounds.center(), Modifiers::default());
     visual_cx.run_until_parked();
     let selected_message = kafka_entity.read_with(visual_cx, |view, _| view.selected_message);
-    assert_eq!(selected_message, Some(0));
+    assert_eq!(
+        selected_message,
+        Some(0),
+        "点击可见行后应选中: row={row_bounds:?}, page={:?}, table={:?}",
+        visual_cx.debug_bounds("kafka-messages"),
+        visual_cx.debug_bounds("kafka-message-table")
+    );
+    kafka_entity.update(visual_cx, |view, cx| {
+        view.message_page_scroll
+            .set_offset(gpui_kit::point(px(0.0), px(0.0)));
+        cx.notify();
+    });
 
     for (width, height) in [
         (360.0, 900.0),
         (800.0, 500.0),
         (1024.0, 900.0),
+        (1202.0, 812.0),
         (1440.0, 900.0),
     ] {
         visual_cx.simulate_resize(size(px(width), px(height)));
@@ -250,7 +272,7 @@ fn kafka_message_table_and_detail_fit_three_window_widths(cx: &mut TestAppContex
             );
         }
 
-        if width < 900.0 {
+        if width < 1280.0 {
             let max_page_offset =
                 kafka_entity.read_with(visual_cx, |view, _| view.message_page_scroll.max_offset());
             assert!(

@@ -150,6 +150,8 @@ fn port_forward_command_emits_separate_local_remote_and_dynamic_forward_argument
     .unwrap();
 
     assert!(command.args.contains(&"-N".into()));
+    assert!(command.args.contains(&"ClearAllForwardings=no".into()));
+    assert!(!command.args.contains(&"ClearAllForwardings=yes".into()));
 
     assert!(
         command
