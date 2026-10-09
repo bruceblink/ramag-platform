@@ -50,10 +50,9 @@ impl SshView {
         let visible = self.filtered_profiles();
         let total = self.profiles.len();
         let visible_count = visible.len();
-        let border = cx.theme().border;
         let muted = cx.theme().muted_foreground;
 
-        let toolbar = ramag_ui::responsive_toolbar()
+        let toolbar = ramag_ui::pulse_ui::pulse_home_toolbar(cx)
             .debug_selector(|| "ssh-profile-toolbar".into())
             .child(
                 div()
@@ -106,37 +105,24 @@ impl SshView {
             )
             .child(
                 ramag_ui::clickable_button("new-ssh-profile")
-                    .outline()
+                    .primary()
                     .small()
                     .icon(IconName::Plus)
+                    .label("新建连接")
                     .tooltip("新建")
                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                         this.open_profile_create(window, cx);
                     })),
             );
 
-        let header_inner = v_flex()
-            .w_full()
-            .gap(px(12.0))
-            .child(
-                ramag_ui::pulse_ui::pulse_page_title(
-                    "SSH 管理",
-                    Some("连接、终端与 SFTP 工作区"),
-                    cx,
-                )
-                .id("ssh-manager-page-title")
-                .debug_selector(|| "ssh-manager-page-title".into()),
-            )
-            .child(toolbar);
-        let header = h_flex()
-            .w_full()
-            .justify_center()
-            .px(px(16.0))
-            .pt(px(18.0))
-            .pb(px(14.0))
-            .border_b_1()
-            .border_color(border)
-            .child(div().w_full().max_w(px(CONTENT_MAX_W)).child(header_inner));
+        let header = ramag_ui::pulse_ui::pulse_page_title(
+            "SSH 管理",
+            Some(format!("{total} 个连接 · 终端与 SFTP")),
+            cx,
+        )
+        .max_w(px(CONTENT_MAX_W))
+        .id("ssh-manager-page-title")
+        .debug_selector(|| "ssh-manager-page-title".into());
 
         let body = if self.loading_profiles {
             centered_message("加载中…", muted).into_any_element()
@@ -220,22 +206,18 @@ impl SshView {
                 .id("ssh-profile-list-scroll")
                 .size_full()
                 .overflow_y_scrollbar()
-                .py(px(10.0))
-                .child(
-                    h_flex()
-                        .w_full()
-                        .justify_center()
-                        .px(px(24.0))
-                        .child(div().w_full().max_w(px(CONTENT_MAX_W)).child(rows)),
-                )
+                .child(rows)
                 .into_any_element()
         };
 
-        v_flex()
-            .size_full()
-            .bg(cx.theme().background)
+        ramag_ui::pulse_ui::pulse_home_frame(cx)
             .child(header)
-            .child(div().flex_1().min_h_0().child(body))
+            .child(
+                ramag_ui::pulse_ui::pulse_home_panel(cx)
+                    .debug_selector(|| "ssh-manager-list-panel".into())
+                    .child(toolbar)
+                    .child(div().flex_1().min_h_0().overflow_hidden().child(body)),
+            )
     }
 
     fn filtered_profiles(&self) -> Vec<SshProfile> {

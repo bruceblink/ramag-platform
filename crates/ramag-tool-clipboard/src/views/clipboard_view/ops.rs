@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use gpui_kit::component::{Disableable as _, notification::Notification};
-use gpui_kit::{Context, ScrollStrategy};
+use gpui_kit::{Context, InteractiveElement as _, ScrollStrategy};
 use ramag_domain::entities::{ClipId, ClipItem};
 use tracing::{error, warn};
 
@@ -36,6 +36,7 @@ impl ClipboardView {
             && !self.search_results.iter().any(|i| &i.id == sel)
         {
             self.selected = None;
+            self.detail_text_cache = None;
         }
         cx.notify();
     }
@@ -226,6 +227,8 @@ impl ClipboardView {
                             Some(Notification::error(format!("删除失败：{e}")));
                     }
                     Ok(_) => {
+                        // The deleted row may exist only in full search or a late search response.
+                        this.schedule_search(cx);
                         let undo_deadline = Instant::now() + DELETE_UNDO_GRACE;
                         let svc_for_undo = this.service.clone();
                         let view = cx.entity().clone();
@@ -256,6 +259,7 @@ impl ClipboardView {
                                 let item = item_for_undo.clone();
                                 let notif = cx.entity().clone();
                                 ramag_ui::clickable_button("clip-undo-delete")
+                                    .debug_selector(|| "clip-undo-delete".into())
                                     .label("撤销")
                                     .on_click(move |_, window, app| {
                                         let svc = svc.clone();
@@ -277,6 +281,8 @@ impl ClipboardView {
                                                         Some(Notification::error(format!(
                                                             "撤销失败：{e}"
                                                         )));
+                                                } else {
+                                                    this.schedule_search(cx);
                                                 }
                                                 this.reload(cx);
                                             });

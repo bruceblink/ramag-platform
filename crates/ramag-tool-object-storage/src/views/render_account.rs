@@ -22,7 +22,6 @@ impl ObjectStorageView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let border = cx.theme().border;
         let muted = cx.theme().muted_foreground;
         let query = self
             .account_search
@@ -49,7 +48,7 @@ impl ObjectStorageView {
         }
         let show_manual_count = f32::from(window.viewport_size().width) >= 900.0;
 
-        let header_inner = ramag_ui::responsive_toolbar()
+        let header_inner = ramag_ui::pulse_ui::pulse_home_toolbar(cx)
             .debug_selector(|| "object-account-toolbar".into())
             .items_center()
             .child(
@@ -73,39 +72,26 @@ impl ObjectStorageView {
             .child(
                 ramag_ui::clickable_button("object-new-account")
                     .debug_selector(|| "object-new-account".into())
-                    .outline()
+                    .primary()
                     .small()
                     .icon(IconName::Plus)
+                    .label("新建账号")
                     .tooltip("新建")
                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                         this.show_new_account(window, cx);
                     })),
             );
-        let header = v_flex()
-            .debug_selector(|| "object-account-header".into())
-            .w_full()
-            .border_b_1()
-            .border_color(border)
-            .child(
-                h_flex().w_full().justify_center().px(px(16.0)).child(
-                    v_flex()
-                        .w_full()
-                        .max_w(px(CONTENT_MAX_W))
-                        .gap(px(10.0))
-                        .pt(px(16.0))
-                        .pb(px(12.0))
-                        .child(
-                            ramag_ui::pulse_ui::pulse_page_title(
-                                "对象存储",
-                                Some("账号与 Bucket 管理"),
-                                cx,
-                            )
-                            .id("object-account-page-title")
-                            .debug_selector(|| "object-account-page-title".into()),
-                        )
-                        .child(header_inner),
-                ),
-            );
+        let header = ramag_ui::pulse_ui::pulse_page_title(
+            "对象存储",
+            Some(format!(
+                "{} 个账号 · Bucket 与对象管理",
+                self.accounts.len()
+            )),
+            cx,
+        )
+        .max_w(px(CONTENT_MAX_W))
+        .id("object-account-page-title")
+        .debug_selector(|| "object-account-page-title".into());
 
         let body = if self.loading && self.accounts.is_empty() {
             centered_message("加载中…", muted).into_any_element()
@@ -121,6 +107,7 @@ impl ObjectStorageView {
                         .id("object-account-empty-state")
                         .debug_selector(|| "object-account-empty-state".into())
                         .max_w(px(480.0))
+                        .border_0()
                         .min_h(px(220.0))
                         .items_center()
                         .justify_center()
@@ -164,7 +151,7 @@ impl ObjectStorageView {
                     self.render_account_row(index, account, show_manual_count, cx)
                 }));
             let table = v_flex()
-                .w_full()
+                .size_full()
                 .min_h_0()
                 .child(self.render_account_table_header(show_manual_count, cx))
                 .child(
@@ -177,35 +164,25 @@ impl ObjectStorageView {
                         .overflow_y_scrollbar()
                         .child(rows),
                 );
-            v_flex()
-                .size_full()
-                .child(
-                    h_flex()
-                        .size_full()
-                        .items_stretch()
-                        .justify_center()
-                        .px(px(16.0))
-                        .py(px(10.0))
-                        .child(
-                            ramag_ui::pulse_ui::pulse_panel(cx)
-                                .id("object-account-list-panel")
-                                .debug_selector(|| "object-account-list-panel".into())
-                                .max_w(px(CONTENT_MAX_W))
-                                .h_full()
-                                .min_h_0()
-                                .p_0()
-                                .overflow_hidden()
-                                .child(table),
-                        ),
-                )
-                .into_any_element()
+            table.into_any_element()
         };
 
-        v_flex()
-            .size_full()
-            .bg(cx.theme().background)
+        ramag_ui::pulse_ui::pulse_home_frame(cx)
             .child(header)
-            .child(div().flex_1().min_h_0().child(body))
+            .child(
+                ramag_ui::pulse_ui::pulse_home_panel(cx)
+                    .id("object-account-list-panel")
+                    .debug_selector(|| "object-account-list-panel".into())
+                    .child(header_inner)
+                    .child(
+                        div()
+                            .debug_selector(|| "object-account-list-body".into())
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_hidden()
+                            .child(body),
+                    ),
+            )
             .into_any_element()
     }
 

@@ -29,14 +29,16 @@ impl Render for CollaborationView {
             .p(px(24.0))
             .gap(px(14.0))
             .child(
-                ramag_ui::responsive_toolbar()
+                ramag_ui::pulse_ui::pulse_entry_header(cx)
+                    .p_0()
+                    .pb(px(12.0))
                     .id("collaboration-page-header")
                     .debug_selector(|| "collaboration-page-header".into())
                     .items_center()
                     .child(
                         ramag_ui::pulse_ui::pulse_page_title(
                             "本机协作",
-                            Some("原生 GPUI 入口 · 加密草稿 · 用户确认后才准备导出"),
+                            Some("保存本机草稿，确认后共享结果"),
                             cx,
                         )
                         .flex_1()

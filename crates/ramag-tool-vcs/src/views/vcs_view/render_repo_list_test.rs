@@ -32,18 +32,18 @@ fn repo_list_rows_reflow_inside_supported_window_widths(cx: &mut TestAppContext)
         let root = cx
             .debug_bounds("vcs-repo-list")
             .expect("仓库列表根节点应渲染");
-        let header = cx
-            .debug_bounds("vcs-repo-list-header")
-            .expect("仓库列表头部应渲染");
-        let header_inner = cx
-            .debug_bounds("vcs-repo-list-header-inner")
-            .expect("仓库列表头部内容应渲染");
+        let panel = cx
+            .debug_bounds("vcs-repo-list-panel")
+            .expect("工具栏和仓库列表应共用一个面板");
         let page_title = cx
             .debug_bounds("vcs-repo-list-page-title")
             .expect("仓库列表页标题应渲染");
         let toolbar = cx
             .debug_bounds("vcs-repo-list-toolbar")
             .expect("仓库管理工具栏应渲染");
+        let heading = cx
+            .debug_bounds("vcs-repo-list-heading-name")
+            .expect("仓库列标题应渲染");
         let row_selector: &'static str =
             Box::leak(format!("vcs-repo-row-{repo_key}").into_boxed_str());
         let name_selector: &'static str =
@@ -57,10 +57,11 @@ fn repo_list_rows_reflow_inside_supported_window_widths(cx: &mut TestAppContext)
         let path = cx.debug_bounds(path_selector).expect("仓库路径应渲染");
         let actions = cx.debug_bounds(actions_selector).expect("仓库操作应渲染");
 
-        assert_inside(&root, &header, "仓库列表头部");
-        assert_inside(&header, &header_inner, "仓库列表头部内容");
-        assert_inside(&header_inner, &page_title, "仓库列表页标题");
-        assert_inside(&header_inner, &toolbar, "仓库管理工具栏");
+        assert_inside(&root, &panel, "仓库列表面板");
+        assert_inside(&root, &page_title, "仓库列表页标题");
+        assert_inside(&panel, &toolbar, "仓库管理工具栏");
+        let heading_name_x = heading.origin.x + if width < 720.0 { px(64.0) } else { px(0.0) };
+        assert_eq!(heading_name_x, name.origin.x, "仓库表头应与名称列左对齐");
         assert!(
             page_title.bottom() <= toolbar.origin.y,
             "仓库标题与操作工具栏应分层排列：title={page_title:?}, toolbar={toolbar:?}"

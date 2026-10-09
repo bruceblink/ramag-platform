@@ -1300,14 +1300,14 @@ impl Render for ContainerView {
             )
         };
 
-        let header = v_flex()
+        let header = ramag_ui::pulse_ui::pulse_entry_header(cx)
+            .flex_col()
+            .items_stretch()
             .id("container-header")
             .debug_selector(|| "container-header".into())
             .w_full()
             .flex_none()
             .gap(px(8.0))
-            .px(px(16.0))
-            .py(px(12.0))
             .border_b_1()
             .border_color(theme.border)
             .child(

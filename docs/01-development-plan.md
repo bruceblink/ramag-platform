@@ -7,6 +7,7 @@
 > 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
 > System Pulse 差距与执行顺序：[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)
 > 统一 UI 标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
+> 本轮首页统一与发布目标：[`08-v0.5.0-ui-release-plan.md`](08-v0.5.0-ui-release-plan.md)
 > 历史执行记录：[`archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md`](archive/2026-09-25-pre-datagrip-rebaseline/01-development-plan.md)
 > 当前 UI 推广队列与进度重排：[System Pulse 迁入和 Ramag 全应用样式计划](03-system-pulse-adoption-plan.md#2026-10-03-当前进度重排与执行队列)。
 

@@ -165,14 +165,16 @@ impl Render for JsonPathView {
             .p(px(24.0))
             .gap(px(14.0))
             .child(
-                ramag_ui::responsive_toolbar()
+                ramag_ui::pulse_ui::pulse_entry_header(cx)
+                    .p_0()
+                    .pb(px(12.0))
                     .id("json-path-page-header")
                     .debug_selector(|| "json-path-page-header".into())
                     .items_center()
                     .child(
                         ramag_ui::pulse_ui::pulse_page_title(
                             "JSON Path 提取器",
-                            Some("原生 GPUI 入口 · JSON5 输入 · 本机优先执行"),
+                            Some("从 JSON 或 JSON5 中提取匹配数据"),
                             cx,
                         )
                         .flex_1()

@@ -234,8 +234,8 @@ fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestA
                 .debug_bounds("object-new-account")
                 .expect("新建账号入口应显示");
             let list = cx
-                .debug_bounds("object-account-list-panel")
-                .expect("账号列表面板应显示");
+                .debug_bounds("object-account-list-body")
+                .expect("账号列表主体应显示");
             let table_header = if width >= 900.0 {
                 Some(
                     cx.debug_bounds("object-account-table-header")

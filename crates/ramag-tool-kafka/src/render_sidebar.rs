@@ -127,15 +127,14 @@ impl KafkaView {
             .when(compact, |panel| panel.w_full().h(px(220.0)).flex_none())
             .border_r_1()
             .border_color(theme.border)
-            .bg(theme.secondary)
+            .bg(ramag_ui::pulse_ui::pulse_palette(cx).surface)
             .child(
-                h_flex()
+                ramag_ui::pulse_ui::pulse_home_toolbar(cx)
                     .debug_selector(|| "kafka-sidebar-header".into())
-                    .h(px(58.0))
+                    .min_h(px(58.0))
                     .flex_none()
                     .items_center()
                     .justify_between()
-                    .px(px(16.0))
                     .border_b_1()
                     .border_color(theme.border)
                     .child(
@@ -179,9 +178,10 @@ impl KafkaView {
                             .child(
                                 ramag_ui::clickable_button("kafka-add-profile")
                                     .debug_selector(|| "kafka-add-profile".into())
-                                    .ghost()
-                                    .xsmall()
+                                    .primary()
+                                    .small()
                                     .icon(IconName::Plus)
+                                    .label("新建")
                                     .tooltip("新建集群配置")
                                     .disabled(self.saving || self.testing || self.deleting)
                                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {

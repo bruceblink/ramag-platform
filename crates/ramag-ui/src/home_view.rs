@@ -85,7 +85,7 @@ impl Render for HomeView {
         let bg = theme.background;
         let border = theme.border;
         let fg = theme.foreground;
-        let card_bg = theme.background;
+        let card_bg = crate::pulse_ui::pulse_palette(cx).surface;
         let window_width = f32::from(window.bounds().size.width);
         let compact = window_width < 640.0;
         let card_width = home_card_width(window_width);

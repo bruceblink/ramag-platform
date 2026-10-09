@@ -79,15 +79,13 @@ impl MqttView {
             .flex_none()
             .border_r_1()
             .border_color(theme.border)
-            .bg(theme.secondary.opacity(0.45))
+            .bg(ramag_ui::pulse_ui::pulse_palette(cx).surface)
             .child(
-                h_flex()
+                ramag_ui::pulse_ui::pulse_home_toolbar(cx)
                     .w_full()
                     .flex_none()
                     .items_center()
                     .justify_between()
-                    .px(px(14.0))
-                    .py(px(12.0))
                     .border_b_1()
                     .border_color(theme.border)
                     .child(
@@ -131,9 +129,10 @@ impl MqttView {
                             .child(
                                 ramag_ui::clickable_button("mqtt-add-profile")
                                     .disabled(self.is_busy())
-                                    .ghost()
-                                    .xsmall()
+                                    .primary()
+                                    .small()
                                     .icon(IconName::Plus)
+                                    .label("新建")
                                     .tooltip("新建配置")
                                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
                                         this.new_profile(window, cx)
@@ -295,15 +294,14 @@ impl MqttView {
                         })),
                 )
             });
-        v_flex()
+        ramag_ui::pulse_ui::pulse_entry_header(cx)
+            .flex_col()
+            .items_stretch()
             .w_full()
             .flex_none()
             .gap(px(10.0))
-            .px(px(16.0))
-            .py(px(12.0))
             .border_b_1()
             .border_color(theme.border)
-            .bg(theme.secondary.opacity(0.35))
             .child(
                 h_flex()
                     .w_full()

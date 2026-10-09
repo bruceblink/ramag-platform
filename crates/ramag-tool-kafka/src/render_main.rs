@@ -50,15 +50,14 @@ impl KafkaView {
             .min_h_0()
             .bg(theme.background)
             .child(
-                h_flex()
+                ramag_ui::pulse_ui::pulse_entry_header(cx)
                     .debug_selector(|| "kafka-header".into())
-                    .h(px(58.0))
+                    .min_h(px(58.0))
                     .flex_none()
                     .items_center()
                     .justify_between()
-                    .px(px(22.0))
                     .when(compact, |row| {
-                        row.h(px(106.0))
+                        row.min_h(px(106.0))
                             .flex_col()
                             .items_stretch()
                             .justify_start()

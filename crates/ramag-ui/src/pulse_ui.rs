@@ -1,6 +1,8 @@
 //! 可复用的 System Pulse 风格监控 UI 基础组件。
 
+mod pulse_home;
 mod pulse_navigation;
+pub use pulse_home::{pulse_entry_header, pulse_home_frame, pulse_home_panel, pulse_home_toolbar};
 pub use pulse_navigation::{PulseTab, pulse_device_selector, pulse_tabs};
 
 use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};

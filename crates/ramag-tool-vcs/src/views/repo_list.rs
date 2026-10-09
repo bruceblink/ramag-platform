@@ -107,7 +107,6 @@ impl VcsView {
         let accent = theme.accent;
         let border = theme.border;
         let row_hover = theme.muted;
-        let bg = theme.background;
         let busy = self.busy || self.loading || self.directory_picker_busy;
         let compact = window.viewport_size().width < px(720.0);
 
@@ -122,97 +121,77 @@ impl VcsView {
         let total = repos_rc.len();
         let visible_count = filtered_indices.len();
 
-        let header_inner = v_flex()
-            .debug_selector(|| "vcs-repo-list-header-inner".into())
-            .w_full()
-            .min_w_0()
-            .gap(px(12.0))
+        let header = ramag_ui::pulse_ui::pulse_page_title(
+            "仓库管理",
+            Some(format!("最近打开的 {total} 个仓库")),
+            cx,
+        )
+        .max_w(px(CONTENT_MAX_W))
+        .id("vcs-repo-list-page-title")
+        .debug_selector(|| "vcs-repo-list-page-title".into());
+        let toolbar = ramag_ui::pulse_ui::pulse_home_toolbar(cx)
+            .debug_selector(|| "vcs-repo-list-toolbar".into())
             .child(
-                ramag_ui::pulse_ui::pulse_page_title(
-                    "仓库管理",
-                    Some(format!("最近打开的 {total} 个仓库")),
-                    cx,
-                )
-                .id("vcs-repo-list-page-title")
-                .debug_selector(|| "vcs-repo-list-page-title".into()),
-            )
-            .child(
-                ramag_ui::responsive_toolbar()
-                    .debug_selector(|| "vcs-repo-list-toolbar".into())
+                div()
+                    .debug_selector(|| "vcs-repo-list-search-field".into())
+                    .flex_1()
+                    .min_w_0()
                     .child(
                         div()
-                            .debug_selector(|| "vcs-repo-list-search-field".into())
-                            .flex_1()
-                            .min_w_0()
+                            .w_full()
+                            .max_w(px(360.0))
+                            .min_w(if compact { px(160.0) } else { px(0.0) })
                             .child(
-                                div()
-                                    .w_full()
-                                    .max_w(px(360.0))
-                                    .min_w(if compact { px(160.0) } else { px(0.0) })
-                                    .child(
-                                        ramag_ui::cleanable_input(
-                                            &self.repo_search_input,
-                                            "vcs-repo-search-clear",
-                                            false,
-                                            cx,
-                                        )
-                                        .small()
-                                        .prefix(
-                                            Icon::new(IconName::Search)
-                                                .small()
-                                                .text_color(muted_fg),
-                                        ),
-                                    ),
+                                ramag_ui::cleanable_input(
+                                    &self.repo_search_input,
+                                    "vcs-repo-search-clear",
+                                    false,
+                                    cx,
+                                )
+                                .small()
+                                .prefix(Icon::new(IconName::Search).small().text_color(muted_fg)),
                             ),
-                    )
-                    .child(
-                        ramag_ui::clickable_button("vcs-repo-add")
-                            .ghost()
-                            .small()
-                            .flex_none()
-                            .icon(IconName::FolderOpen)
-                            .tooltip("打开")
-                            .disabled(busy)
-                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                this.pick_directory(cx);
-                            })),
-                    )
-                    .child(
-                        ramag_ui::clickable_button("vcs-repo-clone")
-                            .ghost()
-                            .small()
-                            .flex_none()
-                            .icon(ramag_ui::icons::git_clone())
-                            .tooltip("克隆")
-                            .disabled(busy)
-                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                this.open_clone_dialog(window, cx);
-                            })),
-                    )
-                    .child(
-                        ramag_ui::clickable_button("vcs-repo-init")
-                            .ghost()
-                            .small()
-                            .flex_none()
-                            .icon(IconName::Plus)
-                            .tooltip("初始化")
-                            .disabled(busy)
-                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                this.pick_init_directory(cx);
-                            })),
                     ),
+            )
+            .child(
+                ramag_ui::clickable_button("vcs-repo-add")
+                    .ghost()
+                    .small()
+                    .flex_none()
+                    .icon(IconName::FolderOpen)
+                    .label("打开")
+                    .tooltip("打开")
+                    .disabled(busy)
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        this.pick_directory(cx);
+                    })),
+            )
+            .child(
+                ramag_ui::clickable_button("vcs-repo-clone")
+                    .ghost()
+                    .small()
+                    .flex_none()
+                    .icon(ramag_ui::icons::git_clone())
+                    .label("克隆")
+                    .tooltip("克隆")
+                    .disabled(busy)
+                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                        this.open_clone_dialog(window, cx);
+                    })),
+            )
+            .child(
+                ramag_ui::clickable_button("vcs-repo-init")
+                    .ghost()
+                    .small()
+                    .flex_none()
+                    .icon(IconName::Plus)
+                    .label("初始化")
+                    .tooltip("初始化")
+                    .disabled(busy)
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                        this.pick_init_directory(cx);
+                    })),
             );
-
-        let header = h_flex()
-            .debug_selector(|| "vcs-repo-list-header".into())
-            .w_full()
-            .justify_center()
-            .px(px(24.0))
-            .pt(px(22.0))
-            .pb(px(16.0))
-            .border_b_1()
-            .border_color(border)
-            .child(div().w_full().max_w(px(CONTENT_MAX_W)).child(header_inner));
 
         let body: AnyElement = if total == 0 {
             empty_state(cx)
@@ -246,43 +225,48 @@ impl VcsView {
                         range
                             .map(|row_index| {
                                 let repo_index = filtered_indices[row_index];
-                                h_flex()
-                                    .w_full()
-                                    .justify_center()
-                                    .px(px(24.0))
-                                    .child(div().w_full().max_w(px(CONTENT_MAX_W)).child(repo_row(
-                                        &repos_rc[repo_index],
-                                        compact,
-                                        busy,
-                                        border,
-                                        row_hover,
-                                        accent,
-                                        fg,
-                                        muted_fg,
-                                        cx,
-                                    )))
-                                    .into_any_element()
+                                repo_row(
+                                    &repos_rc[repo_index],
+                                    compact,
+                                    busy,
+                                    border,
+                                    row_hover,
+                                    accent,
+                                    fg,
+                                    muted_fg,
+                                    cx,
+                                )
+                                .into_any_element()
                             })
                             .collect::<Vec<_>>()
                     }
                 }),
             )
-            .size_full();
-            div()
+            .w_full()
+            .flex_1()
+            .min_h_0();
+            v_flex()
                 .size_full()
-                .py(px(10.0))
+                .min_h_0()
+                .child(repo_heading(compact, cx))
                 .child(rows)
                 .into_any_element()
         };
 
-        let mut root = v_flex()
+        let mut root = ramag_ui::pulse_ui::pulse_home_frame(cx)
             .debug_selector(|| "vcs-repo-list".into())
-            .size_full()
-            .bg(bg);
+            .size_full();
         if let Some(banner) = self.render_error_banner(cx) {
             root = root.child(banner);
         }
-        root.child(header).child(body).into_any_element()
+        root.child(header)
+            .child(
+                ramag_ui::pulse_ui::pulse_home_panel(cx)
+                    .debug_selector(|| "vcs-repo-list-panel".into())
+                    .child(toolbar)
+                    .child(div().flex_1().min_h_0().overflow_hidden().child(body)),
+            )
+            .into_any_element()
     }
 
     fn filtered_repo_indices(
@@ -444,6 +428,36 @@ fn clone_repo_name(source: &str) -> Option<String> {
     let tail = tail.rsplit(':').next().unwrap_or(tail);
     let name = tail.strip_suffix(".git").unwrap_or(tail);
     (!name.is_empty() && name != "." && name != "..").then(|| name.to_string())
+}
+
+/// Headings share the row's fixed type, path and action widths.
+fn repo_heading(compact: bool, cx: &gpui_kit::App) -> gpui_kit::Div {
+    h_flex()
+        .w_full()
+        .flex_none()
+        .h(px(32.0))
+        .px(px(14.0))
+        .gap(px(12.0))
+        .items_center()
+        .text_xs()
+        .text_color(cx.theme().muted_foreground)
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .when(!compact, |header| {
+            header.child(div().w(px(76.0)).flex_none().child("类型"))
+        })
+        .child(
+            div()
+                .debug_selector(|| "vcs-repo-list-heading-name".into())
+                .flex_1()
+                .min_w_0()
+                .when(compact, |cell| cell.pl(px(64.0)))
+                .child("仓库"),
+        )
+        .when(!compact, |header| {
+            header.child(div().w(px(360.0)).flex_none().child("路径"))
+        })
+        .child(div().w(px(36.0)).flex_none().child("操作"))
 }
 
 #[allow(clippy::too_many_arguments)]

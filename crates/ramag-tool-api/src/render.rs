@@ -59,30 +59,17 @@ pub(super) fn render(
                 .track_scroll(&view.layout_scroll)
                 .vertical_scrollbar(&view.layout_scroll)
         })
-        .child(render_header(view, cx, &theme))
+        .child(render_header(view, cx))
         .child(content)
         .into_any_element()
 }
 
-fn render_header(
-    view: &mut ApiView,
-    cx: &mut Context<ApiView>,
-    theme: &gpui_kit::component::Theme,
-) -> gpui_kit::AnyElement {
-    h_flex()
+fn render_header(view: &mut ApiView, cx: &mut Context<ApiView>) -> gpui_kit::AnyElement {
+    ramag_ui::pulse_ui::pulse_entry_header(cx)
         .id("api-header")
         .debug_selector(|| "api-header".into())
-        .bg(theme.secondary)
-        .w_full()
         .min_w_0()
-        .flex_none()
-        .flex_wrap()
         .items_center()
-        .gap(px(8.0))
-        .px(px(14.0))
-        .py(px(10.0))
-        .border_b_1()
-        .border_color(theme.border)
         .child(
             ramag_ui::pulse_ui::pulse_page_title("API 测试", Some("HTTP 与 gRPC 请求工作区"), cx)
                 .id("api-page-title")
@@ -113,7 +100,7 @@ fn render_sidebar(
     v_flex()
         .id("api-sidebar")
         .debug_selector(|| "api-sidebar".into())
-        .bg(theme.sidebar)
+        .bg(ramag_ui::pulse_ui::pulse_palette(cx).surface)
         .w(px(API_SIDEBAR_WIDTH))
         .flex_none()
         .min_h_0()

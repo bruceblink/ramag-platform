@@ -17,6 +17,129 @@ struct ConnectionListTestHost {
     panel: Entity<ConnectionListPanel>,
 }
 
+/// Exercise the actual virtual rows and fixed headings, including empty optional metadata.
+#[gpui_kit::test]
+fn connection_rows_and_headings_share_bounds_and_uniform_height(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let storage: Arc<dyn Storage> = Arc::new(NoopStorage);
+    let service = Arc::new(ConnectionService::new(HashMap::new(), storage.clone()));
+    let redis = Arc::new(RedisService::new(
+        Arc::new(ramag_infra_redis::RedisDriver::new()),
+        storage.clone(),
+    ));
+    let mongo = Arc::new(MongoService::new(
+        Arc::new(ramag_infra_mongodb::MongoDriver::new()),
+        storage,
+    ));
+    let mut connections = Vec::new();
+    for driver in [
+        ramag_domain::entities::DriverKind::Mysql,
+        ramag_domain::entities::DriverKind::Postgres,
+        ramag_domain::entities::DriverKind::Sqlite,
+        ramag_domain::entities::DriverKind::Redis,
+        ramag_domain::entities::DriverKind::Mongodb,
+        ramag_domain::entities::DriverKind::Mysql,
+    ] {
+        let mut connection = ConnectionConfig::new_mysql(
+            "很长的数据源名称用于验证操作仍可达和完整名称提示",
+            "127.0.0.1",
+            13306,
+            "ramag",
+        );
+        connection.driver = driver;
+        if connections.is_empty() {
+            connection.environment = Some("很长的自定义环境名称".into());
+            connection.production = true;
+        }
+        connections.push(connection);
+    }
+    let keys: Vec<_> = connections.iter().map(|c| c.id.to_string()).collect();
+    let mut panel_entity = None;
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let panel = cx.new(|panel_cx| {
+            let mut panel = ConnectionListPanel::new(service, redis, mongo, window, panel_cx);
+            panel.refresh_generation = panel.refresh_generation.wrapping_add(1);
+            panel.loading = false;
+            panel.connections = Arc::new(connections);
+            panel
+                .versions
+                .insert(panel.connections[0].id.clone(), "8.4.0".into());
+            panel.loaded_revision = panel.service.revision();
+            panel
+        });
+        panel_entity = Some(panel.clone());
+        ConnectionListTestHost { panel }
+    });
+    let panel = panel_entity.unwrap();
+    for mode in [ramag_ui::Mode::Dark, ramag_ui::Mode::Light] {
+        for text_size in [
+            ramag_ui::InterfaceTextSize::Standard,
+            ramag_ui::InterfaceTextSize::Large,
+        ] {
+            cx.update(|_, app| {
+                ramag_ui::set_system_settings(
+                    ramag_ui::SystemSettings {
+                        text_size,
+                        ..Default::default()
+                    },
+                    app,
+                );
+                ramag_ui::apply_theme(mode, app);
+            });
+            for width in [360.0, 899.0, 900.0, 1024.0, 1119.0, 1120.0, 1440.0] {
+                cx.simulate_resize(size(px(width), px(900.0)));
+                panel.update(cx, |_, cx| cx.notify());
+                cx.run_until_parked();
+                let surface = cx.debug_bounds("connection-list-panel").unwrap();
+                let toolbar = cx.debug_bounds("connection-list-toolbar").unwrap();
+                let heading = cx.debug_bounds("connection-list-column-header").unwrap();
+                assert_eq!(toolbar.origin.x, heading.origin.x);
+                assert_eq!(toolbar.size.width, heading.size.width);
+                assert!(heading.bottom() < surface.bottom());
+                let mut row_height = None;
+                for key in &keys {
+                    let row_selector: &'static str =
+                        Box::leak(format!("connection-row-{key}").into_boxed_str());
+                    let name_selector: &'static str =
+                        Box::leak(format!("connection-row-name-{key}").into_boxed_str());
+                    let actions_selector: &'static str =
+                        Box::leak(format!("connection-row-actions-{key}").into_boxed_str());
+                    let row = cx.debug_bounds(row_selector).unwrap();
+                    let name = cx.debug_bounds(name_selector).unwrap();
+                    let actions = cx.debug_bounds(actions_selector).unwrap();
+                    assert!(
+                        name.size.width >= px(80.0),
+                        "name collapsed at {width}: {name:?}"
+                    );
+                    assert!(name.origin.x >= row.origin.x && name.right() <= actions.origin.x);
+                    assert!(actions.right() <= row.right() && actions.bottom() <= row.bottom());
+                    assert_eq!(row.size.height, *row_height.get_or_insert(row.size.height));
+                    assert_eq!(
+                        actions.origin.x,
+                        cx.debug_bounds("connection-header-actions")
+                            .unwrap()
+                            .origin
+                            .x
+                    );
+                    if width >= 900.0 {
+                        for column in ["kind", "address"] {
+                            let cell_selector: &'static str = Box::leak(
+                                format!("connection-row-{column}-{key}").into_boxed_str(),
+                            );
+                            let header_selector: &'static str =
+                                Box::leak(format!("connection-header-{column}").into_boxed_str());
+                            let cell = cx.debug_bounds(cell_selector).unwrap();
+                            let header = cx.debug_bounds(header_selector).unwrap();
+                            assert_eq!(cell.origin.x, header.origin.x);
+                            assert_eq!(cell.size.width, header.size.width);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl Render for ConnectionListTestHost {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         div().size_full().child(self.panel.clone())
