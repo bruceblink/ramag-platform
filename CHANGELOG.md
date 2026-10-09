@@ -4,6 +4,25 @@
 
 > 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
 
+## [0.5.0] - 2026-10-09
+
+Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.4.0...v0.5.0
+
+### 🚀 新功能 / Features
+
+- 统一 DBClient、VCS、SSH、对象存储、Kafka、MQTT、API、Container、剪贴板、JSON Path 和协作工具首页的标题层级、工具栏、列表面板与空状态。
+- 为数据源和仓库首页补齐清晰的表头、信息列、主要操作入口和稳定列表行布局。
+
+### 🐛 问题修复 / Bug Fixes
+
+- 修复剪贴板删除后搜索结果、选中项和详情残留的问题。
+- 修复撤销操作与过期搜索结果覆盖当前查询状态的问题；失败操作保留可用的当前数据。
+
+### 🧰 维护、文档与测试 / Maintenance, Docs & Tests
+
+- 增加共享首页布局组件和跨工具的响应式布局测试，覆盖明暗主题、字体大小及紧凑窗口。
+- 完成 workspace 测试、严格 Clippy、格式、源文件尺寸检查和 Windows 真实窗口验收。
+
 ## [0.4.0] - 2026-09-29
 
 Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.3.0...v0.4.0
