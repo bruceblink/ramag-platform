@@ -5,7 +5,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use gpui_kit::component::{Disableable as _, notification::Notification};
-use gpui_kit::{Context, InteractiveElement as _, ScrollStrategy};
+use gpui_kit::{
+    Context, InteractiveElement as _, IntoElement as _, ScrollStrategy, Styled as _, div, px,
+};
 use ramag_domain::entities::{ClipId, ClipItem};
 use tracing::{error, warn};
 
@@ -277,10 +279,19 @@ impl ClipboardView {
                                                         error = %e,
                                                         "restore clipboard entry failed"
                                                     );
-                                                    this.pending_notification =
-                                                        Some(Notification::error(format!(
+                                                    this.pending_notification = Some(
+                                                        Notification::error(format!(
                                                             "撤销失败：{e}"
-                                                        )));
+                                                        ))
+                                                        .content(|_, _, _| {
+                                                            div()
+                                                                .debug_selector(|| {
+                                                                    "clipboard-restore-error".into()
+                                                                })
+                                                                .size(px(0.0))
+                                                                .into_any_element()
+                                                        }),
+                                                    );
                                                 } else {
                                                     this.schedule_search(cx);
                                                 }

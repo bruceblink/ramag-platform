@@ -1,6 +1,7 @@
 //! Mutation regressions use synthetic history and a driver that never reads the OS clipboard.
 
 use super::*;
+use gpui_kit::test::TestWindowExt as _;
 use ramag_domain::entities::{ClipId, ClipItem, ClipKind};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -152,12 +153,16 @@ fn undo_button_restores_entry_and_requeries_current_search(cx: &mut TestAppConte
             .is_empty()
     );
     let generation = view.read_with(cx, |view, _| view.search_gen);
-    storage
-        .rows
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .push(item.as_ref().clone());
-    view.update(cx, |view, cx| view.schedule_search(cx));
+    // Toast buttons stay non-visible while the 400 ms entrance animation is running.
+    std::thread::sleep(Duration::from_millis(410));
+    let undo = cx.debug_bounds("clip-undo-delete");
+    assert!(undo.is_some(), "删除成功后应渲染撤销按钮");
+    if undo.is_none() {
+        return;
+    }
+    cx.update(|window, app| window.click("clip-undo-delete", app));
+    cx.run_until_parked();
+    assert_eq!(storage.restore_calls.load(Ordering::SeqCst), 1);
     assert!(view.read_with(cx, |view, _| view.search_gen > generation));
     assert_eq!(
         view.read_with(cx, |view, app| view.search.read(app).value().to_string()),
@@ -179,6 +184,47 @@ fn undo_button_restores_entry_and_requeries_current_search(cx: &mut TestAppConte
     assert!(
         results.iter().any(|row| row.id == item.id),
         "撤销后应重新执行当前查询：results={results:?}"
+    );
+}
+
+#[gpui_kit::test]
+fn undo_button_reports_restore_failure_without_resurrecting_entry(cx: &mut TestAppContext) {
+    let item = sample();
+    let storage = Arc::new(TestStorage::default());
+    storage
+        .rows
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .push(item.as_ref().clone());
+    let Some((view, cx)) = window_with_entry(cx, storage.clone(), item.clone()) else {
+        return;
+    };
+    view.update(cx, |view, cx| view.delete_clip(item.clone(), cx));
+    cx.run_until_parked();
+    storage.fail_restore.store(true, Ordering::SeqCst);
+    // Toast buttons stay non-visible while the 400 ms entrance animation is running.
+    std::thread::sleep(Duration::from_millis(410));
+    let undo = cx.debug_bounds("clip-undo-delete");
+    assert!(undo.is_some(), "删除成功后应渲染撤销按钮");
+    if undo.is_none() {
+        return;
+    }
+    cx.update(|window, app| window.click("clip-undo-delete", app));
+    cx.run_until_parked();
+
+    assert_eq!(storage.restore_calls.load(Ordering::SeqCst), 1);
+    assert!(
+        storage
+            .rows
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .is_empty(),
+        "撤销失败时不能重新写入条目"
+    );
+    assert!(
+        view.read_with(cx, |view, _| view.pending_notification.is_some())
+            || cx.debug_bounds("clipboard-restore-error").is_some(),
+        "撤销失败时应保留错误通知"
     );
 }
 

@@ -95,6 +95,8 @@ impl ClipboardDriver for TestClipboard {
 struct TestStorage {
     rows: std::sync::Mutex<Vec<ramag_domain::entities::ClipItem>>,
     fail_delete: std::sync::atomic::AtomicBool,
+    fail_restore: std::sync::atomic::AtomicBool,
+    restore_calls: std::sync::atomic::AtomicUsize,
     fail_search: std::sync::atomic::AtomicBool,
     hold_search: std::sync::atomic::AtomicBool,
     search_held: std::sync::atomic::AtomicBool,
@@ -154,6 +156,13 @@ impl Storage for TestStorage {
     }
 
     async fn clip_save(&self, item: &ramag_domain::entities::ClipItem) -> Result<()> {
+        self.restore_calls
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if self.fail_restore.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(ramag_domain::error::DomainError::Storage(
+                "test restore failure".into(),
+            ));
+        }
         let mut rows = self
             .rows
             .lock()
