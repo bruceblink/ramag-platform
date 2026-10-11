@@ -225,6 +225,51 @@ pub(super) fn snapshot(sequence: u64) -> Snapshot {
             None,
         );
     }
+    sensor(
+        &mut snapshot,
+        "volume:root",
+        "iops",
+        "Backing device IOPS",
+        (K::Rate, U::CountPerSecond),
+        24. + phase,
+        None,
+    );
+    sensor(
+        &mut snapshot,
+        "volume:root",
+        "latency",
+        "Backing device mean request latency",
+        (K::Scalar, U::Milliseconds),
+        2.5 + phase * 0.1,
+        None,
+    );
+    sensor(
+        &mut snapshot,
+        "network:eth0",
+        "rx-total",
+        "Receive cumulative bytes",
+        (K::Counter, U::Bytes),
+        4.2e9 + phase * 1.0e8,
+        None,
+    );
+    sensor(
+        &mut snapshot,
+        "network:eth0",
+        "tx-total",
+        "Transmit cumulative bytes",
+        (K::Counter, U::Bytes),
+        1.7e9 + phase * 1.0e8,
+        None,
+    );
+    sensor(
+        &mut snapshot,
+        "network:eth0",
+        "connections",
+        "Established TCP connections",
+        (K::Counter, U::Count),
+        7. + phase,
+        None,
+    );
     if sequence == 3 {
         let gap = snapshot
             .readings

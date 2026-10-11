@@ -41,7 +41,7 @@ pub(crate) fn metric(
         .into_any_element()
 }
 
-fn stat(channel: &Channel, state: &Data, cx: &App) -> AnyElement {
+pub(crate) fn stat(channel: &Channel, state: &Data, cx: &App) -> AnyElement {
     let detail = format!(
         "{}\n{}",
         crate::meters::value(channel.latest(state)),
@@ -429,24 +429,11 @@ fn device(screen: Screen, state: &Data, cx: &App) -> AnyElement {
                 .latest(state)
                 .is_some_and(|sample| sample.total.is_some())
     });
-    let primary = if screen == Screen::Disks {
-        capacity
-    } else {
-        rate_rows.first().copied()
-    };
-    let secondary_color = accent(Screen::Thermals, cx);
-    div().flex().flex_col().gap_4()
-        .when_some(primary, |view, primary| view.child(hero_meter(primary, state, screen, cx)))
-        .child(section(cx).child(heading(if screen == Screen::Disks { "Disk transfer rate" } else { "Network throughput" }, 19., cx))
-            .child(div().flex().flex_wrap().gap_4().children(rate_rows.iter().enumerate().map(|(index, channel)| {
-                metric(format!("rate:{}", channel.sensor), channel.label.clone(), channel.value(state),
-                    if index == 0 { color } else { secondary_color }, cx)
-            })))
-            .child(history_chart(format!("device-history:{}", screen.id()), rate_rows.iter().enumerate()
-                .map(|(index, channel)| series(channel, state, if index == 0 { color } else { secondary_color })).collect(),
-                345., None, cx)))
-        .child(div().flex().flex_wrap().gap_4().children(rows.iter().map(|channel| stat(channel, state, cx))))
-        .when(screen == Screen::Disks, |view| view.child(div().text_size(px(12.)).text_color(palette(cx).muted)
-            .child("Capacity describes this filesystem. Transfer rates describe its backing block device.")))
-        .into_any_element()
+    match screen {
+        Screen::Disks => {
+            crate::screen_device_pages::disk(&rows, capacity, &rate_rows, state, color, cx)
+        }
+        Screen::Network => crate::screen_device_pages::network(&rows, &rate_rows, state, color, cx),
+        _ => unreachable!("device() only renders disk and network screens"),
+    }
 }

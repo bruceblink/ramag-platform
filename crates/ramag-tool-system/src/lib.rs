@@ -17,6 +17,7 @@ mod panel_context;
 mod processes;
 mod screen_charts;
 mod screen_data;
+mod screen_device_pages;
 mod screen_pages;
 mod screen_style;
 mod screen_summary;

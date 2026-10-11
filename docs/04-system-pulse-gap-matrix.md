@@ -184,14 +184,20 @@ Ramag 隔离预览使用 `cargo build --locked -p ramag-bin --example ui-preview
 | CPU | Overall meter、24 个逻辑处理器图表、Uptime、进程数和 CPU package power | CPU 利用率、频率、进程/线程、逐核心传感器卡和历史图 | 功能来源覆盖；图表网格和底部摘要布局仍未一一对齐 |
 | Memory | Overall meter、全宽 Memory utilization、RAM used/total/available/free 与 Swap used/total | 同样保留用量表、全宽利用率图、物理内存分布条和状态化统计区 | 代码结构与参考布局一致；旧的“单图加底部六项布局”差异不再作为待办，精确像素对照仍需真实窗口 |
 | GPU | 选定 NVIDIA GeForce RTX 3060，使用历史图、VRAM 量表、共享内存、温度、功率、时钟和风扇字段 | 同一 GPU 的 usage、VRAM、共享内存、温度、功率、时钟和风扇卡片 | 传感器功能通过；选中标题、量表与卡片布局仍需统一 |
-| Disks | 文件系统下拉选择器、Filesystem used 量表、读写合并趋势和容量说明；Computer Use 已验证 `C:\` 切换 `F:\` 后保持 | 磁盘页签选择器、Filesystem used/read/write/IOPS/latency 卡片；Summary 保持所选磁盘 | 选择、容量和读写来源通过；下拉选择器与合并趋势布局待对齐 |
-| Network | 接口下拉选择器、RX/TX 合并趋势、累计 RX/TX | 接口页签、RX/RX total/TX/TX total/TCP 卡片；Summary 保持所选接口 | 接口和双向数据通过；选择器、趋势和累计值位置待对齐 |
+| Disks | 文件系统下拉选择器、Filesystem used 量表、读写合并趋势和容量说明；Computer Use 已验证 `C:\` 切换 `F:\` 后保持 | 磁盘页签选择器、Filesystem used/read/write/IOPS/latency 卡片；Summary 保持所选磁盘 | `A-PULSE-GAP-03-DN` 已完成代码与 headless 分区对齐；真实窗口复核待 Computer Use 恢复 |
+| Network | 接口下拉选择器、RX/TX 合并趋势、累计 RX/TX | 接口页签、RX/RX total/TX/TX total/TCP 卡片；Summary 保持所选接口 | `A-PULSE-GAP-03-DN` 已完成代码与 headless 分区对齐；真实窗口复核待 Computer Use 恢复 |
 | Energy | 通过右上设备选择器切换到 `CPU · CPU package power`；主读数、量表和历史图使用该传感器，下面保留 CPU package 与 NVIDIA GPU measured power channels | 通过 Energy 页下拉菜单在 GPU power 与 CPU package power 间切换；主读数、量表、历史图、来源/范围/单位和 measured channels 均随稳定 ID 更新 | `A-PULSE-GAP-06-Energy` 真实窗口功能通过；Ramag 保留工作台壳层和紧凑标题，精确字体/卡片排布留在视觉细节切片 |
 | Thermals | 选定 GPU temperature，突出最热当前传感器、温度量表、历史图和传感器卡；提供 CPU temperature 授权按钮 | CPU temperature、GPU temperature、CPU package temperature 三张卡；选择器、动态摄氏量程、不可用字段原因和授权入口均可见 | `A-PULSE-GAP-06-Thermals` 真实窗口功能通过；不同平台硬件精度和授权成功路径另行验证 |
 | Processes | 搜索框、End task/Force quit、PID/Name/CPU(one core)/Memory/Read I/O/Write I/O/User 列；搜索 `system-pulse` 后保留两个进程 | 搜索框、相同字段及顺序，支持表头排序、搜索和行操作；另有身份绑定详情 | 列字段和顺序已对齐；Ramag 详情区和操作呈现属于工作台差异，进程键盘行导航已有实现，原生键盘证据未单独覆盖 |
 | Settings | Appearance（主题、界面字体、数字字体）、Sampling（0.5/1/2/5s）和 Presets（内置预设、命名输入、保存） | 主题、字号、滚动条、界面字体、数值字体、0.5/1/2/5s 采样、采集状态和固定监控预设管理 | `A-PULSE-GAP-05`、`09`、`10` 已通过目标测试和限定真实窗口对照；跨页面可停靠布局仍不适用 |
 
 本轮十页验收的结果是：`03A/03B` 的 Summary 交付范围、`06-Energy` 的主传感器选择、`06-Thermals` 的最热/选中温度组合、`09-Settings-Appearance` 的字体选择、`10-Settings-Sampling` 的四档采样和 `05` 的固定监控预设管理已通过目标测试与限定真实窗口对照，CPU、Memory、GPU、Disks、Network、Processes、Thermals 的主要数据来源和状态可见；各详细页的精确布局、跨平台硬件精度、应用级页签导航与屏幕恢复仍按矩阵单独记录。后续每个切片继续执行“参考窗口操作 -> Ramag 同流程 -> 记录结果”的顺序，不能以静态截图、旧测试或单纯编译成功替代该证据。
+
+### 2026-10-11 `A-PULSE-GAP-03-DN` Disks 与 Network 详细页分区对齐
+
+Disks 现在按容量主量表、`Read / write throughput` 合并趋势和 `Backing device details` 统计区排列；Network 按实时收发主量表、`Receive / transmit throughput` 合并趋势和 `Cumulative traffic` 统计区排列。设备选择器仍位于页头，设备 ID、选择恢复和缺失身份逻辑保持不变。
+
+`cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 通过 112 项；`cargo build --locked -p ramag-bin`、workspace 严格 Clippy、fmt、Windows 源码尺寸和 `git diff --check` 通过。headless 几何回归覆盖详细页主量表、趋势、统计区的顺序和累计/辅助指标可见性。已启动当前源码构建 `target/x86_64-pc-windows-msvc/debug/ramag.exe` 并确认窗口标题和进程路径，但 CUA 仍返回空应用清单，因此本切片不宣称真实鼠标/键盘验收，也不检查 GitHub CI。
 
 ### 2026-10-04 `A-QUALITY-CHART-AXIS-001` 图表纵轴布局修复
 

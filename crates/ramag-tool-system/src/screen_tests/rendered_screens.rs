@@ -45,6 +45,50 @@ fn all_nine_navigable_screens_render_populated_collector_data(cx: &mut TestAppCo
 }
 
 #[gpui_kit::test]
+fn disks_and_network_details_keep_primary_trend_and_stats_sections(cx: &mut TestAppContext) {
+    use gpui_kit::{px, size};
+    let (view, cx) = populated(cx);
+    for (screen, device, primary, trend, stats, expected_stat) in [
+        (
+            Screen::Disks,
+            "volume:root",
+            "device-primary:disks",
+            "device-trend:disks",
+            "device-stats:disks",
+            "screen-stat:volume:root/iops",
+        ),
+        (
+            Screen::Network,
+            "network:eth0",
+            "device-primary:network",
+            "device-trend:network",
+            "device-stats:network",
+            "screen-stat:network:eth0/rx-total",
+        ),
+    ] {
+        command(
+            &view,
+            crate::workspace::Command::ScreenDevice(screen, device.into()),
+            cx,
+        );
+        command(&view, crate::workspace::Command::Screen(screen), cx);
+        for width in [360., 1024., 1440.] {
+            cx.simulate_resize(size(px(width), px(900.)));
+            draw(cx);
+            let primary_bounds = cx.debug_bounds(primary).test_unwrap();
+            let trend_bounds = cx.debug_bounds(trend).test_unwrap();
+            let stats_bounds = cx.debug_bounds(stats).test_unwrap();
+            assert!(primary_bounds.size.width > px(0.));
+            assert!(trend_bounds.size.width > px(0.));
+            assert!(stats_bounds.size.width > px(0.));
+            assert!(primary_bounds.bottom() <= trend_bounds.origin.y);
+            assert!(trend_bounds.bottom() <= stats_bounds.origin.y);
+            assert!(cx.debug_bounds(expected_stat).is_some());
+        }
+    }
+}
+
+#[gpui_kit::test]
 fn summary_metric_labels_follow_latest_cpu_and_memory_samples(cx: &mut TestAppContext) {
     let (view, cx) = populated(cx);
     command(
