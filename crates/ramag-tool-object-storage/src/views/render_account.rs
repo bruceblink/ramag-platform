@@ -16,6 +16,23 @@ use super::model::ObjectStorageView;
 
 const CONTENT_MAX_W: f32 = 1080.0;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AccountRowDensity {
+    Full,
+    Medium,
+    Narrow,
+}
+
+fn account_row_density(width: f32) -> AccountRowDensity {
+    if width < 600.0 {
+        AccountRowDensity::Narrow
+    } else if width < 900.0 {
+        AccountRowDensity::Medium
+    } else {
+        AccountRowDensity::Full
+    }
+}
+
 impl ObjectStorageView {
     pub(super) fn render_accounts(
         &self,
@@ -46,7 +63,8 @@ impl ObjectStorageView {
         if let Some(sort) = self.account_sort {
             sort_accounts(&mut visible, sort);
         }
-        let show_manual_count = f32::from(window.viewport_size().width) >= 900.0;
+        let density = account_row_density(f32::from(window.viewport_size().width));
+        let show_manual_count = density == AccountRowDensity::Full;
 
         let header_inner = ramag_ui::pulse_ui::pulse_home_toolbar(cx)
             .debug_selector(|| "object-account-toolbar".into())
@@ -145,11 +163,12 @@ impl ObjectStorageView {
         } else if visible.is_empty() {
             centered_message("暂无匹配", muted).into_any_element()
         } else {
-            let rows = v_flex()
-                .w_full()
-                .children(visible.into_iter().enumerate().map(|(index, account)| {
-                    self.render_account_row(index, account, show_manual_count, cx)
-                }));
+            let rows = v_flex().w_full().children(
+                visible
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, account)| self.render_account_row(index, account, density, cx)),
+            );
             let table = v_flex()
                 .size_full()
                 .min_h_0()
@@ -318,17 +337,24 @@ impl ObjectStorageView {
         &self,
         index: usize,
         account: ObjectStorageAccount,
-        show_manual_count: bool,
+        density: AccountRowDensity,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let id = account.id.clone();
         let edit_id = id.clone();
         let delete_id = id.clone();
+        let account_key = id.to_string();
+        let row_selector = format!("object-account-row-{account_key}");
+        let name_selector = format!("object-account-row-name-{account_key}");
+        let actions_selector = format!("object-account-row-actions-{account_key}");
+        let primary_selector = format!("object-account-row-primary-{account_key}");
+        let metadata_selector = format!("object-account-row-metadata-{account_key}");
         let selected = self.selected_account_id.as_ref() == Some(&id);
         let border = cx.theme().border;
         let muted = cx.theme().muted_foreground;
         let accent = cx.theme().accent;
         let danger = cx.theme().danger;
+        let narrow = density == AccountRowDensity::Narrow;
         let mut provider_bg = accent;
         provider_bg.a = 0.12;
         let mut production_bg = danger;
@@ -339,14 +365,15 @@ impl ObjectStorageView {
         };
         let provider_icon = ramag_ui::icons::object_storage_brand_icon(provider_id);
 
-        h_flex()
-            .id(SharedString::from(format!("object-account-{index}-{id}")))
-            .debug_selector(move || format!("object-account-row-{index}"))
+        let row = if narrow { v_flex() } else { h_flex() };
+        let mut row = row
+            .id(SharedString::from(format!("object-account-{id}")))
+            .debug_selector(move || row_selector.clone())
             .w_full()
             .min_w_0()
-            .flex_wrap()
+            .h(px(if narrow { 74.0 } else { 56.0 }))
             .items_center()
-            .gap(px(8.0))
+            .gap(px(if narrow { 4.0 } else { 8.0 }))
             .px(px(14.0))
             .py(px(8.0))
             .border_b_1()
@@ -360,122 +387,160 @@ impl ObjectStorageView {
             .hover(|row| row.bg(cx.theme().muted))
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                 this.select_account(id.clone(), window, cx);
-            }))
-            .child(
-                div()
-                    .id(SharedString::from(format!(
-                        "object-account-provider-icon-{index}"
-                    )))
-                    .debug_selector(move || format!("object-account-provider-icon-{index}"))
-                    .flex_none()
-                    .w(px(24.0))
-                    .flex()
-                    .justify_center()
-                    .when_some(provider_icon, |slot, icon| {
-                        slot.child(img(icon).size(px(18.0)))
-                    }),
-            )
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .text_sm()
-                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                    .overflow_hidden()
-                    .text_ellipsis()
-                    .child(account.name),
-            )
-            .child(
-                div()
-                    .debug_selector(move || format!("object-account-provider-{index}"))
-                    .flex_none()
-                    .w(px(120.0))
-                    .flex()
-                    .justify_center()
-                    .child(
-                        div()
-                            .px(px(8.0))
-                            .py(px(2.0))
-                            .rounded(px(4.0))
-                            .text_xs()
-                            .text_color(accent)
-                            .bg(provider_bg)
-                            .child(account.provider.display_name()),
-                    ),
-            )
-            .child(
-                div()
-                    .debug_selector(move || format!("object-account-read-only-{index}"))
-                    .flex_none()
-                    .w(px(56.0))
-                    .flex()
-                    .justify_center()
-                    .when(account.read_only, |slot| {
-                        slot.child(
-                            div()
-                                .px(px(6.0))
-                                .py(px(1.0))
-                                .rounded(px(4.0))
-                                .text_xs()
-                                .text_color(danger)
-                                .bg(production_bg)
-                                .child(ramag_ui::PRODUCTION_BADGE_LABEL),
-                        )
-                    }),
-            )
-            .when(show_manual_count, |row| {
-                row.child(
-                    div()
-                        .debug_selector(move || format!("object-account-bucket-count-{index}"))
-                        .flex_none()
-                        .w(px(140.0))
-                        .text_xs()
-                        .text_color(muted)
-                        .child(format!("{} 个 Bucket", account.manual_buckets.len())),
-                )
+            }));
+
+        let provider_label = account.provider.display_name();
+        let account_name = account.name.clone();
+        let name_tooltip = account.name.clone();
+        let name = div()
+            .id(SharedString::from(name_selector.clone()))
+            .debug_selector(move || name_selector.clone())
+            .flex_1()
+            .min_w_0()
+            .text_sm()
+            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+            .overflow_hidden()
+            .whitespace_nowrap()
+            .text_ellipsis()
+            .tooltip(move |window, cx| {
+                gpui_kit::component::tooltip::Tooltip::new(name_tooltip.clone()).build(window, cx)
             })
+            .child(account_name);
+        let icon = div()
+            .id(SharedString::from(format!(
+                "object-account-provider-icon-{index}"
+            )))
+            .debug_selector(move || format!("object-account-provider-icon-{index}"))
+            .flex_none()
+            .w(px(24.0))
+            .flex()
+            .justify_center()
+            .when_some(provider_icon, |slot, icon| {
+                slot.child(img(icon).size(px(18.0)))
+            });
+        let provider = div()
+            .debug_selector(move || format!("object-account-provider-{index}"))
+            .flex_none()
+            .w(px(120.0))
+            .flex()
+            .justify_center()
             .child(
-                h_flex()
-                    .debug_selector(move || format!("object-account-actions-{index}"))
-                    .flex_none()
-                    .w(px(72.0))
-                    .justify_end()
-                    .gap(px(4.0))
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .child(
-                        ramag_ui::clickable_button(SharedString::from(format!(
-                            "edit-object-account-{edit_id}"
-                        )))
-                        .ghost()
-                        .small()
-                        .icon(ramag_ui::icons::pencil())
-                        .tooltip("编辑")
-                        .on_click(cx.listener(
-                            move |this, _: &ClickEvent, window, cx| {
-                                cx.stop_propagation();
-                                this.selected_account_id = Some(edit_id.clone());
-                                this.show_edit_account(window, cx);
-                            },
-                        )),
-                    )
-                    .child(
-                        ramag_ui::clickable_button(SharedString::from(format!(
-                            "delete-object-account-{delete_id}"
-                        )))
-                        .ghost()
-                        .small()
-                        .icon(ramag_ui::icons::trash())
-                        .tooltip("删除")
-                        .on_click(cx.listener(
-                            move |this, _: &ClickEvent, window, cx| {
-                                cx.stop_propagation();
-                                this.selected_account_id = Some(delete_id.clone());
-                                this.request_delete_account(window, cx);
-                            },
-                        )),
-                    ),
+                div()
+                    .px(px(8.0))
+                    .py(px(2.0))
+                    .rounded(px(4.0))
+                    .text_xs()
+                    .text_color(accent)
+                    .bg(provider_bg)
+                    .child(provider_label),
+            );
+        let read_only = div()
+            .debug_selector(move || format!("object-account-read-only-{index}"))
+            .flex_none()
+            .w(px(56.0))
+            .flex()
+            .justify_center()
+            .when(account.read_only, |slot| {
+                slot.child(
+                    div()
+                        .px(px(6.0))
+                        .py(px(1.0))
+                        .rounded(px(4.0))
+                        .text_xs()
+                        .text_color(danger)
+                        .bg(production_bg)
+                        .child(ramag_ui::PRODUCTION_BADGE_LABEL),
+                )
+            });
+        let actions = h_flex()
+            .id(SharedString::from(actions_selector.clone()))
+            .debug_selector(move || actions_selector.clone())
+            .flex_none()
+            .w(px(72.0))
+            .justify_end()
+            .gap(px(4.0))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .child(
+                ramag_ui::clickable_button(SharedString::from(format!(
+                    "edit-object-account-{edit_id}"
+                )))
+                .ghost()
+                .small()
+                .icon(ramag_ui::icons::pencil())
+                .tooltip("编辑")
+                .on_click(cx.listener(
+                    move |this, _: &ClickEvent, window, cx| {
+                        cx.stop_propagation();
+                        this.selected_account_id = Some(edit_id.clone());
+                        this.show_edit_account(window, cx);
+                    },
+                )),
             )
-            .into_any_element()
+            .child(
+                ramag_ui::clickable_button(SharedString::from(format!(
+                    "delete-object-account-{delete_id}"
+                )))
+                .ghost()
+                .small()
+                .icon(ramag_ui::icons::trash())
+                .tooltip("删除")
+                .on_click(cx.listener(
+                    move |this, _: &ClickEvent, window, cx| {
+                        cx.stop_propagation();
+                        this.selected_account_id = Some(delete_id.clone());
+                        this.request_delete_account(window, cx);
+                    },
+                )),
+            );
+
+        if narrow {
+            row = row
+                .child(
+                    h_flex()
+                        .id(SharedString::from(primary_selector.clone()))
+                        .debug_selector(move || primary_selector.clone())
+                        .w_full()
+                        .min_w_0()
+                        .gap(px(8.0))
+                        .items_center()
+                        .child(icon)
+                        .child(name)
+                        .child(actions),
+                )
+                .child(
+                    h_flex()
+                        .id(SharedString::from(metadata_selector.clone()))
+                        .debug_selector(move || metadata_selector.clone())
+                        .w_full()
+                        .min_w_0()
+                        .h(px(24.0))
+                        .pl(px(32.0))
+                        .gap(px(8.0))
+                        .items_center()
+                        .child(provider)
+                        .child(read_only),
+                );
+        } else {
+            row = row
+                .child(icon)
+                .child(name)
+                .child(provider)
+                .child(read_only)
+                .when(density == AccountRowDensity::Full, |row| {
+                    row.child(
+                        div()
+                            .debug_selector(move || format!("object-account-bucket-count-{index}"))
+                            .flex_none()
+                            .w(px(140.0))
+                            .text_xs()
+                            .text_color(muted)
+                            .child(format!("{} 个 Bucket", account.manual_buckets.len())),
+                    )
+                })
+                .child(actions);
+        }
+
+        row.into_any_element()
     }
 }
 

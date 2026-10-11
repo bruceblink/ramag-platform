@@ -31,6 +31,10 @@ fn click_selector(visual: &mut VisualTestContext, selector: &'static str) {
     visual.run_until_parked();
 }
 
+fn selector(value: String) -> &'static str {
+    Box::leak(value.into_boxed_str())
+}
+
 /// 账号行中的固定徽标和操作组在窄窗口内应换行，而不是推出列表内容区。
 #[gpui_kit::test]
 fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
@@ -46,6 +50,12 @@ fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
         ManualBucket::new("logs-bucket", "cn-hangzhou"),
         ManualBucket::new("archive-bucket", "cn-hangzhou"),
     ];
+    let account_key = account.id.to_string();
+    let row_selector = selector(format!("object-account-row-{account_key}"));
+    let name_selector = selector(format!("object-account-row-name-{account_key}"));
+    let actions_selector = selector(format!("object-account-row-actions-{account_key}"));
+    let primary_selector = selector(format!("object-account-row-primary-{account_key}"));
+    let metadata_selector = selector(format!("object-account-row-metadata-{account_key}"));
     view.update(cx, |view, cx| {
         view.accounts = Arc::new(vec![account]);
         view.loading = false;
@@ -53,29 +63,67 @@ fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
         cx.notify();
     });
 
-    for (width, manual_count_visible) in [(360.0, false), (1024.0, true), (1440.0, true)] {
+    for (width, manual_count_visible) in [
+        (360.0, false),
+        (640.0, false),
+        (768.0, false),
+        (1024.0, true),
+        (1440.0, true),
+    ] {
         cx.simulate_resize(size(px(width), px(720.0)));
         cx.run_until_parked();
 
-        let row = cx
-            .debug_bounds("object-account-row-0")
-            .expect("对象存储账号行应渲染");
+        let row = cx.debug_bounds(row_selector).expect("对象存储账号行应渲染");
         assert!(
             row.origin.x >= px(0.0) && row.right() <= px(width),
             "对象存储账号行不能越出窗口：row={row:?}, width={width}"
         );
 
+        let name = cx
+            .debug_bounds(name_selector)
+            .expect("账号名称应使用稳定选择器渲染");
+        let actions = cx
+            .debug_bounds(actions_selector)
+            .expect("账号操作组应使用稳定选择器渲染");
+        assert_inside(row, name, "对象存储账号名称");
+        assert_inside(row, actions, "对象存储账号操作组");
+        if width < 600.0 {
+            assert_eq!(row.size.height, px(74.0), "窄行必须保留固定两行高度");
+            let primary = cx.debug_bounds(primary_selector).expect("窄行第一行应渲染");
+            let metadata = cx
+                .debug_bounds(metadata_selector)
+                .expect("窄行第二行应渲染");
+            assert_inside(row, primary, "对象存储账号窄行主行");
+            assert_inside(row, metadata, "对象存储账号窄行元数据行");
+            assert!(
+                primary.bottom() <= metadata.top(),
+                "窄行主行必须位于元数据行上方：primary={primary:?}, metadata={metadata:?}"
+            );
+        } else {
+            assert_eq!(row.size.height, px(56.0), "宽行必须保持统一行高");
+            assert!(
+                cx.debug_bounds(primary_selector).is_none()
+                    && cx.debug_bounds(metadata_selector).is_none(),
+                "宽行不应渲染窄屏两行结构"
+            );
+        }
+
         for selector in [
             "object-account-provider-0",
             "object-account-provider-icon-0",
             "object-account-read-only-0",
-            "object-account-actions-0",
         ] {
             let child = cx
                 .debug_bounds(selector)
                 .unwrap_or_else(|| panic!("{selector} 应渲染"));
             assert_inside(row, child, selector);
         }
+        assert_inside(
+            row,
+            cx.debug_bounds(actions_selector)
+                .expect("稳定账号操作组应渲染"),
+            "对象存储账号操作组",
+        );
         if manual_count_visible {
             let count = cx
                 .debug_bounds("object-account-bucket-count-0")
@@ -197,19 +245,20 @@ fn account_form_stays_inside_compact_window_and_keeps_actions_visible(cx: &mut T
 #[gpui_kit::test]
 fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestAppContext) {
     let (view, cx) = add_workspace_window(cx, service());
+    let accounts: Vec<_> = (0..32)
+        .map(|index| {
+            let provider = if index % 2 == 0 {
+                CloudProvider::AliyunOss
+            } else {
+                CloudProvider::TencentCos
+            };
+            ObjectStorageAccount::new(format!("account-{index:02}"), provider)
+        })
+        .collect();
+    let last_account_key = accounts[31].id.to_string();
+    let last_row_selector = selector(format!("object-account-row-{last_account_key}"));
     view.update(cx, |view, cx| {
-        view.accounts = Arc::new(
-            (0..32)
-                .map(|index| {
-                    let provider = if index % 2 == 0 {
-                        CloudProvider::AliyunOss
-                    } else {
-                        CloudProvider::TencentCos
-                    };
-                    ObjectStorageAccount::new(format!("account-{index:02}"), provider)
-                })
-                .collect(),
-        );
+        view.accounts = Arc::new(accounts);
         view.loading = false;
         view.management_visible = true;
         cx.notify();
@@ -217,7 +266,13 @@ fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestA
 
     for mode in [Mode::Light, Mode::Dark] {
         cx.update(|_, app| ramag_ui::apply_theme(mode, app));
-        for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+        for (width, height) in [
+            (360.0, 640.0),
+            (640.0, 768.0),
+            (768.0, 768.0),
+            (1024.0, 768.0),
+            (1440.0, 900.0),
+        ] {
             cx.simulate_resize(size(px(width), px(height)));
             cx.run_until_parked();
 
@@ -259,7 +314,7 @@ fn account_manager_uses_shared_page_hierarchy_at_supported_widths(cx: &mut TestA
                 .debug_bounds("object-account-list-scroll")
                 .expect("账号行应保留面板内的滚动区域");
             let last_row = cx
-                .debug_bounds("object-account-row-31")
+                .debug_bounds(last_row_selector)
                 .expect("长账号列表末行应参与布局");
 
             for (name, bounds) in [
