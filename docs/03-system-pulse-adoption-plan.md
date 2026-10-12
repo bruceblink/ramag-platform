@@ -9,19 +9,21 @@
 
 验证使用受影响库的目标测试、`cargo fmt --all -- --check`、workspace all-target Clippy `-D warnings`、完整 `ramag-bin` 构建、源码尺寸、LF 和 `git diff --check`。Computer Use 优先验证当前源码程序，只使用隔离连接配置和人工剪贴板测试记录。两个切片不改变数据库协议或外部服务，本机 Docker 集成不适用。回滚边界分别是 DBClient 连接行及其测试、剪贴板搜索/删除/撤销状态及其测试；不改用户连接或剪贴板历史。
 
-> 状态：2026-10-11 更新：System Pulse 完整迁入、监控设置收口和公共样式首轮推广已完成；当前只维护可复现的 UI/功能差异和真实窗口证据边界。
+> 状态：2026-10-12 更新：System Pulse 完整迁入、监控设置收口和公共样式首轮推广已完成；当前只维护可复现的 UI/功能差异和真实窗口证据边界。
 > 设计确认：用户于 2026-10-02 回复“确认，按此方案执行”；2026-10-01 的原吸收方案保留为历史记录。
 > 当前主线：优先修复已知 UI 差异和功能问题；以完整编译的 Ramag 程序逐工具核对运行界面和功能状态，把 `system-tool` 作为公共视觉基准；先修布局、字体和状态，再按工具分片推广，动效与性能专项后置。
 > 来源：https://github.com/eas4ai/system-pulse/tree/f1be5d51d24c21fa8c740be79200bdda3df3a00c
 > 优点吸收与剩余差距：[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)
 
-## 当前队列（2026-10-11）
+## 当前队列（2026-10-12）
+
+具体执行顺序以 [`01-development-plan.md`](01-development-plan.md) 为准；以下表格保留各工具的状态和证据依赖。
 
 | 优先级 | 切片 | 状态 | 下一步 |
 |---|---|---|---|
-| P0 | `A-POST-0.5-OBJECT-001` 对象存储账号列表与数据源边界 | `09c25b08` 已完成账号行响应式实现；云端账号、Bucket、对象和传输仍未验收 | 补 headless 结果记录；没有 COS/OSS 凭据时保持真实数据源流程未完成 |
-| P0 | `A-PULSE-GAP-03-DN-UI-001` Disks/Network 详细页 | `0ede5b9e` 已完成代码、headless 和质量门；CUA 当前返回 `apps=[]` | CUA 恢复后对照参考程序补主量表、趋势、统计区、设备选择和滚动流程 |
-| P1 | `A-POST-0.5-DBCLIENT-001` 数据源列表 | 主要实现见 `c4c20d06`；2026-10-08 设计用于复核剩余截图差异 | 对照 Pulse 面板、列宽、行高、窄窗口两行布局和稳定连接 ID |
+| P0 | `A-POST-0.5-DBCLIENT-001` 数据源列表 | 代码与 headless 验收完成；搜索、长错误、重试、布局与稳定 ID 点击结果见 [本轮计划](11-dbclient-list-state-plan.md) | 补真实窗口操作证据；headless 不替代窗口验收 |
+| P1 | `A-POST-0.5-OBJECT-001` 对象存储账号列表与数据源边界 | `09c25b08` 已完成账号行响应式实现；云端账号、Bucket、对象和传输仍未验收 | 补 headless 结果记录；没有 COS/OSS 凭据时保持真实数据源流程未完成 |
+| P1 | `A-PULSE-GAP-03-DN-UI-001` Disks/Network 详细页 | `0ede5b9e` 已完成代码、headless 和质量检查；原切片 CUA 返回 `apps=[]` | 补主量表、趋势、统计区、设备选择和滚动的真实窗口流程 |
 | P1 | `A-POST-0.5-CLIPBOARD-001` 删除/撤销搜索状态 | `1dfb4ab3` 已补通知按钮、恢复写入和失败通知测试 | 在计划记录中补实际命令、退出码和当前窗口证据边界 |
 | P2 | 动效、性能、跨平台与硬件 | 后置 | 使用独立原始日志和平台证据；不由本地 headless 结果代替 |
 
@@ -77,7 +79,7 @@ Computer Use 直接对照 `F:/project/system-pulse/target/debug/system-pulse.exe
 
 ## 历史队列（2026-10-03）
 
-以下内容保留当时的执行顺序和验收证据，不作为当前排队入口。当前队列见本文件前面的“当前队列（2026-10-11）”以及 [`01-development-plan.md`](01-development-plan.md)。
+以下内容保留当时的执行顺序和验收证据，不作为当前排队入口。当前队列见本文件前面的“当前队列”以及 [`01-development-plan.md`](01-development-plan.md)。
 
 2026-10-06 用户将当前主线明确切换到 UI 对齐和现有功能修复。逐工具完整程序验收与可复现差距优先；页面动效和性能专项继续后置。全局 Settings 的 Appearance、Sampling、Window behavior 三张卡已由 `7dc36a53` 改为纵向排列，GPUI 几何回归覆盖 `360`、`1024`、`1440` 宽度，本轮重跑通过。
 

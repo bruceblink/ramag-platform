@@ -18,6 +18,7 @@
 | 专项 | [v0.5.0 发布计划](08-v0.5.0-ui-release-plan.md) | v0.5.0 发布与首页统一的完成记录 |
 | 专项 | [v0.5.0 后 UI 修复](09-post-0.5.0-ui-fixes-plan.md) | 剪贴板删除、搜索和撤销状态切片 |
 | 专项 | [Disks/Network 详细页计划](10-system-disks-network-plan.md) | System Pulse 磁盘与网络详细页对齐 |
+| 专项 | [DBClient 列表状态修复](11-dbclient-list-state-plan.md) | 搜索无匹配时的读取失败、重试与稳定 ID 点击回归 |
 
 历史计划和验收记录保留在 [`archive/2026-09-25-pre-datagrip-rebaseline/`](archive/2026-09-25-pre-datagrip-rebaseline/) 及 [执行历史](01-development-plan-history.md) 供追溯，不作为当前待办。新增计划必须使用两位数字前缀，并同步更新本目录和仓库链接。
 

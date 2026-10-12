@@ -7,7 +7,7 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
-    Styled, Window, div, prelude::FluentBuilder, px, uniform_list,
+    Styled, Window, div, prelude::*, px, uniform_list,
 };
 
 use super::row::{connection_header, connection_row};
@@ -124,6 +124,7 @@ impl Render for ConnectionListPanel {
             }
         } else if visible_count == 0 {
             v_flex()
+                .debug_selector(|| "connection-list-no-matches".into())
                 .size_full()
                 .items_center()
                 .justify_center()
@@ -185,33 +186,16 @@ impl Render for ConnectionListPanel {
                 .min_h_0()
                 .p_0()
                 .overflow_hidden()
-                .when_some(self.load_error.clone(), |content, error| {
-                    content.child(
-                        div()
-                            .id("connection-list-error-notice")
-                            .debug_selector(|| "connection-list-error-notice".into())
-                            .w_full()
-                            .flex_none()
-                            .p(px(10.0))
-                            .child(ramag_ui::pulse_ui::pulse_status_notice(
-                                ramag_ui::pulse_ui::PulseStatus::Failed,
-                                error,
-                                cx,
-                            ))
-                            .child(
-                                ramag_ui::clickable_button("conn-list-retry")
-                                    .small()
-                                    .label("重试")
-                                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                        this.refresh(cx);
-                                    })),
-                            ),
-                    )
-                })
                 .child(connection_header(density, cx))
                 .child(rows);
             content.into_any_element()
         };
+
+        // A failed reload belongs to the source list, independently of search matches.
+        // Preserve the cached records and keep retry reachable above either result state.
+        let retained_error = (!loading && total > 0)
+            .then(|| self.load_error.clone())
+            .flatten();
 
         ramag_ui::pulse_ui::pulse_home_frame(cx)
             .child(header)
@@ -225,9 +209,63 @@ impl Render for ConnectionListPanel {
                     .p_0()
                     .overflow_hidden()
                     .child(toolbar)
-                    .child(div().flex_1().min_h_0().overflow_hidden().child(body)),
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_hidden()
+                            .when_some(retained_error, |content, error| {
+                                content.child(retained_error_notice(error, cx))
+                            })
+                            .child(div().flex_1().min_h_0().overflow_hidden().child(body)),
+                    ),
             )
     }
+}
+
+/// Display a cached-list failure without depending on the current search results.
+fn retained_error_notice(
+    message: String,
+    cx: &mut Context<ConnectionListPanel>,
+) -> impl IntoElement {
+    const MAX_VISIBLE_ERROR_CHARS: usize = 240;
+    let full_message = message.clone();
+    let mut message_chars = message.chars();
+    let mut visible_message = message_chars
+        .by_ref()
+        .take(MAX_VISIBLE_ERROR_CHARS)
+        .collect::<String>();
+    if message_chars.next().is_some() {
+        visible_message.push('…');
+    }
+
+    v_flex()
+        .id("connection-list-error-notice")
+        .debug_selector(|| "connection-list-error-notice".into())
+        .w_full()
+        .flex_none()
+        .p(px(10.0))
+        .gap(px(8.0))
+        .child(
+            ramag_ui::pulse_ui::pulse_status_notice(
+                ramag_ui::pulse_ui::PulseStatus::Failed,
+                visible_message,
+                cx,
+            )
+            .id("connection-list-error-message")
+            .tooltip(move |window, cx| {
+                gpui_kit::component::tooltip::Tooltip::new(full_message.clone()).build(window, cx)
+            }),
+        )
+        .child(
+            ramag_ui::clickable_button("conn-list-retry")
+                .debug_selector(|| "conn-list-retry".into())
+                .small()
+                .label("重试")
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                    this.refresh(cx);
+                })),
+        )
 }
 
 /// Keep load failures visible while preserving an already loaded connection list.

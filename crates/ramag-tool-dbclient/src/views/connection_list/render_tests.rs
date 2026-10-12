@@ -1,27 +1,46 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use async_trait::async_trait;
 use gpui_kit::{
-    AppContext as _, Context, Entity, IntoElement, ParentElement, Render, Styled as _,
-    TestAppContext, Window, div, px, size,
+    AppContext as _, Context, Entity, IntoElement, Modifiers, ParentElement, Render, Styled as _,
+    Subscription, TestAppContext, Window, div, px, size,
 };
 use ramag_app::{ConnectionService, MongoService, RedisService};
 use ramag_domain::entities::{ConnectionConfig, ConnectionId, QueryRecord};
 use ramag_domain::error::Result;
 use ramag_domain::traits::Storage;
 
-use super::ConnectionListPanel;
+use super::{ConnectionListPanel, ListEvent};
 
 struct ConnectionListTestHost {
     panel: Entity<ConnectionListPanel>,
+    events: Vec<ListEvent>,
+    _subscription: Subscription,
+}
+
+impl ConnectionListTestHost {
+    /// Capture real row/button events without opening a database connection.
+    fn new(panel: Entity<ConnectionListPanel>, cx: &mut Context<Self>) -> Self {
+        let subscription = cx.subscribe(&panel, |host, _, event, _| {
+            host.events.push(event.clone());
+        });
+        Self {
+            panel,
+            events: Vec::new(),
+            _subscription: subscription,
+        }
+    }
 }
 
 /// Exercise the actual virtual rows and fixed headings, including empty optional metadata.
 #[gpui_kit::test]
 fn connection_rows_and_headings_share_bounds_and_uniform_height(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
-    let storage: Arc<dyn Storage> = Arc::new(NoopStorage);
+    let storage: Arc<dyn Storage> = Arc::new(NoopStorage::default());
     let service = Arc::new(ConnectionService::new(HashMap::new(), storage.clone()));
     let redis = Arc::new(RedisService::new(
         Arc::new(ramag_infra_redis::RedisDriver::new()),
@@ -47,6 +66,7 @@ fn connection_rows_and_headings_share_bounds_and_uniform_height(cx: &mut TestApp
             "ramag",
         );
         connection.driver = driver;
+        connection.database = Some("long_database_name_for_column_bounds".into());
         if connections.is_empty() {
             connection.environment = Some("很长的自定义环境名称".into());
             connection.production = true;
@@ -68,7 +88,7 @@ fn connection_rows_and_headings_share_bounds_and_uniform_height(cx: &mut TestApp
             panel
         });
         panel_entity = Some(panel.clone());
-        ConnectionListTestHost { panel }
+        ConnectionListTestHost::new(panel, cx)
     });
     let panel = panel_entity.unwrap();
     for mode in [ramag_ui::Mode::Dark, ramag_ui::Mode::Light] {
@@ -122,7 +142,10 @@ fn connection_rows_and_headings_share_bounds_and_uniform_height(cx: &mut TestApp
                             .x
                     );
                     if width >= 900.0 {
-                        for column in ["kind", "address"] {
+                        for column in ["kind", "address", "account"] {
+                            if column == "account" && width < 1120.0 {
+                                continue;
+                            }
                             let cell_selector: &'static str = Box::leak(
                                 format!("connection-row-{column}-{key}").into_boxed_str(),
                             );
@@ -132,7 +155,18 @@ fn connection_rows_and_headings_share_bounds_and_uniform_height(cx: &mut TestApp
                             let header = cx.debug_bounds(header_selector).unwrap();
                             assert_eq!(cell.origin.x, header.origin.x);
                             assert_eq!(cell.size.width, header.size.width);
+                            assert!(
+                                cell.origin.x >= row.origin.x && cell.right() <= actions.origin.x
+                            );
                         }
+                    } else {
+                        let selector: &'static str =
+                            Box::leak(format!("connection-row-metadata-{key}").into_boxed_str());
+                        let metadata = cx.debug_bounds(selector).unwrap();
+                        assert!(metadata.origin.y >= name.bottom());
+                        assert!(
+                            metadata.right() <= row.right() && metadata.bottom() <= row.bottom()
+                        );
                     }
                 }
             }
@@ -146,12 +180,111 @@ impl Render for ConnectionListTestHost {
     }
 }
 
+/// Filtered/reordered rows must keep action IDs and avoid selecting on an action click.
+#[gpui_kit::test]
+fn connection_row_actions_keep_filtered_identity_and_do_not_open_connections(
+    cx: &mut TestAppContext,
+) {
+    cx.update(gpui_kit::component::init);
+    let storage: Arc<dyn Storage> = Arc::new(NoopStorage::default());
+    let service = Arc::new(ConnectionService::new(HashMap::new(), storage.clone()));
+    let redis = Arc::new(RedisService::new(
+        Arc::new(ramag_infra_redis::RedisDriver::new()),
+        storage.clone(),
+    ));
+    let mongo = Arc::new(MongoService::new(
+        Arc::new(ramag_infra_mongodb::MongoDriver::new()),
+        storage,
+    ));
+    let other = ConnectionConfig::new_mysql("other", "127.0.0.1", 13306, "ramag");
+    let target = ConnectionConfig::new_mysql("visible target", "127.0.0.1", 13307, "ramag");
+    let target_id = target.id.clone();
+    let (host, cx) = cx.add_window_view(|window, cx| {
+        let panel = cx.new(|panel_cx| {
+            let mut panel = ConnectionListPanel::new(service, redis, mongo, window, panel_cx);
+            panel.refresh_generation = panel.refresh_generation.wrapping_add(1);
+            panel.loading = false;
+            panel.connections = Arc::new(vec![other, target]);
+            panel.loaded_revision = panel.service.revision();
+            panel
+        });
+        ConnectionListTestHost::new(panel, cx)
+    });
+    let panel = host.read_with(cx, |host, _| host.panel.clone());
+    cx.update(|window, app| {
+        panel.update(app, |panel, cx| {
+            panel.search.update(cx, |search, cx| {
+                search.set_value("visible target", window, cx);
+            });
+        });
+    });
+    cx.run_until_parked();
+    for width in [360.0, 1024.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(768.0)));
+        panel.update(cx, |panel, cx| {
+            Arc::make_mut(&mut panel.connections).reverse();
+            cx.notify();
+        });
+        cx.run_until_parked();
+        for action in ["edit", "sync", "delete"] {
+            host.update(cx, |host, _| host.events.clear());
+            let selector: &'static str =
+                Box::leak(format!("connection-row-{action}-{target_id}").into_boxed_str());
+            let button = cx.debug_bounds(selector).expect("行操作必须可命中");
+            cx.simulate_click(button.center(), Modifiers::default());
+            cx.run_until_parked();
+            host.read_with(cx, |host, _| {
+                assert_eq!(
+                    host.events.len(),
+                    1,
+                    "{action}不得同时打开连接：{:?}",
+                    host.events
+                );
+                match &host.events[0] {
+                    ListEvent::RequestEdit(conn) if action == "edit" => {
+                        assert_eq!(conn.id, target_id)
+                    }
+                    ListEvent::RequestSync(conn) if action == "sync" => {
+                        assert_eq!(conn.id, target_id)
+                    }
+                    ListEvent::RequestDelete(id) if action == "delete" => {
+                        assert_eq!(*id, target_id)
+                    }
+                    event => panic!("行操作返回了错误事件：{event:?}"),
+                }
+            });
+            panel.read_with(cx, |panel, _| assert!(panel.selected.is_none()));
+        }
+    }
+    host.update(cx, |host, _| host.events.clear());
+    let name_selector: &'static str =
+        Box::leak(format!("connection-row-name-{target_id}").into_boxed_str());
+    let name = cx.debug_bounds(name_selector).unwrap();
+    cx.simulate_click(name.center(), Modifiers::default());
+    cx.run_until_parked();
+    panel.read_with(cx, |panel, _| {
+        assert_eq!(panel.selected.as_ref(), Some(&target_id))
+    });
+    host.read_with(cx, |host, _| {
+        assert!(
+            matches!(host.events.as_slice(), [ListEvent::Selected(conn)] if conn.id == target_id)
+        );
+    });
+}
+
 #[derive(Default)]
-struct NoopStorage;
+struct NoopStorage {
+    fail_load: AtomicBool,
+}
 
 #[async_trait]
 impl Storage for NoopStorage {
     async fn list_connections(&self) -> Result<Vec<ConnectionConfig>> {
+        if self.fail_load.load(Ordering::Acquire) {
+            return Err(ramag_domain::error::DomainError::Storage(
+                "测试读取失败".into(),
+            ));
+        }
         Ok(Vec::new())
     }
 
@@ -199,7 +332,7 @@ impl Storage for NoopStorage {
 #[gpui_kit::test]
 fn connection_list_pulse_header_and_panel_fit_supported_widths(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
-    let storage: Arc<dyn Storage> = Arc::new(NoopStorage);
+    let storage: Arc<dyn Storage> = Arc::new(NoopStorage::default());
     let service = Arc::new(ConnectionService::new(HashMap::new(), storage.clone()));
     let redis_service = Arc::new(RedisService::new(
         Arc::new(ramag_infra_redis::RedisDriver::new()),
@@ -227,7 +360,7 @@ fn connection_list_pulse_header_and_panel_fit_supported_widths(cx: &mut TestAppC
             panel
         });
         panel_entity = Some(entity.clone());
-        ConnectionListTestHost { panel: entity }
+        ConnectionListTestHost::new(entity, cx)
     });
     let panel = panel_entity.expect("连接列表面板应创建");
 
@@ -273,13 +406,14 @@ fn connection_list_pulse_header_and_panel_fit_supported_widths(cx: &mut TestAppC
         );
         assert!(search.size.width > px(0.0));
         assert!(add.size.width > px(0.0));
+        assert!(search.right() <= add.origin.x, "搜索框不得覆盖新建连接操作");
     }
 }
 
 #[gpui_kit::test]
 fn empty_connection_list_action_stays_visible_at_supported_sizes(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
-    let storage: Arc<dyn Storage> = Arc::new(NoopStorage);
+    let storage: Arc<dyn Storage> = Arc::new(NoopStorage::default());
     let service = Arc::new(ConnectionService::new(HashMap::new(), storage.clone()));
     let redis_service = Arc::new(RedisService::new(
         Arc::new(ramag_infra_redis::RedisDriver::new()),
@@ -300,7 +434,7 @@ fn empty_connection_list_action_stays_visible_at_supported_sizes(cx: &mut TestAp
             panel
         });
         panel_entity = Some(panel.clone());
-        ConnectionListTestHost { panel }
+        ConnectionListTestHost::new(panel, cx)
     });
     let panel = panel_entity.expect("连接列表面板应创建");
 
@@ -330,73 +464,5 @@ fn empty_connection_list_action_stays_visible_at_supported_sizes(cx: &mut TestAp
     }
 }
 
-#[gpui_kit::test]
-fn connection_list_loading_and_failures_use_pulse_status_notices(cx: &mut TestAppContext) {
-    cx.update(gpui_kit::component::init);
-    let storage: Arc<dyn Storage> = Arc::new(NoopStorage);
-    let service = Arc::new(ConnectionService::new(HashMap::new(), storage.clone()));
-    let redis_service = Arc::new(RedisService::new(
-        Arc::new(ramag_infra_redis::RedisDriver::new()),
-        storage.clone(),
-    ));
-    let mongo_service = Arc::new(MongoService::new(
-        Arc::new(ramag_infra_mongodb::MongoDriver::new()),
-        storage,
-    ));
-    let mut panel_entity = None;
-    let (_, cx) = cx.add_window_view(|window, cx| {
-        let entity = cx.new(|panel_cx| {
-            let mut panel =
-                ConnectionListPanel::new(service, redis_service, mongo_service, window, panel_cx);
-            panel.refresh_generation = panel.refresh_generation.wrapping_add(1);
-            panel.loading = true;
-            panel.loaded_revision = panel.service.revision();
-            panel
-        });
-        panel_entity = Some(entity.clone());
-        ConnectionListTestHost { panel: entity }
-    });
-    let panel = panel_entity.expect("连接列表面板应创建");
-
-    cx.simulate_resize(size(px(360.0), px(640.0)));
-    cx.run_until_parked();
-    let loading = cx
-        .debug_bounds("connection-list-loading-notice")
-        .expect("加载态应使用 Pulse 状态通知");
-    assert!(loading.size.width > px(0.0) && loading.size.height > px(0.0));
-
-    panel.update(cx, |panel, cx| {
-        panel.loading = false;
-        panel.load_error = Some("读取连接列表失败：存储暂时不可用".into());
-        panel.connections = Arc::new(Vec::new());
-        cx.notify();
-    });
-    cx.run_until_parked();
-    let error = cx
-        .debug_bounds("connection-list-error-notice")
-        .expect("空列表失败态应使用 Pulse 状态通知");
-    let retry = cx
-        .debug_bounds("conn-list-retry")
-        .expect("空列表失败态应保留重试入口");
-    assert!(error.right() <= px(360.0));
-    assert!(retry.right() <= px(360.0) && retry.bottom() <= px(640.0));
-
-    panel.update(cx, |panel, cx| {
-        panel.connections = Arc::new(vec![ConnectionConfig::new_mysql(
-            "stale connection",
-            "db.internal.example",
-            3306,
-            "ramag",
-        )]);
-        cx.notify();
-    });
-    cx.run_until_parked();
-    assert!(
-        cx.debug_bounds("connection-list-error-notice").is_some(),
-        "保留旧列表时也必须显示加载失败原因"
-    );
-    assert!(
-        cx.debug_bounds("connection-list-panel").is_some(),
-        "加载失败不应隐藏仍可用的旧列表"
-    );
-}
+#[path = "state_tests.rs"]
+mod state_tests;

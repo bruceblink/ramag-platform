@@ -190,6 +190,8 @@ pub(super) fn connection_row(
     let key = conn.id.to_string();
     let name_selector = format!("connection-row-name-{key}");
     let actions_selector = format!("connection-row-actions-{key}");
+    let edit_selector = format!("connection-row-edit-{key}");
+    let delete_selector = format!("connection-row-delete-{key}");
     let metadata_selector = format!("connection-row-metadata-{key}");
     let row_selector = format!("connection-row-{key}");
     let name_tooltip = format!("{}\n{}", conn.name, host_port);
@@ -282,6 +284,7 @@ pub(super) fn connection_row(
         })
         .child(
             ramag_ui::clickable_button(edit_id)
+                .debug_selector(move || edit_selector.clone())
                 .ghost()
                 .small()
                 .icon(ramag_ui::icons::pencil())
@@ -292,6 +295,7 @@ pub(super) fn connection_row(
         )
         .child(
             ramag_ui::clickable_button(del_id)
+                .debug_selector(move || delete_selector.clone())
                 .ghost()
                 .small()
                 .icon(ramag_ui::icons::trash())
