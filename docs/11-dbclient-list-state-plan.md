@@ -3,7 +3,7 @@
 > 切片：`A-POST-0.5-DBCLIENT-001`
 > 日期：2026-10-12
 > 基线：`8b65421f`；数据源首页主要布局已由 `c4c20d06` 实现
-> 状态：代码与 headless 验收完成；真实窗口验收待补
+> 状态：代码、headless 与四库集成验收完成；真实窗口已验证列表与无匹配搜索；原生读取失败注入、行操作及多尺寸检查仍待补
 
 ## 问题与范围
 
@@ -31,7 +31,7 @@ cargo fmt --all -- --check
 git diff --check
 ```
 
-不改变数据库协议、连接保存或凭据；Docker 集成不适用。Computer Use 在上一轮被用户通过 Escape 停止，本轮不继续窗口输入；真实窗口验收保留未完成，headless 不替代该证据。
+本切片不改变数据库协议、连接保存或凭据，因此切片本身不依赖 Docker。用户随后要求运行完整数据库集成测试，本机 MySQL、PostgreSQL、Redis 和 MongoDB 驱动测试记录在下文。Computer Use 首次重置后出现截图与控件树不同步；重新观察后控件树恢复到数据源列表，才继续执行搜索操作。真实窗口没有安全的列表读取失败注入入口，因此该失败组合只由 headless 测试验证。
 
 ## 验收记录（2026-10-12）
 
@@ -41,10 +41,26 @@ git diff --check
 - Windows 源码尺寸检查：通过。
 - MSVC `cargo build --locked -p ramag-bin`：通过。
 - `git diff --check` 和本轮修改文本的 UTF-8/LF 检查：通过。
-- Docker 集成：不适用；本切片不改变数据库协议或外部服务。
-- Computer Use 真实窗口检查：未执行；真实窗口验收仍待补，headless 结果不作为替代。
+- 本机 Docker 四库集成：用户单独要求执行；四个数据库 crate 的单元和集成测试共 186 项通过，见下文。
+- Computer Use 真实窗口检查：截图显示 1 个临时连接行及 MySQL 类型、地址、账号、编辑/删除图标；搜索 `no-such-connection` 后显示“没有匹配连接”，清空后行恢复。真实窗口没有注入列表读取失败；错误通知组合、行操作、主题与多尺寸原生交互仍待补，headless 结果不作为替代。
 
 错误提示最多直接显示 240 个 Unicode 字符，末尾用省略号标记；悬停提示保留完整错误文本。实现只改变连接列表展示和测试，不改变存储内容。
+
+## 本机 Docker 四库集成验收（2026-10-12）
+
+- Docker Engine：Windows Docker Desktop `29.7.2 linux/amd64`，上下文 `desktop-linux`。测试服务使用已有专用容器和数据卷，没有接触 WSL Docker 引擎。
+- 服务：`mysql:8.4`（`127.0.0.1:13306`）、`postgres:17-alpine`（`127.0.0.1:15432`）、`redis:7-alpine`（`127.0.0.1:16379`）、`mongo:8.2`（`127.0.0.1:27018`）。执行前通过 `docker start` 启动四个容器，随后四者均为 `running/healthy`。
+- 全量测试集检查：MySQL 为 `100000/3/1/1`；PostgreSQL 为 `100000/3/1/8000`；MongoDB 为 `20000/15000/60000/2/100/20000/10000`。Redis DB 15 为空。Redis DB 0 起初为 `45014`，低于脚本要求的 `46000`；种子中的 TTL 键已过期。仅在专用测试 DB 0 重建 `ttl:1` 至 `ttl:1000` 后，DB 0 为 `46014`，DB 15 仍为空。
+- 测试命令：从 `.ramag/db-test.env` 将配置载入当前 PowerShell 进程，不输出凭据；通过 `scripts/windows/invoke-cargo-msvc.ps1` 执行四个数据库 crate 的 `cargo test --locked`，设置 `RAMAG_TEST_DATASET=full` 和 `RUST_TEST_THREADS=1`。MongoDB 48 项、MySQL 36 项、PostgreSQL 40 项、Redis 62 项通过；合计 186 passed、0 failed。Redis 全键空间扫描及全量数据集用例通过。
+- 服务启动方式：复用已有容器。容器标签显示其 Compose 项目名和仓库脚本当前指定值不同，因此本次没有让 Compose 重建容器。
+- 清理：测试完成后以 `docker stop` 停止四个容器，保留专用容器、数据卷和本地忽略的凭据文件；不删除或清空卷。
+
+## 真实窗口检查（2026-10-12）
+
+- 使用当前工作区 MSVC Debug 程序和隔离数据目录 `C:\Users\likanug\AppData\Local\Temp\ramag-dbclient-ui-acceptance-20261012`。启动后列表为空；保存一条无密码测试连接 `UI acceptance temporary`（`192.0.2.1:3306`）后，程序自动打开该连接并显示连接失败。该保留地址用于文档测试，不对应可路由服务；没有再次重试。
+- 重置并重新初始化 Computer Use 后，真实窗口截图显示数据源列表包含 1 行，名称、MySQL 类型、地址、账号和编辑/删除图标均可见。首次状态捕获的控件树仍显示连接工作区；再次聚焦搜索框并观察后，控件树恢复为数据源列表。
+- 在真实窗口中搜索 `no-such-connection`，截图显示 `0 / 1 个数据源` 和“没有匹配连接”；清空搜索后，原连接行恢复。该操作验证正常列表数据下的筛选与恢复，不验证列表读取失败时的组合状态。
+- 原生窗口没有验证列表读取失败注入、编辑/同步/删除操作、主题切换或各尺寸布局。首次状态不同步后仅在重新观察确认控件树恢复后继续搜索，没有使用旧控件索引。
 
 ## 回滚边界
 
