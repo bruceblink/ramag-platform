@@ -8541,6 +8541,7 @@ name = "ramag-bin"
 version = "0.5.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "directories",
  "futures",
  "gpui-kit",

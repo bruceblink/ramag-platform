@@ -1,5 +1,49 @@
 use super::*;
 
+/// 渲染实际 Tooltip 容器，检查完整长错误按窗口宽度换行且高度有界。
+#[gpui_kit::test]
+fn long_error_tooltip_stays_inside_supported_and_defensive_windows(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let message = gpui_kit::SharedString::from("完整错误原因 ".repeat(150));
+        let tooltip = gpui_kit::component::tooltip::Tooltip::element(move |window, _| {
+            super::super::render::error_tooltip_content(message.clone(), window)
+        })
+        .build(window, cx);
+        gpui_kit::component::Root::new(tooltip, window, cx)
+    });
+    for text_size in [
+        ramag_ui::InterfaceTextSize::Standard,
+        ramag_ui::InterfaceTextSize::Large,
+    ] {
+        cx.update(|_, app| {
+            ramag_ui::set_system_settings(
+                ramag_ui::SystemSettings {
+                    text_size,
+                    ..Default::default()
+                },
+                app,
+            )
+        });
+        for (width, height) in [
+            (360.0, 640.0),
+            (1008.0, 672.0),
+            (1024.0, 768.0),
+            (1440.0, 900.0),
+        ] {
+            cx.simulate_resize(size(px(width), px(height)));
+            cx.run_until_parked();
+            let bounds = cx
+                .debug_bounds("connection-list-error-tooltip-content")
+                .expect("完整错误提示应渲染");
+            assert!(bounds.size.width <= px(width - 72.0));
+            assert!(bounds.size.height <= px(height - 72.0));
+            assert!(bounds.size.height > px(40.0), "长错误应换行而非单行溢出");
+            assert!(bounds.right() <= px(width) && bounds.bottom() <= px(height));
+        }
+    }
+}
+
 #[gpui_kit::test]
 fn connection_list_loading_and_failures_use_pulse_status_notices(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);

@@ -3,11 +3,12 @@
 use std::ops::Range;
 
 use gpui_kit::component::{
-    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, v_flex,
+    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _,
+    scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement, Render,
-    Styled, Window, div, prelude::*, px, uniform_list,
+    SharedString, Styled, Window, div, prelude::*, px, uniform_list,
 };
 
 use super::row::{connection_header, connection_row};
@@ -254,7 +255,11 @@ fn retained_error_notice(
             )
             .id("connection-list-error-message")
             .tooltip(move |window, cx| {
-                gpui_kit::component::tooltip::Tooltip::new(full_message.clone()).build(window, cx)
+                let message = SharedString::from(full_message.clone());
+                gpui_kit::component::tooltip::Tooltip::element(move |window, _| {
+                    error_tooltip_content(message.clone(), window)
+                })
+                .build(window, cx)
             }),
         )
         .child(
@@ -266,6 +271,22 @@ fn retained_error_notice(
                     this.refresh(cx);
                 })),
         )
+}
+
+/// 完整错误按窗口宽度换行；高度受限并可滚动，避免悬停文本横向或纵向越界。
+/// 保留原错误正文，不把页面的 240 字符截断应用到详情。
+pub(super) fn error_tooltip_content(
+    message: SharedString,
+    window: &Window,
+) -> gpui_kit::component::scroll::Scrollable<gpui_kit::Div> {
+    let viewport = window.viewport_size();
+    div()
+        .debug_selector(|| "connection-list-error-tooltip-content".into())
+        .w((viewport.width - px(72.0)).clamp(px(0.0), px(560.0)))
+        .max_h((viewport.height - px(72.0)).max(px(0.0)))
+        .whitespace_normal()
+        .child(message)
+        .overflow_y_scrollbar()
 }
 
 /// Keep load failures visible while preserving an already loaded connection list.

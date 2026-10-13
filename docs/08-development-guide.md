@@ -276,6 +276,20 @@ make db-test
 
 该命令会通过 Docker 启动并填充 MySQL、PostgreSQL、Redis 和 MongoDB 测试环境。普通 UI 或纯 Domain 改动不需要每次重建数据库测试数据。
 
+#### 隔离的 DBClient 原生验收
+
+`ui-preview` 复用生产 Shell 和 DBClient 视图，使用进程专属临时 redb、固定测试密钥和三条无密码 MySQL 记录。SQL 连接不注册驱动；Redis/MongoDB 使用拒绝网络请求的验收驱动。数据库表单测试、打开连接、版本读取和同步读取均返回不可用错误，不创建数据库网络连接。正常退出后清理本次临时文件，不读取用户连接或系统凭据。
+
+```powershell
+& .\scripts\windows\invoke-cargo-msvc.ps1 -CargoCommand run -CargoOptions @('--locked','-p','ramag-bin','--example','ui-preview','--','dbclient','dark','1024','768')
+```
+
+参数依次为页面、主题、宽度和高度。主题使用 `dark` 或 `light`；最后追加 `large` 使用 18px 字号，省略时使用 16px。原生窗口最小尺寸为 1008x672。
+
+列表首次加载后，F6 模拟列表读取失败，F8 模拟长错误，F7 恢复正常读取。每次控制都通过保存临时样例增加连接修订号，再由生产列表刷新。失败状态下可以点击“重试”验证连续失败；搜索框和旧连接应保留。行操作验收只打开编辑、同步或删除对话框，然后取消返回。
+
+此入口验证生产组件的真实窗口行为。完整 `ramag.exe` 的启动、用户配置、驱动连接和跨工具流程需要单独记录；360x640 属于 headless 防御检查。
+
 ### 9.4 提交
 
 每个可独立评审的修复或功能使用单独提交。提交前查看近期历史并保持仓库现有风格，例如：

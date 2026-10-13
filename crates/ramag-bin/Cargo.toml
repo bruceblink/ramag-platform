@@ -94,3 +94,6 @@ windows = { version = "0.57", features = [
 # Windows exe 图标嵌入（build.rs 用；winresource 跨平台可编，仅 target=windows 时真正嵌入）
 [build-dependencies]
 winresource = "0.1"
+
+[dev-dependencies]
+async-trait = { workspace = true }

@@ -1,15 +1,18 @@
 //! 隔离的原生 UI 验收入口，复用生产 Shell 与工具视图，不读取用户配置或连接。
 //! 用法：cargo run -p ramag-bin --example ui-preview -- settings dark 1024 768
+//! DBClient：dbclient dark 1024 768 large；F6 失败、F8 长错误、F7 恢复。
 //! 仅创建进程专属临时 redb；不连接外部服务，不写系统凭据库，退出时清理临时文件。
 
-use std::{collections::HashMap, sync::Arc};
+#[path = "ui_preview/dbclient.rs"]
+mod dbclient;
+#[path = "ui_preview/offline_database.rs"]
+mod offline_database;
+
+use std::sync::Arc;
 
 use gpui_kit::component::Root;
 use gpui_kit::{App, AppContext as _, Bounds, WindowBounds, WindowOptions, px, size};
-use ramag_app::{
-    ConnectionService, DataSyncGate, SshService, StaticPluginAdapter, StaticPluginHost,
-    ToolRegistry,
-};
+use ramag_app::{SshService, StaticPluginAdapter, StaticPluginHost, ToolRegistry};
 use ramag_domain::{Tool, traits::Storage};
 use ramag_infra_ssh::OpenSshDriver;
 use ramag_infra_storage::RedbStorage;
@@ -44,11 +47,17 @@ fn main() -> anyhow::Result<()> {
         .filter(|n| n.is_finite())
         .unwrap_or(768.0)
         .clamp(240.0, 1080.0);
+    let text_size = if args.get(4).is_some_and(|value| value == "large") {
+        ramag_ui::InterfaceTextSize::Large
+    } else {
+        ramag_ui::InterfaceTextSize::Standard
+    };
     let path = std::env::temp_dir().join(format!("ramag-ui-preview-{}.redb", std::process::id()));
     let storage: Arc<dyn Storage> = Arc::new(RedbStorage::open_with_key(&path, &[0x42; 32])?);
     let registry = Arc::new(ToolRegistry::new());
     let host = Arc::new(StaticPluginHost::new(registry.clone()));
     let tools: Vec<Arc<dyn Tool>> = vec![
+        Arc::new(ramag_tool_dbclient::DbClientTool::new()),
         Arc::new(ramag_tool_api::ApiTool::new()),
         Arc::new(ramag_tool_container::ContainerTool::new()),
         Arc::new(ramag_tool_ssh::SshTool::new()),
@@ -58,7 +67,7 @@ fn main() -> anyhow::Result<()> {
         host.register_plugin(Arc::new(StaticPluginAdapter::from_tool(tool)?))?;
     }
     let _ = host.initialize_all();
-    let connection = Arc::new(ConnectionService::new(HashMap::new(), storage.clone()));
+    let preview = dbclient::DbclientPreview::new(storage.clone())?;
     let ssh = Arc::new(SshService::new(
         Arc::new(OpenSshDriver::new()),
         storage.clone(),
@@ -68,8 +77,15 @@ fn main() -> anyhow::Result<()> {
         .run(move |cx: &mut App| {
             gpui_kit::component::init(cx);
             ramag_tool_ssh::init(cx);
+            dbclient::bind_controls(cx);
             ramag_ui::apply_theme(mode, cx);
-            ramag_ui::set_system_settings(Default::default(), cx);
+            ramag_ui::set_system_settings(
+                ramag_ui::SystemSettings {
+                    text_size,
+                    ..Default::default()
+                },
+                cx,
+            );
             ramag_ui::set_monitor_settings(Default::default(), cx);
             cx.set_global(ramag_ui::StorageGlobal(storage));
             let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
@@ -88,7 +104,7 @@ fn main() -> anyhow::Result<()> {
                         SettingsView::new(
                             host.clone(),
                             None,
-                            connection,
+                            preview.connection.clone(),
                             ssh.clone(),
                             None,
                             window,
@@ -100,20 +116,17 @@ fn main() -> anyhow::Result<()> {
                         cx.new(|cx| ramag_tool_container::ContainerView::new(window, cx));
                     let ssh_view = ramag_tool_ssh::create_ssh_view(ssh, window, cx);
                     let monitor = ramag_tool_system::create_system_view(window, cx);
+                    let dbclient = preview.create_view(window, cx);
                     let shell = cx.new(|cx| {
-                        let mut shell = Shell::new(
-                            registry,
-                            host,
-                            Arc::new(DataSyncGate::default()),
-                            window,
-                            cx,
-                        );
+                        let mut shell =
+                            Shell::new(registry, host, preview.gate.clone(), window, cx);
                         shell.set_home_view(home, window, cx);
                         shell.set_settings_view(settings.into());
                         shell.register_tool_view("api", api.into());
                         shell.register_tool_view("container", containers.into());
                         shell.register_tool_view("ssh", ssh_view.into());
                         shell.register_tool_view("system", monitor.into());
+                        shell.register_tool_view("dbclient", dbclient.into());
                         let target = match page.as_str() {
                             "settings" => NavTarget::Settings,
                             "home" => NavTarget::Home,
@@ -122,7 +135,8 @@ fn main() -> anyhow::Result<()> {
                         shell.navigate_to(target, window, cx);
                         shell
                     });
-                    cx.new(|cx| Root::new(shell, window, cx))
+                    let preview_host = cx.new(|_| dbclient::PreviewHost { shell, preview });
+                    cx.new(|cx| Root::new(preview_host, window, cx))
                 },
             );
             if let Err(error) = result {
