@@ -8,10 +8,20 @@ use ramag_domain::{PluginCapability, PluginDescriptor, PluginId, PluginRegistrat
 
 /// 工具入口顺序在 Storage 中使用的偏好键。
 pub const TOOL_ORDER_PREF_KEY: &str = "tool_order";
+/// 首页与侧边栏入口显示状态在 Storage 中使用的偏好键。
+pub const TOOL_VISIBILITY_PREF_KEY: &str = "tool_visibility";
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ToolVisibility {
+    pub home: bool,
+    pub sidebar: bool,
+}
 
 struct ToolEntry {
     tool: Arc<dyn Tool>,
     enabled: bool,
+    home_visible: bool,
+    sidebar_visible: bool,
     plugin: Option<PluginDescriptor>,
 }
 
@@ -45,6 +55,8 @@ impl ToolRegistry {
         tools.push(ToolEntry {
             tool,
             enabled: true,
+            home_visible: true,
+            sidebar_visible: true,
             plugin: None,
         });
     }
@@ -150,6 +162,8 @@ impl ToolRegistry {
             tools.push(ToolEntry {
                 tool,
                 enabled: true,
+                home_visible: true,
+                sidebar_visible: true,
                 plugin: Some(descriptor.clone()),
             });
         }
@@ -207,6 +221,66 @@ impl ToolRegistry {
             "tool visibility changed"
         );
         true
+    }
+
+    /// 返回所有已注册工具，包括被全局停用或在两个表面隐藏的工具。
+    pub fn list_all(&self) -> Vec<Arc<dyn Tool>> {
+        self.tools
+            .read()
+            .iter()
+            .map(|entry| entry.tool.clone())
+            .collect()
+    }
+
+    /// 返回当前可显示在首页的工具，顺序与注册表布局一致。
+    pub fn home_list(&self) -> Vec<Arc<dyn Tool>> {
+        self.tools
+            .read()
+            .iter()
+            .filter(|entry| entry.enabled && entry.home_visible)
+            .map(|entry| entry.tool.clone())
+            .collect()
+    }
+
+    /// 返回当前可显示在侧边栏的工具，顺序与注册表布局一致。
+    pub fn sidebar_list(&self) -> Vec<Arc<dyn Tool>> {
+        self.tools
+            .read()
+            .iter()
+            .filter(|entry| entry.enabled && entry.sidebar_visible)
+            .map(|entry| entry.tool.clone())
+            .collect()
+    }
+
+    /// 查询一个工具在首页和侧边栏的独立显示状态。
+    pub fn visibility(&self, id: &str) -> Option<ToolVisibility> {
+        self.tools
+            .read()
+            .iter()
+            .find(|entry| entry.tool.meta().id == id)
+            .map(|entry| ToolVisibility {
+                home: entry.home_visible,
+                sidebar: entry.sidebar_visible,
+            })
+    }
+
+    /// 修改首页入口显示状态；工具或状态不存在变化时返回 `false`。
+    pub fn set_home_visible(&self, id: &str, visible: bool) -> bool {
+        self.set_surface_visibility(id, visible, |entry| &mut entry.home_visible, "home")
+    }
+
+    /// 修改侧边栏入口显示状态；工具或状态不存在变化时返回 `false`。
+    pub fn set_sidebar_visible(&self, id: &str, visible: bool) -> bool {
+        self.set_surface_visibility(id, visible, |entry| &mut entry.sidebar_visible, "sidebar")
+    }
+
+    /// 判断工具是否至少在一个表面可访问，用于启动时恢复最近工作区。
+    pub fn is_visible(&self, id: &str) -> bool {
+        self.tools.read().iter().any(|entry| {
+            entry.enabled
+                && entry.tool.meta().id == id
+                && (entry.home_visible || entry.sidebar_visible)
+        })
     }
 
     /// 按当前布局顺序返回已启用的工具。
@@ -356,10 +430,33 @@ impl ToolRegistry {
     /// 按可见工具列表中的最终槽位移动工具，隐藏工具仍保留在注册表中。
     /// `visible_index` 可以等于可见工具数量，表示移动到列表末尾。
     pub fn reorder_to_index(&self, dragged_id: &str, visible_index: usize) -> bool {
+        self.reorder_to_index_where(dragged_id, visible_index, |entry| entry.enabled)
+    }
+
+    /// 按首页当前可见槽位移动工具，侧边栏专属隐藏项不占首页的目标索引。
+    pub fn reorder_home_to_index(&self, dragged_id: &str, visible_index: usize) -> bool {
+        self.reorder_to_index_where(dragged_id, visible_index, |entry| {
+            entry.enabled && entry.home_visible
+        })
+    }
+
+    /// 按侧边栏当前可见槽位移动工具，首页专属隐藏项不占侧边栏的目标索引。
+    pub fn reorder_sidebar_to_index(&self, dragged_id: &str, visible_index: usize) -> bool {
+        self.reorder_to_index_where(dragged_id, visible_index, |entry| {
+            entry.enabled && entry.sidebar_visible
+        })
+    }
+
+    fn reorder_to_index_where(
+        &self,
+        dragged_id: &str,
+        visible_index: usize,
+        is_visible: impl Fn(&ToolEntry) -> bool,
+    ) -> bool {
         let mut tools = self.tools.write();
         let Some(dragged_index) = tools
             .iter()
-            .position(|entry| entry.enabled && entry.tool.meta().id == dragged_id)
+            .position(|entry| is_visible(entry) && entry.tool.meta().id == dragged_id)
         else {
             return false;
         };
@@ -369,7 +466,7 @@ impl ToolRegistry {
             .map(|entry| entry.tool.meta().id.clone())
             .collect::<Vec<_>>();
         let dragged = tools.remove(dragged_index);
-        let remaining_visible_count = tools.iter().filter(|entry| entry.enabled).count();
+        let remaining_visible_count = tools.iter().filter(|entry| is_visible(entry)).count();
         let target_index = visible_index.min(remaining_visible_count);
         let insert_index = if target_index == remaining_visible_count {
             tools.len()
@@ -377,7 +474,7 @@ impl ToolRegistry {
             tools
                 .iter()
                 .enumerate()
-                .filter(|(_, entry)| entry.enabled)
+                .filter(|(_, entry)| is_visible(entry))
                 .nth(target_index)
                 .map_or(tools.len(), |(index, _)| index)
         };
@@ -422,6 +519,33 @@ impl ToolRegistry {
 
     pub fn count(&self) -> usize {
         self.tools.read().iter().filter(|t| t.enabled).count()
+    }
+
+    /// Update one registered entry under a single write lock and log only state changes.
+    fn set_surface_visibility(
+        &self,
+        id: &str,
+        visible: bool,
+        field: impl Fn(&mut ToolEntry) -> &mut bool,
+        surface: &'static str,
+    ) -> bool {
+        let mut tools = self.tools.write();
+        let Some(entry) = tools.iter_mut().find(|entry| entry.tool.meta().id == id) else {
+            return false;
+        };
+        let current = field(entry);
+        if *current == visible {
+            return false;
+        }
+        *current = visible;
+        tracing::info!(
+            operation = "tool_surface_visibility_update",
+            tool_id = %id,
+            surface,
+            visible,
+            "tool surface visibility changed"
+        );
+        true
     }
 }
 

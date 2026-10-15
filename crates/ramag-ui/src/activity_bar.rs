@@ -127,7 +127,7 @@ impl ActivityBar {
         let tool_layout_subscription = cx.observe_global::<ToolLayoutGlobal>(|_, cx| cx.notify());
         let tool_drag_subscription = cx.observe_global::<ToolDragGlobal>(|_, cx| cx.notify());
         let last_rendered_slots = registry
-            .list()
+            .sidebar_list()
             .into_iter()
             .map(|tool| Some(tool.meta().id.clone()))
             .collect();
@@ -159,7 +159,10 @@ impl ActivityBar {
     /// 在释放时一次性提交最终槽位，保存偏好并通知首页与侧栏同步重绘。
     fn complete_drop(&mut self, dragged_id: &str, fallback_index: usize, cx: &mut Context<Self>) {
         let target_index = tool_drop_index(ToolDragSurface::ActivityBar, fallback_index, cx);
-        if self.registry.reorder_to_index(dragged_id, target_index) {
+        if self
+            .registry
+            .reorder_sidebar_to_index(dragged_id, target_index)
+        {
             persist_tool_order(&self.registry, cx);
             notify_tool_layout_changed(cx);
         }
@@ -204,7 +207,7 @@ impl Render for ActivityBar {
     /// 将持久化工具顺序绘制为侧栏入口，并同步拖拽占位线与来源入口反馈。
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let tools = self.registry.list();
+        let tools = self.registry.sidebar_list();
         let selected = self.selected.clone();
         let tool_order = tools
             .iter()

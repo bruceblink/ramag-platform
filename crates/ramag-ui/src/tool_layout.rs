@@ -2,7 +2,7 @@ use gpui_kit::component::{ActiveTheme, Icon, h_flex, v_flex};
 use gpui_kit::{
     App, Context, Global, IntoElement, ParentElement, Point, Render, Styled, Window, div, px,
 };
-use ramag_app::ToolRegistry;
+use ramag_app::{TOOL_VISIBILITY_PREF_KEY, ToolRegistry};
 
 const ITEM_HEIGHT: f32 = 40.0;
 pub(crate) const ACTIVITY_ITEM_GAP: f32 = 4.0;
@@ -299,6 +299,20 @@ pub(crate) fn persist_tool_order(registry: &ToolRegistry, cx: &mut App) {
             operation = "tool_order_save",
             error = %error,
             "serialize tool layout failed"
+        ),
+    }
+}
+
+/// Persist independent Home and sidebar visibility without storing tool data or secrets.
+pub(crate) fn persist_tool_visibility(registry: &ToolRegistry, cx: &mut App) {
+    match registry.visibility_json() {
+        Ok(value) => {
+            crate::preferences::persist_preference_latest(TOOL_VISIBILITY_PREF_KEY, value, cx)
+        }
+        Err(error) => tracing::warn!(
+            operation = "tool_visibility_save",
+            error = %error,
+            "serialize tool visibility failed"
         ),
     }
 }

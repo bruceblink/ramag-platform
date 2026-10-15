@@ -54,6 +54,112 @@ fn disabled_tool_hidden_from_list_and_find() {
 }
 
 #[test]
+fn home_and_sidebar_visibility_are_independent_and_keep_tools_registered() {
+    let registry = ToolRegistry::new();
+    registry.register(dummy("home-only", "Home only"));
+    registry.register(dummy("sidebar-only", "Sidebar only"));
+
+    assert!(registry.set_home_visible("home-only", false));
+    assert_eq!(
+        registry
+            .home_list()
+            .iter()
+            .map(|tool| tool.meta().id.as_str())
+            .collect::<Vec<_>>(),
+        ["sidebar-only"]
+    );
+    assert_eq!(registry.sidebar_list().len(), 2);
+    assert!(registry.find("home-only").is_some());
+    assert_eq!(registry.list_all().len(), 2);
+
+    assert!(registry.set_sidebar_visible("home-only", false));
+    assert!(!registry.is_visible("home-only"));
+    assert!(
+        registry
+            .home_list()
+            .iter()
+            .all(|tool| tool.meta().id != "home-only")
+    );
+    assert!(
+        registry
+            .sidebar_list()
+            .iter()
+            .all(|tool| tool.meta().id != "home-only")
+    );
+    assert_eq!(registry.count(), 2, "隐藏入口不应卸载工具");
+
+    assert!(registry.set_home_visible("home-only", true));
+    assert!(registry.is_visible("home-only"));
+    assert_eq!(
+        registry.visibility("home-only"),
+        Some(ToolVisibility {
+            home: true,
+            sidebar: false
+        })
+    );
+}
+
+#[test]
+fn visibility_preference_round_trips_and_ignores_unknown_tools() {
+    let source = ToolRegistry::new();
+    source.register(dummy("a", "Tool A"));
+    source.register(dummy("b", "Tool B"));
+    assert!(source.set_home_visible("a", false));
+    assert!(source.set_sidebar_visible("b", false));
+
+    let saved = source.visibility_json().unwrap();
+    assert_eq!(saved, r#"{"home_hidden":["a"],"sidebar_hidden":["b"]}"#);
+
+    let restored = ToolRegistry::new();
+    restored.register(dummy("a", "Tool A"));
+    restored.register(dummy("b", "Tool B"));
+    restored.register(dummy("new", "New tool"));
+    assert!(
+        restored
+            .apply_visibility_json(r#"{"home_hidden":["a","removed"],"sidebar_hidden":["b"]}"#)
+            .unwrap()
+    );
+    assert_eq!(
+        restored.visibility("a"),
+        Some(ToolVisibility {
+            home: false,
+            sidebar: true
+        })
+    );
+    assert_eq!(
+        restored.visibility("b"),
+        Some(ToolVisibility {
+            home: true,
+            sidebar: false
+        })
+    );
+    assert_eq!(
+        restored.visibility("new"),
+        Some(ToolVisibility {
+            home: true,
+            sidebar: true
+        })
+    );
+    assert_eq!(restored.visibility_json().unwrap(), saved);
+}
+
+#[test]
+fn invalid_visibility_preference_does_not_change_current_state() {
+    let registry = ToolRegistry::new();
+    registry.register(dummy("a", "Tool A"));
+    assert!(registry.set_home_visible("a", false));
+
+    assert!(registry.apply_visibility_json("invalid-json").is_err());
+    assert_eq!(
+        registry.visibility("a"),
+        Some(ToolVisibility {
+            home: false,
+            sidebar: true
+        })
+    );
+}
+
+#[test]
 fn reorder_updates_visible_tool_order() {
     let reg = ToolRegistry::new();
     reg.register(dummy("a", "ToolA"));
@@ -119,6 +225,45 @@ fn reorder_to_index_keeps_disabled_tools_in_the_registry() {
     assert!(reg.reorder_to_index("b", 0));
     assert_eq!(reg.order(), ["b", "a", "hidden"]);
     assert_eq!(reg.list().len(), 2);
+}
+
+#[test]
+fn surface_reordering_uses_only_that_surfaces_visible_entries() {
+    let registry = ToolRegistry::new();
+    registry.register(dummy("a", "Tool A"));
+    registry.register(dummy("b", "Tool B"));
+    registry.register(dummy("c", "Tool C"));
+    assert!(registry.set_home_visible("b", false));
+    assert!(registry.set_sidebar_visible("c", false));
+
+    assert!(registry.reorder_home_to_index("c", 0));
+    assert_eq!(registry.order(), ["c", "a", "b"]);
+    assert_eq!(
+        registry
+            .home_list()
+            .iter()
+            .map(|tool| tool.meta().id.as_str())
+            .collect::<Vec<_>>(),
+        ["c", "a"]
+    );
+
+    assert!(registry.reorder_sidebar_to_index("b", 0));
+    assert_eq!(
+        registry
+            .sidebar_list()
+            .iter()
+            .map(|tool| tool.meta().id.as_str())
+            .collect::<Vec<_>>(),
+        ["b", "a"]
+    );
+    assert_eq!(
+        registry
+            .home_list()
+            .iter()
+            .map(|tool| tool.meta().id.as_str())
+            .collect::<Vec<_>>(),
+        ["c", "a"]
+    );
 }
 
 #[test]

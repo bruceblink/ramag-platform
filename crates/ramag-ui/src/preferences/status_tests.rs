@@ -8,12 +8,20 @@ use gpui_kit::{
     TouchPhase, VisualTestContext, point, px, size,
 };
 use ramag_app::{ConnectionService, SshService, StaticPluginHost, ToolRegistry};
-use ramag_domain::traits::Storage;
+use ramag_domain::{Tool, ToolMeta, traits::Storage};
 use ramag_infra_ssh::OpenSshDriver;
 use ramag_infra_storage::RedbStorage;
 
 use super::test_storage::SettingsTestStorage;
 use crate::SettingsView;
+
+struct VisibilityTestTool(ToolMeta);
+
+impl Tool for VisibilityTestTool {
+    fn meta(&self) -> &ToolMeta {
+        &self.0
+    }
+}
 
 /// Locate the rendered control area while keeping missing selectors explicit.
 fn bounds(visual: &mut VisualTestContext, selector: &'static str) -> Bounds<Pixels> {
@@ -72,7 +80,13 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
         Arc::new(OpenSshDriver::new()),
         storage.clone(),
     ));
-    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+    let registry = Arc::new(ToolRegistry::new());
+    registry.register(Arc::new(VisibilityTestTool(ToolMeta::new(
+        "preference-test",
+        "Preference test",
+        "Tool visibility save test.",
+    ))));
+    let host = Arc::new(StaticPluginHost::new(registry.clone()));
     cx.update(|app| {
         app.set_global(crate::activity_bar::UpdateIndicatorGlobal::default());
         app.set_global(crate::StorageGlobal(storage.clone()));
@@ -127,6 +141,15 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
             "settings-save-retry-monitor_settings",
             "settings-page-system",
             r#"{"refresh_rate":"five_seconds"}"#,
+        ),
+        (
+            "tool-visibility",
+            "settings-tool-home-preference-test",
+            ramag_app::TOOL_VISIBILITY_PREF_KEY,
+            "settings-save-status-tool_visibility",
+            "settings-save-retry-tool_visibility",
+            "settings-page-tool-visibility",
+            r#"{"home_hidden":["preference-test"],"sidebar_hidden":[]}"#,
         ),
     ];
 

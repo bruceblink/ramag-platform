@@ -306,8 +306,8 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     shell
                 });
 
-                // 恢复上次工具；已移除时留在 Home。
-                if let Some(tool_id) = last_tool.clone().filter(|t| registry.find(t).is_some()) {
+                // 恢复上次工具；入口在两个表面都隐藏时留在 Home。
+                if let Some(tool_id) = last_tool.clone().filter(|t| registry.is_visible(t)) {
                     shell.update(cx, |s, cx| {
                         s.navigate_to(NavTarget::Tool(tool_id), window, cx);
                     });

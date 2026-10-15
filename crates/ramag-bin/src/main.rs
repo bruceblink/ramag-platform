@@ -36,8 +36,8 @@ use ramag_app::{
     AUTO_CHECK_INTERVAL, ApiService, ClipboardService, ConnectionService, ContainerService,
     DataSyncGate, DataSyncService, KafkaService, MongoService, MqttService, ObjectStorageService,
     PluginLifecycleReport, PluginPermissionPolicy, PluginSettingsMigrator, RedisService,
-    SshService, StaticPluginAdapter, StaticPluginHost, TOOL_ORDER_PREF_KEY, ToolRegistry,
-    UpdateService,
+    SshService, StaticPluginAdapter, StaticPluginHost, TOOL_ORDER_PREF_KEY,
+    TOOL_VISIBILITY_PREF_KEY, ToolRegistry, UpdateService,
 };
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use ramag_domain::traits::ClipboardDriver;
@@ -263,6 +263,7 @@ fn main() -> ExitCode {
             ramag_ui::MONITOR_PRESETS_PREF_KEY,
             ramag_ui::shortcuts_dialog::SHORTCUT_OVERRIDES_PREF_KEY,
             TOOL_ORDER_PREF_KEY,
+            TOOL_VISIBILITY_PREF_KEY,
         ],
     );
     let initial_pref = startup_preferences.get("theme_mode").cloned();
@@ -314,6 +315,15 @@ fn main() -> ExitCode {
             operation = "tool_order_load",
             error = %error,
             "ignore invalid saved tool layout"
+        );
+    }
+    if let Some(saved_visibility) = startup_preferences.get(TOOL_VISIBILITY_PREF_KEY)
+        && let Err(error) = registry.apply_visibility_json(saved_visibility)
+    {
+        warn!(
+            operation = "tool_visibility_load",
+            error = %error,
+            "ignore invalid saved tool visibility"
         );
     }
     info!(

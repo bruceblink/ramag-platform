@@ -32,6 +32,7 @@ use tracing::error;
 
 use crate::MAX_SEARCH_INPUT_BYTES;
 use crate::plugin_diagnostics::PluginDiagnosticsView;
+use crate::tool_visibility::ToolVisibilityView;
 
 const SETTINGS_COMPACT_BREAKPOINT: f32 = 900.0;
 const SETTINGS_COMPACT_NAV_ITEM_WIDTH: f32 = 144.0;
@@ -76,18 +77,20 @@ enum SettingsPage {
     Ssh,
     ObjectStorage,
     Clipboard,
+    ToolVisibility,
     Plugins,
     Update,
 }
 
 impl SettingsPage {
-    const ALL: [Self; 8] = [
+    const ALL: [Self; 9] = [
         Self::System,
         Self::Database,
         Self::VersionControl,
         Self::Ssh,
         Self::ObjectStorage,
         Self::Clipboard,
+        Self::ToolVisibility,
         Self::Plugins,
         Self::Update,
     ];
@@ -102,6 +105,7 @@ impl SettingsPage {
             Self::Plugins => "plugins",
             Self::Update => "update",
             Self::Clipboard => "clipboard",
+            Self::ToolVisibility => "tool-visibility",
         }
     }
 
@@ -115,6 +119,7 @@ impl SettingsPage {
             Self::Plugins => "插件",
             Self::Update => "关于",
             Self::Clipboard => "剪贴板",
+            Self::ToolVisibility => "工具显示",
         }
     }
 
@@ -128,6 +133,7 @@ impl SettingsPage {
             Self::Plugins => "状态、入口和错误",
             Self::Update => "版本与更新",
             Self::Clipboard => "采集、热键与历史",
+            Self::ToolVisibility => "首页与侧边栏入口",
         }
     }
 
@@ -199,6 +205,7 @@ pub struct SettingsView {
     database_transferring: bool,
     pending_notification: Option<Notification>,
     plugin_diagnostics: Entity<PluginDiagnosticsView>,
+    tool_visibility: Entity<ToolVisibilityView>,
     monitor_preset_manager: Entity<monitor_presets::MonitorPresetManager>,
     _update_indicator_subscription: Subscription,
 }
@@ -215,7 +222,9 @@ impl SettingsView {
     ) -> Self {
         let update_indicator_subscription =
             cx.observe_global::<crate::activity_bar::UpdateIndicatorGlobal>(|_, cx| cx.notify());
+        let registry = plugin_host.registry();
         let plugin_diagnostics = cx.new(|_| PluginDiagnosticsView::new(plugin_host));
+        let tool_visibility = cx.new(|_| ToolVisibilityView::new(registry));
         let monitor_preset_manager =
             cx.new(|cx| monitor_presets::MonitorPresetManager::new(window, cx));
         let (clipboard, loaded_revision) = clipboard_service
@@ -376,6 +385,7 @@ impl SettingsView {
             database_transferring: false,
             pending_notification: None,
             plugin_diagnostics,
+            tool_visibility,
             monitor_preset_manager,
             _update_indicator_subscription: update_indicator_subscription,
         }
@@ -436,6 +446,7 @@ impl Render for SettingsView {
                 (crate::SYSTEM_SETTINGS_PREF_KEY, "系统设置"),
                 (crate::MONITOR_SETTINGS_PREF_KEY, "刷新频率"),
             ],
+            SettingsPage::ToolVisibility => &[(ramag_app::TOOL_VISIBILITY_PREF_KEY, "工具显示")],
             _ => &[],
         };
         let content = v_flex()
@@ -476,6 +487,7 @@ impl SettingsView {
             "dbclient" | "redis" => SettingsPage::Database,
             "ssh" => SettingsPage::Ssh,
             "clipboard" => SettingsPage::Clipboard,
+            "tool-visibility" => SettingsPage::ToolVisibility,
             "vcs" => SettingsPage::VersionControl,
             "object_storage" | "object-storage" => SettingsPage::ObjectStorage,
             _ => SettingsPage::System,
@@ -519,6 +531,7 @@ mod tests {
         assert!(ids.contains("clipboard"));
         assert!(ids.contains("ssh"));
         assert!(ids.contains("object-storage"));
+        assert!(ids.contains("tool-visibility"));
         assert!(ids.contains("plugins"));
         assert!(ids.contains("update"));
     }

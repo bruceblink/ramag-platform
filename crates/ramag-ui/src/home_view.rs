@@ -52,7 +52,7 @@ impl HomeView {
         let tool_layout_subscription = cx.observe_global::<ToolLayoutGlobal>(|_, cx| cx.notify());
         let tool_drag_subscription = cx.observe_global::<ToolDragGlobal>(|_, cx| cx.notify());
         let last_rendered_slots = registry
-            .list()
+            .home_list()
             .into_iter()
             .map(|tool| Some(tool.meta().id.clone()))
             .collect();
@@ -68,7 +68,10 @@ impl HomeView {
     /// 在释放时一次性提交最终槽位，保存偏好并通知首页与侧栏同步重绘。
     fn complete_drop(&mut self, dragged_id: &str, fallback_index: usize, cx: &mut Context<Self>) {
         let target_index = tool_drop_index(ToolDragSurface::Home, fallback_index, cx);
-        if self.registry.reorder_to_index(dragged_id, target_index) {
+        if self
+            .registry
+            .reorder_home_to_index(dragged_id, target_index)
+        {
             persist_tool_order(&self.registry, cx);
             notify_tool_layout_changed(cx);
         }
@@ -93,7 +96,7 @@ impl Render for HomeView {
         let mut accent_border = accent;
         accent_border.a = 0.55;
 
-        let tools = self.registry.list();
+        let tools = self.registry.home_list();
         let has_tools = !tools.is_empty();
         let current_order = tools
             .iter()
@@ -366,7 +369,7 @@ impl Render for HomeView {
                     .when(!has_tools, |content| {
                         content.child(crate::pulse_ui::pulse_status_notice(
                             crate::pulse_ui::PulseStatus::Unavailable,
-                            "暂无可用工具",
+                            "首页没有显示工具。可在侧边栏设置中的“工具显示”页恢复入口。",
                             cx,
                         ))
                     }),

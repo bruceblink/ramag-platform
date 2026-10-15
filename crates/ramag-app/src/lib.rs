@@ -14,6 +14,7 @@ mod plugin_settings_store;
 mod plugin_tasks;
 mod process_memory;
 pub mod tool_registry;
+mod tool_visibility;
 pub mod usecases;
 
 pub use blocking::run_blocking;
@@ -46,7 +47,9 @@ pub use plugin_tasks::{
     PluginTaskError, PluginTaskExecution, PluginTaskHandle, PluginTaskOutcome, PluginTaskRunError,
 };
 pub use process_memory::{ProcessMemorySnapshot, current_process_memory};
-pub use tool_registry::{TOOL_ORDER_PREF_KEY, ToolRegistry};
+pub use tool_registry::{
+    TOOL_ORDER_PREF_KEY, TOOL_VISIBILITY_PREF_KEY, ToolRegistry, ToolVisibility,
+};
 pub use usecases::{
     AUTO_CHECK_INTERVAL, AccountVerification, ApiService, AvailableUpdate, ClipboardService,
     CollaborationService, CollaborationServiceError, ConnectionService, ContainerRegistryService,

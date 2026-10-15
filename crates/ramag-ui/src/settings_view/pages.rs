@@ -21,6 +21,7 @@ impl SettingsPage {
             Self::Plugins => crate::activity_bar::ActivityBar::icon_for_tool("plugin"),
             Self::Update => Icon::new(IconName::Info),
             Self::Clipboard => crate::icons::clipboard(),
+            Self::ToolVisibility => crate::icons::toolbox(),
         }
     }
 }
@@ -101,6 +102,7 @@ impl SettingsView {
             SettingsPage::Plugins => self.plugin_diagnostics.clone().into_any_element(),
             SettingsPage::Update => self.render_update_page(cx),
             SettingsPage::Clipboard => self.render_clipboard_page(cx),
+            SettingsPage::ToolVisibility => self.tool_visibility.clone().into_any_element(),
         };
 
         v_flex()
@@ -423,6 +425,9 @@ mod tests {
             let plugins = visual_cx
                 .debug_bounds("settings-page-plugins")
                 .expect("插件入口应渲染");
+            let tool_visibility = visual_cx
+                .debug_bounds("settings-page-tool-visibility")
+                .expect("工具显示入口应渲染");
 
             assert!(navigation.origin.x >= px(0.0));
             assert!(navigation.right() <= px(width));
@@ -444,12 +449,14 @@ mod tests {
                 assert!(system.right() <= navigation.right());
                 assert!(system.origin.x > title.origin.x);
                 assert!(plugins.size.width >= px(SETTINGS_COMPACT_NAV_ITEM_WIDTH));
+                assert!(tool_visibility.size.width >= px(SETTINGS_COMPACT_NAV_ITEM_WIDTH));
             } else {
                 assert!(navigation.size.width <= px(220.0));
                 assert_eq!(navigation.bottom(), root.bottom());
                 assert!(content.origin.x >= navigation.right());
                 assert!(system.right() <= navigation.right());
                 assert!(plugins.right() <= navigation.right());
+                assert!(tool_visibility.right() <= navigation.right());
                 assert!(update.right() <= navigation.right());
                 assert!(update.origin.y > system.origin.y);
             }

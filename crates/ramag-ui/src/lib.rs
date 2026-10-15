@@ -34,6 +34,7 @@ pub mod sort_header;
 pub mod system_settings;
 pub mod theme;
 pub(crate) mod tool_layout;
+mod tool_visibility;
 pub mod transfer_ui;
 pub mod workbench;
 
