@@ -90,6 +90,7 @@ fn provider_rank(provider: CloudProvider) -> u8 {
     match provider {
         CloudProvider::AliyunOss => 0,
         CloudProvider::TencentCos => 1,
+        CloudProvider::S3Compatible => 2,
     }
 }
 

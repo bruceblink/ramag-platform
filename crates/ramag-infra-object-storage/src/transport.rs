@@ -49,6 +49,7 @@ pub fn apply_transport(
     account: &ObjectStorageAccountSnapshot,
     mount: &ObjectStorageMount,
 ) -> ObjectStorageResult<opendal::Operator> {
+    install_tls_crypto_provider()?;
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(Duration::from_secs(10))
@@ -57,7 +58,7 @@ pub fn apply_transport(
         .map_err(|_| invalid("operator", "无法创建对象存储 HTTP transport"))?;
     let inner = ReqwestTransport::new(client);
     let transport = match account.provider {
-        CloudProvider::TencentCos => HttpTransporter::new(inner),
+        CloudProvider::TencentCos | CloudProvider::S3Compatible => HttpTransporter::new(inner),
         CloudProvider::AliyunOss => {
             let signer = Signer::new(
                 Context::new(),
@@ -73,4 +74,15 @@ pub fn apply_transport(
         }
     };
     Ok(operator.with_context(OperationContext::new().with_http_transport(transport)))
+}
+
+fn install_tls_crypto_provider() -> ObjectStorageResult<()> {
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        // reqwest requires a process-wide TLS provider before constructing its HTTP client.
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        return Err(invalid("operator", "无法安装 TLS 加密 Provider"));
+    }
+    Ok(())
 }

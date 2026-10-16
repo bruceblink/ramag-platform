@@ -146,7 +146,7 @@ impl ObjectStorageView {
                                 .debug_selector(|| "object-account-empty-description".into())
                                 .text_sm()
                                 .text_color(muted)
-                                .child("添加 COS 或 OSS 账号后即可查看 Bucket 并管理对象。"),
+                                .child("添加 COS、OSS 或 S3 兼容存储账号后，可查看 Bucket 并管理对象。"),
                         )
                         .child(
                             ramag_ui::clickable_button("empty-add-object-account")
@@ -362,6 +362,7 @@ impl ObjectStorageView {
         let provider_id = match account.provider {
             CloudProvider::TencentCos => "tencent-cos",
             CloudProvider::AliyunOss => "aliyun-oss",
+            CloudProvider::S3Compatible => "s3-compatible",
         };
         let provider_icon = ramag_ui::icons::object_storage_brand_icon(provider_id);
 

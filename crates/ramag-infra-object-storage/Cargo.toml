@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "Ramag COS / OSS 对象存储基础设施适配器"
+description = "Ramag COS / OSS / S3-compatible object storage infrastructure adapter"
 
 [lints]
 workspace = true
@@ -23,6 +23,7 @@ rand = { workspace = true }
 reqsign-core = { workspace = true }
 reqsign-aliyun-oss = { workspace = true }
 reqwest = { workspace = true }
+rustls = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

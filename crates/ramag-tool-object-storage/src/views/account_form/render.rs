@@ -31,6 +31,7 @@ impl AccountFormPanel {
         for (provider, id) in [
             (CloudProvider::TencentCos, "tencent-cos"),
             (CloudProvider::AliyunOss, "aliyun-oss"),
+            (CloudProvider::S3Compatible, "s3-compatible"),
         ] {
             let selected = self.provider == provider;
             let mut card = h_flex()
@@ -248,12 +249,20 @@ impl Render for AccountFormPanel {
                                     .min_w_0()
                                     .gap(px(12.0))
                                     .child(section_title("Bucket 挂载（必填）", muted))
-                                    .child(
-                                        div()
-                                            .text_xs()
-                                            .text_color(muted)
-                                            .child("Endpoint 根据服务商和 Region 生成。"),
-                                    )
+                                    .child(div().text_xs().text_color(muted).child(
+                                        if self.provider == CloudProvider::S3Compatible {
+                                            "S3 兼容服务使用已配置 Endpoint。"
+                                        } else {
+                                            "COS/OSS Endpoint 根据服务商和 Region 生成。"
+                                        },
+                                    ))
+                                    .when(self.provider == CloudProvider::S3Compatible, |section| {
+                                        section.child(field(
+                                            "object-s3-endpoint-field",
+                                            "S3 Endpoint",
+                                            Input::new(&self.s3_endpoint).disabled(self.saving),
+                                        ))
+                                    })
                                     .child(
                                         h_flex()
                                             .w_full()
@@ -376,6 +385,7 @@ fn credential_labels(provider: CloudProvider) -> (&'static str, &'static str) {
     match provider {
         CloudProvider::TencentCos => ("SecretId", "SecretKey"),
         CloudProvider::AliyunOss => ("AccessKey ID", "AccessKey Secret"),
+        CloudProvider::S3Compatible => ("AccessKey ID", "Secret Access Key"),
     }
 }
 

@@ -226,6 +226,7 @@ fn account_form_stays_inside_compact_window_and_keeps_actions_visible(cx: &mut T
         for selector in [
             "object-provider-tencent-cos",
             "object-provider-aliyun-oss",
+            "object-provider-s3-compatible",
             "object-account-name-field",
             "object-access-key-id-field",
             "object-manual-bucket-field",

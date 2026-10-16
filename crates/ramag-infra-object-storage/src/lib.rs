@@ -1,6 +1,6 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
-//! COS / OSS 对象存储基础设施适配器。
+//! COS、OSS 与 S3 兼容对象存储基础设施适配器。
 
 mod cursor_store;
 mod errors;

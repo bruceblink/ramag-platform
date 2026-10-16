@@ -22,7 +22,7 @@
 | 优先级 | 切片 | 状态 | 下一步 |
 |---|---|---|---|
 | P0 | `A-POST-0.5-DBCLIENT-001` 数据源列表 | 代码与 headless 验收完成；搜索、长错误、重试、布局与稳定 ID 点击结果见 [本轮计划](11-dbclient-list-state-plan.md) | 补真实窗口操作证据；headless 不替代窗口验收 |
-| P1 | `A-POST-0.5-OBJECT-001` 对象存储账号列表与数据源边界 | `09c25b08` 已完成账号行响应式实现；云端账号、Bucket、对象和传输仍未验收 | 补 headless 结果记录；没有 COS/OSS 凭据时保持真实数据源流程未完成 |
+| P1 | `A-POST-0.5-OBJECT-001` 对象存储账号列表与数据源边界 | `09c25b08` 已完成账号行响应式实现；S3 兼容账号和本机 RustFS 集成测试已完成，列表 UI 验收仍待补 | 补 headless 列表结果；云 COS/OSS 凭据缺失时单独记录对应远端流程 |
 | P1 | `A-PULSE-GAP-03-DN-UI-001` Disks/Network 详细页 | `0ede5b9e` 已完成代码、headless 和质量检查；原切片 CUA 返回 `apps=[]` | 补主量表、趋势、统计区、设备选择和滚动的真实窗口流程 |
 | P1 | `A-POST-0.5-CLIPBOARD-001` 删除/撤销搜索状态 | `1dfb4ab3` 已补通知按钮、恢复写入和失败通知测试 | 在计划记录中补实际命令、退出码和当前窗口证据边界 |
 | P2 | 动效、性能、跨平台与硬件 | 后置 | 使用独立原始日志和平台证据；不由本地 headless 结果代替 |
@@ -670,7 +670,7 @@ Bucket 导航表原先只有静态的 Bucket/根路径表头，列表一直按�
 
 本轮为后续数据库客户端验收启动了本机测试服务：`ramag-visual-test-mysql84`（`mysql:8.4`，`127.0.0.1:13318`）、`ramag-db-test-mysql`（`mysql:8.4`，`127.0.0.1:13306`）、`ramag-db-test-postgres`（`postgres:17-alpine`，`127.0.0.1:15432`）、`ramag-db-test-redis`（`redis:7-alpine`，`127.0.0.1:16379`）和 `ramag-db-test-mongo`（`mongo:8.2`，`127.0.0.1:27018`），均为 `running/healthy`。复用 `scripts/db-test/compose.yaml` 和本机忽略文件中的测试配置；未输出、复制或写入任何密码。服务及其专用数据卷保持运行，未清理任何卷。本轮 Computer Use 未提供可操作的 Windows 原生窗口，因此只确认了容器健康，没有通过 Ramag DBClient 保存连接、执行查询或读取用户存储配置。
 
-本轮尝试拉取 MinIO 镜像时 registry 返回 `401 Unauthorized`，未创建 MinIO 容器或数据卷；随后启动 RustFS 本地 S3 测试服务 `ramag-object-storage-test`（`docker.io/rustfs/rustfs:latest`，镜像 digest `sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c`，S3 API `127.0.0.1:19000`，Console `127.0.0.1:19001`，专用卷 `ramag-object-storage-test-data`）。`GET /health/ready` 与 Console health 均返回 HTTP 200；服务和数据卷保持运行。根凭据启动时随机生成并注入容器，未输出或写入仓库文件。RustFS 官方容器支持本地 S3 兼容测试，但 Ramag 当前只实现腾讯云 COS 与阿里云 OSS，Endpoint 校验要求相应服务商官方 HTTPS 主机，因此此容器尚不能接入现有对象存储账号流程。对象列表和传输的完整程序验收仍需要专用 COS/OSS 测试账号及明确的可写测试前缀，或另行实现并验证 S3 兼容服务商支持。
+本轮尝试拉取 MinIO 镜像时 registry 返回 `401 Unauthorized`，未创建 MinIO 容器或数据卷；随后启动 RustFS 本地 S3 测试服务 `ramag-object-storage-test`（`docker.io/rustfs/rustfs:latest`，镜像 digest `sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c`，S3 API `127.0.0.1:19000`，Console `127.0.0.1:19001`，专用卷 `ramag-object-storage-test-data`）。`GET /health/ready` 与 Console health 均返回 HTTP 200；服务和数据卷保持运行。根凭据启动时随机生成并注入容器，未输出或写入仓库文件。RustFS 官方容器支持本地 S3 兼容测试，但当时 Ramag 只实现腾讯云 COS 与阿里云 OSS，Endpoint 校验要求相应服务商官方 HTTPS 主机，因此该容器当时不能接入现有对象存储账号流程。对象列表和传输验收仍需要专用 COS/OSS 测试账号及明确的可写测试前缀，或实现并验证 S3 兼容服务商支持。
 
 ### 2026-10-06 Summary 内存采样原因可见性修复
 
@@ -705,3 +705,11 @@ Energy 与 Thermals 详细页和 Summary 之前在已保存传感器的最新状
 用户将主线切换为 UI 对齐与功能修复，要求统一排序列表并进行完整测试。可排序表头现复用公共图标、字重、间距与主题色，覆盖进程、Docker、SQL、MongoDB、对象存储账号和挂载；数据库 ORDER BY 控件同步方向图标。Windows 网络默认路由映射修复了自动选中 Teredo 的问题，用户已保存选择仍保留。
 
 本机 workspace 全量测试在四个 Docker 数据库和完整测试数据下退出 0；格式、严格 workspace Clippy、源码尺寸与最终构建通过。Computer Use 已恢复可控真实窗口；进程 PID 双方向排序、选中 Threads 详情、设置纵向布局、MySQL 十万行分页与排序、Docker 镜像排序/筛选完成。更多工具流程、Docker 镜像/端口、原生证据边界和 SSH 测试清理事故记录见 [本轮集成测试报告](testing/2026-10-06-ui-integration-test-report.md)。此前各节“窗口不可用”是原切片的历史结果，不再代表本轮状态。
+
+### 2026-10-16 S3 兼容账号与本机 RustFS 集成验收
+
+本轮增加 S3 兼容服务商和 Endpoint 字段。远程 Endpoint 必须使用 HTTPS；HTTP 仅允许本机回环地址。原 COS/OSS 账号记录继续兼容。对象存储基础设施使用 OpenDAL S3 服务和 path-style 请求；真实数据面请求通过本机 RustFS 容器完成。
+
+本机 Docker Engine 为 `29.7.2`，镜像 `rustfs/rustfs:latest`，digest `sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c`。新建临时容器映射 S3 API `127.0.0.1:19010`、Console `127.0.0.1:19011`，就绪检查返回 HTTP 200。真实 S3 测试通过 Bucket 内列表、上传、重复上传拒绝、对象元数据、下载内容校验、只读账号拒绝写入和删除、测试对象清理及 driver shutdown。测试容器已删除，未改动先前已有的 RustFS、数据库容器或数据卷。
+
+workspace 全量测试、严格 Clippy、格式检查、源码尺寸检查和 `ramag-bin` 完整构建通过。Windows 原生窗口打开对象存储新建账号表单，选择 S3 后显示 Endpoint 输入，并能输入回环地址后取消；未保存账号或测试凭据。列表宽度和已保存 S3 账号的真实窗口验收仍由 `01-development-plan.md` 中的对象存储列表切片负责。

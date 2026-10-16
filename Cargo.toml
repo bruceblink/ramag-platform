@@ -214,13 +214,14 @@ tonic-prost = "0.14.6"
 tonic-prost-build = "0.14.6"
 tonic-reflection = { version = "0.14.6", default-features = false }
 
-# 云对象存储：只启用 COS / OSS、Tokio executor 与 rustls HTTP transport。
+# 云对象存储：启用 COS / OSS / S3 兼容服务、Tokio executor 与 rustls HTTP transport。
 opendal = { version = "0.58.1", default-features = false, features = [
     "auto-register-services",
     "executors-tokio",
     "http-transport-reqwest-rustls-no-provider",
     "services-cos",
     "services-oss",
+    "services-s3",
 ] }
 opendal-http-transport-reqwest = { version = "0.58.1", default-features = false, features = ["rustls-no-provider"] }
 reqsign-core = "3.3.0"

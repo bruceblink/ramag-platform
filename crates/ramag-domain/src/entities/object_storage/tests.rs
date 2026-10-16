@@ -67,6 +67,63 @@ fn official_endpoint_rejects_custom_hosts_and_redirect_shapes() {
 }
 
 #[test]
+fn s3_endpoint_accepts_https_and_local_loopback_http_only() {
+    assert!(ObjectStorageEndpoint::parse_s3_compatible("https://objects.example.com").is_ok());
+    assert!(ObjectStorageEndpoint::parse_s3_compatible("http://localhost:9000").is_ok());
+    assert!(ObjectStorageEndpoint::parse_s3_compatible("http://127.0.0.1:9000").is_ok());
+    assert!(ObjectStorageEndpoint::parse_s3_compatible("http://[::1]:9000").is_ok());
+    for endpoint in [
+        "http://objects.example.com",
+        "http://192.168.1.10:9000",
+        "http://@localhost:9000",
+        "https://user:secret@objects.example.com",
+        "https://objects.example.com/path",
+        "https://objects.example.com/?bucket=bad",
+        "https://objects.example.com/#fragment",
+        "ftp://objects.example.com",
+    ] {
+        assert!(
+            ObjectStorageEndpoint::parse_s3_compatible(endpoint).is_err(),
+            "{endpoint}"
+        );
+    }
+}
+
+#[test]
+fn old_account_records_without_s3_endpoint_still_load() -> Result<(), String> {
+    let mut value = serde_json::to_value(valid_account()).map_err(|error| error.to_string())?;
+    value
+        .as_object_mut()
+        .ok_or_else(|| "account did not serialize as a JSON object".to_string())?
+        .remove("s3_endpoint");
+    let account: ObjectStorageAccount =
+        serde_json::from_value(value).map_err(|error| error.to_string())?;
+    assert_eq!(account.provider, CloudProvider::TencentCos);
+    assert!(account.s3_endpoint.is_none());
+    assert!(account.validate().is_ok());
+    Ok(())
+}
+
+#[test]
+fn s3_account_requires_a_valid_endpoint() -> Result<(), String> {
+    let mut account = ObjectStorageAccount::new("local", CloudProvider::S3Compatible);
+    account.access_key_id = SecretString::new("access");
+    account.access_key_secret = SecretString::new("secret");
+    account.manual_buckets = vec![ManualBucket::new("local-bucket", "us-east-1")];
+    assert!(account.validate().is_err());
+    account.s3_endpoint = Some(
+        serde_json::from_value(serde_json::json!("http://example.com"))
+            .map_err(|error| error.to_string())?,
+    );
+    assert!(account.validate().is_err());
+    account.s3_endpoint = Some(ObjectStorageEndpoint::parse_s3_compatible(
+        "http://127.0.0.1:9000",
+    )?);
+    assert!(account.validate().is_ok());
+    Ok(())
+}
+
+#[test]
 fn unsafe_keys_are_never_marked_operable() {
     for key in [
         "/leading",

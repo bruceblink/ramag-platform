@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use ramag_domain::entities::{
     CloudProvider, HttpsEndpoint, ObjectDownloadRequest, ObjectListQuery, ObjectStorageAccount,
-    ObjectStorageMount, ObjectStorageMountId, ObjectUploadRequest, OverwritePolicy, SecretString,
-    TransferCancellation, validate_root_prefix,
+    ObjectStorageEndpoint, ObjectStorageMount, ObjectStorageMountId, ObjectUploadRequest,
+    OverwritePolicy, SecretString, TransferCancellation, validate_root_prefix,
 };
 use ramag_domain::traits::ObjectStorageDriver;
 use ramag_infra_object_storage::ObjectStorageInfra;
@@ -18,17 +18,19 @@ struct LiveConfig {
     bucket: String,
     region: String,
     prefix: String,
+    endpoint: Option<String>,
 }
 
 impl LiveConfig {
     fn from_env(provider: CloudProvider) -> Option<Self> {
-        let (id, secret, bucket, region, prefix) = match provider {
+        let (id, secret, bucket, region, prefix, endpoint) = match provider {
             CloudProvider::TencentCos => (
                 "RAMAG_TEST_COS_SECRET_ID",
                 "RAMAG_TEST_COS_SECRET_KEY",
                 "RAMAG_TEST_COS_BUCKET",
                 "RAMAG_TEST_COS_REGION",
                 "RAMAG_TEST_COS_PREFIX",
+                None,
             ),
             CloudProvider::AliyunOss => (
                 "RAMAG_TEST_OSS_ACCESS_KEY_ID",
@@ -36,6 +38,15 @@ impl LiveConfig {
                 "RAMAG_TEST_OSS_BUCKET",
                 "RAMAG_TEST_OSS_REGION",
                 "RAMAG_TEST_OSS_PREFIX",
+                None,
+            ),
+            CloudProvider::S3Compatible => (
+                "RAMAG_TEST_S3_ACCESS_KEY_ID",
+                "RAMAG_TEST_S3_ACCESS_KEY_SECRET",
+                "RAMAG_TEST_S3_BUCKET",
+                "RAMAG_TEST_S3_REGION",
+                "RAMAG_TEST_S3_PREFIX",
+                Some("RAMAG_TEST_S3_ENDPOINT"),
             ),
         };
         Some(Self {
@@ -45,6 +56,7 @@ impl LiveConfig {
             bucket: std::env::var(bucket).ok()?,
             region: std::env::var(region).ok()?,
             prefix: std::env::var(prefix).ok()?,
+            endpoint: endpoint.and_then(|name| std::env::var(name).ok()),
         })
     }
 }
@@ -67,6 +79,15 @@ async fn oss_live_round_trip() -> Result<(), String> {
     run_live(config).await
 }
 
+#[tokio::test]
+#[ignore = "requires a scoped S3-compatible endpoint, test bucket, and credentials"]
+async fn s3_compatible_live_round_trip() -> Result<(), String> {
+    let Some(config) = LiveConfig::from_env(CloudProvider::S3Compatible) else {
+        return Ok(());
+    };
+    run_live(config).await
+}
+
 async fn run_live(config: LiveConfig) -> Result<(), String> {
     validate_root_prefix(&config.prefix)
         .map_err(|error| format!("test prefix must be a safe non-empty directory: {error}"))?;
@@ -74,18 +95,40 @@ async fn run_live(config: LiveConfig) -> Result<(), String> {
     account.read_only = false;
     account.access_key_id = SecretString::new(config.access_key_id);
     account.access_key_secret = SecretString::new(config.access_key_secret);
+    account.s3_endpoint = match config.provider {
+        CloudProvider::S3Compatible => Some(
+            ObjectStorageEndpoint::parse_s3_compatible(
+                config
+                    .endpoint
+                    .as_deref()
+                    .ok_or("S3 test endpoint is missing")?,
+            )
+            .map_err(|error| format!("invalid S3 test endpoint: {error}"))?,
+        ),
+        CloudProvider::TencentCos | CloudProvider::AliyunOss => None,
+    };
     let infra = ObjectStorageInfra::new().map_err(|error| error.to_string())?;
     let endpoint = match config.provider {
         CloudProvider::TencentCos => format!("https://cos.{}.myqcloud.com", config.region),
         CloudProvider::AliyunOss => format!("https://oss-{}.aliyuncs.com", config.region),
+        CloudProvider::S3Compatible => config
+            .endpoint
+            .clone()
+            .ok_or("S3 test endpoint is missing")?,
+    };
+    let endpoint = match config.provider {
+        CloudProvider::S3Compatible => ObjectStorageEndpoint::parse_s3_compatible(&endpoint)
+            .map_err(|error| format!("invalid S3 test endpoint: {error}"))?,
+        provider => {
+            HttpsEndpoint::parse_official(provider, &endpoint).map_err(|error| error.to_string())?
+        }
     };
     let mount = ObjectStorageMount {
         id: ObjectStorageMountId::new(),
         account_id: account.id.clone(),
         bucket: config.bucket.clone(),
         region: config.region.clone(),
-        endpoint: HttpsEndpoint::parse_official(config.provider, &endpoint)
-            .map_err(|error| error.to_string())?,
+        endpoint,
         root_prefix: None,
         created_at: None,
         storage_class: None,
@@ -136,6 +179,19 @@ async fn exercise_object(
     ObjectStorageDriver::upload(infra, upload(account, OverwritePolicy::Refuse))
         .await
         .map_err(|error| error.to_string())?;
+    let directory_prefix = key.rsplit_once('/').map_or("", |(directory, _)| directory);
+    let directory_prefix = if directory_prefix.is_empty() {
+        String::new()
+    } else {
+        format!("{directory_prefix}/")
+    };
+    let query = ObjectListQuery::new(&directory_prefix, "").map_err(|error| error.to_string())?;
+    let page = ObjectStorageDriver::list_page(infra, &account.snapshot(), mount, &query, None, 2)
+        .await
+        .map_err(|error| error.to_string())?;
+    if !page.entries.iter().any(|entry| entry.key == key) {
+        return Err("uploaded object was not returned by the list operation".into());
+    }
     if ObjectStorageDriver::upload(infra, upload(account, OverwritePolicy::Refuse))
         .await
         .is_ok()
@@ -175,6 +231,12 @@ async fn exercise_object(
         .is_ok()
     {
         return Err("read-only upload unexpectedly reached the provider".into());
+    }
+    if ObjectStorageDriver::delete(infra, &read_only.snapshot(), mount, key)
+        .await
+        .is_ok()
+    {
+        return Err("read-only delete unexpectedly reached the provider".into());
     }
     Ok(())
 }

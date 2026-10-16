@@ -1,8 +1,8 @@
 # Ramag Platform 最新开发计划
 
 > 状态：现行计划
-> 更新日期：2026-10-15
-> 本轮起点：`main` 与 `origin/main` 均为 `c9b8932e`；`v0.5.0` 已发布。本轮已完成工具入口显示管理，后续按队列推进独立功能修复。
+> 更新日期：2026-10-16
+> 本轮起点：`main` 与 `origin/main` 均为 `244dccda`；`v0.5.0` 已发布。工具入口显示管理已完成；本轮先增加 S3 兼容账号支持，再完成对象存储列表与本机 RustFS 验收。
 > 当前主线：收口已有桌面工具的 UI 差异和功能状态；阶段 B 继续维护原生工作区；阶段 C 协同画布后置
 
 本文件只描述当前可执行的开发顺序。旧的逐切片验收记录保存在
@@ -12,7 +12,7 @@
 
 当前版本的目标是让已有工具在真实工作流程中保持可读、可操作、可恢复。优先修复布局、字体、状态反馈、滚动、筛选、排序、删除/撤销和加载失败问题。已有数据库、API、Kafka、MQTT、SSH/SFTP、容器、Git、对象存储、剪贴板和 System Pulse 能力继续在原生 GPUI 工作区中演进。
 
-本次新增范围只包括工具入口显示管理，不扩大工具能力：
+本轮新增范围只包括工具入口显示管理和 S3 兼容对象存储账号，不扩大其他工具能力：
 
 - 不启动原生协同画布、生产 Relay、Relay B4 或动态插件市场。
 - 不使用 WebView 或嵌入式浏览器替代原生工具工作区。
@@ -41,11 +41,12 @@
 | 1 | `A-POST-0.5-TOOL-VISIBILITY-001` 首页与侧边栏工具显示管理 | 已完成；目标测试、严格 Clippy、程序构建和真实窗口交互通过 | 在设置页为每个已注册工具分别控制首页和侧边栏入口；设置持久化，切换后两个表面即时更新；隐藏入口不卸载工具或删除数据。详见 [专项计划](12-tool-visibility-plan.md)。 |
 | 2 | `A-POST-0.5-DBCLIENT-001` 数据源列表差异复核 | 已完成；全工作区 Docker 测试 2702 passed、0 failed、19 ignored | 无匹配搜索、长错误、重试、账号列、行操作和多尺寸均有对应验证；详见 [本轮计划](11-dbclient-list-state-plan.md)。 |
 | 3 | `A-POST-0.5-CLIPBOARD-001` 剪贴板删除/撤销回归收口 | 代码、测试和验收记录已在 `1dfb4ab3` 与 [专项计划](09-post-0.5.0-ui-fixes-plan.md) 完成 | 删除后当前搜索和详情失效；撤销重新查询并恢复；恢复失败保留原记录和通知。 |
-| 4 | `A-POST-0.5-OBJECT-001` 对象存储列表与真实数据源证据 | 后续；账号行响应式代码已完成，真实数据源证据待补 | 复核 360/640/768/1024/1440 宽度、明暗主题、长名称、行操作和稳定选择 ID；没有 COS/OSS 凭据时不宣称 Bucket、对象或传输流程通过。 |
-| 5 | `A-PULSE-GAP-03-DN-UI-001` Disks/Network 真实窗口核验 | 代码与 headless 已完成，CUA 阻塞 | 在参考程序和 Ramag 中依次核对主量表、读写/收发趋势、统计区、设备重排、缺失身份和页面滚动；CUA 恢复前保留未完成。 |
-| 6 | `A-POST-0.5-LIST-ACCEPTANCE-001` 其余列表型工作区完整程序核验 | 后续 | 依次核对容器、VCS、插件的标题、字体、背景、滚动、空/加载/失败状态和主要操作；已拆出的 DBClient、对象存储和剪贴板切片不重复排队。原生窗口可用时使用 Computer Use；不可用时明确列出未覆盖操作。 |
-| 7 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` 编辑/连接型工作区核验 | 后续 | 按 SSH/SFTP、API、Kafka、MQTT 顺序检查连接、取消、保存、错误恢复和结果上下文；只有协议行为变化时才启动本机 Docker。 |
-| 8 | `A-POST-0.5-REGRESSION-001` 全局回归与文档收口 | 后续 | 重新构建完整程序，复核首页往返、主题、全局 Settings、共享组件和本轮受影响工具；更新对应专项文档、测试报告和未完成项。 |
+| 4 | `A-POST-0.5-S3-COMPAT-001` S3 兼容账号与本机数据源 | 已完成；目标测试、全工作区检查、RustFS 实际读写和真实窗口账号表单均通过 | 增加 S3 兼容账号和安全 Endpoint 校验；独立本机 RustFS 容器通过真实列表和传输验证。详见 [专项计划](13-object-storage-s3-compatibility-plan.md)。 |
+| 5 | `A-POST-0.5-OBJECT-001` 对象存储列表与真实数据源验收 | 后续；账号行响应式代码已完成 | 复核 360/640/768/1024/1440 宽度、明暗主题、长名称、行操作和稳定选择 ID；使用已完成的 S3 兼容本机数据源完成实际列表检查。 |
+| 6 | `A-PULSE-GAP-03-DN-UI-001` Disks/Network 真实窗口核验 | 代码与 headless 已完成，CUA 阻塞 | 在参考程序和 Ramag 中依次核对主量表、读写/收发趋势、统计区、设备重排、缺失身份和页面滚动；CUA 恢复前保留未完成。 |
+| 7 | `A-POST-0.5-LIST-ACCEPTANCE-001` 其余列表型工作区完整程序核验 | 后续 | 依次核对容器、VCS、插件的标题、字体、背景、滚动、空/加载/失败状态和主要操作；已拆出的 DBClient、对象存储和剪贴板切片不重复排队。原生窗口可用时使用 Computer Use；不可用时明确列出未覆盖操作。 |
+| 8 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` 编辑/连接型工作区核验 | 后续 | 按 SSH/SFTP、API、Kafka、MQTT 顺序检查连接、取消、保存、错误恢复和结果上下文；只有协议行为变化时才启动本机 Docker。 |
+| 9 | `A-POST-0.5-REGRESSION-001` 全局回归与文档收口 | 后续 | 重新构建完整程序，复核首页往返、主题、全局 Settings、共享组件和本轮受影响工具；更新对应专项文档、测试报告和未完成项。 |
 
 ### 3.1 后置项目
 
@@ -100,7 +101,7 @@ cargo build --locked -p ramag-bin
 5. Docker 服务与清理结果，或明确写“不适用”。
 6. 未完成项、证据限制和下一项依赖。
 
-专项入口：[`02-development-roadmap.md`](02-development-roadmap.md)、[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)、[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)、[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)、[`09-post-0.5.0-ui-fixes-plan.md`](09-post-0.5.0-ui-fixes-plan.md)、[`10-system-disks-network-plan.md`](10-system-disks-network-plan.md)、[`12-tool-visibility-plan.md`](12-tool-visibility-plan.md)。
+专项入口：[`02-development-roadmap.md`](02-development-roadmap.md)、[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)、[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)、[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)、[`09-post-0.5.0-ui-fixes-plan.md`](09-post-0.5.0-ui-fixes-plan.md)、[`10-system-disks-network-plan.md`](10-system-disks-network-plan.md)、[`12-tool-visibility-plan.md`](12-tool-visibility-plan.md)、[`13-object-storage-s3-compatibility-plan.md`](13-object-storage-s3-compatibility-plan.md)。
 
 ## 6. 回滚边界
 

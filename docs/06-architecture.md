@@ -2,7 +2,7 @@
 
 ## 设计目标
 
-1. **可扩展**：从一开始就支持多种数据源与工具（当前 MySQL / PostgreSQL / SQLite / Redis / MongoDB / Git / SSH / SFTP / COS / OSS / Docker / Kubernetes）
+1. **可扩展**：从一开始就支持多种数据源与工具（当前 MySQL / PostgreSQL / SQLite / Redis / MongoDB / Git / SSH / SFTP / COS / OSS / S3 兼容存储 / Docker / Kubernetes）
 2. **可演化**：未来加入新工具（不只是数据库）不需要重构 domain / app 层
 3. **可测试**：核心业务逻辑能脱离 GUI 单独测试
 4. **可维护**：模块边界清晰，依赖方向单一
@@ -21,7 +21,7 @@ ramag-bin                          ← 入口：依赖注入 + 启动 GPUI
   ├── ramag-tool-vcs                       ← VCS（Git）可视化视图
   ├── ramag-tool-ssh                       ← SSH 连接、内嵌终端、SFTP 与 JumpServer 导入
   ├── ramag-tool-clipboard                 ← 剪贴历史与详情视图
-  ├── ramag-tool-object-storage             ← COS/OSS 账号、Bucket、对象与传输视图
+  ├── ramag-tool-object-storage             ← COS/OSS/S3 兼容账号、Bucket、对象与传输视图
   ├── ramag-tool-container                  ← Docker/Kubernetes 连接配置与资源工作台
   ├── ramag-ui                             ← Shell + ActivityBar + 主题
   ├── ramag-infra-mysql       impl SqlBackend
@@ -34,7 +34,7 @@ ramag-bin                          ← 入口：依赖注入 + 启动 GPUI
   ├── ramag-infra-ssh         impl SshDriver + JumpServerDriver
   ├── ramag-terminal                       ← GPUI 终端解析、输入编码与绘制
   ├── ramag-infra-clipboard   impl ClipboardDriver
-  ├── ramag-infra-object-storage             ← OpenDAL COS/OSS 数据面、专用 runtime
+  ├── ramag-infra-object-storage             ← OpenDAL COS/OSS/S3 兼容数据面、专用 runtime
   ├── ramag-infra-update                     ← GitHub Release 更新检查、下载与校验
   ├── ramag-infra-tunnel                   ← 数据库系统 OpenSSH 隧道
   ├── ramag-infra-storage     impl Storage（redb + aes-gcm + 系统凭据库）
@@ -70,7 +70,7 @@ ramag-bin                          ← 入口：依赖注入 + 启动 GPUI
 - `RedisService`：Redis 侧 facade
 - `MongoService`：MongoDB 侧 facade（连接 CRUD + 文档操作 + 查询历史，与 SQL 共用同一张 history 表）
 - `SshService`：SSH 配置、连接测试、SFTP、传输队列与 JumpServer 导入编排
-- `ObjectStorageService`：COS/OSS 账号生命周期、必填 Bucket 挂载验证、对象分页、只读限制、传输队列与加密工作区
+- `ObjectStorageService`：COS/OSS/S3 兼容账号生命周期、必填 Bucket 挂载验证、对象分页、只读限制、传输队列与加密工作区
 - `DataSyncService`：MySQL、PostgreSQL、Redis 与 MongoDB 同类型连接的数据同步、预检、范围检查与结果汇总
 - `UpdateService`：版本比较、平台产物选择、更新下载状态与取消编排
 - `id_conversion`：结果搜索使用的双向 ID 转换，隔离内置算法和外部进程边界
@@ -139,7 +139,7 @@ ramag-bin                          ← 入口：依赖注入 + 启动 GPUI
 
 ### `ramag-infra-object-storage`
 
-对象存储基础设施只负责已配置 Bucket 的数据面操作，不请求账号级列桶 API。`OperatorCache` 使用 OpenDAL 访问 Bucket 内对象；Endpoint 根据服务商和用户填写的 Region 生成并经过官方 HTTPS 域名白名单校验。OSS 数据面通过受限 Reqwest transport 明确使用 V4 签名。HTTP 统一使用 `rustls-no-provider`，由 `ramag-bin` 组合根在创建任何 Reqwest Client 前安装进程级 `ring` Provider，不引入 OpenSSL 或 AWS-LC。
+对象存储基础设施只负责已配置 Bucket 的数据面操作，不请求账号级列桶 API。`OperatorCache` 使用 OpenDAL 访问 Bucket 内对象；COS/OSS Endpoint 根据服务商和 Region 生成，并通过官方 HTTPS 域名白名单校验。S3 兼容账号使用用户提供的 Endpoint；远程地址必须使用 HTTPS，本机回环地址允许 HTTP，OpenDAL 默认使用 path-style 请求。OSS 数据面通过受限 Reqwest transport 明确使用 V4 签名。HTTP 统一使用 `rustls-no-provider`，由 `ramag-bin` 组合根在创建任何 Reqwest Client 前安装进程级 `ring` Provider，不引入 OpenSSL 或 AWS-LC。
 
 该 Crate 持有 2 worker 的独立 Tokio runtime、最多 32 个 Operator 的 LRU 缓存和有 TTL 的 Ramag 游标缓存。传输使用临时文件提交；Windows 覆盖下载通过 `MoveFileExW` 原子替换，避免先删除旧文件形成数据丢失窗口。关闭应用时由 `ObjectStorageService::shutdown` 有界停止 runtime。
 
@@ -215,7 +215,7 @@ GPUI 内部用 smol，sqlx / redis-rs / mongodb / SSH 基础设施依赖 tokio�
 | tokio (Redis) | redis-rs 操作 | `ramag-infra-redis::runtime`（独立 2 worker） |
 | tokio (MongoDB) | mongodb 文档操作 | `ramag-infra-mongodb::runtime`（独立 2 worker） |
 | tokio (SSH) | SFTP、JumpServer 与传输任务 | `ramag-infra-ssh::runtime`（独立 3 worker） |
-| tokio (Object Storage) | COS/OSS 对象访问与传输 | `ramag-infra-object-storage::runtime`（独立 2 worker） |
+| tokio (Object Storage) | COS/OSS/S3 兼容对象访问与传输 | `ramag-infra-object-storage::runtime`（独立 2 worker） |
 | std::thread | redb / 系统 Git 同步 API | `Storage` 与 `GitDriver` 各自的 `run_blocking` |
 
 **为什么分开**：Redis Pub/Sub、SSH 会话与传输是长生命周期任务，不应被 SQL 长查询挤占；MongoDB 同理独立一份。同种类型 driver（如多个 SQL）共享则合理。
@@ -290,7 +290,7 @@ SQL 类共用 `ConnectionSession`，但本地文件型驱动仍需在连接表�
 | Domain | 单元测试 | 纯 Rust 逻辑 |
 | App | 单元测试 | 编排逻辑 |
 | Infra（SQL / Redis / MongoDB） | 集成测试连真实 DB | 缺环境变量自动 skip |
-| Infra（Object Storage） | XML/签名/缓存/传输单元测试 + 默认忽略的 COS/OSS 往返测试 | 真实测试要求专用 Bucket、Prefix 和显式环境变量 |
+| Infra（Object Storage） | XML/签名/缓存/传输单元测试 + 默认忽略的 COS/OSS/S3 兼容往返测试 | 真实测试要求专用 Bucket、Prefix 和显式环境变量；S3 兼容用例可使用本机 RustFS |
 | Infra（Storage / Git） | 单元测试 + tempdir | 不依赖外部服务 |
 | Infra（SSH） | 单元测试 + 可选 OpenSSH 集成测试 | 外部服务测试按环境跳过 |
 | UI | GPUI 无头渲染与状态回归测试 + 手动验收 | 覆盖关键布局、焦点和交互状态 |

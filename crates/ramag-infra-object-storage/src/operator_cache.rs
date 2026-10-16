@@ -136,6 +136,19 @@ fn build_operator(
                 Operator::new(builder).map_err(|error| map_opendal("operator", error))?;
             apply_transport(operator, account, mount)
         }
+        CloudProvider::S3Compatible => {
+            // Path-style addressing supports loopback IPs and custom S3 endpoints.
+            let builder = services::S3::default()
+                .bucket(&mount.bucket)
+                .region(&mount.region)
+                .endpoint(mount.endpoint.as_str())
+                .access_key_id(account.access_key_id.expose_secret())
+                .secret_access_key(account.access_key_secret.expose_secret())
+                .disable_config_load();
+            let operator =
+                Operator::new(builder).map_err(|error| map_opendal("operator", error))?;
+            apply_transport(operator, account, mount)
+        }
     }
 }
 

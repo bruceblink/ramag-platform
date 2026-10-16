@@ -1,7 +1,7 @@
 # Ramag Platform 最新主线：单机桌面收口与原生工作区迁移
 
 > 状态：现行主线；阶段 A 负责 v0.5.0 后的 UI 与功能收口，阶段 B 负责已有原生工作区的真实窗口和跨平台证据，阶段 C（原生协同画布）后置。当前基线与切片顺序以 [`01-development-plan.md`](01-development-plan.md) 为准。Relay B4、生产 Relay、动态插件市场和画布实现不进入当前开发队列。
-> 更新日期：2026-10-12
+> 更新日期：2026-10-16
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
@@ -87,7 +87,7 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 |---|---|---|---|---|
 | P0 | `A-POST-0.5-DBCLIENT-001` | 数据源列表差异复核 | 代码与 headless 验收完成；真实窗口验收待补，见 [本轮计划](11-dbclient-list-state-plan.md) | 搜索无匹配时仍显示刷新失败与重试；长错误下重试可用；账号列/窄行边界及筛选重排后的连接 ID |
 | P1 | `A-POST-0.5-CLIPBOARD-001` | 剪贴板删除/撤销搜索状态 | 代码已完成，待计划记录复核 | 目标测试、删除/撤销/失败通知和旧搜索代际回归 |
-| P1 | `A-POST-0.5-OBJECT-001` | 对象存储列表与真实数据源证据 | 账号行响应式代码已完成，待记录和补证 | 360/640/768/1024/1440、明暗主题、长名称、稳定选择 ID；无 COS/OSS 凭据时保持云端流程未完成 |
+| P1 | `A-POST-0.5-OBJECT-001` | 对象存储列表与真实数据源证据 | 账号行响应式代码已完成，待记录和补证；S3 兼容账号及本机 RustFS 数据源已可用 | 360/640/768/1024/1440、明暗主题、长名称、稳定选择 ID；使用本机 RustFS 完成列表检查，云 COS/OSS 凭据仍缺失时单独记录 |
 | P1 | `A-PULSE-GAP-03-DN-UI-001` | Disks/Network 详细页真实窗口核验 | 代码与 headless 已完成，CUA 阻塞 | 主量表、趋势、统计区、设备重排/缺失身份和滚动流程 |
 | P1 | `A-POST-0.5-LIST-ACCEPTANCE-001` | 其余列表型工作区（容器、VCS、插件） | 后续 | 完整程序中的滚动、空/加载/失败状态和主要操作；CUA 缺失时明确未完成 |
 | P1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` | SSH/SFTP、API、Kafka、MQTT 编辑/连接工作区 | 后续 | 连接、取消、保存、错误恢复、结果上下文；需要时使用本机 Docker |

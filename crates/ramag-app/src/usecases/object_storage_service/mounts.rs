@@ -1,7 +1,7 @@
 //! 用户配置的 Bucket 挂载转换。
 
 use ramag_domain::entities::{
-    CloudProvider, HttpsEndpoint, ObjectStorageAccount, ObjectStorageMount,
+    CloudProvider, HttpsEndpoint, ObjectStorageAccount, ObjectStorageEndpoint, ObjectStorageMount,
 };
 use ramag_domain::error::Result;
 
@@ -38,7 +38,7 @@ pub fn configured_mounts(account: &ObjectStorageAccount) -> Result<Vec<ObjectSto
             account_id: account.id.clone(),
             bucket: bucket.name.clone(),
             region: bucket.region.clone(),
-            endpoint: official_endpoint(account.provider, &bucket.region)?,
+            endpoint: endpoint_for_account(account, &bucket.region)?,
             root_prefix: bucket.root_prefix.clone(),
             created_at: None,
             storage_class: None,
@@ -58,15 +58,32 @@ fn official_endpoint(provider: CloudProvider, region: &str) -> Result<HttpsEndpo
     let value = match provider {
         CloudProvider::TencentCos => format!("https://cos.{region}.myqcloud.com"),
         CloudProvider::AliyunOss => format!("https://oss-{region}.aliyuncs.com"),
+        CloudProvider::S3Compatible => {
+            return Err(ramag_domain::error::DomainError::InvalidConfig(
+                "S3 兼容账号必须设置 Endpoint".into(),
+            ));
+        }
     };
     HttpsEndpoint::parse_official(provider, &value)
         .map_err(ramag_domain::error::DomainError::InvalidConfig)
 }
 
+fn endpoint_for_account(
+    account: &ObjectStorageAccount,
+    region: &str,
+) -> Result<ObjectStorageEndpoint> {
+    match account.provider {
+        CloudProvider::S3Compatible => account.s3_endpoint.clone().ok_or_else(|| {
+            ramag_domain::error::DomainError::InvalidConfig("S3 兼容账号必须设置 Endpoint".into())
+        }),
+        provider => official_endpoint(provider, region),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ramag_domain::entities::{ManualBucket, SecretString};
+    use ramag_domain::entities::{ManualBucket, ObjectStorageEndpoint, SecretString};
 
     #[test]
     fn same_bucket_can_have_independent_root_mounts() {
@@ -81,5 +98,27 @@ mod tests {
         let mounts = configured_mounts(&account).unwrap();
         assert_eq!(mounts.len(), 2);
         assert_ne!(mounts[0].id, mounts[1].id);
+    }
+
+    #[test]
+    fn s3_compatible_mount_uses_the_account_endpoint() {
+        let mut account = ObjectStorageAccount::new("local", CloudProvider::S3Compatible);
+        account.manual_buckets = vec![ManualBucket::new("local-bucket", "us-east-1")];
+        account.s3_endpoint =
+            Some(ObjectStorageEndpoint::parse_s3_compatible("http://127.0.0.1:9000").unwrap());
+        let mounts = configured_mounts(&account).unwrap();
+        assert_eq!(mounts[0].endpoint.as_str(), "http://127.0.0.1:9000");
+        assert!(
+            mounts[0]
+                .validate_for_provider(CloudProvider::S3Compatible)
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn s3_compatible_mount_rejects_an_account_without_an_endpoint() {
+        let mut account = ObjectStorageAccount::new("local", CloudProvider::S3Compatible);
+        account.manual_buckets = vec![ManualBucket::new("local-bucket", "us-east-1")];
+        assert!(configured_mounts(&account).is_err());
     }
 }

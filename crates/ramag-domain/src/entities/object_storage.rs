@@ -5,6 +5,7 @@ use std::fmt;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use url::{Host, Url};
 use uuid::Uuid;
 use zeroize::Zeroize as _;
 
@@ -91,6 +92,7 @@ impl fmt::Display for ObjectStorageMountId {
 pub enum CloudProvider {
     TencentCos,
     AliyunOss,
+    S3Compatible,
 }
 
 impl CloudProvider {
@@ -98,6 +100,7 @@ impl CloudProvider {
         match self {
             Self::TencentCos => "腾讯云 COS",
             Self::AliyunOss => "阿里云 OSS",
+            Self::S3Compatible => "S3 兼容存储",
         }
     }
 }
@@ -175,6 +178,9 @@ pub struct ObjectStorageAccount {
     pub provider: CloudProvider,
     pub access_key_id: SecretString,
     pub access_key_secret: SecretString,
+    /// S3 endpoint for compatible services; absent in older account records.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub s3_endpoint: Option<ObjectStorageEndpoint>,
     pub read_only: bool,
     pub manual_buckets: Vec<ManualBucket>,
 }
@@ -205,6 +211,7 @@ impl ObjectStorageAccount {
             provider,
             access_key_id: SecretString::new(""),
             access_key_secret: SecretString::new(""),
+            s3_endpoint: None,
             read_only: false,
             manual_buckets: Vec::new(),
         }
@@ -232,6 +239,18 @@ impl ObjectStorageAccount {
             &self.access_key_secret,
             MAX_OBJECT_STORAGE_ACCESS_KEY_SECRET_BYTES,
         )?;
+        match (self.provider, self.s3_endpoint.as_ref()) {
+            (CloudProvider::S3Compatible, Some(endpoint)) => {
+                ObjectStorageEndpoint::parse_s3_compatible(endpoint.as_str())?;
+            }
+            (CloudProvider::S3Compatible, None) => {
+                return Err("S3 兼容存储必须设置 Endpoint".into());
+            }
+            (_, Some(_)) => {
+                return Err("只有 S3 兼容存储账号可以设置自定义 Endpoint".into());
+            }
+            (_, None) => {}
+        }
         if self.manual_buckets.is_empty() {
             return Err("请至少添加一个 Bucket".into());
         }
@@ -301,9 +320,12 @@ impl fmt::Debug for ObjectStorageAccountSnapshot {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct HttpsEndpoint(String);
+pub struct ObjectStorageEndpoint(String);
 
-impl HttpsEndpoint {
+/// Source-compatible endpoint name retained for COS and OSS callers.
+pub type HttpsEndpoint = ObjectStorageEndpoint;
+
+impl ObjectStorageEndpoint {
     pub fn parse_official(provider: CloudProvider, value: &str) -> Result<Self, String> {
         let normalized = value.trim_end_matches('/');
         if normalized.len() > MAX_OBJECT_STORAGE_ENDPOINT_BYTES {
@@ -328,6 +350,7 @@ impl HttpsEndpoint {
                 .strip_prefix("oss-")
                 .and_then(|value| value.strip_suffix(".aliyuncs.com"))
                 .is_some_and(|region| !region.contains('.') && validate_region(region).is_ok()),
+            CloudProvider::S3Compatible => false,
         };
         if !valid {
             return Err(format!(
@@ -336,6 +359,41 @@ impl HttpsEndpoint {
             ));
         }
         Ok(Self(normalized.to_string()))
+    }
+
+    /// Validate a custom S3 endpoint; plain HTTP is safe only for loopback tests.
+    pub fn parse_s3_compatible(value: &str) -> Result<Self, String> {
+        let normalized = value.trim();
+        if normalized.is_empty() || normalized.len() > MAX_OBJECT_STORAGE_ENDPOINT_BYTES {
+            return Err("Endpoint 不能为空且不能超过 2 KiB".into());
+        }
+        let endpoint = Url::parse(normalized).map_err(|_| "Endpoint 格式无效".to_string())?;
+        let authority = normalized
+            .split_once("://")
+            .map(|(_, authority)| authority.split(['/', '?', '#']).next().unwrap_or_default())
+            .unwrap_or_default();
+        if !matches!(endpoint.scheme(), "https" | "http") {
+            return Err("Endpoint 必须使用 HTTPS；本地回环地址可以使用 HTTP".into());
+        }
+        if authority.contains('@')
+            || !endpoint.username().is_empty()
+            || endpoint.password().is_some()
+            || endpoint.path() != "/"
+            || endpoint.query().is_some()
+            || endpoint.fragment().is_some()
+        {
+            return Err("Endpoint 不能包含用户信息、路径、查询参数或片段".into());
+        }
+        let loopback = match endpoint.host() {
+            Some(Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+            Some(Host::Ipv4(host)) => host.is_loopback(),
+            Some(Host::Ipv6(host)) => host.is_loopback(),
+            None => false,
+        };
+        if endpoint.scheme() == "http" && !loopback {
+            return Err("HTTP Endpoint 只允许 localhost 或回环 IP".into());
+        }
+        Ok(Self(endpoint.as_str().trim_end_matches('/').to_string()))
     }
 
     pub fn as_str(&self) -> &str {
@@ -370,7 +428,14 @@ impl ObjectStorageMount {
     pub fn validate_for_provider(&self, provider: CloudProvider) -> Result<(), String> {
         validate_bucket_name_for_provider(provider, &self.bucket)?;
         validate_region(&self.region)?;
-        HttpsEndpoint::parse_official(provider, self.endpoint.as_str())?;
+        match provider {
+            CloudProvider::S3Compatible => {
+                ObjectStorageEndpoint::parse_s3_compatible(self.endpoint.as_str())?;
+            }
+            CloudProvider::TencentCos | CloudProvider::AliyunOss => {
+                ObjectStorageEndpoint::parse_official(provider, self.endpoint.as_str())?;
+            }
+        }
         if let Some(root_prefix) = &self.root_prefix {
             validate_root_prefix(root_prefix)?;
         }

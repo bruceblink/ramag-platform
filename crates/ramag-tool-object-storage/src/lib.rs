@@ -29,7 +29,7 @@ impl ObjectStorageTool {
 
     pub fn new() -> Self {
         Self {
-            meta: ToolMeta::new(Self::ID, "云存储", "统一管理腾讯云 COS 与阿里云 OSS")
+            meta: ToolMeta::new(Self::ID, "云存储", "统一管理 COS、OSS 与 S3 兼容存储")
                 .with_icon("cloud"),
         }
     }

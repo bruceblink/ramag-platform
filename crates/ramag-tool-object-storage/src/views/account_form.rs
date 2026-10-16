@@ -6,8 +6,9 @@ use ramag_app::{ObjectStorageService, SavedObjectStorageAccount};
 use ramag_domain::entities::{
     CloudProvider, MAX_OBJECT_STORAGE_ACCESS_KEY_ID_BYTES,
     MAX_OBJECT_STORAGE_ACCESS_KEY_SECRET_BYTES, MAX_OBJECT_STORAGE_ACCOUNT_NAME_BYTES,
-    MAX_OBJECT_STORAGE_BUCKET_NAME_BYTES, MAX_OBJECT_STORAGE_KEY_BYTES,
-    MAX_OBJECT_STORAGE_REGION_BYTES, ManualBucket, ObjectStorageAccount, SecretString,
+    MAX_OBJECT_STORAGE_BUCKET_NAME_BYTES, MAX_OBJECT_STORAGE_ENDPOINT_BYTES,
+    MAX_OBJECT_STORAGE_KEY_BYTES, MAX_OBJECT_STORAGE_REGION_BYTES, ManualBucket,
+    ObjectStorageAccount, ObjectStorageEndpoint, SecretString,
 };
 
 mod render;
@@ -34,6 +35,7 @@ pub(super) struct AccountFormPanel {
     provider: CloudProvider,
     production: bool,
     name: Entity<InputState>,
+    s3_endpoint: Entity<InputState>,
     access_key_id: Entity<InputState>,
     access_key_secret: Entity<InputState>,
     bucket: Entity<InputState>,
@@ -64,6 +66,18 @@ impl AccountFormPanel {
             account
                 .as_ref()
                 .map(|account| account.name.as_str())
+                .unwrap_or_default(),
+            window,
+            cx,
+        );
+        let s3_endpoint = input(
+            MAX_OBJECT_STORAGE_ENDPOINT_BYTES,
+            "https://storage.example.com 或 http://127.0.0.1:9000",
+            false,
+            account
+                .as_ref()
+                .and_then(|account| account.s3_endpoint.as_ref())
+                .map(ObjectStorageEndpoint::as_str)
                 .unwrap_or_default(),
             window,
             cx,
@@ -117,6 +131,7 @@ impl AccountFormPanel {
         let values = input_values(
             [
                 &name,
+                &s3_endpoint,
                 &access_key_id,
                 &access_key_secret,
                 &bucket,
@@ -134,6 +149,7 @@ impl AccountFormPanel {
         let mut subscriptions = Vec::new();
         for field in [
             &name,
+            &s3_endpoint,
             &access_key_id,
             &access_key_secret,
             &bucket,
@@ -153,6 +169,7 @@ impl AccountFormPanel {
             provider,
             production,
             name,
+            s3_endpoint,
             access_key_id,
             access_key_secret,
             bucket,
@@ -199,6 +216,7 @@ impl AccountFormPanel {
             values: input_values(
                 [
                     &self.name,
+                    &self.s3_endpoint,
                     &self.access_key_id,
                     &self.access_key_secret,
                     &self.bucket,
@@ -276,6 +294,19 @@ impl AccountFormPanel {
         account.provider = self.provider;
         account.read_only = self.production;
         account.manual_buckets = self.manual_buckets.clone();
+        account.s3_endpoint = match self.provider {
+            CloudProvider::S3Compatible => {
+                match ObjectStorageEndpoint::parse_s3_compatible(&value(&self.s3_endpoint, cx)) {
+                    Ok(endpoint) => Some(endpoint),
+                    Err(error) => {
+                        self.feedback = Some((error, true));
+                        cx.notify();
+                        return;
+                    }
+                }
+            }
+            CloudProvider::TencentCos | CloudProvider::AliyunOss => None,
+        };
         if account.manual_buckets.is_empty() {
             self.feedback = Some(("请至少添加一个 Bucket".into(), true));
             cx.notify();
@@ -387,6 +418,8 @@ fn credential_placeholders(provider: CloudProvider, editing: bool) -> (&'static 
         (CloudProvider::TencentCos, true) => ("********", "********"),
         (CloudProvider::AliyunOss, false) => ("请输入 AccessKey ID", "请输入 AccessKey Secret"),
         (CloudProvider::AliyunOss, true) => ("********", "********"),
+        (CloudProvider::S3Compatible, false) => ("请输入 AccessKey ID", "请输入 Secret Access Key"),
+        (CloudProvider::S3Compatible, true) => ("********", "********"),
     }
 }
 
@@ -394,6 +427,7 @@ fn default_region(provider: CloudProvider) -> &'static str {
     match provider {
         CloudProvider::TencentCos => "ap-shanghai",
         CloudProvider::AliyunOss => "cn-shanghai",
+        CloudProvider::S3Compatible => "us-east-1",
     }
 }
 
@@ -401,6 +435,7 @@ fn region_placeholder(provider: CloudProvider) -> &'static str {
     match provider {
         CloudProvider::TencentCos => "Region，例如 ap-shanghai",
         CloudProvider::AliyunOss => "Region，例如 cn-shanghai",
+        CloudProvider::S3Compatible => "Region，例如 us-east-1",
     }
 }
 
@@ -416,6 +451,10 @@ mod tests {
         );
         assert_eq!(
             credential_placeholders(CloudProvider::AliyunOss, true),
+            ("********", "********")
+        );
+        assert_eq!(
+            credential_placeholders(CloudProvider::S3Compatible, true),
             ("********", "********")
         );
     }

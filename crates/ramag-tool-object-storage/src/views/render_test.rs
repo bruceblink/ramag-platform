@@ -228,6 +228,9 @@ fn provider_cards_are_the_first_equal_width_form_row(cx: &mut TestAppContext) {
     let oss = cx
         .debug_bounds("object-provider-aliyun-oss")
         .expect("OSS provider card should be rendered");
+    let s3 = cx
+        .debug_bounds("object-provider-s3-compatible")
+        .expect("S3-compatible provider card should be rendered");
     let name = cx
         .debug_bounds("object-account-name-field")
         .expect("account name should be rendered");
@@ -239,8 +242,11 @@ fn provider_cards_are_the_first_equal_width_form_row(cx: &mut TestAppContext) {
         .expect("manual bucket add button should be rendered");
 
     assert_eq!(cos.origin.y, oss.origin.y);
-    assert_eq!(cos.size.width, oss.size.width);
+    assert_eq!(oss.origin.y, s3.origin.y);
+    assert!((cos.size.width - oss.size.width).abs() <= px(1.0));
+    assert!((oss.size.width - s3.size.width).abs() <= px(1.0));
     assert!(cos.origin.x < oss.origin.x);
+    assert!(oss.origin.x < s3.origin.x);
     assert!(cos.origin.y < name.origin.y, "服务商选择必须位于表单第一行");
     assert_eq!(
         bucket.origin.y + bucket.size.height,
@@ -264,6 +270,13 @@ fn provider_cards_are_the_first_equal_width_form_row(cx: &mut TestAppContext) {
         assert_eq!(form.region_value(cx), "cn-shanghai");
         assert!(!form.production_enabled());
     });
+
+    cx.simulate_click(s3.center(), Modifiers::default());
+    cx.run_until_parked();
+    form.read_with(cx, |form, cx| {
+        assert_eq!(form.region_value(cx), "us-east-1");
+    });
+    assert!(cx.debug_bounds("object-s3-endpoint-field").is_some());
 }
 
 #[gpui_kit::test]
