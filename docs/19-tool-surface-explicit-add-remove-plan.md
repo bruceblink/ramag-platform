@@ -6,6 +6,8 @@
 > 状态：已完成
 > 关联：[统一工具管理交互](17-tool-surface-manager-ux-plan.md)、[入口显示开关优化](18-tool-surface-manager-switches-plan.md)、[最新执行计划](01-development-plan.md)
 
+> 后续：用户反馈分组加上逐项“添加/移除”操作仍然繁琐。当前后续改进见 [工具显示位置优化](20-tool-surface-manager-inline-visibility-plan.md)。本文件保留旧交互的验收记录。
+
 ## 问题与范围
 
 当前面板要求用户先选择首页或侧边栏，再操作每个工具的开关。开关把“添加”和“移除”压成同一个状态变化，用户不容易看出操作结果，也容易误解为卸载工具。

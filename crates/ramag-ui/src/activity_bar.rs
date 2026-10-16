@@ -443,7 +443,7 @@ impl Render for ActivityBar {
                 .debug_selector(|| "activity-tool-manager".into())
                 .ghost()
                 .icon(Icon::new(IconName::Plus))
-                .tooltip("添加或移除侧边栏工具"),
+                .tooltip("管理首页和侧边栏工具的显示位置"),
         ));
         container = container.child(activity_item(
             ActivityItemConfig {

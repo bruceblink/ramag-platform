@@ -24,6 +24,7 @@
 | 专项 | [首页与侧边栏统一工具管理交互](17-tool-surface-manager-ux-plan.md) | 记录统一搜索和工具入口管理面板的基础实现 |
 | 专项 | [工具入口显示开关交互优化](18-tool-surface-manager-switches-plan.md) | 通过首页/侧边栏范围标签和单个显示开关管理入口 |
 | 专项 | [首页与侧边栏工具入口的明确添加和移除操作](19-tool-surface-explicit-add-remove-plan.md) | 用明确的添加/移除操作和分组替代范围切换及单一显示开关 |
+| 专项 | [首页与侧边栏工具显示位置优化](20-tool-surface-manager-inline-visibility-plan.md) | 每个工具只列一次，并在同一行管理首页和侧边栏显示状态 |
 
 历史计划和验收记录保留在 [`archive/2026-09-25-pre-datagrip-rebaseline/`](archive/2026-09-25-pre-datagrip-rebaseline/) 及 [执行历史](01-development-plan-history.md) 供追溯，不作为当前待办。新增计划必须使用两位数字前缀，并同步更新本目录和仓库链接。
 

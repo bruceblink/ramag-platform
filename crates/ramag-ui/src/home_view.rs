@@ -484,8 +484,8 @@ fn render_home_header(
                 .debug_selector(|| "home-tool-manager".into())
                 .ghost()
                 .icon(Icon::new(IconName::Plus))
-                .label("添加工具")
-                .tooltip("添加或移除首页工具"),
+                .label("管理工具")
+                .tooltip("管理首页和侧边栏工具的显示位置"),
         ))
 }
 
