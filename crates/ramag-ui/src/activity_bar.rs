@@ -442,8 +442,8 @@ impl Render for ActivityBar {
             crate::clickable_button("activity-tool-manager")
                 .debug_selector(|| "activity-tool-manager".into())
                 .ghost()
-                .icon(Icon::new(IconName::Settings2))
-                .tooltip("管理侧边栏工具"),
+                .icon(Icon::new(IconName::Plus))
+                .tooltip("添加或移除侧边栏工具"),
         ));
         container = container.child(activity_item(
             ActivityItemConfig {

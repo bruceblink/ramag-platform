@@ -170,9 +170,10 @@ fn sidebar_manager_fits_compact_window(cx: &mut TestAppContext) {
     }
     assert!(
         visual
-            .debug_bounds("tool-manager-row-sidebar-first")
+            .debug_bounds("tool-manager-add-sidebar-first")
             .is_some()
     );
+    assert_fits(visual, "tool-manager-add-sidebar-first", 360.0, 640.0);
 }
 
 #[gpui_kit::test]
@@ -202,14 +203,14 @@ impl Render for ManagerTestHost {
             crate::clickable_button("manager-test-trigger")
                 .debug_selector(|| "manager-test-trigger".into())
                 .small()
-                .label("管理工具"),
+                .label("添加工具"),
         ))
     }
 }
 
-/// One scoped switch and the surface tabs keep Home and sidebar visibility independent.
+/// Home actions are explicit and update only Home while the manager stays open.
 #[gpui_kit::test]
-fn one_manager_controls_both_surfaces_independently(cx: &mut TestAppContext) {
+fn home_manager_adds_and_removes_with_explicit_actions(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let registry = registry_with_hidden_tools();
     let registry_for_view = registry.clone();
@@ -225,32 +226,49 @@ fn one_manager_controls_both_surfaces_independently(cx: &mut TestAppContext) {
 
     click(visual, "home-tool-manager");
     assert!(visual.debug_bounds("tool-manager-body").is_some());
-    assert!(visual.debug_bounds("tool-manager-surface-home").is_some());
+    assert!(visual.debug_bounds("tool-manager-title-home").is_some());
     assert!(
         visual
-            .debug_bounds("tool-manager-surface-sidebar")
-            .is_some()
+            .debug_bounds("tool-manager-added-empty-home")
+            .is_some(),
+        "empty Home tools have a clear group state"
     );
+    assert!(visual.debug_bounds("tool-manager-add-home-first").is_some());
     assert!(
         visual
-            .debug_bounds("tool-manager-toggle-home-first")
-            .is_some()
-    );
-    assert!(
-        visual
-            .debug_bounds("tool-manager-toggle-sidebar-first")
+            .debug_bounds("tool-manager-remove-home-first")
             .is_none()
     );
-    click(visual, "tool-manager-toggle-home-first");
+    assert!(visual.debug_bounds("tool-manager-surface-home").is_none());
+
+    click(visual, "tool-manager-add-home-first");
     assert!(visual.debug_bounds("tool-manager-body").is_some());
     assert!(visual.debug_bounds("home-tool-first").is_some());
     assert!(visual.debug_bounds("tool-manager-row-home-first").is_some());
     assert!(visual.debug_bounds("activity-tool-first").is_none());
-    assert_eq!(registry.count(), 2, "入口开关不能重复注册工具");
+    assert!(visual.debug_bounds("tool-manager-add-home-first").is_none());
+    assert!(
+        visual
+            .debug_bounds("tool-manager-remove-home-first")
+            .is_some()
+    );
+    assert_eq!(registry.count(), 2, "添加入口不能重复注册工具");
+    assert_eq!(
+        registry
+            .visibility("first")
+            .map(|visibility| (visibility.home, visibility.sidebar)),
+        Some((true, false))
+    );
 
-    click(visual, "tool-manager-toggle-home-first");
+    click(visual, "tool-manager-remove-home-first");
     assert!(visual.debug_bounds("home-tool-first").is_none());
     assert!(visual.debug_bounds("tool-manager-body").is_some());
+    assert!(visual.debug_bounds("tool-manager-add-home-first").is_some());
+    assert!(
+        visual
+            .debug_bounds("tool-manager-remove-home-first")
+            .is_none()
+    );
     assert_eq!(
         registry
             .visibility("first")
@@ -261,53 +279,72 @@ fn one_manager_controls_both_surfaces_independently(cx: &mut TestAppContext) {
     assert!(host.is_some(), "test host should remain available");
     let host = host.unwrap_or_else(|| unreachable!());
     let opened_home_tools = host.read_with(visual, |host, _| host.opened_home_tools.clone());
-    assert!(opened_home_tools.is_empty(), "入口开关不能打开工具卡片");
+    assert!(opened_home_tools.is_empty(), "入口管理不能打开工具卡片");
+}
 
-    click(visual, "tool-manager-toggle-home-first");
-    assert!(visual.debug_bounds("home-tool-first").is_some());
-    click(visual, "tool-manager-surface-sidebar");
+/// The sidebar manager updates only sidebar entry preferences.
+#[gpui_kit::test]
+fn sidebar_manager_adds_and_removes_without_changing_home(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let registry = registry_with_hidden_tools();
+    let registry_for_view = registry.clone();
+    let host_handle = Rc::new(RefCell::new(None));
+    let host_out = host_handle.clone();
+    let (_, visual) = cx.add_window_view(move |window, cx| {
+        let host = cx.new(|cx| ToolSurfaceTestHost::new(registry_for_view, cx));
+        *host_out.borrow_mut() = Some(host.clone());
+        Root::new(host, window, cx)
+    });
+    visual.simulate_resize(size(px(1024.0), px(768.0)));
+    visual.run_until_parked();
+
+    click(visual, "activity-tool-manager");
+    assert!(visual.debug_bounds("tool-manager-title-sidebar").is_some());
     assert!(
         visual
-            .debug_bounds("tool-manager-toggle-home-first")
+            .debug_bounds("tool-manager-add-sidebar-first")
+            .is_some()
+    );
+    click(visual, "tool-manager-add-sidebar-first");
+    assert!(visual.debug_bounds("tool-manager-body").is_some());
+    assert!(visual.debug_bounds("activity-tool-first").is_some());
+    assert!(visual.debug_bounds("home-tool-first").is_none());
+    assert!(
+        visual
+            .debug_bounds("tool-manager-remove-sidebar-first")
+            .is_some()
+    );
+    assert_eq!(
+        registry
+            .visibility("first")
+            .map(|visibility| (visibility.home, visibility.sidebar)),
+        Some((false, true))
+    );
+
+    click(visual, "tool-manager-remove-sidebar-first");
+    assert!(visual.debug_bounds("activity-tool-first").is_none());
+    assert!(visual.debug_bounds("tool-manager-body").is_some());
+    assert!(
+        visual
+            .debug_bounds("tool-manager-add-sidebar-first")
+            .is_some()
+    );
+    assert!(
+        visual
+            .debug_bounds("tool-manager-remove-sidebar-first")
             .is_none()
     );
-    assert!(
-        visual
-            .debug_bounds("tool-manager-toggle-sidebar-first")
-            .is_some()
-    );
-    click(visual, "tool-manager-toggle-sidebar-first");
-    assert!(visual.debug_bounds("activity-tool-first").is_some());
-    assert!(visual.debug_bounds("home-tool-first").is_some());
-    assert!(visual.debug_bounds("tool-manager-body").is_some());
     assert_eq!(
         registry
             .visibility("first")
             .map(|visibility| (visibility.home, visibility.sidebar)),
-        Some((true, true))
+        Some((false, false))
     );
-
-    click(visual, "tool-manager-toggle-sidebar-first");
-    assert!(visual.debug_bounds("activity-tool-first").is_none());
-    assert!(visual.debug_bounds("home-tool-first").is_some());
-    assert!(visual.debug_bounds("tool-manager-body").is_some());
-    assert_eq!(
-        registry
-            .visibility("first")
-            .map(|visibility| (visibility.home, visibility.sidebar)),
-        Some((true, false))
-    );
+    let host = host_handle.borrow().clone();
+    assert!(host.is_some(), "test host should remain available");
+    let host = host.unwrap_or_else(|| unreachable!());
     let navigation = host.read_with(visual, |host, _| host.sidebar_navigation.clone());
-    assert!(navigation.is_empty(), "入口开关不能导航到工具");
-
-    assert!(
-        visual
-            .debug_bounds("tool-manager-row-sidebar-first")
-            .is_some()
-    );
-    click(visual, "tool-manager-toggle-sidebar-first");
-    assert!(visual.debug_bounds("activity-tool-first").is_some());
-    assert!(visual.debug_bounds("home-tool-first").is_some());
+    assert!(navigation.is_empty(), "入口管理不能导航到工具");
 }
 
 /// The anchored manager stays inside a compact viewport with visible and hidden tools.
@@ -339,4 +376,15 @@ fn manager_fits_compact_window_and_lists_current_tools(cx: &mut TestAppContext) 
             .debug_bounds("tool-manager-row-home-second")
             .is_some()
     );
+    assert!(
+        visual
+            .debug_bounds("tool-manager-remove-home-first")
+            .is_some()
+    );
+    assert!(
+        visual
+            .debug_bounds("tool-manager-available-empty-home")
+            .is_some()
+    );
+    assert_fits(visual, "tool-manager-remove-home-first", 360.0, 640.0);
 }

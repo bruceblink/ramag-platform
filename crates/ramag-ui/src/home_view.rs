@@ -483,9 +483,9 @@ fn render_home_header(
             crate::clickable_button("home-tool-manager")
                 .debug_selector(|| "home-tool-manager".into())
                 .ghost()
-                .icon(Icon::new(IconName::Settings2))
-                .label("管理工具")
-                .tooltip("管理首页工具"),
+                .icon(Icon::new(IconName::Plus))
+                .label("添加工具")
+                .tooltip("添加或移除首页工具"),
         ))
 }
 

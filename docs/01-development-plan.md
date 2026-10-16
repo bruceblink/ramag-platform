@@ -48,7 +48,7 @@
 | 3 | `A-POST-0.5-CLIPBOARD-001` 剪贴板删除/撤销回归收口 | 代码、测试和验收记录已在 `1dfb4ab3` 与 [专项计划](09-post-0.5.0-ui-fixes-plan.md) 完成 | 删除后当前搜索和详情失效；撤销重新查询并恢复；恢复失败保留原记录和通知。 |
 | 4 | `A-POST-0.5-S3-COMPAT-001` S3 兼容账号与本机数据源 | 已完成；目标测试、全工作区检查、RustFS 实际读写和真实窗口账号表单均通过 | 增加 S3 兼容账号和安全 Endpoint 校验；独立本机 RustFS 容器通过真实列表和传输验证。详见 [专项计划](13-object-storage-s3-compatibility-plan.md)。 |
 | 5 | `A-POST-0.5-TOOL-SURFACE-CRUD-001` 首页与侧边栏添加/移除工具入口 | 已完成；交互已由下一切片替换 | 基础入口增删能力已通过；早期管理面板记录见 [专项计划](14-tool-surface-management-plan.md)。 |
-| 6 | `A-POST-0.5-TOOL-SURFACE-MANAGER-001` 首页与侧边栏统一工具管理交互 | 已完成；143 项 UI 单测、严格 Clippy、完整程序构建和真实 Windows 窗口添加/移除通过 | 一个面板列出当前显示和未显示的工具；每行直接添加或移除；只修改当前表面。详见 [专项计划](17-tool-surface-manager-ux-plan.md)。 |
+| 6 | `A-POST-0.5-TOOL-SURFACE-MANAGER-003` 首页与侧边栏明确添加/移除交互 | 已完成；144 项 UI 单测、严格 Clippy 及真实 Windows 窗口操作通过 | 按入口确定管理范围，并将工具分为“已添加”和“可添加”；每行提供明确操作。详见 [专项计划](19-tool-surface-explicit-add-remove-plan.md)。 |
 | 7 | `A-POST-0.5-OBJECT-001` 对象存储列表与真实数据源验收 | 待恢复；已完成 RustFS live 测试和响应式 headless 布局检查 | 恢复后完成隔离数据下的完整程序验收：账号持久化、RustFS 对象列表、筛选/排序后的稳定 ID 以及 360/640/768/1024/1440 宽度检查。详见 [专项计划](16-object-storage-list-acceptance-plan.md)。 |
 | 8 | `A-PULSE-GAP-03-DN-UI-001` Disks/Network 真实窗口核验 | 代码与 headless 已完成，CUA 阻塞 | 在参考程序和 Ramag 中依次核对主量表、读写/收发趋势、统计区、设备重排、缺失身份和页面滚动；CUA 恢复前保留未完成。 |
 | 9 | `A-POST-0.5-LIST-ACCEPTANCE-001` 其余列表型工作区完整程序核验 | 后续 | 依次核对容器、VCS、插件的标题、字体、背景、滚动、空/加载/失败状态和主要操作；已拆出的 DBClient、对象存储和剪贴板切片不重复排队。原生窗口可用时使用 Computer Use；不可用时明确列出未覆盖操作。 |
