@@ -3,7 +3,7 @@
 > 切片：`A-POST-0.5-TOOL-SURFACE-CRUD-001`
 > 日期：2026-10-16
 > 基线：`35c1943b`；当前分支 `main`
-> 状态：已完成
+> 状态：已完成（基础能力；交互已由 [快捷操作计划](15-tool-surface-quick-actions-plan.md) 更新）
 > 关联：[`12-tool-visibility-plan.md`](12-tool-visibility-plan.md)、[`01-development-plan.md`](01-development-plan.md)
 
 ## 问题与范围

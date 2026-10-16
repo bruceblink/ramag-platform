@@ -11,9 +11,9 @@ use gpui_kit::component::{
     v_flex,
 };
 use gpui_kit::{
-    App, AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent, EventEmitter,
-    Global, IntoElement, MouseButton, ParentElement, Render, ScrollHandle, SharedString, Styled,
-    Subscription, Window, div, hsla, prelude::*, px,
+    App, AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent, Entity,
+    EventEmitter, Global, IntoElement, MouseButton, ParentElement, Render, ScrollHandle,
+    SharedString, Styled, Subscription, Window, div, hsla, prelude::*, px,
 };
 use ramag_app::{StaticPluginHost, ToolRegistry, UpdateCheckResult};
 use ramag_domain::ToolMeta;
@@ -26,7 +26,9 @@ use crate::tool_layout::{
     clear_tool_drag, dragged_item_background, notify_tool_layout_changed, persist_tool_order,
     tool_drag_display_slots, tool_drag_state, tool_drop_index, update_tool_drop_target,
 };
-use crate::tool_surface_manager::open_tool_surface_manager;
+use crate::tool_surface_manager::{
+    ToolSurfacePicker, create_tool_surface_picker, tool_entry_actions, tool_picker_popover,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NavTarget {
@@ -47,6 +49,7 @@ pub struct ActivityBar {
     registry: Arc<ToolRegistry>,
     plugin_host: Arc<StaticPluginHost>,
     selected: NavTarget,
+    tool_picker: Option<Entity<ToolSurfacePicker>>,
     last_rendered_slots: Vec<Option<String>>,
     /// 保留工具列表滚动位置；固定的首页和设置入口不参与滚动。
     tool_scroll: ScrollHandle,
@@ -134,6 +137,7 @@ impl ActivityBar {
             registry,
             plugin_host,
             selected: NavTarget::Home,
+            tool_picker: None,
             last_rendered_slots,
             tool_scroll: ScrollHandle::new(),
             _update_indicator_subscription: update_indicator_subscription,
@@ -204,7 +208,20 @@ fn tool_icon_path(tool_id: &str, declared_icon: Option<&str>) -> &'static str {
 
 impl Render for ActivityBar {
     /// 将持久化工具顺序绘制为侧栏入口，并同步拖拽占位线与来源入口反馈。
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let tool_picker = match self.tool_picker.clone() {
+            Some(picker) => picker,
+            None => {
+                let picker = create_tool_surface_picker(
+                    self.registry.clone(),
+                    ToolDragSurface::ActivityBar,
+                    window,
+                    cx,
+                );
+                self.tool_picker = Some(picker.clone());
+                picker
+            }
+        };
         let theme = cx.theme();
         let tools = self.registry.sidebar_list();
         let selected = self.selected.clone();
@@ -292,7 +309,21 @@ impl Render for ActivityBar {
                     )
                     .into_any_element()
             };
-            tool_items.push(item);
+            tool_items.push(
+                div()
+                    .relative()
+                    .w(px(BAR_WIDTH))
+                    .h(px(ITEM_HEIGHT))
+                    .child(item)
+                    .child(div().absolute().bottom(px(1.0)).right(px(1.0)).child(
+                        tool_entry_actions(
+                            self.registry.clone(),
+                            ToolDragSurface::ActivityBar,
+                            id.clone(),
+                        ),
+                    ))
+                    .into_any_element(),
+            );
         }
 
         let drop_end_index = item_count;
@@ -412,24 +443,15 @@ impl Render for ActivityBar {
                 .vertical_scrollbar(&self.tool_scroll)
                 .child(tool_list),
         );
-        container = container.child(
+        container = container.child(tool_picker_popover(
+            tool_picker,
+            ToolDragSurface::ActivityBar,
             crate::clickable_button("add-menu")
                 .debug_selector(|| "activity-add-menu".into())
                 .ghost()
                 .icon(Icon::new(IconName::Plus))
-                .tooltip("管理侧边栏工具")
-                .on_click({
-                    let registry = self.registry.clone();
-                    move |_, window, cx| {
-                        open_tool_surface_manager(
-                            registry.clone(),
-                            ToolDragSurface::ActivityBar,
-                            window,
-                            cx,
-                        );
-                    }
-                }),
-        );
+                .tooltip("添加侧边栏工具"),
+        ));
         container = container.child(activity_item(
             ActivityItemConfig {
                 id: "shortcuts".into(),
