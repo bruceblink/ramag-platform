@@ -1,4 +1,4 @@
-//! One searchable tool manager for adding and removing Home and sidebar entries.
+//! One searchable manager for Home and sidebar entry visibility.
 
 use std::sync::Arc;
 
@@ -8,6 +8,7 @@ use gpui_kit::component::{
     h_flex,
     input::{Input, InputState},
     popover::Popover,
+    switch::Switch,
     v_flex,
 };
 use gpui_kit::{
@@ -23,7 +24,7 @@ use crate::tool_layout::{
     ToolDragSurface, ToolLayoutGlobal, notify_tool_layout_changed, persist_tool_visibility,
 };
 
-const MANAGER_WIDTH: f32 = 340.0;
+const MANAGER_WIDTH: f32 = 360.0;
 const MANAGER_MAX_HEIGHT: f32 = 440.0;
 
 pub(crate) struct ToolSurfaceManager {
@@ -63,11 +64,14 @@ impl ToolSurfaceManager {
         }
     }
 
-    /// Change only this surface's entry preference and refresh both surfaces.
-    fn set_tool_visible(&mut self, id: &str, visible: bool, cx: &mut Context<Self>) {
+    /// Change only the selected surface and refresh both views.
+    fn toggle_tool_visibility(&mut self, id: &str, cx: &mut Context<Self>) {
+        let Some(current) = self.registry.visibility(id) else {
+            return;
+        };
         let changed = match self.surface {
-            ToolDragSurface::Home => self.registry.set_home_visible(id, visible),
-            ToolDragSurface::ActivityBar => self.registry.set_sidebar_visible(id, visible),
+            ToolDragSurface::Home => self.registry.set_home_visible(id, !current.home),
+            ToolDragSurface::ActivityBar => self.registry.set_sidebar_visible(id, !current.sidebar),
         };
         if changed {
             persist_tool_visibility(&self.registry, cx);
@@ -76,10 +80,10 @@ impl ToolSurfaceManager {
         }
     }
 
-    fn is_visible(&self, visibility: ToolVisibility) -> bool {
-        match self.surface {
-            ToolDragSurface::Home => visibility.home,
-            ToolDragSurface::ActivityBar => visibility.sidebar,
+    fn select_surface(&mut self, surface: ToolDragSurface, cx: &mut Context<Self>) {
+        if self.surface != surface {
+            self.surface = surface;
+            cx.notify();
         }
     }
 
@@ -88,7 +92,7 @@ impl ToolSurfaceManager {
         let id = meta.id.clone();
         let surface = self.surface;
         let selector = format!("tool-manager-row-{}-{id}", surface_key(surface));
-        let action_selector = format!("tool-manager-action-{}-{id}", surface_key(surface));
+        let toggle_selector = format!("tool-manager-toggle-{}-{id}", surface_key(surface));
         let name = meta.name.clone();
         let description = meta.description.clone();
         let icon = crate::activity_bar::ActivityBar::icon_for_meta(meta);
@@ -99,13 +103,14 @@ impl ToolSurfaceManager {
         let is_visible = self
             .registry
             .visibility(&id)
-            .is_some_and(|visibility| self.is_visible(visibility));
-        let action_label = if is_visible { "移除" } else { "添加" };
-        let action_tooltip = format!(
-            "{}{}入口",
-            if is_visible { "从" } else { "添加到" },
-            surface_name(surface)
-        );
+            .is_some_and(|visibility| surface_visible(visibility, surface));
+        let action_name = format!("在{}显示", surface_name(surface));
+        let toggle_id = toggle_selector.clone();
+        let visibility_switch: Switch = crate::clickable_switch(toggle_selector.clone())
+            .checked(is_visible)
+            .on_click(cx.listener(move |this, _: &bool, _, cx| {
+                this.toggle_tool_visibility(&id, cx);
+            }));
 
         h_flex()
             .id(selector.clone())
@@ -144,39 +149,45 @@ impl ToolSurfaceManager {
                     ),
             )
             .child(
-                crate::clickable_button(action_selector.clone())
-                    .debug_selector(move || action_selector.clone())
-                    .small()
+                h_flex()
+                    .items_center()
+                    .gap(px(6.0))
                     .flex_none()
-                    .label(action_label)
-                    .tooltip(action_tooltip)
-                    .when(is_visible, |button| button.outline())
-                    .when(!is_visible, |button| button.primary())
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.set_tool_visible(&id, !is_visible, cx);
-                    })),
+                    .child(div().text_xs().text_color(muted).child(action_name))
+                    .child(
+                        div()
+                            .id(toggle_id.clone())
+                            .debug_selector(move || toggle_id.clone())
+                            .items_center()
+                            .child(visibility_switch),
+                    ),
             )
     }
 }
 
 impl Render for ToolSurfaceManager {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let tools = self
-            .registry
-            .list()
-            .into_iter()
-            .filter(|tool| tool_matches(tool.meta(), &self.query))
-            .collect::<Vec<_>>();
-        let visible_count = self
-            .registry
-            .list()
+        let all_tools = self.registry.list();
+        let home_count = all_tools
             .iter()
             .filter(|tool| {
                 self.registry
                     .visibility(&tool.meta().id)
-                    .is_some_and(|visibility| self.is_visible(visibility))
+                    .is_some_and(|visibility| visibility.home)
             })
             .count();
+        let sidebar_count = all_tools
+            .iter()
+            .filter(|tool| {
+                self.registry
+                    .visibility(&tool.meta().id)
+                    .is_some_and(|visibility| visibility.sidebar)
+            })
+            .count();
+        let tools = all_tools
+            .into_iter()
+            .filter(|tool| tool_matches(tool.meta(), &self.query))
+            .collect::<Vec<_>>();
         let muted = cx.theme().muted_foreground;
         let border = cx.theme().border;
         let window_width = f32::from(window.bounds().size.width);
@@ -223,11 +234,28 @@ impl Render for ToolSurfaceManager {
                         div()
                             .text_sm()
                             .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                            .child(format!("管理{}工具", surface_name(self.surface))),
+                            .child("管理工具入口"),
                     )
                     .child(div().text_xs().text_color(muted).child(format!(
-                        "当前显示 {visible_count} 个。操作只影响此处入口，不会删除工具或数据。"
+                        "首页 {home_count} 个 · 侧边栏 {sidebar_count} 个。开关只控制入口显示，工具和数据会保留。"
                     ))),
+            )
+            .child(
+                h_flex()
+                    .w_full()
+                    .gap(px(6.0))
+                    .child(surface_tab(
+                        ToolDragSurface::Home,
+                        home_count,
+                        self.surface == ToolDragSurface::Home,
+                        cx,
+                    ))
+                    .child(surface_tab(
+                        ToolDragSurface::ActivityBar,
+                        sidebar_count,
+                        self.surface == ToolDragSurface::ActivityBar,
+                        cx,
+                    )),
             )
             .child(
                 div()
@@ -245,7 +273,7 @@ impl Render for ToolSurfaceManager {
                     .id("tool-manager-scroll")
                     .debug_selector(|| "tool-manager-scroll".into())
                     .w_full()
-                    .max_h(px(MANAGER_MAX_HEIGHT - 108.0))
+                    .max_h(px(MANAGER_MAX_HEIGHT - 148.0))
                     .border_1()
                     .border_color(border.opacity(0.65))
                     .rounded(px(8.0))
@@ -265,7 +293,7 @@ pub(crate) fn create_tool_surface_manager(
     cx.new(|cx| ToolSurfaceManager::new(registry, surface, window, cx))
 }
 
-/// Attach the same searchable add/remove manager to the surface's fixed control.
+/// Attach the same searchable visibility manager to the surface's fixed control.
 pub(crate) fn tool_surface_manager_popover(
     manager: Entity<ToolSurfaceManager>,
     surface: ToolDragSurface,
@@ -293,6 +321,33 @@ fn surface_name(surface: ToolDragSurface) -> &'static str {
         ToolDragSurface::Home => "首页",
         ToolDragSurface::ActivityBar => "侧边栏",
     }
+}
+
+fn surface_visible(visibility: ToolVisibility, surface: ToolDragSurface) -> bool {
+    match surface {
+        ToolDragSurface::Home => visibility.home,
+        ToolDragSurface::ActivityBar => visibility.sidebar,
+    }
+}
+
+fn surface_tab(
+    surface: ToolDragSurface,
+    visible_count: usize,
+    selected: bool,
+    cx: &mut Context<ToolSurfaceManager>,
+) -> impl IntoElement {
+    let selector = format!("tool-manager-surface-{}", surface_key(surface));
+    let label = format!("{} {visible_count}", surface_name(surface));
+    crate::clickable_button(selector.clone())
+        .debug_selector(move || selector.clone())
+        .small()
+        .flex_1()
+        .label(label)
+        .when(selected, |button| button.primary())
+        .when(!selected, |button| button.outline())
+        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+            this.select_surface(surface, cx);
+        }))
 }
 
 fn tool_matches(meta: &ramag_domain::ToolMeta, query: &str) -> bool {

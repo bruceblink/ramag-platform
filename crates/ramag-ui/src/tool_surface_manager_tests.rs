@@ -207,7 +207,7 @@ impl Render for ManagerTestHost {
     }
 }
 
-/// Add and remove from the same panel while preserving independent surface state.
+/// One scoped switch and the surface tabs keep Home and sidebar visibility independent.
 #[gpui_kit::test]
 fn one_manager_controls_both_surfaces_independently(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
@@ -225,14 +225,30 @@ fn one_manager_controls_both_surfaces_independently(cx: &mut TestAppContext) {
 
     click(visual, "home-tool-manager");
     assert!(visual.debug_bounds("tool-manager-body").is_some());
-    click(visual, "tool-manager-action-home-first");
+    assert!(visual.debug_bounds("tool-manager-surface-home").is_some());
+    assert!(
+        visual
+            .debug_bounds("tool-manager-surface-sidebar")
+            .is_some()
+    );
+    assert!(
+        visual
+            .debug_bounds("tool-manager-toggle-home-first")
+            .is_some()
+    );
+    assert!(
+        visual
+            .debug_bounds("tool-manager-toggle-sidebar-first")
+            .is_none()
+    );
+    click(visual, "tool-manager-toggle-home-first");
     assert!(visual.debug_bounds("tool-manager-body").is_some());
     assert!(visual.debug_bounds("home-tool-first").is_some());
     assert!(visual.debug_bounds("tool-manager-row-home-first").is_some());
     assert!(visual.debug_bounds("activity-tool-first").is_none());
-    assert_eq!(registry.count(), 2, "添加入口不能重复注册工具");
+    assert_eq!(registry.count(), 2, "入口开关不能重复注册工具");
 
-    click(visual, "tool-manager-action-home-first");
+    click(visual, "tool-manager-toggle-home-first");
     assert!(visual.debug_bounds("home-tool-first").is_none());
     assert!(visual.debug_bounds("tool-manager-body").is_some());
     assert_eq!(
@@ -245,15 +261,22 @@ fn one_manager_controls_both_surfaces_independently(cx: &mut TestAppContext) {
     assert!(host.is_some(), "test host should remain available");
     let host = host.unwrap_or_else(|| unreachable!());
     let opened_home_tools = host.read_with(visual, |host, _| host.opened_home_tools.clone());
-    assert!(opened_home_tools.is_empty(), "管理入口不能打开工具卡片");
+    assert!(opened_home_tools.is_empty(), "入口开关不能打开工具卡片");
 
-    click(visual, "tool-manager-action-home-first");
+    click(visual, "tool-manager-toggle-home-first");
     assert!(visual.debug_bounds("home-tool-first").is_some());
-    click(visual, "home-tool-manager");
-
-    click(visual, "activity-tool-manager");
-    assert!(visual.debug_bounds("tool-manager-body").is_some());
-    click(visual, "tool-manager-action-sidebar-first");
+    click(visual, "tool-manager-surface-sidebar");
+    assert!(
+        visual
+            .debug_bounds("tool-manager-toggle-home-first")
+            .is_none()
+    );
+    assert!(
+        visual
+            .debug_bounds("tool-manager-toggle-sidebar-first")
+            .is_some()
+    );
+    click(visual, "tool-manager-toggle-sidebar-first");
     assert!(visual.debug_bounds("activity-tool-first").is_some());
     assert!(visual.debug_bounds("home-tool-first").is_some());
     assert!(visual.debug_bounds("tool-manager-body").is_some());
@@ -264,7 +287,7 @@ fn one_manager_controls_both_surfaces_independently(cx: &mut TestAppContext) {
         Some((true, true))
     );
 
-    click(visual, "tool-manager-action-sidebar-first");
+    click(visual, "tool-manager-toggle-sidebar-first");
     assert!(visual.debug_bounds("activity-tool-first").is_none());
     assert!(visual.debug_bounds("home-tool-first").is_some());
     assert!(visual.debug_bounds("tool-manager-body").is_some());
@@ -275,15 +298,16 @@ fn one_manager_controls_both_surfaces_independently(cx: &mut TestAppContext) {
         Some((true, false))
     );
     let navigation = host.read_with(visual, |host, _| host.sidebar_navigation.clone());
-    assert!(navigation.is_empty(), "管理入口不能导航到工具");
+    assert!(navigation.is_empty(), "入口开关不能导航到工具");
 
     assert!(
         visual
             .debug_bounds("tool-manager-row-sidebar-first")
             .is_some()
     );
-    click(visual, "tool-manager-action-sidebar-first");
+    click(visual, "tool-manager-toggle-sidebar-first");
     assert!(visual.debug_bounds("activity-tool-first").is_some());
+    assert!(visual.debug_bounds("home-tool-first").is_some());
 }
 
 /// The anchored manager stays inside a compact viewport with visible and hidden tools.
