@@ -2,8 +2,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use gpui_kit::component::{
-    ActiveTheme,
+    ActiveTheme, Icon, IconName,
     animation::{EffectTransition, ease_in_out_cubic},
+    button::ButtonVariants as _,
     h_flex,
     scroll::ScrollableElement as _,
     v_flex,
@@ -24,6 +25,7 @@ use crate::tool_layout::{
     notify_tool_layout_changed, persist_tool_order, tool_drag_display_slots, tool_drag_handle,
     tool_drag_state, tool_drop_index, update_tool_drop_target,
 };
+use crate::tool_surface_manager::open_tool_surface_manager;
 
 #[derive(Debug, Clone)]
 pub enum HomeEvent {
@@ -364,12 +366,12 @@ impl Render for HomeView {
                     .p(px(home_content_padding(window_width)))
                     .gap(px(if compact { 16.0 } else { 24.0 }))
                     .items_center()
-                    .child(render_home_header(item_count, cx))
+                    .child(render_home_header(item_count, self.registry.clone(), cx))
                     .child(tool_grid)
                     .when(!has_tools, |content| {
                         content.child(crate::pulse_ui::pulse_status_notice(
                             crate::pulse_ui::PulseStatus::Unavailable,
-                            "首页没有显示工具。可在侧边栏设置中的“工具显示”页恢复入口。",
+                            "首页没有显示工具。使用右上角的“管理工具”面板恢复入口，也可在设置的“工具显示”页管理。",
                             cx,
                         ))
                     }),
@@ -439,13 +441,36 @@ fn reorder_animation_offset_for_width(
 }
 
 /// 标题与工具网格共用宽度；文字层级在窄窗口和较大字号下仍可自然换行。
-fn render_home_header(tool_count: usize, cx: &gpui_kit::App) -> impl IntoElement {
-    crate::pulse_ui::pulse_page_title("工具", Some(format!("{tool_count} 个可用工具")), cx)
+fn render_home_header(
+    tool_count: usize,
+    registry: Arc<ToolRegistry>,
+    cx: &gpui_kit::App,
+) -> impl IntoElement {
+    h_flex()
         .id("home-logo")
         .debug_selector(|| "home-logo".into())
         .w_full()
-        .min_w_0()
         .max_w(px(TOOL_GRID_WIDTH))
+        .min_w_0()
+        .items_center()
+        .justify_between()
+        .gap(px(8.0))
+        .child(
+            crate::pulse_ui::pulse_page_title("工具", Some(format!("{tool_count} 个可用工具")), cx)
+                .flex_1()
+                .min_w_0(),
+        )
+        .child(
+            crate::clickable_button("home-tool-actions")
+                .debug_selector(|| "home-tool-actions".into())
+                .ghost()
+                .icon(Icon::new(IconName::Plus))
+                .label("管理工具")
+                .tooltip("管理首页工具")
+                .on_click(move |_, window, cx| {
+                    open_tool_surface_manager(registry.clone(), ToolDragSurface::Home, window, cx);
+                }),
+        )
 }
 
 #[cfg(test)]

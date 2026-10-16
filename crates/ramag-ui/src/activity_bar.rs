@@ -7,19 +7,17 @@ use gpui_kit::component::{
     badge::Badge,
     button::ButtonVariants as _,
     h_flex,
-    notification::Notification,
     scroll::ScrollableElement as _,
     v_flex,
 };
 use gpui_kit::{
-    Anchor, App, AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent,
-    EventEmitter, Global, IntoElement, MouseButton, ParentElement, Render, ScrollHandle,
-    SharedString, Styled, Subscription, Window, div, hsla, prelude::*, px,
+    App, AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent, EventEmitter,
+    Global, IntoElement, MouseButton, ParentElement, Render, ScrollHandle, SharedString, Styled,
+    Subscription, Window, div, hsla, prelude::*, px,
 };
 use ramag_app::{StaticPluginHost, ToolRegistry, UpdateCheckResult};
 use ramag_domain::ToolMeta;
 
-use crate::PointerDropdownMenu as _;
 use crate::icons;
 use crate::tool_layout::{
     ACTIVITY_ITEM_GAP, DRAGGED_ITEM_OPACITY, ToolDrag, ToolDragGlobal, ToolDragPreview,
@@ -28,6 +26,7 @@ use crate::tool_layout::{
     clear_tool_drag, dragged_item_background, notify_tool_layout_changed, persist_tool_order,
     tool_drag_display_slots, tool_drag_state, tool_drop_index, update_tool_drop_target,
 };
+use crate::tool_surface_manager::open_tool_surface_manager;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NavTarget {
@@ -418,14 +417,17 @@ impl Render for ActivityBar {
                 .debug_selector(|| "activity-add-menu".into())
                 .ghost()
                 .icon(Icon::new(IconName::Plus))
-                .tooltip("添加")
-                .pointer_dropdown_menu_with_anchor(Anchor::TopLeft, |mut menu, _, _| {
-                    menu = menu.item(crate::menu_item("添加工具").on_click(|_, window, cx| {
-                        show_add_placeholder("添加工具", window, cx);
-                    }));
-                    menu.item(crate::menu_item("添加 MCP").on_click(|_, window, cx| {
-                        show_add_placeholder("添加 MCP", window, cx);
-                    }))
+                .tooltip("管理侧边栏工具")
+                .on_click({
+                    let registry = self.registry.clone();
+                    move |_, window, cx| {
+                        open_tool_surface_manager(
+                            registry.clone(),
+                            ToolDragSurface::ActivityBar,
+                            window,
+                            cx,
+                        );
+                    }
                 }),
         );
         container = container.child(activity_item(
@@ -464,15 +466,6 @@ impl Render for ActivityBar {
 
         container
     }
-}
-
-/// 添加入口暂时没有对应的工具创建流程，先用统一通知明确反馈点击结果。
-fn show_add_placeholder(kind: &str, window: &mut Window, cx: &mut App) {
-    crate::push_responsive_notification(
-        window,
-        Notification::info(format!("{kind}功能即将支持")).autohide(true),
-        cx,
-    );
 }
 
 fn activity_item(
