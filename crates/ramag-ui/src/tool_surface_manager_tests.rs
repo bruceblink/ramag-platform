@@ -1,4 +1,4 @@
-//! Headless interaction checks for compact add pickers and entry actions.
+//! Headless interaction checks for the unified tool manager.
 
 use std::sync::Arc;
 use std::{cell::RefCell, rc::Rc};
@@ -13,7 +13,7 @@ use ramag_app::{StaticPluginHost, ToolRegistry};
 use ramag_domain::{Tool, ToolMeta};
 
 use crate::tool_layout::ToolDragSurface;
-use crate::tool_surface_manager::{create_tool_surface_picker, tool_picker_popover};
+use crate::tool_surface_manager::{create_tool_surface_manager, tool_surface_manager_popover};
 use crate::{ActivityBar, HomeEvent, HomeView, NavEvent, NavTarget};
 
 struct ToolSurfaceTestHost {
@@ -114,51 +114,102 @@ fn assert_fits(cx: &mut VisualTestContext, selector: &'static str, width: f32, h
     );
 }
 
-/// Search results contain only tools that are not already shown on this surface.
+/// Search results contain every registered tool and reflect current surface state.
 #[gpui_kit::test]
-fn picker_search_matches_name_id_description_and_current_surface(cx: &mut TestAppContext) {
+fn manager_search_matches_name_id_description_and_current_surface(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let registry = registry_with_hidden_tools();
     registry.set_home_visible("first", true);
-    let registry_for_picker = registry.clone();
+    let registry_for_manager = registry.clone();
     let (_, visual) = cx.add_window_view(move |window, cx| {
-        let picker =
-            create_tool_surface_picker(registry_for_picker, ToolDragSurface::Home, window, cx);
-        Root::new(cx.new(|_| PickerTestHost { picker }), window, cx)
+        let manager =
+            create_tool_surface_manager(registry_for_manager, ToolDragSurface::Home, window, cx);
+        Root::new(cx.new(|_| ManagerTestHost { manager }), window, cx)
     });
     visual.simulate_resize(size(px(700.0), px(520.0)));
     visual.run_until_parked();
-    click(visual, "picker-test-trigger");
-    assert!(visual.debug_bounds("tool-picker-row-home-first").is_none());
-    assert!(visual.debug_bounds("tool-picker-row-home-second").is_some());
+    click(visual, "manager-test-trigger");
+    assert!(visual.debug_bounds("tool-manager-row-home-first").is_some());
+    assert!(
+        visual
+            .debug_bounds("tool-manager-row-home-second")
+            .is_some()
+    );
 
-    click(visual, "tool-picker-search");
+    click(visual, "tool-manager-search");
     visual.simulate_keystrokes("second");
     visual.run_until_parked();
-    assert!(visual.debug_bounds("tool-picker-row-home-first").is_none());
-    assert!(visual.debug_bounds("tool-picker-row-home-second").is_some());
+    assert!(visual.debug_bounds("tool-manager-row-home-first").is_none());
+    assert!(
+        visual
+            .debug_bounds("tool-manager-row-home-second")
+            .is_some()
+    );
 }
 
-struct PickerTestHost {
-    picker: Entity<super::ToolSurfacePicker>,
+/// The sidebar's fixed manager button opens a panel inside a narrow window.
+#[gpui_kit::test]
+fn sidebar_manager_fits_compact_window(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let registry = registry_with_hidden_tools();
+    let registry_for_view = registry.clone();
+    let (_, visual) = cx.add_window_view(move |window, cx| {
+        let host = cx.new(|cx| ToolSurfaceTestHost::new(registry_for_view, cx));
+        Root::new(host, window, cx)
+    });
+    visual.simulate_resize(size(px(360.0), px(640.0)));
+    visual.run_until_parked();
+
+    click(visual, "activity-tool-manager");
+    for selector in [
+        "tool-manager-body",
+        "tool-manager-search",
+        "tool-manager-scroll",
+    ] {
+        assert_fits(visual, selector, 360.0, 640.0);
+    }
+    assert!(
+        visual
+            .debug_bounds("tool-manager-row-sidebar-first")
+            .is_some()
+    );
 }
 
-impl Render for PickerTestHost {
+#[gpui_kit::test]
+fn manager_reports_when_no_tools_are_registered(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let registry = Arc::new(ToolRegistry::new());
+    let (_, visual) = cx.add_window_view(move |window, cx| {
+        let manager = create_tool_surface_manager(registry, ToolDragSurface::Home, window, cx);
+        Root::new(cx.new(|_| ManagerTestHost { manager }), window, cx)
+    });
+    visual.simulate_resize(size(px(700.0), px(520.0)));
+    visual.run_until_parked();
+    click(visual, "manager-test-trigger");
+
+    assert!(visual.debug_bounds("tool-manager-empty").is_some());
+}
+
+struct ManagerTestHost {
+    manager: Entity<super::ToolSurfaceManager>,
+}
+
+impl Render for ManagerTestHost {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        h_flex().size_full().child(tool_picker_popover(
-            self.picker.clone(),
+        h_flex().size_full().child(tool_surface_manager_popover(
+            self.manager.clone(),
             ToolDragSurface::Home,
-            crate::clickable_button("picker-test-trigger")
-                .debug_selector(|| "picker-test-trigger".into())
+            crate::clickable_button("manager-test-trigger")
+                .debug_selector(|| "manager-test-trigger".into())
                 .small()
-                .label("添加工具"),
+                .label("管理工具"),
         ))
     }
 }
 
-/// Add from either surface in one click and remove from the entry's own actions.
+/// Add and remove from the same panel while preserving independent surface state.
 #[gpui_kit::test]
-fn quick_add_and_entry_removal_keep_surfaces_independent(cx: &mut TestAppContext) {
+fn one_manager_controls_both_surfaces_independently(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let registry = registry_with_hidden_tools();
     let registry_for_view = registry.clone();
@@ -172,25 +223,18 @@ fn quick_add_and_entry_removal_keep_surfaces_independent(cx: &mut TestAppContext
     visual.simulate_resize(size(px(1024.0), px(768.0)));
     visual.run_until_parked();
 
-    click(visual, "home-tool-actions");
-    assert!(visual.debug_bounds("tool-picker-body").is_some());
-    click(visual, "tool-picker-row-home-first");
-    assert!(visual.debug_bounds("tool-picker-body").is_some());
+    click(visual, "home-tool-manager");
+    assert!(visual.debug_bounds("tool-manager-body").is_some());
+    click(visual, "tool-manager-action-home-first");
+    assert!(visual.debug_bounds("tool-manager-body").is_some());
     assert!(visual.debug_bounds("home-tool-first").is_some());
-    assert!(visual.debug_bounds("tool-picker-row-home-first").is_none());
+    assert!(visual.debug_bounds("tool-manager-row-home-first").is_some());
     assert!(visual.debug_bounds("activity-tool-first").is_none());
     assert_eq!(registry.count(), 2, "添加入口不能重复注册工具");
 
-    click(visual, "home-tool-actions");
-    click(visual, "tool-entry-actions-home-first");
-    assert!(
-        visual
-            .debug_bounds("tool-entry-remove-home-first")
-            .is_some()
-    );
-    click(visual, "tool-entry-remove-home-first");
+    click(visual, "tool-manager-action-home-first");
     assert!(visual.debug_bounds("home-tool-first").is_none());
-    assert!(visual.debug_bounds("tool-picker-body").is_none());
+    assert!(visual.debug_bounds("tool-manager-body").is_some());
     assert_eq!(
         registry
             .visibility("first")
@@ -201,75 +245,74 @@ fn quick_add_and_entry_removal_keep_surfaces_independent(cx: &mut TestAppContext
     assert!(host.is_some(), "test host should remain available");
     let host = host.unwrap_or_else(|| unreachable!());
     let opened_home_tools = host.read_with(visual, |host, _| host.opened_home_tools.clone());
-    assert!(opened_home_tools.is_empty(), "更多操作不能打开工具卡片");
+    assert!(opened_home_tools.is_empty(), "管理入口不能打开工具卡片");
 
-    click(visual, "home-tool-actions");
-    assert!(visual.debug_bounds("tool-picker-row-home-first").is_some());
-    click(visual, "home-tool-actions");
+    click(visual, "tool-manager-action-home-first");
+    assert!(visual.debug_bounds("home-tool-first").is_some());
+    click(visual, "home-tool-manager");
 
-    click(visual, "activity-add-menu");
-    assert!(visual.debug_bounds("tool-picker-body").is_some());
-    click(visual, "tool-picker-row-sidebar-first");
+    click(visual, "activity-tool-manager");
+    assert!(visual.debug_bounds("tool-manager-body").is_some());
+    click(visual, "tool-manager-action-sidebar-first");
     assert!(visual.debug_bounds("activity-tool-first").is_some());
-    assert!(visual.debug_bounds("home-tool-first").is_none());
+    assert!(visual.debug_bounds("home-tool-first").is_some());
+    assert!(visual.debug_bounds("tool-manager-body").is_some());
     assert_eq!(
         registry
             .visibility("first")
             .map(|visibility| (visibility.home, visibility.sidebar)),
-        Some((false, true))
+        Some((true, true))
     );
 
-    click(visual, "activity-add-menu");
-    click(visual, "tool-entry-actions-sidebar-first");
-    assert!(
-        visual
-            .debug_bounds("tool-entry-remove-sidebar-first")
-            .is_some()
-    );
-    click(visual, "tool-entry-remove-sidebar-first");
+    click(visual, "tool-manager-action-sidebar-first");
     assert!(visual.debug_bounds("activity-tool-first").is_none());
+    assert!(visual.debug_bounds("home-tool-first").is_some());
+    assert!(visual.debug_bounds("tool-manager-body").is_some());
     assert_eq!(
         registry
             .visibility("first")
             .map(|visibility| (visibility.home, visibility.sidebar)),
-        Some((false, false))
+        Some((true, false))
     );
     let navigation = host.read_with(visual, |host, _| host.sidebar_navigation.clone());
-    assert!(navigation.is_empty(), "更多操作不能导航到工具");
+    assert!(navigation.is_empty(), "管理入口不能导航到工具");
 
-    click(visual, "activity-add-menu");
     assert!(
         visual
-            .debug_bounds("tool-picker-row-sidebar-first")
+            .debug_bounds("tool-manager-row-sidebar-first")
             .is_some()
     );
-    click(visual, "tool-picker-row-sidebar-first");
+    click(visual, "tool-manager-action-sidebar-first");
     assert!(visual.debug_bounds("activity-tool-first").is_some());
 }
 
-/// The anchored picker stays inside a compact viewport and has a useful empty state.
+/// The anchored manager stays inside a compact viewport with visible and hidden tools.
 #[gpui_kit::test]
-fn picker_fits_compact_window_and_reports_no_available_tools(cx: &mut TestAppContext) {
+fn manager_fits_compact_window_and_lists_current_tools(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let registry = registry_with_hidden_tools();
     registry.set_home_visible("first", true);
     registry.set_home_visible("second", true);
-    let registry_for_picker = registry.clone();
+    let registry_for_manager = registry.clone();
     let (_, visual) = cx.add_window_view(move |window, cx| {
-        let picker =
-            create_tool_surface_picker(registry_for_picker, ToolDragSurface::Home, window, cx);
-        Root::new(cx.new(|_| PickerTestHost { picker }), window, cx)
+        let manager =
+            create_tool_surface_manager(registry_for_manager, ToolDragSurface::Home, window, cx);
+        Root::new(cx.new(|_| ManagerTestHost { manager }), window, cx)
     });
     visual.simulate_resize(size(px(360.0), px(640.0)));
     visual.run_until_parked();
-    click(visual, "picker-test-trigger");
+    click(visual, "manager-test-trigger");
     for selector in [
-        "tool-picker-body",
-        "tool-picker-search",
-        "tool-picker-scroll",
+        "tool-manager-body",
+        "tool-manager-search",
+        "tool-manager-scroll",
     ] {
         assert_fits(visual, selector, 360.0, 640.0);
     }
-    assert!(visual.debug_bounds("tool-picker-row-home-first").is_none());
-    assert!(visual.debug_bounds("tool-picker-row-home-second").is_none());
+    assert!(visual.debug_bounds("tool-manager-row-home-first").is_some());
+    assert!(
+        visual
+            .debug_bounds("tool-manager-row-home-second")
+            .is_some()
+    );
 }

@@ -26,7 +26,7 @@ use crate::tool_layout::{
     tool_drag_state, tool_drop_index, update_tool_drop_target,
 };
 use crate::tool_surface_manager::{
-    ToolSurfacePicker, create_tool_surface_picker, tool_entry_actions, tool_picker_popover,
+    ToolSurfaceManager, create_tool_surface_manager, tool_surface_manager_popover,
 };
 
 #[derive(Debug, Clone)]
@@ -42,7 +42,7 @@ const TOOL_GRID_WIDTH: f32 = TOOL_CARD_WIDTH * 3.0 + TOOL_CARD_GAP * 2.0;
 pub struct HomeView {
     registry: Arc<ToolRegistry>,
     scroll: ScrollHandle,
-    tool_picker: Option<Entity<ToolSurfacePicker>>,
+    tool_manager: Option<Entity<ToolSurfaceManager>>,
     last_rendered_slots: Vec<Option<String>>,
     _tool_layout_subscription: Subscription,
     _tool_drag_subscription: Subscription,
@@ -64,7 +64,7 @@ impl HomeView {
         Self {
             registry,
             scroll: ScrollHandle::new(),
-            tool_picker: None,
+            tool_manager: None,
             last_rendered_slots,
             _tool_layout_subscription: tool_layout_subscription,
             _tool_drag_subscription: tool_drag_subscription,
@@ -88,17 +88,17 @@ impl HomeView {
 impl Render for HomeView {
     /// 将持久化工具顺序绘制为首页网格，并同步拖拽占位线与来源卡片反馈。
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let tool_picker = match self.tool_picker.clone() {
-            Some(picker) => picker,
+        let tool_manager = match self.tool_manager.clone() {
+            Some(manager) => manager,
             None => {
-                let picker = create_tool_surface_picker(
+                let manager = create_tool_surface_manager(
                     self.registry.clone(),
                     ToolDragSurface::Home,
                     window,
                     cx,
                 );
-                self.tool_picker = Some(picker.clone());
-                picker
+                self.tool_manager = Some(manager.clone());
+                manager
             }
         };
         let theme = cx.theme();
@@ -178,97 +178,88 @@ impl Render for HomeView {
                 border.opacity(0.65)
             };
 
-            let mut card =
-                v_flex()
-                    .id(card_id)
-                    .debug_selector(move || debug_card_id.to_string())
-                    .w(px(card_width))
-                    .h(px(TOOL_CARD_HEIGHT))
-                    .p(px(12.0))
-                    .gap(px(8.0))
-                    .bg(card_background)
-                    .border_1()
-                    .border_color(card_border)
-                    .rounded(px(6.0))
-                    .relative()
-                    .cursor_pointer()
-                    .tooltip(move |window, cx| {
-                        gpui_kit::component::tooltip::Tooltip::new(tooltip.clone())
-                            .build(window, cx)
-                    })
-                    .hover(move |this| this.border_color(accent_border))
-                    .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
-                        cx.emit(HomeEvent::OpenTool(id_for_click.clone()));
-                    }))
-                    .on_drag(drag, move |drag, position, _, cx| {
-                        begin_tool_drag(&drag.id, ToolDragSurface::Home, source_index, cx);
-                        cx.new(|_| {
-                            ToolDragPreview::new(
-                                ToolDragSurface::Home,
-                                preview_icon.clone(),
-                                preview_name.clone(),
-                                preview_description.clone(),
-                            )
-                            .position(position)
-                        })
-                    })
-                    .on_drop(cx.listener(move |this, drag: &ToolDrag, _, cx| {
-                        this.complete_drop(&drag.id, source_index, cx);
-                    }))
-                    .child(
-                        h_flex()
-                            .w_full()
-                            .min_w_0()
-                            .pr(px(14.0))
-                            .items_center()
-                            .gap(px(8.0))
-                            .child(
-                                h_flex()
-                                    .size(px(24.0))
-                                    .flex_none()
-                                    .items_center()
-                                    .justify_center()
-                                    .text_color(accent)
-                                    .child(icon),
-                            )
-                            .child(
-                                div()
-                                    .debug_selector(move || title_selector.clone())
-                                    .flex_1()
-                                    .min_w_0()
-                                    .overflow_hidden()
-                                    .text_ellipsis()
-                                    .text_sm()
-                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                                    .text_color(fg)
-                                    .child(name),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .absolute()
-                            .top(px(8.0))
-                            .right(px(8.0))
-                            .child(tool_drag_handle(accent.opacity(0.65))),
-                    )
-                    .child(h_flex().absolute().top(px(8.0)).right(px(34.0)).child(
-                        tool_entry_actions(
-                            self.registry.clone(),
+            let mut card = v_flex()
+                .id(card_id)
+                .debug_selector(move || debug_card_id.to_string())
+                .w(px(card_width))
+                .h(px(TOOL_CARD_HEIGHT))
+                .p(px(12.0))
+                .gap(px(8.0))
+                .bg(card_background)
+                .border_1()
+                .border_color(card_border)
+                .rounded(px(6.0))
+                .relative()
+                .cursor_pointer()
+                .tooltip(move |window, cx| {
+                    gpui_kit::component::tooltip::Tooltip::new(tooltip.clone()).build(window, cx)
+                })
+                .hover(move |this| this.border_color(accent_border))
+                .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+                    cx.emit(HomeEvent::OpenTool(id_for_click.clone()));
+                }))
+                .on_drag(drag, move |drag, position, _, cx| {
+                    begin_tool_drag(&drag.id, ToolDragSurface::Home, source_index, cx);
+                    cx.new(|_| {
+                        ToolDragPreview::new(
                             ToolDragSurface::Home,
-                            id.clone(),
+                            preview_icon.clone(),
+                            preview_name.clone(),
+                            preview_description.clone(),
+                        )
+                        .position(position)
+                    })
+                })
+                .on_drop(cx.listener(move |this, drag: &ToolDrag, _, cx| {
+                    this.complete_drop(&drag.id, source_index, cx);
+                }))
+                .child(
+                    h_flex()
+                        .w_full()
+                        .min_w_0()
+                        .pr(px(14.0))
+                        .items_center()
+                        .gap(px(8.0))
+                        .child(
+                            h_flex()
+                                .size(px(24.0))
+                                .flex_none()
+                                .items_center()
+                                .justify_center()
+                                .text_color(accent)
+                                .child(icon),
+                        )
+                        .child(
+                            div()
+                                .debug_selector(move || title_selector.clone())
+                                .flex_1()
+                                .min_w_0()
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .text_sm()
+                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                .text_color(fg)
+                                .child(name),
                         ),
-                    ))
-                    .child(
-                        div()
-                            .debug_selector(move || description_selector.clone())
-                            .w_full()
-                            .min_w_0()
-                            .h(px(36.0))
-                            .overflow_hidden()
-                            .text_xs()
-                            .text_color(muted_fg)
-                            .child(description),
-                    );
+                )
+                .child(
+                    div()
+                        .absolute()
+                        .top(px(8.0))
+                        .right(px(8.0))
+                        .child(tool_drag_handle(accent.opacity(0.65))),
+                )
+                .child(
+                    div()
+                        .debug_selector(move || description_selector.clone())
+                        .w_full()
+                        .min_w_0()
+                        .h(px(36.0))
+                        .overflow_hidden()
+                        .text_xs()
+                        .text_color(muted_fg)
+                        .child(description),
+                );
             if is_dragged {
                 card = card.opacity(DRAGGED_ITEM_OPACITY);
             }
@@ -392,12 +383,12 @@ impl Render for HomeView {
                     .p(px(home_content_padding(window_width)))
                     .gap(px(if compact { 16.0 } else { 24.0 }))
                     .items_center()
-                    .child(render_home_header(item_count, tool_picker, cx))
+                    .child(render_home_header(item_count, tool_manager, cx))
                     .child(tool_grid)
                     .when(!has_tools, |content| {
                         content.child(crate::pulse_ui::pulse_status_notice(
                             crate::pulse_ui::PulseStatus::Unavailable,
-                            "首页没有显示工具。使用右上角的“添加工具”恢复入口，也可在设置的“工具显示”页管理。",
+                            "首页没有显示工具。使用右上角的“管理工具”恢复入口，也可在设置的“工具显示”页管理。",
                             cx,
                         ))
                     }),
@@ -469,7 +460,7 @@ fn reorder_animation_offset_for_width(
 /// 标题与工具网格共用宽度；文字层级在窄窗口和较大字号下仍可自然换行。
 fn render_home_header(
     tool_count: usize,
-    tool_picker: Entity<ToolSurfacePicker>,
+    tool_manager: Entity<ToolSurfaceManager>,
     cx: &gpui_kit::App,
 ) -> impl IntoElement {
     h_flex()
@@ -486,15 +477,15 @@ fn render_home_header(
                 .flex_1()
                 .min_w_0(),
         )
-        .child(tool_picker_popover(
-            tool_picker,
+        .child(tool_surface_manager_popover(
+            tool_manager,
             ToolDragSurface::Home,
-            crate::clickable_button("home-tool-actions")
-                .debug_selector(|| "home-tool-actions".into())
+            crate::clickable_button("home-tool-manager")
+                .debug_selector(|| "home-tool-manager".into())
                 .ghost()
-                .icon(Icon::new(IconName::Plus))
-                .label("添加工具")
-                .tooltip("添加首页工具"),
+                .icon(Icon::new(IconName::Settings2))
+                .label("管理工具")
+                .tooltip("管理首页工具"),
         ))
 }
 

@@ -88,8 +88,8 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 | P0 | `A-POST-0.5-DBCLIENT-001` | 数据源列表差异复核 | 代码与 headless 验收完成；真实窗口验收待补，见 [本轮计划](11-dbclient-list-state-plan.md) | 搜索无匹配时仍显示刷新失败与重试；长错误下重试可用；账号列/窄行边界及筛选重排后的连接 ID |
 | P1 | `A-POST-0.5-CLIPBOARD-001` | 剪贴板删除/撤销搜索状态 | 代码已完成，待计划记录复核 | 目标测试、删除/撤销/失败通知和旧搜索代际回归 |
 | P1 | `A-POST-0.5-TOOL-SURFACE-CRUD-001` | 首页与侧边栏添加/移除工具入口 | 基础能力已完成，交互已由快捷操作切片替换，见 [原计划记录](14-tool-surface-management-plan.md) | 入口增删只修改当前表面的显示偏好；保留从设置页恢复入口的能力 |
-| P1 | `A-POST-0.5-TOOL-SURFACE-QUICK-ACTIONS-001` | 首页与侧边栏工具快捷操作 | 已完成；141 项 UI 单测、真实 Windows 窗口添加/移除/恢复通过，见 [专项计划](15-tool-surface-quick-actions-plan.md) | “+”打开紧凑搜索选择器并单击添加；每个入口的更多菜单提供直接移除；另一表面和工具数据不变 |
-| P1 | `A-POST-0.5-OBJECT-001` | 对象存储列表与真实数据源证据 | 账号行响应式代码已完成，待记录和补证；S3 兼容账号及本机 RustFS 数据源已可用 | 360/640/768/1024/1440、明暗主题、长名称、稳定选择 ID；使用本机 RustFS 完成列表检查，云 COS/OSS 凭据仍缺失时单独记录 |
+| P1 | `A-POST-0.5-TOOL-SURFACE-MANAGER-001` | 首页与侧边栏统一工具管理交互 | 已完成；143 项 UI 单测、严格 Clippy、完整构建和真实窗口操作通过，见 [专项计划](17-tool-surface-manager-ux-plan.md) | 一个面板搜索所有工具，并在同一行直接添加或移除当前表面的入口；另一表面、注册和数据不变 |
+| P1 | `A-POST-0.5-OBJECT-001` | 对象存储列表与真实数据源证据 | 待恢复；RustFS live 测试和响应式 headless 回归已完成，见 [专项计划](16-object-storage-list-acceptance-plan.md) | 恢复后完成隔离数据下的账号持久化和实际对象列表原生窗口验收；复核 360/640/768/1024/1440、主题、长名称和稳定 ID |
 | P1 | `A-PULSE-GAP-03-DN-UI-001` | Disks/Network 详细页真实窗口核验 | 代码与 headless 已完成，CUA 阻塞 | 主量表、趋势、统计区、设备重排/缺失身份和滚动流程 |
 | P1 | `A-POST-0.5-LIST-ACCEPTANCE-001` | 其余列表型工作区（容器、VCS、插件） | 后续 | 完整程序中的滚动、空/加载/失败状态和主要操作；CUA 缺失时明确未完成 |
 | P1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` | SSH/SFTP、API、Kafka、MQTT 编辑/连接工作区 | 后续 | 连接、取消、保存、错误恢复、结果上下文；需要时使用本机 Docker |

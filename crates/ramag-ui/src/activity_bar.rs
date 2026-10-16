@@ -27,7 +27,7 @@ use crate::tool_layout::{
     tool_drag_display_slots, tool_drag_state, tool_drop_index, update_tool_drop_target,
 };
 use crate::tool_surface_manager::{
-    ToolSurfacePicker, create_tool_surface_picker, tool_entry_actions, tool_picker_popover,
+    ToolSurfaceManager, create_tool_surface_manager, tool_surface_manager_popover,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,14 +42,14 @@ pub enum NavEvent {
     Navigate(NavTarget),
 }
 
-const BAR_WIDTH: f32 = 48.0;
+pub(crate) const BAR_WIDTH: f32 = 48.0;
 const ITEM_HEIGHT: f32 = 40.0;
 
 pub struct ActivityBar {
     registry: Arc<ToolRegistry>,
     plugin_host: Arc<StaticPluginHost>,
     selected: NavTarget,
-    tool_picker: Option<Entity<ToolSurfacePicker>>,
+    tool_manager: Option<Entity<ToolSurfaceManager>>,
     last_rendered_slots: Vec<Option<String>>,
     /// 保留工具列表滚动位置；固定的首页和设置入口不参与滚动。
     tool_scroll: ScrollHandle,
@@ -137,7 +137,7 @@ impl ActivityBar {
             registry,
             plugin_host,
             selected: NavTarget::Home,
-            tool_picker: None,
+            tool_manager: None,
             last_rendered_slots,
             tool_scroll: ScrollHandle::new(),
             _update_indicator_subscription: update_indicator_subscription,
@@ -209,17 +209,17 @@ fn tool_icon_path(tool_id: &str, declared_icon: Option<&str>) -> &'static str {
 impl Render for ActivityBar {
     /// 将持久化工具顺序绘制为侧栏入口，并同步拖拽占位线与来源入口反馈。
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let tool_picker = match self.tool_picker.clone() {
-            Some(picker) => picker,
+        let tool_manager = match self.tool_manager.clone() {
+            Some(manager) => manager,
             None => {
-                let picker = create_tool_surface_picker(
+                let manager = create_tool_surface_manager(
                     self.registry.clone(),
                     ToolDragSurface::ActivityBar,
                     window,
                     cx,
                 );
-                self.tool_picker = Some(picker.clone());
-                picker
+                self.tool_manager = Some(manager.clone());
+                manager
             }
         };
         let theme = cx.theme();
@@ -315,13 +315,6 @@ impl Render for ActivityBar {
                     .w(px(BAR_WIDTH))
                     .h(px(ITEM_HEIGHT))
                     .child(item)
-                    .child(div().absolute().bottom(px(1.0)).right(px(1.0)).child(
-                        tool_entry_actions(
-                            self.registry.clone(),
-                            ToolDragSurface::ActivityBar,
-                            id.clone(),
-                        ),
-                    ))
                     .into_any_element(),
             );
         }
@@ -443,14 +436,14 @@ impl Render for ActivityBar {
                 .vertical_scrollbar(&self.tool_scroll)
                 .child(tool_list),
         );
-        container = container.child(tool_picker_popover(
-            tool_picker,
+        container = container.child(tool_surface_manager_popover(
+            tool_manager,
             ToolDragSurface::ActivityBar,
-            crate::clickable_button("add-menu")
-                .debug_selector(|| "activity-add-menu".into())
+            crate::clickable_button("activity-tool-manager")
+                .debug_selector(|| "activity-tool-manager".into())
                 .ghost()
-                .icon(Icon::new(IconName::Plus))
-                .tooltip("添加侧边栏工具"),
+                .icon(Icon::new(IconName::Settings2))
+                .tooltip("管理侧边栏工具"),
         ));
         container = container.child(activity_item(
             ActivityItemConfig {

@@ -69,9 +69,9 @@ fn activity_bar_keeps_fixed_actions_visible_when_tool_list_overflows(cx: &mut Te
     let scroll = cx.debug_bounds("activity-tool-scroll");
     assert!(scroll.is_some(), "工具列表滚动区应渲染");
     let scroll = scroll.unwrap_or_default();
-    let add = cx.debug_bounds("activity-add-menu");
-    assert!(add.is_some(), "添加入口应渲染");
-    let add = add.unwrap_or_default();
+    let manager = cx.debug_bounds("activity-tool-manager");
+    assert!(manager.is_some(), "工具管理入口应渲染");
+    let manager = manager.unwrap_or_default();
     let shortcuts = cx.debug_bounds("activity-shortcuts");
     assert!(shortcuts.is_some(), "快捷键入口应渲染");
     let shortcuts = shortcuts.unwrap_or_default();
@@ -82,7 +82,7 @@ fn activity_bar_keeps_fixed_actions_visible_when_tool_list_overflows(cx: &mut Te
     assert!(last_tool.is_some(), "工具列表末项应渲染");
     let last_tool = last_tool.unwrap_or_default();
 
-    for fixed_action in [add, shortcuts, settings] {
+    for fixed_action in [manager, shortcuts, settings] {
         assert!(fixed_action.origin.y >= bar.origin.y);
         assert!(fixed_action.bottom() <= bar.bottom());
     }

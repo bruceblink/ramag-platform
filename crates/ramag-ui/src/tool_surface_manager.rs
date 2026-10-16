@@ -1,4 +1,4 @@
-//! Compact add picker and per-entry removal actions for Home and the sidebar.
+//! One searchable tool manager for adding and removing Home and sidebar entries.
 
 use std::sync::Arc;
 
@@ -7,27 +7,26 @@ use gpui_kit::component::{
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputState},
-    menu::PopupMenuItem,
     popover::Popover,
     v_flex,
 };
 use gpui_kit::{
     Anchor, App, AppContext as _, BorrowAppContext as _, ClickEvent, Context, Entity,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, ScrollHandle,
-    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div, px,
+    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use ramag_app::{ToolRegistry, ToolVisibility};
 use ramag_domain::Tool;
 
-use crate::PointerDropdownMenu as _;
 use crate::tool_layout::{
     ToolDragSurface, ToolLayoutGlobal, notify_tool_layout_changed, persist_tool_visibility,
 };
 
-const PICKER_WIDTH: f32 = 320.0;
-const PICKER_MAX_HEIGHT: f32 = 420.0;
+const MANAGER_WIDTH: f32 = 340.0;
+const MANAGER_MAX_HEIGHT: f32 = 440.0;
 
-pub(crate) struct ToolSurfacePicker {
+pub(crate) struct ToolSurfaceManager {
     registry: Arc<ToolRegistry>,
     surface: ToolDragSurface,
     search: Entity<InputState>,
@@ -36,7 +35,7 @@ pub(crate) struct ToolSurfacePicker {
     _subscriptions: Vec<Subscription>,
 }
 
-impl ToolSurfacePicker {
+impl ToolSurfaceManager {
     pub(crate) fn new(
         registry: Arc<ToolRegistry>,
         surface: ToolDragSurface,
@@ -44,8 +43,9 @@ impl ToolSurfacePicker {
         cx: &mut Context<Self>,
     ) -> Self {
         cx.update_default_global::<ToolLayoutGlobal, _>(|_, _| {});
-        let search =
-            cx.new(|cx| crate::bounded_search_input(window, cx).placeholder("搜索要添加的工具"));
+        let search = cx.new(|cx| {
+            crate::bounded_search_input(window, cx).placeholder("搜索工具名称、说明或 ID")
+        });
         let subscriptions = vec![
             cx.observe(&search, |this, _, cx| {
                 this.query = this.search.read(cx).value().trim().to_lowercase();
@@ -63,11 +63,11 @@ impl ToolSurfacePicker {
         }
     }
 
-    /// Add only the current surface entry, then persist and redraw both surfaces.
-    fn add_tool(&mut self, id: &str, cx: &mut Context<Self>) {
+    /// Change only this surface's entry preference and refresh both surfaces.
+    fn set_tool_visible(&mut self, id: &str, visible: bool, cx: &mut Context<Self>) {
         let changed = match self.surface {
-            ToolDragSurface::Home => self.registry.set_home_visible(id, true),
-            ToolDragSurface::ActivityBar => self.registry.set_sidebar_visible(id, true),
+            ToolDragSurface::Home => self.registry.set_home_visible(id, visible),
+            ToolDragSurface::ActivityBar => self.registry.set_sidebar_visible(id, visible),
         };
         if changed {
             persist_tool_visibility(&self.registry, cx);
@@ -86,7 +86,9 @@ impl ToolSurfacePicker {
     fn render_tool_row(&self, tool: Arc<dyn Tool>, cx: &mut Context<Self>) -> impl IntoElement {
         let meta = tool.meta();
         let id = meta.id.clone();
-        let selector = format!("tool-picker-row-{}-{id}", surface_key(self.surface));
+        let surface = self.surface;
+        let selector = format!("tool-manager-row-{}-{id}", surface_key(surface));
+        let action_selector = format!("tool-manager-action-{}-{id}", surface_key(surface));
         let name = meta.name.clone();
         let description = meta.description.clone();
         let icon = crate::activity_bar::ActivityBar::icon_for_meta(meta);
@@ -94,7 +96,16 @@ impl ToolSurfacePicker {
         let muted = cx.theme().muted_foreground;
         let border = cx.theme().border;
         let hover = cx.theme().muted;
-        let add_icon = Icon::new(IconName::Plus).small().text_color(muted);
+        let is_visible = self
+            .registry
+            .visibility(&id)
+            .is_some_and(|visibility| self.is_visible(visibility));
+        let action_label = if is_visible { "移除" } else { "添加" };
+        let action_tooltip = format!(
+            "{}{}入口",
+            if is_visible { "从" } else { "添加到" },
+            surface_name(surface)
+        );
 
         h_flex()
             .id(selector.clone())
@@ -108,9 +119,7 @@ impl ToolSurfacePicker {
             .rounded(px(7.0))
             .border_1()
             .border_color(border.opacity(0.65))
-            .cursor_pointer()
             .hover(move |style| style.bg(hover))
-            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| this.add_tool(&id, cx)))
             .child(icon.size(px(18.0)).flex_none().text_color(accent))
             .child(
                 v_flex()
@@ -134,27 +143,50 @@ impl ToolSurfacePicker {
                             .child(description),
                     ),
             )
-            .child(add_icon)
+            .child(
+                crate::clickable_button(action_selector.clone())
+                    .debug_selector(move || action_selector.clone())
+                    .small()
+                    .flex_none()
+                    .label(action_label)
+                    .tooltip(action_tooltip)
+                    .when(is_visible, |button| button.outline())
+                    .when(!is_visible, |button| button.primary())
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.set_tool_visible(&id, !is_visible, cx);
+                    })),
+            )
     }
 }
 
-impl Render for ToolSurfacePicker {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+impl Render for ToolSurfaceManager {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let tools = self
             .registry
             .list()
             .into_iter()
+            .filter(|tool| tool_matches(tool.meta(), &self.query))
+            .collect::<Vec<_>>();
+        let visible_count = self
+            .registry
+            .list()
+            .iter()
             .filter(|tool| {
                 self.registry
                     .visibility(&tool.meta().id)
-                    .is_some_and(|visibility| !self.is_visible(visibility))
+                    .is_some_and(|visibility| self.is_visible(visibility))
             })
-            .filter(|tool| tool_matches(tool.meta(), &self.query))
-            .collect::<Vec<_>>();
+            .count();
         let muted = cx.theme().muted_foreground;
         let border = cx.theme().border;
-        let empty_message = if self.query.is_empty() {
-            "所有工具都已添加"
+        let window_width = f32::from(window.bounds().size.width);
+        let right_reserve = match self.surface {
+            ToolDragSurface::Home => 20.0,
+            ToolDragSurface::ActivityBar => crate::activity_bar::BAR_WIDTH + 20.0,
+        };
+        let manager_width = (window_width - right_reserve).clamp(240.0, MANAGER_WIDTH);
+        let empty_message = if self.registry.count() == 0 {
+            "没有已注册的工具"
         } else {
             "没有匹配的工具"
         };
@@ -162,6 +194,8 @@ impl Render for ToolSurfacePicker {
             vec![
                 div()
                     .w_full()
+                    .id("tool-manager-empty")
+                    .debug_selector(|| "tool-manager-empty".into())
                     .px(px(12.0))
                     .py(px(16.0))
                     .text_sm()
@@ -177,22 +211,28 @@ impl Render for ToolSurfacePicker {
         };
 
         v_flex()
-            .id("tool-picker-body")
-            .debug_selector(|| "tool-picker-body".into())
-            .w(px(PICKER_WIDTH))
-            .max_h(px(PICKER_MAX_HEIGHT))
+            .id("tool-manager-body")
+            .debug_selector(|| "tool-manager-body".into())
+            .w(px(manager_width))
+            .max_h(px(MANAGER_MAX_HEIGHT))
             .gap(px(8.0))
             .child(
-                div()
-                    .px(px(2.0))
-                    .text_xs()
-                    .text_color(muted)
-                    .child("添加到当前界面"),
+                v_flex()
+                    .gap(px(3.0))
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                            .child(format!("管理{}工具", surface_name(self.surface))),
+                    )
+                    .child(div().text_xs().text_color(muted).child(format!(
+                        "当前显示 {visible_count} 个。操作只影响此处入口，不会删除工具或数据。"
+                    ))),
             )
             .child(
                 div()
-                    .id("tool-picker-search")
-                    .debug_selector(|| "tool-picker-search".into())
+                    .id("tool-manager-search")
+                    .debug_selector(|| "tool-manager-search".into())
                     .w_full()
                     .child(
                         Input::new(&self.search)
@@ -202,10 +242,10 @@ impl Render for ToolSurfacePicker {
             )
             .child(
                 div()
-                    .id("tool-picker-scroll")
-                    .debug_selector(|| "tool-picker-scroll".into())
+                    .id("tool-manager-scroll")
+                    .debug_selector(|| "tool-manager-scroll".into())
                     .w_full()
-                    .max_h(px(PICKER_MAX_HEIGHT - 90.0))
+                    .max_h(px(MANAGER_MAX_HEIGHT - 108.0))
                     .border_1()
                     .border_color(border.opacity(0.65))
                     .rounded(px(8.0))
@@ -216,18 +256,18 @@ impl Render for ToolSurfacePicker {
     }
 }
 
-pub(crate) fn create_tool_surface_picker(
+pub(crate) fn create_tool_surface_manager(
     registry: Arc<ToolRegistry>,
     surface: ToolDragSurface,
     window: &mut Window,
     cx: &mut App,
-) -> Entity<ToolSurfacePicker> {
-    cx.new(|cx| ToolSurfacePicker::new(registry, surface, window, cx))
+) -> Entity<ToolSurfaceManager> {
+    cx.new(|cx| ToolSurfaceManager::new(registry, surface, window, cx))
 }
 
-/// Attach a searchable, anchored add picker to the surface's fixed plus button.
-pub(crate) fn tool_picker_popover(
-    picker: Entity<ToolSurfacePicker>,
+/// Attach the same searchable add/remove manager to the surface's fixed control.
+pub(crate) fn tool_surface_manager_popover(
+    manager: Entity<ToolSurfaceManager>,
     surface: ToolDragSurface,
     trigger: impl Selectable + IntoElement + 'static,
 ) -> impl IntoElement {
@@ -235,76 +275,23 @@ pub(crate) fn tool_picker_popover(
         ToolDragSurface::Home => Anchor::BottomRight,
         ToolDragSurface::ActivityBar => Anchor::RightCenter,
     };
-    Popover::new(format!("tool-picker-{}", surface_key(surface)))
+    Popover::new(format!("tool-manager-{}", surface_key(surface)))
         .anchor(anchor)
         .trigger(trigger)
-        .content(move |_, _, _| picker.clone())
-}
-
-/// Remove one surface entry without changing the tool registration or its other entry.
-fn remove_surface_entry(registry: &ToolRegistry, surface: ToolDragSurface, id: &str, cx: &mut App) {
-    let changed = match surface {
-        ToolDragSurface::Home => registry.set_home_visible(id, false),
-        ToolDragSurface::ActivityBar => registry.set_sidebar_visible(id, false),
-    };
-    if changed {
-        persist_tool_visibility(registry, cx);
-        notify_tool_layout_changed(cx);
-    }
-}
-
-/// Show a discoverable per-tool menu with the single entry-removal action.
-pub(crate) fn tool_entry_actions(
-    registry: Arc<ToolRegistry>,
-    surface: ToolDragSurface,
-    id: String,
-) -> impl IntoElement + 'static {
-    let selector = format!("tool-entry-actions-{}-{id}", surface_key(surface));
-    let debug_selector = selector.clone();
-    let label = format!(
-        "从{}移除",
-        match surface {
-            ToolDragSurface::Home => "首页",
-            ToolDragSurface::ActivityBar => "侧边栏",
-        }
-    );
-    let menu_item_selector = format!("tool-entry-remove-{}-{id}", surface_key(surface));
-    let menu_item_debug_selector = menu_item_selector.clone();
-    crate::clickable_button(selector)
-        .debug_selector(move || debug_selector.clone())
-        .small()
-        .p_0()
-        .size(px(16.0))
-        .ghost()
-        .icon(Icon::new(IconName::Ellipsis).size(px(13.0)))
-        .tooltip(format!("更多操作：{label}"))
-        .on_click(|_, _, cx| cx.stop_propagation())
-        .pointer_dropdown_menu(move |menu, _, _| {
-            let registry = registry.clone();
-            let id = id.clone();
-            let label = label.clone();
-            let selector = menu_item_selector.clone();
-            let debug_selector = menu_item_debug_selector.clone();
-            menu.item(
-                PopupMenuItem::element(move |_, _| {
-                    let debug_selector = debug_selector.clone();
-                    div()
-                        .id(selector.clone())
-                        .debug_selector(move || debug_selector.clone())
-                        .w_full()
-                        .child(label.clone())
-                })
-                .on_click(move |_: &ClickEvent, _, cx| {
-                    remove_surface_entry(&registry, surface, &id, cx);
-                }),
-            )
-        })
+        .content(move |_, _, _| manager.clone())
 }
 
 fn surface_key(surface: ToolDragSurface) -> &'static str {
     match surface {
         ToolDragSurface::Home => "home",
         ToolDragSurface::ActivityBar => "sidebar",
+    }
+}
+
+fn surface_name(surface: ToolDragSurface) -> &'static str {
+    match surface {
+        ToolDragSurface::Home => "首页",
+        ToolDragSurface::ActivityBar => "侧边栏",
     }
 }
 

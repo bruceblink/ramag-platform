@@ -19,7 +19,9 @@
 | 专项 | [v0.5.0 后 UI 修复](09-post-0.5.0-ui-fixes-plan.md) | 剪贴板删除、搜索和撤销状态切片 |
 | 专项 | [Disks/Network 详细页计划](10-system-disks-network-plan.md) | System Pulse 磁盘与网络详细页对齐 |
 | 专项 | [DBClient 列表状态修复](11-dbclient-list-state-plan.md) | 搜索无匹配时的读取失败、重试与稳定 ID 点击回归 |
-| 专项 | [首页与侧边栏工具快捷操作](15-tool-surface-quick-actions-plan.md) | 使用紧凑选择器添加入口，并从各入口的更多操作中移除 |
+| 专项 | [首页与侧边栏工具快捷操作（历史记录）](15-tool-surface-quick-actions-plan.md) | 记录选择器添加和入口菜单移除版本；现由统一管理面板替换 |
+| 专项 | [对象存储账号列表与 RustFS 数据源验收](16-object-storage-list-acceptance-plan.md) | 验证持久化账号列表、行状态和本机 RustFS 工作区连接 |
+| 专项 | [首页与侧边栏统一工具管理交互](17-tool-surface-manager-ux-plan.md) | 在同一面板中搜索、添加和移除当前表面的工具入口 |
 
 历史计划和验收记录保留在 [`archive/2026-09-25-pre-datagrip-rebaseline/`](archive/2026-09-25-pre-datagrip-rebaseline/) 及 [执行历史](01-development-plan-history.md) 供追溯，不作为当前待办。新增计划必须使用两位数字前缀，并同步更新本目录和仓库链接。
 
