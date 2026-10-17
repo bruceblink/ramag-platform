@@ -2,7 +2,7 @@
 
 > 切片：`A-POST-0.5-GPUI-KIT-001`
 > 日期：2026-10-17
-> 状态：进行中
+> 状态：已完成
 > 基线：`main` 与 `origin/main` 均为 `9282af5c`；Ramag 当前发布版为 `v0.5.0`；工作区依赖 `gpui-kit 0.6.6`
 > 目标：升级至上游最新稳定版 `gpui-kit 0.7.3`，完成兼容修复和发布验证，再发布 Ramag `v0.6.0`
 
@@ -39,6 +39,15 @@
 - Redis 测试数据：为完整扫描测试补入 `ttl:1` 至 `ttl:1000`，每个键的值为 `expires-<序号>`，过期时间为 8 小时。完整测试通过后逐项核对这些值并删除这 1,000 个测试键。DB0 恢复为 45,014 个键，`ttl:*` 数量为 0。
 - Windows 启动检查：最终 Debug 程序在隔离目录 `target/ui-test-data-v0.6.0` 启动；进程保持运行，窗口标题为 `Ramag`，Windows 报告窗口有响应。Computer Use 未提供原生窗口接口（应用清单为空，`listApps` 和 `getApp` 不可用），因此首页、设置和 API 分隔栏的真实鼠标操作尚未验证；GPUI 组件和工作区 headless 测试已通过。
 
+## 发布结果
+
+- 已提交并推送发布源码：`c086d1723f36b1759b01719e70affbb9901a9eda`（`build: upgrade gpui-kit to 0.7.3`）。注释标签 `v0.6.0` 指向该提交。
+- [Desktop Release workflow 39010687567](https://github.com/bruceblink/ramag-platform/actions/runs/39010687567) 的 Windows、macOS、Linux 和发布任务全部成功。
+- [Ramag v0.6.0 GitHub Release](https://github.com/bruceblink/ramag-platform/releases/tag/v0.6.0) 已正式发布，非草稿且不是预发布版。
+- Release 包含五个安装包：Windows x64 安装器、macOS arm64 和 x86_64 DMG、Linux amd64 DEB 和 x86_64 AppImage；另有 `SHA256SUMS.txt` 和 `update-manifest.json`，共七个资产。
+- 已下载并解析摘要文件与更新清单。五个安装包的 SHA-256 同时匹配 `SHA256SUMS.txt`、更新清单和 GitHub 资产摘要；五个安装包的文件大小与清单和 GitHub 资产元数据一致。两个元数据文件的 SHA-256 与 GitHub 资产摘要一致；发布说明与本地按 `v0.5.0..v0.6.0` 生成的双语说明一致。
+- 标签推送前 `main` 与 `origin/main` 均为 `c086d172` 且工作区干净。发布后的验收更新只修改文档；文档提交推送后，`main` 与 `origin/main` 保持一致，标签继续指向发布源码提交 `c086d172`。
+
 ## 验证命令
 
 ```powershell
@@ -51,8 +60,8 @@ cargo fmt --all -- --check
 git diff --check
 ```
 
-CI 还会独立构建和打包 Windows、macOS 与 Linux Release。发布验收以该工作流生成并验证的安装资产为准。
+CI 已独立构建和打包 Windows、macOS 与 Linux Release。工作流验证通过后生成并发布全部安装资产。
 
 ## 回滚边界
 
-只回滚 GPUI Kit 升级、兼容迁移、`0.6.0` 版本元数据、发布说明和本计划记录。保留已发布的 `v0.5.0` 标签与资产。不得移动或覆盖已发布标签。若 `v0.6.0` 的平台构建或资产验收失败，先修复并重新验证；未满足全部验收条件时不宣告发布成功。
+若后续发现问题，只回滚或修复 GPUI Kit 兼容迁移及相关源码。保留 `v0.5.0` 和已发布的 `v0.6.0` 标签及资产；不得移动或覆盖已发布标签。后续修复使用新的版本发布。
