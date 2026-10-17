@@ -449,12 +449,10 @@ impl ContainerView {
         });
         let endpoint_for_observer = endpoint.clone();
         self.docker_input_subscription = Some(cx.observe(&endpoint, move |view, _, cx| {
-            view.docker_endpoint = endpoint_for_observer.read(cx).value().to_string();
-            view.profile.address = view.docker_endpoint.clone();
-            view.request_id = view.request_id.wrapping_add(1);
-            view.clear_resource_state();
-            view.error = None;
-            cx.notify();
+            let endpoint = endpoint_for_observer.read(cx).value().to_string();
+            if view.apply_docker_endpoint_change(endpoint) {
+                cx.notify();
+            }
         }));
         self.docker_endpoint_input = Some(endpoint);
     }
@@ -1224,6 +1222,24 @@ impl ContainerView {
             .unwrap_or_else(|| self.docker_endpoint.trim().to_owned());
         self.docker_endpoint = endpoint.clone();
         self.profile.address = endpoint;
+    }
+
+    // Ignore delayed observations for an endpoint already synchronized by a refresh.
+    fn apply_docker_endpoint_change(&mut self, endpoint: String) -> bool {
+        let endpoint = endpoint.trim().to_owned();
+        if self.docker_endpoint.trim() == endpoint.as_str()
+            && self.profile.address.trim() == endpoint.as_str()
+        {
+            return false;
+        }
+
+        self.docker_endpoint = endpoint.clone();
+        self.profile.address = endpoint;
+        self.request_id = self.request_id.wrapping_add(1);
+        self.loading = false;
+        self.clear_resource_state();
+        self.error = None;
+        true
     }
 
     fn sync_resource_search(&mut self, cx: &mut Context<Self>) {
@@ -3437,3 +3453,7 @@ mod overview_tests;
 #[cfg(test)]
 #[path = "stats_tests.rs"]
 mod stats_tests;
+
+#[cfg(test)]
+#[path = "view_endpoint_tests.rs"]
+mod endpoint_tests;

@@ -91,7 +91,7 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 | P1 | `A-POST-0.5-TOOL-SURFACE-MANAGER-003` | 首页与侧边栏明确添加/移除交互 | 已完成；144 项 UI 单测、严格 Clippy 和真实窗口操作通过，见 [专项计划](19-tool-surface-explicit-add-remove-plan.md) | 按入口确定管理范围；“已添加”和“可添加”分组提供明确操作，另一表面、注册和数据不变 |
 | P1 | `A-POST-0.5-OBJECT-001` | 对象存储列表与真实数据源证据 | 已完成；RustFS live、完整程序保存/重启回读和真实对象列表通过，见 [专项计划](16-object-storage-list-acceptance-plan.md) | 隔离数据下验证账号持久化和实际对象列表；复核 360/640/768/1024/1440、主题、长名称和稳定 ID |
 | P1 | `A-PULSE-GAP-03-DN-UI-001` | Disks/Network 详细页真实窗口核验 | 已完成；113 项 system 工具测试、严格 Clippy、完整构建和参考程序/Ramag 真实窗口操作通过，见 [专项计划](10-system-disks-network-plan.md) | 核对主量表、趋势、累计流量、设备选择和滚动；无辅助统计时显示明确状态 |
-| P1 | `A-POST-0.5-LIST-ACCEPTANCE-001` | 其余列表型工作区（容器、VCS、插件） | 待执行 | 完整程序中的滚动、空/加载/失败状态和主要操作；使用 Computer Use 验收真实窗口 |
+| P1 | `A-POST-0.5-LIST-ACCEPTANCE-001` | 其余列表型工作区（容器、VCS、插件） | 进行中；Container 子切片完成，下一项为 VCS，见 [专项计划](21-list-workspace-acceptance-plan.md) | 完整程序中的标题、字号/颜色、滚动、空/加载/失败状态和主要操作；使用 Computer Use 验收真实窗口 |
 | P1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` | SSH/SFTP、API、Kafka、MQTT 编辑/连接工作区 | 后续 | 连接、取消、保存、错误恢复、结果上下文；需要时使用本机 Docker |
 | P1 | `A-UI-REAL` | 全部已交付工具的真实 Windows 窗口补证 | 待执行；Computer Use 当前可用，按工具逐项补证 | 鼠标、键盘、滚动、保存、取消和错误恢复的真实窗口记录 |
 | P2 | `A-PULSE-MOTION-001` / `A-PULSE-PROFILING-001` | 减少动画、过渡和发布性能采样 | 后置 | 独立 motion/p95/活动帧原始日志，不能用静态截图替代 |
