@@ -83,6 +83,7 @@ fn active(view: &Entity<ScreenView>, cx: &VisualTestContext) -> Screen {
     })
 }
 
+mod device_statuses;
 mod environmental_failures;
 mod memory_summary;
 mod navigation;

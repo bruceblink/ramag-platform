@@ -38,6 +38,7 @@ pub(crate) fn disk(
         "device-stats:disks",
         "Backing device details",
         &auxiliary,
+        "No additional backing-device statistics are available for this volume.",
         state,
         cx,
     );
@@ -105,6 +106,7 @@ pub(crate) fn network(
             "device-stats:network",
             "Cumulative traffic",
             &counters,
+            "No cumulative traffic counters are available for this interface.",
             state,
             cx,
         ))
@@ -158,12 +160,27 @@ fn device_stats(
     selector: &str,
     title: &str,
     rows: &[&Channel],
+    empty_message: &'static str,
     state: &Data,
     cx: &App,
 ) -> AnyElement {
     let selector = selector.to_owned();
     let debug_selector = selector.clone();
     let grid_selector = format!("{selector}:grid");
+    let empty_selector = format!("{selector}:empty");
+    let empty_status = rows.is_empty().then(|| {
+        let selector = empty_selector.clone();
+        div()
+            .id(SharedString::from(selector.clone()))
+            .debug_selector(move || selector.clone())
+            .role(Role::Status)
+            .aria_label(empty_message)
+            .w_full()
+            .text_size(px(13.))
+            .text_color(palette(cx).muted)
+            .child(empty_message)
+            .into_any_element()
+    });
     section(cx)
         .id(SharedString::from(selector.clone()))
         .debug_selector(move || debug_selector.clone())
@@ -174,7 +191,8 @@ fn device_stats(
                 .flex()
                 .flex_wrap()
                 .gap_4()
-                .children(rows.iter().map(|channel| stat(channel, state, cx))),
+                .children(rows.iter().map(|channel| stat(channel, state, cx)))
+                .when_some(empty_status, |grid, status| grid.child(status)),
         )
         .into_any_element()
 }

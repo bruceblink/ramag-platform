@@ -2,7 +2,7 @@
 
 > 状态：现行计划
 > 更新日期：2026-10-17
-> 本轮起点：`main` 与 `origin/main` 均为 `38bb1ee2`；`v0.5.0` 已发布。工具显示设置、入口增删和 S3 兼容驱动已完成；工具管理交互已收口；当前完成对象存储账号列表与真实数据源验收，下一项是 Disks/Network 真实窗口核验。
+> 本轮起点：`main` 与 `origin/main` 均为 `b2c5b183`；`v0.5.0` 已发布。工具显示设置、入口增删和 S3 兼容驱动已完成；工具管理交互和对象存储列表验收已收口；Disks/Network 真实窗口核验已完成，下一项是其余列表型工作区验收。
 > 当前主线：收口已有桌面工具的 UI 差异和功能状态；阶段 B 继续维护原生工作区；阶段 C 协同画布后置
 
 本文件只描述当前可执行的开发顺序。旧的逐切片验收记录保存在
@@ -30,7 +30,7 @@
 | 版本与主线 | `v0.5.0` 标签已存在；当前 `main` 与远端一致 | `git log -1`、`git status --short --branch` |
 | 首页与工具入口 | 第一方工具首页层级、入口和剪贴板状态已统一 | `c4c20d06`、`docs/08-v0.5.0-ui-release-plan.md` |
 | 剪贴板 | 删除后的搜索结果、详情、撤销恢复和失败通知已补齐测试路径 | `1dfb4ab3`、`docs/09-post-0.5.0-ui-fixes-plan.md` |
-| System Pulse 详细页 | Disks/Network 已按主量表、趋势和统计区分组，并保留设备身份与缺失原因 | `0ede5b9e`、`docs/10-system-disks-network-plan.md` |
+| System Pulse 详细页 | Disks/Network 已通过参考程序与 Ramag 真实窗口核验；缺少辅助统计时显示明确状态 | `0ede5b9e`、[`docs/10-system-disks-network-plan.md`](10-system-disks-network-plan.md) |
 | 对象存储 | 账号列表已按窗口宽度切换行密度，窄窗口保留名称、元数据和操作可达 | `09c25b08`、`crates/ramag-tool-object-storage/src/views/render_test/account_tests.rs` |
 | 系统监控 | 采集替换、十页页面、进程排序/详情、Energy/Thermals 来源状态和 Settings 收口已完成主要代码切片 | [`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)、[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md) |
 | 首页与侧边栏工具入口 | 统一管理面板已替换原来的分离操作；搜索、连续添加和移除已通过测试与真实窗口验收 | [`17-tool-surface-manager-ux-plan.md`](17-tool-surface-manager-ux-plan.md) |
@@ -50,8 +50,8 @@
 | 5 | `A-POST-0.5-TOOL-SURFACE-CRUD-001` 首页与侧边栏添加/移除工具入口 | 已完成；交互已由下一切片替换 | 基础入口增删能力已通过；早期管理面板记录见 [专项计划](14-tool-surface-management-plan.md)。 |
 | 6 | `A-POST-0.5-TOOL-SURFACE-MANAGER-003` 首页与侧边栏明确添加/移除交互 | 已完成；144 项 UI 单测、严格 Clippy 及真实 Windows 窗口操作通过 | 按入口确定管理范围，并将工具分为“已添加”和“可添加”；每行提供明确操作。详见 [专项计划](19-tool-surface-explicit-add-remove-plan.md)。 |
 | 7 | `A-POST-0.5-OBJECT-001` 对象存储列表与真实数据源验收 | 已完成；35 项对象存储 UI 测试、本机 RustFS live 测试、完整程序持久化和真实窗口对象列表通过 | 隔离数据下验证账号保存与重启回读、RustFS 实际对象、筛选和稳定账号 ID；核对 360/640/768/1024/1440 宽度、明暗主题与行操作。详见 [专项计划](16-object-storage-list-acceptance-plan.md)。 |
-| 8 | `A-PULSE-GAP-03-DN-UI-001` Disks/Network 真实窗口核验 | 待执行；Computer Use 当前可用，尚未完成目标核验 | 在参考程序和 Ramag 中依次核对主量表、读写/收发趋势、统计区、设备重排、缺失身份和页面滚动。 |
-| 9 | `A-POST-0.5-LIST-ACCEPTANCE-001` 其余列表型工作区完整程序核验 | 后续 | 依次核对容器、VCS、插件的标题、字体、背景、滚动、空/加载/失败状态和主要操作；已拆出的 DBClient、对象存储和剪贴板切片不重复排队。原生窗口可用时使用 Computer Use；不可用时明确列出未覆盖操作。 |
+| 8 | `A-PULSE-GAP-03-DN-UI-001` Disks/Network 真实窗口核验 | 已完成；113 项 system 工具测试、严格 Clippy、完整构建和参考程序/Ramag 真实窗口操作通过 | 核对主量表、读写/收发趋势、累计流量、设备选择和页面滚动；无辅助统计时显示明确状态。详见 [专项计划](10-system-disks-network-plan.md)。 |
+| 9 | `A-POST-0.5-LIST-ACCEPTANCE-001` 其余列表型工作区完整程序核验 | 待执行 | 依次核对容器、VCS、插件的标题、字体、背景、滚动、空/加载/失败状态和主要操作；已拆出的 DBClient、对象存储和剪贴板切片不重复排队。使用 Computer Use 验收真实窗口。 |
 | 10 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` 编辑/连接型工作区核验 | 后续 | 按 SSH/SFTP、API、Kafka、MQTT 顺序检查连接、取消、保存、错误恢复和结果上下文；只有协议行为变化时才启动本机 Docker。 |
 | 11 | `A-POST-0.5-REGRESSION-001` 全局回归与文档收口 | 后续 | 重新构建完整程序，复核首页往返、主题、全局 Settings、共享组件和本轮受影响工具；更新对应专项文档、测试报告和未完成项。 |
 
