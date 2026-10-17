@@ -48,13 +48,11 @@ impl KafkaSchemaRegistryDriver for SchemaVersionDriver {
 }
 
 impl Render for KafkaSchemaRegistryTestHost {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
-            .children(dialog_layer)
     }
 }
 

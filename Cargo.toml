@@ -46,7 +46,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.5.0"
+version = "0.6.0"
 edition = "2024"
 authors = ["axemc"]
 license = "AGPL-3.0-only"
@@ -104,7 +104,7 @@ core-foundation = "0.10"
 
 # GPUI Kit：统一 GPUI、平台、组件库和默认 Assets 的发布版依赖入口。
 # tree-sitter-languages 保留 VCS、SQL 和 Markdown 编辑器所需的语法支持。
-gpui-kit = { version = "0.6.6", features = [
+gpui-kit = { version = "0.7.3", features = [
     "tree-sitter-languages",
 ] }
 

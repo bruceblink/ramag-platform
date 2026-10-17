@@ -33,15 +33,10 @@ struct DesignerDialogTestHost {
 impl gpui_kit::Render for DesignerDialogTestHost {
     fn render(
         &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
     ) -> impl gpui_kit::IntoElement {
-        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
-        div()
-            .relative()
-            .size_full()
-            .child(self.designer.clone())
-            .children(dialog_layer)
+        div().relative().size_full().child(self.designer.clone())
     }
 }
 

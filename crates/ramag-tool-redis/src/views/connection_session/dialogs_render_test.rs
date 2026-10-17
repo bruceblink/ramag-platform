@@ -1,9 +1,9 @@
 use super::RedisSessionPanel;
 use gpui_kit::component::{Root, WindowExt as _};
 use gpui_kit::{
-    AppContext as _, Context, Entity, IntoElement, Modifiers, MouseButton, ParentElement, Render,
-    ScrollDelta, ScrollWheelEvent, Styled, TestAppContext, TouchPhase, VisualTestContext, Window,
-    div, point, px, size,
+    AppContext as _, Context, Entity, IntoElement, Modifiers, ParentElement, Render, ScrollDelta,
+    ScrollWheelEvent, Styled, TestAppContext, TouchPhase, VisualTestContext, Window, div, point,
+    px, size,
 };
 
 struct RedisDialogTestHost {
@@ -11,13 +11,8 @@ struct RedisDialogTestHost {
 }
 
 impl Render for RedisDialogTestHost {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = Root::render_dialog_layer(window, cx);
-        div()
-            .relative()
-            .size_full()
-            .child(self.session.clone())
-            .children(dialog_layer)
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div().relative().size_full().child(self.session.clone())
     }
 }
 
@@ -31,6 +26,8 @@ fn open_lines_dialog(
     session: &Entity<RedisSessionPanel>,
     kind: LinesDialog,
 ) {
+    cx.simulate_resize(size(px(1024.0), px(768.0)));
+    cx.run_until_parked();
     cx.update(|window, app| {
         session.update(app, |session, cx| match kind {
             LinesDialog::List => session.open_list_element_dialog("items:large".into(), window, cx),
@@ -48,8 +45,8 @@ fn open_lines_dialog(
             .expect("List/Set 编辑器应显示添加按钮");
         let center = point(add.center().x, add.center().y);
         cx.simulate_mouse_move(center, None, Modifiers::default());
-        cx.simulate_mouse_down(center, MouseButton::Left, Modifiers::default());
-        cx.simulate_mouse_up(center, MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_up(center, gpui_kit::MouseButton::Left, Modifiers::default());
         cx.run_until_parked();
         let moved_add = cx
             .debug_bounds("redis-lines-add")

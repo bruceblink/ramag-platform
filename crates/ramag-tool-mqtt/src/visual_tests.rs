@@ -203,13 +203,11 @@ pub(super) struct MqttTestHost {
 }
 
 impl Render for MqttTestHost {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         gpui_kit::div()
             .relative()
             .size_full()
             .child(self.view.clone())
-            .children(dialog_layer)
     }
 }
 
@@ -224,6 +222,16 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
     cx.simulate_mouse_move(center, None, Modifiers::default());
     cx.simulate_mouse_down(center, gpui_kit::MouseButton::Left, Modifiers::default());
     cx.simulate_mouse_up(center, gpui_kit::MouseButton::Left, Modifiers::default());
+}
+
+// GPUI Kit 0.7 在窗口顶层显示通知。测试清除通知并推进退出动画后，再模拟下一次点击。
+fn clear_notifications(cx: &mut VisualTestContext) {
+    cx.update(|window, app| {
+        use gpui_kit::component::WindowExt as _;
+        window.clear_notifications(app);
+    });
+    cx.executor().advance_clock(Duration::from_millis(250));
+    cx.run_until_parked();
 }
 
 fn scroll_local_server(cx: &mut VisualTestContext, delta_y: f32) {
@@ -454,6 +462,7 @@ fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
         1,
         "填写 Broker 地址后，测试连接不应要求先填写配置名称"
     );
+    clear_notifications(visual_cx);
 
     click(visual_cx, "mqtt-save-profile");
     visual_cx.run_until_parked();
@@ -465,6 +474,7 @@ fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
             .is_empty(),
         "未填写配置名称时不能保存"
     );
+    clear_notifications(visual_cx);
 
     visual_cx.update(|window, app| {
         view.update(app, |view, cx| {
@@ -483,6 +493,7 @@ fn mqtt_configuration_saves_and_tests_connection(cx: &mut TestAppContext) {
         "保存按钮必须调用 MQTT 配置存储"
     );
 
+    clear_notifications(visual_cx);
     click(visual_cx, "mqtt-test-connection");
     visual_cx.run_until_parked();
     assert_eq!(

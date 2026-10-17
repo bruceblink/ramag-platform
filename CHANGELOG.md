@@ -4,6 +4,23 @@
 
 > 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
 
+## [0.6.0] - 2026-10-17
+
+Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.5.0...v0.6.0
+
+### 🚀 新功能 / Features
+
+- 增加 S3 兼容对象存储，并支持按工具管理首页和侧边栏入口（[S3 兼容存储](https://github.com/bruceblink/ramag-platform/commit/35c1943b)，[工具入口管理](https://github.com/bruceblink/ramag-platform/commit/d8137721)）。
+
+### 🐛 问题修复 / Bug Fixes
+
+- 修复 API 工作区分隔栏不能调整的问题；改进 DBClient 列表错误恢复、对象存储账号列表、系统设备状态和容器刷新行为（[API 分隔栏](https://github.com/bruceblink/ramag-platform/commit/9282af5c)，[DBClient 列表](https://github.com/bruceblink/ramag-platform/commit/c9b8932e)，[对象存储列表](https://github.com/bruceblink/ramag-platform/commit/b2c5b183)）。
+- 修复剪贴板撤销恢复的状态流程（[剪贴板恢复](https://github.com/bruceblink/ramag-platform/commit/1dfb4ab3)）。
+
+### 🧰 维护、文档与测试 / Maintenance, Docs & Tests
+
+- 升级 GPUI Kit 到 `0.7.3`，迁移窗口浮层调用，并补充 workspace、Docker 集成和 UI 回归验证。
+
 ## [0.5.0] - 2026-10-09
 
 Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.4.0...v0.5.0

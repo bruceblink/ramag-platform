@@ -16,13 +16,8 @@ struct ResultDialogTestHost {
 }
 
 impl Render for ResultDialogTestHost {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = gpui_kit::component::Root::render_dialog_layer(window, cx);
-        div()
-            .relative()
-            .size_full()
-            .child(self.panel.clone())
-            .children(dialog_layer)
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div().relative().size_full().child(self.panel.clone())
     }
 }
 

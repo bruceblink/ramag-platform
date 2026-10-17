@@ -4,17 +4,15 @@ use std::sync::Arc;
 
 use gpui_kit::component::{IconName, Root};
 use gpui_kit::{
-    AppContext as _, Bounds, Context, IntoElement, Modifiers, MouseButton, ParentElement as _,
-    Pixels, Render, Styled as _, TestAppContext, VisualTestContext, Window, div, px, size,
+    AppContext as _, Bounds, Context, IntoElement, Modifiers, MouseButton, Pixels, Render,
+    Styled as _, TestAppContext, VisualTestContext, Window, div, px, size,
 };
 
 struct DialogHost;
 
 impl Render for DialogHost {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .size_full()
-            .children(Root::render_dialog_layer(window, cx))
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div().size_full()
     }
 }
 

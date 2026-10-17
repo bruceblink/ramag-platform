@@ -26,14 +26,11 @@ impl Render for SelectableTextHost {
 }
 
 impl Render for NotificationHost {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .debug_selector(|| "copy-notification-host".into())
             .relative()
             .size_full()
-            .children(gpui_kit::component::Root::render_notification_layer(
-                window, cx,
-            ))
     }
 }
 

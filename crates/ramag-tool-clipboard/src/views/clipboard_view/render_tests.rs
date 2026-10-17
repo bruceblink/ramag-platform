@@ -112,16 +112,10 @@ struct ClipboardTestHost {
 impl Render for ClipboardTestHost {
     fn render(
         &mut self,
-        window: &mut Window,
-        cx: &mut gpui_kit::Context<Self>,
+        _window: &mut Window,
+        _cx: &mut gpui_kit::Context<Self>,
     ) -> impl IntoElement {
-        div()
-            .relative()
-            .size_full()
-            .child(self.view.clone())
-            .children(gpui_kit::component::Root::render_notification_layer(
-                window, cx,
-            ))
+        div().relative().size_full().child(self.view.clone())
     }
 }
 

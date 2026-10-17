@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use gpui_kit::component::{
-    ActiveTheme, Icon, IconName, Root, button::ButtonVariants as _, h_flex, v_flex,
+    ActiveTheme, Icon, IconName, button::ButtonVariants as _, h_flex, v_flex,
 };
 use gpui_kit::{
     AnyView, Context, Entity, IntoElement, ParentElement, Render, Styled, Subscription, Window,
@@ -336,7 +336,7 @@ fn persist_last_tool(selected: Option<String>, cx: &mut gpui_kit::App) {
 }
 
 impl Render for Shell {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // 先拷颜色避开 theme 借用与 cx 可变借用冲突
         let bg_color = cx.theme().background;
         let fg_color = cx.theme().foreground;
@@ -350,9 +350,6 @@ impl Render for Shell {
             }
         };
 
-        // dialog / notification 浮层须由顶层 view 渲染
-        let dialog_layer = Root::render_dialog_layer(window, cx);
-        let notification_layer = Root::render_notification_layer(window, cx);
         let theme_icon = match crate::theme::current_mode(cx) {
             crate::theme::Mode::Light => IconName::Moon,
             crate::theme::Mode::Dark => IconName::Sun,
@@ -450,8 +447,6 @@ impl Render for Shell {
                             ),
                     ),
             )
-            .children(dialog_layer)
-            .children(notification_layer)
             .child(self.data_sync_overlay.clone())
     }
 }

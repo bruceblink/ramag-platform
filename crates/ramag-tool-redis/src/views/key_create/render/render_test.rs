@@ -11,13 +11,8 @@ struct KeyCreateDialogTestHost {
 }
 
 impl Render for KeyCreateDialogTestHost {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let dialog_layer = Root::render_dialog_layer(window, cx);
-        div()
-            .relative()
-            .size_full()
-            .child(self.form.clone())
-            .children(dialog_layer)
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div().relative().size_full().child(self.form.clone())
     }
 }
 

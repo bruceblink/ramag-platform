@@ -123,10 +123,8 @@ impl Render for ResponsiveToolbarHost {
 }
 
 impl Render for DialogLayerHost {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .size_full()
-            .children(gpui_kit::component::Root::render_dialog_layer(window, cx))
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div().size_full()
     }
 }
 

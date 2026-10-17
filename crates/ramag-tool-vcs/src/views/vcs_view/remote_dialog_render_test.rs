@@ -124,14 +124,10 @@ struct VcsDialogTestHost {
 impl Render for VcsDialogTestHost {
     fn render(
         &mut self,
-        window: &mut gpui_kit::Window,
-        cx: &mut Context<Self>,
+        _window: &mut gpui_kit::Window,
+        _cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        div()
-            .relative()
-            .size_full()
-            .child(self.view.clone())
-            .children(gpui_kit::component::Root::render_dialog_layer(window, cx))
+        div().relative().size_full().child(self.view.clone())
     }
 }
 

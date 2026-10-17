@@ -50,12 +50,11 @@ impl ToolSurfaceTestHost {
 }
 
 impl Render for ToolSurfaceTestHost {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         h_flex()
             .size_full()
             .child(self.activity_bar.clone())
             .child(self.home.clone())
-            .children(Root::render_dialog_layer(window, cx))
     }
 }
 
