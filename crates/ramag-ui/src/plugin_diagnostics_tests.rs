@@ -47,7 +47,10 @@ impl StaticPlugin for FailingPlugin {
     }
 
     fn initialize(&self, _context: &PluginContext) -> Result<(), PluginOperationError> {
-        Err(PluginOperationError::new("headless 初始化失败"))
+        Err(PluginOperationError::new(format!(
+            "headless 初始化失败：{}",
+            "详细诊断信息 ".repeat(16)
+        )))
     }
 }
 
@@ -192,5 +195,58 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
         assert!(broken.bottom() <= states.bottom());
         assert!(entry.bottom() <= available.bottom());
         assert!(catalog_entry.bottom() <= catalog.bottom());
+    }
+}
+
+#[gpui_kit::test]
+fn empty_plugin_diagnostics_shows_bounded_states(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+    let host_for_view = host.clone();
+    let (_, visual_cx) = cx.add_window_view(move |_, cx| PluginDiagnosticsTestHost {
+        view: cx.new(|_| PluginDiagnosticsView::new(host_for_view.clone())),
+    });
+    let visual_cx: &mut VisualTestContext = visual_cx;
+
+    for (width, height) in [(360.0, 520.0), (640.0, 520.0), (1024.0, 520.0)] {
+        visual_cx.simulate_resize(size(px(width), px(height)));
+        visual_cx.run_until_parked();
+
+        let root = visual_cx
+            .debug_bounds("plugin-diagnostics")
+            .expect("空插件诊断页应渲染");
+        let scroll = visual_cx
+            .debug_bounds("plugin-diagnostics-scroll")
+            .expect("空插件诊断页应有滚动区");
+        let catalog = visual_cx
+            .debug_bounds("plugin-catalog")
+            .expect("空第一方目录应渲染");
+        let catalog_empty = visual_cx
+            .debug_bounds("plugin-catalog-empty-state")
+            .expect("空第一方目录应显示状态");
+        let available = visual_cx
+            .debug_bounds("plugin-available")
+            .expect("空入口列表应渲染");
+        let available_empty = visual_cx
+            .debug_bounds("plugin-available-empty-state")
+            .expect("空入口列表应显示状态");
+        let diagnostics = visual_cx
+            .debug_bounds("plugin-state-list")
+            .expect("空插件状态列表应渲染");
+        let diagnostics_empty = visual_cx
+            .debug_bounds("plugin-diagnostics-empty-state")
+            .expect("空插件状态列表应显示状态");
+
+        assert_eq!(root.size.width, px(width));
+        assert!(scroll.right() <= px(width));
+        assert!(scroll.bottom() <= px(height));
+        for (empty_state, parent) in [
+            (catalog_empty, catalog),
+            (available_empty, available),
+            (diagnostics_empty, diagnostics),
+        ] {
+            assert_inside(empty_state, parent);
+            assert_inside(empty_state, root);
+        }
     }
 }

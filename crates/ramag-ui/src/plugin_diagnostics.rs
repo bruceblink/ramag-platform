@@ -138,6 +138,8 @@ fn render_catalog(
         .collect::<Vec<_>>();
     let body = if rows.is_empty() {
         div()
+            .id("plugin-catalog-empty-state")
+            .debug_selector(|| "plugin-catalog-empty-state".into())
             .text_sm()
             .text_color(theme.muted_foreground)
             .child("当前没有已审核的第一方入口。")
@@ -256,6 +258,8 @@ fn render_available_entries(
         .collect::<Vec<_>>();
     let body = if rows.is_empty() {
         div()
+            .id("plugin-available-empty-state")
+            .debug_selector(|| "plugin-available-empty-state".into())
             .text_sm()
             .text_color(theme.muted_foreground)
             .child("当前没有可用入口。")
@@ -288,6 +292,8 @@ fn render_diagnostics(
         .collect::<Vec<_>>();
     let body = if rows.is_empty() {
         div()
+            .id("plugin-diagnostics-empty-state")
+            .debug_selector(|| "plugin-diagnostics-empty-state".into())
             .text_sm()
             .text_color(muted)
             .child("尚未记录插件。")
