@@ -17,6 +17,11 @@ pub(super) fn render(
 ) -> gpui_kit::AnyElement {
     let theme = cx.theme().clone();
     let stacked = ApiView::is_stacked(window);
+    if !stacked {
+        view.sidebar_width = view
+            .sidebar_width
+            .clamp(API_SIDEBAR_MIN_WIDTH, ApiView::max_sidebar_width(window));
+    }
     let compact_height = window.viewport_size().height < px(API_COMPACT_HEIGHT);
     if view.compact_height_layout != compact_height {
         view.compact_height_layout = compact_height;
@@ -41,7 +46,65 @@ pub(super) fn render(
             .flex_1()
             .min_w_0()
             .items_stretch()
+            .on_mouse_move(cx.listener(|view, event: &MouseMoveEvent, window, cx| {
+                if event.pressed_button != Some(MouseButton::Left) {
+                    return;
+                }
+                let mut changed = false;
+                if let Some((start_x, start_width)) = view.sidebar_drag_start {
+                    let delta = f32::from(event.position.x - start_x);
+                    view.sidebar_width = (start_width + delta)
+                        .clamp(API_SIDEBAR_MIN_WIDTH, ApiView::max_sidebar_width(window));
+                    changed = true;
+                }
+                if let Some((start_x, start_width)) = view.request_response_drag_start {
+                    let delta = f32::from(event.position.x - start_x);
+                    view.request_pane_width = Some((start_width + delta).clamp(
+                        API_REQUEST_PANE_MIN_WIDTH,
+                        view.max_request_pane_width(window),
+                    ));
+                    changed = true;
+                }
+                if changed {
+                    cx.notify();
+                }
+            }))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|view, _: &MouseUpEvent, _, cx| {
+                    let sidebar_drag = view.sidebar_drag_start.take().is_some();
+                    let request_response_drag = view.request_response_drag_start.take().is_some();
+                    if sidebar_drag || request_response_drag {
+                        cx.notify();
+                    }
+                }),
+            )
             .child(sidebar)
+            .child(
+                div()
+                    .id("api-sidebar-divider")
+                    .debug_selector(|| "api-sidebar-divider".into())
+                    .w(px(API_SIDEBAR_DIVIDER_WIDTH))
+                    .h_full()
+                    .flex_none()
+                    .cursor_col_resize()
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|view, event: &MouseDownEvent, _, cx| {
+                            view.sidebar_drag_start = Some((event.position.x, view.sidebar_width));
+                            cx.notify();
+                        }),
+                    )
+                    .child(v_flex().size_full().items_center().child(
+                        div().w(px(API_SIDEBAR_DIVIDER_LINE_WIDTH)).h_full().bg(
+                            if view.sidebar_drag_start.is_some() {
+                                theme.link
+                            } else {
+                                theme.border
+                            },
+                        ),
+                    )),
+            )
             .child(editor)
     };
     let content = content.when(compact_height, |content| {
@@ -101,7 +164,7 @@ fn render_sidebar(
         .id("api-sidebar")
         .debug_selector(|| "api-sidebar".into())
         .bg(ramag_ui::pulse_ui::pulse_palette(cx).surface)
-        .w(px(API_SIDEBAR_WIDTH))
+        .w(px(view.sidebar_width))
         .flex_none()
         .min_h_0()
         .min_w_0()
@@ -236,10 +299,9 @@ fn render_editor(
         ApiProtocol::Http => render_http_editor(view, cx, theme),
         ApiProtocol::Grpc => render_grpc::render_editor(view, cx, theme),
     };
-    let mut request_pane = v_flex()
+    let request_pane = v_flex()
         .id("api-request-pane")
         .debug_selector(|| "api-request-pane".into())
-        .flex_1()
         .min_w_0()
         .min_h_0()
         .overflow_y_scroll()
@@ -257,9 +319,6 @@ fn render_editor(
                 .child(request_editor),
         )
         .child(render_context_editor(view, theme));
-    if !stacked {
-        request_pane = request_pane.border_r_1().border_color(theme.border);
-    }
     let workbench = if stacked {
         v_flex()
             .id("api-request-response")
@@ -267,9 +326,37 @@ fn render_editor(
             .flex_1()
             .min_w_0()
             .min_h_0()
-            .child(request_pane)
+            .child(request_pane.flex_1())
             .child(response_render::render_response(view, cx, theme))
     } else {
+        let divider = div()
+            .id("api-request-response-divider")
+            .debug_selector(|| "api-request-response-divider".into())
+            .w(px(API_REQUEST_RESPONSE_DIVIDER_WIDTH))
+            .h_full()
+            .flex_none()
+            .cursor_col_resize()
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|view, event: &MouseDownEvent, window, cx| {
+                    view.request_response_drag_start =
+                        Some((event.position.x, view.current_request_pane_width(window)));
+                    cx.notify();
+                }),
+            )
+            .child(
+                v_flex().size_full().items_center().child(
+                    div()
+                        .w(px(API_REQUEST_RESPONSE_DIVIDER_LINE_WIDTH))
+                        .h_full()
+                        .bg(if view.request_response_drag_start.is_some() {
+                            theme.link
+                        } else {
+                            theme.border
+                        }),
+                ),
+            );
+
         h_flex()
             .id("api-request-response")
             .debug_selector(|| "api-request-response".into())
@@ -277,7 +364,12 @@ fn render_editor(
             .min_w_0()
             .min_h_0()
             .items_stretch()
-            .child(request_pane)
+            .child(
+                request_pane
+                    .w(px(view.current_request_pane_width(window)))
+                    .flex_none(),
+            )
+            .child(divider)
             .child(response_render::render_response(view, cx, theme))
     };
     v_flex()

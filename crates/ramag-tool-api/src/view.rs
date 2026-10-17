@@ -9,8 +9,9 @@ use gpui_kit::component::{
     v_flex,
 };
 use gpui_kit::{
-    App, AppContext as _, Context, Entity, FocusHandle, Focusable, Render, ScrollHandle,
-    Subscription, Window, div, prelude::*, px,
+    App, AppContext as _, Context, Entity, FocusHandle, Focusable, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, Pixels, Render, ScrollHandle, Subscription, Window, div,
+    prelude::*, px,
 };
 use ramag_app::{ApiService, new_api_cancellation};
 use ramag_domain::entities::{
@@ -49,6 +50,15 @@ mod workspace_save;
 
 const FIELD_BYTES: usize = 64 * 1024;
 const API_SIDEBAR_WIDTH: f32 = 220.0;
+const API_SIDEBAR_MIN_WIDTH: f32 = 180.0;
+const API_SIDEBAR_MAX_WIDTH: f32 = 420.0;
+const API_SIDEBAR_DIVIDER_WIDTH: f32 = 8.0;
+const API_SIDEBAR_DIVIDER_LINE_WIDTH: f32 = 2.0;
+const API_EDITOR_MIN_WIDTH: f32 = 520.0;
+const API_REQUEST_PANE_MIN_WIDTH: f32 = 240.0;
+const API_RESPONSE_MIN_WIDTH: f32 = 220.0;
+const API_REQUEST_RESPONSE_DIVIDER_WIDTH: f32 = 8.0;
+const API_REQUEST_RESPONSE_DIVIDER_LINE_WIDTH: f32 = 2.0;
 const API_STACK_BREAKPOINT: f32 = 720.0;
 const API_COMPACT_HEIGHT: f32 = 600.0;
 const API_COMPACT_CONTENT_HEIGHT: f32 = 520.0;
@@ -176,6 +186,10 @@ pub struct ApiView {
     pub(crate) focus_handle: FocusHandle,
     pub(crate) layout_scroll: ScrollHandle,
     pub(crate) sidebar_scroll: ScrollHandle,
+    pub(crate) sidebar_width: f32,
+    pub(crate) sidebar_drag_start: Option<(Pixels, f32)>,
+    pub(crate) request_pane_width: Option<f32>,
+    pub(crate) request_response_drag_start: Option<(Pixels, f32)>,
     pub(crate) request_scroll: ScrollHandle,
     pub(crate) compact_height_layout: bool,
     pub(crate) response_scroll: ScrollHandle,
@@ -316,6 +330,10 @@ impl ApiView {
             focus_handle: cx.focus_handle(),
             layout_scroll: ScrollHandle::new(),
             sidebar_scroll: ScrollHandle::new(),
+            sidebar_width: API_SIDEBAR_WIDTH,
+            sidebar_drag_start: None,
+            request_pane_width: None,
+            request_response_drag_start: None,
             request_scroll: ScrollHandle::new(),
             compact_height_layout: false,
             response_scroll: ScrollHandle::new(),
@@ -329,6 +347,32 @@ impl ApiView {
 
     pub(crate) fn is_stacked(window: &Window) -> bool {
         Self::main_content_width(window) < API_STACK_BREAKPOINT
+    }
+
+    pub(crate) fn max_sidebar_width(window: &Window) -> f32 {
+        (Self::main_content_width(window) - API_EDITOR_MIN_WIDTH - API_SIDEBAR_DIVIDER_WIDTH)
+            .clamp(API_SIDEBAR_MIN_WIDTH, API_SIDEBAR_MAX_WIDTH)
+    }
+
+    pub(crate) fn workbench_width(&self, window: &Window) -> f32 {
+        (Self::main_content_width(window) - self.sidebar_width - API_SIDEBAR_DIVIDER_WIDTH).max(0.0)
+    }
+
+    pub(crate) fn max_request_pane_width(&self, window: &Window) -> f32 {
+        (self.workbench_width(window) - API_REQUEST_RESPONSE_DIVIDER_WIDTH - API_RESPONSE_MIN_WIDTH)
+            .max(API_REQUEST_PANE_MIN_WIDTH)
+    }
+
+    pub(crate) fn current_request_pane_width(&self, window: &Window) -> f32 {
+        let available_width = self.workbench_width(window) - API_REQUEST_RESPONSE_DIVIDER_WIDTH;
+        let default_width = (available_width / 2.0).clamp(
+            API_REQUEST_PANE_MIN_WIDTH,
+            self.max_request_pane_width(window),
+        );
+        self.request_pane_width.unwrap_or(default_width).clamp(
+            API_REQUEST_PANE_MIN_WIDTH,
+            self.max_request_pane_width(window),
+        )
     }
 }
 
