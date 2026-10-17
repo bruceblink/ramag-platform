@@ -54,6 +54,8 @@ fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
     let row_selector = selector(format!("object-account-row-{account_key}"));
     let name_selector = selector(format!("object-account-row-name-{account_key}"));
     let actions_selector = selector(format!("object-account-row-actions-{account_key}"));
+    let edit_selector = selector(format!("object-account-row-edit-{account_key}"));
+    let delete_selector = selector(format!("object-account-row-delete-{account_key}"));
     let primary_selector = selector(format!("object-account-row-primary-{account_key}"));
     let metadata_selector = selector(format!("object-account-row-metadata-{account_key}"));
     view.update(cx, |view, cx| {
@@ -87,6 +89,14 @@ fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
             .expect("账号操作组应使用稳定选择器渲染");
         assert_inside(row, name, "对象存储账号名称");
         assert_inside(row, actions, "对象存储账号操作组");
+        let edit = cx
+            .debug_bounds(edit_selector)
+            .expect("编辑账号操作必须参与命中布局");
+        let delete = cx
+            .debug_bounds(delete_selector)
+            .expect("删除账号操作必须参与命中布局");
+        assert_inside(actions, edit, "对象存储编辑操作");
+        assert_inside(actions, delete, "对象存储删除操作");
         if width < 600.0 {
             assert_eq!(row.size.height, px(74.0), "窄行必须保留固定两行高度");
             let primary = cx.debug_bounds(primary_selector).expect("窄行第一行应渲染");
@@ -99,6 +109,21 @@ fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
                 primary.bottom() <= metadata.top(),
                 "窄行主行必须位于元数据行上方：primary={primary:?}, metadata={metadata:?}"
             );
+            assert!(
+                name.right() <= actions.left(),
+                "长账号名称不能覆盖窄行操作按钮：name={name:?}, actions={actions:?}"
+            );
+            assert!(
+                cx.debug_bounds("object-account-provider-0")
+                    .is_some_and(|provider| {
+                        provider.right()
+                            <= cx
+                                .debug_bounds("object-account-read-only-0")
+                                .expect("只读状态应位于服务商信息之后")
+                                .left()
+                    }),
+                "窄行中的服务商和只读状态必须保持独立"
+            );
         } else {
             assert_eq!(row.size.height, px(56.0), "宽行必须保持统一行高");
             assert!(
@@ -106,6 +131,22 @@ fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
                     && cx.debug_bounds(metadata_selector).is_none(),
                 "宽行不应渲染窄屏两行结构"
             );
+            let provider = cx
+                .debug_bounds("object-account-provider-0")
+                .expect("宽行服务商列应渲染");
+            let read_only = cx
+                .debug_bounds("object-account-read-only-0")
+                .expect("宽行状态列应渲染");
+            assert!(
+                name.right() <= provider.left() && provider.right() <= read_only.left(),
+                "账号名称、服务商和状态列不能互相覆盖：name={name:?}, provider={provider:?}, status={read_only:?}"
+            );
+            if width < 900.0 {
+                assert!(
+                    read_only.right() <= actions.left(),
+                    "中等宽度的状态列不能覆盖行操作：status={read_only:?}, actions={actions:?}"
+                );
+            }
         }
 
         for selector in [
@@ -129,6 +170,13 @@ fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
                 .debug_bounds("object-account-bucket-count-0")
                 .expect("Bucket 数量应在宽窗口显示");
             assert_inside(row, count, "对象存储 Bucket 数量");
+            let read_only = cx
+                .debug_bounds("object-account-read-only-0")
+                .expect("只读状态列应渲染");
+            assert!(
+                read_only.right() <= count.left() && count.right() <= actions.left(),
+                "Bucket 数量不得覆盖只读状态或行操作：status={read_only:?}, count={count:?}, actions={actions:?}"
+            );
         } else {
             assert!(
                 cx.debug_bounds("object-account-bucket-count-0").is_none(),
@@ -141,11 +189,19 @@ fn account_rows_stay_inside_supported_window_widths(cx: &mut TestAppContext) {
 #[gpui_kit::test]
 fn account_table_sort_headers_toggle_and_preserve_selected_identity(cx: &mut TestAppContext) {
     let (view, visual) = add_workspace_window(cx, service());
+    let mut selected_account = ObjectStorageAccount::new(
+        "Production archive account with a long name",
+        CloudProvider::TencentCos,
+    );
+    selected_account.manual_buckets = vec![ramag_domain::entities::ManualBucket::new(
+        "logs-bucket",
+        "us-east-1",
+    )];
+    let selected_id = selected_account.id.clone();
     let accounts = vec![
-        ObjectStorageAccount::new("zeta", CloudProvider::TencentCos),
+        selected_account,
         ObjectStorageAccount::new("Alpha", CloudProvider::AliyunOss),
     ];
-    let selected_id = accounts[0].id.clone();
     view.update(visual, |view, cx| {
         view.accounts = Arc::new(accounts);
         view.selected_account_id = Some(selected_id.clone());
@@ -194,8 +250,28 @@ fn account_table_sort_headers_toggle_and_preserve_selected_identity(cx: &mut Tes
                 column: AccountSortColumn::Provider,
                 ascending: true,
             }),
-            Some(selected_id),
+            Some(selected_id.clone()),
         )
+    );
+    view.update(visual, |view, cx| {
+        view.selected_account_id = None;
+        cx.notify();
+    });
+    let edit_action = selector(format!("object-account-row-edit-{selected_id}"));
+    click_selector(visual, edit_action);
+    assert_eq!(
+        visual.update(|_, app| view.read(app).selected_account_id.clone()),
+        Some(selected_id.clone()),
+        "排序后点击行操作必须选中该账号的稳定 ID"
+    );
+    assert!(
+        visual.update(|_, app| view.read(app).account_form_subscription.is_some()),
+        "排序后选中行的编辑操作应打开对应账号表单"
+    );
+    assert_eq!(
+        visual.update(|_, app| view.read(app).selected_account_id.clone()),
+        Some(selected_id),
+        "编辑操作必须保留稳定账号 ID"
     );
 }
 

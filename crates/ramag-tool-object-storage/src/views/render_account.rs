@@ -344,6 +344,10 @@ impl ObjectStorageView {
         let edit_id = id.clone();
         let delete_id = id.clone();
         let account_key = id.to_string();
+        let edit_selector = format!("object-account-row-edit-{account_key}");
+        let edit_debug_selector = edit_selector.clone();
+        let delete_selector = format!("object-account-row-delete-{account_key}");
+        let delete_debug_selector = delete_selector.clone();
         let row_selector = format!("object-account-row-{account_key}");
         let name_selector = format!("object-account-row-name-{account_key}");
         let actions_selector = format!("object-account-row-actions-{account_key}");
@@ -465,6 +469,7 @@ impl ObjectStorageView {
                 ramag_ui::clickable_button(SharedString::from(format!(
                     "edit-object-account-{edit_id}"
                 )))
+                .debug_selector(move || edit_debug_selector.clone())
                 .ghost()
                 .small()
                 .icon(ramag_ui::icons::pencil())
@@ -481,6 +486,7 @@ impl ObjectStorageView {
                 ramag_ui::clickable_button(SharedString::from(format!(
                     "delete-object-account-{delete_id}"
                 )))
+                .debug_selector(move || delete_debug_selector.clone())
                 .ghost()
                 .small()
                 .icon(ramag_ui::icons::trash())

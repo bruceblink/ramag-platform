@@ -1,7 +1,7 @@
 # Ramag Platform 最新主线：单机桌面收口与原生工作区迁移
 
 > 状态：现行主线；阶段 A 负责 v0.5.0 后的 UI 与功能收口，阶段 B 负责已有原生工作区的真实窗口和跨平台证据，阶段 C（原生协同画布）后置。当前基线与切片顺序以 [`01-development-plan.md`](01-development-plan.md) 为准。Relay B4、生产 Relay、动态插件市场和画布实现不进入当前开发队列。
-> 更新日期：2026-10-16
+> 更新日期：2026-10-17
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
@@ -89,11 +89,11 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 | P1 | `A-POST-0.5-CLIPBOARD-001` | 剪贴板删除/撤销搜索状态 | 代码已完成，待计划记录复核 | 目标测试、删除/撤销/失败通知和旧搜索代际回归 |
 | P1 | `A-POST-0.5-TOOL-SURFACE-CRUD-001` | 首页与侧边栏添加/移除工具入口 | 基础能力已完成，交互已由快捷操作切片替换，见 [原计划记录](14-tool-surface-management-plan.md) | 入口增删只修改当前表面的显示偏好；保留从设置页恢复入口的能力 |
 | P1 | `A-POST-0.5-TOOL-SURFACE-MANAGER-003` | 首页与侧边栏明确添加/移除交互 | 已完成；144 项 UI 单测、严格 Clippy 和真实窗口操作通过，见 [专项计划](19-tool-surface-explicit-add-remove-plan.md) | 按入口确定管理范围；“已添加”和“可添加”分组提供明确操作，另一表面、注册和数据不变 |
-| P1 | `A-POST-0.5-OBJECT-001` | 对象存储列表与真实数据源证据 | 待恢复；RustFS live 测试和响应式 headless 回归已完成，见 [专项计划](16-object-storage-list-acceptance-plan.md) | 恢复后完成隔离数据下的账号持久化和实际对象列表原生窗口验收；复核 360/640/768/1024/1440、主题、长名称和稳定 ID |
-| P1 | `A-PULSE-GAP-03-DN-UI-001` | Disks/Network 详细页真实窗口核验 | 代码与 headless 已完成，CUA 阻塞 | 主量表、趋势、统计区、设备重排/缺失身份和滚动流程 |
+| P1 | `A-POST-0.5-OBJECT-001` | 对象存储列表与真实数据源证据 | 已完成；RustFS live、完整程序保存/重启回读和真实对象列表通过，见 [专项计划](16-object-storage-list-acceptance-plan.md) | 隔离数据下验证账号持久化和实际对象列表；复核 360/640/768/1024/1440、主题、长名称和稳定 ID |
+| P1 | `A-PULSE-GAP-03-DN-UI-001` | Disks/Network 详细页真实窗口核验 | 待执行；Computer Use 当前可用，尚未完成目标核验 | 主量表、趋势、统计区、设备重排/缺失身份和滚动流程 |
 | P1 | `A-POST-0.5-LIST-ACCEPTANCE-001` | 其余列表型工作区（容器、VCS、插件） | 后续 | 完整程序中的滚动、空/加载/失败状态和主要操作；CUA 缺失时明确未完成 |
 | P1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` | SSH/SFTP、API、Kafka、MQTT 编辑/连接工作区 | 后续 | 连接、取消、保存、错误恢复、结果上下文；需要时使用本机 Docker |
-| P1 | `A-UI-REAL` | 全部已交付工具的真实 Windows 窗口补证 | 受 CUA 环境阻塞 | 鼠标、键盘、滚动、保存、取消和错误恢复的真实窗口记录 |
+| P1 | `A-UI-REAL` | 全部已交付工具的真实 Windows 窗口补证 | 待执行；Computer Use 当前可用，按工具逐项补证 | 鼠标、键盘、滚动、保存、取消和错误恢复的真实窗口记录 |
 | P2 | `A-PULSE-MOTION-001` / `A-PULSE-PROFILING-001` | 减少动画、过渡和发布性能采样 | 后置 | 独立 motion/p95/活动帧原始日志，不能用静态截图替代 |
 | P3 | `CANVAS-001..006` | 原生协同画布 | 暂停 | 阶段 A、B 完成后的场景模型、GPUI 编辑器和本机共享设计 |
 

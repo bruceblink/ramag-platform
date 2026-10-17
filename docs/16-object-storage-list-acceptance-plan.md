@@ -2,8 +2,8 @@
 
 > 切片：`A-POST-0.5-OBJECT-001`
 > 日期：2026-10-17
-> 基线：`0e55b681`；当前分支 `main`
-> 状态：待恢复（当前优先处理工具入口交互优化）
+> 基线：`38bb1ee2`；当前分支 `main`
+> 状态：已完成
 > 关联：[S3 兼容账号计划](13-object-storage-s3-compatibility-plan.md)、[最新执行计划](01-development-plan.md)、[主线路线图](02-development-roadmap.md)
 
 ## 问题与范围
@@ -34,6 +34,17 @@
 - `& .\scripts\windows\check-source-size.ps1`
 - `cargo build --locked -p ramag-bin`
 - `git diff --check`
+
+## 执行与验收结果
+
+- 本轮使用隔离的 Ramag 数据目录 `$env:TEMP\ramag-object-list-797073d0`。完整程序保存并验证了 1 个 S3 兼容账号及 1 个 Bucket 挂载。关闭并重启程序后，账号仍显示在列表中，服务商为 S3 兼容存储，Bucket 数量为 1。隔离数据库为 `ramag.redb`，大小 548,864 字节；测试账号及其加密凭据仍保留在该临时目录。该目录不在仓库、应用用户配置目录或日志目录中。
+- Computer Use 使用真实 Windows 窗口完成验收。对象存储账号页显示账号、服务商、Bucket 数量、编辑和删除操作。搜索账号名后显示匹配行；无匹配搜索显示“暂无匹配”。编辑操作打开该账号表单并保留掩码凭据。删除确认对话框显示同一账号名称和本地影响说明；本轮取消了删除，账号保持不变。
+- 完整程序通过本机 RustFS 保存账号后，Bucket 工作区显示真实目录和 `visible-object.txt`（35 字节）。程序重启后再次进入相同目录，文件仍可列出。该文件随后通过 S3 API 删除，并确认测试前缀下剩余对象数为 0。
+- `cargo test --locked -p ramag-tool-object-storage --lib -- --test-threads=1`：35 passed、0 failed。布局测试覆盖 360、640、768、1024、1440 宽度；账号行命中区域、长名称、供应商、只读状态和 Bucket 数量边界均有断言。账号管理布局和空状态测试覆盖明暗主题。排序测试覆盖名称与供应商排序、升降序及稳定账号 ID。
+- `cargo test --locked -p ramag-infra-object-storage --test live -- s3_compatible_live_round_trip --ignored --test-threads=1`：1 passed。测试覆盖实际列出、上传、拒绝重复上传、读取元数据、下载内容校验、只读写入/删除拒绝、测试对象删除和驱动关闭。
+- `cargo build --locked -p ramag-bin`：通过。RustFS 使用 Docker Desktop Engine 29.7.2（linux/amd64）和 `rustfs/rustfs:1.0.1`，镜像 digest 为 `sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c`。本轮仅映射 `127.0.0.1:19012 -> 9000`（S3 API）及 `127.0.0.1:19013 -> 9001`（Console）；`/health` 返回 HTTP 200。容器没有配置 Docker healthcheck。
+- 测试容器使用 `--rm` 和匿名 `/data` 卷。停止容器后已确认容器和匿名卷均被移除。未启动、停止或修改已有数据库容器、旧 RustFS 容器或其数据卷。Computer Use 窗口和完整程序均已关闭。
+- `cargo fmt --all -- --check`、工作区全目标严格 Clippy（`-D warnings`）、`scripts/windows/check-source-size.ps1` 和 `git diff --check`：均通过。提交与推送状态以当前 Git 历史及远端分支为准。
 
 ## 回滚边界
 
