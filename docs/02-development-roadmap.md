@@ -1,7 +1,7 @@
 # Ramag Platform 最新主线：单机桌面收口与原生工作区迁移
 
 > 状态：现行主线；阶段 A 负责 v0.5.0 后的 UI 与功能收口，阶段 B 负责已有原生工作区的真实窗口和跨平台证据，阶段 C（原生协同画布）后置。当前基线与切片顺序以 [`01-development-plan.md`](01-development-plan.md) 为准。Relay B4、生产 Relay、动态插件市场和画布实现不进入当前开发队列。
-> 更新日期：2026-10-17
+> 更新日期：2026-10-21
 > 适用范围：所有 GPUI 工具和共享 UI
 > 共同验收标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
@@ -93,7 +93,9 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 | P1 | `A-PULSE-GAP-03-DN-UI-001` | Disks/Network 详细页真实窗口核验 | 已完成；113 项 system 工具测试、严格 Clippy、完整构建和参考程序/Ramag 真实窗口操作通过，见 [专项计划](10-system-disks-network-plan.md) | 核对主量表、趋势、累计流量、设备选择和滚动；无辅助统计时显示明确状态 |
 | P1 | `A-POST-0.5-LIST-ACCEPTANCE-001` | 其余列表型工作区（容器、VCS、插件） | 已完成；真实窗口与适用的 headless 状态证据已记录，见 [专项计划](21-list-workspace-acceptance-plan.md) | 完整程序中的标题、字号/颜色、滚动、空/加载/失败状态和主要操作；使用 Computer Use 验收真实窗口 |
 | P0 | `A-POST-0.5-GPUI-KIT-001` | GPUI Kit 0.7.3 升级与 Ramag 0.6.0 发布 | 已完成；workflow `39010687567` 和七个 Release 资产均已核验，见 [专项计划](23-gpui-kit-0.7.3-upgrade-release-plan.md) | GPUI 兼容迁移、本机 Docker 集成测试和三平台安装包验证通过；Computer Use 原生窗口操作未能执行 |
-| P1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` | SSH/SFTP、API、Kafka、MQTT 编辑/连接工作区 | 待继续；SSH/SFTP 已通过本机 WSL 真实窗口验收；API 本机 Docker HTTP/gRPC 和双分隔栏 headless 拖动检查通过，真实窗口拖动待确认，见 [专项计划](22-connection-workspace-acceptance-plan.md) | 连接、取消、保存、错误恢复、结果上下文；协议行为变化时使用本机 Docker |
+| P0 | `A-POST-0.5-CONNECTION-API-STATE-001` | 修复 API 工作区首次读取期间发送/运行 Collection 的状态竞态 | 待开发；代码审查已定位 `send`/`run_collection` 绕过加载状态门禁，见 [专项计划](22-connection-workspace-acceptance-plan.md) | `Loading`/`Failed` 拒绝执行，重试后使用可信工作区；延迟读取、失败读取和历史一致性测试通过 |
+| P1 | `A-POST-0.5-CONNECTION-SSH-CLEANUP-001` | 清理 SSH 验收遗留的临时私钥、主机密钥和隔离信任文件 | 待执行；上轮 `%TEMP%` 仍有专用测试材料 | 路径范围检查、清理成功记录和脚本状态回归；不访问用户 SSH 文件 |
+| P1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` | SSH/SFTP、API、Kafka、MQTT 编辑/连接工作区 | 进行中；API 状态修复和 SSH 清理为前置；SSH/SFTP 窗口路径已验收，API Docker 请求与 headless 分隔栏通过，真实拖动待确认，见 [专项计划](22-connection-workspace-acceptance-plan.md) | 连接、取消、保存、错误恢复、结果上下文；协议行为变化时使用本机 Docker |
 | P1 | `A-UI-REAL` | 全部已交付工具的真实 Windows 窗口补证 | 待执行；本轮 Computer Use 未提供原生窗口接口，先完成了有界启动和响应检查 | 鼠标、键盘、滚动、保存、取消和错误恢复的真实窗口记录 |
 | P2 | `A-PULSE-MOTION-001` / `A-PULSE-PROFILING-001` | 减少动画、过渡和发布性能采样 | 后置 | 独立 motion/p95/活动帧原始日志，不能用静态截图替代 |
 | P3 | `CANVAS-001..006` | 原生协同画布 | 暂停 | 阶段 A、B 完成后的场景模型、GPUI 编辑器和本机共享设计 |

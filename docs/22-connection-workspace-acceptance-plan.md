@@ -1,13 +1,48 @@
 # 连接型工作区完整程序验收计划
 
 > 切片：`A-POST-0.5-CONNECTION-ACCEPTANCE-001`
-> 日期：2026-10-17
-> 状态：进行中；SSH/SFTP 已完成本机 WSL 验收；API 本机 Docker HTTP/gRPC 请求和双分隔栏 headless 拖动检查通过，真实窗口拖动仍待确认；随后继续完成 API 页面验收，再验收 Kafka 和 MQTT
+> 日期：2026-10-21
+> 状态：代码审查完成；先修复 API 工作区读取竞态并完成 SSH 测试凭据清理，再继续 API、Kafka 和 MQTT 的逐工具验收
 > 范围：完整程序中的 SSH/SFTP、API、Kafka 和 MQTT 编辑/连接工作区
 
 ## 问题证据
 
 `docs/testing/2026-10-06-ui-integration-test-report.md` 只记录 SSH 新建连接表单和取消操作，没有记录当前完整程序中的验证、保存、失败恢复和结果上下文。2026-10-02 已有 WSL SSH 窗口成功连接证据，2026-10-06 已有本机 Docker OpenSSH/SFTP 协议集成证据；这些历史证据不替代本轮的表单与错误流程检查。
+
+## 代码审查结果（2026-10-21）
+
+### P0：API 工作区首次读取期间仍可发送请求
+
+`ApiView::with_service` 在 [`crates/ramag-tool-api/src/view.rs`](../crates/ramag-tool-api/src/view.rs) 第 213 行启动异步工作区读取，读取期间状态为 `Loading`。保存和导入会调用 `block_workspace_write_until_loaded`，但 [`operations.rs`](../crates/ramag-tool-api/src/operations.rs) 第 199 行的 `send` 和第 293 行的 `run_collection` 没有相同的状态门禁；工具栏的发送和 Collection 按钮也只检查执行、保存、导入和 gRPC 发现状态。
+
+如果用户在读取完成前发送请求，历史可能使用初始临时工作区 ID 写入 Storage。迟到的读取回调随后会替换视图中的工作区和历史，导致本次结果从当前工作区消失。该路径目前没有延迟读取与发送并发的回归测试。
+
+修复要求：
+
+1. 发送和运行 Collection 在 `Loading`、`Failed` 状态下拒绝启动，并保留当前编辑内容；`HistoryFailed` 允许执行，因为工作区本体已经可信加载。
+2. 状态检查必须位于操作方法内部，按钮禁用只作为交互提示，不能作为唯一保护。
+3. 增加“读取延迟 → 点击发送/运行 Collection → 完成读取”的测试，确认不会写入临时工作区、不会丢失响应和历史；增加失败读取、重试后发送的测试。
+
+### P1：SSH 测试凭据清理未闭环
+
+上轮真实窗口验收在 `%TEMP%` 保留了本轮生成的私钥、公钥、SFTP 批处理文件和隔离 `known_hosts`。这些文件不在仓库内，但私钥仍属于敏感测试材料。后续 SSH 验收进入前，必须确认专用目录已删除；删除失败时记录阻塞原因，不继续创建新的测试凭据。脚本必须继续使用唯一临时 HOME 和路径范围检查，不能访问用户的 `known_hosts`、Agent 或配置。
+
+### P2：API 双分隔栏只有 headless 拖动证据
+
+`api_sidebar_divider_resizes_and_clamps_to_available_width` 与 `api_request_response_divider_resizes_and_preserves_minimum_widths` 已通过，API 工作区本机 Docker HTTP/gRPC 请求也已通过。Computer Use 在上轮发生输入竞争，真实窗口拖动尚未验证；headless 结果不能替代该证据。
+
+## 后续实施顺序
+
+同一时间只推进一个子切片。每个子切片完成目标测试、匹配的服务或窗口证据、格式、严格 Clippy、源码尺寸和差异检查后独立提交。
+
+| 顺序 | 子切片 | 进入条件 | 交付条件 |
+|---|---|---|---|
+| 1 | `A-POST-0.5-CONNECTION-API-STATE-001` API 工作区读取竞态修复 | 当前 API 39 项测试通过；问题定位已固定 | 在 `send`、`run_collection` 内增加加载状态门禁；完成延迟读取、读取失败、重试和历史一致性测试；不改变 HTTP/gRPC 协议行为 |
+| 2 | `A-POST-0.5-CONNECTION-SSH-CLEANUP-001` SSH 测试材料清理 | 找到上轮专用 `%TEMP%` 目录并确认不属于用户 SSH 路径 | 删除私钥、公钥、批处理文件和隔离信任文件；运行脚本状态回归；记录清理成功或明确阻塞；不重建用户 `known_hosts` |
+| 3 | `A-POST-0.5-CONNECTION-API-ACCEPTANCE-002` API 页面和双分隔栏验收 | 子切片 1 完成；子切片 2 清理闭环 | 在隔离数据下验证 HTTP/gRPC 发送、保存、失败重试、取消、历史、响应上下文和两条分隔栏；有 Computer Use 时补真实拖动，否则保留“headless 已通过、原生拖动未验证” |
+| 4 | `A-POST-0.5-CONNECTION-KAFKA-001` Kafka 工作区验收 | API 子切片收口；本机 Kafka/Connect/Schema Registry 容器健康 | 验证连接失败恢复、Topic/分区浏览、消息读取/分页、Consumer Group、Schema/指标状态和取消；只使用本机 Docker，记录镜像、端口、测试数据和清理 |
+| 5 | `A-POST-0.5-CONNECTION-MQTT-001` MQTT 工作区验收 | Kafka 子切片收口；本机 Mosquitto 健康 | 验证配置保存、连接/断开、订阅、发布、停止、格式查看和有界消息时间线；覆盖失败恢复和大载荷边界；只使用本机 Docker |
+| 6 | `A-POST-0.5-REGRESSION-001` 连接型工作区回归收口 | API、Kafka、MQTT 和 SSH 证据均已记录 | 完整程序构建；复核首页往返、主题、Settings、工具入口和本轮受影响工作区；更新本计划、主计划和测试报告；未完成的原生窗口证据继续单独列出 |
 
 ## 实施范围
 
