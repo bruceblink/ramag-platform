@@ -11,6 +11,20 @@ impl ApiView {
         true
     }
 
+    /// Blocks request execution until the workspace identity has been loaded or confirmed empty.
+    /// This guard remains in the operation methods so direct callers cannot bypass the toolbar.
+    pub(crate) fn block_workspace_execution_until_loaded(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(message) = self.workspace_load_state.execution_block_message() else {
+            return false;
+        };
+        self.notice = Some((message.into(), true));
+        cx.notify();
+        true
+    }
+
     /// Loads the saved workspace and its history without exposing raw Storage errors.
     ///
     /// An empty result is distinct from a failed read: only a confirmed empty result

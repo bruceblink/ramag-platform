@@ -197,6 +197,9 @@ impl ApiView {
 
     /// 构造当前请求并交给 API 服务；结果包含响应、断言状态和脱敏历史摘要。
     pub(crate) fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.block_workspace_execution_until_loaded(cx) {
+            return;
+        }
         let Some(service) = self.service.clone() else {
             self.notice = Some(("API 服务尚未接入".into(), true));
             cx.notify();
@@ -291,6 +294,9 @@ impl ApiView {
 
     /// 把当前请求并入首个 Collection 后串行执行，完成后在响应区域展示汇总。
     pub(crate) fn run_collection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.block_workspace_execution_until_loaded(cx) {
+            return;
+        }
         let Some(service) = self.service.clone() else {
             self.notice = Some(("API 服务尚未接入".into(), true));
             cx.notify();

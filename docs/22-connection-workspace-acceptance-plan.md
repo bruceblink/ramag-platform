@@ -1,8 +1,8 @@
 # 连接型工作区完整程序验收计划
 
 > 切片：`A-POST-0.5-CONNECTION-ACCEPTANCE-001`
-> 日期：2026-10-21
-> 状态：代码审查完成；先修复 API 工作区读取竞态并完成 SSH 测试凭据清理，再继续 API、Kafka 和 MQTT 的逐工具验收
+> 日期：2026-10-22
+> 状态：API 工作区读取竞态已修复并验证；下一项清理 SSH 测试凭据，再继续 API、Kafka 和 MQTT 的逐工具验收
 > 范围：完整程序中的 SSH/SFTP、API、Kafka 和 MQTT 编辑/连接工作区
 
 ## 问题证据
@@ -37,7 +37,7 @@
 
 | 顺序 | 子切片 | 进入条件 | 交付条件 |
 |---|---|---|---|
-| 1 | `A-POST-0.5-CONNECTION-API-STATE-001` API 工作区读取竞态修复 | 当前 API 39 项测试通过；问题定位已固定 | 在 `send`、`run_collection` 内增加加载状态门禁；完成延迟读取、读取失败、重试和历史一致性测试；不改变 HTTP/gRPC 协议行为 |
+| 1 | `A-POST-0.5-CONNECTION-API-STATE-001` API 工作区读取竞态修复 | 已完成；40 项 API 测试、严格 Clippy、格式、源码尺寸和差异检查通过 | `send`、`run_collection` 在 `Loading`/`Failed` 内部拒绝执行；历史读取失败仍允许执行；延迟读取和失败读取回归通过；未改变 HTTP/gRPC 协议行为 |
 | 2 | `A-POST-0.5-CONNECTION-SSH-CLEANUP-001` SSH 测试材料清理 | 找到上轮专用 `%TEMP%` 目录并确认不属于用户 SSH 路径 | 删除私钥、公钥、批处理文件和隔离信任文件；运行脚本状态回归；记录清理成功或明确阻塞；不重建用户 `known_hosts` |
 | 3 | `A-POST-0.5-CONNECTION-API-ACCEPTANCE-002` API 页面和双分隔栏验收 | 子切片 1 完成；子切片 2 清理闭环 | 在隔离数据下验证 HTTP/gRPC 发送、保存、失败重试、取消、历史、响应上下文和两条分隔栏；有 Computer Use 时补真实拖动，否则保留“headless 已通过、原生拖动未验证” |
 | 4 | `A-POST-0.5-CONNECTION-KAFKA-001` Kafka 工作区验收 | API 子切片收口；本机 Kafka/Connect/Schema Registry 容器健康 | 验证连接失败恢复、Topic/分区浏览、消息读取/分页、Consumer Group、Schema/指标状态和取消；只使用本机 Docker，记录镜像、端口、测试数据和清理 |
@@ -87,6 +87,13 @@ git diff --check
 ```
 
 ## API 工作区双分隔栏子切片验收记录
+
+## API 工作区读取状态修复记录
+
+- 实现：`send` 和 `run_collection` 在操作方法内部调用工作区状态门禁；工具栏同步禁用按钮，避免用户误触。
+- 状态：`Loading` 和 `Failed` 显示可操作提示并保持编辑内容；`HistoryFailed` 允许执行，因为工作区身份已经加载。
+- 目标测试：`request_execution_waits_for_delayed_workspace_load_and_history_failure_is_recoverable`；完整 `ramag-tool-api --lib` 测试共 40 项通过。
+- 质量检查：目标 Clippy、`cargo fmt --all -- --check`、`check-source-size.ps1` 和 `git diff --check` 通过。
 
 - 改动范围：API 请求列表与编辑区之间的分隔栏，以及请求编辑区与响应区之间的分隔栏均可左右拖动。请求列表宽度为 180–420px，并在窄桌面窗口中动态收窄，以保留编辑区最小 520px 宽度。请求编辑区最小宽度为 240px；响应区最小宽度为 220px。小于桌面布局断点时仍使用纵向堆叠布局。
 - Headless 交互：`api_sidebar_divider_resizes_and_clamps_to_available_width` 和 `api_request_response_divider_resizes_and_preserves_minimum_widths` 使用 GPUI 模拟鼠标输入检查拖动、动态边界和最小宽度。第二条测试的鼠标点位必须落在窗口可见区域内。

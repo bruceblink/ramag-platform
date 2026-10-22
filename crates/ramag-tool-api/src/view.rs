@@ -127,6 +127,16 @@ impl ApiWorkspaceLoadState {
             Self::NotStarted | Self::Empty | Self::Loaded | Self::HistoryFailed => None,
         }
     }
+
+    /// Execution must wait for a trustworthy workspace identity. A history read failure is
+    /// recoverable because the workspace itself has already been loaded and can own new history.
+    fn execution_block_message(self) -> Option<&'static str> {
+        match self {
+            Self::Loading => Some("本地 API 工作区仍在读取，请等待完成后再执行请求"),
+            Self::Failed => Some("本地 API 工作区读取失败，请重试后再执行请求"),
+            Self::NotStarted | Self::Empty | Self::Loaded | Self::HistoryFailed => None,
+        }
+    }
 }
 
 /// API 工作台编辑状态；输入值先保留在 GPUI 状态中，点击发送时才构造领域请求。
@@ -197,6 +207,16 @@ pub struct ApiView {
 }
 
 impl ApiView {
+    fn request_execution_disabled(&self) -> bool {
+        self.workspace_load_state
+            .execution_block_message()
+            .is_some()
+            || self.loading
+            || self.saving
+            || self.importing
+            || self.grpc_discovering
+    }
+
     /// 创建没有运行时服务的视图，供 headless 布局和交互测试使用。
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         Self::without_service(window, cx)

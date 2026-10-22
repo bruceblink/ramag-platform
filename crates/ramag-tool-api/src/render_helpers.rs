@@ -13,7 +13,7 @@ pub(super) fn render_collection_button(
         .debug_selector(|| "api-run-collection".into())
         .xsmall()
         .label("运行 Collection")
-        .disabled(view.loading || view.saving || view.importing || view.grpc_discovering)
+        .disabled(view.request_execution_disabled())
         .ghost()
         .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
             view.run_collection(window, cx);
@@ -105,7 +105,7 @@ pub(super) fn render_request_toolbar(
         .debug_selector(|| "api-send".into())
         .xsmall()
         .label(if view.loading { "发送中" } else { "发送" })
-        .disabled(view.loading || view.saving || view.importing || view.grpc_discovering)
+        .disabled(view.request_execution_disabled())
         .primary()
         .on_click(cx.listener(|view, _: &ClickEvent, window, cx| view.send(window, cx)));
     let discover = ramag_ui::clickable_button("api-grpc-discover")
