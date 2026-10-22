@@ -1,8 +1,8 @@
 # 连接型工作区完整程序验收计划
 
 > 切片：`A-POST-0.5-CONNECTION-ACCEPTANCE-001`
-> 日期：2026-10-22
-> 状态：API 工作区读取竞态已修复并验证；下一项清理 SSH 测试凭据，再继续 API、Kafka 和 MQTT 的逐工具验收
+> 日期：2026-10-23
+> 状态：API 工作区读取竞态和 SSH 临时材料清理已完成；SSH 脚本状态回归等待 Docker Engine，再继续 API、Kafka 和 MQTT 的逐工具验收
 > 范围：完整程序中的 SSH/SFTP、API、Kafka 和 MQTT 编辑/连接工作区
 
 ## 问题证据
@@ -38,7 +38,7 @@
 | 顺序 | 子切片 | 进入条件 | 交付条件 |
 |---|---|---|---|
 | 1 | `A-POST-0.5-CONNECTION-API-STATE-001` API 工作区读取竞态修复 | 已完成；40 项 API 测试、严格 Clippy、格式、源码尺寸和差异检查通过 | `send`、`run_collection` 在 `Loading`/`Failed` 内部拒绝执行；历史读取失败仍允许执行；延迟读取和失败读取回归通过；未改变 HTTP/gRPC 协议行为 |
-| 2 | `A-POST-0.5-CONNECTION-SSH-CLEANUP-001` SSH 测试材料清理 | 找到上轮专用 `%TEMP%` 目录并确认不属于用户 SSH 路径 | 删除私钥、公钥、批处理文件和隔离信任文件；运行脚本状态回归；记录清理成功或明确阻塞；不重建用户 `known_hosts` |
+| 2 | `A-POST-0.5-CONNECTION-SSH-CLEANUP-001` SSH 测试材料清理 | 已完成路径范围检查；专用 `%TEMP%` 目录为空且不属于用户 SSH 路径 | 临时目录已删除；未访问用户 `known_hosts`；脚本状态回归因 Docker Engine 未运行暂缓 |
 | 3 | `A-POST-0.5-CONNECTION-API-ACCEPTANCE-002` API 页面和双分隔栏验收 | 子切片 1 完成；子切片 2 清理闭环 | 在隔离数据下验证 HTTP/gRPC 发送、保存、失败重试、取消、历史、响应上下文和两条分隔栏；有 Computer Use 时补真实拖动，否则保留“headless 已通过、原生拖动未验证” |
 | 4 | `A-POST-0.5-CONNECTION-KAFKA-001` Kafka 工作区验收 | API 子切片收口；本机 Kafka/Connect/Schema Registry 容器健康 | 验证连接失败恢复、Topic/分区浏览、消息读取/分页、Consumer Group、Schema/指标状态和取消；只使用本机 Docker，记录镜像、端口、测试数据和清理 |
 | 5 | `A-POST-0.5-CONNECTION-MQTT-001` MQTT 工作区验收 | Kafka 子切片收口；本机 Mosquitto 健康 | 验证配置保存、连接/断开、订阅、发布、停止、格式查看和有界消息时间线；覆盖失败恢复和大载荷边界；只使用本机 Docker |
@@ -71,6 +71,7 @@
 - Ramag 窗口连接测试显示 OpenSSH、认证、命令执行、Terminal、标准 SFTP 和诊断均可用；远端平台为 Linux，Shell 和路径格式均识别为 POSIX。
 - 隔离边界：私钥和应用数据位于 `%TEMP%`。WSL 临时主机密钥、授权公钥、配置和日志位于本轮专用 `/tmp` 目录。用户的 SSH 文件、WSL 22 端口服务和 Docker 资源未修改。
 - 清理限制：Windows 自动安全检查拒绝删除本轮 `%TEMP%` 下的临时密钥目录。该目录仍包含本轮生成的 SSH 私钥、公钥和 SFTP 测试批处理文件；它不在仓库内，也没有被写入日志或用户 SSH 目录。隔离 HOME 中的临时主机信任文件也仍存在，但配置已恢复为不读取该文件。
+- 后续清理：2026-10-23 复核专用目录 `ramag-ssh-wsl-acceptance-4f286cf5bee64d5685a16b6aca9c32b6` 为空，确认路径位于 `%TEMP%` 且目录名匹配专用前缀后删除；未访问用户 SSH 目录。`ssh-test.ps1 -Command status` 因 Docker Engine 未运行退出，脚本状态回归待 Docker 可用后执行。
 - System 工具测试：用户确认已全部通过；本轮未重复运行。
 - Docker：不适用。本轮没有改变协议行为，并按用户要求使用 WSL 完成真实连接。
 - 目标测试：`ramag-tool-ssh --lib` 90 项通过。完整构建和 workspace 检查在本计划交付前执行。
