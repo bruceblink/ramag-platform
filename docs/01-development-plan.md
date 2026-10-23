@@ -41,20 +41,12 @@
 
 同一时间只允许一个切片处于“开发中”。每个切片完成目标测试、匹配的 UI 验收和质量门后独立提交并推送 `main`。
 
+已完成切片已从当前队列移除。完成证据保留在第 2 节、对应专项计划和历史归档中。
+
 | 顺序 | 切片 | 状态 | 完成条件 |
 |---|---|---|---|
-| 1 | `A-POST-0.5-TOOL-VISIBILITY-001` 首页与侧边栏工具显示管理 | 已完成；目标测试、严格 Clippy、程序构建和真实窗口交互通过 | 在设置页为每个已注册工具分别控制首页和侧边栏入口；设置持久化，切换后两个表面即时更新；隐藏入口不卸载工具或删除数据。详见 [专项计划](12-tool-visibility-plan.md)。 |
-| 2 | `A-POST-0.5-DBCLIENT-001` 数据源列表差异复核 | 已完成；全工作区 Docker 测试 2702 passed、0 failed、19 ignored | 无匹配搜索、长错误、重试、账号列、行操作和多尺寸均有对应验证；详见 [本轮计划](11-dbclient-list-state-plan.md)。 |
-| 3 | `A-POST-0.5-CLIPBOARD-001` 剪贴板删除/撤销回归收口 | 代码、测试和验收记录已在 `1dfb4ab3` 与 [专项计划](09-post-0.5.0-ui-fixes-plan.md) 完成 | 删除后当前搜索和详情失效；撤销重新查询并恢复；恢复失败保留原记录和通知。 |
-| 4 | `A-POST-0.5-S3-COMPAT-001` S3 兼容账号与本机数据源 | 已完成；目标测试、全工作区检查、RustFS 实际读写和真实窗口账号表单均通过 | 增加 S3 兼容账号和安全 Endpoint 校验；独立本机 RustFS 容器通过真实列表和传输验证。详见 [专项计划](13-object-storage-s3-compatibility-plan.md)。 |
-| 5 | `A-POST-0.5-TOOL-SURFACE-CRUD-001` 首页与侧边栏添加/移除工具入口 | 已完成；交互已由下一切片替换 | 基础入口增删能力已通过；早期管理面板记录见 [专项计划](14-tool-surface-management-plan.md)。 |
-| 6 | `A-POST-0.5-TOOL-SURFACE-MANAGER-003` 首页与侧边栏明确添加/移除交互 | 已完成；144 项 UI 单测、严格 Clippy 及真实 Windows 窗口操作通过 | 按入口确定管理范围，并将工具分为“已添加”和“可添加”；每行提供明确操作。详见 [专项计划](19-tool-surface-explicit-add-remove-plan.md)。 |
-| 7 | `A-POST-0.5-OBJECT-001` 对象存储列表与真实数据源验收 | 已完成；35 项对象存储 UI 测试、本机 RustFS live 测试、完整程序持久化和真实窗口对象列表通过 | 隔离数据下验证账号保存与重启回读、RustFS 实际对象、筛选和稳定账号 ID；核对 360/640/768/1024/1440 宽度、明暗主题与行操作。详见 [专项计划](16-object-storage-list-acceptance-plan.md)。 |
-| 8 | `A-PULSE-GAP-03-DN-UI-001` Disks/Network 真实窗口核验 | 已完成；113 项 system 工具测试、严格 Clippy、完整构建和参考程序/Ramag 真实窗口操作通过 | 核对主量表、读写/收发趋势、累计流量、设备选择和页面滚动；无辅助统计时显示明确状态。详见 [专项计划](10-system-disks-network-plan.md)。 |
-| 9 | `A-POST-0.5-LIST-ACCEPTANCE-001` 其余列表型工作区完整程序核验 | 已完成；Container、VCS 和插件子切片均完成真实窗口或适用的 headless 状态验收 | 依次核对容器、VCS、插件的标题、字体、背景、滚动、空/加载/失败状态和主要操作；已拆出的 DBClient、对象存储和剪贴板切片不重复排队。记录见 [专项计划](21-list-workspace-acceptance-plan.md)。 |
-| 10 | `A-POST-0.5-GPUI-KIT-001` GPUI Kit 0.7.3 升级与 Ramag 0.6.0 发布 | 已完成；workflow `39010687567` 全部成功，正式 Release 七个资产和摘要清单已核验。原生 Computer Use 接口不可用，真实窗口操作未验证 | 格式、严格 Clippy、除已验收 System 包外的 workspace 测试、Release 构建和本机 Docker 集成测试通过；三平台 Release 资产通过。详见 [专项计划](23-gpui-kit-0.7.3-upgrade-release-plan.md)。 |
-| 11 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` 编辑/连接型工作区核验 | 进行中；API 状态门禁和 SSH 临时材料清理已完成；SSH Docker 集成测试通过，API 真实拖动待确认 | 继续记录 API、Kafka、MQTT 的连接、取消、保存、错误恢复和结果上下文。详见 [专项计划](22-connection-workspace-acceptance-plan.md)。 |
-| 12 | `A-POST-0.5-REGRESSION-001` 全局回归与文档收口 | 后续 | 重新构建完整程序，复核首页往返、主题、全局 Settings、共享组件和本轮受影响工具；更新对应专项文档、测试报告和未完成项。 |
+| 1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` 编辑/连接型工作区核验 | 进行中；API 状态门禁、SSH、Kafka、MQTT 服务回归和 `ramag-bin` 构建已通过；API 真实拖动待确认 | 补充 API 原生窗口限制证据，再完成连接型工作区回归记录。详见 [专项计划](22-connection-workspace-acceptance-plan.md)。 |
+| 2 | `A-POST-0.5-REGRESSION-001` 全局回归与文档收口 | 后续 | 重新构建完整程序，复核首页往返、主题、全局 Settings、共享组件和本轮受影响工具；更新对应专项文档、测试报告和未完成项。 |
 
 ### 3.1 后置项目
 

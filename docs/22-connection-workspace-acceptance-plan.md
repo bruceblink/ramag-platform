@@ -35,14 +35,12 @@
 
 同一时间只推进一个子切片。每个子切片完成目标测试、匹配的服务或窗口证据、格式、严格 Clippy、源码尺寸和差异检查后独立提交。
 
+API 状态修复、SSH 清理、Kafka 和 MQTT 验收已完成。对应证据保留在本计划的记录章节中，不再重复进入当前实施顺序。
+
 | 顺序 | 子切片 | 进入条件 | 交付条件 |
 |---|---|---|---|
-| 1 | `A-POST-0.5-CONNECTION-API-STATE-001` API 工作区读取竞态修复 | 已完成；40 项 API 测试、严格 Clippy、格式、源码尺寸和差异检查通过 | `send`、`run_collection` 在 `Loading`/`Failed` 内部拒绝执行；历史读取失败仍允许执行；延迟读取和失败读取回归通过；未改变 HTTP/gRPC 协议行为 |
-| 2 | `A-POST-0.5-CONNECTION-SSH-CLEANUP-001` SSH 测试材料清理 | 已完成路径范围检查；专用 `%TEMP%` 目录为空且不属于用户 SSH 路径 | 临时目录已删除；未访问用户 `known_hosts`；脚本状态回归因 Docker Engine 未运行暂缓 |
-| 3 | `A-POST-0.5-CONNECTION-API-ACCEPTANCE-002` API 页面和双分隔栏验收 | 子切片 1 完成；子切片 2 清理闭环 | 在隔离数据下验证 HTTP/gRPC 发送、保存、失败重试、取消、历史、响应上下文和两条分隔栏；有 Computer Use 时补真实拖动，否则保留“headless 已通过、原生拖动未验证” |
-| 4 | `A-POST-0.5-CONNECTION-KAFKA-001` Kafka 工作区验收 | 已完成；本机 Docker Compose 服务健康，native 12 项和 pure-Rust 1 项集成测试通过 | 已验证元数据、Topic 管理、5,000 条消息读取/搜索、生产回读、Consumer Group/Offset、Connect、Schema Registry、ksqlDB、OpenMetrics 和 JMX 指标；专用容器、网络和数据卷已清理 |
-| 5 | `A-POST-0.5-CONNECTION-MQTT-001` MQTT 工作区验收 | 已完成；本机 Mosquitto 2.0.20 健康，2 项 Docker 集成测试通过 | 已验证两种协议消息投递、背压重试和空闲订阅停止；专用容器和网络已清理 |
-| 6 | `A-POST-0.5-REGRESSION-001` 连接型工作区回归收口 | API、Kafka、MQTT 和 SSH 证据均已记录 | 完整程序构建；复核首页往返、主题、Settings、工具入口和本轮受影响工作区；更新本计划、主计划和测试报告；未完成的原生窗口证据继续单独列出 |
+| 1 | `A-POST-0.5-CONNECTION-API-ACCEPTANCE-002` API 页面和双分隔栏验收 | API 状态修复和 SSH 清理已完成 | 在隔离数据下验证 HTTP/gRPC 发送、保存、失败重试、取消、历史、响应上下文和两条分隔栏；有 Computer Use 时补真实拖动，否则保留“headless 已通过、原生拖动未验证” |
+| 2 | `A-POST-0.5-REGRESSION-001` 连接型工作区回归收口 | API、Kafka、MQTT 和 SSH 证据均已记录 | 完整程序构建；复核首页往返、主题、Settings、工具入口和本轮受影响工作区；更新本计划、主计划和测试报告；未完成的原生窗口证据继续单独列出 |
 
 ## 实施范围
 
@@ -103,6 +101,13 @@ git diff --check
 - 验收结果：`scripts/mqtt-test/mqtt-test.ps1 -Command test` 通过；`docker_mqtt` 2 项测试全部通过。
 - 覆盖范围：两种 MQTT 协议消息投递、背压重试和空闲订阅停止。
 - 清理结果：执行 `scripts/mqtt-test/mqtt-test.ps1 -Command clean`；专用容器和网络已删除，无命名数据卷残留。
+
+## 连接型工作区回归记录
+
+- 目标测试：`ramag-tool-ssh --lib` 90 项、`ramag-tool-kafka --lib` 38 项、`ramag-infra-mqtt --lib` 2 项全部通过。
+- 构建：`cargo build --locked -p ramag-bin` 通过。
+- 质量门：提交前置检查完成 workspace 格式和严格 Clippy；源码尺寸和差异检查通过。
+- 当前限制：API 双分隔栏已有 headless 拖动测试，Computer Use 原生窗口拖动证据仍待运行时可用后补充。
 
 ## API 工作区读取状态修复记录
 
