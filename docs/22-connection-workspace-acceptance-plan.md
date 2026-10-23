@@ -2,7 +2,7 @@
 
 > 切片：`A-POST-0.5-CONNECTION-ACCEPTANCE-001`
 > 日期：2026-10-23
-> 状态：API 工作区读取竞态和 SSH 临时材料清理已完成；SSH Docker 集成回归已通过，下一步继续 API、Kafka 和 MQTT 的逐工具验收
+> 状态：API 工作区读取竞态、SSH 清理和 Kafka 本机 Docker 回归已完成；下一步继续 API 原生窗口限制记录和 MQTT 验收
 > 范围：完整程序中的 SSH/SFTP、API、Kafka 和 MQTT 编辑/连接工作区
 
 ## 问题证据
@@ -40,7 +40,7 @@
 | 1 | `A-POST-0.5-CONNECTION-API-STATE-001` API 工作区读取竞态修复 | 已完成；40 项 API 测试、严格 Clippy、格式、源码尺寸和差异检查通过 | `send`、`run_collection` 在 `Loading`/`Failed` 内部拒绝执行；历史读取失败仍允许执行；延迟读取和失败读取回归通过；未改变 HTTP/gRPC 协议行为 |
 | 2 | `A-POST-0.5-CONNECTION-SSH-CLEANUP-001` SSH 测试材料清理 | 已完成路径范围检查；专用 `%TEMP%` 目录为空且不属于用户 SSH 路径 | 临时目录已删除；未访问用户 `known_hosts`；脚本状态回归因 Docker Engine 未运行暂缓 |
 | 3 | `A-POST-0.5-CONNECTION-API-ACCEPTANCE-002` API 页面和双分隔栏验收 | 子切片 1 完成；子切片 2 清理闭环 | 在隔离数据下验证 HTTP/gRPC 发送、保存、失败重试、取消、历史、响应上下文和两条分隔栏；有 Computer Use 时补真实拖动，否则保留“headless 已通过、原生拖动未验证” |
-| 4 | `A-POST-0.5-CONNECTION-KAFKA-001` Kafka 工作区验收 | API 子切片收口；本机 Kafka/Connect/Schema Registry 容器健康 | 验证连接失败恢复、Topic/分区浏览、消息读取/分页、Consumer Group、Schema/指标状态和取消；只使用本机 Docker，记录镜像、端口、测试数据和清理 |
+| 4 | `A-POST-0.5-CONNECTION-KAFKA-001` Kafka 工作区验收 | 已完成；本机 Docker Compose 服务健康，native 12 项和 pure-Rust 1 项集成测试通过 | 已验证元数据、Topic 管理、5,000 条消息读取/搜索、生产回读、Consumer Group/Offset、Connect、Schema Registry、ksqlDB、OpenMetrics 和 JMX 指标；专用容器、网络和数据卷已清理 |
 | 5 | `A-POST-0.5-CONNECTION-MQTT-001` MQTT 工作区验收 | Kafka 子切片收口；本机 Mosquitto 健康 | 验证配置保存、连接/断开、订阅、发布、停止、格式查看和有界消息时间线；覆盖失败恢复和大载荷边界；只使用本机 Docker |
 | 6 | `A-POST-0.5-REGRESSION-001` 连接型工作区回归收口 | API、Kafka、MQTT 和 SSH 证据均已记录 | 完整程序构建；复核首页往返、主题、Settings、工具入口和本轮受影响工作区；更新本计划、主计划和测试报告；未完成的原生窗口证据继续单独列出 |
 
@@ -88,6 +88,14 @@ git diff --check
 ```
 
 ## API 工作区双分隔栏子切片验收记录
+
+## Kafka 工作区 Docker 验收记录
+
+- 测试环境：本机 Docker Compose 项目 `ramag-kafka-test`；`apache/kafka:4.0.0`（`127.0.0.1:19092`）、Kafka Connect（`127.0.0.1:18083`）、Schema Registry（`127.0.0.1:18081`）、ksqlDB（`127.0.0.1:18088`）、OpenMetrics fixture（`127.0.0.1:19100`）和 JMX exporter（`127.0.0.1:19101`）。
+- 测试数据：`ramag.integration.messages` 写入 5,000 条确定性消息；另建 60 个 UI Topic，准备 ksqlDB 流和两个 Schema Registry 版本。
+- 验收结果：`scripts/kafka-test/kafka-test.ps1 -Command test` 通过；`docker_kafka.rs` 12 项、`docker_kafka_pure_rust.rs` 1 项全部通过。
+- 覆盖范围：Broker 元数据、Topic 管理、消息读取/搜索、生产回读、Consumer Group/Offset 重置、Kafka Connect、Schema Registry、ksqlDB、OpenMetrics 和 JMX 指标。
+- 清理结果：执行 `scripts/kafka-test/kafka-test.ps1 -Command clean`；专用容器、网络和 `ramag-kafka-test-data` 卷均已删除，`status` 无残留服务。
 
 ## API 工作区读取状态修复记录
 
