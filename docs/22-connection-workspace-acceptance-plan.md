@@ -2,7 +2,7 @@
 
 > 切片：`A-POST-0.5-CONNECTION-ACCEPTANCE-001`
 > 日期：2026-10-23
-> 状态：API 工作区读取竞态和 SSH 临时材料清理已完成；SSH 脚本状态回归等待 Docker Engine，再继续 API、Kafka 和 MQTT 的逐工具验收
+> 状态：API 工作区读取竞态和 SSH 临时材料清理已完成；SSH Docker 集成回归已通过，下一步继续 API、Kafka 和 MQTT 的逐工具验收
 > 范围：完整程序中的 SSH/SFTP、API、Kafka 和 MQTT 编辑/连接工作区
 
 ## 问题证据
@@ -71,7 +71,7 @@
 - Ramag 窗口连接测试显示 OpenSSH、认证、命令执行、Terminal、标准 SFTP 和诊断均可用；远端平台为 Linux，Shell 和路径格式均识别为 POSIX。
 - 隔离边界：私钥和应用数据位于 `%TEMP%`。WSL 临时主机密钥、授权公钥、配置和日志位于本轮专用 `/tmp` 目录。用户的 SSH 文件、WSL 22 端口服务和 Docker 资源未修改。
 - 清理限制：Windows 自动安全检查拒绝删除本轮 `%TEMP%` 下的临时密钥目录。该目录仍包含本轮生成的 SSH 私钥、公钥和 SFTP 测试批处理文件；它不在仓库内，也没有被写入日志或用户 SSH 目录。隔离 HOME 中的临时主机信任文件也仍存在，但配置已恢复为不读取该文件。
-- 后续清理：2026-10-23 复核专用目录 `ramag-ssh-wsl-acceptance-4f286cf5bee64d5685a16b6aca9c32b6` 为空，确认路径位于 `%TEMP%` 且目录名匹配专用前缀后删除；未访问用户 SSH 目录。`ssh-test.ps1 -Command status` 因 Docker Engine 未运行退出，脚本状态回归待 Docker 可用后执行。
+- 后续清理：2026-10-23 复核专用目录 `ramag-ssh-wsl-acceptance-4f286cf5bee64d5685a16b6aca9c32b6` 为空，确认路径位于 `%TEMP%` 且目录名匹配专用前缀后删除；未访问用户 SSH 目录。Docker 恢复后运行 `ssh-test.ps1 -Command status` 成功，并运行 `ssh-test.ps1 -Command test`；Debian 12 OpenSSH/SFTP 容器健康，2 项集成测试通过，测试容器和网络已删除，`ramag-ssh-test-*` 临时目录数量为 0。
 - System 工具测试：用户确认已全部通过；本轮未重复运行。
 - Docker：不适用。本轮没有改变协议行为，并按用户要求使用 WSL 完成真实连接。
 - 目标测试：`ramag-tool-ssh --lib` 90 项通过。完整构建和 workspace 检查在本计划交付前执行。

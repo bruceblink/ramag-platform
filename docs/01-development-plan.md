@@ -53,7 +53,7 @@
 | 8 | `A-PULSE-GAP-03-DN-UI-001` Disks/Network 真实窗口核验 | 已完成；113 项 system 工具测试、严格 Clippy、完整构建和参考程序/Ramag 真实窗口操作通过 | 核对主量表、读写/收发趋势、累计流量、设备选择和页面滚动；无辅助统计时显示明确状态。详见 [专项计划](10-system-disks-network-plan.md)。 |
 | 9 | `A-POST-0.5-LIST-ACCEPTANCE-001` 其余列表型工作区完整程序核验 | 已完成；Container、VCS 和插件子切片均完成真实窗口或适用的 headless 状态验收 | 依次核对容器、VCS、插件的标题、字体、背景、滚动、空/加载/失败状态和主要操作；已拆出的 DBClient、对象存储和剪贴板切片不重复排队。记录见 [专项计划](21-list-workspace-acceptance-plan.md)。 |
 | 10 | `A-POST-0.5-GPUI-KIT-001` GPUI Kit 0.7.3 升级与 Ramag 0.6.0 发布 | 已完成；workflow `39010687567` 全部成功，正式 Release 七个资产和摘要清单已核验。原生 Computer Use 接口不可用，真实窗口操作未验证 | 格式、严格 Clippy、除已验收 System 包外的 workspace 测试、Release 构建和本机 Docker 集成测试通过；三平台 Release 资产通过。详见 [专项计划](23-gpui-kit-0.7.3-upgrade-release-plan.md)。 |
-| 11 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` 编辑/连接型工作区核验 | 进行中；API 状态门禁和 SSH 临时材料清理已完成；SSH 脚本状态回归因 Docker Engine 未运行而未完成，API 真实拖动待确认 | Docker 可用后先恢复 SSH 脚本状态回归，再按 API、Kafka、MQTT 顺序记录连接、取消、保存、错误恢复和结果上下文。详见 [专项计划](22-connection-workspace-acceptance-plan.md)。 |
+| 11 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` 编辑/连接型工作区核验 | 进行中；API 状态门禁和 SSH 临时材料清理已完成；SSH Docker 集成测试通过，API 真实拖动待确认 | 继续记录 API、Kafka、MQTT 的连接、取消、保存、错误恢复和结果上下文。详见 [专项计划](22-connection-workspace-acceptance-plan.md)。 |
 | 12 | `A-POST-0.5-REGRESSION-001` 全局回归与文档收口 | 后续 | 重新构建完整程序，复核首页往返、主题、全局 Settings、共享组件和本轮受影响工具；更新对应专项文档、测试报告和未完成项。 |
 
 ### 3.1 后置项目
