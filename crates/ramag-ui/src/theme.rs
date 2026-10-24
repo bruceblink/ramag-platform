@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use gpui_kit::component::{Theme, ThemeMode, highlighter::HighlightTheme};
-use gpui_kit::{App, Global, Hsla, hsla, rgb};
+use gpui_kit::{App, Global, Hsla, Pixels, hsla, px, rgb};
 use ramag_domain::traits::Storage;
 
 /// 让 UI 层切主题时访问 Storage 做持久化
@@ -20,6 +20,14 @@ pub enum Mode {
     Dark,
     Light,
 }
+
+/// Keep both scrollbar axes compact while preserving a usable drag target.
+const SCROLLBAR_TRACK_WIDTH: Pixels = px(10.0);
+const SCROLLBAR_THUMB_WIDTH: Pixels = px(6.0);
+const SCROLLBAR_THUMB_HOVER_WIDTH: Pixels = px(7.0);
+const SCROLLBAR_THUMB_ACTIVE_WIDTH: Pixels = px(8.0);
+const SCROLLBAR_THUMB_INSET: Pixels = px(0.0);
+const SCROLLBAR_THUMB_RADIUS: Pixels = px(3.0);
 
 /// preference "dark" 用暗色；其余（缺省 / 旧版 "system" 残值）一律默认浅色
 pub fn init_theme(preference: Option<&str>, cx: &mut App) {
@@ -145,10 +153,9 @@ pub fn set_theme_preference(next: Mode, cx: &mut App) {
     crate::preferences::persist_preference_latest("theme_mode", preference.to_string(), cx);
 }
 
-/// 为可拖拽滚动条提供稳定的对比度，避免主题配置中的透明色让滚动条只剩滚动状态而不可见。
+/// 为可拖拽滚动条提供稳定的滑块对比度；轨道保持透明以移除外圈边界和阴影。
 fn configure_scrollbar_paint(theme: &mut Theme) {
-    let mut track = theme.border;
-    track.a = 0.45;
+    let track = hsla(0.0, 0.0, 0.0, 0.0);
     let mut thumb = theme.muted_foreground;
     thumb.a = 0.68;
     let mut thumb_hover = theme.foreground;
@@ -156,6 +163,45 @@ fn configure_scrollbar_paint(theme: &mut Theme) {
     theme.scrollbar = track;
     theme.scrollbar_thumb = thumb;
     theme.scrollbar_thumb_hover = thumb_hover;
+}
+
+/// Project compact, marginless geometry onto GPUI Base after every theme sync.
+pub(crate) fn configure_base_scrollbar(cx: &mut App) {
+    let base_theme = gpui_kit::base::Theme::global_mut(cx);
+    let mode = base_theme.scrollbar.mode();
+    let motion = base_theme.scrollbar.motion();
+    let transparent = hsla(0.0, 0.0, 0.0, 0.0);
+    let styles = gpui_kit::base::ScrollbarStyles::default()
+        .track(|style| {
+            style
+                .width(SCROLLBAR_TRACK_WIDTH)
+                .bg(transparent)
+                .border_color(transparent)
+        })
+        .track_hover(|style| style.bg(transparent).border_color(transparent))
+        .track_active(|style| style.bg(transparent).border_color(transparent))
+        .thumb(|style| {
+            style
+                .width(SCROLLBAR_THUMB_WIDTH)
+                .inset(SCROLLBAR_THUMB_INSET)
+                .radius(SCROLLBAR_THUMB_RADIUS)
+        })
+        .thumb_hover(|style| {
+            style
+                .width(SCROLLBAR_THUMB_HOVER_WIDTH)
+                .inset(SCROLLBAR_THUMB_INSET)
+                .radius(SCROLLBAR_THUMB_RADIUS)
+        })
+        .thumb_active(|style| {
+            style
+                .width(SCROLLBAR_THUMB_ACTIVE_WIDTH)
+                .inset(SCROLLBAR_THUMB_INSET)
+                .radius(SCROLLBAR_THUMB_RADIUS)
+        });
+    base_theme.scrollbar = gpui_kit::base::ScrollbarTheme::new()
+        .with_mode(mode)
+        .with_motion(motion)
+        .with_styles(styles);
 }
 
 /// 编辑器背景对齐主背景；浅色默认主题的亮蓝色注释改为更常见的绿色。
@@ -346,6 +392,14 @@ mod palette_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn scrollbar_geometry_is_compact_and_marginless() {
+        assert_eq!(SCROLLBAR_TRACK_WIDTH, px(10.0));
+        assert_eq!(SCROLLBAR_THUMB_WIDTH, px(6.0));
+        assert_eq!(SCROLLBAR_THUMB_INSET, px(0.0));
+        assert_eq!(SCROLLBAR_THUMB_RADIUS, px(3.0));
+    }
 
     #[test]
     fn light_editor_comments_are_readable_and_background_matches_app() {
