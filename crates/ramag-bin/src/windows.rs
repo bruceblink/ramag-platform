@@ -31,7 +31,6 @@ pub(super) struct AppDeps {
     pub(super) container_registry_service: Option<Arc<ramag_app::ContainerRegistryService>>,
     pub(super) update_service: Option<Arc<UpdateService>>,
     pub(super) storage: Arc<dyn Storage>,
-    pub(super) collaboration_relay: Option<Arc<dyn ramag_domain::traits::CollaborationRelay>>,
 }
 
 /// 托盘和单实例激活优先复用此窗口。
@@ -155,7 +154,6 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         container_registry_service,
         update_service,
         storage,
-        collaboration_relay,
     } = deps;
     let fallback = Bounds::centered(
         None,
@@ -262,17 +260,6 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     None => create_container_view(container_service.clone(), window, cx),
                 };
                 let system_view = create_system_view(window, cx);
-                let json_path_view = create_json_path_view(plugin_host.clone(), window, cx);
-                let collaboration_view =
-                    ramag_tool_collaboration::create_collaboration_view(
-                        storage.clone(),
-                        clipboard_service
-                            .as_ref()
-                            .map(|service| service.driver().clone()),
-                        collaboration_relay.clone(),
-                        window,
-                        cx,
-                    );
                 let settings_view = cx.new(|cx| {
                     SettingsView::new(
                         plugin_host.clone(),
@@ -309,8 +296,6 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     shell.register_tool_view(ObjectStorageTool::ID, object_storage_view.into());
                     shell.register_tool_view(ContainerTool::ID, container_view.into());
                     shell.register_tool_view(SystemTool::ID, system_view.into());
-                    shell.register_tool_view(JsonPathTool::ID, json_path_view.into());
-                    shell.register_tool_view(CollaborationTool::ID, collaboration_view.into());
 
                     shell
                 });

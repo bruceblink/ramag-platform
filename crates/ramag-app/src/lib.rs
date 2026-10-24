@@ -52,11 +52,10 @@ pub use tool_registry::{
 };
 pub use usecases::{
     AUTO_CHECK_INTERVAL, AccountVerification, ApiService, AvailableUpdate, ClipboardService,
-    CollaborationService, CollaborationServiceError, ConnectionService, ContainerRegistryService,
-    ContainerService, DataSyncConfirmation, DataSyncExecutionContext, DataSyncGate,
-    DataSyncGatePhase, DataSyncGateSnapshot, DataSyncObjectCatalog, DataSyncPermit,
-    DataSyncPreflightReport, DataSyncService, HotkeyState, KafkaService,
-    MAX_DATA_SYNC_CATALOG_OBJECTS, MongoService, MqttService, ObjectListingPage,
+    ConnectionService, ContainerRegistryService, ContainerService, DataSyncConfirmation,
+    DataSyncExecutionContext, DataSyncGate, DataSyncGatePhase, DataSyncGateSnapshot,
+    DataSyncObjectCatalog, DataSyncPermit, DataSyncPreflightReport, DataSyncService, HotkeyState,
+    KafkaService, MAX_DATA_SYNC_CATALOG_OBJECTS, MongoService, MqttService, ObjectListingPage,
     ObjectStorageMountResult, ObjectStorageService, PreparedDataSync, RedisService,
     SavedObjectStorageAccount, SshService, StartedDataSync, UPDATE_CHECK_PREF_KEY,
     UpdateCheckResult, UpdatePlatform, UpdateService, asset_name_for, configured_mounts,

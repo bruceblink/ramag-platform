@@ -2,7 +2,6 @@
 
 pub mod api_driver;
 pub mod clipboard_driver;
-pub mod collaboration_relay;
 pub mod container_driver;
 pub mod container_registry_driver;
 pub mod doc_driver;
@@ -24,7 +23,6 @@ pub mod update_driver;
 
 pub use api_driver::ApiDriver;
 pub use clipboard_driver::ClipboardDriver;
-pub use collaboration_relay::CollaborationRelay;
 pub use container_driver::{
     ContainerDriver, ContainerLogSink, ContainerLogSinkResult, ContainerOperationCancellation,
 };

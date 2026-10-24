@@ -24,10 +24,9 @@ use tracing::{debug, info, warn};
 
 use ramag_domain::entities::{
     ApiHistoryRecord, ApiWorkspace, ApiWorkspaceId, ClipId, ClipItem, ClipSearchResult,
-    CollaborationShare, CollaborationShareId, ConnectionConfig, ConnectionId, KafkaClusterConfig,
-    KafkaClusterId, MAX_CLIPBOARD_SEARCH_BYTES, MqttProfile, MqttProfileId, ObjectStorageAccount,
-    ObjectStorageAccountId, QueryHistoryPage, QueryRecord, QueryRecordId, RepoConfig, RepoId,
-    SshProfile, SshProfileId,
+    ConnectionConfig, ConnectionId, KafkaClusterConfig, KafkaClusterId, MAX_CLIPBOARD_SEARCH_BYTES,
+    MqttProfile, MqttProfileId, ObjectStorageAccount, ObjectStorageAccountId, QueryHistoryPage,
+    QueryRecord, QueryRecordId, RepoConfig, RepoId, SshProfile, SshProfileId,
 };
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::Storage;
@@ -79,7 +78,6 @@ impl RedbStorage {
         // 首启迁移：为存量历史构建时间 / 去重索引（空库或已建则瞬时返回）
         repos::clip_repo::migrate_indexes(db.clone(), cipher.clone())?;
         let _ = repos::api_workspace_repo::list(db.clone(), cipher.clone())?;
-        let _ = repos::collaboration_repo::list(db.clone(), cipher.clone())?;
         let _ = repos::connection_repo::list(db.clone(), cipher.clone())?;
         let _ = repos::kafka_cluster_repo::list(db.clone(), cipher.clone())?;
         let _ = repos::mqtt_profile_repo::list(db.clone(), cipher.clone())?;

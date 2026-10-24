@@ -171,7 +171,7 @@ pub fn kafka() -> Icon {
     Icon::default().path("icons/kafka.svg")
 }
 
-/// JSON and JSON Path structure icon.
+/// JSON structure icon.
 #[inline]
 pub fn json() -> Icon {
     Icon::default().path("icons/json.svg")
@@ -183,7 +183,7 @@ pub fn cloud() -> Icon {
     Icon::default().path("icons/cloud.svg")
 }
 
-/// Local collaboration and shared workspace icon.
+/// User and group icon.
 #[inline]
 pub fn users() -> Icon {
     Icon::default().path("icons/users.svg")

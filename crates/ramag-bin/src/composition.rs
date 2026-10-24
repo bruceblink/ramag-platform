@@ -81,13 +81,7 @@ pub(super) fn read_preferences(
 pub(super) fn build_plugin_host_with_storage(
     storage: Option<Arc<dyn Storage>>,
 ) -> Arc<StaticPluginHost> {
-    let mut permission_policy = PluginPermissionPolicy::default();
-    if let Ok(plugin_id) = ramag_domain::PluginId::new(ramag_tool_json_path::PLUGIN_ID) {
-        permission_policy.grant(
-            plugin_id,
-            ramag_domain::PluginCapability::new("task.scoped"),
-        );
-    }
+    let permission_policy = PluginPermissionPolicy::default();
     let host = match storage {
         Some(storage) => Arc::new(StaticPluginHost::with_storage_and_permissions(
             Arc::new(ToolRegistry::new()),
@@ -109,16 +103,6 @@ pub(super) fn build_plugin_host_with_storage(
     register_builtin_tool(&host, Arc::new(ObjectStorageTool::new()));
     register_builtin_tool(&host, Arc::new(ContainerTool::new()));
     register_builtin_tool(&host, Arc::new(SystemTool::new()));
-    register_builtin_tool(
-        &host,
-        Arc::new(ramag_tool_collaboration::CollaborationTool::new()),
-    );
-    if let Err(error) = register_json_path_plugin(&host) {
-        warn!(
-            operation = "json_path_plugin_register",
-            error, "register built-in JSON Path plugin failed"
-        );
-    }
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     register_builtin_tool(&host, Arc::new(ClipboardTool::new()));
     let report = host.initialize_all();

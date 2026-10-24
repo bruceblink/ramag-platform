@@ -45,9 +45,7 @@ fn builtin_tool_icons_are_unique_and_semantic() {
         ("kafka", Some("server")),
         ("mqtt", Some("mqtt")),
         ("api", Some("api")),
-        ("json-path-extractor", Some("braces")),
         ("object_storage", Some("cloud")),
-        ("collaboration", Some("users")),
     ];
     let paths = entries
         .iter()
@@ -57,10 +55,6 @@ fn builtin_tool_icons_are_unique_and_semantic() {
     assert_eq!(
         tool_icon_path("ssh", Some("terminal")),
         "icons/terminal.svg"
-    );
-    assert_eq!(
-        tool_icon_path("json-path-extractor", Some("braces")),
-        "icons/json.svg"
     );
     assert_eq!(
         tool_icon_path("object_storage", Some("cloud")),

@@ -50,7 +50,6 @@ use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
 use ramag_infra_clipboard::{
     HotkeyEvent, HotkeyListener, PlatformClipboardDriver, foreground_display_index,
 };
-use ramag_infra_collaboration::HttpCollaborationRelay;
 use ramag_infra_git::GitDriverImpl;
 use ramag_infra_kafka::{
     KafkaConnectHttpDriver, KsqlDbHttpDriver, PrometheusBrokerMetricsDriver, RdkafkaTransport,
@@ -74,7 +73,6 @@ use ramag_tool_clipboard::{
     ClipboardImageCache, ClipboardTool, SelectNextClip, SelectPrevClip,
     create_clipboard_drawer_with_cache, create_clipboard_view,
 };
-use ramag_tool_collaboration::CollaborationTool;
 use ramag_tool_container::{
     ContainerTool, create_container_view, create_container_view_with_registry,
 };
@@ -82,7 +80,6 @@ use ramag_tool_dbclient::{
     DbClientTool, ExplainQuery, FindInResults, FormatSql, NewQueryTab, RunQuery,
     RunStatementAtCursor, ToggleRedisConsole, ToggleSqlEditor, create_dbclient_view,
 };
-use ramag_tool_json_path::{JsonPathTool, create_json_path_view, register_json_path_plugin};
 use ramag_tool_kafka::{KafkaTool, create_kafka_view};
 use ramag_tool_mongodb::{FormatMongoJson, NewMongoQueryTab, RunMongoQuery, ToggleMongoEditor};
 use ramag_tool_mqtt::{MqttTool, create_mqtt_view};
@@ -229,13 +226,6 @@ fn main() -> ExitCode {
         }
     };
     let update_service = build_update_service(storage.clone());
-    let collaboration_relay = match HttpCollaborationRelay::new() {
-        Ok(relay) => Some(Arc::new(relay) as Arc<dyn ramag_domain::traits::CollaborationRelay>),
-        Err(error) => {
-            warn!(operation = "collaboration_relay_init", error = %error, "collaboration Relay unavailable");
-            None
-        }
-    };
     let container_service: Arc<ContainerService> = build_container_service();
     let container_registry_service = match build_container_registry_service() {
         Ok(service) => Some(service),
@@ -350,7 +340,6 @@ fn main() -> ExitCode {
         container_registry_service,
         update_service,
         storage,
-        collaboration_relay,
     };
 
     let app = gpui_kit::platform::application().with_assets(RamagAssets);

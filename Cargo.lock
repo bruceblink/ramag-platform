@@ -773,13 +773,10 @@ checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
  "axum-core",
  "bytes",
- "form_urlencoded",
  "futures-util",
  "http",
  "http-body",
  "http-body-util",
- "hyper",
- "hyper-util",
  "itoa",
  "matchit",
  "memchr",
@@ -787,15 +784,10 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "serde_core",
- "serde_json",
- "serde_path_to_error",
- "serde_urlencoded",
  "sync_wrapper",
- "tokio",
  "tower",
  "tower-layer",
  "tower-service",
- "tracing",
 ]
 
 [[package]]
@@ -814,7 +806,6 @@ dependencies = [
  "sync_wrapper",
  "tower-layer",
  "tower-service",
- "tracing",
 ]
 
 [[package]]
@@ -8707,7 +8698,6 @@ dependencies = [
  "ramag-domain",
  "ramag-infra-api",
  "ramag-infra-clipboard",
- "ramag-infra-collaboration",
  "ramag-infra-container-docker",
  "ramag-infra-container-registry",
  "ramag-infra-git",
@@ -8725,10 +8715,8 @@ dependencies = [
  "ramag-infra-update",
  "ramag-tool-api",
  "ramag-tool-clipboard",
- "ramag-tool-collaboration",
  "ramag-tool-container",
  "ramag-tool-dbclient",
- "ramag-tool-json-path",
  "ramag-tool-kafka",
  "ramag-tool-mongodb",
  "ramag-tool-mqtt",
@@ -8746,21 +8734,6 @@ dependencies = [
  "tracing-subscriber",
  "windows 0.57.0",
  "winresource",
-]
-
-[[package]]
-name = "ramag-collaboration-relay"
-version = "0.6.0"
-dependencies = [
- "axum",
- "chrono",
- "ramag-domain",
- "reqwest 0.13.4",
- "rustls",
- "serde",
- "serde_json",
- "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -8821,21 +8794,6 @@ dependencies = [
  "ramag-domain",
  "tracing",
  "windows 0.57.0",
-]
-
-[[package]]
-name = "ramag-infra-collaboration"
-version = "0.6.0"
-dependencies = [
- "async-trait",
- "chrono",
- "ramag-domain",
- "reqwest 0.13.4",
- "rustls",
- "serde",
- "serde_json",
- "tokio",
- "url",
 ]
 
 [[package]]
@@ -9185,19 +9143,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ramag-tool-collaboration"
-version = "0.6.0"
-dependencies = [
- "gpui-kit",
- "ramag-app",
- "ramag-domain",
- "ramag-infra-storage",
- "ramag-ui",
- "smol",
- "tempfile",
-]
-
-[[package]]
 name = "ramag-tool-container"
 version = "0.6.0"
 dependencies = [
@@ -9240,29 +9185,6 @@ dependencies = [
  "smol",
  "sqlformat",
  "tracing",
-]
-
-[[package]]
-name = "ramag-tool-json-path"
-version = "0.6.0"
-dependencies = [
- "gpui-kit",
- "ramag-app",
- "ramag-domain",
- "ramag-ui",
- "serde",
- "serde_json",
- "smol",
-]
-
-[[package]]
-name = "ramag-tool-json-path-wasm"
-version = "0.6.0"
-dependencies = [
- "ramag-domain",
- "serde",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -10768,17 +10690,6 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
-]
-
-[[package]]
-name = "serde_path_to_error"
-version = "0.1.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10a9ff822e371bb5403e391ecd83e182e0e77ba7f6fe0160b795797109d1b457"
-dependencies = [
- "itoa",
- "serde",
- "serde_core",
 ]
 
 [[package]]

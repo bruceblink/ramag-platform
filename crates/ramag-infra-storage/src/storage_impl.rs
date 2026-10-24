@@ -56,35 +56,6 @@ impl Storage for RedbStorage {
         run_blocking(move || repos::api_workspace_repo::delete(db, id)).await
     }
 
-    async fn save_collaboration_share(&self, share: &CollaborationShare) -> Result<()> {
-        let db = self.db.clone();
-        let cipher = self.cipher.clone();
-        let share = share.clone();
-        run_blocking(move || repos::collaboration_repo::save(db, cipher, share)).await
-    }
-
-    async fn list_collaboration_shares(&self) -> Result<Vec<CollaborationShare>> {
-        let db = self.db.clone();
-        let cipher = self.cipher.clone();
-        run_blocking(move || repos::collaboration_repo::list(db, cipher)).await
-    }
-
-    async fn get_collaboration_share(
-        &self,
-        id: &CollaborationShareId,
-    ) -> Result<Option<CollaborationShare>> {
-        let db = self.db.clone();
-        let cipher = self.cipher.clone();
-        let id = id.clone();
-        run_blocking(move || repos::collaboration_repo::get(db, cipher, id)).await
-    }
-
-    async fn delete_collaboration_share(&self, id: &CollaborationShareId) -> Result<()> {
-        let db = self.db.clone();
-        let id = id.clone();
-        run_blocking(move || repos::collaboration_repo::delete(db, id)).await
-    }
-
     async fn list_mqtt_profiles(&self) -> Result<Vec<MqttProfile>> {
         let db = self.db.clone();
         let cipher = self.cipher.clone();

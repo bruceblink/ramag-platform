@@ -30,15 +30,12 @@ ramag-tool-ssh = { workspace = true }
 ramag-tool-object-storage = { workspace = true }
 ramag-tool-container = { workspace = true }
 ramag-tool-system = { workspace = true }
-ramag-tool-json-path = { workspace = true }
-ramag-tool-collaboration = { workspace = true }
 ramag-infra-mysql = { workspace = true }
 ramag-infra-postgres = { workspace = true }
 ramag-infra-sqlite = { workspace = true }
 ramag-infra-redis = { workspace = true }
 ramag-infra-mongodb = { workspace = true }
 ramag-infra-storage = { workspace = true }
-ramag-infra-collaboration = { workspace = true }
 ramag-infra-git = { workspace = true }
 ramag-infra-tunnel = { workspace = true }
 ramag-infra-ssh = { workspace = true }
