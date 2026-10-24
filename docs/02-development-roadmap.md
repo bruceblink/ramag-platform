@@ -1,24 +1,24 @@
-# Ramag Platform 主线路线：原生核心收缩与双端协议
+# Ramag Platform 主线路线：原生核心收缩与场景互补
 
 > 状态：现行路线
 > 更新日期：2026-10-24
 > 执行入口：[01-development-plan.md](01-development-plan.md)
+> P0 边界记录：[24-cross-project-capability-matrix.md](24-cross-project-capability-matrix.md)
 > 目标：把 Ramag 从“重复的全功能工具箱”收缩为原生核心能力和 GPUI 客户端
 
 ## 1. 路线判断
 
 it-tools-template 已经具备 Vue、Web/PWA、Electron、插件和桌面数据库/系统监视能力。
 继续在 GPUI 中重复实现同一批通用工具，会同时增加 UI、协议、测试、发布和维护成本。
-因此，今后的路线以“一个产品所有者、一个能力协议、两个可选客户端”为准：
+因此，今后的路线以“两个独立产品、一个功能边界、互补应用场景”为准：
 
-    Web / PWA ──> it-tools-template 产品层
-    Electron ───> it-tools-template 产品层 ──> Electron 平台适配
-    GPUI ────────> ramag-engine 原生核心
-                                └────────────> ramag-protocol
+    Web / PWA ──> it-tools-template 独立产品
+    Electron ───> it-tools-template 独立产品
+    GPUI ────────> ramag-platform 独立原生产品
 
-it-tools-template 拥有用户可见的通用工具和 Electron 工作台。
-ramag-platform 拥有原生核心服务、GPUI 客户端和共享协议。
-Web 只使用浏览器或 WASM 可用的部分。Electron 和 GPUI 对同一原生能力遵循同一协议。
+it-tools-template 拥有用户可见的通用工具、Web/PWA 和 Electron 工作台。
+ramag-platform 拥有自己的 Rust 服务、GPUI 工作区和本地数据边界。
+两个项目不互相启动、调用或加载对方的进程、代码包和接口。
 
 ## 2. 功能归属路线
 
@@ -27,8 +27,8 @@ Web 只使用浏览器或 WASM 可用的部分。Electron 和 GPUI 对同一原�
 | 通用工具 | 格式转换、编码、加密、文本、数据、网络、图片、JSON/YAML/XML 等 | 不保留重复入口 |
 | 数据与服务工作台 | 数据库、Redis、MongoDB、API、Kafka、MQTT | 不保留重复 GPUI 工作台 |
 | 开发工作台 | Git、容器、对象存储、普通系统监控、剪贴板 | 不保留重复产品页面 |
-| 原生连接 | Electron 页面、权限提示、历史和发布 | SSH/SFTP、PTY、隧道和会话安全 |
-| 本地安全 | 负责应用配置和凭据；原生核心只在需要时调用 | 仅在 Electron 无法满足共享保护边界时保留引擎级存储 |
+| 原生连接 | 当前不纳入统一功能范围 | SSH/SFTP、PTY、隧道和会话安全 |
+| 本地安全 | 独立管理应用配置和凭据 | 独立管理 Ramag 的连接和会话秘密 |
 | 硬件诊断 | 普通采集和图表 | 仅保留有明确精度或资源优势的采集器 |
 | 协作与市场 | 暂缓或另行产品设计 | 不进入当前主线 |
 
@@ -40,16 +40,17 @@ Web 只使用浏览器或 WASM 可用的部分。Electron 和 GPUI 对同一原�
 
 - 用户入口和主要流程。
 - it-tools-template 的目标入口。
-- 是否需要 ramag-engine。
+- 是否属于 Ramag 保留的原生能力。
 - 数据、凭据、权限、取消和资源上限。
 - 替代完成条件、兼容期和回滚版本。
 
+阶段 A 的执行记录见 [双项目能力归属矩阵](24-cross-project-capability-matrix.md)。
 阶段 A 完成前，不新增被标记为“迁移”的 GPUI 功能。
 
 ### 阶段 B：产品能力转移
 
-由 it-tools-template 按优先级接收数据库、API、Git、消息系统、容器、对象存储、
-剪贴板和普通系统监控。每一项必须先有 Electron 可用流程，再从 Ramag 移除导航和默认构建。
+由 it-tools-template 按优先级独立完成数据库、API、Git、消息系统、容器、对象存储、
+剪贴板和普通系统监控。Ramag 只记录对应功能已经有独立产品承载，再移除自己的重复入口。
 
 优先顺序：
 
@@ -63,18 +64,18 @@ Web 只使用浏览器或 WASM 可用的部分。Electron 和 GPUI 对同一原�
 
 ### 阶段 C：原生核心抽取
 
-把 SSH/SFTP/PTY、端口转发、加密本地存储和必要的低层采集从 GPUI 视图中抽成
-ramag-engine。引擎必须可以在无窗口环境运行，并提供：
+Ramag 在自己的 Rust workspace 内收口 SSH/SFTP/PTY、端口转发、加密本地存储和必要的
+低层采集。内部服务可以独立拆分，但不得提供给 it-tools-template 调用，并提供：
 
-- 明确的能力注册和版本协商。
+- 明确的能力注册和生命周期。
 - 连接、流式输出、分页、取消和超时。
 - 受控凭据访问和日志脱敏。
-- Electron 与 GPUI 的相同协议测试。
+- GPUI 工作区的错误、取消、资源和权限测试。
 
-### 阶段 D：双客户端接入
+### 阶段 D：Ramag 原生工作区
 
-GPUI 只实现原生核心工作区。Electron 使用 Vue 页面和主进程适配器调用同一引擎。
-两端的验收重点是操作结果和安全行为一致，不复制内部 UI 组件。
+GPUI 只实现 Ramag 自己的原生核心工作区。it-tools-template 的 Electron 工作台
+独立开发和发布。两边只比较用户场景覆盖，不共享 UI、服务或协议。
 
 ### 阶段 E：删除重复实现
 
@@ -90,13 +91,14 @@ GPUI 只实现原生核心工作区。Electron 使用 Vue 页面和主进程适�
 
 | 优先级 | ID | 状态 | 下一步 |
 |---|---|---|---|
-| P0 | BOUNDARY-001 | 新路线起点 | 完成功能矩阵和所有者确认 |
+| P0 | BOUNDARY-001 | 已完成能力矩阵和所有者确认 | 两个项目的能力 ID、所有者、平台范围和回滚条件一致 |
 | P1 | TRANSFER-DB-SYSTEM-001 | 待开始 | 以 it-tools-template 现有数据库和系统监视器为首批替代 |
 | P1 | TRANSFER-WORKBENCH-001 | 待开始 | 接收 API、Git、对象存储和普通容器流程 |
 | P2 | TRANSFER-MESSAGE-001 | 待开始 | 接收 Redis、MongoDB、Kafka 和 MQTT |
-| P2 | ENGINE-NATIVE-001 | 待开始 | 抽取 SSH/SFTP/PTY、隧道和安全存储 |
-| P3 | DUAL-CLIENT-001 | 待开始 | Electron 与 GPUI 共享原生协议 |
-| P4 | RETIRE-DUPLICATES-001 | 待开始 | 删除重复工具、依赖、导航和路线 |
+| P2 | RAMAG-SCOPE-REDUCE-001 | 待开始 | 删除 Ramag 已由独立产品承载的重复入口 |
+| P3 | RAMAG-CORE-001 | 待开始 | 收口 Ramag 的 SSH/SFTP/PTY、隧道和本地安全 |
+| P4 | RAMAG-UI-001 | 待开始 | 完成保留核心的 GPUI 原生工作区 |
+| P5 | CORE-RELEASE-001 | 待开始 | 发布独立的 Ramag 原生产品 |
 
 当前旧的数据库、API、Kafka、SSH、容器和 Git UI 验收队列不再是新功能路线。
 它们只在迁移替代或核心抽取需要时继续维护。具体旧证据见专项文档和历史归档。
@@ -109,7 +111,7 @@ GPUI 只实现原生核心工作区。Electron 使用 Vue 页面和主进程适�
 出现以下情况时停止扩大范围：
 
 - it-tools-template 尚未覆盖原流程的关键操作。
-- Electron 与 GPUI 的错误、取消、权限或数据上限不一致。
+- 两个项目的功能边界出现重复开发或相互依赖。
 - 迁移导致凭据、连接配置或本地数据丢失风险。
 - 新增能力只是在两个仓库复制同一套业务逻辑。
 

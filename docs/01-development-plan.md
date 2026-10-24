@@ -11,16 +11,20 @@
 [历史归档](archive/2026-09-25-pre-datagrip-rebaseline/)。
 历史完成记录不自动变成新的开发范围。
 
+P0 的共同边界记录见
+[双项目能力归属矩阵](24-cross-project-capability-matrix.md)。两个仓库的矩阵必须保持同一
+能力 ID、所有者、平台范围和回滚条件。
+
 ## 1. 决策原则
 
 Ramag 只投入在 it-tools-template 无法低成本、稳定或安全替代的能力。每个新功能必须至少满足一项：
 
 1. 需要原生 PTY、系统级会话或受控本机权限。
 2. 需要 Rust 运行时的资源控制、取消、流式处理或跨平台协议实现。
-3. 是多个桌面客户端共同依赖、且需要统一保护边界的本地安全能力。
-4. 能形成稳定的原生能力协议，而不是另一套重复的产品界面。
+3. 是 Ramag 自身需要的本地安全能力，且需要 GPUI 工作区保持统一保护边界。
+4. 能形成稳定的 Ramag 内部原生接口，而不是另一套重复的产品界面。
 
-“Electron 与 GPUI 实现完全相同的功能”在本计划中解释为**能力协议和用户操作结果一致**。两端可以使用不同的界面组件，但必须共享参数校验、权限、错误、取消、分页、进度和数据上限。暂不要求像素级 UI 相同。
+Electron 和 GPUI 属于两个独立产品。它们只在需要比较的应用场景上记录相同的用户结果；参数模型、权限、错误、取消、分页、进度和资源限制分别由各自项目维护。
 
 ## 2. 双项目职责边界
 
@@ -32,20 +36,21 @@ Ramag 只投入在 it-tools-template 无法低成本、稳定或安全替代的�
 | Redis、MongoDB、API、Kafka、MQTT | 负责 Electron 工作台和平台适配 | 移除对应 GPUI 工具和专用产品路线 |
 | Git、对象存储、容器 | 负责 Electron 工作台和平台适配 | 移除对应 GPUI 工具和专用产品路线 |
 | 剪贴板历史、普通系统监控、更新和设置 | 负责 Electron 主进程与产品界面 | 移除重复 UI；只保留必要的原生采集或安全服务 |
-| SSH、SFTP、PTY 终端、端口转发 | 负责产品入口和状态展示；调用共享原生服务 | 保留 Rust 核心、终端内核、会话和安全边界 |
-| 加密凭据库、系统密钥库和本地安全存储 | 负责应用配置和凭据；仅在原生核心需要共享秘密时调用 | 只有 Electron 无法满足共享保护边界时才保留引擎级存储 |
+| SSH、SFTP、PTY 终端、端口转发 | 当前不纳入 it-tools-template 的统一功能范围 | 作为 Ramag 的独立原生能力保留 |
+| 加密凭据库、系统密钥库和本地安全存储 | 由 it-tools-template 独立管理应用配置和凭据 | 由 Ramag 独立管理自己的连接和会话秘密 |
 | 高精度硬件采集和低层系统诊断 | 显示结果，按能力声明选择性启用 | 只有在 Electron/Node 不能满足精度和资源边界时保留 |
 | GPUI Shell、原生窗口和键盘工作区 | 不负责 | 只承载保留下来的原生核心能力 |
 
-两个仓库继续独立。it-tools-template 不依赖 ramag-platform 的 GPUI crate；
-双方通过版本化的 ramag-engine 本地服务和 ramag-protocol 本地接口协议连接。
-如果某项能力可以由 Electron 主进程稳定实现，就不再为它保留第二套 Rust 产品实现。
+两个仓库完全独立。它们不共享进程、运行时、代码包、接口协议或发布物。
+双方只在功能边界和应用场景上互相参照。it-tools-template 可以用自己的
+TypeScript、Node 或 Electron 能力实现产品功能；Ramag 使用自己的 Rust 和 GPUI
+实现原生工作区。一个项目的实现完成情况不构成另一个项目的运行时依赖。
 
 ## 3. 当前项目的拆分结果
 
 ### 3.1 保留在 Ramag 的核心
 
-- ramag-domain：只保留原生能力实体、错误、预算、取消和协议模型。
+- ramag-domain：只保留原生能力实体、错误、预算、取消和内部接口模型。
 - ramag-app：只保留无界面的用例编排、能力目录和生命周期管理。
 - ramag-infra-ssh、ramag-terminal、ramag-infra-tunnel：保留 SSH/SFTP、PTY、端口转发和会话安全边界。
 - ramag-infra-storage：保留加密本地存储、主密钥和系统凭据库；不得向 UI 暴露任意文件或密钥。
@@ -78,29 +83,26 @@ it-tools-template：
 移除是指从 Ramag 的默认构建、工具目录、GPUI 导航和当前路线中移除。删除源码前
 必须完成 it-tools-template 的功能矩阵、数据迁移说明和回滚版本。
 
-## 4. 共享能力协议
+## 4. 独立产品边界
 
-ramag-engine 只提供无界面服务。ramag-protocol 使用版本化请求和响应，至少包含：
+it-tools-template 和 Ramag 各自维护自己的应用状态、凭据、存储、错误处理、
+更新流程和测试。两边可以记录相同的用户场景，例如“连接远程主机”或“查看系统状态”，
+但不要求共享参数模型、接口协议或内部实现。
 
-- protocol_version、capability、request_id。
-- 参数校验、连接生命周期、取消、超时、分页、流式进度和有界结果。
-- 可分类错误码，不返回密码、令牌、完整连接字符串或无界原始输入。
-- 能力声明、权限范围和客户端版本协商。
-- Electron 主进程和 GPUI 客户端都使用同一套协议测试。
-
-Web 端只注册可在浏览器或 WASM 中完成的能力。需要本机权限的能力在 Web 中显示平台限制，
-不能通过通用 Node、Shell 或文件系统接口绕过边界。
+Ramag 的 Web 兼容性不属于当前产品目标。Ramag 的 GPUI 工作区只验证本机原生窗口、
+远程会话、终端输入、文件传输和本地安全边界。it-tools-template 继续独立验证
+Web/PWA 和 Electron 的平台差异。
 
 ## 5. 当前执行队列
 
 | 顺序 | ID | 内容 | 完成条件 |
 |---|---|---|---|
-| P0 | BOUNDARY-001 | 冻结功能清单，标记保留、迁移、删除和暂缓项 | 两个仓库的功能矩阵、所有者、旧入口和回滚版本一致 |
+| P0 | BOUNDARY-001 | 已建立能力归属矩阵，继续核对两边入口和回滚信息 | 两个仓库的矩阵、所有者、旧入口和回滚版本一致 |
 | P1 | TRANSFER-001 | 在 it-tools-template 收口数据库、API、Git、消息、容器、对象存储、剪贴板和普通系统监控 | 每项有 Electron 页面、错误/取消/权限验收和 Web 平台声明 |
-| P2 | ENGINE-001 | 抽取 SSH/SFTP/PTY、端口转发、加密存储和可选硬件采集为 ramag-engine | headless 服务可独立运行；协议版本、预算和取消测试通过 |
-| P3 | DUAL-CLIENT-001 | GPUI 核心客户端和 Electron 主进程接入同一原生能力协议 | 同一测试样例下操作结果、错误、取消和安全边界一致 |
-| P4 | RETIRE-001 | 从 Ramag 默认构建和导航移除已迁移工具 | workspace 依赖收缩、文档链接更新、旧配置可读或有迁移提示 |
-| P5 | CORE-RELEASE-001 | 发布收缩后的原生核心版本 | Windows、Linux、macOS 的核心能力分别有构建、资源和权限证据 |
+| P2 | RAMAG-SCOPE-REDUCE-001 | 从 Ramag 默认构建和导航移除已由 it-tools-template 独立承担的功能 | workspace 依赖收缩、文档链接更新、旧配置可读或有迁移提示 |
+| P3 | RAMAG-CORE-001 | 收口 SSH/SFTP/PTY、端口转发、本地安全和必要的低层采集 | GPUI 原生工作区的连接、取消、资源和权限边界明确 |
+| P4 | RAMAG-UI-001 | 完成保留核心的 GPUI 工作区验收 | 真实窗口、headless、错误恢复和跨平台状态分别记录 |
+| P5 | CORE-RELEASE-001 | 发布收缩后的 Ramag 原生产品版本 | Windows、Linux、macOS 的独立构建、资源和权限证据齐全 |
 
 在 P0 完成前，Ramag 不新增数据库、Git、API、Kafka、MQTT、容器、对象存储、
 剪贴板和普通系统监控功能。任何例外必须说明它为什么不能由 it-tools-template
@@ -112,8 +114,8 @@ Web 端只注册可在浏览器或 WASM 中完成的能力。需要本机权限�
   cargo clippy --workspace --all-targets -- -D warnings、目标测试和
   cargo build --locked -p ramag-bin。
 - 原生能力：记录真实系统、连接、取消、错误恢复、关闭和权限拒绝路径。
-- 协议：Electron 与 GPUI 使用相同请求样例、错误码、取消和结果上限测试。
-- UI：GPUI 真实窗口和 headless 证据分开记录；不能用静态截图替代交互证据。
+- 场景对照：两项目只对照用户流程和功能边界，不把一个项目的测试结果写成另一个项目的证据。
+- UI：Ramag 的 GPUI 真实窗口和 headless 证据分开记录；不能用静态截图替代交互证据。
 - 数据库或消息集成只使用本机 Docker。PostgreSQL 使用 17+，MySQL 使用 8.4+；
   纯协议或 UI 切片明确写“不适用”。
 - 文档：每个迁移切片记录所有者、旧入口、替代入口、兼容期、回滚方法和未完成证据。
