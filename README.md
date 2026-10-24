@@ -39,9 +39,9 @@
 
 ## 项目状态 / Project status
 
-本仓库 `bruceblink/ramag-platform` 是基于 [`tools-rs/ramag`](https://github.com/tools-rs/ramag) 演进的独立下游项目。当前代码仍包含数据库、Git、SSH、对象存储、容器管理和剪贴板工具；新的主线只保留 SSH/SFTP/PTY、隧道、加密本地存储和经基准证明必要的原生采集，并把通用工作台交给 [it-tools-template](F:/project/it-tools-template/)。
+本仓库 `bruceblink/ramag-platform` 是基于 [`tools-rs/ramag`](https://github.com/tools-rs/ramag) 演进的独立下游项目。当前代码保留数据库、Git、SSH、对象存储、容器管理、剪贴板、系统监控和其他既有工具；2026-10-24 起仅移除本机协作和 JSON Path 提取器，后续只做现有功能维护和打磨。`it-tools-template` 继续独立提供自己的 Web/PWA、Electron 和通用工具工作台。
 
-This repository, `bruceblink/ramag-platform`, is an independent downstream project based on [`tools-rs/ramag`](https://github.com/tools-rs/ramag). The current source still contains the legacy workspaces, while the new mainline keeps only the native core and GPUI client; the shared product workspaces move to `it-tools-template`.
+This repository, `bruceblink/ramag-platform`, is an independent downstream project based on [`tools-rs/ramag`](https://github.com/tools-rs/ramag). It keeps the existing native workspaces and GPUI client, removes only local collaboration and the JSON Path extractor, and now focuses on maintenance. `it-tools-template` independently develops its Web/PWA, Electron, and general-purpose tool workspaces.
 
 | 可验证交付 | 当前状态 |
 |---|---|
@@ -69,7 +69,7 @@ This is not a mirror of the upstream repository. General fixes may be prepared a
 
 ## 为什么选择 Ramag
 
-Ramag 的新价值集中在原生连接和本地安全边界：通过 SSH/SFTP/PTY 处理远程主机，通过受控隧道维护会话。应用配置和凭据由 Electron 使用系统安全存储管理；只有原生核心需要共享秘密且 Electron 无法满足保护边界时，才由 Ramag 提供引擎级存储。数据库、Git、对象存储和其他通用工作台由 `it-tools-template` 统一承载，避免两个客户端重复建设同一产品。
+Ramag 的价值来自 Rust/GPUI 原生工作区、远程连接、本地安全边界和已有工具的稳定维护。数据库、Git、对象存储和其他工作台继续保留在 Ramag，同时由 `it-tools-template` 独立提供自己的 Web/Electron 实现。两个项目只在应用场景上互补，不共享进程、代码包或接口协议。
 
 | 一个工作台 | 本地优先 | 面向真实数据量 | 原生交互 |
 |---|---|---|---|

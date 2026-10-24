@@ -75,11 +75,11 @@ impl StaticPlugin for ExamplePlugin {
 }
 ```
 
-桌面端直接调用 `ramag-domain` 的纯 Rust 计算核心；Web 端可以在独立 crate 中提供 `wasm_bindgen` 适配。WASM 适配只能接收有界的序列化输入并返回有界结果，不得获得桌面凭据、网络、文件系统或 GPUI 能力。参考实现是 `ramag-tool-json-path` 与 `ramag-tool-json-path-wasm`。
+桌面端直接调用现有工具的 Rust 核心；Web 端由 `it-tools-template` 按自己的技术栈独立实现。Ramag 的 WASM 适配不在当前路线内，不能获得桌面凭据、网络、文件系统或 GPUI 能力。此前的 JSON Path/WASM 参考实现已经移除；新的计算插件只有在用户明确说明后才进入计划。
 
 ## 插件设置和敏感数据
 
-普通设置只通过 `PluginSettingsSnapshot` 进入插件，敏感设置只通过 `PluginSecretStore` 进入插件。插件不得把密码、JWT、连接配置、原始业务数据或完整请求正文写入日志、目录元数据、普通设置或错误文本。需要共享文档或查询结果时，使用本机优先协作模型；默认只保存本机加密草稿，手动导出必须由用户明确触发并再次通过数据分类校验。
+普通设置只通过 `PluginSettingsSnapshot` 进入插件，敏感设置只通过 `PluginSecretStore` 进入插件。插件不得把密码、令牌、连接配置、原始业务数据或完整请求正文写入日志、目录元数据、普通设置或错误文本。跨项目数据交换不属于当前插件平台范围；如需增加，必须先得到用户明确说明并单独设计数据边界。
 
 ## 清单、设置和生命周期
 

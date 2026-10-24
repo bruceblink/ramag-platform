@@ -2,126 +2,84 @@
 
 > 状态：现行计划
 > 更新日期：2026-10-24
-> 当前基线：main 与 origin/main 已同步
-> 产品定位：原生核心能力运行时与 GPUI 客户端
-> 配套产品：[it-tools-template](F:/project/it-tools-template/) 负责 Web/PWA、Electron 产品壳和通用工具工作台
+> 当前基线：`main` 与 `origin/main` 已同步
+> 产品定位：保留全部现有原生工作台能力的 Rust/GPUI 桌面平台
 
-本计划只描述新的执行边界。旧的逐切片记录保存在
+本计划以“好钢用在刀刃上”为原则。`ramag-platform` 与
+[`it-tools-template`](F:/project/it-tools-template/) 是两个独立项目。它们不共享进程、
+运行时、代码包、接口协议或发布物。两个项目只在功能和应用场景上互补。
+
+历史的迁移方案和切片记录保存在
 [01-development-plan-history.md](01-development-plan-history.md)、专项计划和
-[历史归档](archive/2026-09-25-pre-datagrip-rebaseline/)。
-历史完成记录不自动变成新的开发范围。
+[历史归档](archive/2026-09-25-pre-datagrip-rebaseline/)。历史记录不自动变成新的开发范围。
 
-P0 的共同边界记录见
-[双项目能力归属矩阵](24-cross-project-capability-matrix.md)。两个仓库的矩阵必须保持同一
-能力 ID、所有者、平台范围和回滚条件。
+## 1. 当前范围决定
 
-## 1. 决策原则
+截图标出的两个工具已经从 Ramag 移除：
 
-Ramag 只投入在 it-tools-template 无法低成本、稳定或安全替代的能力。每个新功能必须至少满足一项：
+- 本机协作（`collaboration`）。
+- JSON Path 提取器（`json-path-extractor`）。
 
-1. 需要原生 PTY、系统级会话或受控本机权限。
-2. 需要 Rust 运行时的资源控制、取消、流式处理或跨平台协议实现。
-3. 是 Ramag 自身需要的本地安全能力，且需要 GPUI 工作区保持统一保护边界。
-4. 能形成稳定的 Ramag 内部原生接口，而不是另一套重复的产品界面。
+除此之外，当前 Ramag 工具和基础设施全部保留。保留范围包括数据库、Redis、MongoDB、
+API、Kafka、MQTT、Git、SSH/SFTP/PTY、对象存储、容器、剪贴板、系统监控、更新、插件宿主、
+加密本地存储和 GPUI Shell。API 工作台内部用于响应变量和断言的 JSON Path 逻辑属于 API
+功能，继续保留；它不等于独立 JSON Path 提取器。
 
-Electron 和 GPUI 属于两个独立产品。它们只在需要比较的应用场景上记录相同的用户结果；参数模型、权限、错误、取消、分页、进度和资源限制分别由各自项目维护。
+`it-tools-template` 可以独立提供 Web、PWA、Electron 和自己的通用工具。Ramag 不因
+it-tools-template 的实现而删除其他现有工具，也不把 it-tools-template 作为运行时依赖。
 
-## 2. 双项目职责边界
+## 2. 功能冻结规则
 
-| 能力 | it-tools-template | ramag-platform |
+从本计划生效后，Ramag 只做现有功能的打磨和维护。维护包括：
+
+- 缺陷修复、崩溃修复和错误恢复。
+- 性能、资源上限、取消、并发和稳定性改进。
+- 安全、凭据保护、权限边界和兼容性修复。
+- 现有页面的可用性、可访问性、响应式布局和视觉一致性改进。
+- 构建、测试、文档、发布和平台适配维护。
+
+新增工具、插件、协议、服务、业务流程或独立产品入口，必须得到用户的明确说明。没有
+特别说明时，不新增功能，不把历史计划中的待办重新加入路线。
+
+## 3. 现有能力边界
+
+| 能力 | Ramag 当前处理 | it-tools-template 当前处理 |
 |---|---|---|
-| Web/PWA 和 Electron 应用壳 | 负责 | 不负责 |
-| 117 个通用工具、纯计算、格式转换和 WASM | 负责 | 只保留必要的纯 Rust 核心或测试样例 |
-| 数据库管理器（PostgreSQL、MySQL、SQLite） | 负责 Electron 工作台、连接、分页、编辑和历史 | 移除 GPUI 产品入口；仅在后续证明需要 Rust 引擎时保留可复用服务 |
-| Redis、MongoDB、API、Kafka、MQTT | 负责 Electron 工作台和平台适配 | 移除对应 GPUI 工具和专用产品路线 |
-| Git、对象存储、容器 | 负责 Electron 工作台和平台适配 | 移除对应 GPUI 工具和专用产品路线 |
-| 剪贴板历史、普通系统监控、更新和设置 | 负责 Electron 主进程与产品界面 | 移除重复 UI；只保留必要的原生采集或安全服务 |
-| SSH、SFTP、PTY 终端、端口转发 | 当前不纳入 it-tools-template 的统一功能范围 | 作为 Ramag 的独立原生能力保留 |
-| 加密凭据库、系统密钥库和本地安全存储 | 由 it-tools-template 独立管理应用配置和凭据 | 由 Ramag 独立管理自己的连接和会话秘密 |
-| 高精度硬件采集和低层系统诊断 | 显示结果，按能力声明选择性启用 | 只有在 Electron/Node 不能满足精度和资源边界时保留 |
-| GPUI Shell、原生窗口和键盘工作区 | 不负责 | 只承载保留下来的原生核心能力 |
+| 数据库、Redis、MongoDB | 保留原生工具和基础设施，持续维护 | 独立实现 Web/Electron 工作台 |
+| API、Kafka、MQTT | 保留原生工具和协议适配，持续维护 | 独立实现 Web/Electron 工作台 |
+| Git、对象存储、容器 | 保留原生工具和基础设施，持续维护 | 独立实现 Web/Electron 工作台 |
+| SSH、SFTP、PTY、端口转发 | 保留原生会话、终端和安全边界 | 按自身产品范围独立决定 |
+| 剪贴板、系统监控、更新和设置 | 保留现有桌面功能，持续维护 | 独立实现自己的桌面和 Web 版本 |
+| 插件平台和 GPUI Shell | 保留编译期静态插件、目录、生命周期和原生窗口 | 使用自己的插件和页面体系 |
+| 本机协作 | 已移除 | 可在自身项目中独立设计 |
+| JSON Path 提取器 | 已移除 | 可在自身项目中独立提供 Web/Electron 功能 |
 
-两个仓库完全独立。它们不共享进程、运行时、代码包、接口协议或发布物。
-双方只在功能边界和应用场景上互相参照。it-tools-template 可以用自己的
-TypeScript、Node 或 Electron 能力实现产品功能；Ramag 使用自己的 Rust 和 GPUI
-实现原生工作区。一个项目的实现完成情况不构成另一个项目的运行时依赖。
+两个项目可以覆盖相同场景，但各自维护参数、权限、错误、取消、分页、进度、资源限制、
+配置、凭据、存储和测试。一个项目的测试结果不能作为另一个项目的验证证据。
 
-## 3. 当前项目的拆分结果
-
-### 3.1 保留在 Ramag 的核心
-
-- ramag-domain：只保留原生能力实体、错误、预算、取消和内部接口模型。
-- ramag-app：只保留无界面的用例编排、能力目录和生命周期管理。
-- ramag-infra-ssh、ramag-terminal、ramag-infra-tunnel：保留 SSH/SFTP、PTY、端口转发和会话安全边界。
-- ramag-infra-storage：保留加密本地存储、主密钥和系统凭据库；不得向 UI 暴露任意文件或密钥。
-- ramag-ui、ramag-bin：收缩为 GPUI 原生核心客户端，不再装配通用工具目录。
-- ramag-infra-system：只在低层硬件或高精度采集有明确需求并通过基准后保留；普通 CPU、内存、磁盘、网络和进程页面迁移到 Electron。
-
-### 3.2 交给 it-tools-template 并从 Ramag 主产品移除
-
-以下功能的产品页面、状态管理、连接配置、驱动适配和发布验收全部转移到
-it-tools-template：
-
-- ramag-tool-dbclient、ramag-tool-redis、ramag-tool-mongodb 以及
-  ramag-infra-mysql、ramag-infra-postgres、ramag-infra-sqlite、
-  ramag-infra-sql-shared、ramag-infra-redis、ramag-infra-mongodb。
-- ramag-tool-api、ramag-infra-api。
-- ramag-tool-kafka、ramag-infra-kafka。
-- ramag-tool-mqtt、ramag-infra-mqtt。
-- ramag-tool-vcs、ramag-infra-git。
-- ramag-tool-object-storage、ramag-infra-object-storage。
-- ramag-tool-container、ramag-infra-container-docker、
-  ramag-infra-container-registry。
-- ramag-tool-clipboard、ramag-infra-clipboard 的产品页面和采集编排。
-- ramag-tool-system 的普通监控页面；ramag-infra-system 仅按 3.1 的条件保留。
-- ramag-infra-update 的桌面更新流程；更新由 Electron 分发和安装流程统一负责。
-- ramag-tool-json-path、ramag-tool-json-path-wasm 的工具入口和 Web 适配。
-  纯计算逻辑可以迁移到 it-tools-template，但不再维护两套入口。
-- ramag-tool-collaboration、ramag-infra-collaboration 和 Relay 方向。
-  协作不是当前核心能力，暂缓到两个产品的本地数据边界稳定后再评估。
-
-移除是指从 Ramag 的默认构建、工具目录、GPUI 导航和当前路线中移除。删除源码前
-必须完成 it-tools-template 的功能矩阵、数据迁移说明和回滚版本。
-
-## 4. 独立产品边界
-
-it-tools-template 和 Ramag 各自维护自己的应用状态、凭据、存储、错误处理、
-更新流程和测试。两边可以记录相同的用户场景，例如“连接远程主机”或“查看系统状态”，
-但不要求共享参数模型、接口协议或内部实现。
-
-Ramag 的 Web 兼容性不属于当前产品目标。Ramag 的 GPUI 工作区只验证本机原生窗口、
-远程会话、终端输入、文件传输和本地安全边界。it-tools-template 继续独立验证
-Web/PWA 和 Electron 的平台差异。
-
-## 5. 当前执行队列
+## 4. 当前执行队列
 
 | 顺序 | ID | 内容 | 完成条件 |
 |---|---|---|---|
-| P0 | BOUNDARY-001 | 已建立能力归属矩阵，继续核对两边入口和回滚信息 | 两个仓库的矩阵、所有者、旧入口和回滚版本一致 |
-| P1 | TRANSFER-001 | 在 it-tools-template 收口数据库、API、Git、消息、容器、对象存储、剪贴板和普通系统监控 | 每项有 Electron 页面、错误/取消/权限验收和 Web 平台声明 |
-| P2 | RAMAG-SCOPE-REDUCE-001 | 从 Ramag 默认构建和导航移除已由 it-tools-template 独立承担的功能 | workspace 依赖收缩、文档链接更新、旧配置可读或有迁移提示 |
-| P3 | RAMAG-CORE-001 | 收口 SSH/SFTP/PTY、端口转发、本地安全和必要的低层采集 | GPUI 原生工作区的连接、取消、资源和权限边界明确 |
-| P4 | RAMAG-UI-001 | 完成保留核心的 GPUI 工作区验收 | 真实窗口、headless、错误恢复和跨平台状态分别记录 |
-| P5 | CORE-RELEASE-001 | 发布收缩后的 Ramag 原生产品版本 | Windows、Linux、macOS 的独立构建、资源和权限证据齐全 |
+| P0 | RAMAG-REMOVE-001 | 清理本机协作和 JSON Path 提取器的注册、窗口、领域、存储、独立 crate、脚本和工具目录引用 | 工作区不再构建或显示两个工具；其余工具注册顺序保持稳定 |
+| P1 | RAMAG-MAINT-001 | 对现有数据库、消息、Git、SSH、容器、对象存储、剪贴板和系统监控做缺陷、稳定性和性能维护 | 受影响 crate 的测试、fmt、Clippy 和构建通过 |
+| P2 | RAMAG-UI-001 | 持续打磨现有 GPUI Shell、首页、工具页、设置、错误和响应式布局 | 真实窗口与 headless 证据分开记录；不引入新业务入口 |
+| P3 | RAMAG-RELEASE-001 | 维护 Windows、Linux、macOS 构建、安装包、更新和发布说明 | 平台构建、资产、校验和发布记录一致 |
 
-在 P0 完成前，Ramag 不新增数据库、Git、API、Kafka、MQTT、容器、对象存储、
-剪贴板和普通系统监控功能。任何例外必须说明它为什么不能由 it-tools-template
-承担，并附基准或安全证据。
+P0 的代码清理已完成。P1 至 P3 只允许维护现有能力。任何新增范围都必须先更新本计划，
+并在用户明确说明后执行。
 
-## 6. 验收门槛
+## 5. 验收要求
 
-- Rust：受影响 crate 执行 cargo fmt --all -- --check、
-  cargo clippy --workspace --all-targets -- -D warnings、目标测试和
-  cargo build --locked -p ramag-bin。
-- 原生能力：记录真实系统、连接、取消、错误恢复、关闭和权限拒绝路径。
-- 场景对照：两项目只对照用户流程和功能边界，不把一个项目的测试结果写成另一个项目的证据。
-- UI：Ramag 的 GPUI 真实窗口和 headless 证据分开记录；不能用静态截图替代交互证据。
-- 数据库或消息集成只使用本机 Docker。PostgreSQL 使用 17+，MySQL 使用 8.4+；
-  纯协议或 UI 切片明确写“不适用”。
-- 文档：每个迁移切片记录所有者、旧入口、替代入口、兼容期、回滚方法和未完成证据。
+- Rust 变更执行 `cargo fmt --all -- --check`、严格 Clippy、受影响 crate 测试和
+  `cargo build --locked -p ramag-bin`。
+- UI 变更分别记录真实窗口、headless 和静态检查结果；启动成功不等于交互验收完成。
+- 数据库和消息集成只使用本机 Docker；不适用时明确记录“不适用”。
+- 保留功能的旧配置、用户数据和凭据不因移除两个工具而自动删除。
+- 文档必须区分当前路线和历史记录。历史记录保留在历史计划和归档中，不作为新的开发任务。
 
-## 7. 回滚边界
+## 6. 回滚边界
 
-迁移期间先停用旧入口，再删除实现。发现 it-tools-template 的替代能力不满足
-数据安全、取消、性能或错误恢复条件时，恢复对应 Ramag 工具注册，不恢复两套长期开发路线。
-已发布版本、用户连接、加密存储和凭据不自动删除；删除工具前提供配置读取或迁移提示。
+本次移除的回滚边界是 `RAMAG-REMOVE-001` 的代码、工作区清单、工具注册、存储表引用、
+脚本和文档。若发布版本仍需要读取旧数据库，保留数据库文件和其他工具的数据；不自动恢复
+本机协作或 JSON Path 提取器，也不删除用户数据。恢复这两个工具必须得到用户的明确说明。
