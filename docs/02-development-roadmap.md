@@ -85,7 +85,7 @@ Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、
 
 | 优先级 | ID | 内容 | 状态 | 必要证据 |
 |---|---|---|---|---|
-| P1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` | SSH/SFTP、API、Kafka、MQTT 编辑/连接工作区 | 进行中；API 状态修复、SSH 清理、Kafka/MQTT 本机 Docker 回归和 `ramag-bin` 构建已完成；真实拖动待确认，见 [专项计划](22-connection-workspace-acceptance-plan.md) | 连接、取消、保存、错误恢复、结果上下文；协议行为变化时使用本机 Docker |
+| P1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` | SSH/SFTP、API、Kafka、MQTT 编辑/连接工作区 | 进行中；API/SSH/Kafka/MQTT 目标测试、Docker 回归和 `ramag-bin` 构建已通过；真实拖动待确认，见 [专项计划](22-connection-workspace-acceptance-plan.md) | 连接、取消、保存、错误恢复、结果上下文；协议行为变化时使用本机 Docker |
 | P1 | `A-UI-REAL` | 全部已交付工具的真实 Windows 窗口补证 | 待执行；本轮 Computer Use 未提供原生窗口接口，先完成了有界启动和响应检查 | 鼠标、键盘、滚动、保存、取消和错误恢复的真实窗口记录 |
 | P2 | `A-PULSE-MOTION-001` / `A-PULSE-PROFILING-001` | 减少动画、过渡和发布性能采样 | 后置 | 独立 motion/p95/活动帧原始日志，不能用静态截图替代 |
 | P3 | `CANVAS-001..006` | 原生协同画布 | 暂停 | 阶段 A、B 完成后的场景模型、GPUI 编辑器和本机共享设计 |

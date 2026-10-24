@@ -1,8 +1,8 @@
 # 连接型工作区完整程序验收计划
 
 > 切片：`A-POST-0.5-CONNECTION-ACCEPTANCE-001`
-> 日期：2026-10-23
-> 状态：API 工作区读取竞态、SSH 清理、Kafka 和 MQTT 本机 Docker 回归已完成；下一步继续 API 原生窗口限制记录和连接型工作区回归
+> 日期：2026-10-24
+> 状态：API 工作区读取竞态、SSH 清理、Kafka 和 MQTT 本机 Docker 回归已完成；连接型工作区目标回归已通过，下一步继续 API 原生窗口限制记录和全局 UI 回归
 > 范围：完整程序中的 SSH/SFTP、API、Kafka 和 MQTT 编辑/连接工作区
 
 ## 问题证据
@@ -40,7 +40,7 @@ API 状态修复、SSH 清理、Kafka 和 MQTT 验收已完成。对应证据保
 | 顺序 | 子切片 | 进入条件 | 交付条件 |
 |---|---|---|---|
 | 1 | `A-POST-0.5-CONNECTION-API-ACCEPTANCE-002` API 页面和双分隔栏验收 | API 状态修复和 SSH 清理已完成 | 在隔离数据下验证 HTTP/gRPC 发送、保存、失败重试、取消、历史、响应上下文和两条分隔栏；有 Computer Use 时补真实拖动，否则保留“headless 已通过、原生拖动未验证” |
-| 2 | `A-POST-0.5-REGRESSION-001` 连接型工作区回归收口 | API、Kafka、MQTT 和 SSH 证据均已记录 | 完整程序构建；复核首页往返、主题、Settings、工具入口和本轮受影响工作区；更新本计划、主计划和测试报告；未完成的原生窗口证据继续单独列出 |
+| 2 | `A-POST-0.5-REGRESSION-001` 连接型工作区回归收口 | API、Kafka、MQTT 和 SSH 证据均已记录；目标测试和 `ramag-bin` 构建已通过 | 复核首页往返、主题、Settings、工具入口和本轮受影响工作区；更新本计划、主计划和测试报告；未完成的原生窗口证据继续单独列出 |
 
 ## 实施范围
 
@@ -104,8 +104,8 @@ git diff --check
 
 ## 连接型工作区回归记录
 
-- 目标测试：`ramag-tool-ssh --lib` 90 项、`ramag-tool-kafka --lib` 38 项、`ramag-infra-mqtt --lib` 2 项全部通过。
-- 构建：`cargo build --locked -p ramag-bin` 通过。
+- 目标测试：`ramag-tool-api --lib` 40 项、`ramag-tool-ssh --lib` 90 项、`ramag-tool-kafka --lib` 38 项、`ramag-infra-mqtt --lib` 2 项全部通过。
+- 构建：2026-10-24 执行 `cargo build --locked -p ramag-bin` 通过。
 - 质量门：提交前置检查完成 workspace 格式和严格 Clippy；源码尺寸和差异检查通过。
 - 当前限制：2026-10-24 已通过 Computer Use 进入完整程序的 API 页面，确认请求列表、编辑区、响应区和两条分隔栏均可见；本轮坐标拖动未产生可确认的宽度变化，原生拖动证据仍待补充。Headless 拖动测试继续通过。
 

@@ -45,8 +45,8 @@
 
 | 顺序 | 切片 | 状态 | 完成条件 |
 |---|---|---|---|
-| 1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` 编辑/连接型工作区核验 | 进行中；API 状态门禁、SSH、Kafka、MQTT 服务回归和 `ramag-bin` 构建已通过；API 真实拖动待确认 | 补充 API 原生窗口限制证据，再完成连接型工作区回归记录。详见 [专项计划](22-connection-workspace-acceptance-plan.md)。 |
-| 2 | `A-POST-0.5-REGRESSION-001` 全局回归与文档收口 | 后续 | 重新构建完整程序，复核首页往返、主题、全局 Settings、共享组件和本轮受影响工具；更新对应专项文档、测试报告和未完成项。 |
+| 1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` 编辑/连接型工作区核验 | 进行中；API 状态门禁、API/SSH/Kafka/MQTT 目标测试和 `ramag-bin` 构建已通过；API 真实拖动待确认 | 补充 API 原生窗口限制证据，再完成连接型工作区回归记录。详见 [专项计划](22-connection-workspace-acceptance-plan.md)。 |
+| 2 | `A-POST-0.5-REGRESSION-001` 全局回归与文档收口 | 进行中；连接型工作区目标测试和完整程序构建已通过，首页往返、主题、Settings 和共享组件复核待完成 | 复核首页往返、主题、全局 Settings、共享组件和本轮受影响工具；更新对应专项文档、测试报告和未完成项。 |
 
 ### 3.1 后置项目
 
