@@ -39,9 +39,9 @@
 
 ## 项目状态 / Project status
 
-本仓库 `bruceblink/ramag-platform` 是基于 [`tools-rs/ramag`](https://github.com/tools-rs/ramag) 演进的独立下游项目。应用仍使用 `Ramag` 品牌和现有 `ramag-*` crate，提供数据库、Git、SSH、对象存储、容器管理和剪贴板工作台；长期方向是把这些工具逐步收敛为可扩展的平台底座与内置插件。
+本仓库 `bruceblink/ramag-platform` 是基于 [`tools-rs/ramag`](https://github.com/tools-rs/ramag) 演进的独立下游项目。当前代码仍包含数据库、Git、SSH、对象存储、容器管理和剪贴板工具；新的主线只保留 SSH/SFTP/PTY、隧道、加密本地存储和经基准证明必要的原生采集，并把通用工作台交给 [it-tools-template](F:/project/it-tools-template/)。
 
-This repository, `bruceblink/ramag-platform`, is an independent downstream project based on [`tools-rs/ramag`](https://github.com/tools-rs/ramag). The application keeps the `Ramag` product name and existing `ramag-*` crates while the project evolves the current workspaces into an extensible platform with built-in plugins.
+This repository, `bruceblink/ramag-platform`, is an independent downstream project based on [`tools-rs/ramag`](https://github.com/tools-rs/ramag). The current source still contains the legacy workspaces, while the new mainline keeps only the native core and GPUI client; the shared product workspaces move to `it-tools-template`.
 
 | 可验证交付 | 当前状态 |
 |---|---|
@@ -63,13 +63,13 @@ tools-rs/ramag                         上游项目：通用修复和兼容性�
 bruceblink/ramag-platform              当前项目：平台化设计、内置插件和独立演进
 ```
 
-本项目不是上游仓库的镜像，也不会把平台化设计等待上游合并后才继续。提交上游的变更应保持单一职责、可独立验证，并从上游基线单独整理；只服务于本项目的平台核心、插件 API 和产品方向留在本仓库。
+本项目不是上游仓库的镜像，也不会把平台化设计等待上游合并后才继续。提交上游的变更应保持单一职责、可独立验证，并从上游基线单独整理。平台核心、原生能力协议和 GPUI 客户端留在本仓库；通用工具和 Electron 工作台由 `it-tools-template` 负责。
 
 This is not a mirror of the upstream repository. General fixes may be prepared as focused upstream pull requests, while the platform core, plugin API, and downstream product direction remain independently maintained here.
 
 ## 为什么选择 Ramag
 
-开发中最频繁的切换，不是语言或编辑器，而是数据、代码、远程主机和文件。Ramag 将这些本应关联的上下文放进一个原生窗口：查数据库时查看 Git 改动，通过 SSH 操作远程文件，管理已明确配置的对象存储，再按需找回剪贴上下文。
+Ramag 的新价值集中在原生连接和本地安全边界：通过 SSH/SFTP/PTY 处理远程主机，通过受控隧道维护会话。应用配置和凭据由 Electron 使用系统安全存储管理；只有原生核心需要共享秘密且 Electron 无法满足保护边界时，才由 Ramag 提供引擎级存储。数据库、Git、对象存储和其他通用工作台由 `it-tools-template` 统一承载，避免两个客户端重复建设同一产品。
 
 | 一个工作台 | 本地优先 | 面向真实数据量 | 原生交互 |
 |---|---|---|---|
@@ -358,7 +358,7 @@ Windows 用户可打开“设置 → 系统设置”，启用“关闭时最小�
 
 ## 项目结构
 
-Ramag Platform 是一个 Rust 2024 Cargo workspace，采用务实的 Clean Architecture：业务规则在内层，数据库、Git、SSH、云存储、剪贴板与 GPUI 都是外层实现，依赖只能向内。当前工具仍以编译期内置方式装配；插件化路线图描述的是后续平台演进，不表示已经支持第三方动态插件。
+Ramag Platform 是一个 Rust 2024 Cargo workspace，采用务实的 Clean Architecture。迁移期间 workspace 仍包含旧的数据库、Git、云存储和剪贴板 crate；目标结构只保留原生核心、协议、GPUI Shell 和必要的基础设施。当前工具仍以编译期内置方式装配；新的边界与删除顺序见 [最新开发计划](docs/01-development-plan.md) 和 [主线路线](docs/02-development-roadmap.md)。
 
 ```text
 ramag-bin              应用入口、依赖注入、快捷键与平台生命周期
@@ -417,6 +417,7 @@ Ramag 支持 Linux x86_64、macOS 12+（Apple Silicon / Intel）和 Windows 10/1
 - [性能报告：VCS、数据库与剪贴板](docs/performance.md)
 - [开发主线与设计文档](docs/README.md)
 - [执行计划](docs/01-development-plan.md)
+- [原生核心收缩与双端协议路线](docs/02-development-roadmap.md)
 - [System Pulse 优点吸收与差距矩阵](docs/04-system-pulse-gap-matrix.md)
 - [插件开发指南](docs/05-plugin-development-guide.md)
 - [架构说明](docs/06-architecture.md)

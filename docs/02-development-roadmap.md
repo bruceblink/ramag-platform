@@ -1,110 +1,122 @@
-# Ramag Platform 最新主线：单机桌面收口与原生工作区迁移
+# Ramag Platform 主线路线：原生核心收缩与双端协议
 
-> 状态：现行主线；阶段 A 负责 v0.5.0 后的 UI 与功能收口，阶段 B 负责已有原生工作区的真实窗口和跨平台证据，阶段 C（原生协同画布）后置。当前基线与切片顺序以 [`01-development-plan.md`](01-development-plan.md) 为准。Relay B4、生产 Relay、动态插件市场和画布实现不进入当前开发队列。
-> 更新日期：2026-10-23
-> 适用范围：所有 GPUI 工具和共享 UI
-> 共同验收标准：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
-> 系统监控替换与 UI 吸收：[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)
-> System Pulse 差距与执行顺序：[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)
-> 历史设计、待办与完成记录：[`archive/2026-09-25-pre-datagrip-rebaseline/`](archive/2026-09-25-pre-datagrip-rebaseline/)
+> 状态：现行路线
+> 更新日期：2026-10-24
+> 执行入口：[01-development-plan.md](01-development-plan.md)
+> 目标：把 Ramag 从“重复的全功能工具箱”收缩为原生核心能力和 GPUI 客户端
 
-## 术语表与命名约定
+## 1. 路线判断
 
-| 规范中文名 | English / Acronym | 本主线中的职责边界 | 不代表什么 |
+it-tools-template 已经具备 Vue、Web/PWA、Electron、插件和桌面数据库/系统监视能力。
+继续在 GPUI 中重复实现同一批通用工具，会同时增加 UI、协议、测试、发布和维护成本。
+因此，今后的路线以“一个产品所有者、一个能力协议、两个可选客户端”为准：
+
+    Web / PWA ──> it-tools-template 产品层
+    Electron ───> it-tools-template 产品层 ──> Electron 平台适配
+    GPUI ────────> ramag-engine 原生核心
+                                └────────────> ramag-protocol
+
+it-tools-template 拥有用户可见的通用工具和 Electron 工作台。
+ramag-platform 拥有原生核心服务、GPUI 客户端和共享协议。
+Web 只使用浏览器或 WASM 可用的部分。Electron 和 GPUI 对同一原生能力遵循同一协议。
+
+## 2. 功能归属路线
+
+| 路线 | it-tools-template 承担 | ramag-platform 只保留 |
+|---|---|---|
+| 通用工具 | 格式转换、编码、加密、文本、数据、网络、图片、JSON/YAML/XML 等 | 不保留重复入口 |
+| 数据与服务工作台 | 数据库、Redis、MongoDB、API、Kafka、MQTT | 不保留重复 GPUI 工作台 |
+| 开发工作台 | Git、容器、对象存储、普通系统监控、剪贴板 | 不保留重复产品页面 |
+| 原生连接 | Electron 页面、权限提示、历史和发布 | SSH/SFTP、PTY、隧道和会话安全 |
+| 本地安全 | 负责应用配置和凭据；原生核心只在需要时调用 | 仅在 Electron 无法满足共享保护边界时保留引擎级存储 |
+| 硬件诊断 | 普通采集和图表 | 仅保留有明确精度或资源优势的采集器 |
+| 协作与市场 | 暂缓或另行产品设计 | 不进入当前主线 |
+
+## 3. 阶段路线
+
+### 阶段 A：边界冻结
+
+目标是停止重复投资，建立逐项迁移表。为每个当前工具记录：
+
+- 用户入口和主要流程。
+- it-tools-template 的目标入口。
+- 是否需要 ramag-engine。
+- 数据、凭据、权限、取消和资源上限。
+- 替代完成条件、兼容期和回滚版本。
+
+阶段 A 完成前，不新增被标记为“迁移”的 GPUI 功能。
+
+### 阶段 B：产品能力转移
+
+由 it-tools-template 按优先级接收数据库、API、Git、消息系统、容器、对象存储、
+剪贴板和普通系统监控。每一项必须先有 Electron 可用流程，再从 Ramag 移除导航和默认构建。
+
+优先顺序：
+
+1. 数据库管理器和普通系统监控。
+2. API、Git 和对象存储。
+3. Redis、MongoDB、Kafka、MQTT。
+4. 容器管理、剪贴板和更新流程。
+5. 纯计算工具和 JSON Path 入口。
+
+顺序按重复度和迁移收益排序，不表示协议重要性排序。
+
+### 阶段 C：原生核心抽取
+
+把 SSH/SFTP/PTY、端口转发、加密本地存储和必要的低层采集从 GPUI 视图中抽成
+ramag-engine。引擎必须可以在无窗口环境运行，并提供：
+
+- 明确的能力注册和版本协商。
+- 连接、流式输出、分页、取消和超时。
+- 受控凭据访问和日志脱敏。
+- Electron 与 GPUI 的相同协议测试。
+
+### 阶段 D：双客户端接入
+
+GPUI 只实现原生核心工作区。Electron 使用 Vue 页面和主进程适配器调用同一引擎。
+两端的验收重点是操作结果和安全行为一致，不复制内部 UI 组件。
+
+### 阶段 E：删除重复实现
+
+完成替代验收后，删除 Ramag 中对应的 ramag-tool-*、基础设施依赖、入口注册、
+专项排期和过时截图。保留历史文档，但明确标记为历史。删除前检查：
+
+- 新入口覆盖原流程。
+- 旧配置可读取或有迁移提示。
+- 用户数据和凭据没有被删除。
+- workspace、安装包和文档不再引用旧工具。
+
+## 4. 当前队列
+
+| 优先级 | ID | 状态 | 下一步 |
 |---|---|---|---|
-| 主线 | Mainline | 规定所有工具采用统一工作区基线的顺序和依赖 | 不替代领域协议或驱动实现 |
-| 设计基线 | Design Baseline | 共享 UI 结构、令牌、交互和证据要求 | 不代表某个工具已经完成全部功能 |
-| 平台壳层 | Platform Shell | 窗口分区、标签、工具窗口、主题、命令和持久化布局 | 不包含数据库、Kafka 或 API 业务状态 |
-| 领域工作区 | Domain Workbench | 在平台壳层中实现某个工具的对象导航和核心操作 | 不表示所有工具共享相同的数据模型 |
-| 验收切片 | Acceptance Slice | 可以独立实现、验证、提交、推送和回滚的最小功能 | 不表示可以把多个产品线混在一次提交中 |
-| 历史基线 | Historical Baseline | 归档文档中已经完成或曾经排期的实现与证据 | 不表示自动满足新的视觉验收标准 |
-| 原生工具插件 | Native Tool Plugin | 使用 Rust 逻辑和 GPUI 视图接入桌面宿主的插件 | 不代表允许使用 WebView 或外部窗口 |
-| 计算核心 | Compute Core | 不依赖 GPUI 的解析、转换、校验或计算模块 | 不代表可以直接访问凭据、数据库或任意文件 |
-| 第一方工具目录 | First-party Catalog | 由项目维护、审查并随版本发布的工具清单 | 不代表第三方市场或不受信任代码已经开放 |
+| P0 | BOUNDARY-001 | 新路线起点 | 完成功能矩阵和所有者确认 |
+| P1 | TRANSFER-DB-SYSTEM-001 | 待开始 | 以 it-tools-template 现有数据库和系统监视器为首批替代 |
+| P1 | TRANSFER-WORKBENCH-001 | 待开始 | 接收 API、Git、对象存储和普通容器流程 |
+| P2 | TRANSFER-MESSAGE-001 | 待开始 | 接收 Redis、MongoDB、Kafka 和 MQTT |
+| P2 | ENGINE-NATIVE-001 | 待开始 | 抽取 SSH/SFTP/PTY、隧道和安全存储 |
+| P3 | DUAL-CLIENT-001 | 待开始 | Electron 与 GPUI 共享原生协议 |
+| P4 | RETIRE-DUPLICATES-001 | 待开始 | 删除重复工具、依赖、导航和路线 |
 
-## 1. 目标和边界
+当前旧的数据库、API、Kafka、SSH、容器和 Git UI 验收队列不再是新功能路线。
+它们只在迁移替代或核心抽取需要时继续维护。具体旧证据见专项文档和历史归档。
 
-Ramag 的整体视觉目标采用 System Pulse 的信息层级、领域配色、图表和短过渡，由 GPUI 实现紧凑、可扫描和流畅的原生工作区。用户继续在左侧对象导航、中央标签工作区和辅助工具窗口之间完成“定位对象、编辑内容、执行操作、检查结果、处理错误”的流程；数据库领域工作流继续参考 DataGrip。具体通过条件统一记录在 [`01-development-plan.md`](01-development-plan.md) 的统一验收门槛中。
+## 5. 质量门槛与停止条件
 
-“复刻 DataGrip”在本项目中的可执行含义是：复刻参考图所体现的核心工作区结构、信息层级、操作发现性、网格工作流和安全反馈；不承诺复制 DataGrip 的全部数据库方言、插件生态或内部实现。
+每个阶段独立设计、验证、提交和回滚。Rust 变更执行格式、严格 Clippy、目标测试和
+完整构建；原生连接使用本机 Docker 或真实本机服务；UI 证据区分 headless 与真实窗口。
 
-本主线新增以下产品边界：
+出现以下情况时停止扩大范围：
 
-- 桌面端所有插件界面使用原生 GPUI；WebView、嵌入式浏览器和把 Vue 页面直接装入桌面的方案不进入实现或验收范围。
-- IT Tools 只作为功能来源，按用户价值、迁移成本和数据风险逐项迁移；不以一次性重写全部网页工具为目标。
-- 轻量工具优先迁移为“标准工具入口 + 计算核心”；数据库、API、Git、SSH 和容器等复杂能力继续使用专用原生工作台。
-- Web 端与桌面端共享计算核心和测试样例即可；Web 端可选用 WASM，桌面端直接调用 Rust，不要求每个入口同时支持两个平台。
-- 本机优先保存和计算；远程协作只同步用户明确选择的非敏感文档或结果，凭据、连接配置和原始业务数据不自动同步。
-
-## 2. 当前基线（历史，不作为新验收结论）
-
-- 数据库、API、Kafka、SSH/终端、容器和 Git 均已有可运行的工具入口及不同程度的领域功能。
-- 数据库已有 SQL/MongoDB/Redis 查询、对象树、结果分页、编辑、事务、执行计划、差异和迁移相关能力；详细实现与测试记录已归档。
-- 共享 UI 已有 GPUI Kit、响应式弹窗、工具栏和多种 headless 边界测试，但真实窗口证据并不覆盖全部工具。
-- MySQL 8.4+、PostgreSQL 17+ 是当前数据库集成基线；旧版本记录仅作为历史事实保留。
-
-这些内容只能作为实现起点。新功能必须同时满足 [`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)，不能因为旧测试通过就跳过截图对应的布局、状态和操作验收。
-
-## 3. 阶段主线
-
-### 阶段 A：单机桌面功能收口（当前主线，与阶段 B 并行推进）
-
-阶段 A 只处理已经存在的桌面功能、验收证据和资源边界，不新增画布或远程 Relay 产品面。
-
-1. `A-DB-005`：已完成 MySQL 8.4 与 PostgreSQL 17 的迁移脚本回放和 PostgreSQL 失败回滚验证；保留脚本指纹、阶段复核、人工确认、回读和破坏性变更保护。
-2. `A-DB-RED-02`：已完成 MySQL 8.4/PostgreSQL 17 Docker 元数据和 `table_tree` headless 复验；真实 Windows 流程仍待补。
-3. `A-UI-REAL`：真实窗口探测受 Computer Use 环境阻塞，状态保持未完成；不把替代证据写成真实窗口通过。
-4. `A-P0C`：Windows 主线已完成系统凭据库、主密钥和插件秘密上下文的真实环境验收；Linux Secret Service、macOS Keychain 和发布环境仍待分别验收，验证失败时保留安全拒绝状态。
-5. `A-PLAT-005`：JSON Path 真实静态入口已完成 headless 运行指标、任务回收、WSL 当前进程内存多场景回放和 Windows 系统 UI Automation/截图替代验收；Linux/macOS、发布构建和 Computer Use 真实窗口证据仍待补。
-6. `A-QUALITY`：历史提交索引、数据库会话标签、结果工具栏、主题语义色和首页统一已完成相应代码/测试切片；当前未完成项只从 [`01-development-plan.md`](01-development-plan.md) 和专项文档读取，不重复维护旧的质量队列。`v0.5.0` 已于 2026-10-09 发布，正式资产和校验文件见 [`08-v0.5.0-ui-release-plan.md`](08-v0.5.0-ui-release-plan.md)。
-7. `A-SYSTEM-PULSE-001`/`A-SYSTEM-PULSE-UI-001` 已完成 System Pulse 采集替换与十页 UI 迁入；公共组件已建立。监控设置已并入 Ramag 全局 Settings，Shell、首页、设置及多项工具已完成公共样式首轮接入。当前 UI 修复、Disks/Network 真实窗口补证、对象存储数据源边界和逐工具验收以 [`01-development-plan.md`](01-development-plan.md) 为准；`04-system-pulse-gap-matrix.md` 保留系统监控领域的实施和历史证据。系统减少动画同步和发布性能采样后置，不阻挡已知功能或 UI 问题修复。
-
-阶段 A 的每个子项独立设计、验证、提交和推送；同一时间只有一个子项处于开发中。
-
-### 阶段 B：复杂工具原生工作区迁移（当前主线，与阶段 A 收口并行）
-
-阶段 B 按用户频率和领域风险逐个迁移复杂工具，不共享不适用的数据模型：
-
-1. `B-API-001`：API 工作区的请求编辑、环境、历史、响应和真实 Docker HTTP/gRPC 验收；`B-API-001-A/B/C` 已完成代码、headless 和本机 Docker 验收，`B-API-001-UI` 已完成 Windows 系统 UI Automation 与截图替代证据，Computer Use 原生窗口证据待运行时恢复；下一项进入 `B-KAFKA-001` 设计确认。
-2. `B-KAFKA-001`：Kafka 连接、Topic、消息、Schema Registry 和 Broker 状态工作区；`B-KAFKA-001-A/B` 已完成代码、headless、Windows 系统 UI Automation 取消流程替代证据和本机 Docker Kafka 成功连接/Topic/消息回读，Computer Use 原生窗口证据待运行时恢复。
-3. `B-SSH-001`：SSH/终端、SFTP、端口转发和连接生命周期工作区；`B-SSH-001-A` 已完成代码、headless 和 `10.17.17.114` 真实 OpenSSH/SFTP 回放，`B-SSH-001-B` 的 114 终端/端口转发回放由用户自行验证。
-4. `B-CONTAINER-001`：容器、镜像、日志、执行和资源状态工作区；筛选、历史/持续日志、导出、资源指标、列表与详情同屏布局、连接状态保留及 Docker inspect 详情映射已完成代码和对应 headless/Docker 验证。2026-10-05 使用完整程序与 Computer Use 确认引擎连接标记及容器运行、健康、创建时间信息均可见。
-5. `B-GIT-001`：Git 仓库、分支、差异、提交和推送工作区；`B-GIT-001-A` 至 `B-GIT-001-AC` 已完成对应代码与 headless/本地 Git 回放，继续按工作区状态刷新和异步边界推进。
-
-每个工具保留自己的连接、取消、错误、权限和数据模型；每个切片完成真实服务或本机 Docker 验收后再进入下一项。容器领域本次使用 Docker Engine `29.7.2 linux/amd64` 和无端口/挂载的 `alpine:3.22` 临时健康检查容器完成真实窗口核对，随后移除临时容器；其他 Docker 测试实例与数据卷未作更改。
-
-### 阶段 C：原生协同画布（后置）
-
-阶段 C 保留为产品方向，不进入当前队列。计划参考 [Excalidraw](https://github.com/excalidraw/excalidraw) 的无限画布、场景元素、撤销重做、导出和协同体验，在 Rust/GPUI 中重新实现，不使用 WebView。
-
-阶段 C 未来按 `CANVAS-001` 至 `CANVAS-006` 拆分：场景模型、自有 JSON、原生编辑器、本机加密保存、PNG/SVG 导出、本机共享、Web/WASM 核心适配，最后再评估实时 Relay。第一版不承诺 `.excalidraw` 双向兼容，不提前扩展账号、权限、生产持久化和动态插件市场。
-
-## 4. 当前交付队列
-
-2026-10-17 的队列只保留可执行的近期工作。v0.5.0 发布、System Pulse 采集替换和既有工具迁移记录作为完成基线，不重复排期。当前优先级为功能/UI 修复，其次是逐工具真实窗口证据；动效、发布性能和阶段 C 后置。
-
-| 优先级 | ID | 内容 | 状态 | 必要证据 |
-|---|---|---|---|---|
-| P1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` | SSH/SFTP、API、Kafka、MQTT 编辑/连接工作区 | 进行中；API/SSH/Kafka/MQTT 目标测试、Docker 回归和 `ramag-bin` 构建已通过；真实拖动待确认，见 [专项计划](22-connection-workspace-acceptance-plan.md) | 连接、取消、保存、错误恢复、结果上下文；协议行为变化时使用本机 Docker |
-| P1 | `A-UI-REAL` | 全部已交付工具的真实 Windows 窗口补证 | 待执行；本轮 Computer Use 未提供原生窗口接口，先完成了有界启动和响应检查 | 鼠标、键盘、滚动、保存、取消和错误恢复的真实窗口记录 |
-| P2 | `A-PULSE-MOTION-001` / `A-PULSE-PROFILING-001` | 减少动画、过渡和发布性能采样 | 后置 | 独立 motion/p95/活动帧原始日志，不能用静态截图替代 |
-| P3 | `CANVAS-001..006` | 原生协同画布 | 暂停 | 阶段 A、B 完成后的场景模型、GPUI 编辑器和本机共享设计 |
-
-## 5. 交付规则
-
-1. 先写设计、范围、不做事项和验收条件，再实现代码。
-2. 每个切片只包含一个可验收功能及其必要测试、文档或配置；测试通过后使用一个英文 Conventional Commit，并立即推送当前 `main`。
-3. 默认直接在 `main` 开发。用户明确指定功能分支时，基于最新 `main` 创建，验证后合并回 `main`，重新验证并推送，再确认源分支无未合并提交、未推送提交和关联 worktree 后清理。
-4. UI 先通过 headless GPUI 交互和边界测试；Computer Use 可用时补真实窗口流程。替代证据必须明确记录限制。
-5. 外部服务只使用本机 Docker；记录镜像、端口、健康状态、启动方式和清理方式。PostgreSQL 不低于 17，MySQL 不低于 8.4。
-6. 所有 Rust 项目提交前从 workspace 根目录依次通过 `cargo fmt --all -- --check` 和 `cargo clippy --workspace --all-targets -- -D warnings`；之后再次修改必须重新验证。
+- it-tools-template 尚未覆盖原流程的关键操作。
+- Electron 与 GPUI 的错误、取消、权限或数据上限不一致。
+- 迁移导致凭据、连接配置或本地数据丢失风险。
+- 新增能力只是在两个仓库复制同一套业务逻辑。
 
 ## 6. 明确不做
 
-- 不把参考图中的连接名、表名、数据值或尺寸当作固定业务数据。
-- 不把 DataGrip 全部功能、方言和插件生态列为本项目一次性目标。
-- 不以静态截图、仅编译成功或旧版本测试替代真实窗口、交互或本机 Docker 证据。
-- 不为统一外观而把 MongoDB、Redis、Kafka 或 SSH 强行套用 SQL 表格和事务语义。
-- 不在一个长期分支或一次提交中塞入多个工具的功能。
-- 不使用 WebView、嵌入式浏览器或网页页面作为桌面插件 UI。
-- 不把第三方动态插件、远程市场和自动同步敏感数据列入原生插件首个交付阶段。
+- 不在 Ramag 继续维护数据库、Git、API、Kafka、MQTT、容器、对象存储、剪贴板和普通系统监控的第二套产品 UI。
+- 不把 WebView 作为 GPUI 的替代实现。
+- 不要求 Electron 和 GPUI 使用相同的 UI 组件或源码。
+- 不在核心抽取完成前实现第三方动态插件市场、生产 Relay 或协同画布。
+- 不以编译成功、静态截图或自动化启动代替原生交互验收。

@@ -4,9 +4,9 @@
 
 | 编号 | 文档 | 职责 |
 |---|---|---|
-| 01 | [最新执行计划](01-development-plan.md) | 当前切片顺序、完成基线、验收门槛和交付规则 |
+| 01 | [最新执行计划](01-development-plan.md) | 当前职责边界、切片顺序、验收门槛和交付规则 |
 | 01 | [执行历史](01-development-plan-history.md) | 旧 `01` 的详细切片设计和验收记录 |
-| 02 | [主线路线图](02-development-roadmap.md) | 跨工具产品顺序、依赖和当前队列 |
+| 02 | [主线路线图](02-development-roadmap.md) | 原生核心收缩、跨项目迁移顺序、协议和当前队列 |
 | 03 | [数据库工作区路线图](03-database-client-datagrip-roadmap.md) | 数据库工作区功能、驱动差异和 DataGrip 风格验收 |
 | 03 | [System Pulse 采集与 UI 吸收](03-system-pulse-adoption-plan.md) | 采集替换、视觉基准、当前 UI 队列和逐工具证据 |
 | 04 | [插件平台路线图](04-plugin-platform-roadmap.md) | 插件 API、权限、生命周期、目录和协作边界 |

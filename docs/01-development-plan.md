@@ -1,108 +1,125 @@
 # Ramag Platform 最新开发计划
 
 > 状态：现行计划
-> 更新日期：2026-10-23
-> 本轮起点：`main` 与 `origin/main` 均为 `b68b951f`；`v0.6.0` 已发布。工具显示设置、入口增删和 S3 兼容驱动已完成；工具管理交互和对象存储列表验收已收口；Disks/Network 真实窗口核验已完成；Container、VCS 和插件列表工作区验收已完成；GPUI Kit 0.7.3 升级和 Ramag `v0.6.0` 发布已完成。代码审查发现 API 工作区首次读取期间仍可发送请求，且 SSH 验收的临时测试凭据尚未清理；下一切片先收口这两个风险，再继续 API、Kafka 和 MQTT 验收。
-> 当前主线：收口已有桌面工具的 UI 差异和功能状态；阶段 B 继续维护原生工作区；阶段 C 协同画布后置
+> 更新日期：2026-10-24
+> 当前基线：main 与 origin/main 已同步
+> 产品定位：原生核心能力运行时与 GPUI 客户端
+> 配套产品：[it-tools-template](F:/project/it-tools-template/) 负责 Web/PWA、Electron 产品壳和通用工具工作台
 
-本文件只描述当前可执行的开发顺序。旧的逐切片验收记录保存在
-[`01-development-plan-history.md`](01-development-plan-history.md)，不再作为新的排队入口。
+本计划只描述新的执行边界。旧的逐切片记录保存在
+[01-development-plan-history.md](01-development-plan-history.md)、专项计划和
+[历史归档](archive/2026-09-25-pre-datagrip-rebaseline/)。
+历史完成记录不自动变成新的开发范围。
 
-## 1. 目标与边界
+## 1. 决策原则
 
-当前版本的目标是让已有工具在真实工作流程中保持可读、可操作、可恢复。优先修复布局、字体、状态反馈、滚动、筛选、排序、删除/撤销和加载失败问题。已有数据库、API、Kafka、MQTT、SSH/SFTP、容器、Git、对象存储、剪贴板和 System Pulse 能力继续在原生 GPUI 工作区中演进。
+Ramag 只投入在 it-tools-template 无法低成本、稳定或安全替代的能力。每个新功能必须至少满足一项：
 
-本轮新增范围包括工具入口显示管理、首页和侧边栏的入口添加/移除，以及 S3 兼容对象存储账号，不扩大其他工具能力：
+1. 需要原生 PTY、系统级会话或受控本机权限。
+2. 需要 Rust 运行时的资源控制、取消、流式处理或跨平台协议实现。
+3. 是多个桌面客户端共同依赖、且需要统一保护边界的本地安全能力。
+4. 能形成稳定的原生能力协议，而不是另一套重复的产品界面。
 
-- 首页和侧边栏各自可以添加或移除已注册工具入口。移除只影响当前表面；工具注册、另一表面入口、配置和数据保持不变。
-- 首页和侧边栏使用统一的可搜索管理面板。每个工具行直接提供当前表面的添加或移除操作。设置页继续提供完整显示状态管理。
-- 不实现工具代码卸载、删除插件文件或第三方动态插件市场。
+“Electron 与 GPUI 实现完全相同的功能”在本计划中解释为**能力协议和用户操作结果一致**。两端可以使用不同的界面组件，但必须共享参数校验、权限、错误、取消、分页、进度和数据上限。暂不要求像素级 UI 相同。
 
-- 不启动原生协同画布、生产 Relay、Relay B4 或动态插件市场。
-- 不使用 WebView 或嵌入式浏览器替代原生工具工作区。
-- 不把静态截图、headless 渲染或成功启动写成真实窗口交互通过。
-- 不把本机硬件、跨平台、发布性能或 GitHub CI 的未验证结果写成已完成。
+## 2. 双项目职责边界
 
-## 2. 已完成基线
-
-| 范围 | 当前事实 | 证据 |
+| 能力 | it-tools-template | ramag-platform |
 |---|---|---|
-| 版本与主线 | `v0.6.0` 已正式发布；标签指向经验证的提交 `c086d172` | Desktop Release 工作流 `39010687567`、[GitHub Release](https://github.com/bruceblink/ramag-platform/releases/tag/v0.6.0) |
-| 首页与工具入口 | 第一方工具首页层级、入口和剪贴板状态已统一 | `c4c20d06`、`docs/08-v0.5.0-ui-release-plan.md` |
-| 剪贴板 | 删除后的搜索结果、详情、撤销恢复和失败通知已补齐测试路径 | `1dfb4ab3`、`docs/09-post-0.5.0-ui-fixes-plan.md` |
-| System Pulse 详细页 | Disks/Network 已通过参考程序与 Ramag 真实窗口核验；缺少辅助统计时显示明确状态 | `0ede5b9e`、[`docs/10-system-disks-network-plan.md`](10-system-disks-network-plan.md) |
-| 对象存储 | 账号列表已按窗口宽度切换行密度，窄窗口保留名称、元数据和操作可达 | `09c25b08`、`crates/ramag-tool-object-storage/src/views/render_test/account_tests.rs` |
-| 系统监控 | 采集替换、十页页面、进程排序/详情、Energy/Thermals 来源状态和 Settings 收口已完成主要代码切片 | [`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)、[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md) |
-| 首页与侧边栏工具入口 | 统一管理面板已替换原来的分离操作；搜索、连续添加和移除已通过测试与真实窗口验收 | [`17-tool-surface-manager-ux-plan.md`](17-tool-surface-manager-ux-plan.md) |
+| Web/PWA 和 Electron 应用壳 | 负责 | 不负责 |
+| 117 个通用工具、纯计算、格式转换和 WASM | 负责 | 只保留必要的纯 Rust 核心或测试样例 |
+| 数据库管理器（PostgreSQL、MySQL、SQLite） | 负责 Electron 工作台、连接、分页、编辑和历史 | 移除 GPUI 产品入口；仅在后续证明需要 Rust 引擎时保留可复用服务 |
+| Redis、MongoDB、API、Kafka、MQTT | 负责 Electron 工作台和平台适配 | 移除对应 GPUI 工具和专用产品路线 |
+| Git、对象存储、容器 | 负责 Electron 工作台和平台适配 | 移除对应 GPUI 工具和专用产品路线 |
+| 剪贴板历史、普通系统监控、更新和设置 | 负责 Electron 主进程与产品界面 | 移除重复 UI；只保留必要的原生采集或安全服务 |
+| SSH、SFTP、PTY 终端、端口转发 | 负责产品入口和状态展示；调用共享原生服务 | 保留 Rust 核心、终端内核、会话和安全边界 |
+| 加密凭据库、系统密钥库和本地安全存储 | 负责应用配置和凭据；仅在原生核心需要共享秘密时调用 | 只有 Electron 无法满足共享保护边界时才保留引擎级存储 |
+| 高精度硬件采集和低层系统诊断 | 显示结果，按能力声明选择性启用 | 只有在 Electron/Node 不能满足精度和资源边界时保留 |
+| GPUI Shell、原生窗口和键盘工作区 | 不负责 | 只承载保留下来的原生核心能力 |
 
-本轮 DBClient 切片使用隔离的 `ui-preview` 检查生产 Shell 和 DBClient 视图。真实窗口交互与 headless 检查分别记录。该入口不读取用户连接，也不会连接数据库。它不代表完整 `ramag.exe` 和其他工具已经完成原生窗口验收。
+两个仓库继续独立。it-tools-template 不依赖 ramag-platform 的 GPUI crate；
+双方通过版本化的 ramag-engine 本地服务和 ramag-protocol 本地接口协议连接。
+如果某项能力可以由 Electron 主进程稳定实现，就不再为它保留第二套 Rust 产品实现。
 
-## 3. 当前队列
+## 3. 当前项目的拆分结果
 
-同一时间只允许一个切片处于“开发中”。每个切片完成目标测试、匹配的 UI 验收和质量门后独立提交并推送 `main`。
+### 3.1 保留在 Ramag 的核心
 
-已完成切片已从当前队列移除。完成证据保留在第 2 节、对应专项计划和历史归档中。
+- ramag-domain：只保留原生能力实体、错误、预算、取消和协议模型。
+- ramag-app：只保留无界面的用例编排、能力目录和生命周期管理。
+- ramag-infra-ssh、ramag-terminal、ramag-infra-tunnel：保留 SSH/SFTP、PTY、端口转发和会话安全边界。
+- ramag-infra-storage：保留加密本地存储、主密钥和系统凭据库；不得向 UI 暴露任意文件或密钥。
+- ramag-ui、ramag-bin：收缩为 GPUI 原生核心客户端，不再装配通用工具目录。
+- ramag-infra-system：只在低层硬件或高精度采集有明确需求并通过基准后保留；普通 CPU、内存、磁盘、网络和进程页面迁移到 Electron。
 
-| 顺序 | 切片 | 状态 | 完成条件 |
+### 3.2 交给 it-tools-template 并从 Ramag 主产品移除
+
+以下功能的产品页面、状态管理、连接配置、驱动适配和发布验收全部转移到
+it-tools-template：
+
+- ramag-tool-dbclient、ramag-tool-redis、ramag-tool-mongodb 以及
+  ramag-infra-mysql、ramag-infra-postgres、ramag-infra-sqlite、
+  ramag-infra-sql-shared、ramag-infra-redis、ramag-infra-mongodb。
+- ramag-tool-api、ramag-infra-api。
+- ramag-tool-kafka、ramag-infra-kafka。
+- ramag-tool-mqtt、ramag-infra-mqtt。
+- ramag-tool-vcs、ramag-infra-git。
+- ramag-tool-object-storage、ramag-infra-object-storage。
+- ramag-tool-container、ramag-infra-container-docker、
+  ramag-infra-container-registry。
+- ramag-tool-clipboard、ramag-infra-clipboard 的产品页面和采集编排。
+- ramag-tool-system 的普通监控页面；ramag-infra-system 仅按 3.1 的条件保留。
+- ramag-infra-update 的桌面更新流程；更新由 Electron 分发和安装流程统一负责。
+- ramag-tool-json-path、ramag-tool-json-path-wasm 的工具入口和 Web 适配。
+  纯计算逻辑可以迁移到 it-tools-template，但不再维护两套入口。
+- ramag-tool-collaboration、ramag-infra-collaboration 和 Relay 方向。
+  协作不是当前核心能力，暂缓到两个产品的本地数据边界稳定后再评估。
+
+移除是指从 Ramag 的默认构建、工具目录、GPUI 导航和当前路线中移除。删除源码前
+必须完成 it-tools-template 的功能矩阵、数据迁移说明和回滚版本。
+
+## 4. 共享能力协议
+
+ramag-engine 只提供无界面服务。ramag-protocol 使用版本化请求和响应，至少包含：
+
+- protocol_version、capability、request_id。
+- 参数校验、连接生命周期、取消、超时、分页、流式进度和有界结果。
+- 可分类错误码，不返回密码、令牌、完整连接字符串或无界原始输入。
+- 能力声明、权限范围和客户端版本协商。
+- Electron 主进程和 GPUI 客户端都使用同一套协议测试。
+
+Web 端只注册可在浏览器或 WASM 中完成的能力。需要本机权限的能力在 Web 中显示平台限制，
+不能通过通用 Node、Shell 或文件系统接口绕过边界。
+
+## 5. 当前执行队列
+
+| 顺序 | ID | 内容 | 完成条件 |
 |---|---|---|---|
-| 1 | `A-POST-0.5-CONNECTION-ACCEPTANCE-001` 编辑/连接型工作区核验 | 进行中；API 状态门禁、API/SSH/Kafka/MQTT 目标测试和 `ramag-bin` 构建已通过；API 真实拖动待确认 | 补充 API 原生窗口限制证据，再完成连接型工作区回归记录。详见 [专项计划](22-connection-workspace-acceptance-plan.md)。 |
-| 2 | `A-POST-0.5-REGRESSION-001` 全局回归与文档收口 | 进行中；145 项 `ramag-ui` 全局 UI 测试、连接型工作区目标测试、完整程序构建以及首页、主题、Settings 真实窗口路径已通过；API 分隔栏拖动待确认 | 复核首页往返、主题、全局 Settings、共享组件和本轮受影响工具；更新对应专项文档、测试报告和未完成项。 |
+| P0 | BOUNDARY-001 | 冻结功能清单，标记保留、迁移、删除和暂缓项 | 两个仓库的功能矩阵、所有者、旧入口和回滚版本一致 |
+| P1 | TRANSFER-001 | 在 it-tools-template 收口数据库、API、Git、消息、容器、对象存储、剪贴板和普通系统监控 | 每项有 Electron 页面、错误/取消/权限验收和 Web 平台声明 |
+| P2 | ENGINE-001 | 抽取 SSH/SFTP/PTY、端口转发、加密存储和可选硬件采集为 ramag-engine | headless 服务可独立运行；协议版本、预算和取消测试通过 |
+| P3 | DUAL-CLIENT-001 | GPUI 核心客户端和 Electron 主进程接入同一原生能力协议 | 同一测试样例下操作结果、错误、取消和安全边界一致 |
+| P4 | RETIRE-001 | 从 Ramag 默认构建和导航移除已迁移工具 | workspace 依赖收缩、文档链接更新、旧配置可读或有迁移提示 |
+| P5 | CORE-RELEASE-001 | 发布收缩后的原生核心版本 | Windows、Linux、macOS 的核心能力分别有构建、资源和权限证据 |
 
-### 3.1 后置项目
+在 P0 完成前，Ramag 不新增数据库、Git、API、Kafka、MQTT、容器、对象存储、
+剪贴板和普通系统监控功能。任何例外必须说明它为什么不能由 it-tools-template
+承担，并附基准或安全证据。
 
-以下项目不阻挡前面的功能修复和逐工具 UI 核验：
+## 6. 验收门槛
 
-- `A-PULSE-MOTION-001`：减少动画偏好、可中断过渡和停止空闲重绘。
-- `A-PULSE-PROFILING-001`：发布构建的点击反馈、活动帧和资源上限采样。
-- `A-UI-REAL`：在 Computer Use 恢复后补齐需要真实 Windows 窗口的鼠标、键盘、滚动、保存和错误恢复证据。
-- Linux/macOS 原生窗口、真实硬件精度、系统凭据的非 Windows 后端和正式签名包验证。
+- Rust：受影响 crate 执行 cargo fmt --all -- --check、
+  cargo clippy --workspace --all-targets -- -D warnings、目标测试和
+  cargo build --locked -p ramag-bin。
+- 原生能力：记录真实系统、连接、取消、错误恢复、关闭和权限拒绝路径。
+- 协议：Electron 与 GPUI 使用相同请求样例、错误码、取消和结果上限测试。
+- UI：GPUI 真实窗口和 headless 证据分开记录；不能用静态截图替代交互证据。
+- 数据库或消息集成只使用本机 Docker。PostgreSQL 使用 17+，MySQL 使用 8.4+；
+  纯协议或 UI 切片明确写“不适用”。
+- 文档：每个迁移切片记录所有者、旧入口、替代入口、兼容期、回滚方法和未完成证据。
 
-后置项目必须使用独立验收条件和证据，不能用本机 headless 结果替代。
+## 7. 回滚边界
 
-## 4. 统一验收门槛
-
-### 4.1 设计确认
-
-每个切片开始前记录问题证据、用户流程、改动范围、不做事项、回滚边界和验收条件。修改公共 `ramag-ui` 组件时，同时列出实际消费者和回归范围。
-
-### 4.2 UI 条件
-
-- 明暗主题、标准字号 16px 与最大字号 18px，检查 `360x640`、`1024x768`、`1440x900`；`360x640` 为 headless 防御检查，原生窗口按工具最小宽度执行。
-- 检查真实控件命中、键盘焦点、滚动范围、长名称、空/加载/成功/失败/取消状态和主要操作可达性。
-- 记录 headless、Computer Use、系统截图和服务回放的证据边界。任一证据缺失时，状态写为“未完成”或“部分完成”。
-
-### 4.3 Rust 与服务验证
-
-受影响 Rust crate 至少执行目标测试、格式、严格 Clippy、源码尺寸和差异检查；公共组件或存储改动追加 workspace 测试和完整 `ramag-bin` 构建。
-
-```powershell
-& .\scripts\windows\invoke-cargo-msvc.ps1 -CargoCommand test -CargoOptions @('--locked','-p','<受影响crate>','--lib','--','--test-threads=1')
-cargo fmt --all -- --check
-cargo clippy --locked --workspace --all-targets -- -D warnings
-& .\scripts\windows\check-source-size.ps1
-git diff --check
-cargo build --locked -p ramag-bin
-```
-
-文本文件使用 LF。数据库和协议集成只使用本机 Docker；PostgreSQL 使用 17+，MySQL 使用 8.4+，并记录镜像、端口、健康状态、启动结果和清理结果。纯 UI、监控和本地偏好切片标记 Docker 为“不适用”。
-
-### 4.4 交付规则
-
-验证必须针对最终文件执行。每个独立功能使用一个英文 Conventional Commit，并立即推送当前 `main`。不提交未说明的无关修改。任何后续源码修改都必须重新运行受影响检查。
-
-## 5. 证据记录模板
-
-每个切片在对应专项文档中记录：
-
-1. 切片 ID、日期、提交、分支和推送结果。
-2. 问题证据、设计、范围、不做事项和回滚边界。
-3. 目标测试、完整命令、退出码、测试环境和测试数据。
-4. UI 尺寸、主题、字号、操作步骤及 headless/真实窗口结果。
-5. Docker 服务与清理结果，或明确写“不适用”。
-6. 未完成项、证据限制和下一项依赖。
-
-专项入口：[`02-development-roadmap.md`](02-development-roadmap.md)、[`03-system-pulse-adoption-plan.md`](03-system-pulse-adoption-plan.md)、[`04-system-pulse-gap-matrix.md`](04-system-pulse-gap-matrix.md)、[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)、[`09-post-0.5.0-ui-fixes-plan.md`](09-post-0.5.0-ui-fixes-plan.md)、[`10-system-disks-network-plan.md`](10-system-disks-network-plan.md)、[`12-tool-visibility-plan.md`](12-tool-visibility-plan.md)、[`13-object-storage-s3-compatibility-plan.md`](13-object-storage-s3-compatibility-plan.md)、[`15-tool-surface-quick-actions-plan.md`](15-tool-surface-quick-actions-plan.md)、[`16-object-storage-list-acceptance-plan.md`](16-object-storage-list-acceptance-plan.md)、[`17-tool-surface-manager-ux-plan.md`](17-tool-surface-manager-ux-plan.md)。
-
-## 6. 回滚边界
-
-普通 UI 或功能切片只回滚对应渲染模块、状态逻辑、目标测试和专项文档；公共组件改动必须同时回归其消费者。不得回滚 `v0.5.0` 标签、已发布资产、用户连接、用户剪贴板历史或全局 Codex 配置。
+迁移期间先停用旧入口，再删除实现。发现 it-tools-template 的替代能力不满足
+数据安全、取消、性能或错误恢复条件时，恢复对应 Ramag 工具注册，不恢复两套长期开发路线。
+已发布版本、用户连接、加密存储和凭据不自动删除；删除工具前提供配置读取或迁移提示。
