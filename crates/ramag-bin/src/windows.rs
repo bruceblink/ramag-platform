@@ -8,6 +8,8 @@ use ramag_ui::SystemSettings;
 // Preserve Pulse's 960x640 content area after Ramag's 48px rail and 32px header.
 const MAIN_WINDOW_MIN_WIDTH: f32 = 1008.0;
 const MAIN_WINDOW_MIN_HEIGHT: f32 = 672.0;
+const MAIN_WINDOW_DEFAULT_WIDTH: f32 = 1200.0;
+const MAIN_WINDOW_DEFAULT_HEIGHT: f32 = MAIN_WINDOW_DEFAULT_WIDTH / ramag_ui::GOLDEN_RATIO;
 
 /// 主窗口重建时复用的依赖。
 #[derive(Clone)]
@@ -122,7 +124,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         .get("last_tool")
         .filter(|tool| !tool.is_empty())
         .cloned();
-    // 恢复窗口尺寸；无记录则居中最大化。
+    // 恢复窗口尺寸；无记录则居中创建黄金分割比窗口。
     let saved_bounds = window_preferences
         .get(ramag_ui::WindowBoundsPref::PREF_KEY)
         .and_then(|json| match ramag_ui::WindowBoundsPref::parse(json) {
@@ -155,7 +157,14 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         storage,
         collaboration_relay,
     } = deps;
-    let fallback = Bounds::centered(None, size(px(1200.0), px(780.0)), cx);
+    let fallback = Bounds::centered(
+        None,
+        size(
+            px(MAIN_WINDOW_DEFAULT_WIDTH),
+            px(MAIN_WINDOW_DEFAULT_HEIGHT),
+        ),
+        cx,
+    );
     let window_bounds = match &saved_bounds {
         Some(p) => {
             let b = Bounds::new(
@@ -174,14 +183,14 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     reason = "off_screen",
                     "saved window position is off-screen; falling back to centered"
                 );
-                WindowBounds::Maximized(fallback)
+                WindowBounds::Windowed(fallback)
             } else if p.maximized {
                 WindowBounds::Maximized(b)
             } else {
                 WindowBounds::Windowed(b)
             }
         }
-        None => WindowBounds::Maximized(fallback),
+        None => WindowBounds::Windowed(fallback),
     };
 
     cx.spawn(async move |cx| {
@@ -383,8 +392,8 @@ pub(super) fn spawn_instance_activation(
 #[cfg(test)]
 mod tests {
     use super::{
-        MAIN_WINDOW_MIN_HEIGHT, MAIN_WINDOW_MIN_WIDTH, quit_mode_for_window_close,
-        should_keep_running_in_tray,
+        MAIN_WINDOW_DEFAULT_HEIGHT, MAIN_WINDOW_DEFAULT_WIDTH, MAIN_WINDOW_MIN_HEIGHT,
+        MAIN_WINDOW_MIN_WIDTH, quit_mode_for_window_close, should_keep_running_in_tray,
     };
     use ramag_ui::SystemSettings;
 
@@ -439,5 +448,13 @@ mod tests {
     fn main_window_minimum_matches_compact_ui_acceptance_size() {
         assert_eq!(MAIN_WINDOW_MIN_WIDTH, 1008.0);
         assert_eq!(MAIN_WINDOW_MIN_HEIGHT, 672.0);
+    }
+
+    #[test]
+    fn main_window_default_follows_the_golden_ratio() {
+        assert!(
+            (MAIN_WINDOW_DEFAULT_WIDTH / MAIN_WINDOW_DEFAULT_HEIGHT - ramag_ui::GOLDEN_RATIO).abs()
+                < 0.001
+        );
     }
 }

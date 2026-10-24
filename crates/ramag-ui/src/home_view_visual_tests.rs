@@ -132,13 +132,19 @@ fn home_view_scrolls_and_fits_compact_windows(cx: &mut TestAppContext) {
             ] {
                 let card = bounds(visual_cx, selector);
                 assert!(card.origin.x >= grid.origin.x && card.right() <= grid.right());
-                assert_eq!(card.size.height, px(super::TOOL_CARD_HEIGHT));
+                let card_width = f32::from(card.size.width);
+                let card_height = f32::from(card.size.height);
+                assert!((card_width / card_height - super::GOLDEN_RATIO).abs() < 0.01);
                 let title = bounds(visual_cx, title_selector);
                 let description = bounds(visual_cx, description_selector);
                 assert!(title.origin.x >= card.origin.x && title.right() <= card.right());
                 assert!(title.bottom() <= description.origin.y);
                 assert!(description.right() <= card.right());
                 assert!(description.bottom() <= card.bottom());
+                assert!(
+                    description.size.height > px(36.0),
+                    "描述区应填充黄金比例卡片的剩余空间: {description:?} / {card:?}"
+                );
             }
         }
     }
@@ -187,7 +193,9 @@ fn home_cards_open_and_reorder_in_compact_windows(cx: &mut TestAppContext) {
         moved.origin.y >= middle.bottom(),
         "reordered card should follow the previous last card: moved={moved:?}, middle={middle:?}"
     );
-    assert_eq!(moved.size.height, px(super::TOOL_CARD_HEIGHT));
+    let moved_width = f32::from(moved.size.width);
+    let moved_height = f32::from(moved.size.height);
+    assert!((moved_width / moved_height - super::GOLDEN_RATIO).abs() < 0.01);
     assert_eq!(host.read_with(visual, |host, _| host.opened.len()), 1);
 }
 

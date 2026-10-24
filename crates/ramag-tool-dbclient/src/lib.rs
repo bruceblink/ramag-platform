@@ -53,7 +53,7 @@ impl DbClientTool {
             meta: ToolMeta::new(
                 Self::ID,
                 "数据库客户端",
-                "MySQL / PostgreSQL / Redis / MongoDB 统一入口",
+                "MySQL/PostgreSQL/Redis/MongoDB 统一入口",
             )
             .with_icon("database"),
         }

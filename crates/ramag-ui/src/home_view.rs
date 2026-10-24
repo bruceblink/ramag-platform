@@ -17,6 +17,7 @@ use gpui_kit::{
 
 use ramag_app::ToolRegistry;
 
+use crate::GOLDEN_RATIO;
 use crate::activity_bar::ActivityBar;
 use crate::tool_layout::{
     DRAGGED_ITEM_OPACITY, HomeDropLayout, ToolDrag, ToolDragGlobal, ToolDragPreview,
@@ -35,7 +36,6 @@ pub enum HomeEvent {
 }
 
 const TOOL_CARD_WIDTH: f32 = 280.0;
-const TOOL_CARD_HEIGHT: f32 = 96.0;
 const TOOL_CARD_GAP: f32 = 16.0;
 const TOOL_GRID_WIDTH: f32 = TOOL_CARD_WIDTH * 3.0 + TOOL_CARD_GAP * 2.0;
 
@@ -111,6 +111,7 @@ impl Render for HomeView {
         let window_width = f32::from(window.bounds().size.width);
         let compact = window_width < 640.0;
         let card_width = home_card_width(window_width);
+        let card_height = home_card_height(card_width);
 
         let mut accent_border = accent;
         accent_border.a = 0.55;
@@ -131,7 +132,7 @@ impl Render for HomeView {
         let item_count = current_order.len();
         let home_layout = HomeDropLayout {
             width: card_width,
-            height: TOOL_CARD_HEIGHT,
+            height: card_height,
             item_count,
             columns,
             gap: TOOL_CARD_GAP,
@@ -182,7 +183,7 @@ impl Render for HomeView {
                 .id(card_id)
                 .debug_selector(move || debug_card_id.to_string())
                 .w(px(card_width))
-                .h(px(TOOL_CARD_HEIGHT))
+                .h(px(card_height))
                 .p(px(12.0))
                 .gap(px(8.0))
                 .bg(card_background)
@@ -235,6 +236,7 @@ impl Render for HomeView {
                                 .flex_1()
                                 .min_w_0()
                                 .overflow_hidden()
+                                .whitespace_nowrap()
                                 .text_ellipsis()
                                 .text_sm()
                                 .font_weight(gpui_kit::FontWeight::SEMIBOLD)
@@ -254,9 +256,12 @@ impl Render for HomeView {
                         .debug_selector(move || description_selector.clone())
                         .w_full()
                         .min_w_0()
-                        .h(px(36.0))
+                        .flex_1()
+                        .min_h_0()
                         .overflow_hidden()
+                        .whitespace_normal()
                         .text_xs()
+                        .line_height(gpui_kit::rems(1.35))
                         .text_color(muted_fg)
                         .child(description),
                 );
@@ -423,7 +428,12 @@ fn home_card_width(window_width: f32) -> f32 {
     }
 }
 
-/// Calculate the animation start using the card width currently rendered by the grid.
+/// Keep the card's height proportional when a compact window shrinks its width.
+fn home_card_height(card_width: f32) -> f32 {
+    card_width / GOLDEN_RATIO
+}
+
+/// Calculate the animation start using the card dimensions currently rendered by the grid.
 fn reorder_animation_offset_for_width(
     previous_slots: &[Option<String>],
     current_slots: &[Option<String>],
@@ -453,7 +463,8 @@ fn reorder_animation_offset_for_width(
     let current_row = current_index / columns;
     (
         px((previous_column as f32 - current_column as f32) * (card_width + TOOL_CARD_GAP)),
-        px((previous_row as f32 - current_row as f32) * (TOOL_CARD_HEIGHT + TOOL_CARD_GAP)),
+        px((previous_row as f32 - current_row as f32)
+            * (home_card_height(card_width) + TOOL_CARD_GAP)),
     )
 }
 
@@ -495,7 +506,16 @@ mod visual_tests;
 
 #[cfg(test)]
 mod tests {
-    use super::{TOOL_CARD_WIDTH, grid_columns, reorder_animation_offset_for_width};
+    use super::{
+        GOLDEN_RATIO, TOOL_CARD_WIDTH, grid_columns, home_card_height,
+        reorder_animation_offset_for_width,
+    };
+
+    #[test]
+    fn tool_cards_follow_the_golden_ratio() {
+        assert!((TOOL_CARD_WIDTH / home_card_height(TOOL_CARD_WIDTH) - GOLDEN_RATIO).abs() < 0.001);
+        assert!((240.0 / home_card_height(240.0) - GOLDEN_RATIO).abs() < 0.001);
+    }
 
     #[test]
     fn grid_columns_follow_the_fixed_card_width() {
