@@ -107,7 +107,7 @@ git diff --check
 - 目标测试：`ramag-tool-api --lib` 40 项、`ramag-tool-ssh --lib` 90 项、`ramag-tool-kafka --lib` 38 项、`ramag-infra-mqtt --lib` 2 项全部通过；`ramag-ui --lib` 全局 UI 测试 145 项通过。
 - 构建：2026-10-24 执行 `cargo build --locked -p ramag-bin` 通过。
 - 质量门：提交前置检查完成 workspace 格式和严格 Clippy；源码尺寸和差异检查通过。
-- 当前限制：2026-10-24 已通过 Computer Use 进入完整程序的 API 页面，确认请求列表、编辑区、响应区和两条分隔栏均可见；本轮坐标拖动未产生可确认的宽度变化，后续首页、主题和 Settings 路径又遇到窗口输入竞争，真实窗口证据仍待补充。Headless 拖动测试继续通过。
+- 当前限制：2026-10-24 已通过 Computer Use 进入完整程序的 API 页面，确认请求列表、编辑区、响应区和两条分隔栏均可见；同日完成首页真实窗口、深色/浅色主题切换恢复、全局 Settings 系统页和数据库客户端页导航。API 分隔栏坐标拖动未产生可确认的宽度变化，原生拖动证据仍待补充。Headless 拖动测试继续通过。
 
 ## API 工作区读取状态修复记录
 
