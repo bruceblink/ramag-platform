@@ -313,6 +313,11 @@ fn result_status_keeps_paging_controls_visible_in_small_window(cx: &mut TestAppC
                 && horizontal_scrollbar.bottom() <= status_bar.origin.y,
             "水平滚动条不能覆盖状态栏：scrollbar={horizontal_scrollbar:?}, status_bar={status_bar:?}"
         );
+        assert_eq!(
+            horizontal_scrollbar.bottom(),
+            status_bar.origin.y,
+            "水平滚动条与状态栏之间不能留空：scrollbar={horizontal_scrollbar:?}, status_bar={status_bar:?}"
+        );
         assert!(
             next_page.right() <= status_bar.right(),
             "分页按钮不能被长状态文本推出状态栏"

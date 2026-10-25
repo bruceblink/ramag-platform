@@ -138,6 +138,11 @@ fn final_virtual_row_and_pagination_stay_inside_result_regions(cx: &mut TestAppC
         horizontal_scrollbar.bottom() <= status_bar.origin.y,
         "水平滚动条不能覆盖分页状态栏：horizontal={horizontal_scrollbar:?}, status={status_bar:?}"
     );
+    assert_eq!(
+        horizontal_scrollbar.bottom(),
+        status_bar.origin.y,
+        "水平滚动条与分页状态栏之间不能留空：horizontal={horizontal_scrollbar:?}, status={status_bar:?}"
+    );
     for (label, bounds) in [
         ("page range", page_range),
         ("pagination controls", pagination_controls),
@@ -177,6 +182,27 @@ fn final_virtual_row_and_pagination_stay_inside_result_regions(cx: &mut TestAppC
         after_left_edge_click > before_left_edge_click,
         "横向滚动位于起点时，右侧垂直滚动条仍须响应点击并向上滚动：before={before_left_edge_click:?}, after={after_left_edge_click:?}"
     );
+
+    cx.run_until_parked();
+    let before_track_click = panel.read_with(cx, |panel, _| panel.h_scroll.offset().x);
+    cx.simulate_click(
+        point(
+            horizontal_scrollbar.right() - px(2.0),
+            horizontal_scrollbar.bottom() - px(2.0),
+        ),
+        Modifiers::default(),
+    );
+    panel.read_with(cx, |panel, _| {
+        assert!(
+            panel.h_scroll.offset().x < before_track_click,
+            "点击底部轨道必须移动结果列；轨道不能是滚动条下方的空白区域"
+        );
+        assert_eq!(
+            panel.uniform_scroll.0.borrow().base_handle.offset().y,
+            after_left_edge_click,
+            "横向轨道点击不能移动结果行"
+        );
+    });
 
     panel.update(cx, |panel, cx| {
         let max_horizontal_offset = panel.h_scroll.max_offset().x;

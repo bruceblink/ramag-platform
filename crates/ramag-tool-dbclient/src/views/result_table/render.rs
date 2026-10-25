@@ -5,6 +5,8 @@ use crate::views::result_value::display_cell_value;
 use gpui_kit::component::IconName;
 use ramag_ui::RestrictUniformListToAxisExt as _;
 
+const HORIZONTAL_SCROLLBAR_HEIGHT: gpui_kit::Pixels = px(10.0);
+
 /// 构建 SQL 结果表：复用虚拟行列表，并把宽列内容交给可拖拽的横向滚动条浏览。
 #[allow(clippy::too_many_arguments)]
 pub(in crate::views) fn render_table(
@@ -541,13 +543,26 @@ pub(in crate::views) fn render_table(
         .debug_selector(|| "result-h-scrollbar".into())
         .flex_none()
         .w_full()
-        .h(px(16.0))
+        .h(HORIZONTAL_SCROLLBAR_HEIGHT)
         .relative()
         .bg(cx.theme().scrollbar)
         .child(
             Scrollbar::horizontal(panel.h_scroll())
                 .id("result-h-scrollbar-control")
-                .scroll_size(gpui_kit::size(frame.total_content_width, px(16.0)))
+                // 独立轨道用自身布局定位，避免按表格视口绘制后留下整行空白。
+                .viewport_from_layout()
+                .scroll_size(gpui_kit::size(
+                    frame.total_content_width,
+                    HORIZONTAL_SCROLLBAR_HEIGHT,
+                ))
+                // Keep the horizontal thumb flush with the footer edge in every interaction state.
+                .styles(|styles| {
+                    styles
+                        .track(|track| track.width(HORIZONTAL_SCROLLBAR_HEIGHT))
+                        .thumb(|thumb| thumb.inset(px(0.0)))
+                        .thumb_hover(|thumb| thumb.inset(px(0.0)))
+                        .thumb_active(|thumb| thumb.inset(px(0.0)))
+                })
                 .mode(ScrollbarMode::Always),
         );
 
