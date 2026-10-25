@@ -16,13 +16,13 @@ pub(super) fn render_editor(
             format!("FileDescriptorSet · {} bytes", bytes.len())
         }
     };
-
-    v_flex()
-        .id("api-grpc-fields")
-        .debug_selector(|| "api-grpc-fields".into())
-        .w_full()
+    let body = v_flex()
+        .id("api-grpc-body")
+        .debug_selector(|| "api-grpc-body".into())
+        .flex_1()
+        .min_h_0()
         .min_w_0()
-        .gap(px(10.0))
+        .gap(px(8.0))
         .child(
             row().child(field(
                 "Descriptor",
@@ -57,6 +57,21 @@ pub(super) fn render_editor(
                     ),
             )),
         )
+        .child(Editor::new(&view.grpc_message).flex_1().min_h(px(180.0)))
+        .child(render_catalog(view, cx, theme))
+        .into_any_element();
+    let metadata = v_flex()
+        .id("api-grpc-metadata")
+        .debug_selector(|| "api-grpc-metadata".into())
+        .w_full()
+        .min_w_0()
+        .gap(px(8.0))
+        .child(
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("自定义 gRPC Metadata"),
+        )
         .child(
             row()
                 .child(field(
@@ -68,19 +83,24 @@ pub(super) fn render_editor(
                     Input::new(&view.grpc_metadata_value).small(),
                 )),
         )
-        .child(view.auth_editor.render(cx, theme))
-        .child(
-            v_flex()
-                .gap(px(5.0))
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("Protobuf JSON（流式请求每行一个对象）"),
-                )
-                .child(Editor::new(&view.grpc_message)),
-        )
-        .child(render_catalog(view, cx, theme))
+        .into_any_element();
+    let content = match view.request_tab {
+        ApiRequestTab::Body | ApiRequestTab::Params | ApiRequestTab::Headers => body,
+        ApiRequestTab::Metadata => metadata,
+        ApiRequestTab::Auth => view.auth_editor.render(cx, theme),
+        ApiRequestTab::Advanced => super::render_helpers::render_context_editor(view, theme),
+    };
+
+    v_flex()
+        .id("api-grpc-fields")
+        .debug_selector(|| "api-grpc-fields".into())
+        .w_full()
+        .flex_1()
+        .min_w_0()
+        .min_h_0()
+        .gap(px(8.0))
+        .child(super::render::render_request_tabs(view, cx))
+        .child(content)
         .into_any_element()
 }
 

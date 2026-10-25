@@ -5,7 +5,7 @@ use super::*;
 use gpui_kit::ClickEvent;
 use gpui_kit::FontWeight;
 use gpui_kit::component::tab::{Tab, TabBar};
-use gpui_kit::component::{IconName, button::ButtonVariants as _};
+use gpui_kit::component::{Icon, IconName, button::ButtonVariants as _};
 
 pub(super) fn render_response(
     view: &ApiView,
@@ -24,7 +24,9 @@ pub(super) fn render_response(
                 .id("api-response-content")
                 .debug_selector(|| "api-response-content".into())
                 .w_full()
+                .flex_1()
                 .min_w_0()
+                .min_h_0()
                 .gap(px(8.0))
                 .child(
                     div()
@@ -32,20 +34,35 @@ pub(super) fn render_response(
                         .font_weight(FontWeight::SEMIBOLD)
                         .child(status_text(snapshot)),
                 )
-                .child(render_response_tabs(view, cx))
                 .child(selected)
                 .into_any_element()
         }
         None => v_flex()
             .id("api-response-empty")
             .debug_selector(|| "api-response-empty".into())
-            .w_full()
-            .p(px(14.0))
-            .child(if view.loading {
-                "正在等待响应…"
-            } else {
-                "发送请求后显示响应"
-            })
+            .flex_1()
+            .min_w_0()
+            .min_h_0()
+            .items_center()
+            .justify_center()
+            .gap(px(10.0))
+            .child(
+                div().p(px(14.0)).rounded_full().bg(theme.secondary).child(
+                    Icon::new(IconName::File)
+                        .size(px(26.0))
+                        .text_color(theme.muted_foreground),
+                ),
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(if view.loading {
+                        "正在等待响应…"
+                    } else {
+                        "尚未发送"
+                    }),
+            )
             .into_any_element(),
     };
     v_flex()
@@ -57,27 +74,43 @@ pub(super) fn render_response(
         .min_w_0()
         .overflow_y_scroll()
         .track_scroll(&view.response_scroll)
-        .vertical_scrollbar(&view.response_scroll)
-        .gap(px(8.0))
-        .p(px(12.0))
-        .border_1()
+        .child(render_scrollbar_overlay(
+            &view.response_scroll,
+            "api-response-scrollbar",
+        ))
+        .gap(px(6.0))
+        .pl(px(8.0))
+        .py(px(8.0))
+        .border_l_1()
         .border_color(theme.border)
-        .rounded(px(6.0))
         .child(
             h_flex()
-                .justify_between()
+                .id("api-response-heading")
+                .debug_selector(|| "api-response-heading".into())
+                .min_w_0()
+                .items_center()
+                .gap(px(8.0))
+                .pb(px(6.0))
+                .border_b_1()
+                .border_color(theme.border)
                 .child(
                     div()
-                        .text_sm()
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
                         .child("响应"),
                 )
-                .child(div().text_xs().text_color(theme.muted_foreground).child(
-                    match &view.notice {
-                        Some((message, _)) => message.clone(),
-                        None => "".into(),
-                    },
-                )),
+                .child(render_response_tabs(view, cx))
+                .child(
+                    div()
+                        .max_w(px(120.0))
+                        .truncate()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(match &view.notice {
+                            Some((message, _)) => message.clone(),
+                            None => "".into(),
+                        }),
+                ),
         )
         .child(body)
         .into_any_element()
@@ -89,7 +122,7 @@ fn render_response_tabs(view: &ApiView, cx: &mut Context<ApiView>) -> gpui_kit::
         .debug_selector(|| "api-response-tabs".into())
         .w_full()
         .min_w_0()
-        .flex_none()
+        .flex_1()
         .child(
             TabBar::new("api-response-tab-bar")
                 .underline()
@@ -102,22 +135,22 @@ fn render_response_tabs(view: &ApiView, cx: &mut Context<ApiView>) -> gpui_kit::
                 }))
                 .child(
                     Tab::new()
-                        .label("正文")
+                        .label("Body")
                         .debug_selector(|| "api-response-tab-body".into()),
                 )
                 .child(
                     Tab::new()
-                        .label("Headers / Metadata")
+                        .label("Headers")
                         .debug_selector(|| "api-response-tab-headers".into()),
                 )
                 .child(
                     Tab::new()
-                        .label("耗时")
+                        .label("Timing")
                         .debug_selector(|| "api-response-tab-timing".into()),
                 )
                 .child(
                     Tab::new()
-                        .label("断言 / 变量")
+                        .label("Tests")
                         .debug_selector(|| "api-response-tab-assertions".into()),
                 ),
         )
@@ -174,10 +207,11 @@ fn render_response_body(
             div()
                 .w_full()
                 .min_w_0()
-                .p(px(10.0))
-                .bg(theme.secondary)
-                .rounded(px(5.0))
+                .px(px(8.0))
+                .py(px(6.0))
+                .bg(theme.background)
                 .text_xs()
+                .font_family(theme.mono_font_family.clone())
                 .whitespace_normal()
                 .child(body_preview(snapshot)),
         )

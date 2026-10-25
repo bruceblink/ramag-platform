@@ -189,6 +189,8 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         gpui_kit::component::Root::new(view, window, cx)
     });
     let view = view_entity.expect("API 视图应初始化");
+    visual_cx
+        .update(|_, app| view.update(app, |view, _| view.request_tab = ApiRequestTab::Advanced));
 
     for (width, height) in [
         (360.0, 240.0),
@@ -211,15 +213,6 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let request_editor = visual_cx
             .debug_bounds("api-request-editor")
             .expect("请求编辑器应渲染");
-        let header = visual_cx
-            .debug_bounds("api-header")
-            .expect("API Header 应渲染");
-        let page_title = visual_cx
-            .debug_bounds("api-page-title")
-            .expect("API Pulse 页面标题应渲染");
-        let protocol_badge = visual_cx
-            .debug_bounds("api-header-protocol")
-            .expect("API 页头应显示当前协议");
         let content_root = visual_cx
             .debug_bounds("api-content")
             .expect("API 主体容器应渲染");
@@ -232,6 +225,12 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let toolbar = visual_cx
             .debug_bounds("api-request-toolbar")
             .expect("请求工具栏应渲染");
+        let request_tabs = visual_cx
+            .debug_bounds("api-request-config-tabs")
+            .expect("请求配置页签应渲染");
+        let protocol_switcher = visual_cx
+            .debug_bounds("api-protocol-switcher")
+            .expect("协议切换器应渲染");
         let command_row = visual_cx
             .debug_bounds("api-request-command-row")
             .expect("请求命令行应渲染");
@@ -282,22 +281,28 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         assert!(response.right() <= root.right(), "响应面板不能越出根节点");
         assert!(editor.origin.x >= root.origin.x, "编辑器左边界不能越界");
         assert!(
-            header.bottom() <= content_root.origin.y,
-            "Header 不能与主体重叠: root={root:?}, header={header:?}, content={content_root:?}"
+            visual_cx.debug_bounds("api-page-title").is_none(),
+            "API 工作区不再显示占用空间的重复大标题"
         );
         assert!(
-            page_title.origin.x >= header.origin.x
-                && page_title.right() <= header.right()
-                && page_title.bottom() <= header.bottom(),
-            "API 页面标题不能越出页头: title={page_title:?}, header={header:?}"
+            protocol_switcher.right() <= toolbar.right(),
+            "协议切换器不能越出紧凑请求栏"
         );
         assert!(
-            protocol_badge.origin.x >= header.origin.x
-                && protocol_badge.right() <= header.right()
-                && protocol_badge.origin.y >= header.origin.y
-                && protocol_badge.bottom() <= header.bottom(),
-            "API 协议徽章不能越出页头: badge={protocol_badge:?}, header={header:?}"
+            request_tabs.origin.y >= request_pane.origin.y,
+            "请求配置页签必须位于请求面板内"
         );
+        if width >= API_STACK_BREAKPOINT {
+            assert!(
+                (toolbar.origin.y - content_root.origin.y).abs() <= px(1.0),
+                "宽布局应从紧凑请求栏直接开始: toolbar={toolbar:?}, content={content_root:?}"
+            );
+        } else {
+            assert!(
+                toolbar.origin.y >= sidebar.bottom(),
+                "窄布局应先显示请求列表，再显示紧凑请求栏"
+            );
+        }
         assert!(
             toolbar.bottom() <= workbench.origin.y,
             "请求工具栏不能与请求响应工作区重叠: toolbar={toolbar:?}, workbench={workbench:?}"
@@ -394,6 +399,8 @@ fn desktop_request_pane_scroll_reaches_proxy_fields(cx: &mut TestAppContext) {
         gpui_kit::component::Root::new(view, window, cx)
     });
     let view = view_entity.expect("API 视图应初始化");
+    visual_cx
+        .update(|_, app| view.update(app, |view, _| view.request_tab = ApiRequestTab::Advanced));
     visual_cx.simulate_resize(size(px(1202.0), px(812.0)));
     visual_cx.run_until_parked();
     let max_offset = visual_cx.update(|_, app| view.read(app).request_scroll.max_offset());

@@ -2,13 +2,25 @@ use super::render_body;
 use super::render_helpers::{render_context_editor, render_history, render_request_toolbar};
 use super::*;
 use gpui_kit::ClickEvent;
-use gpui_kit::FontWeight;
-use gpui_kit::component::scroll::ScrollableElement as _;
+use gpui_kit::component::scroll::{Scrollbar, ScrollbarMode};
+use gpui_kit::component::tab::{Tab, TabBar};
 
 #[path = "render_sidebar_requests.rs"]
 mod render_sidebar_requests;
 #[path = "render_response.rs"]
 mod response_render;
+
+pub(super) fn render_scrollbar_overlay(
+    scroll_handle: &ScrollHandle,
+    id: &'static str,
+) -> impl IntoElement {
+    div().absolute().inset_0().child(
+        Scrollbar::vertical(scroll_handle)
+            .id(id)
+            .mode(ScrollbarMode::Scrolling)
+            .viewport_from_layout(),
+    )
+}
 
 pub(super) fn render(
     view: &mut ApiView,
@@ -120,35 +132,12 @@ pub(super) fn render(
         .when(compact_height, |root| {
             root.overflow_y_scroll()
                 .track_scroll(&view.layout_scroll)
-                .vertical_scrollbar(&view.layout_scroll)
+                .child(render_scrollbar_overlay(
+                    &view.layout_scroll,
+                    "api-layout-scrollbar",
+                ))
         })
-        .child(render_header(view, cx))
         .child(content)
-        .into_any_element()
-}
-
-fn render_header(view: &mut ApiView, cx: &mut Context<ApiView>) -> gpui_kit::AnyElement {
-    ramag_ui::pulse_ui::pulse_entry_header(cx)
-        .id("api-header")
-        .debug_selector(|| "api-header".into())
-        .min_w_0()
-        .items_center()
-        .child(
-            ramag_ui::pulse_ui::pulse_page_title("API 测试", Some("HTTP 与 gRPC 请求工作区"), cx)
-                .id("api-page-title")
-                .debug_selector(|| "api-page-title".into())
-                .flex_1()
-                .min_w(px(160.0)),
-        )
-        .child(
-            ramag_ui::pulse_ui::pulse_status_badge_with_label(
-                ramag_ui::pulse_ui::PulseStatus::Current,
-                protocol_label(view.protocol),
-                cx,
-            )
-            .id("api-header-protocol")
-            .debug_selector(|| "api-header-protocol".into()),
-        )
         .into_any_element()
 }
 
@@ -179,52 +168,33 @@ fn render_sidebar(
         .when(!stacked, |sidebar| sidebar.h_full())
         .overflow_y_scroll()
         .track_scroll(&view.sidebar_scroll)
-        .vertical_scrollbar(&view.sidebar_scroll)
-        .gap(px(10.0))
-        .p(px(12.0))
+        .child(render_scrollbar_overlay(
+            &view.sidebar_scroll,
+            "api-sidebar-scrollbar",
+        ))
+        .gap(px(7.0))
+        .p(px(9.0))
         .border_r_1()
         .border_color(theme.border)
         .child(
-            div()
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child("当前请求"),
-        )
-        .child(
-            div()
-                .debug_selector(|| "api-request-name-preview".into())
-                .text_sm()
-                .font_weight(FontWeight::SEMIBOLD)
-                .truncate()
-                .child(view.request_name.read(cx).value()),
-        )
-        .child(
-            div()
-                .debug_selector(|| "api-request-protocol-preview".into())
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child(match view.protocol {
-                    ApiProtocol::Http => "HTTP 请求",
-                    ApiProtocol::Grpc => "gRPC 请求（支持流式）",
-                }),
-        )
-        .child(div().h(px(1.0)).w_full().bg(theme.border))
-        .child(
-            v_flex()
-                .gap(px(4.0))
+            h_flex()
+                .min_w_0()
+                .items_center()
+                .justify_between()
                 .child(
                     div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("本地工作区"),
+                        .min_w_0()
+                        .truncate()
+                        .text_sm()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .child(view.workspace.name.clone()),
                 )
-                .child(div().text_sm().child(view.workspace.name.clone()))
                 .child(
                     div()
                         .text_xs()
                         .text_color(theme.muted_foreground)
                         .child(format!(
-                            "{} 个 Collection · {} 个请求",
+                            "{} 集合 · {} 请求",
                             view.workspace.collections.len(),
                             view.workspace
                                 .collections
@@ -235,54 +205,61 @@ fn render_sidebar(
                 ),
         )
         .children(render_workspace_load_status(view, cx, theme))
-        .child(render_history(view, cx, theme))
         .child(render_sidebar_requests::render(view, cx, theme))
+        .child(render_history(view, cx, theme))
         .into_any_element()
 }
 
 fn render_workspace_load_status(
     view: &ApiView,
     cx: &mut Context<ApiView>,
-    _theme: &gpui_kit::component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> Option<gpui_kit::AnyElement> {
     use gpui_kit::component::button::ButtonVariants as _;
 
+    if view.workspace_load_state == ApiWorkspaceLoadState::Empty {
+        return None;
+    }
     let message = view.workspace_load_state.status_message()?;
     let state = view.workspace_load_state;
-    let pulse_status = match state {
-        ApiWorkspaceLoadState::Loading => ramag_ui::pulse_ui::PulseStatus::Warming,
-        ApiWorkspaceLoadState::Empty => ramag_ui::pulse_ui::PulseStatus::Unavailable,
-        ApiWorkspaceLoadState::HistoryFailed | ApiWorkspaceLoadState::Failed => {
-            ramag_ui::pulse_ui::PulseStatus::Failed
-        }
-        ApiWorkspaceLoadState::NotStarted | ApiWorkspaceLoadState::Loaded => {
-            ramag_ui::pulse_ui::PulseStatus::Unavailable
-        }
+    let message_color = match state {
+        ApiWorkspaceLoadState::Loading => theme.link,
+        ApiWorkspaceLoadState::HistoryFailed | ApiWorkspaceLoadState::Failed => theme.danger,
+        ApiWorkspaceLoadState::NotStarted
+        | ApiWorkspaceLoadState::Empty
+        | ApiWorkspaceLoadState::Loaded => theme.muted_foreground,
     };
-    let mut status = v_flex()
+    let mut status = h_flex()
         .id("api-workspace-load-status")
         .debug_selector(|| "api-workspace-load-status".into())
         .w_full()
         .min_w_0()
+        .items_center()
+        .gap(px(4.0))
         .child(
-            ramag_ui::pulse_ui::pulse_status_notice(pulse_status, message, cx)
-                .debug_selector(|| "api-workspace-load-notice".into()),
+            div()
+                .id("api-workspace-load-notice")
+                .debug_selector(|| "api-workspace-load-notice".into())
+                .flex_1()
+                .min_w_0()
+                .text_xs()
+                .text_color(message_color)
+                .whitespace_normal()
+                .child(message),
         );
     if matches!(
         state,
         ApiWorkspaceLoadState::Failed | ApiWorkspaceLoadState::HistoryFailed
     ) {
         status = status.child(
-            h_flex().justify_end().pt(px(6.0)).child(
-                ramag_ui::clickable_button("api-workspace-load-retry")
-                    .debug_selector(|| "api-workspace-load-retry".into())
-                    .xsmall()
-                    .label("重试")
-                    .ghost()
-                    .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
-                        view.load_saved_workspace(window, cx);
-                    })),
-            ),
+            ramag_ui::clickable_button("api-workspace-load-retry")
+                .debug_selector(|| "api-workspace-load-retry".into())
+                .xsmall()
+                .label("重试")
+                .ghost()
+                .on_click(cx.listener(|view, _: &ClickEvent, window, cx| {
+                    view.load_saved_workspace(window, cx);
+                })),
         );
     }
     Some(status.into_any_element())
@@ -306,19 +283,21 @@ fn render_editor(
         .min_h_0()
         .overflow_y_scroll()
         .track_scroll(&view.request_scroll)
-        .vertical_scrollbar(&view.request_scroll)
-        .gap(px(10.0))
-        .p(px(14.0))
+        .child(render_scrollbar_overlay(
+            &view.request_scroll,
+            "api-request-scrollbar",
+        ))
+        .p(px(8.0))
         .child(
             v_flex()
                 .id("api-request-editor")
                 .debug_selector(|| "api-request-editor".into())
                 .w_full()
                 .min_w_0()
-                .gap(px(10.0))
+                .flex_1()
+                .min_h_0()
                 .child(request_editor),
-        )
-        .child(render_context_editor(view, theme));
+        );
     let workbench = if stacked {
         v_flex()
             .id("api-request-response")
@@ -384,45 +363,133 @@ fn render_editor(
         .into_any_element()
 }
 
+pub(super) fn render_request_tabs(
+    view: &ApiView,
+    cx: &mut Context<ApiView>,
+) -> gpui_kit::AnyElement {
+    let protocol = view.protocol;
+    let tabs = TabBar::new("api-request-config-tab-bar")
+        .underline()
+        .w_full()
+        .min_w_0()
+        .selected_index(view.request_tab.index(protocol))
+        .on_click(cx.listener(|view, index: &usize, _, cx| {
+            view.request_tab = ApiRequestTab::from_index(*index, view.protocol);
+            cx.notify();
+        }));
+    let tabs = match protocol {
+        ApiProtocol::Http => tabs
+            .child(
+                Tab::new()
+                    .label("Params")
+                    .debug_selector(|| "api-request-tab-params".into()),
+            )
+            .child(
+                Tab::new()
+                    .label("Headers")
+                    .debug_selector(|| "api-request-tab-headers".into()),
+            )
+            .child(
+                Tab::new()
+                    .label("Auth")
+                    .debug_selector(|| "api-request-tab-auth".into()),
+            )
+            .child(
+                Tab::new()
+                    .label("Body")
+                    .debug_selector(|| "api-request-tab-body".into()),
+            )
+            .child(
+                Tab::new()
+                    .label("Advanced")
+                    .debug_selector(|| "api-request-tab-advanced".into()),
+            ),
+        ApiProtocol::Grpc => tabs
+            .child(
+                Tab::new()
+                    .label("Body")
+                    .debug_selector(|| "api-request-tab-body".into()),
+            )
+            .child(
+                Tab::new()
+                    .label("Metadata")
+                    .debug_selector(|| "api-request-tab-metadata".into()),
+            )
+            .child(
+                Tab::new()
+                    .label("Auth")
+                    .debug_selector(|| "api-request-tab-auth".into()),
+            )
+            .child(
+                Tab::new()
+                    .label("Advanced")
+                    .debug_selector(|| "api-request-tab-advanced".into()),
+            ),
+    };
+    div()
+        .id("api-request-config-tabs")
+        .debug_selector(|| "api-request-config-tabs".into())
+        .w_full()
+        .min_w_0()
+        .flex_none()
+        .border_b_1()
+        .border_color(cx.theme().border)
+        .child(tabs)
+        .into_any_element()
+}
+
 fn render_http_editor(
     view: &mut ApiView,
     cx: &mut Context<ApiView>,
     theme: &gpui_kit::component::Theme,
 ) -> gpui_kit::AnyElement {
+    let fields = match view.request_tab {
+        ApiRequestTab::Params => v_flex()
+            .id("api-http-query")
+            .debug_selector(|| "api-http-query".into())
+            .w_full()
+            .min_w_0()
+            .flex_1()
+            .min_h_0()
+            .gap(px(5.0))
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("Query parameters"),
+            )
+            .child(Textarea::new(&view.http_query).h(px(200.0)))
+            .into_any_element(),
+        ApiRequestTab::Headers => v_flex()
+            .id("api-http-headers")
+            .debug_selector(|| "api-http-headers".into())
+            .w_full()
+            .min_w_0()
+            .flex_1()
+            .min_h_0()
+            .gap(px(5.0))
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("Request headers"),
+            )
+            .child(Textarea::new(&view.http_headers).h(px(240.0)))
+            .into_any_element(),
+        ApiRequestTab::Auth => view.auth_editor.render(cx, theme),
+        ApiRequestTab::Body => render_body::render_http_body(view, cx, theme),
+        ApiRequestTab::Advanced | ApiRequestTab::Metadata => render_context_editor(view, theme),
+    };
     v_flex()
         .id("api-http-fields")
         .debug_selector(|| "api-http-fields".into())
         .w_full()
+        .flex_1()
         .min_w_0()
-        .gap(px(10.0))
-        .child(
-            v_flex()
-                .id("api-http-query")
-                .debug_selector(|| "api-http-query".into())
-                .gap(px(5.0))
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("Params"),
-                )
-                .child(Textarea::new(&view.http_query).h(px(72.0))),
-        )
-        .child(
-            v_flex()
-                .id("api-http-headers")
-                .debug_selector(|| "api-http-headers".into())
-                .gap(px(5.0))
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("Headers"),
-                )
-                .child(Textarea::new(&view.http_headers).h(px(112.0))),
-        )
-        .child(view.auth_editor.render(cx, theme))
-        .child(render_body::render_http_body(view, cx, theme))
+        .min_h_0()
+        .gap(px(8.0))
+        .child(render_request_tabs(view, cx))
+        .child(fields)
         .into_any_element()
 }
 

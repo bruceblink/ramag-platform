@@ -30,6 +30,7 @@ impl ApiView {
             self.grpc_discovery_cancelled = None;
         }
         self.protocol = protocol;
+        self.request_tab = ApiRequestTab::Body;
         self.grpc_services.clear();
         self.response = None;
         self.response_tab = ApiResponseTab::Body;

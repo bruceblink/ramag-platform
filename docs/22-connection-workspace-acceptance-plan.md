@@ -2,7 +2,8 @@
 
 > 切片：`A-POST-0.5-CONNECTION-ACCEPTANCE-001`
 > 日期：2026-10-24
-> 状态：API 工作区读取竞态、SSH 清理、Kafka 和 MQTT 本机 Docker 回归已完成；连接型工作区目标回归已通过，下一步继续 API 原生窗口限制记录和全局 UI 回归
+> 最近更新：2026-10-25
+> 状态：API 工作区读取竞态、SSH 清理、Kafka 和 MQTT 本机 Docker 回归已完成；API 简约双栏布局和两条分隔栏的真实窗口操作已确认；下一步进行连接型工作区全局 UI 回归
 > 范围：完整程序中的 SSH/SFTP、API、Kafka 和 MQTT 编辑/连接工作区
 
 ## 问题证据
@@ -39,8 +40,7 @@ API 状态修复、SSH 清理、Kafka 和 MQTT 验收已完成。对应证据保
 
 | 顺序 | 子切片 | 进入条件 | 交付条件 |
 |---|---|---|---|
-| 1 | `A-POST-0.5-CONNECTION-API-ACCEPTANCE-002` API 页面和双分隔栏验收 | API 状态修复和 SSH 清理已完成 | 在隔离数据下验证 HTTP/gRPC 发送、保存、失败重试、取消、历史、响应上下文和两条分隔栏；有 Computer Use 时补真实拖动，否则保留“headless 已通过、原生拖动未验证” |
-| 2 | `A-POST-0.5-REGRESSION-001` 连接型工作区回归收口 | API、Kafka、MQTT 和 SSH 证据均已记录；目标测试和 `ramag-bin` 构建已通过 | 复核首页往返、主题、Settings、工具入口和本轮受影响工作区；更新本计划、主计划和测试报告；未完成的原生窗口证据继续单独列出 |
+| 1 | `A-POST-0.5-REGRESSION-001` 连接型工作区回归收口 | API、Kafka、MQTT 和 SSH 证据均已记录；API 双分隔栏的真实窗口操作已确认；目标测试和 `ramag-bin` 构建已通过 | 复核首页往返、主题、Settings、工具入口和本轮受影响工作区；更新本计划、主计划和测试报告；未完成的原生窗口证据继续单独列出 |
 
 ## 实施范围
 
@@ -87,6 +87,15 @@ git diff --check
 
 ## API 工作区双分隔栏子切片验收记录
 
+- 2026-10-25 真实窗口尝试：从当前工作区重新构建 Debug 程序，并使用 `RAMAG_UI_TEST_DATA_DIR` 与 `RAMAG_SYSTEM_STATE_DIR` 启动隔离实例。API 页面已在 1200×774 窗口中显示，两条分隔栏均可见。
+- 2026-10-25 简约风格窗口验收：API 编辑器改为参考 HTTPie 的工作台布局。请求配置使用 Params、Headers、Auth、Body、Advanced 标签；请求编辑区和响应区使用双栏布局；空工作区不再重复显示说明，空响应只保留图标和“尚未发送”；滚动条改为滚动时显示。使用隔离数据启动 Debug 程序后，Computer Use 已确认深色真实窗口中的页面布局。
+- 代码验证：`cargo fmt --all -- --check`、`git diff --check`、`cargo test --locked -p ramag-tool-api --lib -- --test-threads=1`、Windows MSVC workspace Clippy、`ramag-bin` 构建和源码尺寸检查均通过。API 测试 39 项通过、1 项因需要本机 Docker 服务而按设计忽略。
+- 拖动结果：Computer Use 在真实窗口中先将侧栏分隔栏向右拖动约 60px，侧栏边界随之移动；再将请求/响应分隔栏向右拖动约 60px，请求区和响应区边界随之移动。两次拖动后的窗口截图都显示了实际布局变化。随后重启隔离实例，默认布局恢复。原生拖动验收通过。
+- Headless 回归：`api_sidebar_divider_resizes_and_clamps_to_available_width` 和 `api_request_response_divider_resizes_and_preserves_minimum_widths` 均在 Windows MSVC 目标下通过，各 1 项。Headless 结果不替代真实窗口拖动证据。
+- Docker UI 集成：HTTP 测试镜像 `ramag-api-http-test:python-3.12.11-alpine-3.22` 在 `127.0.0.1:18089` 健康；预先运行的 gRPC 镜像 `ramag-api-grpc-test:rust-1.91.0-bookworm` 在 `127.0.0.1:18090` 健康。`api_workbench_sends_http_and_grpc_requests_to_local_docker_services` 实际发送 HTTP 与 gRPC 请求，1 项通过。HTTP proxy `127.0.0.1:18093` 也随 HTTP fixture 启动并健康。
+- Docker 清理：运行 `scripts/api-test/api-test.ps1 -Command down`，移除了本轮 HTTP fixture、proxy 容器和 Compose 网络。测试前已运行的 gRPC 服务与 proxy（`127.0.0.1:18090`、`127.0.0.1:18094`）未停止或重建，继续保持运行。
+- 测试报告修正：完整 `ramag-tool-api --lib` 曾显示 40 项通过，但该 Docker UI 测试在端口缺失时会直接返回，不能据此证明网络路径。此测试现标为默认忽略；显式运行时端口缺失会失败。普通测试结果不再把未执行的 Docker 路径计为通过。
+
 ## Kafka 工作区 Docker 验收记录
 
 - 测试环境：本机 Docker Compose 项目 `ramag-kafka-test`；`apache/kafka:4.0.0`（`127.0.0.1:19092`）、Kafka Connect（`127.0.0.1:18083`）、Schema Registry（`127.0.0.1:18081`）、ksqlDB（`127.0.0.1:18088`）、OpenMetrics fixture（`127.0.0.1:19100`）和 JMX exporter（`127.0.0.1:19101`）。
@@ -107,7 +116,7 @@ git diff --check
 - 目标测试：`ramag-tool-api --lib` 40 项、`ramag-tool-ssh --lib` 90 项、`ramag-tool-kafka --lib` 38 项、`ramag-infra-mqtt --lib` 2 项全部通过；`ramag-ui --lib` 全局 UI 测试 145 项通过。
 - 构建：2026-10-24 执行 `cargo build --locked -p ramag-bin` 通过。
 - 质量门：提交前置检查完成 workspace 格式和严格 Clippy；源码尺寸和差异检查通过。
-- 当前限制：2026-10-24 已通过 Computer Use 进入完整程序的 API 页面，确认请求列表、编辑区、响应区和两条分隔栏均可见；同日完成首页真实窗口、深色/浅色主题切换恢复、全局 Settings 系统页和数据库客户端页导航。API 分隔栏坐标拖动未产生可确认的宽度变化，原生拖动证据仍待补充。Headless 拖动测试继续通过。
+- 当前状态：2026-10-24 已通过 Computer Use 进入完整程序的 API 页面，确认请求列表、编辑区、响应区和两条分隔栏均可见；同日完成首页真实窗口、深色/浅色主题切换恢复、全局 Settings 系统页和数据库客户端页导航。2026-10-25 在隔离 Debug 窗口中完成两条 API 分隔栏的真实拖动并确认边界变化；Headless 拖动测试也通过。
 
 ## API 工作区读取状态修复记录
 
@@ -120,14 +129,19 @@ git diff --check
 - Headless 交互：`api_sidebar_divider_resizes_and_clamps_to_available_width` 和 `api_request_response_divider_resizes_and_preserves_minimum_widths` 使用 GPUI 模拟鼠标输入检查拖动、动态边界和最小宽度。第二条测试的鼠标点位必须落在窗口可见区域内。
 - 本机 Docker 集成：`view::docker_tests::api_workbench_sends_http_and_grpc_requests_to_local_docker_services` 已在本机 Docker 服务监听时通过。HTTP 测试镜像为 `ramag-api-http-test:python-3.12.11-alpine-3.22`，端口为 `127.0.0.1:18089->8080`、`127.0.0.1:18091->8443`。gRPC 测试镜像为 `ramag-api-grpc-test:rust-1.91.0-bookworm`，端口为 `127.0.0.1:18090->50051`、`127.0.0.1:18092->50052`。代理服务端口为 `127.0.0.1:18094->8081`。
 - Docker 清理：为测试启动的 HTTP 测试容器已停止并恢复为初始退出状态。gRPC 测试容器和代理在测试前已运行，测试后仍保持健康，未更改其状态。
-- 真实窗口：Computer Use 检测到窗口有新的用户输入，且窗口尺寸发生变化。因此本轮没有完成拖动操作验证。Headless 通过不代表真实窗口拖动通过。
+- 真实窗口：早期拖动尝试因窗口输入竞争而中断。2026-10-25 后续在隔离 Debug 窗口中分别拖动两条分隔栏，并通过拖动前后的窗口截图确认两处布局边界均有变化。Headless 结果与原生交互证据分别记录。
 - System 工具测试：用户已确认全部通过，本轮未重复运行。
 
-## API 工作区布局子切片验证命令
+## API 工作区布局与 Docker UI 集成验证命令
 
 ```powershell
 & .\scripts\windows\invoke-cargo-msvc.ps1 -CargoCommand test -CargoOptions @('--locked','-p','ramag-tool-api','--lib','api_sidebar_divider_resizes_and_clamps_to_available_width','--','--test-threads=1')
 & .\scripts\windows\invoke-cargo-msvc.ps1 -CargoCommand test -CargoOptions @('--locked','-p','ramag-tool-api','--lib','api_request_response_divider_resizes_and_preserves_minimum_widths','--','--test-threads=1')
+
+# Docker UI 集成需要本机 HTTP 和 gRPC fixture 都已启动。
+& .\scripts\api-test\api-test.ps1 -Command up
+& .\scripts\api-test\grpc-test.ps1 -Command up
+& .\scripts\windows\invoke-cargo-msvc.ps1 -CargoCommand test -CargoOptions @('--locked','-p','ramag-tool-api','--lib','api_workbench_sends_http_and_grpc_requests_to_local_docker_services','--','--ignored','--test-threads=1')
 ```
 
 ## 回滚边界

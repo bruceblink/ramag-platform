@@ -38,21 +38,39 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
     visual_cx.run_until_parked();
 
     assert!(visual_cx.debug_bounds("api-http-fields").is_some());
-    assert!(visual_cx.debug_bounds("api-http-query").is_some());
+    assert!(visual_cx.debug_bounds("api-request-config-tabs").is_some());
+    assert!(visual_cx.debug_bounds("api-http-query").is_none());
+    assert!(visual_cx.debug_bounds("api-http-headers").is_none());
+    assert!(visual_cx.debug_bounds("api-context-editor").is_none());
+    assert!(visual_cx.debug_bounds("api-http-body").is_some());
     assert!(visual_cx.debug_bounds("api-body-text").is_some());
     assert!(visual_cx.debug_bounds("api-body-multipart").is_some());
-    assert!(visual_cx.debug_bounds("api-http-headers").is_some());
-    assert!(visual_cx.debug_bounds("api-context-editor").is_some());
     assert!(visual_cx.debug_bounds("api-history").is_some());
     assert!(visual_cx.debug_bounds("api-request-target").is_some());
     assert!(visual_cx.debug_bounds("api-send").is_some());
     assert!(visual_cx.debug_bounds("api-save").is_some());
     assert!(visual_cx.debug_bounds("api-import").is_some());
     assert!(visual_cx.debug_bounds("api-run-collection").is_some());
+    click(visual_cx, "api-request-tab-params");
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("api-http-query").is_some());
+    assert!(visual_cx.debug_bounds("api-http-body").is_none());
+    click(visual_cx, "api-request-tab-headers");
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("api-http-headers").is_some());
+    click(visual_cx, "api-request-tab-auth");
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("api-auth-kind").is_some());
+    click(visual_cx, "api-request-tab-advanced");
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("api-context-editor").is_some());
+    assert!(visual_cx.debug_bounds("api-proxy-editor").is_some());
     click(visual_cx, "api-protocol-grpc");
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("api-http-fields").is_none());
     assert!(visual_cx.debug_bounds("api-grpc-fields").is_some());
+    assert!(visual_cx.debug_bounds("api-grpc-body").is_some());
+    assert!(visual_cx.debug_bounds("api-grpc-metadata").is_none());
     assert!(visual_cx.debug_bounds("api-grpc-import-proto").is_some());
     assert!(
         visual_cx
@@ -63,11 +81,16 @@ fn api_protocol_switch_changes_editor_and_send_controls_remain_visible(cx: &mut 
         visual_cx.update(|_, cx| view.read(cx).protocol),
         ApiProtocol::Grpc
     );
+    click(visual_cx, "api-request-tab-metadata");
+    visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("api-grpc-metadata").is_some());
+    assert!(visual_cx.debug_bounds("api-grpc-body").is_none());
 
     click(visual_cx, "api-protocol-http");
     visual_cx.run_until_parked();
     assert!(visual_cx.debug_bounds("api-http-fields").is_some());
-    assert!(visual_cx.debug_bounds("api-http-query").is_some());
+    assert!(visual_cx.debug_bounds("api-http-body").is_some());
+    assert!(visual_cx.debug_bounds("api-http-query").is_none());
     assert_eq!(
         visual_cx.update(|_, cx| view.read(cx).protocol),
         ApiProtocol::Http

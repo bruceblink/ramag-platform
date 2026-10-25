@@ -138,9 +138,9 @@ pub(super) fn render_request_toolbar(
         .w_full()
         .min_w_0()
         .flex_none()
-        .gap(px(8.0))
-        .px(px(14.0))
-        .py(px(10.0))
+        .gap(px(4.0))
+        .px(px(10.0))
+        .py(px(6.0))
         .border_b_1()
         .border_color(theme.border)
         .child(
@@ -149,15 +149,14 @@ pub(super) fn render_request_toolbar(
                 .debug_selector(|| "api-request-tabbar".into())
                 .w_full()
                 .min_w_0()
-                .gap(px(8.0))
+                .items_center()
+                .gap(px(6.0))
                 .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("当前请求"),
+                    Input::new(&view.request_name)
+                        .small()
+                        .flex_1()
+                        .min_w(px(120.0)),
                 )
-                .child(Input::new(&view.request_name).small().w(px(240.0)))
-                .child(div().flex_1().min_w_0())
                 .child(
                     h_flex()
                         .id("api-protocol-switcher")
@@ -177,7 +176,9 @@ pub(super) fn render_request_toolbar(
                             ApiProtocol::Grpc,
                             view,
                             cx,
-                        )),
+                        ))
+                        .child(import)
+                        .child(save),
                 ),
         )
         .child(
@@ -196,11 +197,13 @@ pub(super) fn render_request_toolbar(
                         .debug_selector(|| "api-request-actions".into())
                         .flex_none()
                         .gap(px(6.0))
-                        .child(import)
-                        .child(save)
-                        .child(discover)
+                        .when(view.protocol == ApiProtocol::Grpc, |actions| {
+                            actions.child(discover)
+                        })
                         .child(send)
-                        .child(cancel)
+                        .when(view.loading || view.grpc_discovering, |actions| {
+                            actions.child(cancel)
+                        })
                         .child(render_collection_button(view, cx)),
                 ),
         )

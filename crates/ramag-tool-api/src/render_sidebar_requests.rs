@@ -22,52 +22,80 @@ pub(super) fn render(
     } else {
         count_matching_requests(&view.workspace, &query)
     };
-    let requests = view
-        .workspace
-        .collections
-        .iter()
-        .flat_map(|collection| {
-            collection
-                .requests
-                .iter()
-                .map(move |request| (collection.name.as_str(), request))
-        })
-        .filter(|(collection_name, request)| {
-            request_matches_query(collection_name, request, &query)
-        })
-        .take(50)
-        .enumerate()
-        .map(|(index, (collection_name, request))| {
+    let mut groups = Vec::new();
+    let mut visible_request_count = 0;
+    for collection in &view.workspace.collections {
+        let mut items = Vec::new();
+        for request in &collection.requests {
+            if !request_matches_query(&collection.name, request, &query) {
+                continue;
+            }
+            if visible_request_count == 50 {
+                break;
+            }
             let request = request.clone();
             let selected = current_request_id.as_ref() == Some(&request.id);
-            let mut item = ramag_ui::clickable_button(gpui_kit::SharedString::from(format!(
-                "api-request-item-{index}"
-            )))
-            .debug_selector(move || format!("api-request-item-{index}"))
-            .w_full()
-            .min_w_0()
-            .justify_start()
-            .truncate()
-            .xsmall()
-            .label(format!(
-                "{} / {} · {}",
-                collection_name,
-                protocol_label(request.protocol),
-                request.name
-            ))
-            .on_click(cx.listener(move |view, _: &ClickEvent, window, cx| {
-                context::apply_request_to_view(view, &request, window, cx);
-                cx.notify();
-            }));
+            let selector = format!("api-request-item-{visible_request_count}");
+            let label = match &request.request {
+                ApiRequestSpec::Http(spec) => format!("{} · {}", spec.method, request.name),
+                ApiRequestSpec::Grpc(_) => format!("gRPC · {}", request.name),
+            };
+            let mut item =
+                ramag_ui::clickable_button(gpui_kit::SharedString::from(selector.clone()))
+                    .debug_selector(move || selector.clone())
+                    .w_full()
+                    .min_w_0()
+                    .justify_start()
+                    .truncate()
+                    .xsmall()
+                    .label(label)
+                    .on_click(cx.listener(move |view, _: &ClickEvent, window, cx| {
+                        context::apply_request_to_view(view, &request, window, cx);
+                        cx.notify();
+                    }));
             item = if selected {
                 item.primary()
             } else {
                 item.ghost()
             };
-            item.into_any_element()
-        })
-        .collect::<Vec<_>>();
-    let visible_request_count = requests.len();
+            items.push(item.into_any_element());
+            visible_request_count += 1;
+        }
+        if !items.is_empty() {
+            let collection_count = items.len();
+            groups.push(
+                v_flex()
+                    .gap(px(2.0))
+                    .child(
+                        h_flex()
+                            .min_w_0()
+                            .items_center()
+                            .justify_between()
+                            .px(px(4.0))
+                            .py(px(3.0))
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .truncate()
+                                    .text_xs()
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                    .child(collection.name.clone()),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child(collection_count.to_string()),
+                            ),
+                    )
+                    .child(v_flex().gap(px(2.0)).pl(px(6.0)).children(items))
+                    .into_any_element(),
+            );
+        }
+        if visible_request_count == 50 {
+            break;
+        }
+    }
     let list_summary = if query.is_empty() {
         if total_request_count > visible_request_count {
             format!("显示 {visible_request_count} / {total_request_count} 个请求")
@@ -96,42 +124,35 @@ pub(super) fn render(
             })
             .into_any_element()
     } else {
-        v_flex().gap(px(4.0)).children(requests).into_any_element()
+        v_flex().gap(px(6.0)).children(groups).into_any_element()
     };
-    v_flex()
-        .gap(px(4.0))
-        .child(
-            div()
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child("请求列表"),
-        )
-        .child(
-            div()
-                .id("api-request-search")
-                .debug_selector(|| "api-request-search".into())
-                .w_full()
-                .min_w_0()
-                .child(
-                    ramag_ui::cleanable_input(
-                        &view.request_search,
-                        "api-request-search-clear",
-                        false,
-                        cx,
-                    )
-                    .small(),
-                ),
-        )
-        .child(
+    let mut sidebar = v_flex().gap(px(4.0)).child(
+        div()
+            .id("api-request-search")
+            .debug_selector(|| "api-request-search".into())
+            .w_full()
+            .min_w_0()
+            .child(
+                ramag_ui::cleanable_input(
+                    &view.request_search,
+                    "api-request-search-clear",
+                    false,
+                    cx,
+                )
+                .small(),
+            ),
+    );
+    if !query.is_empty() || total_request_count > visible_request_count {
+        sidebar = sidebar.child(
             div()
                 .id("api-request-list-summary")
                 .debug_selector(|| "api-request-list-summary".into())
                 .text_xs()
                 .text_color(theme.muted_foreground)
                 .child(list_summary),
-        )
-        .child(request_list)
-        .into_any_element()
+        );
+    }
+    sidebar.child(request_list).into_any_element()
 }
 
 fn request_matches_query(collection_name: &str, request: &ApiRequestRecord, query: &str) -> bool {

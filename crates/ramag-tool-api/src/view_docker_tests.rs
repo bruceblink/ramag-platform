@@ -40,13 +40,16 @@ fn wait_for_response(
 }
 
 #[gpui_kit::test]
+#[ignore = "需要本机 HTTP 与 gRPC Docker 测试服务；启动服务后使用 cargo test -- --ignored 显式运行"]
 fn api_workbench_sends_http_and_grpc_requests_to_local_docker_services(cx: &mut TestAppContext) {
-    if std::net::TcpStream::connect(("127.0.0.1", 18089)).is_err()
-        || std::net::TcpStream::connect(("127.0.0.1", 18090)).is_err()
-    {
-        eprintln!("跳过 API UI Docker 集成测试；HTTP 18089 或 gRPC 18090 未监听");
-        return;
-    }
+    assert!(
+        std::net::TcpStream::connect(("127.0.0.1", 18089)).is_ok(),
+        "本机 HTTP Docker 测试服务未监听 127.0.0.1:18089；请先启动 scripts/api-test/api-test.ps1"
+    );
+    assert!(
+        std::net::TcpStream::connect(("127.0.0.1", 18090)).is_ok(),
+        "本机 gRPC Docker 测试服务未监听 127.0.0.1:18090；请先启动 scripts/api-test/grpc-test.ps1"
+    );
 
     cx.update(gpui_kit::component::init);
     cx.executor().allow_parking();

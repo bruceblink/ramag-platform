@@ -49,7 +49,7 @@ mod workspace;
 mod workspace_save;
 
 const FIELD_BYTES: usize = 64 * 1024;
-const API_SIDEBAR_WIDTH: f32 = 220.0;
+const API_SIDEBAR_WIDTH: f32 = 260.0;
 const API_SIDEBAR_MIN_WIDTH: f32 = 180.0;
 const API_SIDEBAR_MAX_WIDTH: f32 = 420.0;
 const API_SIDEBAR_DIVIDER_WIDTH: f32 = 8.0;
@@ -94,6 +94,48 @@ impl ApiResponseTab {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum ApiRequestTab {
+    Params,
+    Headers,
+    Auth,
+    #[default]
+    Body,
+    Metadata,
+    Advanced,
+}
+
+impl ApiRequestTab {
+    pub(crate) fn index(self, protocol: ApiProtocol) -> usize {
+        match (protocol, self) {
+            (ApiProtocol::Http, Self::Params) => 0,
+            (ApiProtocol::Http, Self::Headers) => 1,
+            (ApiProtocol::Http, Self::Auth) => 2,
+            (ApiProtocol::Http, Self::Body) => 3,
+            (ApiProtocol::Http, Self::Advanced) => 4,
+            (ApiProtocol::Http, Self::Metadata) => 4,
+            (ApiProtocol::Grpc, Self::Body) => 0,
+            (ApiProtocol::Grpc, Self::Metadata) => 1,
+            (ApiProtocol::Grpc, Self::Auth) => 2,
+            (ApiProtocol::Grpc, Self::Advanced) => 3,
+            (ApiProtocol::Grpc, Self::Params | Self::Headers) => 0,
+        }
+    }
+
+    pub(crate) fn from_index(index: usize, protocol: ApiProtocol) -> Self {
+        match (protocol, index) {
+            (ApiProtocol::Http, 0) => Self::Params,
+            (ApiProtocol::Http, 1) => Self::Headers,
+            (ApiProtocol::Http, 2) => Self::Auth,
+            (ApiProtocol::Http, 4) => Self::Advanced,
+            (ApiProtocol::Grpc, 1) => Self::Metadata,
+            (ApiProtocol::Grpc, 2) => Self::Auth,
+            (ApiProtocol::Grpc, 3) => Self::Advanced,
+            _ => Self::Body,
+        }
+    }
+}
+
 /// API 工作区首次读取状态；失败前不允许把默认空工作区写回 Storage。
 ///
 /// `NotStarted` 仅供没有接入应用服务的 headless 视图使用；有服务的视图从
@@ -113,10 +155,10 @@ impl ApiWorkspaceLoadState {
     fn status_message(self) -> Option<&'static str> {
         match self {
             Self::NotStarted | Self::Loaded => None,
-            Self::Loading => Some("正在读取本地 API 工作区…"),
-            Self::Empty => Some("尚无已保存的 API 工作区；保存请求后会创建工作区"),
-            Self::HistoryFailed => Some("本地 API 工作区已加载，但执行历史读取失败"),
-            Self::Failed => Some("本地 API 工作区读取失败；保存已暂停，请检查存储后重试"),
+            Self::Loading => Some("正在读取 API 工作区…"),
+            Self::Empty => Some("工作区尚为空；保存请求后会创建"),
+            Self::HistoryFailed => Some("执行历史读取失败"),
+            Self::Failed => Some("工作区读取失败；请重试"),
         }
     }
 
@@ -143,6 +185,7 @@ impl ApiWorkspaceLoadState {
 pub struct ApiView {
     pub(crate) service: Option<Arc<ApiService>>,
     pub(crate) protocol: ApiProtocol,
+    pub(crate) request_tab: ApiRequestTab,
     pub(crate) active_request_id: Option<ApiRequestId>,
     pub(crate) request_search: Entity<InputState>,
     pub(crate) request_name: Entity<InputState>,
@@ -243,6 +286,7 @@ impl ApiView {
         Self {
             service: None,
             protocol: ApiProtocol::Http,
+            request_tab: ApiRequestTab::Body,
             active_request_id: None,
             request_search,
             request_name: api_input(window, cx, "请求名称", "新请求"),
@@ -385,7 +429,7 @@ impl ApiView {
 
     pub(crate) fn current_request_pane_width(&self, window: &Window) -> f32 {
         let available_width = self.workbench_width(window) - API_REQUEST_RESPONSE_DIVIDER_WIDTH;
-        let default_width = (available_width / 2.0).clamp(
+        let default_width = (available_width * 0.45).clamp(
             API_REQUEST_PANE_MIN_WIDTH,
             self.max_request_pane_width(window),
         );

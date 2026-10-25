@@ -290,7 +290,7 @@ fn empty_workspace_list_is_distinct_and_allows_creating_a_workspace(cx: &mut Tes
     assert!(
         visual_cx
             .debug_bounds("api-workspace-load-status")
-            .is_some()
+            .is_none()
     );
     assert!(ApiWorkspaceLoadState::Empty.save_block_message().is_none());
 

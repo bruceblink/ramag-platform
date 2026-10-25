@@ -27,22 +27,19 @@ pub(super) fn render_http_body(
         };
         button.into_any_element()
     };
-    let editor = Editor::new(&view.http_body).h(px(176.0));
     v_flex()
         .id("api-http-body")
         .debug_selector(|| "api-http-body".into())
+        .flex_1()
+        .min_h_0()
+        .min_w_0()
         .gap(px(5.0))
+        .child(Editor::new(&view.http_body).flex_1().min_h(px(180.0)))
         .child(
             h_flex()
                 .flex_wrap()
                 .items_center()
                 .gap(px(6.0))
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("Body"),
-                )
                 .child(mode_button(
                     "api-body-text",
                     "Text",
@@ -66,6 +63,5 @@ pub(super) fn render_http_body(
                     },
                 )),
         )
-        .child(editor)
         .into_any_element()
 }
