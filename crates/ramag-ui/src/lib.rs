@@ -122,7 +122,7 @@ pub const FEEDBACK_ISSUE_URL: &str = "https://github.com/bruceblink/ramag-platfo
 pub const COMMUNITY_URL: &str =
     "https://github.com/bruceblink/ramag-platform/blob/main/README.md#社区--community";
 /// Shared aspect ratio for the default window and home tool cards.
-pub const GOLDEN_RATIO: f32 = 1.618_034;
+pub const GOLDEN_RATIO: f32 = std::f32::consts::GOLDEN_RATIO;
 
 /// 返回共享界面错误文字使用的当前主题危险色。
 pub(crate) fn error_text_color(theme: &gpui_kit::component::Theme) -> gpui_kit::Hsla {
