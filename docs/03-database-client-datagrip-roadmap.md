@@ -101,9 +101,11 @@
 - MySQL 窗口：连接到 `ramag_test` 后，数据库对象树显示 `bulk_records`、其他表和视图；打开 `bulk_records` 后结果网格显示 `1–100 / 100000`。随后在 SQL 编辑器执行 `SELECT id, group_id, amount FROM ramag_test.bulk_records LIMIT 10;`，结果显示 10 行、3 列，耗时约 35 ms。
 - PostgreSQL 窗口：连接到 `ramag_test` 后，`public` Schema 显示 3 个表和 1 个视图；打开 `bulk_records` 后结果网格显示 `1–100 / 100000`，列包含 `int8`、`int4`、`numeric`、`text` 和 `jsonb` 等驱动类型。
 - 窄侧栏布局修复（2026-10-25）：修复 `bulk_records` 展开后的列名与类型挤压问题。约 300px 宽的真实窗口中，列名不再变成空白块，长名称和类型在各自区域截断，不再互相遮挡；悬停可查看完整值，原有主修饰键双击复制保留。两条历史测试数据源在关闭并重启 Debug 程序后仍可用。
+- Virtual views：PostgreSQL `sessions` 只读会话快照可打开，结果网格显示 9 行，范围为 `1–9 / 9`；没有执行写入。
+- 查询取消尝试（2026-10-25）：在 PostgreSQL 执行 `SELECT pg_sleep(10);` 和 `SELECT pg_sleep(5);`，并尝试点击停止控件。两条查询仍分别在约 10006ms 和 5009ms 后完成。本次未观察到取消结果，因此取消验收不通过，仍需排查并复验。
 - 写入边界：本轮只测试连接并读取测试数据，没有执行 DML 或 DDL。测试账户权限未核验，因此本轮结果不证明账户具有只读权限。
 - 清理和保留：两个容器均通过 `docker stop` 停止；MySQL 与 PostgreSQL 专用数据卷保留。两条测试数据源保留在 `%TEMP%` 下的隔离 Ramag 数据目录，供下一轮测试复用。Ramag 启动日志仍写入默认应用日志位置。
-- 状态：本轮确认 MySQL/PostgreSQL 连接、列/键/索引树、PostgreSQL Server Objects、两端表读取、MySQL 和 PostgreSQL 有界 SQL 查询、PostgreSQL DDL 预览、排序/过滤/翻页，以及窄侧栏列布局。仍待验收触发器子树、Virtual views 读取、查询取消和失败恢复；本条保持部分完成。
+- 状态：本轮确认 MySQL/PostgreSQL 连接、列/键/索引树、PostgreSQL Server Objects 和 Virtual views、两端表读取、MySQL 和 PostgreSQL 有界 SQL 查询、PostgreSQL DDL 预览、排序/过滤/翻页，以及窄侧栏列布局。仍待验收触发器子树和失败恢复；查询取消尝试未通过并需修复复验。本条保持部分完成。
 
 ### DB-UX-002：查询控制台（覆盖 `DB-RED-05` 至 `DB-RED-07` 的界面入口）
 
