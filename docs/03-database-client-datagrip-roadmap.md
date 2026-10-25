@@ -1,6 +1,6 @@
 # 数据库工作区主线：DataGrip 风格核心闭环
 
-> 状态：现行专项路线图；`DB-UX-005F`、`A-DB-005` 和 `A-DB-RED-02` 的代码、headless 与 Docker 验证已完成；`A-UI-REAL` 已完成 MySQL/PostgreSQL 连接、触发器子树、MySQL 失败恢复及两端行编辑、事务提交/回滚读回的部分真实窗口验收，完整数据库操作矩阵仍未完成
+> 状态：现行专项路线图；`DB-UX-005F`、`A-DB-005` 和 `A-DB-RED-02` 的代码、headless 与 Docker 验证已完成；`A-UI-REAL` 已完成 MySQL/PostgreSQL 连接、触发器子树、连接恢复、行编辑读回及单元格 UPDATE 连接失败的部分真实窗口验收，完整数据库操作矩阵仍未完成
 > 更新日期：2026-10-26
 > 共同视觉与交互基线：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 跨工具顺序：[`02-development-roadmap.md`](02-development-roadmap.md)
@@ -116,7 +116,7 @@
 - 构建边界：真实窗口使用已存在的 `0.7.0` Debug 程序，产品版本为 `0.7.0`。本轮新的 `cargo build --locked -p ramag-bin` 未完成，MSVC 链接以 `LNK1140` 退出；`v0.7.0` 标签之后的仓库变更只有文档，因此运行程序的 Rust 源码与当前源码一致。
 - 清理：验收后删除 MySQL 和 PostgreSQL 临时触发器，并删除 PostgreSQL 辅助函数。两端 `information_schema` 查询均确认触发器数量为 0，PostgreSQL 函数数量为 0；随后窗口刷新并重新读取表详情，触发器分组不再出现。两个 Docker 容器保持健康；没有停止容器、重建容器或更改数据卷。没有修改测试数据行。
 - 系统提示：Computer Use 期间出现与本次验收无关的 GPG 私钥口令提示。已取消该提示，没有输入口令。
-- 状态：本轮新增确认 MySQL/PostgreSQL 触发器子树真实窗口显示、MySQL 连接失败后的恢复，以及两端事务模式、行编辑暂存、提交和回滚读回。旧树保留由 headless 测试确认。查询取消的旧失败尝试和后续成功复验仍按原记录保留。完整数据库操作矩阵仍未完成；下一项为 `DB-UX-004B-3B` 的 DML 连接失败反馈原生窗口验收。本条保持部分完成。
+- 状态：本轮新增确认 MySQL/PostgreSQL 触发器子树真实窗口显示、MySQL 连接失败后的恢复，两端事务行编辑提交/回滚读回，以及两端单元格 UPDATE 的 DML 连接失败反馈。旧树保留由 headless 测试确认。查询取消的旧失败尝试和后续成功复验仍按原记录保留。完整数据库操作矩阵仍未完成；下一项为 `DB-UX-003C-2` 的列宽拖动和大结果集原生窗口验收。本条保持部分完成。
 
 ### DB-UX-002：查询控制台（覆盖 `DB-RED-05` 至 `DB-RED-07` 的界面入口）
 
@@ -220,14 +220,15 @@
 - 验收条件：错误摘要在 `280/360/1024px` 不越界；失败后草稿数量不变，提交入口仍可见；成功/撤销/新结果会清理旧错误。Computer Use 原生窗口证据因当前原生窗口列表不可用，单独记录为未完成。
 - 验收结果：headless GPUI 回归在 `280/360/1024px` 验证错误锚点、草稿保留和撤销清理；dbclient 全量 338 项、fmt、workspace Clippy、源码尺寸和 `git diff --check` 通过。Computer Use 在 `ramag.exe` 进程有窗口标题时仍返回空原生应用列表，未执行鼠标/键盘交互，原生窗口验收转入 `DB-UX-004B-3B`。
 
-#### DB-UX-004B-3B：所有结果编辑 DML 的失效连接反馈（实现与 Docker/headless 验证完成；原生窗口待补）
+#### DB-UX-004B-3B：所有结果编辑 DML 的失效连接反馈（实现、Docker/headless 与单元格 UPDATE 原生窗口验证完成）
 
 - 设计：单元格 UPDATE、行内 DELETE、批量 DELETE 和 INSERT 的数据库失败统一写入结果面板的持久错误状态；状态栏继续显示有界摘要，当前操作入口保持可用，用户恢复连接后可从同一入口重试。
 - 草稿规则：数据库请求失败不得清理未提交单元格修改或新增行输入；成功、撤销全部草稿、刷新结果或切换结果上下文时清理旧错误，避免错误跨结果集残留。
 - 改动范围：ResultPanel DML 错误状态归一化、结果状态栏与对应 headless GPUI 回归；不做自动重连、自动重试、驱动协议或事务语义变更。
 - 验收条件：`280/360/1024px` 下错误摘要和 DML 操作区均不越界；四类 DML 失败都能在面板状态中保留错误并保留草稿；本机 Docker MySQL 8.4（`127.0.0.1:13306`）和 PostgreSQL 17（`127.0.0.1:15432`）用失效连接配置得到可识别错误；Computer Use 原生窗口流程单独记录实际可用性。
 - 验收结果：UPDATE、单行/批量 DELETE、INSERT 统一写入持久 DML 错误状态；`ramag-tool-dbclient` 全量 338 项 headless 测试通过，覆盖三种窗口宽度、错误状态和最后一项草稿撤销清理；MySQL 8.4 与 PostgreSQL 17 Docker 失效连接测试各 2 项通过，容器保持健康运行。`cargo fmt --all -- --check`、workspace Clippy、源码尺寸和 `git diff --check` 通过。
-- 原生窗口限制：Computer Use 当前返回空应用列表，且当前运行时没有可用的原生启动入口；因此本切片没有执行鼠标/键盘原生窗口流程，不能把 headless 或截图当作替代的真实窗口证据。后续可用真实窗口运行时补验。
+- 历史限制：较早的 Computer Use 尝试曾因空应用列表而没有执行原生窗口流程；这不再代表当前工具状态。
+- 原生窗口补验（2026-10-26）：MySQL 8.4.9 和 PostgreSQL 17.10 的真实窗口均使用单行临时表 `ramag_ui_txn_acceptance`。先在 `Tx: Manual` 中通过结果网格更新为 `tx_seed`；独立连接仍读到 `before`。MySQL 事务连接由 `information_schema.innodb_trx` 唯一定位为线程 `7431`；PostgreSQL 事务连接由 `pg_stat_activity` 按 `idle in transaction` 和最后一条临时表 UPDATE 唯一定位为 PID `52654`。分别只终止这两个测试连接，没有停止容器或修改数据源配置。随后在网格把值改为 `failure_probe` 并提交：MySQL 界面显示 TLS 连接意外关闭错误，PostgreSQL 显示管理员终止连接错误；两端均保留 1 项未提交修改。撤销本地草稿、结束失效事务并重试查询后，网格和独立连接均读到 `before`。原生窗口只覆盖单元格 UPDATE；行内 DELETE、批量 DELETE 和 INSERT 的失败状态仍由既有 headless 回归覆盖。验收后删除两端临时表，`information_schema` 计数均为 0；两个 Docker 容器仍运行且健康。
 
 #### DB-UX-005A：EXPLAIN ANALYZE 执行风险确认（已完成代码与 headless 验证）
 
