@@ -1,7 +1,7 @@
 # 数据库工作区主线：DataGrip 风格核心闭环
 
-> 状态：现行专项路线图；`DB-UX-005F`、`A-DB-005` 和 `A-DB-RED-02` 的代码、headless 与 Docker 验证已完成；`A-UI-REAL` 已完成 MySQL/PostgreSQL 连接和表读取的部分真实窗口验收，完整数据库操作矩阵仍未完成
-> 更新日期：2026-10-25
+> 状态：现行专项路线图；`DB-UX-005F`、`A-DB-005` 和 `A-DB-RED-02` 的代码、headless 与 Docker 验证已完成；`A-UI-REAL` 已完成 MySQL/PostgreSQL 连接、触发器子树及 MySQL 失败恢复的部分真实窗口验收，完整数据库操作矩阵仍未完成
+> 更新日期：2026-10-26
 > 共同视觉与交互基线：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 跨工具顺序：[`02-development-roadmap.md`](02-development-roadmap.md)
 > 历史实现、待办和验收记录：[`archive/2026-09-25-pre-datagrip-rebaseline/03-database-client-datagrip-roadmap.md`](archive/2026-09-25-pre-datagrip-rebaseline/03-database-client-datagrip-roadmap.md)
@@ -95,7 +95,7 @@
 - Headless：`cargo test --locked -p ramag-tool-dbclient --lib table_tree -- --nocapture` 通过 42 项，覆盖 Schema 刷新保留旧树、表/列/键/索引/触发器分组、搜索、过滤、连接隔离和窄窗口布局。
 - 结果：真实驱动元数据、表树代码和 headless 交互达到当前矩阵要求；真实 Windows 鼠标/键盘流程由 `A-UI-REAL` 分批验收，当前已完成的范围见下文。
 
-#### A-UI-REAL：真实数据库工作区窗口验收（2026-10-25，部分完成）
+#### A-UI-REAL：真实数据库工作区窗口验收（2026-10-25 至 26，部分完成）
 
 - 环境：使用隔离 Debug 数据目录启动 `target/debug/ramag.exe`。MySQL 使用本机 `ramag-db-test-mysql`（`mysql:8.4`，实际版本 `8.4.9`，`127.0.0.1:13306`）；PostgreSQL 使用 `ramag-db-test-postgres`（`postgres:17-alpine`，实际版本 `17.10`，`127.0.0.1:15432`）。两者复用现有专用数据卷，没有重建或清空卷。
 - MySQL 窗口：连接到 `ramag_test` 后，数据库对象树显示 `bulk_records`、其他表和视图；打开 `bulk_records` 后结果网格显示 `1–100 / 100000`。随后在 SQL 编辑器执行 `SELECT id, group_id, amount FROM ramag_test.bulk_records LIMIT 10;`，结果显示 10 行、3 列，耗时约 35 ms。
@@ -106,9 +106,13 @@
 - 查询取消尝试（2026-10-25）：在 PostgreSQL 执行 `SELECT pg_sleep(10);` 和 `SELECT pg_sleep(5);`，并尝试点击停止控件。两条查询仍分别在约 10006ms 和 5009ms 后完成。此两次尝试未观察到取消结果，单独不能确认取消行为；后续成功复验见下方。
 - 查询取消复验（2026-10-25）：在更新后的 Debug 窗口执行只读 `SELECT pg_sleep(30);` 并立即点击取消。UI 显示“服务器已确认取消查询”，停止按钮恢复为运行按钮；随后从另一条 PostgreSQL 会话读取 `pg_stat_activity`，目标 PID 状态为 `idle`，确认长查询没有继续执行。`ramag-infra-postgres` 的 Docker 集成用例 `cancellable_query_can_be_stopped_by_backend_id` 也通过（1 项）。本次没有执行 DML/DDL；保留先前未成功的尝试记录，查询取消现由本次复验确认通过。
 - 长列标题原生显示复验（2026-10-25）：在 PostgreSQL 结果网格执行带有超长别名的 5 行只读查询。表头按列宽截断，`int8` 类型和相邻 `title_value` 列仍可见，5 行数据正常显示，没有标题遮挡相邻列。列宽拖拽与大结果集的完整原生窗口矩阵仍待独立验收。
-- 写入边界：本轮只测试连接并读取测试数据，没有执行 DML 或 DDL。测试账户权限未核验，因此本轮结果不证明账户具有只读权限。
-- 清理和保留：两个容器均通过 `docker stop` 停止；MySQL 与 PostgreSQL 专用数据卷保留。两条测试数据源保留在 `%TEMP%` 下的隔离 Ramag 数据目录，供下一轮测试复用。Ramag 启动日志仍写入默认应用日志位置。
-- 状态：本轮确认 MySQL/PostgreSQL 连接、列/键/索引树、PostgreSQL Server Objects 和 Virtual views、两端表读取、MySQL 和 PostgreSQL 有界 SQL 查询、PostgreSQL DDL 预览、排序/过滤/翻页，以及窄侧栏列布局。查询取消的首次尝试未成功，后续真实窗口与 Docker 集成复验均通过；仍待验收触发器子树和失败恢复。本条保持部分完成。
+- 触发器子树（2026-10-26）：复用已健康运行的 MySQL 8.4.9（`127.0.0.1:13306`）和 PostgreSQL 17.10（`127.0.0.1:15432`）。在两端测试库的 `bulk_records` 表上各建一个无数据变更的临时 `BEFORE UPDATE` 触发器。真实窗口展开 MySQL 和 PostgreSQL 表节点后，均显示 `触发器 (1)` 和对应触发器行。没有执行会触发该逻辑的 DML。
+- 连接失败与恢复（2026-10-26）：将隔离 MySQL 数据源端口临时改为未监听的 `13307`。真实窗口保留数据源名称，显示“连接失败”、超时原因和“重试”入口。恢复 `13306` 后使用“重连”，状态回到“已连接”，`ramag_test` 对象树重新加载。配置变更期间旧标签先进入暂停状态；这项窗口操作没有证明连接失败时旧树内容仍可见。旧树保留由下方 headless 回归覆盖。
+- Headless：`cargo test --locked -p ramag-tool-dbclient --lib table_tree_refresh_keeps_existing_rows_during_reload_and_failure -- --nocapture` 通过。测试覆盖刷新期间和失败后保留已有表行，并保留重试入口。本机 F 盘空间为 0；测试使用 C 盘独立 Cargo 目录完成。
+- 构建边界：真实窗口使用已存在的 `0.7.0` Debug 程序，产品版本为 `0.7.0`。本轮新的 `cargo build --locked -p ramag-bin` 未完成，MSVC 链接以 `LNK1140` 退出；`v0.7.0` 标签之后的仓库变更只有文档，因此运行程序的 Rust 源码与当前源码一致。
+- 清理：验收后删除 MySQL 和 PostgreSQL 临时触发器，并删除 PostgreSQL 辅助函数。两端 `information_schema` 查询均确认触发器数量为 0，PostgreSQL 函数数量为 0；随后窗口刷新并重新读取表详情，触发器分组不再出现。两个 Docker 容器保持健康；没有停止容器、重建容器或更改数据卷。没有修改测试数据行。
+- 系统提示：Computer Use 期间出现与本次验收无关的 GPG 私钥口令提示。已取消该提示，没有输入口令。
+- 状态：本轮新增确认 MySQL/PostgreSQL 触发器子树真实窗口显示，并确认 MySQL 的连接失败提示与重连恢复。旧树保留由 headless 测试确认。查询取消的旧失败尝试和后续成功复验仍按原记录保留。完整数据库操作矩阵仍未完成；下一项按 `DB-RED-06` 验收事务模式与空事务回滚。本条保持部分完成。
 
 ### DB-UX-002：查询控制台（覆盖 `DB-RED-05` 至 `DB-RED-07` 的界面入口）
 
