@@ -71,6 +71,9 @@ it-tools-template 的实现而删除其他现有工具，也不把 it-tools-temp
 P0 的代码清理已完成。P1 至 P3 只允许维护现有能力。任何新增范围都必须先更新本计划，
 并在用户明确说明后执行。
 
+当前 P3 发布切片为 [Ramag 0.7.0 发布计划](25-ramag-0.7.0-release-plan.md)。
+发布验收独立于数据库 `A-UI-REAL` 的剩余窗口验收；两者的未完成范围分别记录。
+
 当前 UI 子切片已完成 API 工作台简约布局和两条分隔栏的真实窗口拖动检查。2026-10-25 已完成
 [连接型工作区验收计划](22-connection-workspace-acceptance-plan.md)中的全局 UI 回归：真实窗口确认
 首页、API、Settings、数据库、Kafka、MQTT 和 SSH 页面入口可用，主题切换后已恢复。

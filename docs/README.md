@@ -28,6 +28,7 @@
 | 专项 | [列表型工作区完整程序验收](21-list-workspace-acceptance-plan.md) | 按 Container、VCS、插件顺序记录真实窗口、滚动和列表状态验收 |
 | 专项 | [连接型工作区完整程序验收](22-connection-workspace-acceptance-plan.md) | 按 SSH/SFTP、API、Kafka、MQTT 顺序记录表单、连接、取消和错误恢复验收 |
 | 专项 | [GPUI Kit 0.7.3 升级与 Ramag 0.6.0 发布](23-gpui-kit-0.7.3-upgrade-release-plan.md) | 迁移 GPUI Kit 0.7.3、执行完整验证并发布多平台桌面版本 |
+| 专项 | [Ramag 0.7.0 发布计划](25-ramag-0.7.0-release-plan.md) | 核对质量门、版本、三平台安装包、摘要和正式发布结果 |
 
 历史计划和验收记录保留在 [`archive/2026-09-25-pre-datagrip-rebaseline/`](archive/2026-09-25-pre-datagrip-rebaseline/) 及 [执行历史](01-development-plan-history.md) 供追溯，不作为当前待办。新增计划必须使用两位数字前缀，并同步更新本目录和仓库链接。
 

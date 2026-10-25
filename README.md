@@ -47,10 +47,10 @@ This repository, `bruceblink/ramag-platform`, is an independent downstream proje
 |---|---|
 | 项目身份 | `bruceblink/ramag-platform`，独立下游项目；不代表 `tools-rs/ramag` 官方主线 |
 | 代码基线 | 沿用 Ramag `0.0.5` workspace 基线，并包含本仓库后续的 UI 修复与平台设计记录 |
-| 独立发布 | `v0.4.0` 提供三平台安装包、更新清单和 SHA-256 清单；不要把上游安装包当成本项目发布物 |
+| 独立发布 | 本项目提供三平台安装包、更新清单和 SHA-256 清单；最新版本见本项目 Releases |
 | 插件平台 | 当前基于编译期静态插件；主线完成后按 [`docs/04-plugin-platform-roadmap.md`](docs/04-plugin-platform-roadmap.md) 设计插件接口、开发试点并迁移保留工具；动态加载和插件市场尚未决定 |
 | 上游协作 | 通用修复可整理后向 `tools-rs/ramag` 提交独立 PR；平台化架构和专属功能在本仓库继续演进 |
-| 支持平台 | Linux x86_64、macOS 12+（Apple Silicon / Intel）、Windows 10/11 x64；`v0.4.0` 提供三平台安装包 |
+| 支持平台 | Linux x86_64、macOS 12+（Apple Silicon / Intel）、Windows 10/11 x64；三平台安装包见本项目 Releases |
 | 数据边界 | 连接配置、凭据与剪贴历史保存于本机；Ramag 不提供托管服务，也不主动上传这些数据 |
 
 Ramag Platform is under active independent development. Contributions, reproducible feedback, and security reports are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
@@ -93,7 +93,7 @@ Ramag 的价值来自 Rust/GPUI 原生工作区、远程连接、本地安全边
 
 ### 直接安装
 
-本项目的 [Releases 页面](https://github.com/bruceblink/ramag-platform/releases) 提供 `v0.4.0` 三平台安装包。Windows x64 提供安装程序，macOS 提供 Apple Silicon 和 Intel DMG，Linux x86_64 提供 Debian 安装包与 AppImage。上游 Ramag 安装包不代表本项目的发布物。
+本项目的 [Releases 页面](https://github.com/bruceblink/ramag-platform/releases) 提供三平台安装包。Windows x64 提供安装程序，macOS 提供 Apple Silicon 和 Intel DMG，Linux x86_64 提供 Debian 安装包与 AppImage。上游 Ramag 安装包不代表本项目的发布物。
 
 各平台安装包命名如下：
 
@@ -104,7 +104,7 @@ Ramag 的价值来自 Rust/GPUI 原生工作区、远程连接、本地安全边
 | Windows x64 | `Ramag-*-windows-x64-setup.exe` | Windows 10 |
 | Linux x86_64 | `Ramag-*-linux-amd64.deb` / `Ramag-*-linux-x86_64.AppImage` | Ubuntu 24.04 或兼容发行版 |
 
-> 当前 workspace 版本为 `0.4.0`。Windows 安装包尚未做 Authenticode 签名，macOS 安装包尚未做 Developer ID 签名与 Apple 公证；完整状态见[桌面端构建与发布](docs/desktop-release.md#签名与公证状态)。
+> 当前 workspace 版本为 `0.7.0`。Windows 安装包尚未做 Authenticode 签名，macOS 安装包尚未做 Developer ID 签名与 Apple 公证；完整状态见[桌面端构建与发布](docs/desktop-release.md#签名与公证状态)。
 
 Git 功能需要系统已安装 `git`；SSH 管理、内嵌终端和数据库 SSH 隧道需要系统 OpenSSH。数据库、Git 仓库、SSH 凭据和剪贴板内容不会上传到 Ramag 服务。
 
@@ -417,6 +417,7 @@ Ramag 支持 Linux x86_64、macOS 12+（Apple Silicon / Intel）和 Windows 10/1
 - [性能报告：VCS、数据库与剪贴板](docs/performance.md)
 - [开发主线与设计文档](docs/README.md)
 - [执行计划](docs/01-development-plan.md)
+- [Ramag 0.7.0 发布计划](docs/25-ramag-0.7.0-release-plan.md)
 - [原生核心收缩与双端协议路线](docs/02-development-roadmap.md)
 - [System Pulse 优点吸收与差距矩阵](docs/04-system-pulse-gap-matrix.md)
 - [插件开发指南](docs/05-plugin-development-guide.md)

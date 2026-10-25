@@ -4,6 +4,28 @@
 
 > 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
 
+## [0.7.0] - 2026-10-25
+
+Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.6.0...v0.7.0
+
+### 🚀 新功能 / Features
+
+- 统一首页工具卡与默认窗口的黄金比例，改善工具入口的排列和拖动反馈（[首页布局](https://github.com/bruceblink/ramag-platform/commit/75715c14)）。
+
+### 🐛 问题修复 / Bug Fixes
+
+- API 工作区读取完成前不再执行请求；简化请求配置与响应区域，同时保留双分隔栏调整（[读取状态](https://github.com/bruceblink/ramag-platform/commit/0a7d6a09)，[请求工作区](https://github.com/bruceblink/ramag-platform/commit/1a193b74)）。
+- 收紧共享滚动条；修复数据库对象树列元数据遮挡，以及结果网格底部的空白带（[共享滚动条](https://github.com/bruceblink/ramag-platform/commit/951f74eb)，[对象树](https://github.com/bruceblink/ramag-platform/commit/bf82ea53)，[结果网格](https://github.com/bruceblink/ramag-platform/commit/d11f8526)）。
+- 修复三平台质量检查和打包发布者元数据；保持声明的 Rust `1.91` 最低版本可编译（[发布者](https://github.com/bruceblink/ramag-platform/commit/0cce4f26)，[质量检查](https://github.com/bruceblink/ramag-platform/commit/8efbfd63)，[最低版本](https://github.com/bruceblink/ramag-platform/commit/0067968f)）。
+
+### 🧰 维护、文档与测试 / Maintenance, Docs & Tests
+
+- 补齐连接型工作区和数据库真实窗口验收记录，并明确后续插件接口设计顺序。数据库触发器子树与失败恢复的完整窗口验收仍在进行。
+
+### 📝 其他变更 / Other Changes
+
+- 移除本机协作和独立 JSON Path 提取器入口与代码。其他现有工具保留；旧本地数据库和凭据不会因这次代码清理而自动删除（[范围清理](https://github.com/bruceblink/ramag-platform/commit/7bb6174f)）。
+
 ## [0.6.0] - 2026-10-17
 
 Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.5.0...v0.6.0
