@@ -21,12 +21,15 @@ Ramag 保留当前原生工具和基础设施，移除本机协作与 JSON Path 
 |---|---|---|---|
 | P0 | `RAMAG-REMOVE-001` | 已完成 | 保持工具注册、Cargo workspace 和文档不再包含两个已移除入口 |
 | P1 | `RAMAG-MAINT-001` | 持续 | 处理已排期的现有工具缺陷、稳定性、性能、资源、取消和错误恢复问题 |
-| P2 | `RAMAG-UI-001` | 进行中 | 完成现有页面的布局、主题、导航、设置和可访问性验收；当前详细任务见[连接型工作区计划](22-connection-workspace-acceptance-plan.md) |
+| P2 | `RAMAG-UI-001` | 进行中 | 完成现有页面的布局、主题、导航、设置和可访问性验收；连接工作区回归见[验收计划](22-connection-workspace-acceptance-plan.md)，数据库真实窗口验收见[数据库路线图](03-database-client-datagrip-roadmap.md) |
 | P3 | `RAMAG-RELEASE-001` | 持续 | 维护三平台构建、安装包、更新、校验和发布记录 |
 
 连接型工作区计划中的 `A-POST-0.5-REGRESSION-001` 已于 2026-10-25 完成真实窗口回归。记录覆盖
 首页往返、主题恢复、Settings、工具入口、数据库、Kafka、MQTT 和 SSH 页面。真实窗口、headless、
 服务集成和发布资产仍分别记录，不能相互替代。
+
+数据库路线图中的 `A-UI-REAL` 仍未完成。2026-10-25 已用隔离窗口连通本机 MySQL 和 PostgreSQL，
+并读取 `bulk_records` 页面；完整对象与查询流程仍待按专项验收矩阵检查。
 
 “当前主线完成”指更新日之前已经排入的具体交付切片全部满足验收条件，并在计划中记录结果。之后新发现的
 维护问题继续进入 P1 队列，不自动无限期推迟插件化阶段。

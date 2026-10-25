@@ -1,7 +1,7 @@
 # 数据库工作区主线：DataGrip 风格核心闭环
 
-> 状态：现行专项路线图；`DB-UX-005F`、`A-DB-005` 和 `A-DB-RED-02` 的代码、headless 与 Docker 验证已完成，下一项为 `A-UI-REAL` 真实窗口证据
-> 更新日期：2026-09-27
+> 状态：现行专项路线图；`DB-UX-005F`、`A-DB-005` 和 `A-DB-RED-02` 的代码、headless 与 Docker 验证已完成；`A-UI-REAL` 已完成 MySQL/PostgreSQL 连接和表读取的部分真实窗口验收，完整数据库操作矩阵仍未完成
+> 更新日期：2026-10-25
 > 共同视觉与交互基线：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 跨工具顺序：[`02-development-roadmap.md`](02-development-roadmap.md)
 > 历史实现、待办和验收记录：[`archive/2026-09-25-pre-datagrip-rebaseline/03-database-client-datagrip-roadmap.md`](archive/2026-09-25-pre-datagrip-rebaseline/03-database-client-datagrip-roadmap.md)
@@ -93,7 +93,16 @@
 
 - Docker：复用本机健康的 `ramag-db-test-mysql`（`mysql:8.4`，`127.0.0.1:13306`）和 `ramag-db-test-postgres`（`postgres:17-alpine`，`127.0.0.1:15432`）；MySQL `list_` 集成测试 4 项、PostgreSQL `list_` 集成测试 4 项、两端临时触发器测试各 1 项通过。临时对象由测试清理，未停止用户复用的容器、网络或数据卷。
 - Headless：`cargo test --locked -p ramag-tool-dbclient --lib table_tree -- --nocapture` 通过 42 项，覆盖 Schema 刷新保留旧树、表/列/键/索引/触发器分组、搜索、过滤、连接隔离和窄窗口布局。
-- 结果：真实驱动元数据、表树代码和 headless 交互达到当前矩阵要求；真实 Windows 鼠标/键盘流程仍未验收，下一项为 `A-UI-REAL`。
+- 结果：真实驱动元数据、表树代码和 headless 交互达到当前矩阵要求；真实 Windows 鼠标/键盘流程由 `A-UI-REAL` 分批验收，当前已完成的范围见下文。
+
+#### A-UI-REAL：真实数据库工作区窗口验收（2026-10-25，部分完成）
+
+- 环境：使用隔离 Debug 数据目录启动 `target/debug/ramag.exe`。MySQL 使用本机 `ramag-db-test-mysql`（`mysql:8.4`，实际版本 `8.4.9`，`127.0.0.1:13306`）；PostgreSQL 使用 `ramag-db-test-postgres`（`postgres:17-alpine`，实际版本 `17.10`，`127.0.0.1:15432`）。两者复用现有专用数据卷，没有重建或清空卷。
+- MySQL 窗口：连接到 `ramag_test` 后，数据库对象树显示 `bulk_records`、其他表和视图；打开 `bulk_records` 后结果网格显示 `1–100 / 100000`。随后在 SQL 编辑器执行 `SELECT id, group_id, amount FROM ramag_test.bulk_records LIMIT 10;`，结果显示 10 行、3 列，耗时约 35 ms。
+- PostgreSQL 窗口：连接到 `ramag_test` 后，`public` Schema 显示 3 个表和 1 个视图；打开 `bulk_records` 后结果网格显示 `1–100 / 100000`，列包含 `int8`、`int4`、`numeric`、`text` 和 `jsonb` 等驱动类型。
+- 写入边界：本轮只测试连接并读取测试数据，没有执行 DML 或 DDL。测试账户权限未核验，因此本轮结果不证明账户具有只读权限。
+- 清理和保留：两个容器均通过 `docker stop` 停止；MySQL 与 PostgreSQL 专用数据卷保留。两条测试数据源保留在 `%TEMP%` 下的隔离 Ramag 数据目录，供下一轮测试复用。Ramag 启动日志仍写入默认应用日志位置。
+- 状态：本轮确认两个 SQL 驱动的连接、对象树入口、表读取和 MySQL 有界 SQL 查询。仍待验收字段/键/索引子树、Server Objects、Virtual views 读取、DDL、排序/过滤、翻页操作、PostgreSQL 手工 SQL、取消和失败恢复；本条保持部分完成。
 
 ### DB-UX-002：查询控制台（覆盖 `DB-RED-05` 至 `DB-RED-07` 的界面入口）
 
