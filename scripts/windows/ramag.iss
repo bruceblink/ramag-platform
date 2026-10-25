@@ -1,5 +1,5 @@
 #define MyAppName "Ramag"
-#define MyAppPublisher "axemc"
+#define MyAppPublisher GetEnv("RAMAG_PACKAGE_PUBLISHER")
 #define MyAppURL GetEnv("RAMAG_PACKAGE_URL")
 #define MyAppExeName "ramag.exe"
 #define MyAppId "com.axemc.ramag"
@@ -19,6 +19,9 @@
 #endif
 #if MyAppURL == ""
   #error RAMAG_PACKAGE_URL is required
+#endif
+#if MyAppPublisher == ""
+  #error RAMAG_PACKAGE_PUBLISHER is required
 #endif
 
 [Setup]

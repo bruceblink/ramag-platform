@@ -75,9 +75,40 @@ Describe "Get-AppMetadata" {
             )
         } | ConvertTo-Json -Depth 3
 
-        $Metadata = ConvertTo-AppMetadata -MetadataJson $MetadataJson
+        $Metadata = ConvertTo-AppMetadata -MetadataJson $MetadataJson -RepositoryOwner ""
         $Metadata.Version | Should -BeExactly "1.2.3-beta.1"
         $Metadata.Repository | Should -BeExactly "https://github.com/bruceblink/ramag-platform"
+        $Metadata.Author | Should -BeExactly "bruceblink"
+    }
+
+    It "uses the GitHub repository owner supplied by CI" {
+        $MetadataJson = @{
+            packages = @(
+                @{
+                    name = "ramag-bin"
+                    version = "1.2.3"
+                    repository = "https://github.com/bruceblink/ramag-platform"
+                }
+            )
+        } | ConvertTo-Json -Depth 3
+
+        $Metadata = ConvertTo-AppMetadata -MetadataJson $MetadataJson -RepositoryOwner "octocat"
+        $Metadata.Author | Should -BeExactly "octocat"
+    }
+
+    It "rejects an invalid GitHub repository owner" {
+        $MetadataJson = @{
+            packages = @(
+                @{
+                    name = "ramag-bin"
+                    version = "1.2.3"
+                    repository = "https://github.com/bruceblink/ramag-platform"
+                }
+            )
+        } | ConvertTo-Json -Depth 3
+
+        { ConvertTo-AppMetadata -MetadataJson $MetadataJson -RepositoryOwner "octo cat" } |
+            Should -Throw "*Unsupported GitHub repository owner*"
     }
 
     It "rejects a repository URL that cannot produce installer links" {
@@ -109,7 +140,9 @@ Describe "Inno Setup metadata" {
             -Raw
 
         $IssContent | Should -Match '#define MyAppURL GetEnv\("RAMAG_PACKAGE_URL"\)'
-        $IssContent | Should -Not -Match 'github\.com/axemc/ramag'
+        $IssContent | Should -Match '#define MyAppPublisher GetEnv\("RAMAG_PACKAGE_PUBLISHER"\)'
+        $IssContent | Should -Match 'RAMAG_PACKAGE_PUBLISHER is required'
+        $IssContent | Should -Not -Match '#define MyAppPublisher "axemc"'
     }
 }
 

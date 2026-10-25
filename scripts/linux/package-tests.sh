@@ -8,6 +8,8 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # shellcheck source=scripts/linux/release-lib.sh
 source "$SCRIPT_DIR/release-lib.sh"
+# shellcheck source=scripts/package-metadata.sh
+source "$SCRIPT_DIR/../package-metadata.sh"
 
 assert_equal() {
     local expected="$1" actual="$2" description="$3"
@@ -32,6 +34,34 @@ assert_equal "Ramag-1.2.3-linux-x86_64.AppImage" \
     "$(linux_get_appimage_asset_name "1.2.3")" "AppImage asset name"
 assert_fails "Invalid Debian version" linux_get_deb_asset_name "1.2"
 assert_fails "Invalid AppImage version" linux_get_appimage_asset_name "next"
+
+(
+    export RAMAG_PACKAGE_PUBLISHER="octocat"
+    assert_equal "octocat" "$(ramag_package_get_author "$REPO_DIR")" \
+        "GitHub repository owner override"
+)
+(
+    unset RAMAG_PACKAGE_PUBLISHER
+    cargo_author="$(cargo metadata --locked --no-deps --format-version 1 \
+        | jq -er '.packages[] | select(.name == "ramag-bin") | .authors[0]')"
+    assert_equal "$cargo_author" "$(ramag_package_get_author "$REPO_DIR")" \
+        "Cargo author fallback"
+)
+assert_fails "Invalid GitHub package author" env RAMAG_PACKAGE_PUBLISHER="bad owner" \
+    bash -c 'source "$1"; ramag_package_get_author "$2"' _ \
+    "$SCRIPT_DIR/../package-metadata.sh" "$REPO_DIR"
+
+(
+    export RAMAG_PACKAGE_PUBLISHER="octocat"
+    author="$(ramag_package_get_author "$REPO_DIR")"
+    control="$(sed \
+        -e "s/@VERSION@/1.2.3/g" \
+        -e "s/@INSTALLED_SIZE@/100/g" \
+        -e "s/@PACKAGE_AUTHOR@/$author/g" \
+        -e "s/@PACKAGE_AUTHOR_EMAIL@/${author}@users.noreply.github.com/g" \
+        "$SCRIPT_DIR/debian-control.in")"
+    grep -Fxq "Maintainer: octocat <octocat@users.noreply.github.com>" <<<"$control"
+)
 
 (
     export GITHUB_REF_TYPE="tag" GITHUB_REF_NAME="v1.2.3"

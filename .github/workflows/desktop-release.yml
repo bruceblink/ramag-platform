@@ -20,6 +20,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  RAMAG_PACKAGE_PUBLISHER: ${{ github.repository_owner }}
 
 jobs:
   windows-package:

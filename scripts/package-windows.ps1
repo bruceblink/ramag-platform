@@ -38,7 +38,9 @@ function Find-Iscc {
 function ConvertTo-AppMetadata {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$MetadataJson
+        [string]$MetadataJson,
+        [AllowEmptyString()]
+        [string]$RepositoryOwner = $env:RAMAG_PACKAGE_PUBLISHER
     )
 
     try {
@@ -57,12 +59,24 @@ function ConvertTo-AppMetadata {
         throw "Unsupported Cargo version for Windows packaging: $Version"
     }
     $Repository = [string]$Packages[0].repository
-    if ($Repository -notmatch '^https://github\.com/[0-9A-Za-z_.-]+/[0-9A-Za-z_.-]+$') {
+    $RepositoryMatch = [regex]::Match(
+        $Repository,
+        '^https://github\.com/(?<owner>[A-Za-z0-9-]+)/[0-9A-Za-z_.-]+$'
+    )
+    if (-not $RepositoryMatch.Success) {
         throw "Unsupported Cargo repository URL for Windows packaging: $Repository"
+    }
+    $Author = $RepositoryMatch.Groups["owner"].Value
+    if (-not [string]::IsNullOrWhiteSpace($RepositoryOwner)) {
+        if ($RepositoryOwner -notmatch '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$') {
+            throw "Unsupported GitHub repository owner for package publisher: $RepositoryOwner"
+        }
+        $Author = $RepositoryOwner
     }
     return [PSCustomObject]@{
         Version = $Version
         Repository = $Repository
+        Author = $Author
     }
 }
 
@@ -172,11 +186,19 @@ function Invoke-WindowsPackage {
     $AppMetadata = Get-AppMetadata
     $Version = $AppMetadata.Version
     $AppUrl = $AppMetadata.Repository
+    $AppAuthor = $AppMetadata.Author
     $VersionInfoNumber = Get-VersionInfoNumber -Version $Version
     Assert-TagMatchesVersion -Version $Version
 
     $BuildStarted = [DateTime]::UtcNow
-    & $BuildScript -Release
+    $PreviousBuildPublisher = $env:RAMAG_PACKAGE_PUBLISHER
+    try {
+        $env:RAMAG_PACKAGE_PUBLISHER = $AppAuthor
+        & $BuildScript -Release
+    }
+    finally {
+        $env:RAMAG_PACKAGE_PUBLISHER = $PreviousBuildPublisher
+    }
     $Exe = Resolve-ReleaseExecutable -BuiltAfter $BuildStarted
     Assert-File -Path $Exe -Description "Release executable"
     $ExeVersionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($Exe)
@@ -206,11 +228,13 @@ function Invoke-WindowsPackage {
     $PreviousPackageVersion = $env:RAMAG_PACKAGE_VERSION
     $PreviousPackageVersionInfo = $env:RAMAG_PACKAGE_VERSION_INFO
     $PreviousPackageUrl = $env:RAMAG_PACKAGE_URL
+    $PreviousPackagePublisher = $env:RAMAG_PACKAGE_PUBLISHER
     try {
         $env:RAMAG_PACKAGE_EXE = $Exe
         $env:RAMAG_PACKAGE_VERSION = $Version
         $env:RAMAG_PACKAGE_VERSION_INFO = $VersionInfoNumber
         $env:RAMAG_PACKAGE_URL = $AppUrl
+        $env:RAMAG_PACKAGE_PUBLISHER = $AppAuthor
         & $Iscc "/Qp" "/O$DistDir" "/F$SetupBaseName" $IssScript
         if ($LASTEXITCODE -ne 0) {
             throw "Inno Setup compilation failed with exit code $LASTEXITCODE."
@@ -221,6 +245,7 @@ function Invoke-WindowsPackage {
         $env:RAMAG_PACKAGE_VERSION = $PreviousPackageVersion
         $env:RAMAG_PACKAGE_VERSION_INFO = $PreviousPackageVersionInfo
         $env:RAMAG_PACKAGE_URL = $PreviousPackageUrl
+        $env:RAMAG_PACKAGE_PUBLISHER = $PreviousPackagePublisher
     }
     Assert-File -Path $SetupPath -Description "Windows installer"
 

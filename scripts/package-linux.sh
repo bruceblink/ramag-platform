@@ -17,6 +17,8 @@ APPIMAGE_RUNTIME_SHA256="156f4bdbde9c52d01814600013e0a273f0118dc2de98975f3c8c634
 
 # shellcheck source=scripts/linux/release-lib.sh
 source "$LINUX_DIR/release-lib.sh"
+# shellcheck source=scripts/package-metadata.sh
+source "$SCRIPT_DIR/package-metadata.sh"
 
 fail() {
     echo "$1" >&2
@@ -54,6 +56,8 @@ version="$(linux_get_app_version "$REPO_DIR")"
 linux_assert_tag_matches_version "$version"
 deb_name="$(linux_get_deb_asset_name "$version")"
 appimage_name="$(linux_get_appimage_asset_name "$version")"
+package_author="$(ramag_package_get_author "$REPO_DIR")"
+package_author_email="${package_author}@users.noreply.github.com"
 
 cd "$REPO_DIR"
 cargo build --locked --release -p ramag-bin
@@ -81,6 +85,8 @@ install -Dm644 "$REPO_DIR/crates/ramag-infra-system/src/intel/UAPI-NOTICE" \
 installed_size="$(du -sk "$deb_root/usr" | awk '{print $1}')"
 mkdir -p "$deb_root/DEBIAN"
 sed -e "s/@VERSION@/$version/g" -e "s/@INSTALLED_SIZE@/$installed_size/g" \
+    -e "s/@PACKAGE_AUTHOR@/$package_author/g" \
+    -e "s/@PACKAGE_AUTHOR_EMAIL@/$package_author_email/g" \
     "$LINUX_DIR/debian-control.in" >"$deb_root/DEBIAN/control"
 dpkg-deb --root-owner-group -Zxz -z9 --build "$deb_root" "$DIST_DIR/$deb_name"
 dpkg-deb --info "$DIST_DIR/$deb_name" >/dev/null

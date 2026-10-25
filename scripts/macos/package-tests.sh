@@ -8,6 +8,8 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # shellcheck source=release-lib.sh
 source "$SCRIPT_DIR/release-lib.sh"
+# shellcheck source=scripts/package-metadata.sh
+source "$SCRIPT_DIR/../package-metadata.sh"
 
 assert_equal() {
     local expected="$1"
@@ -41,6 +43,22 @@ assert_equal "Ramag-1.2.3-macos-x86_64.dmg" \
     "Intel release asset name"
 assert_fails "Universal release asset" \
     macos_get_release_asset_name "1.2.3" "universal"
+
+(
+    export RAMAG_PACKAGE_PUBLISHER="octocat"
+    assert_equal "octocat" "$(ramag_package_get_author "$REPO_DIR")" \
+        "GitHub repository owner override"
+)
+(
+    unset RAMAG_PACKAGE_PUBLISHER
+    cargo_author="$(cargo metadata --locked --no-deps --format-version 1 \
+        | jq -er '.packages[] | select(.name == "ramag-bin") | .authors[0]')"
+    assert_equal "$cargo_author" "$(ramag_package_get_author "$REPO_DIR")" \
+        "Cargo author fallback"
+)
+assert_fails "Invalid GitHub package author" env RAMAG_PACKAGE_PUBLISHER="bad owner" \
+    bash -c 'source "$1"; ramag_package_get_author "$2"' _ \
+    "$SCRIPT_DIR/../package-metadata.sh" "$REPO_DIR"
 
 (
     unset GITHUB_REF_TYPE GITHUB_REF_NAME GITHUB_REF
@@ -85,5 +103,7 @@ if ! macos_is_supported_semver "$cargo_version"; then
     echo "Cargo application version is invalid: $cargo_version" >&2
     exit 1
 fi
+grep -Fq '<key>CFBundleGetInfoString</key>' "$SCRIPT_DIR/../build-dmg.sh"
+grep -Fq '<string>Ramag by ${PACKAGE_AUTHOR}</string>' "$SCRIPT_DIR/../build-dmg.sh"
 
 echo "macOS packaging tests passed."

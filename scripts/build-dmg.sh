@@ -25,6 +25,8 @@ RELEASE_LIB="$SCRIPT_DIR/macos/release-lib.sh"
 
 # shellcheck source=macos/release-lib.sh
 source "$RELEASE_LIB"
+# shellcheck source=scripts/package-metadata.sh
+source "$SCRIPT_DIR/package-metadata.sh"
 
 # === 参数解析 ========================================================
 PROFILE="release"
@@ -64,6 +66,9 @@ case "$TARGET" in
         exit 1
         ;;
 esac
+
+PACKAGE_AUTHOR="$(ramag_package_get_author "$REPO_DIR")"
+export RAMAG_PACKAGE_PUBLISHER="$PACKAGE_AUTHOR"
 
 if [[ "$PROFILE" == "release" ]]; then
     CARGO_FLAGS=(--release)
@@ -188,6 +193,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <string>Ramag</string>
     <key>CFBundleDisplayName</key>
     <string>Ramag</string>
+    <key>CFBundleGetInfoString</key>
+    <string>Ramag by ${PACKAGE_AUTHOR}</string>
     <key>CFBundleIdentifier</key>
     <string>com.axemc.ramag</string>
     <key>CFBundleVersion</key>
