@@ -354,6 +354,6 @@ P0-B 已在提交 `9b98b2e` 完成：`ramag-app` 新增 `StaticPluginHost`、`St
 ## 未完成项
 
 - 插件承载方式尚未选定；动态加载、第三方插件和远程分发能力均未实现。按主线顺序，在当前任务完成后通过 `RAMAG-PLUGIN-DESIGN-001` 决策。
-- 2026-10-25 的 API 双分隔栏真实窗口拖动已通过。连接工作区全局 UI 回归仍未完成；输入竞争和窗口截图与无障碍状态不一致的证据见 [连接型工作区验收计划](22-connection-workspace-acceptance-plan.md)。
+- 2026-10-25 的 API 双分隔栏真实窗口拖动和连接工作区全局 UI 回归均已完成；真实窗口记录见 [连接型工作区验收计划](22-connection-workspace-acceptance-plan.md)。
 - 插件签名、外部代码权限审批、崩溃隔离和升级回滚属于加载模型决策后的安全工作；设计未完成前不加载不受信任的外部代码。
 - Windows Credential Manager/主密钥运行环境的真实验收已完成；Linux Secret Service、macOS Keychain 和正式发布环境仍未验收，不能把 Windows 开发机证据扩展为跨平台或生产环境声明。
