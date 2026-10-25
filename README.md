@@ -48,7 +48,7 @@ This repository, `bruceblink/ramag-platform`, is an independent downstream proje
 | 项目身份 | `bruceblink/ramag-platform`，独立下游项目；不代表 `tools-rs/ramag` 官方主线 |
 | 代码基线 | 沿用 Ramag `0.0.5` workspace 基线，并包含本仓库后续的 UI 修复与平台设计记录 |
 | 独立发布 | `v0.4.0` 提供三平台安装包、更新清单和 SHA-256 清单；不要把上游安装包当成本项目发布物 |
-| 插件平台 | 插件平台设计已写入 [`docs/04-plugin-platform-roadmap.md`](docs/04-plugin-platform-roadmap.md)，开发指南见 [`docs/05-plugin-development-guide.md`](docs/05-plugin-development-guide.md)；当前仍是编译期静态工具装配，不支持第三方动态插件或插件市场 |
+| 插件平台 | 当前基于编译期静态插件；主线完成后按 [`docs/04-plugin-platform-roadmap.md`](docs/04-plugin-platform-roadmap.md) 设计插件接口、开发试点并迁移保留工具；动态加载和插件市场尚未决定 |
 | 上游协作 | 通用修复可整理后向 `tools-rs/ramag` 提交独立 PR；平台化架构和专属功能在本仓库继续演进 |
 | 支持平台 | Linux x86_64、macOS 12+（Apple Silicon / Intel）、Windows 10/11 x64；`v0.4.0` 提供三平台安装包 |
 | 数据边界 | 连接配置、凭据与剪贴历史保存于本机；Ramag 不提供托管服务，也不主动上传这些数据 |

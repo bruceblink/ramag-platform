@@ -6,10 +6,10 @@
 |---|---|---|
 | 01 | [最新执行计划](01-development-plan.md) | 当前职责边界、切片顺序、验收门槛和交付规则 |
 | 01 | [执行历史](01-development-plan-history.md) | 旧 `01` 的详细切片设计和验收记录 |
-| 02 | [主线路线图](02-development-roadmap.md) | 原生核心收缩、跨项目迁移顺序、协议和当前队列 |
+| 02 | [主线路线图](02-development-roadmap.md) | 当前维护主线、完成门槛和主线后的插件化阶段 |
 | 03 | [数据库工作区路线图](03-database-client-datagrip-roadmap.md) | 数据库工作区功能、驱动差异和 DataGrip 风格验收 |
 | 03 | [System Pulse 采集与 UI 吸收](03-system-pulse-adoption-plan.md) | 采集替换、视觉基准、当前 UI 队列和逐工具证据 |
-| 04 | [插件平台路线图](04-plugin-platform-roadmap.md) | 插件 API、权限、生命周期、目录和协作边界 |
+| 04 | [插件平台路线图](04-plugin-platform-roadmap.md) | 当前静态插件基线、后主线接口设计、试点和迁移顺序 |
 | 04 | [System Pulse 差距矩阵](04-system-pulse-gap-matrix.md) | 固定来源对照、系统监控差距和本机验收入口 |
 | 05 | [插件开发指南](05-plugin-development-guide.md) | 内置插件的实现、测试、注册和安全边界 |
 | 06 | [架构说明](06-architecture.md) | 已实现分层、依赖方向和技术决策 |
