@@ -1,6 +1,6 @@
 # 数据库工作区主线：DataGrip 风格核心闭环
 
-> 状态：现行专项路线图；`DB-UX-005F`、`A-DB-005` 和 `A-DB-RED-02` 的代码、headless 与 Docker 验证已完成；`A-UI-REAL` 已完成 MySQL/PostgreSQL 连接、触发器子树及 MySQL 失败恢复的部分真实窗口验收，完整数据库操作矩阵仍未完成
+> 状态：现行专项路线图；`DB-UX-005F`、`A-DB-005` 和 `A-DB-RED-02` 的代码、headless 与 Docker 验证已完成；`A-UI-REAL` 已完成 MySQL/PostgreSQL 连接、触发器子树、MySQL 失败恢复及空事务控件的部分真实窗口验收，完整数据库操作矩阵仍未完成
 > 更新日期：2026-10-26
 > 共同视觉与交互基线：[`07-ui-acceptance-standard.md`](07-ui-acceptance-standard.md)
 > 跨工具顺序：[`02-development-roadmap.md`](02-development-roadmap.md)
@@ -109,10 +109,12 @@
 - 触发器子树（2026-10-26）：复用已健康运行的 MySQL 8.4.9（`127.0.0.1:13306`）和 PostgreSQL 17.10（`127.0.0.1:15432`）。在两端测试库的 `bulk_records` 表上各建一个无数据变更的临时 `BEFORE UPDATE` 触发器。真实窗口展开 MySQL 和 PostgreSQL 表节点后，均显示 `触发器 (1)` 和对应触发器行。没有执行会触发该逻辑的 DML。
 - 连接失败与恢复（2026-10-26）：将隔离 MySQL 数据源端口临时改为未监听的 `13307`。真实窗口保留数据源名称，显示“连接失败”、超时原因和“重试”入口。恢复 `13306` 后使用“重连”，状态回到“已连接”，`ramag_test` 对象树重新加载。配置变更期间旧标签先进入暂停状态；这项窗口操作没有证明连接失败时旧树内容仍可见。旧树保留由下方 headless 回归覆盖。
 - Headless：`cargo test --locked -p ramag-tool-dbclient --lib table_tree_refresh_keeps_existing_rows_during_reload_and_failure -- --nocapture` 通过。测试覆盖刷新期间和失败后保留已有表行，并保留重试入口。本机 F 盘空间为 0；测试使用 C 盘独立 Cargo 目录完成。
+- 空事务控制（2026-10-26）：MySQL 8.4.9 与 PostgreSQL 17.10 的真实窗口均从 `Tx: Auto` 切到 `Tx: Manual`，并显示待提交状态说明。随后分别开始空事务并提交、回滚；界面提示事务已完成对应动作，事务控件恢复为 `Tx: Auto`。没有编辑表行或执行 DML，因此本次不证明待提交行变化或提交后的数据回读。
+- Headless：`cargo test --locked -p ramag-tool-dbclient --lib transaction -- --nocapture` 通过 4 项，覆盖事务错误状态和活动事务控件布局。
 - 构建边界：真实窗口使用已存在的 `0.7.0` Debug 程序，产品版本为 `0.7.0`。本轮新的 `cargo build --locked -p ramag-bin` 未完成，MSVC 链接以 `LNK1140` 退出；`v0.7.0` 标签之后的仓库变更只有文档，因此运行程序的 Rust 源码与当前源码一致。
 - 清理：验收后删除 MySQL 和 PostgreSQL 临时触发器，并删除 PostgreSQL 辅助函数。两端 `information_schema` 查询均确认触发器数量为 0，PostgreSQL 函数数量为 0；随后窗口刷新并重新读取表详情，触发器分组不再出现。两个 Docker 容器保持健康；没有停止容器、重建容器或更改数据卷。没有修改测试数据行。
 - 系统提示：Computer Use 期间出现与本次验收无关的 GPG 私钥口令提示。已取消该提示，没有输入口令。
-- 状态：本轮新增确认 MySQL/PostgreSQL 触发器子树真实窗口显示，并确认 MySQL 的连接失败提示与重连恢复。旧树保留由 headless 测试确认。查询取消的旧失败尝试和后续成功复验仍按原记录保留。完整数据库操作矩阵仍未完成；下一项按 `DB-RED-06` 验收事务模式与空事务回滚。本条保持部分完成。
+- 状态：本轮新增确认 MySQL/PostgreSQL 触发器子树真实窗口显示、MySQL 连接失败后的恢复，以及两端事务模式切换和空事务提交/回滚。旧树保留由 headless 测试确认。查询取消的旧失败尝试和后续成功复验仍按原记录保留。完整数据库操作矩阵仍未完成；下一项继续 `DB-RED-06` 的编辑暂存与提交/回滚回读。本条保持部分完成。
 
 ### DB-UX-002：查询控制台（覆盖 `DB-RED-05` 至 `DB-RED-07` 的界面入口）
 
