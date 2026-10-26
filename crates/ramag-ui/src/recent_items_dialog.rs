@@ -186,20 +186,11 @@ impl RecentItemPicker {
             .rounded(px(8.0))
             .overflow_hidden();
         if items.is_empty() {
-            rows = rows.child(
-                div()
-                    .px(px(16.0))
-                    .py(px(17.0))
-                    .text_sm()
-                    .text_color(muted)
-                    .child(if favorite_section {
-                        "暂无收藏"
-                    } else if self.query.is_empty() {
-                        "暂无项目"
-                    } else {
-                        "没有匹配的项目"
-                    }),
-            );
+            rows = rows.child(render_empty_section_state(
+                favorite_section,
+                self.query.is_empty(),
+                cx.theme(),
+            ));
         } else {
             for (index, item) in items.iter().cloned().enumerate() {
                 rows = rows.child(self.render_row(index, item, favorite_section, cx));
@@ -331,6 +322,70 @@ impl RecentItemPicker {
     }
 }
 
+/// 为空的收藏或最近项目分区提供清晰的状态和下一步说明。
+fn render_empty_section_state(
+    favorite_section: bool,
+    query_empty: bool,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
+    let (icon, title, guidance, section) = if favorite_section {
+        (
+            IconName::Star,
+            "还没有收藏",
+            "点击项目右侧的星标即可收藏，方便下次快速打开。",
+            "favorites",
+        )
+    } else if query_empty {
+        (
+            IconName::Folder,
+            "暂无项目",
+            "完成一次连接或打开一个项目后，最近项目会显示在这里。",
+            "all",
+        )
+    } else {
+        (
+            IconName::Search,
+            "没有匹配的项目",
+            "尝试搜索名称、路径或标签。",
+            "all",
+        )
+    };
+    let state_id = format!("recent-picker-empty-state-{section}");
+    let heading_id = format!("recent-picker-empty-heading-{section}");
+    let guidance_id = format!("recent-picker-empty-guidance-{section}");
+
+    v_flex()
+        .id(state_id.clone())
+        .debug_selector(move || state_id.clone())
+        .w_full()
+        .items_center()
+        .gap(px(6.0))
+        .px(px(16.0))
+        .py(px(18.0))
+        .child(
+            h_flex()
+                .id(heading_id.clone())
+                .debug_selector(move || heading_id.clone())
+                .items_center()
+                .gap(px(8.0))
+                .child(Icon::new(icon).small().text_color(theme.muted_foreground))
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .child(title),
+                ),
+        )
+        .child(
+            div()
+                .id(guidance_id.clone())
+                .debug_selector(move || guidance_id.clone())
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(guidance),
+        )
+}
+
 impl Render for RecentItemPicker {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if !self.focused_search {
@@ -452,3 +507,7 @@ mod tests {
         assert!(!item_matches(&item, "mysql"));
     }
 }
+
+#[cfg(test)]
+#[path = "recent_items_dialog_empty_tests.rs"]
+mod empty_tests;
