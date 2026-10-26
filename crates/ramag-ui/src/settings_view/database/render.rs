@@ -206,12 +206,11 @@ impl SettingsView {
                     }),
             )
             .when(self.saving_database, |page| {
-                page.child(
-                    h_flex()
-                        .w_full()
-                        .justify_end()
-                        .child(div().text_xs().text_color(muted).child("正在自动保存…")),
-                )
+                page.child(super::super::pages::settings_saving_notice(
+                    "settings-db-save-status",
+                    "数据库搜索配置",
+                    theme,
+                ))
             })
             .child(
                 super::super::pages::pulse_settings_card("Redis Key 树", theme).child(
