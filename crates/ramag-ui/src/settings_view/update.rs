@@ -1,4 +1,4 @@
-use gpui_kit::component::{ActiveTheme, Sizable as _, h_flex};
+use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement,
     StatefulInteractiveElement, Styled, div, px,
@@ -41,6 +41,9 @@ impl SettingsView {
         let update = update_from_state(&self.update_state).cloned();
 
         pulse_settings_card("版本信息", theme)
+            .id("settings-about-card")
+            .debug_selector(|| "settings-about-card".into())
+            .child(render_update_identity(&self.update_state, theme))
             .child(render_update_toolbar(
                 format!("当前版本：{current_version}"),
                 update,
@@ -48,6 +51,91 @@ impl SettingsView {
                 link_hover,
             ))
             .into_any_element()
+    }
+}
+
+/// 将产品身份和更新状态放在版本信息卡的首行，避免版本号和外链动作成为孤立内容。
+fn render_update_identity(
+    state: &UpdateUiState,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
+    let (label, color) = update_status_label(state, theme);
+    h_flex()
+        .id("settings-update-identity")
+        .debug_selector(|| "settings-update-identity".into())
+        .w_full()
+        .min_w_0()
+        .items_center()
+        .gap(px(10.0))
+        .child(
+            div()
+                .size(px(34.0))
+                .flex_none()
+                .items_center()
+                .justify_center()
+                .rounded(px(8.0))
+                .bg(theme.accent.opacity(0.14))
+                .child(Icon::new(IconName::Info).small().text_color(theme.accent)),
+        )
+        .child(
+            v_flex()
+                .flex_1()
+                .min_w_0()
+                .gap(px(2.0))
+                .child(
+                    div()
+                        .text_lg()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .child("Ramag"),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("原生开发工作台 · 版本与更新"),
+                ),
+        )
+        .child(
+            h_flex()
+                .id("settings-update-status")
+                .debug_selector(|| "settings-update-status".into())
+                .flex_none()
+                .items_center()
+                .gap(px(6.0))
+                .px(px(8.0))
+                .py(px(5.0))
+                .rounded(px(999.0))
+                .bg(color.opacity(0.12))
+                .child(div().size(px(6.0)).rounded(px(3.0)).bg(color))
+                .child(
+                    div()
+                        .text_xs()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .text_color(color)
+                        .child(label),
+                ),
+        )
+}
+
+fn update_status_label<'a>(
+    state: &'a UpdateUiState,
+    theme: &'a gpui_kit::component::Theme,
+) -> (&'static str, gpui_kit::Hsla) {
+    let color = match state {
+        UpdateUiState::Idle => theme.muted_foreground,
+        UpdateUiState::UpToDate => theme.success,
+        UpdateUiState::Available(_) => theme.accent,
+        UpdateUiState::UnsupportedPlatform(_) => theme.warning,
+    };
+    (update_status_text(state), color)
+}
+
+fn update_status_text(state: &UpdateUiState) -> &'static str {
+    match state {
+        UpdateUiState::Idle => "尚未检查",
+        UpdateUiState::UpToDate => "已是最新版本",
+        UpdateUiState::Available(_) => "发现新版本",
+        UpdateUiState::UnsupportedPlatform(_) => "新版本无安装包",
     }
 }
 
@@ -173,7 +261,76 @@ mod tests {
     use ramag_app::AvailableUpdate;
     use ramag_domain::entities::ReleaseInfo;
 
-    use super::render_update_toolbar;
+    use super::{UpdateUiState, render_update_identity, render_update_toolbar, update_status_text};
+
+    #[test]
+    fn update_status_text_covers_all_update_states() {
+        let update = AvailableUpdate {
+            release: ReleaseInfo {
+                version: "0.8.0".into(),
+                tag_name: "v0.8.0".into(),
+                release_url: "https://example.com/releases/v0.8.0".into(),
+                notes: String::new(),
+                published_at: None,
+                assets: Vec::new(),
+            },
+            asset: None,
+        };
+        assert_eq!(update_status_text(&UpdateUiState::Idle), "尚未检查");
+        assert_eq!(update_status_text(&UpdateUiState::UpToDate), "已是最新版本");
+        assert_eq!(
+            update_status_text(&UpdateUiState::Available(update.clone())),
+            "发现新版本"
+        );
+        assert_eq!(
+            update_status_text(&UpdateUiState::UnsupportedPlatform(update)),
+            "新版本无安装包"
+        );
+    }
+
+    struct UpdateIdentityHost {
+        state: UpdateUiState,
+    }
+
+    impl Render for UpdateIdentityHost {
+        fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .id("settings-update-identity-host")
+                .debug_selector(|| "settings-update-identity-host".into())
+                .w_full()
+                .child(render_update_identity(&self.state, cx.theme()))
+        }
+    }
+
+    #[gpui_kit::test]
+    fn update_identity_stays_inside_supported_widths(cx: &mut TestAppContext) {
+        cx.update(gpui_kit::component::init);
+        let (_, cx) = cx.add_window_view(|_, _| UpdateIdentityHost {
+            state: UpdateUiState::UpToDate,
+        });
+        let cx: &mut VisualTestContext = cx;
+        for width in [360.0, 1024.0, 1440.0] {
+            cx.simulate_resize(size(px(width), px(220.0)));
+            cx.run_until_parked();
+
+            let Some(host) = cx.debug_bounds("settings-update-identity-host") else {
+                unreachable!("关于页身份区测试宿主应渲染");
+            };
+            let Some(identity) = cx.debug_bounds("settings-update-identity") else {
+                unreachable!("关于页身份区应渲染");
+            };
+            let Some(status) = cx.debug_bounds("settings-update-status") else {
+                unreachable!("关于页更新状态徽标应渲染");
+            };
+
+            for child in [identity, status] {
+                assert!(child.origin.x >= host.origin.x);
+                assert!(child.origin.y >= host.origin.y);
+                assert!(child.origin.x + child.size.width <= host.origin.x + host.size.width);
+                assert!(child.origin.y + child.size.height <= host.origin.y + host.size.height);
+            }
+        }
+    }
 
     struct UpdateToolbarHost;
 
