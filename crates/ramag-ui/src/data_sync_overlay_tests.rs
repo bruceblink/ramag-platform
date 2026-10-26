@@ -9,13 +9,13 @@ use gpui_kit::{
     Styled, TestAppContext, VisualTestContext, Window, div, point, prelude::*, px, size,
 };
 use ramag_app::{DataSyncExecutionContext, DataSyncGate, DataSyncGatePhase};
-use ramag_domain::entities::{DataSyncSummary, DataSyncTaskId};
+use ramag_domain::entities::{DataSyncProgress, DataSyncSummary, DataSyncTaskId};
 
-use super::render_sync_feedback_notice;
 use super::{
     DataSyncOverlay,
     result::{format_count, format_elapsed_ms},
 };
+use super::{render_sync_feedback_notice, sync_progress_percent};
 
 struct OverlayTestHost {
     overlay: Entity<DataSyncOverlay>,
@@ -117,6 +117,8 @@ fn running_overlay_covers_window_and_blocks_background_input(cx: &mut TestAppCon
     let overlay = cx.debug_bounds("data-sync-overlay").expect("占屏应渲染");
     assert_eq!(overlay, host, "占屏必须覆盖完整主视图");
     assert!(cx.debug_bounds("data-sync-card").is_some());
+    assert!(cx.debug_bounds("sync-progress-track").is_some());
+    assert!(cx.debug_bounds("sync-progress-fill").is_none());
 
     let behind = cx
         .debug_bounds("overlay-behind-control")
@@ -182,6 +184,48 @@ fn cancel_and_terminal_result_keep_overlay_until_acknowledged(cx: &mut TestAppCo
     cx.simulate_mouse_down(acknowledge_point, MouseButton::Left, Modifiers::default());
     cx.simulate_mouse_up(acknowledge_point, MouseButton::Left, Modifiers::default());
     assert!(!gate.is_blocking());
+}
+
+#[gpui_kit::test]
+fn running_progress_bar_fits_supported_widths(cx: &mut TestAppContext) {
+    let gate = Arc::new(DataSyncGate::default());
+    let permit = gate
+        .begin(DataSyncTaskId::new(), context())
+        .expect("门禁应开始");
+    assert!(gate.update_progress(
+        &permit,
+        DataSyncProgress {
+            objects_done: 3,
+            objects_total: Some(10),
+            ..DataSyncProgress::default()
+        }
+    ));
+    let (host_entity, _overlay, _mouse_events, _key_events, _render_count, visual_cx) =
+        add_overlay_window(cx, gate);
+
+    for mode in [crate::Mode::Light, crate::Mode::Dark] {
+        visual_cx.update(|_, app| crate::apply_theme(mode, app));
+        for width in [320.0, 640.0, 1024.0] {
+            visual_cx.simulate_resize(size(px(width), px(420.0)));
+            host_entity.update(visual_cx, |_, cx| cx.notify());
+            visual_cx.run_until_parked();
+
+            let card = visual_cx
+                .debug_bounds("data-sync-card")
+                .expect("同步卡片应渲染");
+            let track = visual_cx
+                .debug_bounds("sync-progress-track")
+                .expect("同步进度轨道应渲染");
+            let fill = visual_cx
+                .debug_bounds("sync-progress-fill")
+                .expect("同步进度填充应渲染");
+            assert!(track.origin.x >= card.origin.x);
+            assert!(track.right() <= card.right());
+            assert!(fill.origin.x >= track.origin.x);
+            assert!(fill.right() <= track.right());
+            assert!(fill.size.width > px(0.0));
+        }
+    }
 }
 
 #[gpui_kit::test]
@@ -280,4 +324,14 @@ fn result_numbers_and_elapsed_time_are_human_readable_at_boundaries() {
     assert_eq!(format_elapsed_ms(60_000), "1 分 00.00 秒");
     assert_eq!(format_elapsed_ms(94_120), "1 分 34.12 秒");
     assert_eq!(format_elapsed_ms(3_661_230), "1 小时 1 分 01.23 秒");
+}
+
+#[test]
+fn sync_progress_percent_handles_unknown_and_overflowed_counts() {
+    assert_eq!(sync_progress_percent(0, None), None);
+    assert_eq!(sync_progress_percent(0, Some(0)), None);
+    assert_eq!(sync_progress_percent(0, Some(10)), Some(0));
+    assert_eq!(sync_progress_percent(3, Some(10)), Some(30));
+    assert_eq!(sync_progress_percent(10, Some(10)), Some(100));
+    assert_eq!(sync_progress_percent(99, Some(10)), Some(100));
 }

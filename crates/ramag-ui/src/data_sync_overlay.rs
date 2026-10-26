@@ -11,7 +11,7 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     ClickEvent, Context, FocusHandle, IntoElement, KeyDownEvent, ParentElement, Render,
-    SharedString, Styled, Window, div, prelude::*, px,
+    SharedString, Styled, Window, div, prelude::*, px, relative,
 };
 use ramag_app::{DataSyncGate, DataSyncGatePhase, DataSyncGateSnapshot};
 use ramag_domain::entities::{DataSyncStage, DataSyncTaskId, format_bytes};
@@ -127,6 +127,7 @@ impl DataSyncOverlay {
             format_count(progress.warnings),
             format_elapsed_ms(progress.elapsed_ms)
         );
+        let progress_percent = sync_progress_percent(progress.objects_done, progress.objects_total);
         let summary = snapshot.summary.clone();
         let summary_missing = terminal && summary.is_none();
         let objects_total = progress.objects_total;
@@ -196,6 +197,39 @@ impl DataSyncOverlay {
                                         .child(format!("阶段：{stage}"))
                                         .when(!progress.object.is_empty(), |line| {
                                             line.child(format!("  ·  当前：{}", progress.object))
+                                        }),
+                                )
+                                .child(
+                                    h_flex()
+                                        .w_full()
+                                        .items_center()
+                                        .justify_between()
+                                        .text_xs()
+                                        .text_color(muted)
+                                        .child("对象进度")
+                                        .child(progress_percent.map_or_else(
+                                            || "正在统计".to_string(),
+                                            |percent| format!("{percent}%"),
+                                        )),
+                                )
+                                .child(
+                                    div()
+                                        .id("sync-progress-track")
+                                        .debug_selector(|| "sync-progress-track".into())
+                                        .w_full()
+                                        .h(px(6.0))
+                                        .rounded(px(3.0))
+                                        .bg(border.opacity(0.38))
+                                        .when_some(progress_percent, |track, percent| {
+                                            track.child(
+                                                div()
+                                                    .id("sync-progress-fill")
+                                                    .debug_selector(|| "sync-progress-fill".into())
+                                                    .h_full()
+                                                    .rounded(px(3.0))
+                                                    .bg(success)
+                                                    .w(relative(percent as f32 / 100.0)),
+                                            )
                                         }),
                                 )
                                 .child(div().text_sm().child(counts))
@@ -329,6 +363,13 @@ impl DataSyncOverlay {
                     }),
             )
     }
+}
+
+/// 将同步对象计数转换为有界百分比；未知或零总量不显示虚假进度。
+fn sync_progress_percent(objects_done: u64, objects_total: Option<u64>) -> Option<u8> {
+    let total = objects_total.filter(|total| *total > 0)?;
+    let completed = objects_done.min(total);
+    Some(((u128::from(completed) * 100) / u128::from(total)) as u8)
 }
 
 /// 终态同步反馈使用标题、图标和可滚动原因，避免长错误挤压确认操作。
