@@ -153,6 +153,20 @@ fn cancel_and_terminal_result_keep_overlay_until_acknowledged(cx: &mut TestAppCo
     cx.simulate_mouse_down(cancel_point, MouseButton::Left, Modifiers::default());
     cx.simulate_mouse_up(cancel_point, MouseButton::Left, Modifiers::default());
     cx.run_until_parked();
+    let confirmation_panel = cx
+        .debug_bounds("sync-cancel-confirm-panel")
+        .expect("取消确认面板应渲染");
+    let confirmation_title = cx
+        .debug_bounds("sync-cancel-confirm-title")
+        .expect("取消确认标题应渲染");
+    let confirmation_message = cx
+        .debug_bounds("sync-cancel-confirm-message")
+        .expect("取消确认说明应渲染");
+    let card = cx.debug_bounds("data-sync-card").expect("同步卡片应渲染");
+    assert!(confirmation_panel.origin.x >= card.origin.x);
+    assert!(confirmation_panel.right() <= card.right());
+    assert!(confirmation_title.origin.x >= confirmation_panel.origin.x);
+    assert!(confirmation_message.right() <= confirmation_panel.right());
     let confirm = cx
         .debug_bounds("sync-cancel-confirm")
         .expect("二次取消确认应渲染");
@@ -184,6 +198,53 @@ fn cancel_and_terminal_result_keep_overlay_until_acknowledged(cx: &mut TestAppCo
     cx.simulate_mouse_down(acknowledge_point, MouseButton::Left, Modifiers::default());
     cx.simulate_mouse_up(acknowledge_point, MouseButton::Left, Modifiers::default());
     assert!(!gate.is_blocking());
+}
+
+#[gpui_kit::test]
+fn cancel_confirmation_fits_supported_widths(cx: &mut TestAppContext) {
+    let gate = Arc::new(DataSyncGate::default());
+    let _permit = gate
+        .begin(DataSyncTaskId::new(), context())
+        .expect("门禁应开始");
+    let (host_entity, _overlay, _mouse_events, _key_events, _render_count, visual_cx) =
+        add_overlay_window(cx, gate);
+    host_entity.update(visual_cx, |_, cx| cx.notify());
+    visual_cx.update(|window, _| window.refresh());
+    visual_cx.run_until_parked();
+
+    let cancel = visual_cx
+        .debug_bounds("sync-cancel")
+        .expect("取消按钮应渲染");
+    let cancel_point = point(
+        cancel.origin.x + cancel.size.width / 2.0,
+        cancel.origin.y + cancel.size.height / 2.0,
+    );
+    visual_cx.simulate_mouse_down(cancel_point, MouseButton::Left, Modifiers::default());
+    visual_cx.simulate_mouse_up(cancel_point, MouseButton::Left, Modifiers::default());
+    visual_cx.run_until_parked();
+
+    for mode in [crate::Mode::Light, crate::Mode::Dark] {
+        visual_cx.update(|_, app| crate::apply_theme(mode, app));
+        for width in [320.0, 640.0, 1024.0] {
+            visual_cx.simulate_resize(size(px(width), px(360.0)));
+            host_entity.update(visual_cx, |_, cx| cx.notify());
+            visual_cx.run_until_parked();
+
+            let card = visual_cx
+                .debug_bounds("data-sync-card")
+                .expect("同步卡片应渲染");
+            let panel = visual_cx
+                .debug_bounds("sync-cancel-confirm-panel")
+                .expect("取消确认面板应渲染");
+            let message = visual_cx
+                .debug_bounds("sync-cancel-confirm-message")
+                .expect("取消确认说明应渲染");
+            assert!(panel.origin.x >= card.origin.x);
+            assert!(panel.right() <= card.right());
+            assert!(message.origin.x >= panel.origin.x);
+            assert!(message.right() <= panel.right());
+        }
+    }
 }
 
 #[gpui_kit::test]

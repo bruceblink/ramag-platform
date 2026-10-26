@@ -271,15 +271,55 @@ impl DataSyncOverlay {
                     .when(self.cancel_confirmation && !terminal, |card| {
                         card.child(
                             v_flex()
+                                .id("sync-cancel-confirm-panel")
+                                .debug_selector(|| "sync-cancel-confirm-panel".into())
+                                .w_full()
                                 .gap(px(8.0))
                                 .p(px(10.0))
                                 .rounded(px(6.0))
                                 .border_1()
-                                .border_color(danger)
+                                .border_color(warning.opacity(0.48))
+                                .bg(warning.opacity(0.08))
                                 .child(
-                                    div()
-                                        .text_sm()
-                                        .child("取消会等待当前批次或结构创建安全收尾。"),
+                                    h_flex()
+                                        .items_start()
+                                        .gap(px(8.0))
+                                        .child(
+                                            Icon::new(IconName::TriangleAlert)
+                                                .small()
+                                                .text_color(warning),
+                                        )
+                                        .child(
+                                            v_flex()
+                                                .flex_1()
+                                                .min_w_0()
+                                                .gap(px(2.0))
+                                                .child(
+                                                    div()
+                                                        .id("sync-cancel-confirm-title")
+                                                        .debug_selector(|| {
+                                                            "sync-cancel-confirm-title".into()
+                                                        })
+                                                        .text_sm()
+                                                        .font_weight(
+                                                            gpui_kit::FontWeight::SEMIBOLD,
+                                                        )
+                                                        .text_color(warning)
+                                                        .child("确认取消同步"),
+                                                )
+                                                .child(
+                                                    div()
+                                                        .id("sync-cancel-confirm-message")
+                                                        .debug_selector(|| {
+                                                            "sync-cancel-confirm-message".into()
+                                                        })
+                                                        .text_xs()
+                                                        .text_color(muted)
+                                                        .child(
+                                                            "取消会等待当前批次或结构创建安全收尾。",
+                                                        ),
+                                                ),
+                                        ),
                                 )
                                 .child(
                                     h_flex()
