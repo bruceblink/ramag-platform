@@ -151,6 +151,34 @@ pub(super) fn settings_saving_notice(
     label: &'static str,
     theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
+    settings_status_notice(
+        id,
+        format!("{label}：正在保存…"),
+        "保存完成前暂时不能修改此页设置。",
+        theme,
+    )
+}
+
+/// 在设置页异步处理期间提供统一的进行中状态，避免页面只显示一行孤立文本。
+pub(super) fn settings_processing_notice(
+    id: &'static str,
+    label: &'static str,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
+    settings_status_notice(
+        id,
+        format!("{label}：正在处理…"),
+        "导入或导出完成前不能再次操作连接配置。",
+        theme,
+    )
+}
+
+fn settings_status_notice(
+    id: &'static str,
+    title: String,
+    guidance: &'static str,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
     let muted = theme.muted_foreground;
     h_flex()
         .id(id)
@@ -174,14 +202,9 @@ pub(super) fn settings_saving_notice(
                         .text_xs()
                         .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                         .text_color(muted)
-                        .child(format!("{label}：正在保存…")),
+                        .child(title),
                 )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(muted)
-                        .child("保存完成前暂时不能修改此页设置。"),
-                ),
+                .child(div().text_xs().text_color(muted).child(guidance)),
         )
 }
 

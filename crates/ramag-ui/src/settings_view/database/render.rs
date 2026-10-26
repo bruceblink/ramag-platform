@@ -1,8 +1,9 @@
 use gpui_kit::component::{
-    ActiveTheme as _, Disableable as _, Sizable as _, h_flex, input::Input, v_flex,
+    ActiveTheme as _, Disableable as _, Icon, IconName, Sizable as _, h_flex, input::Input, v_flex,
 };
 use gpui_kit::{
-    ClickEvent, Context, IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px,
+    ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement, Styled, div,
+    prelude::FluentBuilder as _, px,
 };
 use ramag_domain::entities::IdConverterKind;
 
@@ -202,7 +203,11 @@ impl SettingsView {
                             ),
                     )
                     .when(self.database_transferring, |card| {
-                        card.child(div().text_xs().text_color(muted).child("正在处理连接配置…"))
+                        card.child(super::super::pages::settings_processing_notice(
+                            "settings-db-transfer-status",
+                            "连接配置",
+                            theme,
+                        ))
                     }),
             )
             .when(self.saving_database, |page| {
@@ -370,22 +375,24 @@ impl SettingsView {
         };
         let testing = testing_direction.is_some();
         let status = match &self.database_converter_test_state {
-            DatabaseConverterTestState::Idle => div()
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child("尚未测试。"),
+            DatabaseConverterTestState::Idle => {
+                render_database_converter_idle_state(theme).into_any_element()
+            }
             DatabaseConverterTestState::Testing(direction) => div()
                 .text_xs()
                 .text_color(theme.muted_foreground)
-                .child(format!("正在执行 {}…", direction.action_label())),
+                .child(format!("正在执行 {}…", direction.action_label()))
+                .into_any_element(),
             DatabaseConverterTestState::Success { direction, output } => div()
                 .text_xs()
                 .text_color(theme.success)
-                .child(direction.success_message(output)),
+                .child(direction.success_message(output))
+                .into_any_element(),
             DatabaseConverterTestState::Error { direction, message } => div()
                 .text_xs()
                 .text_color(theme.danger)
-                .child(format!("{}失败：{message}", direction.action_label())),
+                .child(format!("{}失败：{message}", direction.action_label()))
+                .into_any_element(),
         };
 
         v_flex()
@@ -470,6 +477,47 @@ impl SettingsView {
     }
 }
 
+/// 转换测试尚未运行时，说明结果出现的位置和下一步操作。
+fn render_database_converter_idle_state(theme: &gpui_kit::component::Theme) -> impl IntoElement {
+    v_flex()
+        .id("settings-db-id-converter-idle")
+        .debug_selector(|| "settings-db-id-converter-idle".into())
+        .w_full()
+        .min_w_0()
+        .gap(px(6.0))
+        .p(px(10.0))
+        .border_1()
+        .border_color(theme.border)
+        .rounded(px(6.0))
+        .bg(theme.background)
+        .child(
+            h_flex()
+                .id("settings-db-id-converter-idle-heading")
+                .debug_selector(|| "settings-db-id-converter-idle-heading".into())
+                .items_center()
+                .gap(px(8.0))
+                .child(
+                    Icon::new(IconName::Info)
+                        .small()
+                        .text_color(theme.muted_foreground),
+                )
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .child("尚未测试"),
+                ),
+        )
+        .child(
+            div()
+                .id("settings-db-id-converter-idle-guidance")
+                .debug_selector(|| "settings-db-id-converter-idle-guidance".into())
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("输入测试值并选择转换方向后，结果会显示在这里。"),
+        )
+}
+
 impl DatabaseConverterTestDirection {
     fn action_label(self) -> &'static str {
         match self {
@@ -485,3 +533,7 @@ impl DatabaseConverterTestDirection {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "render_tests.rs"]
+mod tests;
