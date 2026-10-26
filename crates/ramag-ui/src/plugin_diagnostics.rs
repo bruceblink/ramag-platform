@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex, v_flex};
 use gpui_kit::{Context, IntoElement, ParentElement, Render, Styled, Window, div, prelude::*, px};
 use ramag_app::{
     PluginCatalogEntry, PluginDiagnostic, PluginLifecycleStage, PluginState, StaticPluginHost,
@@ -137,13 +137,14 @@ fn render_catalog(
         })
         .collect::<Vec<_>>();
     let body = if rows.is_empty() {
-        div()
-            .id("plugin-catalog-empty-state")
-            .debug_selector(|| "plugin-catalog-empty-state".into())
-            .text_sm()
-            .text_color(theme.muted_foreground)
-            .child("当前没有已审核的第一方入口。")
-            .into_any_element()
+        render_empty_state(
+            "plugin-catalog",
+            IconName::Info,
+            "暂无第一方入口",
+            "宿主审核后随应用发布的静态入口会显示在这里。",
+            cx.theme(),
+        )
+        .into_any_element()
     } else {
         v_flex()
             .w_full()
@@ -257,13 +258,14 @@ fn render_available_entries(
         })
         .collect::<Vec<_>>();
     let body = if rows.is_empty() {
-        div()
-            .id("plugin-available-empty-state")
-            .debug_selector(|| "plugin-available-empty-state".into())
-            .text_sm()
-            .text_color(theme.muted_foreground)
-            .child("当前没有可用入口。")
-            .into_any_element()
+        render_empty_state(
+            "plugin-available",
+            IconName::Folder,
+            "当前没有可用入口",
+            "插件注册完成且通过宿主初始化后，会显示在这里。",
+            cx.theme(),
+        )
+        .into_any_element()
     } else {
         v_flex()
             .w_full()
@@ -285,19 +287,19 @@ fn render_diagnostics(
     diagnostics: &[PluginDiagnostic],
     cx: &mut Context<PluginDiagnosticsView>,
 ) -> impl IntoElement {
-    let muted = cx.theme().muted_foreground;
     let rows = diagnostics
         .iter()
         .map(|diagnostic| render_diagnostic_row(diagnostic, cx))
         .collect::<Vec<_>>();
     let body = if rows.is_empty() {
-        div()
-            .id("plugin-diagnostics-empty-state")
-            .debug_selector(|| "plugin-diagnostics-empty-state".into())
-            .text_sm()
-            .text_color(muted)
-            .child("尚未记录插件。")
-            .into_any_element()
+        render_empty_state(
+            "plugin-diagnostics",
+            IconName::Info,
+            "尚未记录插件状态",
+            "插件启动、失败和恢复信息会显示在这里。",
+            cx.theme(),
+        )
+        .into_any_element()
     } else {
         v_flex()
             .w_full()
@@ -313,6 +315,49 @@ fn render_diagnostics(
         .gap(px(12.0))
         .child(crate::pulse_ui::pulse_display_heading("插件状态", 18.0, cx))
         .child(body)
+}
+
+/// 为插件诊断页的空列表提供一致的图标、层级和下一步说明。
+fn render_empty_state(
+    section: &'static str,
+    icon: IconName,
+    title: &'static str,
+    guidance: &'static str,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
+    let state_id = format!("{section}-empty-state");
+    let heading_id = format!("{section}-empty-heading");
+    let guidance_id = format!("{section}-empty-guidance");
+    v_flex()
+        .id(state_id.clone())
+        .debug_selector(move || state_id.clone())
+        .w_full()
+        .items_center()
+        .gap(px(6.0))
+        .px(px(16.0))
+        .py(px(18.0))
+        .child(
+            h_flex()
+                .id(heading_id.clone())
+                .debug_selector(move || heading_id.clone())
+                .items_center()
+                .gap(px(8.0))
+                .child(Icon::new(icon).small().text_color(theme.muted_foreground))
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .child(title),
+                ),
+        )
+        .child(
+            div()
+                .id(guidance_id.clone())
+                .debug_selector(move || guidance_id.clone())
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(guidance),
+        )
 }
 
 fn render_diagnostic_row(

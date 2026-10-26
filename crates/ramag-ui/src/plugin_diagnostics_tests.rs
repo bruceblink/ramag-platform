@@ -224,29 +224,60 @@ fn empty_plugin_diagnostics_shows_bounded_states(cx: &mut TestAppContext) {
         let catalog_empty = visual_cx
             .debug_bounds("plugin-catalog-empty-state")
             .expect("空第一方目录应显示状态");
+        let catalog_heading = visual_cx
+            .debug_bounds("plugin-catalog-empty-heading")
+            .expect("空第一方目录应显示标题");
+        let catalog_guidance = visual_cx
+            .debug_bounds("plugin-catalog-empty-guidance")
+            .expect("空第一方目录应显示引导");
         let available = visual_cx
             .debug_bounds("plugin-available")
             .expect("空入口列表应渲染");
         let available_empty = visual_cx
             .debug_bounds("plugin-available-empty-state")
             .expect("空入口列表应显示状态");
+        let available_heading = visual_cx
+            .debug_bounds("plugin-available-empty-heading")
+            .expect("空入口列表应显示标题");
+        let available_guidance = visual_cx
+            .debug_bounds("plugin-available-empty-guidance")
+            .expect("空入口列表应显示引导");
         let diagnostics = visual_cx
             .debug_bounds("plugin-state-list")
             .expect("空插件状态列表应渲染");
         let diagnostics_empty = visual_cx
             .debug_bounds("plugin-diagnostics-empty-state")
             .expect("空插件状态列表应显示状态");
+        let diagnostics_heading = visual_cx
+            .debug_bounds("plugin-diagnostics-empty-heading")
+            .expect("空插件状态列表应显示标题");
+        let diagnostics_guidance = visual_cx
+            .debug_bounds("plugin-diagnostics-empty-guidance")
+            .expect("空插件状态列表应显示引导");
 
         assert_eq!(root.size.width, px(width));
         assert!(scroll.right() <= px(width));
         assert!(scroll.bottom() <= px(height));
-        for (empty_state, parent) in [
-            (catalog_empty, catalog),
-            (available_empty, available),
-            (diagnostics_empty, diagnostics),
+        for (empty_state, heading, guidance, parent) in [
+            (catalog_empty, catalog_heading, catalog_guidance, catalog),
+            (
+                available_empty,
+                available_heading,
+                available_guidance,
+                available,
+            ),
+            (
+                diagnostics_empty,
+                diagnostics_heading,
+                diagnostics_guidance,
+                diagnostics,
+            ),
         ] {
             assert_inside(empty_state, parent);
+            assert_inside(heading, empty_state);
+            assert_inside(guidance, empty_state);
             assert_inside(empty_state, root);
+            assert!(guidance.origin.y > heading.origin.y);
         }
     }
 }
