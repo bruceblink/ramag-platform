@@ -1,7 +1,7 @@
 //! Monitor preset CRUD controls for the fixed Ramag monitor workspace.
 
 use gpui_kit::component::{
-    ActiveTheme as _, Sizable as _,
+    ActiveTheme as _, Icon, IconName, Sizable as _,
     button::ButtonVariants as _,
     h_flex,
     input::{Input, InputState},
@@ -345,12 +345,7 @@ impl Render for MonitorPresetManager {
                 .child(v_flex().w_full().gap(px(4.0)).children(rows));
 
             if names.is_empty() {
-                card = card.child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("暂无命名预设"),
-                );
+                card = card.child(render_empty_monitor_preset_state(theme));
             }
         }
 
@@ -419,8 +414,53 @@ impl Render for MonitorPresetManager {
     }
 }
 
+/// 命名预设为空时，说明保存入口和后续用途，避免只显示一行无操作提示。
+fn render_empty_monitor_preset_state(theme: &gpui_kit::component::Theme) -> impl IntoElement {
+    v_flex()
+        .id("monitor-preset-empty-state")
+        .debug_selector(|| "monitor-preset-empty-state".into())
+        .w_full()
+        .min_w_0()
+        .gap(px(6.0))
+        .p(px(10.0))
+        .border_1()
+        .border_color(theme.border)
+        .rounded(px(6.0))
+        .bg(theme.background)
+        .child(
+            h_flex()
+                .id("monitor-preset-empty-heading")
+                .debug_selector(|| "monitor-preset-empty-heading".into())
+                .items_center()
+                .gap(px(8.0))
+                .child(
+                    Icon::new(IconName::Info)
+                        .small()
+                        .text_color(theme.muted_foreground),
+                )
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .child("暂无命名预设"),
+                ),
+        )
+        .child(
+            div()
+                .id("monitor-preset-empty-guidance")
+                .debug_selector(|| "monitor-preset-empty-guidance".into())
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("使用上方输入框保存当前监控状态后，可在这里快速恢复。"),
+        )
+}
+
 #[cfg(test)]
 mod recovery_tests;
 
 #[cfg(test)]
 mod workflow_tests;
+
+#[cfg(test)]
+#[path = "monitor_presets_empty_tests.rs"]
+mod empty_tests;
