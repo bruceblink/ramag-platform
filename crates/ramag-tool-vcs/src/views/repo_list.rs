@@ -581,12 +581,48 @@ fn repo_row(
 }
 
 fn empty_state(cx: &mut Context<VcsView>) -> AnyElement {
+    let theme = cx.theme();
     v_flex()
+        .id("vcs-repo-empty-state")
+        .debug_selector(|| "vcs-repo-empty-state".into())
         .size_full()
         .items_center()
         .justify_center()
+        .gap(px(8.0))
+        .child(
+            div()
+                .id("vcs-repo-empty-icon")
+                .debug_selector(|| "vcs-repo-empty-icon".into())
+                .p(px(14.0))
+                .rounded_full()
+                .bg(theme.secondary)
+                .child(
+                    Icon::new(ramag_ui::icons::git_branch())
+                        .size(px(26.0))
+                        .text_color(theme.muted_foreground),
+                ),
+        )
+        .child(
+            div()
+                .id("vcs-repo-empty-title")
+                .debug_selector(|| "vcs-repo-empty-title".into())
+                .text_sm()
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(theme.foreground)
+                .child("还没有打开的仓库"),
+        )
+        .child(
+            div()
+                .id("vcs-repo-empty-description")
+                .debug_selector(|| "vcs-repo-empty-description".into())
+                .max_w(px(360.0))
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("打开本地仓库，或先克隆、初始化一个仓库。"),
+        )
         .child(
             ramag_ui::clickable_button("vcs-repo-empty-pick")
+                .debug_selector(|| "vcs-repo-empty-pick".into())
                 .primary()
                 .icon(IconName::Plus)
                 .label("打开")

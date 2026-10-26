@@ -12,6 +12,49 @@ fn assert_inside(parent: &Bounds<Pixels>, child: &Bounds<Pixels>, label: &str) {
     );
 }
 
+/// 空仓库页用同一组视觉层级说明下一步，并在紧凑窗口内保持动作可见。
+#[gpui_kit::test]
+fn repo_list_empty_state_keeps_guidance_inside_panel(cx: &mut TestAppContext) {
+    let (_, cx) = add_vcs_window(cx);
+
+    for width in [360.0, 640.0, 1024.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(720.0)));
+        cx.run_until_parked();
+
+        let panel = cx
+            .debug_bounds("vcs-repo-list-panel")
+            .expect("仓库列表面板应渲染");
+        let empty = cx
+            .debug_bounds("vcs-repo-empty-state")
+            .expect("空仓库状态应渲染");
+        let icon = cx
+            .debug_bounds("vcs-repo-empty-icon")
+            .expect("空仓库图标应渲染");
+        let title = cx
+            .debug_bounds("vcs-repo-empty-title")
+            .expect("空仓库标题应渲染");
+        let description = cx
+            .debug_bounds("vcs-repo-empty-description")
+            .expect("空仓库说明应渲染");
+        let action = cx
+            .debug_bounds("vcs-repo-empty-pick")
+            .expect("空仓库打开动作应渲染");
+
+        for (element, label) in [
+            (empty, "空仓库状态"),
+            (icon, "空仓库图标"),
+            (title, "空仓库标题"),
+            (description, "空仓库说明"),
+            (action, "空仓库动作"),
+        ] {
+            assert_inside(&panel, &element, label);
+        }
+        assert!(icon.bottom() <= title.origin.y);
+        assert!(title.bottom() <= description.origin.y);
+        assert!(description.bottom() <= action.origin.y);
+    }
+}
+
 /// 最近仓库列表在紧凑窗口中把路径移到名称下方，桌面宽度则保持横向信息布局。
 #[gpui_kit::test]
 fn repo_list_rows_reflow_inside_supported_window_widths(cx: &mut TestAppContext) {
