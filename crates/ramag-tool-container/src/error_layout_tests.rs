@@ -22,6 +22,10 @@ fn windows_pipe_error_shows_wsl_guidance_inside_content(cx: &mut TestAppContext)
     let (_, cx) = cx.add_window_view(|window, cx| {
         let view = cx.new(|_| {
             let mut view = ContainerView::without_service();
+            // Keep this layout test platform-independent: the production default
+            // is a Unix socket on Linux/macOS, so set the Windows endpoint that
+            // the WSL guidance is designed to explain explicitly.
+            view.docker_endpoint = "npipe:////./pipe/docker_engine".into();
             view.error = Some(
                 "无法连接 Windows Docker named pipe；如果 Docker Engine 运行在 WSL 中，请将端点改为 ssh://<WSL用户名>@localhost"
                     .into(),
