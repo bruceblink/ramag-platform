@@ -288,7 +288,7 @@ pub(super) fn render_context_editor(
             div()
                 .text_xs()
                 .text_color(theme.muted_foreground)
-                .child("Environment / Assertions"),
+                .child("环境变量 / 断言"),
         )
         .child(
             row()

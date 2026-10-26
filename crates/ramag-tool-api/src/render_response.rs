@@ -135,22 +135,22 @@ fn render_response_tabs(view: &ApiView, cx: &mut Context<ApiView>) -> gpui_kit::
                 }))
                 .child(
                     Tab::new()
-                        .label("Body")
+                        .label("正文")
                         .debug_selector(|| "api-response-tab-body".into()),
                 )
                 .child(
                     Tab::new()
-                        .label("Headers")
+                        .label("响应头")
                         .debug_selector(|| "api-response-tab-headers".into()),
                 )
                 .child(
                     Tab::new()
-                        .label("Timing")
+                        .label("耗时")
                         .debug_selector(|| "api-response-tab-timing".into()),
                 )
                 .child(
                     Tab::new()
-                        .label("Tests")
+                        .label("测试")
                         .debug_selector(|| "api-response-tab-assertions".into()),
                 ),
         )
@@ -316,13 +316,13 @@ fn response_parameters(
         .gap(px(8.0))
         .child(response_parameter_table(
             "api-response-headers",
-            "Headers",
+            "响应头",
             &snapshot.headers,
             theme,
         ))
         .child(response_parameter_table(
             "api-response-metadata",
-            "Metadata",
+            "元数据",
             &snapshot.metadata,
             theme,
         ))

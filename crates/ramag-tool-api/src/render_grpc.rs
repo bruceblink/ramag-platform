@@ -25,7 +25,7 @@ pub(super) fn render_editor(
         .gap(px(8.0))
         .child(
             row().child(field(
-                "Descriptor",
+                "描述文件",
                 h_flex()
                     .w_full()
                     .min_w_0()
@@ -70,16 +70,16 @@ pub(super) fn render_editor(
             div()
                 .text_xs()
                 .text_color(theme.muted_foreground)
-                .child("自定义 gRPC Metadata"),
+                .child("自定义 gRPC 元数据"),
         )
         .child(
             row()
                 .child(field(
-                    "Metadata name",
+                    "元数据名称",
                     Input::new(&view.grpc_metadata_name).small(),
                 ))
                 .child(field(
-                    "Metadata value",
+                    "元数据值",
                     Input::new(&view.grpc_metadata_value).small(),
                 )),
         )
@@ -128,7 +128,7 @@ fn render_catalog(
                     div()
                         .text_xs()
                         .font_weight(FontWeight::SEMIBOLD)
-                        .child("Service / Method"),
+                        .child("服务 / 方法"),
                 )
                 .child(div().text_xs().text_color(theme.muted_foreground).child(
                     if view.grpc_discovering {

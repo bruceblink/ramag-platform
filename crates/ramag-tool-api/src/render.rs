@@ -149,6 +149,17 @@ fn render_sidebar(
     theme: &gpui_kit::component::Theme,
 ) -> gpui_kit::AnyElement {
     let stacked = ApiView::is_stacked(window);
+    let workspace_name = if view.workspace.name == "API Workspace" {
+        "API 工作台".to_owned()
+    } else {
+        view.workspace.name.clone()
+    };
+    let request_count = view
+        .workspace
+        .collections
+        .iter()
+        .map(|collection| collection.requests.len())
+        .sum::<usize>();
     v_flex()
         .id("api-sidebar")
         .debug_selector(|| "api-sidebar".into())
@@ -178,30 +189,42 @@ fn render_sidebar(
         .border_color(theme.border)
         .child(
             h_flex()
+                .id("api-workspace-heading")
+                .debug_selector(|| "api-workspace-heading".into())
+                .w_full()
                 .min_w_0()
                 .items_center()
-                .justify_between()
+                .gap(px(8.0))
                 .child(
                     div()
-                        .min_w_0()
-                        .truncate()
-                        .text_sm()
-                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                        .child(view.workspace.name.clone()),
+                        .w(px(3.0))
+                        .h(px(28.0))
+                        .flex_none()
+                        .rounded(px(2.0))
+                        .bg(theme.link),
                 )
                 .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child(format!(
-                            "{} 集合 · {} 请求",
-                            view.workspace.collections.len(),
-                            view.workspace
-                                .collections
-                                .iter()
-                                .map(|collection| collection.requests.len())
-                                .sum::<usize>()
-                        )),
+                    v_flex()
+                        .min_w_0()
+                        .gap(px(2.0))
+                        .child(
+                            div()
+                                .min_w_0()
+                                .truncate()
+                                .text_sm()
+                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                .child(workspace_name),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child(format!(
+                                    "{} 个集合 · {} 个请求",
+                                    view.workspace.collections.len(),
+                                    request_count
+                                )),
+                        ),
                 ),
         )
         .children(render_workspace_load_status(view, cx, theme))
@@ -381,48 +404,48 @@ pub(super) fn render_request_tabs(
         ApiProtocol::Http => tabs
             .child(
                 Tab::new()
-                    .label("Params")
+                    .label("参数")
                     .debug_selector(|| "api-request-tab-params".into()),
             )
             .child(
                 Tab::new()
-                    .label("Headers")
+                    .label("请求头")
                     .debug_selector(|| "api-request-tab-headers".into()),
             )
             .child(
                 Tab::new()
-                    .label("Auth")
+                    .label("认证")
                     .debug_selector(|| "api-request-tab-auth".into()),
             )
             .child(
                 Tab::new()
-                    .label("Body")
+                    .label("请求体")
                     .debug_selector(|| "api-request-tab-body".into()),
             )
             .child(
                 Tab::new()
-                    .label("Advanced")
+                    .label("高级")
                     .debug_selector(|| "api-request-tab-advanced".into()),
             ),
         ApiProtocol::Grpc => tabs
             .child(
                 Tab::new()
-                    .label("Body")
+                    .label("请求体")
                     .debug_selector(|| "api-request-tab-body".into()),
             )
             .child(
                 Tab::new()
-                    .label("Metadata")
+                    .label("元数据")
                     .debug_selector(|| "api-request-tab-metadata".into()),
             )
             .child(
                 Tab::new()
-                    .label("Auth")
+                    .label("认证")
                     .debug_selector(|| "api-request-tab-auth".into()),
             )
             .child(
                 Tab::new()
-                    .label("Advanced")
+                    .label("高级")
                     .debug_selector(|| "api-request-tab-advanced".into()),
             ),
     };
@@ -456,7 +479,7 @@ fn render_http_editor(
                 div()
                     .text_xs()
                     .text_color(theme.muted_foreground)
-                    .child("Query parameters"),
+                    .child("查询参数"),
             )
             .child(Textarea::new(&view.http_query).h(px(200.0)))
             .into_any_element(),
@@ -472,7 +495,7 @@ fn render_http_editor(
                 div()
                     .text_xs()
                     .text_color(theme.muted_foreground)
-                    .child("Request headers"),
+                    .child("请求头"),
             )
             .child(Textarea::new(&view.http_headers).h(px(240.0)))
             .into_any_element(),

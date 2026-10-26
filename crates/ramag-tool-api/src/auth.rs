@@ -23,12 +23,24 @@ impl AuthKind {
         Self::ApiKey,
     ];
 
+    #[cfg(test)]
     fn label(self) -> &'static str {
         match self {
             Self::None => "None",
             Self::Basic => "Basic",
             Self::Bearer => "Bearer",
             Self::OAuth2 => "OAuth2 Client Credentials",
+            Self::ApiKey => "API Key",
+        }
+    }
+
+    /// 用户看到的认证选项；`label` 保留协议和导入测试使用的稳定英文值。
+    fn ui_label(self) -> &'static str {
+        match self {
+            Self::None => "无认证",
+            Self::Basic => "Basic",
+            Self::Bearer => "Bearer",
+            Self::OAuth2 => "OAuth2 客户端凭据",
             Self::ApiKey => "API Key",
         }
     }
@@ -177,12 +189,12 @@ impl ApiAuthEditor {
             .xsmall()
             .outline()
             .dropdown_caret(true)
-            .label(current.label())
+            .label(current.ui_label())
             .pointer_dropdown_menu(move |mut menu, _, _| {
                 for kind in AuthKind::ALL {
                     let view = view.clone();
                     menu = menu.item(
-                        ramag_ui::menu_item(kind.label())
+                        ramag_ui::menu_item(kind.ui_label())
                             .checked(kind == current)
                             .on_click(move |_: &ClickEvent, window, app| {
                                 view.update(app, |view, cx| {
@@ -206,21 +218,21 @@ impl ApiAuthEditor {
                     Input::new(&self.password).small().mask_toggle(),
                 )),
             AuthKind::Bearer => v_flex().gap(px(5.0)).child(field(
-                "Bearer Token",
+                "Bearer 令牌",
                 Input::new(&self.bearer_token).small().mask_toggle(),
             )),
             AuthKind::OAuth2 => v_flex()
                 .gap(px(6.0))
-                .child(row().child(field("Token URL", Input::new(&self.token_url).small())))
+                .child(row().child(field("令牌 URL", Input::new(&self.token_url).small())))
                 .child(
                     row()
-                        .child(field("Client ID", Input::new(&self.client_id).small()))
+                        .child(field("客户端 ID", Input::new(&self.client_id).small()))
                         .child(field(
-                            "Client Secret",
+                            "客户端密钥",
                             Input::new(&self.client_secret).small().mask_toggle(),
                         )),
                 )
-                .child(field("Scope", Input::new(&self.scope).small())),
+                .child(field("权限范围", Input::new(&self.scope).small())),
             AuthKind::ApiKey => {
                 let location = self.api_key_location;
                 let view = cx.entity();
@@ -230,13 +242,13 @@ impl ApiAuthEditor {
                     .outline()
                     .dropdown_caret(true)
                     .label(match location {
-                        ApiKeyLocation::Header => "Header",
-                        ApiKeyLocation::Query => "Query",
+                        ApiKeyLocation::Header => "请求头",
+                        ApiKeyLocation::Query => "查询参数",
                     })
                     .pointer_dropdown_menu(move |mut menu, _, _| {
                         for (value, label) in [
-                            (ApiKeyLocation::Header, "Header"),
-                            (ApiKeyLocation::Query, "Query"),
+                            (ApiKeyLocation::Header, "请求头"),
+                            (ApiKeyLocation::Query, "查询参数"),
                         ] {
                             let view = view.clone();
                             menu = menu.item(
@@ -274,7 +286,7 @@ impl ApiAuthEditor {
                         div()
                             .text_xs()
                             .text_color(theme.muted_foreground)
-                            .child("Auth"),
+                            .child("认证"),
                     )
                     .child(selector),
             )
