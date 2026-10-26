@@ -5,10 +5,11 @@ use gpui_kit::component::{
     notification::Notification, v_flex,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, Styled, Window, div,
-    prelude::FluentBuilder as _, px,
+    AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Styled,
+    Window, div, prelude::FluentBuilder as _, px,
 };
 use ramag_app::HotkeyState;
+use ramag_domain::entities::ClipboardSettings;
 use tracing::error;
 
 impl SettingsView {
@@ -53,6 +54,7 @@ impl SettingsView {
                     )))
                 },
             )
+            .child(render_clipboard_summary(&settings, cx))
             .child(
                 pulse_settings_card("功能开关", theme)
                     .child(clipboard_toggle_row(
@@ -208,6 +210,76 @@ impl SettingsView {
     }
 }
 
+/// 在进入具体开关前展示剪贴板的当前状态、抽屉热键和图片采集状态。
+fn render_clipboard_summary(settings: &ClipboardSettings, cx: &gpui_kit::App) -> AnyElement {
+    let enabled = if settings.enabled {
+        "已启用"
+    } else {
+        "已关闭"
+    };
+    let images = if settings.capture_images {
+        "已开启"
+    } else {
+        "已关闭"
+    };
+    pulse_settings_card("当前状态", cx.theme())
+        .id("settings-clip-summary")
+        .debug_selector(|| "settings-clip-summary".into())
+        .child(
+            h_flex()
+                .id("settings-clip-summary-metrics")
+                .debug_selector(|| "settings-clip-summary-metrics".into())
+                .w_full()
+                .min_w_0()
+                .flex_wrap()
+                .gap(px(8.0))
+                .child(clipboard_summary_metric(
+                    "settings-clip-summary-enabled",
+                    crate::pulse_ui::pulse_metric_card(
+                        "功能状态",
+                        enabled,
+                        None::<&str>,
+                        Some(if settings.enabled {
+                            "后台记录剪贴历史"
+                        } else {
+                            "未记录新的剪贴内容"
+                        }),
+                        cx,
+                    ),
+                ))
+                .child(clipboard_summary_metric(
+                    "settings-clip-summary-hotkey",
+                    crate::pulse_ui::pulse_metric_card(
+                        "抽屉热键",
+                        clipboard_hotkey(settings.alternate_hotkey),
+                        None::<&str>,
+                        Some("打开最近剪贴内容"),
+                        cx,
+                    ),
+                ))
+                .child(clipboard_summary_metric(
+                    "settings-clip-summary-images",
+                    crate::pulse_ui::pulse_metric_card(
+                        "图片采集",
+                        images,
+                        None::<&str>,
+                        Some("图片会占用更多磁盘空间"),
+                        cx,
+                    ),
+                )),
+        )
+        .into_any_element()
+}
+
+fn clipboard_summary_metric(id: &'static str, card: impl IntoElement) -> impl IntoElement {
+    div()
+        .id(id)
+        .debug_selector(move || id.into())
+        .flex_1()
+        .min_w(px(132.0))
+        .child(card)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn clipboard_toggle_row(
     id: &'static str,
@@ -244,3 +316,7 @@ fn clipboard_toggle_row(
                 .on_click(on_click),
         )
 }
+
+#[cfg(test)]
+#[path = "clipboard_tests.rs"]
+mod tests;
