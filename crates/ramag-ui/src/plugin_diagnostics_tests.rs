@@ -129,72 +129,85 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
     });
     let visual_cx: &mut VisualTestContext = visual_cx;
 
-    for (width, height) in [(360.0, 520.0), (1024.0, 520.0), (1440.0, 520.0)] {
-        visual_cx.simulate_resize(size(px(width), px(height)));
-        visual_cx.run_until_parked();
+    for mode in [crate::Mode::Light, crate::Mode::Dark] {
+        visual_cx.update(|_, app| crate::apply_theme(mode, app));
+        for (width, height) in [(360.0, 520.0), (1024.0, 520.0), (1440.0, 520.0)] {
+            visual_cx.simulate_resize(size(px(width), px(height)));
+            visual_cx.run_until_parked();
 
-        let root = visual_cx
-            .debug_bounds("plugin-diagnostics")
-            .expect("插件诊断页应渲染");
-        let scroll = visual_cx
-            .debug_bounds("plugin-diagnostics-scroll")
-            .expect("插件诊断滚动区应渲染");
-        let summary = visual_cx
-            .debug_bounds("plugin-summary")
-            .expect("插件概览应渲染");
-        let metric = visual_cx
-            .debug_bounds("pulse-metric-card")
-            .expect("插件概览应使用 Pulse 指标卡");
-        let catalog = visual_cx
-            .debug_bounds("plugin-catalog")
-            .expect("第一方目录应渲染");
-        let catalog_entry = visual_cx
-            .debug_bounds("plugin-catalog-ready-entry-ready-entry")
-            .expect("第一方目录入口应渲染");
-        let available = visual_cx
-            .debug_bounds("plugin-available")
-            .expect("可用入口区域应渲染");
-        let states = visual_cx
-            .debug_bounds("plugin-state-list")
-            .expect("插件状态区域应渲染");
-        let ready = visual_cx
-            .debug_bounds("plugin-state-ready-entry")
-            .expect("就绪插件状态应渲染");
-        let broken = visual_cx
-            .debug_bounds("plugin-state-broken-plugin")
-            .expect("失败插件状态应渲染");
-        let registration_failed = visual_cx
-            .debug_bounds("plugin-state-registration-failed")
-            .expect("注册失败插件状态应渲染");
-        let entry = visual_cx
-            .debug_bounds("plugin-available-ready-entry")
-            .expect("可用入口明细应渲染");
+            let root = visual_cx
+                .debug_bounds("plugin-diagnostics")
+                .expect("插件诊断页应渲染");
+            let scroll = visual_cx
+                .debug_bounds("plugin-diagnostics-scroll")
+                .expect("插件诊断滚动区应渲染");
+            let summary = visual_cx
+                .debug_bounds("plugin-summary")
+                .expect("插件概览应渲染");
+            let metric = visual_cx
+                .debug_bounds("pulse-metric-card")
+                .expect("插件概览应使用 Pulse 指标卡");
+            let catalog = visual_cx
+                .debug_bounds("plugin-catalog")
+                .expect("第一方目录应渲染");
+            let catalog_entry = visual_cx
+                .debug_bounds("plugin-catalog-ready-entry-ready-entry")
+                .expect("第一方目录入口应渲染");
+            let available = visual_cx
+                .debug_bounds("plugin-available")
+                .expect("可用入口区域应渲染");
+            let states = visual_cx
+                .debug_bounds("plugin-state-list")
+                .expect("插件状态区域应渲染");
+            let ready = visual_cx
+                .debug_bounds("plugin-state-ready-entry")
+                .expect("就绪插件状态应渲染");
+            let broken = visual_cx
+                .debug_bounds("plugin-state-broken-plugin")
+                .expect("失败插件状态应渲染");
+            let registration_failed = visual_cx
+                .debug_bounds("plugin-state-registration-failed")
+                .expect("注册失败插件状态应渲染");
+            let broken_failure = visual_cx
+                .debug_bounds("plugin-state-broken-plugin-failure")
+                .expect("初始化失败状态卡应渲染");
+            let registration_failure = visual_cx
+                .debug_bounds("plugin-state-registration-failed-failure")
+                .expect("注册失败状态卡应渲染");
+            let entry = visual_cx
+                .debug_bounds("plugin-available-ready-entry")
+                .expect("可用入口明细应渲染");
 
-        assert_eq!(root.size.width, px(width));
-        assert!(scroll.origin.x >= px(0.0));
-        assert!(scroll.origin.y >= px(0.0));
-        assert!(scroll.right() <= px(width));
-        assert!(scroll.bottom() <= px(height));
-        assert!(root.origin.x >= scroll.origin.x);
-        assert!(root.right() <= scroll.right());
-        assert!(root.origin.y >= scroll.origin.y);
-        for child in [
-            summary,
-            metric,
-            catalog,
-            catalog_entry,
-            available,
-            states,
-            ready,
-            broken,
-            registration_failed,
-            entry,
-        ] {
-            assert_inside(child, root);
+            assert_eq!(root.size.width, px(width));
+            assert!(scroll.origin.x >= px(0.0));
+            assert!(scroll.origin.y >= px(0.0));
+            assert!(scroll.right() <= px(width));
+            assert!(scroll.bottom() <= px(height));
+            assert!(root.origin.x >= scroll.origin.x);
+            assert!(root.right() <= scroll.right());
+            assert!(root.origin.y >= scroll.origin.y);
+            for child in [
+                summary,
+                metric,
+                catalog,
+                catalog_entry,
+                available,
+                states,
+                ready,
+                broken,
+                registration_failed,
+                broken_failure,
+                registration_failure,
+                entry,
+            ] {
+                assert_inside(child, root);
+            }
+            assert!(broken.bottom() <= states.bottom());
+            assert!(broken_failure.bottom() <= broken.bottom());
+            assert!(registration_failure.bottom() <= registration_failed.bottom());
+            assert!(entry.bottom() <= available.bottom());
+            assert!(catalog_entry.bottom() <= catalog.bottom());
         }
-        assert!(broken.bottom() <= states.bottom());
-        assert!(entry.bottom() <= available.bottom());
-        assert!(catalog_entry.bottom() <= catalog.bottom());
     }
 }
 

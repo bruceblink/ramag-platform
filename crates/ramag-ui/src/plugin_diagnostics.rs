@@ -374,6 +374,7 @@ fn render_diagnostic_row(
         theme.muted_foreground,
     );
     let row_id = format!("plugin-state-{}", descriptor.id);
+    let failure_id = format!("{row_id}-failure");
     let entry_count = descriptor.entry_descriptors().len();
     let mut row =
         v_flex()
@@ -428,17 +429,44 @@ fn render_diagnostic_row(
                     )),
             );
     if let Some(failure) = &diagnostic.failure {
+        let failure_id_for_selector = failure_id.clone();
         row = row.child(
-            div()
+            h_flex()
+                .id(failure_id)
+                .debug_selector(move || failure_id_for_selector.clone())
                 .w_full()
                 .min_w_0()
-                .text_xs()
-                .text_color(theme.danger)
-                .child(format!(
-                    "{}失败：{}",
-                    stage_label(failure.stage),
-                    failure.message
-                )),
+                .items_start()
+                .gap(px(8.0))
+                .p(px(8.0))
+                .border_1()
+                .border_color(theme.danger.opacity(0.28))
+                .rounded(px(6.0))
+                .bg(theme.danger.opacity(0.06))
+                .child(
+                    Icon::new(IconName::CircleX)
+                        .small()
+                        .text_color(theme.danger),
+                )
+                .child(
+                    v_flex()
+                        .flex_1()
+                        .min_w_0()
+                        .gap(px(2.0))
+                        .child(
+                            div()
+                                .text_xs()
+                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                .text_color(theme.danger)
+                                .child(format!("{}失败", stage_label(failure.stage))),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child(failure.message.clone()),
+                        ),
+                ),
         );
     }
     row.into_any_element()
