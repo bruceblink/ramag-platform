@@ -205,6 +205,16 @@ pub(super) fn settings_error_notice(
     settings_status_notice(id, title, guidance, theme, theme.danger, IconName::CircleX)
 }
 
+/// 在设置页显示已完成的操作结果，保留结果说明但不改变业务状态。
+pub(super) fn settings_success_notice(
+    id: &'static str,
+    title: impl Into<SharedString>,
+    guidance: impl Into<SharedString>,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
+    settings_status_notice(id, title, guidance, theme, theme.success, IconName::Info)
+}
+
 fn settings_status_notice(
     id: &'static str,
     title: impl Into<SharedString>,

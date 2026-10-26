@@ -12,7 +12,7 @@ use gpui_kit::{
     SharedString, Styled, Window, div, px,
 };
 
-use super::pages::pulse_settings_card;
+use super::pages::{pulse_settings_card, settings_error_notice, settings_success_notice};
 
 #[derive(Clone)]
 enum Confirmation {
@@ -311,14 +311,14 @@ impl Render for MonitorPresetManager {
 
         if let Some(error) = load_error {
             card = card.child(
-                div()
-                    .id("monitor-preset-load-error")
-                    .debug_selector(|| "monitor-preset-load-error".into())
-                    .text_xs()
-                    .text_color(theme.danger)
-                    .child(format!(
-                        "本地预设库无法读取，原数据已保留；命名预设编辑已停用。修复或移除 monitor_presets 偏好后重启。原因：{error}"
-                    )),
+                settings_error_notice(
+                    "monitor-preset-load-error",
+                    "本地预设库无法读取",
+                    format!(
+                        "原数据已保留；命名预设编辑已停用。修复或移除 monitor_presets 偏好后重启。原因：{error}"
+                    ),
+                    theme,
+                ),
             );
         } else {
             card = card
@@ -350,14 +350,23 @@ impl Render for MonitorPresetManager {
         }
 
         if let Some((message, error)) = &self.notice {
-            card = card.child(
-                div()
-                    .id("monitor-preset-notice")
-                    .debug_selector(|| "monitor-preset-notice".into())
-                    .text_xs()
-                    .text_color(if *error { theme.danger } else { theme.success })
-                    .child(message.clone()),
-            );
+            card = card.child(if *error {
+                settings_error_notice(
+                    "monitor-preset-notice",
+                    "监控预设操作失败",
+                    message.clone(),
+                    theme,
+                )
+                .into_any_element()
+            } else {
+                settings_success_notice(
+                    "monitor-preset-notice",
+                    "监控预设已更新",
+                    message.clone(),
+                    theme,
+                )
+                .into_any_element()
+            });
         }
 
         if let Some(confirmation) = self.confirmation.clone() {
@@ -464,3 +473,7 @@ mod workflow_tests;
 #[cfg(test)]
 #[path = "monitor_presets_empty_tests.rs"]
 mod empty_tests;
+
+#[cfg(test)]
+#[path = "monitor_presets_status_tests.rs"]
+mod status_tests;
