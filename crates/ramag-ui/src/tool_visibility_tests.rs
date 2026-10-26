@@ -125,9 +125,19 @@ fn visibility_page_fits_compact_and_desktop_widths(cx: &mut TestAppContext) {
         visual.simulate_resize(size(px(width), px(height)));
         visual.run_until_parked();
         let page = bounds(visual, "tool-visibility");
+        let summary = bounds(visual, "tool-visibility-summary");
+        let total = bounds(visual, "tool-visibility-summary-total");
+        let home_summary = bounds(visual, "tool-visibility-summary-home");
+        let sidebar_summary = bounds(visual, "tool-visibility-summary-sidebar");
         let row = bounds(visual, "settings-tool-entry-first");
         let home = bounds(visual, "settings-tool-home-first");
         let sidebar = bounds(visual, "settings-tool-sidebar-first");
+        for metric in [summary, total, home_summary, sidebar_summary] {
+            assert!(metric.origin.x >= page.origin.x);
+            assert!(metric.right() <= page.right());
+            assert!(metric.origin.y >= page.origin.y);
+            assert!(metric.bottom() <= page.bottom());
+        }
         assert!(row.origin.x >= page.origin.x);
         assert!(row.right() <= page.right());
         assert!(home.origin.x >= row.origin.x && home.right() <= row.right());

@@ -39,6 +39,23 @@ impl Render for ToolVisibilityView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let muted = cx.theme().muted_foreground;
         let tools = self.registry.list_all();
+        let total_tools = tools.len();
+        let home_visible = tools
+            .iter()
+            .filter(|tool| {
+                self.registry
+                    .visibility(&tool.meta().id)
+                    .is_some_and(|visibility| visibility.home)
+            })
+            .count();
+        let sidebar_visible = tools
+            .iter()
+            .filter(|tool| {
+                self.registry
+                    .visibility(&tool.meta().id)
+                    .is_some_and(|visibility| visibility.sidebar)
+            })
+            .count();
         let entries = tools
             .into_iter()
             .map(|tool| {
@@ -69,8 +86,68 @@ impl Render for ToolVisibilityView {
                     .text_color(muted)
                     .child("关闭入口只会隐藏对应位置。工具、配置和已保存数据都会保留。"),
             )
+            .child(
+                h_flex()
+                    .id("tool-visibility-summary")
+                    .debug_selector(|| "tool-visibility-summary".into())
+                    .w_full()
+                    .flex_wrap()
+                    .gap(px(8.0))
+                    .child(visibility_summary_metric(
+                        "tool-visibility-summary-total",
+                        "工具总数",
+                        total_tools,
+                        cx,
+                    ))
+                    .child(visibility_summary_metric(
+                        "tool-visibility-summary-home",
+                        "首页入口",
+                        home_visible,
+                        cx,
+                    ))
+                    .child(visibility_summary_metric(
+                        "tool-visibility-summary-sidebar",
+                        "侧边栏入口",
+                        sidebar_visible,
+                        cx,
+                    )),
+            )
             .children(entries)
     }
+}
+
+fn visibility_summary_metric(
+    selector: &'static str,
+    label: &'static str,
+    value: usize,
+    cx: &mut Context<ToolVisibilityView>,
+) -> impl IntoElement {
+    let theme = cx.theme();
+    v_flex()
+        .id(selector)
+        .debug_selector(move || selector.into())
+        .flex_1()
+        .min_w(px(120.0))
+        .min_h(px(58.0))
+        .gap(px(4.0))
+        .p(px(10.0))
+        .border_1()
+        .border_color(theme.border.opacity(0.78))
+        .rounded(px(6.0))
+        .bg(theme.secondary)
+        .child(
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(label),
+        )
+        .child(
+            div()
+                .text_lg()
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                .text_color(theme.foreground)
+                .child(value.to_string()),
+        )
 }
 
 fn render_tool_entry(
