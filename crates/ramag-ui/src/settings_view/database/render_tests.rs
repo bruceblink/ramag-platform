@@ -21,6 +21,7 @@ impl Render for DatabaseStatusHost {
             .child(settings_processing_notice(
                 "settings-db-transfer-status",
                 "连接配置",
+                "导入或导出完成前不能再次操作连接配置。",
                 cx.theme(),
             ))
             .child(render_database_converter_idle_state(cx.theme()))

@@ -1,6 +1,9 @@
 use super::{
     SettingsView,
-    pages::{pulse_settings_card, settings_saving_notice},
+    pages::{
+        pulse_settings_card, settings_error_notice, settings_info_notice,
+        settings_processing_notice, settings_saving_notice,
+    },
 };
 use crate::platform::{auto_paste_description, clipboard_hotkey};
 use gpui_kit::component::{
@@ -18,19 +21,18 @@ use tracing::error;
 impl SettingsView {
     pub(super) fn render_clipboard_page(&self, cx: &mut Context<Self>) -> AnyElement {
         let Some(service) = self.clipboard_service.as_ref() else {
-            return pulse_settings_card("当前平台不可用", cx.theme())
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(cx.theme().muted_foreground)
-                        .child("当前平台未启用剪贴板工具。"),
-                )
+            return pulse_settings_card("剪贴板", cx.theme())
+                .child(settings_info_notice(
+                    "settings-clipboard-platform-status",
+                    "当前平台不可用",
+                    "当前平台未启用剪贴板工具。",
+                    cx.theme(),
+                ))
                 .into_any_element();
         };
         let theme = cx.theme();
         let muted = theme.muted_foreground;
         let border = theme.border;
-        let danger = crate::error_text_color(theme);
         let settings = self.clipboard.clone();
         let disabled = self.saving_clipboard;
 
@@ -44,21 +46,34 @@ impl SettingsView {
                     theme,
                 ))
             })
+            .when(self.clearing_clipboard_history, |page| {
+                page.child(settings_processing_notice(
+                    "settings-clipboard-clear-status",
+                    "剪贴历史",
+                    "清空完成前不能再次操作历史数据。",
+                    theme,
+                ))
+            })
             .when(service.settings_degraded(), |page| {
-                page.child(
-                    div()
-                        .text_xs()
-                        .text_color(danger)
-                        .child("设置读取异常，采集已自动暂停；重新保存任一设置可尝试修复。"),
-                )
+                page.child(settings_error_notice(
+                    "settings-clipboard-degraded-status",
+                    "设置读取异常",
+                    "采集已自动暂停；重新保存任一设置可尝试修复。",
+                    theme,
+                ))
             })
             .when(
                 settings.enabled && matches!(service.hotkey_state(), HotkeyState::Failed),
                 |page| {
-                    page.child(div().text_xs().text_color(danger).child(format!(
-                        "全局热键 {} 注册失败：组合键可能被其它应用占用，可尝试切换备用热键。",
-                        clipboard_hotkey(settings.alternate_hotkey)
-                    )))
+                    page.child(settings_error_notice(
+                        "settings-clipboard-hotkey-status",
+                        "全局热键未注册",
+                        format!(
+                            "热键 {} 注册失败：组合键可能被其它应用占用，可尝试切换备用热键。",
+                            clipboard_hotkey(settings.alternate_hotkey)
+                        ),
+                        theme,
+                    ))
                 },
             )
             .child(render_clipboard_summary(&settings, cx))

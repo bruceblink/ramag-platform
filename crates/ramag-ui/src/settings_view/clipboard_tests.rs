@@ -1,6 +1,6 @@
 //! 剪贴板设置页摘要的 Headless GPUI 布局测试。
 
-use gpui_kit::component::ActiveTheme as _;
+use gpui_kit::component::{ActiveTheme as _, v_flex};
 use gpui_kit::{
     Context, InteractiveElement as _, IntoElement, ParentElement as _, Render, Styled as _,
     TestAppContext, VisualTestContext, Window, div, px, size,
@@ -8,7 +8,9 @@ use gpui_kit::{
 use ramag_domain::entities::ClipboardSettings;
 
 use super::render_clipboard_summary;
-use crate::settings_view::pages::settings_saving_notice;
+use crate::settings_view::pages::{
+    settings_error_notice, settings_info_notice, settings_processing_notice, settings_saving_notice,
+};
 
 struct ClipboardSummaryHost {
     settings: ClipboardSettings,
@@ -110,5 +112,67 @@ fn saving_notice_fits_supported_widths(cx: &mut TestAppContext) {
         assert!(notice.right() <= host.right());
         assert!(notice.origin.y >= host.origin.y);
         assert!(notice.bottom() <= host.bottom());
+    }
+}
+
+struct ClipboardFeedbackHost;
+
+impl Render for ClipboardFeedbackHost {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        v_flex()
+            .id("settings-clipboard-feedback-host")
+            .debug_selector(|| "settings-clipboard-feedback-host".into())
+            .w_full()
+            .gap(px(8.0))
+            .child(settings_info_notice(
+                "settings-clipboard-platform-status",
+                "当前平台不可用",
+                "当前平台未启用剪贴板工具。",
+                cx.theme(),
+            ))
+            .child(settings_error_notice(
+                "settings-clipboard-degraded-status",
+                "设置读取异常",
+                "采集已自动暂停；重新保存任一设置可尝试修复。",
+                cx.theme(),
+            ))
+            .child(settings_processing_notice(
+                "settings-clipboard-clear-status",
+                "剪贴历史",
+                "清空完成前不能再次操作历史数据。",
+                cx.theme(),
+            ))
+    }
+}
+
+#[gpui_kit::test]
+fn clipboard_feedback_notices_fit_supported_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let (_, visual_cx) = cx.add_window_view(|_, _| ClipboardFeedbackHost);
+    let visual_cx: &mut VisualTestContext = visual_cx;
+
+    for mode in [crate::Mode::Light, crate::Mode::Dark] {
+        visual_cx.update(|_, app| crate::apply_theme(mode, app));
+        for width in [360.0, 1024.0, 1440.0] {
+            visual_cx.simulate_resize(size(px(width), px(300.0)));
+            visual_cx.run_until_parked();
+
+            let Some(host) = visual_cx.debug_bounds("settings-clipboard-feedback-host") else {
+                unreachable!("剪贴板状态测试宿主应渲染");
+            };
+            for selector in [
+                "settings-clipboard-platform-status",
+                "settings-clipboard-degraded-status",
+                "settings-clipboard-clear-status",
+            ] {
+                let Some(notice) = visual_cx.debug_bounds(selector) else {
+                    unreachable!("剪贴板状态卡应渲染: {selector}");
+                };
+                assert!(notice.origin.x >= host.origin.x);
+                assert!(notice.right() <= host.right());
+                assert!(notice.origin.y >= host.origin.y);
+                assert!(notice.bottom() <= host.bottom());
+            }
+        }
     }
 }

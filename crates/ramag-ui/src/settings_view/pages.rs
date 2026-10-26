@@ -156,6 +156,8 @@ pub(super) fn settings_saving_notice(
         format!("{label}：正在保存…"),
         "保存完成前暂时不能修改此页设置。",
         theme,
+        theme.muted_foreground,
+        IconName::Info,
     )
 }
 
@@ -163,22 +165,56 @@ pub(super) fn settings_saving_notice(
 pub(super) fn settings_processing_notice(
     id: &'static str,
     label: &'static str,
+    guidance: impl Into<SharedString>,
     theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     settings_status_notice(
         id,
         format!("{label}：正在处理…"),
-        "导入或导出完成前不能再次操作连接配置。",
+        guidance,
         theme,
+        theme.muted_foreground,
+        IconName::Info,
     )
+}
+
+/// 在设置页显示平台或能力不可用的说明，并保留下一步提示。
+pub(super) fn settings_info_notice(
+    id: &'static str,
+    title: impl Into<SharedString>,
+    guidance: impl Into<SharedString>,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
+    settings_status_notice(
+        id,
+        title,
+        guidance,
+        theme,
+        theme.muted_foreground,
+        IconName::Info,
+    )
+}
+
+/// 在设置页显示可恢复的错误状态，避免错误原因与普通说明混在一起。
+pub(super) fn settings_error_notice(
+    id: &'static str,
+    title: impl Into<SharedString>,
+    guidance: impl Into<SharedString>,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
+    settings_status_notice(id, title, guidance, theme, theme.danger, IconName::CircleX)
 }
 
 fn settings_status_notice(
     id: &'static str,
-    title: String,
-    guidance: &'static str,
+    title: impl Into<SharedString>,
+    guidance: impl Into<SharedString>,
     theme: &gpui_kit::component::Theme,
+    color: gpui_kit::Hsla,
+    icon: IconName,
 ) -> impl IntoElement {
+    let title = title.into();
+    let guidance = guidance.into();
     let muted = theme.muted_foreground;
     h_flex()
         .id(id)
@@ -189,10 +225,10 @@ fn settings_status_notice(
         .gap(px(8.0))
         .p(px(8.0))
         .border_1()
-        .border_color(muted.opacity(0.28))
+        .border_color(color.opacity(0.28))
         .rounded(px(6.0))
-        .bg(muted.opacity(0.06))
-        .child(Icon::new(IconName::Info).small().text_color(muted))
+        .bg(color.opacity(0.06))
+        .child(Icon::new(icon).small().text_color(color))
         .child(
             v_flex()
                 .min_w_0()
@@ -201,7 +237,7 @@ fn settings_status_notice(
                     div()
                         .text_xs()
                         .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                        .text_color(muted)
+                        .text_color(color)
                         .child(title),
                 )
                 .child(div().text_xs().text_color(muted).child(guidance)),

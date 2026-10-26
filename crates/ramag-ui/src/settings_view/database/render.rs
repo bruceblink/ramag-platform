@@ -206,6 +206,7 @@ impl SettingsView {
                         card.child(super::super::pages::settings_processing_notice(
                             "settings-db-transfer-status",
                             "连接配置",
+                            "导入或导出完成前不能再次操作连接配置。",
                             theme,
                         ))
                     }),
