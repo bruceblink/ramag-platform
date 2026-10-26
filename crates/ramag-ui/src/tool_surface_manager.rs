@@ -222,24 +222,8 @@ impl Render for ToolSurfaceManager {
             ToolDragSurface::ActivityBar => crate::activity_bar::BAR_WIDTH + 20.0,
         };
         let manager_width = (window_width - right_reserve).clamp(240.0, MANAGER_WIDTH);
-        let empty_message = if self.registry.count() == 0 {
-            "没有已注册的工具"
-        } else {
-            "没有匹配的工具"
-        };
         let rows = if matching_tools.is_empty() {
-            vec![
-                div()
-                    .w_full()
-                    .id("tool-manager-empty")
-                    .debug_selector(|| "tool-manager-empty".into())
-                    .px(px(12.0))
-                    .py(px(16.0))
-                    .text_sm()
-                    .text_color(muted)
-                    .child(empty_message)
-                    .into_any_element(),
-            ]
+            vec![render_empty_state(self.registry.count() == 0, cx.theme()).into_any_element()]
         } else {
             matching_tools
                 .into_iter()
@@ -309,6 +293,56 @@ impl Render for ToolSurfaceManager {
                     .child(v_flex().w_full().gap(px(6.0)).p(px(5.0)).children(rows)),
             )
     }
+}
+
+/// 为工具管理器的空列表区分“没有工具”和“搜索无匹配”两种原因。
+fn render_empty_state(
+    no_registered_tools: bool,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
+    let (icon, title, guidance) = if no_registered_tools {
+        (
+            IconName::Info,
+            "没有已注册的工具",
+            "安装或启用工具后，它们会显示在这里。",
+        )
+    } else {
+        (
+            IconName::Search,
+            "没有匹配的工具",
+            "尝试搜索工具名称、说明或 ID。",
+        )
+    };
+    v_flex()
+        .w_full()
+        .id("tool-manager-empty")
+        .debug_selector(|| "tool-manager-empty".into())
+        .items_center()
+        .gap(px(6.0))
+        .px(px(12.0))
+        .py(px(18.0))
+        .child(
+            h_flex()
+                .id("tool-manager-empty-heading")
+                .debug_selector(|| "tool-manager-empty-heading".into())
+                .items_center()
+                .gap(px(8.0))
+                .child(Icon::new(icon).small().text_color(theme.muted_foreground))
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .child(title),
+                ),
+        )
+        .child(
+            div()
+                .id("tool-manager-empty-guidance")
+                .debug_selector(|| "tool-manager-empty-guidance".into())
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(guidance),
+        )
 }
 
 pub(crate) fn create_tool_surface_manager(

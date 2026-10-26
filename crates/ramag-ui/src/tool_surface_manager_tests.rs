@@ -211,7 +211,33 @@ fn manager_reports_when_no_tools_are_registered(cx: &mut TestAppContext) {
     visual.run_until_parked();
     click(visual, "manager-test-trigger");
 
-    assert!(visual.debug_bounds("tool-manager-empty").is_some());
+    let empty = bounds(visual, "tool-manager-empty");
+    let heading = bounds(visual, "tool-manager-empty-heading");
+    let guidance = bounds(visual, "tool-manager-empty-guidance");
+    assert!(heading.origin.y >= empty.origin.y);
+    assert!(guidance.origin.y > heading.origin.y);
+    assert!(guidance.right() <= empty.right());
+}
+
+#[gpui_kit::test]
+fn manager_reports_when_search_has_no_matches(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let registry = registry_with_hidden_tools();
+    let (_, visual) = cx.add_window_view(move |window, cx| {
+        let manager = create_tool_surface_manager(registry, ToolDragSurface::Home, window, cx);
+        Root::new(cx.new(|_| ManagerTestHost { manager }), window, cx)
+    });
+    visual.simulate_resize(size(px(700.0), px(520.0)));
+    visual.run_until_parked();
+    click(visual, "manager-test-trigger");
+    click(visual, "tool-manager-search");
+    visual.simulate_keystrokes("unknown");
+    visual.run_until_parked();
+
+    let empty = bounds(visual, "tool-manager-empty");
+    assert!(visual.debug_bounds("tool-manager-empty-heading").is_some());
+    assert!(visual.debug_bounds("tool-manager-empty-guidance").is_some());
+    assert!(empty.right() <= px(700.0));
 }
 
 struct ManagerTestHost {
