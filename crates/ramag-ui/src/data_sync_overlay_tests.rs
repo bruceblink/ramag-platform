@@ -3,6 +3,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::{
     AppContext as _, Context, Entity, IntoElement, Modifiers, MouseButton, ParentElement, Render,
     Styled, TestAppContext, VisualTestContext, Window, div, point, prelude::*, px, size,
@@ -10,6 +11,7 @@ use gpui_kit::{
 use ramag_app::{DataSyncExecutionContext, DataSyncGate, DataSyncGatePhase};
 use ramag_domain::entities::{DataSyncSummary, DataSyncTaskId};
 
+use super::render_sync_feedback_notice;
 use super::{
     DataSyncOverlay,
     result::{format_count, format_elapsed_ms},
@@ -203,7 +205,67 @@ fn failed_result_remains_readable_inside_small_window(cx: &mut TestAppContext) {
     let card = cx.debug_bounds("data-sync-card").expect("结果卡片应渲染");
     assert!(card.size.width <= overlay.size.width);
     assert!(card.size.height <= overlay.size.height);
+    let error_notice = cx
+        .debug_bounds("sync-error-notice")
+        .expect("同步错误状态卡应渲染");
+    let error_scroll = cx
+        .debug_bounds("sync-error-scroll")
+        .expect("同步错误原因滚动区应渲染");
+    assert!(error_notice.origin.x >= card.origin.x);
+    assert!(error_notice.right() <= card.right());
+    assert!(error_scroll.origin.x >= error_notice.origin.x);
+    assert!(error_scroll.right() <= error_notice.right());
     assert!(cx.debug_bounds("sync-result-ack").is_some());
+}
+
+struct SyncFeedbackHost;
+
+impl Render for SyncFeedbackHost {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .id("sync-feedback-host")
+            .debug_selector(|| "sync-feedback-host".into())
+            .w_full()
+            .child(render_sync_feedback_notice(
+                "sync-feedback-error",
+                "sync-feedback-error-message",
+                "同步失败",
+                "错误原因和恢复说明".repeat(20),
+                cx.theme().danger,
+                cx.theme().muted_foreground,
+            ))
+    }
+}
+
+#[gpui_kit::test]
+fn sync_feedback_notice_fits_supported_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let (_, visual_cx) = cx.add_window_view(|_, _| SyncFeedbackHost);
+    let visual_cx: &mut VisualTestContext = visual_cx;
+
+    for mode in [crate::Mode::Light, crate::Mode::Dark] {
+        visual_cx.update(|_, app| crate::apply_theme(mode, app));
+        for width in [320.0, 640.0, 1024.0] {
+            visual_cx.simulate_resize(size(px(width), px(280.0)));
+            visual_cx.run_until_parked();
+
+            let Some(host) = visual_cx.debug_bounds("sync-feedback-host") else {
+                unreachable!("同步反馈测试宿主应渲染");
+            };
+            let Some(notice) = visual_cx.debug_bounds("sync-feedback-error") else {
+                unreachable!("同步反馈状态卡应渲染");
+            };
+            let Some(message) = visual_cx.debug_bounds("sync-feedback-error-message") else {
+                unreachable!("同步反馈原因区应渲染");
+            };
+            assert!(notice.origin.x >= host.origin.x);
+            assert!(notice.right() <= host.right());
+            assert!(notice.origin.y >= host.origin.y);
+            assert!(notice.bottom() <= host.bottom());
+            assert!(message.origin.x >= notice.origin.x);
+            assert!(message.right() <= notice.right());
+        }
+    }
 }
 
 #[test]

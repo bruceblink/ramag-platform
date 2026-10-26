@@ -6,12 +6,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use gpui_kit::component::{
-    ActiveTheme, Disableable as _, IconName, Sizable as _, button::ButtonVariants as _, h_flex,
-    spinner::Spinner, v_flex,
+    ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
+    h_flex, spinner::Spinner, v_flex,
 };
 use gpui_kit::{
-    ClickEvent, Context, FocusHandle, IntoElement, KeyDownEvent, ParentElement, Render, Styled,
-    Window, div, prelude::*, px,
+    ClickEvent, Context, FocusHandle, IntoElement, KeyDownEvent, ParentElement, Render,
+    SharedString, Styled, Window, div, prelude::*, px,
 };
 use ramag_app::{DataSyncGate, DataSyncGatePhase, DataSyncGateSnapshot};
 use ramag_domain::entities::{DataSyncStage, DataSyncTaskId, format_bytes};
@@ -134,8 +134,6 @@ impl DataSyncOverlay {
         let task_for_ack = snapshot.task_id.clone();
         let mut shade = gpui_kit::black();
         shade.a = 0.58;
-        let mut danger_bg = danger;
-        danger_bg.a = 0.10;
 
         div()
             .id("data-sync-overlay")
@@ -217,26 +215,24 @@ impl DataSyncOverlay {
                         ))
                     })
                     .when(summary_missing, |card| {
-                        card.child(
-                            div()
-                                .text_sm()
-                                .text_color(danger)
-                                .child("同步已结束，但结果摘要不可用"),
-                        )
+                        card.child(render_sync_feedback_notice(
+                            "sync-summary-missing",
+                            "sync-summary-missing-message",
+                            "结果摘要不可用",
+                            "同步已结束，但结果摘要不可用。",
+                            danger,
+                            muted,
+                        ))
                     })
                     .when_some(snapshot.error.clone(), |card, error| {
-                        card.child(
-                            div()
-                                .id("sync-error-scroll")
-                                .max_h(px(160.0))
-                                .overflow_y_scroll()
-                                .p(px(10.0))
-                                .rounded(px(6.0))
-                                .bg(danger_bg)
-                                .text_sm()
-                                .text_color(danger)
-                                .child(error),
-                        )
+                        card.child(render_sync_feedback_notice(
+                            "sync-error-notice",
+                            "sync-error-scroll",
+                            "同步失败",
+                            error,
+                            danger,
+                            muted,
+                        ))
                     })
                     .when(self.cancel_confirmation && !terminal, |card| {
                         card.child(
@@ -333,6 +329,56 @@ impl DataSyncOverlay {
                     }),
             )
     }
+}
+
+/// 终态同步反馈使用标题、图标和可滚动原因，避免长错误挤压确认操作。
+fn render_sync_feedback_notice(
+    id: &'static str,
+    message_id: &'static str,
+    title: &'static str,
+    message: impl Into<SharedString>,
+    danger: gpui_kit::Hsla,
+    muted: gpui_kit::Hsla,
+) -> impl IntoElement {
+    let message = message.into();
+    let mut background = danger;
+    background.a = 0.10;
+    h_flex()
+        .id(id)
+        .debug_selector(move || id.into())
+        .w_full()
+        .min_w_0()
+        .items_start()
+        .gap(px(8.0))
+        .p(px(10.0))
+        .border_1()
+        .border_color(danger.opacity(0.28))
+        .rounded(px(6.0))
+        .bg(background)
+        .child(Icon::new(IconName::CircleX).small().text_color(danger))
+        .child(
+            v_flex()
+                .flex_1()
+                .min_w_0()
+                .gap(px(2.0))
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .text_color(danger)
+                        .child(title),
+                )
+                .child(
+                    div()
+                        .id(message_id)
+                        .debug_selector(move || message_id.into())
+                        .max_h(px(160.0))
+                        .overflow_y_scroll()
+                        .text_xs()
+                        .text_color(muted)
+                        .child(message),
+                ),
+        )
 }
 
 impl Render for DataSyncOverlay {
