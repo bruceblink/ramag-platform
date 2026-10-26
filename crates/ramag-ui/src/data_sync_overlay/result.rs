@@ -46,22 +46,28 @@ pub(super) fn render_result_summary(
         .border_color(border)
         .child(
             h_flex()
+                .id("sync-result-metrics-primary")
+                .debug_selector(|| "sync-result-metrics-primary".into())
                 .w_full()
+                .flex_wrap()
                 .items_start()
                 .gap(px(16.0))
                 .child(result_metric(
+                    "sync-result-metric-inserted",
                     "新增记录",
                     format_count(summary.inserted),
                     muted,
                     success,
                 ))
                 .child(result_metric(
+                    "sync-result-metric-scanned",
                     "扫描记录",
                     format_count(summary.scanned),
                     muted,
                     foreground,
                 ))
                 .child(result_metric(
+                    "sync-result-metric-objects",
                     "完成对象",
                     completed_objects,
                     muted,
@@ -70,22 +76,28 @@ pub(super) fn render_result_summary(
         )
         .child(
             h_flex()
+                .id("sync-result-metrics-secondary")
+                .debug_selector(|| "sync-result-metrics-secondary".into())
                 .w_full()
+                .flex_wrap()
                 .items_start()
                 .gap(px(16.0))
                 .child(result_metric(
+                    "sync-result-metric-skipped",
                     "跳过记录",
                     format_count(summary.skipped),
                     muted,
                     foreground,
                 ))
                 .child(result_metric(
+                    "sync-result-metric-failed",
                     "失败记录",
                     format_count(summary.failed),
                     muted,
                     failed_color,
                 ))
                 .child(result_metric(
+                    "sync-result-metric-warnings",
                     "警告",
                     format_count(warning_count),
                     muted,
@@ -94,19 +106,24 @@ pub(super) fn render_result_summary(
         )
         .child(
             h_flex()
+                .id("sync-result-metrics-details")
+                .debug_selector(|| "sync-result-metrics-details".into())
                 .w_full()
+                .flex_wrap()
                 .items_start()
                 .gap(px(16.0))
                 .pt(px(10.0))
                 .border_t_1()
                 .border_color(border)
                 .child(result_metric(
+                    "sync-result-metric-bytes",
                     "传输量",
                     format_bytes(summary.bytes),
                     muted,
                     foreground,
                 ))
                 .child(result_metric(
+                    "sync-result-metric-elapsed",
                     "总耗时",
                     format_elapsed_ms(summary.elapsed_ms),
                     muted,
@@ -116,14 +133,18 @@ pub(super) fn render_result_summary(
 }
 
 fn result_metric(
+    id: &'static str,
     label: &'static str,
     value: String,
     muted: gpui_kit::Hsla,
     value_color: gpui_kit::Hsla,
-) -> gpui_kit::Div {
+) -> impl IntoElement {
     v_flex()
+        .id(id)
+        .debug_selector(move || id.into())
         .flex_1()
         .min_w_0()
+        .min_w(px(72.0))
         .gap(px(2.0))
         .child(div().text_xs().text_color(muted).child(label))
         .child(

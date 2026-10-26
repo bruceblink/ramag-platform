@@ -13,7 +13,7 @@ use ramag_domain::entities::{DataSyncProgress, DataSyncSummary, DataSyncTaskId};
 
 use super::{
     DataSyncOverlay,
-    result::{format_count, format_elapsed_ms},
+    result::{format_count, format_elapsed_ms, render_result_summary},
 };
 use super::{render_sync_feedback_notice, sync_progress_percent};
 
@@ -339,6 +339,86 @@ impl Render for SyncFeedbackHost {
                 cx.theme().danger,
                 cx.theme().muted_foreground,
             ))
+    }
+}
+
+struct SyncResultSummaryHost;
+
+impl Render for SyncResultSummaryHost {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.theme();
+        let summary = DataSyncSummary {
+            objects: 18_446_744_073_709_551_615,
+            scanned: 18_446_744_073_709_551_615,
+            inserted: 18_446_744_073_709_551_615,
+            skipped: 18_446_744_073_709_551_615,
+            failed: 18_446_744_073_709_551_615,
+            bytes: 18_446_744_073_709_551_615,
+            elapsed_ms: 3_661_230,
+            cancelled: false,
+            warnings: Vec::new(),
+            warnings_overflow: 18_446_744_073_709_551_615,
+        };
+        div()
+            .id("sync-result-summary-host")
+            .debug_selector(|| "sync-result-summary-host".into())
+            .w_full()
+            .child(render_result_summary(
+                &summary,
+                Some(summary.objects),
+                theme.border,
+                theme.muted_foreground,
+                theme.foreground,
+                theme.success,
+                theme.warning,
+                theme.danger,
+            ))
+    }
+}
+
+#[gpui_kit::test]
+fn result_summary_fits_supported_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let (_, visual_cx) = cx.add_window_view(|_, _| SyncResultSummaryHost);
+
+    for mode in [crate::Mode::Light, crate::Mode::Dark] {
+        visual_cx.update(|_, app| crate::apply_theme(mode, app));
+        for width in [280.0, 320.0, 640.0, 1024.0] {
+            visual_cx.simulate_resize(size(px(width), px(420.0)));
+            visual_cx.run_until_parked();
+
+            let host = visual_cx
+                .debug_bounds("sync-result-summary-host")
+                .expect("结果摘要宿主应渲染");
+            let summary = visual_cx
+                .debug_bounds("sync-result-summary")
+                .expect("结果摘要应渲染");
+            assert!(summary.origin.x >= host.origin.x);
+            assert!(summary.right() <= host.right());
+            for id in [
+                "sync-result-metrics-primary",
+                "sync-result-metrics-secondary",
+                "sync-result-metrics-details",
+            ] {
+                let row = visual_cx.debug_bounds(id).expect("结果指标行应渲染");
+                assert!(row.origin.x >= summary.origin.x);
+                assert!(row.right() <= summary.right());
+            }
+            for id in [
+                "sync-result-metric-inserted",
+                "sync-result-metric-scanned",
+                "sync-result-metric-objects",
+                "sync-result-metric-skipped",
+                "sync-result-metric-failed",
+                "sync-result-metric-warnings",
+                "sync-result-metric-bytes",
+                "sync-result-metric-elapsed",
+            ] {
+                let metric = visual_cx.debug_bounds(id).expect("结果指标应渲染");
+                assert!(metric.origin.x >= summary.origin.x);
+                assert!(metric.right() <= summary.right());
+            }
+        }
     }
 }
 
