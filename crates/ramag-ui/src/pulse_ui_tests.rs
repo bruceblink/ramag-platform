@@ -178,6 +178,7 @@ fn pulse_components_fit_compact_and_wide_windows(cx: &mut TestAppContext) {
                 "pulse-device-1",
                 "pulse-metric-card",
                 "pulse-status-notice",
+                "pulse-status-badge-icon",
                 "pulse-time-chart",
             ] {
                 let bounds = visual.debug_bounds(selector);

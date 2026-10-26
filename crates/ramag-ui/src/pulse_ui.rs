@@ -5,7 +5,7 @@ mod pulse_navigation;
 pub use pulse_home::{pulse_entry_header, pulse_home_frame, pulse_home_panel, pulse_home_toolbar};
 pub use pulse_navigation::{PulseTab, pulse_device_selector, pulse_tabs};
 
-use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme as _, Icon, IconName, h_flex, v_flex};
 use gpui_kit::{
     Bounds, Div, Hsla, InteractiveElement as _, ParentElement as _, PathBuilder, Pixels,
     SharedString, StatefulInteractiveElement as _, Styled as _, Window, canvas, div, fill, point,
@@ -249,15 +249,37 @@ pub fn pulse_status_badge_with_label(
     cx: &gpui_kit::App,
 ) -> Div {
     let color = status.color(cx.theme());
-    div()
+    h_flex()
         .debug_selector(|| "pulse-status-badge".into())
+        .items_center()
+        .gap(px(4.0))
         .px(px(7.0))
         .py(px(3.0))
         .rounded(px(6.0))
         .bg(color.opacity(0.12))
         .text_xs()
         .text_color(color)
+        .child(
+            div()
+                .id("pulse-status-badge-icon")
+                .debug_selector(|| "pulse-status-badge-icon".into())
+                .flex_none()
+                .child(
+                    Icon::new(pulse_status_icon(status))
+                        .size(px(12.0))
+                        .text_color(color),
+                ),
+        )
         .child(label.into())
+}
+
+fn pulse_status_icon(status: PulseStatus) -> IconName {
+    match status {
+        PulseStatus::Current => IconName::CircleCheck,
+        PulseStatus::Warming => IconName::TriangleAlert,
+        PulseStatus::Unavailable | PulseStatus::Stale => IconName::Info,
+        PulseStatus::Failed => IconName::CircleX,
+    }
 }
 
 /// 创建带状态色和原因的读数提示。
