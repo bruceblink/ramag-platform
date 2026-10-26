@@ -204,6 +204,27 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
                 visual.run_until_parked();
                 let retry_area = bounds(visual, retry);
                 let status_area = bounds(visual, status);
+                let (badge_selector, message_selector) = match key {
+                    "system_settings" => (
+                        "settings-save-status-system_settings-badge",
+                        "settings-save-status-system_settings-message",
+                    ),
+                    "theme_mode" => (
+                        "settings-save-status-theme_mode-badge",
+                        "settings-save-status-theme_mode-message",
+                    ),
+                    "monitor_settings" => (
+                        "settings-save-status-monitor_settings-badge",
+                        "settings-save-status-monitor_settings-message",
+                    ),
+                    ramag_app::TOOL_VISIBILITY_PREF_KEY => (
+                        "settings-save-status-tool_visibility-badge",
+                        "settings-save-status-tool_visibility-message",
+                    ),
+                    _ => unreachable!("unexpected preference status key: {key}"),
+                };
+                let badge_area = bounds(visual, badge_selector);
+                let message_area = bounds(visual, message_selector);
                 let content = bounds(visual, "settings-content");
                 let navigation = bounds(visual, "settings-navigation");
                 assert!(retry_area.left() >= content.left());
@@ -214,6 +235,12 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
                 assert!(status_area.right() <= content.right());
                 assert!(status_area.top() >= content.top());
                 assert!(status_area.bottom() <= content.bottom());
+                for item in [badge_area, message_area] {
+                    assert!(item.left() >= status_area.left());
+                    assert!(item.right() <= status_area.right());
+                    assert!(item.top() >= status_area.top());
+                    assert!(item.bottom() <= status_area.bottom());
+                }
                 assert!(navigation.size.width > px(0.0) && navigation.size.height > px(0.0));
             }
         }
