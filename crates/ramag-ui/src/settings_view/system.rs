@@ -119,42 +119,42 @@ pub(super) fn system_settings_panel(
     } else {
         "当前平台尚未完成托盘驻留验证。"
     };
-    let appearance_card = pulse_settings_card("Appearance", theme)
+    let appearance_card = pulse_settings_card("外观与显示", theme)
         .id("settings-appearance-card")
         .debug_selector(|| "settings-appearance-card".into())
         .w_full()
         .min_w_0()
         .child(setting_row(
             "settings-theme-row",
-            "Theme",
+            "主题",
             "应用于全部工具和设置面板。",
             themes,
             theme,
         ))
         .child(setting_row(
             "settings-text-size-row",
-            "Interface size",
+            "界面字号",
             "统一调整界面文字；代码和终端保留各自的等宽字体设置。",
             sizes,
             theme,
         ))
         .child(setting_row(
             "settings-interface-font-row",
-            "Interface font",
+            "界面字体",
             "应用于页面标题、导航和普通文本。",
             interface_fonts,
             theme,
         ))
         .child(setting_row(
             "settings-numeric-font-row",
-            "Numeric font",
+            "数字字体",
             "应用于指标、单位和等宽数据，保持数字对齐。",
             numeric_fonts,
             theme,
         ))
         .child(setting_row(
             "settings-scrollbar-row",
-            "Scrollbar",
+            "滚动条",
             "控制可滚动区域的显示方式，推荐始终显示。",
             scrollbars,
             theme,
@@ -174,12 +174,12 @@ pub(super) fn system_settings_panel(
                     div()
                         .text_xs()
                         .text_color(theme.muted_foreground)
-                        .child("Typography preview"),
+                        .child("字体预览"),
                 )
                 .child(
                     div()
                         .font_family(theme.font_family.clone())
-                        .child("The quick brown fox jumps over the lazy dog."),
+                        .child("清晰、舒适的文字让工作更专注。"),
                 )
                 .child(
                     div()
@@ -189,7 +189,7 @@ pub(super) fn system_settings_panel(
                         .child("0123456789 · 64.2 % · 8.5 GiB"),
                 ),
         );
-    let window_card = pulse_settings_card("Window behavior", theme)
+    let window_card = pulse_settings_card("窗口行为", theme)
         .id("settings-window-card")
         .debug_selector(|| "settings-window-card".into())
         .w_full()
@@ -216,7 +216,7 @@ pub(super) fn system_settings_panel(
         crate::MonitorRefreshRate::TwoSeconds => "2.0",
         crate::MonitorRefreshRate::FiveSeconds => "5.0",
     };
-    let sampling = pulse_settings_card("Sampling", theme)
+    let sampling = pulse_settings_card("系统采样", theme)
         .id("settings-sampling-card")
         .debug_selector(|| "settings-sampling-card".into())
         .w_full()
@@ -236,13 +236,13 @@ pub(super) fn system_settings_panel(
                     div()
                         .text_sm()
                         .text_color(theme.muted_foreground)
-                        .child("seconds between readings"),
+                        .child("秒 / 次采样"),
                 ),
         )
         .child(setting_row(
             "settings-monitor-rate-row",
-            "Refresh interval",
-            "Shorter intervals update more often and use more CPU.",
+            "刷新间隔",
+            "间隔越短，更新越频繁，同时会增加处理器占用。",
             crate::MonitorRefreshRate::ALL
                 .into_iter()
                 .enumerate()
@@ -270,7 +270,7 @@ pub(super) fn system_settings_panel(
                 .border_color(theme.border)
                 .text_sm()
                 .text_color(theme.muted_foreground)
-                .child("Changes apply immediately and save automatically."),
+                .child("更改会立即生效并自动保存。"),
         );
     let primary_column = v_flex()
         .id("settings-system-primary-column")

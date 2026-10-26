@@ -113,21 +113,32 @@ fn home_view_scrolls_and_fits_compact_windows(cx: &mut TestAppContext) {
             let grid = bounds(visual_cx, "home-tool-grid");
             assert_eq!(header.origin.x, grid.origin.x, "标题与工具网格左对齐");
             assert_eq!(header.size.width, grid.size.width, "标题与工具网格宽度一致");
-            for (selector, title_selector, description_selector) in [
+            let first_card = bounds(visual_cx, "home-tool-home-test-0");
+            let fourth_card = bounds(visual_cx, "home-tool-home-test-3");
+            if width >= 1024.0 {
+                assert_eq!(first_card.origin.y, fourth_card.origin.y);
+                assert!(fourth_card.origin.x > first_card.origin.x);
+            } else if width == 360.0 {
+                assert!(fourth_card.origin.y > first_card.origin.y);
+            }
+            for (selector, title_selector, description_selector, open_selector) in [
                 (
                     "home-tool-home-test-0",
                     "home-tool-title-home-test-0",
                     "home-tool-description-home-test-0",
+                    "home-tool-open-home-test-0",
                 ),
                 (
                     "home-tool-home-test-7",
                     "home-tool-title-home-test-7",
                     "home-tool-description-home-test-7",
+                    "home-tool-open-home-test-7",
                 ),
                 (
                     "home-tool-home-test-15",
                     "home-tool-title-home-test-15",
                     "home-tool-description-home-test-15",
+                    "home-tool-open-home-test-15",
                 ),
             ] {
                 let card = bounds(visual_cx, selector);
@@ -137,13 +148,16 @@ fn home_view_scrolls_and_fits_compact_windows(cx: &mut TestAppContext) {
                 assert!((card_width / card_height - super::GOLDEN_RATIO).abs() < 0.01);
                 let title = bounds(visual_cx, title_selector);
                 let description = bounds(visual_cx, description_selector);
+                let open = bounds(visual_cx, open_selector);
                 assert!(title.origin.x >= card.origin.x && title.right() <= card.right());
                 assert!(title.bottom() <= description.origin.y);
                 assert!(description.right() <= card.right());
-                assert!(description.bottom() <= card.bottom());
+                assert!(open.top() >= description.bottom());
+                assert!(open.left() >= card.left() && open.right() <= card.right());
+                assert!(open.bottom() <= card.bottom());
                 assert!(
-                    description.size.height > px(36.0),
-                    "描述区应填充黄金比例卡片的剩余空间: {description:?} / {card:?}"
+                    description.size.height > px(30.0),
+                    "卡片应为工具描述保留至少两行空间: {description:?} / {card:?}"
                 );
             }
         }

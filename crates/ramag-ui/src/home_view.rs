@@ -35,9 +35,11 @@ pub enum HomeEvent {
     OpenTool(String),
 }
 
-const TOOL_CARD_WIDTH: f32 = 280.0;
+const TOOL_CARD_WIDTH: f32 = 220.0;
 const TOOL_CARD_GAP: f32 = 16.0;
-const TOOL_GRID_WIDTH: f32 = TOOL_CARD_WIDTH * 3.0 + TOOL_CARD_GAP * 2.0;
+const MAX_GRID_COLUMNS: f32 = 4.0;
+const TOOL_GRID_WIDTH: f32 =
+    TOOL_CARD_WIDTH * MAX_GRID_COLUMNS + TOOL_CARD_GAP * (MAX_GRID_COLUMNS - 1.0);
 
 pub struct HomeView {
     registry: Arc<ToolRegistry>,
@@ -107,7 +109,9 @@ impl Render for HomeView {
         let bg = theme.background;
         let border = theme.border;
         let fg = theme.foreground;
-        let card_bg = crate::pulse_ui::pulse_palette(cx).surface;
+        let palette = crate::pulse_ui::pulse_palette(cx);
+        let card_bg = palette.surface;
+        let icon_bg = palette.selected;
         let window_width = f32::from(window.bounds().size.width);
         let compact = window_width < 640.0;
         let card_width = home_card_width(window_width);
@@ -161,6 +165,7 @@ impl Render for HomeView {
             let description = tool.meta().description.clone();
             let title_selector = format!("home-tool-title-{id}");
             let description_selector = format!("home-tool-description-{id}");
+            let open_selector = format!("home-tool-open-{id}");
             let tooltip = format!("{name} — {description}");
             let icon = ActivityBar::icon_for_meta(tool.meta());
             let preview_icon = icon.clone();
@@ -220,13 +225,15 @@ impl Render for HomeView {
                         .min_w_0()
                         .pr(px(14.0))
                         .items_center()
-                        .gap(px(8.0))
+                        .gap(px(10.0))
                         .child(
                             h_flex()
-                                .size(px(24.0))
+                                .size(px(32.0))
                                 .flex_none()
                                 .items_center()
                                 .justify_center()
+                                .rounded(px(6.0))
+                                .bg(icon_bg)
                                 .text_color(accent)
                                 .child(icon),
                         )
@@ -264,6 +271,27 @@ impl Render for HomeView {
                         .line_height(gpui_kit::rems(1.35))
                         .text_color(muted_fg)
                         .child(description),
+                )
+                .child(
+                    h_flex()
+                        .id(SharedString::from(open_selector.clone()))
+                        .debug_selector(move || open_selector.clone())
+                        .w_full()
+                        .flex_none()
+                        .items_center()
+                        .justify_between()
+                        .pt(px(6.0))
+                        .border_t_1()
+                        .border_color(border.opacity(0.55))
+                        .text_xs()
+                        .font_weight(gpui_kit::FontWeight::MEDIUM)
+                        .text_color(accent)
+                        .child("打开工具")
+                        .child(
+                            Icon::new(IconName::ChevronRight)
+                                .size(px(14.0))
+                                .text_color(muted_fg),
+                        ),
                 );
             if is_dragged {
                 card = card.opacity(DRAGGED_ITEM_OPACITY);
@@ -384,7 +412,7 @@ impl Render for HomeView {
             .child(
                 v_flex()
                     .w_full()
-                    .max_w(px(960.0))
+                    .max_w(px(1008.0))
                     .p(px(home_content_padding(window_width)))
                     .gap(px(if compact { 16.0 } else { 24.0 }))
                     .items_center()
@@ -406,7 +434,7 @@ fn grid_columns(window_width: f32) -> usize {
     let content_width = home_content_width(window_width);
     ((content_width.max(TOOL_CARD_WIDTH) + TOOL_CARD_GAP) / (TOOL_CARD_WIDTH + TOOL_CARD_GAP))
         .floor()
-        .clamp(1.0, 3.0) as usize
+        .clamp(1.0, MAX_GRID_COLUMNS) as usize
 }
 
 /// Return the main-pane width available to the home grid after the activity bar and padding.
@@ -507,7 +535,7 @@ mod visual_tests;
 #[cfg(test)]
 mod tests {
     use super::{
-        GOLDEN_RATIO, TOOL_CARD_WIDTH, grid_columns, home_card_height,
+        GOLDEN_RATIO, TOOL_CARD_GAP, TOOL_CARD_WIDTH, grid_columns, home_card_height,
         reorder_animation_offset_for_width,
     };
 
@@ -519,9 +547,11 @@ mod tests {
 
     #[test]
     fn grid_columns_follow_the_fixed_card_width() {
-        assert_eq!(grid_columns(1689.0), 3);
-        assert_eq!(grid_columns(900.0), 2);
-        assert_eq!(grid_columns(600.0), 1);
+        assert_eq!(grid_columns(1689.0), 4);
+        assert_eq!(grid_columns(1024.0), 4);
+        assert_eq!(grid_columns(900.0), 3);
+        assert_eq!(grid_columns(600.0), 2);
+        assert_eq!(grid_columns(360.0), 1);
     }
 
     #[test]
@@ -539,12 +569,12 @@ mod tests {
 
         let right_offset =
             reorder_animation_offset_for_width(&previous, &current, "right", 2, TOOL_CARD_WIDTH);
-        assert_eq!(f32::from(right_offset.0), 296.0);
+        assert_eq!(f32::from(right_offset.0), TOOL_CARD_WIDTH + TOOL_CARD_GAP);
         assert_eq!(f32::from(right_offset.1), 0.0);
 
         let left_offset =
             reorder_animation_offset_for_width(&previous, &current, "left", 2, TOOL_CARD_WIDTH);
-        assert_eq!(f32::from(left_offset.0), -296.0);
+        assert_eq!(f32::from(left_offset.0), -(TOOL_CARD_WIDTH + TOOL_CARD_GAP));
         assert_eq!(f32::from(left_offset.1), 0.0);
     }
 }
