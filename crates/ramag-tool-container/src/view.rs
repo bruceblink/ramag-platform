@@ -1630,16 +1630,73 @@ impl ContainerView {
             }
         }
         if let Some(error) = &self.error {
-            content = content.child(
-                div()
-                    .id("container-error")
-                    .debug_selector(|| "container-error".into())
-                    .child(ramag_ui::pulse_ui::pulse_status_notice(
-                        ramag_ui::pulse_ui::PulseStatus::Failed,
-                        error.clone(),
-                        cx,
-                    )),
-            );
+            let endpoint_is_windows_pipe = self
+                .docker_endpoint
+                .trim()
+                .to_ascii_lowercase()
+                .starts_with("npipe://");
+            let error_block = v_flex()
+                .id("container-error")
+                .debug_selector(|| "container-error".into())
+                .w_full()
+                .gap(px(8.0))
+                .child(ramag_ui::pulse_ui::pulse_status_notice(
+                    ramag_ui::pulse_ui::PulseStatus::Failed,
+                    error.clone(),
+                    cx,
+                ))
+                .when(endpoint_is_windows_pipe, |block| {
+                    block.child(
+                        h_flex()
+                            .id("container-wsl-guidance")
+                            .debug_selector(|| "container-wsl-guidance".into())
+                            .w_full()
+                            .min_w_0()
+                            .items_start()
+                            .gap(px(8.0))
+                            .p(px(10.0))
+                            .border_1()
+                            .border_color(theme.warning.opacity(0.35))
+                            .rounded(px(6.0))
+                            .bg(theme.warning.opacity(0.08))
+                            .child(Icon::new(IconName::Info).small().text_color(theme.warning))
+                            .child(
+                                v_flex()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .gap(px(4.0))
+                                    .child(
+                                        div()
+                                            .id("container-wsl-guidance-title")
+                                            .debug_selector(|| {
+                                                "container-wsl-guidance-title".into()
+                                            })
+                                            .text_sm()
+                                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                            .text_color(theme.foreground)
+                                            .child("WSL Docker 连接建议"),
+                                    )
+                                    .child(
+                                        div()
+                                            .id("container-wsl-guidance-text")
+                                            .debug_selector(|| "container-wsl-guidance-text".into())
+                                            .text_xs()
+                                            .text_color(theme.muted_foreground)
+                                            .child("将上方地址改为以下 SSH 端点，再点击“连接”："),
+                                    )
+                                    .child(
+                                        div()
+                                            .id("container-wsl-endpoint-hint")
+                                            .debug_selector(|| "container-wsl-endpoint-hint".into())
+                                            .font_family(theme.mono_font_family.clone())
+                                            .text_xs()
+                                            .text_color(theme.warning)
+                                            .child("ssh://<WSL用户名>@localhost"),
+                                    ),
+                            ),
+                    )
+                });
+            content = content.child(error_block);
         }
         let section_content = match self.section {
             ContainerSection::Overview => self.render_overview(theme, cx),
@@ -3417,6 +3474,10 @@ fn format_bytes(value: Option<i64>) -> String {
 #[cfg(test)]
 #[path = "view_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "error_layout_tests.rs"]
+mod error_layout_tests;
 
 #[cfg(test)]
 #[path = "resource_table_tests.rs"]

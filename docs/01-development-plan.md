@@ -75,7 +75,7 @@ P3 的 `v0.7.0` 发布切片已完成，证据见 [Ramag 0.7.0 发布计划](25-
 数据库 `A-UI-REAL` 已于 2026-10-26 在真实窗口验收 MySQL/PostgreSQL 触发器子树、连接恢复、事务行编辑读回和 DML 连接失败反馈；PostgreSQL 结果网格的列宽拖动、大结果集分页和长表头也已验收。
 完整数据库操作矩阵仍未完成。`DB-UX-006A` 的 10,000 行读取和 `DB-UX-006B` 的 1 MiB 字段预览已完成真实窗口验收；结果、内存和限制见[数据库工作区路线图](03-database-client-datagrip-roadmap.md)。发布验收与数据库窗口验收分别记录。
 
-用户继续要求打磨整体 UI。`RAMAG-UI-001C` 已按窗口宽度扩展首页工具卡片网格，并保持工具入口、排序和卡片操作不变。`RAMAG-UI-001D` 已完成系统监控页的中文导航、标题和状态文案。`DB-UX-006D` 已完成并行查询结果隔离、页面/统计查询取消、取消耗时和取消历史验收。`RAMAG-UI-001E` 已完成 API 工作台的中文界面词汇和侧栏信息层级。当前执行 `RAMAG-UI-001F`，统一版本管理空状态的说明和动作层级。此前的 `RAMAG-UI-001A/B`、`DB-UX-006B` 和 `DB-UX-006C` 记录保持不变。
+用户继续要求打磨整体 UI。`RAMAG-UI-001C` 已按窗口宽度扩展首页工具卡片网格，并保持工具入口、排序和卡片操作不变。`RAMAG-UI-001D` 已完成系统监控页的中文导航、标题和状态文案。`DB-UX-006D` 已完成并行查询结果隔离、页面/统计查询取消、取消耗时和取消历史验收。`RAMAG-UI-001E` 已完成 API 工作台的中文界面词汇和侧栏信息层级。`RAMAG-UI-001F` 已完成版本管理空状态的说明和动作层级。当前执行 `RAMAG-UI-001G`，统一容器连接失败与 WSL Docker 引导层级。此前的 `RAMAG-UI-001A/B`、`DB-UX-006B` 和 `DB-UX-006C` 记录保持不变。
 
 当前 UI 子切片已完成 API 工作台简约布局和两条分隔栏的真实窗口拖动检查。2026-10-25 已完成
 [连接型工作区验收计划](22-connection-workspace-acceptance-plan.md)中的全局 UI 回归：真实窗口确认
@@ -185,6 +185,23 @@ PostgreSQL 的 100,000 行分页、10,000 行只读查询、1 MiB 以上字段�
 **回滚边界：**只回滚版本管理空状态的显示结构、对应布局测试和本节记录；不回滚仓库扫描、Git 操作、用户配置或其他工具页面。
 
 **验收记录（2026-10-27，完成）：**Computer Use 在 `1202x774` 真实窗口检查版本管理空仓库页。亮色和暗色主题均显示 Git 分支图标、“还没有打开的仓库”、下一步说明和“打开”按钮；搜索、打开、克隆和初始化动作仍在顶部工具栏内。没有打开仓库、创建目录或修改 Git 配置。Headless GPUI 在 `360/640/1024/1440` 宽度检查空状态、图标、说明和动作边界；`cargo test --locked -p ramag-tool-vcs` 的 189 项测试通过，5 项手动性能观察按既有规则忽略；`cargo fmt --all -- --check`、严格 workspace Clippy、`cargo build --locked -p ramag-bin` 和 `git diff --check` 通过。
+
+### RAMAG-UI-001G：容器连接失败与 WSL Docker 引导
+
+**范围：**在容器管理页保留现有 Docker 连接失败原文，并为 Windows named pipe 失败增加独立的 WSL Docker 连接建议卡。建议卡说明 SSH 端点格式 `ssh://<WSL用户名>@localhost`，与上方端点输入框和“连接”动作形成连续层级。不改变 Docker 连接协议、只读权限、刷新回调、错误分类、凭据或 WSL 服务配置。
+
+**验收条件：**
+
+- named pipe 连接失败时，错误状态、WSL 建议标题、操作说明和 SSH 端点示例按顺序显示；建议内容不再被压缩为逐字竖排。
+- `360`、`800` 和 `1440` 宽度下，错误区和建议卡都位于容器内容区内；亮色和暗色主题均可读。
+- Docker 地址输入框、连接按钮、资源导航和“连接 Docker Engine 后显示概览”空状态保持可见；不自动发起新的 Docker 操作。
+- 其他端点类型的错误只显示原有错误提示，不显示 WSL 专用建议。
+
+**验证命令：**`cargo fmt --all -- --check`、`cargo test --locked -p ramag-tool-container`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo build --locked -p ramag-bin`、`git diff --check`。
+
+**回滚边界：**只回滚容器连接错误的显示结构、WSL 引导文案、对应布局测试和本节记录；不回滚 Docker 适配器、SSH 传输、连接配置、凭据或其他工具页面。
+
+**验收记录（2026-10-27，完成）：**Computer Use 在 `1202x774` 真实窗口检查容器管理页。亮色和暗色主题均显示原始连接失败提示、独立的“WSL Docker 连接建议”卡、`ssh://<WSL用户名>@localhost` 示例和“连接 Docker Engine 后显示概览”空状态；地址输入框、连接按钮和资源导航保持可见。检查没有修改 Docker 地址、发起连接、创建资源或改动 WSL 服务。Headless GPUI 在 `360/800/1440` 宽度检查错误区、建议卡、标题和端点示例边界，并确认 SSH 端点只保留原有错误提示；`cargo test --locked -p ramag-tool-container` 的 38 项测试通过；`cargo fmt --all -- --check`、严格 workspace Clippy、`cargo build --locked -p ramag-bin` 和 `git diff --check` 通过。
 
 ### 当前主线完成后的插件平台化路线
 
