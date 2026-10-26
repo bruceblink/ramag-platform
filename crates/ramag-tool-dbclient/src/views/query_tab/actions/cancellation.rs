@@ -2,13 +2,32 @@ use super::*;
 
 /// Stops the current tab's page and count requests, then reports server confirmations.
 pub(super) fn handle_cancel(tab: &mut QueryTab, window: &mut Window, cx: &mut Context<QueryTab>) {
-    let has_query_task = tab.current_task.take().is_some();
+    let query_task = tab.current_task.take();
+    let has_query_task = query_task.is_some();
     let count_task = tab.count_task.take();
     let count_cancel_handle = tab.count_cancel_handle.take();
     let has_count_task = count_task.is_some() || count_cancel_handle.is_some();
     drop(count_task);
     if !has_query_task && !has_count_task {
         return;
+    }
+    let connection = tab.connection.clone();
+    let query_backend_id = has_query_task
+        .then(|| {
+            tab.cancel_handle.take().and_then(|handle| {
+                let id = handle.load(std::sync::atomic::Ordering::SeqCst);
+                (id > 0).then_some(id)
+            })
+        })
+        .flatten();
+    if let Some(task) = query_task {
+        if query_backend_id.is_some() && connection.is_some() {
+            // Keep the query future alive to record its cancellation result in history.
+            task.detach();
+        } else {
+            // Without a backend ID, drop the future so a pending query cannot start later.
+            drop(task);
+        }
     }
     if has_query_task {
         tab.run_seq = tab.run_seq.wrapping_add(1);
@@ -19,17 +38,12 @@ pub(super) fn handle_cancel(tab: &mut QueryTab, window: &mut Window, cx: &mut Co
     tab.count_seq = tab.count_seq.wrapping_add(1);
     let cancel_run_seq = tab.run_seq;
     let cancel_count_seq = tab.count_seq;
-    let connection = tab.connection.clone();
     let mut cancel_requests: Vec<(&'static str, ramag_domain::entities::ConnectionConfig, u64)> =
         Vec::new();
     let mut missing_targets = Vec::new();
 
     if has_query_task {
-        let backend_id = tab.cancel_handle.take().and_then(|handle| {
-            let id = handle.load(std::sync::atomic::Ordering::SeqCst);
-            (id > 0).then_some(id)
-        });
-        if let (Some(backend_id), Some(conn)) = (backend_id, connection.clone()) {
+        if let (Some(backend_id), Some(conn)) = (query_backend_id, connection.clone()) {
             cancel_requests.push(("查询", conn, backend_id));
         } else {
             missing_targets.push("查询".to_string());
