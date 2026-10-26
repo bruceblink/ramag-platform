@@ -4,7 +4,7 @@ mod algorithm;
 mod render;
 mod transfer;
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gpui_kit::component::{input::InputEvent, notification::Notification};
 use gpui_kit::{Context, Window};
@@ -21,6 +21,8 @@ use crate::{
 };
 
 const DATABASE_SEARCH_SAVE_DEBOUNCE: Duration = Duration::from_millis(500);
+/// 本地写入过快时仍保留可见时间，避免自动保存状态卡一闪而过。
+const DATABASE_SAVE_STATUS_MIN_DURATION: Duration = Duration::from_millis(500);
 
 pub(super) fn id_converter_kind_label(kind: IdConverterKind) -> &'static str {
     match kind {
@@ -351,6 +353,7 @@ impl SettingsView {
         cx.notify();
         let validate_program = next.id_conversion_enabled && next.converter.kind.is_external();
         let program = next.converter.external_program.clone();
+        let started_at = Instant::now();
         cx.spawn(async move |this, cx| {
             let result: Result<(), String> = async {
                 if validate_program {
@@ -366,6 +369,10 @@ impl SettingsView {
                     .map_err(|error| error.to_string())
             }
             .await;
+            let remaining = DATABASE_SAVE_STATUS_MIN_DURATION.saturating_sub(started_at.elapsed());
+            if !remaining.is_zero() {
+                cx.background_executor().timer(remaining).await;
+            }
 
             let _ = this.update(cx, |this, cx| {
                 this.saving_database = false;

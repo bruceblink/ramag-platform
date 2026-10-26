@@ -1,9 +1,14 @@
+use std::time::{Duration, Instant};
+
 use super::{SettingsView, pages::settings_saving_notice};
 use gpui_kit::component::{ActiveTheme, Disableable as _, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, Context, IntoElement, ParentElement, Styled, Window, div, prelude::*, px,
 };
 use ramag_domain::entities::SshModuleSettings;
+
+/// 本地写入过快时仍保留可见时间，避免保存状态卡一闪而过。
+const SSH_SAVE_STATUS_MIN_DURATION: Duration = Duration::from_millis(500);
 
 impl SettingsView {
     pub(super) fn render_ssh_page(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -56,8 +61,13 @@ impl SettingsView {
         cx.notify();
 
         let service = self.ssh_service.clone();
+        let started_at = Instant::now();
         cx.spawn(async move |this, cx| {
             let result = service.save_module_settings(&next).await;
+            let remaining = SSH_SAVE_STATUS_MIN_DURATION.saturating_sub(started_at.elapsed());
+            if !remaining.is_zero() {
+                cx.background_executor().timer(remaining).await;
+            }
             let _ = this.update(cx, |this, cx| {
                 this.saving_ssh_module_settings = false;
                 if let Err(error) = result {
