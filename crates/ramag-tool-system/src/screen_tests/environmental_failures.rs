@@ -53,11 +53,7 @@ fn selected_energy_and_thermal_failures_keep_identity_and_reason(cx: &mut TestAp
             assert!(detail.contains(&selected.label), "{detail}");
             let picker = crate::screens::device_picker_state(&data, screen);
             assert_eq!(picker.selected.as_deref(), Some(id.as_str()));
-            assert!(
-                picker.label.starts_with("Unavailable ·"),
-                "{}",
-                picker.label
-            );
+            assert!(picker.label.starts_with("不可用 ·"), "{}", picker.label);
             assert!(!picker.choices.iter().any(|choice| choice.id == id));
             assert!(
                 !picker.choices.is_empty(),

@@ -104,7 +104,7 @@ pub(crate) fn hero_meter(channel: &Channel, state: &Data, screen: Screen, cx: &A
     let scale_note = if matches!(channel.quantity, Quantity::Percentage | Quantity::Capacity) {
         channel.label.clone()
     } else {
-        format!("{} · meter follows the observed chart range", channel.label)
+        format!("{} · 仪表按当前图表范围缩放", channel.label)
     };
     div()
         .flex()
@@ -217,14 +217,16 @@ fn cpu(state: &Data, width: f32, cx: &App) -> AnyElement {
         .when_some(overall, |view, overall| {
             view.child(hero_meter(&overall, state, Screen::Cpu, cx))
         })
-        .child(div().text_sm().text_color(palette(cx).muted).child(format!(
-            "Utilization by logical processor · {} charts",
-            cores.len()
-        )))
+        .child(
+            div()
+                .text_sm()
+                .text_color(palette(cx).muted)
+                .child(format!("按逻辑处理器显示使用率 · {} 个趋势图", cores.len())),
+        )
         .when(cores.is_empty(), |view| {
             view.child(empty(
-                "No processor readings yet",
-                "Processor charts appear when the host reports its first interval.",
+                "暂无处理器数据",
+                "主机完成首次采样后会显示处理器趋势图。",
                 cx,
             ))
         })
@@ -243,22 +245,28 @@ fn memory(state: &Data, cx: &App) -> AnyElement {
     let used = data::find(state, "memory:host", "used");
     let rows = data::monitor_channels(state, "memory:host");
     if rows.is_empty() {
-        return empty(
-            "Memory readings unavailable",
-            "Memory charts will appear when the host provides a reading.",
-            cx,
-        );
+        return empty("内存数据不可用", "主机提供内存读数后会显示趋势图。", cx);
     }
     let color = accent(Screen::Memory, cx);
     div()
         .flex()
         .flex_col()
         .gap_4()
-         .when(used.is_none(), |view| view.child(empty("RAM usage hidden or unavailable",
-            "Other available memory readings are shown below. Sensor visibility is in Ramag system Settings.", cx)))
-        .when_some(used, |view, used| view.child(hero_meter(&used, state, Screen::Memory, cx))
-            .child(section(cx).child(heading("Memory utilization", 19., cx))
-                .child(chart(&used, state, color, 350., cx))))
+        .when(used.is_none(), |view| {
+            view.child(empty(
+                "内存使用量已隐藏或不可用",
+                "下方会显示其他可用读数。可在 Ramag 系统设置中调整传感器显示状态。",
+                cx,
+            ))
+        })
+        .when_some(used, |view, used| {
+            view.child(hero_meter(&used, state, Screen::Memory, cx))
+                .child(
+                    section(cx)
+                        .child(heading("内存使用率", 19., cx))
+                        .child(chart(&used, state, color, 350., cx)),
+                )
+        })
         .when_some(
             crate::dashboard::memory_segments(&state.history),
             |view, parts| {
@@ -271,11 +279,11 @@ fn memory(state: &Data, cx: &App) -> AnyElement {
                             div()
                                 .text_sm()
                                 .text_color(palette(cx).muted)
-                                .child("Physical memory composition"),
+                                .child("物理内存构成"),
                         )
                         .child(
                             div().flex().gap_4().children(
-                                ["Other", "Cache", "Buffers", "Free"]
+                                ["其他", "缓存", "缓冲区", "可用"]
                                     .into_iter()
                                     .enumerate()
                                     .map(|(index, label)| {
@@ -325,16 +333,16 @@ fn memory(state: &Data, cx: &App) -> AnyElement {
 fn gpu(state: &Data, width: f32, cx: &App) -> AnyElement {
     let Some(id) = data::selected_device(state, Screen::Gpu) else {
         return empty(
-            "No GPU readings available",
-            "Supported GPUs appear here when their native provider reports them.",
+            "没有可用的 GPU 数据",
+            "系统检测到受支持的 GPU 后，会在此处显示读数。",
             cx,
         );
     };
     let rows = data::gpu_channels(state, &id);
     if rows.is_empty() {
         return empty(
-            "GPU unavailable",
-            "The selected GPU has no available readings. Choose an available device above.",
+            "GPU 数据不可用",
+            "所选 GPU 当前没有可用读数。请在上方选择其他设备。",
             cx,
         );
     }
@@ -370,7 +378,7 @@ fn gpu(state: &Data, width: f32, cx: &App) -> AnyElement {
         .when_some(usage, |view, usage| {
             view.child(hero_meter(usage, state, Screen::Gpu, cx)).child(
                 section(cx)
-                    .child(heading("GPU utilization", 19., cx))
+                    .child(heading("GPU 使用率", 19., cx))
                     .child(chart(usage, state, color, 260., cx)),
             )
         })
@@ -405,16 +413,16 @@ fn gpu(state: &Data, width: f32, cx: &App) -> AnyElement {
 fn device(screen: Screen, state: &Data, cx: &App) -> AnyElement {
     let Some(id) = data::selected_device(state, screen) else {
         return empty(
-            &format!("No {} readings available", screen.title().to_lowercase()),
-            "Discovered devices will appear in the selector above.",
+            &format!("没有可用的{}数据", screen.title()),
+            "检测到设备后，会在上方的选择器中显示。",
             cx,
         );
     };
     let rows = data::monitor_channels(state, &id);
     if rows.is_empty() {
         return empty(
-            "Selected device unavailable",
-            "Its saved identity is preserved. Choose an available device above.",
+            "所选设备不可用",
+            "已保留该设备的选择记录。请在上方选择可用设备。",
             cx,
         );
     }

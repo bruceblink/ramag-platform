@@ -61,9 +61,9 @@ pub(crate) fn hero(
                     .text_sm()
                     .text_color(cx.theme().muted_foreground)
                     .child(if monitor.id == "memory:host" {
-                        "Memory in use"
+                        "内存使用量"
                     } else {
-                        "Utilization"
+                        "使用率"
                     }),
             )
             .child(
@@ -82,11 +82,11 @@ pub(crate) fn memory_composition(history: &HistoryStore, cx: &App) -> AnyElement
             .py_2()
             .text_sm()
             .text_color(cx.theme().muted_foreground)
-            .child("Memory composition unavailable for the current observation.")
+            .child("本次采样没有可用的内存构成数据。")
             .into_any_element();
     };
     let colors = [0x38bdf8, 0x2dd4bf, 0xfbbf24, 0x64748b];
-    let labels = ["Other", "Cache", "Buffers", "Free"];
+    let labels = ["其他", "缓存", "缓冲区", "可用"];
     let ids = ["other", "cache", "buffers", "free"];
     let legend = (0..4).map(|index| {
         let text =

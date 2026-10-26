@@ -34,14 +34,14 @@ fn process_permissions_are_distinct_from_zero_and_other_failures() {
     let rows = process_views(&snapshot, 0, 2000);
     assert_eq!(
         rows[0].cells[4],
-        "No access · /proc/1/io: Permission denied (os error 13)"
+        "无权限 · /proc/1/io: Permission denied (os error 13)"
     );
     assert_eq!(rows[0].cells[5], "0.0 B/s");
     assert_eq!(rows[0].numeric[2], None);
     assert_eq!(rows[0].numeric[3], Some(0.));
     snapshot.processes[0].read_bytes_per_second.reason =
         Some("/proc/1/io: malformed counter".into());
-    assert!(process_views(&snapshot, 0, 2000)[0].cells[4].starts_with("Failed"));
+    assert!(process_views(&snapshot, 0, 2000)[0].cells[4].starts_with("读取失败"));
 }
 #[test]
 fn stale_source_in_slow_snapshot_does_not_become_current_at_delivery() {

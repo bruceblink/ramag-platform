@@ -29,80 +29,26 @@ impl Render for QueryPanel {
         let only_one = titles.len() <= 1;
         let can_add_tab = can_open_editor_tab(self.tabs.len());
 
-        let query_context_row = {
-            let connection = self.connection.clone();
-            let schema = self.active_schema.clone();
+        let query_context_schema = {
+            let connection_available = self.connection.is_some();
             let schemas = self.schema_cache.read().all_schemas.clone();
-            let panel = cx.entity();
-            let (connection_name, endpoint, driver) = connection.as_ref().map_or_else(
-                || ("未选择连接".to_string(), "连接上下文不可用".to_string(), ""),
-                |connection| {
-                    (
-                        connection.name.clone(),
-                        format!("{}:{}", connection.host, connection.port),
-                        match connection.driver {
-                            ramag_domain::entities::DriverKind::Mysql => "MySQL",
-                            ramag_domain::entities::DriverKind::Postgres => "PostgreSQL",
-                            ramag_domain::entities::DriverKind::Sqlite => "SQLite",
-                            ramag_domain::entities::DriverKind::Redis => "Redis",
-                            ramag_domain::entities::DriverKind::Mongodb => "MongoDB",
-                        },
-                    )
-                },
-            );
-            let schema_label = schema.clone().unwrap_or_else(|| "未选择 Schema".into());
+            let schema = self.active_schema.clone();
             let current_schema = schema.clone();
+            let panel = cx.entity();
+            let schema_label = schema.unwrap_or_else(|| "未选择".into());
             h_flex()
-                .w_full()
-                .h(px(34.0))
+                .id("query-context-schema-group")
+                .debug_selector(|| "query-context-schema-group".into())
                 .flex_none()
                 .items_center()
-                .gap_2()
-                .px_3()
-                .border_b_1()
-                .border_color(border)
-                .bg(theme.background)
-                .child(
-                    gpui_kit::component::Icon::new(IconName::HardDrive)
-                        .small()
-                        .text_color(muted_fg),
-                )
-                .child(
-                    v_flex()
-                        .id("query-context-connection")
-                        .debug_selector(|| "query-context-connection".into())
-                        .flex_1()
-                        .min_w_0()
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(fg)
-                                .whitespace_nowrap()
-                                .overflow_hidden()
-                                .text_ellipsis()
-                                .child(connection_name),
-                        )
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(muted_fg)
-                                .whitespace_nowrap()
-                                .overflow_hidden()
-                                .text_ellipsis()
-                                .child(if driver.is_empty() {
-                                    endpoint
-                                } else {
-                                    format!("{driver} · {endpoint}")
-                                }),
-                        ),
-                )
+                .gap_1()
                 .child(
                     gpui_kit::component::Icon::new(IconName::FolderClosed)
                         .xsmall()
                         .text_color(muted_fg),
                 )
                 .child({
-                    let disabled = connection.is_none() || schemas.is_empty();
+                    let disabled = !connection_available || schemas.is_empty();
                     ramag_ui::clickable_button("query-context-schema")
                         .debug_selector(|| "query-context-schema".into())
                         .ghost()
@@ -139,28 +85,48 @@ impl Render for QueryPanel {
                         })
                 })
         };
-        let query_context_bar = v_flex()
+        let query_context_bar = h_flex()
             .id("query-context-bar")
             .debug_selector(|| "query-context-bar".into())
             .w_full()
+            .h(px(42.0))
             .min_w_0()
             .flex_none()
-            .gap(px(8.0))
+            .items_center()
+            .justify_between()
+            .gap_2()
             .px_3()
-            .py(px(8.0))
             .border_b_1()
             .border_color(border)
             .bg(theme.background)
             .child(
-                ramag_ui::pulse_ui::pulse_page_title(
-                    "查询工作区",
-                    Some("SQL 编辑、执行与结果表"),
-                    cx,
-                )
-                .id("query-workspace-page-title")
-                .debug_selector(|| "query-workspace-page-title".into()),
+                h_flex()
+                    .id("query-workspace-page-title")
+                    .debug_selector(|| "query-workspace-page-title".into())
+                    .min_w_0()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                            .text_color(fg)
+                            .whitespace_nowrap()
+                            .child("查询工作区"),
+                    )
+                    .child(
+                        div()
+                            .px_1()
+                            .py(px(2.0))
+                            .rounded(px(4.0))
+                            .bg(secondary_bg)
+                            .text_xs()
+                            .text_color(muted_fg)
+                            .whitespace_nowrap()
+                            .child("SQL"),
+                    ),
             )
-            .child(query_context_row);
+            .child(query_context_schema);
 
         let current_view: Option<AnyView> = self.tabs.get(active).map(|t| t.clone().into());
 

@@ -106,7 +106,13 @@ fn home_view_scrolls_and_fits_compact_windows(cx: &mut TestAppContext) {
     );
     for mode in [crate::Mode::Dark, crate::Mode::Light] {
         visual_cx.update(|_, app| crate::apply_theme(mode, app));
-        for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+        for (width, height) in [
+            (360.0, 640.0),
+            (1024.0, 768.0),
+            (1440.0, 900.0),
+            (1689.0, 900.0),
+            (2560.0, 1392.0),
+        ] {
             visual_cx.simulate_resize(size(px(width), px(height)));
             visual_cx.run_until_parked();
             let header = bounds(visual_cx, "home-logo");

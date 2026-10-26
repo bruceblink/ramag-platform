@@ -38,11 +38,11 @@ fn mini_level(
                         if matches!(channel.quantity, Quantity::Percentage | Quantity::Capacity) {
                             ""
                         } else {
-                            " · level follows the observed chart range"
+                            " · 仪表按当前图表范围缩放"
                         }
                     )
                 })
-                .unwrap_or_else(|| "No available sensor".into());
+                .unwrap_or_else(|| "没有可用传感器".into());
             move |window, cx| Tooltip::new(detail.clone()).build(window, cx)
         })
         .child(
@@ -95,7 +95,7 @@ fn subsystem(
     let label = channel
         .as_ref()
         .map(|channel| channel.value(state))
-        .unwrap_or_else(|| "Unavailable".into());
+        .unwrap_or_else(|| "不可用".into());
     let detail = channel
         .as_ref()
         .map(|channel| channel.device.clone())
@@ -104,15 +104,15 @@ fn subsystem(
                 .as_ref()
                 .map(|channel| format!("{} · {}", channel.device, channel.label))
         })
-        .unwrap_or_else(|| "No available sensor".into());
+        .unwrap_or_else(|| "没有可用传感器".into());
     let value = if let Some(channel) = &unavailable {
         let detail = data::unavailable_detail(channel, state)
-            .unwrap_or_else(|| format!("{} · {} · Unavailable", channel.device, channel.label));
+            .unwrap_or_else(|| format!("{} · {} · 不可用", channel.device, channel.label));
         let tooltip = detail.clone();
         crate::meters::metric_text(
             format!("summary-value:{}", screen.id()),
             detail,
-            "Unavailable".into(),
+            "不可用".into(),
         )
         .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
         .font_family(cx.theme().mono_font_family.clone())
@@ -246,8 +246,8 @@ pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
         .flex_none()
         .child(div().flex().gap_2().children([
             mini_level("CPU", cpu.as_ref(), state, Screen::Cpu, cx),
-            mini_level("Clock", clock.as_ref(), state, Screen::Thermals, cx),
-            mini_level("Temp", temperature.as_ref(), state, Screen::Energy, cx),
+            mini_level("频率", clock.as_ref(), state, Screen::Thermals, cx),
+            mini_level("温度", temperature.as_ref(), state, Screen::Energy, cx),
             mini_level("GPU", gpu.as_ref(), state, Screen::Gpu, cx),
         ]));
     let top_width = if width >= 1100. {
@@ -265,13 +265,13 @@ pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
                 .flex()
                 .items_center()
                 .justify_between()
-                .child(heading("CPU overview", 20., cx))
+                .child(heading("处理器概览", 20., cx))
                 .child(
                     crate::meters::metric_label(
                         "summary-cpu".into(),
                         cpu.as_ref()
                             .map(|channel| channel.value(state))
-                            .unwrap_or_else(|| "Waiting".into()),
+                            .unwrap_or_else(|| "等待数据".into()),
                     )
                     .text_size(px(24.))
                     .font_family(cx.theme().mono_font_family.clone())
@@ -286,7 +286,7 @@ pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
                 .text_size(px(12.))
                 .text_color(palette(cx).muted)
                 .child(format!(
-                    "{} logical processor charts",
+                    "逻辑处理器趋势图：{} 个",
                     data::cpu_cores(state).len()
                 )),
         );
@@ -313,11 +313,11 @@ pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
                     .items_center()
                     .justify_between()
                     .gap_2()
-                    .child(heading("Top CPU processes", 18., cx))
+                    .child(heading("处理器占用较高的进程", 18., cx))
                     .child(
                         crate::meters::metric_label(
                             "summary-process-total".into(),
-                            format!("{} total", state.process_count()),
+                            format!("{} 个进程", state.process_count()),
                         )
                         .text_size(px(11.))
                         .text_color(palette(cx).muted),
@@ -337,7 +337,7 @@ pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
                             .whitespace_nowrap()
                             .child("PID"),
                     )
-                    .child(div().flex_1().child("Name"))
+                    .child(div().flex_1().child("进程名称"))
                     .child(div().w(px(62.)).text_right().child("CPU")),
             )
             .child(
@@ -404,14 +404,14 @@ pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
                 .items_center()
                 .justify_between()
                 .gap_2()
-                .child(heading("Memory utilization", 23., cx))
+                .child(heading("内存使用率", 23., cx))
                 .child(
                     crate::meters::metric_label(
                         "summary-memory".into(),
                         memory
                             .as_ref()
                             .map(|channel| channel.value(state))
-                            .unwrap_or_else(|| "Waiting".into()),
+                            .unwrap_or_else(|| "等待数据".into()),
                     )
                     .text_size(px(19.))
                     .text_color(memory_color)
@@ -485,11 +485,11 @@ pub(crate) fn render(state: &Data, width: f32, cx: &App) -> AnyElement {
     let gpu =
         data::selected_device(state, Screen::Gpu).and_then(|id| data::find(state, &id, "usage"));
     let tiles: Vec<_> = [
-        ("Disks", Screen::Disks, disk),
-        ("Network", Screen::Network, network),
-        ("Energy", Screen::Energy, power),
+        ("磁盘", Screen::Disks, disk),
+        ("网络", Screen::Network, network),
+        ("功耗", Screen::Energy, power),
         ("GPU", Screen::Gpu, gpu),
-        ("Thermals", Screen::Thermals, temperature),
+        ("温度", Screen::Thermals, temperature),
     ]
     .into_iter()
     .filter(|(_, screen, channel)| {
@@ -552,9 +552,9 @@ mod tests {
             reason: Some(reason.clone()),
         };
 
-        assert_eq!(compact_value(Some(&sample)), "Unavailable");
+        assert_eq!(compact_value(Some(&sample)), "不可用");
         let detail = memory_metric_detail(Some(&sample), "Measured channel on memory:host");
-        assert!(detail.contains("Unavailable · GiB"));
+        assert!(detail.contains("不可用 · GiB"));
         assert!(detail.contains(&reason));
         assert!(detail.contains("Measured channel on memory:host"));
     }

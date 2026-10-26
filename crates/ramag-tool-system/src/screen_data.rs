@@ -55,18 +55,18 @@ pub(crate) fn compact_value(sample: Option<&Sample>) -> String {
         Some(sample) if sample.value.is_some() => {
             let value = format!("{} {}", sample.text, sample.unit).trim().to_owned();
             if sample.status == ReadingStatus::Stale {
-                format!("{value} · stale")
+                format!("{value} · 数据过期")
             } else {
                 value
             }
         }
         Some(sample) => match sample.status {
-            ReadingStatus::WarmingUp => "Warming up".into(),
-            ReadingStatus::Failed => "Reading failed".into(),
-            ReadingStatus::Stale => "Stale".into(),
-            _ => "Unavailable".into(),
+            ReadingStatus::WarmingUp => "数据准备中".into(),
+            ReadingStatus::Failed => "读取失败".into(),
+            ReadingStatus::Stale => "数据过期".into(),
+            _ => "不可用".into(),
         },
-        None => "Waiting for data".into(),
+        None => "等待数据".into(),
     }
 }
 
@@ -88,10 +88,60 @@ fn channel(
         monitor: monitor.id.clone(),
         sensor: sensor.id.clone(),
         device: monitor.title.clone(),
-        label: sensor.title.clone(),
+        label: display_sensor_title(&sensor.title),
         scope,
         quantity: sensor.quantity,
         unit: sensor.unit,
+    }
+}
+
+/// Translate stable collector labels while preserving unknown platform-provided names.
+fn display_sensor_title(title: &str) -> String {
+    if let Some(core) = title
+        .strip_prefix("CPU ")
+        .and_then(|title| title.strip_suffix(" utilization"))
+    {
+        return format!("CPU {core} 使用率");
+    }
+    if let Some(core) = title
+        .strip_prefix("CPU ")
+        .and_then(|title| title.strip_suffix(" frequency"))
+    {
+        return format!("CPU {core} 频率");
+    }
+
+    match title {
+        "Overall utilization" => "总体使用率".into(),
+        "RAM used" => "内存使用量".into(),
+        "RAM total" => "内存总量".into(),
+        "RAM available" => "可用内存".into(),
+        "RAM free" => "空闲内存".into(),
+        "Swap used" => "已用交换空间".into(),
+        "Swap total" => "交换空间总量".into(),
+        "Cache" | "cache" => "缓存".into(),
+        "Other" => "其他".into(),
+        "Buffers" | "buffers" => "缓冲区".into(),
+        "Free" => "可用".into(),
+        "GPU utilization" => "GPU 使用率".into(),
+        "VRAM used" => "已用显存".into(),
+        "Dedicated GPU memory" => "GPU 专用内存".into(),
+        "Shared GPU memory" => "GPU 共享内存".into(),
+        "CPU temperature" => "CPU 温度".into(),
+        "GPU temperature" => "GPU 温度".into(),
+        "GPU power" => "GPU 功耗".into(),
+        "Graphics clock" => "图形频率".into(),
+        "Memory clock" => "显存频率".into(),
+        "Read throughput" => "读取速率".into(),
+        "Write throughput" => "写入速率".into(),
+        "Bytes received" => "接收字节数".into(),
+        "Bytes sent" => "发送字节数".into(),
+        "Packets received" => "接收数据包".into(),
+        "Packets sent" => "发送数据包".into(),
+        "read" | "Read" => "读取".into(),
+        "write" | "Write" => "写入".into(),
+        "rx" => "接收".into(),
+        "tx" => "发送".into(),
+        other => other.to_owned(),
     }
 }
 
@@ -225,7 +275,7 @@ pub(crate) fn unavailable_detail(channel: &Channel, data: &Data) -> Option<Strin
         let mut parts = vec![
             channel.device.clone(),
             channel.label.clone(),
-            "Unavailable".into(),
+            "不可用".into(),
         ];
         if !sample.unit.is_empty() {
             parts.push(sample.unit.clone());
@@ -373,6 +423,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn stable_collector_labels_are_localized_and_unknown_device_labels_are_preserved() {
+        assert_eq!(display_sensor_title("GPU utilization"), "GPU 使用率");
+        assert_eq!(display_sensor_title("CPU 7 frequency"), "CPU 7 频率");
+        assert_eq!(
+            display_sensor_title("PCIe controller temperature"),
+            "PCIe controller temperature"
+        );
+    }
+
+    #[test]
     fn zero_is_visible_and_stale_does_not_become_current() {
         let mut sample =
             Sample::measured(1, Quantity::Power, 0., None, PhysicalUnit::Watts).test_unwrap();
@@ -380,14 +440,14 @@ mod tests {
         assert!(compact_value(Some(&sample)).starts_with('0'));
         sample.status = ReadingStatus::Stale;
         assert!(sample.chart_value().is_none());
-        assert!(compact_value(Some(&sample)).ends_with("stale"));
+        assert!(compact_value(Some(&sample)).ends_with("数据过期"));
         sample.status = ReadingStatus::Unavailable;
         sample.value = None;
-        assert_eq!(compact_value(Some(&sample)), "Unavailable");
+        assert_eq!(compact_value(Some(&sample)), "不可用");
     }
 
     #[test]
     fn missing_sensor_is_not_a_zero_measurement() {
-        assert_eq!(compact_value(None), "Waiting for data");
+        assert_eq!(compact_value(None), "等待数据");
     }
 }

@@ -10,6 +10,9 @@ use gpui_kit::component::{
 use ramag_infra_system::process_control::{self, ProcessSignal};
 use std::rc::Rc;
 
+#[path = "process_panel/details.rs"]
+mod details;
+
 #[derive(Default)]
 pub(super) struct ProcessPanelState {
     input: Option<Entity<InputState>>,
@@ -35,25 +38,24 @@ impl ProcessActionState {
     ) {
         self.busy = false;
         self.notice = match result {
-            Ok(process_control::ProcessActionOutcome::SignalSent) => format!(
-                "Request sent to {name} (PID {pid}). Waiting for the process list to update."
-            ),
+            Ok(process_control::ProcessActionOutcome::SignalSent) => {
+                format!("已向 {name}（PID {pid}）发送请求。正在等待进程列表更新。")
+            }
             Ok(process_control::ProcessActionOutcome::ExitObserved) => {
-                format!("{name} (PID {pid}) has exited.")
+                format!("{name}（PID {pid}）已退出。")
             }
             Ok(process_control::ProcessActionOutcome::CloseRequested) => format!(
-                "Closure requested for {name} (PID {pid}). Check its window for a response; exit has not been confirmed."
+                "已请求关闭 {name}（PID {pid}）。请查看该进程窗口的响应；目前尚未确认退出。"
             ),
             Ok(process_control::ProcessActionOutcome::TerminationPending) => format!(
-                "Termination requested for {name} (PID {pid}); exit is still pending. Check the process list before trying again."
+                "已请求终止 {name}（PID {pid}），但进程仍在运行。再次操作前请先查看进程列表。"
             ),
             Err(error) => error,
         };
     }
 }
 
-const UNVERIFIED_PROCESS_NOTICE: &str =
-    "The process source did not provide a verified start-time identity; this row is read-only.";
+const UNVERIFIED_PROCESS_NOTICE: &str = "进程源没有提供可验证的启动时间标识，因此此行只能查看。";
 
 fn process_action_block_reason(identity: &ProcessIdentity) -> Option<&'static str> {
     (identity.start_time_ticks == 0).then_some(UNVERIFIED_PROCESS_NOTICE)
@@ -103,7 +105,7 @@ impl MonitorPanel {
         } else {
             self.process_state.confirmation = None;
             self.shared.borrow_mut().process_action.notice =
-                "This process has exited. Select another process.".into();
+                "该进程已退出。请选择其他进程。".into();
         }
         cx.notify();
     }
@@ -123,13 +125,13 @@ impl MonitorPanel {
         // Fixtures can never dispatch an OS operation, even when a PID happens to match.
         if !self.shared.borrow().allow_process_actions || self.shared.borrow().snapshot.is_none() {
             self.shared.borrow_mut().process_action.notice =
-                "Process actions require a live system snapshot.".into();
+                "需要取得实时系统数据后才能操作进程。".into();
             cx.notify();
             return;
         }
         self.shared.borrow_mut().process_action.busy = true;
         self.shared.borrow_mut().process_action.notice =
-            format!("Sending request to {name} (PID {})…", identity.pid);
+            format!("正在向 {name}（PID {}）发送请求…", identity.pid);
         let shared = self.shared.clone();
         cx.spawn(async move |weak, cx| {
             let pid = identity.pid;
@@ -161,7 +163,7 @@ impl MonitorPanel {
     fn process_toolbar(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         if self.process_state.input.is_none() {
             let input =
-                cx.new(|cx| InputState::new(window, cx).placeholder("Search name, PID, or user…"));
+                cx.new(|cx| InputState::new(window, cx).placeholder("搜索名称、PID 或用户…"));
             self.process_state.subscription =
                 Some(cx.subscribe(&input, |this, input, event, cx| {
                     if matches!(event, InputEvent::Change) {
@@ -191,8 +193,8 @@ impl MonitorPanel {
                 )
                 .children(
                     [
-                        ("end-task", "End task…", ProcessSignal::Terminate),
-                        ("force-quit", "Force quit…", ProcessSignal::Kill),
+                        ("end-task", "结束任务…", ProcessSignal::Terminate),
+                        ("force-quit", "强制退出…", ProcessSignal::Kill),
                     ]
                     .into_iter()
                     .map(|(id, label, signal)| {
@@ -216,15 +218,19 @@ impl MonitorPanel {
         if let Some((identity, name, signal)) = &self.process_state.confirmation {
             let force = *signal == ProcessSignal::Kill;
             let prompt = format!(
-                "{} {name} (PID {})?{}",
-                if force { "Force quit" } else { "End" },
+                "{} {name}（PID {}）？{}",
+                if force {
+                    "强制退出"
+                } else {
+                    "结束任务"
+                },
                 identity.pid,
                 if force {
-                    " Unsaved work may be lost."
+                    " 未保存的工作可能会丢失。"
                 } else if cfg!(target_os = "windows") {
-                    " Request graceful closure. The application may ask to save work or decline."
+                    " 系统会请求应用正常关闭。应用可能会提示保存，或拒绝关闭。"
                 } else {
-                    " The process will receive a termination request."
+                    " 系统会向进程发送终止请求。"
                 }
             );
             toolbar = toolbar.child(
@@ -242,12 +248,12 @@ impl MonitorPanel {
                     .child(prompt)
                     .child(
                         Button::new("cancel-process-action")
-                            .accessibility_label("Cancel process action")
+                            .accessibility_label("取消进程操作")
                             .small()
                             .child(
                                 div()
                                     .debug_selector(|| "process-action:cancel".into())
-                                    .child("Cancel"),
+                                    .child("取消"),
                             )
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.controls["table"].handle.focus(window, cx);
@@ -258,16 +264,20 @@ impl MonitorPanel {
                     .child(
                         Button::new("confirm-process-action")
                             .accessibility_label(if force {
-                                "Confirm force quit"
+                                "确认强制退出"
                             } else {
-                                "Confirm end task"
+                                "确认结束任务"
                             })
                             .small()
                             .danger()
                             .child(
                                 div()
                                     .debug_selector(|| "process-action:confirm".into())
-                                    .child(if force { "Force quit" } else { "End task" }),
+                                    .child(if force {
+                                        "强制退出"
+                                    } else {
+                                        "结束任务"
+                                    }),
                             )
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.controls["table"].handle.focus(window, cx);
@@ -302,89 +312,6 @@ impl MonitorPanel {
             window.refresh();
             cx.notify();
         });
-    }
-
-    fn process_details(&self, cx: &App) -> AnyElement {
-        let data = self.shared.borrow();
-        let selected = self
-            .selected
-            .as_ref()
-            .and_then(|identity| data.processes.iter().find(|row| &row.identity == identity));
-        let Some(row) = selected else {
-            return div()
-                .id("process-details")
-                .accessibility_id("process-details")
-                .role(Role::Group)
-                .aria_label("Process details")
-                .p_3()
-                .flex_none()
-                .border_t_1()
-                .border_color(cx.theme().border)
-                .text_sm()
-                .text_color(cx.theme().muted_foreground)
-                .child("Select a process to inspect its current readings.")
-                .into_any_element();
-        };
-        let name = row.cells.get(1).cloned().unwrap_or_default();
-        div()
-            .id("process-details")
-            .accessibility_id("process-details")
-            .debug_selector(|| "process-details".into())
-            .role(Role::Group)
-            .aria_label(format!("Details for {name}, PID {}", row.identity.pid))
-            .flex_none()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .p_3()
-            .border_t_1()
-            .border_color(cx.theme().border)
-            .bg(crate::screen_style::palette(cx).surface)
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_3()
-                    .child(crate::screen_style::heading(name, 18., cx))
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(cx.theme().muted_foreground)
-                            .child(format!("PID {}", row.identity.pid)),
-                    ),
-            )
-            .child(
-                div().flex().flex_wrap().gap_4().children(
-                    processes::PROCESS_DETAIL_COLUMNS
-                        .iter()
-                        .copied()
-                        .map(|column| {
-                            let selector = format!("process-detail-field:{column}");
-                            div()
-                                .debug_selector(move || selector.clone())
-                                .flex()
-                                .flex_col()
-                                .gap_1()
-                                .min_w(px(110.))
-                                .flex_1()
-                                .child(
-                                    div()
-                                        .text_size(px(11.))
-                                        .text_color(cx.theme().muted_foreground)
-                                        .child(live::PROCESS_COLUMNS[column]),
-                                )
-                                .child(
-                                    crate::meters::metric_label(
-                                        format!("process-detail:{column}"),
-                                        row.cells.get(column).cloned().unwrap_or_default(),
-                                    )
-                                    .text_sm()
-                                    .font_family(cx.theme().mono_font_family.clone()),
-                                )
-                        }),
-                ),
-            )
-            .into_any_element()
     }
 
     pub(super) fn process_table(
@@ -455,8 +382,8 @@ impl MonitorPanel {
                             .context_menu(move |menu, _, _| {
                                 let mut menu = menu;
                                 for (label, signal) in [
-                                    ("End task…", ProcessSignal::Terminate),
-                                    ("Force quit…", ProcessSignal::Kill),
+                                    ("结束任务…", ProcessSignal::Terminate),
+                                    ("强制退出…", ProcessSignal::Kill),
                                 ] {
                                     let identity = menu_identity.clone();
                                     let entity = entity.clone();
@@ -486,69 +413,164 @@ impl MonitorPanel {
         let outer = self.shared.borrow().scroll.clone();
         let focus = self.controls["table"].clone();
         let horizontal = self.table_horizontal.clone();
-        let table = crate::workspace::scroll_viewport("process-table-viewport", "processes:viewport".into()).size_full().relative().track_focus(&handle)
-            .border_1().border_color(cx.theme().border).focus_visible(move |style| style.border_color(ring))
-            .debug_selector(|| "process-table".into())
-            .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                if event.keystroke.modifiers.alt { return; }
-                if matches!(event.keystroke.key.as_str(), "left" | "right") {
-                    let old = this.table_horizontal.offset();
-                    let delta = if event.keystroke.key == "left" { 240. } else { -240. };
-                    this.table_horizontal.set_offset(point((old.x + px(delta)).clamp(-this.table_horizontal.max_offset().x, px(0.)), old.y));
-                    this.request_keyboard_repaint(window, cx); cx.stop_propagation(); return;
-                }
-                let rows = this.process_projection();
-                let count = rows.len();
-                if count == 0 { return; }
-                let current = this.visible_selected_index(&rows);
-                let next = match event.keystroke.key.as_str() {
-                    "up" => current.unwrap_or(0).saturating_sub(1),
-                    "down" => current.map_or(0, |i| (i + 1).min(count - 1)),
-                    "home" => 0, "end" => count - 1, _ => return,
+        let table = crate::workspace::scroll_viewport(
+            "process-table-viewport",
+            "processes:viewport".into(),
+        )
+        .size_full()
+        .relative()
+        .track_focus(&handle)
+        .border_1()
+        .border_color(cx.theme().border)
+        .focus_visible(move |style| style.border_color(ring))
+        .debug_selector(|| "process-table".into())
+        .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+            if event.keystroke.modifiers.alt {
+                return;
+            }
+            if matches!(event.keystroke.key.as_str(), "left" | "right") {
+                let old = this.table_horizontal.offset();
+                let delta = if event.keystroke.key == "left" {
+                    240.
+                } else {
+                    -240.
                 };
-                this.selected = Some(this.shared.borrow().processes[rows[next]].identity.clone());
-                this.process_reveal_pending = true;
-                this.request_keyboard_repaint(window, cx); cx.stop_propagation();
-            }))
-            .on_prepaint(move |bounds, window, _| {
-                if focus.entered(window) && !revealing_selected_row {
-                    // Entering a tall region reveals its leading viewport. A
-                    // pending row reveal already chose the keyboard destination.
-                    let mut target = bounds.dilate(px(1.));
-                    target.size.height = target.size.height.min(outer.bounds().size.height);
-                    controls::reveal(target, &outer);
-                    window.refresh();
-                }
-            })
-            .child(div().id("process-horizontal").size_full().overflow_x_scroll().track_scroll(&horizontal)
-                .child(Table::new("process-table").row_count(count + 1).column_count(processes::VISIBLE_PROCESS_COLUMNS.len())
-                    .accessibility_label(format!("{count} readable process rows; arrows navigate and scroll columns; Tab leaves table"))
-                    .w_full().min_w(px(width)).h_full().flex().flex_col()
-                    .child(TableRow::new("process-columns", 1).flex().h_7().flex_none()
-                        .children(processes::VISIBLE_PROCESS_COLUMNS.iter().enumerate().map(|(visible_index, &column)| {
-                            let title = live::PROCESS_COLUMNS[column];
-                            let direction = (self.process_state.sort.column == column).then_some(
-                                if self.process_state.sort.descending { ramag_ui::SortDirection::Descending } else { ramag_ui::SortDirection::Ascending }
-                            );
-                            TableCell::new(("process-heading", column), visible_index + 1).role(Role::ColumnHeader)
-                                .aria_label(format!("Sort by {title}")).w(px(widths[column])).flex_none()
-                                .when(column == 1, |cell| cell.flex_grow(1.))
-                                .child(Button::new(("sort-process", column)).accessibility_label(format!("Sort by {title}")).ghost().small().w_full().px_2().justify_start()
-                                    .child(ramag_ui::sortable_header_content(
-                                        div().flex_1().min_w_0().when(column == 0 || (2..7).contains(&column), |label| label.text_right()).child(title),
-                                        direction, cx.theme().muted_foreground, cx.theme().foreground,
-                                    ).debug_selector(move || format!("process-sort:{column}")))
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.process_state.sort.select(column);
-                                        this.process_reveal_pending = true;
-                                        cx.notify();
-                                    })))
-                        })))
-                    .child(crate::workspace::scroll_viewport("process-row-clip", "processes:rows-viewport".into()).flex_1().min_h_0().child(list))))
-            .child(ScrollableMask::new(Axis::Vertical, self.table_scroll.base_handle()))
-            .child(Scrollbar::vertical(&self.table_scroll).mode(ScrollbarMode::Always))
-            .child(Scrollbar::horizontal(&horizontal).mode(ScrollbarMode::Always))
-            .into_any_element();
+                this.table_horizontal.set_offset(point(
+                    (old.x + px(delta)).clamp(-this.table_horizontal.max_offset().x, px(0.)),
+                    old.y,
+                ));
+                this.request_keyboard_repaint(window, cx);
+                cx.stop_propagation();
+                return;
+            }
+            let rows = this.process_projection();
+            let count = rows.len();
+            if count == 0 {
+                return;
+            }
+            let current = this.visible_selected_index(&rows);
+            let next = match event.keystroke.key.as_str() {
+                "up" => current.unwrap_or(0).saturating_sub(1),
+                "down" => current.map_or(0, |i| (i + 1).min(count - 1)),
+                "home" => 0,
+                "end" => count - 1,
+                _ => return,
+            };
+            this.selected = Some(this.shared.borrow().processes[rows[next]].identity.clone());
+            this.process_reveal_pending = true;
+            this.request_keyboard_repaint(window, cx);
+            cx.stop_propagation();
+        }))
+        .on_prepaint(move |bounds, window, _| {
+            if focus.entered(window) && !revealing_selected_row {
+                // Entering a tall region reveals its leading viewport. A
+                // pending row reveal already chose the keyboard destination.
+                let mut target = bounds.dilate(px(1.));
+                target.size.height = target.size.height.min(outer.bounds().size.height);
+                controls::reveal(target, &outer);
+                window.refresh();
+            }
+        })
+        .child(
+            div()
+                .id("process-horizontal")
+                .size_full()
+                .overflow_x_scroll()
+                .track_scroll(&horizontal)
+                .child(
+                    Table::new("process-table")
+                        .row_count(count + 1)
+                        .column_count(processes::VISIBLE_PROCESS_COLUMNS.len())
+                        .accessibility_label(format!(
+                            "{count} 个可读取的进程；使用方向键导航并滚动列，按 Tab 离开表格"
+                        ))
+                        .w_full()
+                        .min_w(px(width))
+                        .h_full()
+                        .flex()
+                        .flex_col()
+                        .child(
+                            TableRow::new("process-columns", 1)
+                                .flex()
+                                .h_7()
+                                .flex_none()
+                                .children(
+                                    processes::VISIBLE_PROCESS_COLUMNS.iter().enumerate().map(
+                                        |(visible_index, &column)| {
+                                            let title = live::PROCESS_COLUMNS[column];
+                                            let direction = (self.process_state.sort.column
+                                                == column)
+                                                .then_some(if self.process_state.sort.descending {
+                                                    ramag_ui::SortDirection::Descending
+                                                } else {
+                                                    ramag_ui::SortDirection::Ascending
+                                                });
+                                            TableCell::new(
+                                                ("process-heading", column),
+                                                visible_index + 1,
+                                            )
+                                            .role(Role::ColumnHeader)
+                                            .aria_label(format!("按 {title} 排序"))
+                                            .w(px(widths[column]))
+                                            .flex_none()
+                                            .when(column == 1, |cell| cell.flex_grow(1.))
+                                            .child(
+                                                Button::new(("sort-process", column))
+                                                    .accessibility_label(format!("按 {title} 排序"))
+                                                    .ghost()
+                                                    .small()
+                                                    .w_full()
+                                                    .px_2()
+                                                    .justify_start()
+                                                    .child(
+                                                        ramag_ui::sortable_header_content(
+                                                            div()
+                                                                .flex_1()
+                                                                .min_w_0()
+                                                                .when(
+                                                                    column == 0
+                                                                        || (2..7).contains(&column),
+                                                                    |label| label.text_right(),
+                                                                )
+                                                                .child(title),
+                                                            direction,
+                                                            cx.theme().muted_foreground,
+                                                            cx.theme().foreground,
+                                                        )
+                                                        .debug_selector(move || {
+                                                            format!("process-sort:{column}")
+                                                        }),
+                                                    )
+                                                    .on_click(cx.listener(
+                                                        move |this, _, _, cx| {
+                                                            this.process_state.sort.select(column);
+                                                            this.process_reveal_pending = true;
+                                                            cx.notify();
+                                                        },
+                                                    )),
+                                            )
+                                        },
+                                    ),
+                                ),
+                        )
+                        .child(
+                            crate::workspace::scroll_viewport(
+                                "process-row-clip",
+                                "processes:rows-viewport".into(),
+                            )
+                            .flex_1()
+                            .min_h_0()
+                            .child(list),
+                        ),
+                ),
+        )
+        .child(ScrollableMask::new(
+            Axis::Vertical,
+            self.table_scroll.base_handle(),
+        ))
+        .child(Scrollbar::vertical(&self.table_scroll).mode(ScrollbarMode::Always))
+        .child(Scrollbar::horizontal(&horizontal).mode(ScrollbarMode::Always))
+        .into_any_element();
         div()
             .size_full()
             .flex()
@@ -558,7 +580,7 @@ impl MonitorPanel {
             .child(div().flex_1().min_h_0().child(table))
             .when(self.standalone, |view| view.child(self.process_details(cx)))
             .when(count == 0, |view| {
-                view.child(div().p_2().child("No processes match this search."))
+                view.child(div().p_2().child("没有符合条件的进程。"))
             })
             .into_any_element()
     }

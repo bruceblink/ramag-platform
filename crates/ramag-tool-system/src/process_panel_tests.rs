@@ -223,7 +223,7 @@ fn confirmation_cancel_keeps_identity_and_fixture_execution_reports_error(cx: &m
         assert!(!data.process_action.busy);
         assert_eq!(
             data.process_action.notice,
-            "Process actions require a live system snapshot."
+            "需要取得实时系统数据后才能操作进程。"
         );
     });
     cx.update(|_, cx| {
@@ -242,7 +242,7 @@ fn confirmation_cancel_keeps_identity_and_fixture_execution_reports_error(cx: &m
             .borrow()
             .process_action
             .notice
-            .contains("has exited")
+            .contains("已退出")
     }));
 }
 #[gpui_kit::test]
@@ -283,19 +283,10 @@ fn completion_releases_busy_state_without_claiming_unobserved_exit() {
     use super::ProcessActionState;
     use ramag_infra_system::process_control::ProcessActionOutcome;
     for (outcome, expected) in [
-        (
-            ProcessActionOutcome::SignalSent,
-            "Waiting for the process list",
-        ),
-        (
-            ProcessActionOutcome::CloseRequested,
-            "exit has not been confirmed",
-        ),
-        (
-            ProcessActionOutcome::TerminationPending,
-            "exit is still pending",
-        ),
-        (ProcessActionOutcome::ExitObserved, "has exited"),
+        (ProcessActionOutcome::SignalSent, "等待进程列表更新"),
+        (ProcessActionOutcome::CloseRequested, "尚未确认退出"),
+        (ProcessActionOutcome::TerminationPending, "进程仍在运行"),
+        (ProcessActionOutcome::ExitObserved, "已退出"),
     ] {
         let mut state = ProcessActionState {
             busy: true,
@@ -303,10 +294,10 @@ fn completion_releases_busy_state_without_claiming_unobserved_exit() {
         };
         state.finish_action("owned target", 4242, Ok(outcome));
         assert!(!state.busy);
-        assert!(state.notice.contains("owned target (PID 4242)"));
+        assert!(state.notice.contains("owned target（PID 4242）"));
         assert!(state.notice.contains(expected));
         assert_eq!(
-            state.notice.contains("has exited"),
+            state.notice.contains("已退出"),
             outcome == ProcessActionOutcome::ExitObserved
         );
     }

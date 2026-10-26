@@ -16,7 +16,7 @@ fn unavailable_selection(channel: &data::Channel, state: &Data, cx: &App) -> Any
     };
     let color = accent(screen, cx);
     let detail = data::unavailable_detail(channel, state)
-        .unwrap_or_else(|| format!("{} · {} · Unavailable", channel.device, channel.label));
+        .unwrap_or_else(|| format!("{} · {} · 不可用", channel.device, channel.label));
     let tooltip = detail.clone();
     let has_history = channel
         .samples(state)
@@ -26,8 +26,8 @@ fn unavailable_selection(channel: &data::Channel, state: &Data, cx: &App) -> Any
         .id("selected-channel-unavailable")
         .debug_selector(|| "selected-channel-unavailable".into())
         .role(Role::Group)
-        .aria_label(format!("Selected sensor unavailable: {detail}"))
-        .child(heading("Selected sensor unavailable", 18., cx))
+        .aria_label(format!("所选传感器不可用：{detail}"))
+        .child(heading("所选传感器不可用", 18., cx))
         .child(
             div()
                 .text_sm()
@@ -38,7 +38,7 @@ fn unavailable_selection(channel: &data::Channel, state: &Data, cx: &App) -> Any
             crate::meters::metric_text(
                 "selected-channel-unavailable-value".into(),
                 detail,
-                "Unavailable".into(),
+                "不可用".into(),
             )
             .font_family(cx.theme().mono_font_family.clone())
             .text_color(color)
@@ -71,11 +71,11 @@ pub(super) fn render(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyE
         }
         return empty(
             if screen == Screen::Energy {
-                "No power measurement available"
+                "没有可用的功耗读数"
             } else {
-                "No temperature measurement available"
+                "没有可用的温度读数"
             },
-            "This screen uses measured sensor data. Choose an available sensor when one is reported.",
+            "此页面显示实际传感器读数。检测到可用传感器后，可以在上方选择。",
             cx,
         );
     }
@@ -102,7 +102,7 @@ pub(super) fn render(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyE
                     .id("thermal-hottest-panel")
                     .debug_selector(|| "thermal-hottest-panel".into())
                     .role(Role::Group)
-                    .aria_label(format!("Hottest current sensor: {hottest_source}"))
+                    .aria_label(format!("当前温度最高的传感器：{hottest_source}"))
                     .child(
                         div()
                             .flex()
@@ -118,7 +118,7 @@ pub(super) fn render(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyE
                                         div()
                                             .text_sm()
                                             .text_color(palette(cx).muted)
-                                            .child("Hottest current sensor"),
+                                            .child("当前温度最高的传感器"),
                                     )
                                     .child(
                                         div()
@@ -145,8 +145,8 @@ pub(super) fn render(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyE
         })
         .when(selected.is_none() && !has_unavailable_selection, |view| {
             view.child(empty(
-                "Selected sensor unavailable",
-                "Its saved identity is preserved. Choose an available sensor above.",
+                "所选传感器不可用",
+                "已保留该传感器的选择记录。请在上方选择可用传感器。",
                 cx,
             ))
         })
@@ -180,8 +180,8 @@ pub(super) fn render(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyE
                         .id("selected-channel-panel")
                         .debug_selector(|| "selected-channel-panel".into())
                         .role(Role::Group)
-                        .aria_label(format!("Selected sensor: {selected_source}"))
-                        .child(heading("Selected sensor", 18., cx))
+                        .aria_label(format!("所选传感器：{selected_source}"))
+                        .child(heading("所选传感器", 18., cx))
                         .child(
                             div()
                                 .text_size(px(12.))
@@ -198,9 +198,9 @@ pub(super) fn render(screen: Screen, state: &Data, width: f32, cx: &App) -> AnyE
         })
         .child(heading(
             if screen == Screen::Thermals {
-                "Temperature sensors"
+                "温度传感器"
             } else {
-                "Measured power channels"
+                "功耗读数"
             },
             24.,
             cx,

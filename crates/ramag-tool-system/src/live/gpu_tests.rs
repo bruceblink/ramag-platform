@@ -266,7 +266,7 @@ fn gpu_unknown_or_zero_total_never_borrows_ram_or_process_capacity() {
         assert_eq!(sample.capacity_ratio(), Some(0.5));
         assert!(label(&workspace, &history, &ram).contains("Memory · RAM · 16.0 / 32.0 GiB"));
         assert_eq!(process_views(&snapshot, 1000, 2000)[0].cells[3], "2.0 GiB");
-        assert_eq!(PROCESS_COLUMNS[3], "Memory");
+        assert_eq!(PROCESS_COLUMNS[3], "内存");
     }
 }
 
@@ -401,7 +401,7 @@ fn gpu_cached_source_does_not_abort_fresh_fields_or_refresh_old_memory() {
             assert_eq!(sample.at_ms, 1000);
             assert_eq!(sample.chart_value(), None);
             assert_eq!(history.samples(APPLE, &source.id).test_unwrap().len(), 1);
-            assert!(label(&workspace, &history, source).contains("Stale"));
+            assert!(label(&workspace, &history, source).contains("数据过期"));
         } else {
             assert_eq!(sample.status, ReadingStatus::Current);
             assert_eq!(sample.at_ms, 5000);
@@ -562,6 +562,7 @@ fn gpu_fresh_snapshot_survives_repeated_host_census_observation() {
     assert_eq!(census.quantity, Quantity::Counter);
     assert_eq!(history.samples("processes", "count").test_unwrap().len(), 2);
     assert!(
-        crate::meters::value(Some(census)).contains("Failed · count · Process census query failed")
+        crate::meters::value(Some(census))
+            .contains("读取失败 · count · Process census query failed")
     );
 }

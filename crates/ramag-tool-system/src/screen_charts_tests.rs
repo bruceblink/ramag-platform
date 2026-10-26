@@ -250,19 +250,19 @@ fn ratios_clamp_but_unavailable_and_nonfinite_do_not_light_cells() {
 fn range_labels_convert_base_values_without_relabelling_bytes_as_gibibytes() {
     assert_eq!(
         range_label((0., 2. * 1024_f64.powi(3)), "GiB"),
-        "Scale: 0.0–2.0 GiB"
+        "范围：0.0–2.0 GiB"
     );
     assert_eq!(
         range_label((0., 3. * 1024_f64.powi(2)), "MiB/s"),
-        "Scale: 0.0–3.0 MiB/s"
+        "范围：0.0–3.0 MiB/s"
     );
     assert_eq!(
         range_label((0., 8. * 1024_f64.powi(5)), "PiB/s"),
-        "Scale: 0.0–8.0 PiB/s"
+        "范围：0.0–8.0 PiB/s"
     );
-    assert_eq!(range_label((0., 4e9), "GHz"), "Scale: 0.0–4.0 GHz");
-    assert_eq!(range_label((-5., 20.), "°C"), "Scale: -5.0–20.0 °C");
-    assert_eq!(range_label((0., 100.), "%"), "Scale: 0.0–100.0 %");
+    assert_eq!(range_label((0., 4e9), "GHz"), "范围：0.0–4.0 GHz");
+    assert_eq!(range_label((-5., 20.), "°C"), "范围：-5.0–20.0 °C");
+    assert_eq!(range_label((0., 100.), "%"), "范围：0.0–100.0 %");
 }
 
 #[test]

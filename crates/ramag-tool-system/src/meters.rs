@@ -6,14 +6,14 @@ use system_pulse_model::{Meter, ReadingStatus, Sample};
 
 pub(crate) fn value(sample: Option<&Sample>) -> String {
     match sample {
-        None => "Waiting for host snapshot".into(),
+        None => "等待主机数据".into(),
         Some(s) => {
             let status = match s.status {
                 ReadingStatus::Current => "",
-                ReadingStatus::Stale => "Stale",
-                ReadingStatus::Unavailable => "Unavailable",
-                ReadingStatus::WarmingUp => "Warming up",
-                ReadingStatus::Failed => "Failed",
+                ReadingStatus::Stale => "数据过期",
+                ReadingStatus::Unavailable => "不可用",
+                ReadingStatus::WarmingUp => "数据准备中",
+                ReadingStatus::Failed => "读取失败",
             };
             let mut text = if s.value.is_some() {
                 format!("{} {}", s.text, s.unit).trim().to_owned()
@@ -68,7 +68,7 @@ pub(crate) fn meter(
         .last()
         .is_some_and(|s| s.quantity == system_pulse_model::Quantity::Temperature)
     {
-        format!("Scale: {:.1}–{:.1} °C", range.0, range.1)
+        format!("范围：{:.1}–{:.1} °C", range.0, range.1)
     } else {
         if capacity
             && samples
@@ -77,9 +77,9 @@ pub(crate) fn meter(
                 .filter(|total| *total > 0.)
                 .is_none()
         {
-            "No positive capacity scale".into()
+            "容量范围不可用".into()
         } else {
-            format!("Scale: {:.1}–{:.1} {}", range.0, range.1, unit.symbol())
+            format!("范围：{:.1}–{:.1} {}", range.0, range.1, unit.symbol())
         }
     };
     let chart = canvas(
@@ -179,13 +179,13 @@ mod tests {
     fn compact_status_does_not_turn_unavailable_into_zero() {
         assert_eq!(
             value(Some(&crate::fixture::sample("cpu", "overall", 8))),
-            "Unavailable · %"
+            "不可用 · %"
         );
         let mut unitless = crate::fixture::sample("cpu", "overall", 8);
         unitless.unit.clear();
-        assert_eq!(value(Some(&unitless)), "Unavailable");
-        assert!(value(Some(&crate::fixture::sample("cpu", "overall", 9))).ends_with("Stale"));
-        assert_eq!(value(None), "Waiting for host snapshot");
+        assert_eq!(value(Some(&unitless)), "不可用");
+        assert!(value(Some(&crate::fixture::sample("cpu", "overall", 9))).ends_with("数据过期"));
+        assert_eq!(value(None), "等待主机数据");
     }
 }
 
@@ -197,12 +197,12 @@ pub(crate) fn summary(
         if monitor.id == "settings" {
             String::new()
         } else {
-            "Unavailable · device absent".into()
+            "不可用 · device absent".into()
         }
     } else if let Some(sample) = summary_sample(monitor, history) {
         value(Some(&sample))
     } else {
-        "Unavailable · waiting for device reading".into()
+        "不可用 · waiting for device reading".into()
     };
     if summary.is_empty() {
         monitor.title.clone()
@@ -270,11 +270,11 @@ mod accessibility_tests {
 
     #[::core::prelude::v1::test]
     fn compact_unavailable_metric_keeps_its_reason_accessible() {
-        let detail = "GPU B · Temperature · Unavailable · °C · Firmware sensor disabled";
+        let detail = "GPU B · Temperature · 不可用 · °C · Firmware sensor disabled";
         let label = metric_text(
             "summary-value:thermals".into(),
             detail.into(),
-            "Unavailable".into(),
+            "不可用".into(),
         );
         let mut node = gpui_kit::accesskit::Node::new(Role::Label);
         label.write_a11y_info(&mut node);
@@ -319,7 +319,7 @@ mod absent_summary_tests {
             .test_unwrap();
         assert_eq!(summary(&monitor, &history), "Retained GPU · -5.0 °C");
         history.retain_keys(&std::collections::BTreeSet::new());
-        let expected = "Retained GPU · Unavailable · °C · Sensor or device absent";
+        let expected = "Retained GPU · 不可用 · °C · Sensor or device absent";
         assert_eq!(summary(&monitor, &history), expected);
         let mut workspace = Workspace::new(serde_json::json!({}));
         workspace.panel_mut(&monitor.id).collapsed = true;

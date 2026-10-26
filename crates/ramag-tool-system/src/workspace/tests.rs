@@ -47,10 +47,10 @@ mod process_presentation_tests {
                 }));
                 data.processes.clear();
                 data.prepare_processes_at(22_000);
-                assert!(!data.processes[0].cells[2].contains("Stale"));
+                assert!(!data.processes[0].cells[2].contains("数据过期"));
                 data.prepare_processes_at(22_001);
-                assert!(data.processes[0].cells[2].contains("Stale"));
-                assert!(data.processes[0].cells[3].contains("No access"));
+                assert!(data.processes[0].cells[2].contains("数据过期"));
+                assert!(data.processes[0].cells[3].contains("无权限"));
                 assert_eq!(data.snapshot.as_ref().test_unwrap().sequence, 1);
                 assert_eq!(
                     data.snapshot.as_ref().test_unwrap().processes[0]
@@ -314,7 +314,7 @@ mod diagnostic_delivery_tests {
                 mapping(&after, "process:7:9:cell:2")["label"],
                 data.processes[0].cells[2]
             );
-            assert!(data.processes[0].cells[2].contains("Stale"));
+            assert!(data.processes[0].cells[2].contains("数据过期"));
         });
         assert_eq!(
             after["render_revision"].as_u64().test_unwrap(),

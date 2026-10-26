@@ -37,7 +37,7 @@ pub enum HomeEvent {
 
 const TOOL_CARD_WIDTH: f32 = 220.0;
 const TOOL_CARD_GAP: f32 = 16.0;
-const MAX_GRID_COLUMNS: f32 = 4.0;
+const MAX_GRID_COLUMNS: f32 = 8.0;
 const TOOL_GRID_WIDTH: f32 =
     TOOL_CARD_WIDTH * MAX_GRID_COLUMNS + TOOL_CARD_GAP * (MAX_GRID_COLUMNS - 1.0);
 
@@ -133,6 +133,7 @@ impl Render for HomeView {
             std::mem::replace(&mut self.last_rendered_slots, display_slots.clone());
         let layout_revision = cx.read_global::<ToolLayoutGlobal, _>(|state, _| state.revision);
         let columns = grid_columns(window_width);
+        let grid_width = home_grid_width(columns, card_width);
         let item_count = current_order.len();
         let home_layout = HomeDropLayout {
             width: card_width,
@@ -325,7 +326,7 @@ impl Render for HomeView {
         let mut tool_grid = div()
             .id("home-tool-grid")
             .debug_selector(|| "home-tool-grid".into())
-            .w_full()
+            .w(px(grid_width))
             .max_w(px(TOOL_GRID_WIDTH))
             .flex()
             .flex_row()
@@ -412,11 +413,11 @@ impl Render for HomeView {
             .child(
                 v_flex()
                     .w_full()
-                    .max_w(px(1008.0))
+                    .max_w(px(TOOL_GRID_WIDTH + home_content_padding(window_width) * 2.0))
                     .p(px(home_content_padding(window_width)))
                     .gap(px(if compact { 16.0 } else { 24.0 }))
                     .items_center()
-                    .child(render_home_header(item_count, tool_manager, cx))
+                    .child(render_home_header(item_count, tool_manager, grid_width, cx))
                     .child(tool_grid)
                     .when(!has_tools, |content| {
                         content.child(crate::pulse_ui::pulse_status_notice(
@@ -435,6 +436,11 @@ fn grid_columns(window_width: f32) -> usize {
     ((content_width.max(TOOL_CARD_WIDTH) + TOOL_CARD_GAP) / (TOOL_CARD_WIDTH + TOOL_CARD_GAP))
         .floor()
         .clamp(1.0, MAX_GRID_COLUMNS) as usize
+}
+
+/// Keep the heading aligned with the actual card columns instead of an empty wide grid area.
+fn home_grid_width(columns: usize, card_width: f32) -> f32 {
+    card_width * columns as f32 + TOOL_CARD_GAP * columns.saturating_sub(1) as f32
 }
 
 /// Return the main-pane width available to the home grid after the activity bar and padding.
@@ -500,13 +506,13 @@ fn reorder_animation_offset_for_width(
 fn render_home_header(
     tool_count: usize,
     tool_manager: Entity<ToolSurfaceManager>,
+    grid_width: f32,
     cx: &gpui_kit::App,
 ) -> impl IntoElement {
     h_flex()
         .id("home-logo")
         .debug_selector(|| "home-logo".into())
-        .w_full()
-        .max_w(px(TOOL_GRID_WIDTH))
+        .w(px(grid_width))
         .min_w_0()
         .items_center()
         .justify_between()
@@ -546,12 +552,23 @@ mod tests {
     }
 
     #[test]
-    fn grid_columns_follow_the_fixed_card_width() {
-        assert_eq!(grid_columns(1689.0), 4);
-        assert_eq!(grid_columns(1024.0), 4);
-        assert_eq!(grid_columns(900.0), 3);
-        assert_eq!(grid_columns(600.0), 2);
-        assert_eq!(grid_columns(360.0), 1);
+    fn grid_columns_expand_at_expected_window_widths() {
+        for (window_width, expected_columns) in [
+            (360.0, 1),
+            (600.0, 2),
+            (900.0, 3),
+            (1024.0, 4),
+            (1200.0, 4),
+            (1440.0, 5),
+            (1689.0, 6),
+            (2560.0, 8),
+        ] {
+            assert_eq!(
+                grid_columns(window_width),
+                expected_columns,
+                "window width {window_width}"
+            );
+        }
     }
 
     #[test]

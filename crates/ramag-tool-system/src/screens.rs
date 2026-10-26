@@ -44,18 +44,18 @@ pub(crate) fn device_picker_state(
         .or_else(|| {
             unavailable
                 .as_ref()
-                .map(|channel| format!("Unavailable · {} · {}", channel.device, channel.label))
+                .map(|channel| format!("不可用 · {} · {}", channel.device, channel.label))
         })
-        .or_else(|| selected.as_ref().map(|id| format!("Unavailable · {id}")))
+        .or_else(|| selected.as_ref().map(|id| format!("不可用 · {id}")))
         .unwrap_or_else(|| {
             if matches!(screen, Screen::Energy | Screen::Thermals) {
                 if choices.is_empty() {
-                    "No available sensors".into()
+                    "没有可用传感器".into()
                 } else {
-                    "Choose a sensor".into()
+                    "选择传感器".into()
                 }
             } else {
-                "No available devices".into()
+                "没有可用设备".into()
             }
         });
     let description = unavailable
@@ -65,13 +65,13 @@ pub(crate) fn device_picker_state(
             selected
                 .as_ref()
                 .filter(|_| selected_choice.is_none())
-                .map(|id| format!("Saved sensor is unavailable: {id}"))
+                .map(|id| format!("已保存的传感器不可用：{id}"))
         })
         .unwrap_or_else(|| label.clone());
     DevicePickerState {
         choices,
         selected,
-        accessibility_label: format!("{} device: {label}. {description}", screen.title()),
+        accessibility_label: format!("{}设备：{label}。{description}", screen.title()),
         label,
     }
 }
@@ -298,7 +298,7 @@ impl ScreenView {
             .child(
                 Tabs::new("screen-tabs")
                     .accessibility_id("screen-tabs")
-                    .aria_label("System monitor screens")
+                    .aria_label("系统监控页面")
                     .flex()
                     .h_full()
                     .overflow_x_scroll()
@@ -399,14 +399,14 @@ impl Render for ScreenView {
             .latest("cpu:host", "cpu:host/usage")
             .is_some_and(|sample| sample.status == system_pulse_model::ReadingStatus::Current);
         let status = if data.snapshot.is_none() {
-            "Waiting for system data"
+            "等待系统数据"
         } else if current {
-            "Live system data"
+            "实时系统数据"
         } else {
-            "Readings warming up or delayed"
+            "数据准备中或更新延迟"
         };
         let status_text = format!(
-            "{status} · {} readable processes · {interval} s update",
+            "{status} · {} 个可读取进程 · 每 {interval} 秒更新",
             data.process_count()
         );
         let ui_font = cx.theme().font_family.clone();
@@ -443,7 +443,7 @@ impl Render for ScreenView {
                     .gap_2()
                     .child(
                         Button::new("enable-cpu-temperatures")
-                            .label("Enable CPU temperatures…")
+                            .label("启用 CPU 温度读取…")
                             .disabled(temperatures_enabled)
                             .on_click(cx.listener(|this, _, window, cx| {
                                 let owner = this.shared.borrow().owner.clone();
@@ -456,7 +456,7 @@ impl Render for ScreenView {
                     )
                     .child(
                         Button::new("disable-cpu-temperatures")
-                            .label("Disable CPU temperatures")
+                            .label("停用 CPU 温度读取")
                             .disabled(!temperatures_enabled)
                             .on_click(cx.listener(|this, _, window, cx| {
                                 let owner = this.shared.borrow().owner.clone();
@@ -537,7 +537,7 @@ impl Render for ScreenView {
                     Button::new("accept-screen-recovery")
                         .accessibility_id("accept-screen-recovery")
                         .debug_selector(|| "accept-screen-recovery".into())
-                        .label("Accept recovered settings")
+                        .label("应用已恢复的设置")
                         .on_click(cx.listener(move |this, _, window, cx| {
                             if let Some(owner) = &owner {
                                 let _ = owner.update(cx, |owner, cx| {

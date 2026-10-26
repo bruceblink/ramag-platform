@@ -114,7 +114,7 @@ fn hidden_process_rows_are_prepared_from_the_latest_identity_on_display(cx: &mut
         let data = view.read(cx).shared.borrow();
         assert_eq!(data.processes.len(), 1);
         assert_eq!(data.processes[0].cells[1], "replacement process");
-        assert!(data.processes[0].cells[2].contains("No access"));
+        assert!(data.processes[0].cells[2].contains("无权限"));
         assert_ne!(data.processes[0].identity, identity);
     });
 }

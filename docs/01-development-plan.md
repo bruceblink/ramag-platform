@@ -75,14 +75,14 @@ P3 的 `v0.7.0` 发布切片已完成，证据见 [Ramag 0.7.0 发布计划](25-
 数据库 `A-UI-REAL` 已于 2026-10-26 在真实窗口验收 MySQL/PostgreSQL 触发器子树、连接恢复、事务行编辑读回和 DML 连接失败反馈；PostgreSQL 结果网格的列宽拖动、大结果集分页和长表头也已验收。
 完整数据库操作矩阵仍未完成。`DB-UX-006A` 的 10,000 行读取和 `DB-UX-006B` 的 1 MiB 字段预览已完成真实窗口验收；结果、内存和限制见[数据库工作区路线图](03-database-client-datagrip-roadmap.md)。发布验收与数据库窗口验收分别记录。
 
-用户本次明确将现有 UI 打磨排在数据库下一项之前。本次完成 `RAMAG-UI-001A` 主壳、首页和设置页布局切片后，继续并完成 `DB-UX-006B`，没有移除数据库验收工作。
+用户继续要求打磨整体 UI。`RAMAG-UI-001C` 已按窗口宽度扩展首页工具卡片网格，并保持工具入口、排序和卡片操作不变。`RAMAG-UI-001D` 已完成系统监控页的中文导航、标题和状态文案；下一项恢复 `DB-UX-006D` 的取消验收。此前的 `RAMAG-UI-001A/B`、`DB-UX-006B` 和 `DB-UX-006C` 记录保持不变。
 
 当前 UI 子切片已完成 API 工作台简约布局和两条分隔栏的真实窗口拖动检查。2026-10-25 已完成
 [连接型工作区验收计划](22-connection-workspace-acceptance-plan.md)中的全局 UI 回归：真实窗口确认
 首页、API、Settings、数据库、Kafka、MQTT 和 SSH 页面入口可用，主题切换后已恢复。
 数据库专项的 `A-UI-REAL` 仍在进行：MySQL 8.4 和 PostgreSQL 17 的连接、对象树、触发器子树、表数据页、
 手动事务编辑、提交和回滚读回，以及单元格 UPDATE 连接失败反馈均有真实窗口证据；MySQL 连接失败后的恢复也已通过。
-PostgreSQL 的 100,000 行分页、10,000 行只读查询、1 MiB 以上字段预览、1,000 张表的对象树、页内末行、列宽拖动、末列横向滚动和长表头已通过真实窗口检查；并行查询、取消及其他结果操作仍待逐项验收，详见[数据库工作区路线图](03-database-client-datagrip-roadmap.md)。下一项是 `DB-UX-006D`：检查多个查询标签的结果隔离和单项取消。
+PostgreSQL 的 100,000 行分页、10,000 行只读查询、1 MiB 以上字段预览、1,000 张表的对象树、页内末行、列宽拖动、末列横向滚动和长表头已通过真实窗口检查。`DB-UX-006D` 已确认两个标签的不同结果和耗时，但长查询自然结束，单项取消及并行完成仍未验收；继续该切片，详见[数据库工作区路线图](03-database-client-datagrip-roadmap.md)。
 
 ### RAMAG-UI-001A：主壳、首页与设置页布局
 
@@ -101,6 +101,56 @@ PostgreSQL 的 100,000 行分页、10,000 行只读查询、1 MiB 以上字段�
 **回滚边界：**只回滚本切片涉及的 Shell、首页、设置视图和对应验证记录；不回滚前序数据库验收、WSL Docker 环境或其他用户数据。
 
 **验收记录（2026-10-26）：**`cargo test --locked -p ramag-ui` 通过，147 项测试全部通过。首页与系统设置的 Headless GPUI 检查覆盖 `360x640`、`1024x768`、`1440x900`，并检查浅色和深色主题。Computer Use 在真实窗口检查了首页四列卡片、工具管理面板、API 测试入口、设置页标题与导航、浅色和深色主题；窗口从 `1200x775` 缩至 `1026x775` 后，首页仍显示完整的四列卡片。真实屏幕不支持 `1440x900` 和 `360x640` 窗口尺寸，这两种尺寸仅有 Headless GPUI 证据。卡片点击和拖动排序由 Headless GPUI 测试覆盖；真实窗口未单独验收拖动排序。
+
+### RAMAG-UI-001B：数据库查询工作区信息层级
+
+**范围：**压缩 SQL 查询区顶部重复的连接信息，保留工作区标题和 Schema 选择器；连接名称、类型、地址与状态继续由数据库连接标题区显示。查询标签、执行、取消、结果、连接和 Schema 行为不变。
+
+**验收条件：**
+
+- `360x640`、`1024x768`、`1440x900` 的 Headless GPUI 布局中，工作区标题和 Schema 选择器均完整位于查询面板内。
+- 顶部上下文条高度不超过 `48px`，不再重复显示连接名称和地址。
+- 真实窗口中，连接状态与 Schema 选择器仍可识别；编辑器和结果区域获得额外垂直空间。
+- 执行、取消和结果状态不因布局变化而改变。
+
+**验证命令：**`cargo fmt --all -- --check`、`cargo test --locked -p ramag-tool-dbclient`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo build --locked -p ramag-bin`、`git diff --check`。
+
+**回滚边界：**只回滚数据库查询区的标题布局、相关布局断言和本节记录；不回滚连接标题、查询行为、数据库验收记录或 WSL Docker 环境。
+
+**验收记录（2026-10-27，完成）：**真实窗口为 `1626x927`。新窗口显示一行 `42px` 查询区标题、SQL 标记和 Schema 下拉；连接名称、PostgreSQL 地址和连接状态仍显示在上方连接标题区。SQL 编辑器与结果区的分隔位置上移，编辑器获得更多垂直空间。应用启动日志显示隔离测试连接已恢复，并读取 PostgreSQL Schema 元数据；UI 布局检查时未在编辑器中运行 SQL，之后的只读查询见[数据库工作区路线图](03-database-client-datagrip-roadmap.md)中的 `DB-UX-006D` 记录。Headless GPUI 布局测试覆盖 `360x640`、`1024x768` 和 `1440x900`，`query_context_bar_keeps_schema_inside_supported_widths` 通过。`cargo test --locked -p ramag-tool-dbclient` 的 376 项测试全部通过；`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo build --locked -p ramag-bin` 和 `git diff --check` 通过。隔离调试窗口已关闭，临时测试数据目录保留。
+
+### RAMAG-UI-001C：首页宽屏卡片布局
+
+**范围：**首页工具卡片根据主内容区宽度从 1 列扩展到最多 8 列。标题栏与卡片网格使用相同宽度并保持居中。卡片宽度、间距、工具入口、拖动排序和管理入口保持不变。不新增业务入口。
+
+**验收条件：**
+
+- `360`、`1024`、`1440`、`1689` 和 `2560` 窗口宽度分别显示 `1`、`4`、`5`、`6` 和 `8` 列。
+- 标题栏和卡片网格同宽、对齐；卡片不越过窗口或侧栏。
+- 最大化窗口中，10 个现有工具按 8 列和 2 列两行排列；卡片点击和拖动排序的代码路径不变。
+- Headless GPUI 覆盖窄、中、大和宽屏尺寸；真实窗口检查实际可用的最大尺寸。
+
+**验证命令：**`cargo fmt --all -- --check`、`cargo test --locked -p ramag-ui`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo build --locked -p ramag-bin`、`git diff --check`。
+
+**回滚边界：**只回滚首页卡片列数、标题与网格宽度和本节记录；不改工具注册、持久化顺序、侧栏宽度或设置值。
+
+**验收记录（2026-10-27，完成）：**真实窗口在 `2560x1392` 最大化尺寸显示 8 列和 2 列两行，标题、管理入口和卡片网格左右对齐。`1200x774` 窗口显示 4 列，卡片宽度与间距保持原值。调试应用使用隔离数据目录 `C:\Users\likanug\AppData\Local\Temp\codex-ramag-ui-polish-20261027-01a17345-02`，没有连接数据库或修改用户数据。Headless GPUI 在浅色和深色模式下覆盖 `360x640`、`1024x768`、`1440x900`、`1689x900` 和 `2560x1392`；列数计算用例覆盖 `360/600/900/1024/1200/1440/1689/2560` 宽度。`cargo test --locked -p ramag-ui` 的 147 项测试通过，`cargo fmt --all -- --check`、严格 workspace Clippy、`cargo build --locked -p ramag-bin` 和 `git diff --check` 通过。
+
+### RAMAG-UI-001D：系统监控页面中文导航与信息层级
+
+**范围：**统一系统监控页的导航标签、主要标题、状态提示、空状态和进程表操作文案。为主要系统指标提供简洁中文显示名。保留 CPU、GPU、PID、单位、设备名称和驱动提供的未知指标名。监控采样、传感器标识、已保存的屏幕/设备选择、排序、筛选、键盘导航和进程操作保持不变。
+
+**验收条件：**
+
+- 系统监控的 9 个页面标签和主要页面标题使用中文；`CPU`、`GPU` 等常见缩写保留。
+- 概览、处理器、内存、显卡、磁盘、网络、功耗、温度和进程页的主要标题、状态与空状态可读，不显示通用英文占位文案。
+- 窄窗口的标签仍可横向滚动；宽窗口的图表、指标卡和进程表布局保持现有自适应行为。
+- 真实窗口检查概览、显卡和进程页；确认导航可切换，采样状态持续更新，传感器和进程数据可见。
+- 运行 `cargo fmt --all -- --check`、`cargo test --locked -p ramag-tool-system`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo build --locked -p ramag-bin` 和 `git diff --check`。
+
+**回滚边界：**只回滚系统监控页面显示文案、对应单元测试和本节记录；不改传感器采集、系统权限、持久化选择、系统设置或进程操作逻辑。
+
+**验收记录（2026-10-27，完成）：**Computer Use 在 `1626x927` 深色主题真实窗口检查了概览、GPU 和进程页。9 个导航标签、主要标题、图表范围与采样时长、常见内存/GPU 指标、进程表列名和操作提示均显示中文；`CPU`、`GPU`、`PID`、单位、设备名、进程名和未知设备指标名保留。概览、GPU 趋势图和进程表均在窗口内完整显示；进程页有实时行数据，系统状态每 `0.5` 秒更新。本轮没有选择或操作系统进程，也没有手动运行 SQL。使用隔离测试数据目录 `C:\Users\likanug\AppData\Local\Temp\codex-ramag-ui-visual-20261027-01a17345`。`cargo test --locked -p ramag-tool-system -p ramag-system-model` 的 124 项测试通过；`cargo fmt --all -- --check`、严格 workspace Clippy、`cargo build --locked -p ramag-bin` 和 `git diff --check` 通过。未知设备名与驱动诊断原文仍可能包含英文，这是保留的源信息。
 
 ### 当前主线完成后的插件平台化路线
 

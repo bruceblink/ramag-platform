@@ -37,7 +37,7 @@ pub(crate) fn catalog(workspace: &Workspace) -> Vec<Monitor> {
     for (id, panel) in &workspace.panels {
         monitors.entry(id.clone()).or_insert_with(|| Monitor {
             id: id.clone(),
-            title: format!("Unavailable device · {id}"),
+            title: format!("设备不可用 · {id}"),
             summary: String::new(),
             sensors: panel
                 .sensors
@@ -357,13 +357,13 @@ pub(crate) struct ProcessView {
 }
 pub(crate) const PROCESS_COLUMNS: [&str; 8] = [
     "PID",
-    "Name",
-    "CPU (one core)",
-    "Memory",
-    "Read I/O",
-    "Write I/O",
-    "Threads",
-    "User",
+    "进程名称",
+    "CPU（单核）",
+    "内存",
+    "读取速率",
+    "写入速率",
+    "线程数",
+    "用户",
 ];
 pub(crate) const PROCESS_WIDTHS: [f32; 8] = [88., 200., 152., 112., 128., 128., 112., 128.];
 pub(crate) fn process_views(
@@ -411,7 +411,7 @@ pub(crate) fn process_views(
                     && (reason.contains("Permission denied")
                         || reason.contains("Operation not permitted"))
                 {
-                    return format!("No access · {reason}");
+                    return format!("无权限 · {reason}");
                 }
                 let mut sample = convert_value(
                     quantity,
@@ -428,8 +428,8 @@ pub(crate) fn process_views(
             }));
             cells.push(process.user.clone().unwrap_or_else(|| {
                 format!(
-                    "Unavailable · {}",
-                    process.user_reason.as_deref().unwrap_or("User unavailable")
+                    "不可用 · {}",
+                    process.user_reason.as_deref().unwrap_or("用户信息不可用")
                 )
             }));
             ProcessView {

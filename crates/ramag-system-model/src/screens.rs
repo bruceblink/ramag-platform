@@ -50,16 +50,16 @@ impl Screen {
 
     pub fn title(self) -> &'static str {
         match self {
-            Self::Summary => "Summary",
+            Self::Summary => "概览",
             Self::Cpu => "CPU",
-            Self::Memory => "Memory",
+            Self::Memory => "内存",
             Self::Gpu => "GPU",
-            Self::Disks => "Disks",
-            Self::Network => "Network",
-            Self::Energy => "Energy",
-            Self::Thermals => "Thermals",
-            Self::Processes => "Processes",
-            Self::Settings => "Settings",
+            Self::Disks => "磁盘",
+            Self::Network => "网络",
+            Self::Energy => "功耗",
+            Self::Thermals => "温度",
+            Self::Processes => "进程",
+            Self::Settings => "设置",
         }
     }
 
@@ -127,5 +127,29 @@ mod tests {
             serde_json::Value::String("summary".into())
         );
         Ok(())
+    }
+
+    #[test]
+    fn visible_screen_titles_are_chinese_and_stable_ids_remain_unchanged() {
+        assert_eq!(
+            Screen::ALL.map(Screen::title),
+            [
+                "概览", "CPU", "内存", "GPU", "磁盘", "网络", "功耗", "温度", "进程"
+            ]
+        );
+        assert_eq!(
+            Screen::ALL.map(Screen::id),
+            [
+                "summary",
+                "cpu",
+                "memory",
+                "gpu",
+                "disks",
+                "network",
+                "energy",
+                "thermals",
+                "processes"
+            ]
+        );
     }
 }

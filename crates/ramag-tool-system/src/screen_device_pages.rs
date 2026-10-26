@@ -27,7 +27,7 @@ pub(crate) fn disk(
     let secondary_color = accent(Screen::Thermals, cx);
     let trend = device_trend(
         "device-trend:disks",
-        "Read / write throughput",
+        "读取与写入速率",
         "device-history:disks",
         rate_rows,
         state,
@@ -36,9 +36,9 @@ pub(crate) fn disk(
     );
     let stats = device_stats(
         "device-stats:disks",
-        "Backing device details",
+        "底层设备信息",
         &auxiliary,
-        "No additional backing-device statistics are available for this volume.",
+        "此卷没有更多底层设备统计信息。",
         state,
         cx,
     );
@@ -62,7 +62,7 @@ pub(crate) fn disk(
                 .debug_selector(|| "device-note:disks".into())
                 .text_size(px(12.))
                 .text_color(palette(cx).muted)
-                .child("Capacity describes this filesystem. Transfer rates describe its backing block device."),
+                .child("容量表示此文件系统的空间。传输速率表示其底层块设备的读写速度。"),
         )
         .into_any_element()
 }
@@ -95,7 +95,7 @@ pub(crate) fn network(
         })
         .child(device_trend(
             "device-trend:network",
-            "Receive / transmit throughput",
+            "接收与发送速率",
             "device-history:network",
             rate_rows,
             state,
@@ -104,9 +104,9 @@ pub(crate) fn network(
         ))
         .child(device_stats(
             "device-stats:network",
-            "Cumulative traffic",
+            "累计流量",
             &counters,
-            "No cumulative traffic counters are available for this interface.",
+            "此网络接口没有可用的累计流量计数。",
             state,
             cx,
         ))

@@ -98,7 +98,7 @@ fn selected_process_details_show_thread_count(cx: &mut TestAppContext) {
         crate::processes::PROCESS_DETAIL_COLUMNS,
         &[2, 3, 4, 5, 6, 7]
     );
-    assert_eq!(crate::live::PROCESS_COLUMNS[6], "Threads");
+    assert_eq!(crate::live::PROCESS_COLUMNS[6], "线程数");
     assert!(cx.debug_bounds("process-detail-field:6").is_some());
     assert!(cx.debug_bounds("process-details").is_some());
     cx.read(|cx| {

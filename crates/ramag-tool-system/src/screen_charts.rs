@@ -147,7 +147,7 @@ fn unit_divisor(unit: &str) -> f64 {
 fn range_label(range: (f64, f64), unit: &str) -> String {
     let divisor = unit_divisor(unit);
     format!(
-        "Scale: {:.1}–{:.1} {unit}",
+        "范围：{:.1}–{:.1} {unit}",
         range.0 / divisor,
         range.1 / divisor
     )
@@ -169,9 +169,9 @@ pub(crate) fn history_chart(
         .any(|sample| chart_value(sample).is_some());
     let has_samples = series.iter().any(|series| !series.samples.is_empty());
     let waiting = if has_samples {
-        "No current readings"
+        "暂无当前读数"
     } else {
-        "Waiting for history"
+        "等待历史数据"
     };
     let unit = series
         .iter()
@@ -179,7 +179,7 @@ pub(crate) fn history_chart(
         .last()
         .map_or("", |sample| sample.unit.as_str());
     let scale_label = range_label(range, unit);
-    let elapsed = format!("{:.1} s", time.1.saturating_sub(time.0) as f64 / 1000.);
+    let elapsed = format!("{:.1} 秒", time.1.saturating_sub(time.0) as f64 / 1000.);
     let values = series
         .iter()
         .map(|series| {
@@ -192,7 +192,7 @@ pub(crate) fn history_chart(
         .collect::<Vec<_>>()
         .join("; ");
     let label = format!(
-        "History chart. {values}. {scale_label}. {elapsed}. {}",
+        "历史图表。{values}。{scale_label}。采样时长 {elapsed}。{}",
         if has_points { "" } else { waiting }
     );
     let accent = series
@@ -300,14 +300,14 @@ pub(crate) fn history_chart(
     };
     let compact = height < 140.;
     let visible_scale = if compact {
-        scale_label.trim_start_matches("Scale: ").to_owned()
+        scale_label.trim_start_matches("范围：").to_owned()
     } else {
         scale_label
     };
     let visible_elapsed = if compact {
         elapsed
     } else {
-        format!("{elapsed} history")
+        format!("历史 {elapsed}")
     };
     let range_row_id = format!("{id}:range-row");
     let range_label_id = format!("{id}:range-label");
@@ -396,7 +396,7 @@ pub(crate) fn segmented_meter(
     let id = id.into();
     let ratio = meter_ratio(ratio);
     let label = ratio.map_or_else(
-        || "Level unavailable".into(),
+        || "当前读数不可用".into(),
         |ratio| format!("Level: {:.1}%", ratio * 100.),
     );
     let lit = ratio.map_or(0, |ratio| (ratio * 30.).ceil() as usize);

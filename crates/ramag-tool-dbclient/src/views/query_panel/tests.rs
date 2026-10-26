@@ -187,7 +187,7 @@ fn editor_toolbar_keeps_actions_visible_in_three_window_widths(cx: &mut TestAppC
 /// The Query Console context row keeps the active connection and Schema visible without
 /// displacing the scrollable query-tab strip at the supported workbench widths.
 #[gpui_kit::test]
-fn query_context_bar_keeps_connection_and_schema_inside_supported_widths(cx: &mut TestAppContext) {
+fn query_context_bar_keeps_schema_inside_supported_widths(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let service = Arc::new(ConnectionService::new(
         HashMap::new(),
@@ -226,8 +226,8 @@ fn query_context_bar_keeps_connection_and_schema_inside_supported_widths(cx: &mu
     });
     cx.run_until_parked();
 
-    for width in [360.0, 1024.0, 1440.0] {
-        cx.simulate_resize(size(px(width), px(640.0)));
+    for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+        cx.simulate_resize(size(px(width), px(height)));
         panel.update(cx, |_, cx| cx.notify());
         cx.run_until_parked();
 
@@ -237,20 +237,24 @@ fn query_context_bar_keeps_connection_and_schema_inside_supported_widths(cx: &mu
         let title = cx
             .debug_bounds("query-workspace-page-title")
             .expect("查询工作区页面标题应渲染");
-        let connection = cx
-            .debug_bounds("query-context-connection")
-            .expect("连接上下文应渲染");
+        let schema_group = cx
+            .debug_bounds("query-context-schema-group")
+            .expect("Schema 上下文应渲染");
         let schema = cx
             .debug_bounds("query-context-schema")
             .expect("Schema 下拉入口应渲染");
         assert!(bar.right() <= px(width), "查询上下文条不能越出窗口");
         assert!(
+            bar.bottom() - bar.origin.y <= px(48.0),
+            "查询上下文条高度不能超过 48px"
+        );
+        assert!(
             title.right() <= bar.right() && title.bottom() <= bar.bottom(),
             "查询工作区标题不能越出上下文条"
         );
         assert!(
-            connection.right() <= bar.right(),
-            "连接上下文不能越出父容器"
+            schema_group.right() <= bar.right(),
+            "Schema 组不能越出父容器"
         );
         assert!(schema.right() <= bar.right(), "Schema 入口不能越出父容器");
         assert!(
