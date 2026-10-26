@@ -1,7 +1,7 @@
 # Ramag Platform 主线路线：维护收尾与插件化
 
 > 状态：现行路线
-> 更新日期：2026-10-26
+> 更新日期：2026-10-27
 > 执行入口：[01-development-plan.md](01-development-plan.md)
 > 插件接口设计：[04-plugin-platform-roadmap.md](04-plugin-platform-roadmap.md)
 
@@ -34,7 +34,7 @@ Ramag 保留当前原生工具和基础设施，移除本机协作与 JSON Path 
 详见[数据库路线图](03-database-client-datagrip-roadmap.md)。
 
 `v0.7.0` 已于 2026-10-26 发布。三平台安装包、校验清单和更新清单的核对结果见
-[Ramag 0.7.0 发布计划](25-ramag-0.7.0-release-plan.md)。下一项按数据库专项路线图检查 `DB-UX-006B` 的 1 MiB 以上字段预览和内存占用。
+[Ramag 0.7.0 发布计划](25-ramag-0.7.0-release-plan.md)。数据库路线图的 `DB-UX-006B` 已于 2026-10-27 完成真实窗口验收。完整矩阵仍未完成；下一项从 `DB-UX-006` 剩余的千级对象树、并行查询、取消和页面切换测量中拆分一个有界验收切片。
 
 “当前主线完成”指更新日之前已经排入的具体交付切片全部满足验收条件，并在计划中记录结果。之后新发现的
 维护问题继续进入 P1 队列，不自动无限期推迟插件化阶段。
