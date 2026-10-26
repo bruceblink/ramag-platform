@@ -145,6 +145,46 @@ impl SettingsView {
     }
 }
 
+/// 在工具设置保存期间提供统一的进行中状态，避免页面只显示一行孤立文本。
+pub(super) fn settings_saving_notice(
+    id: &'static str,
+    label: &'static str,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
+    let muted = theme.muted_foreground;
+    h_flex()
+        .id(id)
+        .debug_selector(move || id.into())
+        .w_full()
+        .min_w_0()
+        .items_start()
+        .gap(px(8.0))
+        .p(px(8.0))
+        .border_1()
+        .border_color(muted.opacity(0.28))
+        .rounded(px(6.0))
+        .bg(muted.opacity(0.06))
+        .child(Icon::new(IconName::Info).small().text_color(muted))
+        .child(
+            v_flex()
+                .min_w_0()
+                .gap(px(2.0))
+                .child(
+                    div()
+                        .text_xs()
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .text_color(muted)
+                        .child(format!("{label}：正在保存…")),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(muted)
+                        .child("保存完成前暂时不能修改此页设置。"),
+                ),
+        )
+}
+
 #[derive(Clone, Copy)]
 struct SettingsNavigationStyle {
     active: gpui_kit::Hsla,

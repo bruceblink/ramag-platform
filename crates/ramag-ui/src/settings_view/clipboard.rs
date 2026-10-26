@@ -1,4 +1,7 @@
-use super::{SettingsView, pages::pulse_settings_card};
+use super::{
+    SettingsView,
+    pages::{pulse_settings_card, settings_saving_notice},
+};
 use crate::platform::{auto_paste_description, clipboard_hotkey};
 use gpui_kit::component::{
     ActiveTheme, Disableable as _, Sizable as _, button::ButtonVariants as _, h_flex,
@@ -35,7 +38,11 @@ impl SettingsView {
             .w_full()
             .gap(px(16.0))
             .when(disabled, |page| {
-                page.child(div().text_xs().text_color(muted).child("保存中…"))
+                page.child(settings_saving_notice(
+                    "settings-clipboard-save-status",
+                    "剪贴板设置",
+                    theme,
+                ))
             })
             .when(service.settings_degraded(), |page| {
                 page.child(

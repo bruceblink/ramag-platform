@@ -1,4 +1,4 @@
-use super::SettingsView;
+use super::{SettingsView, pages::settings_saving_notice};
 use gpui_kit::component::{ActiveTheme, Disableable as _, h_flex, v_flex};
 use gpui_kit::{
     AnyElement, Context, IntoElement, ParentElement, Styled, Window, div, prelude::*, px,
@@ -16,7 +16,11 @@ impl SettingsView {
             .w_full()
             .gap(px(16.0))
             .when(disabled, |page| {
-                page.child(div().text_xs().text_color(muted).child("保存中…"))
+                page.child(settings_saving_notice(
+                    "settings-ssh-save-status",
+                    "SSH 模块设置",
+                    theme,
+                ))
             })
             .child(
                 v_flex()

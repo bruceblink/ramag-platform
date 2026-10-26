@@ -1,5 +1,6 @@
 //! 剪贴板设置页摘要的 Headless GPUI 布局测试。
 
+use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::{
     Context, InteractiveElement as _, IntoElement, ParentElement as _, Render, Styled as _,
     TestAppContext, VisualTestContext, Window, div, px, size,
@@ -7,6 +8,7 @@ use gpui_kit::{
 use ramag_domain::entities::ClipboardSettings;
 
 use super::render_clipboard_summary;
+use crate::settings_view::pages::settings_saving_notice;
 
 struct ClipboardSummaryHost {
     settings: ClipboardSettings,
@@ -69,5 +71,44 @@ fn clipboard_summary_fits_supported_widths(cx: &mut TestAppContext) {
             assert!(metric.origin.x + metric.size.width <= metrics.origin.x + metrics.size.width);
             assert!(metric.origin.y + metric.size.height <= metrics.origin.y + metrics.size.height);
         }
+    }
+}
+
+struct SavingNoticeHost;
+
+impl Render for SavingNoticeHost {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .id("settings-saving-notice-host")
+            .debug_selector(|| "settings-saving-notice-host".into())
+            .w_full()
+            .child(settings_saving_notice(
+                "settings-clipboard-save-status",
+                "剪贴板设置",
+                cx.theme(),
+            ))
+    }
+}
+
+#[gpui_kit::test]
+fn saving_notice_fits_supported_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let (_, cx) = cx.add_window_view(|_, _| SavingNoticeHost);
+    let cx: &mut VisualTestContext = cx;
+
+    for width in [360.0, 1024.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(180.0)));
+        cx.run_until_parked();
+
+        let Some(host) = cx.debug_bounds("settings-saving-notice-host") else {
+            unreachable!("设置保存状态测试宿主应渲染");
+        };
+        let Some(notice) = cx.debug_bounds("settings-clipboard-save-status") else {
+            unreachable!("设置保存状态卡应渲染");
+        };
+        assert!(notice.origin.x >= host.origin.x);
+        assert!(notice.right() <= host.right());
+        assert!(notice.origin.y >= host.origin.y);
+        assert!(notice.bottom() <= host.bottom());
     }
 }
