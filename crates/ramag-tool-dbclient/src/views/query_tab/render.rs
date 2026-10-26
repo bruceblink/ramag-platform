@@ -41,6 +41,7 @@ impl Render for QueryTab {
         let danger = theme.danger;
 
         let running = self.running;
+        let count_cancelable = self.count_cancel_handle.is_some();
         let has_connection = self.connection.is_some();
         let transaction_active = self.transaction.is_some();
         let transaction_dirty = self.transaction_is_dirty();
@@ -450,21 +451,30 @@ impl Render for QueryTab {
                                 has_result,
                                 exporting,
                             ))
-                            .when(running && self.cancel_handle.is_some(), |this| {
-                                this.child(
-                                    ramag_ui::clickable_button("cancel-query")
-                                        .debug_selector(|| "sql-cancel-query".into())
-                                        .danger()
-                                        .small()
-                                        .icon(IconName::Close)
-                                        .tooltip("取消")
-                                        .on_click(cx.listener(
-                                            |this, _: &ClickEvent, window, cx| {
-                                                this.handle_cancel(window, cx);
-                                            },
-                                        )),
-                                )
-                            })
+                            .when(
+                                (running && self.cancel_handle.is_some()) || count_cancelable,
+                                |this| {
+                                    this.child(
+                                        ramag_ui::clickable_button("cancel-query")
+                                            .debug_selector(|| "sql-cancel-query".into())
+                                            .danger()
+                                            .small()
+                                            .icon(IconName::Close)
+                                            .tooltip(if running && count_cancelable {
+                                                "取消当前查询和分页统计"
+                                            } else if count_cancelable {
+                                                "取消分页统计"
+                                            } else {
+                                                "取消查询"
+                                            })
+                                            .on_click(cx.listener(
+                                                |this, _: &ClickEvent, window, cx| {
+                                                    this.handle_cancel(window, cx);
+                                                },
+                                            )),
+                                    )
+                                },
+                            )
                             .when(!running, |this| {
                                 this.child(
                                     ramag_ui::clickable_button("run-query")

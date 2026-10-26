@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 use std::time::Instant;
 
 use gpui_kit::{Modifiers, TestAppContext, px, size};
@@ -139,12 +140,14 @@ fn invalidating_query_context_discards_running_state_but_keeps_ready_result(
         tab.running = true;
         tab.run_seq = 7;
         tab.count_seq = 3;
+        tab.count_cancel_handle = Some(Arc::new(AtomicU64::new(0)));
         tab.running_target = Some(QueryResultTarget::Data);
         tab.query_start = Some(Instant::now());
         tab.invalidate_query_context(cx);
 
         assert!(!tab.running);
         assert!(tab.current_task.is_none());
+        assert!(tab.count_cancel_handle.is_none());
         assert!(tab.running_target.is_none());
         assert!(tab.query_start.is_none());
         assert!(tab.run_seq != 7 && tab.count_seq != 3);

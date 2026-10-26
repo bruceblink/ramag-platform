@@ -1,3 +1,4 @@
+mod cancellation;
 mod execution;
 mod prefetch;
 mod sorting;
@@ -297,6 +298,9 @@ impl QueryTab {
         if !self.guard_no_pending_result_edits("执行 SQL", cx) {
             return;
         }
+        if is_run {
+            self.cancel_total_count(cx);
+        }
         let pager = if is_run {
             paging_base_sql(&sql_to_run, conn.driver).map(|base_sql| Pager {
                 base_sql: base_sql.clone(),
@@ -467,72 +471,7 @@ impl QueryTab {
 
     /// 停止客户端等待，并请求取消服务端查询。
     pub(super) fn handle_cancel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.current_task.take().is_none() {
-            return;
-        }
-        let cancel_seq = self.run_seq.wrapping_add(1);
-        self.run_seq = cancel_seq;
-        self.clear_cancelled_result(cx);
-        let cancel_target = self.cancel_handle.take().and_then(|h| {
-            let tid = h.load(std::sync::atomic::Ordering::SeqCst);
-            if tid > 0 { Some(tid) } else { None }
-        });
-        if let (Some(tid), Some(conn)) = (cancel_target, self.connection.clone()) {
-            ramag_ui::push_responsive_notification(
-                window,
-                Notification::info("已停止等待，正在请求服务器取消该查询…").autohide(true),
-                cx,
-            );
-            let svc = self.service.clone();
-            cx.spawn(async move |this, cx| {
-                let outcome = svc.cancel_query(&conn, tid).await;
-                let _ = this.update(cx, |this, cx| {
-                    if this.run_seq != cancel_seq {
-                        return;
-                    }
-                    this.pending_notification = Some(match &outcome {
-                        Ok(()) => Notification::success("服务器已确认取消查询").autohide(true),
-                        Err(e) => Notification::warning(format!(
-                            "服务器取消请求失败：{e}（客户端已停止等待，语句可能仍在服务器执行）"
-                        ))
-                        .autohide(true),
-                    });
-                    cx.notify();
-                });
-                match outcome {
-                    Ok(()) => info!(
-                        operation = "sql_query_cancel",
-                        connection_id = %conn.id,
-                        driver = ?conn.driver,
-                        thread_id = tid,
-                        "server query cancellation confirmed"
-                    ),
-                    Err(e) => tracing::warn!(
-                        operation = "sql_query_cancel",
-                        connection_id = %conn.id,
-                        driver = ?conn.driver,
-                        thread_id = tid,
-                        error = %e,
-                        "server query cancellation failed"
-                    ),
-                }
-            })
-            .detach();
-        } else {
-            ramag_ui::push_responsive_notification(
-                window,
-                Notification::info("已停止等待；未获取到服务器线程，语句可能仍在服务器执行")
-                    .autohide(true),
-                cx,
-            );
-        }
-        self.running = false;
-        self.query_start = None;
-        info!(
-            operation = "sql_query_cancel",
-            "client query wait cancelled"
-        );
-        cx.notify();
+        cancellation::handle_cancel(self, window, cx);
     }
 
     /// Clears only the result panel owned by the cancelled request.

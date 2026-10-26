@@ -7,6 +7,7 @@ impl QueryTab {
         base_sql: String,
         cx: &mut Context<Self>,
     ) {
+        self.cancel_total_count(cx);
         let counting_sql = match count_sql(&base_sql) {
             Ok(sql) => sql,
             Err(message) => {
@@ -24,13 +25,17 @@ impl QueryTab {
                 return;
             }
         };
-        self.count_seq = self.count_seq.wrapping_add(1);
         let count_seq = self.count_seq;
         let svc = self.service.clone();
         let result_handle = self.result.clone();
         let active_schema = self.active_schema.clone();
         let transaction_id = self.transaction.as_ref().map(|session| session.id.clone());
-        cx.spawn(async move |this, cx| {
+        let cancel_handle = transaction_id.is_none().then(|| {
+            std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0))
+                as ramag_domain::traits::CancelHandle
+        });
+        self.count_cancel_handle = cancel_handle.clone();
+        self.count_task = Some(cx.spawn(async move |this, cx| {
             let mut query = Query::new(counting_sql);
             if let Some(schema) = active_schema {
                 query = query.with_schema(schema);
@@ -40,7 +45,15 @@ impl QueryTab {
                     svc.execute_in_transaction_without_history(&conn, transaction_id, &query)
                         .await
                 }
-                None => svc.execute(&conn, &query).await,
+                None => match cancel_handle {
+                    Some(handle) => {
+                        svc.execute_cancellable_without_history(&conn, &query, handle)
+                            .await
+                    }
+                    None => Err(DomainError::NotImplemented(
+                        "count query cancellation handle".into(),
+                    )),
+                },
             };
             let total = match outcome {
                 Ok(result) => parse_count_result(&result)
@@ -63,6 +76,8 @@ impl QueryTab {
                 if this.count_seq != count_seq {
                     return;
                 }
+                this.count_task = None;
+                this.count_cancel_handle = None;
                 if let Some(pager) = this.pager.as_mut() {
                     pager.total = total;
                 }
@@ -70,8 +85,7 @@ impl QueryTab {
                     result.set_pagination_total(total, cx);
                 });
             });
-        })
-        .detach();
+        }));
     }
 
     pub(crate) fn handle_page(&mut self, requested_page: usize, cx: &mut Context<Self>) {

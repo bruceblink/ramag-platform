@@ -1,4 +1,5 @@
 mod actions;
+mod cancellation;
 mod comparison;
 mod comparison_toolbar;
 mod examples;
@@ -55,6 +56,10 @@ pub struct QueryTab {
     pub(super) plan_seq: u64,
     /// COUNT 代际；新查询使旧回包失效，翻页不变。
     pub(super) count_seq: u64,
+    /// 分页总数请求；切换 SQL 上下文或停止标签时释放客户端等待。
+    pub(super) count_task: Option<Task<()>>,
+    /// 当前分页总数请求的服务端取消句柄；内部统计不得在标签停止后继续执行。
+    pub(super) count_cancel_handle: Option<ramag_domain::traits::CancelHandle>,
     pub(super) formatting: bool,
     pub(super) current_task: Option<Task<()>>,
     /// 延后预取列元数据；替换任务会取消旧任务。
@@ -235,6 +240,8 @@ impl QueryTab {
             run_seq: 0,
             plan_seq: 0,
             count_seq: 0,
+            count_task: None,
+            count_cancel_handle: None,
             formatting: false,
             current_task: None,
             column_prefetch_task: None,
@@ -502,8 +509,8 @@ impl QueryTab {
     }
 
     pub(super) fn clear_pager(&mut self, cx: &mut Context<Self>) {
+        self.cancel_total_count(cx);
         self.pager = None;
-        self.count_seq = self.count_seq.wrapping_add(1);
         self.result
             .update(cx, |result, cx| result.set_pagination(None, cx));
     }
@@ -513,8 +520,8 @@ impl QueryTab {
     /// cannot stay blocked by a request that no longer belongs to the current SQL context.
     pub(super) fn invalidate_query_context(&mut self, cx: &mut Context<Self>) {
         self.cancel_inflight_query(cx);
+        self.cancel_total_count(cx);
         self.run_seq = self.run_seq.wrapping_add(1);
-        self.count_seq = self.count_seq.wrapping_add(1);
         self.show_plan = false;
         self.plan_seq = self.plan_seq.wrapping_add(1);
         self.running = false;

@@ -11,6 +11,7 @@ use ramag_domain::entities::{
 use ramag_domain::error::{DomainError, Result};
 use ramag_domain::traits::{CancelHandle, Driver, Storage};
 
+mod cancellable;
 mod history;
 mod transaction;
 mod virtual_views;

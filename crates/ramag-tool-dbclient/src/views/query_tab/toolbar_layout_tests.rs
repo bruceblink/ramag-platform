@@ -38,10 +38,11 @@ fn result_actions_stay_together_across_widths_and_query_states(cx: &mut TestAppC
                 );
                 ramag_ui::apply_theme(mode, app);
             });
-            for state in 0..4 {
+            for state in 0..5 {
                 tab.update(cx, |tab, cx| {
                     tab.running = state == 3;
                     tab.cancel_handle = tab.running.then(|| Arc::new(AtomicU64::new(0)));
+                    tab.count_cancel_handle = (state == 4).then(|| Arc::new(AtomicU64::new(0)));
                     tab.transaction_busy = state == 2;
                     tab.transaction = (state == 2).then(|| TransactionSession {
                         id: TransactionId::default(),
@@ -89,18 +90,22 @@ fn result_actions_stay_together_across_widths_and_query_states(cx: &mut TestAppC
                     assert!(group.origin.y >= toolbar.origin.y - px(1.0));
                     assert!(group.right() <= toolbar.right() + px(1.0));
                     assert!(group.bottom() <= toolbar.bottom() + px(1.0));
-                    let execution_selector = if state == 3 {
-                        "sql-cancel-query"
+                    let execution_selectors = if state == 3 {
+                        vec!["sql-cancel-query"]
+                    } else if state == 4 {
+                        vec!["sql-cancel-query", "sql-run-query"]
                     } else {
-                        "sql-run-query"
+                        vec!["sql-run-query"]
                     };
                     for selector in [
                         "sql-result-insert",
                         "sql-result-delete",
                         "sql-result-import",
                         "export-btn",
-                        execution_selector,
-                    ] {
+                    ]
+                    .into_iter()
+                    .chain(execution_selectors)
+                    {
                         let action = cx.debug_bounds(selector).unwrap();
                         assert!(
                             action.size.width > px(0.0),
