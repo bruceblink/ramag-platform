@@ -298,7 +298,7 @@ PostgreSQL 的 100,000 行分页、10,000 行只读查询、1 MiB 以上字段�
 
 **回滚边界：**只回滚最近项目选择器空状态结构、对应布局测试和本节记录；不回滚项目存储、收藏偏好、工具页面或用户项目文件。
 
-**验收记录（2026-10-27，Headless 完成；真实窗口待补）：**Headless GPUI 在 `360/640/1024/1440` 宽度覆盖无项目、收藏为空和搜索无匹配三类状态，`cargo test --locked -p ramag-ui` 的 153 项测试通过；`cargo fmt --all -- --check`、严格 workspace Clippy、`cargo build --locked -p ramag-bin` 和 `git diff --check` 通过。Computer Use 在隔离数据目录中检查版本管理空仓库页，确认没有最近仓库；选择器只在已有会话中由 `OpenRecentItems` 打开。本轮没有创建或打开测试仓库，因此真实选择器交互仍未验收。
+**验收记录（2026-10-27，Headless 和真实窗口完成）：**Headless GPUI 在 `360/640/1024/1440` 宽度覆盖无项目、收藏为空和搜索无匹配三类状态，`cargo test --locked -p ramag-ui` 的 153 项测试通过；`cargo fmt --all -- --check`、严格 workspace Clippy、`cargo build --locked -p ramag-bin` 和 `git diff --check` 通过。Computer Use 在 `1202x774` 隔离窗口中创建并打开 `target/ui-accept-m-repo-20261027` 测试仓库，使用 `Ctrl+P` 打开“最近打开的仓库”，看到“收藏 0 个”“所有项目 1 个”、仓库完整路径、“Git 仓库”和“当前”标记，再关闭选择器。验收数据目录为 `target/ui-accept-m2-20261027`，未访问用户现有仓库或项目文件。
 
 ### RAMAG-UI-001N：插件诊断页空状态层级
 
