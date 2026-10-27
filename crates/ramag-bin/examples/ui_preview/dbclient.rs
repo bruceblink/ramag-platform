@@ -7,7 +7,9 @@ use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use async_trait::async_trait;
 use gpui_kit::prelude::*;
 use gpui_kit::{App, Context, Entity, IntoElement, KeyBinding, Render, Styled, Window, div};
-use ramag_app::{ConnectionService, DataSyncGate, DataSyncService, MongoService, RedisService};
+use ramag_app::{
+    ConnectionService, DataSyncGate, DataSyncPermit, DataSyncService, MongoService, RedisService,
+};
 use ramag_domain::entities::{
     ConnectionConfig, ConnectionId, DriverKind, QueryRecord, QueryRecordId, TlsVerify,
 };
@@ -199,6 +201,8 @@ pub(super) fn bind_controls(cx: &mut App) {
 pub(super) struct PreviewHost {
     pub shell: Entity<Shell>,
     pub preview: DbclientPreview,
+    /// 保留受控同步许可，确保预览窗口中的运行状态不会被提前释放。
+    pub _sync_permit: Option<DataSyncPermit>,
 }
 
 impl PreviewHost {

@@ -2,6 +2,7 @@
 //! 用法：cargo run -p ramag-bin --example ui-preview -- settings dark 1024 768
 //! DBClient：dbclient dark 1024 768 large；F6 失败、F8 长错误、F7 恢复。
 //! 插件诊断：plugin-empty 或 plugin-failure；两者只构造本次窗口的受控验收状态。
+//! 数据同步遮罩：sync-progress、sync-cancel、sync-failure 或 sync-summary；只注入门禁状态。
 //! 仅创建进程专属临时 redb；不连接外部服务，不写系统凭据库，退出时清理临时文件。
 
 #[path = "ui_preview/dbclient.rs"]
@@ -14,10 +15,14 @@ use std::sync::Arc;
 use gpui_kit::component::Root;
 use gpui_kit::{App, AppContext as _, Bounds, WindowBounds, WindowOptions, px, size};
 use ramag_app::{
-    PluginContext, PluginOperationError, SshService, StaticPlugin, StaticPluginAdapter,
-    StaticPluginHost, ToolRegistry,
+    DataSyncExecutionContext, DataSyncGate, DataSyncPermit, PluginContext, PluginOperationError,
+    SshService, StaticPlugin, StaticPluginAdapter, StaticPluginHost, ToolRegistry,
 };
-use ramag_domain::{PluginDescriptor, PluginId, Tool, ToolMeta, traits::Storage};
+use ramag_domain::{
+    PluginDescriptor, PluginId, Tool, ToolMeta,
+    entities::{DataSyncProgress, DataSyncStage, DataSyncSummary, DataSyncTaskId},
+    traits::Storage,
+};
 use ramag_infra_ssh::OpenSshDriver;
 use ramag_infra_storage::RedbStorage;
 use ramag_ui::{HomeView, Mode, NavTarget, RamagAssets, SettingsView, Shell};
@@ -60,6 +65,116 @@ impl StaticPlugin for FailingPreviewPlugin {
         Err(PluginOperationError::new(
             "ui-preview 受控初始化失败：用于检查插件错误状态卡。",
         ))
+    }
+}
+
+const SYNC_PREVIEW_MODES: [&str; 4] = [
+    "sync-progress",
+    "sync-cancel",
+    "sync-failure",
+    "sync-summary",
+];
+
+/// 向共享门禁注入受控状态，供原生窗口检查同步遮罩；不会启动同步执行器。
+fn seed_sync_preview(page: &str, gate: &Arc<DataSyncGate>) -> Option<DataSyncPermit> {
+    if !SYNC_PREVIEW_MODES.contains(&page) {
+        return None;
+    }
+    let permit = gate.begin(
+        DataSyncTaskId::new(),
+        DataSyncExecutionContext {
+            source_connection: "UI 验收源".into(),
+            source_scope: "preview_source".into(),
+            target_connection: "UI 验收目标".into(),
+            target_scope: "preview_target".into(),
+        },
+    )?;
+    let progress = DataSyncProgress {
+        stage: DataSyncStage::Writing,
+        object: "orders".into(),
+        objects_done: 42,
+        objects_total: Some(100),
+        scanned: 42,
+        inserted: 36,
+        skipped: 4,
+        failed: 2,
+        warnings: 1,
+        bytes: 3 * 1024 * 1024,
+        elapsed_ms: 1_240,
+    };
+    gate.update_progress(&permit, progress);
+    match page {
+        "sync-failure" => {
+            let mut summary = DataSyncSummary {
+                objects: 42,
+                scanned: 42,
+                inserted: 36,
+                skipped: 4,
+                failed: 2,
+                bytes: 3 * 1024 * 1024,
+                elapsed_ms: 1_240,
+                ..DataSyncSummary::default()
+            };
+            summary.push_warning("UI 验收模拟：目标结构与源结构存在差异。");
+            gate.finish_failed(
+                &permit,
+                summary,
+                "UI 验收模拟同步失败：目标表 orders 的结构校验未通过，请检查目标结构后重试。",
+            );
+        }
+        "sync-summary" => {
+            let summary = DataSyncSummary {
+                objects: 100,
+                scanned: 100,
+                inserted: 82,
+                skipped: 16,
+                failed: 2,
+                bytes: 12 * 1024 * 1024,
+                elapsed_ms: 4_820,
+                ..DataSyncSummary::default()
+            };
+            gate.finish_completed(&permit, summary);
+        }
+        "sync-progress" | "sync-cancel" => {}
+        _ => return None,
+    }
+    Some(permit)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ramag_app::DataSyncGatePhase;
+
+    #[test]
+    fn sync_preview_modes_seed_only_expected_gate_states() {
+        for mode in SYNC_PREVIEW_MODES {
+            let gate = Arc::new(DataSyncGate::default());
+            let permit = seed_sync_preview(mode, &gate).expect("预览模式应创建受控同步状态");
+            let snapshot = gate.snapshot().expect("预览状态应保持在门禁中");
+            match mode {
+                "sync-progress" | "sync-cancel" => {
+                    assert_eq!(snapshot.phase, DataSyncGatePhase::Running);
+                    assert_eq!(snapshot.progress.objects_total, Some(100));
+                }
+                "sync-failure" => {
+                    assert_eq!(snapshot.phase, DataSyncGatePhase::Failed);
+                    assert!(snapshot.error.is_some());
+                }
+                "sync-summary" => {
+                    assert_eq!(snapshot.phase, DataSyncGatePhase::Completed);
+                    assert!(snapshot.summary.is_some());
+                }
+                _ => unreachable!("未知同步预览模式"),
+            }
+            if snapshot.phase.terminal() {
+                assert!(gate.acknowledge_and_release(&permit));
+            } else {
+                assert!(gate.request_cancel(&permit));
+                assert!(gate.finish_cancelled(&permit, DataSyncSummary::default()));
+                assert!(gate.acknowledge_and_release(&permit));
+            }
+        }
     }
 }
 
@@ -130,6 +245,7 @@ fn main() -> anyhow::Result<()> {
         let _ = host.initialize_all();
     }
     let preview = dbclient::DbclientPreview::new(storage.clone())?;
+    let sync_permit = seed_sync_preview(&page, &preview.gate);
     let ssh = Arc::new(SshService::new(
         Arc::new(OpenSshDriver::new()),
         storage.clone(),
@@ -191,13 +307,20 @@ fn main() -> anyhow::Result<()> {
                         shell.register_tool_view("dbclient", dbclient.into());
                         let target = match page.as_str() {
                             "settings" | "plugin-empty" | "plugin-failure" => NavTarget::Settings,
+                            mode if SYNC_PREVIEW_MODES.contains(&mode) => {
+                                NavTarget::Tool("dbclient".into())
+                            }
                             "home" => NavTarget::Home,
                             _ => NavTarget::Tool(page),
                         };
                         shell.navigate_to(target, window, cx);
                         shell
                     });
-                    let preview_host = cx.new(|_| dbclient::PreviewHost { shell, preview });
+                    let preview_host = cx.new(|_| dbclient::PreviewHost {
+                        shell,
+                        preview,
+                        _sync_permit: sync_permit,
+                    });
                     cx.new(|cx| Root::new(preview_host, window, cx))
                 },
             );
