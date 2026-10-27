@@ -11,6 +11,7 @@
 | 03 | [System Pulse 采集与 UI 吸收](03-system-pulse-adoption-plan.md) | 采集替换、视觉基准、当前 UI 队列和逐工具证据 |
 | 04 | [插件平台路线图](04-plugin-platform-roadmap.md) | 当前静态插件基线、后主线接口设计、试点和迁移顺序 |
 | 27 | [插件 API 设计决策](27-ramag-plugin-api-design-001.md) | `RAMAG-PLUGIN-DESIGN-001` 的接口边界、承载方式和试点进入条件 |
+| 28 | [系统监控插件试点](28-ramag-plugin-pilot-001.md) | `RAMAG-PLUGIN-PILOT-001` 的候选范围、验收条件和回滚边界 |
 | 04 | [System Pulse 差距矩阵](04-system-pulse-gap-matrix.md) | 固定来源对照、系统监控差距和本机验收入口 |
 | 05 | [插件开发指南](05-plugin-development-guide.md) | 内置插件的实现、测试、注册和安全边界 |
 | 06 | [架构说明](06-architecture.md) | 已实现分层、依赖方向和技术决策 |
