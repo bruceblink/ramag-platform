@@ -241,6 +241,7 @@ fn settings_status_notice(
         .child(Icon::new(icon).small().text_color(color))
         .child(
             v_flex()
+                .flex_1()
                 .min_w_0()
                 .gap(px(2.0))
                 .child(
