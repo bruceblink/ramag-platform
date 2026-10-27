@@ -1,6 +1,7 @@
 //! 隔离的原生 UI 验收入口，复用生产 Shell 与工具视图，不读取用户配置或连接。
 //! 用法：cargo run -p ramag-bin --example ui-preview -- settings dark 1024 768
 //! DBClient：dbclient dark 1024 768 large；F6 失败、F8 长错误、F7 恢复。
+//! 插件诊断：plugin-empty 或 plugin-failure；两者只构造本次窗口的受控验收状态。
 //! 仅创建进程专属临时 redb；不连接外部服务，不写系统凭据库，退出时清理临时文件。
 
 #[path = "ui_preview/dbclient.rs"]
@@ -12,11 +13,55 @@ use std::sync::Arc;
 
 use gpui_kit::component::Root;
 use gpui_kit::{App, AppContext as _, Bounds, WindowBounds, WindowOptions, px, size};
-use ramag_app::{SshService, StaticPluginAdapter, StaticPluginHost, ToolRegistry};
-use ramag_domain::{Tool, traits::Storage};
+use ramag_app::{
+    PluginContext, PluginOperationError, SshService, StaticPlugin, StaticPluginAdapter,
+    StaticPluginHost, ToolRegistry,
+};
+use ramag_domain::{PluginDescriptor, PluginId, Tool, ToolMeta, traits::Storage};
 use ramag_infra_ssh::OpenSshDriver;
 use ramag_infra_storage::RedbStorage;
 use ramag_ui::{HomeView, Mode, NavTarget, RamagAssets, SettingsView, Shell};
+
+/// 只用于原生 UI 验收的最小静态工具，不进入生产组合根。
+struct PreviewTool {
+    meta: ToolMeta,
+}
+
+impl PreviewTool {
+    fn new(id: &str, name: &str) -> Arc<Self> {
+        Arc::new(Self {
+            meta: ToolMeta::new(id, name, "ui-preview test tool"),
+        })
+    }
+}
+
+impl Tool for PreviewTool {
+    fn meta(&self) -> &ToolMeta {
+        &self.meta
+    }
+}
+
+/// 只在 `plugin-failure` 模式中返回初始化错误，不进入生产组合根。
+struct FailingPreviewPlugin {
+    descriptor: PluginDescriptor,
+    tool: Arc<PreviewTool>,
+}
+
+impl StaticPlugin for FailingPreviewPlugin {
+    fn descriptor(&self) -> &PluginDescriptor {
+        &self.descriptor
+    }
+
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    fn initialize(&self, _context: &PluginContext) -> Result<(), PluginOperationError> {
+        Err(PluginOperationError::new(
+            "ui-preview 受控初始化失败：用于检查插件错误状态卡。",
+        ))
+    }
+}
 
 /// 参数只选择预览页面、主题和窗口大小；数据始终来自本次新建的临时存储。
 fn main() -> anyhow::Result<()> {
@@ -56,17 +101,34 @@ fn main() -> anyhow::Result<()> {
     let storage: Arc<dyn Storage> = Arc::new(RedbStorage::open_with_key(&path, &[0x42; 32])?);
     let registry = Arc::new(ToolRegistry::new());
     let host = Arc::new(StaticPluginHost::new(registry.clone()));
-    let tools: Vec<Arc<dyn Tool>> = vec![
-        Arc::new(ramag_tool_dbclient::DbClientTool::new()),
-        Arc::new(ramag_tool_api::ApiTool::new()),
-        Arc::new(ramag_tool_container::ContainerTool::new()),
-        Arc::new(ramag_tool_ssh::SshTool::new()),
-        Arc::new(ramag_tool_system::SystemTool::new()),
-    ];
-    for tool in tools {
-        host.register_plugin(Arc::new(StaticPluginAdapter::from_tool(tool)?))?;
+    let plugin_diagnostics_mode = matches!(page.as_str(), "plugin-empty" | "plugin-failure");
+    if !plugin_diagnostics_mode {
+        let tools: Vec<Arc<dyn Tool>> = vec![
+            Arc::new(ramag_tool_dbclient::DbClientTool::new()),
+            Arc::new(ramag_tool_api::ApiTool::new()),
+            Arc::new(ramag_tool_container::ContainerTool::new()),
+            Arc::new(ramag_tool_ssh::SshTool::new()),
+            Arc::new(ramag_tool_system::SystemTool::new()),
+        ];
+        for tool in tools {
+            host.register_plugin(Arc::new(StaticPluginAdapter::from_tool(tool)?))?;
+        }
+        let _ = host.initialize_all();
+    } else if page == "plugin-failure" {
+        host.register_plugin(Arc::new(StaticPluginAdapter::from_tool(PreviewTool::new(
+            "preview-ready",
+            "验收就绪插件",
+        ))?))?;
+        host.register_plugin(Arc::new(FailingPreviewPlugin {
+            descriptor: PluginDescriptor::new(
+                PluginId::new("preview-failure")?,
+                "验收失败插件",
+                "preview-failure",
+            ),
+            tool: PreviewTool::new("preview-failure", "验收失败插件"),
+        }))?;
+        let _ = host.initialize_all();
     }
-    let _ = host.initialize_all();
     let preview = dbclient::DbclientPreview::new(storage.clone())?;
     let ssh = Arc::new(SshService::new(
         Arc::new(OpenSshDriver::new()),
@@ -128,7 +190,7 @@ fn main() -> anyhow::Result<()> {
                         shell.register_tool_view("system", monitor.into());
                         shell.register_tool_view("dbclient", dbclient.into());
                         let target = match page.as_str() {
-                            "settings" => NavTarget::Settings,
+                            "settings" | "plugin-empty" | "plugin-failure" => NavTarget::Settings,
                             "home" => NavTarget::Home,
                             _ => NavTarget::Tool(page),
                         };
