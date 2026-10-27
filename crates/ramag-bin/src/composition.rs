@@ -102,7 +102,7 @@ pub(super) fn build_plugin_host_with_storage(
     register_builtin_tool(&host, Arc::new(SshTool::new()));
     register_builtin_tool(&host, Arc::new(ObjectStorageTool::new()));
     register_builtin_tool(&host, Arc::new(ContainerTool::new()));
-    register_builtin_tool(&host, Arc::new(SystemTool::new()));
+    register_system_tool(&host);
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     register_builtin_tool(&host, Arc::new(ClipboardTool::new()));
     let report = host.initialize_all();
@@ -146,6 +146,43 @@ fn register_builtin_tool(host: &StaticPluginHost, tool: Arc<dyn ramag_domain::To
             "register built-in plugin failed"
         );
     }
+}
+
+/// 注册系统监控第一方试点；保留原工具实例和专用 GPUI 视图，只显式冻结插件描述。
+fn register_system_tool(host: &StaticPluginHost) {
+    let descriptor = match system_plugin_descriptor() {
+        Ok(descriptor) => descriptor,
+        Err(error) => {
+            warn!(
+                operation = "system_plugin_descriptor",
+                error = %error,
+                "build system plugin descriptor failed"
+            );
+            return;
+        }
+    };
+    let plugin = StaticPluginAdapter::new(descriptor, Arc::new(SystemTool::new()));
+    if let Err(error) = host.register_plugin(Arc::new(plugin)) {
+        warn!(
+            operation = "system_plugin_register",
+            error = %error,
+            "register system plugin failed"
+        );
+    }
+}
+
+/// 系统监控试点的稳定身份、入口和数据处理说明；不声明设置或外部能力。
+fn system_plugin_descriptor()
+-> Result<ramag_domain::PluginDescriptor, ramag_domain::PluginRegistrationError> {
+    let id = ramag_domain::PluginId::new(SystemTool::ID)?;
+    Ok(
+        ramag_domain::PluginDescriptor::new(id, "系统监控", SystemTool::ID)
+            .with_description("查看本机性能、磁盘、网络和运行中进程；数据只在本机采集。")
+            .with_entries(vec![
+                ramag_domain::PluginEntryDescriptor::new(SystemTool::ID, "系统监控")
+                    .with_description("本机指标和运行中进程工作台。"),
+            ]),
+    )
 }
 
 pub(super) fn build_redis_service(storage: Arc<dyn Storage>) -> Arc<RedisService> {
@@ -306,4 +343,26 @@ pub(super) fn build_container_registry_service()
     Ok(Arc::new(ramag_app::ContainerRegistryService::new(
         Arc::new(driver),
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::system_plugin_descriptor;
+
+    #[test]
+    fn system_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {
+        let result = system_plugin_descriptor();
+        assert!(result.is_ok(), "系统插件描述应始终有效：{:?}", result.err());
+        let Some(descriptor) = result.ok() else {
+            return;
+        };
+
+        assert_eq!(descriptor.id.as_str(), "system");
+        assert_eq!(descriptor.entry_id, "system");
+        assert_eq!(descriptor.entry_descriptors().len(), 1);
+        assert_eq!(descriptor.entry_descriptors()[0].id, "system");
+        assert_eq!(descriptor.capabilities.len(), 1);
+        assert_eq!(descriptor.capabilities[0].as_str(), "ui.entry");
+        assert!(descriptor.settings.is_empty());
+    }
 }
