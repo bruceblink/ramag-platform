@@ -99,7 +99,7 @@ pub(super) fn build_plugin_host_with_storage(
     register_builtin_tool(&host, Arc::new(KafkaTool::new()));
     register_builtin_tool(&host, Arc::new(MqttTool::new()));
     register_vcs_tool(&host);
-    register_builtin_tool(&host, Arc::new(SshTool::new()));
+    register_ssh_tool(&host);
     register_builtin_tool(&host, Arc::new(ObjectStorageTool::new()));
     register_builtin_tool(&host, Arc::new(ContainerTool::new()));
     register_system_tool(&host);
@@ -211,6 +211,31 @@ fn register_vcs_tool(host: &StaticPluginHost) {
         "vcs_plugin_descriptor",
         "vcs_plugin_register",
     );
+}
+
+/// 注册 SSH 第一方适配；保留远程服务、终端和 SFTP 工作台路径。
+fn register_ssh_tool(host: &StaticPluginHost) {
+    register_first_party_tool(
+        host,
+        Arc::new(SshTool::new()),
+        ssh_plugin_descriptor(),
+        "ssh_plugin_descriptor",
+        "ssh_plugin_register",
+    );
+}
+
+/// SSH 工具的稳定入口和远程连接边界；不声明新的插件能力。
+fn ssh_plugin_descriptor()
+-> Result<ramag_domain::PluginDescriptor, ramag_domain::PluginRegistrationError> {
+    let id = ramag_domain::PluginId::new(SshTool::ID)?;
+    Ok(
+        ramag_domain::PluginDescriptor::new(id, "SSH 管理", SshTool::ID)
+            .with_description("远程终端、文件浏览与安全传输；连接由用户显式管理。")
+            .with_entries(vec![
+                ramag_domain::PluginEntryDescriptor::new(SshTool::ID, "SSH 管理")
+                    .with_description("终端、文件浏览和安全传输工作台。"),
+            ]),
+    )
 }
 
 /// 版本管理的稳定入口和本机仓库边界；不声明网络或凭据能力。
@@ -444,7 +469,26 @@ pub(super) fn build_container_registry_service()
 
 #[cfg(test)]
 mod tests {
-    use super::{api_plugin_descriptor, system_plugin_descriptor, vcs_plugin_descriptor};
+    use super::{
+        api_plugin_descriptor, ssh_plugin_descriptor, system_plugin_descriptor,
+        vcs_plugin_descriptor,
+    };
+
+    #[test]
+    fn ssh_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {
+        let result = ssh_plugin_descriptor();
+        assert!(result.is_ok(), "SSH 插件描述应始终有效：{:?}", result.err());
+        let Some(descriptor) = result.ok() else {
+            return;
+        };
+
+        assert_eq!(descriptor.id.as_str(), "ssh");
+        assert_eq!(descriptor.entry_id, "ssh");
+        assert_eq!(descriptor.entry_descriptors().len(), 1);
+        assert_eq!(descriptor.capabilities.len(), 1);
+        assert_eq!(descriptor.capabilities[0].as_str(), "ui.entry");
+        assert!(descriptor.settings.is_empty());
+    }
 
     #[test]
     fn vcs_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {

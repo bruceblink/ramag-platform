@@ -546,9 +546,9 @@ PostgreSQL 的 100,000 行分页、10,000 行只读查询、1 MiB 以上字段�
 |---|---|---|---|
 | 后主线 1 | `RAMAG-PLUGIN-DESIGN-001` | 盘点现有静态插件宿主，设计稳定的插件接口和平台/插件边界；评估静态内置、WASM、运行时动态加载和进程外插件等承载方式 | 形成经评审的接口规范和决策记录；定义身份、版本、贡献点、生命周期、能力授权、设置与秘密、任务取消、资源上限、诊断、兼容和分发边界；明确哪些承载方式进入实现 |
 | 后主线 2 | `RAMAG-PLUGIN-PILOT-001` | 按接口规范选择一个现有低风险能力作为试点，交付开发样例和完整插件工作流 | 已完成 `ramag-tool-system` 静态适配；注册、入口显示、生命周期、设置、权限、失败隔离和卸载由实现与宿主专项测试覆盖，现有行为、用户数据和工具顺序保持兼容 |
-| 后主线 3 | `RAMAG-PLUGIN-MIGRATE-001` | 按功能批次把保留的现有工具收敛为插件模块，减少业务工具对主程序装配细节的依赖 | API 工作台、剪贴板和版本管理三批已完成；每个批次独立验收和回滚，现有协议、数据、凭据和用户流程不回退，平台核心只保留通用宿主能力 |
+| 后主线 3 | `RAMAG-PLUGIN-MIGRATE-001` | 按功能批次把保留的现有工具收敛为插件模块，减少业务工具对主程序装配细节的依赖 | API 工作台、剪贴板、版本管理和 SSH 四批已完成；每个批次独立验收和回滚，现有协议、数据、凭据和用户流程不回退，平台核心只保留通用宿主能力 |
 
-当前进度（2026-10-28）：`RAMAG-PLUGIN-DESIGN-001` 已形成[插件 API 设计决策初稿](27-ramag-plugin-api-design-001.md)，`RAMAG-PLUGIN-PILOT-001` 已完成[系统监控静态第一方试点](28-ramag-plugin-pilot-001.md)，`RAMAG-PLUGIN-MIGRATE-001` 已完成 [API 工作台第一迁移批次](29-ramag-plugin-migration-001.md)、[剪贴板第二迁移批次](30-ramag-plugin-migration-002.md)和[版本管理第三迁移批次](31-ramag-plugin-migration-003.md)。初稿冻结静态 Rust/GPUI 作为第一阶段承载，保留纯计算 WASM 适配候选，排除当前动态库、外部进程和 WebView；后续继续按批次迁移，不加载外部插件代码。
+当前进度（2026-10-28）：`RAMAG-PLUGIN-DESIGN-001` 已形成[插件 API 设计决策初稿](27-ramag-plugin-api-design-001.md)，`RAMAG-PLUGIN-PILOT-001` 已完成[系统监控静态第一方试点](28-ramag-plugin-pilot-001.md)，`RAMAG-PLUGIN-MIGRATE-001` 已完成 [API 工作台第一迁移批次](29-ramag-plugin-migration-001.md)、[剪贴板第二迁移批次](30-ramag-plugin-migration-002.md)、[版本管理第三迁移批次](31-ramag-plugin-migration-003.md)和 [SSH 第四迁移批次](32-ramag-plugin-migration-004.md)。初稿冻结静态 Rust/GPUI 作为第一阶段承载，保留纯计算 WASM 适配候选，排除当前动态库、外部进程和 WebView；后续继续按批次迁移，不加载外部插件代码。
 
 插件接口冻结后，所有新增业务功能都必须以插件模块交付。平台核心只接受跨插件共用的注册、生命周期、
 安全授权、设置、任务和 UI 宿主能力。插件化不改变 `it-tools-template` 与 Ramag 的独立关系，两个项目
