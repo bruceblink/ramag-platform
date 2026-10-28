@@ -98,7 +98,7 @@ pub(super) fn build_plugin_host_with_storage(
     register_api_tool(&host);
     register_builtin_tool(&host, Arc::new(KafkaTool::new()));
     register_builtin_tool(&host, Arc::new(MqttTool::new()));
-    register_builtin_tool(&host, Arc::new(VcsTool::new()));
+    register_vcs_tool(&host);
     register_builtin_tool(&host, Arc::new(SshTool::new()));
     register_builtin_tool(&host, Arc::new(ObjectStorageTool::new()));
     register_builtin_tool(&host, Arc::new(ContainerTool::new()));
@@ -200,6 +200,31 @@ fn register_api_tool(host: &StaticPluginHost) {
         "api_plugin_descriptor",
         "api_plugin_register",
     );
+}
+
+/// 注册版本管理第一方适配；保留现有 Git 驱动和 GPUI 工作台路径。
+fn register_vcs_tool(host: &StaticPluginHost) {
+    register_first_party_tool(
+        host,
+        Arc::new(VcsTool::new()),
+        vcs_plugin_descriptor(),
+        "vcs_plugin_descriptor",
+        "vcs_plugin_register",
+    );
+}
+
+/// 版本管理的稳定入口和本机仓库边界；不声明网络或凭据能力。
+fn vcs_plugin_descriptor()
+-> Result<ramag_domain::PluginDescriptor, ramag_domain::PluginRegistrationError> {
+    let id = ramag_domain::PluginId::new(VcsTool::ID)?;
+    Ok(
+        ramag_domain::PluginDescriptor::new(id, "版本管理", VcsTool::ID)
+            .with_description("Git 可视化工作台；仓库操作由用户显式触发。")
+            .with_entries(vec![
+                ramag_domain::PluginEntryDescriptor::new(VcsTool::ID, "版本管理")
+                    .with_description("提交、分支、合并和推拉工作台。"),
+            ]),
+    )
 }
 
 /// API 工作台的稳定身份和本地请求边界；不声明新的设置或外部能力。
@@ -419,7 +444,27 @@ pub(super) fn build_container_registry_service()
 
 #[cfg(test)]
 mod tests {
-    use super::{api_plugin_descriptor, system_plugin_descriptor};
+    use super::{api_plugin_descriptor, system_plugin_descriptor, vcs_plugin_descriptor};
+
+    #[test]
+    fn vcs_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {
+        let result = vcs_plugin_descriptor();
+        assert!(
+            result.is_ok(),
+            "版本管理插件描述应始终有效：{:?}",
+            result.err()
+        );
+        let Some(descriptor) = result.ok() else {
+            return;
+        };
+
+        assert_eq!(descriptor.id.as_str(), "vcs");
+        assert_eq!(descriptor.entry_id, "vcs");
+        assert_eq!(descriptor.entry_descriptors().len(), 1);
+        assert_eq!(descriptor.capabilities.len(), 1);
+        assert_eq!(descriptor.capabilities[0].as_str(), "ui.entry");
+        assert!(descriptor.settings.is_empty());
+    }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     use super::clipboard_plugin_descriptor;
