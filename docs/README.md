@@ -13,6 +13,7 @@
 | 27 | [插件 API 设计决策](27-ramag-plugin-api-design-001.md) | `RAMAG-PLUGIN-DESIGN-001` 的接口边界、承载方式和试点进入条件 |
 | 28 | [系统监控插件试点](28-ramag-plugin-pilot-001.md) | `RAMAG-PLUGIN-PILOT-001` 的候选范围、验收条件和回滚边界 |
 | 29 | [API 工作台插件迁移](29-ramag-plugin-migration-001.md) | `RAMAG-PLUGIN-MIGRATE-001` 的第一迁移批次和验收记录 |
+| 30 | [剪贴板插件迁移](30-ramag-plugin-migration-002.md) | `RAMAG-PLUGIN-MIGRATE-002` 的第二迁移批次和验收记录 |
 | 04 | [System Pulse 差距矩阵](04-system-pulse-gap-matrix.md) | 固定来源对照、系统监控差距和本机验收入口 |
 | 05 | [插件开发指南](05-plugin-development-guide.md) | 内置插件的实现、测试、注册和安全边界 |
 | 06 | [架构说明](06-architecture.md) | 已实现分层、依赖方向和技术决策 |

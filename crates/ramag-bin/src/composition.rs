@@ -104,7 +104,7 @@ pub(super) fn build_plugin_host_with_storage(
     register_builtin_tool(&host, Arc::new(ContainerTool::new()));
     register_system_tool(&host);
     #[cfg(any(target_os = "macos", target_os = "windows"))]
-    register_builtin_tool(&host, Arc::new(ClipboardTool::new()));
+    register_clipboard_tool(&host);
     let report = host.initialize_all();
     for failure in report.failures {
         warn!(
@@ -196,6 +196,37 @@ fn api_plugin_descriptor()
             .with_entries(vec![
                 ramag_domain::PluginEntryDescriptor::new(ApiTool::ID, "API 测试")
                     .with_description("HTTP 与 gRPC 请求工作台。"),
+            ]),
+    )
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+/// 注册剪贴板第一方适配；保留本地服务、加密历史和浮层视图路径。
+fn register_clipboard_tool(host: &StaticPluginHost) {
+    let descriptor = match clipboard_plugin_descriptor() {
+        Ok(descriptor) => descriptor,
+        Err(error) => {
+            warn!(operation = "clipboard_plugin_descriptor", error = %error, "build clipboard plugin descriptor failed");
+            return;
+        }
+    };
+    let plugin = StaticPluginAdapter::new(descriptor, Arc::new(ClipboardTool::new()));
+    if let Err(error) = host.register_plugin(Arc::new(plugin)) {
+        warn!(operation = "clipboard_plugin_register", error = %error, "register clipboard plugin failed");
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+/// 剪贴板工具的稳定身份和本地数据处理边界；不声明新增插件设置或外部能力。
+fn clipboard_plugin_descriptor()
+-> Result<ramag_domain::PluginDescriptor, ramag_domain::PluginRegistrationError> {
+    let id = ramag_domain::PluginId::new(ClipboardTool::ID)?;
+    Ok(
+        ramag_domain::PluginDescriptor::new(id, "剪贴板", ClipboardTool::ID)
+            .with_description("剪贴历史和快速粘贴；数据只在本机加密处理。")
+            .with_entries(vec![
+                ramag_domain::PluginEntryDescriptor::new(ClipboardTool::ID, "剪贴板")
+                    .with_description("加密历史、搜索和快速粘贴工作台。"),
             ]),
     )
 }
@@ -377,6 +408,30 @@ pub(super) fn build_container_registry_service()
 #[cfg(test)]
 mod tests {
     use super::{api_plugin_descriptor, system_plugin_descriptor};
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    use super::clipboard_plugin_descriptor;
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[test]
+    fn clipboard_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {
+        let result = clipboard_plugin_descriptor();
+        assert!(
+            result.is_ok(),
+            "剪贴板插件描述应始终有效：{:?}",
+            result.err()
+        );
+        let Some(descriptor) = result.ok() else {
+            return;
+        };
+
+        assert_eq!(descriptor.id.as_str(), "clipboard");
+        assert_eq!(descriptor.entry_id, "clipboard");
+        assert_eq!(descriptor.entry_descriptors().len(), 1);
+        assert_eq!(descriptor.capabilities.len(), 1);
+        assert_eq!(descriptor.capabilities[0].as_str(), "ui.entry");
+        assert!(descriptor.settings.is_empty());
+    }
 
     #[test]
     fn api_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {
