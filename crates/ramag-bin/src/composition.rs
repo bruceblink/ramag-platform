@@ -148,42 +148,58 @@ fn register_builtin_tool(host: &StaticPluginHost, tool: Arc<dyn ramag_domain::To
     }
 }
 
-/// 注册系统监控第一方试点；保留原工具实例和专用 GPUI 视图，只显式冻结插件描述。
-fn register_system_tool(host: &StaticPluginHost) {
-    let descriptor = match system_plugin_descriptor() {
+/// 统一登记显式第一方描述；描述或注册失败只隔离当前工具。
+fn register_first_party_tool(
+    host: &StaticPluginHost,
+    tool: Arc<dyn ramag_domain::Tool>,
+    descriptor: Result<ramag_domain::PluginDescriptor, ramag_domain::PluginRegistrationError>,
+    descriptor_operation: &'static str,
+    register_operation: &'static str,
+) {
+    let tool_id = tool.meta().id.clone();
+    let descriptor = match descriptor {
         Ok(descriptor) => descriptor,
         Err(error) => {
             warn!(
-                operation = "system_plugin_descriptor",
+                operation = descriptor_operation,
+                tool_id = %tool_id,
                 error = %error,
-                "build system plugin descriptor failed"
+                "build first-party plugin descriptor failed"
             );
             return;
         }
     };
-    let plugin = StaticPluginAdapter::new(descriptor, Arc::new(SystemTool::new()));
+    let plugin = StaticPluginAdapter::new(descriptor, tool);
     if let Err(error) = host.register_plugin(Arc::new(plugin)) {
         warn!(
-            operation = "system_plugin_register",
+            operation = register_operation,
+            tool_id = %tool_id,
             error = %error,
-            "register system plugin failed"
+            "register first-party plugin failed"
         );
     }
 }
 
+/// 注册系统监控第一方试点；保留原工具实例和专用 GPUI 视图，只显式冻结插件描述。
+fn register_system_tool(host: &StaticPluginHost) {
+    register_first_party_tool(
+        host,
+        Arc::new(SystemTool::new()),
+        system_plugin_descriptor(),
+        "system_plugin_descriptor",
+        "system_plugin_register",
+    );
+}
+
 /// 注册 API 工作台第一方适配；保留现有服务注入和专用 GPUI 视图路径。
 fn register_api_tool(host: &StaticPluginHost) {
-    let descriptor = match api_plugin_descriptor() {
-        Ok(descriptor) => descriptor,
-        Err(error) => {
-            warn!(operation = "api_plugin_descriptor", error = %error, "build API plugin descriptor failed");
-            return;
-        }
-    };
-    let plugin = StaticPluginAdapter::new(descriptor, Arc::new(ApiTool::new()));
-    if let Err(error) = host.register_plugin(Arc::new(plugin)) {
-        warn!(operation = "api_plugin_register", error = %error, "register API plugin failed");
-    }
+    register_first_party_tool(
+        host,
+        Arc::new(ApiTool::new()),
+        api_plugin_descriptor(),
+        "api_plugin_descriptor",
+        "api_plugin_register",
+    );
 }
 
 /// API 工作台的稳定身份和本地请求边界；不声明新的设置或外部能力。
@@ -203,17 +219,13 @@ fn api_plugin_descriptor()
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 /// 注册剪贴板第一方适配；保留本地服务、加密历史和浮层视图路径。
 fn register_clipboard_tool(host: &StaticPluginHost) {
-    let descriptor = match clipboard_plugin_descriptor() {
-        Ok(descriptor) => descriptor,
-        Err(error) => {
-            warn!(operation = "clipboard_plugin_descriptor", error = %error, "build clipboard plugin descriptor failed");
-            return;
-        }
-    };
-    let plugin = StaticPluginAdapter::new(descriptor, Arc::new(ClipboardTool::new()));
-    if let Err(error) = host.register_plugin(Arc::new(plugin)) {
-        warn!(operation = "clipboard_plugin_register", error = %error, "register clipboard plugin failed");
-    }
+    register_first_party_tool(
+        host,
+        Arc::new(ClipboardTool::new()),
+        clipboard_plugin_descriptor(),
+        "clipboard_plugin_descriptor",
+        "clipboard_plugin_register",
+    );
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
