@@ -95,7 +95,7 @@ pub(super) fn build_plugin_host_with_storage(
         )),
     };
     register_builtin_tool(&host, Arc::new(DbClientTool::new()));
-    register_builtin_tool(&host, Arc::new(ApiTool::new()));
+    register_api_tool(&host);
     register_builtin_tool(&host, Arc::new(KafkaTool::new()));
     register_builtin_tool(&host, Arc::new(MqttTool::new()));
     register_builtin_tool(&host, Arc::new(VcsTool::new()));
@@ -169,6 +169,35 @@ fn register_system_tool(host: &StaticPluginHost) {
             "register system plugin failed"
         );
     }
+}
+
+/// 注册 API 工作台第一方适配；保留现有服务注入和专用 GPUI 视图路径。
+fn register_api_tool(host: &StaticPluginHost) {
+    let descriptor = match api_plugin_descriptor() {
+        Ok(descriptor) => descriptor,
+        Err(error) => {
+            warn!(operation = "api_plugin_descriptor", error = %error, "build API plugin descriptor failed");
+            return;
+        }
+    };
+    let plugin = StaticPluginAdapter::new(descriptor, Arc::new(ApiTool::new()));
+    if let Err(error) = host.register_plugin(Arc::new(plugin)) {
+        warn!(operation = "api_plugin_register", error = %error, "register API plugin failed");
+    }
+}
+
+/// API 工作台的稳定身份和本地请求边界；不声明新的设置或外部能力。
+fn api_plugin_descriptor()
+-> Result<ramag_domain::PluginDescriptor, ramag_domain::PluginRegistrationError> {
+    let id = ramag_domain::PluginId::new(ApiTool::ID)?;
+    Ok(
+        ramag_domain::PluginDescriptor::new(id, "API 测试", ApiTool::ID)
+            .with_description("发送 HTTP 与 gRPC 请求；请求仅在用户触发后执行。")
+            .with_entries(vec![
+                ramag_domain::PluginEntryDescriptor::new(ApiTool::ID, "API 测试")
+                    .with_description("HTTP 与 gRPC 请求工作台。"),
+            ]),
+    )
 }
 
 /// 系统监控试点的稳定身份、入口和数据处理说明；不声明设置或外部能力。
@@ -347,7 +376,23 @@ pub(super) fn build_container_registry_service()
 
 #[cfg(test)]
 mod tests {
-    use super::system_plugin_descriptor;
+    use super::{api_plugin_descriptor, system_plugin_descriptor};
+
+    #[test]
+    fn api_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {
+        let result = api_plugin_descriptor();
+        assert!(result.is_ok(), "API 插件描述应始终有效：{:?}", result.err());
+        let Some(descriptor) = result.ok() else {
+            return;
+        };
+
+        assert_eq!(descriptor.id.as_str(), "api");
+        assert_eq!(descriptor.entry_id, "api");
+        assert_eq!(descriptor.entry_descriptors().len(), 1);
+        assert_eq!(descriptor.capabilities.len(), 1);
+        assert_eq!(descriptor.capabilities[0].as_str(), "ui.entry");
+        assert!(descriptor.settings.is_empty());
+    }
 
     #[test]
     fn system_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {
