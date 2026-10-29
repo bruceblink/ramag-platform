@@ -4,7 +4,7 @@
 >
 > 更新日期：2026-10-29
 >
-> 当前状态：静态插件描述、注册、生命周期、设置、权限、目录、入口和任务预算已有实现。当前 UI 主线的已列切片已完成代码、Headless GPUI 和真实窗口验收。`RAMAG-PLUGIN-DESIGN-001` 已形成[接口设计决策初稿](27-ramag-plugin-api-design-001.md)，`RAMAG-PLUGIN-PILOT-001` 已完成[系统监控静态第一方试点](28-ramag-plugin-pilot-001.md)，`RAMAG-PLUGIN-MIGRATE-001` 已完成[API 工作台第一迁移批次](29-ramag-plugin-migration-001.md)、[剪贴板第二迁移批次](30-ramag-plugin-migration-002.md)、[版本管理第三迁移批次](31-ramag-plugin-migration-003.md)、[SSH 第四迁移批次](32-ramag-plugin-migration-004.md)、[对象存储第五迁移批次](33-ramag-plugin-migration-005.md)、[容器管理第六迁移批次](34-ramag-plugin-migration-006.md)、[数据库客户端第七迁移批次](35-ramag-plugin-migration-007.md)、[Kafka 第八迁移批次](36-ramag-plugin-migration-008.md)和[MQTT 第九迁移批次](37-ramag-plugin-migration-009.md)。后续继续按批次迁移，不加载外部代码。动态加载方式、第三方插件、远程市场、自动更新和外部代码信任尚未决定，不代表当前已有支持。本路线不恢复本机协作和 JSON Path 提取器；桌面端继续使用原生 GPUI，不引入 WebView。
+> 当前状态：静态插件描述、注册、生命周期、设置、权限、目录、入口和任务预算已有实现。当前 UI 主线的已列切片已完成代码、Headless GPUI 和真实窗口验收。`RAMAG-PLUGIN-DESIGN-001` 已形成[接口设计决策初稿](27-ramag-plugin-api-design-001.md)，`RAMAG-PLUGIN-PILOT-001` 已完成[系统监控静态第一方试点](28-ramag-plugin-pilot-001.md)，`RAMAG-PLUGIN-MIGRATE-001` 已完成[API 工作台第一迁移批次](29-ramag-plugin-migration-001.md)、[剪贴板第二迁移批次](30-ramag-plugin-migration-002.md)、[版本管理第三迁移批次](31-ramag-plugin-migration-003.md)、[SSH 第四迁移批次](32-ramag-plugin-migration-004.md)、[对象存储第五迁移批次](33-ramag-plugin-migration-005.md)、[容器管理第六迁移批次](34-ramag-plugin-migration-006.md)、[数据库客户端第七迁移批次](35-ramag-plugin-migration-007.md)、[Kafka 第八迁移批次](36-ramag-plugin-migration-008.md)和[MQTT 第九迁移批次](37-ramag-plugin-migration-009.md)。当前保留工具迁移已完成；后续按平台能力维护和明确新增范围评审，不加载外部代码。动态加载方式、第三方插件、远程市场、自动更新和外部代码信任尚未决定，不代表当前已有支持。本路线不恢复本机协作和 JSON Path 提取器；桌面端继续使用原生 GPUI，不引入 WebView。
 
 ## 术语与命名规则
 
@@ -149,7 +149,7 @@ WASM、动态库和进程外 IPC 是后主线接口设计阶段的承载方式�
 | CATALOG-001：第一方工具目录 | 工具 ID、版本、平台、能力、数据处理和验收状态 | 静态目录基础实现已完成；目录只展示已审查入口，不执行未信任代码 |
 | COLLAB-001：本机优先协作 | 已关闭；功能和 Relay 已移除 | 不再构建、注册或验收 |
 
-执行顺序：先完成 [01-development-plan.md](01-development-plan.md) 当前主线及连接工作区专项验收；接口设计、系统监控第一方试点、API 工作台、剪贴板、版本管理、SSH、对象存储、容器管理、数据库客户端、Kafka 和 MQTT 迁移批次已完成，下一步继续按批次评审现有功能迁移。动态加载、外部包分发和市场只有在接口设计形成安全、兼容决策并获批后才能进入实现。`TOOL-MIG-001`、`DUAL-CORE-001` 和 `COLLAB-001` 仍已关闭；历史章节只用于追溯，不重新排队。
+执行顺序：先完成 [01-development-plan.md](01-development-plan.md) 当前主线及连接工作区专项验收；接口设计、系统监控第一方试点、API 工作台、剪贴板、版本管理、SSH、对象存储、容器管理、数据库客户端、Kafka 和 MQTT 迁移批次已完成，下一步按平台能力维护和明确新增范围评审。动态加载、外部包分发和市场只有在接口设计形成安全、兼容决策并获批后才能进入实现。`TOOL-MIG-001`、`DUAL-CORE-001` 和 `COLLAB-001` 仍已关闭；历史章节只用于追溯，不重新排队。
 
 以下 `TOOL-MIG-001`、`DUAL-CORE-001` 和 `COLLAB-001` 章节是历史记录。它们描述移除前的
 实现和验收，不代表当前代码、当前构建或后续开发范围。
