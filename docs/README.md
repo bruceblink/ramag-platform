@@ -20,6 +20,7 @@
 | 34 | [容器管理插件迁移](34-ramag-plugin-migration-006.md) | `RAMAG-PLUGIN-MIGRATE-006` 的第六迁移批次和验收记录 |
 | 35 | [数据库客户端插件迁移](35-ramag-plugin-migration-007.md) | `RAMAG-PLUGIN-MIGRATE-007` 的第七迁移批次和验收记录 |
 | 36 | [Kafka 插件迁移](36-ramag-plugin-migration-008.md) | `RAMAG-PLUGIN-MIGRATE-008` 的第八迁移批次和验收记录 |
+| 37 | [MQTT 插件迁移](37-ramag-plugin-migration-009.md) | `RAMAG-PLUGIN-MIGRATE-009` 的第九迁移批次和验收记录 |
 | 04 | [System Pulse 差距矩阵](04-system-pulse-gap-matrix.md) | 固定来源对照、系统监控差距和本机验收入口 |
 | 05 | [插件开发指南](05-plugin-development-guide.md) | 内置插件的实现、测试、注册和安全边界 |
 | 06 | [架构说明](06-architecture.md) | 已实现分层、依赖方向和技术决策 |

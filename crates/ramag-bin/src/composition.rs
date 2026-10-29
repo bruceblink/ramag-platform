@@ -100,7 +100,7 @@ pub(super) fn build_plugin_host_with_storage(
     plugin_descriptors::register_dbclient_tool(&host);
     register_api_tool(&host);
     plugin_descriptors::register_kafka_tool(&host);
-    register_builtin_tool(&host, Arc::new(MqttTool::new()));
+    plugin_descriptors::register_mqtt_tool(&host);
     register_vcs_tool(&host);
     register_ssh_tool(&host);
     register_object_storage_tool(&host);
@@ -124,31 +124,6 @@ pub(super) fn build_plugin_host_with_storage(
 #[cfg(test)]
 pub(super) fn build_tool_registry() -> Arc<ToolRegistry> {
     build_plugin_host_with_storage(None).registry()
-}
-
-/// 通过静态插件适配器注册内置工具；单个描述错误不会阻塞其余工具装配。
-fn register_builtin_tool(host: &StaticPluginHost, tool: Arc<dyn ramag_domain::Tool>) {
-    let tool_id = tool.meta().id.clone();
-    let plugin = match StaticPluginAdapter::from_tool(tool) {
-        Ok(plugin) => plugin,
-        Err(error) => {
-            warn!(
-                operation = "builtin_plugin_descriptor",
-                tool_id = %tool_id,
-                error = %error,
-                "build built-in plugin descriptor failed"
-            );
-            return;
-        }
-    };
-    if let Err(error) = host.register_plugin(Arc::new(plugin)) {
-        warn!(
-            operation = "builtin_plugin_register",
-            tool_id = %tool_id,
-            error = %error,
-            "register built-in plugin failed"
-        );
-    }
 }
 
 /// 统一登记显式第一方描述；描述或注册失败只隔离当前工具。

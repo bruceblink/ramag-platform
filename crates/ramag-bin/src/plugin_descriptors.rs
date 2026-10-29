@@ -6,7 +6,33 @@ use super::{StaticPluginHost, register_first_party_tool};
 use ramag_tool_container::ContainerTool;
 use ramag_tool_dbclient::DbClientTool;
 use ramag_tool_kafka::KafkaTool;
+use ramag_tool_mqtt::MqttTool;
 use ramag_tool_object_storage::ObjectStorageTool;
+
+/// 注册 MQTT 第一方适配；保留连接、消息和 Mosquitto 管理工作台路径。
+pub(super) fn register_mqtt_tool(host: &StaticPluginHost) {
+    register_first_party_tool(
+        host,
+        Arc::new(MqttTool::new()),
+        mqtt_plugin_descriptor(),
+        "mqtt_plugin_descriptor",
+        "mqtt_plugin_register",
+    );
+}
+
+/// MQTT 工具的稳定身份和消息管理边界；连接和管理操作仍由现有服务控制。
+pub(super) fn mqtt_plugin_descriptor()
+-> Result<ramag_domain::PluginDescriptor, ramag_domain::PluginRegistrationError> {
+    let id = ramag_domain::PluginId::new(MqttTool::ID)?;
+    Ok(
+        ramag_domain::PluginDescriptor::new(id, "MQTT", MqttTool::ID)
+            .with_description("连接 Broker、发布订阅消息并管理 Mosquitto；请求由用户显式触发。")
+            .with_entries(vec![
+                ramag_domain::PluginEntryDescriptor::new(MqttTool::ID, "MQTT")
+                    .with_description("MQTT 连接、消息和 Broker 管理工作台。"),
+            ]),
+    )
+}
 
 /// 注册 Kafka 第一方适配；保留集群、Topic、消息和管理工作台路径。
 pub(super) fn register_kafka_tool(host: &StaticPluginHost) {
@@ -94,8 +120,28 @@ pub(super) fn object_storage_plugin_descriptor()
 mod tests {
     use super::{
         container_plugin_descriptor, dbclient_plugin_descriptor, kafka_plugin_descriptor,
-        object_storage_plugin_descriptor,
+        mqtt_plugin_descriptor, object_storage_plugin_descriptor,
     };
+
+    #[test]
+    fn mqtt_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {
+        let result = mqtt_plugin_descriptor();
+        assert!(
+            result.is_ok(),
+            "MQTT 插件描述应始终有效：{:?}",
+            result.err()
+        );
+        let Some(descriptor) = result.ok() else {
+            return;
+        };
+
+        assert_eq!(descriptor.id.as_str(), "mqtt");
+        assert_eq!(descriptor.entry_id, "mqtt");
+        assert_eq!(descriptor.entry_descriptors().len(), 1);
+        assert_eq!(descriptor.capabilities.len(), 1);
+        assert_eq!(descriptor.capabilities[0].as_str(), "ui.entry");
+        assert!(descriptor.settings.is_empty());
+    }
 
     #[test]
     fn kafka_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {
