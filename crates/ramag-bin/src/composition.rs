@@ -99,7 +99,7 @@ pub(super) fn build_plugin_host_with_storage(
     };
     plugin_descriptors::register_dbclient_tool(&host);
     register_api_tool(&host);
-    register_builtin_tool(&host, Arc::new(KafkaTool::new()));
+    plugin_descriptors::register_kafka_tool(&host);
     register_builtin_tool(&host, Arc::new(MqttTool::new()));
     register_vcs_tool(&host);
     register_ssh_tool(&host);

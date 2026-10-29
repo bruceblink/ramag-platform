@@ -4,7 +4,7 @@
 >
 > 更新日期：2026-10-29
 >
-> 当前状态：静态插件描述、注册、生命周期、设置、权限、目录、入口和任务预算已有实现。当前 UI 主线的已列切片已完成代码、Headless GPUI 和真实窗口验收。`RAMAG-PLUGIN-DESIGN-001` 已形成[接口设计决策初稿](27-ramag-plugin-api-design-001.md)，`RAMAG-PLUGIN-PILOT-001` 已完成[系统监控静态第一方试点](28-ramag-plugin-pilot-001.md)，`RAMAG-PLUGIN-MIGRATE-001` 已完成[API 工作台第一迁移批次](29-ramag-plugin-migration-001.md)、[剪贴板第二迁移批次](30-ramag-plugin-migration-002.md)、[版本管理第三迁移批次](31-ramag-plugin-migration-003.md)、[SSH 第四迁移批次](32-ramag-plugin-migration-004.md)、[对象存储第五迁移批次](33-ramag-plugin-migration-005.md)、[容器管理第六迁移批次](34-ramag-plugin-migration-006.md)和[数据库客户端第七迁移批次](35-ramag-plugin-migration-007.md)。后续继续按批次迁移，不加载外部代码。动态加载方式、第三方插件、远程市场、自动更新和外部代码信任尚未决定，不代表当前已有支持。本路线不恢复本机协作和 JSON Path 提取器；桌面端继续使用原生 GPUI，不引入 WebView。
+> 当前状态：静态插件描述、注册、生命周期、设置、权限、目录、入口和任务预算已有实现。当前 UI 主线的已列切片已完成代码、Headless GPUI 和真实窗口验收。`RAMAG-PLUGIN-DESIGN-001` 已形成[接口设计决策初稿](27-ramag-plugin-api-design-001.md)，`RAMAG-PLUGIN-PILOT-001` 已完成[系统监控静态第一方试点](28-ramag-plugin-pilot-001.md)，`RAMAG-PLUGIN-MIGRATE-001` 已完成[API 工作台第一迁移批次](29-ramag-plugin-migration-001.md)、[剪贴板第二迁移批次](30-ramag-plugin-migration-002.md)、[版本管理第三迁移批次](31-ramag-plugin-migration-003.md)、[SSH 第四迁移批次](32-ramag-plugin-migration-004.md)、[对象存储第五迁移批次](33-ramag-plugin-migration-005.md)、[容器管理第六迁移批次](34-ramag-plugin-migration-006.md)、[数据库客户端第七迁移批次](35-ramag-plugin-migration-007.md)和[Kafka 第八迁移批次](36-ramag-plugin-migration-008.md)。后续继续按批次迁移，不加载外部代码。动态加载方式、第三方插件、远程市场、自动更新和外部代码信任尚未决定，不代表当前已有支持。本路线不恢复本机协作和 JSON Path 提取器；桌面端继续使用原生 GPUI，不引入 WebView。
 
 ## 术语与命名规则
 
@@ -140,7 +140,7 @@ WASM、动态库和进程外 IPC 是后主线接口设计阶段的承载方式�
 | P0-D：平台 UI 诊断 | `ramag-ui` 插件状态、入口和错误展示 | 已完成；Activity Bar、设置页和错误状态在 360/1024/1440 headless 窗口可见且不越界，现有主题与导航测试通过 |
 | `RAMAG-PLUGIN-DESIGN-001`：接口设计 | 插件身份、版本、贡献点、宿主能力、权限、生命周期和加载方式决策 | 静态 Rust/GPUI 第一阶段初稿已形成，见 [插件 API 设计决策](27-ramag-plugin-api-design-001.md)；动态库、WASM 桌面运行时和进程外方案仍未进入实现 |
 | `RAMAG-PLUGIN-PILOT-001`：第一方试点 | 一个现有低风险工具和开发样例，不增加新的业务功能 | 已完成 `ramag-tool-system` 静态适配；注册、入口、目录、生命周期、权限、失败隔离、卸载和平台测试通过，原有用户流程和数据不变，见 [试点记录](28-ramag-plugin-pilot-001.md) |
-| `RAMAG-PLUGIN-MIGRATE-001`：现有功能迁移 | 按批次调整保留的 `ramag-tool-*` 模块和主程序组合边界 | API 工作台、剪贴板、版本管理、SSH、对象存储、容器管理和数据库客户端七批已完成，记录见 [API 迁移记录](29-ramag-plugin-migration-001.md)、[剪贴板迁移记录](30-ramag-plugin-migration-002.md)、[版本管理迁移记录](31-ramag-plugin-migration-003.md)、[SSH 迁移记录](32-ramag-plugin-migration-004.md)、[对象存储迁移记录](33-ramag-plugin-migration-005.md)、[容器管理迁移记录](34-ramag-plugin-migration-006.md) 和 [数据库客户端迁移记录](35-ramag-plugin-migration-007.md)；后续批次独立验证、提交和回滚 |
+| `RAMAG-PLUGIN-MIGRATE-001`：现有功能迁移 | 按批次调整保留的 `ramag-tool-*` 模块和主程序组合边界 | API 工作台、剪贴板、版本管理、SSH、对象存储、容器管理、数据库客户端和 Kafka 八批已完成，记录见 [API 迁移记录](29-ramag-plugin-migration-001.md)、[剪贴板迁移记录](30-ramag-plugin-migration-002.md)、[版本管理迁移记录](31-ramag-plugin-migration-003.md)、[SSH 迁移记录](32-ramag-plugin-migration-004.md)、[对象存储迁移记录](33-ramag-plugin-migration-005.md)、[容器管理迁移记录](34-ramag-plugin-migration-006.md)、[数据库客户端迁移记录](35-ramag-plugin-migration-007.md) 和 [Kafka 迁移记录](36-ramag-plugin-migration-008.md)；后续批次独立验证、提交和回滚 |
 | P4-C：外部插件分发与信任 | 包格式、来源、签名、安装、升级和回滚 | 当前未排期；只有插件加载模型需要外部代码且安全设计获批后才启动 |
 | PLAT-004：多入口原生插件 | 多入口描述、标准工具入口模型和 GPUI 共享渲染器 | 基础实现已完成；后续迁移应保持入口冲突、非法描述和资源上限校验，不引入 WebView |
 | PLAT-005：按需激活与资源预算 | 入口登记、视图延迟创建、任务取消和内存/结果上限 | 静态插件基础能力已完成；后续迁移继续验证未打开入口不建视图、任务按生命周期停止且错误有界 |
@@ -149,7 +149,7 @@ WASM、动态库和进程外 IPC 是后主线接口设计阶段的承载方式�
 | CATALOG-001：第一方工具目录 | 工具 ID、版本、平台、能力、数据处理和验收状态 | 静态目录基础实现已完成；目录只展示已审查入口，不执行未信任代码 |
 | COLLAB-001：本机优先协作 | 已关闭；功能和 Relay 已移除 | 不再构建、注册或验收 |
 
-执行顺序：先完成 [01-development-plan.md](01-development-plan.md) 当前主线及连接工作区专项验收；接口设计、系统监控第一方试点、API 工作台、剪贴板、版本管理、SSH、对象存储、容器管理和数据库客户端迁移批次已完成，下一步继续按批次评审现有功能迁移。动态加载、外部包分发和市场只有在接口设计形成安全、兼容决策并获批后才能进入实现。`TOOL-MIG-001`、`DUAL-CORE-001` 和 `COLLAB-001` 仍已关闭；历史章节只用于追溯，不重新排队。
+执行顺序：先完成 [01-development-plan.md](01-development-plan.md) 当前主线及连接工作区专项验收；接口设计、系统监控第一方试点、API 工作台、剪贴板、版本管理、SSH、对象存储、容器管理、数据库客户端和 Kafka 迁移批次已完成，下一步继续按批次评审现有功能迁移。动态加载、外部包分发和市场只有在接口设计形成安全、兼容决策并获批后才能进入实现。`TOOL-MIG-001`、`DUAL-CORE-001` 和 `COLLAB-001` 仍已关闭；历史章节只用于追溯，不重新排队。
 
 以下 `TOOL-MIG-001`、`DUAL-CORE-001` 和 `COLLAB-001` 章节是历史记录。它们描述移除前的
 实现和验收，不代表当前代码、当前构建或后续开发范围。
