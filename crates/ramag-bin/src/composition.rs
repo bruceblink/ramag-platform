@@ -97,7 +97,7 @@ pub(super) fn build_plugin_host_with_storage(
             permission_policy,
         )),
     };
-    register_builtin_tool(&host, Arc::new(DbClientTool::new()));
+    plugin_descriptors::register_dbclient_tool(&host);
     register_api_tool(&host);
     register_builtin_tool(&host, Arc::new(KafkaTool::new()));
     register_builtin_tool(&host, Arc::new(MqttTool::new()));
