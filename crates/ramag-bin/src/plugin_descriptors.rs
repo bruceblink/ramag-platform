@@ -1,6 +1,21 @@
 //! First-party plugin descriptors kept outside the application composition root.
 
+use ramag_tool_container::ContainerTool;
 use ramag_tool_object_storage::ObjectStorageTool;
+
+/// 容器管理工具的稳定身份和资源操作边界；连接和写入操作仍由现有服务控制。
+pub(super) fn container_plugin_descriptor()
+-> Result<ramag_domain::PluginDescriptor, ramag_domain::PluginRegistrationError> {
+    let id = ramag_domain::PluginId::new(ContainerTool::ID)?;
+    Ok(
+        ramag_domain::PluginDescriptor::new(id, "容器管理", ContainerTool::ID)
+            .with_description("查看 Docker 与 Kubernetes 资源；连接和资源操作由用户显式触发。")
+            .with_entries(vec![
+                ramag_domain::PluginEntryDescriptor::new(ContainerTool::ID, "容器管理")
+                    .with_description("容器、镜像、网络和存储工作台。"),
+            ]),
+    )
+}
 
 /// 对象存储工具的稳定身份和云存储边界；连接和对象操作仍由现有服务控制。
 pub(super) fn object_storage_plugin_descriptor()
@@ -18,7 +33,23 @@ pub(super) fn object_storage_plugin_descriptor()
 
 #[cfg(test)]
 mod tests {
-    use super::object_storage_plugin_descriptor;
+    use super::{container_plugin_descriptor, object_storage_plugin_descriptor};
+
+    #[test]
+    fn container_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {
+        let result = container_plugin_descriptor();
+        assert!(result.is_ok(), "容器插件描述应始终有效：{:?}", result.err());
+        let Some(descriptor) = result.ok() else {
+            return;
+        };
+
+        assert_eq!(descriptor.id.as_str(), "container");
+        assert_eq!(descriptor.entry_id, "container");
+        assert_eq!(descriptor.entry_descriptors().len(), 1);
+        assert_eq!(descriptor.capabilities.len(), 1);
+        assert_eq!(descriptor.capabilities[0].as_str(), "ui.entry");
+        assert!(descriptor.settings.is_empty());
+    }
 
     #[test]
     fn object_storage_plugin_descriptor_preserves_stable_entry_and_minimal_capability() {

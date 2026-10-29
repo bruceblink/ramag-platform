@@ -104,7 +104,7 @@ pub(super) fn build_plugin_host_with_storage(
     register_vcs_tool(&host);
     register_ssh_tool(&host);
     register_object_storage_tool(&host);
-    register_builtin_tool(&host, Arc::new(ContainerTool::new()));
+    register_container_tool(&host);
     register_system_tool(&host);
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     register_clipboard_tool(&host);
@@ -235,6 +235,17 @@ fn register_object_storage_tool(host: &StaticPluginHost) {
         plugin_descriptors::object_storage_plugin_descriptor(),
         "object_storage_plugin_descriptor",
         "object_storage_plugin_register",
+    );
+}
+
+/// 注册容器管理第一方适配；保留 Docker、Kubernetes 和镜像仓库工作台路径。
+fn register_container_tool(host: &StaticPluginHost) {
+    register_first_party_tool(
+        host,
+        Arc::new(ContainerTool::new()),
+        plugin_descriptors::container_plugin_descriptor(),
+        "container_plugin_descriptor",
+        "container_plugin_register",
     );
 }
 
