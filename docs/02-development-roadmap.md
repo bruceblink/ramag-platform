@@ -1,7 +1,7 @@
 # Ramag Platform 主线路线：维护收尾与插件化
 
 > 状态：现行路线
-> 更新日期：2026-10-28
+> 更新日期：2026-10-29
 > 执行入口：[01-development-plan.md](01-development-plan.md)
 > 插件接口设计：[04-plugin-platform-roadmap.md](04-plugin-platform-roadmap.md)
 
@@ -49,9 +49,9 @@ Ramag 保留当前原生工具和基础设施，移除本机协作与 JSON Path 
 |---|---|---|---|
 | 后主线 1 | `RAMAG-PLUGIN-DESIGN-001` | 盘点静态插件基线，设计插件接口、贡献点和平台/插件责任边界；比较静态内置、WASM、运行时动态加载和进程外插件等承载方式 | 形成版本兼容、权限、生命周期、设置与秘密、任务取消、资源上限、诊断和分发决策；给出接口规范与开发样例 |
 | 后主线 2 | `RAMAG-PLUGIN-PILOT-001` | 从现有工具中选择一个低风险能力，按已评审接口完成试点插件和开发流程 | 已完成 `ramag-tool-system` 静态适配；注册、入口显示、生命周期、设置、授权、错误恢复和卸载由实现与宿主专项测试覆盖；保留原有用户行为和数据 |
-| 后主线 3 | `RAMAG-PLUGIN-MIGRATE-001` | 分批将保留的工具收敛为插件模块，减少业务功能对主程序组合根和宿主内部结构的依赖 | API 工作台和剪贴板两批已完成；每批独立验证、交付和回滚，既有协议、数据、凭据和工具顺序保持兼容 |
+| 后主线 3 | `RAMAG-PLUGIN-MIGRATE-001` | 分批将保留的工具收敛为插件模块，减少业务功能对主程序组合根和宿主内部结构的依赖 | API 工作台、剪贴板、版本管理、SSH 和对象存储五批已完成；每批独立验证、交付和回滚，既有协议、数据、凭据和工具顺序保持兼容 |
 
-当前进度（2026-10-28）：`RAMAG-PLUGIN-DESIGN-001` 已形成[插件 API 设计决策初稿](27-ramag-plugin-api-design-001.md)，`RAMAG-PLUGIN-PILOT-001` 已完成[系统监控静态第一方试点](28-ramag-plugin-pilot-001.md)，`RAMAG-PLUGIN-MIGRATE-001` 已完成[API 工作台第一迁移批次](29-ramag-plugin-migration-001.md)和[剪贴板第二迁移批次](30-ramag-plugin-migration-002.md)。下一阶段继续按批次迁移；不加载外部插件代码。
+当前进度（2026-10-29）：`RAMAG-PLUGIN-DESIGN-001` 已形成[插件 API 设计决策初稿](27-ramag-plugin-api-design-001.md)，`RAMAG-PLUGIN-PILOT-001` 已完成[系统监控静态第一方试点](28-ramag-plugin-pilot-001.md)，`RAMAG-PLUGIN-MIGRATE-001` 已完成[API 工作台第一迁移批次](29-ramag-plugin-migration-001.md)、[剪贴板第二迁移批次](30-ramag-plugin-migration-002.md)、[版本管理第三迁移批次](31-ramag-plugin-migration-003.md)、[SSH 第四迁移批次](32-ramag-plugin-migration-004.md)和[对象存储第五迁移批次](33-ramag-plugin-migration-005.md)。下一阶段继续按批次迁移；不加载外部插件代码。
 
 插件接口冻结后，所有新增业务功能都以插件模块交付。平台核心只负责跨插件共用的窗口、注册、生命周期、
 授权、设置、任务和 UI 宿主服务。业务工具不得直接加入核心 crate 或绕过插件 API 接入 Shell。

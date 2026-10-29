@@ -2,6 +2,9 @@
 
 use super::*;
 
+#[path = "plugin_descriptors.rs"]
+mod plugin_descriptors;
+
 /// Reqwest 选择 no-provider 模式后，进程组合根负责在构建任何客户端前安装 Provider。
 pub(super) fn install_tls_crypto_provider() -> anyhow::Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
@@ -100,7 +103,7 @@ pub(super) fn build_plugin_host_with_storage(
     register_builtin_tool(&host, Arc::new(MqttTool::new()));
     register_vcs_tool(&host);
     register_ssh_tool(&host);
-    register_builtin_tool(&host, Arc::new(ObjectStorageTool::new()));
+    register_object_storage_tool(&host);
     register_builtin_tool(&host, Arc::new(ContainerTool::new()));
     register_system_tool(&host);
     #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -221,6 +224,17 @@ fn register_ssh_tool(host: &StaticPluginHost) {
         ssh_plugin_descriptor(),
         "ssh_plugin_descriptor",
         "ssh_plugin_register",
+    );
+}
+
+/// 注册对象存储第一方适配；保留账号、对象列表和传输工作台路径。
+fn register_object_storage_tool(host: &StaticPluginHost) {
+    register_first_party_tool(
+        host,
+        Arc::new(ObjectStorageTool::new()),
+        plugin_descriptors::object_storage_plugin_descriptor(),
+        "object_storage_plugin_descriptor",
+        "object_storage_plugin_register",
     );
 }
 
