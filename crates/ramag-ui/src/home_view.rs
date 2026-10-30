@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName,
@@ -18,6 +17,7 @@ use gpui_kit::{
 use ramag_app::ToolRegistry;
 
 use crate::GOLDEN_RATIO;
+use crate::REORDER_TRANSITION_DURATION;
 use crate::activity_bar::ActivityBar;
 use crate::tool_layout::{
     DRAGGED_ITEM_OPACITY, HomeDropLayout, ToolDrag, ToolDragGlobal, ToolDragPreview,
@@ -307,17 +307,11 @@ impl Render for HomeView {
             let card = if from_x == px(0.0) && from_y == px(0.0) {
                 card.into_any_element()
             } else {
-                EffectTransition::new(Duration::from_millis(360))
+                EffectTransition::new(REORDER_TRANSITION_DURATION)
                     .ease(ease_in_out_cubic)
                     .slide_x(from_x, px(0.0))
                     .slide_y(from_y, px(0.0))
-                    .apply(
-                        card,
-                        format!(
-                            "home-tool-reorder-{id}-{}-{layout_revision}",
-                            drag_state.revision
-                        ),
-                    )
+                    .apply(card, format!("home-tool-reorder-{id}-{layout_revision}"))
                     .into_any_element()
             };
             cards.push(card);

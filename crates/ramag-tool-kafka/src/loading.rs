@@ -1,17 +1,16 @@
-use std::time::Duration;
-
 use gpui_kit::component::{
     Theme, animation::EffectTransition, animation::ease_out_cubic, h_flex, skeleton::Skeleton,
     v_flex,
 };
 use gpui_kit::{AnyElement, ElementId, IntoElement, ParentElement, Styled, div, px};
+use ramag_ui::LOADING_TRANSITION_DURATION;
 
 /// 让骨架和新数据以轻微位移、淡入进入，避免空快照切换时整块跳动。
 pub(super) fn loading_transition<E>(element: E, id: impl Into<ElementId>) -> AnyElement
 where
     E: IntoElement + Styled + 'static,
 {
-    EffectTransition::new(Duration::from_millis(220))
+    EffectTransition::new(LOADING_TRANSITION_DURATION)
         .ease(ease_out_cubic)
         .slide_y(px(3.0), px(0.0))
         .fade(0.55, 1.0)

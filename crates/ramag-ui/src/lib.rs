@@ -15,6 +15,7 @@ mod filter_field;
 pub mod home_view;
 pub mod icons;
 pub mod markdown;
+pub mod motion;
 pub mod mutation_gate;
 pub mod platform;
 mod plugin_diagnostics;
@@ -74,6 +75,7 @@ pub use editor_workspace::{
 pub use filter_field::filter_field;
 pub use home_view::{HomeEvent, HomeView};
 pub use markdown::{markdown_preview, markdown_preview_at_path};
+pub use motion::{LOADING_TRANSITION_DURATION, REORDER_TRANSITION_DURATION};
 pub use mutation_gate::{AsyncMutationGate, MutationToken};
 pub use pointer_menu::PointerDropdownMenu;
 pub use result_memory::{

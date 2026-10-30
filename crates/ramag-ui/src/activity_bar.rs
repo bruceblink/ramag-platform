@@ -1,6 +1,3 @@
-use std::sync::Arc;
-use std::time::Duration;
-
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName,
     animation::{EffectTransition, ease_in_out_cubic},
@@ -17,7 +14,9 @@ use gpui_kit::{
 };
 use ramag_app::{StaticPluginHost, ToolRegistry, UpdateCheckResult};
 use ramag_domain::ToolMeta;
+use std::sync::Arc;
 
+use crate::REORDER_TRANSITION_DURATION;
 use crate::icons;
 use crate::tool_layout::{
     ACTIVITY_ITEM_GAP, DRAGGED_ITEM_OPACITY, ToolDrag, ToolDragGlobal, ToolDragPreview,
@@ -234,6 +233,7 @@ impl Render for ActivityBar {
             tool_drag_display_slots(&tool_order, ToolDragSurface::ActivityBar, &drag_state);
         let previous_slots =
             std::mem::replace(&mut self.last_rendered_slots, display_slots.clone());
+        let layout_revision = cx.read_global::<ToolLayoutGlobal, _>(|state, _| state.revision);
 
         let accent = theme.accent;
         let target = drag_state
@@ -300,12 +300,12 @@ impl Render for ActivityBar {
             let item = if offset == px(0.0) {
                 item.into_any_element()
             } else {
-                EffectTransition::new(Duration::from_millis(360))
+                EffectTransition::new(REORDER_TRANSITION_DURATION)
                     .ease(ease_in_out_cubic)
                     .slide_y(offset, px(0.0))
                     .apply(
                         item,
-                        format!("activity-tool-reorder-{id}-{}", drag_state.revision),
+                        format!("activity-tool-reorder-{id}-{layout_revision}"),
                     )
                     .into_any_element()
             };

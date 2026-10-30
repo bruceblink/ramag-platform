@@ -536,6 +536,21 @@ PostgreSQL 的 100,000 行分页、10,000 行只读查询、1 MiB 以上字段�
 
 **验收记录（2026-10-27，完成）：**Headless GPUI 在亮色和暗色主题及 `360/1024/1440` 宽度下检查 Pulse 状态通知中的图标、文字和边界；状态判定、采样和插件生命周期保持原有路径。Computer Use 在当前构建的隔离窗口 `1626x927` 深色主题下打开“设置 → 插件”，运行摘要显示 `10` 个插件、`10` 个已就绪、`0` 个待处理；第一方插件列表显示状态图标和“已审核”文字，列表保持可滚动。检查没有修改设置、插件或凭据。
 
+### RAMAG-UI-001AB：过渡动画流畅度收口
+
+**范围：**在共享 `ramag-ui` 中集中管理重排和加载过渡的时长，并让首页卡片、Activity Bar 工具项和 Kafka 加载内容使用同一组动态参数。保留正常动画，不读取或修改操作系统动画偏好。重排动画继续使用位置缓动，加载内容继续使用轻微位移和淡入；稳定的工具布局版本只在实际顺序变化时更新动画标识，拖拽指示线和重复渲染不会反复重启动画。
+
+**验收条件：**
+
+- 重排过渡使用 `180ms`，加载过渡使用 `160ms`；两者均位于 `120..180ms` 的动态预算内。
+- 首页和 Activity Bar 的动画标识只绑定工具布局版本；拖拽目标重复事件、选择变化和加载刷新不会重新启动已完成的重排过渡。
+- 过渡期间工具入口、卡片、焦点和拖拽命中区域保持原有几何位置规则；动画结束后不产生额外的空闲重绘。
+- 真实 Windows 窗口检查首页拖拽排序的连续反馈；Kafka 预览不在当前隔离 `ui-preview` 工具清单中，因此使用其加载布局 headless 测试覆盖，截图或启动成功不替代原生交互证据。
+
+**验证命令：**Windows 本机执行 `cargo fmt --all -- --check`、`cargo test --locked -p ramag-ui --lib -- --test-threads=1`、`cargo test --locked -p ramag-tool-kafka --lib -- --test-threads=1`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo build --locked -p ramag-bin` 和 `git diff --check`；Linux 本机只执行 WSL `cargo build --locked -p ramag-bin --example ui-preview`；Linux/macOS 测试由 `.github/workflows/desktop-ci.yml` 的 `linux-quality`、`macos-quality` jobs 执行。当前切片没有服务集成测试；后续集成测试统一使用 WSL `Ubuntu-24.04` 的 Docker Engine。
+
+**回滚边界：**只回滚共享动态参数、首页/Activity Bar/Kafka 过渡调用、对应测试和本节记录；不回滚工具注册、拖拽顺序、加载状态、业务数据或系统设置。
+
 ### 当前主线完成后的插件平台化路线
 
 “当前主线完成”指当前执行队列和已启动的专项计划均满足各自验收条件。后续新出现的维护问题
