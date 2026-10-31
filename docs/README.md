@@ -15,17 +15,9 @@
 | 03 | [开发入门指南](03-development-guide.md) | 环境、代码阅读、命令、本地服务与文档维护 |
 | 04 | [UI 验收标准](04-ui-acceptance-standard.md) | UI 条件、数据库矩阵、性能与证据要求 |
 | 05 | [静态插件接口与开发手册](05-plugin-development-guide.md) | 接口、生命周期、权限、设置、任务与测试 |
-| 06 | [双项目能力矩阵](06-project-capability-matrix.md) | Ramag 与 `it-tools-template` 的独立边界 |
-| 07 | [WSL Docker 环境](07-wsl-docker-environment.md) | Engine 使用、登录启动与环境恢复 |
-| 08 | [桌面端构建与发布](08-desktop-release.md) | 三平台包、校验清单、更新和签名状态 |
-| 09 | [容器管理设计](09-container-management-design.md) | Docker/Kubernetes 模型、操作和测试边界 |
-| 10 | [MQTT 工作台设计](10-mqtt-workbench-design.md) | 客户端、本地 Broker 和配置协议 |
-| 11 | [Kafka 工作台能力](11-kafka-workbench-capabilities.md) | 功能和证据范围 |
-| 12 | [Kafka 传输能力](12-kafka-transport-capabilities.md) | native/pure-rust 的差异和限制 |
-| 13 | [Kafka Broker 指标](13-kafka-broker-metrics.md) | 外部指标格式、认证和来源边界 |
-| 14 | [性能报告](14-performance.md) | 已有测量及环境限制，不作为当前性能保证 |
-| 15 | [数据库崩溃分析](15-dbclient-crash-analysis.md) | Windows 栈溢出的修复和证据 |
-| 16 | [社区公告](16-community-announcement.md) | 上游旧版本介绍，不作为当前功能清单 |
+| 06 | [桌面端构建与发布](06-desktop-release.md) | 三平台包、校验清单、更新和签名状态 |
+| 07 | [Kafka 工作台说明](07-kafka-workbench.md) | 工作台、传输、指标和验收边界 |
+| 08 | [性能报告](08-performance.md) | 历史测量及环境限制，不作为当前性能保证 |
 
 ## 历史证据与版本
 

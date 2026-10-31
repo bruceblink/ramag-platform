@@ -2,7 +2,7 @@
 
 ## 设计目标
 
-1. **可扩展**：从一开始就支持多种数据源与工具（当前 MySQL / PostgreSQL / SQLite / Redis / MongoDB / Git / SSH / SFTP / COS / OSS / S3 兼容存储 / Docker / Kubernetes）
+1. **可扩展**：支持 MySQL、PostgreSQL、SQLite、Redis、MongoDB、Git、SSH/SFTP、对象存储和 Docker 等现有工具；Kubernetes 当前只有连接模型，资源查询尚未实现。
 2. **可演化**：未来加入新工具（不只是数据库）不需要重构 domain / app 层
 3. **可测试**：核心业务逻辑能脱离 GUI 单独测试
 4. **可维护**：模块边界清晰，依赖方向单一
@@ -29,7 +29,7 @@ SQL、KV、文档、Git、SSH 和剪贴板各自保留专用接口。具体 crat
 ### 铁律
 
 1. **依赖方向单一**：永远向内/向下，禁止反向依赖
-2. **Domain 纯净**：仅依赖 serde / thiserror / async-trait / chrono / uuid / futures
+2. **Domain 边界**：不依赖 GUI、数据库驱动或具体基础设施；基础工具依赖以 `ramag-domain/Cargo.toml` 为准
 3. **接口先于实现**：跨层调用通过 Domain 定义的 trait（`Driver` / `KvDriver` / `DocDriver` / `GitDriver` / `SshDriver` / `JumpServerDriver` / `ClipboardDriver` / `Storage` / `Tool`）
 
 ## Crate 详解
@@ -50,7 +50,7 @@ SQL、KV、文档、Git、SSH 和剪贴板各自保留专用接口。具体 crat
 **职责**：编排 Domain trait 完成业务用例。
 
 **关键内容**：
-- `ConnectionService`：SQL 侧 facade，按 `config.driver` 自动分发到 MySQL / Postgres
+- `ConnectionService`：SQL 侧 facade，按 `config.driver` 分发到 MySQL、PostgreSQL 或 SQLite
 - `RedisService`：Redis 侧 facade
 - `MongoService`：MongoDB 侧 facade（连接 CRUD + 文档操作 + 查询历史，与 SQL 共用同一张 history 表）
 - `SshService`：SSH 配置、连接测试、SFTP、传输队列与 JumpServer 导入编排
@@ -62,7 +62,7 @@ SQL、KV、文档、Git、SSH 和剪贴板各自保留专用接口。具体 crat
 
 ### `ramag-infra-sql-shared`（SQL 共享层）
 
-**职责**：MySQL / Postgres / 未来 SQLite 等所有关系型 driver 的唯一抽象层。
+**职责**：提供 MySQL、PostgreSQL 和 SQLite 驱动共用的 SQL 执行、事务与连接池基础设施。
 
 **关键内容**：
 - `SqlBackend` trait：每个 driver 仅 impl 这一个，方言/取消 SQL/池构造/row 解码全在这里
@@ -71,11 +71,11 @@ SQL、KV、文档、Git、SSH 和剪贴板各自保留专用接口。具体 crat
 - `pool.rs`：泛型 `PoolCache<Db>`
 - `sql.rs`：多语句切分、LIMIT 注入
 
-**收益**：MySQL / Postgres 各自 lib.rs ~170 行，不重复实现 sqlx 错误映射 / 多语句切分 / cancel handle 等模板。
+共享层复用 SQL 执行和错误映射；各驱动保留自己的方言、类型、连接和取消行为。
 
-### `ramag-infra-mysql` / `ramag-infra-postgres`
+### `ramag-infra-mysql` / `ramag-infra-postgres` / `ramag-infra-sqlite`
 
-仅实现 `SqlBackend`。MySQL 用反引号 + `KILL QUERY`，Postgres 用双引号 + `pg_cancel_backend(pid)`、强制连接到具体 db。
+分别实现 `SqlBackend`。MySQL 用反引号和 `KILL QUERY`，PostgreSQL 用双引号和 `pg_cancel_backend(pid)`；SQLite 使用本地数据库文件，并明确报告不支持跨连接远程查询取消。
 
 ### `ramag-infra-redis`
 
@@ -140,11 +140,43 @@ GPUI 视图提供账号搜索、加密会话恢复、必填 Bucket 挂载、地�
 - 数据库和 SSH 密码字段用 `aes-gcm` 加密后才落 redb
 - 测试通过 `open_with_key(&path, &key)` 注入固定密钥，不污染真实系统凭据库
 
-**所有服务共用同一个 Storage 实例**——数据库连接按 `DriverKind` 过滤，SSH 配置、Git 仓库和剪贴历史使用各自的存储表，彼此不混用。
+需要持久化的服务由组合根注入同一个 `Storage` 实例。数据库连接按 `DriverKind` 过滤，SSH 配置、Git 仓库和剪贴历史使用各自的存储表。
 
 ### `ramag-tool-container`
 
-Docker 与 Kubernetes 使用不同的平台模型和连接字段。Docker 配置拒绝 Kubernetes 专属字段，Kubernetes 配置必须带 context。Docker 只读连接和资源查询的具体实现与证据见[容器管理工具设计](09-container-management-design.md)；后续能力是否实现只由[主线开发计划](01-development-plan.md)安排。
+Docker 引擎（Docker Engine）负责容器、镜像、网络和数据卷；镜像仓库（Registry v2）负责仓库、标签和镜像清单。二者使用不同的服务与连接配置。
+容器界面通过 `ContainerService` 调用 `DockerDriver`，并通过 `ContainerRegistryService` 调用 `RegistryHttpDriver`。Docker 引擎执行镜像拉取和推送；Registry 适配器负责有界只读查询。
+
+```mermaid
+flowchart TB
+    User[用户] --> ToolUI[容器管理界面]
+    subgraph Services[应用服务]
+        direction LR
+        App[ContainerService]
+        RegistryApp["ContainerRegistry<br/>Service"]
+    end
+    subgraph Drivers[基础设施适配器]
+        direction LR
+        Docker[DockerDriver]
+        RegistryDriver[RegistryHttpDriver]
+    end
+    subgraph Endpoints[外部服务]
+        direction LR
+        Engine[Docker Engine]
+        Registry[Registry v2]
+    end
+    ToolUI --> App
+    ToolUI --> RegistryApp
+    App --> Docker
+    RegistryApp --> RegistryDriver
+    Docker --> Engine
+    RegistryDriver --> Registry
+    Engine -->|镜像拉取与推送| Registry
+```
+
+Docker 地址支持本机 socket、Windows named pipe、SSH 或 HTTPS；远程 TCP 不允许明文。Registry 分页链接必须与配置端点同源，仓库、标签和响应大小有上限。
+Docker 与 Kubernetes 使用不同的平台模型和连接字段：Docker 配置拒绝 Kubernetes 字段，Kubernetes 配置必须带 context；当前没有 Kubernetes 查询适配器，应用层明确返回未实现。
+Docker、Registry 和 UI 测试分别记录证据；没有本机服务时不能将模拟结果写成真实服务验收。未实现的写操作或集群扩展不会自动排入开发计划。
 
 ### `ramag-tool-dbclient`
 
@@ -180,9 +212,9 @@ SSH 管理视图：连接列表与 SSH 命令解析、JumpServer 资源导入、
 
 依赖注入中心：
 1. `logging::init`：默认 `info`（可用 `RUST_LOG` 覆盖），stderr + 文件双路输出；日志超过 10 MiB 时保留一份滚动备份
-2. `build_connection_service`：装配 `MysqlDriver` + `PostgresDriver` 进 `HashMap<DriverKind, Arc<dyn Driver>>` + `RedbStorage`
+2. `build_connection_service`：装配 `MysqlDriver`、`PostgresDriver`、`SqliteDriver` 和 `RedbStorage`
 3. `build_redis_service` / `build_mongo_service`：分别装配 `RedisDriver` / `MongoDriver`，复用同一 Storage
-4. `build_tool_registry`：注册 `DbClientTool` + `VcsTool` + `SshTool` + `ObjectStorageTool` + `ContainerTool` + `ClipboardTool`；剪贴板默认关闭时保留实例但隐藏入口
+4. `build_plugin_host_with_storage`：注册并初始化数据库、API、Kafka、MQTT、Git、SSH、对象存储、容器和系统监控插件；支持平台还注册剪贴板插件
 5. `app.on_reopen`：macOS 无窗口时从 Dock 重开；Windows 走系统托盘常驻（关窗采集不停，托盘唤回/退出；托盘安装失败回退关窗即退）+ 单实例（双开唤起已有实例）
 6. `cx.bind_keys`：使用 GPUI `secondary-*` 注册跨平台主修饰键（macOS Command / Windows Ctrl）
 
@@ -195,7 +227,7 @@ GPUI 内部用 smol，sqlx / redis-rs / mongodb / SSH 基础设施依赖 tokio�
 | Runtime | 用途 | 来源 |
 |---------|------|------|
 | smol | UI 事件循环 | GPUI 内部 |
-| tokio (SQL) | sqlx 查询 | `ramag-infra-sql-shared::runtime`（MySQL + Postgres + 未来 SQLite 共用，2 worker） |
+| tokio (SQL) | sqlx 查询 | `ramag-infra-sql-shared::runtime`（MySQL、PostgreSQL 和 SQLite 共用，2 worker） |
 | tokio (Redis) | redis-rs 操作 | `ramag-infra-redis::runtime`（独立 2 worker） |
 | tokio (MongoDB) | mongodb 文档操作 | `ramag-infra-mongodb::runtime`（独立 2 worker） |
 | tokio (SSH) | SFTP、JumpServer 与传输任务 | `ramag-infra-ssh::runtime`（独立 3 worker） |
@@ -231,41 +263,13 @@ features = ["rustls-tls", "bson-2", "compat-3-3-0"]
 
 ### 5) Release Profile 极致优化
 
-`lto = "fat"` + `codegen-units = 1` + `panic = "abort"` + `strip = true`——编译变慢但运行最快、二进制最小。
+正式 Release 使用 `lto = "fat"`、`codegen-units = 1`、`panic = "abort"` 和 `strip = true`。这些选项会增加构建时间；实际性能和产物大小应按目标平台测量。
 
-## 添加新功能的扩展指南
+## 扩展边界
 
-### 加新 Tool（如 JSON 格式化）
-
-1. 新建 `crates/ramag-tool-jsonfmt/`，实现 `Tool` trait
-2. 在 `Cargo.toml` 的 `members` 添加该 crate
-3. 在 `ramag-bin/src/main.rs` 的 `build_tool_registry` 注册一行
-4. 在 `open_main_window` 注册视图工厂到 `Shell::register_tool_view`
-
-**不动 domain / app**——这就是 Clean Architecture 带来的扩展性。
-
-### 加新 SQL 数据库
-
-1. 新建对应 `crates/ramag-infra-<driver>/`，实现 `ramag-infra-sql-shared::SqlBackend` trait
-2. crate 末尾写 `ramag_infra_sql_shared::impl_driver_for!(<Driver>Driver);` 宏一行
-3. 在 `ramag-domain` 的 `DriverKind` 枚举增加驱动变体，并补齐连接配置、URI 和值类型语义
-4. 在 `ramag-bin/src/composition.rs` 的 `build_connection_service` 把 driver 注册进 `HashMap<DriverKind, Arc<dyn Driver>>`
-
-SQL 类共用 `ConnectionSession`，但本地文件型驱动仍需在连接表单中隐藏不适用的网络字段，并在数据同步等不支持的入口明确拒绝。
-
-### 加新 KV 数据库（如 KeyDB / DragonflyDB）
-
-实现 `KvDriver` trait（参考 `ramag-infra-redis`），**不要塞进 `Driver`**——方法集差异大会导致大量 NotImplemented。
-
-### 加新文档数据库（如 CouchDB / DynamoDB）
-
-实现 `DocDriver` trait（参考 `ramag-infra-mongodb`），**不要复用 `KvDriver`**——文档模型的 `find` / `aggregate` / `insert_one` 与 KV 的 `get_value` 语义完全不同。
-
-1. 封装官方驱动 + 独立 tokio runtime + 按 `ConnectionId` 缓存 client
-2. 在 `ramag-domain` 的 `DriverKind` 枚举加变体
-3. 在 `ramag-bin/main.rs` 写 `build_xxx_service` 装配进对应 service（复用同一 Storage）
-
-**也不要给它再开新 tokio runtime**——复用 `ramag-infra-mongodb` 那一份即可。
+当前只维护已有功能；新增业务功能须由用户明确提出，并先更新[主线开发计划](01-development-plan.md)。
+插件接口、宿主注册和测试方法统一见[静态插件接口与开发手册](05-plugin-development-guide.md)。
+SQL、KV、文档数据库和其他领域保留各自的接口语义，不为统一形式合并不兼容的驱动。
 
 ## 测试策略
 

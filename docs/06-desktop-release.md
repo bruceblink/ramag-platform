@@ -172,6 +172,8 @@ Actions → Desktop Release → Run workflow
 
 API 工作台的 gRPC 构建期 DescriptorSet 使用工作区内的 `protox` 纯 Rust 编译器生成，不依赖单独安装的 `protoc`；Windows 构建仍需要本节列出的 MSVC、Windows SDK、CMake 和 Release 所需的 `fxc.exe`。
 
+`ramag-bin/build.rs` 为 Windows `ramag` 主线程预留 `4 MiB` 栈空间，以避免数据库结果视图的布局和绘制调用链耗尽默认栈。2026-09-26 已用 MSVC 构建及真实窗口验证 MySQL 结果网格和 10,000 行分页；GNU 链接参数已配置，但当次没有验证。此设置不改变查询分页或结果上限。
+
 ```powershell
 . .\scripts\windows\enable-msvc-toolchain.ps1
 cargo build

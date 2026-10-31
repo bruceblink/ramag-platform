@@ -2,7 +2,7 @@
 
 ## 支持范围
 
-安全修复优先面向本仓库 `main` 分支和本项目最新公开 Release。当前 `bruceblink/ramag-platform` 尚无独立 Release；继承的上游 `0.0.5` 安装包不属于本项目发布物。平台化开发中的问题请直接报告到本仓库，不要默认转发到上游。
+安全修复优先面向本仓库 `main` 分支和本项目最新公开 Release。本项目已有独立发布版本；上游 `tools-rs/ramag` 的安装包不属于本项目发布物。请将本项目的问题报告到本仓库。
 
 ## 报告漏洞
 
@@ -26,7 +26,7 @@
 
 Ramag Platform 将数据库、SSH、JumpServer 和云存储的敏感配置加密保存于本机；主密钥由操作系统凭据库管理。Ramag Platform 不提供托管服务，也不主动上传数据库内容、SSH 凭据、云存储凭据或剪贴板历史。
 
-本项目尚无独立发布包。未来发布包应提供 SHA-256 校验清单；Windows Authenticode 签名、macOS Developer ID 签名和 Apple 公证完成前，不应把未签名构建当作正式发布物。
+本项目的 Release 提供 SHA-256 校验清单。Windows 安装包尚未进行 Authenticode 签名；macOS 安装包尚未完成 Developer ID 签名与 Apple 公证。安装前请核对发布来源和校验值；各平台的具体状态见[桌面端构建与发布](docs/06-desktop-release.md#签名与公证状态)。
 
 ## English summary
 

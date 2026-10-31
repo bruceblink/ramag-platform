@@ -2,7 +2,7 @@
 
 本文面向第一次参与 Ramag Platform 开发的贡献者，目标是帮助开发者先建立可运行基线，再沿一条真实功能调用链理解项目，而不是从头阅读全部 crate。当前应用仍称为 Ramag，本仓库负责独立下游平台化演进。
 
-架构细节请配合阅读[架构说明](02-architecture.md)，任务范围和执行顺序统一参考[主线开发计划](01-development-plan.md)，构建和发布流程请参考[桌面端构建与发布](08-desktop-release.md)。
+架构细节请配合阅读[架构说明](02-architecture.md)，任务范围和执行顺序统一参考[主线开发计划](01-development-plan.md)，构建和发布流程请参考[桌面端构建与发布](06-desktop-release.md)。
 
 ## 1. 开始之前
 
@@ -127,7 +127,7 @@ SSH askpass 特殊模式判断
     ↓
 创建 Storage、Driver 和应用 Service
     ↓
-创建 ToolRegistry
+创建静态插件宿主与 ToolRegistry
     ↓
 创建并运行 GPUI Application
     ↓
@@ -193,11 +193,11 @@ open_main_window()
 
 ### 6.1 新增 Tool 的典型改动范围
 
-新增完整工具通常需要：
+新增业务工具须先由用户明确提出，并更新主线开发计划。确认范围后通常需要：
 
 1. 新建 `ramag-tool-*` crate 并实现 `Tool`。
 2. 将 crate 加入 workspace。
-3. 在 `build_tool_registry` 中注册 Tool。
+3. 在 `build_plugin_host_with_storage` 中注册工具及静态插件描述。
 4. 在 `open_main_window` 中创建视图。
 5. 使用 `Shell::register_tool_view` 注册视图。
 
@@ -314,10 +314,37 @@ git diff --cached --check
 
 完成并验证一个独立改动后先提交。只有用户授权或仓库流程要求时才推送；提交和推送分开执行。
 
-### 9.5 本地 Kafka 服务与指标验收
+### 9.5 WSL Docker 环境
+
+Windows 开发机使用 WSL 2 中的 Docker Engine 时，在仓库根目录的 PowerShell 7.2 及以上版本执行：
+
+```powershell
+.\scripts\windows\invoke-wsl-docker.ps1 info
+.\scripts\windows\invoke-wsl-docker.ps1 ps
+.\scripts\windows\invoke-wsl-docker.ps1 compose version
+```
+
+脚本默认使用 `Ubuntu-24.04` 和 `unix:///var/run/docker.sock`，不依赖 Docker Desktop context。
+其他发行版通过 `-Distribution` 指定，并须已配置 systemd 与 Docker Engine。
+Docker 的单短横线选项应放入参数数组，通过 `-DockerArguments` 传入。
+容器挂载路径使用 `/mnt/f/...` 等 WSL 路径。
+
+```powershell
+$dockerArguments = @('ps', '-a')
+.\scripts\windows\invoke-wsl-docker.ps1 -DockerArguments $dockerArguments
+```
+
+首次配置或修复登录启动任务时执行 `-ConfigureStartup`；`-StopKeepAlive` 停止当前保持任务，
+保留下次登录触发器，不执行 `wsl --shutdown`。测试完成后按各测试脚本的 `down` 或 `clean` 处理专用资源。
+卸载 Docker Desktop 可能移除其管理的数据；WSL Docker 的 `/var/lib/docker` 是独立目录。
+
+2026-10-26 已手动验证登录任务、Docker Engine 和本机 PostgreSQL 连接；
+Windows 重启或重新登录后的自动启动没有在当次验证。复用既有服务前仍需核对当前状态和实际连接。
+
+### 9.6 本地 Kafka 服务与指标验收
 
 本地端到端测试使用 `scripts/kafka-test/` 的专用 Docker Compose 环境。
-Windows Docker 调用按 [WSL Docker 环境](07-wsl-docker-environment.md)配置，
+Windows Docker 调用按[本节的 WSL Docker 环境](#95-wsl-docker-环境)配置，
 不连接远程集群或业务账号。命令从仓库根目录执行：
 
 ```powershell
@@ -337,7 +364,7 @@ pwsh -File scripts/kafka-test/kafka-test.ps1 -Command status
 `scripts/kafka-test/compose.yaml` 为准。测试应记录实际启动、健康、连接和清理结果。
 `docker_kafka_reads_real_broker_jmx_exporter` 分别验证未认证请求返回 `401`、认证后返回
 `200`，再解析 CPU、内存、磁盘和延迟指标。测试认证只用于本机，不能作为生产凭据。
-指标字段和来源边界见 [Kafka 指标接入](13-kafka-broker-metrics.md)。
+指标字段和来源边界见 [Kafka 工作台说明](07-kafka-workbench.md#broker-运行指标)。
 
 只有需要继续检查时才保留专用服务。停止服务或删除其专用数据卷分别执行：
 
@@ -355,7 +382,7 @@ pwsh -File scripts/kafka-test/kafka-test.ps1 -Command clean
 
 `clean` 不用于其他 Compose 项目。
 
-### 9.6 Docker 测试服务恢复
+### 9.7 Docker 测试服务恢复
 
 数据库、HTTP、gRPC、MQTT、SSH 和 Kafka 测试入口在启动前检查其专用容器。
 `scripts/windows/docker-test-lifecycle.ps1` 发现测试容器退出、暂停、重启或不健康时，
@@ -371,7 +398,7 @@ GPUI Kit 及其底层依赖编译量较大。首次构建耗时长属于预期�
 
 ### 修改 UI 后没有自动进入目标页面
 
-确认 Tool 已在 `build_tool_registry` 注册，并在 `open_main_window` 中通过 `Shell::register_tool_view` 注册对应视图。仅实现 `Tool` 不会自动创建页面。
+确认 Tool 已在 `build_plugin_host_with_storage` 注册，并在 `open_main_window` 中通过 `Shell::register_tool_view` 注册对应视图。仅实现 `Tool` 不会自动创建页面。
 
 ### 异步代码提示没有 Tokio reactor
 
