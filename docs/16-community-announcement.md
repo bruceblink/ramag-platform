@@ -91,7 +91,7 @@ Ramag 不要求登录账号，也不把数据库连接、SSH 凭据、Git 仓库
 
 ## 下载与发布状态
 
-v0.0.5 的版本信息、变更记录和发布流程见仓库中的 [CHANGELOG.md](../CHANGELOG.md) 与[桌面端构建与发布](desktop-release.md)。对外安装包是否生成、签名、公证或发布，以 GitHub Release 页面中可验证的实际产物为准；本公告不提前宣称尚未完成的构建结果。
+v0.0.5 的版本信息、变更记录和发布流程见仓库中的 [CHANGELOG.md](../CHANGELOG.md) 与[桌面端构建与发布](08-desktop-release.md)。对外安装包是否生成、签名、公证或发布，以 GitHub Release 页面中可验证的实际产物为准；本公告不提前宣称尚未完成的构建结果。
 
 从源码运行：
 

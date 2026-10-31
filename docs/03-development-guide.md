@@ -2,7 +2,7 @@
 
 本文面向第一次参与 Ramag Platform 开发的贡献者，目标是帮助开发者先建立可运行基线，再沿一条真实功能调用链理解项目，而不是从头阅读全部 crate。当前应用仍称为 Ramag，本仓库负责独立下游平台化演进。
 
-架构细节请配合阅读[架构说明](06-architecture.md)，任务范围和执行顺序统一参考[主线开发计划](01-development-plan.md)，构建和发布流程请参考[桌面端构建与发布](desktop-release.md)。
+架构细节请配合阅读[架构说明](02-architecture.md)，任务范围和执行顺序统一参考[主线开发计划](01-development-plan.md)，构建和发布流程请参考[桌面端构建与发布](08-desktop-release.md)。
 
 ## 1. 开始之前
 
@@ -70,29 +70,32 @@ cargo dev
 
 ```text
 ramag-platform
-├── Cargo.toml                 Cargo workspace、公共依赖和编译配置
+├── Cargo.toml（workspace 配置）
 ├── crates/
-│   ├── ramag-bin              程序入口、依赖装配和平台生命周期
-│   ├── ramag-ui               GPUI 主壳、首页、设置、主题和共享组件
-│   ├── ramag-tool-*           数据库、Git、SSH、剪贴板等工具界面
-│   ├── ramag-app              应用服务和业务用例编排
-│   ├── ramag-domain           领域实体、错误和抽象 trait
-│   ├── ramag-infra-*          数据库、Git、SSH、存储等具体实现
-│   └── ramag-terminal         GPUI 内嵌终端组件
-├── docs/                      架构、性能、设计和发布文档
-├── scripts/                   打包和数据库测试脚本
-├── .github/                   CI 与桌面发布工作流
-└── Makefile                   常用开发、检查、测试和打包入口
+│   ├── ramag-bin
+│   ├── ramag-ui
+│   ├── ramag-tool-*
+│   ├── ramag-app
+│   ├── ramag-domain
+│   ├── ramag-infra-*
+│   └── ramag-terminal
+├── docs/（说明与设计）
+├── scripts/（构建与测试脚本）
+├── .github/（CI 与发布工作流）
+└── Makefile（任务编排）
 ```
+
+`Cargo.toml` 统一公共依赖和编译配置；`docs/` 包含架构、性能、设计与发布说明。
+`scripts/` 和 `Makefile` 提供打包、集成测试及源码检查入口。各 crate 职责见下表。
 
 依赖方向遵循务实的 Clean Architecture：
 
 ```text
-ramag-bin                    最外层组合入口
-├── ramag-tool-* / ramag-ui  展示层
-├── ramag-infra-*            基础设施适配器
-└── ramag-app                用例编排
-    └── ramag-domain         核心实体和接口
+ramag-bin（组合入口）
+├── ramag-tool-*、ramag-ui（展示层）
+├── ramag-infra-*（基础设施适配器）
+└── ramag-app（用例编排）
+    └── ramag-domain（实体与接口）
 ```
 
 各层职责如下：
@@ -105,6 +108,7 @@ ramag-bin                    最外层组合入口
 | `ramag-tool-*` | 实现用户可以直接操作的具体工具界面和交互 |
 | `ramag-ui` | 提供 `Shell`、`HomeView`、设置、主题和共享 UI |
 | `ramag-bin` | 创建具体实现、注入依赖、注册工具并启动 GPUI |
+| `ramag-terminal` | 提供 GPUI 内嵌终端内核与视图 |
 
 ## 4. 程序启动链路
 
@@ -151,7 +155,7 @@ open_main_window()
 
 不要先阅读所有基础设施实现。建议按以下顺序理解项目：
 
-1. 阅读[架构说明](06-architecture.md)，理解分层和依赖方向。
+1. 阅读[架构说明](02-architecture.md)，理解分层和依赖方向。
 2. 从 [`main()`](../crates/ramag-bin/src/main.rs) 了解应用启动阶段。
 3. 阅读 [`composition.rs`](../crates/ramag-bin/src/composition.rs)，了解具体实现如何注入 Service。
 4. 阅读 [`windows.rs`](../crates/ramag-bin/src/windows.rs)，了解视图如何创建并注册到 `Shell`。
@@ -295,10 +299,10 @@ make db-test
 每个可独立评审的修复或功能使用单独提交。提交前查看近期历史并保持仓库现有风格，例如：
 
 ```text
-新增：增加开发入门指南
-修复：处理数据库连接取消状态
-优化：减少 Git 工作区重复刷新
-重构：拆分 SSH 传输状态管理
+docs: clarify development workflow
+fix: preserve database query cancellation state
+perf: reduce duplicate git workspace refreshes
+refactor: isolate ssh transport state
 ```
 
 提交前检查暂存内容：
@@ -307,6 +311,57 @@ make db-test
 git diff --cached --stat
 git diff --cached --check
 ```
+
+完成并验证一个独立改动后先提交。只有用户授权或仓库流程要求时才推送；提交和推送分开执行。
+
+### 9.5 本地 Kafka 服务与指标验收
+
+本地端到端测试使用 `scripts/kafka-test/` 的专用 Docker Compose 环境。
+Windows Docker 调用按 [WSL Docker 环境](07-wsl-docker-environment.md)配置，
+不连接远程集群或业务账号。命令从仓库根目录执行：
+
+```powershell
+pwsh -File scripts/kafka-test/kafka-test.ps1 -Command up
+pwsh -File scripts/kafka-test/kafka-test.ps1 -Command test -MessageCount 5000
+pwsh -File scripts/kafka-test/kafka-test.ps1 -Command status
+```
+
+| 测试服务 | 镜像或版本 | 本机端口 |
+|---|---|---|
+| KRaft Broker | `apache/kafka:4.0.0` | `127.0.0.1:19092` |
+| JMX Exporter | 本地构建 `ramag-kafka-jmx-exporter:1.6.0` | `127.0.0.1:19101/metrics` |
+| 静态 OpenMetrics 响应 | `nginx:1.27-alpine` | `127.0.0.1:19100/metrics` |
+| Kafka Connect | `apache/kafka:4.0.0` | `127.0.0.1:18083` |
+
+脚本还管理 Schema Registry 和 ksqlDB 测试服务，具体镜像、端口和健康条件以
+`scripts/kafka-test/compose.yaml` 为准。测试应记录实际启动、健康、连接和清理结果。
+`docker_kafka_reads_real_broker_jmx_exporter` 分别验证未认证请求返回 `401`、认证后返回
+`200`，再解析 CPU、内存、磁盘和延迟指标。测试认证只用于本机，不能作为生产凭据。
+指标字段和来源边界见 [Kafka 指标接入](13-kafka-broker-metrics.md)。
+
+只有需要继续检查时才保留专用服务。停止服务或删除其专用数据卷分别执行：
+
+停止并保留数据卷：
+
+```powershell
+pwsh -File scripts/kafka-test/kafka-test.ps1 -Command down
+```
+
+确认测试数据不再需要后，删除该测试项目的容器、网络和数据卷：
+
+```powershell
+pwsh -File scripts/kafka-test/kafka-test.ps1 -Command clean
+```
+
+`clean` 不用于其他 Compose 项目。
+
+### 9.6 Docker 测试服务恢复
+
+数据库、HTTP、gRPC、MQTT、SSH 和 Kafka 测试入口在启动前检查其专用容器。
+`scripts/windows/docker-test-lifecycle.ps1` 发现测试容器退出、暂停、重启或不健康时，
+按脚本边界移除并重建该实例；启动或健康检查失败时执行一次清理重试。
+这只处理脚本声明的专用容器，不删除数据卷。数据库凭据和 Kafka 数据仍按各脚本的
+`down`/`clean` 策略处理。持久开发服务不能套用一次性测试环境的清理流程。
 
 ## 10. 常见问题
 
@@ -346,3 +401,21 @@ GPUI 的异步执行环境不是 Tokio。数据库、Redis、MongoDB 和 SSH 已
 - [ ] 跨层接口约定改动已覆盖生产者和消费者
 - [ ] 外部数据库、SSH 或平台功能已说明真实环境验证情况
 - [ ] 提交只包含一个可独立评审的功能或修复
+
+## 12. 文档与图表维护
+
+`docs/README.md` 按连续两位编号列出现行文档。编号表示阅读顺序，不表示新增开发阶段。
+任务范围、进度和后续安排只维护在 `01-development-plan.md`；历史测试报告按日期保留，不重新编号。
+接口、架构、环境和验收方法分别放入所属文档，避免同一规则保留多个副本。
+
+Markdown 中所有设计图、流程图、架构图、时序图、部署图、状态图和文本图均须兼顾
+屏幕阅读与 A4 打印，包括 Mermaid、ASCII 图和嵌入图片：
+
+- 默认 A4 竖版 `210 × 297 mm`，四边至少 `10 mm` 留白；必要时使用 A4 横版，并在输出中明确方向。
+- 图形、标题、箭头和标注均位于可打印区域内。打印不裁切、不跨页断开单图，屏幕上不依赖横向滚动。
+- 先分层或拆图，再精简节点文字。字段和长职责放到正文或表格中，不能靠缩小到难以阅读的字号塞入整图。
+- 同层节点并列，箭头只表示实际依赖、控制或数据流；双向关系分别标注请求和返回。
+- 修改后同时检查屏幕渲染和 A4 PDF 预览，核对字号、换行、分组、箭头、页面边界和中文字体。
+- 无法渲染或生成预览时，只报告静态检查通过，明确缺少的视觉验收；源文件语法通过不等于 A4 布局通过。
+
+全局规则由用户的 Codex 配置维护，不复制进仓库。本节只说明本仓库文档的验收方法。

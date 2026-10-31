@@ -26,7 +26,7 @@
   <a href="#快速开始">快速开始</a> ·
   <a href="#核心工作台">功能</a> ·
   <a href="docs/01-development-plan.md">主线开发计划</a> ·
-  <a href="docs/performance.md">性能</a> ·
+  <a href="docs/14-performance.md">性能</a> ·
   <a href="CONTRIBUTING.md">贡献</a> ·
   <a href="SECURITY.md">安全</a>
 </p>
@@ -48,7 +48,7 @@ This repository, `bruceblink/ramag-platform`, is an independent downstream proje
 | 项目身份 | `bruceblink/ramag-platform`，独立下游项目；不代表 `tools-rs/ramag` 官方主线 |
 | 代码基线 | 沿用 Ramag `0.0.5` workspace 基线，并包含本仓库后续的 UI 修复与平台设计记录 |
 | 独立发布 | 本项目提供三平台安装包、更新清单和 SHA-256 清单；最新版本见本项目 Releases |
-| 插件平台 | 系统监控试点和九批保留工具已完成编译期静态插件装配；接口见[插件 API 设计](docs/27-ramag-plugin-api-design-001.md)，当前任务统一见[主线开发计划](docs/01-development-plan.md)；动态加载和插件市场未进入实现范围 |
+| 插件平台 | 系统监控试点和九批保留工具已完成编译期静态插件装配；接口见[静态插件接口与开发手册](docs/05-plugin-development-guide.md)，当前任务统一见[主线开发计划](docs/01-development-plan.md)；动态加载和插件市场未进入实现范围 |
 | 上游协作 | 通用修复可整理后向 `tools-rs/ramag` 提交独立 PR；平台化架构和专属功能在本仓库继续演进 |
 | 支持平台 | Linux x86_64、macOS 12+（Apple Silicon / Intel）、Windows 10/11 x64；三平台安装包见本项目 Releases |
 | 数据边界 | 连接配置、凭据与剪贴历史保存于本机；Ramag 不提供托管服务，也不主动上传这些数据 |
@@ -104,7 +104,7 @@ Ramag 的价值来自 Rust/GPUI 原生工作区、远程连接、本地安全边
 | Windows x64 | `Ramag-*-windows-x64-setup.exe` | Windows 10 |
 | Linux x86_64 | `Ramag-*-linux-amd64.deb` / `Ramag-*-linux-x86_64.AppImage` | Ubuntu 24.04 或兼容发行版 |
 
-> 当前 workspace 版本为 `0.8.0`。Windows 安装包尚未做 Authenticode 签名，macOS 安装包尚未做 Developer ID 签名与 Apple 公证；完整状态见[桌面端构建与发布](docs/desktop-release.md#签名与公证状态)。
+> 当前 workspace 版本为 `0.8.0`。Windows 安装包尚未做 Authenticode 签名，macOS 安装包尚未做 Developer ID 签名与 Apple 公证；完整状态见[桌面端构建与发布](docs/08-desktop-release.md#签名与公证状态)。
 
 Git 功能需要系统已安装 `git`；SSH 管理、内嵌终端和数据库 SSH 隧道需要系统 OpenSSH。数据库、Git 仓库、SSH 凭据和剪贴板内容不会上传到 Ramag 服务。
 
@@ -150,7 +150,7 @@ dbus-run-session -- ./target/release/ramag
 
 若运行 Debug 版本，把最后一行替换为 `dbus-run-session -- cargo run -p ramag-bin`。已有 redb 数据库但原系统凭据不可用时，Ramag 会停止启动以免覆盖数据；请先恢复创建该数据库时保存的主密钥，不要删除数据库或凭据条目。
 
-三个平台仍需要各自的原生开发组件：Windows 使用 Visual Studio 18 2026 Build Tools 的 C++ workload、Windows 10/11 SDK 和 CMake；Release 还需要 FXC 与 Inno Setup。macOS 需要 Xcode Command Line Tools；Linux 需要桌面开发库，完整列表见[桌面端构建与发布](docs/desktop-release.md#本地-linux-打包)。Rust stable channel、Cargo.lock 和日常命令由仓库统一管理。首次构建需要下载 GPUI 等依赖，耗时会明显长于后续增量构建。
+三个平台仍需要各自的原生开发组件：Windows 使用 Visual Studio 18 2026 Build Tools 的 C++ workload、Windows 10/11 SDK 和 CMake；Release 还需要 FXC 与 Inno Setup。macOS 需要 Xcode Command Line Tools；Linux 需要桌面开发库，完整列表见[桌面端构建与发布](docs/08-desktop-release.md#本地-linux-打包)。Rust stable channel、Cargo.lock 和日常命令由仓库统一管理。首次构建需要下载 GPUI 等依赖，耗时会明显长于后续增量构建。
 
 Windows 日常开发先在当前 PowerShell 激活 MSVC 环境；脚本通过 `vswhere.exe` 和 `vcvarsall.bat` 载入 Visual Studio 18 2026 的 x64 编译器、链接器、Windows SDK 和 CMake，并固定使用 `Visual Studio 18 2026` 的 x64 CMake 生成器。脚本只修改当前 PowerShell 进程，不替代 Cargo 命令，也不修改用户级环境变量：
 
@@ -343,7 +343,7 @@ Windows 用户可打开“设置 → 系统设置”，启用“关闭时最小�
 
 这些数字背后是几条明确原则：能增量就不全量，能分页就不整库驻留，能虚拟化就不一次构造所有行，CPU 与 IO 重活不占用 UI 线程。
 
-完整测试环境、P95、数据库吞吐、优化前后对照、索引磁盘取舍和复核方式，见 [性能报告](docs/performance.md)。百万条加密历史的常规深度搜索已从约 12.5 秒降到约 0.2 秒；极短查询与旧库首次后台建索引期间仍保留完整加密扫描作为正确性兜底。
+完整测试环境、P95、数据库吞吐、优化前后对照、索引磁盘取舍和复核方式，见 [性能报告](docs/14-performance.md)。百万条加密历史的常规深度搜索已从约 12.5 秒降到约 0.2 秒；极短查询与旧库首次后台建索引期间仍保留完整加密扫描作为正确性兜底。
 
 ## 本地优先，不等于只做“能跑”
 
@@ -360,17 +360,23 @@ Windows 用户可打开“设置 → 系统设置”，启用“关闭时最小�
 
 Ramag Platform 是一个 Rust 2024 Cargo workspace，采用务实的 Clean Architecture。数据库、Git、云存储、剪贴板和其他现有工具继续保留，并通过编译期静态第一方插件装配。平台核心负责通用宿主能力，业务工具保留独立 crate；维护范围和执行顺序统一见[主线开发计划](docs/01-development-plan.md)。
 
+下图列出组合入口装配的组件，不表示完整的 crate 依赖图：
+
 ```text
-ramag-bin              应用入口、依赖注入、快捷键与平台生命周期
-├── ramag-tool-*       数据库、Redis、MongoDB、Git、SSH、云存储、容器管理、剪贴板内置工具
-├── ramag-ui           GPUI 主壳、主题和共享组件
-├── ramag-infra-*      数据库、Git、SSH/SFTP、云存储、更新、剪贴板、隧道和本地存储适配器
-├── ramag-terminal     GPUI 内嵌终端内核与视图
-├── ramag-app          用例编排与工具注册
-└── ramag-domain       实体和抽象接口，不依赖 GUI 或具体基础设施
+ramag-bin（入口与依赖装配）
+├── ramag-tool-*（工具界面）
+├── ramag-ui（主壳与共享组件）
+├── ramag-infra-*（基础设施适配器）
+├── ramag-terminal（内嵌终端）
+├── ramag-app（用例与工具注册）
+└── ramag-domain（实体与抽象接口）
 ```
 
-这种分层让核心逻辑可以脱离 GUI 测试，也避免 SQL、KV、文档数据库和 Git 被塞进一个含义模糊的通用接口。详细依赖方向和各 crate 职责见[架构说明](docs/06-architecture.md)；插件生命周期、接口和承载限制见[插件 API 设计](docs/27-ramag-plugin-api-design-001.md)。
+`ramag-bin` 还负责快捷键和平台生命周期。`ramag-tool-*` 包含数据库、Redis、MongoDB、Git、
+SSH、云存储、容器和剪贴板工具。`ramag-infra-*` 提供数据库、Git、SSH/SFTP、云存储、更新、
+剪贴板、隧道和本地存储适配器。`ramag-domain` 不依赖 GUI 或具体基础设施。
+
+这种分层让核心逻辑可以脱离 GUI 测试，也避免 SQL、KV、文档数据库和 Git 被塞进一个含义模糊的通用接口。详细依赖方向和各 crate 职责见[架构说明](docs/02-architecture.md)；插件生命周期、接口和承载限制见[静态插件接口与开发手册](docs/05-plugin-development-guide.md)。
 
 ## 开发与验证
 
@@ -414,15 +420,14 @@ cargo test-all
 
 Ramag 支持 Linux x86_64、macOS 12+（Apple Silicon / Intel）和 Windows 10/11 x64。Linux 提供 Debian 安装包与 AppImage，并支持 X11 与 Wayland；Windows on ARM 仅计划通过系统 x64 模拟运行，尚未列为已完成人工验收的平台。
 
-- [性能报告：VCS、数据库与剪贴板](docs/performance.md)
+- [性能报告：VCS、数据库与剪贴板](docs/14-performance.md)
 - [开发主线与设计文档](docs/README.md)
 - [主线开发计划](docs/01-development-plan.md)
-- [WSL Docker 开发环境](docs/26-wsl-docker-development-environment.md)
-- [UI 验收标准](docs/07-ui-acceptance-standard.md)
-- [插件 API 设计](docs/27-ramag-plugin-api-design-001.md)
-- [插件开发指南](docs/05-plugin-development-guide.md)
-- [架构说明](docs/06-architecture.md)
-- [桌面端构建与发布](docs/desktop-release.md)
+- [WSL Docker 开发环境](docs/07-wsl-docker-environment.md)
+- [UI 验收标准](docs/04-ui-acceptance-standard.md)
+- [静态插件接口与开发手册](docs/05-plugin-development-guide.md)
+- [架构说明](docs/02-architecture.md)
+- [桌面端构建与发布](docs/08-desktop-release.md)
 - [版本变更记录](CHANGELOG.md)
 - [贡献指南](CONTRIBUTING.md)
 - [安全策略](SECURITY.md)

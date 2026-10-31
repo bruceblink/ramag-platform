@@ -57,11 +57,11 @@
 
 ## 本机 OpenMetrics HTTP 测试服务
 
-本切片只验证 Ramag 到外部指标 HTTP 端点的真实本机请求链路，不宣称已经接入 Kafka 生产环境 exporter。Docker Compose 增加独立 `metrics` 服务：镜像固定为 `nginx:1.27-alpine`，容器内 `/metrics` 返回受版本控制的 OpenMetrics 文本，宿主绑定 `127.0.0.1:19100`。Rust 集成测试通过 `PrometheusBrokerMetricsDriver` 请求 `http://127.0.0.1:19100/metrics`，检查 `ExternalBrokerMetrics` 来源、Broker ID、四个已知指标和样本时间；Kafka Broker、Kafka Connect 与指标 fixture 分别保留独立服务状态。
+本切片只验证 Ramag 到外部指标 HTTP 端点的真实本机请求链路，不宣称已经接入 Kafka 生产环境 exporter。Docker Compose 增加独立 `metrics` 服务：镜像固定为 `nginx:1.27-alpine`，容器内 `/metrics` 返回受版本控制的 OpenMetrics 文本，宿主绑定 `127.0.0.1:19100`。Rust 集成测试通过 `PrometheusBrokerMetricsDriver` 请求 `http://127.0.0.1:19100/metrics`，检查 `ExternalBrokerMetrics` 来源、Broker ID、四个已知指标和样本时间；Kafka Broker、Kafka Connect 与指标测试服务分别保留独立服务状态。
 
 静态测试响应不代表真实 Kafka JVM。真实 JMX Exporter 已在下文的本机 Docker 验收中单独覆盖；生产 exporter 安全配置和 Windows 原生窗口缺口统一由主线记录。本机 Docker 不可用时，HTTP 集成验收标记为未完成。
 
-阶段 23 真实 JMX Exporter 验收：Docker Compose 为 `apache/kafka:4.0.0` Broker 开启专用容器内 JMX/RMI 端口 `9999`，使用 Prometheus JMX Exporter `1.6.0` 和固定 SHA-256 构建 `broker-exporter`，宿主绑定 `127.0.0.1:19101/metrics`。`docker_kafka_reads_real_broker_jmx_exporter` 与静态 fixture 共存，前者验证真实 Kafka JVM 产生的 CPU、Heap、磁盘和请求延迟指标；该服务只用于本机 Docker 验收，关闭 JMX 认证/TLS，不等同于生产安全配置。
+阶段 23 真实 JMX Exporter 验收：Docker Compose 为 `apache/kafka:4.0.0` Broker 开启专用容器内 JMX/RMI 端口 `9999`，使用 Prometheus JMX Exporter `1.6.0` 和固定 SHA-256 构建 `broker-exporter`，宿主绑定 `127.0.0.1:19101/metrics`。`docker_kafka_reads_real_broker_jmx_exporter` 与静态测试响应共存，前者验证真实 Kafka JVM 产生的 CPU、Heap、磁盘和请求延迟指标；该服务只用于本机 Docker 验收，关闭 JMX 认证/TLS，不等同于生产安全配置。
 
 ## 统一验收规则
 
@@ -69,4 +69,4 @@
 - 读取、搜索、Tail、生产、消费者组管理和指标刷新必须保持独立的请求状态、错误展示和资源预算。
 - 读写操作必须保留只读保护、精确确认和结构化错误；失败不能伪装成功。
 - GPUI headless 测试、Docker Kafka/KRaft 真实服务测试和真实 Windows 窗口证据分别记录；一种证据不能替代另一种证据。
-- `cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets -- -D warnings` 和 `git diff --check` 通过后，才能提交并推送当前切片。
+- 涉及源码时检查格式、严格 Clippy、目标测试和最终差异；提交与推送按[开发入门指南](03-development-guide.md#94-提交)执行。

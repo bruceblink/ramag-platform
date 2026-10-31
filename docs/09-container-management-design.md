@@ -71,18 +71,21 @@ Windows 程序不能直接打开 WSL 中的 Linux Unix socket。若 Docker Engin
 容器管理工具遵循现有 Ramag 分层与静态工具插件路径。界面只提交结构化操作请求，不通过命令行拼接 docker 或 kubectl 指令。应用层负责策略、取消、审计和错误分类；基础设施层分别调用 Docker Engine API 与 Kubernetes API。
 
 ~~~mermaid
-flowchart LR
-    User[用户] -->|选择资源与确认操作| ToolUI[容器管理工具界面]
-    ToolUI -->|结构化查询或操作请求| ContainerApp[容器管理应用服务]
-    ContainerApp -->|Docker Engine API 请求| DockerBackend[Docker 基础设施适配器]
-    ContainerApp -->|Kubernetes API 请求与 Watch| KubernetesBackend[Kubernetes 基础设施适配器]
-    ContainerApp -->|连接策略、脱敏审计与取消| PlatformCore[平台底座]
-    DockerBackend -->|资源、日志与操作结果| DockerEngine[Docker 引擎]
-    KubernetesBackend -->|资源、事件、日志与操作结果| KubernetesApi[Kubernetes API Server]
+flowchart TB
+    User[用户] -->|选择与确认| ToolUI[容器管理界面]
+    ToolUI -->|结构化请求| ContainerApp["容器管理<br/>应用服务"]
+    ContainerApp -->|查询与操作| DockerBackend[Docker 适配器]
+    ContainerApp -->|查询与 Watch| KubernetesBackend["Kubernetes<br/>适配器"]
+    ContainerApp -->|配置与任务| PlatformCore[平台底座]
+    DockerBackend -->|Docker API| DockerEngine[Docker 引擎]
+    KubernetesBackend -->|Kubernetes API| KubernetesApi["Kubernetes<br/>API Server"]
     DockerEngine -->|镜像拉取与推送| Registry[镜像仓库]
 ~~~
 
-图中的 Docker 基础设施适配器和 Kubernetes 基础设施适配器是并列实现；容器管理应用服务根据连接配置类型选择其中之一。镜像仓库读写由 Docker 引擎执行；应用层不会把仓库 token 直接传给界面。平台底座只提供受控的配置、秘密存储、任务、通知和审计服务，不拥有 Docker 或 Kubernetes 业务逻辑。
+图中箭头表示请求与依赖方向，资源、日志、事件和操作结果由对应接口返回。
+Docker 与 Kubernetes 适配器并列，应用服务按连接类型选择；图示设计不表示所有集群能力已实现。
+镜像仓库读写由 Docker 引擎执行，仓库查询可由独立 Registry v2 适配器完成；应用层不向界面传递仓库令牌。
+平台底座提供配置、秘密、任务、通知和审计，不拥有容器业务。图按 A4 竖版分层，详细职责保留在正文。
 
 ### 建议 crate 边界
 
@@ -95,7 +98,8 @@ flowchart LR
 | ramag-tool-container | Activity Bar 入口、资源列表、详情、操作向导、日志视图和 headless UI 测试 | 存储明文凭据、绕过应用层直接调用基础设施适配器 |
 | ramag-bin | 静态工具注册、启动和关闭顺序 | 具体容器管理业务规则 |
 
-这些 crate 名称是实施建议。开始 CMT-001 前，先确认现有 workspace 命名和依赖图，避免把候选实现 crate 预先加入 Cargo workspace。
+表中包含候选 crate，不表示都已实现。维护前先核对当前 workspace 命名和依赖图；
+候选实现是否加入 workspace，由主线开发计划中的明确任务决定。
 
 ## 功能范围
 
@@ -142,9 +146,9 @@ Kubernetes 上下文使用以下导航项：
 
 漏洞、签名和 SBOM 是镜像供应链功能，不能用镜像查询结果冒充。它们在具备可信扫描器、签名验证器和清晰的数据来源后另行设计。
 
-`CMT-003` 分页切片记录（2026-09-17）：Registry v2 仓库目录和 Tag 查询已处理 `Link: rel="next"` 分页，并限制分页次数、返回数量和响应大小；分页 URL 只允许访问当前 Registry 的同源地址。目标 crate 测试使用本机 TCP HTTP fixture 验证多页结果和跨域链接拒绝。
+`CMT-003` 分页切片记录（2026-09-17）：Registry v2 仓库目录和 Tag 查询已处理 `Link: rel="next"` 分页，并限制分页次数、返回数量和响应大小；分页 URL 只允许访问当前 Registry 的同源地址。目标 crate 测试使用本地 TCP HTTP 测试服务验证多页结果和跨域链接拒绝。
 
-`CMT-003` 认证与 digest 切片记录（2026-09-17）：本机 TCP HTTP fixture 验证 Registry 返回 401 时映射为不可重试的认证错误，响应正文和密码不会进入错误文本；清单读取使用 `HEAD /v2/{repository}/manifests/{reference}`，从 `Docker-Content-Digest` 回读并校验 digest，同时读取 `Content-Length` 和媒体类型。该切片不代表取消、资源清理或镜像拉取/标记/推送/删除的本机服务验收已完成。
+`CMT-003` 认证与 digest 切片记录（2026-09-17）：本地 TCP HTTP 测试服务验证 Registry 返回 401 时映射为不可重试的认证错误，响应正文和密码不会进入错误文本；清单读取使用 `HEAD /v2/{repository}/manifests/{reference}`，从 `Docker-Content-Digest` 回读并校验 digest，同时读取 `Content-Length` 和媒体类型。该切片不代表取消、资源清理或镜像拉取/标记/推送/删除的本机服务验收已完成。
 
 `CMT-003` 镜像操作取消切片记录（2026-09-17）：领域接口新增共享取消标记，应用服务保留无取消参数的兼容入口，并提供带取消标记的镜像操作入口。Docker 拉取和推送在每个流响应之间等待取消，Tag 和 Delete 在请求期间使用同一取消分支；取消后返回 `ContainerErrorCategory::Cancelled`，并通过丢弃当前 Bollard 请求停止继续消费响应。目标 crate 测试覆盖已取消请求在连接 Engine 前返回；本机 Engine 实际拉取/推送中的取消、结果回读和未完成层清理仍未验收。
 
@@ -282,4 +286,4 @@ Docker 或 kind 不可用时，相关集成测试必须标记为未完成。模�
 
 ## 与现有平台的关系
 
-容器管理工具使用现有静态工具插件、ToolRegistry、Shell、共享通知、设置和任务能力，不引入第三方动态插件加载。平台插件边界见[插件 API 设计](27-ramag-plugin-api-design-001.md)，分层边界见[架构说明](06-architecture.md)。Docker 与 Kubernetes 的领域设计不改变数据库、Kafka、SSH、对象存储或现有插件生命周期的责任；实现范围统一见[主线开发计划](01-development-plan.md)。
+容器管理工具使用现有静态工具插件、ToolRegistry、Shell、共享通知、设置和任务能力，不引入第三方动态插件加载。平台插件边界见[静态插件接口与开发手册](05-plugin-development-guide.md)，分层边界见[架构说明](02-architecture.md)。Docker 与 Kubernetes 的领域设计不改变数据库、Kafka、SSH、对象存储或现有插件生命周期的责任；实现范围统一见[主线开发计划](01-development-plan.md)。

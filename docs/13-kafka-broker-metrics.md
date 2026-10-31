@@ -2,7 +2,7 @@
 
 > 文档状态：已实现 Prometheus/OpenMetrics 文本端点适配、Basic Auth 配置和本机 Docker 端到端验收；生产部署侧证书轮换和 Windows 原生窗口证据仍需单独补充
 > 更新日期：2026-09-11
-> 适用分支：`dev`；长期同步分支只保留 `main`、`dev`
+> 记录基线：2026-09-11 的实现与验收，不表示当前分支或新增排期；任务统一见[主线开发计划](01-development-plan.md)
 
 ## 术语与命名规则
 
@@ -74,6 +74,6 @@ ramag_kafka_broker_request_latency_ms{broker_id="0"} 2.25
 - `ramag-infra-kafka`：已知指标解析、样本时间、部分数据、无关指标、缺少 `broker_id` 和响应边界。
 - `ramag-infra-storage`：包含 Broker 指标认证参数的集群配置仍通过本机加密存储往返，原始数据库记录不暴露端点、用户名或密码。
 - `ramag-tool-kafka`：概览页外部指标区域、状态选择器以及 360/900/1440 宽度布局。
-- `scripts/kafka-test/compose.yaml` 的 `metrics` 服务使用 `nginx:1.27-alpine` 在 `127.0.0.1:19100/metrics` 提供固定 OpenMetrics fixture；`docker_kafka_reads_broker_metrics_fixture` 通过真实 HTTP 请求验证适配器。该服务只证明 HTTP 接入链路，不代表真实 Kafka exporter 或生产 Broker 运行指标。
+- `scripts/kafka-test/compose.yaml` 的 `metrics` 服务使用 `nginx:1.27-alpine` 在 `127.0.0.1:19100/metrics` 提供固定 OpenMetrics 测试响应；`docker_kafka_reads_broker_metrics_fixture` 通过真实 HTTP 请求验证适配器。该服务只证明 HTTP 接入链路，不代表真实 Kafka exporter 或生产 Broker 运行指标。
 - `broker-exporter` 服务使用真实 `apache/kafka:4.0.0` KRaft Broker 的 JMX/RMI（容器端口 `9999`），由固定版本的 Prometheus JMX Exporter `1.6.0` 使用 Basic Auth 暴露到 `127.0.0.1:19101/metrics`；`docker_kafka_reads_real_broker_jmx_exporter` 先验证无认证请求返回 `401`，再验证带认证请求返回 `200` 并解析 CPU、Heap、Topic/Partition 磁盘和请求延迟样本。
-- JMX fixture 使用仓库内仅用于测试的 `ramag-metrics` / `ramag-metrics-test-password`，不代表生产凭据；生产环境必须替换为 Secret 注入值并启用 HTTPS。该测试证明真实 Kafka JVM 到受保护 exporter 再到 Ramag 的本机链路，不替代真实 Windows 窗口验收。
+- 本地 JMX 测试服务使用独立测试账号和密码，不能用于生产；生产环境必须使用 Secret 注入值并启用 HTTPS。该测试证明真实 Kafka JVM 到受保护 exporter 再到 Ramag 的本机链路，不替代真实 Windows 窗口验收。

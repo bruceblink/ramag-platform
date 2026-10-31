@@ -55,7 +55,7 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 2. 复用 Ramag 已有的 Domain/App/Infrastructure/Tool 分层，不让 GPUI 视图依赖 rumqttc、oximqtt 或 Mosquitto 管理命令。
 3. 在不改变消息语义的前提下使用 Ramag 的本地配置存储、取消、错误分类、凭据脱敏和有界缓冲能力。
 4. 把参考项目没有明确保证的行为写成验收条件或未决项，不用静态界面或演示数据代替真实 Broker 结果。
-5. 完成一个独立功能后，分别执行领域/基础设施测试、headless UI 测试和需要时的真实 Windows 窗口验收，再提交和推送。
+5. 修改现有功能时，分别执行领域/基础设施测试、headless UI 测试和适用的真实窗口验收。
 
 ### 1.3 非目标
 
@@ -147,21 +147,30 @@ Wu.CommTool 是一个 Windows WPF 工具，MQTT 部分分为 MQTT Server 和 MQT
 MQTT 工作台沿用 Ramag 的依赖方向。工具界面只构造结构化请求和展示真实返回；应用服务负责校验、取消、状态编排和日志；基础设施负责 MQTT 协议或本地 Broker 的实际运行。
 
 ~~~mermaid
-flowchart LR
-    User[用户] -->|填写配置、点击操作| ToolUI[MQTT 工作台界面]
+flowchart TB
+    User[用户] -->|配置与操作| ToolUI["MQTT 工作台<br/>界面"]
     ToolUI -->|结构化请求| MqttApp[MQTT 应用服务]
-    MqttApp -->|配置校验与领域模型| Domain[MQTT 领域模型与接口]
-    MqttApp -->|连接、发布、订阅| MqttDriver[传输驱动]
-    MqttDriver -->|MQTT 数据面| RemoteBroker[远端 Broker]
-    MqttApp -->|启动、停止、状态| LocalDriver[本地服务驱动]
-    LocalDriver -->|Broker 监听与事件| LocalBroker[本地 MQTT Broker]
-    MqttApp -->|配置读写| Storage[本地配置与秘密存储]
-    MqttDriver -->|消息回调与结果| MqttApp
-    LocalDriver -->|状态与 Broker 事件| MqttApp
-    MqttApp -->|有界消息、状态和错误| ToolUI
+    MqttApp -->|模型与校验| Domain[MQTT 领域接口]
+    MqttApp -->|配置读写| Storage["本地配置<br/>与秘密存储"]
+    MqttApp -->|状态与结果| ToolUI
 ~~~
 
-图中 MQTT 传输驱动和本地服务驱动是并列接口。远端 Broker 的 MQTT 数据面不能调用本地服务驱动；Mosquitto 管理面继续通过单独的管理驱动访问 Dynamic Security 或静态文件。
+传输与本地服务是两个并列接口。下图沿用同一个 MQTT 应用服务，单独显示协议路径：
+
+~~~mermaid
+flowchart TB
+    MqttApp[MQTT 应用服务] -->|连接、发布、订阅| MqttDriver[传输驱动]
+    MqttDriver -->|消息与结果| MqttApp
+    MqttApp -->|启动、停止、状态| LocalDriver[本地服务驱动]
+    LocalDriver -->|状态与事件| MqttApp
+    MqttDriver -->|MQTT 请求| RemoteBroker[远端 Broker]
+    RemoteBroker -->|消息与确认| MqttDriver
+    LocalDriver -->|监听与控制| LocalBroker[本地 MQTT Broker]
+    LocalBroker -->|状态与事件| LocalDriver
+~~~
+
+两图按 A4 竖版分别展示应用职责和协议路径，请求与返回方向各自标注。
+远端 Broker 的 MQTT 数据面不能调用本地服务驱动；Mosquitto 管理面继续通过单独的管理驱动访问 Dynamic Security 或静态文件。
 
 ### 4.2 建议 crate 职责
 
@@ -306,18 +315,19 @@ Broker 配置继续使用 ramag-domain 的 MqttProfile，字段语义如下：
 
 ~~~mermaid
 stateDiagram-v2
+    direction TB
     [*] --> Idle
-    Idle --> Connecting: 测试、发布或开始订阅
-    Connecting --> Connected: Broker 返回 CONNACK
-    Connecting --> Failed: 校验、网络或认证失败
+    Idle --> Connecting: 测试、发布或订阅
+    Connecting --> Connected: CONNACK
+    Connecting --> Failed: 连接失败
     Connected --> Subscribing: 发送订阅请求
     Subscribing --> Subscribed: 订阅确认
-    Subscribed --> Stopping: 用户停止或配置切换
-    Stopping --> Idle: DISCONNECT 和任务退出
+    Subscribed --> Stopping: 停止或切换配置
+    Stopping --> Idle: 断开并退出任务
     Connected --> Publishing: 发布请求
-    Publishing --> Idle: 发布确认或失败
+    Publishing --> Idle: 发布结束
     Subscribed --> Failed: 连接异常
-    Failed --> Idle: 用户关闭错误提示
+    Failed --> Idle: 关闭错误提示
 ~~~
 
 状态转换规则：
@@ -332,17 +342,20 @@ stateDiagram-v2
 
 ~~~mermaid
 stateDiagram-v2
+    direction TB
     [*] --> Stopped
     Stopped --> Starting: 启动服务
     Starting --> Running: 监听成功
-    Starting --> Error: 绑定、认证或 TLS 失败
-    Running --> Stopping: 用户停止或应用退出
-    Running --> Error: Broker 线程异常退出
-    Stopping --> Stopped: 端口释放且线程结束
-    Stopping --> Error: 等待线程超时或句柄失效
-    Error --> Stopped: 清理句柄并重新读取状态
+    Starting --> Error: 启动失败
+    Running --> Stopping: 停止或退出
+    Running --> Error: 线程异常
+    Stopping --> Stopped: 端口与线程已释放
+    Stopping --> Error: 停止失败
+    Error --> Stopped: 清理并回读
 ~~~
 
+“启动失败”包括端口绑定、认证或配置失败；TLS 失败仅在实现 TLS 端点后适用。
+“停止失败”包括等待线程超时或句柄失效，必须保留实际原因。
 “运行中”只在监听成功后显示；“停止中”不得允许再次启动或修改配置。应用退出必须等待本地服务驱动完成停止，避免端口或后台线程残留。
 
 ## 8. 配置持久化与兼容导入
@@ -428,7 +441,7 @@ Mosquitto 管理设计保留为技术参考；尚未实现的扩展不因本文�
 - 覆盖：MQTT 3.1.1、MQTT 5、QoS 1 回执、Retain、User Property、并发临时 Client ID、空闲订阅两秒内停止。
 - 本地 Broker 测试另检查 oximqtt 监听端口、两个真实客户端和注入发布回读。
 
-测试记录必须写明服务名、镜像、端口、启动时间、清理状态和失败原因。Docker 不可用时标记集成测试未完成，不能用 mock 或静态 fixture 代替。
+测试记录必须写明服务名、镜像、端口、启动时间、清理状态和失败原因。Docker 不可用时标记集成测试未完成，不能用模拟响应或静态测试数据代替。
 
 ### 11.3 UI 验收
 
@@ -466,15 +479,14 @@ Mosquitto 管理设计保留为技术参考；尚未实现的扩展不因本文�
 | 自动重连策略 | 影响订阅停止、Client ID 和失败提示 | 先由当前驱动负责有限重连；是否暴露用户开关和退避参数需要单独明确范围 |
 | Broker 事件时间线格式 | 影响 Server 和 Client 共用查看器 | 已统一为 `MqttLocalServerEvent`；客户端发布和 Broker 注入发布分别使用不同分支并携带 `MqttMessage`，UI 颜色、筛选和文案待确定 |
 
-一旦用户或后续实现决定了未决项，必须先更新本文件和功能矩阵，再修改实现。
+用户明确要求处理未决项时，先在主线开发计划中确定范围，再更新本设计和功能矩阵。
 
-## 13. 完成定义
+## 13. 维护验证
 
-MQTT 重写阶段只有同时满足以下条件才可标为完成：
+维护现有 MQTT 能力时，按改动范围核对：
 
-1. 参考项目 MQTT Server/Client 的目标功能在矩阵中有明确的“已实现”或“明确不支持”结论。
+1. 功能矩阵区分已实现、未实现和不支持的行为。
 2. Domain/App/Infrastructure/Tool 依赖边界没有被 UI 或具体 MQTT 库绕过。
-3. 配置、消息、凭据、TLS、取消和有界资源规则有测试。
-4. 本机 Docker 集成测试和 UI headless 测试通过；涉及用户可见功能的真实 Windows 窗口证据已单独记录，未完成部分明确标注。
-5. fmt、Clippy、功能测试和 git diff --check 针对最终待提交内容通过。
-6. 每个独立功能只有一个范围清晰的提交，并立即推送当前功能分支；不合并或推送 main。
+3. 涉及的配置、消息、凭据、TLS、取消和有界资源规则有对应测试。
+4. 本机 Docker、headless 和真实窗口结果分别记录，未完成部分明确标注。
+5. 格式、Clippy、目标测试和差异检查针对最终内容通过。

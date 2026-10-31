@@ -13,34 +13,18 @@
 
 ### 分层与依赖方向
 
+```text
+ramag-bin（组合根）
+├── ramag-ui、ramag-tool-*（视图）
+├── ramag-infra-*（基础设施）
+├── ramag-terminal（内嵌终端）
+└── ramag-app（用例与插件宿主）
+    └── ramag-domain（模型与接口）
 ```
-ramag-bin                          ← 入口：依赖注入 + 启动 GPUI
-  ├── ramag-tool-dbclient                  ← DB Client 视图（SQL + Redis + MongoDB 共用入口）
-  ├── ramag-tool-redis                     ← Redis 专属视图（key 树 / 详情）
-  ├── ramag-tool-mongodb                   ← MongoDB 专属视图（collection 树 / 文档表格），由 dbclient 装载
-  ├── ramag-tool-vcs                       ← VCS（Git）可视化视图
-  ├── ramag-tool-ssh                       ← SSH 连接、内嵌终端、SFTP 与 JumpServer 导入
-  ├── ramag-tool-clipboard                 ← 剪贴历史与详情视图
-  ├── ramag-tool-object-storage             ← COS/OSS/S3 兼容账号、Bucket、对象与传输视图
-  ├── ramag-tool-container                  ← Docker/Kubernetes 连接配置与资源工作台
-  ├── ramag-ui                             ← Shell + ActivityBar + 主题
-  ├── ramag-infra-mysql       impl SqlBackend
-  ├── ramag-infra-postgres    impl SqlBackend
-  ├── ramag-infra-sqlite      impl SqlBackend（本地文件、单连接池）
-  ├── ramag-infra-sql-shared           ← SqlBackend trait + 模板 + tokio runtime
-  ├── ramag-infra-redis       impl KvDriver
-  ├── ramag-infra-mongodb     impl DocDriver
-  ├── ramag-infra-git         impl GitDriver
-  ├── ramag-infra-ssh         impl SshDriver + JumpServerDriver
-  ├── ramag-terminal                       ← GPUI 终端解析、输入编码与绘制
-  ├── ramag-infra-clipboard   impl ClipboardDriver
-  ├── ramag-infra-object-storage             ← OpenDAL COS/OSS/S3 兼容数据面、专用 runtime
-  ├── ramag-infra-update                     ← GitHub Release 更新检查、下载与校验
-  ├── ramag-infra-tunnel                   ← 数据库系统 OpenSSH 隧道
-  ├── ramag-infra-storage     impl Storage（redb + aes-gcm + 系统凭据库）
-  └── ramag-app                            ← Use Cases + ToolRegistry
-        └── ramag-domain                   ← 实体 + traits（无 GPUI / sqlx / redb / redis / mongodb 依赖）
-```
+
+此图展示启动时的装配分组，不表示全部 crate 依赖。Tool 通过 App 编排业务，Infra 实现领域接口；
+SQL、KV、文档、Git、SSH 和剪贴板各自保留专用接口。具体 crate、驱动和存储职责见下文。
+图中保留分组关系，避免把全部 crate 和长说明挤在同一张 A4 图中。
 
 ### 铁律
 
@@ -160,7 +144,7 @@ GPUI 视图提供账号搜索、加密会话恢复、必填 Bucket 挂载、地�
 
 ### `ramag-tool-container`
 
-Docker 与 Kubernetes 使用不同的平台模型和连接字段。Docker 配置拒绝 Kubernetes 专属字段，Kubernetes 配置必须带 context。Docker 只读连接和资源查询的具体实现与证据见[容器管理工具设计](container-management-tool-design.md)；后续能力是否实现只由[主线开发计划](01-development-plan.md)安排。
+Docker 与 Kubernetes 使用不同的平台模型和连接字段。Docker 配置拒绝 Kubernetes 专属字段，Kubernetes 配置必须带 context。Docker 只读连接和资源查询的具体实现与证据见[容器管理工具设计](09-container-management-design.md)；后续能力是否实现只由[主线开发计划](01-development-plan.md)安排。
 
 ### `ramag-tool-dbclient`
 
