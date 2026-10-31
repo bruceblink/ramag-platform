@@ -19,13 +19,18 @@ Ramag Platform 是一个 Rust 2024 Cargo workspace，桌面界面使用 GPUI。�
 
 Windows 使用 Visual Studio 18 2026 Build Tools 的 C++ workload、Windows 10/11 SDK 和 CMake。激活脚本自动定位完整的 VS18 安装，载入 x64 MSVC、Windows SDK 和 CMake，固定使用 `Visual Studio 18 2026` 的 x64 CMake 生成器，并选择官方 `stable-x86_64-pc-windows-msvc` Rust host/target。
 
-Windows 日常开发在普通 PowerShell 中先激活一次 MSVC 工具链。脚本只修改当前 PowerShell 进程，不要求安装或配置 MSYS2、MinGW-w64、Ninja，也不会写入用户级环境变量。激活后直接使用与 Linux、macOS 相同的 Cargo 命令：
+如果尚未持久配置 MSVC 工具链，请在普通 PowerShell 中先运行激活脚本。脚本只修改当前 PowerShell 进程，不要求安装或配置 MSYS2、MinGW-w64、Ninja，也不会写入用户级环境变量。激活后直接使用与 Linux、macOS 相同的 Cargo 命令：
 
 ```powershell
 . .\scripts\windows\enable-msvc-toolchain.ps1
 cargo test -p ramag-tool-system --lib
 cargo clippy-all
 ```
+
+如果本机已将 MSVC、SDK、`INCLUDE`、`LIB`、`PATH` 和通用 CMake 设置保存到用户环境变量，
+重新启动终端后可直接运行 Cargo。由旧进程启动的集成终端仍继承旧值，需要重启其宿主程序。
+Visual Studio 或 SDK 更新后，用激活脚本重新核对工具路径。
+`CARGO_TARGET_DIR` 和 `CMAKE_TOOLCHAIN_FILE` 含仓库路径，应在当前项目中管理，避免固定到用户全局环境。
 
 `make db-test` 在 Windows 下调用同一套 MSVC 环境；数据库测试使用的 Cargo 编译缓存也位于仓库 `target/` 内。
 
