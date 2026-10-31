@@ -4,6 +4,28 @@
 
 > 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
 
+## [0.8.0] - 2026-10-31
+
+Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.7.0...v0.8.0
+
+### 🚀 新功能 / Features
+
+- 完成系统监控、API、剪贴板、版本管理、SSH、对象存储、容器、数据库客户端、Kafka 和 MQTT 的编译期第一方插件迁移，保留工具入口、配置和现有数据边界（[插件 API 基线](https://github.com/bruceblink/ramag-platform/commit/2c0c9454)，[迁移收口](https://github.com/bruceblink/ramag-platform/commit/197839e5)）。
+- 增加查询取消、取消历史和数据同步反馈；完善空状态、保存状态、失败状态和结果摘要。
+
+### 🐛 问题修复 / Bug Fixes
+
+- 修复数据库查询统计请求与页面请求的取消边界，避免已取消查询继续覆盖当前结果（[取消统计查询](https://github.com/bruceblink/ramag-platform/commit/88bbf364)，[取消历史](https://github.com/bruceblink/ramag-platform/commit/282cad41)）。
+- 修复设置状态提示、工具管理空状态和监控状态徽标的可读性与信息层级。
+
+### ⚡ 性能优化 / Performance
+
+- 收口共享 UI 过渡时长，避免工具排序动画重复启动；增加可选的有界原生 UI 性能采样，默认构建不启用诊断路径（[动画收口](https://github.com/bruceblink/ramag-platform/commit/f3b5aa80)，[采样与表面层次](https://github.com/bruceblink/ramag-platform/commit/176beade)）。
+
+### 🧰 维护、文档与测试 / Maintenance, Docs & Tests
+
+- 补充插件迁移、WSL Docker、真实窗口验收和跨平台 CI 记录；Linux 本机编译使用 WSL，Linux/macOS 测试由 GitHub CI 执行。
+
 ## [0.7.0] - 2026-10-25
 
 Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.6.0...v0.7.0
