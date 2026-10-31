@@ -3,7 +3,8 @@
 //! DBClient：dbclient dark 1024 768 large；F6 失败、F8 长错误、F7 恢复。
 //! 插件诊断：plugin-empty 或 plugin-failure；两者只构造本次窗口的受控验收状态。
 //! 数据同步遮罩：sync-progress、sync-cancel、sync-failure 或 sync-summary；只注入门禁状态。
-//! 仅创建进程专属临时 redb；不连接外部服务，不写系统凭据库，退出时清理临时文件。
+//! settings/update 模式支持本项目 Release 手动检查；其他模式不连接外部服务。
+//! 仅创建进程专属临时 redb，不写系统凭据库，退出时清理临时文件。
 
 #[path = "ui_preview/dbclient.rs"]
 mod dbclient;
@@ -256,6 +257,18 @@ fn main() -> anyhow::Result<()> {
         Arc::new(OpenSshDriver::new()),
         storage.clone(),
     ));
+    let update_service = if matches!(page.as_str(), "settings" | "update") {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        Some(Arc::new(ramag_app::UpdateService::new(
+            Arc::new(ramag_infra_update::GitHubUpdateDriver::new(env!(
+                "CARGO_PKG_VERSION"
+            ))?),
+            storage.clone(),
+            env!("CARGO_PKG_VERSION"),
+        )))
+    } else {
+        None
+    };
     gpui_kit::platform::application()
         .with_assets(RamagAssets)
         .run(move |cx: &mut App| {
@@ -292,7 +305,7 @@ fn main() -> anyhow::Result<()> {
                             None,
                             preview.connection.clone(),
                             ssh.clone(),
-                            None,
+                            update_service.clone(),
                             window,
                             cx,
                         )
@@ -314,7 +327,9 @@ fn main() -> anyhow::Result<()> {
                         shell.register_tool_view("system", monitor.into());
                         shell.register_tool_view("dbclient", dbclient.into());
                         let target = match page.as_str() {
-                            "settings" | "plugin-empty" | "plugin-failure" => NavTarget::Settings,
+                            "settings" | "update" | "plugin-empty" | "plugin-failure" => {
+                                NavTarget::Settings
+                            }
                             mode if SYNC_PREVIEW_MODES.contains(&mode) => {
                                 NavTarget::Tool("dbclient".into())
                             }

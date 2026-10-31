@@ -296,7 +296,7 @@ pub use transfer::{
     format_bytes,
 };
 pub use update::{
-    DownloadProgress, ReleaseAsset, ReleaseInfo, UpdateCancellation, UpdateProgressFn,
+    DownloadProgress, ReleaseAsset, ReleaseDelta, ReleaseInfo, UpdateCancellation, UpdateProgressFn,
 };
 
 /// 使用已转为小写的查询词匹配，ASCII 路径不分配正文副本。

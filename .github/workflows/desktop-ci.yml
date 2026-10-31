@@ -53,6 +53,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             build-essential \
+            bsdiff \
             clang \
             cmake \
             desktop-file-utils \
@@ -100,7 +101,9 @@ jobs:
       - name: Validate Linux packaging logic
         run: |
           shellcheck -x scripts/package-linux.sh scripts/linux/*.sh
+          shellcheck scripts/generate-update-deltas.sh scripts/test-update-deltas.sh
           make linux-package-test
+          bash scripts/test-update-deltas.sh
 
       - name: Check formatting
         run: cargo fmt-check

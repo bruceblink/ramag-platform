@@ -96,19 +96,14 @@ struct ActivityItemConfig {
 /// 将更新检查结果同步到设置入口角标。
 pub fn sync_update_indicator(result: &UpdateCheckResult, cx: &mut App) {
     let available = indicator_value(result);
-    let current = cx
-        .try_global::<UpdateIndicatorGlobal>()
-        .is_some_and(|state| state.available);
-    if current != available {
-        cx.set_global(UpdateIndicatorGlobal { available });
-    }
+    cx.set_global(UpdateIndicatorGlobal { available });
 }
 
 fn indicator_value(result: &UpdateCheckResult) -> bool {
     match result {
         UpdateCheckResult::UpToDate { .. } => false,
         UpdateCheckResult::Available(_) => true,
-        UpdateCheckResult::UnsupportedPlatform(_) => false,
+        UpdateCheckResult::UnsupportedPlatform(_) => true,
     }
 }
 

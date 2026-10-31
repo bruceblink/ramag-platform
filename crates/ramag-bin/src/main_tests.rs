@@ -1,7 +1,6 @@
 use super::{
-    AUTO_CHECK_INTERVAL, GitHubUpdateDriver, INITIAL_UPDATE_CHECK_DELAY, JumpServerHttpDriver,
-    MainWindowOpenGate, build_plugin_host_with_storage, build_tool_registry,
-    install_tls_crypto_provider,
+    GitHubUpdateDriver, INITIAL_UPDATE_CHECK_DELAY, JumpServerHttpDriver, MainWindowOpenGate,
+    build_plugin_host_with_storage, build_tool_registry, install_tls_crypto_provider,
 };
 
 #[test]
@@ -11,7 +10,7 @@ fn automatic_update_checks_start_quickly_and_repeat_daily() {
         std::time::Duration::from_secs(3)
     );
     assert_eq!(
-        AUTO_CHECK_INTERVAL,
+        ramag_app::AUTO_CHECK_INTERVAL,
         std::time::Duration::from_secs(24 * 60 * 60)
     );
 }

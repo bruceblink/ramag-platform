@@ -3,6 +3,9 @@
 //! GitHub Release 更新检查、流式下载与 SHA-256 校验。
 
 mod cache;
+mod delta;
+#[cfg(test)]
+mod local_release_tests;
 mod metadata;
 mod platform;
 mod runtime;
@@ -89,9 +92,18 @@ impl UpdateDriver for GitHubUpdateDriver {
         let client = self.download_client.clone();
         let release = release.clone();
         let asset = asset.clone();
+        let current_version = self.current_version.clone();
         run_in_tokio(async move {
-            download_verified_asset(&client, &release, &asset, cache_dir, progress, cancellation)
-                .await
+            download_with_delta(
+                &client,
+                &release,
+                &asset,
+                &current_version,
+                cache_dir,
+                progress,
+                cancellation,
+            )
+            .await
         })
         .await
     }
@@ -99,6 +111,36 @@ impl UpdateDriver for GitHubUpdateDriver {
     fn reveal_download(&self, path: &Path) -> Result<()> {
         platform::reveal_download(path)
     }
+}
+
+async fn download_with_delta(
+    client: &Client,
+    release: &ReleaseInfo,
+    asset: &ReleaseAsset,
+    current_version: &str,
+    cache_dir: PathBuf,
+    progress: UpdateProgressFn,
+    cancellation: UpdateCancellation,
+) -> Result<PathBuf> {
+    match delta::try_delta(
+        client,
+        release,
+        asset,
+        current_version,
+        &cache_dir,
+        &progress,
+        &cancellation,
+    )
+    .await
+    {
+        Ok(Some(path)) => return Ok(path),
+        Ok(None) => {}
+        Err(error) if !cancellation.is_cancelled() => {
+            tracing::warn!(operation = "update_delta_fallback", error = %error, "delta unavailable; downloading full installer");
+        }
+        Err(error) => return Err(error),
+    }
+    download_verified_asset(client, release, asset, cache_dir, progress, cancellation).await
 }
 
 fn trusted_redirect_policy() -> redirect::Policy {
@@ -141,6 +183,9 @@ async fn download_verified_asset(
     progress: UpdateProgressFn,
     cancellation: UpdateCancellation,
 ) -> Result<PathBuf> {
+    if cancellation.is_cancelled() {
+        return Err(DomainError::Other("更新下载已取消".into()));
+    }
     let expected_hash = match &asset.sha256 {
         Some(hash) => hash.clone(),
         None => fetch_checksum(client, &release.tag_name, &asset.name).await?,
@@ -195,6 +240,13 @@ async fn download_verified_asset(
             "安装包下载超过 30 分钟上限".into(),
         )),
     };
+    let result = result.and_then(|()| {
+        if cancellation.is_cancelled() {
+            Err(DomainError::Other("更新下载已取消".into()))
+        } else {
+            Ok(())
+        }
+    });
     if let Err(error) = result {
         if let Err(cleanup_error) = tokio::fs::remove_file(&partial).await
             && cleanup_error.kind() != std::io::ErrorKind::NotFound

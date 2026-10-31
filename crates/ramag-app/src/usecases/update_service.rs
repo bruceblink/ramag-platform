@@ -16,6 +16,7 @@ use tracing::{error, info, warn};
 
 pub const UPDATE_CHECK_PREF_KEY: &str = "update_last_check_at_v1";
 pub const AUTO_CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+const AUTO_CHECK_PREF_KEY: &str = "update_auto_check_enabled_v1";
 const UPDATE_RESULT_PREF_KEY: &str = "update_last_result_v1";
 const MAX_CACHED_UPDATE_NOTICE_BYTES: usize = 256;
 
@@ -82,6 +83,25 @@ impl UpdateService {
         self.last_result.read().clone()
     }
 
+    pub async fn auto_check_enabled(&self) -> Result<bool> {
+        match self
+            .storage
+            .get_preference(AUTO_CHECK_PREF_KEY)
+            .await?
+            .as_deref()
+        {
+            None | Some("true") => Ok(true),
+            Some("false") => Ok(false),
+            Some(_) => Err(DomainError::Storage("自动检测更新设置无效".into())),
+        }
+    }
+
+    pub async fn set_auto_check_enabled(&self, enabled: bool) -> Result<()> {
+        self.storage
+            .set_preference(AUTO_CHECK_PREF_KEY, if enabled { "true" } else { "false" })
+            .await
+    }
+
     pub async fn check(&self, force: bool) -> Result<UpdateCheckResult> {
         let _guard = self.check_lock.lock().await;
         info!(
@@ -92,7 +112,7 @@ impl UpdateService {
         );
         if !force
             && !self.should_check().await
-            && let Some(result) = self.load_cached_result().await
+            && let Some(result) = self.cached_result().await
         {
             *self.last_result.write() = Some(result.clone());
             info!(
@@ -103,8 +123,6 @@ impl UpdateService {
             );
             return Ok(result);
         }
-        self.mark_check_attempt().await;
-
         let release = match self.driver.latest_stable_release().await {
             Ok(release) => release,
             Err(error) => {
@@ -132,6 +150,7 @@ impl UpdateService {
             }
         };
         self.persist_result(&result).await;
+        self.mark_check_attempt().await;
         *self.last_result.write() = Some(result.clone());
         info!(
             operation = "update_check",
@@ -209,6 +228,14 @@ impl UpdateService {
         }
     }
 
+    async fn cached_result(&self) -> Option<UpdateCheckResult> {
+        let result = self.last_result();
+        if result.is_some() {
+            return result;
+        }
+        self.load_cached_result().await
+    }
+
     async fn persist_result(&self, result: &UpdateCheckResult) {
         let notice = cached_notice(&self.current_version, result);
         let value = match serde_json::to_string(&notice) {
@@ -284,22 +311,8 @@ fn parse_cached_result(current_version: &str, value: &str) -> Result<Option<Upda
             latest_version: cached.latest_version,
         }));
     }
-    let tag_name = format!("v{}", cached.latest_version);
-    Ok(Some(UpdateCheckResult::UnsupportedPlatform(
-        AvailableUpdate {
-            release: ReleaseInfo {
-                version: cached.latest_version,
-                release_url: format!(
-                    "https://github.com/bruceblink/ramag-platform/releases/tag/{tag_name}"
-                ),
-                tag_name,
-                notes: String::new(),
-                published_at: None,
-                assets: Vec::new(),
-            },
-            asset: None,
-        },
-    )))
+    // 版本缓存不含安装包元数据；重新取清单后才能判断平台是否受支持。
+    Ok(None)
 }
 
 pub fn asset_name_for(platform: UpdatePlatform, version: &str) -> String {
@@ -383,149 +396,5 @@ fn unix_timestamp() -> u64 {
 }
 
 #[cfg(test)]
-mod tests {
-    use ramag_domain::entities::{ReleaseAsset, ReleaseInfo};
-
-    use super::{
-        UpdateCheckResult, UpdatePlatform, asset_name_for, cached_notice, evaluate_release,
-        parse_cached_result,
-    };
-
-    #[test]
-    fn asset_names_are_exact_and_platform_specific() {
-        assert_eq!(
-            asset_name_for(UpdatePlatform::MacosArm64, "1.2.3"),
-            "Ramag-1.2.3-macos-arm64.dmg"
-        );
-        assert_eq!(
-            asset_name_for(UpdatePlatform::MacosX86_64, "1.2.3"),
-            "Ramag-1.2.3-macos-x86_64.dmg"
-        );
-        assert_eq!(
-            asset_name_for(UpdatePlatform::WindowsX86_64, "1.2.3"),
-            "Ramag-1.2.3-windows-x64-setup.exe"
-        );
-        assert_eq!(
-            asset_name_for(UpdatePlatform::LinuxDebX86_64, "1.2.3"),
-            "Ramag-1.2.3-linux-amd64.deb"
-        );
-        assert_eq!(
-            asset_name_for(UpdatePlatform::LinuxAppImageX86_64, "1.2.3"),
-            "Ramag-1.2.3-linux-x86_64.AppImage"
-        );
-    }
-
-    fn release(version: &str, with_asset: bool) -> ReleaseInfo {
-        let name = asset_name_for(UpdatePlatform::MacosArm64, version);
-        ReleaseInfo {
-            version: version.into(),
-            tag_name: format!("v{version}"),
-            release_url: format!(
-                "https://github.com/bruceblink/ramag-platform/releases/tag/v{version}"
-            ),
-            notes: String::new(),
-            published_at: None,
-            assets:
-                with_asset
-                    .then(|| ReleaseAsset {
-                        name,
-                        download_url:
-                            "https://github.com/bruceblink/ramag-platform/releases/download/file"
-                                .into(),
-                        size: 1,
-                        sha256: None,
-                    })
-                    .into_iter()
-                    .collect(),
-        }
-    }
-
-    #[test]
-    fn newer_version_requires_exact_platform_asset() {
-        let available = evaluate_release(
-            "1.0.0",
-            release("1.1.0", true),
-            Some(UpdatePlatform::MacosArm64),
-        )
-        .expect("newer release should evaluate");
-        assert!(matches!(available, UpdateCheckResult::Available(_)));
-
-        let unsupported = evaluate_release(
-            "1.0.0",
-            release("1.1.0", false),
-            Some(UpdatePlatform::MacosArm64),
-        )
-        .expect("newer release should evaluate");
-        assert!(matches!(
-            unsupported,
-            UpdateCheckResult::UnsupportedPlatform(_)
-        ));
-    }
-
-    #[test]
-    fn same_older_and_prerelease_versions_are_handled_conservatively() {
-        assert!(matches!(
-            evaluate_release(
-                "1.0.0",
-                release("1.0.0", true),
-                Some(UpdatePlatform::MacosArm64)
-            ),
-            Ok(UpdateCheckResult::UpToDate { .. })
-        ));
-        assert!(matches!(
-            evaluate_release(
-                "1.1.0",
-                release("1.0.0", true),
-                Some(UpdatePlatform::MacosArm64)
-            ),
-            Ok(UpdateCheckResult::UpToDate { .. })
-        ));
-        assert!(
-            evaluate_release(
-                "1.0.0",
-                release("1.1.0-beta.1", true),
-                Some(UpdatePlatform::MacosArm64)
-            )
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn cached_update_notice_restores_after_restart_without_remote_metadata() {
-        let available = evaluate_release(
-            "1.0.0",
-            release("1.1.0", true),
-            Some(UpdatePlatform::MacosArm64),
-        )
-        .expect("newer release should evaluate");
-        let notice = cached_notice("1.0.0", &available);
-        let value = serde_json::to_string(&notice).expect("notice should serialize");
-
-        let restored = parse_cached_result("1.0.0", &value)
-            .expect("cached notice should parse")
-            .expect("same app version should restore");
-        let UpdateCheckResult::UnsupportedPlatform(update) = restored else {
-            panic!("cached update should restore as a safe update notice");
-        };
-        assert_eq!(update.release.version, "1.1.0");
-        assert_eq!(
-            update.release.release_url,
-            "https://github.com/bruceblink/ramag-platform/releases/tag/v1.1.0"
-        );
-        assert!(update.asset.is_none());
-    }
-
-    #[test]
-    fn cached_update_notice_rejects_stale_or_noncanonical_versions() {
-        let value = r#"{"current_version":"1.0.0","latest_version":"1.1.0"}"#;
-        assert!(
-            parse_cached_result("1.0.1", value)
-                .expect("different app version should not be an error")
-                .is_none()
-        );
-
-        let prerelease = r#"{"current_version":"1.0.0","latest_version":"1.1.0-beta.1"}"#;
-        assert!(parse_cached_result("1.0.0", prerelease).is_err());
-        assert!(parse_cached_result("1.0.0", &"x".repeat(257)).is_err());
-    }
-}
+#[path = "update_service/tests.rs"]
+mod tests;

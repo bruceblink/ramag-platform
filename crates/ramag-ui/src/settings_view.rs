@@ -6,6 +6,7 @@ mod ssh;
 mod system;
 mod update;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -25,8 +26,8 @@ use ramag_app::{
     UpdateService,
 };
 use ramag_domain::entities::{
-    ClipboardSettings, IdConverterKind, MAX_CUSTOM_ID_ALPHABET_BYTES,
-    MAX_ID_CONVERTER_PROGRAM_BYTES, SshModuleSettings,
+    ClipboardSettings, DownloadProgress, IdConverterKind, MAX_CUSTOM_ID_ALPHABET_BYTES,
+    MAX_ID_CONVERTER_PROGRAM_BYTES, SshModuleSettings, UpdateCancellation,
 };
 use tracing::error;
 
@@ -181,6 +182,15 @@ pub struct SettingsView {
     ssh_service: Arc<SshService>,
     update_service: Option<Arc<UpdateService>>,
     update_state: UpdateUiState,
+    update_checking: bool,
+    update_error: Option<String>,
+    update_auto_enabled: bool,
+    update_auto_loaded: bool,
+    update_auto_saving: bool,
+    update_download: Option<UpdateCancellation>,
+    update_progress: Arc<parking_lot::Mutex<DownloadProgress>>,
+    update_download_path: Option<PathBuf>,
+    update_download_error: Option<String>,
     clipboard: ClipboardSettings,
     loaded_revision: u64,
     saving_clipboard: bool,
@@ -352,6 +362,25 @@ impl SettingsView {
             .detach();
         }
 
+        if let Some(service) = update_service.clone() {
+            cx.spawn(async move |this, cx| {
+                let result = service.auto_check_enabled().await;
+                let _ = this.update(cx, |this, cx| {
+                    match result {
+                        Ok(enabled) => {
+                            this.update_auto_enabled = enabled;
+                            this.update_auto_loaded = true;
+                        }
+                        Err(error) => {
+                            this.update_error = Some(format!("读取自动检测设置失败：{error}"))
+                        }
+                    }
+                    cx.notify();
+                });
+            })
+            .detach();
+        }
+
         Self {
             selected_page: SettingsPage::default(),
             navigation_scroll: gpui_kit::ScrollHandle::new(),
@@ -361,6 +390,15 @@ impl SettingsView {
             ssh_service,
             update_service,
             update_state: UpdateUiState::Idle,
+            update_checking: false,
+            update_error: None,
+            update_auto_enabled: true,
+            update_auto_loaded: false,
+            update_auto_saving: false,
+            update_download: None,
+            update_progress: Arc::new(parking_lot::Mutex::new(DownloadProgress::default())),
+            update_download_path: None,
+            update_download_error: None,
             clipboard,
             loaded_revision,
             saving_clipboard: false,

@@ -6,7 +6,7 @@ use reqwest::{Client, StatusCode, Url};
 use semver::Version;
 use serde::Deserialize;
 
-use ramag_domain::entities::{ReleaseAsset, ReleaseInfo};
+use ramag_domain::entities::{ReleaseAsset, ReleaseDelta, ReleaseInfo};
 use ramag_domain::error::{DomainError, Result};
 
 use super::{
@@ -40,6 +40,19 @@ struct ManifestAsset {
     name: String,
     size: u64,
     sha256: String,
+    #[serde(default)]
+    delta: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+struct ManifestDelta {
+    from_version: String,
+    base_name: String,
+    base_size: u64,
+    base_sha256: String,
+    patch_name: String,
+    patch_size: u64,
+    patch_sha256: String,
 }
 
 pub(super) async fn fetch_latest_release(
@@ -137,11 +150,18 @@ pub(super) fn parse_manifest(body: &[u8]) -> Result<ReleaseInfo> {
             manifest.tag_name, asset.name
         );
         validate_download_url(&download_url, &manifest.tag_name, &asset.name)?;
+        let delta = asset.delta.and_then(|delta| {
+            // 补丁为可选优化；元数据错误时仍保留已经校验的完整安装包。
+            serde_json::from_value(delta)
+                .ok()
+                .and_then(|delta| parse_delta(delta, &version, &asset.name, asset.size).ok())
+        });
         assets.push(ReleaseAsset {
             name: asset.name,
             download_url,
             size: asset.size,
             sha256: Some(asset.sha256.to_ascii_lowercase()),
+            delta,
         });
     }
 
@@ -158,6 +178,43 @@ pub(super) fn parse_manifest(body: &[u8]) -> Result<ReleaseInfo> {
         notes: truncate_utf8(manifest.notes.trim(), MAX_RELEASE_NOTES_BYTES).to_string(),
         published_at: manifest.published_at,
         assets,
+    })
+}
+
+fn parse_delta(delta: ManifestDelta, version: &str, name: &str, size: u64) -> Result<ReleaseDelta> {
+    let from = Version::parse(&delta.from_version)
+        .map_err(|error| DomainError::Other(format!("增量基线版本无效：{error}")))?;
+    let target = Version::parse(version)
+        .map_err(|error| DomainError::Other(format!("增量目标版本无效：{error}")))?;
+    if !name.starts_with(&format!("Ramag-{version}-")) {
+        return Err(DomainError::Other("增量目标名称无效".into()));
+    }
+    let expected_base = name.replacen(&format!("Ramag-{version}-"), &format!("Ramag-{from}-"), 1);
+    if !from.pre.is_empty()
+        || from.to_string() != delta.from_version
+        || from >= target
+        || delta.base_name != expected_base
+        || !is_safe_asset_name(&delta.base_name)
+        || delta.patch_name != format!("{name}.from-{from}.bsdiff")
+        || !is_safe_asset_name(&delta.patch_name)
+        || delta.base_size == 0
+        || delta.base_size > super::delta::MAX_DELTA_BASE_BYTES
+        || size > super::delta::MAX_DELTA_BASE_BYTES
+        || delta.patch_size == 0
+        || delta.patch_size >= size
+    {
+        return Err(DomainError::Other("增量安装包元数据无效".into()));
+    }
+    validate_sha256(&delta.base_sha256)?;
+    validate_sha256(&delta.patch_sha256)?;
+    Ok(ReleaseDelta {
+        from_version: delta.from_version,
+        base_name: delta.base_name,
+        base_size: delta.base_size,
+        base_sha256: delta.base_sha256.to_ascii_lowercase(),
+        patch_name: delta.patch_name,
+        patch_size: delta.patch_size,
+        patch_sha256: delta.patch_sha256.to_ascii_lowercase(),
     })
 }
 

@@ -28,7 +28,7 @@ fn update_indicator_tracks_only_real_update_results() {
     let UpdateCheckResult::Available(update) = available else {
         unreachable!();
     };
-    assert!(!indicator_value(&UpdateCheckResult::UnsupportedPlatform(
+    assert!(indicator_value(&UpdateCheckResult::UnsupportedPlatform(
         update
     )));
 }

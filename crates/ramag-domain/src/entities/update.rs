@@ -8,6 +8,19 @@ pub struct ReleaseAsset {
     pub size: u64,
     /// 小写十六进制 SHA-256；API 未提供时由下载驱动读取校验清单。
     pub sha256: Option<String>,
+    /// 可选的 BSDIFF40 安装包补丁；旧包只从本机已校验缓存读取。
+    pub delta: Option<ReleaseDelta>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReleaseDelta {
+    pub from_version: String,
+    pub base_name: String,
+    pub base_size: u64,
+    pub base_sha256: String,
+    pub patch_name: String,
+    pub patch_size: u64,
+    pub patch_sha256: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

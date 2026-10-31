@@ -30,6 +30,39 @@ fn parses_stable_manifest_and_digest() {
 }
 
 #[test]
+fn optional_delta_is_validated_without_breaking_full_installer() {
+    let body = format!(
+        r#"{{"schema_version":1,"version":"1.2.3","tag_name":"v1.2.3",
+        "assets":[{{"name":"Ramag-1.2.3-linux-amd64.deb","size":1000,"sha256":"{HASH}",
+        "delta":{{"from_version":"1.2.2","base_name":"Ramag-1.2.2-linux-amd64.deb",
+        "base_size":900,"base_sha256":"{HASH}","patch_name":"Ramag-1.2.3-linux-amd64.deb.from-1.2.2.bsdiff",
+        "patch_size":100,"patch_sha256":"{HASH}"}}}}]}}"#
+    );
+    let release = parse_manifest(body.as_bytes()).expect("valid manifest");
+    let delta = release.assets[0].delta.as_ref().expect("valid delta");
+    assert_eq!(delta.from_version, "1.2.2");
+    let invalid = body.replace("\"patch_size\":100", "\"patch_size\":1000");
+    let release = parse_manifest(invalid.as_bytes()).expect("full installer remains usable");
+    assert!(release.assets[0].delta.is_none());
+    let invalid_base = body.replace("Ramag-1.2.2-linux-amd64.deb\"", "other.deb\"");
+    assert!(
+        parse_manifest(invalid_base.as_bytes())
+            .expect("full installer")
+            .assets[0]
+            .delta
+            .is_none()
+    );
+    let invalid_type = body.replace("\"from_version\":\"1.2.2\"", "\"from_version\":42");
+    assert!(
+        parse_manifest(invalid_type.as_bytes())
+            .expect("full installer")
+            .assets[0]
+            .delta
+            .is_none()
+    );
+}
+
+#[test]
 fn rejects_prerelease_manifest() {
     let body = br#"{
         "schema_version":1,

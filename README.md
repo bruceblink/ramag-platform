@@ -108,6 +108,11 @@ Ramag 的价值来自 Rust/GPUI 原生工作区、远程连接、本地安全边
 
 Git 功能需要系统已安装 `git`；SSH 管理、内嵌终端和数据库 SSH 隧道需要系统 OpenSSH。数据库、Git 仓库、SSH 凭据和剪贴板内容不会上传到 Ramag 服务。
 
+当前源码的正式构建会自动检测本项目的最新稳定 Release。可在“设置 → 关于”关闭自动检测，
+或手动检查、下载和取消。下载完成后校验 SHA-256，再由用户运行安装包。
+当同平台旧安装包已缓存且 Release 提供更小的差分包时，客户端优先下载差分包并重建安装器；
+缺少旧包、补丁不可用或校验失败时改为完整包。具体条件见[更新检测与下载](docs/06-desktop-release.md#更新检测与下载)。
+
 Windows CPU 温度监测需要单个物理 CPU 包、受支持的型号及单独安装的[官方签名 PawnIO 驱动](https://github.com/namazso/PawnIO.Setup/releases/tag/2.2.0)。当前支持 Intel Alder Lake 型号 `0x9a`（具备 package DTS）和 AMD Zen 3 系列 `0x19` / 型号 `0x21`（包括 Ryzen 9 5900X）。在系统监控 Thermals 页点击 **Enable CPU temperatures…**，由用户确认 Windows 授权；Ramag 主窗口保持原权限。缺少驱动、授权被拒或采集失败时显示具体原因，不填充虚假的零温度。Ramag 不自动安装驱动；禁用或退出后需要重新启用温度采集。
 
 ### 从源码运行

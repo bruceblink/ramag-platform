@@ -33,8 +33,8 @@ use gpui_kit::{
     prelude::*, px, size,
 };
 use ramag_app::{
-    AUTO_CHECK_INTERVAL, ApiService, ClipboardService, ConnectionService, ContainerService,
-    DataSyncGate, DataSyncService, KafkaService, MongoService, MqttService, ObjectStorageService,
+    ApiService, ClipboardService, ConnectionService, ContainerService, DataSyncGate,
+    DataSyncService, KafkaService, MongoService, MqttService, ObjectStorageService,
     PluginLifecycleReport, PluginPermissionPolicy, PluginSettingsMigrator, RedisService,
     SshService, StaticPluginAdapter, StaticPluginHost, TOOL_ORDER_PREF_KEY,
     TOOL_VISIBILITY_PREF_KEY, ToolRegistry, UpdateService,
@@ -607,6 +607,7 @@ fn main() -> ExitCode {
 }
 
 const INITIAL_UPDATE_CHECK_DELAY: std::time::Duration = std::time::Duration::from_secs(3);
+const UPDATE_SETTINGS_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 
 fn spawn_update_checks(service: Arc<UpdateService>, cx: &mut App) {
     cx.spawn(async move |cx| {
@@ -614,15 +615,25 @@ fn spawn_update_checks(service: Arc<UpdateService>, cx: &mut App) {
             .timer(INITIAL_UPDATE_CHECK_DELAY)
             .await;
         loop {
-            // 每次检查都访问远端，避免缓存延迟新版本提示。
-            let result = service.check(true).await;
+            let enabled = match service.auto_check_enabled().await {
+                Ok(enabled) => enabled,
+                Err(error) => {
+                    warn!(operation = "application_update_settings", error = %error, "load automatic update preference failed");
+                    false
+                }
+            };
+            if !enabled {
+                cx.background_executor().timer(UPDATE_SETTINGS_POLL_INTERVAL).await;
+                continue;
+            }
+            let result = service.check(false).await;
             cx.update(|cx| match result {
                 Ok(result) => sync_update_indicator(&result, cx),
                 Err(error) => {
                     warn!(operation = "application_update_check", error = %error, "automatic update check failed");
                 }
             });
-            cx.background_executor().timer(AUTO_CHECK_INTERVAL).await;
+            cx.background_executor().timer(UPDATE_SETTINGS_POLL_INTERVAL).await;
         }
     })
     .detach();

@@ -15,6 +15,151 @@ use ramag_infra_storage::RedbStorage;
 use super::test_storage::SettingsTestStorage;
 use crate::SettingsView;
 
+struct UpdateTestDriver(std::sync::atomic::AtomicUsize);
+
+#[async_trait::async_trait]
+impl ramag_domain::traits::UpdateDriver for UpdateTestDriver {
+    async fn latest_stable_release(
+        &self,
+    ) -> ramag_domain::error::Result<ramag_domain::entities::ReleaseInfo> {
+        use std::sync::atomic::Ordering;
+        let count = self.0.fetch_add(1, Ordering::SeqCst);
+        let version = if count == 0 { "1.0.0" } else { "1.1.0" };
+        let name = ramag_app::current_platform()
+            .map(|platform| ramag_app::asset_name_for(platform, version));
+        Ok(ramag_domain::entities::ReleaseInfo {
+            version: version.into(), tag_name: format!("v{version}"),
+            release_url: format!("https://github.com/bruceblink/ramag-platform/releases/tag/v{version}"),
+            notes: String::new(), published_at: None,
+            assets: name.into_iter().map(|name| ramag_domain::entities::ReleaseAsset {
+                download_url: format!("https://github.com/bruceblink/ramag-platform/releases/download/v{version}/{name}"),
+                name, size: 1, sha256: None, delta: None,
+            }).collect(),
+        })
+    }
+
+    async fn download_asset(
+        &self,
+        _: &ramag_domain::entities::ReleaseInfo,
+        _: &ramag_domain::entities::ReleaseAsset,
+        _: ramag_domain::entities::UpdateProgressFn,
+        _: ramag_domain::entities::UpdateCancellation,
+    ) -> ramag_domain::error::Result<std::path::PathBuf> {
+        Err(ramag_domain::error::DomainError::ConnectionFailed(
+            "测试下载失败，请检查网络后重试".into(),
+        ))
+    }
+
+    fn reveal_download(&self, _: &std::path::Path) -> ramag_domain::error::Result<()> {
+        Ok(())
+    }
+}
+
+#[gpui_kit::test]
+fn update_controls_refresh_results_and_persist_auto_check(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let path = std::env::temp_dir().join(format!(
+        "ramag-update-ui-{}-{}.redb",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or(Duration::ZERO)
+            .as_nanos()
+    ));
+    let inner = RedbStorage::open_with_key(&path, &[0x4b; 32]);
+    assert!(inner.is_ok(), "isolated update storage should open");
+    let Ok(inner) = inner else { return };
+    let storage: Arc<dyn Storage> = Arc::new(SettingsTestStorage::new(inner));
+    let update = Arc::new(ramag_app::UpdateService::new(
+        Arc::new(UpdateTestDriver(std::sync::atomic::AtomicUsize::new(0))),
+        storage.clone(),
+        "1.0.0",
+    ));
+    let connection = Arc::new(ConnectionService::new(HashMap::new(), storage.clone()));
+    let ssh = Arc::new(SshService::new(
+        Arc::new(OpenSshDriver::new()),
+        storage.clone(),
+    ));
+    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+    cx.update(|app| {
+        app.set_global(crate::activity_bar::UpdateIndicatorGlobal::default());
+        app.set_global(crate::StorageGlobal(storage.clone()));
+        crate::set_system_settings(crate::SystemSettings::default(), app);
+        crate::set_monitor_settings(crate::MonitorSettings::default(), app);
+    });
+    let service = update.clone();
+    let (root, visual) = cx.add_window_view(|window, cx| {
+        let view =
+            cx.new(|cx| SettingsView::new(host, None, connection, ssh, Some(service), window, cx));
+        Root::new(view, window, cx)
+    });
+    visual.simulate_resize(size(px(1024.0), px(768.0)));
+    visual.run_until_parked();
+    click(visual, "settings-page-update");
+    click(visual, "settings-update-check");
+    assert!(matches!(
+        update.last_result(),
+        Some(ramag_app::UpdateCheckResult::UpToDate { .. })
+    ));
+    click(visual, "settings-update-check");
+    assert!(matches!(
+        update.last_result(),
+        Some(ramag_app::UpdateCheckResult::Available(_))
+    ));
+    assert!(visual.debug_bounds("settings-update-download").is_some());
+    click(visual, "settings-update-download");
+    assert!(visual.debug_bounds("settings-update-error").is_some());
+    for mode in [crate::Mode::Light, crate::Mode::Dark] {
+        visual.update(|_, app| crate::apply_theme(mode, app));
+        for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
+            visual.simulate_resize(size(px(width), px(height)));
+            visual.run_until_parked();
+            let controls = bounds(visual, "settings-update-controls");
+            let content = bounds(visual, "settings-content");
+            assert!(controls.left() >= content.left());
+            assert!(controls.right() <= content.right());
+            for selector in [
+                "settings-update-check",
+                "settings-update-download",
+                "settings-update-auto-wrapper",
+                "settings-update-error",
+            ] {
+                let control = bounds(visual, selector);
+                assert!(control.left() >= controls.left(), "{selector}: {width}");
+                assert!(control.right() <= controls.right(), "{selector}: {width}");
+                assert!(control.top() >= controls.top(), "{selector}: {height}");
+                assert!(
+                    control.bottom() <= controls.bottom(),
+                    "{selector}: {height}"
+                );
+            }
+        }
+    }
+    visual.simulate_resize(size(px(1024.0), px(768.0)));
+    visual.run_until_parked();
+    click(visual, "settings-update-auto-wrapper");
+    assert!(matches!(
+        futures::executor::block_on(update.auto_check_enabled()),
+        Ok(false)
+    ));
+    visual.update(|window, app| {
+        app.remove_global::<crate::StorageGlobal>();
+        app.remove_global::<crate::activity_bar::UpdateIndicatorGlobal>();
+        app.remove_global::<crate::SystemSettingsGlobal>();
+        app.remove_global::<crate::MonitorSettingsGlobal>();
+        window.remove_window();
+    });
+    drop(root);
+    visual.run_until_parked();
+    drop(update);
+    drop(storage);
+    cx.update(|_| {});
+    assert!(
+        std::fs::remove_file(path).is_ok(),
+        "isolated store should be removed"
+    );
+}
+
 struct VisibilityTestTool(ToolMeta);
 
 impl Tool for VisibilityTestTool {

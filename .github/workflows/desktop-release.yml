@@ -283,7 +283,7 @@ jobs:
       - macos-package
       - linux-package
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     environment: desktop-release
     permissions:
       contents: write
@@ -434,6 +434,27 @@ jobs:
               '. + [{name: $name, size: $size, sha256: $sha256}]' \
               <<<"$manifest_assets")
           done
+          previous_tag=$(gh release view --repo "$GH_REPO" --json tagName --jq .tagName 2>/dev/null || true)
+          previous_dir="$GITHUB_WORKSPACE/release-input/previous"
+          mkdir -p "$previous_dir"
+          if [[ -n "$previous_tag" && "$previous_tag" != "$tag" ]] &&
+             gh release download "$previous_tag" --repo "$GH_REPO" \
+               --pattern update-manifest.json --dir "$previous_dir" &&
+             sudo apt-get update && sudo apt-get install --yes --no-install-recommends bsdiff; then
+            assets_file="$GITHUB_WORKSPACE/release-input/update-assets.json"
+            printf '%s\n' "$manifest_assets" >"$assets_file"
+            if bash "$GITHUB_WORKSPACE/scripts/generate-update-deltas.sh" \
+              "$previous_tag" "$previous_dir" "$PWD" "$assets_file"; then
+              manifest_assets=$(<"$assets_file")
+            else
+              echo '::warning::Delta generation failed; publishing complete installers only.'
+              rm -f -- Ramag-*.bsdiff
+              sha256sum Ramag-*-windows-x64-setup.exe Ramag-*-macos-arm64.dmg \
+                Ramag-*-macos-x86_64.dmg Ramag-*-linux-amd64.deb \
+                Ramag-*-linux-x86_64.AppImage >SHA256SUMS.txt
+            fi
+            sha256sum --check SHA256SUMS.txt
+          fi
           jq -n \
             --argjson schema_version 1 \
             --arg version "$version" \
@@ -460,6 +481,8 @@ jobs:
             SHA256SUMS.txt
             update-manifest.json
           )
+          delta_assets=(Ramag-*.bsdiff)
+          assets+=("${delta_assets[@]}")
 
           run_release_command() {
             local label="$1"
