@@ -9,6 +9,11 @@ description = "Ramag 共享 UI：主壳（Shell）+ 主题，依赖 GPUI"
 [lints]
 workspace = true
 
+[features]
+# The profiler is compiled only for an explicit diagnostics build. The normal
+# desktop binary keeps the GPUI profiler code and its runtime cost disabled.
+ui-profiling = ["gpui-kit/profiler"]
+
 [dependencies]
 ramag-domain = { workspace = true }
 ramag-app = { workspace = true }

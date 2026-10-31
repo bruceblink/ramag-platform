@@ -183,6 +183,12 @@ fn main() -> anyhow::Result<()> {
     if let Some(code) = ramag_tool_system::system_helper_entry(std::env::args_os()) {
         std::process::exit(code);
     }
+    #[cfg(feature = "ui-profiling")]
+    if std::env::var_os("RAMAG_UI_PROFILE").is_some() {
+        // The normal preview stays silent; an explicit profiling run needs a
+        // subscriber so its bounded foreground records are observable.
+        tracing_subscriber::fmt::init();
+    }
     let monitor_state =
         std::env::temp_dir().join(format!("ramag-monitor-preview-{}", std::process::id()));
     // Set the collector's configuration location before storage or GPUI starts
@@ -266,6 +272,8 @@ fn main() -> anyhow::Result<()> {
             );
             ramag_ui::set_monitor_settings(Default::default(), cx);
             cx.set_global(ramag_ui::StorageGlobal(storage));
+            #[cfg(feature = "ui-profiling")]
+            ramag_ui::profiling::start(cx);
             let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
             let result = cx.open_window(
                 WindowOptions {

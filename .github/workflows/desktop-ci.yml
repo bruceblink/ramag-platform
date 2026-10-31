@@ -108,6 +108,9 @@ jobs:
       - name: Check all targets
         run: cargo check-all
 
+      - name: Check opt-in UI profiler
+        run: cargo check --locked -p ramag-bin --features ui-profiling --examples
+
       - name: Check source conventions
         run: make size-check log-check
 
@@ -161,6 +164,9 @@ jobs:
 
       - name: Check all targets
         run: cargo check-all
+
+      - name: Check opt-in UI profiler
+        run: cargo check --locked -p ramag-bin --features ui-profiling --examples
 
       - name: Check source conventions
         run: make size-check log-check
@@ -256,6 +262,10 @@ jobs:
       - name: Check all targets
         shell: pwsh
         run: cargo check-all
+
+      - name: Check opt-in UI profiler
+        shell: pwsh
+        run: cargo check --locked -p ramag-bin --features ui-profiling --examples
 
       - name: Check source file sizes
         shell: pwsh

@@ -384,6 +384,9 @@ fn main() -> ExitCode {
         cx.set_global(StorageGlobal(deps.storage.clone()));
         cx.activate(true);
 
+        #[cfg(feature = "ui-profiling")]
+        ramag_ui::profiling::start(cx);
+
         let data_sync_gate_for_quit = deps.data_sync_gate.clone();
         cx.on_action(move |_: &Quit, cx| {
             if !data_sync_gate_for_quit.is_blocking() {

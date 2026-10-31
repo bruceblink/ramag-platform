@@ -127,6 +127,7 @@ pub fn pulse_workbench_header(title: impl Into<SharedString>, cx: &gpui_kit::App
         .bg(theme.background)
         .border_b_1()
         .border_color(theme.border.opacity(0.65))
+        .shadow_sm()
         .child(
             div()
                 .debug_selector(|| "pulse-workbench-brand".into())
@@ -196,9 +197,10 @@ pub fn pulse_panel(cx: &gpui_kit::App) -> Div {
         .items_stretch()
         .p(px(14.0))
         .border_1()
-        .border_color(theme.border)
+        .border_color(theme.border.opacity(0.82))
         .rounded(px(8.0))
         .bg(theme.secondary)
+        .shadow_sm()
 }
 
 /// 创建带标签、主读数、单位和可选说明的指标卡。

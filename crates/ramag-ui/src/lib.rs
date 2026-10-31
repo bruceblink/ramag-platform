@@ -22,6 +22,8 @@ mod plugin_diagnostics;
 mod plugin_entry_view;
 pub mod pointer_menu;
 pub mod preferences;
+#[cfg(feature = "ui-profiling")]
+pub mod profiling;
 pub mod prompt_dialog;
 pub mod pulse_ui;
 pub mod recent_items_dialog;

@@ -10,6 +10,11 @@ description = "Ramag 主二进制：注册 tools + 打开主窗口"
 [lints]
 workspace = true
 
+[features]
+# Keep profiling opt-in for both the production binary and the isolated UI
+# preview. The runtime still requires RAMAG_UI_PROFILE=1.
+ui-profiling = ["ramag-ui/ui-profiling", "gpui-kit/profiler"]
+
 [[bin]]
 name = "ramag"
 path = "src/main.rs"

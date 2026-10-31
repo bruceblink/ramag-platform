@@ -106,12 +106,12 @@ impl Render for HomeView {
         let theme = cx.theme();
         let muted_fg = theme.muted_foreground;
         let accent = theme.accent;
-        let bg = theme.background;
         let border = theme.border;
         let fg = theme.foreground;
         let palette = crate::pulse_ui::pulse_palette(cx);
+        let bg = palette.background;
         let card_bg = palette.surface;
-        let icon_bg = palette.selected;
+        let card_hover_bg = palette.raised;
         let window_width = f32::from(window.bounds().size.width);
         let compact = window_width < 640.0;
         let card_width = home_card_width(window_width);
@@ -166,7 +166,6 @@ impl Render for HomeView {
             let description = tool.meta().description.clone();
             let title_selector = format!("home-tool-title-{id}");
             let description_selector = format!("home-tool-description-{id}");
-            let open_selector = format!("home-tool-open-{id}");
             let tooltip = format!("{name} — {description}");
             let icon = ActivityBar::icon_for_meta(tool.meta());
             let preview_icon = icon.clone();
@@ -196,12 +195,17 @@ impl Render for HomeView {
                 .border_1()
                 .border_color(card_border)
                 .rounded(px(6.0))
+                .shadow_sm()
                 .relative()
                 .cursor_pointer()
                 .tooltip(move |window, cx| {
                     gpui_kit::component::tooltip::Tooltip::new(tooltip.clone()).build(window, cx)
                 })
-                .hover(move |this| this.border_color(accent_border))
+                .hover(move |this| {
+                    this.border_color(accent_border)
+                        .bg(card_hover_bg)
+                        .shadow_md()
+                })
                 .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
                     cx.emit(HomeEvent::OpenTool(id_for_click.clone()));
                 }))
@@ -226,15 +230,13 @@ impl Render for HomeView {
                         .min_w_0()
                         .pr(px(14.0))
                         .items_center()
-                        .gap(px(10.0))
+                        .gap(px(8.0))
                         .child(
                             h_flex()
-                                .size(px(32.0))
+                                .size(px(24.0))
                                 .flex_none()
                                 .items_center()
                                 .justify_center()
-                                .rounded(px(6.0))
-                                .bg(icon_bg)
                                 .text_color(accent)
                                 .child(icon),
                         )
@@ -272,27 +274,6 @@ impl Render for HomeView {
                         .line_height(gpui_kit::rems(1.35))
                         .text_color(muted_fg)
                         .child(description),
-                )
-                .child(
-                    h_flex()
-                        .id(SharedString::from(open_selector.clone()))
-                        .debug_selector(move || open_selector.clone())
-                        .w_full()
-                        .flex_none()
-                        .items_center()
-                        .justify_between()
-                        .pt(px(6.0))
-                        .border_t_1()
-                        .border_color(border.opacity(0.55))
-                        .text_xs()
-                        .font_weight(gpui_kit::FontWeight::MEDIUM)
-                        .text_color(accent)
-                        .child("打开工具")
-                        .child(
-                            Icon::new(IconName::ChevronRight)
-                                .size(px(14.0))
-                                .text_color(muted_fg),
-                        ),
                 );
             if is_dragged {
                 card = card.opacity(DRAGGED_ITEM_OPACITY);

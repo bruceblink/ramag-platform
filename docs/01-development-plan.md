@@ -1,8 +1,8 @@
 # Ramag Platform 最新开发计划
 
 > 状态：现行计划
-> 更新日期：2026-10-29
-> 当前基线：`main`，本地 UI 维护切片已提交；远端同步按发布流程处理
+> 更新日期：2026-10-31
+> 当前基线：`main`，卡片视觉切片已完成；原生性能采样切片正在实施
 > 产品定位：保留全部现有原生工作台能力的 Rust/GPUI 桌面平台
 
 本计划以“好钢用在刀刃上”为原则。`ramag-platform` 与
@@ -75,7 +75,11 @@ P3 的 `v0.7.0` 发布切片已完成，证据见 [Ramag 0.7.0 发布计划](25-
 数据库 `A-UI-REAL` 已于 2026-10-26 在真实窗口验收 MySQL/PostgreSQL 触发器子树、连接恢复、事务行编辑读回和 DML 连接失败反馈；PostgreSQL 结果网格的列宽拖动、大结果集分页和长表头也已验收。
 完整数据库操作矩阵仍未完成。`DB-UX-006A` 的 10,000 行读取和 `DB-UX-006B` 的 1 MiB 字段预览已完成真实窗口验收；结果、内存和限制见[数据库工作区路线图](03-database-client-datagrip-roadmap.md)。发布验收与数据库窗口验收分别记录。
 
-用户继续要求打磨整体 UI。`RAMAG-UI-001C` 已按窗口宽度扩展首页工具卡片网格，并保持工具入口、排序和卡片操作不变。`RAMAG-UI-001D` 已完成系统监控页的中文导航、标题和状态文案。`DB-UX-006D` 已完成并行查询结果隔离、页面/统计查询取消、取消耗时和取消历史验收。`RAMAG-UI-001E` 已完成 API 工作台的中文界面词汇和侧栏信息层级。`RAMAG-UI-001F` 已完成版本管理空状态的说明和动作层级。`RAMAG-UI-001G` 已完成容器连接失败与 WSL Docker 引导层级。`RAMAG-UI-001H` 已完成设置页空配置卡的说明和下一步层级。`RAMAG-UI-001I` 已完成工具显示页的入口摘要层级。`RAMAG-UI-001J` 已完成关于页的产品身份和更新状态层级。`RAMAG-UI-001K` 已完成剪贴板设置页的状态摘要层级。`RAMAG-UI-001L` 已完成监控预设空状态的说明和保存引导层级。`RAMAG-UI-001M` 已完成共享最近项目选择器空状态代码、Headless GPUI 和真实窗口验收；隔离窗口打开测试仓库后，选择器显示完整路径、Git 仓库类型和“当前”标记。`RAMAG-UI-001N` 已完成插件诊断页空状态代码、Headless GPUI 和真实窗口验收；隔离 `plugin-empty` 窗口检查三个空列表状态。`RAMAG-UI-001O` 已完成工具显示位置管理弹窗空状态代码、Headless GPUI 和真实窗口验收；当前构建在首页管理工具弹窗中输入唯一无匹配搜索词，显示“没有匹配的工具”及搜索提示，未修改工具开关。`RAMAG-UI-001P` 已完成系统和工具显示设置保存状态代码、Headless GPUI 和真实窗口验收；隔离窗口在系统设置页和工具显示页均显示“已保存”，未写入用户现有配置。`RAMAG-UI-001Q` 已完成 SSH 和剪贴板设置页保存中状态代码、Headless GPUI 和真实窗口验收；隔离窗口显示“SSH 模块设置：正在保存…”，未写入用户凭据。`RAMAG-UI-001R` 已完成数据库设置页自动保存状态代码、Headless GPUI 和真实窗口验收；隔离窗口显示“数据库搜索配置：正在保存…”，未执行数据库连接或 SQL 操作。`RAMAG-UI-001S` 已完成数据库连接配置处理和转换测试空闲状态代码、Headless GPUI 和真实窗口验收；隔离窗口显示“尚未测试”卡并取消导入选择器。`RAMAG-UI-001T` 已完成剪贴板设置页异常与异步操作状态代码、Headless GPUI 和真实窗口验收；隔离窗口显示“正在保存…”处理中卡并恢复正常页面。`RAMAG-UI-001U` 已完成插件诊断失败阶段状态代码、Headless GPUI 和真实窗口验收；隔离 `plugin-failure` 窗口显示初始化失败状态卡。`RAMAG-UI-001V` 已完成监控预设反馈状态代码、Headless GPUI 和真实窗口验收；隔离窗口验证空名称失败和临时预设保存成功状态。`RAMAG-UI-001W` 已完成数据同步终态反馈层级的代码、Headless GPUI 和真实窗口验收；隔离 `sync-failure` 窗口显示失败反馈、结果统计和错误说明。`RAMAG-UI-001X` 已完成数据同步进行中进度层级的代码、Headless GPUI 和真实窗口验收；隔离 `sync-progress` 窗口显示 42% 进度轨道。`RAMAG-UI-001Y` 已完成取消确认层级的代码、Headless GPUI 和真实窗口验收；隔离 `sync-cancel` 窗口显示取消确认面板。`RAMAG-UI-001Z` 已完成结果摘要响应式层级的代码、Headless GPUI 和真实窗口验收；隔离 `sync-summary` 窗口显示八项结果指标。`RAMAG-UI-001AA` 已完成 Pulse 状态徽标的代码、Headless GPUI 和真实窗口验收；当前 UI 主线的已列切片均已完成代码、Headless GPUI 和真实窗口验收，下一阶段进入插件平台化接口设计。此前的 `RAMAG-UI-001A/B`、`DB-UX-006B` 和 `DB-UX-006C` 记录保持不变。
+用户继续要求打磨整体 UI。`RAMAG-UI-001C` 已按窗口宽度扩展首页工具卡片网格，并保持工具入口、排序和卡片操作不变。`RAMAG-UI-001D` 已完成系统监控页的中文导航、标题和状态文案。`DB-UX-006D` 已完成并行查询结果隔离、页面/统计查询取消、取消耗时和取消历史验收。`RAMAG-UI-001E` 已完成 API 工作台的中文界面词汇和侧栏信息层级。`RAMAG-UI-001F` 已完成版本管理空状态的说明和动作层级。`RAMAG-UI-001G` 已完成容器连接失败与 WSL Docker 引导层级。`RAMAG-UI-001H` 已完成设置页空配置卡的说明和下一步层级。`RAMAG-UI-001I` 已完成工具显示页的入口摘要层级。`RAMAG-UI-001J` 已完成关于页的产品身份和更新状态层级。`RAMAG-UI-001K` 已完成剪贴板设置页的状态摘要层级。`RAMAG-UI-001L` 已完成监控预设空状态的说明和保存引导层级。`RAMAG-UI-001M` 已完成共享最近项目选择器空状态代码、Headless GPUI 和真实窗口验收；隔离窗口打开测试仓库后，选择器显示完整路径、Git 仓库类型和“当前”标记。`RAMAG-UI-001N` 已完成插件诊断页空状态代码、Headless GPUI 和真实窗口验收；隔离 `plugin-empty` 窗口检查三个空列表状态。`RAMAG-UI-001O` 已完成工具显示位置管理弹窗空状态代码、Headless GPUI 和真实窗口验收；当前构建在首页管理工具弹窗中输入唯一无匹配搜索词，显示“没有匹配的工具”及搜索提示，未修改工具开关。`RAMAG-UI-001P` 已完成系统和工具显示设置保存状态代码、Headless GPUI 和真实窗口验收；隔离窗口在系统设置页和工具显示页均显示“已保存”，未写入用户现有配置。`RAMAG-UI-001Q` 已完成 SSH 和剪贴板设置页保存中状态代码、Headless GPUI 和真实窗口验收；隔离窗口显示“SSH 模块设置：正在保存…”，未写入用户凭据。`RAMAG-UI-001R` 已完成数据库设置页自动保存状态代码、Headless GPUI 和真实窗口验收；隔离窗口显示“数据库搜索配置：正在保存…”，未执行数据库连接或 SQL 操作。`RAMAG-UI-001S` 已完成数据库连接配置处理和转换测试空闲状态代码、Headless GPUI 和真实窗口验收；隔离窗口显示“尚未测试”卡并取消导入选择器。`RAMAG-UI-001T` 已完成剪贴板设置页异常与异步操作状态代码、Headless GPUI 和真实窗口验收；隔离窗口显示“正在保存…”处理中卡并恢复正常页面。`RAMAG-UI-001U` 已完成插件诊断失败阶段状态代码、Headless GPUI 和真实窗口验收；隔离 `plugin-failure` 窗口显示初始化失败状态卡。`RAMAG-UI-001V` 已完成监控预设反馈状态代码、Headless GPUI 和真实窗口验收；隔离窗口验证空名称失败和临时预设保存成功状态。`RAMAG-UI-001W` 已完成数据同步终态反馈层级的代码、Headless GPUI 和真实窗口验收；隔离 `sync-failure` 窗口显示失败反馈、结果统计和错误说明。`RAMAG-UI-001X` 已完成数据同步进行中进度层级的代码、Headless GPUI 和真实窗口验收；隔离 `sync-progress` 窗口显示 42% 进度轨道。`RAMAG-UI-001Y` 已完成取消确认层级的代码、Headless GPUI 和真实窗口验收；隔离 `sync-cancel` 窗口显示取消确认面板。`RAMAG-UI-001Z` 已完成结果摘要响应式层级的代码、Headless GPUI 和真实窗口验收；隔离 `sync-summary` 窗口显示八项结果指标。`RAMAG-UI-001AA` 已完成 Pulse 状态徽标的代码、Headless GPUI 和真实窗口验收；当前 UI 主线的已列切片均已完成代码、Headless GPUI 和真实窗口验收。此前的 `RAMAG-UI-001A/B`、`DB-UX-006B` 和 `DB-UX-006C` 记录保持不变。
+
+用户要求继续打磨动画流畅度。`RAMAG-UI-001AB` 已完成共享过渡时长和稳定动画标识收口；当前先实施 `RAMAG-UI-001AC` 的可选原生性能采样，再根据采样证据决定是否需要新的渲染优化。插件平台化路线等待本切片和仍适用的专项验收完成。
+
+用户随后要求恢复首页工具卡片的旧视觉结构。`RAMAG-UI-001AD` 已完成：保留当前响应式列数、网格宽度和窄窗口收缩规则，只移除卡片底部操作条和图标底色，保留黄金分割宽高，并为卡片、工作区页头和共享面板增加低强度表面层次。
 
 当前 UI 子切片已完成 API 工作台简约布局和两条分隔栏的真实窗口拖动检查。2026-10-25 已完成
 [连接型工作区验收计划](22-connection-workspace-acceptance-plan.md)中的全局 UI 回归：真实窗口确认
@@ -550,6 +554,40 @@ PostgreSQL 的 100,000 行分页、10,000 行只读查询、1 MiB 以上字段�
 **验证命令：**Windows 本机执行 `cargo fmt --all -- --check`、`cargo test --locked -p ramag-ui --lib -- --test-threads=1`、`cargo test --locked -p ramag-tool-kafka --lib -- --test-threads=1`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo build --locked -p ramag-bin` 和 `git diff --check`；Linux 本机只执行 WSL `cargo build --locked -p ramag-bin --example ui-preview`；Linux/macOS 测试由 `.github/workflows/desktop-ci.yml` 的 `linux-quality`、`macos-quality` jobs 执行。当前切片没有服务集成测试；后续集成测试统一使用 WSL `Ubuntu-24.04` 的 Docker Engine。
 
 **回滚边界：**只回滚共享动态参数、首页/Activity Bar/Kafka 过渡调用、对应测试和本节记录；不回滚工具注册、拖拽顺序、加载状态、业务数据或系统设置。
+
+### RAMAG-UI-001AC：原生 UI 性能采样
+
+**范围：**为 `ramag-ui` 增加可选的 `ui-profiling` 特性，并让 `ramag-bin` 和隔离 `ui-preview` 在显式设置 `RAMAG_UI_PROFILE=1` 时读取 GPUI 前台日志。采样记录输入、窗口绘制、平台提交和日志丢失数量；采样周期、持续时间和原始事件记录数量均有上限。默认构建、默认启动和正常动画不启用 profiler，也不主动请求重绘。该切片只增加诊断路径，不修改业务状态、布局或动画参数。
+
+**验收条件：**
+
+- 未指定 `ui-profiling` 特性时，workspace 默认构建不包含 GPUI profiler；指定特性但未设置 `RAMAG_UI_PROFILE=1` 时不启动采样任务。
+- 显式采样最多运行 `120s`，默认每 `250ms` 写入一次汇总；输入、draw 和 platform present 原始记录最多写入 `10,000` 条，超出部分保留计数。
+- 进程日志包含采样开始、原始事件、日志丢失、周期汇总和完成记录；完成记录给出输入、draw 和 present 的 p95。没有样本时写 `None`，不能用零代替缺失数据。
+- 采样不调用刷新或动画 API；窗口关闭或采样到期后关闭 GPUI trace，正常运行不产生额外的空闲重绘。
+- 纯逻辑测试覆盖显式开关、持续时间上限和 p95 排序；Windows 特性检查覆盖 `ramag-ui`、`ramag-bin` 和 `ui-preview`。Linux 本机只使用 WSL 编译，Linux/macOS workspace 测试由 GitHub CI 执行。
+
+**验证命令：**Windows 本机执行 `cargo fmt --all -- --check`、`cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1`、`cargo check --locked -p ramag-ui --features ui-profiling`、`cargo check --locked -p ramag-bin --features ui-profiling --examples`、严格 workspace Clippy、`cargo build --locked -p ramag-bin` 和 `git diff --check`；Linux 本机只执行 WSL `cargo build --locked -p ramag-bin --example ui-preview`；Linux/macOS 测试由 `.github/workflows/desktop-ci.yml` 执行。当前切片没有服务集成测试；后续集成测试统一使用 WSL `Ubuntu-24.04` 的 Docker Engine。
+
+**回滚边界：**只回滚 `ui-profiling` 特性、采样模块、入口调用、锁文件、CI 可选特性检查和本节记录；不回滚正常构建、动画时长、工具布局、业务数据或用户配置。
+
+### RAMAG-UI-001AD：首页工具卡片视觉回退与表面层次
+
+**范围：**恢复首页工具卡片的旧视觉结构：保留整卡点击和拖拽命中区域，移除底部“打开工具”操作条和图标底色，恢复较小的图标尺寸与原有标题间距。卡片宽度、响应式列数、网格宽度、窄窗口收缩规则、工具顺序和拖拽计算保持不变。卡片宽高继续使用黄金分割比；卡片悬停、共享工作区页头和公共面板使用低强度阴影与表面色差提升层次。
+
+**验收条件：**
+
+- `360x640`、`1024x768`、`1440x900` 和 `2560x1392` 的列数与现有响应式规则一致；卡片不越界，标题、说明和拖拽手柄仍在卡片内。
+- 卡片不再渲染底部操作条或图标底色；整卡点击和拖拽排序仍使用原有事件路径。
+- 每张卡片的宽高比与 `GOLDEN_RATIO` 的差值小于 `0.01`；悬停时表面色、边框和阴影连续变化，不触发布局变化。
+- 共享面板和工作区页头保留原有尺寸、滚动和操作命中，只增加表面层次。
+- Headless GPUI 覆盖首页明暗主题和目标窗口尺寸；Computer Use 在真实 Windows 窗口检查卡片结构、响应式排列和悬停表面。
+
+**验证命令：**Windows 本机执行 `cargo fmt --all -- --check`、`cargo test --locked -p ramag-ui --lib home_view:: -- --test-threads=1`、严格 workspace Clippy、`cargo build --locked -p ramag-bin` 和 `git diff --check`；Linux 本机只使用 WSL 编译；Linux/macOS 测试由 `.github/workflows/desktop-ci.yml` 执行。当前切片没有服务集成测试；后续集成测试统一使用 WSL `Ubuntu-24.04` 的 Docker Engine。
+
+**回滚边界：**只回滚首页卡片渲染、共享表面层次、对应布局断言和本节记录；不回滚响应式网格、工具注册、持久化顺序、拖拽状态、动画参数或用户配置。
+
+**验收记录（2026-10-31，完成）：**Headless GPUI 的首页测试覆盖 `360x640`、`1024x768`、`1440x900` 和 `2560x1392` 的现有响应式列数，6 项 `home_view` 测试通过；卡片宽高比断言继续通过。Computer Use 在当前特性构建的真实 Windows `1440x900` 窗口检查首页，卡片显示为当前响应式布局，图标无底色，底部操作条已移除，窗口仍可滚动，管理入口和拖拽手柄可见。窗口已关闭，未修改用户配置。
 
 ### 当前主线完成后的插件平台化路线
 
