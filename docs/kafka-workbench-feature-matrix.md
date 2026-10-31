@@ -1,8 +1,8 @@
 # Kafka 工作台功能矩阵
 
-> 文档状态：`KAFKA-023` 与阶段 27 的当前功能矩阵和验收顺序
+> 文档状态：`KAFKA-023` 与阶段 27 的历史能力和证据参考；当前任务统一见[主线开发计划](01-development-plan.md)
 > 更新日期：2026-09-11
-> 适用基线：`dev`
+> 记录基线：当时的 `dev`，不表示当前开发分支或排期
 
 本文只描述 Ramag Kafka 工作台与 AKHQ、Offset Explorer 的能力对照和本仓库的交付证据。产品参考用于说明用户场景，不表示复制对方的权限模型、部署方式或全部实现细节。
 
@@ -15,16 +15,16 @@
 | Partition | Partition | Topic 内有序、独立的消息日志；消息定位和读取的最小服务端范围 | 不代表跨 Partition 的全局顺序 |
 | 消息浏览上下文 | Message Browse Context | UI 当前选定的 Topic、Partition、Offset/时间范围和查询预算 | 不代表已向 Broker 发起读取或已消费业务消息 |
 | 消费者组 | Consumer Group | Kafka 维护的成员、分配和已提交 Offset 集合 | 不代表 AKHQ/Ramag 的 UI 用户角色组 |
-| 功能矩阵 | Feature Matrix | 记录用户能力、代码状态、证据和下一项切片的对照表 | 不代表一次提交必须覆盖整张表 |
+| 功能矩阵 | Feature Matrix | 记录用户能力、代码状态和证据的对照表 | 不承担任务执行排期 |
 | 真实窗口证据 | Native Window Evidence | 在 Windows 原生窗口中完成可复核操作和截图 | 不代表 headless GPUI 测试或 Docker 服务结果 |
 
 ## 状态说明
 
 | 状态 | 含义 |
 |---|---|
-| 已完成 | 代码、风险匹配测试和必要的真实服务证据已达到当前切片要求；未完成的外部或原生窗口证据会单独列出 |
-| 进行中 | 已确定责任边界，正在实现一个独立可验收切片 |
-| 待排期 | 用户场景已确认，但当前切片尚未开始 |
+| 已完成 | 代码、风险匹配测试和必要的真实服务证据已达到当时记录的要求；未完成的外部或原生窗口证据单独列出 |
+| 部分完成 | 核心功能已有证据，但缺少真实窗口或外部服务范围 |
+| 未完成 | 场景已确认，但记录点没有完整实现或验收证据 |
 | 不纳入当前范围 | 需要独立部署、安全或资源模型，不随核心 Kafka 工作台顺带实现 |
 
 ## 能力矩阵
@@ -36,30 +36,30 @@
 | Topic 到消息定位 | 从 Topic 详情的指定 Partition 进入消息页 | 已完成 | `kafka_topic_partition_browse_preserves_message_context`；提交 `d9915ec` | 真实窗口鼠标操作仍待补充 |
 | 消费者组到消息定位 | 从消费者组已提交 Offset 进入对应 Topic/Partition/Offset | 已完成 | `kafka_consumer_group_offset_browse_preserves_message_context`；只更新查询上下文 | 不自动读取；用户仍需点击“读取” |
 | 消息浏览 | 按 Offset 或时间读取有限范围消息，查看 Key/Value/Headers/Metadata | 已完成 | `KafkaMessageQuery`、有界读取、消息详情和分页 headless 测试 | 不提交业务 Consumer Group Offset |
-| 消息搜索与导出 | 在 Key/Value/Headers 中按文本或正则搜索，取消扫描，解码并导出有限消息 | 已完成 | 搜索模式与字段选择、取消、预算校验、JSON/Base64 导出路径；正则模式保持大小写不敏感并复用扫描范围预算 | 批量导入另行排期 |
+| 消息搜索与导出 | 在 Key/Value/Headers 中按文本或正则搜索，取消扫描，解码并导出有限消息 | 已完成 | 搜索模式与字段选择、取消、预算校验、JSON/Base64 导出路径；正则模式保持大小写不敏感并复用扫描范围预算 | 批量导入未纳入当前范围 |
 | 实时消息流 | 选择 Topic/Partition 后 Tail，暂停、停止、过滤和有限窗口 | 已完成 | `KafkaMessageTailRequest`、取消/背压/窗口边界和 UI 状态 | 不替代业务消费者；真实窗口证据仍待补充 |
 | 单条消息生产 | 管理模式下确认后生产一条 UTF-8 消息并展示 Broker 定位 | 已完成 | 阶段 25 Domain/App/Infra/UI、Docker 生产回读和 31 项 Kafka UI 测试 | 批量生产、重放和事务编排不纳入当前范围 |
 | 消费者组管理 | 查看成员、分配、提交 Offset、Lag；管理模式下重置到最早/末尾 | 已完成 | 消费者组快照、Offset reset Docker 回读和 headless 测试 | 组内 Offset 到消息定位由当前切片补齐 |
-| Topic/Broker 配置 | 读取配置、修改支持动态变更的配置并拒绝静态项 | 已完成 | `KafkaConfigResource`、动态配置读改写和只读保护测试 | 配置批量导入另行排期 |
+| Topic/Broker 配置 | 读取配置、修改支持动态变更的配置并拒绝静态项 | 已完成 | `KafkaConfigResource`、动态配置读改写和只读保护测试 | 配置批量导入未纳入当前范围 |
 | Kafka ACL | 按 Principal/Host/Resource/Operation 查询，精确创建和删除 | 已完成 | ACL 过滤、二次确认、权限错误映射和 UI 测试 | 不实现 AKHQ UI Groups/Roles |
 | 协议指标 | 查看 Broker 元数据、Topic/Partition 健康、Lag 和 high watermark 速率 | 已完成 | `KafkaMonitoringDriver`、`KafkaMetricsSnapshot` 和概览指标测试 | 运行指标必须与外部来源分开 |
 | Broker 运行指标 | 展示 CPU、内存、磁盘、JVM 和请求延迟 | 已完成 | `PrometheusBrokerMetricsDriver`、有界解析、本机 `nginx:1.27-alpine` fixture，以及真实 `apache/kafka:4.0.0` JMX Exporter 端点回读均已验证 | 生产部署侧 exporter、安全配置、多 Broker 聚合和真实窗口证据另行补充 |
 | Schema Registry | 浏览 Subject、版本和 Schema 内容 | 已完成 | Domain/App/Infra 版本列表与详情边界、Subject 选择和版本滚动 headless 测试、本机 Docker Registry 真实 REST 回读 | 真实 Windows 窗口证据仍待补充 |
 | Kafka Connect | 浏览连接器和 Task 状态 | 已完成 | 只读 Connect HTTP 浏览、端点和数量边界测试 | 写操作不纳入当前范围 |
 | ksqlDB | 对 Kafka 流执行有界只读查询 | 已完成 | `KafkaKsqlDbDriver`、ksqlDB 配置与查询 UI、HTTP 流式 JSON 解析、GPUI headless 测试和本机 Docker ksqlDB fixture；覆盖成功、HTTP 404、行数上限和取消 | 真实 Windows 窗口证据仍待补充；不执行 DDL、写入或查询管理命令 |
-| 纯 Rust Transport | 用跨平台纯 Rust 客户端替换 native backend | 待排期 | 能力矩阵已记录当前 native 路径和缺口 | 不在 UI 功能矩阵切片中顺带替换 |
+| 纯 Rust Transport | 用跨平台纯 Rust 客户端替换 native backend | 未完成替换 | 能力矩阵已记录 native 路径和候选读取能力的缺口 | 是否替换由主线明确范围，不在 UI 维护中顺带替换 |
 
-## `KAFKA-023` 顺序
+## 消息定位的既有证据
 
 1. 已完成：Topic 详情的 Partition 到消息页定位，提交 `d9915ec`。
 2. 已完成：消费者组已提交 Offset 到消息页定位；起始 Offset 保留，用户显式点击“读取”后才访问 Broker。
 3. 已完成：概览页 Partition 健康到消息页定位；headless 测试在 360/900/1200 宽度下确认入口布局，只更新 Topic、Partition 和消息查询上下文，不自动读取或提交 Offset；真实窗口证据仍待补充。
 
-## 阶段 23 下一切片设计：本机 OpenMetrics HTTP Fixture
+## 本机 OpenMetrics HTTP 测试服务
 
 本切片只验证 Ramag 到外部指标 HTTP 端点的真实本机请求链路，不宣称已经接入 Kafka 生产环境 exporter。Docker Compose 增加独立 `metrics` 服务：镜像固定为 `nginx:1.27-alpine`，容器内 `/metrics` 返回受版本控制的 OpenMetrics 文本，宿主绑定 `127.0.0.1:19100`。Rust 集成测试通过 `PrometheusBrokerMetricsDriver` 请求 `http://127.0.0.1:19100/metrics`，检查 `ExternalBrokerMetrics` 来源、Broker ID、四个已知指标和样本时间；Kafka Broker、Kafka Connect 与指标 fixture 分别保留独立服务状态。
 
-静态 fixture 不代表真实 Kafka JVM。真实 JMX Exporter 已在下一条本机 Docker 验收中单独覆盖；生产 exporter 安全配置和 Windows 原生窗口证据继续单独排期。本机 Docker 不可用时，HTTP 集成验收标记为未完成。
+静态测试响应不代表真实 Kafka JVM。真实 JMX Exporter 已在下文的本机 Docker 验收中单独覆盖；生产 exporter 安全配置和 Windows 原生窗口缺口统一由主线记录。本机 Docker 不可用时，HTTP 集成验收标记为未完成。
 
 阶段 23 真实 JMX Exporter 验收：Docker Compose 为 `apache/kafka:4.0.0` Broker 开启专用容器内 JMX/RMI 端口 `9999`，使用 Prometheus JMX Exporter `1.6.0` 和固定 SHA-256 构建 `broker-exporter`，宿主绑定 `127.0.0.1:19101/metrics`。`docker_kafka_reads_real_broker_jmx_exporter` 与静态 fixture 共存，前者验证真实 Kafka JVM 产生的 CPU、Heap、磁盘和请求延迟指标；该服务只用于本机 Docker 验收，关闭 JMX 认证/TLS，不等同于生产安全配置。
 

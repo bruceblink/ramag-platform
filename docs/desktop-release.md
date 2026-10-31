@@ -4,7 +4,7 @@
 >
 > 更新日期：2026-10-31。
 >
-> 本轮发布验收：[Ramag 0.8.0 发布计划](38-ramag-0.8.0-release-plan.md)。
+> 版本记录：[CHANGELOG.md](../CHANGELOG.md)；开发与验收缺口统一见[主线开发计划](01-development-plan.md)。
 >
 > 原则：本地负责开发与复现，对外桌面 Release 统一由 GitHub Actions 汇总并发布。
 

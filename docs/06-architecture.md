@@ -160,7 +160,7 @@ GPUI 视图提供账号搜索、加密会话恢复、必填 Bucket 挂载、地�
 
 ### `ramag-tool-container`
 
-CMT-001 提供 Docker 与 Kubernetes 的平台区分、连接配置领域模型和空工作台。连接配置包含稳定的本地 ID、显示名称、端点地址、Kubernetes context/命名空间和只读策略；Docker 配置拒绝 Kubernetes 专属字段，Kubernetes 配置必须带 context。当前不调用 Docker Engine 或 Kubernetes API，不显示伪造的远端资源；只读连接测试和资源查询由后续 `CMT-002` 接入。
+Docker 与 Kubernetes 使用不同的平台模型和连接字段。Docker 配置拒绝 Kubernetes 专属字段，Kubernetes 配置必须带 context。Docker 只读连接和资源查询的具体实现与证据见[容器管理工具设计](container-management-tool-design.md)；后续能力是否实现只由[主线开发计划](01-development-plan.md)安排。
 
 ### `ramag-tool-dbclient`
 

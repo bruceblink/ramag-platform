@@ -3,7 +3,7 @@
 > 文档状态：`KAFKA-001` 纯 Rust 读取候选阶段性增补稿；当前仅记录现有实现和可复核证据，不表示纯 Rust 客户端已经具备完整替换能力
 > 更新日期：2026-09-11
 > 适用范围：`ramag-domain`、`ramag-app`、`ramag-infra-kafka`、`ramag-tool-kafka` 和 `ramag-bin`
-> 代码基线：`dev` 阶段 18-28 和 `KAFKA-001` 纯 Rust 读取候选代码；当前实施分支：`dev`（只保留并同步 `main`、`dev`）
+> 记录基线：当时的 `dev` 阶段 18-28 和 `KAFKA-001` 纯 Rust 读取候选代码，不表示当前分支或工具链状态；任务统一见[主线开发计划](01-development-plan.md)
 
 本文把 Kafka 协议能力、客户端构建方式和验证证据放在同一张表中。表中的“已实现”只表示当前代码存在对应入口；只有同时具备目标测试、真实 Kafka 服务或明确记录的环境限制，才能把能力写成已验收。
 
@@ -70,7 +70,7 @@
 | 纯 Rust 客户端阶段性读取候选 | 已通过 | 2026-09-11 Windows GNU 下 `ramag-infra-kafka --no-default-features --features pure-rust` 的 28 项单元测试通过，`cargo clippy --all-targets -- -D warnings` 和格式检查通过；本机 Docker `ramag-kafka-test`（`127.0.0.1:19092`）的 1 项真实集成测试通过，覆盖连接、Topic 列表、三 Partition Offset/时间读取、Value 搜索和未支持 Metadata 返回。Consumer Group、Admin、TLS、真实 114 Broker 和真实 Windows 窗口仍未完成 |
 | Linux/macOS 默认构建 | 未在本次 Windows 工作区执行 | 需要对应工具链和独立构建日志；不能用 Windows GNU 结果替代 |
 
-## KAFKA-001 结论和下一步
+## KAFKA-001 能力结论
 
 本矩阵确认了三个直接结论：
 

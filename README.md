@@ -25,7 +25,7 @@
   <a href="https://github.com/tools-rs/ramag">上游 Ramag</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#核心工作台">功能</a> ·
-  <a href="docs/04-plugin-platform-roadmap.md">插件平台路线图</a> ·
+  <a href="docs/01-development-plan.md">主线开发计划</a> ·
   <a href="docs/performance.md">性能</a> ·
   <a href="CONTRIBUTING.md">贡献</a> ·
   <a href="SECURITY.md">安全</a>
@@ -48,7 +48,7 @@ This repository, `bruceblink/ramag-platform`, is an independent downstream proje
 | 项目身份 | `bruceblink/ramag-platform`，独立下游项目；不代表 `tools-rs/ramag` 官方主线 |
 | 代码基线 | 沿用 Ramag `0.0.5` workspace 基线，并包含本仓库后续的 UI 修复与平台设计记录 |
 | 独立发布 | 本项目提供三平台安装包、更新清单和 SHA-256 清单；最新版本见本项目 Releases |
-| 插件平台 | 当前基于编译期静态插件；主线完成后按 [`docs/04-plugin-platform-roadmap.md`](docs/04-plugin-platform-roadmap.md) 设计插件接口、开发试点并迁移保留工具；动态加载和插件市场尚未决定 |
+| 插件平台 | 系统监控试点和九批保留工具已完成编译期静态插件装配；接口见[插件 API 设计](docs/27-ramag-plugin-api-design-001.md)，当前任务统一见[主线开发计划](docs/01-development-plan.md)；动态加载和插件市场未进入实现范围 |
 | 上游协作 | 通用修复可整理后向 `tools-rs/ramag` 提交独立 PR；平台化架构和专属功能在本仓库继续演进 |
 | 支持平台 | Linux x86_64、macOS 12+（Apple Silicon / Intel）、Windows 10/11 x64；三平台安装包见本项目 Releases |
 | 数据边界 | 连接配置、凭据与剪贴历史保存于本机；Ramag 不提供托管服务，也不主动上传这些数据 |
@@ -358,7 +358,7 @@ Windows 用户可打开“设置 → 系统设置”，启用“关闭时最小�
 
 ## 项目结构
 
-Ramag Platform 是一个 Rust 2024 Cargo workspace，采用务实的 Clean Architecture。迁移期间 workspace 仍包含旧的数据库、Git、云存储和剪贴板 crate；目标结构只保留原生核心、协议、GPUI Shell 和必要的基础设施。当前工具仍以编译期内置方式装配；新的边界与删除顺序见 [最新开发计划](docs/01-development-plan.md) 和 [主线路线](docs/02-development-roadmap.md)。
+Ramag Platform 是一个 Rust 2024 Cargo workspace，采用务实的 Clean Architecture。数据库、Git、云存储、剪贴板和其他现有工具继续保留，并通过编译期静态第一方插件装配。平台核心负责通用宿主能力，业务工具保留独立 crate；维护范围和执行顺序统一见[主线开发计划](docs/01-development-plan.md)。
 
 ```text
 ramag-bin              应用入口、依赖注入、快捷键与平台生命周期
@@ -370,7 +370,7 @@ ramag-bin              应用入口、依赖注入、快捷键与平台生命周
 └── ramag-domain       实体和抽象接口，不依赖 GUI 或具体基础设施
 ```
 
-这种分层让核心逻辑可以脱离 GUI 测试，也避免 SQL、KV、文档数据库和 Git 被塞进一个含义模糊的通用接口。详细依赖方向、各 crate 职责和当前静态工具边界见[架构说明](docs/06-architecture.md)；平台化目标、插件生命周期和动态插件限制见[插件平台路线图](docs/04-plugin-platform-roadmap.md)。
+这种分层让核心逻辑可以脱离 GUI 测试，也避免 SQL、KV、文档数据库和 Git 被塞进一个含义模糊的通用接口。详细依赖方向和各 crate 职责见[架构说明](docs/06-architecture.md)；插件生命周期、接口和承载限制见[插件 API 设计](docs/27-ramag-plugin-api-design-001.md)。
 
 ## 开发与验证
 
@@ -416,12 +416,10 @@ Ramag 支持 Linux x86_64、macOS 12+（Apple Silicon / Intel）和 Windows 10/1
 
 - [性能报告：VCS、数据库与剪贴板](docs/performance.md)
 - [开发主线与设计文档](docs/README.md)
-- [执行计划](docs/01-development-plan.md)
-- [Ramag 0.7.0 发布计划](docs/25-ramag-0.7.0-release-plan.md)
-- [Ramag 0.8.0 发布计划](docs/38-ramag-0.8.0-release-plan.md)
+- [主线开发计划](docs/01-development-plan.md)
 - [WSL Docker 开发环境](docs/26-wsl-docker-development-environment.md)
-- [原生核心收缩与双端协议路线](docs/02-development-roadmap.md)
-- [System Pulse 优点吸收与差距矩阵](docs/04-system-pulse-gap-matrix.md)
+- [UI 验收标准](docs/07-ui-acceptance-standard.md)
+- [插件 API 设计](docs/27-ramag-plugin-api-design-001.md)
 - [插件开发指南](docs/05-plugin-development-guide.md)
 - [架构说明](docs/06-architecture.md)
 - [桌面端构建与发布](docs/desktop-release.md)

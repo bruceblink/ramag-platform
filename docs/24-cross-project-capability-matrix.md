@@ -42,8 +42,8 @@
 - it-tools-template 的 Web、PWA 和 Electron 实现不要求 Ramag 提供 Web 运行时，也不调用
   Ramag 进程或 crate。
 - API 工作台内部的 JSON Path 变量和断言是 CAP-004 的组成部分，不恢复 CAP-001。
-- 新增能力必须先得到用户明确说明，再同时更新本矩阵和两个项目的开发计划。
-- 历史迁移、协作和 JSON Path 设计记录保留在历史文档中，但不能作为当前任务入口。
+- 新增能力必须先得到用户明确说明；两个项目各自更新能力边界，Ramag 的任务只写入[主线开发计划](01-development-plan.md)。
+- 当前任务只在[主线开发计划](01-development-plan.md)维护；旧迁移、协作和 JSON Path 设计通过 Git 历史查阅，不恢复为当前范围。
 
 ## 4. 验收和回滚
 

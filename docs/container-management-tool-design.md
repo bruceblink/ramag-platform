@@ -1,6 +1,6 @@
 # Docker 与 Kubernetes 可视化管理工具设计
 
-> 状态：CMT-001、CMT-002 已完成，CMT-003、CMT-005 开发中。本文件定义容器管理工具的产品范围、技术边界和分期；当前实现已接入 Docker Engine 只读适配器、Registry v2 查询适配器、应用服务、资源列表/详情和有界历史日志 UI，真实 Windows 原生窗口证据仍单独记录。
+> 状态：领域设计参考，定义模型、技术边界和测试方法，不另行安排开发任务。文中的设计目标不表示全部能力已经实现；当前范围与验收缺口统一见[主线开发计划](01-development-plan.md)。
 >
 > 适用范围：本机 Docker Engine、受控远程 Docker Engine，以及通过 kubeconfig 接入的 Kubernetes 集群。工具作为 Ramag 静态工具插件实现，暂定 crate 名称为 ramag-tool-container。
 
@@ -30,7 +30,7 @@
 
 容器管理工具服务于需要在一个桌面工作台中完成日常容器排查、镜像核对、服务启动和 Kubernetes 观察的开发者与运维人员。它借鉴 Docker Desktop 中镜像、容器、日志和网络的可发现性，但不依赖 Docker Desktop，也不复制其安装、更新、订阅或集群创建功能。
 
-第一阶段必须实现以下结果：
+Docker 基础能力的设计目标如下：
 
 1. 用户可选择一个 Docker 连接配置，查看 Docker Engine 版本、容器、镜像、容器网络和数据卷，并在只读模式下完成筛选、排序和详情查看。
 2. 用户可从本地镜像或已配置镜像仓库选择镜像，填写端口、环境变量、挂载、网络、资源限制和重启策略后启动容器。工具在提交前显示完整参数摘要。
@@ -255,7 +255,7 @@ OperationReceipt = operation-id / target / state / timestamps / summary
 
 操作记录是 Ramag 本地的经过脱敏的审计摘要，不是 Kubernetes Audit Log 或 Docker Engine 原始日志。用户可以导出操作记录，但导出前再次执行秘密字段隐藏。
 
-## 本机 Docker 与 UI 验收计划
+## 本机 Docker 与 UI 验收方法
 
 每个涉及 Docker 或 Kubernetes API 的集成测试只能使用本机 Docker 环境。Docker 操作测试使用专用标签 ramag.test-suite=true 创建容器、镜像标签、容器网络和数据卷；测试结束后按资源 ID 与标签删除它们，并报告服务、镜像版本、端口、启动状态和清理结果。禁止使用开发者真实集群、远程 Docker Engine、生产镜像仓库或生产 Kubernetes 集群代替本机测试环境。
 
@@ -270,23 +270,9 @@ OperationReceipt = operation-id / target / state / timestamps / summary
 
 Docker 或 kind 不可用时，相关集成测试必须标记为未完成。模拟基础设施适配器、编译成功或 headless UI 结果不能证明 Docker Engine 或 Kubernetes API 集成完成。真实 Windows UI 无法启动时，至少保留 headless 渲染与交互测试，并明确真实窗口证据缺失。
 
-## 分期与独立提交
+## 设计适用边界
 
-| 任务 | 范围 | 交付物 | 验收条件 |
-|---|---|---|---|
-| CMT-001 | 工具身份、术语、领域模型与静态入口 | 容器管理工具空工作台、连接配置模型、设计更新 | 工具注册不影响现有工具；连接配置模型、平台区分和列表空状态有单元与 headless UI 测试 |
-| CMT-002 | Docker 只读查询 | Docker 连接测试、概览、容器、镜像、容器网络和数据卷查看 | 本机 Docker Engine 集成测试覆盖版本、分页、详情和权限错误；真实或 headless UI 验收通过 |
-| CMT-003 | 镜像仓库与镜像操作 | 本地镜像、仓库查询、拉取、标签、推送和删除预览 | 本机 Registry 测试覆盖成功、认证失败、digest 回读、取消和清理 |
-| CMT-004 | 容器启动与生命周期 | 创建向导、参数校验、启动、停止、重启、暂停和删除 | 本机 Docker 测试回读端口、环境变量键、网络、卷和最终状态；确认前不写入 |
-| CMT-005 | Docker 日志 | 查询范围、follow、停止、搜索、导出和缓冲上限 | 本机容器持续写日志；测试验证取消、截断提示、脱敏和窗口响应 |
-| CMT-006 | 容器网络与数据卷 | 创建、详情、连接、断开、删除与影响预览 | 本机 Docker 测试验证 IPAM、容器关联、引用保护和标签清理 |
-| CMT-007 | Kubernetes 只读观察 | kubeconfig 上下文、命名空间、工作负载、Pod、Service、Ingress、事件和日志 | 本机 kind 测试覆盖资源读取、日志、RBAC 拒绝和命名空间清理 |
-| CMT-008 | Kubernetes 受控操作 | 扩缩容、滚动重启、Job 操作和受限 YAML diff | kind 测试验证确认前不写入、RBAC、状态回读、失败保留输入和操作记录 |
-| CMT-009 | 安全与运维收尾 | 生产保护、脱敏、操作记录、性能限制和恢复 | 威胁场景、长日志、连接切换、取消、错误恢复、真实 Windows UI 和完整 workspace 检查通过 |
-
-每个任务只完成一个可验收功能并对应一个提交。开始下一任务前，前一任务的本机 Docker 或 kind 集成测试、风险匹配的 UI 验收、cargo fmt --all -- --check、cargo clippy --workspace --all-targets -- -D warnings、源码尺寸检查和 git diff --check 必须通过。
-
-## 实施前待确认事项
+原 `CMT-001..009` 分期不再作为独立执行队列。现有能力按主线计划维护；设计中未实现的写操作、集群和镜像仓库扩展不自动恢复排期。需要扩展时先明确以下边界：
 
 1. Docker Engine 和 Kubernetes API Rust 客户端依赖需在 CMT-001 的技术验证中比较维护状态、Windows named pipe 支持、TLS、流式日志、API 版本协商、取消能力和许可证；本文不预先锁定某个 crate。
 2. Kubernetes 认证需要明确支持范围。初期应先支持静态 kubeconfig 凭据、客户端证书和已存在的 token；执行外部认证插件前需要单独评估子进程权限与秘密传递。
@@ -296,4 +282,4 @@ Docker 或 kind 不可用时，相关集成测试必须标记为未完成。模�
 
 ## 与现有平台的关系
 
-容器管理工具使用现有静态工具插件、ToolRegistry、Shell、共享通知、设置和任务能力，不引入第三方动态插件加载。平台插件边界见 [04-plugin-platform-roadmap.md](04-plugin-platform-roadmap.md)，分层边界见 [06-architecture.md](06-architecture.md)。本文新增的 Docker 与 Kubernetes 范围不会改变数据库、Kafka、SSH、对象存储或现有插件生命周期的责任。
+容器管理工具使用现有静态工具插件、ToolRegistry、Shell、共享通知、设置和任务能力，不引入第三方动态插件加载。平台插件边界见[插件 API 设计](27-ramag-plugin-api-design-001.md)，分层边界见[架构说明](06-architecture.md)。Docker 与 Kubernetes 的领域设计不改变数据库、Kafka、SSH、对象存储或现有插件生命周期的责任；实现范围统一见[主线开发计划](01-development-plan.md)。
