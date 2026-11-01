@@ -9,6 +9,7 @@ fn latest_release_check_works_without_rest_api() {
     if std::env::var_os("RAMAG_TEST_UPDATE_LIVE").is_none() {
         return;
     }
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let driver = GitHubUpdateDriver::new(env!("CARGO_PKG_VERSION"))
         .expect("update driver should initialize");
     let runtime = tokio::runtime::Builder::new_current_thread()
