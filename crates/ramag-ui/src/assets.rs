@@ -47,6 +47,11 @@ impl AssetSource for RamagAssets {
                 "../assets/Michroma-OFL.txt"
             ))));
         }
+        if path == crate::icons::ramag_brand_icon() {
+            return Ok(Some(Cow::Borrowed(include_bytes!(
+                "../../../scripts/icons/ramag.svg"
+            ))));
+        }
         if let Some(file) = LocalAssets::get(path) {
             return Ok(Some(file.data));
         }
@@ -64,6 +69,9 @@ impl AssetSource for RamagAssets {
         let mut out: Vec<SharedString> = LocalAssets::iter()
             .filter_map(|p| p.starts_with(path).then(|| p.into()))
             .collect();
+        if crate::icons::ramag_brand_icon().starts_with(path) {
+            out.push(crate::icons::ramag_brand_icon().into());
+        }
         if let Ok(upstream) = gpui_kit::assets::Assets.list(path) {
             out.extend(upstream);
         }
@@ -96,6 +104,19 @@ mod tests {
                 "pagination asset should be embedded: {path}"
             );
         }
+    }
+
+    #[test]
+    fn embeds_settings_update_app_icon() {
+        let loaded = RamagAssets
+            .load(crate::icons::ramag_brand_icon())
+            .ok()
+            .flatten();
+        assert_eq!(
+            loaded.as_deref(),
+            Some(include_bytes!("../../../scripts/icons/ramag.svg").as_slice()),
+            "settings should use the packaging icon"
+        );
     }
 
     #[test]

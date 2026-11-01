@@ -46,23 +46,34 @@ impl SettingsView {
             });
         let update = update_from_state(&self.update_state).cloned();
 
-        pulse_settings_card("版本信息", theme)
-            .id("settings-about-card")
-            .debug_selector(|| "settings-about-card".into())
-            .child(render_update_identity(&self.update_state, theme))
-            .child(render_update_toolbar(
-                format!("当前版本：{current_version}"),
-                update,
-                accent,
-                link_hover,
-            ))
-            .child(self.render_update_controls(cx))
+        v_flex()
+            .id("settings-about-layout")
+            .debug_selector(|| "settings-about-layout".into())
+            .w_full()
+            .max_w(px(760.0))
+            .mx_auto()
+            .gap(px(16.0))
+            .child(
+                pulse_settings_card("版本信息", theme)
+                    .id("settings-about-card")
+                    .debug_selector(|| "settings-about-card".into())
+                    .child(render_update_identity(&self.update_state, theme))
+                    .child(render_update_toolbar(
+                        current_version.to_string(),
+                        update,
+                        accent,
+                        theme.foreground,
+                        link_hover,
+                    ))
+                    .child(self.render_update_controls(cx)),
+            )
             .into_any_element()
     }
 
     fn render_update_controls(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let available = matches!(self.update_state, UpdateUiState::Available(_));
+        let downloaded = self.update_download_path.is_some();
         let busy = self.update_checking || self.update_download.is_some();
         let progress = *self.update_progress.lock();
         let mut controls = v_flex()
@@ -70,7 +81,10 @@ impl SettingsView {
             .debug_selector(|| "settings-update-controls".into())
             .w_full()
             .min_w_0()
-            .gap(px(10.0))
+            .gap(px(12.0))
+            .pt(px(14.0))
+            .border_t_1()
+            .border_color(theme.border.opacity(0.72))
             .child(
                 h_flex()
                     .w_full()
@@ -117,15 +131,35 @@ impl SettingsView {
                     )
                     .when(available && self.update_download.is_none(), |row| {
                         row.child(
-                            crate::clickable_button("settings-update-download")
-                                .debug_selector(|| "settings-update-download".into())
-                                .outline()
-                                .small()
-                                .label("下载安装包")
-                                .disabled(self.update_checking)
-                                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                    this.download_update(cx)
-                                })),
+                            crate::clickable_button(if downloaded {
+                                "settings-update-install"
+                            } else {
+                                "settings-update-download"
+                            })
+                            .debug_selector(move || {
+                                if downloaded {
+                                    "settings-update-install".into()
+                                } else {
+                                    "settings-update-download".into()
+                                }
+                            })
+                            .outline()
+                            .small()
+                            .label(if downloaded {
+                                "安装安装包"
+                            } else {
+                                "下载安装包"
+                            })
+                            .disabled(self.update_checking)
+                            .on_click(cx.listener(
+                                |this, _: &ClickEvent, _, cx| {
+                                    if this.update_download_path.is_some() {
+                                        this.install_update(cx);
+                                    } else {
+                                        this.download_update(cx);
+                                    }
+                                },
+                            )),
                         )
                     })
                     .when(self.update_download.is_some(), |row| {
@@ -191,6 +225,19 @@ impl SettingsView {
                     .child("安装包已下载并通过 SHA-256 校验"),
             );
         }
+        if matches!(self.update_state, UpdateUiState::UpToDate) && self.update_error.is_none() {
+            controls = controls.child(
+                h_flex()
+                    .id("settings-update-result")
+                    .debug_selector(|| "settings-update-result".into())
+                    .items_center()
+                    .gap(px(6.0))
+                    .text_sm()
+                    .text_color(theme.success)
+                    .child(Icon::new(IconName::CircleCheck).small())
+                    .child("当前已是最新版本"),
+            );
+        }
         if let Some(error) = self
             .update_error
             .as_ref()
@@ -207,6 +254,20 @@ impl SettingsView {
             );
         }
         controls
+    }
+
+    fn install_update(&mut self, cx: &mut Context<Self>) {
+        let (Some(service), Some(path)) = (
+            self.update_service.as_ref(),
+            self.update_download_path.as_ref(),
+        ) else {
+            return;
+        };
+        self.update_download_error = service
+            .install_download(path)
+            .err()
+            .map(|error| format!("启动安装包失败：{error}"));
+        cx.notify();
     }
 
     fn toggle_auto_update(&mut self, cx: &mut Context<Self>) {
@@ -238,6 +299,7 @@ impl SettingsView {
             return;
         };
         self.update_checking = true;
+        self.update_state = UpdateUiState::Idle;
         self.update_error = None;
         self.update_download_error = None;
         self.update_download_path = None;
@@ -331,14 +393,12 @@ fn render_update_identity(
         .items_center()
         .gap(px(10.0))
         .child(
-            div()
+            h_flex()
                 .size(px(34.0))
                 .flex_none()
                 .items_center()
                 .justify_center()
-                .rounded(px(8.0))
-                .bg(theme.accent.opacity(0.14))
-                .child(Icon::new(IconName::Info).small().text_color(theme.accent)),
+                .child(gpui_kit::img(crate::icons::ramag_brand_icon()).size(px(34.0))),
         )
         .child(
             v_flex()
@@ -355,7 +415,7 @@ fn render_update_identity(
                     div()
                         .text_xs()
                         .text_color(theme.muted_foreground)
-                        .child("原生开发工作台 · 版本与更新"),
+                        .child("本地优先的开发者工具平台"),
                 ),
         )
         .child(
@@ -407,6 +467,7 @@ fn render_update_toolbar(
     current_version: String,
     update: Option<AvailableUpdate>,
     accent: gpui_kit::Hsla,
+    foreground: gpui_kit::Hsla,
     link_hover: gpui_kit::Hsla,
 ) -> impl IntoElement {
     let mut info = h_flex()
@@ -415,51 +476,30 @@ fn render_update_toolbar(
         .flex_1()
         .min_w_0()
         .flex_wrap()
-        .items_center()
-        .gap(px(12.0))
-        .child(
-            div()
-                .debug_selector(|| "settings-update-current-version".into())
-                .flex_1()
-                .min_w_0()
-                .text_sm()
-                .whitespace_normal()
-                .child(current_version),
-        );
+        .items_end()
+        .gap(px(24.0))
+        .child(update_version_summary(
+            "当前版本",
+            current_version,
+            foreground,
+            Some("settings-update-current-version"),
+        ));
     if let Some(update) = update {
         let release_url = update.release.release_url.clone();
         info = info.child(
-            h_flex()
-                .debug_selector(|| "settings-update-available".into())
-                .flex_1()
-                .min_w_0()
-                .items_center()
-                .gap(px(6.0))
-                .child(
-                    div()
-                        .flex_none()
-                        .text_xs()
-                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                        .text_color(accent)
-                        .child("新"),
-                )
-                .child(
-                    div()
-                        .id("settings-update-release-page")
-                        .debug_selector(|| "settings-update-release-page".into())
-                        .flex_1()
-                        .min_w_0()
-                        .text_sm()
-                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                        .text_color(accent)
-                        .whitespace_normal()
-                        .cursor_pointer()
-                        .hover(move |link| link.text_color(link_hover))
-                        .child(format!("新版本：{}", update.release.version))
-                        .on_click(move |_: &ClickEvent, _, cx| {
-                            cx.open_url(&release_url);
-                        }),
-                ),
+            update_version_summary(
+                "可用版本",
+                update.release.version,
+                accent,
+                Some("settings-update-release-page"),
+            )
+            .id("settings-update-available")
+            .debug_selector(|| "settings-update-available".into())
+            .cursor_pointer()
+            .hover(move |link| link.text_color(link_hover))
+            .on_click(move |_: &ClickEvent, _, cx| {
+                cx.open_url(&release_url);
+            }),
         );
     }
 
@@ -469,8 +509,8 @@ fn render_update_toolbar(
         .w_full()
         .min_w_0()
         .flex_wrap()
-        .items_center()
-        .gap(px(12.0))
+        .items_end()
+        .gap(px(16.0))
         .child(info)
         .child(
             h_flex()
@@ -502,6 +542,34 @@ fn render_update_toolbar(
                             cx.open_url(crate::FEEDBACK_ISSUE_URL);
                         }),
                 ),
+        )
+}
+
+fn update_version_summary(
+    label: &'static str,
+    value: String,
+    value_color: gpui_kit::Hsla,
+    debug_selector: Option<&'static str>,
+) -> gpui_kit::Div {
+    v_flex()
+        .min_w_0()
+        .gap(px(2.0))
+        .child(
+            div()
+                .text_xs()
+                .text_color(value_color.opacity(0.68))
+                .child(label),
+        )
+        .child(
+            div()
+                .when_some(debug_selector, |value, selector| {
+                    value.debug_selector(move || selector.into())
+                })
+                .text_sm()
+                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                .text_color(value_color)
+                .whitespace_normal()
+                .child(value),
         )
 }
 

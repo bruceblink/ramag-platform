@@ -15,7 +15,11 @@ use ramag_infra_storage::RedbStorage;
 use super::test_storage::SettingsTestStorage;
 use crate::SettingsView;
 
-struct UpdateTestDriver(std::sync::atomic::AtomicUsize);
+struct UpdateTestDriver {
+    calls: std::sync::atomic::AtomicUsize,
+    download_succeeds: std::sync::atomic::AtomicBool,
+    installs: std::sync::atomic::AtomicUsize,
+}
 
 #[async_trait::async_trait]
 impl ramag_domain::traits::UpdateDriver for UpdateTestDriver {
@@ -23,7 +27,7 @@ impl ramag_domain::traits::UpdateDriver for UpdateTestDriver {
         &self,
     ) -> ramag_domain::error::Result<ramag_domain::entities::ReleaseInfo> {
         use std::sync::atomic::Ordering;
-        let count = self.0.fetch_add(1, Ordering::SeqCst);
+        let count = self.calls.fetch_add(1, Ordering::SeqCst);
         let version = if count == 0 { "1.0.0" } else { "1.1.0" };
         let name = ramag_app::current_platform()
             .map(|platform| ramag_app::asset_name_for(platform, version));
@@ -45,12 +49,24 @@ impl ramag_domain::traits::UpdateDriver for UpdateTestDriver {
         _: ramag_domain::entities::UpdateProgressFn,
         _: ramag_domain::entities::UpdateCancellation,
     ) -> ramag_domain::error::Result<std::path::PathBuf> {
+        if self
+            .download_succeeds
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            return Ok(std::env::temp_dir().join("Ramag-test-installer.exe"));
+        }
         Err(ramag_domain::error::DomainError::ConnectionFailed(
             "测试下载失败，请检查网络后重试".into(),
         ))
     }
 
     fn reveal_download(&self, _: &std::path::Path) -> ramag_domain::error::Result<()> {
+        Ok(())
+    }
+
+    fn install_download(&self, _: &std::path::Path) -> ramag_domain::error::Result<()> {
+        self.installs
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
 }
@@ -70,8 +86,13 @@ fn update_controls_refresh_results_and_persist_auto_check(cx: &mut TestAppContex
     assert!(inner.is_ok(), "isolated update storage should open");
     let Ok(inner) = inner else { return };
     let storage: Arc<dyn Storage> = Arc::new(SettingsTestStorage::new(inner));
+    let driver = Arc::new(UpdateTestDriver {
+        calls: std::sync::atomic::AtomicUsize::new(0),
+        download_succeeds: std::sync::atomic::AtomicBool::new(false),
+        installs: std::sync::atomic::AtomicUsize::new(0),
+    });
     let update = Arc::new(ramag_app::UpdateService::new(
-        Arc::new(UpdateTestDriver(std::sync::atomic::AtomicUsize::new(0))),
+        driver.clone(),
         storage.clone(),
         "1.0.0",
     ));
@@ -101,6 +122,10 @@ fn update_controls_refresh_results_and_persist_auto_check(cx: &mut TestAppContex
         update.last_result(),
         Some(ramag_app::UpdateCheckResult::UpToDate { .. })
     ));
+    assert!(
+        visual.debug_bounds("settings-update-result").is_some(),
+        "an up-to-date check should render an explicit result"
+    );
     click(visual, "settings-update-check");
     assert!(matches!(
         update.last_result(),
@@ -109,6 +134,29 @@ fn update_controls_refresh_results_and_persist_auto_check(cx: &mut TestAppContex
     assert!(visual.debug_bounds("settings-update-download").is_some());
     click(visual, "settings-update-download");
     assert!(visual.debug_bounds("settings-update-error").is_some());
+    driver
+        .download_succeeds
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    click(visual, "settings-update-download");
+    for _ in 0..10 {
+        visual.run_until_parked();
+        if visual.debug_bounds("settings-update-install").is_some() {
+            break;
+        }
+        visual
+            .background_executor
+            .advance_clock(Duration::from_millis(50));
+    }
+    assert!(
+        visual.debug_bounds("settings-update-download").is_none(),
+        "verified downloads should replace the download action"
+    );
+    assert!(
+        visual.debug_bounds("settings-update-install").is_some(),
+        "verified downloads should expose the install action"
+    );
+    click(visual, "settings-update-install");
+    assert_eq!(driver.installs.load(std::sync::atomic::Ordering::SeqCst), 1);
     for mode in [crate::Mode::Light, crate::Mode::Dark] {
         visual.update(|_, app| crate::apply_theme(mode, app));
         for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
@@ -120,9 +168,9 @@ fn update_controls_refresh_results_and_persist_auto_check(cx: &mut TestAppContex
             assert!(controls.right() <= content.right());
             for selector in [
                 "settings-update-check",
-                "settings-update-download",
+                "settings-update-install",
+                "settings-update-reveal",
                 "settings-update-auto-wrapper",
-                "settings-update-error",
             ] {
                 let control = bounds(visual, selector);
                 assert!(control.left() >= controls.left(), "{selector}: {width}");

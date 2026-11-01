@@ -153,6 +153,12 @@ pub fn settings() -> Icon {
     Icon::default().path("icons/settings.svg")
 }
 
+/// Ramag 彩色标识；使用图片渲染，保留品牌颜色。
+#[inline]
+pub fn ramag_brand_icon() -> &'static str {
+    "icons/ramag.svg"
+}
+
 /// Native SSH terminal icon; kept separate from generic server and console icons.
 #[inline]
 pub fn terminal() -> Icon {

@@ -170,6 +170,9 @@ async fn automatic_preference_persists_and_failed_check_can_retry() {
         fn reveal_download(&self, _: &Path) -> Result<()> {
             Ok(())
         }
+        fn install_download(&self, _: &Path) -> Result<()> {
+            Ok(())
+        }
     }
     let dir = tempfile::tempdir().expect("isolated storage directory");
     let storage = Arc::new(

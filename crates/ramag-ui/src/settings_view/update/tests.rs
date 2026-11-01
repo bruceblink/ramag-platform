@@ -101,6 +101,7 @@ impl Render for UpdateToolbarHost {
                     asset: None,
                 }),
                 theme.accent,
+                theme.foreground,
                 theme.link_hover,
             ))
     }

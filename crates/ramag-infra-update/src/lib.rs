@@ -111,6 +111,10 @@ impl UpdateDriver for GitHubUpdateDriver {
     fn reveal_download(&self, path: &Path) -> Result<()> {
         platform::reveal_download(path)
     }
+
+    fn install_download(&self, path: &Path) -> Result<()> {
+        platform::install_download(path)
+    }
 }
 
 async fn download_with_delta(

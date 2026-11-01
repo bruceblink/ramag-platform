@@ -165,6 +165,10 @@ impl UpdateService {
         self.driver.reveal_download(path)
     }
 
+    pub fn install_download(&self, path: &std::path::Path) -> Result<()> {
+        self.driver.install_download(path)
+    }
+
     async fn should_check(&self) -> bool {
         let value = match self.storage.get_preference(UPDATE_CHECK_PREF_KEY).await {
             Ok(value) => value,

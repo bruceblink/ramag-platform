@@ -20,4 +20,8 @@ pub trait UpdateDriver: Send + Sync {
     ) -> Result<PathBuf>;
 
     fn reveal_download(&self, path: &Path) -> Result<()>;
+
+    /// 由用户点击后启动已校验的安装包；返回值只表示启动结果，不表示安装完成。
+    /// 不退出当前应用，也不绕过系统安装确认。
+    fn install_download(&self, path: &Path) -> Result<()>;
 }
