@@ -214,6 +214,7 @@ CI、headless 与真实窗口结果分开记录。若需要修复，先复现问
 | 平台与硬件 | macOS 网络自动选择、Linux/macOS 原生窗口与秘密存储、GPU/PawnIO 不同硬件、进程授权、托盘恢复和跨 DPI/多显示器，需要对应平台或设备证据；Windows 开发机结果不能代替 |
 | 监控差异 | 单位/量程/图例、失败来源、键盘焦点、配置损坏恢复和后台历史连续性按实际缺陷复核；新增温和结束、托盘动态图、偏好同步等能力先取得明确范围 |
 | 外部服务 | COS/OSS 云端流程、真实 Kubernetes、Kafka TLS/SASL/ACL 服务兼容及生产 exporter 安全配置，须具备对应测试环境；RustFS、明文 Broker 或代码检查不替代这些结果 |
+| 更新库跨程序复用 | [架构说明](02-architecture.md#跨程序复用评估)已评估提取边界与现有方案；尚未安排提取、改变许可证或发布公共库。Ramag 与 `it-tools-template` 保持现有独立边界 |
 | 历史扩展设想 | 更多本地 Broker 管理、容器写操作扩展、纯 Rust Kafka 默认替换和外部插件承载，均不从旧路线图自动恢复排期 |
 | WSL 启动 | `Ubuntu-24.04` Docker Engine 和登录任务已有手动运行检查；实际重新登录/重启后的启动仍未验证，见[开发入门指南](03-development-guide.md#95-wsl-docker-环境) |
 | 历史数据恢复 | [2026-10-06 测试报告](testing/2026-10-06-ui-integration-test-report.md#ssh-清理事故与恢复状态)记录用户 `known_hosts` 未恢复，仍需匹配备份或用户确认重新核验；新测试通过不能关闭此事项 |
