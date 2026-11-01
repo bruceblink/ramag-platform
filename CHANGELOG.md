@@ -4,6 +4,23 @@
 
 > 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
 
+## [0.9.0] - 2026-11-01
+
+Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.8.0...v0.9.0
+
+### 🚀 新功能 / Features
+
+- 增加启动后的自动更新检测及设置开关；关于页支持手动检查、查看下载进度、取消下载和打开已校验的安装包目录。
+- 在满足缓存和安装包条件时支持可选差分下载；差分不可用或校验失败时下载完整安装包。安装仍由用户确认。
+
+### 🐛 问题修复 / Bug Fixes
+
+- 移除 MQTT 本地服务页过时的外部项目引用，并修复 Windows 界面预览程序打开复杂页面时的栈空间不足问题。
+
+### 🧰 维护、文档与测试 / Maintenance, Docs & Tests
+
+- 合并开发计划和重复文档；补充本机 HTTPS 更新集成测试及 Windows 工具链配置说明。
+
 ## [0.8.0] - 2026-10-31
 
 Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.7.0...v0.8.0

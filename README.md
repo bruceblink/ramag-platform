@@ -104,7 +104,7 @@ Ramag 的价值来自 Rust/GPUI 原生工作区、远程连接、本地安全边
 | Windows x64 | `Ramag-*-windows-x64-setup.exe` | Windows 10 |
 | Linux x86_64 | `Ramag-*-linux-amd64.deb` / `Ramag-*-linux-x86_64.AppImage` | Ubuntu 24.04 或兼容发行版 |
 
-> 当前 workspace 版本为 `0.8.0`。Windows 安装包尚未做 Authenticode 签名，macOS 安装包尚未做 Developer ID 签名与 Apple 公证；完整状态见[桌面端构建与发布](docs/06-desktop-release.md#签名与公证状态)。
+> 当前 workspace 版本为 `0.9.0`。Windows 安装包尚未做 Authenticode 签名，macOS 安装包尚未做 Developer ID 签名与 Apple 公证；完整状态见[桌面端构建与发布](docs/06-desktop-release.md#签名与公证状态)。
 
 Git 功能需要系统已安装 `git`；SSH 管理、内嵌终端和数据库 SSH 隧道需要系统 OpenSSH。数据库、Git 仓库、SSH 凭据和剪贴板内容不会上传到 Ramag 服务。
 
