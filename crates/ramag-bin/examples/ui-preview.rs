@@ -3,7 +3,7 @@
 //! DBClient：dbclient dark 1024 768 large；F6 失败、F8 长错误、F7 恢复。
 //! 插件诊断：plugin-empty 或 plugin-failure；两者只构造本次窗口的受控验收状态。
 //! 数据同步遮罩：sync-progress、sync-cancel、sync-failure 或 sync-summary；只注入门禁状态。
-//! settings/update 模式支持本项目 Release 手动检查；其他模式不连接外部服务。
+//! settings/update 模式支持 Release 手动检查；MQTT 预览不会自动连接或启动 Broker。
 //! 仅创建进程专属临时 redb，不写系统凭据库，退出时清理临时文件。
 
 #[path = "ui_preview/dbclient.rs"]
@@ -16,8 +16,9 @@ use std::sync::Arc;
 use gpui_kit::component::Root;
 use gpui_kit::{App, AppContext as _, Bounds, WindowBounds, WindowOptions, px, size};
 use ramag_app::{
-    DataSyncExecutionContext, DataSyncGate, DataSyncPermit, PluginContext, PluginOperationError,
-    SshService, StaticPlugin, StaticPluginAdapter, StaticPluginHost, ToolRegistry,
+    DataSyncExecutionContext, DataSyncGate, DataSyncPermit, MqttService, PluginContext,
+    PluginOperationError, SshService, StaticPlugin, StaticPluginAdapter, StaticPluginHost,
+    ToolRegistry,
 };
 use ramag_domain::{
     PluginDescriptor, PluginId, Tool, ToolMeta,
@@ -225,13 +226,16 @@ fn main() -> anyhow::Result<()> {
     let host = Arc::new(StaticPluginHost::new(registry.clone()));
     let plugin_diagnostics_mode = matches!(page.as_str(), "plugin-empty" | "plugin-failure");
     if !plugin_diagnostics_mode {
-        let tools: Vec<Arc<dyn Tool>> = vec![
+        let mut tools: Vec<Arc<dyn Tool>> = vec![
             Arc::new(ramag_tool_dbclient::DbClientTool::new()),
             Arc::new(ramag_tool_api::ApiTool::new()),
             Arc::new(ramag_tool_container::ContainerTool::new()),
             Arc::new(ramag_tool_ssh::SshTool::new()),
             Arc::new(ramag_tool_system::SystemTool::new()),
         ];
+        if matches!(page.as_str(), "settings" | "mqtt") {
+            tools.push(Arc::new(ramag_tool_mqtt::MqttTool::new()));
+        }
         for tool in tools {
             host.register_plugin(Arc::new(StaticPluginAdapter::from_tool(tool)?))?;
         }
@@ -257,6 +261,15 @@ fn main() -> anyhow::Result<()> {
         Arc::new(OpenSshDriver::new()),
         storage.clone(),
     ));
+    let mqtt = matches!(page.as_str(), "settings" | "mqtt").then(|| {
+        Arc::new(
+            MqttService::new(
+                Arc::new(ramag_infra_mqtt::NativeMqttTransport::new()),
+                storage.clone(),
+            )
+            .with_local_server_driver(Arc::new(ramag_infra_mqtt::NativeMqttLocalServer::new())),
+        )
+    });
     let update_service = if matches!(page.as_str(), "settings" | "update") {
         let _ = rustls::crypto::ring::default_provider().install_default();
         Some(Arc::new(ramag_app::UpdateService::new(
@@ -316,6 +329,9 @@ fn main() -> anyhow::Result<()> {
                     let ssh_view = ramag_tool_ssh::create_ssh_view(ssh, window, cx);
                     let monitor = ramag_tool_system::create_system_view(window, cx);
                     let dbclient = preview.create_view(window, cx);
+                    let mqtt_view = mqtt.as_ref().map(|service| {
+                        ramag_tool_mqtt::create_mqtt_view(service.clone(), window, cx)
+                    });
                     let shell = cx.new(|cx| {
                         let mut shell =
                             Shell::new(registry, host, preview.gate.clone(), window, cx);
@@ -326,6 +342,9 @@ fn main() -> anyhow::Result<()> {
                         shell.register_tool_view("ssh", ssh_view.into());
                         shell.register_tool_view("system", monitor.into());
                         shell.register_tool_view("dbclient", dbclient.into());
+                        if let Some(mqtt_view) = mqtt_view {
+                            shell.register_tool_view("mqtt", mqtt_view.into());
+                        }
                         let target = match page.as_str() {
                             "settings" | "update" | "plugin-empty" | "plugin-failure" => {
                                 NavTarget::Settings

@@ -6,10 +6,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-env-changed=RAMAG_PACKAGE_PUBLISHER");
     // build.rs 的 cfg 反映宿主，判目标平台须用 CARGO_CFG_TARGET_OS 环境变量
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
-        // GPUI 数据库结果视图的布局和绘制调用链会超过默认主线程栈；4 MiB 已通过原生结果集浏览验证。
+        // GPUI 部分视图的布局和绘制调用链会超过默认主线程栈；预览程序也加载这些视图。
         match std::env::var("CARGO_CFG_TARGET_ENV").as_deref() {
-            Ok("msvc") => println!("cargo:rustc-link-arg-bin=ramag=/STACK:4194304"),
-            Ok("gnu") => println!("cargo:rustc-link-arg-bin=ramag=-Wl,--stack,4194304"),
+            Ok("msvc") => {
+                println!("cargo:rustc-link-arg-bin=ramag=/STACK:4194304");
+                println!("cargo:rustc-link-arg-examples=/STACK:4194304");
+            }
+            Ok("gnu") => {
+                println!("cargo:rustc-link-arg-bin=ramag=-Wl,--stack,4194304");
+                println!("cargo:rustc-link-arg-examples=-Wl,--stack,4194304");
+            }
             _ => {}
         }
 

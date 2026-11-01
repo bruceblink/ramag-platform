@@ -540,7 +540,7 @@ impl MqttView {
             .gap(px(14.0))
             .child(section_heading(
                 "本地 MQTT Broker",
-                "参考 Wu.CommTool 的本地服务能力；监听地址、端口和账号调整在下次启动时生效，绑定 0.0.0.0 会暴露到所有网卡。",
+                "监听地址、端口和账号调整在下次启动时生效；绑定 0.0.0.0 会暴露到所有网卡。",
                 &theme,
             ))
             .child(
