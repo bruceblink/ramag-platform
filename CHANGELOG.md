@@ -4,6 +4,15 @@
 
 > 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
 
+## [0.9.1] - 2026-11-01
+
+Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.9.0...v0.9.1
+
+### 🐛 问题修复 / Bug Fixes
+
+- 手动检查后明确显示当前版本状态；安装包完成 SHA-256 校验后提供“安装安装包”操作。
+- 调整关于页的信息和操作布局，修正产品图标及说明文字。
+
 ## [0.9.0] - 2026-11-01
 
 Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.8.0...v0.9.0

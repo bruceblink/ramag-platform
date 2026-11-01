@@ -59,7 +59,7 @@ update-manifest.json
 下载并通过 SHA-256 校验后，“下载安装包”切换为“安装安装包”。
 用户点击后，Windows 启动安装器，macOS 打开 DMG，Linux 通过系统关联程序打开安装包。
 启动失败时保留按钮并显示具体原因。安装步骤由用户确认，程序不会自行退出。
-这一按钮切换和检查结果提示属于 `v0.9.0` 发布后的源码修复，尚未包含在该版本安装包中。
+这一按钮切换和检查结果提示已进入 `v0.9.1` 发布候选；`v0.9.0` 安装包仍使用原界面。
 
 ### 差分下载条件
 
@@ -107,13 +107,13 @@ Linux CI 另执行 `bash scripts/test-update-deltas.sh`，使用真实 `bsdiff` 
 
 ```toml
 [workspace.package]
-version = "0.9.0"
+version = "0.9.1"
 ```
 
 发布标签必须完全一致：
 
 ```text
-Cargo version 0.9.0  →  tag v0.9.0
+Cargo version 0.9.1  →  tag v0.9.1
 ```
 
 三个平台的脚本都通过 `cargo metadata --locked --no-deps` 读取唯一的 `ramag-bin` 版本。标签、应用版本或产物版本不一致时，发布会在上传前失败。
@@ -213,10 +213,10 @@ Actions → Desktop Release → Run workflow
 
 1. 修改根 `Cargo.toml` 的 workspace 版本，并通过 Cargo 检查同步 `Cargo.lock`；同步更新 `CHANGELOG.md` 和面向用户的版本说明。
 2. 完成本地发布前检查、手动 Action 和真实桌面验收。
-3. 创建与 Cargo 版本一致的带注释标签，例如 `v0.9.0`；标签注释用于证明发布标签有效，GitHub Release 说明由标签提交范围自动生成。
+3. 创建与 Cargo 版本一致的带注释标签，例如 `v0.9.1`；标签注释用于证明发布标签有效，GitHub Release 说明由标签提交范围自动生成。
 4. 推送标签，等待三个平台均通过后自动发布。
 
-如果标签已经存在，但发布任务因工作流自身问题失败，不要强制移动标签。在包含修复后的默认分支上手动运行 `Desktop Release`，将 `release_tag` 填为原标签（例如 `v0.9.0`）。工作流会检出并重新构建该标签，核对产物版本，重新生成提交范围变更说明并继续发布。
+如果标签已经存在，但发布任务因工作流自身问题失败，不要强制移动标签。在包含修复后的默认分支上手动运行 `Desktop Release`，将 `release_tag` 填为原标签（例如 `v0.9.1`）。工作流会检出并重新构建该标签，核对产物版本，重新生成提交范围变更说明并继续发布。
 
 正式使用前必须在 GitHub 设置中完成：
 
