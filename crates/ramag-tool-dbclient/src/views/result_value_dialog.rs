@@ -21,8 +21,10 @@ use super::result_value::{CellCopyFormat, cell_size_summary, cell_status, format
 const VALUE_VIEW_WIDTH: f32 = 960.0;
 // 留出标题、复制工具栏和底部操作区的空间，让小窗口也能完整显示对话框。
 const VALUE_VIEW_HEIGHT: f32 = 400.0;
-/// 单个值的查看上限；结果集本身仍由已有的全局结果预算控制。
-const MAX_VALUE_VIEW_BYTES: usize = 2 * 1024 * 1024;
+/// 单个值的只读预览上限；结果集和复制动作仍由各自的预算与当前值路径控制。
+const MAX_VALUE_VIEW_BYTES: usize = 256 * 1024;
+/// 大预览跳过 Markdown 解析，避免把长文本转换为大量富文本节点。
+const MAX_SELECTABLE_VALUE_BYTES: usize = 64 * 1024;
 
 pub(crate) struct ResultValueDialog {
     result: Arc<QueryResult>,
@@ -250,10 +252,11 @@ impl Render for ResultValueDialog {
             .child(div().text_color(theme.muted_foreground).child(status))
             .child(div().text_color(theme.muted_foreground).child(size));
         if truncated {
-            meta = meta.child(div().text_color(theme.warning).child(format!(
-                "仅显示前 {} MiB",
-                MAX_VALUE_VIEW_BYTES / 1024 / 1024
-            )));
+            meta = meta.child(
+                div()
+                    .text_color(theme.warning)
+                    .child(format!("仅显示前 {} KiB", MAX_VALUE_VIEW_BYTES / 1024)),
+            );
         }
 
         let copy_toolbar = h_flex()
@@ -278,6 +281,18 @@ impl Render for ResultValueDialog {
                     .map(|format| self.copy_button(format)),
             );
 
+        let value_content = if value_text.len() > MAX_SELECTABLE_VALUE_BYTES {
+            div()
+                .id("result-value-viewer-large-content")
+                .debug_selector(|| "result-value-viewer-large-content".into())
+                .text_color(theme.foreground)
+                .child(value_text)
+                .into_any_element()
+        } else {
+            ramag_ui::SelectableText::new("result-value-viewer-content", value_text)
+                .text_color(theme.foreground)
+                .into_any_element()
+        };
         let content = div()
             .id("result-value-viewer-content-frame")
             .debug_selector(|| "result-value-viewer-content-frame".into())
@@ -286,10 +301,7 @@ impl Render for ResultValueDialog {
             .p(px(12.0))
             .bg(theme.background)
             .font_family(theme.mono_font_family.clone())
-            .child(
-                ramag_ui::SelectableText::new("result-value-viewer-content", value_text)
-                    .text_color(theme.foreground),
-            );
+            .child(value_content);
 
         v_flex()
             .id("result-value-viewer")
