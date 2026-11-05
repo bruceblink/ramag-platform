@@ -89,7 +89,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
 | 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、SQL/MySQL/MongoDB/Redis JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；其他未覆盖矩阵项继续补验。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口记录，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验，未复现权限拒绝 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
-| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；Windows 发布构建的输入和绘制 p95 已取得，事件无丢失；两轮活动帧仅 `103` 和 `124` 个，低于 `300`，platform present p95 和可见反馈追踪仍缺失 |
+| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；点击到可见反馈和独立 10 秒空闲观察仍缺失 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 已完成；隔离 redb 数据和真实窗口已覆盖搜索、删除、撤销、当前结果回读和详情查看，未读取或写入用户系统剪贴板 |
 | 8 | `RAMAG-UI-001C` 首页与侧栏排序补验 | 已完成；隔离配置下已检查首页和侧栏拖动、拖出取消、保存及重启后的顺序回读 |
@@ -439,8 +439,17 @@ MSVC 初始化脚本。环境为 Windows 11 Pro for Workstations `10.0.26300`、
 并增加回归测试。`cargo test --locked -p ramag-ui --features ui-profiling --lib profiling` 的 7 项、
 默认 `ramag-ui` 单元测试的 167 项、默认严格 Clippy 和 Windows MSVC `ui-profiling` Release 构建均通过。
 带 `ui-profiling` 的 Clippy 仍会命中原有 profiling 测试中的 14 个 `expect_used`，该问题不由本次新增
-逻辑引入，也不扩大为无关测试重构。修复后仍需重新取得至少 300 个活动帧、platform present p95、
-点击到可见反馈和 10 秒空闲动画观察，`RAMAG-UI-001AC-2` 继续保持未完成。
+逻辑引入，也不扩大为无关测试重构。修复后仍需重新取得点击到可见反馈和 10 秒空闲动画观察，
+`RAMAG-UI-001AC-2` 继续保持未完成。
+
+随后在同一 Windows 11、NVIDIA GeForce RTX 3060、`2560×1440`、系统报告 `59Hz` 的环境中，
+使用包含该修复的 Windows MSVC Release 构建重新采样 `60.070s`。真实窗口先在数据库客户端和系统监控
+页面间执行固定标签切换，再保持系统监控页面运行；采样日志为
+`.ramag/ui-acceptance/2026-11-06-release-profile.stderr.log`。结果为 `560` 个输入事件、`364` 个 draw、
+`363` 个同窗口 Presented 边界，`input_p95_us=239`、`draw_p95_us=8599`、`present_p95_us=1090`，
+`journal_lost=0`、`duration_samples_dropped=0`、`overflow=false`，且 `invalid_presented_pairs=0`。
+该次运行关闭了活动帧数量、同窗口平台提交关系和 platform present p95 的缺口；仍没有屏幕合成器时间或
+点击到可见反馈追踪，也没有单独记录动画结束后的 10 秒空闲观察，因此 `RAMAG-UI-001AC-2` 继续保持未完成。
 
 ### 4.5 现有页面交互补验
 
