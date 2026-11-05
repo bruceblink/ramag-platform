@@ -192,46 +192,55 @@ impl TablePropertiesDialog {
             .border_b_1()
             .border_color(theme.border)
             .bg(theme.secondary)
-            .cursor_move()
-            .on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|this, event: &gpui_kit::MouseDownEvent, _, cx| {
-                    this.begin_drag(event.position);
-                    cx.stop_propagation();
-                }),
-            )
-            .on_drag(TablePropertiesDrag, |_, _, _, cx| {
-                cx.stop_propagation();
-                cx.new(|_| gpui_kit::Empty)
-            })
-            .on_drag_move::<TablePropertiesDrag>(cx.listener(
-                |this, event: &DragMoveEvent<TablePropertiesDrag>, window, cx| {
-                    this.update_drag(event.event.position, window.viewport_size());
-                    cx.notify();
-                },
-            ))
-            .on_mouse_up(
-                MouseButton::Left,
-                cx.listener(|this, _, _, cx| {
-                    this.end_drag();
-                    cx.notify();
-                }),
-            )
-            .on_mouse_up_out(
-                MouseButton::Left,
-                cx.listener(|this, _, _, cx| {
-                    this.end_drag();
-                    cx.notify();
-                }),
-            )
             .child(
-                Icon::new(if self.is_view {
-                    IconName::Frame
-                } else {
-                    IconName::MemoryStick
-                })
-                .small()
-                .text_color(theme.accent),
+                div()
+                    .id("table-properties-drag-grip")
+                    .w(px(24.0))
+                    .h_full()
+                    .flex_none()
+                    .items_center()
+                    .justify_center()
+                    .cursor_move()
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, event: &gpui_kit::MouseDownEvent, _, cx| {
+                            this.begin_drag(event.position);
+                            cx.stop_propagation();
+                        }),
+                    )
+                    .on_drag(TablePropertiesDrag, |_, _, _, cx| {
+                        cx.stop_propagation();
+                        cx.new(|_| gpui_kit::Empty)
+                    })
+                    .on_drag_move::<TablePropertiesDrag>(cx.listener(
+                        |this, event: &DragMoveEvent<TablePropertiesDrag>, window, cx| {
+                            this.update_drag(event.event.position, window.viewport_size());
+                            cx.notify();
+                        },
+                    ))
+                    .on_mouse_up(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| {
+                            this.end_drag();
+                            cx.notify();
+                        }),
+                    )
+                    .on_mouse_up_out(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| {
+                            this.end_drag();
+                            cx.notify();
+                        }),
+                    )
+                    .child(
+                        Icon::new(if self.is_view {
+                            IconName::Frame
+                        } else {
+                            IconName::MemoryStick
+                        })
+                        .small()
+                        .text_color(theme.accent),
+                    ),
             )
             .child(
                 v_flex()
@@ -240,12 +249,23 @@ impl TablePropertiesDialog {
                     .gap(px(1.0))
                     .child(
                         div()
-                            .text_sm()
-                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                            .id("table-properties-title")
+                            .debug_selector(|| "table-properties-title".into())
+                            .flex_1()
+                            .min_w_0()
                             .overflow_hidden()
-                            .text_ellipsis()
-                            .whitespace_nowrap()
-                            .child(format!("{}.{}", self.schema, self.table)),
+                            .child(
+                                ramag_ui::SelectableText::inline(
+                                    "table-properties-title-text",
+                                    format!("{}.{}", self.schema, self.table),
+                                )
+                                .w_full()
+                                .text_sm()
+                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .whitespace_nowrap(),
+                            ),
                     )
                     .child(div().text_xs().text_color(theme.muted_foreground).child(
                         if self.is_view {
@@ -290,7 +310,6 @@ impl TablePropertiesDialog {
             .border_color(theme.border)
             .rounded(px(7.0))
             .occlude()
-            .on_any_mouse_down(|_, _, cx| cx.stop_propagation())
             .key_context("TablePropertiesDialog")
             .track_focus(&self.focus_handle)
             .on_key_down(cx.listener(|this, event: &gpui_kit::KeyDownEvent, _, cx| {

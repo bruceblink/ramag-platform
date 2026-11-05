@@ -226,6 +226,15 @@ WHERE 条件。修复后同一操作会清空 WHERE 输入并恢复 `100,000` �
 数据库客户端 379 项单元与渲染测试、严格 Clippy 和 Debug 构建均通过。该记录只覆盖只读文本
 选择交互，不关闭 MySQL、差异和迁移回读项。
 
+2026-11-06 继续修复数据库只读标题的选择交互。DDL 弹框标题
+`ramag_test.type_matrix` 改用单行可选择文本；移除弹框级鼠标按下拦截，保留左侧专用拖动手柄，
+因此标题拖选不会移动弹框，弹框仍可拖动。结果表把列名和类型合并为同一段可选择标题，
+例如 `id bigint unsigned`；普通点击仍执行排序。Windows Debug 真实窗口中，DDL 标题拖选后
+使用 Ctrl+C 粘贴到过滤列输入框得到 `ramag_test.type_matrix`，DDL 代码双击选择
+`CREATE` 后可复制；结果表头拖选后得到 `id bigint unsigned`。本次没有读取或改动系统剪贴板历史，
+只使用应用内过滤列输入框回读剪贴板内容。`cargo fmt --all`、`cargo test -p ramag-tool-dbclient
+--lib`（379 项）和 Windows Debug 构建通过；随后完成 Windows MSVC release 构建。
+
 2026-11-06 在同一套 WSL `Ubuntu-24.04` Docker MySQL `8.4` 测试服务中完成 MySQL 的写入与迁移补验。
 服务使用 Windows 端口 `23306`，数据库为 `ramag_test`，连接用户为 `ramag`；操作对象为
 `ramag_test.type_matrix`，执行后保持连接状态为“已连接”。事务步骤为：将 `id = 1` 的

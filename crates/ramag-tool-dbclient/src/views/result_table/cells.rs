@@ -36,6 +36,9 @@ pub(super) fn render_header_cell(
         .get(ci)
         .filter(|s| !s.is_empty())
         .map(|s| SharedString::from(s.to_lowercase()));
+    let title_text = type_label
+        .as_ref()
+        .map_or_else(|| col.clone(), |type_label| format!("{col} {type_label}"));
     let direction = match current_sort {
         Some((c, SortDir::Asc)) if c == ci => Some(ramag_ui::SortDirection::Ascending),
         Some((c, SortDir::Desc)) if c == ci => Some(ramag_ui::SortDirection::Descending),
@@ -82,8 +85,8 @@ pub(super) fn render_header_cell(
                         .overflow_hidden()
                         .child(
                             ramag_ui::SelectableText::inline(
-                                format!("result-header-name-{ci}"),
-                                col.clone(),
+                                format!("result-header-title-{ci}"),
+                                title_text,
                             )
                             .min_w_0()
                             .overflow_hidden()
@@ -91,17 +94,6 @@ pub(super) fn render_header_cell(
                             .whitespace_nowrap()
                             .text_color(fg),
                         )
-                        .when_some(type_label, |this, t| {
-                            this.child(
-                                div()
-                                    .flex_none()
-                                    .text_xs()
-                                    .font_weight(gpui_kit::FontWeight::NORMAL)
-                                    .text_color(muted_fg)
-                                    .whitespace_nowrap()
-                                    .child(t),
-                            )
-                        })
                         .into_any_element(),
                     direction,
                     muted_fg,
