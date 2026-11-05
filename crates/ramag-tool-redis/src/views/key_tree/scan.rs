@@ -1,8 +1,11 @@
 //! Redis 增量 SCAN：服务端 MATCH、代际取消与资源上限。
 //! 每批校验代际、数据库和连接，切换后丢弃旧结果。
 
+use futures::future::{Either, select};
+use futures::pin_mut;
 use gpui_kit::Context;
 use ramag_domain::entities::{ConnectionConfig, KeyMeta};
+use ramag_domain::error::DomainError;
 use tracing::{error, info, warn};
 
 use super::{KeyTreePanel, MAX_LOADED_KEY_BYTES, MAX_LOADED_KEYS};
@@ -13,6 +16,8 @@ const SCAN_BATCH: u32 = 5_000;
 const REBUILD_STEP: usize = 25_000;
 /// 输入停顿后下推 MATCH，避免展示旧筛选结果。
 const SEARCH_DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(450);
+/// 服务停止时，底层连接管理器可能迟于连接超时返回；UI 扫描需要更早进入失败状态。
+const SCAN_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// 刷新期间收集的新快照；旧快照继续用于显示和详情操作。
 #[derive(Default)]
@@ -137,9 +142,23 @@ impl KeyTreePanel {
         let db = self.db;
         let pattern = self.match_pattern.clone();
         cx.spawn(async move |this, cx| {
-            let result = svc
-                .scan_batch(&config, db, cursor, pattern.as_deref(), None, SCAN_BATCH)
-                .await;
+            let request_config = config.clone();
+            let request = svc.scan_batch(
+                &request_config,
+                db,
+                cursor,
+                pattern.as_deref(),
+                None,
+                SCAN_BATCH,
+            );
+            let timeout = cx.background_executor().timer(SCAN_REQUEST_TIMEOUT);
+            pin_mut!(request, timeout);
+            let result = match select(request, timeout).await {
+                Either::Left((result, _)) => result,
+                Either::Right((_, _)) => Err(DomainError::ConnectionFailed(
+                    "Redis 扫描超时，请检查服务是否可用".to_string(),
+                )),
+            };
             let result = match result {
                 Ok(mut batch) => {
                     let keys: Vec<String> =

@@ -87,7 +87,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 |---|---|---|
 | 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
-| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；PostgreSQL、MySQL 和 MongoDB 刷新失败保留旧树已有真实窗口记录，Redis 刷新期间旧树保留并可停止后恢复，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验，未复现权限拒绝 |
+| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口记录，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验，未复现权限拒绝 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；Windows 发布构建的输入和绘制 p95 已取得，事件无丢失；两轮活动帧仅 `103` 和 `124` 个，低于 `300`，platform present p95 和可见反馈追踪仍缺失 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 进行中；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换，磁盘选择器、溢出滚动和设备不可用提示仍未形成完整证据 |
@@ -172,7 +172,7 @@ Private Bytes 为 `173,277,184` 字节。该内存值是关闭后的单点采样
 完整区域定义保留在 [UI 规范的数据库矩阵](04-ui-acceptance-standard.md#4-数据库工作区功能验收)。
 先核对已有证据，补验时不重复计入已经通过的查询取消和规模测试。
 
-- `DB-RED-01..04`：连接切换、MongoDB/Redis 专用对象行为，以及本地 PostgreSQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；本地 PostgreSQL、MySQL 和 MongoDB 刷新失败保留旧树已有真实窗口证据，Redis 刷新期间旧树保留并可停止后恢复，MySQL 权限受限 Server Objects 和 PostgreSQL 受限角色的 public 空状态、Server Objects 可读边界已有真实窗口证据，Redis 最终连接失败提示仍待补验。
+- `DB-RED-01..04`：连接切换、MongoDB/Redis 专用对象行为，以及本地 PostgreSQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；本地 PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口证据，MySQL 权限受限 Server Objects 和 PostgreSQL 受限角色的 public 空状态、Server Objects 可读边界已有真实窗口证据，Redis 最终连接失败提示已补验。
 - `DB-RED-05` / `DB-UX-003`：补排序、筛选后的页码和上下文、NULL/二进制/长字段区分、查看/复制/导出；已有列宽、滚动和分页记录继续有效。
 - `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据。原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
 - `DB-RED-07` / `DB-UX-005A..F`：DDL 查看/复制/刷新、稳定键结构差异、迁移指纹/阶段摘要、执行和目标元数据回读，以及 EXPLAIN ANALYZE 风险提示均已有真实窗口证据。代码、headless 和 Docker 回放结果仍按原范围有效。
@@ -349,14 +349,18 @@ PostgreSQL 受限角色的权限/空状态在下一段隔离服务切片补验�
 `users` 7 个集合；停止 MongoDB 容器并点击刷新后，标签变为“连接失败”，左侧仍保留原有数据库和
 7 个集合，同时显示“连接失败：无法选择服务端（请检查 host/port/TLS）”和“刷新”入口。恢复容器
 并点击刷新后，标签恢复“已连接”，7 个集合继续可用。该切片关闭 MongoDB 刷新失败保留旧树子项；
-Redis 最终连接失败提示仍待补验。
+Redis 最终连接失败提示在后续正确构建复验中完成。
 
-同日使用修复后的 Windows Debug 构建补验 WSL Docker Redis `7-alpine`（Windows 端口 `26379`）。
+同日首次补验 WSL Docker Redis `7-alpine`（Windows 端口 `26379`）时启动了过期的 `target\debug\ramag.exe`，
+该运行不代表当前 MSVC target 的源码修复。`db-test-redis` 刷新前显示 DB0 的 8 类 Key 分组和 `45,014` 个 Key；
+停止 Redis 容器后点击刷新，扫描期间左侧旧分组继续可见。等待超过 `90s` 仍未得到最终失败文案，因此点击
+“停止扫描”；停止后旧树没有被清空。该次运行只记录了旧树保留和手动中断，不能作为修复后的失败提示证据。
+
+随后使用正确的 Windows MSVC Debug 构建 `target\x86_64-pc-windows-msvc\debug\ramag.exe` 重新复验。
 `db-test-redis` 刷新前显示 DB0 的 8 类 Key 分组和 `45,014` 个 Key；停止 Redis 容器后点击刷新，
-扫描期间左侧旧分组继续可见，底部仍显示已加载 `45,014` 个 Key。等待约 `26s` 后连接仍在重试，
-未得到最终失败文案，因此点击“停止扫描”；停止后旧树没有被清空。恢复 Redis 容器并再次刷新，
-标签恢复“已连接”，底部回到 `45,014` 个 Key，分类树继续可用。该切片验证了刷新缓冲、手动
-中断和服务恢复，不替代 Redis 最终连接失败提示的验收；该提示仍待补验。
+约 `10s` 内标签变为“连接失败”，底部显示“刷新失败”文案，8 类旧 Key 分组继续可见。恢复 Redis 容器并
+再次刷新后，标签恢复“已连接”，底部回到 `45,014` 个 Key，分类树继续可用。该切片关闭 Redis 刷新失败
+保留旧树、最终失败反馈和服务恢复子项；隔离应用与临时数据已清理。
 
 同日对上述 Redis 刷新等待过长的问题做源码复核。`redis 0.32.7` 的 `ConnectionManager` 默认
 包含 6 次内部重连，`RedisService` 在连接失败后还会清池并重试一次；两层重试叠加后，真实窗口
@@ -365,8 +369,7 @@ Redis 最终连接失败提示仍待补验。
 分支，同时继续保留旧树。`cargo fmt --all -- --check`、`cargo test --locked -p ramag-infra-redis --lib`
 （46 项通过）、`cargo clippy --locked -p ramag-infra-redis --all-targets -- -D warnings` 均通过；
 Windows MSVC Debug 构建在当前 PowerShell 进程显式使用已安装的 Windows SDK `10.0.26100.0` 后
-通过。Redis 容器已恢复 `healthy`，隔离应用和临时数据已清理。修复后的真实窗口仍需再次观察最终
-失败文案，因此本项不提前标记完成。
+通过。Redis 容器已恢复 `healthy`，隔离应用和临时数据已清理。
 
 ### 4.4 发布构建性能验收
 
