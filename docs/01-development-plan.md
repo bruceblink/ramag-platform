@@ -172,7 +172,7 @@ Private Bytes 为 `173,277,184` 字节。该内存值是关闭后的单点采样
 完整区域定义保留在 [UI 规范的数据库矩阵](04-ui-acceptance-standard.md#4-数据库工作区功能验收)。
 先核对已有证据，补验时不重复计入已经通过的查询取消和规模测试。
 
-- `DB-RED-01..04`：补连接切换、刷新失败保留旧树、Server Objects 的权限/空/失败状态和 Virtual views 的只读操作；MongoDB/Redis 专用对象行为已有真实窗口证据。
+- `DB-RED-01..04`：连接切换和 MongoDB/Redis 专用对象行为已有真实窗口证据；刷新失败保留旧树、Server Objects 的权限/空/失败状态和 Virtual views 的只读操作仍待补验。
 - `DB-RED-05` / `DB-UX-003`：补排序、筛选后的页码和上下文、NULL/二进制/长字段区分、查看/复制/导出；已有列宽、滚动和分页记录继续有效。
 - `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复已有真实窗口证据；行内 DELETE、批量 DELETE、INSERT 的失效连接反馈仍待补验。原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
 - `DB-RED-07` / `DB-UX-005A..F`：DDL 查看/复制/刷新、稳定键结构差异、迁移指纹/阶段摘要、执行和目标元数据回读，以及 EXPLAIN ANALYZE 风险提示均已有真实窗口证据。代码、headless 和 Docker 回放结果仍按原范围有效。
@@ -277,6 +277,12 @@ DELETE、批量 DELETE 和 INSERT 的失效连接反馈仍未取得真实窗口�
 按序元素（`first`、`value-1`、`last`）。本次只读键值，没有修改 Redis 数据。该切片关闭 MongoDB
 集合树/筛选和 Redis 类型分组/详情子项；连接切换、失败刷新保留旧树、Server Objects、Virtual
 views 以及其他未覆盖驱动项仍按矩阵保持未完成。
+
+同日继续在同一真实窗口切换 `db-test-mysql`、`db-test-mongo` 和 `db-test-redis` 标签。切回
+MySQL 后查询工作区和 `type_matrix` 对象树仍可见；切回 MongoDB 后 `ramag_demo.type_matrix`
+及 `string-id` 行筛选仍可见；切回 Redis 后 DB0 的 `list:1` 详情仍可见。三个标签的连接状态
+均保持“已连接”，未重新创建连接或修改测试数据。该操作关闭连接切换子项，失败刷新保留旧树、
+Server Objects、Virtual views 和其他未覆盖驱动项仍未完成。
 
 ### 4.4 发布构建性能验收
 
