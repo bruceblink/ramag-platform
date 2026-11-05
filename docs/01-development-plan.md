@@ -50,7 +50,7 @@ Ramag 保留数据库、Redis、MongoDB、API、Kafka、MQTT、Git、SSH/SFTP/PT
 |---|---|---|
 | 工具入口与列表 | 工具显示位置管理、数据库数据源列表、对象存储账号列表、Container/VCS/插件列表已完成对应切片 | 完整流程按工具分别验收；不扩展为所有错误与平台均已通过 |
 | 连接工作区 | API 首次读取状态修复、双栏布局、两条分隔栏真实拖动，以及 API/Kafka/MQTT/SSH 全局回归已完成 | 专项数据库操作和其他未列出的原生流程仍按下节补验 |
-| 数据库 | MySQL/PostgreSQL 连接、触发器子树、连接恢复、事务提交/回滚读回和单元格 UPDATE 失效连接反馈已有真实窗口证据 | 完整 `DB-RED-01..07` 矩阵仍部分完成 |
+| 数据库 | MySQL/PostgreSQL 连接、触发器子树、连接恢复、事务提交/回滚读回、单元格 UPDATE 以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈已有真实窗口证据 | 完整 `DB-RED-01..07` 矩阵仍部分完成 |
 | 数据库规模与取消 | PostgreSQL 100,000 行分页、10,000 行只读查询、1,000 张表、长表头、双轴滚动、多标签隔离与页面/统计查询取消已验收 | 取消到服务端活动查询归零曾测得约 `629 ms`；这是单次环境记录，不能作为普遍时限 |
 | 共享 UI 与监控 | System Pulse 迁入、公共样式、状态反馈、首页响应式网格及卡片视觉维护已进入基线；过渡时长统一为重排 `180ms`、加载 `160ms` | 页面功能、硬件准确性、发布性能和跨平台结果分别判断 |
 | 静态插件 | 系统监控试点及 API、剪贴板、VCS、SSH、对象存储、容器、数据库、Kafka、MQTT 九批迁移完成 | 静态装配和代码验证不表示支持外部插件加载 |
@@ -88,7 +88,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 | 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
 | 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；失败刷新保留旧树、权限/空/失败状态和其他未覆盖驱动项仍待补验 |
-| 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 进行中；PostgreSQL 和 MySQL 手动事务提交、回滚及清理已有真实窗口证据；MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认和失败查询草稿恢复已完成，DELETE/INSERT 失效连接反馈仍待补验 |
+| 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 依赖 `RAMAG-UI-001AC-1` 的可用计时方法、隔离窗口和显示追踪或同步录像 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 分别检查 Disks 和 Network；需要可用设备与真实窗口 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 使用隔离数据；不读取或改动用户剪贴板历史 |
@@ -174,7 +174,7 @@ Private Bytes 为 `173,277,184` 字节。该内存值是关闭后的单点采样
 
 - `DB-RED-01..04`：连接切换、MongoDB/Redis 专用对象行为，以及本地 PostgreSQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；刷新失败保留旧树、Server Objects 的权限/空/失败状态仍待补验。
 - `DB-RED-05` / `DB-UX-003`：补排序、筛选后的页码和上下文、NULL/二进制/长字段区分、查看/复制/导出；已有列宽、滚动和分页记录继续有效。
-- `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复已有真实窗口证据；行内 DELETE、批量 DELETE、INSERT 的失效连接反馈仍待补验。原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
+- `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据。原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
 - `DB-RED-07` / `DB-UX-005A..F`：DDL 查看/复制/刷新、稳定键结构差异、迁移指纹/阶段摘要、执行和目标元数据回读，以及 EXPLAIN ANALYZE 风险提示均已有真实窗口证据。代码、headless 和 Docker 回放结果仍按原范围有效。
 - 首帧、滚动、标签切换和长期内存的可复现测量仍按性能标准检查；窗口截图不证明发布性能达标。
 
@@ -240,7 +240,7 @@ WHERE 条件。修复后同一操作会清空 WHERE 输入并恢复 `100,000` �
 `DROP COLUMN migration_probe`，界面提示“目标表结构已匹配”，回读后的差异视图不再显示该列。
 临时迁移表随后执行 `DROP TABLE IF EXISTS` 清理，表树恢复为原有 4 张表。该切片覆盖 MySQL
 事务提交/回滚/清理、DDL 查看/复制/刷新、稳定键差异、迁移指纹/阶段摘要、执行和目标元数据
-回读；失败后的草稿保留仍保持未完成。本次只补验且未改源码，Rust 测试不适用；WSL Docker
+回读；失败后的草稿保留已在下一段完成。本次只补验且未改源码，Rust 测试不适用；WSL Docker
 测试服务和数据卷按本地开发约定继续保留。
 
 同日继续在该 MySQL 连接的 SQL 编辑器中输入
@@ -260,8 +260,17 @@ MySQL JSONL 选中行导出子项；MongoDB、Redis 和其他未覆盖驱动的�
 `SELECT * FROM \`ramag_test\`.\`missing_table_for_draft\`; -- draft-sentinel` 并执行，结果区显示
 “表不存在”错误，编辑器仍保留完整 SQL；点击“重试”后错误原因再次显示，草稿文本不变。关闭该
 查询标签时确认框明确提示“未保存 SQL 草稿将丢失”，随后点击“重新打开最近关闭的查询”，新建的
-`查询4` 标签恢复了相同的 `draft-sentinel` 文本。该验证只读取不存在的表名，没有修改测试库；
-DELETE、批量 DELETE 和 INSERT 的失效连接反馈仍未取得真实窗口证据。
+`查询4` 标签恢复了相同的 `draft-sentinel` 文本。该验证只读取不存在的表名，没有修改测试库。
+
+同日停止 WSL Docker MySQL `8.4` 和 PostgreSQL `17-alpine` 测试容器，使用已加载的真实结果表
+验证失效连接写操作。PostgreSQL `public.type_matrix` 选择 1 行执行行内 DELETE，确认后显示
+“已影响 0 行、0 行未匹配后出错：连接失败：连接池等待超时（数据库可能慢或不可达）”；随后选择
+2 行执行批量 DELETE，显示相同的连接失败提示，结果表保留原来的 3 行。恢复 PostgreSQL
+容器后健康检查通过。MySQL `ramag_test.large_values` 新增草稿填写 `id=2`、短文本、`00` 和
+测试 JSON；停止 MySQL 容器后提交，右上角和底部均显示“新增失败：连接失败：连接池等待超时
+（数据库可能慢或不可达）”，草稿提交后回到原结果，不产生写入。随后恢复 MySQL 容器并确认
+MySQL、PostgreSQL、Redis、MongoDB 四个测试容器均为 healthy。该切片关闭 `DB-RED-06` 的
+失效连接反馈子项；`DB-RED-01..04` 的刷新失败保留旧树及 Server Objects 权限/空/失败状态仍待补验。
 
 2026-11-06 在 WSL `Ubuntu-24.04` Docker MongoDB `8.2`（Windows 端口 `27028`）中完成专用对象
 补验。连接名为 `db-test-mongo`，数据库为 `ramag_demo`；真实窗口显示“已连接”，展开数据库后
