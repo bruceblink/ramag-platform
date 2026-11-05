@@ -87,7 +87,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 |---|---|---|
 | 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
-| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；PostgreSQL、MySQL 和 MongoDB 刷新失败保留旧树已有真实窗口记录，Redis 刷新期间旧树保留并可停止后恢复，MySQL 权限受限对象已有真实窗口记录，PostgreSQL Server Objects 权限/空状态仍待补验 |
+| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；PostgreSQL、MySQL 和 MongoDB 刷新失败保留旧树已有真实窗口记录，Redis 刷新期间旧树保留并可停止后恢复，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验，未复现权限拒绝 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；Windows 发布构建的输入和绘制 p95 已取得，事件无丢失；两轮活动帧仅 `103` 和 `124` 个，低于 `300`，platform present p95 和可见反馈追踪仍缺失 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 进行中；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换，磁盘选择器、溢出滚动和设备不可用提示仍未形成完整证据 |
@@ -172,7 +172,7 @@ Private Bytes 为 `173,277,184` 字节。该内存值是关闭后的单点采样
 完整区域定义保留在 [UI 规范的数据库矩阵](04-ui-acceptance-standard.md#4-数据库工作区功能验收)。
 先核对已有证据，补验时不重复计入已经通过的查询取消和规模测试。
 
-- `DB-RED-01..04`：连接切换、MongoDB/Redis 专用对象行为，以及本地 PostgreSQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；本地 PostgreSQL、MySQL 和 MongoDB 刷新失败保留旧树已有真实窗口证据，Redis 刷新期间旧树保留并可停止后恢复，MySQL 权限受限 Server Objects 已有真实窗口证据，Redis 最终连接失败提示和 PostgreSQL Server Objects 权限/空状态仍待补验。
+- `DB-RED-01..04`：连接切换、MongoDB/Redis 专用对象行为，以及本地 PostgreSQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；本地 PostgreSQL、MySQL 和 MongoDB 刷新失败保留旧树已有真实窗口证据，Redis 刷新期间旧树保留并可停止后恢复，MySQL 权限受限 Server Objects 和 PostgreSQL 受限角色的 public 空状态、Server Objects 可读边界已有真实窗口证据，Redis 最终连接失败提示仍待补验。
 - `DB-RED-05` / `DB-UX-003`：补排序、筛选后的页码和上下文、NULL/二进制/长字段区分、查看/复制/导出；已有列宽、滚动和分页记录继续有效。
 - `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据。原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
 - `DB-RED-07` / `DB-UX-005A..F`：DDL 查看/复制/刷新、稳定键结构差异、迁移指纹/阶段摘要、执行和目标元数据回读，以及 EXPLAIN ANALYZE 风险提示均已有真实窗口证据。代码、headless 和 Docker 回放结果仍按原范围有效。
@@ -299,8 +299,8 @@ views 以及其他未覆盖驱动项仍按矩阵保持未完成。
 同日继续在同一真实窗口切换 `db-test-mysql`、`db-test-mongo` 和 `db-test-redis` 标签。切回
 MySQL 后查询工作区和 `type_matrix` 对象树仍可见；切回 MongoDB 后 `ramag_demo.type_matrix`
 及 `string-id` 行筛选仍可见；切回 Redis 后 DB0 的 `list:1` 详情仍可见。三个标签的连接状态
-均保持“已连接”，未重新创建连接或修改测试数据。该操作关闭连接切换子项，失败刷新保留旧树、
-Server Objects、Virtual views 和其他未覆盖驱动项仍未完成。
+均保持“已连接”，未重新创建连接或修改测试数据。该操作关闭连接切换子项；失败刷新保留旧树和其他未覆盖驱动项
+仍按矩阵记录。
 
 2026-11-06 在 WSL `Ubuntu-24.04` Docker PostgreSQL `17-alpine`（Windows 端口 `25432`）中补验
 Server Objects 和 Virtual views。连接名为 `db-test-postgres`，数据库为 `ramag_test`，用户为
@@ -316,7 +316,7 @@ Server Objects 和 Virtual views。连接名为 `db-test-postgres`，数据库�
 `25433` 后，应用提示“连接配置已更新，相关标签已暂停”，标签内保留连接名称并显示“重连”入口；
 恢复端口 `25432` 后点击“重连”，窗口重新显示“已连接”，`analytics`、`public`、表、view、
 Server Objects 和 Virtual views 对象树均恢复。该结果只证明配置更新失败的暂停与恢复流程，
-不能替代刷新动作失败时保留旧树的验收，后者在下一段完成；权限/空/失败状态仍待补验。
+不能替代刷新动作失败时保留旧树的验收，后者在下一段完成；受限角色的权限/空状态不在本步骤验证。
 
 同日停止 WSL Docker PostgreSQL `17-alpine` 测试容器，在 `db-test-postgres` 标签点击对象树刷新。
 刷新期间对象树仍显示 `analytics`、`public`、3 张表、1 个 view、Server Objects 和 Virtual views；
@@ -331,14 +331,25 @@ Server Objects 和 Virtual views 对象树均恢复。该结果只证明配置�
 Objects 分组和 Virtual views 仍保留；对象树显示“Server Objects 刷新失败：连接失败：连接池等待超时”，
 标签状态为“连接失败”并提供“重试”。恢复容器后重试，再刷新对象树，权限提示和失败提示均清除，
 连接恢复为“已连接”。该切片关闭 MySQL 刷新失败保留旧树和权限受限 Server Objects 子项；
-PostgreSQL Server Objects 权限/空状态仍待补验。
+PostgreSQL 受限角色的权限/空状态在下一段隔离服务切片补验。
+
+同日使用 WSL `Ubuntu-24.04` 的 Docker PostgreSQL `17-alpine`（Windows 端口 `25432`）建立临时
+`ramag_ui_ro` 角色，角色仅保留登录和数据库连接能力，没有超级用户、建库、建角色、复制或绕过行级安全
+权限。使用该角色连接 `ramag_test` 后，`public` Schema 的 `information_schema.tables` 查询结果为 `0`，
+而 `pg_catalog.pg_collation` 和 `pg_catalog.pg_roles` 仍分别返回 `913` 和 `17` 条，说明 PostgreSQL
+目录读取不因该角色限制而变成权限拒绝。Windows Debug 隔离数据目录的真实窗口显示 `public（空）`，
+展开 Server Objects 后显示 `collations 913`；对象搜索 `users` 返回 `users 17`，搜索角色名返回
+`ramag_ui_ro · LOGIN`，连接测试显示“连接成功”。本次未复现 Server Objects 的权限拒绝状态，也未把
+目录可读误报为空结果；因此该切片只确认“空表树 + Server Objects 可读”的数据库边界，权限拒绝状态仍
+没有可记录的真实证据。复核后删除隔离连接并删除临时角色，角色回读计数为 `0`；四个 WSL Docker
+测试容器均保持 `healthy`。本切片只更新验收记录，Rust 测试不适用。
 
 同日继续在 WSL Docker MongoDB `8.2` 的 `db-test-mongo` 标签补验刷新失败。展开 `ramag_demo` 后
 显示 `capped_events`、`large_documents`、`metrics`、`orders`、`products`、`type_matrix` 和
 `users` 7 个集合；停止 MongoDB 容器并点击刷新后，标签变为“连接失败”，左侧仍保留原有数据库和
 7 个集合，同时显示“连接失败：无法选择服务端（请检查 host/port/TLS）”和“刷新”入口。恢复容器
 并点击刷新后，标签恢复“已连接”，7 个集合继续可用。该切片关闭 MongoDB 刷新失败保留旧树子项；
-Redis 最终连接失败提示和 PostgreSQL Server Objects 权限/空状态仍待补验。
+Redis 最终连接失败提示仍待补验。
 
 同日使用修复后的 Windows Debug 构建补验 WSL Docker Redis `7-alpine`（Windows 端口 `26379`）。
 `db-test-redis` 刷新前显示 DB0 的 8 类 Key 分组和 `45,014` 个 Key；停止 Redis 容器后点击刷新，
