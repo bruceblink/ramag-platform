@@ -294,6 +294,12 @@ Server Objects 和 Virtual views。连接名为 `db-test-postgres`，数据库�
 和查询文本；本次未执行写入。该切片关闭 PostgreSQL Server Objects 和 Virtual views 只读子项，
 刷新失败保留旧树及权限/空/失败状态仍未取得真实窗口证据。
 
+同日使用同一真实窗口验证连接配置失败边界：将 `db-test-postgres` 临时端口改为未监听的
+`25433` 后，应用提示“连接配置已更新，相关标签已暂停”，标签内保留连接名称并显示“重连”入口；
+恢复端口 `25432` 后点击“重连”，窗口重新显示“已连接”，`analytics`、`public`、表、view、
+Server Objects 和 Virtual views 对象树均恢复。该结果只证明配置更新失败的暂停与恢复流程，
+不能替代刷新动作失败时保留旧树的验收，后者及权限/空/失败状态仍待补验。
+
 ### 4.4 发布构建性能验收
 
 `RAMAG-UI-001AC-2` 在 `RAMAG-UI-001AC-1` 具备所需计时信息后，使用发布构建，
