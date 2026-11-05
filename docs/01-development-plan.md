@@ -87,7 +87,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 |---|---|---|
 | 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
-| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出已有真实窗口记录，MongoDB/Redis 专用对象及其他未覆盖驱动项仍待补验 |
+| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出，以及 MongoDB/Redis 专用对象已有真实窗口记录；连接切换、失败刷新保留旧树、Server Objects、Virtual views 和其他未覆盖驱动项仍待补验 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 进行中；PostgreSQL 和 MySQL 手动事务提交、回滚及清理已有真实窗口证据；MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认和失败查询草稿恢复已完成，DELETE/INSERT 失效连接反馈仍待补验 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 依赖 `RAMAG-UI-001AC-1` 的可用计时方法、隔离窗口和显示追踪或同步录像 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 分别检查 Disks 和 Network；需要可用设备与真实窗口 |
@@ -172,7 +172,7 @@ Private Bytes 为 `173,277,184` 字节。该内存值是关闭后的单点采样
 完整区域定义保留在 [UI 规范的数据库矩阵](04-ui-acceptance-standard.md#4-数据库工作区功能验收)。
 先核对已有证据，补验时不重复计入已经通过的查询取消和规模测试。
 
-- `DB-RED-01..04`：补连接切换、刷新失败保留旧树、Server Objects 的权限/空/失败状态、Virtual views 的只读操作，以及 MongoDB/Redis 专用对象行为。
+- `DB-RED-01..04`：补连接切换、刷新失败保留旧树、Server Objects 的权限/空/失败状态和 Virtual views 的只读操作；MongoDB/Redis 专用对象行为已有真实窗口证据。
 - `DB-RED-05` / `DB-UX-003`：补排序、筛选后的页码和上下文、NULL/二进制/长字段区分、查看/复制/导出；已有列宽、滚动和分页记录继续有效。
 - `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复已有真实窗口证据；行内 DELETE、批量 DELETE、INSERT 的失效连接反馈仍待补验。原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
 - `DB-RED-07` / `DB-UX-005A..F`：DDL 查看/复制/刷新、稳定键结构差异、迁移指纹/阶段摘要、执行和目标元数据回读，以及 EXPLAIN ANALYZE 风险提示均已有真实窗口证据。代码、headless 和 Docker 回放结果仍按原范围有效。
@@ -262,6 +262,21 @@ MySQL JSONL 选中行导出子项；MongoDB、Redis 和其他未覆盖驱动的�
 查询标签时确认框明确提示“未保存 SQL 草稿将丢失”，随后点击“重新打开最近关闭的查询”，新建的
 `查询4` 标签恢复了相同的 `draft-sentinel` 文本。该验证只读取不存在的表名，没有修改测试库；
 DELETE、批量 DELETE 和 INSERT 的失效连接反馈仍未取得真实窗口证据。
+
+2026-11-06 在 WSL `Ubuntu-24.04` Docker MongoDB `8.2`（Windows 端口 `27028`）中完成专用对象
+补验。连接名为 `db-test-mongo`，数据库为 `ramag_demo`；真实窗口显示“已连接”，展开数据库后
+看到 `capped_events`、`large_documents`、`metrics`、`orders`、`products`、`type_matrix` 和
+`users` 集合。打开 `type_matrix` 后显示 2 行和 MongoDB 类型列（`_id`、字符串、整数、长整数、
+小数等）；输入行筛选 `string-id` 后结果收敛为 `1 / 2` 行，连接状态保持“已连接”。本次只读
+集合数据，没有写入文档。
+
+同日完成 WSL Docker Redis `7-alpine`（Windows 端口 `26379`）补验。连接名为 `db-test-redis`，
+窗口显示 DB0 和约 `45,014` 个键；左侧按 Hash、Large、List、Set、Special、Stream、String、ZSet
+分组，未伪造 Schema 或列。打开 Hash 键 `1` 后显示 Hash 类型、永久 TTL 和 3 个元素
+（`name=user-1`、`score=1`、`active=1`）；打开 List 键 `1` 后显示 List 类型、永久 TTL 和 3 个
+按序元素（`first`、`value-1`、`last`）。本次只读键值，没有修改 Redis 数据。该切片关闭 MongoDB
+集合树/筛选和 Redis 类型分组/详情子项；连接切换、失败刷新保留旧树、Server Objects、Virtual
+views 以及其他未覆盖驱动项仍按矩阵保持未完成。
 
 ### 4.4 发布构建性能验收
 
