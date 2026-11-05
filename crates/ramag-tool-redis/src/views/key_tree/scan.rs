@@ -14,6 +14,14 @@ const REBUILD_STEP: usize = 25_000;
 /// 输入停顿后下推 MATCH，避免展示旧筛选结果。
 const SEARCH_DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(450);
 
+/// 刷新期间收集的新快照；旧快照继续用于显示和详情操作。
+#[derive(Default)]
+pub(super) struct ScanBuffer {
+    keys: Vec<KeyMeta>,
+    seen_keys: std::collections::HashSet<String>,
+    key_bytes: usize,
+}
+
 impl KeyTreePanel {
     /// 从 cursor=0 按当前 MATCH 重新扫描。
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
@@ -22,13 +30,8 @@ impl KeyTreePanel {
         };
         self.scan_generation = self.scan_generation.wrapping_add(1);
         self.loading = true;
-        self.has_loaded = false;
         self.error = None;
-        self.keys.clear();
-        self.seen_keys.clear();
-        self.key_bytes = 0;
-        self.clear_tree();
-        self.last_rebuilt_count = 0;
+        self.scan_buffer = Some(ScanBuffer::default());
         self.truncated = false;
         self.resource_limited = false;
         self.resume_cursor = Some(0);
@@ -40,10 +43,16 @@ impl KeyTreePanel {
     /// 停止扫描并保留已加载部分。
     pub(super) fn stop_scan(&mut self, cx: &mut Context<Self>) {
         self.scan_generation = self.scan_generation.wrapping_add(1);
+        let refreshing = self.scan_buffer.take().is_some();
         if self.loading {
             self.loading = false;
-            self.truncated = true;
-            self.rebuild_tree();
+            if refreshing {
+                self.resume_cursor = None;
+                self.truncated = false;
+            } else {
+                self.truncated = true;
+                self.rebuild_tree();
+            }
             info!(
                 operation = "redis_key_scan",
                 connection_id = ?self.config.as_ref().map(|config| &config.id),
@@ -165,30 +174,55 @@ impl KeyTreePanel {
                 }
                 match result {
                     Ok(r) => {
-                        this.has_loaded = true;
+                        let done = r.cursor == 0;
+                        let next_cursor = r.cursor;
+                        let refreshing = this.scan_buffer.is_some();
+                        if !refreshing {
+                            this.has_loaded = true;
+                        }
                         // SCAN 可能重复返回同一 key，按名称去重。
                         let mut resource_capped = false;
-                        for meta in r.keys {
-                            if !insert_key_with_budget(
-                                &mut this.keys,
-                                &mut this.seen_keys,
-                                &mut this.key_bytes,
-                                meta,
-                            ) {
-                                resource_capped = true;
-                                break;
+                        if let Some(buffer) = this.scan_buffer.as_mut() {
+                            for meta in r.keys {
+                                if !insert_key_with_budget(
+                                    &mut buffer.keys,
+                                    &mut buffer.seen_keys,
+                                    &mut buffer.key_bytes,
+                                    meta,
+                                ) {
+                                    resource_capped = true;
+                                    break;
+                                }
                             }
+                            resource_capped |= !done
+                                && (buffer.keys.len() >= MAX_LOADED_KEYS
+                                    || buffer.key_bytes >= MAX_LOADED_KEY_BYTES);
+                        } else {
+                            for meta in r.keys {
+                                if !insert_key_with_budget(
+                                    &mut this.keys,
+                                    &mut this.seen_keys,
+                                    &mut this.key_bytes,
+                                    meta,
+                                ) {
+                                    resource_capped = true;
+                                    break;
+                                }
+                            }
+                            resource_capped |= !done
+                                && (this.keys.len() >= MAX_LOADED_KEYS
+                                    || this.key_bytes >= MAX_LOADED_KEY_BYTES);
                         }
-                        let done = r.cursor == 0;
-                        resource_capped |= !done
-                            && (this.keys.len() >= MAX_LOADED_KEYS
-                                || this.key_bytes >= MAX_LOADED_KEY_BYTES);
-                        this.resume_cursor = (!done && !resource_capped).then_some(r.cursor);
+                        this.resume_cursor = (!done && !resource_capped).then_some(next_cursor);
                         if resource_capped {
                             // 到达资源上限后不再继续扫描。
                             this.loading = false;
                             this.truncated = false;
                             this.resource_limited = true;
+                            if refreshing {
+                                this.commit_scan_buffer();
+                            }
+                            this.has_loaded = true;
                             this.rebuild_tree();
                             info!(
                                 operation = "redis_key_scan",
@@ -201,6 +235,10 @@ impl KeyTreePanel {
                         } else if done {
                             this.loading = false;
                             this.truncated = false;
+                            if refreshing {
+                                this.commit_scan_buffer();
+                            }
+                            this.has_loaded = true;
                             this.rebuild_tree();
                             info!(
                                 operation = "redis_key_scan",
@@ -211,12 +249,13 @@ impl KeyTreePanel {
                             );
                         } else {
                             // 首批立即展示，后续按阈值重建。
-                            if this.last_rebuilt_count == 0
-                                || this.keys.len() - this.last_rebuilt_count >= REBUILD_STEP
+                            if !refreshing
+                                && (this.last_rebuilt_count == 0
+                                    || this.keys.len() - this.last_rebuilt_count >= REBUILD_STEP)
                             {
                                 this.rebuild_tree();
                             }
-                            this.scan_next_batch(config, r.cursor, generation, cx);
+                            this.scan_next_batch(config, next_cursor, generation, cx);
                         }
                     }
                     Err(e) => {
@@ -229,7 +268,12 @@ impl KeyTreePanel {
                             "key scan failed"
                         );
                         this.loading = false;
-                        if this.keys.is_empty() {
+                        if this.scan_buffer.take().is_some() {
+                            this.error = Some(format!("刷新失败：{e}"));
+                            this.resume_cursor = None;
+                            this.truncated = false;
+                            this.resource_limited = false;
+                        } else if this.keys.is_empty() {
                             this.error = Some(format!("加载失败：{e}"));
                             this.seen_keys.clear();
                             this.clear_tree();
@@ -250,6 +294,15 @@ impl KeyTreePanel {
             });
         })
         .detach();
+    }
+
+    fn commit_scan_buffer(&mut self) {
+        let Some(buffer) = self.scan_buffer.take() else {
+            return;
+        };
+        self.keys = buffer.keys;
+        self.seen_keys = buffer.seen_keys;
+        self.key_bytes = buffer.key_bytes;
     }
 }
 

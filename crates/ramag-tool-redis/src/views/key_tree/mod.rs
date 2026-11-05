@@ -114,6 +114,8 @@ pub struct KeyTreePanel {
     search_pending: bool,
     /// 扫描代际；停止、重扫、换模式或切库后使旧回包失效。
     scan_generation: u64,
+    /// 刷新期间暂存新快照；只有完整成功后才替换当前可见 Key 树。
+    scan_buffer: Option<scan::ScanBuffer>,
     last_rebuilt_count: usize,
     selected: Option<String>,
     /// 手动停止或批次出错后暂停，可从断点继续扫描。
@@ -181,6 +183,7 @@ impl KeyTreePanel {
             search_generation: 0,
             search_pending: false,
             scan_generation: 0,
+            scan_buffer: None,
             last_rebuilt_count: 0,
             selected: None,
             truncated: false,
@@ -205,6 +208,7 @@ impl KeyTreePanel {
         self.db = db;
         self.selected = None;
         self.error = None;
+        self.scan_buffer = None;
         self.keys.clear();
         self.seen_keys.clear();
         self.key_bytes = 0;
