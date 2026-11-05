@@ -90,7 +90,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 | 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；PostgreSQL、MySQL 和 MongoDB 刷新失败保留旧树已有真实窗口记录，Redis 刷新期间旧树保留并可停止后恢复，MySQL 权限受限对象已有真实窗口记录，PostgreSQL Server Objects 权限/空状态仍待补验 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；Windows 发布构建的输入和绘制 p95 已取得，事件无丢失；两轮活动帧仅 `103` 和 `124` 个，低于 `300`，platform present p95 和可见反馈追踪仍缺失 |
-| 6 | `RAMAG-UI-001A` 监控交互补验 | 分别检查 Disks 和 Network；需要可用设备与真实窗口 |
+| 6 | `RAMAG-UI-001A` 监控交互补验 | 进行中；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换，磁盘选择器、溢出滚动和设备不可用提示仍未形成完整证据 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 使用隔离数据；不读取或改动用户剪贴板历史 |
 | 8 | `RAMAG-UI-001C` 首页与侧栏排序补验 | 使用隔离配置；分别检查两个区域的顺序和保存回读 |
 | 9 | `RAMAG-PLATFORM-001` 跨平台补验 | 需要对应 Linux/macOS 原生环境与独立系统测试账户 |
@@ -380,6 +380,15 @@ MSVC 初始化脚本。环境为 Windows 11 Pro for Workstations `10.0.26300`、
 
 以下切片分别记录操作、结果、环境和未覆盖状态。先复用已有 Headless GPUI 测试，
 再补真实窗口证据；发现可复现缺陷后才修改对应代码。
+
+2026-11-06 在 Windows 发布构建真实窗口中补验系统监控的 Disk 和 Network 页面。Disk 页显示当前
+`C:\` 文件系统已用约 `248.1 / 299.8 GiB`、读写速率曲线和底层设备信息；该页面没有额外磁盘选择器，
+页面内容在当前窗口内完整显示，因此没有滚动操作，也没有改变磁盘配置。Network 页默认显示 `以太网`，
+接口选择器列出 `Teredo Tunneling Pseudo-Interface`、`vEthernet (Default Switch)`、
+`vEthernet (WSL Hyper-V firewall)` 和 `以太网`；切换到前两个接口后分别观察到零速率和累计流量，
+再切回 `以太网`，网络连接未被修改。未复现设备不可用提示。该记录关闭了 Disk/Network 页面可见性和
+Network 接口选择/切换子项，但磁盘选择器、溢出滚动和不可用设备提示仍缺少适用或失败证据，
+`RAMAG-UI-001A` 继续保持进行中；本次只读补验且未改源码，Rust 测试不适用。
 
 - `RAMAG-UI-001A`：在 Disks 和 Network 页分别检查设备选择、切换、滚动及设备不可用提示。
   使用测试设备或当前只读数据，不改变系统网络和磁盘配置；设备不足时标记对应场景未完成。
