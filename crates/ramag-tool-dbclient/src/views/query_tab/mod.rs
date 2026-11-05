@@ -466,6 +466,7 @@ impl QueryTab {
             .update(cx, |state, cx| state.set_value(sql, window, cx));
         self.pinned_target = None;
         self.result.update(cx, |r, cx| {
+            r.clear_row_filter(window, cx);
             r.clear_pending_cell_edits(cx);
             r.clear_editable_target(cx);
         });
@@ -502,6 +503,8 @@ impl QueryTab {
             state.focus(window, cx);
         });
         self.pinned_target = None;
+        self.result
+            .update(cx, |r, cx| r.clear_row_filter(window, cx));
         self.last_injected_sql = Some(sql.to_string());
         // set_value 不发 Change，需手动预取列结构。
         self.prefetch_columns_now(cx);

@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use gpui_kit::{Context, Task};
+use gpui_kit::{Context, Task, Window};
 use ramag_domain::entities::{IdConverterConfig, Value, parse_nonnegative_id_integer};
 
 use super::{ResultPanel, ResultPanelEvent};
@@ -175,6 +175,20 @@ impl Default for RowSearchState {
 }
 
 impl ResultPanel {
+    /// Clears a server-side result filter before a new SQL source replaces the result.
+    /// The input observer must not emit a second filter request for this programmatic reset.
+    pub(crate) fn clear_row_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.cancel_id_conversion();
+        self.row_search.mode = RowSearchMode::Normal;
+        self.row_search.last_input.clear();
+        self.row_search.conversion = IdConversionState::Idle;
+        self.row_filter_input
+            .update(cx, |state, cx| state.set_value("", window, cx));
+        self.invalidate_display_view();
+        cx.emit(ResultPanelEvent::RowSearchChanged);
+        cx.notify();
+    }
+
     pub(crate) fn row_search_mode(&self) -> RowSearchMode {
         self.row_search.mode
     }

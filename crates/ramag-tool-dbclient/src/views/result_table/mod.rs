@@ -413,6 +413,8 @@ mod quality_tests;
 #[cfg(test)]
 mod render_test;
 #[cfg(test)]
+mod row_filter_state_test;
+#[cfg(test)]
 mod selected_revert_test;
 #[cfg(test)]
 mod virtual_rows_test;

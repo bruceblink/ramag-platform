@@ -85,6 +85,8 @@ impl QueryTab {
         let Some(sql) = self.checked_current_sql("运行", cx) else {
             return;
         };
+        self.result
+            .update(cx, |result, cx| result.clear_row_filter(window, cx));
         let trimmed = sql.trim().to_string();
         let title_sql = trimmed.clone();
         self.submit_sql(
@@ -110,6 +112,8 @@ impl QueryTab {
         let Some(sql) = self.checked_current_sql("运行", cx) else {
             return;
         };
+        self.result
+            .update(cx, |result, cx| result.clear_row_filter(window, cx));
         let cursor = self.editor.read(cx).cursor();
         let driver = self.connection.as_ref().map(|c| c.driver);
         let stmt = extract_statement_at_cursor(&sql, cursor, driver);

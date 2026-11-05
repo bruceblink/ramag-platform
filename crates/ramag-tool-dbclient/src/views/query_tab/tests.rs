@@ -25,6 +25,9 @@ mod filter_layout_tests;
 #[path = "toolbar_layout_tests.rs"]
 mod toolbar_layout_tests;
 
+#[path = "row_filter_reset_tests.rs"]
+mod row_filter_reset_tests;
+
 #[test]
 fn metadata_refresh_prefers_active_schema_and_ignores_empty_names() {
     assert_eq!(

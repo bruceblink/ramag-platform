@@ -458,6 +458,8 @@ impl QueryPanel {
                 t.set_pinned_target(target, cx);
                 // 表结构变化，清除列筛选。
                 t.clear_result_column_filter(window, cx);
+                t.result
+                    .update(cx, |result, cx| result.clear_row_filter(window, cx));
                 t.run(window, cx);
             });
         }
