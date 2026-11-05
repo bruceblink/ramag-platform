@@ -90,7 +90,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 | 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口记录，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验，未复现权限拒绝 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；Windows 发布构建的输入和绘制 p95 已取得，事件无丢失；两轮活动帧仅 `103` 和 `124` 个，低于 `300`，platform present p95 和可见反馈追踪仍缺失 |
-| 6 | `RAMAG-UI-001A` 监控交互补验 | 进行中；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换，磁盘选择器、溢出滚动和设备不可用提示仍未形成完整证据 |
+| 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 进行中；隔离窗口显示采集关闭且没有测试记录，未读取或改动用户剪贴板历史，搜索、删除、撤销和结果回读仍缺少真实窗口证据 |
 | 8 | `RAMAG-UI-001C` 首页与侧栏排序补验 | 已完成；隔离配置下已检查首页和侧栏拖动、拖出取消、保存及重启后的顺序回读 |
 | 9 | `RAMAG-PLATFORM-001` 跨平台补验 | 需要对应 Linux/macOS 原生环境与独立系统测试账户 |
@@ -428,6 +428,12 @@ Network 接口选择/切换子项，但磁盘选择器、溢出滚动和不可�
 本次没有取得 Disk/Network 的新增窗口证据，磁盘选择器、溢出滚动和设备不可用提示继续保持未完成。
 `cargo test --locked -p ramag-tool-system --lib -- --test-threads=1` 的 `114` 项均通过；这些测试覆盖
 合成快照、设备选择状态和不可用文案，不能替代缺少真实窗口前提的磁盘选择器与设备失败证据。
+
+同日使用 Windows MSVC Debug 构建和隔离的 `RAMAG_SYSTEM_STATE_DIR` 补齐 `RAMAG-UI-001A`。
+在真实窗口的 Disk 页打开设备选择器，看到 `C:\`、`D:\`、`E:\`、`F:\` 和 `G:\`，切换到 `F:\` 后容量读数、读写速率和历史曲线随设备更新；向下滚动后看到“底层设备信息”和页面说明，确认内容溢出时可滚动。
+随后停止窗口，在隔离 `workspace.json` 中保存不存在的 `volume:missing:test-device`，重新启动同一 Debug 构建。
+Disk 页显示按钮“不可用 · volume:missing:test-device”和卡片“所选设备不可用”，并保留上方设备选择入口；本次未修改真实磁盘、网络或用户系统状态。
+该切片关闭磁盘选择器、页面溢出滚动和设备不可用提示三个子项，`RAMAG-UI-001A` 标记为已完成；本次只读验收且未改源码，Rust 测试不适用。
 
 同日使用 Windows MSVC Debug 构建和隔离数据目录补验 `RAMAG-UI-001B` 与 `RAMAG-UI-001C`。
 剪贴板页显示“采集已关闭”和 `0` 条记录；为避免监听、读取或写入用户系统剪贴板，未伪造真实记录，
