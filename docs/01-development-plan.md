@@ -308,6 +308,12 @@ views 以及其他未覆盖驱动项仍按矩阵保持未完成。
 对应值，List 与 String 的值结构可解析。该切片关闭 Redis 数据库 JSONL 导出子项；Redis 的
 单 Key、前缀导出和其他未覆盖矩阵项继续按计划补验。
 
+同日继续在 `list:10` 的 Key 右键菜单中选择“导出”，保存到
+`.ramag/ui-acceptance/2026-11-05/exports/ramag-redis-db0-key-list_10-20261106-063344.jsonl`。
+文件回读为 2 行，包括导出头和 1 条 Key 记录；记录保留 `list:10`、类型 `list`、永久 TTL
+以及 `first`、`value-10`、`last` 三个元素。该切片关闭 Redis 单 Key JSONL 导出子项；Redis
+前缀导出和其他未覆盖矩阵项继续按计划补验。
+
 同日继续在同一真实窗口切换 `db-test-mysql`、`db-test-mongo` 和 `db-test-redis` 标签。切回
 MySQL 后查询工作区和 `type_matrix` 对象树仍可见；切回 MongoDB 后 `ramag_demo.type_matrix`
 及 `string-id` 行筛选仍可见；切回 Redis 后 DB0 的 `list:1` 详情仍可见。三个标签的连接状态
