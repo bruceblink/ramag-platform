@@ -318,6 +318,20 @@ impl ProfileReport {
         match boundary {
             journal::IntervalBoundary::Presented(presented) => {
                 self.presented_boundaries = self.presented_boundaries.saturating_add(1);
+                // GPUI folds a drawn frame and its platform submission into one
+                // `Presented` boundary, so there is no separate `Present` event
+                // to contribute to the submission-duration percentile.
+                let present_duration_us = duration_us(
+                    presented
+                        .presentation
+                        .present_end
+                        .saturating_duration_since(presented.presentation.present_start),
+                );
+                Self::push_duration(
+                    &mut self.present_durations_us,
+                    present_duration_us,
+                    &mut self.duration_samples_dropped,
+                );
                 let same_window = presented.frame.window_id == presented.presentation.window_id;
                 if same_window {
                     self.same_window_presented_pairs =

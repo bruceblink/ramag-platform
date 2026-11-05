@@ -1,5 +1,9 @@
 use std::time::{Duration, Instant};
 
+use gpui_kit::profiler::journal::{IntervalBoundary, PresentedFrame};
+use gpui_kit::profiler::{DrawPhases, FrameTiming, PresentTiming};
+use gpui_kit::WindowId;
+
 use super::ProfileReport;
 use super::{DEFAULT_PROFILE_SECONDS, MAX_PROFILE_SECONDS, ProfileConfig, percentile_95};
 
@@ -102,4 +106,40 @@ fn report_marks_invalid_time_ranges_and_completes_only_once() {
 
     assert_eq!(report.invalid_time_ranges, 1);
     assert!(report.completed);
+}
+
+#[test]
+fn report_records_present_duration_from_presented_boundary() {
+    let started_at = Instant::now();
+    let frame_start = started_at
+        .checked_add(Duration::from_millis(10))
+        .expect("test instant should support a small addition");
+    let present_start = frame_start
+        .checked_add(Duration::from_millis(2))
+        .expect("test instant should support a small addition");
+    let present_end = present_start
+        .checked_add(Duration::from_micros(700))
+        .expect("test instant should support a small addition");
+    let mut report = ProfileReport::new(started_at);
+    report.record_boundary(IntervalBoundary::Presented(PresentedFrame {
+        frame: FrameTiming {
+            window_id: WindowId::from(1),
+            dirty_at: Some(frame_start),
+            invalidations: 1,
+            draw_start: frame_start,
+            draw_end: present_start,
+            refresh_interval: None,
+            signal_at: None,
+            phases: DrawPhases::default(),
+        },
+        presentation: PresentTiming {
+            window_id: WindowId::from(1),
+            present_start,
+            present_end,
+            animation_interval: None,
+        },
+    }));
+
+    assert_eq!(report.presented_boundaries, 1);
+    assert_eq!(percentile_95(&report.present_durations_us), Some(700));
 }

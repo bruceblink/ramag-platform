@@ -432,6 +432,16 @@ MSVC 初始化脚本。环境为 Windows 11 Pro for Workstations `10.0.26300`、
 所以 `RAMAG-UI-001AC-2` 继续保持未完成。本轮没有发现足以安排渲染优化的可复现瓶颈，未修改源码。
 发布构建已通过；本次仅补验和更新计划，Rust 测试不适用。
 
+同日复核采样器实现时确认，GPUI 在绘制帧存在时把平台提交作为
+`IntervalBoundary::Presented` 记录，不生成独立的 `ForegroundEvent::Present`。此前采样器只从后者
+收集提交耗时，所以真实窗口会出现 `present_events=0`，但已有 `presented_boundaries` 没有被用于
+`present_p95`。本次让 `Presented` 边界中的提交时长进入同一有界样本集，保留独立事件计数的原含义，
+并增加回归测试。`cargo test --locked -p ramag-ui --features ui-profiling --lib profiling` 的 7 项、
+默认 `ramag-ui` 单元测试的 167 项、默认严格 Clippy 和 Windows MSVC `ui-profiling` Release 构建均通过。
+带 `ui-profiling` 的 Clippy 仍会命中原有 profiling 测试中的 14 个 `expect_used`，该问题不由本次新增
+逻辑引入，也不扩大为无关测试重构。修复后仍需重新取得至少 300 个活动帧、platform present p95、
+点击到可见反馈和 10 秒空闲动画观察，`RAMAG-UI-001AC-2` 继续保持未完成。
+
 ### 4.5 现有页面交互补验
 
 以下切片分别记录操作、结果、环境和未覆盖状态。先复用已有 Headless GPUI 测试，
