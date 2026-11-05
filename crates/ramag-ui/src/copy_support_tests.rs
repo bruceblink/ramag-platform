@@ -10,6 +10,8 @@ use std::time::Duration;
 
 struct SelectableTextHost;
 
+struct InlineSelectableTextHost;
+
 struct NotificationHost;
 
 impl Render for SelectableTextHost {
@@ -21,6 +23,16 @@ impl Render for SelectableTextHost {
             )
             .w_full()
             .h_full(),
+        )
+    }
+}
+
+impl Render for InlineSelectableTextHost {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div().w(px(900.0)).h(px(100.0)).child(
+            SelectableText::inline("inline-copy-support-test", "user_name.with-dashes")
+                .w_full()
+                .h_full(),
         )
     }
 }
@@ -45,7 +57,7 @@ fn selectable_text_copies_dragged_selection(cx: &mut TestAppContext) {
     cx.update(|window, cx| {
         let _ = window.draw(cx);
     });
-    cx.update(|window, cx| window.drag(point(px(10.0), px(20.0)), point(px(890.0), px(90.0)), cx));
+    cx.update(|window, cx| window.drag(point(px(0.0), px(20.0)), point(px(899.0), px(90.0)), cx));
     #[cfg(target_os = "macos")]
     cx.simulate_keystrokes("cmd-c");
     #[cfg(not(target_os = "macos"))]
@@ -59,6 +71,30 @@ fn selectable_text_copies_dragged_selection(cx: &mut TestAppContext) {
         copied,
         "**bold** [link](https://example.com) `code`\nraw ~ text"
     );
+}
+
+#[gpui_kit::test]
+fn inline_selectable_text_copies_dragged_selection(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let host = cx.new(|_| InlineSelectableTextHost);
+        gpui_kit::component::Root::new(host, window, cx)
+    });
+    let cx: &mut VisualTestContext = cx;
+    cx.update(|window, cx| {
+        let _ = window.draw(cx);
+    });
+    cx.update(|window, cx| window.drag(point(px(0.0), px(20.0)), point(px(899.0), px(90.0)), cx));
+    #[cfg(target_os = "macos")]
+    cx.simulate_keystrokes("cmd-c");
+    #[cfg(not(target_os = "macos"))]
+    cx.simulate_keystrokes("ctrl-c");
+
+    let copied = cx
+        .read_from_clipboard()
+        .and_then(|item| item.text())
+        .unwrap_or_default();
+    assert_eq!(copied, "user_name.with-dashes");
 }
 
 #[gpui_kit::test]

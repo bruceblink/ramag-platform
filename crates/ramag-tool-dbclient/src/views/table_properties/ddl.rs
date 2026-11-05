@@ -4,15 +4,14 @@ use gpui_kit::component::{
     IconName, Sizable as _, Theme,
     button::ButtonVariants as _,
     h_flex,
-    highlighter::{HighlightTheme, SyntaxHighlighter},
     scroll::{Scrollbar, ScrollbarMode},
+    text::TextView,
     v_flex,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, IntoElement, ParentElement, ScrollHandle, Styled, StyledText, Window,
-    div, prelude::*, px,
+    AnyElement, ClickEvent, IntoElement, ParentElement, ScrollHandle, Styled, Window, div,
+    prelude::*, px,
 };
-use ropey::Rope;
 
 const DDL_MIN_WIDTH: f32 = 720.0;
 const DDL_MAX_WIDTH: f32 = 3_200.0;
@@ -52,17 +51,16 @@ pub(super) fn render_ddl(
     };
 
     let content_width = ddl_content_width(&ddl);
-    let highlighted = highlight_sql(ddl.clone(), &theme.highlight_theme);
     let copy_text = ddl;
-    let code = div()
+    let code = TextView::markdown("table-properties-ddl-code", ddl_markdown(&copy_text))
+        .selectable(true)
         .w(px(content_width))
         .min_h_0()
         .p(px(14.0))
         .font_family(theme.mono_font_family.clone())
         .text_xs()
         .text_color(theme.foreground)
-        .whitespace_nowrap()
-        .child(highlighted);
+        .whitespace_nowrap();
 
     v_flex()
         .size_full()
@@ -171,20 +169,36 @@ fn ddl_content_width(ddl: &str) -> f32 {
     (longest_line * DDL_CHAR_WIDTH + 28.0).clamp(DDL_MIN_WIDTH, DDL_MAX_WIDTH)
 }
 
-fn highlight_sql(sql: String, theme: &HighlightTheme) -> StyledText {
-    let mut highlighter = SyntaxHighlighter::new("sql");
-    highlighter.update(None, &Rope::from_str(&sql), None);
-    let highlights = highlighter.styles(&(0..sql.len()), theme);
-    StyledText::new(sql).with_highlights(highlights)
+fn ddl_markdown(ddl: &str) -> String {
+    let mut longest_fence_run: usize = 0;
+    let mut current_run = 0;
+    for character in ddl.chars() {
+        if character == '`' {
+            current_run += 1;
+            longest_fence_run = longest_fence_run.max(current_run);
+        } else {
+            current_run = 0;
+        }
+    }
+    let fence = "`".repeat(longest_fence_run.saturating_add(1).max(3));
+    format!("{fence}sql\n{ddl}\n{fence}")
 }
 
 #[cfg(test)]
 mod tests {
-    use super::ddl_content_width;
+    use super::{ddl_content_width, ddl_markdown};
 
     #[test]
     fn ddl_width_is_bounded_and_preserves_short_definition_padding() {
         assert_eq!(ddl_content_width("CREATE TABLE users (id int);"), 720.0);
         assert_eq!(ddl_content_width(&"x".repeat(1_000)), 3_200.0);
+    }
+
+    #[test]
+    fn ddl_markdown_uses_a_sql_fence_without_changing_backticks() {
+        assert_eq!(
+            ddl_markdown("CREATE TABLE `users` (id int);"),
+            "```sql\nCREATE TABLE `users` (id int);\n```"
+        );
     }
 }

@@ -55,6 +55,9 @@ pub(super) fn render_header_cell(
         .cursor_pointer()
         .relative()
         .on_click(cx.listener(move |this, e: &ClickEvent, window, cx| {
+            if gpui_kit::base::TextSelection::has_selection(window, cx) {
+                return;
+            }
             if e.modifiers().secondary() {
                 if ramag_ui::is_primary_modifier_double_click(e) {
                     ramag_ui::copy_text_with_notification(col_name.to_string(), window, cx);
@@ -78,12 +81,15 @@ pub(super) fn render_header_cell(
                         .items_center()
                         .overflow_hidden()
                         .child(
-                            div()
-                                .min_w_0()
-                                .overflow_hidden()
-                                .text_ellipsis()
-                                .whitespace_nowrap()
-                                .child(SharedString::from(col.clone())),
+                            ramag_ui::SelectableText::inline(
+                                format!("result-header-name-{ci}"),
+                                col.clone(),
+                            )
+                            .min_w_0()
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .whitespace_nowrap()
+                            .text_color(fg),
                         )
                         .when_some(type_label, |this, t| {
                             this.child(

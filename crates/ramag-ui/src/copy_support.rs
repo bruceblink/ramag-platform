@@ -32,13 +32,20 @@ pub fn copy_success_notification() -> Notification {
 /// 可拖拽选中的只读文本。
 ///
 /// GPUI 的普通 `div().child(text)` 只负责绘制，不具备文本选区。这里复用
-/// 复用 GPUI Kit `TextView` 的选择实现，并把原始文本包进 fenced code block，
+/// GPUI Kit `TextView` 的选择实现，并把原始文本包进 fenced code block，
 /// 避免 Markdown 解析改变复制内容。
 #[derive(IntoElement)]
 pub struct SelectableText {
     id: ElementId,
     text: SharedString,
     style: StyleRefinement,
+    format: SelectableTextFormat,
+}
+
+#[derive(Clone, Copy)]
+enum SelectableTextFormat {
+    Fenced,
+    Inline,
 }
 
 impl SelectableText {
@@ -48,6 +55,17 @@ impl SelectableText {
             id: id.into(),
             text: text.into(),
             style: StyleRefinement::default(),
+            format: SelectableTextFormat::Fenced,
+        }
+    }
+
+    /// 创建单行只读可选中文本，适合表头和紧凑标签。
+    pub fn inline(id: impl Into<ElementId>, text: impl Into<SharedString>) -> Self {
+        Self {
+            id: id.into(),
+            text: text.into(),
+            style: StyleRefinement::default(),
+            format: SelectableTextFormat::Inline,
         }
     }
 }
@@ -60,10 +78,30 @@ impl Styled for SelectableText {
 
 impl RenderOnce for SelectableText {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
-        TextView::markdown(self.id, plain_text_markdown(&self.text))
+        let markdown = match self.format {
+            SelectableTextFormat::Fenced => plain_text_markdown(&self.text),
+            SelectableTextFormat::Inline => inline_text_markdown(&self.text),
+        };
+        TextView::markdown(self.id, markdown)
             .selectable(true)
             .refine_style(&self.style)
     }
+}
+
+fn inline_text_markdown(text: &str) -> String {
+    let mut markdown = String::with_capacity(text.len());
+    for character in text.chars() {
+        match character {
+            '\\' | '`' | '*' | '_' | '{' | '}' | '[' | ']' | '(' | ')' | '#' | '+' | '-' | '.'
+            | '!' | '|' | '>' | '~' => {
+                markdown.push('\\');
+                markdown.push(character);
+            }
+            '\n' => markdown.push_str("  \n"),
+            _ => markdown.push(character),
+        }
+    }
+    markdown
 }
 
 fn plain_text_markdown(text: &str) -> String {
