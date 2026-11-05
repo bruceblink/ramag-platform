@@ -87,7 +87,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 |---|---|---|
 | 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
-| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出，以及 MongoDB/Redis 专用对象已有真实窗口记录；连接切换、失败刷新保留旧树、Server Objects、Virtual views 和其他未覆盖驱动项仍待补验 |
+| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；失败刷新保留旧树、权限/空/失败状态和其他未覆盖驱动项仍待补验 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 进行中；PostgreSQL 和 MySQL 手动事务提交、回滚及清理已有真实窗口证据；MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认和失败查询草稿恢复已完成，DELETE/INSERT 失效连接反馈仍待补验 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 依赖 `RAMAG-UI-001AC-1` 的可用计时方法、隔离窗口和显示追踪或同步录像 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 分别检查 Disks 和 Network；需要可用设备与真实窗口 |
@@ -172,7 +172,7 @@ Private Bytes 为 `173,277,184` 字节。该内存值是关闭后的单点采样
 完整区域定义保留在 [UI 规范的数据库矩阵](04-ui-acceptance-standard.md#4-数据库工作区功能验收)。
 先核对已有证据，补验时不重复计入已经通过的查询取消和规模测试。
 
-- `DB-RED-01..04`：连接切换和 MongoDB/Redis 专用对象行为已有真实窗口证据；刷新失败保留旧树、Server Objects 的权限/空/失败状态和 Virtual views 的只读操作仍待补验。
+- `DB-RED-01..04`：连接切换、MongoDB/Redis 专用对象行为，以及本地 PostgreSQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；刷新失败保留旧树、Server Objects 的权限/空/失败状态仍待补验。
 - `DB-RED-05` / `DB-UX-003`：补排序、筛选后的页码和上下文、NULL/二进制/长字段区分、查看/复制/导出；已有列宽、滚动和分页记录继续有效。
 - `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复已有真实窗口证据；行内 DELETE、批量 DELETE、INSERT 的失效连接反馈仍待补验。原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
 - `DB-RED-07` / `DB-UX-005A..F`：DDL 查看/复制/刷新、稳定键结构差异、迁移指纹/阶段摘要、执行和目标元数据回读，以及 EXPLAIN ANALYZE 风险提示均已有真实窗口证据。代码、headless 和 Docker 回放结果仍按原范围有效。
@@ -283,6 +283,16 @@ MySQL 后查询工作区和 `type_matrix` 对象树仍可见；切回 MongoDB �
 及 `string-id` 行筛选仍可见；切回 Redis 后 DB0 的 `list:1` 详情仍可见。三个标签的连接状态
 均保持“已连接”，未重新创建连接或修改测试数据。该操作关闭连接切换子项，失败刷新保留旧树、
 Server Objects、Virtual views 和其他未覆盖驱动项仍未完成。
+
+2026-11-06 在 WSL `Ubuntu-24.04` Docker PostgreSQL `17-alpine`（Windows 端口 `25432`）中补验
+Server Objects 和 Virtual views。连接名为 `db-test-postgres`，数据库为 `ramag_test`，用户为
+`ramag`；默认连接 URI 使用 TLS 时测试先超时，改用同一服务的
+`postgres://.../ramag_test?sslmode=disable` 后测试连接成功并显示“已连接”。对象树显示
+`analytics` 和 `public` Schema，`public` 下有 3 张表、1 个 view，Server Objects 展开后加载
+`collations 913`，说明服务器对象读取成功。收起后打开 Virtual views 的 `sessions`，真实窗口
+显示“只读会话快照”和 9 行会话记录，包含 pid、用户名、数据库、客户端地址、状态、查询开始时间
+和查询文本；本次未执行写入。该切片关闭 PostgreSQL Server Objects 和 Virtual views 只读子项，
+刷新失败保留旧树及权限/空/失败状态仍未取得真实窗口证据。
 
 ### 4.4 发布构建性能验收
 
