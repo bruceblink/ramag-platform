@@ -2,9 +2,9 @@
 
 > 状态：唯一现行开发计划
 > 更新日期：2026-11-06
-> 代码核对基线：`v0.9.1`；当前 workspace 版本 `0.9.1`
-> 后续开发基线：`v0.9.1` 带注释标签指向的提交
-> 计划状态：自动更新与页面修复已随 `v0.9.1` 发布；接下来按队列补测量与验收证据
+> 代码核对基线：提交 `8820c77a`（`v0.9.1` 之后的维护提交）；当前 workspace 版本 `0.9.1`
+> 后续开发基线：提交 `8820c77a`
+> 计划状态：`v0.9.1` 已发布；当前维护提交已完成选择复制、Redis 扫描边界和发布构建测量记录，后续按未关闭验收项推进
 
 本文件统一维护范围、执行顺序、验收条件和未关闭事项。架构、接口设计、开发指南和
 测试报告只提供技术依据，不单独安排开发任务。
@@ -59,6 +59,23 @@ Ramag 保留数据库、Redis、MongoDB、API、Kafka、MQTT、Git、SSH/SFTP/PT
 | 更新页面反馈 | 已校验下载切换“安装安装包”；手动检查无更新时显示明确结果；整理版本信息与操作区，复用 Ramag 品牌标识并修正产品说明 | 2026-11-01 Windows 明暗主题真实窗口已核对标识、说明、布局和无更新提示；Headless GPUI 验证下载到安装按钮的切换及回调。未执行正式安装器，不能据此认定覆盖安装已验收；这些修复尚未包含在 `v0.9.0` 安装包中 |
 | 发布 | `v0.9.1` 已正式发布，作为后续开发基线；包含自动更新与页面反馈修复 | 2026-11-01 核对 [v0.9.1 Release](https://github.com/bruceblink/ramag-platform/releases/tag/v0.9.1) 及 [发布任务 `41277943121`](https://github.com/bruceblink/ramag-platform/actions/runs/41277943121)：Windows、macOS、Linux 打包和发布均成功；5 个安装包和 4 个差分包的名称、大小与 SHA-256 均与更新清单及 GitHub 资产记录一致。标签 `v0.9.1` 指向提交 `6ef0d241` |
 
+### 3.1 2026-11-06 代码审查结论
+
+本次审查以提交 `8820c77a` 为基线。Windows MSVC stable Rust `1.99.1` 下，以下检查均通过：
+
+- `cargo fmt --all -- --check`
+- `cargo check --locked --workspace --all-targets`
+- `cargo clippy --locked --workspace --all-targets -- -D warnings`
+- `cargo test --locked --workspace -- --test-threads=1`
+
+本次审查未发现需要立即修复的可复现新缺陷。已核对的重点如下：
+
+- `ramag-ui` 的 `Presented` 边界耗时已纳入 `present_p95_us`。该指标仍表示窗口系统提交，不表示屏幕合成器已显示。
+- 数据库大字段查看器保留有界预览，并通过独立路径支持复制完整当前值。预览上限和复制行为已有对应测试。
+- Redis 前缀扫描使用超时、缓冲树和有限重试边界。刷新失败时保留旧树，相关单元测试已通过。
+
+剩余问题属于验收证据范围。它们不能由本次代码检查直接关闭，也不能用 Headless 或平台提交结果替代真实可见反馈和跨平台窗口证据。
+
 本轮源码修复在 Windows MSVC x64、stable Rust `1.99.1` 下通过格式、workspace 全目标检查、
 严格 Clippy、应用构建和源文件大小检查。应用层 `284` 个单元测试、`17` 个集成测试通过；
 UI 的 `166` 个单元及 Headless GPUI 测试通过；更新基础设施的 `11` 个单元测试通过。
@@ -76,7 +93,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 ## 4. 当前执行队列
 
 `RAMAG-UPDATE-001` 的更新实现已随 `v0.9.0` 发布；页面反馈修复已随 `v0.9.1` 正式发布。
-后续开发以 `v0.9.1` 标签对应的提交为基线；按 `RAMAG-RELEASE-001` 发布，不预设日期或移动现有标签。
+后续开发以提交 `8820c77a` 为基线；`v0.9.1` 保持不变。按 `RAMAG-RELEASE-001` 发布，不移动或覆盖已公开标签。
 更新条件和缓存限制见[更新检测与下载](06-desktop-release.md#更新检测与下载)。
 
 按下表顺序选择独立切片。顺序表示优先级，不表示所有任务必须串行。
@@ -87,16 +104,16 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 |---|---|---|
 | 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
-| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、SQL/MySQL/MongoDB/Redis JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；其他未覆盖矩阵项继续补验。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口记录，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验，未复现权限拒绝 |
+| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、SQL/MySQL/MongoDB/Redis JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；其他未覆盖矩阵项继续补验。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口记录，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验。下一步只补未覆盖的驱动或动作，并回读导出文件；未复现权限拒绝时保持该限制记录，不制造用户数据风险。 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
-| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；点击到可见反馈和独立 10 秒空闲观察仍缺失 |
+| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；下一步补点击到可见反馈和独立 10 秒空闲观察。不能取得显示合成器或同步录像证据时保持未完成，不用降低动画时长替代流畅度验收。 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 已完成；隔离 redb 数据和真实窗口已覆盖搜索、删除、撤销、当前结果回读和详情查看，未读取或写入用户系统剪贴板 |
 | 8 | `RAMAG-UI-001C` 首页与侧栏排序补验 | 已完成；隔离配置下已检查首页和侧栏拖动、拖出取消、保存及重启后的顺序回读 |
-| 9 | `RAMAG-PLATFORM-001` 跨平台补验 | 需要对应 Linux/macOS 原生环境与独立系统测试账户 |
+| 9 | `RAMAG-PLATFORM-001` 跨平台补验 | 需要对应 Linux/macOS 原生环境与独立系统测试账户；Linux 先在 WSL 编译，Linux/macOS 测试使用 GitHub CI，原生窗口和系统凭据仍需对应平台证据 |
 | 持续 | `RAMAG-RELEASE-001` 平台与发布维护 | 有相关变更或用户要求发布时执行；不预设发布日期 |
 
-上述任务均为待执行；持续维护按触发条件启动。每个任务的结果只能覆盖实际执行的平台、驱动和步骤。
+表中已完成项只保留结果和证据边界。当前只推进“进行中”或受环境条件约束的事项；持续维护按触发条件启动。每个任务的结果只能覆盖实际执行的平台、驱动和步骤。
 只发现问题时先记录可复现条件；修复另按受影响范围验证。尚未取得的设备、账号、服务或窗口证据保持未完成。
 
 ### 4.1 原生 UI 测量方法
@@ -549,19 +566,24 @@ CI、headless 与真实窗口结果分开记录。若需要修复，先复现问
 文档变更检查 UTF-8、LF、Markdown 结构、相对链接与章节锚点，并运行 `git diff --check`。
 仅改文档时，Rust 编译、UI 操作和 Docker 集成测试标记为“不适用”。
 
-Rust 变更从 workspace 根目录执行。Windows 先在同一 PowerShell 进程加载仓库 MSVC 环境：
+Rust 变更从 workspace 根目录执行。当前 Windows 主机已配置 MSVC 环境，不执行仓库的
+`enable-msvc-toolchain.ps1`。只有在环境验证失败或需要建立干净的 CI 仿真进程时，才单独处理工具链初始化。
+先确认 stable Rust 使用 MSVC 主机：
 
 ```powershell
-. ./scripts/windows/enable-msvc-toolchain.ps1
 rustup run stable rustc -Vv
+# 预期 host 为 x86_64-pc-windows-msvc
 cargo fmt --all -- --check
 cargo check --locked --workspace --all-targets
 cargo clippy --locked --workspace --all-targets -- -D warnings
-cargo test --locked -p <受影响的-crate> -- --test-threads=1
+cargo test --locked --workspace -- --test-threads=1
 cargo build --locked -p ramag-bin
 ./scripts/windows/check-source-size.ps1
 git diff --check
 ```
+
+Linux 编译使用 WSL 中的仓库路径和 Linux stable Rust。Linux/macOS 测试不在本机替代执行，
+由 `.github/workflows/desktop-ci.yml` 的对应 job 提供结果。CI 结果记录仓库、运行编号、提交和 job 状态。
 
 原生 UI 采样另运行：
 
