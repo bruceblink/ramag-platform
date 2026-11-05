@@ -50,7 +50,7 @@ Ramag 保留数据库、Redis、MongoDB、API、Kafka、MQTT、Git、SSH/SFTP/PT
 |---|---|---|
 | 工具入口与列表 | 工具显示位置管理、数据库数据源列表、对象存储账号列表、Container/VCS/插件列表已完成对应切片 | 完整流程按工具分别验收；不扩展为所有错误与平台均已通过 |
 | 连接工作区 | API 首次读取状态修复、双栏布局、两条分隔栏真实拖动，以及 API/Kafka/MQTT/SSH 全局回归已完成 | 专项数据库操作和其他未列出的原生流程仍按下节补验 |
-| 数据库 | MySQL/PostgreSQL 连接、触发器子树、连接恢复、事务提交/回滚读回、单元格 UPDATE 以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈已有真实窗口证据 | 完整 `DB-RED-01..07` 矩阵仍部分完成 |
+| 数据库 | MySQL/PostgreSQL/SQLite 连接、查询与部分元数据树，触发器子树、连接恢复、事务提交/回滚读回、单元格 UPDATE 以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈已有真实窗口证据 | 完整 `DB-RED-01..07` 矩阵仍部分完成 |
 | 数据库规模与取消 | PostgreSQL 100,000 行分页、10,000 行只读查询、1,000 张表、长表头、双轴滚动、多标签隔离与页面/统计查询取消已验收 | 取消到服务端活动查询归零曾测得约 `629 ms`；这是单次环境记录，不能作为普遍时限 |
 | 共享 UI 与监控 | System Pulse 迁入、公共样式、状态反馈、首页响应式网格及卡片视觉维护已进入基线；过渡时长统一为重排 `180ms`、加载 `160ms` | 页面功能、硬件准确性、发布性能和跨平台结果分别判断 |
 | 静态插件 | 系统监控试点及 API、剪贴板、VCS、SSH、对象存储、容器、数据库、Kafka、MQTT 九批迁移完成 | 静态装配和代码验证不表示支持外部插件加载 |
@@ -104,7 +104,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 |---|---|---|
 | 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
-| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、SQL/MySQL/MongoDB/Redis JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；其他未覆盖矩阵项继续补验。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口记录，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验。下一步只补未覆盖的驱动或动作，并回读导出文件；未复现权限拒绝时保持该限制记录，不制造用户数据风险。 |
+| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、SQL/MySQL/MongoDB/Redis/SQLite JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；SQLite 本地文件的表、视图、列、索引、触发器、DDL 和只读视图已补验。其他未覆盖矩阵项继续补验。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口记录，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验。下一步只补未覆盖的驱动或动作，并回读导出文件；未复现权限拒绝时保持该限制记录，不制造用户数据风险。 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；下一步补点击到可见反馈和独立 10 秒空闲观察。不能取得显示合成器或同步录像证据时保持未完成，不用降低动画时长替代流畅度验收。 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
@@ -189,7 +189,7 @@ Private Bytes 为 `173,277,184` 字节。该内存值是关闭后的单点采样
 完整区域定义保留在 [UI 规范的数据库矩阵](04-ui-acceptance-standard.md#4-数据库工作区功能验收)。
 先核对已有证据，补验时不重复计入已经通过的查询取消和规模测试。
 
-- `DB-RED-01..04`：连接切换、MongoDB/Redis 专用对象行为，以及本地 PostgreSQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；本地 PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口证据，MySQL 权限受限 Server Objects 和 PostgreSQL 受限角色的 public 空状态、Server Objects 可读边界已有真实窗口证据，Redis 最终连接失败提示已补验。
+- `DB-RED-01..04`：连接切换、SQLite 表/视图/元数据、MongoDB/Redis 专用对象行为，以及本地 PostgreSQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；本地 PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口证据，MySQL 权限受限 Server Objects 和 PostgreSQL 受限角色的 public 空状态、Server Objects 可读边界已有真实窗口证据，Redis 最终连接失败提示已补验。SQLite Virtual views 明确显示本地驱动不支持，未计为失败。
 - `DB-RED-05` / `DB-UX-003`：补排序、筛选后的页码和上下文、NULL/二进制/长字段区分、查看/复制/导出；已有列宽、滚动和分页记录继续有效。
 - `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据。原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
 - `DB-RED-07` / `DB-UX-005A..F`：DDL 查看/复制/刷新、稳定键结构差异、迁移指纹/阶段摘要、执行和目标元数据回读，以及 EXPLAIN ANALYZE 风险提示均已有真实窗口证据。代码、headless 和 Docker 回放结果仍按原范围有效。
@@ -251,6 +251,15 @@ WHERE 条件。修复后同一操作会清空 WHERE 输入并恢复 `100,000` �
 `CREATE` 后可复制；结果表头拖选后得到 `id bigint unsigned`。本次没有读取或改动系统剪贴板历史，
 只使用应用内过滤列输入框回读剪贴板内容。`cargo fmt --all`、`cargo test -p ramag-tool-dbclient
 --lib`（379 项）和 Windows Debug 构建通过；随后完成 Windows MSVC release 构建。
+
+2026-11-06 使用 Windows MSVC Debug 构建补验 SQLite 本地文件流程。临时数据库文件包含
+`acceptance_records` 表、中文和 JSON 文本、BLOB 列、索引、触发器，以及只读视图
+`acceptance_recent`。连接表单测试显示“连接成功”；真实窗口的对象树显示 `main` 下 1 张表和 1 个
+视图，展开表后可见 6 列、1 个索引和 1 个触发器。打开表显示 3 行，条件 `amount >= 10` 执行后保留
+2 行；打开 `acceptance_recent` 显示 2 行只读结果；DDL 视图显示 `CREATE TABLE` 定义。选中 1 行并
+选择 JSONL 导出，保存到本轮临时目录后回读为 155 字节、1 条可解析记录，中文标题、JSON 文本、数值、
+时间和 `note` 字段均存在。SQLite 的 Virtual views 刷新显示“功能尚未实现”，符合本地文件驱动的能力边界，
+不记录为失败。临时 Debug 进程、数据库、隔离配置和导出文件已清理；本次只补验且未改源码，Rust 测试不适用。
 
 2026-11-06 在同一套 WSL `Ubuntu-24.04` Docker MySQL `8.4` 测试服务中完成 MySQL 的写入与迁移补验。
 服务使用 Windows 端口 `23306`，数据库为 `ramag_test`，连接用户为 `ramag`；操作对象为
