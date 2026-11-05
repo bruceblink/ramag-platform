@@ -423,6 +423,10 @@ MSVC 初始化脚本。环境为 Windows 11 Pro for Workstations `10.0.26300`、
 Network 接口选择/切换子项，但磁盘选择器、溢出滚动和不可用设备提示仍缺少适用或失败证据，
 `RAMAG-UI-001A` 继续保持进行中；本次只读补验且未改源码，Rust 测试不适用。
 
+同日尝试使用 Windows MSVC Release 构建补验 `RAMAG-UI-001A`。Release 构建不启用连接数据目录隔离，
+启动后显示已有数据库工作区；为避免触碰用户连接和偏好，未继续操作并停止进程，临时系统目录已清理。
+本次没有取得 Disk/Network 的新增窗口证据，磁盘选择器、溢出滚动和设备不可用提示继续保持未完成。
+
 - `RAMAG-UI-001A`：在 Disks 和 Network 页分别检查设备选择、切换、滚动及设备不可用提示。
   使用测试设备或当前只读数据，不改变系统网络和磁盘配置；设备不足时标记对应场景未完成。
   修改代码时运行 `cargo test --locked -p ramag-tool-system --lib -- --test-threads=1`。
