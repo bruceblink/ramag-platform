@@ -1,7 +1,7 @@
 # Ramag Platform 主线开发计划
 
 > 状态：唯一现行开发计划
-> 更新日期：2026-11-05
+> 更新日期：2026-11-06
 > 代码核对基线：`v0.9.1`；当前 workspace 版本 `0.9.1`
 > 后续开发基线：`v0.9.1` 带注释标签指向的提交
 > 计划状态：自动更新与页面修复已随 `v0.9.1` 发布；接下来按队列补测量与验收证据
@@ -89,7 +89,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
 | 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、CSV 和 JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；PostgreSQL、MySQL 和 MongoDB 刷新失败保留旧树已有真实窗口记录，Redis 刷新期间旧树保留并可停止后恢复，MySQL 权限受限对象已有真实窗口记录，PostgreSQL Server Objects 权限/空状态仍待补验 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
-| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 依赖 `RAMAG-UI-001AC-1` 的可用计时方法、隔离窗口和显示追踪或同步录像 |
+| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；Windows 发布构建的输入和绘制 p95 已取得，事件无丢失；两轮活动帧仅 `103` 和 `124` 个，低于 `300`，platform present p95 和可见反馈追踪仍缺失 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 分别检查 Disks 和 Network；需要可用设备与真实窗口 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 使用隔离数据；不读取或改动用户剪贴板历史 |
 | 8 | `RAMAG-UI-001C` 首页与侧栏排序补验 | 使用隔离配置；分别检查两个区域的顺序和保存回读 |
@@ -352,6 +352,29 @@ Redis 最终连接失败提示和 PostgreSQL Server Objects 权限/空状态仍�
 样本不足、事件丢失导致结果不可用或缺少呈现追踪时，记录具体限制。
 完成条件：记录每项计时起止点、平台和原始证据，并分别判断 `PULSE-P01` 的点击、活动帧和空闲条件。
 先保留诊断结论，再决定是否安排渲染优化，不凭主观感受增加优化范围。回滚只涉及本次测量辅助代码与记录。
+
+2026-11-06 在 Windows 发布构建中执行两轮真实窗口采样。构建命令为
+`cargo build --locked --target x86_64-pc-windows-msvc -p ramag-bin --features ui-profiling --release`；
+本次命令使用已安装的 Windows SDK `10.0.26100.0` 和 MSVC stable Rust `1.99.1`，没有执行仓库的
+MSVC 初始化脚本。环境为 Windows 11 Pro for Workstations `10.0.26300`、NVIDIA GeForce RTX 3060、
+2560×1440、系统报告刷新率 `59Hz`，Ramag 窗口客户区约 `1431×927`、深色主题和标准字号。
+两轮均预热后持续超过 `30s`，操作包含 Overview/CPU/Memory/GPU/Disk/Network/Power/Temperature/Processes
+标签切换、进程列表往返滚动、列排序和 `firefox` 筛选后清空；第二轮额外执行 `200` 次交替滚轮滚动，
+最后停留在设置页约 `36s`。本次没有读取或修改系统剪贴板，也没有修改数据库或设置值。
+
+第一轮采样持续 `45.082s`：`561` 个 foreground 事件、`6` 个输入事件、`105` 个 draw 事件、
+`103` 个已匹配的同窗口呈现边界；输入 p95 为 `6.132ms`，draw p95 为 `10.809ms`，
+`journal_lost=0`、`duration_samples_dropped=0`、溢出为 `false`。第二轮持续 `60.106s`：
+`692` 个 foreground 事件、`5` 个输入事件、`126` 个 draw 事件、`124` 个已匹配的同窗口呈现边界；
+输入 p95 为 `5.294ms`，draw p95 为 `12.146ms`，同样没有日志丢失或样本丢弃。两轮 `present_events=0`，
+因此 `present_p95=None`；采样器没有提供输入到屏幕可见反馈的追踪，不能用平台提交时间代替。
+原始 stderr 日志保留在本机 `%TEMP%\\ramag-ui-profile-76041fd641b04aae8e97751225faa676.stderr.log`
+和 `%TEMP%\\ramag-ui-profile-8a14df13e9c74000bf8195f544b83d4b.stderr.log`。
+
+该切片证明发布构建能够完成真实窗口操作，输入和绘制 p95 低于当前阈值，且采样器没有丢失事件；
+但活动帧数量仍低于 `300`，present p95、点击到可见反馈和独立空闲动画观察也没有完整证据，
+所以 `RAMAG-UI-001AC-2` 继续保持未完成。本轮没有发现足以安排渲染优化的可复现瓶颈，未修改源码。
+发布构建已通过；本次仅补验和更新计划，Rust 测试不适用。
 
 ### 4.5 现有页面交互补验
 
