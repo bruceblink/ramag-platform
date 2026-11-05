@@ -20,6 +20,8 @@ type BuildLock = Arc<tokio::sync::Mutex<()>>;
 type BuildLocks = Arc<DashMap<(PoolKey, u64), BuildLock>>;
 
 const MAX_CACHED_DBS_PER_CONNECTION: usize = 8;
+// 读操作由 RedisService 清池后重试一次；关闭连接管理器内部重连，避免 UI 扫描在服务停止后长时间保持“连接中”。
+const CONNECTION_MANAGER_RETRIES: usize = 0;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PoolKey {
@@ -297,6 +299,7 @@ async fn build_connection_manager(config: &ConnectionConfig, db: u8) -> Result<C
     let mgr = ConnectionManager::new_with_config(
         client,
         redis::aio::ConnectionManagerConfig::new()
+            .set_number_of_retries(CONNECTION_MANAGER_RETRIES)
             .set_connection_timeout(Duration::from_secs(10))
             .set_response_timeout(Duration::from_secs(30)),
     )

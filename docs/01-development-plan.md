@@ -358,6 +358,16 @@ Redis 最终连接失败提示仍待补验。
 标签恢复“已连接”，底部回到 `45,014` 个 Key，分类树继续可用。该切片验证了刷新缓冲、手动
 中断和服务恢复，不替代 Redis 最终连接失败提示的验收；该提示仍待补验。
 
+同日对上述 Redis 刷新等待过长的问题做源码复核。`redis 0.32.7` 的 `ConnectionManager` 默认
+包含 6 次内部重连，`RedisService` 在连接失败后还会清池并重试一次；两层重试叠加后，真实窗口
+在服务停止超过 `45s` 时仍处于“连接中”。在 `crates/ramag-infra-redis/src/pool.rs` 将连接管理器
+内部重连次数设为 `0`，保留服务层清池后的单次重试，使扫描失败可以更快进入已有的“刷新失败”
+分支，同时继续保留旧树。`cargo fmt --all -- --check`、`cargo test --locked -p ramag-infra-redis --lib`
+（46 项通过）、`cargo clippy --locked -p ramag-infra-redis --all-targets -- -D warnings` 均通过；
+Windows MSVC Debug 构建在当前 PowerShell 进程显式使用已安装的 Windows SDK `10.0.26100.0` 后
+通过。Redis 容器已恢复 `healthy`，隔离应用和临时数据已清理。修复后的真实窗口仍需再次观察最终
+失败文案，因此本项不提前标记完成。
+
 ### 4.4 发布构建性能验收
 
 `RAMAG-UI-001AC-2` 在 `RAMAG-UI-001AC-1` 具备所需计时信息后，使用发布构建，
