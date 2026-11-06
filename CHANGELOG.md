@@ -4,6 +4,26 @@
 
 > 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
 
+## [0.9.2] - 2026-11-07
+
+Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.9.1...v0.9.2
+
+### 🐛 问题修复 / Bug Fixes
+
+- 修复 MongoDB 结果筛选工具栏布局，保留筛选器、编辑器和滚动区域的统一边界（[ea474c6a](https://github.com/bruceblink/ramag-platform/commit/ea474c6a)）。
+- 修复 SQLite 迁移索引生成和活动事务期间的连接池重试保护（[d47d8b22](https://github.com/bruceblink/ramag-platform/commit/d47d8b22)、[1aacf006](https://github.com/bruceblink/ramag-platform/commit/1aacf006)）。
+- 让数据库标题和元数据文本支持鼠标选择与复制（[8f879eab](https://github.com/bruceblink/ramag-platform/commit/8f879eab)、[bc6b91d8](https://github.com/bruceblink/ramag-platform/commit/bc6b91d8)）。
+
+### ⚡ 性能优化 / Performance
+
+- 优化数据库大字段查看器的响应路径，保留有界预览并支持复制完整当前值（[5ff9a923](https://github.com/bruceblink/ramag-platform/commit/5ff9a923)）。
+- 补充发布构建的 Presented 帧关系和 UI 性能诊断采样，保持现有动画时长（[7ef88792](https://github.com/bruceblink/ramag-platform/commit/7ef88792)、[0a9267fa](https://github.com/bruceblink/ramag-platform/commit/0a9267fa)）。
+
+### 🧰 维护、文档与测试 / Maintenance, Docs & Tests
+
+- 完成数据库工作区、系统监控真实窗口和发布构建 UI 验收记录；跨平台质量任务在 GitHub Actions 三个平台均通过（[d76d4784](https://github.com/bruceblink/ramag-platform/commit/d76d4784)）。
+- 将仓库根许可证恢复为 GPLv3，并同步 Cargo SPDX 元数据、README 和架构说明（[7ffba435](https://github.com/bruceblink/ramag-platform/commit/7ffba435)）。
+
 ## [0.9.1] - 2026-11-01
 
 Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.9.0...v0.9.1
