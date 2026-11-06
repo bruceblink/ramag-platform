@@ -796,7 +796,9 @@ Linux/macOS 原生平台验收和触发式发布评估。
 
 同一窗口区域尝试 `ddagrab`（Desktop Duplication API）时，ffmpeg 停在输入初始化且没有生成帧；
 已确认进程路径后结束该临时采集进程，没有把这次失败当作应用故障。当前 Windows 会话没有可用的显示合成器
-时间证据，`RAMAG-UI-001AC-2` 继续保持进行中。
+时间证据。随后尝试启动 Windows Performance Recorder 的 `DesktopComposition.light` 和 `GPU.light` 配置，
+因系统策略错误 `0xc5585011` 拒绝启用性能追踪；`wpr -status` 确认没有残留录制。`RAMAG-UI-001AC-2`
+继续保持进行中。
 
 ## 5. 条件限制与未纳入执行的事项
 
