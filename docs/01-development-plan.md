@@ -113,7 +113,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
 | 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 已完成（适用组合）；SQL 对象树搜索、收藏、仅收藏、最近访问和重启保存已覆盖 PostgreSQL/MySQL/SQLite；SQLite 表、视图、列、索引、触发器、DDL、只读视图、JSONL、结构差异、迁移预览、执行和回读已补验；PostgreSQL/MySQL/SQLite 选中行 JSONL、MongoDB 选中行 Extended JSONL、Redis 数据库/单 Key/前缀 JSONL 已回读；MongoDB/Redis 专用对象、刷新失败保留旧树、跨连接切换、Server Objects、Virtual views、查询过滤排序分页及 MongoDB 工具栏样式已有对应真实窗口记录；MongoDB/Redis 的 SQL 事务、DDL、结构迁移按源码能力标记为不适用。 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL、MySQL 和 SQLite 手动事务提交、回滚及清理，SQLite 活动事务期间的连接池重试保护，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
-| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；设置页独立空闲观察已补齐，下一步只补点击到可见反馈。不能取得显示合成器或同步录像证据时保持未完成，不用降低动画时长替代流畅度验收。 |
+| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；设置页独立空闲观察已补齐。新增同步窗口录像覆盖 `33` 次页面切换和 `10s` 空闲，但有效帧率约 `6.44fps`，点击到可见反馈估计 p95 约 `453ms` 只能作为诊断，不能满足 `100ms` 标准；仍需更高帧率录像或显示合成器追踪，不用降低动画时长替代流畅度验收。 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 已完成；隔离 redb 数据和真实窗口已覆盖搜索、删除、撤销、当前结果回读和详情查看，未读取或写入用户系统剪贴板 |
 | 8 | `RAMAG-UI-001C` 首页与侧栏排序补验 | 已完成；隔离配置下已检查首页和侧栏拖动、拖出取消、保存及重启后的顺序回读 |
@@ -711,7 +711,7 @@ WSL 重复运行测试；临时构建过程未修改仓库文件。
 
 | 顺序 | 主线动作 | 通过条件 | 验证和回滚 |
 |---|---|---|---|
-| 1 | `RAMAG-UI-001AC-2` 点击到可见反馈证据 | 使用显示合成器追踪或与输入时间同步的视频，取得点击到首次可见反馈的 p95；保持现有动画时长，不能用减少动画代替流畅度证据 | Windows Release `ui-profiling` 采样和真实窗口；若平台不能提供显示时间，记录缺口，不修改渲染代码 |
+| 1 | `RAMAG-UI-001AC-2` 点击到可见反馈证据 | 已取得同步窗口录像，但采集有效帧率不足以判断 `100ms` 标准；继续使用显示合成器追踪或更高帧率同步视频取得可靠 p95；保持现有动画时长，不能用减少动画代替流畅度证据 | Windows Release `ui-profiling` 采样和真实窗口；提高录像采样质量或使用平台显示追踪；若仍不能提供显示时间，记录缺口，不修改渲染代码 |
 | 2 | `RAMAG-PLATFORM-001` 原生平台验收 | 在独立 Linux/macOS 测试账户中完成窗口启动、系统凭据保存、退出重启回读和密钥不可读错误反馈 | Linux/macOS 使用 GitHub CI 做测试；原生窗口和系统凭据需要对应平台环境；缺少环境时保持未完成 |
 | 3 | `RAMAG-RELEASE-001` 触发发布评估 | 只有新增源码或用户明确要求发布时，才按标签、质量任务、安装包、SHA-256 和更新清单生成新版本 | 新提交、新标签和新发布物；不移动或覆盖公开标签 |
 
@@ -759,6 +759,27 @@ Ramag 进程。
 本项关闭 `A-UI-REAL-1` 的适用组合缺口。SQLite 的 `Virtual views` 仍按驱动未实现能力标记为不适用；
 MongoDB/Redis 的 SQL 事务、DDL 和结构迁移仍按源码能力标记为不适用。后续主线只保留可见反馈性能证据、
 Linux/macOS 原生平台验收和触发式发布评估。
+
+### 4.11 2026-11-07 Release UI 更新后的同步录像验收
+
+本轮使用 Windows MSVC Release 构建和真实窗口。环境为 Windows 11 Pro for Workstations、NVIDIA GeForce RTX 3060、
+`2560×1440`、系统报告刷新率 `59Hz`；Ramag 窗口区域约 `1445×934`，采集输出为 `960×620`。应用没有读取或修改
+系统剪贴板、数据库、设置值或用户凭据。
+
+- 录像 `.ramag/ui-acceptance/visible-feedback-20261107f.mp4` 通过 `ffprobe` 校验，时长 `44.9s`，窗口区域采集有效。
+  同步操作记录保存在 `.ramag/ui-acceptance/visible-feedback-20261107f.events.json`，包含系统监控的 CPU、内存、GPU、
+  磁盘、网络、功耗、温度、进程和概览标签切换，以及首页和系统监控之间的往返切换，共 `33` 次操作；最后保持空闲
+  `10s`，随后关闭窗口。Computer Use 状态确认 Ramag 进程退出，临时 ffmpeg 进程已清理。
+- Release `ui-profiling` 原始日志为 `.ramag/ui-acceptance/visible-feedback-20261107e.ramag.log`。日志记录
+  `242` 个输入事件、`344` 个 draw、`342` 个同窗口 Presented 边界，`input_p95_us=347`、`draw_p95_us=10200`、
+  `present_p95_us=1060`，`journal_lost=0`、`duration_samples_dropped=0`、`overflow=false`，没有跨窗口或无效呈现关系。
+- 录像输出的 `avg_frame_rate=2890/449`，约 `6.44fps`，单帧间隔约 `155ms`。窗口画面差异原始数据保存在
+  `.ramag/ui-acceptance/visible-feedback-20261107f-diffs.json`，按输入时间计算的 33 次首次变化估计和统计保存在
+  `.ramag/ui-acceptance/visible-feedback-20261107f-latency.json`；估计中位数约 `296ms`、p95 约 `453ms`、最大约
+  `484ms`。该估计受低帧率量化影响，不能作为精确的点击到可见反馈 p95，也不能替代显示合成器时间；它只能说明
+  当前采集方案不能证明 `100ms` 条件已满足。
+- 本轮没有发现可单独归因于动画时长的稳定瓶颈，没有修改动画或渲染代码。`RAMAG-UI-001AC-2` 继续保持进行中，
+  下一步需要单独提高窗口录像帧率或接入显示合成器追踪，再判断是否需要让动画和页面更新更流畅。
 
 ## 5. 条件限制与未纳入执行的事项
 
