@@ -203,6 +203,11 @@ impl ConnectionService {
         self.revision.fetch_add(1, Ordering::Release);
     }
 
+    fn read_retry_allowed(&self, config: &ConnectionConfig) -> bool {
+        self.driver_for(config)
+            .is_ok_and(|driver| !driver.has_active_transaction(&config.id))
+    }
+
     pub async fn test(&self, config: &ConnectionConfig) -> Result<()> {
         let started = std::time::Instant::now();
         let result = match self.driver_for(config) {
@@ -234,10 +239,10 @@ impl ConnectionService {
     }
 
     pub async fn server_version(&self, config: &ConnectionConfig) -> Result<String> {
-        // 版本探测也会复用连接池；若服务刚恢复或旧池已断开，先淘汰旧池再重试一次。
-        // 这条路径由连接列表预取调用，不能把一次短暂断连固化成永久失败状态。
+        // 版本探测也会复用连接池；服务恢复或旧池断开时重试一次，避免预取固化短暂断连。
         let result = retry_idempotent_read!(
             config.id,
+            self.read_retry_allowed(config),
             self.evict_pool(config),
             self.driver_for(config)?.server_version(config).await
         );
@@ -252,9 +257,7 @@ impl ConnectionService {
         }
     }
 
-    /// 按连接 ID 清理全部 SQL 驱动池。
-    /// 编辑连接时允许切换数据库类型；此时仅按新类型清理会遗留旧驱动池，
-    /// 后续关闭标签也无法再从新配置推断旧类型。
+    /// 按连接 ID 清理全部 SQL 驱动池；编辑连接切换类型时避免遗留旧驱动池。
     pub fn evict_all_pools(&self, id: &ConnectionId) {
         for driver in self.drivers.values() {
             driver.evict_pool(id);
@@ -264,6 +267,7 @@ impl ConnectionService {
     pub async fn list_schemas(&self, config: &ConnectionConfig) -> Result<Vec<Schema>> {
         let result = retry_idempotent_read!(
             config.id,
+            self.read_retry_allowed(config),
             self.evict_pool(config),
             self.driver_for(config)?.list_schemas(config).await
         );
@@ -278,6 +282,7 @@ impl ConnectionService {
     ) -> Result<Vec<ServerObjectGroup>> {
         let result = retry_idempotent_read!(
             config.id,
+            self.read_retry_allowed(config),
             self.evict_pool(config),
             self.driver_for(config)?.list_server_objects(config).await
         );
@@ -288,6 +293,7 @@ impl ConnectionService {
     pub async fn list_tables(&self, config: &ConnectionConfig, schema: &str) -> Result<Vec<Table>> {
         let result = retry_idempotent_read!(
             config.id,
+            self.read_retry_allowed(config),
             self.evict_pool(config),
             self.driver_for(config)?.list_tables(config, schema).await
         );
@@ -303,6 +309,7 @@ impl ConnectionService {
     ) -> Result<Vec<Column>> {
         let result = retry_idempotent_read!(
             config.id,
+            self.read_retry_allowed(config),
             self.evict_pool(config),
             self.driver_for(config)?
                 .list_columns(config, schema, table)
@@ -326,6 +333,7 @@ impl ConnectionService {
     ) -> Result<Vec<Index>> {
         let result = retry_idempotent_read!(
             config.id,
+            self.read_retry_allowed(config),
             self.evict_pool(config),
             self.driver_for(config)?
                 .list_indexes(config, schema, table)
@@ -349,6 +357,7 @@ impl ConnectionService {
     ) -> Result<Vec<ForeignKey>> {
         let result = retry_idempotent_read!(
             config.id,
+            self.read_retry_allowed(config),
             self.evict_pool(config),
             self.driver_for(config)?
                 .list_foreign_keys(config, schema, table)
@@ -372,6 +381,7 @@ impl ConnectionService {
     ) -> Result<Vec<Trigger>> {
         let result = retry_idempotent_read!(
             config.id,
+            self.read_retry_allowed(config),
             self.evict_pool(config),
             self.driver_for(config)?
                 .list_triggers(config, schema, table)

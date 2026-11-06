@@ -8,6 +8,7 @@ impl ConnectionService {
     pub async fn list_virtual_views(&self, config: &ConnectionConfig) -> Result<Vec<VirtualView>> {
         let result = retry_idempotent_read!(
             config.id,
+            self.read_retry_allowed(config),
             self.evict_pool(config),
             self.driver_for(config)?.list_virtual_views(config).await
         );

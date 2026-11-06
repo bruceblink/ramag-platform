@@ -26,6 +26,9 @@ impl QueryTab {
     }
 
     fn prefetch_columns_for_used_tables(&self, cx: &mut Context<Self>) {
+        if self.has_open_transaction() {
+            return;
+        }
         let Some(conn) = self.connection.clone() else {
             return;
         };

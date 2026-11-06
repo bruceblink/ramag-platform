@@ -302,6 +302,25 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn evict_pool_skips_active_transaction_outside_tokio()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("evict_transaction.sqlite3");
+        let config = ConnectionConfig::new_sqlite("local", path.to_string_lossy());
+        let driver = SqliteDriver::new();
+
+        let transaction =
+            tokio::runtime::Runtime::new()?.block_on(driver.begin_transaction(&config))?;
+        driver.evict_pool(&config.id);
+        assert!(driver.transaction_store().has_active(&config.id));
+
+        tokio::runtime::Runtime::new()?
+            .block_on(driver.rollback_transaction(&config, &transaction))?;
+        assert!(!driver.transaction_store().has_active(&config.id));
+        Ok(())
+    }
+
     #[tokio::test]
     async fn sqlite_required_column_addition_respects_existing_rows()
     -> std::result::Result<(), Box<dyn std::error::Error>> {

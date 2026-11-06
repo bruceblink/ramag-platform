@@ -185,4 +185,10 @@ pub trait Driver: Send + Sync {
 
     /// 配置变更后使对应连接池失效。
     fn evict_pool(&self, _id: &ConnectionId) {}
+
+    /// Reports whether a connection currently owns a driver-managed transaction.
+    /// Drivers without transaction sessions keep the default `false` value.
+    fn has_active_transaction(&self, _id: &ConnectionId) -> bool {
+        false
+    }
 }

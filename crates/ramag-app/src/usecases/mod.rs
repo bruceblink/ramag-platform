@@ -1,6 +1,23 @@
 /// 幂等读断连时清池并重试一次；写操作不得使用。
 /// 用法：`retry_idempotent_read!(config.id, self.evict_pool(config), op.await)`。
 macro_rules! retry_idempotent_read {
+    ($conn_id:expr, $retry:expr, $evict:expr, $op:expr) => {{
+        match $op {
+            ::std::result::Result::Err(::ramag_domain::error::DomainError::ConnectionFailed(
+                msg,
+            )) if $retry => {
+                ::tracing::warn!(
+                    operation = "connection_read_retry",
+                    connection_id = %$conn_id,
+                    error = %msg,
+                    "connection read retrying after cache eviction"
+                );
+                $evict;
+                $op
+            }
+            other => other,
+        }
+    }};
     ($conn_id:expr, $evict:expr, $op:expr) => {{
         match $op {
             ::std::result::Result::Err(::ramag_domain::error::DomainError::ConnectionFailed(

@@ -312,11 +312,31 @@ macro_rules! impl_driver_for {
             }
 
             fn evict_pool(&self, id: &::ramag_domain::entities::ConnectionId) {
+                let transactions = <$ty as $crate::SqlBackend>::transaction_store(self);
+                if transactions.has_active(id) {
+                    // The UI executor may call this method outside Tokio. Keep the
+                    // transaction and its leased connection alive until commit or
+                    // rollback instead of dropping a PoolConnection on that thread.
+                    ::tracing::warn!(
+                        operation = "sql_pool_evict_skipped",
+                        connection_id = %id,
+                        reason = "active_transaction",
+                        "pool eviction skipped while a transaction is active"
+                    );
+                    return;
+                }
                 // PoolCache 内部 DashMap，同步操作，不走 tokio
                 <$ty as $crate::SqlBackend>::cache(self).evict(id);
-                <$ty as $crate::SqlBackend>::transaction_store(self).clear_connection(id);
+                transactions.clear_connection(id);
                 // 该连接的 SSH 隧道一并关闭（编辑配置后下次建连按新参数重建）
                 ::ramag_infra_tunnel::evict(id);
+            }
+
+            fn has_active_transaction(
+                &self,
+                id: &::ramag_domain::entities::ConnectionId,
+            ) -> bool {
+                <$ty as $crate::SqlBackend>::transaction_store(self).has_active(id)
             }
         }
     };

@@ -90,6 +90,17 @@ impl<Db: Database> TransactionStore<Db> {
         self.active.retain(|key, _| &key.0 != connection_id);
     }
 
+    /// Reports whether a connection still owns a transaction slot.
+    ///
+    /// Pool invalidation can be requested from the UI executor, outside Tokio.
+    /// Callers must not evict a connection while this is true because removing
+    /// the slot would drop its `PoolConnection` without a Tokio context.
+    pub fn has_active(&self, connection_id: &ConnectionId) -> bool {
+        self.active
+            .iter()
+            .any(|entry| &entry.key().0 == connection_id)
+    }
+
     #[cfg(test)]
     pub fn active_count(&self) -> usize {
         self.active.len()
