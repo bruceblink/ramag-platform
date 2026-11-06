@@ -104,7 +104,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 |---|---|---|
 | 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
-| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、SQL/MySQL/MongoDB/Redis/SQLite JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；SQLite 本地文件的表、视图、列、索引、触发器、DDL 和只读视图已补验。其他未覆盖矩阵项继续补验。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口记录，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验。下一步只补未覆盖的驱动或动作，并回读导出文件；未复现权限拒绝时保持该限制记录，不制造用户数据风险。 |
+| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树、查询、筛选、排序、滚动、分页、详情、PostgreSQL/MySQL/MongoDB/Redis/SQLite JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；SQLite 本地文件的表、视图、列、索引、触发器、DDL 和只读视图已补验。其他未覆盖矩阵项继续补验。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口记录，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验。下一步只补未覆盖的驱动或动作，并回读导出文件；未复现权限拒绝时保持该限制记录，不制造用户数据风险。 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；下一步补点击到可见反馈和独立 10 秒空闲观察。不能取得显示合成器或同步录像证据时保持未完成，不用降低动画时长替代流畅度验收。 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
@@ -260,6 +260,14 @@ WHERE 条件。修复后同一操作会清空 WHERE 输入并恢复 `100,000` �
 选择 JSONL 导出，保存到本轮临时目录后回读为 155 字节、1 条可解析记录，中文标题、JSON 文本、数值、
 时间和 `note` 字段均存在。SQLite 的 Virtual views 刷新显示“功能尚未实现”，符合本地文件驱动的能力边界，
 不记录为失败。临时 Debug 进程、数据库、隔离配置和导出文件已清理；本次只补验且未改源码，Rust 测试不适用。
+
+同日继续在 WSL `Ubuntu-24.04` 的 Docker `postgres:17-alpine`（Windows 端口 `25432`）中补验
+PostgreSQL JSONL 导出。WSL 保持前台 `sleep infinity` 进程，确保 Docker 服务和本地端口转发在真实窗口操作期间持续运行；
+四个数据库测试容器均为 healthy。使用 `sslmode=disable` 连接 `ramag_test` 的 `public.type_matrix`，
+选中全部 3 行并选择 JSONL，保存到本轮临时目录后回读为 `3062` 字节和 3 条可解析记录。记录包含
+中文、JSON/JSONB、NULL、数组、时间、UUID、XML、bytea 和 PostgreSQL 数值边界；三条记录的 `id` 为
+`1`、`2`、`3`。临时 Debug 进程、隔离配置和导出文件已清理；该切片关闭 PostgreSQL JSONL 选中行导出子项，
+本次只补验且未改源码，Rust 测试不适用。
 
 2026-11-06 在同一套 WSL `Ubuntu-24.04` Docker MySQL `8.4` 测试服务中完成 MySQL 的写入与迁移补验。
 服务使用 Windows 端口 `23306`，数据库为 `ramag_test`，连接用户为 `ramag`；操作对象为
