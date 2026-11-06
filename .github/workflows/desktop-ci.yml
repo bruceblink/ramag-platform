@@ -73,7 +73,8 @@ jobs:
             libxkbcommon-x11-dev \
             libzstd-dev \
             pkg-config \
-            shellcheck
+            shellcheck \
+            xvfb
           desktop-file-validate scripts/linux/com.ramag.Ramag.desktop
 
       - name: Install Rust stable toolchain
@@ -137,6 +138,14 @@ jobs:
               --test keyring_round_trip -- --ignored --test-threads=1
           '
 
+      - name: Smoke test Linux native window
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" \
+            cargo run --locked -p ramag-bin --example ui-preview -- \
+              --smoke home dark 1024 768
+
   macos-quality:
     name: macOS quality gates
     runs-on: macos-15
@@ -196,6 +205,9 @@ jobs:
 
       - name: Test macOS system credential store
         run: cargo test --locked -p ramag-infra-storage --test keyring_round_trip -- --ignored --test-threads=1
+
+      - name: Smoke test macOS native window
+        run: cargo run --locked -p ramag-bin --example ui-preview -- --smoke home dark 1024 768
 
   windows-quality:
     name: Windows x64 quality gates

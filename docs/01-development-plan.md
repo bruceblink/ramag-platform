@@ -846,11 +846,13 @@ Desktop Release run `42289929133` 已完成且结论为 `success`。Linux x86_64
 - Linux Desktop CI 安装 `dbus-x11` 和 `gnome-keyring`，在临时 `dbus-run-session` 中启动 Secret Service，
   使用 `--ignored` 执行测试。
 - macOS Desktop CI 使用运行器的 Keychain，使用 `--ignored` 执行同一测试。
+- `ramag-bin/examples/ui-preview.rs` 增加 `--smoke` 模式：创建真实窗口，保持 `2s` 后退出；Linux CI
+  使用 Xvfb，macOS CI 使用运行器窗口服务，分别记录启动和退出结果。该模式不读取用户配置或系统凭据。
 - Windows 本机适用验证已通过 `ramag-infra-storage` 的 `78` 项单元测试和严格 Clippy；本轮没有执行 Linux 测试，
   也没有修改正常启动或凭据存储实现。
 
-新 Desktop CI 运行成功后，才能把 Linux/macOS 系统凭据子项记录为已通过。原生窗口、退出重启回读和独立测试账户
-仍需对应平台的真实窗口证据；CI 凭据测试不能替代这些步骤。
+新 Desktop CI 运行成功后，才能把 Linux/macOS 系统凭据和原生窗口 Smoke 子项记录为已通过。退出重启回读和独立
+测试账户仍需对应平台的真实窗口证据；CI 凭据测试和 Smoke 测试不能替代这些步骤。
 
 ## 5. 条件限制与未纳入执行的事项
 

@@ -12,6 +12,7 @@ mod dbclient;
 mod offline_database;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use gpui_kit::component::Root;
 use gpui_kit::{App, AppContext as _, Bounds, WindowBounds, WindowOptions, px, size};
@@ -196,7 +197,12 @@ fn main() -> anyhow::Result<()> {
     // Set the collector's configuration location before storage or GPUI starts
     // threads. A preview must never read or overwrite the user's monitor state.
     unsafe { std::env::set_var("RAMAG_SYSTEM_STATE_DIR", &monitor_state) };
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let raw_args: Vec<String> = std::env::args().skip(1).collect();
+    let smoke = raw_args.iter().any(|arg| arg == "--smoke");
+    let args: Vec<String> = raw_args
+        .into_iter()
+        .filter(|arg| arg != "--smoke")
+        .collect();
     let page = args.first().cloned().unwrap_or_else(|| "settings".into());
     let mode = if args.get(1).is_some_and(|mode| mode == "dark") {
         Mode::Dark
@@ -366,11 +372,23 @@ fn main() -> anyhow::Result<()> {
                     cx.new(|cx| Root::new(preview_host, window, cx))
                 },
             );
+            let window_opened = result.is_ok();
             if let Err(error) = result {
                 eprintln!("UI preview failed: {error}");
                 cx.quit();
             }
             cx.activate(true);
+            if smoke && window_opened {
+                // CI smoke mode must prove a real native window can open and close without
+                // leaving a process behind. Production preview invocations remain interactive.
+                cx.spawn(async move |app| {
+                    app.background_executor()
+                        .timer(Duration::from_secs(2))
+                        .await;
+                    app.update(|cx| cx.quit());
+                })
+                .detach();
+            }
         });
     if path.is_file() {
         std::fs::remove_file(&path)?;
