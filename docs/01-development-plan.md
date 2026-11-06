@@ -106,7 +106,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
 | 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；连接、对象树搜索、收藏、最近访问、查询、筛选、排序、滚动、分页、详情、PostgreSQL/MySQL/MongoDB/Redis/SQLite JSONL 导出，MongoDB/Redis 专用对象，以及本地 PostgreSQL Server Objects 和 Virtual views 已有真实窗口记录；SQLite 本地文件的表、视图、列、索引、触发器、DDL 和只读视图已补验。其他未覆盖矩阵项继续补验。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口记录，MySQL 权限受限对象已有真实窗口记录，PostgreSQL 受限角色的 public 空状态和 Server Objects 可读边界已补验。下一步只补未覆盖的驱动或动作，并回读导出文件；未复现权限拒绝时保持该限制记录，不制造用户数据风险。 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
-| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；下一步补点击到可见反馈和独立 10 秒空闲观察。不能取得显示合成器或同步录像证据时保持未完成，不用降低动画时长替代流畅度验收。 |
+| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；设置页独立空闲观察已补齐，下一步只补点击到可见反馈。不能取得显示合成器或同步录像证据时保持未完成，不用降低动画时长替代流畅度验收。 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 已完成；隔离 redb 数据和真实窗口已覆盖搜索、删除、撤销、当前结果回读和详情查看，未读取或写入用户系统剪贴板 |
 | 8 | `RAMAG-UI-001C` 首页与侧栏排序补验 | 已完成；隔离配置下已检查首页和侧栏拖动、拖出取消、保存及重启后的顺序回读 |
@@ -498,6 +498,13 @@ MSVC 初始化脚本。环境为 Windows 11 Pro for Workstations `10.0.26300`、
 `journal_lost=0`、`duration_samples_dropped=0`、`overflow=false`，且 `invalid_presented_pairs=0`。
 该次运行关闭了活动帧数量、同窗口平台提交关系和 platform present p95 的缺口；仍没有屏幕合成器时间或
 点击到可见反馈追踪，也没有单独记录动画结束后的 10 秒空闲观察，因此 `RAMAG-UI-001AC-2` 继续保持未完成。
+
+同日使用相同 Windows MSVC Release 构建执行独立空闲观察。启动采样后切换到设置页，在页面完成切换后
+保持鼠标和键盘不动；原始日志保留在 `.ramag/ui-acceptance/2026-11-06-idle-profile-settings.stderr.log`。
+采样总时长为 `15.118s`，页面切换后的最后一次 draw 起点约为 `3.122s`，其后约 `11.996s` 没有新的
+draw 事件；`journal_lost=0`、`duration_samples_dropped=0`、`overflow=false`。该记录关闭独立 10 秒
+空闲观察子项，但启动绘制的 p95 不用于活动帧性能结论，点击到可见反馈仍缺少显示合成器或同步录像证据，
+所以 `RAMAG-UI-001AC-2` 继续保持进行中。
 
 ### 4.5 现有页面交互补验
 
