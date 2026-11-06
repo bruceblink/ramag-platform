@@ -57,7 +57,9 @@ jobs:
             bsdiff \
             clang \
             cmake \
+            dbus-x11 \
             desktop-file-utils \
+            gnome-keyring \
             jq \
             libasound2-dev \
             libdbus-1-dev \
@@ -124,6 +126,17 @@ jobs:
       - name: Test workspace
         run: cargo test-all
 
+      - name: Test Linux system credential store
+        shell: bash
+        run: |
+          set -euo pipefail
+          dbus-run-session -- bash -euo pipefail -c '
+            eval "$(gnome-keyring-daemon --start --components=secrets)"
+            export GNOME_KEYRING_CONTROL
+            cargo test --locked -p ramag-infra-storage \
+              --test keyring_round_trip -- --ignored --test-threads=1
+          '
+
   macos-quality:
     name: macOS quality gates
     runs-on: macos-15
@@ -180,6 +193,9 @@ jobs:
 
       - name: Test workspace
         run: cargo test-all
+
+      - name: Test macOS system credential store
+        run: cargo test --locked -p ramag-infra-storage --test keyring_round_trip -- --ignored --test-threads=1
 
   windows-quality:
     name: Windows x64 quality gates

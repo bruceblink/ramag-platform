@@ -118,7 +118,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 已完成；隔离 redb 数据和真实窗口已覆盖搜索、删除、撤销、当前结果回读和详情查看，未读取或写入用户系统剪贴板 |
 | 8 | `RAMAG-UI-001C` 首页与侧栏排序补验 | 已完成；隔离配置下已检查首页和侧栏拖动、拖出取消、保存及重启后的顺序回读 |
-| 9 | `RAMAG-PLATFORM-001` 跨平台补验 | 进行中；提交 `d76d4784` 已在 WSL Ubuntu-24.04 完成 Linux workspace 全目标编译，GitHub Actions 的 Linux、macOS、Windows 质量任务均成功。Linux/macOS 原生窗口、系统凭据存储和独立测试账户证据仍未取得，继续保持未完成 |
+| 9 | `RAMAG-PLATFORM-001` 跨平台补验 | 进行中；提交 `d76d4784` 已在 WSL Ubuntu-24.04 完成 Linux workspace 全目标编译，GitHub Actions 的 Linux、macOS、Windows 质量任务均成功。本轮已补充 Linux Secret Service 和 macOS Keychain 的 CI 往返测试入口，待新 CI 运行取得平台结果；Linux/macOS 原生窗口和独立测试账户证据仍未取得 |
 | 持续 | `RAMAG-RELEASE-001` 平台与发布维护 | `v0.9.2` 本次发布已完成；后续有相关变更或用户明确要求发布时再执行 |
 
 表中已完成项只保留结果和证据边界。当前只推进“进行中”或受环境条件约束的事项；持续维护按触发条件启动。每个任务的结果只能覆盖实际执行的平台、驱动和步骤。
@@ -835,6 +835,22 @@ Desktop Release run `42289929133` 已完成且结论为 `success`。Linux x86_64
 本项关闭 `RAMAG-RELEASE-001` 的 `v0.9.2` 发布验证。后续发布仍需使用新的版本提交和标签；
 不会移动或覆盖已公开标签。Linux/macOS 原生窗口、系统凭据和独立测试账户验收仍属于
 `RAMAG-PLATFORM-001`，不由发布资产核对替代。
+
+### 4.14 2026-11-07 跨平台系统凭据 CI 验证入口
+
+为补充 `RAMAG-PLATFORM-001` 的系统凭据证据，新增被 `#[ignore]` 标记的
+`crates/ramag-infra-storage/tests/keyring_round_trip.rs`。普通 `cargo test` 不运行该测试，
+避免改动开发机用户的 Keychain 或 Secret Service；测试显式删除旧条目、创建主密钥、读取并比较同一主密钥，
+再删除条目并核对缺少主密钥时的停止错误。
+
+- Linux Desktop CI 安装 `dbus-x11` 和 `gnome-keyring`，在临时 `dbus-run-session` 中启动 Secret Service，
+  使用 `--ignored` 执行测试。
+- macOS Desktop CI 使用运行器的 Keychain，使用 `--ignored` 执行同一测试。
+- Windows 本机适用验证已通过 `ramag-infra-storage` 的 `78` 项单元测试和严格 Clippy；本轮没有执行 Linux 测试，
+  也没有修改正常启动或凭据存储实现。
+
+新 Desktop CI 运行成功后，才能把 Linux/macOS 系统凭据子项记录为已通过。原生窗口、退出重启回读和独立测试账户
+仍需对应平台的真实窗口证据；CI 凭据测试不能替代这些步骤。
 
 ## 5. 条件限制与未纳入执行的事项
 
