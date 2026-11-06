@@ -189,7 +189,7 @@ Private Bytes 为 `173,277,184` 字节。该内存值是关闭后的单点采样
 完整区域定义保留在 [UI 规范的数据库矩阵](04-ui-acceptance-standard.md#4-数据库工作区功能验收)。
 先核对已有证据，补验时不重复计入已经通过的查询取消和规模测试。
 
-- `DB-RED-01..04`：连接切换、SQLite 表/视图/元数据、MongoDB/Redis 专用对象行为，以及本地 PostgreSQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；PostgreSQL 对象树搜索、收藏、仅收藏筛选和最近访问筛选已在重启前后复核。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口证据，MySQL 权限受限 Server Objects 和 PostgreSQL 受限角色的 public 空状态、Server Objects 可读边界已有真实窗口证据，Redis 最终连接失败提示已补验。SQLite Virtual views 明确显示本地驱动不支持，未计为失败。
+- `DB-RED-01..04`：连接切换、SQLite 表/视图/元数据、MongoDB/Redis 专用对象行为，以及本地 PostgreSQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；PostgreSQL 和 MySQL 对象树搜索、收藏、仅收藏筛选和最近访问筛选已在重启前后复核。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口证据，MySQL 权限受限 Server Objects 和 PostgreSQL 受限角色的 public 空状态、Server Objects 可读边界已有真实窗口证据，Redis 最终连接失败提示已补验。SQLite Virtual views 明确显示本地驱动不支持，未计为失败。
 - `DB-RED-05` / `DB-UX-003`：补排序、筛选后的页码和上下文、NULL/二进制/长字段区分、查看/复制/导出；已有列宽、滚动和分页记录继续有效。
 - `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据。原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
 - `DB-RED-07` / `DB-UX-005A..F`：DDL 查看/复制/刷新、稳定键结构差异、迁移指纹/阶段摘要、执行和目标元数据回读，以及 EXPLAIN ANALYZE 风险提示均已有真实窗口证据。代码、headless 和 Docker 回放结果仍按原范围有效。
@@ -275,6 +275,13 @@ PostgreSQL JSONL 导出。WSL 保持前台 `sleep infinity` 进程，确保 Dock
 收藏星标和“最近访问”筛选结果仍保留。临时 Debug 进程、隔离配置和测试数据目录已清理；本次只补验且未改源码，
 Rust 测试不适用。该记录关闭 PostgreSQL 驱动的 `DB-RED-02` 搜索、收藏、最近访问和重启保存子项，
 其他驱动仍按矩阵分别记录。
+
+同日使用 WSL `Ubuntu-24.04` Docker MySQL `8.4`（Windows 端口 `23306`）补验对象树导航状态。
+真实窗口搜索 `type_matrix` 后只显示匹配表；清除搜索后选择“收藏”，表行显示星标；切换“仅收藏”
+后只保留该表。打开表显示 3 行数据，再切换“最近访问”后显示该表。关闭并重新打开同一隔离配置的
+Debug 进程，收藏星标和“最近访问”筛选结果仍保留。临时 Debug 进程、隔离配置和测试数据目录已清理；
+本次只补验且未改源码，Rust 测试不适用。该记录关闭 MySQL 驱动的 `DB-RED-02` 搜索、收藏、最近访问
+和重启保存子项，其他驱动仍按矩阵分别记录。
 
 2026-11-06 在同一套 WSL `Ubuntu-24.04` Docker MySQL `8.4` 测试服务中完成 MySQL 的写入与迁移补验。
 服务使用 Windows 端口 `23306`，数据库为 `ramag_test`，连接用户为 `ramag`；操作对象为
