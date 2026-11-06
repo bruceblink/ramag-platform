@@ -110,7 +110,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 已完成；隔离 redb 数据和真实窗口已覆盖搜索、删除、撤销、当前结果回读和详情查看，未读取或写入用户系统剪贴板 |
 | 8 | `RAMAG-UI-001C` 首页与侧栏排序补验 | 已完成；隔离配置下已检查首页和侧栏拖动、拖出取消、保存及重启后的顺序回读 |
-| 9 | `RAMAG-PLATFORM-001` 跨平台补验 | 需要对应 Linux/macOS 原生环境与独立系统测试账户；Linux 先在 WSL 编译，Linux/macOS 测试使用 GitHub CI，原生窗口和系统凭据仍需对应平台证据 |
+| 9 | `RAMAG-PLATFORM-001` 跨平台补验 | 进行中；提交 `d76d4784` 已在 WSL Ubuntu-24.04 完成 Linux workspace 全目标编译，GitHub Actions 的 Linux、macOS、Windows 质量任务均成功。Linux/macOS 原生窗口、系统凭据存储和独立测试账户证据仍未取得，继续保持未完成 |
 | 持续 | `RAMAG-RELEASE-001` 平台与发布维护 | 有相关变更或用户要求发布时执行；不预设发布日期 |
 
 表中已完成项只保留结果和证据边界。当前只推进“进行中”或受环境条件约束的事项；持续维护按触发条件启动。每个任务的结果只能覆盖实际执行的平台、驱动和步骤。
@@ -577,6 +577,18 @@ Rust 产品测试不适用。
 缺少独立测试账户或对应平台时，保持该平台未完成。分别记录平台、包、操作、证据和清理结果；
 CI、headless 与真实窗口结果分开记录。若需要修复，先复现问题，再运行受影响 crate 测试和第 6 节检查。
 回滚只涉及该次修复及其测试，不删除用户数据库、系统凭据或未由本次创建的测试资源。
+
+2026-11-06 在 WSL `Ubuntu-24.04` 对提交 `d76d478460472cf5407093a17a40e60ee5c5990b` 执行
+`cargo build --locked --workspace --all-targets`。稳定 Rust `1.99.1` 的 host/target 为
+`x86_64-unknown-linux-gnu`，构建耗时约 `6m20s`，exit code 为 `0`。本次只做 Linux 编译，未在
+WSL 重复运行测试；临时构建过程未修改仓库文件。
+
+同一提交通过 GitHub Actions run `42139276053` 的三项质量任务：Linux x86_64 job
+`127635730149`、Windows x64 job `127635730137`、macOS job `127635729809` 均为
+`completed/success`。Linux 和 macOS 测试使用 CI 结果记录，未用 WSL 或 Windows 结果替代。
+本轮增加 `.github/workflows/desktop-ci.yml` 的 `workflow_dispatch` 入口，保留原有 push/PR 路径
+过滤和质量步骤。由于仍缺少 Linux/macOS 原生窗口、系统凭据和独立测试账户证据，
+`RAMAG-PLATFORM-001` 继续保持进行中。
 
 ### 4.7 发布维护
 
