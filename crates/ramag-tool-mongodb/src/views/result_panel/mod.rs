@@ -194,6 +194,9 @@ impl ResultPanel {
         let column_filter = cx.new(|cx| {
             let mut state = gpui_kit::component::input::EditorState::new(window, cx)
                 .line_number(false)
+                .soft_wrap(false)
+                .searchable(false)
+                .scroll_beyond_last_line(Some(0))
                 .placeholder("过滤列（逗号分隔；填路径可钻取）");
             state.lsp_mut().completion_provider = Some(provider);
             state

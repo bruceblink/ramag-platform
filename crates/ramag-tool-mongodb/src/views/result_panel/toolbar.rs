@@ -6,34 +6,36 @@ use gpui_kit::component::{
     h_flex,
     input::{Input, InputState},
 };
-use gpui_kit::{ClickEvent, Context, Entity, div, prelude::*, px};
+use gpui_kit::{ClickEvent, Context, Entity, Focusable, div, prelude::*, px};
 use ramag_ui::PointerDropdownMenu as _;
 
 use super::{ResultEvent, ResultPanel, RowSearchConversionStatus, RowSearchMode};
 
 pub(super) fn render(panel: &mut ResultPanel, cx: &mut Context<ResultPanel>) -> impl IntoElement {
     let secondary = cx.theme().secondary;
+    let border = cx.theme().border;
     let warning = cx.theme().warning;
     let accent = cx.theme().accent;
     let muted = cx.theme().muted_foreground;
     let danger = cx.theme().danger;
     let production = panel.is_production();
 
-    h_flex()
+    ramag_ui::responsive_toolbar()
         .debug_selector(|| "mongo-result-toolbar".into())
-        .w_full()
-        .min_w_0()
         .flex_none()
-        .flex_wrap()
         .px_3()
         .py(px(6.0))
         .gap_3()
-        .items_center()
+        .border_b_1()
+        .border_color(border)
         .bg(secondary)
         .child(
             h_flex()
+                .debug_selector(|| "mongo-result-filter-group".into())
                 .flex_1()
-                .min_w_0()
+                // 保留两组筛选输入的可用宽度；空间不足时让后续操作换到下一行。
+                .min_w(px(220.0))
+                .items_center()
                 .gap_2()
                 .child({
                     // 单行 InputState 仅在多行模式注册 up/down 的 on_action，单行下补全菜单无法用方向键导航；
@@ -41,6 +43,7 @@ pub(super) fn render(panel: &mut ResultPanel, cx: &mut Context<ResultPanel>) -> 
                     let col_for_up = panel.column_filter.clone();
                     let col_for_down = panel.column_filter.clone();
                     div()
+                        .debug_selector(|| "mongo-column-filter-field".into())
                         .flex_1()
                         .min_w_0()
                         .on_action(
@@ -80,26 +83,35 @@ pub(super) fn render(panel: &mut ResultPanel, cx: &mut Context<ResultPanel>) -> 
                     let id_conversion_ready = ramag_ui::database_search_settings(cx).is_ready();
                     let panel_for_mode = cx.entity().clone();
                     div().flex_1().min_w_0().child(
-                        Input::new(&row_input)
-                            .small()
-                            .bordered(false)
-                            .focus_bordered(false)
-                            .when(id_conversion_ready, |input| {
-                                input.prefix(row_search_mode_button(
-                                    row_search_mode,
-                                    panel_for_mode,
-                                    accent,
-                                ))
-                            })
-                            .when(row_filter_has_value, |input| {
-                                input.suffix(row_search_input_suffix(
-                                    row_input,
-                                    row_search_status,
-                                    accent,
-                                    muted,
-                                    danger,
-                                ))
-                            }),
+                        ramag_ui::filter_field(
+                            "mongo-row-filter-field",
+                            &row_input.focus_handle(cx),
+                            cx,
+                        )
+                        .child(
+                            Input::new(&row_input)
+                                .h_full()
+                                .min_w_0()
+                                .appearance(false)
+                                .bordered(false)
+                                .focus_bordered(false)
+                                .when(id_conversion_ready, |input| {
+                                    input.prefix(row_search_mode_button(
+                                        row_search_mode,
+                                        panel_for_mode,
+                                        accent,
+                                    ))
+                                })
+                                .when(row_filter_has_value, |input| {
+                                    input.suffix(row_search_input_suffix(
+                                        row_input,
+                                        row_search_status,
+                                        accent,
+                                        muted,
+                                        danger,
+                                    ))
+                                }),
+                        ),
                     )
                 }),
         )

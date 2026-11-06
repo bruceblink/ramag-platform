@@ -173,6 +173,12 @@ fn result_toolbar_and_status_keep_actions_visible_in_three_window_widths(cx: &mu
         let toolbar = cx
             .debug_bounds("mongo-result-toolbar")
             .expect("MongoDB 结果工具栏应渲染");
+        let column_filter = cx
+            .debug_bounds("mongo-column-filter-field")
+            .expect("MongoDB 列过滤框应渲染");
+        let row_filter = cx
+            .debug_bounds("mongo-row-filter-field")
+            .expect("MongoDB 行过滤框应渲染");
         let run = cx
             .debug_bounds("mongo-run-result")
             .expect("MongoDB 运行按钮应渲染");
@@ -191,6 +197,15 @@ fn result_toolbar_and_status_keep_actions_visible_in_three_window_widths(cx: &mu
             toolbar.bottom() <= px(height),
             "工具栏不能越出视口: {toolbar:?}"
         );
+        assert_eq!(
+            column_filter.origin.y, row_filter.origin.y,
+            "两组过滤框应保持同一基线"
+        );
+        assert_eq!(
+            column_filter.size.height, row_filter.size.height,
+            "两组过滤框应使用统一高度"
+        );
+        assert!(column_filter.right() <= row_filter.origin.x);
         assert!(run.right() <= toolbar.right(), "运行按钮不能越出工具栏");
         assert!(status_context.size.width > px(0.0));
         assert!(

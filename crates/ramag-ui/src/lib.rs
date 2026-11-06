@@ -294,7 +294,11 @@ pub fn cleanable_editor(
                 .line_height(gpui_kit::rems(1.25))
                 .disabled(disabled)
                 .appearance(false)
-                .bordered(false),
+                .bordered(false)
+                // This editor is used as a single-line filter with completion support.
+                // EditorState is multi-line internally and paints its own scrollbar;
+                // the filter frame must clip that chrome to keep the shared input shape.
+                .overflow_y_hidden(),
         )
         .when(!disabled && !state.read(cx).value().is_empty(), |this| {
             this.child(
