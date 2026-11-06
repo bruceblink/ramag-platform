@@ -44,7 +44,7 @@ members = [
 version = "0.9.1"
 edition = "2024"
 authors = ["bruceblink"]
-license = "AGPL-3.0-only"
+license = "GPL-3.0-only"
 rust-version = "1.99.1"
 repository = "https://github.com/bruceblink/ramag-platform"
 

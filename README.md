@@ -444,7 +444,7 @@ Ramag 支持 Linux x86_64、macOS 12+（Apple Silicon / Intel）和 Windows 10/1
 
 ## License
 
-[GNU Affero General Public License v3.0 only](https://www.gnu.org/licenses/agpl-3.0.html)
+[GNU General Public License v3.0 only](https://www.gnu.org/licenses/gpl-3.0.html)
 
 系统采集模块吸收 [System Pulse](https://github.com/eas4ai/system-pulse) 的采集源码，保留
 [GPL-3.0-or-later](crates/ramag-infra-system/COPYING) 与
