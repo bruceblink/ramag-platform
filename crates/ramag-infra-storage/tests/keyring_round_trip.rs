@@ -10,8 +10,6 @@ use ramag_infra_storage::keyring::{delete_master_key, get_or_create_master_key};
 #[test]
 #[ignore = "requires a real platform credential service"]
 fn system_credential_store_round_trips_master_key() -> Result<(), Box<dyn std::error::Error>> {
-    delete_master_key()?;
-
     let created = get_or_create_master_key(true)?;
     let loaded = get_or_create_master_key(false)?;
     assert_eq!(created, loaded, "系统凭据往返后主密钥发生变化");
