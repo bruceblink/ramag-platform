@@ -3,8 +3,8 @@
 > 状态：唯一现行开发计划
 > 更新日期：2026-11-07
 > 代码核对基线：提交 `1aacf006`（SQLite 手动事务连接池重试保护）；此前 `8820c77a` 的代码审查、`d76d4784` 至 `b5597119` 的 CI 入口和验收记录，以及 `ea474c6a` 的 MongoDB 结果工具栏修复，均已记录在本计划
-> 当前主线代码基线：`71adb18c`；workspace 版本 `0.9.2`
-> 后续开发基线：提交 `71adb18c`（`v0.9.2` 发布包从标签提交 `37ae32b5` 构建）
+> 当前主线代码基线：`07f792aa`；workspace 版本 `0.9.2`
+> 后续开发基线：提交 `07f792aa`（`v0.9.2` 发布包从标签提交 `37ae32b5` 构建）
 > 计划状态：`v0.9.2` 已正式发布并完成资产、校验清单和更新清单核对。当前主线已完成选择复制、Redis 扫描边界、数据库导航与导出、SQLite 结构比较和迁移回读的适用真实窗口验收、MongoDB 结果工具栏视觉修复和 MongoDB 多页结果验收，以及发布构建测量记录，后续只推进下表中的未关闭证据项
 
 本文件统一维护范围、执行顺序、验收条件和未关闭事项。架构、接口设计、开发指南和
@@ -840,11 +840,13 @@ Desktop Release run `42289929133` 已完成且结论为 `success`。Linux x86_64
 
 为补充 `RAMAG-PLATFORM-001` 的系统凭据证据，新增被 `#[ignore]` 标记的
 `crates/ramag-infra-storage/tests/keyring_round_trip.rs`。普通 `cargo test` 不运行该测试，
-避免改动开发机用户的 Keychain 或 Secret Service；测试显式删除旧条目、创建主密钥、读取并比较同一主密钥，
-再删除条目并核对缺少主密钥时的停止错误。
+避免改动开发机用户的 Keychain 或 Secret Service；测试创建主密钥、读取并比较同一主密钥，
+再删除条目并核对缺少主密钥时的停止错误。Linux Secret Service 在条目不存在时可能返回后端的“no result found”，
+因此测试不再把空条目的前置删除作为前提，避免把服务的空状态误判为失败。
 
 - Linux Desktop CI 安装 `dbus-x11` 和 `gnome-keyring`，在临时 `dbus-run-session` 中启动 Secret Service，
-  使用 `--ignored` 执行测试。
+  使用临时随机口令运行 `gnome-keyring-daemon --components=secrets --daemonize --unlock` 解锁登录 keyring，
+  再使用 `--ignored` 执行测试。
 - macOS Desktop CI 使用运行器的 Keychain，使用 `--ignored` 执行同一测试。
 - `ramag-bin/examples/ui-preview.rs` 增加 `--smoke` 模式：创建真实窗口，保持 `2s` 后退出；Linux CI
   使用 Xvfb，macOS CI 使用运行器窗口服务，分别记录启动和退出结果。该模式不读取用户配置或系统凭据。
