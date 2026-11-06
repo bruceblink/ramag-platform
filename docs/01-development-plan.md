@@ -111,7 +111,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 |---|---|---|
 | 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
-| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；SQL 对象树搜索、收藏、仅收藏、最近访问和重启保存已覆盖 PostgreSQL/MySQL/SQLite；SQLite 表、视图、列、索引、触发器、DDL、只读视图和 JSONL 已补验；PostgreSQL/MySQL/SQLite 选中行 JSONL、MongoDB 选中行 Extended JSONL、Redis 数据库/单 Key/前缀 JSONL 已回读；MongoDB/Redis 专用对象、跨连接切换、PostgreSQL/MySQL/MongoDB/Redis 刷新失败保留旧树、MySQL 权限受限 Server Objects、PostgreSQL 受限角色的空 public、可读 Server Objects 和直接权限拒绝已有真实窗口记录；MongoDB 查询结果的列过滤、行过滤、排序、分页和工具栏样式已在真实窗口复核，单行过滤框不再显示内部滚动条。未关闭内容只包括矩阵中尚未取得的驱动×动作证据；下一次验收先按矩阵列出具体驱动和动作，再逐项关闭或标记不适用，不制造用户数据风险。 |
+| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；SQL 对象树搜索、收藏、仅收藏、最近访问和重启保存已覆盖 PostgreSQL/MySQL/SQLite；SQLite 表、视图、列、索引、触发器、DDL、只读视图和 JSONL 已补验；PostgreSQL/MySQL/SQLite 选中行 JSONL、MongoDB 选中行 Extended JSONL、Redis 数据库/单 Key/前缀 JSONL 已回读；MongoDB/Redis 专用对象、跨连接切换、PostgreSQL/MySQL/MongoDB/Redis 刷新失败保留旧树、MySQL 权限受限 Server Objects、PostgreSQL 受限角色的空 public、可读 Server Objects 和直接权限拒绝已有真实窗口记录；PostgreSQL 和 MySQL Virtual views 的只读会话快照已在真实窗口复核；MongoDB 查询结果的列过滤、行过滤、排序、分页和工具栏样式已在真实窗口复核，单行过滤框不再显示内部滚动条。未关闭内容只包括矩阵中尚未取得的驱动×动作证据；下一次验收先按矩阵列出具体驱动和动作，再逐项关闭或标记不适用，不制造用户数据风险。 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；设置页独立空闲观察已补齐，下一步只补点击到可见反馈。不能取得显示合成器或同步录像证据时保持未完成，不用降低动画时长替代流畅度验收。 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
@@ -196,7 +196,7 @@ Private Bytes 为 `173,277,184` 字节。该内存值是关闭后的单点采样
 完整区域定义保留在 [UI 规范的数据库矩阵](04-ui-acceptance-standard.md#4-数据库工作区功能验收)。
 先核对已有证据，补验时不重复计入已经通过的查询取消和规模测试。
 
-- `DB-RED-01..04`：连接切换、SQLite 表/视图/元数据、MongoDB/Redis 专用对象行为，以及本地 PostgreSQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；PostgreSQL、MySQL 和 SQLite 对象树搜索、收藏、仅收藏筛选和最近访问筛选已在重启前后复核。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口证据，MySQL 权限受限 Server Objects 和 PostgreSQL 受限角色的 public 空状态、Server Objects 可读边界及直接权限拒绝已有真实窗口证据，Redis 最终连接失败提示已补验。SQLite Virtual views 明确显示本地驱动不支持，未计为失败。
+- `DB-RED-01..04`：连接切换、SQLite 表/视图/元数据、MongoDB/Redis 专用对象行为，以及 PostgreSQL/MySQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；PostgreSQL、MySQL 和 SQLite 对象树搜索、收藏、仅收藏筛选和最近访问筛选已在重启前后复核。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口证据，MySQL 权限受限 Server Objects 和 PostgreSQL 受限角色的 public 空状态、Server Objects 可读边界及直接权限拒绝已有真实窗口证据，Redis 最终连接失败提示已补验。SQLite Virtual views 明确显示本地驱动不支持，未计为失败。
 - `DB-RED-05` / `DB-UX-003`：补排序、筛选后的页码和上下文、NULL/二进制/长字段区分、查看/复制/导出；PostgreSQL、MySQL 和 MongoDB 的排序/筛选/分页记录已补齐对应范围，已有列宽、滚动和分页记录继续有效。
 - `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据。原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
 - `DB-RED-07` / `DB-UX-005A..F`：DDL 查看/复制/刷新、稳定键结构差异、迁移指纹/阶段摘要、执行和目标元数据回读，以及 EXPLAIN ANALYZE 风险提示均已有真实窗口证据。代码、headless 和 Docker 回放结果仍按原范围有效。
@@ -452,6 +452,14 @@ Windows MSVC Debug 真实窗口连接成功后，`public` Schema 显示“（空
 Server Objects 可读”不同，关闭 PostgreSQL Server Objects 直接权限拒绝子项。验收结束后恢复
 `pg_catalog.pg_roles` 的公共读取权限、撤销数据库 CONNECT 并删除 `ramag_ui_denied`；回读
 `role_remaining=false` 且 `ramag` 仍可读取角色。本次只更新验收记录，Rust 测试不适用。
+
+同日继续使用 WSL `Ubuntu-24.04` Docker MySQL `8.4`（Windows 端口 `23306`）补验 Virtual views。
+`db-test-mysql` 真实窗口展开 `Virtual views` 后显示 `sessions`，行说明为“只读会话快照”；打开后结果表
+显示 `ID`、`USER`、`HOST`、`DB`、`COMMAND`、`TIME`、`STATE` 等会话字段和 5 行当前会话记录，
+连接状态保持“已连接”。该结果使用独立的只读会话查询，未执行写入；当前对象不进入表编辑路径，
+DDL 和结构比较入口保持不可用。点击对象树刷新后，表、Server Objects、Virtual views 和 `sessions` 仍保留，
+结果表继续可用。本次关闭 MySQL `DB-RED-04` 的 Virtual views 只读会话快照子项；本次只更新验收记录，
+Rust 测试不适用。
 
 同日继续在 WSL Docker MongoDB `8.2` 的 `db-test-mongo` 标签补验刷新失败。展开 `ramag_demo` 后
 显示 `capped_events`、`large_documents`、`metrics`、`orders`、`products`、`type_matrix` 和
