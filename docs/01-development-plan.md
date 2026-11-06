@@ -441,6 +441,16 @@ MySQL 后查询工作区和 `type_matrix` 对象树仍可见；切回 MongoDB �
 但打开元数据时返回 MongoDB `code=13` 权限错误；原因是本轮表单未填写 Docker 测试服务要求的固定账号，
 该次失败不计入 MongoDB 通过证据，也不修改产品数据。应用进程已停止，测试服务保持运行。
 
+同日按源码适用性复核 `DB-RED-03/04/06/07` 的剩余组合，并保留真实窗口证据与源码边界的区别。
+`Driver::list_server_objects` 和 `Driver::list_virtual_views` 的默认实现返回不支持；当前只有
+PostgreSQL/MySQL 驱动提供 Server Objects 和 Virtual views，因此 SQLite、MongoDB、Redis 的
+`DB-RED-03/04` 组合标记为“不适用”，不把没有该对象模型误记为失败。`DriverKind::supports_transactions`
+只对 MySQL、PostgreSQL、SQLite 返回真，MongoDB/Redis 的 `DB-RED-06` 标记为“不适用”，不显示
+SQL 手动事务控件。`build_ddl_query` 对 Redis/MongoDB 返回空字符串，表结构对比入口也只接受
+MySQL/PostgreSQL/SQLite，因此 MongoDB/Redis 的 `DB-RED-07` 标记为“不适用”。这些结论来自
+`ramag-domain` 和驱动实现的源码核查，不替代仍需取得的真实窗口结果；A-UI-REAL-1 继续只补验
+实际存在且尚未记录的驱动×动作组合。
+
 2026-11-06 在 WSL `Ubuntu-24.04` Docker PostgreSQL `17-alpine`（Windows 端口 `25432`）中补验
 Server Objects 和 Virtual views。连接名为 `db-test-postgres`，数据库为 `ramag_test`，用户为
 `ramag`；默认连接 URI 使用 TLS 时测试先超时，改用同一服务的
