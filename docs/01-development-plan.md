@@ -451,6 +451,13 @@ MySQL/PostgreSQL/SQLite，因此 MongoDB/Redis 的 `DB-RED-07` 标记为“不�
 `ramag-domain` 和驱动实现的源码核查，不替代仍需取得的真实窗口结果；A-UI-REAL-1 继续只补验
 实际存在且尚未记录的驱动×动作组合。
 
+同日使用 WSL `Ubuntu-24.04` Docker MongoDB `8.2`（Windows 端口 `27028`）和隔离副本
+`.ramag/ui-acceptance/matrix-20261107-02` 取得不适用项的真实窗口证据。打开
+`ramag_demo.type_matrix` 集合后，结果工具栏显示文档过滤、排序、分页和导出；窗口没有 SQL 手动事务、
+DDL 或表结构比较入口，连接状态保持“已连接”，2 条文档仍可读。该结果关闭 MongoDB 的
+`DB-RED-06/07` 不适用窗口项；没有执行写入。Redis 的同类不适用项仍由源码边界和既有专用对象窗口记录支持，
+不把 MongoDB 结果替代 Redis 证据。
+
 2026-11-06 在 WSL `Ubuntu-24.04` Docker PostgreSQL `17-alpine`（Windows 端口 `25432`）中补验
 Server Objects 和 Virtual views。连接名为 `db-test-postgres`，数据库为 `ramag_test`，用户为
 `ramag`；默认连接 URI 使用 TLS 时测试先超时，改用同一服务的
