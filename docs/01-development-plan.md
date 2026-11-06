@@ -3,9 +3,9 @@
 > 状态：唯一现行开发计划
 > 更新日期：2026-11-07
 > 代码核对基线：提交 `1aacf006`（SQLite 手动事务连接池重试保护）；此前 `8820c77a` 的代码审查、`d76d4784` 至 `b5597119` 的 CI 入口和验收记录，以及 `ea474c6a` 的 MongoDB 结果工具栏修复，均已记录在本计划
-> 当前主线提交：`7e54fe78`；workspace 版本 `0.9.1`
-> 后续开发基线：提交 `7e54fe78`
-> 计划状态：`v0.9.1` 已发布；当前主线已完成选择复制、Redis 扫描边界、数据库导航与导出的大部分真实窗口验收、MongoDB 结果工具栏视觉修复和 MongoDB 多页结果验收，以及发布构建测量记录，后续只推进下表中的未关闭证据项
+> 当前主线提交：`d47d8b22`；workspace 版本 `0.9.1`
+> 后续开发基线：提交 `d47d8b22`
+> 计划状态：`v0.9.1` 已发布；当前主线已完成选择复制、Redis 扫描边界、数据库导航与导出、SQLite 结构比较和迁移回读的适用真实窗口验收、MongoDB 结果工具栏视觉修复和 MongoDB 多页结果验收，以及发布构建测量记录，后续只推进下表中的未关闭证据项
 
 本文件统一维护范围、执行顺序、验收条件和未关闭事项。架构、接口设计、开发指南和
 测试报告只提供技术依据，不单独安排开发任务。
@@ -51,7 +51,7 @@ Ramag 保留数据库、Redis、MongoDB、API、Kafka、MQTT、Git、SSH/SFTP/PT
 |---|---|---|
 | 工具入口与列表 | 工具显示位置管理、数据库数据源列表、对象存储账号列表、Container/VCS/插件列表已完成对应切片 | 完整流程按工具分别验收；不扩展为所有错误与平台均已通过 |
 | 连接工作区 | API 首次读取状态修复、双栏布局、两条分隔栏真实拖动，以及 API/Kafka/MQTT/SSH 全局回归已完成 | 专项数据库操作和其他未列出的原生流程仍按下节补验 |
-| 数据库 | MySQL/PostgreSQL/SQLite 连接、查询与部分元数据树，触发器子树、连接恢复、事务提交/回滚读回、单元格 UPDATE 以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈已有真实窗口证据；SQLite 活动事务期间的连接池重试保护已修复并复核 | 完整 `DB-RED-01..07` 矩阵仍部分完成 |
+| 数据库 | MySQL/PostgreSQL/SQLite 连接、查询与部分元数据树，触发器子树、连接恢复、事务提交/回滚读回、单元格 UPDATE 以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈已有真实窗口证据；SQLite 活动事务期间的连接池重试保护已修复并复核；SQLite 结构比较、迁移预览、执行和目标元数据回读已补齐 | `DB-RED-01..07` 的适用组合已完成；MongoDB/Redis 的 SQL 事务、DDL 和结构迁移按驱动能力标记为不适用 |
 | 数据库规模与取消 | PostgreSQL 100,000 行分页、10,000 行只读查询、1,000 张表、长表头、双轴滚动、多标签隔离与页面/统计查询取消已验收 | 取消到服务端活动查询归零曾测得约 `629 ms`；这是单次环境记录，不能作为普遍时限 |
 | 共享 UI 与监控 | System Pulse 迁入、公共样式、状态反馈、首页响应式网格及卡片视觉维护已进入基线；过渡时长统一为重排 `180ms`、加载 `160ms` | 页面功能、硬件准确性、发布性能和跨平台结果分别判断 |
 | 静态插件 | 系统监控试点及 API、剪贴板、VCS、SSH、对象存储、容器、数据库、Kafka、MQTT 九批迁移完成 | 静态装配和代码验证不表示支持外部插件加载 |
@@ -111,7 +111,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 |---|---|---|
 | 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
-| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；SQL 对象树搜索、收藏、仅收藏、最近访问和重启保存已覆盖 PostgreSQL/MySQL/SQLite；SQLite 表、视图、列、索引、触发器、DDL、只读视图和 JSONL 已补验；PostgreSQL/MySQL/SQLite 选中行 JSONL、MongoDB 选中行 Extended JSONL、Redis 数据库/单 Key/前缀 JSONL 已回读；MongoDB/Redis 专用对象、PostgreSQL/MySQL/MongoDB/Redis 刷新失败保留旧树、PostgreSQL/MySQL/MongoDB/Redis 的已覆盖跨连接切换、MySQL 权限受限 Server Objects、PostgreSQL 受限角色的空 public、可读 Server Objects 和直接权限拒绝已有真实窗口记录；PostgreSQL 和 MySQL Virtual views 的只读会话快照已在真实窗口复核；PostgreSQL、MySQL、MongoDB 和 SQLite 查询结果的列过滤、行过滤、排序、分页及 MongoDB 工具栏样式已在真实窗口复核，单行过滤框不再显示内部滚动条。未关闭内容只包括矩阵中尚未取得的驱动×动作证据；下一次验收先按矩阵列出具体驱动和动作，再逐项关闭或标记不适用，不制造用户数据风险。 |
+| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 已完成（适用组合）；SQL 对象树搜索、收藏、仅收藏、最近访问和重启保存已覆盖 PostgreSQL/MySQL/SQLite；SQLite 表、视图、列、索引、触发器、DDL、只读视图、JSONL、结构差异、迁移预览、执行和回读已补验；PostgreSQL/MySQL/SQLite 选中行 JSONL、MongoDB 选中行 Extended JSONL、Redis 数据库/单 Key/前缀 JSONL 已回读；MongoDB/Redis 专用对象、刷新失败保留旧树、跨连接切换、Server Objects、Virtual views、查询过滤排序分页及 MongoDB 工具栏样式已有对应真实窗口记录；MongoDB/Redis 的 SQL 事务、DDL、结构迁移按源码能力标记为不适用。 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL、MySQL 和 SQLite 手动事务提交、回滚及清理，SQLite 活动事务期间的连接池重试保护，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；设置页独立空闲观察已补齐，下一步只补点击到可见反馈。不能取得显示合成器或同步录像证据时保持未完成，不用降低动画时长替代流畅度验收。 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
@@ -711,10 +711,9 @@ WSL 重复运行测试；临时构建过程未修改仓库文件。
 
 | 顺序 | 主线动作 | 通过条件 | 验证和回滚 |
 |---|---|---|---|
-| 1 | `A-UI-REAL-1` 收敛剩余驱动×动作矩阵 | 对 `04-ui-acceptance-standard.md` 中尚未有记录的组合，写明驱动、动作、结果和“不适用”理由；直接权限拒绝只有在安全测试账号和真实服务可用时才尝试 | WSL `Ubuntu-24.04` Docker、Windows MSVC Debug 真实窗口；只清理本轮创建的测试对象；无源码变更时 Rust 测试不适用 |
-| 2 | `RAMAG-UI-001AC-2` 点击到可见反馈证据 | 使用显示合成器追踪或与输入时间同步的视频，取得点击到首次可见反馈的 p95；保持现有动画时长，不能用减少动画代替流畅度证据 | Windows Release `ui-profiling` 采样和真实窗口；若平台不能提供显示时间，记录缺口，不修改渲染代码 |
-| 3 | `RAMAG-PLATFORM-001` 原生平台验收 | 在独立 Linux/macOS 测试账户中完成窗口启动、系统凭据保存、退出重启回读和密钥不可读错误反馈 | Linux/macOS 使用 GitHub CI 做测试；原生窗口和系统凭据需要对应平台环境；缺少环境时保持未完成 |
-| 4 | `RAMAG-RELEASE-001` 触发发布评估 | 只有新增源码或用户明确要求发布时，才按标签、质量任务、安装包、SHA-256 和更新清单生成新版本 | 新提交、新标签和新发布物；不移动或覆盖公开标签 |
+| 1 | `RAMAG-UI-001AC-2` 点击到可见反馈证据 | 使用显示合成器追踪或与输入时间同步的视频，取得点击到首次可见反馈的 p95；保持现有动画时长，不能用减少动画代替流畅度证据 | Windows Release `ui-profiling` 采样和真实窗口；若平台不能提供显示时间，记录缺口，不修改渲染代码 |
+| 2 | `RAMAG-PLATFORM-001` 原生平台验收 | 在独立 Linux/macOS 测试账户中完成窗口启动、系统凭据保存、退出重启回读和密钥不可读错误反馈 | Linux/macOS 使用 GitHub CI 做测试；原生窗口和系统凭据需要对应平台环境；缺少环境时保持未完成 |
+| 3 | `RAMAG-RELEASE-001` 触发发布评估 | 只有新增源码或用户明确要求发布时，才按标签、质量任务、安装包、SHA-256 和更新清单生成新版本 | 新提交、新标签和新发布物；不移动或覆盖公开标签 |
 
 上述顺序是当前唯一主线队列。完成一个动作后，在本文件追加结果并更新表格状态；不创建并行计划或专项计划。
 
@@ -731,6 +730,35 @@ Ramag 进程。
 - SQLite 的 `Virtual views` 红色提示仍表示驱动未实现 `list_virtual_views`。这是源码定义的“不适用”状态，不是本轮布局或样式回归；本轮未修改该功能。
 
 本轮没有源码变更。Windows Debug 真实窗口验收通过；Linux 编译和 Linux/macOS 测试按本计划的 WSL 与 GitHub CI 边界处理，本轮不重复执行。
+
+### 4.10 2026-11-07 SQLite 结构迁移修复和真实窗口回读验收
+
+本轮使用提交 `d47d8b22` 的 Windows MSVC Debug 构建
+`target\\x86_64-pc-windows-msvc\\debug\\ramag.exe`，并使用隔离目录
+`.ramag/ui-acceptance/sqlite-query-20261106/data` 和
+`.ramag/ui-acceptance/sqlite-query-20261106/system`。源表为 SQLite
+`query_records`，包含 `sort_value` 索引；验收没有读取或修改用户数据库。
+
+- 修复前的 SQLite 迁移预览使用 `CREATE INDEX "idx" ON "main"."table"`，真实窗口执行返回
+  `near ".": syntax error`。SQLite 要求索引名可以带数据库名，但 `ON` 后的表名不能带同一数据库限定。
+- `d47d8b22` 将 SQLite 普通索引和唯一索引生成为
+  `CREATE INDEX "main"."idx" ON "table" (...)`，并保留带点表名的独立标识符转义；新增回归测试覆盖该 SQL。
+- 同一 SQLite 文件中的源表和目标表不能复用索引名。为避免把源表索引删除或改名，真实窗口通过独立的
+  `sqlite-query-target-20261107` SQLite 文件创建目标表，再从源连接跨连接比较。比较结果显示目标缺少
+  `sort_value`、`amount`、`payload` 和 `query_records_sort_idx`；迁移预览显示 4 条语句、0 条删除或修改语句。
+- 人工确认后迁移成功。审批记录显示目标连接执行 4 条 SQLite 语句，随后重新打开结构比较，列和索引均无差异，
+  页面显示“结构已一致”。目标表、临时连接和目标数据库文件均已清理，应用进程已关闭。
+- Windows 本地验证通过：`cargo fmt --all -- --check`、
+  `cargo test --locked -p ramag-tool-dbclient --lib schema_migration -- --test-threads=1`（21 项）、
+  `cargo clippy --locked -p ramag-tool-dbclient --lib --all-targets -- -D warnings`、
+  `cargo test --locked -p ramag-infra-sqlite --lib sqlite_driver_round_trips_queries_and_metadata -- --test-threads=1`、
+  `cargo build --locked --target x86_64-pc-windows-msvc -p ramag-bin`。
+- Linux 只按约定使用 WSL `Ubuntu-24.04` 编译：`cargo build --locked --workspace --all-targets`，
+  stable Rust `1.99.1`、`x86_64-unknown-linux-gnu`，耗时约 `5m42s`，exit code 为 `0`；Linux 测试不在本机执行。
+
+本项关闭 `A-UI-REAL-1` 的适用组合缺口。SQLite 的 `Virtual views` 仍按驱动未实现能力标记为不适用；
+MongoDB/Redis 的 SQL 事务、DDL 和结构迁移仍按源码能力标记为不适用。后续主线只保留可见反馈性能证据、
+Linux/macOS 原生平台验收和触发式发布评估。
 
 ## 5. 条件限制与未纳入执行的事项
 
