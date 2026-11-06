@@ -74,6 +74,7 @@ jobs:
             libzstd-dev \
             pkg-config \
             shellcheck \
+            xauth \
             xvfb
           desktop-file-validate scripts/linux/com.ramag.Ramag.desktop
 
