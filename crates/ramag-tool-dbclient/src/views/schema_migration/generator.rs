@@ -43,6 +43,13 @@ pub(super) struct MigrationStatement {
     pub(super) phase: MigrationPhase,
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct MigrationTarget<'a> {
+    pub(super) qualified: &'a str,
+    pub(super) schema: &'a str,
+    pub(super) table: &'a str,
+}
+
 pub(super) fn summarize_stages(statements: &[MigrationStatement]) -> Vec<MigrationStage> {
     let mut stages: Vec<MigrationStage> = Vec::new();
     for statement in statements {
@@ -199,7 +206,7 @@ pub(super) fn append_index_drops(
 
 pub(super) fn append_index_additions(
     driver: DriverKind,
-    target_name: &str,
+    target_names: MigrationTarget<'_>,
     source_columns: &[Column],
     target_columns: &[Column],
     source: &[Index],
@@ -218,7 +225,7 @@ pub(super) fn append_index_additions(
                         .any(|column| changed_column(column, source_columns, target_columns))
             });
         if changed {
-            let sql = index_add_sql(driver, target_name, new)?;
+            let sql = index_add_sql(driver, target_names, new)?;
             statements.push(MigrationStatement {
                 sql,
                 destructive: false,
@@ -259,31 +266,56 @@ fn index_drop_sql(
     })
 }
 
-fn index_add_sql(driver: DriverKind, target_name: &str, index: &Index) -> Result<String, String> {
+fn index_add_sql(
+    driver: DriverKind,
+    target: MigrationTarget<'_>,
+    index: &Index,
+) -> Result<String, String> {
     let name = identifier(driver, &index.name, "索引名")?;
     let columns = index_columns(driver, index)?;
     Ok(match driver {
         DriverKind::Mysql if index.primary => {
-            format!("ALTER TABLE {target_name} ADD PRIMARY KEY ({columns});")
+            format!(
+                "ALTER TABLE {} ADD PRIMARY KEY ({columns});",
+                target.qualified
+            )
         }
         DriverKind::Mysql if index.unique => {
-            format!("ALTER TABLE {target_name} ADD UNIQUE INDEX {name} ({columns});")
+            format!(
+                "ALTER TABLE {} ADD UNIQUE INDEX {name} ({columns});",
+                target.qualified
+            )
         }
-        DriverKind::Mysql => format!("ALTER TABLE {target_name} ADD INDEX {name} ({columns});"),
+        DriverKind::Mysql => format!(
+            "ALTER TABLE {} ADD INDEX {name} ({columns});",
+            target.qualified
+        ),
         DriverKind::Postgres if index.primary => {
-            format!("ALTER TABLE {target_name} ADD CONSTRAINT {name} PRIMARY KEY ({columns});")
+            format!(
+                "ALTER TABLE {} ADD CONSTRAINT {name} PRIMARY KEY ({columns});",
+                target.qualified
+            )
         }
         DriverKind::Postgres if index.unique => {
-            format!("CREATE UNIQUE INDEX {name} ON {target_name} ({columns});")
+            format!(
+                "CREATE UNIQUE INDEX {name} ON {} ({columns});",
+                target.qualified
+            )
         }
-        DriverKind::Postgres => format!("CREATE INDEX {name} ON {target_name} ({columns});"),
+        DriverKind::Postgres => format!("CREATE INDEX {name} ON {} ({columns});", target.qualified),
         DriverKind::Sqlite if index.primary => {
             return Err("SQLite 不支持迁移主键索引，请手工重建表".into());
         }
         DriverKind::Sqlite if index.unique => {
-            format!("CREATE UNIQUE INDEX {name} ON {target_name} ({columns});")
+            let schema = identifier(driver, target.schema, "目标 Schema")?;
+            let table = identifier(driver, target.table, "目标表名")?;
+            format!("CREATE UNIQUE INDEX {schema}.{name} ON {table} ({columns});")
         }
-        DriverKind::Sqlite => format!("CREATE INDEX {name} ON {target_name} ({columns});"),
+        DriverKind::Sqlite => {
+            let schema = identifier(driver, target.schema, "目标 Schema")?;
+            let table = identifier(driver, target.table, "目标表名")?;
+            format!("CREATE INDEX {schema}.{name} ON {table} ({columns});")
+        }
         _ => unreachable!("driver checked by build_migration_script"),
     })
 }

@@ -5,6 +5,7 @@ use ramag_domain::entities::DriverKind;
 use super::schema_diff::TableMetadata;
 
 mod generator;
+use self::generator::MigrationTarget;
 pub(crate) use generator::MigrationStage;
 
 #[cfg(test)]
@@ -69,7 +70,11 @@ pub(crate) fn build_migration_script(
     )?;
     generator::append_index_additions(
         driver,
-        &target_name,
+        MigrationTarget {
+            qualified: &target_name,
+            schema: target_schema,
+            table: target_table,
+        },
         &source.columns,
         &target.columns,
         &source.indexes,
