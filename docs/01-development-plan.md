@@ -703,8 +703,9 @@ WSL 重复运行测试；临时构建过程未修改仓库文件。
 
 2026-11-07 手动触发的 GitHub Actions run `42274299158` 在 Linux 和 Windows 质量任务成功后，
 macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤，不能作为 macOS 失败或通过证据。
-随后重新触发 run `42281721656`，最近一次检查显示 Linux、Windows 和 macOS job 均已获得 runner 并处于运行中；
-按当前工作约定不等待该 run，也不把未完成的结果写成通过。`RAMAG-PLATFORM-001` 继续保持进行中。
+随后重新触发 run `42281721656`。该 run 已完成，Linux x86_64 job `128112125964`、Windows x64 job
+`128112125621` 和 macOS job `128112125101` 均为 `completed/success`。这组结果只证明对应 CI 质量任务通过，
+不能替代 Linux/macOS 原生窗口、系统凭据和独立测试账户证据；`RAMAG-PLATFORM-001` 继续保持进行中。
 
 ### 4.7 发布维护
 
