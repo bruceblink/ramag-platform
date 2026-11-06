@@ -133,8 +133,10 @@ jobs:
         run: |
           set -euo pipefail
           dbus-run-session -- bash -euo pipefail -c '
-            eval "$(gnome-keyring-daemon --start --components=secrets)"
-            export GNOME_KEYRING_CONTROL
+            keyring_password="$(head -c 32 /dev/urandom | base64 -w0)"
+            printf "%s\n" "$keyring_password" |
+              gnome-keyring-daemon --components=secrets --daemonize --unlock
+            unset keyring_password
             cargo test --locked -p ramag-infra-storage \
               --test keyring_round_trip -- --ignored --test-threads=1
           '
