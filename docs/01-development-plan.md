@@ -2,9 +2,9 @@
 
 > 状态：唯一现行开发计划
 > 更新日期：2026-11-06
-> 代码核对基线：提交 `8820c77a`（`v0.9.1` 之后的源码维护提交）；`d76d4784` 至 `b5597119` 的 CI 入口和验收记录，以及 `ea474c6a` 的 MongoDB 结果工具栏修复，均已记录在本计划
-> 当前主线提交：`5fd3421a`；workspace 版本 `0.9.1`
-> 后续开发基线：提交 `5fd3421a`
+> 代码核对基线：提交 `1aacf006`（SQLite 手动事务连接池重试保护）；此前 `8820c77a` 的代码审查、`d76d4784` 至 `b5597119` 的 CI 入口和验收记录，以及 `ea474c6a` 的 MongoDB 结果工具栏修复，均已记录在本计划
+> 当前主线提交：`1aacf006`；workspace 版本 `0.9.1`
+> 后续开发基线：提交 `1aacf006`
 > 计划状态：`v0.9.1` 已发布；当前主线已完成选择复制、Redis 扫描边界、数据库导航与导出的大部分真实窗口验收、MongoDB 结果工具栏视觉修复和 MongoDB 多页结果验收，以及发布构建测量记录，后续只推进下表中的未关闭证据项
 
 本文件统一维护范围、执行顺序、验收条件和未关闭事项。架构、接口设计、开发指南和
@@ -51,7 +51,7 @@ Ramag 保留数据库、Redis、MongoDB、API、Kafka、MQTT、Git、SSH/SFTP/PT
 |---|---|---|
 | 工具入口与列表 | 工具显示位置管理、数据库数据源列表、对象存储账号列表、Container/VCS/插件列表已完成对应切片 | 完整流程按工具分别验收；不扩展为所有错误与平台均已通过 |
 | 连接工作区 | API 首次读取状态修复、双栏布局、两条分隔栏真实拖动，以及 API/Kafka/MQTT/SSH 全局回归已完成 | 专项数据库操作和其他未列出的原生流程仍按下节补验 |
-| 数据库 | MySQL/PostgreSQL/SQLite 连接、查询与部分元数据树，触发器子树、连接恢复、事务提交/回滚读回、单元格 UPDATE 以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈已有真实窗口证据 | 完整 `DB-RED-01..07` 矩阵仍部分完成 |
+| 数据库 | MySQL/PostgreSQL/SQLite 连接、查询与部分元数据树，触发器子树、连接恢复、事务提交/回滚读回、单元格 UPDATE 以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈已有真实窗口证据；SQLite 活动事务期间的连接池重试保护已修复并复核 | 完整 `DB-RED-01..07` 矩阵仍部分完成 |
 | 数据库规模与取消 | PostgreSQL 100,000 行分页、10,000 行只读查询、1,000 张表、长表头、双轴滚动、多标签隔离与页面/统计查询取消已验收 | 取消到服务端活动查询归零曾测得约 `629 ms`；这是单次环境记录，不能作为普遍时限 |
 | 共享 UI 与监控 | System Pulse 迁入、公共样式、状态反馈、首页响应式网格及卡片视觉维护已进入基线；过渡时长统一为重排 `180ms`、加载 `160ms` | 页面功能、硬件准确性、发布性能和跨平台结果分别判断 |
 | 静态插件 | 系统监控试点及 API、剪贴板、VCS、SSH、对象存储、容器、数据库、Kafka、MQTT 九批迁移完成 | 静态装配和代码验证不表示支持外部插件加载 |
@@ -100,7 +100,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 ## 4. 当前执行队列
 
 `RAMAG-UPDATE-001` 的更新实现已随 `v0.9.0` 发布；页面反馈修复已随 `v0.9.1` 正式发布。
-后续开发以提交 `ea474c6a` 为基线；`v0.9.1` 保持不变。按 `RAMAG-RELEASE-001` 发布，不移动或覆盖已公开标签。
+后续开发以提交 `1aacf006` 为基线；`v0.9.1` 保持不变。按 `RAMAG-RELEASE-001` 发布，不移动或覆盖已公开标签。
 更新条件和缓存限制见[更新检测与下载](06-desktop-release.md#更新检测与下载)。
 
 按下表顺序选择独立切片。顺序表示优先级，不表示所有任务必须串行。
@@ -112,7 +112,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 | 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
 | 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 进行中；SQL 对象树搜索、收藏、仅收藏、最近访问和重启保存已覆盖 PostgreSQL/MySQL/SQLite；SQLite 表、视图、列、索引、触发器、DDL、只读视图和 JSONL 已补验；PostgreSQL/MySQL/SQLite 选中行 JSONL、MongoDB 选中行 Extended JSONL、Redis 数据库/单 Key/前缀 JSONL 已回读；MongoDB/Redis 专用对象、跨连接切换、PostgreSQL/MySQL/MongoDB/Redis 刷新失败保留旧树、MySQL 权限受限 Server Objects、PostgreSQL 受限角色的空 public、可读 Server Objects 和直接权限拒绝已有真实窗口记录；PostgreSQL 和 MySQL Virtual views 的只读会话快照已在真实窗口复核；PostgreSQL、MySQL、MongoDB 和 SQLite 查询结果的列过滤、行过滤、排序、分页及 MongoDB 工具栏样式已在真实窗口复核，单行过滤框不再显示内部滚动条。未关闭内容只包括矩阵中尚未取得的驱动×动作证据；下一次验收先按矩阵列出具体驱动和动作，再逐项关闭或标记不适用，不制造用户数据风险。 |
-| 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL 和 MySQL 手动事务提交、回滚及清理，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
+| 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL、MySQL 和 SQLite 手动事务提交、回滚及清理，SQLite 活动事务期间的连接池重试保护，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
 | 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；设置页独立空闲观察已补齐，下一步只补点击到可见反馈。不能取得显示合成器或同步录像证据时保持未完成，不用降低动画时长替代流畅度验收。 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 已完成；隔离 redb 数据和真实窗口已覆盖搜索、删除、撤销、当前结果回读和详情查看，未读取或写入用户系统剪贴板 |
@@ -198,7 +198,7 @@ Private Bytes 为 `173,277,184` 字节。该内存值是关闭后的单点采样
 
 - `DB-RED-01..04`：连接切换、SQLite 表/视图/元数据、MongoDB/Redis 专用对象行为，以及 PostgreSQL/MySQL Server Objects 和 Virtual views 的只读操作已有真实窗口证据；PostgreSQL、MySQL 和 SQLite 对象树搜索、收藏、仅收藏筛选和最近访问筛选已在重启前后复核。PostgreSQL、MySQL、MongoDB 和 Redis 刷新失败保留旧树已有真实窗口证据，MySQL 权限受限 Server Objects 和 PostgreSQL 受限角色的 public 空状态、Server Objects 可读边界及直接权限拒绝已有真实窗口证据，Redis 最终连接失败提示已补验。SQLite Virtual views 明确显示本地驱动不支持，未计为失败。
 - `DB-RED-05` / `DB-UX-003`：补排序、筛选后的页码和上下文、NULL/二进制/长字段区分、查看/复制/导出；PostgreSQL、MySQL、MongoDB 和 SQLite 的排序/筛选/分页记录已补齐对应范围，已有列宽、滚动和分页记录继续有效。
-- `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据。原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
+- `DB-RED-06` / `DB-UX-004B-3B`：失败查询草稿保留和恢复，SQLite 手动事务提交/回滚读回，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据。SQLite 活动事务期间跳过连接池失效和重复读重试，避免在 Tokio 外释放 `PoolConnection`；原生 UPDATE 已通过，其他路径的 Headless GPUI 结果不能替代窗口操作。
 - `DB-RED-07` / `DB-UX-005A..F`：DDL 查看/复制/刷新、稳定键结构差异、迁移指纹/阶段摘要、执行和目标元数据回读，以及 EXPLAIN ANALYZE 风险提示均已有真实窗口证据。代码、headless 和 Docker 回放结果仍按原范围有效。
 - 首帧、滚动、标签切换和长期内存的可复现测量仍按性能标准检查；窗口截图不证明发布性能达标。
 
@@ -295,6 +295,16 @@ WHERE 条件。修复后同一操作会清空 WHERE 输入并恢复 `100,000` �
 后网格只保留两列且仍为 84 行。连接状态全程为“已连接”，本次没有执行写入；验收结束后删除临时表，
 MySQL 回读 `remaining=0`，容器保持 healthy。本次关闭 MySQL `DB-RED-05` 的排序、行过滤、列过滤
 和多页分页子项；本次只更新验收记录，Rust 测试不适用。
+
+同日继续使用该隔离 SQLite 文件补验手动事务。第一次 Windows MSVC Debug 真实窗口验收在后台列元数据
+读取超时后触发了 `sqlx` 的 Tokio 上下文 panic；日志确认 SQLite 单连接池被手动事务占用，重试路径在
+UI 执行器中清理事务句柄是具体原因。提交 `1aacf006` 增加活动事务检测：连接池失效和事务清理在活动
+事务期间跳过，读操作也不再重复重试；`prefetch_columns_for_used_tables` 在手动事务期间直接跳过。
+共享事务层和 SQLite 驱动回归测试、应用层 `284` 项单元测试、严格 Clippy、Windows Debug 构建均通过。
+随后在同一真实窗口中把 `amount` 从 `42` 改为 `43` 并提交，重新打开表读回 `43`；第二个手动事务把值
+改为 `42`，应用修改后回滚，重新打开表仍读回已提交值 `43`。窗口和连接全程保持可用，最终日志没有
+新的 `application_panic` 或事务期间的池失效重试。验收结束后停止进程并将隔离文件恢复为 `amount=42`、
+`rows=205`；该切片关闭 SQLite 手动事务提交、回滚和活动事务重试保护子项。
 
 同日继续在 WSL `Ubuntu-24.04` 的 Docker `postgres:17-alpine`（Windows 端口 `25432`）中补验
 PostgreSQL JSONL 导出。WSL 保持前台 `sleep infinity` 进程，确保 Docker 服务和本地端口转发在真实窗口操作期间持续运行；
