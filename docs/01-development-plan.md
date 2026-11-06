@@ -113,7 +113,7 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 | 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
 | 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 已完成（适用组合）；SQL 对象树搜索、收藏、仅收藏、最近访问和重启保存已覆盖 PostgreSQL/MySQL/SQLite；SQLite 表、视图、列、索引、触发器、DDL、只读视图、JSONL、结构差异、迁移预览、执行和回读已补验；PostgreSQL/MySQL/SQLite 选中行 JSONL、MongoDB 选中行 Extended JSONL、Redis 数据库/单 Key/前缀 JSONL 已回读；MongoDB/Redis 专用对象、刷新失败保留旧树、跨连接切换、Server Objects、Virtual views、查询过滤排序分页及 MongoDB 工具栏样式已有对应真实窗口记录；MongoDB/Redis 的 SQL 事务、DDL、结构迁移按源码能力标记为不适用。 |
 | 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL、MySQL 和 SQLite 手动事务提交、回滚及清理，SQLite 活动事务期间的连接池重试保护，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
-| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；设置页独立空闲观察已补齐。新增同步窗口录像覆盖 `33` 次页面切换和 `10s` 空闲，但有效帧率约 `6.44fps`，点击到可见反馈估计 p95 约 `453ms` 只能作为诊断，不能据此判定满足 `100ms` 标准；仍需更高帧率录像或显示合成器追踪，不用降低动画时长替代流畅度验收。 |
+| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 进行中；修复后的 Windows Release 采样已取得 `364` 个 draw、`363` 个 Presented 边界，`input/draw/present p95` 分别为 `0.239/8.599/1.090ms`，无日志丢失或溢出；设置页独立空闲观察已补齐。同步窗口录像覆盖 `33` 次页面切换和 `10s` 空闲，但软件采集约 `6.44fps`，硬件编码约 `12.79fps`，点击到可见反馈估计仍高于 `200ms` 且受采集量化影响，不能据此判定满足 `100ms` 标准；Desktop Duplication 在当前会话无输出。仍需显示合成器追踪或可用的高帧率录像，不用降低动画时长替代流畅度验收。 |
 | 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
 | 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 已完成；隔离 redb 数据和真实窗口已覆盖搜索、删除、撤销、当前结果回读和详情查看，未读取或写入用户系统剪贴板 |
 | 8 | `RAMAG-UI-001C` 首页与侧栏排序补验 | 已完成；隔离配置下已检查首页和侧栏拖动、拖出取消、保存及重启后的顺序回读 |
@@ -701,6 +701,11 @@ WSL 重复运行测试；临时构建过程未修改仓库文件。
 过滤和质量步骤。由于仍缺少 Linux/macOS 原生窗口、系统凭据和独立测试账户证据，
 `RAMAG-PLATFORM-001` 继续保持进行中。
 
+2026-11-07 手动触发的 GitHub Actions run `42274299158` 在 Linux 和 Windows 质量任务成功后，
+macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤，不能作为 macOS 失败或通过证据。
+随后重新触发 run `42281721656`，最近一次检查显示 Linux、Windows 和 macOS job 均已获得 runner 并处于运行中；
+按当前工作约定不等待该 run，也不把未完成的结果写成通过。`RAMAG-PLATFORM-001` 继续保持进行中。
+
 ### 4.7 发布维护
 
 `RAMAG-RELEASE-001` 按需检查 Windows、Linux、macOS 质量结果、真实窗口、安装包、SHA-256
@@ -780,6 +785,18 @@ Linux/macOS 原生平台验收和触发式发布评估。
   当前采集方案不能证明 `100ms` 条件已满足。
 - 本轮没有发现可单独归因于动画时长的稳定瓶颈，没有修改动画或渲染代码。`RAMAG-UI-001AC-2` 继续保持进行中，
   下一步需要单独提高窗口录像帧率或接入显示合成器追踪，再判断是否需要让动画和页面更新更流畅。
+
+补充尝试使用 NVIDIA NVENC 和 Windows Desktop Duplication 提高录像帧率。NVENC 录像
+`.ramag/ui-acceptance/visible-feedback-20261107g.mp4` 通过 `ffprobe` 校验，时长约 `44.97s`、`575` 帧、
+输出 `1280×828`、`avg_frame_rate=17250/1349`（约 `12.79fps`）。应用日志记录 `202` 个输入事件、`202` 个 draw、
+`201` 个同窗口 Presented 边界，`input/draw/present p95` 为 `0.305/10.342/1.124ms`，无日志丢失或溢出。
+由于采集启动晚于应用，录像与前 `22` 次操作重叠；这次硬件编码诊断的首次画面变化估计 p95 约 `247ms`，
+仍不能满足或证明 `100ms` 条件。`visible-feedback-20261107g.events.json`、
+`visible-feedback-20261107g-diffs.json` 和 `visible-feedback-20261107g-latency.json` 保存原始记录。
+
+同一窗口区域尝试 `ddagrab`（Desktop Duplication API）时，ffmpeg 停在输入初始化且没有生成帧；
+已确认进程路径后结束该临时采集进程，没有把这次失败当作应用故障。当前 Windows 会话没有可用的显示合成器
+时间证据，`RAMAG-UI-001AC-2` 继续保持进行中。
 
 ## 5. 条件限制与未纳入执行的事项
 
