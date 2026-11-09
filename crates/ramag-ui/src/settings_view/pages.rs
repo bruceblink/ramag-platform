@@ -1,9 +1,12 @@
+use std::rc::Rc;
+
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _, h_flex, scroll::ScrollableElement as _, v_flex,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, IntoElement, ParentElement, SharedString,
-    StatefulInteractiveElement as _, Styled, Window, div, hsla, prelude::*, px,
+    AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, KeyDownEvent,
+    ParentElement, SharedString, StatefulInteractiveElement as _, Styled, Window, div, hsla,
+    prelude::*, px,
 };
 
 use super::{SETTINGS_COMPACT_NAV_ITEM_WIDTH, SettingsPage, SettingsView, settings_is_compact};
@@ -346,6 +349,7 @@ fn settings_navigation_item(
     on_click: impl Fn(&ClickEvent, &mut Window, &mut gpui_kit::App) + 'static,
 ) -> impl IntoElement {
     let debug_selector = format!("settings-page-{}", page.id());
+    let on_click = Rc::new(on_click);
     let background = if selected {
         style.active
     } else {
@@ -373,8 +377,32 @@ fn settings_navigation_item(
         .bg(background)
         .text_color(foreground)
         .cursor_pointer()
+        .role(gpui_kit::accesskit::Role::Button)
+        .accessibility_id(format!("settings-page-{}", page.id()))
+        .aria_label(page.title())
+        .focusable()
+        .tab_stop(true)
+        .focus_visible(move |item| item.bg(style.accent.opacity(0.16)))
         .hover(move |item| item.bg(if selected { style.active } else { style.hover }))
-        .on_click(on_click)
+        .on_click({
+            let on_click = Rc::clone(&on_click);
+            move |event, window, cx| on_click(event, window, cx)
+        })
+        .on_key_down({
+            let on_click = Rc::clone(&on_click);
+            move |event: &KeyDownEvent, window, cx| {
+                if event.keystroke.modifiers.control
+                    || event.keystroke.modifiers.alt
+                    || event.keystroke.modifiers.platform
+                {
+                    return;
+                }
+                if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                    on_click(&ClickEvent::default(), window, cx);
+                    cx.stop_propagation();
+                }
+            }
+        })
         .child(page.icon().small())
         .child(div().text_sm().child(page.title()))
         .when(show_update_badge, |item| {

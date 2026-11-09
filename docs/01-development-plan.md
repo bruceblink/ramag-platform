@@ -729,7 +729,8 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 2 | `RAMAG-PLATFORM-001` Linux/macOS 平台证据 | 保留 WSL Linux 编译和 CI 测试入口。取得对应平台、独立测试账户或 release 验收条件后再执行 | 平台窗口启动、系统凭据保存、退出重启回读和缺少密钥错误均有对应平台证据。CI 测试不能替代真实窗口和独立账户证据 | Linux 使用 WSL 编译，Linux/macOS 测试使用 GitHub CI 或对应平台窗口。回滚只涉及本次平台测试入口和记录 |
 | 3 | `RAMAG-RELEASE-001` 触发式发布维护 | 没有 release 请求时不创建版本、标签或发布任务。收到 release 请求后从当前主线生成变更说明、构建包、校验清单和更新清单 | 三平台质量检查、打包、资产摘要、更新清单和公开 Release 记录全部匹配 | 按[桌面端构建与发布](06-desktop-release.md)执行。公开标签不移动，缺陷使用新版本修复 |
 | 4 | `RAMAG-UI-UPDATE-002` 更新下载反馈打磨 | 已完成：增加下载百分比和进度条，使用明确的“安装更新”文案；下载校验、取消和安装入口保持不变 | 已知总大小显示有界百分比和进度条；未知总大小显示准备状态；下载完成后显示安装更新；360px、1024px 和 1440px 宽度均不越界 | `ramag-ui` 更新页定向测试、严格 Clippy 和格式检查已通过。回滚只涉及更新页渲染与测试，不回滚下载逻辑 |
-| 5 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
+| 5 | `RAMAG-UI-ACCESS-001` 设置导航可访问性 | 已完成：增加按钮语义、稳定辅助技术标签、键盘焦点和焦点反馈；当前导航布局和鼠标点击行为保持不变 | 桌面纵向和窄窗口横向导航入口均可获得键盘焦点，辅助技术可区分入口名称，焦点反馈不改变布局边界 | `ramag-ui` 设置导航定向测试、严格 Clippy 和格式检查已通过。回滚只涉及导航渲染和测试 |
+| 6 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -879,6 +880,23 @@ Desktop Release run `42289929133` 已完成且结论为 `success`。Linux x86_64
 2026-11-09 已完成本切片。下载总大小已知时显示有界百分比和进度条；总大小未知时继续显示准备状态；完成后按钮显示“安装更新”。
 `cargo fmt --all -- --check`、`cargo test --locked -p ramag-ui --lib settings_view::update::tests -- --test-threads=1`
 和 `cargo clippy --locked -p ramag-ui --lib --all-targets -- -D warnings` 均通过，共 5 项更新页测试通过。
+
+### 4.16 设置导航可访问性
+
+设置页导航入口原先使用可点击容器，缺少稳定的按钮语义和键盘焦点反馈。该切片只补充通用交互语义，
+不改变导航页面、布局尺寸或鼠标点击回调。
+
+- 每个入口声明 `Button` 角色和对应页面标题，辅助技术可以区分“系统”“数据库”等入口。
+- 入口加入键盘焦点顺序和焦点可见样式，桌面纵向导航和窄窗口横向导航都使用同一入口结构。
+- 现有悬浮样式、选中背景、更新提示和 `settings-page-*` 调试标识保持不变。
+
+验证命令为 `cargo fmt --all -- --check`、`cargo test --locked -p ramag-ui --lib settings_view::pages::tests -- --test-threads=1`、
+`cargo clippy --locked -p ramag-ui --lib --all-targets -- -D warnings` 和 `git diff --check`。
+回滚范围只包括 `crates/ramag-ui/src/settings_view/pages.rs`、对应测试和本节记录。
+
+2026-11-09 已完成本切片。设置导航入口现在声明 Button 角色、稳定的辅助技术标识和页面标题，支持 Tab 焦点顺序以及 Enter/Space 激活，
+焦点状态使用现有主题色的半透明背景反馈。`cargo fmt --all -- --check`、`cargo test --locked -p ramag-ui --lib settings_view::pages::tests -- --test-threads=1`
+和 `cargo clippy --locked -p ramag-ui --lib --all-targets -- -D warnings` 均通过，共 4 项设置导航测试通过。
 
 ## 5. 条件限制与未纳入执行的事项
 
