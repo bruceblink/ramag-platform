@@ -4,9 +4,78 @@ use gpui_kit::{
     TestAppContext, VisualTestContext, Window, div, px, size,
 };
 use ramag_app::AvailableUpdate;
-use ramag_domain::entities::ReleaseInfo;
+use ramag_domain::entities::{DownloadProgress, ReleaseInfo};
 
-use super::{UpdateUiState, render_update_identity, render_update_toolbar, update_status_text};
+use super::{
+    UpdateUiState, download_progress_ratio, render_download_progress, render_update_identity,
+    render_update_toolbar, update_status_text,
+};
+
+#[test]
+fn download_progress_ratio_handles_unknown_and_out_of_range_sizes() {
+    assert_eq!(download_progress_ratio(DownloadProgress::default()), 0.0);
+    assert_eq!(
+        download_progress_ratio(DownloadProgress {
+            downloaded: 25,
+            total: 100,
+        }),
+        0.25
+    );
+    assert_eq!(
+        download_progress_ratio(DownloadProgress {
+            downloaded: 200,
+            total: 100,
+        }),
+        1.0
+    );
+}
+
+struct DownloadProgressHost {
+    progress: DownloadProgress,
+}
+
+impl Render for DownloadProgressHost {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .id("settings-update-progress-host")
+            .debug_selector(|| "settings-update-progress-host".into())
+            .w_full()
+            .child(render_download_progress(self.progress, false, cx.theme()))
+    }
+}
+
+#[gpui_kit::test]
+fn download_progress_bar_stays_inside_supported_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let (_, cx) = cx.add_window_view(|_, _| DownloadProgressHost {
+        progress: DownloadProgress {
+            downloaded: 25,
+            total: 100,
+        },
+    });
+    let cx: &mut VisualTestContext = cx;
+    for width in [360.0, 1024.0, 1440.0] {
+        cx.simulate_resize(size(px(width), px(220.0)));
+        cx.run_until_parked();
+
+        let host = cx.debug_bounds("settings-update-progress-host");
+        assert!(host.is_some(), "下载进度测试宿主应渲染");
+        let host = host.unwrap_or_default();
+        let track = cx.debug_bounds("settings-update-progress-track");
+        assert!(track.is_some(), "已知总大小时应渲染进度轨道");
+        let track = track.unwrap_or_default();
+        let fill = cx.debug_bounds("settings-update-progress-fill");
+        assert!(fill.is_some(), "已知总大小时应渲染进度填充");
+        let fill = fill.unwrap_or_default();
+        for child in [track, fill] {
+            assert!(child.origin.x >= host.origin.x);
+            assert!(child.origin.y >= host.origin.y);
+            assert!(child.right() <= host.right());
+            assert!(child.bottom() <= host.bottom());
+        }
+        assert!(fill.size.width <= track.size.width);
+    }
+}
 
 #[test]
 fn update_status_text_covers_all_update_states() {

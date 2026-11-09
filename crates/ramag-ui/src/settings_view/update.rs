@@ -6,7 +6,7 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div, prelude::FluentBuilder as _, px,
+    StatefulInteractiveElement, Styled, div, prelude::FluentBuilder as _, px, relative,
 };
 use ramag_app::{AvailableUpdate, UpdateCheckResult};
 use ramag_domain::entities::{DownloadProgress, UpdateCancellation};
@@ -146,7 +146,7 @@ impl SettingsView {
                             .outline()
                             .small()
                             .label(if downloaded {
-                                "安装安装包"
+                                "安装更新"
                             } else {
                                 "下载安装包"
                             })
@@ -198,25 +198,11 @@ impl SettingsView {
                     }),
             );
         if let Some(cancellation) = &self.update_download {
-            let text = if cancellation.is_cancelled() {
-                "正在取消下载".to_string()
-            } else if progress.total == 0 {
-                "正在准备下载".to_string()
-            } else {
-                format!(
-                    "下载中：{} / {}",
-                    ramag_domain::entities::format_bytes(progress.downloaded),
-                    ramag_domain::entities::format_bytes(progress.total)
-                )
-            };
-            controls = controls.child(
-                div()
-                    .id("settings-update-progress")
-                    .debug_selector(|| "settings-update-progress".into())
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(text),
-            );
+            controls = controls.child(render_download_progress(
+                progress,
+                cancellation.is_cancelled(),
+                theme,
+            ));
         } else if self.update_download_path.is_some() {
             controls = controls.child(
                 div()
@@ -571,6 +557,84 @@ fn update_version_summary(
                 .whitespace_normal()
                 .child(value),
         )
+}
+
+/// 展示下载状态和有界进度，未知总大小时只保留准备状态文本。
+fn render_download_progress(
+    progress: DownloadProgress,
+    cancelled: bool,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
+    let text = if cancelled {
+        "正在取消下载".to_string()
+    } else if progress.total == 0 {
+        "正在准备下载".to_string()
+    } else {
+        format!(
+            "下载中：{} / {}",
+            ramag_domain::entities::format_bytes(progress.downloaded),
+            ramag_domain::entities::format_bytes(progress.total)
+        )
+    };
+
+    v_flex()
+        .id("settings-update-progress")
+        .debug_selector(|| "settings-update-progress".into())
+        .w_full()
+        .gap(px(6.0))
+        .child(
+            h_flex()
+                .w_full()
+                .items_center()
+                .justify_between()
+                .gap(px(8.0))
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(theme.muted_foreground)
+                        .child(text),
+                )
+                .when(progress.total > 0, |row| {
+                    row.child(
+                        div()
+                            .text_sm()
+                            .text_color(theme.muted_foreground)
+                            .child(format!(
+                                "{}%",
+                                (download_progress_ratio(progress) * 100.0).round() as u8
+                            )),
+                    )
+                }),
+        )
+        .when(progress.total > 0, |row| {
+            row.child(
+                div()
+                    .id("settings-update-progress-track")
+                    .debug_selector(|| "settings-update-progress-track".into())
+                    .relative()
+                    .w_full()
+                    .h(px(6.0))
+                    .rounded(px(3.0))
+                    .bg(theme.border.opacity(0.38))
+                    .child(
+                        div()
+                            .id("settings-update-progress-fill")
+                            .debug_selector(|| "settings-update-progress-fill".into())
+                            .h_full()
+                            .rounded(px(3.0))
+                            .bg(theme.accent)
+                            .w(relative(download_progress_ratio(progress))),
+                    ),
+            )
+        })
+}
+
+/// 把下载进度限制在 `0..=1`，避免驱动的边界值使进度条越过轨道。
+fn download_progress_ratio(progress: DownloadProgress) -> f32 {
+    if progress.total == 0 {
+        return 0.0;
+    }
+    (progress.downloaded as f64 / progress.total as f64).clamp(0.0, 1.0) as f32
 }
 
 fn update_from_state(state: &UpdateUiState) -> Option<&AvailableUpdate> {
