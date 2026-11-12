@@ -3,9 +3,10 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-#[cfg(target_os = "windows")]
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use parking_lot::Mutex;
 use ramag_domain::{PluginId, PluginPackageManifest, PluginPackageManifestError};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -16,7 +17,6 @@ pub const MAX_PLUGIN_INSTALLATIONS: usize = 256;
 pub const MAX_PLUGIN_INSTALLATION_ERROR_BYTES: usize = 512;
 const INSTALLATIONS_FILE_NAME: &str = "installed.json";
 const MAX_INSTALLATIONS_FILE_BYTES: usize = 1024 * 1024;
-#[cfg(target_os = "windows")]
 static INSTALLATION_TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// 插件包的本地生命周期状态；启用状态不会触发进程启动。
@@ -80,11 +80,15 @@ impl PluginInstallation {
 /// 读取、校验并原子写入插件安装状态。
 pub struct PluginInstallationStore {
     root: PathBuf,
+    operation_lock: Arc<Mutex<()>>,
 }
 
 impl PluginInstallationStore {
     pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into() }
+        Self {
+            root: root.into(),
+            operation_lock: Arc::new(Mutex::new(())),
+        }
     }
 
     pub fn path(&self) -> PathBuf {
@@ -93,6 +97,11 @@ impl PluginInstallationStore {
 
     /// 读取全部安装状态；文件不存在时返回空列表。
     pub fn load(&self) -> Result<Vec<PluginInstallation>, PluginInstallationStoreError> {
+        let _operation = self.operation_lock.lock();
+        self.load_unlocked()
+    }
+
+    fn load_unlocked(&self) -> Result<Vec<PluginInstallation>, PluginInstallationStoreError> {
         let path = self.path();
         let bytes = match fs::read(&path) {
             Ok(bytes) => bytes,
@@ -112,6 +121,14 @@ impl PluginInstallationStore {
 
     /// 替换全部安装状态；写入完成前保留原状态文件。
     pub fn save(
+        &self,
+        installations: &[PluginInstallation],
+    ) -> Result<(), PluginInstallationStoreError> {
+        let _operation = self.operation_lock.lock();
+        self.save_unlocked(installations)
+    }
+
+    fn save_unlocked(
         &self,
         installations: &[PluginInstallation],
     ) -> Result<(), PluginInstallationStoreError> {
@@ -137,8 +154,9 @@ impl PluginInstallationStore {
         &self,
         installation: PluginInstallation,
     ) -> Result<(), PluginInstallationStoreError> {
+        let _operation = self.operation_lock.lock();
         installation.validate()?;
-        let mut installations = self.load()?;
+        let mut installations = self.load_unlocked()?;
         if let Some(current) = installations
             .iter_mut()
             .find(|current| current.manifest.id == installation.manifest.id)
@@ -152,7 +170,7 @@ impl PluginInstallationStore {
             }
             installations.push(installation);
         }
-        self.save(&installations)
+        self.save_unlocked(&installations)
     }
 
     /// 更新已安装插件状态，并返回更新后的记录。
@@ -162,7 +180,8 @@ impl PluginInstallationStore {
         state: PluginInstallationState,
         last_error: Option<String>,
     ) -> Result<PluginInstallation, PluginInstallationStoreError> {
-        let mut installations = self.load()?;
+        let _operation = self.operation_lock.lock();
+        let mut installations = self.load_unlocked()?;
         let installation = installations
             .iter_mut()
             .find(|installation| installation.manifest.id == *plugin_id)
@@ -173,19 +192,20 @@ impl PluginInstallationStore {
         installation.last_error = last_error;
         installation.validate()?;
         let updated = installation.clone();
-        self.save(&installations)?;
+        self.save_unlocked(&installations)?;
         Ok(updated)
     }
 
     /// 删除本地状态记录；不会删除插件包目录。
     pub fn remove(&self, plugin_id: &PluginId) -> Result<bool, PluginInstallationStoreError> {
-        let mut installations = self.load()?;
+        let _operation = self.operation_lock.lock();
+        let mut installations = self.load_unlocked()?;
         let original_len = installations.len();
         installations.retain(|installation| installation.manifest.id != *plugin_id);
         if installations.len() == original_len {
             return Ok(false);
         }
-        self.save(&installations)?;
+        self.save_unlocked(&installations)?;
         Ok(true)
     }
 }
@@ -212,8 +232,9 @@ fn validate_installations(
 
 fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), PluginInstallationStoreError> {
     let temp_path = path.with_file_name(format!(
-        "{INSTALLATIONS_FILE_NAME}.tmp-{}",
-        std::process::id()
+        "{INSTALLATIONS_FILE_NAME}.tmp-{}-{}",
+        std::process::id(),
+        INSTALLATION_TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
     ));
     let write_result = (|| -> Result<(), PluginInstallationStoreError> {
         let mut file = OpenOptions::new()
