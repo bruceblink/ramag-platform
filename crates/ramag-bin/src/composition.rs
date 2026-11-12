@@ -129,6 +129,7 @@ pub(super) fn load_plugin_installations() -> (
     Vec<ramag_app::PluginPackageCatalogEntry>,
     Option<Arc<ramag_app::PluginPackageDownloader>>,
     Option<std::path::PathBuf>,
+    Vec<ramag_app::PluginPackageCachedArchive>,
 ) {
     let root = if let Some(path) = std::env::var_os("RAMAG_PLUGIN_STATE_DIR") {
         let path = std::path::PathBuf::from(path);
@@ -137,7 +138,7 @@ pub(super) fn load_plugin_installations() -> (
                 operation = "plugin_installation_load",
                 "插件状态目录必须是绝对路径，忽略环境变量"
             );
-            return (None, None, Vec::new(), Vec::new(), None, None);
+            return (None, None, Vec::new(), Vec::new(), None, None, Vec::new());
         }
         path
     } else {
@@ -146,7 +147,7 @@ pub(super) fn load_plugin_installations() -> (
                 operation = "plugin_installation_load",
                 "无法定位插件状态目录"
             );
-            return (None, None, Vec::new(), Vec::new(), None, None);
+            return (None, None, Vec::new(), Vec::new(), None, None, Vec::new());
         };
         dirs.data_dir().join("plugins")
     };
@@ -167,8 +168,20 @@ pub(super) fn load_plugin_installations() -> (
             None
         }
     };
-    let package_download_root = Some(root.join("downloads"));
+    let package_download_root = root.join("downloads");
     let catalog = load_plugin_catalog(&root);
+    let cached_packages =
+        match ramag_app::PluginPackageCache::new(package_download_root.clone()).restore(&catalog) {
+            Ok(packages) => packages,
+            Err(error) => {
+                warn!(
+                    operation = "plugin_package_cache_restore",
+                    error = %error,
+                    "插件包下载缓存恢复失败"
+                );
+                Vec::new()
+            }
+        };
     match store.load() {
         Ok(installations) => {
             info!(
@@ -182,7 +195,8 @@ pub(super) fn load_plugin_installations() -> (
                 installations,
                 catalog,
                 package_downloader,
-                package_download_root,
+                Some(package_download_root),
+                cached_packages,
             )
         }
         Err(error) => {
@@ -197,7 +211,8 @@ pub(super) fn load_plugin_installations() -> (
                 Vec::new(),
                 catalog,
                 package_downloader,
-                package_download_root,
+                Some(package_download_root),
+                cached_packages,
             )
         }
     }

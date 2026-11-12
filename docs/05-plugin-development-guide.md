@@ -77,7 +77,7 @@ flowchart TB
 
 `PluginPackageDownloader` 只接受已经通过 `PluginPackageCatalogEntry::validate` 的候选。目录字段 `archive_sha256` 表示整个 `.tar.gz` 归档的摘要；包内 `PluginPackageManifest.package_sha256` 表示解包文件内容摘要。生产构造器默认使用 HTTPS、要求 `HTTP 200`、禁止重定向，并同时限制响应头和流式累计大小为 `64 MiB`。下载内容先写同目录临时文件，完成 `flush`、`sync_all` 和归档 SHA-256 核对后再通过不覆盖的原子发布完成落盘；最终目标父目录拒绝符号链接或非目录，已存在目标文件不会被覆盖。`PluginPackageDownloader::new` 使用 workspace 的 `rustls-no-provider`，应用启动层必须先安装 TLS provider；`download_to_managed_runtime` 为 GPUI 等非 Tokio 执行器提供专用 runtime 入口。下载器不调用安装器或执行包内容。当前只完成纯边界测试，真实 HTTPS 服务下的状态、重定向、超量和成功落盘仍未验收。
 
-设置页的目录候选使用稳定的下载按钮和“待下载”“下载中”“已下载”“安装中”“已安装”状态。缓存根目录由应用组合根注入到插件状态目录下的 `downloads` 子目录；缓存文件会落盘，但“已下载”路径只保留在当前视图状态中，应用重启后的缓存扫描和状态恢复尚未接入。下载失败或安装失败显示统一错误状态卡，安装失败保留缓存并允许重试，成功后更新 `installed.json` 并清理缓存。真实窗口点击仍未验收。
+设置页的目录候选使用稳定的下载按钮和“待下载”“下载中”“已下载”“安装中”“已安装”状态。缓存根目录由应用组合根注入到插件状态目录下的 `downloads` 子目录；下载完成后通过 `PluginPackageCache` 写入受限原子索引，应用重启时重新核验索引和归档摘要并恢复“安装”动作。下载失败或安装失败显示统一错误状态卡，安装失败保留缓存并允许重试，成功后更新 `installed.json` 并清理索引和归档。旧随机命名缓存不迁移，真实窗口点击仍未验收。
 
 目录候选安装使用 `PluginPackageInstaller::install_catalog_archive`。安装按钮触发时重新读取归档并核对 `archive_sha256`，临时解包后逐项核对包内清单的 ID、名称、版本、API、运行时和能力集合，再调用现有入口解析、内容摘要和原子安装流程。目录清单没有入口字段，因此入口路径只由包内清单和安装器校验。归档摘要和解包内容摘要不能互换。
 

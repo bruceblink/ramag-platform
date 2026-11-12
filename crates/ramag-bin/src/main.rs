@@ -233,6 +233,7 @@ fn main() -> ExitCode {
         plugin_catalog_entries,
         plugin_package_downloader,
         plugin_package_download_root,
+        plugin_downloaded_packages,
     ) = load_plugin_installations();
     let container_service: Arc<ContainerService> = build_container_service();
     let container_registry_service = match build_container_registry_service() {
@@ -338,6 +339,7 @@ fn main() -> ExitCode {
         plugin_catalog_entries,
         plugin_package_downloader,
         plugin_package_download_root,
+        plugin_downloaded_packages,
         registry,
         conn_service,
         api_service,

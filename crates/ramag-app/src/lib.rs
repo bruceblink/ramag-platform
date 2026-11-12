@@ -10,6 +10,7 @@ mod plugin_host;
 mod plugin_installation;
 mod plugin_lifecycle;
 mod plugin_package_archive;
+mod plugin_package_cache;
 mod plugin_package_catalog;
 mod plugin_package_downloader;
 mod plugin_package_installer;
@@ -45,11 +46,16 @@ pub use plugin_package_archive::{
     MAX_PLUGIN_ARCHIVE_BYTES, MAX_PLUGIN_ARCHIVE_ENTRIES, MAX_PLUGIN_ARCHIVE_UNPACKED_BYTES,
     PluginPackageArchiveError,
 };
+pub use plugin_package_cache::{
+    CURRENT_PLUGIN_PACKAGE_CACHE_FORMAT_VERSION, MAX_PLUGIN_PACKAGE_CACHE_ENTRIES,
+    MAX_PLUGIN_PACKAGE_CACHE_INDEX_BYTES, MAX_PLUGIN_PACKAGE_CACHE_RESTORE_BYTES,
+    PluginPackageCache, PluginPackageCacheError, PluginPackageCachedArchive,
+};
 pub use plugin_package_catalog::{
     CURRENT_PLUGIN_CATALOG_FORMAT_VERSION, MAX_PLUGIN_CATALOG_MANIFEST_BYTES,
     MAX_PLUGIN_CATALOG_PACKAGE_ENTRIES, MAX_PLUGIN_CATALOG_URL_BYTES,
-    PLUGIN_PACKAGE_SHA256_HEX_BYTES, PluginPackageCatalog, PluginPackageCatalogEntry,
-    PluginPackageCatalogError,
+    MAX_PLUGIN_CATALOG_VERSION_BYTES, PLUGIN_PACKAGE_SHA256_HEX_BYTES, PluginPackageCatalog,
+    PluginPackageCatalogEntry, PluginPackageCatalogError,
 };
 pub use plugin_package_downloader::{
     MAX_PLUGIN_DOWNLOAD_BYTES, PluginPackageDownloadError, PluginPackageDownloader,

@@ -12,8 +12,9 @@ use gpui_kit::{
 };
 use ramag_app::{
     PluginCatalogEntry, PluginDiagnostic, PluginInstallation, PluginInstallationState,
-    PluginInstallationStore, PluginLifecycleStage, PluginPackageCatalogEntry,
-    PluginPackageDownloader, PluginPackageInstaller, PluginState, StaticPluginHost,
+    PluginInstallationStore, PluginLifecycleStage, PluginPackageCache, PluginPackageCachedArchive,
+    PluginPackageCatalogEntry, PluginPackageDownloader, PluginPackageInstaller, PluginState,
+    StaticPluginHost,
 };
 use ramag_domain::PluginId;
 
@@ -28,6 +29,7 @@ pub(crate) struct PluginDiagnosticsView {
     package_installer: Option<Arc<PluginPackageInstaller>>,
     package_downloader: Option<Arc<PluginPackageDownloader>>,
     package_download_root: Option<PathBuf>,
+    package_cache: Option<PluginPackageCache>,
     installing_archive: bool,
     downloading_package: Option<String>,
     installing_package: Option<String>,
@@ -51,6 +53,7 @@ impl PluginDiagnosticsView {
             package_installer: None,
             package_downloader: None,
             package_download_root: None,
+            package_cache: None,
             installing_archive: false,
             downloading_package: None,
             installing_package: None,
@@ -123,7 +126,21 @@ impl PluginDiagnosticsView {
         package_download_root: PathBuf,
         cx: &mut Context<Self>,
     ) {
+        self.package_cache = Some(PluginPackageCache::new(package_download_root.clone()));
         self.package_download_root = Some(package_download_root);
+        cx.notify();
+    }
+
+    /// 注入启动时已经核验的缓存归档，恢复目录候选的“已下载”状态。
+    pub(crate) fn set_downloaded_packages(
+        &mut self,
+        packages: Vec<PluginPackageCachedArchive>,
+        cx: &mut Context<Self>,
+    ) {
+        self.downloaded_packages = packages
+            .into_iter()
+            .map(|package| (package.key(), package.path))
+            .collect();
         cx.notify();
     }
 
@@ -295,6 +312,8 @@ impl PluginDiagnosticsView {
         let destination = package_download_destination(&download_root, &entry);
         let plugin_id = entry.id.clone();
         let version = entry.version.clone();
+        let cache = self.package_cache.clone();
+        let cache_entry = entry.clone();
         self.downloading_package = Some(key.clone());
         self.download_error = None;
         cx.notify();
@@ -302,9 +321,19 @@ impl PluginDiagnosticsView {
             let result = cx
                 .background_executor()
                 .spawn(async move {
-                    downloader
+                    let path = downloader
                         .download_to_managed_runtime(&entry, &destination)
                         .await
+                        .map_err(|error| error.to_string())?;
+                    let Some(cache) = cache else {
+                        let _ = std::fs::remove_file(&path);
+                        return Err("插件包缓存未初始化".to_owned());
+                    };
+                    if let Err(error) = cache.record_download(&cache_entry, &path) {
+                        let _ = std::fs::remove_file(&path);
+                        return Err(format!("插件包缓存记录失败：{error}"));
+                    }
+                    Ok::<_, String>(path)
                 })
                 .await;
             let _ = this.update(cx, |view, cx| {
@@ -358,6 +387,8 @@ impl PluginDiagnosticsView {
         self.download_error = None;
         cx.notify();
         let archive_for_install = archive_path.clone();
+        let cache = self.package_cache.clone();
+        let cache_entry = entry.clone();
         cx.spawn(async move |this, cx| {
             let result = cx
                 .background_executor()
@@ -365,6 +396,20 @@ impl PluginDiagnosticsView {
                     async move { installer.install_catalog_archive(&entry, &archive_for_install) },
                 )
                 .await;
+            let cleanup_error = if result.is_ok() {
+                match cache {
+                    Some(cache) => cache
+                        .remove_download(&cache_entry, &archive_path)
+                        .err()
+                        .map(|error| error.to_string()),
+                    None => std::fs::remove_file(&archive_path)
+                        .err()
+                        .filter(|error| error.kind() != std::io::ErrorKind::NotFound)
+                        .map(|error| error.to_string()),
+                }
+            } else {
+                None
+            };
             let _ = this.update(cx, |view, cx| {
                 view.installing_package = None;
                 match result {
@@ -379,9 +424,7 @@ impl PluginDiagnosticsView {
                             view.installations.push(installation);
                         }
                         view.downloaded_packages.remove(&key);
-                        if let Err(error) = std::fs::remove_file(&archive_path)
-                            && error.kind() != std::io::ErrorKind::NotFound
-                        {
+                        if let Some(error) = cleanup_error {
                             tracing::warn!(
                                 operation = "plugin_package_cache_cleanup",
                                 plugin_id = %plugin_id,

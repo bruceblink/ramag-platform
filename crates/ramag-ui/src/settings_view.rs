@@ -503,6 +503,17 @@ impl SettingsView {
         cx.notify();
     }
 
+    /// 注入启动时核验通过的下载缓存，恢复目录候选的安装动作。
+    pub fn set_plugin_downloaded_packages(
+        &mut self,
+        packages: Vec<ramag_app::PluginPackageCachedArchive>,
+        cx: &mut Context<Self>,
+    ) {
+        self.plugin_diagnostics
+            .update(cx, |view, cx| view.set_downloaded_packages(packages, cx));
+        cx.notify();
+    }
+
     fn save_clipboard(&mut self, next: ClipboardSettings, cx: &mut Context<Self>) {
         if self.saving_clipboard || self.clipboard == next {
             return;

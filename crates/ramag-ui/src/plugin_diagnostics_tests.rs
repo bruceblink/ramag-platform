@@ -8,8 +8,8 @@ use gpui_kit::{
 };
 use ramag_app::{
     PluginContext, PluginInstallation, PluginInstallationState, PluginInstallationStore,
-    PluginOperationError, PluginPackageCatalogEntry, PluginPackageInstaller, StaticPlugin,
-    StaticPluginAdapter, StaticPluginHost, ToolRegistry,
+    PluginOperationError, PluginPackageCachedArchive, PluginPackageCatalogEntry,
+    PluginPackageInstaller, StaticPlugin, StaticPluginAdapter, StaticPluginHost, ToolRegistry,
 };
 use ramag_domain::{
     MAX_PLUGIN_PACKAGE_SHA256_BYTES, PluginApiVersion, PluginCapability, PluginDescriptor,
@@ -445,9 +445,13 @@ fn downloaded_catalog_entry_shows_install_action(cx: &mut TestAppContext) {
             let mut view = PluginDiagnosticsView::with_installations(host, Vec::new());
             let entry = catalog_plugin();
             view.set_catalog_entries(vec![entry.clone()], view_cx);
-            view.downloaded_packages.insert(
-                super::package_download_key(&entry),
-                std::path::PathBuf::from("/tmp/catalog.example.tar.gz"),
+            view.set_downloaded_packages(
+                vec![PluginPackageCachedArchive {
+                    plugin_id: entry.id.clone(),
+                    version: entry.version.clone(),
+                    path: std::path::PathBuf::from("/tmp/catalog.example.tar.gz"),
+                }],
+                view_cx,
             );
             view
         }),
