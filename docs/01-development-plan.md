@@ -745,7 +745,8 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 17 | `RAMAG-UI-PLUGIN-ARCHIVE-001` 设置页本地归档安装入口 | 已完成：加入 `tar.gz`/`tgz` 文件选择器，后台执行归档安装，成功后更新或新增插件行，失败时显示统一错误状态卡；安装中按钮禁用并显示进行中状态 | 插件设置页在 360px、1024px、1440px 明暗主题下显示本地归档按钮且不越界；入口使用后台任务执行安装，避免把解包和摘要核验放在 UI 更新路径中 | `ramag-ui` 插件诊断定向测试 5 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。文件选择器和后台结果回写的真实系统对话框未在本轮自动化窗口中操作，回滚只涉及插件设置页入口、对应测试和本节记录 |
 | 18 | `RAMAG-PLUGIN-CATALOG-001` 本地插件目录清单解析 | 已完成：增加受限 JSON 目录清单和包候选校验；只解析元数据，不联网、不下载、不解包、不执行、不授予权限 | 清单最多 `1 MiB`、`256` 个条目；每项校验插件 ID、名称、SemVer、宿主 API、`process` 运行时、HTTPS 地址、小写 SHA-256、能力集合和重复 ID/版本 | `ramag-app` 目录清单定向测试 5 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。回滚只涉及目录清单模块、依赖锁文件和本节记录 |
 | 19 | `RAMAG-UI-PLUGIN-CATALOG-001` 设置页本地目录候选展示 | 已完成：启动时读取插件状态目录中的 `catalog.json`，校验成功后注入设置页并展示插件名称、ID、版本、API、能力和下载地址；损坏清单只显示空状态，不联网、不下载、不执行 | 候选区域在 360px、640px、1024px、1440px 窗口中保持边界；有候选和空目录均有明确标题、引导和稳定选择器；设置页展示不改变安装状态 | `ramag-ui` 插件诊断定向测试 5 项、`ramag-bin` 组合检查、严格 Clippy、格式检查和差异检查已通过。真实窗口目录文件读取未在本轮自动化窗口中操作，回滚只涉及组合根、插件设置页和对应测试 |
-| 20 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
+| 20 | `RAMAG-PLUGIN-DOWNLOAD-001` 有界 HTTPS 插件包下载 | 已完成：对已校验的 `PluginPackageCatalogEntry` 使用生产构造器下载到新的本地缓存文件，限制 HTTPS、HTTP 200、禁止重定向、64 MiB 响应大小和最终目标父目录符号链接；流式计算 SHA-256，`flush`/`sync_all` 后原子发布；不调用安装器或执行包内容 | `Content-Length` 和流式累计均不得超过 `MAX_PLUGIN_DOWNLOAD_BYTES = 64 MiB`；最终目标父目录必须是普通目录，目标文件必须不存在；摘要不匹配、HTTP 错误、重定向和写入失败都清理当前临时文件并保留已有文件；原子发布不会覆盖并发出现的目标文件；生产 `new()` 的 TLS provider 由应用启动层预先安装 | 下载器定向测试 2 项、`ramag-app` 严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。当前未运行本地 HTTPS 服务，HTTP 状态、流式超限、重定向和成功落盘仍未完成真实网络集成验收；回滚只涉及下载器、目录条目复用、依赖锁文件和本节记录 |
+| 21 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -1136,6 +1137,21 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 `cargo clippy --locked -p ramag-ui --lib --all-targets -- -D warnings`、
 `cargo check --locked -p ramag-bin --all-targets` 和 `git diff --check`。
 2026-11-13 已完成本切片。插件诊断定向测试 5 项通过；真实窗口读取 `catalog.json` 和目录候选展示未自动化操作，当前 UI 证据为 headless GPUI 布局测试。
+
+### 4.31 有界 HTTPS 插件包下载
+
+本切片增加 `PluginPackageDownloader`，把已经通过 `PluginPackageCatalogEntry::validate` 的候选包下载到新的本地缓存文件。下载器只负责接收、限制、摘要核验和原子落盘，不调用安装器，不执行包内容，也不改变安装状态。
+
+- 生产构造器 `PluginPackageDownloader::new` 使用 HTTPS 目录条目、`HTTP 200` 和零重定向策略；`with_client` 仅用于注入客户端，调用方必须自行负责其重定向和 TLS 配置。
+- `Content-Length` 和流式累计大小都受 `MAX_PLUGIN_DOWNLOAD_BYTES = 64 MiB` 限制。目标路径必须是绝对路径，最终目标父目录不能是符号链接或非目录，目标文件必须不存在。
+- 下载先写同目录临时文件，完成 `flush`、`sync_all` 并核对小写 SHA-256 后再通过不覆盖的原子发布完成落盘。摘要不匹配、状态错误、超量或写入失败会清理本次已创建的临时文件。
+- workspace 的 `reqwest` 使用 `rustls-no-provider`。应用启动层必须在创建下载器前安装 TLS provider；下载模块不修改全局 TLS 状态。
+
+验证命令为 `cargo fmt --all -- --check`、
+`cargo test --locked -p ramag-app --lib plugin_package_downloader::tests -- --test-threads=1`、
+`cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
+`cargo check --locked -p ramag-bin --all-targets` 和 `git diff --check`。
+2026-11-13 已完成本切片。下载器纯边界测试 2 项、严格 Clippy、组合检查、格式检查和差异检查通过。当前未运行本地 HTTPS 服务，HTTP 状态、流式超限、重定向和成功落盘仍未完成真实网络集成验收；远程目录获取、签名验证、沙箱和 UI 下载入口仍需独立切片。
 
 ## 5. 条件限制与未纳入执行的事项
 

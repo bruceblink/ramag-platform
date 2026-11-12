@@ -8727,6 +8727,7 @@ dependencies = [
  "ramag-infra-sqlite",
  "ramag-infra-storage",
  "ramag-infra-system",
+ "reqwest 0.13.4",
  "semver",
  "serde",
  "serde_json",

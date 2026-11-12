@@ -11,6 +11,7 @@ mod plugin_installation;
 mod plugin_lifecycle;
 mod plugin_package_archive;
 mod plugin_package_catalog;
+mod plugin_package_downloader;
 mod plugin_package_installer;
 mod plugin_process;
 mod plugin_process_protocol;
@@ -49,6 +50,9 @@ pub use plugin_package_catalog::{
     MAX_PLUGIN_CATALOG_PACKAGE_ENTRIES, MAX_PLUGIN_CATALOG_URL_BYTES,
     PLUGIN_PACKAGE_SHA256_HEX_BYTES, PluginPackageCatalog, PluginPackageCatalogEntry,
     PluginPackageCatalogError,
+};
+pub use plugin_package_downloader::{
+    MAX_PLUGIN_DOWNLOAD_BYTES, PluginPackageDownloadError, PluginPackageDownloader,
 };
 pub use plugin_package_installer::{
     MAX_PLUGIN_PACKAGE_BYTES, PLUGIN_PACKAGE_MANIFEST_FILE_NAME, PluginPackageInstallError,

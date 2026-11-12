@@ -63,7 +63,7 @@ impl PluginPackageCatalog {
         }
         let mut identities = HashSet::with_capacity(self.entries.len());
         for (index, entry) in self.entries.iter().enumerate() {
-            entry.validate(index)?;
+            entry.validate_at(index)?;
             if !identities.insert((entry.id.clone(), entry.version.clone())) {
                 return Err(PluginPackageCatalogError::DuplicateEntry {
                     plugin_id: entry.id.clone(),
@@ -95,7 +95,12 @@ pub struct PluginPackageCatalogEntry {
 }
 
 impl PluginPackageCatalogEntry {
-    fn validate(&self, index: usize) -> Result<(), PluginPackageCatalogError> {
+    /// 校验单个候选，供下载器在执行外部输入前复用。
+    pub fn validate(&self) -> Result<(), PluginPackageCatalogError> {
+        self.validate_at(0)
+    }
+
+    fn validate_at(&self, index: usize) -> Result<(), PluginPackageCatalogError> {
         self.id
             .validate()
             .map_err(|source| PluginPackageCatalogError::EntryId { index, source })?;
