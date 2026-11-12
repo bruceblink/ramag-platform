@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use gpui_kit::component::{
-    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+    ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
+    h_flex, v_flex,
 };
 use gpui_kit::{
     Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div, prelude::*, px,
@@ -19,6 +20,7 @@ pub(crate) struct PluginDiagnosticsView {
     installations: Vec<PluginInstallation>,
     installation_store: Option<Arc<PluginInstallationStore>>,
     package_installer: Option<Arc<PluginPackageInstaller>>,
+    installing_archive: bool,
     pending_uninstall: Option<PluginId>,
     installation_error: Option<String>,
 }
@@ -34,6 +36,7 @@ impl PluginDiagnosticsView {
             installations,
             installation_store: None,
             package_installer: None,
+            installing_archive: false,
             pending_uninstall: None,
             installation_error: None,
         }
@@ -69,6 +72,61 @@ impl PluginDiagnosticsView {
         self.pending_uninstall = None;
         self.installation_error = None;
         cx.notify();
+    }
+
+    /// 选择本地 `tar.gz` 归档并在后台安装；文件选择取消时不改变当前状态。
+    fn pick_archive(&mut self, cx: &mut Context<Self>) {
+        if self.installing_archive {
+            return;
+        }
+        let Some(installer) = self.package_installer.clone() else {
+            self.installation_error = Some("插件安装器尚未初始化".into());
+            cx.notify();
+            return;
+        };
+        self.installing_archive = true;
+        self.installation_error = None;
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let picked = rfd::AsyncFileDialog::new()
+                .add_filter("插件归档", &["tar.gz", "tgz"])
+                .pick_file()
+                .await;
+            let result = if let Some(handle) = picked {
+                let path = handle.path().to_path_buf();
+                Some(
+                    cx.background_executor()
+                        .spawn(async move { installer.install_from_archive(&path) })
+                        .await,
+                )
+            } else {
+                None
+            };
+            let _ = this.update(cx, |view, cx| {
+                view.installing_archive = false;
+                if let Some(result) = result {
+                    match result {
+                        Ok(installation) => {
+                            if let Some(existing) = view
+                                .installations
+                                .iter_mut()
+                                .find(|current| current.manifest.id == installation.manifest.id)
+                            {
+                                *existing = installation;
+                            } else {
+                                view.installations.push(installation);
+                            }
+                            view.installation_error = None;
+                        }
+                        Err(error) => {
+                            view.installation_error = Some(format!("插件归档安装失败：{error}"));
+                        }
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     /// 切换插件启用状态；只更新持久化状态，不启动外部进程。
@@ -185,6 +243,7 @@ impl Render for PluginDiagnosticsView {
                 self.package_installer.is_some(),
                 self.pending_uninstall.as_ref(),
                 self.installation_error.as_deref(),
+                self.installing_archive,
                 cx,
             ))
             .child(render_catalog(&catalog, cx))
@@ -199,6 +258,7 @@ fn render_installations(
     can_uninstall: bool,
     pending_uninstall: Option<&PluginId>,
     operation_error: Option<&str>,
+    installing_archive: bool,
     cx: &mut Context<PluginDiagnosticsView>,
 ) -> impl IntoElement {
     let theme = cx.theme();
@@ -417,11 +477,35 @@ fn render_installations(
         .id("plugin-installations")
         .debug_selector(|| "plugin-installations".into())
         .gap(px(12.0))
-        .child(crate::pulse_ui::pulse_display_heading(
-            "已安装插件",
-            18.0,
-            cx,
-        ))
+        .child(
+            h_flex()
+                .w_full()
+                .min_w_0()
+                .flex_wrap()
+                .items_center()
+                .justify_between()
+                .gap(px(8.0))
+                .child(crate::pulse_ui::pulse_display_heading(
+                    "已安装插件",
+                    18.0,
+                    cx,
+                ))
+                .child(
+                    crate::clickable_button("plugin-installation-install-archive")
+                        .debug_selector(|| "plugin-installation-install-archive".into())
+                        .small()
+                        .outline()
+                        .label(if installing_archive {
+                            "安装中…"
+                        } else {
+                            "安装本地归档"
+                        })
+                        .disabled(installing_archive)
+                        .on_click(cx.listener(|view, _, _, cx| {
+                            view.pick_archive(cx);
+                        })),
+                ),
+        )
         .child(
             div()
                 .text_xs()

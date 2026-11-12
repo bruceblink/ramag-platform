@@ -187,6 +187,9 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
             let uninstall = visual_cx
                 .debug_bounds("plugin-installation-uninstall-example.package")
                 .expect("可安装插件应显示卸载按钮");
+            let install_archive = visual_cx
+                .debug_bounds("plugin-installation-install-archive")
+                .expect("可安装插件应显示本地归档安装按钮");
             let catalog = visual_cx
                 .debug_bounds("plugin-catalog")
                 .expect("第一方目录应渲染");
@@ -232,6 +235,7 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
                 installations,
                 installation,
                 uninstall,
+                install_archive,
                 catalog,
                 catalog_entry,
                 available,
