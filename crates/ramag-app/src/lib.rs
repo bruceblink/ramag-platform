@@ -9,6 +9,7 @@ mod plugin_catalog;
 mod plugin_host;
 mod plugin_installation;
 mod plugin_lifecycle;
+mod plugin_process_protocol;
 mod plugin_secrets;
 mod plugin_settings;
 mod plugin_settings_store;
@@ -34,6 +35,12 @@ pub use plugin_lifecycle::{
     PluginDiagnosticFailure, PluginEntryFuture, PluginHostError, PluginLifecycleFailure,
     PluginLifecycleReport, PluginLifecycleStage, PluginOperationError, PluginPermissionPolicy,
     PluginState, StaticPlugin, StaticPluginAdapter, StaticPluginHost,
+};
+pub use plugin_process_protocol::{
+    CURRENT_PLUGIN_PROTOCOL_VERSION, MAX_PLUGIN_FRAME_BYTES, MAX_PLUGIN_PROTOCOL_ERROR_BYTES,
+    MAX_PLUGIN_PROTOCOL_OUTPUT_BYTES, PluginHello, PluginInvoke, PluginProcessMessage,
+    PluginProcessProtocolError, PluginReady, PluginResponse, PluginShutdown, decode_frame,
+    encode_frame, read_frame, write_frame,
 };
 pub use plugin_secrets::{
     CURRENT_PLUGIN_SECRET_FORMAT_VERSION, MAX_PLUGIN_SECRET_PLAINTEXT_BYTES,
