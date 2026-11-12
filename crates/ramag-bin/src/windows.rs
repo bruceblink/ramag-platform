@@ -19,6 +19,8 @@ pub(super) struct AppDeps {
     pub(super) plugin_package_installer: Option<Arc<ramag_app::PluginPackageInstaller>>,
     pub(super) plugin_installations: Vec<ramag_app::PluginInstallation>,
     pub(super) plugin_catalog_entries: Vec<ramag_app::PluginPackageCatalogEntry>,
+    pub(super) plugin_package_downloader: Option<Arc<ramag_app::PluginPackageDownloader>>,
+    pub(super) plugin_package_download_root: Option<std::path::PathBuf>,
     pub(super) registry: Arc<ToolRegistry>,
     pub(super) conn_service: Arc<ConnectionService>,
     pub(super) api_service: Arc<ApiService>,
@@ -146,6 +148,8 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         plugin_package_installer,
         plugin_installations,
         plugin_catalog_entries,
+        plugin_package_downloader,
+        plugin_package_download_root,
         registry,
         conn_service,
         api_service,
@@ -287,6 +291,12 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     }
                     if let Some(installer) = plugin_package_installer.clone() {
                         view.set_plugin_package_installer(installer, cx);
+                    }
+                    if let Some(downloader) = plugin_package_downloader.clone() {
+                        view.set_plugin_package_downloader(downloader, cx);
+                    }
+                    if let Some(download_root) = plugin_package_download_root.clone() {
+                        view.set_plugin_package_download_root(download_root, cx);
                     }
                 });
 

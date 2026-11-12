@@ -127,6 +127,8 @@ pub(super) fn load_plugin_installations() -> (
     Option<Arc<ramag_app::PluginPackageInstaller>>,
     Vec<ramag_app::PluginInstallation>,
     Vec<ramag_app::PluginPackageCatalogEntry>,
+    Option<Arc<ramag_app::PluginPackageDownloader>>,
+    Option<std::path::PathBuf>,
 ) {
     let root = if let Some(path) = std::env::var_os("RAMAG_PLUGIN_STATE_DIR") {
         let path = std::path::PathBuf::from(path);
@@ -135,7 +137,7 @@ pub(super) fn load_plugin_installations() -> (
                 operation = "plugin_installation_load",
                 "插件状态目录必须是绝对路径，忽略环境变量"
             );
-            return (None, None, Vec::new(), Vec::new());
+            return (None, None, Vec::new(), Vec::new(), None, None);
         }
         path
     } else {
@@ -144,7 +146,7 @@ pub(super) fn load_plugin_installations() -> (
                 operation = "plugin_installation_load",
                 "无法定位插件状态目录"
             );
-            return (None, None, Vec::new(), Vec::new());
+            return (None, None, Vec::new(), Vec::new(), None, None);
         };
         dirs.data_dir().join("plugins")
     };
@@ -154,6 +156,18 @@ pub(super) fn load_plugin_installations() -> (
         package_root,
         store.clone(),
     ));
+    let package_downloader = match ramag_app::PluginPackageDownloader::new() {
+        Ok(downloader) => Some(Arc::new(downloader)),
+        Err(error) => {
+            warn!(
+                operation = "plugin_package_downloader_init",
+                error = %error,
+                "插件包下载器初始化失败"
+            );
+            None
+        }
+    };
+    let package_download_root = Some(root.join("downloads"));
     let catalog = load_plugin_catalog(&root);
     match store.load() {
         Ok(installations) => {
@@ -162,7 +176,14 @@ pub(super) fn load_plugin_installations() -> (
                 count = installations.len(),
                 "installable plugin states loaded"
             );
-            (Some(store), Some(package_installer), installations, catalog)
+            (
+                Some(store),
+                Some(package_installer),
+                installations,
+                catalog,
+                package_downloader,
+                package_download_root,
+            )
         }
         Err(error) => {
             warn!(
@@ -170,7 +191,14 @@ pub(super) fn load_plugin_installations() -> (
                 error = %error,
                 "plugin installation state unavailable"
             );
-            (Some(store), Some(package_installer), Vec::new(), catalog)
+            (
+                Some(store),
+                Some(package_installer),
+                Vec::new(),
+                catalog,
+                package_downloader,
+                package_download_root,
+            )
         }
     }
 }

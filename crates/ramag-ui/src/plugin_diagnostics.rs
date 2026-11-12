@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
@@ -10,9 +13,11 @@ use gpui_kit::{
 use ramag_app::{
     PluginCatalogEntry, PluginDiagnostic, PluginInstallation, PluginInstallationState,
     PluginInstallationStore, PluginLifecycleStage, PluginPackageCatalogEntry,
-    PluginPackageInstaller, PluginState, StaticPluginHost,
+    PluginPackageDownloader, PluginPackageInstaller, PluginState, StaticPluginHost,
 };
 use ramag_domain::PluginId;
+
+static PACKAGE_DOWNLOAD_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// 展示插件包状态、静态插件生命周期、注册错误和当前可用入口。
 pub(crate) struct PluginDiagnosticsView {
@@ -21,9 +26,14 @@ pub(crate) struct PluginDiagnosticsView {
     catalog_entries: Vec<PluginPackageCatalogEntry>,
     installation_store: Option<Arc<PluginInstallationStore>>,
     package_installer: Option<Arc<PluginPackageInstaller>>,
+    package_downloader: Option<Arc<PluginPackageDownloader>>,
+    package_download_root: Option<PathBuf>,
     installing_archive: bool,
+    downloading_package: Option<String>,
+    downloaded_packages: HashMap<String, PathBuf>,
     pending_uninstall: Option<PluginId>,
     installation_error: Option<String>,
+    download_error: Option<String>,
 }
 
 impl PluginDiagnosticsView {
@@ -38,9 +48,14 @@ impl PluginDiagnosticsView {
             catalog_entries: Vec::new(),
             installation_store: None,
             package_installer: None,
+            package_downloader: None,
+            package_download_root: None,
             installing_archive: false,
+            downloading_package: None,
+            downloaded_packages: HashMap::new(),
             pending_uninstall: None,
             installation_error: None,
+            download_error: None,
         }
     }
 
@@ -83,6 +98,29 @@ impl PluginDiagnosticsView {
         cx: &mut Context<Self>,
     ) {
         self.catalog_entries = entries;
+        self.downloading_package = None;
+        self.downloaded_packages.clear();
+        self.download_error = None;
+        cx.notify();
+    }
+
+    /// 注入包下载器；下载任务只写入独立缓存目录，不调用安装器。
+    pub(crate) fn set_package_downloader(
+        &mut self,
+        package_downloader: Arc<PluginPackageDownloader>,
+        cx: &mut Context<Self>,
+    ) {
+        self.package_downloader = Some(package_downloader);
+        cx.notify();
+    }
+
+    /// 注入插件状态目录下的下载缓存根目录，避免 UI 选择任意写入路径。
+    pub(crate) fn set_package_download_root(
+        &mut self,
+        package_download_root: PathBuf,
+        cx: &mut Context<Self>,
+    ) {
+        self.package_download_root = Some(package_download_root);
         cx.notify();
     }
 
@@ -221,6 +259,61 @@ impl PluginDiagnosticsView {
         self.pending_uninstall = None;
         cx.notify();
     }
+
+    /// 下载一个已校验目录候选到应用缓存；下载完成后只显示缓存文件，不自动安装。
+    fn download_package(&mut self, entry: PluginPackageCatalogEntry, cx: &mut Context<Self>) {
+        let key = package_download_key(&entry);
+        if self.downloading_package.is_some() || self.downloaded_packages.contains_key(&key) {
+            return;
+        }
+        let Some(downloader) = self.package_downloader.clone() else {
+            self.download_error = Some("插件下载器尚未初始化".into());
+            cx.notify();
+            return;
+        };
+        let Some(download_root) = self.package_download_root.clone() else {
+            self.download_error = Some("插件下载缓存目录尚未初始化".into());
+            cx.notify();
+            return;
+        };
+        let destination = package_download_destination(&download_root, &entry);
+        let plugin_id = entry.id.clone();
+        let version = entry.version.clone();
+        self.downloading_package = Some(key.clone());
+        self.download_error = None;
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let result = cx
+                .background_executor()
+                .spawn(async move {
+                    downloader
+                        .download_to_managed_runtime(&entry, &destination)
+                        .await
+                })
+                .await;
+            let _ = this.update(cx, |view, cx| {
+                view.downloading_package = None;
+                match result {
+                    Ok(path) => {
+                        view.downloaded_packages.insert(key, path);
+                        view.download_error = None;
+                    }
+                    Err(error) => {
+                        tracing::warn!(
+                            operation = "plugin_package_download",
+                            plugin_id = %plugin_id,
+                            version = %version,
+                            error = %error,
+                            "插件包下载失败"
+                        );
+                        view.download_error = Some(format!("插件包下载失败：{error}"));
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
 }
 
 impl Render for PluginDiagnosticsView {
@@ -258,7 +351,13 @@ impl Render for PluginDiagnosticsView {
                 self.installing_archive,
                 cx,
             ))
-            .child(render_package_catalog(&self.catalog_entries, cx))
+            .child(render_package_catalog(
+                &self.catalog_entries,
+                self.downloading_package.as_deref(),
+                &self.downloaded_packages,
+                self.download_error.as_deref(),
+                cx,
+            ))
             .child(render_catalog(&catalog, cx))
             .child(render_available_entries(&available, cx))
             .child(render_diagnostics(&diagnostics, cx))
@@ -562,6 +661,9 @@ fn installation_state_color(
 /// 展示本地目录中已校验的安装候选；候选页不发起网络请求或代码执行。
 fn render_package_catalog(
     entries: &[PluginPackageCatalogEntry],
+    downloading_package: Option<&str>,
+    downloaded_packages: &HashMap<String, PathBuf>,
+    download_error: Option<&str>,
     cx: &mut Context<PluginDiagnosticsView>,
 ) -> impl IntoElement {
     let theme = cx.theme();
@@ -569,6 +671,18 @@ fn render_package_catalog(
         .iter()
         .map(|entry| {
             let row_id = format!("plugin-package-catalog-{}-{}", entry.id, entry.version);
+            let package_key = package_download_key(entry);
+            let download_id = format!("plugin-package-catalog-download-{package_key}");
+            let is_downloading = downloading_package == Some(package_key.as_str());
+            let is_downloaded = downloaded_packages.contains_key(&package_key);
+            let download_label = if is_downloading {
+                "下载中…"
+            } else if is_downloaded {
+                "已下载"
+            } else {
+                "下载"
+            };
+            let download_entry = entry.clone();
             let capabilities = if entry.capabilities.is_empty() {
                 "无额外能力".to_owned()
             } else {
@@ -623,10 +737,30 @@ fn render_package_catalog(
                                 )),
                         )
                         .child(
-                            div()
-                                .text_xs()
-                                .text_color(theme.muted_foreground)
-                                .child("待安装"),
+                            h_flex()
+                                .flex_none()
+                                .items_center()
+                                .gap(px(6.0))
+                                .child(div().text_xs().text_color(theme.muted_foreground).child(
+                                    if is_downloading {
+                                        "下载中"
+                                    } else if is_downloaded {
+                                        "已下载"
+                                    } else {
+                                        "待下载"
+                                    },
+                                ))
+                                .child(
+                                    crate::clickable_button(download_id.clone())
+                                        .debug_selector(move || download_id.clone())
+                                        .xsmall()
+                                        .outline()
+                                        .label(download_label)
+                                        .disabled(is_downloading || is_downloaded)
+                                        .on_click(cx.listener(move |view, _, _, cx| {
+                                            view.download_package(download_entry.clone(), cx);
+                                        })),
+                                ),
                         ),
                 )
                 .child(
@@ -645,19 +779,39 @@ fn render_package_catalog(
         })
         .collect::<Vec<_>>();
     let body = if rows.is_empty() {
-        render_empty_state(
-            "plugin-package-catalog",
-            IconName::Folder,
-            "暂无本地目录候选",
-            "将已校验的 catalog.json 放入插件状态目录后会显示在这里；当前不会联网或执行代码。",
-            theme,
-        )
-        .into_any_element()
+        v_flex()
+            .w_full()
+            .min_w_0()
+            .gap(px(8.0))
+            .when_some(download_error, |content, error| {
+                content.child(crate::settings_view::settings_error_notice(
+                    "plugin-package-catalog-error",
+                    "插件包下载失败",
+                    error.to_owned(),
+                    theme,
+                ))
+            })
+            .child(render_empty_state(
+                "plugin-package-catalog",
+                IconName::Folder,
+                "暂无本地目录候选",
+                "将已校验的 catalog.json 放入插件状态目录后会显示在这里；当前不会联网或执行代码。",
+                theme,
+            ))
+            .into_any_element()
     } else {
         v_flex()
             .w_full()
             .min_w_0()
             .gap(px(8.0))
+            .when_some(download_error, |content, error| {
+                content.child(crate::settings_view::settings_error_notice(
+                    "plugin-package-catalog-error",
+                    "插件包下载失败",
+                    error.to_owned(),
+                    theme,
+                ))
+            })
             .children(rows)
             .into_any_element()
     };
@@ -672,12 +826,28 @@ fn render_package_catalog(
             cx,
         ))
         .child(
-            div()
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child("只展示本地清单中的已校验元数据；下载、签名和安装动作仍需后续功能。"),
+            div().text_xs().text_color(theme.muted_foreground).child(
+                "只展示本地清单中的已校验元数据；下载只保存到应用缓存，不会自动安装或执行。",
+            ),
         )
         .child(body)
+}
+
+fn package_download_key(entry: &PluginPackageCatalogEntry) -> String {
+    format!("{}-{}", entry.id, entry.version)
+}
+
+fn package_download_destination(
+    download_root: &Path,
+    entry: &PluginPackageCatalogEntry,
+) -> PathBuf {
+    let sequence = PACKAGE_DOWNLOAD_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    download_root.join(format!(
+        "{}-{}-{}-{sequence}.tar.gz",
+        entry.id,
+        entry.version,
+        std::process::id(),
+    ))
 }
 
 fn render_catalog(

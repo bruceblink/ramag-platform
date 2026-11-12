@@ -25,8 +25,8 @@ use gpui_kit::{
 };
 use ramag_app::{
     AvailableUpdate, ClipboardService, ConnectionService, PluginInstallation,
-    PluginInstallationStore, PluginPackageCatalogEntry, PluginPackageInstaller, SshService,
-    StaticPluginHost, UpdateService,
+    PluginInstallationStore, PluginPackageCatalogEntry, PluginPackageDownloader,
+    PluginPackageInstaller, SshService, StaticPluginHost, UpdateService,
 };
 use ramag_domain::entities::{
     ClipboardSettings, DownloadProgress, IdConverterKind, MAX_CUSTOM_ID_ALPHABET_BYTES,
@@ -475,6 +475,30 @@ impl SettingsView {
     ) {
         self.plugin_diagnostics.update(cx, |view, cx| {
             view.set_package_installer(package_installer, cx)
+        });
+        cx.notify();
+    }
+
+    /// 注入插件包下载器，使目录候选可以保存到应用缓存。
+    pub fn set_plugin_package_downloader(
+        &mut self,
+        package_downloader: Arc<PluginPackageDownloader>,
+        cx: &mut Context<Self>,
+    ) {
+        self.plugin_diagnostics.update(cx, |view, cx| {
+            view.set_package_downloader(package_downloader, cx)
+        });
+        cx.notify();
+    }
+
+    /// 注入插件包下载缓存目录，限制设置页的写入范围。
+    pub fn set_plugin_package_download_root(
+        &mut self,
+        package_download_root: PathBuf,
+        cx: &mut Context<Self>,
+    ) {
+        self.plugin_diagnostics.update(cx, |view, cx| {
+            view.set_package_download_root(package_download_root, cx)
         });
         cx.notify();
     }

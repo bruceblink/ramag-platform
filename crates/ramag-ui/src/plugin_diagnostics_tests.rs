@@ -201,6 +201,9 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
             let package_entry = visual_cx
                 .debug_bounds("plugin-package-catalog-catalog.example-1.0.0")
                 .expect("本地目录候选应渲染");
+            let package_download = visual_cx
+                .debug_bounds("plugin-package-catalog-download-catalog.example-1.0.0")
+                .expect("本地目录候选应显示下载按钮");
             let installation = visual_cx
                 .debug_bounds("plugin-installation-example.package")
                 .expect("可安装插件状态应渲染");
@@ -258,6 +261,7 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
                 install_archive,
                 package_catalog,
                 package_entry,
+                package_download,
                 catalog,
                 catalog_entry,
                 available,
@@ -400,6 +404,36 @@ fn empty_plugin_diagnostics_shows_bounded_states(cx: &mut TestAppContext) {
             assert!(guidance.origin.y > heading.origin.y);
         }
     }
+}
+
+#[gpui_kit::test]
+fn catalog_download_without_service_shows_bounded_error(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+    let (_, visual_cx) = cx.add_window_view(move |_, cx| PluginDiagnosticsTestHost {
+        view: cx.new(|view_cx| {
+            let mut view = PluginDiagnosticsView::with_installations(host, Vec::new());
+            let entry = catalog_plugin();
+            view.set_catalog_entries(vec![entry.clone()], view_cx);
+            view.download_package(entry, view_cx);
+            view
+        }),
+    });
+    let visual_cx: &mut VisualTestContext = visual_cx;
+    visual_cx.simulate_resize(size(px(640.0), px(520.0)));
+    visual_cx.run_until_parked();
+
+    let root = visual_cx
+        .debug_bounds("plugin-diagnostics")
+        .expect("插件诊断页应渲染");
+    let catalog = visual_cx
+        .debug_bounds("plugin-package-catalog")
+        .expect("本地目录候选区域应渲染");
+    let error = visual_cx
+        .debug_bounds("plugin-package-catalog-error")
+        .expect("下载器未初始化时应显示错误状态卡");
+    assert_inside(error, catalog);
+    assert_inside(error, root);
 }
 
 #[gpui_kit::test]

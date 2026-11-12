@@ -1,6 +1,7 @@
 //! 插件包候选的有界 HTTPS 下载和摘要核验；不自动安装或执行下载内容。
 
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
@@ -9,6 +10,7 @@ use reqwest::{Client, StatusCode, Url, redirect};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 use tokio::io::AsyncWriteExt as _;
+use tokio::runtime::{Builder, Runtime};
 
 use crate::{PluginPackageCatalogEntry, PluginPackageCatalogError};
 
@@ -42,6 +44,23 @@ impl PluginPackageDownloader {
         Self { client }
     }
 
+    /// 在下载模块专用 Tokio runtime 中执行下载，供 GPUI 等非 Tokio 执行器调用。
+    pub async fn download_to_managed_runtime(
+        &self,
+        entry: &PluginPackageCatalogEntry,
+        destination: &Path,
+    ) -> Result<PathBuf, PluginPackageDownloadError> {
+        let downloader = self.clone();
+        let entry = entry.clone();
+        let destination = destination.to_path_buf();
+        download_runtime()?
+            .spawn(async move { downloader.download_to(&entry, &destination).await })
+            .await
+            .map_err(|source| PluginPackageDownloadError::TaskJoin {
+                message: source.to_string(),
+            })?
+    }
+
     /// 下载一个已校验候选到新文件，并在原子发布前核对 SHA-256。
     pub async fn download_to(
         &self,
@@ -64,6 +83,13 @@ impl PluginPackageDownloader {
                 .ok_or_else(|| PluginPackageDownloadError::DestinationInvalid {
                     path: destination.to_path_buf(),
                 })?;
+        tracing::info!(
+            operation = "plugin_package_download",
+            plugin_id = %entry.id,
+            version = %entry.version,
+            destination = %destination.display(),
+            "插件包下载开始"
+        );
         tokio::fs::create_dir_all(parent)
             .await
             .map_err(|source| PluginPackageDownloadError::Io { source })?;
@@ -167,7 +193,32 @@ impl PluginPackageDownloader {
                 "插件包下载临时链接清理失败"
             ),
         }
+        tracing::info!(
+            operation = "plugin_package_download",
+            plugin_id = %entry.id,
+            version = %entry.version,
+            destination = %destination.display(),
+            bytes = downloaded,
+            "插件包下载完成"
+        );
         Ok(destination.to_path_buf())
+    }
+}
+
+fn download_runtime() -> Result<&'static Runtime, PluginPackageDownloadError> {
+    static RUNTIME: OnceLock<Result<Runtime, String>> = OnceLock::new();
+    match RUNTIME.get_or_init(|| {
+        Builder::new_multi_thread()
+            .worker_threads(2)
+            .thread_name("ramag-plugin-download-tokio")
+            .enable_all()
+            .build()
+            .map_err(|error| format!("创建插件包下载 runtime 失败：{error}"))
+    }) {
+        Ok(runtime) => Ok(runtime),
+        Err(message) => Err(PluginPackageDownloadError::Runtime {
+            message: message.clone(),
+        }),
     }
 }
 
@@ -232,6 +283,10 @@ pub enum PluginPackageDownloadError {
     Client { source: reqwest::Error },
     #[error("插件包下载请求失败：{source}")]
     Request { source: reqwest::Error },
+    #[error("创建插件包下载 runtime 失败：{message}")]
+    Runtime { message: String },
+    #[error("插件包下载任务异常退出：{message}")]
+    TaskJoin { message: String },
     #[error("插件包下载返回 HTTP 状态 {status}")]
     HttpStatus { status: u16 },
     #[error("插件包下载发生未授权重定向：期望 {expected}，实际 {actual}")]
@@ -283,5 +338,20 @@ mod tests {
             actual,
         };
         assert!(error.to_string().contains("摘要不匹配"));
+    }
+
+    #[test]
+    fn managed_runtime_keeps_validation_outside_tokio() {
+        // 测试客户端也必须遵守正式组合根的 rustls-no-provider 初始化约定。
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let client = Client::builder().build().expect("构造测试客户端");
+        let downloader = PluginPackageDownloader::with_client(client);
+        let result = futures::executor::block_on(
+            downloader.download_to_managed_runtime(&entry(), Path::new("relative-package.tar.gz")),
+        );
+        assert!(matches!(
+            result,
+            Err(PluginPackageDownloadError::DestinationInvalid { .. })
+        ));
     }
 }
