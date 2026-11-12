@@ -98,8 +98,9 @@ impl PluginProcessHost {
             .validate()
             .map_err(PluginProcessError::Manifest)?;
         validate_granted_capabilities(&config.granted_capabilities)?;
-        let entrypoint = resolve_plugin_entrypoint(&config.package_root, &config.manifest)?;
         let package_root = canonical_package_root(&config.package_root)?;
+        verify_package_digest(&package_root, &config.manifest)?;
+        let entrypoint = resolve_plugin_entrypoint(&package_root, &config.manifest)?;
 
         let mut command = Command::new(&entrypoint);
         command.args(&config.args).current_dir(&package_root);
@@ -271,6 +272,26 @@ impl PluginProcessHost {
         let tail = self.stderr_tail.lock().iter().copied().collect::<Vec<_>>();
         String::from_utf8_lossy(&tail).into_owned()
     }
+}
+
+/// 启动外部代码前重新核对包内容，避免安装后文件被替换仍按 enabled 状态执行。
+fn verify_package_digest(
+    package_root: &Path,
+    manifest: &PluginPackageManifest,
+) -> Result<(), PluginProcessError> {
+    let actual =
+        crate::plugin_package_installer::package_digest(package_root).map_err(|error| {
+            PluginProcessError::PackageVerification {
+                message: error.to_string(),
+            }
+        })?;
+    if actual != manifest.package_sha256 {
+        return Err(PluginProcessError::PackageDigestMismatch {
+            expected: manifest.package_sha256.clone(),
+            actual,
+        });
+    }
+    Ok(())
 }
 
 /// 清空继承环境，只保留启动插件所需的搜索路径和宿主元数据。
@@ -492,6 +513,10 @@ pub enum PluginProcessError {
     EntrypointNotFile { path: PathBuf },
     #[error("插件路径处理失败：{source}")]
     Path { source: std::io::Error },
+    #[error("插件包摘要核验失败：{message}")]
+    PackageVerification { message: String },
+    #[error("插件包摘要不匹配：期望 {expected}，实际 {actual}")]
+    PackageDigestMismatch { expected: String, actual: String },
     #[error("启动插件进程失败：{0}")]
     Spawn(#[source] std::io::Error),
     #[error("插件进程没有可用的 {0} 管道")]

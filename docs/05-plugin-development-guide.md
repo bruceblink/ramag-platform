@@ -66,13 +66,13 @@ flowchart TB
 
 `PluginInstallationStore` 将记录保存到指定目录的 `installed.json`。每条记录包含清单、`installed`、`enabled`、`disabled` 或 `quarantined` 状态和有界的最近错误。状态文件写入使用同目录临时文件、完整写入和同步后替换；加载时重新执行清单校验。设置页可以把已安装插件切换为 `enabled` 或 `disabled`，按钮调用同一存储接口并立即更新显示。该操作不绕过清单和权限校验，不启动外部进程。
 
-后续进程外宿主必须在使用 `enabled` 状态前增加签名或摘要核对、握手、消息大小、超时、崩溃隔离和权限授予。安装、更新和卸载必须继续使用独立的原子包目录与回滚记录。
+进程外宿主在使用 `enabled` 状态前会重新核对包摘要，并执行握手、消息大小、超时和崩溃隔离；签名验证和操作系统权限隔离仍未实现。安装、更新和卸载必须继续使用独立的原子包目录与回滚记录。
 
 `PluginProcessHost` 使用 `PluginPackageManifest.entrypoint` 解析包内普通文件，拒绝绝对路径、父目录和符号链接。宿主清空继承环境，只保留 `PATH`、Windows `SystemRoot` 和 `RAMAG_PLUGIN_ID`、`RAMAG_PLUGIN_PROTOCOL_VERSION`、`RAMAG_PLUGIN_PACKAGE_ROOT`。握手通过后，入口调用按请求顺序发送，超时或协议错误会结束当前会话。stderr 只保留有界尾部，不把完整进程输出写入日志。
 
 `PluginPackageInstaller` 从本地解包目录读取 `plugin.json`。它使用稳定的相对文件路径和文件内容计算 SHA-256，清单文件不参与自身摘要，包内容最多 `64 MiB`。安装器拒绝源目录位于包目录内、符号链接和不支持的文件类型；有效包先复制到临时目录，再备份旧版本目录并替换，状态保存失败时恢复旧版本目录。卸载时先校验状态对应的版本目录，再将目录改名为同级备份，删除状态后清理备份；状态操作或清理失败会尝试恢复目录和状态，不删除其他插件或版本。插件设置页提供确认后的卸载入口，成功后立即移除对应插件行。
 
-当前实现可以使用 `ramag-plugin-helper` 完成跨平台真实进程的握手、回显调用和关闭验收。该辅助进程只服务测试，不是主程序入口。归档格式下载、签名、沙箱、Windows Job Object、Unix process group 和第三方窗口仍需要独立切片。
+当前实现可以使用 `ramag-plugin-helper` 完成跨平台真实进程的握手、回显调用和关闭验收；启动前还会重新核对包摘要。该辅助进程只服务测试，不是主程序入口。归档格式下载、签名、沙箱、Windows Job Object、Unix process group 和第三方窗口仍需要独立切片。
 
 | 项目 | 接口上限与兼容要求 |
 |---|---|

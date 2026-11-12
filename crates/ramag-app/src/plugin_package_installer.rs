@@ -349,7 +349,8 @@ fn read_manifest(root: &Path) -> Result<PluginPackageManifest, PluginPackageInst
     Ok(manifest)
 }
 
-fn package_digest(root: &Path) -> Result<String, PluginPackageInstallError> {
+/// 按稳定的相对路径和文件内容计算包摘要；进程宿主启动前复用该规则核验已安装目录。
+pub(crate) fn package_digest(root: &Path) -> Result<String, PluginPackageInstallError> {
     let mut files = BTreeMap::new();
     collect_files(root, root, &mut files)?;
     let mut total_bytes = 0_u64;

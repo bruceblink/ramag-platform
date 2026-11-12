@@ -54,6 +54,23 @@ fn resolver_rejects_relative_parent_and_symlink_escape() {
 }
 
 #[test]
+fn process_package_digest_must_match_before_start() {
+    let directory = tempdir().unwrap();
+    fs::create_dir_all(directory.path().join("bin")).unwrap();
+    fs::write(directory.path().join("bin/plugin"), b"original").unwrap();
+    let mut descriptor = manifest("bin/plugin");
+    descriptor.package_sha256 =
+        crate::plugin_package_installer::package_digest(directory.path()).unwrap();
+    assert!(verify_package_digest(directory.path(), &descriptor).is_ok());
+
+    fs::write(directory.path().join("bin/plugin"), b"tampered").unwrap();
+    assert!(matches!(
+        verify_package_digest(directory.path(), &descriptor),
+        Err(PluginProcessError::PackageDigestMismatch { .. })
+    ));
+}
+
+#[test]
 fn ready_message_requires_manifest_identity_api_and_capabilities() {
     let descriptor = manifest("plugin");
     let ready = PluginProcessMessage::Ready(PluginReady {
