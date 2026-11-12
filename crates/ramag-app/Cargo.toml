@@ -47,11 +47,16 @@ smol = { workspace = true }
 tokio = { workspace = true }
 semver = { workspace = true }
 
+# 本地插件 tar.gz 归档的安全扫描和解包
+async-tar = { workspace = true }
+async-compression = { workspace = true }
+
 # 当前进程资源基线采样
 ramag-infra-system = { workspace = true }
 
 [dev-dependencies]
 # decide_capture 等纯逻辑测试无需额外 mock；保留位以备扩展
+async-std = { workspace = true }
 async-trait = { workspace = true }
 ramag-infra-storage = { workspace = true }
 tempfile = "3"

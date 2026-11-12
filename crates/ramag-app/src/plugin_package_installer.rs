@@ -46,6 +46,14 @@ impl PluginPackageInstaller {
         &self.packages_root
     }
 
+    /// 解包并安装一个受限本地 `tar.gz` 插件包；摘要和状态仍由目录安装器处理。
+    pub fn install_from_archive(
+        &self,
+        archive_path: &Path,
+    ) -> Result<PluginInstallation, crate::PluginPackageArchiveError> {
+        crate::plugin_package_archive::install_from_archive(self, archive_path)
+    }
+
     /// 读取、校验并安装一个已解包插件目录；清单文件不参与自身摘要计算。
     pub fn install_from_directory(
         &self,

@@ -9,6 +9,7 @@ mod plugin_catalog;
 mod plugin_host;
 mod plugin_installation;
 mod plugin_lifecycle;
+mod plugin_package_archive;
 mod plugin_package_installer;
 mod plugin_process;
 mod plugin_process_protocol;
@@ -37,6 +38,10 @@ pub use plugin_lifecycle::{
     PluginDiagnosticFailure, PluginEntryFuture, PluginHostError, PluginLifecycleFailure,
     PluginLifecycleReport, PluginLifecycleStage, PluginOperationError, PluginPermissionPolicy,
     PluginState, StaticPlugin, StaticPluginAdapter, StaticPluginHost,
+};
+pub use plugin_package_archive::{
+    MAX_PLUGIN_ARCHIVE_BYTES, MAX_PLUGIN_ARCHIVE_ENTRIES, MAX_PLUGIN_ARCHIVE_UNPACKED_BYTES,
+    PluginPackageArchiveError,
 };
 pub use plugin_package_installer::{
     MAX_PLUGIN_PACKAGE_BYTES, PLUGIN_PACKAGE_MANIFEST_FILE_NAME, PluginPackageInstallError,
