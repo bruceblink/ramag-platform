@@ -93,11 +93,11 @@ fn rendered_switches_update_home_and_sidebar_independently(cx: &mut TestAppConte
     assert!(visual.debug_bounds("activity-tool-first").is_some());
     assert!(visual.debug_bounds("activity-settings").is_some());
 
-    click(visual, "settings-tool-home-first");
+    click(visual, "settings-tool-home-first-group");
     assert!(visual.debug_bounds("home-tool-first").is_none());
     assert!(visual.debug_bounds("activity-tool-first").is_some());
 
-    click(visual, "settings-tool-sidebar-first");
+    click(visual, "settings-tool-sidebar-first-group");
     assert!(visual.debug_bounds("activity-tool-first").is_none());
     assert!(visual.debug_bounds("activity-settings").is_some());
     assert_eq!(
@@ -107,11 +107,11 @@ fn rendered_switches_update_home_and_sidebar_independently(cx: &mut TestAppConte
         Some((false, false))
     );
 
-    click(visual, "settings-tool-home-first");
+    click(visual, "settings-tool-home-first-group");
     assert!(visual.debug_bounds("home-tool-first").is_some());
     assert!(visual.debug_bounds("activity-tool-first").is_none());
 
-    click(visual, "settings-tool-sidebar-first");
+    click(visual, "settings-tool-sidebar-first-group");
     assert!(visual.debug_bounds("activity-tool-first").is_some());
 }
 
@@ -130,8 +130,8 @@ fn visibility_page_fits_compact_and_desktop_widths(cx: &mut TestAppContext) {
         let home_summary = bounds(visual, "tool-visibility-summary-home");
         let sidebar_summary = bounds(visual, "tool-visibility-summary-sidebar");
         let row = bounds(visual, "settings-tool-entry-first");
-        let home = bounds(visual, "settings-tool-home-first");
-        let sidebar = bounds(visual, "settings-tool-sidebar-first");
+        let home_group = bounds(visual, "settings-tool-home-first-group");
+        let sidebar_group = bounds(visual, "settings-tool-sidebar-first-group");
         for metric in [summary, total, home_summary, sidebar_summary] {
             assert!(metric.origin.x >= page.origin.x);
             assert!(metric.right() <= page.right());
@@ -140,7 +140,9 @@ fn visibility_page_fits_compact_and_desktop_widths(cx: &mut TestAppContext) {
         }
         assert!(row.origin.x >= page.origin.x);
         assert!(row.right() <= page.right());
-        assert!(home.origin.x >= row.origin.x && home.right() <= row.right());
-        assert!(sidebar.origin.x >= row.origin.x && sidebar.right() <= row.right());
+        for group in [home_group, sidebar_group] {
+            assert!(group.origin.x >= row.origin.x && group.right() <= row.right());
+            assert!(group.origin.y >= row.origin.y && group.bottom() <= row.bottom());
+        }
     }
 }

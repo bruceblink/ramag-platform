@@ -162,6 +162,8 @@ fn render_tool_entry(
     let row_id = format!("settings-tool-entry-{id}");
     let home_id = format!("settings-tool-home-{id}");
     let sidebar_id = format!("settings-tool-sidebar-{id}");
+    let home_label = format!("{name} 的首页入口");
+    let sidebar_label = format!("{name} 的侧边栏入口");
     let home_tool_id = id.clone();
     let sidebar_tool_id = id;
     let border = theme.border;
@@ -171,11 +173,13 @@ fn render_tool_entry(
     let accent = theme.accent;
 
     let home_switch: Switch = crate::clickable_switch(home_id.clone())
+        .accessibility_label(home_label)
         .checked(visibility.home)
         .on_click(cx.listener(move |view, _: &bool, _, cx| {
             view.toggle_surface(&home_tool_id, true, cx);
         }));
     let sidebar_switch: Switch = crate::clickable_switch(sidebar_id.clone())
+        .accessibility_label(sidebar_label)
         .checked(visibility.sidebar)
         .on_click(cx.listener(move |view, _: &bool, _, cx| {
             view.toggle_surface(&sidebar_tool_id, false, cx);
@@ -222,13 +226,14 @@ fn render_tool_entry(
 
 fn surface_toggle(
     label: &'static str,
-    id: String,
+    switch_id: String,
     switch: Switch,
     muted: gpui_kit::Hsla,
 ) -> impl IntoElement {
+    let group_id = format!("{switch_id}-group");
     h_flex()
-        .id(id.clone())
-        .debug_selector(move || id.clone())
+        .id(group_id.clone())
+        .debug_selector(move || group_id.clone())
         .items_center()
         .gap(px(6.0))
         .child(div().text_xs().text_color(muted).child(label))
