@@ -7,6 +7,7 @@ mod blocking;
 pub mod connection_transfer;
 mod plugin_catalog;
 mod plugin_host;
+mod plugin_installation;
 mod plugin_lifecycle;
 mod plugin_secrets;
 mod plugin_settings;
@@ -23,6 +24,11 @@ pub use plugin_catalog::{
     PluginCatalogError, PluginDataHandling,
 };
 pub use plugin_host::PluginEntryExecutionError;
+pub use plugin_installation::{
+    MAX_PLUGIN_INSTALLATION_ERROR_BYTES, MAX_PLUGIN_INSTALLATIONS, PluginInstallation,
+    PluginInstallationError, PluginInstallationState, PluginInstallationStore,
+    PluginInstallationStoreError,
+};
 pub use plugin_lifecycle::{
     MAX_PLUGIN_OPERATION_ERROR_BYTES, PluginContext, PluginContextError, PluginDiagnostic,
     PluginDiagnosticFailure, PluginEntryFuture, PluginHostError, PluginLifecycleFailure,

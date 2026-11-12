@@ -180,3 +180,100 @@ fn multi_entry_descriptor_rejects_duplicate_ids_and_missing_primary() {
         Err(PluginRegistrationError::MissingPrimaryEntry { .. })
     ));
 }
+
+fn package_manifest() -> Result<PluginPackageManifest, PluginRegistrationError> {
+    let plugin_id = PluginId::new("example.package")?;
+    Ok(PluginPackageManifest::new(
+        plugin_id,
+        "Example package",
+        "1.2.3",
+        "bin/example-plugin",
+        "a".repeat(MAX_PLUGIN_PACKAGE_SHA256_BYTES),
+    )
+    .with_capabilities([PluginCapability::new("ui.entry")]))
+}
+
+#[test]
+fn installable_package_manifest_validates_and_round_trips() {
+    let Ok(manifest) = package_manifest() else {
+        return;
+    };
+    assert!(manifest.validate().is_ok());
+    let Ok(serialized) = serde_json::to_string(&manifest) else {
+        return;
+    };
+    let Ok(restored) = serde_json::from_str::<PluginPackageManifest>(&serialized) else {
+        return;
+    };
+    assert_eq!(restored, manifest);
+}
+
+#[test]
+fn installable_package_manifest_rejects_unsafe_entrypoints_and_bad_digest() {
+    let Ok(manifest) = package_manifest() else {
+        return;
+    };
+    let unsafe_path = PluginPackageManifest {
+        entrypoint: "../plugin".into(),
+        ..manifest.clone()
+    };
+    assert!(matches!(
+        unsafe_path.validate(),
+        Err(PluginPackageManifestError::InvalidEntrypoint { .. })
+    ));
+    let windows_path = PluginPackageManifest {
+        entrypoint: "C:/plugin".into(),
+        ..manifest.clone()
+    };
+    assert!(matches!(
+        windows_path.validate(),
+        Err(PluginPackageManifestError::InvalidEntrypoint { .. })
+    ));
+
+    let bad_digest = PluginPackageManifest {
+        package_sha256: "not-a-sha256".into(),
+        ..manifest
+    };
+    assert!(matches!(
+        bad_digest.validate(),
+        Err(PluginPackageManifestError::InvalidSha256 { .. })
+    ));
+}
+
+#[test]
+fn deserialized_package_manifest_rechecks_id_api_and_capabilities() {
+    let Ok(manifest) = package_manifest() else {
+        return;
+    };
+    let Ok(mut value) = serde_json::to_value(manifest.clone()) else {
+        return;
+    };
+    value["id"] = serde_json::json!("Bad.Plugin");
+    let Ok(restored) = serde_json::from_value::<PluginPackageManifest>(value) else {
+        return;
+    };
+    assert!(matches!(
+        restored.validate(),
+        Err(PluginPackageManifestError::Id(
+            PluginRegistrationError::InvalidIdentifier { .. }
+        ))
+    ));
+
+    let unsupported = PluginPackageManifest {
+        api_version: PluginApiVersion::new(2, 0),
+        ..manifest.clone()
+    };
+    assert!(matches!(
+        unsupported.validate(),
+        Err(PluginPackageManifestError::UnsupportedApiVersion { .. })
+    ));
+
+    let unknown_capability = PluginPackageManifest {
+        capabilities: vec![PluginCapability::new("network.any")],
+        ..manifest
+    };
+    assert!(matches!(
+        unknown_capability.validate(),
+        Err(PluginPackageManifestError::UnknownCapability { .. })
+    ));
+}

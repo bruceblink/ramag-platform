@@ -27,6 +27,7 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 regex = { workspace = true }
 url = { workspace = true }
+semver = { workspace = true }
 
 # 唯一标识
 uuid = { workspace = true }
