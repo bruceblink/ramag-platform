@@ -47,7 +47,7 @@ flowchart TB
 | `PluginDescriptor` / `PluginEntryDescriptor` | 描述静态插件身份、API 版本、入口、能力和设置 |
 | `PluginPackageManifest` | 描述可安装包的 ID、SemVer、宿主 API、`process` 运行时、相对入口、能力和 SHA-256；不执行包内容 |
 | `PluginInstallationStore` | 保存 `installed`、`enabled`、`disabled` 和 `quarantined` 状态；不负责下载或升级 |
-| `PluginPackageInstaller` | 校验本地 `plugin.json`、摘要和包内路径，并原子替换版本目录；不下载、不执行入口 |
+| `PluginPackageInstaller` | 校验本地 `plugin.json`、摘要和包内路径，原子替换或卸载版本目录；不下载、不执行入口 |
 | `PluginProcessHost` | 校验包内入口、启动外部进程、完成握手和有界入口调用；不提供签名、沙箱或子孙进程清理 |
 | `StaticPluginHost` | 校验、注册、初始化、关闭、执行和失败隔离；不负责动态发现或进程管理 |
 | `PluginContext` | 提供生命周期检查、权限、快照和有界任务；不暴露宿主内部对象 |
@@ -70,7 +70,7 @@ flowchart TB
 
 `PluginProcessHost` 使用 `PluginPackageManifest.entrypoint` 解析包内普通文件，拒绝绝对路径、父目录和符号链接。宿主清空继承环境，只保留 `PATH`、Windows `SystemRoot` 和 `RAMAG_PLUGIN_ID`、`RAMAG_PLUGIN_PROTOCOL_VERSION`、`RAMAG_PLUGIN_PACKAGE_ROOT`。握手通过后，入口调用按请求顺序发送，超时或协议错误会结束当前会话。stderr 只保留有界尾部，不把完整进程输出写入日志。
 
-`PluginPackageInstaller` 从本地解包目录读取 `plugin.json`。它使用稳定的相对文件路径和文件内容计算 SHA-256，清单文件不参与自身摘要，包内容最多 `64 MiB`。安装器拒绝源目录位于包目录内、符号链接和不支持的文件类型；有效包先复制到临时目录，再备份旧版本目录并替换，状态保存失败时恢复旧版本目录。
+`PluginPackageInstaller` 从本地解包目录读取 `plugin.json`。它使用稳定的相对文件路径和文件内容计算 SHA-256，清单文件不参与自身摘要，包内容最多 `64 MiB`。安装器拒绝源目录位于包目录内、符号链接和不支持的文件类型；有效包先复制到临时目录，再备份旧版本目录并替换，状态保存失败时恢复旧版本目录。卸载时先校验状态对应的版本目录，再将目录改名为同级备份，删除状态后清理备份；状态操作或清理失败会尝试恢复目录和状态，不删除其他插件或版本。
 
 当前实现可以使用 `ramag-plugin-helper` 完成跨平台真实进程的握手、回显调用和关闭验收。该辅助进程只服务测试，不是主程序入口。归档格式下载、签名、沙箱、Windows Job Object、Unix process group 和第三方窗口仍需要独立切片。
 

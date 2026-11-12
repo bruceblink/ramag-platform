@@ -6,6 +6,7 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use parking_lot::Mutex;
 use ramag_domain::{PluginPackageManifest, PluginPackageManifestError};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
@@ -26,6 +27,7 @@ static PACKAGE_TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 pub struct PluginPackageInstaller {
     packages_root: PathBuf,
     state_store: Arc<PluginInstallationStore>,
+    operation_lock: Arc<Mutex<()>>,
 }
 
 impl PluginPackageInstaller {
@@ -36,6 +38,7 @@ impl PluginPackageInstaller {
         Self {
             packages_root: packages_root.into(),
             state_store,
+            operation_lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -48,6 +51,7 @@ impl PluginPackageInstaller {
         &self,
         source_root: &Path,
     ) -> Result<PluginInstallation, PluginPackageInstallError> {
+        let _operation = self.operation_lock.lock();
         let source_root = canonical_source_root(source_root)?;
         let packages_root = ensure_packages_root(&self.packages_root)?;
         if source_root.starts_with(&packages_root) {
@@ -95,6 +99,178 @@ impl PluginPackageInstaller {
         }
         let _ = fs::remove_dir_all(&backup);
         Ok(installation)
+    }
+
+    /// 卸载已安装插件；先备份版本目录，再删除状态，失败时恢复两者。
+    pub fn uninstall(
+        &self,
+        plugin_id: &ramag_domain::PluginId,
+    ) -> Result<bool, PluginPackageInstallError> {
+        let _operation = self.operation_lock.lock();
+        let installations = self
+            .state_store
+            .load()
+            .map_err(PluginPackageInstallError::State)?;
+        let Some(installation) = installations
+            .iter()
+            .find(|installation| installation.manifest.id == *plugin_id)
+            .cloned()
+        else {
+            return Ok(false);
+        };
+
+        let packages_root = ensure_packages_root(&self.packages_root)?;
+        let target =
+            installed_package_path(&packages_root, plugin_id, &installation.manifest.version)?;
+        let backup = target.with_file_name(format!(
+            ".{}.uninstall-backup-{}-{}",
+            plugin_id,
+            std::process::id(),
+            PACKAGE_TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::rename(&target, &backup).map_err(|source| PluginPackageInstallError::Io {
+            operation: "备份待卸载插件版本",
+            source,
+        })?;
+
+        match self.state_store.remove(plugin_id) {
+            Ok(true) => {}
+            Ok(false) => {
+                if let Err(source) = restore_uninstall_directory(&target, &backup) {
+                    return Err(PluginPackageInstallError::Rollback {
+                        operation: "恢复待卸载插件目录",
+                        source,
+                    });
+                }
+                return Ok(false);
+            }
+            Err(error) => {
+                if let Err(restore_error) = restore_uninstall_directory(&target, &backup) {
+                    return Err(PluginPackageInstallError::Rollback {
+                        operation: "恢复待卸载插件目录",
+                        source: restore_error,
+                    });
+                }
+                return Err(PluginPackageInstallError::State(error));
+            }
+        }
+
+        if let Err(source) = fs::remove_dir_all(&backup) {
+            let restore_error = restore_uninstall_directory(&target, &backup).err();
+            let state_restore = self.state_store.upsert(installation).err();
+            if let Some(restore_error) = restore_error {
+                return Err(PluginPackageInstallError::Rollback {
+                    operation: "恢复待卸载插件目录",
+                    source: restore_error,
+                });
+            }
+            if let Some(state_restore) = state_restore {
+                return Err(PluginPackageInstallError::StateRollback {
+                    uninstall: source,
+                    restore: state_restore,
+                });
+            }
+            return Err(PluginPackageInstallError::Io {
+                operation: "删除插件备份目录",
+                source,
+            });
+        }
+        remove_empty_plugin_directory(&packages_root, plugin_id);
+        Ok(true)
+    }
+}
+
+/// 校验已安装版本目录只位于插件包根目录内，且不经过符号链接。
+fn installed_package_path(
+    packages_root: &Path,
+    plugin_id: &ramag_domain::PluginId,
+    version: &str,
+) -> Result<PathBuf, PluginPackageInstallError> {
+    let plugin_dir = packages_root.join(plugin_id.as_str());
+    let plugin_metadata = fs::symlink_metadata(&plugin_dir).map_err(|source| {
+        if source.kind() == std::io::ErrorKind::NotFound {
+            PluginPackageInstallError::PackageMissing {
+                path: plugin_dir.clone(),
+            }
+        } else {
+            PluginPackageInstallError::Io {
+                operation: "检查已安装插件目录",
+                source,
+            }
+        }
+    })?;
+    if plugin_metadata.file_type().is_symlink() {
+        return Err(PluginPackageInstallError::SymlinkEntry { path: plugin_dir });
+    }
+    if !plugin_metadata.is_dir() {
+        return Err(PluginPackageInstallError::UnsupportedEntry { path: plugin_dir });
+    }
+    let version_path = Path::new(version);
+    if !version_path
+        .components()
+        .all(|component| matches!(component, Component::Normal(_)))
+    {
+        return Err(PluginPackageInstallError::InvalidRelativePath {
+            path: plugin_dir.join(version_path),
+        });
+    }
+    let target = plugin_dir.join(version_path);
+    let target_metadata = fs::symlink_metadata(&target).map_err(|source| {
+        if source.kind() == std::io::ErrorKind::NotFound {
+            PluginPackageInstallError::PackageMissing {
+                path: target.clone(),
+            }
+        } else {
+            PluginPackageInstallError::Io {
+                operation: "检查已安装插件版本目录",
+                source,
+            }
+        }
+    })?;
+    if target_metadata.file_type().is_symlink() {
+        return Err(PluginPackageInstallError::SymlinkEntry { path: target });
+    }
+    if !target_metadata.is_dir() {
+        return Err(PluginPackageInstallError::UnsupportedEntry { path: target });
+    }
+    let canonical_target =
+        target
+            .canonicalize()
+            .map_err(|source| PluginPackageInstallError::Io {
+                operation: "解析已安装插件版本目录",
+                source,
+            })?;
+    if !canonical_target.starts_with(packages_root) {
+        return Err(PluginPackageInstallError::InvalidRelativePath {
+            path: canonical_target,
+        });
+    }
+    Ok(target)
+}
+
+/// 恢复卸载前的版本目录，发现目标被替换时直接失败以避免误删外部目录。
+fn restore_uninstall_directory(target: &Path, backup: &Path) -> Result<(), std::io::Error> {
+    match fs::symlink_metadata(target) {
+        Ok(_) => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                "待恢复插件目标目录已被替换",
+            ));
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    fs::rename(backup, target)
+}
+
+/// 只删除已经为空的插件 ID 目录，保留其他版本目录。
+fn remove_empty_plugin_directory(packages_root: &Path, plugin_id: &ramag_domain::PluginId) {
+    let plugin_dir = packages_root.join(plugin_id.as_str());
+    if let Ok(metadata) = fs::symlink_metadata(&plugin_dir)
+        && metadata.is_dir()
+        && !metadata.file_type().is_symlink()
+    {
+        let _ = fs::remove_dir(&plugin_dir);
     }
 }
 
@@ -341,10 +517,22 @@ pub enum PluginPackageInstallError {
     SymlinkEntry { path: PathBuf },
     #[error("插件包路径无效：{path}")]
     InvalidRelativePath { path: PathBuf },
+    #[error("已安装插件包不存在：{path}")]
+    PackageMissing { path: PathBuf },
     #[error("插件包包含不支持的文件类型：{path}")]
     UnsupportedEntry { path: PathBuf },
     #[error("插件状态保存失败：{0}")]
     State(PluginInstallationStoreError),
+    #[error("卸载状态恢复失败；目录清理错误：{uninstall}；状态恢复错误：{restore}")]
+    StateRollback {
+        uninstall: std::io::Error,
+        restore: PluginInstallationStoreError,
+    },
+    #[error("插件卸载回滚失败：{operation}：{source}")]
+    Rollback {
+        operation: &'static str,
+        source: std::io::Error,
+    },
     #[error("{operation}失败：{source}")]
     Io {
         operation: &'static str,
