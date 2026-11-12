@@ -150,7 +150,7 @@ impl SettingsView {
 
 /// 在工具设置保存期间提供统一的进行中状态，避免页面只显示一行孤立文本。
 pub(super) fn settings_saving_notice(
-    id: &'static str,
+    id: impl Into<SharedString>,
     label: &'static str,
     theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
@@ -166,7 +166,7 @@ pub(super) fn settings_saving_notice(
 
 /// 在设置页异步处理期间提供统一的进行中状态，避免页面只显示一行孤立文本。
 pub(super) fn settings_processing_notice(
-    id: &'static str,
+    id: impl Into<SharedString>,
     label: &'static str,
     guidance: impl Into<SharedString>,
     theme: &gpui_kit::component::Theme,
@@ -199,8 +199,8 @@ pub(super) fn settings_info_notice(
 }
 
 /// 在设置页显示可恢复的错误状态，避免错误原因与普通说明混在一起。
-pub(super) fn settings_error_notice(
-    id: &'static str,
+pub(crate) fn settings_error_notice(
+    id: impl Into<SharedString>,
     title: impl Into<SharedString>,
     guidance: impl Into<SharedString>,
     theme: &gpui_kit::component::Theme,
@@ -210,7 +210,7 @@ pub(super) fn settings_error_notice(
 
 /// 在设置页显示已完成的操作结果，保留结果说明但不改变业务状态。
 pub(super) fn settings_success_notice(
-    id: &'static str,
+    id: impl Into<SharedString>,
     title: impl Into<SharedString>,
     guidance: impl Into<SharedString>,
     theme: &gpui_kit::component::Theme,
@@ -219,19 +219,20 @@ pub(super) fn settings_success_notice(
 }
 
 fn settings_status_notice(
-    id: &'static str,
+    id: impl Into<SharedString>,
     title: impl Into<SharedString>,
     guidance: impl Into<SharedString>,
     theme: &gpui_kit::component::Theme,
     color: gpui_kit::Hsla,
     icon: IconName,
 ) -> impl IntoElement {
+    let id = id.into();
     let title = title.into();
     let guidance = guidance.into();
     let muted = theme.muted_foreground;
     h_flex()
-        .id(id)
-        .debug_selector(move || id.into())
+        .id(id.clone())
+        .debug_selector(move || id.to_string())
         .w_full()
         .min_w_0()
         .items_start()

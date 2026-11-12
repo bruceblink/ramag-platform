@@ -6,6 +6,8 @@ mod ssh;
 mod system;
 mod update;
 
+pub(crate) use pages::settings_error_notice;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;

@@ -359,6 +359,47 @@ fn empty_plugin_diagnostics_shows_bounded_states(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn plugin_installation_feedback_notices_fit_supported_themes_and_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+    let mut installation = installable_plugin();
+    installation.last_error = Some("启动前包摘要核验失败".into());
+    let plugin_id = installation.manifest.id.clone();
+    let view = cx.new(|_| PluginDiagnosticsView::with_installations(host, vec![installation]));
+    view.update(cx, |view, view_cx| {
+        view.confirm_uninstall(plugin_id, view_cx);
+    });
+    let (_, visual_cx) = cx.add_window_view(move |_, _| PluginDiagnosticsTestHost { view });
+    let visual_cx: &mut VisualTestContext = visual_cx;
+
+    for mode in [crate::Mode::Light, crate::Mode::Dark] {
+        visual_cx.update(|_, app| crate::apply_theme(mode, app));
+        for (width, height) in [(360.0, 520.0), (1024.0, 520.0), (1440.0, 520.0)] {
+            visual_cx.simulate_resize(size(px(width), px(height)));
+            visual_cx.run_until_parked();
+
+            let installations = visual_cx
+                .debug_bounds("plugin-installations")
+                .expect("插件安装状态区域应渲染");
+            let operation_error = visual_cx
+                .debug_bounds("plugin-installations-error")
+                .expect("插件操作错误应使用统一状态卡");
+            let recent_error = visual_cx
+                .debug_bounds("plugin-installation-example.package-recent-error")
+                .expect("插件最近错误应使用统一状态卡");
+
+            assert!(installations.right() <= px(width));
+            for notice in [operation_error, recent_error] {
+                assert!(notice.origin.x >= installations.origin.x);
+                assert!(notice.right() <= installations.right());
+                assert!(notice.origin.y >= installations.origin.y);
+                assert!(notice.bottom() <= installations.bottom());
+            }
+        }
+    }
+}
+
+#[gpui_kit::test]
 fn plugin_installation_toggle_persists_state(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));

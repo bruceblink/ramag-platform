@@ -198,7 +198,7 @@ fn render_installations(
     can_toggle: bool,
     can_uninstall: bool,
     pending_uninstall: Option<&PluginId>,
-    load_error: Option<&str>,
+    operation_error: Option<&str>,
     cx: &mut Context<PluginDiagnosticsView>,
 ) -> impl IntoElement {
     let theme = cx.theme();
@@ -218,10 +218,16 @@ fn render_installations(
             };
             let status_color = installation_state_color(installation.state, theme);
             let error = installation.last_error.as_deref().map(|message| {
-                div()
-                    .text_xs()
-                    .text_color(theme.danger)
-                    .child(format!("最近错误：{message}"))
+                crate::settings_view::settings_error_notice(
+                    format!(
+                        "plugin-installation-{manifest_id}-recent-error",
+                        manifest_id = manifest.id
+                    ),
+                    "最近错误",
+                    message.to_owned(),
+                    theme,
+                )
+                .into_any_element()
             });
             v_flex()
                 .id(row_id.clone())
@@ -321,37 +327,38 @@ fn render_installations(
         })
         .collect::<Vec<_>>();
     let body = if rows.is_empty() {
-        if let Some(error) = load_error {
-            render_empty_state(
-                "plugin-installations",
-                IconName::CircleX,
-                "插件状态读取失败",
-                error.to_owned(),
-                theme,
-            )
-            .into_any_element()
-        } else {
-            render_empty_state(
+        v_flex()
+            .w_full()
+            .min_w_0()
+            .gap(px(8.0))
+            .when_some(operation_error, |content, error| {
+                content.child(crate::settings_view::settings_error_notice(
+                    "plugin-installations-error",
+                    "插件操作失败",
+                    error.to_owned(),
+                    theme,
+                ))
+            })
+            .child(render_empty_state(
                 "plugin-installations",
                 IconName::Folder,
                 "暂无可安装插件",
                 "安装包状态会显示在这里；当前页面不会启动外部代码。",
                 theme,
-            )
+            ))
             .into_any_element()
-        }
     } else {
         v_flex()
             .w_full()
             .min_w_0()
             .gap(px(8.0))
-            .when_some(load_error, |content, error| {
-                content.child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.danger)
-                        .child(error.to_owned()),
-                )
+            .when_some(operation_error, |content, error| {
+                content.child(crate::settings_view::settings_error_notice(
+                    "plugin-installations-error",
+                    "插件操作失败",
+                    error.to_owned(),
+                    theme,
+                ))
             })
             .children(rows)
             .into_any_element()
