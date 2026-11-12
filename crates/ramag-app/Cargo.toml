@@ -50,6 +50,7 @@ semver = { workspace = true }
 # 本地插件 tar.gz 归档的安全扫描和解包
 async-tar = { workspace = true }
 async-compression = { workspace = true }
+url = { workspace = true }
 
 # 当前进程资源基线采样
 ramag-infra-system = { workspace = true }
