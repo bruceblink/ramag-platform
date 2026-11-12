@@ -121,6 +121,49 @@ pub(super) fn build_plugin_host_with_storage(
     host
 }
 
+/// 启动时加载可安装插件的元数据状态；读取失败只影响插件状态页，不阻止内置工具启动。
+pub(super) fn load_plugin_installations() -> Vec<ramag_app::PluginInstallation> {
+    let root = if let Some(path) = std::env::var_os("RAMAG_PLUGIN_STATE_DIR") {
+        let path = std::path::PathBuf::from(path);
+        if !path.is_absolute() {
+            warn!(
+                operation = "plugin_installation_load",
+                "插件状态目录必须是绝对路径，忽略环境变量"
+            );
+            return Vec::new();
+        }
+        path
+    } else {
+        let Some(dirs) = directories::ProjectDirs::from("com", "ramag", "ramag") else {
+            warn!(
+                operation = "plugin_installation_load",
+                "无法定位插件状态目录"
+            );
+            return Vec::new();
+        };
+        dirs.data_dir().join("plugins")
+    };
+    let store = ramag_app::PluginInstallationStore::new(root);
+    match store.load() {
+        Ok(installations) => {
+            info!(
+                operation = "plugin_installation_load",
+                count = installations.len(),
+                "installable plugin states loaded"
+            );
+            installations
+        }
+        Err(error) => {
+            warn!(
+                operation = "plugin_installation_load",
+                error = %error,
+                "plugin installation state unavailable"
+            );
+            Vec::new()
+        }
+    }
+}
+
 #[cfg(test)]
 pub(super) fn build_tool_registry() -> Arc<ToolRegistry> {
     build_plugin_host_with_storage(None).registry()

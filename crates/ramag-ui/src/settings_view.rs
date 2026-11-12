@@ -22,8 +22,8 @@ use gpui_kit::{
     Styled, Subscription, Task, Window, div, prelude::FluentBuilder as _,
 };
 use ramag_app::{
-    AvailableUpdate, ClipboardService, ConnectionService, SshService, StaticPluginHost,
-    UpdateService,
+    AvailableUpdate, ClipboardService, ConnectionService, PluginInstallation, SshService,
+    StaticPluginHost, UpdateService,
 };
 use ramag_domain::entities::{
     ClipboardSettings, DownloadProgress, IdConverterKind, MAX_CUSTOM_ID_ALPHABET_BYTES,
@@ -233,7 +233,8 @@ impl SettingsView {
         let update_indicator_subscription =
             cx.observe_global::<crate::activity_bar::UpdateIndicatorGlobal>(|_, cx| cx.notify());
         let registry = plugin_host.registry();
-        let plugin_diagnostics = cx.new(|_| PluginDiagnosticsView::new(plugin_host));
+        let plugin_diagnostics =
+            cx.new(|_| PluginDiagnosticsView::with_installations(plugin_host, Vec::new()));
         let tool_visibility = cx.new(|_| ToolVisibilityView::new(registry));
         let monitor_preset_manager =
             cx.new(|cx| monitor_presets::MonitorPresetManager::new(window, cx));
@@ -427,6 +428,17 @@ impl SettingsView {
             monitor_preset_manager,
             _update_indicator_subscription: update_indicator_subscription,
         }
+    }
+
+    /// 注入启动时读取的可安装插件状态，并刷新插件设置页。
+    pub fn set_plugin_installations(
+        &mut self,
+        installations: Vec<PluginInstallation>,
+        cx: &mut Context<Self>,
+    ) {
+        self.plugin_diagnostics
+            .update(cx, |view, cx| view.set_installations(installations, cx));
+        cx.notify();
     }
 
     fn save_clipboard(&mut self, next: ClipboardSettings, cx: &mut Context<Self>) {

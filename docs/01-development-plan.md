@@ -734,8 +734,9 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 6 | `RAMAG-UI-ACCESS-002` 工具可见性开关可访问性 | 已完成：为 Home/侧边栏开关补充工具名称标签，并分离开关组与控件标识 | 辅助技术能区分工具和作用面；组标识和开关标识不重复；360px、1024px 和 1440px 布局均保持在卡片内 | `ramag-ui` 工具可见性定向测试、严格 Clippy 和格式检查已通过。回滚只涉及工具可见性渲染与测试 |
 | 7 | `RAMAG-PLUGIN-FAILURE-001` 插件存储失败隔离验收 | 已完成：宿主在设置快照读取或秘密解封失败时阻止插件回调，标记插件失败并移除工具入口，同时保留初始化诊断 | 设置读取失败和秘密解封失败均生成 `Initialize` 诊断；插件回调不执行；注册表不保留失败插件；后续插件仍可继续初始化 | `ramag-app` 插件生命周期定向测试、严格 Clippy、格式检查和差异检查已通过。回滚只涉及宿主测试与插件测试清单中的敏感字段 |
 | 8 | `RAMAG-DOCS-PLUGIN-001` 插件开发手册基线同步 | 已完成：将插件开发手册适用基线同步到当前 `0.9.2` 代码版本，并更新维护日期；静态插件改为第一阶段基线 | 手册入口版本与 workspace 版本一致；第一阶段静态基线、第二阶段可安装路线和未实现边界一致 | Markdown、UTF-8、LF 和差异检查已通过。回滚只涉及手册头部和本节记录 |
-| 9 | `RAMAG-PLUGIN-PACKAGE-001` 可安装插件清单与本地状态 | 已完成：增加可序列化插件包清单、入口路径/能力/API/摘要校验，以及安装状态的原子持久化；不启动外部代码 | 清单支持 `id`、版本、宿主 API、`process` 运行时、入口和 SHA-256；状态支持 `installed`、`enabled`、`disabled`、`quarantined`；重启后可恢复；损坏文件、重复 ID、路径穿越和未知能力均拒绝 | `ramag-domain` 清单定向测试、`ramag-app` 安装状态定向测试、严格 Clippy、格式检查和差异检查已通过。回滚只涉及清单模型、状态存储和本节记录 |
-| 10 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
+| 9 | `RAMAG-PLUGIN-PACKAGE-001` 可安装插件清单与本地状态 | 已完成：增加可序列化插件包清单、入口路径/能力/API/摘要校验、安装状态的串行原子持久化，并接入插件设置页展示；不启动外部代码 | 清单支持 `id`、版本、宿主 API、`process` 运行时、入口和 SHA-256；状态支持 `installed`、`enabled`、`disabled`、`quarantined`；启动后可恢复并在设置页展示；损坏文件、重复 ID、路径穿越和未知能力均拒绝 | `ramag-domain` 清单测试、`ramag-app` 安装状态测试、`ramag-ui` 插件页测试、`ramag-bin` 组合编译、严格 Clippy、格式检查和差异检查已通过。回滚只涉及清单模型、状态存储、组合根和插件页 |
+| 10 | `RAMAG-PLUGIN-IPC-001` 进程外插件协议基础 | 可执行：先实现长度前缀帧、JSON 信封、握手和入口响应的纯协议层；不启动真实第三方包 | 帧长度、消息类型、插件 ID、API 主版本、能力集合和请求 ID 均校验；零长度、截断、超帧、错误响应和协议版本不匹配都有确定错误；协议层不读取凭据、不执行 Shell | `ramag-app` 协议单元测试、严格 Clippy、格式检查和差异检查通过后再进入真实子进程；回滚只涉及协议模块和测试 |
+| 11 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -951,16 +952,21 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 - `PluginPackageManifest` 保存插件 ID、SemVer 版本、宿主 API、`process` 运行时、相对入口、声明能力和 SHA-256 摘要。
 - 清单校验拒绝不支持的格式/API、路径穿越、绝对路径、未知或重复能力、无效版本和非小写 64 位摘要。
 - `PluginInstallationStore` 使用 `installed.json` 保存 `installed`、`enabled`、`disabled` 和 `quarantined` 状态，并限制记录数量、错误长度和文件大小。
-- 状态文件使用同目录临时文件、完整写入、同步和替换；读取时重新校验所有清单。此切片不读取、加载或启动外部插件代码。
+- 状态文件使用同目录临时文件、完整写入、同步和替换；读取时重新校验所有清单。存储操作使用进程内互斥，避免并发状态更新丢失。
+- 组合根在启动时读取状态并注入插件设置页。页面显示名称、ID、版本、API、运行时、状态和最近错误；启用状态只表示本地状态，不启动外部进程。
 
 验证命令为 `cargo fmt --all -- --check`、
 `cargo test --locked -p ramag-domain --lib traits::plugin::tests -- --test-threads=1`、
 `cargo test --locked -p ramag-app --lib plugin_installation::tests -- --test-threads=1`、
 `cargo clippy --locked -p ramag-domain --lib --all-targets -- -D warnings`、
-`cargo clippy --locked -p ramag-app --lib --all-targets -- -D warnings` 和 `git diff --check`。
-回滚范围只包括插件包清单、安装状态存储、依赖锁文件和本节记录。
+`cargo clippy --locked -p ramag-app --lib --all-targets -- -D warnings`、
+`cargo test --locked -p ramag-ui --lib plugin_diagnostics -- --test-threads=1`、
+`cargo check --locked -p ramag-bin --all-targets`、
+`cargo clippy --locked -p ramag-ui --lib --all-targets -- -D warnings`、
+`cargo clippy --locked -p ramag-bin --bin ramag --all-targets -- -D warnings` 和 `git diff --check`。
+回滚范围只包括插件包清单、安装状态存储、依赖锁文件、组合根、设置页和本节记录。
 
-2026-11-12 已完成本切片。清单测试 12 项、安装状态测试 4 项通过。进程外 IPC、签名、沙箱、原子包安装、更新回滚、远程目录和真实插件窗口仍未验收。
+2026-11-13 已完成本切片。清单测试 12 项、安装状态测试 4 项、插件设置页测试 2 项通过；workspace 组合编译和严格 Clippy 通过。进程外 IPC、签名、沙箱、原子包安装、更新回滚、远程目录和真实插件窗口仍未验收。
 
 ## 5. 条件限制与未纳入执行的事项
 

@@ -15,6 +15,7 @@ const MAIN_WINDOW_DEFAULT_HEIGHT: f32 = MAIN_WINDOW_DEFAULT_WIDTH / ramag_ui::GO
 #[derive(Clone)]
 pub(super) struct AppDeps {
     pub(super) plugin_host: Arc<StaticPluginHost>,
+    pub(super) plugin_installations: Vec<ramag_app::PluginInstallation>,
     pub(super) registry: Arc<ToolRegistry>,
     pub(super) conn_service: Arc<ConnectionService>,
     pub(super) api_service: Arc<ApiService>,
@@ -138,6 +139,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         });
     let AppDeps {
         plugin_host,
+        plugin_installations,
         registry,
         conn_service,
         api_service,
@@ -270,6 +272,9 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                         window,
                         cx,
                     )
+                });
+                settings_view.update(cx, |view, cx| {
+                    view.set_plugin_installations(plugin_installations.clone(), cx);
                 });
 
                 let shell = cx.new(|cx| {

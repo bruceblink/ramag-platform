@@ -1,19 +1,43 @@
 use std::sync::Arc;
 
 use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex, v_flex};
-use gpui_kit::{Context, IntoElement, ParentElement, Render, Styled, Window, div, prelude::*, px};
+use gpui_kit::{
+    Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div, prelude::*, px,
+};
 use ramag_app::{
-    PluginCatalogEntry, PluginDiagnostic, PluginLifecycleStage, PluginState, StaticPluginHost,
+    PluginCatalogEntry, PluginDiagnostic, PluginInstallation, PluginInstallationState,
+    PluginLifecycleStage, PluginState, StaticPluginHost,
 };
 
-/// 展示静态插件生命周期、注册错误和当前可用入口。
+/// 展示插件包状态、静态插件生命周期、注册错误和当前可用入口。
 pub(crate) struct PluginDiagnosticsView {
     host: Arc<StaticPluginHost>,
+    installations: Vec<PluginInstallation>,
+    installation_error: Option<String>,
 }
 
 impl PluginDiagnosticsView {
-    pub(crate) fn new(host: Arc<StaticPluginHost>) -> Self {
-        Self { host }
+    /// 注入已加载的安装状态，避免渲染过程读取文件或触发外部插件行为。
+    pub(crate) fn with_installations(
+        host: Arc<StaticPluginHost>,
+        installations: Vec<PluginInstallation>,
+    ) -> Self {
+        Self {
+            host,
+            installations,
+            installation_error: None,
+        }
+    }
+
+    /// 更新已加载的安装状态，并通知设置页重新布局。
+    pub(crate) fn set_installations(
+        &mut self,
+        installations: Vec<PluginInstallation>,
+        cx: &mut Context<Self>,
+    ) {
+        self.installations = installations;
+        self.installation_error = None;
+        cx.notify();
     }
 }
 
@@ -43,9 +67,161 @@ impl Render for PluginDiagnosticsView {
                 failed_count,
                 cx,
             ))
+            .child(render_installations(
+                &self.installations,
+                self.installation_error.as_deref(),
+                cx,
+            ))
             .child(render_catalog(&catalog, cx))
             .child(render_available_entries(&available, cx))
             .child(render_diagnostics(&diagnostics, cx))
+    }
+}
+
+fn render_installations(
+    installations: &[PluginInstallation],
+    load_error: Option<&str>,
+    cx: &mut Context<PluginDiagnosticsView>,
+) -> impl IntoElement {
+    let theme = cx.theme();
+    let rows = installations
+        .iter()
+        .map(|installation| {
+            let manifest = &installation.manifest;
+            let row_id = format!("plugin-installation-{}", manifest.id);
+            let status = installation_state_label(installation.state);
+            let runtime = match manifest.runtime {
+                ramag_domain::PluginPackageRuntime::Process => "进程",
+            };
+            let status_color = installation_state_color(installation.state, theme);
+            let error = installation.last_error.as_deref().map(|message| {
+                div()
+                    .text_xs()
+                    .text_color(theme.danger)
+                    .child(format!("最近错误：{message}"))
+            });
+            v_flex()
+                .id(row_id.clone())
+                .debug_selector(move || row_id.clone())
+                .w_full()
+                .min_w_0()
+                .gap(px(4.0))
+                .p(px(10.0))
+                .bg(theme.background)
+                .border_1()
+                .border_color(theme.border)
+                .rounded(px(6.0))
+                .child(
+                    h_flex()
+                        .w_full()
+                        .min_w_0()
+                        .items_start()
+                        .gap(px(8.0))
+                        .child(
+                            div()
+                                .mt(px(4.0))
+                                .size(px(8.0))
+                                .flex_none()
+                                .rounded(px(4.0))
+                                .bg(status_color),
+                        )
+                        .child(
+                            v_flex()
+                                .flex_1()
+                                .min_w_0()
+                                .gap(px(2.0))
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .text_color(theme.foreground)
+                                        .child(manifest.name.clone()),
+                                )
+                                .child(div().text_xs().text_color(theme.muted_foreground).child(
+                                    format!(
+                                        "插件 {} · 版本 {} · API {}",
+                                        manifest.id, manifest.version, manifest.api_version
+                                    ),
+                                )),
+                        )
+                        .child(crate::pulse_ui::pulse_status_badge_with_label(
+                            crate::pulse_ui::PulseStatus::Current,
+                            status,
+                            cx,
+                        )),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(format!("运行时：{runtime} · 入口：{}", manifest.entrypoint)),
+                )
+                .children(error)
+                .into_any_element()
+        })
+        .collect::<Vec<_>>();
+    let body = if let Some(error) = load_error {
+        render_empty_state(
+            "plugin-installations",
+            IconName::CircleX,
+            "插件状态读取失败",
+            error.to_owned(),
+            theme,
+        )
+        .into_any_element()
+    } else if rows.is_empty() {
+        render_empty_state(
+            "plugin-installations",
+            IconName::Folder,
+            "暂无可安装插件",
+            "安装包状态会显示在这里；当前页面不会启动外部代码。",
+            theme,
+        )
+        .into_any_element()
+    } else {
+        v_flex()
+            .w_full()
+            .min_w_0()
+            .gap(px(8.0))
+            .children(rows)
+            .into_any_element()
+    };
+
+    crate::pulse_ui::pulse_panel(cx)
+        .id("plugin-installations")
+        .debug_selector(|| "plugin-installations".into())
+        .gap(px(12.0))
+        .child(crate::pulse_ui::pulse_display_heading(
+            "已安装插件",
+            18.0,
+            cx,
+        ))
+        .child(
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("显示插件包版本、运行时和本地状态；启用状态暂不启动外部进程。"),
+        )
+        .child(body)
+}
+
+fn installation_state_label(state: PluginInstallationState) -> &'static str {
+    match state {
+        PluginInstallationState::Installed => "已安装",
+        PluginInstallationState::Enabled => "已启用",
+        PluginInstallationState::Disabled => "已禁用",
+        PluginInstallationState::Quarantined => "已隔离",
+    }
+}
+
+fn installation_state_color(
+    state: PluginInstallationState,
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::Hsla {
+    match state {
+        PluginInstallationState::Installed => theme.muted_foreground,
+        PluginInstallationState::Enabled => theme.success,
+        PluginInstallationState::Disabled => theme.warning,
+        PluginInstallationState::Quarantined => theme.danger,
     }
 }
 
@@ -322,7 +498,7 @@ fn render_empty_state(
     section: &'static str,
     icon: IconName,
     title: &'static str,
-    guidance: &'static str,
+    guidance: impl Into<SharedString>,
     theme: &gpui_kit::component::Theme,
 ) -> impl IntoElement {
     let state_id = format!("{section}-empty-state");
@@ -356,7 +532,7 @@ fn render_empty_state(
                 .debug_selector(move || guidance_id.clone())
                 .text_xs()
                 .text_color(theme.muted_foreground)
-                .child(guidance),
+                .child(guidance.into()),
         )
 }
 

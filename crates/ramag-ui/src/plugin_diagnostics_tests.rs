@@ -7,10 +7,13 @@ use gpui_kit::{
     Styled, TestAppContext, VisualTestContext, Window, div, px, size,
 };
 use ramag_app::{
-    PluginContext, PluginOperationError, StaticPlugin, StaticPluginAdapter, StaticPluginHost,
-    ToolRegistry,
+    PluginContext, PluginInstallation, PluginOperationError, StaticPlugin, StaticPluginAdapter,
+    StaticPluginHost, ToolRegistry,
 };
-use ramag_domain::{PluginDescriptor, PluginId, Tool, ToolMeta};
+use ramag_domain::{
+    MAX_PLUGIN_PACKAGE_SHA256_BYTES, PluginDescriptor, PluginId, PluginPackageManifest, Tool,
+    ToolMeta,
+};
 
 use super::PluginDiagnosticsView;
 
@@ -88,6 +91,19 @@ fn diagnostic_host() -> Arc<StaticPluginHost> {
     host
 }
 
+fn installable_plugin() -> PluginInstallation {
+    PluginInstallation::new(
+        PluginPackageManifest::new(
+            PluginId::new("example.package").unwrap(),
+            "示例可安装插件",
+            "1.2.3",
+            "bin/example-plugin",
+            "a".repeat(MAX_PLUGIN_PACKAGE_SHA256_BYTES),
+        )
+        .with_capabilities([ramag_domain::PluginCapability::new("ui.entry")]),
+    )
+}
+
 fn assert_inside(
     child: gpui_kit::Bounds<gpui_kit::Pixels>,
     parent: gpui_kit::Bounds<gpui_kit::Pixels>,
@@ -125,7 +141,12 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
     let host = diagnostic_host();
     let host_for_view = host.clone();
     let (_, visual_cx) = cx.add_window_view(move |_, cx| PluginDiagnosticsTestHost {
-        view: cx.new(|_| PluginDiagnosticsView::new(host_for_view.clone())),
+        view: cx.new(|_| {
+            PluginDiagnosticsView::with_installations(
+                host_for_view.clone(),
+                vec![installable_plugin()],
+            )
+        }),
     });
     let visual_cx: &mut VisualTestContext = visual_cx;
 
@@ -147,6 +168,12 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
             let metric = visual_cx
                 .debug_bounds("pulse-metric-card")
                 .expect("插件概览应使用 Pulse 指标卡");
+            let installations = visual_cx
+                .debug_bounds("plugin-installations")
+                .expect("可安装插件状态区域应渲染");
+            let installation = visual_cx
+                .debug_bounds("plugin-installation-example.package")
+                .expect("可安装插件状态应渲染");
             let catalog = visual_cx
                 .debug_bounds("plugin-catalog")
                 .expect("第一方目录应渲染");
@@ -189,6 +216,8 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
             for child in [
                 summary,
                 metric,
+                installations,
+                installation,
                 catalog,
                 catalog_entry,
                 available,
@@ -207,6 +236,7 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
             assert!(registration_failure.bottom() <= registration_failed.bottom());
             assert!(entry.bottom() <= available.bottom());
             assert!(catalog_entry.bottom() <= catalog.bottom());
+            assert!(installation.bottom() <= installations.bottom());
         }
     }
 }
@@ -217,7 +247,8 @@ fn empty_plugin_diagnostics_shows_bounded_states(cx: &mut TestAppContext) {
     let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
     let host_for_view = host.clone();
     let (_, visual_cx) = cx.add_window_view(move |_, cx| PluginDiagnosticsTestHost {
-        view: cx.new(|_| PluginDiagnosticsView::new(host_for_view.clone())),
+        view: cx
+            .new(|_| PluginDiagnosticsView::with_installations(host_for_view.clone(), Vec::new())),
     });
     let visual_cx: &mut VisualTestContext = visual_cx;
 
@@ -267,6 +298,18 @@ fn empty_plugin_diagnostics_shows_bounded_states(cx: &mut TestAppContext) {
         let diagnostics_guidance = visual_cx
             .debug_bounds("plugin-diagnostics-empty-guidance")
             .expect("空插件状态列表应显示引导");
+        let installations = visual_cx
+            .debug_bounds("plugin-installations")
+            .expect("空已安装插件列表应渲染");
+        let installations_empty = visual_cx
+            .debug_bounds("plugin-installations-empty-state")
+            .expect("空已安装插件列表应显示状态");
+        let installations_heading = visual_cx
+            .debug_bounds("plugin-installations-empty-heading")
+            .expect("空已安装插件列表应显示标题");
+        let installations_guidance = visual_cx
+            .debug_bounds("plugin-installations-empty-guidance")
+            .expect("空已安装插件列表应显示引导");
 
         assert_eq!(root.size.width, px(width));
         assert!(scroll.right() <= px(width));
@@ -284,6 +327,12 @@ fn empty_plugin_diagnostics_shows_bounded_states(cx: &mut TestAppContext) {
                 diagnostics_heading,
                 diagnostics_guidance,
                 diagnostics,
+            ),
+            (
+                installations_empty,
+                installations_heading,
+                installations_guidance,
+                installations,
             ),
         ] {
             assert_inside(empty_state, parent);
