@@ -22,8 +22,8 @@ use gpui_kit::{
     Styled, Subscription, Task, Window, div, prelude::FluentBuilder as _,
 };
 use ramag_app::{
-    AvailableUpdate, ClipboardService, ConnectionService, PluginInstallation, SshService,
-    StaticPluginHost, UpdateService,
+    AvailableUpdate, ClipboardService, ConnectionService, PluginInstallation,
+    PluginInstallationStore, SshService, StaticPluginHost, UpdateService,
 };
 use ramag_domain::entities::{
     ClipboardSettings, DownloadProgress, IdConverterKind, MAX_CUSTOM_ID_ALPHABET_BYTES,
@@ -438,6 +438,18 @@ impl SettingsView {
     ) {
         self.plugin_diagnostics
             .update(cx, |view, cx| view.set_installations(installations, cx));
+        cx.notify();
+    }
+
+    /// 注入插件状态存储，使插件设置页可以保存启用和禁用操作。
+    pub fn set_plugin_installation_store(
+        &mut self,
+        installation_store: Arc<PluginInstallationStore>,
+        cx: &mut Context<Self>,
+    ) {
+        self.plugin_diagnostics.update(cx, |view, cx| {
+            view.set_installation_store(installation_store, cx)
+        });
         cx.notify();
     }
 

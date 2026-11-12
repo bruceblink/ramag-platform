@@ -122,7 +122,10 @@ pub(super) fn build_plugin_host_with_storage(
 }
 
 /// 启动时加载可安装插件的元数据状态；读取失败只影响插件状态页，不阻止内置工具启动。
-pub(super) fn load_plugin_installations() -> Vec<ramag_app::PluginInstallation> {
+pub(super) fn load_plugin_installations() -> (
+    Option<Arc<ramag_app::PluginInstallationStore>>,
+    Vec<ramag_app::PluginInstallation>,
+) {
     let root = if let Some(path) = std::env::var_os("RAMAG_PLUGIN_STATE_DIR") {
         let path = std::path::PathBuf::from(path);
         if !path.is_absolute() {
@@ -130,7 +133,7 @@ pub(super) fn load_plugin_installations() -> Vec<ramag_app::PluginInstallation> 
                 operation = "plugin_installation_load",
                 "插件状态目录必须是绝对路径，忽略环境变量"
             );
-            return Vec::new();
+            return (None, Vec::new());
         }
         path
     } else {
@@ -139,11 +142,11 @@ pub(super) fn load_plugin_installations() -> Vec<ramag_app::PluginInstallation> 
                 operation = "plugin_installation_load",
                 "无法定位插件状态目录"
             );
-            return Vec::new();
+            return (None, Vec::new());
         };
         dirs.data_dir().join("plugins")
     };
-    let store = ramag_app::PluginInstallationStore::new(root);
+    let store = Arc::new(ramag_app::PluginInstallationStore::new(root));
     match store.load() {
         Ok(installations) => {
             info!(
@@ -151,7 +154,7 @@ pub(super) fn load_plugin_installations() -> Vec<ramag_app::PluginInstallation> 
                 count = installations.len(),
                 "installable plugin states loaded"
             );
-            installations
+            (Some(store), installations)
         }
         Err(error) => {
             warn!(
@@ -159,7 +162,7 @@ pub(super) fn load_plugin_installations() -> Vec<ramag_app::PluginInstallation> 
                 error = %error,
                 "plugin installation state unavailable"
             );
-            Vec::new()
+            (Some(store), Vec::new())
         }
     }
 }

@@ -6,13 +6,15 @@ use gpui_kit::{
 };
 use ramag_app::{
     PluginCatalogEntry, PluginDiagnostic, PluginInstallation, PluginInstallationState,
-    PluginLifecycleStage, PluginState, StaticPluginHost,
+    PluginInstallationStore, PluginLifecycleStage, PluginState, StaticPluginHost,
 };
+use ramag_domain::PluginId;
 
 /// 展示插件包状态、静态插件生命周期、注册错误和当前可用入口。
 pub(crate) struct PluginDiagnosticsView {
     host: Arc<StaticPluginHost>,
     installations: Vec<PluginInstallation>,
+    installation_store: Option<Arc<PluginInstallationStore>>,
     installation_error: Option<String>,
 }
 
@@ -25,8 +27,19 @@ impl PluginDiagnosticsView {
         Self {
             host,
             installations,
+            installation_store: None,
             installation_error: None,
         }
+    }
+
+    /// 注入安装状态存储；设置页按钮通过该存储原子更新启用状态。
+    pub(crate) fn set_installation_store(
+        &mut self,
+        installation_store: Arc<PluginInstallationStore>,
+        cx: &mut Context<Self>,
+    ) {
+        self.installation_store = Some(installation_store);
+        cx.notify();
     }
 
     /// 更新已加载的安装状态，并通知设置页重新布局。
@@ -37,6 +50,43 @@ impl PluginDiagnosticsView {
     ) {
         self.installations = installations;
         self.installation_error = None;
+        cx.notify();
+    }
+
+    /// 切换插件启用状态；只更新持久化状态，不启动外部进程。
+    fn toggle_installation(&mut self, plugin_id: PluginId, cx: &mut Context<Self>) {
+        let Some(store) = self.installation_store.clone() else {
+            return;
+        };
+        let Some(current_state) = self
+            .installations
+            .iter()
+            .find(|installation| installation.manifest.id == plugin_id)
+            .map(|installation| installation.state)
+        else {
+            return;
+        };
+        let next_state = match current_state {
+            PluginInstallationState::Enabled => PluginInstallationState::Disabled,
+            PluginInstallationState::Installed
+            | PluginInstallationState::Disabled
+            | PluginInstallationState::Quarantined => PluginInstallationState::Enabled,
+        };
+        match store.set_state(&plugin_id, next_state, None) {
+            Ok(updated) => {
+                if let Some(current) = self
+                    .installations
+                    .iter_mut()
+                    .find(|installation| installation.manifest.id == plugin_id)
+                {
+                    *current = updated;
+                }
+                self.installation_error = None;
+            }
+            Err(error) => {
+                self.installation_error = Some(format!("插件状态保存失败：{error}"));
+            }
+        }
         cx.notify();
     }
 }
@@ -69,6 +119,7 @@ impl Render for PluginDiagnosticsView {
             ))
             .child(render_installations(
                 &self.installations,
+                self.installation_store.is_some(),
                 self.installation_error.as_deref(),
                 cx,
             ))
@@ -80,6 +131,7 @@ impl Render for PluginDiagnosticsView {
 
 fn render_installations(
     installations: &[PluginInstallation],
+    can_toggle: bool,
     load_error: Option<&str>,
     cx: &mut Context<PluginDiagnosticsView>,
 ) -> impl IntoElement {
@@ -89,7 +141,10 @@ fn render_installations(
         .map(|installation| {
             let manifest = &installation.manifest;
             let row_id = format!("plugin-installation-{}", manifest.id);
+            let toggle_id = format!("plugin-installation-toggle-{}", manifest.id);
+            let plugin_id = manifest.id.clone();
             let status = installation_state_label(installation.state);
+            let toggle_label = installation_toggle_label(installation.state);
             let runtime = match manifest.runtime {
                 ramag_domain::PluginPackageRuntime::Process => "进程",
             };
@@ -143,11 +198,31 @@ fn render_installations(
                                     ),
                                 )),
                         )
-                        .child(crate::pulse_ui::pulse_status_badge_with_label(
-                            crate::pulse_ui::PulseStatus::Current,
-                            status,
-                            cx,
-                        )),
+                        .child(
+                            h_flex()
+                                .flex_none()
+                                .items_center()
+                                .gap(px(6.0))
+                                .child(crate::pulse_ui::pulse_status_badge_with_label(
+                                    crate::pulse_ui::PulseStatus::Current,
+                                    status,
+                                    cx,
+                                ))
+                                .when(can_toggle, |actions| {
+                                    actions.child(
+                                        crate::clickable_button(toggle_id.clone())
+                                            .debug_selector(move || toggle_id.clone())
+                                            .xsmall()
+                                            .outline()
+                                            .label(toggle_label)
+                                            .on_click(cx.listener(
+                                                move |view, _: &gpui_kit::ClickEvent, _, cx| {
+                                                    view.toggle_installation(plugin_id.clone(), cx);
+                                                },
+                                            )),
+                                    )
+                                }),
+                        ),
                 )
                 .child(
                     div()
@@ -199,7 +274,7 @@ fn render_installations(
             div()
                 .text_xs()
                 .text_color(theme.muted_foreground)
-                .child("显示插件包版本、运行时和本地状态；启用状态暂不启动外部进程。"),
+                .child("显示插件包版本、运行时和本地状态；启用或禁用只保存状态，不启动外部进程。"),
         )
         .child(body)
 }
@@ -210,6 +285,15 @@ fn installation_state_label(state: PluginInstallationState) -> &'static str {
         PluginInstallationState::Enabled => "已启用",
         PluginInstallationState::Disabled => "已禁用",
         PluginInstallationState::Quarantined => "已隔离",
+    }
+}
+
+fn installation_toggle_label(state: PluginInstallationState) -> &'static str {
+    match state {
+        PluginInstallationState::Enabled => "禁用",
+        PluginInstallationState::Installed
+        | PluginInstallationState::Disabled
+        | PluginInstallationState::Quarantined => "启用",
     }
 }
 

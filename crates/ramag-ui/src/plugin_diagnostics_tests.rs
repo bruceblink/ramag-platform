@@ -7,8 +7,8 @@ use gpui_kit::{
     Styled, TestAppContext, VisualTestContext, Window, div, px, size,
 };
 use ramag_app::{
-    PluginContext, PluginInstallation, PluginOperationError, StaticPlugin, StaticPluginAdapter,
-    StaticPluginHost, ToolRegistry,
+    PluginContext, PluginInstallation, PluginInstallationState, PluginInstallationStore,
+    PluginOperationError, StaticPlugin, StaticPluginAdapter, StaticPluginHost, ToolRegistry,
 };
 use ramag_domain::{
     MAX_PLUGIN_PACKAGE_SHA256_BYTES, PluginDescriptor, PluginId, PluginPackageManifest, Tool,
@@ -342,4 +342,57 @@ fn empty_plugin_diagnostics_shows_bounded_states(cx: &mut TestAppContext) {
             assert!(guidance.origin.y > heading.origin.y);
         }
     }
+}
+
+#[gpui_kit::test]
+fn plugin_installation_toggle_persists_state(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+    let installation = installable_plugin();
+    let plugin_id = installation.manifest.id.clone();
+    let root = std::env::temp_dir().join(format!(
+        "ramag-ui-plugin-toggle-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("系统时间应有效")
+            .as_nanos()
+    ));
+    let store = Arc::new(PluginInstallationStore::new(&root));
+    store
+        .upsert(installation.clone())
+        .expect("测试插件状态应可写入");
+    let store_for_view = store.clone();
+    let view = cx.new(|view_cx| {
+        let mut view = PluginDiagnosticsView::with_installations(host, vec![installation]);
+        view.set_installation_store(store_for_view, view_cx);
+        view
+    });
+
+    view.update(cx, |view, view_cx| {
+        view.toggle_installation(plugin_id.clone(), view_cx);
+    });
+    assert_eq!(
+        store
+            .load()
+            .expect("启用状态应可读取")
+            .first()
+            .expect("应保留插件状态")
+            .state,
+        PluginInstallationState::Enabled
+    );
+
+    view.update(cx, |view, view_cx| {
+        view.toggle_installation(plugin_id, view_cx);
+    });
+    assert_eq!(
+        store
+            .load()
+            .expect("禁用状态应可读取")
+            .first()
+            .expect("应保留插件状态")
+            .state,
+        PluginInstallationState::Disabled
+    );
+    let _ = std::fs::remove_dir_all(root);
 }
