@@ -6,6 +6,11 @@ authors.workspace = true
 license.workspace = true
 description = "Ramag 应用层：Use Cases + ToolRegistry，编排 Domain，被 UI 调用"
 
+[[bin]]
+name = "ramag-plugin-helper"
+path = "src/bin/ramag-plugin-helper.rs"
+test = false
+
 [lints]
 workspace = true
 

@@ -18,7 +18,7 @@
 | 计算适配 | Compute Adapter | 无 UI、凭据和外部副作用的计算接口 | 不获得桌面文件、网络或 GPUI 能力 |
 
 本手册适用于 `bruceblink/ramag-platform` 的静态插件 API 和可安装插件基础模型。系统监控试点和九批保留工具迁移已进入代码基线。
-当前可安装插件阶段只解析包清单并持久化本地状态，不启动外部进程。插件市场、跨语言 ABI、签名、沙箱和完整安装器仍未实现。
+当前可安装插件阶段解析包清单、持久化本地状态，并已具备最小进程外握手与入口调用宿主。插件市场、跨语言 ABI、签名、沙箱和完整安装器仍未实现。
 
 ## 平台与插件责任
 
@@ -46,7 +46,8 @@ flowchart TB
 |---|---|
 | `PluginDescriptor` / `PluginEntryDescriptor` | 描述静态插件身份、API 版本、入口、能力和设置 |
 | `PluginPackageManifest` | 描述可安装包的 ID、SemVer、宿主 API、`process` 运行时、相对入口、能力和 SHA-256；不执行包内容 |
-| `PluginInstallationStore` | 保存 `installed`、`enabled`、`disabled` 和 `quarantined` 状态；不负责进程启动、下载或升级 |
+| `PluginInstallationStore` | 保存 `installed`、`enabled`、`disabled` 和 `quarantined` 状态；不负责下载或升级 |
+| `PluginProcessHost` | 校验包内入口、启动外部进程、完成握手和有界入口调用；不提供签名、沙箱或子孙进程清理 |
 | `StaticPluginHost` | 校验、注册、初始化、关闭、执行和失败隔离；不负责动态发现或进程管理 |
 | `PluginContext` | 提供生命周期检查、权限、快照和有界任务；不暴露宿主内部对象 |
 | `ToolRegistry` | 登记工具可见性和顺序，不作为业务服务容器 |
@@ -65,6 +66,10 @@ flowchart TB
 `PluginInstallationStore` 将记录保存到指定目录的 `installed.json`。每条记录包含清单、`installed`、`enabled`、`disabled` 或 `quarantined` 状态和有界的最近错误。状态文件写入使用同目录临时文件、完整写入和同步后替换；加载时重新执行清单校验。状态恢复不启动外部进程，也不绕过权限检查。
 
 后续进程外宿主必须在使用 `enabled` 状态前增加签名或摘要核对、握手、消息大小、超时、崩溃隔离和权限授予。安装、更新和卸载必须继续使用独立的原子包目录与回滚记录。
+
+`PluginProcessHost` 使用 `PluginPackageManifest.entrypoint` 解析包内普通文件，拒绝绝对路径、父目录和符号链接。宿主清空继承环境，只保留 `PATH`、Windows `SystemRoot` 和 `RAMAG_PLUGIN_ID`、`RAMAG_PLUGIN_PROTOCOL_VERSION`、`RAMAG_PLUGIN_PACKAGE_ROOT`。握手通过后，入口调用按请求顺序发送，超时或协议错误会结束当前会话。stderr 只保留有界尾部，不把完整进程输出写入日志。
+
+当前实现可以使用 `ramag-plugin-helper` 完成跨平台真实进程的握手、回显调用和关闭验收。该辅助进程只服务测试，不是主程序入口。签名、包摘要实际核对、沙箱、Windows Job Object、Unix process group 和第三方窗口仍需要独立切片。
 
 | 项目 | 接口上限与兼容要求 |
 |---|---|
@@ -209,7 +214,7 @@ git diff --check
 | 编译期静态 Rust/GPUI | 当前采用，复用工具 crate、类型系统和主程序发布流程 |
 | WASM/WASI 计算适配 | 仅保留为无 UI、凭据、网络的计算候选，不作为桌面宿主 |
 | 运行时动态库 | 当前排除，ABI、崩溃隔离、签名与分发未形成完整方案 |
-| 进程外 IPC 插件 | 下一阶段设计握手、权限、消息上限、恢复和安装回滚；当前只保存 `process` 运行时元数据 |
+| 进程外 IPC 插件 | 当前采用长度前缀 JSON 协议和最小宿主闭环；后续继续补签名、沙箱、崩溃恢复、进程树清理和安装回滚 |
 | WebView | 排除，不作为原生工作台的嵌入方式 |
 
 插件新增可选描述时保持 API 主版本；新增 API 次版本能力必须显式声明并支持旧宿主拒绝。
