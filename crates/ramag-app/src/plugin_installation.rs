@@ -3,6 +3,8 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "windows")]
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use ramag_domain::{PluginId, PluginPackageManifest, PluginPackageManifestError};
 use serde::{Deserialize, Serialize};
@@ -14,6 +16,8 @@ pub const MAX_PLUGIN_INSTALLATIONS: usize = 256;
 pub const MAX_PLUGIN_INSTALLATION_ERROR_BYTES: usize = 512;
 const INSTALLATIONS_FILE_NAME: &str = "installed.json";
 const MAX_INSTALLATIONS_FILE_BYTES: usize = 1024 * 1024;
+#[cfg(target_os = "windows")]
+static INSTALLATION_TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// 插件包的本地生命周期状态；启用状态不会触发进程启动。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -222,12 +226,61 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), PluginInstallationStore
         file.sync_all()
             .map_err(|source| storage_error("同步插件状态临时文件", source))?;
         drop(file);
-        fs::rename(&temp_path, path).map_err(|source| storage_error("替换插件状态文件", source))
+        commit_state_temp(&temp_path, path)
     })();
     if write_result.is_err() {
         let _ = fs::remove_file(&temp_path);
     }
     write_result
+}
+
+#[cfg(not(target_os = "windows"))]
+fn commit_state_temp(temp_path: &Path, target: &Path) -> Result<(), PluginInstallationStoreError> {
+    fs::rename(temp_path, target).map_err(|source| storage_error("替换插件状态文件", source))
+}
+
+#[cfg(target_os = "windows")]
+fn commit_state_temp(temp_path: &Path, target: &Path) -> Result<(), PluginInstallationStoreError> {
+    let exists = match fs::symlink_metadata(target) {
+        Ok(_) => true,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+        Err(source) => return Err(storage_error("检查插件状态文件", source)),
+    };
+    if !exists {
+        return fs::rename(temp_path, target)
+            .map_err(|source| storage_error("保存插件状态文件", source));
+    }
+
+    let backup = target.with_file_name(format!(
+        "{INSTALLATIONS_FILE_NAME}.backup-{}-{}",
+        std::process::id(),
+        INSTALLATION_TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::rename(target, &backup).map_err(|source| storage_error("备份插件状态文件", source))?;
+    match fs::rename(temp_path, target) {
+        Ok(()) => {
+            if let Err(error) = fs::remove_file(&backup) {
+                tracing::warn!(
+                    operation = "plugin_installation_cleanup",
+                    error = %error,
+                    path = %backup.display(),
+                    "remove plugin state backup failed"
+                );
+            }
+            Ok(())
+        }
+        Err(source) => {
+            let restore = fs::rename(&backup, target).err();
+            let message = restore.map_or_else(
+                || format!("替换插件状态文件失败：{source}"),
+                |restore| format!("替换插件状态文件失败：{source}；恢复原文件失败：{restore}"),
+            );
+            Err(PluginInstallationStoreError::Storage {
+                operation: "替换插件状态文件",
+                source: std::io::Error::other(message),
+            })
+        }
+    }
 }
 
 fn storage_error(operation: &'static str, source: std::io::Error) -> PluginInstallationStoreError {
