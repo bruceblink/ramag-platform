@@ -16,6 +16,7 @@ const MAIN_WINDOW_DEFAULT_HEIGHT: f32 = MAIN_WINDOW_DEFAULT_WIDTH / ramag_ui::GO
 pub(super) struct AppDeps {
     pub(super) plugin_host: Arc<StaticPluginHost>,
     pub(super) plugin_installation_store: Option<Arc<ramag_app::PluginInstallationStore>>,
+    pub(super) plugin_package_installer: Option<Arc<ramag_app::PluginPackageInstaller>>,
     pub(super) plugin_installations: Vec<ramag_app::PluginInstallation>,
     pub(super) registry: Arc<ToolRegistry>,
     pub(super) conn_service: Arc<ConnectionService>,
@@ -141,6 +142,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
     let AppDeps {
         plugin_host,
         plugin_installation_store,
+        plugin_package_installer,
         plugin_installations,
         registry,
         conn_service,
@@ -279,6 +281,9 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     view.set_plugin_installations(plugin_installations.clone(), cx);
                     if let Some(store) = plugin_installation_store.clone() {
                         view.set_plugin_installation_store(store, cx);
+                    }
+                    if let Some(installer) = plugin_package_installer.clone() {
+                        view.set_plugin_package_installer(installer, cx);
                     }
                 });
 

@@ -1,12 +1,15 @@
 use std::sync::Arc;
 
-use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable as _, h_flex, v_flex};
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, Sizable as _, button::ButtonVariants as _, h_flex, v_flex,
+};
 use gpui_kit::{
     Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div, prelude::*, px,
 };
 use ramag_app::{
     PluginCatalogEntry, PluginDiagnostic, PluginInstallation, PluginInstallationState,
-    PluginInstallationStore, PluginLifecycleStage, PluginState, StaticPluginHost,
+    PluginInstallationStore, PluginLifecycleStage, PluginPackageInstaller, PluginState,
+    StaticPluginHost,
 };
 use ramag_domain::PluginId;
 
@@ -15,6 +18,8 @@ pub(crate) struct PluginDiagnosticsView {
     host: Arc<StaticPluginHost>,
     installations: Vec<PluginInstallation>,
     installation_store: Option<Arc<PluginInstallationStore>>,
+    package_installer: Option<Arc<PluginPackageInstaller>>,
+    pending_uninstall: Option<PluginId>,
     installation_error: Option<String>,
 }
 
@@ -28,6 +33,8 @@ impl PluginDiagnosticsView {
             host,
             installations,
             installation_store: None,
+            package_installer: None,
+            pending_uninstall: None,
             installation_error: None,
         }
     }
@@ -42,6 +49,16 @@ impl PluginDiagnosticsView {
         cx.notify();
     }
 
+    /// 注入包安装器，使设置页可以在确认后安全卸载本地插件。
+    pub(crate) fn set_package_installer(
+        &mut self,
+        package_installer: Arc<PluginPackageInstaller>,
+        cx: &mut Context<Self>,
+    ) {
+        self.package_installer = Some(package_installer);
+        cx.notify();
+    }
+
     /// 更新已加载的安装状态，并通知设置页重新布局。
     pub(crate) fn set_installations(
         &mut self,
@@ -49,6 +66,7 @@ impl PluginDiagnosticsView {
         cx: &mut Context<Self>,
     ) {
         self.installations = installations;
+        self.pending_uninstall = None;
         self.installation_error = None;
         cx.notify();
     }
@@ -89,6 +107,50 @@ impl PluginDiagnosticsView {
         }
         cx.notify();
     }
+
+    /// 记录待确认的卸载请求，不在第一次点击时修改文件。
+    fn request_uninstall(&mut self, plugin_id: PluginId, cx: &mut Context<Self>) {
+        if self
+            .installations
+            .iter()
+            .any(|installation| installation.manifest.id == plugin_id)
+        {
+            self.pending_uninstall = Some(plugin_id);
+            self.installation_error = None;
+            cx.notify();
+        }
+    }
+
+    /// 取消待确认的卸载请求。
+    fn cancel_uninstall(&mut self, cx: &mut Context<Self>) {
+        self.pending_uninstall = None;
+        cx.notify();
+    }
+
+    /// 执行已确认的卸载，并在失败时保留当前插件行和错误信息。
+    fn confirm_uninstall(&mut self, plugin_id: PluginId, cx: &mut Context<Self>) {
+        let Some(installer) = self.package_installer.clone() else {
+            self.installation_error = Some("插件卸载器尚未初始化".into());
+            self.pending_uninstall = None;
+            cx.notify();
+            return;
+        };
+        match installer.uninstall(&plugin_id) {
+            Ok(true) => {
+                self.installations
+                    .retain(|installation| installation.manifest.id != plugin_id);
+                self.installation_error = None;
+            }
+            Ok(false) => {
+                self.installation_error = Some("插件安装记录不存在，未执行卸载".into());
+            }
+            Err(error) => {
+                self.installation_error = Some(format!("插件卸载失败：{error}"));
+            }
+        }
+        self.pending_uninstall = None;
+        cx.notify();
+    }
 }
 
 impl Render for PluginDiagnosticsView {
@@ -120,6 +182,8 @@ impl Render for PluginDiagnosticsView {
             .child(render_installations(
                 &self.installations,
                 self.installation_store.is_some(),
+                self.package_installer.is_some(),
+                self.pending_uninstall.as_ref(),
                 self.installation_error.as_deref(),
                 cx,
             ))
@@ -132,6 +196,8 @@ impl Render for PluginDiagnosticsView {
 fn render_installations(
     installations: &[PluginInstallation],
     can_toggle: bool,
+    can_uninstall: bool,
+    pending_uninstall: Option<&PluginId>,
     load_error: Option<&str>,
     cx: &mut Context<PluginDiagnosticsView>,
 ) -> impl IntoElement {
@@ -142,7 +208,9 @@ fn render_installations(
             let manifest = &installation.manifest;
             let row_id = format!("plugin-installation-{}", manifest.id);
             let toggle_id = format!("plugin-installation-toggle-{}", manifest.id);
+            let uninstall_id = format!("plugin-installation-uninstall-{}", manifest.id);
             let plugin_id = manifest.id.clone();
+            let uninstall_plugin_id = manifest.id.clone();
             let status = installation_state_label(installation.state);
             let toggle_label = installation_toggle_label(installation.state);
             let runtime = match manifest.runtime {
@@ -170,6 +238,7 @@ fn render_installations(
                     h_flex()
                         .w_full()
                         .min_w_0()
+                        .flex_wrap()
                         .items_start()
                         .gap(px(8.0))
                         .child(
@@ -201,6 +270,8 @@ fn render_installations(
                         .child(
                             h_flex()
                                 .flex_none()
+                                .max_w_full()
+                                .flex_wrap()
                                 .items_center()
                                 .gap(px(6.0))
                                 .child(crate::pulse_ui::pulse_status_badge_with_label(
@@ -221,6 +292,21 @@ fn render_installations(
                                                 },
                                             )),
                                     )
+                                })
+                                .when(can_uninstall, |actions| {
+                                    actions.child(
+                                        crate::clickable_button(uninstall_id.clone())
+                                            .debug_selector(move || uninstall_id.clone())
+                                            .xsmall()
+                                            .danger()
+                                            .label("卸载")
+                                            .on_click(cx.listener(move |view, _, _, cx| {
+                                                view.request_uninstall(
+                                                    uninstall_plugin_id.clone(),
+                                                    cx,
+                                                );
+                                            })),
+                                    )
                                 }),
                         ),
                 )
@@ -234,32 +320,91 @@ fn render_installations(
                 .into_any_element()
         })
         .collect::<Vec<_>>();
-    let body = if let Some(error) = load_error {
-        render_empty_state(
-            "plugin-installations",
-            IconName::CircleX,
-            "插件状态读取失败",
-            error.to_owned(),
-            theme,
-        )
-        .into_any_element()
-    } else if rows.is_empty() {
-        render_empty_state(
-            "plugin-installations",
-            IconName::Folder,
-            "暂无可安装插件",
-            "安装包状态会显示在这里；当前页面不会启动外部代码。",
-            theme,
-        )
-        .into_any_element()
+    let body = if rows.is_empty() {
+        if let Some(error) = load_error {
+            render_empty_state(
+                "plugin-installations",
+                IconName::CircleX,
+                "插件状态读取失败",
+                error.to_owned(),
+                theme,
+            )
+            .into_any_element()
+        } else {
+            render_empty_state(
+                "plugin-installations",
+                IconName::Folder,
+                "暂无可安装插件",
+                "安装包状态会显示在这里；当前页面不会启动外部代码。",
+                theme,
+            )
+            .into_any_element()
+        }
     } else {
         v_flex()
             .w_full()
             .min_w_0()
             .gap(px(8.0))
+            .when_some(load_error, |content, error| {
+                content.child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.danger)
+                        .child(error.to_owned()),
+                )
+            })
             .children(rows)
             .into_any_element()
     };
+    let confirmation = pending_uninstall.and_then(|plugin_id| {
+        installations
+            .iter()
+            .find(|installation| installation.manifest.id == *plugin_id)
+            .map(|installation| {
+                let plugin_id = installation.manifest.id.clone();
+                v_flex()
+                    .id("plugin-installation-confirmation")
+                    .debug_selector(|| "plugin-installation-confirmation".into())
+                    .gap(px(8.0))
+                    .p(px(10.0))
+                    .border_1()
+                    .border_color(theme.border)
+                    .rounded(px(6.0))
+                    .child(div().text_sm().text_color(theme.foreground).child(format!(
+                        "确认卸载“{}”？这会删除本地插件包和安装状态。",
+                        installation.manifest.name
+                    )))
+                    .child(
+                        h_flex()
+                            .gap(px(8.0))
+                            .child(
+                                crate::clickable_button("plugin-installation-cancel-uninstall")
+                                    .debug_selector(|| {
+                                        "plugin-installation-cancel-uninstall".into()
+                                    })
+                                    .small()
+                                    .ghost()
+                                    .label("取消")
+                                    .on_click(cx.listener(|view, _, _, cx| {
+                                        view.cancel_uninstall(cx);
+                                    })),
+                            )
+                            .child(
+                                crate::clickable_button("plugin-installation-confirm-uninstall")
+                                    .debug_selector(|| {
+                                        "plugin-installation-confirm-uninstall".into()
+                                    })
+                                    .small()
+                                    .danger()
+                                    .label("确认卸载")
+                                    .on_click(cx.listener(move |view, _, _, cx| {
+                                        view.confirm_uninstall(plugin_id.clone(), cx);
+                                    })),
+                            ),
+                    )
+                    .into_any_element()
+            })
+    });
 
     crate::pulse_ui::pulse_panel(cx)
         .id("plugin-installations")
@@ -277,6 +422,7 @@ fn render_installations(
                 .child("显示插件包版本、运行时和本地状态；启用或禁用只保存状态，不启动外部进程。"),
         )
         .child(body)
+        .children(confirmation)
 }
 
 fn installation_state_label(state: PluginInstallationState) -> &'static str {

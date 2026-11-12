@@ -23,7 +23,7 @@ use gpui_kit::{
 };
 use ramag_app::{
     AvailableUpdate, ClipboardService, ConnectionService, PluginInstallation,
-    PluginInstallationStore, SshService, StaticPluginHost, UpdateService,
+    PluginInstallationStore, PluginPackageInstaller, SshService, StaticPluginHost, UpdateService,
 };
 use ramag_domain::entities::{
     ClipboardSettings, DownloadProgress, IdConverterKind, MAX_CUSTOM_ID_ALPHABET_BYTES,
@@ -449,6 +449,18 @@ impl SettingsView {
     ) {
         self.plugin_diagnostics.update(cx, |view, cx| {
             view.set_installation_store(installation_store, cx)
+        });
+        cx.notify();
+    }
+
+    /// 注入插件包安装器，使插件设置页可以执行确认后的卸载操作。
+    pub fn set_plugin_package_installer(
+        &mut self,
+        package_installer: Arc<PluginPackageInstaller>,
+        cx: &mut Context<Self>,
+    ) {
+        self.plugin_diagnostics.update(cx, |view, cx| {
+            view.set_package_installer(package_installer, cx)
         });
         cx.notify();
     }
