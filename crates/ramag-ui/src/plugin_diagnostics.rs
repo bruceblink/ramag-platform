@@ -826,6 +826,7 @@ fn render_package_catalog(
             let package_key = package_download_key(entry);
             let download_id = format!("plugin-package-catalog-download-{package_key}");
             let install_id = format!("plugin-package-catalog-install-{package_key}");
+            let url_id = format!("plugin-package-catalog-url-{package_key}");
             let is_downloading = downloading_package == Some(package_key.as_str());
             let is_installing = installing_package == Some(package_key.as_str());
             let is_downloaded = downloaded_packages.contains_key(&package_key);
@@ -843,6 +844,13 @@ fn render_package_catalog(
                 "安装"
             } else {
                 "下载"
+            };
+            let status_color = if is_downloading || is_installing {
+                theme.warning
+            } else if is_downloaded || is_installed {
+                theme.success
+            } else {
+                theme.muted_foreground
             };
             let download_entry = entry.clone();
             let install_entry = entry.clone();
@@ -871,6 +879,7 @@ fn render_package_catalog(
                     h_flex()
                         .w_full()
                         .min_w_0()
+                        .flex_wrap()
                         .items_start()
                         .gap(px(8.0))
                         .child(
@@ -902,12 +911,14 @@ fn render_package_catalog(
                         .child(
                             h_flex()
                                 .flex_none()
+                                .max_w_full()
+                                .flex_wrap()
                                 .items_center()
                                 .gap(px(6.0))
                                 .child(
                                     div()
                                         .text_xs()
-                                        .text_color(theme.muted_foreground)
+                                        .text_color(status_color)
                                         .debug_selector(move || {
                                             format!("plugin-package-catalog-status-{package_key}")
                                         })
@@ -957,14 +968,23 @@ fn render_package_catalog(
                 )
                 .child(
                     div()
+                        .w_full()
+                        .min_w_0()
+                        .whitespace_normal()
                         .text_xs()
                         .text_color(theme.muted_foreground)
                         .child(format!("运行时：进程 · 能力：{capabilities}")),
                 )
                 .child(
                     div()
+                        .w_full()
+                        .min_w_0()
+                        .overflow_hidden()
+                        .whitespace_nowrap()
+                        .text_ellipsis()
                         .text_xs()
                         .text_color(theme.muted_foreground)
+                        .debug_selector(move || url_id.clone())
                         .child(format!("下载地址：{}", entry.package_url)),
                 )
                 .into_any_element()

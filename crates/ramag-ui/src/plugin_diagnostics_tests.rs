@@ -504,6 +504,51 @@ fn downloaded_catalog_entry_without_installer_shows_error(cx: &mut TestAppContex
 }
 
 #[gpui_kit::test]
+fn long_catalog_text_stays_inside_narrow_window(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+    let mut entry = catalog_plugin();
+    entry.name = "长插件名称".repeat(12);
+    entry.package_url = format!(
+        "https://plugins.example.test/{}",
+        "very-long-path-segment-".repeat(70)
+    );
+    let (_, visual_cx) = cx.add_window_view(move |_, cx| PluginDiagnosticsTestHost {
+        view: cx.new(|view_cx| {
+            let mut view = PluginDiagnosticsView::with_installations(host, Vec::new());
+            view.set_catalog_entries(vec![entry], view_cx);
+            view
+        }),
+    });
+    let visual_cx: &mut VisualTestContext = visual_cx;
+    visual_cx.simulate_resize(size(px(360.0), px(520.0)));
+    visual_cx.run_until_parked();
+
+    let root = visual_cx
+        .debug_bounds("plugin-diagnostics")
+        .expect("插件诊断页应渲染");
+    let catalog = visual_cx
+        .debug_bounds("plugin-package-catalog")
+        .expect("目录候选区域应渲染");
+    let row = visual_cx
+        .debug_bounds("plugin-package-catalog-catalog.example-1.0.0")
+        .expect("长文本候选行应渲染");
+    let url = visual_cx
+        .debug_bounds("plugin-package-catalog-url-catalog.example-1.0.0")
+        .expect("下载地址应有稳定选择器");
+    let status = visual_cx
+        .debug_bounds("plugin-package-catalog-status-catalog.example-1.0.0")
+        .expect("候选状态应渲染");
+    let button = visual_cx
+        .debug_bounds("plugin-package-catalog-download-catalog.example-1.0.0")
+        .expect("下载按钮应渲染");
+    for bounds in [row, url, status, button] {
+        assert_inside(bounds, catalog);
+        assert_inside(bounds, root);
+    }
+}
+
+#[gpui_kit::test]
 fn plugin_installation_feedback_notices_fit_supported_themes_and_widths(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
