@@ -75,13 +75,15 @@ flowchart TB
 
 `PluginPackageCatalog::parse_json` 用于读取本地目录清单候选。它只校验格式和包元数据，不发起 HTTP 请求，不下载归档，不解包，不执行代码，也不改变安装状态。目录清单条目通过校验后才能进入后续展示或下载流程；签名和远程来源可信度仍需独立设计。
 
-`PluginPackageDownloader` 只接受已经通过 `PluginPackageCatalogEntry::validate` 的候选。生产构造器默认使用 HTTPS、要求 `HTTP 200`、禁止重定向，并同时限制响应头和流式累计大小为 `64 MiB`。下载内容先写同目录临时文件，完成 `flush`、`sync_all` 和 SHA-256 核对后再通过不覆盖的原子发布完成落盘；最终目标父目录拒绝符号链接或非目录，已存在目标文件不会被覆盖。`PluginPackageDownloader::new` 使用 workspace 的 `rustls-no-provider`，应用启动层必须先安装 TLS provider；`download_to_managed_runtime` 为 GPUI 等非 Tokio 执行器提供专用 runtime 入口。下载器不调用安装器或执行包内容。当前只完成纯边界测试，真实 HTTPS 服务下的状态、重定向、超量和成功落盘仍未验收。
+`PluginPackageDownloader` 只接受已经通过 `PluginPackageCatalogEntry::validate` 的候选。目录字段 `archive_sha256` 表示整个 `.tar.gz` 归档的摘要；包内 `PluginPackageManifest.package_sha256` 表示解包文件内容摘要。生产构造器默认使用 HTTPS、要求 `HTTP 200`、禁止重定向，并同时限制响应头和流式累计大小为 `64 MiB`。下载内容先写同目录临时文件，完成 `flush`、`sync_all` 和归档 SHA-256 核对后再通过不覆盖的原子发布完成落盘；最终目标父目录拒绝符号链接或非目录，已存在目标文件不会被覆盖。`PluginPackageDownloader::new` 使用 workspace 的 `rustls-no-provider`，应用启动层必须先安装 TLS provider；`download_to_managed_runtime` 为 GPUI 等非 Tokio 执行器提供专用 runtime 入口。下载器不调用安装器或执行包内容。当前只完成纯边界测试，真实 HTTPS 服务下的状态、重定向、超量和成功落盘仍未验收。
 
-设置页的目录候选使用稳定的下载按钮和“待下载”“下载中”“已下载”状态。缓存根目录由应用组合根注入到插件状态目录下的 `downloads` 子目录；下载失败显示统一错误状态卡，成功后只保留缓存文件，不修改 `installed.json`，不自动安装或启动插件。真实窗口点击和下载后安装仍未验收。
+设置页的目录候选使用稳定的下载按钮和“待下载”“下载中”“已下载”“安装中”“已安装”状态。缓存根目录由应用组合根注入到插件状态目录下的 `downloads` 子目录；下载失败或安装失败显示统一错误状态卡，安装失败保留缓存并允许重试，成功后更新 `installed.json` 并清理缓存。真实窗口点击仍未验收。
+
+目录候选安装使用 `PluginPackageInstaller::install_catalog_archive`。安装按钮触发时重新读取归档并核对 `archive_sha256`，临时解包后逐项核对包内清单的 ID、名称、版本、API、运行时和能力集合，再调用现有入口解析、内容摘要和原子安装流程。目录清单没有入口字段，因此入口路径只由包内清单和安装器校验。归档摘要和解包内容摘要不能互换。
 
 应用从插件状态目录读取 `catalog.json`，校验成功后把候选注入插件设置页。设置页只展示候选元数据；空目录、损坏清单和不兼容条目不会阻止内置工具启动，也不会写入安装状态。
 
-当前实现可以使用 `ramag-plugin-helper` 完成跨平台真实进程的握手、回显调用和关闭验收；启动前还会重新核对包摘要。该辅助进程只服务测试，不是主程序入口。远程目录获取、签名、沙箱、Windows Job Object、Unix process group、下载后的安装 UI 和第三方窗口仍需要独立切片。
+当前实现可以使用 `ramag-plugin-helper` 完成跨平台真实进程的握手、回显调用和关闭验收；启动前还会重新核对包摘要。该辅助进程只服务测试，不是主程序入口。远程目录获取、签名、沙箱、Windows Job Object、Unix process group 和第三方窗口仍需要独立切片。
 
 | 项目 | 接口上限与兼容要求 |
 |---|---|
@@ -217,7 +219,7 @@ git diff --check
 
 ## 当前未实现能力
 
-当前版本可以解析可安装插件清单、下载已校验的本地缓存包、安装本地目录或受限 `tar.gz` 归档并保存本地安装状态，也有最小独立插件进程宿主。正式第三方插件执行仍缺少签名验证、操作系统沙箱、进程树清理、安装回滚、远程市场发现和下载后安装 UI。用户明确要求这些能力时，先更新[主线开发计划](01-development-plan.md)，完成威胁模型、权限边界和协议决策，再安排实现。
+当前版本可以解析可安装插件清单、下载并安全安装已校验的本地缓存包、安装本地目录或受限 `tar.gz` 归档并保存本地安装状态，也有最小独立插件进程宿主。正式第三方插件执行仍缺少签名验证、操作系统沙箱、进程树清理、安装回滚和远程市场发现。用户明确要求这些能力时，先更新[主线开发计划](01-development-plan.md)，完成威胁模型、权限边界和协议决策，再安排实现。
 
 ## 承载与兼容决策
 

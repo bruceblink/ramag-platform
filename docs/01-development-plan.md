@@ -743,11 +743,12 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 15 | `RAMAG-UI-PLUGIN-ERROR-001` 插件设置页错误反馈 | 已完成：复用设置页统一错误状态卡，补充图标、边框、错误标题和稳定调试选择器；插件最近错误与状态保存、卸载失败使用同一反馈层级 | 最近错误和插件操作错误在 360px、1024px、1440px 的明暗主题下均保持在安装状态区域内；错误原因仍可读且不改变状态逻辑 | `ramag-ui` 插件诊断定向测试 5 项、严格 Clippy、格式检查和差异检查已通过。回滚只涉及插件设置页反馈渲染、通用错误状态卡接口、对应测试和本节记录 |
 | 16 | `RAMAG-PLUGIN-ARCHIVE-001` 受限本地 `tar.gz` 包安装 | 已完成：读取本地归档快照，先扫描再解包到临时目录，拒绝路径穿越、链接、特殊类型、重复路径、超量条目和超大解包内容，再复用目录安装器完成清单、摘要和状态校验 | 有效 `tar.gz` 能安装并写入状态；归档大小最多 `64 MiB`，条目最多 `1024` 项，解包内容最多 `64 MiB`；失败时不写入安装状态，临时目录由清理守卫回收 | `ramag-app` 归档安装定向测试 5 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。回滚只涉及归档安装模块、安装器桥接、依赖锁文件和本节记录 |
 | 17 | `RAMAG-UI-PLUGIN-ARCHIVE-001` 设置页本地归档安装入口 | 已完成：加入 `tar.gz`/`tgz` 文件选择器，后台执行归档安装，成功后更新或新增插件行，失败时显示统一错误状态卡；安装中按钮禁用并显示进行中状态 | 插件设置页在 360px、1024px、1440px 明暗主题下显示本地归档按钮且不越界；入口使用后台任务执行安装，避免把解包和摘要核验放在 UI 更新路径中 | `ramag-ui` 插件诊断定向测试 5 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。文件选择器和后台结果回写的真实系统对话框未在本轮自动化窗口中操作，回滚只涉及插件设置页入口、对应测试和本节记录 |
-| 18 | `RAMAG-PLUGIN-CATALOG-001` 本地插件目录清单解析 | 已完成：增加受限 JSON 目录清单和包候选校验；只解析元数据，不联网、不下载、不解包、不执行、不授予权限 | 清单最多 `1 MiB`、`256` 个条目；每项校验插件 ID、名称、SemVer、宿主 API、`process` 运行时、HTTPS 地址、小写 SHA-256、能力集合和重复 ID/版本 | `ramag-app` 目录清单定向测试 5 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。回滚只涉及目录清单模块、依赖锁文件和本节记录 |
+| 18 | `RAMAG-PLUGIN-CATALOG-001` 本地插件目录清单解析 | 已完成：增加受限 JSON 目录清单和包候选校验；只解析元数据，不联网、不下载、不解包、不执行、不授予权限 | 清单最多 `1 MiB`、`256` 个条目；每项校验插件 ID、名称、SemVer、宿主 API、`process` 运行时、HTTPS 地址、归档 `archive_sha256`、能力集合和重复 ID/版本；继续兼容旧 `package_sha256` 字段 | `ramag-app` 目录清单定向测试 6 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。回滚只涉及目录清单模块、依赖锁文件和本节记录 |
 | 19 | `RAMAG-UI-PLUGIN-CATALOG-001` 设置页本地目录候选展示 | 已完成：启动时读取插件状态目录中的 `catalog.json`，校验成功后注入设置页并展示插件名称、ID、版本、API、能力和下载地址；损坏清单只显示空状态，不联网、不下载、不执行 | 候选区域在 360px、640px、1024px、1440px 窗口中保持边界；有候选和空目录均有明确标题、引导和稳定选择器；设置页展示不改变安装状态 | `ramag-ui` 插件诊断定向测试 5 项、`ramag-bin` 组合检查、严格 Clippy、格式检查和差异检查已通过。真实窗口目录文件读取未在本轮自动化窗口中操作，回滚只涉及组合根、插件设置页和对应测试 |
-| 20 | `RAMAG-PLUGIN-DOWNLOAD-001` 有界 HTTPS 插件包下载 | 已完成：对已校验的 `PluginPackageCatalogEntry` 使用生产构造器下载到新的本地缓存文件，限制 HTTPS、HTTP 200、禁止重定向、64 MiB 响应大小和最终目标父目录符号链接；流式计算 SHA-256，`flush`/`sync_all` 后原子发布；不调用安装器或执行包内容 | `Content-Length` 和流式累计均不得超过 `MAX_PLUGIN_DOWNLOAD_BYTES = 64 MiB`；最终目标父目录必须是普通目录，目标文件必须不存在；摘要不匹配、HTTP 错误、重定向和写入失败都清理当前临时文件并保留已有文件；原子发布不会覆盖并发出现的目标文件；生产 `new()` 的 TLS provider 由应用启动层预先安装 | 下载器定向测试 3 项、`ramag-app` 严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。当前未运行本地 HTTPS 服务，HTTP 状态、流式超限、重定向和成功落盘仍未完成真实网络集成验收；回滚只涉及下载器、目录条目复用、依赖锁文件和本节记录 |
-| 21 | `RAMAG-UI-PLUGIN-DOWNLOAD-001` 设置页目录候选下载入口 | 已完成：把已校验目录候选接入下载器，在每个候选行显示稳定下载按钮、待下载/下载中/已下载状态和统一错误状态卡；下载任务使用专用 Tokio runtime 和后台执行器，缓存根目录限制在插件状态目录下；不自动安装或执行 | 设置页在 360px、1024px、1440px 明暗主题下显示下载按钮且不越界；同一页面只允许一个下载任务；成功后按钮禁用并保留已校验缓存路径；下载失败保留候选行并显示错误原因；UI 不改变 `installed.json` | `ramag-ui` 插件诊断定向测试 6 项、`ramag-app` 全量测试 327 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。真实 HTTPS 服务、真实窗口点击下载和下载后安装仍未验收；回滚只涉及下载器 runtime 入口、组合根注入、插件设置页和对应测试 |
-| 22 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
+| 20 | `RAMAG-PLUGIN-DOWNLOAD-001` 有界 HTTPS 插件包下载 | 已完成：对已校验的 `PluginPackageCatalogEntry.archive_sha256` 使用生产构造器下载到新的本地缓存文件，限制 HTTPS、HTTP 200、禁止重定向、64 MiB 响应大小和最终目标父目录符号链接；流式计算归档 SHA-256，`flush`/`sync_all` 后原子发布；不调用安装器或执行包内容 | `Content-Length` 和流式累计均不得超过 `MAX_PLUGIN_DOWNLOAD_BYTES = 64 MiB`；最终目标父目录必须是普通目录，目标文件必须不存在；归档摘要不匹配、HTTP 错误、重定向和写入失败都清理当前临时文件并保留已有文件；原子发布不会覆盖并发出现的目标文件；生产 `new()` 的 TLS provider 由应用启动层预先安装 | 下载器定向测试 3 项、`ramag-app` 严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。当前未运行本地 HTTPS 服务，HTTP 状态、流式超限、重定向和成功落盘仍未完成真实网络集成验收；回滚只涉及下载器、目录条目复用、依赖锁文件和本节记录 |
+| 21 | `RAMAG-UI-PLUGIN-DOWNLOAD-001` 设置页目录候选下载入口 | 已完成：把已校验目录候选接入下载器，在每个候选行显示稳定下载按钮、待下载/下载中/已下载状态和统一错误状态卡；下载任务使用专用 Tokio runtime 和后台执行器，缓存根目录限制在插件状态目录下；不自动安装或执行 | 设置页在 360px、1024px、1440px 明暗主题下显示下载按钮且不越界；同一页面只允许一个下载任务；成功后按钮禁用并保留已校验缓存路径；下载失败保留候选行并显示错误原因；UI 不改变 `installed.json` | `ramag-ui` 插件诊断定向测试 8 项、`ramag-app` 全量测试 329 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。真实 HTTPS 服务、真实窗口点击下载和下载后安装仍未验收；回滚只涉及下载器 runtime 入口、组合根注入、插件设置页和对应测试 |
+| 22 | `RAMAG-PLUGIN-CATALOG-INSTALL-001` 下载缓存安全安装 | 已完成：安装前重新读取缓存归档并核对 `archive_sha256`，在临时解包目录逐项核对包内清单的 ID、名称、版本、API、运行时和能力集合，再复用现有摘要、入口、原子替换和状态保存流程；安装成功后设置页刷新安装状态并清理缓存 | 归档摘要或目录身份不匹配时不写入 `packages` 或 `installed.json`；能力顺序变化不影响匹配；安装失败保留缓存并显示错误；成功后候选显示“已安装”，缓存文件清理失败只记录诊断 | `ramag-app` 归档定向测试 6 项、目录清单定向测试 6 项、`ramag-ui` 插件诊断定向测试 8 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。真实 HTTPS、真实窗口点击和跨进程安装仍未验收；回滚只涉及归档安装器、目录清单字段兼容、插件设置页和对应测试 |
+| 23 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -1114,14 +1115,14 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 - 清单格式版本固定为 `1`，JSON 最大 `1 MiB`，最多 `256` 个包条目。
 - 每个条目校验插件 ID、显示名称、SemVer 版本、宿主 API 兼容性和 `process` 运行时。
 - 下载地址必须是无用户信息、无片段的 HTTPS 地址；地址长度最多 `2048` 字节。
-- 包摘要必须是 `64` 个小写十六进制字符的 SHA-256；能力必须来自已知集合且不能重复。
+- 归档 `archive_sha256` 必须是 `64` 个小写十六进制字符；能力必须来自已知集合且不能重复。包内 `PluginPackageManifest.package_sha256` 继续由安装器按解包内容核验。
 - 同一插件 ID 和版本只能出现一次。结构体使用 `deny_unknown_fields` 拒绝未知字段，目录清单不能借此传入执行参数。
 
 验证命令为 `cargo fmt --all -- --check`、
 `cargo test --locked -p ramag-app --lib plugin_package_catalog::tests -- --test-threads=1`、
 `cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
 `cargo check --locked -p ramag-bin --all-targets` 和 `git diff --check`。
-2026-11-13 已完成本切片。有效清单、重复条目、格式版本、HTTPS 地址、SemVer、摘要、API、能力和资源上限测试通过。远程目录获取、下载和签名仍未完成；本地候选展示由 `RAMAG-UI-PLUGIN-CATALOG-001` 负责。
+2026-11-13 已完成本切片。有效清单、重复条目、格式版本、HTTPS 地址、SemVer、归档摘要、API、能力和资源上限测试通过。远程目录获取和签名仍未完成；本地候选展示由 `RAMAG-UI-PLUGIN-CATALOG-001` 负责。
 
 ### 4.30 设置页本地目录候选展示
 
@@ -1141,7 +1142,7 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 
 ### 4.31 有界 HTTPS 插件包下载
 
-本切片增加 `PluginPackageDownloader`，把已经通过 `PluginPackageCatalogEntry::validate` 的候选包下载到新的本地缓存文件。下载器只负责接收、限制、摘要核验和原子落盘，不调用安装器，不执行包内容，也不改变安装状态。
+本切片增加 `PluginPackageDownloader`，把已经通过 `PluginPackageCatalogEntry::validate` 的候选包下载到新的本地缓存文件。目录字段 `archive_sha256` 表示整个 `.tar.gz` 归档的摘要；包内 `PluginPackageManifest.package_sha256` 继续表示解包文件内容摘要。下载器只负责接收、限制、归档摘要核验和原子落盘，不调用安装器，不执行包内容，也不改变安装状态。
 
 - 生产构造器 `PluginPackageDownloader::new` 使用 HTTPS 目录条目、`HTTP 200` 和零重定向策略；`with_client` 仅用于注入客户端，调用方必须自行负责其重定向和 TLS 配置。
 - `Content-Length` 和流式累计大小都受 `MAX_PLUGIN_DOWNLOAD_BYTES = 64 MiB` 限制。目标路径必须是绝对路径，最终目标父目录不能是符号链接或非目录，目标文件必须不存在。
@@ -1156,12 +1157,12 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 
 ### 4.32 设置页目录候选下载入口
 
-本切片把 `PluginPackageDownloader` 接入插件设置页的本地目录候选。用户可以从候选行启动下载，应用把已核验摘要的归档写入插件状态目录下的独立 `downloads` 子目录；下载完成后只显示缓存状态，不自动安装或启动插件。
+本切片把 `PluginPackageDownloader` 接入插件设置页的本地目录候选。用户可以从候选行启动下载，应用把已核验摘要的归档写入插件状态目录下的独立 `downloads` 子目录；下载完成后显示安装动作，安装仍由独立的目录清单核对流程负责。
 
 - 每个候选使用 `plugin-package-catalog-download-<id>-<version>` 稳定选择器，并显示“待下载”“下载中”或“已下载”。同一设置页同时只运行一个下载任务，下载中按钮禁用。
 - 下载任务在 GPUI 后台执行器中提交到下载器专用 Tokio runtime，避免直接在 UI 执行器中驱动 Tokio 文件和 HTTP future。目标路径由应用生成，设置页不接受用户任意写入路径。
-- 下载成功后保留已校验缓存路径和“已下载”状态。下载失败保留候选行，复用统一错误状态卡显示原因；目录候选和 `installed.json` 不因下载改变。
-- 本切片不调用 `PluginPackageInstaller`，不写安装状态，不启动外部进程。下载后的安装入口另行设计。
+- 下载成功后保留已校验缓存路径和“已下载”状态，并显示“安装”按钮。下载失败保留候选行，复用统一错误状态卡显示原因；下载本身不改变目录候选和 `installed.json`。
+- 下载和安装、卸载互斥，避免并行写入包目录。安装按钮由 `RAMAG-PLUGIN-CATALOG-INSTALL-001` 负责清单身份核对、状态刷新和缓存清理。
 
 验证覆盖明暗主题和 `360px`、`1024px`、`1440px` 窗口。
 
@@ -1171,7 +1172,26 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 `cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
 `cargo clippy --locked -p ramag-ui --all-targets -- -D warnings`、
 `cargo check --locked -p ramag-bin --all-targets` 和 `git diff --check`。
-2026-11-13 已完成本切片。插件诊断定向测试 6 项、应用层全量测试 327 项、严格 Clippy、组合检查、格式检查和差异检查通过。真实窗口点击、真实 HTTPS 服务和下载后安装仍未验收。
+2026-11-13 已完成本切片。插件诊断定向测试 8 项、应用层全量测试 329 项、严格 Clippy、组合检查、格式检查和差异检查通过。真实窗口点击和真实 HTTPS 服务仍未验收；下载后安装由 4.33 切片覆盖。
+
+### 4.33 下载缓存安全安装
+
+本切片把设置页中已完成归档摘要核验的缓存包接入安装器。安装动作重新读取缓存文件，核对目录记录的 `archive_sha256`，再在临时解包目录中核对包内 `plugin.json` 的身份字段，最后复用现有目录摘要、入口解析、原子替换和状态保存流程。
+
+- 目录记录和包内清单必须逐项匹配 `id`、名称、版本、宿主 API、运行时和能力集合。能力按集合比较，声明顺序变化不改变结果。目录记录没有入口字段，入口路径继续由包内清单和现有入口解析器校验。
+- 归档摘要在安装按钮触发时重新计算，不能只信 UI 内存中的下载路径或下载完成状态。摘要不匹配或清单身份不匹配时，在写入 `packages` 和 `installed.json` 前返回错误。
+- 安装成功后设置页按插件 ID 更新安装状态，候选显示“已安装”，并删除本次缓存归档。缓存清理失败不回滚已完成安装，只记录带路径的诊断；安装失败保留缓存，允许用户重试。
+- 目录字段使用 `archive_sha256`。解析器继续接受历史 `package_sha256` 字段作为兼容别名；包内 `PluginPackageManifest.package_sha256` 保持解包内容摘要语义，两个摘要不能互换。
+
+验证命令为 `cargo fmt --all -- --check`、
+`cargo test --locked -p ramag-app --lib plugin_package_archive::tests -- --test-threads=1`、
+`cargo test --locked -p ramag-app --lib plugin_package_catalog::tests -- --test-threads=1`、
+`cargo test --locked -p ramag-ui --lib plugin_diagnostics::tests -- --test-threads=1`、
+`cargo test --locked -p ramag-app --lib -- --test-threads=1`、
+`cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
+`cargo clippy --locked -p ramag-ui --all-targets -- -D warnings`、
+`cargo check --locked -p ramag-bin --all-targets` 和 `git diff --check`。
+2026-11-13 已完成本切片。归档安全安装定向测试 6 项、目录清单测试 6 项、插件诊断测试 8 项、应用层全量测试 329 项、严格 Clippy、组合检查、格式检查和差异检查通过。真实 HTTPS、真实窗口点击和跨进程安装仍未验收。
 
 ## 5. 条件限制与未纳入执行的事项
 

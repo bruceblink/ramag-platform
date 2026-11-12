@@ -10,10 +10,12 @@ use async_compression::futures::bufread::GzipDecoder;
 use async_tar::{Archive, EntryType};
 use futures::StreamExt as _;
 use futures::io::{BufReader, Cursor};
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use crate::{
-    MAX_PLUGIN_PACKAGE_BYTES, PluginInstallation, PluginPackageInstallError, PluginPackageInstaller,
+    MAX_PLUGIN_PACKAGE_BYTES, PluginInstallation, PluginPackageCatalogEntry,
+    PluginPackageInstallError, PluginPackageInstaller,
 };
 
 /// 单个本地插件归档允许读取的压缩后字节数。
@@ -49,16 +51,43 @@ pub(crate) fn install_from_archive(
     archive_path: &Path,
 ) -> Result<PluginInstallation, PluginPackageArchiveError> {
     let bytes = read_archive_snapshot(archive_path)?;
-    let plan = smol::block_on(scan_archive(&bytes))?;
+    install_archive_bytes(installer, &bytes, None)
+}
+
+/// 重新核对归档摘要并在安装前核对包内清单身份。
+pub(crate) fn install_from_catalog_archive(
+    installer: &PluginPackageInstaller,
+    catalog_entry: &PluginPackageCatalogEntry,
+    archive_path: &Path,
+) -> Result<PluginInstallation, PluginPackageArchiveError> {
+    let bytes = read_archive_snapshot(archive_path)?;
+    let actual = hex::encode(Sha256::digest(&bytes));
+    if actual != catalog_entry.archive_sha256 {
+        return Err(PluginPackageArchiveError::ArchiveDigestMismatch {
+            expected: catalog_entry.archive_sha256.clone(),
+            actual,
+        });
+    }
+    install_archive_bytes(installer, &bytes, Some(catalog_entry))
+}
+
+fn install_archive_bytes(
+    installer: &PluginPackageInstaller,
+    bytes: &[u8],
+    catalog_entry: Option<&PluginPackageCatalogEntry>,
+) -> Result<PluginInstallation, PluginPackageArchiveError> {
+    let plan = smol::block_on(scan_archive(bytes))?;
     let packages_root = installer.packages_root().to_path_buf();
     let packages_root = ensure_packages_root_for_archive(&packages_root)
         .map_err(PluginPackageArchiveError::Installer)?;
     let temp = create_archive_temp_directory(&packages_root)?;
     let _cleanup = TemporaryArchiveDirectory::new(temp.clone());
-    smol::block_on(extract_archive(&bytes, &temp, &plan))?;
-    installer
-        .install_from_directory(&temp)
-        .map_err(PluginPackageArchiveError::Installer)
+    smol::block_on(extract_archive(bytes, &temp, &plan))?;
+    let installation = match catalog_entry {
+        Some(catalog_entry) => installer.install_catalog_directory(&temp, catalog_entry),
+        None => installer.install_from_directory(&temp),
+    };
+    installation.map_err(PluginPackageArchiveError::Installer)
 }
 
 fn read_archive_snapshot(path: &Path) -> Result<Vec<u8>, PluginPackageArchiveError> {
@@ -327,6 +356,8 @@ pub enum PluginPackageArchiveError {
     ArchivePathNotFile { path: PathBuf },
     #[error("插件归档超过 {max} 字节（实际 {bytes} 字节）")]
     ArchiveTooLarge { bytes: u64, max: u64 },
+    #[error("插件归档摘要不匹配：期望 {expected}，实际 {actual}")]
+    ArchiveDigestMismatch { expected: String, actual: String },
     #[error("插件归档读取失败：{operation}：{source}")]
     Io {
         operation: &'static str,
@@ -368,7 +399,9 @@ mod tests {
     use async_compression::futures::write::GzipEncoder;
     use async_tar::{Builder, Header};
     use futures::io::{AsyncWriteExt, Cursor};
-    use ramag_domain::{PluginCapability, PluginId, PluginPackageManifest};
+    use ramag_domain::{
+        PluginApiVersion, PluginCapability, PluginId, PluginPackageManifest, PluginPackageRuntime,
+    };
     use sha2::{Digest, Sha256};
     use tempfile::tempdir;
 
@@ -483,6 +516,19 @@ mod tests {
         )
     }
 
+    fn catalog_entry(archive_sha256: String) -> PluginPackageCatalogEntry {
+        PluginPackageCatalogEntry {
+            id: PluginId::new("archive.package").expect("valid plugin ID"),
+            name: "归档测试插件".into(),
+            version: "1.0.0".into(),
+            api_version: PluginApiVersion::new(1, 0),
+            runtime: PluginPackageRuntime::Process,
+            package_url: "https://plugins.example.test/archive.tar.gz".into(),
+            archive_sha256,
+            capabilities: vec![PluginCapability::new("ui.entry")],
+        }
+    }
+
     fn assert_no_archive_temp(root: &Path) {
         assert!(
             std::fs::read_dir(root)
@@ -520,6 +566,41 @@ mod tests {
             .expect("installation state JSON");
         assert_eq!(state.len(), 1);
         assert_no_archive_temp(root.path());
+    }
+
+    #[test]
+    fn catalog_archive_rechecks_archive_digest_and_manifest_identity_before_install() {
+        let archive_root = tempdir().expect("archive root");
+        let archive = archive_root.path().join("plugin.tar.gz");
+        write_archive(&archive, package_entries());
+        let bytes = std::fs::read(&archive).expect("archive bytes");
+        let archive_sha256 = hex::encode(Sha256::digest(&bytes));
+
+        let digest_root = tempdir().expect("digest root");
+        let digest_installer = installer(digest_root.path());
+        let mut wrong_digest = catalog_entry(archive_sha256.clone());
+        wrong_digest.archive_sha256 = "b".repeat(64);
+        assert!(matches!(
+            digest_installer.install_catalog_archive(&wrong_digest, &archive),
+            Err(PluginPackageArchiveError::ArchiveDigestMismatch { .. })
+        ));
+        assert!(!digest_root.path().join("packages").exists());
+
+        let identity_root = tempdir().expect("identity root");
+        let identity_installer = installer(identity_root.path());
+        let mut wrong_identity = catalog_entry(archive_sha256);
+        wrong_identity.name = "另一个插件".into();
+        assert!(matches!(
+            identity_installer.install_catalog_archive(&wrong_identity, &archive),
+            Err(PluginPackageArchiveError::Installer(
+                PluginPackageInstallError::CatalogManifestMismatch {
+                    field: "插件名称",
+                    ..
+                }
+            ))
+        ));
+        assert!(!identity_root.path().join("state/installed.json").exists());
+        assert_no_archive_temp(identity_root.path());
     }
 
     #[test]

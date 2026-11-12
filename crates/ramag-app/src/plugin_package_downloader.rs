@@ -173,9 +173,9 @@ impl PluginPackageDownloader {
             .await
             .map_err(|source| PluginPackageDownloadError::Io { source })?;
         let actual = hex::encode(hasher.finalize());
-        if actual != entry.package_sha256 {
+        if actual != entry.archive_sha256 {
             return Err(PluginPackageDownloadError::DigestMismatch {
-                expected: entry.package_sha256.clone(),
+                expected: entry.archive_sha256.clone(),
                 actual,
             });
         }
@@ -316,7 +316,7 @@ mod tests {
             api_version: PluginApiVersion::new(1, 0),
             runtime: PluginPackageRuntime::Process,
             package_url: "https://plugins.example.test/package.tar.gz".into(),
-            package_sha256: "a".repeat(64),
+            archive_sha256: "a".repeat(64),
             capabilities: vec![PluginCapability::new("ui.entry")],
         }
     }
@@ -332,9 +332,9 @@ mod tests {
     #[test]
     fn digest_mismatch_is_reported_without_network_access() {
         let actual = hex::encode(Sha256::digest(b"package"));
-        assert_ne!(actual, entry().package_sha256);
+        assert_ne!(actual, entry().archive_sha256);
         let error = PluginPackageDownloadError::DigestMismatch {
-            expected: entry().package_sha256,
+            expected: entry().archive_sha256,
             actual,
         };
         assert!(error.to_string().contains("摘要不匹配"));

@@ -1,6 +1,6 @@
 //! 可安装插件包的目录校验、摘要核对和原子替换；不启动插件进程。
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
@@ -12,8 +12,8 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use crate::{
-    PluginInstallation, PluginInstallationStore, PluginInstallationStoreError, PluginProcessError,
-    resolve_plugin_entrypoint,
+    PluginInstallation, PluginInstallationStore, PluginInstallationStoreError,
+    PluginPackageCatalogEntry, PluginProcessError, resolve_plugin_entrypoint,
 };
 
 /// 插件包清单文件名；内容是 `PluginPackageManifest` 的 JSON 表示。
@@ -54,10 +54,40 @@ impl PluginPackageInstaller {
         crate::plugin_package_archive::install_from_archive(self, archive_path)
     }
 
+    /// 解包并安装目录候选指定的插件包；安装前核对包内清单身份。
+    pub fn install_catalog_archive(
+        &self,
+        catalog_entry: &PluginPackageCatalogEntry,
+        archive_path: &Path,
+    ) -> Result<PluginInstallation, crate::PluginPackageArchiveError> {
+        crate::plugin_package_archive::install_from_catalog_archive(
+            self,
+            catalog_entry,
+            archive_path,
+        )
+    }
+
     /// 读取、校验并安装一个已解包插件目录；清单文件不参与自身摘要计算。
     pub fn install_from_directory(
         &self,
         source_root: &Path,
+    ) -> Result<PluginInstallation, PluginPackageInstallError> {
+        self.install_from_directory_inner(source_root, None)
+    }
+
+    /// 安装已解包目录，并在复制或替换前核对目录候选身份。
+    pub(crate) fn install_catalog_directory(
+        &self,
+        source_root: &Path,
+        catalog_entry: &PluginPackageCatalogEntry,
+    ) -> Result<PluginInstallation, PluginPackageInstallError> {
+        self.install_from_directory_inner(source_root, Some(catalog_entry))
+    }
+
+    fn install_from_directory_inner(
+        &self,
+        source_root: &Path,
+        catalog_entry: Option<&PluginPackageCatalogEntry>,
     ) -> Result<PluginInstallation, PluginPackageInstallError> {
         let _operation = self.operation_lock.lock();
         let source_root = canonical_source_root(source_root)?;
@@ -69,6 +99,9 @@ impl PluginPackageInstaller {
             });
         }
         let manifest = read_manifest(&source_root)?;
+        if let Some(catalog_entry) = catalog_entry {
+            validate_catalog_manifest(catalog_entry, &manifest)?;
+        }
         resolve_plugin_entrypoint(&source_root, &manifest)
             .map_err(PluginPackageInstallError::Entrypoint)?;
         let digest = package_digest(&source_root)?;
@@ -254,6 +287,77 @@ fn installed_package_path(
         });
     }
     Ok(target)
+}
+
+/// 在写入安装目录前核对目录候选与包内清单；归档摘要和解包内容摘要保持独立。
+fn validate_catalog_manifest(
+    catalog_entry: &PluginPackageCatalogEntry,
+    manifest: &PluginPackageManifest,
+) -> Result<(), PluginPackageInstallError> {
+    compare_catalog_field(
+        "插件 ID",
+        catalog_entry.id.to_string(),
+        manifest.id.to_string(),
+    )?;
+    compare_catalog_field(
+        "插件名称",
+        catalog_entry.name.clone(),
+        manifest.name.clone(),
+    )?;
+    compare_catalog_field(
+        "插件版本",
+        catalog_entry.version.clone(),
+        manifest.version.clone(),
+    )?;
+    compare_catalog_field(
+        "宿主 API",
+        catalog_entry.api_version.to_string(),
+        manifest.api_version.to_string(),
+    )?;
+    compare_catalog_field(
+        "插件运行时",
+        format!("{:?}", catalog_entry.runtime),
+        format!("{:?}", manifest.runtime),
+    )?;
+    let expected_capabilities = catalog_entry
+        .capabilities
+        .iter()
+        .map(|capability| capability.as_str().to_owned())
+        .collect::<BTreeSet<_>>();
+    let actual_capabilities = manifest
+        .capabilities
+        .iter()
+        .map(|capability| capability.as_str().to_owned())
+        .collect::<BTreeSet<_>>();
+    if expected_capabilities != actual_capabilities {
+        return Err(PluginPackageInstallError::CatalogManifestMismatch {
+            field: "插件能力",
+            expected: expected_capabilities
+                .into_iter()
+                .collect::<Vec<_>>()
+                .join(","),
+            actual: actual_capabilities
+                .into_iter()
+                .collect::<Vec<_>>()
+                .join(","),
+        });
+    }
+    Ok(())
+}
+
+fn compare_catalog_field(
+    field: &'static str,
+    expected: String,
+    actual: String,
+) -> Result<(), PluginPackageInstallError> {
+    if expected != actual {
+        return Err(PluginPackageInstallError::CatalogManifestMismatch {
+            field,
+            expected,
+            actual,
+        });
+    }
+    Ok(())
 }
 
 /// 恢复卸载前的版本目录，发现目标被替换时直接失败以避免误删外部目录。
@@ -516,6 +620,12 @@ pub enum PluginPackageInstallError {
     ManifestJson(serde_json::Error),
     #[error("插件清单无效：{0}")]
     Manifest(PluginPackageManifestError),
+    #[error("目录候选与包内清单的{field}不一致：期望 {expected}，实际 {actual}")]
+    CatalogManifestMismatch {
+        field: &'static str,
+        expected: String,
+        actual: String,
+    },
     #[error("插件入口无效：{0}")]
     Entrypoint(PluginProcessError),
     #[error("插件包摘要不匹配：期望 {expected}，实际 {actual}")]

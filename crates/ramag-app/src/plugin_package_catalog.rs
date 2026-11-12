@@ -90,7 +90,9 @@ pub struct PluginPackageCatalogEntry {
     pub api_version: PluginApiVersion,
     pub runtime: PluginPackageRuntime,
     pub package_url: String,
-    pub package_sha256: String,
+    /// 下载归档本身的 SHA-256；包内清单的 `package_sha256` 仍由安装器按解包内容核验。
+    #[serde(alias = "package_sha256")]
+    pub archive_sha256: String,
     pub capabilities: Vec<PluginCapability>,
 }
 
@@ -128,7 +130,7 @@ impl PluginPackageCatalogEntry {
             });
         }
         validate_package_url(&self.package_url, index)?;
-        validate_sha256(&self.package_sha256, index)?;
+        validate_sha256(&self.archive_sha256, index)?;
         let mut capabilities = HashSet::with_capacity(self.capabilities.len());
         for capability in &self.capabilities {
             if !capability.is_known() {
@@ -248,7 +250,7 @@ mod tests {
             api_version: HOST_PLUGIN_API_VERSION,
             runtime: PluginPackageRuntime::Process,
             package_url: "https://plugins.example.test/example.tar.gz".into(),
-            package_sha256: "a".repeat(PLUGIN_PACKAGE_SHA256_HEX_BYTES),
+            archive_sha256: "a".repeat(PLUGIN_PACKAGE_SHA256_HEX_BYTES),
             capabilities: vec![PluginCapability::new("ui.entry")],
         }
     }
@@ -266,6 +268,27 @@ mod tests {
         let parsed = PluginPackageCatalog::parse_json(&json(&catalog)).expect("valid catalog");
         assert_eq!(parsed, catalog);
         assert_eq!(parsed.entries().len(), 1);
+    }
+
+    #[test]
+    fn accepts_legacy_package_sha256_field_as_archive_digest() {
+        let catalog = PluginPackageCatalog {
+            format_version: CURRENT_PLUGIN_CATALOG_FORMAT_VERSION,
+            entries: vec![entry("catalog.example", "1.2.3")],
+        };
+        let mut json = serde_json::to_value(catalog).expect("catalog JSON");
+        let entry = json["entries"][0]
+            .as_object_mut()
+            .expect("catalog entry object");
+        let digest = entry
+            .remove("archive_sha256")
+            .expect("archive digest field");
+        entry.insert("package_sha256".into(), digest);
+        let parsed = PluginPackageCatalog::parse_json(
+            &serde_json::to_vec(&json).expect("legacy catalog JSON"),
+        )
+        .expect("legacy digest field remains readable");
+        assert_eq!(parsed.entries()[0].archive_sha256, "a".repeat(64));
     }
 
     #[test]
@@ -312,7 +335,7 @@ mod tests {
             Err(PluginPackageCatalogError::InvalidVersion { .. })
         ));
         let mut bad_digest = entry("catalog.digest", "1.0.0");
-        bad_digest.package_sha256 = "A".repeat(PLUGIN_PACKAGE_SHA256_HEX_BYTES);
+        bad_digest.archive_sha256 = "A".repeat(PLUGIN_PACKAGE_SHA256_HEX_BYTES);
         assert!(matches!(
             PluginPackageCatalog::parse_json(&json(&PluginPackageCatalog {
                 format_version: CURRENT_PLUGIN_CATALOG_FORMAT_VERSION,

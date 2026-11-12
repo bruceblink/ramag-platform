@@ -113,7 +113,7 @@ fn catalog_plugin() -> PluginPackageCatalogEntry {
         api_version: PluginApiVersion::new(1, 0),
         runtime: PluginPackageRuntime::Process,
         package_url: "https://plugins.example.test/catalog.tar.gz".into(),
-        package_sha256: "a".repeat(64),
+        archive_sha256: "a".repeat(64),
         capabilities: vec![PluginCapability::new("ui.entry")],
     }
 }
@@ -434,6 +434,69 @@ fn catalog_download_without_service_shows_bounded_error(cx: &mut TestAppContext)
         .expect("下载器未初始化时应显示错误状态卡");
     assert_inside(error, catalog);
     assert_inside(error, root);
+}
+
+#[gpui_kit::test]
+fn downloaded_catalog_entry_shows_install_action(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+    let (_, visual_cx) = cx.add_window_view(move |_, cx| PluginDiagnosticsTestHost {
+        view: cx.new(|view_cx| {
+            let mut view = PluginDiagnosticsView::with_installations(host, Vec::new());
+            let entry = catalog_plugin();
+            view.set_catalog_entries(vec![entry.clone()], view_cx);
+            view.downloaded_packages.insert(
+                super::package_download_key(&entry),
+                std::path::PathBuf::from("/tmp/catalog.example.tar.gz"),
+            );
+            view
+        }),
+    });
+    let visual_cx: &mut VisualTestContext = visual_cx;
+    visual_cx.simulate_resize(size(px(640.0), px(520.0)));
+    visual_cx.run_until_parked();
+
+    let install = visual_cx
+        .debug_bounds("plugin-package-catalog-install-catalog.example-1.0.0")
+        .expect("已下载目录候选应显示安装按钮");
+    let status = visual_cx
+        .debug_bounds("plugin-package-catalog-status-catalog.example-1.0.0")
+        .expect("已下载目录候选应显示状态");
+    let catalog = visual_cx
+        .debug_bounds("plugin-package-catalog")
+        .expect("本地目录候选区域应渲染");
+    assert_inside(install, catalog);
+    assert_inside(status, catalog);
+}
+
+#[gpui_kit::test]
+fn downloaded_catalog_entry_without_installer_shows_error(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+    let (_, visual_cx) = cx.add_window_view(move |_, cx| PluginDiagnosticsTestHost {
+        view: cx.new(|view_cx| {
+            let mut view = PluginDiagnosticsView::with_installations(host, Vec::new());
+            let entry = catalog_plugin();
+            view.set_catalog_entries(vec![entry.clone()], view_cx);
+            view.downloaded_packages.insert(
+                super::package_download_key(&entry),
+                std::path::PathBuf::from("/tmp/catalog.example.tar.gz"),
+            );
+            view.install_downloaded_package(entry, view_cx);
+            view
+        }),
+    });
+    let visual_cx: &mut VisualTestContext = visual_cx;
+    visual_cx.simulate_resize(size(px(640.0), px(520.0)));
+    visual_cx.run_until_parked();
+
+    let error = visual_cx
+        .debug_bounds("plugin-package-catalog-error")
+        .expect("安装器未初始化时应显示错误状态卡");
+    let catalog = visual_cx
+        .debug_bounds("plugin-package-catalog")
+        .expect("本地目录候选区域应渲染");
+    assert_inside(error, catalog);
 }
 
 #[gpui_kit::test]
