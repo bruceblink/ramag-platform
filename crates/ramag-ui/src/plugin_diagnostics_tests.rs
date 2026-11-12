@@ -8,12 +8,12 @@ use gpui_kit::{
 };
 use ramag_app::{
     PluginContext, PluginInstallation, PluginInstallationState, PluginInstallationStore,
-    PluginOperationError, PluginPackageInstaller, StaticPlugin, StaticPluginAdapter,
-    StaticPluginHost, ToolRegistry,
+    PluginOperationError, PluginPackageCatalogEntry, PluginPackageInstaller, StaticPlugin,
+    StaticPluginAdapter, StaticPluginHost, ToolRegistry,
 };
 use ramag_domain::{
-    MAX_PLUGIN_PACKAGE_SHA256_BYTES, PluginDescriptor, PluginId, PluginPackageManifest, Tool,
-    ToolMeta,
+    MAX_PLUGIN_PACKAGE_SHA256_BYTES, PluginApiVersion, PluginCapability, PluginDescriptor,
+    PluginId, PluginPackageManifest, PluginPackageRuntime, Tool, ToolMeta,
 };
 
 use super::PluginDiagnosticsView;
@@ -105,6 +105,19 @@ fn installable_plugin() -> PluginInstallation {
     )
 }
 
+fn catalog_plugin() -> PluginPackageCatalogEntry {
+    PluginPackageCatalogEntry {
+        id: PluginId::new("catalog.example").unwrap(),
+        name: "目录示例插件".into(),
+        version: "1.0.0".into(),
+        api_version: PluginApiVersion::new(1, 0),
+        runtime: PluginPackageRuntime::Process,
+        package_url: "https://plugins.example.test/catalog.tar.gz".into(),
+        package_sha256: "a".repeat(64),
+        capabilities: vec![PluginCapability::new("ui.entry")],
+    }
+}
+
 fn assert_inside(
     child: gpui_kit::Bounds<gpui_kit::Pixels>,
     parent: gpui_kit::Bounds<gpui_kit::Pixels>,
@@ -155,6 +168,7 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
                 vec![installable_plugin()],
             );
             view.set_package_installer(installer_for_view, view_cx);
+            view.set_catalog_entries(vec![catalog_plugin()], view_cx);
             view
         }),
     });
@@ -181,6 +195,12 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
             let installations = visual_cx
                 .debug_bounds("plugin-installations")
                 .expect("可安装插件状态区域应渲染");
+            let package_catalog = visual_cx
+                .debug_bounds("plugin-package-catalog")
+                .expect("本地目录候选区域应渲染");
+            let package_entry = visual_cx
+                .debug_bounds("plugin-package-catalog-catalog.example-1.0.0")
+                .expect("本地目录候选应渲染");
             let installation = visual_cx
                 .debug_bounds("plugin-installation-example.package")
                 .expect("可安装插件状态应渲染");
@@ -236,6 +256,8 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
                 installation,
                 uninstall,
                 install_archive,
+                package_catalog,
+                package_entry,
                 catalog,
                 catalog_entry,
                 available,
@@ -292,6 +314,18 @@ fn empty_plugin_diagnostics_shows_bounded_states(cx: &mut TestAppContext) {
         let catalog_guidance = visual_cx
             .debug_bounds("plugin-catalog-empty-guidance")
             .expect("空第一方目录应显示引导");
+        let package_catalog = visual_cx
+            .debug_bounds("plugin-package-catalog")
+            .expect("空本地目录候选区域应渲染");
+        let package_catalog_empty = visual_cx
+            .debug_bounds("plugin-package-catalog-empty-state")
+            .expect("空本地目录候选应显示状态");
+        let package_catalog_heading = visual_cx
+            .debug_bounds("plugin-package-catalog-empty-heading")
+            .expect("空本地目录候选应显示标题");
+        let package_catalog_guidance = visual_cx
+            .debug_bounds("plugin-package-catalog-empty-guidance")
+            .expect("空本地目录候选应显示引导");
         let available = visual_cx
             .debug_bounds("plugin-available")
             .expect("空入口列表应渲染");
@@ -334,6 +368,12 @@ fn empty_plugin_diagnostics_shows_bounded_states(cx: &mut TestAppContext) {
         assert!(scroll.bottom() <= px(height));
         for (empty_state, heading, guidance, parent) in [
             (catalog_empty, catalog_heading, catalog_guidance, catalog),
+            (
+                package_catalog_empty,
+                package_catalog_heading,
+                package_catalog_guidance,
+                package_catalog,
+            ),
             (
                 available_empty,
                 available_heading,

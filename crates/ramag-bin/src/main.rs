@@ -226,8 +226,12 @@ fn main() -> ExitCode {
         }
     };
     let update_service = build_update_service(storage.clone());
-    let (plugin_installation_store, plugin_package_installer, plugin_installations) =
-        load_plugin_installations();
+    let (
+        plugin_installation_store,
+        plugin_package_installer,
+        plugin_installations,
+        plugin_catalog_entries,
+    ) = load_plugin_installations();
     let container_service: Arc<ContainerService> = build_container_service();
     let container_registry_service = match build_container_registry_service() {
         Ok(service) => Some(service),
@@ -329,6 +333,7 @@ fn main() -> ExitCode {
         plugin_installation_store,
         plugin_package_installer,
         plugin_installations,
+        plugin_catalog_entries,
         registry,
         conn_service,
         api_service,

@@ -18,6 +18,7 @@ pub(super) struct AppDeps {
     pub(super) plugin_installation_store: Option<Arc<ramag_app::PluginInstallationStore>>,
     pub(super) plugin_package_installer: Option<Arc<ramag_app::PluginPackageInstaller>>,
     pub(super) plugin_installations: Vec<ramag_app::PluginInstallation>,
+    pub(super) plugin_catalog_entries: Vec<ramag_app::PluginPackageCatalogEntry>,
     pub(super) registry: Arc<ToolRegistry>,
     pub(super) conn_service: Arc<ConnectionService>,
     pub(super) api_service: Arc<ApiService>,
@@ -144,6 +145,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         plugin_installation_store,
         plugin_package_installer,
         plugin_installations,
+        plugin_catalog_entries,
         registry,
         conn_service,
         api_service,
@@ -279,6 +281,7 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                 });
                 settings_view.update(cx, |view, cx| {
                     view.set_plugin_installations(plugin_installations.clone(), cx);
+                    view.set_plugin_catalog_entries(plugin_catalog_entries.clone(), cx);
                     if let Some(store) = plugin_installation_store.clone() {
                         view.set_plugin_installation_store(store, cx);
                     }

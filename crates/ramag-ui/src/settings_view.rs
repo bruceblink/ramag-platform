@@ -25,7 +25,8 @@ use gpui_kit::{
 };
 use ramag_app::{
     AvailableUpdate, ClipboardService, ConnectionService, PluginInstallation,
-    PluginInstallationStore, PluginPackageInstaller, SshService, StaticPluginHost, UpdateService,
+    PluginInstallationStore, PluginPackageCatalogEntry, PluginPackageInstaller, SshService,
+    StaticPluginHost, UpdateService,
 };
 use ramag_domain::entities::{
     ClipboardSettings, DownloadProgress, IdConverterKind, MAX_CUSTOM_ID_ALPHABET_BYTES,
@@ -440,6 +441,17 @@ impl SettingsView {
     ) {
         self.plugin_diagnostics
             .update(cx, |view, cx| view.set_installations(installations, cx));
+        cx.notify();
+    }
+
+    /// 注入已校验的本地目录候选，并刷新插件设置页展示。
+    pub fn set_plugin_catalog_entries(
+        &mut self,
+        entries: Vec<PluginPackageCatalogEntry>,
+        cx: &mut Context<Self>,
+    ) {
+        self.plugin_diagnostics
+            .update(cx, |view, cx| view.set_catalog_entries(entries, cx));
         cx.notify();
     }
 

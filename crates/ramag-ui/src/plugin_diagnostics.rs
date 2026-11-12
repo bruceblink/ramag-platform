@@ -9,8 +9,8 @@ use gpui_kit::{
 };
 use ramag_app::{
     PluginCatalogEntry, PluginDiagnostic, PluginInstallation, PluginInstallationState,
-    PluginInstallationStore, PluginLifecycleStage, PluginPackageInstaller, PluginState,
-    StaticPluginHost,
+    PluginInstallationStore, PluginLifecycleStage, PluginPackageCatalogEntry,
+    PluginPackageInstaller, PluginState, StaticPluginHost,
 };
 use ramag_domain::PluginId;
 
@@ -18,6 +18,7 @@ use ramag_domain::PluginId;
 pub(crate) struct PluginDiagnosticsView {
     host: Arc<StaticPluginHost>,
     installations: Vec<PluginInstallation>,
+    catalog_entries: Vec<PluginPackageCatalogEntry>,
     installation_store: Option<Arc<PluginInstallationStore>>,
     package_installer: Option<Arc<PluginPackageInstaller>>,
     installing_archive: bool,
@@ -34,6 +35,7 @@ impl PluginDiagnosticsView {
         Self {
             host,
             installations,
+            catalog_entries: Vec::new(),
             installation_store: None,
             package_installer: None,
             installing_archive: false,
@@ -71,6 +73,16 @@ impl PluginDiagnosticsView {
         self.installations = installations;
         self.pending_uninstall = None;
         self.installation_error = None;
+        cx.notify();
+    }
+
+    /// 更新已校验的本地目录候选；仅改变展示，不触发下载或安装。
+    pub(crate) fn set_catalog_entries(
+        &mut self,
+        entries: Vec<PluginPackageCatalogEntry>,
+        cx: &mut Context<Self>,
+    ) {
+        self.catalog_entries = entries;
         cx.notify();
     }
 
@@ -246,6 +258,7 @@ impl Render for PluginDiagnosticsView {
                 self.installing_archive,
                 cx,
             ))
+            .child(render_package_catalog(&self.catalog_entries, cx))
             .child(render_catalog(&catalog, cx))
             .child(render_available_entries(&available, cx))
             .child(render_diagnostics(&diagnostics, cx))
@@ -544,6 +557,127 @@ fn installation_state_color(
         PluginInstallationState::Disabled => theme.warning,
         PluginInstallationState::Quarantined => theme.danger,
     }
+}
+
+/// 展示本地目录中已校验的安装候选；候选页不发起网络请求或代码执行。
+fn render_package_catalog(
+    entries: &[PluginPackageCatalogEntry],
+    cx: &mut Context<PluginDiagnosticsView>,
+) -> impl IntoElement {
+    let theme = cx.theme();
+    let rows = entries
+        .iter()
+        .map(|entry| {
+            let row_id = format!("plugin-package-catalog-{}-{}", entry.id, entry.version);
+            let capabilities = if entry.capabilities.is_empty() {
+                "无额外能力".to_owned()
+            } else {
+                entry
+                    .capabilities
+                    .iter()
+                    .map(|capability| capability.as_str())
+                    .collect::<Vec<_>>()
+                    .join("、")
+            };
+            v_flex()
+                .id(row_id.clone())
+                .debug_selector(move || row_id.clone())
+                .w_full()
+                .min_w_0()
+                .gap(px(4.0))
+                .p(px(10.0))
+                .bg(theme.background)
+                .border_1()
+                .border_color(theme.border)
+                .rounded(px(6.0))
+                .child(
+                    h_flex()
+                        .w_full()
+                        .min_w_0()
+                        .items_start()
+                        .gap(px(8.0))
+                        .child(
+                            div()
+                                .mt(px(4.0))
+                                .size(px(8.0))
+                                .flex_none()
+                                .rounded(px(4.0))
+                                .bg(theme.muted_foreground),
+                        )
+                        .child(
+                            v_flex()
+                                .flex_1()
+                                .min_w_0()
+                                .gap(px(2.0))
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .text_color(theme.foreground)
+                                        .child(entry.name.clone()),
+                                )
+                                .child(div().text_xs().text_color(theme.muted_foreground).child(
+                                    format!(
+                                        "插件 {} · 版本 {} · API {}",
+                                        entry.id, entry.version, entry.api_version
+                                    ),
+                                )),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child("待安装"),
+                        ),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(format!("运行时：进程 · 能力：{capabilities}")),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(format!("下载地址：{}", entry.package_url)),
+                )
+                .into_any_element()
+        })
+        .collect::<Vec<_>>();
+    let body = if rows.is_empty() {
+        render_empty_state(
+            "plugin-package-catalog",
+            IconName::Folder,
+            "暂无本地目录候选",
+            "将已校验的 catalog.json 放入插件状态目录后会显示在这里；当前不会联网或执行代码。",
+            theme,
+        )
+        .into_any_element()
+    } else {
+        v_flex()
+            .w_full()
+            .min_w_0()
+            .gap(px(8.0))
+            .children(rows)
+            .into_any_element()
+    };
+
+    crate::pulse_ui::pulse_panel(cx)
+        .id("plugin-package-catalog")
+        .debug_selector(|| "plugin-package-catalog".into())
+        .gap(px(12.0))
+        .child(crate::pulse_ui::pulse_display_heading(
+            "可安装插件目录",
+            18.0,
+            cx,
+        ))
+        .child(
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("只展示本地清单中的已校验元数据；下载、签名和安装动作仍需后续功能。"),
+        )
+        .child(body)
 }
 
 fn render_catalog(
