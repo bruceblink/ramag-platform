@@ -6,6 +6,14 @@ target-dir = "target"
 # MSVC link.exe emits normal import-library creation text on stdout.
 rustflags = ["-A", "linker-messages"]
 
+[target.aarch64-apple-darwin]
+# 大型 GPUI 调试二进制的 __eh_frame 超过 ld64 紧凑展开表上限；保留 DWARF 展开信息，避免链接器警告。
+rustflags = ["-C", "link-arg=-Wl,-no_compact_unwind"]
+
+[target.x86_64-apple-darwin]
+# Intel macOS 与 Apple Silicon 使用相同的 ld64 展开表边界处理。
+rustflags = ["-C", "link-arg=-Wl,-no_compact_unwind"]
+
 # 这些别名是跨平台的日常开发入口，直接调用 Cargo，因此三个平台都不依赖 Make。
 [alias]
 dev = ["run", "--locked", "--package", "ramag-bin"]

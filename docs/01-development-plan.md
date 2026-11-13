@@ -753,7 +753,8 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 25 | `RAMAG-PLUGIN-CATALOG-FETCH-001` 远程插件目录获取与本地保存 | 已完成：增加显式的受限 HTTPS 目录获取器和本地原子存储；只在调用方主动请求时联网，启动流程继续读取本地 `catalog.json` | 目录源仅允许 HTTPS、无用户信息/查询/片段；连接 10 秒、总请求 20 秒、禁止重定向、HTTP 200 和 1 MiB 响应上限；解析成功后才原子替换本地清单，失败保留旧文件；不签名、不自动安装、不执行 | `ramag-app` fetcher/store 定向测试 6 项、严格 Clippy、格式检查和差异检查通过；真实 HTTPS 服务和设置页目录源配置未验收；回滚只涉及获取器、存储器、应用导出和本节记录 |
 | 26 | `RAMAG-UI-PLUGIN-CATALOG-SOURCE-001` 插件目录源设置与手动刷新 | 已完成：设置页保存并恢复目录源 URL，用户点击“刷新目录”后才请求受限 HTTPS 清单；成功后原子替换本地 `catalog.json` 并刷新候选，失败保留旧候选和旧文件 | 目录源输入可编辑且使用有界 URL；获取器或存储器未配置时刷新按钮禁用；请求不在启动路径执行；成功后保存 URL 偏好，错误显示在目录区域；360px、1024px、1440px 明暗主题布局不越界 | `ramag-ui` 插件诊断定向测试 10 项、真实 macOS 预览窗口、`ramag-bin` 组合检查、严格 Clippy、格式检查和差异检查通过；真实 HTTPS 点击刷新仍未验收；回滚只涉及设置页插件目录控件、组合根注入和对应文档 |
 | 27 | `RAMAG-PLUGIN-CATALOG-RUNTIME-001` 目录刷新 runtime 崩溃修复 | 已完成：目录刷新在后台线程同步进入应用层专用 Tokio runtime，避免 GPUI 后台执行器直接驱动 `reqwest` 时触发无 reactor panic；失败仍只更新错误状态并保留旧目录 | 真实窗口点击刷新不退出进程；请求、解析和保存错误可回写设置页；runtime 初始化或请求失败显示明确错误；旧目录文件不被失败请求覆盖 | `ramag-app` fetcher/store 定向测试 8 项、真实 macOS 生产调试窗口、严格 Clippy、组合检查、格式检查和差异检查通过；修复前 `SIGABRT` 崩溃报告保留在本机诊断目录；回滚只涉及目录获取 runtime 包装、UI 调用点和本节记录 |
-| 28 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
+| 28 | `RAMAG-BUILD-MACOS-LINKER-001` macOS `__eh_frame` 链接器警告修复 | 已完成：为 `aarch64-apple-darwin` 和 `x86_64-apple-darwin` 配置 `ld64` 的 `-no_compact_unwind`，保留 DWARF 展开信息并避免大型 GPUI 调试二进制超过紧凑展开表上限 | 标准 macOS 构建和 DMG 调试构建不再输出 `__eh_frame section too large`；Windows/Linux 目标不使用该参数；不改变应用运行时逻辑 | `cargo build --locked -p ramag-bin`、`scripts/build-dmg.sh --debug`、格式检查和差异检查通过；构建中仍可能显示第三方 future-incompatibility 提示，该提示与本链接器警告无关；回滚只涉及 `.cargo/config.toml` 和本节记录 |
+| 29 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -1275,6 +1276,18 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 `cargo clippy --locked -p ramag-ui --all-targets -- -D warnings`、
 `cargo check --locked -p ramag-bin --all-targets`、`cargo build --locked -p ramag-bin` 和 `git diff --check`。
 2026-11-13 已完成本切片。目录获取器定向测试 8 项、真实 macOS 生产调试窗口、严格 Clippy、组合检查、标准构建、格式检查和差异检查通过；第三方来源签名和成功目录仍需独立验收。
+
+### 4.39 macOS `__eh_frame` 链接器警告修复
+
+大型 GPUI 调试二进制在 macOS `ld64` 链接阶段输出 `__eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table`。该提示来自紧凑展开表容量，不是 Rust 源码错误。
+
+- `.cargo/config.toml` 为 `aarch64-apple-darwin` 和 `x86_64-apple-darwin` 设置 `-C link-arg=-Wl,-no_compact_unwind`。
+- 该参数只改变 macOS 链接器的展开表编码路径，保留 DWARF 展开信息；Windows 和 Linux 目标不继承该配置。
+- 标准 `cargo build --locked -p ramag-bin` 和 `./scripts/build-dmg.sh --debug` 均不再输出该 `__eh_frame` 警告。构建仍可能显示依赖包的 future-incompatibility 提示，该提示不属于本切片。
+
+验证命令为 `cargo build --locked -p ramag-bin`、`./scripts/build-dmg.sh --debug`、
+`cargo fmt --all -- --check` 和 `git diff --check`。
+2026-11-13 已完成本切片。macOS 标准构建和 DMG 调试构建通过，目标链接器警告已消失。
 
 ## 5. 条件限制与未纳入执行的事项
 
