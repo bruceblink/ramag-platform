@@ -337,7 +337,7 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
         ),
         (
             "tool-visibility",
-            "settings-tool-home-preference-test",
+            "settings-tool-home-preference-test-group",
             ramag_app::TOOL_VISIBILITY_PREF_KEY,
             "settings-save-status-tool_visibility",
             "settings-save-retry-tool_visibility",

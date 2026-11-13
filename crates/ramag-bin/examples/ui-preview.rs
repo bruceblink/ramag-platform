@@ -329,6 +329,9 @@ fn main() -> anyhow::Result<()> {
                             cx,
                         )
                     });
+                    settings.update(cx, |view, cx| {
+                        view.set_plugin_catalog_source_url(None, window, cx);
+                    });
                     let api = cx.new(|cx| ramag_tool_api::ApiView::new(window, cx));
                     let containers =
                         cx.new(|cx| ramag_tool_container::ContainerView::new(window, cx));

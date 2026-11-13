@@ -42,6 +42,9 @@ mod tool_visibility;
 pub mod transfer_ui;
 pub mod workbench;
 
+/// 插件目录源 URL 的偏好键；只保存用户主动确认成功获取的地址。
+pub const PLUGIN_CATALOG_SOURCE_URL_PREF_KEY: &str = "plugin_catalog_source_url";
+
 pub use actions::{CloseTab, OpenRecentItems};
 pub use assets::RamagAssets;
 pub use confirm_dialog::{open_confirm, open_confirm_with_cancel};

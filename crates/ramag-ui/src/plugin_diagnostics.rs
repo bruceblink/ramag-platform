@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use gpui_kit::component::{
     ActiveTheme, Disableable as _, Icon, IconName, Sizable as _, button::ButtonVariants as _,
-    h_flex, v_flex,
+    h_flex, input::Input, input::InputState, v_flex,
 };
 use gpui_kit::{
     Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div, prelude::*, px,
@@ -13,8 +13,8 @@ use gpui_kit::{
 use ramag_app::{
     PluginCatalogEntry, PluginDiagnostic, PluginInstallation, PluginInstallationState,
     PluginInstallationStore, PluginLifecycleStage, PluginPackageCache, PluginPackageCachedArchive,
-    PluginPackageCatalogEntry, PluginPackageDownloader, PluginPackageInstaller, PluginState,
-    StaticPluginHost,
+    PluginPackageCatalogEntry, PluginPackageCatalogFetcher, PluginPackageCatalogStore,
+    PluginPackageDownloader, PluginPackageInstaller, PluginState, StaticPluginHost,
 };
 use ramag_domain::PluginId;
 
@@ -30,6 +30,11 @@ pub(crate) struct PluginDiagnosticsView {
     package_downloader: Option<Arc<PluginPackageDownloader>>,
     package_download_root: Option<PathBuf>,
     package_cache: Option<PluginPackageCache>,
+    catalog_source_url: Option<gpui_kit::Entity<InputState>>,
+    catalog_fetcher: Option<Arc<PluginPackageCatalogFetcher>>,
+    catalog_store: Option<Arc<PluginPackageCatalogStore>>,
+    catalog_refreshing: bool,
+    catalog_refresh_error: Option<String>,
     installing_archive: bool,
     downloading_package: Option<String>,
     installing_package: Option<String>,
@@ -54,6 +59,11 @@ impl PluginDiagnosticsView {
             package_downloader: None,
             package_download_root: None,
             package_cache: None,
+            catalog_source_url: None,
+            catalog_fetcher: None,
+            catalog_store: None,
+            catalog_refreshing: false,
+            catalog_refresh_error: None,
             installing_archive: false,
             downloading_package: None,
             installing_package: None,
@@ -62,6 +72,23 @@ impl PluginDiagnosticsView {
             installation_error: None,
             download_error: None,
         }
+    }
+
+    /// 初始化或替换目录源输入；仅更新控件，不发起网络请求。
+    pub(crate) fn set_catalog_source_url(
+        &mut self,
+        source_url: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.catalog_source_url = Some(cx.new(|cx| {
+            InputState::new(window, cx)
+                .validate(|value, _| value.len() <= ramag_app::MAX_PLUGIN_CATALOG_URL_BYTES)
+                .placeholder("https://example.com/ramag/catalog.json")
+                .default_value(source_url.unwrap_or_default())
+        }));
+        self.catalog_refresh_error = None;
+        cx.notify();
     }
 
     /// 注入安装状态存储；设置页按钮通过该存储原子更新启用状态。
@@ -107,6 +134,7 @@ impl PluginDiagnosticsView {
         self.installing_package = None;
         self.downloaded_packages.clear();
         self.download_error = None;
+        self.catalog_refresh_error = None;
         cx.notify();
     }
 
@@ -129,6 +157,83 @@ impl PluginDiagnosticsView {
         self.package_cache = Some(PluginPackageCache::new(package_download_root.clone()));
         self.package_download_root = Some(package_download_root);
         cx.notify();
+    }
+
+    /// 注入受限远程目录获取器；设置页不会在注入时发起请求。
+    pub(crate) fn set_catalog_fetcher(
+        &mut self,
+        catalog_fetcher: Arc<PluginPackageCatalogFetcher>,
+        cx: &mut Context<Self>,
+    ) {
+        self.catalog_fetcher = Some(catalog_fetcher);
+        cx.notify();
+    }
+
+    /// 注入目录本地存储；保存失败时获取器保留旧清单文件。
+    pub(crate) fn set_catalog_store(
+        &mut self,
+        catalog_store: Arc<PluginPackageCatalogStore>,
+        cx: &mut Context<Self>,
+    ) {
+        self.catalog_store = Some(catalog_store);
+        cx.notify();
+    }
+
+    /// 按用户输入手动获取目录；成功后才保存 URL 偏好并刷新候选。
+    fn refresh_catalog(&mut self, cx: &mut Context<Self>) {
+        if self.catalog_refreshing {
+            return;
+        }
+        let Some(source_input) = self.catalog_source_url.as_ref() else {
+            self.catalog_refresh_error = Some("目录源输入尚未初始化".into());
+            cx.notify();
+            return;
+        };
+        let source_url = source_input.read(cx).value().trim().to_owned();
+        if source_url.is_empty() {
+            self.catalog_refresh_error = Some("请输入 HTTPS 目录源地址".into());
+            cx.notify();
+            return;
+        }
+        let Some(fetcher) = self.catalog_fetcher.clone() else {
+            self.catalog_refresh_error = Some("远程目录获取器尚未初始化".into());
+            cx.notify();
+            return;
+        };
+        let Some(store) = self.catalog_store.clone() else {
+            self.catalog_refresh_error = Some("远程目录存储尚未初始化".into());
+            cx.notify();
+            return;
+        };
+        self.catalog_refreshing = true;
+        self.catalog_refresh_error = None;
+        cx.notify();
+        let task = cx.background_executor().spawn({
+            let source_url = source_url.clone();
+            async move { fetcher.fetch_and_store(&source_url, &store).await }
+        });
+        cx.spawn(async move |this, cx| {
+            let result = task.await;
+            let _ = this.update(cx, |view, cx| {
+                view.catalog_refreshing = false;
+                match result {
+                    Ok(catalog) => {
+                        view.set_catalog_entries(catalog.entries, cx);
+                        view.catalog_refresh_error = None;
+                        crate::preferences::persist_preference_latest(
+                            crate::PLUGIN_CATALOG_SOURCE_URL_PREF_KEY,
+                            source_url,
+                            cx,
+                        );
+                    }
+                    Err(error) => {
+                        view.catalog_refresh_error = Some(error.to_string());
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     /// 注入启动时已经核验的缓存归档，恢复目录候选的“已下载”状态。
@@ -493,6 +598,15 @@ impl Render for PluginDiagnosticsView {
                 },
                 cx,
             ))
+            .when_some(self.catalog_source_url.as_ref(), |content, source_input| {
+                content.child(render_catalog_source_controls(
+                    source_input,
+                    self.catalog_fetcher.is_some() && self.catalog_store.is_some(),
+                    self.catalog_refreshing,
+                    self.catalog_refresh_error.as_deref(),
+                    cx,
+                ))
+            })
             .child(render_package_catalog(
                 &self.catalog_entries,
                 &self.installations,
@@ -806,6 +920,66 @@ fn installation_state_color(
         PluginInstallationState::Disabled => theme.warning,
         PluginInstallationState::Quarantined => theme.danger,
     }
+}
+
+/// 展示目录源输入和手动刷新动作；不在渲染或启动时访问网络。
+fn render_catalog_source_controls(
+    source_input: &gpui_kit::Entity<InputState>,
+    can_refresh: bool,
+    refreshing: bool,
+    error: Option<&str>,
+    cx: &mut Context<PluginDiagnosticsView>,
+) -> impl IntoElement {
+    let theme = cx.theme();
+    let button_label = if refreshing {
+        "刷新中…"
+    } else {
+        "刷新目录"
+    };
+    v_flex()
+        .id("plugin-package-catalog-source")
+        .debug_selector(|| "plugin-package-catalog-source".into())
+        .w_full()
+        .min_w_0()
+        .gap(px(8.0))
+        .child(
+            h_flex()
+                .w_full()
+                .min_w_0()
+                .flex_wrap()
+                .items_center()
+                .gap(px(8.0))
+                .child(
+                    Input::new(source_input)
+                        .id("plugin-package-catalog-source-input")
+                        .flex_1()
+                        .min_w(px(220.0))
+                        .small(),
+                )
+                .child(
+                    crate::clickable_button("plugin-package-catalog-refresh")
+                        .debug_selector(|| "plugin-package-catalog-refresh".into())
+                        .small()
+                        .outline()
+                        .label(button_label)
+                        .disabled(!can_refresh || refreshing)
+                        .on_click(cx.listener(|view, _, _, cx| view.refresh_catalog(cx))),
+                ),
+        )
+        .child(
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("仅在点击“刷新目录”后请求 HTTPS 清单；成功后保存目录源地址。"),
+        )
+        .when_some(error, |content, error| {
+            content.child(crate::settings_view::settings_error_notice(
+                "plugin-package-catalog-source-error",
+                "目录刷新失败",
+                error.to_owned(),
+                theme,
+            ))
+        })
 }
 
 /// 展示本地目录中已校验的安装候选；候选页不发起网络请求或代码执行。

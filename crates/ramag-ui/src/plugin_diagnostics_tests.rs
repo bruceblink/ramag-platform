@@ -286,6 +286,40 @@ fn plugin_diagnostics_stays_inside_supported_headless_widths(cx: &mut TestAppCon
 }
 
 #[gpui_kit::test]
+fn catalog_source_controls_stay_inside_supported_widths(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let host = diagnostic_host();
+    let (_, visual_cx) = cx.add_window_view(move |window, cx| PluginDiagnosticsTestHost {
+        view: cx.new(|view_cx| {
+            let mut view = PluginDiagnosticsView::with_installations(host, Vec::new());
+            view.set_catalog_source_url(None, window, view_cx);
+            view
+        }),
+    });
+    let visual_cx: &mut VisualTestContext = visual_cx;
+
+    for mode in [crate::Mode::Light, crate::Mode::Dark] {
+        visual_cx.update(|_, app| crate::apply_theme(mode, app));
+        for (width, height) in [(360.0, 520.0), (1024.0, 520.0), (1440.0, 520.0)] {
+            visual_cx.simulate_resize(size(px(width), px(height)));
+            visual_cx.run_until_parked();
+            let host_bounds = visual_cx
+                .debug_bounds("plugin-diagnostics-scroll")
+                .expect("插件诊断测试容器应渲染");
+            let source = visual_cx
+                .debug_bounds("plugin-package-catalog-source")
+                .expect("目录源控件应渲染");
+            let refresh = visual_cx
+                .debug_bounds("plugin-package-catalog-refresh")
+                .expect("目录刷新按钮应渲染");
+            assert!(source.origin.x >= host_bounds.origin.x);
+            assert!(source.right() <= host_bounds.right());
+            assert_inside(refresh, source);
+        }
+    }
+}
+
+#[gpui_kit::test]
 fn empty_plugin_diagnostics_shows_bounded_states(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));

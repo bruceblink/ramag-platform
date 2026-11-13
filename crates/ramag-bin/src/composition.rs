@@ -121,8 +121,8 @@ pub(super) fn build_plugin_host_with_storage(
     host
 }
 
-/// 启动时加载可安装插件的元数据状态；读取失败只影响插件状态页，不阻止内置工具启动。
-pub(super) fn load_plugin_installations() -> (
+/// 启动时一次性装配可安装插件状态，避免在窗口构建阶段重复访问磁盘。
+type PluginInstallationLoad = (
     Option<Arc<ramag_app::PluginInstallationStore>>,
     Option<Arc<ramag_app::PluginPackageInstaller>>,
     Vec<ramag_app::PluginInstallation>,
@@ -130,7 +130,9 @@ pub(super) fn load_plugin_installations() -> (
     Option<Arc<ramag_app::PluginPackageDownloader>>,
     Option<std::path::PathBuf>,
     Vec<ramag_app::PluginPackageCachedArchive>,
-) {
+);
+
+pub(super) fn load_plugin_installations() -> PluginInstallationLoad {
     let root = if let Some(path) = std::env::var_os("RAMAG_PLUGIN_STATE_DIR") {
         let path = std::path::PathBuf::from(path);
         if !path.is_absolute() {

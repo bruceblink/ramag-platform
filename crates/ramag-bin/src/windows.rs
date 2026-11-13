@@ -123,7 +123,11 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
     }
     let window_preferences = read_preferences(
         &deps.storage,
-        &["last_tool", ramag_ui::WindowBoundsPref::PREF_KEY],
+        &[
+            "last_tool",
+            ramag_ui::WindowBoundsPref::PREF_KEY,
+            ramag_ui::PLUGIN_CATALOG_SOURCE_URL_PREF_KEY,
+        ],
     );
     // 恢复上次工具；已移除的工具 ID 会被忽略。
     let last_tool = window_preferences
@@ -143,6 +147,9 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                 None
             }
         });
+    let plugin_catalog_source_url = window_preferences
+        .get(ramag_ui::PLUGIN_CATALOG_SOURCE_URL_PREF_KEY)
+        .cloned();
     let AppDeps {
         plugin_host,
         plugin_installation_store,
@@ -169,6 +176,31 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
         update_service,
         storage,
     } = deps;
+    let plugin_catalog_fetcher = match PluginPackageCatalogFetcher::new() {
+        Ok(fetcher) => Some(Arc::new(fetcher)),
+        Err(error) => {
+            warn!(
+                operation = "plugin_catalog_fetcher_init",
+                error = %error,
+                "远程插件目录获取器初始化失败"
+            );
+            None
+        }
+    };
+    let plugin_catalog_store = plugin_package_download_root
+        .as_ref()
+        .and_then(|download_root| download_root.parent())
+        .and_then(|root| match PluginPackageCatalogStore::new(root) {
+            Ok(store) => Some(Arc::new(store)),
+            Err(error) => {
+                warn!(
+                    operation = "plugin_catalog_store_init",
+                    error = %error,
+                    "远程插件目录存储初始化失败"
+                );
+                None
+            }
+        });
     let fallback = Bounds::centered(
         None,
         size(
@@ -300,6 +332,17 @@ pub(super) fn open_main_window(deps: AppDeps, cx: &mut App) {
                     if let Some(download_root) = plugin_package_download_root.clone() {
                         view.set_plugin_package_download_root(download_root, cx);
                     }
+                    if let Some(fetcher) = plugin_catalog_fetcher.clone() {
+                        view.set_plugin_catalog_fetcher(fetcher, cx);
+                    }
+                    if let Some(store) = plugin_catalog_store.clone() {
+                        view.set_plugin_catalog_store(store, cx);
+                    }
+                    view.set_plugin_catalog_source_url(
+                        plugin_catalog_source_url.clone(),
+                        window,
+                        cx,
+                    );
                     view.set_plugin_downloaded_packages(plugin_downloaded_packages.clone(), cx);
                 });
 

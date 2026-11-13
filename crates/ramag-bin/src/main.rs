@@ -35,9 +35,9 @@ use gpui_kit::{
 use ramag_app::{
     ApiService, ClipboardService, ConnectionService, ContainerService, DataSyncGate,
     DataSyncService, KafkaService, MongoService, MqttService, ObjectStorageService,
-    PluginLifecycleReport, PluginPermissionPolicy, PluginSettingsMigrator, RedisService,
-    SshService, StaticPluginAdapter, StaticPluginHost, TOOL_ORDER_PREF_KEY,
-    TOOL_VISIBILITY_PREF_KEY, ToolRegistry, UpdateService,
+    PluginLifecycleReport, PluginPackageCatalogFetcher, PluginPackageCatalogStore,
+    PluginPermissionPolicy, PluginSettingsMigrator, RedisService, SshService, StaticPluginAdapter,
+    StaticPluginHost, TOOL_ORDER_PREF_KEY, TOOL_VISIBILITY_PREF_KEY, ToolRegistry, UpdateService,
 };
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use ramag_domain::traits::ClipboardDriver;
@@ -260,6 +260,7 @@ fn main() -> ExitCode {
             ramag_ui::MONITOR_SETTINGS_PREF_KEY,
             ramag_ui::MONITOR_PRESENTATION_SETTINGS_PREF_KEY,
             ramag_ui::MONITOR_PRESETS_PREF_KEY,
+            ramag_ui::PLUGIN_CATALOG_SOURCE_URL_PREF_KEY,
             ramag_ui::shortcuts_dialog::SHORTCUT_OVERRIDES_PREF_KEY,
             TOOL_ORDER_PREF_KEY,
             TOOL_VISIBILITY_PREF_KEY,

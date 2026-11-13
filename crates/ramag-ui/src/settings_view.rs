@@ -25,8 +25,9 @@ use gpui_kit::{
 };
 use ramag_app::{
     AvailableUpdate, ClipboardService, ConnectionService, PluginInstallation,
-    PluginInstallationStore, PluginPackageCatalogEntry, PluginPackageDownloader,
-    PluginPackageInstaller, SshService, StaticPluginHost, UpdateService,
+    PluginInstallationStore, PluginPackageCatalogEntry, PluginPackageCatalogFetcher,
+    PluginPackageCatalogStore, PluginPackageDownloader, PluginPackageInstaller, SshService,
+    StaticPluginHost, UpdateService,
 };
 use ramag_domain::entities::{
     ClipboardSettings, DownloadProgress, IdConverterKind, MAX_CUSTOM_ID_ALPHABET_BYTES,
@@ -511,6 +512,41 @@ impl SettingsView {
     ) {
         self.plugin_diagnostics
             .update(cx, |view, cx| view.set_downloaded_packages(packages, cx));
+        cx.notify();
+    }
+
+    /// 注入远程插件目录获取器；设置页仍只在用户点击刷新时联网。
+    pub fn set_plugin_catalog_fetcher(
+        &mut self,
+        fetcher: Arc<PluginPackageCatalogFetcher>,
+        cx: &mut Context<Self>,
+    ) {
+        self.plugin_diagnostics
+            .update(cx, |view, cx| view.set_catalog_fetcher(fetcher, cx));
+        cx.notify();
+    }
+
+    /// 注入远程插件目录本地存储。
+    pub fn set_plugin_catalog_store(
+        &mut self,
+        store: Arc<PluginPackageCatalogStore>,
+        cx: &mut Context<Self>,
+    ) {
+        self.plugin_diagnostics
+            .update(cx, |view, cx| view.set_catalog_store(store, cx));
+        cx.notify();
+    }
+
+    /// 初始化远程目录源输入；网络请求仍由设置页按钮显式触发。
+    pub fn set_plugin_catalog_source_url(
+        &mut self,
+        source_url: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.plugin_diagnostics.update(cx, |view, cx| {
+            view.set_catalog_source_url(source_url, window, cx)
+        });
         cx.notify();
     }
 
