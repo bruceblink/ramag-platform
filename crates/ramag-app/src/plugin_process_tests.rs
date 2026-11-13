@@ -146,3 +146,20 @@ fn unix_process_group_termination_stops_descendant_processes() {
     let status = child.wait().expect("等待进程组测试子进程");
     assert!(!status.success());
 }
+
+#[cfg(windows)]
+#[test]
+fn windows_job_object_terminates_attached_process() {
+    use std::os::windows::io::AsRawHandle;
+    use std::process::Command;
+
+    let mut child = Command::new("cmd")
+        .args(["/C", "ping 127.0.0.1 -n 30 >NUL"])
+        .spawn()
+        .expect("启动 Windows Job Object 测试子进程");
+    let process_handle = windows::Win32::Foundation::HANDLE(child.as_raw_handle() as isize);
+    let job = PluginJob::attach_process(process_handle).expect("接管 Windows 测试进程");
+    job.terminate();
+    let status = child.wait().expect("等待 Windows Job Object 测试子进程");
+    assert!(!status.success());
+}

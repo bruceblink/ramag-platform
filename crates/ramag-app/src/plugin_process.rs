@@ -90,6 +90,86 @@ struct PluginProcessSession {
     next_request_id: u64,
     #[cfg(unix)]
     process_group: i32,
+    #[cfg(windows)]
+    job: PluginJob,
+}
+
+/// Windows 插件进程树的生命周期边界。
+///
+/// Job Object 在入口进程启动后立即接管该进程。关闭句柄会终止仍属于该
+/// Job 的所有进程，因此协议错误、超时和宿主关闭都不会只留下子孙进程。
+#[cfg(windows)]
+struct PluginJob {
+    handle: windows::Win32::Foundation::HANDLE,
+}
+
+#[cfg(windows)]
+impl PluginJob {
+    fn attach(child: &Child) -> Result<Self, PluginProcessError> {
+        let raw_handle = child
+            .raw_handle()
+            .ok_or_else(|| PluginProcessError::JobObject {
+                stage: "process_handle",
+                message: "插件进程已退出，无法获取进程句柄".into(),
+            })?;
+        let process_handle = windows::Win32::Foundation::HANDLE(raw_handle as isize);
+        Self::attach_process(process_handle)
+    }
+
+    fn attach_process(
+        process_handle: windows::Win32::Foundation::HANDLE,
+    ) -> Result<Self, PluginProcessError> {
+        use windows::Win32::System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
+            SetInformationJobObject,
+        };
+        use windows::core::PCWSTR;
+
+        let handle = unsafe { CreateJobObjectW(None, PCWSTR::null()) }.map_err(|error| {
+            PluginProcessError::JobObject {
+                stage: "create",
+                message: error.to_string(),
+            }
+        })?;
+        let job = Self { handle };
+        let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let size = std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32;
+        unsafe {
+            SetInformationJobObject(
+                job.handle,
+                JobObjectExtendedLimitInformation,
+                (&limits as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
+                size,
+            )
+        }
+        .map_err(|error| PluginProcessError::JobObject {
+            stage: "configure",
+            message: error.to_string(),
+        })?;
+        unsafe { AssignProcessToJobObject(job.handle, process_handle) }.map_err(|error| {
+            PluginProcessError::JobObject {
+                stage: "assign",
+                message: error.to_string(),
+            }
+        })?;
+        Ok(job)
+    }
+
+    /// 终止 Job 中仍在运行的入口和子孙进程；进程已退出时忽略系统返回的失败。
+    fn terminate(&self) {
+        use windows::Win32::System::JobObjects::TerminateJobObject;
+        let _ = unsafe { TerminateJobObject(self.handle, 1) };
+    }
+}
+
+#[cfg(windows)]
+impl Drop for PluginJob {
+    fn drop(&mut self) {
+        use windows::Win32::Foundation::CloseHandle;
+        let _ = unsafe { CloseHandle(self.handle) };
+    }
 }
 
 impl PluginProcessHost {
@@ -122,6 +202,15 @@ impl PluginProcessHost {
             .stderr(Stdio::piped())
             .kill_on_drop(true);
         let mut child = command.spawn().map_err(PluginProcessError::Spawn)?;
+        #[cfg(windows)]
+        let job = match PluginJob::attach(&child) {
+            Ok(job) => job,
+            Err(error) => {
+                let _ = child.start_kill();
+                let _ = child.wait().await;
+                return Err(error);
+            }
+        };
         #[cfg(unix)]
         let process_group = child
             .id()
@@ -151,6 +240,8 @@ impl PluginProcessHost {
             next_request_id: 1,
             #[cfg(unix)]
             process_group,
+            #[cfg(windows)]
+            job,
         };
 
         let hello = PluginProcessMessage::Hello(PluginHello {
@@ -480,6 +571,8 @@ async fn drain_stderr(mut stderr: ChildStderr, tail: Arc<ParkingMutex<VecDeque<u
 async fn terminate_session(mut session: PluginProcessSession, wait_timeout: Duration) {
     #[cfg(unix)]
     kill_process_group(session.process_group);
+    #[cfg(windows)]
+    session.job.terminate();
     let _ = session.child.start_kill();
     let _ = timeout(wait_timeout, session.child.wait()).await;
     session.stderr_task.abort();
@@ -501,6 +594,8 @@ async fn wait_for_child(
         Err(_) => {
             #[cfg(unix)]
             kill_process_group(session.process_group);
+            #[cfg(windows)]
+            session.job.terminate();
             let _ = session.child.start_kill();
             let _ = timeout(wait_timeout, session.child.wait()).await;
             session.stderr_task.abort();
@@ -546,6 +641,12 @@ pub enum PluginProcessError {
     PackageDigestMismatch { expected: String, actual: String },
     #[error("启动插件进程失败：{0}")]
     Spawn(#[source] std::io::Error),
+    #[cfg(windows)]
+    #[error("配置 Windows 插件 Job Object 失败（{stage}）：{message}")]
+    JobObject {
+        stage: &'static str,
+        message: String,
+    },
     #[error("插件进程没有可用的 {0} 管道")]
     MissingPipe(&'static str),
     #[error("插件协议失败：{0}")]

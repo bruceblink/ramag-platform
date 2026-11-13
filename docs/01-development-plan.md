@@ -759,6 +759,7 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 32 | `RAMAG-UI-PLUGIN-CACHE-REFRESH-001` 目录刷新后恢复下载缓存 | 已完成：目录刷新成功后在后台按新目录重新核验 `downloads/index.json`，恢复摘要匹配的“已下载”候选；摘要变化、缺失文件和未知候选不恢复 | 刷新不会让有效缓存的安装按钮消失；同一插件 ID/版本但摘要变化时不显示安装按钮；缓存核验失败不阻止新目录展示；恢复不在 UI 更新线程执行 | `ramag-ui` 插件诊断定向测试 11 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查通过；回滚只涉及目录刷新缓存恢复和对应测试 |
 | 34 | `RAMAG-PLUGIN-PROCESS-GROUP-001` Unix 插件进程组清理 | 已完成：macOS/Linux 插件入口启动时创建独立 process group；协议错误、调用超时、握手失败和关闭超时先终止整个进程组，再回收直接子进程 | 插件入口创建的 Unix 子进程不会因宿主会话终止而继续运行；进程组不存在时清理操作安全结束；Windows Job Object 和沙箱保持独立未实现边界 | `ramag-app` 进程宿主定向测试 6 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查通过；回滚只涉及 Unix process group、`libc` 依赖和对应测试 |
 | 35 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
+| 36 | `RAMAG-PLUGIN-PROCESS-JOB-001` Windows Job Object 进程树清理 | 已实现：Windows 入口进程启动后创建 Job Object，设置 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` 并立即接管入口；协议错误、调用超时、握手失败和关闭超时先终止 Job Object，再回收直接子进程；创建或分配失败返回明确错误，不静默退化 | Windows 目标库和全目标编译必须通过；Windows 真实子进程验收需证明入口创建的子孙进程在宿主会话终止后退出；外部 Job 限制、嵌套 Job 和入口启动到接管之间的竞态单独记录，不扩展为沙箱或资源配额 | macOS Unix 定向测试 6 项、`ramag-app` 严格 Clippy、Windows MSVC 目标库编译检查、格式检查和差异检查通过；本机没有 Windows 运行环境，真实 Job Object 子孙进程验收未完成；回滚只涉及 Windows 依赖、Job Object 生命周期、对应测试和本节记录 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -1353,6 +1354,21 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 `cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
 `cargo check --locked -p ramag-bin --all-targets` 和 `git diff --check`。
 2026-11-13 已完成本切片。Unix 进程宿主定向测试 6 项、严格 Clippy、组合检查、格式检查和差异检查通过；Windows Job Object、沙箱、签名和资源配额仍未实现。
+
+### 4.44 Windows Job Object 进程树清理
+
+本切片补充 Windows 进程外插件宿主的进程树清理实现。入口进程创建后立即创建匿名 Job Object，设置 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`，并通过 `Child::raw_handle()` 把入口加入 Job。协议错误、入口调用超时、握手失败和关闭超时时调用 `TerminateJobObject`，再执行直接子进程终止和等待；Job handle 使用 RAII 关闭，避免会话异常退出时遗留进程。
+
+- Job 创建、配置或入口分配失败会在启动阶段返回明确的 `PluginProcessError::JobObject`，不会静默退化为只终止直接入口。
+- Windows 目标使用 `windows 0.57` 的 `Win32_Foundation` 和 `Win32_System_JobObjects` 功能；`ramag-infra-system` 保持为跨平台直接依赖，避免 Windows 目标在资源采样代码处缺少依赖。
+- Job Object 的真实子孙进程清理需要 Windows 运行环境。当前 macOS 只完成 Windows 目标库和全目标代码检查，不能把该检查当作 Windows 运行时验收。
+- 入口启动到 Job 接管之间仍存在 Windows 进程创建竞态；本切片不引入自定义 `CreateProcessW`/挂起恢复流程，也不把 Job Object 当作沙箱或资源配额实现。
+
+验证命令为 `cargo fmt --all -- --check`、
+`cargo test --locked -p ramag-app --lib plugin_process::tests -- --test-threads=1`、
+`cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
+`cargo check --locked -p ramag-app --target x86_64-pc-windows-msvc --lib` 和 `git diff --check`。
+2026-11-13 已完成代码实现和跨目标静态检查；Windows 真实 Job Object 子孙进程验收仍需 Windows 运行环境，签名、沙箱和资源配额仍未实现。
 
 ## 5. 条件限制与未纳入执行的事项
 
