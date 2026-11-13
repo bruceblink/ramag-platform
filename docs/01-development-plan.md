@@ -750,11 +750,12 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 22 | `RAMAG-PLUGIN-CATALOG-INSTALL-001` 下载缓存安全安装 | 已完成：安装前重新读取缓存归档并核对 `archive_sha256`，在临时解包目录逐项核对包内清单的 ID、名称、版本、API、运行时和能力集合，再复用现有摘要、入口、原子替换和状态保存流程；安装成功后设置页刷新安装状态并清理缓存 | 归档摘要或目录身份不匹配时不写入 `packages` 或 `installed.json`；能力顺序变化不影响匹配；安装失败保留缓存并显示错误；成功后候选显示“已安装”，缓存文件清理失败只记录诊断 | `ramag-app` 归档定向测试 6 项、目录清单定向测试 6 项、`ramag-ui` 插件诊断定向测试 8 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查已通过。真实 HTTPS、真实窗口点击和跨进程安装仍未验收；回滚只涉及归档安装器、目录清单字段兼容、插件设置页和对应测试 |
 | 23 | `RAMAG-PLUGIN-CACHE-001` 下载缓存跨重启恢复 | 已完成：为下载归档增加受限原子索引；启动时按本地目录候选核验索引身份、单层文件名、普通文件、64 MiB 单文件上限、256 MiB 单次恢复总量和归档 SHA-256，恢复有效缓存的“安装”动作；失效记录只从恢复结果中排除，不写入安装状态 | 索引格式、条目数量和字节数受限；相对路径、路径穿越、索引/归档符号链接、目录、摘要修改和未知目录条目均不进入 UI；安装成功同步删除索引记录和归档；缓存恢复失败只记录警告，不阻止应用启动 | `ramag-app` 缓存定向测试 8 项、`ramag-ui` 插件诊断定向测试 8 项、`ramag-bin` 组合检查、严格 Clippy、格式检查和差异检查已通过。旧随机命名缓存不迁移；真实窗口和跨进程恢复仍未验收；回滚只涉及缓存索引、组合根、设置页注入和对应测试 |
 | 24 | `RAMAG-UI-PLUGIN-CATALOG-RESPONSIVE-001` 插件目录候选窄窗口与长文本布局 | 已完成：候选行在窄窗口启用换行，长能力文本允许正常换行，下载地址使用稳定选择器并限制为单行省略；下载、安装、已下载和已安装状态使用不同颜色 | `360×520` 明暗主题下，候选行、下载地址、状态和动作按钮均位于目录区域和根窗口内；长文本不改变下载和安装动作 | `ramag-ui` 插件诊断定向测试 9 项、严格 Clippy、格式检查和差异检查已通过；真实窗口点击仍未验收；回滚只涉及插件目录候选渲染和对应测试 |
-| 25 | `RAMAG-PLUGIN-CATALOG-FETCH-001` 远程插件目录获取与本地保存 | 已完成：增加显式的受限 HTTPS 目录获取器和本地原子存储；只在调用方主动请求时联网，启动流程继续读取本地 `catalog.json` | 目录源仅允许 HTTPS、无用户信息/查询/片段；连接 10 秒、总请求 20 秒、禁止重定向、HTTP 200 和 1 MiB 响应上限；解析成功后才原子替换本地清单，失败保留旧文件；不签名、不自动安装、不执行 | `ramag-app` fetcher/store 定向测试 6 项、严格 Clippy、格式检查和差异检查通过；真实 HTTPS 服务和设置页目录源配置未验收；回滚只涉及获取器、存储器、应用导出和本节记录 |
+| 25 | `RAMAG-PLUGIN-CATALOG-FETCH-001` 远程插件目录获取与本地保存 | 已完成：增加显式的受限 HTTPS 目录获取器和本地原子存储；只在调用方主动请求时联网，启动流程继续读取本地 `catalog.json` | 目录源仅允许 HTTPS、无用户信息/查询/片段；连接 10 秒、总请求 20 秒、禁止重定向、HTTP 200 和 1 MiB 响应上限；解析成功后才原子替换本地清单，失败保留旧文件；不签名、不自动安装、不执行 | `ramag-app` fetcher/store 默认定向测试 8 项通过；Docker `nginx:1.27-alpine` HTTPS fixture 通过 200 保存、404、302、超量和失败后旧文件保留验收；严格 Clippy、格式检查、组合检查和差异检查通过。设置页真实 HTTPS 点击、第三方证书链、签名和来源信任仍未验收；回滚只涉及获取器、存储器、集成脚本、应用导出和本节记录 |
 | 26 | `RAMAG-UI-PLUGIN-CATALOG-SOURCE-001` 插件目录源设置与手动刷新 | 已完成：设置页保存并恢复目录源 URL，用户点击“刷新目录”后才请求受限 HTTPS 清单；成功后原子替换本地 `catalog.json` 并刷新候选，失败保留旧候选和旧文件 | 目录源输入可编辑且使用有界 URL；获取器或存储器未配置时刷新按钮禁用；请求不在启动路径执行；成功后保存 URL 偏好，错误显示在目录区域；360px、1024px、1440px 明暗主题布局不越界 | `ramag-ui` 插件诊断定向测试 10 项、真实 macOS 预览窗口、`ramag-bin` 组合检查、严格 Clippy、格式检查和差异检查通过；真实 HTTPS 点击刷新仍未验收；回滚只涉及设置页插件目录控件、组合根注入和对应文档 |
 | 27 | `RAMAG-PLUGIN-CATALOG-RUNTIME-001` 目录刷新 runtime 崩溃修复 | 已完成：目录刷新在后台线程同步进入应用层专用 Tokio runtime，避免 GPUI 后台执行器直接驱动 `reqwest` 时触发无 reactor panic；失败仍只更新错误状态并保留旧目录 | 真实窗口点击刷新不退出进程；请求、解析和保存错误可回写设置页；runtime 初始化或请求失败显示明确错误；旧目录文件不被失败请求覆盖 | `ramag-app` fetcher/store 定向测试 8 项、真实 macOS 生产调试窗口、严格 Clippy、组合检查、格式检查和差异检查通过；修复前 `SIGABRT` 崩溃报告保留在本机诊断目录；回滚只涉及目录获取 runtime 包装、UI 调用点和本节记录 |
 | 28 | `RAMAG-BUILD-MACOS-LINKER-001` macOS `__eh_frame` 链接器警告修复 | 已完成：为 `aarch64-apple-darwin` 和 `x86_64-apple-darwin` 配置 `ld64` 的 `-no_compact_unwind`，保留 DWARF 展开信息并避免大型 GPUI 调试二进制超过紧凑展开表上限 | 标准 macOS 构建和 DMG 调试构建不再输出 `__eh_frame section too large`；Windows/Linux 目标不使用该参数；不改变应用运行时逻辑 | `cargo build --locked -p ramag-bin`、`scripts/build-dmg.sh --debug`、格式检查和差异检查通过；构建中仍可能显示第三方 future-incompatibility 提示，该提示与本链接器警告无关；回滚只涉及 `.cargo/config.toml` 和本节记录 |
-| 29 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
+| 29 | `RAMAG-PLUGIN-CATALOG-HTTPS-INT-001` 目录源本地 HTTPS 集成验收 | 已完成：增加可复现的本地 Docker HTTPS fixture，使用自签名 `github.com` 证书和临时端口验证目录获取器的真实 TCP、TLS、HTTP 和本地保存链路 | `catalog.json` 成功获取并保存；404、302 和超过 1 MiB 的响应返回确定错误；每个失败场景都保留已保存目录；fixture 容器运行状态、端口映射、健康检查和清理均有脚本检查 | `./scripts/plugin-test/run-local-catalog-tests.sh` 通过，脚本使用 `nginx:1.27-alpine`、临时目录和命名后台容器，结束时清理容器与临时目录；测试从非 Tokio 测试线程调用 `fetch_and_store_on_managed_runtime`。不覆盖公网证书链、目录签名、插件包下载或安装；回滚只涉及集成测试和脚本 |
+| 30 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -1288,6 +1289,22 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 验证命令为 `cargo build --locked -p ramag-bin`、`./scripts/build-dmg.sh --debug`、
 `cargo fmt --all -- --check` 和 `git diff --check`。
 2026-11-13 已完成本切片。macOS 标准构建和 DMG 调试构建通过，目标链接器警告已消失。
+
+### 4.40 目录源本地 HTTPS 集成验收
+
+本切片补充远程目录获取器缺少真实网络成功路径的验收证据。测试脚本在本机 Docker 中启动 `nginx:1.27-alpine`，使用临时目录生成自签名 `github.com` 证书、目录响应和有界错误响应。测试客户端只在该集成测试中允许自签证书，并把 `github.com` 解析到临时回环端口；生产获取器的 HTTPS 证书校验策略不变。
+
+- `/plugins/catalog.json` 返回有效目录。测试通过 `fetch_and_store_on_managed_runtime` 验证生产后台入口，确认目录解析成功、原子写入完成，随后从 `PluginPackageCatalogStore` 读取到相同目录。
+- `/plugins/not-found.json` 返回 `404`，`/plugins/redirect.json` 返回 `302`，`/plugins/oversized.json` 返回超过 `1 MiB` 的静态响应。三种失败都不会替换已保存的 `catalog.json`。
+- 脚本检查容器状态为 `running`、`443/tcp` 映射到临时回环端口，并通过 `curl` 健康检查确认实际 HTTPS 连接。退出时删除命名容器和临时目录；脚本不使用一次性容器模式。
+
+验证命令为 `bash -n scripts/plugin-test/run-local-catalog-tests.sh`、
+`./scripts/plugin-test/run-local-catalog-tests.sh`、
+`cargo test --locked -p ramag-app --lib plugin_package_catalog_fetcher::tests -- --test-threads=1`、
+`cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
+`cargo check --locked -p ramag-bin --all-targets`、
+`cargo fmt --all -- --check` 和 `git diff --check`。
+2026-11-13 已完成本切片。默认 fetcher/store 测试 8 项通过，Docker fixture 集成测试 1 项通过；容器状态、端口映射、健康检查和退出清理均通过。该证据不覆盖公网证书链、目录签名、插件包下载、安装、沙箱或进程树清理。
 
 ## 5. 条件限制与未纳入执行的事项
 

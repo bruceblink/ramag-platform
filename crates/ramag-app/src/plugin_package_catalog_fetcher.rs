@@ -404,6 +404,9 @@ pub enum PluginPackageCatalogStoreError {
 
 #[cfg(test)]
 mod tests {
+    use std::net::{Ipv4Addr, SocketAddr};
+    use std::path::PathBuf;
+
     use super::*;
     use crate::PluginPackageCatalogEntry;
     use ramag_domain::{PluginApiVersion, PluginCapability, PluginId, PluginPackageRuntime};
@@ -533,6 +536,82 @@ mod tests {
         }));
         assert!(result.is_ok(), "managed runtime request must not panic");
         assert!(result.expect("no panic").is_err());
+    }
+
+    #[test]
+    #[ignore = "requires the local Docker HTTPS plugin catalog fixture"]
+    fn fetches_catalog_over_local_https_fixture() {
+        // 本测试只信任自签 fixture 证书；生产构造器仍使用系统严格证书校验。
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let root = PathBuf::from(
+            std::env::var_os("RAMAG_PLUGIN_CATALOG_TEST_ROOT")
+                .expect("test script must set fixture root"),
+        );
+        let port: u16 = std::env::var("RAMAG_PLUGIN_CATALOG_TEST_PORT")
+            .expect("test script must set HTTPS port")
+            .parse()
+            .expect("HTTPS port must be a number");
+        let client = Client::builder()
+            .https_only(true)
+            .connect_timeout(Duration::from_secs(2))
+            .timeout(Duration::from_secs(5))
+            .resolve(
+                "github.com",
+                SocketAddr::new(Ipv4Addr::LOCALHOST.into(), port),
+            )
+            .no_proxy()
+            .danger_accept_invalid_certs(true)
+            .redirect(redirect::Policy::none())
+            .build()
+            .expect("build test-only HTTPS client");
+        let fetcher = PluginPackageCatalogFetcher::with_client(client);
+        let store = PluginPackageCatalogStore::new(root.join("state"))
+            .expect("fixture state root must be absolute");
+        let catalog_url = "https://github.com/plugins/catalog.json";
+
+        let catalog = fetcher
+            .fetch_and_store_on_managed_runtime(catalog_url, &store)
+            .expect("fetch valid catalog over local HTTPS");
+        assert_eq!(catalog.entries().len(), 1);
+        assert_eq!(store.load().expect("load stored catalog"), Some(catalog));
+        let stored_bytes = fs::read(store.path()).expect("read stored catalog");
+
+        let not_found = fetcher.fetch_and_store_on_managed_runtime(
+            "https://github.com/plugins/not-found.json",
+            &store,
+        );
+        assert!(matches!(
+            not_found,
+            Err(PluginPackageCatalogFetchError::HttpStatus { status: 404 })
+        ));
+        assert_eq!(
+            fs::read(store.path()).expect("read catalog after 404"),
+            stored_bytes
+        );
+
+        let redirect_result = fetcher
+            .fetch_and_store_on_managed_runtime("https://github.com/plugins/redirect.json", &store);
+        assert!(matches!(
+            redirect_result,
+            Err(PluginPackageCatalogFetchError::Redirect { .. })
+        ));
+        assert_eq!(
+            fs::read(store.path()).expect("read catalog after redirect"),
+            stored_bytes
+        );
+
+        let oversized = fetcher.fetch_and_store_on_managed_runtime(
+            "https://github.com/plugins/oversized.json",
+            &store,
+        );
+        assert!(matches!(
+            oversized,
+            Err(PluginPackageCatalogFetchError::TooLarge { .. })
+        ));
+        assert_eq!(
+            fs::read(store.path()).expect("read catalog after oversized response"),
+            stored_bytes
+        );
     }
 
     #[test]
