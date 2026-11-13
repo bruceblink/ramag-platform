@@ -205,20 +205,36 @@ impl PluginDiagnosticsView {
             cx.notify();
             return;
         };
+        let cache = self.package_cache.clone();
         self.catalog_refreshing = true;
         self.catalog_refresh_error = None;
         cx.notify();
         let task = cx.background_executor().spawn({
             let source_url = source_url.clone();
-            async move { fetcher.fetch_and_store_on_managed_runtime(&source_url, &store) }
+            async move {
+                let catalog = fetcher.fetch_and_store_on_managed_runtime(&source_url, &store)?;
+                let downloaded_packages = match restore_catalog_cache(cache, &catalog.entries) {
+                    Ok(packages) => packages,
+                    Err(error) => {
+                        tracing::warn!(
+                            operation = "plugin_package_cache_restore",
+                            error = %error,
+                            "目录刷新后的插件包缓存恢复失败"
+                        );
+                        Vec::new()
+                    }
+                };
+                Ok::<_, ramag_app::PluginPackageCatalogFetchError>((catalog, downloaded_packages))
+            }
         });
         cx.spawn(async move |this, cx| {
             let result = task.await;
             let _ = this.update(cx, |view, cx| {
                 view.catalog_refreshing = false;
                 match result {
-                    Ok(catalog) => {
+                    Ok((catalog, downloaded_packages)) => {
                         view.set_catalog_entries(catalog.entries, cx);
+                        view.set_downloaded_packages(downloaded_packages, cx);
                         view.catalog_refresh_error = None;
                         crate::preferences::persist_preference_latest(
                             crate::PLUGIN_CATALOG_SOURCE_URL_PREF_KEY,
@@ -557,6 +573,17 @@ impl PluginDiagnosticsView {
         })
         .detach();
     }
+}
+
+/// 按当前目录重新核验下载缓存；摘要、路径或文件异常时交给调用方决定降级方式。
+fn restore_catalog_cache(
+    cache: Option<PluginPackageCache>,
+    entries: &[PluginPackageCatalogEntry],
+) -> Result<Vec<PluginPackageCachedArchive>, String> {
+    cache
+        .map(|cache| cache.restore(entries).map_err(|error| error.to_string()))
+        .transpose()
+        .map(|packages| packages.unwrap_or_default())
 }
 
 impl Render for PluginDiagnosticsView {

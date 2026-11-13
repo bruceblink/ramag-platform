@@ -1,5 +1,6 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
+use std::fs;
 use std::sync::Arc;
 
 use gpui_kit::{
@@ -8,8 +9,9 @@ use gpui_kit::{
 };
 use ramag_app::{
     PluginContext, PluginInstallation, PluginInstallationState, PluginInstallationStore,
-    PluginOperationError, PluginPackageCachedArchive, PluginPackageCatalogEntry,
-    PluginPackageInstaller, StaticPlugin, StaticPluginAdapter, StaticPluginHost, ToolRegistry,
+    PluginOperationError, PluginPackageCache, PluginPackageCachedArchive,
+    PluginPackageCatalogEntry, PluginPackageInstaller, StaticPlugin, StaticPluginAdapter,
+    StaticPluginHost, ToolRegistry,
 };
 use ramag_domain::{
     MAX_PLUGIN_PACKAGE_SHA256_BYTES, PluginApiVersion, PluginCapability, PluginDescriptor,
@@ -505,6 +507,53 @@ fn downloaded_catalog_entry_shows_install_action(cx: &mut TestAppContext) {
         .expect("本地目录候选区域应渲染");
     assert_inside(install, catalog);
     assert_inside(status, catalog);
+}
+
+#[gpui_kit::test]
+fn refreshed_catalog_restores_matching_download_cache(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let host = Arc::new(StaticPluginHost::new(Arc::new(ToolRegistry::new())));
+    let mut entry = catalog_plugin();
+    entry.archive_sha256 =
+        "ee2cc4e912b2aa9fd37f005dfbaf1496ebdf36f093f63764d230e37775873898".into();
+    let root = std::env::temp_dir().join(format!(
+        "ramag-ui-plugin-cache-refresh-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).expect("创建缓存测试目录");
+    let archive = root.join("catalog.example-1.0.0-1.tar.gz");
+    fs::write(&archive, b"cached archive").expect("写入缓存归档");
+    let cache = PluginPackageCache::new(root.clone());
+    cache
+        .record_download(&entry, &archive)
+        .expect("记录已下载归档");
+    let restored = super::restore_catalog_cache(Some(cache.clone()), std::slice::from_ref(&entry))
+        .expect("恢复缓存归档");
+    assert_eq!(restored.len(), 1);
+    let mut changed_entry = entry.clone();
+    changed_entry.archive_sha256 = "f".repeat(64);
+    assert!(
+        super::restore_catalog_cache(Some(cache), &[changed_entry])
+            .expect("核验变更摘要")
+            .is_empty()
+    );
+
+    let (_, visual_cx) = cx.add_window_view(move |_, cx| PluginDiagnosticsTestHost {
+        view: cx.new(|view_cx| {
+            let mut view = PluginDiagnosticsView::with_installations(host, Vec::new());
+            view.set_catalog_entries(vec![entry.clone()], view_cx);
+            view.set_downloaded_packages(restored, view_cx);
+            view
+        }),
+    });
+    let visual_cx: &mut VisualTestContext = visual_cx;
+    visual_cx.simulate_resize(size(px(640.0), px(520.0)));
+    visual_cx.run_until_parked();
+    visual_cx
+        .debug_bounds("plugin-package-catalog-install-catalog.example-1.0.0")
+        .expect("目录刷新后应保留缓存安装按钮");
+    let _ = fs::remove_dir_all(root);
 }
 
 #[gpui_kit::test]

@@ -756,7 +756,8 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 28 | `RAMAG-BUILD-MACOS-LINKER-001` macOS `__eh_frame` 链接器警告修复 | 已完成：为 `aarch64-apple-darwin` 和 `x86_64-apple-darwin` 配置 `ld64` 的 `-no_compact_unwind`，保留 DWARF 展开信息并避免大型 GPUI 调试二进制超过紧凑展开表上限 | 标准 macOS 构建和 DMG 调试构建不再输出 `__eh_frame section too large`；Windows/Linux 目标不使用该参数；不改变应用运行时逻辑 | `cargo build --locked -p ramag-bin`、`scripts/build-dmg.sh --debug`、格式检查和差异检查通过；构建中仍可能显示第三方 future-incompatibility 提示，该提示与本链接器警告无关；回滚只涉及 `.cargo/config.toml` 和本节记录 |
 | 29 | `RAMAG-PLUGIN-CATALOG-HTTPS-INT-001` 目录源本地 HTTPS 集成验收 | 已完成：增加可复现的本地 Docker HTTPS fixture，使用自签名 `github.com` 证书和临时端口验证目录获取器的真实 TCP、TLS、HTTP 和本地保存链路 | `catalog.json` 成功获取并保存；404、302 和超过 1 MiB 的响应返回确定错误；每个失败场景都保留已保存目录；fixture 容器运行状态、端口映射、健康检查和清理均有脚本检查 | `./scripts/plugin-test/run-local-catalog-tests.sh` 通过，脚本使用 `nginx:1.27-alpine`、临时目录和命名后台容器，结束时清理容器与临时目录；测试从非 Tokio 测试线程调用 `fetch_and_store_on_managed_runtime`。不覆盖公网证书链、目录签名、插件包下载或安装；回滚只涉及集成测试和脚本 |
 | 30 | `RAMAG-PLUGIN-DOWNLOAD-HTTPS-INT-001` 插件包本地 HTTPS 集成验收 | 已完成：增加独立 Docker HTTPS fixture 和忽略测试，使用真实 `tar.gz` 响应验证下载器的成功、错误和临时文件清理路径 | 成功下载后目标文件摘要与 fixture 一致；404、302、超过 `64 MiB` 和摘要错误都返回确定错误；失败目标不产生归档或 `.part-*` 临时文件；成功文件在失败场景后保持不变；fixture 容器状态、端口、健康检查和清理均有脚本检查 | `./scripts/plugin-test/run-local-download-tests.sh` 通过，使用 `nginx:1.27-alpine`、自签名 `github.com` 证书、临时目录和命名后台容器；测试通过 `download_to_managed_runtime` 走专用 runtime。该证据不覆盖公网证书链、真实设置页点击或下载后安装；回滚只涉及下载器集成测试和脚本 |
-| 31 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
+| 32 | `RAMAG-UI-PLUGIN-CACHE-REFRESH-001` 目录刷新后恢复下载缓存 | 已完成：目录刷新成功后在后台按新目录重新核验 `downloads/index.json`，恢复摘要匹配的“已下载”候选；摘要变化、缺失文件和未知候选不恢复 | 刷新不会让有效缓存的安装按钮消失；同一插件 ID/版本但摘要变化时不显示安装按钮；缓存核验失败不阻止新目录展示；恢复不在 UI 更新线程执行 | `ramag-ui` 插件诊断定向测试 11 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查通过；回滚只涉及目录刷新缓存恢复和对应测试 |
+| 33 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -1322,6 +1323,21 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 `cargo check --locked -p ramag-bin --all-targets`、
 `cargo fmt --all -- --check` 和 `git diff --check`。
 2026-11-13 已完成本切片。下载器默认测试 3 项通过，Docker fixture 集成测试 1 项通过；真实归档成功、HTTP 错误、超量、摘要错误和临时文件清理均通过。该证据不覆盖公网证书链、真实设置页点击、下载后安装、签名、沙箱或进程树清理。
+
+### 4.42 目录刷新后恢复下载缓存
+
+本切片修复目录刷新成功后已下载缓存从设置页消失的问题。刷新会先获取并校验新目录，再在后台使用 `PluginPackageCache::restore` 重新核验 `downloads/index.json` 和归档摘要，最后同时更新目录候选和“已下载”状态。
+
+- 缓存恢复只接受与新目录中插件 ID、版本和 `archive_sha256` 都匹配的普通归档文件。摘要变化、文件缺失、路径异常和未知候选不会恢复。
+- 缓存恢复失败只记录警告并显示新目录，不阻断目录刷新，也不在 UI 更新线程执行有界文件读取和 SHA-256 计算。
+- 新增 headless GPUI 测试验证有效缓存仍显示安装按钮，并验证同一 ID/版本摘要变化后不会恢复旧缓存。
+
+验证命令为 `cargo fmt --all -- --check`、
+`cargo test --locked -p ramag-ui --lib plugin_diagnostics::tests -- --test-threads=1`、
+`cargo clippy --locked -p ramag-ui --all-targets -- -D warnings`、
+`cargo clippy --locked -p ramag-bin --all-targets -- -D warnings`、
+`cargo check --locked -p ramag-bin --all-targets` 和 `git diff --check`。
+2026-11-13 已完成本切片。插件诊断定向测试 11 项、严格 Clippy、组合检查、格式检查和差异检查通过；真实窗口目录刷新后的缓存恢复仍需单独 UI 操作验收。
 
 ## 5. 条件限制与未纳入执行的事项
 
