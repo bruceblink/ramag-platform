@@ -3,12 +3,14 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use reqwest::{Client, Response, StatusCode, Url, header, redirect};
 use serde_json::to_vec_pretty;
 use thiserror::Error;
+use tokio::runtime::{Builder, Runtime};
 
 use crate::{MAX_PLUGIN_CATALOG_MANIFEST_BYTES, PluginPackageCatalog, PluginPackageCatalogError};
 
@@ -81,6 +83,37 @@ impl PluginPackageCatalogFetcher {
             .save(&catalog)
             .map_err(PluginPackageCatalogFetchError::Store)?;
         Ok(catalog)
+    }
+
+    /// 在目录获取器专用 Tokio runtime 中同步执行获取和保存，供 GPUI 后台执行器调用。
+    ///
+    /// 调用方必须已经位于后台线程；`block_on` 只阻塞该后台线程，不阻塞 UI 线程。
+    pub fn fetch_and_store_on_managed_runtime(
+        &self,
+        source_url: &str,
+        store: &PluginPackageCatalogStore,
+    ) -> Result<PluginPackageCatalog, PluginPackageCatalogFetchError> {
+        let fetcher = self.clone();
+        let source_url = source_url.to_owned();
+        let store = store.clone();
+        catalog_runtime()?.block_on(fetcher.fetch_and_store(&source_url, &store))
+    }
+}
+
+fn catalog_runtime() -> Result<&'static Runtime, PluginPackageCatalogFetchError> {
+    static RUNTIME: OnceLock<Result<Runtime, String>> = OnceLock::new();
+    match RUNTIME.get_or_init(|| {
+        Builder::new_multi_thread()
+            .worker_threads(2)
+            .thread_name("ramag-plugin-catalog-tokio")
+            .enable_all()
+            .build()
+            .map_err(|error| format!("创建插件目录 runtime 失败：{error}"))
+    }) {
+        Ok(runtime) => Ok(runtime),
+        Err(message) => Err(PluginPackageCatalogFetchError::Runtime {
+            message: message.clone(),
+        }),
     }
 }
 
@@ -342,6 +375,8 @@ pub enum PluginPackageCatalogFetchError {
     TooLarge { bytes: u64, max: usize },
     #[error("插件目录响应读取超时")]
     ResponseTimeout,
+    #[error("插件目录后台 runtime 初始化失败：{message}")]
+    Runtime { message: String },
     #[error("插件目录清单校验失败：{0}")]
     Catalog(PluginPackageCatalogError),
     #[error("插件目录保存失败：{0}")]
@@ -463,6 +498,41 @@ mod tests {
             result,
             Err(PluginPackageCatalogFetchError::TooLarge { .. })
         ));
+    }
+
+    #[test]
+    fn managed_runtime_propagates_validation_errors_without_panicking() {
+        // GPUI 后台执行器没有 Tokio reactor；即使请求在 URL 校验阶段失败，也必须经过受控 runtime。
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let root = tempdir().expect("temporary catalog root");
+        let store = PluginPackageCatalogStore::new(root.path()).expect("absolute root");
+        let fetcher = PluginPackageCatalogFetcher::new().expect("create fetcher");
+        let result = fetcher
+            .fetch_and_store_on_managed_runtime("http://plugins.example.test/catalog.json", &store);
+        assert!(matches!(
+            result,
+            Err(PluginPackageCatalogFetchError::InvalidSourceUrl { .. })
+        ));
+    }
+
+    #[test]
+    fn managed_runtime_keeps_reqwest_request_inside_tokio_context() {
+        // 连接本机未使用端口，验证真实 reqwest 请求不会在 GPUI 风格调用线程触发 reactor panic。
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let client = Client::builder()
+            .https_only(true)
+            .connect_timeout(Duration::from_millis(100))
+            .timeout(Duration::from_millis(500))
+            .build()
+            .expect("create test client");
+        let root = tempdir().expect("temporary catalog root");
+        let store = PluginPackageCatalogStore::new(root.path()).expect("absolute root");
+        let fetcher = PluginPackageCatalogFetcher::with_client(client);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            fetcher.fetch_and_store_on_managed_runtime("https://127.0.0.1:1/catalog.json", &store)
+        }));
+        assert!(result.is_ok(), "managed runtime request must not panic");
+        assert!(result.expect("no panic").is_err());
     }
 
     #[test]

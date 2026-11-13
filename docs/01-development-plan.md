@@ -752,7 +752,8 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 24 | `RAMAG-UI-PLUGIN-CATALOG-RESPONSIVE-001` 插件目录候选窄窗口与长文本布局 | 已完成：候选行在窄窗口启用换行，长能力文本允许正常换行，下载地址使用稳定选择器并限制为单行省略；下载、安装、已下载和已安装状态使用不同颜色 | `360×520` 明暗主题下，候选行、下载地址、状态和动作按钮均位于目录区域和根窗口内；长文本不改变下载和安装动作 | `ramag-ui` 插件诊断定向测试 9 项、严格 Clippy、格式检查和差异检查已通过；真实窗口点击仍未验收；回滚只涉及插件目录候选渲染和对应测试 |
 | 25 | `RAMAG-PLUGIN-CATALOG-FETCH-001` 远程插件目录获取与本地保存 | 已完成：增加显式的受限 HTTPS 目录获取器和本地原子存储；只在调用方主动请求时联网，启动流程继续读取本地 `catalog.json` | 目录源仅允许 HTTPS、无用户信息/查询/片段；连接 10 秒、总请求 20 秒、禁止重定向、HTTP 200 和 1 MiB 响应上限；解析成功后才原子替换本地清单，失败保留旧文件；不签名、不自动安装、不执行 | `ramag-app` fetcher/store 定向测试 6 项、严格 Clippy、格式检查和差异检查通过；真实 HTTPS 服务和设置页目录源配置未验收；回滚只涉及获取器、存储器、应用导出和本节记录 |
 | 26 | `RAMAG-UI-PLUGIN-CATALOG-SOURCE-001` 插件目录源设置与手动刷新 | 已完成：设置页保存并恢复目录源 URL，用户点击“刷新目录”后才请求受限 HTTPS 清单；成功后原子替换本地 `catalog.json` 并刷新候选，失败保留旧候选和旧文件 | 目录源输入可编辑且使用有界 URL；获取器或存储器未配置时刷新按钮禁用；请求不在启动路径执行；成功后保存 URL 偏好，错误显示在目录区域；360px、1024px、1440px 明暗主题布局不越界 | `ramag-ui` 插件诊断定向测试 10 项、真实 macOS 预览窗口、`ramag-bin` 组合检查、严格 Clippy、格式检查和差异检查通过；真实 HTTPS 点击刷新仍未验收；回滚只涉及设置页插件目录控件、组合根注入和对应文档 |
-| 27 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
+| 27 | `RAMAG-PLUGIN-CATALOG-RUNTIME-001` 目录刷新 runtime 崩溃修复 | 已完成：目录刷新在后台线程同步进入应用层专用 Tokio runtime，避免 GPUI 后台执行器直接驱动 `reqwest` 时触发无 reactor panic；失败仍只更新错误状态并保留旧目录 | 真实窗口点击刷新不退出进程；请求、解析和保存错误可回写设置页；runtime 初始化或请求失败显示明确错误；旧目录文件不被失败请求覆盖 | `ramag-app` fetcher/store 定向测试 8 项、真实 macOS 生产调试窗口、严格 Clippy、组合检查、格式检查和差异检查通过；修复前 `SIGABRT` 崩溃报告保留在本机诊断目录；回滚只涉及目录获取 runtime 包装、UI 调用点和本节记录 |
+| 28 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -1259,6 +1260,21 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 `cargo clippy --locked -p ramag-bin --all-targets -- -D warnings`、
 `cargo check --locked -p ramag-bin --all-targets` 和 `git diff --check`。
 2026-11-13 已完成本切片。插件诊断测试 10 项、真实 macOS 预览窗口、严格 Clippy、组合检查、格式检查和差异检查通过；真实 HTTPS 点击刷新和第三方来源信任仍未验收。
+
+### 4.38 目录刷新 runtime 崩溃修复
+
+真实生产调试包第一次点击“刷新目录”时进程退出。macOS 崩溃报告显示，GPUI 后台执行器直接驱动 `reqwest`，在 `tokio::time::timeout` 内调用 `Handle::current()`，因没有 Tokio reactor 触发 `SIGABRT`。
+
+- `PluginPackageCatalogFetcher::fetch_and_store_on_managed_runtime` 在后台线程同步进入固定大小的专用 Tokio runtime 执行获取和保存，并把 runtime 初始化失败和请求失败转换为可显示的错误。
+- 插件设置页刷新任务改用该入口。网络请求仍只在用户点击后开始，启动流程不联网；失败仍保留旧候选和旧 `catalog.json`。
+- 新增 runtime 包装错误传播和真实 `reqwest` 请求上下文单测；第一次真实窗口点击提供了修复前崩溃证据，修复后的真实 HTTPS 点击返回 HTTP 404 错误卡且进程保持运行。
+
+验证命令为 `cargo fmt --all -- --check`、
+`cargo test --locked -p ramag-app --lib plugin_package_catalog_fetcher::tests -- --test-threads=1`、
+`cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
+`cargo clippy --locked -p ramag-ui --all-targets -- -D warnings`、
+`cargo check --locked -p ramag-bin --all-targets`、`cargo build --locked -p ramag-bin` 和 `git diff --check`。
+2026-11-13 已完成本切片。目录获取器定向测试 8 项、真实 macOS 生产调试窗口、严格 Clippy、组合检查、标准构建、格式检查和差异检查通过；第三方来源签名和成功目录仍需独立验收。
 
 ## 5. 条件限制与未纳入执行的事项
 

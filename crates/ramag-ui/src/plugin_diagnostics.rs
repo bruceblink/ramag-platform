@@ -210,7 +210,7 @@ impl PluginDiagnosticsView {
         cx.notify();
         let task = cx.background_executor().spawn({
             let source_url = source_url.clone();
-            async move { fetcher.fetch_and_store(&source_url, &store).await }
+            async move { fetcher.fetch_and_store_on_managed_runtime(&source_url, &store) }
         });
         cx.spawn(async move |this, cx| {
             let result = task.await;
