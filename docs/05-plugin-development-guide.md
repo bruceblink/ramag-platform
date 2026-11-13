@@ -51,8 +51,8 @@ flowchart TB
 | `PluginInstallationStore` | 保存 `installed`、`enabled`、`disabled` 和 `quarantined` 状态；不负责下载或升级 |
 | `PluginPackageInstaller` | 校验本地 `plugin.json`、摘要和包内路径，原子替换或卸载版本目录；不下载、不执行入口 |
 | `PluginPackageDownloader` | 使用受限 HTTPS 客户端把已校验目录条目下载到新的缓存文件并核对 SHA-256；不安装、不改变状态、不执行入口 |
-| `PluginPackageCatalogFetcher` | 只在调用方主动请求时获取 HTTPS 目录，限制响应并复用目录校验；不启动时联网、不安装、不执行、不验证签名 |
-| `PluginPackageCatalogStore` | 保存已解析目录到同目录临时文件并原子替换 `catalog.json`；失败时保留旧文件，不负责来源设置或权限授予 |
+| `PluginPackageCatalogFetcher` | 只在调用方主动请求时获取 HTTPS 目录；旧 API 保持 v1 兼容，document API 校验 signed envelope；不启动时联网、不安装、不执行 |
+| `PluginPackageCatalogStore` | 保存 v1 或已核验 signed document 到同目录临时文件并原子替换 `catalog.json`；加载 document 时重新检查来源和信任策略；失败时保留旧文件 |
 | `PluginPackageCatalogDocument` / `PluginPackageCatalogTrustPolicy` | 解析 v1 兼容目录或 v2 signed envelope，使用 Ed25519 和来源前缀验证信任；不负责联网、持久化或 UI 动作门控 |
 | `PluginProcessHost` | 校验包内入口、启动外部进程、完成握手和有界入口调用；Unix 使用独立进程组，Windows 使用 Job Object 清理进程树；不提供签名或沙箱 |
 | `StaticPluginHost` | 校验、注册、初始化、关闭、执行和失败隔离；不负责动态发现或进程管理 |
@@ -82,7 +82,7 @@ flowchart TB
 
 `PluginPackageDownloader` 只接受已经通过 `PluginPackageCatalogEntry::validate` 的候选。目录字段 `archive_sha256` 表示整个 `.tar.gz` 归档的摘要；包内 `PluginPackageManifest.package_sha256` 表示解包文件内容摘要。生产构造器默认使用 HTTPS、要求 `HTTP 200`、禁止重定向，并同时限制响应头和流式累计大小为 `64 MiB`。下载内容先写同目录临时文件，完成 `flush`、`sync_all` 和归档 SHA-256 核对后再通过不覆盖的原子发布完成落盘；最终目标父目录拒绝符号链接或非目录，已存在目标文件不会被覆盖。`PluginPackageDownloader::new` 使用 workspace 的 `rustls-no-provider`，应用启动层必须先安装 TLS provider；`download_to_managed_runtime` 为 GPUI 等非 Tokio 执行器提供专用 runtime 入口。下载器不调用安装器或执行包内容。当前已使用本地 Docker HTTPS fixture 验证真实 `tar.gz` 成功落盘、SHA-256、HTTP 错误、超量响应、摘要错误和临时文件清理；公网证书链、真实设置页点击和下载后安装仍需独立验收。
 
-`PluginPackageCatalogFetcher` 只接受 HTTPS、无用户信息/查询参数/片段的目录源地址，使用 10 秒连接超时、20 秒总超时、HTTP 200 和禁止重定向策略。响应的 `Content-Length` 与流式累计读取都受 `MAX_PLUGIN_CATALOG_MANIFEST_BYTES` 限制，读取后复用 `PluginPackageCatalog::parse_json`。`PluginPackageCatalogStore` 将成功解析的目录写入同目录临时文件，执行 `flush`、`sync_all` 后原子替换；获取、解析或保存失败时不改变旧的 `catalog.json`。插件设置页恢复 `plugin_catalog_source_url` 偏好，用户点击“刷新目录”后通过 `fetch_and_store_on_managed_runtime` 在后台线程同步进入专用 Tokio runtime 调用获取器；成功后更新候选并保存 URL，失败时保留旧候选。当前已使用本地 Docker HTTPS fixture 验证成功目录、HTTP 错误、重定向、超量响应和旧文件保留；公网证书链、目录签名和来源信任仍需独立验收。
+`PluginPackageCatalogFetcher` 只接受 HTTPS、无用户信息/查询参数/片段的目录源地址，使用 10 秒连接超时、20 秒总超时、HTTP 200 和禁止重定向策略。响应的 `Content-Length` 与流式累计读取都受 `MAX_PLUGIN_CATALOG_MANIFEST_BYTES` 限制。旧 API 使用 `PluginPackageCatalog::parse_json` 保持 v1 兼容；document API 使用 `PluginPackageCatalogDocument::parse_json` 验证 v2 签名、来源前缀和 `PluginPackageCatalogTrustPolicy`。`PluginPackageCatalogStore` 将已解析 document 的 JSON 字节写入同目录临时文件，执行 `flush`、`sync_all` 后原子替换；获取、解析、签名或保存失败时不改变旧的 `catalog.json`。插件设置页仍恢复 `plugin_catalog_source_url` 偏好，下一切片需要改用 document API 并把 `LegacyUnsigned` 与 `Verified` 状态传到动作门控。当前已使用本地 Docker HTTPS fixture 验证旧版成功目录、HTTP 错误、重定向、超量响应和旧文件保留；签名 HTTPS fixture、设置页信任状态和下载/安装门控仍需独立验收。
 
 设置页的目录候选使用稳定的下载按钮和“待下载”“下载中”“已下载”“安装中”“已安装”状态。缓存根目录由应用组合根注入到插件状态目录下的 `downloads` 子目录；下载完成后通过 `PluginPackageCache` 写入受限原子索引，应用重启或目录刷新后按当前目录重新核验索引和归档摘要，并恢复匹配候选的“安装”动作。候选头部和动作区域允许换行，能力文本可以换行，长下载地址使用单行省略；状态颜色只提供视觉提示，不改变动作逻辑。下载失败或安装失败显示统一错误状态卡，安装失败保留缓存并允许重试，成功后更新 `installed.json` 并清理索引和归档。旧随机命名缓存不迁移，真实窗口点击仍未验收。
 

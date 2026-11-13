@@ -761,6 +761,7 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 35 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
 | 36 | `RAMAG-PLUGIN-PROCESS-JOB-001` Windows Job Object 进程树清理 | 已实现：Windows 入口进程启动后创建 Job Object，设置 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` 并立即接管入口；协议错误、调用超时、握手失败和关闭超时先终止 Job Object，再回收直接子进程；创建或分配失败返回明确错误，不静默退化 | Windows 目标库和全目标编译必须通过；Windows 真实子进程验收需证明入口创建的子孙进程在宿主会话终止后退出；外部 Job 限制、嵌套 Job 和入口启动到接管之间的竞态单独记录，不扩展为沙箱或资源配额 | macOS Unix 定向测试 6 项、`ramag-app` 严格 Clippy、Windows MSVC 目标库编译检查、格式检查和差异检查通过；本机没有 Windows 运行环境，真实 Job Object 子孙进程验收未完成；回滚只涉及 Windows 依赖、Job Object 生命周期、对应测试和本节记录 |
 | 37 | `RAMAG-PLUGIN-CATALOG-SIGNATURE-001` 已签名插件目录核心校验 | 已完成：增加 v2 signed catalog envelope、固定域分隔和 payload 序列化、Ed25519 校验、应用内置或显式注入的 key 与 HTTPS 来源前缀绑定；旧版 v1 目录仍可展示但标记为 `LegacyUnsigned` | 篡改 payload、未知 key、无效签名、错误编码、来源不匹配和重复信任 key 必须拒绝；有效签名返回 `Verified` 状态；签名正文不记录到日志；本切片不改远程获取器、目录存储器或 UI 动作门控 | `ramag-app` 签名核心定向测试 6 项、严格 Clippy、格式检查和差异检查通过；签名获取器、签名缓存、设置页状态展示和下载/安装动作门控仍需独立切片；回滚只涉及 ring 依赖、签名模块、应用导出和本节记录 |
+| 38 | `RAMAG-PLUGIN-CATALOG-SIGNATURE-STORE-001` 签名目录获取与本地保存 | 已完成：增加 `fetch_document`、受控 runtime 保存和 `load_document` API；v2 目录按来源 URL 和信任策略重新验证，v1 返回 `LegacyUnsigned`，保存保留 signed envelope 字节；失败不覆盖旧文件 | signed catalog 重启后能重新核验；来源绑定变化、未知 key、签名错误和解析错误不会替换旧文件；现有裸 v1 API 保持兼容；本切片不改变设置页下载/安装按钮 | `ramag-app` fetcher/store 定向测试 10 项通过，签名核心 6 项通过，严格 Clippy、组合检查、格式检查和差异检查通过；Docker HTTPS 成功路径和设置页信任门控仍需独立验收；回滚只涉及 fetcher/store API、签名字节保存和本节记录 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -1384,6 +1385,21 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 `cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
 `cargo fmt --all -- --check` 和 `git diff --check`。
 2026-11-13 已完成本切片。签名核心 6 项测试通过；获取器、签名目录持久化、UI 信任状态和动作门控仍未完成。
+
+### 4.46 签名目录获取与本地保存
+
+本切片把 signed catalog 核心接入目录获取器和本地存储器，但不改变旧版裸目录 API 或设置页动作。`fetch_document` 在读取响应后按 source URL 和 `PluginPackageCatalogTrustPolicy` 验证 v2 envelope；v1 目录仍返回 `LegacyUnsigned`。`fetch_and_store_document_on_managed_runtime` 在专用 Tokio runtime 中执行获取、验证和原子保存，`PluginPackageCatalogStore::load_document` 在启动或刷新时再次按来源和信任策略核验。
+
+- 保存使用解析时的目录 JSON 字节，保留 signed envelope 的 `key_id`、payload 和签名字段；不会把已签名目录降级为裸 `PluginPackageCatalog`。
+- 来源不匹配、未知 key、签名错误、格式错误或保存失败时保留旧文件。读取失败返回明确的签名或存储错误，不把失败目录交给下载器。
+- 旧 `fetch`、`fetch_and_store`、`load` 和 `save` API 保持 v1 兼容。调用方只有显式使用 document API 才能取得 `PluginPackageCatalogTrust`。
+- 本切片尚未修改组合根和设置页。未验证或旧版目录仍可能由现有旧调用路径展示；下载/安装动作门控必须在下一切片完成。
+
+验证命令为 `cargo test --locked -p ramag-app --lib plugin_package_catalog_fetcher::tests -- --test-threads=1`、
+`cargo test --locked -p ramag-app --lib plugin_package_catalog_signature::tests -- --test-threads=1`、
+`cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
+`cargo fmt --all -- --check` 和 `git diff --check`。
+2026-11-13 已完成本切片。fetcher/store 定向测试 10 项通过，签名核心 6 项通过；设置页信任状态和下载/安装动作门控仍未完成。
 
 ## 5. 条件限制与未纳入执行的事项
 

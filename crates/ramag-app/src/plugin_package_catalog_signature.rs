@@ -70,6 +70,8 @@ impl PluginPackageCatalogTrust {
 pub struct PluginPackageCatalogDocument {
     pub catalog: PluginPackageCatalog,
     pub trust: PluginPackageCatalogTrust,
+    /// 原始 envelope 字节；保存时保留签名字段，避免重新序列化丢失签名正文。
+    serialized_json: Vec<u8>,
 }
 
 impl PluginPackageCatalogDocument {
@@ -95,12 +97,13 @@ impl PluginPackageCatalogDocument {
                 Ok(Self {
                     catalog,
                     trust: PluginPackageCatalogTrust::LegacyUnsigned,
+                    serialized_json: bytes.to_vec(),
                 })
             }
             CURRENT_PLUGIN_CATALOG_SIGNED_FORMAT_VERSION => {
                 let envelope = serde_json::from_slice::<PluginPackageCatalogSignedEnvelope>(bytes)
                     .map_err(PluginPackageCatalogSignatureError::Json)?;
-                verify_signed_envelope(envelope, source_url, trust_policy)
+                verify_signed_envelope(envelope, source_url, trust_policy, bytes.to_vec())
             }
             version => {
                 Err(PluginPackageCatalogSignatureError::UnsupportedEnvelopeFormat { version })
@@ -116,6 +119,11 @@ impl PluginPackageCatalogDocument {
     /// 返回来源信任状态。
     pub fn trust(&self) -> &PluginPackageCatalogTrust {
         &self.trust
+    }
+
+    /// 返回解析并校验时的原始 JSON 字节，供存储器原样保存 signed envelope。
+    pub fn serialized_json(&self) -> &[u8] {
+        &self.serialized_json
     }
 }
 
@@ -222,6 +230,7 @@ fn verify_signed_envelope(
     envelope: PluginPackageCatalogSignedEnvelope,
     source_url: &str,
     trust_policy: &PluginPackageCatalogTrustPolicy,
+    serialized_json: Vec<u8>,
 ) -> Result<PluginPackageCatalogDocument, PluginPackageCatalogSignatureError> {
     if envelope.format_version != CURRENT_PLUGIN_CATALOG_SIGNED_FORMAT_VERSION {
         return Err(
@@ -257,6 +266,7 @@ fn verify_signed_envelope(
         trust: PluginPackageCatalogTrust::Verified {
             key_id: envelope.key_id,
         },
+        serialized_json,
     })
 }
 
@@ -407,6 +417,7 @@ mod tests {
         )
         .expect("valid signed catalog");
         assert_eq!(document.entries().len(), 1);
+        assert_eq!(document.serialized_json(), bytes.as_slice());
         assert_eq!(
             document.trust(),
             &PluginPackageCatalogTrust::Verified {

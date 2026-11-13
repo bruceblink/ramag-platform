@@ -12,7 +12,10 @@ use serde_json::to_vec_pretty;
 use thiserror::Error;
 use tokio::runtime::{Builder, Runtime};
 
-use crate::{MAX_PLUGIN_CATALOG_MANIFEST_BYTES, PluginPackageCatalog, PluginPackageCatalogError};
+use crate::{
+    MAX_PLUGIN_CATALOG_MANIFEST_BYTES, PluginPackageCatalog, PluginPackageCatalogDocument,
+    PluginPackageCatalogError, PluginPackageCatalogSignatureError, PluginPackageCatalogTrustPolicy,
+};
 
 /// 目录源连接建立的最长等待时间。
 pub const PLUGIN_CATALOG_FETCH_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -53,14 +56,7 @@ impl PluginPackageCatalogFetcher {
     ) -> Result<PluginPackageCatalog, PluginPackageCatalogFetchError> {
         let url = validate_source_url(source_url)?;
         tracing::info!(operation = "plugin_catalog_fetch", source = %url, "远程插件目录获取开始");
-        let response = self
-            .client
-            .get(url.clone())
-            .send()
-            .await
-            .map_err(|source| PluginPackageCatalogFetchError::Request { source })?;
-        validate_response(&response, &url)?;
-        let body = read_bounded_body(response).await?;
+        let body = self.fetch_body(&url).await?;
         let catalog = PluginPackageCatalog::parse_json(&body)
             .map_err(PluginPackageCatalogFetchError::Catalog)?;
         tracing::info!(
@@ -70,6 +66,27 @@ impl PluginPackageCatalogFetcher {
             "远程插件目录获取完成"
         );
         Ok(catalog)
+    }
+
+    /// 获取并核验 v1 兼容目录或 v2 signed envelope。
+    pub async fn fetch_document(
+        &self,
+        source_url: &str,
+        trust_policy: &PluginPackageCatalogTrustPolicy,
+    ) -> Result<PluginPackageCatalogDocument, PluginPackageCatalogFetchError> {
+        let url = validate_source_url(source_url)?;
+        tracing::info!(operation = "plugin_catalog_fetch", source = %url, "远程插件目录获取开始");
+        let body = self.fetch_body(&url).await?;
+        let document = PluginPackageCatalogDocument::parse_json(&body, url.as_str(), trust_policy)
+            .map_err(PluginPackageCatalogFetchError::Signature)?;
+        tracing::info!(
+            operation = "plugin_catalog_fetch",
+            source = %url,
+            count = document.entries().len(),
+            verified = document.trust().is_verified(),
+            "远程插件目录获取完成"
+        );
+        Ok(document)
     }
 
     /// 获取并原子保存目录；解析或保存失败时保留旧目录文件。
@@ -85,6 +102,20 @@ impl PluginPackageCatalogFetcher {
         Ok(catalog)
     }
 
+    /// 获取并原样保存已核验的目录文档，保留 signed envelope 的签名字段。
+    pub async fn fetch_and_store_document(
+        &self,
+        source_url: &str,
+        store: &PluginPackageCatalogStore,
+        trust_policy: &PluginPackageCatalogTrustPolicy,
+    ) -> Result<PluginPackageCatalogDocument, PluginPackageCatalogFetchError> {
+        let document = self.fetch_document(source_url, trust_policy).await?;
+        store
+            .save_document(&document)
+            .map_err(PluginPackageCatalogFetchError::Store)?;
+        Ok(document)
+    }
+
     /// 在目录获取器专用 Tokio runtime 中同步执行获取和保存，供 GPUI 后台执行器调用。
     ///
     /// 调用方必须已经位于后台线程；`block_on` 只阻塞该后台线程，不阻塞 UI 线程。
@@ -97,6 +128,35 @@ impl PluginPackageCatalogFetcher {
         let source_url = source_url.to_owned();
         let store = store.clone();
         catalog_runtime()?.block_on(fetcher.fetch_and_store(&source_url, &store))
+    }
+
+    /// 在专用 Tokio runtime 中获取并保存已签名目录文档。
+    pub fn fetch_and_store_document_on_managed_runtime(
+        &self,
+        source_url: &str,
+        store: &PluginPackageCatalogStore,
+        trust_policy: &PluginPackageCatalogTrustPolicy,
+    ) -> Result<PluginPackageCatalogDocument, PluginPackageCatalogFetchError> {
+        let fetcher = self.clone();
+        let source_url = source_url.to_owned();
+        let store = store.clone();
+        let trust_policy = trust_policy.clone();
+        catalog_runtime()?.block_on(fetcher.fetch_and_store_document(
+            &source_url,
+            &store,
+            &trust_policy,
+        ))
+    }
+
+    async fn fetch_body(&self, url: &Url) -> Result<Vec<u8>, PluginPackageCatalogFetchError> {
+        let response = self
+            .client
+            .get(url.clone())
+            .send()
+            .await
+            .map_err(|source| PluginPackageCatalogFetchError::Request { source })?;
+        validate_response(&response, url)?;
+        read_bounded_body(response).await
     }
 }
 
@@ -154,6 +214,26 @@ impl PluginPackageCatalogStore {
         Ok(Some(catalog))
     }
 
+    /// 读取并重新核验目录文档；signed envelope 会保留其签名字段。
+    pub fn load_document(
+        &self,
+        source_url: &str,
+        trust_policy: &PluginPackageCatalogTrustPolicy,
+    ) -> Result<Option<PluginPackageCatalogDocument>, PluginPackageCatalogStoreError> {
+        if !ensure_root(&self.root, false)? {
+            return Ok(None);
+        }
+        let path = self.path();
+        let bytes = match fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(source) => return Err(io_error("读取插件目录清单", source)),
+        };
+        let document = PluginPackageCatalogDocument::parse_json(&bytes, source_url, trust_policy)
+            .map_err(PluginPackageCatalogStoreError::Signature)?;
+        Ok(Some(document))
+    }
+
     /// 序列化并原子替换本地目录清单。
     pub fn save(
         &self,
@@ -171,6 +251,21 @@ impl PluginPackageCatalogStore {
         }
         ensure_root(&self.root, true)?;
         write_atomic(&self.path(), &bytes)
+    }
+
+    /// 原样保存已经核验的目录文档，避免重序列化破坏 signed envelope。
+    pub fn save_document(
+        &self,
+        document: &PluginPackageCatalogDocument,
+    ) -> Result<(), PluginPackageCatalogStoreError> {
+        if document.serialized_json().len() > MAX_PLUGIN_CATALOG_MANIFEST_BYTES {
+            return Err(PluginPackageCatalogStoreError::FileTooLarge {
+                bytes: document.serialized_json().len(),
+                max: MAX_PLUGIN_CATALOG_MANIFEST_BYTES,
+            });
+        }
+        ensure_root(&self.root, true)?;
+        write_atomic(&self.path(), document.serialized_json())
     }
 }
 
@@ -379,6 +474,8 @@ pub enum PluginPackageCatalogFetchError {
     Runtime { message: String },
     #[error("插件目录清单校验失败：{0}")]
     Catalog(PluginPackageCatalogError),
+    #[error("插件目录签名校验失败：{0}")]
+    Signature(PluginPackageCatalogSignatureError),
     #[error("插件目录保存失败：{0}")]
     Store(PluginPackageCatalogStoreError),
 }
@@ -400,6 +497,8 @@ pub enum PluginPackageCatalogStoreError {
     FileTooLarge { bytes: usize, max: usize },
     #[error("插件目录清单校验失败：{0}")]
     Catalog(PluginPackageCatalogError),
+    #[error("插件目录签名校验失败：{0}")]
+    Signature(PluginPackageCatalogSignatureError),
 }
 
 #[cfg(test)]
@@ -409,7 +508,9 @@ mod tests {
 
     use super::*;
     use crate::PluginPackageCatalogEntry;
+    use base64::Engine;
     use ramag_domain::{PluginApiVersion, PluginCapability, PluginId, PluginPackageRuntime};
+    use ring::signature::{Ed25519KeyPair, KeyPair};
     use tempfile::tempdir;
 
     fn catalog(id: &str) -> PluginPackageCatalog {
@@ -426,6 +527,40 @@ mod tests {
                 capabilities: vec![PluginCapability::new("ui.entry")],
             }],
         }
+    }
+
+    fn signed_document() -> (
+        PluginPackageCatalogDocument,
+        PluginPackageCatalogTrustPolicy,
+    ) {
+        let catalog = catalog("signed.fetcher");
+        let seed = [9_u8; 32];
+        let pair = Ed25519KeyPair::from_seed_unchecked(&seed).expect("test key pair");
+        let policy =
+            PluginPackageCatalogTrustPolicy::new([crate::PluginPackageCatalogTrustedKey::new(
+                "fetcher-test-key",
+                pair.public_key().as_ref(),
+                "https://plugins.example.test/",
+            )
+            .expect("trusted key")])
+            .expect("trust policy");
+        let message = crate::canonical_plugin_catalog_signature_message(&catalog)
+            .expect("canonical signature message");
+        let envelope = crate::PluginPackageCatalogSignedEnvelope {
+            format_version: crate::CURRENT_PLUGIN_CATALOG_SIGNED_FORMAT_VERSION,
+            key_id: "fetcher-test-key".into(),
+            payload: catalog,
+            signature: base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .encode(pair.sign(&message).as_ref()),
+        };
+        let bytes = serde_json::to_vec(&envelope).expect("signed envelope JSON");
+        let document = PluginPackageCatalogDocument::parse_json(
+            &bytes,
+            "https://plugins.example.test/catalog.json",
+            &policy,
+        )
+        .expect("signed document");
+        (document, policy)
     }
 
     #[test]
@@ -636,6 +771,50 @@ mod tests {
                     .to_string_lossy()
                     .starts_with(CATALOG_TEMP_FILE_PREFIX))
         );
+    }
+
+    #[test]
+    fn store_round_trips_signed_document_and_rechecks_source_binding() {
+        let root = tempdir().expect("temporary catalog root");
+        let store = PluginPackageCatalogStore::new(root.path()).expect("absolute root");
+        let (document, policy) = signed_document();
+        let serialized = document.serialized_json().to_vec();
+        store
+            .save_document(&document)
+            .expect("save signed document");
+        assert_eq!(
+            fs::read(store.path()).expect("read signed catalog"),
+            serialized
+        );
+        let loaded = store
+            .load_document("https://plugins.example.test/catalog.json", &policy)
+            .expect("load signed document")
+            .expect("signed document exists");
+        assert!(loaded.trust().is_verified());
+        assert_eq!(loaded.serialized_json(), serialized.as_slice());
+        assert!(matches!(
+            store.load_document("https://other.example.test/catalog.json", &policy),
+            Err(PluginPackageCatalogStoreError::Signature(
+                PluginPackageCatalogSignatureError::UntrustedSource
+            ))
+        ));
+    }
+
+    #[test]
+    fn store_load_document_accepts_legacy_catalog_as_unverified() {
+        let root = tempdir().expect("temporary catalog root");
+        let store = PluginPackageCatalogStore::new(root.path()).expect("absolute root");
+        let legacy = catalog("legacy.fetcher");
+        store.save(&legacy).expect("save legacy catalog");
+        let document = store
+            .load_document(
+                "https://plugins.example.test/catalog.json",
+                &PluginPackageCatalogTrustPolicy::default(),
+            )
+            .expect("load legacy document")
+            .expect("legacy document exists");
+        assert!(!document.trust().is_verified());
+        assert_eq!(document.catalog, legacy);
     }
 
     #[test]
