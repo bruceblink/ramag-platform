@@ -12,6 +12,7 @@ mod plugin_lifecycle;
 mod plugin_package_archive;
 mod plugin_package_cache;
 mod plugin_package_catalog;
+mod plugin_package_catalog_fetcher;
 mod plugin_package_downloader;
 mod plugin_package_installer;
 mod plugin_process;
@@ -56,6 +57,11 @@ pub use plugin_package_catalog::{
     MAX_PLUGIN_CATALOG_PACKAGE_ENTRIES, MAX_PLUGIN_CATALOG_URL_BYTES,
     MAX_PLUGIN_CATALOG_VERSION_BYTES, PLUGIN_PACKAGE_SHA256_HEX_BYTES, PluginPackageCatalog,
     PluginPackageCatalogEntry, PluginPackageCatalogError,
+};
+pub use plugin_package_catalog_fetcher::{
+    PLUGIN_CATALOG_FETCH_CONNECT_TIMEOUT, PLUGIN_CATALOG_FETCH_TIMEOUT,
+    PluginPackageCatalogFetchError, PluginPackageCatalogFetcher, PluginPackageCatalogStore,
+    PluginPackageCatalogStoreError,
 };
 pub use plugin_package_downloader::{
     MAX_PLUGIN_DOWNLOAD_BYTES, PluginPackageDownloadError, PluginPackageDownloader,

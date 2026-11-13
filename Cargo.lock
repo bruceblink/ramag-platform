@@ -8716,6 +8716,7 @@ dependencies = [
  "chrono",
  "futures",
  "hex",
+ "http",
  "image",
  "parking_lot",
  "pbkdf2",
