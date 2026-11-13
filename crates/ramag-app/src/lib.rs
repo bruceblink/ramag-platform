@@ -13,6 +13,7 @@ mod plugin_package_archive;
 mod plugin_package_cache;
 mod plugin_package_catalog;
 mod plugin_package_catalog_fetcher;
+mod plugin_package_catalog_signature;
 mod plugin_package_downloader;
 mod plugin_package_installer;
 mod plugin_process;
@@ -62,6 +63,12 @@ pub use plugin_package_catalog_fetcher::{
     PLUGIN_CATALOG_FETCH_CONNECT_TIMEOUT, PLUGIN_CATALOG_FETCH_TIMEOUT,
     PluginPackageCatalogFetchError, PluginPackageCatalogFetcher, PluginPackageCatalogStore,
     PluginPackageCatalogStoreError,
+};
+pub use plugin_package_catalog_signature::{
+    CURRENT_PLUGIN_CATALOG_SIGNED_FORMAT_VERSION, PLUGIN_CATALOG_SIGNATURE_ALGORITHM,
+    PluginPackageCatalogDocument, PluginPackageCatalogSignatureError,
+    PluginPackageCatalogSignedEnvelope, PluginPackageCatalogTrust, PluginPackageCatalogTrustPolicy,
+    PluginPackageCatalogTrustedKey, canonical_plugin_catalog_signature_message,
 };
 pub use plugin_package_downloader::{
     MAX_PLUGIN_DOWNLOAD_BYTES, PluginPackageDownloadError, PluginPackageDownloader,

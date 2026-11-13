@@ -8730,6 +8730,7 @@ dependencies = [
  "ramag-infra-storage",
  "ramag-infra-system",
  "reqwest 0.13.4",
+ "ring",
  "rustls",
  "semver",
  "serde",

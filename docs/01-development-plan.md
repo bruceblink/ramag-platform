@@ -760,6 +760,7 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 34 | `RAMAG-PLUGIN-PROCESS-GROUP-001` Unix 插件进程组清理 | 已完成：macOS/Linux 插件入口启动时创建独立 process group；协议错误、调用超时、握手失败和关闭超时先终止整个进程组，再回收直接子进程 | 插件入口创建的 Unix 子进程不会因宿主会话终止而继续运行；进程组不存在时清理操作安全结束；Windows Job Object 和沙箱保持独立未实现边界 | `ramag-app` 进程宿主定向测试 6 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查通过；回滚只涉及 Unix process group、`libc` 依赖和对应测试 |
 | 35 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
 | 36 | `RAMAG-PLUGIN-PROCESS-JOB-001` Windows Job Object 进程树清理 | 已实现：Windows 入口进程启动后创建 Job Object，设置 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` 并立即接管入口；协议错误、调用超时、握手失败和关闭超时先终止 Job Object，再回收直接子进程；创建或分配失败返回明确错误，不静默退化 | Windows 目标库和全目标编译必须通过；Windows 真实子进程验收需证明入口创建的子孙进程在宿主会话终止后退出；外部 Job 限制、嵌套 Job 和入口启动到接管之间的竞态单独记录，不扩展为沙箱或资源配额 | macOS Unix 定向测试 6 项、`ramag-app` 严格 Clippy、Windows MSVC 目标库编译检查、格式检查和差异检查通过；本机没有 Windows 运行环境，真实 Job Object 子孙进程验收未完成；回滚只涉及 Windows 依赖、Job Object 生命周期、对应测试和本节记录 |
+| 37 | `RAMAG-PLUGIN-CATALOG-SIGNATURE-001` 已签名插件目录核心校验 | 已完成：增加 v2 signed catalog envelope、固定域分隔和 payload 序列化、Ed25519 校验、应用内置或显式注入的 key 与 HTTPS 来源前缀绑定；旧版 v1 目录仍可展示但标记为 `LegacyUnsigned` | 篡改 payload、未知 key、无效签名、错误编码、来源不匹配和重复信任 key 必须拒绝；有效签名返回 `Verified` 状态；签名正文不记录到日志；本切片不改远程获取器、目录存储器或 UI 动作门控 | `ramag-app` 签名核心定向测试 6 项、严格 Clippy、格式检查和差异检查通过；签名获取器、签名缓存、设置页状态展示和下载/安装动作门控仍需独立切片；回滚只涉及 ring 依赖、签名模块、应用导出和本节记录 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -1369,6 +1370,20 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 `cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
 `cargo check --locked -p ramag-app --target x86_64-pc-windows-msvc --lib` 和 `git diff --check`。
 2026-11-13 已完成代码实现和跨目标静态检查；Windows 真实 Job Object 子孙进程验收仍需 Windows 运行环境，签名、沙箱和资源配额仍未实现。
+
+### 4.45 已签名插件目录核心校验
+
+本切片增加已签名插件目录的应用层验证核心，不改变现有远程获取器和设置页行为。目录 v2 外层包含 `key_id`、固定格式版本、完整 `PluginPackageCatalog` payload 和 URL-safe 无填充的 Ed25519 签名。签名输入固定为 `ramag-plugin-catalog-v1\\0` 域分隔符加结构化 payload JSON，避免对任意 JSON 原文或单个摘要签名。
+
+- `PluginPackageCatalogTrustPolicy` 只接受应用内置或调用方明确注入的可信 key，并把 key 绑定到 HTTPS 来源 URL 前缀。目录不能通过自身字段提供公钥或扩大信任范围。
+- v1 裸目录仍可以解析为 `LegacyUnsigned`，用于兼容展示；它不会被标记为可信来源。有效 v2 目录返回 `Verified { key_id }`。
+- 解析会拒绝未知 key、来源不匹配、无效签名、签名长度或编码错误、重复信任 key 和未知外层字段。签名正文不写入日志。
+- 本切片只提供验证核心。远程获取器、目录存储器、缓存恢复和设置页下载/安装动作仍需传递并检查信任状态；在这些接入完成前，不能把本切片当作远程插件来源已验收。
+
+验证命令为 `cargo test --locked -p ramag-app --lib plugin_package_catalog_signature::tests -- --test-threads=1`、
+`cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
+`cargo fmt --all -- --check` 和 `git diff --check`。
+2026-11-13 已完成本切片。签名核心 6 项测试通过；获取器、签名目录持久化、UI 信任状态和动作门控仍未完成。
 
 ## 5. 条件限制与未纳入执行的事项
 

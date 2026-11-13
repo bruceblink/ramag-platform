@@ -53,6 +53,7 @@ flowchart TB
 | `PluginPackageDownloader` | 使用受限 HTTPS 客户端把已校验目录条目下载到新的缓存文件并核对 SHA-256；不安装、不改变状态、不执行入口 |
 | `PluginPackageCatalogFetcher` | 只在调用方主动请求时获取 HTTPS 目录，限制响应并复用目录校验；不启动时联网、不安装、不执行、不验证签名 |
 | `PluginPackageCatalogStore` | 保存已解析目录到同目录临时文件并原子替换 `catalog.json`；失败时保留旧文件，不负责来源设置或权限授予 |
+| `PluginPackageCatalogDocument` / `PluginPackageCatalogTrustPolicy` | 解析 v1 兼容目录或 v2 signed envelope，使用 Ed25519 和来源前缀验证信任；不负责联网、持久化或 UI 动作门控 |
 | `PluginProcessHost` | 校验包内入口、启动外部进程、完成握手和有界入口调用；Unix 使用独立进程组，Windows 使用 Job Object 清理进程树；不提供签名或沙箱 |
 | `StaticPluginHost` | 校验、注册、初始化、关闭、执行和失败隔离；不负责动态发现或进程管理 |
 | `PluginContext` | 提供生命周期检查、权限、快照和有界任务；不暴露宿主内部对象 |
@@ -77,7 +78,7 @@ flowchart TB
 
 `PluginPackageInstaller` 从本地解包目录读取 `plugin.json`，也可以通过 `install_from_archive` 接收受限本地 `tar.gz` 归档。归档先读取快照，再扫描和解包；压缩后最多 `64 MiB`，最多 `1024` 项，解包内容最多 `64 MiB`，拒绝父目录、根路径、重复路径、符号链接、硬链接和特殊文件。解包结果继续交给目录安装器，使用稳定的相对文件路径和文件内容计算 SHA-256，清单文件不参与自身摘要。目录安装器还拒绝源目录位于包目录内、符号链接和不支持的文件类型；有效包先复制到临时目录，再备份旧版本目录并替换，状态保存失败时恢复旧版本目录。卸载时先校验状态对应的版本目录，再将目录改名为同级备份，删除状态后清理备份；状态操作或清理失败会尝试恢复目录和状态，不删除其他插件或版本。插件设置页提供确认后的卸载入口和本地归档安装入口；归档选择和安装在后台执行，成功后更新插件行，失败时保留列表并显示错误状态卡。状态保存失败、卸载失败和安装记录中的最近错误使用统一的错误状态卡显示，包含错误标题、图标、边框和稳定调试选择器；该反馈只改变显示，不改变状态存储或恢复逻辑。
 
-`PluginPackageCatalog::parse_json` 用于读取本地目录清单候选。它只校验格式和包元数据，不发起 HTTP 请求，不下载归档，不解包，不执行代码，也不改变安装状态。目录清单条目通过校验后才能进入后续展示或下载流程；签名和远程来源可信度仍需独立设计。
+`PluginPackageCatalog::parse_json` 用于读取本地 v1 目录清单候选。它只校验格式和包元数据，不发起 HTTP 请求，不下载归档，不解包，不执行代码，也不改变安装状态。`PluginPackageCatalogDocument` 另外解析 v2 signed envelope，对固定 payload 执行 Ed25519 校验，并检查 `key_id` 与 HTTPS 来源前缀绑定；v1 目录保留 `LegacyUnsigned` 状态，只能作为未验证候选展示。目录清单条目通过格式校验和信任策略后才能进入可信下载或安装流程；获取器、存储器和设置页仍需显式传递并检查信任状态。
 
 `PluginPackageDownloader` 只接受已经通过 `PluginPackageCatalogEntry::validate` 的候选。目录字段 `archive_sha256` 表示整个 `.tar.gz` 归档的摘要；包内 `PluginPackageManifest.package_sha256` 表示解包文件内容摘要。生产构造器默认使用 HTTPS、要求 `HTTP 200`、禁止重定向，并同时限制响应头和流式累计大小为 `64 MiB`。下载内容先写同目录临时文件，完成 `flush`、`sync_all` 和归档 SHA-256 核对后再通过不覆盖的原子发布完成落盘；最终目标父目录拒绝符号链接或非目录，已存在目标文件不会被覆盖。`PluginPackageDownloader::new` 使用 workspace 的 `rustls-no-provider`，应用启动层必须先安装 TLS provider；`download_to_managed_runtime` 为 GPUI 等非 Tokio 执行器提供专用 runtime 入口。下载器不调用安装器或执行包内容。当前已使用本地 Docker HTTPS fixture 验证真实 `tar.gz` 成功落盘、SHA-256、HTTP 错误、超量响应、摘要错误和临时文件清理；公网证书链、真实设置页点击和下载后安装仍需独立验收。
 
@@ -225,7 +226,7 @@ git diff --check
 
 ## 当前未实现能力
 
-当前版本可以解析可安装插件清单、按调用方请求获取并保存受限 HTTPS 目录、在设置页保存目录源并手动刷新、下载并安全安装已校验的本地缓存包、安装本地目录或受限 `tar.gz` 归档并保存本地安装状态，也有最小独立插件进程宿主。Unix 平台已经清理插件进程组，Windows 已加入 Job Object 进程树清理实现；正式第三方插件执行仍缺少签名验证、操作系统沙箱、资源配额和安装回滚。Windows Job Object 仍需在 Windows 真实环境验证入口创建子孙进程后的关闭结果。用户明确要求这些能力时，先更新[主线开发计划](01-development-plan.md)，完成威胁模型、权限边界和协议决策，再安排实现。
+当前版本可以解析可安装插件清单、按调用方请求获取并保存受限 HTTPS 目录、在设置页保存目录源并手动刷新、下载并安全安装已校验的本地缓存包、安装本地目录或受限 `tar.gz` 归档并保存本地安装状态，也有最小独立插件进程宿主。Unix 平台已经清理插件进程组，Windows 已加入 Job Object 进程树清理实现，应用层已具备 signed catalog 核心校验；远程获取器、目录缓存和设置页动作尚未接入信任状态，正式第三方插件执行仍缺少完整签名门控、操作系统沙箱、资源配额和安装回滚。Windows Job Object 仍需在 Windows 真实环境验证入口创建子孙进程后的关闭结果。用户明确要求这些能力时，先更新[主线开发计划](01-development-plan.md)，完成威胁模型、权限边界和协议决策，再安排实现。
 
 ## 承载与兼容决策
 

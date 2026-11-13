@@ -34,6 +34,7 @@ hex = { workspace = true }
 aes-gcm = { workspace = true }
 pbkdf2 = { workspace = true }
 sha2 = { workspace = true }
+ring = { workspace = true }
 
 # 剪贴条目时间戳（workspace 既有依赖）
 chrono = { workspace = true }
