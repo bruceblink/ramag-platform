@@ -305,6 +305,10 @@ pub enum PluginPackageDownloadError {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::net::{Ipv4Addr, SocketAddr};
+    use std::path::PathBuf;
+
     use super::*;
     use ramag_domain::{PluginApiVersion, PluginCapability, PluginId, PluginPackageRuntime};
 
@@ -338,6 +342,145 @@ mod tests {
             actual,
         };
         assert!(error.to_string().contains("摘要不匹配"));
+    }
+
+    #[tokio::test]
+    #[ignore = "requires the local Docker HTTPS plugin download fixture"]
+    async fn downloads_plugin_package_over_local_https_fixture() {
+        // 本测试使用自签 fixture 证书验证生产 runtime 入口；生产客户端仍保持严格证书校验。
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let root = PathBuf::from(
+            std::env::var_os("RAMAG_PLUGIN_DOWNLOAD_TEST_ROOT")
+                .expect("test script must set fixture root"),
+        );
+        let port: u16 = std::env::var("RAMAG_PLUGIN_DOWNLOAD_TEST_PORT")
+            .expect("test script must set HTTPS port")
+            .parse()
+            .expect("HTTPS port must be a number");
+        let digest = std::env::var("RAMAG_PLUGIN_DOWNLOAD_TEST_SHA256")
+            .expect("test script must set package digest");
+        let client = Client::builder()
+            .https_only(true)
+            .connect_timeout(Duration::from_secs(2))
+            .timeout(Duration::from_secs(10))
+            .resolve(
+                "github.com",
+                SocketAddr::new(Ipv4Addr::LOCALHOST.into(), port),
+            )
+            .no_proxy()
+            .danger_accept_invalid_certs(true)
+            .redirect(redirect::Policy::none())
+            .build()
+            .expect("build test-only HTTPS client");
+        let downloader = PluginPackageDownloader::with_client(client);
+        let destination = root.join("downloads/remote-fixture.tar.gz");
+        let entry = fixture_entry(
+            "https://github.com/plugins/remote-fixture.tar.gz",
+            digest.clone(),
+        );
+
+        let output = downloader
+            .download_to_managed_runtime(&entry, &destination)
+            .await
+            .expect("download valid plugin package over local HTTPS");
+        assert_eq!(output, destination);
+        let package_bytes = fs::read(&destination).expect("read downloaded package");
+        assert_eq!(hex::encode(Sha256::digest(&package_bytes)), digest);
+        assert_no_partial_files(&destination);
+
+        let not_found_destination = root.join("downloads/not-found.tar.gz");
+        let not_found = fixture_entry(
+            "https://github.com/plugins/package-not-found.tar.gz",
+            "0".repeat(64),
+        );
+        let not_found_result = downloader
+            .download_to_managed_runtime(&not_found, &not_found_destination)
+            .await;
+        assert!(matches!(
+            not_found_result,
+            Err(PluginPackageDownloadError::HttpStatus { status: 404 })
+        ));
+        assert!(!not_found_destination.exists());
+        assert_no_partial_files(&not_found_destination);
+
+        let redirect_destination = root.join("downloads/redirect.tar.gz");
+        let redirect_entry = fixture_entry(
+            "https://github.com/plugins/package-redirect.tar.gz",
+            digest.clone(),
+        );
+        let redirect_result = downloader
+            .download_to_managed_runtime(&redirect_entry, &redirect_destination)
+            .await;
+        assert!(matches!(
+            redirect_result,
+            Err(PluginPackageDownloadError::HttpStatus { status: 302 })
+        ));
+        assert!(!redirect_destination.exists());
+        assert_no_partial_files(&redirect_destination);
+
+        let oversized_destination = root.join("downloads/oversized.tar.gz");
+        let oversized_entry = fixture_entry(
+            "https://github.com/plugins/package-oversized.tar.gz",
+            "0".repeat(64),
+        );
+        let oversized_result = downloader
+            .download_to_managed_runtime(&oversized_entry, &oversized_destination)
+            .await;
+        assert!(matches!(
+            oversized_result,
+            Err(PluginPackageDownloadError::TooLarge { .. })
+        ));
+        assert!(!oversized_destination.exists());
+        assert_no_partial_files(&oversized_destination);
+
+        let mismatch_destination = root.join("downloads/mismatch.tar.gz");
+        let mismatch_entry = fixture_entry(
+            "https://github.com/plugins/remote-fixture.tar.gz",
+            "f".repeat(64),
+        );
+        let mismatch_result = downloader
+            .download_to_managed_runtime(&mismatch_entry, &mismatch_destination)
+            .await;
+        assert!(matches!(
+            mismatch_result,
+            Err(PluginPackageDownloadError::DigestMismatch { .. })
+        ));
+        assert!(!mismatch_destination.exists());
+        assert_no_partial_files(&mismatch_destination);
+        assert_eq!(
+            fs::read(&destination).expect("successful package remains available"),
+            package_bytes
+        );
+    }
+
+    fn fixture_entry(package_url: &str, archive_sha256: String) -> PluginPackageCatalogEntry {
+        PluginPackageCatalogEntry {
+            id: PluginId::new("download.fixture").expect("valid ID"),
+            name: "本地下载测试插件".into(),
+            version: "1.0.0".into(),
+            api_version: PluginApiVersion::new(1, 0),
+            runtime: PluginPackageRuntime::Process,
+            package_url: package_url.into(),
+            archive_sha256,
+            capabilities: vec![PluginCapability::new("ui.entry")],
+        }
+    }
+
+    fn assert_no_partial_files(destination: &Path) {
+        let parent = destination.parent().expect("destination parent");
+        let prefix = format!(
+            ".{}.part-",
+            destination
+                .file_name()
+                .and_then(|name| name.to_str())
+                .expect("destination filename")
+        );
+        assert!(
+            !fs::read_dir(parent)
+                .expect("read destination parent")
+                .map(|entry| entry.expect("read destination entry").file_name())
+                .any(|name| name.to_string_lossy().starts_with(&prefix))
+        );
     }
 
     #[test]
