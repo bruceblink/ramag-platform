@@ -88,6 +88,8 @@ struct PluginProcessSession {
     reader: ChildStdout,
     stderr_task: JoinHandle<()>,
     next_request_id: u64,
+    #[cfg(unix)]
+    process_group: i32,
 }
 
 impl PluginProcessHost {
@@ -104,6 +106,9 @@ impl PluginProcessHost {
 
         let mut command = Command::new(&entrypoint);
         command.args(&config.args).current_dir(&package_root);
+        #[cfg(unix)]
+        // 每个插件使用独立进程组；终止会话时可以一起结束入口创建的子进程。
+        command.process_group(0);
         configure_plugin_environment(&mut command, &config.manifest, &package_root);
         command
             .env("RAMAG_PLUGIN_ID", config.manifest.id.as_str())
@@ -117,6 +122,11 @@ impl PluginProcessHost {
             .stderr(Stdio::piped())
             .kill_on_drop(true);
         let mut child = command.spawn().map_err(PluginProcessError::Spawn)?;
+        #[cfg(unix)]
+        let process_group = child
+            .id()
+            .and_then(|id| i32::try_from(id).ok())
+            .unwrap_or_default();
         let writer = child
             .stdin
             .take()
@@ -139,6 +149,8 @@ impl PluginProcessHost {
             reader,
             stderr_task,
             next_request_id: 1,
+            #[cfg(unix)]
+            process_group,
         };
 
         let hello = PluginProcessMessage::Hello(PluginHello {
@@ -466,6 +478,8 @@ async fn drain_stderr(mut stderr: ChildStderr, tail: Arc<ParkingMutex<VecDeque<u
 }
 
 async fn terminate_session(mut session: PluginProcessSession, wait_timeout: Duration) {
+    #[cfg(unix)]
+    kill_process_group(session.process_group);
     let _ = session.child.start_kill();
     let _ = timeout(wait_timeout, session.child.wait()).await;
     session.stderr_task.abort();
@@ -485,12 +499,25 @@ async fn wait_for_child(
             Err(PluginProcessError::Wait { source })
         }
         Err(_) => {
+            #[cfg(unix)]
+            kill_process_group(session.process_group);
             let _ = session.child.start_kill();
             let _ = timeout(wait_timeout, session.child.wait()).await;
             session.stderr_task.abort();
             Err(PluginProcessError::ShutdownTimeout)
         }
     }
+}
+
+/// 终止指定 Unix 进程组；进程组不存在时视为已完成清理。
+#[cfg(unix)]
+fn kill_process_group(process_group: i32) -> bool {
+    if process_group <= 0 {
+        return false;
+    }
+    // 负 PID 表示向整个进程组发送信号；入口子进程不会在宿主退出后继续运行。
+    let result = unsafe { libc::kill(-process_group, libc::SIGKILL) };
+    result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
 }
 
 #[derive(Debug, Error)]

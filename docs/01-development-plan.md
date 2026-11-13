@@ -757,7 +757,8 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 29 | `RAMAG-PLUGIN-CATALOG-HTTPS-INT-001` 目录源本地 HTTPS 集成验收 | 已完成：增加可复现的本地 Docker HTTPS fixture，使用自签名 `github.com` 证书和临时端口验证目录获取器的真实 TCP、TLS、HTTP 和本地保存链路 | `catalog.json` 成功获取并保存；404、302 和超过 1 MiB 的响应返回确定错误；每个失败场景都保留已保存目录；fixture 容器运行状态、端口映射、健康检查和清理均有脚本检查 | `./scripts/plugin-test/run-local-catalog-tests.sh` 通过，脚本使用 `nginx:1.27-alpine`、临时目录和命名后台容器，结束时清理容器与临时目录；测试从非 Tokio 测试线程调用 `fetch_and_store_on_managed_runtime`。不覆盖公网证书链、目录签名、插件包下载或安装；回滚只涉及集成测试和脚本 |
 | 30 | `RAMAG-PLUGIN-DOWNLOAD-HTTPS-INT-001` 插件包本地 HTTPS 集成验收 | 已完成：增加独立 Docker HTTPS fixture 和忽略测试，使用真实 `tar.gz` 响应验证下载器的成功、错误和临时文件清理路径 | 成功下载后目标文件摘要与 fixture 一致；404、302、超过 `64 MiB` 和摘要错误都返回确定错误；失败目标不产生归档或 `.part-*` 临时文件；成功文件在失败场景后保持不变；fixture 容器状态、端口、健康检查和清理均有脚本检查 | `./scripts/plugin-test/run-local-download-tests.sh` 通过，使用 `nginx:1.27-alpine`、自签名 `github.com` 证书、临时目录和命名后台容器；测试通过 `download_to_managed_runtime` 走专用 runtime。该证据不覆盖公网证书链、真实设置页点击或下载后安装；回滚只涉及下载器集成测试和脚本 |
 | 32 | `RAMAG-UI-PLUGIN-CACHE-REFRESH-001` 目录刷新后恢复下载缓存 | 已完成：目录刷新成功后在后台按新目录重新核验 `downloads/index.json`，恢复摘要匹配的“已下载”候选；摘要变化、缺失文件和未知候选不恢复 | 刷新不会让有效缓存的安装按钮消失；同一插件 ID/版本但摘要变化时不显示安装按钮；缓存核验失败不阻止新目录展示；恢复不在 UI 更新线程执行 | `ramag-ui` 插件诊断定向测试 11 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查通过；回滚只涉及目录刷新缓存恢复和对应测试 |
-| 33 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
+| 34 | `RAMAG-PLUGIN-PROCESS-GROUP-001` Unix 插件进程组清理 | 已完成：macOS/Linux 插件入口启动时创建独立 process group；协议错误、调用超时、握手失败和关闭超时先终止整个进程组，再回收直接子进程 | 插件入口创建的 Unix 子进程不会因宿主会话终止而继续运行；进程组不存在时清理操作安全结束；Windows Job Object 和沙箱保持独立未实现边界 | `ramag-app` 进程宿主定向测试 6 项、严格 Clippy、`ramag-bin` 组合检查、格式检查和差异检查通过；回滚只涉及 Unix process group、`libc` 依赖和对应测试 |
+| 35 | 新需求和可复现缺陷 | 用户明确提出新功能，或真实窗口、Docker 集成或本地测试产生可复现缺陷时，先在本计划增加独立切片 | 范围、通过条件、验证命令和回滚边界已写入本计划，完成后再更新状态 | 只修改受影响文件和测试，保留无关工作区内容 |
 
 上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
 
@@ -1338,6 +1339,20 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 `cargo clippy --locked -p ramag-bin --all-targets -- -D warnings`、
 `cargo check --locked -p ramag-bin --all-targets` 和 `git diff --check`。
 2026-11-13 已完成本切片。插件诊断定向测试 11 项、严格 Clippy、组合检查、格式检查和差异检查通过；真实窗口目录刷新后的缓存恢复仍需单独 UI 操作验收。
+
+### 4.43 Unix 插件进程组清理
+
+本切片补充 macOS/Linux 进程外插件宿主的子进程清理边界。启动入口时使用 `process_group(0)` 创建独立 Unix process group；握手失败、协议错误、入口调用超时和关闭超时时向负的 PGID 发送 `SIGKILL`，随后继续回收直接子进程。这样可以覆盖入口启动的子进程，避免只终止入口进程后留下后台进程。
+
+- 进程组 ID 只来自本次宿主创建的子进程。ID 无效或进程组已经不存在时，清理函数返回失败状态但不阻断后续直接子进程回收。
+- Windows 不使用 Unix `libc::kill`；Windows Job Object、沙箱和资源配额仍需单独设计和验收。
+- 新增真实 Unix `/bin/sh` 子进程测试。测试让 shell 创建 `sleep` 子进程，再终止进程组并确认 shell 以非成功状态结束。
+
+验证命令为 `cargo fmt --all -- --check`、
+`cargo test --locked -p ramag-app --lib plugin_process::tests -- --test-threads=1`、
+`cargo clippy --locked -p ramag-app --all-targets -- -D warnings`、
+`cargo check --locked -p ramag-bin --all-targets` 和 `git diff --check`。
+2026-11-13 已完成本切片。Unix 进程宿主定向测试 6 项、严格 Clippy、组合检查、格式检查和差异检查通过；Windows Job Object、沙箱、签名和资源配额仍未实现。
 
 ## 5. 条件限制与未纳入执行的事项
 

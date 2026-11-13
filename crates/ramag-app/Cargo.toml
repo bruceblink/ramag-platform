@@ -53,6 +53,10 @@ async-compression = { workspace = true }
 reqwest = { workspace = true }
 url = { workspace = true }
 
+[target.'cfg(unix)'.dependencies]
+# Unix 进程组终止需要向负的 PGID 发送信号；Windows 使用独立 Job Object 切片。
+libc = "0.2"
+
 # 当前进程资源基线采样
 ramag-infra-system = { workspace = true }
 

@@ -8718,6 +8718,7 @@ dependencies = [
  "hex",
  "http",
  "image",
+ "libc",
  "parking_lot",
  "pbkdf2",
  "ramag-domain",

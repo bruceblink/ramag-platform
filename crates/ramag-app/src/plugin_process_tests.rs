@@ -129,3 +129,20 @@ fn granted_capabilities_reject_unknown_and_duplicate_values() {
         Err(PluginProcessError::DuplicateCapability { .. })
     ));
 }
+
+#[cfg(unix)]
+#[test]
+fn unix_process_group_termination_stops_descendant_processes() {
+    use std::os::unix::process::CommandExt;
+    use std::process::Command;
+
+    let mut child = Command::new("/bin/sh")
+        .args(["-c", "sleep 30 & wait"])
+        .process_group(0)
+        .spawn()
+        .expect("启动进程组测试子进程");
+    let process_group = i32::try_from(child.id()).expect("读取测试进程组 ID");
+    assert!(kill_process_group(process_group));
+    let status = child.wait().expect("等待进程组测试子进程");
+    assert!(!status.success());
+}
