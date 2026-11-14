@@ -320,34 +320,9 @@ pub(crate) fn expand_template(
     label: &str,
     max_bytes: usize,
 ) -> Result<String> {
-    // 逐个替换 {{name}}，并在生成结果上限处停止，避免变量把请求体或 URL 放大到无界。
-    let mut output = String::with_capacity(template.len());
-    let mut cursor = 0usize;
-    while let Some(relative_start) = template[cursor..].find("{{") {
-        let start = cursor + relative_start;
-        output.push_str(&template[cursor..start]);
-        let value_start = start + 2;
-        let relative_end = template[value_start..]
-            .find("}}")
-            .ok_or_else(|| DomainError::InvalidConfig(format!("{label}变量占位符未闭合")))?;
-        let end = value_start + relative_end;
-        let name = template[value_start..end].trim();
-        if name.is_empty() {
-            return Err(DomainError::InvalidConfig(format!("{label}变量名不能为空")));
-        }
-        let value = variables
-            .get(name)
-            .ok_or_else(|| DomainError::InvalidConfig(format!("缺少 API 环境变量：{name}")))?;
-        output.push_str(value);
-        cursor = end + 2;
-    }
-    output.push_str(&template[cursor..]);
-    if output.len() > max_bytes {
-        return Err(DomainError::InvalidConfig(format!(
-            "{label}展开后超过 {max_bytes} bytes 上限"
-        )));
-    }
-    Ok(output)
+    // 直接调用 HTTP/gRPC 驱动时也复用领域预算检查，避免第二套解析规则继续先分配后拒绝。
+    ramag_domain::entities::resolve_template(template, variables, label, max_bytes)
+        .map_err(DomainError::InvalidConfig)
 }
 
 pub(crate) async fn send_request(

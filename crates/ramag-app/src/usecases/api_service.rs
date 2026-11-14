@@ -196,6 +196,10 @@ pub fn new_api_cancellation() -> ApiCancellation {
 }
 
 #[cfg(test)]
+#[path = "api_service_template_tests.rs"]
+mod api_service_template_tests;
+
+#[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -213,9 +217,9 @@ mod tests {
 
     use super::{ApiService, new_api_cancellation};
 
-    struct RecordingDriver {
-        protocol: ApiProtocol,
-        calls: AtomicUsize,
+    pub(super) struct RecordingDriver {
+        pub(super) protocol: ApiProtocol,
+        pub(super) calls: AtomicUsize,
     }
 
     #[test]

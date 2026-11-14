@@ -246,11 +246,11 @@ pub fn resolve_template(
     label: &str,
     max_bytes: usize,
 ) -> Result<String, String> {
-    let mut output = String::with_capacity(template.len());
+    let mut output = String::with_capacity(template.len().min(max_bytes));
     let mut cursor = 0usize;
     while let Some(relative_start) = template[cursor..].find("{{") {
         let start = cursor + relative_start;
-        output.push_str(&template[cursor..start]);
+        append_template_segment(&mut output, &template[cursor..start], label, max_bytes)?;
         let value_start = start + 2;
         let relative_end = template[value_start..]
             .find("}}")
@@ -263,15 +263,34 @@ pub fn resolve_template(
         let value = variables
             .get(name)
             .ok_or_else(|| format!("缺少 API 环境变量：{name}"))?;
-        output.push_str(value);
+        append_template_segment(&mut output, value, label, max_bytes)?;
         cursor = end + 2;
     }
-    output.push_str(&template[cursor..]);
-    if output.len() > max_bytes {
-        return Err(format!("{label}展开后超过 {max_bytes} bytes 上限"));
-    }
+    append_template_segment(&mut output, &template[cursor..], label, max_bytes)?;
     Ok(output)
 }
+
+/// 在复制片段前检查结果预算，超限时不分配或复制该片段。
+fn append_template_segment(
+    output: &mut String,
+    segment: &str,
+    label: &str,
+    max_bytes: usize,
+) -> Result<(), String> {
+    let length = output
+        .len()
+        .checked_add(segment.len())
+        .ok_or_else(|| format!("{label}展开后超过 {max_bytes} bytes 上限"))?;
+    if length > max_bytes {
+        return Err(format!("{label}展开后超过 {max_bytes} bytes 上限"));
+    }
+    output.push_str(segment);
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "template_budget_tests.rs"]
+mod template_budget_tests;
 
 /// 从有界响应中提取变量；所有规则先完成再写入 Environment，保证失败不产生部分结果。
 pub fn extract_response_variables(

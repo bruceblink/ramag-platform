@@ -19,6 +19,9 @@ use tokio::task::JoinHandle;
 
 use super::HttpApiDriver;
 
+#[path = "http_template_tests.rs"]
+mod template_tests;
+
 struct TestServer {
     address: SocketAddr,
     request: Option<oneshot::Receiver<Vec<u8>>>,
