@@ -11,7 +11,7 @@ use gpui_kit::component::resizable::ResizableState;
 use gpui_kit::{
     AppContext as _, Context, Entity, FocusHandle, Focusable, ScrollHandle, Subscription, Window,
 };
-use ramag_app::ObjectStorageService;
+use ramag_app::{ObjectStorageService, ObjectStorageTransferTarget};
 use ramag_domain::entities::{
     ObjectCapabilities, ObjectEntry, ObjectListCursor, ObjectMetadata, ObjectStorageAccount,
     ObjectStorageAccountId, ObjectStorageFavorite, ObjectStorageMount, ObjectStorageMountId,
@@ -26,6 +26,9 @@ pub(super) enum AccountSessionState {
 }
 
 pub(super) struct PendingTransferConflict {
+    pub transfer_id: u64,
+    pub target: ObjectStorageTransferTarget,
+    pub account_name: String,
     pub path: PathBuf,
     pub key: String,
     pub existing_summary: String,

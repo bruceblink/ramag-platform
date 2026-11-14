@@ -388,6 +388,9 @@ impl ObjectStorageView {
         if self.upload_picker_open {
             return;
         }
+        let Some(target) = self.selected_transfer_target() else {
+            return;
+        };
         self.upload_picker_open = true;
         let prefix = self.prefix.clone();
         cx.spawn_in(window, async move |this, cx| {
@@ -411,7 +414,7 @@ impl ObjectStorageView {
             let key = format!("{prefix}{name}");
             let _ = this.update_in(cx, |this, window, cx| {
                 this.upload_picker_open = false;
-                this.run_upload(path, key, OverwritePolicy::Refuse, window, cx);
+                this.run_upload_to(target, path, key, OverwritePolicy::Refuse, window, cx);
             });
         })
         .detach();
@@ -422,6 +425,9 @@ impl ObjectStorageView {
             return;
         }
         let Some(key) = self.selected_key.clone() else {
+            return;
+        };
+        let Some(target) = self.selected_transfer_target() else {
             return;
         };
         if self.download_active_for_key(&key) {
@@ -447,7 +453,7 @@ impl ObjectStorageView {
             let path = selected.path().to_path_buf();
             let _ = this.update_in(cx, |this, window, cx| {
                 this.download_picker_open = false;
-                this.run_download(path, key, OverwritePolicy::Refuse, window, cx);
+                this.run_download_to(target, path, key, OverwritePolicy::Refuse, window, cx);
             });
         })
         .detach();

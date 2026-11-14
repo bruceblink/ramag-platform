@@ -71,7 +71,7 @@ pub use mongo_service::MongoService;
 pub use mqtt_service::MqttService;
 pub use object_storage_service::{
     AccountVerification, ObjectListingPage, ObjectStorageMountResult, ObjectStorageService,
-    SavedObjectStorageAccount, configured_mounts,
+    ObjectStorageTransferTarget, SavedObjectStorageAccount, configured_mounts,
 };
 pub use redis_service::RedisService;
 pub use ssh_service::SshService;

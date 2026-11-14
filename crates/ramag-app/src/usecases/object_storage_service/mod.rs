@@ -45,6 +45,25 @@ pub struct ObjectStorageMountResult {
     pub mounts: Vec<ObjectStorageMount>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectStorageTransferTarget {
+    pub account_id: ObjectStorageAccountId,
+    pub account_revision: u64,
+    pub mount: ObjectStorageMount,
+}
+
+impl ObjectStorageTransferTarget {
+    /// Captures the account revision and mount used when a UI transfer is started.
+    /// The target contains no credentials; the service reloads them before dispatch.
+    pub fn new(account: &ObjectStorageAccount, mount: ObjectStorageMount) -> Self {
+        Self {
+            account_id: account.id.clone(),
+            account_revision: account.revision,
+            mount,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ObjectListingPage {
     pub generation: u64,

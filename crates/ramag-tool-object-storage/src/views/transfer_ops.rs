@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use gpui_kit::{Context, Window};
+use ramag_app::ObjectStorageTransferTarget;
 use ramag_domain::entities::{
     ObjectStorageAccountId, ObjectStorageMountId, OverwritePolicy, TransferCancellation,
 };
@@ -13,20 +14,24 @@ use super::model::{
 };
 
 impl ObjectStorageView {
-    pub(super) fn run_upload(
+    /// 覆盖重试只使用原目标快照；选择其他账号或 Bucket 不改变此操作。
+    pub(super) fn run_upload_to(
         &mut self,
+        target: ObjectStorageTransferTarget,
         path: std::path::PathBuf,
         key: String,
         overwrite: OverwritePolicy,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let (Some(account_id), Some(mount)) = (
-            self.selected_account_id.clone(),
-            self.selected_mount.clone(),
-        ) else {
+        if !self.open_account_ids.contains(&target.account_id) {
+            self.error("原对象存储会话已关闭，请重新发起上传");
+            cx.notify();
             return;
-        };
+        }
+        let account_id = target.account_id.clone();
+        let mount = target.mount.clone();
+        let account_name = self.transfer_account_name(&account_id);
         if self.transfer_active(
             &account_id,
             &mount.id,
@@ -65,8 +70,7 @@ impl ObjectStorageView {
         cx.spawn_in(window, async move |this, cx| {
             let result = service
                 .upload_object(
-                    &account_id,
-                    &mount,
+                    &target,
                     key,
                     path,
                     overwrite,
@@ -116,11 +120,17 @@ impl ObjectStorageView {
             }
             let _ = this.update_in(cx, |this, window, cx| {
                 let (status, history_error) = transfer_result(&result);
-                this.finish_transfer(transfer_id, status, history_error);
+                if !this.finish_transfer(transfer_id, status, history_error) {
+                    return;
+                }
                 match result {
                     Ok(()) => {
                         this.notice = Some(("上传完成".into(), false));
-                        this.load_first_page(window, cx);
+                        if this.selected_account_id.as_ref() == Some(&account_id)
+                            && this.selected_mount.as_ref() == Some(&mount)
+                        {
+                            this.load_first_page(window, cx);
+                        }
                     }
                     Err(error) if is_conflict(&error) && overwrite == OverwritePolicy::Refuse => {
                         if this.pending_upload.is_none() {
@@ -137,6 +147,9 @@ impl ObjectStorageView {
                                 })
                                 .unwrap_or_else(|| "现有对象元数据不可读".into());
                             this.pending_upload = Some(PendingTransferConflict {
+                                transfer_id,
+                                target,
+                                account_name,
                                 path: retry_path,
                                 key: retry_key,
                                 existing_summary,
@@ -159,20 +172,24 @@ impl ObjectStorageView {
         .detach();
     }
 
-    pub(super) fn run_download(
+    /// 本地文件覆盖也绑定原账号和挂载点，不能从当前选中目标重新读取。
+    pub(super) fn run_download_to(
         &mut self,
+        target: ObjectStorageTransferTarget,
         path: std::path::PathBuf,
         key: String,
         overwrite: OverwritePolicy,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let (Some(account_id), Some(mount)) = (
-            self.selected_account_id.clone(),
-            self.selected_mount.clone(),
-        ) else {
+        if !self.open_account_ids.contains(&target.account_id) {
+            self.error("原对象存储会话已关闭，请重新发起下载");
+            cx.notify();
             return;
-        };
+        }
+        let account_id = target.account_id.clone();
+        let mount = target.mount.clone();
+        let account_name = self.transfer_account_name(&account_id);
         if self.transfer_active(
             &account_id,
             &mount.id,
@@ -212,8 +229,7 @@ impl ObjectStorageView {
         cx.spawn_in(window, async move |this, cx| {
             let result = service
                 .download_object(
-                    &account_id,
-                    &mount,
+                    &target,
                     key,
                     path,
                     overwrite,
@@ -243,12 +259,17 @@ impl ObjectStorageView {
             }
             let _ = this.update_in(cx, |this, window, cx| {
                 let (status, history_error) = transfer_result(&result);
-                this.finish_transfer(transfer_id, status, history_error);
+                if !this.finish_transfer(transfer_id, status, history_error) {
+                    return;
+                }
                 match result {
                     Ok(()) => this.notice = Some(("下载完成".into(), false)),
                     Err(error) if is_conflict(&error) && overwrite == OverwritePolicy::Refuse => {
                         if this.pending_download.is_none() {
                             this.pending_download = Some(PendingTransferConflict {
+                                transfer_id,
+                                target,
+                                account_name,
                                 path: retry_path,
                                 key: retry_key,
                                 existing_summary: "本地目标文件已存在".into(),
@@ -269,6 +290,51 @@ impl ObjectStorageView {
             });
         })
         .detach();
+    }
+
+    pub(super) fn selected_transfer_target(&self) -> Option<ObjectStorageTransferTarget> {
+        let account_id = self.selected_account_id.as_ref()?;
+        let account = self
+            .accounts
+            .iter()
+            .find(|account| &account.id == account_id)?;
+        let mount = self.selected_mount.clone()?;
+        Some(ObjectStorageTransferTarget::new(account, mount))
+    }
+
+    fn transfer_account_name(&self, account_id: &ObjectStorageAccountId) -> String {
+        self.accounts
+            .iter()
+            .find(|account| &account.id == account_id)
+            .map(|account| account.name.clone())
+            .unwrap_or_else(|| account_id.to_string())
+    }
+
+    /// 关闭或删除会话时移除活动编号，旧回调即使迟到也不能恢复覆盖确认。
+    pub(super) fn invalidate_account_transfers(&mut self, account_id: &ObjectStorageAccountId) {
+        if self
+            .pending_upload
+            .as_ref()
+            .is_some_and(|conflict| &conflict.target.account_id == account_id)
+        {
+            self.pending_upload = None;
+        }
+        if self
+            .pending_download
+            .as_ref()
+            .is_some_and(|conflict| &conflict.target.account_id == account_id)
+        {
+            self.pending_download = None;
+        }
+        for transfer in self
+            .transfers
+            .iter()
+            .filter(|transfer| &transfer.account_id == account_id)
+        {
+            transfer.cancellation.cancel();
+        }
+        self.transfers
+            .retain(|transfer| &transfer.account_id != account_id);
     }
 
     pub(super) fn download_active_for_key(&self, key: &str) -> bool {
@@ -306,13 +372,13 @@ impl ObjectStorageView {
         transfer_id: u64,
         status: ObjectTransferStatus,
         error: Option<String>,
-    ) {
+    ) -> bool {
         let Some(index) = self
             .transfers
             .iter()
             .position(|transfer| transfer.id == transfer_id)
         else {
-            return;
+            return false;
         };
         let transfer = self.transfers.remove(index);
         self.transfer_history.retain(|record| {
@@ -333,6 +399,7 @@ impl ObjectStorageView {
         });
         self.transfer_history
             .truncate(ramag_domain::entities::MAX_OBJECT_STORAGE_TRANSFER_HISTORY);
+        true
     }
 }
 

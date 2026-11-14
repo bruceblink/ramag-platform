@@ -23,6 +23,7 @@ use super::model::{ObjectTransferDirection, TransferUi};
 
 mod account_tests;
 mod mount_sort_tests;
+mod transfer_conflict_tests;
 
 struct TestObjectStorage;
 

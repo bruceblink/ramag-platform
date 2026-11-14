@@ -6,11 +6,18 @@ use super::super::model::ObjectStorageView;
 impl ObjectStorageView {
     pub(in crate::views) fn confirm_overwrite_upload(
         &mut self,
+        transfer_id: u64,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(conflict) = self.pending_upload.take() {
-            self.run_upload(
+        if self
+            .pending_upload
+            .as_ref()
+            .is_some_and(|conflict| conflict.transfer_id == transfer_id)
+            && let Some(conflict) = self.pending_upload.take()
+        {
+            self.run_upload_to(
+                conflict.target,
                 conflict.path,
                 conflict.key,
                 OverwritePolicy::Overwrite,
@@ -29,9 +36,14 @@ impl ObjectStorageView {
             return;
         };
         let description = format!(
-            "Key：{}\n{}\n\n将覆盖现有对象；目标可能在确认前变化。",
-            conflict.key, conflict.existing_summary
+            "账号：{}\nBucket：{}\nKey：{}\n本地文件：{}\n{}\n\n仅覆盖上述原目标；配置变化或会话关闭后必须重新发起。",
+            conflict.account_name,
+            conflict.target.mount.bucket,
+            conflict.key,
+            conflict.path.display(),
+            conflict.existing_summary
         );
+        let transfer_id = conflict.transfer_id;
         let confirm_view = cx.entity();
         let cancel_view = confirm_view.clone();
         ramag_ui::open_confirm_with_cancel(
@@ -42,11 +54,19 @@ impl ObjectStorageView {
             (
                 move |window, app| {
                     confirm_view.update(app, |this, cx| {
-                        this.confirm_overwrite_upload(window, cx);
+                        this.confirm_overwrite_upload(transfer_id, window, cx);
                     });
                 },
                 move |_, app| {
-                    cancel_view.update(app, |this, _| this.pending_upload = None);
+                    cancel_view.update(app, |this, _| {
+                        if this
+                            .pending_upload
+                            .as_ref()
+                            .is_some_and(|conflict| conflict.transfer_id == transfer_id)
+                        {
+                            this.pending_upload = None;
+                        }
+                    });
                 },
             ),
             window,
@@ -56,11 +76,18 @@ impl ObjectStorageView {
 
     pub(in crate::views) fn confirm_overwrite_download(
         &mut self,
+        transfer_id: u64,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(conflict) = self.pending_download.take() {
-            self.run_download(
+        if self
+            .pending_download
+            .as_ref()
+            .is_some_and(|conflict| conflict.transfer_id == transfer_id)
+            && let Some(conflict) = self.pending_download.take()
+        {
+            self.run_download_to(
+                conflict.target,
                 conflict.path,
                 conflict.key,
                 OverwritePolicy::Overwrite,
@@ -79,10 +106,14 @@ impl ObjectStorageView {
             return;
         };
         let description = format!(
-            "本地文件：{}\n{}\n\n将原子替换现有文件。",
+            "账号：{}\nBucket：{}\nKey：{}\n本地文件：{}\n{}\n\n仅从上述原目标读取，并原子替换现有文件；配置变化或会话关闭后必须重新发起。",
+            conflict.account_name,
+            conflict.target.mount.bucket,
+            conflict.key,
             conflict.path.display(),
             conflict.existing_summary
         );
+        let transfer_id = conflict.transfer_id;
         let confirm_view = cx.entity();
         let cancel_view = confirm_view.clone();
         ramag_ui::open_confirm_with_cancel(
@@ -93,11 +124,19 @@ impl ObjectStorageView {
             (
                 move |window, app| {
                     confirm_view.update(app, |this, cx| {
-                        this.confirm_overwrite_download(window, cx);
+                        this.confirm_overwrite_download(transfer_id, window, cx);
                     });
                 },
                 move |_, app| {
-                    cancel_view.update(app, |this, _| this.pending_download = None);
+                    cancel_view.update(app, |this, _| {
+                        if this
+                            .pending_download
+                            .as_ref()
+                            .is_some_and(|conflict| conflict.transfer_id == transfer_id)
+                        {
+                            this.pending_download = None;
+                        }
+                    });
                 },
             ),
             window,

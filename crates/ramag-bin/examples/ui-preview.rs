@@ -2,12 +2,15 @@
 //! 用法：cargo run -p ramag-bin --example ui-preview -- settings dark 1024 768
 //! DBClient：dbclient dark 1024 768 large；F6 失败、F8 长错误、F7 恢复。
 //! 插件诊断：plugin-empty 或 plugin-failure；两者只构造本次窗口的受控验收状态。
+//! 对象存储：object_storage；只读取 RAMAG_OBJECT_PREVIEW_* 配置的本机回环测试服务。
 //! 数据同步遮罩：sync-progress、sync-cancel、sync-failure 或 sync-summary；只注入门禁状态。
 //! settings/update 模式支持 Release 手动检查；MQTT 预览不会自动连接或启动 Broker。
 //! 仅创建进程专属临时 redb，不写系统凭据库，退出时清理临时文件。
 
 #[path = "ui_preview/dbclient.rs"]
 mod dbclient;
+#[path = "ui_preview/object_storage.rs"]
+mod object_storage;
 #[path = "ui_preview/offline_database.rs"]
 mod offline_database;
 
@@ -238,6 +241,7 @@ fn main() -> anyhow::Result<()> {
             Arc::new(ramag_tool_container::ContainerTool::new()),
             Arc::new(ramag_tool_ssh::SshTool::new()),
             Arc::new(ramag_tool_system::SystemTool::new()),
+            Arc::new(ramag_tool_object_storage::ObjectStorageTool::new()),
         ];
         if matches!(page.as_str(), "settings" | "mqtt") {
             tools.push(Arc::new(ramag_tool_mqtt::MqttTool::new()));
@@ -262,6 +266,9 @@ fn main() -> anyhow::Result<()> {
         let _ = host.initialize_all();
     }
     let preview = dbclient::DbclientPreview::new(storage.clone())?;
+    let object_storage_service = (page == "object_storage")
+        .then(|| object_storage::service(storage.clone()))
+        .transpose()?;
     let sync_permit = seed_sync_preview(&page, &preview.gate);
     let ssh = Arc::new(SshService::new(
         Arc::new(OpenSshDriver::new()),
@@ -335,6 +342,13 @@ fn main() -> anyhow::Result<()> {
                     let api = cx.new(|cx| ramag_tool_api::ApiView::new(window, cx));
                     let containers =
                         cx.new(|cx| ramag_tool_container::ContainerView::new(window, cx));
+                    let object_storage_view = object_storage_service.as_ref().map(|service| {
+                        ramag_tool_object_storage::create_object_storage_view(
+                            service.clone(),
+                            window,
+                            cx,
+                        )
+                    });
                     let ssh_view = ramag_tool_ssh::create_ssh_view(ssh, window, cx);
                     let monitor = ramag_tool_system::create_system_view(window, cx);
                     let dbclient = preview.create_view(window, cx);
@@ -351,6 +365,9 @@ fn main() -> anyhow::Result<()> {
                         shell.register_tool_view("ssh", ssh_view.into());
                         shell.register_tool_view("system", monitor.into());
                         shell.register_tool_view("dbclient", dbclient.into());
+                        if let Some(object_storage_view) = object_storage_view {
+                            shell.register_tool_view("object_storage", object_storage_view.into());
+                        }
                         if let Some(mqtt_view) = mqtt_view {
                             shell.register_tool_view("mqtt", mqtt_view.into());
                         }

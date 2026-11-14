@@ -85,3 +85,5 @@ ramag-infra-postgres = { workspace = true }
 ramag-infra-sqlite = { workspace = true }
 ramag-infra-redis = { workspace = true }
 ramag-infra-mongodb = { workspace = true }
+# 本机对象存储覆盖目标集成测试使用真实 S3 兼容驱动。
+ramag-infra-object-storage = { workspace = true }

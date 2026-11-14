@@ -382,15 +382,8 @@ impl ObjectStorageView {
         cx: &mut Context<Self>,
     ) {
         self.open_account_ids.retain(|open_id| open_id != &id);
+        self.invalidate_account_transfers(&id);
         self.account_session_states.remove(&id);
-        for transfer in self
-            .transfers
-            .iter()
-            .filter(|transfer| transfer.account_id == id)
-        {
-            transfer.cancellation.cancel();
-        }
-        self.transfers.retain(|transfer| transfer.account_id != id);
         let was_selected = self.selected_account_id.as_ref() == Some(&id);
         if was_selected {
             self.selected_account_id = None;
@@ -456,6 +449,7 @@ impl ObjectStorageView {
                 this.loading = false;
                 match result {
                     Ok(()) => {
+                        this.invalidate_account_transfers(&id);
                         this.selected_account_id = None;
                         this.selected_mount = None;
                         this.capabilities = None;

@@ -13,7 +13,9 @@ use ramag_domain::entities::{
 };
 use ramag_domain::error::{DomainError, READ_ONLY_MESSAGE, Result};
 
-use super::{ObjectListingPage, ObjectStorageService, log_object_storage_error};
+use super::{
+    ObjectListingPage, ObjectStorageService, ObjectStorageTransferTarget, log_object_storage_error,
+};
 
 impl ObjectStorageService {
     pub async fn capabilities(
@@ -114,35 +116,37 @@ impl ObjectStorageService {
         result
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn upload_object(
         &self,
-        account_id: &ObjectStorageAccountId,
-        mount: &ObjectStorageMount,
+        target: &ObjectStorageTransferTarget,
         key: String,
         local_path: PathBuf,
         overwrite: OverwritePolicy,
         cancellation: TransferCancellation,
         progress: ObjectProgressFn,
     ) -> Result<()> {
-        let transfer_id = self.register_transfer(account_id, cancellation.clone());
+        let transfer_id = self.register_transfer(&target.account_id, cancellation.clone());
         let _permit = match self.acquire_transfer_slot(&cancellation).await {
             Ok(permit) => permit,
             Err(error) => {
-                self.unregister_transfer(account_id, transfer_id);
+                self.unregister_transfer(&target.account_id, transfer_id);
                 let result: Result<()> = Err(error);
-                log_object_storage_error("object_storage_upload", Some(account_id), &result);
+                log_object_storage_error(
+                    "object_storage_upload",
+                    Some(&target.account_id),
+                    &result,
+                );
                 return result;
             }
         };
         if cancellation.is_cancelled() {
-            self.unregister_transfer(account_id, transfer_id);
+            self.unregister_transfer(&target.account_id, transfer_id);
             let result = Err(transfer_cancelled());
-            log_object_storage_error("object_storage_upload", Some(account_id), &result);
+            log_object_storage_error("object_storage_upload", Some(&target.account_id), &result);
             return result;
         }
         let result = async {
-            let (account, _guard) = self.lock_account_for_mount(account_id, mount).await?;
+            let (account, _guard) = self.lock_account_for_transfer_target(target).await?;
             if cancellation.is_cancelled() {
                 return Err(transfer_cancelled());
             }
@@ -152,7 +156,7 @@ impl ObjectStorageService {
             self.driver
                 .upload(ObjectUploadRequest {
                     account: account.snapshot(),
-                    mount: mount.clone(),
+                    mount: target.mount.clone(),
                     key,
                     local_path,
                     overwrite,
@@ -163,47 +167,49 @@ impl ObjectStorageService {
                 .map_err(DomainError::from)
         }
         .await;
-        self.unregister_transfer(account_id, transfer_id);
-        log_object_storage_error("object_storage_upload", Some(account_id), &result);
+        self.unregister_transfer(&target.account_id, transfer_id);
+        log_object_storage_error("object_storage_upload", Some(&target.account_id), &result);
         result
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn download_object(
         &self,
-        account_id: &ObjectStorageAccountId,
-        mount: &ObjectStorageMount,
+        target: &ObjectStorageTransferTarget,
         key: String,
         local_path: PathBuf,
         overwrite: OverwritePolicy,
         cancellation: TransferCancellation,
         progress: ObjectProgressFn,
     ) -> Result<()> {
-        let transfer_id = self.register_transfer(account_id, cancellation.clone());
+        let transfer_id = self.register_transfer(&target.account_id, cancellation.clone());
         let _permit = match self.acquire_transfer_slot(&cancellation).await {
             Ok(permit) => permit,
             Err(error) => {
-                self.unregister_transfer(account_id, transfer_id);
+                self.unregister_transfer(&target.account_id, transfer_id);
                 let result: Result<()> = Err(error);
-                log_object_storage_error("object_storage_download", Some(account_id), &result);
+                log_object_storage_error(
+                    "object_storage_download",
+                    Some(&target.account_id),
+                    &result,
+                );
                 return result;
             }
         };
         if cancellation.is_cancelled() {
-            self.unregister_transfer(account_id, transfer_id);
+            self.unregister_transfer(&target.account_id, transfer_id);
             let result = Err(transfer_cancelled());
-            log_object_storage_error("object_storage_download", Some(account_id), &result);
+            log_object_storage_error("object_storage_download", Some(&target.account_id), &result);
             return result;
         }
         let result = async {
-            let (account, _guard) = self.lock_account_for_mount(account_id, mount).await?;
+            let (account, _guard) = self.lock_account_for_transfer_target(target).await?;
             if cancellation.is_cancelled() {
                 return Err(transfer_cancelled());
             }
             self.driver
                 .download(ObjectDownloadRequest {
                     account: account.snapshot(),
-                    mount: mount.clone(),
+                    mount: target.mount.clone(),
                     key,
                     local_path,
                     overwrite,
@@ -214,8 +220,8 @@ impl ObjectStorageService {
                 .map_err(DomainError::from)
         }
         .await;
-        self.unregister_transfer(account_id, transfer_id);
-        log_object_storage_error("object_storage_download", Some(account_id), &result);
+        self.unregister_transfer(&target.account_id, transfer_id);
+        log_object_storage_error("object_storage_download", Some(&target.account_id), &result);
         result
     }
 
@@ -271,6 +277,28 @@ impl ObjectStorageService {
         }
         let guard = self.account_gate(account_id).read_owned().await;
         let account = self.load_account(account_id).await?;
+        Ok((account, guard))
+    }
+
+    async fn lock_account_for_transfer_target(
+        &self,
+        target: &ObjectStorageTransferTarget,
+    ) -> Result<(
+        ramag_domain::entities::ObjectStorageAccount,
+        tokio::sync::OwnedRwLockReadGuard<()>,
+    )> {
+        // Keep the account read lock through target validation and the driver call,
+        // so account saves and deletion cannot change the bound target mid-transfer.
+        let (account, guard) = self
+            .lock_account_for_mount(&target.account_id, &target.mount)
+            .await?;
+        if account.revision != target.account_revision
+            || !super::configured_mounts(&account)?.contains(&target.mount)
+        {
+            return Err(DomainError::InvalidConfig(
+                "对象存储账号或挂载点已变化，请刷新后重新发起传输".into(),
+            ));
+        }
         Ok((account, guard))
     }
 

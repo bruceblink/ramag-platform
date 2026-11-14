@@ -15,13 +15,14 @@ use ramag_domain::error::{ObjectStorageError, ObjectStorageErrorCategory, Object
 use ramag_domain::traits::{ObjectStorageDriver, Storage};
 use ramag_infra_storage::RedbStorage;
 
-use super::{AccountVerification, ObjectStorageService};
+use super::{AccountVerification, ObjectStorageService, ObjectStorageTransferTarget};
 
 #[derive(Default)]
 struct FakeDriver {
     lists: AtomicUsize,
     list_error: Option<ObjectStorageError>,
     uploads: AtomicUsize,
+    downloads: AtomicUsize,
     deletes: AtomicUsize,
     invalidations: AtomicUsize,
     block_uploads_until_cancelled: bool,
@@ -110,6 +111,7 @@ impl ObjectStorageDriver for FakeDriver {
     }
 
     async fn download(&self, _request: ObjectDownloadRequest) -> ObjectStorageResult<()> {
+        self.downloads.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }
 
@@ -253,21 +255,7 @@ async fn production_mode_rejects_write_before_driver_call() {
 
     let upload = service
         .upload_object(
-            &account.id,
-            &ObjectStorageMount {
-                id: ramag_domain::entities::ObjectStorageMountId::new(),
-                account_id: account.id.clone(),
-                bucket: "valid-bucket".into(),
-                region: "cn-hangzhou".into(),
-                endpoint: ramag_domain::entities::HttpsEndpoint::parse_official(
-                    CloudProvider::AliyunOss,
-                    "https://oss-cn-hangzhou.aliyuncs.com",
-                )
-                .expect("official endpoint"),
-                root_prefix: None,
-                created_at: None,
-                storage_class: None,
-            },
+            &ObjectStorageTransferTarget::new(&account, mounts[0].clone()),
             "object.txt".into(),
             PathBuf::from("/tmp/not-read.txt"),
             OverwritePolicy::Refuse,
@@ -405,24 +393,13 @@ async fn closing_session_cancels_active_and_queued_transfers_before_invalidation
         ..FakeDriver::default()
     });
     let service = ObjectStorageService::new(driver.clone(), storage);
-    let mount = ObjectStorageMount {
-        id: ObjectStorageMountId::new(),
-        account_id: account.id.clone(),
-        bucket: "valid-bucket".into(),
-        region: "cn-hangzhou".into(),
-        endpoint: ramag_domain::entities::HttpsEndpoint::parse_official(
-            CloudProvider::AliyunOss,
-            "https://oss-cn-hangzhou.aliyuncs.com",
-        )
-        .expect("official endpoint"),
-        root_prefix: None,
-        created_at: None,
-        storage_class: None,
-    };
+    let mount = super::configured_mounts(&account)
+        .expect("configured mount")
+        .remove(0);
+    let target = ObjectStorageTransferTarget::new(&account, mount);
     let upload = |index| {
         service.upload_object(
-            &account.id,
-            &mount,
+            &target,
             format!("object-{index}.txt"),
             PathBuf::from(format!("/tmp/object-{index}.txt")),
             OverwritePolicy::Refuse,
@@ -451,3 +428,6 @@ async fn closing_session_cancels_active_and_queued_transfers_before_invalidation
     assert_eq!(driver.uploads.load(Ordering::Relaxed), 3);
     assert_eq!(driver.invalidations.load(Ordering::Relaxed), 1);
 }
+
+#[path = "transfer_target_tests.rs"]
+mod transfer_target_tests;
