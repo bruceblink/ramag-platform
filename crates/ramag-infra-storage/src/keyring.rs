@@ -13,7 +13,11 @@ const KEY_LEN: usize = 32;
 pub fn get_or_create_master_key(allow_create: bool) -> Result<[u8; KEY_LEN]> {
     let entry = keyring::Entry::new(SERVICE, ACCOUNT)
         .map_err(|e| credential_store_error("初始化系统凭据库失败", e))?;
+    get_or_create_at_entry(&entry, allow_create)
+}
 
+// 生产入口固定使用原凭据名称；平台测试只向此核心传入独立的测试条目。
+fn get_or_create_at_entry(entry: &keyring::Entry, allow_create: bool) -> Result<[u8; KEY_LEN]> {
     match entry.get_password() {
         Ok(hex_str) => {
             let bytes = hex::decode(hex_str.trim())
@@ -31,7 +35,7 @@ pub fn get_or_create_master_key(allow_create: bool) -> Result<[u8; KEY_LEN]> {
         }
         Err(keyring::Error::NoEntry) if allow_create => {
         info!(operation = "storage_keyring_init", stage = "generate", "master key not found, generating new one");
-            generate_and_save(&entry)
+            generate_and_save(entry)
         }
         Err(keyring::Error::NoEntry) => Err(DomainError::Storage(
             "检测到已有加密数据库，但系统凭据库缺少主密钥；为避免覆盖恢复线索，已停止启动。请先恢复系统凭据，或备份并移走旧数据库后重试".into(),
@@ -65,31 +69,6 @@ fn generate_and_save(entry: &keyring::Entry) -> Result<[u8; KEY_LEN]> {
     Ok(key)
 }
 
-/// 测试 / 调试用，生产慎用：删除会让已加密数据全部无法解密
-#[cfg(any(test, debug_assertions))]
-pub fn delete_master_key() -> Result<()> {
-    let entry = keyring::Entry::new(SERVICE, ACCOUNT)
-        .map_err(|e| credential_store_error("初始化系统凭据库失败", e))?;
-    match entry.delete_credential() {
-        Ok(_) | Err(keyring::Error::NoEntry) => Ok(()),
-        Err(e) => Err(credential_store_error("删除系统凭据条目失败", e)),
-    }
-}
-
 #[cfg(test)]
-mod tests {
-    use super::credential_store_error;
-
-    #[test]
-    fn credential_store_errors_explain_linux_secret_service_requirement() {
-        let error = credential_store_error("读取系统凭据库失败", "service unavailable");
-        let message = error.to_string();
-
-        #[cfg(target_os = "linux")]
-        {
-            assert!(message.contains("gnome-keyring"));
-            assert!(message.contains("org.freedesktop.secrets"));
-        }
-        assert!(message.contains("service unavailable"));
-    }
-}
+#[path = "keyring_tests.rs"]
+mod tests;

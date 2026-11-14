@@ -162,7 +162,6 @@ host 为 `x86_64-pc-windows-msvc`，得到以下本地结果。Cargo 使用离�
 
 | 顺序 | 任务 | 状态与依赖 |
 |---|---|---|
-| 1 | `RAMAG-STORE-001` 系统凭据测试隔离 | 待修复，P1；在测试拥有独立凭据名称或独立测试账户前，不在开发机运行该 `--ignored` 测试 |
 | 2 | `RAMAG-OBJECT-001` 对象覆盖目标绑定 | 待修复，P1；上传、下载确认及迟到冲突回调绑定原账号和挂载点 |
 | 3 | `RAMAG-API-001` 模板展开资源上限 | 待修复，P2；两个展开入口均须在追加前检查结果预算 |
 | 4 | `RAMAG-API-002` 请求切换与迟到结果隔离 | 待修复，P2；切换已保存请求时取消旧操作并使请求、发现代次失效 |
@@ -175,7 +174,7 @@ host 为 `x86_64-pc-windows-msvc`，得到以下本地结果。Cargo 使用离�
 | 条件等待 | `RAMAG-PLATFORM-001` 跨平台补验 | 先完成 `RAMAG-STORE-001`，再运行凭据测试。保留 WSL 编译和 CI 入口；Linux/macOS 退出重启回读、缺少密钥错误、独立测试账户和真实窗口证据仍未取得 |
 | 持续 | `RAMAG-RELEASE-001` 平台与发布维护 | `v0.9.2` 本次发布已完成；后续有相关变更或用户明确要求发布时再执行 |
 
-上表是唯一执行队列；第 4.8 节定义七个审查修复切片，第 4.44 和 4.47 节定义插件补验及接入范围。
+上表是唯一执行队列；第 4.8 节保留七个审查修复切片的范围和结果，第 4.44 和 4.47 节定义插件补验及接入范围。
 已完成任务的历史结果继续保留在第 3 节和下文记录中，不再占用当前队列。
 本轮按独立切片实施、验收、提交并推送；完成一个切片后再开始下一个。
 性能和平台任务在条件满足后继续，release 按触发条件启动。
@@ -870,6 +869,20 @@ Linux 使用隔离 Secret Service，macOS 使用独立测试条目或账户；�
 `cargo test --locked -p ramag-infra-storage --lib keyring::tests::system_credential_store_round_trips_isolated_master_key -- --ignored --exact --test-threads=1`。
 回滚只涉及测试隔离入口、测试、CI 步骤及说明，不删除用户凭据或数据库。
 
+2026-11-14 已完成隔离实现和 Windows 验收。平台往返测试移入
+[keyring_tests.rs](../crates/ramag-infra-storage/src/keyring_tests.rs)，
+通过私有核心测试真实密钥实现。生产入口仍固定使用 `ramag/master-key`，不迁移已有数据。
+旧的生产凭据删除辅助入口和 integration target 已移除；三平台 CI 使用新测试的精确过滤器。
+测试只创建 `ramag-test` 下带 128 位随机后缀的账号；已存在的条目不接管、不清理。
+默认测试覆盖条目隔离、缺失/损坏密钥不重建，以及错误返回后的清理。
+
+Windows stable Rust `1.100.0`、MSVC x64 下，存储库单元测试 `82 passed / 0 failed / 4 ignored`，
+存储 crate 全目标严格 Clippy 通过。精确过滤运行真实 Windows Credential Manager 测试得到
+`1 passed / 0 failed`，目标条目删除后哨兵保持不变，两个随机测试条目均已清理。
+本次没有读取或删除生产凭据。全工作区验证见构建基线恢复记录。
+Linux Secret Service 和 macOS Keychain 的运行证据仍未取得，转入 `RAMAG-PLATFORM-001` 保留。
+该平台缺口不能由 Windows 结果或 CI 配置代替。本切片不修改 UI，原生窗口检查不适用。
+
 #### 4.8.2 对象覆盖目标绑定
 
 `RAMAG-OBJECT-001` 将账号和挂载点随 `PendingTransferConflict` 一起保存，
@@ -1085,7 +1098,8 @@ Desktop Release run `42289929133` 已完成且结论为 `success`。Linux x86_64
   也没有修改正常启动或凭据存储实现。
 
 上述为入口加入时的历史记录。2026-11-07 审查确认当时的测试使用生产主密钥名称，
-须先完成 `RAMAG-STORE-001`；在隔离完成前，不在开发机执行该测试。
+`RAMAG-STORE-001` 已于 2026-11-14 移除旧测试和生产删除入口；
+不得在历史版本中手动执行该测试。当前隔离测试的命令和平台证据见第 4.8.1 节。
 历史测试入口不计为测试隔离验收通过。
 
 当前没有把普通开发的 GitHub CI 运行作为执行步骤。发布 release 或用户明确要求平台核对时，
