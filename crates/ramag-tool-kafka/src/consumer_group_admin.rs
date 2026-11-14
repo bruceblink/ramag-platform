@@ -101,15 +101,11 @@ impl KafkaView {
             cx.notify();
             return false;
         }
-        if self.consumer_group_operation
+        !(self.consumer_group_operation
             || self.loading_consumer_groups
             || self.loading_runtime
             || self.topic_operation
-            || self.acl_operation
-        {
-            return false;
-        }
-        true
+            || self.acl_operation)
     }
 
     fn selected_consumer_group_snapshot(&self) -> Option<KafkaConsumerGroup> {

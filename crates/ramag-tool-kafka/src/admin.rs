@@ -40,10 +40,7 @@ impl KafkaView {
             cx.notify();
             return false;
         }
-        if self.topic_operation || self.loading_runtime || self.saving || self.deleting {
-            return false;
-        }
-        true
+        !(self.topic_operation || self.loading_runtime || self.saving || self.deleting)
     }
 
     pub(super) fn begin_create_topic(&mut self, window: &mut Window, cx: &mut Context<Self>) {

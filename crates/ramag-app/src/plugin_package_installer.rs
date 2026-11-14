@@ -8,7 +8,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use parking_lot::Mutex;
 use ramag_domain::{PluginPackageManifest, PluginPackageManifestError};
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use crate::{
@@ -177,7 +176,7 @@ impl PluginPackageInstaller {
         match self.state_store.remove(plugin_id) {
             Ok(true) => {}
             Ok(false) => {
-                if let Err(source) = restore_uninstall_directory(&target, &backup) {
+                if let Err(source) = uninstall::restore_uninstall_directory(&target, &backup) {
                     return Err(PluginPackageInstallError::Rollback {
                         operation: "恢复待卸载插件目录",
                         source,
@@ -186,7 +185,8 @@ impl PluginPackageInstaller {
                 return Ok(false);
             }
             Err(error) => {
-                if let Err(restore_error) = restore_uninstall_directory(&target, &backup) {
+                if let Err(restore_error) = uninstall::restore_uninstall_directory(&target, &backup)
+                {
                     return Err(PluginPackageInstallError::Rollback {
                         operation: "恢复待卸载插件目录",
                         source: restore_error,
@@ -197,7 +197,7 @@ impl PluginPackageInstaller {
         }
 
         if let Err(source) = fs::remove_dir_all(&backup) {
-            let restore_error = restore_uninstall_directory(&target, &backup).err();
+            let restore_error = uninstall::restore_uninstall_directory(&target, &backup).err();
             let state_restore = self.state_store.upsert(installation).err();
             if let Some(restore_error) = restore_error {
                 return Err(PluginPackageInstallError::Rollback {
@@ -216,7 +216,7 @@ impl PluginPackageInstaller {
                 source,
             });
         }
-        remove_empty_plugin_directory(&packages_root, plugin_id);
+        uninstall::remove_empty_plugin_directory(&packages_root, plugin_id);
         Ok(true)
     }
 }
@@ -361,31 +361,6 @@ fn compare_catalog_field(
 }
 
 /// 恢复卸载前的版本目录，发现目标被替换时直接失败以避免误删外部目录。
-fn restore_uninstall_directory(target: &Path, backup: &Path) -> Result<(), std::io::Error> {
-    match fs::symlink_metadata(target) {
-        Ok(_) => {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::AlreadyExists,
-                "待恢复插件目标目录已被替换",
-            ));
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => return Err(error),
-    }
-    fs::rename(backup, target)
-}
-
-/// 只删除已经为空的插件 ID 目录，保留其他版本目录。
-fn remove_empty_plugin_directory(packages_root: &Path, plugin_id: &ramag_domain::PluginId) {
-    let plugin_dir = packages_root.join(plugin_id.as_str());
-    if let Ok(metadata) = fs::symlink_metadata(&plugin_dir)
-        && metadata.is_dir()
-        && !metadata.file_type().is_symlink()
-    {
-        let _ = fs::remove_dir(&plugin_dir);
-    }
-}
-
 fn canonical_source_root(path: &Path) -> Result<PathBuf, PluginPackageInstallError> {
     if !path.is_absolute() {
         return Err(PluginPackageInstallError::SourceNotAbsolute {
@@ -461,90 +436,13 @@ fn read_manifest(root: &Path) -> Result<PluginPackageManifest, PluginPackageInst
     Ok(manifest)
 }
 
-/// 按稳定的相对路径和文件内容计算包摘要；进程宿主启动前复用该规则核验已安装目录。
-pub(crate) fn package_digest(root: &Path) -> Result<String, PluginPackageInstallError> {
-    let mut files = BTreeMap::new();
-    collect_files(root, root, &mut files)?;
-    let mut total_bytes = 0_u64;
-    let mut hasher = Sha256::new();
-    for (relative, path) in files {
-        if relative == Path::new(PLUGIN_PACKAGE_MANIFEST_FILE_NAME) {
-            continue;
-        }
-        let bytes = fs::read(&path).map_err(|source| PluginPackageInstallError::Io {
-            operation: "读取插件包文件",
-            source,
-        })?;
-        total_bytes = total_bytes.saturating_add(bytes.len() as u64);
-        if total_bytes > MAX_PLUGIN_PACKAGE_BYTES {
-            return Err(PluginPackageInstallError::PackageTooLarge {
-                bytes: total_bytes,
-                max: MAX_PLUGIN_PACKAGE_BYTES,
-            });
-        }
-        let relative = relative.to_string_lossy();
-        hasher.update(relative.as_bytes());
-        hasher.update([0]);
-        hasher.update(&bytes);
-        hasher.update([0]);
-    }
-    Ok(hex::encode(hasher.finalize()))
-}
-
-fn collect_files(
-    root: &Path,
-    current: &Path,
-    files: &mut BTreeMap<PathBuf, PathBuf>,
-) -> Result<(), PluginPackageInstallError> {
-    let mut entries = fs::read_dir(current)
-        .map_err(|source| PluginPackageInstallError::Io {
-            operation: "扫描插件包目录",
-            source,
-        })?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|source| PluginPackageInstallError::Io {
-            operation: "读取插件包目录项",
-            source,
-        })?;
-    entries.sort_by_key(|entry| entry.file_name());
-    for entry in entries {
-        let path = entry.path();
-        let metadata =
-            fs::symlink_metadata(&path).map_err(|source| PluginPackageInstallError::Io {
-                operation: "检查插件包路径",
-                source,
-            })?;
-        if metadata.file_type().is_symlink() {
-            return Err(PluginPackageInstallError::SymlinkEntry { path });
-        }
-        if metadata.is_dir() {
-            collect_files(root, &path, files)?;
-        } else if metadata.is_file() {
-            let relative = path
-                .strip_prefix(root)
-                .map_err(|_| PluginPackageInstallError::InvalidRelativePath { path: path.clone() })?
-                .to_path_buf();
-            if relative
-                .components()
-                .any(|component| !matches!(component, Component::Normal(_)))
-            {
-                return Err(PluginPackageInstallError::InvalidRelativePath { path });
-            }
-            files.insert(relative, path);
-        } else {
-            return Err(PluginPackageInstallError::UnsupportedEntry { path });
-        }
-    }
-    Ok(())
-}
-
 fn copy_directory(source: &Path, target: &Path) -> Result<(), PluginPackageInstallError> {
     fs::create_dir_all(target).map_err(|source| PluginPackageInstallError::Io {
         operation: "创建插件临时目录",
         source,
     })?;
     let mut files = BTreeMap::new();
-    collect_files(source, source, &mut files)?;
+    package_digest::collect_files(source, source, &mut files)?;
     for (relative, source_file) in files {
         let target_file = target.join(relative);
         if let Some(parent) = target_file.parent() {
@@ -658,6 +556,13 @@ pub enum PluginPackageInstallError {
         source: std::io::Error,
     },
 }
+
+#[path = "plugin_package_installer_digest.rs"]
+mod package_digest;
+#[path = "plugin_package_installer_uninstall.rs"]
+mod uninstall;
+
+pub(crate) use package_digest::package_digest;
 
 #[cfg(test)]
 #[path = "plugin_package_installer_tests.rs"]

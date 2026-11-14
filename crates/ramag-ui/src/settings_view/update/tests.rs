@@ -6,8 +6,9 @@ use gpui_kit::{
 use ramag_app::AvailableUpdate;
 use ramag_domain::entities::{DownloadProgress, ReleaseInfo};
 
-use super::{
-    UpdateUiState, download_progress_ratio, render_download_progress, render_update_identity,
+use super::UpdateUiState;
+use super::render::{
+    download_progress_ratio, render_download_progress, render_update_identity,
     render_update_toolbar, update_status_text,
 };
 

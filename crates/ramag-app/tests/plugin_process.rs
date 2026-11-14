@@ -23,28 +23,21 @@ fn manifest(entrypoint: &str) -> PluginPackageManifest {
 
 #[tokio::test]
 async fn host_starts_real_helper_process_invokes_and_closes() {
-    let helper_path = std::env::var("CARGO_BIN_EXE_ramag_plugin_helper").map_or_else(
-        |_| {
-            std::env::current_exe()
-                .unwrap()
-                .parent()
-                .and_then(Path::parent)
-                .unwrap()
-                .join("ramag-plugin-helper")
-        },
-        Into::into,
-    );
-    let helper = Path::new(&helper_path);
+    let helper = Path::new(env!("CARGO_BIN_EXE_ramag-plugin-helper"));
     let package = tempdir().unwrap();
-    let entrypoint_path = package.path().join("helper");
+    let entrypoint = if cfg!(windows) {
+        "helper.exe"
+    } else {
+        "helper"
+    };
+    let entrypoint_path = package.path().join(entrypoint);
     fs::copy(helper, &entrypoint_path).unwrap();
     let helper_bytes = fs::read(&entrypoint_path).unwrap();
     let mut hasher = Sha256::new();
-    hasher.update(b"helper");
+    hasher.update(entrypoint.as_bytes());
     hasher.update([0]);
     hasher.update(helper_bytes);
     hasher.update([0]);
-    let entrypoint = "helper";
     let mut descriptor = manifest(entrypoint);
     descriptor.package_sha256 = hex::encode(hasher.finalize());
     let host = PluginProcessHost::start(

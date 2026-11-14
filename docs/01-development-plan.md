@@ -1,11 +1,11 @@
 # Ramag Platform 主线开发计划
 
 > 状态：唯一现行开发计划
-> 更新日期：2026-11-13
-> 代码核对基线：提交 `bd5e05e0`；历史代码审查基线 `1aacf006`、`8820c77a` 以及后续功能和验收记录均已保留在本计划
+> 更新日期：2026-11-14
+> 代码核对基线：2026-11-07 审查使用提交 `b41cf9eb`；本轮开发以同步后的 `543fe13d` 为起点，历史记录不能替代本轮验收
 > 当前主线代码基线：以 `main` 当前提交为准；workspace 版本 `0.9.2`
 > 后续开发基线：当前 `main` 分支（`v0.9.2` 发布包从标签提交 `37ae32b5` 构建）
-> 计划状态：`v0.9.2` 已正式发布，资产、校验清单和更新清单均已核对。数据库适用组合、Windows UI 回归和 Windows 发布构建回归已完成。当前只保留性能证据、跨平台证据和触发式发布维护，不自动恢复历史功能设想
+> 计划状态：保留本地审查的七个修复切片和远端插件开发记录。先核实并完成修复，再补 Windows 插件进程清理验收及签名目录的设置页接入。性能显示时间与跨平台证据仍按实际条件验收，不自动恢复历史功能设想
 
 本文件统一维护范围、执行顺序、验收条件和未关闭事项。架构、接口设计、开发指南和
 测试报告只提供技术依据，不单独安排开发任务。
@@ -98,10 +98,61 @@ GitHub 最新 Release 接口返回 `v0.9.1`，更新清单与标签一致，5 �
 清单；该结果不代表已安装旧版程序的完整升级流程。
 Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下文的适用条件验证。
 
+### 3.2 2026-11-07 当前代码审查
+
+本轮以 `b41cf9eba643e68a021da48aad43285e9530339d` 为基线。开始时 `main`
+工作区干净。仓库包含 37 个 workspace crate 和 1,340 个可见 Rust 源文件。
+审查覆盖项目分层、启动装配、主要业务调用链、异步状态、文件和凭据操作、资源限制、
+测试入口及构建配置；不将文件枚举或关键词搜索记为逐文件完整审查。
+
+| 模块组 | 本轮核对重点 | 证据限制 |
+|---|---|---|
+| Domain、App、Bin、UI 与静态插件 | 启动和服务注入、插件注册与关闭、能力检查、任务数量及超时、设置与敏感设置保存 | 第一方原生代码与宿主同进程运行；插件描述不等于操作系统沙箱 |
+| SQL、Redis、MongoDB 与数据库工作台 | 连接池代次、活动事务重试保护、查询取消、分页、导入导出及数据同步的目标快照 | 本轮未重跑本机 Docker 数据库集成或真实窗口；历史验收不扩展为新增场景通过 |
+| API | 导入、模板展开、HTTP/gRPC/TLS/代理、已保存请求回填、迟到响应及环境变量更新 | 已确认三个独立修复切片；未运行耗尽内存输入或访问用户配置的服务 |
+| 对象存储、容器、Kafka、MQTT | 对象覆盖确认、传输取消、平台与页面切换、消息流和配置切换代次 | 重点调用链静态核对；云端 COS/OSS、真实 Kubernetes、Kafka TLS/SASL/ACL 未新增运行证据 |
+| Git、SSH/SFTP/PTY、隧道 | Git 参数与路径、文件预览和自动保存、SSH 子进程、SFTP 临时文件提交及清理 | 没有操作用户仓库、远端文件或 `known_hosts`；没有确认父目录链接候选的完整可利用路径 |
+| 存储、剪贴板、系统监控、更新与发布脚本 | redb 与主密钥绑定、测试隔离、媒体清理、采样取消、更新来源与摘要校验、三平台检查入口 | 未读取用户系统剪贴板、修改系统凭据或运行安装器；未监测 GitHub CI |
+
+以下结论由当前源码和调用链交叉核对确认。除检查失败外，尚未新增运行时复现测试，
+也没有将修复记为已完成。P1 表示应先处理的数据完整性风险；P2 表示随后处理的
+稳定性、行为一致性或验证缺口，不等于远程漏洞等级。
+
+| 优先级 | 任务 | 确认结果与源码依据 |
+|---|---|---|
+| P1 | `RAMAG-STORE-001` | 审查基线中，显式运行 Linux/macOS 系统凭据测试会读取并删除生产使用的 `ramag/master-key`。本机已有加密数据库时可能失去解密所需密钥；默认忽略与临时数据库目录不隔离凭据名称。证据为提交 `b41cf9eb` 的 `crates/ramag-infra-storage/tests/keyring_round_trip.rs` 第 13–21 行和 [keyring.rs](../crates/ramag-infra-storage/src/keyring.rs) 当时的第 8–14、68–76 行。审查时未运行该测试。 |
+| P1 | `RAMAG-OBJECT-001` | 上传或下载返回冲突前切换账号或 Bucket，再确认覆盖，重试会从当前选择重新读取目标。待确认状态只保留路径和 Key，可能覆盖错误远端对象，或用另一目标的内容覆盖本地文件。见 [model.rs](../crates/ramag-tool-object-storage/src/views/model.rs) 第 28–32 行、[transfer_ops.rs](../crates/ramag-tool-object-storage/src/views/transfer_ops.rs) 第 24–28、139–143、170–175、251–255 行、[destructive.rs](../crates/ramag-tool-object-storage/src/views/ops/destructive.rs) 第 12–19、62–69 行。 |
+| P2 | `RAMAG-API-001` | 模板展开先追加全部替换值，最后才检查结果上限。单个输入字段合法不代表展开结果有界；用户导入不可信 API 文件后执行请求，可能因内存耗尽退出。见 [execution.rs](../crates/ramag-domain/src/entities/api/execution.rs) 第 243–273 行、[http.rs](../crates/ramag-infra-api/src/http.rs) 第 317–350 行及 [api_service.rs](../crates/ramag-app/src/usecases/api_service.rs) 第 113–129 行。没有执行耗尽内存验证，也不宣称无交互远程触发。 |
+| P2 | `RAMAG-API-002` | 发送 A 后点击侧栏已保存请求 B，不取消 A，也不递增请求代次。A 的迟到结果仍可更新当前响应、提示和提取变量；提取变量还会写入当前环境。见 [render_sidebar_requests.rs](../crates/ramag-tool-api/src/render_sidebar_requests.rs) 第 52–55 行、[context.rs](../crates/ramag-tool-api/src/context.rs) 第 423–449 行、[operations.rs](../crates/ramag-tool-api/src/operations.rs) 第 225–265 行。 |
+| P2 | `RAMAG-API-003` | 保存请求进入编辑器后，重新构建请求会恢复默认 `timeout_millis`，HTTP 参数的 `sensitive` 标记丢失，gRPC metadata 只保留首项且丢失敏感标记。见 [view.rs](../crates/ramag-tool-api/src/view.rs) 第 604–654、732–779 行、[context.rs](../crates/ramag-tool-api/src/context.rs) 第 472–482、514–522 行。敏感标记影响 Debug 隐藏值，不能据此声称请求值已被额外发送或历史正文必然泄露。 |
+| P2 | `RAMAG-CONTAINER-001` | Docker 概览请求期间切换到 Kubernetes 不递增 `request_id`，旧回调仍可写入并显示 Docker 概览；切到 Logs 的提前返回路径也不使旧详情请求失效。见 [view.rs](../crates/ramag-tool-container/src/view.rs) 第 489–496、537–542、678–701、757–779、1845–1853 行。Registry/详情仍有可恢复入口，不报告为永久卡死。 |
+| P2 | `RAMAG-QUALITY-001` | 默认严格 Clippy 通过，但启用 `ui-profiling` 后失败。14 个 `clippy::expect_used` 均来自 [profiling_tests.rs](../crates/ramag-ui/src/profiling_tests.rs) 第 21–122 行。当前 CI 对该可选特性只执行编译检查，不能由默认检查推定全部特性检查通过。 |
+
+2026-11-07 在同一 PowerShell 进程初始化仓库 MSVC 环境后，使用 stable Rust `1.99.1`，
+host 为 `x86_64-pc-windows-msvc`，得到以下本地结果。Cargo 使用离线模式，
+相关外部服务测试环境变量未设置。
+
+| 检查 | 本轮结果 |
+|---|---|
+| `cargo fmt --all -- --check` | 通过 |
+| `cargo check --locked --workspace --all-targets` | 通过 |
+| `cargo clippy --locked --workspace --all-targets -- -D warnings` | 通过 |
+| `cargo test --locked --workspace -- --test-threads=1` | 退出码 0；测试摘要合计 2,739 passed、0 failed、22 ignored |
+| `cargo build --locked -p ramag-bin` | 通过 |
+| `./scripts/windows/check-source-size.ps1` | 通过 |
+| `cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1` | 7 项通过 |
+| `cargo clippy --locked -p ramag-ui --features ui-profiling --all-targets -- -D warnings` | 未通过；14 个 `expect_used`，退出码 101 |
+
+默认忽略的服务测试，以及因环境变量未设置而提前返回的测试，不算本机集成通过。
+本轮没有新增 Docker、原生窗口、Linux/macOS 运行、正式安装或公网更新验收。
+测试通过也不能关闭上表中没有回归覆盖的状态切换和数据保留缺陷。
+用户要求停止 Codex Security Scan 后，本轮仅以现有源码审查和本地检查收尾；
+没有完成该扫描，也不引用其未生成的报告作为证据。
+
 ## 4. 当前执行队列
 
 `RAMAG-UPDATE-001` 的更新实现已随 `v0.9.0` 发布；页面反馈修复已随 `v0.9.1` 正式发布。
-后续开发以提交 `bd5e05e0` 为基线；`v0.9.2` 标签已推送，发布包从标签提交 `37ae32b5` 构建，
+本轮开发以提交 `543fe13d` 为起点；`v0.9.2` 标签已推送，发布包从标签提交 `37ae32b5` 构建，
 `RAMAG-RELEASE-001` 本次发布维护已完成。不移动或覆盖已公开标签。
 更新条件和缓存限制见[更新检测与下载](06-desktop-release.md#更新检测与下载)。
 
@@ -111,19 +162,24 @@ Windows 正式安装、Linux/macOS 原生更新流程和下一次发布仍按下
 
 | 顺序 | 任务 | 状态与依赖 |
 |---|---|---|
-| 1 | `RAMAG-UI-001AC-1` 补充测量方法 | 已完成真实相对时间、同窗口绘制与提交关系、乱序/溢出/无样本/提前退出记录；输入事件的窗口标识继续明确保留为缺失 |
-| 2 | `DB-UX-006B-R` 大字段性能复核 | 已完成查看器代码修复、本机数据库集成复核和三轮真实窗口打开/关闭复核；响应性通过，内存采样边界已记录 |
-| 3 | `A-UI-REAL-1` 数据库导航与查询验收 | 已完成（适用组合）；SQL 对象树搜索、收藏、仅收藏、最近访问和重启保存已覆盖 PostgreSQL/MySQL/SQLite；SQLite 表、视图、列、索引、触发器、DDL、只读视图、JSONL、结构差异、迁移预览、执行和回读已补验；PostgreSQL/MySQL/SQLite 选中行 JSONL、MongoDB 选中行 Extended JSONL、Redis 数据库/单 Key/前缀 JSONL 已回读；MongoDB/Redis 专用对象、刷新失败保留旧树、跨连接切换、Server Objects、Virtual views、查询过滤排序分页及 MongoDB 工具栏样式已有对应真实窗口记录；MongoDB/Redis 的 SQL 事务、DDL、结构迁移按源码能力标记为不适用。 |
-| 4 | `A-UI-REAL-2` 数据库写入与迁移验收 | 已完成；PostgreSQL、MySQL 和 SQLite 手动事务提交、回滚及清理，SQLite 活动事务期间的连接池重试保护，MySQL DDL、结构差异、迁移执行、目标元数据回读、EXPLAIN ANALYZE 风险确认、失败查询草稿恢复，以及行内 DELETE、批量 DELETE、INSERT 的失效连接反馈均已有真实窗口证据 |
-| 5 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 条件等待；Windows Release 的 `input/draw/present p95` 已取得，采样无丢失或溢出；现有录像约 `6.44fps`，NVENC 约 `12.79fps`，点击到可见反馈估计受采集量化影响，不能判定 `100ms` 条件。下一次只在取得显示合成器时间或可用的高帧率同步录像后继续；动画时长保持重排 `180ms`、加载 `160ms`。 |
-| 6 | `RAMAG-UI-001A` 监控交互补验 | 已完成；Windows 真实窗口已核对 Disk 页和 Network 接口选择/切换、磁盘选择器、页面溢出滚动及设备不可用提示 |
-| 7 | `RAMAG-UI-001B` 剪贴板交互补验 | 已完成；隔离 redb 数据和真实窗口已覆盖搜索、删除、撤销、当前结果回读和详情查看，未读取或写入用户系统剪贴板 |
-| 8 | `RAMAG-UI-001C` 首页与侧栏排序补验 | 已完成；隔离配置下已检查首页和侧栏拖动、拖出取消、保存及重启后的顺序回读 |
-| 9 | `RAMAG-PLATFORM-001` 跨平台补验 | 条件等待；WSL Ubuntu-24.04 的 Linux workspace 编译入口已验证，Linux Secret Service、macOS Keychain 和原生窗口 Smoke 入口已进入 CI 配置。Linux/macOS 的退出重启回读、缺少密钥错误、独立测试账户和真实窗口证据仍未取得。普通开发不读取 GitHub CI 状态，只有发布 release 或用户明确要求时才核对对应运行。 |
+| 1 | `RAMAG-STORE-001` 系统凭据测试隔离 | 待修复，P1；在测试拥有独立凭据名称或独立测试账户前，不在开发机运行该 `--ignored` 测试 |
+| 2 | `RAMAG-OBJECT-001` 对象覆盖目标绑定 | 待修复，P1；上传、下载确认及迟到冲突回调绑定原账号和挂载点 |
+| 3 | `RAMAG-API-001` 模板展开资源上限 | 待修复，P2；两个展开入口均须在追加前检查结果预算 |
+| 4 | `RAMAG-API-002` 请求切换与迟到结果隔离 | 待修复，P2；切换已保存请求时取消旧操作并使请求、发现代次失效 |
+| 5 | `RAMAG-API-003` 编辑器字段往返保留 | 待修复，P2；保留超时、完整 metadata 和敏感标记，不静默覆盖已有配置 |
+| 6 | `RAMAG-CONTAINER-001` 平台及页面切换失效处理 | 待修复，P2；旧概览、详情和错误不能更新新平台或页面 |
+| 7 | `RAMAG-QUALITY-001` 可选采样特性严格检查 | 待修复，P2；修复 14 个测试告警并补齐对应特性的严格检查入口 |
+| 8 | `RAMAG-PLUGIN-PROCESS-JOB-001` Windows 进程树清理验收 | 代码已实现；在本机 MSVC 构建中运行真实入口与子孙进程测试，不能以 macOS 跨目标检查替代 |
+| 9 | `RAMAG-UI-PLUGIN-CATALOG-TRUST-001` 签名目录设置页接入 | 待实施；组合根、启动恢复和刷新传递来源信任状态，未验证目录不能触发下载或安装；先在本计划补齐范围与验收细节 |
+| 条件等待 | `RAMAG-UI-001AC-2` 发布构建性能验收 | 保留现有 Windows `input/draw/present p95` 和空闲证据；点击到可见反馈仍需显示合成器时间或高帧率同步录像。动画保持重排 `180ms`、加载 `160ms` |
+| 条件等待 | `RAMAG-PLATFORM-001` 跨平台补验 | 先完成 `RAMAG-STORE-001`，再运行凭据测试。保留 WSL 编译和 CI 入口；Linux/macOS 退出重启回读、缺少密钥错误、独立测试账户和真实窗口证据仍未取得 |
 | 持续 | `RAMAG-RELEASE-001` 平台与发布维护 | `v0.9.2` 本次发布已完成；后续有相关变更或用户明确要求发布时再执行 |
 
-表中已完成项只保留结果和证据边界。当前只推进“条件等待”中已经具备环境的动作，以及用户明确提出的新缺陷。持续维护和 release 按触发条件启动。每个任务的结果只能覆盖实际执行的平台、驱动和步骤。
-只发现问题时先记录可复现条件；修复另按受影响范围验证。尚未取得的设备、账号、服务或窗口证据保持未完成。
+上表是唯一执行队列；第 4.8 节定义七个审查修复切片，第 4.44 和 4.47 节定义插件补验及接入范围。
+已完成任务的历史结果继续保留在第 3 节和下文记录中，不再占用当前队列。
+本轮按独立切片实施、验收、提交并推送；完成一个切片后再开始下一个。
+性能和平台任务在条件满足后继续，release 按触发条件启动。
+每个结果只覆盖实际执行的平台、驱动和步骤；缺少设备、账号、服务或窗口证据的项目保持未完成。
 
 ### 4.1 原生 UI 测量方法
 
@@ -720,11 +776,45 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 同日准备并发布 `0.9.2` 版本，Windows MSVC 格式、Clippy、构建和 profiling 定向测试通过；标签 `v0.9.2`
 指向 `37ae32b5`，Desktop Release run `42289929133` 的 Linux、macOS、Windows 打包及发布步骤全部成功。
 
-### 4.8 2026-11-07 后续主线重排
+### 4.8 2026-11-07 审查后的修复切片
 
-本节定义当前唯一的后续执行顺序。状态分为可执行、条件等待和触发维护。历史验收记录继续保留在本文件中，但不再自动生成新的开发任务。
+执行顺序和状态只在第 4 节表格维护。本节给出实现边界，不建立第二份队列。
+每项都执行第 6 节适用的 Rust 检查；用户可见流程还需真实窗口验收。
+受控延迟的测试驱动只用于稳定触发回调顺序，不能代替本机 Docker 集成结果。
+普通开发不等待或监测 GitHub CI，不在本轮创建版本、标签或 Release。
 
-| 优先级 | 主线任务 | 当前动作 | 通过条件 | 验证与回滚 |
+2026-11-14 同步后新增前置项 `RAMAG-QUALITY-BASELINE-001`：
+`check-source-size.ps1` 报告 12 个远端已有源码文件超过 600 行。
+本项仅把现有测试和可清楚命名的同职责实现拆到独立文件，不改变接口、业务行为或 lint 规则，
+不把超限文件加入豁免清单。验收为源码行数检查、格式、严格 Clippy、全目标编译与受影响测试通过。
+stable MSVC 更新到 `1.100.0` 后，新增的 `needless_bool` 告警以等价布尔表达式修正，
+保留错误传播、短路求值和原有状态提示，不增加 lint 豁免。
+归档测试原先自行拼接 POSIX 路径计算包摘要，导致 Windows 有效归档测试失败。
+本轮改为在临时目录写入测试文件，再调用真实 `package_digest` 生成测试包清单；
+摘要不匹配和清单身份不匹配的拒绝测试继续保留，不改变已有包摘要格式。
+真实插件辅助进程测试改用 Cargo 编译时提供的 `CARGO_BIN_EXE_ramag-plugin-helper` 路径，
+Windows 临时入口保留 `.exe` 后缀，避免错误环境变量名和无后缀回退路径导致找不到辅助程序。
+回滚只涉及本次模块拆分、等价 lint 修正及测试修正；凭据隔离和后续功能分别提交。
+
+2026-11-14 本项已完成。Windows stable Rust `1.100.0`、MSVC x64 下，格式、
+workspace 全目标编译、workspace 全目标严格 Clippy、源文件行数、日志约定和差异检查通过。
+工作区串行测试结果合计 `2,823 passed / 0 failed / 25 ignored`；
+其中存储隔离变更在同一工作区验证，并在下一独立提交记录。
+应用与 `ui-preview` Debug 构建通过。CI YAML 可解析为三个 OS job，修改文本通过 UTF-8/LF 检查。
+
+Computer Use 在实际 Windows 隔离预览窗口中核对了浅色插件页的运行概览、空安装列表、
+目录输入和空目录说明，以及“关于”页的明暗主题显示。该窗口使用临时 redb 与注入密钥，
+未读取用户连接或系统主密钥，也未下载或安装插件。
+后续深色插件页切换遇到 `coordinate input geometry is unavailable` 和窗口状态过期，
+刷新并重新绑定后仍未恢复，因此不计为该场景通过。Headless UI 测试与真实窗口结果分别记录。
+本项没有运行 Docker、Linux/macOS 原生窗口、安装器或 GitHub CI；这些检查不能由本机编译替代。
+
+#### 4.8.0 远端已实现切片的历史记录
+
+下表保留同步前远端计划中的实现记录，不作为当前执行顺序。
+“已完成”只表示原记录列明的验证范围；其中尚未取得的证据继续按第 4 节执行队列处理。
+
+| 记录序号 | 任务 | 已有结果 | 原通过条件 | 验证范围与回滚 |
 |---|---|---|---|---|
 | 1 | `RAMAG-UI-001AC-2` 可见反馈性能证据 | 保留现有动画和渲染实现。等待显示合成器追踪或高帧率同步录像条件满足后再采样 | 能把输入、绘制、提交和实际显示时间放在同一时间轴，并得到可复核的点击到可见反馈 p95。无法取得显示时间时记录缺口，不修改动画时长 | Windows Release 真实窗口、`ui-profiling` 日志和采集原始文件。回滚只涉及性能采样入口和证据记录 |
 | 2 | `RAMAG-PLATFORM-001` Linux/macOS 平台证据 | 保留 WSL Linux 编译和 CI 测试入口。取得对应平台、独立测试账户或 release 验收条件后再执行 | 平台窗口启动、系统凭据保存、退出重启回读和缺少密钥错误均有对应平台证据。CI 测试不能替代真实窗口和独立账户证据 | Linux 使用 WSL 编译，Linux/macOS 测试使用 GitHub CI 或对应平台窗口。回滚只涉及本次平台测试入口和记录 |
@@ -763,7 +853,111 @@ macOS job 被取消；GitHub job 记录的 `runner_id=0` 且没有执行步骤�
 | 37 | `RAMAG-PLUGIN-CATALOG-SIGNATURE-001` 已签名插件目录核心校验 | 已完成：增加 v2 signed catalog envelope、固定域分隔和 payload 序列化、Ed25519 校验、应用内置或显式注入的 key 与 HTTPS 来源前缀绑定；旧版 v1 目录仍可展示但标记为 `LegacyUnsigned` | 篡改 payload、未知 key、无效签名、错误编码、来源不匹配和重复信任 key 必须拒绝；有效签名返回 `Verified` 状态；签名正文不记录到日志；本切片不改远程获取器、目录存储器或 UI 动作门控 | `ramag-app` 签名核心定向测试 6 项、严格 Clippy、格式检查和差异检查通过；签名获取器、签名缓存、设置页状态展示和下载/安装动作门控仍需独立切片；回滚只涉及 ring 依赖、签名模块、应用导出和本节记录 |
 | 38 | `RAMAG-PLUGIN-CATALOG-SIGNATURE-STORE-001` 签名目录获取与本地保存 | 已完成：增加 `fetch_document`、受控 runtime 保存和 `load_document` API；v2 目录按来源 URL 和信任策略重新验证，v1 返回 `LegacyUnsigned`，保存保留 signed envelope 字节；失败不覆盖旧文件 | signed catalog 重启后能重新核验；来源绑定变化、未知 key、签名错误和解析错误不会替换旧文件；现有裸 v1 API 保持兼容；本切片不改变设置页下载/安装按钮 | `ramag-app` fetcher/store 定向测试 10 项通过，签名核心 6 项通过，严格 Clippy、组合检查、格式检查和差异检查通过；Docker HTTPS 成功路径和设置页信任门控仍需独立验收；回滚只涉及 fetcher/store API、签名字节保存和本节记录 |
 
-上述顺序是当前唯一主线队列。普通开发不等待或监测 GitHub CI。只有发布 release 或用户明确要求时，才记录对应仓库、运行编号、提交和 job 结果。每完成一个独立切片，在本文件追加结果并更新表格状态，不创建并行计划或专项计划。
+#### 4.8.1 系统凭据测试隔离
+
+`RAMAG-STORE-001` 只修改凭据测试装配、必要的内部入口、CI 调用和说明。
+生产 `ramag/master-key` 名称、密钥格式、加密算法和现有数据库均不迁移。
+为每轮测试分配独立凭据名称，测试清理只能删除本轮创建的条目；失败和取消也要执行清理。
+普通错误返回和测试栈展开时执行清理；进程被强制终止或系统断电时可能残留随机测试条目。
+该限制不允许清理程序扩大到生产名称或其他运行创建的条目。
+
+通过条件：创建、读取、删除及缺少密钥错误在测试名称下成立；另一个测试名称中的哨兵密钥始终不变；
+测试入口不能把生产名称作为清理目标。不得通过删除或替换真实用户主密钥验证此条件。
+Linux 使用隔离 Secret Service，macOS 使用独立测试条目或账户；没有对应平台时保留该项未完成。
+原生 UI 不适用。
+
+验证：`cargo test --locked -p ramag-infra-storage --lib`；隔离完成后，在对应平台执行
+`cargo test --locked -p ramag-infra-storage --lib keyring::tests::system_credential_store_round_trips_isolated_master_key -- --ignored --exact --test-threads=1`。
+回滚只涉及测试隔离入口、测试、CI 步骤及说明，不删除用户凭据或数据库。
+
+#### 4.8.2 对象覆盖目标绑定
+
+`RAMAG-OBJECT-001` 将账号和挂载点随 `PendingTransferConflict` 一起保存，
+确认重试显式使用原目标，不再从当前选择推导。确认框显示账号、Bucket、Key 和本地路径。
+原目标被删除、关闭或配置失效时，停止重试并提示重新发起；迟到回调不能恢复已关闭会话的确认。
+不扩大为新的批量传输框架。
+
+通过条件：用可控延迟触发上传、下载冲突，分别在回调前切账号、切 Bucket、关闭原会话；
+确认后只操作原目标或明确拒绝，不能写入新选择的目标。取消不写文件。
+用本机 Docker S3 兼容测试服务及隔离账号、文件回读结果，再做 Windows 真实窗口确认框验收；
+不访问用户云账号。
+
+验证：`cargo test --locked -p ramag-tool-object-storage --lib`、
+`cargo test --locked -p ramag-app object_storage_service` 和对应对象存储集成测试。
+回滚只涉及冲突状态、覆盖重试入口、提示和回归测试，不改远端已有数据或账号存储格式。
+
+#### 4.8.3 模板展开资源上限
+
+`RAMAG-API-001` 在追加原文片段和替换值前，用受检长度计算核对 `max_bytes`。
+覆盖 Domain `resolve_template` 和基础设施 `expand_template`，避免任一路径先分配超限结果。
+可以复用已有领域实现，但不引入新的模板语法或表达式执行能力。
+
+通过条件：重复占位符、原文加替换值、末尾原文、多字节文本、恰好上限和超限均有边界测试；
+超限时在追加前返回现有错误，不发送请求。正常展开结果和缺失变量错误保持兼容。
+使用小预算测试真实实现，不生成耗尽内存的输入。此切片不修改界面，原生 UI 不适用。
+
+验证：`cargo test --locked -p ramag-domain --lib`、
+`cargo test --locked -p ramag-infra-api --lib`、
+`cargo test --locked -p ramag-app api_service`。
+回滚只涉及两个展开入口、最小调用适配及测试，不改保存的请求和环境变量。
+
+#### 4.8.4 请求切换与迟到结果隔离
+
+`RAMAG-API-002` 把打开已保存请求作为请求上下文切换处理。
+切换时取消原请求及 gRPC 发现，使两个代次失效，并清理旧加载状态和句柄。
+迟到结果不能覆盖新请求的响应、提示、目录或环境变量；执行历史是否保存仍由原执行流程负责。
+
+通过条件：发送 A 后打开 B，再释放 A 的延迟响应，B 的响应和环境保持不变；
+同样覆盖 gRPC 发现、同协议切换、跨协议切换及取消后重试。
+使用隔离 API 工作区和本机 Docker HTTP/gRPC 测试服务，做 Windows 真实窗口切换回归。
+
+验证：`cargo test --locked -p ramag-tool-api --lib`、
+`cargo test --locked -p ramag-app api_service` 和仓库 `scripts/api-test/` 对应流程。
+回滚只涉及上下文切换、取消及回调判断和测试，不清空用户工作区或历史。
+
+#### 4.8.5 编辑器字段往返保留
+
+`RAMAG-API-003` 在现有编辑器内保留 `timeout_millis`、HTTP query/header 的敏感标记，
+以及完整 gRPC metadata 的顺序、重复项和敏感标记。
+未提供编辑控件的字段先随请求快照保留，不因打开、发送或保存而恢复默认值或丢弃。
+不以本切片为理由重做 API 工作台。
+
+通过条件：构造非默认超时、多项 metadata 和敏感参数，执行“加载→不修改→保存/发送”，
+比较完整请求字段；再修改一个可见字段，其他字段仍保持。Debug 输出继续隐藏敏感值。
+回归覆盖 HTTP 与 gRPC，并在隔离 Windows 窗口中打开、保存和重新读取请求。
+
+验证：`cargo test --locked -p ramag-tool-api --lib`、
+`cargo test --locked -p ramag-app api_service`；网络发送行为使用本机 Docker 测试服务核验。
+回滚只涉及编辑器字段映射、必要的内存快照及测试，不更改现有持久化格式。
+
+#### 4.8.6 容器平台及页面切换
+
+`RAMAG-CONTAINER-001` 在平台或页面上下文变化时，使不再适用的请求失效。
+按实际作用域处理概览、列表、详情、Registry 和日志的代次、取消及加载状态；
+回调只能更新所属平台、页面和端点。优先使用现有状态，不为所有工具建立通用异步框架。
+
+通过条件：延迟 Docker 概览后切 Kubernetes，旧结果不能恢复 Docker 卡片、连接或清除新页面提示；
+延迟详情后切 Logs，旧结果不能恢复详情或写入旧错误；再切回原页仍能刷新并结束加载。
+在本机 WSL Docker 中读取测试容器，补 Windows 真实窗口切换回归；不新增 Kubernetes 功能。
+
+验证：`cargo test --locked -p ramag-tool-container --lib`、
+`cargo test --locked -p ramag-app container_service` 和对应 Docker 只读集成测试。
+回滚只涉及视图切换、请求状态和测试，不操作用户容器或数据卷。
+
+#### 4.8.7 可选采样特性严格检查
+
+`RAMAG-QUALITY-001` 将 profiling 测试中的可失败准备改为显式错误传播或匹配，
+不降低 lint 等级，不添加批量 `allow`，不修改正常采样、动画或渲染行为。
+在三平台现有质量流程中补充 `ui-profiling` 的严格检查与定向测试。
+
+通过条件：默认 workspace 检查继续通过，可选特性的 14 个 `expect_used` 全部消除，
+定向 7 项测试仍通过；新增 CI 入口的实际运行结果只在 release 或用户要求时核对。
+此切片仅改变测试和检查配置，原生 UI 与 Docker 集成不适用。
+
+验证：`cargo clippy --locked -p ramag-ui --features ui-profiling --all-targets -- -D warnings`、
+`cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1`，
+并保留 `cargo check --locked -p ramag-bin --features ui-profiling --examples`。
+回滚只涉及 profiling 测试、对应 CI 步骤和说明。
 
 ### 4.9 2026-11-07 UI 更新后的真实窗口验收
 
@@ -876,7 +1070,7 @@ Desktop Release run `42289929133` 已完成且结论为 `success`。Linux x86_64
 ### 4.14 2026-11-07 跨平台系统凭据与原生窗口验证入口
 
 为补充 `RAMAG-PLATFORM-001` 的系统凭据证据，新增被 `#[ignore]` 标记的
-`crates/ramag-infra-storage/tests/keyring_round_trip.rs`。普通 `cargo test` 不运行该测试，
+当时的 `crates/ramag-infra-storage/tests/keyring_round_trip.rs`。普通 `cargo test` 不运行该测试，
 避免改动开发机用户的 Keychain 或 Secret Service；测试创建主密钥、读取并比较同一主密钥，
 再删除条目并核对缺少主密钥时的停止错误。Linux Secret Service 在条目不存在时可能返回后端的“no result found”，
 因此测试不再把空条目的前置删除作为前提，避免把服务的空状态误判为失败。
@@ -890,7 +1084,11 @@ Desktop Release run `42289929133` 已完成且结论为 `success`。Linux x86_64
 - Windows 本机适用验证已通过 `ramag-infra-storage` 的 `78` 项单元测试和严格 Clippy；本轮没有执行 Linux 测试，
   也没有修改正常启动或凭据存储实现。
 
-该入口已经进入代码基线，但当前没有把普通开发的 GitHub CI 运行作为执行步骤。发布 release 或用户明确要求平台核对时，
+上述为入口加入时的历史记录。2026-11-07 审查确认当时的测试使用生产主密钥名称，
+须先完成 `RAMAG-STORE-001`；在隔离完成前，不在开发机执行该测试。
+历史测试入口不计为测试隔离验收通过。
+
+当前没有把普通开发的 GitHub CI 运行作为执行步骤。发布 release 或用户明确要求平台核对时，
 再读取一条完整的 Desktop CI 运行并记录仓库、提交、运行编号、job 和失败阶段。Linux/macOS 系统凭据、原生窗口 Smoke、
 退出重启回读和独立测试账户仍需按平台取得对应证据，CI 凭据测试和 Smoke 测试不能替代真实窗口步骤。
 
@@ -1401,6 +1599,29 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 `cargo fmt --all -- --check` 和 `git diff --check`。
 2026-11-13 已完成本切片。fetcher/store 定向测试 10 项通过，签名核心 6 项通过；设置页信任状态和下载/安装动作门控仍未完成。
 
+### 4.47 签名目录设置页接入
+
+`RAMAG-UI-PLUGIN-CATALOG-TRUST-001` 完成现有签名目录能力的调用链，不新增插件市场、
+自动更新或新的执行权限。组合根、启动读取和手动刷新使用 document API，
+把 `PluginPackageCatalogTrust` 与来源 URL 一起交给设置页。
+
+- 已验证目录显示签名 key 标识。旧版未签名目录可以展示，但说明未验证来源，
+  禁用从该目录发起的下载及安装，缓存恢复也不能绕过此检查。
+- 未知 key、错误签名、来源不匹配和读取失败保留旧目录文件；界面显示明确错误，
+  不能把失败结果标记为已验证。来源 URL 的保存和读取使用同一来源绑定规则。
+- 信任 key 只来自应用内置或调用方明确配置的信任策略。目录内容不能提供自己的信任 key。
+  本地手动选择归档的独立安装路径保持原有行为，不冒充签名目录安装。
+
+通过条件：有效签名、旧版目录、签名错误、来源变化、重启读取、刷新后缓存恢复和下载/安装
+操作均有针对真实实现的回归测试。在隔离 Windows 配置和真实窗口中检查状态、按钮及错误反馈；
+使用本机 WSL Docker HTTPS 测试服务验证签名目录获取、保存和失败后保留旧文件。
+不访问用户插件目录、云账号或生产凭据，不执行第三方插件。
+
+验证：`cargo test --locked -p ramag-app --lib plugin_package_catalog`、
+`cargo test --locked -p ramag-ui --lib plugin_diagnostics`、
+`cargo check --locked -p ramag-bin --all-targets` 和第 6 节适用检查。
+回滚只涉及组合根、目录信任状态传递、设置页操作检查及对应测试，不删除用户插件或安装记录。
+
 ## 5. 条件限制与未纳入执行的事项
 
 以下内容保留其未验证状态，不因合并文档自动启动新功能。
@@ -1415,17 +1636,19 @@ Rust 编译、UI 操作和 Docker 集成测试不适用。回滚范围只包括 
 | WSL 启动 | `Ubuntu-24.04` Docker Engine 和登录任务已有手动运行检查；实际重新登录/重启后的启动仍未验证，见[开发入门指南](03-development-guide.md#95-wsl-docker-环境) |
 | 历史数据恢复 | [2026-10-06 测试报告](testing/2026-10-06-ui-integration-test-report.md#ssh-清理事故与恢复状态)记录用户 `known_hosts` 未恢复，仍需匹配备份或用户确认重新核验；新测试通过不能关闭此事项 |
 | 隔离验收数据 | 保留本轮更新验收的隔离配置、缓存和日志，以及部分旧验收临时目录，便于复核。后续清理先确认专用目录和保留需要，不删除用户配置、凭据或既有服务数据 |
+| 插件包跨平台摘要 | 当前目录摘要使用本机相对路径表示，Windows 的反斜杠与 Unix 的正斜杠会得到不同摘要。现有安装器与启动核验使用同一规则；不能由本机测试推定同一归档跨平台可安装。统一规则需要明确格式版本和旧 Windows 包的兼容处理，不能在文件拆分中静默更改 |
 
 ## 6. 验证命令与证据规则
 
 文档变更检查 UTF-8、LF、Markdown 结构、相对链接与章节锚点，并运行 `git diff --check`。
 仅改文档时，Rust 编译、UI 操作和 Docker 集成测试标记为“不适用”。
 
-Rust 变更从 workspace 根目录执行。当前 Windows 主机已配置 MSVC 环境，不执行仓库的
-`enable-msvc-toolchain.ps1`。只有在环境验证失败或需要建立干净的 CI 仿真进程时，才单独处理工具链初始化。
-先确认 stable Rust 使用 MSVC 主机：
+Rust 变更从 workspace 根目录执行。Windows 在执行 Cargo 的同一 PowerShell 进程内，
+先使用仓库支持的脚本初始化 MSVC/CMake，再确认 stable Rust 使用 MSVC 主机。
+不把其他进程的环境或历史安装记录当作本次工具链证据：
 
 ```powershell
+. ./scripts/windows/enable-msvc-toolchain.ps1
 rustup run stable rustc -Vv
 # 预期 host 为 x86_64-pc-windows-msvc
 cargo fmt --all -- --check
@@ -1444,6 +1667,7 @@ Linux 编译使用 WSL 中的仓库路径和 Linux stable Rust。Linux/macOS 测
 
 ```powershell
 cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1
+cargo clippy --locked -p ramag-ui --features ui-profiling --all-targets -- -D warnings
 cargo check --locked -p ramag-bin --features ui-profiling --examples
 cargo build --locked --release -p ramag-bin --features ui-profiling
 ```

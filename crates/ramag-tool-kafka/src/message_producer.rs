@@ -19,7 +19,7 @@ impl KafkaView {
             cx.notify();
             return false;
         }
-        if self.producing
+        !(self.producing
             || self.loading_runtime
             || self.testing
             || self.saving
@@ -27,11 +27,7 @@ impl KafkaView {
             || self.topic_operation
             || self.acl_operation
             || self.consumer_group_operation
-            || self.updating_config
-        {
-            return false;
-        }
-        true
+            || self.updating_config)
     }
 
     /// 从消息生产表单构造一个有界请求；Value 作为 UTF-8 文本转成原始字节。

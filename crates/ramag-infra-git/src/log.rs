@@ -190,12 +190,8 @@ fn has_log_start(repo_path: &Path, opts: &LogOptions) -> Result<bool> {
     // 不能把该错误误当成“仓库尚无首个 commit”。
     run_git_bytes(repo_path, &["rev-parse", "--git-dir"])?;
     // 新仓库没有 HEAD 是正常空态。
-    if opts.start.is_none()
-        && !run_git_probe(repo_path, &["rev-parse", "--verify", "--quiet", "HEAD"])?
-    {
-        return Ok(false);
-    }
-    Ok(true)
+    Ok(opts.start.is_some()
+        || run_git_probe(repo_path, &["rev-parse", "--verify", "--quiet", "HEAD"])?)
 }
 
 fn build_log_args(opts: &LogOptions, include_page: bool) -> Vec<String> {

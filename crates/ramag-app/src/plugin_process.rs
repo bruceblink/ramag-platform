@@ -1,14 +1,12 @@
 //! 进程外插件宿主；直接启动包内入口并通过协议层通信，不经过 Shell。
 
-use std::collections::HashSet;
 use std::collections::VecDeque;
-use std::path::{Component, Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
 use parking_lot::Mutex as ParkingMutex;
-use ramag_domain::traits::CURRENT_PLUGIN_API_VERSION;
 use ramag_domain::{
     PluginApiVersion, PluginCapability, PluginPackageManifest, PluginPackageManifestError,
 };
@@ -23,6 +21,14 @@ use crate::plugin_process_protocol::{
     CURRENT_PLUGIN_PROTOCOL_VERSION, PluginHello, PluginInvoke, PluginProcessMessage,
     PluginResponse, PluginShutdown, read_frame, write_frame,
 };
+use validation::{
+    canonical_package_root, configure_plugin_environment, response_result,
+    validate_granted_capabilities, validate_ready, verify_package_digest,
+};
+
+#[path = "plugin_process_validation.rs"]
+mod validation;
+pub use validation::resolve_plugin_entrypoint;
 
 /// 进程外插件宿主的默认握手、调用和关闭超时。
 pub const DEFAULT_PLUGIN_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -378,178 +384,6 @@ impl PluginProcessHost {
 }
 
 /// 启动外部代码前重新核对包内容，避免安装后文件被替换仍按 enabled 状态执行。
-fn verify_package_digest(
-    package_root: &Path,
-    manifest: &PluginPackageManifest,
-) -> Result<(), PluginProcessError> {
-    let actual =
-        crate::plugin_package_installer::package_digest(package_root).map_err(|error| {
-            PluginProcessError::PackageVerification {
-                message: error.to_string(),
-            }
-        })?;
-    if actual != manifest.package_sha256 {
-        return Err(PluginProcessError::PackageDigestMismatch {
-            expected: manifest.package_sha256.clone(),
-            actual,
-        });
-    }
-    Ok(())
-}
-
-/// 清空继承环境，只保留启动插件所需的搜索路径和宿主元数据。
-fn configure_plugin_environment(
-    command: &mut Command,
-    _manifest: &PluginPackageManifest,
-    _package_root: &Path,
-) {
-    let path = std::env::var_os("PATH");
-    command.env_clear();
-    if let Some(path) = path {
-        command.env("PATH", path);
-    }
-    #[cfg(target_os = "windows")]
-    if let Some(system_root) = std::env::var_os("SystemRoot") {
-        command.env("SystemRoot", system_root);
-    }
-}
-
-/// 解析并验证插件包内入口，拒绝绝对路径、父目录和符号链接逃逸。
-pub fn resolve_plugin_entrypoint(
-    package_root: &Path,
-    manifest: &PluginPackageManifest,
-) -> Result<PathBuf, PluginProcessError> {
-    let root = canonical_package_root(package_root)?;
-    let relative = Path::new(&manifest.entrypoint);
-    if relative.is_absolute()
-        || relative.components().any(|component| {
-            matches!(
-                component,
-                Component::ParentDir | Component::RootDir | Component::Prefix(_)
-            )
-        })
-    {
-        return Err(PluginProcessError::InvalidEntrypoint {
-            entrypoint: manifest.entrypoint.clone(),
-        });
-    }
-    let mut cursor = root.clone();
-    for component in relative.components() {
-        let Component::Normal(segment) = component else {
-            return Err(PluginProcessError::InvalidEntrypoint {
-                entrypoint: manifest.entrypoint.clone(),
-            });
-        };
-        cursor.push(segment);
-        let metadata = std::fs::symlink_metadata(&cursor)
-            .map_err(|source| PluginProcessError::Path { source })?;
-        if metadata.file_type().is_symlink() {
-            return Err(PluginProcessError::SymlinkEntrypoint { path: cursor });
-        }
-    }
-    let entrypoint = cursor
-        .canonicalize()
-        .map_err(|source| PluginProcessError::Path { source })?;
-    if !entrypoint.starts_with(&root) {
-        return Err(PluginProcessError::EntrypointEscape { path: entrypoint });
-    }
-    if !entrypoint.is_file() {
-        return Err(PluginProcessError::EntrypointNotFile { path: entrypoint });
-    }
-    Ok(entrypoint)
-}
-
-fn canonical_package_root(package_root: &Path) -> Result<PathBuf, PluginProcessError> {
-    if !package_root.is_absolute() {
-        return Err(PluginProcessError::PackageRootNotAbsolute {
-            path: package_root.to_path_buf(),
-        });
-    }
-    let metadata = std::fs::symlink_metadata(package_root)
-        .map_err(|source| PluginProcessError::Path { source })?;
-    if metadata.file_type().is_symlink() {
-        return Err(PluginProcessError::PackageRootSymlink {
-            path: package_root.to_path_buf(),
-        });
-    }
-    let root = package_root
-        .canonicalize()
-        .map_err(|source| PluginProcessError::Path { source })?;
-    if !root.is_dir() {
-        return Err(PluginProcessError::PackageRootNotDirectory { path: root });
-    }
-    Ok(root)
-}
-
-fn validate_granted_capabilities(
-    capabilities: &[PluginCapability],
-) -> Result<(), PluginProcessError> {
-    let mut seen = HashSet::with_capacity(capabilities.len());
-    for capability in capabilities {
-        if !capability.is_known() {
-            return Err(PluginProcessError::UnknownCapability {
-                capability: capability.as_str().to_owned(),
-            });
-        }
-        if !seen.insert(capability) {
-            return Err(PluginProcessError::DuplicateCapability {
-                capability: capability.as_str().to_owned(),
-            });
-        }
-    }
-    Ok(())
-}
-
-fn validate_ready(
-    manifest: &PluginPackageManifest,
-    message: PluginProcessMessage,
-) -> Result<(), PluginProcessError> {
-    let PluginProcessMessage::Ready(ready) = message else {
-        return Err(PluginProcessError::UnexpectedMessage);
-    };
-    if ready.plugin_id != manifest.id {
-        return Err(PluginProcessError::HandshakeIdentity {
-            expected: manifest.id.to_string(),
-            actual: ready.plugin_id.to_string(),
-        });
-    }
-    if ready.api_version.major != manifest.api_version.major
-        || !ready
-            .api_version
-            .is_supported_by(CURRENT_PLUGIN_API_VERSION)
-    {
-        return Err(PluginProcessError::HandshakeApi {
-            expected: manifest.api_version,
-            actual: ready.api_version,
-        });
-    }
-    let declared = manifest
-        .capabilities
-        .iter()
-        .map(|capability| capability.as_str())
-        .collect::<HashSet<_>>();
-    for capability in &ready.capabilities {
-        if !declared.contains(&capability.as_str()) {
-            return Err(PluginProcessError::HandshakeCapability {
-                capability: capability.as_str().to_owned(),
-            });
-        }
-    }
-    Ok(())
-}
-
-fn response_result(response: PluginResponse) -> Result<Vec<u8>, PluginProcessError> {
-    if response.ok {
-        Ok(response.output)
-    } else {
-        Err(PluginProcessError::Remote {
-            message: response
-                .error
-                .unwrap_or_else(|| "插件返回未说明的失败".into()),
-        })
-    }
-}
-
 async fn drain_stderr(mut stderr: ChildStderr, tail: Arc<ParkingMutex<VecDeque<u8>>>) {
     let mut buffer = [0_u8; 4096];
     loop {
