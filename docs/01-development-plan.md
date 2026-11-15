@@ -162,7 +162,6 @@ host 为 `x86_64-pc-windows-msvc`，得到以下本地结果。Cargo 使用离�
 
 | 顺序 | 任务 | 状态与依赖 |
 |---|---|---|
-| 6 | `RAMAG-CONTAINER-001` 平台及页面切换失效处理 | 待修复，P2；旧概览、详情和错误不能更新新平台或页面 |
 | 7 | `RAMAG-QUALITY-001` 可选采样特性严格检查 | 待修复，P2；修复 14 个测试告警并补齐对应特性的严格检查入口 |
 | 8 | `RAMAG-PLUGIN-PROCESS-JOB-001` Windows 进程树清理验收 | 代码已实现；在本机 MSVC 构建中运行真实入口与子孙进程测试，不能以 macOS 跨目标检查替代 |
 | 9 | `RAMAG-UI-PLUGIN-CATALOG-TRUST-001` 签名目录设置页接入 | 待实施；组合根、启动恢复和刷新传递来源信任状态，未验证目录不能触发下载或安装；先在本计划补齐范围与验收细节 |
@@ -1107,6 +1106,40 @@ Computer Use 核对 HTTP 查询参数、请求头、保存及 HTTP 200 响应；
 验证：`cargo test --locked -p ramag-tool-container --lib`、
 `cargo test --locked -p ramag-app container_service` 和对应 Docker 只读集成测试。
 回滚只涉及视图切换、请求状态和测试，不操作用户容器或数据卷。
+
+2026-11-15 本轮实施范围：复用容器视图现有请求编号，在平台、页面、Docker 地址和
+Registry 配置变化时使旧请求失效，结束不再适用的加载状态并取消日志与指标读取。
+Kubernetes 页面不向 Docker 服务发起查询。回归测试等待实际 UI 回调被拒绝的通知，
+不以驱动返回或固定等待代替；原生预览只接入明确配置的本机测试端点。
+先运行容器视图、应用服务定向测试，再执行第 6 节默认 workspace 检查。
+本机 Docker 只读查询和 Windows 真实窗口切换分别记录，不创建或修改用户容器。
+
+2026-11-15 已完成本切片。平台、页面、Docker 地址及 Registry 地址或 HTTP 策略变化，
+均使旧请求编号失效，结束旧加载状态，并取消已持有的日志和指标读取。
+Kubernetes 页面不再调用 Docker 查询，且不显示 Windows Docker 连接建议。
+容器视图测试 `49 passed`，其中新增九项 GPUI 上下文回归和两项端点状态回归；
+测试分别覆盖旧概览成功及失败、旧列表、旧详情成功及失败、Registry 地址和策略变化、
+日志与指标取消，以及 Kubernetes 提示。旧回调被拒的结果来自实际 GPUI 回调通知。
+应用服务定向测试 `10 passed`。默认 workspace 串行测试以 `exit 0` 结束；
+workspace 全目标编译、全目标严格 Clippy、格式、源码行数、日志规范及差异检查通过。
+`ramag-bin` 和 `ui-preview` Debug 构建通过。环境为 Rust `1.100.0`、
+`x86_64-pc-windows-msvc`、Visual Studio 18 2026 x64；Cargo 仍报告已有未使用依赖提示，
+本片没有降低 lint 等级或隐藏提示。
+
+Docker 验收使用 WSL `Ubuntu-24.04` 的 Docker Engine `29.1.3`，已有
+`ramag-api-http-test:python-3.12.11-alpine-3.22` 测试容器保持 `healthy`，
+端口 `127.0.0.1:18089/18091`。Windows 通过本轮临时 named pipe 转接 WSL
+`docker system dial-stdio`；转接器只允许 GET，已核对写请求返回 `405`。
+`container::tests` 两项通过，包含真实服务读取概览、筛选该测试容器、详情及日志。
+没有创建、重启、修改或删除容器和数据卷，也没有更改 Docker 监听或使用 SSH 凭据。
+临时转接器在本轮结束时关闭，既有测试容器继续保留。
+
+Computer Use 在 Windows 隔离预览窗口中核对深色 `1440x900` 和最终构建的浅色
+`1024x768`：显式延迟三秒后读取真实 Docker 数据；刷新时切 Kubernetes，再切资源页，
+旧概览未恢复 Docker 卡片或连接；返回 Docker 后重新读取并结束加载。
+深色窗口还核对测试容器详情刷新后切日志页，旧详情未重开、错误未写入日志页；
+窗口均正常退出，进程专属临时数据已清理。原生最小尺寸以下只采用现有 headless
+边界测试，不宣称小屏或 Linux/macOS 原生窗口通过。本次没有开始全工具换肤、发布或监测 CI。
 
 #### 4.8.7 可选采样特性严格检查
 

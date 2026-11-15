@@ -19,4 +19,5 @@ gpui-kit = { workspace = true }
 rfd = { workspace = true }
 
 [dev-dependencies]
+async-trait = { workspace = true }
 gpui-kit = { workspace = true, features = ["test-support"] }

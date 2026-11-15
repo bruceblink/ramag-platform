@@ -4,12 +4,16 @@
 //! API：api-local；连接 scripts/api-test 的本机 HTTP/gRPC 服务，包含可延迟的验收请求。
 //! 插件诊断：plugin-empty 或 plugin-failure；两者只构造本次窗口的受控验收状态。
 //! 对象存储：object_storage；只读取 RAMAG_OBJECT_PREVIEW_* 配置的本机回环测试服务。
+//! 容器：container-local；只使用 RAMAG_CONTAINER_PREVIEW_ENDPOINT 显式指定的本机只读 Docker 端点。
+//! RAMAG_CONTAINER_PREVIEW_DELAY=3s 可延迟只读请求，用于检查切换平台或页面后的旧回调。
 //! 数据同步遮罩：sync-progress、sync-cancel、sync-failure 或 sync-summary；只注入门禁状态。
 //! settings/update 模式支持 Release 手动检查；MQTT 预览不会自动连接或启动 Broker。
 //! 仅创建进程专属临时 redb，不写系统凭据库，退出时清理临时文件。
 
 #[path = "ui_preview/api.rs"]
 mod api;
+#[path = "ui_preview/container.rs"]
+mod container;
 #[path = "ui_preview/dbclient.rs"]
 mod dbclient;
 #[path = "ui_preview/object_storage.rs"]
@@ -210,6 +214,14 @@ fn main() -> anyhow::Result<()> {
         .filter(|arg| arg != "--smoke")
         .collect();
     let page = args.first().cloned().unwrap_or_else(|| "settings".into());
+    let container_endpoint = (page == "container-local")
+        .then(container::preview_endpoint)
+        .transpose()?;
+    // ContainerView initializes from DOCKER_HOST; set only the already
+    // validated preview endpoint before storage and GPUI workers start.
+    if let Some(endpoint) = &container_endpoint {
+        unsafe { std::env::set_var("DOCKER_HOST", endpoint) };
+    }
     let mode = if args.get(1).is_some_and(|mode| mode == "dark") {
         Mode::Dark
     } else {
@@ -271,6 +283,10 @@ fn main() -> anyhow::Result<()> {
     let preview = dbclient::DbclientPreview::new(storage.clone())?;
     let api_service = (page == "api-local")
         .then(|| api::service(storage.clone()))
+        .transpose()?;
+    let container_services = container_endpoint
+        .as_deref()
+        .map(container::service)
         .transpose()?;
     let object_storage_service = (page == "object_storage")
         .then(|| object_storage::service(storage.clone()))
@@ -349,8 +365,9 @@ fn main() -> anyhow::Result<()> {
                         Some(service) => ramag_tool_api::create_api_view(service, window, cx),
                         None => cx.new(|cx| ramag_tool_api::ApiView::new(window, cx)),
                     };
-                    let containers =
-                        cx.new(|cx| ramag_tool_container::ContainerView::new(window, cx));
+                    let containers = container_services.as_ref().map(|service| {
+                        ramag_tool_container::create_container_view(service.clone(), window, cx)
+                    });
                     let object_storage_view = object_storage_service.as_ref().map(|service| {
                         ramag_tool_object_storage::create_object_storage_view(
                             service.clone(),
@@ -370,7 +387,13 @@ fn main() -> anyhow::Result<()> {
                         shell.set_home_view(home, window, cx);
                         shell.set_settings_view(settings.into());
                         shell.register_tool_view("api", api.into());
-                        shell.register_tool_view("container", containers.into());
+                        if let Some(containers) = containers {
+                            shell.register_tool_view("container", containers.into());
+                        } else {
+                            let containers =
+                                cx.new(|cx| ramag_tool_container::ContainerView::new(window, cx));
+                            shell.register_tool_view("container", containers.into());
+                        }
                         shell.register_tool_view("ssh", ssh_view.into());
                         shell.register_tool_view("system", monitor.into());
                         shell.register_tool_view("dbclient", dbclient.into());
@@ -389,6 +412,7 @@ fn main() -> anyhow::Result<()> {
                             }
                             "home" => NavTarget::Home,
                             "api-local" => NavTarget::Tool("api".into()),
+                            "container-local" => NavTarget::Tool("container".into()),
                             _ => NavTarget::Tool(page),
                         };
                         shell.navigate_to(target, window, cx);

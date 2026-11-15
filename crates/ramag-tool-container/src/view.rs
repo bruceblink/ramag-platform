@@ -331,6 +331,8 @@ pub struct ContainerView {
     detail_loading: bool,
     error: Option<String>,
     request_id: u64,
+    #[cfg(test)]
+    request_completions: Option<async_channel::Sender<(u64, bool)>>,
 }
 
 impl ContainerView {
@@ -374,8 +376,10 @@ impl ContainerView {
         });
         let endpoint_for_observer = endpoint.clone();
         view.registry_input_subscription = Some(cx.observe(&endpoint, move |view, _, cx| {
-            view.registry_endpoint = endpoint_for_observer.read(cx).value().to_string();
-            cx.notify();
+            let endpoint = endpoint_for_observer.read(cx).value().to_string();
+            if view.apply_registry_configuration(endpoint, view.registry_allow_insecure_http) {
+                cx.notify();
+            }
         }));
         view.registry_endpoint_input = Some(endpoint);
         view.refresh(cx);
@@ -438,6 +442,8 @@ impl ContainerView {
             detail_loading: false,
             error: None,
             request_id: 0,
+            #[cfg(test)]
+            request_completions: None,
         }
     }
 
@@ -487,6 +493,9 @@ impl ContainerView {
     }
 
     fn refresh(&mut self, cx: &mut Context<Self>) {
+        if self.platform != ContainerPlatform::Docker {
+            return;
+        }
         if self.section == ContainerSection::Registry {
             self.refresh_registry(cx);
             return;
@@ -499,7 +508,7 @@ impl ContainerView {
         };
         self.sync_docker_endpoint(cx);
         self.sync_resource_search(cx);
-        self.request_id = self.request_id.wrapping_add(1);
+        self.invalidate_requests();
         let request_id = self.request_id;
         let profile = self.profile.clone();
         let section = self.section;
@@ -535,7 +544,7 @@ impl ContainerView {
                 ContainerSection::Registry => unreachable!("Registry 已在 refresh_registry 处理"),
             };
             let _ = this.update(async_cx, |view, cx| {
-                if view.request_id != request_id {
+                if !view.is_current_request(request_id) {
                     return;
                 }
                 view.apply_load_result(result);
@@ -579,15 +588,21 @@ impl ContainerView {
     }
 
     fn refresh_registry(&mut self, cx: &mut Context<Self>) {
+        if self.platform != ContainerPlatform::Docker || self.section != ContainerSection::Registry
+        {
+            return;
+        }
         let Some(service) = self.registry_service.clone() else {
             return;
         };
+        self.invalidate_requests();
         let endpoint = self
             .registry_endpoint_input
             .as_ref()
             .map(|input| input.read(cx).value().to_string())
             .unwrap_or_else(|| self.registry_endpoint.clone());
-        self.registry_endpoint = endpoint.clone();
+        self.apply_registry_configuration(endpoint.clone(), self.registry_allow_insecure_http);
+        self.clear_registry_data();
         let profile = ContainerRegistryProfile::new("当前 Registry", endpoint)
             .with_insecure_http(self.registry_allow_insecure_http);
         if let Err(error) = profile.validate() {
@@ -599,14 +614,12 @@ impl ContainerView {
         }
         self.registry_loading = true;
         self.registry_error = None;
-        self.registry_tags = None;
-        let request_id = self.request_id.wrapping_add(1);
-        self.request_id = request_id;
+        let request_id = self.request_id;
         cx.notify();
         cx.spawn(async move |this, async_cx| {
             let result = service.list_repositories(&profile, None).await;
             let _ = this.update(async_cx, |view, cx| {
-                if view.request_id != request_id {
+                if !view.is_current_request(request_id) {
                     return;
                 }
                 view.registry_loading = false;
@@ -618,22 +631,27 @@ impl ContainerView {
     }
 
     fn load_registry_tags(&mut self, repository: String, cx: &mut Context<Self>) {
+        if self.platform != ContainerPlatform::Docker || self.section != ContainerSection::Registry
+        {
+            return;
+        }
         let Some(service) = self.registry_service.clone() else {
             return;
         };
+        self.invalidate_requests();
         let endpoint = self.registry_endpoint.clone();
         let profile = ContainerRegistryProfile::new("当前 Registry", endpoint)
             .with_insecure_http(self.registry_allow_insecure_http);
         self.selected_registry_repository = Some(repository.clone());
         self.registry_loading = true;
         self.registry_error = None;
-        let request_id = self.request_id.wrapping_add(1);
-        self.request_id = request_id;
+        self.registry_tags = None;
+        let request_id = self.request_id;
         cx.notify();
         cx.spawn(async move |this, async_cx| {
             let result = service.list_tags(&profile, None, &repository).await;
             let _ = this.update(async_cx, |view, cx| {
-                if view.request_id != request_id {
+                if !view.is_current_request(request_id) {
                     return;
                 }
                 view.registry_loading = false;
@@ -679,9 +697,11 @@ impl ContainerView {
         if self.platform == platform {
             return;
         }
+        self.invalidate_requests();
         self.platform = platform;
         self.section = ContainerSection::Overview;
         self.clear_resource_state();
+        self.clear_registry_data();
         self.error = (platform == ContainerPlatform::Kubernetes)
             .then(|| "Kubernetes 只读查询将在 CMT-007 接入".into());
         cx.notify();
@@ -694,10 +714,15 @@ impl ContainerView {
         if self.section == section {
             return;
         }
+        self.invalidate_requests();
         self.section = section;
-        self.selected_detail = None;
-        self.clear_container_stats();
+        self.clear_resource_data();
+        self.clear_registry_data();
+        if self.platform == ContainerPlatform::Docker {
+            self.error = None;
+        }
         self.refresh(cx);
+        cx.notify();
     }
 
     /// Keep the sort choice local to each resource table and toggle direction
@@ -714,15 +739,23 @@ impl ContainerView {
     }
 
     fn load_detail(&mut self, id: String, cx: &mut Context<Self>) {
+        if self.platform != ContainerPlatform::Docker
+            || !matches!(
+                self.section,
+                ContainerSection::Containers
+                    | ContainerSection::Images
+                    | ContainerSection::Networks
+                    | ContainerSection::Volumes
+            )
+        {
+            return;
+        }
         let Some(service) = self.service.clone() else {
             return;
         };
         let profile = self.profile.clone();
         let section = self.section;
-        if let Some(cancellation) = self.stats_cancellation.take() {
-            cancellation.store(true, Ordering::Relaxed);
-        }
-        self.stats_loading = false;
+        self.invalidate_requests();
         if section == ContainerSection::Containers
             && !matches!(
                 &self.selected_detail,
@@ -731,7 +764,6 @@ impl ContainerView {
         {
             self.clear_container_stats();
         }
-        self.request_id = self.request_id.wrapping_add(1);
         let request_id = self.request_id;
         self.detail_loading = true;
         self.error = None;
@@ -755,7 +787,7 @@ impl ContainerView {
                 ContainerSection::Registry => return,
             };
             let _ = this.update(async_cx, |view, cx| {
-                if view.request_id != request_id {
+                if !view.is_current_request(request_id) {
                     return;
                 }
                 view.detail_loading = false;
@@ -782,7 +814,7 @@ impl ContainerView {
     /// Closing details invalidates pending detail reads and cancels owned metrics
     /// work so a late response cannot reopen the panel or retain its history.
     fn close_detail(&mut self, cx: &mut Context<Self>) {
-        self.request_id = self.request_id.wrapping_add(1);
+        self.invalidate_requests();
         self.selected_detail = None;
         self.detail_loading = false;
         self.detail_scroll = ScrollHandle::new();
@@ -794,23 +826,20 @@ impl ContainerView {
         let Some(service) = self.service.clone() else {
             return;
         };
-        if let Some(cancellation) = self.stats_cancellation.take() {
-            cancellation.store(true, Ordering::Relaxed);
-        }
+        self.invalidate_requests();
         let cancellation = Arc::new(AtomicBool::new(false));
         let profile = self.profile.clone();
         self.stats_loading = true;
         self.stats_cancellation = Some(cancellation.clone());
         self.error = None;
-        let request_id = self.request_id.wrapping_add(1);
-        self.request_id = request_id;
+        let request_id = self.request_id;
         cx.notify();
         cx.spawn(async move |this, async_cx| {
             let result = service
                 .container_stats(&profile, &container_id, cancellation.clone())
                 .await;
             let _ = this.update(async_cx, |view, cx| {
-                if view.request_id != request_id {
+                if !view.is_current_request(request_id) {
                     return;
                 }
                 view.apply_container_stats_result(result);
@@ -847,13 +876,9 @@ impl ContainerView {
         let Some(service) = self.service.clone() else {
             return;
         };
+        self.invalidate_requests();
+        self.clear_resource_data();
         let profile = self.profile.clone();
-        if let Some(cancellation) = self.log_cancellation.take() {
-            cancellation.store(true, Ordering::Relaxed);
-        }
-        if let Some(cancellation) = self.log_follow_cancellation.take() {
-            cancellation.store(true, Ordering::Relaxed);
-        }
         let cancellation = Arc::new(AtomicBool::new(false));
         self.section = ContainerSection::Logs;
         self.selected_detail = None;
@@ -872,7 +897,6 @@ impl ContainerView {
         self.pending_follow_bytes = 0;
         self.logs_follow_evicted_lines = 0;
         self.error = None;
-        self.request_id = self.request_id.wrapping_add(1);
         let request_id = self.request_id;
         cx.notify();
         cx.spawn(async move |this, async_cx| {
@@ -881,7 +905,7 @@ impl ContainerView {
                 .container_logs_with_cancel(&profile, &container_id, &query, cancellation)
                 .await;
             let _ = this.update(async_cx, |view, cx| {
-                if view.request_id != request_id {
+                if !view.is_current_request(request_id) {
                     return;
                 }
                 view.logs_loading = false;
@@ -923,7 +947,7 @@ impl ContainerView {
             Err(TrySendError::Closed(_)) => ContainerLogSinkResult::Closed,
         });
 
-        self.request_id = self.request_id.wrapping_add(1);
+        self.invalidate_requests();
         let request_id = self.request_id;
         self.logs_following = true;
         self.log_follow_cancellation = Some(cancellation.clone());
@@ -947,7 +971,7 @@ impl ContainerView {
                 )
                 .await;
             let _ = this.update(async_cx, |view, cx| {
-                if view.request_id != request_id {
+                if !view.is_current_request(request_id) {
                     return;
                 }
                 if view.log_follow_paused {
@@ -966,7 +990,7 @@ impl ContainerView {
         cx.spawn(async move |this, async_cx| {
             while let Ok(line) = receiver.recv().await {
                 let _ = this.update(async_cx, |view, cx| {
-                    if view.request_id != request_id {
+                    if !view.is_current_request(request_id) {
                         return;
                     }
                     if view.log_follow_paused {
@@ -986,7 +1010,7 @@ impl ContainerView {
             return;
         };
         cancellation.store(true, Ordering::Relaxed);
-        self.request_id = self.request_id.wrapping_add(1);
+        self.invalidate_requests();
         self.logs_following = false;
         self.log_follow_paused = false;
         self.pending_follow_lines.clear();
@@ -1191,7 +1215,7 @@ impl ContainerView {
             return;
         };
         cancellation.store(true, Ordering::Relaxed);
-        self.request_id = self.request_id.wrapping_add(1);
+        self.invalidate_requests();
         self.logs_loading = false;
         self.error = Some("容器日志读取已取消；迟到结果不会写入当前页面".into());
         cx.notify();
@@ -1220,8 +1244,7 @@ impl ContainerView {
             .as_ref()
             .map(|input| input.read(cx).value().trim().to_owned())
             .unwrap_or_else(|| self.docker_endpoint.trim().to_owned());
-        self.docker_endpoint = endpoint.clone();
-        self.profile.address = endpoint;
+        self.apply_docker_endpoint_change(endpoint);
     }
 
     // Ignore delayed observations for an endpoint already synchronized by a refresh.
@@ -1235,10 +1258,11 @@ impl ContainerView {
 
         self.docker_endpoint = endpoint.clone();
         self.profile.address = endpoint;
-        self.request_id = self.request_id.wrapping_add(1);
-        self.loading = false;
+        self.invalidate_requests();
         self.clear_resource_state();
-        self.error = None;
+        if self.platform == ContainerPlatform::Docker {
+            self.error = None;
+        }
         true
     }
 
@@ -1256,6 +1280,65 @@ impl ContainerView {
         }
     }
 
+    /// 所有读取共享请求编号。上下文变化时先结束旧状态，迟到回调只会被拒绝，
+    /// 不负责清理新页面的加载状态；没有取消接口的单次查询允许在后台结束。
+    fn invalidate_requests(&mut self) {
+        self.request_id = self.request_id.wrapping_add(1);
+        self.loading = false;
+        self.detail_loading = false;
+        self.registry_loading = false;
+        self.logs_loading = false;
+        self.logs_following = false;
+        self.stats_loading = false;
+        for cancellation in [
+            self.log_cancellation.take(),
+            self.log_follow_cancellation.take(),
+            self.stats_cancellation.take(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            cancellation.store(true, Ordering::Relaxed);
+        }
+        self.log_follow_paused = false;
+        self.pending_follow_lines.clear();
+        self.pending_follow_bytes = 0;
+    }
+
+    fn is_current_request(&self, request_id: u64) -> bool {
+        let accepted = self.request_id == request_id;
+        #[cfg(test)]
+        if let Some(completions) = &self.request_completions {
+            let _ = completions.try_send((request_id, accepted));
+        }
+        accepted
+    }
+
+    fn apply_registry_configuration(
+        &mut self,
+        endpoint: String,
+        allow_insecure_http: bool,
+    ) -> bool {
+        let endpoint = endpoint.trim().to_owned();
+        if self.registry_endpoint == endpoint
+            && self.registry_allow_insecure_http == allow_insecure_http
+        {
+            return false;
+        }
+        self.invalidate_requests();
+        self.registry_endpoint = endpoint;
+        self.registry_allow_insecure_http = allow_insecure_http;
+        self.clear_registry_data();
+        true
+    }
+
+    fn clear_registry_data(&mut self) {
+        self.registry_repositories = None;
+        self.registry_tags = None;
+        self.selected_registry_repository = None;
+        self.registry_error = None;
+    }
+
     fn clear_resource_state(&mut self) {
         self.connection = None;
         self.clear_resource_data();
@@ -1264,6 +1347,7 @@ impl ContainerView {
     /// Clear the selected page and its owned work while retaining the last
     /// successful Engine handshake across resource navigation and refreshes.
     fn clear_resource_data(&mut self) {
+        self.detail_loading = false;
         self.overview = None;
         self.containers = None;
         self.images = None;
@@ -1348,6 +1432,7 @@ impl Render for ContainerView {
                     )
                     .child(
                         ramag_ui::clickable_button("container-refresh")
+                            .debug_selector(|| "container-refresh".into())
                             .ghost()
                             .small()
                             .icon(ramag_ui::icons::refresh_cw())
@@ -1630,11 +1715,12 @@ impl ContainerView {
             }
         }
         if let Some(error) = &self.error {
-            let endpoint_is_windows_pipe = self
-                .docker_endpoint
-                .trim()
-                .to_ascii_lowercase()
-                .starts_with("npipe://");
+            let endpoint_is_windows_pipe = self.platform == ContainerPlatform::Docker
+                && self
+                    .docker_endpoint
+                    .trim()
+                    .to_ascii_lowercase()
+                    .starts_with("npipe://");
             let error_block = v_flex()
                 .id("container-error")
                 .debug_selector(|| "container-error".into())
@@ -2065,6 +2151,7 @@ impl ContainerView {
                     .small()
                     .min_w(px(180.0))
                     .flex_1()
+                    .disabled(self.platform != ContainerPlatform::Docker)
                     .into_any_element()
             })
             .unwrap_or_else(|| {
@@ -2111,9 +2198,12 @@ impl ContainerView {
                             .child(
                                 ramag_ui::clickable_switch("container-registry-insecure-http")
                                     .checked(self.registry_allow_insecure_http)
+                                    .disabled(self.platform != ContainerPlatform::Docker)
                                     .on_click(cx.listener(|this, _: &bool, _, cx| {
-                                        this.registry_allow_insecure_http =
-                                            !this.registry_allow_insecure_http;
+                                        this.apply_registry_configuration(
+                                            this.registry_endpoint.clone(),
+                                            !this.registry_allow_insecure_http,
+                                        );
                                         cx.notify();
                                     })),
                             ),
@@ -2124,7 +2214,11 @@ impl ContainerView {
                             .small()
                             .icon(ramag_ui::icons::refresh_cw())
                             .label("查询")
-                            .disabled(self.registry_loading || self.registry_service.is_none())
+                            .disabled(
+                                self.registry_loading
+                                    || self.registry_service.is_none()
+                                    || self.platform != ContainerPlatform::Docker,
+                            )
                             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                                 this.refresh_registry(cx);
                             })),
@@ -2824,6 +2918,7 @@ fn platform_button(
         ContainerPlatform::Kubernetes => "container-platform-kubernetes",
     };
     ramag_ui::clickable_button(id)
+        .debug_selector(move || id.into())
         .ghost()
         .small()
         .icon(if platform == ContainerPlatform::Docker {
@@ -3518,3 +3613,7 @@ mod stats_tests;
 #[cfg(test)]
 #[path = "view_endpoint_tests.rs"]
 mod endpoint_tests;
+
+#[cfg(test)]
+#[path = "view_context_tests.rs"]
+mod context_tests;
