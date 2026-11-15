@@ -119,6 +119,12 @@ jobs:
       - name: Check opt-in UI profiler
         run: cargo check --locked -p ramag-bin --features ui-profiling --examples
 
+      - name: Lint opt-in UI profiler
+        run: cargo clippy --locked -p ramag-ui --features ui-profiling --all-targets -- -D warnings
+
+      - name: Test opt-in UI profiler
+        run: cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1
+
       - name: Check source conventions
         run: make size-check log-check
 
@@ -197,6 +203,12 @@ jobs:
 
       - name: Check opt-in UI profiler
         run: cargo check --locked -p ramag-bin --features ui-profiling --examples
+
+      - name: Lint opt-in UI profiler
+        run: cargo clippy --locked -p ramag-ui --features ui-profiling --all-targets -- -D warnings
+
+      - name: Test opt-in UI profiler
+        run: cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1
 
       - name: Check source conventions
         run: make size-check log-check
@@ -305,6 +317,14 @@ jobs:
       - name: Check opt-in UI profiler
         shell: pwsh
         run: cargo check --locked -p ramag-bin --features ui-profiling --examples
+
+      - name: Lint opt-in UI profiler
+        shell: pwsh
+        run: cargo clippy --locked -p ramag-ui --features ui-profiling --all-targets -- -D warnings
+
+      - name: Test opt-in UI profiler
+        shell: pwsh
+        run: cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1
 
       - name: Check source file sizes
         shell: pwsh

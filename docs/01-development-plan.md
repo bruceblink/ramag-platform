@@ -162,7 +162,6 @@ host 为 `x86_64-pc-windows-msvc`，得到以下本地结果。Cargo 使用离�
 
 | 顺序 | 任务 | 状态与依赖 |
 |---|---|---|
-| 7 | `RAMAG-QUALITY-001` 可选采样特性严格检查 | 待修复，P2；修复 14 个测试告警并补齐对应特性的严格检查入口 |
 | 8 | `RAMAG-PLUGIN-PROCESS-JOB-001` Windows 进程树清理验收 | 代码已实现；在本机 MSVC 构建中运行真实入口与子孙进程测试，不能以 macOS 跨目标检查替代 |
 | 9 | `RAMAG-UI-PLUGIN-CATALOG-TRUST-001` 签名目录设置页接入 | 待实施；组合根、启动恢复和刷新传递来源信任状态，未验证目录不能触发下载或安装；先在本计划补齐范围与验收细节 |
 | 10 | `RAMAG-UI-CONSISTENCY-001` 全工具布局与视觉统一 | 待开始；当前功能修复、插件功能接入及各自必需验收完成后启动，先确认视觉方案，再迁移共享组件和各工具页面，范围见第 4.48 节 |
@@ -1155,6 +1154,15 @@ Computer Use 在 Windows 隔离预览窗口中核对深色 `1440x900` 和最终�
 `cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1`，
 并保留 `cargo check --locked -p ramag-bin --features ui-profiling --examples`。
 回滚只涉及 profiling 测试、对应 CI 步骤和说明。
+
+2026-11-15 已完成本项。Windows x64 使用 stable Rust `1.100.0` 和 MSVC 环境，
+可选特性严格 Clippy、7 项定向测试和示例编译检查通过；工作区格式、全目标检查、
+严格 Clippy、串行测试、应用构建及源码行数检查通过。工作区测试汇总为
+`2,880 passed / 0 failed / 28 ignored`；未设置外部服务测试变量，依赖这些变量
+而提前返回的测试不计为本地服务集成验收。工作流 `actionlint` 和差异检查通过；
+Linux、macOS 和 Windows 的新增 CI 步骤尚未核对运行结果。
+Cargo 对现有未使用依赖输出 manifest 警告；上述 Clippy 命令的退出码均为 0。
+此切片不涉及运行时 UI 或服务集成，真实窗口和 Docker 验收不适用。
 
 ### 4.9 2026-11-07 UI 更新后的真实窗口验收
 
