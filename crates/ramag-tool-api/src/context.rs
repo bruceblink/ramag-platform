@@ -6,7 +6,7 @@ use ramag_domain::entities::{
 };
 
 #[path = "context_format.rs"]
-mod format_helpers;
+pub(super) mod format_helpers;
 
 use format_helpers::{
     format_assertions, format_parameters, format_query_parameters, format_response_variables,
@@ -430,6 +430,7 @@ pub(crate) fn apply_request_to_view(
     view.invalidate_request_context();
     view.invalidate_grpc_discovery_context();
     view.active_request_id = Some(request.id.clone());
+    view.request_baseline = Some(request.request.clone());
     set_input(&view.request_name, request.name.clone(), window, cx);
     set_textarea(
         &view.assertions,

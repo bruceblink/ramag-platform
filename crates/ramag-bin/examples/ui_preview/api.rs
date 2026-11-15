@@ -35,18 +35,45 @@ pub(super) fn service(storage: Arc<dyn Storage>) -> anyhow::Result<Arc<ApiServic
         sensitive: false,
     });
     collection.requests.push(slow_http);
-    collection.requests.push(ApiRequestRecord::new_http(
-        "B 正常 HTTP",
-        HttpRequestSpec::new("GET", "http://127.0.0.1:18089/json"),
-    ));
+    let mut normal_http = HttpRequestSpec::new("GET", "http://127.0.0.1:18089/json");
+    normal_http.timeout_millis = 37_000;
+    normal_http
+        .query
+        .push(ApiParameter::new("preview", "public", false));
+    normal_http
+        .query
+        .push(ApiParameter::new("preview", "sensitive", true));
+    normal_http
+        .query
+        .push(ApiParameter::new("source", "local-preview", false));
+    normal_http
+        .headers
+        .push(ApiParameter::new("X-Preview-Mode", "local", false));
+    normal_http
+        .headers
+        .push(ApiParameter::new("X-Preview-Sensitive", "local-only", true));
+    collection
+        .requests
+        .push(ApiRequestRecord::new_http("B 正常 HTTP", normal_http));
     for (name, message, extracts_marker) in [
         ("C 延迟 gRPC", r#"{"message":"delay:5000"}"#, true),
         ("D 正常 gRPC", r#"{"message":"preview"}"#, false),
     ] {
         let mut spec = GrpcRequestSpec::new("http://127.0.0.1:18090", "api.docker.Echo", "Unary");
         spec.message = message.into();
+        if !extracts_marker {
+            spec.timeout_millis = 43_000;
+        }
         spec.metadata
-            .push(ApiParameter::new("x-request", "docker", false));
+            .push(ApiParameter::new("x-request", "docker", !extracts_marker));
+        if !extracts_marker {
+            spec.metadata
+                .push(ApiParameter::new("x-roundtrip", "first-public", false));
+            spec.metadata
+                .push(ApiParameter::new("x-roundtrip", "second-sensitive", true));
+            spec.metadata
+                .push(ApiParameter::new("x-tail", "preview-tail", false));
+        }
         let mut record = ApiRequestRecord::new_grpc(name, spec);
         if extracts_marker {
             record.response_variables.push(ApiVariableExtraction {

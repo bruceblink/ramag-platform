@@ -11,6 +11,9 @@ use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
 use ramag_infra_storage::RedbStorage;
 use tempfile::tempdir;
 
+#[path = "request_roundtrip_docker_tests.rs"]
+mod request_roundtrip_docker_tests;
+
 fn click(cx: &mut VisualTestContext, selector: &'static str) {
     let bounds = cx
         .debug_bounds(selector)

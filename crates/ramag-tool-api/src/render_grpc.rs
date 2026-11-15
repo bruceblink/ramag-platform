@@ -83,6 +83,17 @@ pub(super) fn render_editor(
                     Input::new(&view.grpc_metadata_value).small(),
                 )),
         )
+        .when(
+            matches!(&view.request_baseline, Some(ApiRequestSpec::Grpc(spec)) if spec.metadata.len() > 1),
+            |metadata| {
+                metadata.child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("这里只编辑首项，其余元数据保持不变；清空两个输入框只删除首项。"),
+                )
+            },
+        )
         .into_any_element();
     let content = match view.request_tab {
         ApiRequestTab::Body | ApiRequestTab::Params | ApiRequestTab::Headers => body,

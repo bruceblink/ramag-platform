@@ -17,6 +17,8 @@ use ramag_infra_api::{GrpcApiDriver, HttpApiDriver};
 #[path = "workspace_test_support.rs"]
 mod workspace_test_support;
 use workspace_test_support::WorkspaceTestStorage;
+#[path = "request_roundtrip_tests.rs"]
+mod request_roundtrip_tests;
 #[path = "workspace_execution_tests.rs"]
 mod workspace_execution_tests;
 #[path = "workspace_history_tests.rs"]

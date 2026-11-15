@@ -3,7 +3,7 @@
 use super::*;
 
 /// 将领域参数转换为编辑器的逐行 `name: value` 格式，保持 UI 回填可逆且稳定。
-pub(super) fn format_parameters(parameters: &[ApiParameter]) -> String {
+pub(in crate::view) fn format_parameters(parameters: &[ApiParameter]) -> String {
     parameters
         .iter()
         .map(|parameter| format!("{}: {}", parameter.name, parameter.value))
@@ -12,7 +12,7 @@ pub(super) fn format_parameters(parameters: &[ApiParameter]) -> String {
 }
 
 /// 将查询参数转换为逐行 `name=value` 格式，避免把 URL 编码职责混入 UI 文本层。
-pub(super) fn format_query_parameters(parameters: &[ApiParameter]) -> String {
+pub(in crate::view) fn format_query_parameters(parameters: &[ApiParameter]) -> String {
     parameters
         .iter()
         .map(|parameter| format!("{}={}", parameter.name, parameter.value))

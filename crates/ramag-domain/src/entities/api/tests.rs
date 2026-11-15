@@ -32,6 +32,42 @@ fn grpc_request_rejects_mismatched_client_certificate_paths() {
 }
 
 #[test]
+fn grpc_request_preserves_ordered_duplicate_sensitive_metadata_in_serde()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut request = GrpcRequestSpec::new("https://127.0.0.1:50051", "api.Echo", "Unary");
+    request.metadata = vec![
+        ApiParameter::new("x-request-tag", "first", true),
+        ApiParameter::new("x-request-tag", "second", false),
+        ApiParameter::new("x-request-tag", "third", true),
+    ];
+
+    assert!(request.validate().is_ok());
+    let encoded = serde_json::to_string(&request)?;
+    let decoded: GrpcRequestSpec = serde_json::from_str(&encoded)?;
+    assert_eq!(decoded, request);
+    assert_eq!(
+        decoded.metadata,
+        vec![
+            ApiParameter::new("x-request-tag", "first", true),
+            ApiParameter::new("x-request-tag", "second", false),
+            ApiParameter::new("x-request-tag", "third", true),
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn http_request_still_rejects_case_insensitive_duplicate_headers() {
+    let mut request = HttpRequestSpec::new("GET", "https://127.0.0.1:50051");
+    request.headers = vec![
+        ApiParameter::new("X-Request-Tag", "first", false),
+        ApiParameter::new("x-request-tag", "second", false),
+    ];
+
+    assert!(request.validate().is_err());
+}
+
+#[test]
 fn tls_client_identity_requires_server_certificate_verification() {
     let mut request = HttpRequestSpec::new("GET", "https://127.0.0.1:18091/json");
     request.tls.verify = ApiTlsVerify::None;

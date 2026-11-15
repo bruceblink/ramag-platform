@@ -43,10 +43,14 @@ mod render_body;
 mod render_grpc;
 #[path = "render_helpers.rs"]
 mod render_helpers;
+#[path = "request_editor.rs"]
+mod request_editor;
 #[path = "workspace.rs"]
 mod workspace;
 #[path = "workspace_save.rs"]
 mod workspace_save;
+
+pub(crate) use request_editor::request_from_view;
 
 const FIELD_BYTES: usize = 64 * 1024;
 const API_SIDEBAR_WIDTH: f32 = 260.0;
@@ -203,6 +207,8 @@ pub struct ApiView {
     pub(crate) protocol: ApiProtocol,
     pub(crate) request_tab: ApiRequestTab,
     pub(crate) active_request_id: Option<ApiRequestId>,
+    /// 编辑器未覆盖的字段沿用打开时的请求；保存成功不移动此基线，避免重复删除隐藏项。
+    pub(crate) request_baseline: Option<ApiRequestSpec>,
     pub(crate) request_search: Entity<InputState>,
     pub(crate) request_name: Entity<InputState>,
     pub(crate) http_method: Entity<InputState>,
@@ -326,6 +332,7 @@ impl ApiView {
             protocol: ApiProtocol::Http,
             request_tab: ApiRequestTab::Body,
             active_request_id: None,
+            request_baseline: None,
             request_search,
             request_name: api_input(window, cx, "请求名称", "新请求"),
             http_method: api_input(window, cx, "GET / POST", "GET"),
@@ -771,62 +778,12 @@ pub(crate) fn format_multipart_body(parts: &[ApiMultipartPart]) -> String {
         .join("\n")
 }
 
-pub(crate) fn request_from_view(view: &ApiView, cx: &App) -> Result<ApiRequestSpec> {
-    match view.protocol {
-        ApiProtocol::Http => {
-            let method = input_value(&view.http_method, cx).to_ascii_uppercase();
-            let mut spec = HttpRequestSpec::new(method, input_value(&view.http_url, cx));
-            spec.tls = context::tls_from_view(view, cx)?;
-            spec.proxy = context::proxy_from_view(view, cx)?;
-            spec.query = parse_http_query(&textarea_value(&view.http_query, cx))?;
-            spec.headers = parse_http_headers(&textarea_value(&view.http_headers, cx))?;
-            spec.auth = view.auth_editor.to_auth(cx)?;
-            let body = editor_value(&view.http_body, cx);
-            if !body.trim().is_empty() {
-                spec.body = Some(match view.http_body_mode {
-                    ApiBodyMode::Text => {
-                        let content_type = spec
-                            .headers
-                            .iter()
-                            .find(|header| header.name.eq_ignore_ascii_case("content-type"))
-                            .map(|header| header.value.clone())
-                            .or_else(|| {
-                                let value = view.http_body_content_type.trim();
-                                (!value.is_empty()).then(|| value.to_string())
-                            });
-                        ApiBody::text(body, content_type)
-                    }
-                    ApiBodyMode::Multipart => ApiBody::multipart(parse_multipart_body(&body)?),
-                });
-            }
-            Ok(ApiRequestSpec::Http(spec))
-        }
-        ApiProtocol::Grpc => {
-            let mut spec = GrpcRequestSpec::new(
-                input_value(&view.grpc_endpoint, cx),
-                input_value(&view.grpc_service, cx),
-                input_value(&view.grpc_method, cx),
-            )
-            .with_message(editor_value(&view.grpc_message, cx));
-            spec.tls = context::tls_from_view(view, cx)?;
-            spec.proxy = context::proxy_from_view(view, cx)?;
-            spec.auth = view.auth_editor.to_auth(cx)?;
-            spec.descriptor = view.grpc_descriptor.clone();
-            let metadata_name = input_value(&view.grpc_metadata_name, cx);
-            let metadata_value = input_value(&view.grpc_metadata_value, cx);
-            if !metadata_name.is_empty() || !metadata_value.is_empty() {
-                spec.metadata
-                    .push(ApiParameter::new(metadata_name, metadata_value, false));
-            }
-            Ok(ApiRequestSpec::Grpc(spec))
-        }
-    }
-}
-
+#[cfg(test)]
 trait GrpcRequestMessage {
     fn with_message(self, message: String) -> Self;
 }
 
+#[cfg(test)]
 impl GrpcRequestMessage for GrpcRequestSpec {
     fn with_message(mut self, message: String) -> Self {
         self.message = message;

@@ -235,7 +235,8 @@ impl GrpcRequestSpec {
         if self.service.contains('/') || self.method.contains('/') {
             return Err("gRPC Service 和 Method 不能包含 '/'".into());
         }
-        validate_parameters("gRPC Metadata", &self.metadata, true)?;
+        // gRPC Metadata 允许同名多值；按原顺序逐项保留。
+        validate_parameters("gRPC Metadata", &self.metadata, false)?;
         validate_text(
             "gRPC 请求消息",
             &self.message,

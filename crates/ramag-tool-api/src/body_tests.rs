@@ -96,6 +96,38 @@ fn api_imported_multipart_body_populates_editor_without_losing_parts(cx: &mut Te
     assert!(state.2.is_empty());
 }
 
+#[gpui_kit::test]
+fn changing_http_headers_keeps_unedited_multipart_body(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_kit::component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 视图应初始化");
+    let mut spec = HttpRequestSpec::new("POST", "http://127.0.0.1/upload");
+    let mut part = ApiMultipartPart::text("message", "first|second\nthird", true);
+    part.content_type = Some("text/plain".into());
+    spec.body = Some(ApiBody::multipart(vec![part]));
+    spec.timeout_millis = 37_000;
+    let original = ApiRequestRecord::new_http("Multipart 原文保留", spec.clone());
+    visual_cx.update(|window, app| {
+        view.update(app, |view, cx| {
+            context::apply_request_to_view(view, &original, window, cx);
+            view.http_headers.update(cx, |input, cx| {
+                input.set_value("X-Trace: edited", window, cx);
+            });
+        });
+    });
+    spec.headers
+        .push(ApiParameter::new("X-Trace", "edited", false));
+    assert!(visual_cx.update(|_, app| {
+        request_from_view(view.read(app), app)
+            .is_ok_and(|request| request == ApiRequestSpec::Http(spec))
+    }));
+}
+
 #[test]
 fn api_multipart_editor_format_parses_and_formats_text_and_file_parts()
 -> std::result::Result<(), String> {
