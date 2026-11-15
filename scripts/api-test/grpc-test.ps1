@@ -41,7 +41,7 @@ function Wait-GrpcHealthy {
         $health = & docker inspect --format "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}" $ContainerName
         $proxyHealth = & docker inspect --format "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}" $ProxyContainerName
         if ($LASTEXITCODE -eq 0 -and $health -eq "healthy" -and $proxyHealth -eq "healthy") {
-            Write-Host "[api-grpc-test] gRPC test service is healthy: rust:1.91.0-bookworm at $Endpoint"
+            Write-Host "[api-grpc-test] gRPC test service is healthy: rust:1.100.0-bookworm at $Endpoint"
             Write-Host "[api-grpc-test] HTTP CONNECT proxy is healthy at $ProxyEndpoint"
             return
         }

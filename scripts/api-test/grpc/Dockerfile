@@ -1,4 +1,4 @@
-FROM rust:1.91.0-bookworm@sha256:e187887ec511b3d93e45c0231d2f0fd59f1347526c58aa86343aa83c74f3e1a9 AS builder
+FROM rust:1.100.0-bookworm@sha256:ade39a710ef85f3506cffcfec3e8a24ba090badef1dff2fb798f71d878833fea AS builder
 
 WORKDIR /src
 RUN sed -i 's/ bookworm-updates//g' /etc/apt/sources.list.d/debian.sources \

@@ -243,6 +243,12 @@ impl ApiView {
                 .await;
             let _ = this.update_in(async_cx, |view, window, cx| {
                 if view.request_generation != generation {
+                    #[cfg(test)]
+                    view.notify_callback_completion(
+                        ApiViewCallbackKind::Request,
+                        generation,
+                        false,
+                    );
                     return;
                 }
                 view.loading = false;
@@ -287,6 +293,8 @@ impl ApiView {
                     Err(error) => view.notice = Some((error.to_string(), true)),
                 }
                 cx.notify();
+                #[cfg(test)]
+                view.notify_callback_completion(ApiViewCallbackKind::Request, generation, true);
             });
         })
         .detach();
@@ -355,6 +363,12 @@ impl ApiView {
                 .await;
             let _ = this.update_in(async_cx, |view, window, cx| {
                 if view.request_generation != generation {
+                    #[cfg(test)]
+                    view.notify_callback_completion(
+                        ApiViewCallbackKind::Collection,
+                        generation,
+                        false,
+                    );
                     return;
                 }
                 view.loading = false;
@@ -411,6 +425,8 @@ impl ApiView {
                     Err(error) => view.notice = Some((error.to_string(), true)),
                 }
                 cx.notify();
+                #[cfg(test)]
+                view.notify_callback_completion(ApiViewCallbackKind::Collection, generation, true);
             });
         })
         .detach();
@@ -479,6 +495,12 @@ impl ApiView {
                 .await;
             let _ = this.update_in(async_cx, |view, window, cx| {
                 if view.grpc_discovery_generation != generation {
+                    #[cfg(test)]
+                    view.notify_callback_completion(
+                        ApiViewCallbackKind::GrpcDiscovery,
+                        generation,
+                        false,
+                    );
                     return;
                 }
                 view.grpc_discovering = false;
@@ -525,6 +547,12 @@ impl ApiView {
                     }
                 }
                 cx.notify();
+                #[cfg(test)]
+                view.notify_callback_completion(
+                    ApiViewCallbackKind::GrpcDiscovery,
+                    generation,
+                    true,
+                );
             });
         })
         .detach();

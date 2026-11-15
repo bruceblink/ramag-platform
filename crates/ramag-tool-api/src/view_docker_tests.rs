@@ -159,3 +159,158 @@ fn api_workbench_sends_http_and_grpc_requests_to_local_docker_services(cx: &mut 
         ApiProtocol::Grpc
     );
 }
+
+#[gpui_kit::test]
+#[ignore = "需要本机 Docker HTTP/gRPC 服务；显式运行以验证延迟请求后的侧栏切换"]
+fn saved_request_switches_keep_current_response_and_environment_with_real_docker_drivers(
+    cx: &mut TestAppContext,
+) {
+    use ramag_domain::entities::{
+        ApiCollection, ApiEnvironment, ApiParameter, ApiRequestRecord, ApiVariableExtraction,
+        ApiVariableSource, ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
+    };
+
+    for port in [18089, 18090] {
+        assert!(
+            std::net::TcpStream::connect(("127.0.0.1", port)).is_ok(),
+            "本机 Docker API 测试服务未监听 {port}"
+        );
+    }
+    cx.update(gpui_kit::component::init);
+    cx.executor().allow_parking();
+    let directory = tempdir().expect("创建 API 切换测试目录");
+    let storage = Arc::new(
+        RedbStorage::open_with_key(&directory.path().join("switch.redb"), &[0x49; 32])
+            .expect("打开 API 切换测试存储"),
+    );
+    let service = Arc::new(
+        ApiService::new(
+            Arc::new(HttpApiDriver::new().expect("创建真实 HTTP 驱动")),
+            Arc::new(GrpcApiDriver::new().expect("创建真实 gRPC 驱动")),
+            storage,
+        )
+        .expect("装配 API 切换测试服务"),
+    );
+    let mut workspace = ApiWorkspace::new("Docker 切换测试");
+    let mut environment = ApiEnvironment::new("local");
+    environment
+        .variables
+        .insert("marker".into(), "baseline".into());
+    workspace.default_environment_id = Some(environment.id.clone());
+    workspace.environments.push(environment);
+    let mut collection = ApiCollection::new("本机请求");
+    for (name, path) in [("慢 HTTP", "/delay?ms=600"), ("快 HTTP", "/json")] {
+        collection.requests.push(ApiRequestRecord::new_http(
+            name,
+            HttpRequestSpec::new("GET", format!("http://127.0.0.1:18089{path}")),
+        ));
+    }
+    for (name, message) in [("慢 gRPC", "delay:600"), ("快 gRPC", "current")] {
+        let mut spec = GrpcRequestSpec::new("http://127.0.0.1:18090", "api.docker.Echo", "Unary");
+        spec.message = serde_json::json!({ "message": message }).to_string();
+        spec.metadata
+            .push(ApiParameter::new("x-request", "docker", false));
+        collection
+            .requests
+            .push(ApiRequestRecord::new_grpc(name, spec));
+    }
+    for index in [0, 2] {
+        collection.requests[index]
+            .response_variables
+            .push(ApiVariableExtraction {
+                name: "marker".into(),
+                source: ApiVariableSource::Body,
+                sensitive: false,
+            });
+    }
+    workspace.collections.push(collection);
+    futures::executor::block_on(service.save_workspace(&workspace))
+        .expect("保存 Docker 切换验收工作区");
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::with_service(service, window, cx));
+        view_entity = Some(view.clone());
+        gpui_kit::component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 切换测试视图");
+    visual_cx.simulate_resize(size(px(1024.0), px(768.0)));
+    for _ in 0..100 {
+        visual_cx.run_until_parked();
+        if visual_cx.update(|_, app| view.read(app).workspace_load_state)
+            == ApiWorkspaceLoadState::Loaded
+        {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(
+        visual_cx.update(|_, app| view.read(app).workspace_load_state),
+        ApiWorkspaceLoadState::Loaded
+    );
+
+    for (slow, current, protocol) in [
+        (
+            "api-request-item-0",
+            "api-request-item-1",
+            ApiProtocol::Http,
+        ),
+        (
+            "api-request-item-0",
+            "api-request-item-3",
+            ApiProtocol::Grpc,
+        ),
+        (
+            "api-request-item-2",
+            "api-request-item-1",
+            ApiProtocol::Http,
+        ),
+        (
+            "api-request-item-2",
+            "api-request-item-3",
+            ApiProtocol::Grpc,
+        ),
+    ] {
+        click(visual_cx, slow);
+        click(visual_cx, "api-send");
+        let cancellation = visual_cx
+            .update(|_, app| view.read(app).cancelled.clone())
+            .expect("延迟请求应处于执行中");
+        // 允许真实驱动进入 HTTP/gRPC 服务；迟到回调的精确顺序另由受控驱动测试验证。
+        std::thread::sleep(Duration::from_millis(100));
+        click(visual_cx, current);
+        assert!(cancellation.load(std::sync::atomic::Ordering::Relaxed));
+        assert!(!visual_cx.update(|_, app| view.read(app).loading));
+        click(visual_cx, "api-send");
+        let snapshot = wait_for_response(visual_cx, &view).expect("新请求应完成");
+        assert_eq!(snapshot.protocol, protocol);
+        let body = String::from_utf8_lossy(&snapshot.body);
+        assert!(
+            body.contains(if protocol == ApiProtocol::Http {
+                "ramag-api-http-test"
+            } else {
+                "docker echo: current"
+            }),
+            "应显示当前请求的响应：{body}"
+        );
+        let notice = visual_cx.update(|_, app| view.read(app).notice.clone());
+        for _ in 0..40 {
+            visual_cx.run_until_parked();
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        visual_cx.update(|_, app| {
+            let current_view = view.read(app);
+            assert_eq!(current_view.response.as_ref(), Some(&snapshot));
+            assert_eq!(current_view.notice, notice);
+            assert_eq!(
+                current_view
+                    .runtime_environment
+                    .variables
+                    .get("marker")
+                    .map(String::as_str),
+                Some("baseline")
+            );
+            assert!(!current_view.loading);
+            assert!(current_view.cancelled.is_none());
+        });
+    }
+}

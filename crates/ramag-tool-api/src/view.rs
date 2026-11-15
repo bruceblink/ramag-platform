@@ -181,6 +181,22 @@ impl ApiWorkspaceLoadState {
     }
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ApiViewCallbackKind {
+    Request,
+    Collection,
+    GrpcDiscovery,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ApiViewCallbackCompletion {
+    pub(crate) kind: ApiViewCallbackKind,
+    pub(crate) generation: u64,
+    pub(crate) accepted: bool,
+}
+
 /// API 工作台编辑状态；输入值先保留在 GPUI 状态中，点击发送时才构造领域请求。
 pub struct ApiView {
     pub(crate) service: Option<Arc<ApiService>>,
@@ -236,6 +252,10 @@ pub struct ApiView {
     pub(crate) workspace: ApiWorkspace,
     pub(crate) request_generation: u64,
     pub(crate) cancelled: Option<Arc<AtomicBool>>,
+    #[cfg(test)]
+    pub(crate) callback_completion_sender: async_channel::Sender<ApiViewCallbackCompletion>,
+    #[cfg(test)]
+    pub(crate) callback_completion_receiver: async_channel::Receiver<ApiViewCallbackCompletion>,
     pub(crate) focus_handle: FocusHandle,
     pub(crate) layout_scroll: ScrollHandle,
     pub(crate) sidebar_scroll: ScrollHandle,
@@ -250,6 +270,22 @@ pub struct ApiView {
 }
 
 impl ApiView {
+    #[cfg(test)]
+    pub(crate) fn notify_callback_completion(
+        &self,
+        kind: ApiViewCallbackKind,
+        generation: u64,
+        accepted: bool,
+    ) {
+        let _ = self
+            .callback_completion_sender
+            .try_send(ApiViewCallbackCompletion {
+                kind,
+                generation,
+                accepted,
+            });
+    }
+
     fn request_execution_disabled(&self) -> bool {
         self.workspace_load_state
             .execution_block_message()
@@ -278,6 +314,8 @@ impl ApiView {
     }
 
     pub(crate) fn without_service(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        #[cfg(test)]
+        let (callback_completion_sender, callback_completion_receiver) = async_channel::unbounded();
         let request_search = cx.new(|cx| {
             ramag_ui::bounded_search_input(window, cx).placeholder("搜索请求或 Collection")
         });
@@ -391,6 +429,10 @@ impl ApiView {
             workspace: ApiWorkspace::new("API Workspace"),
             request_generation: 0,
             cancelled: None,
+            #[cfg(test)]
+            callback_completion_sender,
+            #[cfg(test)]
+            callback_completion_receiver,
             focus_handle: cx.focus_handle(),
             layout_scroll: ScrollHandle::new(),
             sidebar_scroll: ScrollHandle::new(),
@@ -804,6 +846,9 @@ mod grpc_catalog_tests;
 #[cfg(test)]
 #[path = "layout_tests.rs"]
 mod layout_tests;
+#[cfg(test)]
+#[path = "request_switch_tests.rs"]
+mod request_switch_tests;
 #[cfg(test)]
 #[path = "response_tabs_tests.rs"]
 mod response_tabs_tests;

@@ -2,7 +2,7 @@
 name = "ramag-api-grpc-test"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.91"
+rust-version = "1.100.0"
 publish = false
 
 [dependencies]

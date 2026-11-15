@@ -1,12 +1,15 @@
 //! 隔离的原生 UI 验收入口，复用生产 Shell 与工具视图，不读取用户配置或连接。
 //! 用法：cargo run -p ramag-bin --example ui-preview -- settings dark 1024 768
 //! DBClient：dbclient dark 1024 768 large；F6 失败、F8 长错误、F7 恢复。
+//! API：api-local；连接 scripts/api-test 的本机 HTTP/gRPC 服务，包含可延迟的验收请求。
 //! 插件诊断：plugin-empty 或 plugin-failure；两者只构造本次窗口的受控验收状态。
 //! 对象存储：object_storage；只读取 RAMAG_OBJECT_PREVIEW_* 配置的本机回环测试服务。
 //! 数据同步遮罩：sync-progress、sync-cancel、sync-failure 或 sync-summary；只注入门禁状态。
 //! settings/update 模式支持 Release 手动检查；MQTT 预览不会自动连接或启动 Broker。
 //! 仅创建进程专属临时 redb，不写系统凭据库，退出时清理临时文件。
 
+#[path = "ui_preview/api.rs"]
+mod api;
 #[path = "ui_preview/dbclient.rs"]
 mod dbclient;
 #[path = "ui_preview/object_storage.rs"]
@@ -266,6 +269,9 @@ fn main() -> anyhow::Result<()> {
         let _ = host.initialize_all();
     }
     let preview = dbclient::DbclientPreview::new(storage.clone())?;
+    let api_service = (page == "api-local")
+        .then(|| api::service(storage.clone()))
+        .transpose()?;
     let object_storage_service = (page == "object_storage")
         .then(|| object_storage::service(storage.clone()))
         .transpose()?;
@@ -339,7 +345,10 @@ fn main() -> anyhow::Result<()> {
                     settings.update(cx, |view, cx| {
                         view.set_plugin_catalog_source_url(None, window, cx);
                     });
-                    let api = cx.new(|cx| ramag_tool_api::ApiView::new(window, cx));
+                    let api = match api_service {
+                        Some(service) => ramag_tool_api::create_api_view(service, window, cx),
+                        None => cx.new(|cx| ramag_tool_api::ApiView::new(window, cx)),
+                    };
                     let containers =
                         cx.new(|cx| ramag_tool_container::ContainerView::new(window, cx));
                     let object_storage_view = object_storage_service.as_ref().map(|service| {
@@ -379,6 +388,7 @@ fn main() -> anyhow::Result<()> {
                                 NavTarget::Tool("dbclient".into())
                             }
                             "home" => NavTarget::Home,
+                            "api-local" => NavTarget::Tool("api".into()),
                             _ => NavTarget::Tool(page),
                         };
                         shell.navigate_to(target, window, cx);

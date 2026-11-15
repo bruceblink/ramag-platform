@@ -426,6 +426,9 @@ pub(crate) fn apply_request_to_view(
     window: &mut Window,
     cx: &mut Context<ApiView>,
 ) {
+    // 选择侧栏请求就是切换执行上下文；即使请求协议相同，也必须隔离旧回调。
+    view.invalidate_request_context();
+    view.invalidate_grpc_discovery_context();
     view.active_request_id = Some(request.id.clone());
     set_input(&view.request_name, request.name.clone(), window, cx);
     set_textarea(

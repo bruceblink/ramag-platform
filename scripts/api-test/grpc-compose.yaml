@@ -3,7 +3,7 @@ services:
     build:
       context: ./grpc
       dockerfile: Dockerfile
-    image: ramag-api-grpc-test:rust-1.91.0-bookworm
+    image: ramag-api-grpc-test:rust-1.100.0-bookworm
     container_name: ramag-api-grpc-test
     restart: unless-stopped
     ports:
