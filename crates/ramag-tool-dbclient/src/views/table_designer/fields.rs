@@ -174,7 +174,7 @@ impl TableDesigner {
                     .id("table-designer-fields-scroll-input")
                     .absolute()
                     .inset_0()
-                    .on_scroll_wheel(cx.listener(Self::on_field_scroll)),
+                    .on_scroll(cx.listener(Self::on_field_scroll)),
             )
     }
 }

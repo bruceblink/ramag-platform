@@ -159,7 +159,7 @@ pub(super) fn render_diff_scroll_input(
         .id("vcs-diff-scroll-input")
         .absolute()
         .inset_0()
-        .on_scroll_wheel(cx.listener(move |this, event, window, cx| {
+        .on_scroll(cx.listener(move |this, event, window, cx| {
             ramag_ui::handle_axis_scroll(
                 &mut this.diff_scroll_gesture,
                 event,

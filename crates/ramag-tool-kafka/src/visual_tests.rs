@@ -319,7 +319,7 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
     let Some(config_viewport) = config_viewport else {
         return;
     };
-    visual_cx.simulate_event(gpui_kit::ScrollWheelEvent {
+    visual_cx.simulate_event(gpui_kit::ScrollEvent {
         position: config_viewport.center(),
         delta: gpui_kit::ScrollDelta::Pixels(point(px(0.0), px(-10000.0))),
         touch_phase: gpui_kit::TouchPhase::Moved,

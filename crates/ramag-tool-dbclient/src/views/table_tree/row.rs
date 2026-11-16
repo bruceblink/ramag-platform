@@ -251,7 +251,7 @@ impl TableTreePanel {
                     .cursor_pointer()
                     .hover(move |this| this.bg(muted_bg))
                     .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                        if event.modifiers().secondary() {
+                        if ramag_ui::has_primary_modifier(event) {
                             if ramag_ui::is_primary_modifier_double_click(event) {
                                 ramag_ui::copy_text_with_notification(
                                     name_for_copy.clone(),
@@ -379,7 +379,7 @@ impl TableTreePanel {
                     .cursor_pointer()
                     .hover(move |this| this.bg(muted_bg))
                     .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                        if event.modifiers().secondary() {
+                        if ramag_ui::has_primary_modifier(event) {
                             if ramag_ui::is_primary_modifier_double_click(event) {
                                 ramag_ui::copy_text_with_notification(
                                     t_for_copy.clone(),

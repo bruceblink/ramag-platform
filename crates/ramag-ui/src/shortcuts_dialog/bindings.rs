@@ -18,6 +18,7 @@ pub(super) fn overrides(cx: &App) -> HashMap<String, String> {
 }
 
 pub fn init_shortcut_overrides(value: Option<&str>, cx: &mut App) {
+    let os = cx.platform_info().os;
     let parsed = value
         .filter(|value| value.len() <= 64 * 1024)
         .and_then(|value| serde_json::from_str::<HashMap<String, String>>(value).ok())
@@ -25,7 +26,7 @@ pub fn init_shortcut_overrides(value: Option<&str>, cx: &mut App) {
     let had_removed_shortcuts = parsed.keys().any(|id| find_spec(id).is_none());
     let values: HashMap<_, _> = parsed
         .into_iter()
-        .filter(|(id, key)| find_spec(id).is_some() && Keystroke::parse(key).is_ok())
+        .filter(|(id, key)| find_spec(id).is_some() && Keystroke::parse_with_os(key, os).is_ok())
         .collect();
     cx.set_global(ShortcutOverrides(values.clone()));
     if had_removed_shortcuts {
@@ -124,27 +125,21 @@ fn append_rebinding(
         predicate.clone(),
         false,
         None,
-        cx.keyboard_mapper().as_ref(),
+        cx,
     )
     .map_err(|error| format!("旧快捷键无效：{error}"))?;
     let action = cx
         .build_action(action_name, None)
         .map_err(|error| format!("无法加载快捷键操作：{error}"))?;
-    let binding = KeyBinding::load(
-        next,
-        action,
-        predicate,
-        false,
-        None,
-        cx.keyboard_mapper().as_ref(),
-    )
-    .map_err(|error| format!("快捷键无效：{error}"))?;
+    let binding = KeyBinding::load(next, action, predicate, false, None, cx)
+        .map_err(|error| format!("快捷键无效：{error}"))?;
     cx.bind_keys([unbind, binding]);
     Ok(())
 }
 
 fn validate_conflict(spec: &ShortcutSpec, key: &str, cx: &App) -> Result<(), String> {
-    Keystroke::parse(key).map_err(|error| format!("快捷键无效：{error}"))?;
+    Keystroke::parse_with_os(key, cx.platform_info().os)
+        .map_err(|error| format!("快捷键无效：{error}"))?;
     let values = overrides(cx);
     if let Some(conflict) = SHORTCUTS.iter().find(|other| {
         other.id != spec.id
@@ -203,9 +198,9 @@ pub(super) fn serialize_keystroke(keystroke: &Keystroke) -> String {
     parts.join("-")
 }
 
-pub(super) fn display_key(raw: &str) -> String {
-    Keystroke::parse(raw)
-        .map(|keystroke| keystroke.to_string())
+pub(super) fn display_key(raw: &str, cx: &App) -> String {
+    Keystroke::parse_with_os(raw, cx.platform_info().os)
+        .map(|keystroke| keystroke.display(cx.platform_info().os).to_string())
         .unwrap_or_else(|_| raw.to_string())
 }
 

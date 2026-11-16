@@ -94,7 +94,7 @@ core-foundation = "0.10"
 
 # GPUI Kit：统一 GPUI、平台、组件库和默认 Assets 的发布版依赖入口。
 # tree-sitter-languages 保留 VCS、SQL 和 Markdown 编辑器所需的语法支持。
-gpui-kit = { version = "0.7.3", features = [
+gpui-kit = { version = "0.10.0", features = [
     "tree-sitter-languages",
 ] }
 
@@ -169,11 +169,8 @@ async-compression = { version = "0.4", features = ["futures-io", "gzip"] }
 serde = { version = "1", features = ["derive"] }
 # 保留对象插入顺序，使 JSON Path 通配符和 Web 工具的 JSON.stringify 顺序一致。
 serde_json = { version = "1", features = ["preserve_order"] }
-wasm-bindgen = "0.2"
-json5 = "1"
 regex = "1"
 base64 = "0.22"
-toml = "0.9"
 # JumpServer REST API；使用 rustls，并读取系统证书库以兼容企业与内网证书链。
 reqwest = { version = "0.13", default-features = false, features = [
     "form",
@@ -190,7 +187,6 @@ hyper = { version = "1.9", features = ["client", "http1"] }
 hyper-util = { version = "0.1.11", features = ["tokio"] }
 
 # API 测试工具的 gRPC 动态调用；Descriptor 和动态消息不生成业务专用 Rust 类型。
-axum = "0.8.9"
 prost = "0.14.4"
 prost-types = "0.14.4"
 prost-reflect = { version = "0.16.5", features = ["serde"] }

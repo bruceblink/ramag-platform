@@ -84,7 +84,7 @@ fn shortcut_recording_controls_remain_readable_after_resize(cx: &mut TestAppCont
 /// Scroll through clipped dialog content and select the final real row.
 #[gpui_kit::test]
 fn recent_picker_can_scroll_search_and_open_in_a_compact_window(cx: &mut TestAppContext) {
-    use gpui_kit::{ScrollDelta, ScrollWheelEvent, TouchPhase, point};
+    use gpui_kit::{ScrollDelta, ScrollEvent, TouchPhase, point};
     use std::sync::Mutex;
     cx.update(gpui_kit::component::init);
     let (_, cx) = cx.add_window_view(|window, cx| {
@@ -122,7 +122,7 @@ fn recent_picker_can_scroll_search_and_open_in_a_compact_window(cx: &mut TestApp
         .advance_clock(std::time::Duration::from_millis(300));
     cx.run_until_parked();
     let viewport = bounds(cx, "recent-picker-scroll");
-    cx.simulate_event(ScrollWheelEvent {
+    cx.simulate_event(ScrollEvent {
         position: viewport.center(),
         delta: ScrollDelta::Pixels(point(px(0.0), px(-10000.0))),
         touch_phase: TouchPhase::Moved,
@@ -143,7 +143,14 @@ fn recent_picker_can_scroll_search_and_open_in_a_compact_window(cx: &mut TestApp
     );
     cx.simulate_mouse_down(open.center(), MouseButton::Left, Modifiers::default());
     cx.simulate_mouse_up(open.center(), MouseButton::Left, Modifiers::default());
+    // gpui-kit 0.10 为对话框启用 250ms 退出过渡；推进测试时钟后再检查内容已卸载。
+    cx.executor()
+        .advance_clock(std::time::Duration::from_millis(260));
     cx.run_until_parked();
+    cx.update(|window, cx| {
+        window.simulate_next_frame(cx);
+        window.draw(cx).clear(cx);
+    });
     assert_eq!(
         *selected.lock().unwrap_or_else(|error| error.into_inner()),
         Some("29".into())
@@ -154,6 +161,8 @@ fn recent_picker_can_scroll_search_and_open_in_a_compact_window(cx: &mut TestApp
 #[gpui_kit::test]
 fn shared_dialogs_fit_small_and_short_windows(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
+    // 布局测试不验证动效；关闭 reduced motion 后保证每轮切换都立即卸载旧弹窗。
+    cx.update(|app| app.set_reduce_motion(true));
     let (_, cx) = cx.add_window_view(|window, cx| {
         let host = cx.new(|_| DialogHost);
         Root::new(host, window, cx)
@@ -221,8 +230,22 @@ fn shared_dialogs_fit_small_and_short_windows(cx: &mut TestAppContext) {
                 let point = bounds(cx, "ramag-import-cancel").center();
                 cx.simulate_mouse_down(point, MouseButton::Left, Modifiers::default());
                 cx.simulate_mouse_up(point, MouseButton::Left, Modifiers::default());
+                // gpui-kit 0.10 的取消动作也走退出过渡，推进时钟并绘制一帧确认已卸载。
+                cx.executor()
+                    .advance_clock(std::time::Duration::from_millis(260));
                 cx.run_until_parked();
-                assert!(cx.debug_bounds("import-options-form").is_none());
+                cx.update(|window, cx| {
+                    window.simulate_next_frame(cx);
+                    window.draw(cx).clear(cx);
+                });
+                cx.update(|window, cx| {
+                    window.simulate_next_frame(cx);
+                    window.draw(cx).clear(cx);
+                });
+                assert!(
+                    cx.debug_bounds("import-options-form").is_none(),
+                    "import dialog remained after cancel at {width}x{height}"
+                );
             }
         }
     }

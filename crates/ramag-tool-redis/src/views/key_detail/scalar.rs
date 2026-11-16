@@ -9,7 +9,7 @@ use gpui_kit::component::{
     v_flex,
 };
 use gpui_kit::{
-    ClickEvent, Context, IntoElement, ParentElement, ScrollWheelEvent, SharedString, Styled,
+    ClickEvent, Context, IntoElement, ParentElement, ScrollEvent, SharedString, Styled,
     UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
 };
 use ramag_domain::entities::RedisValue;
@@ -196,7 +196,7 @@ pub(super) fn render_scalar(
                         .id("redis-scalar-scroll-input")
                         .absolute()
                         .inset_0()
-                        .on_scroll_wheel(cx.listener(KeyDetailPanel::on_scalar_scroll)),
+                        .on_scroll(cx.listener(KeyDetailPanel::on_scalar_scroll)),
                 ),
         );
 
@@ -276,7 +276,7 @@ pub(super) fn render_scalar(
 impl KeyDetailPanel {
     fn on_scalar_scroll(
         &mut self,
-        event: &ScrollWheelEvent,
+        event: &ScrollEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {

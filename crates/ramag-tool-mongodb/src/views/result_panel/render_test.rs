@@ -7,7 +7,7 @@ use std::sync::Arc;
 use gpui_kit::component::WindowExt as _;
 use gpui_kit::{
     AppContext as _, Context, Entity, IntoElement, ParentElement as _, Render, ScrollDelta,
-    ScrollWheelEvent, Styled as _, TestAppContext, TouchPhase, Window, div, point, px, size,
+    ScrollEvent, Styled as _, TestAppContext, TouchPhase, Window, div, point, px, size,
 };
 use ramag_domain::entities::MongoQueryResult;
 use serde_json::{Map, Value};
@@ -87,7 +87,7 @@ fn result_scroll_horizontal_gesture_does_not_move_rows_vertically(cx: &mut TestA
         cx.debug_bounds("mongo-table-h-scrollbar").is_some(),
         "MongoDB result table should expose a draggable horizontal scrollbar"
     );
-    cx.simulate_event(ScrollWheelEvent {
+    cx.simulate_event(ScrollEvent {
         position,
         delta: ScrollDelta::Pixels(point(px(-80.0), px(-8.0))),
         touch_phase: TouchPhase::Moved,

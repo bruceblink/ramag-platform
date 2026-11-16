@@ -4,8 +4,8 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use gpui_kit::component::Root;
 use gpui_kit::{
-    AppContext as _, Bounds, Modifiers, Pixels, ScrollDelta, ScrollWheelEvent, TestAppContext,
-    TouchPhase, VisualTestContext, point, px, size,
+    AppContext as _, Bounds, Modifiers, Pixels, ScrollDelta, ScrollEvent, ScrollSource,
+    TestAppContext, TouchPhase, VisualTestContext, point, px, size,
 };
 use ramag_app::{ConnectionService, SshService, StaticPluginHost, ToolRegistry};
 use ramag_domain::{Tool, ToolMeta, traits::Storage};
@@ -359,11 +359,12 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
             let viewport = bounds(visual, "settings-page-scroll");
             if control_bounds.top() < viewport.top() || control_bounds.bottom() > viewport.bottom()
             {
-                visual.simulate_event(ScrollWheelEvent {
+                visual.simulate_event(ScrollEvent {
                     position: viewport.center(),
                     delta: ScrollDelta::Pixels(point(px(0.0), px(720.0))),
                     modifiers: Modifiers::default(),
                     touch_phase: TouchPhase::Moved,
+                    source: ScrollSource::Pointer,
                 });
                 visual.run_until_parked();
             }

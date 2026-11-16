@@ -82,7 +82,8 @@ pub(crate) fn draw(cx: &mut VisualTestContext) {
 
 /// Deliver both key edges so repeated navigation is tested as actual input.
 pub(crate) fn native_key(key: &str, cx: &mut VisualTestContext) {
-    let keystroke = Keystroke::parse(key).test_unwrap();
+    let os = cx.read(|app| app.platform_info().os);
+    let keystroke = Keystroke::parse_with_os(key, os).test_unwrap();
     cx.simulate_event(KeyDownEvent {
         keystroke: keystroke.clone(),
         is_held: false,

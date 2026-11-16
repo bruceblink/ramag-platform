@@ -2,8 +2,7 @@ use super::KeyCreateForm;
 use gpui_kit::component::{Root, WindowExt as _};
 use gpui_kit::{
     AppContext as _, Context, Entity, InteractiveElement as _, IntoElement, ParentElement, Render,
-    ScrollDelta, ScrollWheelEvent, Styled, TestAppContext, TouchPhase, Window, div, point, px,
-    size,
+    ScrollDelta, ScrollEvent, Styled, TestAppContext, TouchPhase, Window, div, point, px, size,
 };
 
 struct KeyCreateDialogTestHost {
@@ -97,7 +96,7 @@ fn key_create_dialog_keeps_footer_visible_in_compact_window(cx: &mut TestAppCont
     assert!(editor.origin.y >= fields.origin.y);
     assert!(footer.bottom() <= dialog.bottom());
 
-    cx.simulate_event(ScrollWheelEvent {
+    cx.simulate_event(ScrollEvent {
         position: fields.center(),
         delta: ScrollDelta::Pixels(point(px(0.0), px(-480.0))),
         touch_phase: TouchPhase::Moved,

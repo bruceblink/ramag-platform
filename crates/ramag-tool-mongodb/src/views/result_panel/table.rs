@@ -4,8 +4,8 @@ use std::sync::Arc;
 use gpui_kit::component::scroll::{Scrollbar, ScrollbarMode};
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
-    Context, Hsla, InteractiveElement as _, IntoElement, ParentElement, ScrollWheelEvent,
-    SharedString, Window, div, prelude::*, px, uniform_list,
+    Context, Hsla, InteractiveElement as _, IntoElement, ParentElement, ScrollEvent, SharedString,
+    Window, div, prelude::*, px, uniform_list,
 };
 use ramag_ui::RestrictUniformListToAxisExt as _;
 
@@ -185,7 +185,7 @@ pub(super) fn render(
                 .id("mongo-table-scroll-input")
                 .absolute()
                 .inset_0()
-                .on_scroll_wheel(cx.listener(ResultPanel::on_table_scroll)),
+                .on_scroll(cx.listener(ResultPanel::on_table_scroll)),
         )
         .child(
             div()
@@ -237,7 +237,7 @@ pub(super) fn render(
 impl ResultPanel {
     fn on_table_scroll(
         &mut self,
-        event: &ScrollWheelEvent,
+        event: &ScrollEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {

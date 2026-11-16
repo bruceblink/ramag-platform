@@ -10,7 +10,7 @@ use std::sync::{
 use async_trait::async_trait;
 use gpui_kit::{
     AppContext as _, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, Point, ScrollDelta,
-    ScrollWheelEvent, TestAppContext, TouchPhase, VisualTestContext, point, px, size,
+    ScrollEvent, TestAppContext, TouchPhase, VisualTestContext, point, px, size,
 };
 use ramag_app::RedisService;
 use ramag_domain::entities::{
@@ -247,7 +247,7 @@ fn header_uses_modifier_double_click_for_key_and_button_for_value(cx: &mut TestA
     let key_title = cx
         .debug_bounds("redis-key-title")
         .expect("Key 标题应参与布局");
-    let modifiers = Modifiers::secondary_key();
+    let modifiers = cx.read(Modifiers::secondary_key);
     simulate_click_count(cx, key_title.center(), modifiers, 1);
     assert!(cx.read_from_clipboard().is_none());
     simulate_click_count(cx, key_title.center(), modifiers, 2);
@@ -443,7 +443,7 @@ fn scalar_diagonal_scroll_moves_only_horizontally(cx: &mut TestAppContext) {
         .debug_bounds("redis-scalar-scroll-region")
         .expect("scalar scroll region should be rendered")
         .center();
-    cx.simulate_event(ScrollWheelEvent {
+    cx.simulate_event(ScrollEvent {
         position,
         delta: ScrollDelta::Pixels(point(px(-80.0), px(-8.0))),
         touch_phase: TouchPhase::Moved,

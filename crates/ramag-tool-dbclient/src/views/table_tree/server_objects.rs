@@ -347,7 +347,7 @@ fn render_row(
         }
         ExplorerRowKind::Item => {
             row = row.on_click(cx.listener(move |_, event: &ClickEvent, window, cx| {
-                if event.modifiers().secondary()
+                if ramag_ui::has_primary_modifier(event)
                     && ramag_ui::is_primary_modifier_double_click(event)
                 {
                     ramag_ui::copy_text_with_notification(copy_value.clone(), window, cx);

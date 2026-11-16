@@ -61,7 +61,7 @@ pub(super) fn render_header_cell(
             if gpui_kit::base::TextSelection::has_selection(window, cx) {
                 return;
             }
-            if e.modifiers().secondary() {
+            if ramag_ui::has_primary_modifier(e) {
                 if ramag_ui::is_primary_modifier_double_click(e) {
                     ramag_ui::copy_text_with_notification(col_name.to_string(), window, cx);
                 }

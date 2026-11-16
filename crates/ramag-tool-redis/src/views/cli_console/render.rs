@@ -123,7 +123,7 @@ impl Render for CliConsole {
                         .id("cli-transcript-scroll-input")
                         .absolute()
                         .inset_0()
-                        .on_scroll_wheel(cx.listener(Self::on_transcript_scroll)),
+                        .on_scroll(cx.listener(Self::on_transcript_scroll)),
                 )
                 .into_any_element()
         };

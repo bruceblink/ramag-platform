@@ -4,8 +4,8 @@ use super::super::helpers::{ActiveView, FileContentSnapshot, FileTab, FileTabSou
 use super::VcsView;
 use async_trait::async_trait;
 use gpui_kit::{
-    AppContext, Entity, ScrollDelta, ScrollWheelEvent, TestAppContext, TouchPhase,
-    VisualTestContext, point, px, size,
+    AppContext, Entity, ScrollDelta, ScrollEvent, TestAppContext, TouchPhase, VisualTestContext,
+    point, px, size,
 };
 use ramag_domain::entities::{
     Branch, BranchKind, Commit, ConnectionConfig, ConnectionId, DiffKind, DiffLine, DiffLineKind,
@@ -507,7 +507,7 @@ fn diff_diagonal_scroll_moves_only_horizontally(cx: &mut TestAppContext) {
         .debug_bounds("vcs-diff-scroll-region")
         .expect("diff scroll region should be rendered")
         .center();
-    cx.simulate_event(ScrollWheelEvent {
+    cx.simulate_event(ScrollEvent {
         position,
         delta: ScrollDelta::Pixels(point(px(-80.0), px(-8.0))),
         touch_phase: TouchPhase::Moved,

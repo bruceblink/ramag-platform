@@ -1,7 +1,7 @@
 use super::*;
 
 use gpui_kit::{
-    Modifiers, MouseButton, ScrollDelta, ScrollWheelEvent, TestAppContext, TouchPhase,
+    Modifiers, MouseButton, ScrollDelta, ScrollEvent, TestAppContext, TouchPhase,
     VisualTestContext, point, px, size,
 };
 
@@ -370,7 +370,7 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         max_offset.y > px(0.0),
         "紧凑高度下 API 主体应提供垂直滚动范围: {max_offset:?}"
     );
-    visual_cx.simulate_event(ScrollWheelEvent {
+    visual_cx.simulate_event(ScrollEvent {
         position: point(px(20.0), px(24.0)),
         delta: ScrollDelta::Pixels(point(px(0.0), px(-80.0))),
         touch_phase: TouchPhase::Moved,

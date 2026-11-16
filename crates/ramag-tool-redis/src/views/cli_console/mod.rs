@@ -24,7 +24,7 @@ use gpui_kit::component::{
 };
 use gpui_kit::{
     ClickEvent, Context, Entity, InteractiveElement, IntoElement, ParentElement, Render,
-    ScrollWheelEvent, SharedString, Styled, Subscription, UniformListScrollHandle, Window, div,
+    ScrollEvent, SharedString, Styled, Subscription, UniformListScrollHandle, Window, div,
     prelude::*, px, uniform_list,
 };
 use ramag_app::RedisService;
@@ -221,7 +221,7 @@ impl CliConsole {
 
     fn on_transcript_scroll(
         &mut self,
-        event: &ScrollWheelEvent,
+        event: &ScrollEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {

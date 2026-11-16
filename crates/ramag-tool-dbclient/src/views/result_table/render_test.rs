@@ -4,7 +4,7 @@ use super::{DisplayViewCache, DisplayViewCacheKey, build_display_view, cached_di
 use crate::views::result_panel::{ResultPagination, ResultPanel, ResultState, TotalRows};
 use gpui_kit::{
     AppContext as _, Context, Entity, IntoElement, Modifiers, ParentElement as _, Render,
-    ScrollDelta, ScrollWheelEvent, Styled as _, TestAppContext, TouchPhase, Window, div, point, px,
+    ScrollDelta, ScrollEvent, Styled as _, TestAppContext, TouchPhase, Window, div, point, px,
     size,
 };
 use ramag_domain::entities::{QueryResult, Row, Value};
@@ -89,7 +89,7 @@ fn result_scroll_horizontal_gesture_does_not_move_rows_vertically(cx: &mut TestA
         cx.debug_bounds("result-h-scrollbar").is_some(),
         "result table should expose a draggable horizontal scrollbar"
     );
-    cx.simulate_event(ScrollWheelEvent {
+    cx.simulate_event(ScrollEvent {
         position,
         delta: ScrollDelta::Pixels(point(px(-80.0), px(-8.0))),
         touch_phase: TouchPhase::Moved,

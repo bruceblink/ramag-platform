@@ -1,13 +1,13 @@
 //! SQL 结果表双轴滚动事件接入。
 
-use gpui_kit::{Context, ScrollWheelEvent, Window};
+use gpui_kit::{Context, ScrollEvent, Window};
 
 use super::ResultPanel;
 
 impl ResultPanel {
     pub(in crate::views) fn on_result_scroll(
         &mut self,
-        event: &ScrollWheelEvent,
+        event: &ScrollEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {

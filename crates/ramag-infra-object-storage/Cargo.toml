@@ -19,7 +19,6 @@ http = { workspace = true }
 opendal = { workspace = true }
 opendal-http-transport-reqwest = { workspace = true }
 parking_lot = { workspace = true }
-rand = { workspace = true }
 reqsign-core = { workspace = true }
 reqsign-aliyun-oss = { workspace = true }
 reqwest = { workspace = true }

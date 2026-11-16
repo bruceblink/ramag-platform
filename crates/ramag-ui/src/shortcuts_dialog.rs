@@ -186,7 +186,7 @@ impl ShortcutPanel {
                                     .label(if recording {
                                         "请按下组合键…".into()
                                     } else {
-                                        display_key(key)
+                                        display_key(key, cx)
                                     })
                                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                         this.start_recording(id, cx);
@@ -376,9 +376,16 @@ mod tests {
     #[test]
     fn every_editable_shortcut_has_a_unique_id_and_valid_default() {
         let mut ids = std::collections::HashSet::new();
+        let os = if cfg!(target_os = "macos") {
+            gpui_kit::OperatingSystem::Mac
+        } else if cfg!(target_os = "windows") {
+            gpui_kit::OperatingSystem::Windows
+        } else {
+            gpui_kit::OperatingSystem::Linux
+        };
         for spec in SHORTCUTS {
             assert!(ids.insert(spec.id));
-            assert!(Keystroke::parse(spec.default_key).is_ok());
+            assert!(Keystroke::parse_with_os(spec.default_key, os).is_ok());
         }
     }
 

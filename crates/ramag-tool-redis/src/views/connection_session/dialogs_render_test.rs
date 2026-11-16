@@ -2,8 +2,8 @@ use super::RedisSessionPanel;
 use gpui_kit::component::{Root, WindowExt as _};
 use gpui_kit::{
     AppContext as _, Context, Entity, IntoElement, Modifiers, ParentElement, Render, ScrollDelta,
-    ScrollWheelEvent, Styled, TestAppContext, TouchPhase, VisualTestContext, Window, div, point,
-    px, size,
+    ScrollEvent, Styled, TestAppContext, TouchPhase, VisualTestContext, Window, div, point, px,
+    size,
 };
 
 struct RedisDialogTestHost {
@@ -86,7 +86,7 @@ fn assert_compact_lines_dialog(
     );
     assert!(footer.bottom() <= dialog.bottom());
 
-    cx.simulate_event(ScrollWheelEvent {
+    cx.simulate_event(ScrollEvent {
         position: fields.center(),
         delta: ScrollDelta::Pixels(point(px(0.0), px(-500.0))),
         touch_phase: TouchPhase::Moved,
@@ -199,7 +199,7 @@ fn stream_dialog_keeps_save_controls_visible_after_adding_rows_in_compact_window
     assert!(toolbar.origin.y > fields.bottom());
     assert!(footer.bottom() <= dialog.bottom());
 
-    cx.simulate_event(ScrollWheelEvent {
+    cx.simulate_event(ScrollEvent {
         position: fields.center(),
         delta: ScrollDelta::Pixels(point(px(0.0), px(-500.0))),
         touch_phase: TouchPhase::Moved,

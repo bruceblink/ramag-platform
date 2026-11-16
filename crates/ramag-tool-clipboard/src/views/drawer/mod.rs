@@ -361,7 +361,7 @@ impl ClipboardDrawer {
                 _ => {}
             }
         }
-        if ev.keystroke.modifiers.secondary()
+        if ev.keystroke.modifiers.secondary(cx)
             && ev.keystroke.modifiers.number_of_modifiers() == 1
             && key.len() == 1
             && key.chars().all(|c| ('1'..='9').contains(&c))

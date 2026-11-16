@@ -1,8 +1,8 @@
 use super::RedisSessionPanel;
 use gpui_kit::component::Root;
 use gpui_kit::{
-    AppContext as _, Context, Entity, IntoElement, ParentElement, Render, ScrollDelta,
-    ScrollWheelEvent, Styled, TestAppContext, TouchPhase, Window, div, point, px, size,
+    AppContext as _, Context, Entity, IntoElement, ParentElement, Render, ScrollDelta, ScrollEvent,
+    Styled, TestAppContext, TouchPhase, Window, div, point, px, size,
 };
 
 struct RedisDialogTestHost {
@@ -66,7 +66,7 @@ fn value_edit_dialog_keeps_save_controls_visible_in_compact_window(cx: &mut Test
     assert!(textarea.bottom() > fields.bottom());
     assert!(footer.bottom() <= dialog.bottom());
 
-    cx.simulate_event(ScrollWheelEvent {
+    cx.simulate_event(ScrollEvent {
         position: fields.center(),
         delta: ScrollDelta::Pixels(point(px(0.0), px(-240.0))),
         touch_phase: TouchPhase::Moved,

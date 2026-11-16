@@ -515,7 +515,7 @@ pub(in crate::views) fn render_table(
                 .id("result-scroll-input")
                 .absolute()
                 .inset_0()
-                .on_scroll_wheel(cx.listener(ResultPanel::on_result_scroll)),
+                .on_scroll(cx.listener(ResultPanel::on_result_scroll)),
         )
         .child(
             div()

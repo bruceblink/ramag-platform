@@ -10,8 +10,8 @@ use async_channel::{Receiver, Sender, bounded};
 use async_trait::async_trait;
 use gpui_kit::{
     AppContext as _, Context, IntoElement, Modifiers, ParentElement as _, Render, ScrollDelta,
-    ScrollWheelEvent, Styled as _, TestAppContext, TouchPhase, VisualTestContext, Window, point,
-    px, size,
+    ScrollEvent, Styled as _, TestAppContext, TouchPhase, VisualTestContext, Window, point, px,
+    size,
 };
 use ramag_app::MqttService;
 use ramag_domain::entities::{
@@ -238,7 +238,7 @@ fn scroll_local_server(cx: &mut VisualTestContext, delta_y: f32) {
     let bounds = cx
         .debug_bounds("mqtt-local-server-scroll")
         .expect("本地 MQTT Broker 滚动容器应参与布局");
-    cx.simulate_event(ScrollWheelEvent {
+    cx.simulate_event(ScrollEvent {
         position: bounds.center(),
         delta: ScrollDelta::Pixels(point(px(0.0), px(delta_y))),
         touch_phase: TouchPhase::Moved,

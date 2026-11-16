@@ -120,7 +120,7 @@ impl KeyTreePanel {
                     cx.stop_propagation()
                 })
                 .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                    if event.modifiers().secondary() {
+                    if ramag_ui::has_primary_modifier(event) {
                         if ramag_ui::is_primary_modifier_double_click(event) {
                             ramag_ui::copy_text_with_notification(
                                 path_for_copy.as_ref().clone(),
@@ -161,7 +161,7 @@ impl KeyTreePanel {
                     cx.stop_propagation()
                 })
                 .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                    if event.modifiers().secondary() {
+                    if ramag_ui::has_primary_modifier(event) {
                         if ramag_ui::is_primary_modifier_double_click(event) {
                             ramag_ui::copy_text_with_notification(
                                 path_for_copy.as_ref().clone(),
@@ -180,7 +180,7 @@ impl KeyTreePanel {
         let load_on_click = is_leaf;
         let path_for_copy = row.full_path.clone();
         let on_row_click = cx.listener(move |this, event: &ClickEvent, window, cx| {
-            if event.modifiers().secondary() {
+            if ramag_ui::has_primary_modifier(event) {
                 if ramag_ui::is_primary_modifier_double_click(event) {
                     ramag_ui::copy_text_with_notification(
                         path_for_copy.as_ref().clone(),

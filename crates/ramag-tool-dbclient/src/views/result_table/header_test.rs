@@ -1,8 +1,7 @@
 use super::{DisplayViewCache, DisplayViewCacheKey, RowFilter, build_display_view};
 use crate::views::result_panel::{ResultPanel, ResultState};
 use gpui_kit::{
-    Modifiers, MouseButton, ScrollDelta, ScrollWheelEvent, TestAppContext, TouchPhase, point, px,
-    size,
+    Modifiers, MouseButton, ScrollDelta, ScrollEvent, TestAppContext, TouchPhase, point, px, size,
 };
 use ramag_domain::entities::{QueryResult, Row, Value};
 use std::sync::Arc;
@@ -54,7 +53,7 @@ fn result_header_stays_fixed_during_vertical_scroll(cx: &mut TestAppContext) {
         .expect("结果表头应渲染")
         .origin
         .y;
-    cx.simulate_event(ScrollWheelEvent {
+    cx.simulate_event(ScrollEvent {
         position: point(table.origin.x + px(80.0), table.origin.y + px(80.0)),
         delta: ScrollDelta::Pixels(point(px(0.0), px(-80.0))),
         touch_phase: TouchPhase::Moved,

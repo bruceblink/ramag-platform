@@ -11,7 +11,7 @@ use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::{
     Bounds, ClipboardItem, Context, ElementInputHandler, FocusHandle, Focusable, IntoElement,
     KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point, Render,
-    ScrollWheelEvent, Window, canvas, div, prelude::*, px,
+    ScrollEvent, Window, canvas, div, prelude::*, px,
 };
 
 use crate::core::{ClipboardRequest, TerminalCore};
@@ -239,7 +239,7 @@ impl TerminalView {
         }
     }
 
-    fn scroll(&mut self, event: &ScrollWheelEvent, window: &mut Window, cx: &mut Context<Self>) {
+    fn scroll(&mut self, event: &ScrollEvent, window: &mut Window, cx: &mut Context<Self>) {
         let delta = event.delta.pixel_delta(window.line_height()).y;
         if delta == Pixels::ZERO {
             return;
@@ -344,7 +344,7 @@ impl Render for TerminalView {
                     this.mouse_up(event, cx);
                 }),
             )
-            .on_scroll_wheel(cx.listener(Self::scroll))
+            .on_scroll(cx.listener(Self::scroll))
             .child(terminal)
     }
 }

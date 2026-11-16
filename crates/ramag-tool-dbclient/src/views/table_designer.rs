@@ -229,7 +229,7 @@ impl TableDesigner {
     /// 在表字段区域内按手势主方向分流横向和纵向滚动，避免横向拖动带动字段行上下跳动。
     fn on_field_scroll(
         &mut self,
-        event: &gpui_kit::ScrollWheelEvent,
+        event: &gpui_kit::ScrollEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {

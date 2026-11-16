@@ -539,7 +539,7 @@ impl KafkaView {
             .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                 // Ctrl/Command + double-click copies the stable Topic name without changing selection.
-                if event.modifiers().secondary() {
+                if ramag_ui::has_primary_modifier(event) {
                     if ramag_ui::is_primary_modifier_double_click(event) {
                         ramag_ui::copy_text_with_notification(name.clone(), window, cx);
                     }

@@ -143,7 +143,7 @@ impl CollectionTreePanel {
                     )
                     .on_click(
                         cx.listener(move |this, event: &gpui_kit::ClickEvent, window, cx| {
-                            if event.modifiers().secondary() {
+                            if ramag_ui::has_primary_modifier(event) {
                                 if ramag_ui::is_primary_modifier_double_click(event) {
                                     ramag_ui::copy_text_with_notification(
                                         name_for_click.clone(),
@@ -242,7 +242,7 @@ impl CollectionTreePanel {
                     )
                     .on_click(cx.listener(
                         move |this, event: &gpui_kit::ClickEvent, window, cx| {
-                            if event.modifiers().secondary() {
+                            if ramag_ui::has_primary_modifier(event) {
                                 if ramag_ui::is_primary_modifier_double_click(event) {
                                     ramag_ui::copy_text_with_notification(
                                         name_for_click.clone(),

@@ -9,8 +9,19 @@ use gpui_kit::{
 /// 判断是否为“主修饰键 + 左键双击”。
 ///
 /// GPUI 的 `Modifiers::secondary` 已按平台映射：macOS 是 Command，Windows/Linux 是 Ctrl。
+pub fn has_primary_modifier(event: &ClickEvent) -> bool {
+    let modifiers = event.modifiers();
+    // GPUI 0.10 将平台映射放到 App；这里用编译目标保持复制手势的既有语义。
+    if cfg!(target_os = "macos") {
+        modifiers.platform
+    } else {
+        modifiers.control
+    }
+}
+
+/// 判断是否为“主修饰键 + 左键双击”。
 pub fn is_primary_modifier_double_click(event: &ClickEvent) -> bool {
-    event.standard_click() && event.click_count() >= 2 && event.modifiers().secondary()
+    event.standard_click() && event.click_count() >= 2 && has_primary_modifier(event)
 }
 
 /// 将文本写入系统剪贴板。

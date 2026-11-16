@@ -91,7 +91,7 @@ fn modifier_double_click_copies_full_key_without_selecting(cx: &mut TestAppConte
     assert!(stem.size.height > px(0.0));
     assert!(root_key_row.size.width > px(0.0));
 
-    let modifiers = Modifiers::secondary_key();
+    let modifiers = cx.read(Modifiers::secondary_key);
     let position = child_row.center();
     simulate_click_count(cx, position, modifiers, 1);
     assert!(panel.read_with(cx, |panel, _| panel.selected.is_none()));

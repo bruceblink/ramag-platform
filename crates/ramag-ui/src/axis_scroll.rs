@@ -3,8 +3,8 @@
 use std::time::{Duration, Instant};
 
 use gpui_kit::{
-    Context, Pixels, Point, ScrollHandle, ScrollWheelEvent, Styled, TouchPhase, UniformList,
-    Window, point, px,
+    Context, Pixels, Point, ScrollEvent, ScrollHandle, Styled, TouchPhase, UniformList, Window,
+    point, px,
 };
 
 /// Windows 普通滚轮事件没有 Started / Ended，以短暂停顿划分手势。
@@ -129,7 +129,7 @@ impl AxisScrollGesture {
 /// 将滚轮事件分流到横向或纵向句柄。调用方应在两个原生滚动容器之上放置透明输入层。
 pub fn handle_axis_scroll<T: 'static>(
     gesture: &mut AxisScrollGesture,
-    event: &ScrollWheelEvent,
+    event: &ScrollEvent,
     window: &mut Window,
     horizontal: &ScrollHandle,
     vertical: &ScrollHandle,
