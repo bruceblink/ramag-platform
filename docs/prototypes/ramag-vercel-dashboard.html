@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ramag Dashboard Prototype</title>
+  <title>Ramag — 本机工作区</title>
   <style>
     :root {
       color-scheme: dark;
@@ -118,9 +118,9 @@
     .btn.ghost:hover { background: var(--surface-2); color: var(--text); }
 
     .hero { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(270px, .9fr); gap: 12px; margin-bottom: 12px; }
-    .panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+    .panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: none; }
     .hero-main { min-height: 250px; padding: 24px; position: relative; overflow: hidden; }
-    .hero-main::after { content: ""; position: absolute; width: 300px; height: 300px; top: -210px; right: -110px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: 0 0 0 30px color-mix(in srgb, var(--accent) 4%, transparent), 0 0 0 60px color-mix(in srgb, var(--accent) 3%, transparent); pointer-events: none; }
+    .hero-main::after { content: ""; position: absolute; inset: 0 0 auto auto; width: 160px; height: 2px; background: var(--accent); opacity: .7; pointer-events: none; }
     .hero-top { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
     .hero-title { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.025em; }
     .hero-copy { margin: 5px 0 0; color: var(--muted); }
@@ -190,6 +190,7 @@
     .catalog-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
     .catalog-card { padding: 17px; display: flex; align-items: start; gap: 12px; transition: border-color .15s ease, transform .15s ease; }
     .catalog-card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+    .quick-action { width: 100%; color: inherit; font: inherit; text-align: left; cursor: pointer; }
     .catalog-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; border: 1px solid var(--border-strong); color: var(--accent); background: var(--surface-2); }
     .catalog-copy { min-width: 0; }
     .catalog-copy strong { display: block; font-size: 14px; }
@@ -242,30 +243,30 @@
 <body>
   <div class="app" id="ramag-prototype" data-theme="dark">
     <header class="topbar">
-      <a class="brand" href="#overview" aria-label="Ramag 首页">
+      <a class="brand" href="#overview" aria-label="Ramag 工作区">
         <span class="brand-mark">R</span>
-        <span>Ramag <small>workspace</small></span>
+        <span>Ramag <small>local tools</small></span>
       </a>
-      <div class="crumbs" aria-label="当前位置"><span>工作区</span><span class="slash">/</span><strong id="crumb-page">工作台</strong></div>
+      <div class="crumbs" aria-label="当前位置"><span>本机工作区</span><span class="slash">/</span><strong id="crumb-page">概览</strong></div>
       <div class="topbar-spacer"></div>
-      <button class="workspace-switcher" type="button" id="workspace-switcher"><span class="workspace-dot"></span><strong>本机工作区</strong><span aria-hidden="true">⌄</span></button>
-      <button class="command-button" type="button" id="command-button"><span>快速搜索</span><kbd>⌘ K</kbd></button>
+      <button class="workspace-switcher" type="button" id="workspace-switcher"><span class="workspace-dot"></span><strong>Ramag</strong><span aria-hidden="true">⌄</span></button>
+      <button class="command-button" type="button" id="command-button"><span>查找工具、连接</span><kbd>⌘ K</kbd></button>
       <button class="icon-button" type="button" id="theme-toggle" aria-label="切换主题">☼</button>
       <button class="user-button" type="button" id="user-button" aria-label="打开个人菜单"><span class="avatar">BL</span><span aria-hidden="true">⌄</span></button>
     </header>
 
     <div class="body">
       <aside class="sidebar" id="sidebar" aria-label="主导航">
-        <div class="sidebar-top"><span class="sidebar-label">工作区</span><button class="section-action" type="button" id="collapse-sidebar" aria-label="收起侧栏">‹</button></div>
+        <div class="sidebar-top"><span class="sidebar-label">Ramag / 本机</span><button class="section-action" type="button" id="collapse-sidebar" aria-label="收起侧栏">‹</button></div>
         <nav class="nav" aria-label="工作区导航">
-          <button class="nav-item active" type="button" data-view="overview"><span class="nav-icon">⌂</span><span class="nav-text">工作台</span></button>
-          <button class="nav-item" type="button" data-view="deployments"><span class="nav-icon">↗</span><span class="nav-text">最近使用</span><span class="nav-count">12</span></button>
-          <button class="nav-item" type="button" data-view="activity"><span class="nav-icon">◌</span><span class="nav-text">活动</span></button>
+          <button class="nav-item active" type="button" data-view="overview"><span class="nav-icon">⌂</span><span class="nav-text">概览</span></button>
+          <button class="nav-item" type="button" data-view="deployments"><span class="nav-icon">↗</span><span class="nav-text">执行记录</span><span class="nav-count">12</span></button>
+          <button class="nav-item" type="button" data-view="activity"><span class="nav-icon">◌</span><span class="nav-text">活动日志</span></button>
           <button class="nav-item" type="button" data-view="settings"><span class="nav-icon">⚙</span><span class="nav-text">设置</span></button>
         </nav>
 
         <div class="sidebar-group">
-          <div class="sidebar-group-head"><span class="sidebar-label">工具</span><button class="section-action" type="button" id="add-tool" aria-label="添加工具">＋</button></div>
+          <div class="sidebar-group-head"><span class="sidebar-label">工具上下文</span><button class="section-action" type="button" id="add-tool" aria-label="添加工具">＋</button></div>
           <button class="tool-chip active" type="button"><span class="tool-dot green"></span><span class="nav-text">Database</span></button>
           <button class="tool-chip" type="button"><span class="tool-dot"></span><span class="nav-text">API Client</span></button>
           <button class="tool-chip" type="button"><span class="tool-dot green"></span><span class="nav-text">SSH Workspace</span></button>
@@ -282,32 +283,34 @@
         <div class="main-inner">
           <section class="page-head">
             <div>
-              <div class="eyebrow" id="page-eyebrow">Local workspace</div>
-              <h1 id="page-title">工作台</h1>
-              <p class="subtitle" id="page-subtitle">从最近使用的工具继续工作，快速回到本地连接、会话和草稿。</p>
+              <div class="eyebrow" id="page-eyebrow">Ramag / 本机工作区</div>
+              <h1 id="page-title">概览</h1>
+              <p class="subtitle" id="page-subtitle">从一个入口查看工具上下文、连接、执行记录和本地活动。</p>
             </div>
-            <div class="head-actions"><button class="btn ghost" type="button" id="refresh-button">↻ 刷新</button><button class="btn primary" type="button" id="new-connection">＋ 新建连接</button></div>
+            <div class="head-actions"><button class="btn ghost" type="button" id="refresh-button">↻ 刷新</button><button class="btn primary" type="button" id="new-connection">＋ 新建</button></div>
           </section>
 
-          <section class="hero" aria-label="本地工作区摘要">
+          <section class="hero" aria-label="当前工具上下文">
             <article class="panel hero-main">
-              <div class="hero-top"><div><h2 class="hero-title">最近使用的工作区</h2><p class="hero-copy">从上次离开的工具继续处理本地任务。</p></div><span class="status"><span class="status-dot"></span>本地数据</span></div>
-              <div class="hero-number"><strong>3</strong><span>个最近打开的工具</span></div>
-              <div class="hero-foot"><span>上次打开 <strong>Database</strong></span><span>最近保存 <strong>5 分钟前</strong></span><span>位置 <strong>本机</strong></span></div>
-              <div class="recent-strip" aria-label="最近打开的工具"><span class="recent-chip"><span class="recent-chip-dot green"></span><strong>Database</strong> 查询编辑器</span><span class="recent-chip"><span class="recent-chip-dot"></span><strong>API Client</strong> 请求草稿</span><span class="recent-chip"><span class="recent-chip-dot orange"></span><strong>Kafka</strong> Consumer</span></div>
+              <div class="hero-top"><div><h2 class="hero-title">当前工具上下文</h2><p class="hero-copy">上次离开的连接和编辑状态仍然可恢复。</p></div><span class="status"><span class="status-dot"></span>本机数据</span></div>
+              <div class="hero-number"><strong>Database</strong><span>mysql-local</span></div>
+              <div class="hero-foot"><span>对象 <strong>users.sql</strong></span><span>最近保存 <strong>5 分钟前</strong></span><span>标签 <strong>2 个</strong></span></div>
+              <div class="recent-strip" aria-label="当前工具上下文"><span class="recent-chip"><span class="recent-chip-dot green"></span><strong>查询编辑器</strong> 已恢复</span><span class="recent-chip"><span class="recent-chip-dot"></span><strong>结果网格</strong> 可继续</span><span class="recent-chip"><span class="recent-chip-dot orange"></span><strong>连接</strong> 本机</span></div>
             </article>
-            <article class="panel hero-side"><div><div class="side-label">本地会话</div><div class="side-value"><strong>4</strong><span>个窗口</span></div><div class="side-rule"></div><div class="side-meta"><span>已保存工作区</span><strong>6</strong></div><div class="side-meta"><span>打开标签</span><strong>12</strong></div><div class="side-meta"><span>待处理草稿</span><strong style="color:var(--warning)">2</strong></div></div><button class="btn ghost" type="button" data-view="activity">查看本地活动 →</button></article>
+            <article class="panel hero-side"><div><div class="side-label">工作区摘要</div><div class="side-value"><strong>6</strong><span>个工具</span></div><div class="side-rule"></div><div class="side-meta"><span>已保存会话</span><strong>4</strong></div><div class="side-meta"><span>连接配置</span><strong>8</strong></div><div class="side-meta"><span>待处理草稿</span><strong style="color:var(--warning)">2</strong></div></div><button class="btn ghost" type="button" data-view="activity">查看活动日志 →</button></article>
           </section>
 
-          <section class="metric-grid" aria-label="工作上下文">
-            <article class="panel metric"><div class="metric-label">最近使用</div><div class="metric-value">8</div><div class="metric-foot"><span class="up">3 个</span><span>今天打开</span></div></article>
-            <article class="panel metric"><div class="metric-label">打开标签</div><div class="metric-value">12</div><div class="metric-foot"><span class="up">4 个</span><span>可恢复会话</span></div></article>
-            <article class="panel metric"><div class="metric-label">收藏工具</div><div class="metric-value">5</div><div class="metric-foot"><span class="up">已整理</span><span>按工作区分组</span></div></article>
+          <section class="metric-grid" aria-label="工作区对象">
+            <article class="panel metric"><div class="metric-label">最近打开</div><div class="metric-value">3</div><div class="metric-foot"><span class="up">今天</span><span>工具上下文</span></div></article>
+            <article class="panel metric"><div class="metric-label">执行记录</div><div class="metric-value">12</div><div class="metric-foot"><span class="up">4 个</span><span>可恢复会话</span></div></article>
+            <article class="panel metric"><div class="metric-label">连接配置</div><div class="metric-value">8</div><div class="metric-foot"><span class="up">已整理</span><span>按工具分组</span></div></article>
             <article class="panel metric"><div class="metric-label">待处理草稿</div><div class="metric-value">2</div><div class="metric-foot"><span class="warn">需要查看</span><span>本地保存</span></div></article>
           </section>
 
+          <section class="catalog" aria-labelledby="quick-heading"><div class="section-head"><div><h2 id="quick-heading">快捷入口</h2><p>把最常用的本地工作动作放在当前上下文旁边。</p></div><button class="btn ghost" type="button" id="open-tool-manager">管理工具 →</button></div><div class="catalog-grid"><button class="panel catalog-card quick-action" type="button" id="quick-continue"><span class="catalog-icon">↗</span><span class="catalog-copy"><strong>继续 Database</strong><span>恢复 mysql-local 的查询编辑器和结果标签。</span></span></button><button class="panel catalog-card quick-action" type="button" id="quick-new"><span class="catalog-icon">＋</span><span class="catalog-copy"><strong>新建连接</strong><span>添加数据库、API、SSH 或消息连接。</span></span></button><button class="panel catalog-card quick-action" type="button" id="quick-restore"><span class="catalog-icon">◌</span><span class="catalog-copy"><strong>恢复会话</strong><span>打开最近保存的标签和本地草稿。</span></span></button></div></section>
+
           <section aria-labelledby="activity-heading">
-            <div class="section-head"><div><h2 id="activity-heading">最近活动</h2><p>最近打开的工具、本地连接和会话动作。</p></div><button class="btn ghost" type="button" data-view="activity">查看全部 →</button></div>
+            <div class="section-head"><div><h2 id="activity-heading">活动日志</h2><p>最近打开、保存、连接和会话恢复动作。</p></div><button class="btn ghost" type="button" data-view="activity">查看全部 →</button></div>
             <div class="panel activity-panel">
               <div class="activity-toolbar"><div class="filter-group" role="group" aria-label="活动筛选"><button class="filter active" type="button" data-filter="all">全部</button><button class="filter" type="button" data-filter="success">已保存</button><button class="filter" type="button" data-filter="attention">需关注</button></div><input class="search" id="activity-search" type="search" placeholder="搜索活动" aria-label="搜索活动" /></div>
               <div class="activity-row head"><div>事件</div><div>工具</div><div>上下文</div><div>状态</div><div>更新时间</div><div></div></div>
@@ -321,7 +324,7 @@
             </div>
           </section>
 
-          <section class="catalog" aria-labelledby="catalog-heading"><div class="section-head"><div><h2 id="catalog-heading">工具目录</h2><p>按本地工作区组织常用工具和连接。</p></div><button class="btn ghost" type="button" id="manage-tools">管理工具 →</button></div><div class="catalog-grid"><article class="panel catalog-card"><span class="catalog-icon">DB</span><div class="catalog-copy"><strong>Database</strong><span>查询、连接与数据对象</span></div></article><article class="panel catalog-card"><span class="catalog-icon">↗</span><div class="catalog-copy"><strong>API Client</strong><span>请求、环境与本地草稿</span></div></article><article class="panel catalog-card"><span class="catalog-icon">K</span><div class="catalog-copy"><strong>Kafka</strong><span>Topic、Consumer 与本地会话</span></div></article></div></section>
+          <section class="catalog" aria-labelledby="catalog-heading"><div class="section-head"><div><h2 id="catalog-heading">工具上下文</h2><p>用项目筛选的方式切换 Ramag 的工具资源。</p></div><button class="btn ghost" type="button" id="manage-tools">管理工具 →</button></div><div class="catalog-grid"><article class="panel catalog-card"><span class="catalog-icon">DB</span><div class="catalog-copy"><strong>Database</strong><span>Schema、查询编辑器、结果标签</span></div></article><article class="panel catalog-card"><span class="catalog-icon">↗</span><div class="catalog-copy"><strong>API Client</strong><span>请求、环境、响应和草稿</span></div></article><article class="panel catalog-card"><span class="catalog-icon">K</span><div class="catalog-copy"><strong>Kafka</strong><span>Topic、Consumer、消息和会话</span></div></article></div></section>
         </div>
       </main>
     </div>
@@ -336,10 +339,10 @@
     const pageEyebrow = document.getElementById('page-eyebrow');
     const crumbPage = document.getElementById('crumb-page');
     const viewCopy = {
-      overview: ['工作台', '本地工作区', '从最近使用的工具继续工作，快速回到本地连接、会话和草稿。'],
-      deployments: ['最近使用', '最近打开的工具', '按最近打开时间查看工具、标签和可恢复的本地会话。'],
-      activity: ['活动', '本地活动', '集中查看最近打开、保存、连接和会话恢复动作。'],
-      settings: ['设置', '工作区设置', '管理主题、工具入口和当前本地工作区偏好。']
+      overview: ['概览', 'Ramag / 本机工作区', '从一个入口查看工具上下文、连接、执行记录和本地活动。'],
+      deployments: ['执行记录', 'Sessions / Executions', '按工具、状态和时间查看查询、请求、消息和会话记录。'],
+      activity: ['活动日志', 'Logs / Activity', '集中查看最近打开、保存、连接和会话恢复动作。'],
+      settings: ['设置', 'Workspace settings', '管理工作区级和工具级设置。']
     };
     let toastTimer;
     function showToast(message) {
@@ -370,11 +373,15 @@
     });
     document.getElementById('new-connection').addEventListener('click', () => showToast('新建连接流程已打开'));
     document.getElementById('refresh-button').addEventListener('click', () => showToast('工作区数据已刷新'));
-    document.getElementById('workspace-switcher').addEventListener('click', () => showToast('本机工作区已选中'));
+    document.getElementById('workspace-switcher').addEventListener('click', () => showToast('Ramag 本机工作区已选中'));
     document.getElementById('command-button').addEventListener('click', () => showToast('快速搜索已打开 · 试试 ⌘ K'));
     document.getElementById('user-button').addEventListener('click', () => showToast('个人菜单已打开'));
     document.getElementById('add-tool').addEventListener('click', () => showToast('工具管理已打开'));
     document.getElementById('manage-tools').addEventListener('click', () => showToast('工具管理已打开'));
+    document.getElementById('open-tool-manager').addEventListener('click', () => showToast('工具管理已打开'));
+    document.getElementById('quick-continue').addEventListener('click', () => showToast('正在恢复 Database 查询编辑器'));
+    document.getElementById('quick-new').addEventListener('click', () => showToast('新建连接流程已打开'));
+    document.getElementById('quick-restore').addEventListener('click', () => showToast('正在恢复最近保存的会话'));
     document.getElementById('open-shortcuts').addEventListener('click', () => showToast('快捷键：⌘ K 搜索 · ⌘ B 收起侧栏'));
     document.getElementById('open-help').addEventListener('click', () => showToast('帮助中心已打开'));
 
