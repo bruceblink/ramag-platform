@@ -131,9 +131,12 @@
     .hero-number span { color: var(--muted); padding-bottom: 5px; }
     .hero-foot { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 25px; color: var(--muted); font-size: 12px; }
     .hero-foot strong { color: var(--text); font-weight: 550; }
-    .sparkline { position: absolute; left: 24px; right: 24px; bottom: 20px; height: 55px; opacity: .85; }
-    .sparkline polyline { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-    .sparkline .area { fill: url(#spark-fill); stroke: none; opacity: .45; }
+    .recent-strip { position: absolute; left: 24px; right: 24px; bottom: 19px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .recent-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); background: color-mix(in srgb, var(--surface-2) 86%, transparent); font-size: 12px; }
+    .recent-chip strong { color: var(--text); font-weight: 550; }
+    .recent-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+    .recent-chip-dot.green { background: var(--success); }
+    .recent-chip-dot.orange { background: var(--warning); }
     .hero-side { padding: 22px; display: grid; align-content: space-between; min-height: 250px; }
     .side-label { color: var(--muted); font-size: 12px; }
     .side-value { display: flex; align-items: baseline; gap: 8px; margin-top: 5px; }
@@ -245,7 +248,7 @@
       </a>
       <div class="crumbs" aria-label="当前位置"><span>工作区</span><span class="slash">/</span><strong id="crumb-page">Overview</strong></div>
       <div class="topbar-spacer"></div>
-      <button class="workspace-switcher" type="button" id="workspace-switcher"><span class="workspace-dot"></span><strong>Production</strong><span aria-hidden="true">⌄</span></button>
+      <button class="workspace-switcher" type="button" id="workspace-switcher"><span class="workspace-dot"></span><strong>本机工作区</strong><span aria-hidden="true">⌄</span></button>
       <button class="command-button" type="button" id="command-button"><span>快速搜索</span><kbd>⌘ K</kbd></button>
       <button class="icon-button" type="button" id="theme-toggle" aria-label="切换主题">☼</button>
       <button class="user-button" type="button" id="user-button" aria-label="打开个人菜单"><span class="avatar">BL</span><span aria-hidden="true">⌄</span></button>
@@ -256,7 +259,7 @@
         <div class="sidebar-top"><span class="sidebar-label">工作区</span><button class="section-action" type="button" id="collapse-sidebar" aria-label="收起侧栏">‹</button></div>
         <nav class="nav" aria-label="工作区导航">
           <button class="nav-item active" type="button" data-view="overview"><span class="nav-icon">⌂</span><span class="nav-text">Overview</span></button>
-          <button class="nav-item" type="button" data-view="deployments"><span class="nav-icon">↗</span><span class="nav-text">部署</span><span class="nav-count">12</span></button>
+          <button class="nav-item" type="button" data-view="deployments"><span class="nav-icon">↗</span><span class="nav-text">最近使用</span><span class="nav-count">12</span></button>
           <button class="nav-item" type="button" data-view="activity"><span class="nav-icon">◌</span><span class="nav-text">活动</span></button>
           <button class="nav-item" type="button" data-view="settings"><span class="nav-icon">⚙</span><span class="nav-text">设置</span></button>
         </nav>
@@ -279,50 +282,46 @@
         <div class="main-inner">
           <section class="page-head">
             <div>
-              <div class="eyebrow" id="page-eyebrow">Ramag workspace</div>
+              <div class="eyebrow" id="page-eyebrow">Local workspace</div>
               <h1 id="page-title">Overview</h1>
-              <p class="subtitle" id="page-subtitle">把连接、任务和工具状态放在同一条可扫读的工作区里。</p>
+              <p class="subtitle" id="page-subtitle">从最近使用的工具继续工作，快速回到本地连接、会话和草稿。</p>
             </div>
             <div class="head-actions"><button class="btn ghost" type="button" id="refresh-button">↻ 刷新</button><button class="btn primary" type="button" id="new-connection">＋ 新建连接</button></div>
           </section>
 
           <section class="hero" aria-label="工作区摘要">
             <article class="panel hero-main">
-              <div class="hero-top"><div><h2 class="hero-title">工作区健康度</h2><p class="hero-copy">过去 24 小时的运行状态与可用性。</p></div><span class="status"><span class="status-dot"></span>运行正常</span></div>
-              <div class="hero-number"><strong>98.7%</strong><span>稳定运行</span></div>
-              <div class="hero-foot"><span>最近更新 <strong>2 分钟前</strong></span><span>区域 <strong>Asia / Shanghai</strong></span><span>活动工具 <strong>6 / 8</strong></span></div>
-              <svg class="sparkline" viewBox="0 0 600 55" preserveAspectRatio="none" role="img" aria-label="工作区健康度趋势">
-                <defs><linearGradient id="spark-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".3"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
-                <polygon class="area" points="0,45 32,43 64,44 96,30 128,35 160,24 192,27 224,20 256,22 288,17 320,20 352,14 384,19 416,12 448,17 480,7 512,10 544,5 600,7 600,55 0,55"></polygon>
-                <polyline points="0,45 32,43 64,44 96,30 128,35 160,24 192,27 224,20 256,22 288,17 320,20 352,14 384,19 416,12 448,17 480,7 512,10 544,5 600,7"></polyline>
-              </svg>
+              <div class="hero-top"><div><h2 class="hero-title">最近使用的工作区</h2><p class="hero-copy">从上次离开的工具继续处理本地任务。</p></div><span class="status"><span class="status-dot"></span>本地数据</span></div>
+              <div class="hero-number"><strong>3</strong><span>个最近打开的工具</span></div>
+              <div class="hero-foot"><span>上次打开 <strong>Database</strong></span><span>最近保存 <strong>5 分钟前</strong></span><span>位置 <strong>本机</strong></span></div>
+              <div class="recent-strip" aria-label="最近打开的工具"><span class="recent-chip"><span class="recent-chip-dot green"></span><strong>Database</strong> 查询编辑器</span><span class="recent-chip"><span class="recent-chip-dot"></span><strong>API Client</strong> 请求草稿</span><span class="recent-chip"><span class="recent-chip-dot orange"></span><strong>Kafka</strong> Consumer</span></div>
             </article>
-            <article class="panel hero-side"><div><div class="side-label">当前运行任务</div><div class="side-value"><strong>24</strong><span>+8.3%</span></div><div class="side-rule"></div><div class="side-meta"><span>已完成</span><strong>18</strong></div><div class="side-meta"><span>处理中</span><strong>4</strong></div><div class="side-meta"><span>需关注</span><strong style="color:var(--warning)">2</strong></div></div><button class="btn ghost" type="button" data-view="activity">查看活动 →</button></article>
+            <article class="panel hero-side"><div><div class="side-label">本地会话</div><div class="side-value"><strong>4</strong><span>个窗口</span></div><div class="side-rule"></div><div class="side-meta"><span>已保存工作区</span><strong>6</strong></div><div class="side-meta"><span>打开标签</span><strong>12</strong></div><div class="side-meta"><span>待处理草稿</span><strong style="color:var(--warning)">2</strong></div></div><button class="btn ghost" type="button" data-view="activity">查看本地活动 →</button></article>
           </section>
 
           <section class="metric-grid" aria-label="关键指标">
-            <article class="panel metric"><div class="metric-label">活跃连接</div><div class="metric-value">18</div><div class="metric-foot"><span class="up">↑ 12%</span><span>较昨日</span></div></article>
-            <article class="panel metric"><div class="metric-label">消息吞吐</div><div class="metric-value">8.4k<span style="font-size:14px;color:var(--muted)">/min</span></div><div class="metric-foot"><span class="up">↑ 4.8%</span><span>近 1 小时</span></div></article>
-            <article class="panel metric"><div class="metric-label">成功任务</div><div class="metric-value">1,284</div><div class="metric-foot"><span class="up">99.2%</span><span>通过率</span></div></article>
-            <article class="panel metric"><div class="metric-label">待处理事件</div><div class="metric-value">6</div><div class="metric-foot"><span class="warn">需要关注</span><span>含 2 个警告</span></div></article>
+            <article class="panel metric"><div class="metric-label">最近使用</div><div class="metric-value">8</div><div class="metric-foot"><span class="up">3 个</span><span>今天打开</span></div></article>
+            <article class="panel metric"><div class="metric-label">打开标签</div><div class="metric-value">12</div><div class="metric-foot"><span class="up">4 个</span><span>可恢复会话</span></div></article>
+            <article class="panel metric"><div class="metric-label">收藏工具</div><div class="metric-value">5</div><div class="metric-foot"><span class="up">已整理</span><span>按工作区分组</span></div></article>
+            <article class="panel metric"><div class="metric-label">待处理草稿</div><div class="metric-value">2</div><div class="metric-foot"><span class="warn">需要查看</span><span>本地保存</span></div></article>
           </section>
 
           <section aria-labelledby="activity-heading">
-            <div class="section-head"><div><h2 id="activity-heading">Recent activity</h2><p>最近的连接、运行与配置动作。</p></div><button class="btn ghost" type="button" data-view="activity">查看全部 →</button></div>
+            <div class="section-head"><div><h2 id="activity-heading">Recent activity</h2><p>最近打开的工具、本地连接和会话动作。</p></div><button class="btn ghost" type="button" data-view="activity">查看全部 →</button></div>
             <div class="panel activity-panel">
               <div class="activity-toolbar"><div class="filter-group" role="group" aria-label="活动筛选"><button class="filter active" type="button" data-filter="all">全部</button><button class="filter" type="button" data-filter="success">已完成</button><button class="filter" type="button" data-filter="attention">需关注</button></div><input class="search" id="activity-search" type="search" placeholder="搜索活动" aria-label="搜索活动" /></div>
               <div class="activity-row head"><div>事件</div><div>工具</div><div>环境</div><div>状态</div><div>更新时间</div><div></div></div>
               <div class="activity-list" id="activity-list">
-                <div class="activity-row" data-kind="success" data-search="数据库连接 mysql production 已完成"><div class="event"><span class="event-mark">DB</span><div class="event-copy"><div class="event-title">数据库连接已恢复</div><div class="event-sub">mysql-prod-01 · 延迟 42ms</div></div></div><div class="cell">Database</div><div class="cell"><span class="env">Production</span></div><div class="row-status success">● 已完成</div><div class="cell">2 分钟前</div><button class="more" type="button" aria-label="打开数据库连接操作">•••</button></div>
-                <div class="activity-row" data-kind="success" data-search="api request preview 已完成"><div class="event"><span class="event-mark">API</span><div class="event-copy"><div class="event-title">请求批次执行完成</div><div class="event-sub">POST /v1/records · 204 responses</div></div></div><div class="cell">API Client</div><div class="cell"><span class="env preview">Preview</span></div><div class="row-status success">● 已完成</div><div class="cell">11 分钟前</div><button class="more" type="button" aria-label="打开 API 活动操作">•••</button></div>
-                <div class="activity-row" data-kind="attention" data-search="kafka consumer lag warning"><div class="event"><span class="event-mark">K</span><div class="event-copy"><div class="event-title">Consumer lag 超过阈值</div><div class="event-sub">orders-v2 · 当前 1,240 条</div></div></div><div class="cell">Kafka</div><div class="cell"><span class="env">Production</span></div><div class="row-status warning">● 需关注</div><div class="cell">24 分钟前</div><button class="more" type="button" aria-label="打开 Kafka 活动操作">•••</button></div>
-                <div class="activity-row" data-kind="success" data-search="ssh workspace connected"><div class="event"><span class="event-mark">SSH</span><div class="event-copy"><div class="event-title">SSH 工作区已连接</div><div class="event-sub">bastion-sh · 3 个会话保持活动</div></div></div><div class="cell">SSH Workspace</div><div class="cell"><span class="env local">Local</span></div><div class="row-status success">● 已完成</div><div class="cell">42 分钟前</div><button class="more" type="button" aria-label="打开 SSH 活动操作">•••</button></div>
+                <div class="activity-row" data-kind="success" data-search="数据库连接 mysql 本机 已完成"><div class="event"><span class="event-mark">DB</span><div class="event-copy"><div class="event-title">查询草稿已保存</div><div class="event-sub">mysql-local · users.sql · 2 个标签</div></div></div><div class="cell">Database</div><div class="cell"><span class="env local">本机</span></div><div class="row-status success">● 已保存</div><div class="cell">2 分钟前</div><button class="more" type="button" aria-label="打开数据库草稿操作">•••</button></div>
+                <div class="activity-row" data-kind="success" data-search="api request preview 已保存"><div class="event"><span class="event-mark">API</span><div class="event-copy"><div class="event-title">请求草稿已更新</div><div class="event-sub">GET /v1/records · 环境变量 4 个</div></div></div><div class="cell">API Client</div><div class="cell"><span class="env preview">本地</span></div><div class="row-status success">● 已保存</div><div class="cell">11 分钟前</div><button class="more" type="button" aria-label="打开 API 草稿操作">•••</button></div>
+                <div class="activity-row" data-kind="attention" data-search="kafka consumer session warning"><div class="event"><span class="event-mark">K</span><div class="event-copy"><div class="event-title">Consumer 会话等待恢复</div><div class="event-sub">orders-v2 · 上次连接 24 分钟前</div></div></div><div class="cell">Kafka</div><div class="cell"><span class="env local">本机</span></div><div class="row-status warning">● 需关注</div><div class="cell">24 分钟前</div><button class="more" type="button" aria-label="打开 Kafka 会话操作">•••</button></div>
+                <div class="activity-row" data-kind="success" data-search="ssh workspace connected"><div class="event"><span class="event-mark">SSH</span><div class="event-copy"><div class="event-title">SSH 会话已恢复</div><div class="event-sub">bastion-sh · 上次打开 42 分钟前</div></div></div><div class="cell">SSH Workspace</div><div class="cell"><span class="env local">本机</span></div><div class="row-status success">● 已恢复</div><div class="cell">42 分钟前</div><button class="more" type="button" aria-label="打开 SSH 会话操作">•••</button></div>
               </div>
               <div class="empty" id="activity-empty">没有匹配的活动。尝试清空搜索或切换筛选条件。</div>
             </div>
           </section>
 
-          <section class="catalog" aria-labelledby="catalog-heading"><div class="section-head"><div><h2 id="catalog-heading">Tool catalog</h2><p>按工作区上下文组织常用工具。</p></div><button class="btn ghost" type="button" id="manage-tools">管理工具 →</button></div><div class="catalog-grid"><article class="panel catalog-card"><span class="catalog-icon">DB</span><div class="catalog-copy"><strong>Database</strong><span>查询、连接与数据对象</span></div></article><article class="panel catalog-card"><span class="catalog-icon">↗</span><div class="catalog-copy"><strong>API Client</strong><span>请求、环境与响应记录</span></div></article><article class="panel catalog-card"><span class="catalog-icon">K</span><div class="catalog-copy"><strong>Kafka</strong><span>Topic、Consumer 与延迟</span></div></article></div></section>
+          <section class="catalog" aria-labelledby="catalog-heading"><div class="section-head"><div><h2 id="catalog-heading">Tool catalog</h2><p>按本地工作区组织常用工具和连接。</p></div><button class="btn ghost" type="button" id="manage-tools">管理工具 →</button></div><div class="catalog-grid"><article class="panel catalog-card"><span class="catalog-icon">DB</span><div class="catalog-copy"><strong>Database</strong><span>查询、连接与数据对象</span></div></article><article class="panel catalog-card"><span class="catalog-icon">↗</span><div class="catalog-copy"><strong>API Client</strong><span>请求、环境与本地草稿</span></div></article><article class="panel catalog-card"><span class="catalog-icon">K</span><div class="catalog-copy"><strong>Kafka</strong><span>Topic、Consumer 与本地会话</span></div></article></div></section>
         </div>
       </main>
     </div>
@@ -337,10 +336,10 @@
     const pageEyebrow = document.getElementById('page-eyebrow');
     const crumbPage = document.getElementById('crumb-page');
     const viewCopy = {
-      overview: ['Overview', 'Ramag workspace', '把连接、任务和工具状态放在同一条可扫读的工作区里。'],
-      deployments: ['部署', 'Deployment history', '按环境和状态查看最近发布与回滚记录。'],
-      activity: ['活动', 'Operational activity', '集中查看连接、消息和任务的最新变化。'],
-      settings: ['设置', 'Workspace settings', '管理主题、工具入口和当前工作区偏好。']
+      overview: ['Overview', 'Local workspace', '从最近使用的工具继续工作，快速回到本地连接、会话和草稿。'],
+      deployments: ['最近使用', 'Recent tools', '按最近打开时间查看工具、标签和可恢复的本地会话。'],
+      activity: ['活动', 'Local activity', '集中查看最近打开、保存、连接和会话恢复动作。'],
+      settings: ['设置', 'Workspace settings', '管理主题、工具入口和当前本地工作区偏好。']
     };
     let toastTimer;
     function showToast(message) {
@@ -371,7 +370,7 @@
     });
     document.getElementById('new-connection').addEventListener('click', () => showToast('新建连接流程已打开'));
     document.getElementById('refresh-button').addEventListener('click', () => showToast('工作区数据已刷新'));
-    document.getElementById('workspace-switcher').addEventListener('click', () => showToast('Production workspace 已选中'));
+    document.getElementById('workspace-switcher').addEventListener('click', () => showToast('本机工作区已选中'));
     document.getElementById('command-button').addEventListener('click', () => showToast('快速搜索已打开 · 试试 ⌘ K'));
     document.getElementById('user-button').addEventListener('click', () => showToast('个人菜单已打开'));
     document.getElementById('add-tool').addEventListener('click', () => showToast('工具管理已打开'));
