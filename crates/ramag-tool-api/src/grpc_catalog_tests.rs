@@ -1,6 +1,9 @@
 use super::*;
 
-use gpui_kit::{Modifiers, TestAppContext, VisualTestContext, point, px, size};
+use gpui_kit::{
+    Modifiers, ScrollDelta, ScrollEvent, TestAppContext, TouchPhase, VisualTestContext, point, px,
+    size,
+};
 use ramag_domain::entities::{
     ApiCollection, ApiGrpcMethodSummary, ApiGrpcServiceSummary, ApiProtocol, ApiRequestRecord,
     ApiWorkspace, GrpcRequestSpec, HttpRequestSpec,
@@ -53,12 +56,16 @@ fn api_grpc_catalog_selects_method_and_keeps_long_lists_bounded(cx: &mut TestApp
     let catalog = visual_cx
         .debug_bounds("api-grpc-catalog")
         .expect("gRPC Service 目录应渲染");
-    let catalog_list = visual_cx
-        .debug_bounds("api-grpc-catalog-list")
-        .expect("gRPC Service 目录应有独立列表区域");
-    assert!(catalog_list.size.height <= px(220.0));
-    assert!(catalog_list.origin.x >= catalog.origin.x);
-    assert!(catalog_list.right() <= catalog.right());
+    let catalog_list_viewport = visual_cx
+        .debug_bounds("api-grpc-catalog-list-viewport")
+        .expect("gRPC Service 目录应有独立滚动视口");
+    assert!(catalog_list_viewport.size.height <= px(220.0));
+    assert!(catalog_list_viewport.origin.x >= catalog.origin.x);
+    assert!(catalog_list_viewport.right() <= catalog.right());
+    let last_method = visual_cx
+        .debug_bounds("api-grpc-method-3-19")
+        .expect("长目录末尾的方法应参与布局");
+    assert!(last_method.bottom() > catalog_list_viewport.bottom());
 
     click(visual_cx, "api-grpc-method-0-3");
     visual_cx.run_until_parked();
@@ -70,6 +77,23 @@ fn api_grpc_catalog_selects_method_and_keeps_long_lists_bounded(cx: &mut TestApp
         )
     });
     assert_eq!(selected, ("api.Service0".into(), "Method3".into()));
+
+    // 滚动到末尾后，最后一个 Method 应能完整进入固定高度视口。
+    visual_cx.simulate_event(ScrollEvent {
+        position: catalog_list_viewport.center(),
+        delta: ScrollDelta::Pixels(point(px(0.0), px(-1000.0))),
+        touch_phase: TouchPhase::Moved,
+        ..Default::default()
+    });
+    visual_cx.run_until_parked();
+    let last_method = visual_cx
+        .debug_bounds("api-grpc-method-3-19")
+        .expect("滚动后末尾方法仍应参与布局");
+    assert!(
+        last_method.origin.y >= catalog_list_viewport.origin.y
+            && last_method.bottom() <= catalog_list_viewport.bottom(),
+        "滚动视口应能到达目录末尾: method={last_method:?}, viewport={catalog_list_viewport:?}"
+    );
 }
 
 #[gpui_kit::test]

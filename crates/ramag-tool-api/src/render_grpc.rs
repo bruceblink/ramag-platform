@@ -160,8 +160,8 @@ fn render_catalog(
         ));
     } else {
         let mut catalog_list = v_flex()
-            .id("api-grpc-catalog-list")
-            .debug_selector(|| "api-grpc-catalog-list".into())
+            .id("api-grpc-catalog-list-content")
+            .debug_selector(|| "api-grpc-catalog-list-content".into())
             .w_full()
             .min_w_0()
             .max_h(px(220.0))
@@ -220,7 +220,16 @@ fn render_catalog(
                     .child(methods),
             );
         }
-        catalog = catalog.child(catalog_list);
+        // debug selector 标记滚动视口；GPUI 会把上面的原始 v_flex 作为可增长的滚动内容。
+        catalog = catalog.child(
+            div()
+                .id("api-grpc-catalog-list-viewport")
+                .debug_selector(|| "api-grpc-catalog-list-viewport".into())
+                .w_full()
+                .min_w_0()
+                .max_h(px(220.0))
+                .child(catalog_list),
+        );
     }
     catalog.into_any_element()
 }
