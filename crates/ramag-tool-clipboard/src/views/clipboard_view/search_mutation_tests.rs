@@ -153,13 +153,18 @@ fn undo_button_restores_entry_and_requeries_current_search(cx: &mut TestAppConte
             .is_empty()
     );
     let generation = view.read_with(cx, |view, _| view.search_gen);
-    // Toast buttons stay non-visible while the 400 ms entrance animation is running.
-    std::thread::sleep(Duration::from_millis(410));
+    // 推进 400ms 入场动画并覆盖一个 50ms 通知轮询间隔。
+    cx.executor().advance_clock(Duration::from_millis(450));
+    cx.run_until_parked();
     let undo = cx.debug_bounds("clip-undo-delete");
     assert!(undo.is_some(), "删除成功后应渲染撤销按钮");
     if undo.is_none() {
         return;
     }
+    assert!(
+        cx.update(|window, _| window.find("clip-undo-delete").visible()),
+        "通知动画完成后撤销按钮应可见"
+    );
     cx.update(|window, app| window.click("clip-undo-delete", app));
     cx.run_until_parked();
     assert_eq!(storage.restore_calls.load(Ordering::SeqCst), 1);
@@ -202,13 +207,18 @@ fn undo_button_reports_restore_failure_without_resurrecting_entry(cx: &mut TestA
     view.update(cx, |view, cx| view.delete_clip(item.clone(), cx));
     cx.run_until_parked();
     storage.fail_restore.store(true, Ordering::SeqCst);
-    // Toast buttons stay non-visible while the 400 ms entrance animation is running.
-    std::thread::sleep(Duration::from_millis(410));
+    // 推进 400ms 入场动画并覆盖一个 50ms 通知轮询间隔。
+    cx.executor().advance_clock(Duration::from_millis(450));
+    cx.run_until_parked();
     let undo = cx.debug_bounds("clip-undo-delete");
     assert!(undo.is_some(), "删除成功后应渲染撤销按钮");
     if undo.is_none() {
         return;
     }
+    assert!(
+        cx.update(|window, _| window.find("clip-undo-delete").visible()),
+        "通知动画完成后撤销按钮应可见"
+    );
     cx.update(|window, app| window.click("clip-undo-delete", app));
     cx.run_until_parked();
 
