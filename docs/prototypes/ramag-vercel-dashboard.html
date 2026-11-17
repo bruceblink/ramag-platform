@@ -1,411 +1,3661 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en" data-visualize-standalone>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ramag — 本机工作区</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg: #090a0b;
-      --surface: #101214;
-      --surface-2: #15181b;
-      --surface-3: #1b2024;
-      --text: #f3f4f6;
-      --muted: #9ca3af;
-      --subtle: #6b7280;
-      --border: #252a2f;
-      --border-strong: #303740;
-      --accent: #79b8ff;
-      --accent-strong: #4ea1ff;
-      --accent-soft: rgba(78, 161, 255, 0.14);
-      --success: #65d49a;
-      --warning: #f4c76a;
-      --danger: #ff7d8a;
-      --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
-      --sidebar-width: 248px;
-      --radius: 10px;
-      --font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://persistent.oaistatic.com/plugins/visualize/; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://persistent.oaistatic.com/plugins/visualize/charts/; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Ramag 界面设计预览</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
 
-    [data-theme="light"] {
-      color-scheme: light;
-      --bg: #fafafa;
-      --surface: #ffffff;
-      --surface-2: #f7f7f8;
-      --surface-3: #f0f1f3;
-      --text: #17181a;
-      --muted: #656b73;
-      --subtle: #8d939b;
-      --border: #e6e7e9;
-      --border-strong: #d4d7dc;
-      --accent: #0f6feb;
-      --accent-strong: #005fd4;
-      --accent-soft: rgba(15, 111, 235, 0.1);
-      --success: #14804f;
-      --warning: #9a6700;
-      --danger: #c4374a;
-      --shadow: 0 16px 36px rgba(22, 31, 44, 0.08);
-    }
-
-    * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); }
-    body { font-size: 14px; line-height: 1.5; }
-    button, input { font: inherit; }
-    button { border: 0; }
-    button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-    .app { min-height: 100vh; display: grid; grid-template-rows: 58px 1fr; }
-    .topbar { display: flex; align-items: center; gap: 18px; padding: 0 22px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(18px); position: sticky; top: 0; z-index: 10; }
-    .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 650; letter-spacing: -0.02em; min-width: 165px; }
-    .brand-mark { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-3); color: var(--accent); font-size: 12px; font-weight: 700; box-shadow: inset 0 0 0 1px rgba(255,255,255,.02); }
-    .brand small { color: var(--muted); font-weight: 500; letter-spacing: 0; }
-    .crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--muted); }
-    .crumbs strong { color: var(--text); font-weight: 550; }
-    .crumbs .slash { color: var(--subtle); }
-    .topbar-spacer { flex: 1; }
-    .workspace-switcher, .command-button, .icon-button, .user-button { display: inline-flex; align-items: center; gap: 9px; min-height: 34px; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--muted); cursor: pointer; transition: border-color .15s ease, color .15s ease, background .15s ease; }
-    .workspace-switcher:hover, .command-button:hover, .icon-button:hover, .user-button:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-3); }
-    .workspace-switcher strong { color: var(--text); font-weight: 550; }
-    .workspace-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 12%, transparent); }
-    .command-button { color: var(--subtle); min-width: 164px; justify-content: space-between; }
-    .command-button kbd { border: 1px solid var(--border-strong); border-radius: 5px; padding: 1px 5px; color: var(--muted); font-size: 11px; }
-    .icon-button { width: 34px; padding: 0; justify-content: center; font-size: 16px; }
-    .user-button { padding: 0 7px 0 5px; }
-    .avatar { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; background: linear-gradient(135deg, #b7f4cc, #5f9cff); color: #0c1117; font-size: 11px; font-weight: 800; }
-
-    .body { min-height: 0; display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
-    .sidebar { border-right: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; min-height: 0; padding: 18px 12px 14px; transition: width .18s ease; }
-    .sidebar.collapsed { width: 72px; padding-left: 10px; padding-right: 10px; }
-    .sidebar.collapsed .sidebar-label, .sidebar.collapsed .nav-text, .sidebar.collapsed .section-action, .sidebar.collapsed .sidebar-footer-text { display: none; }
-    .sidebar.collapsed .nav-item { justify-content: center; }
-    .sidebar.collapsed .sidebar-top { justify-content: center; }
-    .sidebar-top { display: flex; align-items: center; justify-content: space-between; margin: 0 4px 16px; }
-    .sidebar-label { color: var(--subtle); font-size: 11px; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; }
-    .section-action { color: var(--muted); background: transparent; cursor: pointer; padding: 3px; border-radius: 5px; }
-    .section-action:hover { color: var(--text); background: var(--surface-3); }
-    .nav { display: grid; gap: 4px; }
-    .nav + .sidebar-group { margin-top: 22px; }
-    .nav-item { width: 100%; min-height: 38px; display: flex; align-items: center; gap: 11px; padding: 0 10px; color: var(--muted); background: transparent; border-radius: 8px; cursor: pointer; text-align: left; }
-    .nav-item:hover { color: var(--text); background: var(--surface-2); }
-    .nav-item.active { color: var(--text); background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent-strong); }
-    .nav-icon { width: 18px; flex: 0 0 18px; color: currentColor; text-align: center; font-size: 15px; }
-    .nav-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .nav-count { color: var(--subtle); font-size: 12px; }
-    .sidebar-group { display: grid; gap: 6px; }
-    .sidebar-group-head { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 5px; }
-    .tool-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 31px; padding: 0 9px; border-radius: 7px; color: var(--muted); cursor: pointer; }
-    .tool-chip:hover { background: var(--surface-2); color: var(--text); }
-    .tool-chip.active { background: var(--surface-3); color: var(--text); }
-    .tool-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
-    .tool-dot.green { background: var(--success); }
-    .tool-dot.orange { background: var(--warning); }
-    .sidebar-footer { margin-top: auto; display: grid; gap: 4px; padding-top: 14px; border-top: 1px solid var(--border); }
-    .sidebar-footer .nav-item { min-height: 34px; }
-
-    .main { min-width: 0; overflow: auto; background: var(--bg); }
-    .main-inner { width: min(1240px, 100%); margin: 0 auto; padding: 34px 38px 60px; }
-    .page-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
-    .eyebrow { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-    h1 { margin: 6px 0 6px; font-size: clamp(28px, 4vw, 38px); line-height: 1.08; letter-spacing: -.045em; font-weight: 650; }
-    .subtitle { margin: 0; color: var(--muted); max-width: 640px; }
-    .head-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-    .btn { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 13px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); background: var(--surface-2); cursor: pointer; font-weight: 550; transition: transform .15s ease, border-color .15s ease, background .15s ease; }
-    .btn:hover { border-color: var(--border-strong); background: var(--surface-3); transform: translateY(-1px); }
-    .btn.primary { color: #071019; background: var(--accent); border-color: var(--accent); }
-    .btn.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
-    .btn.ghost { background: transparent; color: var(--muted); }
-    .btn.ghost:hover { background: var(--surface-2); color: var(--text); }
-
-    .hero { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(270px, .9fr); gap: 12px; margin-bottom: 12px; }
-    .panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: none; }
-    .hero-main { min-height: 250px; padding: 24px; position: relative; overflow: hidden; }
-    .hero-main::after { content: ""; position: absolute; inset: 0 0 auto auto; width: 160px; height: 2px; background: var(--accent); opacity: .7; pointer-events: none; }
-    .hero-top { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
-    .hero-title { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.025em; }
-    .hero-copy { margin: 5px 0 0; color: var(--muted); }
-    .status { display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border)); background: color-mix(in srgb, var(--success) 9%, transparent); color: var(--success); font-size: 12px; font-weight: 650; white-space: nowrap; }
-    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-    .hero-number { margin-top: 34px; display: flex; align-items: end; gap: 10px; }
-    .hero-number strong { font-size: 54px; line-height: .95; letter-spacing: -.06em; font-weight: 650; }
-    .hero-number span { color: var(--muted); padding-bottom: 5px; }
-    .hero-foot { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 25px; color: var(--muted); font-size: 12px; }
-    .hero-foot strong { color: var(--text); font-weight: 550; }
-    .recent-strip { position: absolute; left: 24px; right: 24px; bottom: 19px; display: flex; gap: 8px; flex-wrap: wrap; }
-    .recent-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); background: color-mix(in srgb, var(--surface-2) 86%, transparent); font-size: 12px; }
-    .recent-chip strong { color: var(--text); font-weight: 550; }
-    .recent-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-    .recent-chip-dot.green { background: var(--success); }
-    .recent-chip-dot.orange { background: var(--warning); }
-    .hero-side { padding: 22px; display: grid; align-content: space-between; min-height: 250px; }
-    .side-label { color: var(--muted); font-size: 12px; }
-    .side-value { display: flex; align-items: baseline; gap: 8px; margin-top: 5px; }
-    .side-value strong { font-size: 30px; letter-spacing: -.04em; }
-    .side-value span { color: var(--success); font-size: 12px; font-weight: 650; }
-    .side-rule { height: 1px; background: var(--border); margin: 17px 0; }
-    .side-meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
-    .side-meta strong { color: var(--text); font-weight: 550; }
-
-    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 30px; }
-    .metric { padding: 17px 18px; }
-    .metric-label { color: var(--muted); font-size: 12px; }
-    .metric-value { margin-top: 8px; font-size: 24px; letter-spacing: -.04em; font-weight: 620; }
-    .metric-foot { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--subtle); font-size: 12px; }
-    .metric-foot .up { color: var(--success); }
-    .metric-foot .warn { color: var(--warning); }
-
-    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 14px; margin: 0 0 12px; }
-    .section-head h2 { margin: 0; font-size: 16px; letter-spacing: -.02em; }
-    .section-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
-    .activity-panel { overflow: hidden; }
-    .activity-toolbar { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 13px 15px; border-bottom: 1px solid var(--border); }
-    .filter-group { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-    .filter { min-height: 29px; padding: 0 9px; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; }
-    .filter:hover { background: var(--surface-2); color: var(--text); }
-    .filter.active { background: var(--accent-soft); color: var(--accent); }
-    .search { width: min(260px, 100%); min-height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--surface-2); }
-    .search::placeholder { color: var(--subtle); }
-    .activity-list { display: grid; }
-    .activity-row { display: grid; grid-template-columns: minmax(210px, 1.3fr) minmax(120px, .8fr) minmax(110px, .7fr) 92px 92px 34px; align-items: center; gap: 12px; padding: 15px; border-bottom: 1px solid var(--border); min-height: 64px; }
-    .activity-row:last-child { border-bottom: 0; }
-    .activity-row.head { min-height: 40px; background: var(--surface-2); color: var(--subtle); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
-    .event { display: flex; align-items: center; gap: 11px; min-width: 0; }
-    .event-mark { width: 28px; height: 28px; flex: 0 0 28px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--border-strong); color: var(--accent); background: var(--accent-soft); font-size: 12px; }
-    .event-copy { min-width: 0; }
-    .event-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 550; }
-    .event-sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cell { min-width: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .env { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
-    .env::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
-    .env.preview::before { background: var(--accent); }
-    .env.local::before { background: var(--warning); }
-    .row-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
-    .row-status.success { color: var(--success); }
-    .row-status.warning { color: var(--warning); }
-    .row-status.danger { color: var(--danger); }
-    .more { width: 30px; height: 30px; border-radius: 7px; background: transparent; color: var(--subtle); cursor: pointer; }
-    .more:hover { background: var(--surface-2); color: var(--text); }
-
-    .catalog { margin-top: 30px; }
-    .catalog-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-    .catalog-card { padding: 17px; display: flex; align-items: start; gap: 12px; transition: border-color .15s ease, transform .15s ease; }
-    .catalog-card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
-    .quick-action { width: 100%; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-    .catalog-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; border: 1px solid var(--border-strong); color: var(--accent); background: var(--surface-2); }
-    .catalog-copy { min-width: 0; }
-    .catalog-copy strong { display: block; font-size: 14px; }
-    .catalog-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
-    .empty { display: none; padding: 34px; text-align: center; color: var(--muted); }
-    .empty.show { display: block; }
-    .toast { position: fixed; right: 22px; bottom: 22px; padding: 11px 14px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface-3); color: var(--text); box-shadow: var(--shadow); transform: translateY(18px); opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease; z-index: 30; }
-    .toast.show { opacity: 1; transform: translateY(0); }
-
-    @media (max-width: 980px) {
-      .main-inner { padding: 28px 24px 48px; }
-      .hero { grid-template-columns: 1fr; }
-      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .activity-row { grid-template-columns: minmax(210px, 1.3fr) minmax(110px, .8fr) 88px 82px 34px; }
-      .activity-row > :nth-child(3) { display: none; }
-    }
-
-    @media (max-width: 720px) {
-      .app { grid-template-rows: 54px 1fr; }
-      .topbar { padding: 0 14px; gap: 10px; }
-      .brand { min-width: auto; }
-      .brand small, .crumbs, .workspace-switcher, .command-button { display: none; }
-      .topbar-spacer { display: block; }
-      .body { grid-template-columns: 1fr; }
-      .sidebar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 20; height: 64px; padding: 8px; border: 1px solid var(--border-strong); border-radius: 16px; display: block; box-shadow: var(--shadow); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(18px); }
-      .sidebar-top, .sidebar-group, .sidebar-footer { display: none; }
-      .sidebar .nav { display: grid; grid-template-columns: repeat(4, 1fr); height: 100%; gap: 4px; }
-      .sidebar .nav-item { justify-content: center; min-height: 0; padding: 0; gap: 4px; flex-direction: column; font-size: 10px; }
-      .sidebar .nav-text { display: block; flex: none; }
-      .sidebar .nav-icon { font-size: 16px; }
-      .sidebar .nav-item.active { box-shadow: none; }
-      .main-inner { padding: 24px 14px 100px; }
-      .page-head { align-items: start; flex-direction: column; margin-bottom: 22px; }
-      .head-actions { justify-content: flex-start; }
-      .activity-toolbar { align-items: stretch; flex-direction: column; }
-      .search { width: 100%; }
-      .activity-row.head { display: none; }
-      .activity-row { grid-template-columns: minmax(0, 1fr) auto; gap: 9px; padding: 13px 14px; }
-      .activity-row > :nth-child(2), .activity-row > :nth-child(3), .activity-row > :nth-child(5) { display: none; }
-      .activity-row .cell { justify-self: end; }
-      .catalog-grid { grid-template-columns: 1fr; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
-    }
-  </style>
 </head>
 <body>
-  <div class="app" id="ramag-prototype" data-theme="dark">
-    <header class="topbar">
-      <a class="brand" href="#overview" aria-label="Ramag 工作区">
-        <span class="brand-mark">R</span>
-        <span>Ramag <small>local tools</small></span>
-      </a>
-      <div class="crumbs" aria-label="当前位置"><span>本机工作区</span><span class="slash">/</span><strong id="crumb-page">概览</strong></div>
-      <div class="topbar-spacer"></div>
-      <button class="workspace-switcher" type="button" id="workspace-switcher"><span class="workspace-dot"></span><strong>Ramag</strong><span aria-hidden="true">⌄</span></button>
-      <button class="command-button" type="button" id="command-button"><span>查找工具、连接</span><kbd>⌘ K</kbd></button>
-      <button class="icon-button" type="button" id="theme-toggle" aria-label="切换主题">☼</button>
-      <button class="user-button" type="button" id="user-button" aria-label="打开个人菜单"><span class="avatar">BL</span><span aria-hidden="true">⌄</span></button>
-    </header>
+<iframe id="codex-visualization" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Ramag 界面设计预览" data-srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot; data-visualize-standalone&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://persistent.oaistatic.com/plugins/visualize/; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://persistent.oaistatic.com/plugins/visualize/charts/; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;Ramag 界面设计预览&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
 
-    <div class="body">
-      <aside class="sidebar" id="sidebar" aria-label="主导航">
-        <div class="sidebar-top"><span class="sidebar-label">Ramag / 本机</span><button class="section-action" type="button" id="collapse-sidebar" aria-label="收起侧栏">‹</button></div>
-        <nav class="nav" aria-label="工作区导航">
-          <button class="nav-item active" type="button" data-view="overview"><span class="nav-icon">⌂</span><span class="nav-text">概览</span></button>
-          <button class="nav-item" type="button" data-view="deployments"><span class="nav-icon">↗</span><span class="nav-text">执行记录</span><span class="nav-count">12</span></button>
-          <button class="nav-item" type="button" data-view="activity"><span class="nav-icon">◌</span><span class="nav-text">活动日志</span></button>
-          <button class="nav-item" type="button" data-view="settings"><span class="nav-icon">⚙</span><span class="nav-text">设置</span></button>
-        </nav>
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 16px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
 
-        <div class="sidebar-group">
-          <div class="sidebar-group-head"><span class="sidebar-label">工具上下文</span><button class="section-action" type="button" id="add-tool" aria-label="添加工具">＋</button></div>
-          <button class="tool-chip active" type="button"><span class="tool-dot green"></span><span class="nav-text">Database</span></button>
-          <button class="tool-chip" type="button"><span class="tool-dot"></span><span class="nav-text">API Client</span></button>
-          <button class="tool-chip" type="button"><span class="tool-dot green"></span><span class="nav-text">SSH Workspace</span></button>
-          <button class="tool-chip" type="button"><span class="tool-dot orange"></span><span class="nav-text">Kafka</span></button>
-        </div>
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans:
+    -apple-system-body, ui-sans-serif, -apple-system, system-ui, &quot;Segoe UI&quot;,
+    Helvetica, &quot;Apple Color Emoji&quot;, Arial, sans-serif, &quot;Segoe UI Emoji&quot;,
+    &quot;Segoe UI Symbol&quot;;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 8px);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
 
-        <div class="sidebar-footer">
-          <button class="nav-item" type="button" id="open-shortcuts"><span class="nav-icon">⌘</span><span class="sidebar-footer-text nav-text">快捷键</span></button>
-          <button class="nav-item" type="button" id="open-help"><span class="nav-icon">?</span><span class="sidebar-footer-text nav-text">帮助中心</span></button>
-        </div>
-      </aside>
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
 
-      <main class="main" id="main-content">
-        <div class="main-inner">
-          <section class="page-head">
-            <div>
-              <div class="eyebrow" id="page-eyebrow">Ramag / 本机工作区</div>
-              <h1 id="page-title">概览</h1>
-              <p class="subtitle" id="page-subtitle">从一个入口查看工具上下文、连接、执行记录和本地活动。</p>
-            </div>
-            <div class="head-actions"><button class="btn ghost" type="button" id="refresh-button">↻ 刷新</button><button class="btn primary" type="button" id="new-connection">＋ 新建</button></div>
-          </section>
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
 
-          <section class="hero" aria-label="当前工具上下文">
-            <article class="panel hero-main">
-              <div class="hero-top"><div><h2 class="hero-title">当前工具上下文</h2><p class="hero-copy">上次离开的连接和编辑状态仍然可恢复。</p></div><span class="status"><span class="status-dot"></span>本机数据</span></div>
-              <div class="hero-number"><strong>Database</strong><span>mysql-local</span></div>
-              <div class="hero-foot"><span>对象 <strong>users.sql</strong></span><span>最近保存 <strong>5 分钟前</strong></span><span>标签 <strong>2 个</strong></span></div>
-              <div class="recent-strip" aria-label="当前工具上下文"><span class="recent-chip"><span class="recent-chip-dot green"></span><strong>查询编辑器</strong> 已恢复</span><span class="recent-chip"><span class="recent-chip-dot"></span><strong>结果网格</strong> 可继续</span><span class="recent-chip"><span class="recent-chip-dot orange"></span><strong>连接</strong> 本机</span></div>
-            </article>
-            <article class="panel hero-side"><div><div class="side-label">工作区摘要</div><div class="side-value"><strong>6</strong><span>个工具</span></div><div class="side-rule"></div><div class="side-meta"><span>已保存会话</span><strong>4</strong></div><div class="side-meta"><span>连接配置</span><strong>8</strong></div><div class="side-meta"><span>待处理草稿</span><strong style="color:var(--warning)">2</strong></div></div><button class="btn ghost" type="button" data-view="activity">查看活动日志 →</button></article>
-          </section>
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
 
-          <section class="metric-grid" aria-label="工作区对象">
-            <article class="panel metric"><div class="metric-label">最近打开</div><div class="metric-value">3</div><div class="metric-foot"><span class="up">今天</span><span>工具上下文</span></div></article>
-            <article class="panel metric"><div class="metric-label">执行记录</div><div class="metric-value">12</div><div class="metric-foot"><span class="up">4 个</span><span>可恢复会话</span></div></article>
-            <article class="panel metric"><div class="metric-label">连接配置</div><div class="metric-value">8</div><div class="metric-foot"><span class="up">已整理</span><span>按工具分组</span></div></article>
-            <article class="panel metric"><div class="metric-label">待处理草稿</div><div class="metric-value">2</div><div class="metric-foot"><span class="warn">需要查看</span><span>本地保存</span></div></article>
-          </section>
+* {
+  box-sizing: border-box;
+}
 
-          <section class="catalog" aria-labelledby="quick-heading"><div class="section-head"><div><h2 id="quick-heading">快捷入口</h2><p>把最常用的本地工作动作放在当前上下文旁边。</p></div><button class="btn ghost" type="button" id="open-tool-manager">管理工具 →</button></div><div class="catalog-grid"><button class="panel catalog-card quick-action" type="button" id="quick-continue"><span class="catalog-icon">↗</span><span class="catalog-copy"><strong>继续 Database</strong><span>恢复 mysql-local 的查询编辑器和结果标签。</span></span></button><button class="panel catalog-card quick-action" type="button" id="quick-new"><span class="catalog-icon">＋</span><span class="catalog-copy"><strong>新建连接</strong><span>添加数据库、API、SSH 或消息连接。</span></span></button><button class="panel catalog-card quick-action" type="button" id="quick-restore"><span class="catalog-icon">◌</span><span class="catalog-copy"><strong>恢复会话</strong><span>打开最近保存的标签和本地草稿。</span></span></button></div></section>
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
 
-          <section aria-labelledby="activity-heading">
-            <div class="section-head"><div><h2 id="activity-heading">活动日志</h2><p>最近打开、保存、连接和会话恢复动作。</p></div><button class="btn ghost" type="button" data-view="activity">查看全部 →</button></div>
-            <div class="panel activity-panel">
-              <div class="activity-toolbar"><div class="filter-group" role="group" aria-label="活动筛选"><button class="filter active" type="button" data-filter="all">全部</button><button class="filter" type="button" data-filter="success">已保存</button><button class="filter" type="button" data-filter="attention">需关注</button></div><input class="search" id="activity-search" type="search" placeholder="搜索活动" aria-label="搜索活动" /></div>
-              <div class="activity-row head"><div>事件</div><div>工具</div><div>上下文</div><div>状态</div><div>更新时间</div><div></div></div>
-              <div class="activity-list" id="activity-list">
-                <div class="activity-row" data-kind="success" data-search="数据库连接 mysql 本机 已完成"><div class="event"><span class="event-mark">DB</span><div class="event-copy"><div class="event-title">查询草稿已保存</div><div class="event-sub">mysql-local · users.sql · 2 个标签</div></div></div><div class="cell">Database</div><div class="cell"><span class="env local">本机</span></div><div class="row-status success">● 已保存</div><div class="cell">2 分钟前</div><button class="more" type="button" aria-label="打开数据库草稿操作">•••</button></div>
-                <div class="activity-row" data-kind="success" data-search="api request preview 已保存"><div class="event"><span class="event-mark">API</span><div class="event-copy"><div class="event-title">请求草稿已更新</div><div class="event-sub">GET /v1/records · 环境变量 4 个</div></div></div><div class="cell">API Client</div><div class="cell"><span class="env preview">本地</span></div><div class="row-status success">● 已保存</div><div class="cell">11 分钟前</div><button class="more" type="button" aria-label="打开 API 草稿操作">•••</button></div>
-                <div class="activity-row" data-kind="attention" data-search="kafka consumer session warning"><div class="event"><span class="event-mark">K</span><div class="event-copy"><div class="event-title">Consumer 会话等待恢复</div><div class="event-sub">orders-v2 · 上次连接 24 分钟前</div></div></div><div class="cell">Kafka</div><div class="cell"><span class="env local">本机</span></div><div class="row-status warning">● 需关注</div><div class="cell">24 分钟前</div><button class="more" type="button" aria-label="打开 Kafka 会话操作">•••</button></div>
-                <div class="activity-row" data-kind="success" data-search="ssh workspace connected"><div class="event"><span class="event-mark">SSH</span><div class="event-copy"><div class="event-title">SSH 会话已恢复</div><div class="event-sub">bastion-sh · 上次打开 42 分钟前</div></div></div><div class="cell">SSH Workspace</div><div class="cell"><span class="env local">本机</span></div><div class="row-status success">● 已恢复</div><div class="cell">42 分钟前</div><button class="more" type="button" aria-label="打开 SSH 会话操作">•••</button></div>
-              </div>
-              <div class="empty" id="activity-empty">没有匹配的活动。尝试清空搜索或切换筛选条件。</div>
-            </div>
-          </section>
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  -webkit-font-smoothing: antialiased;
+  font-size: var(--font-size-base);
+  line-height: calc(var(--font-size-base) * 1.625);
+  font-weight: var(--font-weight-normal);
+}
 
-          <section class="catalog" aria-labelledby="catalog-heading"><div class="section-head"><div><h2 id="catalog-heading">工具上下文</h2><p>用项目筛选的方式切换 Ramag 的工具资源。</p></div><button class="btn ghost" type="button" id="manage-tools">管理工具 →</button></div><div class="catalog-grid"><article class="panel catalog-card"><span class="catalog-icon">DB</span><div class="catalog-copy"><strong>Database</strong><span>Schema、查询编辑器、结果标签</span></div></article><article class="panel catalog-card"><span class="catalog-icon">↗</span><div class="catalog-copy"><strong>API Client</strong><span>请求、环境、响应和草稿</span></div></article><article class="panel catalog-card"><span class="catalog-icon">K</span><div class="catalog-copy"><strong>Kafka</strong><span>Topic、Consumer、消息和会话</span></div></article></div></section>
-        </div>
-      </main>
-    </div>
-  </div>
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script>
-    const root = document.getElementById('ramag-prototype');
-    const toast = document.getElementById('toast');
-    const sidebar = document.getElementById('sidebar');
-    const pageTitle = document.getElementById('page-title');
-    const pageSubtitle = document.getElementById('page-subtitle');
-    const pageEyebrow = document.getElementById('page-eyebrow');
-    const crumbPage = document.getElementById('crumb-page');
-    const viewCopy = {
-      overview: ['概览', 'Ramag / 本机工作区', '从一个入口查看工具上下文、连接、执行记录和本地活动。'],
-      deployments: ['执行记录', 'Sessions / Executions', '按工具、状态和时间查看查询、请求、消息和会话记录。'],
-      activity: ['活动日志', 'Logs / Activity', '集中查看最近打开、保存、连接和会话恢复动作。'],
-      settings: ['设置', 'Workspace settings', '管理工作区级和工具级设置。']
+.cursor-interaction {
+  cursor: var(--cursor-interaction, pointer);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: var(--cursor-interaction, pointer);
+  text-decoration: none;
+  text-underline-offset: 2px;
+  font-weight: inherit;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+li,
+.table {
+  font-family: var(--font-sans);
+}
+
+h1 {
+  font-size: calc(var(--font-size-base) * 1.5);
+  line-height: 1.3333333333;
+}
+
+h2 {
+  font-size: calc(var(--font-size-base) * 1.25);
+  line-height: 1.4;
+}
+h3 {
+  font-size: calc(var(--font-size-base) * 1.125);
+  line-height: 1.5555555556;
+}
+h4 {
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+}
+h5,
+h6 {
+  font-size: var(--font-size-base);
+  line-height: calc(var(--font-size-base) * 1.625);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+b,
+strong,
+th {
+  font-weight: 600;
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+pre,
+pre code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: calc(var(--font-size-base) * 0.875);
+  line-height: calc(var(--font-size-base) * 1.625);
+  font-family: var(--font-sans);
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+.table :is(th, td):not(:last-child) {
+  padding-inline-end: calc(var(--font-size-base) * 1.5);
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead :is(th, td) {
+  border-bottom-color: var(--border-strong, var(--input));
+  padding-block: calc(var(--font-size-base) / 2);
+  line-height: var(--font-size-base);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+.table tbody :is(th, td) {
+  padding-block: calc(var(--font-size-base) * 0.625);
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 8px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+.widget {
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  box-shadow: 0 0 0 0.5px var(--border-strong, var(--border));
+  color: var(--foreground);
+  background: var(--background);
+}
+
+#widget &gt; :not(.card, .widget, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  border: 1px solid var(--border);
+  corner-shape: var(--corner-shape);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+  font-family: var(--font-sans);
+  padding: 5px 12px;
+  border-color: color-mix(
+    in oklab,
+    light-dark(var(--primary-foreground), var(--foreground)) 5%,
+    transparent
+  );
+  border-radius: var(--radius-2xl);
+  color: light-dark(var(--primary-foreground), var(--foreground));
+  background: light-dark(var(--foreground), var(--popover));
+  box-shadow: 0 8px 18px rgb(15 23 42 / 20%);
+  letter-spacing: -0.15px;
+  font-size: calc(var(--font-size-base) * 14 / 16);
+  font-size: round(nearest, calc(var(--font-size-base) * 14 / 16), 1px);
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  color: color-mix(in srgb, var(--foreground) 40%, var(--muted-foreground));
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  font-family: var(--font-sans);
+  font-size: calc(var(--font-size-base) * 14 / 16);
+  font-size: round(nearest, calc(var(--font-size-base) * 14 / 16), 1px);
+  font-weight: var(--font-weight-normal);
+  line-height: 1;
+}
+
+small,
+.text-small {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+/* Match inline alignment without overriding a containing flex or grid layout. */
+.btn,
+.nav-link,
+.form-control,
+.form-select,
+.form-range,
+.form-check {
+  vertical-align: middle;
+}
+
+.btn,
+.nav-link {
+  --btn-size: calc(12px + 2 * var(--control-spacing, 12px));
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  corner-shape: var(--corner-shape);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: inherit;
+  font-family: var(--font-sans);
+  height: fit-content;
+  min-height: var(--btn-size);
+  padding-inline: var(--control-spacing, 12px);
+  border-color: transparent;
+  border-radius: var(--radius-full);
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  font-size: calc(var(--font-size-base) * 14 / 16);
+  font-size: round(nearest, calc(var(--font-size-base) * 14 / 16), 1px);
+  font-weight: var(--font-weight-normal);
+  line-height: 18px;
+}
+
+.btn {
+  border-color: var(--border);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+}
+
+/* Codex Button size=&quot;compact&quot;; appearance stays with the button variant. */
+.btn-sm {
+  --btn-size: 24px;
+  padding-inline: 8px;
+  font-size: calc(var(--font-size-base) * 12 / 16);
+  font-size: round(nearest, calc(var(--font-size-base) * 12 / 16), 1px);
+  line-height: 16px;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: var(--cursor-interaction, pointer);
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover {
+  background: light-dark(
+    color-mix(in srgb, var(--foreground) 5.5%, transparent),
+    color-mix(in srgb, var(--foreground) 8%, transparent)
+  );
+}
+
+.nav-link:not(:disabled):not([aria-disabled=&quot;true&quot;]):hover {
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+.btn-primary {
+  border-color: var(--border);
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: border-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: border-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--muted-foreground);
+  background: light-dark(
+    color-mix(in srgb, var(--foreground) 5.5%, transparent),
+    color-mix(in srgb, var(--foreground) 8%, transparent)
+  );
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+/* Shared preview chrome; product styles stay inside each variant. */
+.viz-dotted-background {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--foreground) 14%, transparent) 0.8px,
+    transparent 0.8px
+  );
+  background-position: center;
+  background-size: 16px 16px;
+}
+
+.viz-carousel {
+  position: relative;
+  min-width: 0;
+}
+
+.viz-carousel:has(&gt; .viz-carousel-controls) {
+  min-height: calc(60px + var(--viz-carousel-picker-height, 0px));
+  padding-bottom: 60px;
+}
+
+.viz-carousel &gt; [data-variant][hidden] {
+  display: none !important;
+}
+
+.viz-carousel &gt; [data-variant] {
+  isolation: isolate;
+}
+
+.viz-carousel-controls {
+  --viz-carousel-hover: light-dark(
+    color-mix(in srgb, var(--foreground) 5.4%, transparent),
+    color-mix(in srgb, var(--foreground) 7.8%, transparent)
+  );
+  position: absolute;
+  z-index: 2;
+  bottom: 8px;
+  left: 50%;
+  display: flex;
+  width: max-content;
+  /* Leave room for the host&#x27;s design-controls launcher at the trailing edge. */
+  max-width: calc(100% - 96px);
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans);
+  /* Match the settings dropdown chrome independently of the content font size. */
+  font-size: 13px;
+  font-weight: var(--font-weight-normal);
+  line-height: 18px;
+  transform: translateX(-50%);
+  user-select: none;
+}
+
+/* Keep authored mockup button styles out of the shared carousel chrome. */
+.viz-carousel-controls button,
+.viz-carousel-picker &gt; summary {
+  display: flex !important;
+  height: auto !important;
+  min-height: 30px;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px;
+  padding: 0 6px !important;
+  -webkit-app-region: no-drag;
+  border: 0 !important;
+  border-radius: 14px !important;
+  color: inherit !important;
+  background: transparent !important;
+  font: inherit !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.viz-carousel-controls &gt; button,
+.viz-carousel-picker &gt; summary {
+  position: relative;
+  isolation: isolate;
+}
+
+.viz-carousel-controls &gt; button {
+  --icon-size: 16px;
+  width: 30px !important;
+  padding: 0 !important;
+}
+
+.viz-carousel-picker &gt; summary {
+  padding-inline: 12px !important;
+}
+
+.viz-carousel-controls .viz-carousel-caret {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin: 0;
+  color: inherit;
+  transform: rotate(180deg);
+}
+
+.viz-carousel-controls &gt; button &gt; svg,
+.viz-carousel-controls .viz-carousel-caret,
+.viz-carousel-count {
+  opacity: 0.5;
+}
+
+.viz-carousel-controls &gt; button::before,
+.viz-carousel-picker &gt; summary::before {
+  position: absolute;
+  z-index: -1;
+  inset: 3px;
+  border-radius: 12px;
+  content: &quot;&quot;;
+  pointer-events: none;
+}
+
+.viz-carousel-controls &gt; button:hover::before,
+.viz-carousel-picker &gt; summary:hover::before {
+  background: var(--viz-carousel-hover);
+}
+
+.viz-carousel-controls &gt; button,
+.viz-carousel-controls [data-lucide],
+.viz-carousel-controls .lucide {
+  flex-shrink: 0;
+}
+
+.viz-carousel-picker {
+  min-width: 0;
+}
+
+.viz-carousel-picker &gt; summary {
+  min-width: 0;
+  list-style: none;
+}
+
+.viz-carousel-picker &gt; summary::-webkit-details-marker {
+  display: none;
+}
+
+.viz-carousel-count {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.viz-carousel-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viz-carousel-options {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  max-height: 240px;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--background);
+  box-shadow: 0 4px 12px light-dark(rgb(0 0 0 / 6%), rgb(0 0 0 / 25%));
+}
+
+.viz-carousel-options &gt; button {
+  border-radius: max(0px, calc(var(--radius-lg) - 5px)) !important;
+  width: 100% !important;
+  min-height: 28px;
+  justify-content: flex-start !important;
+  padding: 4px 8px !important;
+  font-size: var(--font-size-small) !important;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.viz-carousel-options &gt; [aria-current=&quot;true&quot;],
+.viz-carousel-options &gt; button:hover {
+  background: var(--viz-carousel-hover) !important;
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled=&quot;true&quot;] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  height: calc(12px + 2 * var(--control-spacing, 12px));
+  min-height: calc(12px + 2 * var(--control-spacing, 12px));
+  padding-inline: calc(4px + var(--control-spacing, 12px) / 2);
+  border-color: var(--input);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--popover) 96%, transparent);
+  font-size: calc(var(--font-size-base) * 14 / 16);
+  font-size: round(nearest, calc(var(--font-size-base) * 14 / 16), 1px);
+  font-weight: var(--font-weight-normal);
+  line-height: 1.4285714286;
+}
+.form-control:is(
+  [type=&quot;file&quot;],
+  [type=&quot;date&quot;],
+  [type=&quot;datetime-local&quot;],
+  [type=&quot;month&quot;],
+  [type=&quot;week&quot;],
+  [type=&quot;color&quot;]
+) {
+  height: calc(12px + 2 * var(--control-spacing, 12px));
+  min-height: calc(12px + 2 * var(--control-spacing, 12px));
+  line-height: 18px;
+}
+.form-control:is(
+  [type=&quot;date&quot;],
+  [type=&quot;datetime-local&quot;],
+  [type=&quot;month&quot;],
+  [type=&quot;week&quot;]
+) {
+  padding-inline: var(--control-spacing, 12px);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+  padding: 0;
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+  min-height: calc(10px + 2 * var(--control-spacing, 12px));
+  padding-inline: var(--control-spacing, 12px);
+  margin-inline-end: var(--control-spacing, 12px);
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: calc(12px + 2 * var(--control-spacing, 12px));
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  resize: vertical;
+  min-height: 96px;
+  padding: 8px 10px;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: none;
+}
+.form-control:disabled {
+  color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  opacity: 1;
+}
+.form-control[aria-invalid=&quot;true&quot;] {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--red) 20%, transparent);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: fit-content;
+  min-height: calc(12px + 2 * var(--control-spacing, 12px));
+  margin: 0;
+  /* The secondary icon role is 14px at compact density and 16px at web density. */
+  --icon-size: calc(10px + var(--control-spacing, 12px) / 2);
+  /* Settings dropdowns retain a 12px inset and a 4px text-to-chevron gap. */
+  padding: 0 calc(16px + var(--icon-size)) 0 12px;
+  outline: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 0.6px),
+      var(--muted-foreground) calc(50% - 0.6px) calc(50% + 0.6px),
+      transparent calc(50% + 0.6px)
+    ),
+    linear-gradient(
+      135deg,
+      transparent calc(50% - 0.6px),
+      var(--muted-foreground) calc(50% - 0.6px) calc(50% + 0.6px),
+      transparent calc(50% + 0.6px)
+    );
+  background-position:
+    calc(100% - 12px - var(--icon-size) / 2) 50%,
+    calc(100% - 12px - var(--icon-size) * 0.18) 50%;
+  background-repeat: no-repeat;
+  background-size: calc(var(--icon-size) * 0.32) calc(var(--icon-size) * 0.32);
+  cursor: var(--cursor-interaction, default);
+  font-size: calc(var(--font-size-base) * 14 / 16);
+  font-size: round(nearest, calc(var(--font-size-base) * 14 / 16), 1px);
+  font-weight: var(--font-weight-normal);
+  line-height: 18px;
+}
+
+.form-select :is(option, optgroup) {
+  color: var(--popover-foreground);
+  background-color: var(--popover);
+}
+
+.form-select :is(option, optgroup):disabled {
+  color: var(--muted-foreground);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: light-dark(
+    color-mix(in srgb, var(--foreground) 5.5%, transparent),
+    color-mix(in srgb, var(--foreground) 8%, transparent)
+  );
+}
+
+.form-select:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+.form-select:disabled {
+  opacity: 0.4;
+}
+
+.form-check {
+  display: flex;
+  min-height: calc(12px + 2 * var(--control-spacing, 12px));
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  corner-shape: round;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  width: calc(10px + var(--control-spacing, 12px) / 2);
+  height: calc(10px + var(--control-spacing, 12px) / 2);
+  border-color: var(--border-strong, var(--input));
+  border-radius: calc(var(--radius-sm) / 2);
+  background-color: transparent;
+  color: var(--foreground);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:is(:checked, :indeterminate) {
+  border-color: var(--border-strong, var(--input));
+  background-color: color-mix(in srgb, var(--popover) 96%, transparent);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+  background-color: var(--foreground);
+}
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:indeterminate::before {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 65%;
+  height: 6.65%;
+  margin: auto;
+  border-radius: var(--radius-full);
+  background: var(--foreground);
+  mask: none;
+  content: &quot;&quot;;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  border-radius: var(--radius-full);
+  width: 16px;
+  height: 16px;
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--input);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 0;
+  background: radial-gradient(
+    circle,
+    var(--primary-foreground) 0 3px,
+    var(--foreground) 3px
+  );
+  box-shadow: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:focus-visible {
+  border-color: var(--ring);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+.form-check:not(.form-switch) .form-check-input[type=&quot;radio&quot;]:disabled,
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;radio&quot;]:disabled
+  + .form-check-label {
+  opacity: 0.5;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+  border-color: #fff;
+  background: #fff;
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--blue);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+  outline: none;
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  accent-color: var(--primary);
+  height: calc(12px + 2 * var(--control-spacing, 12px));
+  min-height: calc(12px + 2 * var(--control-spacing, 12px));
+  outline: none;
+  border-radius: var(--radius-full);
+  color: var(--foreground);
+  background: transparent;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  background: var(--form-range-track, var(--border));
+  height: 2px;
+  border-radius: var(--radius-full);
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  margin-top: -9px;
+  border-color: transparent;
+  background: currentColor;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Outline the native track and thumb, preserving the larger input hit area. */
+.form-range:focus-visible::-webkit-slider-runnable-track {
+  outline: 2px auto Highlight;
+  outline-color: -webkit-focus-ring-color;
+}
+
+.form-range::-moz-range-track {
+  background: var(--form-range-track, var(--border));
+  height: 2px;
+  border-radius: var(--radius-full);
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  border-color: transparent;
+  background: currentColor;
+  box-shadow: var(--shadow-sm);
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  outline: 2px solid Highlight;
+  outline-offset: 2px;
+}
+
+.form-range:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed=&quot;true&quot;],
+  [aria-selected=&quot;true&quot;],
+  .is-selected
+) {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--blue);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline-offset: 2px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.viz-carousel-controls :is(button, summary):focus-visible {
+  outline: 2px solid var(--ring) !important;
+  outline-offset: 2px !important;
+}
+
+/* Web recipes are the default, including on renderers without inline style queries. */
+@supports (border-radius: if(style(--corner-shape: round): 1px; else: 2px)) {
+  /* Match the host&#x27;s proportional text-sm scale at every text preference. */
+  .tooltip,
+  .viz-badge,
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    font-size: if(
+      style(--corner-shape: round): round(
+          nearest,
+          calc(var(--font-size-base) * 14 / 16),
+          1px
+        );
+        else: round(nearest, calc(var(--font-size-base) * 13 / 14), 1px)
+    );
+  }
+
+  .btn-sm {
+    font-size: if(
+      style(--corner-shape: round): round(
+          nearest,
+          calc(var(--font-size-base) * 12 / 16),
+          1px
+        );
+        else: round(nearest, calc(var(--font-size-base) * 12 / 14), 1px)
+    );
+  }
+
+  .btn,
+  .nav-link,
+  .form-select {
+    border-radius: if(
+      style(--corner-shape: round): var(--radius-full); else: var(--radius-lg)
+    );
+  }
+
+  .form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+    border-radius: if(
+      style(--corner-shape: round): calc(var(--radius-sm) / 2);
+        else: calc(var(--radius-lg) * 0.4)
+    );
+  }
+
+  .tooltip {
+    font-weight: if(
+      style(--corner-shape: round): 600; else: var(--font-weight-normal)
+    );
+  }
+}
+
+@media (pointer: coarse) {
+  .viz-carousel:has(&gt; .viz-carousel-controls) {
+    min-height: calc(76px + var(--viz-carousel-picker-height, 0px));
+    padding-bottom: 76px;
+  }
+
+  .btn,
+  .nav-link,
+  .viz-carousel-controls button,
+  .viz-carousel-picker &gt; summary,
+  .form-control,
+  .form-select {
+    --btn-size: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, calc(var(--font-size-base) * 14 / 16));
+    font-size: max(
+      16px,
+      round(nearest, calc(var(--font-size-base) * 14 / 16), 1px)
+    );
+  }
+  .form-control:is(
+    [type=&quot;file&quot;],
+    [type=&quot;date&quot;],
+    [type=&quot;datetime-local&quot;],
+    [type=&quot;month&quot;],
+    [type=&quot;week&quot;],
+    [type=&quot;time&quot;],
+    [type=&quot;color&quot;]
+  ) {
+    height: 44px;
+    min-height: 44px;
+    font-size: max(16px, calc(var(--font-size-base) * 14 / 16));
+    font-size: max(
+      16px,
+      round(nearest, calc(var(--font-size-base) * 14 / 16), 1px)
+    );
+  }
+
+  .form-control[type=&quot;file&quot;]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type=&quot;color&quot;] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type=&quot;date&quot;],
+    [type=&quot;datetime-local&quot;],
+    [type=&quot;month&quot;],
+    [type=&quot;time&quot;],
+    [type=&quot;week&quot;]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: &quot;&quot;;
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;script type=&quot;application/json&quot; id=&quot;codex-visualization-widget-state&quot;&gt;__CODEX_VISUALIZATION_WIDGET_STATE__&lt;/script&gt;
+&lt;script&gt;(() =&gt; {
+  const root = document.documentElement;
+  const mediaQuery = globalThis.matchMedia(&quot;(prefers-color-scheme: dark)&quot;);
+  const apply = Reflect.apply;
+  const isArray = Array.isArray;
+  const hasOwn = Object.hasOwn;
+  const parentWindow = globalThis.parent;
+  const stringify = JSON.stringify;
+  const parse = JSON.parse;
+  const encode = TextEncoder.prototype.encode.bind(new TextEncoder());
+  const initialStateElement = document.getElementById(
+    &quot;codex-visualization-widget-state&quot;,
+  );
+  const initialGlobals = parse(initialStateElement?.textContent ?? &quot;{}&quot;);
+  initialStateElement?.remove();
+  /** @type {Record&lt;string, unknown&gt; | null} */
+  let state = initialGlobals.widgetState ?? null;
+  const statePersistence = initialGlobals.statePersistence ?? &quot;none&quot;;
+  let nextStateRequestId = 0;
+  /** @type {Map&lt;number, { resolve: () =&gt; void; reject: (error: Error) =&gt; void; timeout: ReturnType&lt;typeof globalThis.setTimeout&gt;; serializedState: string }&gt;} */
+  const pendingStateWrites = new Map();
+  const persistenceError = () =&gt;
+    Object.assign(
+      new Error(&quot;The host could not persist the widget state update&quot;),
+      {
+        code: -32000,
+        data: { code: &quot;widget_state_persistence_failed&quot;, retryable: false },
+      },
+    );
+  /**
+   * @param {object} prototype
+   * @param {string} property
+   */
+  const getPrototypeGetter = (prototype, property) =&gt; {
+    // oxlint-disable-next-line typescript/unbound-method -- invoked through captured Reflect.apply
+    const getter = Object.getOwnPropertyDescriptor(prototype, property)?.get;
+    if (getter == null) {
+      throw new Error(`Missing ${property} getter`);
+    }
+    return getter;
+  };
+  const getMessageData = getPrototypeGetter(MessageEvent.prototype, &quot;data&quot;);
+  const getMessagePorts = getPrototypeGetter(MessageEvent.prototype, &quot;ports&quot;);
+  const getMessageSource = getPrototypeGetter(MessageEvent.prototype, &quot;source&quot;);
+  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
+  const addHostMessageListener = MessagePort.prototype.addEventListener;
+  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
+  const postHostMessage = MessagePort.prototype.postMessage;
+  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
+  const startHostPort = MessagePort.prototype.start;
+  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
+  const stopMessagePropagation = Event.prototype.stopImmediatePropagation;
+  /** @type {MessagePort | null} */
+  let hostPort = null;
+  const postToHost = (type, payload) =&gt; {
+    if (hostPort != null) {
+      apply(postHostMessage, hostPort, [{ type, ...payload }]);
+    }
+  };
+  const openExternal = ({ href }) =&gt; {
+    if (globalThis.navigator.userActivation?.isActive === true) {
+      postToHost(&quot;open-external&quot;, { href });
+    }
+  };
+  const sendFollowUpMessage = ({ context, prompt, title }) =&gt; {
+    if (globalThis.navigator.userActivation?.isActive === true) {
+      postToHost(&quot;follow-up&quot;, { context, prompt, title });
+    }
+    return Promise.resolve();
+  };
+  /**
+   * @param {Record&lt;string, unknown&gt; | ((previous: Record&lt;string, unknown&gt; | null) =&gt; Record&lt;string, unknown&gt;)} next
+   * @returns {Promise&lt;void&gt;}
+   */
+  const setWidgetState = async (next) =&gt; {
+    const nextState = typeof next === &quot;function&quot; ? next(state) : next;
+    if (
+      nextState == null ||
+      typeof nextState !== &quot;object&quot; ||
+      isArray(nextState)
+    ) {
+      throw new TypeError(&quot;Widget state must be a JSON object&quot;);
+    }
+    const inputState = stringify(
+      nextState,
+      (_key, /** @type {unknown} */ value) =&gt; {
+        if (
+          typeof value === &quot;undefined&quot; ||
+          typeof value === &quot;function&quot; ||
+          typeof value === &quot;symbol&quot; ||
+          (typeof value === &quot;number&quot; &amp;&amp; !Number.isFinite(value))
+        ) {
+          throw new TypeError(&quot;Widget state must be a JSON object&quot;);
+        }
+        return value;
+      },
+    );
+    const parsedState = parse(inputState);
+    if (
+      parsedState == null ||
+      typeof parsedState !== &quot;object&quot; ||
+      isArray(parsedState)
+    ) {
+      throw new TypeError(&quot;Widget state must be a JSON object&quot;);
+    }
+    const storedState = {
+      modelContent: null,
+      privateContent: null,
+      ...parsedState,
     };
-    let toastTimer;
-    function showToast(message) {
-      toast.textContent = message;
-      toast.classList.add('show');
-      window.clearTimeout(toastTimer);
-      toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2200);
+    const serializedState = stringify(storedState);
+    if (encode(serializedState).length &gt; 16 * 1024) {
+      throw new TypeError(
+        &quot;Widget state must be a JSON object of at most 16 KiB&quot;,
+      );
     }
-    function setView(view) {
-      const copy = viewCopy[view] || viewCopy.overview;
-      pageTitle.textContent = copy[0];
-      pageEyebrow.textContent = copy[1];
-      pageSubtitle.textContent = copy[2];
-      crumbPage.textContent = copy[0];
-      document.querySelectorAll('.nav-item[data-view]').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
-      showToast(`已切换到 ${copy[0]}`);
+    if (
+      hasOwn(storedState, &quot;imageIds&quot;) &amp;&amp;
+      (!isArray(storedState.imageIds) ||
+        storedState.imageIds.some(
+          (/** @type {unknown} */ id) =&gt; typeof id !== &quot;string&quot;,
+        ))
+    ) {
+      throw new TypeError(&quot;Widget state imageIds must be an array of strings&quot;);
     }
-    document.querySelectorAll('[data-view]').forEach((item) => item.addEventListener('click', () => setView(item.dataset.view)));
-    document.getElementById('collapse-sidebar').addEventListener('click', () => {
-      sidebar.classList.toggle('collapsed');
-      document.getElementById('collapse-sidebar').textContent = sidebar.classList.contains('collapsed') ? '›' : '‹';
+    if (storedState.imageIds?.length &gt; 0) {
+      throw Object.assign(
+        new TypeError(&quot;Visualization state does not support image attachments&quot;),
+        { code: -32602, data: { code: &quot;images_unsupported&quot; } },
+      );
+    }
+    state = storedState;
+    globalThis.openai.widgetState = state;
+    globalThis.dispatchEvent(
+      new CustomEvent(&quot;openai:set_globals&quot;, {
+        detail: { globals: { widgetState: state } },
+      }),
+    );
+    if (statePersistence === &quot;none&quot;) {
+      throw persistenceError();
+    }
+    const id = ++nextStateRequestId;
+    return new Promise((resolve, reject) =&gt; {
+      const timeout = globalThis.setTimeout(() =&gt; {
+        pendingStateWrites.delete(id);
+        reject(persistenceError());
+      }, 30_000);
+      pendingStateWrites.set(id, { resolve, reject, timeout, serializedState });
+      postToHost(&quot;widget-state-write&quot;, { id, state: serializedState });
     });
-    document.getElementById('theme-toggle').addEventListener('click', () => {
-      const light = root.dataset.theme === 'light';
-      root.dataset.theme = light ? 'dark' : 'light';
-      document.getElementById('theme-toggle').textContent = light ? '☼' : '☾';
-      showToast(light ? '已切换到深色主题' : '已切换到浅色主题');
-    });
-    document.getElementById('new-connection').addEventListener('click', () => showToast('新建连接流程已打开'));
-    document.getElementById('refresh-button').addEventListener('click', () => showToast('工作区数据已刷新'));
-    document.getElementById('workspace-switcher').addEventListener('click', () => showToast('Ramag 本机工作区已选中'));
-    document.getElementById('command-button').addEventListener('click', () => showToast('快速搜索已打开 · 试试 ⌘ K'));
-    document.getElementById('user-button').addEventListener('click', () => showToast('个人菜单已打开'));
-    document.getElementById('add-tool').addEventListener('click', () => showToast('工具管理已打开'));
-    document.getElementById('manage-tools').addEventListener('click', () => showToast('工具管理已打开'));
-    document.getElementById('open-tool-manager').addEventListener('click', () => showToast('工具管理已打开'));
-    document.getElementById('quick-continue').addEventListener('click', () => showToast('正在恢复 Database 查询编辑器'));
-    document.getElementById('quick-new').addEventListener('click', () => showToast('新建连接流程已打开'));
-    document.getElementById('quick-restore').addEventListener('click', () => showToast('正在恢复最近保存的会话'));
-    document.getElementById('open-shortcuts').addEventListener('click', () => showToast('快捷键：⌘ K 搜索 · ⌘ B 收起侧栏'));
-    document.getElementById('open-help').addEventListener('click', () => showToast('帮助中心已打开'));
-
-    let activeFilter = 'all';
-    const search = document.getElementById('activity-search');
-    function applyActivityFilter() {
-      const query = search.value.trim().toLowerCase();
-      let visible = 0;
-      document.querySelectorAll('.activity-row[data-kind]').forEach((row) => {
-        const matchesFilter = activeFilter === 'all' || (activeFilter === 'success' && row.dataset.kind === 'success') || (activeFilter === 'attention' && row.dataset.kind === 'attention');
-        const matchesSearch = !query || row.dataset.search.includes(query);
-        const show = matchesFilter && matchesSearch;
-        row.hidden = !show;
-        if (show) visible += 1;
+  };
+  const bindingElement = document.getElementById(&quot;codex-visualization-bindings&quot;);
+  const mockElement = document.getElementById(&quot;codex-connector-mocks&quot;);
+  const fileElement = document.getElementById(&quot;codex-preview-files&quot;);
+  const connectorGlobals = {};
+  if (bindingElement != null || mockElement != null || fileElement != null) {
+    const bindings = parse(bindingElement?.textContent ?? &quot;{}&quot;);
+    bindingElement?.remove();
+    const values = new Map();
+    for (const [name, binding] of Object.entries(bindings)) {
+      if (binding.type === &quot;json&quot;) values.set(name, structuredClone(binding.value));
+    }
+    const pending = [bindings];
+    while (pending.length) {
+      const object = pending.pop();
+      Object.freeze(object);
+      for (const child of Object.values(object)) {
+        if (child !== null &amp;&amp; typeof child === &quot;object&quot;) pending.push(child);
+      }
+    }
+    const updates = [];
+    if (mockElement != null) {
+      const mocks = Object.entries(parse(mockElement.textContent));
+      mockElement.remove();
+      for (const [name, value] of mocks) {
+        values.set(name, value);
+        updates.push({ name, revision: 1, state: &quot;ready&quot;, value: { type: &quot;json&quot;, value } });
+      }
+    }
+    if (fileElement != null) {
+      const files = parse(fileElement.textContent);
+      fileElement.remove();
+      const blobs = new Map();
+      const urls = [];
+      for (const [name, binding] of Object.entries(bindings)) {
+        if (binding.type !== &quot;file&quot; || !hasOwn(files, binding.path)) continue;
+        const file = files[binding.path];
+        let blob = blobs.get(binding.path);
+        if (blob == null) {
+          const bytes = Uint8Array.fromBase64?.(file.base64) ??
+            Uint8Array.from(atob(file.base64), (char) =&gt; char.charCodeAt(0));
+          blob = new Blob([bytes], { type: file.mimeType });
+          blobs.set(binding.path, blob);
+        }
+        const url = URL.createObjectURL(blob);
+        urls.push(url);
+        values.set(name, { name: file.name, blob, url });
+        updates.push({ name, revision: 1, state: &quot;ready&quot;, value: { type: &quot;file&quot;, ...file } });
+      }
+      globalThis.addEventListener(&quot;pagehide&quot;, (event) =&gt; {
+        // A persisted pagehide can restore this same document and its subscriptions.
+        if (event.persisted) return;
+        for (const url of urls) URL.revokeObjectURL(url);
+        urls.length = 0;
       });
-      document.getElementById('activity-empty').classList.toggle('show', visible === 0);
     }
-    document.querySelectorAll('.filter').forEach((button) => button.addEventListener('click', () => {
-      activeFilter = button.dataset.filter;
-      document.querySelectorAll('.filter').forEach((item) => item.classList.toggle('active', item === button));
-      applyActivityFilter();
-    }));
-    search.addEventListener('input', applyActivityFilter);
-    document.querySelectorAll('.more').forEach((button) => button.addEventListener('click', () => showToast('更多操作菜单已打开')));
-  </script>
+    if (mockElement != null || fileElement != null) connectorGlobals.visualizationData = { updates };
+    connectorGlobals.visualization = {
+      get bindings() {
+        return bindings;
+      },
+      /** @param {string} name @param {(value: unknown) =&gt; void} callback */
+      onData(name, callback) {
+        if (typeof callback !== &quot;function&quot;) {
+          throw new TypeError(&quot;onData requires a callback&quot;);
+        }
+        try {
+          callback(values.get(name));
+        } catch (error) {
+          // oxlint-disable-next-line no-console -- Keep authored callback failures local.
+          console.error(&quot;Live visualization data callback failed&quot;, error);
+        }
+        // A static preview delivers the current value once per subscription.
+        return () =&gt; {};
+      },
+    };
+  }
+  const syncTheme = () =&gt; {
+    const theme = mediaQuery.matches ? &quot;dark&quot; : &quot;light&quot;;
+    root.dataset.theme = theme;
+    globalThis.openai = {
+      ...globalThis.openai,
+      ...connectorGlobals,
+      openExternal,
+      sendFollowUpMessage,
+      setWidgetState,
+      theme,
+      visualizationStyleVariables: {},
+      visualizationTheme: theme,
+      widgetState: state,
+      statePersistence,
+      stateModelContext: &quot;none&quot;,
+    };
+    globalThis.dispatchEvent(
+      new CustomEvent(&quot;openai:set_globals&quot;, {
+        detail: { globals: globalThis.openai },
+      }),
+    );
+  };
+  const sendHeight = () =&gt; {
+    postToHost(&quot;height&quot;, {
+      height: Math.ceil(
+        Math.max(
+          document.body.scrollHeight,
+          document.body.getBoundingClientRect().height,
+        ),
+      ),
+    });
+  };
+
+  globalThis.addEventListener(
+    &quot;message&quot;,
+    (event) =&gt; {
+      const data = apply(getMessageData, event, []);
+      const ports = apply(getMessagePorts, event, []);
+      const source = apply(getMessageSource, event, []);
+      if (
+        hostPort != null ||
+        source !== parentWindow ||
+        typeof data !== &quot;object&quot; ||
+        data?.type !== &quot;codex-visualization-initialize&quot; ||
+        !isArray(ports) ||
+        ports.length !== 1
+      ) {
+        return;
+      }
+      apply(stopMessagePropagation, event, []);
+      const nextHostPort = ports[0];
+      try {
+        apply(addHostMessageListener, nextHostPort, [
+          &quot;message&quot;,
+          (event) =&gt; {
+            const data = apply(getMessageData, event, []);
+            if (typeof data === &quot;object&quot; &amp;&amp; data?.type === &quot;measure&quot;) {
+              sendHeight();
+            } else if (
+              typeof data === &quot;object&quot; &amp;&amp;
+              data?.type === &quot;widget-state-result&quot;
+            ) {
+              /** @type {unknown} */
+              const id = data.id;
+              if (typeof id !== &quot;number&quot;) {
+                return;
+              }
+              const pending = pendingStateWrites.get(id);
+              if (pending != null) {
+                pendingStateWrites.delete(id);
+                globalThis.clearTimeout(pending.timeout);
+                if (data.ok === true) {
+                  pending.resolve();
+                } else {
+                  pending.reject(persistenceError());
+                }
+              }
+            }
+          },
+        ]);
+        apply(startHostPort, nextHostPort, []);
+      } catch {
+        return;
+      }
+      hostPort = nextHostPort;
+      for (const [id, { serializedState }] of pendingStateWrites) {
+        postToHost(&quot;widget-state-write&quot;, { id, state: serializedState });
+      }
+      sendHeight();
+    },
+    { capture: true },
+  );
+  document.currentScript?.remove();
+  mediaQuery.addEventListener(&quot;change&quot;, syncTheme);
+  globalThis.addEventListener(&quot;click&quot;, (event) =&gt; {
+    if (event.defaultPrevented) {
+      return;
+    }
+    let element = null;
+    if (event.target instanceof globalThis.Element) {
+      element = event.target;
+    } else if (event.target instanceof globalThis.Node) {
+      element = event.target.parentElement;
+    }
+    const link = element?.closest(&quot;a[href]&quot;);
+    const href = link?.getAttribute(&quot;href&quot;);
+    if (href == null) {
+      return;
+    }
+    if (href.startsWith(&quot;#&quot;)) {
+      let id;
+      try {
+        id = decodeURIComponent(href.slice(1));
+      } catch {
+        return;
+      }
+      const target = id.length === 0 ? root : document.getElementById(id);
+      if (
+        target == null ||
+        globalThis.navigator.userActivation?.isActive !== true
+      ) {
+        return;
+      }
+      event.preventDefault();
+      postToHost(&quot;scroll-to&quot;, {
+        top: target.getBoundingClientRect().top + globalThis.scrollY,
+      });
+      return;
+    }
+    event.preventDefault();
+    openExternal({ href });
+  });
+  new ResizeObserver(sendHeight).observe(document.body);
+  syncTheme();
+})();
+&lt;/script&gt;
+&lt;div id=&quot;ramag-interface-concept&quot; aria-label=&quot;Ramag 交互式界面设计稿&quot;&gt;
+  &lt;style&gt;
+    #ramag-interface-concept {
+      --r-bg: #090909;
+      --r-surface: #101010;
+      --r-raised: #171717;
+      --r-hover: #202020;
+      --r-line: #282828;
+      --r-strong-line: #414141;
+      --r-text: #ededed;
+      --r-muted: #a1a1a1;
+      --r-soft: #858585;
+      --r-primary: #ededed;
+      --r-on-primary: #111111;
+      --r-green: #74d5a2;
+      --r-blue: #82b9ff;
+      --r-amber: #e9bf75;
+      --r-danger: #ff9b9b;
+      --r-radius: 7px;
+      --r-row: 38px;
+      color-scheme: dark;
+      color: var(--r-text);
+      font: 14px/1.5 &quot;Inter&quot;, &quot;Segoe UI Variable&quot;, &quot;Segoe UI&quot;, &quot;Microsoft YaHei&quot;, sans-serif;
+      width: 100%;
+      isolation: isolate;
+    }
+    #ramag-interface-concept[data-theme=&quot;light&quot;] {
+      --r-bg: #ffffff;
+      --r-surface: #fafafa;
+      --r-raised: #f4f4f4;
+      --r-hover: #eeeeee;
+      --r-line: #e4e4e4;
+      --r-strong-line: #c9c9c9;
+      --r-text: #171717;
+      --r-muted: #656565;
+      --r-soft: #737373;
+      --r-primary: #171717;
+      --r-on-primary: #ffffff;
+      --r-green: #187448;
+      --r-blue: #175cbb;
+      --r-amber: #885913;
+      --r-danger: #b92525;
+      color-scheme: light;
+    }
+    #ramag-interface-concept *,
+    #ramag-interface-concept *::before,
+    #ramag-interface-concept *::after { box-sizing: border-box; }
+    #ramag-interface-concept [hidden] { display: none !important; }
+    #ramag-interface-concept h1,
+    #ramag-interface-concept h2,
+    #ramag-interface-concept h3,
+    #ramag-interface-concept p { margin: 0; font-family: inherit; }
+    #ramag-interface-concept button,
+    #ramag-interface-concept input,
+    #ramag-interface-concept select,
+    #ramag-interface-concept textarea { font: inherit; color: inherit; }
+    #ramag-interface-concept button,
+    #ramag-interface-concept input,
+    #ramag-interface-concept select,
+    #ramag-interface-concept textarea { accent-color: var(--r-text); }
+    #ramag-interface-concept button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 34px;
+      max-width: 100%;
+      padding: 6px 11px;
+      border: 1px solid var(--r-line);
+      border-radius: var(--r-radius);
+      background: var(--r-bg);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 20px;
+      text-align: center;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    #ramag-interface-concept button:hover { background: var(--r-hover); border-color: var(--r-strong-line); }
+    #ramag-interface-concept button:disabled { opacity: .55; }
+    #ramag-interface-concept button.r-primary {
+      background: var(--r-primary);
+      color: var(--r-on-primary);
+      border-color: var(--r-primary);
+    }
+    #ramag-interface-concept button.r-primary:hover { opacity: .88; }
+    #ramag-interface-concept button.r-quiet { background: transparent; border-color: transparent; }
+    #ramag-interface-concept button.r-quiet:hover { background: var(--r-hover); }
+    #ramag-interface-concept button.r-icon-button { padding: 7px; width: 34px; flex: 0 0 auto; }
+    #ramag-interface-concept [data-lucide],
+    #ramag-interface-concept svg.lucide { width: 16px; height: 16px; flex: 0 0 auto; stroke-width: 1.65px; }
+    #ramag-interface-concept .r-muted { color: var(--r-muted); }
+    #ramag-interface-concept .r-small { font-size: 12px; }
+    #ramag-interface-concept .r-mono { font-family: &quot;Cascadia Code&quot;, &quot;SFMono-Regular&quot;, Consolas, monospace; font-size: 12px; }
+    #ramag-interface-concept .r-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    #ramag-interface-concept .r-flex { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    #ramag-interface-concept .r-spacer { flex: 1; }
+    #ramag-interface-concept .r-preview-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      background: var(--r-bg);
+      border: 1px solid var(--r-line);
+      border-radius: 9px;
+    }
+    #ramag-interface-concept .r-preview-name { font-size: 13px; font-weight: 600; }
+    #ramag-interface-concept .r-preview-name span { font-weight: 400; color: var(--r-muted); margin-left: 8px; }
+    #ramag-interface-concept .r-segment {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 3px;
+      border: 1px solid var(--r-line);
+      border-radius: calc(var(--r-radius) + 2px);
+      background: var(--r-surface);
+    }
+    #ramag-interface-concept .r-segment button { min-height: 29px; padding: 3px 10px; border-color: transparent; background: transparent; color: var(--r-muted); }
+    #ramag-interface-concept .r-segment button[aria-pressed=&quot;true&quot;] {
+      background: var(--r-bg);
+      color: var(--r-text);
+      border-color: var(--r-strong-line);
+      box-shadow: none;
+    }
+    #ramag-interface-concept .r-stage { width: 100%; }
+    #ramag-interface-concept .r-app {
+      width: 100%;
+      container-type: inline-size;
+      container-name: ramag-app;
+      margin-inline: auto;
+      border: 1px solid var(--r-line);
+      border-radius: 10px;
+      background: var(--r-bg);
+      overflow: clip;
+    }
+    #ramag-interface-concept .r-frame { display: grid; grid-template-columns: 196px minmax(0,1fr); min-height: 734px; }
+    #ramag-interface-concept .r-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 18px 10px 12px;
+      border-right: 1px solid var(--r-line);
+      background: var(--r-bg);
+      min-width: 0;
+    }
+    #ramag-interface-concept .r-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; min-height: 32px; }
+    #ramag-interface-concept .r-brand-mark {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--r-strong-line);
+      border-radius: 6px;
+      color: var(--r-text);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -.7px;
+      flex: 0 0 auto;
+    }
+    #ramag-interface-concept .r-brand-name { font-size: 16px; font-weight: 600; letter-spacing: -.4px; }
+    #ramag-interface-concept .r-workspace-label { padding: 0 8px; color: var(--r-muted); font-size: 12px; }
+    #ramag-interface-concept .r-nav-group { display: grid; gap: 3px; }
+    #ramag-interface-concept .r-nav-label { padding: 5px 10px 7px; color: var(--r-soft); font-size: 11px; }
+    #ramag-interface-concept .r-nav-button {
+      justify-content: flex-start;
+      border-color: transparent;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--r-muted);
+      width: 100%;
+      min-height: var(--r-row);
+      padding: 8px 10px;
+      gap: 10px;
+      font-weight: 400;
+      text-align: left;
+    }
+    #ramag-interface-concept .r-nav-button[aria-current=&quot;page&quot;] { background: var(--r-raised); color: var(--r-text); font-weight: 500; }
+    #ramag-interface-concept .r-nav-bottom { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--r-line); }
+    #ramag-interface-concept .r-sidebar-foot { padding: 12px 10px 0; font-size: 11px; color: var(--r-soft); }
+    #ramag-interface-concept .r-main { min-width: 0; display: flex; flex-direction: column; }
+    #ramag-interface-concept .r-topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 59px;
+      padding: 12px 26px;
+      border-bottom: 1px solid var(--r-line);
+    }
+    #ramag-interface-concept .r-crumb { font-size: 13px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+    #ramag-interface-concept .r-crumb .r-slash { color: var(--r-strong-line); font-size: 18px; font-weight: 400; }
+    #ramag-interface-concept .r-preview-status { margin-left: auto; color: var(--r-muted); font-size: 11px; white-space: nowrap; }
+    #ramag-interface-concept .r-menu-button { display: none; }
+    #ramag-interface-concept .r-content { padding: 26px; flex: 1; min-width: 0; }
+    #ramag-interface-concept .r-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+    #ramag-interface-concept .r-heading h1 { font-size: 24px; font-weight: 600; letter-spacing: -.7px; line-height: 1.35; }
+    #ramag-interface-concept .r-heading p { margin-top: 6px; color: var(--r-muted); font-size: 13px; }
+    #ramag-interface-concept .r-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 25px; }
+    #ramag-interface-concept .r-search {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 36px;
+      border: 1px solid var(--r-line);
+      border-radius: var(--r-radius);
+      padding: 0 11px;
+      background: var(--r-surface);
+      color: var(--r-muted);
+      flex: 1 1 160px;
+      min-width: 0;
+    }
+    #ramag-interface-concept .r-search:focus-within { border-color: var(--r-strong-line); }
+    #ramag-interface-concept .r-search input { width: 100%; min-width: 0; padding: 7px 0; background: transparent; border: 0; font-size: 13px; }
+    #ramag-interface-concept input::placeholder { color: var(--r-soft); }
+    #ramag-interface-concept select.r-select { min-height: 36px; max-width: 100%; border: 1px solid var(--r-line); border-radius: var(--r-radius); padding: 6px 25px 6px 10px; background: var(--r-bg); font-size: 12px; }
+    #ramag-interface-concept .r-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    #ramag-interface-concept .r-section-head h2 { font-size: 13px; font-weight: 500; }
+    #ramag-interface-concept .r-section-head span { color: var(--r-soft); font-size: 11px; }
+    #ramag-interface-concept .r-recents { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin-bottom: 30px; }
+    #ramag-interface-concept button.r-recent { display: grid; grid-template-columns: 30px minmax(0,1fr) 16px; text-align: left; gap: 12px; padding: 15px; min-height: 83px; background: var(--r-surface); font-weight: 400; }
+    #ramag-interface-concept .r-recent strong { display: block; font-size: 13px; font-weight: 500; }
+    #ramag-interface-concept .r-recent small { display: block; color: var(--r-muted); font-size: 11px; margin-top: 4px; }
+    #ramag-interface-concept .r-tool-icon { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 7px; background: var(--r-raised); color: var(--r-text); }
+    #ramag-interface-concept .r-tools { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+    #ramag-interface-concept button.r-tool {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 10px;
+      min-height: 104px;
+      padding: 15px;
+      background: var(--r-surface);
+      text-align: left;
+      font-weight: 400;
+    }
+    #ramag-interface-concept .r-tool-title { display: flex; align-items: center; gap: 11px; font-weight: 500; font-size: 13px; }
+    #ramag-interface-concept .r-tool-title .r-arrow { margin-left: auto; color: var(--r-soft); opacity: .65; }
+    #ramag-interface-concept .r-tool p { color: var(--r-muted); font-size: 12px; line-height: 1.6; }
+    #ramag-interface-concept .r-tools[data-layout=&quot;list&quot;] { grid-template-columns: minmax(0,1fr); gap: 0; }
+    #ramag-interface-concept .r-tools[data-layout=&quot;list&quot;] button.r-tool { border: 0; border-bottom: 1px solid var(--r-line); border-radius: 0; min-height: 64px; padding: 12px 2px; flex-direction: row; align-items: center; justify-content: space-between; background: transparent; gap: 16px; }
+    #ramag-interface-concept .r-tools[data-layout=&quot;list&quot;] .r-tool-title { min-width: 142px; }
+    #ramag-interface-concept .r-tools[data-layout=&quot;list&quot;] .r-arrow { display: none; }
+    #ramag-interface-concept .r-footer { padding: 12px 26px; border-top: 1px solid var(--r-line); color: var(--r-soft); font-size: 11px; }
+    #ramag-interface-concept .r-work-heading { margin-bottom: 19px; }
+    #ramag-interface-concept .r-work-heading h1 { font-size: 21px; }
+    #ramag-interface-concept .r-outline-button { display: none; }
+    #ramag-interface-concept .r-workbench { border: 1px solid var(--r-line); border-radius: var(--r-radius); min-height: 498px; display: grid; grid-template-columns: 156px minmax(0,1fr); overflow: clip; }
+    #ramag-interface-concept .r-outline { border-right: 1px solid var(--r-line); background: var(--r-surface); padding: 13px 7px; min-width: 0; }
+    #ramag-interface-concept .r-outline-title { padding: 3px 8px 12px; color: var(--r-muted); font-size: 11px; }
+    #ramag-interface-concept .r-outline-row { display: flex; align-items: center; justify-content: flex-start; gap: 7px; border-color: transparent; width: 100%; background: transparent; text-align: left; padding: 8px; font-size: 12px; min-height: 36px; font-weight: 400; }
+    #ramag-interface-concept .r-outline-row[aria-current=&quot;true&quot;] { background: var(--r-hover); color: var(--r-text); }
+    #ramag-interface-concept .r-method { font-size: 10px; color: var(--r-green); font-weight: 500; min-width: 28px; }
+    #ramag-interface-concept .r-method.post { color: var(--r-amber); }
+    #ramag-interface-concept .r-request-main { min-width: 0; }
+    #ramag-interface-concept .r-requestbar { display: flex; gap: 8px; padding: 13px; border-bottom: 1px solid var(--r-line); flex-wrap: wrap; }
+    #ramag-interface-concept .r-url-box { display: flex; flex: 1 1 170px; min-width: 0; border: 1px solid var(--r-line); border-radius: var(--r-radius); background: var(--r-surface); }
+    #ramag-interface-concept .r-url-box select { max-width: 80px; border: 0; background: transparent; padding: 6px; color: var(--r-green); font-size: 11px; font-weight: 600; }
+    #ramag-interface-concept .r-url-box input { min-width: 0; width: 100%; border: 0; background: transparent; padding: 8px; font-family: &quot;Cascadia Code&quot;, Consolas, monospace; font-size: 12px; }
+    #ramag-interface-concept .r-api-panes { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+    #ramag-interface-concept .r-api-pane { min-width: 0; min-height: 412px; }
+    #ramag-interface-concept .r-api-pane + .r-api-pane { border-left: 1px solid var(--r-line); }
+    #ramag-interface-concept .r-pane-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 10px 14px; border-bottom: 1px solid var(--r-line); font-size: 12px; }
+    #ramag-interface-concept .r-pane-heading strong { font-weight: 500; }
+    #ramag-interface-concept .r-tabs { display: flex; align-items: center; gap: 12px; padding: 0 14px; min-height: 41px; border-bottom: 1px solid var(--r-line); flex-wrap: wrap; }
+    #ramag-interface-concept .r-tabs button { border: 0; border-radius: 0; background: transparent; color: var(--r-muted); padding: 9px 0; min-height: 40px; border-bottom: 2px solid transparent; font-size: 12px; font-weight: 400; }
+    #ramag-interface-concept .r-tabs button[aria-selected=&quot;true&quot;] { color: var(--r-text); border-bottom-color: var(--r-text); }
+    #ramag-interface-concept .r-tabs button:hover { color: var(--r-text); }
+    #ramag-interface-concept .r-panel-body { padding: 14px; min-width: 0; }
+    #ramag-interface-concept .r-data-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; table-layout: fixed; }
+    #ramag-interface-concept .r-data-table th { color: var(--r-muted); font-weight: 400; background: var(--r-surface); font-size: 11px; }
+    #ramag-interface-concept .r-data-table th,
+    #ramag-interface-concept .r-data-table td { padding: 10px 12px; border-bottom: 1px solid var(--r-line); overflow-wrap: anywhere; vertical-align: middle; }
+    #ramag-interface-concept .r-data-table input { width: 100%; min-width: 0; background: transparent; border: 0; padding: 4px 0; font-size: 12px; }
+    #ramag-interface-concept .r-data-table td.r-check-cell { width: 29px; padding-right: 0; }
+    #ramag-interface-concept .r-data-table input[type=&quot;checkbox&quot;] { width: 14px; height: 14px; }
+    #ramag-interface-concept .r-note { font-size: 11px; color: var(--r-soft); line-height: 1.7; margin-top: 15px; }
+    #ramag-interface-concept .r-code { margin: 0; padding: 0; border: 0; background: transparent; color: var(--r-text); font: 12px/1.9 &quot;Cascadia Code&quot;, &quot;SFMono-Regular&quot;, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    #ramag-interface-concept .r-code .r-key { color: var(--r-muted); }
+    #ramag-interface-concept .r-response-state { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; font-size: 11px; color: var(--r-muted); }
+    #ramag-interface-concept .r-good { color: var(--r-green); }
+    #ramag-interface-concept .r-warning { color: var(--r-amber); }
+    #ramag-interface-concept .r-error { color: var(--r-danger); }
+    #ramag-interface-concept .r-mobile-pane-tabs { display: none; }
+    #ramag-interface-concept .r-empty { padding: 35px 16px; color: var(--r-muted); font-size: 12px; text-align: center; line-height: 1.8; }
+    #ramag-interface-concept textarea.r-editor { width: 100%; min-height: 150px; resize: vertical; border: 1px solid var(--r-line); border-radius: var(--r-radius); padding: 12px; background: var(--r-surface); font: 12px/1.9 &quot;Cascadia Code&quot;, Consolas, monospace; }
+    #ramag-interface-concept .r-db-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px; border-bottom: 1px solid var(--r-line); }
+    #ramag-interface-concept .r-db-toolbar .r-search { background: var(--r-bg); }
+    #ramag-interface-concept .r-db-table td { height: 49px; }
+    #ramag-interface-concept .r-db-table tr[data-selected=&quot;true&quot;] td { background: var(--r-raised); }
+    #ramag-interface-concept .r-db-table th:first-child { width: 49px; }
+    #ramag-interface-concept .r-db-table th:nth-child(2) { width: 31%; }
+    #ramag-interface-concept .r-db-table th:last-child { width: 82px; }
+    #ramag-interface-concept .r-data-table button.r-row-link { border: 0; background: transparent; padding: 3px 0; justify-content: flex-start; text-align: left; font-size: 12px; font-weight: 400; }
+    #ramag-interface-concept .r-row-link:hover { text-decoration: underline; }
+    #ramag-interface-concept .r-table-footer { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 12px 14px; font-size: 11px; color: var(--r-muted); }
+    #ramag-interface-concept .r-selection-detail { padding: 16px; border-top: 1px solid var(--r-line); background: var(--r-surface); font-size: 12px; }
+    #ramag-interface-concept .r-selection-detail dl { margin: 12px 0 0; display: grid; grid-template-columns: 64px minmax(0,1fr); gap: 8px 10px; }
+    #ramag-interface-concept .r-selection-detail dt { color: var(--r-muted); }
+    #ramag-interface-concept .r-selection-detail dd { margin: 0; overflow-wrap: anywhere; }
+    #ramag-interface-concept .r-settings { max-width: 620px; }
+    #ramag-interface-concept .r-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--r-line); }
+    #ramag-interface-concept .r-setting-row strong { display: block; font-size: 13px; font-weight: 500; }
+    #ramag-interface-concept .r-setting-row p { font-size: 12px; color: var(--r-muted); margin-top: 4px; }
+    #ramag-interface-concept dialog.r-dialog {
+      width: min(410px,calc(100% - 28px));
+      max-height: min(640px,calc(100dvh - 32px));
+      padding: 22px;
+      color: var(--r-text);
+      background: var(--r-surface);
+      border: 1px solid var(--r-strong-line);
+      border-radius: 12px;
+      font: inherit;
+      box-shadow: 0 18px 70px #0005;
+    }
+    #ramag-interface-concept dialog::backdrop { background: #0008; }
+    #ramag-interface-concept .r-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+    #ramag-interface-concept .r-dialog-heading h2 { font-size: 17px; font-weight: 500; }
+    #ramag-interface-concept .r-form-field { display: grid; gap: 7px; margin-bottom: 17px; font-size: 12px; }
+    #ramag-interface-concept .r-form-field input { width: 100%; padding: 10px; border: 1px solid var(--r-line); border-radius: var(--r-radius); background: var(--r-bg); font-size: 13px; }
+    #ramag-interface-concept .r-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+    #ramag-interface-concept .r-feedback { min-height: 22px; margin-top: 10px; font-size: 12px; color: var(--r-muted); }
+    #ramag-interface-concept .r-bottom-nav { display: none; }
+    #ramag-interface-concept[data-density=&quot;compact&quot;] { --r-row: 32px; }
+    #ramag-interface-concept[data-density=&quot;compact&quot;] .r-tool { min-height: 93px; padding: 12px; }
+    #ramag-interface-concept[data-density=&quot;compact&quot;] .r-db-table td { height: 39px; }
+    #ramag-interface-concept .r-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+    @container ramag-app (max-width: 1100px) {
+      #ramag-interface-concept .r-frame.r-work-mode { grid-template-columns: 62px minmax(0,1fr); }
+      #ramag-interface-concept .r-work-mode &gt; .r-sidebar { padding-inline: 8px; }
+      #ramag-interface-concept .r-work-mode &gt; .r-sidebar .r-nav-name,
+      #ramag-interface-concept .r-work-mode &gt; .r-sidebar .r-brand-name,
+      #ramag-interface-concept .r-work-mode &gt; .r-sidebar .r-workspace-label,
+      #ramag-interface-concept .r-work-mode &gt; .r-sidebar .r-sidebar-foot { display: none; }
+      #ramag-interface-concept .r-work-mode &gt; .r-sidebar .r-brand { padding: 0; justify-content: center; }
+      #ramag-interface-concept .r-work-mode &gt; .r-sidebar .r-nav-button { justify-content: center; padding: 8px; }
+      #ramag-interface-concept .r-work-mode &gt; .r-sidebar .r-nav-label { height: 13px; padding: 0; font-size: 0; }
+      #ramag-interface-concept .r-content { padding: 23px; }
+      #ramag-interface-concept .r-topbar { padding-inline: 23px; }
+      #ramag-interface-concept .r-workbench { grid-template-columns: 146px minmax(0,1fr); }
+      #ramag-interface-concept .r-tools { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    }
+    @container ramag-app (max-width: 760px) {
+      #ramag-interface-concept .r-frame,
+      #ramag-interface-concept .r-frame.r-work-mode { grid-template-columns: minmax(0,1fr); min-height: 710px; }
+      #ramag-interface-concept .r-frame &gt; .r-sidebar { display: none; }
+      #ramag-interface-concept .r-menu-button { display: inline-flex; }
+      #ramag-interface-concept .r-topbar { padding: 10px 16px; gap: 9px; min-height: 58px; }
+      #ramag-interface-concept .r-content { padding: 22px 18px; }
+      #ramag-interface-concept .r-heading { flex-wrap: wrap; margin-bottom: 19px; align-items: flex-start; }
+      #ramag-interface-concept .r-heading h1 { font-size: 22px; }
+      #ramag-interface-concept .r-heading p { font-size: 12px; }
+      #ramag-interface-concept .r-preview-status { font-size: 10px; }
+      #ramag-interface-concept .r-crumb-workspace,
+      #ramag-interface-concept .r-crumb .r-slash { display: none; }
+      #ramag-interface-concept .r-toolbar { margin-bottom: 23px; }
+      #ramag-interface-concept .r-tools { grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); }
+      #ramag-interface-concept .r-recents { grid-template-columns: minmax(0,1fr); gap: 9px; margin-bottom: 25px; }
+      #ramag-interface-concept button.r-recent { min-height: 76px; }
+      #ramag-interface-concept .r-footer { padding: 12px 18px; font-size: 10px; }
+      #ramag-interface-concept .r-workbench { grid-template-columns: minmax(0,1fr); min-height: 482px; }
+      #ramag-interface-concept .r-workbench &gt; .r-outline { display: none; }
+      #ramag-interface-concept .r-outline-button { display: inline-flex; }
+      #ramag-interface-concept .r-api-panes { grid-template-columns: minmax(0,1fr); }
+      #ramag-interface-concept .r-api-pane { min-height: 330px; }
+      #ramag-interface-concept .r-api-pane + .r-api-pane { border-left: 0; }
+      #ramag-interface-concept .r-api-panes[data-visible=&quot;request&quot;] .r-response-pane,
+      #ramag-interface-concept .r-api-panes[data-visible=&quot;response&quot;] .r-request-pane { display: none; }
+      #ramag-interface-concept .r-mobile-pane-tabs { display: flex; }
+      #ramag-interface-concept .r-requestbar { gap: 7px; padding: 11px; }
+      #ramag-interface-concept .r-url-box { flex-basis: 100%; }
+      #ramag-interface-concept .r-requestbar &gt; button { flex: 1; }
+      #ramag-interface-concept .r-db-table .r-extra-col { display: none; }
+      #ramag-interface-concept .r-db-table th:nth-child(2) { width: auto; }
+      #ramag-interface-concept .r-db-table th:last-child { width: 72px; }
+      #ramag-interface-concept .r-setting-row { align-items: flex-start; flex-wrap: wrap; }
+      #ramag-interface-concept .r-bottom-nav { display: flex; border-top: 1px solid var(--r-line); padding: 7px 8px; justify-content: space-around; gap: 4px; }
+      #ramag-interface-concept .r-bottom-nav button { display: flex; flex: 1; flex-direction: column; gap: 3px; padding: 6px 3px; font-size: 10px; color: var(--r-muted); border-color: transparent; background: transparent; min-height: 47px; }
+      #ramag-interface-concept .r-bottom-nav button[aria-current=&quot;page&quot;] { color: var(--r-text); background: var(--r-raised); }
+      #ramag-interface-concept .r-panel-body textarea,
+      #ramag-interface-concept .r-search input,
+      #ramag-interface-concept .r-url-box input,
+      #ramag-interface-concept .r-data-table input { font-size: 16px; }
+      #ramag-interface-concept .r-db-table .r-row-link { min-height: 40px; }
+      #ramag-interface-concept .r-outline-row { min-height: 44px; }
+      #ramag-interface-concept .r-pane-heading,
+      #ramag-interface-concept .r-tabs { min-height: 44px; }
+      #ramag-interface-concept .r-tabs button { min-height: 44px; }
+      #ramag-interface-concept .r-heading &gt; .r-flex { flex-wrap: wrap; }
+    }
+    @container ramag-app (max-width: 400px) {
+      #ramag-interface-concept .r-content { padding: 20px 15px; }
+      #ramag-interface-concept .r-toolbar .r-search { flex-basis: 100%; }
+      #ramag-interface-concept .r-toolbar &gt; .r-select { flex: 1; }
+      #ramag-interface-concept .r-tools { grid-template-columns: minmax(0,1fr); gap: 9px; }
+      #ramag-interface-concept button.r-tool { min-height: 86px; padding: 13px; gap: 7px; }
+      #ramag-interface-concept .r-tools[data-layout=&quot;list&quot;] .r-tool { align-items: flex-start; flex-direction: column; gap: 3px; }
+      #ramag-interface-concept .r-work-heading .r-primary { padding-inline: 9px; }
+      #ramag-interface-concept .r-heading h1 { font-size: 21px; }
+      #ramag-interface-concept .r-data-table th,
+      #ramag-interface-concept .r-data-table td { padding-inline: 9px; }
+    }
+    @media (max-width: 500px) {
+      #ramag-interface-concept .r-preview-bar { gap: 8px; }
+      #ramag-interface-concept .r-preview-name { flex-basis: 100%; }
+      #ramag-interface-concept .r-preview-bar &gt; .r-spacer { display: none; }
+    }
+    @media (pointer: coarse) {
+      #ramag-interface-concept button { min-height: 44px; }
+      #ramag-interface-concept .r-segment button { min-height: 44px; }
+      #ramag-interface-concept button.r-icon-button { width: 44px; min-height: 44px; }
+      #ramag-interface-concept input:not([type=&quot;checkbox&quot;]),
+      #ramag-interface-concept select,
+      #ramag-interface-concept textarea { font-size: 16px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #ramag-interface-concept * { transition: none !important; scroll-behavior: auto !important; }
+    }
+  &lt;/style&gt;
+  &lt;div class=&quot;r-preview-bar&quot;&gt;
+    &lt;div class=&quot;r-preview-name&quot;&gt;Ramag &lt;span&gt;交互式设计稿&lt;/span&gt;&lt;/div&gt;
+    &lt;div class=&quot;r-spacer&quot;&gt;&lt;/div&gt;
+    &lt;div class=&quot;r-segment&quot; role=&quot;group&quot; aria-label=&quot;界面主题&quot;&gt;
+      &lt;button type=&quot;button&quot; data-action=&quot;theme&quot; data-value=&quot;dark&quot; aria-pressed=&quot;true&quot;&gt;&lt;i data-lucide=&quot;moon&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;暗色&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-action=&quot;theme&quot; data-value=&quot;light&quot; aria-pressed=&quot;false&quot;&gt;&lt;i data-lucide=&quot;sun&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;亮色&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;r-stage&quot;&gt;
+    &lt;div class=&quot;r-app&quot; aria-label=&quot;Ramag 软件界面&quot;&gt;
+      &lt;div class=&quot;r-frame&quot;&gt;&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class=&quot;r-feedback&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;&lt;/div&gt;
+  &lt;dialog class=&quot;r-dialog&quot; data-dialog=&quot;navigation&quot; aria-label=&quot;工具导航&quot;&gt;&lt;/dialog&gt;
+  &lt;dialog class=&quot;r-dialog&quot; data-dialog=&quot;outline&quot; aria-label=&quot;当前工具导航&quot;&gt;&lt;/dialog&gt;
+  &lt;dialog class=&quot;r-dialog&quot; data-dialog=&quot;connection&quot; aria-labelledby=&quot;ramag-connection-title&quot;&gt;
+    &lt;form data-connection-form&gt;
+      &lt;div class=&quot;r-dialog-heading&quot;&gt;&lt;h2 id=&quot;ramag-connection-title&quot;&gt;新建示例连接&lt;/h2&gt;&lt;button type=&quot;button&quot; class=&quot;r-quiet r-icon-button&quot; data-action=&quot;close-dialog&quot; aria-label=&quot;关闭&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/div&gt;
+      &lt;label class=&quot;r-form-field&quot;&gt;连接类型&lt;select class=&quot;r-select&quot; name=&quot;kind&quot;&gt;&lt;option value=&quot;database&quot;&gt;PostgreSQL&lt;/option&gt;&lt;option value=&quot;api&quot;&gt;HTTP API&lt;/option&gt;&lt;option value=&quot;ssh&quot;&gt;SSH&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;
+      &lt;label class=&quot;r-form-field&quot;&gt;连接名称&lt;input name=&quot;name&quot; value=&quot;我的示例连接&quot; maxlength=&quot;48&quot; required autocomplete=&quot;off&quot;&gt;&lt;/label&gt;
+      &lt;p class=&quot;r-note&quot;&gt;仅添加到本设计稿，不保存真实配置，不连接服务。&lt;/p&gt;
+      &lt;div class=&quot;r-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; data-action=&quot;close-dialog&quot;&gt;取消&lt;/button&gt;&lt;button class=&quot;r-primary&quot; type=&quot;button&quot; data-action=&quot;add-connection&quot;&gt;添加到预览&lt;/button&gt;&lt;/div&gt;
+    &lt;/form&gt;
+  &lt;/dialog&gt;
+  &lt;script&gt;
+    (() =&gt; {
+      const root = document.getElementById(&quot;ramag-interface-concept&quot;);
+      const frame = root.querySelector(&quot;.r-frame&quot;);
+      const stage = root.querySelector(&quot;.r-stage&quot;);
+      const feedback = root.querySelector(&quot;.r-feedback&quot;);
+      const state = {
+        page: &quot;overview&quot;, theme: &quot;dark&quot;, density: &quot;standard&quot;,
+        search: &quot;&quot;, category: &quot;all&quot;, layout: &quot;grid&quot;, request: &quot;tools&quot;,
+        requestTab: &quot;params&quot;, responseTab: &quot;body&quot;, apiPane: &quot;request&quot;,
+        apiState: &quot;sample&quot;, method: &quot;GET&quot;, url: &quot;http://localhost:18089/tools&quot;,
+        dbTable: &quot;users&quot;, dbTab: &quot;data&quot;, dbSearch: &quot;&quot;, selectedRow: null,
+        response: null, saved: false
+      };
+      let requestTimer = null;
+      const recents = [
+        { name: &quot;本地 PostgreSQL&quot;, detail: &quot;playground · public&quot;, page: &quot;database&quot;, icon: &quot;database&quot; },
+        { name: &quot;本地 API&quot;, detail: &quot;开发环境 · HTTP&quot;, page: &quot;api&quot;, icon: &quot;braces&quot; }
+      ];
+      const tools = [
+        { id: &quot;database&quot;, label: &quot;数据库&quot;, icon: &quot;database&quot;, group: &quot;data&quot;, description: &quot;SQL、Redis 与 MongoDB 数据管理&quot; },
+        { id: &quot;api&quot;, label: &quot;API 工作台&quot;, icon: &quot;braces&quot;, group: &quot;message&quot;, description: &quot;HTTP 与 gRPC 请求调试&quot; },
+        { id: &quot;kafka&quot;, label: &quot;Kafka&quot;, icon: &quot;workflow&quot;, group: &quot;message&quot;, description: &quot;主题、消费组与消息查看&quot; },
+        { id: &quot;mqtt&quot;, label: &quot;MQTT&quot;, icon: &quot;radio&quot;, group: &quot;message&quot;, description: &quot;连接、订阅与消息发布&quot; },
+        { id: &quot;ssh&quot;, label: &quot;SSH 与 SFTP&quot;, icon: &quot;terminal&quot;, group: &quot;ops&quot;, description: &quot;远程终端、文件与端口转发&quot; },
+        { id: &quot;objects&quot;, label: &quot;对象存储&quot;, icon: &quot;hard-drive&quot;, group: &quot;ops&quot;, description: &quot;存储桶、对象与传输管理&quot; },
+        { id: &quot;containers&quot;, label: &quot;容器&quot;, icon: &quot;container&quot;, group: &quot;ops&quot;, description: &quot;Docker 与 Kubernetes 资源查看&quot; },
+        { id: &quot;git&quot;, label: &quot;Git&quot;, icon: &quot;git-branch&quot;, group: &quot;ops&quot;, description: &quot;变更、提交与仓库历史&quot; },
+        { id: &quot;clipboard&quot;, label: &quot;剪贴板&quot;, icon: &quot;clipboard&quot;, group: &quot;local&quot;, description: &quot;本机剪贴板历史与检索&quot; },
+        { id: &quot;system&quot;, label: &quot;系统监控&quot;, icon: &quot;activity&quot;, group: &quot;local&quot;, description: &quot;系统资源与进程状态&quot; }
+      ];
+      const requests = {
+        tools: { label: &quot;获取工具列表&quot;, method: &quot;GET&quot;, path: &quot;/tools&quot;, params: [[&quot;limit&quot;,&quot;10&quot;]], body: { tools: [{ id: &quot;api&quot;, name: &quot;API 工作台&quot; }, { id: &quot;database&quot;, name: &quot;数据库&quot; }], total: 2 } },
+        echo: { label: &quot;发送测试内容&quot;, method: &quot;POST&quot;, path: &quot;/echo&quot;, params: [[&quot;format&quot;,&quot;json&quot;]], body: { received: true, message: &quot;Hello, Ramag&quot; } },
+        health: { label: &quot;检查服务状态&quot;, method: &quot;GET&quot;, path: &quot;/health&quot;, params: [], body: { status: &quot;ok&quot;, service: &quot;本地测试服务&quot; } }
+      };
+      const drafts = Object.fromEntries(Object.entries(requests).map(([id, request]) =&gt; [id, {
+        method: request.method,
+        url: `http://localhost:18089${request.path}`,
+        params: request.params.map(([key, value]) =&gt; ({ key, value, enabled: true })),
+        headers: [{ key: &quot;Accept&quot;, value: &quot;application/json&quot;, enabled: true }],
+        body: &#x27;{\n  &quot;message&quot;: &quot;Hello, Ramag&quot;\n}&#x27;
+      }]));
+      const tables = {
+        users: {
+          label: &quot;users&quot;, columns: [&quot;id&quot;, &quot;name&quot;, &quot;email&quot;, &quot;status&quot;],
+          rows: [[1,&quot;示例用户 A&quot;,&quot;a@example.test&quot;,&quot;启用&quot;],[2,&quot;示例用户 B&quot;,&quot;b@example.test&quot;,&quot;启用&quot;],[3,&quot;示例用户 C&quot;,&quot;c@example.test&quot;,&quot;停用&quot;],[4,&quot;示例用户 D&quot;,&quot;d@example.test&quot;,&quot;启用&quot;],[5,&quot;示例用户 E&quot;,&quot;e@example.test&quot;,&quot;启用&quot;]]
+        },
+        projects: {
+          label: &quot;projects&quot;, columns: [&quot;id&quot;, &quot;name&quot;, &quot;slug&quot;, &quot;status&quot;],
+          rows: [[1,&quot;API 测试&quot;,&quot;api-sandbox&quot;,&quot;启用&quot;],[2,&quot;数据实验&quot;,&quot;data-lab&quot;,&quot;启用&quot;],[3,&quot;归档项目&quot;,&quot;archive-demo&quot;,&quot;停用&quot;]]
+        }
+      };
+      const escaped = (value) =&gt; String(value).replace(/[&amp;&lt;&gt;&quot;&#x27;]/g, c =&gt; ({ &quot;&amp;&quot;:&quot;&amp;amp;&quot;, &quot;&lt;&quot;:&quot;&amp;lt;&quot;, &quot;&gt;&quot;:&quot;&amp;gt;&quot;, &#x27;&quot;&#x27;:&quot;&amp;quot;&quot;, &quot;&#x27;&quot;:&quot;&amp;#39;&quot; }[c]));
+      const icon = name =&gt; `&lt;i data-lucide=&quot;${name}&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;`;
+      function icons() {
+        if (globalThis.lucide?.createIcons) globalThis.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+      }
+      function notify(message) { feedback.textContent = message; }
+      function restore(saved) {
+        const candidate = saved?.modelContent ?? saved;
+        if (!candidate || typeof candidate !== &quot;object&quot;) return;
+        for (const [key, allowed] of Object.entries({
+          page: [&quot;overview&quot;,&quot;settings&quot;,...tools.map(t =&gt; t.id)],
+          theme: [&quot;dark&quot;,&quot;light&quot;], density: [&quot;standard&quot;,&quot;compact&quot;]
+        })) {
+          if (allowed.includes(candidate[key])) state[key] = candidate[key];
+        }
+      }
+      function remember() {
+        const modelContent = { page: state.page, theme: state.theme, density: state.density };
+        try { window.openai?.setWidgetState?.({ modelContent, privateContent: null })?.catch?.(() =&gt; {}); } catch {}
+      }
+      function applyAppearance() {
+        root.dataset.theme = state.theme;
+        root.dataset.density = state.density;
+        for (const button of root.querySelectorAll(&quot;[data-action=&#x27;theme&#x27;]&quot;)) {
+          button.setAttribute(&quot;aria-pressed&quot;, String(state[button.dataset.action] === button.dataset.value));
+        }
+        for (const select of root.querySelectorAll(&quot;[data-setting]&quot;)) select.value = state[select.dataset.setting];
+      }
+      function navButton(page, label, symbol) {
+        return `&lt;button type=&quot;button&quot; class=&quot;r-nav-button cursor-interaction&quot; data-action=&quot;page&quot; data-value=&quot;${page}&quot; aria-label=&quot;${label}&quot; ${state.page === page ? &#x27;aria-current=&quot;page&quot;&#x27; : &quot;&quot;}&gt;${icon(symbol)}&lt;span class=&quot;r-nav-name&quot;&gt;${label}&lt;/span&gt;&lt;/button&gt;`;
+      }
+      function navigation() {
+        return `&lt;div class=&quot;r-nav-group&quot;&gt;${navButton(&quot;overview&quot;,&quot;工具总览&quot;,&quot;layout-grid&quot;)}&lt;/div&gt;
+          &lt;div class=&quot;r-nav-group&quot;&gt;&lt;div class=&quot;r-nav-label&quot;&gt;工具&lt;/div&gt;${tools.map(t =&gt; navButton(t.id,t.label,t.icon)).join(&quot;&quot;)}&lt;/div&gt;`;
+      }
+      function sidebar() {
+        return `&lt;aside class=&quot;r-sidebar&quot; aria-label=&quot;工具侧栏&quot;&gt;
+          &lt;div class=&quot;r-brand&quot;&gt;&lt;span class=&quot;r-brand-mark&quot;&gt;R&lt;/span&gt;&lt;span class=&quot;r-brand-name&quot;&gt;Ramag&lt;/span&gt;&lt;/div&gt;
+          &lt;div class=&quot;r-workspace-label&quot;&gt;本地工作区&lt;/div&gt;
+          &lt;nav aria-label=&quot;主导航&quot;&gt;${navigation()}&lt;/nav&gt;
+          &lt;div class=&quot;r-nav-bottom&quot;&gt;${navButton(&quot;settings&quot;,&quot;设置&quot;,&quot;settings-2&quot;)}&lt;div class=&quot;r-sidebar-foot&quot;&gt;开发工作台&lt;/div&gt;&lt;/div&gt;
+        &lt;/aside&gt;`;
+      }
+      function pageName() { return state.page === &quot;overview&quot; ? &quot;工具总览&quot; : state.page === &quot;settings&quot; ? &quot;设置&quot; : tools.find(t =&gt; t.id === state.page)?.label ?? &quot;工具总览&quot;; }
+      function bottomNav() {
+        return `&lt;nav class=&quot;r-bottom-nav&quot; aria-label=&quot;快捷导航&quot;&gt;
+          ${[[&quot;overview&quot;,&quot;总览&quot;,&quot;layout-grid&quot;],[&quot;api&quot;,&quot;API&quot;,&quot;braces&quot;],[&quot;database&quot;,&quot;数据库&quot;,&quot;database&quot;],[&quot;settings&quot;,&quot;设置&quot;,&quot;settings-2&quot;]].map(([page,label,symbol]) =&gt;
+            `&lt;button type=&quot;button&quot; class=&quot;cursor-interaction&quot; data-action=&quot;page&quot; data-value=&quot;${page}&quot; ${state.page === page ? &#x27;aria-current=&quot;page&quot;&#x27; : &quot;&quot;}&gt;${icon(symbol)}${label}&lt;/button&gt;`).join(&quot;&quot;)}
+        &lt;/nav&gt;`;
+      }
+      function renderShell() {
+        frame.classList.toggle(&quot;r-work-mode&quot;, [&quot;api&quot;,&quot;database&quot;].includes(state.page));
+        frame.dataset.page = state.page;
+        frame.innerHTML = `${sidebar()}
+          &lt;div class=&quot;r-main&quot;&gt;
+            &lt;header class=&quot;r-topbar&quot;&gt;
+              &lt;button class=&quot;r-quiet r-icon-button r-menu-button&quot; type=&quot;button&quot; data-action=&quot;navigation&quot; aria-label=&quot;打开工具导航&quot;&gt;${icon(&quot;panel-left&quot;)}&lt;/button&gt;
+              &lt;div class=&quot;r-crumb&quot;&gt;&lt;span class=&quot;r-crumb-workspace r-muted&quot;&gt;本地工作区&lt;/span&gt;&lt;span class=&quot;r-slash&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;r-ellipsis&quot;&gt;${pageName()}&lt;/span&gt;&lt;/div&gt;
+              &lt;span class=&quot;r-preview-status&quot;&gt;设计预览&lt;/span&gt;
+            &lt;/header&gt;
+            &lt;main class=&quot;r-content&quot;&gt;${pageContent()}&lt;/main&gt;
+            &lt;footer class=&quot;r-footer&quot;&gt;全部内容为本地示例 · 不连接真实服务，不修改用户数据&lt;/footer&gt;
+            ${bottomNav()}
+          &lt;/div&gt;`;
+        applyAppearance();
+        icons();
+      }
+      function pageContent() {
+        if (state.page === &quot;overview&quot;) return overview();
+        if (state.page === &quot;api&quot;) return apiPage();
+        if (state.page === &quot;database&quot;) return databasePage();
+        if (state.page === &quot;settings&quot;) return settingsPage();
+        return toolPage();
+      }
+      function recentMarkup(recent) {
+        return `&lt;button type=&quot;button&quot; class=&quot;r-recent cursor-interaction&quot; data-action=&quot;page&quot; data-value=&quot;${recent.page}&quot;&gt;
+          &lt;span class=&quot;r-tool-icon&quot;&gt;${icon(recent.icon)}&lt;/span&gt;
+          &lt;span class=&quot;r-ellipsis&quot;&gt;&lt;strong class=&quot;r-ellipsis&quot;&gt;${escaped(recent.name)}&lt;/strong&gt;&lt;small class=&quot;r-ellipsis&quot;&gt;${escaped(recent.detail)}&lt;/small&gt;&lt;/span&gt;
+          &lt;span class=&quot;r-muted&quot;&gt;${icon(&quot;arrow-up-right&quot;)}&lt;/span&gt;
+        &lt;/button&gt;`;
+      }
+      function filteredTools() {
+        const query = state.search.trim().toLocaleLowerCase();
+        return tools.filter(t =&gt; (state.category === &quot;all&quot; || t.group === state.category) &amp;&amp; `${t.label} ${t.description} ${t.id}`.toLocaleLowerCase().includes(query));
+      }
+      function toolCards() {
+        const filtered = filteredTools();
+        if (!filtered.length) return `&lt;div class=&quot;r-empty&quot;&gt;没有匹配的工具。&lt;br&gt;&lt;button type=&quot;button&quot; class=&quot;r-quiet&quot; data-action=&quot;clear-search&quot;&gt;清除搜索和筛选&lt;/button&gt;&lt;/div&gt;`;
+        return filtered.map(t =&gt; `&lt;button type=&quot;button&quot; class=&quot;r-tool cursor-interaction&quot; data-action=&quot;page&quot; data-value=&quot;${t.id}&quot;&gt;
+          &lt;div class=&quot;r-tool-title&quot;&gt;&lt;span class=&quot;r-tool-icon&quot;&gt;${icon(t.icon)}&lt;/span&gt;&lt;span&gt;${t.label}&lt;/span&gt;&lt;span class=&quot;r-arrow&quot;&gt;${icon(&quot;arrow-up-right&quot;)}&lt;/span&gt;&lt;/div&gt;
+          &lt;p&gt;${t.description}&lt;/p&gt;&lt;/button&gt;`).join(&quot;&quot;);
+      }
+      function overview() {
+        return `&lt;div class=&quot;r-heading&quot;&gt;&lt;div&gt;&lt;h1&gt;工具总览&lt;/h1&gt;&lt;p&gt;从最近使用的位置继续。&lt;/p&gt;&lt;/div&gt;
+          &lt;button type=&quot;button&quot; class=&quot;r-primary&quot; data-action=&quot;new-connection&quot;&gt;${icon(&quot;plus&quot;)}新建连接&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;r-toolbar&quot;&gt;
+            &lt;label class=&quot;r-search&quot;&gt;${icon(&quot;search&quot;)}&lt;input data-home-search type=&quot;search&quot; aria-label=&quot;搜索工具&quot; placeholder=&quot;搜索工具…&quot; value=&quot;${escaped(state.search)}&quot;&gt;&lt;/label&gt;
+            &lt;select class=&quot;r-select&quot; data-category aria-label=&quot;工具分类&quot;&gt;
+              &lt;option value=&quot;all&quot; ${state.category === &quot;all&quot; ? &quot;selected&quot; : &quot;&quot;}&gt;全部分类&lt;/option&gt;
+              &lt;option value=&quot;data&quot; ${state.category === &quot;data&quot; ? &quot;selected&quot; : &quot;&quot;}&gt;数据&lt;/option&gt;
+              &lt;option value=&quot;message&quot; ${state.category === &quot;message&quot; ? &quot;selected&quot; : &quot;&quot;}&gt;接口与消息&lt;/option&gt;
+              &lt;option value=&quot;ops&quot; ${state.category === &quot;ops&quot; ? &quot;selected&quot; : &quot;&quot;}&gt;运维&lt;/option&gt;
+              &lt;option value=&quot;local&quot; ${state.category === &quot;local&quot; ? &quot;selected&quot; : &quot;&quot;}&gt;本机&lt;/option&gt;
+            &lt;/select&gt;
+            &lt;div class=&quot;r-segment&quot; role=&quot;group&quot; aria-label=&quot;工具显示方式&quot;&gt;
+              &lt;button type=&quot;button&quot; data-action=&quot;layout&quot; data-value=&quot;grid&quot; aria-label=&quot;网格视图&quot; aria-pressed=&quot;${state.layout === &quot;grid&quot;}&quot;&gt;${icon(&quot;grid-2x2&quot;)}&lt;/button&gt;
+              &lt;button type=&quot;button&quot; data-action=&quot;layout&quot; data-value=&quot;list&quot; aria-label=&quot;列表视图&quot; aria-pressed=&quot;${state.layout === &quot;list&quot;}&quot;&gt;${icon(&quot;list&quot;)}&lt;/button&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+          &lt;section&gt;&lt;div class=&quot;r-section-head&quot;&gt;&lt;h2&gt;最近使用&lt;/h2&gt;&lt;span&gt;示例连接&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;r-recents&quot;&gt;${recents.slice(-2).map(recentMarkup).join(&quot;&quot;)}&lt;/div&gt;&lt;/section&gt;
+          &lt;section&gt;&lt;div class=&quot;r-section-head&quot;&gt;&lt;h2&gt;全部工具&lt;/h2&gt;&lt;span data-tool-count&gt;${filteredTools().length} 个工具&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;r-tools&quot; data-tool-list data-layout=&quot;${state.layout}&quot;&gt;${toolCards()}&lt;/div&gt;&lt;/section&gt;`;
+      }
+      function updateHome() {
+        const list = frame.querySelector(&quot;[data-tool-list]&quot;);
+        if (!list) return;
+        list.innerHTML = toolCards();
+        list.dataset.layout = state.layout;
+        frame.querySelector(&quot;[data-tool-count]&quot;).textContent = `${filteredTools().length} 个工具`;
+        for (const button of frame.querySelectorAll(&quot;[data-action=&#x27;layout&#x27;]&quot;)) button.setAttribute(&quot;aria-pressed&quot;, String(button.dataset.value === state.layout));
+        icons();
+      }
+      function requestOutline() {
+        return `&lt;div class=&quot;r-outline-title&quot;&gt;本地测试 / 请求集合&lt;/div&gt;
+          ${Object.entries(requests).map(([id,r]) =&gt; `&lt;button type=&quot;button&quot; class=&quot;r-outline-row cursor-interaction&quot; data-action=&quot;request&quot; data-value=&quot;${id}&quot; aria-current=&quot;${state.request === id}&quot;&gt;&lt;span class=&quot;r-method ${r.method.toLowerCase()}&quot;&gt;${r.method}&lt;/span&gt;&lt;span class=&quot;r-ellipsis&quot;&gt;${r.path}&lt;/span&gt;&lt;/button&gt;`).join(&quot;&quot;)}`;
+      }
+      function requestTabs() {
+        return `&lt;div class=&quot;r-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;请求配置&quot;&gt;
+          ${[[&quot;params&quot;,&quot;参数&quot;],[&quot;headers&quot;,&quot;请求头&quot;],[&quot;body&quot;,&quot;请求体&quot;]].map(([key,label]) =&gt; `&lt;button role=&quot;tab&quot; id=&quot;ramag-request-${key}&quot; type=&quot;button&quot; data-action=&quot;request-tab&quot; data-value=&quot;${key}&quot; aria-controls=&quot;ramag-request-config&quot; aria-selected=&quot;${state.requestTab === key}&quot;&gt;${label}&lt;/button&gt;`).join(&quot;&quot;)}
+        &lt;/div&gt;&lt;div id=&quot;ramag-request-config&quot; role=&quot;tabpanel&quot; aria-labelledby=&quot;ramag-request-${state.requestTab}&quot; class=&quot;r-panel-body&quot;&gt;${requestConfig()}&lt;/div&gt;`;
+      }
+      function requestConfig() {
+        if (state.requestTab === &quot;body&quot;) return `&lt;label class=&quot;r-form-field&quot;&gt;JSON 请求体&lt;textarea class=&quot;r-editor&quot; data-draft-body aria-label=&quot;JSON 请求体&quot; spellcheck=&quot;false&quot;&gt;${escaped(drafts[state.request].body)}&lt;/textarea&gt;&lt;/label&gt;&lt;p class=&quot;r-note&quot;&gt;内容仅用于交互演示，不会发送到网络。&lt;/p&gt;`;
+        const pairs = drafts[state.request][state.requestTab];
+        if (!pairs.length) return `&lt;div class=&quot;r-empty&quot;&gt;此示例请求没有查询参数。&lt;/div&gt;`;
+        return `&lt;table class=&quot;r-data-table&quot; aria-label=&quot;${state.requestTab === &quot;headers&quot; ? &quot;请求头&quot; : &quot;查询参数&quot;}&quot;&gt;&lt;thead&gt;&lt;tr&gt;&lt;th style=&quot;width:29px&quot;&gt;&lt;/th&gt;&lt;th&gt;名称&lt;/th&gt;&lt;th&gt;值&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;${pairs.map(({key,value,enabled}, index) =&gt;
+          `&lt;tr&gt;&lt;td class=&quot;r-check-cell&quot;&gt;&lt;input type=&quot;checkbox&quot; data-draft-index=&quot;${index}&quot; data-draft-field=&quot;enabled&quot; ${enabled ? &quot;checked&quot; : &quot;&quot;} aria-label=&quot;启用 ${escaped(key)}&quot;&gt;&lt;/td&gt;&lt;td&gt;&lt;input data-draft-index=&quot;${index}&quot; data-draft-field=&quot;key&quot; aria-label=&quot;参数名称 ${escaped(key)}&quot; value=&quot;${escaped(key)}&quot;&gt;&lt;/td&gt;&lt;td&gt;&lt;input data-draft-index=&quot;${index}&quot; data-draft-field=&quot;value&quot; aria-label=&quot;参数值 ${escaped(key)}&quot; value=&quot;${escaped(value)}&quot;&gt;&lt;/td&gt;&lt;/tr&gt;`).join(&quot;&quot;)}&lt;/tbody&gt;&lt;/table&gt;
+          &lt;p class=&quot;r-note&quot;&gt;${state.requestTab === &quot;headers&quot; ? &quot;请求头&quot; : &quot;参数&quot;}可编辑；发送操作只返回预设示例。&lt;/p&gt;`;
+      }
+      function apiPage() {
+        const request = requests[state.request];
+        return `&lt;div class=&quot;r-heading r-work-heading&quot;&gt;&lt;div&gt;&lt;h1&gt;${request.label}&lt;/h1&gt;&lt;p&gt;API 工作台 &lt;span class=&quot;r-muted&quot;&gt;/&lt;/span&gt; 本地测试&lt;/p&gt;&lt;/div&gt;
+          &lt;div class=&quot;r-flex&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;r-outline-button&quot; data-action=&quot;outline&quot;&gt;${icon(&quot;folder-open&quot;)}请求集合&lt;/button&gt;
+          &lt;button type=&quot;button&quot; data-action=&quot;save-request&quot;&gt;${icon(state.saved ? &quot;check&quot; : &quot;save&quot;)}${state.saved ? &quot;已保存&quot; : &quot;保存&quot;}&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;r-workbench&quot;&gt;
+            &lt;aside class=&quot;r-outline&quot; aria-label=&quot;请求集合&quot;&gt;${requestOutline()}&lt;/aside&gt;
+            &lt;div class=&quot;r-request-main&quot;&gt;
+              &lt;div class=&quot;r-requestbar&quot;&gt;
+                &lt;div class=&quot;r-url-box&quot;&gt;&lt;select data-api-method aria-label=&quot;HTTP 方法&quot;&gt;&lt;option ${state.method === &quot;GET&quot; ? &quot;selected&quot; : &quot;&quot;}&gt;GET&lt;/option&gt;&lt;option ${state.method === &quot;POST&quot; ? &quot;selected&quot; : &quot;&quot;}&gt;POST&lt;/option&gt;&lt;/select&gt;&lt;input data-api-url aria-label=&quot;请求地址&quot; value=&quot;${escaped(state.url)}&quot; spellcheck=&quot;false&quot;&gt;&lt;/div&gt;
+                &lt;button type=&quot;button&quot; class=&quot;r-primary&quot; data-action=&quot;send&quot;&gt;${icon(state.apiState === &quot;loading&quot; ? &quot;square&quot; : &quot;arrow-up&quot;)}${state.apiState === &quot;loading&quot; ? &quot;取消&quot; : &quot;模拟发送&quot;}&lt;/button&gt;
+              &lt;/div&gt;
+              &lt;div class=&quot;r-tabs r-mobile-pane-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;请求和响应&quot;&gt;&lt;button type=&quot;button&quot; role=&quot;tab&quot; id=&quot;ramag-pane-request&quot; data-action=&quot;api-pane&quot; data-value=&quot;request&quot; aria-controls=&quot;ramag-request-pane&quot; aria-selected=&quot;${state.apiPane === &quot;request&quot;}&quot;&gt;请求&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;tab&quot; id=&quot;ramag-pane-response&quot; data-action=&quot;api-pane&quot; data-value=&quot;response&quot; aria-controls=&quot;ramag-response-pane&quot; aria-selected=&quot;${state.apiPane === &quot;response&quot;}&quot;&gt;响应&lt;/button&gt;&lt;/div&gt;
+              &lt;div class=&quot;r-api-panes&quot; data-visible=&quot;${state.apiPane}&quot;&gt;
+                &lt;section id=&quot;ramag-request-pane&quot; class=&quot;r-api-pane r-request-pane&quot; aria-label=&quot;请求编辑区&quot;&gt;&lt;div class=&quot;r-pane-heading&quot;&gt;&lt;strong&gt;请求&lt;/strong&gt;&lt;span class=&quot;r-muted r-small&quot;&gt;${state.method}&lt;/span&gt;&lt;/div&gt;${requestTabs()}&lt;/section&gt;
+                &lt;section id=&quot;ramag-response-pane&quot; class=&quot;r-api-pane r-response-pane&quot; aria-label=&quot;响应查看区&quot;&gt;${responsePane()}&lt;/section&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;`;
+      }
+      function responsePane() {
+        const loading = state.apiState === &quot;loading&quot;;
+        return `&lt;div class=&quot;r-pane-heading&quot;&gt;&lt;strong&gt;响应&lt;/strong&gt;&lt;span class=&quot;r-muted r-small&quot;&gt;${loading ? &quot;模拟处理中&quot; : &quot;预设示例&quot;}&lt;/span&gt;&lt;/div&gt;
+          &lt;div class=&quot;r-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;响应内容&quot;&gt;${[[&quot;body&quot;,&quot;响应体&quot;],[&quot;headers&quot;,&quot;响应头&quot;]].map(([key,label]) =&gt; `&lt;button role=&quot;tab&quot; type=&quot;button&quot; id=&quot;ramag-response-${key}&quot; data-action=&quot;response-tab&quot; data-value=&quot;${key}&quot; aria-controls=&quot;ramag-response-content&quot; aria-selected=&quot;${state.responseTab === key}&quot;&gt;${label}&lt;/button&gt;`).join(&quot;&quot;)}&lt;/div&gt;
+          &lt;div class=&quot;r-panel-body&quot; id=&quot;ramag-response-content&quot; role=&quot;tabpanel&quot; aria-labelledby=&quot;ramag-response-${state.responseTab}&quot;&gt;
+            ${loading ? `&lt;div class=&quot;r-empty&quot; role=&quot;status&quot;&gt;正在模拟请求…&lt;br&gt;&lt;span class=&quot;r-small&quot;&gt;可以取消，不会连接外部服务。&lt;/span&gt;&lt;/div&gt;` :
+              `&lt;div class=&quot;r-response-state&quot;&gt;&lt;span class=&quot;r-good&quot;&gt;200 OK&lt;/span&gt;&lt;span&gt;42 ms · 示例耗时&lt;/span&gt;&lt;/div&gt;&lt;pre class=&quot;r-code&quot;&gt;${escaped(state.responseTab === &quot;headers&quot; ? &quot;content-type: application/json\nx-preview: local-demo&quot; : JSON.stringify(state.response ?? requests[state.request].body,null,2))}&lt;/pre&gt;&lt;p class=&quot;r-note&quot;&gt;预设响应，不代表实际网络结果。&lt;/p&gt;`}
+          &lt;/div&gt;`;
+      }
+      function databaseOutline() {
+        return `&lt;div class=&quot;r-outline-title&quot;&gt;playground&lt;/div&gt;&lt;div class=&quot;r-flex r-muted r-small&quot; style=&quot;padding:4px 8px 9px&quot;&gt;${icon(&quot;chevron-down&quot;)}public&lt;/div&gt;
+          ${Object.keys(tables).map(table =&gt; `&lt;button class=&quot;r-outline-row cursor-interaction&quot; type=&quot;button&quot; data-action=&quot;table&quot; data-value=&quot;${table}&quot; aria-current=&quot;${state.dbTable === table}&quot;&gt;${icon(&quot;table-2&quot;)}&lt;span&gt;${table}&lt;/span&gt;&lt;/button&gt;`).join(&quot;&quot;)}`;
+      }
+      function databasePage() {
+        return `&lt;div class=&quot;r-heading r-work-heading&quot;&gt;&lt;div&gt;&lt;h1&gt;数据库&lt;/h1&gt;&lt;p&gt;本地 PostgreSQL &lt;span class=&quot;r-muted&quot;&gt;/&lt;/span&gt; playground&lt;/p&gt;&lt;/div&gt;
+          &lt;div class=&quot;r-flex&quot;&gt;&lt;button class=&quot;r-outline-button&quot; type=&quot;button&quot; data-action=&quot;outline&quot;&gt;${icon(&quot;panel-left&quot;)}对象&lt;/button&gt;
+          &lt;button type=&quot;button&quot; data-action=&quot;new-connection&quot;&gt;${icon(&quot;plus&quot;)}连接&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;r-workbench&quot;&gt;
+            &lt;aside class=&quot;r-outline&quot; aria-label=&quot;数据库对象&quot;&gt;${databaseOutline()}&lt;/aside&gt;
+            &lt;div class=&quot;r-request-main&quot;&gt;
+              &lt;div class=&quot;r-pane-heading&quot;&gt;&lt;strong class=&quot;r-flex&quot;&gt;${icon(&quot;table-2&quot;)}public.${state.dbTable}&lt;/strong&gt;&lt;span class=&quot;r-small r-muted&quot;&gt;只读示例&lt;/span&gt;&lt;/div&gt;
+              &lt;div class=&quot;r-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;数据库工作区&quot;&gt;${[[&quot;data&quot;,&quot;数据&quot;],[&quot;sql&quot;,&quot;SQL 查询&quot;]].map(([key,label]) =&gt; `&lt;button type=&quot;button&quot; role=&quot;tab&quot; id=&quot;ramag-db-${key}&quot; data-action=&quot;db-tab&quot; data-value=&quot;${key}&quot; aria-controls=&quot;ramag-db-content&quot; aria-selected=&quot;${state.dbTab === key}&quot;&gt;${label}&lt;/button&gt;`).join(&quot;&quot;)}&lt;/div&gt;
+              &lt;div id=&quot;ramag-db-content&quot; role=&quot;tabpanel&quot; aria-labelledby=&quot;ramag-db-${state.dbTab}&quot;&gt;${databaseContent()}&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;`;
+      }
+      function databaseContent() {
+        if (state.dbTab === &quot;sql&quot;) return `&lt;div class=&quot;r-panel-body&quot;&gt;&lt;label class=&quot;r-form-field&quot;&gt;SQL 编辑器&lt;textarea class=&quot;r-editor&quot; data-sql spellcheck=&quot;false&quot; aria-label=&quot;SQL 编辑器&quot;&gt;SELECT *
+FROM public.${state.dbTable}
+LIMIT 5;&lt;/textarea&gt;&lt;/label&gt;&lt;div class=&quot;r-flex&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;r-primary&quot; data-action=&quot;run-sql&quot;&gt;${icon(&quot;play&quot;)}预览结果&lt;/button&gt;&lt;span class=&quot;r-small r-muted&quot;&gt;只显示当前表的预设数据&lt;/span&gt;&lt;/div&gt;&lt;p class=&quot;r-note&quot;&gt;设计稿不解析或执行 SQL，不建立数据库连接。&lt;/p&gt;&lt;/div&gt;`;
+        return `&lt;div class=&quot;r-db-toolbar&quot;&gt;&lt;label class=&quot;r-search&quot;&gt;${icon(&quot;search&quot;)}&lt;input type=&quot;search&quot; data-db-search aria-label=&quot;筛选示例数据&quot; placeholder=&quot;筛选当前表…&quot; value=&quot;${escaped(state.dbSearch)}&quot;&gt;&lt;/label&gt;&lt;button type=&quot;button&quot; class=&quot;r-quiet&quot; data-action=&quot;refresh-data&quot;&gt;${icon(&quot;rotate-cw&quot;)}重置&lt;/button&gt;&lt;/div&gt;
+          &lt;div data-db-results&gt;${databaseResults()}&lt;/div&gt;`;
+      }
+      function databaseResults() {
+        const table = tables[state.dbTable];
+        const filtered = table.rows.filter(row =&gt; row.join(&quot; &quot;).toLocaleLowerCase().includes(state.dbSearch.toLocaleLowerCase()));
+        return `&lt;table class=&quot;r-data-table r-db-table&quot; aria-label=&quot;示例 ${state.dbTable} 表&quot;&gt;&lt;thead&gt;&lt;tr&gt;${table.columns.map((col,i) =&gt; `&lt;th scope=&quot;col&quot; ${i === 2 ? &#x27;class=&quot;r-extra-col&quot;&#x27; : &quot;&quot;}&gt;${col}&lt;/th&gt;`).join(&quot;&quot;)}&lt;/tr&gt;&lt;/thead&gt;
+          &lt;tbody&gt;${filtered.length ? filtered.map(row =&gt; `&lt;tr data-selected=&quot;${state.selectedRow === row[0]}&quot;&gt;${row.map((value,i) =&gt; `&lt;td ${i === 2 ? &#x27;class=&quot;r-extra-col r-mono&quot;&#x27; : &quot;&quot;}&gt;${i === 1 ? `&lt;button type=&quot;button&quot; class=&quot;r-row-link cursor-interaction&quot; data-action=&quot;row&quot; data-value=&quot;${row[0]}&quot; aria-label=&quot;查看 ${escaped(value)}&quot;&gt;${escaped(value)}&lt;/button&gt;` : i === 3 ? `&lt;span class=&quot;${value === &quot;启用&quot; ? &quot;r-good&quot; : &quot;r-muted&quot;}&quot;&gt;${escaped(value)}&lt;/span&gt;` : escaped(value)}&lt;/td&gt;`).join(&quot;&quot;)}&lt;/tr&gt;`).join(&quot;&quot;) : `&lt;tr&gt;&lt;td colspan=&quot;4&quot; class=&quot;r-empty&quot;&gt;没有匹配的数据。&lt;/td&gt;&lt;/tr&gt;`}&lt;/tbody&gt;&lt;/table&gt;
+          &lt;div class=&quot;r-table-footer&quot;&gt;&lt;span&gt;${filtered.length} 行示例数据&lt;/span&gt;&lt;span&gt;点击名称查看完整字段&lt;/span&gt;&lt;/div&gt;${selectionDetail()}`;
+      }
+      function selectionDetail() {
+        const table = tables[state.dbTable];
+        const row = table.rows.find(row =&gt; row[0] === state.selectedRow);
+        if (!row) return &quot;&quot;;
+        return `&lt;section class=&quot;r-selection-detail&quot; aria-label=&quot;选中行详情&quot;&gt;&lt;div class=&quot;r-flex&quot;&gt;&lt;strong style=&quot;font-weight:500&quot;&gt;行详情&lt;/strong&gt;&lt;span class=&quot;r-spacer&quot;&gt;&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;r-quiet r-icon-button&quot; data-action=&quot;close-row&quot; aria-label=&quot;关闭行详情&quot;&gt;${icon(&quot;x&quot;)}&lt;/button&gt;&lt;/div&gt;&lt;dl&gt;${table.columns.map((col,i) =&gt; `&lt;dt&gt;${col}&lt;/dt&gt;&lt;dd&gt;${escaped(row[i])}&lt;/dd&gt;`).join(&quot;&quot;)}&lt;/dl&gt;&lt;/section&gt;`;
+      }
+      function settingsPage() {
+        return `&lt;div class=&quot;r-heading&quot;&gt;&lt;div&gt;&lt;h1&gt;设置&lt;/h1&gt;&lt;p&gt;这套规则适用于所有工具页面。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;r-settings&quot;&gt;
+            &lt;div class=&quot;r-setting-row&quot;&gt;&lt;div&gt;&lt;strong&gt;外观&lt;/strong&gt;&lt;p&gt;统一背景、边框、文字与状态色。&lt;/p&gt;&lt;/div&gt;&lt;select class=&quot;r-select&quot; data-setting=&quot;theme&quot; aria-label=&quot;外观&quot;&gt;&lt;option value=&quot;dark&quot;&gt;暗色&lt;/option&gt;&lt;option value=&quot;light&quot;&gt;亮色&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;
+            &lt;div class=&quot;r-setting-row&quot;&gt;&lt;div&gt;&lt;strong&gt;内容密度&lt;/strong&gt;&lt;p&gt;表格与导航保留相同的对齐规则。&lt;/p&gt;&lt;/div&gt;&lt;select class=&quot;r-select&quot; data-setting=&quot;density&quot; aria-label=&quot;内容密度&quot;&gt;&lt;option value=&quot;standard&quot;&gt;标准&lt;/option&gt;&lt;option value=&quot;compact&quot;&gt;紧凑&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;
+            &lt;div class=&quot;r-setting-row&quot;&gt;&lt;div&gt;&lt;strong&gt;连接与数据&lt;/strong&gt;&lt;p&gt;设计稿不访问真实连接、凭据或历史。&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;r-small r-muted&quot;&gt;仅本地预览&lt;/span&gt;&lt;/div&gt;
+          &lt;/div&gt;`;
+      }
+      function toolPage() {
+        const tool = tools.find(t =&gt; t.id === state.page);
+        const subtitle = {
+          kafka:&quot;主题与消费组&quot;, mqtt:&quot;连接与订阅&quot;, ssh:&quot;会话与文件&quot;, objects:&quot;账号与存储桶&quot;,
+          containers:&quot;平台与资源&quot;, git:&quot;仓库与变更&quot;, clipboard:&quot;本机历史&quot;, system:&quot;资源与进程&quot;
+        }[state.page];
+        const section = {
+          kafka:&quot;主题列表&quot;, mqtt:&quot;订阅列表&quot;, ssh:&quot;会话列表&quot;, objects:&quot;存储桶列表&quot;,
+          containers:&quot;资源列表&quot;, git:&quot;仓库列表&quot;, clipboard:&quot;历史记录&quot;, system:&quot;进程列表&quot;
+        }[state.page];
+        return `&lt;div class=&quot;r-heading&quot;&gt;&lt;div&gt;&lt;h1&gt;${tool.label}&lt;/h1&gt;&lt;p&gt;${tool.description}&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; data-action=&quot;new-connection&quot;&gt;${icon(&quot;plus&quot;)}添加示例&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;r-workbench&quot;&gt;&lt;aside class=&quot;r-outline&quot;&gt;&lt;div class=&quot;r-outline-title&quot;&gt;${subtitle}&lt;/div&gt;&lt;div class=&quot;r-outline-row&quot; style=&quot;color:var(--r-muted)&quot;&gt;${icon(tool.icon)}尚未选择&lt;/div&gt;&lt;/aside&gt;
+            &lt;div&gt;&lt;div class=&quot;r-pane-heading&quot;&gt;&lt;strong&gt;${section}&lt;/strong&gt;&lt;span class=&quot;r-muted r-small&quot;&gt;布局示意&lt;/span&gt;&lt;/div&gt;
+              &lt;div class=&quot;r-empty&quot; style=&quot;padding:90px 22px&quot;&gt;&lt;div class=&quot;r-tool-icon&quot; style=&quot;margin:0 auto 15px&quot;&gt;${icon(tool.icon)}&lt;/div&gt;此页先展示统一框架。&lt;br&gt;&lt;span class=&quot;r-small&quot;&gt;详细交互请查看 API 工作台或数据库。&lt;/span&gt;&lt;div class=&quot;r-flex&quot; style=&quot;justify-content:center;flex-wrap:wrap;margin-top:18px&quot;&gt;&lt;button type=&quot;button&quot; data-action=&quot;page&quot; data-value=&quot;api&quot;&gt;查看 API&lt;/button&gt;&lt;button type=&quot;button&quot; data-action=&quot;page&quot; data-value=&quot;database&quot;&gt;查看数据库&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;/div&gt;&lt;/div&gt;`;
+      }
+      function openNavigation() {
+        const dialog = root.querySelector(&quot;[data-dialog=&#x27;navigation&#x27;]&quot;);
+        dialog.innerHTML = `&lt;div class=&quot;r-dialog-heading&quot;&gt;&lt;h2&gt;全部工具&lt;/h2&gt;&lt;button type=&quot;button&quot; class=&quot;r-quiet r-icon-button&quot; data-action=&quot;close-dialog&quot; aria-label=&quot;关闭工具导航&quot;&gt;${icon(&quot;x&quot;)}&lt;/button&gt;&lt;/div&gt;&lt;nav aria-label=&quot;移动端工具导航&quot;&gt;${navigation()}${navButton(&quot;settings&quot;,&quot;设置&quot;,&quot;settings-2&quot;)}&lt;/nav&gt;`;
+        dialog.showModal();
+        icons();
+      }
+      function openOutline() {
+        const dialog = root.querySelector(&quot;[data-dialog=&#x27;outline&#x27;]&quot;);
+        dialog.innerHTML = `&lt;div class=&quot;r-dialog-heading&quot;&gt;&lt;h2&gt;${state.page === &quot;api&quot; ? &quot;请求集合&quot; : &quot;数据库对象&quot;}&lt;/h2&gt;&lt;button type=&quot;button&quot; class=&quot;r-quiet r-icon-button&quot; data-action=&quot;close-dialog&quot; aria-label=&quot;关闭工具面板&quot;&gt;${icon(&quot;x&quot;)}&lt;/button&gt;&lt;/div&gt;${state.page === &quot;api&quot; ? requestOutline() : databaseOutline()}`;
+        dialog.showModal();
+        icons();
+      }
+      function closeDialogs() { root.querySelectorAll(&quot;dialog[open]&quot;).forEach(dialog =&gt; dialog.close()); }
+      function selectPage(page) {
+        if (![&quot;overview&quot;,&quot;settings&quot;,...tools.map(t =&gt; t.id)].includes(page)) return;
+        cancelRequest(false);
+        closeDialogs();
+        state.page = page;
+        renderShell();
+        remember();
+        notify(`已打开${pageName()}。全部内容为示例。`);
+      }
+      function cancelRequest(announce) {
+        if (requestTimer) clearTimeout(requestTimer);
+        requestTimer = null;
+        if (state.apiState === &quot;loading&quot;) {
+          state.apiState = &quot;sample&quot;;
+          if (announce) notify(&quot;已取消模拟请求。保留上一次示例响应。&quot;);
+        }
+      }
+      function sendRequest() {
+        if (state.apiState === &quot;loading&quot;) { cancelRequest(true); renderShell(); return; }
+        state.url = frame.querySelector(&quot;[data-api-url]&quot;)?.value ?? state.url;
+        state.method = frame.querySelector(&quot;[data-api-method]&quot;)?.value ?? state.method;
+        state.apiState = &quot;loading&quot;;
+        state.apiPane = &quot;response&quot;;
+        renderShell();
+        notify(&quot;正在模拟发送。没有发起网络请求。&quot;);
+        requestTimer = setTimeout(() =&gt; {
+          state.apiState = &quot;sample&quot;;
+          state.response = requests[state.request].body;
+          requestTimer = null;
+          renderShell();
+          notify(&quot;模拟完成：200 OK。响应为预设数据。&quot;);
+        }, 800);
+      }
+      function addConnection() {
+        const form = root.querySelector(&quot;[data-connection-form]&quot;);
+        if (!form.reportValidity()) return;
+        const nameInput = form.elements.namedItem(&quot;name&quot;);
+        const name = nameInput.value.trim();
+        if (!name) { nameInput.focus(); return; }
+        const page = form.elements.namedItem(&quot;kind&quot;).value;
+        recents.push({ name, detail: &quot;本次添加 · 示例连接&quot;, page, icon: tools.find(t =&gt; t.id === page)?.icon ?? &quot;database&quot; });
+        closeDialogs(); state.page = &quot;overview&quot;; renderShell(); notify(`已添加示例连接“${name}”。未连接真实服务。`);
+      }
+      root.addEventListener(&quot;click&quot;, event =&gt; {
+        const button = event.target.closest(&quot;button[data-action]&quot;);
+        if (!button || !root.contains(button)) return;
+        const { action, value } = button.dataset;
+        if (action === &quot;theme&quot;) { state.theme = value; applyAppearance(); remember(); return; }
+        if (action === &quot;page&quot;) { selectPage(value); return; }
+        if (action === &quot;navigation&quot;) { openNavigation(); return; }
+        if (action === &quot;outline&quot;) { openOutline(); return; }
+        if (action === &quot;close-dialog&quot;) { button.closest(&quot;dialog&quot;)?.close(); return; }
+        if (action === &quot;new-connection&quot;) { root.querySelector(&quot;[data-dialog=&#x27;connection&#x27;]&quot;).showModal(); return; }
+        if (action === &quot;add-connection&quot;) { addConnection(); return; }
+        if (action === &quot;layout&quot;) { state.layout = value; updateHome(); return; }
+        if (action === &quot;clear-search&quot;) { state.search = &quot;&quot;; state.category = &quot;all&quot;; renderShell(); return; }
+        if (action === &quot;request&quot;) {
+          cancelRequest(false); closeDialogs(); state.request = value; state.response = null; state.saved = false;
+          state.method = drafts[value].method; state.url = drafts[value].url;
+          state.requestTab = &quot;params&quot;; state.apiPane = &quot;request&quot;; renderShell(); notify(`已选择${requests[value].label}。`); return;
+        }
+        if (action === &quot;save-request&quot;) { state.saved = true; renderShell(); notify(&quot;当前示例已保留在此预览中；没有写入应用配置。&quot;); return; }
+        if (action === &quot;send&quot;) { sendRequest(); return; }
+        if (action === &quot;request-tab&quot;) { state.requestTab = value; renderShell(); return; }
+        if (action === &quot;response-tab&quot;) { state.responseTab = value; renderShell(); return; }
+        if (action === &quot;api-pane&quot;) {
+          state.apiPane = value;
+          frame.querySelector(&quot;.r-api-panes&quot;).dataset.visible = value;
+          for (const tab of frame.querySelectorAll(&quot;[data-action=&#x27;api-pane&#x27;]&quot;)) tab.setAttribute(&quot;aria-selected&quot;, String(tab.dataset.value === value));
+          return;
+        }
+        if (action === &quot;table&quot;) { closeDialogs(); state.dbTable = value; state.selectedRow = null; state.dbSearch = &quot;&quot;; state.dbTab = &quot;data&quot;; renderShell(); notify(`已选择 public.${value} 示例表。`); return; }
+        if (action === &quot;db-tab&quot;) { state.dbTab = value; renderShell(); return; }
+        if (action === &quot;run-sql&quot;) { state.dbTab = &quot;data&quot;; state.dbSearch = &quot;&quot;; renderShell(); notify(&quot;已显示预设结果；没有解析或执行 SQL。&quot;); return; }
+        if (action === &quot;refresh-data&quot;) { state.dbSearch = &quot;&quot;; state.selectedRow = null; renderShell(); notify(&quot;已恢复全部示例行。&quot;); return; }
+        if (action === &quot;row&quot; || action === &quot;close-row&quot;) {
+          state.selectedRow = action === &quot;row&quot; ? Number(value) : null;
+          frame.querySelector(&quot;[data-db-results]&quot;).innerHTML = databaseResults();
+          icons();
+          notify(action === &quot;row&quot; ? &quot;已展开完整行字段。&quot; : &quot;已关闭行详情。&quot;);
+        }
+      });
+      root.addEventListener(&quot;input&quot;, event =&gt; {
+        if (event.target.matches(&quot;[data-home-search]&quot;)) { state.search = event.target.value; updateHome(); }
+        if (event.target.matches(&quot;[data-db-search]&quot;)) {
+          state.dbSearch = event.target.value;
+          frame.querySelector(&quot;[data-db-results]&quot;).innerHTML = databaseResults(); icons();
+        }
+        if (event.target.matches(&quot;[data-api-url]&quot;)) { state.url = event.target.value; drafts[state.request].url = state.url; state.saved = false; }
+        if (event.target.matches(&quot;[data-draft-body]&quot;)) { drafts[state.request].body = event.target.value; state.saved = false; }
+        if (event.target.matches(&quot;[data-draft-field]:not([type=&#x27;checkbox&#x27;])&quot;)) {
+          drafts[state.request][state.requestTab][Number(event.target.dataset.draftIndex)][event.target.dataset.draftField] = event.target.value;
+          state.saved = false;
+        }
+      });
+      root.addEventListener(&quot;change&quot;, event =&gt; {
+        if (event.target.matches(&quot;[data-category]&quot;)) { state.category = event.target.value; updateHome(); }
+        if (event.target.matches(&quot;[data-api-method]&quot;)) { state.method = event.target.value; drafts[state.request].method = state.method; state.saved = false; renderShell(); }
+        if (event.target.matches(&quot;[data-draft-field=&#x27;enabled&#x27;]&quot;)) { drafts[state.request][state.requestTab][Number(event.target.dataset.draftIndex)].enabled = event.target.checked; state.saved = false; }
+        if (event.target.matches(&quot;[data-setting]&quot;)) { state[event.target.dataset.setting] = event.target.value; applyAppearance(); remember(); }
+      });
+      root.querySelector(&quot;[data-connection-form]&quot;).addEventListener(&quot;submit&quot;, event =&gt; {
+        event.preventDefault();
+        addConnection();
+      });
+      root.querySelector(&quot;[data-connection-form]&quot;).addEventListener(&quot;keydown&quot;, event =&gt; {
+        if (event.key === &quot;Enter&quot; &amp;&amp; event.target.matches(&quot;input&quot;)) { event.preventDefault(); addConnection(); }
+      });
+      for (const dialog of root.querySelectorAll(&quot;dialog&quot;)) {
+        dialog.addEventListener(&quot;click&quot;, event =&gt; { if (event.target === dialog) {
+          const rect = dialog.getBoundingClientRect();
+          if (event.clientX &lt; rect.left || event.clientX &gt; rect.right || event.clientY &lt; rect.top || event.clientY &gt; rect.bottom) dialog.close();
+        } });
+      }
+      window.addEventListener(&quot;openai:set_globals&quot;, event =&gt; {
+        const saved = event.detail?.globals?.widgetState;
+        if (saved) { restore(saved); renderShell(); }
+      });
+      restore(window.openai?.widgetState);
+      renderShell();
+      if (globalThis.Tweak) {
+        const tweakState = { radius: 7 };
+        const tweak = new Tweak({ container: stage, onChange: () =&gt; root.style.setProperty(&quot;--r-radius&quot;, `${tweakState.radius}px`) });
+        tweak.addSlider(tweakState, &quot;radius&quot;, { label: &quot;控件圆角&quot;, min: 4, max: 10, step: 1, unit: &quot;px&quot;, reference: &quot;--r-radius&quot; });
+      }
+    })();
+  &lt;/script&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+(() =&gt; {
+  let positioningReady = window.FloatingUIDOM
+    ? Promise.resolve(window.FloatingUIDOM)
+    : null;
+  const loadScript = (src) =&gt; new Promise((resolve, reject) =&gt; {
+    const script = document.createElement(&quot;script&quot;);
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = () =&gt; {
+      script.remove();
+      reject(new Error(&quot;Could not load tooltip positioning&quot;));
+    };
+    document.head.appendChild(script);
+  });
+  const loadPositioning = async () =&gt; {
+    const domUrl = &quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;;
+    const preload = document.createElement(&quot;link&quot;);
+    preload.rel = &quot;preload&quot;;
+    preload.as = &quot;script&quot;;
+    preload.href = domUrl;
+    document.head.appendChild(preload);
+    try {
+      if (window.FloatingUICore == null) {
+        await loadScript(&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;);
+      }
+      await loadScript(domUrl);
+      return window.FloatingUIDOM;
+    } finally {
+      preload.remove();
+    }
+  };
+  const getPositioning = () =&gt; positioningReady ??= loadPositioning().catch((error) =&gt; {
+    positioningReady = null;
+    throw error;
+  });
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (event) =&gt; {
+    for (const target of event.composedPath()) {
+      if (target?.nodeType === Node.ELEMENT_NODE) {
+        const trigger = target.closest(&quot;[data-tooltip]&quot;);
+        if (trigger) return trigger;
+      }
+    }
+    return null;
+  };
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating, { computePosition, flip, offset, shift, size }) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    const request = positionRequest;
+    void getPositioning().then((positioning) =&gt; {
+      if (request !== positionRequest || !trigger.isConnected) return;
+      autoUpdateCleanup = positioning.autoUpdate(trigger, floating, () =&gt; {
+        updatePosition(trigger, floating, positioning);
+      });
+    }).catch(() =&gt; {
+      if (request === positionRequest) closeTooltip(false);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) =&gt; {
+    lastPointerWasTouch =
+      event.type === &quot;pointerdown&quot; &amp;&amp; event.pointerType === &quot;touch&quot;;
+  };
+  const handleTouchClick = (event) =&gt; {
+    const isTouch = event.pointerType === &quot;touch&quot; || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch &amp;&amp; activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() =&gt; {
+      if (activeTrigger === trigger &amp;&amp; !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) =&gt; {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handlers = {
+    pointerover: handlePointerOpen,
+    pointerdown: handlePointer,
+    pointercancel: handlePointer,
+    click: handleTouchClick,
+    pointerout: handleLeave,
+    focusin: handleFocusIn,
+    focusout: handleLeave,
+    keydown: handleKeyDown,
+    contextmenu: handleContextMenu,
+  };
+  const roots = new Map();
+  const handledEvents = new WeakSet();
+  const handleEvent = (event) =&gt; {
+    if (handledEvents.has(event)) return;
+    handledEvents.add(event);
+    handlers[event.type](event);
+  };
+  const discoverRoots = (node) =&gt; {
+    if (node.shadowRoot) listen(node.shadowRoot);
+    for (const element of node.querySelectorAll(&quot;*&quot;)) {
+      if (element.shadowRoot) listen(element.shadowRoot);
+    }
+  };
+  const listen = (root) =&gt; {
+    if (roots.has(root)) return;
+    for (const type of Object.keys(handlers)) root.addEventListener(type, handleEvent);
+    const observer = new window.MutationObserver((records) =&gt; {
+      for (const { addedNodes } of records) {
+        for (const node of addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) discoverRoots(node);
+        }
+      }
+      for (const [root, cleanup] of roots) {
+        if (root.host &amp;&amp; !root.host.isConnected) {
+          cleanup();
+          roots.delete(root);
+        }
+      }
+      if (activeTrigger &amp;&amp; !activeTrigger.isConnected) closeTooltip(false);
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    roots.set(root, () =&gt; {
+      observer.disconnect();
+      for (const type of Object.keys(handlers)) root.removeEventListener(type, handleEvent);
+    });
+    discoverRoots(root);
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    for (const cleanup of roots.values()) cleanup();
+    roots.clear();
+    tooltip = null;
+  };
+
+  // Events between children of one shadow root never reach the document.
+  listen(document);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-tabs&quot;&gt;
+(() =&gt; {
+  const selector = &#x27;.nav[role=&quot;tablist&quot;] [role=&quot;tab&quot;]&#x27;;
+  const disabled = &#x27;:disabled,[aria-disabled=&quot;true&quot;]&#x27;;
+  const selectTab = (selected) =&gt; {
+    const panelId = selected.getAttribute(&quot;aria-controls&quot;);
+    for (const tab of selected.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;)) {
+      const active = tab === selected;
+      tab.classList.toggle(&quot;active&quot;, active);
+      tab.setAttribute(&quot;aria-selected&quot;, String(active));
+      const id = tab.getAttribute(&quot;aria-controls&quot;);
+      const panel = id &amp;&amp; document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden &amp;&amp; selected.id) {
+          panel.setAttribute(&quot;aria-labelledby&quot;, selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) =&gt; {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === &quot;click&quot;) {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;),
+    ).filter((candidate) =&gt; !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === &quot;ArrowRight&quot; || event.key === &quot;ArrowDown&quot;) {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === &quot;ArrowLeft&quot; || event.key === &quot;ArrowUp&quot;) {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === &quot;Home&quot;) {
+      next = 0;
+    } else if (event.key === &quot;End&quot;) {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll(&#x27;.nav[role=&quot;tablist&quot;]&#x27;)) {
+    const selected =
+      list.querySelector(&#x27;[role=&quot;tab&quot;][aria-selected=&quot;true&quot;]&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;].active&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;]&#x27;);
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener(&quot;click&quot;, interact);
+  document.addEventListener(&quot;keydown&quot;, interact);
+  window.addEventListener(&quot;pagehide&quot;, () =&gt; {
+    document.removeEventListener(&quot;click&quot;, interact);
+    document.removeEventListener(&quot;keydown&quot;, interact);
+  }, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-carousel&quot;&gt;
+  (() =&gt; {
+    for (const root of document.querySelectorAll(&quot;.viz-carousel&quot;)) {
+      const panels = Array.from(
+        root.querySelectorAll(&quot;:scope &gt; [data-variant]&quot;),
+      );
+      if (panels.length === 0) {
+        continue;
+      }
+      root.setAttribute(&quot;role&quot;, &quot;group&quot;);
+      panels.forEach((panel, index) =&gt; {
+        panel.hidden = index !== 0;
+        panel.setAttribute(&quot;role&quot;, &quot;group&quot;);
+        if (!panel.hasAttribute(&quot;aria-label&quot;)) {
+          panel.setAttribute(&quot;aria-label&quot;, panel.dataset.variant);
+        }
+      });
+      root.dataset.activeVariant = panels[0].dataset.variant;
+      if (panels.length === 1) {
+        continue;
+      }
+
+      const controls = document.createElement(&quot;div&quot;);
+      controls.className = &quot;viz-carousel-controls&quot;;
+      // Portable copy of the settings dropdown&#x27;s legacy glyph; no 14px icon-package preset matches it.
+      // https://github.com/openai/openai/blob/master/codex/codex-apps/webview/src/icons/chevron.svg
+      controls.innerHTML = `
+      &lt;button type=&quot;button&quot; class=&quot;viz-carousel-previous cursor-interaction&quot;&gt;&lt;i data-lucide=&quot;chevron-left&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;
+      &lt;details class=&quot;viz-carousel-picker&quot;&gt;
+        &lt;summary class=&quot;cursor-interaction&quot;&gt;
+          &lt;span class=&quot;viz-carousel-count tabular-nums&quot;&gt;&lt;/span&gt;
+          &lt;span class=&quot;viz-carousel-name&quot;&gt;&lt;/span&gt;
+          &lt;svg class=&quot;viz-carousel-caret&quot; width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 20 21&quot; fill=&quot;none&quot; aria-hidden=&quot;true&quot; focusable=&quot;false&quot;&gt;
+            &lt;path d=&quot;M15.2793 7.71101C15.539 7.45131 15.961 7.45131 16.2207 7.71101C16.4804 7.97071 16.4804 8.39272 16.2207 8.65242L10.4707 14.4024C10.211 14.6621 9.78902 14.6621 9.52932 14.4024L3.77932 8.65242L3.69436 8.54792C3.52385 8.28979 3.55205 7.93828 3.77932 7.71101C4.00659 7.48374 4.3581 7.45554 4.61623 7.62605L4.72073 7.71101L10 12.9903L15.2793 7.71101Z&quot; fill=&quot;currentColor&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;0.6&quot; /&gt;
+          &lt;/svg&gt;
+        &lt;/summary&gt;
+        &lt;div class=&quot;viz-carousel-options&quot;&gt;&lt;/div&gt;
+      &lt;/details&gt;
+      &lt;button type=&quot;button&quot; class=&quot;viz-carousel-next cursor-interaction&quot;&gt;&lt;i data-lucide=&quot;chevron-right&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;`;
+      const previous = controls.querySelector(&quot;.viz-carousel-previous&quot;);
+      const next = controls.querySelector(&quot;.viz-carousel-next&quot;);
+      const picker = controls.querySelector(&quot;.viz-carousel-picker&quot;);
+      const summary = picker.querySelector(&quot;summary&quot;);
+      const count = controls.querySelector(&quot;.viz-carousel-count&quot;);
+      const name = controls.querySelector(&quot;.viz-carousel-name&quot;);
+      const options = controls.querySelector(&quot;.viz-carousel-options&quot;);
+      const status = document.createElement(&quot;span&quot;);
+      status.className = &quot;sr-only&quot;;
+      status.setAttribute(&quot;role&quot;, &quot;status&quot;);
+      status.setAttribute(&quot;aria-live&quot;, &quot;polite&quot;);
+      status.setAttribute(&quot;aria-atomic&quot;, &quot;true&quot;);
+      previous.setAttribute(
+        &quot;aria-label&quot;,
+        root.dataset.previousLabel ?? &quot;Previous variant&quot;,
+      );
+      next.setAttribute(&quot;aria-label&quot;, root.dataset.nextLabel ?? &quot;Next variant&quot;);
+
+      let active = 0;
+      let mousePointerId = null;
+      let summaryPointerHandled = false;
+      summary.addEventListener(&quot;pointerdown&quot;, (event) =&gt; {
+        summaryPointerHandled =
+          event.pointerType === &quot;mouse&quot; &amp;&amp; event.button === 0 &amp;&amp; !event.ctrlKey;
+        if (!summaryPointerHandled) {
+          return;
+        }
+        event.preventDefault();
+        summary.focus({ preventScroll: true });
+        picker.open = !picker.open;
+        mousePointerId = picker.open ? event.pointerId : null;
+      });
+      summary.addEventListener(&quot;click&quot;, (event) =&gt; {
+        if (summaryPointerHandled &amp;&amp; event.detail &gt; 0) {
+          event.preventDefault();
+        }
+      });
+      const choices = panels.map((panel, index) =&gt; {
+        const choice = document.createElement(&quot;button&quot;);
+        choice.type = &quot;button&quot;;
+        choice.className = &quot;cursor-interaction&quot;;
+        choice.textContent = panel.dataset.variant;
+        choice.addEventListener(&quot;click&quot;, () =&gt; {
+          select(index);
+          summary.focus();
+        });
+        choice.addEventListener(&quot;pointerup&quot;, (event) =&gt; {
+          if (
+            picker.open &amp;&amp;
+            event.pointerType === &quot;mouse&quot; &amp;&amp;
+            event.button === 0 &amp;&amp;
+            event.pointerId === mousePointerId
+          ) {
+            choice.click();
+          }
+        });
+        options.appendChild(choice);
+        return choice;
+      });
+      const select = (index) =&gt; {
+        const changed = active !== index;
+        active = index;
+        panels.forEach((panel, position) =&gt; {
+          panel.hidden = position !== active;
+          choices[position].setAttribute(
+            &quot;aria-current&quot;,
+            String(position === active),
+          );
+        });
+        root.dataset.activeVariant = panels[active].dataset.variant;
+        count.textContent = `${active + 1} / ${panels.length}`;
+        name.textContent = panels[active].dataset.variant;
+        picker.open = false;
+        mousePointerId = null;
+        if (changed) {
+          status.textContent = `${count.textContent}: ${name.textContent}`;
+        }
+      };
+      previous.addEventListener(&quot;click&quot;, () =&gt;
+        select((active + panels.length - 1) % panels.length),
+      );
+      next.addEventListener(&quot;click&quot;, () =&gt;
+        select((active + 1) % panels.length),
+      );
+      picker.addEventListener(&quot;keydown&quot;, (event) =&gt; {
+        if (event.key === &quot;Escape&quot; &amp;&amp; picker.open) {
+          event.preventDefault();
+          picker.open = false;
+          mousePointerId = null;
+          summary.focus();
+          return;
+        }
+        if (event.altKey || event.ctrlKey || event.metaKey) {
+          return;
+        }
+        const index = choices.indexOf(document.activeElement);
+        let nextIndex;
+        if (event.key === &quot;ArrowDown&quot;) {
+          nextIndex = index &lt; 0 ? active : (index + 1) % choices.length;
+        } else if (event.key === &quot;ArrowUp&quot;) {
+          nextIndex = index &lt; 0 ? active : (index + choices.length - 1) % choices.length;
+        } else if (picker.open &amp;&amp; event.key === &quot;Home&quot;) {
+          nextIndex = 0;
+        } else if (picker.open &amp;&amp; event.key === &quot;End&quot;) {
+          nextIndex = choices.length - 1;
+        } else {
+          return;
+        }
+        event.preventDefault();
+        picker.open = true;
+        choices[nextIndex].focus();
+      });
+      picker.addEventListener(&quot;focusout&quot;, (event) =&gt; {
+        if (!picker.contains(event.relatedTarget)) {
+          picker.open = false;
+          mousePointerId = null;
+        }
+      });
+      const dismiss = (event) =&gt; {
+        if (!summary.contains(event.target)) {
+          mousePointerId = null;
+        }
+        if (!picker.contains(event.target)) {
+          picker.open = false;
+        }
+      };
+      const endPointerSelection = () =&gt; {
+        mousePointerId = null;
+      };
+      const sizePicker = () =&gt; {
+        root.style.setProperty(
+          &quot;--viz-carousel-picker-height&quot;,
+          `${picker.open ? options.offsetHeight : 0}px`,
+        );
+      };
+      picker.addEventListener(&quot;toggle&quot;, sizePicker);
+      window.addEventListener(&quot;resize&quot;, sizePicker);
+      document.addEventListener(&quot;pointerdown&quot;, dismiss);
+      document.addEventListener(&quot;pointerup&quot;, endPointerSelection);
+      document.addEventListener(&quot;pointercancel&quot;, endPointerSelection);
+      window.addEventListener(&quot;blur&quot;, endPointerSelection);
+      window.addEventListener(
+        &quot;pagehide&quot;,
+        () =&gt; {
+          document.removeEventListener(&quot;pointerdown&quot;, dismiss);
+          document.removeEventListener(&quot;pointerup&quot;, endPointerSelection);
+          document.removeEventListener(&quot;pointercancel&quot;, endPointerSelection);
+          window.removeEventListener(&quot;blur&quot;, endPointerSelection);
+          window.removeEventListener(&quot;resize&quot;, sizePicker);
+        },
+        { once: true },
+      );
+      root.append(controls, status);
+      select(0);
+    }
+  })();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+
+<script>(() => {
+  const frame = document.getElementById("codex-visualization");
+  if (!(frame instanceof HTMLIFrameElement)) {
+    return;
+  }
+  const isShare = document.documentElement.classList.contains(
+    "visualization-share-root",
+  );
+  let viewportHeight = globalThis.innerHeight;
+  let sizeFingerprint = null;
+  let sizeWriteTimeout;
+  let lastSize = null;
+  let pendingSize = null;
+  const storageKey = `codex:visualization-widget-state-v2:${JSON.stringify([
+    globalThis.location.pathname,
+    globalThis.location.search,
+  ])}`;
+  const sizeStorageKey = `${storageKey}:share-size-v1`;
+  const parseState = (serializedState) => {
+    if (
+      typeof serializedState !== "string" ||
+      new TextEncoder().encode(serializedState).length > 16 * 1024
+    ) {
+      throw new TypeError(
+        "Widget state must be a JSON object of at most 16 KiB",
+      );
+    }
+    /** @type {unknown} */
+    const state = JSON.parse(serializedState);
+    if (
+      state == null ||
+      typeof state !== "object" ||
+      Array.isArray(state) ||
+      ("imageIds" in state &&
+        (!Array.isArray(state.imageIds) || state.imageIds.length > 0))
+    ) {
+      throw new TypeError("Widget state must be a JSON object");
+    }
+    const storedState = { modelContent: null, privateContent: null, ...state };
+    const canonicalState = JSON.stringify(
+      storedState,
+      (_key, /** @type {unknown} */ value) => {
+        if (typeof value === "number" && !Number.isFinite(value)) {
+          throw new TypeError("Widget state must contain finite numbers");
+        }
+        return value;
+      },
+    );
+    if (new TextEncoder().encode(canonicalState).length > 16 * 1024) {
+      throw new TypeError(
+        "Widget state must be a JSON object of at most 16 KiB",
+      );
+    }
+    return storedState;
+  };
+  let storage = null;
+  let state = null;
+  try {
+    const localStorage = globalThis.localStorage;
+    const probeKey = `${storageKey}:probe`;
+    localStorage.setItem(probeKey, "1");
+    localStorage.removeItem(probeKey);
+    storage = localStorage;
+    const savedState = storage.getItem(storageKey);
+    if (savedState != null) {
+      try {
+        state = parseState(savedState);
+      } catch {
+        // Invalid saved state does not disable future writes.
+      }
+    }
+  } catch {
+    storage = null;
+  }
+  const persistSize = () => {
+    globalThis.clearTimeout(sizeWriteTimeout);
+    if (pendingSize == null) {
+      return;
+    }
+    try {
+      storage?.setItem(sizeStorageKey, pendingSize);
+    } catch {
+      // A denied or full cache must not affect the visualization.
+    }
+    pendingSize = null;
+  };
+  if (isShare) {
+    globalThis.addEventListener("pagehide", persistSize);
+  }
+  const initialGlobals = {
+    widgetState: state,
+    statePersistence: storage == null ? "none" : "local",
+  };
+
+  const channel = new MessageChannel();
+  channel.port1.addEventListener("message", (event) => {
+    const data = event.data;
+    if (typeof data !== "object" || data == null) {
+      return;
+    }
+    if (data.type === "widget-state-write") {
+      if (!Number.isSafeInteger(data.id) || data.id <= 0) {
+        return;
+      }
+      let ok = false;
+      try {
+        if (storage != null) {
+          const state = parseState(data.state);
+          storage.setItem(storageKey, JSON.stringify(state));
+          ok = true;
+        }
+      } catch {
+        // Storage denial, quota limits, and invalid state return a failed receipt.
+      }
+      channel.port1.postMessage({
+        type: "widget-state-result",
+        id: data.id,
+        ok,
+      });
+      return;
+    }
+    if (data.type === "height") {
+      const height = data.height;
+      if (
+        typeof height !== "number" ||
+        !Number.isFinite(height) ||
+        height < 0
+      ) {
+        return;
+      }
+      if (height <= 10_000) {
+        const width = isShare && storage != null ? frame.clientWidth : null;
+        frame.style.height = Math.ceil(height) + "px";
+        if (isShare && storage != null) {
+          const size = JSON.stringify({
+            fingerprint: sizeFingerprint,
+            width,
+            viewportHeight: globalThis.innerHeight,
+            dark: globalThis.matchMedia("(prefers-color-scheme: dark)").matches,
+            scale: globalThis.devicePixelRatio,
+            height: Math.ceil(height),
+          });
+          if (size !== lastSize) {
+            lastSize = size;
+            pendingSize = size;
+            globalThis.clearTimeout(sizeWriteTimeout);
+            sizeWriteTimeout = globalThis.setTimeout(persistSize, 100);
+          }
+        }
+      }
+      if (isShare) {
+        // Keep unusually tall content accessible without accepting an unbounded height.
+        if (height > 10_000 && Number.parseFloat(frame.style.height) === 0) {
+          frame.style.removeProperty("height");
+        }
+        frame.scrolling = height > 10_000 ? "auto" : "no";
+        document.documentElement.classList.add("visualization-share-ready");
+      }
+      return;
+    }
+    if (data.type === "scroll-to") {
+      const top = data.top;
+      if (
+        typeof top === "number" &&
+        Number.isFinite(top) &&
+        top >= 0 &&
+        globalThis.navigator.userActivation?.isActive === true
+      ) {
+        globalThis.scrollTo({
+          top: Math.ceil(
+            globalThis.scrollY + frame.getBoundingClientRect().top + top,
+          ),
+        });
+      }
+      return;
+    }
+    if (data.type === "open-external") {
+      const rawHref = data.href;
+      if (typeof rawHref !== "string") {
+        return;
+      }
+      let href;
+      try {
+        const url = new URL(rawHref, document.baseURI);
+        if (url.protocol !== "https:") {
+          return;
+        }
+        href = url.href;
+      } catch {
+        return;
+      }
+      if (globalThis.navigator.userActivation?.isActive === true) {
+        const anchor = document.createElement("a");
+        anchor.href = href;
+        anchor.rel = "noopener noreferrer";
+        anchor.target = "_blank";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      }
+      return;
+    }
+    if (data.type === "follow-up") {
+      const prompt = data.prompt;
+      if (
+        typeof prompt !== "string" ||
+        globalThis.navigator.userActivation?.isActive !== true
+      ) {
+        return;
+      }
+      const title = data.title;
+      globalThis.prompt(typeof title === "string" ? title : prompt, prompt);
+    }
+  });
+  channel.port1.start();
+  const srcdoc = frame.dataset.srcdoc;
+  if (srcdoc == null) {
+    return;
+  }
+  globalThis.addEventListener("resize", () => {
+    const height = Number.parseFloat(frame.style.height);
+    if (!isShare && (!Number.isFinite(height) || height <= viewportHeight)) {
+      frame.style.removeProperty("height");
+    }
+    viewportHeight = globalThis.innerHeight;
+    channel.port1.postMessage({ type: "measure" });
+  });
+  frame.addEventListener(
+    "load",
+    () => {
+      frame.contentWindow?.postMessage(
+        { type: "codex-visualization-initialize" },
+        "*",
+        [channel.port2],
+      );
+    },
+    { once: true },
+  );
+  // Match the trusted bootstrap element, not the same text in an authored title.
+  const frameHtml = srcdoc.replace(
+    '<script type="application/json" id="codex-visualization-widget-state">__CODEX_VISUALIZATION_WIDGET_STATE__<\/script>',
+    () =>
+      '<script type="application/json" id="codex-visualization-widget-state">' +
+      JSON.stringify(initialGlobals).replaceAll("<", "\\u003c") +
+      "<\/script>",
+  );
+  if (isShare && storage != null) {
+    // Fingerprint the rendered document, including restored widget state, without
+    // storing its content. This is a layout cache, not a security identity.
+    let hash = 5381;
+    for (let index = 0; index < frameHtml.length; index += 1) {
+      hash = (hash * 33 + frameHtml.charCodeAt(index)) % 4_294_967_296;
+    }
+    sizeFingerprint = hash.toString(36);
+    try {
+      const size = JSON.parse(storage.getItem(sizeStorageKey) ?? "null");
+      if (
+        size?.fingerprint === sizeFingerprint &&
+        size.width === frame.clientWidth &&
+        size.viewportHeight === globalThis.innerHeight &&
+        size.dark ===
+          globalThis.matchMedia("(prefers-color-scheme: dark)").matches &&
+        size.scale === globalThis.devicePixelRatio &&
+        typeof size.height === "number" &&
+        Number.isFinite(size.height) &&
+        size.height >= 0 &&
+        size.height <= 10_000
+      ) {
+        frame.style.height = size.height + "px";
+      }
+    } catch {
+      // Ignore missing or invalid cache entries and measure the live frame.
+    }
+  }
+  frame.srcdoc = frameHtml;
+  delete frame.dataset.srcdoc;
+})();
+</script>
 </body>
 </html>
