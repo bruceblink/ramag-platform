@@ -34,12 +34,18 @@ fn long_error_tooltip_stays_inside_supported_and_defensive_windows(cx: &mut Test
             cx.simulate_resize(size(px(width), px(height)));
             cx.run_until_parked();
             let bounds = cx
-                .debug_bounds("connection-list-error-tooltip-content")
+                .debug_bounds("connection-list-error-tooltip-viewport")
                 .expect("完整错误提示应渲染");
             assert!(bounds.size.width <= px(width - 72.0));
             assert!(bounds.size.height <= px(height - 72.0));
             assert!(bounds.size.height > px(40.0), "长错误应换行而非单行溢出");
-            assert!(bounds.right() <= px(width) && bounds.bottom() <= px(height));
+            assert!(
+                bounds.origin.x >= px(0.0)
+                    && bounds.origin.y >= px(0.0)
+                    && bounds.right() <= px(width)
+                    && bounds.bottom() <= px(height),
+                "错误提示视口应位于屏幕边界内：bounds={bounds:?}, window={width}x{height}"
+            );
         }
     }
 }

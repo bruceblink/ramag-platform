@@ -278,15 +278,24 @@ fn retained_error_notice(
 pub(super) fn error_tooltip_content(
     message: SharedString,
     window: &Window,
-) -> gpui_kit::component::scroll::Scrollable<gpui_kit::Div> {
+) -> gpui_kit::Stateful<gpui_kit::Div> {
     let viewport = window.viewport_size();
+    let width = (viewport.width - px(72.0)).clamp(px(0.0), px(560.0));
+    let max_height = (viewport.height - px(72.0)).max(px(0.0));
     div()
-        .debug_selector(|| "connection-list-error-tooltip-content".into())
-        .w((viewport.width - px(72.0)).clamp(px(0.0), px(560.0)))
-        .max_h((viewport.height - px(72.0)).max(px(0.0)))
-        .whitespace_normal()
-        .child(message)
-        .overflow_y_scrollbar()
+        .id("connection-list-error-tooltip-viewport")
+        .debug_selector(|| "connection-list-error-tooltip-viewport".into())
+        .w(width)
+        .max_h(max_height)
+        // 调试标记位于外层视口，内部文本仍由滚动器完整显示。
+        .child(
+            div()
+                .w(width)
+                .max_h(max_height)
+                .whitespace_normal()
+                .child(message)
+                .overflow_y_scrollbar(),
+        )
 }
 
 /// Keep load failures visible while preserving an already loaded connection list.
