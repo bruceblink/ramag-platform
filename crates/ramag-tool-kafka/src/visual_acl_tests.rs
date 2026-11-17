@@ -43,18 +43,14 @@ pub(super) fn exercise_acl_workspace(
         visual_cx.debug_bounds("ramag-confirm-ok").is_some(),
         "创建 ACL 前必须显示确认对话框"
     );
-    click(visual_cx, "ramag-confirm-cancel");
-    visual_cx.run_until_parked();
-    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
+    click_confirm_button_and_wait_for_exit(visual_cx, "ramag-confirm-cancel");
     click(visual_cx, "kafka-acl-delete");
     visual_cx.run_until_parked();
     assert!(
         visual_cx.debug_bounds("ramag-confirm-ok").is_some(),
         "删除 ACL 前必须显示确认对话框"
     );
-    click(visual_cx, "ramag-confirm-cancel");
-    visual_cx.run_until_parked();
-    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
+    click_confirm_button_and_wait_for_exit(visual_cx, "ramag-confirm-cancel");
 
     for (width, height) in [(360.0, 900.0), (1024.0, 900.0), (1440.0, 900.0)] {
         visual_cx.simulate_resize(size(px(width), px(height)));

@@ -157,9 +157,7 @@ fn kafka_consumer_groups_fit_three_window_widths_with_long_fields(cx: &mut TestA
         visual_cx.debug_bounds("ramag-confirm-ok").is_some(),
         "重置消费者组 Offset 前必须显示确认对话框"
     );
-    click(visual_cx, "ramag-confirm-cancel");
-    visual_cx.run_until_parked();
-    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
+    click_confirm_button_and_wait_for_exit(visual_cx, "ramag-confirm-cancel");
 
     click(visual_cx, "kafka-consumer-group-reset-latest");
     visual_cx.run_until_parked();
@@ -167,9 +165,7 @@ fn kafka_consumer_groups_fit_three_window_widths_with_long_fields(cx: &mut TestA
         visual_cx.debug_bounds("ramag-confirm-ok").is_some(),
         "重置到末尾前必须显示确认对话框"
     );
-    click(visual_cx, "ramag-confirm-cancel");
-    visual_cx.run_until_parked();
-    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
+    click_confirm_button_and_wait_for_exit(visual_cx, "ramag-confirm-cancel");
 }
 
 #[gpui_kit::test]

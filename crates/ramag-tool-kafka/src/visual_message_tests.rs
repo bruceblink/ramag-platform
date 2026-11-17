@@ -431,14 +431,11 @@ fn kafka_message_production_requires_confirmation_and_preserves_failure_input(
             .is_empty(),
         "确认前不能调用生产器"
     );
-    click(visual_cx, "ramag-confirm-cancel");
-    visual_cx.run_until_parked();
-    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
+    click_confirm_button_and_wait_for_exit(visual_cx, "ramag-confirm-cancel");
 
     click(visual_cx, "kafka-produce-message");
     visual_cx.run_until_parked();
-    click(visual_cx, "ramag-confirm-ok");
-    visual_cx.run_until_parked();
+    click_confirm_button_and_wait_for_exit(visual_cx, "ramag-confirm-ok");
     let successful_calls = calls
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -466,8 +463,7 @@ fn kafka_message_production_requires_confirmation_and_preserves_failure_input(
     visual_cx.run_until_parked();
     click(visual_cx, "kafka-produce-message");
     visual_cx.run_until_parked();
-    click(visual_cx, "ramag-confirm-ok");
-    visual_cx.run_until_parked();
+    click_confirm_button_and_wait_for_exit(visual_cx, "ramag-confirm-ok");
     assert_eq!(
         calls
             .lock()

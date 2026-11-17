@@ -61,6 +61,16 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
     );
 }
 
+/// 推进确认框退出动画，确保后续点击和边界断言不命中保留的对话框层。
+fn click_confirm_button_and_wait_for_exit(cx: &mut VisualTestContext, selector: &'static str) {
+    click(cx, selector);
+    cx.executor()
+        .advance_clock(*gpui_kit::component::dialog::ANIMATION_DURATION + Duration::from_millis(1));
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    assert!(cx.debug_bounds("ramag-confirm-ok").is_none());
+}
+
 fn assert_within_width(cx: &mut VisualTestContext, selector: &'static str, width: f32) {
     let bounds = cx.debug_bounds(selector);
     assert!(

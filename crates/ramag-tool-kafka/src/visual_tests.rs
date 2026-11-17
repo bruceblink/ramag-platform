@@ -364,9 +364,7 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
         visual_cx.debug_bounds("ramag-confirm-ok").is_some(),
         "创建 Topic 前必须显示确认对话框"
     );
-    click(visual_cx, "ramag-confirm-cancel");
-    visual_cx.run_until_parked();
-    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
+    click_confirm_button_and_wait_for_exit(visual_cx, "ramag-confirm-cancel");
     visual_cx.update(|window, app| {
         kafka_entity.update(app, |view, cx| {
             view.topic_target_partitions
@@ -381,18 +379,14 @@ fn kafka_workspace_renders_real_data_and_cancel_control(cx: &mut TestAppContext)
         visual_cx.debug_bounds("ramag-confirm-ok").is_some(),
         "扩容 Topic 前必须显示确认对话框"
     );
-    click(visual_cx, "ramag-confirm-cancel");
-    visual_cx.run_until_parked();
-    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
+    click_confirm_button_and_wait_for_exit(visual_cx, "ramag-confirm-cancel");
     click(visual_cx, "kafka-topic-delete");
     visual_cx.run_until_parked();
     assert!(
         visual_cx.debug_bounds("ramag-confirm-ok").is_some(),
         "删除 Topic 前必须显示确认对话框"
     );
-    click(visual_cx, "ramag-confirm-cancel");
-    visual_cx.run_until_parked();
-    assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_none());
+    click_confirm_button_and_wait_for_exit(visual_cx, "ramag-confirm-cancel");
     assert!(
         visual_cx
             .debug_bounds("kafka-open-topic-messages")
