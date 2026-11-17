@@ -411,6 +411,17 @@ fn api_history_can_be_cleared_from_the_sidebar_after_confirmation(cx: &mut TestA
         Some(("执行历史已清空".into(), false))
     );
 
+    // 等待旧确认框退出，避免其动画层遮挡下一次清理按钮点击。
+    visual_cx.executor().advance_clock(
+        *gpui_kit::component::dialog::ANIMATION_DURATION + std::time::Duration::from_millis(1),
+    );
+    visual_cx.update(|window, _| window.refresh());
+    visual_cx.run_until_parked();
+    assert!(
+        visual_cx.debug_bounds("ramag-confirm-ok").is_none(),
+        "第一次确认框退出动画完成后，不应再留在渲染帧中"
+    );
+
     let retained_request = ApiRequestRecord::new_http(
         "失败后保留",
         HttpRequestSpec::new("GET", "http://127.0.0.1/history-retained"),
