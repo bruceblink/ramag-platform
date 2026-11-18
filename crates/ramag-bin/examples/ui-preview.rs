@@ -1,6 +1,8 @@
 //! 隔离的原生 UI 验收入口，复用生产 Shell 与工具视图，不读取用户配置或连接。
 //! 用法：cargo run -p ramag-bin --example ui-preview -- settings dark 1024 768
 //! DBClient：dbclient dark 1024 768 large；F6 失败、F8 长错误、F7 恢复。
+//! SQLite 表设计器：cargo run --locked -p ramag-bin --example ui-preview -- sqlite-designer dark 1024 768
+//! 该模式仅连接本次预览创建的本地样例库。
 //! API：api-local；连接 scripts/api-test 的本机 HTTP/gRPC 服务，包含可延迟的验收请求。
 //! 插件诊断：plugin-empty 或 plugin-failure；两者只构造本次窗口的受控验收状态。
 //! 对象存储：object_storage；只读取 RAMAG_OBJECT_PREVIEW_* 配置的本机回环测试服务。
@@ -8,7 +10,7 @@
 //! RAMAG_CONTAINER_PREVIEW_DELAY=3s 可延迟只读请求，用于检查切换平台或页面后的旧回调。
 //! 数据同步遮罩：sync-progress、sync-cancel、sync-failure 或 sync-summary；只注入门禁状态。
 //! settings/update 模式支持 Release 手动检查；MQTT 预览不会自动连接或启动 Broker。
-//! 仅创建进程专属临时 redb，不写系统凭据库，退出时清理临时文件。
+//! 预览使用进程专属临时 redb；SQLite 表设计器模式另建本机临时目录。不会读取用户连接或系统凭据。
 
 #[path = "ui_preview/api.rs"]
 mod api;
@@ -21,6 +23,7 @@ mod object_storage;
 #[path = "ui_preview/offline_database.rs"]
 mod offline_database;
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -33,7 +36,7 @@ use ramag_app::{
 };
 use ramag_domain::{
     PluginDescriptor, PluginId, Tool, ToolMeta,
-    entities::{DataSyncProgress, DataSyncStage, DataSyncSummary, DataSyncTaskId},
+    entities::{ConnectionId, DataSyncProgress, DataSyncStage, DataSyncSummary, DataSyncTaskId},
     traits::Storage,
 };
 use ramag_infra_ssh::OpenSshDriver;
@@ -87,6 +90,83 @@ const SYNC_PREVIEW_MODES: [&str; 4] = [
     "sync-failure",
     "sync-summary",
 ];
+
+/// 为 SQLite 设计器验收独占一份临时目录；清理只会删除本次成功创建的目录。
+struct PreviewSqliteDirectory {
+    path: PathBuf,
+    owned: bool,
+}
+
+impl PreviewSqliteDirectory {
+    fn create() -> anyhow::Result<Self> {
+        let path = std::env::temp_dir().join(format!(
+            "ramag-sqlite-designer-preview-{}-{}",
+            std::process::id(),
+            ConnectionId::new()
+        ));
+        std::fs::create_dir(&path)?;
+        Ok(Self { path, owned: true })
+    }
+
+    fn database_path(&self) -> PathBuf {
+        self.path.join("designer.sqlite")
+    }
+
+    fn cleanup(&mut self) -> anyhow::Result<()> {
+        if !self.owned {
+            return Ok(());
+        }
+        match std::fs::remove_dir_all(&self.path) {
+            Ok(()) => self.owned = false,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => self.owned = false,
+            Err(error) => return Err(error.into()),
+        }
+        Ok(())
+    }
+}
+
+impl Drop for PreviewSqliteDirectory {
+    fn drop(&mut self) {
+        if self.owned
+            && let Err(error) = std::fs::remove_dir_all(&self.path)
+            && error.kind() != std::io::ErrorKind::NotFound
+        {
+            eprintln!(
+                "UI preview cleanup failed for {}: {error}",
+                self.path.display()
+            );
+        }
+    }
+}
+
+/// 删除当前预览创建的临时记录；失败时返回具体路径，供退出钩子记录。
+fn cleanup_preview_resources(
+    redb_path: &Path,
+    monitor_state: &Path,
+    sqlite_directory: Option<PreviewSqliteDirectory>,
+) -> anyhow::Result<()> {
+    let mut failures = Vec::new();
+    if let Err(error) = std::fs::remove_file(redb_path)
+        && error.kind() != std::io::ErrorKind::NotFound
+    {
+        failures.push(format!("{}: {error}", redb_path.display()));
+    }
+    if let Err(error) = std::fs::remove_dir_all(monitor_state)
+        && error.kind() != std::io::ErrorKind::NotFound
+    {
+        failures.push(format!("{}: {error}", monitor_state.display()));
+    }
+    if let Some(mut directory) = sqlite_directory
+        && let Err(error) = directory.cleanup()
+    {
+        failures.push(format!("{}: {error}", directory.path.display()));
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        anyhow::bail!("UI preview cleanup incomplete: {}", failures.join("; "))
+    }
+}
 
 /// 向共享门禁注入受控状态，供原生窗口检查同步遮罩；不会启动同步执行器。
 fn seed_sync_preview(page: &str, gate: &Arc<DataSyncGate>) -> Option<DataSyncPermit> {
@@ -155,6 +235,10 @@ fn seed_sync_preview(page: &str, gate: &Arc<DataSyncGate>) -> Option<DataSyncPer
 }
 
 #[cfg(test)]
+#[path = "ui_preview/cleanup_tests.rs"]
+mod cleanup_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use ramag_app::DataSyncGatePhase;
@@ -214,6 +298,11 @@ fn main() -> anyhow::Result<()> {
         .filter(|arg| arg != "--smoke")
         .collect();
     let page = args.first().cloned().unwrap_or_else(|| "settings".into());
+    let sqlite_preview_dir = if page == "sqlite-designer" {
+        Some(PreviewSqliteDirectory::create()?)
+    } else {
+        None
+    };
     let container_endpoint = (page == "container-local")
         .then(container::preview_endpoint)
         .transpose()?;
@@ -280,7 +369,15 @@ fn main() -> anyhow::Result<()> {
         }))?;
         let _ = host.initialize_all();
     }
-    let preview = dbclient::DbclientPreview::new(storage.clone())?;
+    let preview = if let Some(directory) = &sqlite_preview_dir {
+        dbclient::DbclientPreview::new_sqlite_designer(storage.clone(), &directory.database_path())?
+    } else {
+        dbclient::DbclientPreview::new(storage.clone())?
+    };
+    let sqlite_pool_cleanup = preview
+        .sqlite_config
+        .as_ref()
+        .map(|config| (preview.connection.clone(), config.clone()));
     let api_service = (page == "api-local")
         .then(|| api::service(storage.clone()))
         .transpose()?;
@@ -317,6 +414,8 @@ fn main() -> anyhow::Result<()> {
     } else {
         None
     };
+    let cleanup_redb_path = path.clone();
+    let cleanup_monitor_state = monitor_state.clone();
     gpui_kit::platform::application()
         .with_assets(RamagAssets)
         .run(move |cx: &mut App| {
@@ -333,6 +432,29 @@ fn main() -> anyhow::Result<()> {
             );
             ramag_ui::set_monitor_settings(Default::default(), cx);
             cx.set_global(ramag_ui::StorageGlobal(storage));
+
+            // macOS 可能在 NSApplication 终止时不返回 main 尾部；退出钩子在窗口释放后清理本次预览文件。
+            let mut sqlite_preview_dir = sqlite_preview_dir;
+            let mut sqlite_pool_cleanup = sqlite_pool_cleanup;
+            let cleanup = cx.on_app_quit(move |cx| {
+                if let Some((connection, config)) = sqlite_pool_cleanup.take() {
+                    connection.evict_pool(&config);
+                }
+                let storage = cx.remove_global::<ramag_ui::StorageGlobal>();
+                let sqlite_directory = sqlite_preview_dir.take();
+                let redb_path = cleanup_redb_path.clone();
+                let monitor_state = cleanup_monitor_state.clone();
+                async move {
+                    drop(storage);
+                    if let Err(error) =
+                        cleanup_preview_resources(&redb_path, &monitor_state, sqlite_directory)
+                    {
+                        eprintln!("UI preview cleanup failed: {error:#}");
+                    }
+                }
+            });
+            cleanup.detach();
+
             #[cfg(feature = "ui-profiling")]
             ramag_ui::profiling::start(cx);
             let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
@@ -411,6 +533,7 @@ fn main() -> anyhow::Result<()> {
                                 NavTarget::Tool("dbclient".into())
                             }
                             "home" => NavTarget::Home,
+                            "sqlite-designer" => NavTarget::Tool("dbclient".into()),
                             "api-local" => NavTarget::Tool("api".into()),
                             "container-local" => NavTarget::Tool("container".into()),
                             _ => NavTarget::Tool(page),
@@ -444,11 +567,6 @@ fn main() -> anyhow::Result<()> {
                 .detach();
             }
         });
-    if path.is_file() {
-        std::fs::remove_file(&path)?;
-    }
-    if monitor_state.is_dir() {
-        std::fs::remove_dir_all(&monitor_state)?;
-    }
+    cleanup_preview_resources(&path, &monitor_state, None)?;
     Ok(())
 }

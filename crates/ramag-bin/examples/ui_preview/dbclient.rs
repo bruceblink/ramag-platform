@@ -1,6 +1,7 @@
 //! DBClient 原生验收数据与失败控制；只包装本次预览的临时存储。
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 
@@ -11,10 +12,11 @@ use ramag_app::{
     ConnectionService, DataSyncGate, DataSyncPermit, DataSyncService, MongoService, RedisService,
 };
 use ramag_domain::entities::{
-    ConnectionConfig, ConnectionId, DriverKind, QueryRecord, QueryRecordId, TlsVerify,
+    ConnectionConfig, ConnectionId, DriverKind, Query, QueryRecord, QueryRecordId, TlsVerify,
 };
 use ramag_domain::error::{DomainError, Result};
-use ramag_domain::traits::Storage;
+use ramag_domain::traits::{Driver, Storage};
+use ramag_infra_sqlite::SqliteDriver;
 use ramag_ui::Shell;
 
 gpui_kit::actions!(
@@ -107,6 +109,7 @@ impl Storage for PreviewStorage {
 pub(super) struct DbclientPreview {
     pub connection: Arc<ConnectionService>,
     pub gate: Arc<DataSyncGate>,
+    pub sqlite_config: Option<ConnectionConfig>,
     storage: Arc<PreviewStorage>,
     sample: ConnectionConfig,
     redis: Arc<RedisService>,
@@ -115,7 +118,28 @@ pub(super) struct DbclientPreview {
 
 impl DbclientPreview {
     pub fn new(backing: Arc<dyn Storage>) -> anyhow::Result<Self> {
-        let configs = sample_connections();
+        Self::new_inner(backing, None)
+    }
+
+    /// 仅为显式 SQLite 设计器验收模式注册本地驱动并保存临时连接。
+    pub fn new_sqlite_designer(
+        backing: Arc<dyn Storage>,
+        sqlite_path: &Path,
+    ) -> anyhow::Result<Self> {
+        let config = ConnectionConfig::new_sqlite(
+            "UI 表设计器验收",
+            sqlite_path.to_string_lossy().into_owned(),
+        );
+        Self::new_inner(backing, Some(config))
+    }
+
+    fn new_inner(
+        backing: Arc<dyn Storage>,
+        sqlite_config: Option<ConnectionConfig>,
+    ) -> anyhow::Result<Self> {
+        let configs = sqlite_config
+            .as_ref()
+            .map_or_else(sample_connections, |config| vec![config.clone()]);
         futures::executor::block_on(backing.save_connections(&configs))?;
         let offline = Arc::new(super::offline_database::OfflineDatabase);
         let redis = Arc::new(RedisService::new(offline.clone(), backing.clone()));
@@ -125,9 +149,19 @@ impl DbclientPreview {
             mode: AtomicU8::new(ReadMode::Healthy as u8),
             reads: AtomicU64::new(0),
         });
+        let mut drivers = HashMap::new();
+        if sqlite_config.is_some() {
+            let driver: Arc<dyn Driver> = Arc::new(SqliteDriver::new());
+            drivers.insert(DriverKind::Sqlite, driver);
+        }
+        let connection = Arc::new(ConnectionService::new(drivers, storage.clone()));
+        if let Some(config) = &sqlite_config {
+            seed_sqlite_designer_table(&connection, config)?;
+        }
         Ok(Self {
-            connection: Arc::new(ConnectionService::new(HashMap::new(), storage.clone())),
+            connection,
             gate: Arc::new(DataSyncGate::default()),
+            sqlite_config,
             storage,
             sample: configs[0].clone(),
             redis,
@@ -154,6 +188,46 @@ impl DbclientPreview {
             cx,
         )
     }
+}
+
+/// 只在独立 SQLite 预览中写入本地表和一条样例记录。
+fn seed_sqlite_designer_table(
+    connection: &ConnectionService,
+    config: &ConnectionConfig,
+) -> anyhow::Result<()> {
+    let query = Query::new(
+        "CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            display_name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            quota INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT,
+            notes TEXT,
+            region TEXT,
+            phone TEXT,
+            tenant_id TEXT NOT NULL,
+            retry_count INTEGER NOT NULL DEFAULT 0,
+            is_enabled INTEGER NOT NULL DEFAULT 1,
+            metadata_json TEXT,
+            reference_code TEXT,
+            archived_at TEXT
+        );
+        INSERT INTO users (
+            display_name, email, status, quota, created_at, updated_at,
+            notes, region, phone, tenant_id, retry_count, is_enabled,
+            metadata_json, reference_code, archived_at
+        ) VALUES (
+            'UI preview', 'preview@example.invalid', 'active', 12,
+            '2026-01-01T00:00:00Z', NULL, 'local acceptance data', 'test',
+            '000-0000', 'preview-tenant', 0, 1, '{\"source\":\"ui-preview\"}',
+            'preview-001', NULL
+        );",
+    )
+    .transactional();
+    futures::executor::block_on(connection.execute(config, &query))?;
+    Ok(())
 }
 
 fn sample_connections() -> Vec<ConnectionConfig> {
@@ -245,6 +319,51 @@ impl Render for PreviewHost {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sqlite_designer_preview_seeds_local_table_and_only_registers_sqlite() -> anyhow::Result<()> {
+        let mut directory = crate::PreviewSqliteDirectory::create()?;
+        let sqlite_path = directory.database_path();
+        let redb_path = directory.path.join("preview.redb");
+        let backing: Arc<dyn Storage> = Arc::new(ramag_infra_storage::RedbStorage::open_with_key(
+            &redb_path,
+            &[0x42; 32],
+        )?);
+        {
+            let preview = DbclientPreview::new_sqlite_designer(backing.clone(), &sqlite_path)?;
+            let config = preview
+                .sqlite_config
+                .as_ref()
+                .expect("SQLite 预览应保存本地连接");
+            let connections = futures::executor::block_on(preview.connection.list())?;
+            assert_eq!(connections.len(), 1);
+            assert_eq!(connections[0].id, config.id);
+            assert_eq!(connections[0].driver, DriverKind::Sqlite);
+
+            let schemas = futures::executor::block_on(preview.connection.list_schemas(config))?;
+            assert!(schemas.iter().any(|schema| schema.name == "main"));
+            let tables =
+                futures::executor::block_on(preview.connection.list_tables(config, "main"))?;
+            assert!(tables.iter().any(|table| table.name == "users"));
+            let columns = futures::executor::block_on(
+                preview.connection.list_columns(config, "main", "users"),
+            )?;
+            assert_eq!(columns.len(), 16);
+
+            let result = futures::executor::block_on(
+                preview
+                    .connection
+                    .execute(config, &Query::new("SELECT * FROM users")),
+            )?;
+            assert_eq!(result.rows.len(), 1);
+            assert_eq!(result.columns.len(), 16);
+
+            preview.connection.evict_pool(config);
+        }
+        drop(backing);
+        directory.cleanup()?;
+        Ok(())
+    }
 
     #[test]
     fn failed_list_reads_preserve_records_and_other_storage_operations() -> anyhow::Result<()> {
