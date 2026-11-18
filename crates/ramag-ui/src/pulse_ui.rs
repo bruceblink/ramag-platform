@@ -199,7 +199,8 @@ pub fn pulse_panel(cx: &gpui_kit::App) -> Div {
         .p(px(14.0))
         .border_1()
         .border_color(theme.border.opacity(0.82))
-        .rounded(px(8.0))
+        // 共享面板沿用主题半径，保证各工具遵守统一的 6px 圆角边界。
+        .rounded(theme.radius)
         .bg(theme.secondary)
         .shadow_sm()
 }
