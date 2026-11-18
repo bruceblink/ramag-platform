@@ -5,9 +5,9 @@ use std::{cell::RefCell, rc::Rc};
 
 use gpui_kit::component::{Root, Sizable as _, h_flex};
 use gpui_kit::{
-    AppContext as _, Bounds, Context, Entity, InteractiveElement as _, IntoElement, Modifiers,
-    ParentElement as _, Pixels, Point, Render, Styled as _, Subscription, TestAppContext,
-    VisualTestContext, Window, px, size,
+    AppContext as _, Bounds, Context, ElementId, Entity, InteractiveElement as _, IntoElement,
+    Modifiers, ParentElement as _, Pixels, Point, Render, Styled as _, Subscription,
+    TestAppContext, VisualTestContext, Window, px, size,
 };
 use ramag_app::{StaticPluginHost, ToolRegistry};
 use ramag_domain::{Tool, ToolMeta};
@@ -85,6 +85,21 @@ fn click(cx: &mut VisualTestContext, selector: &'static str) {
     simulate_click(cx, target.center());
 }
 
+/// 校验实际开关节点暴露的角色、名称和当前状态。
+fn assert_switch_node(visual: &mut VisualTestContext, id: &str, name: &str, checked: bool) {
+    let id = ElementId::from(id.to_owned());
+    let name = name.to_owned();
+    visual.update(|window, _| {
+        let snapshot = gpui_kit::base::test_support::find(window, &[], &id);
+        assert!(snapshot.is_some(), "missing accessibility node: {id:?}");
+        if let Some(snapshot) = snapshot {
+            assert_eq!(snapshot.role(), Some(gpui_kit::Role::Switch));
+            assert_eq!(snapshot.label(), Some(name.as_str()));
+            assert_eq!(snapshot.checked(), Some(checked));
+        }
+    });
+}
+
 fn click_surface_control(cx: &mut VisualTestContext, selector: &'static str) {
     let target = bounds(cx, selector);
     let mut point = target.center();
@@ -155,6 +170,37 @@ fn manager_search_lists_tools_once_with_both_surface_controls(cx: &mut TestAppCo
             .debug_bounds("tool-manager-added-section-home")
             .is_none(),
         "the catalog must not split the same tool across added and available groups"
+    );
+    for (id, name, checked) in [
+        ("tool-manager-home-first", "Tool first 的首页入口", true),
+        (
+            "tool-manager-sidebar-first",
+            "Tool first 的侧边栏入口",
+            false,
+        ),
+        ("tool-manager-home-second", "Tool second 的首页入口", false),
+        (
+            "tool-manager-sidebar-second",
+            "Tool second 的侧边栏入口",
+            true,
+        ),
+    ] {
+        assert_switch_node(visual, id, name, checked);
+    }
+
+    click_surface_control(visual, "tool-manager-sidebar-control-first");
+    assert_eq!(
+        registry
+            .visibility("first")
+            .map(|visibility| visibility.sidebar),
+        Some(true),
+        "the named Switch must keep its existing click behavior"
+    );
+    assert_switch_node(
+        visual,
+        "tool-manager-sidebar-first",
+        "Tool first 的侧边栏入口",
+        true,
     );
 
     click(visual, "tool-manager-search");

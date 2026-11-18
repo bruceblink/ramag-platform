@@ -103,10 +103,17 @@ impl ToolSurfaceManager {
         let accent = cx.theme().accent;
         let border = cx.theme().border;
         let hover = cx.theme().muted;
-        let home_toggle =
-            self.render_surface_toggle(&id, ToolDragSurface::Home, "首页", visibility.home, cx);
+        let home_toggle = self.render_surface_toggle(
+            &id,
+            &name,
+            ToolDragSurface::Home,
+            "首页",
+            visibility.home,
+            cx,
+        );
         let sidebar_toggle = self.render_surface_toggle(
             &id,
+            &name,
             ToolDragSurface::ActivityBar,
             "侧边栏",
             visibility.sidebar,
@@ -162,6 +169,7 @@ impl ToolSurfaceManager {
     fn render_surface_toggle(
         &self,
         id: &str,
+        name: &str,
         surface: ToolDragSurface,
         label: &'static str,
         visible: bool,
@@ -176,6 +184,8 @@ impl ToolSurfaceManager {
             (ToolDragSurface::ActivityBar, false) => "点击显示在侧边栏",
         };
         let switch: Switch = crate::clickable_switch(selector.clone())
+            // 工具名和入口位置位于可见行中，辅助名称需要同时包含两者。
+            .accessibility_label(format!("{name} 的{label}入口"))
             .checked(visible)
             .tooltip(tooltip)
             .on_click(cx.listener(move |this, next_visible: &bool, _, cx| {
