@@ -1,6 +1,6 @@
 //! Shell 的窗口布局、导航外壳和窄屏快捷入口渲染。
 
-use gpui_kit::base::FocusTrapElement as _;
+use gpui_kit::base::{FocusTrapElement as _, Selectable as _};
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName, button::ButtonVariants as _, h_flex, v_flex,
 };
@@ -358,6 +358,7 @@ fn compact_navigation_button(
         .min_w_0()
         .h(px(52.0))
         .px(px(2.0))
+        .selected(selected)
         .tooltip(label)
         .accessibility_label(if selected {
             format!("{label}，当前页面")
@@ -386,6 +387,7 @@ fn compact_navigation_button(
                 ),
         );
     if selected {
+        // 标记当前入口为已选中，让按钮组件在悬停时继续使用选中样式。
         button = button.bg(selected_bg).text_color(foreground);
     } else {
         button = button.text_color(muted_foreground);

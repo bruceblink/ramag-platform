@@ -18,11 +18,23 @@ fn pulse_palette_and_application_theme_share_the_same_surfaces(cx: &mut TestAppC
             let theme = gpui_kit::component::Theme::global(app);
             assert_eq!(palette.background, theme.background);
             assert_eq!(palette.surface, theme.secondary);
-            assert_eq!(palette.raised, theme.muted);
+            assert_eq!(palette.background, theme.input);
+            assert_eq!(palette.surface, theme.popover);
+            assert_eq!(palette.raised, theme.list_active);
+            assert_eq!(palette.raised, theme.selection);
             assert_eq!(palette.border, theme.border);
+            assert_eq!(palette.border, theme.table_row_border);
             assert_eq!(palette.text, theme.foreground);
             assert_eq!(palette.muted, theme.muted_foreground);
             assert_eq!(palette.selected, theme.list_active);
+            assert_eq!(
+                theme.muted,
+                if mode == crate::theme::Mode::Dark {
+                    gpui_kit::rgb(0x202020).into()
+                } else {
+                    gpui_kit::rgb(0xeeeeee).into()
+                }
+            );
         });
     }
 }

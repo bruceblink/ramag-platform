@@ -62,8 +62,8 @@ pub fn apply_theme(mode: Mode, cx: &mut App) {
     crate::system_settings::apply_display_settings(cx);
 }
 
-/// 从工作区语义色派生通用组件状态，防止上游默认主题与 Ramag 面板混色。
-/// 切换主题时重新赋值；选择态保留正文色，焦点与活动边框使用强调色。
+/// 把原型的中性表面、选中状态和组件令牌映射到 GPUI 主题。
+/// 工具选中背景使用 raised；键盘焦点继续使用独立的蓝色 ring。
 fn normalize_component_palette(theme: &mut Theme) {
     theme.radius = gpui_kit::px(6.0);
     theme.radius_lg = gpui_kit::px(8.0);
@@ -81,7 +81,7 @@ fn normalize_component_palette(theme: &mut Theme) {
     theme.tab = theme.secondary;
     theme.tab_bar = theme.secondary;
     theme.tab_bar_segmented = theme.muted;
-    theme.tab_active = theme.background;
+    theme.tab_active = theme.list_active;
     theme.tab_foreground = theme.muted_foreground;
     theme.tab_active_foreground = theme.foreground;
     theme.colors.list = theme.background;
@@ -96,12 +96,11 @@ fn normalize_component_palette(theme: &mut Theme) {
     theme.table_hover = theme.list_hover;
     theme.table_active = theme.list_active;
     theme.table_active_border = theme.list_active_border;
-    theme.table_row_border = theme.border.opacity(0.45);
+    theme.table_row_border = theme.border;
     normalize_button_palette(theme);
 }
 
-/// 所有通用按钮从应用语义色派生，防止默认、选中、悬停和按下状态混用上游配色。
-/// 每组同时设置背景和文字；业务视图只选择语义，不再自行指定近似颜色。
+/// 主按钮使用原型的中性色；状态按钮保留各自的状态色。
 fn normalize_button_palette(theme: &mut Theme) {
     theme.button = theme.secondary;
     theme.button_hover = theme.muted;
@@ -238,16 +237,19 @@ pub fn current_mode(cx: &App) -> Mode {
 /// JetBrains 风格深色工作区配色：中性深灰承载层次，蓝色只用于焦点、选中和动作。
 fn apply_dark_palette(theme: &mut Theme) {
     let pulse = crate::pulse_ui::pulse_palette_for_mode(Mode::Dark);
-    let accent = rgb(0x6aacf0).into();
-    let accent_hover = hsl(209.0, 100.0, 72.0);
-    let accent_active = hsl(209.0, 100.0, 55.0);
+    let accent = rgb(0x82b9ff).into();
+    let accent_hover = hsl(209.0, 100.0, 78.0);
+    let accent_active = hsl(209.0, 100.0, 72.0);
+    let primary: Hsla = rgb(0xededed).into();
+    let primary_hover = primary.opacity(0.88);
+    let row_hover = rgb(0x202020).into();
 
     theme.accent = accent;
-    theme.accent_foreground = hsl(0.0, 0.0, 100.0);
-    theme.primary = accent;
-    theme.primary_hover = accent_hover;
-    theme.primary_active = accent_active;
-    theme.primary_foreground = pulse.background;
+    theme.accent_foreground = rgb(0x111111).into();
+    theme.primary = primary;
+    theme.primary_hover = primary_hover;
+    theme.primary_active = primary_hover;
+    theme.primary_foreground = rgb(0x111111).into();
 
     theme.link = accent_hover;
     theme.link_hover = hsl(209.0, 100.0, 78.0);
@@ -260,41 +262,40 @@ fn apply_dark_palette(theme: &mut Theme) {
     theme.title_bar_border = pulse.border;
 
     theme.border = pulse.border;
-    theme.input = pulse.raised;
+    theme.input = pulse.background;
 
     theme.foreground = pulse.text;
-    theme.muted = pulse.raised;
+    theme.muted = row_hover;
     theme.muted_foreground = pulse.muted;
     theme.secondary_foreground = pulse.text;
 
-    theme.danger = hsl(355.0, 65.0, 68.0);
-    theme.danger_hover = hsl(355.0, 65.0, 74.0);
-    theme.danger_active = hsl(355.0, 65.0, 62.0);
-    theme.danger_foreground = theme.background;
+    theme.danger = rgb(0xff9b9b).into();
+    theme.danger_hover = rgb(0xffaaaa).into();
+    theme.danger_active = rgb(0xffbaba).into();
+    theme.danger_foreground = theme.primary_foreground;
 
-    theme.success = hsl(120.0, 50.0, 45.0);
-    theme.success_hover = hsl(120.0, 50.0, 52.0);
-    theme.success_active = hsl(120.0, 50.0, 38.0);
-    theme.success_foreground = theme.background;
+    theme.success = rgb(0x74d5a2).into();
+    theme.success_hover = rgb(0x84dcb0).into();
+    theme.success_active = rgb(0x9be6c2).into();
+    theme.success_foreground = theme.primary_foreground;
 
-    theme.warning = hsl(40.0, 73.0, 61.0);
-    theme.warning_hover = hsl(40.0, 73.0, 68.0);
-    theme.warning_active = hsl(40.0, 73.0, 54.0);
-    theme.warning_foreground = theme.background;
+    theme.warning = rgb(0xe9bf75).into();
+    theme.warning_hover = rgb(0xedcc8e).into();
+    theme.warning_active = rgb(0xf1d7a8).into();
+    theme.warning_foreground = theme.primary_foreground;
 
     theme.info = accent;
     theme.info_hover = accent_hover;
     theme.info_active = accent_active;
-    theme.info_foreground = theme.background;
+    theme.info_foreground = theme.primary_foreground;
 
     theme.selection = pulse.selected;
 
-    // Match System Tool's selected surface while keeping hover restrained.
     theme.list_active = pulse.selected;
-    theme.list_active_border = accent.opacity(0.45);
-    theme.list_hover = accent.opacity(0.12);
+    theme.list_active_border = pulse.border;
+    theme.list_hover = row_hover;
 
-    theme.popover = pulse.raised;
+    theme.popover = pulse.surface;
     theme.popover_foreground = pulse.text;
 
     // 补全前缀高亮：暗色下浅蓝可见于选中态深蓝 bg
@@ -305,15 +306,18 @@ fn apply_dark_palette(theme: &mut Theme) {
 /// VSCode Light+ 配色
 fn apply_light_palette(theme: &mut Theme) {
     let pulse = crate::pulse_ui::pulse_palette_for_mode(Mode::Light);
-    let accent = rgb(0x326ead).into();
-    let accent_hover = hsl(207.0, 100.0, 32.0);
-    let accent_active = hsl(207.0, 100.0, 28.0);
+    let accent = rgb(0x175cbb).into();
+    let accent_hover = rgb(0x124b98).into();
+    let accent_active = rgb(0x0e3c7a).into();
+    let primary: Hsla = rgb(0x171717).into();
+    let primary_hover = primary.opacity(0.88);
+    let row_hover = rgb(0xeeeeee).into();
 
     theme.accent = accent;
     theme.accent_foreground = hsl(0.0, 0.0, 100.0);
-    theme.primary = accent;
-    theme.primary_hover = accent_hover;
-    theme.primary_active = accent_active;
+    theme.primary = primary;
+    theme.primary_hover = primary_hover;
+    theme.primary_active = primary_hover;
     theme.primary_foreground = hsl(0.0, 0.0, 100.0);
 
     theme.link = accent;
@@ -327,39 +331,39 @@ fn apply_light_palette(theme: &mut Theme) {
     theme.title_bar_border = pulse.border;
 
     theme.border = pulse.border;
-    theme.input = pulse.raised;
+    theme.input = pulse.background;
 
     theme.foreground = pulse.text;
-    theme.muted = pulse.raised;
+    theme.muted = row_hover;
     theme.muted_foreground = pulse.muted;
     theme.secondary_foreground = pulse.text;
 
-    theme.danger = hsl(0.0, 65.0, 48.0);
-    theme.danger_hover = hsl(0.0, 65.0, 42.0);
-    theme.danger_active = hsl(0.0, 65.0, 36.0);
-    theme.danger_foreground = hsl(0.0, 0.0, 100.0);
+    theme.danger = rgb(0xb92525).into();
+    theme.danger_hover = rgb(0xa71f1f).into();
+    theme.danger_active = rgb(0x921a1a).into();
+    theme.danger_foreground = theme.primary_foreground;
 
-    theme.success = hsl(120.0, 45.0, 35.0);
-    theme.success_hover = hsl(120.0, 45.0, 30.0);
-    theme.success_active = hsl(120.0, 45.0, 26.0);
-    theme.success_foreground = hsl(0.0, 0.0, 100.0);
+    // 原型浅色 r-green 在状态底色上不足 4.5:1，轻微加深后保留绿色语义。
+    theme.success = rgb(0x176f46).into();
+    theme.success_hover = rgb(0x14653f).into();
+    theme.success_active = rgb(0x105336).into();
+    theme.success_foreground = theme.primary_foreground;
 
-    theme.warning = hsl(34.0, 92.0, 32.0);
-    theme.warning_hover = hsl(34.0, 92.0, 28.0);
-    theme.warning_active = hsl(34.0, 92.0, 24.0);
-    theme.warning_foreground = hsl(0.0, 0.0, 100.0);
+    theme.warning = rgb(0x885913).into();
+    theme.warning_hover = rgb(0x754d10).into();
+    theme.warning_active = rgb(0x66420e).into();
+    theme.warning_foreground = theme.primary_foreground;
 
     theme.info = accent;
     theme.info_hover = accent_hover;
     theme.info_active = accent_active;
-    theme.info_foreground = hsl(0.0, 0.0, 100.0);
+    theme.info_foreground = theme.primary_foreground;
 
     theme.selection = pulse.selected;
 
-    // Keep selected lists and menus on the same cool neutral surface as System Tool.
     theme.list_active = pulse.selected;
-    theme.list_active_border = accent.opacity(0.30);
-    theme.list_hover = accent.opacity(0.07);
+    theme.list_active_border = pulse.border;
+    theme.list_hover = row_hover;
 
     theme.popover = pulse.surface;
     theme.popover_foreground = pulse.text;

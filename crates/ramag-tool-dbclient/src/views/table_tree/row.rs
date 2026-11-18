@@ -454,7 +454,7 @@ impl TableTreePanel {
                                 .bg(muted_bg)
                                 .text_xs()
                                 .text_color(if is_selected {
-                                    accent_fg
+                                    fg
                                 } else {
                                     size_status.color((fg, warning, danger, muted_fg))
                                 })

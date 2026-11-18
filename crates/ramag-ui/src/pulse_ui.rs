@@ -78,23 +78,24 @@ pub fn pulse_palette(cx: &gpui_kit::App) -> PulsePalette {
 pub(crate) fn pulse_palette_for_mode(mode: crate::theme::Mode) -> PulsePalette {
     if mode == crate::theme::Mode::Dark {
         PulsePalette {
-            background: rgb(0x242523).into(),
-            surface: rgb(0x1f201e).into(),
-            raised: rgb(0x2c2d2a).into(),
-            border: rgb(0x42443e).into(),
-            text: rgb(0xe2e4df).into(),
-            muted: rgb(0xa4a79e).into(),
-            selected: rgb(0x303b54).into(),
+            background: rgb(0x090909).into(),
+            surface: rgb(0x101010).into(),
+            raised: rgb(0x171717).into(),
+            border: rgb(0x282828).into(),
+            text: rgb(0xededed).into(),
+            muted: rgb(0xa1a1a1).into(),
+            selected: rgb(0x171717).into(),
         }
     } else {
         PulsePalette {
-            background: rgb(0xf3f4f1).into(),
-            surface: rgb(0xffffff).into(),
-            raised: rgb(0xe6e9e1).into(),
-            border: rgb(0xcbd0c5).into(),
-            text: rgb(0x252923).into(),
-            muted: rgb(0x596252).into(),
-            selected: rgb(0xdce8f7).into(),
+            background: rgb(0xffffff).into(),
+            surface: rgb(0xfafafa).into(),
+            raised: rgb(0xf4f4f4).into(),
+            border: rgb(0xe4e4e4).into(),
+            text: rgb(0x171717).into(),
+            // 采用原型的 r-muted；选中项和常用小字在最浅表面上仍通过对比检查。
+            muted: rgb(0x656565).into(),
+            selected: rgb(0xf4f4f4).into(),
         }
     }
 }

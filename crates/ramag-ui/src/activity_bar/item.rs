@@ -273,8 +273,7 @@ pub(super) fn activity_item(
         show_badge,
     } = decoration;
     let transparent = hsla(0.0, 0.0, 0.0, 0.0);
-    let mut selected_bg = accent;
-    selected_bg.a = 0.14;
+    let selected_bg = cx.theme().list_active;
     let mut hover_bg = cx.theme().muted;
     hover_bg.a = 0.72;
     let active_bg = if is_selected {
@@ -283,7 +282,7 @@ pub(super) fn activity_item(
         cx.theme().list_active
     };
     let foreground = if is_selected {
-        accent
+        cx.theme().foreground
     } else {
         cx.theme().muted_foreground
     };

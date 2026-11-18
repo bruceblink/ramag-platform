@@ -10,7 +10,7 @@ impl Render for CliConsole {
         let border = theme.border;
         let bg = theme.background;
         let secondary_bg = theme.secondary;
-        let accent = theme.primary;
+        let accent = theme.accent;
         let danger = theme.danger;
         let read_only_write = if self.config.production {
             let input = self.input.read(cx);
