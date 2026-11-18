@@ -4,6 +4,7 @@ mod diff;
 mod fields;
 mod preview;
 mod render;
+mod shift_scroll_capture;
 mod sql;
 #[cfg(test)]
 mod tests;

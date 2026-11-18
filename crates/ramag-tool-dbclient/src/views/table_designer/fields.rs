@@ -1,4 +1,6 @@
+use super::shift_scroll_capture::ShiftScrollCapture;
 use super::*;
+use gpui_kit::{Axis, base::ScrollableMask};
 
 impl TableDesigner {
     pub(super) fn render_field_editor(
@@ -28,11 +30,18 @@ impl TableDesigner {
             if field.deleted {
                 continue;
             }
+            let row_selector = format!("table-designer-field-row-{index}");
+            let nullable_selector = format!("field-nullable-{index}");
             let toggle = entity.clone();
             let remove = entity.clone();
             rows =
                 rows.child(
                     h_flex()
+                        .id(row_selector.clone())
+                        .debug_selector({
+                            let row_selector = row_selector.clone();
+                            move || row_selector.clone()
+                        })
                         .w_full()
                         .min_h(px(FIELD_ROW_HEIGHT))
                         .items_center()
@@ -55,7 +64,11 @@ impl TableDesigner {
                         )
                         .child(
                             h_flex().w(px(76.0)).items_center().justify_center().child(
-                                ramag_ui::clickable_checkbox(format!("field-nullable-{index}"))
+                                ramag_ui::clickable_checkbox(nullable_selector.clone())
+                                    .debug_selector({
+                                        let nullable_selector = nullable_selector.clone();
+                                        move || nullable_selector.clone()
+                                    })
                                     .checked(field.nullable)
                                     .small()
                                     .disabled(reviewing || self.executing)
@@ -160,12 +173,25 @@ impl TableDesigner {
                                     .w_full()
                                     .h(rows_height)
                                     .min_h_0()
-                                    .flex_none()
-                                    .id("table-designer-fields-scroll")
-                                    .debug_selector(|| "table-designer-fields-scroll".into())
-                                    .overflow_y_scroll()
-                                    .track_scroll(&self.field_scroll)
-                                    .child(rows),
+                                    .relative()
+                                    // 这个标记指向固定高度的行视口，不包含可滚动的全部字段行。
+                                    .debug_selector(|| "table-designer-fields-row-viewport".into())
+                                    .child(
+                                        div()
+                                            .w_full()
+                                            .h(rows_height)
+                                            .min_h_0()
+                                            .flex_none()
+                                            .id("table-designer-fields-scroll")
+                                            .debug_selector(|| {
+                                                "table-designer-fields-scroll".into()
+                                            })
+                                            .overflow_y_scroll()
+                                            .track_scroll(&self.field_scroll)
+                                            .child(rows),
+                                    )
+                                    .child(ShiftScrollCapture::new(entity.clone()))
+                                    .child(ScrollableMask::new(Axis::Vertical, &self.field_scroll)),
                             ),
                     ),
             )

@@ -243,12 +243,20 @@ impl Render for TableDesigner {
                         })
                         .child(if compact_height {
                             div()
+                                .id("table-designer-field-editor-viewport")
+                                .debug_selector(|| "table-designer-field-editor-viewport".into())
                                 .h(compact_body_height)
                                 .max_h(compact_body_height)
                                 .min_h_0()
-                                .debug_selector(|| "table-designer-field-editor-viewport".into())
-                                .overflow_y_scrollbar()
-                                .child(field_editor)
+                                // 视口标记位于滚动器外层，内部节点可保留完整字段内容高度。
+                                .child(
+                                    div()
+                                        .h(compact_body_height)
+                                        .max_h(compact_body_height)
+                                        .min_h_0()
+                                        .overflow_y_scrollbar()
+                                        .child(field_editor),
+                                )
                                 .into_any_element()
                         } else {
                             div()
