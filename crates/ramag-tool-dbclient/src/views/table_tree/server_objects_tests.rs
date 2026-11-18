@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ramag_domain::entities::{ServerObject, ServerObjectGroup, VirtualView};
+use ramag_domain::error::DomainError;
 
 use super::TableTreeNavigation;
 use super::navigation::TableTreeFilter;
@@ -125,16 +126,139 @@ fn virtual_views_keep_read_only_sessions_visible_and_filterable() {
 
 #[test]
 fn virtual_views_keep_refresh_error_distinct_from_empty_state() {
-    let state = VirtualViewsState {
+    let mut state = VirtualViewsState {
         is_expanded: true,
-        error: Some("权限不足".into()),
+        loading: true,
         ..Default::default()
     };
+    state.finish_load(Err(DomainError::NotImplemented(
+        "list_virtual_views".into(),
+    )));
+    state.loading = true;
+    state.finish_load(Err(DomainError::QueryFailed("权限不足".into())));
+    assert!(!state.unsupported);
+    assert!(
+        state
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("权限不足"))
+    );
     let view = build_with_virtual_views(&state, "");
     assert!(view.rows.iter().any(|row| {
         matches!(row, TreeRow::SchemaPlaceholder { text, is_error: true } if text.contains("权限不足"))
     }));
     assert!(!view.rows.iter().any(|row| {
+        matches!(row, TreeRow::SchemaPlaceholder { text, is_error: false } if text == "（无会话）")
+    }));
+}
+
+#[test]
+fn unsupported_virtual_views_are_hidden_without_reporting_a_failure() {
+    let mut state = VirtualViewsState {
+        is_expanded: true,
+        loading: true,
+        ..Default::default()
+    };
+    state.finish_load(Err(DomainError::NotImplemented(
+        "list_virtual_views".into(),
+    )));
+
+    assert!(!state.loading);
+    assert!(state.unsupported);
+    assert!(state.error.is_none());
+    let view = build_with_virtual_views(&state, "");
+    assert!(!view.rows.iter().any(|row| {
+        matches!(
+            row,
+            TreeRow::ServerObject {
+                kind: ExplorerRowKind::VirtualRoot | ExplorerRowKind::VirtualItem,
+                ..
+            }
+        )
+    }));
+    assert!(!view.rows.iter().any(|row| {
+        matches!(row, TreeRow::SchemaPlaceholder { text, is_error: true } if text.contains("Virtual views"))
+    }));
+}
+
+#[test]
+fn virtual_views_connection_reset_clears_unsupported_state() {
+    let mut state = VirtualViewsState {
+        is_expanded: true,
+        loading: true,
+        ..Default::default()
+    };
+    state.finish_load(Err(DomainError::NotImplemented(
+        "list_virtual_views".into(),
+    )));
+    assert!(state.unsupported);
+
+    state.reset_for_connection();
+    assert!(!state.unsupported);
+    assert!(state.error.is_none());
+    assert!(!state.loading);
+    assert!(state.views.is_empty());
+}
+
+#[test]
+fn virtual_views_refresh_success_restores_supported_state() {
+    let mut state = VirtualViewsState {
+        is_expanded: true,
+        loading: true,
+        ..Default::default()
+    };
+    state.finish_load(Err(DomainError::NotImplemented(
+        "list_virtual_views".into(),
+    )));
+    assert!(state.unsupported);
+    state.loading = true;
+    state.finish_load(Ok(vec![VirtualView {
+        name: "sessions".into(),
+        detail: Some("只读会话快照".into()),
+        read_only: true,
+    }]));
+    assert!(!state.unsupported);
+    assert!(state.error.is_none());
+    let view = build_with_virtual_views(&state, "");
+    assert!(view.rows.iter().any(|row| {
+        matches!(
+            row,
+            TreeRow::ServerObject {
+                kind: ExplorerRowKind::VirtualItem,
+                label,
+                ..
+            } if label == "sessions"
+        )
+    }));
+}
+
+#[test]
+fn supported_virtual_views_can_return_an_empty_list() {
+    let mut state = VirtualViewsState {
+        is_expanded: true,
+        loading: true,
+        ..Default::default()
+    };
+    state.finish_load(Err(DomainError::NotImplemented(
+        "list_virtual_views".into(),
+    )));
+    state.loading = true;
+    state.finish_load(Ok(Vec::new()));
+
+    assert!(!state.unsupported);
+    assert!(state.error.is_none());
+    let view = build_with_virtual_views(&state, "");
+    assert!(view.rows.iter().any(|row| {
+        matches!(
+            row,
+            TreeRow::ServerObject {
+                kind: ExplorerRowKind::VirtualRoot,
+                count: 0,
+                ..
+            }
+        )
+    }));
+    assert!(view.rows.iter().any(|row| {
         matches!(row, TreeRow::SchemaPlaceholder { text, is_error: false } if text == "（无会话）")
     }));
 }

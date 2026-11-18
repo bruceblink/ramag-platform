@@ -6,6 +6,7 @@ use gpui_kit::{
     StatefulInteractiveElement, Styled, div, px,
 };
 use ramag_domain::entities::{VirtualView, contains_case_insensitive};
+use ramag_domain::error::DomainError;
 use tracing::error;
 
 use super::server_objects::ExplorerRowKind;
@@ -16,6 +17,8 @@ pub(super) struct VirtualViewsState {
     pub(super) loading: bool,
     pub(super) views: Vec<VirtualView>,
     pub(super) error: Option<String>,
+    /// 标记驱动未实现该可选目录；这不是一次元数据加载失败。
+    pub(super) unsupported: bool,
     pub(super) is_expanded: bool,
     pub(super) request_generation: u64,
 }
@@ -26,8 +29,30 @@ impl VirtualViewsState {
         self.loading = false;
         self.views.clear();
         self.error = None;
+        self.unsupported = false;
         self.is_expanded = true;
         self.request_generation = self.request_generation.wrapping_add(1);
+    }
+
+    /// 分开记录“驱动不支持”和“支持但无条目”，保留真实加载错误。
+    pub(super) fn finish_load(&mut self, result: ramag_domain::error::Result<Vec<VirtualView>>) {
+        self.loading = false;
+        match result {
+            Ok(views) => {
+                self.unsupported = false;
+                self.views = views;
+                self.error = None;
+            }
+            Err(DomainError::NotImplemented(_)) => {
+                self.unsupported = true;
+                self.views.clear();
+                self.error = None;
+            }
+            Err(error) => {
+                self.unsupported = false;
+                self.error = Some(error.to_string());
+            }
+        }
     }
 }
 
@@ -49,7 +74,9 @@ impl TableTreePanel {
         let service = self.service.clone();
         cx.spawn(async move |this, cx| {
             let result = service.list_virtual_views(&conn).await;
-            if let Err(error) = &result {
+            if let Err(error) = &result
+                && !matches!(error, DomainError::NotImplemented(_))
+            {
                 error!(
                     operation = "sql_metadata_virtual_views",
                     connection_id = %conn.id,
@@ -66,11 +93,7 @@ impl TableTreePanel {
                 if !is_current {
                     return;
                 }
-                this.virtual_views.loading = false;
-                match result {
-                    Ok(views) => this.virtual_views.views = views,
-                    Err(error) => this.virtual_views.error = Some(error.to_string()),
-                }
+                this.virtual_views.finish_load(result);
                 this.invalidate_tree_rows();
                 cx.notify();
             });
@@ -87,6 +110,10 @@ impl TableTreePanel {
 
 /// 将只读虚拟视图目录转换为对象树行，并保持空结果和刷新失败可见。
 pub(super) fn append_rows(rows: &mut Vec<TreeRow>, state: &VirtualViewsState, filter: &str) {
+    if state.unsupported {
+        return;
+    }
+
     let has_filter = !filter.is_empty();
     let root_matches = !has_filter
         || contains_case_insensitive("Virtual views", filter)
