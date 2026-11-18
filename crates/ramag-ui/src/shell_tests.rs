@@ -6,11 +6,16 @@ use gpui_kit::{
     AppContext, Context, Entity, IntoElement, Modifiers, ParentElement, Render, Styled,
     TestAppContext, VisualTestContext, Window, div, px, size,
 };
-use ramag_app::{DataSyncGate, StaticPluginHost, ToolRegistry};
-use ramag_domain::{PluginDescriptor, PluginEntryDescriptor, PluginId, Tool, ToolMeta};
+use ramag_app::{DataSyncExecutionContext, DataSyncGate, StaticPluginHost, ToolRegistry};
+use ramag_domain::{
+    PluginDescriptor, PluginEntryDescriptor, PluginId, Tool, ToolMeta, entities::DataSyncTaskId,
+};
 
-use super::{Shell, WindowBoundsPref};
+use super::{NavTarget, Shell, WindowBoundsPref};
 use crate::HomeView;
+
+#[path = "shell/keyboard_navigation_tests.rs"]
+mod keyboard_navigation_tests;
 
 struct DummyTool {
     meta: ToolMeta,
@@ -104,6 +109,63 @@ fn standard_entry_view_is_created_only_after_activation(cx: &mut TestAppContext)
             .debug_bounds("plugin-entry-view-lazy.entry")
             .is_some()
     );
+}
+
+/// 验证数据同步期间，活动栏导航不会改变当前页面或选中入口。
+#[gpui_kit::test]
+fn navigation_is_blocked_while_data_sync_is_active(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let registry = Arc::new(ToolRegistry::new());
+    registry.register(Arc::new(DummyTool {
+        meta: ToolMeta::new("api", "API", ""),
+    }));
+    let plugin_host = Arc::new(StaticPluginHost::new(registry.clone()));
+    let gate = Arc::new(DataSyncGate::default());
+    let mut shell_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let shell = cx.new(|cx| {
+            Shell::new(
+                registry.clone(),
+                plugin_host.clone(),
+                gate.clone(),
+                window,
+                cx,
+            )
+        });
+        shell_entity = Some(shell.clone());
+        ShellHost { shell }
+    });
+    let visual_cx: &mut VisualTestContext = visual_cx;
+    visual_cx.run_until_parked();
+    let permit = gate
+        .begin(
+            DataSyncTaskId::new(),
+            DataSyncExecutionContext {
+                source_connection: "source".into(),
+                source_scope: "source-db".into(),
+                target_connection: "target".into(),
+                target_scope: "target-db".into(),
+            },
+        )
+        .expect("应能启动测试数据同步任务");
+
+    let shell = shell_entity.as_ref().expect("Shell 实体应创建").clone();
+    visual_cx.update(|window, app| {
+        shell.update(app, |shell, cx| {
+            shell.navigation_open = true;
+            shell.navigate_to(NavTarget::Tool("api".into()), window, cx);
+        });
+    });
+    visual_cx.run_until_parked();
+    assert_eq!(
+        shell.read_with(visual_cx, |shell, _| shell.selected.clone()),
+        None
+    );
+    assert!(shell.read_with(visual_cx, |shell, _| shell.navigation_open));
+    assert!(visual_cx.debug_bounds("plugin-entry-view-api").is_none());
+
+    assert!(gate.finish_completed(&permit, ramag_domain::entities::DataSyncSummary::default()));
+    assert!(gate.acknowledge_and_release(&permit));
 }
 
 /// 验证剪贴板入口同时出现在首页和活动栏，且首页点击能打开对应工具详情。

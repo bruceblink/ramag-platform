@@ -121,10 +121,10 @@ fn home_view_scrolls_and_fits_compact_windows(cx: &mut TestAppContext) {
             assert_eq!(header.size.width, grid.size.width, "标题与工具网格宽度一致");
             let first_card = bounds(visual_cx, "home-tool-home-test-0");
             let fourth_card = bounds(visual_cx, "home-tool-home-test-3");
-            if width >= 1024.0 {
+            if super::grid_columns(width) >= 4 {
                 assert_eq!(first_card.origin.y, fourth_card.origin.y);
                 assert!(fourth_card.origin.x > first_card.origin.x);
-            } else if width == 360.0 {
+            } else {
                 assert!(fourth_card.origin.y > first_card.origin.y);
             }
             for (selector, title_selector, description_selector) in [

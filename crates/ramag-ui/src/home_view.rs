@@ -418,9 +418,14 @@ fn home_grid_width(columns: usize, card_width: f32) -> f32 {
     card_width * columns as f32 + TOOL_CARD_GAP * columns.saturating_sub(1) as f32
 }
 
-/// Return the main-pane width available to the home grid after the activity bar and padding.
+/// 按当前窗口断点扣除实际侧栏宽度，避免首页网格超出主内容区。
 fn home_content_width(window_width: f32) -> f32 {
-    (window_width - 48.0 - home_content_padding(window_width) * 2.0).max(0.0)
+    let sidebar_width = if window_width <= crate::shell::SHELL_NARROW_BREAKPOINT {
+        0.0
+    } else {
+        crate::activity_bar::BAR_WIDTH
+    };
+    (window_width - sidebar_width - home_content_padding(window_width) * 2.0).max(0.0)
 }
 
 /// Use smaller edge padding on compact windows so one card still has usable width.
@@ -517,7 +522,7 @@ mod visual_tests;
 mod tests {
     use super::{
         GOLDEN_RATIO, TOOL_CARD_GAP, TOOL_CARD_WIDTH, grid_columns, home_card_height,
-        reorder_animation_offset_for_width,
+        home_content_width, reorder_animation_offset_for_width,
     };
 
     #[test]
@@ -531,8 +536,11 @@ mod tests {
         for (window_width, expected_columns) in [
             (360.0, 1),
             (600.0, 2),
-            (900.0, 3),
-            (1024.0, 4),
+            (720.0, 2),
+            (760.0, 3),
+            (761.0, 2),
+            (900.0, 2),
+            (1024.0, 3),
             (1200.0, 4),
             (1440.0, 5),
             (1689.0, 6),
@@ -544,6 +552,15 @@ mod tests {
                 "window width {window_width}"
             );
         }
+    }
+
+    #[test]
+    fn home_grid_uses_the_shell_width_at_narrow_and_desktop_breakpoints() {
+        assert_eq!(home_content_width(360.0), 336.0);
+        assert_eq!(home_content_width(720.0), 672.0);
+        assert_eq!(home_content_width(760.0), 712.0);
+        assert_eq!(home_content_width(761.0), 517.0);
+        assert_eq!(home_content_width(1440.0), 1196.0);
     }
 
     #[test]

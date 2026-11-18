@@ -1,16 +1,22 @@
+//! 活动栏：管理工具入口、选中状态与拖拽排序。
+
+mod item;
+
+use item::{
+    ActivityItemConfig, ActivityItemDecoration, activity_item, command_item_height, manager_button,
+    tool_icon_path,
+};
+
 use gpui_kit::component::{
-    ActiveTheme, Icon, IconName,
+    ActiveTheme, Icon,
     animation::{EffectTransition, ease_in_out_cubic},
-    badge::Badge,
-    button::ButtonVariants as _,
-    h_flex,
     scroll::ScrollableElement as _,
     v_flex,
 };
 use gpui_kit::{
     App, AppContext as _, BorrowAppContext as _, ClickEvent, Context, DragMoveEvent, Entity,
-    EventEmitter, Global, IntoElement, MouseButton, ParentElement, Render, ScrollHandle,
-    SharedString, Styled, Subscription, Window, div, hsla, prelude::*, px,
+    EventEmitter, FocusHandle, Global, IntoElement, KeyDownEvent, MouseButton, ParentElement,
+    Render, ScrollHandle, SharedString, Styled, Subscription, Window, div, prelude::*, px,
 };
 use ramag_app::{StaticPluginHost, ToolRegistry, UpdateCheckResult};
 use ramag_domain::ToolMeta;
@@ -19,10 +25,10 @@ use std::sync::Arc;
 use crate::REORDER_TRANSITION_DURATION;
 use crate::icons;
 use crate::tool_layout::{
-    ACTIVITY_ITEM_GAP, DRAGGED_ITEM_OPACITY, ToolDrag, ToolDragGlobal, ToolDragPreview,
+    ACTIVITY_ITEM_GAP, ACTIVITY_ITEM_HEIGHT, DRAGGED_ITEM_OPACITY, ToolDrag, ToolDragGlobal,
     ToolDragSurface, ToolDropSide, ToolLayoutGlobal, activity_drop_indicator,
-    activity_drop_target_from_position, activity_reorder_animation_offset, begin_tool_drag,
-    clear_tool_drag, dragged_item_background, notify_tool_layout_changed, persist_tool_order,
+    activity_drop_target_from_position, activity_reorder_animation_offset, clear_tool_drag,
+    dragged_item_background, notify_tool_layout_changed, persist_tool_order,
     tool_drag_display_slots, tool_drag_state, tool_drop_index, update_tool_drop_target,
 };
 use crate::tool_surface_manager::{
@@ -39,16 +45,21 @@ pub enum NavTarget {
 #[derive(Debug, Clone)]
 pub enum NavEvent {
     Navigate(NavTarget),
+    CloseNavigation,
 }
 
-pub(crate) const BAR_WIDTH: f32 = 48.0;
-const ITEM_HEIGHT: f32 = 40.0;
+/// 桌面侧栏宽度；也用于侧栏工具管理弹层的可用宽度计算。
+pub(crate) const BAR_WIDTH: f32 = 196.0;
+const COMPACT_BAR_WIDTH: f32 = 62.0;
+const COMPACT_CONTENT_WIDTH: f32 = 54.0;
+const WORKBENCH_COMPACT_MAX_WIDTH: f32 = 1100.0;
 
 pub struct ActivityBar {
     registry: Arc<ToolRegistry>,
     plugin_host: Arc<StaticPluginHost>,
     selected: NavTarget,
     tool_manager: Option<Entity<ToolSurfaceManager>>,
+    focus_handle: FocusHandle,
     last_rendered_slots: Vec<Option<String>>,
     /// 保留工具列表滚动位置；固定的首页和设置入口不参与滚动。
     tool_scroll: ScrollHandle,
@@ -64,34 +75,6 @@ pub(crate) struct UpdateIndicatorGlobal {
 }
 
 impl Global for UpdateIndicatorGlobal {}
-
-struct ActivityItemDecoration {
-    tooltip: SharedString,
-    show_badge: bool,
-}
-
-impl ActivityItemDecoration {
-    fn new(tooltip: impl Into<SharedString>, show_badge: bool) -> Self {
-        Self {
-            tooltip: tooltip.into(),
-            show_badge,
-        }
-    }
-}
-
-type ActivityClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut gpui_kit::App) + 'static>;
-
-struct ActivityItemConfig {
-    id: SharedString,
-    icon: Icon,
-    is_selected: bool,
-    accent: gpui_kit::Hsla,
-    decoration: ActivityItemDecoration,
-    on_click: ActivityClickHandler,
-    tool_drag: Option<ToolDrag>,
-    source_index: Option<usize>,
-    source_background: Option<gpui_kit::Hsla>,
-}
 
 /// 将更新检查结果同步到设置入口角标。
 pub fn sync_update_indicator(result: &UpdateCheckResult, cx: &mut App) {
@@ -127,11 +110,13 @@ impl ActivityBar {
             .into_iter()
             .map(|tool| Some(tool.meta().id.clone()))
             .collect();
+        let focus_handle = cx.focus_handle();
         Self {
             registry,
             plugin_host,
             selected: NavTarget::Home,
             tool_manager: None,
+            focus_handle,
             last_rendered_slots,
             tool_scroll: ScrollHandle::new(),
             _update_indicator_subscription: update_indicator_subscription,
@@ -147,10 +132,13 @@ impl ActivityBar {
         }
     }
 
+    /// 桌面侧栏重新出现时恢复键盘焦点。
+    pub(crate) fn focus_navigation(&self, window: &mut Window, cx: &mut App) {
+        self.focus_handle.focus(window, cx);
+    }
+
     fn navigate(&mut self, target: NavTarget, cx: &mut Context<Self>) {
-        self.selected = target.clone();
         cx.emit(NavEvent::Navigate(target));
-        cx.notify();
     }
 
     /// 在释放时一次性提交最终槽位，保存偏好并通知首页与侧栏同步重绘。
@@ -175,28 +163,14 @@ impl ActivityBar {
     pub(crate) fn icon_for_meta(meta: &ToolMeta) -> Icon {
         Icon::default().path(tool_icon_path(&meta.id, meta.icon.as_deref()))
     }
-}
 
-/// 将工具元数据映射到内嵌 SVG，避免上游字体图标在不同平台回退成相同外观。
-/// `declared_icon` 只允许使用本地白名单，未知插件图标统一回退到工具箱图标。
-fn tool_icon_path(tool_id: &str, declared_icon: Option<&str>) -> &'static str {
-    match declared_icon.unwrap_or(tool_id) {
-        "database" | "dbclient" => "icons/database.svg",
-        "git_branch" | "vcs" => "icons/git-branch.svg",
-        "clipboard" => "icons/clipboard.svg",
-        "terminal" | "ssh" => "icons/terminal.svg",
-        "gauge" | "system" => "icons/gauge.svg",
-        "box" | "container" => "icons/container.svg",
-        "server" | "kafka" => "icons/kafka.svg",
-        "mqtt" => "icons/mqtt.svg",
-        "api" => "icons/api.svg",
-        "braces" | "jsonfmt" => "icons/json.svg",
-        "cloud" | "object-storage" | "object_storage" => "icons/cloud.svg",
-        "users" => "icons/users.svg",
-        "plugin" | "plugins" => "icons/plugin.svg",
-        "url" | "globe" => "icons/globe.svg",
-        "hash" => "icons/hash.svg",
-        _ => "icons/toolbox.svg",
+    /// 共享导航沿用原型的 API 花括号图标；首页继续使用产品原有图标。
+    fn navigation_icon_for_meta(meta: &ToolMeta) -> Icon {
+        if meta.id == "api" {
+            Icon::new(gpui_kit::assets::IconName::Braces)
+        } else {
+            Self::icon_for_meta(meta)
+        }
     }
 }
 
@@ -216,9 +190,41 @@ impl Render for ActivityBar {
                 manager
             }
         };
-        let theme = cx.theme();
+        let (accent, sidebar_bg, border, foreground, muted_foreground) = {
+            let theme = cx.theme();
+            (
+                theme.accent,
+                theme.sidebar,
+                theme.border,
+                theme.foreground,
+                theme.muted_foreground,
+            )
+        };
         let tools = self.registry.sidebar_list();
         let selected = self.selected.clone();
+        let viewport_width = f32::from(window.viewport_size().width);
+        let navigation_label = if viewport_width <= crate::shell::SHELL_NARROW_BREAKPOINT {
+            "移动端工具导航"
+        } else {
+            "主导航"
+        };
+        let inline_compact = viewport_width > crate::shell::SHELL_NARROW_BREAKPOINT
+            && viewport_width <= WORKBENCH_COMPACT_MAX_WIDTH
+            && matches!(&selected, NavTarget::Tool(id) if id == "api" || id == "dbclient");
+        let short_viewport = f32::from(window.viewport_size().height) < 360.0;
+        let sidebar_width = if viewport_width <= crate::shell::SHELL_NARROW_BREAKPOINT {
+            crate::shell::navigation_drawer_width(viewport_width)
+        } else if inline_compact {
+            COMPACT_BAR_WIDTH
+        } else {
+            BAR_WIDTH
+        };
+        let sidebar_content_width = if inline_compact {
+            COMPACT_CONTENT_WIDTH
+        } else {
+            (sidebar_width - 20.0).max(0.0)
+        };
+        let label_visible = !inline_compact;
         let tool_order = tools
             .iter()
             .map(|tool| tool.meta().id.clone())
@@ -230,7 +236,6 @@ impl Render for ActivityBar {
             std::mem::replace(&mut self.last_rendered_slots, display_slots.clone());
         let layout_revision = cx.read_global::<ToolLayoutGlobal, _>(|state, _| state.revision);
 
-        let accent = theme.accent;
         let target = drag_state
             .target
             .as_ref()
@@ -251,9 +256,6 @@ impl Render for ActivityBar {
         } else {
             "设置".to_string()
         };
-        let sidebar_bg = theme.sidebar;
-        let border = theme.border;
-
         let mut tool_items = Vec::with_capacity(display_slots.len());
         for slot in &display_slots {
             let Some(id) = slot else {
@@ -267,16 +269,21 @@ impl Render for ActivityBar {
                 continue;
             };
             let id_for_click = id.clone();
+            let label = tool.meta().name.clone();
             let is_selected = matches!(&selected, NavTarget::Tool(s) if s == id);
             let is_dragged = drag_state.dragged_id.as_deref() == Some(id.as_str());
             let mut item = activity_item(
                 ActivityItemConfig {
                     id: format!("tool-{id}").into(),
-                    icon: Self::icon_for_meta(tool.meta()),
+                    icon: Self::navigation_icon_for_meta(tool.meta()),
                     is_selected,
+                    height: ACTIVITY_ITEM_HEIGHT,
+                    item_width: sidebar_content_width,
+                    label_visible,
                     accent,
                     decoration: ActivityItemDecoration::new(
-                        SharedString::from(tool.meta().name.clone()),
+                        SharedString::from(label.clone()),
+                        SharedString::from(label),
                         false,
                     ),
                     on_click: Box::new(cx.listener(move |this, _: &ClickEvent, _, cx| {
@@ -307,8 +314,8 @@ impl Render for ActivityBar {
             tool_items.push(
                 div()
                     .relative()
-                    .w(px(BAR_WIDTH))
-                    .h(px(ITEM_HEIGHT))
+                    .w(px(sidebar_content_width))
+                    .h(px(ACTIVITY_ITEM_HEIGHT))
                     .child(item)
                     .into_any_element(),
             );
@@ -318,7 +325,7 @@ impl Render for ActivityBar {
         let drop_end_target = drop_end_index.saturating_sub(1);
         let mut tool_list = v_flex()
             .id("activity-tool-list")
-            .w(px(BAR_WIDTH))
+            .w(px(sidebar_content_width))
             .flex_none()
             .gap(px(ACTIVITY_ITEM_GAP))
             .relative()
@@ -344,7 +351,7 @@ impl Render for ActivityBar {
             .child(
                 div()
                     .id("activity-tool-drop-end")
-                    .w(px(BAR_WIDTH))
+                    .w(px(sidebar_content_width))
                     .h(px(8.0))
                     .flex_none()
                     .on_mouse_move(cx.listener(move |_, _, _, cx| {
@@ -366,11 +373,13 @@ impl Render for ActivityBar {
                 target_index,
                 target_side,
                 item_count,
+                sidebar_content_width,
             )
         {
             tool_list = tool_list.child(
                 indicator
                     .id("activity-tool-drop-indicator")
+                    .debug_selector(|| "activity-tool-drop-indicator".into())
                     .on_mouse_move(cx.listener(move |_, _, _, cx| {
                         update_tool_drop_target(
                             ToolDragSurface::ActivityBar,
@@ -388,26 +397,70 @@ impl Render for ActivityBar {
         let mut container = v_flex()
             .id("activity-bar")
             .debug_selector(|| "activity-bar".into())
-            .w(px(BAR_WIDTH))
+            .role(gpui_kit::Role::Navigation)
+            .aria_label(navigation_label)
+            .w(px(sidebar_width))
             .h_full()
             .min_h_0()
             .flex_none()
             .bg(sidebar_bg)
             .border_r_1()
             .border_color(border)
-            .py_2()
-            .gap_1()
-            .items_center()
+            .pt(px(if short_viewport { 8.0 } else { 18.0 }))
+            .pb(px(if short_viewport { 8.0 } else { 12.0 }))
+            .px(px(if inline_compact { 4.0 } else { 10.0 }))
+            .track_focus(&self.focus_handle)
+            .when(inline_compact, |container| container.items_center())
+            .when(!inline_compact, |container| container.items_stretch())
+            .on_key_down(cx.listener(|_, event: &KeyDownEvent, window, cx| {
+                if f32::from(window.viewport_size().width) <= crate::shell::SHELL_NARROW_BREAKPOINT
+                    && event.keystroke.key == "escape"
+                {
+                    cx.emit(NavEvent::CloseNavigation);
+                    cx.stop_propagation();
+                }
+            }))
             .on_mouse_up(MouseButton::Left, |_, _, cx| clear_tool_drag(cx));
 
+        let brand_row = item::activity_brand_row(
+            viewport_width <= crate::shell::SHELL_NARROW_BREAKPOINT,
+            inline_compact,
+            foreground,
+            border,
+        );
+        let mut brand_block = v_flex()
+            .id("activity-brand-block")
+            .debug_selector(|| "activity-brand-block".into())
+            .w_full()
+            .flex_none()
+            .gap(px(if short_viewport { 0.0 } else { 18.0 }))
+            .child(brand_row);
+        if !inline_compact && !short_viewport {
+            brand_block = brand_block.child(
+                div()
+                    .id("activity-workspace-label")
+                    .debug_selector(|| "activity-workspace-label".into())
+                    .w_full()
+                    .h(px(12.0))
+                    .px(px(8.0))
+                    .text_xs()
+                    .text_color(muted_foreground)
+                    .child("本地工作区"),
+            );
+        }
+        container = container.child(brand_block);
+
         let is_home_selected = matches!(selected, NavTarget::Home);
-        container = container.child(activity_item(
+        let home_item = activity_item(
             ActivityItemConfig {
                 id: "home".into(),
                 icon: icons::home(),
                 is_selected: is_home_selected,
+                height: ACTIVITY_ITEM_HEIGHT,
+                item_width: sidebar_content_width,
+                label_visible,
                 accent,
-                decoration: ActivityItemDecoration::new("首页", false),
+                decoration: ActivityItemDecoration::new("工具总览", "工具总览", false),
                 on_click: Box::new(cx.listener(|this, _: &ClickEvent, _, cx| {
                     this.navigate(NavTarget::Home, cx);
                 })),
@@ -416,14 +469,34 @@ impl Render for ActivityBar {
                 source_background: None,
             },
             cx,
-        ));
+        );
+        container = container.child(
+            div()
+                .w_full()
+                .flex_none()
+                .mt(px(if short_viewport { 4.0 } else { 18.0 }))
+                .child(home_item),
+        );
 
-        container = container.child(div().w(px(20.0)).h(px(1.0)).bg(border).my_1());
+        if !inline_compact && !short_viewport {
+            container = container.child(
+                div()
+                    .id("activity-tools-heading")
+                    .debug_selector(|| "activity-tools-heading".into())
+                    .w_full()
+                    .px(px(10.0))
+                    .pt(px(5.0))
+                    .pb(px(7.0))
+                    .text_size(px(11.0))
+                    .text_color(muted_foreground)
+                    .child("工具"),
+            );
+        }
         container = container.child(
             v_flex()
                 .id("activity-tool-scroll")
                 .debug_selector(|| "activity-tool-scroll".into())
-                .w(px(BAR_WIDTH))
+                .w(px(sidebar_content_width))
                 .flex_1()
                 .min_h_0()
                 .overflow_y_scroll()
@@ -431,22 +504,31 @@ impl Render for ActivityBar {
                 .vertical_scrollbar(&self.tool_scroll)
                 .child(tool_list),
         );
-        container = container.child(tool_surface_manager_popover(
+        let manager_trigger = manager_button(sidebar_content_width, label_visible, short_viewport);
+        let mut command_section = item::command_section(short_viewport, inline_compact)
+            .id("activity-command-section")
+            .debug_selector(|| "activity-command-section".into())
+            .w_full()
+            .flex_none()
+            .pt(px(if short_viewport { 8.0 } else { 14.0 }))
+            .border_t_1()
+            .border_color(border)
+            .gap(px(ACTIVITY_ITEM_GAP));
+        command_section = command_section.child(tool_surface_manager_popover(
             tool_manager,
             ToolDragSurface::ActivityBar,
-            crate::clickable_button("activity-tool-manager")
-                .debug_selector(|| "activity-tool-manager".into())
-                .ghost()
-                .icon(Icon::new(IconName::Plus))
-                .tooltip("管理首页和侧边栏工具的显示位置"),
+            manager_trigger,
         ));
-        container = container.child(activity_item(
+        command_section = command_section.child(activity_item(
             ActivityItemConfig {
                 id: "shortcuts".into(),
                 icon: crate::shortcuts_dialog::shortcut_icon(),
                 is_selected: false,
+                height: command_item_height(label_visible, short_viewport),
+                item_width: item::command_item_width(sidebar_content_width, short_viewport),
+                label_visible: item::command_label_visible(label_visible, short_viewport),
                 accent,
-                decoration: ActivityItemDecoration::new("快捷键", false),
+                decoration: ActivityItemDecoration::new("快捷键", "快捷键", false),
                 on_click: Box::new(|_: &ClickEvent, window, app| {
                     crate::shortcuts_dialog::open_shortcuts(window, app)
                 }),
@@ -457,13 +539,16 @@ impl Render for ActivityBar {
             cx,
         ));
         let settings_selected = matches!(selected, NavTarget::Settings);
-        container = container.child(activity_item(
+        command_section = command_section.child(activity_item(
             ActivityItemConfig {
                 id: "settings".into(),
                 icon: icons::settings(),
                 is_selected: settings_selected,
+                height: command_item_height(label_visible, short_viewport),
+                item_width: item::command_item_width(sidebar_content_width, short_viewport),
+                label_visible: item::command_label_visible(label_visible, short_viewport),
                 accent,
-                decoration: ActivityItemDecoration::new(settings_tooltip, settings_badge),
+                decoration: ActivityItemDecoration::new("设置", settings_tooltip, settings_badge),
                 on_click: Box::new(cx.listener(|this, _: &ClickEvent, _, cx| {
                     this.navigate(NavTarget::Settings, cx);
                 })),
@@ -473,98 +558,25 @@ impl Render for ActivityBar {
             },
             cx,
         ));
+        container = container.child(command_section);
+        // 原型的侧栏页脚只出现在完整文字导航中，不进入图标栏和窄屏抽屉。
+        if viewport_width > crate::shell::SHELL_NARROW_BREAKPOINT && !inline_compact {
+            container = container.child(
+                div()
+                    .id("activity-sidebar-footer")
+                    .debug_selector(|| "activity-sidebar-footer".into())
+                    .w_full()
+                    .flex_none()
+                    .pt(px(12.0))
+                    .px(px(10.0))
+                    .text_size(px(11.0))
+                    .text_color(muted_foreground)
+                    .child("开发工作台"),
+            );
+        }
 
         container
     }
-}
-
-fn activity_item(
-    config: ActivityItemConfig,
-    cx: &mut Context<ActivityBar>,
-) -> gpui_kit::Stateful<gpui_kit::Div> {
-    let ActivityItemConfig {
-        id,
-        icon,
-        is_selected,
-        accent,
-        decoration,
-        on_click,
-        tool_drag,
-        source_index,
-        source_background,
-    } = config;
-    let ActivityItemDecoration {
-        tooltip,
-        show_badge,
-    } = decoration;
-    let transparent = hsla(0.0, 0.0, 0.0, 0.0);
-    let mut selected_bg = accent;
-    selected_bg.a = 0.14;
-    let mut hover_bg = cx.theme().muted;
-    hover_bg.a = 0.72;
-    let preview_icon = icon.clone();
-    let preview_name = tooltip.clone();
-    let item_selector = format!("activity-{id}");
-    let mut button = crate::clickable_button(id.clone()).ghost();
-    button = if !show_badge {
-        button.icon(icon)
-    } else {
-        button.size(px(32.0)).p_0().child(
-            div()
-                .id("activity-settings-badge")
-                .debug_selector(|| "activity-settings-badge".into())
-                .child(Badge::new().dot().color(accent).child(icon)),
-        )
-    };
-    button = button.tooltip(tooltip);
-    if is_selected {
-        button = button.text_color(accent);
-    }
-    let mut item = h_flex()
-        .id(SharedString::from(item_selector.clone()))
-        .debug_selector(move || item_selector.clone())
-        .w(px(BAR_WIDTH))
-        .h(px(ITEM_HEIGHT))
-        .relative()
-        .rounded(px(6.0))
-        .bg(source_background.unwrap_or(transparent))
-        .items_center()
-        .justify_center()
-        .child(
-            div()
-                .w(px(2.0))
-                .h(px(20.0))
-                .bg(if is_selected { accent } else { transparent }),
-        )
-        .child(button.on_click(on_click));
-    if is_selected {
-        item = item.bg(selected_bg);
-    }
-    // 选中入口在悬停时仍保留强调底色，避免与普通入口混淆。
-    item = item.hover(move |item| item.bg(if is_selected { selected_bg } else { hover_bg }));
-    if let Some(drag) = tool_drag {
-        let Some(source_index) = source_index else {
-            return item;
-        };
-        item = item
-            .cursor_move()
-            .on_drag(drag, move |drag, position, _, cx| {
-                begin_tool_drag(&drag.id, ToolDragSurface::ActivityBar, source_index, cx);
-                cx.new(|_| {
-                    ToolDragPreview::new(
-                        ToolDragSurface::ActivityBar,
-                        preview_icon.clone(),
-                        preview_name.to_string(),
-                        String::new(),
-                    )
-                    .position(position)
-                })
-            })
-            .on_drop(cx.listener(move |this, drag: &ToolDrag, _, cx| {
-                this.complete_drop(&drag.id, source_index, cx);
-            }));
-    }
-    item
 }
 
 #[cfg(test)]

@@ -4,8 +4,9 @@ use gpui_kit::{
 };
 use ramag_app::{TOOL_VISIBILITY_PREF_KEY, ToolRegistry};
 
-const ITEM_HEIGHT: f32 = 40.0;
-pub(crate) const ACTIVITY_ITEM_GAP: f32 = 4.0;
+/// 活动栏工具入口的实际高度；落点计算与绘制共用此尺寸。
+pub(crate) const ACTIVITY_ITEM_HEIGHT: f32 = 38.0;
+pub(crate) const ACTIVITY_ITEM_GAP: f32 = 3.0;
 pub(crate) const DRAGGED_ITEM_OPACITY: f32 = 0.82;
 pub(crate) const DRAG_PREVIEW_OPACITY: f32 = 0.56;
 
@@ -243,16 +244,16 @@ pub(crate) fn activity_drop_target_from_position(
         return None;
     }
 
-    let slot_height = ITEM_HEIGHT + ACTIVITY_ITEM_GAP;
+    let slot_height = ACTIVITY_ITEM_HEIGHT + ACTIVITY_ITEM_GAP;
     let target_index = (y / slot_height).floor() as usize;
     if target_index >= item_count {
         return Some((item_count - 1, ToolDropSide::Bottom));
     }
 
     let local_y = y - target_index as f32 * slot_height;
-    let side = if local_y > ITEM_HEIGHT {
+    let side = if local_y > ACTIVITY_ITEM_HEIGHT {
         ToolDropSide::Bottom
-    } else if local_y < ITEM_HEIGHT / 2.0 {
+    } else if local_y < ACTIVITY_ITEM_HEIGHT / 2.0 {
         ToolDropSide::Top
     } else {
         ToolDropSide::Bottom
@@ -519,13 +520,14 @@ fn home_drop_indicator_geometry(
     })
 }
 
-/// 计算侧栏插入线的位置；线条只落在相邻工具入口的间隙中。
+/// 计算侧栏插入线的位置，并使用当前工具行的完整可用宽度。
 pub(crate) fn activity_drop_indicator(
     accent: gpui_kit::Hsla,
     source_index: usize,
     target_index: usize,
     side: ToolDropSide,
     item_count: usize,
+    available_width: f32,
 ) -> Option<gpui_kit::Div> {
     let boundary = tool_drop_boundary(target_index, side);
     if item_count == 0
@@ -541,9 +543,9 @@ pub(crate) fn activity_drop_indicator(
     Some(
         div()
             .absolute()
-            .w(px(28.0))
+            .w(px(available_width))
             .h(px(2.0))
-            .left(px(10.0))
+            .left(px(0.0))
             .top(px(top))
             .rounded(px(1.0))
             .bg(accent.opacity(0.82)),
@@ -552,7 +554,8 @@ pub(crate) fn activity_drop_indicator(
 
 /// 将侧栏插入边界放在两个菜单项之间；列表首尾边界贴住对应外侧边缘。
 fn activity_drop_line_top(boundary: usize) -> f32 {
-    (boundary as f32 * (ITEM_HEIGHT + ACTIVITY_ITEM_GAP) - ACTIVITY_ITEM_GAP / 2.0).max(0.0)
+    (boundary as f32 * (ACTIVITY_ITEM_HEIGHT + ACTIVITY_ITEM_GAP) - ACTIVITY_ITEM_GAP / 2.0)
+        .max(0.0)
 }
 
 /// 计算侧栏工具从旧槽位移动到新槽位时的垂直起点。
@@ -573,7 +576,7 @@ pub(crate) fn activity_reorder_animation_offset(
     else {
         return px(0.0);
     };
-    px((previous_index as f32 - current_index as f32) * (ITEM_HEIGHT + ACTIVITY_ITEM_GAP))
+    px((previous_index as f32 - current_index as f32) * (ACTIVITY_ITEM_HEIGHT + ACTIVITY_ITEM_GAP))
 }
 
 #[cfg(test)]

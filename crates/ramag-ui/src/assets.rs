@@ -10,6 +10,9 @@ use gpui_kit::{AssetSource, Result, SharedString};
 #[include = "icons/**/*.svg"]
 struct LocalAssets;
 
+// 只嵌入窄屏快捷导航需要的两个上游图标，不复制 SVG 文件。
+gpui_kit::assets::icon_assets!(CompactNavigationIcons, [LayoutGrid, Braces]);
+
 #[derive(Default, Clone, Copy)]
 pub struct RamagAssets;
 
@@ -55,6 +58,9 @@ impl AssetSource for RamagAssets {
         if let Some(file) = LocalAssets::get(path) {
             return Ok(Some(file.data));
         }
+        if let Some(icon) = CompactNavigationIcons.load(path)? {
+            return Ok(Some(icon));
+        }
         // Markdown 预览会把仓库内相对图片解析为绝对路径；GPUI 的 `img` 将其作为
         // Embedded 资源交给 AssetSource，因此这里补充本地文件回退。
         if std::path::Path::new(path).is_absolute()
@@ -71,6 +77,9 @@ impl AssetSource for RamagAssets {
             .collect();
         if crate::icons::ramag_brand_icon().starts_with(path) {
             out.push(crate::icons::ramag_brand_icon().into());
+        }
+        if let Ok(icons) = CompactNavigationIcons.list(path) {
+            out.extend(icons);
         }
         if let Ok(upstream) = gpui_kit::assets::Assets.list(path) {
             out.extend(upstream);
@@ -102,6 +111,17 @@ mod tests {
             assert!(
                 loaded.is_some(),
                 "pagination asset should be embedded: {path}"
+            );
+        }
+    }
+
+    /// 确认窄屏快捷导航的两枚原型图标可由统一资产源加载。
+    #[test]
+    fn embeds_compact_navigation_icons() {
+        for path in ["icons/layout-grid.svg", "icons/braces.svg"] {
+            assert!(
+                RamagAssets.load(path).ok().flatten().is_some(),
+                "missing compact navigation icon: {path}"
             );
         }
     }

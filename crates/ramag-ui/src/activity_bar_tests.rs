@@ -69,3 +69,6 @@ fn unknown_plugin_icon_uses_local_toolbox_fallback() {
         "icons/toolbox.svg"
     );
 }
+
+#[path = "navigation_accessibility_tests.rs"]
+mod navigation_accessibility_tests;

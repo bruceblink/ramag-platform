@@ -35,8 +35,9 @@ impl ToolSurfaceTestHost {
                 host.opened_home_tools.push(id.clone());
             }),
             cx.subscribe(&activity_bar, |host, _, event, _| {
-                let NavEvent::Navigate(target) = event;
-                host.sidebar_navigation.push(target.clone());
+                if let NavEvent::Navigate(target) = event {
+                    host.sidebar_navigation.push(target.clone());
+                }
             }),
         ];
         Self {

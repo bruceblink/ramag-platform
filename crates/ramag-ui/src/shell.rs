@@ -1,23 +1,33 @@
-//! 主壳：原生 TitleBar + 左 ActivityBar（52px）+ 右 Tool/HomeView。视图由外部 register_tool_view 注入
+//! 主壳：原生标题栏 + 桌面侧栏/窄屏导航抽屉 + 工具内容。视图由外部 register_tool_view 注入
+
+mod modal_element;
+mod render;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui_kit::component::{
-    ActiveTheme, Icon, IconName, button::ButtonVariants as _, h_flex, v_flex,
-};
-use gpui_kit::{
-    AnyView, Context, Entity, IntoElement, ParentElement, Render, Styled, Subscription, Window,
-    div, prelude::*, px,
-};
+use gpui_kit::{AnyView, Context, Entity, FocusHandle, Subscription, Window, prelude::*};
 use ramag_app::{DataSyncGate, StaticPluginHost, ToolRegistry};
 use ramag_domain::PluginEntryDescriptor;
 
 use crate::activity_bar::{ActivityBar, NavEvent, NavTarget};
 use crate::plugin_entry_view::StandardPluginEntryView;
+use crate::tool_layout::ToolLayoutGlobal;
+
+/// 原型在窄窗口中隐藏侧栏，并通过顶部菜单按钮打开导航抽屉。
+pub(crate) const SHELL_NARROW_BREAKPOINT: f32 = 760.0;
+/// 工作区面包屑沿用原型的 59px 顶栏高度。
+pub(crate) const SHELL_HEADER_HEIGHT: f32 = 59.0;
+
+/// 窄屏导航对话框保留窗口边距，并限制最大宽度。
+pub(crate) fn navigation_drawer_width(window_width: f32) -> f32 {
+    (window_width - 28.0).clamp(0.0, 410.0)
+}
 
 pub struct Shell {
     activity_bar: Entity<ActivityBar>,
+    navigation_toggle_focus: FocusHandle,
+    navigation_drawer_focus: FocusHandle,
     data_sync_gate: Arc<DataSyncGate>,
     data_sync_overlay: Entity<crate::DataSyncOverlay>,
     /// 保留注册表以按 tool_id 解析工具名（窗口标题用）
@@ -29,6 +39,8 @@ pub struct Shell {
     /// None=首页，Some(tool_id)=某工具
     selected: Option<String>,
     settings_selected: bool,
+    /// 窄窗口中的全工具导航抽屉状态。
+    navigation_open: bool,
     /// 窗口 bounds 持久化防抖代际：拖动 / 缩放高频回调，停顿后才落盘
     bounds_gen: u64,
 
@@ -80,6 +92,8 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> Self {
         let activity_bar = cx.new(|cx| ActivityBar::new(registry.clone(), plugin_host.clone(), cx));
+        let navigation_toggle_focus = cx.focus_handle();
+        let navigation_drawer_focus = cx.focus_handle().tab_stop(true);
         let data_sync_overlay =
             cx.new(|cx| crate::DataSyncOverlay::new(data_sync_gate.clone(), cx));
         let registry_for_title = registry.clone();
@@ -90,13 +104,25 @@ impl Shell {
             window,
             |this, _, event: &NavEvent, window, cx| match event {
                 NavEvent::Navigate(target) => {
-                    this.handle_navigate(target.clone(), window, cx);
+                    this.navigate_to(target.clone(), window, cx);
                 }
+                NavEvent::CloseNavigation => this.close_navigation(window, cx),
             },
         ));
+        // 工具显隐变化需要同步刷新窄屏底部快捷入口。
+        subs.push(cx.observe_global::<ToolLayoutGlobal>(|_, cx| cx.notify()));
         // 窗口移动 / 缩放 → 防抖持久化位置尺寸（重启恢复）
         subs.push(cx.observe_window_bounds(window, |this, window, cx| {
             this.schedule_persist_bounds(window, cx);
+            if f32::from(window.viewport_size().width) > SHELL_NARROW_BREAKPOINT
+                && this.navigation_open
+            {
+                this.navigation_open = false;
+                this.activity_bar.update(cx, |bar, cx| {
+                    bar.focus_navigation(window, cx);
+                });
+                cx.notify();
+            }
         }));
 
         let mut standard_entries = HashMap::new();
@@ -109,6 +135,8 @@ impl Shell {
 
         Self {
             activity_bar,
+            navigation_toggle_focus,
+            navigation_drawer_focus,
             data_sync_gate,
             data_sync_overlay,
             registry: registry_for_title,
@@ -118,6 +146,7 @@ impl Shell {
             settings_view: None,
             selected: None,
             settings_selected: false,
+            navigation_open: false,
             bounds_gen: 0,
             _subscriptions: subs,
         }
@@ -146,7 +175,7 @@ impl Shell {
             return "设置".into();
         }
         self.selected.as_ref().map_or_else(
-            || "首页".into(),
+            || "工具总览".into(),
             |id| {
                 self.registry
                     .find(id)
@@ -302,6 +331,20 @@ impl Shell {
         self.handle_navigate(target, window, cx);
     }
 
+    /// 关闭窄屏导航抽屉，并把焦点交还顶部菜单按钮。
+    fn close_navigation(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.navigation_open {
+            self.navigation_open = false;
+            self.navigation_toggle_focus.focus(window, cx);
+            cx.notify();
+        }
+    }
+
+    /// 抽屉完成布局后把焦点放入其可循环的键盘范围。
+    pub(crate) fn focus_navigation_drawer(&self, window: &mut Window, cx: &mut Context<Self>) {
+        self.navigation_drawer_focus.focus(window, cx);
+    }
+
     fn handle_navigate(&mut self, target: NavTarget, window: &mut Window, cx: &mut Context<Self>) {
         if self.data_sync_gate.is_blocking() {
             return;
@@ -315,13 +358,21 @@ impl Shell {
             NavTarget::Settings => (None, true),
         };
 
-        if self.selected != new_selected || self.settings_selected != settings_selected {
+        let page_changed =
+            self.selected != new_selected || self.settings_selected != settings_selected;
+        if page_changed {
             self.selected = new_selected;
             self.settings_selected = settings_selected;
             // 记住停留位置：下次启动直接回到该工具（重启不回炉 Home）
             if !self.settings_selected {
                 persist_last_tool(self.selected.clone(), cx);
             }
+        }
+        let navigation_closed = std::mem::replace(&mut self.navigation_open, false);
+        if navigation_closed {
+            self.navigation_toggle_focus.focus(window, cx);
+        }
+        if page_changed || navigation_closed {
             cx.notify();
         }
         // 标题始终反映当前工具（含首帧 / 恢复到某工具），保留任务栏可辨识性
@@ -333,141 +384,6 @@ impl Shell {
 fn persist_last_tool(selected: Option<String>, cx: &mut gpui_kit::App) {
     let value = selected.unwrap_or_default();
     crate::preferences::persist_preference_latest("last_tool", value, cx);
-}
-
-impl Render for Shell {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // 先拷颜色避开 theme 借用与 cx 可变借用冲突
-        let bg_color = cx.theme().background;
-        let fg_color = cx.theme().foreground;
-
-        let content_view: Option<AnyView> = if self.settings_selected {
-            self.settings_view.clone()
-        } else {
-            match &self.selected {
-                None => self.home_view.clone(),
-                Some(id) => self.tool_views.get(id).cloned(),
-            }
-        };
-
-        let theme_icon = match crate::theme::current_mode(cx) {
-            crate::theme::Mode::Light => IconName::Moon,
-            crate::theme::Mode::Dark => IconName::Sun,
-        };
-        let theme_toggle = crate::clickable_button("shell-theme-toggle")
-            .debug_selector(|| "shell-theme-toggle".into())
-            .ghost()
-            .size(px(28.0))
-            .p_0()
-            .flex_none()
-            .icon(Icon::new(theme_icon))
-            .tooltip("切换主题")
-            .on_click(|_, _, cx| crate::theme::toggle_theme(cx));
-
-        let shell_label = self.page_title();
-        v_flex()
-            .size_full()
-            .bg(bg_color)
-            .text_color(fg_color)
-            .key_context("Shell")
-            .on_action(
-                cx.listener(|this, action: &crate::actions::OpenTool, window, cx| {
-                    this.navigate_to(NavTarget::Tool(action.tool_id.clone()), window, cx);
-                }),
-            )
-            .on_action(cx.listener(
-                |this, action: &crate::actions::OpenToolSettings, window, cx| {
-                    if let Some(view) = this
-                        .settings_view
-                        .clone()
-                        .and_then(|view| view.downcast::<crate::SettingsView>().ok())
-                    {
-                        view.update(cx, |settings, cx| {
-                            settings.open_tool_page(&action.tool_id, window, cx)
-                        });
-                        this.navigate_to(NavTarget::Settings, window, cx);
-                    }
-                },
-            ))
-            .on_action(
-                cx.listener(|this, _: &crate::actions::OpenSystemSettings, window, cx| {
-                    if let Some(view) = this
-                        .settings_view
-                        .clone()
-                        .and_then(|view| view.downcast::<crate::SettingsView>().ok())
-                    {
-                        view.update(cx, |settings, cx| {
-                            settings.open_tool_page("system", window, cx)
-                        });
-                        this.navigate_to(NavTarget::Settings, window, cx);
-                    }
-                }),
-            )
-            .child(
-                h_flex()
-                    .flex_1()
-                    .min_h_0()
-                    .child(self.activity_bar.clone())
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .h_full()
-                            .w_full()
-                            .min_w_0()
-                            .items_stretch()
-                            .child(
-                                crate::pulse_ui::pulse_workbench_header(shell_label, cx)
-                                    .id("workbench-shell-header")
-                                    .debug_selector(|| "workbench-shell-header".into())
-                                    .child(theme_toggle),
-                            )
-                            .child(
-                                div()
-                                    .debug_selector(|| "workbench-shell-content".into())
-                                    .flex_1()
-                                    // The header already consumes the fixed top row; flex growth
-                                    // must determine the remaining content height without adding
-                                    // another full-parent height.
-                                    .w_full()
-                                    .min_w_0()
-                                    .min_h_0()
-                                    .items_stretch()
-                                    .when_some(content_view, |this, view| this.child(view))
-                                    .when(
-                                        (self.settings_selected && self.settings_view.is_none())
-                                            || (!self.settings_selected
-                                                && self.selected.is_some()
-                                                && self
-                                                    .selected
-                                                    .as_ref()
-                                                    .and_then(|id| self.tool_views.get(id))
-                                                    .is_none()),
-                                        |this| this.child(render_view_missing(cx)),
-                                    ),
-                            ),
-                    ),
-            )
-            .child(self.data_sync_overlay.clone())
-    }
-}
-
-fn render_view_missing(cx: &Context<Shell>) -> impl IntoElement {
-    v_flex()
-        .debug_selector(|| "shell-view-unavailable".into())
-        .size_full()
-        .items_center()
-        .justify_center()
-        .p(px(16.0))
-        .child(
-            div()
-                .w_full()
-                .max_w(px(360.0))
-                .child(crate::pulse_ui::pulse_status_notice(
-                    crate::pulse_ui::PulseStatus::Unavailable,
-                    "该页面暂不可用",
-                    cx,
-                )),
-        )
 }
 
 #[cfg(test)]
