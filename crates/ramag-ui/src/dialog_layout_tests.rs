@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use gpui_kit::component::{IconName, Root};
 use gpui_kit::{
-    AppContext as _, Bounds, Context, IntoElement, Modifiers, MouseButton, Pixels, Render,
-    Styled as _, TestAppContext, VisualTestContext, Window, div, px, size,
+    AppContext as _, Bounds, Context, ElementId, IntoElement, Modifiers, MouseButton, Pixels,
+    Render, Styled as _, TestAppContext, VisualTestContext, Window, div, px, size,
 };
 
 struct DialogHost;
@@ -33,6 +33,60 @@ fn assert_visible(cx: &mut VisualTestContext, selector: &'static str, width: f32
             && bounds.size.width > px(0.0)
             && bounds.size.height > px(0.0),
         "{selector} must fit {width}x{height}: {bounds:?}"
+    );
+}
+
+fn accessible_name(cx: &mut VisualTestContext, selector: &'static str) -> String {
+    let element_id = ElementId::from(selector);
+    cx.update(|window, _| {
+        let Some(snapshot) = gpui_kit::base::test_support::find(window, &[], &element_id) else {
+            unreachable!("应找到快捷键按钮节点：{selector}");
+        };
+        let Some(label) = snapshot.label() else {
+            unreachable!("快捷键按钮应有辅助名称：{selector}");
+        };
+        label.to_owned()
+    })
+}
+
+#[gpui_kit::test]
+fn shortcut_record_buttons_announce_action_key_and_recording_state(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    cx.update(|app| crate::shortcuts_dialog::init_shortcut_overrides(None, app));
+    let (_, visual) = cx.add_window_view(|window, cx| {
+        let host = cx.new(|_| DialogHost);
+        Root::new(host, window, cx)
+    });
+    visual.simulate_resize(size(px(1024.0), px(768.0)));
+    visual.update(crate::open_shortcuts);
+    visual.run_until_parked();
+    visual
+        .executor()
+        .advance_clock(std::time::Duration::from_millis(300));
+    visual.run_until_parked();
+
+    let query_name = accessible_name(visual, "shortcut-record-new-query");
+    let pull_name = accessible_name(visual, "shortcut-record-vcs-pull");
+    let Some(query_key) = query_name.strip_prefix("新建查询，快捷键：") else {
+        unreachable!("新建查询辅助名称应包含操作和快捷键：{query_name}");
+    };
+    let Some(pull_key) = pull_name.strip_prefix("拉取，快捷键：") else {
+        unreachable!("拉取辅助名称应包含操作和快捷键：{pull_name}");
+    };
+    assert!(!query_key.is_empty(), "快捷键名称应包含当前组合键");
+    assert_eq!(query_key, pull_key, "相同组合键应分别标注各自操作");
+    assert_ne!(query_name, pull_name, "不同操作不能只报告相同组合键");
+
+    visual.simulate_resize(size(px(360.0), px(640.0)));
+    visual.run_until_parked();
+    let record = bounds(visual, "shortcut-record-open-recent");
+    assert_visible(visual, "shortcut-record-open-recent", 360.0, 640.0);
+    visual.simulate_mouse_down(record.center(), MouseButton::Left, Modifiers::default());
+    visual.simulate_mouse_up(record.center(), MouseButton::Left, Modifiers::default());
+    visual.run_until_parked();
+    assert_eq!(
+        accessible_name(visual, "shortcut-record-open-recent"),
+        "选择连接，正在录制快捷键"
     );
 }
 

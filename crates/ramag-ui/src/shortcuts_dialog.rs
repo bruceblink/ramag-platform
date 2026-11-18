@@ -174,6 +174,17 @@ impl ShortcutPanel {
                             ),
                     )
                     .child(if spec.action.is_some() {
+                        // 辅助名称同时说明操作和录制状态，避免相同组合键无法区分。
+                        let visible_key = if recording {
+                            "请按下组合键…".to_owned()
+                        } else {
+                            display_key(key, cx)
+                        };
+                        let accessibility_label = if recording {
+                            format!("{}，正在录制快捷键", spec.label)
+                        } else {
+                            format!("{}，快捷键：{}", spec.label, visible_key)
+                        };
                         h_flex()
                             .flex_wrap()
                             .gap(px(5.0))
@@ -183,11 +194,8 @@ impl ShortcutPanel {
                                     .outline()
                                     .small()
                                     .min_w(px(150.0))
-                                    .label(if recording {
-                                        "请按下组合键…".into()
-                                    } else {
-                                        display_key(key, cx)
-                                    })
+                                    .label(visible_key)
+                                    .accessibility_label(accessibility_label)
                                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                         this.start_recording(id, cx);
                                     })),
