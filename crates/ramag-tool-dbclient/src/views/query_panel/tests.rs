@@ -245,8 +245,8 @@ fn query_context_bar_keeps_schema_inside_supported_widths(cx: &mut TestAppContex
             .expect("Schema 下拉入口应渲染");
         assert!(bar.right() <= px(width), "查询上下文条不能越出窗口");
         assert!(
-            bar.bottom() - bar.origin.y <= px(48.0),
-            "查询上下文条高度不能超过 48px"
+            bar.bottom() - bar.origin.y <= px(ramag_ui::WORKBENCH_TOOLBAR_HEIGHT),
+            "查询上下文条高度必须遵守共享工具栏令牌"
         );
         assert!(
             title.right() <= bar.right() && title.bottom() <= bar.bottom(),

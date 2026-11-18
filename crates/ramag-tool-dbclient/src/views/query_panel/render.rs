@@ -89,7 +89,7 @@ impl Render for QueryPanel {
             .id("query-context-bar")
             .debug_selector(|| "query-context-bar".into())
             .w_full()
-            .h(px(42.0))
+            .h(px(ramag_ui::WORKBENCH_TOOLBAR_HEIGHT))
             .min_w_0()
             .flex_none()
             .items_center()
@@ -144,7 +144,8 @@ impl Render for QueryPanel {
                     .items_center()
                     .gap_2()
                     .px_3()
-                    .py(px(7.0))
+                    .h(px(ramag_ui::WORKBENCH_TAB_HEIGHT))
+                    .py(px(0.0))
                     .border_r_1()
                     .border_color(border)
                     .cursor_pointer()
@@ -282,7 +283,10 @@ impl Render for QueryPanel {
                                     ramag_ui::clickable_button("tab-add")
                                         .ghost()
                                         .small()
-                                        .icon(IconName::Plus)
+                                        .icon(
+                                            gpui_kit::component::Icon::new(IconName::Plus)
+                                                .text_color(fg),
+                                        )
                                         .when(!can_add_tab, |button| {
                                             button.tooltip(format!(
                                                 "最多 {MAX_EDITOR_TABS} 个标签"
