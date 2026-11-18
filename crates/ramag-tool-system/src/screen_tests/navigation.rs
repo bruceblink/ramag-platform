@@ -363,6 +363,62 @@ fn arrows_home_end_and_control_tab_switch_screens(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn tab_focus_skips_inactive_screen_tabs_in_both_directions(cx: &mut TestAppContext) {
+    let (view, cx) = harness(cx);
+    for reverse in [false, true] {
+        cx.update(|window, cx| {
+            let handle = view.read(cx).focus[&Screen::Summary].handle.clone();
+            handle.focus(window, cx);
+        });
+        draw(cx);
+
+        cx.update(|window, cx| {
+            if reverse {
+                window.focus_prev(cx);
+            } else {
+                window.focus_next(cx);
+            }
+        });
+        draw(cx);
+
+        let focused_tabs = cx.update(|window, cx| {
+            Screen::ALL
+                .into_iter()
+                .filter(|screen| view.read(cx).focus[screen].handle.is_focused(window))
+                .collect::<Vec<_>>()
+        });
+        assert!(
+            focused_tabs.is_empty() || focused_tabs == [Screen::Summary],
+            "Tab navigation must skip inactive page tabs; focused tabs: {focused_tabs:?}"
+        );
+        assert_eq!(active(&view, cx), Screen::Summary);
+    }
+}
+
+#[gpui_kit::test]
+fn tab_navigation_reaches_summary_from_legacy_settings_state(cx: &mut TestAppContext) {
+    let (view, cx) = harness(cx);
+    cx.update(|window, cx| view.update(cx, |view, cx| view.select(Screen::Settings, window, cx)));
+    draw(cx);
+    assert_eq!(active(&view, cx), Screen::Settings);
+
+    // 旧设置页面不在可见标签列表中，焦点遍历应从该状态进入 Summary。
+    cx.update(|window, cx| {
+        let handle = view.read(cx).focus[&Screen::Settings].handle.clone();
+        handle.focus(window, cx);
+        window.focus_next(cx);
+    });
+    draw(cx);
+
+    assert!(cx.update(|window, cx| {
+        view.read(cx).focus[&Screen::Summary]
+            .handle
+            .is_focused(window)
+    }));
+    assert_eq!(active(&view, cx), Screen::Settings);
+}
+
+#[gpui_kit::test]
 fn keyboard_switching_works_immediately_after_application_creation(cx: &mut TestAppContext) {
     let (view, cx) = harness(cx);
     assert_eq!(active(&view, cx), Screen::Summary);

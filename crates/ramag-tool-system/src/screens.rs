@@ -6,7 +6,7 @@ use crate::{
     screen_style::{self, palette},
     workspace::{Command, Shared, WorkspaceView},
 };
-use gpui_kit::base::{ElementExt, Scrollbar, ScrollbarMode, Tab, Tabs};
+use gpui_kit::base::{ElementExt, Scrollbar, ScrollbarMode, Tab};
 use gpui_kit::component::{
     ActiveTheme, Disableable, Sizable,
     button::Button,
@@ -229,6 +229,10 @@ impl ScreenView {
         let colors = palette(cx);
         let tabs = Screen::ALL.into_iter().enumerate().map(|(index, screen)| {
             let focused = self.focus[&screen].clone();
+            // 仅选中页进入 Tab 顺序；隐藏的 Settings 状态回退到 Summary。
+            let tab_stop =
+                screen == active || (active == Screen::Settings && screen == Screen::Summary);
+            let focus_handle = focused.handle.clone().tab_stop(tab_stop);
             let scroll = self.tab_scroll.clone();
             let color = screen_style::accent(screen, cx);
             Tab::new(SharedString::from(format!("screen-tab:{}", screen.id())))
@@ -236,7 +240,7 @@ impl ScreenView {
                 .accessibility_label(screen.title())
                 .selected(screen == active)
                 .set_position(index + 1, Screen::ALL.len())
-                .track_focus(&focused.handle)
+                .track_focus(&focus_handle)
                 .h(px(40.))
                 .px_3()
                 .flex_none()
@@ -296,9 +300,13 @@ impl ScreenView {
             .flex_none()
             .bg(colors.surface)
             .child(
-                Tabs::new("screen-tabs")
+                // 使用应用自己的焦点句柄，避免基础 Tabs 的内部 roving-focus 与页面状态分离。
+                div()
+                    .id("screen-tabs")
                     .accessibility_id("screen-tabs")
+                    .role(Role::TabList)
                     .aria_label("系统监控页面")
+                    .aria_orientation(Orientation::Horizontal)
                     .flex()
                     .h_full()
                     .overflow_x_scroll()
