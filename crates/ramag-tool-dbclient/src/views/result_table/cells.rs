@@ -149,6 +149,7 @@ pub(super) fn render_data_row(
             let is_editing = panel.editing_cell == Some((source_idx, ci));
             let is_pending = panel.has_pending_cell_edit(source_idx, ci);
             let inline_input = is_editing.then(|| panel.cell_edit_input.clone()).flatten();
+            let cell_value_selector = format!("result-cell-value-{idx}-{ci}");
             let cell_content: AnyElement = match inline_input {
                 Some(state) => div()
                     .w_full()
@@ -163,6 +164,7 @@ pub(super) fn render_data_row(
                     )
                     .into_any_element(),
                 None => div()
+                    .debug_selector(move || cell_value_selector.clone())
                     .w_full()
                     .px_3()
                     .text_xs()
@@ -175,8 +177,10 @@ pub(super) fn render_data_row(
                     .child(SharedString::from(display))
                     .into_any_element(),
             };
+            // 稳定标记供 headless 几何验收检查单元格文字是否仍位于行内。
             let cell = div()
                 .id(SharedString::from(format!("cell-{idx}-{ci}")))
+                .debug_selector(move || format!("result-cell-{idx}-{ci}"))
                 .w(cw)
                 .min_w(cw)
                 .max_w(cw)
@@ -277,6 +281,7 @@ pub(super) fn render_data_row(
         let row_idx = source_idx;
         let is_row_selected = panel.selected_rows().contains(&source_idx);
         let panel = panel_entity.clone();
+        let checkbox_selector = format!("result-row-checkbox-{idx}");
         div()
             .w(frame.checkbox_col_width)
             .h_full()
@@ -291,6 +296,7 @@ pub(super) fn render_data_row(
                     .justify_center()
                     .child(
                         ramag_ui::clickable_checkbox(SharedString::from(format!("row-cb-{idx}")))
+                            .debug_selector(move || checkbox_selector.clone())
                             .checked(is_row_selected)
                             .on_click(move |_: &bool, _, app| {
                                 panel.update(app, |this, cx| {
@@ -306,7 +312,7 @@ pub(super) fn render_data_row(
         .id(SharedString::from(format!("row-{idx}")))
         .debug_selector(move || format!("result-row-{idx}"))
         .w(frame.total_content_width)
-        .h(px(32.0))
+        .h(px(frame.row_height))
         .flex_none()
         .items_center()
         .bg(bg)
@@ -364,15 +370,22 @@ pub(super) fn render_pending_row(
             .border_color(frame.border)
             .px_1()
             .when_some(input, |this, state| {
-                this.child(Input::new(&state).small().bordered(false))
+                this.child(
+                    div()
+                        .debug_selector(move || format!("result-pending-input-{ci}"))
+                        .w_full()
+                        .min_w_0()
+                        .child(Input::new(&state).small().bordered(false)),
+                )
             })
             .into_any_element();
         input_cells.push(cell);
     }
     h_flex()
         .id("row-pending")
+        .debug_selector(|| "result-row-pending".into())
         .w(frame.total_content_width)
-        .h(px(32.0))
+        .h(px(frame.row_height))
         .flex_none()
         .items_center()
         .bg(frame.accent.opacity(0.08))

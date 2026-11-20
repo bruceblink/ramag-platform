@@ -220,7 +220,7 @@ impl TableTreePanel {
         let fg = cx.theme().foreground;
         let warning = cx.theme().warning;
         let danger = cx.theme().danger;
-
+        let row_height = ramag_ui::content_density(cx).row_height(28.0, 24.0);
         match row {
             TreeRow::Schema {
                 name,
@@ -242,7 +242,7 @@ impl TableTreePanel {
 
                 h_flex()
                     .id(id_str)
-                    .h(px(28.0))
+                    .h(px(row_height))
                     .flex_none()
                     .items_center()
                     .gap_1p5()
@@ -289,7 +289,7 @@ impl TableTreePanel {
             }
             TreeRow::SchemaPlaceholder { text, is_error } => div()
                 .w_full()
-                .h(px(28.0))
+                .h(px(row_height))
                 .flex_none()
                 .pl_5()
                 .pr_2()
@@ -369,7 +369,7 @@ impl TableTreePanel {
                 let mut row = h_flex()
                     .id(row_id)
                     .w_full()
-                    .h(px(28.0))
+                    .h(px(row_height))
                     .flex_none()
                     .items_center()
                     .gap_1()
@@ -478,14 +478,14 @@ impl TableTreePanel {
                 row.into_any_element()
             }
             TreeRow::TablePlaceholder { text, is_error } => {
-                render_columns_placeholder(text.clone(), if *is_error { danger } else { muted_fg })
+                render_columns_placeholder(text.clone(), *is_error, cx)
             }
             TreeRow::Column { key, column_index } => self
                 .table_columns
                 .get(key.as_ref())
                 .and_then(|columns| columns.columns.get(*column_index))
                 .map_or_else(
-                    || div().h(px(28.0)).into_any_element(),
+                    || div().h(px(row_height)).into_any_element(),
                     |column| {
                         render_column_row(
                             column,
@@ -519,7 +519,7 @@ impl TableTreePanel {
                 h_flex()
                     .id(row_id)
                     .w_full()
-                    .h(px(28.0))
+                    .h(px(row_height))
                     .flex_none()
                     .items_center()
                     .gap(px(4.0))
@@ -553,7 +553,7 @@ impl TableTreePanel {
                 .get(key.as_ref())
                 .and_then(|columns| columns.indexes.get(*index_index))
                 .map_or_else(
-                    || div().h(px(28.0)).into_any_element(),
+                    || div().h(px(row_height)).into_any_element(),
                     |index| {
                         super::metadata_ops::render_index_row(
                             index,
@@ -570,7 +570,7 @@ impl TableTreePanel {
                 .get(key.as_ref())
                 .and_then(|columns| columns.triggers.get(*trigger_index))
                 .map_or_else(
-                    || div().h(px(28.0)).into_any_element(),
+                    || div().h(px(row_height)).into_any_element(),
                     |trigger| {
                         super::metadata_ops::render_trigger_row(
                             trigger,

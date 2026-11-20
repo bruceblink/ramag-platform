@@ -61,6 +61,9 @@ fn public_settings_fit_both_themes_and_apply_without_resetting_other_values(
             cx.run_until_parked();
             for selector in [
                 "settings-theme-row",
+                "settings-content-density-row",
+                "settings-content-density-0",
+                "settings-content-density-1",
                 "settings-text-size-row",
                 "settings-interface-font-row",
                 "settings-numeric-font-row",
@@ -114,6 +117,21 @@ fn public_settings_fit_both_themes_and_apply_without_resetting_other_values(
         }
     }
     click(cx, "settings-text-size-0");
+    click(cx, "settings-content-density-1");
+    cx.update(|_, app| {
+        assert_eq!(
+            crate::system_settings(app).content_density,
+            ContentDensity::Compact
+        );
+    });
+    click(cx, "settings-content-density-0");
+    cx.update(|_, app| {
+        assert_eq!(
+            crate::system_settings(app).content_density,
+            ContentDensity::Standard
+        );
+    });
+    click(cx, "settings-content-density-1");
     click(cx, "settings-interface-font-1");
     click(cx, "settings-numeric-font-1");
     click(cx, "settings-scrollbar-1");
@@ -122,6 +140,10 @@ fn public_settings_fit_both_themes_and_apply_without_resetting_other_values(
         assert_eq!(
             crate::system_settings(app).text_size,
             InterfaceTextSize::Compact
+        );
+        assert_eq!(
+            crate::system_settings(app).content_density,
+            ContentDensity::Compact
         );
         assert_eq!(
             crate::system_settings(app).scrollbar_visibility,

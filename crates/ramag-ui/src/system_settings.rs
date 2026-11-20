@@ -7,6 +7,38 @@ use serde::{Deserialize, Serialize};
 /// 系统设置在本地偏好存储中的键名。
 pub const SYSTEM_SETTINGS_PREF_KEY: &str = "system_settings";
 
+/// 应用于列表和表格行的公共内容密度；紧凑档只缩短行高，不改变字号或控件功能。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContentDensity {
+    #[default]
+    Standard,
+    Compact,
+}
+
+impl ContentDensity {
+    pub const ALL: [Self; 2] = [Self::Standard, Self::Compact];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Standard => "标准",
+            Self::Compact => "紧凑",
+        }
+    }
+
+    /// 根据当前档位返回组件自己的标准或紧凑行高，标准值保持现有布局。
+    pub const fn row_height(self, standard: f32, compact: f32) -> f32 {
+        match self {
+            Self::Standard => standard,
+            Self::Compact => compact,
+        }
+    }
+
+    pub const fn is_compact(self) -> bool {
+        matches!(self, Self::Compact)
+    }
+}
+
 /// 公共界面字号档位；有界枚举防止损坏配置把全部控件缩成不可操作的尺寸。
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -133,6 +165,9 @@ pub struct SystemSettings {
     pub interface_font: InterfaceFont,
     #[serde(default)]
     pub numeric_font: NumericFont,
+    /// 列表和表格行距；老配置缺失时使用标准档，避免窗口布局意外变动。
+    #[serde(default)]
+    pub content_density: ContentDensity,
 }
 
 impl SystemSettings {
@@ -158,6 +193,11 @@ pub fn system_settings(cx: &App) -> SystemSettings {
     cx.try_global::<SystemSettingsGlobal>()
         .map(|global| global.0)
         .unwrap_or_default()
+}
+
+/// 从共享应用设置读取所有工具使用的行密度。
+pub fn content_density(cx: &App) -> ContentDensity {
+    system_settings(cx).content_density
 }
 
 /// 更新 GPUI 全局状态，供窗口生命周期和设置页面共享最新值。
@@ -243,24 +283,29 @@ mod tests {
         assert_eq!(old.text_size, InterfaceTextSize::Standard);
         assert_eq!(old.interface_font, InterfaceFont::Inter);
         assert_eq!(old.numeric_font, NumericFont::JetbrainsMono);
+        assert_eq!(old.content_density, ContentDensity::Standard);
         for text_size in InterfaceTextSize::ALL {
             for scrollbar_visibility in ScrollbarVisibility::ALL {
                 for interface_font in InterfaceFont::ALL {
                     for numeric_font in NumericFont::ALL {
-                        let next = SystemSettings {
-                            text_size,
-                            scrollbar_visibility,
-                            interface_font,
-                            numeric_font,
-                            ..old
-                        };
-                        assert_eq!(SystemSettings::parse(&next.to_json()?)?, next);
+                        for content_density in ContentDensity::ALL {
+                            let next = SystemSettings {
+                                text_size,
+                                scrollbar_visibility,
+                                interface_font,
+                                numeric_font,
+                                content_density,
+                                ..old
+                            };
+                            assert_eq!(SystemSettings::parse(&next.to_json()?)?, next);
+                        }
                     }
                 }
             }
         }
         assert!(SystemSettings::parse(r#"{"text_size":99999}"#).is_err());
         assert!(SystemSettings::parse(r#"{"scrollbar_visibility":"missing"}"#).is_err());
+        assert!(SystemSettings::parse(r#"{"content_density":"missing"}"#).is_err());
         Ok(())
     }
 
@@ -272,6 +317,7 @@ mod tests {
             let settings = SystemSettings {
                 text_size: InterfaceTextSize::Large,
                 scrollbar_visibility: ScrollbarVisibility::Hover,
+                content_density: ContentDensity::Compact,
                 ..Default::default()
             };
             set_system_settings(settings, cx);
@@ -282,6 +328,7 @@ mod tests {
                 assert_eq!(theme.font_family.as_ref(), "Inter Variable");
                 assert_eq!(theme.mono_font_family.as_ref(), "JetBrains Mono");
                 assert_eq!(theme.scrollbar_mode, ScrollbarMode::Hover);
+                assert_eq!(content_density(cx), ContentDensity::Compact);
                 assert_eq!(theme.tab_bar, theme.secondary);
                 assert_eq!(theme.sidebar_foreground, theme.foreground);
                 assert_eq!(theme.table_head, theme.secondary);

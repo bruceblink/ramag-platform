@@ -18,6 +18,7 @@ pub(super) fn render(
     muted_bg: gpui_kit::Hsla,
     cx: &mut Context<TableTreePanel>,
 ) -> AnyElement {
+    let row_height = ramag_ui::content_density(cx).row_height(28.0, 24.0);
     let row_id = SharedString::from(format!(
         "table-group-{schema}-{}",
         if is_view { "views" } else { "tables" }
@@ -38,7 +39,7 @@ pub(super) fn render(
         .id(row_id.clone())
         .debug_selector(move || row_id.to_string())
         .w_full()
-        .h(px(28.0))
+        .h(px(row_height))
         .flex_none()
         .items_center()
         .gap_1()

@@ -68,16 +68,24 @@ fn activity_target_selection_uses_the_rendered_row_height_and_gap() {
     assert_eq!(ACTIVITY_ITEM_HEIGHT, 38.0);
     assert_eq!(ACTIVITY_ITEM_GAP, 3.0);
     assert_eq!(
-        activity_drop_target_from_position(59.0, 3),
+        activity_drop_target_from_position(59.0, 3, 38.0),
         Some((1, ToolDropSide::Top))
     );
     assert_eq!(
-        activity_drop_target_from_position(60.0, 3),
+        activity_drop_target_from_position(60.0, 3, 38.0),
         Some((1, ToolDropSide::Bottom))
     );
     assert_eq!(
-        activity_drop_target_from_position(82.0, 3),
+        activity_drop_target_from_position(82.0, 3, 38.0),
         Some((2, ToolDropSide::Top))
+    );
+    assert_eq!(
+        activity_drop_target_from_position(50.0, 3, 32.0),
+        Some((1, ToolDropSide::Top))
+    );
+    assert_eq!(
+        activity_drop_target_from_position(51.0, 3, 32.0),
+        Some((1, ToolDropSide::Bottom))
     );
 }
 

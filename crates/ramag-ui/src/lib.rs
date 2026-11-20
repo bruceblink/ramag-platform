@@ -96,9 +96,9 @@ pub use shell::{Shell, WindowBoundsPref};
 pub use shortcuts_dialog::open_shortcuts;
 pub use sort_header::{SortDirection, sort_icon_name, sort_indicator, sortable_header_content};
 pub use system_settings::{
-    InterfaceFont, InterfaceTextSize, NumericFont, SYSTEM_SETTINGS_PREF_KEY, ScrollbarVisibility,
-    SystemSettings, SystemSettingsGlobal, init_system_settings, save_system_settings,
-    set_system_settings, system_settings,
+    ContentDensity, InterfaceFont, InterfaceTextSize, NumericFont, SYSTEM_SETTINGS_PREF_KEY,
+    ScrollbarVisibility, SystemSettings, SystemSettingsGlobal, content_density,
+    init_system_settings, save_system_settings, set_system_settings, system_settings,
 };
 pub mod monitor_settings;
 pub use monitor_settings::{

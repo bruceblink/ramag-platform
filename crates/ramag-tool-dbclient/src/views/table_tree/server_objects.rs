@@ -253,6 +253,7 @@ fn render_row(
         is_expanded,
     } = spec;
     let ServerObjectRowPalette { muted_fg, fg } = palette;
+    let row_height = ramag_ui::content_density(cx).row_height(28.0, 24.0);
     let chevron = if is_expanded {
         IconName::ChevronDown
     } else {
@@ -286,7 +287,7 @@ fn render_row(
         .id(row_id)
         .debug_selector(move || row_selector.clone())
         .w_full()
-        .h(px(28.0))
+        .h(px(row_height))
         .flex_none()
         .items_center()
         .gap_1()

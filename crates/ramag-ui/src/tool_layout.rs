@@ -239,21 +239,22 @@ pub(crate) fn home_drop_target_from_position(
 pub(crate) fn activity_drop_target_from_position(
     y: f32,
     item_count: usize,
+    item_height: f32,
 ) -> Option<(usize, ToolDropSide)> {
     if item_count == 0 || y < 0.0 {
         return None;
     }
 
-    let slot_height = ACTIVITY_ITEM_HEIGHT + ACTIVITY_ITEM_GAP;
+    let slot_height = item_height + ACTIVITY_ITEM_GAP;
     let target_index = (y / slot_height).floor() as usize;
     if target_index >= item_count {
         return Some((item_count - 1, ToolDropSide::Bottom));
     }
 
     let local_y = y - target_index as f32 * slot_height;
-    let side = if local_y > ACTIVITY_ITEM_HEIGHT {
+    let side = if local_y > item_height {
         ToolDropSide::Bottom
-    } else if local_y < ACTIVITY_ITEM_HEIGHT / 2.0 {
+    } else if local_y < item_height / 2.0 {
         ToolDropSide::Top
     } else {
         ToolDropSide::Bottom
@@ -528,6 +529,7 @@ pub(crate) fn activity_drop_indicator(
     side: ToolDropSide,
     item_count: usize,
     available_width: f32,
+    item_height: f32,
 ) -> Option<gpui_kit::Div> {
     let boundary = tool_drop_boundary(target_index, side);
     if item_count == 0
@@ -538,7 +540,7 @@ pub(crate) fn activity_drop_indicator(
         return None;
     }
 
-    let top = activity_drop_line_top(boundary);
+    let top = activity_drop_line_top(boundary, item_height);
 
     Some(
         div()
@@ -553,9 +555,8 @@ pub(crate) fn activity_drop_indicator(
 }
 
 /// 将侧栏插入边界放在两个菜单项之间；列表首尾边界贴住对应外侧边缘。
-fn activity_drop_line_top(boundary: usize) -> f32 {
-    (boundary as f32 * (ACTIVITY_ITEM_HEIGHT + ACTIVITY_ITEM_GAP) - ACTIVITY_ITEM_GAP / 2.0)
-        .max(0.0)
+fn activity_drop_line_top(boundary: usize, item_height: f32) -> f32 {
+    (boundary as f32 * (item_height + ACTIVITY_ITEM_GAP) - ACTIVITY_ITEM_GAP / 2.0).max(0.0)
 }
 
 /// 计算侧栏工具从旧槽位移动到新槽位时的垂直起点。
@@ -563,6 +564,7 @@ pub(crate) fn activity_reorder_animation_offset(
     previous_slots: &[Option<String>],
     current_slots: &[Option<String>],
     id: &str,
+    item_height: f32,
 ) -> gpui_kit::Pixels {
     let Some(previous_index) = previous_slots
         .iter()
@@ -576,7 +578,7 @@ pub(crate) fn activity_reorder_animation_offset(
     else {
         return px(0.0);
     };
-    px((previous_index as f32 - current_index as f32) * (ACTIVITY_ITEM_HEIGHT + ACTIVITY_ITEM_GAP))
+    px((previous_index as f32 - current_index as f32) * (item_height + ACTIVITY_ITEM_GAP))
 }
 
 #[cfg(test)]

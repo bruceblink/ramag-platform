@@ -83,6 +83,28 @@ fn real_sidebar_drag_reorders_tools_and_persists_the_order(cx: &mut TestAppConte
 
     let expected_order = vec!["dbclient".to_owned(), "api".to_owned()];
     assert_eq!(registry.order(), expected_order);
+
+    // 紧凑模式使用更短的入口，实际拖拽仍须按当前行高计算落点并保存。
+    visual.update(|_, app| {
+        crate::set_system_settings(
+            crate::SystemSettings {
+                content_density: crate::ContentDensity::Compact,
+                ..Default::default()
+            },
+            app,
+        );
+    });
+    visual.run_until_parked();
+    visual.update(|window, cx| {
+        let database = window.find("tool-dbclient").bounds();
+        let api = window.find("tool-api").bounds();
+        assert_eq!(api.size.height, px(32.0));
+        let destination = gpui_kit::point(database.center().x, database.origin.y + px(4.0));
+        window.drag(api.center(), destination, cx);
+    });
+    visual.run_until_parked();
+    let expected_order = vec!["api".to_owned(), "dbclient".to_owned()];
+    assert_eq!(registry.order(), expected_order);
     let mut save_status = None;
     for _ in 0..20 {
         visual.run_until_parked();

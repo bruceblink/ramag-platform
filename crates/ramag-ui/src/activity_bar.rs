@@ -225,6 +225,8 @@ impl Render for ActivityBar {
             (sidebar_width - 20.0).max(0.0)
         };
         let label_visible = !inline_compact;
+        // 拖拽落点、动画和可见入口使用同一行高，切换密度后仍保持排序准确。
+        let item_height = crate::content_density(cx).row_height(ACTIVITY_ITEM_HEIGHT, 32.0);
         let tool_order = tools
             .iter()
             .map(|tool| tool.meta().id.clone())
@@ -277,7 +279,7 @@ impl Render for ActivityBar {
                     id: format!("tool-{id}").into(),
                     icon: Self::navigation_icon_for_meta(tool.meta()),
                     is_selected,
-                    height: ACTIVITY_ITEM_HEIGHT,
+                    height: item_height,
                     item_width: sidebar_content_width,
                     label_visible,
                     accent,
@@ -298,7 +300,8 @@ impl Render for ActivityBar {
             if is_dragged {
                 item = item.opacity(DRAGGED_ITEM_OPACITY);
             }
-            let offset = activity_reorder_animation_offset(&previous_slots, &display_slots, id);
+            let offset =
+                activity_reorder_animation_offset(&previous_slots, &display_slots, id, item_height);
             let item = if offset == px(0.0) {
                 item.into_any_element()
             } else {
@@ -315,7 +318,7 @@ impl Render for ActivityBar {
                 div()
                     .relative()
                     .w(px(sidebar_content_width))
-                    .h(px(ACTIVITY_ITEM_HEIGHT))
+                    .h(px(item_height))
                     .child(item)
                     .into_any_element(),
             );
@@ -333,7 +336,7 @@ impl Render for ActivityBar {
                 cx.listener(move |_, event: &DragMoveEvent<ToolDrag>, _, cx| {
                     let local_y = f32::from(event.event.position.y - event.bounds.top());
                     if let Some((target_index, side)) =
-                        activity_drop_target_from_position(local_y, item_count)
+                        activity_drop_target_from_position(local_y, item_count, item_height)
                     {
                         update_tool_drop_target(
                             ToolDragSurface::ActivityBar,
@@ -374,6 +377,7 @@ impl Render for ActivityBar {
                 target_side,
                 item_count,
                 sidebar_content_width,
+                item_height,
             )
         {
             tool_list = tool_list.child(
@@ -456,7 +460,7 @@ impl Render for ActivityBar {
                 id: "home".into(),
                 icon: icons::home(),
                 is_selected: is_home_selected,
-                height: ACTIVITY_ITEM_HEIGHT,
+                height: item_height,
                 item_width: sidebar_content_width,
                 label_visible,
                 accent,
@@ -504,7 +508,12 @@ impl Render for ActivityBar {
                 .vertical_scrollbar(&self.tool_scroll)
                 .child(tool_list),
         );
-        let manager_trigger = manager_button(sidebar_content_width, label_visible, short_viewport);
+        let manager_trigger = manager_button(
+            sidebar_content_width,
+            label_visible,
+            short_viewport,
+            item_height,
+        );
         let mut command_section = item::command_section(short_viewport, inline_compact)
             .id("activity-command-section")
             .debug_selector(|| "activity-command-section".into())
@@ -524,7 +533,7 @@ impl Render for ActivityBar {
                 id: "shortcuts".into(),
                 icon: crate::shortcuts_dialog::shortcut_icon(),
                 is_selected: false,
-                height: command_item_height(label_visible, short_viewport),
+                height: command_item_height(label_visible, short_viewport, item_height),
                 item_width: item::command_item_width(sidebar_content_width, short_viewport),
                 label_visible: item::command_label_visible(label_visible, short_viewport),
                 accent,
@@ -544,7 +553,7 @@ impl Render for ActivityBar {
                 id: "settings".into(),
                 icon: icons::settings(),
                 is_selected: settings_selected,
-                height: command_item_height(label_visible, short_viewport),
+                height: command_item_height(label_visible, short_viewport, item_height),
                 item_width: item::command_item_width(sidebar_content_width, short_viewport),
                 label_visible: item::command_label_visible(label_visible, short_viewport),
                 accent,

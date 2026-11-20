@@ -1,6 +1,6 @@
 //! TableTreePanel 的辅助渲染 / 工具函数（从 table_tree.rs 拆出，避免单文件过大）
 
-use gpui_kit::component::{h_flex, tooltip::Tooltip};
+use gpui_kit::component::{ActiveTheme as _, h_flex, tooltip::Tooltip};
 use gpui_kit::{
     AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, SharedString,
     Styled, div, prelude::*, px,
@@ -9,7 +9,7 @@ use ramag_domain::entities::Column;
 
 use super::table_tree::TableTreePanel;
 
-/// 列子节点：名称占用剩余行宽，类型保持有界；截断内容可通过悬停查看，行高 28px 配 uniform_list。
+/// 列子节点：名称占用剩余行宽，类型保持有界；截断内容可通过悬停查看。
 pub(super) fn render_column_row(
     col: &Column,
     element_id: SharedString,
@@ -25,10 +25,11 @@ pub(super) fn render_column_row(
     let name_wrapper_id = SharedString::from(format!("{element_id}-name-wrapper"));
     let name_selector = SharedString::from(format!("{element_id}-field-name-frame"));
     let raw_type_element_id = SharedString::from(format!("{element_id}-raw-type"));
+    let row_height = ramag_ui::content_density(cx).row_height(28.0, 24.0);
     h_flex()
         .id(element_id)
         .w_full()
-        .h(px(28.0))
+        .h(px(row_height))
         .flex_none()
         .overflow_hidden()
         .pl(px(44.0))
@@ -103,10 +104,11 @@ pub(super) fn render_copyable_detail_line(
     color: gpui_kit::Hsla,
     cx: &mut Context<TableTreePanel>,
 ) -> AnyElement {
+    let row_height = ramag_ui::content_density(cx).row_height(28.0, 24.0);
     div()
         .id(element_id)
         .w_full()
-        .h(px(28.0))
+        .h(px(row_height))
         .flex_none()
         .pl(px(56.0))
         .pr_2()
@@ -126,14 +128,22 @@ pub(super) fn render_copyable_detail_line(
         .into_any_element()
 }
 
-/// 加载中 / 错误占位行：缩进同列子节点，单行 ellipsis 截断，行高 28px
+/// 根据加载错误状态选择主题色；占位文案缩进同列子节点并保持单行截断。
 pub(super) fn render_columns_placeholder(
     text: impl Into<SharedString>,
-    color: gpui_kit::Hsla,
+    is_error: bool,
+    cx: &mut Context<TableTreePanel>,
 ) -> AnyElement {
+    let theme = cx.theme();
+    let color = if is_error {
+        theme.danger
+    } else {
+        theme.muted_foreground
+    };
+    let row_height = ramag_ui::content_density(cx).row_height(28.0, 24.0);
     div()
         .w_full()
-        .h(px(28.0))
+        .h(px(row_height))
         .flex_none()
         .pl(px(56.0))
         .pr_2()

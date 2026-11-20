@@ -125,6 +125,7 @@ pub(super) fn manager_button(
     item_width: f32,
     label_visible: bool,
     short_viewport: bool,
+    item_height: f32,
 ) -> gpui_kit::component::button::Button {
     let button_label_visible = label_visible && !short_viewport;
     let accessibility_label = if label_visible {
@@ -147,7 +148,11 @@ pub(super) fn manager_button(
         } else {
             32.0
         }))
-        .h(px(command_item_height(label_visible, short_viewport)))
+        .h(px(command_item_height(
+            label_visible,
+            short_viewport,
+            item_height,
+        )))
         .when(button_label_visible, |button| button.px(px(10.0)))
         .when(!button_label_visible, |button| button.size(px(32.0)).p_0())
         .small()
@@ -156,9 +161,13 @@ pub(super) fn manager_button(
 }
 
 /// 按侧栏模式调整固定命令入口高度，避免短窗口和紧凑图标栏挤压内容。
-pub(super) fn command_item_height(label_visible: bool, short_viewport: bool) -> f32 {
+pub(super) fn command_item_height(
+    label_visible: bool,
+    short_viewport: bool,
+    item_height: f32,
+) -> f32 {
     if label_visible && !short_viewport {
-        super::ACTIVITY_ITEM_HEIGHT
+        item_height
     } else {
         32.0
     }

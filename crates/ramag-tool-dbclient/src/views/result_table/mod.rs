@@ -40,6 +40,8 @@ struct TableRowFrame {
     row_num_width: gpui_kit::Pixels,
     checkbox_col_width: gpui_kit::Pixels,
     total_content_width: gpui_kit::Pixels,
+    /// 当前系统密度对应的结果行高，数据行和新增草稿行共用该值。
+    row_height: f32,
     mono_font: SharedString,
     fg: gpui_kit::Hsla,
     muted_fg: gpui_kit::Hsla,
@@ -405,6 +407,8 @@ mod states;
 
 pub(super) use page_size::render_page_size_selector;
 pub(super) use render::render_table;
+#[cfg(test)]
+mod density_tests;
 #[cfg(test)]
 mod header_test;
 mod helpers;

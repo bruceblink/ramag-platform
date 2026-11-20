@@ -227,6 +227,7 @@ pub(super) fn render_tree_row(
     };
     let fallback_label = label.clone();
     let muted_bg = cx.theme().muted;
+    let row_height = ramag_ui::content_density(cx).row_height(28.0, 24.0);
     let row_id = format!("virtual-view-{:?}-{}-{}", kind, group_index, label);
     let row_selector = format!("server-object-row-{:?}-{}-{}", kind, group_index, label);
     let label_selector = format!("server-object-label-{:?}-{}-{}", kind, group_index, label);
@@ -236,7 +237,7 @@ pub(super) fn render_tree_row(
         .id(row_id)
         .debug_selector(move || row_selector.clone())
         .w_full()
-        .h(px(28.0))
+        .h(px(row_height))
         .flex_none()
         .items_center()
         .gap_1()

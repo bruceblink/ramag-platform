@@ -315,7 +315,16 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
             "settings-save-status-system_settings",
             "settings-save-retry-system_settings",
             "settings-page-system",
-            r#"{"minimize_to_tray":false,"text_size":"large","scrollbar_visibility":"always","interface_font":"inter","numeric_font":"jetbrains_mono"}"#,
+            r#"{"minimize_to_tray":false,"text_size":"large","scrollbar_visibility":"always","interface_font":"inter","numeric_font":"jetbrains_mono","content_density":"standard"}"#,
+        ),
+        (
+            "system",
+            "settings-content-density-1",
+            crate::SYSTEM_SETTINGS_PREF_KEY,
+            "settings-save-status-system_settings",
+            "settings-save-retry-system_settings",
+            "settings-page-system",
+            r#"{"minimize_to_tray":false,"text_size":"large","scrollbar_visibility":"always","interface_font":"inter","numeric_font":"jetbrains_mono","content_density":"compact"}"#,
         ),
         (
             "system",
@@ -352,21 +361,31 @@ fn production_settings_show_bounded_failed_save_and_retry_status(cx: &mut TestAp
         visual.simulate_resize(size(px(1440.0), px(900.0)));
         visual.run_until_parked();
         if control.starts_with("settings-monitor") {
-            // Sampling may share the first row with Appearance at wide sizes;
-            // only scroll when the selected control is actually outside the viewport.
+            // 按目标按钮在视口中的位置选择滚动方向，避免点击被裁切的控件。
             let control_bounds = bounds(visual, control);
             assert!(control_bounds.size.width > px(0.0));
             let viewport = bounds(visual, "settings-page-scroll");
             if control_bounds.top() < viewport.top() || control_bounds.bottom() > viewport.bottom()
             {
+                let delta_y = if control_bounds.top() < viewport.top() {
+                    px(720.0)
+                } else {
+                    px(-720.0)
+                };
                 visual.simulate_event(ScrollEvent {
                     position: viewport.center(),
-                    delta: ScrollDelta::Pixels(point(px(0.0), px(720.0))),
+                    delta: ScrollDelta::Pixels(point(px(0.0), delta_y)),
                     modifiers: Modifiers::default(),
                     touch_phase: TouchPhase::Moved,
                     source: ScrollSource::Pointer,
                 });
                 visual.run_until_parked();
+                let control_bounds = bounds(visual, control);
+                assert!(
+                    control_bounds.top() >= viewport.top()
+                        && control_bounds.bottom() <= viewport.bottom(),
+                    "滚动后目标按钮必须完整进入视口：control={control_bounds:?}, viewport={viewport:?}"
+                );
             }
         }
         let before = stored(visual, storage.as_ref(), key);

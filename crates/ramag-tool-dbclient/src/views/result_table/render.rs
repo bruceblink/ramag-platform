@@ -194,6 +194,7 @@ pub(in crate::views) fn render_table(
         row_num_width,
         checkbox_col_width,
         total_content_width,
+        row_height: ramag_ui::content_density(cx).row_height(32.0, 26.0),
         mono_font,
         fg,
         muted_fg,

@@ -10,7 +10,8 @@ use gpui_kit::{
 
 use super::{SettingsView, pages::pulse_settings_card};
 use crate::{
-    InterfaceFont, InterfaceTextSize, NumericFont, ScrollbarVisibility, SystemSettings,
+    ContentDensity, InterfaceFont, InterfaceTextSize, NumericFont, ScrollbarVisibility,
+    SystemSettings,
     theme::{Mode, current_mode, set_theme_preference},
 };
 
@@ -61,6 +62,22 @@ pub(super) fn system_settings_panel(
                 move |_, _, cx| {
                     let mut next = crate::system_settings(cx);
                     next.text_size = choice;
+                    crate::save_system_settings(next, cx);
+                },
+            )
+        })
+        .collect();
+    let content_densities = ContentDensity::ALL
+        .into_iter()
+        .enumerate()
+        .map(|(index, choice)| {
+            choice_button(
+                format!("settings-content-density-{index}"),
+                choice.label(),
+                settings.content_density == choice,
+                move |_, _, cx| {
+                    let mut next = crate::system_settings(cx);
+                    next.content_density = choice;
                     crate::save_system_settings(next, cx);
                 },
             )
@@ -129,6 +146,13 @@ pub(super) fn system_settings_panel(
             "主题",
             "应用于全部工具和设置面板。",
             themes,
+            theme,
+        ))
+        .child(setting_row(
+            "settings-content-density-row",
+            "内容密度",
+            "调整数据库结果表、对象导航与工具导航的行高。",
+            content_densities,
             theme,
         ))
         .child(setting_row(

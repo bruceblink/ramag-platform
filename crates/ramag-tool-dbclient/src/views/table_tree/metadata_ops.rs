@@ -106,11 +106,12 @@ fn render_metadata_row(row: MetadataRow, cx: &mut Context<TableTreePanel>) -> An
     let schema_for_menu = schema;
     let table_for_menu = table;
     let row_selector = element_id.clone();
+    let row_height = ramag_ui::content_density(cx).row_height(28.0, 24.0);
     div()
         .id(element_id)
         .debug_selector(move || row_selector.to_string())
         .w_full()
-        .h(px(28.0))
+        .h(px(row_height))
         .flex_none()
         .pl(px(56.0))
         .pr_2()

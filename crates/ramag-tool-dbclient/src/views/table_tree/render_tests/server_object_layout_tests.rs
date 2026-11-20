@@ -75,7 +75,29 @@ fn server_object_details_stay_inline_without_overlapping_following_rows(cx: &mut
         panel.invalidate_tree_rows();
     });
 
-    for width in [180.0, 280.0, 360.0] {
+    // 在多种宽度下切换真实系统密度，确认数据库对象行重排后名称仍留在行内。
+    for (density, width) in [
+        (ramag_ui::ContentDensity::Standard, 180.0),
+        (ramag_ui::ContentDensity::Standard, 280.0),
+        (ramag_ui::ContentDensity::Standard, 360.0),
+        (ramag_ui::ContentDensity::Compact, 180.0),
+        (ramag_ui::ContentDensity::Compact, 280.0),
+        (ramag_ui::ContentDensity::Compact, 360.0),
+    ] {
+        cx.update(|_, app| {
+            ramag_ui::set_system_settings(
+                ramag_ui::SystemSettings {
+                    content_density: density,
+                    text_size: if density.is_compact() {
+                        ramag_ui::InterfaceTextSize::Large
+                    } else {
+                        ramag_ui::InterfaceTextSize::Standard
+                    },
+                    ..Default::default()
+                },
+                app,
+            );
+        });
         cx.simulate_resize(size(px(width), px(640.0)));
         panel.update(cx, |_, cx| cx.notify());
         cx.run_until_parked();
@@ -103,7 +125,7 @@ fn server_object_details_stay_inline_without_overlapping_following_rows(cx: &mut
             let detail = cx
                 .debug_bounds(detail_selector)
                 .unwrap_or_else(|| panic!("collation 字符集说明应渲染：{name}"));
-            assert_eq!(row.size.height, px(28.0));
+            assert_eq!(row.size.height, px(density.row_height(28.0, 24.0)));
             assert!(
                 label.origin.x >= row.origin.x
                     && label.right() <= row.right()
@@ -147,5 +169,6 @@ fn server_object_details_stay_inline_without_overlapping_following_rows(cx: &mut
                 && virtual_detail.bottom() <= virtual_row.bottom(),
             "Virtual views 名称和说明必须水平分离并留在行内：row={virtual_row:?}, label={virtual_label:?}, detail={virtual_detail:?}"
         );
+        assert_eq!(virtual_row.size.height, px(density.row_height(28.0, 24.0)));
     }
 }
