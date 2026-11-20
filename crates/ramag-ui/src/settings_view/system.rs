@@ -151,7 +151,7 @@ pub(super) fn system_settings_panel(
         .child(setting_row(
             "settings-content-density-row",
             "内容密度",
-            "调整数据库结果表、对象导航与工具导航的行高。",
+            "调整首页卡片、数据库结果表、对象导航与工具导航的间距。",
             content_densities,
             theme,
         ))

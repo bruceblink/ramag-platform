@@ -10,8 +10,8 @@ use gpui_kit::{AssetSource, Result, SharedString};
 #[include = "icons/**/*.svg"]
 struct LocalAssets;
 
-// 只嵌入窄屏快捷导航需要的两个上游图标，不复制 SVG 文件。
-gpui_kit::assets::icon_assets!(CompactNavigationIcons, [LayoutGrid, Braces]);
+// 首页列表切换和窄屏导航共用上游图标，不在仓库中复制 SVG 文件。
+gpui_kit::assets::icon_assets!(CompactNavigationIcons, [LayoutGrid, Braces, List]);
 
 #[derive(Default, Clone, Copy)]
 pub struct RamagAssets;
@@ -117,8 +117,12 @@ mod tests {
 
     /// 确认窄屏快捷导航的两枚原型图标可由统一资产源加载。
     #[test]
-    fn embeds_compact_navigation_icons() {
-        for path in ["icons/layout-grid.svg", "icons/braces.svg"] {
+    fn embeds_home_and_compact_navigation_icons() {
+        for path in [
+            "icons/layout-grid.svg",
+            "icons/braces.svg",
+            "icons/list.svg",
+        ] {
             assert!(
                 RamagAssets.load(path).ok().flatten().is_some(),
                 "missing compact navigation icon: {path}"
