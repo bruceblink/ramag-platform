@@ -1,5 +1,6 @@
 use super::render_body;
 use super::render_helpers::{render_context_editor, render_history, render_request_toolbar};
+use super::render_page_heading::render_request_heading;
 use super::*;
 use gpui_kit::ClickEvent;
 use gpui_kit::component::scroll::{Scrollbar, ScrollbarMode};
@@ -7,6 +8,8 @@ use gpui_kit::component::tab::{Tab, TabBar};
 
 #[path = "render_sidebar_requests.rs"]
 mod render_sidebar_requests;
+#[path = "render_request_pane.rs"]
+mod request_pane_render;
 #[path = "render_response.rs"]
 mod response_render;
 
@@ -41,6 +44,7 @@ pub(super) fn render(
             .set_offset(gpui_kit::point(px(0.0), px(0.0)));
     }
     let sidebar = render_sidebar(view, window, cx, compact_height, &theme);
+    let page_heading = render_request_heading(view, cx, &theme);
     let editor = render_editor(view, window, cx, &theme);
     let content = if stacked {
         v_flex()
@@ -128,6 +132,8 @@ pub(super) fn render(
         .size_full()
         .min_w_0()
         .min_h_0()
+        .gap(px(14.0))
+        .p(px(API_PAGE_INSET))
         .bg(theme.background)
         .when(compact_height, |root| {
             root.overflow_y_scroll()
@@ -137,7 +143,14 @@ pub(super) fn render(
                     "api-layout-scrollbar",
                 ))
         })
-        .child(content)
+        .child(page_heading)
+        .child(
+            content
+                .border_1()
+                .border_color(theme.border)
+                .rounded(theme.radius)
+                .p(px(API_WORKBENCH_INSET)),
+        )
         .into_any_element()
 }
 
@@ -176,7 +189,15 @@ fn render_sidebar(
                 })
                 .when(!compact_height, |sidebar| sidebar.flex_1().max_h(px(240.0)))
         })
-        .when(!stacked, |sidebar| sidebar.h_full())
+        .when(!stacked, |sidebar| {
+            sidebar
+                .h_full()
+                .rounded_tl(theme.radius)
+                .rounded_bl(theme.radius)
+        })
+        .when(stacked, |sidebar| {
+            sidebar.rounded_tl(theme.radius).rounded_tr(theme.radius)
+        })
         .overflow_y_scroll()
         .track_scroll(&view.sidebar_scroll)
         .child(render_scrollbar_overlay(
@@ -184,29 +205,28 @@ fn render_sidebar(
             "api-sidebar-scrollbar",
         ))
         .gap(px(7.0))
-        .p(px(9.0))
+        .p(px(10.0))
         .border_r_1()
         .border_color(theme.border)
         .child(
-            h_flex()
+            v_flex()
                 .id("api-workspace-heading")
                 .debug_selector(|| "api-workspace-heading".into())
                 .w_full()
                 .min_w_0()
-                .items_center()
-                .gap(px(8.0))
+                .gap(px(3.0))
                 .child(
                     div()
-                        .w(px(3.0))
-                        .h(px(28.0))
-                        .flex_none()
-                        .rounded(px(2.0))
-                        .bg(theme.link),
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("请求集合"),
                 )
                 .child(
-                    v_flex()
+                    h_flex()
                         .min_w_0()
-                        .gap(px(2.0))
+                        .items_center()
+                        .justify_between()
+                        .gap(px(8.0))
                         .child(
                             div()
                                 .min_w_0()
@@ -217,12 +237,12 @@ fn render_sidebar(
                         )
                         .child(
                             div()
+                                .flex_none()
                                 .text_xs()
                                 .text_color(theme.muted_foreground)
                                 .child(format!(
-                                    "{} 个集合 · {} 个请求",
-                                    view.workspace.collections.len(),
-                                    request_count
+                                    "{} 个集合 · {request_count} 个请求",
+                                    view.workspace.collections.len()
                                 )),
                         ),
                 ),
@@ -299,28 +319,7 @@ fn render_editor(
         ApiProtocol::Http => render_http_editor(view, cx, theme),
         ApiProtocol::Grpc => render_grpc::render_editor(view, cx, theme),
     };
-    let request_pane = v_flex()
-        .id("api-request-pane")
-        .debug_selector(|| "api-request-pane".into())
-        .min_w_0()
-        .min_h_0()
-        .overflow_y_scroll()
-        .track_scroll(&view.request_scroll)
-        .child(render_scrollbar_overlay(
-            &view.request_scroll,
-            "api-request-scrollbar",
-        ))
-        .p(px(8.0))
-        .child(
-            v_flex()
-                .id("api-request-editor")
-                .debug_selector(|| "api-request-editor".into())
-                .w_full()
-                .min_w_0()
-                .flex_1()
-                .min_h_0()
-                .child(request_editor),
-        );
+    let request_pane = request_pane_render::render(view, window, request_editor, theme);
     let workbench = if stacked {
         v_flex()
             .id("api-request-response")
@@ -328,8 +327,8 @@ fn render_editor(
             .flex_1()
             .min_w_0()
             .min_h_0()
-            .child(request_pane.flex_1())
-            .child(response_render::render_response(view, cx, theme))
+            .child(request_pane)
+            .child(response_render::render_response(view, cx, theme, stacked))
     } else {
         let divider = div()
             .id("api-request-response-divider")
@@ -366,13 +365,9 @@ fn render_editor(
             .min_w_0()
             .min_h_0()
             .items_stretch()
-            .child(
-                request_pane
-                    .w(px(view.current_request_pane_width(window)))
-                    .flex_none(),
-            )
+            .child(request_pane)
             .child(divider)
-            .child(response_render::render_response(view, cx, theme))
+            .child(response_render::render_response(view, cx, theme, stacked))
     };
     v_flex()
         .id("api-editor")
@@ -381,8 +376,14 @@ fn render_editor(
         .h_full()
         .min_w_0()
         .min_h_0()
-        .child(render_request_toolbar(view, cx, theme))
+        .child(render_request_toolbar(view, window, cx, theme))
         .child(workbench)
+        .when(stacked, |editor| {
+            editor.rounded_bl(theme.radius).rounded_br(theme.radius)
+        })
+        .when(!stacked, |editor| {
+            editor.rounded_tr(theme.radius).rounded_br(theme.radius)
+        })
         .into_any_element()
 }
 

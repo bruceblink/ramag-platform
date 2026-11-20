@@ -11,6 +11,7 @@ pub(super) fn render_response(
     view: &ApiView,
     cx: &mut Context<ApiView>,
     theme: &gpui_kit::component::Theme,
+    stacked: bool,
 ) -> gpui_kit::AnyElement {
     let body = match &view.response {
         Some(snapshot) => {
@@ -65,6 +66,64 @@ pub(super) fn render_response(
             )
             .into_any_element(),
     };
+    // 响应标题和页签固定在滚动区外，长响应滚动时仍可切换查看内容。
+    let heading = h_flex()
+        .id("api-response-heading")
+        .debug_selector(|| "api-response-heading".into())
+        .w_full()
+        .h(px(ramag_ui::WORKBENCH_TOOLBAR_HEIGHT))
+        .min_w_0()
+        .flex_none()
+        .items_center()
+        .justify_between()
+        .gap(px(8.0))
+        .px(px(14.0))
+        .border_b_1()
+        .border_color(theme.border)
+        .child(
+            div()
+                .text_sm()
+                .font_weight(FontWeight::MEDIUM)
+                .child("响应"),
+        )
+        .child(
+            div()
+                .id("api-response-notice")
+                .debug_selector(|| "api-response-notice".into())
+                .max_w(px(180.0))
+                .truncate()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(match &view.notice {
+                    Some((message, _)) => message.clone(),
+                    None => "".into(),
+                }),
+        );
+    let tabs = h_flex()
+        .id("api-response-tabs-row")
+        .debug_selector(|| "api-response-tabs-row".into())
+        .w_full()
+        .h(px(ramag_ui::WORKBENCH_TAB_HEIGHT))
+        .min_w_0()
+        .flex_none()
+        .px(px(12.0))
+        .border_b_1()
+        .border_color(theme.border)
+        .child(render_response_tabs(view, cx));
+    let content = v_flex()
+        .id("api-response-scroll-content")
+        .debug_selector(|| "api-response-scroll-content".into())
+        .flex_1()
+        .min_w_0()
+        .min_h_0()
+        .overflow_y_scroll()
+        .track_scroll(&view.response_scroll)
+        .child(render_scrollbar_overlay(
+            &view.response_scroll,
+            "api-response-scrollbar",
+        ))
+        .p(px(12.0))
+        .child(body);
     v_flex()
         .id("api-response")
         .debug_selector(|| "api-response".into())
@@ -72,47 +131,15 @@ pub(super) fn render_response(
         .h_full()
         .min_h(px(160.0))
         .min_w_0()
-        .overflow_y_scroll()
-        .track_scroll(&view.response_scroll)
-        .child(render_scrollbar_overlay(
-            &view.response_scroll,
-            "api-response-scrollbar",
-        ))
-        .gap(px(6.0))
-        .pl(px(8.0))
-        .py(px(8.0))
-        .border_l_1()
-        .border_color(theme.border)
-        .child(
-            h_flex()
-                .id("api-response-heading")
-                .debug_selector(|| "api-response-heading".into())
-                .min_w_0()
-                .items_center()
-                .gap(px(8.0))
-                .pb(px(6.0))
-                .border_b_1()
-                .border_color(theme.border)
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("响应"),
-                )
-                .child(render_response_tabs(view, cx))
-                .child(
-                    div()
-                        .max_w(px(120.0))
-                        .truncate()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child(match &view.notice {
-                            Some((message, _)) => message.clone(),
-                            None => "".into(),
-                        }),
-                ),
-        )
-        .child(body)
+        .when(stacked, |response| {
+            response.border_t_1().border_color(theme.border)
+        })
+        .when(!stacked, |response| {
+            response.border_l_1().border_color(theme.border)
+        })
+        .child(heading)
+        .child(tabs)
+        .child(content)
         .into_any_element()
 }
 

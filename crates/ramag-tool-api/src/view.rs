@@ -43,6 +43,8 @@ mod render_body;
 mod render_grpc;
 #[path = "render_helpers.rs"]
 mod render_helpers;
+#[path = "render_page_heading.rs"]
+mod render_page_heading;
 #[path = "request_editor.rs"]
 mod request_editor;
 #[path = "workspace.rs"]
@@ -53,9 +55,14 @@ mod workspace_save;
 pub(crate) use request_editor::request_from_view;
 
 const FIELD_BYTES: usize = 64 * 1024;
-const API_SIDEBAR_WIDTH: f32 = 260.0;
+/// API 页面外边距；拖动宽度计算也扣除此尺寸。
+const API_PAGE_INSET: f32 = 16.0;
+/// 工作台边框内侧留白；宽度计算另加 1px 外框。
+const API_WORKBENCH_INSET: f32 = 1.0;
+/// 保留原型请求集合栏的紧凑宽度，同时给长名称留出可滚动空间。
+const API_SIDEBAR_WIDTH: f32 = 180.0;
 const API_SIDEBAR_MIN_WIDTH: f32 = 180.0;
-const API_SIDEBAR_MAX_WIDTH: f32 = 420.0;
+const API_SIDEBAR_MAX_WIDTH: f32 = 360.0;
 const API_SIDEBAR_DIVIDER_WIDTH: f32 = 8.0;
 const API_SIDEBAR_DIVIDER_LINE_WIDTH: f32 = 2.0;
 const API_EDITOR_MIN_WIDTH: f32 = 520.0;
@@ -63,10 +70,15 @@ const API_REQUEST_PANE_MIN_WIDTH: f32 = 240.0;
 const API_RESPONSE_MIN_WIDTH: f32 = 220.0;
 const API_REQUEST_RESPONSE_DIVIDER_WIDTH: f32 = 8.0;
 const API_REQUEST_RESPONSE_DIVIDER_LINE_WIDTH: f32 = 2.0;
-const API_STACK_BREAKPOINT: f32 = 720.0;
-const API_COMPACT_HEIGHT: f32 = 600.0;
+/// 标题留白后按原型窄屏边界切换到上下排列，避免请求和响应被挤压。
+const API_STACK_BREAKPOINT: f32 = 760.0;
+/// 可用宽度低于此值时，gRPC 目标字段改用窄屏最小宽度。
+const API_REQUEST_TARGET_COMPACT_BREAKPOINT: f32 = 560.0;
+/// 短视口折叠请求列表高度，给请求和响应编辑区留出空间。
+const API_COMPACT_HEIGHT: f32 = 700.0;
 const API_COMPACT_CONTENT_HEIGHT: f32 = 520.0;
-const API_COMPACT_SIDEBAR_HEIGHT: f32 = 120.0;
+/// 为请求搜索、历史记录和清理入口保留可见区域。
+const API_COMPACT_SIDEBAR_HEIGHT: f32 = 150.0;
 const API_RESPONSE_PREVIEW_BYTES: usize = 16 * 1024;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -463,12 +475,21 @@ impl ApiView {
     }
 
     pub(crate) fn max_sidebar_width(window: &Window) -> f32 {
-        (Self::main_content_width(window) - API_EDITOR_MIN_WIDTH - API_SIDEBAR_DIVIDER_WIDTH)
+        let page_inset = 2.0 * (API_PAGE_INSET + API_WORKBENCH_INSET + 1.0);
+        (Self::main_content_width(window)
+            - page_inset
+            - API_EDITOR_MIN_WIDTH
+            - API_SIDEBAR_DIVIDER_WIDTH)
             .clamp(API_SIDEBAR_MIN_WIDTH, API_SIDEBAR_MAX_WIDTH)
     }
 
     pub(crate) fn workbench_width(&self, window: &Window) -> f32 {
-        (Self::main_content_width(window) - self.sidebar_width - API_SIDEBAR_DIVIDER_WIDTH).max(0.0)
+        let page_inset = 2.0 * (API_PAGE_INSET + API_WORKBENCH_INSET + 1.0);
+        (Self::main_content_width(window)
+            - page_inset
+            - self.sidebar_width
+            - API_SIDEBAR_DIVIDER_WIDTH)
+            .max(0.0)
     }
 
     pub(crate) fn max_request_pane_width(&self, window: &Window) -> f32 {

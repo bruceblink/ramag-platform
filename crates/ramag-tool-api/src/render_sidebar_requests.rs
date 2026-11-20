@@ -1,6 +1,7 @@
 use super::*;
 
 use gpui_kit::ClickEvent;
+use gpui_kit::component::Selectable as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use ramag_domain::entities::{ApiRequestRecord, ApiRequestSpec, ApiWorkspace};
 
@@ -53,11 +54,8 @@ pub(super) fn render(
                         context::apply_request_to_view(view, &request, window, cx);
                         cx.notify();
                     }));
-            item = if selected {
-                item.primary()
-            } else {
-                item.ghost()
-            };
+            // 活动请求沿用原型的中性选中表面，不把主操作强调色用于导航。
+            item = item.ghost().selected(selected);
             items.push(item.into_any_element());
             visible_request_count += 1;
         }

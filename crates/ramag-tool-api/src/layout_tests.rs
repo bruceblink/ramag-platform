@@ -161,7 +161,7 @@ fn api_request_response_divider_resizes_and_preserves_minimum_widths(cx: &mut Te
     drag_api_divider_to_x(
         visual_cx,
         point(divider.origin.x + divider.size.width / 2.0, y),
-        px(1.0),
+        request_initial.origin.x + px(API_REQUEST_PANE_MIN_WIDTH),
     );
     let request_minimum = visual_cx
         .debug_bounds("api-request-pane")
@@ -176,6 +176,113 @@ fn api_request_response_divider_resizes_and_preserves_minimum_widths(cx: &mut Te
     assert!(
         response_widened.size.width > response_minimum.size.width,
         "请求区缩至最小宽度后响应区应变宽: min={response_minimum:?}, after={response_widened:?}"
+    );
+}
+
+/// 在 360px 视口中验证 HTTP 与 gRPC 目标字段及执行按钮都保留可用边界。
+#[gpui_kit::test]
+fn api_request_targets_keep_fields_and_actions_visible_on_narrow_windows(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual_cx) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_kit::component::Root::new(view, window, cx)
+    });
+    let view = view_entity.expect("API 视图应初始化");
+    visual_cx.simulate_resize(size(px(360.0), px(640.0)));
+    visual_cx.run_until_parked();
+
+    let command_row = visual_cx
+        .debug_bounds("api-request-command-row")
+        .expect("窄屏请求命令行应渲染");
+    let target = visual_cx
+        .debug_bounds("api-request-target")
+        .expect("HTTP 请求目标应渲染");
+    let method = visual_cx
+        .debug_bounds("api-http-method")
+        .expect("HTTP 方法输入框应渲染");
+    let url = visual_cx
+        .debug_bounds("api-http-url")
+        .expect("HTTP URL 输入框应渲染");
+    let actions = visual_cx
+        .debug_bounds("api-request-actions")
+        .expect("HTTP 操作区应渲染");
+    let send = visual_cx
+        .debug_bounds("api-send")
+        .expect("HTTP 发送按钮应渲染");
+    let collection = visual_cx
+        .debug_bounds("api-run-collection")
+        .expect("Collection 按钮应渲染");
+    assert!(
+        method.size.width >= px(92.0) && url.size.width >= px(180.0),
+        "窄屏 HTTP 方法与 URL 必须保留最小宽度: method={method:?}, url={url:?}"
+    );
+    assert!(
+        method.origin.x >= target.origin.x
+            && url.right() <= target.right()
+            && method.bottom() <= target.bottom()
+            && url.bottom() <= target.bottom(),
+        "HTTP 方法和 URL 必须留在目标区内: method={method:?}, url={url:?}, target={target:?}"
+    );
+    assert!(
+        actions.origin.y >= target.bottom()
+            && actions.right() <= command_row.right()
+            && send.right() <= actions.right()
+            && collection.right() <= actions.right(),
+        "窄屏 HTTP 操作区应换行并完整显示: target={target:?}, actions={actions:?}, send={send:?}, collection={collection:?}"
+    );
+
+    visual_cx.update(|_, app| {
+        view.update(app, |view, cx| view.set_protocol(ApiProtocol::Grpc, cx));
+    });
+    visual_cx.run_until_parked();
+
+    let target = visual_cx
+        .debug_bounds("api-request-target")
+        .expect("gRPC 请求目标应渲染");
+    let endpoint = visual_cx
+        .debug_bounds("api-grpc-endpoint")
+        .expect("gRPC endpoint 输入框应渲染");
+    let service = visual_cx
+        .debug_bounds("api-grpc-service")
+        .expect("gRPC service 输入框应渲染");
+    let method = visual_cx
+        .debug_bounds("api-grpc-method-input")
+        .expect("gRPC method 输入框应渲染");
+    let actions = visual_cx
+        .debug_bounds("api-request-actions")
+        .expect("gRPC 操作区应渲染");
+    let discover = visual_cx
+        .debug_bounds("api-grpc-discover")
+        .expect("gRPC 服务发现按钮应渲染");
+    let send = visual_cx
+        .debug_bounds("api-send")
+        .expect("gRPC 发送按钮应渲染");
+    let collection = visual_cx
+        .debug_bounds("api-run-collection")
+        .expect("gRPC Collection 按钮应渲染");
+    assert!(
+        endpoint.size.width >= px(88.0)
+            && service.size.width >= px(88.0)
+            && method.size.width >= px(88.0),
+        "窄屏 gRPC 目标、服务和方法输入框必须保留最小宽度: endpoint={endpoint:?}, service={service:?}, method={method:?}"
+    );
+    assert!(
+        endpoint.origin.x >= target.origin.x
+            && service.origin.x >= target.origin.x
+            && method.origin.x >= target.origin.x
+            && endpoint.right() <= target.right()
+            && service.right() <= target.right()
+            && method.right() <= target.right(),
+        "gRPC 目标、服务和方法输入框必须留在目标区内: endpoint={endpoint:?}, service={service:?}, method={method:?}, target={target:?}"
+    );
+    assert!(
+        actions.origin.y >= target.bottom()
+            && discover.right() <= actions.right()
+            && send.right() <= actions.right()
+            && collection.right() <= actions.right(),
+        "窄屏 gRPC 操作区应换行并完整显示: target={target:?}, actions={actions:?}, discover={discover:?}, send={send:?}, collection={collection:?}"
     );
 }
 
@@ -216,6 +323,18 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let content_root = visual_cx
             .debug_bounds("api-content")
             .expect("API 主体容器应渲染");
+        let page_heading = visual_cx
+            .debug_bounds("api-page-heading")
+            .expect("请求名称和上下文应位于页面标题区");
+        let page_title = visual_cx
+            .debug_bounds("api-page-title")
+            .expect("请求名称应保持可编辑");
+        let page_actions = visual_cx
+            .debug_bounds("api-page-actions")
+            .expect("协议、导入和保存入口应位于页面标题区");
+        let request_context = visual_cx
+            .debug_bounds("api-request-context")
+            .expect("标题区应保留 API 工作区上下文");
         let sidebar = visual_cx
             .debug_bounds("api-sidebar")
             .expect("API 侧栏应渲染");
@@ -243,12 +362,27 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let request_pane = visual_cx
             .debug_bounds("api-request-pane")
             .expect("请求面板应渲染");
+        let request_heading = visual_cx
+            .debug_bounds("api-request-pane-heading")
+            .expect("请求编辑区应有独立标题行");
+        let request_scroll = visual_cx
+            .debug_bounds("api-request-scroll-content")
+            .expect("请求编辑内容应有独立滚动区域");
         let proxy_editor = visual_cx
             .debug_bounds("api-proxy-editor")
             .expect("代理编辑器应渲染");
         let response = visual_cx
             .debug_bounds("api-response")
             .expect("响应面板应渲染");
+        let response_heading = visual_cx
+            .debug_bounds("api-response-heading")
+            .expect("响应区应有独立标题行");
+        let response_tabs = visual_cx
+            .debug_bounds("api-response-tabs-row")
+            .expect("响应页签应位于单独一行");
+        let response_scroll = visual_cx
+            .debug_bounds("api-response-scroll-content")
+            .expect("响应内容应有独立滚动区域");
         if width >= API_STACK_BREAKPOINT {
             assert!(
                 editor.size.width >= px(API_EDITOR_MIN_WIDTH - 1.0),
@@ -267,6 +401,21 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
             "请求搜索框不能越出侧栏: search={request_search:?}, sidebar={sidebar:?}"
         );
         assert!(
+            page_title.origin.y >= page_heading.origin.y
+                && page_title.bottom() <= page_heading.bottom()
+                && request_context.bottom() <= page_heading.bottom(),
+            "请求标题和上下文必须留在页面标题区: title={page_title:?}, context={request_context:?}, heading={page_heading:?}"
+        );
+        assert!(
+            page_heading.bottom() < content_root.origin.y,
+            "页面标题必须位于有边框的工作台之前: heading={page_heading:?}, workbench={content_root:?}"
+        );
+        assert!(
+            page_actions.origin.y >= page_heading.origin.y
+                && page_actions.bottom() <= page_heading.bottom(),
+            "协议、导入和保存入口必须留在标题区: actions={page_actions:?}, heading={page_heading:?}"
+        );
+        assert!(
             editor.origin.y >= content_root.origin.y,
             "编辑器不能垂直越过主体顶部"
         );
@@ -281,21 +430,35 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         assert!(response.right() <= root.right(), "响应面板不能越出根节点");
         assert!(editor.origin.x >= root.origin.x, "编辑器左边界不能越界");
         assert!(
-            visual_cx.debug_bounds("api-page-title").is_none(),
-            "API 工作区不再显示占用空间的重复大标题"
+            protocol_switcher.right() <= page_actions.right(),
+            "协议切换器不能越出标题区操作范围"
         );
         assert!(
-            protocol_switcher.right() <= toolbar.right(),
-            "协议切换器不能越出紧凑请求栏"
+            (request_heading.size.height - px(ramag_ui::WORKBENCH_TOOLBAR_HEIGHT)).abs() <= px(1.0),
+            "请求标题行应复用共享工具栏高度: {request_heading:?}"
+        );
+        assert!(
+            (response_tabs.size.height - px(ramag_ui::WORKBENCH_TAB_HEIGHT)).abs() <= px(1.0),
+            "响应页签行应复用共享页签高度: {response_tabs:?}"
         );
         assert!(
             request_tabs.origin.y >= request_pane.origin.y,
             "请求配置页签必须位于请求面板内"
         );
+        assert!(
+            request_heading.bottom() <= request_tabs.origin.y
+                && request_scroll.origin.y >= request_heading.bottom(),
+            "请求标题、请求编辑器和配置页签应按顺序排列: heading={request_heading:?}, tabs={request_tabs:?}, scroll={request_scroll:?}"
+        );
+        assert!(
+            response_heading.bottom() <= response_tabs.origin.y
+                && response_tabs.bottom() <= response_scroll.origin.y,
+            "响应标题、页签和内容应按顺序排列: heading={response_heading:?}, tabs={response_tabs:?}, content={response_scroll:?}"
+        );
         if width >= API_STACK_BREAKPOINT {
             assert!(
-                (toolbar.origin.y - content_root.origin.y).abs() <= px(1.0),
-                "宽布局应从紧凑请求栏直接开始: toolbar={toolbar:?}, content={content_root:?}"
+                (toolbar.origin.y - content_root.origin.y) <= px(3.0),
+                "宽布局应从请求工作台顶栏开始: toolbar={toolbar:?}, content={content_root:?}"
             );
         } else {
             assert!(
@@ -342,7 +505,7 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
                 "宽窗口操作区应与请求目标同排: actions={actions:?}, command={command_row:?}"
             );
         }
-        if width >= 720.0 {
+        if width >= API_STACK_BREAKPOINT {
             assert!(
                 (response.origin.y - request_pane.origin.y).abs() <= px(1.0),
                 "左右分栏必须顶部对齐: pane={request_pane:?}, response={response:?}"
@@ -353,12 +516,20 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
             );
         } else {
             assert!(
-                (sidebar.size.width - content_root.size.width).abs() <= px(1.0),
+                (sidebar.size.width - content_root.size.width).abs() <= px(4.0),
                 "窄窗口侧栏应占满主体宽度: sidebar={sidebar:?}, content={content_root:?}"
             );
             assert!(
                 sidebar.size.height <= px(240.0),
                 "窄窗口侧栏高度应受限并保留请求编辑器空间: sidebar={sidebar:?}"
+            );
+            assert!(
+                request_tabs.bottom() <= request_pane.bottom() + px(1.0),
+                "窄屏请求页签必须完整留在请求面板内: viewport={width}x{height}, tabs={request_tabs:?}, pane={request_pane:?}"
+            );
+            assert!(
+                response.origin.y >= request_pane.bottom() - px(1.0),
+                "窄屏响应面板必须排在完整请求面板之后: viewport={width}x{height}, request={request_pane:?}, response={response:?}"
             );
         }
     }
@@ -379,7 +550,7 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
     visual_cx.run_until_parked();
     assert!(visual_cx.update(|_, app| view.read(app).layout_scroll.offset().y < px(0.0)));
 
-    visual_cx.simulate_resize(size(px(360.0), px(640.0)));
+    visual_cx.simulate_resize(size(px(360.0), px(800.0)));
     visual_cx.run_until_parked();
     assert_eq!(
         visual_cx.update(|_, app| view.read(app).layout_scroll.offset().y),
