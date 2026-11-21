@@ -23,15 +23,10 @@ impl KafkaView {
         } else {
             ("未连接", ramag_ui::pulse_ui::PulseStatus::Unavailable)
         };
-        let admin_mode_label = if self.read_only.allows_admin() {
-            "管理已启用"
+        let admin_mode = if self.read_only.allows_admin() {
+            ("管理已启用", ramag_ui::pulse_ui::PulseStatus::Warming)
         } else {
-            "只读"
-        };
-        let admin_mode_color = if self.read_only.allows_admin() {
-            theme.warning
-        } else {
-            theme.muted_foreground
+            ("只读", ramag_ui::pulse_ui::PulseStatus::Unavailable)
         };
         // 新建草稿尚未分配集群 ID，但必须先显示配置表单；只有初始概览才显示欢迎页。
         let show_welcome = selected.is_none() && self.section != KafkaSection::Config;
@@ -75,11 +70,15 @@ impl KafkaView {
                             .when(compact, |row| row.w_full().flex_none())
                             .gap(px(10.0))
                             .child(
-                                ramag_ui::pulse_ui::pulse_page_title(title, Some(status.0), cx)
-                                    .id("kafka-page-title")
-                                    .debug_selector(|| "kafka-page-title".into())
-                                    .flex_1()
-                                    .min_w_0(),
+                                ramag_ui::pulse_ui::pulse_page_title(
+                                    title,
+                                    Some("Kafka 工作区"),
+                                    cx,
+                                )
+                                .id("kafka-page-title")
+                                .debug_selector(|| "kafka-page-title".into())
+                                .flex_1()
+                                .min_w_0(),
                             )
                             .child(
                                 ramag_ui::pulse_ui::pulse_status_badge_with_label(
@@ -95,20 +94,11 @@ impl KafkaView {
                             .items_center()
                             .gap(px(8.0))
                             .when(compact, |row| row.w_full().justify_between())
-                            .child(
-                                div()
-                                    .px(px(8.0))
-                                    .py(px(3.0))
-                                    .rounded(px(4.0))
-                                    .bg(if self.read_only.allows_admin() {
-                                        theme.warning.opacity(0.12)
-                                    } else {
-                                        theme.muted.opacity(0.65)
-                                    })
-                                    .text_xs()
-                                    .text_color(admin_mode_color)
-                                    .child(admin_mode_label),
-                            )
+                            .child(ramag_ui::pulse_ui::pulse_status_badge_with_label(
+                                admin_mode.1,
+                                admin_mode.0,
+                                cx,
+                            ))
                             .when(selected.is_some(), |row| {
                                 row.child(
                                     ramag_ui::clickable_button("kafka-test-connection")
@@ -134,7 +124,8 @@ impl KafkaView {
                                 ramag_ui::clickable_button("kafka-refresh")
                                     .ghost()
                                     .small()
-                                    .icon(IconName::Search)
+                                    .icon(ramag_ui::icons::refresh_cw())
+                                    .accessibility_label("刷新元数据")
                                     .tooltip("刷新元数据")
                                     .disabled(
                                         self.loading_runtime
@@ -149,20 +140,7 @@ impl KafkaView {
                                         this.retry_runtime(window, cx);
                                     })),
                             )
-                            .when(narrow && !self.sidebar_visible, |row| {
-                                row.child(
-                                    ramag_ui::clickable_button("kafka-show-sidebar")
-                                        .debug_selector(|| "kafka-show-sidebar".into())
-                                        .ghost()
-                                        .small()
-                                        .icon(IconName::PanelLeft)
-                                        .tooltip("显示集群栏")
-                                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                            this.sidebar_visible = true;
-                                            cx.notify();
-                                        })),
-                                )
-                            }),
+                            .when(narrow, |row| row.child(self.cluster_dialog_button(cx))),
                     ),
             )
             .when_some(self.notice.clone(), |view, notice| {

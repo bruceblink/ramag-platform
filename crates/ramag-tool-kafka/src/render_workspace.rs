@@ -1,5 +1,6 @@
 use super::*;
 use gpui_kit::component::scroll::ScrollableElement as _;
+use gpui_kit::component::tab::{Tab, TabBar};
 
 impl KafkaView {
     /// Keeps the first Kafka action reachable when the real window has only a short viewport.
@@ -71,88 +72,64 @@ impl KafkaView {
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
         let compact = kafka_main_content_width(window) < 700.0;
-        let tabs = KafkaSection::ALL
-            .into_iter()
-            .fold(h_flex().gap(px(2.0)), |tabs, section| {
-                let selected = self.section == section;
-                tabs.child(
-                    ramag_ui::clickable_button(SharedString::from(format!(
-                        "kafka-section-{:?}",
-                        section
-                    )))
-                    .debug_selector(move || format!("kafka-section-{:?}", section))
-                    .small()
-                    .flex_none()
+        let tabs = TabBar::new("kafka-workspace-tabs-scroll")
+            .underline()
+            .menu(true)
+            .track_scroll(&self.workspace_tabs_scroll)
+            .min_w_0()
+            .when(compact, |tabs| tabs.w_full())
+            .when(!compact, |tabs| tabs.flex_1())
+            .selected_index(self.section.index())
+            .children(KafkaSection::ALL.into_iter().map(|section| {
+                Tab::new()
                     .label(section.label())
-                    .when(selected, |button| button.primary())
-                    .when(!selected, |button| button.ghost())
-                    .on_click(cx.listener(
-                        move |this, _: &ClickEvent, window, cx| {
-                            this.section = section;
-                            this.workspace_tabs_scroll.scroll_to_item(section.index());
-                            if section == KafkaSection::ConsumerGroups
-                                && !this.loading_runtime
-                                && let Some(config) = this.selected_config()
-                            {
-                                this.load_consumer_groups(config, window, cx);
-                            }
-                            if section == KafkaSection::SchemaRegistry
-                                && !this.loading_runtime
-                                && !this.schema_subjects_loaded
-                                && let Some(config) = this.selected_config()
-                            {
-                                this.load_schema_subjects(config, window, cx);
-                            }
-                            if section == KafkaSection::Connect
-                                && !this.loading_runtime
-                                && !this.connectors_loaded
-                                && let Some(config) = this.selected_config()
-                            {
-                                this.load_connectors(config, window, cx);
-                            }
-                            if section == KafkaSection::Acls
-                                && !this.loading_runtime
-                                && !this.acls_loaded
-                                && let Some(config) = this.selected_config()
-                            {
-                                this.load_acls(config, window, cx);
-                            }
-                            if section == KafkaSection::Config
-                                && this.selected_cluster_id.is_some()
-                                && this.config_entries.is_empty()
-                                && this.config_resource_name.read(cx).value().trim().is_empty()
-                            {
-                                set_value(
-                                    &this.config_resource_name,
-                                    this.selected_topic.clone().unwrap_or_default(),
-                                    window,
-                                    cx,
-                                );
-                            }
-                            cx.notify();
-                        },
-                    )),
-                )
-            });
-        let tabs = if compact {
-            tabs.w_full()
-                .min_w_0()
-                .h(px(32.0))
-                .items_center()
-                .id("kafka-workspace-tabs-scroll")
-                .overflow_x_scroll()
-                .track_scroll(&self.workspace_tabs_scroll)
-                .horizontal_scrollbar(&self.workspace_tabs_scroll)
-                .into_any_element()
-        } else {
-            tabs.flex_1()
-                .min_w_0()
-                .id("kafka-workspace-tabs-scroll")
-                .overflow_x_scroll()
-                .track_scroll(&self.workspace_tabs_scroll)
-                .horizontal_scrollbar(&self.workspace_tabs_scroll)
-                .into_any_element()
-        };
+                    .debug_selector(move || format!("kafka-section-{section:?}"))
+            }))
+            .on_click(cx.listener(move |this, index: &usize, window, cx| {
+                let section = KafkaSection::ALL[*index];
+                this.section = section;
+                this.workspace_tabs_scroll.scroll_to_item(section.index());
+                if section == KafkaSection::ConsumerGroups
+                    && !this.loading_runtime
+                    && let Some(config) = this.selected_config()
+                {
+                    this.load_consumer_groups(config, window, cx);
+                }
+                if section == KafkaSection::SchemaRegistry
+                    && !this.loading_runtime
+                    && !this.schema_subjects_loaded
+                    && let Some(config) = this.selected_config()
+                {
+                    this.load_schema_subjects(config, window, cx);
+                }
+                if section == KafkaSection::Connect
+                    && !this.loading_runtime
+                    && !this.connectors_loaded
+                    && let Some(config) = this.selected_config()
+                {
+                    this.load_connectors(config, window, cx);
+                }
+                if section == KafkaSection::Acls
+                    && !this.loading_runtime
+                    && !this.acls_loaded
+                    && let Some(config) = this.selected_config()
+                {
+                    this.load_acls(config, window, cx);
+                }
+                if section == KafkaSection::Config
+                    && this.selected_cluster_id.is_some()
+                    && this.config_entries.is_empty()
+                    && this.config_resource_name.read(cx).value().trim().is_empty()
+                {
+                    set_value(
+                        &this.config_resource_name,
+                        this.selected_topic.clone().unwrap_or_default(),
+                        window,
+                        cx,
+                    );
+                }
+                cx.notify();
+            }));
         let actions = h_flex()
             .debug_selector(|| "kafka-config-actions".into())
             .flex_none()
@@ -196,7 +173,9 @@ impl KafkaView {
                 .flex_none()
                 .gap(px(8.0))
                 .px(px(12.0))
-                .py(px(8.0))
+                .when(self.section == KafkaSection::Config, |header| {
+                    header.pb(px(8.0))
+                })
                 .border_b_1()
                 .border_color(theme.border)
                 .child(tabs)
@@ -210,7 +189,7 @@ impl KafkaView {
                 .bg(theme.tab_bar)
                 .id("kafka-workspace-tabs")
                 .w_full()
-                .h(px(48.0))
+                .h(px(ramag_ui::WORKBENCH_TOOLBAR_HEIGHT))
                 .flex_none()
                 .items_center()
                 .justify_between()

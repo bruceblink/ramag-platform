@@ -37,20 +37,20 @@ pub(super) fn value(field: &Entity<InputState>, cx: &App) -> String {
 /// the main pane is already narrow.
 pub(super) fn kafka_main_content_width(window: &Window) -> f32 {
     let viewport_width = f32::from(window.viewport_size().width);
-    if viewport_width < 900.0 {
+    if kafka_sidebar_is_narrow_width(viewport_width) {
         viewport_width
     } else {
         (viewport_width - KAFKA_SIDEBAR_WIDTH).max(0.0)
     }
 }
 
-/// Detects the width where a stacked cluster bar would hide the workbench.
+/// 窄窗口通过弹窗选集群，主工作区保留完整宽度。
 pub(super) fn kafka_sidebar_is_narrow(window: &Window) -> bool {
     kafka_sidebar_is_narrow_width(f32::from(window.viewport_size().width))
 }
 
 pub(super) fn kafka_sidebar_is_narrow_width(width: f32) -> bool {
-    width < KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT
+    width <= ramag_ui::shell::SHELL_NARROW_BREAKPOINT
 }
 
 pub(super) fn optional_value(field: &Entity<InputState>, cx: &App) -> Option<String> {
@@ -557,15 +557,14 @@ pub(super) fn suggested_message_file_name(record: &KafkaMessageRecord) -> String
 
 #[cfg(test)]
 mod layout_tests {
-    use super::{KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT, kafka_sidebar_is_narrow_width};
+    use super::kafka_sidebar_is_narrow_width;
+    use ramag_ui::shell::SHELL_NARROW_BREAKPOINT;
 
     #[test]
-    fn sidebar_collapses_only_below_the_narrow_workbench_breakpoint() {
-        assert!(kafka_sidebar_is_narrow_width(
-            KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT - 1.0
-        ));
+    fn sidebar_uses_the_shared_narrow_workbench_breakpoint() {
+        assert!(kafka_sidebar_is_narrow_width(SHELL_NARROW_BREAKPOINT));
         assert!(!kafka_sidebar_is_narrow_width(
-            KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT
+            SHELL_NARROW_BREAKPOINT + 1.0
         ));
     }
 }

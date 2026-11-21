@@ -71,7 +71,6 @@ const DEFAULT_TOPIC_PAGE_SIZE: usize = 50;
 const MESSAGE_TAIL_CHANNEL_CAPACITY: usize = 8;
 const MESSAGE_TAIL_RESULTS_HEIGHT: f32 = 260.0;
 const KAFKA_SIDEBAR_WIDTH: f32 = 260.0;
-const KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT: f32 = 480.0;
 const KAFKA_TOPIC_SCROLLBAR_WIDTH: f32 = 16.0;
 const KAFKA_SCHEMA_SUBJECT_SCROLLBAR_WIDTH: f32 = 16.0;
 const MAX_VISIBLE_GROUP_OFFSETS: usize = 500;
@@ -292,8 +291,8 @@ pub struct KafkaView {
     acl_error: Option<String>,
     acl_scroll: UniformListScrollHandle,
     section: KafkaSection,
-    /// 极窄窗口默认隐藏集群栏，避免垂直堆叠把主工作区推到视口外。
-    sidebar_visible: bool,
+    cluster_dialog_open: bool,
+    cluster_button_focus: FocusHandle,
     cluster_search: Entity<InputState>,
     topic_search: Entity<InputState>,
     consumer_group_search: Entity<InputState>,
@@ -443,6 +442,7 @@ mod remote_config;
 mod remote_config_render;
 mod render_broker_metrics;
 mod render_brokers;
+mod render_cluster_dialog;
 mod render_config;
 mod render_connect;
 mod render_consumer_group_helpers;
@@ -475,21 +475,17 @@ impl Focusable for KafkaView {
 
 impl Render for KafkaView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let compact = f32::from(window.viewport_size().width) < 900.0;
-        let narrow = kafka_sidebar_is_narrow(window);
-        let show_sidebar = !narrow || self.sidebar_visible;
+        let show_sidebar = !kafka_sidebar_is_narrow(window) && !self.cluster_dialog_open;
         h_flex()
             .id("kafka-root")
             .debug_selector(|| "kafka-root".into())
+            .track_focus(&self.focus_handle)
             .size_full()
             .min_w_0()
             .min_h_0()
-            .when(compact && show_sidebar, |root| {
-                root.flex_col().items_stretch()
-            })
             .bg(cx.theme().background)
             .when(show_sidebar, |root| {
-                root.child(self.render_sidebar(window, cx))
+                root.child(self.render_sidebar(cx, false))
             })
             .child(self.render_main(window, cx))
     }

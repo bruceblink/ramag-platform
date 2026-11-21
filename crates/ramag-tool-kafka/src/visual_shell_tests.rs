@@ -1,11 +1,17 @@
 use super::*;
+use gpui_kit::component::WindowExt as _;
 
 /// 验证窄窗口下侧栏、主标题栏和工作区操作区都遵守 680px 的外壳边界。
 pub(super) fn assert_compact_shell(
     visual_cx: &mut VisualTestContext,
-    _kafka_entity: &gpui_kit::Entity<KafkaView>,
+    kafka_entity: &gpui_kit::Entity<KafkaView>,
 ) {
     visual_cx.run_until_parked();
+    assert!(visual_cx.debug_bounds("kafka-sidebar").is_none());
+    let main_before = visual_cx.debug_bounds("kafka-main");
+    super::click(visual_cx, "kafka-show-sidebar");
+    visual_cx.run_until_parked();
+    assert!(visual_cx.update(|window, cx| window.has_active_dialog(cx)));
     let bounds = [
         visual_cx.debug_bounds("kafka-root"),
         visual_cx.debug_bounds("kafka-sidebar"),
@@ -37,7 +43,9 @@ pub(super) fn assert_compact_shell(
     assert!(compact_root.size.width <= px(680.0));
     assert!(compact_sidebar.size.width <= px(680.0));
     assert!(compact_main.size.width <= px(680.0));
-    assert!(compact_sidebar.origin.y + compact_sidebar.size.height <= compact_main.origin.y);
+    assert!(compact_sidebar.origin.y >= compact_root.origin.y);
+    assert!(compact_sidebar.bottom() <= compact_root.bottom());
+    assert_eq!(Some(compact_main), main_before);
     assert!(compact_header_actions.origin.x >= compact_header.origin.x);
     assert!(
         compact_page_title.origin.x >= compact_header.origin.x
@@ -54,4 +62,14 @@ pub(super) fn assert_compact_shell(
         compact_config_actions.origin.x + compact_config_actions.size.width
             <= compact_tabs.origin.x + compact_tabs.size.width
     );
+    visual_cx.simulate_keystrokes("escape");
+    visual_cx.run_until_parked();
+    assert!(!visual_cx.update(|window, cx| window.has_active_dialog(cx)));
+    assert!(visual_cx.debug_bounds("kafka-sidebar").is_none());
+    assert!(visual_cx.update(|window, cx| {
+        kafka_entity
+            .read(cx)
+            .cluster_button_focus
+            .is_focused(window)
+    }));
 }

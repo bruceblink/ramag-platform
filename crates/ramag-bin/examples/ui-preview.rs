@@ -5,6 +5,7 @@
 //! 该模式仅连接本次预览创建的本地样例库。
 //! SQLite 窄屏验收：sqlite-designer dark 360 640 --compact-window
 //! API：api-local；连接 scripts/api-test 的本机 HTTP/gRPC 服务，包含可延迟的验收请求。
+//! Kafka：kafka；仅连接 scripts/kafka-test 的本机测试 Broker。
 //! 插件诊断：plugin-empty 或 plugin-failure；两者只构造本次窗口的受控验收状态。
 //! 对象存储：object_storage；只读取 RAMAG_OBJECT_PREVIEW_* 配置的本机回环测试服务。
 //! 容器：container-local；只使用 RAMAG_CONTAINER_PREVIEW_ENDPOINT 显式指定的本机只读 Docker 端点。
@@ -19,6 +20,8 @@ mod api;
 mod container;
 #[path = "ui_preview/dbclient.rs"]
 mod dbclient;
+#[path = "ui_preview/kafka.rs"]
+mod kafka;
 #[path = "ui_preview/object_storage.rs"]
 mod object_storage;
 #[path = "ui_preview/offline_database.rs"]
@@ -352,6 +355,9 @@ fn main() -> anyhow::Result<()> {
         if matches!(page.as_str(), "settings" | "mqtt") {
             tools.push(Arc::new(ramag_tool_mqtt::MqttTool::new()));
         }
+        if page == "kafka" {
+            tools.push(Arc::new(ramag_tool_kafka::KafkaTool::new()));
+        }
         for tool in tools {
             host.register_plugin(Arc::new(StaticPluginAdapter::from_tool(tool)?))?;
         }
@@ -382,6 +388,9 @@ fn main() -> anyhow::Result<()> {
         .map(|config| (preview.connection.clone(), config.clone()));
     let api_service = (page == "api-local")
         .then(|| api::service(storage.clone()))
+        .transpose()?;
+    let kafka_service = (page == "kafka")
+        .then(|| kafka::service(storage.clone()))
         .transpose()?;
     let container_services = container_endpoint
         .as_deref()
@@ -509,6 +518,9 @@ fn main() -> anyhow::Result<()> {
                     let mqtt_view = mqtt.as_ref().map(|service| {
                         ramag_tool_mqtt::create_mqtt_view(service.clone(), window, cx)
                     });
+                    let kafka_view = kafka_service.as_ref().map(|service| {
+                        ramag_tool_kafka::create_kafka_view(service.clone(), window, cx)
+                    });
                     let shell = cx.new(|cx| {
                         let mut shell =
                             Shell::new(registry, host, preview.gate.clone(), window, cx);
@@ -530,6 +542,9 @@ fn main() -> anyhow::Result<()> {
                         }
                         if let Some(mqtt_view) = mqtt_view {
                             shell.register_tool_view("mqtt", mqtt_view.into());
+                        }
+                        if let Some(kafka_view) = kafka_view {
+                            shell.register_tool_view("kafka", kafka_view.into());
                         }
                         let target = match page.as_str() {
                             "settings" | "update" | "plugin-empty" | "plugin-failure" => {

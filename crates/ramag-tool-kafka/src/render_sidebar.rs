@@ -1,4 +1,5 @@
 use super::*;
+use gpui_kit::component::Selectable as _;
 
 pub(super) fn matching_cluster_indices(clusters: &[KafkaClusterConfig], query: &str) -> Vec<usize> {
     clusters
@@ -17,14 +18,8 @@ pub(super) fn matching_cluster_indices(clusters: &[KafkaClusterConfig], query: &
 }
 
 impl KafkaView {
-    pub(super) fn render_sidebar(
-        &self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    pub(super) fn render_sidebar(&self, cx: &mut Context<Self>, dialog: bool) -> impl IntoElement {
         let theme = cx.theme().clone();
-        let compact = f32::from(window.viewport_size().width) < 900.0;
-        let narrow = kafka_sidebar_is_narrow(window);
         let query = value(&self.cluster_search, cx).to_lowercase();
         let visible_indices = matching_cluster_indices(&self.clusters, &query);
         let rows = if self.loading_clusters {
@@ -34,7 +29,7 @@ impl KafkaView {
                 .flex_1()
                 .min_h_0()
                 .child(loading_transition(
-                    skeleton_table(&theme, if compact { 2 } else { 4 }, &[Some(8.0), None]),
+                    skeleton_table(&theme, if dialog { 2 } else { 4 }, &[Some(8.0), None]),
                     "kafka-cluster-loading-transition",
                 ))
                 .child(
@@ -124,9 +119,11 @@ impl KafkaView {
             .w(px(KAFKA_SIDEBAR_WIDTH))
             .h_full()
             .flex_none()
-            .when(compact, |panel| panel.w_full().h(px(220.0)).flex_none())
-            .border_r_1()
-            .border_color(theme.border)
+            .min_h_0()
+            .when(dialog, |panel| panel.w_full())
+            .when(!dialog, |panel| {
+                panel.border_r_1().border_color(theme.border)
+            })
             .bg(ramag_ui::pulse_ui::pulse_palette(cx).surface)
             .child(
                 ramag_ui::pulse_ui::pulse_home_toolbar(cx)
@@ -137,57 +134,44 @@ impl KafkaView {
                     .justify_between()
                     .border_b_1()
                     .border_color(theme.border)
+                    .when(!dialog, |header| {
+                        header.child(
+                            h_flex()
+                                .gap(px(8.0))
+                                .child(Icon::new(IconName::Network).text_color(theme.accent))
+                                .child(
+                                    v_flex()
+                                        .gap(px(1.0))
+                                        .child(
+                                            div()
+                                                .text_sm()
+                                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                                .child("Kafka"),
+                                        )
+                                        .child(
+                                            div()
+                                                .text_xs()
+                                                .text_color(theme.muted_foreground)
+                                                .child("消息流工作区"),
+                                        ),
+                                ),
+                        )
+                    })
                     .child(
-                        h_flex()
-                            .gap(px(8.0))
-                            .child(Icon::new(IconName::Network).text_color(theme.accent))
-                            .child(
-                                v_flex()
-                                    .gap(px(1.0))
-                                    .child(
-                                        div()
-                                            .text_sm()
-                                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                                            .child("Kafka"),
-                                    )
-                                    .child(
-                                        div()
-                                            .text_xs()
-                                            .text_color(theme.muted_foreground)
-                                            .child("消息流工作区"),
-                                    ),
-                            ),
-                    )
-                    .child(
-                        h_flex()
-                            .gap(px(4.0))
-                            .when(narrow, |actions| {
-                                actions.child(
-                                    ramag_ui::clickable_button("kafka-hide-sidebar")
-                                        .debug_selector(|| "kafka-hide-sidebar".into())
-                                        .ghost()
-                                        .xsmall()
-                                        .icon(IconName::PanelLeft)
-                                        .tooltip("隐藏集群栏")
-                                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                            this.sidebar_visible = false;
-                                            cx.notify();
-                                        })),
-                                )
-                            })
-                            .child(
-                                ramag_ui::clickable_button("kafka-add-profile")
-                                    .debug_selector(|| "kafka-add-profile".into())
-                                    .primary()
-                                    .small()
-                                    .icon(IconName::Plus)
-                                    .label("新建")
-                                    .tooltip("新建集群配置")
-                                    .disabled(self.saving || self.testing || self.deleting)
-                                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                        this.new_profile(window, cx);
-                                    })),
-                            ),
+                        h_flex().gap(px(4.0)).child(
+                            ramag_ui::clickable_button("kafka-add-profile")
+                                .debug_selector(|| "kafka-add-profile".into())
+                                .primary()
+                                .small()
+                                .icon(IconName::Plus)
+                                .label("新建")
+                                .tooltip("新建集群配置")
+                                .disabled(self.saving || self.testing || self.deleting)
+                                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                    this.close_cluster_dialog(window, cx);
+                                    this.new_profile(window, cx);
+                                })),
+                        ),
                     ),
             )
             .child(
@@ -235,45 +219,56 @@ impl KafkaView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = cx.theme().clone();
+        let palette = ramag_ui::pulse_ui::pulse_palette(cx);
         let row_id = SharedString::from(format!("kafka-cluster-row-{}", cluster.id));
         let id = cluster.id.clone();
         let profile_operation_active = self.saving || self.testing || self.deleting;
-        h_flex()
-            .id(row_id)
+        let endpoints = cluster.bootstrap_servers.join(", ");
+        ramag_ui::clickable_button(row_id)
             .debug_selector(|| "kafka-cluster-row".into())
+            .ghost()
+            .selected(selected)
+            .disabled(profile_operation_active)
             .w_full()
             .min_w_0()
-            .items_center()
-            .gap(px(9.0))
+            .h(px(52.0))
             .px(px(14.0))
-            .py(px(10.0))
-            .when(selected, |row| row.bg(theme.accent.opacity(0.12)))
-            .when(!selected, |row| {
-                row.hover(|row| row.bg(theme.muted.opacity(0.5)))
-            })
-            .when(!profile_operation_active, |row| {
-                row.cursor_pointer().on_click(cx.listener(
-                    move |this, _: &ClickEvent, window, cx| {
-                        this.select_cluster(id.clone(), window, cx);
-                    },
-                ))
-            })
-            .child(div().size(px(8.0)).rounded_full().bg(if selected {
-                theme.accent
-            } else {
-                theme.muted_foreground
+            .when(selected, |row| row.bg(palette.selected))
+            .accessibility_label(format!("{}，{}", cluster.name, endpoints))
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                this.close_cluster_dialog(window, cx);
+                this.select_cluster(id.clone(), window, cx);
             }))
             .child(
-                v_flex()
+                h_flex()
+                    .w_full()
                     .min_w_0()
-                    .gap(px(2.0))
-                    .child(div().text_sm().truncate().child(cluster.name))
+                    .items_center()
+                    .gap(px(9.0))
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .truncate()
-                            .child(cluster.bootstrap_servers.join(", ")),
+                            .size(px(8.0))
+                            .flex_none()
+                            .rounded_full()
+                            .bg(if selected {
+                                theme.accent
+                            } else {
+                                theme.muted_foreground
+                            }),
+                    )
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_w_0()
+                            .gap(px(2.0))
+                            .child(div().text_sm().truncate().child(cluster.name))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .truncate()
+                                    .child(endpoints),
+                            ),
                     ),
             )
     }

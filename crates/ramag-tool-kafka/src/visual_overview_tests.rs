@@ -1,5 +1,7 @@
 use super::*;
-use crate::KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT;
+use crate::KAFKA_SIDEBAR_WIDTH;
+use gpui_kit::component::WindowExt as _;
+use ramag_ui::shell::SHELL_NARROW_BREAKPOINT;
 
 struct KafkaOverviewTestHost {
     view: gpui_kit::Entity<KafkaView>,
@@ -89,7 +91,7 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
     ] {
         visual_cx.simulate_resize(size(px(width), px(height)));
         visual_cx.run_until_parked();
-        if width < KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT {
+        if width <= SHELL_NARROW_BREAKPOINT {
             assert!(
                 visual_cx.debug_bounds("kafka-sidebar").is_none(),
                 "极窄窗口默认应收起集群栏"
@@ -102,6 +104,7 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             visual_cx.run_until_parked();
             assert!(visual_cx.debug_bounds("kafka-sidebar").is_some());
             assert!(visual_cx.debug_bounds("kafka-hide-sidebar").is_some());
+            assert!(visual_cx.update(|window, cx| window.has_active_dialog(cx)));
         }
         let bounds = [
             visual_cx.debug_bounds("kafka-root"),
@@ -240,7 +243,11 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
             topic.origin.y <= broker.bottom() + px(24.0),
             "Topic 预览不应等待右侧集群卡片结束: width={width}, broker={broker:?}, topic={topic:?}, cluster={cluster:?}"
         );
-        let content_width = if width < 900.0 { width } else { width - 260.0 };
+        let content_width = if width <= SHELL_NARROW_BREAKPOINT {
+            width
+        } else {
+            width - KAFKA_SIDEBAR_WIDTH
+        };
         if content_width >= 900.0 {
             assert!(
                 broker.origin.x < cluster.origin.x,
@@ -259,11 +266,12 @@ fn kafka_overview_keeps_sections_aligned_without_vertical_gap(cx: &mut TestAppCo
                 cluster.origin.y >= topic.bottom(),
                 "紧凑窗口应将集群信息放在主内容之后: width={width}, primary={primary:?}, broker={broker:?}, topic={topic:?}, cluster={cluster:?}"
             );
-            if width < KAFKA_SIDEBAR_COLLAPSE_BREAKPOINT {
+            if width <= SHELL_NARROW_BREAKPOINT {
                 click(visual_cx, "kafka-hide-sidebar");
                 visual_cx.run_until_parked();
                 assert!(visual_cx.debug_bounds("kafka-sidebar").is_none());
                 assert!(visual_cx.debug_bounds("kafka-show-sidebar").is_some());
+                assert!(!visual_cx.update(|window, cx| window.has_active_dialog(cx)));
             }
         }
     }
