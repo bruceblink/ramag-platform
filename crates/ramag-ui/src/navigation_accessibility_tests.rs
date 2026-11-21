@@ -117,3 +117,30 @@ fn shell_navigation_names_announce_current_page_on_desktop_and_compact_bar(
         ]
     );
 }
+
+#[gpui_kit::test]
+fn shell_theme_toggle_announces_the_theme_it_will_apply(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let registry = Arc::new(ToolRegistry::new());
+    let host = Arc::new(StaticPluginHost::new(registry.clone()));
+    let gate = Arc::new(DataSyncGate::default());
+    let (_, visual) = cx.add_window_view(move |window, cx| {
+        Shell::new(registry.clone(), host.clone(), gate.clone(), window, cx)
+    });
+    visual.update(|_, cx| crate::theme::apply_theme(crate::theme::Mode::Dark, cx));
+    visual.run_until_parked();
+    assert_eq!(
+        visual.update(|window, _| accessible_name(window, "shell-theme-toggle")),
+        "切换到亮色主题"
+    );
+
+    let Some(toggle) = visual.debug_bounds("shell-theme-toggle") else {
+        unreachable!("顶栏应显示主题按钮");
+    };
+    visual.simulate_click(toggle.center(), Modifiers::default());
+    visual.run_until_parked();
+    assert_eq!(
+        visual.update(|window, _| accessible_name(window, "shell-theme-toggle")),
+        "切换到暗色主题"
+    );
+}

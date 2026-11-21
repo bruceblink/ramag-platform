@@ -292,6 +292,16 @@ pub fn pulse_status_notice(
     message: impl Into<SharedString>,
     cx: &gpui_kit::App,
 ) -> Div {
+    pulse_status_notice_with_label(status, status.label(), message, cx)
+}
+
+/// 创建带调用方状态文案的提示，复用状态配色与布局。
+pub fn pulse_status_notice_with_label(
+    status: PulseStatus,
+    label: impl Into<SharedString>,
+    message: impl Into<SharedString>,
+    cx: &gpui_kit::App,
+) -> Div {
     let color = status.color(cx.theme());
     let foreground = cx.theme().foreground;
     h_flex()
@@ -304,7 +314,7 @@ pub fn pulse_status_notice(
         .border_1()
         .border_color(color.opacity(0.28))
         .rounded(px(6.0))
-        .child(pulse_status_badge(status, cx))
+        .child(pulse_status_badge_with_label(status, label, cx))
         .child(
             div()
                 .flex_1()

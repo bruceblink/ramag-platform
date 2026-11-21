@@ -41,9 +41,9 @@ impl Render for Shell {
             }
         };
 
-        let theme_icon = match crate::theme::current_mode(cx) {
-            crate::theme::Mode::Light => IconName::Moon,
-            crate::theme::Mode::Dark => IconName::Sun,
+        let (theme_icon, theme_action) = match crate::theme::current_mode(cx) {
+            crate::theme::Mode::Light => (IconName::Moon, "切换到暗色主题"),
+            crate::theme::Mode::Dark => (IconName::Sun, "切换到亮色主题"),
         };
         let theme_toggle = crate::clickable_button("shell-theme-toggle")
             .debug_selector(|| "shell-theme-toggle".into())
@@ -52,7 +52,8 @@ impl Render for Shell {
             .p_0()
             .flex_none()
             .icon(Icon::new(theme_icon))
-            .tooltip("切换主题")
+            .tooltip(theme_action)
+            .accessibility_label(theme_action)
             .on_click(|_, _, cx| crate::theme::toggle_theme(cx));
 
         let navigation_toggle = crate::clickable_button("shell-navigation-toggle")

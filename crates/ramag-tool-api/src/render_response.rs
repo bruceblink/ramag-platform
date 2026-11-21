@@ -2,10 +2,10 @@ use super::render_helpers::{
     render_assertion_results, render_collection_summary, render_extracted_variables,
 };
 use super::*;
-use gpui_kit::ClickEvent;
-use gpui_kit::FontWeight;
 use gpui_kit::component::tab::{Tab, TabBar};
 use gpui_kit::component::{Icon, IconName, button::ButtonVariants as _};
+use gpui_kit::{ClickEvent, FontWeight, Role};
+use ramag_ui::pulse_ui::{PulseStatus, pulse_status_notice_with_label};
 
 pub(super) fn render_response(
     view: &ApiView,
@@ -13,6 +13,7 @@ pub(super) fn render_response(
     theme: &gpui_kit::component::Theme,
     stacked: bool,
 ) -> gpui_kit::AnyElement {
+    let failure = view.notice.as_ref().filter(|(_, is_error)| *is_error);
     let body = match &view.response {
         Some(snapshot) => {
             let selected = match view.response_tab {
@@ -38,6 +39,7 @@ pub(super) fn render_response(
                 .child(selected)
                 .into_any_element()
         }
+        None if failure.is_some() => div().into_any_element(),
         None => v_flex()
             .id("api-response-empty")
             .debug_selector(|| "api-response-empty".into())
@@ -95,8 +97,8 @@ pub(super) fn render_response(
                 .text_xs()
                 .text_color(theme.muted_foreground)
                 .child(match &view.notice {
-                    Some((message, _)) => message.clone(),
-                    None => "".into(),
+                    Some((message, false)) => message.clone(),
+                    _ => "".into(),
                 }),
         );
     let tabs = h_flex()
@@ -123,6 +125,17 @@ pub(super) fn render_response(
             "api-response-scrollbar",
         ))
         .p(px(12.0))
+        .when_some(failure, |content, (message, _)| {
+            content.child(
+                pulse_status_notice_with_label(PulseStatus::Failed, "失败", message.clone(), cx)
+                    .id("api-response-error")
+                    .debug_selector(|| "api-response-error".into())
+                    .role(Role::Alert)
+                    .aria_label(message.clone())
+                    .flex_none()
+                    .mb(px(8.0)),
+            )
+        })
         .child(body);
     v_flex()
         .id("api-response")

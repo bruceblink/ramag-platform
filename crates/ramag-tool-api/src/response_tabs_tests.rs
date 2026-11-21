@@ -36,6 +36,48 @@ fn response_snapshot() -> ApiResponseSnapshot {
 }
 
 #[gpui_kit::test]
+fn api_response_shows_failure_instead_of_unsent_and_recovers(cx: &mut TestAppContext) {
+    cx.update(gpui_kit::component::init);
+    let mut view_entity = None;
+    let (_, visual) = cx.add_window_view(|window, cx| {
+        let view = cx.new(|cx| ApiView::new(window, cx));
+        view_entity = Some(view.clone());
+        gpui_kit::component::Root::new(view, window, cx)
+    });
+    let Some(view) = view_entity else {
+        unreachable!("API 视图应初始化");
+    };
+    visual.simulate_resize(size(px(1024.0), px(768.0)));
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("api-response-empty").is_some());
+
+    let message = "连接失败：本机测试服务未响应";
+    view.update(visual, |view, cx| {
+        view.notice = Some((message.into(), true));
+        cx.notify();
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("api-response-error").is_some());
+    assert!(visual.debug_bounds("api-response-empty").is_none());
+    view.update(visual, |view, cx| {
+        view.response = Some(response_snapshot());
+        view.notice = Some(("请求完成，但断言失败".into(), true));
+        cx.notify();
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("api-response-error").is_some());
+    assert!(visual.debug_bounds("api-response-body").is_some());
+
+    view.update(visual, |view, cx| {
+        view.notice = Some(("请求完成".into(), false));
+        cx.notify();
+    });
+    visual.run_until_parked();
+    assert!(visual.debug_bounds("api-response-error").is_none());
+    assert!(visual.debug_bounds("api-response-body").is_some());
+}
+
+#[gpui_kit::test]
 fn api_response_tabs_switch_between_existing_response_sections(cx: &mut TestAppContext) {
     cx.update(gpui_kit::component::init);
     let mut view_entity = None;

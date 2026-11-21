@@ -111,7 +111,10 @@ fn render_request_target(view: &ApiView, compact: bool) -> gpui_kit::AnyElement 
                 .child(
                     request_target_field(
                         "api-http-method",
-                        Input::new(&view.http_method).small().w_full(),
+                        Input::new(&view.http_method)
+                            .small()
+                            .w_full()
+                            .aria_label("HTTP 请求方法"),
                     )
                     .w(px(92.0))
                     .flex_none(),
@@ -119,7 +122,10 @@ fn render_request_target(view: &ApiView, compact: bool) -> gpui_kit::AnyElement 
                 .child(
                     request_target_field(
                         "api-http-url",
-                        Input::new(&view.http_url).small().w_full(),
+                        Input::new(&view.http_url)
+                            .small()
+                            .w_full()
+                            .aria_label("HTTP 请求地址"),
                     )
                     .flex_1()
                     .min_w(px(180.0)),
@@ -134,7 +140,10 @@ fn render_request_target(view: &ApiView, compact: bool) -> gpui_kit::AnyElement 
             let method_minimum = if compact { field_minimum } else { 140.0 };
             let method = request_target_field(
                 "api-grpc-method-input",
-                Input::new(&view.grpc_method).small().w_full(),
+                Input::new(&view.grpc_method)
+                    .small()
+                    .w_full()
+                    .aria_label("gRPC 方法"),
             );
             let method = if compact {
                 method.flex_1().min_w(px(method_minimum))
@@ -150,7 +159,10 @@ fn render_request_target(view: &ApiView, compact: bool) -> gpui_kit::AnyElement 
                     .child(
                         request_target_field(
                             "api-grpc-endpoint",
-                            Input::new(&view.grpc_endpoint).small().w_full(),
+                            Input::new(&view.grpc_endpoint)
+                                .small()
+                                .w_full()
+                                .aria_label("gRPC 服务地址"),
                         )
                         .flex_1()
                         .min_w(px(endpoint_minimum)),
@@ -158,7 +170,10 @@ fn render_request_target(view: &ApiView, compact: bool) -> gpui_kit::AnyElement 
                     .child(
                         request_target_field(
                             "api-grpc-service",
-                            Input::new(&view.grpc_service).small().w_full(),
+                            Input::new(&view.grpc_service)
+                                .small()
+                                .w_full()
+                                .aria_label("gRPC 服务名称"),
                         )
                         .flex_1()
                         .min_w(px(service_minimum)),
