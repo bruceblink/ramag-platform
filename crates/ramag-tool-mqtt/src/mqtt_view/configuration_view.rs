@@ -1,12 +1,19 @@
+use gpui_kit::component::{
+    Selectable as _,
+    tab::{Tab, TabBar},
+};
+
 impl MqttView {
-    fn render_sidebar(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_sidebar(&self, cx: &mut Context<Self>, dialog: bool) -> impl IntoElement {
         let theme = cx.theme().clone();
-        let narrow = Self::sidebar_is_narrow(window);
+        let palette = ramag_ui::pulse_ui::pulse_palette(cx);
         let search = value(&self.search, cx);
         let mut rows = v_flex().w_full().min_h_0();
+        let mut has_matches = false;
         for profile in self.profiles.iter().filter(|profile| {
             search.is_empty() || profile.name.contains(&search) || profile.host.contains(&search)
         }) {
+            has_matches = true;
             let selected = self.selected_profile_id.as_ref() == Some(&profile.id);
             let connection_status = self
                 .profile_connection_statuses
@@ -16,70 +23,102 @@ impl MqttView {
             let status_color = match connection_status {
                 MqttProfileConnectionStatus::Untested => theme.muted_foreground,
                 MqttProfileConnectionStatus::Testing => theme.warning,
-                MqttProfileConnectionStatus::Reachable => theme.accent,
+                MqttProfileConnectionStatus::Reachable => theme.success,
                 MqttProfileConnectionStatus::Failed => theme.danger,
             };
             let id = profile.id.clone();
+            let status = format!(
+                "{} · {}:{}",
+                connection_status.label(),
+                profile.host,
+                profile.port
+            );
             rows = rows.child(
-                h_flex()
-                    .id(SharedString::from(format!("mqtt-profile-{}", profile.id)))
-                    .w_full()
-                    .min_w_0()
-                    .gap(px(8.0))
-                    .px(px(12.0))
-                    .py(px(10.0))
-                    .when(selected, |row| row.bg(theme.accent.opacity(0.12)))
-                    .when(!selected, |row| {
-                        row.hover(|row| row.bg(theme.muted.opacity(0.45)))
-                    })
-                    .when(!self.is_busy(), |row| {
-                        row.cursor_pointer().on_click(cx.listener(
-                            move |this, _: &ClickEvent, window, cx| {
-                                this.select_profile(id.clone(), window, cx);
-                            },
-                        ))
-                    })
-                    .child(div().size(px(8.0)).rounded_full().bg(status_color))
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .min_w_0()
-                            .gap(px(2.0))
-                            .child(
-                                div()
-                                    .debug_selector(|| "mqtt-profile-name".into())
-                                    .text_sm()
-                                    .min_w_0()
-                                    .truncate()
-                                    .child(profile.name.clone()),
-                            )
-                            .child(
-                                div()
-                                    .debug_selector(|| "mqtt-profile-status".into())
-                                    .text_xs()
-                                    .text_color(theme.muted_foreground)
-                                    .min_w_0()
-                                    .truncate()
-                                    .child(format!(
-                                        "{} · {}:{}",
-                                        connection_status.label(),
-                                        profile.host,
-                                        profile.port
-                                    )),
-                            ),
-                    ),
+                ramag_ui::clickable_button(SharedString::from(format!(
+                    "mqtt-profile-{}",
+                    profile.id
+                )))
+                .debug_selector(|| "mqtt-profile-row".into())
+                .ghost()
+                .selected(selected)
+                .disabled(self.is_busy())
+                .w_full()
+                .min_w_0()
+                .h(px(52.0))
+                .px(px(14.0))
+                .when(selected, |row| row.bg(palette.selected))
+                .accessibility_label(format!("{}，{status}", profile.name))
+                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                    this.close_profile_dialog(window, cx);
+                    this.select_profile(id.clone(), window, cx);
+                }))
+                .child(
+                    h_flex()
+                        .w_full()
+                        .min_w_0()
+                        .items_center()
+                        .gap(px(8.0))
+                        .child(
+                            div()
+                                .size(px(8.0))
+                                .flex_none()
+                                .rounded_full()
+                                .bg(status_color),
+                        )
+                        .child(
+                            v_flex()
+                                .flex_1()
+                                .min_w_0()
+                                .gap(px(2.0))
+                                .child(
+                                    div()
+                                        .debug_selector(|| "mqtt-profile-name".into())
+                                        .text_sm()
+                                        .min_w_0()
+                                        .truncate()
+                                        .child(profile.name.clone()),
+                                )
+                                .child(
+                                    div()
+                                        .debug_selector(|| "mqtt-profile-status".into())
+                                        .text_xs()
+                                        .text_color(theme.muted_foreground)
+                                        .min_w_0()
+                                        .truncate()
+                                        .child(status),
+                                ),
+                        ),
+                ),
+            );
+        }
+        if !self.loading_profiles && !has_matches {
+            let message = if search.is_empty() {
+                "还没有保存的 Broker 配置。可新建配置后测试连接。"
+            } else {
+                "没有匹配的 Broker 配置。"
+            };
+            rows = rows.child(
+                div()
+                    .px(px(14.0))
+                    .py(px(12.0))
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child(message),
             );
         }
         v_flex()
             .id("mqtt-sidebar")
             .debug_selector(|| "mqtt-sidebar".into())
             .w(px(MQTT_SIDEBAR_WIDTH))
-            .min_w(px(210.0))
+            .min_w_0()
+            .min_h_0()
             .h_full()
             .flex_none()
-            .border_r_1()
-            .border_color(theme.border)
-            .bg(ramag_ui::pulse_ui::pulse_palette(cx).surface)
+            .when(dialog, |sidebar| sidebar.w_full())
+            .when(!dialog, |sidebar| {
+                sidebar.border_r_1().border_color(theme.border)
+            })
+            .bg(palette.surface)
             .child(
                 ramag_ui::pulse_ui::pulse_home_toolbar(cx)
                     .w_full()
@@ -88,56 +127,43 @@ impl MqttView {
                     .justify_between()
                     .border_b_1()
                     .border_color(theme.border)
+                    .when(!dialog, |toolbar| {
+                        toolbar.child(
+                            h_flex()
+                                .gap(px(8.0))
+                                .child(Icon::new(IconName::Network).text_color(theme.accent))
+                                .child(
+                                    v_flex()
+                                        .gap(px(1.0))
+                                        .child(
+                                            div()
+                                                .text_sm()
+                                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                                                .child("MQTT"),
+                                        )
+                                        .child(
+                                            div()
+                                                .text_xs()
+                                                .text_color(theme.muted_foreground)
+                                                .child("Broker 配置"),
+                                        ),
+                                ),
+                        )
+                    })
                     .child(
-                        h_flex()
-                            .gap(px(8.0))
-                            .child(Icon::new(IconName::Network).text_color(theme.accent))
-                            .child(
-                                v_flex()
-                                    .gap(px(1.0))
-                                    .child(
-                                        div()
-                                            .text_sm()
-                                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                                            .child("MQTT"),
-                                    )
-                                    .child(
-                                        div()
-                                            .text_xs()
-                                            .text_color(theme.muted_foreground)
-                                            .child("Broker 配置"),
-                                    ),
-                            ),
-                    )
-                    .child(
-                        h_flex()
-                            .gap(px(4.0))
-                            .when(narrow, |actions| {
-                                actions.child(
-                                    ramag_ui::clickable_button("mqtt-hide-sidebar")
-                                        .debug_selector(|| "mqtt-hide-sidebar".into())
-                                        .ghost()
-                                        .xsmall()
-                                        .icon(IconName::PanelLeft)
-                                        .tooltip("隐藏配置栏")
-                                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                                            this.sidebar_visible = false;
-                                            cx.notify();
-                                        })),
-                                )
-                            })
-                            .child(
-                                ramag_ui::clickable_button("mqtt-add-profile")
-                                    .disabled(self.is_busy())
-                                    .primary()
-                                    .small()
-                                    .icon(IconName::Plus)
-                                    .label("新建")
-                                    .tooltip("新建配置")
-                                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                        this.new_profile(window, cx)
-                                    })),
-                            ),
+                        h_flex().gap(px(4.0)).child(
+                            ramag_ui::clickable_button("mqtt-add-profile")
+                                .disabled(self.is_busy())
+                                .primary()
+                                .small()
+                                .icon(IconName::Plus)
+                                .label("新建")
+                                .tooltip("新建配置")
+                                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                    this.close_profile_dialog(window, cx);
+                                    this.new_profile(window, cx)
+                                })),
+                        ),
                     ),
             )
             .child(
@@ -155,6 +181,7 @@ impl MqttView {
                 div()
                     .id("mqtt-profile-list-scroll")
                     .w_full()
+                    .flex_1()
                     .min_h_0()
                     .overflow_y_scrollbar()
                     .child(rows),
@@ -175,46 +202,23 @@ impl MqttView {
                         },
                     )),
             )
-            .when(narrow, |sidebar| {
-                sidebar
-                    .w_full()
-                    .min_w_0()
-                    .h(px(220.0))
-                    .border_r_0()
-                    .border_b_1()
-            })
-            .when(
-                !narrow && window.viewport_size().width < px(760.0),
-                |sidebar| sidebar.w(px(210.0)),
-            )
     }
 
     fn render_tabs(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let mut tabs = h_flex().flex_wrap().gap(px(4.0));
-        for section in MqttSection::ALL {
-            let selector = SharedString::from(format!("mqtt-tab-{:?}", section));
-            let mut button = ramag_ui::clickable_button(selector.clone())
-                .xsmall()
-                .label(section.label());
-            button = if self.section == section {
-                button.primary()
-            } else {
-                button.ghost()
-            };
-            tabs = tabs.child(
-                div()
-                    .debug_selector({
-                        let selector = selector.clone();
-                        move || selector.to_string()
-                    })
-                    .child(button.on_click(
-                        cx.listener(move |this, _: &ClickEvent, window, cx| {
-                            this.select_section(section, window, cx)
-                        }),
-                    )),
-            );
-        }
-        tabs
+        TabBar::new("mqtt-workspace-tabs")
+            .underline()
+            .w_full()
+            .min_w_0()
+            .menu(true)
+            .selected_index(self.section as usize)
+            .children(MqttSection::ALL.into_iter().map(|section| {
+                Tab::new()
+                    .label(section.label())
+                    .debug_selector(move || format!("mqtt-tab-{section:?}"))
+            }))
+            .on_click(cx.listener(|this, index: &usize, window, cx| {
+                this.select_section(MqttSection::ALL[*index], window, cx);
+            }))
     }
 
     fn render_header(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -248,6 +252,7 @@ impl MqttView {
                     .ghost()
                     .xsmall()
                     .icon(IconName::Delete)
+                    .accessibility_label("删除配置")
                     .tooltip("删除配置")
                     .disabled(self.is_busy() || self.subscription_running)
                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
@@ -259,7 +264,7 @@ impl MqttView {
             .child(
                 ramag_ui::clickable_button("mqtt-test-connection")
                     .debug_selector(|| "mqtt-test-connection".into())
-                    .ghost()
+                    .outline()
                     .small()
                     .label("测试连接")
                     .loading(self.testing)
@@ -280,19 +285,8 @@ impl MqttView {
                         this.save_profile(window, cx)
                     })),
             )
-            .when(narrow && !self.sidebar_visible, |actions| {
-                actions.child(
-                    ramag_ui::clickable_button("mqtt-show-sidebar")
-                        .debug_selector(|| "mqtt-show-sidebar".into())
-                        .ghost()
-                        .small()
-                        .icon(IconName::PanelLeft)
-                        .tooltip("显示配置栏")
-                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                            this.sidebar_visible = true;
-                            cx.notify();
-                        })),
-                )
+            .when(narrow, |actions| {
+                actions.child(self.profile_dialog_button(cx))
             });
         ramag_ui::pulse_ui::pulse_entry_header(cx)
             .flex_col()
@@ -306,6 +300,7 @@ impl MqttView {
                 h_flex()
                     .w_full()
                     .min_w_0()
+                    .min_h_0()
                     .items_center()
                     .justify_between()
                     .gap(px(12.0))
@@ -315,7 +310,7 @@ impl MqttView {
                     .child(
                         ramag_ui::pulse_ui::pulse_page_title(
                             selected_name,
-                            Some(connection_status.label()),
+                            Some("MQTT 工作区"),
                             cx,
                         )
                         .id("mqtt-page-title")
@@ -498,5 +493,4 @@ impl MqttView {
             .p(px(16.0))
             .child(content)
     }
-
 }

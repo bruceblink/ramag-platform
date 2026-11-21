@@ -29,15 +29,13 @@ impl Render for MqttView {
         h_flex()
             .id("mqtt-root")
             .debug_selector(|| "mqtt-root".into())
+            .track_focus(&self.focus_handle)
             .size_full()
             .min_w_0()
             .min_h_0()
             .bg(theme.background)
-            .when(narrow && self.sidebar_visible, |root| {
-                root.flex_col().items_stretch()
-            })
-            .when(!narrow || self.sidebar_visible, |root| {
-                root.child(self.render_sidebar(window, cx))
+            .when(!narrow && !self.profile_dialog_open, |root| {
+                root.child(self.render_sidebar(cx, false))
             })
             .child(main)
     }

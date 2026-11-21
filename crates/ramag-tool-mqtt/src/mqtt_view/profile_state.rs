@@ -93,25 +93,10 @@ impl MqttView {
             false,
             DEFAULT_MQTT_LOCAL_SERVER_HOST,
         );
-        let local_server_port = input(
-            window,
-            cx,
-            5,
-            "监听端口",
-            false,
-            "1883",
-        );
-        let local_server_max_connections = input(
-            window,
-            cx,
-            6,
-            "连接数上限",
-            false,
-            "1024",
-        );
+        let local_server_port = input(window, cx, 5, "监听端口", false, "1883");
+        let local_server_max_connections = input(window, cx, 6, "连接数上限", false, "1024");
         let local_server_username = input(window, cx, MAX_USERNAME_BYTES, "用户名", false, "");
-        let local_server_password =
-            input(window, cx, MAX_PASSWORD_BYTES, "密码", true, "");
+        let local_server_password = input(window, cx, MAX_PASSWORD_BYTES, "密码", true, "");
         let local_server_publish_topic = input(
             window,
             cx,
@@ -268,7 +253,13 @@ impl MqttView {
             &publish_payload,
             window,
             move |this, _, event: &InputEvent, window, cx| {
-                if matches!(event, InputEvent::PressEnter { secondary: true, .. }) {
+                if matches!(
+                    event,
+                    InputEvent::PressEnter {
+                        secondary: true,
+                        ..
+                    }
+                ) {
                     let payload = publish_payload_for_enter.read(cx).value().to_string();
                     if let Some(payload_without_shortcut_newline) = payload.strip_suffix('\n') {
                         let line = payload_without_shortcut_newline
@@ -296,7 +287,8 @@ impl MqttView {
             selected_profile_id: None,
             profile_connection_statuses: HashMap::new(),
             section: MqttSection::Config,
-            sidebar_visible: false,
+            profile_dialog_open: false,
+            profile_button_focus: cx.focus_handle(),
             name,
             host,
             port,
@@ -429,9 +421,9 @@ impl MqttView {
             || self.subscription_stopping
     }
 
-    /// Detect the width where the profile list would leave the active MQTT workbench unusable.
+    /// 窄窗口通过对话框显示 Broker 配置。
     fn sidebar_is_narrow(window: &Window) -> bool {
-        window.viewport_size().width < px(MQTT_SIDEBAR_COLLAPSE_BREAKPOINT)
+        window.viewport_size().width <= px(ramag_ui::shell::SHELL_NARROW_BREAKPOINT)
     }
 
     fn load_profiles(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -701,7 +693,6 @@ impl MqttView {
         self.loading_static_file = false;
         self.saving_static_file = false;
     }
-
 }
 
 fn set_textarea_value(

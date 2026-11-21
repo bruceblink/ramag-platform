@@ -22,6 +22,8 @@ mod container;
 mod dbclient;
 #[path = "ui_preview/kafka.rs"]
 mod kafka;
+#[path = "ui_preview/mqtt.rs"]
+mod mqtt;
 #[path = "ui_preview/object_storage.rs"]
 mod object_storage;
 #[path = "ui_preview/offline_database.rs"]
@@ -34,9 +36,8 @@ use std::time::Duration;
 use gpui_kit::component::Root;
 use gpui_kit::{App, AppContext as _, Bounds, WindowBounds, WindowOptions, px, size};
 use ramag_app::{
-    DataSyncExecutionContext, DataSyncGate, DataSyncPermit, MqttService, PluginContext,
-    PluginOperationError, SshService, StaticPlugin, StaticPluginAdapter, StaticPluginHost,
-    ToolRegistry,
+    DataSyncExecutionContext, DataSyncGate, DataSyncPermit, PluginContext, PluginOperationError,
+    SshService, StaticPlugin, StaticPluginAdapter, StaticPluginHost, ToolRegistry,
 };
 use ramag_domain::{
     PluginDescriptor, PluginId, Tool, ToolMeta,
@@ -404,15 +405,9 @@ fn main() -> anyhow::Result<()> {
         Arc::new(OpenSshDriver::new()),
         storage.clone(),
     ));
-    let mqtt = matches!(page.as_str(), "settings" | "mqtt").then(|| {
-        Arc::new(
-            MqttService::new(
-                Arc::new(ramag_infra_mqtt::NativeMqttTransport::new()),
-                storage.clone(),
-            )
-            .with_local_server_driver(Arc::new(ramag_infra_mqtt::NativeMqttLocalServer::new())),
-        )
-    });
+    let mqtt = matches!(page.as_str(), "settings" | "mqtt")
+        .then(|| mqtt::service(storage.clone(), page == "mqtt"))
+        .transpose()?;
     let update_service = if matches!(page.as_str(), "settings" | "update") {
         let _ = rustls::crypto::ring::default_provider().install_default();
         Some(Arc::new(ramag_app::UpdateService::new(

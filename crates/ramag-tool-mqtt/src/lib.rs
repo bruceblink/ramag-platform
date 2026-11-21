@@ -57,7 +57,6 @@ const MAX_MOSQUITTO_BINDINGS_BYTES: usize = 16 * 1024;
 const MAX_MOSQUITTO_ACL_EDITOR_BYTES: usize = 4 * 1024 * 1024;
 const MAX_MOSQUITTO_STATIC_FILE_BYTES: usize = 4 * 1024 * 1024;
 const MQTT_SIDEBAR_WIDTH: f32 = 250.0;
-const MQTT_SIDEBAR_COLLAPSE_BREAKPOINT: f32 = 480.0;
 
 /// 创建 MQTT 工具主视图。
 pub fn create_mqtt_view(
@@ -221,8 +220,8 @@ pub struct MqttView {
     selected_profile_id: Option<MqttProfileId>,
     profile_connection_statuses: HashMap<MqttProfileId, MqttProfileConnectionStatus>,
     section: MqttSection,
-    /// Narrow windows hide the profile list by default so the active form keeps usable width.
-    sidebar_visible: bool,
+    profile_dialog_open: bool,
+    profile_button_focus: FocusHandle,
     name: Entity<InputState>,
     host: Entity<InputState>,
     port: Entity<InputState>,
@@ -365,6 +364,7 @@ include!("mqtt_view/dynamic_security_operations.rs");
 include!("mqtt_view/role_operations.rs");
 include!("mqtt_view/management_editor_actions.rs");
 include!("mqtt_view/configuration_view.rs");
+include!("mqtt_view/profile_dialog.rs");
 include!("mqtt_view/message_operations_view.rs");
 include!("mqtt_view/client_permissions_view.rs");
 include!("mqtt_view/group_role_management_view.rs");

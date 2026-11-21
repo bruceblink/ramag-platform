@@ -5,6 +5,7 @@ use std::sync::{
 use std::time::Duration;
 
 use chrono::Utc;
+use gpui_kit::component::WindowExt as _;
 
 use async_channel::{Receiver, Sender, bounded};
 use async_trait::async_trait;
@@ -25,10 +26,7 @@ use ramag_domain::entities::{
 use ramag_domain::error::Result;
 use ramag_domain::traits::{MqttDriver, MqttLocalServerDriver, Storage};
 
-use super::{
-    MQTT_SIDEBAR_COLLAPSE_BREAKPOINT, MosquittoManagementSection, MqttProfileConnectionStatus,
-    MqttSection, MqttView,
-};
+use super::{MosquittoManagementSection, MqttProfileConnectionStatus, MqttSection, MqttView};
 
 pub(super) struct NoopMqttDriver;
 
@@ -268,7 +266,12 @@ fn mqtt_sidebar_collapses_and_can_be_reopened_in_narrow_window(cx: &mut TestAppC
         cx.notify();
     });
 
-    for (width, height) in [(1024.0, 720.0), (360.0, 640.0)] {
+    for (width, height) in [
+        (1440.0, 900.0),
+        (1024.0, 768.0),
+        (360.0, 640.0),
+        (360.0, 240.0),
+    ] {
         visual_cx.simulate_resize(size(px(width), px(height)));
         visual_cx.run_until_parked();
 
@@ -281,7 +284,7 @@ fn mqtt_sidebar_collapses_and_can_be_reopened_in_narrow_window(cx: &mut TestAppC
         assert!(main.origin.x >= root.origin.x);
         assert!(main.right() <= root.right());
 
-        if width < MQTT_SIDEBAR_COLLAPSE_BREAKPOINT {
+        if width <= ramag_ui::shell::SHELL_NARROW_BREAKPOINT {
             assert!(
                 visual_cx.debug_bounds("mqtt-sidebar").is_none(),
                 "窄窗口默认应收起 MQTT 配置栏"
@@ -311,13 +314,18 @@ fn mqtt_sidebar_collapses_and_can_be_reopened_in_narrow_window(cx: &mut TestAppC
                 .expect("打开配置栏后主工作区应渲染");
             assert!(sidebar.right() <= root.right());
             assert!(sidebar.bottom() <= root.bottom());
-            assert!(main.origin.y >= sidebar.bottom());
+            assert_eq!(main.origin.y, root.origin.y);
+            assert!(visual_cx.update(|window, cx| window.has_active_dialog(cx)));
             assert!(visual_cx.debug_bounds("mqtt-hide-sidebar").is_some());
 
             click(visual_cx, "mqtt-hide-sidebar");
             visual_cx.run_until_parked();
             assert!(visual_cx.debug_bounds("mqtt-sidebar").is_none());
             assert!(visual_cx.debug_bounds("mqtt-show-sidebar").is_some());
+            assert!(
+                visual_cx
+                    .update(|window, cx| view.read(cx).profile_button_focus.is_focused(window))
+            );
         } else {
             let sidebar = visual_cx
                 .debug_bounds("mqtt-sidebar")
