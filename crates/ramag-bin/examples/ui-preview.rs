@@ -3,6 +3,7 @@
 //! DBClient：dbclient dark 1024 768 large；F6 失败、F8 长错误、F7 恢复。
 //! SQLite 表设计器：cargo run --locked -p ramag-bin --example ui-preview -- sqlite-designer dark 1024 768
 //! 该模式仅连接本次预览创建的本地样例库。
+//! SQLite 窄屏验收：sqlite-designer dark 360 640 --compact-window
 //! API：api-local；连接 scripts/api-test 的本机 HTTP/gRPC 服务，包含可延迟的验收请求。
 //! 插件诊断：plugin-empty 或 plugin-failure；两者只构造本次窗口的受控验收状态。
 //! 对象存储：object_storage；只读取 RAMAG_OBJECT_PREVIEW_* 配置的本机回环测试服务。
@@ -293,9 +294,10 @@ fn main() -> anyhow::Result<()> {
     unsafe { std::env::set_var("RAMAG_SYSTEM_STATE_DIR", &monitor_state) };
     let raw_args: Vec<String> = std::env::args().skip(1).collect();
     let smoke = raw_args.iter().any(|arg| arg == "--smoke");
+    let compact_window = raw_args.iter().any(|arg| arg == "--compact-window");
     let args: Vec<String> = raw_args
         .into_iter()
-        .filter(|arg| arg != "--smoke")
+        .filter(|arg| !matches!(arg.as_str(), "--smoke" | "--compact-window"))
         .collect();
     let page = args.first().cloned().unwrap_or_else(|| "settings".into());
     let sqlite_preview_dir = if page == "sqlite-designer" {
@@ -461,7 +463,11 @@ fn main() -> anyhow::Result<()> {
             let result = cx.open_window(
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
-                    window_min_size: Some(size(px(1008.0), px(672.0))),
+                    window_min_size: Some(if compact_window {
+                        size(px(360.0), px(240.0))
+                    } else {
+                        size(px(1008.0), px(672.0))
+                    }),
                     ..Default::default()
                 },
                 move |window, cx| {

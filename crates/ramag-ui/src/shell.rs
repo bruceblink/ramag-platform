@@ -15,7 +15,8 @@ use crate::plugin_entry_view::StandardPluginEntryView;
 use crate::tool_layout::ToolLayoutGlobal;
 
 /// 原型在窄窗口中隐藏侧栏，并通过顶部菜单按钮打开导航抽屉。
-pub(crate) const SHELL_NARROW_BREAKPOINT: f32 = 760.0;
+/// 此宽度及以下使用抽屉式导航。
+pub const SHELL_NARROW_BREAKPOINT: f32 = 760.0;
 /// 工作区面包屑沿用原型的 59px 顶栏高度。
 pub(crate) const SHELL_HEADER_HEIGHT: f32 = 59.0;
 

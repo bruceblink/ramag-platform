@@ -153,7 +153,8 @@ impl Driver for TableSizeDriver {
     }
 }
 
-fn build_services() -> (Arc<ConnectionService>, Arc<RedisService>, Arc<MongoService>) {
+pub(in crate::views) fn build_services()
+-> (Arc<ConnectionService>, Arc<RedisService>, Arc<MongoService>) {
     let storage: Arc<dyn Storage> = Arc::new(NoopStorage);
     (
         Arc::new(ConnectionService::new(HashMap::new(), storage.clone())),

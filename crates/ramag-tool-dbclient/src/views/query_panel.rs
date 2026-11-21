@@ -8,8 +8,9 @@ use std::sync::Arc;
 use std::path::PathBuf;
 
 use gpui_kit::{
-    AnyView, ClickEvent, Context, Entity, EventEmitter, InteractiveElement, IntoElement,
-    ParentElement, Point, Render, ScrollHandle, SharedString, Styled, Window, div, prelude::*, px,
+    AnyView, ClickEvent, Context, Entity, EventEmitter, FocusHandle, InteractiveElement,
+    IntoElement, ParentElement, Point, Render, ScrollHandle, SharedString, Styled, Window, div,
+    prelude::*, px,
 };
 
 use crate::actions::NewQueryTab;
@@ -31,7 +32,7 @@ const MAX_CLOSED_QUERY_DRAFTS: usize = 10;
 
 #[derive(Debug, Clone)]
 pub enum QueryPanelEvent {
-    ToggleTableTree,
+    OpenTableTree,
     TableMetadataChanged {
         schema: String,
     },
@@ -66,6 +67,7 @@ pub struct QueryPanel {
     connection_list: Option<Entity<ConnectionListPanel>>,
     active_schema: Option<String>,
     show_editor: bool,
+    object_button_focus: FocusHandle,
     tabs_scroll: ScrollHandle,
     history_sub: Option<gpui_kit::Subscription>,
     draft_subscriptions: Vec<gpui_kit::Subscription>,
@@ -110,6 +112,7 @@ impl QueryPanel {
             connection_list: None,
             active_schema: None,
             show_editor: false,
+            object_button_focus: cx.focus_handle(),
             tabs_scroll: ScrollHandle::new(),
             history_sub: None,
             draft_subscriptions: Vec::new(),

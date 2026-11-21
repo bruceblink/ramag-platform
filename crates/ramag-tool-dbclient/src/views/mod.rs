@@ -37,9 +37,9 @@ fn connection_address(connection: &ramag_domain::entities::ConnectionConfig) -> 
     }
 }
 
-/// Keeps the database session responsive before a fixed tree would starve the query area.
+/// 侧栏与对象树同时在 760px 及以下窗口退出横向布局。
 pub(super) fn is_compact_session_width(width: f32) -> bool {
-    ramag_ui::is_compact_workbench(width)
+    !width.is_finite() || width <= ramag_ui::shell::SHELL_NARROW_BREAKPOINT
 }
 
 pub(super) fn inline_text_preview(text: &str, max_chars: usize) -> String {
@@ -87,9 +87,8 @@ mod session_layout_tests {
 
     #[test]
     fn compact_session_breakpoint_preserves_a_usable_query_area() {
-        let breakpoint = ramag_ui::WORKBENCH_COMPACT_BREAKPOINT;
-        assert!(is_compact_session_width(breakpoint - 1.0));
-        assert!(!is_compact_session_width(breakpoint));
-        assert!(!is_compact_session_width(breakpoint + 1.0));
+        assert!(is_compact_session_width(759.0));
+        assert!(is_compact_session_width(760.0));
+        assert!(!is_compact_session_width(761.0));
     }
 }

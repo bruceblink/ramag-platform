@@ -23,6 +23,11 @@ use crate::views::schema_diagram::SchemaDiagramPanel;
 use crate::views::table_properties::{TablePropertiesDialog, TablePropertiesEvent};
 use crate::views::table_tree::{TableTreePanel, TreeEvent};
 
+mod object_dialog;
+#[cfg(test)]
+#[path = "connection_session/object_dialog_tests.rs"]
+mod object_dialog_tests;
+
 /// 元数据缓存刷新间隔，用于同步外部结构变更。
 const CACHE_TTL: Duration = Duration::from_secs(60);
 
@@ -32,8 +37,7 @@ pub struct ConnectionSession {
     queries: Entity<QueryPanel>,
     table_properties_dialog: Option<Entity<TablePropertiesDialog>>,
     resize_state: Entity<ResizableState>,
-    /// Narrow windows start with the object tree collapsed so the query surface remains usable.
-    tree_visible: bool,
+    object_dialog_open: bool,
     /// 隐藏编辑器后承接焦点，保证快捷键仍在焦点链中。
     focus_handle: FocusHandle,
     /// 持有补全缓存，查询标签通过 `Arc` 共享。
@@ -98,6 +102,7 @@ impl ConnectionSession {
             window,
             move |this: &mut Self, _, e: &TreeEvent, window, cx| match e {
                 TreeEvent::TableSelected { schema, table } => {
+                    this.close_object_dialog(window, cx);
                     info!(
                         operation = "sql_table_query_open",
                         connection_id = %connection_id,
@@ -139,6 +144,7 @@ impl ConnectionSession {
                     table,
                     is_view,
                 } => {
+                    this.close_object_dialog(window, cx);
                     info!(
                         operation = "sql_show_create",
                         connection_id = %connection_id,
@@ -166,6 +172,7 @@ impl ConnectionSession {
                     table,
                     is_view,
                 } => {
+                    this.close_object_dialog(window, cx);
                     this.open_table_properties(schema.clone(), table.clone(), *is_view, window, cx);
                 }
                 TreeEvent::ModifyTable { schema, table } => {
@@ -174,6 +181,7 @@ impl ConnectionSession {
                     });
                 }
                 TreeEvent::ToggleSqlEditor => {
+                    this.close_object_dialog(window, cx);
                     this.toggle_sql_editor(window, cx);
                 }
                 TreeEvent::VirtualViewSelected { name } => {
@@ -181,6 +189,7 @@ impl ConnectionSession {
                         service_for_virtual_view.virtual_view_query(&config_for_virtual_view, name);
                     match result {
                         Ok(query) => {
+                            this.close_object_dialog(window, cx);
                             queries_clone.update(cx, |q, cx| {
                                 q.open_in_new_tab_and_run(query.sql, window, cx);
                             });
@@ -205,9 +214,8 @@ impl ConnectionSession {
             &queries,
             window,
             move |this: &mut Self, _, e: &QueryPanelEvent, window, cx| match e {
-                QueryPanelEvent::ToggleTableTree => {
-                    this.tree_visible = !this.tree_visible;
-                    cx.notify();
+                QueryPanelEvent::OpenTableTree => {
+                    this.open_object_dialog(window, cx);
                 }
                 QueryPanelEvent::TableMetadataChanged { schema } => {
                     tree_for_metadata.update(cx, |tree, cx| {
@@ -230,6 +238,7 @@ impl ConnectionSession {
                         table = %table,
                         "table navigation requested"
                     );
+                    this.open_object_dialog(window, cx);
                     this.tree.update(cx, |tree, cx| {
                         tree.locate_table(schema.clone(), table.clone(), window, cx);
                     });
@@ -261,7 +270,7 @@ impl ConnectionSession {
             queries,
             table_properties_dialog: None,
             resize_state,
-            tree_visible: false,
+            object_dialog_open: false,
             focus_handle,
             _schema_cache: schema_cache,
             _subscriptions: subs,
@@ -427,9 +436,17 @@ impl Render for ConnectionSession {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let viewport_width = f32::from(window.viewport_size().width);
-        let compact = is_compact_session_width(viewport_width);
-        let tree_visible = !compact || self.tree_visible;
-        let session_content = if tree_visible {
+        let query_workbench = div()
+            .debug_selector(|| "database-workbench-query-workbench".into())
+            .size_full()
+            .min_w_0()
+            .child(self.queries.clone());
+        // 放大窗口时保留已打开的对话框，关闭后再恢复桌面对象树。
+        // 同一个对象树实体不能同时挂载在两个位置。
+        let session_content = if is_compact_session_width(viewport_width) || self.object_dialog_open
+        {
+            query_workbench.into_any_element()
+        } else {
             div()
                 .debug_selector(|| "database-workbench".into())
                 .size_full()
@@ -455,22 +472,8 @@ impl Render for ConnectionSession {
                                         .child(self.tree.clone()),
                                 ),
                         )
-                        .child(
-                            resizable_panel().child(
-                                div()
-                                    .debug_selector(|| "database-workbench-query-workbench".into())
-                                    .size_full()
-                                    .min_w_0()
-                                    .child(self.queries.clone()),
-                            ),
-                        ),
+                        .child(resizable_panel().child(query_workbench)),
                 )
-                .into_any_element()
-        } else {
-            div()
-                .size_full()
-                .min_w_0()
-                .child(self.queries.clone())
                 .into_any_element()
         };
 

@@ -13,7 +13,7 @@ mod navigation;
 mod ops;
 mod render;
 #[cfg(test)]
-mod render_tests;
+pub(in crate::views) mod render_tests;
 mod row;
 mod rows;
 mod section_icons;

@@ -247,14 +247,17 @@ impl Render for QueryPanel {
                         .border_color(border)
                         .bg(secondary_bg)
                         .child(
-                            ramag_ui::clickable_button("toggle-table-tree")
+                            ramag_ui::clickable_button("open-table-tree")
                                 .ghost()
                                 .small()
+                                .track_focus(&self.object_button_focus)
                                 .icon(IconName::PanelLeft)
-                                .debug_selector(|| "toggle-table-tree".into())
-                                .tooltip("切换对象树")
-                                .on_click(cx.listener(|_, _: &ClickEvent, _, cx| {
-                                    cx.emit(QueryPanelEvent::ToggleTableTree);
+                                .debug_selector(|| "open-table-tree".into())
+                                .label("对象")
+                                .accessibility_label("打开数据库对象")
+                                .on_click(cx.listener(|panel, _: &ClickEvent, window, cx| {
+                                    window.focus(&panel.object_button_focus, cx);
+                                    cx.emit(QueryPanelEvent::OpenTableTree);
                                 })),
                         ),
                 )

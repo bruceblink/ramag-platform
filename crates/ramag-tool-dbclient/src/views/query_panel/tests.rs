@@ -298,8 +298,8 @@ fn compact_session_toolbar_only_appears_below_the_session_breakpoint(cx: &mut Te
         assert_eq!(toolbar.is_some(), compact, "窄窗口对象树切换栏状态不匹配");
         if let Some(toolbar) = toolbar {
             let button = cx
-                .debug_bounds("toggle-table-tree")
-                .expect("窄窗口应提供对象树切换按钮");
+                .debug_bounds("open-table-tree")
+                .expect("窄窗口应提供数据库对象入口");
             assert!(button.origin.x >= toolbar.origin.x);
             assert!(button.right() <= toolbar.right());
             assert!(button.bottom() <= toolbar.bottom());
