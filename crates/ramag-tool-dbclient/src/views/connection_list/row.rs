@@ -136,11 +136,7 @@ pub(super) fn connection_row(
     let is_production = conn.production;
     let environment = conn.environment.clone().unwrap_or_default();
 
-    let host_port = if conn.driver == DriverKind::Sqlite {
-        conn.host.clone()
-    } else {
-        format!("{}:{}", conn.host, conn.port)
-    };
+    let host_port = crate::views::connection_address(&conn);
 
     let name_collapsed_with_host = conn.name == conn.host;
     let primary_label = if name_collapsed_with_host && density == RowDensity::Narrow {

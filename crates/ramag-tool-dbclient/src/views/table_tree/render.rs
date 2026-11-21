@@ -419,7 +419,7 @@ fn render_connection_context(
         DriverKind::Redis => "redis",
         DriverKind::Mongodb => "mongodb",
     });
-    let address = format!("{}:{}", connection.host, connection.port);
+    let address = crate::views::connection_address(connection);
     let name = connection.name.clone();
     h_flex()
         .id("database-connection-context")

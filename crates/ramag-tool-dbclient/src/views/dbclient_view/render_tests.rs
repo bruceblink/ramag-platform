@@ -2,19 +2,25 @@ use super::{
     render_session_context_header, render_session_tab_title, session_pulse_status,
     session_tab_status_colors, session_tab_title_max_width,
 };
-use gpui_kit::{Context, IntoElement, Render, TestAppContext, Window, px, size};
+use gpui_kit::component::v_flex;
+use gpui_kit::{
+    Context, IntoElement, ParentElement, Render, Styled, TestAppContext, Window, px, size,
+};
+use ramag_domain::entities::ConnectionConfig;
 
 struct SessionContextHeaderPreview;
 
 impl Render for SessionContextHeaderPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        render_session_context_header(
-            "一个很长的数据库连接名称用于页头边界验证".into(),
-            "PostgreSQL · db.internal.example:5432".into(),
+        v_flex().size_full().child(render_session_context_header(
+            &ConnectionConfig::new_sqlite(
+                "一个很长的数据库连接名称用于页头边界验证".repeat(5),
+                format!("/tmp/{}/preview.sqlite", "long-directory/".repeat(12)),
+            ),
             ramag_ui::pulse_ui::PulseStatus::Current,
             "已连接",
             cx,
-        )
+        ))
     }
 }
 
@@ -117,6 +123,7 @@ fn session_context_header_stays_inside_supported_window_sizes(cx: &mut TestAppCo
     cx.update(gpui_kit::component::init);
     let (preview, cx) = cx.add_window_view(|_, _| SessionContextHeaderPreview);
 
+    let mut header_height = None;
     for (width, height) in [(360.0, 640.0), (1024.0, 768.0), (1440.0, 900.0)] {
         cx.simulate_resize(size(px(width), px(height)));
         preview.update(cx, |_, cx| cx.notify());
@@ -131,7 +138,15 @@ fn session_context_header_stays_inside_supported_window_sizes(cx: &mut TestAppCo
         let status = cx
             .debug_bounds("dbclient-session-header-status")
             .expect("数据库会话状态应渲染");
-        for (label, bounds) in [("上下文栏", header), ("标题", title), ("状态", status)] {
+        let address = cx
+            .debug_bounds("dbclient-session-address")
+            .expect("数据库地址应渲染");
+        for (label, bounds) in [
+            ("上下文栏", header),
+            ("标题", title),
+            ("状态", status),
+            ("地址", address),
+        ] {
             assert!(
                 bounds.origin.x >= px(0.0)
                     && bounds.origin.y >= px(0.0)
@@ -142,5 +157,10 @@ fn session_context_header_stays_inside_supported_window_sizes(cx: &mut TestAppCo
         }
         assert!(title.size.width > px(0.0));
         assert!(status.size.width > px(0.0));
+        assert!(address.right() <= status.origin.x);
+        assert_eq!(
+            header.size.height,
+            *header_height.get_or_insert(header.size.height)
+        );
     }
 }

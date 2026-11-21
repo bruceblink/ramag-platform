@@ -10,7 +10,7 @@ use gpui_kit::{
 };
 
 use super::{CenterMode, DbClientView};
-use ramag_domain::entities::ConnectionId;
+use ramag_domain::entities::{ConnectionConfig, ConnectionId};
 
 fn session_tab_status_colors(
     stale: bool,
@@ -86,40 +86,71 @@ fn session_pulse_status(
 }
 
 fn render_session_context_header(
-    title: String,
-    subtitle: String,
+    config: &ConnectionConfig,
     status: ramag_ui::pulse_ui::PulseStatus,
     status_label: &'static str,
     cx: &gpui_kit::App,
-) -> impl IntoElement {
-    div()
+) -> impl IntoElement + use<> {
+    let theme = cx.theme();
+    let title = config.name.clone();
+    let context = format!(
+        "{} · {}",
+        super::driver_kind_label(config.driver),
+        crate::views::connection_address(config)
+    );
+
+    h_flex()
         .id("dbclient-session-header")
         .debug_selector(|| "dbclient-session-header".into())
         .w_full()
         .min_w_0()
-        .flex()
-        .flex_wrap()
+        .flex_none()
         .items_center()
         .justify_between()
         .gap_2()
         .px_4()
         .py_2()
         .border_b_1()
-        .border_color(cx.theme().border.opacity(0.65))
-        .bg(cx.theme().background)
+        .border_color(theme.border)
+        .bg(theme.background)
         .child(
-            div()
+            v_flex()
                 .id("dbclient-session-header-title")
                 .debug_selector(|| "dbclient-session-header-title".into())
                 .flex_1()
-                .min_w(px(160.0))
                 .min_w_0()
-                .overflow_hidden()
-                .child(ramag_ui::pulse_ui::pulse_page_title(
-                    title,
-                    Some(subtitle),
-                    cx,
-                )),
+                .gap(px(3.0))
+                .child(
+                    div()
+                        .id("dbclient-session-name")
+                        .truncate()
+                        .text_size(px(20.0))
+                        .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                        .tooltip({
+                            let title = title.clone();
+                            move |window, cx| {
+                                gpui_kit::component::tooltip::Tooltip::new(title.clone())
+                                    .build(window, cx)
+                            }
+                        })
+                        .child(title),
+                )
+                .child(
+                    div()
+                        .id("dbclient-session-address")
+                        .debug_selector(|| "dbclient-session-address".into())
+                        .truncate()
+                        .text_sm()
+                        .text_color(theme.muted_foreground)
+                        .tooltip({
+                            let context = context.clone();
+                            move |window, cx| {
+                                gpui_kit::component::tooltip::Tooltip::new(context.clone())
+                                    .build(window, cx)
+                            }
+                        })
+                        .child(context),
+                ),
         )
         .child(
             div()
@@ -395,19 +426,7 @@ impl Render for DbClientView {
                             slot.stale,
                             slot.entity.as_ref().map(|entity| entity.health(cx)),
                         );
-                        let subtitle = format!(
-                            "{} · {}:{}",
-                            super::driver_kind_label(slot.config.driver),
-                            slot.config.host,
-                            slot.config.port
-                        );
-                        render_session_context_header(
-                            slot.config.name.clone(),
-                            subtitle,
-                            status,
-                            status_label,
-                            cx,
-                        )
+                        render_session_context_header(&slot.config, status, status_label, cx)
                     })
             })
             .flatten();

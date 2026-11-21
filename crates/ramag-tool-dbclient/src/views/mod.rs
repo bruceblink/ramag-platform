@@ -28,6 +28,15 @@ pub mod tree_helpers;
 
 pub use dbclient_view::DbClientView;
 
+/// SQLite 把文件路径存放在 `host`，只有网络连接才显示端口。
+fn connection_address(connection: &ramag_domain::entities::ConnectionConfig) -> String {
+    if connection.driver == ramag_domain::entities::DriverKind::Sqlite {
+        connection.host.clone()
+    } else {
+        format!("{}:{}", connection.host, connection.port)
+    }
+}
+
 /// Keeps the database session responsive before a fixed tree would starve the query area.
 pub(super) fn is_compact_session_width(width: f32) -> bool {
     ramag_ui::is_compact_workbench(width)
@@ -53,12 +62,22 @@ pub(super) fn inline_text_preview(text: &str, max_chars: usize) -> String {
 
 #[cfg(test)]
 mod inline_text_tests {
-    use super::inline_text_preview;
+    use super::{connection_address, inline_text_preview};
+    use ramag_domain::entities::ConnectionConfig;
 
     #[test]
     fn inline_preview_is_single_line_and_unicode_safe() {
         assert_eq!(inline_text_preview("你好世界", 2), "你好…");
         assert_eq!(inline_text_preview("a\nb\0c", 20), "a b�c");
+    }
+
+    #[test]
+    fn connection_address_distinguishes_sqlite_files_and_network_endpoints() {
+        let path = r"C:\Test Data\preview.sqlite";
+        let sqlite = ConnectionConfig::new_sqlite("local", path);
+        let mysql = ConnectionConfig::new_mysql("remote", "mysql.local", 3306, "user");
+        assert_eq!(connection_address(&sqlite), path);
+        assert_eq!(connection_address(&mysql), "mysql.local:3306");
     }
 }
 

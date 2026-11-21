@@ -218,7 +218,7 @@ impl ConnectionPickerPanel {
         let connection_for_open = connection.clone();
         let owner = self.owner.clone();
         let kind = driver_label(connection.driver);
-        let endpoint = format!("{}:{}", connection.host, connection.port);
+        let endpoint = crate::views::connection_address(&connection);
         let account = account_label(&connection);
         let environment = connection.environment.clone().unwrap_or_default();
         let brand_icon = ramag_ui::icons::db_brand_icon(match connection.driver {
