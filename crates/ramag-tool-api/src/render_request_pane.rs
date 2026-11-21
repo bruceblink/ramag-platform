@@ -8,6 +8,7 @@ pub(super) fn render(
     window: &Window,
     request_editor: gpui_kit::AnyElement,
     theme: &gpui_kit::component::Theme,
+    compact: bool,
 ) -> gpui_kit::AnyElement {
     let heading = h_flex()
         .id("api-request-pane-heading")
@@ -64,7 +65,7 @@ pub(super) fn render(
         .min_h_0()
         .child(heading)
         .child(content);
-    if ApiView::is_stacked(window) {
+    if compact {
         pane.flex_1().into_any_element()
     } else {
         pane.w(px(view.current_request_pane_width(window)))

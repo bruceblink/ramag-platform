@@ -1,11 +1,15 @@
 use super::render_body;
-use super::render_helpers::{render_context_editor, render_history, render_request_toolbar};
+use super::render_helpers::{
+    render_context_editor, render_history, render_inline_notice, render_request_toolbar,
+};
 use super::render_page_heading::render_request_heading;
 use super::*;
 use gpui_kit::ClickEvent;
 use gpui_kit::component::scroll::{Scrollbar, ScrollbarMode};
 use gpui_kit::component::tab::{Tab, TabBar};
 
+#[path = "render_collection_dialog.rs"]
+pub(super) mod collection_dialog;
 #[path = "render_sidebar_requests.rs"]
 mod render_sidebar_requests;
 #[path = "render_request_pane.rs"]
@@ -31,8 +35,9 @@ pub(super) fn render(
     cx: &mut Context<ApiView>,
 ) -> gpui_kit::AnyElement {
     let theme = cx.theme().clone();
-    let stacked = ApiView::is_stacked(window);
-    if !stacked {
+    let compact = ApiView::is_compact(window);
+    let show_sidebar = !compact && !view.collection_dialog_open;
+    if show_sidebar {
         view.sidebar_width = view
             .sidebar_width
             .clamp(API_SIDEBAR_MIN_WIDTH, ApiView::max_sidebar_width(window));
@@ -43,17 +48,15 @@ pub(super) fn render(
         view.layout_scroll
             .set_offset(gpui_kit::point(px(0.0), px(0.0)));
     }
-    let sidebar = render_sidebar(view, window, cx, compact_height, &theme);
-    let page_heading = render_request_heading(view, cx, &theme);
-    let editor = render_editor(view, window, cx, &theme);
-    let content = if stacked {
+    let page_heading = render_request_heading(view, cx, &theme, compact);
+    let editor = render_editor(view, window, cx, &theme, !show_sidebar);
+    let content = if !show_sidebar {
         v_flex()
             .id("api-content")
             .debug_selector(|| "api-content".into())
             .flex_1()
             .min_h_0()
             .min_w_0()
-            .child(sidebar)
             .child(editor)
     } else {
         h_flex()
@@ -95,7 +98,7 @@ pub(super) fn render(
                     }
                 }),
             )
-            .child(sidebar)
+            .child(render_sidebar(view, cx, &theme, false))
             .child(
                 div()
                     .id("api-sidebar-divider")
@@ -129,6 +132,7 @@ pub(super) fn render(
     v_flex()
         .id("api-root")
         .debug_selector(|| "api-root".into())
+        .track_focus(&view.focus_handle)
         .size_full()
         .min_w_0()
         .min_h_0()
@@ -144,6 +148,9 @@ pub(super) fn render(
                 ))
         })
         .child(page_heading)
+        .when(compact && !view.collection_dialog_open, |root| {
+            root.children(render_workspace_load_status(view, cx, &theme))
+        })
         .child(
             content
                 .border_1()
@@ -156,12 +163,10 @@ pub(super) fn render(
 
 fn render_sidebar(
     view: &ApiView,
-    window: &Window,
     cx: &mut Context<ApiView>,
-    compact_height: bool,
     theme: &gpui_kit::component::Theme,
+    dialog: bool,
 ) -> gpui_kit::AnyElement {
-    let stacked = ApiView::is_stacked(window);
     let workspace_name = if view.workspace.name == "API Workspace" {
         "API 工作台".to_owned()
     } else {
@@ -181,22 +186,14 @@ fn render_sidebar(
         .flex_none()
         .min_h_0()
         .min_w_0()
-        .when(stacked, |sidebar| {
-            sidebar
-                .w_full()
-                .when(compact_height, |sidebar| {
-                    sidebar.h(px(API_COMPACT_SIDEBAR_HEIGHT)).flex_none()
-                })
-                .when(!compact_height, |sidebar| sidebar.flex_1().max_h(px(240.0)))
-        })
-        .when(!stacked, |sidebar| {
+        .when(dialog, |sidebar| sidebar.w_full().h_full())
+        .when(!dialog, |sidebar| {
             sidebar
                 .h_full()
                 .rounded_tl(theme.radius)
                 .rounded_bl(theme.radius)
-        })
-        .when(stacked, |sidebar| {
-            sidebar.rounded_tl(theme.radius).rounded_tr(theme.radius)
+                .border_r_1()
+                .border_color(theme.border)
         })
         .overflow_y_scroll()
         .track_scroll(&view.sidebar_scroll)
@@ -206,8 +203,6 @@ fn render_sidebar(
         ))
         .gap(px(7.0))
         .p(px(10.0))
-        .border_r_1()
-        .border_color(theme.border)
         .child(
             v_flex()
                 .id("api-workspace-heading")
@@ -215,12 +210,14 @@ fn render_sidebar(
                 .w_full()
                 .min_w_0()
                 .gap(px(3.0))
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("请求集合"),
-                )
+                .when(!dialog, |heading| {
+                    heading.child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child("请求集合"),
+                    )
+                })
                 .child(
                     h_flex()
                         .min_w_0()
@@ -248,6 +245,9 @@ fn render_sidebar(
                 ),
         )
         .children(render_workspace_load_status(view, cx, theme))
+        .when(dialog, |sidebar| {
+            sidebar.children(render_inline_notice(view, cx, theme))
+        })
         .child(render_sidebar_requests::render(view, cx, theme))
         .child(render_history(view, cx, theme))
         .into_any_element()
@@ -313,78 +313,139 @@ fn render_editor(
     window: &mut Window,
     cx: &mut Context<ApiView>,
     theme: &gpui_kit::component::Theme,
+    compact: bool,
 ) -> gpui_kit::AnyElement {
-    let stacked = ApiView::is_stacked(window);
-    let request_editor = match view.protocol {
-        ApiProtocol::Http => render_http_editor(view, cx, theme),
-        ApiProtocol::Grpc => render_grpc::render_editor(view, cx, theme),
-    };
-    let request_pane = request_pane_render::render(view, window, request_editor, theme);
-    let workbench = if stacked {
-        v_flex()
-            .id("api-request-response")
-            .debug_selector(|| "api-request-response".into())
-            .flex_1()
-            .min_w_0()
-            .min_h_0()
-            .child(request_pane)
-            .child(response_render::render_response(view, cx, theme, stacked))
+    let workbench = if compact && view.compact_pane == ApiCompactPane::Response {
+        response_render::render_response(view, cx, theme, true)
     } else {
-        let divider = div()
-            .id("api-request-response-divider")
-            .debug_selector(|| "api-request-response-divider".into())
-            .w(px(API_REQUEST_RESPONSE_DIVIDER_WIDTH))
-            .h_full()
-            .flex_none()
-            .cursor_col_resize()
-            .on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|view, event: &MouseDownEvent, window, cx| {
-                    view.request_response_drag_start =
-                        Some((event.position.x, view.current_request_pane_width(window)));
-                    cx.notify();
-                }),
-            )
-            .child(
-                v_flex().size_full().items_center().child(
-                    div()
-                        .w(px(API_REQUEST_RESPONSE_DIVIDER_LINE_WIDTH))
-                        .h_full()
-                        .bg(if view.request_response_drag_start.is_some() {
-                            theme.link
-                        } else {
-                            theme.border
-                        }),
-                ),
-            );
-
-        h_flex()
-            .id("api-request-response")
-            .debug_selector(|| "api-request-response".into())
-            .flex_1()
-            .min_w_0()
-            .min_h_0()
-            .items_stretch()
-            .child(request_pane)
-            .child(divider)
-            .child(response_render::render_response(view, cx, theme, stacked))
+        render_request_workbench(view, window, cx, theme, compact)
     };
     v_flex()
         .id("api-editor")
         .debug_selector(|| "api-editor".into())
         .flex_1()
         .h_full()
+        .rounded_br(theme.radius)
+        .when(!compact, |editor| editor.rounded_tr(theme.radius))
         .min_w_0()
         .min_h_0()
         .child(render_request_toolbar(view, window, cx, theme))
-        .child(workbench)
-        .when(stacked, |editor| {
-            editor.rounded_bl(theme.radius).rounded_br(theme.radius)
+        .when(compact, |editor| {
+            editor.child(render_compact_tabs(view, cx, theme)).when(
+                view.compact_pane == ApiCompactPane::Request,
+                |editor| {
+                    editor.when_some(render_inline_notice(view, cx, theme), |editor, notice| {
+                        editor.child(
+                            div()
+                                .id("api-compact-request-notice")
+                                .debug_selector(|| "api-compact-request-notice".into())
+                                .flex_none()
+                                .px(px(12.0))
+                                .pt(px(8.0))
+                                .child(notice),
+                        )
+                    })
+                },
+            )
         })
-        .when(!stacked, |editor| {
-            editor.rounded_tr(theme.radius).rounded_br(theme.radius)
-        })
+        .child(
+            v_flex()
+                .id("api-request-response")
+                .debug_selector(|| "api-request-response".into())
+                .flex_1()
+                .min_h_0()
+                .min_w_0()
+                .child(workbench),
+        )
         .into_any_element()
+}
+
+fn render_request_workbench(
+    view: &mut ApiView,
+    window: &mut Window,
+    cx: &mut Context<ApiView>,
+    theme: &gpui_kit::component::Theme,
+    compact: bool,
+) -> gpui_kit::AnyElement {
+    let request_editor = match view.protocol {
+        ApiProtocol::Http => render_http_editor(view, cx, theme),
+        ApiProtocol::Grpc => render_grpc::render_editor(view, cx, theme),
+    };
+    let request_pane = request_pane_render::render(view, window, request_editor, theme, compact);
+    if compact {
+        return request_pane;
+    }
+    let divider = div()
+        .id("api-request-response-divider")
+        .debug_selector(|| "api-request-response-divider".into())
+        .w(px(API_REQUEST_RESPONSE_DIVIDER_WIDTH))
+        .h_full()
+        .flex_none()
+        .cursor_col_resize()
+        .on_mouse_down(
+            MouseButton::Left,
+            cx.listener(|view, event: &MouseDownEvent, window, cx| {
+                view.request_response_drag_start =
+                    Some((event.position.x, view.current_request_pane_width(window)));
+                cx.notify();
+            }),
+        )
+        .child(
+            v_flex().size_full().items_center().child(
+                div()
+                    .w(px(API_REQUEST_RESPONSE_DIVIDER_LINE_WIDTH))
+                    .h_full()
+                    .bg(if view.request_response_drag_start.is_some() {
+                        theme.link
+                    } else {
+                        theme.border
+                    }),
+            ),
+        );
+
+    h_flex()
+        .flex_1()
+        .min_w_0()
+        .min_h_0()
+        .items_stretch()
+        .child(request_pane)
+        .child(divider)
+        .child(response_render::render_response(view, cx, theme, false))
+        .into_any_element()
+}
+
+fn render_compact_tabs(
+    view: &ApiView,
+    cx: &mut Context<ApiView>,
+    theme: &gpui_kit::component::Theme,
+) -> impl IntoElement {
+    TabBar::new("api-compact-pane-tabs")
+        .underline()
+        .w_full()
+        .min_w_0()
+        .flex_none()
+        .px(px(12.0))
+        .border_b_1()
+        .border_color(theme.border)
+        .selected_index(usize::from(view.compact_pane == ApiCompactPane::Response))
+        .on_click(cx.listener(|view, index: &usize, _, cx| {
+            view.compact_pane = if *index == 0 {
+                ApiCompactPane::Request
+            } else {
+                ApiCompactPane::Response
+            };
+            cx.notify();
+        }))
+        .child(
+            Tab::new()
+                .label("请求")
+                .debug_selector(|| "api-compact-request".into()),
+        )
+        .child(
+            Tab::new()
+                .label("响应")
+                .debug_selector(|| "api-compact-response".into()),
+        )
 }
 
 pub(super) fn render_request_tabs(

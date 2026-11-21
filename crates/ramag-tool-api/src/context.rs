@@ -430,6 +430,7 @@ pub(crate) fn apply_request_to_view(
     view.invalidate_request_context();
     view.invalidate_grpc_discovery_context();
     view.active_request_id = Some(request.id.clone());
+    view.compact_pane = ApiCompactPane::Request;
     view.request_baseline = Some(request.request.clone());
     set_input(&view.request_name, request.name.clone(), window, cx);
     set_textarea(

@@ -33,6 +33,7 @@ impl ApiView {
         self.invalidate_request_context();
         self.invalidate_grpc_discovery_context();
         self.protocol = protocol;
+        self.compact_pane = ApiCompactPane::Request;
         self.request_tab = ApiRequestTab::Body;
         self.grpc_services.clear();
         self.response = None;

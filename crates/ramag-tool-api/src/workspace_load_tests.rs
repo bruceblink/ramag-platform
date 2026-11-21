@@ -356,9 +356,11 @@ fn api_history_can_be_cleared_from_the_sidebar_after_confirmation(cx: &mut TestA
     });
     visual_cx.simulate_resize(size(px(360.0), px(640.0)));
     visual_cx.run_until_parked();
+    click(visual_cx, "api-open-collection");
+    visual_cx.run_until_parked();
     let sidebar = visual_cx
         .debug_bounds("api-sidebar")
-        .expect("窄窗口侧栏应渲染");
+        .expect("窄窗口请求集合应在弹窗中显示");
     let clear_button = visual_cx
         .debug_bounds("api-history-clear")
         .expect("有执行历史时应显示清理按钮");
@@ -391,11 +393,6 @@ fn api_history_can_be_cleared_from_the_sidebar_after_confirmation(cx: &mut TestA
     );
     assert!(visual_cx.debug_bounds("ramag-confirm-ok").is_some());
     click_dialog_button(visual_cx, "ramag-confirm-ok");
-    assert!(
-        !visual_cx.update(|window, app| {
-            gpui_kit::component::WindowExt::has_active_dialog(window, app)
-        })
-    );
 
     for _ in 0..100 {
         visual_cx.run_until_parked();
@@ -421,6 +418,7 @@ fn api_history_can_be_cleared_from_the_sidebar_after_confirmation(cx: &mut TestA
         visual_cx.debug_bounds("ramag-confirm-ok").is_none(),
         "第一次确认框退出动画完成后，不应再留在渲染帧中"
     );
+    assert!(visual_cx.debug_bounds("api-close-collection").is_some());
 
     let retained_request = ApiRequestRecord::new_http(
         "失败后保留",

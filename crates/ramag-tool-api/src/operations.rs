@@ -197,6 +197,10 @@ impl ApiView {
 
     /// 构造当前请求并交给 API 服务；结果包含响应、断言状态和脱敏历史摘要。
     pub(crate) fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if Self::is_compact(window) {
+            self.compact_pane = ApiCompactPane::Response;
+            cx.notify();
+        }
         if self.block_workspace_execution_until_loaded(cx) {
             return;
         }
@@ -302,6 +306,10 @@ impl ApiView {
 
     /// 把当前请求并入首个 Collection 后串行执行，完成后在响应区域展示汇总。
     pub(crate) fn run_collection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if Self::is_compact(window) {
+            self.compact_pane = ApiCompactPane::Response;
+            cx.notify();
+        }
         if self.block_workspace_execution_until_loaded(cx) {
             return;
         }

@@ -51,6 +51,7 @@ pub(super) fn render(
                     .xsmall()
                     .label(label)
                     .on_click(cx.listener(move |view, _: &ClickEvent, window, cx| {
+                        view.close_collection_dialog(window, cx);
                         context::apply_request_to_view(view, &request, window, cx);
                         cx.notify();
                     }));

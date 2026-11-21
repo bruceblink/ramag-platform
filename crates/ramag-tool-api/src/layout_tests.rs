@@ -263,10 +263,11 @@ fn api_request_targets_keep_fields_and_actions_visible_on_narrow_windows(cx: &mu
         .debug_bounds("api-run-collection")
         .expect("gRPC Collection 按钮应渲染");
     assert!(
-        endpoint.size.width >= px(88.0)
-            && service.size.width >= px(88.0)
-            && method.size.width >= px(88.0),
-        "窄屏 gRPC 目标、服务和方法输入框必须保留最小宽度: endpoint={endpoint:?}, service={service:?}, method={method:?}"
+        endpoint.size.width == target.size.width
+            && service.size.width >= px(160.0)
+            && method.size.width >= px(88.0)
+            && service.origin.y >= endpoint.bottom(),
+        "窄屏 gRPC 地址应独占一行，服务和方法应在下一行: endpoint={endpoint:?}, service={service:?}, method={method:?}"
     );
     assert!(
         endpoint.origin.x >= target.origin.x
@@ -335,12 +336,6 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let request_context = visual_cx
             .debug_bounds("api-request-context")
             .expect("标题区应保留 API 工作区上下文");
-        let sidebar = visual_cx
-            .debug_bounds("api-sidebar")
-            .expect("API 侧栏应渲染");
-        let request_search = visual_cx
-            .debug_bounds("api-request-search")
-            .expect("请求搜索框应渲染");
         let toolbar = visual_cx
             .debug_bounds("api-request-toolbar")
             .expect("请求工具栏应渲染");
@@ -371,35 +366,14 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         let proxy_editor = visual_cx
             .debug_bounds("api-proxy-editor")
             .expect("代理编辑器应渲染");
-        let response = visual_cx
-            .debug_bounds("api-response")
-            .expect("响应面板应渲染");
-        let response_heading = visual_cx
-            .debug_bounds("api-response-heading")
-            .expect("响应区应有独立标题行");
-        let response_tabs = visual_cx
-            .debug_bounds("api-response-tabs-row")
-            .expect("响应页签应位于单独一行");
-        let response_scroll = visual_cx
-            .debug_bounds("api-response-scroll-content")
-            .expect("响应内容应有独立滚动区域");
-        if width >= API_STACK_BREAKPOINT {
+        let compact = width <= ramag_ui::shell::SHELL_NARROW_BREAKPOINT;
+        if !compact {
             assert!(
                 editor.size.width >= px(API_EDITOR_MIN_WIDTH - 1.0),
                 "桌面布局必须为编辑工作区保留最小宽度: viewport={width}, editor={editor:?}"
             );
         }
         assert!(editor.right() <= root.right(), "编辑器不能越出根节点");
-        assert!(sidebar.right() <= content_root.right(), "侧栏不能越出主体");
-        assert!(
-            sidebar.bottom() <= content_root.bottom(),
-            "侧栏不能越出主体底部: sidebar={sidebar:?}, content={content_root:?}"
-        );
-        assert!(
-            request_search.origin.x >= sidebar.origin.x
-                && request_search.right() <= sidebar.right(),
-            "请求搜索框不能越出侧栏: search={request_search:?}, sidebar={sidebar:?}"
-        );
         assert!(
             page_title.origin.y >= page_heading.origin.y
                 && page_title.bottom() <= page_heading.bottom()
@@ -427,7 +401,6 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
             request_editor.right() <= editor.right(),
             "请求编辑器不能越出 API 编辑器"
         );
-        assert!(response.right() <= root.right(), "响应面板不能越出根节点");
         assert!(editor.origin.x >= root.origin.x, "编辑器左边界不能越界");
         assert!(
             protocol_switcher.right() <= page_actions.right(),
@@ -436,10 +409,6 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         assert!(
             (request_heading.size.height - px(ramag_ui::WORKBENCH_TOOLBAR_HEIGHT)).abs() <= px(1.0),
             "请求标题行应复用共享工具栏高度: {request_heading:?}"
-        );
-        assert!(
-            (response_tabs.size.height - px(ramag_ui::WORKBENCH_TAB_HEIGHT)).abs() <= px(1.0),
-            "响应页签行应复用共享页签高度: {response_tabs:?}"
         );
         assert!(
             request_tabs.origin.y >= request_pane.origin.y,
@@ -451,21 +420,10 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
             "请求标题、请求编辑器和配置页签应按顺序排列: heading={request_heading:?}, tabs={request_tabs:?}, scroll={request_scroll:?}"
         );
         assert!(
-            response_heading.bottom() <= response_tabs.origin.y
-                && response_tabs.bottom() <= response_scroll.origin.y,
-            "响应标题、页签和内容应按顺序排列: heading={response_heading:?}, tabs={response_tabs:?}, content={response_scroll:?}"
+            toolbar.origin.y >= content_root.origin.y
+                && toolbar.origin.y - content_root.origin.y <= px(3.0),
+            "工作台顶栏应从主体顶部开始: toolbar={toolbar:?}, content={content_root:?}"
         );
-        if width >= API_STACK_BREAKPOINT {
-            assert!(
-                (toolbar.origin.y - content_root.origin.y) <= px(3.0),
-                "宽布局应从请求工作台顶栏开始: toolbar={toolbar:?}, content={content_root:?}"
-            );
-        } else {
-            assert!(
-                toolbar.origin.y >= sidebar.bottom(),
-                "窄布局应先显示请求列表，再显示紧凑请求栏"
-            );
-        }
         assert!(
             toolbar.bottom() <= workbench.origin.y,
             "请求工具栏不能与请求响应工作区重叠: toolbar={toolbar:?}, workbench={workbench:?}"
@@ -485,11 +443,7 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
         );
         assert!(
             workbench.bottom() <= content_root.bottom(),
-            "请求响应工作区不能越出主体底部: sidebar={sidebar:?}, editor={editor:?}, toolbar={toolbar:?}, command={command_row:?}, workbench={workbench:?}, response={response:?}, content={content_root:?}"
-        );
-        assert!(
-            response.bottom() <= workbench.bottom(),
-            "响应面板不能越出请求响应工作区: response={response:?}, workbench={workbench:?}"
+            "请求响应工作区不能越出主体底部: workbench={workbench:?}, content={content_root:?}"
         );
         assert!(
             request_pane.origin.y >= command_row.origin.y,
@@ -505,7 +459,36 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
                 "宽窗口操作区应与请求目标同排: actions={actions:?}, command={command_row:?}"
             );
         }
-        if width >= API_STACK_BREAKPOINT {
+        if !compact {
+            let sidebar = visual_cx
+                .debug_bounds("api-sidebar")
+                .expect("应显示桌面侧栏");
+            let search = visual_cx
+                .debug_bounds("api-request-search")
+                .expect("应显示请求搜索");
+            let response = visual_cx.debug_bounds("api-response").expect("应显示响应");
+            let response_heading = visual_cx
+                .debug_bounds("api-response-heading")
+                .expect("应显示响应标题");
+            let response_tabs = visual_cx
+                .debug_bounds("api-response-tabs-row")
+                .expect("应显示响应页签");
+            let response_scroll = visual_cx
+                .debug_bounds("api-response-scroll-content")
+                .expect("应显示响应内容");
+            assert!(
+                sidebar.right() <= content_root.right()
+                    && sidebar.bottom() <= content_root.bottom()
+            );
+            assert!(search.origin.x >= sidebar.origin.x && search.right() <= sidebar.right());
+            assert!(response.right() <= root.right() && response.bottom() <= workbench.bottom());
+            assert!(
+                (response_tabs.size.height - px(ramag_ui::WORKBENCH_TAB_HEIGHT)).abs() <= px(1.0)
+            );
+            assert!(
+                response_heading.bottom() <= response_tabs.origin.y
+                    && response_tabs.bottom() <= response_scroll.origin.y
+            );
             assert!(
                 (response.origin.y - request_pane.origin.y).abs() <= px(1.0),
                 "左右分栏必须顶部对齐: pane={request_pane:?}, response={response:?}"
@@ -515,21 +498,20 @@ fn api_workbench_reflows_request_editor_and_response_at_supported_widths(cx: &mu
                 "左右分栏必须共享完整高度: pane={request_pane:?}, response={response:?}"
             );
         } else {
-            assert!(
-                (sidebar.size.width - content_root.size.width).abs() <= px(4.0),
-                "窄窗口侧栏应占满主体宽度: sidebar={sidebar:?}, content={content_root:?}"
-            );
-            assert!(
-                sidebar.size.height <= px(240.0),
-                "窄窗口侧栏高度应受限并保留请求编辑器空间: sidebar={sidebar:?}"
-            );
+            assert!(visual_cx.debug_bounds("api-sidebar").is_none());
+            assert!(visual_cx.debug_bounds("api-response").is_none());
+            let collection = visual_cx
+                .debug_bounds("api-open-collection")
+                .expect("应显示请求集合入口");
+            let compact_response = visual_cx
+                .debug_bounds("api-compact-response")
+                .expect("应显示响应切换入口");
+            assert!(collection.right() <= page_actions.right());
+            assert!(compact_response.right() <= workbench.right());
+            assert!((request_pane.size.width - workbench.size.width).abs() <= px(1.0));
             assert!(
                 request_tabs.bottom() <= request_pane.bottom() + px(1.0),
                 "窄屏请求页签必须完整留在请求面板内: viewport={width}x{height}, tabs={request_tabs:?}, pane={request_pane:?}"
-            );
-            assert!(
-                response.origin.y >= request_pane.bottom() - px(1.0),
-                "窄屏响应面板必须排在完整请求面板之后: viewport={width}x{height}, request={request_pane:?}, response={response:?}"
             );
         }
     }

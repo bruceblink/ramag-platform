@@ -3,6 +3,25 @@ use super::*;
 use gpui_kit::ClickEvent;
 use gpui_kit::FontWeight;
 use gpui_kit::component::{Disableable as _, IconName, button::ButtonVariants as _};
+use ramag_ui::pulse_ui::{PulseStatus, pulse_status_notice_with_label};
+
+pub(super) fn render_inline_notice(
+    view: &ApiView,
+    cx: &App,
+    theme: &gpui_kit::component::Theme,
+) -> Option<gpui_kit::AnyElement> {
+    let (message, is_error) = view.notice.as_ref()?;
+    Some(if *is_error {
+        pulse_status_notice_with_label(PulseStatus::Failed, "失败", message.clone(), cx)
+            .into_any_element()
+    } else {
+        div()
+            .text_xs()
+            .text_color(theme.muted_foreground)
+            .child(message.clone())
+            .into_any_element()
+    })
+}
 
 pub(super) fn render_collection_button(
     view: &ApiView,
@@ -81,6 +100,7 @@ pub(super) fn render_request_toolbar(
                 .child(render_request_target(
                     view,
                     ApiView::main_content_width(window) < API_REQUEST_TARGET_COMPACT_BREAKPOINT,
+                    ApiView::is_compact(window),
                 ))
                 .child(
                     h_flex()
@@ -101,7 +121,7 @@ pub(super) fn render_request_toolbar(
         .into_any_element()
 }
 
-fn render_request_target(view: &ApiView, compact: bool) -> gpui_kit::AnyElement {
+fn render_request_target(view: &ApiView, compact: bool, narrow: bool) -> gpui_kit::AnyElement {
     let (target, minimum_width) = match view.protocol {
         ApiProtocol::Http => (
             h_flex()
@@ -138,6 +158,20 @@ fn render_request_target(view: &ApiView, compact: bool) -> gpui_kit::AnyElement 
             let endpoint_minimum = if compact { field_minimum } else { 180.0 };
             let service_minimum = field_minimum;
             let method_minimum = if compact { field_minimum } else { 140.0 };
+            let endpoint = request_target_field(
+                "api-grpc-endpoint",
+                Input::new(&view.grpc_endpoint)
+                    .small()
+                    .w_full()
+                    .aria_label("gRPC 服务地址"),
+            );
+            let service = request_target_field(
+                "api-grpc-service",
+                Input::new(&view.grpc_service)
+                    .small()
+                    .w_full()
+                    .aria_label("gRPC 服务名称"),
+            );
             let method = request_target_field(
                 "api-grpc-method-input",
                 Input::new(&view.grpc_method)
@@ -145,43 +179,42 @@ fn render_request_target(view: &ApiView, compact: bool) -> gpui_kit::AnyElement 
                     .w_full()
                     .aria_label("gRPC 方法"),
             );
-            let method = if compact {
-                method.flex_1().min_w(px(method_minimum))
+            if narrow {
+                (
+                    v_flex()
+                        .w_full()
+                        .min_w_0()
+                        .gap(px(4.0))
+                        .child(endpoint.w_full())
+                        .child(
+                            h_flex()
+                                .w_full()
+                                .min_w_0()
+                                .gap(px(8.0))
+                                .child(service.flex_1())
+                                .child(method.w(px(100.0)).flex_none()),
+                        )
+                        .into_any_element(),
+                    0.0,
+                )
             } else {
-                method.w(px(method_minimum)).flex_none()
-            };
-            let minimum_width = endpoint_minimum + service_minimum + method_minimum + 16.0;
-            (
-                h_flex()
-                    .w_full()
-                    .min_w_0()
-                    .gap(px(8.0))
-                    .child(
-                        request_target_field(
-                            "api-grpc-endpoint",
-                            Input::new(&view.grpc_endpoint)
-                                .small()
-                                .w_full()
-                                .aria_label("gRPC 服务地址"),
-                        )
-                        .flex_1()
-                        .min_w(px(endpoint_minimum)),
-                    )
-                    .child(
-                        request_target_field(
-                            "api-grpc-service",
-                            Input::new(&view.grpc_service)
-                                .small()
-                                .w_full()
-                                .aria_label("gRPC 服务名称"),
-                        )
-                        .flex_1()
-                        .min_w(px(service_minimum)),
-                    )
-                    .child(method)
-                    .into_any_element(),
-                minimum_width,
-            )
+                let method = if compact {
+                    method.flex_1().min_w(px(method_minimum))
+                } else {
+                    method.w(px(method_minimum)).flex_none()
+                };
+                (
+                    h_flex()
+                        .w_full()
+                        .min_w_0()
+                        .gap(px(8.0))
+                        .child(endpoint.flex_1().min_w(px(endpoint_minimum)))
+                        .child(service.flex_1().min_w(px(service_minimum)))
+                        .child(method)
+                        .into_any_element(),
+                    endpoint_minimum + service_minimum + method_minimum + 16.0,
+                )
+            }
         }
     };
     h_flex()
@@ -190,6 +223,7 @@ fn render_request_target(view: &ApiView, compact: bool) -> gpui_kit::AnyElement 
         .flex_1()
         .min_w_0()
         .min_w(px(minimum_width))
+        .when(narrow, |target| target.w_full().flex_none())
         .child(target)
         .into_any_element()
 }

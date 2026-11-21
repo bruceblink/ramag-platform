@@ -70,16 +70,19 @@ const API_REQUEST_PANE_MIN_WIDTH: f32 = 240.0;
 const API_RESPONSE_MIN_WIDTH: f32 = 220.0;
 const API_REQUEST_RESPONSE_DIVIDER_WIDTH: f32 = 8.0;
 const API_REQUEST_RESPONSE_DIVIDER_LINE_WIDTH: f32 = 2.0;
-/// 标题留白后按原型窄屏边界切换到上下排列，避免请求和响应被挤压。
-const API_STACK_BREAKPOINT: f32 = 760.0;
 /// 可用宽度低于此值时，gRPC 目标字段改用窄屏最小宽度。
 const API_REQUEST_TARGET_COMPACT_BREAKPOINT: f32 = 560.0;
-/// 短视口折叠请求列表高度，给请求和响应编辑区留出空间。
+/// 短视口让工作台可以纵向滚动。
 const API_COMPACT_HEIGHT: f32 = 700.0;
 const API_COMPACT_CONTENT_HEIGHT: f32 = 520.0;
-/// 为请求搜索、历史记录和清理入口保留可见区域。
-const API_COMPACT_SIDEBAR_HEIGHT: f32 = 150.0;
 const API_RESPONSE_PREVIEW_BYTES: usize = 16 * 1024;
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum ApiCompactPane {
+    #[default]
+    Request,
+    Response,
+}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) enum ApiResponseTab {
@@ -278,6 +281,9 @@ pub struct ApiView {
     pub(crate) layout_scroll: ScrollHandle,
     pub(crate) sidebar_scroll: ScrollHandle,
     pub(crate) sidebar_width: f32,
+    compact_pane: ApiCompactPane,
+    collection_dialog_open: bool,
+    collection_button_focus: FocusHandle,
     pub(crate) sidebar_drag_start: Option<(Pixels, f32)>,
     pub(crate) request_pane_width: Option<f32>,
     pub(crate) request_response_drag_start: Option<(Pixels, f32)>,
@@ -456,6 +462,9 @@ impl ApiView {
             layout_scroll: ScrollHandle::new(),
             sidebar_scroll: ScrollHandle::new(),
             sidebar_width: API_SIDEBAR_WIDTH,
+            compact_pane: ApiCompactPane::Request,
+            collection_dialog_open: false,
+            collection_button_focus: cx.focus_handle(),
             sidebar_drag_start: None,
             request_pane_width: None,
             request_response_drag_start: None,
@@ -470,8 +479,8 @@ impl ApiView {
         f32::from(window.viewport_size().width)
     }
 
-    pub(crate) fn is_stacked(window: &Window) -> bool {
-        Self::main_content_width(window) < API_STACK_BREAKPOINT
+    pub(crate) fn is_compact(window: &Window) -> bool {
+        Self::main_content_width(window) <= ramag_ui::shell::SHELL_NARROW_BREAKPOINT
     }
 
     pub(crate) fn max_sidebar_width(window: &Window) -> f32 {
@@ -815,6 +824,9 @@ impl GrpcRequestMessage for GrpcRequestSpec {
 #[cfg(test)]
 #[path = "body_tests.rs"]
 mod body_tests;
+#[cfg(test)]
+#[path = "compact_workspace_tests.rs"]
+mod compact_workspace_tests;
 #[cfg(test)]
 #[path = "view_docker_tests.rs"]
 mod docker_tests;

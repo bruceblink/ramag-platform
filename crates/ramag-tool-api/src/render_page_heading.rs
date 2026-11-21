@@ -11,6 +11,7 @@ pub(super) fn render_request_heading(
     view: &mut ApiView,
     cx: &mut Context<ApiView>,
     theme: &gpui_kit::component::Theme,
+    compact: bool,
 ) -> gpui_kit::AnyElement {
     let protocol_button = |id: &'static str,
                            label: &'static str,
@@ -154,6 +155,9 @@ pub(super) fn render_request_heading(
                             cx,
                         )),
                 )
+                .when(compact, |actions| {
+                    actions.child(super::render::collection_dialog::trigger(view, cx))
+                })
                 .child(import)
                 .child(save),
         )
