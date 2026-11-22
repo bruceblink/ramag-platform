@@ -29,6 +29,7 @@ use super::render_directory_helpers::{
     directory_counts, directory_counts_at, filtered_entry_indices, remote_breadcrumbs,
     remote_entry_row,
 };
+use ramag_ui::WORKBENCH_TOOLBAR_HEIGHT;
 
 const FILE_BROWSER_WIDTH_INITIAL: f32 = 280.0;
 const FILE_BROWSER_WIDTH_MIN: f32 = 180.0;
@@ -63,7 +64,7 @@ impl SshView {
             |port| format!("{}:{port}", workspace.profile.host),
         );
         let session_state = workspace.session_state;
-        let workspace_header = h_flex()
+        let workspace_header = ramag_ui::pulse_ui::pulse_entry_header(cx)
             .id("ssh-workspace-page-header")
             .debug_selector(|| "ssh-workspace-page-header".into())
             .w_full()
@@ -72,8 +73,6 @@ impl SshView {
             .items_center()
             .justify_between()
             .gap(px(12.0))
-            .px(px(16.0))
-            .py(px(12.0))
             .border_b_1()
             .border_color(cx.theme().border.opacity(0.78))
             .child(
@@ -250,7 +249,7 @@ impl SshView {
             .id("ssh-directory-breadcrumb")
             .debug_selector(|| "ssh-directory-breadcrumb".into())
             .w_full()
-            .h(px(40.0))
+            .h(px(WORKBENCH_TOOLBAR_HEIGHT))
             .flex_none()
             .items_center()
             .gap(px(5.0))

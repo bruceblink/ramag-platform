@@ -269,6 +269,7 @@ impl SshView {
         let border = cx.theme().border;
         let muted = cx.theme().muted_foreground;
         let accent = cx.theme().accent;
+        let selected_surface = ramag_ui::pulse_ui::pulse_palette(cx).selected;
         let danger = cx.theme().danger;
         let environment_palette =
             EnvironmentBadgePalette::new(cx.theme().success, cx.theme().warning, danger, muted);
@@ -290,11 +291,7 @@ impl SshView {
             .border_b_1()
             .border_color(border)
             .cursor_pointer()
-            .when(selected, |row| {
-                let mut selected_bg = accent;
-                selected_bg.a = 0.06;
-                row.bg(selected_bg)
-            })
+            .when(selected, |row| row.bg(selected_surface))
             .when(!connection_available, |row| row.opacity(0.65))
             .hover(|row| row.bg(cx.theme().muted))
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {

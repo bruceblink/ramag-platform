@@ -8,6 +8,7 @@ use gpui_kit::{
     ClickEvent, Context, IntoElement, ParentElement, Render, SharedString, Styled, Window, div,
     prelude::*, px,
 };
+use ramag_ui::WORKBENCH_TAB_HEIGHT;
 
 use super::SshView;
 use super::model::{ViewMode, session_pulse_status, session_state_text};
@@ -16,11 +17,12 @@ use crate::{CloseSshTerminal, NewSshTerminal};
 impl SshView {
     fn render_tabs(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let border = theme.border;
+        let palette = ramag_ui::pulse_ui::pulse_palette(cx);
+        let border = palette.border;
         let fg = theme.foreground;
         let muted = theme.muted_foreground;
-        let accent = theme.accent;
-        let muted_bg = theme.muted;
+        let selected_bg = palette.selected;
+        let hover_bg = palette.raised;
         let workspace_tab_max_width =
             px((f32::from(window.viewport_size().width) - 120.0).clamp(220.0, 420.0));
         let manager_selected = self.view_mode == ViewMode::Manager;
@@ -29,8 +31,8 @@ impl SshView {
             .flex_none()
             .items_center()
             .gap_2()
+            .h(px(WORKBENCH_TAB_HEIGHT))
             .px_3()
-            .py(px(7.0))
             .border_r_1()
             .border_color(border)
             .cursor_pointer()
@@ -49,11 +51,9 @@ impl SshView {
                     .child(crate::TOOL_NAME),
             );
         if manager_selected {
-            let mut active_bg = accent;
-            active_bg.a = 0.15;
-            manager_tab = manager_tab.bg(active_bg);
+            manager_tab = manager_tab.bg(selected_bg);
         } else {
-            manager_tab = manager_tab.hover(move |tab| tab.bg(muted_bg));
+            manager_tab = manager_tab.hover(move |tab| tab.bg(hover_bg));
         }
 
         let mut workspace_strip = h_flex()
@@ -82,7 +82,7 @@ impl SshView {
                 .items_center()
                 .gap_2()
                 .px_3()
-                .py(px(7.0))
+                .h(px(WORKBENCH_TAB_HEIGHT))
                 .border_r_1()
                 .border_color(border)
                 .cursor_pointer()
@@ -142,11 +142,9 @@ impl SshView {
                     this.select_workspace(id.clone(), window, cx);
                 }));
             if selected {
-                let mut active_bg = accent;
-                active_bg.a = 0.15;
-                tab = tab.bg(active_bg);
+                tab = tab.bg(selected_bg);
             } else {
-                tab = tab.hover(move |tab| tab.bg(muted_bg));
+                tab = tab.hover(move |tab| tab.bg(hover_bg));
             }
             workspace_strip = workspace_strip.child(tab);
         }
@@ -158,7 +156,7 @@ impl SshView {
             .flex_none()
             .border_b_1()
             .border_color(border)
-            .bg(theme.secondary)
+            .bg(palette.surface)
             .child(manager_tab)
             .child(workspace_strip)
     }
