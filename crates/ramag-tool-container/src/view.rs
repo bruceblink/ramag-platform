@@ -10,7 +10,7 @@ use async_channel::{TrySendError, bounded};
 use gpui_kit::base::{Scrollbar, ScrollbarMode, Table, TableCell, TableRow};
 use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, Icon, IconName, Selectable as _, Sizable as _,
-    button::ButtonVariants as _,
+    button::{ButtonCustomVariant, ButtonVariants as _},
     h_flex,
     input::{Input, InputState},
     notification::Notification,
@@ -1385,6 +1385,7 @@ impl ContainerView {
 impl Render for ContainerView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
+        let palette = ramag_ui::pulse_ui::pulse_palette(cx);
         let compact = f32::from(window.viewport_size().width) < 720.0;
         let section = self.section;
         let (status, connection_status) = if let Some(connection) = &self.connection {
@@ -1409,7 +1410,7 @@ impl Render for ContainerView {
             .flex_none()
             .gap(px(8.0))
             .border_b_1()
-            .border_color(theme.border)
+            .border_color(palette.border)
             .child(
                 ramag_ui::responsive_toolbar()
                     .child(
@@ -1506,7 +1507,7 @@ impl Render for ContainerView {
         let navigation = v_flex()
             .id("container-resource-nav")
             .debug_selector(|| "container-resource-nav".into())
-            .bg(theme.sidebar)
+            .bg(palette.surface)
             .w(px(176.0))
             .h_full()
             .min_h_0()
@@ -1514,7 +1515,7 @@ impl Render for ContainerView {
             .gap(px(4.0))
             .p(px(10.0))
             .border_r_1()
-            .border_color(theme.border)
+            .border_color(palette.border)
             .overflow_y_scrollbar()
             .children(
                 ContainerSection::ALL
@@ -1535,7 +1536,7 @@ impl Render for ContainerView {
                         .px(px(12.0))
                         .py(px(8.0))
                         .border_b_1()
-                        .border_color(theme.border)
+                        .border_color(palette.border)
                         .children(
                             ContainerSection::ALL
                                 .into_iter()
@@ -1560,8 +1561,8 @@ impl Render for ContainerView {
             .size_full()
             .font_family(theme.font_family.clone())
             .text_size(px(14.0))
-            .bg(theme.background)
-            .text_color(theme.foreground)
+            .bg(palette.background)
+            .text_color(palette.text)
             .child(header)
             .child(body)
     }
@@ -2525,6 +2526,7 @@ impl ContainerView {
         theme: &gpui_kit::component::theme::Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let palette = ramag_ui::pulse_ui::pulse_palette(cx);
         let sort = self.resource_sorts.get(kind).copied();
         let rows = sort_resource_rows(rows, columns, sort);
         let kind_label = match kind {
@@ -2558,6 +2560,7 @@ impl ContainerView {
                 .flex()
                 .h_7()
                 .flex_none()
+                .bg(palette.surface)
                 .debug_selector(move || header_id.clone())
                 .children(columns.iter().enumerate().map(|(index, column)| {
                     let cell_id = format!("container-resource-{kind}-header-{}", column.key);
@@ -2956,6 +2959,7 @@ fn resource_button_with_width(
     full_width: bool,
     cx: &mut Context<ContainerView>,
 ) -> AnyElement {
+    let palette = ramag_ui::pulse_ui::pulse_palette(cx);
     let id = match section {
         ContainerSection::Overview => "container-resource-overview",
         ContainerSection::Containers => "container-resource-containers",
@@ -2966,14 +2970,19 @@ fn resource_button_with_width(
         ContainerSection::Registry => "container-resource-registry",
     };
     let mut button = ramag_ui::clickable_button(id)
-        .ghost()
+        .custom(
+            ButtonCustomVariant::new(cx)
+                .hover(palette.raised)
+                .active(palette.selected),
+        )
         .small()
         .flex_none()
         .justify_start()
         .debug_selector(move || id.into())
         .icon(section.icon())
         .label(section.label())
-        .selected(section == selected);
+        .selected(section == selected)
+        .when(section == selected, |button| button.bg(palette.selected));
     if full_width {
         button = button.w_full();
     }
@@ -2991,6 +3000,7 @@ fn resource_table_row(
     theme: &gpui_kit::component::theme::Theme,
     cx: &mut Context<ContainerView>,
 ) -> TableRow {
+    let palette = ramag_ui::pulse_ui::pulse_palette(cx);
     debug_assert_eq!(
         row.cells.len(),
         columns.len(),
@@ -3000,7 +3010,7 @@ fn resource_table_row(
     let row_id = format!("container-resource-{kind}-{}", row.id);
     let row_selector = row_id.clone();
     let selected = selected_id == Some(row.id.as_str());
-    let zebra = theme.success.opacity(0.045);
+    let zebra = palette.raised.opacity(0.45);
     TableRow::new(SharedString::from(row_id.clone()), row_index + 2)
         .w_full()
         .flex()
@@ -3009,7 +3019,7 @@ fn resource_table_row(
         .when(!selected && row_index.is_multiple_of(2), |row| {
             row.bg(zebra)
         })
-        .when(selected, |row| row.bg(theme.secondary))
+        .when(selected, |row| row.bg(palette.selected))
         .debug_selector(move || row_selector.clone())
         .children(row.cells.into_iter().zip(columns.iter()).enumerate().map(
             |(index, (value, column))| {
