@@ -7,13 +7,15 @@ use gpui_kit::{
     StatefulInteractiveElement as _, Styled, div, prelude::*, px,
 };
 use ramag_domain::entities::{ObjectMetadata, format_bytes};
+use ramag_ui::{WORKBENCH_TOOLBAR_HEIGHT, pulse_ui::pulse_palette};
 
 use super::model::ObjectStorageView;
 
 impl ObjectStorageView {
     pub(super) fn render_detail(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let border = theme.border;
+        let palette = pulse_palette(cx);
+        let border = palette.border;
         let muted = theme.muted_foreground;
         let mono = theme.mono_font_family.clone();
         let metadata = self.detail_metadata.clone();
@@ -25,12 +27,12 @@ impl ObjectStorageView {
                     .id("object-detail-header")
                     .debug_selector(|| "object-detail-header".into())
                     .w_full()
-                    .h(px(44.0))
+                    .h(px(WORKBENCH_TOOLBAR_HEIGHT))
                     .flex_none()
                     .items_center()
                     .gap(px(6.0))
                     .px(px(10.0))
-                    .bg(theme.secondary)
+                    .bg(palette.surface)
                     .border_b_1()
                     .border_color(border)
                     .child(
@@ -105,6 +107,7 @@ fn metadata_section(
     mono: SharedString,
     cx: &gpui_kit::App,
 ) -> AnyElement {
+    let palette = pulse_palette(cx);
     let modified = metadata
         .last_modified
         .map(|value| value.format("%Y-%m-%d %H:%M:%S UTC").to_string())
@@ -128,7 +131,7 @@ fn metadata_section(
                 .rounded_md()
                 .border_1()
                 .border_color(border)
-                .bg(cx.theme().secondary)
+                .bg(palette.surface)
                 .child(metadata_row(
                     "对象键",
                     metadata.key,

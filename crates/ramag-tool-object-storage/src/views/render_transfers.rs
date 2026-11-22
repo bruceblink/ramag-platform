@@ -11,6 +11,7 @@ use gpui_kit::{
     prelude::*, px, relative,
 };
 use ramag_domain::entities::format_bytes;
+use ramag_ui::{WORKBENCH_TOOLBAR_HEIGHT, pulse_ui::pulse_palette};
 
 use super::model::{ObjectStorageView, ObjectTransferStatus, TransferHistoryUi, TransferUi};
 
@@ -19,7 +20,8 @@ impl ObjectStorageView {
         if !self.transfers_visible {
             return div().h_0().into_any_element();
         }
-        let border = cx.theme().border;
+        let palette = pulse_palette(cx);
+        let border = palette.border;
         let completed = self
             .transfer_history
             .iter()
@@ -57,16 +59,17 @@ impl ObjectStorageView {
             .rounded(px(8.0))
             .border_1()
             .border_color(border)
-            .bg(cx.theme().background)
+            .bg(palette.background)
             .shadow_lg()
             .child(
                 h_flex()
                     .w_full()
-                    .h(px(36.0))
+                    .h(px(WORKBENCH_TOOLBAR_HEIGHT))
                     .flex_none()
                     .items_center()
                     .justify_between()
                     .px(px(10.0))
+                    .bg(palette.surface)
                     .border_b_1()
                     .border_color(border)
                     .child(

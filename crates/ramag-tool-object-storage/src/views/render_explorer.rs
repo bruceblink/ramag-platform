@@ -21,6 +21,7 @@ use super::{
         object_modified_label, object_size_label, object_type_label,
     },
 };
+use ramag_ui::{WORKBENCH_TOOLBAR_HEIGHT, pulse_ui::pulse_palette};
 
 impl ObjectStorageView {
     pub(super) fn selected_read_only(&self) -> bool {
@@ -36,6 +37,7 @@ impl ObjectStorageView {
         let link = cx.theme().link;
         let link_hover = cx.theme().link_hover;
         let muted = cx.theme().muted_foreground;
+        let palette = pulse_palette(cx);
         let mut path_parts = h_flex()
             .id("object-directory-path-scroll")
             .flex_1()
@@ -73,13 +75,13 @@ impl ObjectStorageView {
             .id("object-directory-path")
             .debug_selector(|| "object-directory-path".into())
             .w_full()
-            .h(px(40.0))
+            .h(px(WORKBENCH_TOOLBAR_HEIGHT))
             .flex_none()
             .items_center()
             .gap(px(5.0))
             .px(px(10.0))
             .border_b_1()
-            .border_color(cx.theme().border)
+            .border_color(palette.border)
             .text_xs()
             .child(
                 div()
@@ -98,7 +100,8 @@ impl ObjectStorageView {
     }
 
     fn render_objects(&self, compact: bool, cx: &mut Context<Self>) -> impl IntoElement {
-        let border = cx.theme().border;
+        let palette = pulse_palette(cx);
+        let border = palette.border;
         let muted = cx.theme().muted_foreground;
         let danger = cx.theme().danger;
         let upload_supported = !self.selected_read_only()
@@ -187,7 +190,7 @@ impl ObjectStorageView {
                     .flex_none()
                     .py(px(6.0))
                     .px(px(6.0))
-                    .bg(cx.theme().secondary)
+                    .bg(palette.surface)
                     .border_b_1()
                     .border_color(border)
                     .when(compact, |toolbar| {
@@ -270,7 +273,7 @@ impl ObjectStorageView {
                     .px(px(10.0))
                     .border_b_1()
                     .border_color(border)
-                    .bg(cx.theme().secondary)
+                    .bg(palette.surface)
                     .text_xs()
                     .text_color(muted)
                     .child(div().w(px(16.0)).flex_none())
@@ -333,6 +336,7 @@ impl ObjectStorageView {
         danger: gpui_kit::Hsla,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let palette = pulse_palette(cx);
         let key = entry.key.clone();
         let kind = entry.kind;
         let operable = entry.operable;
@@ -358,10 +362,10 @@ impl ObjectStorageView {
             .px(px(10.0))
             .border_b_1()
             .border_color(border)
-            .when(selected, |row| row.bg(cx.theme().muted))
+            .when(selected, |row| row.bg(palette.selected))
             .cursor_pointer()
             .when(!self.show_detail, |row| {
-                row.hover(|row| row.bg(cx.theme().muted))
+                row.hover(|row| row.bg(palette.raised))
             })
             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                 this.select_entry(key.clone(), cx);
@@ -499,6 +503,7 @@ impl ObjectStorageView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
+        let palette = pulse_palette(cx);
         let layout = ExplorerLayout::resolve(
             f32::from(window.viewport_size().width),
             self.show_mounts,
@@ -548,7 +553,7 @@ impl ObjectStorageView {
                         .when(!layout.detail_fullscreen, |panel| panel.w(px(420.0)))
                         .border_l_1()
                         .border_color(cx.theme().border)
-                        .bg(cx.theme().background)
+                        .bg(palette.background)
                         .shadow_lg()
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _window, cx| {

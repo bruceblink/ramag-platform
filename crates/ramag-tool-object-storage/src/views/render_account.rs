@@ -356,6 +356,7 @@ impl ObjectStorageView {
         let selected = self.selected_account_id.as_ref() == Some(&id);
         let border = cx.theme().border;
         let muted = cx.theme().muted_foreground;
+        let palette = ramag_ui::pulse_ui::pulse_palette(cx);
         let accent = cx.theme().accent;
         let danger = cx.theme().danger;
         let narrow = density == AccountRowDensity::Narrow;
@@ -384,12 +385,8 @@ impl ObjectStorageView {
             .border_b_1()
             .border_color(border)
             .cursor_pointer()
-            .when(selected, |row| {
-                let mut selected_bg = accent;
-                selected_bg.a = 0.06;
-                row.bg(selected_bg)
-            })
-            .hover(|row| row.bg(cx.theme().muted))
+            .when(selected, |row| row.bg(palette.selected))
+            .hover(|row| row.bg(palette.raised))
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                 this.select_account(id.clone(), window, cx);
             }));

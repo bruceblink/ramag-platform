@@ -1,4 +1,4 @@
-use gpui_kit::component::{ActiveTheme, notification::Notification, v_flex};
+use gpui_kit::component::{notification::Notification, v_flex};
 use gpui_kit::{Context, IntoElement, ParentElement, Render, Styled, Window, div, prelude::*};
 
 use super::model::ObjectStorageView;
@@ -18,6 +18,7 @@ impl Render for ObjectStorageView {
         } else {
             self.render_explorer(window, cx).into_any_element()
         };
+        let palette = ramag_ui::pulse_ui::pulse_palette(cx);
         v_flex()
             .key_context("ObjectStorageView")
             .track_focus(&self.focus_handle)
@@ -75,8 +76,8 @@ impl Render for ObjectStorageView {
                 }),
             )
             .size_full()
-            .bg(cx.theme().background)
-            .text_color(cx.theme().foreground)
+            .bg(palette.background)
+            .text_color(palette.text)
             .child(self.render_sessions(cx))
             .child(div().flex_1().min_h_0().child(body))
     }

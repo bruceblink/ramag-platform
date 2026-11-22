@@ -13,11 +13,13 @@ use super::model::ObjectStorageView;
 use super::mount_sort::{
     MountSortColumn, mount_sort_description, mount_sort_direction, next_mount_sort, sort_mounts,
 };
+use ramag_ui::{WORKBENCH_TOOLBAR_HEIGHT, pulse_ui::pulse_palette};
 
 impl ObjectStorageView {
     pub(super) fn render_mounts(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let border = cx.theme().border;
-        let selected_bg = cx.theme().muted;
+        let palette = pulse_palette(cx);
+        let border = palette.border;
+        let selected_bg = palette.selected;
         let muted = cx.theme().muted_foreground;
         let query = self
             .mount_search
@@ -121,13 +123,13 @@ impl ObjectStorageView {
                     .id("object-mount-toolbar")
                     .debug_selector(|| "object-mount-toolbar".into())
                     .w_full()
-                    .h(px(40.0))
+                    .h(px(WORKBENCH_TOOLBAR_HEIGHT))
                     .flex_none()
                     .items_center()
                     .justify_between()
                     .gap(px(4.0))
                     .px(px(6.0))
-                    .bg(cx.theme().secondary)
+                    .bg(palette.surface)
                     .border_b_1()
                     .border_color(border)
                     .child(
@@ -190,7 +192,7 @@ impl ObjectStorageView {
                     .px(px(10.0))
                     .border_b_1()
                     .border_color(border)
-                    .bg(cx.theme().secondary)
+                    .bg(palette.surface)
                     .text_xs()
                     .text_color(muted)
                     .child(div().w(px(16.0)).flex_none())

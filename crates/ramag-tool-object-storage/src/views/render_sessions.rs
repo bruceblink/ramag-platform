@@ -7,15 +7,17 @@ use gpui_kit::{
 };
 
 use super::model::{AccountSessionState, ObjectStorageView};
+use ramag_ui::{WORKBENCH_TAB_HEIGHT, pulse_ui::pulse_palette};
 
 impl ObjectStorageView {
     pub(super) fn render_sessions(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let border = theme.border;
-        let foreground = theme.foreground;
+        let palette = pulse_palette(cx);
+        let border = palette.border;
+        let foreground = palette.text;
         let muted = theme.muted_foreground;
-        let accent = theme.accent;
-        let muted_bg = theme.muted;
+        let selected_bg = palette.selected;
+        let hover_bg = palette.raised;
         let manager_selected = self.management_visible;
         let mut manager_tab = h_flex()
             .id("object-account-management")
@@ -23,7 +25,7 @@ impl ObjectStorageView {
             .items_center()
             .gap_2()
             .px_3()
-            .py(px(7.0))
+            .h(px(WORKBENCH_TAB_HEIGHT))
             .border_r_1()
             .border_color(border)
             .cursor_pointer()
@@ -42,11 +44,9 @@ impl ObjectStorageView {
                     .child("云存储"),
             );
         if manager_selected {
-            let mut active_bg = accent;
-            active_bg.a = 0.15;
-            manager_tab = manager_tab.bg(active_bg);
+            manager_tab = manager_tab.bg(selected_bg);
         } else {
-            manager_tab = manager_tab.hover(move |tab| tab.bg(muted_bg));
+            manager_tab = manager_tab.hover(move |tab| tab.bg(hover_bg));
         }
 
         let mut sessions = h_flex()
@@ -73,7 +73,7 @@ impl ObjectStorageView {
                 .items_center()
                 .gap_2()
                 .px_3()
-                .py(px(7.0))
+                .h(px(WORKBENCH_TAB_HEIGHT))
                 .border_r_1()
                 .border_color(border)
                 .cursor_pointer()
@@ -123,11 +123,9 @@ impl ObjectStorageView {
                     this.select_account(account_id.clone(), window, cx);
                 }));
             if selected {
-                let mut active_bg = accent;
-                active_bg.a = 0.15;
-                tab = tab.bg(active_bg);
+                tab = tab.bg(selected_bg);
             } else {
-                tab = tab.hover(move |tab| tab.bg(muted_bg));
+                tab = tab.hover(move |tab| tab.bg(hover_bg));
             }
             sessions = sessions.child(tab);
         }
@@ -138,7 +136,7 @@ impl ObjectStorageView {
             .flex_none()
             .border_b_1()
             .border_color(border)
-            .bg(theme.secondary)
+            .bg(palette.surface)
             .child(manager_tab)
             .child(sessions)
     }
