@@ -362,7 +362,7 @@ pwsh -File scripts/kafka-test/kafka-test.ps1 -Command status
 |---|---|---|
 | KRaft Broker | `apache/kafka:4.0.0` | `127.0.0.1:19092` |
 | JMX Exporter | 本地构建 `ramag-kafka-jmx-exporter:1.6.0` | `127.0.0.1:19101/metrics` |
-| 静态 OpenMetrics 响应 | `nginx:1.27-alpine` | `127.0.0.1:19100/metrics` |
+| 静态 OpenMetrics 响应 | `nginx:1.31.9-alpine` | `127.0.0.1:19100/metrics` |
 | Kafka Connect | `apache/kafka:4.0.0` | `127.0.0.1:18083` |
 
 脚本还管理 Schema Registry 和 ksqlDB 测试服务，具体镜像、端口和健康条件以

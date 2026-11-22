@@ -65,7 +65,7 @@ services:
       ramag.test-component: "kafka-connect"
 
   metrics:
-    image: nginx:1.27-alpine
+    image: nginx:1.31.9-alpine
     container_name: ramag-kafka-metrics-test
     hostname: metrics
     ports:

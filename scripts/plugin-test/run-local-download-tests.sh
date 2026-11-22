@@ -6,7 +6,7 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 fixture_root=$(mktemp -d "${TMPDIR:-/tmp}/ramag-plugin-download.XXXXXX")
 container_name="ramag-plugin-download-$(basename "$fixture_root")"
-image="nginx:1.27-alpine"
+image="nginx:1.31.9-alpine"
 container_started=0
 
 cleanup() {

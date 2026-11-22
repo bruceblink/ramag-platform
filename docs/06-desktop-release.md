@@ -94,7 +94,7 @@ update-manifest.json
 ./scripts/update-test/run-local-release-tests.ps1
 ```
 
-脚本使用 WSL `Ubuntu-24.04` 的 Docker 和 OpenSSL，启动 `nginx:1.27-alpine`，
+脚本使用 WSL `Ubuntu-24.04` 的 Docker 和 OpenSSL，启动 `nginx:1.31.9-alpine`，
 只绑定回环地址。测试专用 HTTPS 客户端把 `github.com` 解析到该端口，并仅在测试中接受
 临时自签名证书。生产客户端继续使用正常证书验证。测试检查清单读取、差分重建、
 损坏补丁的完整包回退、预先取消、下载中取消和完整包摘要不匹配，并清理本次创建的容器和临时目录。
