@@ -61,7 +61,8 @@ pub(crate) fn section(cx: &App) -> Div {
         .flex_col()
         .gap_3()
         .p_3()
-        .rounded(px(8.))
+        // 系统监控分区复用主题半径，和其他工具面板保持一致。
+        .rounded(cx.theme().radius)
         .border_1()
         .border_color(colors.border)
         .bg(colors.surface)
