@@ -7,13 +7,15 @@ use gpui_kit::component::{
     v_flex,
 };
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Styled, div,
-    prelude::*, px,
+    AnyElement, ClickEvent, Context, InteractiveElement, IntoElement, ParentElement, Styled,
+    Window, div, prelude::*, px,
 };
 
 use super::helpers::FilesViewMode;
 use super::vcs_view::VcsView;
 use ramag_ui::PointerDropdownMenu as _;
+
+mod workspace_header;
 
 const TOP_HEIGHT_INITIAL: f32 = 600.0;
 const TOP_HEIGHT_MIN: f32 = 200.0;
@@ -28,7 +30,7 @@ const BRANCH_PICKER_MAX_WIDTH: f32 = 320.0;
 const BRANCH_PICKER_LABEL_CHARS: usize = 28;
 
 impl VcsView {
-    pub(super) fn render_ide_layout(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_ide_layout(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let row = h_flex().size_full().min_h_0();
         // 全屏时仅保留标签和差异主区。
         let fullscreen_diff = self.diff_fullscreen
@@ -48,6 +50,7 @@ impl VcsView {
             main_layout = main_layout.child(banner);
         }
         let main_layout = main_layout.child(self.render_op_banner(cx));
+        let main_layout = main_layout.child(self.render_workspace_header(window, cx));
         let main_layout = if fullscreen_diff {
             main_layout.child(div().flex_1().min_h_0().child(self.render_main_area(cx)))
         } else if self.history_pane_visible {

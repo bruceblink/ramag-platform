@@ -160,7 +160,7 @@ impl Render for VcsView {
                 ActiveView::RepoList => self.render_repo_list(window, cx),
                 ActiveView::Session => {
                     if self.repo.is_some() {
-                        self.render_ide_layout(cx)
+                        self.render_ide_layout(window, cx)
                     } else {
                         // 异常态：active_view=Session 但 repo 不存在 → fallback 列表
                         self.render_repo_list(window, cx)

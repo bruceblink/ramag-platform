@@ -146,14 +146,16 @@ fn session_page_title_and_toolbar_fit_supported_widths(cx: &mut TestAppContext) 
         cx.simulate_resize(size(px(width), px(720.0)));
         cx.run_until_parked();
 
-        let tabs = cx.debug_bounds("vcs-tabs").expect("VCS 顶层标签栏应渲染");
+        let workspace = cx
+            .debug_bounds("vcs-ide-layout-root")
+            .expect("VCS 工作区根节点应渲染");
         let title = cx
             .debug_bounds("vcs-session-page-title")
             .expect("Session 页标题应渲染");
         let compact = width < 720.0;
         let max_title_width = if compact { 150.0 } else { 240.0 };
 
-        assert_inside(&tabs, &title, "Session 页标题");
+        assert_inside(&workspace, &title, "Session 页标题");
         assert!(
             title.size.width <= px(max_title_width),
             "标题宽度应随窗口尺寸收缩：width={width}, title={title:?}"

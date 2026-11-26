@@ -84,15 +84,15 @@ impl VcsView {
             let label_id = SharedString::from(format!("vcs-tab-label-{}", repo.id));
             let close_id = SharedString::from(format!("vcs-tab-close-{}", repo.id));
             let tab_title: AnyElement = if is_active {
-                ramag_ui::pulse_ui::pulse_page_title(
-                    super::inline_text_preview(&repo.name, title_limit),
-                    None::<String>,
-                    cx,
-                )
-                .id("vcs-session-page-title")
-                .debug_selector(|| "vcs-session-page-title".into())
-                .max_w(px(title_width))
-                .into_any_element()
+                div()
+                    .text_xs()
+                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
+                    .text_color(fg)
+                    .max_w(px(title_width))
+                    .overflow_hidden()
+                    .text_ellipsis()
+                    .child(super::inline_text_preview(&repo.name, title_limit))
+                    .into_any_element()
             } else {
                 div()
                     .text_xs()
