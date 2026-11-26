@@ -21,10 +21,9 @@ impl ClipboardView {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         // 先复制主题颜色，释放主题借用。
-        let accent = cx.theme().accent;
         let muted = cx.theme().muted_foreground;
         let border = cx.theme().border;
-        let row_hover = cx.theme().secondary;
+        let surface = ramag_ui::pulse_ui::pulse_palette(cx);
         let kind_badge = {
             let theme = cx.theme();
             kind_badge(item.kind, theme).into_any_element()
@@ -116,11 +115,10 @@ impl ClipboardView {
             );
 
         if is_selected {
-            let mut active = accent;
-            active.a = 0.14;
-            card = card.bg(active);
+            // 选中状态使用共享抬升表面，蓝色只保留给焦点和链接强调。
+            card = card.bg(surface.raised);
         } else {
-            card = card.hover(move |this| this.bg(row_hover));
+            card = card.hover(move |this| this.bg(surface.raised));
         }
         card
     }

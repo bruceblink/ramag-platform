@@ -74,11 +74,21 @@ impl Render for ClipboardView {
                     .text_color(muted)
                     .child(count_label),
             );
+        let surface = ramag_ui::pulse_ui::pulse_palette(cx).surface;
         let detail_pane = div()
             .debug_selector(|| "clipboard-view-detail-pane".into())
+            .bg(surface)
             .min_w_0()
-            .when(compact, |pane| pane.w_full().flex_1().min_h(px(240.0)))
-            .when(!compact, |pane| pane.flex_1().h_full())
+            .when(compact, |pane| {
+                pane.w_full()
+                    .flex_1()
+                    .min_h(px(240.0))
+                    .border_t_1()
+                    .border_color(border)
+            })
+            .when(!compact, |pane| {
+                pane.flex_1().h_full().border_l_1().border_color(border)
+            })
             .child(self.render_detail(cx));
 
         v_flex()
