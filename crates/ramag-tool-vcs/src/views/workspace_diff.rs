@@ -13,7 +13,7 @@ use super::vcs_view::VcsView;
 impl VcsView {
     pub(super) fn render_diff_block(&self, cx: &mut Context<Self>) -> AnyElement {
         // 提前 clone 主题字段，避免后续 cx.listener 借用冲突
-        let (fg, muted_fg, accent, muted_bg, border, mono, secondary) = {
+        let (fg, muted_fg, accent, muted_bg, border, mono, secondary, radius) = {
             let theme = cx.theme();
             (
                 theme.foreground,
@@ -23,6 +23,7 @@ impl VcsView {
                 theme.border,
                 theme.mono_font_family.clone(),
                 theme.secondary,
+                theme.radius,
             )
         };
 
@@ -53,7 +54,7 @@ impl VcsView {
                                 .h(px(40.0))
                                 .items_center()
                                 .justify_center()
-                                .rounded(px(12.0))
+                                .rounded(radius)
                                 .bg(icon_bg)
                                 .child(ramag_ui::icons::git_compare().text_color(accent)),
                         )
@@ -181,11 +182,8 @@ impl VcsView {
         let fg = theme.foreground;
         let muted_fg = theme.muted_foreground;
         let border = theme.border;
-        let accent = theme.accent;
         let muted_bg = theme.muted;
         let status_colors = GitStatusColors::from_theme(theme);
-        let mut accent_bg = accent;
-        accent_bg.a = 0.12;
 
         let mut bar = h_flex()
             .id("vcs-ftab-bar")
@@ -262,7 +260,7 @@ impl VcsView {
                 }));
 
             tab_el = if is_active {
-                tab_el.bg(accent_bg)
+                tab_el.bg(muted_bg)
             } else {
                 tab_el.hover(move |s| s.bg(muted_bg))
             };

@@ -19,7 +19,6 @@ impl VcsView {
         let tab_bar_bg = theme.tab_bar;
         let muted_bg = theme.muted;
         let accent = theme.accent;
-        let accent_bg = theme.list_active;
         let on_list = matches!(self.active_view, ActiveView::RepoList);
         let compact = f32::from(window.viewport_size().width) < 720.0;
         let title_limit = if compact { 16 } else { 28 };
@@ -57,7 +56,7 @@ impl VcsView {
                     .child("仓库管理"),
             );
         if on_list {
-            list_tab = list_tab.bg(accent_bg);
+            list_tab = list_tab.bg(muted_bg);
         } else {
             list_tab = list_tab.hover(move |this| this.bg(muted_bg));
         }
@@ -146,7 +145,7 @@ impl VcsView {
                         })),
                 );
             if is_active {
-                tab = tab.bg(accent_bg);
+                tab = tab.bg(muted_bg);
             } else {
                 tab = tab.hover(move |this| this.bg(muted_bg));
             }
