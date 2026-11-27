@@ -39,9 +39,9 @@
 
 ## 项目状态 / Project status
 
-本仓库 `bruceblink/ramag-platform` 是基于 [`tools-rs/ramag`](https://github.com/tools-rs/ramag) 演进的独立下游项目。当前代码保留数据库、Git、SSH、对象存储、容器管理、剪贴板、系统监控和其他既有工具；2026-10-24 起仅移除本机协作和 JSON Path 提取器，后续只做现有功能维护和打磨。`it-tools-template` 继续独立提供自己的 Web/PWA、Electron 和通用工具工作台。
+本仓库 `bruceblink/ramag-platform` 是基于 [`tools-rs/ramag`](https://github.com/tools-rs/ramag) 演进的独立下游项目。当前代码保留数据库、Git、SSH、对象存储、容器管理、剪贴板、系统监控和其他既有工具；2026-10-24 起仅移除本机协作和 JSON Path 提取器，后续只做现有功能维护和打磨。Ramag 是唯一的原生桌面开发与运维工作台。
 
-This repository, `bruceblink/ramag-platform`, is an independent downstream project based on [`tools-rs/ramag`](https://github.com/tools-rs/ramag). It keeps the existing native workspaces and GPUI client, removes only local collaboration and the JSON Path extractor, and now focuses on maintenance. `it-tools-template` independently develops its Web/PWA, Electron, and general-purpose tool workspaces.
+This repository, `bruceblink/ramag-platform`, is an independent downstream project based on [`tools-rs/ramag`](https://github.com/tools-rs/ramag). It keeps the existing native workspaces and GPUI client, removes only local collaboration and the JSON Path extractor, and now focuses on maintenance. Ramag is the only native desktop developer and operations platform.
 
 | 可验证交付 | 当前状态 |
 |---|---|
@@ -63,13 +63,13 @@ tools-rs/ramag                         上游项目：通用修复和兼容性�
 bruceblink/ramag-platform              当前项目：平台化设计、内置插件和独立演进
 ```
 
-本项目不是上游仓库的镜像，也不会把平台化设计等待上游合并后才继续。提交上游的变更应保持单一职责、可独立验证，并从上游基线单独整理。平台核心、原生能力协议和 GPUI 客户端留在本仓库；通用工具和 Electron 工作台由 `it-tools-template` 负责。
+本项目不是上游仓库的镜像，也不会把平台化设计等待上游合并后才继续。提交上游的变更应保持单一职责、可独立验证，并从上游基线单独整理。平台核心、原生能力协议、GPUI 客户端和所有原生工作台留在本仓库。
 
 This is not a mirror of the upstream repository. General fixes may be prepared as focused upstream pull requests, while the platform core, plugin API, and downstream product direction remain independently maintained here.
 
 ## 为什么选择 Ramag
 
-Ramag 的价值来自 Rust/GPUI 原生工作区、远程连接、本地安全边界和已有工具的稳定维护。数据库、Git、对象存储和其他工作台继续保留在 Ramag，同时由 `it-tools-template` 独立提供自己的 Web/Electron 实现。两个项目只在应用场景上互补，不共享进程、代码包或接口协议。
+Ramag 的价值来自 Rust/GPUI 原生工作区、远程连接、本地安全边界和已有工具的稳定维护。数据库、Git、对象存储和其他工作台由 Ramag 统一提供。其他工具产品与本仓库不共享进程、代码包、接口协议、凭据、存储或发布物。
 
 | 一个工作台 | 本地优先 | 面向真实数据量 | 原生交互 |
 |---|---|---|---|
