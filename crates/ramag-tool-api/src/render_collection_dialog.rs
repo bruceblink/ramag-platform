@@ -1,8 +1,9 @@
 //! 在窄窗口复用现有请求集合、搜索和执行历史。
 
 use super::*;
+use gpui_kit::Role;
 use gpui_kit::component::{
-    IconName, WindowExt as _, button::ButtonVariants as _, dialog::DialogEntrance,
+    IconName, WindowExt as _, button::ButtonVariants as _, dialog::DialogEntrance, h_flex,
 };
 
 pub(in crate::view) fn trigger(
@@ -38,6 +39,10 @@ impl ApiView {
             dialog
                 .title(
                     h_flex()
+                        .id("api-collection-dialog-title")
+                        .debug_selector(|| "api-collection-dialog-title".into())
+                        .role(Role::Heading)
+                        .aria_label("请求集合")
                         .w_full()
                         .justify_between()
                         .items_center()

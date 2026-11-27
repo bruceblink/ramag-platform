@@ -4,7 +4,10 @@ use gpui_kit::component::{
     IconName, Sizable as _, WindowExt as _, button::ButtonVariants as _, dialog::DialogEntrance,
     h_flex,
 };
-use gpui_kit::{Context, InteractiveElement as _, ParentElement, Styled, Window, div, px};
+use gpui_kit::{
+    Context, InteractiveElement as _, ParentElement, Role, StatefulInteractiveElement as _, Styled,
+    Window, div, px,
+};
 
 use super::ConnectionSession;
 use crate::views::is_compact_session_width;
@@ -28,6 +31,10 @@ impl ConnectionSession {
             dialog
                 .title(
                     h_flex()
+                        .id("database-object-dialog-title")
+                        .debug_selector(|| "database-object-dialog-title".into())
+                        .role(Role::Heading)
+                        .aria_label("数据库对象")
                         .w_full()
                         .items_center()
                         .justify_between()
