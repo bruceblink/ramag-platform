@@ -1994,7 +1994,7 @@ impl ContainerView {
                 .bg(theme.secondary)
                 .border_1()
                 .border_color(theme.border)
-                .rounded(px(8.0))
+                .rounded(theme.radius)
                 .child(Icon::new(icon).small().text_color(theme.muted_foreground))
                 .child(
                     div()
