@@ -2068,6 +2068,8 @@ macOS 隔离原生窗口已复核设置、关于与更新、插件三个页面�
 
 2026-11-27 运行了 VCS Metal 像素截图测试。GPUI headless 几何和交互测试通过，像素截图测试因 macOS 平台必须在主线程创建而失败，未生成截图文件。该结果只证明当前测试入口不能在普通 Cargo 测试线程完成截图，不作为像素截图通过证据。
 
+随后增加独立主线程运行器 `cargo run --locked -p ramag-tool-vcs --example vcs_metal_screenshot`。运行器使用隔离 Git 数据、主线程 Metal 平台和 offscreen window，生成 `/tmp/ramag-ui-headless/vcs-repo-list-metal-1024x768.png`。截图尺寸为 2048×1536 Retina 像素，对应逻辑窗口 1024×768，已检查仓库导航、搜索工具栏、空状态、错误提示和操作按钮。截图运行器保留在 VCS examples 中，供后续 macOS 像素复核复用。
+
 2026-11-27 使用 GPUI `HeadlessAppContext` 和生产 `HomeView` 生成首页明暗主题截图。1440×900 截图检查标题、搜索、分类、视图切换、工具卡片和长描述。360×640 截图检查窄窗口滚动、卡片单列排列、操作入口和内容边界。截图保存在 `/tmp/ramag-ui-headless/home-light-1440x900.png`、`home-dark-1440x900.png`、`home-light-360x640.png` 和 `home-dark-360x640.png`。临时示例入口已清理。
 
 同日再次运行完整工作区串行测试，2933 项通过、29 项忽略，0 项失败。当前 `main` 与远端同步，工作区保持干净。
