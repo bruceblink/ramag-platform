@@ -56,7 +56,8 @@ impl ObjectStorageView {
             .w(px(520.0))
             .max_w(relative(0.8))
             .max_h(px(360.0))
-            .rounded(px(8.0))
+            // 传输浮层沿用主题半径，与工作区面板保持一致。
+            .rounded(cx.theme().radius)
             .border_1()
             .border_color(border)
             .bg(palette.background)
