@@ -100,10 +100,10 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: linux-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ github.sha }}
+          key: linux-ci-build-v2-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
-            linux-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
-            linux-ci-cargo-
+            linux-ci-build-v2-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
+            linux-ci-build-v2-
 
       - name: Validate Linux packaging logic
         run: |
@@ -187,10 +187,10 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: macos-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ github.sha }}
+          key: macos-ci-build-v2-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
-            macos-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
-            macos-ci-cargo-
+            macos-ci-build-v2-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
+            macos-ci-build-v2-
 
       - name: Validate macOS packaging logic
         run: make mac-package-test
@@ -287,10 +287,10 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: windows-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ github.sha }}
+          key: windows-ci-build-v2-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
-            windows-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
-            windows-ci-cargo-
+            windows-ci-build-v2-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
+            windows-ci-build-v2-
 
       - name: Validate Windows packaging logic
         shell: pwsh
@@ -326,9 +326,16 @@ jobs:
           ./scripts/windows/check-source-size.ps1
           cargo clippy-all
 
-      - name: Test workspace
+      # Linux and macOS run the complete workspace suite. Windows runs focused
+      # package tests because the all-platform suite has already covered the
+      # shared code, while these tests exercise Windows process and path code.
+      - name: Test Windows platform packages
         shell: pwsh
-        run: cargo test-all
+        run: |
+          cargo test --locked -p ramag-app --test plugin_process -- --test-threads=1
+          cargo test --locked -p ramag-bin --bin ramag -- --test-threads=1
+          cargo test --locked -p ramag-infra-git --lib -- --test-threads=1
+          cargo test --locked -p ramag-infra-ssh --lib -- --test-threads=1
 
       - name: Test Windows isolated system credential store
         shell: pwsh
