@@ -2,11 +2,11 @@
 
 > 状态：Linux x86_64、Windows x64、macOS ARM64 安装包已通过 GitHub Actions 发布；后续版本继续由同一工作流构建和校验。
 >
-> 更新日期：2026-11-01。
+> 更新日期：2026-11-28。
 >
 > 版本记录：[CHANGELOG.md](../CHANGELOG.md)；开发与验收缺口统一见[主线开发计划](01-development-plan.md)。
 >
-> 原则：本地负责开发与复现，对外桌面 Release 统一由 GitHub Actions 汇总并发布。
+> 本地负责开发与复现。Desktop CI 生成并验证安装包，Desktop Release 复用这些安装包并发布。
 
 ## 结论
 
@@ -21,7 +21,8 @@
 | `make dmg-*` | macOS 本机生成指定架构的开发 DMG | 否 |
 | `make mac-package` | macOS 本机复现 ARM64 Release 打包 | 否 |
 | `make linux-package` | Linux x86_64 本机生成 deb 与 AppImage | 否 |
-| `Desktop Release` Action | 并行构建三个平台；`v*` 标签自动发布，也可指定已有标签手动重试 | 是 |
+| `Desktop CI` | 检查代码，在 `main` 上构建和验证三个平台的正式安装包 | 否 |
+| `Desktop Release` | 通过 `v*` 标签或手动指定标签发布该提交已通过 CI 的安装包 | 是 |
 
 `cargo dev-release` 不创建安装包，也不代表对外发布。
 
@@ -106,13 +107,13 @@ Linux CI 另执行 `bash scripts/test-update-deltas.sh`，使用真实 `bsdiff` 
 
 ```toml
 [workspace.package]
-version = "0.9.2"
+version = "0.10.0"
 ```
 
 发布标签必须完全一致：
 
 ```text
-Cargo version 0.9.2  →  tag v0.9.2
+Cargo version 0.10.0  →  tag v0.10.0
 ```
 
 三个平台的脚本都通过 `cargo metadata --locked --no-deps` 读取唯一的 `ramag-bin` 版本。标签、应用版本或产物版本不一致时，发布会在上传前失败。
@@ -158,8 +159,11 @@ scripts/linux/release-lib.sh
 scripts/linux/package-tests.sh
     Linux 版本、产物命名与桌面元数据回归测试
 
+.github/workflows/desktop-ci.yml
+    三平台质量检查、安装包构建、验证和产物上传
+
 .github/workflows/desktop-release.yml
-    三平台 CI 编排、Artifact 上传和 GitHub Release 汇总发布
+    核验并发布与标签对应的 CI 产物
 ```
 
 工作流只负责调用平台脚本和汇总产物，不在 YAML 中复制平台打包逻辑。
@@ -167,26 +171,19 @@ scripts/linux/package-tests.sh
 ## GitHub Actions 流程
 
 ```text
-workflow_dispatch 或 v* 标签
-              ↓
-手动指定标签时检出该标签；留空则检出当前分支
-              ↓
-       三个平台并行构建
-       ↙               ↓                ↘
-windows-2025      macos-15 ARM64      ubuntu-24.04
-Windows x64       macOS ARM64 DMG     Linux deb + AppImage
-安装卸载冒烟测试   APP/架构/DMG 复验    包结构与元数据复验
-       ↘               ↓                ↙
-         上传独立 Artifact
-                 ↓
-v* 推送或手动指定 release_tag：进入 desktop-release Environment
-                 ↓
-生成提交范围双语变更说明 → 复验三平台 SHA-256 → 生成合并校验文件
-                 ↓
-创建草稿 Release → 上传 4 个安装产物 → 正式发布
+Desktop CI 在 main 运行三平台质量检查
+  → 构建并验证安装包
+  → 按提交保存 Windows、macOS 和 Linux 产物
+
+Desktop Release 收到 v* 标签或手动输入的标签
+  → 查找同一提交的成功 CI 并下载三平台产物
+  → 核对版本和 SHA-256，生成变更说明及更新清单
+  → 发布四个完整安装包及可用的差分包
 ```
 
-发布任务会 checkout 发布标签以按上一个版本标签（首次独立发布则从历史发布标记）生成提交范围双语变更说明，不执行 Cargo，只下载已验证的 Artifact，并通过 GitHub API 校验远端标签为带注释标签；它单独获得 `contents: write`。任一平台失败都不会发布不完整版本。
+Desktop CI 对拉取请求执行质量检查。`main` 的提交通过各平台检查后，各平台任务分别打包、验证并上传产物，产物保留 14 天。
+
+Desktop Release 从同一仓库查找 `main` 上目标提交的成功 CI。只有同一次运行包含有效的三平台产物，才会下载并核验。发布任务在 `desktop-release` 环境中运行，拥有读取 Actions 和发布 Release 的权限。发布阶段复用安装包，编译只在 CI 执行。
 
 已正式发布的同名 Release 不会被覆盖；失败后遗留的草稿可以由同一标签工作流重试。所有 GitHub 官方 Action 都固定到完整 commit SHA。
 
@@ -197,10 +194,10 @@ v* 推送或手动指定 release_tag：进入 desktop-release Environment
 在 GitHub 仓库中进入：
 
 ```text
-Actions → Desktop Release → Run workflow
+Actions → Desktop CI → Run workflow → main
 ```
 
-`release_tag` 留空时，结果会生成三份保留 14 天的 Artifact，不创建 GitHub Release：
+推送 `main` 也会触发对应的 CI。一次成功运行包含以下三份产物：
 
 - Windows Artifact：安装器、平台 SHA-256。
 - macOS Artifact：ARM64 DMG、平台 SHA-256。
@@ -211,11 +208,11 @@ Actions → Desktop Release → Run workflow
 ### 正式发布
 
 1. 修改根 `Cargo.toml` 的 workspace 版本，并通过 Cargo 检查同步 `Cargo.lock`；同步更新 `CHANGELOG.md` 和面向用户的版本说明。
-2. 完成本地发布前检查、手动 Action 和真实桌面验收。
-3. 创建与 Cargo 版本一致的带注释标签，例如 `v0.9.2`；标签注释用于证明发布标签有效，GitHub Release 说明由标签提交范围自动生成。
-4. 推送标签，等待三个平台均通过后自动发布。
+2. 完成本地检查和真实桌面验收，确认同一提交的 Desktop CI 成功并已上传三个平台的产物。
+3. 创建与 Cargo 版本一致的附注标签，例如 `v0.10.0`，并指向该 CI 的提交。
+4. 推送标签，等待 Desktop Release 复核产物并发布。核对公开 Release、校验文件和更新清单。
 
-如果标签已经存在，但发布任务因工作流自身问题失败，不要强制移动标签。在包含修复后的默认分支上手动运行 `Desktop Release`，将 `release_tag` 填为原标签（例如 `v0.9.2`）。工作流会检出并重新构建该标签，核对产物版本，重新生成提交范围变更说明并继续发布。
+已推送的标签保留原提交。如果发布失败，在 `main` 手动运行 Desktop Release，填写原 `release_tag`。若 CI 产物过期或缺失，先重跑该提交的 Desktop CI。如果该提交仍是 `main` 的最新提交，也可手动触发 Desktop CI。恢复产物后再重试发布。
 
 正式使用前必须在 GitHub 设置中完成：
 
@@ -426,10 +423,10 @@ Windows 应在受保护任务中签名应用、Inno Setup 安装器和卸载器�
 - Windows 使用明确的 `windows-2025` x64 Runner。
 - macOS 使用明确的 `macos-15` ARM64 Runner，并只构建 `aarch64-apple-darwin`。
 - Linux 使用明确的 `ubuntu-24.04` x64 Runner。
-- 三个平台都使用 `rust-toolchain.toml` 锁定的 stable 版本，只缓存 Cargo registry/git，不缓存完整 `target/`。
+- 三个平台都使用 `rust-toolchain.toml` 配置的 stable 工具链。Desktop CI 按平台缓存 Cargo 依赖和 `target/`，发布读取独立的安装包产物。
 - Runner 标签内部的 Visual Studio、Windows SDK、Xcode 和系统工具仍会滚动更新，因此不是字节级可复现构建。
 
-工具链或 GPUI 升级后，必须重新运行手动 Action 和真实桌面验收。
+工具链或 GPUI 升级后，重新运行 Desktop CI 并执行真实桌面验收。
 
 ## 参考资料
 

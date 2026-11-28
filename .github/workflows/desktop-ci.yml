@@ -59,6 +59,8 @@ jobs:
             cmake \
             dbus-x11 \
             desktop-file-utils \
+            dpkg-dev \
+            file \
             gnome-keyring \
             jq \
             libasound2-dev \
@@ -72,10 +74,14 @@ jobs:
             libx11-xcb-dev \
             libxkbcommon-x11-dev \
             libzstd-dev \
+            mesa-vulkan-drivers \
+            patchelf \
             pkg-config \
             shellcheck \
+            squashfs-tools \
             xauth \
-            xvfb
+            xvfb \
+            xz-utils
           desktop-file-validate scripts/linux/com.ramag.Ramag.desktop
 
       - name: Install Rust stable toolchain
@@ -146,13 +152,31 @@ jobs:
               -- --ignored --exact --test-threads=1
           '
 
+      - name: Build Linux window smoke executable
+        run: cargo build --locked -p ramag-bin --example ui-preview
+
       - name: Smoke test Linux native window
+        timeout-minutes: 2
         shell: bash
-        run: |
-          set -euo pipefail
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" \
-            cargo run --locked -p ramag-bin --example ui-preview -- \
-              --smoke home dark 1024 768
+        run: bash scripts/linux/smoke-ui.sh
+
+      - name: Build verified Linux packages
+        if: github.ref == 'refs/heads/main'
+        run: make linux-package
+
+      - name: Upload verified Linux packages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ramag-linux-${{ github.sha }}
+          path: |
+            target/linux-dist/Ramag-*-linux-amd64.deb
+            target/linux-dist/Ramag-*-linux-x86_64.AppImage
+            target/linux-dist/SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+          overwrite: true
 
   macos-quality:
     name: macOS quality gates
@@ -222,7 +246,24 @@ jobs:
           -- --ignored --exact --test-threads=1
 
       - name: Smoke test macOS native window
-        run: cargo run --locked -p ramag-bin --example ui-preview -- --smoke home dark 1024 768
+        run: cargo run --locked -p ramag-bin --example ui-preview -- --smoke home dark 1440 900
+
+      - name: Build verified macOS package
+        if: github.ref == 'refs/heads/main'
+        run: make mac-package
+
+      - name: Upload verified macOS package
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ramag-macos-${{ github.sha }}
+          path: |
+            target/macos-dist/Ramag-*-macos-arm64.dmg
+            target/macos-dist/SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+          overwrite: true
 
   windows-quality:
     name: Windows x64 quality gates
@@ -343,3 +384,21 @@ jobs:
           cargo test --locked -p ramag-infra-storage --lib
           keyring::tests::system_credential_store_round_trips_isolated_master_key
           -- --ignored --exact --test-threads=1
+
+      - name: Build, package, and smoke test Windows
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: ./scripts/package-windows.ps1 -SmokeTest
+
+      - name: Upload verified Windows package
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ramag-windows-${{ github.sha }}
+          path: |
+            target/windows-dist/Ramag-*-windows-x64-setup.exe
+            target/windows-dist/SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+          overwrite: true

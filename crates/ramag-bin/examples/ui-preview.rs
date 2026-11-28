@@ -31,6 +31,7 @@ mod offline_database;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use gpui_kit::component::Root;
 use gpui_kit::{App, AppContext as _, Bounds, WindowBounds, WindowOptions, px, size};
@@ -333,6 +334,9 @@ fn main() -> anyhow::Result<()> {
         .filter(|n| n.is_finite())
         .unwrap_or(768.0)
         .clamp(240.0, 1080.0);
+    if smoke {
+        eprintln!("UI smoke starting: page={page}, size={width}x{height}");
+    }
     let text_size = if args.get(4).is_some_and(|value| value == "large") {
         ramag_ui::InterfaceTextSize::Large
     } else {
@@ -421,6 +425,8 @@ fn main() -> anyhow::Result<()> {
     };
     let cleanup_redb_path = path.clone();
     let cleanup_monitor_state = monitor_state.clone();
+    let smoke_window_opened = Arc::new(AtomicBool::new(false));
+    let smoke_window_opened_in_run = smoke_window_opened.clone();
     gpui_kit::platform::application()
         .with_assets(RamagAssets)
         .run(move |cx: &mut App| {
@@ -565,6 +571,12 @@ fn main() -> anyhow::Result<()> {
                 },
             );
             let window_opened = result.is_ok();
+            if window_opened {
+                smoke_window_opened_in_run.store(true, Ordering::Release);
+                if smoke {
+                    eprintln!("UI smoke window opened");
+                }
+            }
             if let Err(error) = result {
                 eprintln!("UI preview failed: {error}");
                 cx.quit();
@@ -572,11 +584,15 @@ fn main() -> anyhow::Result<()> {
             cx.activate(true);
             if smoke && window_opened {
                 // CI smoke 模式在窗口创建成功后立即退出，避免依赖后台定时器保持进程运行。
+                eprintln!("UI smoke exiting successfully");
                 cx.quit();
                 #[cfg(target_os = "linux")]
                 std::process::exit(0);
             }
         });
+    if smoke && !smoke_window_opened.load(Ordering::Acquire) {
+        anyhow::bail!("UI smoke failed: GPUI did not open the preview window");
+    }
     cleanup_preview_resources(&path, &monitor_state, None)?;
     Ok(())
 }
