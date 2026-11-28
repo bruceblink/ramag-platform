@@ -573,6 +573,8 @@ fn main() -> anyhow::Result<()> {
             if smoke && window_opened {
                 // CI smoke 模式在窗口创建成功后立即退出，避免依赖后台定时器保持进程运行。
                 cx.quit();
+                #[cfg(target_os = "linux")]
+                std::process::exit(0);
             }
         });
     cleanup_preview_resources(&path, &monitor_state, None)?;
