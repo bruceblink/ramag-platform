@@ -16,6 +16,7 @@ Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.9.2...v0
 
 ### 🐛 问题修复 / Bug Fixes
 
+- 修复 GPUI 升级后应用注册默认快捷键时的启动崩溃。macOS 继续使用 Cmd，Windows 和 Linux 继续使用 Ctrl。
 - 修复共享面板圆角、工作区选择表面、数据库对象对话框标题和工具导航焦点顺序，减少窄窗口下的布局残留。
 - 修复 Metal 截图运行器被 Linux 和 Windows 全目标检查解析导致的跨平台 CI 编译失败。
 

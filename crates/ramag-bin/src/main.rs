@@ -513,30 +513,7 @@ fn main() -> ExitCode {
             });
         });
 
-        cx.bind_keys([
-            KeyBinding::new("secondary-q", Quit, None),
-            KeyBinding::new("secondary-p", OpenRecentItems, None),
-            KeyBinding::new("secondary-enter", RunQuery, None),
-            KeyBinding::new("secondary-shift-enter", RunStatementAtCursor, None),
-            KeyBinding::new("secondary-t", NewQueryTab, None),
-            KeyBinding::new("secondary-w", CloseTab, None),
-            KeyBinding::new("secondary-f", FindInResults, None),
-            KeyBinding::new("secondary-shift-f", FormatSql, None),
-            KeyBinding::new("secondary-shift-e", ExplainQuery, None),
-            KeyBinding::new("secondary-e", ToggleSqlEditor, None),
-            KeyBinding::new("secondary-enter", RunMongoQuery, Some("MongoQueryTab")),
-            KeyBinding::new("secondary-t", NewMongoQueryTab, Some("MongoQueryPanel")),
-            KeyBinding::new("secondary-shift-f", FormatMongoJson, Some("MongoQueryTab")),
-            KeyBinding::new("secondary-e", ToggleMongoEditor, Some("MongoQueryPanel")),
-            KeyBinding::new("secondary-e", ToggleRedisConsole, Some("RedisSession")),
-            KeyBinding::new("secondary-enter", CommitNow, Some("VcsView")),
-            KeyBinding::new("secondary-shift-k", PushNow, Some("VcsView")),
-            KeyBinding::new("secondary-t", PullNow, Some("VcsView")),
-            KeyBinding::new("secondary-shift-h", ToggleHistoryPane, Some("VcsView")),
-            KeyBinding::new("secondary-t", NewSshTerminal, Some("SshWorkspace")),
-            KeyBinding::new("secondary-w", CloseSshTerminal, Some("SshWorkspace")),
-            KeyBinding::new("secondary-w", CloseSshTerminal, Some("Terminal")),
-        ]);
+        cx.bind_keys(default_shortcut_bindings());
 
         ramag_ui::shortcuts_dialog::init_shortcut_overrides(
             initial_shortcut_overrides.as_deref(),
@@ -621,6 +598,52 @@ fn main() -> ExitCode {
     });
     info!(operation = "application_stop", "application stopped");
     ExitCode::SUCCESS
+}
+
+/// GPUI 的静态绑定需要显式修饰键，保留各平台原有的主快捷键。
+fn default_shortcut_bindings() -> [KeyBinding; 22] {
+    macro_rules! primary_key {
+        ($key:literal) => {
+            if cfg!(target_os = "macos") {
+                concat!("cmd-", $key)
+            } else {
+                concat!("ctrl-", $key)
+            }
+        };
+    }
+
+    [
+        KeyBinding::new(primary_key!("q"), Quit, None),
+        KeyBinding::new(primary_key!("p"), OpenRecentItems, None),
+        KeyBinding::new(primary_key!("enter"), RunQuery, None),
+        KeyBinding::new(primary_key!("shift-enter"), RunStatementAtCursor, None),
+        KeyBinding::new(primary_key!("t"), NewQueryTab, None),
+        KeyBinding::new(primary_key!("w"), CloseTab, None),
+        KeyBinding::new(primary_key!("f"), FindInResults, None),
+        KeyBinding::new(primary_key!("shift-f"), FormatSql, None),
+        KeyBinding::new(primary_key!("shift-e"), ExplainQuery, None),
+        KeyBinding::new(primary_key!("e"), ToggleSqlEditor, None),
+        KeyBinding::new(primary_key!("enter"), RunMongoQuery, Some("MongoQueryTab")),
+        KeyBinding::new(primary_key!("t"), NewMongoQueryTab, Some("MongoQueryPanel")),
+        KeyBinding::new(
+            primary_key!("shift-f"),
+            FormatMongoJson,
+            Some("MongoQueryTab"),
+        ),
+        KeyBinding::new(
+            primary_key!("e"),
+            ToggleMongoEditor,
+            Some("MongoQueryPanel"),
+        ),
+        KeyBinding::new(primary_key!("e"), ToggleRedisConsole, Some("RedisSession")),
+        KeyBinding::new(primary_key!("enter"), CommitNow, Some("VcsView")),
+        KeyBinding::new(primary_key!("shift-k"), PushNow, Some("VcsView")),
+        KeyBinding::new(primary_key!("t"), PullNow, Some("VcsView")),
+        KeyBinding::new(primary_key!("shift-h"), ToggleHistoryPane, Some("VcsView")),
+        KeyBinding::new(primary_key!("t"), NewSshTerminal, Some("SshWorkspace")),
+        KeyBinding::new(primary_key!("w"), CloseSshTerminal, Some("SshWorkspace")),
+        KeyBinding::new(primary_key!("w"), CloseSshTerminal, Some("Terminal")),
+    ]
 }
 
 const INITIAL_UPDATE_CHECK_DELAY: std::time::Duration = std::time::Duration::from_secs(3);

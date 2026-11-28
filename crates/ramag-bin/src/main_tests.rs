@@ -1,7 +1,22 @@
 use super::{
     GitHubUpdateDriver, INITIAL_UPDATE_CHECK_DELAY, JumpServerHttpDriver, MainWindowOpenGate,
-    build_plugin_host_with_storage, build_tool_registry, install_tls_crypto_provider,
+    build_plugin_host_with_storage, build_tool_registry, default_shortcut_bindings,
+    install_tls_crypto_provider,
 };
+
+#[test]
+fn default_shortcuts_register_using_the_host_primary_modifier() {
+    use gpui_kit::AsKeystroke;
+
+    for binding in default_shortcut_bindings() {
+        assert_eq!(binding.keystrokes().len(), 1, "{}", binding.action().name());
+        for key in binding.keystrokes() {
+            let modifiers = key.as_keystroke().modifiers;
+            assert_eq!(modifiers.platform, cfg!(target_os = "macos"));
+            assert_eq!(modifiers.control, cfg!(not(target_os = "macos")));
+        }
+    }
+}
 
 #[test]
 fn automatic_update_checks_start_quickly_and_repeat_daily() {
