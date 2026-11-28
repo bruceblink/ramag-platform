@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# macOS 双架构 Release 打包入口；分别生成 ARM64、Intel DMG 与 SHA-256。
+# macOS ARM64 Release 打包入口；生成 Apple Silicon DMG 与 SHA-256。
 
 set -euo pipefail
 
@@ -131,7 +131,6 @@ main() {
     local version
     local bundle_version
     local arm_asset
-    local intel_asset
     local checksum_path
 
     [[ "$(uname -s)" == "Darwin" ]] ||
@@ -150,14 +149,12 @@ main() {
     trap cleanup_current_mount EXIT
 
     package_architecture "arm64" "$version" "$bundle_version"
-    package_architecture "x86_64" "$version" "$bundle_version"
 
     arm_asset="$(macos_get_release_asset_name "$version" "arm64")"
-    intel_asset="$(macos_get_release_asset_name "$version" "x86_64")"
     checksum_path="$DIST_DIR/SHA256SUMS.txt"
     (
         cd "$DIST_DIR"
-        shasum -a 256 "$arm_asset" "$intel_asset" >SHA256SUMS.txt
+        shasum -a 256 "$arm_asset" >SHA256SUMS.txt
         shasum -a 256 -c SHA256SUMS.txt
     )
     assert_file "$checksum_path" "SHA-256 checksum file"

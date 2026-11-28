@@ -47,7 +47,7 @@ help:
 	@printf "    make dmg            当前架构：svg → icns → cargo build → Ramag.app → Ramag.dmg\n"
 	@printf "    make dmg-x86        交叉编译 Intel mac\n"
 	@printf "    make dmg-arm64      交叉编译 Apple Silicon\n"
-	@printf "    make mac-package    验证并生成 ARM64 与 Intel 两个正式 DMG；对外 Release 走 Actions\n"
+	@printf "    make mac-package    验证并生成 ARM64 正式 DMG；对外 Release 走 Actions\n"
 	@printf "\n  \033[36mLinux x86_64\033[0m\n"
 	@printf "    make linux-package  生成 deb、AppImage 与 SHA256SUMS；需在 Linux x86_64 运行\n"
 	@printf "    make linux-package-test  测试 Linux 打包命名、版本与桌面元数据\n"

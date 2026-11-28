@@ -145,9 +145,7 @@ jobs:
           )"
           [[ -n "$toolchain" ]]
           rustup toolchain install "$toolchain" --profile minimal
-          rustup target add --toolchain "$toolchain" \
-            aarch64-apple-darwin \
-            x86_64-apple-darwin
+          rustup target add --toolchain "$toolchain" aarch64-apple-darwin
           rustup run "$toolchain" rustc -Vv
           rustup run "$toolchain" cargo -V
           sw_vers
@@ -179,7 +177,6 @@ jobs:
           name: ramag-macos-${{ github.sha }}
           path: |
             target/macos-dist/Ramag-*-macos-arm64.dmg
-            target/macos-dist/Ramag-*-macos-x86_64.dmg
             target/macos-dist/SHA256SUMS.txt
           if-no-files-found: error
           compression-level: 0
@@ -332,12 +329,10 @@ jobs:
           shopt -s nullglob
           installers=("$windows_dir"/Ramag-*-windows-x64-setup.exe)
           arm_disk_images=("$macos_dir"/Ramag-*-macos-arm64.dmg)
-          intel_disk_images=("$macos_dir"/Ramag-*-macos-x86_64.dmg)
           deb_packages=("$linux_dir"/Ramag-*-linux-amd64.deb)
           appimages=("$linux_dir"/Ramag-*-linux-x86_64.AppImage)
           [[ ${#installers[@]} -eq 1 ]]
           [[ ${#arm_disk_images[@]} -eq 1 ]]
-          [[ ${#intel_disk_images[@]} -eq 1 ]]
           [[ ${#deb_packages[@]} -eq 1 ]]
           [[ ${#appimages[@]} -eq 1 ]]
           [[ -f "$windows_dir/SHA256SUMS.txt" ]]
@@ -351,7 +346,6 @@ jobs:
           cp \
             "${installers[0]}" \
             "${arm_disk_images[0]}" \
-            "${intel_disk_images[0]}" \
             "${deb_packages[0]}" \
             "${appimages[0]}" \
             release-assets/
@@ -359,7 +353,6 @@ jobs:
           sha256sum \
             Ramag-*-windows-x64-setup.exe \
             Ramag-*-macos-arm64.dmg \
-            Ramag-*-macos-x86_64.dmg \
             Ramag-*-linux-amd64.deb \
             Ramag-*-linux-x86_64.AppImage \
             >SHA256SUMS.txt
@@ -395,7 +388,6 @@ jobs:
           fi
           for expected_asset in \
             "Ramag-$version-macos-arm64.dmg" \
-            "Ramag-$version-macos-x86_64.dmg" \
             "Ramag-$version-linux-amd64.deb" \
             "Ramag-$version-linux-x86_64.AppImage"; do
             if [[ ! -f "$expected_asset" ]]; then
@@ -421,7 +413,6 @@ jobs:
           for asset in \
             Ramag-*-windows-x64-setup.exe \
             Ramag-*-macos-arm64.dmg \
-            Ramag-*-macos-x86_64.dmg \
             Ramag-*-linux-amd64.deb \
             Ramag-*-linux-x86_64.AppImage; do
             hash=$(awk -v asset="$asset" '$2 == asset { print $1 }' SHA256SUMS.txt)
@@ -450,7 +441,7 @@ jobs:
               echo '::warning::Delta generation failed; publishing complete installers only.'
               rm -f -- Ramag-*.bsdiff
               sha256sum Ramag-*-windows-x64-setup.exe Ramag-*-macos-arm64.dmg \
-                Ramag-*-macos-x86_64.dmg Ramag-*-linux-amd64.deb \
+                Ramag-*-linux-amd64.deb \
                 Ramag-*-linux-x86_64.AppImage >SHA256SUMS.txt
             fi
             sha256sum --check SHA256SUMS.txt
@@ -470,12 +461,11 @@ jobs:
               published_at: $published_at,
               assets: $assets
             }' >update-manifest.json
-          jq -e '.schema_version == 1 and (.assets | length) == 5' \
+          jq -e '.schema_version == 1 and (.assets | length) == 4' \
             update-manifest.json >/dev/null
           assets=(
             "${installers[0]}"
             "Ramag-$version-macos-arm64.dmg"
-            "Ramag-$version-macos-x86_64.dmg"
             "Ramag-$version-linux-amd64.deb"
             "Ramag-$version-linux-x86_64.AppImage"
             SHA256SUMS.txt

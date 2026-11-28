@@ -50,7 +50,7 @@ This repository, `bruceblink/ramag-platform`, is an independent downstream proje
 | 独立发布 | 本项目提供三平台安装包、更新清单和 SHA-256 清单；最新版本见本项目 Releases |
 | 插件平台 | 系统监控试点和九批保留工具已完成编译期静态插件装配；接口见[静态插件接口与开发手册](docs/05-plugin-development-guide.md)，当前任务统一见[主线开发计划](docs/01-development-plan.md)；动态加载和插件市场未进入实现范围 |
 | 上游协作 | 通用修复可整理后向 `tools-rs/ramag` 提交独立 PR；平台化架构和专属功能在本仓库继续演进 |
-| 支持平台 | Linux x86_64、macOS 12+（Apple Silicon / Intel）、Windows 10/11 x64；三平台安装包见本项目 Releases |
+| 支持平台 | Linux x86_64、macOS 12+（Apple Silicon）、Windows 10/11 x64；三平台安装包见本项目 Releases |
 | 数据边界 | 连接配置、凭据与剪贴历史保存于本机；Ramag 不提供托管服务，也不主动上传这些数据 |
 
 Ramag Platform is under active independent development. Contributions, reproducible feedback, and security reports are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
@@ -93,14 +93,13 @@ Ramag 的价值来自 Rust/GPUI 原生工作区、远程连接、本地安全边
 
 ### 直接安装
 
-本项目的 [Releases 页面](https://github.com/bruceblink/ramag-platform/releases) 提供三平台安装包。Windows x64 提供安装程序，macOS 提供 Apple Silicon 和 Intel DMG，Linux x86_64 提供 Debian 安装包与 AppImage。上游 Ramag 安装包不代表本项目的发布物。
+本项目的 [Releases 页面](https://github.com/bruceblink/ramag-platform/releases) 提供三平台安装包。Windows x64 提供安装程序，macOS 提供 Apple Silicon DMG，Linux x86_64 提供 Debian 安装包与 AppImage。上游 Ramag 安装包不代表本项目的发布物。
 
 各平台安装包命名如下：
 
 | 系统 | 安装包 | 最低版本 |
 |---|---|---|
 | Apple Silicon Mac | `Ramag-*-macos-arm64.dmg` | macOS 12 |
-| Intel Mac | `Ramag-*-macos-x86_64.dmg` | macOS 12 |
 | Windows x64 | `Ramag-*-windows-x64-setup.exe` | Windows 10 |
 | Linux x86_64 | `Ramag-*-linux-amd64.deb` / `Ramag-*-linux-x86_64.AppImage` | Ubuntu 24.04 或兼容发行版 |
 
@@ -425,7 +424,7 @@ cargo test-all
 
 ## 平台与文档
 
-Ramag 支持 Linux x86_64、macOS 12+（Apple Silicon / Intel）和 Windows 10/11 x64。Linux 提供 Debian 安装包与 AppImage，并支持 X11 与 Wayland；Windows on ARM 仅计划通过系统 x64 模拟运行，尚未列为已完成人工验收的平台。
+Ramag 支持 Linux x86_64、macOS 12+（Apple Silicon）和 Windows 10/11 x64。Linux 提供 Debian 安装包与 AppImage，并支持 X11 与 Wayland；Windows on ARM 仅计划通过系统 x64 模拟运行，尚未列为已完成人工验收的平台。
 
 - [性能报告：VCS、数据库与剪贴板](docs/08-performance.md)
 - [开发主线与设计文档](docs/README.md)

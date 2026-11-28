@@ -1,6 +1,6 @@
 # 桌面端构建与发布（Linux + macOS + Windows）
 
-> 状态：Linux x86_64、Windows x64、macOS ARM64/Intel 安装包已通过 GitHub Actions 发布；后续版本继续由同一工作流构建和校验。
+> 状态：Linux x86_64、Windows x64、macOS ARM64 安装包已通过 GitHub Actions 发布；后续版本继续由同一工作流构建和校验。
 >
 > 更新日期：2026-11-01。
 >
@@ -19,7 +19,7 @@
 | `scripts/build-windows.ps1` | Windows MSVC 本机 debug / Release 构建校验 | 否 |
 | `scripts/package-windows.ps1` | Windows 本机复现完整 Release 打包 | 否 |
 | `make dmg-*` | macOS 本机生成指定架构的开发 DMG | 否 |
-| `make mac-package` | macOS 本机复现 ARM64 与 Intel Release 打包 | 否 |
+| `make mac-package` | macOS 本机复现 ARM64 Release 打包 | 否 |
 | `make linux-package` | Linux x86_64 本机生成 deb 与 AppImage | 否 |
 | `Desktop Release` Action | 并行构建三个平台；`v*` 标签自动发布，也可指定已有标签手动重试 | 是 |
 
@@ -30,7 +30,6 @@
 ```text
 Ramag-<version>-windows-x64-setup.exe
 Ramag-<version>-macos-arm64.dmg
-Ramag-<version>-macos-x86_64.dmg
 Ramag-<version>-linux-amd64.deb
 Ramag-<version>-linux-x86_64.AppImage
 SHA256SUMS.txt
@@ -39,10 +38,10 @@ update-manifest.json
 
 当上一稳定版的同平台安装包可以生成更小的补丁时，还会附加
 `Ramag-<version>-<platform>.<ext>.from-<previous-version>.bsdiff`。
-这些补丁为可选下载优化，五个完整安装包始终保留。
+这些补丁为可选下载优化，四个完整安装包始终保留。
 
 - Windows 安装包提供当前用户安装、快捷方式、覆盖升级和卸载。
-- macOS ARM64 包用于 Apple Silicon，x86_64 包用于 Intel Mac。
+- macOS ARM64 包用于 Apple Silicon。
 - Linux x86_64 提供 Debian 安装包与可直接运行的 AppImage。
 - 校验文件用于发现下载损坏；不能替代代码签名与公证。
 
@@ -142,7 +141,7 @@ scripts/build-dmg.sh
     macOS 指定架构构建；负责 APP、Info.plist、adhoc 签名和 DMG
 
 scripts/package-macos.sh
-    macOS Release 打包；负责分别构建 ARM64/Intel、挂载复验和 SHA-256
+    macOS Release 打包；负责构建 ARM64、挂载复验和 SHA-256
 
 scripts/macos/release-lib.sh
     macOS 发布脚本共用的 Cargo 版本与标签校验
@@ -175,7 +174,7 @@ workflow_dispatch 或 v* 标签
        三个平台并行构建
        ↙               ↓                ↘
 windows-2025      macos-15 ARM64      ubuntu-24.04
-Windows x64       macOS 双架构 DMG     Linux deb + AppImage
+Windows x64       macOS ARM64 DMG     Linux deb + AppImage
 安装卸载冒烟测试   APP/架构/DMG 复验    包结构与元数据复验
        ↘               ↓                ↙
          上传独立 Artifact
@@ -184,7 +183,7 @@ v* 推送或手动指定 release_tag：进入 desktop-release Environment
                  ↓
 生成提交范围双语变更说明 → 复验三平台 SHA-256 → 生成合并校验文件
                  ↓
-创建草稿 Release → 上传 5 个安装产物 → 正式发布
+创建草稿 Release → 上传 4 个安装产物 → 正式发布
 ```
 
 发布任务会 checkout 发布标签以按上一个版本标签（首次独立发布则从历史发布标记）生成提交范围双语变更说明，不执行 Cargo，只下载已验证的 Artifact，并通过 GitHub API 校验远端标签为带注释标签；它单独获得 `contents: write`。任一平台失败都不会发布不完整版本。
@@ -204,7 +203,7 @@ Actions → Desktop Release → Run workflow
 `release_tag` 留空时，结果会生成三份保留 14 天的 Artifact，不创建 GitHub Release：
 
 - Windows Artifact：安装器、平台 SHA-256。
-- macOS Artifact：ARM64 DMG、Intel DMG、平台 SHA-256。
+- macOS Artifact：ARM64 DMG、平台 SHA-256。
 - Linux Artifact：deb、AppImage、平台 SHA-256。
 
 首次启用工作流、修改构建脚本或升级 GPUI/Xcode/Windows SDK 后，都应先手动运行。
@@ -312,7 +311,7 @@ target/linux-dist/
 
 ## 本地 macOS 打包
 
-正式结构的 ARM64 与 Intel 双包打包：
+正式结构的 ARM64 打包：
 
 ```bash
 make mac-package
@@ -322,7 +321,6 @@ make mac-package
 
 ```bash
 make dmg             # 当前架构
-make dmg-x86         # Intel
 make dmg-arm64       # Apple Silicon
 ```
 
@@ -336,7 +334,7 @@ target/macos-dist/
 
 - Bundle ID 永久为 `com.axemc.ramag`。
 - 最低系统版本为 macOS 12.0；编译时同时设置 Mach-O deployment target。
-- 正式发布分别生成单架构 DMG：ARM64 包只能包含 `arm64`，Intel 包只能包含 `x86_64`。
+- 正式发布生成 ARM64 单架构 DMG，应用只能包含 `arm64`。
 - DMG 内应用名固定为 `Ramag.app`，并提供指向 `/Applications` 的快捷方式。
 - DMG 使用 macOS 原生 ULMO（LZMA）压缩；该格式要求 macOS 10.15+，低于应用要求的 macOS 12.0。
 - APP 内包含 ICNS 图标和项目 `LICENSE`。
@@ -355,10 +353,10 @@ target/macos-dist/
 
 ### macOS
 
-- 使用 Rust stable 分别构建 `x86_64-apple-darwin` 与 `aarch64-apple-darwin`。
+- 使用 Rust stable 构建 `aarch64-apple-darwin`。
 - shell 回归测试覆盖 Cargo 版本、Bundle 版本和标签匹配。
 - 校验 Info.plist、Bundle ID、完整 Cargo 版本和 macOS 12.0 deployment target。
-- 使用 `lipo` 确认两个应用各自只包含目标架构。
+- 使用 `lipo` 确认应用只包含 `arm64` 架构。
 - 严格验证 APP adhoc 签名。
 - 验证 DMG 文件系统，挂载后再次检查 APP 和 `/Applications` 快捷方式。
 
@@ -372,7 +370,7 @@ target/macos-dist/
 ### 发布汇总
 
 - 三个平台分别生成并校验 SHA-256。
-- 发布任务再次校验平台清单，再生成包含全部五个安装产物的 `SHA256SUMS.txt`。
+- 发布任务再次校验平台清单，再生成包含全部四个安装产物的 `SHA256SUMS.txt`。
 - 只有三个平台都成功，标签发布任务才会启动。
 
 ## 仍需人工验收
@@ -386,7 +384,7 @@ target/macos-dist/
 
 ### macOS
 
-- Intel Mac 与 Apple Silicon Mac 的安装和首次启动。
+- Apple Silicon Mac 的安装和首次启动。
 - Dock 图标、关窗保活、重新打开、全局快捷键和单实例行为。
 - GPUI Metal 渲染、Keychain、剪贴板监听和系统权限提示。
 - 升级后用户数据库、凭据和日志保持不变。
@@ -426,7 +424,7 @@ Windows 应在受保护任务中签名应用、Inno Setup 安装器和卸载器�
 ## 构建环境边界
 
 - Windows 使用明确的 `windows-2025` x64 Runner。
-- macOS 使用明确的 `macos-15` ARM64 Runner，并在该机器上交叉构建 Intel 切片。
+- macOS 使用明确的 `macos-15` ARM64 Runner，并只构建 `aarch64-apple-darwin`。
 - Linux 使用明确的 `ubuntu-24.04` x64 Runner。
 - 三个平台都使用 `rust-toolchain.toml` 锁定的 stable 版本，只缓存 Cargo registry/git，不缓存完整 `target/`。
 - Runner 标签内部的 Visual Studio、Windows SDK、Xcode 和系统工具仍会滚动更新，因此不是字节级可复现构建。

@@ -38,9 +38,8 @@ assert_fails "Invalid semantic version" macos_get_bundle_version "1.2"
 assert_equal "Ramag-1.2.3-macos-arm64.dmg" \
     "$(macos_get_release_asset_name "1.2.3" "arm64")" \
     "Apple Silicon release asset name"
-assert_equal "Ramag-1.2.3-macos-x86_64.dmg" \
-    "$(macos_get_release_asset_name "1.2.3" "x86_64")" \
-    "Intel release asset name"
+assert_fails "Intel release asset" \
+    macos_get_release_asset_name "1.2.3" "x86_64"
 assert_fails "Universal release asset" \
     macos_get_release_asset_name "1.2.3" "universal"
 

@@ -66,7 +66,7 @@ macos_get_release_asset_name() {
         return 1
     fi
     case "$architecture" in
-        arm64|x86_64) ;;
+        arm64) ;;
         *)
             echo "Unsupported macOS release architecture: $architecture" >&2
             return 1
