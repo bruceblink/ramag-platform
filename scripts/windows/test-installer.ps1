@@ -74,6 +74,42 @@ function Assert-NoExistingInstallation {
     }
 }
 
+function Write-StartupDiagnostics {
+    param([string]$Executable, [datetime]$StartedAt)
+
+    # Windows 发行版没有控制台。只在临时 CI 运行器上输出本次启动的应用日志。
+    if ($env:GITHUB_ACTIONS -ne 'true') {
+        return
+    }
+    $LogPaths = @(
+        (Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'ramag\ramag\data\logs\ramag.log'),
+        (Join-Path ([System.IO.Path]::GetTempPath()) 'ramag-logs\ramag.log')
+    )
+    foreach ($LogPath in $LogPaths) {
+        $Log = Get-Item -LiteralPath $LogPath -ErrorAction SilentlyContinue
+        if ($null -ne $Log -and $Log.LastWriteTime -ge $StartedAt) {
+            Get-Content -LiteralPath $LogPath -Tail 30 -ErrorAction Continue |
+                ForEach-Object { Write-Host "Ramag startup: $_" }
+        }
+    }
+
+    # 进程可能在创建应用日志前退出。系统记录可以提供异常代码和故障模块。
+    Get-WinEvent -FilterHashtable @{
+        LogName = 'Application'
+        ProviderName = 'Application Error'
+        Id = 1000
+        StartTime = $StartedAt
+        AppPath = $Executable
+    } -MaxEvents 1 -ErrorAction SilentlyContinue | ForEach-Object {
+        $Fields = ([xml]$_.ToXml()).Event.EventData.Data
+        foreach ($Field in $Fields) {
+            if ($Field.Name -in 'ExceptionCode', 'ModuleName', 'FaultingOffset') {
+                Write-Host "Ramag startup event: $($Field.Name)=$($Field.InnerText)"
+            }
+        }
+    }
+}
+
 Assert-File -Path $SetupPath -Description "Windows installer"
 Assert-NoExistingInstallation
 $SmokeDir = Join-Path $WorkDir "smoke"
@@ -107,9 +143,11 @@ try {
         throw "Installed version $InstalledVersion does not match Cargo version $ExpectedVersion."
     }
 
+    $StartedAt = Get-Date
     $AppProcess = Start-Process -FilePath $InstalledExe -PassThru
     try {
         if ($AppProcess.WaitForExit(5000)) {
+            Write-StartupDiagnostics -Executable $InstalledExe -StartedAt $StartedAt
             throw "Installed application exited during startup with code $($AppProcess.ExitCode)."
         }
     }
