@@ -99,8 +99,10 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: linux-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+            target
+          key: linux-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
+            linux-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
             linux-ci-cargo-
 
       - name: Validate Linux packaging logic
@@ -116,11 +118,14 @@ jobs:
       - name: Check all targets
         run: cargo check-all
 
-      - name: Check opt-in UI profiler
-        run: cargo check --locked -p ramag-bin --features ui-profiling --examples
-
-      - name: Lint opt-in UI profiler
-        run: cargo clippy --locked -p ramag-ui --features ui-profiling --all-targets -- -D warnings
+      - name: Check and lint opt-in UI profiler
+        run: >-
+          cargo clippy --locked
+          -p ramag-bin
+          -p ramag-ui
+          --features ui-profiling
+          --all-targets
+          -- -D warnings
 
       - name: Test opt-in UI profiler
         run: cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1
@@ -188,8 +193,10 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: macos-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+            target
+          key: macos-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
+            macos-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
             macos-ci-cargo-
 
       - name: Validate macOS packaging logic
@@ -201,11 +208,14 @@ jobs:
       - name: Check all targets
         run: cargo check-all
 
-      - name: Check opt-in UI profiler
-        run: cargo check --locked -p ramag-bin --features ui-profiling --examples
-
-      - name: Lint opt-in UI profiler
-        run: cargo clippy --locked -p ramag-ui --features ui-profiling --all-targets -- -D warnings
+      - name: Check and lint opt-in UI profiler
+        run: >-
+          cargo clippy --locked
+          -p ramag-bin
+          -p ramag-ui
+          --features ui-profiling
+          --all-targets
+          -- -D warnings
 
       - name: Test opt-in UI profiler
         run: cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1
@@ -290,8 +300,10 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: windows-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+            target
+          key: windows-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
+            windows-ci-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
             windows-ci-cargo-
 
       - name: Validate Windows packaging logic
@@ -314,13 +326,15 @@ jobs:
         shell: pwsh
         run: cargo check-all
 
-      - name: Check opt-in UI profiler
+      - name: Check and lint opt-in UI profiler
         shell: pwsh
-        run: cargo check --locked -p ramag-bin --features ui-profiling --examples
-
-      - name: Lint opt-in UI profiler
-        shell: pwsh
-        run: cargo clippy --locked -p ramag-ui --features ui-profiling --all-targets -- -D warnings
+        run: >-
+          cargo clippy --locked
+          -p ramag-bin
+          -p ramag-ui
+          --features ui-profiling
+          --all-targets
+          -- -D warnings
 
       - name: Test opt-in UI profiler
         shell: pwsh
