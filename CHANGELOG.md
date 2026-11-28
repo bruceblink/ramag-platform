@@ -4,6 +4,26 @@
 
 > 历史说明：`0.0.1` 至 `0.0.5` 的公开版本来自上游 `tools-rs/ramag`，下方历史链接因此继续指向上游仓库。本项目从 `0.1.0` 起使用独立版本与发布记录。
 
+## [0.10.0] - 2026-11-28
+
+Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.9.2...v0.10.0
+
+### 🚀 新功能 / Features
+
+- 完成原型驱动的工作台界面统一，覆盖首页搜索、分类、列表/网格、内容密度、主题、工具栏、导航和共享面板层次。
+- 为 Git、剪贴板、容器、对象存储、SSH、Kafka、MQTT、API 和数据库工作台补齐一致的响应式入口、窄窗口布局和状态反馈。
+- 增加 macOS 主线程 Metal 截图运行器，用于生成真实像素验收截图。
+
+### 🐛 问题修复 / Bug Fixes
+
+- 修复共享面板圆角、工作区选择表面、数据库对象对话框标题和工具导航焦点顺序，减少窄窗口下的布局残留。
+- 修复 Metal 截图运行器被 Linux 和 Windows 全目标检查解析导致的跨平台 CI 编译失败。
+
+### 🧰 维护、文档与测试 / Maintenance, Docs & Tests
+
+- 收口 macOS 发布为 Apple Silicon ARM64，更新打包脚本、发布清单、验收脚本和桌面发布文档。
+- 记录 UI 原型迁移、真实窗口验收、headless 截图和跨工作台测试结果。
+
 ## [0.9.2] - 2026-11-07
 
 Full Changelog: https://github.com/bruceblink/ramag-platform/compare/v0.9.1...v0.9.2
