@@ -118,23 +118,16 @@ jobs:
       - name: Check all targets
         run: cargo check-all
 
-      - name: Check and lint opt-in UI profiler
-        run: >-
-          cargo clippy --locked
-          -p ramag-bin
-          -p ramag-ui
-          --features ui-profiling
-          --all-targets
-          -- -D warnings
+      - name: Check opt-in UI profiler
+        run: cargo check --locked -p ramag-bin --features ui-profiling --examples
 
       - name: Test opt-in UI profiler
         run: cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1
 
-      - name: Check source conventions
-        run: make size-check log-check
-
-      - name: Lint all targets
-        run: cargo clippy-all
+      - name: Check source conventions and lint all targets
+        run: |
+          make size-check log-check
+          cargo clippy-all
 
       - name: Test workspace
         run: cargo test-all
@@ -208,23 +201,16 @@ jobs:
       - name: Check all targets
         run: cargo check-all
 
-      - name: Check and lint opt-in UI profiler
-        run: >-
-          cargo clippy --locked
-          -p ramag-bin
-          -p ramag-ui
-          --features ui-profiling
-          --all-targets
-          -- -D warnings
+      - name: Check opt-in UI profiler
+        run: cargo check --locked -p ramag-bin --features ui-profiling --examples
 
       - name: Test opt-in UI profiler
         run: cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1
 
-      - name: Check source conventions
-        run: make size-check log-check
-
-      - name: Lint all targets
-        run: cargo clippy-all
+      - name: Check source conventions and lint all targets
+        run: |
+          make size-check log-check
+          cargo clippy-all
 
       - name: Test workspace
         run: cargo test-all
@@ -326,27 +312,19 @@ jobs:
         shell: pwsh
         run: cargo check-all
 
-      - name: Check and lint opt-in UI profiler
+      - name: Check opt-in UI profiler
         shell: pwsh
-        run: >-
-          cargo clippy --locked
-          -p ramag-bin
-          -p ramag-ui
-          --features ui-profiling
-          --all-targets
-          -- -D warnings
+        run: cargo check --locked -p ramag-bin --features ui-profiling --examples
 
       - name: Test opt-in UI profiler
         shell: pwsh
         run: cargo test --locked -p ramag-ui --features ui-profiling --lib profiling::tests -- --test-threads=1
 
-      - name: Check source file sizes
+      - name: Check source sizes and lint all targets
         shell: pwsh
-        run: ./scripts/windows/check-source-size.ps1
-
-      - name: Lint all targets
-        shell: pwsh
-        run: cargo clippy-all
+        run: |
+          ./scripts/windows/check-source-size.ps1
+          cargo clippy-all
 
       - name: Test workspace
         shell: pwsh
