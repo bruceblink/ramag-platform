@@ -31,7 +31,6 @@ mod offline_database;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
 
 use gpui_kit::component::Root;
 use gpui_kit::{App, AppContext as _, Bounds, WindowBounds, WindowOptions, px, size};
@@ -572,15 +571,8 @@ fn main() -> anyhow::Result<()> {
             }
             cx.activate(true);
             if smoke && window_opened {
-                // CI smoke mode must prove a real native window can open and close without
-                // leaving a process behind. Production preview invocations remain interactive.
-                cx.spawn(async move |app| {
-                    app.background_executor()
-                        .timer(Duration::from_secs(2))
-                        .await;
-                    app.update(|cx| cx.quit());
-                })
-                .detach();
+                // CI smoke 模式在窗口创建成功后立即退出，避免依赖后台定时器保持进程运行。
+                cx.quit();
             }
         });
     cleanup_preview_resources(&path, &monitor_state, None)?;
