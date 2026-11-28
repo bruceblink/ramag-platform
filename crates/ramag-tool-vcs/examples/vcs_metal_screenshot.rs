@@ -1,22 +1,30 @@
 //! 在 macOS 主线程运行 GPUI Metal 截图，用于验收 Git 工作区视觉状态。
 
+#[cfg(target_os = "macos")]
 use std::{
     error::Error,
     path::Path,
     sync::{Arc, Mutex},
 };
 
+#[cfg(target_os = "macos")]
 use async_trait::async_trait;
+#[cfg(target_os = "macos")]
 use gpui_kit::{AppContext as _, VisualTestAppContext, component::Root, platform, px, size};
+#[cfg(target_os = "macos")]
 use ramag_domain::entities::{
     Branch, BranchKind, Commit, ConnectionConfig, ConnectionId, DiffKind, FileDiff, LogOptions,
     QueryRecord, QueryRecordId, RepoConfig, RepoId, WorkingTreeStatus,
 };
+#[cfg(target_os = "macos")]
 use ramag_domain::error::{DomainError, Result as DomainResult};
+#[cfg(target_os = "macos")]
 use ramag_domain::traits::{GitDriver, Storage};
 
+#[cfg(target_os = "macos")]
 struct MockGit;
 
+#[cfg(target_os = "macos")]
 #[async_trait]
 impl GitDriver for MockGit {
     fn name(&self) -> &'static str {
@@ -48,8 +56,10 @@ impl GitDriver for MockGit {
     }
 }
 
+#[cfg(target_os = "macos")]
 struct MockStorage;
 
+#[cfg(target_os = "macos")]
 #[async_trait]
 impl Storage for MockStorage {
     async fn list_repos(&self) -> DomainResult<Vec<RepoConfig>> {
@@ -101,6 +111,7 @@ impl Storage for MockStorage {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn capture() -> std::result::Result<(), Box<dyn Error>> {
     eprintln!("screenshot runner started");
     let mut cx = VisualTestAppContext::with_asset_source(
@@ -135,6 +146,12 @@ fn capture() -> std::result::Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[cfg(not(target_os = "macos"))]
+fn main() {
+    eprintln!("Metal 截图运行器仅支持 macOS");
+}
+
+#[cfg(target_os = "macos")]
 fn main() {
     let error = Arc::new(Mutex::new(None::<String>));
     let error_for_run = error.clone();
