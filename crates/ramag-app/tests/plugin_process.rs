@@ -2,6 +2,8 @@
 
 use std::fs;
 use std::path::Path;
+#[cfg(unix)]
+use std::process::Command;
 
 use ramag_app::{PluginProcessConfig, PluginProcessHost};
 use ramag_domain::{
@@ -21,6 +23,17 @@ fn manifest(entrypoint: &str) -> PluginPackageManifest {
     .with_capabilities([PluginCapability::new("ui.entry")])
 }
 
+/// 去除测试辅助进程的调试段，避免 Debug 构建体积掩盖插件包上限验收。
+#[cfg(unix)]
+fn strip_fixture_debug_symbols(path: &Path) {
+    let status = Command::new("strip")
+        .arg("-S")
+        .arg(path)
+        .status()
+        .expect("strip test helper binary");
+    assert!(status.success(), "strip test helper binary failed");
+}
+
 #[tokio::test]
 async fn host_starts_real_helper_process_invokes_and_closes() {
     let helper = Path::new(env!("CARGO_BIN_EXE_ramag-plugin-helper"));
@@ -32,6 +45,8 @@ async fn host_starts_real_helper_process_invokes_and_closes() {
     };
     let entrypoint_path = package.path().join(entrypoint);
     fs::copy(helper, &entrypoint_path).unwrap();
+    #[cfg(unix)]
+    strip_fixture_debug_symbols(&entrypoint_path);
     let helper_bytes = fs::read(&entrypoint_path).unwrap();
     let mut hasher = Sha256::new();
     hasher.update(entrypoint.as_bytes());
